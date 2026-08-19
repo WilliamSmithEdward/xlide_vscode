@@ -10,6 +10,7 @@ import {
 	standaloneEmptyParenthesizedCallStatement,
 	standaloneMultiArgParenthesizedCallStatement,
 } from '../../call/callContext';
+import type { HostObjectModel } from '../../host/excelObjectModel';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import {
@@ -506,6 +507,7 @@ export function checkDivisionByZeroExpressions(
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	hostModel?: HostObjectModel,
 ): ProcedureStatementVisitor {
 	const projectConstants = resolveRawIntegerConstants(projectIntegerConstants ?? new Map(), new Map());
 	const moduleConstants = collectModuleLiteralIntegerConstants(mod, activity, projectConstants);
@@ -518,6 +520,7 @@ export function checkDivisionByZeroExpressions(
 			symbols,
 			procSym,
 			projectVisibleSymbols,
+			hostModel,
 		);
 		return (stmt) => {
 			for (const hit of divisionByZeroDivisors(source, stmt.span, constants)) {

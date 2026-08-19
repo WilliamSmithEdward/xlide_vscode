@@ -7,6 +7,7 @@ import { WorkbookEngine } from './workbookEngine';
 import { XlsmExplorer } from './xlsmExplorer';
 import { XlideFileSystemProvider } from './xlideFileSystem';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
+import { MACRO_CONTAINER_GLOB } from './macroContainerUi';
 import {
     deleteWorkbookModule,
     renameWorkbookModule,
@@ -100,7 +101,7 @@ export function registerAgentTools(
         // ----------------------------------------------------------------
         vscode.lm.registerTool<Record<string, never>>('xlide_listWorkbooks', {
             async invoke(_options, _token) {
-                const uris = await vscode.workspace.findFiles('**/*.{xlsm,xlsb,xlam}');
+                const uris = await vscode.workspace.findFiles(MACRO_CONTAINER_GLOB);
                 const files = uris.map((u) => u.fsPath).sort();
                 return textResult(JSON.stringify(files, null, 2));
             },

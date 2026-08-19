@@ -24,6 +24,7 @@ import {
     type ModuleSymbolKind,
 } from './analyzer';
 import { analyzeVbaModuleSource } from './vbaModuleAnalysis';
+import { hostTokenForFileName } from './analyzer/host/hostRegistry';
 import {
     projectAnalysisOptionsForModule,
     projectProcedureSignatures,
@@ -591,6 +592,7 @@ export function registerVbaDiagnostics(
                     documentType,
                     severityOverrides: analysisSettings.ruleSeverityOverrides,
                     activeIncompleteExpressionOffset,
+                    host: workbookPath ? hostTokenForFileName(workbookPath) : undefined,
                 });
                 const diagnostics = diagnosticsFromModuleAnalysis(
                     document,
@@ -615,6 +617,7 @@ export function registerVbaDiagnostics(
             severityOverrides: analysisSettings.ruleSeverityOverrides,
             ...projectOptions,
             activeIncompleteExpressionOffset,
+            host: workbookPath ? hostTokenForFileName(workbookPath) : undefined,
         });
         const diagnostics = diagnosticsFromModuleAnalysis(
             document,

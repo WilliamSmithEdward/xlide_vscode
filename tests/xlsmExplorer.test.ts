@@ -23,6 +23,7 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
 }));
 
 import { XlsmExplorer } from '../src/xlsmExplorer';
+import { MACRO_CONTAINER_GLOB } from '../src/macroContainerUi';
 
 describe('XlsmExplorer', () => {
     beforeEach(() => {
@@ -43,7 +44,7 @@ describe('XlsmExplorer', () => {
             filePath: 'C:\\work\\Book.xlsm',
         }]);
         expect(vscodeMock.findFiles).toHaveBeenCalledWith(
-            '**/*.{xlsm,xlsb,xlam}',
+            MACRO_CONTAINER_GLOB,
             '{**/node_modules/**,**/.venv/**,**/venv/**}',
         );
     });

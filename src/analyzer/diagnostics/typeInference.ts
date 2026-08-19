@@ -9,6 +9,7 @@
 // passed by the argument-type rules.
 
 import type { VbaToken } from '../lexer/tokenKinds';
+import type { HostObjectModel } from '../host/excelObjectModel';
 import { matchParenFrom } from '../lexer/tokenHelpers';
 import {
 	parseDecimalIntegerLiteral,
@@ -575,6 +576,7 @@ export function scopedIntegerConstantLookup(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	procSym: VbaSymbol | undefined,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+	model?: HostObjectModel,
 ): IntegerConstantLookup {
 	return {
 		get(name: string): number | undefined {
@@ -583,7 +585,7 @@ export function scopedIntegerConstantLookup(
 				if (constants.has(key)) {
 					return constants.get(key);
 				}
-				return externalIntegerConstantValue(key);
+				return externalIntegerConstantValue(key, model);
 			}
 			const binding = sourceIdentifierBinding(
 				symbols,
@@ -596,7 +598,7 @@ export function scopedIntegerConstantLookup(
 				if (constants.has(key)) {
 					return constants.get(key);
 				}
-				return externalIntegerConstantValue(key);
+				return externalIntegerConstantValue(key, model);
 			}
 			if (
 				binding.scope === 'ambiguous' ||
@@ -613,13 +615,14 @@ export function inferBareExternalConstantExpressionType(
 	name: string,
 	span: Span,
 	sourceNames?: SourceNameScope,
+	model?: HostObjectModel,
 ): InferredArgumentType | undefined {
 	if (runtimeCallableSourceShadowed(name, sourceNames)) {
 		return undefined;
 	}
 	const candidates = [
 		inferredExternalConstant(name, resolveRuntimeConstant(name)),
-		inferredExternalConstant(name, resolveHostConstant(name)),
+		inferredExternalConstant(name, resolveHostConstant(name, model)),
 	].filter((candidate): candidate is InferredArgumentType => candidate !== undefined);
 	if (candidates.length !== 1) {
 		return undefined;
@@ -649,18 +652,23 @@ export function inferBareExternalObjectExpressionType(
 	return undefined;
 }
 
+const HOST_CONSTANT_QUALIFIERS = new Set(['excel', 'word', 'powerpoint', 'access', 'office']);
+
 export function inferQualifiedExternalConstantExpressionType(
 	qualifier: string,
 	name: string,
 	span: Span,
+	model?: HostObjectModel,
 ): InferredArgumentType | undefined {
 	const lower = qualifier.toLowerCase();
 	if (lower === 'vba') {
 		const inferred = inferredExternalConstant(`${qualifier}.${name}`, resolveRuntimeConstant(name));
 		return inferred ? { ...inferred, span } : undefined;
 	}
-	if (lower === 'excel' || lower === 'office') {
-		const inferred = inferredExternalConstant(`${qualifier}.${name}`, resolveHostConstant(name));
+	// Resolved against the CURRENT host's model: `Word.wdRed` answers in a
+	// Word module, misses in an Excel one (issue #24).
+	if (HOST_CONSTANT_QUALIFIERS.has(lower)) {
+		const inferred = inferredExternalConstant(`${qualifier}.${name}`, resolveHostConstant(name, model));
 		return inferred ? { ...inferred, span } : undefined;
 	}
 	return undefined;
@@ -1530,7 +1538,7 @@ export function inferAtomicExpressionType(
 		if (externalObject) {
 			return externalObject;
 		}
-		const external = inferBareExternalConstantExpressionType(name, span, sourceNames);
+		const external = inferBareExternalConstantExpressionType(name, span, sourceNames, memberCtx?.model);
 		if (external) {
 			return external;
 		}
@@ -1605,6 +1613,7 @@ export function inferAtomicExpressionType(
 				name,
 				member,
 				{ start: sliceStart + toks[2].start, end: sliceStart + toks[2].end },
+				memberCtx?.model,
 			);
 			if (external) {
 				return external;

@@ -8,6 +8,7 @@ import { startPerformanceTrace } from './performanceTrace';
 import { errorMessage } from './util/errors';
 import { runWriteWithExcelCoordination } from './excelWorkbookCoordinator';
 import { noteModuleWrite } from './vbaRenameHistory';
+import { isReadOnlyContainerPath } from './macroContainerUi';
 import { workbookIdentityKey } from './workbookIdentity';
 
 export const XLIDE_SCHEME = 'xlide-vba';
@@ -172,11 +173,22 @@ export class XlideFileSystemProvider
     stat(uri: vscode.Uri): vscode.FileStat {
         const state = this.ensureStat(uri);
         this.syncWithWorkbookFile(state, uri);
+        let permissions: vscode.FilePermission | undefined;
+        try {
+            // Access modules open read-only: the editor shows the lock instead
+            // of letting a save fail after the fact.
+            if (isReadOnlyContainerPath(decodeModuleUri(uri).xlsmPath)) {
+                permissions = vscode.FilePermission.Readonly;
+            }
+        } catch {
+            // Undecodable URIs keep default permissions.
+        }
         return {
             type: vscode.FileType.File,
             ctime: state.ctime,
             mtime: state.mtime,
             size: state.size,
+            ...(permissions !== undefined ? { permissions } : {}),
         };
     }
 

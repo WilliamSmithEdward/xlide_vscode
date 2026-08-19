@@ -320,11 +320,18 @@ describe('VBA language configuration', () => {
 	});
 
 	it('keeps workbook tree tests centralized through the Unit Tests GUI', () => {
+		// Workbook nodes carry contextValue 'xlsm'; other containers use
+		// 'macroDocument'/'macroReadOnly', so a workbook-tree command is any
+		// entry whose when-clause matches the xlsm context value.
+		const matchesXlsm = (when: string | undefined): boolean =>
+			when !== undefined
+			&& when.startsWith('view == xlide.explorer && viewItem')
+			&& /viewItem (== xlsm$|=~ .*[(|]xlsm[)|])/.test(when);
 		const workbookTreeCommands = loadPackage()
 			.contributes
 			?.menus
 			?.['view/item/context']
-			?.filter((entry) => entry.when === 'view == xlide.explorer && viewItem == xlsm')
+			?.filter((entry) => matchesXlsm(entry.when))
 			.map((entry) => entry.command) ?? [];
 
 		expect(workbookTreeCommands).toContain('xlide.analyzeWorkbook');

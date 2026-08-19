@@ -19,6 +19,7 @@ import {
     type WorkbookAnalysisSuppressScope,
 } from '../workbookAnalysisWebview';
 import { analyzeVbaModuleSource } from '../vbaModuleAnalysis';
+import { hostTokenForFileName } from '../analyzer/host/hostRegistry';
 import { effectiveWorkbookAnalysisSettings } from '../workbookAnalysisSettings';
 import { lineStartOffsets } from '../vbaSourceScan';
 import type { VbaSymbolIndex } from '../vbaSymbolIndex';
@@ -113,6 +114,7 @@ export async function analyzeOpenModule(
         documentType: current?.documentType,
         severityOverrides: analysisSettings.ruleSeverityOverrides,
         ...projectOptions,
+        host: hostTokenForFileName(xlsmPath),
     });
     return { modules, current, moduleType, result };
 }

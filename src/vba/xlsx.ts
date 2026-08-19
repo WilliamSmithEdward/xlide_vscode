@@ -142,6 +142,9 @@ function parseRangeRef(ref: string): { r1: number; c1: number; r2: number; c2: n
 
 // ----------------------------------------------------------------- workbook
 
+/** The three places Office hosts keep the VBA project inside an OOXML zip. */
+const VBA_PROJECT_PARTS = ['xl/vbaProject.bin', 'word/vbaProject.bin', 'ppt/vbaProject.bin'];
+
 interface SheetRef {
 	name: string;
 	path: string;
@@ -161,19 +164,40 @@ export class XlsxWorkbook {
 		return this.zip.toBytes();
 	}
 
+	/**
+	 * The Office host this OOXML package belongs to, decided by which root
+	 * document part it carries - content, not the file extension. Undefined
+	 * for a zip that is none of the three.
+	 */
+	packageHost(): 'excel' | 'word' | 'powerpoint' | undefined {
+		if (this.zip.has('xl/workbook.xml') || this.zip.has('xl/workbook.bin')) { return 'excel'; }
+		if (this.zip.has('word/document.xml')) { return 'word'; }
+		if (this.zip.has('ppt/presentation.xml')) { return 'powerpoint'; }
+		return undefined;
+	}
+
+	/** Where this package keeps its VBA project, when it has one. */
+	private vbaProjectPath(): string | undefined {
+		return VBA_PROJECT_PARTS.find((part) => this.zip.has(part))
+			?? this.zip.names().find((name) => /(^|\/)vbaProject\.bin$/.test(name));
+	}
+
 	hasVbaProject(): boolean {
-		return this.zip.has('xl/vbaProject.bin');
+		return this.vbaProjectPath() !== undefined;
 	}
 
 	readVbaProject(): Buffer {
-		if (!this.zip.has('xl/vbaProject.bin')) {
-			throw new XlsxError('Workbook contains no VBA project (xl/vbaProject.bin).');
+		const path = this.vbaProjectPath();
+		if (!path) {
+			throw new XlsxError('Package contains no VBA project (no vbaProject.bin part).');
 		}
-		return this.zip.read('xl/vbaProject.bin');
+		return this.zip.read(path);
 	}
 
 	writeVbaProject(data: Buffer): void {
-		this.zip.write('xl/vbaProject.bin', data);
+		// Written back to wherever this package keeps it; which containers
+		// accept writes at all is macroContainer's decision, not this layer's.
+		this.zip.write(this.vbaProjectPath() ?? 'xl/vbaProject.bin', data);
 	}
 
 	/** Worksheets in workbook order (chartsheets and dialog sheets excluded). */

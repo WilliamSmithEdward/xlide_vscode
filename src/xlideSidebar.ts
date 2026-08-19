@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import { MACRO_CONTAINER_GLOB } from './macroContainerUi';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import {
@@ -244,7 +245,7 @@ function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRe
 async function workbookFiles(): Promise<vscode.Uri[]> {
     return measurePerformance('sidebar.workbookFiles', undefined, async () => {
     const uris = await vscode.workspace.findFiles(
-        '**/*.{xlsm,xlsb,xlam}',
+        MACRO_CONTAINER_GLOB,
         '{**/node_modules/**,**/.venv/**,**/venv/**}',
     );
     return uris

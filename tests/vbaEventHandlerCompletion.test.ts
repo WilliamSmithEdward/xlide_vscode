@@ -159,3 +159,40 @@ describe('event-handler completion', () => {
 		expect(item?.insertText).toBe('Workbook_Open()\n    $0\nEnd Sub');
 	});
 });
+
+describe('Word document event handlers (issue #25)', () => {
+	it('offers Document_* handlers in a ThisDocument module', () => {
+		const src = 'Option Explicit\nDoc\n';
+		const got = names(src, 'Doc', {
+			moduleName: 'ThisDocument',
+			moduleKind: 'document',
+			documentType: 'document',
+		});
+		expect(got).toContain('Document_Open');
+		expect(got).toContain('Document_New');
+		expect(got).toContain('Document_Close');
+		expect(got).toContain('Document_ContentControlOnEnter');
+		expect(got).not.toContain('Workbook_Open');
+		expect(got).not.toContain('Worksheet_Change');
+	});
+
+	it('infers the document type from the ThisDocument name when unstated', () => {
+		const src = 'Option Explicit\nDoc\n';
+		const got = names(src, 'Doc', {
+			moduleName: 'ThisDocument',
+			moduleKind: 'document',
+		});
+		expect(got).toContain('Document_Open');
+		expect(got).not.toContain('Worksheet_Change');
+	});
+
+	it('never offers Document_* handlers in Excel document modules', () => {
+		const src = 'Option Explicit\nDoc\n';
+		const got = names(src, 'Doc', {
+			moduleName: 'ThisWorkbook',
+			moduleKind: 'document',
+			documentType: 'workbook',
+		});
+		expect(got).not.toContain('Document_Open');
+	});
+});

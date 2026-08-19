@@ -5,6 +5,7 @@
 // provably invalid literals.
 
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
+import type { HostObjectModel } from '../../host/excelObjectModel';
 import {
 	evaluateIntegerConstantExpression,
 	type IntegerConstantLookup,
@@ -86,6 +87,7 @@ export function checkRuntimeArgumentValues(
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	hostModel?: HostObjectModel,
 ): ProcedureStatementVisitor {
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
 	const projectConstants = resolveRawIntegerConstants(projectIntegerConstants ?? new Map(), new Map());
@@ -101,6 +103,7 @@ export function checkRuntimeArgumentValues(
 			symbols,
 			procSym,
 			projectVisibleSymbols,
+			hostModel,
 		);
 		return (stmt) => {
 			for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env, constants, sourceNames)) {

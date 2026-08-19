@@ -23,6 +23,7 @@ import type {
 	Span,
 	VariableGroupNode,
 } from '../parser/nodes';
+import type { HostObjectModel } from '../host/excelObjectModel';
 import { resolveHostConstant } from '../host/hostModel';
 import { resolveRuntimeConstant } from '../runtime/vbaRuntime';
 import { activeModuleMembers, isInactiveNode } from './walker';
@@ -137,7 +138,13 @@ function normalizeDeclaredConstantName(raw: string): string | undefined {
 	return text.length > 0 ? text : undefined;
 }
 
-export function externalIntegerConstantValue(name: string): number | undefined {
+/** Qualifiers that name a host's own constant library. Membership is
+ * resolved against the CURRENT host's model, so `Word.wdRed` answers in a
+ * Word module and misses in an Excel one - Excel-specific names never leak
+ * into another host (issue #24). */
+const HOST_QUALIFIERS = new Set(['excel', 'word', 'powerpoint', 'access', 'office']);
+
+export function externalIntegerConstantValue(name: string, model?: HostObjectModel): number | undefined {
 	const dot = name.indexOf('.');
 	if (dot >= 0) {
 		const qualifier = name.slice(0, dot);
@@ -145,14 +152,14 @@ export function externalIntegerConstantValue(name: string): number | undefined {
 		if (qualifier === 'vba') {
 			return numericExternalConstantValue(resolveRuntimeConstant(member)?.value);
 		}
-		if (qualifier === 'excel' || qualifier === 'office') {
-			return numericExternalConstantValue(resolveHostConstant(member)?.value);
+		if (HOST_QUALIFIERS.has(qualifier)) {
+			return numericExternalConstantValue(resolveHostConstant(member, model)?.value);
 		}
 		return undefined;
 	}
 	const candidates = [
 		numericExternalConstantValue(resolveRuntimeConstant(name)?.value),
-		numericExternalConstantValue(resolveHostConstant(name)?.value),
+		numericExternalConstantValue(resolveHostConstant(name, model)?.value),
 	].filter((value): value is number => value !== undefined);
 	const unique = [...new Set(candidates)];
 	return unique.length === 1 ? unique[0] : undefined;

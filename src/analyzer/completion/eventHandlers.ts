@@ -1,6 +1,6 @@
-// Module-scoped Excel event-handler completions.
+// Module-scoped host event-handler completions.
 //
-// Excel events are not callable object members in VBA; `ThisWorkbook.Open()`
+// Host events are not callable object members in VBA; `ThisWorkbook.Open()`
 // and `ActiveSheet.Change()` are invalid member calls. The editor still needs
 // a first-class authoring path for the procedure declarations that VBE wires up
 // by exact module/object prefix and signature.
@@ -9,7 +9,7 @@ import { parseModule } from '../parser/parseModule';
 import type { ModuleMember, ProcedureNode } from '../parser/nodes';
 import type { ModuleSymbolKind } from '../symbols/symbolModel';
 
-export type EventHandlerDocumentType = 'workbook' | 'worksheet' | 'chart';
+export type EventHandlerDocumentType = 'workbook' | 'worksheet' | 'chart' | 'document';
 
 export interface EventHandlerCompletionContext {
 	moduleName?: string;
@@ -28,7 +28,7 @@ export interface EventHandlerCompletion {
 interface EventHandlerDefinition {
 	name: string;
 	params: string;
-	owner: 'Workbook' | 'Worksheet' | 'Chart';
+	owner: 'Workbook' | 'Worksheet' | 'Chart' | 'Document';
 	description: string;
 }
 
@@ -228,6 +228,75 @@ const CHART_EVENTS: readonly EventHandlerDefinition[] = [
 	},
 ];
 
+const DOCUMENT_EVENTS: readonly EventHandlerDefinition[] = [
+	{
+		name: 'Document_New',
+		params: '',
+		owner: 'Document',
+		description: 'Occurs when a new document based on the template is created.',
+	},
+	{
+		name: 'Document_Open',
+		params: '',
+		owner: 'Document',
+		description: 'Occurs when the document is opened.',
+	},
+	{
+		name: 'Document_Close',
+		params: '',
+		owner: 'Document',
+		description: 'Occurs before the document closes.',
+	},
+	{
+		name: 'Document_ContentControlAfterAdd',
+		params: 'ByVal NewContentControl As ContentControl, ByVal InUndoRedo As Boolean',
+		owner: 'Document',
+		description: 'Occurs after a content control is added to the document.',
+	},
+	{
+		name: 'Document_ContentControlBeforeDelete',
+		params: 'ByVal OldContentControl As ContentControl, ByVal InUndoRedo As Boolean',
+		owner: 'Document',
+		description: 'Occurs before a content control is deleted from the document.',
+	},
+	{
+		name: 'Document_ContentControlOnEnter',
+		params: 'ByVal ContentControl As ContentControl',
+		owner: 'Document',
+		description: 'Occurs when the selection enters a content control.',
+	},
+	{
+		name: 'Document_ContentControlOnExit',
+		params: 'ByVal ContentControl As ContentControl, Cancel As Boolean',
+		owner: 'Document',
+		description: 'Occurs when the selection leaves a content control.',
+	},
+	{
+		name: 'Document_ContentControlBeforeStoreUpdate',
+		params: 'ByVal ContentControl As ContentControl, Content As String',
+		owner: 'Document',
+		description: 'Occurs before the XML data store updates from a bound content control.',
+	},
+	{
+		name: 'Document_ContentControlBeforeContentUpdate',
+		params: 'ByVal ContentControl As ContentControl, Content As String',
+		owner: 'Document',
+		description: 'Occurs before a bound content control updates from the XML data store.',
+	},
+	{
+		name: 'Document_BuildingBlockInsert',
+		params: 'ByVal Range As Range, ByVal Name As String, ByVal Category As String, ByVal Blocktype As String, ByVal Template As String',
+		owner: 'Document',
+		description: 'Occurs when a building block is inserted into the document.',
+	},
+	{
+		name: 'Document_Sync',
+		params: 'ByVal SyncEventType As Office.MsoSyncEventType',
+		owner: 'Document',
+		description: 'Occurs when the local copy of a shared document is synchronized.',
+	},
+];
+
 /**
  * Resolves event-procedure stub completions at module level.
  *
@@ -319,6 +388,8 @@ function definitionsForDocumentType(
 			return WORKSHEET_EVENTS;
 		case 'chart':
 			return CHART_EVENTS;
+		case 'document':
+			return DOCUMENT_EVENTS;
 		default:
 			return [];
 	}
@@ -328,6 +399,7 @@ export const ALL_EVENT_DEFINITIONS: readonly EventHandlerDefinition[] = [
 	...WORKBOOK_EVENTS,
 	...WORKSHEET_EVENTS,
 	...CHART_EVENTS,
+	...DOCUMENT_EVENTS,
 ];
 
 function documentTypeForOwner(
@@ -340,6 +412,8 @@ function documentTypeForOwner(
 			return 'worksheet';
 		case 'Chart':
 			return 'chart';
+		case 'Document':
+			return 'document';
 	}
 }
 
@@ -347,6 +421,9 @@ function inferDocumentType(moduleName: string | undefined): EventHandlerDocument
 	const lower = moduleName?.toLowerCase() ?? '';
 	if (lower === 'thisworkbook') {
 		return 'workbook';
+	}
+	if (lower === 'thisdocument') {
+		return 'document';
 	}
 	if (/^chart\d*$/i.test(moduleName ?? '')) {
 		return 'chart';

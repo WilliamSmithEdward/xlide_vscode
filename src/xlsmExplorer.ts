@@ -3,6 +3,7 @@ import * as path from 'path';
 import { WorkbookEngine } from './workbookEngine';
 import { workbookIdentityKey } from './xlideFileSystem';
 import { compareVbaModulesForTreeOrder, moduleThemeIconName } from './moduleDisplay';
+import { containerContextValue, isReadOnlyContainerPath, MACRO_CONTAINER_GLOB } from './macroContainerUi';
 import { startPerformanceTrace } from './performanceTrace';
 
 export type XlideNodeKind = 'xlsm' | 'module' | 'sub' | 'loadError';
@@ -254,7 +255,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
                     vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '',
                     path.dirname(node.filePath),
                 ) || '';
-                item.contextValue = 'xlsm';
+                item.contextValue = containerContextValue(node.filePath);
                 // Append protection/signature badges once known.
                 const badges: string[] = [];
                 if (node.isPasswordProtected) { badges.push('locked'); }
@@ -277,7 +278,9 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
             case 'module':
                 item.iconPath = new vscode.ThemeIcon(moduleThemeIconName(node.moduleType));
                 item.description = node.moduleType;
-                item.contextValue = `module-${node.moduleType ?? 'standard'}`;
+                // '-ro' keeps rename/delete menus off read-only containers.
+                item.contextValue = `module-${node.moduleType ?? 'standard'}${
+                    isReadOnlyContainerPath(node.filePath) ? '-ro' : ''}`;
                 item.command = {
                     command: 'xlide.openModule',
                     title: 'Open Module',
@@ -357,7 +360,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
 
     private async _loadXlsmFiles(): Promise<XlideNode[]> {
         const uris = await vscode.workspace.findFiles(
-            '**/*.{xlsm,xlsb,xlam}',
+            MACRO_CONTAINER_GLOB,
             '{**/node_modules/**,**/.venv/**,**/venv/**}',
         );
         return uris

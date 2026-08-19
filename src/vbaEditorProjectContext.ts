@@ -28,12 +28,19 @@ import {
 	moduleKindFromType,
 	projectEditorSymbolContextForModule,
 } from './vbaProjectAnalysis';
+import {
+	hostObjectModelForToken,
+	hostTokenForFileName,
+	type VbaHostToken,
+} from './analyzer/host/hostRegistry';
+import type { HostObjectModel } from './analyzer/host/excelObjectModel';
 import { VbaProjectIndexService } from './vbaProjectIndexService';
 
 const WORKBOOK = 'Excel.Workbook';
 const WORKSHEET = 'Excel.Worksheet';
 const CHART = 'Excel.Chart';
 const USERFORM = 'MSForms.UserForm';
+const WORD_DOCUMENT = 'Word.Document';
 const EDITOR_PROJECT_CONTEXT_CACHE_TTL_MS = 10_000;
 const EDITOR_PROJECT_CONTEXT_CACHE_MAX_DOCUMENTS = 32;
 
@@ -46,6 +53,11 @@ interface ModuleEntry {
 export interface EditorProjectContext {
 	moduleName?: string;
 	moduleKind?: ModuleSymbolKind;
+	/** Office host of the module's container; absent means Excel. */
+	host?: VbaHostToken;
+	/** The host's object model, when the host is not Excel (issue #24:
+	 * absent lets every resolver keep its Excel default). */
+	hostModel?: HostObjectModel;
 	documentType?: EventHandlerDocumentType;
 	codeNameMap?: Record<string, string>;
 	codeNameList?: string[];
@@ -71,13 +83,22 @@ interface EditorProjectContextBuild {
 }
 
 /** Maps a document module to the host type that `Me` denotes inside it. */
-function meTypeFor(entry: ModuleEntry | undefined): string | undefined {
+function meTypeFor(entry: ModuleEntry | undefined, host?: VbaHostToken): string | undefined {
 	if (entry?.type === 'userform') {
 		// A form IS an MSForms.UserForm, so `Me.` reaches Caption, Controls and
-		// the rest of that surface as well as the form's own code.
+		// the rest of that surface as well as the form's own code. Forms are
+		// host-independent.
 		return USERFORM;
 	}
 	if (!entry || entry.type !== 'document') {
+		return undefined;
+	}
+	if (host === 'word') {
+		return WORD_DOCUMENT;
+	}
+	if (host !== undefined && host !== 'excel') {
+		// PowerPoint has no document modules and other hosts' document
+		// surfaces are unmodelled; silence beats a wrong Excel type.
 		return undefined;
 	}
 	switch (documentTypeFor(entry)) {
@@ -98,14 +119,18 @@ function meProjectTypeFor(entry: ModuleEntry | undefined): string | undefined {
 	return entry.name;
 }
 
-/** Builds the lowercased code-name -> host type map for a workbook project. */
-function codeNamesFor(entries: ModuleEntry[]): Record<string, string> {
+/** Builds the lowercased code-name -> host type map for a project. */
+function codeNamesFor(entries: ModuleEntry[], host?: VbaHostToken): Record<string, string> {
 	const out: Record<string, string> = {};
 	for (const entry of entries) {
 		if (entry.type !== 'document') {
 			continue;
 		}
-		out[entry.name.toLowerCase()] = meTypeFor(entry) ?? WORKSHEET;
+		const meType = meTypeFor(entry, host)
+			?? (host === undefined || host === 'excel' ? WORKSHEET : undefined);
+		if (meType) {
+			out[entry.name.toLowerCase()] = meType;
+		}
 	}
 	return out;
 }
@@ -127,7 +152,16 @@ function documentTypeFor(entry: ModuleEntry | undefined): EventHandlerDocumentTy
 	});
 }
 
-function localDocumentTypeFromModuleName(moduleName: string): EventHandlerDocumentType | undefined {
+function localDocumentTypeFromModuleName(
+	moduleName: string,
+	host?: VbaHostToken,
+): EventHandlerDocumentType | undefined {
+	if (host === 'word') {
+		return /^thisdocument$/i.test(moduleName) ? 'document' : undefined;
+	}
+	if (host !== undefined && host !== 'excel') {
+		return undefined;
+	}
 	if (/^thisworkbook$/i.test(moduleName)) {
 		return 'workbook';
 	}
@@ -147,12 +181,14 @@ export function toMemberCompletionContext(ctx: EditorProjectContext): MemberComp
 		meProjectType: ctx.meProjectType,
 		projectClassMembers: ctx.projectClassMembers,
 		implicitMembers: ctx.implicitMembers,
+		model: ctx.hostModel,
 	};
 }
 
 export function toTypeCompletionContext(ctx: EditorProjectContext): TypeCompletionContext {
 	return {
 		projectTypes: ctx.projectTypes,
+		model: ctx.hostModel,
 	};
 }
 
@@ -164,6 +200,7 @@ export function toIdentifierCompletionContext(ctx: EditorProjectContext): Identi
 		projectMemberSurfaces: ctx.projectClassMembers,
 		projectProcedures: ctx.projectProcedures,
 		projectSymbols: ctx.projectSymbols,
+		model: ctx.hostModel,
 	};
 }
 
@@ -321,6 +358,7 @@ export class VbaEditorProjectContextService {
 
 		try {
 			const decoded = decodeModuleUri(document.uri);
+			const host = hostTokenForFileName(decoded.xlsmPath);
 			// The shared workbook context already folds in the open editors'
 			// text (including this document) one changed module at a time.
 			const workbookContext = await this._projectIndexService.contextForWorkbook(
@@ -348,10 +386,12 @@ export class VbaEditorProjectContextService {
 			return this._storeEditorProjectContext(document, {
 				moduleName: decoded.moduleName,
 				moduleKind,
+				host,
+				hostModel: hostObjectModelForToken(host),
 				documentType: documentTypeFor(current),
-				codeNameMap: codeNamesFor(allEntries),
+				codeNameMap: codeNamesFor(allEntries, host),
 				codeNameList: codeNameListFor(allEntries),
-				meType: meTypeFor(current),
+				meType: meTypeFor(current, host),
 				meProjectType: meProjectTypeFor(current),
 				projectTypes: context.analysisOptions.projectTypes,
 				projectClassMembers: context.analysisOptions.projectClassMembers,
@@ -422,6 +462,8 @@ export class VbaEditorProjectContextService {
 			return {
 				moduleName: identity.moduleName,
 				moduleKind: identity.moduleKind,
+				host: identity.host,
+				hostModel: identity.hostModel,
 				documentType: identity.documentType,
 				meType: identity.meType,
 				meProjectType: identity.meProjectType,
@@ -435,6 +477,8 @@ export class VbaEditorProjectContextService {
 			return {
 				moduleName: identity.moduleName,
 				moduleKind: identity.moduleKind,
+				host: identity.host,
+				hostModel: identity.hostModel,
 				documentType: identity.documentType,
 				meType: identity.meType,
 				meProjectType: identity.meProjectType,
@@ -445,23 +489,30 @@ export class VbaEditorProjectContextService {
 	private _localModuleIdentity(document: vscode.TextDocument): {
 		moduleName: string;
 		moduleKind: ModuleSymbolKind;
+		host?: VbaHostToken;
+		hostModel?: HostObjectModel;
 		documentType?: EventHandlerDocumentType;
 		meType?: string;
 		meProjectType?: string;
 	} {
 		let moduleName = 'Module';
+		let host: VbaHostToken | undefined;
 		if (document.uri.scheme === XLIDE_SCHEME) {
 			try {
-				moduleName = decodeModuleUri(document.uri).moduleName;
+				const decoded = decodeModuleUri(document.uri);
+				moduleName = decoded.moduleName;
+				host = hostTokenForFileName(decoded.xlsmPath);
 			} catch {
 				moduleName = 'Module';
 			}
 		}
-		const documentType = localDocumentTypeFromModuleName(moduleName);
+		const documentType = localDocumentTypeFromModuleName(moduleName, host);
 		const moduleKind: ModuleSymbolKind = documentType ? 'document' : 'standard';
 		return {
 			moduleName,
 			moduleKind,
+			host,
+			hostModel: hostObjectModelForToken(host),
 			documentType,
 			meType: documentType === 'workbook'
 				? WORKBOOK
@@ -469,7 +520,9 @@ export class VbaEditorProjectContextService {
 					? CHART
 					: documentType === 'worksheet'
 						? WORKSHEET
-						: undefined,
+						: documentType === 'document'
+							? WORD_DOCUMENT
+							: undefined,
 			meProjectType: moduleKind === 'document' ? moduleName : undefined,
 		};
 	}

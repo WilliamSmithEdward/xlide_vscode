@@ -16,19 +16,42 @@ Thumbs.db
 # Reference corpus (transcription source only - never bundled/generated)
 reference/
 
-# Excel files
+# Office macro containers
 *.xlsx
 *.xlsm
 *.xlsb
 *.xlam
+*.xls
+*.docm
+*.dotm
+*.doc
+*.pptm
+*.potm
+*.ppsm
+*.ppt
+*.accdb
+*.accda
+*.mdb
+*.laccdb
 # The blank templates ship with the extension: they are the seeds for
 # "New Macro-Enabled File" (one per creatable format) and the fixtures the
 # native VBA engine's tests run against.
 !assets/templates/blank.xlsm
 !assets/templates/blank.xlsb
 !assets/templates/blank.xlam
-# A real Excel-authored workbook with a four-control UserForm: the ground
-# truth the native designer reader is tested against.
+!assets/templates/blank.docm
+!assets/templates/blank.dotm
+!assets/templates/blank.pptm
+!assets/templates/blank.potm
+# Real Office-authored fixtures: the ground truth the native engine's tests
+# run against, one per container format (authored via pyVBAharness).
 !tests/fixtures/binaries/FormFixture.xlsm
+!tests/fixtures/binaries/WordFixture.docm
+!tests/fixtures/binaries/WordFixture.doc
+!tests/fixtures/binaries/PowerPointFixture.pptm
+!tests/fixtures/binaries/PowerPointFixture.ppt
+!tests/fixtures/binaries/XlsFixture.xls
+!tests/fixtures/binaries/AccessFixture.accdb
+!tests/fixtures/binaries/AccessFixture.mdb
 excel_test_workbook/
 .claude/

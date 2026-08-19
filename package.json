@@ -269,6 +269,12 @@
         "icon": "$(file-excel)"
       },
       {
+        "command": "xlide.openInOfficeApp",
+        "title": "Open in Office Application",
+        "category": "XLIDE",
+        "icon": "$(link-external)"
+      },
+      {
         "command": "xlide.exportModulesToFolder",
         "title": "Export All Modules to Folder",
         "category": "XLIDE",
@@ -386,17 +392,17 @@
         },
         {
           "command": "xlide.findReferences",
-          "when": "view == xlide.explorer && viewItem =~ /^(sub|module-class)$/",
+          "when": "view == xlide.explorer && viewItem =~ /^(sub|module-class(-ro)?)$/",
           "group": "1_navigate@1"
         },
         {
           "command": "xlide.newModule",
-          "when": "view == xlide.explorer && viewItem == xlsm",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument)$/",
           "group": "1_create@1"
         },
         {
           "command": "xlide.newClassModule",
-          "when": "view == xlide.explorer && viewItem == xlsm",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument)$/",
           "group": "1_create@2"
         },
         {
@@ -420,8 +426,13 @@
           "group": "3_workbook@2"
         },
         {
+          "command": "xlide.openInOfficeApp",
+          "when": "view == xlide.explorer && viewItem =~ /^(macroDocument|macroReadOnly)$/",
+          "group": "3_workbook@1"
+        },
+        {
           "command": "xlide.analyzeWorkbook",
-          "when": "view == xlide.explorer && viewItem == xlsm",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|macroReadOnly)$/",
           "group": "4_analyze@1"
         },
         {
@@ -431,12 +442,12 @@
         },
         {
           "command": "xlide.exportModulesToFolder",
-          "when": "view == xlide.explorer && viewItem == xlsm",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|macroReadOnly)$/",
           "group": "5_transfer@1"
         },
         {
           "command": "xlide.importModulesFromFolder",
-          "when": "view == xlide.explorer && viewItem == xlsm",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument)$/",
           "group": "5_transfer@2"
         }
       ],
@@ -538,7 +549,7 @@
       {
         "name": "xlide_listWorkbooks",
         "displayName": "List Excel Workbooks",
-        "modelDescription": "Finds all Excel workbooks (.xlsm, .xlsb, .xlam) in the current workspace and returns their absolute paths. Call this first when the user has not specified a file path, or when you need to discover which workbooks are available.",
+        "modelDescription": "Finds all macro-enabled Office files in the current workspace and returns their absolute paths: Excel (.xlsm, .xlsb, .xlam, .xls), Word (.docm, .dotm, .doc), PowerPoint (.pptm, .potm, .ppsm, .ppt), and Access (.accdb, .mdb; read-only). Call this first when the user has not specified a file path, or when you need to discover which files are available.",
         "toolReferenceName": "xlideListWorkbooks",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -557,7 +568,7 @@
           "properties": {
             "filePath": {
               "type": "string",
-              "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file"
+              "description": "Absolute path to the macro-enabled Office file (.xlsm/.xlsb/.xlam/.xls, .docm/.dotm/.doc, .pptm/.potm/.ppsm/.ppt, .accdb/.mdb)"
             }
           },
           "required": [
@@ -576,7 +587,7 @@
           "properties": {
             "filePath": {
               "type": "string",
-              "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file"
+              "description": "Absolute path to the macro-enabled Office file (.xlsm/.xlsb/.xlam/.xls, .docm/.dotm/.doc, .pptm/.potm/.ppsm/.ppt, .accdb/.mdb)"
             }
           },
           "required": [
@@ -666,7 +677,7 @@
       {
         "name": "xlide_createWorkbook",
         "displayName": "Create New Workbook or Add-In",
-        "modelDescription": "Creates a new macro-enabled file - a workbook (.xlsm or .xlsb) or an Excel add-in (.xlam) - with an empty VBA project (ThisWorkbook, Sheet1, Module1) at the given absolute path. The extension of filePath selects the format; an .xlam is a genuine add-in (ThisWorkbook.IsAddin is True), not a renamed workbook. Fails if the file already exists; it never overwrites an existing file. Use this to start a fresh workbook or add-in before adding modules or cell data.",
+        "modelDescription": "Creates a new macro-enabled file with an empty VBA project at the given absolute path: an Excel workbook (.xlsm, .xlsb), Excel add-in (.xlam), Word document or template (.docm, .dotm), or PowerPoint presentation or template (.pptm, .potm). The extension of filePath selects the format; each format comes from a genuine Office-authored template, never a renamed container. Legacy formats (.xls/.doc/.ppt) and Access files cannot be created. Fails if the file already exists; it never overwrites an existing file.",
         "toolReferenceName": "xlideCreateWorkbook",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -674,7 +685,7 @@
           "properties": {
             "filePath": {
               "type": "string",
-              "description": "Absolute path for the new file; the extension selects the format (.xlsm, .xlsb, or .xlam)"
+              "description": "Absolute path for the new file; the extension selects the format (.xlsm/.xlsb/.xlam, .docm/.dotm, .pptm/.potm)"
             }
           },
           "required": [
@@ -693,7 +704,7 @@
           "properties": {
             "filePath": {
               "type": "string",
-              "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file"
+              "description": "Absolute path to the macro-enabled Office file (.xlsm/.xlsb/.xlam/.xls, .docm/.dotm/.doc, .pptm/.potm/.ppsm/.ppt, .accdb/.mdb)"
             }
           },
           "required": [
@@ -728,7 +739,7 @@
       {
         "name": "xlide_readModule",
         "displayName": "Read VBA Module",
-        "modelDescription": "Canonical way to read workbook VBA source. Reads the full source of a module from the Excel workbook and returns raw VBA text including Attribute declarations. The .xlsm/.xlsb is a binary container, not text - always read VBA through this tool or through the XLIDE virtual file system (modules opened from the XLIDE tree are live workbook documents at xlide-vba:// URIs), never by opening the workbook file directly. Do not read exported .bas/.cls/.frm files in the project as a substitute, even when they look current: they are one-way artifacts and can be stale. Read those only when the user explicitly asks about the export artifacts themselves. Returns a contentToken on the first line: pass it back as expectedContentToken when writing so the write is refused if the module changed in the meantime. Use startLine/endLine to read part of a very large module.",
+        "modelDescription": "Canonical way to read VBA source. Reads the full source of a module from the macro-enabled Office file (Excel, Word, PowerPoint, or Access) and returns raw VBA text including Attribute declarations. These files are binary containers, not text - always read VBA through this tool or through the XLIDE virtual file system (modules opened from the XLIDE tree are live workbook documents at xlide-vba:// URIs), never by opening the workbook file directly. Do not read exported .bas/.cls/.frm files in the project as a substitute, even when they look current: they are one-way artifacts and can be stale. Read those only when the user explicitly asks about the export artifacts themselves. Returns a contentToken on the first line: pass it back as expectedContentToken when writing so the write is refused if the module changed in the meantime. Use startLine/endLine to read part of a very large module.",
         "toolReferenceName": "xlideReadModule",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -760,7 +771,7 @@
       {
         "name": "xlide_writeModule",
         "displayName": "Write VBA Module",
-        "modelDescription": "Canonical way to edit workbook VBA. Writes VBA source directly into the Excel workbook and saves automatically. The .xlsm/.xlsb is a binary OOXML container, so VBA changes persist only through this tool or through the XLIDE virtual file system: modules opened from the XLIDE tree are live workbook documents at xlide-vba:// URIs, and saving one writes into the workbook. Never edit the workbook file with generic file/text tools, and do not write exported .bas/.cls/.frm files in the project as a way of changing VBA - those are one-way artifacts that no workbook reads back, so editing one changes nothing. Touch them only when the user explicitly asks. Creates the module if it does not exist (optionally pass kind='class'; default is standard). IMPORTANT: Use only ASCII characters to avoid character mangling - no Unicode, emoji, or accented characters. Pass expectedContentToken from the read you based this edit on: without it, a change made by Excel or a user after your read is overwritten silently.",
+        "modelDescription": "Canonical way to edit VBA. Writes VBA source directly into the macro-enabled Office file (Excel, Word, or PowerPoint; Access is read-only because Access runs compiled p-code) and saves automatically. These files are binary containers, so VBA changes persist only through this tool or through the XLIDE virtual file system: modules opened from the XLIDE tree are live workbook documents at xlide-vba:// URIs, and saving one writes into the workbook. Never edit the workbook file with generic file/text tools, and do not write exported .bas/.cls/.frm files in the project as a way of changing VBA - those are one-way artifacts that no workbook reads back, so editing one changes nothing. Touch them only when the user explicitly asks. Creates the module if it does not exist (optionally pass kind='class'; default is standard). IMPORTANT: Use only ASCII characters to avoid character mangling - no Unicode, emoji, or accented characters. Pass expectedContentToken from the read you based this edit on: without it, a change made by Excel or a user after your read is overwritten silently.",
         "toolReferenceName": "xlideWriteModule",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -793,7 +804,7 @@
       {
         "name": "xlide_renameModule",
         "displayName": "Rename VBA Module",
-        "modelDescription": "Renames a VBA module in an Excel workbook and saves the file. Operates on the live XLIDE module - do not rename the .xlsm/.xlsb or its exported .bas/.cls files to rename a module. Use this to change a module's name. After renaming, any references to the old name in other modules must be updated manually with xlide_writeModule.",
+        "modelDescription": "Renames a VBA module in a macro-enabled Office file and saves it (Access files are read-only). Operates on the live XLIDE module - do not rename the .xlsm/.xlsb or its exported .bas/.cls files to rename a module. Use this to change a module's name. After renaming, any references to the old name in other modules must be updated manually with xlide_writeModule.",
         "toolReferenceName": "xlideRenameModule",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -801,7 +812,7 @@
           "properties": {
             "filePath": {
               "type": "string",
-              "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file"
+              "description": "Absolute path to the macro-enabled Office file (.xlsm/.xlsb/.xlam/.xls, .docm/.dotm/.doc, .pptm/.potm/.ppsm/.ppt, .accdb/.mdb)"
             },
             "moduleName": {
               "type": "string",
@@ -822,7 +833,7 @@
       {
         "name": "xlide_deleteModule",
         "displayName": "Delete VBA Module",
-        "modelDescription": "Permanently deletes a VBA module from an Excel workbook and saves the file. Operates on the live XLIDE module - do not delete the .xlsm/.xlsb or its exported .bas/.cls files to remove a module. This cannot be undone. Only delete standard or class modules; avoid deleting document modules (Sheet/ThisWorkbook).",
+        "modelDescription": "Permanently deletes a VBA module from a macro-enabled Office file and saves it (Access files are read-only). Operates on the live XLIDE module - do not delete the .xlsm/.xlsb or its exported .bas/.cls files to remove a module. This cannot be undone. Only delete standard or class modules; avoid deleting document modules (Sheet/ThisWorkbook).",
         "toolReferenceName": "xlideDeleteModule",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -830,7 +841,7 @@
           "properties": {
             "filePath": {
               "type": "string",
-              "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file"
+              "description": "Absolute path to the macro-enabled Office file (.xlsm/.xlsb/.xlam/.xls, .docm/.dotm/.doc, .pptm/.potm/.ppsm/.ppt, .accdb/.mdb)"
             },
             "moduleName": {
               "type": "string",
@@ -854,7 +865,7 @@
           "properties": {
             "filePath": {
               "type": "string",
-              "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file"
+              "description": "Absolute path to the macro-enabled Office file (.xlsm/.xlsb/.xlam/.xls, .docm/.dotm/.doc, .pptm/.potm/.ppsm/.ppt, .accdb/.mdb)"
             }
           },
           "required": [
@@ -969,7 +980,7 @@
           "properties": {
             "filePath": {
               "type": "string",
-              "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file"
+              "description": "Absolute path to the macro-enabled Office file (.xlsm/.xlsb/.xlam/.xls, .docm/.dotm/.doc, .pptm/.potm/.ppsm/.ppt, .accdb/.mdb)"
             },
             "exportFolder": {
               "type": "string",
@@ -1000,7 +1011,7 @@
           "properties": {
             "filePath": {
               "type": "string",
-              "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file"
+              "description": "Absolute path to the macro-enabled Office file (.xlsm/.xlsb/.xlam/.xls, .docm/.dotm/.doc, .pptm/.potm/.ppsm/.ppt, .accdb/.mdb)"
             },
             "exportMode": {
               "type": "string",
@@ -1028,7 +1039,7 @@
           "properties": {
             "filePath": {
               "type": "string",
-              "description": "Absolute path to the .xlsm (or .xlsb / .xlam) file"
+              "description": "Absolute path to the macro-enabled Office file (.xlsm/.xlsb/.xlam/.xls, .docm/.dotm/.doc, .pptm/.potm/.ppsm/.ppt, .accdb/.mdb)"
             },
             "query": {
               "type": "string",

@@ -42,19 +42,37 @@ export class WorkbookEngine implements vscode.Disposable {
 
 	/**
 	 * Path of the bundled blank file used to seed a new one, chosen by the
-	 * target's extension. Each template is a freshly Excel-authored file, so the
-	 * result opens without a repair prompt - and an add-in must come from the
-	 * .xlam template specifically: what makes Excel treat a file as an add-in
-	 * (ThisWorkbook.IsAddin) is the workbook part's content type, which renaming
-	 * an .xlsm cannot change. Anything unrecognized seeds .xlsm, the default.
+	 * target's extension. Each template is a file freshly authored by its own
+	 * Office application, so the result opens without a repair prompt - and
+	 * every format needs its own template: what makes a package an add-in, a
+	 * template, or a Word/PowerPoint file at all is its content types, which
+	 * renaming cannot change. Anything unrecognized seeds .xlsm, the default;
+	 * formats XLIDE cannot author refuse with the reason.
 	 */
 	private templatePathFor(targetPath: string): string {
 		const lower = targetPath.toLowerCase();
-		const template = lower.endsWith('.xlsb')
-			? 'blank.xlsb'
-			: lower.endsWith('.xlam')
-				? 'blank.xlam'
-				: 'blank.xlsm';
+		const extension = /\.([a-z0-9]+)$/.exec(lower)?.[1] ?? '';
+		if (['xls', 'doc', 'ppt'].includes(extension)) {
+			throw new WorkbookEngineError(
+				`Creating new legacy-format files (.${extension}) is not supported; create the modern macro format and use the Office app to save down.`,
+				-32602,
+			);
+		}
+		if (['accdb', 'accda', 'mdb'].includes(extension)) {
+			throw new WorkbookEngineError(
+				'Access databases cannot be created by XLIDE (Access files are read-only).',
+				-32602,
+			);
+		}
+		const templates: Record<string, string> = {
+			xlsb: 'blank.xlsb',
+			xlam: 'blank.xlam',
+			docm: 'blank.docm',
+			dotm: 'blank.dotm',
+			pptm: 'blank.pptm',
+			potm: 'blank.potm',
+		};
+		const template = templates[extension] ?? 'blank.xlsm';
 		return vscode.Uri.joinPath(
 			this._context.extensionUri, 'assets', 'templates', template,
 		).fsPath;

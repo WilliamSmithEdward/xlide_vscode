@@ -75,6 +75,9 @@ function documentHostTypeForModule(
             return 'Excel.Chart';
         case 'worksheet':
             return 'Excel.Worksheet';
+        case 'document':
+            // Only Word document modules classify as 'document' (issue #25).
+            return 'Word.Document';
         default:
             return undefined;
     }

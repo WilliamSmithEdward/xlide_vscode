@@ -17,6 +17,7 @@ import {
 	parseFormDesignerStreams,
 	parseFormFrx,
 } from './formDesigner';
+import { openMacroContainer, type MacroContainer } from './macroContainer';
 import {
 	detectSignature,
 	synthesizeClassHeader,
@@ -27,7 +28,7 @@ import {
 import { XlsxWorkbook, type CellValue, type NamedRange, type SheetSummary } from './xlsx';
 
 export type ModuleType = 'standard' | 'class' | 'document' | 'userform';
-export type DocumentType = 'workbook' | 'worksheet' | 'chart';
+export type DocumentType = 'workbook' | 'worksheet' | 'chart' | 'document';
 
 export interface ModuleEntry {
 	name: string;
@@ -61,6 +62,7 @@ export interface WriteResult {
 const WORKBOOK_CLSID = '{00020819-0000-0000-C000-000000000046}';
 const WORKSHEET_CLSID = '{00020820-0000-0000-C000-000000000046}';
 const CHART_CLSID = '{00020821-0000-0000-C000-000000000046}';
+const WORD_DOCUMENT_CLSID = '{00020906-0000-0000-C000-000000000046}';
 const GUID_RE = /\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}/g;
 const DOCUMENT_NAME_RE = /^(Sheet|Feuil|Hoja|Tabelle|Foglio|Planilha)\d*$/i;
 const ATTR_LINE_RE = /^Attribute\s+VB_/i;
@@ -127,11 +129,21 @@ export function classifyModuleType(name: string, source: string): ModuleType {
 		// UserForms carry TWO GUIDs in VB_Base; classes and documents carry one.
 		if ((vbBase.match(GUID_RE) ?? []).length >= 2) { return 'userform'; }
 		const upper = vbBase.toUpperCase();
-		if (upper.includes(WORKBOOK_CLSID) || upper.includes(WORKSHEET_CLSID) || upper.includes(CHART_CLSID)) {
+		if (upper.includes(WORKBOOK_CLSID) || upper.includes(WORKSHEET_CLSID) || upper.includes(CHART_CLSID)
+			|| upper.includes(WORD_DOCUMENT_CLSID)) {
 			return 'document';
 		}
 	}
-	if (name === 'ThisWorkbook' || DOCUMENT_NAME_RE.test(name)) { return 'document'; }
+	// Host code-behind that names no CLSID: Word's ThisDocument declares
+	// VB_Base = "1Normal.ThisDocument" (measured against a live-authored
+	// .docm). Office marks every document module PredeclaredId + Exposed and
+	// nothing else it authors gets both, so the pair is the host-generic
+	// document signature (forms are Exposed = False and caught above).
+	if (/^True$/i.test(attributeValue(source, 'VB_PredeclaredId'))
+		&& /^True$/i.test(attributeValue(source, 'VB_Exposed'))) {
+		return 'document';
+	}
+	if (name === 'ThisWorkbook' || name === 'ThisDocument' || DOCUMENT_NAME_RE.test(name)) { return 'document'; }
 	return 'standard';
 }
 
@@ -140,7 +152,9 @@ export function classifyDocumentType(name: string, source: string): DocumentType
 	if (vbBase.includes(WORKBOOK_CLSID)) { return 'workbook'; }
 	if (vbBase.includes(WORKSHEET_CLSID)) { return 'worksheet'; }
 	if (vbBase.includes(CHART_CLSID)) { return 'chart'; }
+	if (vbBase.includes(WORD_DOCUMENT_CLSID)) { return 'document'; }
 	if (name === 'ThisWorkbook') { return 'workbook'; }
+	if (name === 'ThisDocument') { return 'document'; }
 	if (/^Chart\d*$/i.test(name)) { return 'chart'; }
 	if (DOCUMENT_NAME_RE.test(name)) { return 'worksheet'; }
 	return undefined;
@@ -166,7 +180,7 @@ function moduleEntry(module: VbaModule): ModuleEntry {
 }
 
 interface OpenWorkbook {
-	xlsx: XlsxWorkbook;
+	container: MacroContainer;
 	cfb: Cfb;
 	project: VbaProject;
 }
@@ -188,7 +202,7 @@ interface OpenWorkbook {
 interface WorkbookCacheEntry {
 	mtimeMs: number;
 	size: number;
-	xlsx: XlsxWorkbook;
+	container: MacroContainer;
 	/** Built on first VBA access; sheet/cell reads never pay for the project. */
 	cfb?: Cfb;
 	project?: VbaProject;
@@ -221,7 +235,7 @@ function cachedPackage(filePath: string): WorkbookCacheEntry {
 	const entry: WorkbookCacheEntry = {
 		mtimeMs: stat.mtimeMs,
 		size: stat.size,
-		xlsx: XlsxWorkbook.fromBuffer(fs.readFileSync(filePath)),
+		container: openMacroContainer(fs.readFileSync(filePath)),
 	};
 	workbookCache.delete(filePath);
 	workbookCache.set(filePath, entry);
@@ -236,16 +250,31 @@ function cachedPackage(filePath: string): WorkbookCacheEntry {
 /** Shared read-only parse. Callers must not mutate the returned project. */
 function openWorkbook(filePath: string): OpenWorkbook {
 	const entry = cachedPackage(filePath);
-	entry.cfb ??= Cfb.fromBytes(entry.xlsx.readVbaProject());
+	entry.cfb ??= entry.container.vbaCfb();
 	entry.project ??= VbaProject.parse(entry.cfb);
-	return { xlsx: entry.xlsx, cfb: entry.cfb, project: entry.project };
+	return { container: entry.container, cfb: entry.cfb, project: entry.project };
 }
 
 /** Fresh parse for mutating operations; never aliases the shared cache. */
 function openWorkbookForWrite(filePath: string): OpenWorkbook {
-	const xlsx = XlsxWorkbook.fromBuffer(fs.readFileSync(filePath));
-	const cfb = Cfb.fromBytes(xlsx.readVbaProject());
-	return { xlsx, cfb, project: VbaProject.parse(cfb) };
+	const container = openMacroContainer(fs.readFileSync(filePath));
+	if (!container.writable) {
+		throw new Error(`${path.basename(filePath)} is ${container.description}.`);
+	}
+	const cfb = container.vbaCfb();
+	return { container, cfb, project: VbaProject.parse(cfb) };
+}
+
+/** The OOXML sheet/cell surface, or an honest refusal for containers without one. */
+function sheetSurface(filePath: string): XlsxWorkbook {
+	const entry = cachedPackage(filePath);
+	const { container } = entry;
+	if (container.kind !== 'excel' || !container.xlsx) {
+		throw new Error(
+			`${path.basename(filePath)} is ${container.description}; it has no worksheet surface.`,
+		);
+	}
+	return container.xlsx;
 }
 
 /** Test hooks; product code never reads these. */
@@ -259,11 +288,10 @@ export function resetWorkbookCacheForTests(): void {
 	cacheMisses = 0;
 }
 
-/** Write the mutated VBA project back into the package, atomically. */
+/** Write the mutated VBA project back into the container, atomically. */
 function saveWorkbook(filePath: string, wb: OpenWorkbook): void {
 	wb.project.save(wb.cfb);
-	wb.xlsx.writeVbaProject(wb.cfb.toBytes());
-	atomicWrite(filePath, wb.xlsx.toBytes());
+	atomicWrite(filePath, wb.container.toFileBytes(wb.cfb));
 }
 
 export function atomicWrite(filePath: string, data: Buffer): void {
@@ -469,7 +497,7 @@ export function getModulesAndProtectionInfo(filePath: string): ProtectionInfo & 
 }
 
 export function listSheets(filePath: string): { sheets: SheetSummary[] } {
-	return { sheets: cachedPackage(filePath).xlsx.sheetSummaries() };
+	return { sheets: sheetSurface(filePath).sheetSummaries() };
 }
 
 export function getWorkbookInfo(filePath: string): {
@@ -479,10 +507,13 @@ export function getWorkbookInfo(filePath: string): {
 	isPasswordProtected: boolean;
 	isSigned: boolean;
 } {
-	const { xlsx, cfb, project } = openWorkbook(filePath);
+	const { container, cfb, project } = openWorkbook(filePath);
+	// Only the OOXML Excel container has a sheet surface; for every other
+	// host the modules and protection facts still answer.
+	const xlsx = container.kind === 'excel' ? container.xlsx : undefined;
 	return {
-		sheets: xlsx.sheetSummaries(),
-		namedRanges: xlsx.definedNames(),
+		sheets: xlsx ? xlsx.sheetSummaries() : [],
+		namedRanges: xlsx ? xlsx.definedNames() : [],
 		modules: project.modules.map(moduleEntry),
 		isPasswordProtected: project.hasPassword,
 		isSigned: detectSignature(cfb).present,
@@ -490,11 +521,11 @@ export function getWorkbookInfo(filePath: string): {
 }
 
 export function readCells(filePath: string, sheet: string, range: string): { data: CellValue[][] } {
-	return { data: cachedPackage(filePath).xlsx.readCells(sheet, range, true) };
+	return { data: sheetSurface(filePath).readCells(sheet, range, true) };
 }
 
 export function readFormulas(filePath: string, sheet: string, range: string): { data: CellValue[][] } {
-	return { data: cachedPackage(filePath).xlsx.readCells(sheet, range, false) };
+	return { data: sheetSurface(filePath).readCells(sheet, range, false) };
 }
 
 /**
@@ -521,7 +552,9 @@ export function validateWorkbook(filePath: string): { issues: string[] } {
 			issues.push('Module with an empty name in the dir stream.');
 		}
 		const streamName = module.streamName || module.name;
-		if (!wb.cfb.hasStreamInStorage('VBA', streamName)) {
+		// Root-level fallback mirrors VbaProject.parse: legacy containers and
+		// the Access synthetic CFB keep module streams outside a VBA storage.
+		if (!wb.cfb.hasStreamInStorage('VBA', streamName) && !wb.cfb.hasStream(streamName)) {
 			issues.push(`Module ${module.name} references missing stream '${streamName}'.`);
 		}
 		if (module.sourceHeader === '' && module.prefixBytes.length === 0) {
@@ -581,9 +614,14 @@ export function writeCells(
 	data: CellValue[][],
 ): { ok: true } {
 	// Mutates the package, so never the cached instance readers share.
-	const xlsx = XlsxWorkbook.fromBuffer(fs.readFileSync(filePath));
-	xlsx.writeCells(sheet, startCell, data);
-	atomicWrite(filePath, xlsx.toBytes());
+	const container = openMacroContainer(fs.readFileSync(filePath));
+	if (container.kind !== 'excel' || !container.xlsx) {
+		throw new Error(
+			`${path.basename(filePath)} is ${container.description}; cell writes need an OOXML Excel workbook.`,
+		);
+	}
+	container.xlsx.writeCells(sheet, startCell, data);
+	atomicWrite(filePath, container.xlsx.toBytes());
 	return { ok: true };
 }
 

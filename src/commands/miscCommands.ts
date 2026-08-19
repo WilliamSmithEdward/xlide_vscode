@@ -259,6 +259,18 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
             }
         }),
 
+        // Open a non-Excel macro container in whatever application owns it
+        // (Word, PowerPoint, Access): the OS association is the router.
+        registerXlideCommand('xlide.openInOfficeApp', async (node: XlideNode) => {
+            const filePath = resolveWorkbookPath(node);
+            if (!filePath) { return; }
+            log(`[openInOfficeApp] Requested for: ${filePath}`);
+            const opened = await vscode.env.openExternal(vscode.Uri.file(filePath));
+            if (!opened) {
+                vscode.window.showErrorMessage(`XLIDE: Could not open ${path.basename(filePath)} in its Office application.`);
+            }
+        }),
+
         // Detect the Sub/Function at the cursor and open the workbook, then guide to run it
         registerXlideCommand('xlide.runMacroAtCursor', async () => {
             const editor = vscode.window.activeTextEditor;

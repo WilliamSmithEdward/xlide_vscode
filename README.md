@@ -7,17 +7,20 @@
 </p>
 <p align="center"><em>▶ Click the video above for the install tutorial</em></p>
 
-XLIDE gives Excel VBA projects a modern VS Code workspace.
+XLIDE gives Office VBA projects a modern VS Code workspace.
 
-Add one or more `.xlsm`, `.xlsb`, or `.xlam` workbooks to your VS Code project
-and XLIDE detects them automatically. Navigate each workbook's VBA project in
-the XLIDE tree, open modules directly from the workbook, edit with
-workbook-aware IntelliSense, and save changes back to the workbook with normal
-VS Code save behavior. When you want a file-based workflow, use the full local
-disk push/pull workflow for the selected workbook: preview detailed
-side-by-side diffs, export workbook modules to `.bas` and `.cls` files, commit
-them to your favorite version control platform, and import reviewed files back
-into that workbook.
+Add macro-enabled Office files to your VS Code project and XLIDE detects them
+automatically: Excel workbooks and add-ins (`.xlsm`, `.xlsb`, `.xlam`, `.xls`),
+Word documents and templates (`.docm`, `.dotm`, `.doc`), PowerPoint
+presentations (`.pptm`, `.potm`, `.ppsm`, `.ppt`), and Access databases
+(`.accdb`, `.mdb`, read-only). Navigate each file's VBA project in the XLIDE
+tree, open modules directly from the file, edit with host-aware IntelliSense
+(Excel modules complete against Excel's object model, Word modules against
+Word's, and so on), and save changes back with normal VS Code save behavior.
+When you want a file-based workflow, use the full local disk push/pull
+workflow for the selected file: preview detailed side-by-side diffs, export
+modules to `.bas` and `.cls` files, commit them to your favorite version
+control platform, and import reviewed files back.
 
 For new programmers, XLIDE makes the VBA language easier to approach.
 It shows useful completion lists, explains symbols, highlights likely mistakes,

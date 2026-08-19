@@ -21,6 +21,7 @@ import {
 } from './analyzer';
 import { lineStartOffsets } from './vbaSourceScan';
 import { analyzeVbaModuleSource, type VbaModuleAnalysisDiagnostic } from './vbaModuleAnalysis';
+import { hostTokenForFileName } from './analyzer/host/hostRegistry';
 import {
     buildVbaProjectIndexAsync,
     moduleKindFromType,
@@ -141,6 +142,8 @@ export interface WorkbookAnalysisWorker {
         moduleKind?: string;
         documentType?: string;
         severityOverrides?: Record<string, string>;
+        /** Office host token for the container. Absent means Excel. */
+        host?: string;
     }): Promise<{
         diagnostics: VbaModuleAnalysisDiagnostic[];
         suppressedDiagnostics: VbaModuleAnalysisDiagnostic[];
@@ -552,6 +555,7 @@ async function runWorkbookAnalysis(
                                 moduleKind: moduleKindFromType(mod.type),
                                 documentType: mod.documentType,
                                 severityOverrides: analysisSettings.ruleSeverityOverrides,
+                                host: hostTokenForFileName(filePath),
                             }),
                         );
                         throwIfAnalysisCancelled(options.token);
@@ -592,6 +596,7 @@ async function runWorkbookAnalysis(
                         documentType: mod.documentType,
                         severityOverrides: analysisSettings.ruleSeverityOverrides,
                         ...projectOptions,
+                        host: hostTokenForFileName(filePath),
                     }),
                 );
                 reportModuleDone(mod.name);

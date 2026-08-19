@@ -123,3 +123,47 @@ describe('the worker carries the host token', () => {
 			.toBe(true);
 	});
 });
+
+describe('host constants stay inside their host (no cross-host leakage)', () => {
+	const diagnostics = (source: string, host?: string) =>
+		analyzeVbaModuleSource({ source, moduleName: 'Module1', moduleKind: 'standard', host })
+			.diagnostics;
+
+	it('folds xlLandscape in Excel, never in Word', () => {
+		// xlLandscape = 2, so the divisor folds to zero under Excel's model.
+		const source = [
+			'Sub T()',
+			'    Dim x As Double',
+			'    x = 1 / (xlLandscape - 2)',
+			'End Sub',
+			'',
+		].join('\r\n');
+		expect(diagnostics(source).some((d) => d.code === 'division-by-zero')).toBe(true);
+		expect(diagnostics(source, 'word').some((d) => d.code === 'division-by-zero')).toBe(false);
+	});
+
+	it('folds wdMainTextStory in Word, never in Excel', () => {
+		// wdMainTextStory = 1, so the divisor folds to zero under Word's model.
+		const source = [
+			'Sub T()',
+			'    Dim x As Double',
+			'    x = 1 / (wdMainTextStory - 1)',
+			'End Sub',
+			'',
+		].join('\r\n');
+		expect(diagnostics(source, 'word').some((d) => d.code === 'division-by-zero')).toBe(true);
+		expect(diagnostics(source).some((d) => d.code === 'division-by-zero')).toBe(false);
+	});
+
+	it('resolves the Word-qualified form under Word only', () => {
+		const source = [
+			'Sub T()',
+			'    Dim x As Double',
+			'    x = 1 / (Word.wdMainTextStory - 1)',
+			'End Sub',
+			'',
+		].join('\r\n');
+		expect(diagnostics(source, 'word').some((d) => d.code === 'division-by-zero')).toBe(true);
+		expect(diagnostics(source).some((d) => d.code === 'division-by-zero')).toBe(false);
+	});
+});
