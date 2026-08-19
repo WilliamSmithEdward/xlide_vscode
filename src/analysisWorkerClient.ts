@@ -41,7 +41,16 @@ interface PendingRequest {
 	reject: (err: Error) => void;
 	request: WorkerAnalyzeRequest;
 	retried: boolean;
+	watchdog: ReturnType<typeof setTimeout>;
 }
+
+// A worker stuck in a pathological loop emits no error or exit event, so a
+// request that never answers would otherwise hang its promise forever with
+// `available` still true - live diagnostics stall for the session and the
+// in-host fallback never engages. Far beyond any legitimate analysis (the
+// giant-module corpus completes in single-digit seconds), so firing means
+// the worker is gone: fail it and let callers take the in-host path.
+const WORKER_REQUEST_TIMEOUT_MS = 30_000;
 
 export class AnalysisWorkerClient {
 	private _worker: Worker | undefined;
@@ -55,6 +64,7 @@ export class AnalysisWorkerClient {
 	constructor(
 		private readonly _workerPath: string,
 		private readonly _log?: (line: string) => void,
+		private readonly _requestTimeoutMs: number = WORKER_REQUEST_TIMEOUT_MS,
 	) {}
 
 	/**
@@ -92,9 +102,19 @@ export class AnalysisWorkerClient {
 		}
 		return new Promise<WorkerAnalyzeResult>((resolve, reject) => {
 			const requestId = this._nextRequestId++;
-			this._pending.set(requestId, { resolve, reject, request, retried: false });
+			this._track(requestId, { resolve, reject, request, retried: false });
 			worker.postMessage({ kind: 'analyze', requestId, ...request } satisfies AnalysisWorkerRequest);
 		});
+	}
+
+	private _track(requestId: number, base: Omit<PendingRequest, 'watchdog'>): void {
+		const watchdog = setTimeout(() => {
+			if (this._pending.has(requestId)) {
+				this._fail(`request timed out after ${this._requestTimeoutMs} ms`);
+			}
+		}, this._requestTimeoutMs);
+		watchdog.unref?.();
+		this._pending.set(requestId, { ...base, watchdog });
 	}
 
 	forget(docKey: string): void {
@@ -152,6 +172,7 @@ export class AnalysisWorkerClient {
 		if (response.kind === 'needSeed') {
 			// Reseed once and retry the same request; a second miss is an error.
 			this._pending.delete(response.requestId);
+			clearTimeout(pending.watchdog);
 			if (pending.retried) {
 				pending.reject(new Error('Analysis worker seed mismatch.'));
 				return;
@@ -161,11 +182,12 @@ export class AnalysisWorkerClient {
 				this._postSeed(worker, pending.request.workbookKey, pending.request.generation);
 			}
 			const requestId = this._nextRequestId++;
-			this._pending.set(requestId, { ...pending, retried: true });
+			this._track(requestId, { ...pending, retried: true });
 			worker.postMessage({ kind: 'analyze', requestId, ...pending.request } satisfies AnalysisWorkerRequest);
 			return;
 		}
 		this._pending.delete(response.requestId);
+		clearTimeout(pending.watchdog);
 		if (response.kind === 'error') {
 			pending.reject(new Error(response.message));
 			return;
@@ -190,6 +212,7 @@ export class AnalysisWorkerClient {
 
 	private _rejectAll(err: Error): void {
 		for (const pending of this._pending.values()) {
+			clearTimeout(pending.watchdog);
 			pending.reject(err);
 		}
 		this._pending.clear();
