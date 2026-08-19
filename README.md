@@ -36,6 +36,17 @@ XLIDE 4.0.0 opens the workspace to VBA everywhere Office puts it:
 - **New file creation** covers Word documents and templates and PowerPoint
   presentations and templates, each seeded from a blank authored by its own
   application so the package content types are right.
+- **AI edits are reviewable.** When Copilot or another agent writes a
+  module through the XLIDE tools, a native before/after diff opens and the
+  XLIDE tree badges the module with inline keep and revert actions until
+  you decide - the review agents cannot show for their own tool edits.
+- **Module names in any language.** A Cyrillic, Greek, or CJK module name
+  works even when the project's ANSI code page cannot spell it, stored the
+  way Office itself stores such names and verified against live Excel.
+- **Faster on large modules.** On a 947 KB class module from the
+  benchmark corpus, semantic coloring per edit went from 72 ms to 15 ms,
+  a full diagnostics pass from 684 ms to 390 ms, and completion's
+  per-keystroke cost from 22 ms to under 2 ms.
 
 XLIDE gives Office VBA projects a modern VS Code workspace.
 
