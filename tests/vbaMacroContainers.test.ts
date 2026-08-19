@@ -480,3 +480,59 @@ describe('an Access database that has been edited and re-saved', () => {
 			.toContain('BigTally');
 	});
 });
+
+describe('the remaining containers nothing had exercised', () => {
+	it('.ppsm slideshows read and write like any PowerPoint package', () => {
+		const target = copyOf('PowerPointFixture.ppsm');
+		const before = listModules(target);
+		expect(before.map((module) => module.name)).toEqual(
+			expect.arrayContaining(['Module1', 'ZFixtureSetup']));
+		expect(readModule(target, 'Module1', true).source).toContain('ActivePresentation.Slides.');
+		writeModule(target, 'MAdded', 'Public Sub AddedProc()\r\nEnd Sub\r\n');
+		expect(listModules(target).map((module) => module.name)).toContain('MAdded');
+		expect(validateWorkbook(target).issues).toEqual([]);
+	});
+
+	it.each([
+		['blank.docm', ['ThisDocument', 'Module1']],
+		['blank.dotm', ['ThisDocument', 'Module1']],
+		['blank.pptm', ['Module1']],
+		['blank.potm', ['Module1']],
+	])('the %s template parses and accepts a module write', (template, expected) => {
+		const source = path.join(__dirname, '..', 'assets', 'templates', template);
+		const target = path.join(tempRoot, `seeded-${template}`);
+		fs.copyFileSync(source, target);
+		expect(listModules(target).map((module) => module.name))
+			.toEqual(expect.arrayContaining(expected));
+		writeModule(target, 'MSeeded', 'Public Sub Seeded()\r\nEnd Sub\r\n');
+		expect(listModules(target).map((module) => module.name)).toContain('MSeeded');
+		expect(validateWorkbook(target).issues).toEqual([]);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// The export APPLY over a Word form: the same writer the export command uses,
+// producing a real .frm/.frx pair on disk from a non-Excel container.
+
+import { exportWorkbookModules } from '../src/moduleExport';
+
+describe('exporting a Word document with a form writes the pair to disk', () => {
+	it('lands FrmNotice.frm and FrmNotice.frx beside the .bas/.cls files', async () => {
+		const exportFolder = path.join(tempRoot, 'word-form-export');
+		fs.mkdirSync(exportFolder, { recursive: true });
+		// A copy: the export writes a settings sidecar beside the file, and
+		// nothing may land beside the checked-in fixture.
+		const target = copyOf('WordFormFixture.docm');
+		await exportWorkbookModules(realServiceBridge(), {
+			filePath: target,
+			exportFolder,
+		});
+		const written = fs.readdirSync(exportFolder).sort();
+		expect(written).toEqual(expect.arrayContaining(
+			['FrmNotice.frm', 'FrmNotice.frx', 'Module1.bas', 'ThisDocument.cls']));
+		const frm = fs.readFileSync(path.join(exportFolder, 'FrmNotice.frm'), 'utf8');
+		expect(frm).toContain('OleObjectBlob');
+		expect(frm).toContain('Private Sub BtnClose_Click()');
+		expect(fs.statSync(path.join(exportFolder, 'FrmNotice.frx')).size).toBeGreaterThan(100);
+	});
+});

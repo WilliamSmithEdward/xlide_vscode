@@ -51,6 +51,7 @@ reference/
 !tests/fixtures/binaries/WordFormFixture.docm
 !tests/fixtures/binaries/PowerPointFixture.pptm
 !tests/fixtures/binaries/PowerPointFixture.ppt
+!tests/fixtures/binaries/PowerPointFixture.ppsm
 !tests/fixtures/binaries/XlsFixture.xls
 !tests/fixtures/binaries/AccessFixture.accdb
 !tests/fixtures/binaries/AccessFixture.mdb
