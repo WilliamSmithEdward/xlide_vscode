@@ -456,3 +456,27 @@ describe('repeated saves keep the .ppt persist machinery consistent', () => {
 		expect(validateWorkbook(target).issues).toEqual([]);
 	});
 });
+
+describe('an Access database that has been edited and re-saved', () => {
+	// Authored by editing a saved module through the VBE and saving again -
+	// the flow that can leave stale carrier rows behind. The reader must
+	// return the current content, never a stale version.
+	it.each([['AccessEditedFixture.accdb'], ['AccessEditedFixture.mdb']])(
+		'%s reads the edited module content',
+		(file) => {
+			const { source } = readModule(fixture(file), 'MShadow', true);
+			expect(source).toContain('second version, the one the reader must pick');
+			expect(source).not.toContain('first version');
+			expect(validateWorkbook(fixture(file)).issues).toEqual([]);
+		},
+	);
+
+	it('walks a chained module in the .mdb container too', () => {
+		const { source } = readModule(fixture('AccessEditedFixture.mdb'), 'MBig', true);
+		for (const step of [1, 400, 800]) {
+			expect(source).toContain(`step ${step} of the long fixture module`);
+		}
+		expect(listSubs(fixture('AccessEditedFixture.mdb'), 'MBig').map((sub) => sub.name))
+			.toContain('BigTally');
+	});
+});

@@ -54,5 +54,7 @@ reference/
 !tests/fixtures/binaries/XlsFixture.xls
 !tests/fixtures/binaries/AccessFixture.accdb
 !tests/fixtures/binaries/AccessFixture.mdb
+!tests/fixtures/binaries/AccessEditedFixture.accdb
+!tests/fixtures/binaries/AccessEditedFixture.mdb
 excel_test_workbook/
 .claude/

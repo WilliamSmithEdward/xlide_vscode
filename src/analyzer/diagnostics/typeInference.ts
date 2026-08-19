@@ -639,9 +639,7 @@ export function inferBareExternalObjectExpressionType(
 	if (runtimeCallableSourceShadowed(name, sourceNames)) {
 		return undefined;
 	}
-	const hostType = memberCtx
-		? resolveHostGlobal(name, memberCtx.model)
-		: resolveHostGlobal(name);
+	const hostType = resolveHostGlobal(name, memberCtx?.model);
 	if (hostType) {
 		return { type: hostType, label: `${name} As ${hostType}`, span };
 	}
