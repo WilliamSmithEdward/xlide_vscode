@@ -21,6 +21,7 @@ import type { VbaToken } from '../lexer/tokenKinds';
 import { tokenize } from '../lexer/tokenize';
 import { statementTokens as codeTokens, tokenName, tokenWord } from '../lexer/tokenHelpers';
 import { resolveHostGlobal } from '../host/hostModel';
+import type { HostObjectModel } from '../host/excelObjectModel';
 import {
 	resolveTypeName,
 	type TypeCompletion,
@@ -515,7 +516,7 @@ function collectModuleDeclaredNames(module: ModuleNode): Set<string> {
  * in-module declaration. The conservative gating keeps a local named the same
  * as a host global from being mis-colored.
  */
-export function collectHostGlobalTokens(source: string): TypeSemanticToken[] {
+export function collectHostGlobalTokens(source: string, model?: HostObjectModel): TypeSemanticToken[] {
 	const declared = collectModuleDeclaredNames(parseModule(source));
 	const tokens = tokenize(source).filter(
 		(t) => t.kind !== 'comment' && t.kind !== 'newline',
@@ -527,7 +528,10 @@ export function collectHostGlobalTokens(source: string): TypeSemanticToken[] {
 			continue;
 		}
 		const lower = tok.rawText.toLowerCase();
-		if (declared.has(lower) || !resolveHostGlobal(tok.rawText)) {
+		// Resolved against the module's own host model (issue #24): Word's
+		// ActiveDocument paints in a Word module, and Excel's ActiveSheet
+		// does not.
+		if (declared.has(lower) || !resolveHostGlobal(tok.rawText, model)) {
 			continue;
 		}
 		const prev = tokens[i - 1];

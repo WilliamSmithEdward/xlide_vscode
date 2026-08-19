@@ -22,6 +22,11 @@ import {
     type VbaProjectAnalysisOptions,
 } from './vbaProjectAnalysis';
 import { VbaProjectIndexService } from './vbaProjectIndexService';
+import {
+    hostObjectModelForToken,
+    hostTokenForFileName,
+} from './analyzer/host/hostRegistry';
+import type { HostObjectModel } from './analyzer/host/excelObjectModel';
 import { moduleIdentityKey } from './workbookIdentity';
 import { startPerformanceTrace } from './performanceTrace';
 
@@ -49,6 +54,8 @@ interface CachedTypeSemanticProjectTypes {
     implicitMembers?: VbaProjectAnalysisOptions['implicitMembers'];
     /** `MSForms.UserForm` when the module is a form, so `Me.Hide` paints. */
     meType?: string;
+    /** The container's host model; absent keeps the Excel default. */
+    hostModel?: HostObjectModel;
 }
 
 interface CachedTypeSemanticTokens {
@@ -112,7 +119,7 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
 
             const items = [
                 ...resolveTypeSemanticTokens(source, { projectTypes }),
-                ...collectHostGlobalTokens(source),
+                ...collectHostGlobalTokens(source, projectContext?.hostModel),
                 ...collectImplicitMemberMethodTokens(source, {
                     implicitMembers: projectContext?.implicitMembers,
                     meType: projectContext?.meType,
@@ -248,6 +255,7 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
                 projectTypes: options.projectTypes ?? [],
                 implicitMembers: options.implicitMembers,
                 meType: await this._userFormMeType(document, moduleName),
+                hostModel: hostModelForDocument(document),
             };
             this._projectTypesCache.set(key, entry);
             return entry;
@@ -257,6 +265,7 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
     }
 
     /** `MSForms.UserForm` when the document is a form's code-behind. */
+    // (see hostModelForDocument below for the host side)
     private async _userFormMeType(
         document: vscode.TextDocument,
         moduleName: string,
@@ -276,5 +285,17 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
         } catch {
             return undefined;
         }
+    }
+}
+
+/** The host model for the document's container; undefined keeps Excel defaults. */
+function hostModelForDocument(document: vscode.TextDocument): HostObjectModel | undefined {
+    if (document.uri.scheme !== XLIDE_SCHEME) {
+        return undefined;
+    }
+    try {
+        return hostObjectModelForToken(hostTokenForFileName(decodeModuleUri(document.uri).xlsmPath));
+    } catch {
+        return undefined;
     }
 }

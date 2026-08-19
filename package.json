@@ -1,7 +1,7 @@
 {
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
-  "description": "Excel VBA integration for VS Code - tree view, edit VBA modules, AI agent tools",
+  "description": "Office VBA integration for VS Code - Excel, Word, PowerPoint, and Access files; tree view, edit VBA modules, run unit tests, AI agent tools",
   "version": "3.8.0",
   "publisher": "WilliamSmithE",
   "icon": "assets/images/extension_logo.png",
@@ -101,7 +101,7 @@
             "warning",
             "information"
           ],
-          "description": "Global default analysis finding severities for workbooks that do not define a workbook-specific value for this setting."
+          "description": "Global default analysis finding severities for files that do not define a file-specific value for this setting."
         },
         "xlide.analysis.ruleSeverityOverrides": {
           "type": "object",
@@ -123,7 +123,7 @@
             "type": "string"
           },
           "default": [],
-          "description": "Global default analysis diagnostic rule codes hidden from tracking for workbooks that do not define a workbook-specific value for this setting."
+          "description": "Global default analysis diagnostic rule codes hidden from tracking for files that do not define a file-specific value for this setting."
         },
         "xlide.editor.blockLayout": {
           "type": "string",
@@ -560,7 +560,7 @@
       {
         "name": "xlide_getWorkbookInfo",
         "displayName": "Get Workbook Info",
-        "modelDescription": "Returns a combined one-shot summary of an Excel workbook: VBA modules (name + type), worksheets (name + used dimensions), and named ranges. Treat the workbook/XLIDE virtual modules as the source of truth for VBA. Use this as the first discovery call instead of calling xlide_listModules and xlide_listSheets separately.",
+        "modelDescription": "Returns a combined one-shot summary of a macro-enabled Office file: VBA modules (name + type), worksheets (name + used dimensions), and named ranges. Sheets and named ranges are populated for OOXML Excel workbooks only; for Word, PowerPoint, Access, and legacy .xls files those arrays are empty even though the file may have its own non-worksheet content. Treat the file/XLIDE virtual modules as the source of truth for VBA. Use this as the first discovery call instead of calling xlide_listModules and xlide_listSheets separately.",
         "toolReferenceName": "xlideGetWorkbookInfo",
         "canBeReferencedInPrompt": true,
         "inputSchema": {

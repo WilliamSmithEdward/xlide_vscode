@@ -1,5 +1,6 @@
 import type { WorkbookEngine } from './workbookEngine';
 import { checkExcelComAvailability, type ExcelComAvailabilityStatus } from './excelComAvailability';
+import { containerHostForPath } from './macroContainerUi';
 import { getVbaTestSupportStatus, type VbaTestSupportStatus } from './vbaTestSupportStatus';
 import {
     runWorkbookVbaTests,
@@ -47,7 +48,11 @@ export async function executeVbaTestRun(
     if (!support.canRun) {
         return { kind: 'blocked-support', support };
     }
-    const runtime = await checkExcelComAvailability();
+    const containerHost = containerHostForPath(filePath);
+    const probeHost = containerHost === 'word' || containerHost === 'powerpoint'
+        ? containerHost
+        : 'excel';
+    const runtime = await checkExcelComAvailability(process.platform, probeHost);
     if (!runtime.canRun) {
         return { kind: 'blocked-com', runtime };
     }

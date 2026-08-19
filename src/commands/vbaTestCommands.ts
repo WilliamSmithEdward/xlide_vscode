@@ -22,6 +22,7 @@ import { type VbaTestRunOptions } from '../vbaTestExecution';
 import { executeVbaTestRun } from '../vbaTestRunPipeline';
 import { openVbaTestResults, setVbaTestResultsRunning } from '../vbaTestResultsWebview';
 import { checkExcelComAvailability } from '../excelComAvailability';
+import { containerHostForPath } from '../macroContainerUi';
 import {
     openVbaTestsPanel,
     type VbaTestsRunFilterRequest,
@@ -216,9 +217,13 @@ export function registerVbaTestCommands(deps: CommandDeps): vscode.Disposable[] 
     }
 
     async function vbaTestsPanelModel(filePath: string): Promise<VbaTestsPanelModel> {
+        const containerHost = containerHostForPath(filePath);
+        const probeHost = containerHost === 'word' || containerHost === 'powerpoint'
+            ? containerHost
+            : 'excel';
         const [support, runtime, discovery] = await Promise.all([
             vbaTestSupportStatus(filePath),
-            checkExcelComAvailability(),
+            checkExcelComAvailability(process.platform, probeHost),
             vbaTestsDiscoveryStatus(filePath),
         ]);
         const lastFailed = lastFailedRunForWorkbook(filePath);

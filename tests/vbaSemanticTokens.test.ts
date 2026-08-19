@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
 import {
 	collectHostGlobalTokens,
 	ProjectIndex,
@@ -230,4 +231,25 @@ describe('host-global semantic tokens', () => {
 		expect(hostTokens('Sub T()\n    Dim Application As Long\n    Application = 1\nEnd Sub\n')).toEqual([]);
 		expect(hostTokens('Sub T(ByVal Application As Long)\n    x = Application\nEnd Sub\n')).toEqual([]);
 	});
+});
+
+describe('host-global tokens follow the module host (issue #24)', () => {
+    it('paints Word globals under the Word model and never Excel globals', () => {
+        const source = [
+            'Sub T()',
+            '    ActiveDocument.Save',
+            '    ActiveSheet.Calculate',
+            'End Sub',
+            '',
+        ].join('\r\n');
+        const wordNames = collectHostGlobalTokens(source, getWordObjectModel())
+            .map((token) => source.slice(token.span.start, token.span.end));
+        expect(wordNames).toContain('ActiveDocument');
+        expect(wordNames).not.toContain('ActiveSheet');
+
+        const excelNames = collectHostGlobalTokens(source)
+            .map((token) => source.slice(token.span.start, token.span.end));
+        expect(excelNames).toContain('ActiveSheet');
+        expect(excelNames).not.toContain('ActiveDocument');
+    });
 });

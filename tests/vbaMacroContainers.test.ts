@@ -442,3 +442,17 @@ describe('malformed containers fail honestly', () => {
 		expect(isAccessDatabase(data.subarray(0, 8191))).toBe(false);
 	});
 });
+
+describe('repeated saves keep the .ppt persist machinery consistent', () => {
+	it('survives three consecutive writes with the project intact', () => {
+		const target = copyOf('PowerPointFixture.ppt');
+		writeModule(target, 'MFirst', 'Public Sub One()\r\nEnd Sub\r\n');
+		writeModule(target, 'MSecond', 'Public Sub Two()\r\nEnd Sub\r\n');
+		writeModule(target, 'MFirst', 'Public Sub OneRewritten()\r\nEnd Sub\r\n');
+		const names = listModules(target).map((module) => module.name);
+		expect(names).toEqual(expect.arrayContaining(['Module1', 'CDeck', 'MFirst', 'MSecond']));
+		expect(readModule(target, 'MFirst', true).source).toContain('OneRewritten');
+		expect(readModule(target, 'Module1', true).source).toContain('ActivePresentation.Slides.');
+		expect(validateWorkbook(target).issues).toEqual([]);
+	});
+});
