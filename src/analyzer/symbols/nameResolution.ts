@@ -184,29 +184,62 @@ function projectLowerNames(symbols: readonly VbaSymbol[] | undefined): readonly 
 	return out;
 }
 
+// Merged module + project names, cached per (module root, project list)
+// pair. Every procedure shares the same base union; re-adding those names
+// into a fresh Set per procedure was ~40 ms of a full analysis pass on the
+// giant corpus class, so the base is built once and the per-procedure layer
+// stays as small as the procedure's own locals.
+const MERGED_BASE_NAMES = new WeakMap<VbaSymbol, WeakMap<object, ReadonlySet<string>>>();
+const NO_PROJECT_SYMBOLS: readonly VbaSymbol[] = [];
+
+function mergedBaseNames(
+	root: VbaSymbol,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+): ReadonlySet<string> {
+	const projectKey = projectVisibleSymbols ?? NO_PROJECT_SYMBOLS;
+	let byProject = MERGED_BASE_NAMES.get(root);
+	if (!byProject) {
+		byProject = new WeakMap();
+		MERGED_BASE_NAMES.set(root, byProject);
+	}
+	const cached = byProject.get(projectKey);
+	if (cached) {
+		return cached;
+	}
+	const out = new Set<string>(moduleLowerNames(root));
+	for (const lower of projectLowerNames(projectVisibleSymbols)) {
+		out.add(lower);
+	}
+	byProject.set(projectKey, out);
+	return out;
+}
+
+/**
+ * Membership view over every identifier name the source declares around a
+ * statement: the enclosing procedure's locals and return variable layered
+ * over the module- and project-level names. Only `has` is offered so the
+ * shared base set is never copied per procedure.
+ */
 export function sourceIdentifierNames(
 	input: Pick<
 		BareIdentifierResolutionInput,
 		'currentModule' | 'enclosingProcedure' | 'projectVisibleSymbols'
 	>,
-): Set<string> {
-	const out = new Set<string>();
+): { has(lowerName: string): boolean } {
+	const locals = new Set<string>();
 	const returnVariable = procedureReturnVariable(input.enclosingProcedure, 'expression');
 	if (returnVariable) {
-		out.add(returnVariable.name.toLowerCase());
+		locals.add(returnVariable.name.toLowerCase());
 	}
 	for (const symbol of input.enclosingProcedure?.children ?? []) {
 		if (isLocalIdentifierSymbol(symbol)) {
-			out.add(symbol.name.toLowerCase());
+			locals.add(symbol.name.toLowerCase());
 		}
 	}
-	for (const lower of moduleLowerNames(input.currentModule.root)) {
-		out.add(lower);
-	}
-	for (const lower of projectLowerNames(input.projectVisibleSymbols)) {
-		out.add(lower);
-	}
-	return out;
+	const base = mergedBaseNames(input.currentModule.root, input.projectVisibleSymbols);
+	return {
+		has: (lowerName: string): boolean => locals.has(lowerName) || base.has(lowerName),
+	};
 }
 
 function procedureReturnVariable(

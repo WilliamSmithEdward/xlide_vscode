@@ -508,7 +508,7 @@ export interface SourceNameScope {
 	 * Any source-backed identifier visible in the current procedure. These block
 	 * runtime fallback once source/project callable signatures have not resolved.
 	 */
-	runtimeShadows: ReadonlySet<string>;
+	runtimeShadows: { has(lowerName: string): boolean };
 }
 
 export function sourceNameScopeFor(

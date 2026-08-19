@@ -72,6 +72,16 @@ its own Office application.
   the meantime; a rename carries the pending review to the new name.
   Controlled by `xlide.agent.showWriteDiffs`.
 
+- **The analyzer got measurably faster on large modules.** Profiling
+  against the real-workbook corpus found the editor surfaces re-lexing text
+  the caches already held: the semantic-token pass dropped from 72 ms to
+  15 ms per edit on a 947 KB class module, and a full diagnostics pass on
+  the same module dropped from 684 ms to 396 ms. One statement-token cache
+  now serves every analyzer surface, its lookups use integer keys instead
+  of allocating a string per call, and identifier-shadow checks layer each
+  procedure's locals over one shared module-plus-project name set instead
+  of rebuilding the union per procedure.
+
 - **One VBA test run at a time.** The Tests panel, the command palette, and
   the agent tool share one run pipeline, and nothing serialized them:
   reopening the Tests panel mid-run reset its buttons, so a second
