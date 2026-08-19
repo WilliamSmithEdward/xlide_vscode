@@ -734,7 +734,7 @@ function analysisRuleTrackingStatusLabel(source: 'tracked' | 'workbook' | 'globa
         case 'tracked':
             return 'Tracked';
         case 'workbook':
-            return 'Untracked In Workbook';
+            return 'Untracked In File';
         case 'global':
             return 'Untracked Globally';
     }

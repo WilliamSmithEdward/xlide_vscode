@@ -2,6 +2,80 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [4.0.0] - Unreleased
+
+XLIDE opens the workspace to VBA everywhere Office puts it. Until now the
+extension read one container family; 4.0.0 reads eight and writes six, each
+decided from file content rather than the extension, and each verified by
+its own Office application.
+
+### Added
+
+- **Word, PowerPoint, and Access files open natively.** `.docm`/`.dotm`,
+  `.pptm`/`.potm`/`.ppsm`, and read-only `.accdb`/`.mdb` join the Excel
+  formats in the explorer, the sidebar, the editor, and the agent tools.
+  Legacy binary containers are read too: `.doc` and `.xls` are compound
+  files whose VBA storage the parser already understood, and `.ppt` holds
+  its project as a zlib-compressed storage inside the `PowerPoint Document`
+  stream, located through the persist chain. Access databases are read by
+  a native Jet/ACE page reader that reassembles the project's streams from
+  LVAL rows and chains; no Office install is involved anywhere.
+
+- **Writes cover every container whose write path is sound.** Word and
+  PowerPoint documents save the way workbooks do: OOXML packages splice the
+  vbaProject part, `.doc`/`.xls` re-serialize the compound file, and `.ppt`
+  rebuilds its embedded record and shifts the persist directories, the
+  user-edit chain, and the CurrentUserAtom. Every write path was certified
+  live: the real application opened the written file, compiled its project,
+  and exported the injected module back out. Access stays read-only for a
+  stated reason - Access executes compiled p-code, so source edits there
+  cannot take effect - and its explorer nodes drop the write menus while
+  its modules open with the editor's read-only lock.
+
+- **The analyzer knows which host it is in.** Word (364 types, 5,808
+  members), PowerPoint (201 types, 2,658 members), and Access (188 types,
+  6,526 members) object models are generated from the COM type libraries
+  with Microsoft Learn documentation, and the container's host token rides
+  every analysis surface: live diagnostics, file analysis, the worker
+  protocol, completion, hover, and signature help. `Me` in `ThisDocument`
+  is `Word.Document`. `wdMainTextStory` folds as a constant in a Word
+  module and stays an unknown name in a workbook; `xlLandscape` the
+  reverse. `ThisDocument` offers Word's `Document_*` event stubs, and
+  Excel's `Workbook_*` stubs never appear outside Excel.
+
+- **Unit tests run in Word and PowerPoint.** The owned read-only test host
+  is parameterized per application, with each host's measured quirks
+  handled: Word resolves `Module.Proc` run references and requires `[ref]`
+  argument marshaling, PowerPoint cannot hide its window and opens the
+  presentation windowless instead, and both keep the modal watcher,
+  ownership proof, and kill-on-close job the Excel host already had.
+  Because Word surfaces a run target's unhandled error as a VBE modal
+  instead of propagating it, `XlideAssert.Throws`/`DoesNotThrow` now run
+  targets through a staged direct-call dispatcher that reports outcomes as
+  values, which behaves identically in all three hosts.
+
+- **UserForms beyond Excel.** A form in a Word document is classified,
+  its designer-declared controls feed completion, it exports as a
+  `.frm`/`.frx` pair, and the designer writes back - all through the same
+  native MS-OFORMS machinery, proven against a form authored by Word's own
+  VBE.
+
+- **New file creation** for Word documents/templates and PowerPoint
+  presentations/templates, seeded from blanks authored by their own
+  applications. Formats that cannot hold the requested content refuse with
+  the reason: legacy formats, `.ppsm` slideshows, non-macro formats, and
+  Access databases.
+
+### Changed
+
+- Commands and messages that now cover more than workbooks say "file":
+  Analyze File, Open File Settings, discovery and lock messages name the
+  application that actually holds the file. Excel-specific surfaces keep
+  their workbook wording.
+- The `.frm`/`.frx` export pair produced natively in 3.7.0 is now accepted
+  by Excel itself: the VBE imports the composed pair with all controls
+  live in the designer, compiles, and round-trips it back out.
+
 ## [3.8.0] - 2026-08-13
 
 ### Added
@@ -791,7 +865,7 @@ _Note: v2.5.12 was tagged but never published; its fixes ship with this release.
 
 - **A procedure closed with the wrong `End` keyword is now a warning, not an
   error.** VBE accepts `End Sub`/`End Function`/`End Property` interchangeably as
-  procedure closers (oracle-verified: `Property Get … End Function` compiles), so
+  procedure closers (oracle-verified: `Property Get ... End Function` compiles), so
   this is a style mismatch rather than a missing-closer compile error. The new
   `mismatched-end-keyword` warning fires on the opening line, the procedure is
   still treated as closed, and the existing quick-fix swaps the keyword to match
@@ -816,7 +890,7 @@ LibJSON drops from 2 reported errors to 0.
 - **A boolean `#Const` now compares equal to its VBA numeric value** (`False = 0`,
   `True = -1`). Conditions such as `#Const Windows = (Mac = 0)` and
   `#If Windows And (TWINBASIC = 0)` previously mis-evaluated (a boolean was never
-  equal to `0`), which could deactivate a live branch and hide its declarations —
+  equal to `0`), which could deactivate a live branch and hide its declarations -
   surfacing as a false `unknown-call` for a procedure defined inside it. Both are
   VBE-oracle verified.
 
@@ -831,7 +905,7 @@ errors to 2), all VBE-oracle verified.
 - **Hidden VBA built-ins are no longer reported as undeclared.** The runtime
   catalog gained the pointer functions `VarPtr`/`StrPtr`/`ObjPtr`, the
   byte-string family `LenB`/`LeftB`/`RightB`/`MidB`/`InStrB`/`AscB`/`ChrB` (and
-  their `$` variants), and the `vbLongLong` `VbVarType` constant — all real,
+  their `$` variants), and the `vbLongLong` `VbVarType` constant - all real,
   always-available built-ins that VBE compiles under `Option Explicit`.
 - **`scalar-redim` no longer flags a member-array ReDim.** `ReDim x.arr(...)`
   (or `x!arr(...)`) resizes the dynamic-array *member*, not the container `x`;
@@ -866,10 +940,10 @@ real stdVBA modules, each adjudicated against the Excel/VBE oracle.
 
 - **`set-required` is reclassified from a compile error to a deterministic
   runtime error (Run-time error 91).** A bare assignment to an object target
-  (`obj = …` without `Set`) compiles cleanly and fails only when it executes —
+  (`obj = ...` without `Set`) compiles cleanly and fails only when it executes -
   VBE-oracle verified across `= Null`, `= New`, and Function-return-name
   assignment. The finding itself is unchanged (it is still a real bug, e.g.
-  `protGetNextDescendent = Null` should be `Set … = Nothing`); only its evidence
+  `protGetNextDescendent = Null` should be `Set ... = Nothing`); only its evidence
   label is corrected, matching `object-variable-not-set`. The rule may now be
   downgraded to a warning via settings.
 
@@ -889,7 +963,7 @@ A correctness patch for the diagnostics engine.
 - **`module-declaration-in-procedure` no longer suppresses a module's entire
   diagnostic output.** When a comment-only line was the first statement after a
   conditional-compilation directive (`#If` / `#Else` / `#End If`) inside a
-  procedure body — a common 32/64-bit pattern — the rule's alternative-header
+  procedure body - a common 32/64-bit pattern - the rule's alternative-header
   probe tokenized the line to an empty list and threw a `TypeError`. Because
   `analyzeModule` converts any rule exception into an empty result, that single
   throw silently discarded **every** diagnostic for the affected module, not just
@@ -904,7 +978,7 @@ Version 2.5.0 builds on the v2.4.0 static-analysis baseline with two goals, both
 reaching their definition of done: completing the MS-VBAL §5.6 expression binder
 and cashing it in for binder-dependent diagnostics, and finishing the
 syntax-corpus mining so no source file is left un-dispositioned. The same
-no-false-positive discipline applies — every shipped red has positive, negative,
+no-false-positive discipline applies - every shipped red has positive, negative,
 and no-diagnostic controls plus a named evidence source (MS-VBAL, the Excel/VBE
 oracle, or deterministic XLIDE metadata), and anything not provable stays quiet
 and is deferred with a documented reason. The TypeScript suite grew to 2,071
@@ -914,8 +988,8 @@ See `docs/static_analysis_completeness_2.5.0.md` for the auditable record.
 ### Added
 
 - **`argument-shape-mismatch`** (compile-error): a bare array variable or
-  same-module user-defined `Type` value passed where a parameter is a scalar — or
-  a scalar (including `Variant`) passed where a parameter is declared an array —
+  same-module user-defined `Type` value passed where a parameter is a scalar - or
+  a scalar (including `Variant`) passed where a parameter is declared an array -
   is a VBE compile error. The rule decides on declared shape only, never
   element-type coercion; it is oracle-verified across 9 cases and is disjoint from
   `byref-argument-type-mismatch`.
@@ -932,7 +1006,7 @@ See `docs/static_analysis_completeness_2.5.0.md` for the auditable record.
 - **Flow precision**: the shared dataflow now merges `If`/`ElseIf`/`Else` branch
   arms, so `object-variable-not-set` (Run-time error 91) and
   `unallocated-dynamic-array-access` (Run-time error 9) check accesses inside
-  balanced `If` arms — conservatively falling back on any label, `GoTo`,
+  balanced `If` arms - conservatively falling back on any label, `GoTo`,
   `On Error`, or loop. Default-member (`VB_UserMemId`) matching is now a
   deterministic numeric parse against a named DISPID constant.
 - **Syntax corpus fully mined**: every remaining `mining` source file is
@@ -951,14 +1025,14 @@ See `docs/static_analysis_completeness_2.5.0.md` for the auditable record.
 ### Removed
 
 - The one-time popup recommending users disable AI inline (ghost-text) completions
-  for XLIDE VBA modules. XLIDE now coexists with inline suggestions — the `smartTab`
-  keybinding yields to a visible suggestion so `Tab` accepts the ghost text — so
+  for XLIDE VBA modules. XLIDE now coexists with inline suggestions - the `smartTab`
+  keybinding yields to a visible suggestion so `Tab` accepts the ghost text - so
   the recommendation was obsolete.
 
 ### Deferred (documented)
 
 - The comparison / Boolean / string-concatenation scalar-coercion matrix, Date
-  coercion, and default-member-aware diagnostics — VBA coerces these at runtime,
+  coercion, and default-member-aware diagnostics - VBA coerces these at runtime,
   so no no-false-positive compile red is provable. Numeric/host boundary overflow
   and flow phase 2 (definite assignment) remain oracle- / binder-gated. See the
   completeness report.
@@ -968,7 +1042,7 @@ See `docs/static_analysis_completeness_2.5.0.md` for the auditable record.
 Version 2.4.0 is the static-analysis completeness release. It closes the
 evidence-led completeness sprint: every shipped diagnostic now has positive,
 negative, and no-diagnostic (no-false-positive) controls plus a named evidence
-source — MS-VBAL, the Excel/VBE oracle, or deterministic XLIDE metadata — and
+source - MS-VBAL, the Excel/VBE oracle, or deterministic XLIDE metadata - and
 everything that cannot be proven without the expression binder or further oracle
 mapping is explicitly deferred with a documented reason. The release ships with
 an auditable completeness record (`docs/static_analysis_completeness_2.4.0.md`).

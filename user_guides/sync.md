@@ -1,32 +1,35 @@
 # XLIDE Import and Export
 
-XLIDE can synchronize workbook VBA modules with ordinary `.bas` and `.cls`
+XLIDE can synchronize a file's VBA modules with ordinary `.bas` and `.cls`
 files. Use this when you want Git history, code review, backups, or external
-tooling over module text.
+tooling over module text. Every macro container exports - workbooks,
+documents, presentations, and Access databases alike; import applies to the
+writable containers (Access is export-only, because Access executes compiled
+p-code and source writes there could not take effect).
 
-For normal editing, the workbook and `xlide-vba` editor documents remain the
-source of truth. Open modules from the XLIDE workbook tree, edit in VS Code, and
-save with Ctrl+S. Exported files are sync artifacts unless you explicitly import
-them back into a workbook.
+For normal editing, the file and `xlide-vba` editor documents remain the
+source of truth. Open modules from the XLIDE tree, edit in VS Code, and
+save with Ctrl+S. Exported files are sync artifacts unless you explicitly
+import them back.
 
-Import/export is workbook-scoped. If your VS Code project contains multiple
-workbooks, choose the target workbook in the XLIDE tree or run the command from
-an open module in that workbook. The preview, settings sidecar, apply action,
-and any workbook writes belong to that one selected workbook.
+Import/export is file-scoped. If your VS Code project contains multiple
+macro files, choose the target in the XLIDE tree or run the command from
+an open module in that file. The preview, settings sidecar, apply action,
+and any writes belong to that one selected file.
 
 ## When to Use Sync
 
 Import/export is useful for:
 
-- putting workbook code under source control
+- putting VBA code under source control
 - reviewing VBA changes in normal file diffs
-- backing up all workbook modules to a folder
-- applying a reviewed batch of `.bas` or `.cls` file edits back into a workbook
-- letting external tools inspect module text without opening the workbook
+- backing up all of a file's modules to a folder
+- applying a reviewed batch of `.bas` or `.cls` file edits back into the file
+- letting external tools inspect module text without opening the file
 
-Import/export uses XLIDE's built-in workbook engine and does not require Excel COM.
-Excel COM is only required for workflows that execute VBA, such as running
-macros or workbook tests.
+Import/export uses XLIDE's built-in engine and does not require Office COM.
+Office COM is only required for workflows that execute VBA, such as running
+macros or unit tests.
 
 ## Export Workbook Modules
 

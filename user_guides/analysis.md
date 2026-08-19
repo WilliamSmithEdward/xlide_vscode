@@ -14,12 +14,12 @@ Use one of these entry points:
 
 - Live diagnostics in open `xlide-vba` editors.
 - **Analyze Current Module** from the editor context menu or command palette.
-- **Analyze Workbook** from the workbook tree or XLIDE Activity Bar/sidebar.
+- **Analyze File** from the file tree or XLIDE Activity Bar/sidebar.
 - `xlide_analyzeWorkbook` from an AI-agent workflow.
 
-Workbook analysis opens a dedicated results panel. It groups findings by module,
+File analysis opens a dedicated results panel. It groups findings by module,
 shows counts, supports severity filters, can show suppressed diagnostics, and
-links each finding back to the workbook module and source line.
+links each finding back to the module and source line.
 
 ## Understand Results
 
@@ -36,31 +36,31 @@ Common result meanings:
 - **Suppressed** - the diagnostic exists, but a source suppression comment hides
   it from the active result set.
 - **Untracked** - the rule is intentionally hidden from tracking globally or for
-  this workbook.
+  this file.
 
 ## Filter And Track Rules
 
-The analysis results panel is the safest place to change workbook analysis
-visibility. It preserves setting provenance and writes workbook-specific choices
-to the workbook sidecar only when you choose a workbook-scoped action.
+The analysis results panel is the safest place to change analysis
+visibility. It preserves setting provenance and writes file-specific choices
+to the file's sidecar only when you choose a file-scoped action.
 
 Use these actions when available:
 
-- **Untrack In Workbook** - writes the selected diagnostic code to
-  `<workbook>.xlide_settings.json`.
+- **Untrack In File** - writes the selected diagnostic code to
+  `<file>.xlide_settings.json`.
 - **Untrack Globally** - writes the selected diagnostic code to the global
   machine/profile setting `xlide.analysis.untrackedRules`.
 - Severity controls - use guarded `xlide.analysis.ruleSeverityOverrides` values
   where the rule allows it.
 
-Global defaults live in VS Code machine/profile settings. Workbook overrides
-live beside the workbook in:
+Global defaults live in VS Code machine/profile settings. Per-file overrides
+live beside the file in:
 
 ```text
-<workbook>.xlide_settings.json
+<file>.xlide_settings.json
 ```
 
-Example workbook analysis settings:
+Example per-file analysis settings:
 
 ```json
 {
@@ -143,7 +143,7 @@ directives.
 
 Use **filters** when you only want to inspect part of a result set.
 
-Use **Untrack In Workbook** when a rule is not useful for one workbook.
+Use **Untrack In File** when a rule is not useful for one file.
 
 Use **Untrack Globally** when a rule is not useful for your machine/profile.
 
@@ -162,7 +162,7 @@ If a diagnostic does not disappear:
 - Check the diagnostic code spelling in the results panel.
 - Check whether the directive applies to the right scope.
 - Check the analysis results panel for directive diagnostics.
-- Fix malformed `<workbook>.xlide_settings.json` files before expecting workbook
+- Fix malformed `<file>.xlide_settings.json` files before expecting per-file
   overrides to apply.
 
 If you are unsure whether to suppress a finding, leave it visible and use

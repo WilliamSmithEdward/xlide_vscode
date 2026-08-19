@@ -1,8 +1,11 @@
-# Testing VBA Workbooks
+# Testing VBA Projects
 
-XLIDE can discover and run workbook tests that you write in normal VBA modules.
-Tests run in Excel through COM so they exercise the same runtime your workbook
-uses.
+XLIDE can discover and run VBA tests that you write in normal modules.
+Tests run through COM in the file's own application - Excel for workbook
+formats, Word for documents, PowerPoint for presentations - so they exercise
+the same runtime your file uses. Access files cannot run tests: Access
+executes compiled p-code, so the staged runner module cannot execute there,
+and XLIDE says so instead of failing obscurely.
 
 ## Write Tests
 
@@ -148,17 +151,21 @@ cleanup semantics are fully specified.
 
 ## Run Tests
 
-Use the XLIDE Unit Tests workbook action or the workbook-tree Unit Tests context
-menu to open the Tests GUI for the selected workbook. Install or update the
-bundled `XlideAssert.bas` support module from that GUI first; run buttons stay
+Use the XLIDE Unit Tests action or the file-tree Unit Tests context menu to
+open the Tests GUI for the selected file. Install or update the bundled
+`XlideAssert.bas` support module from that GUI first; run buttons stay
 disabled until the installed module matches the version bundled with XLIDE.
-The GUI also checks for Microsoft Excel COM registration before enabling runs.
-That check does not launch Excel.
+The GUI also checks for Office COM registration before enabling runs. That
+check does not launch any Office application.
 
-Runs execute against a temporary copy of the workbook in an XLIDE-owned Excel
-instance. XLIDE injects a transient test dispatcher into that copy so ordinary
-VBA runtime errors are reported as failed tests without requiring "Trust access
-to the VBA project object model" through COM. The original workbook is not
+Runs execute against a temporary copy of the file in an XLIDE-owned instance
+of the file's own application: Excel for workbook formats, Word for
+documents, PowerPoint for presentations. XLIDE injects a transient test
+dispatcher into that copy so ordinary VBA runtime errors are reported as
+failed tests without requiring "Trust access to the VBA project object model"
+through COM - including in Word, which surfaces a run target's unhandled
+error as a modal dialog rather than propagating it; the dispatcher runs
+targets as direct calls so every host behaves alike. The original file is not
 modified by the run.
 
 The Tests GUI runs all discovered tests, checked tests from the discovered test
@@ -171,57 +178,61 @@ panel.
 
 Command palette and automation surfaces use the same runner:
 
-- `XLIDE: Run VBA Tests` opens the workbook Tests GUI.
+- `XLIDE: Run VBA Tests` opens the Tests GUI for the selected file.
 - `XLIDE: Run VBA Tests With Options` prompts for include/exclude tag filters.
 - `XLIDE: Run VBA Tests In Current Module` runs marked tests in the active
-  workbook module.
+  module.
 - `XLIDE: Run VBA Test At Cursor` runs the marked test under the editor cursor.
 - The `xlide_runVbaTests` AI-agent tool runs headless and writes the same
   artifacts as the GUI.
 
-By default XLIDE creates one XLIDE-owned Excel instance, opens the workbook
+By default XLIDE creates one XLIDE-owned application instance, opens the file
 read-only, runs the selected tests, closes without saving, and cleans up the
-owned Excel process. It does not attach to your normal Excel session by default.
-Test execution uses Excel COM to run macros, but it does not require Excel's
-"Trust access to the VBA project object model" setting. Support-module install
-and temporary test-host injection use XLIDE's workbook module I/O rather than
-COM `VBProject` automation.
+owned process. It never attaches to your running Office session: ownership is
+proven before any setting is touched, and a single-instance host (PowerPoint)
+that hands back your own running application is refused with its settings
+untouched. PowerPoint cannot hide its application window, so its runs show an
+empty application frame; the presentation itself opens windowless. Test
+execution uses COM to run macros, but it does not require the "Trust access
+to the VBA project object model" setting. Support-module install and
+temporary test-host injection use XLIDE's native module I/O rather than COM
+`VBProject` automation.
 
 > Note: XLIDE's internal developer-only Excel/VBE oracle is different from the
-> production workbook unit-test runner. The internal oracle can require Excel's
+> production unit-test runner. The internal oracle can require Excel's
 > "Trust access to the VBA project object model" setting because it creates
-> disposable VBE modules to verify language behavior. Running workbook unit
-> tests through XLIDE should not require users to enable that setting.
+> disposable VBE modules to verify language behavior. Running unit tests
+> through XLIDE should not require users to enable that setting.
 
 ## Results And Artifacts
 
 Results include passed, failed, skipped, expected-failure, unexpected-pass,
 timeout, and host-error outcomes. Assertion failures from the bundled
 `XlideAssert.bas` module show concise assertion details in the results view
-instead of raw Excel automation stack output. Each run writes artifacts beside
-the workbook under the default `tests` folder:
+instead of raw automation stack output. Each run writes artifacts beside
+the file under the default `tests` folder:
 
 ```text
 tests/
-  workbook_name_yyyy-mm-dd_hhmmss/
+  file_name_yyyy-mm-dd_hhmmss/
     summary.json
     host-trace.json
     output.log
   status_for_ci.json
 ```
 
-`summary.json` is the complete report. `host-trace.json` captures the Excel host
+`summary.json` is the complete report. `host-trace.json` captures the host
 lifecycle. `output.log` is a readable transcript. `status_for_ci.json` is
 overwritten on each run with compact latest-run metadata for downstream CI.
 `summary.json` includes every discovered test result, status, duration, failure
 message, metadata, and `XlideAssert.WriteLine` output. `status_for_ci.json`
 keeps only deterministic CI-oriented metadata: schema version, pass/fail/error
-status, reason, run id, generated timestamp, workbook name, relative artifact
+status, reason, run id, generated timestamp, file name, relative artifact
 paths, counts, duration, host summary, and failed test identities. It omits line
 and column numbers until exact failure locations are deterministic.
 
-To change the artifact folder or retention policy for one workbook, edit the
-workbook sidecar file `<workbook>.xlide_settings.json`:
+To change the artifact folder or retention policy for one file, edit its
+sidecar `<file>.xlide_settings.json`:
 
 ```json
 {
@@ -232,20 +243,21 @@ workbook sidecar file `<workbook>.xlide_settings.json`:
 }
 ```
 
-`artifactFolder` may be relative to the workbook directory or absolute.
+`artifactFolder` may be relative to the file's directory or absolute.
 `artifactRetention` keeps the newest matching XLIDE run directories for that
-workbook. Cleanup only targets generated run folders that contain `summary.json`;
+file. Cleanup only targets generated run folders that contain `summary.json`;
 unrelated folders in the output directory are left alone.
 
-The `xlide_runVbaTests` AI agent tool uses the same artifact writer and workbook
+The `xlide_runVbaTests` AI agent tool uses the same artifact writer and per-file
 test settings as the Tests GUI. When an agent run is not blocked by setup or
-Excel availability, its JSON response includes an `artifacts` object with the
-run directory, `status_for_ci.json` path, effective artifact settings, and the
-latest CI status payload.
+application availability, its JSON response includes an `artifacts` object with
+the run directory, `status_for_ci.json` path, effective artifact settings, and
+the latest CI status payload.
 
 ## Current Limitations
 
-Excel COM execution is Windows-only. The public test contract currently runs
-explicitly marked zero-argument `Sub` procedures in standard modules. Hook-style
-setup/teardown directives, deterministic compile-error preflight, and richer
-suite-level lifecycle controls remain planned hardening work.
+Office COM execution is Windows-only. Access files cannot host test runs
+(compiled p-code, stated above). The public test contract currently runs
+explicitly marked zero-argument `Sub` procedures in standard modules.
+Hook-style setup/teardown directives, deterministic compile-error preflight,
+and richer suite-level lifecycle controls remain planned hardening work.

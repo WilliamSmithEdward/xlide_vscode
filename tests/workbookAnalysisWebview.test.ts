@@ -105,9 +105,9 @@ describe('workbook analysis webview', () => {
 
         expect(html).toContain('data-context-action="setRuleTrackingWorkbook"');
         expect(html).toContain('data-context-action="setRuleTrackingGlobal"');
-        expect(html).toContain('Untrack In Workbook');
+        expect(html).toContain('Untrack In File');
         expect(html).toContain('Untrack Globally');
-        expect(html).toContain('Track In Workbook');
+        expect(html).toContain('Track In File');
         expect(html).toContain('Track Globally');
         expect(html).toContain('Workbook Untracked Rules');
         expect(html).toContain('No workbook rules are manually untracked.');
@@ -203,7 +203,7 @@ describe('workbook analysis webview', () => {
             },
         );
 
-        expect(html).toContain('Untracked In Workbook');
+        expect(html).toContain('Untracked In File');
         expect(html).toContain('data-tracked="no"');
         expect(html).toContain('data-tracking-source="workbook"');
         expect(html).toContain('<td class="settingsTableCode">undeclared-variable</td>');

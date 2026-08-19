@@ -22,7 +22,7 @@ Treat this as an operating policy for software changes.
 
 Priority order:
 
-1. The user’s explicit task.
+1. The user's explicit task.
 2. Repository-specific instructions such as `AGENTS.md`, `CLAUDE.md`, `.github/copilot-instructions.md`, `CONTRIBUTING.md`, or local docs.
 3. Existing project architecture and style.
 4. This guide.
@@ -87,7 +87,7 @@ In the final response or commit/PR description, include:
 
 # Research-Gated Practices
 
-## RG-01 — Make small, focused changes
+## RG-01 - Make small, focused changes
 
 **Core rule:** One task should produce one coherent change. Split unrelated work.
 
@@ -107,14 +107,14 @@ In the final response or commit/PR description, include:
 
 **Bad smells:**
 
-- “While I was here” edits.
+- "While I was here" edits.
 - Broad rewrites for a narrow bug.
 - Large formatting churn mixed with logic changes.
 - Multiple unrelated bug fixes in one patch.
 
 ---
 
-## RG-02 — Require reviewable code before merge
+## RG-02 - Require reviewable code before merge
 
 **Core rule:** Code should be easy for another person or agent to review before it is merged.
 
@@ -142,7 +142,7 @@ In the final response or commit/PR description, include:
 
 ---
 
-## RG-03 — Validate every meaningful change
+## RG-03 - Validate every meaningful change
 
 **Core rule:** Every non-trivial change needs deterministic validation.
 
@@ -163,14 +163,14 @@ In the final response or commit/PR description, include:
 
 **Bad smells:**
 
-- “Looks good” without running checks.
+- "Looks good" without running checks.
 - Only testing unrelated paths.
 - Ignoring flaky or failing tests without explanation.
 - Relying on manual inspection for behavior that can be tested.
 
 ---
 
-## RG-04 — Treat tests as behavior contracts
+## RG-04 - Treat tests as behavior contracts
 
 **Core rule:** Tests should specify important behavior and protect against regressions.
 
@@ -198,7 +198,7 @@ In the final response or commit/PR description, include:
 
 ---
 
-## RG-05 — Prefer simplicity over unnecessary generality
+## RG-05 - Prefer simplicity over unnecessary generality
 
 **Core rule:** Solve the actual problem cleanly. Do not build speculative systems for imagined future needs.
 
@@ -220,13 +220,13 @@ In the final response or commit/PR description, include:
 **Bad smells:**
 
 - Factories, strategies, adapters, or plugins with one implementation and no current need.
-- Parameters added only because “maybe later.”
+- Parameters added only because "maybe later."
 - Code paths that cannot be reached.
 - Complex generic code replacing simple direct logic.
 
 ---
 
-## RG-06 — Use clear names and consistent style
+## RG-06 - Use clear names and consistent style
 
 **Core rule:** Code should communicate intent through names, structure, and consistent conventions.
 
@@ -254,7 +254,7 @@ In the final response or commit/PR description, include:
 
 ---
 
-## RG-07 — Define explicit contracts and stable interfaces
+## RG-07 - Define explicit contracts and stable interfaces
 
 **Core rule:** Boundaries between modules, services, APIs, and tools should be explicit and testable.
 
@@ -282,7 +282,7 @@ In the final response or commit/PR description, include:
 
 ---
 
-## RG-08 — Treat documentation as part of the deliverable
+## RG-08 - Treat documentation as part of the deliverable
 
 **Core rule:** If behavior, setup, architecture, commands, or APIs change, documentation should change with the code.
 
@@ -310,7 +310,7 @@ In the final response or commit/PR description, include:
 
 ---
 
-## RG-09 — Practice version-control hygiene
+## RG-09 - Practice version-control hygiene
 
 **Core rule:** The repository history should help future debugging, review, and rollback.
 
@@ -331,16 +331,16 @@ In the final response or commit/PR description, include:
 
 **Bad smells:**
 
-- “misc fixes” commits.
+- "misc fixes" commits.
 - Formatting changes mixed with behavior changes.
 - Large unrelated snapshots.
 - Commit messages that only repeat file names.
 
 ---
 
-## RG-10 — Manage dependencies and supply-chain risk
+## RG-10 - Manage dependencies and supply-chain risk
 
-**Core rule:** Dependencies are part of the system’s attack surface and maintenance burden.
+**Core rule:** Dependencies are part of the system's attack surface and maintenance burden.
 
 **Agent behavior:**
 
@@ -356,7 +356,7 @@ In the final response or commit/PR description, include:
 - Each dependency has a clear purpose.
 - Known vulnerabilities are addressed or explicitly accepted with rationale.
 - Dependency changes are isolated and reviewable.
-- Builds are reproducible enough for the project’s risk level.
+- Builds are reproducible enough for the project's risk level.
 
 **Bad smells:**
 
@@ -367,7 +367,7 @@ In the final response or commit/PR description, include:
 
 ---
 
-## RG-11 — Keep configuration and secrets out of source code
+## RG-11 - Keep configuration and secrets out of source code
 
 **Core rule:** Config should be externalized; secrets should never be hardcoded or committed.
 
@@ -395,7 +395,7 @@ In the final response or commit/PR description, include:
 
 ---
 
-## RG-12 — Use secure-by-design defaults
+## RG-12 - Use secure-by-design defaults
 
 **Core rule:** Security should be built into normal design, not patched on after the fact.
 
@@ -424,7 +424,7 @@ In the final response or commit/PR description, include:
 
 ---
 
-## RG-13 — Build observability into important flows
+## RG-13 - Build observability into important flows
 
 **Core rule:** Production behavior should be diagnosable from emitted signals.
 
@@ -446,13 +446,13 @@ In the final response or commit/PR description, include:
 **Bad smells:**
 
 - Silent failure paths.
-- Logs that say only “failed.”
+- Logs that say only "failed."
 - High-volume debug noise in normal operation.
 - Secrets, tokens, or raw credentials in logs.
 
 ---
 
-## RG-14 — Refactor safely and deliberately
+## RG-14 - Refactor safely and deliberately
 
 **Core rule:** Refactoring should improve internal structure without changing external behavior.
 
@@ -473,14 +473,14 @@ In the final response or commit/PR description, include:
 
 **Bad smells:**
 
-- “Cleanup” that changes behavior accidentally.
+- "Cleanup" that changes behavior accidentally.
 - Large rewrites without tests.
 - New abstractions that make the code harder to follow.
 - Mixing unrelated refactors with feature changes.
 
 ---
 
-## RG-15 — Use CI as a quality gate
+## RG-15 - Use CI as a quality gate
 
 **Core rule:** Automated checks should run consistently before code is considered mergeable.
 
@@ -508,7 +508,7 @@ In the final response or commit/PR description, include:
 
 ---
 
-## RG-16 — Record important architecture decisions
+## RG-16 - Record important architecture decisions
 
 **Core rule:** Significant design decisions should leave a durable decision record.
 
@@ -536,7 +536,7 @@ In the final response or commit/PR description, include:
 
 ---
 
-## RG-17 — Maintain repository-level AI-agent instructions
+## RG-17 - Maintain repository-level AI-agent instructions
 
 **Core rule:** Agentic coding works better when repository-specific rules, commands, architecture, and validation expectations are explicit.
 
@@ -568,7 +568,7 @@ In the final response or commit/PR description, include:
 
 These rules were requested directly and do not require the three-source research gate.
 
-## UM-01 — Separation of concerns
+## UM-01 - Separation of concerns
 
 **Core rule:** Keep different responsibilities separate unless combining them clearly reduces complexity.
 
@@ -582,7 +582,7 @@ These rules were requested directly and do not require the three-source research
 
 ---
 
-## UM-02 — Logical folder structure
+## UM-02 - Logical folder structure
 
 **Core rule:** Folder layout should reflect the way the system is understood and changed.
 
@@ -597,7 +597,7 @@ These rules were requested directly and do not require the three-source research
 
 ---
 
-## UM-03 — Do not overuse monolithic files
+## UM-03 - Do not overuse monolithic files
 
 **Core rule:** A file should not carry too many unrelated responsibilities.
 
@@ -612,7 +612,7 @@ These rules were requested directly and do not require the three-source research
 
 ---
 
-## UM-04 — Do not overuse separate files
+## UM-04 - Do not overuse separate files
 
 **Core rule:** Too many tiny files can be as harmful as one giant file.
 
@@ -627,7 +627,7 @@ These rules were requested directly and do not require the three-source research
 
 ---
 
-## UM-05 — Avoid backwards-compatibility hacks and one-off solutions
+## UM-05 - Avoid backwards-compatibility hacks and one-off solutions
 
 **Core rule:** Do not pile permanent complexity onto the codebase to preserve accidental behavior or satisfy a single awkward case.
 
@@ -635,14 +635,14 @@ These rules were requested directly and do not require the three-source research
 
 - Prefer intentional migrations over hidden compatibility shims.
 - Time-box compatibility layers and document removal plans.
-- Avoid special-case branches that bypass the system’s normal model.
+- Avoid special-case branches that bypass the system's normal model.
 - Fix the underlying abstraction when several one-offs point to the same design gap.
 
 **Good outcome:** Compatibility is deliberate, documented, and temporary where possible.
 
 ---
 
-## UM-06 — Use unified solutions that are broadly applicable
+## UM-06 - Use unified solutions that are broadly applicable
 
 **Core rule:** Prefer one coherent mechanism over many local exceptions.
 
@@ -715,23 +715,23 @@ Each research-gated practice below is backed by at least three independent sourc
 
 | ID | Practice | Source 1 | Source 2 | Source 3 |
 |---|---|---|---|---|
-| RG-01 | Small, focused changes | [Google Engineering Practices — Small CLs](https://google.github.io/eng-practices/review/developer/small-cls.html) | [Microsoft Engineering Playbook — Pull Requests](https://microsoft.github.io/code-with-engineering-playbook/code-reviews/pull-requests/) | [GitLab — Continuous integration best practices](https://about.gitlab.com/topics/ci-cd/continuous-integration-best-practices/) |
-| RG-02 | Reviewable code before merge | [Google Engineering Practices — Code Review](https://google.github.io/eng-practices/review/) | [Google Engineering Practices — What to look for in a review](https://google.github.io/eng-practices/review/reviewer/looking-for.html) | [Atlassian — Code review best practices](https://www.atlassian.com/blog/loom/code-review-best-practices-2) |
-| RG-03 | Deterministic validation | [OpenAI — Prompt guidance for coding agents](https://developers.openai.com/api/docs/guides/prompt-guidance) | [Microsoft — Unit testing best practices](https://learn.microsoft.com/en-us/dotnet/core/testing/unit-testing-best-practices) | [GitLab — Continuous integration best practices](https://about.gitlab.com/topics/ci-cd/continuous-integration-best-practices/) |
-| RG-04 | Tests as behavior contracts | [Microsoft — Unit testing best practices](https://learn.microsoft.com/en-us/dotnet/core/testing/unit-testing-best-practices) | [Martin Fowler — Test Pyramid](https://martinfowler.com/bliki/TestPyramid.html) | [Microsoft Azure Well-Architected — Testing](https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/testing) |
-| RG-05 | Simplicity over unnecessary generality | [Google Engineering Practices — What to look for in a review](https://google.github.io/eng-practices/review/reviewer/looking-for.html) | [Martin Fowler — YAGNI](https://martinfowler.com/bliki/Yagni.html) | [Microsoft — Code metrics and cyclomatic complexity](https://learn.microsoft.com/en-us/dotnet/fundamentals/code-analysis/quality-rules/ca1502) |
-| RG-06 | Clear names and consistent style | [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html) | [Python PEP 8](https://peps.python.org/pep-0008/) | [Microsoft — C# coding conventions](https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/coding-style/coding-conventions) |
-| RG-07 | Explicit contracts and stable interfaces | [OpenAPI Initiative](https://www.openapis.org/) | [Google Cloud API Design Guide](https://docs.cloud.google.com/apis/design) | [Microsoft Azure — API design](https://learn.microsoft.com/en-us/azure/architecture/best-practices/api-design) |
-| RG-08 | Documentation as deliverable | [GitHub Docs — About READMEs](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes) | [Google Developer Documentation Style Guide](https://developers.google.com/style) | [Microsoft Azure Well-Architected — Architecture decision records](https://learn.microsoft.com/en-us/azure/well-architected/architect-role/architecture-decision-record) |
-| RG-09 | Version-control hygiene | [Git SCM — Git](https://git-scm.com/) | [Atlassian Community — Git best practices](https://community.atlassian.com/forums/Bitbucket-articles/Git-Best-Practices/ba-p/1628803) | [Tao et al. — Commit message literature review](https://arxiv.org/abs/2202.02974) |
-| RG-10 | Dependency and supply-chain discipline | [OWASP Dependency-Check](https://owasp.org/www-project-dependency-check/) | [OWASP — Vulnerable Dependency Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Vulnerable_Dependency_Management_Cheat_Sheet.html) | [GitHub Docs — Dependabot security updates](https://docs.github.com/en/code-security/concepts/supply-chain-security/dependabot-security-updates) |
-| RG-11 | Config and secrets outside source | [The Twelve-Factor App — Config](https://12factor.net/config) | [OWASP — Secrets Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html) | [GitHub Docs — Secret scanning](https://docs.github.com/code-security/secret-scanning/about-secret-scanning) |
-| RG-12 | Secure-by-design defaults | [NIST SSDF SP 800-218](https://csrc.nist.gov/pubs/sp/800/218/final) | [OWASP Secure Coding Practices Checklist](https://owasp.org/www-project-secure-coding-practices-quick-reference-guide/stable-en/02-checklist/05-checklist) | [CISA — Secure by Design](https://www.cisa.gov/securebydesign) |
-| RG-13 | Observability by design | [OpenTelemetry — Observability primer](https://opentelemetry.io/docs/concepts/observability-primer/) | [Google SRE Book — Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/) | [Microsoft Azure Well-Architected — Observability](https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/observability) |
-| RG-14 | Safe refactoring | [Refactoring.com](https://refactoring.com/) | [Microsoft Visual Studio Docs — Refactoring](https://learn.microsoft.com/en-us/visualstudio/ide/refactoring-in-visual-studio) | [Martin Fowler — Refactoring, 2nd Edition](https://martinfowler.com/books/refactoring.html) |
-| RG-15 | CI as quality gate | [GitLab — CI/CD](https://about.gitlab.com/topics/ci-cd/) | [Atlassian — Continuous integration](https://www.atlassian.com/continuous-delivery/continuous-integration) | [Atlassian — Continuous delivery and testing](https://www.atlassian.com/continuous-delivery) |
-| RG-16 | Architecture decisions recorded | [Microsoft Azure Well-Architected — ADRs](https://learn.microsoft.com/en-us/azure/well-architected/architect-role/architecture-decision-record) | [Architecture Decision Record GitHub organization](https://github.com/architecture-decision-record/architecture-decision-record) | [Nogueira et al. — Architecture decision records in practice](https://arxiv.org/abs/2604.27333) |
-| RG-17 | Repository-level AI-agent instructions | [OpenAI — Prompt guidance for coding agents](https://developers.openai.com/api/docs/guides/prompt-guidance) | [Anthropic — Claude Code best practices](https://code.claude.com/docs/en/best-practices) | [GitHub Docs — Repository custom instructions for Copilot](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/add-custom-instructions/add-repository-instructions) |
+| RG-01 | Small, focused changes | [Google Engineering Practices - Small CLs](https://google.github.io/eng-practices/review/developer/small-cls.html) | [Microsoft Engineering Playbook - Pull Requests](https://microsoft.github.io/code-with-engineering-playbook/code-reviews/pull-requests/) | [GitLab - Continuous integration best practices](https://about.gitlab.com/topics/ci-cd/continuous-integration-best-practices/) |
+| RG-02 | Reviewable code before merge | [Google Engineering Practices - Code Review](https://google.github.io/eng-practices/review/) | [Google Engineering Practices - What to look for in a review](https://google.github.io/eng-practices/review/reviewer/looking-for.html) | [Atlassian - Code review best practices](https://www.atlassian.com/blog/loom/code-review-best-practices-2) |
+| RG-03 | Deterministic validation | [OpenAI - Prompt guidance for coding agents](https://developers.openai.com/api/docs/guides/prompt-guidance) | [Microsoft - Unit testing best practices](https://learn.microsoft.com/en-us/dotnet/core/testing/unit-testing-best-practices) | [GitLab - Continuous integration best practices](https://about.gitlab.com/topics/ci-cd/continuous-integration-best-practices/) |
+| RG-04 | Tests as behavior contracts | [Microsoft - Unit testing best practices](https://learn.microsoft.com/en-us/dotnet/core/testing/unit-testing-best-practices) | [Martin Fowler - Test Pyramid](https://martinfowler.com/bliki/TestPyramid.html) | [Microsoft Azure Well-Architected - Testing](https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/testing) |
+| RG-05 | Simplicity over unnecessary generality | [Google Engineering Practices - What to look for in a review](https://google.github.io/eng-practices/review/reviewer/looking-for.html) | [Martin Fowler - YAGNI](https://martinfowler.com/bliki/Yagni.html) | [Microsoft - Code metrics and cyclomatic complexity](https://learn.microsoft.com/en-us/dotnet/fundamentals/code-analysis/quality-rules/ca1502) |
+| RG-06 | Clear names and consistent style | [Google C++ Style Guide](https://google.github.io/styleguide/cppguide.html) | [Python PEP 8](https://peps.python.org/pep-0008/) | [Microsoft - C# coding conventions](https://learn.microsoft.com/en-us/dotnet/csharp/fundamentals/coding-style/coding-conventions) |
+| RG-07 | Explicit contracts and stable interfaces | [OpenAPI Initiative](https://www.openapis.org/) | [Google Cloud API Design Guide](https://docs.cloud.google.com/apis/design) | [Microsoft Azure - API design](https://learn.microsoft.com/en-us/azure/architecture/best-practices/api-design) |
+| RG-08 | Documentation as deliverable | [GitHub Docs - About READMEs](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes) | [Google Developer Documentation Style Guide](https://developers.google.com/style) | [Microsoft Azure Well-Architected - Architecture decision records](https://learn.microsoft.com/en-us/azure/well-architected/architect-role/architecture-decision-record) |
+| RG-09 | Version-control hygiene | [Git SCM - Git](https://git-scm.com/) | [Atlassian Community - Git best practices](https://community.atlassian.com/forums/Bitbucket-articles/Git-Best-Practices/ba-p/1628803) | [Tao et al. - Commit message literature review](https://arxiv.org/abs/2202.02974) |
+| RG-10 | Dependency and supply-chain discipline | [OWASP Dependency-Check](https://owasp.org/www-project-dependency-check/) | [OWASP - Vulnerable Dependency Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Vulnerable_Dependency_Management_Cheat_Sheet.html) | [GitHub Docs - Dependabot security updates](https://docs.github.com/en/code-security/concepts/supply-chain-security/dependabot-security-updates) |
+| RG-11 | Config and secrets outside source | [The Twelve-Factor App - Config](https://12factor.net/config) | [OWASP - Secrets Management Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html) | [GitHub Docs - Secret scanning](https://docs.github.com/code-security/secret-scanning/about-secret-scanning) |
+| RG-12 | Secure-by-design defaults | [NIST SSDF SP 800-218](https://csrc.nist.gov/pubs/sp/800/218/final) | [OWASP Secure Coding Practices Checklist](https://owasp.org/www-project-secure-coding-practices-quick-reference-guide/stable-en/02-checklist/05-checklist) | [CISA - Secure by Design](https://www.cisa.gov/securebydesign) |
+| RG-13 | Observability by design | [OpenTelemetry - Observability primer](https://opentelemetry.io/docs/concepts/observability-primer/) | [Google SRE Book - Monitoring Distributed Systems](https://sre.google/sre-book/monitoring-distributed-systems/) | [Microsoft Azure Well-Architected - Observability](https://learn.microsoft.com/en-us/azure/well-architected/operational-excellence/observability) |
+| RG-14 | Safe refactoring | [Refactoring.com](https://refactoring.com/) | [Microsoft Visual Studio Docs - Refactoring](https://learn.microsoft.com/en-us/visualstudio/ide/refactoring-in-visual-studio) | [Martin Fowler - Refactoring, 2nd Edition](https://martinfowler.com/books/refactoring.html) |
+| RG-15 | CI as quality gate | [GitLab - CI/CD](https://about.gitlab.com/topics/ci-cd/) | [Atlassian - Continuous integration](https://www.atlassian.com/continuous-delivery/continuous-integration) | [Atlassian - Continuous delivery and testing](https://www.atlassian.com/continuous-delivery) |
+| RG-16 | Architecture decisions recorded | [Microsoft Azure Well-Architected - ADRs](https://learn.microsoft.com/en-us/azure/well-architected/architect-role/architecture-decision-record) | [Architecture Decision Record GitHub organization](https://github.com/architecture-decision-record/architecture-decision-record) | [Nogueira et al. - Architecture decision records in practice](https://arxiv.org/abs/2604.27333) |
+| RG-17 | Repository-level AI-agent instructions | [OpenAI - Prompt guidance for coding agents](https://developers.openai.com/api/docs/guides/prompt-guidance) | [Anthropic - Claude Code best practices](https://code.claude.com/docs/en/best-practices) | [GitHub Docs - Repository custom instructions for Copilot](https://docs.github.com/en/copilot/how-tos/copilot-on-github/customize-copilot/add-custom-instructions/add-repository-instructions) |
 
 ---
 

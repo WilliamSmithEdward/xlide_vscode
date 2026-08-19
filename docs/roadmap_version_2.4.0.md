@@ -106,7 +106,7 @@ Progress (expression binder, sliced):
   and flow-sensitivity).
   - [x] `TypeOf ... Is` always-False (`typeof-is-always-false`). The first rule
     to consume the §5.6 expression AST directly: it reads parsed `TypeOfIsExpr`
-    nodes (notably `If TypeOf x Is Y Then` branch conditions) and flags the test
+    nodes (in particular `If TypeOf x Is Y Then` branch conditions) and flags the test
     as provably always-False when the operand's declared object type can never be
     the target type. Reuses the existing object-compatibility tables in both
     directions plus a concrete-operand gate (interface-typed operands stay
@@ -215,32 +215,32 @@ Scope:
   policy, test coverage, and current gaps. (See Progress below.)
 - [x] Close remaining parser and binder gaps that block complete static
   analysis: expression binding, name-resolution edge cases, shadowing, call
-  targets, assignment targets, and member receivers. — Dispositioned: arbitrary-
+  targets, assignment targets, and member receivers. - Dispositioned: arbitrary-
   expression scalar/object typing is effectively complete and correctly
   conservative (Slices 1-3); the remaining flow-sensitive / shadowing work is
   binder-dependent and deferred (see Deferred section).
 - [x] Expand workbook fixture coverage for multi-module projects, module-kind
   behavior, duplicated names, ambiguous visible symbols, external-reference
-  suppression, and same-workbook live overlays. — The six `tests/fixtures/vbaProjects`
+  suppression, and same-workbook live overlays. - The six `tests/fixtures/vbaProjects`
   fixtures cover each named scenario with asserted canaries; further shadowing /
   duplicate-non-type-symbol fixtures are tracked as ongoing coverage, not a 2.4.0
   blocker.
 - [x] Unify object/member rule policy across source-backed classes, UDTs, host
-  metadata, runtime metadata, and future external metadata. — Done for current
+  metadata, runtime metadata, and future external metadata. - Done for current
   sources via the shared project-analysis helper; external `.vbref.xml` metadata
   is carried forward to 2.5.0.
 - [x] Finish the deterministic runtime-analysis slice for constant folding,
   argument bounds, conversions, array allocation, object initialization, and
-  runtime error diagnostics where oracle evidence proves behavior. — Dispositioned:
+  runtime error diagnostics where oracle evidence proves behavior. - Dispositioned:
   the no-FP slices ship (constant folding, division-by-zero, runtime-argument
   bounds, numeric overflow, `Null`-to-scalar); reachability / `On Error` / `IIf`
   remainders are deferred as FP-prone (see Deferred section).
 - [x] Keep incomplete, late-bound, external-reference, `Variant`, ambiguous,
-  and host-incomplete shapes quiet unless a rule has exhaustive provenance. —
+  and host-incomplete shapes quiet unless a rule has exhaustive provenance. -
   Standing discipline, honored across the sprint (enforced by the no-FP gates and
   the per-rule audit).
 - [x] Record every intentionally deferred false-positive risk in the relevant
-  verification map, corpus matrix, or roadmap note. — Done: every deferral is
+  verification map, corpus matrix, or roadmap note. - Done: every deferral is
   recorded in the Deferred / Out-Of-Scope sections, the verification-map Won't
   Implement section, the type-coverage Readiness Classification, and the
   completeness report.
@@ -251,7 +251,7 @@ Progress:
   codes scored each for evidence source, the three controls (valid-quiet /
   invalid-flagged / unknown-quiet), test coverage, and documented suppression.
   Result: 94/112 already met the full bar with zero codes missing a positive or
-  negative control. The punch-list it produced has been cleared — one real false
+  negative control. The punch-list it produced has been cleared - one real false
   positive fixed (`unmatched-block-closer` / `missing-block-closer` leaking a
   `: Rem ...` comment, fixed in `stripVba` and pinned by convergence repros), the
   two structural codes brought under the provenance system (audit entries +
@@ -282,24 +282,24 @@ Scope:
 
 - [x] Audit `docs/spec/MS-VBAL.verification-map.md` for every `Partial` and
   implicit gap in lexer, keyword, parser, symbol, expression, and diagnostic
-  rows. — Done: 182 Verified rows; the handful of Partial rows are all
+  rows. - Done: 182 Verified rows; the handful of Partial rows are all
   binder-dependent or won't-implement, each with a recorded reason.
 - [x] Promote remaining MS-VBAL-backed syntax and declaration behavior to
-  `Verified` when implementation, fixtures, and section references line up. —
+  `Verified` when implementation, fixtures, and section references line up. -
   Done; the rows that remain Partial cannot be promoted without the binder/oracle
   and are deferred.
 - [x] Finish or explicitly defer implementation-reserved names, expression
-  grammar, and conditional-compilation edge cases. — Reserved names closed;
+  grammar, and conditional-compilation edge cases. - Reserved names closed;
   expression grammar (§5.6) and the broader malformed-directive cases deferred
   with reasons (see Deferred section).
 - [x] Add missing section citations to analyzer rules that currently rely on
-  broad or inherited spec references. — Done: all 112 diagnostic codes carry a
+  broad or inherited spec references. - Done: all 112 diagnostic codes carry a
   `specReference`.
 - [x] Separate core-language MS-VBAL facts from host, runtime-library, and
-  Excel/VBE oracle facts in the verification map. — Done: core-language rows carry
+  Excel/VBE oracle facts in the verification map. - Done: core-language rows carry
   an MS-VBAL Section column; host/runtime/oracle facts live in separate Addenda.
 - [x] Ensure new parser/diagnostic work updates the verification map in the
-  same change as implementation and tests. — Standing discipline, honored across
+  same change as implementation and tests. - Standing discipline, honored across
   the sprint (every new rule this sprint shipped with its verification-map row).
 
 Progress:
@@ -311,9 +311,9 @@ Progress:
 - [x] Added focused non-Latin identifier lexer fixtures for the current
   Unicode-letter approximation; exact legacy-codepage identifier ranges are
   recorded as won't-implement in the MS-VBAL verification map.
-- [x] v2.4.0 closure: verification-map audited — 182 Verified rows; all 112 codes
+- [x] v2.4.0 closure: verification-map audited - 182 Verified rows; all 112 codes
   carry a `specReference`; core-language vs host/runtime facts are separated. The
-  named "remaining Partial decisions" are decided — the deterministic
+  named "remaining Partial decisions" are decided - the deterministic
   `declare-missing-ptrsafe` (Win64-gated) and `else-branch-order` slices ship
   Verified, and the FP-risky `Long`-where-`LongPtr` and broader malformed-directive
   heuristics are deferred (Deferred section). Closeable.
@@ -341,25 +341,25 @@ Scope:
 
 - [x] Audit `syntax_corpus/managed_backlog.md` and
   `syntax_corpus/corpus_provenance.json` for pending syntax, realtime recovery,
-  limits, runtime-resolution, project-binding, and legacy-edge cases. — Done; the
+  limits, runtime-resolution, project-binding, and legacy-edge cases. - Done; the
   corpus is a provenance-tracked, test-enforced system (PCEC + batch-2/3 veins
   reconciled).
 - [x] Promote high-value Markdown cases into executable fixtures with
   `spec-derived` or `vbe-oracle-verified` provenance before they drive hard
-  diagnostics. — Done; promotable candidates are shipped, and PCEC_008
+  diagnostics. - Done; promotable candidates are shipped, and PCEC_008
   (positional-after-named) is deferred as binder-gated.
 - [x] Retire, rewrite, or mark observational cases that conflict with MS-VBAL,
-  Microsoft documentation, or asserted VBE oracle results. — Done (oracle-refuted
+  Microsoft documentation, or asserted VBE oracle results. - Done (oracle-refuted
   candidates kept as deliberate non-rules with accepted controls).
 - [x] Add range-sensitive expectations for diagnostics whose usefulness depends
-  on precise underline placement. — Done: span controls added for the
+  on precise underline placement. - Done: span controls added for the
   placement-load-bearing codes (Priority 3 closure tests).
 - [x] Close the realtime incomplete-expression corpus around active edit spans,
   partial statements, partial calls, incomplete strings, and settled-state
-  controls. — Done: realtime incomplete-expression recovery controls added; the
+  controls. - Done: realtime incomplete-expression recovery controls added; the
   residual UserForm/class partial-state cases are tracked deferrals.
 - [x] Keep `diagnostic_influence_audit.json` synchronized with active rule
-  evidence. — Done and test-enforced (`corpusProvenance` asserts the audited-code
+  evidence. - Done and test-enforced (`corpusProvenance` asserts the audited-code
   set equals the live registry + structural code set).
 
 Progress:
@@ -407,29 +407,29 @@ Developer-experience impact:
 Scope:
 
 - [x] Audit `docs/type_analysis_corpus_coverage.md` and convert `Missing`,
-  `Pending`, and high-value `Partial` rows into actionable fixture/oracle tasks. —
+  `Pending`, and high-value `Partial` rows into actionable fixture/oracle tasks. -
   Done: the matrix is reconciled (stale `Arrays`/`UDTs` rows updated) and each row
   is classified in the Readiness Classification.
 - [x] Finish matrices for ByRef compatibility, Date coercion, object
   assignment, fixed-length strings, operators/comparisons, arrays, enums, UDTs,
   classes/document modules, host receiver chains, runtime metadata, and
-  cross-module binding. — Dispositioned: the shipped slices are recorded; the
+  cross-module binding. - Dispositioned: the shipped slices are recorded; the
   binder-dependent matrices (comparisons, Date, non-scalar ByRef, broad arrays,
   default members) are deferred with reasons (Readiness Classification / Deferred).
 - [x] Require each new type-rule family to include one valid case, one invalid
-  case, one unknown/no-diagnostic case, and an explicit verification path. —
+  case, one unknown/no-diagnostic case, and an explicit verification path. -
   Confirmed for every shipped family; remains a standing requirement.
 - [x] Expand workbook project fixtures for shadowing, duplicate non-type
   symbols, external-reference shapes, overlay scenarios, and project-scale
-  type/member binding. — The existing fixtures cover the canaries; shadowing /
+  type/member binding. - The existing fixtures cover the canaries; shadowing /
   duplicate-non-type-symbol expansion is tracked ongoing coverage, not a 2.4.0
   blocker (overlaps Priority 1 fixture work).
 - [x] Keep generated host/reference coverage aligned with
   `docs/excel_reference_coverage.md`, including exhaustive-vs-completion-only
-  policy for hard member diagnostics. — Aligned; the exhaustive-vs-completion-only
+  policy for hard member diagnostics. - Aligned; the exhaustive-vs-completion-only
   policy is documented and honored.
 - [x] Record which type corpus rows are ready for implementation, which need
-  oracle work, and which must wait for broader expression binding. — Done: the
+  oracle work, and which must wait for broader expression binding. - Done: the
   ready / needs-oracle / awaits-binder / out-of-scope Readiness Classification in
   `docs/type_analysis_corpus_coverage.md`.
 
@@ -451,7 +451,7 @@ Progress:
 Type-family closure status (live detail in
 `docs/type_analysis_corpus_coverage.md`):
 
-**Can advance now — declaration-metadata-based, no expression binder required:**
+**Can advance now - declaration-metadata-based, no expression binder required:**
 
 | Type family | Status | Remaining for closure |
 | --- | --- | --- |
@@ -544,14 +544,14 @@ Scope:
 
 - [x] Add or update a short static-analysis completeness summary that links the
   MS-VBAL map, syntax corpus, type corpus, diagnostic influence audit, workbook
-  fixtures, and remaining intentional deferrals. — `docs/static_analysis_completeness_2.4.0.md`.
+  fixtures, and remaining intentional deferrals. - `docs/static_analysis_completeness_2.4.0.md`.
 - [x] Run the TypeScript analyzer tests and any targeted oracle checks needed
-  to verify newly promoted cases. — full suite green.
+  to verify newly promoted cases. - full suite green.
 - [x] Ensure README, architecture, roadmap, and corpus docs point to Version
   2.4.0 as the active completeness sprint and Version 2.5.0 as the deferred
-  product/backlog roadmap. — README + architecture updated; `roadmap_version_2.5.0.md` created.
+  product/backlog roadmap. - README + architecture updated; `roadmap_version_2.5.0.md` created.
 - [x] Close 2.4.0 only with a clear list of what is complete, what is
-  intentionally quiet, and what moved to Version 2.5.0 or later. — see the
+  intentionally quiet, and what moved to Version 2.5.0 or later. - see the
   completeness report's per-priority status and deferral inventory.
 
 Progress:
@@ -569,7 +569,7 @@ Definition of done:
 
 ## Deferred (in 2.4.0 scope, blocked on the expression binder or VBE oracle)
 
-These are **resolved deferrals**, not open work items — each is a deliberate
+These are **resolved deferrals**, not open work items - each is a deliberate
 decision to stay quiet (no speculative diagnostics) until the expression binder
 lands or the VBE oracle maps the boundary, recorded with its reason and carried to
 `docs/roadmap_version_2.5.0.md`. They are plain bullets, not checkboxes, because
@@ -578,16 +578,16 @@ the disposition (defer-with-reason) is complete for 2.4.0.
 - Binder-dependent type families (high false-positive risk): comparisons,
   Date coercion, broad array compatibility, and default members. Stay quiet until
   oracle/metadata can prove them; do not build speculatively.
-- Fixed-length-string non-constant size — binder-dependent: an unknown size
+- Fixed-length-string non-constant size - binder-dependent: an unknown size
   name may be a forward/cross-module `Const`, so it is FP-risky without the binder.
 - `Single` / hex / octal numeric overflow and the `&`-suffix overflow
-  boundary — each still needs VBE-oracle mapping before it can flag without false
+  boundary - each still needs VBE-oracle mapping before it can flag without false
   positives (`Long`/`Currency`/`%`-suffix overflow already shipped).
-- Flow-sensitive binding on the branch-modeled AST (definite assignment) —
+- Flow-sensitive binding on the branch-modeled AST (definite assignment) -
   carries FP risk around loops / `GoTo` / error handlers; needs care.
 - Pointer-sized API "`Long` used where `LongPtr` likely" heuristic (corpus
   API_006). The deterministic slice already ships (`declare-missing-ptrsafe`,
-  Win64-gated, Verified); the broader heuristic is FP-prone — a `Declare`
+  Win64-gated, Verified); the broader heuristic is FP-prone - a `Declare`
   returning `As Long` can be legitimately correct, and no oracle/metadata can
   prove a given `Long` should be `LongPtr`. Deferred as a host/platform warning.
 - Broader malformed conditional-directive-block diagnostics. The provable,

@@ -1,20 +1,22 @@
 # XLIDE Automation And CI Guide
 
-XLIDE exposes workbook analysis and VBA test execution to AI agents through VS
+XLIDE exposes file analysis and VBA test execution to AI agents through VS
 Code language-model tools. Use these tools when an automated workflow needs to
-inspect, edit, analyze, and test a workbook without driving the XLIDE panels by
-hand.
+inspect, edit, analyze, and test a macro-enabled Office file - Excel, Word,
+PowerPoint, or Access - without driving the XLIDE panels by hand.
 
 ## Recommended Agent Flow
 
-1. Discover the target workbook with `xlide_listWorkbooks` or confirm workbook
-   structure with `xlide_getWorkbookInfo`.
-2. Read workbook-owned VBA with `xlide_readModule`.
-3. Write changes with `xlide_writeModule` or other workbook/module tools.
+1. Discover the target file with `xlide_listWorkbooks` (it lists every macro
+   container) or confirm structure with `xlide_getWorkbookInfo`.
+2. Read the file's VBA with `xlide_readModule`.
+3. Write changes with `xlide_writeModule` or the other module tools. Access
+   files refuse writes with the reason (compiled p-code).
 4. Run `xlide_analyzeWorkbook` and treat an empty `problems` array as analysis
    pass.
 5. Run `xlide_runVbaTests` to execute discovered `@xlide-test` procedures
-   through the production read-only Excel test host.
+   through the production read-only test host of the file's own application
+   (Excel, Word, or PowerPoint).
 
 `xlide_runVbaTests` supports `moduleName`, `procedureName`, `testIds`,
 `includeTags`, `excludeTags`, and `failFast` so an agent can start narrow while

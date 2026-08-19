@@ -7,6 +7,35 @@
 </p>
 <p align="center"><em>▶ Click the video above for the install tutorial</em></p>
 
+## New in 4.0.0: every Office VBA host
+
+XLIDE 4.0.0 opens the workspace to VBA everywhere Office puts it:
+
+- **Word, PowerPoint, and Access files open natively** - `.docm`, `.dotm`,
+  `.doc`, `.pptm`, `.potm`, `.ppsm`, `.ppt`, and read-only `.accdb`/`.mdb` -
+  alongside the Excel formats, now including legacy `.xls`. No Office
+  install is needed to read or edit; every container is parsed directly,
+  down to a native Jet/ACE page reader for Access databases.
+- **Edits write back everywhere writing is sound.** Word and PowerPoint
+  documents save like workbooks do (legacy binary formats included), each
+  write path certified by its own Office application. Access stays
+  read-only for a stated reason: Access executes compiled p-code, so
+  source edits there cannot take effect.
+- **The analyzer knows which host it is in.** A Word module completes
+  against Word's object model, `Me` in `ThisDocument` is `Word.Document`,
+  `wd*`/`pp*`/`ac*` constants resolve only under their own host, and
+  `ThisDocument` offers Word's `Document_*` event stubs - Excel-specific
+  knowledge never leaks into another host, in either direction.
+- **Unit tests run in Word and PowerPoint** through the same owned,
+  read-only, modal-watched test host that runs Excel tests, and `@xlide-test`
+  discovery, assertions, and results work identically in all three.
+- **UserForms work beyond Excel**: a form in a Word document reads, exports
+  as `.frm`/`.frx`, and writes back through the same native designer
+  machinery.
+- **New file creation** covers Word documents and templates and PowerPoint
+  presentations and templates, each seeded from a blank authored by its own
+  application so the package content types are right.
+
 XLIDE gives Office VBA projects a modern VS Code workspace.
 
 Add macro-enabled Office files to your VS Code project and XLIDE detects them
@@ -24,23 +53,23 @@ control platform, and import reviewed files back.
 
 For new programmers, XLIDE makes the VBA language easier to approach.
 It shows useful completion lists, explains symbols, highlights likely mistakes,
-and keeps the workbook's project structure visible while you learn how Excel
+and keeps each file's project structure visible while you learn how Office
 automation fits together.
 
 For experienced VBA developers, XLIDE brings serious engineering workflows to
-existing workbooks: project-wide symbol navigation, rename and reference tools,
-full static analysis, live diagnostics, workbook-level analysis reports,
+existing files: project-wide symbol navigation, rename and reference tools,
+full static analysis, live diagnostics, file-level analysis reports,
 module-qualified IntelliSense, import/export diff previews, source-control
-friendly `.bas`/`.cls` sync, explicit workbook settings, performance
-diagnostics, and workbook unit tests that can execute through Excel when you
-need runtime confidence.
+friendly `.bas`/`.cls` sync, explicit per-file settings, performance
+diagnostics, and VBA unit tests that execute through Excel, Word, or
+PowerPoint when you need runtime confidence.
 
-For everyone, XLIDE opens a new agentic AI surface for Excel. Compatible AI
-assistants can inspect the real workbook, read and write VBA modules, analyze
+For everyone, XLIDE opens a new agentic AI surface for Office VBA. Compatible
+AI assistants can inspect the real file, read and write VBA modules, analyze
 code, run tests, inspect worksheet data, and sync modules with files through
-explicit XLIDE tools. That means AI help can work with the workbook itself, not
-just copied snippets or stale exports, making Excel automation more reviewable,
-testable, and collaborative.
+explicit XLIDE tools. That means AI help can work with the document itself, not
+just copied snippets or stale exports, making Office automation more
+reviewable, testable, and collaborative.
 
 [Install XLIDE from the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide)
 
@@ -49,8 +78,8 @@ testable, and collaborative.
 ## Why Use XLIDE
 
 1. **Make VBA easier to learn and maintain**
-   VBA is powerful, but its rules, project structure, and Excel object model can
-   feel hidden. XLIDE makes them visible with workbook navigation,
+   VBA is powerful, but its rules, project structure, and the host object
+   models can feel hidden. XLIDE makes them visible with project navigation,
    IntelliSense, hover explanations, signature help, semantic coloring, and
    immediate feedback while you type.
 
@@ -60,10 +89,11 @@ testable, and collaborative.
    invalid parameter/property shapes, array misuse, bad `Set` usage, common
    `#If` pitfalls, and more.
 
-3. **Get IntelliSense that understands your workbook**
+3. **Get IntelliSense that understands your file and its host**
    Completion and tooltips know about your modules, classes, functions,
-   constants, enums, user-defined types, XML documentation comments, and a broad
-   set of Excel object-model members.
+   constants, enums, user-defined types, XML documentation comments, and the
+   object model of the host the file belongs to - Excel members in a workbook,
+   Word members in a document, PowerPoint and Access members in theirs.
 
 4. **Edit workbook VBA in a real code editor**
    Work with workbook modules in VS Code using normal editor habits: tabs,
@@ -80,18 +110,20 @@ testable, and collaborative.
    them. Workbook-specific settings live beside the workbook so each project can
    keep its own sync rules.
 
-7. **Analyze the whole workbook**
-   Run workbook-wide analysis and review findings in a dedicated report instead
-   of hunting through modules one by one.
+7. **Analyze the whole file**
+   Run file-wide analysis over any container - workbook, document,
+   presentation, or database - and review findings in a dedicated report
+   instead of hunting through modules one by one.
 
-8. **Run macros and workbook tests when Excel is available**
-   On Windows with Microsoft Excel installed, XLIDE can run macros and
-   `@xlide-test` workbook tests through explicit Excel automation.
+8. **Run macros and VBA tests when Office is available**
+   On Windows with Microsoft Office installed, XLIDE runs macros and
+   `@xlide-test` unit tests through explicit automation of the file's own
+   application - Excel, Word, or PowerPoint.
 
-9. **Give AI assistants real workbook context**
-   XLIDE exposes tools for workbook discovery, VBA reads/writes, analysis,
+9. **Give AI assistants real file context**
+   XLIDE exposes tools for file discovery, VBA reads/writes, analysis,
    tests, sheet/cell access, formulas, and module sync so agents can work from
-   the actual workbook instead of stale exported files.
+   the actual Office file instead of stale exported copies.
 
 ---
 
@@ -305,9 +337,9 @@ Roadmaps:
 - [Version 2.2.0 static-analysis completeness roadmap (superseded by 2.4.0)](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/roadmap_version_2.2.0.md)
 - [Version 2.4.0 static-analysis completeness sprint (completed)](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/roadmap_version_2.4.0.md)
 - [Version 2.4.0 static-analysis completeness report (release gate)](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/static_analysis_completeness_2.4.0.md)
-- [Version 2.5.0 roadmap — expression binder + syntax-corpus completeness (completed 2026-06-17)](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/roadmap_version_2.5.0.md)
+- [Version 2.5.0 roadmap - expression binder + syntax-corpus completeness (completed 2026-06-17)](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/roadmap_version_2.5.0.md)
 - [Version 2.5.0 static-analysis completeness report (release gate)](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/static_analysis_completeness_2.5.0.md)
-- [Version 2.6.0 roadmap — deferred binder families + performance backlog](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/roadmap_version_2.6.0.md)
+- [Version 2.6.0 roadmap - deferred binder families + performance backlog](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/docs/roadmap_version_2.6.0.md)
 
 ---
 

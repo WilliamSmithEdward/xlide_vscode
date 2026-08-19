@@ -567,7 +567,7 @@ On Error Resume Next
 > the full expression AST (calls/member-access/operators, section 5.6) now has a
 > standalone, unit-tested parser (`src/analyzer/parser/parseExpression.ts`,
 > `tests/parseExpression.test.ts`), but `parseModule` does not yet route body
-> statements through it — assignments/calls are still raw `Statement` nodes
+> statements through it - assignments/calls are still raw `Statement` nodes
 > pending the statement-wiring slice. Deferred: `If` branch modeling. Both remain
 > `Partial` in the verification map. See the sliced progress in
 > `docs/roadmap_version_2.4.0.md`.
@@ -668,7 +668,7 @@ Recovery rules:
 
 Build a workbook/project-aware symbol index.
 
-XLIDE’s advantage is that it is not just editing isolated `.bas` files. It can see the workbook-backed VBA project.
+XLIDE's advantage is that it is not just editing isolated `.bas` files. It can see the workbook-backed VBA project.
 
 ### Symbol Kinds
 
@@ -696,7 +696,7 @@ Index:
 
 > Second-pass note (per addendum): in addition to the pure MS-VBAL language
 > symbols above, maintain a separate **host-context symbol layer** for globals
-> the host injects rather than the user declaring them — `ThisWorkbook`,
+> the host injects rather than the user declaring them - `ThisWorkbook`,
 > `Application`, `ActiveWorkbook`, `ActiveSheet`, worksheet code names
 > (`Sheet1`), and `Me` (resolved by module kind). These resolve to host
 > object-model types (Phase 10), must never override core-language resolution,
@@ -728,7 +728,7 @@ Implement conservative name resolution first:
 7. Built-in VBA runtime symbols.
 8. Host object model symbols.
 
-Where VBA name resolution has nuanced rules, verify against `MS-VBAL.pdf` and/or VBE behavior tests before expanding.
+Where VBA name resolution has subtle rules, verify against `MS-VBAL.pdf` and/or VBE behavior tests before expanding.
 
 ### Acceptance Criteria
 
@@ -1517,7 +1517,7 @@ Notes: Basic Sub block parse.
 
 ### Golden Rule
 
-No grammar feature is “done” without a test and a spec-map row.
+No grammar feature is "done" without a test and a spec-map row.
 
 ---
 
@@ -1749,7 +1749,7 @@ The VBA language-service layer is ready for a first public preview when:
 >   resolved positionally.
 > Verification rule is unchanged: core VBA grammar is verified against MS-VBAL;
 > host members are verified against Office VBA object-model docs, generated COM
-> type-library metadata, or recorded VBE behavior fixtures — never LLM memory.
+> type-library metadata, or recorded VBE behavior fixtures - never LLM memory.
 > Progress is tracked in the "Addendum - Host-Context Member Completion" table in
 > `docs/spec/MS-VBAL.verification-map.md`.
 
@@ -1824,7 +1824,7 @@ When the user types:
 Sheet1.
 ```
 
-The completion popup must resolve `Sheet1` from the workbook’s VBA project components, using the component’s code name, not merely the visible worksheet tab name.
+The completion popup must resolve `Sheet1` from the workbook's VBA project components, using the component's code name, not merely the visible worksheet tab name.
 
 When the user types:
 
@@ -1917,4 +1917,4 @@ Worksheet code names such as Sheet1
 The current object represented by Me
 ```
 
-This feature is required because workbook-aware IntelliSense is one of XLIDE’s core advantages over generic VBA syntax extensions.
+This feature is required because workbook-aware IntelliSense is one of XLIDE's core advantages over generic VBA syntax extensions.

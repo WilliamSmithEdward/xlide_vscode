@@ -167,7 +167,8 @@ in this order (first match wins):
    most authoritative for symbols you own.
 2. **External metadata file** `<member>` entry - overrides the built-in library
    and can document symbols that have no inline comment.
-3. **Built-in curated library** - the verified Excel object model and VBA
+3. **Built-in curated library** - the verified host object models (Excel,
+   Word, PowerPoint, Access) and VBA
    runtime signatures shipped with XLIDE (signature only; no prose).
 
 In short: **developer-defined metadata (inline or external) overrides the

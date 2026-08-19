@@ -1,14 +1,14 @@
-# Static-Analysis Completeness Report — Version 2.4.0
+# Static-Analysis Completeness Report - Version 2.4.0
 
 This is the Priority 6 release-gate artifact for the v2.4.0 static-analysis
 completeness sprint. It records what is complete, what is intentionally quiet,
-and what moves to a later release — backed by named evidence rather than a green
+and what moves to a later release - backed by named evidence rather than a green
 test run. See `docs/roadmap_version_2.4.0.md` for the priority definitions.
 
 ## Bottom line
 
 v2.4.0 is **closeable**. Every diagnostic the analyzer emits is backed by a named
-evidence source and gated by the project's #1 rule — **no false positives**: a
+evidence source and gated by the project's #1 rule - **no false positives**: a
 hard/red diagnostic fires only when the construct is provably wrong; anything
 unknown, ambiguous, `Variant`, or runtime-convertible stays quiet. Everything that
 cannot meet that bar today is **explicitly deferred with a documented reason**,
@@ -21,11 +21,11 @@ Counted from the repository (not estimated):
 | Metric | Value | Source |
 | --- | --- | --- |
 | Diagnostic codes (audited) | **112** | `syntax_corpus/diagnostic_influence_audit.json` |
-| — VBE-oracle-verified | 66 | audit `status` |
-| — spec-derived (MS-VBAL) | 46 | audit `status` |
+| - VBE-oracle-verified | 66 | audit `status` |
+| - spec-derived (MS-VBAL) | 46 | audit `status` |
 | Diagnostic kind | 96 compile-error · 10 deterministic-runtime · 2 runtime-risk · 4 style | `ruleMetadata.ts` |
 | Excel/VBE oracle cases | **342**, 100% `vbe-oracle-verified` | `syntax_corpus/oracle/vbe_oracle_cases.json` |
-| — rejected probes / accepted controls | 209 / 133 | oracle `expected` |
+| - rejected probes / accepted controls | 209 / 133 | oracle `expected` |
 | MS-VBAL verification-map rows | **182 Verified**; remaining Partial rows all deferred | `docs/spec/MS-VBAL.verification-map.md` |
 | Per-rule audit (controls) | 94/112 met the full bar on first pass; **0 missing positive/negative controls** | rule-evidence audit |
 
@@ -47,29 +47,29 @@ Evidence artifacts, each kept in sync with the live analyzer:
 
 ## Priority status
 
-- **Priority 1 — Static-analysis completeness:** the per-rule evidence audit is
-  complete (10-auditor pass over all 112 codes; punch-list cleared — one real
+- **Priority 1 - Static-analysis completeness:** the per-rule evidence audit is
+  complete (10-auditor pass over all 112 codes; punch-list cleared - one real
   false positive fixed, the two structural codes brought under provenance, the
   no-diagnostic boundary controls backfilled). Remaining bullets are binder/flow
   work, deferred with reasons (see Deferrals). **Closeable.**
-- **Priority 2 — MS-VBAL completeness:** 182 verified rows; reserved-name and
+- **Priority 2 - MS-VBAL completeness:** 182 verified rows; reserved-name and
   non-Latin-identifier gaps closed; all 112 codes carry a `specReference`;
   core-language vs host/runtime facts are separated. The named "remaining Partial
   decisions" (`PtrSafe`/`Long`-where-`LongPtr`, malformed directive blocks) are
   **decided**: the deterministic slices ship and are Verified; the heuristic
   remainders are deferred as FP-risky. **Closeable.**
-- **Priority 3 — Syntax corpus closure:** the corpus is a provenance-tracked,
+- **Priority 3 - Syntax corpus closure:** the corpus is a provenance-tracked,
   test-enforced system; the PCEC and batch-2/3 oracle veins are fully reconciled;
   the influence audit is synced. Range-sensitive span controls and the
   realtime-recovery controls are added (Priority 3 closure tests); residual
   binder-dependent corpus cases are tracked deferrals. **Closeable.**
-- **Priority 4 — Type corpus closure:** every shipped type-rule family has
+- **Priority 4 - Type corpus closure:** every shipped type-rule family has
   valid + invalid + unknown controls and a named source; the coverage matrix is
   current (Arrays/UDTs rows reconciled) and the **readiness classification** is
   recorded. The binder-dependent frontier is deferred. **Closeable.**
-- **Priority 5 — Architecture hygiene:** shipped in v2.3.0 (shared per-workbook
+- **Priority 5 - Architecture hygiene:** shipped in v2.3.0 (shared per-workbook
   index, module splits, dead-code removal). **Done.**
-- **Priority 6 — Completeness reporting & release gate:** this document. **Done.**
+- **Priority 6 - Completeness reporting & release gate:** this document. **Done.**
 
 ## No-false-positive discipline
 
@@ -81,7 +81,7 @@ so deferral is the *correct* outcome, not a shortcut:
   style/risk advisories.
 - New rules are oracle-probed first and adversarially FP-hunted before shipping.
   This sprint's hunts caught and prevented real false positives (e.g. the `&`
-  type-suffix overflow — `3000000000&"x"` is VBE-accepted as concatenation — was
+  type-suffix overflow - `3000000000&"x"` is VBE-accepted as concatenation - was
   dropped; the `: Rem` structural leak was fixed).
 - A `corpusProvenance` test makes the evidence chain unbreakable: no code can
   ship without metadata, an audit entry, and (for oracle-verified codes) at least
@@ -89,7 +89,7 @@ so deferral is the *correct* outcome, not a shortcut:
 
 ## Intentional deferral inventory
 
-These are deliberate, documented deferrals — the empty roadmap checkboxes reflect
+These are deliberate, documented deferrals - the empty roadmap checkboxes reflect
 sequencing, not omissions. Full reasons live in the roadmap "Deferred" and "Out
 Of Scope" sections, the verification-map "Won't Implement" section, and the type
 coverage readiness classification.

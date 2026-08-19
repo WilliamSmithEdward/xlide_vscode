@@ -3,7 +3,7 @@
 Status: polished Activity Bar/sidebar WebviewView implemented; richer test and
 health-probe sections remain roadmap work.
 
-Purpose: define the future XLIDE Activity Bar/sidebar experience for workbook
+Purpose: define the XLIDE Activity Bar/sidebar experience for VBA
 development in VS Code.
 
 ## Implemented Initial Slice

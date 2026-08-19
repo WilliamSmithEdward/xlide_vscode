@@ -1,19 +1,71 @@
 # XLIDE VBA COM Test Runner
 
-Status: first implementation slice exists. This document tracks the current
-downstream-developer workflow plus remaining shipped-runner gaps.
+Status: shipped and multi-host. This document tracks the developer workflow
+plus remaining runner gaps.
 
-Purpose: describe the intended workflow for writing and running VBA project tests
-from XLIDE through Excel COM. This file is the internal engineering contract;
+Purpose: describe the workflow for writing and running VBA project tests from
+XLIDE through Office COM. The runner hosts tests in the file's own
+application: Excel for workbook formats (`.xlsm`/`.xlsb`/`.xlam`/`.xls`),
+Word for documents (`.docm`/`.dotm`/`.doc`), PowerPoint for presentations
+(`.pptm`/`.potm`/`.ppsm`/`.ppt`). Access files refuse test runs with the
+reason: Access executes compiled p-code, so the staged runner module cannot
+execute there. This file is the internal engineering contract;
 `user_guides/testing.md` is the publish-ready topical guide.
 
 ## Goals
 
-- Let workbook developers author tests in VBA.
-- Run those tests in the real Excel/VBA runtime through COM.
+- Let VBA developers author tests in VBA.
+- Run those tests in the real host VBA runtime through COM - Excel, Word, or
+  PowerPoint, chosen by the file's container.
 - Capture deterministic pass/fail results, runtime errors, assertion failures,
   explicit test output, timeouts, and teardown failures.
 - Keep this product feature separate from XLIDE's internal Excel/VBE oracle.
+
+## Host parameterization
+
+`buildOwnedReadOnlyExcelTestHostScript` takes a `hostApp` and emits
+`$hostKind`/`$hostProgId`/`$hostProcessName`/`$hostNoun` into the script
+preamble; `assets/testhost/run-vba-tests.ps1` branches on `$hostKind` at the
+five points where the hosts differ, each measured live rather than assumed:
+
+- Ownership is proven before any setting is touched. A single-instance host
+  (PowerPoint) hands back the user's own running application from
+  `New-Object`, and that instance is refused with its alerts and macro
+  security untouched. Word exposes no window handle, so its PID resolves by
+  process diff instead of `GetWindowThreadProcessId`.
+- Open: `Documents.Open(path, ConfirmConversions:=False, ReadOnly:=True,
+  AddToRecentFiles:=False)` for Word; `Presentations.Open(path, msoTrue,
+  msoFalse, WithWindow:=msoFalse)` for PowerPoint (it refuses
+  `Visible = False`, so the presentation opens windowless instead); the
+  existing read-only `Workbooks.Open` for Excel.
+- Run references: Word resolves `Module.Proc` and rejects
+  document-qualified names; PowerPoint takes `File.pptm!Module.Proc`; Excel
+  keeps `'Book.xlsm'!Module.RunTest`.
+- Run marshaling: Word declares `Run`'s varargs `ByRef`, so PowerShell
+  passes `[ref]`; PowerPoint's ParamArray rejects `ByRef` marshaling
+  entirely and goes through reflection `InvokeMember`; Excel takes plain
+  arguments.
+- Close: `wdDoNotSaveChanges` for Word; `Saved = msoTrue` then `Close` for
+  PowerPoint; `Close($false)` for Excel. Alert suppression is per host too
+  (`DisplayAlerts = False` / `wdAlertsNone` / `ppAlertsNone`).
+
+The event protocol keeps its `excel*` identifiers for every host; they are
+wire ids consumed by `vbaTestHostOracle.ts`, not display text.
+
+## The Throws dispatcher
+
+Word surfaces a `Application.Run` target's unhandled error as a VBE modal
+instead of propagating it to the calling VBA (measured live: the modal
+watcher caught the runtime-error dialog while the caller's `On Error` never
+fired). Excel propagates. So staging generates an `XlideTestDispatch` module
+beside `XlideAssert`: a by-name dispatcher that direct-calls every public
+zero-parameter `Sub` in the project's standard modules and reports the
+outcome through `XlideAssert.RecordTargetOutcome` - one execution context, no
+Run boundary, identical on every host. `XlideAssert.Throws`/`DoesNotThrow`
+prefer the dispatcher and keep the classic propagating `Run` as the
+editing-time fallback, so a workbook with only `XlideAssert.bas` installed
+behaves exactly as before. The generated `Select Case` chunks into bounded
+helper functions to stay under VBA's 64KB compiled-procedure cap.
 
 ## Intended Developer Workflow
 
@@ -284,7 +336,7 @@ bounded host failures with owned-process cleanup rather than indefinite runs.
 Remaining shipped-runner execution features include:
 
 - suite timeout
-- comprehensive popup/blocker matrix with deterministic handling or host-error
+- complete popup/blocker matrix with deterministic handling or host-error
   classification
 - stage/test duration metrics and performance regression baselines
 - setup and teardown hooks

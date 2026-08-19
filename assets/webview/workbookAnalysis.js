@@ -432,7 +432,7 @@
             const source = row.dataset.trackingSource === 'workbook' ? 'workbook' : 'global';
             return configureTrackingAction(trackingWorkbookAction, {
                 hidden: !hasRuleCode || (!tracked && source !== 'workbook'),
-                label: tracked ? 'Untrack In Workbook' : 'Track In Workbook',
+                label: tracked ? 'Untrack In File' : 'Track In File',
             }) + configureTrackingAction(trackingGlobalAction, {
                 hidden: !hasRuleCode || (!tracked && source !== 'global'),
                 label: tracked ? 'Untrack Globally' : 'Track Globally',
