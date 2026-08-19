@@ -3,7 +3,8 @@ import * as path from 'path';
 import { WorkbookEngine } from './workbookEngine';
 import { workbookIdentityKey } from './xlideFileSystem';
 import { compareVbaModulesForTreeOrder, moduleThemeIconName } from './moduleDisplay';
-import { containerAppNameForPath, containerContextValue, isReadOnlyContainerPath, MACRO_CONTAINER_GLOB } from './macroContainerUi';
+import { containerAppNameForPath, containerContextValue, isReadOnlyContainerPath } from './macroContainerUi';
+import { findMacroContainerFiles } from './macroContainerDiscovery';
 import { hasPendingAgentReview } from './xlideAgentDiff';
 import { startPerformanceTrace } from './performanceTrace';
 
@@ -370,13 +371,8 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
     }
 
     private async _loadXlsmFiles(): Promise<XlideNode[]> {
-        const uris = await vscode.workspace.findFiles(
-            MACRO_CONTAINER_GLOB,
-            '{**/node_modules/**,**/.venv/**,**/venv/**}',
-        );
+        const uris = await findMacroContainerFiles();
         return uris
-            .filter(uri => uri.scheme === 'file' && !fileNameForDisplay(uri.fsPath).startsWith('~$'))
-            .sort((a, b) => a.fsPath.localeCompare(b.fsPath))
             .map((uri) => {
                 let node = this._xlsmNodes.get(uri.fsPath);
                 if (!node) {

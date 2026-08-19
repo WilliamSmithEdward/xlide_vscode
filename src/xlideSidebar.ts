@@ -1,5 +1,5 @@
 import * as fs from 'fs';
-import { MACRO_CONTAINER_GLOB } from './macroContainerUi';
+import { findMacroContainerFiles } from './macroContainerDiscovery';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import {
@@ -243,15 +243,7 @@ function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRe
 }
 
 async function workbookFiles(): Promise<vscode.Uri[]> {
-    return measurePerformance('sidebar.workbookFiles', undefined, async () => {
-    const uris = await vscode.workspace.findFiles(
-        MACRO_CONTAINER_GLOB,
-        '{**/node_modules/**,**/.venv/**,**/venv/**}',
-    );
-    return uris
-        .filter((uri) => uri.scheme === 'file' && !path.basename(uri.fsPath).startsWith('~$'))
-        .sort((left, right) => left.fsPath.localeCompare(right.fsPath));
-    });
+    return measurePerformance('sidebar.workbookFiles', undefined, () => findMacroContainerFiles());
 }
 
 async function activeWorkbookContext(

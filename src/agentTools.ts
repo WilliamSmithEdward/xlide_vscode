@@ -7,7 +7,7 @@ import { WorkbookEngine } from './workbookEngine';
 import { XlsmExplorer } from './xlsmExplorer';
 import { XlideFileSystemProvider } from './xlideFileSystem';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
-import { MACRO_CONTAINER_GLOB } from './macroContainerUi';
+import { findMacroContainerFiles } from './macroContainerDiscovery';
 import {
     agentWriteDiffsEnabled,
     keepAgentChange,
@@ -170,8 +170,8 @@ export function registerAgentTools(
         // ----------------------------------------------------------------
         vscode.lm.registerTool<Record<string, never>>('xlide_listWorkbooks', {
             async invoke(_options, _token) {
-                const uris = await vscode.workspace.findFiles(MACRO_CONTAINER_GLOB);
-                const files = uris.map((u) => u.fsPath).sort();
+                const uris = await findMacroContainerFiles();
+                const files = uris.map((u) => u.fsPath);
                 return textResult(JSON.stringify(files, null, 2));
             },
         }),
