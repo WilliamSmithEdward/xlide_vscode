@@ -330,7 +330,7 @@ export function parseFormDesignerStreams(
 const FRX_MAGIC_0 = 0x4c; // 'L'
 const FRX_MAGIC_1 = 0x42; // 'B'
 const FRX_HEADER_SIZE = 24;
-const FRX_COMPOBJ_STREAM = 'CompObj';
+const FRX_COMPOBJ_STREAM = '\x01CompObj';
 
 /** The designer streams a `.frx` sidecar carries. */
 export interface FormDesignerStreams {
@@ -389,7 +389,7 @@ export function composeFormFrx(streams: FormDesignerStreams): Buffer {
 
 // ------------------------------------------------------------------ .frm text
 //
-// The VBFrame stream (its storage name carries a  prefix) is the textual
+// The VBFrame stream (its storage name carries a \x03 prefix) is the textual
 // designer block, and the VBE's .frm is that block with `TypeInfoVer` dropped
 // and an `OleObjectBlob` line added (alphabetically among the properties)
 // naming the sidecar. Verified against the same form exported by the VBE.

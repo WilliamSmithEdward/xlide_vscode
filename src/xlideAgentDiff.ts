@@ -109,11 +109,15 @@ export async function openAgentReviewDiff(filePath: string, moduleName: string):
     }
     const liveUri = encodeModuleUri(filePath, moduleName);
     // A fresh URI per view: an older diff tab keeps showing its own frozen
-    // before-image instead of silently changing under the reader.
+    // before-image instead of silently changing under the reader. The
+    // counter rides the query so the path keeps its .bas extension - the
+    // language association reads the path, and a suffixed extension would
+    // render the before pane without VBA highlighting.
     writeCounter += 1;
     const beforeUri = vscode.Uri.from({
         scheme: XLIDE_AGENT_BEFORE_SCHEME,
-        path: `${liveUri.path}.${writeCounter}`,
+        path: liveUri.path,
+        query: `v${writeCounter}`,
     });
     beforeImages.set(beforeUri.toString(), record.before);
     pruneBeforeImages();

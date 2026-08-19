@@ -392,7 +392,7 @@ export function readFormExport(filePath: string, moduleName: string): { frm: str
 	if (!designer) {
 		throw new Error(`Module has no designer storage: ${moduleName}`);
 	}
-	const safeName = module.name.replace(/[<>:"/\|?* -]/g, '_');
+	const safeName = module.name.replace(/[<>:"/\|?*\x00-\x1f]/g, '_');
 	const frm = composeFrmDesignerBlock(designer.vbFrame, `${safeName}.frx`) + module.source;
 	return { frm, frx: composeFormFrx(designer) };
 }
@@ -433,7 +433,7 @@ export function writeFormDesigner(
 	return { ok: true, signatureDropped };
 }
 
-const VBFRAME_STREAM = 'VBFrame';
+const VBFRAME_STREAM = '\x03VBFrame';
 
 /** The designer storage's streams for a module, or undefined when it has none. */
 function readDesignerStorage(
@@ -443,7 +443,7 @@ function readDesignerStorage(
 	try {
 		const f = cfb.getStreamInStorage(moduleName, 'f');
 		const o = cfb.getStreamInStorage(moduleName, 'o');
-		const compObjName = 'CompObj';
+		const compObjName = '\x01CompObj';
 		const compObj = cfb.hasStreamInStorage(moduleName, compObjName)
 			? cfb.getStreamInStorage(moduleName, compObjName)
 			: undefined;
