@@ -26,8 +26,10 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
   as an undeclared variable. All three generated models now lay their own
   library's constants over the shared Office table (same-name chart enums
   keep their identical values), and a new round-trip suite walks every
-  committed reference dump to prove each model resolves every constant with
-  the dumped value and enum type and carries nothing invented.
+  repo-local reference dump to prove each model resolves every constant
+  with the dumped value and enum type and carries nothing invented. The
+  corpus is deliberately uncommitted, so those checks run exactly where
+  regeneration can happen and skip in CI and fresh clones.
 
 - **An agent review survives the agent's second change.** The Keep/Revert
   review froze its after-image at the write that opened it, so when a second

@@ -1,15 +1,21 @@
 // Tripwire: the generated host models faithfully carry their reference dumps.
 //
-// Each host model's constants come from two committed sources: the host type
-// library's Enumeration dumps (reference/<host>/json, via
+// Each host model's constants come from two sources: the host type library's
+// Enumeration dumps (reference/<host>/json, via
 // generate-host-object-model.mjs) and the shared Office library table
 // (OFFICE_REFERENCE_ENUM_CONSTANTS, itself generated from
 // reference/office/json). This suite walks every dump and asserts the model
 // resolves every constant with the dumped value and enum type, and carries
 // nothing the two sources do not - so a regeneration that drops, mangles, or
 // invents constants announces itself.
+//
+// The reference corpus is deliberately NOT committed (.gitignore: a local
+// transcription source, never bundled), so the dump-walking tests run only
+// where the corpus exists - exactly the machines where regeneration can
+// happen - and skip everywhere else (CI, fresh clones). The Office-table
+// check needs no corpus and always runs.
 import { describe, expect, it } from 'vitest';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
 import { getPowerPointObjectModel } from '../src/analyzer/host/powerpointObjectModel';
@@ -24,9 +30,13 @@ interface EnumDump {
 	constants?: Array<{ name: string; value?: unknown }>;
 }
 
+function dumpDirectory(host: string): string {
+	return join(__dirname, '..', 'reference', host, 'json');
+}
+
 /** Lowercased name -> the values and enum types the host's dumps carry for it. */
 function dumpedConstants(host: string): Map<string, { values: Set<string>; types: Set<string> }> {
-	const dir = join(__dirname, '..', 'reference', host, 'json');
+	const dir = dumpDirectory(host);
 	const byLower = new Map<string, { values: Set<string>; types: Set<string> }>();
 	for (const file of readdirSync(dir)) {
 		if (!file.endsWith('.json')) {
@@ -64,7 +74,9 @@ const HOSTS: ReadonlyArray<[string, () => HostObjectModel]> = [
 ];
 
 describe.each(HOSTS)('%s constants round-trip from the reference dumps', (host, getModel) => {
-	it('resolves every dumped enum constant with the dumped value and enum type', () => {
+	const corpus = existsSync(dumpDirectory(host));
+
+	it.runIf(corpus)('resolves every dumped enum constant with the dumped value and enum type', () => {
 		const dumped = dumpedConstants(host);
 		const model = getModel();
 		expect(dumped.size).toBeGreaterThan(1000);
@@ -86,7 +98,7 @@ describe.each(HOSTS)('%s constants round-trip from the reference dumps', (host, 
 		expect(wrong.slice(0, 10), `wrong (${wrong.length})`).toEqual([]);
 	});
 
-	it('resolves every shared Office constant, host library winning shared names', () => {
+	it.runIf(corpus)('resolves every shared Office constant, host library winning shared names', () => {
 		const dumped = dumpedConstants(host);
 		const model = getModel();
 		const wrong: string[] = [];
@@ -107,7 +119,7 @@ describe.each(HOSTS)('%s constants round-trip from the reference dumps', (host, 
 		expect(wrong.slice(0, 10), `wrong (${wrong.length})`).toEqual([]);
 	});
 
-	it('carries nothing beyond the host dumps and the Office table', () => {
+	it.runIf(corpus)('carries nothing beyond the host dumps and the Office table', () => {
 		const dumped = dumpedConstants(host);
 		const model = getModel();
 		const invented = getHostConstants(model)
