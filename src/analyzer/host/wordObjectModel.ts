@@ -22,6 +22,7 @@ export function getWordObjectModel(): HostObjectModel {
 	const data = wordReferenceData();
 	MODEL = {
 		source: 'Microsoft Word 16.0 Object Library via pyVBAReference; enriched from Microsoft Learn',
+		hostName: 'Word',
 		types: data.types as HostObjectModel['types'],
 		aliases: data.aliases as HostObjectModel['aliases'],
 		constants: data.constants as HostObjectModel['constants'],

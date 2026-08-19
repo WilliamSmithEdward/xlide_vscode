@@ -22,6 +22,7 @@ export function getAccessObjectModel(): HostObjectModel {
 	const data = accessReferenceData();
 	MODEL = {
 		source: 'Microsoft Access 16.0 Object Library via pyVBAReference; enriched from Microsoft Learn',
+		hostName: 'Access',
 		types: data.types as HostObjectModel['types'],
 		aliases: data.aliases as HostObjectModel['aliases'],
 		constants: data.constants as HostObjectModel['constants'],

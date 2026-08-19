@@ -44,7 +44,7 @@ const WORD_DOCUMENT = 'Word.Document';
 const EDITOR_PROJECT_CONTEXT_CACHE_TTL_MS = 10_000;
 const EDITOR_PROJECT_CONTEXT_CACHE_MAX_DOCUMENTS = 32;
 
-interface ModuleEntry {
+export interface ModuleEntry {
 	name: string;
 	type: string;
 	documentType?: EventHandlerDocumentType;
@@ -119,8 +119,15 @@ function meProjectTypeFor(entry: ModuleEntry | undefined): string | undefined {
 	return entry.name;
 }
 
-/** Builds the lowercased code-name -> host type map for a project. */
-function codeNamesFor(entries: ModuleEntry[], host?: VbaHostToken): Record<string, string> {
+/**
+ * Builds the lowercased code-name -> host type map for a project. Exported so
+ * the semantic-token provider can type code-name receivers (issue #29) from
+ * the same host mapping completion and hover use.
+ */
+export function codeNameHostTypesForModules(
+	entries: readonly ModuleEntry[],
+	host?: VbaHostToken,
+): Record<string, string> {
 	const out: Record<string, string> = {};
 	for (const entry of entries) {
 		if (entry.type !== 'document') {
@@ -195,6 +202,7 @@ export function toTypeCompletionContext(ctx: EditorProjectContext): TypeCompleti
 export function toIdentifierCompletionContext(ctx: EditorProjectContext): IdentifierCompletionContext {
 	return {
 		codeNames: ctx.codeNameList,
+		codeNameTypes: ctx.codeNameMap,
 		moduleName: ctx.moduleName,
 		moduleKind: ctx.moduleKind,
 		projectMemberSurfaces: ctx.projectClassMembers,
@@ -389,7 +397,7 @@ export class VbaEditorProjectContextService {
 				host,
 				hostModel: hostObjectModelForToken(host),
 				documentType: documentTypeFor(current),
-				codeNameMap: codeNamesFor(allEntries, host),
+				codeNameMap: codeNameHostTypesForModules(allEntries, host),
 				codeNameList: codeNameListFor(allEntries),
 				meType: meTypeFor(current, host),
 				meProjectType: meProjectTypeFor(current),

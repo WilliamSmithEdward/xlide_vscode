@@ -6,6 +6,7 @@ import {
 	resolveIdentifierCompletions,
 	IdentifierCompletionContext,
 } from '../src/analyzer';
+import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
 
 /** Offset just after `marker` in `src`. */
 function at(src: string, marker: string): number {
@@ -82,6 +83,33 @@ describe('identifier completion - code names', () => {
 		const ctx = { codeNames: ['ThisWorkbook'] };
 		const got = names(src, '    This', ctx);
 		expect(got.filter((n) => n.toLowerCase() === 'thisworkbook')).toHaveLength(1);
+	});
+
+	it('labels a code name with its document host type (issue #28)', () => {
+		const src = 'Sub Test()\n    This\nEnd Sub\n';
+		const excel = resolveIdentifierCompletions(src, at(src, '    This'), {
+			codeNames: ['ThisWorkbook'],
+			codeNameTypes: { thisworkbook: 'Excel.Workbook' },
+		});
+		const workbook = excel.find(
+			(item) => item.name === 'ThisWorkbook' && item.kind === 'codeName',
+		);
+		expect(workbook?.detail).toBe('Workbook object');
+
+		const word = resolveIdentifierCompletions(src, at(src, '    This'), {
+			codeNames: ['ThisDocument'],
+			codeNameTypes: { thisdocument: 'Word.Document' },
+			model: getWordObjectModel(),
+		});
+		expect(word.find((item) => item.name === 'ThisDocument')?.detail).toBe('Document object');
+	});
+
+	it('keeps the Worksheet label when no code-name types are known', () => {
+		const src = 'Sub Test()\n    She\nEnd Sub\n';
+		const got = resolveIdentifierCompletions(src, at(src, '    She'), {
+			codeNames: ['Sheet1'],
+		});
+		expect(got.find((item) => item.name === 'Sheet1')?.detail).toBe('Worksheet object');
 	});
 
 	it('offers standard module names as module-qualified receivers', () => {

@@ -22,7 +22,12 @@ import {
 } from '../symbols/symbolModel';
 import { Span } from '../parser/nodes';
 import { HostObjectModel } from '../host/excelObjectModel';
-import { getHostType, resolveHostConstant, resolveHostGlobal } from '../host/hostModel';
+import {
+	getHostType,
+	hostDisplayName,
+	resolveHostConstant,
+	resolveHostGlobal,
+} from '../host/hostModel';
 import { resolveRuntimeConstant, resolveRuntimeFunction, resolveRuntimeObject } from '../runtime/vbaRuntime';
 import {
 	MemberCompletion,
@@ -116,7 +121,7 @@ export function resolveHover(
 		model: ctx.model,
 	});
 	if (typeHover) {
-		return buildTypeHover(typeHover);
+		return buildTypeHover(typeHover, ctx.model);
 	}
 
 	// Member access: `receiver.member` - describe the host or project member.
@@ -161,7 +166,7 @@ export function resolveHover(
 	if (globalType) {
 		return {
 			signature: `${name} As ${displayType(globalType)}`,
-			details: ['Excel host global'],
+			details: [`${hostDisplayName(ctx.model)} host global`],
 			span,
 			documentation: externalDocMarkdown(ctx, name),
 		};
@@ -203,7 +208,7 @@ export function resolveHover(
 	if (hostConstant) {
 		return {
 			signature: constantSignature(hostConstant),
-			details: ['Excel/Office constant'],
+			details: [`${hostDisplayName(ctx.model)}/Office constant`],
 			span,
 			documentation: externalDocMarkdown(ctx, name),
 		};
@@ -258,11 +263,11 @@ function formatConstantValue(value: string | number): string {
 	return typeof value === 'string' ? JSON.stringify(value) : String(value);
 }
 
-function buildTypeHover(typeRef: ResolvedTypeReference): HoverInfo {
+function buildTypeHover(typeRef: ResolvedTypeReference, model?: HostObjectModel): HoverInfo {
 	const signature = typeSignature(typeRef);
 	return {
 		signature,
-		details: [typeDetail(typeRef)],
+		details: [typeDetail(typeRef, model)],
 		span: typeRef.span,
 		documentation: typeRef.documentation,
 	};
@@ -285,12 +290,12 @@ function typeSignature(typeRef: ResolvedTypeReference): string {
 	}
 }
 
-function typeDetail(typeRef: ResolvedTypeReference): string {
+function typeDetail(typeRef: ResolvedTypeReference, model?: HostObjectModel): string {
 	switch (typeRef.kind) {
 		case 'primitive':
 			return 'VBA primitive type';
 		case 'host':
-			return 'Excel host type';
+			return `${hostDisplayName(model)} host type`;
 		case 'external':
 			return 'OLE Automation type';
 		default:
@@ -318,7 +323,9 @@ function buildMemberHover(
 		details: [
 			runtimeType
 				? `VBA runtime ${member.kind}`
-				: hostType ? `Excel host ${member.kind}` : `${ownerName} ${member.kind}`,
+				: hostType
+					? `${hostDisplayName(ctx.model)} host ${member.kind}`
+					: `${ownerName} ${member.kind}`,
 		],
 		span,
 		documentation: hostType

@@ -9,6 +9,7 @@ import {
 	VBA_RUNTIME_OBJECTS,
 	resolveIdentifierCompletions,
 } from '../src/analyzer';
+import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
 
 describe('VBA runtime metadata', () => {
 	it('resolves built-ins case-insensitively', () => {
@@ -214,6 +215,21 @@ describe('identifier completion - runtime built-ins', () => {
 		expect(msoLineDash?.kind).toBe('constant');
 		expect(msoLineDash?.detail).toBe('Excel/Office constant As MsoLineDashStyle');
 		expect(msoLineDash?.documentation).toContain('Const msoLineDash As MsoLineDashStyle = 4');
+	});
+
+	it('labels host constants with the module host (issue #28)', () => {
+		const src = 'Sub T()\n    wdAlign\nEnd Sub\n';
+		const items = resolveIdentifierCompletions(src, src.indexOf('wdAlign') + 7, {
+			moduleName: 'M',
+			model: getWordObjectModel(),
+		});
+		const constant = items.find((item) => item.name === 'wdAlignParagraphCenter');
+		expect(constant?.kind).toBe('constant');
+		expect(constant?.detail).toBe('Word/Office constant As WdParagraphAlignment');
+		expect(constant?.documentation).toContain('**Word/Office constant**');
+		expect(constant?.documentation).toContain(
+			'Source: generated Word/Office reference metadata.',
+		);
 	});
 
 	it('can be disabled via includeRuntime', () => {

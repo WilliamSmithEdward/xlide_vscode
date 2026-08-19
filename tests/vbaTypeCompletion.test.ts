@@ -4,6 +4,7 @@ import {
 	type ProjectTypeName,
 	type TypeCompletionContext,
 } from '../src/analyzer';
+import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
 
 /** Offset just past the end of the first occurrence of `marker`. */
 function endOf(src: string, marker: string): number {
@@ -201,6 +202,15 @@ describe('project-defined types', () => {
 		expect(byName.get('Worksheet')?.detail).toBe('Excel type');
 		expect(byName.get('Customer')?.detail).toBe('Class');
 		expect(byName.get('Color')?.detail).toBe('Enum');
+	});
+
+	it('tags host type candidates with the module host (issue #28)', () => {
+		const result = resolveTypeCompletions('Dim x As ', endOf('Dim x As ', 'As '), {
+			model: getWordObjectModel(),
+		});
+		const byName = new Map(result.map((t) => [t.name, t]));
+		expect(byName.get('Document')?.detail).toBe('Word type');
+		expect(byName.get('Long')?.detail).toBe('VBA type');
 	});
 
 	it('offers OLE Automation interfaces directly and through stdole', () => {

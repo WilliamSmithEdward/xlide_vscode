@@ -93,6 +93,30 @@ export function getHostType(
 	return model.types[qualified];
 }
 
+/**
+ * The application name origin labels use ("Excel host method", "Word type").
+ * An absent model answers Excel - the default model when no host is named -
+ * and so does a model without a hostName, keeping the historical wording for
+ * models that predate the field (issue #28).
+ */
+export function hostDisplayName(model?: HostObjectModel): string {
+	return model?.hostName ?? 'Excel';
+}
+
+/**
+ * Resolves an object-access member (a property or method, never an event) of
+ * a qualified host type by name. Case-insensitive. Undefined when the type or
+ * the member is unknown to the model.
+ */
+export function resolveHostMember(
+	qualified: string,
+	memberName: string,
+	model: HostObjectModel = getExcelObjectModel(),
+): HostMember | undefined {
+	return hostModelIndex(model).membersByType
+		.get(qualified)?.byLowerName.get(memberName.toLowerCase());
+}
+
 /** Returns the members of a qualified type, or an empty array if unknown. */
 export function getHostMembers(
 	qualified: string,
@@ -226,7 +250,5 @@ export function resolveMemberReturnType(
 	memberName: string,
 	model: HostObjectModel = getExcelObjectModel(),
 ): string | undefined {
-	const member = hostModelIndex(model).membersByType
-		.get(qualified)?.byLowerName.get(memberName.toLowerCase());
-	return member?.returns;
+	return resolveHostMember(qualified, memberName, model)?.returns;
 }

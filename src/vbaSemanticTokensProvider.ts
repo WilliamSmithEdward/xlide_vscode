@@ -13,10 +13,12 @@ import {
 } from './vbaDocumentIdentity';
 import {
     collectHostGlobalTokens,
+    collectHostMemberMethodTokens,
     collectImplicitMemberMethodTokens,
     resolveTypeSemanticTokens,
     TypeSemanticTokenType,
 } from './analyzer';
+import { codeNameHostTypesForModules } from './vbaEditorProjectContext';
 import {
     projectAnalysisOptionsForModule,
     type VbaProjectAnalysisOptions,
@@ -56,6 +58,8 @@ interface CachedTypeSemanticProjectTypes {
     meType?: string;
     /** The container's host model; absent keeps the Excel default. */
     hostModel?: HostObjectModel;
+    /** Lowercased document code name -> host type, for member paint (issue #29). */
+    codeNames?: Record<string, string>;
 }
 
 interface CachedTypeSemanticTokens {
@@ -123,6 +127,11 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
                 ...collectImplicitMemberMethodTokens(source, {
                     implicitMembers: projectContext?.implicitMembers,
                     meType: projectContext?.meType,
+                }),
+                ...collectHostMemberMethodTokens(source, {
+                    model: projectContext?.hostModel,
+                    codeNames: projectContext?.codeNames,
+                    implicitMembers: projectContext?.implicitMembers,
                 }),
             ];
             for (const item of items) {
@@ -256,11 +265,40 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
                 implicitMembers: options.implicitMembers,
                 meType: await this._userFormMeType(document, moduleName),
                 hostModel: hostModelForDocument(document),
+                codeNames: await this._codeNamesForDocument(document),
             };
             this._projectTypesCache.set(key, entry);
             return entry;
         } catch {
             return previous;
+        }
+    }
+
+    /**
+     * Lowercased code-name -> host type map for the document's container, so
+     * `Sheet1.Calculate` and Word's `ThisDocument.Save` paint as method calls
+     * (issue #29). Loose files have no sibling document modules; undefined.
+     */
+    private async _codeNamesForDocument(
+        document: vscode.TextDocument,
+    ): Promise<Record<string, string> | undefined> {
+        if (document.uri.scheme !== XLIDE_SCHEME) {
+            return undefined;
+        }
+        try {
+            const xlsmPath = decodeModuleUri(document.uri).xlsmPath;
+            // The same cached workbook context the project build above used.
+            const context = await this._projectIndexService.contextForWorkbook(xlsmPath, 'live');
+            return codeNameHostTypesForModules(
+                [...context.moduleMetadata.values()].map((meta) => ({
+                    name: meta.moduleName,
+                    type: meta.moduleType ?? '',
+                    documentType: meta.documentType,
+                })),
+                hostTokenForFileName(xlsmPath),
+            );
+        } catch {
+            return undefined;
         }
     }
 

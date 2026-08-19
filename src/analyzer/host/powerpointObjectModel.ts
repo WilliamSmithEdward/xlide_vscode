@@ -19,6 +19,7 @@ export function getPowerPointObjectModel(): HostObjectModel {
 	const data = powerpointReferenceData();
 	MODEL = {
 		source: 'Microsoft PowerPoint 16.0 Object Library via pyVBAReference; enriched from Microsoft Learn',
+		hostName: 'PowerPoint',
 		types: data.types as HostObjectModel['types'],
 		aliases: data.aliases as HostObjectModel['aliases'],
 		constants: data.constants as HostObjectModel['constants'],

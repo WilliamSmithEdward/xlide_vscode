@@ -16,6 +16,15 @@ const MODELS: ReadonlyArray<[string, () => HostObjectModel]> = [
 	['access', getAccessObjectModel],
 ];
 
+// Origin labels are built from hostName (issue #28), so a misspelled name
+// would ship in every hover and completion detail of that host.
+it('every model names its application for origin labels', () => {
+	expect(getExcelObjectModel().hostName).toBe('Excel');
+	expect(getWordObjectModel().hostName).toBe('Word');
+	expect(getPowerPointObjectModel().hostName).toBe('PowerPoint');
+	expect(getAccessObjectModel().hostName).toBe('Access');
+});
+
 describe.each(MODELS)('the %s object model', (_host, getModel) => {
 	it('declares every global against a type it actually carries', () => {
 		const model = getModel();

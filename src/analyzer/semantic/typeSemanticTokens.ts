@@ -27,7 +27,7 @@ import { tokenizeCached } from '../lexer/tokenize';
 // (measured 43 ms on the 947 KB corpus module, mostly lexing and the
 // garbage it makes).
 import { statementTokensCached as codeTokens, tokenName, tokenWord } from '../lexer/tokenHelpers';
-import { resolveHostGlobal } from '../host/hostModel';
+import { resolveHostGlobal, resolveHostMember } from '../host/hostModel';
 import type { HostObjectModel } from '../host/excelObjectModel';
 import {
 	resolveTypeName,
@@ -680,6 +680,82 @@ function implicitReceiverType(
 		return controls.get(name);
 	}
 	return undefined;
+}
+
+/** What the host member method collector needs from outside the source. */
+export interface HostMemberTokenContext {
+	/** Host object model to resolve against. Defaults to the Excel model. */
+	model?: HostObjectModel;
+	/**
+	 * Lowercased document code name -> qualified host type ("sheet1" ->
+	 * "Excel.Worksheet", "thisdocument" -> "Word.Document"), so a code-name
+	 * receiver resolves the way a host global does.
+	 */
+	codeNames?: Record<string, string>;
+	/**
+	 * A form's designer-declared controls. Inside the form their names bind
+	 * before the host globals, so a control named like a global shadows it.
+	 */
+	implicitMembers?: readonly { name: string }[];
+}
+
+/**
+ * Method calls on a host receiver, for `function` semantic coloring:
+ * `ActiveSheet.Calculate` and Word's `ActiveDocument.FitToPages` paint the
+ * way `RegionPick.AddItem` does (issue #29, extending issue #20's
+ * convention). Resolved only, never guessed: the receiver must be a host
+ * global or a document code name at the chain root, shadowed by nothing in
+ * the module, and the member must resolve to a method on the receiver's host
+ * type. Properties and unresolved members take no token, and longer chains
+ * stay out of scope the way they do for controls.
+ */
+export function collectHostMemberMethodTokens(
+	source: string,
+	ctx: HostMemberTokenContext = {},
+): TypeSemanticToken[] {
+	const declared = collectModuleDeclaredNames(parseModule(source));
+	for (const member of ctx.implicitMembers ?? []) {
+		declared.add(member.name.toLowerCase());
+	}
+	const codeNames = ctx.codeNames ?? {};
+	// Newlines are KEPT for the same reason as collectImplicitMemberMethodTokens:
+	// a dot that opens a line is a With block's member access, not a member of
+	// whatever the line above happened to end with. (tokenizeCached; the filter
+	// keeps the shared stream unmutated.)
+	const tokens = tokenizeCached(source).filter((t) => t.kind !== 'comment');
+	const out: TypeSemanticToken[] = [];
+	for (let i = 2; i < tokens.length; i++) {
+		const tok = tokens[i];
+		if (tok.kind !== 'identifier' || tokens[i - 1].rawText !== '.') {
+			continue;
+		}
+		const recv = tokens[i - 2];
+		if (recv.kind !== 'identifier') {
+			continue;
+		}
+		const before = tokens[i - 3];
+		if (before && (before.rawText === '.' || before.rawText === '!')) {
+			continue; // not the chain root
+		}
+		const lower = recv.rawText.toLowerCase();
+		if (declared.has(lower)) {
+			continue;
+		}
+		const receiverType = resolveHostGlobal(recv.rawText, ctx.model) ?? codeNames[lower];
+		if (!receiverType) {
+			continue;
+		}
+		const member = resolveHostMember(receiverType, tok.rawText, ctx.model);
+		if (member?.kind !== 'method') {
+			continue;
+		}
+		out.push({
+			name: tok.rawText,
+			tokenType: 'function',
+			span: { start: tok.start, end: tok.end },
+		});
+	}
+	return out;
 }
 
 export function resolveTypeSemanticTokens(

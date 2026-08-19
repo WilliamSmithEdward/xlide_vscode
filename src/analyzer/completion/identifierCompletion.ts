@@ -13,7 +13,12 @@
 import { tokenize } from '../lexer/tokenize';
 import { completionCursorContext } from './cursorContext';
 import { HostObjectModel } from '../host/excelObjectModel';
-import { getHostConstants, getHostGlobals, getHostType } from '../host/hostModel';
+import {
+	getHostConstants,
+	getHostGlobals,
+	getHostType,
+	hostDisplayName,
+} from '../host/hostModel';
 import {
 	VBA_RUNTIME_CONSTANTS,
 	VBA_RUNTIME_FUNCTIONS,
@@ -70,6 +75,12 @@ export interface IdentifierCompletion {
 export interface IdentifierCompletionContext {
 	/** Canonical worksheet/document code names of the workbook project. */
 	codeNames?: string[];
+	/**
+	 * Lowercased code name -> qualified host type ("thisdocument" ->
+	 * "Word.Document"), for origin labels. Absent entries keep the historical
+	 * Excel assumption that a bare code name is a worksheet (issue #28).
+	 */
+	codeNameTypes?: Record<string, string>;
 	/** Source-backed standard modules available as module-qualified receivers. */
 	projectMemberSurfaces?: readonly VbaProjectClassMembers[];
 	/** Exported project procedures/Declares visible as bare calls from this module. */
@@ -203,7 +214,7 @@ export function resolveIdentifierCompletions(
 	addInScopeSymbols(source, offset, ctx, add);
 
 	for (const name of ctx.codeNames ?? []) {
-		add(name, 'codeName', 'Worksheet object');
+		add(name, 'codeName', `${codeNameDisplayType(name, ctx)} object`);
 	}
 
 	addProjectModules(ctx.projectMemberSurfaces, add);
@@ -236,12 +247,13 @@ export function resolveIdentifierCompletions(
 					runtimeConstantDocumentation(constant),
 				);
 			}
+			const constantHost = hostDisplayName(ctx.model);
 			for (const constant of getHostConstants(ctx.model)) {
 				add(
 					constant.name,
 					'constant',
-					constantDetail('Excel/Office constant', constant.type),
-					hostConstantDocumentation(constant),
+					constantDetail(`${constantHost}/Office constant`, constant.type),
+					hostConstantDocumentation(constantHost, constant),
 				);
 			}
 		}
@@ -502,10 +514,27 @@ function runtimeObjectDocumentation(object: VbaRuntimeObject): string {
 	return lines.join('\n');
 }
 
-function hostConstantDocumentation(constant: { name: string; type?: string; value?: string | number }): string {
-	const lines = [`**Excel/Office constant**`, '', '```vba', constantSignature(constant), '```'];
-	lines.push('', 'Source: generated Excel/Office reference metadata.');
+function hostConstantDocumentation(
+	host: string,
+	constant: { name: string; type?: string; value?: string | number },
+): string {
+	const lines = [`**${host}/Office constant**`, '', '```vba', constantSignature(constant), '```'];
+	lines.push('', `Source: generated ${host}/Office reference metadata.`);
 	return lines.join('\n');
+}
+
+/**
+ * The short host type a code name denotes ("Workbook", "Document"), from the
+ * caller-supplied code-name type map. Absent entries answer Worksheet, the
+ * label every code name carried before the map existed.
+ */
+function codeNameDisplayType(name: string, ctx: IdentifierCompletionContext): string {
+	const qualified = ctx.codeNameTypes?.[name.toLowerCase()];
+	if (!qualified) {
+		return 'Worksheet';
+	}
+	const dot = qualified.lastIndexOf('.');
+	return dot >= 0 ? qualified.slice(dot + 1) : qualified;
 }
 
 function constantSignature(constant: { name: string; type?: string; value?: string | number }): string {

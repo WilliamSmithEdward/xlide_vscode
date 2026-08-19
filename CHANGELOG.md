@@ -4,6 +4,30 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [4.0.1] - Unreleased
 
+- **Origin labels name the module's host, not Excel** (#28). Since 4.0.0
+  the resolvers answer from the module's own host model, but every origin
+  label stayed a literal: Word's `ActiveDocument.FitToPages` hovered as
+  "Excel host method" over Word-correct data. The host model now carries
+  its application name and the labels build from it - "Word host global",
+  "Word host type", "Word type" in type completion, "Word/Office constant"
+  with matching documentation, and a code name's completion detail names
+  its real document type ("Document object" for ThisDocument, and
+  "Workbook object" for ThisWorkbook instead of the old blanket
+  "Worksheet object"). Excel wording is byte-for-byte unchanged.
+
+- **A resolved host method call paints as a call** (#29). Issue #20's
+  convention - a resolved method paints `function`, a property or an
+  unresolved member stays untouched - covered a form's designer-declared
+  controls but never host receivers, so `RegionPick.AddItem` painted while
+  `ActiveSheet.Calculate`, `Application.Quit`, and Word's
+  `ActiveDocument.FitToPages` sat in property blue. A host-receiver
+  collector now paints them under the same conservative gates: the
+  receiver is a host global or document code name at the chain root,
+  shadowed by nothing in the module (designer-declared controls included),
+  and the member resolves to a method on the receiver's host type. Longer
+  chains and With-block members stay out of scope, exactly as they do for
+  controls.
+
 - **.xlsb answers like the other hosts instead of erroring raw.** The
   binary workbook passed the Excel gate but keeps its workbook part as
   binary `xl/workbook.bin`, so the sheet and cell tools surfaced a raw

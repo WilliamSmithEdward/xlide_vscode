@@ -2,8 +2,10 @@ import { describe, it, expect } from 'vitest';
 import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
 import {
 	collectHostGlobalTokens,
+	collectHostMemberMethodTokens,
 	ProjectIndex,
 	resolveTypeSemanticTokens,
+	type HostMemberTokenContext,
 	type TypeCompletionContext,
 	type VbaProjectTypeName,
 } from '../src/analyzer';
@@ -252,4 +254,73 @@ describe('host-global tokens follow the module host (issue #24)', () => {
         expect(excelNames).toContain('ActiveSheet');
         expect(excelNames).not.toContain('ActiveDocument');
     });
+});
+
+describe('host member method semantic tokens (issue #29)', () => {
+	function methodTokens(source: string, ctx: HostMemberTokenContext = {}): string[] {
+		return collectHostMemberMethodTokens(source, ctx).map(
+			(t) => `${source.slice(t.span.start, t.span.end)}:${t.tokenType}`,
+		);
+	}
+
+	it('paints resolved host method calls and leaves properties alone', () => {
+		const source = [
+			'Sub T()',
+			'    ActiveSheet.Calculate',
+			'    Application.Quit',
+			'    x = ActiveSheet.Name',
+			'End Sub',
+			'',
+		].join('\n');
+		expect(methodTokens(source)).toEqual(['Calculate:function', 'Quit:function']);
+	});
+
+	it('never paints an unresolved member', () => {
+		expect(methodTokens('Sub T()\n    ActiveSheet.NotAMember\nEnd Sub\n')).toEqual([]);
+	});
+
+	it('does not paint when a declaration shadows the receiver', () => {
+		const source =
+			'Sub T()\n    Dim ActiveSheet As Long\n    ActiveSheet.Calculate\nEnd Sub\n';
+		expect(methodTokens(source)).toEqual([]);
+	});
+
+	it('leaves longer chains and With-block members out of scope', () => {
+		const chain = 'Sub T()\n    ActiveSheet.Range("A1").Calculate\nEnd Sub\n';
+		expect(methodTokens(chain)).toEqual([]);
+		const withBlock =
+			'Sub T()\n    With ActiveSheet\n        .Calculate\n    End With\nEnd Sub\n';
+		expect(methodTokens(withBlock)).toEqual([]);
+	});
+
+	it('follows the module host: Word paints FitToPages, Excel does not', () => {
+		const source = 'Sub T()\n    ActiveDocument.FitToPages\nEnd Sub\n';
+		expect(methodTokens(source, { model: getWordObjectModel() }))
+			.toEqual(['FitToPages:function']);
+		expect(methodTokens(source)).toEqual([]);
+	});
+
+	it('resolves code-name receivers to their document host type', () => {
+		const excel = 'Sub T()\n    Sheet1.Calculate\nEnd Sub\n';
+		expect(methodTokens(excel, { codeNames: { sheet1: 'Excel.Worksheet' } }))
+			.toEqual(['Calculate:function']);
+		expect(methodTokens(excel)).toEqual([]);
+
+		const word = 'Sub T()\n    ThisDocument.Save\nEnd Sub\n';
+		expect(
+			methodTokens(word, {
+				model: getWordObjectModel(),
+				codeNames: { thisdocument: 'Word.Document' },
+			}),
+		).toEqual(['Save:function']);
+	});
+
+	it('lets a designer-declared control shadow a host-global receiver', () => {
+		const source = 'Sub T()\n    ActiveSheet.Calculate\nEnd Sub\n';
+		expect(
+			methodTokens(source, {
+				implicitMembers: [{ name: 'ActiveSheet', type: 'MSForms.ListBox' }],
+			}),
+		).toEqual([]);
+	});
 });

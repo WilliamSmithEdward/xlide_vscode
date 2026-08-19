@@ -7,7 +7,8 @@
 //   1. Project-defined types passed in by the caller (class/document/UserForm
 //      module names, user `Type`s, and `Enum`s).
 //   2. VBA built-in data types (MS-VBAL 5.2.3.1.4 type-spec / 7.x data types).
-//   3. Excel host object-model types (Workbook/Worksheet/Range/Application).
+//   3. Host object-model types (Workbook/Worksheet/Range in Excel, Document
+//      and friends in Word, ...), drawn from the module's host model.
 //
 // This module is pure (lexer + host model only); no `vscode` dependency, so it
 // is unit-tested directly. The VS Code provider supplies the project type names.
@@ -18,6 +19,7 @@ import {
 	getExcelObjectModel,
 	type HostObjectModel,
 } from '../host/excelObjectModel';
+import { hostDisplayName } from '../host/hostModel';
 import type { VbaProjectTypeKind } from '../symbols/symbolModel';
 import {
 	hasDocContent,
@@ -313,9 +315,10 @@ export function typeCompletionCandidates(
 	for (const t of OLE_AUTOMATION_TYPES) {
 		add(t.name, t.kind, t.detail, t.moduleName, t.documentation);
 	}
-	// 4. Excel host object-model types.
+	// 4. Host object-model types, labeled with the module's host (issue #28).
+	const hostTypeDetail = `${hostDisplayName(model)} type`;
 	for (const name of hostTypeNames(model)) {
-		add(name, 'host', 'Excel type');
+		add(name, 'host', hostTypeDetail);
 	}
 
 	return out;

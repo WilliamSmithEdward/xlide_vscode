@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { resolveHover, HoverContext, ProjectIndex } from '../src/analyzer';
+import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
 
 /** Offset of the first character of `marker` in `src`. */
 function at(src: string, marker: string, within = 0): number {
@@ -542,5 +543,32 @@ describe('hover - edge cases', () => {
 			codeNames: { sheet1: 'Excel.Worksheet' },
 		});
 		expect(info?.signature).toBe('Sheet1 As Worksheet');
+	});
+});
+
+describe('hover - host labels follow the module host (issue #28)', () => {
+	const model = getWordObjectModel();
+
+	it('labels a Word host global, member, and type as Word', () => {
+		const src = 'Sub T()\n    Dim d As Document\n    ActiveDocument.FitToPages\nEnd Sub\n';
+
+		const globalInfo = resolveHover(src, src.indexOf('ActiveDocument') + 2, { model });
+		expect(globalInfo?.signature).toBe('ActiveDocument As Document');
+		expect(globalInfo?.details).toContain('Word host global');
+
+		const memberInfo = resolveHover(src, src.indexOf('FitToPages') + 2, { model });
+		expect(memberInfo?.signature.startsWith('Document.FitToPages')).toBe(true);
+		expect(memberInfo?.details[0]).toBe('Word host method');
+
+		const typeInfo = resolveHover(src, src.indexOf('As Document') + 4, { model });
+		expect(typeInfo?.signature).toBe('Document');
+		expect(typeInfo?.details).toContain('Word host type');
+	});
+
+	it('labels a Word host constant as Word/Office', () => {
+		const src = 'Sub T()\n    x = wdAlignParagraphCenter\nEnd Sub\n';
+		const info = resolveHover(src, src.indexOf('wdAlign') + 2, { model });
+		expect(info?.signature).toBe('Const wdAlignParagraphCenter As WdParagraphAlignment = 1');
+		expect(info?.details).toContain('Word/Office constant');
 	});
 });

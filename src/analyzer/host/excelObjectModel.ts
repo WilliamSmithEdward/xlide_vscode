@@ -69,6 +69,12 @@ export interface HostType {
 export interface HostObjectModel {
 	/** Provenance string shown in docs/verification map. */
 	source: string;
+	/**
+	 * Application display name for origin labels ("Excel host method",
+	 * "Word type"). Absent means Excel: the default model when no host is
+	 * named is Excel's (issue #28).
+	 */
+	hostName?: string;
 	/** Qualified type name (e.g. "Excel.Range") -> type metadata. */
 	types: Record<string, HostType>;
 	/** Lowercased type name as written in `As <type>` -> qualified type. */
@@ -420,6 +426,7 @@ export function getExcelObjectModel(): HostObjectModel {
 
 const buildExcelObjectModel = (): HostObjectModel => ({
 	source: `Office VBA object-model reference (learn.microsoft.com) + Excel COM type library, verified 2026-05-30; promoted Excel and Office reference enum constants; promoted Excel reference metadata for ${EXCEL_REFERENCE_PROMOTED_TYPES.join(', ')}; hard member-not-found diagnostics limited to ${EXCEL_REFERENCE_HARD_DIAGNOSTIC_TYPES.join(', ')}; Workbook dump ${EXCEL_WORKBOOK_REFERENCE_PROVENANCE}`,
+	hostName: 'Excel',
 	aliases: {
 		...promotedExcelReferenceAliases(),
 		workbook: WORKBOOK,

@@ -37,9 +37,11 @@ export {
 	getHostGlobals,
 	getHostMembers,
 	getHostType,
+	hostDisplayName,
 	resolveHostAlias,
 	resolveHostConstant,
 	resolveHostGlobal,
+	resolveHostMember,
 	resolveHostMemberSignature,
 	resolveMemberReturnType,
 } from './host/hostModel';
@@ -110,8 +112,10 @@ export {
 } from './completion/eventHandlers';
 export {
 	collectHostGlobalTokens,
+	collectHostMemberMethodTokens,
 	collectImplicitMemberMethodTokens,
 	collectTypeNameReferences,
+	HostMemberTokenContext,
 	ImplicitMemberTokenContext,
 	ResolvedTypeReference,
 	resolveTypeReferenceAt,
