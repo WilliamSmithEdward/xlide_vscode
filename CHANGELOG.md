@@ -2,7 +2,7 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
-## [4.0.4] - Unreleased
+## [4.0.4] - 2026-08-19
 
 - **Host constants paint in one tier** (#35). The grammar could only carry
   a curated nineteen Excel names, so `xlUp` wore constant blue while
