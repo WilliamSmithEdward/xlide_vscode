@@ -2,6 +2,7 @@ import type { VbaToken } from '../lexer/tokenKinds';
 import {
 	splitTopLevelTokenGroups,
 	statementTokens,
+	statementTokensCached,
 	tokenName,
 	tokensWithoutLeadingLineNumber,
 	tokenWord,
@@ -121,7 +122,7 @@ export function statementLabelReferences(
 	source: string,
 	span: Span,
 ): VbaProcedureLabelReference[] {
-	const toks = tokensWithoutLeadingLineNumber(statementTokens(source, span));
+	const toks = tokensWithoutLeadingLineNumber(statementTokensCached(source, span));
 	if (toks.length === 0) {
 		return [];
 	}
@@ -164,6 +165,8 @@ function isProcedureLabelCompletionContext(
 	const span = statement?.span ?? physicalLineSpanAtOffset(source, offset);
 	const end = Math.max(span.start, Math.min(offset, span.end));
 	const localPrefix = source.slice(span.start, end);
+	// Raw on purpose: localPrefix is a fresh derived string per call, so the
+	// by-source cache would thrash instead of hitting.
 	const rawTokens = statementTokens(localPrefix, { start: 0, end: localPrefix.length });
 	return isLabelTargetPrefix(rawTokens, localPrefix.length);
 }
@@ -264,7 +267,7 @@ function procedureAtOffset(module: ModuleNode, offset: number): ProcedureNode | 
 }
 
 function statementLabelDeclaration(source: string, span: Span): VbaProcedureLabel | undefined {
-	const toks = statementTokens(source, span);
+	const toks = statementTokensCached(source, span);
 	const first = toks[0];
 	if (!first) {
 		return undefined;

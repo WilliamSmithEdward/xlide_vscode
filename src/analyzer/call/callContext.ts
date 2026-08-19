@@ -11,7 +11,7 @@ import { tokenize } from '../lexer/tokenize';
 import {
 	isIdentLike,
 	matchParenFrom,
-	statementTokens,
+	statementTokensCached,
 	tokenName,
 	tokensWithoutLeadingLineNumber,
 	tokenWord,
@@ -704,7 +704,10 @@ function noWhitespaceBetween(source: string, left: VbaToken, right: VbaToken): b
 }
 
 function statementTokensAfterLeadingLineNumber(source: string, span: VbaTextSpan): VbaToken[] {
-	return tokensWithoutLeadingLineNumber(statementTokens(source, span));
+	// Cached: call context resolves several statements per hover/signature
+	// request over the same document text, and the diagnostics pass has
+	// usually lexed these statements already.
+	return tokensWithoutLeadingLineNumber(statementTokensCached(source, span));
 }
 
 function leadingLineNumberTokenCount(tokens: readonly VbaToken[]): number {

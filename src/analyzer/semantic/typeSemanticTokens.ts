@@ -19,15 +19,14 @@ import { isLeafStatement } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
 import type { VbaToken } from '../lexer/tokenKinds';
 import { tokenizeCached } from '../lexer/tokenize';
-import { tokenName, tokenWord } from '../lexer/tokenHelpers';
-// The diagnostics engine's memoized statement tokenizer (audit #5): per
-// (source, span) LRU that derives statement tokens by slicing the shared
-// cached module stream instead of re-lexing text slices. The collectors
-// below visit every statement and re-visit each span across walkers, so the
-// raw tokenHelpers version re-lexed the whole module in pieces per pass -
-// the type collector's dominant cost on large modules (measured 43 ms on
-// the 947 KB corpus module, mostly lexing and the garbage it makes).
-import { statementTokens as codeTokens } from '../diagnostics/analysisContext';
+// statementTokensCached: per (source, span) LRU that derives statement
+// tokens by slicing the shared cached module stream instead of re-lexing
+// text slices. The collectors below visit every statement and re-visit each
+// span across walkers, so the raw statementTokens re-lexed the whole module
+// in pieces per pass - the type collector's dominant cost on large modules
+// (measured 43 ms on the 947 KB corpus module, mostly lexing and the
+// garbage it makes).
+import { statementTokensCached as codeTokens, tokenName, tokenWord } from '../lexer/tokenHelpers';
 import { resolveHostGlobal } from '../host/hostModel';
 import type { HostObjectModel } from '../host/excelObjectModel';
 import {

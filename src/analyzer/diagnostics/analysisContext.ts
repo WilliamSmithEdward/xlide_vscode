@@ -10,8 +10,6 @@
 // helper signature.
 
 import type { VbaToken } from '../lexer/tokenKinds';
-import { statementTokens as computeStatementTokens } from '../lexer/tokenHelpers';
-import { tokenizeCached } from '../lexer/tokenize';
 import { getHostMembers, resolveHostGlobal } from '../host/hostModel';
 import type { ModuleNode, Span } from '../parser/nodes';
 import type { buildModuleSymbols } from '../symbols/buildModuleSymbols';
@@ -231,88 +229,11 @@ function computeApplicationMemberNames(model: HostObjectModel | undefined): Read
 	);
 }
 
-// Statement-token cache (audit #5): independent rules re-tokenized the same
-// statement 25-40 times per analysis pass. Tokens are cached per source
-// string (value identity, LRU of 2 like tokenizeCached) and per statement
-// span, so one pass lexes each statement once. Callers must not mutate the
-// returned arrays or their tokens; the diagnostics engine treats token
-// streams as read-only throughout.
-const STATEMENT_TOKEN_CACHE_MAX = 2;
-const statementTokenCache: { src: string; bySpan: Map<string, VbaToken[]> }[] = [];
-
-/** Significant tokens of a statement span, excluding comments and newlines (memoized per pass). */
-export function statementTokens(source: string, span: Span): VbaToken[] {
-	let entry: { src: string; bySpan: Map<string, VbaToken[]> } | undefined;
-	for (let i = 0; i < statementTokenCache.length; i += 1) {
-		if (statementTokenCache[i].src === source) {
-			entry = statementTokenCache[i];
-			if (i > 0) {
-				statementTokenCache.splice(i, 1);
-				statementTokenCache.unshift(entry);
-			}
-			break;
-		}
-	}
-	if (!entry) {
-		entry = { src: source, bySpan: new Map() };
-		statementTokenCache.unshift(entry);
-		if (statementTokenCache.length > STATEMENT_TOKEN_CACHE_MAX) {
-			statementTokenCache.pop();
-		}
-	}
-	// A string key avoids the float-precision loss / collisions the prior
-	// `start * 2^32 + end` scheme had once start >= 2^21 (modules over ~2MB).
-	const key = `${span.start}:${span.end}`;
-	let toks = entry.bySpan.get(key);
-	if (!toks) {
-		toks = deriveStatementTokens(source, span) ?? computeStatementTokens(source, span);
-		entry.bySpan.set(key, toks);
-	}
-	return toks;
-}
-
-/**
- * Derives a statement's span-relative significant tokens from the module's
- * shared token stream instead of re-lexing the statement's text. The whole
- * module is already tokenized once (tokenizeCached); re-running the lexer per
- * statement was the analysis pass's largest remaining cost on big modules.
- * Statement spans start at statement boundaries, which are line-start lexer
- * contexts in both the module stream and an isolated slice, so the token
- * streams agree; if a module token ever straddles the span boundary (which a
- * well-formed statement span never produces), we return undefined and the
- * caller falls back to lexing the slice.
- */
-function deriveStatementTokens(source: string, span: Span): VbaToken[] | undefined {
-	const all = tokenizeCached(source);
-	// Binary search: first token ending after the span starts.
-	let lo = 0;
-	let hi = all.length - 1;
-	let first = all.length;
-	while (lo <= hi) {
-		const mid = (lo + hi) >> 1;
-		if (all[mid].end > span.start) {
-			first = mid;
-			hi = mid - 1;
-		} else {
-			lo = mid + 1;
-		}
-	}
-	const out: VbaToken[] = [];
-	for (let i = first; i < all.length; i += 1) {
-		const tok = all[i];
-		if (tok.start >= span.end) {
-			break;
-		}
-		if (tok.start < span.start || tok.end > span.end) {
-			return undefined;
-		}
-		if (tok.kind === 'comment' || tok.kind === 'newline') {
-			continue;
-		}
-		out.push({ ...tok, start: tok.start - span.start, end: tok.end - span.start });
-	}
-	return out;
-}
+// The statement-token cache (audit #5) now lives in lexer/tokenHelpers as
+// statementTokensCached, so every analyzer surface shares one
+// implementation; this re-export keeps the diagnostics engine's historical
+// import path working.
+export { statementTokensCached as statementTokens } from '../lexer/tokenHelpers';
 
 // Procedure symbols are looked up per procedure per rule, so index them once
 // per buildModuleSymbols result instead of scanning the children every time.

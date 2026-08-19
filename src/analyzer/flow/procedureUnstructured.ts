@@ -2,7 +2,7 @@
 // model soundly, so dataflow rules can fall back to the conservative
 // straight-line walk for such procedures.
 
-import { statementTokens, tokensWithoutLeadingLineNumber, tokenWord } from '../lexer/tokenHelpers';
+import { statementTokensCached, tokensWithoutLeadingLineNumber, tokenWord } from '../lexer/tokenHelpers';
 import type { BodyNode, LeafStatementNode, ProcedureNode, Span } from '../parser/nodes';
 import { isLeafStatement } from '../parser/nodes';
 import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
@@ -81,7 +81,7 @@ function hasOnErrorOrResumeStatement(
 }
 
 function isOnErrorOrResume(source: string, span: Span): boolean {
-	const toks = tokensWithoutLeadingLineNumber(statementTokens(source, span));
+	const toks = tokensWithoutLeadingLineNumber(statementTokensCached(source, span));
 	if (toks.length === 0) {
 		return false;
 	}
