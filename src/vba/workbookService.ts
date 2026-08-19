@@ -626,9 +626,10 @@ export function writeCells(
 }
 
 /**
- * Create a new macro-enabled workbook from the bundled template (ThisWorkbook,
- * Sheet1 and an empty Module1), renaming the VBA project's declared name to
- * match. Overwrites `filePath` if it exists.
+ * Create a new macro-enabled file by copying the bundled blank template for
+ * its extension byte for byte. Overwrites `filePath` if it exists - callers
+ * gate that: the New File command's save dialog confirms replacement
+ * natively, and the agent tool refuses existing paths outright.
  */
 export function createWorkbook(filePath: string, templatePath: string): { ok: true; path: string } {
 	const template = fs.readFileSync(templatePath);
