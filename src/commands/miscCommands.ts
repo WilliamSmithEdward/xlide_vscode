@@ -8,6 +8,7 @@ import {
     XLIDE_VBA_LANGUAGE_ID,
 } from '../xlideFileSystem';
 import { xlideAttachToRunningExcelFromConfig } from '../globalSettings';
+import { containerAppNameForPath, containerHostForPath } from '../macroContainerUi';
 import { registerXlideCommand } from '../xlideCommandRegistration';
 import type { XlideNode } from '../xlsmExplorer';
 import { errorMessage } from '../util/errors';
@@ -306,6 +307,37 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
                     return;
                 }
                 const currentProc = procedure.name;
+
+                // The run machinery below is Excel COM end to end (launcher,
+                // coordinator, reopen tracking), so gate by the file's host
+                // first. Word and PowerPoint modules save and open in their
+                // own application with run guidance; Access cannot run edits
+                // at all, for the stated engine reason.
+                const containerHost = containerHostForPath(xlsmPath);
+                if (containerHost === 'access') {
+                    vscode.window.showWarningMessage(
+                        'XLIDE: Access files are read-only in XLIDE because Access runs compiled '
+                        + 'p-code, so XLIDE cannot run this macro. Open the database in Access to run it.',
+                    );
+                    return;
+                }
+                if (containerHost !== 'excel') {
+                    const app = containerAppNameForPath(xlsmPath);
+                    if (editor.document.isDirty) {
+                        await editor.document.save();
+                    }
+                    const opened = await vscode.env.openExternal(vscode.Uri.file(xlsmPath));
+                    if (!opened) {
+                        vscode.window.showErrorMessage(
+                            `XLIDE: Could not open ${path.basename(xlsmPath)} in ${app}.`,
+                        );
+                        return;
+                    }
+                    vscode.window.showInformationMessage(
+                        `XLIDE: Opened in ${app}. Run "${moduleName}.${currentProc}" with Alt+F8 or from the VBE.`,
+                    );
+                    return;
+                }
 
                 // Suppress XLIDE's own post-save reopen for THIS workbook across the
                 // whole run: F5 saves the dirty module and then reopens it read-only

@@ -2,6 +2,25 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [4.0.1] - Unreleased
+
+- **F5 in a Word or PowerPoint module stops launching Excel.** Run Macro at
+  Cursor was Excel COM end to end, so F5 in a Word module handed the
+  document to Excel with workbook-language notifications. The command now
+  gates by the file's host: Word and PowerPoint modules save and open in
+  their own application with guidance naming the exact macro to run, Access
+  refuses with the engine's stated p-code reason, and the Excel flow is
+  unchanged.
+
+- **New Macro-Enabled File defaults and filters fit every host.** The save
+  dialog's default name was NewWorkbook.xlsm, and the dialog keeps the base
+  name when the type filter changes - so a Word document was born as
+  NewWorkbook.docm. The default is host-neutral (NewFile), and every file
+  kind now has its own labeled filter: the dialog auto-appends only a
+  filter's first extension, so the bundled Word and PowerPoint filters
+  could never produce a .dotm or .potm without typing the extension by
+  hand.
+
 ## [4.0.0] - 2026-08-18
 
 XLIDE opens the workspace to VBA everywhere Office puts it. Until now the
