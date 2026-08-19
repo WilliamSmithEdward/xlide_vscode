@@ -347,6 +347,20 @@ export class VbaProject {
 			defineLazySource(module, stream.subarray(module.textOffset), resolvedName, project.codePage);
 		}
 
+		// A module whose real name exceeds the ANSI code page carries it only
+		// in the unicode record; the ANSI record holds the '?'-folded
+		// projection. When the records show exactly that relationship, adopt
+		// the unicode name as the module's outward name, so listings, lookups
+		// and stream operations all speak the real name - the ANSI record
+		// re-folds to the identical projection on save.
+		for (const module of project.modules) {
+			const uni = module.nameUnicode;
+			if (uni && uni !== module.name
+				&& decodeAnsi(encodeAnsi(uni, project.codePage), project.codePage) === module.name) {
+				module.name = uni;
+			}
+		}
+
 		try {
 			project.projectStreamRaw = cfb.getStream('PROJECT');
 			project.hasPassword = projectStreamHasPassword(project.projectStreamRaw, project.codePage);
@@ -555,9 +569,14 @@ export function serializeProjectStream(
 	const deleteNames = opts.deleteNames ?? new Set<string>();
 	const codePage = opts.codePage ?? 1252;
 	const text = decodeAnsi(raw, codePage);
+	// The decoded PROJECT text can only contain names the code page stores,
+	// so a unicode module name appears here as its '?'-folded projection.
+	// Fold the lookup keys the same way or a rename/delete of a unicode-named
+	// module would never match its own declaration line.
+	const fold = (s: string): string => decodeAnsi(encodeAnsi(s, codePage), codePage);
 	const renameCi = new Map<string, string>();
-	for (const [k, v] of renameMap) { renameCi.set(k.toLowerCase(), v); }
-	const deleteCi = new Set([...deleteNames].map((n) => n.toLowerCase()));
+	for (const [k, v] of renameMap) { renameCi.set(fold(k).toLowerCase(), v); }
+	const deleteCi = new Set([...deleteNames].map((n) => fold(n).toLowerCase()));
 
 	const seenDecls = new Set<string>();
 	const seenWorkspace = new Set<string>();
@@ -592,8 +611,8 @@ export function serializeProjectStream(
 		if (inWorkspace) {
 			if (deleteCi.has(key.toLowerCase())) { continue; }
 			const newKey = renameCi.get(key.toLowerCase()) ?? key;
-			if (seenWorkspace.has(newKey.toLowerCase())) { continue; }
-			seenWorkspace.add(newKey.toLowerCase());
+			if (seenWorkspace.has(fold(newKey).toLowerCase())) { continue; }
+			seenWorkspace.add(fold(newKey).toLowerCase());
 			outLines.push(`${newKey}=${value.trim()}`);
 			continue;
 		}
@@ -601,8 +620,8 @@ export function serializeProjectStream(
 			const v = value.trim();
 			if (deleteCi.has(v.toLowerCase())) { continue; }
 			const newVal = renameCi.get(v.toLowerCase()) ?? v;
-			if (seenDecls.has(newVal.toLowerCase())) { continue; }
-			seenDecls.add(newVal.toLowerCase());
+			if (seenDecls.has(fold(newVal).toLowerCase())) { continue; }
+			seenDecls.add(fold(newVal).toLowerCase());
 			outLines.push(`${key}=${newVal}`);
 			lastDeclIdx = outLines.length - 1;
 			continue;
@@ -614,8 +633,8 @@ export function serializeProjectStream(
 			const idPart = slash >= 0 ? v.slice(slash) : '';
 			if (deleteCi.has(namePart.toLowerCase())) { continue; }
 			const newName = renameCi.get(namePart.toLowerCase()) ?? namePart;
-			if (seenDecls.has(newName.toLowerCase())) { continue; }
-			seenDecls.add(newName.toLowerCase());
+			if (seenDecls.has(fold(newName).toLowerCase())) { continue; }
+			seenDecls.add(fold(newName).toLowerCase());
 			outLines.push(`Document=${newName}${idPart}`);
 			lastDeclIdx = outLines.length - 1;
 			continue;
@@ -623,7 +642,7 @@ export function serializeProjectStream(
 		outLines.push(line);
 	}
 
-	const freshAdds = addModules.filter(([name]) => !seenDecls.has(name.toLowerCase()));
+	const freshAdds = addModules.filter(([name]) => !seenDecls.has(fold(name).toLowerCase()));
 	if (freshAdds.length > 0) {
 		let insertAt = lastDeclIdx >= 0 ? lastDeclIdx + 1 : outLines.length;
 		if (lastDeclIdx < 0) {
@@ -632,12 +651,12 @@ export function serializeProjectStream(
 		}
 		const newDecls = freshAdds.map(([name, declKey]) => `${declKey}=${name}`);
 		outLines.splice(insertAt, 0, ...newDecls);
-		for (const [name] of freshAdds) { seenDecls.add(name.toLowerCase()); }
+		for (const [name] of freshAdds) { seenDecls.add(fold(name).toLowerCase()); }
 		if (workspaceIdx >= insertAt) { workspaceIdx += newDecls.length; }
 		if (workspaceEndIdx >= insertAt) { workspaceEndIdx += newDecls.length; }
 		if (workspaceIdx >= 0) {
 			const wsNew = freshAdds
-				.filter(([name]) => !seenWorkspace.has(name.toLowerCase()))
+				.filter(([name]) => !seenWorkspace.has(fold(name).toLowerCase()))
 				.map(([name]) => `${name}=0, 0, 0, 0, C`);
 			if (wsNew.length > 0) {
 				const wsInsert = workspaceEndIdx > workspaceIdx ? workspaceEndIdx : outLines.length;

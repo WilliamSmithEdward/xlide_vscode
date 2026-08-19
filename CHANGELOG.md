@@ -72,16 +72,19 @@ its own Office application.
   the meantime; a rename carries the pending review to the new name.
   Controlled by `xlide.agent.showWriteDiffs`.
 
-- **Module names beyond the project's code page no longer lose code.**
-  Renaming a module to a name its project's ANSI code page cannot store
-  (Cyrillic in a cp1252 workbook) was accepted and '?'-folded on save,
+- **Module names beyond the project's code page work, and no longer lose
+  code.** Renaming a module to a name its project's ANSI code page cannot
+  store (Cyrillic in a cp1252 workbook) used to be '?'-folded on save,
   detaching the module from its source stream - the code was gone on the
-  next open, and two such names collided into one. The engine now refuses
-  unstorable names up front with the exact folded form in the message,
-  while names the project's own code page supports keep working, non-ASCII
-  included. The reader also resolves module streams through their UTF-16
-  names now, so cross-locale projects (and any file damaged by the old
-  behavior) read their code correctly again.
+  next open. Such names are now first-class: the unicode dir records and
+  the CFB stream carry the real name, the ANSI records and PROJECT stream
+  hold the folded projection Office itself writes, and the explorer, the
+  editor, and the agent tools all speak the real name. Cross-locale
+  projects authored elsewhere (and files damaged by the old behavior) read
+  correctly again. Verified against live Excel: the VBE lists the unicode
+  name, runs the module, and re-saves a file the engine reads back intact.
+  The one refusal left is real: two names whose folded projections collide
+  would duplicate a PROJECT declaration, which Excel treats as corruption.
 
 - **Renaming a standard module no longer touches names that only look like
   it.** The cross-module reference rewrite skipped nothing: `rs.Fields.Item`

@@ -13,12 +13,15 @@ import {
 import { openMacroContainer } from '../src/vba/macroContainer';
 import { VbaProject } from '../src/vba/vbaProject';
 
-// [MS-OVBA] stores module names in the project's ANSI code page. Before the
-// guard, renaming a module to a name the page cannot represent was accepted
-// and '?'-folded on save, which detached the module from its source stream -
-// the code was simply gone on the next open - and let two distinct names
-// collide into one. The engine now refuses such names up front, while names
-// the project's own code page can store keep working, non-ASCII included.
+// Module names beyond the project's ANSI code page are fully supported: the
+// unicode dir records and the CFB stream name carry the real name while the
+// ANSI records and the PROJECT stream hold its '?'-folded projection - the
+// same shape Office produces. Verified against live Excel (2026-08-18): the
+// VBE lists the unicode name, Application.Run executes the module, Excel
+// re-saves it, and the engine reads the Excel-authored result back intact.
+// The one refusal left is a REAL hazard: two names whose folded projections
+// collide would declare the same name twice in the PROJECT stream, which
+// Excel treats as corruption.
 
 const FIXTURE = path.join(__dirname, 'fixtures', 'binaries', 'FormFixture.xlsm');
 
@@ -35,26 +38,44 @@ afterEach(() => {
     fs.rmSync(tempDir, { recursive: true, force: true });
 });
 
-describe('module names vs the project code page', () => {
-    it('refuses a rename the cp1252 project cannot store, leaving the module intact', () => {
+describe('module names beyond the project code page', () => {
+    it('renames a module to a unicode name a cp1252 project cannot fold, and back', () => {
         const standard = listModules(workbook).find((m) => m.type === 'standard');
         expect(standard).toBeDefined();
 
-        expect(() => renameModule(workbook, standard!.name, 'Модуль1'))
-            .toThrow(/cannot be stored in this project's code page \(1252\)/);
+        renameModule(workbook, standard!.name, 'Модуль1');
 
-        const names = listModules(workbook).map((m) => m.name);
-        expect(names).toContain(standard!.name);
-        expect(names.some((n) => n.includes('?'))).toBe(false);
-        expect(readModule(workbook, standard!.name).source.length).toBeGreaterThan(0);
+        expect(listModules(workbook).map((m) => m.name)).toContain('Модуль1');
+        expect(readModule(workbook, 'Модуль1').source.length).toBeGreaterThan(0);
+        expect(validateWorkbook(workbook).issues).toEqual([]);
+
+        renameModule(workbook, 'Модуль1', standard!.name);
+        expect(listModules(workbook).map((m) => m.name)).toContain(standard!.name);
         expect(validateWorkbook(workbook).issues).toEqual([]);
     });
 
-    it('refuses creating a new module whose name the code page cannot store', () => {
-        expect(() => writeModule(workbook, 'Модель1', 'Sub A()\r\nEnd Sub\r\n', 'standard'))
-            .toThrow(/cannot be stored in this project's code page/);
+    it('creates a new module under a unicode name and round-trips its source', () => {
+        writeModule(workbook, 'Модель1', 'Sub A()\r\nEnd Sub\r\n', 'standard');
 
-        expect(listModules(workbook).map((m) => m.name).some((n) => n.includes('?'))).toBe(false);
+        expect(listModules(workbook).map((m) => m.name)).toContain('Модель1');
+        expect(readModule(workbook, 'Модель1').source).toContain('Sub A()');
+        expect(validateWorkbook(workbook).issues).toEqual([]);
+    });
+
+    it('refuses a second name whose folded projection collides', () => {
+        writeModule(workbook, 'Модуль1', 'Sub A()\r\nEnd Sub\r\n', 'standard');
+
+        // 'Модель1' folds to the same '??????1' projection as 'Модуль1'.
+        expect(() => writeModule(workbook, 'Модель1', 'Sub B()\r\nEnd Sub\r\n', 'standard'))
+            .toThrow(/stores both as "\?\?\?\?\?\?1"/);
+
+        // A distinct projection coexists - but renaming it INTO the taken
+        // projection is refused the same way.
+        writeModule(workbook, 'Модель2', 'Sub C()\r\nEnd Sub\r\n', 'standard');
+        expect(() => renameModule(workbook, 'Модель2', 'Записъ1'))
+            .toThrow(/stores both as/);
+        expect(listModules(workbook).map((m) => m.name))
+            .toEqual(expect.arrayContaining(['Модуль1', 'Модель2']));
         expect(validateWorkbook(workbook).issues).toEqual([]);
     });
 
@@ -76,8 +97,8 @@ describe('cross-locale projects with unicode stream names', () => {
      * Builds the on-disk shape Office produces for a module name beyond the
      * project's code page: the real UTF-16 name in the unicode dir records
      * and the CFB directory, and the '?'-folded projection in the ANSI
-     * records. Driving the project layer directly sits below the service
-     * guard, exactly like a file authored elsewhere.
+     * records. Driving the project layer directly, exactly like a file
+     * authored elsewhere.
      */
     function synthesizeCrossLocaleWorkbook(target: string): void {
         const container = openMacroContainer(fs.readFileSync(FIXTURE));
@@ -88,24 +109,34 @@ describe('cross-locale projects with unicode stream names', () => {
         fs.writeFileSync(target, container.toFileBytes(cfb));
     }
 
-    it('reads the module source through the unicode stream name', () => {
+    it('surfaces the real unicode name and reads the module source', () => {
         synthesizeCrossLocaleWorkbook(workbook);
 
-        // The outward name is still the ANSI projection; what matters is the
-        // module's code resolves instead of reading as an empty missing
-        // stream, and validation agrees the project is whole.
         const names = listModules(workbook).map((m) => m.name);
-        expect(names).toContain('??????1');
-        expect(readModule(workbook, '??????1').source).toContain('Option Explicit');
+        expect(names).toContain('Модуль1');
+        expect(names.some((n) => n.includes('?'))).toBe(false);
+        expect(readModule(workbook, 'Модуль1').source).toContain('Option Explicit');
         expect(validateWorkbook(workbook).issues).toEqual([]);
     });
 
     it('writes back through the resolved stream name without detaching it', () => {
         synthesizeCrossLocaleWorkbook(workbook);
 
-        writeModule(workbook, '??????1', 'Sub Replaced()\r\nEnd Sub\r\n', 'standard');
+        writeModule(workbook, 'Модуль1', 'Sub Replaced()\r\nEnd Sub\r\n', 'standard');
 
-        expect(readModule(workbook, '??????1').source).toContain('Sub Replaced()');
+        expect(readModule(workbook, 'Модуль1').source).toContain('Sub Replaced()');
+        expect(validateWorkbook(workbook).issues).toEqual([]);
+    });
+
+    it('renames a cross-locale module back to ASCII through the folded PROJECT line', () => {
+        synthesizeCrossLocaleWorkbook(workbook);
+
+        renameModule(workbook, 'Модуль1', 'RenamedBack');
+
+        const names = listModules(workbook).map((m) => m.name);
+        expect(names).toContain('RenamedBack');
+        expect(names.some((n) => n.includes('?'))).toBe(false);
+        expect(readModule(workbook, 'RenamedBack').source).toContain('Option Explicit');
         expect(validateWorkbook(workbook).issues).toEqual([]);
     });
 });

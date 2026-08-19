@@ -566,23 +566,42 @@ export function validateWorkbook(filePath: string): { issues: string[] } {
 
 // ----------------------------------------------------------------- write API
 
+/** A name as the project's ANSI code page stores it ('?' for what it cannot express). */
+function foldedModuleName(name: string, codePage: number): string {
+	return decodeCodePage(encodeCodePage(name, codePage), codePage);
+}
+
 /**
- * [MS-OVBA] stores module names in the project's ANSI code page: the dir
- * records, the PROJECT stream, and the module's own CFB stream name. A name
- * the page cannot represent gets '?'-folded on save, which detaches the
- * module from its source stream (the code is gone on the next open) and
- * lets two distinct names collide into one. Refusing up front keeps the
- * project intact; names remain free to use every character the project's
- * own code page can store - Cyrillic in a cp1251 project, Japanese in
- * cp932, anything in utf-8.
+ * A module name beyond the project's ANSI code page is legal: the unicode
+ * dir records and the CFB stream name carry the real name, and the ANSI
+ * records plus the PROJECT stream hold its '?'-folded projection - the same
+ * shape Office itself produces. Verified against live Excel (2026-08-18):
+ * the VBE lists the unicode name, Application.Run executes the module, and
+ * an Excel re-save reads back intact. What CANNOT coexist are two modules
+ * whose projections collide: the PROJECT stream would declare the same
+ * folded name twice, which Excel treats as corruption.
  */
-function assertModuleNameStorable(name: string, codePage: number): void {
-	const stored = decodeCodePage(encodeCodePage(name, codePage), codePage);
-	if (stored !== name) {
-		throw new Error(
-			`Module name "${name}" cannot be stored in this project's code page (${codePage}); ` +
-			`it would be saved as "${stored}". Use characters the project's code page supports.`,
-		);
+function assertFoldedNameDistinct(
+	modules: readonly { name: string }[],
+	codePage: number,
+	name: string,
+	previousName?: string,
+): void {
+	const folded = foldedModuleName(name, codePage).toLowerCase();
+	const prevLower = previousName?.toLowerCase();
+	const nameLower = name.toLowerCase();
+	for (const other of modules) {
+		const otherLower = other.name.toLowerCase();
+		if (otherLower === nameLower || otherLower === prevLower) {
+			continue; // exact duplicates are the project layer's own error
+		}
+		if (foldedModuleName(other.name, codePage).toLowerCase() === folded) {
+			throw new Error(
+				`Module name "${name}" cannot coexist with "${other.name}": this project's code page ` +
+				`(${codePage}) stores both as "${foldedModuleName(name, codePage)}", and Excel treats the ` +
+				'duplicate PROJECT declarations as corruption. Choose a name with a distinct stored form.',
+			);
+		}
 	}
 }
 
@@ -602,7 +621,7 @@ export function writeModule(
 		const { header } = splitVbaSource(existing.source);
 		wb.project.setModuleSource(existing.name, joinVbaSource(header, body));
 	} else {
-		assertModuleNameStorable(moduleName, wb.project.codePage);
+		assertFoldedNameDistinct(wb.project.modules, wb.project.codePage, moduleName);
 		const header = kind === 'class'
 			? synthesizeClassHeader(moduleName)
 			: synthesizeStandardHeader(moduleName);
@@ -615,7 +634,7 @@ export function writeModule(
 export function renameModule(filePath: string, moduleName: string, newName: string): WriteResult {
 	const wb = openWorkbookForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
-	assertModuleNameStorable(newName, wb.project.codePage);
+	assertFoldedNameDistinct(wb.project.modules, wb.project.codePage, newName, moduleName);
 	wb.project.renameModule(moduleName, newName);
 	saveWorkbook(filePath, wb);
 	return { ok: true, signatureDropped };
