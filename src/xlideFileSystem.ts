@@ -83,10 +83,13 @@ export function reportWorkbookLocked(xlsmPath: string, op: 'read' | 'write'): vo
     recentLockedNotices.set(noticeKey, now);
     const name = path.basename(xlsmPath);
     const verb = op === 'read' ? 'open' : 'save';
+    // Retry (a revert to re-read the file) only fits the READ case: on a
+    // failed write it would revert whatever editor happens to be active,
+    // discarding unrelated dirty edits instead of retrying anything.
+    const actions = op === 'read' ? ['Retry', 'Reveal File'] : ['Reveal File'];
     void vscode.window.showWarningMessage(
         `XLIDE: Cannot ${verb} "${name}" - it appears to be open in ${containerAppNameForPath(xlsmPath)}. Close the file and try again.`,
-        'Retry',
-        'Reveal File',
+        ...actions,
     ).then((choice) => {
         if (choice === 'Retry') {
             void vscode.commands.executeCommand('workbench.action.files.revert');

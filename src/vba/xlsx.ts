@@ -176,6 +176,16 @@ export class XlsxWorkbook {
 		return undefined;
 	}
 
+	/**
+	 * Whether the worksheet/cell surface is readable: .xlsb keeps its
+	 * workbook part as binary `xl/workbook.bin`, which this XML reader does
+	 * not parse - VBA editing is unaffected, but sheet APIs must refuse
+	 * honestly rather than fail on the missing XML part.
+	 */
+	hasSheetSurface(): boolean {
+		return this.zip.has('xl/workbook.xml');
+	}
+
 	/** Where this package keeps its VBA project, when it has one. */
 	private vbaProjectPath(): string | undefined {
 		return VBA_PROJECT_PARTS.find((part) => this.zip.has(part))

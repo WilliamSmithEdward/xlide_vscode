@@ -274,6 +274,15 @@ function sheetSurface(filePath: string): XlsxWorkbook {
 			`${path.basename(filePath)} is ${container.description}; it has no worksheet surface.`,
 		);
 	}
+	if (!container.xlsx.hasSheetSurface()) {
+		// .xlsb: the workbook part is binary (xl/workbook.bin), which the
+		// sheet reader does not parse. VBA editing is unaffected.
+		throw new Error(
+			`${path.basename(filePath)} is a binary Excel workbook (.xlsb); its worksheet data is `
+			+ 'stored in a binary format XLIDE does not read. VBA editing is unaffected - save the '
+			+ 'workbook as .xlsm to use the sheet and cell tools.',
+		);
+	}
 	return container.xlsx;
 }
 
@@ -508,9 +517,12 @@ export function getWorkbookInfo(filePath: string): {
 	isSigned: boolean;
 } {
 	const { container, cfb, project } = openWorkbook(filePath);
-	// Only the OOXML Excel container has a sheet surface; for every other
-	// host the modules and protection facts still answer.
-	const xlsx = container.kind === 'excel' ? container.xlsx : undefined;
+	// Only the OOXML Excel container has a READABLE sheet surface (.xlsb
+	// keeps a binary workbook part); for every other shape the modules and
+	// protection facts still answer.
+	const xlsx = container.kind === 'excel' && container.xlsx?.hasSheetSurface()
+		? container.xlsx
+		: undefined;
 	return {
 		sheets: xlsx ? xlsx.sheetSummaries() : [],
 		namedRanges: xlsx ? xlsx.definedNames() : [],
@@ -659,6 +671,13 @@ export function writeCells(
 	if (container.kind !== 'excel' || !container.xlsx) {
 		throw new Error(
 			`${path.basename(filePath)} is ${container.description}; cell writes need an OOXML Excel workbook.`,
+		);
+	}
+	if (!container.xlsx.hasSheetSurface()) {
+		throw new Error(
+			`${path.basename(filePath)} is a binary Excel workbook (.xlsb); its worksheet data is `
+			+ 'stored in a binary format XLIDE does not write. VBA editing is unaffected - save the '
+			+ 'workbook as .xlsm to use the sheet and cell tools.',
 		);
 	}
 	container.xlsx.writeCells(sheet, startCell, data);

@@ -4,6 +4,17 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [4.0.1] - Unreleased
 
+- **.xlsb answers like the other hosts instead of erroring raw.** The
+  binary workbook passed the Excel gate but keeps its workbook part as
+  binary `xl/workbook.bin`, so the sheet and cell tools surfaced a raw
+  "Entry not found: xl/workbook.xml" and file info threw outright instead
+  of answering the modules. Sheet reads and writes now refuse with the
+  honest reason (save as .xlsm to use the sheet tools; VBA editing is
+  unaffected), and file info answers modules and protection facts the way
+  Word, PowerPoint, and legacy .xls always did. The file-locked notice
+  also stopped offering Retry on failed writes - it reverted whichever
+  editor was active, which could discard unrelated unsaved edits.
+
 - **A member a form does not have is a finding now** (#26). The VBE refuses
   `EntryForm.NoSuchControl` at compile time, and so does the analyzer: a
   form's surface - code-behind, designer controls, and the MSForms

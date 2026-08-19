@@ -162,6 +162,25 @@ describe('the containers behave as their formats require', () => {
 			.toThrow(/legacy Excel workbook.*no worksheet surface/);
 	});
 
+	it('refuses .xlsb sheet APIs honestly and still answers its modules', () => {
+		// .xlsb passes the Excel-container gate but keeps its workbook part
+		// as binary xl/workbook.bin: the sheet reader used to surface a raw
+		// "Entry not found: xl/workbook.xml" and getWorkbookInfo threw
+		// outright instead of answering the modules.
+		const target = path.join(tempRoot, 'BinaryBook.xlsb');
+		fs.copyFileSync(path.join(__dirname, '..', 'assets', 'templates', 'blank.xlsb'), target);
+
+		expect(() => readCells(target, 'Sheet1', 'A1'))
+			.toThrow(/binary Excel workbook \(\.xlsb\).*VBA editing is unaffected/);
+		expect(() => writeCells(target, 'Sheet1', 'A1', [['x']]))
+			.toThrow(/binary Excel workbook \(\.xlsb\).*VBA editing is unaffected/);
+
+		const info = getWorkbookInfo(target);
+		expect(info.sheets).toEqual([]);
+		expect(info.namedRanges).toEqual([]);
+		expect(info.modules.map((module) => module.name)).toContain('ThisWorkbook');
+	});
+
 	it('classifies containers from content, not extension', () => {
 		const disguised = path.join(tempRoot, 'disguised.xlsm');
 		fs.copyFileSync(fixture('WordFixture.docm'), disguised);
