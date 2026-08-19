@@ -72,6 +72,14 @@ its own Office application.
   the meantime; a rename carries the pending review to the new name.
   Controlled by `xlide.agent.showWriteDiffs`.
 
+- **Renaming a standard module no longer touches names that only look like
+  it.** The cross-module reference rewrite skipped nothing: `rs.Fields.Item`
+  and a With block's `.Fields.Item` had their `Fields` rewritten whenever a
+  module of that name exposed a matching member, and locals, parameters, or
+  module-level variables shadowing the module name had their uses rewritten
+  too. The scan now respects receiver position (dot and bang access) and
+  declaration shadowing, and Find References sheds the same false positives.
+
 - **The analyzer got measurably faster on large modules.** Profiling
   against the real-workbook corpus found the editor surfaces re-lexing text
   the caches already held: the semantic-token pass dropped from 72 ms to
