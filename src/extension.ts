@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { MACRO_CONTAINER_GLOB } from './macroContainerUi';
 import * as path from 'path';
 import { errorMessage } from './util/errors';
 import { debounce } from './util/debounce';
@@ -212,11 +213,11 @@ export function activate(context: vscode.ExtensionContext): void {
             }
         }),
 
-        // Refresh the explorer when .xlsm/.xlsb/.xlam files are added or removed
+        // Refresh the explorer when macro-container files are added or removed
         // Debounced so rapid file-system events (save storms) coalesce into one refresh.
         (() => {
             const debouncedRefresh = debounce(() => explorer.refresh(), 200);
-            const watcher = vscode.workspace.createFileSystemWatcher('**/*.{xlsm,xlsb,xlam}');
+            const watcher = vscode.workspace.createFileSystemWatcher(MACRO_CONTAINER_GLOB);
             const createSubscription = watcher.onDidCreate(debouncedRefresh);
             const deleteSubscription = watcher.onDidDelete(debouncedRefresh);
             return new vscode.Disposable(() => {

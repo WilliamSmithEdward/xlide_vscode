@@ -156,16 +156,9 @@ try {
   $preExistingExcelPids = @()
   try { $preExistingExcelPids = @(Get-Process -Name $hostProcessName -ErrorAction SilentlyContinue | ForEach-Object { [int]$_.Id }) } catch { }
   $excel = New-Object -ComObject $hostProgId
-  # PowerPoint refuses Application.Visible = False outright; its run stays
-  # windowless anyway because the presentation opens WithWindow:=msoFalse.
-  if ($hostKind -ne "powerpoint") { try { $excel.Visible = $false } catch { } }
-  Set-XlideHostAlertsOff $excel
-  try { $excel.AskToUpdateLinks = $false } catch { }
-  try { $excel.EnableEvents = $false } catch { }
-  try { $excel.ScreenUpdating = $false } catch { }
-  # msoAutomationSecurityLow (1): open workbooks without the macro-security
-  # prompt, which is an Excel-owned modal that no watcher can dismiss.
-  try { $excel.AutomationSecurity = 1 } catch { }
+  # Ownership is proven BEFORE any setting is touched: a single-instance host
+  # (PowerPoint) hands back the user's own running application here, and that
+  # instance must be refused with its alerts and macro security untouched.
   $excelPid = $null
   try {
     # Excel and PowerPoint expose a window handle; Word does not, and falls
@@ -194,6 +187,17 @@ try {
     Emit-XlideHostPhase "excel-create" "failed" ([int]$phaseSw.ElapsedMilliseconds) $ownershipMessage
     throw $ownershipMessage
   }
+  # Owned and proven: configure the instance for silent automation.
+  # PowerPoint refuses Application.Visible = False outright; its run stays
+  # windowless anyway because the presentation opens WithWindow:=msoFalse.
+  if ($hostKind -ne "powerpoint") { try { $excel.Visible = $false } catch { } }
+  Set-XlideHostAlertsOff $excel
+  try { $excel.AskToUpdateLinks = $false } catch { }
+  try { $excel.EnableEvents = $false } catch { }
+  try { $excel.ScreenUpdating = $false } catch { }
+  # msoAutomationSecurityLow (1): open workbooks without the macro-security
+  # prompt, which is a host-owned modal that no watcher can dismiss.
+  try { $excel.AutomationSecurity = 1 } catch { }
   $jobActive = $false
   if ($excelPid) {
     try {

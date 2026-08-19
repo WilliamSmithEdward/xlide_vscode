@@ -336,6 +336,22 @@ describe('the staged Throws dispatcher', () => {
         expect(source).not.toContain('Case "moretests.shared", "shared"');
     });
 
+    it('chunks large projects under the 64KB compiled-procedure cap', () => {
+        const bigModule = {
+            name: 'Bulk',
+            type: 'standard',
+            source: Array.from({ length: 250 }, (_v, index) =>
+                `Public Sub Target${index}()\r\nEnd Sub`).join('\r\n'),
+        };
+        const source = buildVbaTestDispatchModule([bigModule]);
+        expect(source).toContain('Private Function XlideDispatch0(');
+        expect(source).toContain('Private Function XlideDispatch1(');
+        expect(source).toContain('Private Function XlideDispatch2(');
+        expect(source).not.toContain('XlideDispatch3(');
+        expect(source).toContain('If XlideDispatch2(targetKey) Then Exit Sub');
+        expect(source).toContain('Bulk.Target249');
+    });
+
     it('XlideAssert prefers the dispatcher and keeps the classic Run fallback', () => {
         expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('Application.Run "XlideTestDispatch.XlideInvokeTarget", macroName');
         expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('Public Sub RecordTargetOutcome');

@@ -51,7 +51,11 @@ export function accessVbaCfb(data: Buffer): Cfb {
 		throw new AccessDatabaseError('Not an Access database (no ACE/Jet signature).');
 	}
 	const rows = collectLvalRows(data);
-	const catalog = findCatalogBlob(data, rows);
+	// Materialized once: assembling a chained blob concatenates its chunks,
+	// and both the catalog scan and every module's carrier search read the
+	// same candidate set.
+	const blobs = [...candidateBlobs(data, rows)];
+	const catalog = findCatalogBlob(blobs);
 	if (!catalog) {
 		throw new AccessDatabaseError(
 			'No VBA project catalog found in the database; it may contain no VBA.',
@@ -75,7 +79,7 @@ export function accessVbaCfb(data: Buffer): Cfb {
 		const streamName = module.streamName || module.name;
 		const probe = Buffer.from(`Attribute VB_Name = "${module.name}"`, 'latin1');
 		let carrier: Buffer | undefined;
-		for (const blob of candidateBlobs(data, rows)) {
+		for (const blob of blobs) {
 			if (module.textOffset >= blob.length) {
 				continue;
 			}
@@ -222,10 +226,22 @@ function* candidateBlobs(data: Buffer, rows: LvalRow[]): Generator<Buffer> {
  * decompresses to bytes opening with the PROJECTSYSKIND record. Later
  * matches supersede earlier ones (shadow-copy rule).
  */
-function findCatalogBlob(data: Buffer, rows: LvalRow[]): Buffer | undefined {
+function findCatalogBlob(blobs: readonly Buffer[]): Buffer | undefined {
+	// Fast path: every catalog in the measured corpus starts its row at
+	// offset 0. Each probe costs up to one 4 KiB chunk inflate, and rows are
+	// full of incidental 0x01 bytes, so the exhaustive every-offset scan
+	// runs only when the cheap pass finds nothing.
+	const atOffsetZero = catalogScan(blobs, (blob) => (blob[0] === 0x01 ? [0] : []));
+	return atOffsetZero ?? catalogScan(blobs, ovbaSignatureOffsets);
+}
+
+function catalogScan(
+	blobs: readonly Buffer[],
+	offsetsFor: (blob: Buffer) => readonly number[],
+): Buffer | undefined {
 	let found: Buffer | undefined;
-	for (const blob of candidateBlobs(data, rows)) {
-		for (const offset of ovbaSignatureOffsets(blob)) {
+	for (const blob of blobs) {
+		for (const offset of offsetsFor(blob)) {
 			let head: Buffer;
 			try {
 				head = decompress(blob.subarray(offset), 'accdb-dir-probe', DIR_STREAM_MAGIC.length);

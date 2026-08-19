@@ -287,6 +287,25 @@ export function pptWriteVbaStorage(cfb: Cfb, storage: Buffer): Cfb {
 	}
 	const doc = cfb.getStream('PowerPoint Document');
 	const { record } = location;
+	// Persist-referenced records are top-level, and the splice below relies
+	// on that: resizing a record NESTED inside a container would leave the
+	// parent's recLen wrong. The fallback scan can surface nested records,
+	// so writing checks rather than assumes.
+	let topLevel = false;
+	for (const top of topLevelRecords(doc)) {
+		if (top.start === record.start) {
+			topLevel = top.recType === RT_EX_OLE_OBJ_STG;
+			break;
+		}
+		if (top.start > record.start) {
+			break;
+		}
+	}
+	if (!topLevel) {
+		throw new PptContainerError(
+			'The VBA project record is nested inside a container record; rewriting it in place would corrupt the presentation.',
+		);
+	}
 
 	const deflated = zlib.deflateSync(storage, { level: 6 });
 	const body = Buffer.alloc(4 + deflated.length);

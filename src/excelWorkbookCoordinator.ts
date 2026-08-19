@@ -1,4 +1,5 @@
 import * as path from 'path';
+import { isExcelContainerPath } from './macroContainerUi';
 import * as vscode from 'vscode';
 import { psSingleQuoted, runPowerShell } from './util/powershell';
 import { openWorkbookInExcel } from './excelLauncher';
@@ -362,6 +363,13 @@ export async function runWriteWithExcelCoordination<T>(
     write: () => Promise<T>,
     log: (message: string) => void = sharedLog,
 ): Promise<T> {
+    if (!isExcelContainerPath(filePath)) {
+        // Word/PowerPoint/Access containers are never open in Excel: there is
+        // no read-only view to refresh after a save, and a sharing violation
+        // cannot be freed by closing anything in Excel - the honest lock
+        // error surfaces directly instead of an Excel-flavored retry.
+        return write();
+    }
     try {
         const result = await write();
         if (process.platform === 'win32'

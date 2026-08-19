@@ -141,17 +141,41 @@ export function buildVbaTestDispatchModule(modules: readonly VbaTestDispatchModu
         bareCounts.set(key, (bareCounts.get(key) ?? 0) + 1);
     }
 
-    const cases: string[] = [];
-    for (const target of targets) {
-        const qualified = `${target.moduleName}.${target.procedureName}`.toLowerCase();
-        const bare = target.procedureName.toLowerCase();
-        const keys = [vbaStringLiteral(qualified)];
-        if (bareCounts.get(bare) === 1) {
-            keys.push(vbaStringLiteral(bare));
-        }
-        cases.push(`        Case ${keys.join(', ')}`);
-        cases.push(`            ${target.moduleName}.${target.procedureName}`);
+    // VBA caps a compiled procedure at 64KB, so the Select Case is chunked
+    // into bounded helpers; targets stay direct calls in one execution
+    // context either way (the error handler in XlideInvokeTarget catches
+    // through the whole direct-call chain).
+    const CHUNK_SIZE = 100;
+    const chunks: DispatchTarget[][] = [];
+    for (let start = 0; start < targets.length; start += CHUNK_SIZE) {
+        chunks.push(targets.slice(start, start + CHUNK_SIZE));
     }
+
+    const helperLines: string[] = [];
+    chunks.forEach((chunk, index) => {
+        helperLines.push('');
+        helperLines.push(`Private Function XlideDispatch${index}(ByVal targetKey As String) As Boolean`);
+        helperLines.push(`    XlideDispatch${index} = True`);
+        helperLines.push('    Select Case targetKey');
+        for (const target of chunk) {
+            const qualified = `${target.moduleName}.${target.procedureName}`.toLowerCase();
+            const bare = target.procedureName.toLowerCase();
+            const keys = [vbaStringLiteral(qualified)];
+            if (bareCounts.get(bare) === 1) {
+                keys.push(vbaStringLiteral(bare));
+            }
+            helperLines.push(`        Case ${keys.join(', ')}`);
+            helperLines.push(`            ${target.moduleName}.${target.procedureName}`);
+        }
+        helperLines.push('        Case Else');
+        helperLines.push(`            XlideDispatch${index} = False`);
+        helperLines.push('    End Select');
+        helperLines.push('End Function');
+    });
+
+    const dispatchCalls = chunks.map(
+        (_chunk, index) => `    If XlideDispatch${index}(targetKey) Then Exit Sub`,
+    );
 
     return [
         `Attribute VB_Name = "${XLIDE_TEST_DISPATCH_MODULE_NAME}"`,
@@ -162,15 +186,15 @@ export function buildVbaTestDispatchModule(modules: readonly VbaTestDispatchModu
         'Public Sub XlideInvokeTarget(ByVal macroName As String)',
         '    On Error GoTo Caught',
         '    XlideAssert.RecordTargetOutcome 0, "", ""',
-        '    Select Case LCase$(Trim$(macroName))',
-        ...cases,
-        '        Case Else',
-        '            Err.Raise 5, "XLIDE.TestDispatch", "Unknown test target: " & macroName',
-        '    End Select',
+        '    Dim targetKey As String',
+        '    targetKey = LCase$(Trim$(macroName))',
+        ...dispatchCalls,
+        '    Err.Raise 5, "XLIDE.TestDispatch", "Unknown test target: " & macroName',
         '    Exit Sub',
         'Caught:',
         '    XlideAssert.RecordTargetOutcome Err.Number, Err.Source, Err.Description',
         'End Sub',
+        ...helperLines,
         '',
     ].join('\r\n');
 }

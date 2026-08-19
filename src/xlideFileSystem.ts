@@ -8,10 +8,15 @@ import { startPerformanceTrace } from './performanceTrace';
 import { errorMessage } from './util/errors';
 import { runWriteWithExcelCoordination } from './excelWorkbookCoordinator';
 import { noteModuleWrite } from './vbaRenameHistory';
-import { isReadOnlyContainerPath } from './macroContainerUi';
+import { containerAppNameForPath, isReadOnlyContainerPath, MACRO_CONTAINER_EXTENSION_PATTERN } from './macroContainerUi';
 import { workbookIdentityKey } from './workbookIdentity';
 
 export const XLIDE_SCHEME = 'xlide-vba';
+
+const MODULE_URI_RE = new RegExp(
+    `^(.*\\.(?:${MACRO_CONTAINER_EXTENSION_PATTERN}))/([^/]+)\\.bas$`,
+    'i',
+);
 export const XLIDE_VBA_LANGUAGE_ID = 'xlide-vba';
 
 export { moduleIdentityKey, sameWorkbookPath, workbookIdentityKey } from './workbookIdentity';
@@ -79,7 +84,7 @@ export function reportWorkbookLocked(xlsmPath: string, op: 'read' | 'write'): vo
     const name = path.basename(xlsmPath);
     const verb = op === 'read' ? 'open' : 'save';
     void vscode.window.showWarningMessage(
-        `XLIDE: Cannot ${verb} "${name}" - it appears to be open in Excel. Close the workbook and try again.`,
+        `XLIDE: Cannot ${verb} "${name}" - it appears to be open in ${containerAppNameForPath(xlsmPath)}. Close the file and try again.`,
         'Retry',
         'Reveal File',
     ).then((choice) => {
@@ -115,8 +120,10 @@ export function encodeModuleUri(xlsmPath: string, moduleName: string): vscode.Ur
  */
 export function decodeModuleUri(uri: vscode.Uri): { xlsmPath: string; moduleName: string } {
     const p = uri.path;
-    // Match the .xlsm (or .xlsb/.xlam) boundary in the path
-    const match = p.match(/^(.*\.xl(?:sm|sb|am))\/([^/]+)\.bas$/i);
+    // Match the macro-container boundary in the path: any extension the
+    // engine opens (.xlsm through .accdb), so modules from every container
+    // open in the editor, not only Excel's.
+    const match = p.match(MODULE_URI_RE);
     if (!match) {
         throw new Error(`Cannot decode xlide-vba URI: ${uri.toString()}`);
     }
@@ -233,7 +240,7 @@ export class XlideFileSystemProvider
                 // own warning here, which would double the popup. The thrown message
                 // carries the friendly, XLIDE-prefixed guidance.
                 throw vscode.FileSystemError.Unavailable(
-                    `XLIDE: "${path.basename(xlsmPath)}" is open in Excel. Close it and click Retry.`,
+                    `XLIDE: "${path.basename(xlsmPath)}" is open in ${containerAppNameForPath(xlsmPath)}. Close it and click Retry.`,
                 );
             }
             throw err;
@@ -297,7 +304,7 @@ export class XlideFileSystemProvider
                 // own warning here, which would double the popup. The thrown message
                 // carries the friendly, XLIDE-prefixed guidance.
                 throw vscode.FileSystemError.Unavailable(
-                    `XLIDE: "${path.basename(xlsmPath)}" is open in Excel. Close it and save again.`,
+                    `XLIDE: "${path.basename(xlsmPath)}" is open in ${containerAppNameForPath(xlsmPath)}. Close it and save again.`,
                 );
             }
             throw err;

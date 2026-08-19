@@ -27,6 +27,24 @@ function moduleUriPath(workbookPath: string, moduleName = 'Module1'): string {
 }
 
 describe('decodeModuleUri', () => {
+    it('decodes modules from every macro container, not only Excel', () => {
+        const cases: Array<[string, string]> = [
+            ['/work/Report.docm/ThisDocument.bas', 'ThisDocument'],
+            ['/work/Letters.dotm/Module1.bas', 'Module1'],
+            ['/work/Legacy.doc/CGreeter.bas', 'CGreeter'],
+            ['/work/Deck.pptm/CDeck.bas', 'CDeck'],
+            ['/work/Show.ppt/Module1.bas', 'Module1'],
+            ['/work/Book.xls/Module1.bas', 'Module1'],
+            ['/work/Data.accdb/CAudit.bas', 'CAudit'],
+            ['/work/Old.mdb/Module1.bas', 'Module1'],
+        ];
+        for (const [uriPath, expectedModule] of cases) {
+            const { moduleName, xlsmPath } = decodeModuleUri(fakeUri(uriPath));
+            expect(moduleName, uriPath).toBe(expectedModule);
+            expect(xlsmPath.toLowerCase(), uriPath).toContain(uriPath.split('/')[2].toLowerCase());
+        }
+    });
+
     it('decodes the module name from a basic path', () => {
         const { moduleName } = decodeModuleUri(fakeUri('/home/user/workbook.xlsm/Module1.bas'));
         expect(moduleName).toBe('Module1');

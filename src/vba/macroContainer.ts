@@ -130,8 +130,18 @@ function wholeCfbContainer(outer: Cfb, kind: MacroContainerKind, description: st
 
 function cached(build: () => Cfb): () => Cfb {
 	let value: Cfb | undefined;
+	let builder: (() => Cfb) | undefined = build;
 	return (): Cfb => {
-		value ??= build();
+		if (value === undefined && builder !== undefined) {
+			value = builder();
+			// Release the builder so its closure (for Access, the entire
+			// database file buffer - Cfb.addStream already copied the stream
+			// bytes out of it) does not stay reachable for the cache's life.
+			builder = undefined;
+		}
+		if (value === undefined) {
+			throw new MacroContainerError('VBA project could not be built for this container.');
+		}
 		return value;
 	};
 }
