@@ -72,6 +72,13 @@ its own Office application.
   the meantime; a rename carries the pending review to the new name.
   Controlled by `xlide.agent.showWriteDiffs`.
 
+- **One VBA test run at a time.** The Tests panel, the command palette, and
+  the agent tool share one run pipeline, and nothing serialized them:
+  reopening the Tests panel mid-run reset its buttons, so a second
+  overlapping run could start against a host that cannot serve two
+  automation owners. A run now refuses to start while another executes,
+  naming the file whose run is in flight.
+
 - **New file creation** for Word documents/templates and PowerPoint
   presentations/templates, seeded from blanks authored by their own
   applications. Formats that cannot hold the requested content refuse with

@@ -526,6 +526,16 @@ export function registerAgentTools(
                         runtime: result.runtime,
                     }, null, 2));
                 }
+                if (result.kind === 'blocked-busy') {
+                    return textResult(JSON.stringify({
+                        ok: false,
+                        blocked: true,
+                        reason: 'run-in-progress',
+                        filePath,
+                        activeRun: result.activeRunDescription,
+                        advice: 'A VBA test run is already executing. Wait for it to finish, then retry.',
+                    }, null, 2));
+                }
 
                 const { execution } = result;
                 const summary = summarizeVbaTestRun(execution.report);

@@ -163,6 +163,48 @@ describe('executeVbaTestRun', () => {
         expect(fs.existsSync(result.artifacts.artifacts.statusPath)).toBe(true);
     });
 
+    it('refuses a second run while one is in flight, then allows the next', async () => {
+        const workbook = tempWorkbook();
+        vi.mocked(getVbaTestSupportStatus).mockResolvedValue(supportStatus(true));
+        vi.mocked(checkExcelComAvailability).mockResolvedValue(comStatus(true));
+        let releaseFirst!: (execution: VbaTestRunExecution) => void;
+        vi.mocked(runWorkbookVbaTests).mockReturnValueOnce(
+            new Promise<VbaTestRunExecution>((resolve) => { releaseFirst = resolve; }),
+        );
+
+        const first = executeVbaTestRun(bridge(), workbook);
+        // The guard takes effect synchronously at entry, so even a run still
+        // inside its support/COM gates blocks the next one - including runs
+        // for a different file: single-instance hosts cannot share.
+        const second = await executeVbaTestRun(bridge(), 'C:/other/Other.xlsm');
+
+        expect(second).toEqual({
+            kind: 'blocked-busy',
+            activeRunDescription: path.basename(workbook),
+        });
+
+        releaseFirst(executionFor(workbook));
+        const firstResult = await first;
+        expect(firstResult.kind).toBe('completed');
+
+        vi.mocked(runWorkbookVbaTests).mockResolvedValue(executionFor(workbook));
+        const third = await executeVbaTestRun(bridge(), workbook);
+        expect(third.kind).toBe('completed');
+    });
+
+    it('clears the busy guard when a run throws', async () => {
+        const workbook = tempWorkbook();
+        vi.mocked(getVbaTestSupportStatus).mockResolvedValue(supportStatus(true));
+        vi.mocked(checkExcelComAvailability).mockResolvedValue(comStatus(true));
+        vi.mocked(runWorkbookVbaTests).mockRejectedValueOnce(new Error('host died'));
+
+        await expect(executeVbaTestRun(bridge(), workbook)).rejects.toThrow('host died');
+
+        vi.mocked(runWorkbookVbaTests).mockResolvedValue(executionFor(workbook));
+        const next = await executeVbaTestRun(bridge(), workbook);
+        expect(next.kind).toBe('completed');
+    });
+
     it('reports artifact write failures without failing the run', async () => {
         const workbook = tempWorkbook();
         vi.mocked(getVbaTestSupportStatus).mockResolvedValue(supportStatus(true));

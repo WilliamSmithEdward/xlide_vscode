@@ -160,6 +160,12 @@ export function registerVbaTestCommands(deps: CommandDeps): vscode.Disposable[] 
                 void vscode.window.showWarningMessage(`XLIDE: ${result.runtime.description}`);
                 return;
             }
+            if (result.kind === 'blocked-busy') {
+                void vscode.window.showWarningMessage(
+                    `XLIDE: A VBA test run is already in progress (${result.activeRunDescription}). Wait for it to finish.`,
+                );
+                return;
+            }
             const { report } = result.execution;
             log(`[runVbaTests] Report JSON:\n${JSON.stringify(report, null, 2)}`);
             if (result.artifacts.ok) {
