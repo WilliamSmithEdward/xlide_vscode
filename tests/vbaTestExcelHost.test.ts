@@ -311,7 +311,11 @@ describe('the staged Throws dispatcher', () => {
     it('direct-calls every public zero-parameter Sub in standard modules', () => {
         const source = buildVbaTestDispatchModule(modules);
         expect(source).toContain(`Attribute VB_Name = "${XLIDE_TEST_DISPATCH_MODULE_NAME}"`);
-        expect(source).toContain('Case "tests.plaintarget", "plaintarget"');
+        // Original-case keys under Option Compare Text: matching is VBA's own
+        // case-insensitive rule, with no JS case mapping in the path.
+        expect(source).toContain('Option Compare Text');
+        expect(source).not.toContain('LCase$');
+        expect(source).toContain('Case "Tests.PlainTarget", "PlainTarget"');
         expect(source).toContain('            Tests.PlainTarget');
         // Errors come back as recorded state, never across a Run boundary.
         expect(source).toContain('XlideAssert.RecordTargetOutcome 0, "", ""');
@@ -330,10 +334,10 @@ describe('the staged Throws dispatcher', () => {
 
     it('keeps ambiguous bare names qualified-only', () => {
         const source = buildVbaTestDispatchModule(modules);
-        expect(source).toContain('Case "tests.shared"');
-        expect(source).toContain('Case "moretests.shared"');
-        expect(source).not.toContain('Case "tests.shared", "shared"');
-        expect(source).not.toContain('Case "moretests.shared", "shared"');
+        expect(source).toContain('Case "Tests.Shared"');
+        expect(source).toContain('Case "MoreTests.Shared"');
+        expect(source).not.toContain('Case "Tests.Shared", "Shared"');
+        expect(source).not.toContain('Case "MoreTests.Shared", "Shared"');
     });
 
     it('chunks large projects under the 64KB compiled-procedure cap', () => {

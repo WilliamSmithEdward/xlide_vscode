@@ -104,6 +104,17 @@ its own Office application.
   procedure's locals over one shared module-plus-project name set instead
   of rebuilding the union per procedure.
 
+- **The test host works for names and paths beyond ASCII.** The generated
+  host script is now written with a byte-order mark - Windows PowerShell
+  reads a BOM-less script in the system ANSI code page, which mangled the
+  staged workbook path for any Windows user name with non-ASCII characters
+  before a single test could run. The staged Throws dispatcher also matches
+  target names under VBA's own case rule (`Option Compare Text` with
+  original-case keys) instead of mixing a JavaScript lowercase with VBA's
+  `LCase$`, whose mappings disagree for names like Turkish dotted I -
+  verified live: differently-cased target names dispatch in real Excel and
+  unknown targets still refuse.
+
 - **One VBA test run at a time.** The Tests panel, the command palette, and
   the agent tool share one run pipeline, and nothing serialized them:
   reopening the Tests panel mid-run reset its buttons, so a second

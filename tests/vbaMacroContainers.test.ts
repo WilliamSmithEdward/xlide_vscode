@@ -343,6 +343,9 @@ describe('test staging covers Word containers', () => {
 			expect(dispatcher).toContain('ZzTests.HelperTarget');
 			expect(dispatcher).toContain('XlideAssert.RecordTargetOutcome');
 			const script = fs.readFileSync(staging.hostScriptPath, 'utf8');
+			// BOM: without it Windows PowerShell 5.1 reads the script in the
+			// ANSI code page and mojibakes non-ASCII paths and names.
+			expect(script.charCodeAt(0)).toBe(0xfeff);
 			expect(script).toContain("$hostKind = 'word'");
 			expect(script).toContain('$excel.Documents.Open($targetPath, $false, $true, $false)');
 			expect(validateWorkbook(staging.tempWorkbookPath).issues).toEqual([]);

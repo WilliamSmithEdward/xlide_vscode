@@ -82,7 +82,11 @@ export async function stageOwnedReadOnlyExcelTestHost(
             vbaTestHostPlanItems(tests),
             { failFast: options.failFast, runnerModuleName, hostApp: options.hostApp },
         );
-        await fs.promises.writeFile(hostScriptPath, script, 'utf8');
+        // BOM required: Windows PowerShell 5.1 reads a BOM-less .ps1 in the
+        // system ANSI code page, which mojibakes any non-ASCII byte in the
+        // script - the staged workbook path under a non-ASCII Windows user
+        // name, or unicode module and test names in the embedded plan.
+        await fs.promises.writeFile(hostScriptPath, '\ufeff' + script, 'utf8');
     } catch (err) {
         try {
             await fs.promises.rm(hostScriptDir, { recursive: true, force: true });

@@ -102,6 +102,13 @@ export interface VbaTestDispatchModuleInput {
  * direct call inside the dispatcher keeps the error in one execution context,
  * so every host behaves alike. Targets resolve by `Module.Proc` always, and
  * by bare `Proc` when that name is unambiguous project-wide.
+ *
+ * Matching runs under `Option Compare Text` with keys in their ORIGINAL
+ * casing: both sides of the comparison then use VBA's own case-insensitive
+ * rule. Lowercasing the keys here with JS toLowerCase() and the incoming
+ * name with LCase$ at runtime mixed two languages' case mappings, which
+ * disagree for names like Turkish dotted I - reachable now that module
+ * names are full unicode.
  */
 export function buildVbaTestDispatchModule(modules: readonly VbaTestDispatchModuleInput[]): string {
     interface DispatchTarget {
@@ -135,6 +142,10 @@ export function buildVbaTestDispatchModule(modules: readonly VbaTestDispatchModu
         }
     }
 
+    // Grouping for bare-name uniqueness approximates VBA's text comparison
+    // with JS toLowerCase(); the qualified `Module.Proc` key is always
+    // emitted and always authoritative, so a divergence here can only cost
+    // a bare shortcut, never a dispatch.
     const bareCounts = new Map<string, number>();
     for (const target of targets) {
         const key = target.procedureName.toLowerCase();
@@ -158,11 +169,10 @@ export function buildVbaTestDispatchModule(modules: readonly VbaTestDispatchModu
         helperLines.push(`    XlideDispatch${index} = True`);
         helperLines.push('    Select Case targetKey');
         for (const target of chunk) {
-            const qualified = `${target.moduleName}.${target.procedureName}`.toLowerCase();
-            const bare = target.procedureName.toLowerCase();
+            const qualified = `${target.moduleName}.${target.procedureName}`;
             const keys = [vbaStringLiteral(qualified)];
-            if (bareCounts.get(bare) === 1) {
-                keys.push(vbaStringLiteral(bare));
+            if (bareCounts.get(target.procedureName.toLowerCase()) === 1) {
+                keys.push(vbaStringLiteral(target.procedureName));
             }
             helperLines.push(`        Case ${keys.join(', ')}`);
             helperLines.push(`            ${target.moduleName}.${target.procedureName}`);
@@ -180,6 +190,9 @@ export function buildVbaTestDispatchModule(modules: readonly VbaTestDispatchModu
     return [
         `Attribute VB_Name = "${XLIDE_TEST_DISPATCH_MODULE_NAME}"`,
         'Option Explicit',
+        // Case-insensitive Select Case matching by VBA's own comparison
+        // rule, so target names never pass through a JS case mapping.
+        'Option Compare Text',
         '',
         "' Generated for one XLIDE test run and staged into the temporary copy",
         "' next to XlideAssert; never written into the user's file.",
@@ -187,7 +200,7 @@ export function buildVbaTestDispatchModule(modules: readonly VbaTestDispatchModu
         '    On Error GoTo Caught',
         '    XlideAssert.RecordTargetOutcome 0, "", ""',
         '    Dim targetKey As String',
-        '    targetKey = LCase$(Trim$(macroName))',
+        '    targetKey = Trim$(macroName)',
         ...dispatchCalls,
         '    Err.Raise 5, "XLIDE.TestDispatch", "Unknown test target: " & macroName',
         '    Exit Sub',
