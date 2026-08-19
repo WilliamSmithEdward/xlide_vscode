@@ -18,8 +18,16 @@ import type {
 import { isLeafStatement } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
 import type { VbaToken } from '../lexer/tokenKinds';
-import { tokenize } from '../lexer/tokenize';
-import { statementTokens as codeTokens, tokenName, tokenWord } from '../lexer/tokenHelpers';
+import { tokenizeCached } from '../lexer/tokenize';
+import { tokenName, tokenWord } from '../lexer/tokenHelpers';
+// The diagnostics engine's memoized statement tokenizer (audit #5): per
+// (source, span) LRU that derives statement tokens by slicing the shared
+// cached module stream instead of re-lexing text slices. The collectors
+// below visit every statement and re-visit each span across walkers, so the
+// raw tokenHelpers version re-lexed the whole module in pieces per pass -
+// the type collector's dominant cost on large modules (measured 43 ms on
+// the 947 KB corpus module, mostly lexing and the garbage it makes).
+import { statementTokens as codeTokens } from '../diagnostics/analysisContext';
 import { resolveHostGlobal } from '../host/hostModel';
 import type { HostObjectModel } from '../host/excelObjectModel';
 import {
@@ -333,9 +341,9 @@ function collectHeaderSpan(source: string, span: Span, out: TypeNameReference[])
 	}
 }
 
-function collectImplements(source: string, out: TypeNameReference[]): void {
+function collectImplements(source: string, out: TypeNameReference[], scanEnd: number = source.length): void {
 	let lineStart = 0;
-	while (lineStart <= source.length) {
+	while (lineStart <= scanEnd) {
 		let lineEnd = source.indexOf('\n', lineStart);
 		if (lineEnd < 0) {
 			lineEnd = source.length;
@@ -405,7 +413,12 @@ function collectModule(
 	mod: ModuleNode,
 ): TypeNameReference[] {
 	const out: TypeNameReference[] = [];
-	collectImplements(source, out);
+	// `Implements` is only legal in the declarations section, before any
+	// procedure, so the line scan stops at the first procedure instead of
+	// walking every line of the module body.
+	const firstProcedureStart = mod.members.find((m) => m.kind === 'Procedure')?.span.start
+		?? source.length;
+	collectImplements(source, out, firstProcedureStart);
 	for (const member of mod.members) {
 		if (member.kind === 'VariableGroup') {
 			collectVariableGroup(source, member, out);
@@ -518,7 +531,12 @@ function collectModuleDeclaredNames(module: ModuleNode): Set<string> {
  */
 export function collectHostGlobalTokens(source: string, model?: HostObjectModel): TypeSemanticToken[] {
 	const declared = collectModuleDeclaredNames(parseModule(source));
-	const tokens = tokenize(source).filter(
+	// tokenizeCached: this runs in one semantic-token pass with the other
+	// collectors over the same source string, and a raw tokenize of a large
+	// module costs tens of milliseconds per duplicate (measured 36 ms on the
+	// 947 KB corpus module). The filter builds a fresh array, so the shared
+	// cached token stream is never mutated.
+	const tokens = tokenizeCached(source).filter(
 		(t) => t.kind !== 'comment' && t.kind !== 'newline',
 	);
 	const out: TypeSemanticToken[] = [];
@@ -597,7 +615,9 @@ export function collectImplicitMemberMethodTokens(
 	// access, not a member of whatever the line above happened to end with, so
 	// dropping newlines here would paint `.Clear` after a line ending in a
 	// control name - a guess, and the one thing this must never do.
-	const tokens = tokenize(source).filter((t) => t.kind !== 'comment');
+	// (tokenizeCached for the same reason as collectHostGlobalTokens; the
+	// filter keeps the shared stream unmutated.)
+	const tokens = tokenizeCached(source).filter((t) => t.kind !== 'comment');
 	const out: TypeSemanticToken[] = [];
 	for (let i = 2; i < tokens.length; i++) {
 		const tok = tokens[i];
