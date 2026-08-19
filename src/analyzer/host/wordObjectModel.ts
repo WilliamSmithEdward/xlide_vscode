@@ -9,20 +9,22 @@
 // NON-exhaustive: this model offers and describes, never proves absence.
 
 import type { HostObjectModel } from './excelObjectModel';
-import {
-	WORD_REFERENCE_ALIASES,
-	WORD_REFERENCE_CONSTANTS,
-	WORD_REFERENCE_TYPES,
-} from './wordObjectModelData';
+import { wordReferenceData } from './wordObjectModelData';
 
 let MODEL: HostObjectModel | undefined;
 
 export function getWordObjectModel(): HostObjectModel {
-	MODEL ??= {
+	if (MODEL) {
+		return MODEL;
+	}
+	// wordReferenceData() evaluates its metadata literals on first call, so
+	// sessions that never touch a Word file never pay for them.
+	const data = wordReferenceData();
+	MODEL = {
 		source: 'Microsoft Word 16.0 Object Library via pyVBAReference; enriched from Microsoft Learn',
-		types: WORD_REFERENCE_TYPES as HostObjectModel['types'],
-		aliases: WORD_REFERENCE_ALIASES as HostObjectModel['aliases'],
-		constants: WORD_REFERENCE_CONSTANTS as HostObjectModel['constants'],
+		types: data.types as HostObjectModel['types'],
+		aliases: data.aliases as HostObjectModel['aliases'],
+		constants: data.constants as HostObjectModel['constants'],
 		globals: {
 			Application: 'Word.Application',
 			ActiveDocument: 'Word.Document',

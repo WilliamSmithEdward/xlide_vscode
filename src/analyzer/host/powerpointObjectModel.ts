@@ -6,20 +6,22 @@
 // absence.
 
 import type { HostObjectModel } from './excelObjectModel';
-import {
-	POWERPOINT_REFERENCE_ALIASES,
-	POWERPOINT_REFERENCE_CONSTANTS,
-	POWERPOINT_REFERENCE_TYPES,
-} from './powerpointObjectModelData';
+import { powerpointReferenceData } from './powerpointObjectModelData';
 
 let MODEL: HostObjectModel | undefined;
 
 export function getPowerPointObjectModel(): HostObjectModel {
-	MODEL ??= {
+	if (MODEL) {
+		return MODEL;
+	}
+	// powerpointReferenceData() evaluates its metadata literals on first
+	// call, so sessions that never touch a PowerPoint file never pay.
+	const data = powerpointReferenceData();
+	MODEL = {
 		source: 'Microsoft PowerPoint 16.0 Object Library via pyVBAReference; enriched from Microsoft Learn',
-		types: POWERPOINT_REFERENCE_TYPES as HostObjectModel['types'],
-		aliases: POWERPOINT_REFERENCE_ALIASES as HostObjectModel['aliases'],
-		constants: POWERPOINT_REFERENCE_CONSTANTS as HostObjectModel['constants'],
+		types: data.types as HostObjectModel['types'],
+		aliases: data.aliases as HostObjectModel['aliases'],
+		constants: data.constants as HostObjectModel['constants'],
 		globals: {
 			Application: 'PowerPoint.Application',
 			ActivePresentation: 'PowerPoint.Presentation',

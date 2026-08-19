@@ -123,19 +123,35 @@ lines.push('// and describes, and must never prove a member absent.');
 lines.push('');
 lines.push("import type { HostConstant, HostType } from './excelObjectModel';");
 lines.push('');
-lines.push(`export const ${host.toUpperCase()}_REFERENCE_TYPES: Readonly<Record<string, HostType>> = {`);
+lines.push('// The literals live inside a function body so V8 defers parsing and');
+lines.push('// evaluating them until the host model is first requested: the extension');
+lines.push('// bundle and the analysis worker both load this module at startup, and');
+lines.push(`// an eagerly evaluated ${prefix} model would cost startup time and heap`);
+lines.push('// in every session that never opens one of its files.');
+lines.push(`export interface ${prefix}ReferenceData {`);
+lines.push('\treadonly types: Readonly<Record<string, HostType>>;');
+lines.push('\treadonly aliases: Readonly<Record<string, string>>;');
+lines.push('\treadonly constants: Readonly<Record<string, HostConstant>>;');
+lines.push('}');
+lines.push('');
+lines.push(`let CACHE: ${prefix}ReferenceData | undefined;`);
+lines.push('');
+lines.push(`export function ${host}ReferenceData(): ${prefix}ReferenceData {`);
+lines.push('\tCACHE ??= {');
+lines.push('\t\ttypes: {');
 for (const [qualified, type] of Object.entries(types).sort(([a], [b]) => a.localeCompare(b))) {
-    lines.push(`\t${JSON.stringify(qualified)}: ${JSON.stringify(type)},`);
+    lines.push(`\t\t\t${JSON.stringify(qualified)}: ${JSON.stringify(type)},`);
 }
-lines.push('};');
-lines.push('');
-lines.push(`export const ${host.toUpperCase()}_REFERENCE_ALIASES: Readonly<Record<string, string>> = ${JSON.stringify(aliases)};`);
-lines.push('');
-lines.push(`export const ${host.toUpperCase()}_REFERENCE_CONSTANTS: Readonly<Record<string, HostConstant>> = {`);
+lines.push('\t\t},');
+lines.push(`\t\taliases: ${JSON.stringify(aliases)},`);
+lines.push('\t\tconstants: {');
 for (const [name, constant] of Object.entries(constants).sort(([a], [b]) => a.localeCompare(b))) {
-    lines.push(`\t${JSON.stringify(name)}: ${JSON.stringify(constant)},`);
+    lines.push(`\t\t\t${JSON.stringify(name)}: ${JSON.stringify(constant)},`);
 }
-lines.push('};');
+lines.push('\t\t},');
+lines.push('\t};');
+lines.push('\treturn CACHE;');
+lines.push('}');
 lines.push('');
 
 fs.writeFileSync(outputPath, lines.join('\n'), 'utf8');
