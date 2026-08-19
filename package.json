@@ -1071,7 +1071,8 @@
     "generate:reference:office": "node scripts/generate-office-reference-metadata.mjs",
     "generate:reference:msforms": "node scripts/generate-msforms-reference-metadata.mjs",
     "test:oracle:vbe": "node syntax_corpus/oracle/run_excel_vbe_oracle.mjs",
-    "verify:excel:formats": "node scripts/verify-excel-formats.mjs"
+    "verify:excel:formats": "node scripts/verify-excel-formats.mjs",
+    "generate:reference:hosts": "node scripts/generate-host-object-model.mjs word && node scripts/generate-host-object-model.mjs powerpoint && node scripts/generate-host-object-model.mjs access"
   },
   "devDependencies": {
     "@types/node": "20.x",

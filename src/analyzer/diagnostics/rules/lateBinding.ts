@@ -8,6 +8,7 @@
 // and the call only dies on the first execution that reaches it.
 
 import type { VbaToken } from '../../lexer/tokenKinds';
+import type { HostObjectModel } from '../../host/excelObjectModel';
 import type { Span } from '../../parser/nodes';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaProjectClassMembers, VbaSymbol } from '../../symbols/symbolModel';
@@ -45,9 +46,10 @@ export function checkLateBoundFriendMember(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	projectClassMembers: readonly VbaProjectClassMembers[] | undefined,
+	hostModel: HostObjectModel | undefined,
 	push: PushFn,
 ): ProcedureStatementVisitor {
-	const friendOnly = friendOnlyMemberNames(projectClassMembers);
+	const friendOnly = friendOnlyMemberNames(projectClassMembers, hostModel);
 	if (friendOnly.size === 0) {
 		return () => undefined;
 	}
@@ -203,6 +205,7 @@ function matchingOpenParen(toks: readonly VbaToken[], closeIndex: number): numbe
  */
 function friendOnlyMemberNames(
 	projectClassMembers: readonly VbaProjectClassMembers[] | undefined,
+	hostModel: HostObjectModel | undefined,
 ): Map<string, string[]> {
 	const friendOwners = new Map<string, string[]>();
 	const disqualified = new Set<string>();
@@ -223,7 +226,7 @@ function friendOnlyMemberNames(
 	const out = new Map<string, string[]>();
 	for (const [lower, owners] of friendOwners) {
 		if (disqualified.has(lower)) { continue; }
-		if (isHostMemberName(lower)) { continue; }
+		if (isHostMemberName(lower, hostModel)) { continue; }
 		if (isRuntimeObjectMemberName(lower)) { continue; }
 		out.set(lower, owners);
 	}

@@ -182,6 +182,7 @@ export {
 } from './symbols/projectIndex';
 export {
 	analyzeModule,
+	withResolvedHostModel,
 	AnalyzeModuleOptions,
 	incompleteExpressionEditSpan,
 	VbaDiagnostic,

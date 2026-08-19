@@ -24,6 +24,8 @@ export interface WorkerAnalyzeRequest {
 	documentType?: string;
 	severityOverrides?: Record<string, string>;
 	activeIncompleteExpressionOffset?: number;
+	/** Office host token for the module's container. Absent means Excel. */
+	host?: string;
 	/** Designer-declared members of this module, when the caller knows them. */
 	implicitMembers?: WorkerImplicitMember[];
 }

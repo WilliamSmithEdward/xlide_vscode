@@ -1,5 +1,6 @@
 import {
     analyzeModule,
+    withResolvedHostModel,
     analyzeModuleRulesIncremental,
     type ModuleRulesIncrementalState,
     DIAGNOSTIC_RULES,
@@ -71,8 +72,12 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
         moduleType,
         activeIncompleteExpressionOffset,
         rulesIncremental,
-        ...analyzeOptions
+        ...restOptions
     } = input;
+    // Resolve the caller's host token into a model ONCE, here, so the full
+    // pass, the incremental pass and the structural checks all analyze under
+    // the same host (issue #24). Absent keeps the Excel defaults.
+    const analyzeOptions = withResolvedHostModel(restOptions);
     const starts = lineStartOffsets(source);
     // Lex and parse once per invocation; every pass below reuses these results.
     const module = analyzeOptions.parsedModule ?? parseModule(source);

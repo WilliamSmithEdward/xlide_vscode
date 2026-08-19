@@ -38,6 +38,7 @@ import type {
 	ProcedureNode,
 	Span,
 } from '../parser/nodes';
+import { hostObjectModelForToken } from '../host/hostRegistry';
 import { parseModule } from '../parser/parseModule';
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import { createConditionalActivityTracker } from '../conditional/conditionalCompilation';
@@ -95,10 +96,23 @@ export function analyzeModule(
 	opts: AnalyzeModuleOptions = {},
 ): VbaDiagnostic[] {
 	try {
-		return runRules(source, opts);
+		return runRules(source, withResolvedHostModel(opts));
 	} catch {
 		return [];
 	}
+}
+
+/**
+ * Resolves the `host` token into a hostModel once, up front, so every
+ * `opts.hostModel` consumer inherits the caller's choice. An explicit
+ * hostModel wins; absent both, the Excel defaults ride as they always have.
+ */
+export function withResolvedHostModel(opts: AnalyzeModuleOptions): AnalyzeModuleOptions {
+	if (opts.hostModel !== undefined || opts.host === undefined) {
+		return opts;
+	}
+	const resolved = hostObjectModelForToken(opts.host);
+	return resolved === undefined ? opts : { ...opts, hostModel: resolved };
 }
 
 export function incompleteExpressionEditSpan(
@@ -244,7 +258,7 @@ function diagnosticMemberCompletionContext(
 	if (meProjectType) {
 		ctx.meProjectType = meProjectType;
 	}
-	const meType = meHostTypeFor(opts.moduleName, opts.moduleKind);
+	const meType = meHostTypeFor(opts.moduleName, opts.moduleKind, opts.host);
 	if (meType) {
 		ctx.meType = meType;
 	}
@@ -261,11 +275,22 @@ function meProjectTypeFor(
 function meHostTypeFor(
 	moduleName: string | undefined,
 	moduleKind: ModuleSymbolKind | undefined,
+	host?: string,
 ): string | undefined {
 	if (!moduleName || moduleKind !== 'document') {
 		return undefined;
 	}
-	return moduleName.toLowerCase() === 'thisworkbook' ? 'Excel.Workbook' : undefined;
+	const lower = moduleName.toLowerCase();
+	switch ((host ?? 'excel').toLowerCase()) {
+		case 'excel':
+			return lower === 'thisworkbook' ? 'Excel.Workbook' : undefined;
+		case 'word':
+			return lower === 'thisdocument' ? 'Word.Document' : undefined;
+		default:
+			// PowerPoint has no document modules; other hosts' document
+			// surfaces are unmodelled, and silence beats a wrong type.
+			return undefined;
+	}
 }
 
 function activeStatementSpanOnLine(source: string, line: Span, offset: number): Span {

@@ -128,6 +128,8 @@ export class AnalysisWorkerState {
 			request.moduleType ?? '',
 			request.moduleKind ?? '',
 			request.documentType ?? '',
+			// A host change re-types every host lookup in the module.
+			request.host ?? '',
 			// Editing the designer changes diagnostics without changing a line
 			// of code, so incremental reuse has to see the control list.
 			JSON.stringify(implicitMembers ?? null),
@@ -137,6 +139,7 @@ export class AnalysisWorkerState {
 			source: request.source,
 			moduleName: request.moduleName,
 			moduleType: request.moduleType,
+			host: request.host,
 			moduleKind: request.moduleKind as ModuleSymbolKind | undefined,
 			documentType: request.documentType as EventHandlerDocumentType | undefined,
 			severityOverrides: request.severityOverrides as DiagnosticSeverityOverrides | undefined,

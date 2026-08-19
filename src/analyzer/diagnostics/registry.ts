@@ -221,6 +221,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.opts.projectProcedures,
 			ctx.opts.projectClassMembers,
 			ctx.opts.projectVisibleSymbols,
+			ctx.opts.hostModel,
 			push,
 		),
 	},
@@ -249,6 +250,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.opts.projectClassMembers,
 			ctx.opts.projectVisibleSymbols,
 			ctx.opts.implicitMembers,
+			ctx.opts.hostModel,
 			push,
 		),
 	},
@@ -678,6 +680,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 				ctx.symbols,
 				knownProcedures,
 				ctx.opts.projectVisibleSymbols,
+				ctx.opts.hostModel,
 				push,
 			);
 		},
@@ -696,6 +699,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 				ctx.symbols,
 				ctx.opts.projectVisibleSymbols,
 				projectClassMembers,
+				ctx.opts.hostModel,
 				push,
 			);
 		},

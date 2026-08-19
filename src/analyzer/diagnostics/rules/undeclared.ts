@@ -8,6 +8,7 @@ import {
 	detectEol,
 	VBA_IDENTIFIER_NAME_RE,
 } from '../../../vbaSourceScan';
+import type { HostObjectModel } from '../../host/excelObjectModel';
 import { bareCallStatementTarget as callStatementTarget } from '../../call/callContext';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
@@ -148,11 +149,12 @@ export function checkUnknownCallStatement(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	knownProcedures: ReadonlySet<string>,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+	hostModel: HostObjectModel | undefined,
 	push: PushFn,
 ): ProcedureStatementVisitor {
-	// Excel injects Application's members into the global scope, so a bare call
-	// may legitimately bind to one of them (Calculate, Volatile, Evaluate, ...).
-	const appMembers = applicationMemberNames();
+	// The host injects Application's members into the global scope, so a bare
+	// call may legitimately bind to one of them (Calculate, Volatile, ...).
+	const appMembers = applicationMemberNames(hostModel);
 
 	const isKnown = (name: string, procSym: VbaSymbol | undefined): boolean => {
 		const lower = name.toLowerCase();
@@ -160,7 +162,7 @@ export function checkUnknownCallStatement(
 			knownProcedures.has(lower) ||
 			sourceIdentifierBound(symbols, procSym, projectVisibleSymbols, name, 'call') ||
 			appMembers.has(lower) ||
-			resolveHostGlobal(name) !== undefined ||
+			resolveHostGlobal(name, hostModel) !== undefined ||
 			resolveRuntimeObject(name) !== undefined ||
 			resolveRuntimeFunction(name) !== undefined
 		);
@@ -391,6 +393,7 @@ export function checkUndeclaredVariables(
 	projectMembers: readonly VbaProjectClassMembers[] | undefined,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	implicitMembers: readonly { name: string; type: string }[] | undefined,
+	hostModel: HostObjectModel | undefined,
 	push: PushFn,
 ): void {
 	if (!hasOptionExplicit(mod, activity) || !knownIdentifiers) {
@@ -401,7 +404,7 @@ export function checkUndeclaredVariables(
 	);
 
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
-	const appMembers = applicationMemberNames();
+	const appMembers = applicationMemberNames(hostModel);
 	const isKnown = (
 		name: string,
 		procSym: VbaSymbol | undefined,
@@ -416,8 +419,8 @@ export function checkUndeclaredVariables(
 			sourceIdentifierBound(symbols, procSym, projectVisibleSymbols, name, context) ||
 			knownIdentifiers.has(lower) ||
 			appMembers.has(lower) ||
-			resolveHostGlobal(name) !== undefined ||
-			resolveHostConstant(name) !== undefined ||
+			resolveHostGlobal(name, hostModel) !== undefined ||
+			resolveHostConstant(name, hostModel) !== undefined ||
 			resolveRuntimeConstant(name) !== undefined ||
 			resolveRuntimeObject(name) !== undefined ||
 			resolveRuntimeFunction(name) !== undefined

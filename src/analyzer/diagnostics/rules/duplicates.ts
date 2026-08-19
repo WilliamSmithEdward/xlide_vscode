@@ -5,6 +5,7 @@
 // enum-member references.
 
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
+import type { HostObjectModel } from '../../host/excelObjectModel';
 import { resolveHostGlobal } from '../../host/hostModel';
 import type { ModuleNode } from '../../parser/nodes';
 import {
@@ -227,6 +228,7 @@ export function checkAmbiguousEnumMemberReferences(
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
 	projectMembers: readonly VbaProjectClassMembers[] | undefined,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+	hostModel: HostObjectModel | undefined,
 	push: PushFn,
 ): void {
 	const visibleEnumMembers = [
@@ -247,14 +249,14 @@ export function checkAmbiguousEnumMemberReferences(
 	}
 
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
-	const appMembers = applicationMemberNames();
+	const appMembers = applicationMemberNames(hostModel);
 	const isKnownForSkip = (name: string, procSym: VbaSymbol | undefined): boolean => {
 		const lower = name.toLowerCase();
 		return (
 			sourceIdentifierBound(symbols, procSym, projectVisibleSymbols, name, 'expression') ||
 			(knownProcedures?.has(lower) ?? false) ||
 			appMembers.has(lower) ||
-			resolveHostGlobal(name) !== undefined ||
+			resolveHostGlobal(name, hostModel) !== undefined ||
 			resolveRuntimeObject(name) !== undefined ||
 			resolveRuntimeFunction(name) !== undefined
 		);

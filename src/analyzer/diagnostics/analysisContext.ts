@@ -144,6 +144,14 @@ export interface AnalyzeModuleOptions {
 	/** Host object model metadata. Defaults to Excel's curated non-exhaustive model. */
 	hostModel?: HostObjectModel;
 	/**
+	 * Which Office host the module belongs to, as a token (`excel`, `word`,
+	 * `powerpoint`, `access`, ...). Resolved through the host registry when
+	 * `hostModel` is not supplied directly: absent means Excel, and a named
+	 * host with no model yet means no host knowledge at all rather than
+	 * Excel's (issue #24).
+	 */
+	host?: string;
+	/**
 	 * Conditional-compilation constants for deterministic branch filtering. Branches
 	 * that remain unknown are still analyzed; only proven-inactive code is skipped.
 	 */
@@ -194,16 +202,33 @@ export function isObjectModuleKind(moduleKind: ModuleSymbolKind | undefined): bo
 	return moduleKind === 'class' || moduleKind === 'document' || moduleKind === 'userform';
 }
 
-let APPLICATION_MEMBER_NAMES: ReadonlySet<string> | undefined;
+const APPLICATION_MEMBER_NAMES = new WeakMap<HostObjectModel, ReadonlySet<string>>();
+let DEFAULT_APPLICATION_MEMBER_NAMES: ReadonlySet<string> | undefined;
 
-export function applicationMemberNames(): ReadonlySet<string> {
-	if (!APPLICATION_MEMBER_NAMES) {
-		const appType = resolveHostGlobal('Application');
-		APPLICATION_MEMBER_NAMES = new Set(
-			(appType ? getHostMembers(appType) : []).map((member) => member.name.toLowerCase()),
-		);
+/**
+ * The host's Application members, injected into the bare global scope the way
+ * Office hosts inject them (Calculate, Volatile, ... under Excel). Keyed per
+ * model, so a Word caller gets Word's set and a host with no model injects
+ * nothing at all.
+ */
+export function applicationMemberNames(model?: HostObjectModel): ReadonlySet<string> {
+	if (model === undefined) {
+		DEFAULT_APPLICATION_MEMBER_NAMES ??= computeApplicationMemberNames(undefined);
+		return DEFAULT_APPLICATION_MEMBER_NAMES;
 	}
-	return APPLICATION_MEMBER_NAMES;
+	let names = APPLICATION_MEMBER_NAMES.get(model);
+	if (!names) {
+		names = computeApplicationMemberNames(model);
+		APPLICATION_MEMBER_NAMES.set(model, names);
+	}
+	return names;
+}
+
+function computeApplicationMemberNames(model: HostObjectModel | undefined): ReadonlySet<string> {
+	const appType = resolveHostGlobal('Application', model);
+	return new Set(
+		(appType ? getHostMembers(appType, model) : []).map((member) => member.name.toLowerCase()),
+	);
 }
 
 // Statement-token cache (audit #5): independent rules re-tokenized the same

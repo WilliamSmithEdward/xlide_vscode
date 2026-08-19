@@ -50,6 +50,12 @@ export type AnalysisWorkerRequest =
 		severityOverrides?: Record<string, string>;
 		activeIncompleteExpressionOffset?: number;
 		/**
+		 * Which Office host the module belongs to (`excel`, `word`,
+		 * `powerpoint`, `access`, ...). Absent means Excel; a named host with
+		 * no model yet asserts no host knowledge at all (issue #24).
+		 */
+		host?: string;
+		/**
 		 * Designer-declared members of the analyzed module, overriding whatever
 		 * the seed carried. A host whose designer state changes between seeds
 		 * (and a host that analyzes without seeding a project at all) sends
