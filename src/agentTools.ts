@@ -9,6 +9,13 @@ import { XlideFileSystemProvider } from './xlideFileSystem';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
 import { MACRO_CONTAINER_GLOB } from './macroContainerUi';
 import {
+    agentWriteDiffsEnabled,
+    onDidChangePendingAgentReviews,
+    registerAgentDiffProvider,
+    reopenAgentReview,
+    reviewAgentModuleWrite,
+} from './xlideAgentDiff';
+import {
     deleteWorkbookModule,
     renameWorkbookModule,
     writeWorkbookModule,
@@ -95,7 +102,30 @@ export function registerAgentTools(
     vbaIndex: VbaSymbolIndex,
 ): vscode.Disposable[] {
     const ops: WorkbookModuleOperationDeps = { bridge, explorer, fsProvider, vbaIndex };
+    const agentDiffDeps = {
+        readModuleSource: async (filePath: string, moduleName: string): Promise<string> => {
+            const current = await bridge.call<{ source: string }>(
+                'readModule', { path: filePath, module: moduleName },
+            );
+            return current.source;
+        },
+        writeModuleSource: async (filePath: string, moduleName: string, source: string): Promise<void> => {
+            await writeWorkbookModule(ops, { filePath, moduleName, source });
+        },
+    };
     return [
+        registerAgentDiffProvider(),
+        // The tree badge follows pending reviews: re-render just the module
+        // node that gained or lost one.
+        onDidChangePendingAgentReviews((change) => {
+            explorer.refreshModuleSubs(change.filePath, change.moduleName);
+        }),
+        vscode.commands.registerCommand('xlide.reviewAgentChange', async (node?: { filePath?: string; moduleName?: string }) => {
+            if (!node?.filePath || !node.moduleName) {
+                return;
+            }
+            await reopenAgentReview(agentDiffDeps, node.filePath, node.moduleName);
+        }),
         // ----------------------------------------------------------------
         // xlide_listWorkbooks
         // ----------------------------------------------------------------
@@ -212,11 +242,19 @@ export function registerAgentTools(
         vscode.lm.registerTool<WriteModuleInput>('xlide_writeModule', {
             async invoke(options, _token) {
                 const { filePath, moduleName, source, expectedContentToken } = options.input;
-                if (expectedContentToken) {
+                // The before-image feeds both the stale-token check and the
+                // keep/revert review; a missing module (a create) reads as ''.
+                let beforeSource = '';
+                try {
                     const current = await bridge.call<{ source: string }>(
                         'readModule', { path: filePath, module: moduleName },
                     );
-                    const stale = checkModuleContentToken(current.source, expectedContentToken, moduleName);
+                    beforeSource = current.source;
+                } catch {
+                    beforeSource = '';
+                }
+                if (expectedContentToken) {
+                    const stale = checkModuleContentToken(beforeSource, expectedContentToken, moduleName);
                     if (stale) {
                         return textResult(stale.message);
                     }
@@ -237,6 +275,19 @@ export function registerAgentTools(
                         }),
                     };
                 });
+                if (agentWriteDiffsEnabled()) {
+                    let afterSource = source;
+                    try {
+                        afterSource = (await agentDiffDeps.readModuleSource(filePath, moduleName));
+                    } catch {
+                        // The write succeeded; the review still opens with the
+                        // requested source as the after-image.
+                    }
+                    void reviewAgentModuleWrite(agentDiffDeps, filePath, moduleName, {
+                        before: beforeSource,
+                        after: afterSource,
+                    });
+                }
                 return textResult(`${summary}\nModule "${moduleName}" written successfully.`);
             },
             async prepareInvocation(options, _token) {

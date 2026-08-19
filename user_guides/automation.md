@@ -11,7 +11,10 @@ PowerPoint, or Access - without driving the XLIDE panels by hand.
    container) or confirm structure with `xlide_getWorkbookInfo`.
 2. Read the file's VBA with `xlide_readModule`.
 3. Write changes with `xlide_writeModule` or the other module tools. Access
-   files refuse writes with the reason (compiled p-code).
+   files refuse writes with the reason (compiled p-code). Each agent write
+   opens a before/after diff for the user with Keep/Revert controls, and the
+   XLIDE tree badges the module (` ● agent edit`) until they decide;
+   `xlide.agent.showWriteDiffs` turns the review off.
 4. Run `xlide_analyzeWorkbook` and treat an empty `problems` array as analysis
    pass.
 5. Run `xlide_runVbaTests` to execute discovered `@xlide-test` procedures

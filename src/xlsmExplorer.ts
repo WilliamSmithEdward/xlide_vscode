@@ -4,6 +4,7 @@ import { WorkbookEngine } from './workbookEngine';
 import { workbookIdentityKey } from './xlideFileSystem';
 import { compareVbaModulesForTreeOrder, moduleThemeIconName } from './moduleDisplay';
 import { containerAppNameForPath, containerContextValue, isReadOnlyContainerPath, MACRO_CONTAINER_GLOB } from './macroContainerUi';
+import { hasPendingAgentReview } from './xlideAgentDiff';
 import { startPerformanceTrace } from './performanceTrace';
 
 export type XlideNodeKind = 'xlsm' | 'module' | 'sub' | 'loadError';
@@ -281,6 +282,16 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
                 // '-ro' keeps rename/delete menus off read-only containers.
                 item.contextValue = `module-${node.moduleType ?? 'standard'}${
                     isReadOnlyContainerPath(node.filePath) ? '-ro' : ''}`;
+                if (hasPendingAgentReview(node.filePath, node.moduleName ?? '')) {
+                    // An agent wrote this module and nobody has kept or
+                    // reverted it yet; the badge keeps the review reachable.
+                    item.description = `${node.moduleType} ● agent edit`;
+                    item.contextValue += '-agent-pending';
+                    item.iconPath = new vscode.ThemeIcon(
+                        moduleThemeIconName(node.moduleType),
+                        new vscode.ThemeColor('gitDecoration.modifiedResourceForeground'),
+                    );
+                }
                 item.command = {
                     command: 'xlide.openModule',
                     title: 'Open Module',

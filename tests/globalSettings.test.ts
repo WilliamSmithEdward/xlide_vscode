@@ -134,6 +134,7 @@ describe('globalSettings', () => {
         }, new Set(['docs.metadataGlob'])));
 
         expect(settings.map((setting) => setting.key)).toEqual([
+            'xlide.agent.showWriteDiffs',
             'xlide.analysis.ruleSeverityOverrides',
             'xlide.analysis.untrackedRules',
             'xlide.analysis.visibleSeverities',

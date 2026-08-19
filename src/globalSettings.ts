@@ -49,6 +49,7 @@ interface XlideGlobalSettingValues {
     'excelIntegration.reopenAfterClose': boolean;
     'excelIntegration.reopenMode': ExcelReopenMode;
     'excelIntegration.reopenReadOnlyAfterSave': boolean;
+    'agent.showWriteDiffs': boolean;
     'diagnostics.enabled': boolean;
     'editor.blockLayout': VbaSmartBlockLayout;
     'editor.continueCommentOnNewline': boolean;
@@ -195,6 +196,18 @@ const XLIDE_GLOBAL_SETTINGS: {
             section: 'excel',
             label: 'Attach To Running Excel',
             description: 'When opening a workbook or running a macro, reuse a running Excel instance and an already-open copy of the workbook before launching a fresh one. Most users keep this on.',
+            control: { kind: 'boolean' },
+        },
+    },
+    'agent.showWriteDiffs': {
+        defaultValue: () => true,
+        normalize: normalizeBoolean(true),
+        validate: expectBoolean,
+        manifest: { type: 'boolean' },
+        webviewCard: {
+            section: 'editor',
+            label: 'Review Agent Writes',
+            description: 'When an AI agent writes a VBA module through the XLIDE tools, open a before/after diff and offer Keep / Revert. Agent tool writes never pass through the editor, so without this no diff appears anywhere.',
             control: { kind: 'boolean' },
         },
     },

@@ -62,6 +62,14 @@ its own Office application.
   native MS-OFORMS machinery, proven against a form authored by Word's own
   VBE.
 
+- **Agent writes are reviewable.** Copilot's own keep/reject cannot see a
+  change made through a tool, so XLIDE supplies the contract itself: every
+  `xlide_writeModule` write opens a native before/after diff, offers
+  Keep/Revert (Revert restores the before-image through the audited write
+  path and refuses if the module changed again in the meantime), and the
+  XLIDE tree badges the module until the decision is made. Controlled by
+  `xlide.agent.showWriteDiffs`.
+
 - **New file creation** for Word documents/templates and PowerPoint
   presentations/templates, seeded from blanks authored by their own
   applications. Formats that cannot hold the requested content refuse with
