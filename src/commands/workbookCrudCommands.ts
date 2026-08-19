@@ -120,18 +120,28 @@ export function registerWorkbookCrudCommands(deps: CommandDeps): vscode.Disposab
             }
         }),
 
-        // Create a new, empty macro-enabled workbook or add-in
+        // Create a new, empty macro-enabled file for any supported host
         registerXlideCommand('xlide.newWorkbook', async () => {
             const defaultDir = vscode.workspace.workspaceFolders?.[0]?.uri;
             const target = await vscode.window.showSaveDialog({
                 title: 'XLIDE: New Macro-Enabled File',
-                defaultUri: defaultDir ? vscode.Uri.joinPath(defaultDir, 'NewWorkbook.xlsm') : undefined,
+                // A host-neutral base name: the dialog keeps it when the user
+                // switches the type filter, so "NewWorkbook.docm" must never
+                // be the default a Word document is born with.
+                defaultUri: defaultDir ? vscode.Uri.joinPath(defaultDir, 'NewFile.xlsm') : undefined,
+                // One filter per file kind: the dialog auto-appends only the
+                // FIRST extension of the selected filter, so a bundled
+                // "docm;dotm" filter could never produce a .dotm without the
+                // user typing the extension by hand.
                 filters: {
-                    'Macro-Enabled Workbook': ['xlsm', 'xlsb'],
+                    'Excel Macro-Enabled Workbook': ['xlsm'],
+                    'Excel Binary Workbook': ['xlsb'],
                     'Excel Add-In': ['xlam'],
                     'Excel Macro-Enabled Template': ['xltm'],
-                    'Macro-Enabled Word Document': ['docm', 'dotm'],
-                    'Macro-Enabled PowerPoint Presentation': ['pptm', 'potm'],
+                    'Word Macro-Enabled Document': ['docm'],
+                    'Word Macro-Enabled Template': ['dotm'],
+                    'PowerPoint Macro-Enabled Presentation': ['pptm'],
+                    'PowerPoint Macro-Enabled Template': ['potm'],
                 },
             });
             if (!target) { return; }
@@ -146,7 +156,7 @@ export function registerWorkbookCrudCommands(deps: CommandDeps): vscode.Disposab
                     void vscode.window.showInformationMessage(`XLIDE: Created "${name}".`);
                 },
             );
-        }, { errorPrefix: 'Failed to create workbook', logTag: 'newWorkbook', log }),
+        }, { errorPrefix: 'Failed to create file', logTag: 'newWorkbook', log }),
 
         registerXlideCommand('xlide.newModule', async (node: XlideNode) => {
             if (node?.kind !== 'xlsm') { return; }
