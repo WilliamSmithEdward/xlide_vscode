@@ -22,7 +22,7 @@
 import { parseModule } from '../parser/parseModule';
 import { DeclareNode, ParameterNode, ProcedureNode } from '../parser/nodes';
 import { resolveMemberCompletionNamed, MemberCompletionContext } from '../completion/memberAccess';
-import { getHostType } from '../host/hostModel';
+import { getHostType, resolveHostGlobalMember } from '../host/hostModel';
 import { resolveRuntimeFunction, runtimeAllowsExplicitCall } from '../runtime/vbaRuntime';
 import { extractLeadingDoc } from '../docs/docComment';
 import { DocRegistry } from '../docs/docRegistry';
@@ -243,7 +243,11 @@ function signatureForCallee(
 				: procedureSignatureLabel(projectProc)
 		);
 	}
-	return resolveRuntimeFunction(site.calleeName)?.signature;
+	// A bare call may bind to the host's hidden Global interface - Word's
+	// InchesToPoints, Excel's Union (issue #34). The VBA runtime's own names
+	// keep winning first.
+	return resolveRuntimeFunction(site.calleeName)?.signature
+		?? resolveHostGlobalMember(site.calleeName, ctx.model)?.signature;
 }
 
 function memberCompletionForCallee(

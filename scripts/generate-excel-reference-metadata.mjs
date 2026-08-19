@@ -56,6 +56,9 @@ const hardDiagnosticTypes = [
 
 const promotedTypes = [
 	...hardDiagnosticTypes,
+	// The hidden Global interface: the members VBA calls bare (Union,
+	// Intersect, Evaluate). Resolved by resolveHostGlobalMember (issue #34).
+	'Global',
 	'WorksheetFunction',
 	'PivotTable',
 	'PivotTables',

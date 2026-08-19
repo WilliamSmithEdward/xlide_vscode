@@ -25,6 +25,7 @@ export function getWordObjectModel(): HostObjectModel {
 	MODEL = {
 		source: 'Microsoft Word 16.0 Object Library via pyVBAReference; enriched from Microsoft Learn; shared Office reference enum constants',
 		hostName: 'Word',
+		globalType: 'Word.Global',
 		types: data.types as HostObjectModel['types'],
 		aliases: data.aliases as HostObjectModel['aliases'],
 		// Every Word VBA project auto-references the shared Office library, so

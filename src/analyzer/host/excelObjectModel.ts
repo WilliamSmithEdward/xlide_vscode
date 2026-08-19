@@ -81,6 +81,12 @@ export interface HostObjectModel {
 	aliases: Record<string, string>;
 	/** Host-injected global identifier (canonical casing) -> qualified type. */
 	globals: Record<string, string>;
+	/**
+	 * Qualified name (in `types`) of the host's hidden Global interface, whose
+	 * members VBA calls bare - Word's InchesToPoints, Excel's Union (issue
+	 * #34). Absent when the host has none modelled.
+	 */
+	globalType?: string;
 	/** Host enum constants, keyed by canonical name. */
 	constants?: Record<string, HostConstant>;
 	/**
@@ -432,6 +438,7 @@ export function getExcelObjectModel(): HostObjectModel {
 const buildExcelObjectModel = (): HostObjectModel => ({
 	source: `Office VBA object-model reference (learn.microsoft.com) + Excel COM type library, verified 2026-05-30; promoted Excel and Office reference enum constants; promoted Excel reference metadata for ${EXCEL_REFERENCE_PROMOTED_TYPES.join(', ')}; hard member-not-found diagnostics limited to ${EXCEL_REFERENCE_HARD_DIAGNOSTIC_TYPES.join(', ')}; Workbook dump ${EXCEL_WORKBOOK_REFERENCE_PROVENANCE}`,
 	hostName: 'Excel',
+	globalType: 'Excel.Global',
 	aliases: {
 		...promotedExcelReferenceAliases(),
 		workbook: WORKBOOK,

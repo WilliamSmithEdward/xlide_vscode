@@ -152,6 +152,31 @@ export function isHostMemberName(
 }
 
 /**
+ * Resolves a bare identifier as a member of the host's hidden Global
+ * interface - the surface VBA calls unqualified: Word's InchesToPoints,
+ * Excel's Union (issue #34). Object-access members only (never an event),
+ * case-insensitive; undefined when the model carries no Global type or the
+ * name is not among its members.
+ */
+export function resolveHostGlobalMember(
+	name: string,
+	model: HostObjectModel = getExcelObjectModel(),
+): HostMember | undefined {
+	if (!model.globalType) {
+		return undefined;
+	}
+	return hostModelIndex(model).membersByType
+		.get(model.globalType)?.byLowerName.get(name.toLowerCase());
+}
+
+/** All object-access members of the host's hidden Global interface. */
+export function getHostGlobalMembers(
+	model: HostObjectModel = getExcelObjectModel(),
+): HostMember[] {
+	return model.globalType ? getHostMembers(model.globalType, model) : [];
+}
+
+/**
  * Resolves a host-injected global identifier (ThisWorkbook, Application, ...)
  * to its qualified host type. Case-insensitive.
  */

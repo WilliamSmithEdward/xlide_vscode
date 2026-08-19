@@ -139,6 +139,7 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
                     codeNames: projectContext?.codeNames,
                     implicitMembers: projectContext?.implicitMembers,
                     meType: projectContext?.meHostType,
+                    projectTypes,
                 }),
             ];
             for (const item of items) {

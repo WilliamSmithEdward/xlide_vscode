@@ -15,6 +15,7 @@ import type { ConditionalActivityTracker } from '../../conditional/conditionalCo
 import {
 	resolveHostConstant,
 	resolveHostGlobal,
+	resolveHostGlobalMember,
 } from '../../host/hostModel';
 import { isReservedIdentifier } from '../../lexer/keywordTable';
 import type { VbaToken } from '../../lexer/tokenKinds';
@@ -163,6 +164,8 @@ export function checkUnknownCallStatement(
 			sourceIdentifierBound(symbols, procSym, projectVisibleSymbols, name, 'call') ||
 			appMembers.has(lower) ||
 			resolveHostGlobal(name, hostModel) !== undefined ||
+			// The host's hidden Global interface is bare-callable too (issue #34).
+			resolveHostGlobalMember(name, hostModel) !== undefined ||
 			resolveRuntimeObject(name) !== undefined ||
 			resolveRuntimeFunction(name) !== undefined
 		);
@@ -420,6 +423,9 @@ export function checkUndeclaredVariables(
 			knownIdentifiers.has(lower) ||
 			appMembers.has(lower) ||
 			resolveHostGlobal(name, hostModel) !== undefined ||
+			// Members of the host's hidden Global interface are callable bare
+			// (Word's InchesToPoints, Excel's Union) - issue #34.
+			resolveHostGlobalMember(name, hostModel) !== undefined ||
 			resolveHostConstant(name, hostModel) !== undefined ||
 			resolveRuntimeConstant(name) !== undefined ||
 			resolveRuntimeObject(name) !== undefined ||

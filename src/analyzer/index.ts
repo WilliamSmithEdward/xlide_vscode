@@ -34,6 +34,7 @@ export {
 } from './host/excelObjectModel';
 export {
 	getHostConstants,
+	getHostGlobalMembers,
 	getHostGlobals,
 	getHostMembers,
 	getHostType,
@@ -41,6 +42,7 @@ export {
 	resolveHostAlias,
 	resolveHostConstant,
 	resolveHostGlobal,
+	resolveHostGlobalMember,
 	resolveHostMember,
 	resolveHostMemberSignature,
 	resolveMemberReturnType,

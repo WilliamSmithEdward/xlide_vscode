@@ -22,6 +22,7 @@ export function getPowerPointObjectModel(): HostObjectModel {
 	MODEL = {
 		source: 'Microsoft PowerPoint 16.0 Object Library via pyVBAReference; enriched from Microsoft Learn; shared Office reference enum constants',
 		hostName: 'PowerPoint',
+		globalType: 'PowerPoint.Global',
 		types: data.types as HostObjectModel['types'],
 		aliases: data.aliases as HostObjectModel['aliases'],
 		// The shared Office library is auto-referenced in every PowerPoint VBA

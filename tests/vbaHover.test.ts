@@ -571,4 +571,22 @@ describe('hover - host labels follow the module host (issue #28)', () => {
 		expect(info?.signature).toBe('Const wdAlignParagraphCenter As WdParagraphAlignment = 1');
 		expect(info?.details).toContain('Word/Office constant');
 	});
+
+	it('describes a bare host Global method and property (issue #34)', () => {
+		const src = 'Sub T()\n    TopM = InchesToPoints(1)\n    Set x = RecentFiles\nEnd Sub\n';
+		const method = resolveHover(src, src.indexOf('InchesToPoints') + 2, { model });
+		expect(method?.signature).toBe('InchesToPoints(Inches As Single) As Single');
+		expect(method?.details).toContain('Word host method');
+
+		const property = resolveHover(src, src.indexOf('RecentFiles') + 2, { model });
+		expect(property?.signature).toBe('RecentFiles As RecentFiles');
+		expect(property?.details).toContain('Word host property');
+	});
+
+	it('describes a bare Excel Global method (issue #34)', () => {
+		const src = 'Sub T()\n    Set r = Union(a, b)\nEnd Sub\n';
+		const info = resolveHover(src, src.indexOf('Union') + 2, {});
+		expect(info?.signature).toContain('Union');
+		expect(info?.details).toContain('Excel host method');
+	});
 });

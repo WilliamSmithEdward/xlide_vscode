@@ -4,7 +4,12 @@ import { getPowerPointObjectModel } from '../src/analyzer/host/powerpointObjectM
 import { getAccessObjectModel } from '../src/analyzer/host/accessObjectModel';
 import { getExcelObjectModel, type HostObjectModel } from '../src/analyzer/host/excelObjectModel';
 import { resolveHostGlobal, getHostMembers, resolveHostConstant } from '../src/analyzer/host/hostModel';
-import { analyzeModule, resolveMemberCompletions } from '../src/analyzer';
+import {
+	analyzeModule,
+	resolveIdentifierCompletions,
+	resolveMemberCompletions,
+	resolveSignatureHelp,
+} from '../src/analyzer';
 
 // Issue #25. The measured number this replaces: Word's ThisDocument answered
 // 1 member - the Sub in its own module - because the only model that existed
@@ -121,6 +126,41 @@ describe('Word answers as Word', () => {
 		const constant = resolveHostConstant('wdMainTextStory', getWordObjectModel());
 		expect(constant?.value).toBe(1);
 		expect(constant?.type).toBe('WdStoryType');
+	});
+
+	it('offers the Global interface members callable bare (issue #34)', () => {
+		// InchesToPoints is in half the PageSetup lines ever written; it is a
+		// member of Word's Global interface, not an injected object name.
+		const src = 'Sub T()\n    Inches\nEnd Sub\n';
+		const items = resolveIdentifierCompletions(src, src.indexOf('Inches') + 6, {
+			moduleName: 'M',
+			model: getWordObjectModel(),
+		});
+		const method = items.find((item) => item.name === 'InchesToPoints');
+		expect(method?.detail).toBe('InchesToPoints(Inches As Single) As Single');
+
+		const bare = 'Sub T()\n    Recent\nEnd Sub\n';
+		const property = resolveIdentifierCompletions(bare, bare.indexOf('Recent') + 6, {
+			moduleName: 'M',
+			model: getWordObjectModel(),
+		}).find((item) => item.name === 'RecentFiles');
+		expect(property?.detail).toBe('RecentFiles object');
+	});
+
+	it('offers a call tip inside a bare Global method call (issue #34)', () => {
+		const src = 'Sub T()\n    TopM = InchesToPoints(1)\nEnd Sub\n';
+		const info = resolveSignatureHelp(src, src.indexOf('(1)') + 1, {
+			model: getWordObjectModel(),
+		} as never);
+		expect(info?.label).toBe('InchesToPoints(Inches As Single) As Single');
+		expect(info?.parameters.map((p) => p.label)).toEqual(['Inches As Single']);
+	});
+
+	it('keeps a Global member out of the undeclared rule in its host only (issue #34)', () => {
+		const src = 'Option Explicit\nSub T()\n    Dim n As Single\n    n = InchesToPoints(1)\nEnd Sub\n';
+		const word = analyzeModule(src, { host: 'word', knownIdentifiers: new Set<string>() })
+			.map((d) => d.message);
+		expect(word).toEqual([]);
 	});
 });
 

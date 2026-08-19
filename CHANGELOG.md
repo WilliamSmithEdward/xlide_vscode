@@ -2,6 +2,28 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [4.0.4] - Unreleased
+
+- **A declared local with a host type paints its method calls** (#33).
+  `Dim rng As Range` then `rng.InsertParagraphAfter` hovered "Word host
+  method" while painting plain - declared names were only ever shadows to
+  the paint. The collector now types declared locals and parameters from
+  their `As` clauses: a name typed the same everywhere in the module
+  paints its resolved host methods, a name that is untyped, ambiguous
+  across procedures, or shadowed by a project type stays plain.
+
+- **The host Global interface resolves everywhere** (#34). Word's
+  `InchesToPoints`, Excel's `Union` and their siblings - the members VBA
+  calls bare - answered nothing on any surface. Each model now names its
+  hidden Global interface (Excel's newly promoted from the reference
+  corpus) and every surface consults it: hover and completion answer with
+  the verified signature and documentation, the call tip works inside a
+  bare call, the undeclared and unknown-call rules know the names, member
+  access chains through typed returns (`Union(a, b).Select`), and the
+  paint shows a bare Global method as a call and a Global property as a
+  host value. The VBA runtime's own names keep winning bare resolution
+  first, exactly as VBA binds them.
+
 ## [4.0.3] - 2026-08-19
 
 - **Member access follows a control member into the object it returns**

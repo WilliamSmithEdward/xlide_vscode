@@ -347,6 +347,72 @@ describe('host member method semantic tokens (issue #29)', () => {
 			.toEqual([]);
 	});
 
+	it('paints methods on a declared local with a host type (issue #33)', () => {
+		const word = [
+			'Public Sub T()',
+			'    Dim rng As Range',
+			'    Set rng = ActiveDocument.Range(0, 0)',
+			'    rng.InsertParagraphAfter',
+			'End Sub',
+			'',
+		].join('\n');
+		// ActiveDocument.Range already painted (#29); the local's member joins it.
+		expect(methodTokens(word, { model: getWordObjectModel() }))
+			.toEqual(['Range:function', 'InsertParagraphAfter:function']);
+
+		const excel = 'Sub T()\n    Dim ws As Worksheet\n    ws.Calculate\n    x = ws.Name\nEnd Sub\n';
+		expect(methodTokens(excel)).toEqual(['Calculate:function']);
+
+		const param = 'Sub T(ByVal ws As Worksheet)\n    ws.Calculate\nEnd Sub\n';
+		expect(methodTokens(param)).toEqual(['Calculate:function']);
+	});
+
+	it('refuses ambiguous, untyped, and project-shadowed locals (issue #33)', () => {
+		const ambiguous = [
+			'Sub A()',
+			'    Dim rng As Range',
+			'    rng.Calculate',
+			'End Sub',
+			'Sub B()',
+			'    Dim rng As Long',
+			'    rng.Calculate',
+			'End Sub',
+			'',
+		].join('\n');
+		expect(methodTokens(ambiguous)).toEqual([]);
+
+		const untyped = 'Sub T()\n    Dim rng\n    rng.Calculate\nEnd Sub\n';
+		expect(methodTokens(untyped)).toEqual([]);
+
+		// A project class named Range wins the As clause; the host reading
+		// must not paint over it.
+		const shadowed = 'Sub T()\n    Dim rng As Range\n    rng.Calculate\nEnd Sub\n';
+		expect(methodTokens(shadowed, { projectTypes: [{ name: 'Range', kind: 'class' }] }))
+			.toEqual([]);
+	});
+
+	it('paints a bare host Global method and value (issue #34)', () => {
+		const word = 'Sub T()\n    TopM = InchesToPoints(1)\n    Set x = RecentFiles\nEnd Sub\n';
+		const wordTokens = collectHostGlobalTokens(word, getWordObjectModel()).map(
+			(t) => `${word.slice(t.span.start, t.span.end)}:${t.tokenType}`,
+		);
+		expect(wordTokens).toContain('InchesToPoints:function');
+		expect(wordTokens).toContain('RecentFiles:variable');
+
+		const excel = 'Sub T()\n    Set r = Union(a, b)\nEnd Sub\n';
+		const excelTokens = collectHostGlobalTokens(excel).map(
+			(t) => `${excel.slice(t.span.start, t.span.end)}:${t.tokenType}`,
+		);
+		expect(excelTokens).toContain('Union:function');
+
+		// Shadowing and member access keep their gates.
+		const shadowed =
+			'Sub T()\n    Dim InchesToPoints As Long\n    x = InchesToPoints\nEnd Sub\n';
+		expect(collectHostGlobalTokens(shadowed, getWordObjectModel())).toEqual([]);
+		const memberAccess = 'Sub T()\n    x = Foo.InchesToPoints(1)\nEnd Sub\n';
+		expect(collectHostGlobalTokens(memberAccess, getWordObjectModel())).toEqual([]);
+	});
+
 	it('paints Word Me members and keeps chains and With out of scope', () => {
 		expect(
 			methodTokens('Sub T()\n    Me.FitToPages\nEnd Sub\n', {

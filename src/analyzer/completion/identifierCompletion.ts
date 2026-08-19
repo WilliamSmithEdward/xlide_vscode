@@ -15,6 +15,7 @@ import { completionCursorContext } from './cursorContext';
 import { HostObjectModel } from '../host/excelObjectModel';
 import {
 	getHostConstants,
+	getHostGlobalMembers,
 	getHostGlobals,
 	getHostType,
 	hostDisplayName,
@@ -225,6 +226,18 @@ export function resolveIdentifierCompletions(
 		for (const g of getHostGlobals(ctx.model)) {
 			const display = getHostType(g.type, ctx.model)?.displayName ?? g.type;
 			add(g.name, 'global', `${display} object`);
+		}
+		// Members of the host's hidden Global interface are callable bare -
+		// Word's InchesToPoints, Excel's Union (issue #34). The injected
+		// globals above win the shared names (add() keeps the first).
+		const globalMemberHost = hostDisplayName(ctx.model);
+		for (const member of getHostGlobalMembers(ctx.model)) {
+			add(
+				member.name,
+				'global',
+				hostGlobalMemberDetail(member, globalMemberHost),
+				hasDocContent(member.doc) ? renderDocMarkdown(member.doc) : undefined,
+			);
 		}
 	}
 
@@ -521,6 +534,25 @@ function hostConstantDocumentation(
 	const lines = [`**${host}/Office constant**`, '', '```vba', constantSignature(constant), '```'];
 	lines.push('', `Source: generated ${host}/Office reference metadata.`);
 	return lines.join('\n');
+}
+
+/**
+ * Detail line for a bare-callable Global interface member: the verified call
+ * signature for a method that has one, the returned type for a property, the
+ * host-labeled kind otherwise.
+ */
+function hostGlobalMemberDetail(
+	member: { kind: string; returns?: string; signature?: string },
+	host: string,
+): string {
+	if (member.kind === 'method') {
+		return member.signature ?? `${host} host method`;
+	}
+	if (member.returns) {
+		const dot = member.returns.lastIndexOf('.');
+		return `${dot >= 0 ? member.returns.slice(dot + 1) : member.returns} object`;
+	}
+	return `${host} host property`;
 }
 
 /**

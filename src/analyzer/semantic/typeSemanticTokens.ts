@@ -27,7 +27,12 @@ import { tokenizeCached } from '../lexer/tokenize';
 // (measured 43 ms on the 947 KB corpus module, mostly lexing and the
 // garbage it makes).
 import { statementTokensCached as codeTokens, tokenName, tokenWord } from '../lexer/tokenHelpers';
-import { resolveHostGlobal, resolveHostMember } from '../host/hostModel';
+import {
+	resolveHostAlias,
+	resolveHostGlobal,
+	resolveHostGlobalMember,
+	resolveHostMember,
+} from '../host/hostModel';
 import type { HostObjectModel } from '../host/excelObjectModel';
 import {
 	resolveTypeName,
@@ -554,10 +559,17 @@ export function collectHostGlobalTokens(
 			continue;
 		}
 		const lower = tok.rawText.toLowerCase();
+		if (declared.has(lower)) {
+			continue;
+		}
 		// Resolved against the module's own host model (issue #24): Word's
 		// ActiveDocument paints in a Word module, and Excel's ActiveSheet
-		// does not.
-		if (declared.has(lower) || !resolveHostGlobal(tok.rawText, model)) {
+		// does not. A name that is not an injected global may still be a
+		// member of the host's hidden Global interface, callable bare -
+		// Word's InchesToPoints, Excel's Union (issue #34).
+		const globalType = resolveHostGlobal(tok.rawText, model);
+		const globalMember = globalType ? undefined : resolveHostGlobalMember(tok.rawText, model);
+		if (!globalType && !globalMember) {
 			continue;
 		}
 		const prev = tokens[i - 1];
@@ -569,12 +581,23 @@ export function collectHostGlobalTokens(
 				continue; // type position, owned by the type collector
 			}
 		}
-		out.push({
-			name: tok.rawText,
-			tokenType: 'variable',
-			span: { start: tok.start, end: tok.end },
-			modifiers: ['defaultLibrary'],
-		});
+		out.push(
+			globalMember?.kind === 'method'
+				// A bare Global method is a call, painted the way member method
+				// calls are (#20/#29); Global properties are host-injected
+				// values, tinted the way the injected globals are.
+				? {
+					name: tok.rawText,
+					tokenType: 'function',
+					span: { start: tok.start, end: tok.end },
+				}
+				: {
+					name: tok.rawText,
+					tokenType: 'variable',
+					span: { start: tok.start, end: tok.end },
+					modifiers: ['defaultLibrary'],
+				},
+		);
 	}
 	return out;
 }
@@ -714,6 +737,12 @@ export interface HostMemberTokenContext {
 	 * collector owns) leaves `Me.` alone.
 	 */
 	meType?: string;
+	/**
+	 * Project type names visible to the module. A project class named like a
+	 * host type wins the `As` clause, so a local declared with that name must
+	 * not resolve as the host type (issue #33).
+	 */
+	projectTypes?: readonly { name: string }[];
 }
 
 /**
@@ -730,9 +759,11 @@ export function collectHostMemberMethodTokens(
 	source: string,
 	ctx: HostMemberTokenContext = {},
 ): TypeSemanticToken[] {
-	const declared = collectModuleDeclaredNames(parseModule(source));
+	const declared = collectDeclaredNameHostTypes(parseModule(source), ctx);
 	for (const member of ctx.implicitMembers ?? []) {
-		declared.add(member.name.toLowerCase());
+		// Controls shadow the host reading; their members are the implicit
+		// collector's to paint.
+		declared.set(member.name.toLowerCase(), null);
 	}
 	const codeNames = ctx.codeNames ?? {};
 	// Newlines are KEPT for the same reason as collectImplicitMemberMethodTokens:
@@ -770,13 +801,15 @@ export function collectHostMemberMethodTokens(
 
 /**
  * The qualified host type of a chain-root receiver token: `Me` when the
- * module's `Me` denotes a host document type, otherwise an unshadowed host
- * global or document code name. Undefined for every other shape.
+ * module's `Me` denotes a host document type; a declared local whose `As`
+ * clause resolves to a host object type (issue #33); otherwise an unshadowed
+ * host global, Global-interface member, or document code name. Undefined for
+ * every other shape.
  */
 function hostReceiverType(
 	recv: VbaToken | undefined,
 	ctx: HostMemberTokenContext,
-	declared: ReadonlySet<string>,
+	declared: ReadonlyMap<string, string | null>,
 	codeNames: Readonly<Record<string, string>>,
 ): string | undefined {
 	if (!recv) {
@@ -790,10 +823,85 @@ function hostReceiverType(
 		return undefined;
 	}
 	const lower = recv.rawText.toLowerCase();
-	if (declared.has(lower)) {
-		return undefined;
+	const declaredType = declared.get(lower);
+	if (declaredType !== undefined) {
+		// A declared name binds first: typed by its host `As` clause, or a
+		// shadow that ends the host reading (null).
+		return declaredType ?? undefined;
 	}
-	return resolveHostGlobal(recv.rawText, ctx.model) ?? codeNames[lower];
+	return resolveHostGlobal(recv.rawText, ctx.model)
+		?? resolveHostGlobalMember(recv.rawText, ctx.model)?.returns
+		?? codeNames[lower];
+}
+
+/**
+ * Every declared name in the module, mapped to the qualified host object type
+ * its `As` clause resolves to - or null when it declares no host type at all
+ * (untyped, primitive, project-shadowed, a procedure or enum name) or when
+ * two declarations of the name disagree. The map is deliberately whole-module
+ * rather than scope-aware: a name typed the same everywhere paints, a name
+ * that means different things in different procedures stays plain (issue #33).
+ */
+function collectDeclaredNameHostTypes(
+	module: ModuleNode,
+	ctx: HostMemberTokenContext,
+): Map<string, string | null> {
+	const projectNames = new Set(
+		(ctx.projectTypes ?? []).map((type) => type.name.toLowerCase()),
+	);
+	const out = new Map<string, string | null>();
+	const merge = (name: string, asType: string | undefined): void => {
+		const resolved = asType && !projectNames.has(asType.trim().toLowerCase())
+			? resolveHostAlias(asType, ctx.model) ?? null
+			: null;
+		const existing = out.get(name.toLowerCase());
+		if (existing === undefined) {
+			out.set(name.toLowerCase(), resolved);
+		} else if (existing !== resolved) {
+			out.set(name.toLowerCase(), null);
+		}
+	};
+	const addBody = (body: BodyNode[]): void => {
+		for (const node of body) {
+			if (node.kind === 'VariableGroup') {
+				for (const decl of node.declarations) {
+					merge(decl.name, decl.asType);
+				}
+			} else if ('body' in node && Array.isArray(node.body)) {
+				addBody(node.body);
+			}
+		}
+	};
+	for (const member of module.members) {
+		switch (member.kind) {
+			case 'Procedure':
+				merge(member.name, undefined);
+				for (const param of member.params) {
+					merge(param.name, param.asType);
+				}
+				addBody(member.body);
+				break;
+			case 'VariableGroup':
+				for (const decl of member.declarations) {
+					merge(decl.name, decl.asType);
+				}
+				break;
+			case 'Type':
+			case 'Enum':
+			case 'Declare':
+			case 'Event':
+				merge(member.name, undefined);
+				if (member.kind === 'Enum') {
+					for (const enumMember of member.members) {
+						merge(enumMember.name, undefined);
+					}
+				}
+				break;
+			default:
+				break;
+		}
+	}
+	return out;
 }
 
 export function resolveTypeSemanticTokens(

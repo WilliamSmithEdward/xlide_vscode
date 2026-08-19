@@ -38,6 +38,7 @@ import {
 	resolveHostMemberSignature,
 	resolveHostAlias,
 	resolveHostGlobal,
+	resolveHostGlobalMember,
 } from '../host/hostModel';
 import {
 	resolveRuntimeObject,
@@ -866,6 +867,13 @@ function resolveRoot(
 	const asCode = ctx.codeNames?.[lower];
 	if (asCode) {
 		return projectKey ? combinedTypeKey(projectKey, asCode) : asCode;
+	}
+	// A member of the host's hidden Global interface with a typed return is a
+	// receiver too: Excel's Union(a, b) yields a Range, Word's RecentFiles a
+	// RecentFiles (issue #34). Ranked with the other host-injected names.
+	const asGlobalMember = resolveHostGlobalMember(root, model)?.returns;
+	if (asGlobalMember) {
+		return projectKey ? combinedTypeKey(projectKey, asGlobalMember) : asGlobalMember;
 	}
 	if (
 		projectSurface?.kind === 'standardModule'

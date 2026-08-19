@@ -21,12 +21,13 @@ import {
 	procedureSignatureFromSymbol,
 } from '../symbols/symbolModel';
 import { Span } from '../parser/nodes';
-import { HostObjectModel } from '../host/excelObjectModel';
+import { HostMember, HostObjectModel } from '../host/excelObjectModel';
 import {
 	getHostType,
 	hostDisplayName,
 	resolveHostConstant,
 	resolveHostGlobal,
+	resolveHostGlobalMember,
 } from '../host/hostModel';
 import { resolveRuntimeConstant, resolveRuntimeFunction, resolveRuntimeObject } from '../runtime/vbaRuntime';
 import {
@@ -225,7 +226,31 @@ export function resolveHover(
 		};
 	}
 
+	// A member of the host's hidden Global interface, callable bare - Word's
+	// InchesToPoints, Excel's Union (issue #34). Last so the VBA library's own
+	// names keep winning bare resolution.
+	const globalMember = resolveHostGlobalMember(name, ctx.model);
+	if (globalMember) {
+		return {
+			signature: hostGlobalMemberSignature(globalMember),
+			details: [`${hostDisplayName(ctx.model)} host ${globalMember.kind}`],
+			span,
+			documentation: externalDocMarkdown(ctx, name)
+				?? (hasDocContent(globalMember.doc) ? renderDocMarkdown(globalMember.doc) : undefined),
+		};
+	}
+
 	return undefined;
+}
+
+/** `InchesToPoints(Inches As Single) As Single`, or built from name and return. */
+function hostGlobalMemberSignature(member: HostMember): string {
+	if (member.signature) {
+		return member.signature;
+	}
+	const call = member.kind === 'method' ? '()' : '';
+	const ret = member.returns ? ` As ${displayType(member.returns)}` : '';
+	return `${member.name}${call}${ret}`;
 }
 
 /**
