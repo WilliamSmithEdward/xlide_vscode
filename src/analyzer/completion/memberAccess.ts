@@ -1047,10 +1047,15 @@ function memberSurfaceForType(
 		return {
 			owner: projectType?.name ?? combined.hostType,
 			members: mergeCompletionMembers(projectType?.members ?? [], controls, baseMembers),
-			exhaustive:
-				controls.length === 0 &&
-				projectSourceSurfaceCompleteWhenMergedWithHost(projectType) &&
-				hostType?.exhaustive === true,
+			// A form's own `Me` follows the same authority rule as its
+			// qualified name (#26): the forms base plus an index-proven
+			// control list proves absence. Other combined surfaces keep the
+			// host-exhaustive gate.
+			exhaustive: formsMembers
+				? projectType?.exhaustive === true
+				: controls.length === 0 &&
+					projectSourceSurfaceCompleteWhenMergedWithHost(projectType) &&
+					hostType?.exhaustive === true,
 		};
 	}
 	if (typeName.startsWith(PROJECT_TYPE_PREFIX)) {
@@ -1066,7 +1071,10 @@ function memberSurfaceForType(
 			// A form IS an MSForms.UserForm wherever it is reached from, so a
 			// qualified reference from another module gets Show, Hide and the
 			// rest of the form surface alongside the form's code and controls
-			// (#22). Never exhaustive: the designer knows more than we do.
+			// (#22). Exhaustive exactly when the index proved the control list
+			// (host-supplied or parsed from a `.frm` designer header): the
+			// merged code-behind + controls + UserForm base surface then
+			// proves absence the same way the VBE's compiler does (#26).
 			return {
 				owner: projectType.name,
 				members: mergeCompletionMembers(
@@ -1074,7 +1082,7 @@ function memberSurfaceForType(
 					controls,
 					msFormsControlMembers(VBA_USERFORM_TYPE) ?? [],
 				),
-				exhaustive: false,
+				exhaustive: projectType.exhaustive === true,
 			};
 		}
 		return {

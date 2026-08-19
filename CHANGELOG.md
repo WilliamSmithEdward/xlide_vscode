@@ -4,6 +4,20 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [4.0.1] - Unreleased
 
+- **A member a form does not have is a finding now** (#26). The VBE refuses
+  `EntryForm.NoSuchControl` at compile time, and so does the analyzer: a
+  form's surface - code-behind, designer controls, and the MSForms
+  UserForm base - proves absence exactly when its control list is
+  authoritative, meaning a designer-reading host supplied it (an empty
+  list included) or the source spells the controls out in its header. A
+  form whose binary designer nobody has read stays out of absence claims,
+  and a real `.frm` export header that defers to its `.frx` blob proves
+  nothing, by measurement. `Me` inside the form follows the same rule.
+  Verified against live Excel on a real four-control form: a battery of
+  twenty-five early-bound member references compiled in the VBE and
+  resolved in the analyzer - including `PrintForm`, which the member list
+  had knowingly omitted and which this change adds.
+
 - **F5 runs the macro in Word and PowerPoint, not just Excel.** Run Macro
   at Cursor was Excel COM end to end, so F5 in a Word module handed the
   document to Excel with workbook-language notifications. It now has full

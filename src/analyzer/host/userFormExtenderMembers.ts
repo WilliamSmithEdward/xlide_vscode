@@ -16,13 +16,17 @@
 //   HelpContextID=0  Hide()=0  Move()=450  Show(vbModeless)=0
 //   NoSuchMemberXyz=438  NoSuchMethodXyz()=438
 //
-// Only what that run proved is listed here. PrintForm is documented on the
-// UserForm object but was left out of the probe (it prints), and so is left out
-// of this list.
+// Only what a run proved is listed here. PrintForm was skipped by the
+// CallByName probe (invoking it prints), but its COMPILE-surface membership
+// was proven separately: a never-invoked Sub referencing it early-bound
+// compiles in the live VBE, which is the membership that matters now.
 //
-// Completion only, like the rest of the forms metadata: the surface a form
-// exposes is not exhaustively known, so absence of a name never becomes a
-// diagnostic about form code.
+// This list stopped being completion-only with issue #26: a form whose
+// control list is authoritative proves member ABSENCE (the VBE's compiler
+// does the same), so a real member missing from this list would turn into a
+// false diagnostic on working code. Add members on compile-surface
+// evidence - a live VBE accepting an early-bound reference - never from
+// documentation alone.
 
 import type { MsFormsMember } from './msformsReferenceMembers';
 
@@ -30,6 +34,7 @@ export const VBA_USERFORM_EXTENDER_MEMBERS: readonly MsFormsMember[] = [
 	{ name: 'Show', kind: 'method', returns: 'void' },
 	{ name: 'Hide', kind: 'method', returns: 'void' },
 	{ name: 'Move', kind: 'method', returns: 'void' },
+	{ name: 'PrintForm', kind: 'method', returns: 'void' },
 	{ name: 'Name', kind: 'property', returns: 'String', readOnly: true },
 	{ name: 'Tag', kind: 'property', returns: 'String' },
 	{ name: 'Left', kind: 'property', returns: 'Single' },

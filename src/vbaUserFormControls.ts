@@ -34,6 +34,50 @@ const BEGIN_RE = /^\s*Begin\s+(\{[^}]*\}|[\w.]+)\s+([\p{L}_][\p{L}\p{M}\p{N}_]*)
 const END_RE = /^\s*End\s*$/i;
 
 /**
+ * True when the source carries a `.frm` designer header whose control list
+ * this parser can actually see - distinguishing "this form declares no
+ * controls" from "nobody has read this form's designer". Two gates: the
+ * VERSION header must open the source, and the form block must NOT defer to
+ * an `OleObjectBlob` line. A real VBA export stores its controls in the
+ * binary `.frx` behind exactly that line (measured on an Excel-authored
+ * form), so such a header proves nothing about the control list; nested
+ * `Begin` control blocks appear only in sources that spell the controls
+ * out, and those are authoritative even when the list is empty.
+ */
+export function hasAuthoritativeDesignerHeader(source: string): boolean {
+    const lines = source.split(/\r?\n/);
+    let index = 0;
+    while (index < lines.length && lines[index].trim() === '') {
+        index += 1;
+    }
+    if (index >= lines.length || !/^\s*VERSION\b/i.test(lines[index])) {
+        return false;
+    }
+    let depth = 0;
+    for (index += 1; index < lines.length; index += 1) {
+        const line = lines[index];
+        if (/^\s*OleObjectBlob\s*=/i.test(line)) {
+            return false;
+        }
+        if (BEGIN_RE.test(line)) {
+            depth += 1;
+            continue;
+        }
+        if (END_RE.test(line)) {
+            depth -= 1;
+            if (depth <= 0) {
+                return true;
+            }
+            continue;
+        }
+        if (line.trim() !== '' && !/^\s*[\w.]+\s*=/.test(line)) {
+            return false;
+        }
+    }
+    return false;
+}
+
+/**
  * Reads the controls a `.frm` designer header declares. Returns an empty list
  * for source that is not a form header, so callers can pass any module.
  */

@@ -40,7 +40,7 @@ import {
 	type BareIdentifierResolution,
 } from './nameResolution';
 import type { Span } from '../parser/nodes';
-import { parseUserFormControls } from '../../vbaUserFormControls';
+import { hasAuthoritativeDesignerHeader, parseUserFormControls } from '../../vbaUserFormControls';
 
 /** Source text + workbook role for one module fed into the index. */
 export interface ModuleInput {
@@ -520,6 +520,22 @@ export class ProjectIndex {
 	}
 
 	/**
+	 * True when the module's control list is AUTHORITATIVE: a designer-reading
+	 * host supplied it with the module (an empty array included), or the
+	 * source itself carries a `.frm` designer header. Absence claims about a
+	 * form's members are only sound behind this - a workbook form whose
+	 * binary designer nobody has read has an unknown control list, not an
+	 * empty one (issue #26).
+	 */
+	moduleImplicitMembersKnown(moduleName: string): boolean {
+		const key = moduleName.toLowerCase();
+		if (this.moduleImplicitMembersByName.get(key) !== undefined) {
+			return true;
+		}
+		return hasAuthoritativeDesignerHeader(this.moduleSources.get(key) ?? '');
+	}
+
+	/**
 	 * Interfaces a module declares with `Implements`, by module name. Renaming
 	 * an interface needs this to know which classes carry its member prefix.
 	 */
@@ -871,7 +887,15 @@ export class ProjectIndex {
 					moduleName: mod.moduleName,
 					implements: this.moduleImplementsFor(mod),
 					doc: mod.root.doc,
-					exhaustive: kind === 'class',
+					// Classes are source-exhaustive. A form is exhaustive when
+					// its control list is authoritative (issue #26): with the
+					// controls and code-behind here and the UserForm base
+					// merged at resolution, the surface proves absence the
+					// same way the VBE's compiler does. Document modules stay
+					// non-exhaustive: their host base carries more than any
+					// list here.
+					exhaustive: kind === 'class'
+						|| (kind === 'userform' && this.moduleImplicitMembersKnown(mod.moduleName)),
 					members,
 				});
 			}
