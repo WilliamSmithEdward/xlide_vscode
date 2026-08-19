@@ -2,7 +2,7 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
-## [4.0.2] - Unreleased
+## [4.0.2] - 2026-08-19
 
 - **The paint's shadow rule reaches the receiver too** (#30). A form control
   named exactly like a host global no longer wears the global's tint inside
