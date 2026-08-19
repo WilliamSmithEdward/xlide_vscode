@@ -64,6 +64,21 @@ export class WorkbookEngine implements vscode.Disposable {
 				-32602,
 			);
 		}
+		if (extension === 'ppsm') {
+			// A slideshow's package content type differs from a presentation's,
+			// and renaming a .pptm cannot change it - there is no authored
+			// .ppsm template to seed from.
+			throw new WorkbookEngineError(
+				'Creating .ppsm slideshows is not supported; create a .pptm and use PowerPoint to save it as a slideshow.',
+				-32602,
+			);
+		}
+		if (['xlsx', 'xltx', 'docx', 'dotx', 'pptx', 'potx', 'csv'].includes(extension)) {
+			throw new WorkbookEngineError(
+				`.${extension} is not a macro-enabled format, so it cannot hold a VBA project; use .xlsm, .docm, or .pptm instead.`,
+				-32602,
+			);
+		}
 		const templates: Record<string, string> = {
 			xlsb: 'blank.xlsb',
 			xlam: 'blank.xlam',

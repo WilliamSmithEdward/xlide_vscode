@@ -18,10 +18,10 @@ function cleanVbaTestFailureMessage(raw: string): string {
     }
     const rpcHresult = /0x800706(?:BE|BA)/i.exec(text)?.[0];
     if (rpcHresult && /Exception calling "Run"|RPC server|remote procedure call|HRESULT:/i.test(text)) {
-        return `Excel automation became unavailable while running the test. Excel may have closed, crashed, or been blocked by a modal dialog. HRESULT: 0x${rpcHresult.slice(2).toUpperCase()}.`;
+        return `The Office application hosting the tests became unavailable while running them. It may have closed, crashed, or been blocked by a modal dialog. HRESULT: 0x${rpcHresult.slice(2).toUpperCase()}.`;
     }
     if (/0x800A9C68/i.test(text) && /Exception calling "Run"|Exception from HRESULT|run-vba-tests\.ps1|HRESULT:/i.test(text)) {
-        return 'Excel could not run the test macro. Check for VBA compile errors, macro security prompts, or a missing test procedure. HRESULT: 0x800A9C68.';
+        return 'The Office application could not run the test macro. Check for VBA compile errors, macro security prompts, or a missing test procedure. HRESULT: 0x800A9C68.';
     }
     const lines = text
         .split('\n')

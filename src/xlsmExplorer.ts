@@ -3,7 +3,7 @@ import * as path from 'path';
 import { WorkbookEngine } from './workbookEngine';
 import { workbookIdentityKey } from './xlideFileSystem';
 import { compareVbaModulesForTreeOrder, moduleThemeIconName } from './moduleDisplay';
-import { containerContextValue, isReadOnlyContainerPath, MACRO_CONTAINER_GLOB } from './macroContainerUi';
+import { containerAppNameForPath, containerContextValue, isReadOnlyContainerPath, MACRO_CONTAINER_GLOB } from './macroContainerUi';
 import { startPerformanceTrace } from './performanceTrace';
 
 export type XlideNodeKind = 'xlsm' | 'module' | 'sub' | 'loadError';
@@ -301,7 +301,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
             case 'loadError':
                 item.iconPath = new vscode.ThemeIcon('warning', new vscode.ThemeColor('problemsWarningIcon.foreground'));
                 item.contextValue = 'loadError';
-                item.tooltip = `${node.errorMessage ?? 'The workbook could not be read.'}\n\nIf the workbook is open in Excel, close it (or wait for the save to finish) and click to retry.`;
+                item.tooltip = `${node.errorMessage ?? 'The file could not be read.'}\n\nIf the file is open in ${containerAppNameForPath(node.filePath)}, close it (or wait for the save to finish) and click to retry.`;
                 item.command = {
                     command: 'xlide.retryExplorerLoad',
                     title: 'Retry',

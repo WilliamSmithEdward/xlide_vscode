@@ -471,7 +471,7 @@ export function registerVbaTestCommands(deps: CommandDeps): vscode.Disposable[] 
         registerXlideCommand('xlide.runVbaTests', async (node: XlideNode) => {
             const filePath = resolveWorkbookPath(node);
             if (!filePath) {
-                vscode.window.showWarningMessage('XLIDE: No workbook selected to test.');
+                vscode.window.showWarningMessage('XLIDE: No file selected to test.');
                 return;
             }
             openVbaTestsForWorkbook(filePath);

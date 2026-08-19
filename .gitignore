@@ -48,6 +48,7 @@ reference/
 !tests/fixtures/binaries/FormFixture.xlsm
 !tests/fixtures/binaries/WordFixture.docm
 !tests/fixtures/binaries/WordFixture.doc
+!tests/fixtures/binaries/WordFormFixture.docm
 !tests/fixtures/binaries/PowerPointFixture.pptm
 !tests/fixtures/binaries/PowerPointFixture.ppt
 !tests/fixtures/binaries/XlsFixture.xls

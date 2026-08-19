@@ -22,7 +22,7 @@ describe('VBA test failure messages', () => {
             '+ ... tPrefix, $excelId, $macroName) }; $excel.Run($macroRef);',
             '+                       ~~~~~~~~~~~~~~~~~~~~',
         ].join('\n')))).toBe(
-            'Excel could not run the test macro. Check for VBA compile errors, macro security prompts, or a missing test procedure. HRESULT: 0x800A9C68.',
+            'The Office application could not run the test macro. Check for VBA compile errors, macro security prompts, or a missing test procedure. HRESULT: 0x800A9C68.',
         );
     });
 
@@ -33,14 +33,14 @@ describe('VBA test failure messages', () => {
             'Inner: The remote procedure call failed. (Exception from HRESULT: 0x800706BE)',
             'Inner HRESULT: 0x800706BE',
         ].join('\n'))).toBe(
-            'Excel automation became unavailable while running the test. Excel may have closed, crashed, or been blocked by a modal dialog. HRESULT: 0x800706BE.',
+            'The Office application hosting the tests became unavailable while running them. It may have closed, crashed, or been blocked by a modal dialog. HRESULT: 0x800706BE.',
         );
         expect(vbaTestFailureMessage([
             'RUN_FAILED|HRESULT: 0x80131501',
             'Exception calling "Run" with "2" argument(s): "The RPC server is unavailable. (Exception from HRESULT: 0x800706BA)"',
             'Inner HRESULT: 0x800706BA',
         ].join('\n'))).toBe(
-            'Excel automation became unavailable while running the test. Excel may have closed, crashed, or been blocked by a modal dialog. HRESULT: 0x800706BA.',
+            'The Office application hosting the tests became unavailable while running them. It may have closed, crashed, or been blocked by a modal dialog. HRESULT: 0x800706BA.',
         );
     });
 });

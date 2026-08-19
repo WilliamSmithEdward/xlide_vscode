@@ -620,7 +620,7 @@ export function renderWorkbookAnalysisResultsHtml(
             sortHeaderHtml('message', 'Message'),
         ].join(''),
         rows: rowsHtml,
-        rulesSourceLabel: rulesSourceIsWorkbook ? 'Workbook settings' : 'No workbook override',
+        rulesSourceLabel: rulesSourceIsWorkbook ? 'File settings' : 'No file override',
         rulesResetDisabled: rulesSourceIsWorkbook ? '' : 'disabled',
         workbookUntrackedRules: workbookUntrackedRulesHtml,
         toastHtml: WEBVIEW_TOAST_HTML,
@@ -744,7 +744,7 @@ function workbookUntrackedRulesSettingsHtml(
     workbookUntrackedRules: ReadonlyArray<{ code: string; title: string }>,
 ): string {
     if (workbookUntrackedRules.length === 0) {
-        return '<div class="settingsEmpty">No workbook rules are manually untracked.</div>';
+        return '<div class="settingsEmpty">No file rules are manually untracked.</div>';
     }
     return `
         <table class="settingsTable">

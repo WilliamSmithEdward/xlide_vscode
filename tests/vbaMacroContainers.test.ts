@@ -351,3 +351,94 @@ describe('test staging covers Word containers', () => {
 		}
 	});
 });
+
+// ---------------------------------------------------------------------------
+// UserForms inside a WORD container: the designer storage machinery is
+// container-agnostic, and this fixture (a form authored by Word's own VBE,
+// with two controls and code-behind) proves it outside Excel.
+
+import { readFormExport, writeFormDesigner } from '../src/vba/workbookService';
+import { parseFormFrx } from '../src/vba/formDesigner';
+
+describe('a Word document with a UserForm', () => {
+	it('classifies the form and reads its designer-declared controls', () => {
+		const entries = listModules(fixture('WordFormFixture.docm'));
+		const form = entries.find((entry) => entry.name === 'FrmNotice');
+		expect(form?.type).toBe('userform');
+		const controls = (form?.implicitMembers ?? []).map((member) => member.name);
+		expect(controls).toEqual(expect.arrayContaining(['LblMessage', 'BtnClose']));
+		const { source } = readModule(fixture('WordFormFixture.docm'), 'FrmNotice', true);
+		expect(source).toContain('Private Sub BtnClose_Click()');
+	});
+
+	it('exports the .frm/.frx pair and writes the designer back', () => {
+		const target = copyOf('WordFormFixture.docm');
+		const { frm, frx } = readFormExport(target, 'FrmNotice');
+		expect(frm).toContain('Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} FrmNotice');
+		expect(frm).toContain('OleObjectBlob');
+		expect(frm).toContain('"FrmNotice.frx":0000');
+		const streams = parseFormFrx(frx);
+		expect(streams).toBeDefined();
+
+		writeFormDesigner(target, 'FrmNotice', frx, undefined);
+		const after = listModules(target).find((entry) => entry.name === 'FrmNotice');
+		expect(after?.type).toBe('userform');
+		expect((after?.implicitMembers ?? []).map((member) => member.name))
+			.toEqual(expect.arrayContaining(['LblMessage', 'BtnClose']));
+		expect(validateWorkbook(target).issues).toEqual([]);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Malformed input stays graceful: honest errors, never hangs or crashes.
+
+import { accessVbaCfb, isAccessDatabase } from '../src/vba/accessDatabase';
+import { MacroContainerError } from '../src/vba/macroContainer';
+
+describe('malformed containers fail honestly', () => {
+	it('rejects non-container bytes with a clear message', () => {
+		for (const bytes of [Buffer.alloc(0), Buffer.from('hello world'), Buffer.alloc(4096)]) {
+			expect(() => openMacroContainer(bytes)).toThrow(MacroContainerError);
+			expect(() => openMacroContainer(bytes)).toThrow(/Not a macro-enabled Office file/);
+		}
+	});
+
+	it('rejects a CFB with no recognizable Office host', () => {
+		// A bare vbaProject.bin IS a CFB, but not an Office document.
+		const bin = fs.readFileSync(fixture('FormFixture.xlsm'));
+		const container = openMacroContainer(bin);
+		const vbaBin = container.vbaCfb().toBytes();
+		expect(() => openMacroContainer(vbaBin)).toThrow(/Compound file without a recognizable Office host/);
+	});
+
+	it('survives a corrupted Access database without hanging', () => {
+		const data = Buffer.from(fs.readFileSync(fixture('AccessFixture.accdb')));
+		expect(isAccessDatabase(data)).toBe(true);
+		// Scramble every LVAL page's slot table: chains and rows become
+		// nonsense, and the reader must fail (or answer empty) rather than
+		// loop or crash.
+		for (let page = 1; page < data.length / 4096; page++) {
+			const base = page * 4096;
+			if (data[base] === 0x01 && data.subarray(base + 4, base + 8).toString('latin1') === 'LVAL') {
+				data.writeUInt16LE(0x0fff, base + 12);
+				for (let i = 0; i < 64; i++) {
+					data.writeUInt16LE((i * 7919) & 0xffff, base + 14 + 2 * i);
+				}
+			}
+		}
+		try {
+			const cfb = accessVbaCfb(data);
+			// A parse that survives must still answer as a project (possibly
+			// module-less), not garbage.
+			expect(cfb.hasStream('dir')).toBe(true);
+		} catch (err) {
+			expect(String(err)).toMatch(/No VBA project catalog|LVAL|Access/);
+		}
+	});
+
+	it('truncated databases are not Access databases', () => {
+		const data = fs.readFileSync(fixture('AccessFixture.accdb'));
+		expect(isAccessDatabase(data.subarray(0, 4000))).toBe(false);
+		expect(isAccessDatabase(data.subarray(0, 8191))).toBe(false);
+	});
+});

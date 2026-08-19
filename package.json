@@ -368,7 +368,7 @@
     "viewsWelcome": [
       {
         "view": "xlide.explorer",
-        "contents": "No Excel workbooks (.xlsm, .xlsb, .xlam) were found in the current workspace.\n[Refresh](command:xlide.refreshExplorer)"
+        "contents": "No macro-enabled Office files (.xlsm, .xlsb, .xlam, .xls, .docm, .doc, .pptm, .ppt, .accdb, .mdb) were found in the current workspace.\n[Refresh](command:xlide.refreshExplorer)"
       }
     ],
     "menus": {
@@ -387,7 +387,7 @@
       "view/item/context": [
         {
           "command": "xlide.openModule",
-          "when": "view == xlide.explorer && viewItem == module",
+          "when": "view == xlide.explorer && viewItem =~ /^module-/",
           "group": "inline@1"
         },
         {

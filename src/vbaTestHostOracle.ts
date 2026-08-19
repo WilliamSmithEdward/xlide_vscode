@@ -179,7 +179,7 @@ export function validateVbaTestHostOracleTrace(
         if (!openEntry.event.readOnly) {
             issues.push({
                 code: 'read-only-workbook',
-                message: 'The default VBA test host must open the workbook read-only.',
+                message: 'The default VBA test host must open the file read-only.',
                 eventIndex: openEntry.index,
             });
         }

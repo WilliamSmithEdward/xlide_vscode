@@ -283,7 +283,7 @@ describe('VBA language configuration', () => {
 		expect(contributes?.viewsWelcome?.filter((entry) => entry.view === 'xlide.explorer')).toEqual([
 			{
 				view: 'xlide.explorer',
-				contents: expect.stringContaining('No Excel workbooks'),
+				contents: expect.stringContaining('No macro-enabled Office files'),
 			},
 		]);
 	});
