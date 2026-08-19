@@ -234,6 +234,36 @@ describe('host-global semantic tokens', () => {
 		expect(hostTokens('Sub T(ByVal Application As Long)\n    x = Application\nEnd Sub\n')).toEqual([]);
 	});
 
+	it('paints resolved host constants as enum members in every host (issue #35)', () => {
+		// xlUp (the grammar's curated nineteen) and xlLandscape (outside them)
+		// must paint in ONE tier: the model resolves both.
+		const excel = 'Sub T()\n    x = xlUp\n    y = xlLandscape\nEnd Sub\n';
+		const excelTokens = collectHostGlobalTokens(excel).map(
+			(t) => `${excel.slice(t.span.start, t.span.end)}:${t.tokenType}`,
+		);
+		expect(excelTokens).toContain('xlUp:enumMember');
+		expect(excelTokens).toContain('xlLandscape:enumMember');
+
+		const word = 'Sub T()\n    x = wdAlignParagraphCenter\n    y = msoTrue\n    z = acViewNormal\nEnd Sub\n';
+		const wordTokens = collectHostGlobalTokens(word, getWordObjectModel()).map(
+			(t) => `${word.slice(t.span.start, t.span.end)}:${t.tokenType}`,
+		);
+		expect(wordTokens).toContain('wdAlignParagraphCenter:enumMember');
+		expect(wordTokens).toContain('msoTrue:enumMember');
+		// Access vocabulary stays plain in a Word module: resolved only.
+		expect(wordTokens.some((token) => token.startsWith('acViewNormal'))).toBe(false);
+	});
+
+	it('keeps the shadow and member-access gates for host constants (issue #35)', () => {
+		const shadowed = 'Sub T()\n    Dim xlLandscape As Long\n    x = xlLandscape\nEnd Sub\n';
+		expect(collectHostGlobalTokens(shadowed)).toEqual([]);
+		const control = 'Sub T()\n    x = xlUp\nEnd Sub\n';
+		expect(collectHostGlobalTokens(control, undefined, [{ name: 'xlUp', type: 'MSForms.Label' }]))
+			.toEqual([]);
+		const member = 'Sub T()\n    x = Foo.xlUp\nEnd Sub\n';
+		expect(collectHostGlobalTokens(member)).toEqual([]);
+	});
+
 	it('does not mark a name shadowed by a designer-declared control (issue #30)', () => {
 		// Inside the form, the control wins name binding; the receiver must not
 		// wear the host global's tint while the member lookup treats it as the

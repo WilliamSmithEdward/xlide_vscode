@@ -4,6 +4,14 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [4.0.4] - Unreleased
 
+- **Host constants paint in one tier** (#35). The grammar could only carry
+  a curated nineteen Excel names, so `xlUp` wore constant blue while
+  `xlLandscape` sat plain on the same line - in every host. Resolved host
+  constants now take a semantic `enumMember` token from the module's own
+  model (`wdAlignParagraphCenter` and `msoTrue` in Word, `ac*` in Access),
+  under the same shadow and position gates as the injected globals; the
+  grammar's static list stays as the offline fallback.
+
 - **A declared local with a host type paints its method calls** (#33).
   `Dim rng As Range` then `rng.InsertParagraphAfter` hovered "Word host
   method" while painting plain - declared names were only ever shadows to

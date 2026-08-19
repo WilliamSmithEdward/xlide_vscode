@@ -35,6 +35,7 @@ import { startPerformanceTrace } from './performanceTrace';
 const TYPE_TOKEN_TYPES: TypeSemanticTokenType[] = [
     'class',
     'enum',
+    'enumMember',
     'struct',
     'type',
     'variable',

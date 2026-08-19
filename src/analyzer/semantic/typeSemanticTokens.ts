@@ -29,6 +29,7 @@ import { tokenizeCached } from '../lexer/tokenize';
 import { statementTokensCached as codeTokens, tokenName, tokenWord } from '../lexer/tokenHelpers';
 import {
 	resolveHostAlias,
+	resolveHostConstant,
 	resolveHostGlobal,
 	resolveHostGlobalMember,
 	resolveHostMember,
@@ -43,7 +44,14 @@ import {
 import { msFormsControlMembers } from '../completion/memberAccess';
 import { VBA_USERFORM_TYPE as MSFORMS_USERFORM_TYPE } from '../host/userFormExtenderMembers';
 
-export type TypeSemanticTokenType = 'class' | 'enum' | 'struct' | 'type' | 'variable' | 'function';
+export type TypeSemanticTokenType =
+	| 'class'
+	| 'enum'
+	| 'enumMember'
+	| 'struct'
+	| 'type'
+	| 'variable'
+	| 'function';
 
 export interface TypeSemanticToken {
 	name: string;
@@ -525,15 +533,17 @@ function collectModuleDeclaredNames(module: ModuleNode): Set<string> {
 }
 
 /**
- * Host-injected globals (`Application`, `ActiveSheet`, `ThisWorkbook`, ...) used
- * in VALUE position, for `variable.defaultLibrary` semantic coloring. A name is
- * colored only when it (1) resolves to a known host global, (2) is not a member
- * access (`x.Application`), (3) is not in a type position (`As Application` /
- * `New Application`, already colored as a type), and (4) is not shadowed by an
- * in-module declaration or a designer-declared control (issue #30: inside a
- * form the control wins name binding, so the receiver must not wear the host
- * global's tint). The conservative gating keeps a local named the same as a
- * host global from being mis-colored.
+ * Bare host names in VALUE position: injected globals (`Application`,
+ * `ActiveSheet`) as `variable.defaultLibrary`, the hidden Global interface's
+ * members (issue #34: a method paints as `function`, a property as a host
+ * value), and resolved host enum constants as `enumMember` (issue #35: xlUp
+ * and xlLandscape in one tier). A name is colored only when it (1) resolves
+ * in the module's own model, (2) is not a member access (`x.Application`),
+ * (3) is not in a type position (`As Application` / `New Application`,
+ * already colored as a type), and (4) is not shadowed by an in-module
+ * declaration or a designer-declared control (issue #30: inside a form the
+ * control wins name binding). The conservative gating keeps a local named
+ * the same as a host name from being mis-colored.
  */
 export function collectHostGlobalTokens(
 	source: string,
@@ -566,10 +576,15 @@ export function collectHostGlobalTokens(
 		// ActiveDocument paints in a Word module, and Excel's ActiveSheet
 		// does not. A name that is not an injected global may still be a
 		// member of the host's hidden Global interface, callable bare -
-		// Word's InchesToPoints, Excel's Union (issue #34).
+		// Word's InchesToPoints, Excel's Union (issue #34) - or a host enum
+		// constant, which paints as the enum member it is (issue #35: xlUp
+		// and xlLandscape read as one tier, not the grammar's curated few).
 		const globalType = resolveHostGlobal(tok.rawText, model);
 		const globalMember = globalType ? undefined : resolveHostGlobalMember(tok.rawText, model);
-		if (!globalType && !globalMember) {
+		const constant = globalType || globalMember
+			? undefined
+			: resolveHostConstant(tok.rawText, model);
+		if (!globalType && !globalMember && !constant) {
 			continue;
 		}
 		const prev = tokens[i - 1];
@@ -581,23 +596,22 @@ export function collectHostGlobalTokens(
 				continue; // type position, owned by the type collector
 			}
 		}
-		out.push(
-			globalMember?.kind === 'method'
-				// A bare Global method is a call, painted the way member method
-				// calls are (#20/#29); Global properties are host-injected
-				// values, tinted the way the injected globals are.
-				? {
-					name: tok.rawText,
-					tokenType: 'function',
-					span: { start: tok.start, end: tok.end },
-				}
-				: {
-					name: tok.rawText,
-					tokenType: 'variable',
-					span: { start: tok.start, end: tok.end },
-					modifiers: ['defaultLibrary'],
-				},
-		);
+		const span = { start: tok.start, end: tok.end };
+		if (constant) {
+			out.push({ name: tok.rawText, tokenType: 'enumMember', span });
+		} else if (globalMember?.kind === 'method') {
+			// A bare Global method is a call, painted the way member method
+			// calls are (#20/#29); Global properties are host-injected
+			// values, tinted the way the injected globals are.
+			out.push({ name: tok.rawText, tokenType: 'function', span });
+		} else {
+			out.push({
+				name: tok.rawText,
+				tokenType: 'variable',
+				span,
+				modifiers: ['defaultLibrary'],
+			});
+		}
 	}
 	return out;
 }
