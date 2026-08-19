@@ -566,6 +566,26 @@ export function validateWorkbook(filePath: string): { issues: string[] } {
 
 // ----------------------------------------------------------------- write API
 
+/**
+ * [MS-OVBA] stores module names in the project's ANSI code page: the dir
+ * records, the PROJECT stream, and the module's own CFB stream name. A name
+ * the page cannot represent gets '?'-folded on save, which detaches the
+ * module from its source stream (the code is gone on the next open) and
+ * lets two distinct names collide into one. Refusing up front keeps the
+ * project intact; names remain free to use every character the project's
+ * own code page can store - Cyrillic in a cp1251 project, Japanese in
+ * cp932, anything in utf-8.
+ */
+function assertModuleNameStorable(name: string, codePage: number): void {
+	const stored = decodeCodePage(encodeCodePage(name, codePage), codePage);
+	if (stored !== name) {
+		throw new Error(
+			`Module name "${name}" cannot be stored in this project's code page (${codePage}); ` +
+			`it would be saved as "${stored}". Use characters the project's code page supports.`,
+		);
+	}
+}
+
 export function writeModule(
 	filePath: string,
 	moduleName: string,
@@ -582,6 +602,7 @@ export function writeModule(
 		const { header } = splitVbaSource(existing.source);
 		wb.project.setModuleSource(existing.name, joinVbaSource(header, body));
 	} else {
+		assertModuleNameStorable(moduleName, wb.project.codePage);
 		const header = kind === 'class'
 			? synthesizeClassHeader(moduleName)
 			: synthesizeStandardHeader(moduleName);
@@ -594,6 +615,7 @@ export function writeModule(
 export function renameModule(filePath: string, moduleName: string, newName: string): WriteResult {
 	const wb = openWorkbookForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
+	assertModuleNameStorable(newName, wb.project.codePage);
 	wb.project.renameModule(moduleName, newName);
 	saveWorkbook(filePath, wb);
 	return { ok: true, signatureDropped };

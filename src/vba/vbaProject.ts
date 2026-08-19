@@ -302,24 +302,49 @@ export class VbaProject {
 		// check must still fail at parse time - but defer decompression, which
 		// dominates the cost of parsing a project, until someone reads a body.
 		for (const module of project.modules) {
-			const streamName = module.streamName || module.name;
-			let stream: Buffer;
-			try {
-				stream = cfb.getStreamInStorage('VBA', streamName);
-			} catch {
-				try {
-					stream = cfb.getStream(streamName);
-				} catch {
-					continue;
+			// The CFB directory names streams in UTF-16, so a module whose name
+			// exceeds the project's ANSI code page has its real stream name only
+			// in the unicode record - the ANSI record is the '?'-folded
+			// projection and matches no stream. Try the unicode name first and
+			// adopt whichever name resolved as the module's effective stream
+			// name: every later stream operation then targets the real stream,
+			// and the ANSI dir record re-serializes to the same folded
+			// projection either way.
+			const candidates: string[] = [];
+			for (const candidate of [module.streamNameUnicode, module.streamName, module.name]) {
+				if (candidate && !candidates.includes(candidate)) {
+					candidates.push(candidate);
 				}
 			}
+			let stream: Buffer | undefined;
+			let resolvedName: string | undefined;
+			for (const candidate of candidates) {
+				try {
+					stream = cfb.getStreamInStorage('VBA', candidate);
+					resolvedName = candidate;
+					break;
+				} catch { /* try the next name */ }
+			}
+			if (stream === undefined) {
+				for (const candidate of candidates) {
+					try {
+						stream = cfb.getStream(candidate);
+						resolvedName = candidate;
+						break;
+					} catch { /* try the next name */ }
+				}
+			}
+			if (stream === undefined || resolvedName === undefined) {
+				continue;
+			}
+			module.streamName = resolvedName;
 			if (module.textOffset > stream.length) {
 				throw new VbaProjectError(
 					`MODULEOFFSET ${module.textOffset} exceeds stream length ${stream.length} for module ${module.name}.`,
 				);
 			}
 			module.prefixBytes = Buffer.from(stream.subarray(0, module.textOffset));
-			defineLazySource(module, stream.subarray(module.textOffset), streamName, project.codePage);
+			defineLazySource(module, stream.subarray(module.textOffset), resolvedName, project.codePage);
 		}
 
 		try {

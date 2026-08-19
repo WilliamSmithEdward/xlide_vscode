@@ -72,6 +72,17 @@ its own Office application.
   the meantime; a rename carries the pending review to the new name.
   Controlled by `xlide.agent.showWriteDiffs`.
 
+- **Module names beyond the project's code page no longer lose code.**
+  Renaming a module to a name its project's ANSI code page cannot store
+  (Cyrillic in a cp1252 workbook) was accepted and '?'-folded on save,
+  detaching the module from its source stream - the code was gone on the
+  next open, and two such names collided into one. The engine now refuses
+  unstorable names up front with the exact folded form in the message,
+  while names the project's own code page supports keep working, non-ASCII
+  included. The reader also resolves module streams through their UTF-16
+  names now, so cross-locale projects (and any file damaged by the old
+  behavior) read their code correctly again.
+
 - **Renaming a standard module no longer touches names that only look like
   it.** The cross-module reference rewrite skipped nothing: `rs.Fields.Item`
   and a With block's `.Fields.Item` had their `Fields` rewritten whenever a
