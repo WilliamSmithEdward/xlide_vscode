@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import {
     collectTypeNameReferences,
+    parseModule,
     tokenize,
     type ProjectIndex,
     type Span,
@@ -88,6 +89,46 @@ function addLocation(
     locations.push(location);
 }
 
+// Scopes in which a declaration shadows the module name: within them,
+// `OldName.Member` refers to the shadowing variable or parameter, not the
+// module, so the rename must leave those occurrences alone.
+interface ModuleNameShadowScopes {
+    /** A module-level declaration shadows the name for the whole module. */
+    moduleLevel: boolean;
+    procedures: { start: number; end: number; shadows: boolean }[];
+}
+
+function shadowScopesFor(source: string, lowerOld: string): ModuleNameShadowScopes {
+    const parsed = parseModule(source);
+    type BodyLike = { kind?: string; declarations?: { name: string }[]; body?: unknown };
+    const bodyDeclares = (body: readonly unknown[]): boolean => {
+        for (const node of body as readonly BodyLike[]) {
+            if (node.kind === 'VariableGroup') {
+                if ((node.declarations ?? []).some((decl) => decl.name.toLowerCase() === lowerOld)) {
+                    return true;
+                }
+            } else if (Array.isArray(node.body) && bodyDeclares(node.body)) {
+                return true;
+            }
+        }
+        return false;
+    };
+    let moduleLevel = false;
+    const procedures: ModuleNameShadowScopes['procedures'] = [];
+    for (const member of parsed.members) {
+        if (member.kind === 'VariableGroup') {
+            if (member.declarations.some((decl) => decl.name.toLowerCase() === lowerOld)) {
+                moduleLevel = true;
+            }
+        } else if (member.kind === 'Procedure') {
+            const shadows = member.params.some((param) => param.name.toLowerCase() === lowerOld)
+                || bodyDeclares(member.body);
+            procedures.push({ start: member.span.start, end: member.span.end, shadows });
+        }
+    }
+    return { moduleLevel, procedures };
+}
+
 function addQualifiedMemberQualifierLocations(
     xlsmPath: string,
     mod: VbaNavigationModule,
@@ -97,10 +138,20 @@ function addQualifiedMemberQualifierLocations(
     seen: Set<string>,
 ): void {
     const lowerOld = oldName.toLowerCase();
+    const shadowScopes = shadowScopesFor(mod.source, lowerOld);
+    if (shadowScopes.moduleLevel) {
+        return;
+    }
     const tokens = tokenize(mod.source);
     for (let i = 0; i + 2 < tokens.length; i++) {
         const qualifierName = tokenName(tokens[i]);
         if (!qualifierName || qualifierName.toLowerCase() !== lowerOld) {
+            continue;
+        }
+        // `rs.Fields` / `rs!Fields` / a With block's `.Fields`: the name is a
+        // member of some other receiver here, not the module qualifier.
+        const prev = tokens[i - 1];
+        if (prev && (prev.rawText === '.' || prev.rawText === '!')) {
             continue;
         }
         if (tokens[i + 1].rawText !== '.') {
@@ -108,6 +159,12 @@ function addQualifiedMemberQualifierLocations(
         }
         const memberName = tokenName(tokens[i + 2]);
         if (!memberName) {
+            continue;
+        }
+        const start = tokens[i].start;
+        if (shadowScopes.procedures.some(
+            (proc) => proc.shadows && start >= proc.start && start < proc.end,
+        )) {
             continue;
         }
         if (!isVisibleStandardModuleMemberReference(project, mod.moduleName, oldName, memberName)) {
