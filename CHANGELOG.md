@@ -13,7 +13,9 @@ its own Office application.
 
 - **Word, PowerPoint, and Access files open natively.** `.docm`/`.dotm`,
   `.pptm`/`.potm`/`.ppsm`, and read-only `.accdb`/`.mdb` join the Excel
-  formats in the explorer, the sidebar, the editor, and the agent tools.
+  formats in the explorer, the sidebar, the editor, and the agent tools -
+  and so do the template and add-in variants: `.xltm`, `.xlt`, `.xla`,
+  `.dot`, `.ppam`, `.ppa` (a bare VBA-project compound file), and `.mda`.
   Legacy binary containers are read too: `.doc` and `.xls` are compound
   files whose VBA storage the parser already understood, and `.ppt` holds
   its project as a zlib-compressed storage inside the `PowerPoint Document`

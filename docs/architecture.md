@@ -254,13 +254,14 @@ is):
 
 | Container | Detection | VBA project location | Writes |
 |---|---|---|---|
-| `.xlsm`/`.xlsb`/`.xlam` | zip + `xl/workbook.xml` | `xl/vbaProject.bin` | yes (part splice) |
+| `.xlsm`/`.xlsb`/`.xlam`/`.xltm` | zip + `xl/workbook.xml` | `xl/vbaProject.bin` | yes (part splice) |
 | `.docm`/`.dotm` | zip + `word/document.xml` | `word/vbaProject.bin` | yes (part splice) |
-| `.pptm`/`.potm`/`.ppsm` | zip + `ppt/presentation.xml` | `ppt/vbaProject.bin` | yes (part splice) |
-| `.xls` | CFB + `Workbook` stream | `_VBA_PROJECT_CUR/VBA` in the file's own CFB | yes (CFB re-serialize) |
-| `.doc` | CFB + `WordDocument` stream | `Macros/VBA` in the file's own CFB | yes (CFB re-serialize) |
+| `.pptm`/`.potm`/`.ppsm`/`.ppam` | zip + `ppt/presentation.xml` | `ppt/vbaProject.bin` | yes (part splice) |
+| `.xls`/`.xlt`/`.xla` | CFB + `Workbook` stream | `_VBA_PROJECT_CUR/VBA` in the file's own CFB | yes (CFB re-serialize) |
+| `.doc`/`.dot` | CFB + `WordDocument` stream | `Macros/VBA` in the file's own CFB | yes (CFB re-serialize) |
 | `.ppt` | CFB + `PowerPoint Document` stream | zlib-compressed CFB in an `ExOleObjStg` record, located through the persist chain (`pptContainer.ts`) | yes (record rebuild + persist-offset shift) |
-| `.accdb`/`.mdb` | ACE/Jet page-0 signature | MS-OVBA streams in LVAL rows/chains, reassembled into a synthetic CFB (`accessDatabase.ts`) | no |
+| `.ppa` | CFB that IS the VBA project (a bare `VBA` storage, no document stream) | the file itself | yes (CFB re-serialize) |
+| `.accdb`/`.mdb`/`.mda` | ACE/Jet page-0 signature | MS-OVBA streams in LVAL rows/chains, reassembled into a synthetic CFB (`accessDatabase.ts`) | no |
 
 The legacy compound files need no special project handling: `VbaProject`'s
 stream lookups are storage-agnostic (a storage named `VBA` is found wherever

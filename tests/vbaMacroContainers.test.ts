@@ -403,12 +403,14 @@ describe('malformed containers fail honestly', () => {
 		}
 	});
 
-	it('rejects a CFB with no recognizable Office host', () => {
-		// A bare vbaProject.bin IS a CFB, but not an Office document.
+	it('opens a bare VBA project compound file (the legacy .ppa shape)', () => {
+		// A .ppa add-in is exactly a VBA project CFB with no document stream,
+		// and a stray vbaProject.bin is the same shape - both open.
 		const bin = fs.readFileSync(fixture('FormFixture.xlsm'));
-		const container = openMacroContainer(bin);
-		const vbaBin = container.vbaCfb().toBytes();
-		expect(() => openMacroContainer(vbaBin)).toThrow(/Compound file without a recognizable Office host/);
+		const vbaBin = openMacroContainer(bin).vbaCfb().toBytes();
+		const bare = openMacroContainer(vbaBin);
+		expect(bare.description).toBe('a VBA project compound file');
+		expect(bare.vbaCfb().hasStreamInStorage('VBA', 'dir')).toBe(true);
 	});
 
 	it('survives a corrupted Access database without hanging', () => {
@@ -534,5 +536,58 @@ describe('exporting a Word document with a form writes the pair to disk', () => 
 		expect(frm).toContain('OleObjectBlob');
 		expect(frm).toContain('Private Sub BtnClose_Click()');
 		expect(fs.statSync(path.join(exportFolder, 'FrmNotice.frx')).size).toBeGreaterThan(100);
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Templates and add-ins: the seven container extensions round six added.
+
+const ADDED_EXTENSION_CASES: Array<{ file: string; writable: boolean }> = [
+	{ file: 'ExcelFixture.xltm', writable: true },
+	{ file: 'ExcelFixture.xlt', writable: true },
+	{ file: 'ExcelFixture.xla', writable: true },
+	{ file: 'WordFixture.dot', writable: true },
+	{ file: 'PowerPointFixture.ppam', writable: true },
+	{ file: 'PowerPointFixture.ppa', writable: true },
+	{ file: 'AccessFixture.mda', writable: false },
+];
+
+describe.each(ADDED_EXTENSION_CASES)('template/add-in container $file', ({ file, writable }) => {
+	it('reads its authored module', () => {
+		const names = listModules(fixture(file)).map((module) => module.name);
+		expect(names).toContain('Module1');
+		expect(readModule(fixture(file), 'Module1', true).source).toContain('Attribute VB_Name = "Module1"');
+		expect(validateWorkbook(fixture(file)).issues).toEqual([]);
+	});
+
+	it(writable ? 'accepts a module write' : 'refuses writes with the p-code reason', () => {
+		const target = copyOf(file);
+		if (writable) {
+			writeModule(target, 'MAdded', 'Public Sub AddedProc()\r\nEnd Sub\r\n');
+			expect(listModules(target).map((module) => module.name)).toContain('MAdded');
+			expect(validateWorkbook(target).issues).toEqual([]);
+		} else {
+			expect(() => writeModule(target, 'MAdded', 'Public Sub P()\r\nEnd Sub\r\n'))
+				.toThrow(/read-only: Access runs VBA from its compiled p-code/);
+		}
+	});
+});
+
+describe('a PowerPoint presentation with a UserForm', () => {
+	it('classifies the form, reads its controls, and round-trips the designer', () => {
+		const target = copyOf('PowerPointFormFixture.pptm');
+		const form = listModules(target).find((entry) => entry.name === 'FrmDeck');
+		expect(form?.type).toBe('userform');
+		expect((form?.implicitMembers ?? []).map((member) => member.name))
+			.toEqual(expect.arrayContaining(['LblBanner', 'BtnDismiss']));
+		expect(readModule(target, 'FrmDeck', true).source).toContain('Private Sub BtnDismiss_Click()');
+
+		const { frm, frx } = readFormExport(target, 'FrmDeck');
+		expect(frm).toContain('"FrmDeck.frx":0000');
+		writeFormDesigner(target, 'FrmDeck', frx, undefined);
+		const after = listModules(target).find((entry) => entry.name === 'FrmDeck');
+		expect((after?.implicitMembers ?? []).map((member) => member.name))
+			.toEqual(expect.arrayContaining(['LblBanner', 'BtnDismiss']));
+		expect(validateWorkbook(target).issues).toEqual([]);
 	});
 });

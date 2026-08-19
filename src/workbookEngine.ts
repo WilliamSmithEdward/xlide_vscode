@@ -52,13 +52,19 @@ export class WorkbookEngine implements vscode.Disposable {
 	private templatePathFor(targetPath: string): string {
 		const lower = targetPath.toLowerCase();
 		const extension = /\.([a-z0-9]+)$/.exec(lower)?.[1] ?? '';
-		if (['xls', 'doc', 'ppt'].includes(extension)) {
+		if (['xls', 'xlt', 'xla', 'doc', 'dot', 'ppt', 'ppa'].includes(extension)) {
 			throw new WorkbookEngineError(
 				`Creating new legacy-format files (.${extension}) is not supported; create the modern macro format and use the Office app to save down.`,
 				-32602,
 			);
 		}
-		if (['accdb', 'accda', 'mdb'].includes(extension)) {
+		if (extension === 'ppam') {
+			throw new WorkbookEngineError(
+				'PowerPoint add-ins are saved from a presentation; create a .pptm and use PowerPoint to save it as an add-in.',
+				-32602,
+			);
+		}
+		if (['accdb', 'accda', 'mdb', 'mda'].includes(extension)) {
 			throw new WorkbookEngineError(
 				'Access databases cannot be created by XLIDE (Access files are read-only).',
 				-32602,
@@ -82,6 +88,7 @@ export class WorkbookEngine implements vscode.Disposable {
 		const templates: Record<string, string> = {
 			xlsb: 'blank.xlsb',
 			xlam: 'blank.xlam',
+			xltm: 'blank.xltm',
 			docm: 'blank.docm',
 			dotm: 'blank.dotm',
 			pptm: 'blank.pptm',

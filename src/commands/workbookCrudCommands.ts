@@ -129,6 +129,7 @@ export function registerWorkbookCrudCommands(deps: CommandDeps): vscode.Disposab
                 filters: {
                     'Macro-Enabled Workbook': ['xlsm', 'xlsb'],
                     'Excel Add-In': ['xlam'],
+                    'Excel Macro-Enabled Template': ['xltm'],
                     'Macro-Enabled Word Document': ['docm', 'dotm'],
                     'Macro-Enabled PowerPoint Presentation': ['pptm', 'potm'],
                 },

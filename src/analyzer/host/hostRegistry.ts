@@ -83,20 +83,27 @@ export function hostTokenForFileName(fileName: string): VbaHostToken | undefined
 		case 'xlsm':
 		case 'xlsb':
 		case 'xlam':
+		case 'xltm':
 		case 'xls':
+		case 'xlt':
+		case 'xla':
 			return 'excel';
 		case 'docm':
 		case 'dotm':
 		case 'doc':
+		case 'dot':
 			return 'word';
 		case 'pptm':
 		case 'potm':
 		case 'ppsm':
+		case 'ppam':
 		case 'ppt':
+		case 'ppa':
 			return 'powerpoint';
 		case 'accdb':
 		case 'accda':
 		case 'mdb':
+		case 'mda':
 			return 'access';
 		default:
 			return undefined;

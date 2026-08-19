@@ -24,8 +24,9 @@ running unit tests (Excel, Word, or PowerPoint, chosen by the file's format).
 ## Open A File
 
 1. Open a folder that contains macro-enabled Office files: Excel (`.xlsm`,
-   `.xlsb`, `.xlam`, `.xls`), Word (`.docm`, `.dotm`, `.doc`), PowerPoint
-   (`.pptm`, `.potm`, `.ppsm`, `.ppt`), or Access (`.accdb`, `.mdb`).
+   `.xlsb`, `.xlam`, `.xltm`, `.xls`, `.xlt`, `.xla`), Word (`.docm`,
+   `.dotm`, `.doc`, `.dot`), PowerPoint (`.pptm`, `.potm`, `.ppsm`,
+   `.ppam`, `.ppt`, `.ppa`), or Access (`.accdb`, `.mdb`, `.mda`).
 2. Open the XLIDE Activity Bar view.
 3. Pick the target file from the file selector.
 4. Use **Refresh** if a file was added after VS Code opened the folder.

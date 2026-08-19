@@ -21,17 +21,24 @@ reference/
 *.xlsm
 *.xlsb
 *.xlam
+*.xltm
 *.xls
+*.xlt
+*.xla
 *.docm
 *.dotm
 *.doc
+*.dot
 *.pptm
 *.potm
 *.ppsm
+*.ppam
 *.ppt
+*.ppa
 *.accdb
 *.accda
 *.mdb
+*.mda
 *.laccdb
 # The blank templates ship with the extension: they are the seeds for
 # "New Macro-Enabled File" (one per creatable format) and the fixtures the
@@ -39,6 +46,7 @@ reference/
 !assets/templates/blank.xlsm
 !assets/templates/blank.xlsb
 !assets/templates/blank.xlam
+!assets/templates/blank.xltm
 !assets/templates/blank.docm
 !assets/templates/blank.dotm
 !assets/templates/blank.pptm
@@ -57,5 +65,13 @@ reference/
 !tests/fixtures/binaries/AccessFixture.mdb
 !tests/fixtures/binaries/AccessEditedFixture.accdb
 !tests/fixtures/binaries/AccessEditedFixture.mdb
+!tests/fixtures/binaries/ExcelFixture.xltm
+!tests/fixtures/binaries/ExcelFixture.xlt
+!tests/fixtures/binaries/ExcelFixture.xla
+!tests/fixtures/binaries/WordFixture.dot
+!tests/fixtures/binaries/PowerPointFixture.ppam
+!tests/fixtures/binaries/PowerPointFixture.ppa
+!tests/fixtures/binaries/PowerPointFormFixture.pptm
+!tests/fixtures/binaries/AccessFixture.mda
 excel_test_workbook/
 .claude/

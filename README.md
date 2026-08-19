@@ -12,8 +12,9 @@
 XLIDE 4.0.0 opens the workspace to VBA everywhere Office puts it:
 
 - **Word, PowerPoint, and Access files open natively** - `.docm`, `.dotm`,
-  `.doc`, `.pptm`, `.potm`, `.ppsm`, `.ppt`, and read-only `.accdb`/`.mdb` -
-  alongside the Excel formats, now including legacy `.xls`. No Office
+  `.doc`, `.dot`, `.pptm`, `.potm`, `.ppsm`, `.ppam`, `.ppt`, `.ppa`, and
+  read-only `.accdb`/`.mdb`/`.mda` - alongside the Excel formats, now
+  including `.xltm` templates and legacy `.xls`/`.xlt`/`.xla`. No Office
   install is needed to read or edit; every container is parsed directly,
   down to a native Jet/ACE page reader for Access databases.
 - **Edits write back everywhere writing is sound.** Word and PowerPoint
@@ -39,10 +40,11 @@ XLIDE 4.0.0 opens the workspace to VBA everywhere Office puts it:
 XLIDE gives Office VBA projects a modern VS Code workspace.
 
 Add macro-enabled Office files to your VS Code project and XLIDE detects them
-automatically: Excel workbooks and add-ins (`.xlsm`, `.xlsb`, `.xlam`, `.xls`),
-Word documents and templates (`.docm`, `.dotm`, `.doc`), PowerPoint
-presentations (`.pptm`, `.potm`, `.ppsm`, `.ppt`), and Access databases
-(`.accdb`, `.mdb`, read-only). Navigate each file's VBA project in the XLIDE
+automatically: Excel workbooks, templates, and add-ins (`.xlsm`, `.xlsb`,
+`.xlam`, `.xltm`, `.xls`, `.xlt`, `.xla`), Word documents and templates
+(`.docm`, `.dotm`, `.doc`, `.dot`), PowerPoint presentations and add-ins
+(`.pptm`, `.potm`, `.ppsm`, `.ppam`, `.ppt`, `.ppa`), and Access databases
+(`.accdb`, `.mdb`, `.mda`, read-only). Navigate each file's VBA project in the XLIDE
 tree, open modules directly from the file, edit with host-aware IntelliSense
 (Excel modules complete against Excel's object model, Word modules against
 Word's, and so on), and save changes back with normal VS Code save behavior.

@@ -112,8 +112,16 @@ function openLegacyCfbContainer(data: Buffer): MacroContainer {
 			toFileBytes: (cfb: Cfb): Buffer => pptWriteVbaStorage(outer, cfb.toBytes()).toBytes(),
 		};
 	}
+	if (outer.hasStreamInStorage('VBA', 'dir') || outer.hasStream('dir')) {
+		// A bare VBA project: a legacy PowerPoint add-in (.ppa) saves as
+		// exactly this shape - a VBA storage and PROJECT at the root with no
+		// document stream at all - and a stray vbaProject.bin is the same.
+		// The analysis host still comes from the file name, so the neutral
+		// kind here only shapes refusal wording for surfaces the file lacks.
+		return wholeCfbContainer(outer, 'powerpoint', 'a VBA project compound file');
+	}
 	throw new MacroContainerError(
-		'Compound file without a recognizable Office host (no WordDocument, Workbook, or PowerPoint Document stream).',
+		'Compound file without a recognizable Office host (no WordDocument, Workbook, or PowerPoint Document stream, and no VBA project at the root).',
 	);
 }
 

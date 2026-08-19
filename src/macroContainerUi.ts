@@ -10,10 +10,10 @@ import { hostTokenForFileName, type VbaHostToken } from './analyzer/host/hostReg
 
 /** Every macro-container extension the engine reads, lowercase, no dot. */
 export const MACRO_CONTAINER_EXTENSIONS = [
-	'xlsm', 'xlsb', 'xlam', 'xls',
-	'docm', 'dotm', 'doc',
-	'pptm', 'potm', 'ppsm', 'ppt',
-	'accdb', 'accda', 'mdb',
+	'xlsm', 'xlsb', 'xlam', 'xltm', 'xls', 'xlt', 'xla',
+	'docm', 'dotm', 'doc', 'dot',
+	'pptm', 'potm', 'ppsm', 'ppam', 'ppt', 'ppa',
+	'accdb', 'accda', 'mdb', 'mda',
 ] as const;
 
 /** Every macro container the engine reads, for workspace discovery. */

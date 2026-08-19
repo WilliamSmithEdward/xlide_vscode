@@ -368,7 +368,7 @@
     "viewsWelcome": [
       {
         "view": "xlide.explorer",
-        "contents": "No macro-enabled Office files (.xlsm, .xlsb, .xlam, .xls, .docm, .doc, .pptm, .ppt, .accdb, .mdb) were found in the current workspace.\n[Refresh](command:xlide.refreshExplorer)"
+        "contents": "No macro-enabled Office files (.xlsm, .xlsb, .xlam, .xltm, .xls, .docm, .dotm, .doc, .pptm, .potm, .ppsm, .ppt, .accdb, .mdb, and their template/add-in variants) were found in the current workspace.\n[Refresh](command:xlide.refreshExplorer)"
       }
     ],
     "menus": {
@@ -549,7 +549,7 @@
       {
         "name": "xlide_listWorkbooks",
         "displayName": "List Excel Workbooks",
-        "modelDescription": "Finds all macro-enabled Office files in the current workspace and returns their absolute paths: Excel (.xlsm, .xlsb, .xlam, .xls), Word (.docm, .dotm, .doc), PowerPoint (.pptm, .potm, .ppsm, .ppt), and Access (.accdb, .mdb; read-only). Call this first when the user has not specified a file path, or when you need to discover which files are available.",
+        "modelDescription": "Finds all macro-enabled Office files in the current workspace and returns their absolute paths: Excel (.xlsm, .xlsb, .xlam, .xltm, .xls, .xlt, .xla), Word (.docm, .dotm, .doc, .dot), PowerPoint (.pptm, .potm, .ppsm, .ppam, .ppt, .ppa), and Access (.accdb, .accda, .mdb, .mda; read-only). Call this first when the user has not specified a file path, or when you need to discover which files are available.",
         "toolReferenceName": "xlideListWorkbooks",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
