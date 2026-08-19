@@ -9,6 +9,8 @@
 // NON-exhaustive: this model offers and describes, never proves absence.
 
 import type { HostObjectModel } from './excelObjectModel';
+import { mergeHostConstants } from './excelObjectModel';
+import { OFFICE_REFERENCE_ENUM_CONSTANTS } from './officeReferenceConstants';
 import { wordReferenceData } from './wordObjectModelData';
 
 let MODEL: HostObjectModel | undefined;
@@ -21,11 +23,14 @@ export function getWordObjectModel(): HostObjectModel {
 	// sessions that never touch a Word file never pay for them.
 	const data = wordReferenceData();
 	MODEL = {
-		source: 'Microsoft Word 16.0 Object Library via pyVBAReference; enriched from Microsoft Learn',
+		source: 'Microsoft Word 16.0 Object Library via pyVBAReference; enriched from Microsoft Learn; shared Office reference enum constants',
 		hostName: 'Word',
 		types: data.types as HostObjectModel['types'],
 		aliases: data.aliases as HostObjectModel['aliases'],
-		constants: data.constants as HostObjectModel['constants'],
+		// Every Word VBA project auto-references the shared Office library, so
+		// msoTrue and friends are legal everyday names; Word's own table wins
+		// the shared chart-enum names (same values by measurement).
+		constants: mergeHostConstants(OFFICE_REFERENCE_ENUM_CONSTANTS, data.constants),
 		globals: {
 			Application: 'Word.Application',
 			ActiveDocument: 'Word.Document',

@@ -9,6 +9,8 @@
 // anything else would be a guess. Everything remains NON-exhaustive.
 
 import type { HostObjectModel } from './excelObjectModel';
+import { mergeHostConstants } from './excelObjectModel';
+import { OFFICE_REFERENCE_ENUM_CONSTANTS } from './officeReferenceConstants';
 import { accessReferenceData } from './accessObjectModelData';
 
 let MODEL: HostObjectModel | undefined;
@@ -21,11 +23,13 @@ export function getAccessObjectModel(): HostObjectModel {
 	// so sessions that never touch an Access file never pay.
 	const data = accessReferenceData();
 	MODEL = {
-		source: 'Microsoft Access 16.0 Object Library via pyVBAReference; enriched from Microsoft Learn',
+		source: 'Microsoft Access 16.0 Object Library via pyVBAReference; enriched from Microsoft Learn; shared Office reference enum constants',
 		hostName: 'Access',
 		types: data.types as HostObjectModel['types'],
 		aliases: data.aliases as HostObjectModel['aliases'],
-		constants: data.constants as HostObjectModel['constants'],
+		// The shared Office library is auto-referenced in every Access VBA
+		// project; Access's own names have no overlap with it (measured).
+		constants: mergeHostConstants(OFFICE_REFERENCE_ENUM_CONSTANTS, data.constants),
 		globals: {
 			Application: 'Access.Application',
 			DoCmd: 'Access.DoCmd',

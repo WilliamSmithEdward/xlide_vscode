@@ -64,7 +64,8 @@ vi.mock('../src/vbaTestRunner', () => ({
 }));
 
 import { registerAgentTools } from '../src/agentTools';
-import { hasPendingAgentReview } from '../src/xlideAgentDiff';
+import { hasPendingAgentReview, trackModuleWriteForAgentReview } from '../src/xlideAgentDiff';
+import { writeWorkbookModule } from '../src/workbookModuleOperations';
 import { clearXlideWriteAudit, recentXlideWriteAudits } from '../src/xlideWriteAudit';
 
 function registerTools(bridgeCall: ReturnType<typeof vi.fn>) {
@@ -339,6 +340,85 @@ describe('agent write review (diff + tree badge, native surfaces only)', () => {
             expect.stringContaining('changed again after the agent'));
         expect(engine.store.get('module1')).toContain('UserEdited');
         expect(hasPendingAgentReview(target, 'Module1')).toBe(true);
+    });
+
+    it('a write through the shared operation path keeps the review revertable', async () => {
+        // The user's report: an agent's second change arriving through another
+        // surface (Copilot editing the open document, a sidebar write) froze
+        // the review at the first write, so Revert refused with the drift
+        // warning. Any XLIDE write path must keep the after-image current.
+        const target = path.join(tempDir, 'Tracked.xlsm');
+        const engine = fakeEngine({ Module1: 'Sub Original()\r\nEnd Sub\r\n' });
+        const tool = writeTool(engine.call);
+        const ops = {
+            bridge: { call: engine.call },
+            explorer: { refresh: vi.fn(), refreshModuleSubs: vi.fn() },
+            fsProvider: { notifyFileChanged: vi.fn() },
+            vbaIndex: { invalidate: vi.fn() },
+        };
+
+        await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub First()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+        await settle();
+        await writeWorkbookModule(ops as never, {
+            filePath: target,
+            moduleName: 'Module1',
+            source: 'Sub Second()\r\nEnd Sub\r\n',
+        });
+
+        expect(hasPendingAgentReview(target, 'Module1')).toBe(true);
+        await runCommand('xlide.revertAgentChange', { filePath: target, moduleName: 'Module1' });
+
+        expect(vscodeMock.showWarningMessage).not.toHaveBeenCalled();
+        expect(engine.store.get('module1')).toContain('Sub Original()');
+        expect(hasPendingAgentReview(target, 'Module1')).toBe(false);
+    });
+
+    it('an editor save is tracked the same way (the FSP call shape)', async () => {
+        const target = path.join(tempDir, 'Saved.xlsm');
+        const engine = fakeEngine({ Module1: 'Sub Original()\r\nEnd Sub\r\n' });
+        const tool = writeTool(engine.call);
+
+        await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub First()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+        await settle();
+        // xlideFileSystem.writeFile stores the new source, then reports it.
+        engine.store.set('module1', 'Sub Second()\r\nEnd Sub\r\n');
+        trackModuleWriteForAgentReview(target, 'Module1', 'Sub Second()\r\nEnd Sub\r\n');
+        await runCommand('xlide.revertAgentChange', { filePath: target, moduleName: 'Module1' });
+
+        expect(vscodeMock.showWarningMessage).not.toHaveBeenCalled();
+        expect(engine.store.get('module1')).toContain('Sub Original()');
+        expect(hasPendingAgentReview(target, 'Module1')).toBe(false);
+    });
+
+    it('a write that lands back on the pre-agent original resolves the review', async () => {
+        const original = 'Sub Original()\r\nEnd Sub\r\n';
+        const target = path.join(tempDir, 'Undone.xlsm');
+        const engine = fakeEngine({ Module1: original });
+        const tool = writeTool(engine.call);
+
+        await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub First()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+        await settle();
+        expect(hasPendingAgentReview(target, 'Module1')).toBe(true);
+        // The save restores exactly what the user had: nothing left to review.
+        engine.store.set('module1', original);
+        trackModuleWriteForAgentReview(target, 'Module1', original);
+
+        expect(hasPendingAgentReview(target, 'Module1')).toBe(false);
+    });
+
+    it('an agent rewrite of the pre-agent original leaves nothing pending', async () => {
+        const original = 'Sub Original()\r\nEnd Sub\r\n';
+        const target = path.join(tempDir, 'SelfUndo.xlsm');
+        const engine = fakeEngine({ Module1: original });
+        const tool = writeTool(engine.call);
+
+        await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub First()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+        await settle();
+        await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: original }, ...CHAT }, undefined);
+        await settle();
+
+        expect(hasPendingAgentReview(target, 'Module1')).toBe(false);
+        expect(engine.store.get('module1')).toBe(original);
     });
 
     it('a rename carries the pending review to the new name', async () => {

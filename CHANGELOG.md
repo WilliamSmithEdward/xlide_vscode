@@ -2,6 +2,28 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [4.0.2] - Unreleased
+
+- **The shared Office constants reach every host.** Every Office VBA project
+  auto-references the Office object library, but only Excel's model merged
+  its enum constants - so in a Word, PowerPoint, or Access module `msoTrue`
+  was invisible to hover and completion and, under Option Explicit, flagged
+  as an undeclared variable. All three generated models now lay their own
+  library's constants over the shared Office table (same-name chart enums
+  keep their identical values), and a new round-trip suite walks every
+  committed reference dump to prove each model resolves every constant with
+  the dumped value and enum type and carries nothing invented.
+
+- **An agent review survives the agent's second change.** The Keep/Revert
+  review froze its after-image at the write that opened it, so when a second
+  agent change arrived through another surface - Copilot editing the open
+  module document, an editor save, a sidebar write - Revert refused with the
+  drift warning and nothing captured the new state. Every XLIDE write path
+  now keeps a pending review tracking the live content: Revert stays offered
+  and still restores the pre-agent original the diff shows it discarding, a
+  write that lands back on that original resolves the review outright, and
+  the drift refusal remains only for content changed outside XLIDE entirely.
+
 ## [4.0.1] - 2026-08-19
 
 - **Origin labels name the module's host, not Excel** (#28). Since 4.0.0

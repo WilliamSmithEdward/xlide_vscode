@@ -4,7 +4,7 @@ import { getPowerPointObjectModel } from '../src/analyzer/host/powerpointObjectM
 import { getAccessObjectModel } from '../src/analyzer/host/accessObjectModel';
 import { getExcelObjectModel, type HostObjectModel } from '../src/analyzer/host/excelObjectModel';
 import { resolveHostGlobal, getHostMembers, resolveHostConstant } from '../src/analyzer/host/hostModel';
-import { resolveMemberCompletions } from '../src/analyzer';
+import { analyzeModule, resolveMemberCompletions } from '../src/analyzer';
 
 // Issue #25. The measured number this replaces: Word's ThisDocument answered
 // 1 member - the Sub in its own module - because the only model that existed
@@ -23,6 +23,44 @@ it('every model names its application for origin labels', () => {
 	expect(getWordObjectModel().hostName).toBe('Word');
 	expect(getPowerPointObjectModel().hostName).toBe('PowerPoint');
 	expect(getAccessObjectModel().hostName).toBe('Access');
+});
+
+// Every Office VBA project auto-references the shared Office library, so
+// msoTrue and friends are everyday legal code in every host. Excel merged
+// them from the start; the generated hosts must too, or Option Explicit
+// flags msoTrue as an undeclared variable in a Word module.
+describe('shared Office constants reach every host model', () => {
+	it('resolves msoTrue in Word, PowerPoint, and Access', () => {
+		for (const getModel of [getWordObjectModel, getPowerPointObjectModel, getAccessObjectModel]) {
+			const constant = resolveHostConstant('msoTrue', getModel());
+			expect(constant?.value).toBe(-1);
+			expect(constant?.type).toBe('MsoTriState');
+		}
+	});
+
+	it('keeps the host library first on shared chart-enum names', () => {
+		// Word and PowerPoint re-export the Xl chart enums the Office library
+		// also carries (299 same-value names, measured); either source must
+		// answer with the shared value.
+		for (const getModel of [getWordObjectModel, getPowerPointObjectModel]) {
+			const constant = resolveHostConstant('xlAbove', getModel());
+			expect(constant?.value).toBe(0);
+			expect(constant?.type).toBe('XlConstants');
+		}
+	});
+
+	it('keeps msoTrue out of the undeclared-variable rule in every host', () => {
+		const src = 'Option Explicit\nSub T()\n    Dim n As Long\n    n = msoTrue\nEnd Sub\n';
+		for (const host of ['word', 'powerpoint', 'access', 'excel']) {
+			const findings = analyzeModule(src, { host, knownIdentifiers: new Set<string>() })
+				.map((d) => d.message);
+			expect(findings, host).toEqual([]);
+		}
+		// The rule itself still works: an invented name stays a finding.
+		const bogus = 'Option Explicit\nSub T()\n    Dim n As Long\n    n = msoNotAConstant\nEnd Sub\n';
+		const flagged = analyzeModule(bogus, { host: 'word', knownIdentifiers: new Set<string>() });
+		expect(flagged.some((d) => d.message.includes('msoNotAConstant'))).toBe(true);
+	});
 });
 
 describe.each(MODELS)('the %s object model', (_host, getModel) => {

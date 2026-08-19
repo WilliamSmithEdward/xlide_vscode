@@ -123,7 +123,12 @@ export function registerAgentTools(
                 moduleName,
                 failedSummary: 'Revert agent change: 0 changed, 1 failed',
             }, async () => ({
-                result: await writeWorkbookModule(ops, { filePath, moduleName, source }),
+                // agentReviewHandled: the revert resolves its own review.
+                result: await writeWorkbookModule(
+                    ops,
+                    { filePath, moduleName, source },
+                    { agentReviewHandled: true },
+                ),
                 summary: 'Revert agent change: 1 changed',
             }));
         },
@@ -313,7 +318,14 @@ export function registerAgentTools(
                     moduleName,
                     failedSummary: 'Write module: 0 changed, 1 failed',
                 }, async () => {
-                    const result = await writeWorkbookModule(ops, { filePath, moduleName, source });
+                    // agentReviewHandled only when a review will actually be
+                    // presented below; a token-less programmatic write is
+                    // tracked like any other out-of-band write.
+                    const result = await writeWorkbookModule(
+                        ops,
+                        { filePath, moduleName, source },
+                        { agentReviewHandled: wantsReview },
+                    );
                     return {
                         result,
                         summary: formatChangeSummary({

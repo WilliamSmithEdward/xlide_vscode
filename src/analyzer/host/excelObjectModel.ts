@@ -355,8 +355,13 @@ function referenceMembers(displayName: string): readonly HostMember[] {
 	return EXCEL_REFERENCE_MEMBER_SETS[displayName] ?? [];
 }
 
-function mergeHostConstants(
-	...sets: Array<Record<string, HostConstant>>
+/**
+ * Merges constant tables, later sets winning name collisions
+ * (case-insensitive). Exported so every generated host model can lay its own
+ * library's constants over the shared Office table the way Excel does.
+ */
+export function mergeHostConstants(
+	...sets: Array<Readonly<Record<string, HostConstant>>>
 ): Record<string, HostConstant> {
 	const out: Record<string, HostConstant> = {};
 	const keysByLowerName = new Map<string, string>();

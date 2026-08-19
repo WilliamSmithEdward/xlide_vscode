@@ -8,6 +8,9 @@ import { startPerformanceTrace } from './performanceTrace';
 import { errorMessage } from './util/errors';
 import { runWriteWithExcelCoordination } from './excelWorkbookCoordinator';
 import { noteModuleWrite } from './vbaRenameHistory';
+// Function-level cycle with xlideAgentDiff (it imports URI/identity helpers
+// from this module); neither side touches the other at module-eval time.
+import { trackModuleWriteForAgentReview } from './xlideAgentDiff';
 import { containerAppNameForPath, isReadOnlyContainerPath, MACRO_CONTAINER_EXTENSION_PATTERN } from './macroContainerUi';
 import { workbookIdentityKey } from './workbookIdentity';
 
@@ -275,6 +278,10 @@ export class XlideFileSystemProvider
                 ),
             );
             notifySignatureDropped(xlsmPath, result.signatureDropped);
+            // A save over a pending agent review keeps the review tracking the
+            // live content - editor edits an agent makes arrive here too - so
+            // Revert stays offered, still restoring the pre-agent original.
+            trackModuleWriteForAgentReview(xlsmPath, moduleName, source);
             const summary = formatChangeSummary({
                 operation: 'Save module',
                 changed: [moduleName],

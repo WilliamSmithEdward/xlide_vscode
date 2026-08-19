@@ -10,7 +10,11 @@ import {
 import { invalidateVbaMemberCompletionCache } from './vbaMemberCompletion';
 import { runWriteWithExcelCoordination } from './excelWorkbookCoordinator';
 import { noteModuleWrite } from './vbaRenameHistory';
-import { discardPendingAgentReview, renamePendingAgentReview } from './xlideAgentDiff';
+import {
+    discardPendingAgentReview,
+    renamePendingAgentReview,
+    trackModuleWriteForAgentReview,
+} from './xlideAgentDiff';
 
 /**
  * Shared workbook module mutations used by both the command handlers and the
@@ -40,6 +44,13 @@ export interface WorkbookModuleOperationOptions {
      * pass false and refresh once after their loop.
      */
     refreshProjectState?: boolean;
+    /**
+     * The caller manages the agent review itself: the agent write tool (it
+     * presents the review right after) and the review's own Revert (it
+     * resolves the review right after). Every other write is tracked so a
+     * pending review's after-image follows the module's live content.
+     */
+    agentReviewHandled?: boolean;
 }
 
 /** Drops cached per-workbook project state and refreshes the explorer tree. */
@@ -83,6 +94,9 @@ export async function writeWorkbookModule(
         throw new Error(`XLIDE: Writing module "${moduleName}" did not complete.`);
     }
     notifySignatureDropped(filePath, Boolean(result.signatureDropped));
+    if (!options.agentReviewHandled) {
+        trackModuleWriteForAgentReview(filePath, moduleName, source);
+    }
     // Notify VS Code that the file changed so open editors reload
     deps.fsProvider.notifyFileChanged(encodeModuleUri(filePath, moduleName));
     if (options.refreshProjectState !== false) {

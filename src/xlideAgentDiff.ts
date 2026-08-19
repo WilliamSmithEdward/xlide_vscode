@@ -10,8 +10,11 @@
 // (before <-> the live module document), and the XLIDE tree badges the
 // module with inline Keep / Revert actions until the user decides. Revert
 // restores the before-image through the audited write path - or removes
-// the module when the agent's write created it - refusing when the module
-// has drifted past the agent's write in the meantime.
+// the module when the agent's write created it. Later writes through any
+// XLIDE path (editor saves included - Copilot's document edits arrive that
+// way) keep the pending review tracking the live content, so Revert stays
+// offered; only content that drifted outside every XLIDE write path makes
+// it refuse.
 
 import * as vscode from 'vscode';
 import { encodeModuleUri, moduleIdentityKey, workbookIdentityKey } from './xlideFileSystem';
@@ -93,9 +96,47 @@ export async function presentAgentModuleWrite(
     const merged: AgentWriteRecord = existing
         ? { before: existing.before, beforeExisted: existing.beforeExisted, after: record.after }
         : record;
+    if (
+        merged.beforeExisted &&
+        normalizeForCompare(merged.before) === normalizeForCompare(merged.after)
+    ) {
+        // The write landed back on the pre-agent original - the agent undid
+        // itself, or rewrote identical content. Nothing is left to review, and
+        // a no-op diff would only mislead.
+        resolvePendingAgentReview(filePath, moduleName);
+        return;
+    }
     pendingReviews.set(key, merged);
     pendingEmitter.fire({ filePath, moduleName });
     await openAgentReviewDiff(filePath, moduleName);
+}
+
+/**
+ * Records a module write that did not present its own review: an editor save
+ * (Copilot's document edits arrive that way too), a module-sync import, any
+ * programmatic write. A pending review keeps tracking the live module - its
+ * after-image follows the new content, so Revert stays offered and still
+ * restores the pre-agent original the diff shows it discarding. Content that
+ * lands back on the before-image resolves the review: nothing left to decide.
+ */
+export function trackModuleWriteForAgentReview(
+    filePath: string,
+    moduleName: string,
+    newSource: string,
+): void {
+    const key = pendingKey(filePath, moduleName);
+    const record = pendingReviews.get(key);
+    if (!record) {
+        return;
+    }
+    if (
+        record.beforeExisted &&
+        normalizeForCompare(newSource) === normalizeForCompare(record.before)
+    ) {
+        resolvePendingAgentReview(filePath, moduleName);
+        return;
+    }
+    pendingReviews.set(key, { ...record, after: newSource });
 }
 
 /**
