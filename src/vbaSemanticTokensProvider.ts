@@ -60,6 +60,8 @@ interface CachedTypeSemanticProjectTypes {
     hostModel?: HostObjectModel;
     /** Lowercased document code name -> host type, for member paint (issue #29). */
     codeNames?: Record<string, string>;
+    /** Host type `Me` denotes in a document module, so `Me.Calculate` paints (issue #31). */
+    meHostType?: string;
 }
 
 interface CachedTypeSemanticTokens {
@@ -123,7 +125,11 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
 
             const items = [
                 ...resolveTypeSemanticTokens(source, { projectTypes }),
-                ...collectHostGlobalTokens(source, projectContext?.hostModel),
+                ...collectHostGlobalTokens(
+                    source,
+                    projectContext?.hostModel,
+                    projectContext?.implicitMembers,
+                ),
                 ...collectImplicitMemberMethodTokens(source, {
                     implicitMembers: projectContext?.implicitMembers,
                     meType: projectContext?.meType,
@@ -132,6 +138,7 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
                     model: projectContext?.hostModel,
                     codeNames: projectContext?.codeNames,
                     implicitMembers: projectContext?.implicitMembers,
+                    meType: projectContext?.meHostType,
                 }),
             ];
             for (const item of items) {
@@ -259,13 +266,17 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
                 token,
             );
             const options = projectAnalysisOptionsForModule(project, moduleName);
+            const codeNames = await this._codeNamesForDocument(document);
             const entry: CachedTypeSemanticProjectTypes = {
                 at: Date.now(),
                 projectTypes: options.projectTypes ?? [],
                 implicitMembers: options.implicitMembers,
                 meType: await this._userFormMeType(document, moduleName),
                 hostModel: hostModelForDocument(document),
-                codeNames: await this._codeNamesForDocument(document),
+                codeNames,
+                // A document module's own code name IS what `Me` denotes there;
+                // any other module kind has no entry and `Me.` stays unpainted.
+                meHostType: codeNames?.[moduleName.toLowerCase()],
             };
             this._projectTypesCache.set(key, entry);
             return entry;

@@ -233,6 +233,18 @@ describe('host-global semantic tokens', () => {
 		expect(hostTokens('Sub T()\n    Dim Application As Long\n    Application = 1\nEnd Sub\n')).toEqual([]);
 		expect(hostTokens('Sub T(ByVal Application As Long)\n    x = Application\nEnd Sub\n')).toEqual([]);
 	});
+
+	it('does not mark a name shadowed by a designer-declared control (issue #30)', () => {
+		// Inside the form, the control wins name binding; the receiver must not
+		// wear the host global's tint while the member lookup treats it as the
+		// control (#29's shadow rule, extended to the global collector).
+		const source = 'Sub T()\n    ActiveSheet.Clear\n    x = ActiveCell.Value\nEnd Sub\n';
+		const controls = [{ name: 'ActiveSheet', type: 'MSForms.ListBox' }];
+		const names = collectHostGlobalTokens(source, undefined, controls)
+			.map((t) => source.slice(t.span.start, t.span.end));
+		expect(names).not.toContain('ActiveSheet');
+		expect(names).toContain('ActiveCell');
+	});
 });
 
 describe('host-global tokens follow the module host (issue #24)', () => {
@@ -322,5 +334,29 @@ describe('host member method semantic tokens (issue #29)', () => {
 				implicitMembers: [{ name: 'ActiveSheet', type: 'MSForms.ListBox' }],
 			}),
 		).toEqual([]);
+	});
+
+	it('paints Me-qualified host methods in a document module (issue #31)', () => {
+		const source = 'Sub T()\n    Me.Calculate\n    x = Me.Name\nEnd Sub\n';
+		expect(methodTokens(source, { meType: 'Excel.Worksheet' }))
+			.toEqual(['Calculate:function']);
+		// Without a Me host type - a standard module, a loose file - Me stays
+		// plain, and an MSForms Me belongs to the implicit-member collector.
+		expect(methodTokens(source)).toEqual([]);
+		expect(methodTokens('Sub T()\n    Me.Hide\nEnd Sub\n', { meType: 'MSForms.UserForm' }))
+			.toEqual([]);
+	});
+
+	it('paints Word Me members and keeps chains and With out of scope', () => {
+		expect(
+			methodTokens('Sub T()\n    Me.FitToPages\nEnd Sub\n', {
+				model: getWordObjectModel(),
+				meType: 'Word.Document',
+			}),
+		).toEqual(['FitToPages:function']);
+		const chain = 'Sub T()\n    Me.Range("A1").Calculate\nEnd Sub\n';
+		expect(methodTokens(chain, { meType: 'Excel.Worksheet' })).toEqual([]);
+		const withBlock = 'Sub T()\n    With Me\n        .Calculate\n    End With\nEnd Sub\n';
+		expect(methodTokens(withBlock, { meType: 'Excel.Worksheet' })).toEqual([]);
 	});
 });

@@ -525,11 +525,20 @@ function collectModuleDeclaredNames(module: ModuleNode): Set<string> {
  * colored only when it (1) resolves to a known host global, (2) is not a member
  * access (`x.Application`), (3) is not in a type position (`As Application` /
  * `New Application`, already colored as a type), and (4) is not shadowed by an
- * in-module declaration. The conservative gating keeps a local named the same
- * as a host global from being mis-colored.
+ * in-module declaration or a designer-declared control (issue #30: inside a
+ * form the control wins name binding, so the receiver must not wear the host
+ * global's tint). The conservative gating keeps a local named the same as a
+ * host global from being mis-colored.
  */
-export function collectHostGlobalTokens(source: string, model?: HostObjectModel): TypeSemanticToken[] {
+export function collectHostGlobalTokens(
+	source: string,
+	model?: HostObjectModel,
+	implicitMembers?: readonly { name: string }[],
+): TypeSemanticToken[] {
 	const declared = collectModuleDeclaredNames(parseModule(source));
+	for (const member of implicitMembers ?? []) {
+		declared.add(member.name.toLowerCase());
+	}
 	// tokenizeCached: this runs in one semantic-token pass with the other
 	// collectors over the same source string, and a raw tokenize of a large
 	// module costs tens of milliseconds per duplicate (measured 36 ms on the
@@ -697,6 +706,14 @@ export interface HostMemberTokenContext {
 	 * before the host globals, so a control named like a global shadows it.
 	 */
 	implicitMembers?: readonly { name: string }[];
+	/**
+	 * Qualified host type `Me` denotes in this module - a document module's
+	 * "Excel.Worksheet" / "Excel.Workbook" / "Word.Document" - so `Me.Calculate`
+	 * paints the way `Sheet1.Calculate` does (issue #31). Absent (or a
+	 * non-host type such as MSForms.UserForm, whose members the implicit
+	 * collector owns) leaves `Me.` alone.
+	 */
+	meType?: string;
 }
 
 /**
@@ -730,18 +747,11 @@ export function collectHostMemberMethodTokens(
 			continue;
 		}
 		const recv = tokens[i - 2];
-		if (recv.kind !== 'identifier') {
-			continue;
-		}
 		const before = tokens[i - 3];
 		if (before && (before.rawText === '.' || before.rawText === '!')) {
 			continue; // not the chain root
 		}
-		const lower = recv.rawText.toLowerCase();
-		if (declared.has(lower)) {
-			continue;
-		}
-		const receiverType = resolveHostGlobal(recv.rawText, ctx.model) ?? codeNames[lower];
+		const receiverType = hostReceiverType(recv, ctx, declared, codeNames);
 		if (!receiverType) {
 			continue;
 		}
@@ -756,6 +766,34 @@ export function collectHostMemberMethodTokens(
 		});
 	}
 	return out;
+}
+
+/**
+ * The qualified host type of a chain-root receiver token: `Me` when the
+ * module's `Me` denotes a host document type, otherwise an unshadowed host
+ * global or document code name. Undefined for every other shape.
+ */
+function hostReceiverType(
+	recv: VbaToken | undefined,
+	ctx: HostMemberTokenContext,
+	declared: ReadonlySet<string>,
+	codeNames: Readonly<Record<string, string>>,
+): string | undefined {
+	if (!recv) {
+		return undefined;
+	}
+	if (tokenWord(recv) === 'me') {
+		// `Me` cannot be shadowed; a non-host meType simply resolves no member.
+		return ctx.meType;
+	}
+	if (recv.kind !== 'identifier') {
+		return undefined;
+	}
+	const lower = recv.rawText.toLowerCase();
+	if (declared.has(lower)) {
+		return undefined;
+	}
+	return resolveHostGlobal(recv.rawText, ctx.model) ?? codeNames[lower];
 }
 
 export function resolveTypeSemanticTokens(

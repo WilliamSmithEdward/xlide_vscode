@@ -4,6 +4,21 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [4.0.2] - Unreleased
 
+- **The paint's shadow rule reaches the receiver too** (#30). A form control
+  named exactly like a host global no longer wears the global's tint inside
+  its own form: the global collector now takes the designer-declared
+  controls the member collector already honors, so both halves of the name
+  agree that the control wins the binding.
+
+- **`Me.` paints like its code name** (#31). In a document module,
+  `Me.Calculate` and `Sheet1.Calculate` are the same call, and hover,
+  completion, and signature help already said so - only the paint
+  disagreed. The host method collector now takes the module's `Me` host
+  type (Excel.Worksheet/Workbook/Chart, Word.Document) and paints
+  Me-qualified resolved methods under the same conservative gates;
+  form `Me` stays with the MSForms collector, and longer chains and
+  With-block members stay out of scope.
+
 - **The shared Office constants reach every host.** Every Office VBA project
   auto-references the Office object library, but only Excel's model merged
   its enum constants - so in a Word, PowerPoint, or Access module `msoTrue`
