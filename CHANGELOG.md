@@ -108,6 +108,15 @@ its own Office application.
   line continuations included), taking the per-keystroke cost on the same
   module from 22 ms to under 2 ms.
 
+- **Every surface speaks its file's language.** The sidebar, the module
+  sync and analysis GUIs, and the command notifications said "workbook" and
+  offered Excel-only actions no matter which host the selected file
+  belonged to. The sidebar's File Actions now name the owning application
+  (a Word document gets Open in Word through the OS association instead of
+  the Excel launcher pair), diff panes title their right side "File:", and
+  workbook stays only where the surface really is Excel - the launcher,
+  sheets, and Excel coordination settings.
+
 - **The test host works for names and paths beyond ASCII.** The generated
   host script is now written with a byte-order mark - Windows PowerShell
   reads a BOM-less script in the system ANSI code page, which mangled the

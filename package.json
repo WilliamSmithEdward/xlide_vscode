@@ -157,7 +157,7 @@
           "type": "boolean",
           "scope": "machine",
           "default": true,
-          "description": "Automatically reveal the active module in the XLIDE explorer and collapse the others as you switch editor tabs (a one-workbook, one-module accordion). Turn off to leave the tree as you arrange it - switching tabs and expanding nodes will not auto-collapse anything."
+          "description": "Automatically reveal the active module in the XLIDE explorer and collapse the others as you switch editor tabs (a one-file, one-module accordion). Turn off to leave the tree as you arrange it - switching tabs and expanding nodes will not auto-collapse anything."
         },
         "xlide.docs.enabled": {
           "type": "boolean",
@@ -1112,7 +1112,7 @@
             "query"
           ]
         },
-        "userDescription": "Search across all VBA modules in a workbook"
+        "userDescription": "Search across all VBA modules in a macro-enabled file"
       }
     ]
   },
