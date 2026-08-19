@@ -236,3 +236,70 @@ describe('Access stays read-only, with the reason stated', () => {
 			.toThrow(/Word macro-enabled document.*cell writes need an OOXML Excel workbook/);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// The export / import planning surface over real non-Excel containers: the
+// same plan builders the GUI commands call, driven by the real engine service
+// through a minimal bridge shim (the plan layer is bridge-driven and never
+// looks at the container itself).
+
+import type { WorkbookEngine } from '../src/workbookEngine';
+import { buildExportModuleSyncPlan, buildImportModuleSyncPlan } from '../src/moduleSyncPlan';
+import * as svc from '../src/vba/workbookService';
+
+function realServiceBridge(): WorkbookEngine {
+	return {
+		async call<T>(method: string, args: Record<string, unknown>): Promise<T> {
+			const p = String(args.path);
+			switch (method) {
+				case 'listModules': return svc.listModules(p) as T;
+				case 'readModules': return svc.readModules(p, Boolean(args.full)) as T;
+				case 'readModule': return svc.readModule(p, String(args.module), Boolean(args.full)) as T;
+				case 'readFormExport': return svc.readFormExport(p, String(args.module)) as T;
+				case 'writeModule': return svc.writeModule(p, String(args.module), String(args.source ?? ''), args.kind === 'class' ? 'class' : 'standard') as T;
+				default: throw new Error(`bridge shim: unhandled ${method}`);
+			}
+		},
+	} as WorkbookEngine;
+}
+
+describe('the module sync plans cover the non-Excel containers', () => {
+	it('plans a Word document export with every module surfaced', async () => {
+		const target = copyOf('WordFixture.docm');
+		const exportFolder = path.join(tempRoot, 'word-export');
+		const plan = await buildExportModuleSyncPlan(realServiceBridge(), {
+			workbookPath: target,
+			exportFolder,
+		});
+		const names = plan.items.map((item) => item.moduleName).sort();
+		expect(names).toEqual(expect.arrayContaining(['CGreeter', 'Module1', 'ThisDocument']));
+		expect(plan.items.every((item) => item.status !== undefined)).toBe(true);
+	});
+
+	it('plans an Access database export (read-only container, read-only operation)', async () => {
+		const exportFolder = path.join(tempRoot, 'access-export');
+		const plan = await buildExportModuleSyncPlan(realServiceBridge(), {
+			workbookPath: fixture('AccessFixture.accdb'),
+			exportFolder,
+		});
+		const names = plan.items.map((item) => item.moduleName).sort();
+		expect(names).toEqual(expect.arrayContaining(['CAudit', 'MBig', 'Module1']));
+	});
+
+	it('plans and understands an import back into a Word document', async () => {
+		const target = copyOf('WordFixture.docm');
+		const importFolder = path.join(tempRoot, 'word-import');
+		fs.mkdirSync(importFolder, { recursive: true });
+		fs.writeFileSync(
+			path.join(importFolder, 'Module1.bas'),
+			'Attribute VB_Name = "Module1"\r\nPublic Sub Reworked()\r\nEnd Sub\r\n',
+		);
+		const plan = await buildImportModuleSyncPlan(realServiceBridge(), {
+			workbookPath: target,
+			importFolder,
+		});
+		const item = plan.items.find((candidate) => candidate.moduleName === 'Module1');
+		expect(item).toBeDefined();
+		expect(item?.status).toBe('will-update');
+	});
+});
