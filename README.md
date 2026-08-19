@@ -290,11 +290,11 @@ Open the Command Palette and type `XLIDE` to find these commands:
 
 | Command | Use it when you want to |
 |---|---|
-| `XLIDE: Analyze Workbook` | Review workbook-wide issues in one report. |
+| `XLIDE: Analyze File` | Review a file's issues in one report. |
 | `XLIDE: Analyze Current Module` | Check only the module you are editing. |
-| `XLIDE: Export All Modules to Folder` | Save workbook code as reviewable source files. |
-| `XLIDE: Import Modules from Folder` | Bring reviewed module files back into the workbook. |
-| `XLIDE: Unit Tests` | Run marked workbook tests through Excel. |
+| `XLIDE: Export All Modules to Folder` | Save a file's code as reviewable source files. |
+| `XLIDE: Import Modules from Folder` | Bring reviewed module files back into the file. |
+| `XLIDE: Unit Tests` | Run marked tests through the file's own application. |
 | `XLIDE: Open Workbook in Excel` | Open the selected workbook in Excel. |
 | `XLIDE: Copy Diagnostics` | Copy setup and environment details for support. |
 | `XLIDE: Export Support Bundle` | Create a troubleshooting bundle. |

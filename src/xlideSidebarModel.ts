@@ -1,4 +1,5 @@
 import { workbookIdentityKey } from './workbookIdentity';
+import { containerAppNameForPath, isExcelContainerPath } from './macroContainerUi';
 
 type XlideSidebarNodeKind = 'section' | 'status' | 'action' | 'select';
 type XlideSidebarStatus = 'pass' | 'warn' | 'fail' | 'unknown';
@@ -58,14 +59,14 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
     const workbookArg = input.activeWorkbook ? workbookCommandArg(input.activeWorkbook) : undefined;
     return [
         welcomeSection(),
-        section('workbookActions', 'Workbook Actions', [
+        section('workbookActions', 'File Actions', [
             targetWorkbookNode(input.workbookChoices ?? [], input.activeWorkbook),
             workbookActionNode(
                 'workbookActions.analyzeWorkbook',
-                'Analyze Workbook',
+                'Analyze File',
                 undefined,
                 'xlide.analyzeWorkbook',
-                'Analyze the selected target workbook.',
+                'Analyze the selected target file.',
                 workbookArg,
             ),
             workbookActionNode(
@@ -73,7 +74,7 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 'Export Modules',
                 undefined,
                 'xlide.exportModulesToFolder',
-                'Open the module export diff GUI for the selected target workbook.',
+                'Open the module export diff GUI for the selected target file.',
                 workbookArg,
             ),
             workbookActionNode(
@@ -81,31 +82,16 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 'Import Modules',
                 undefined,
                 'xlide.importModulesFromFolder',
-                'Open the module import diff GUI for the selected target workbook.',
+                'Open the module import diff GUI for the selected target file.',
                 workbookArg,
             ),
-            workbookActionNode(
-                'workbookActions.openWorkbook',
-                'Open Workbook In Excel',
-                undefined,
-                'xlide.openWorkbook',
-                'Open the selected target workbook in Excel.',
-                workbookArg,
-            ),
-            workbookActionNode(
-                'workbookActions.openWorkbookReadOnly',
-                'Open Workbook Read Only',
-                undefined,
-                'xlide.openWorkbookReadOnly',
-                'Open the selected target workbook in Excel as read-only.',
-                workbookArg,
-            ),
+            ...openActionNodes(input.activeWorkbook, workbookArg),
             workbookActionNode(
                 'workbookActions.runVbaTests',
                 'Unit Tests',
                 undefined,
                 'xlide.runVbaTests',
-                'Open the VBA unit tests GUI for the selected target workbook.',
+                'Open the VBA unit tests GUI for the selected target file.',
                 workbookArg,
             ),
         ]),
@@ -141,10 +127,10 @@ function welcomeSection(): XlideSidebarNode {
     return section('welcome', 'Welcome', [
         statusNode(
             'welcome.tree',
-            'Workbook Tree',
-            'Find workbook and module navigation in Explorer > XLIDE.',
+            'File Tree',
+            'Find file and module navigation in Explorer > XLIDE.',
             'unknown',
-            'The XLIDE workbook tree stays in the VS Code Explorer so workbook navigation and sidebar actions remain separate.',
+            'The XLIDE file tree stays in the VS Code Explorer so file navigation and sidebar actions remain separate.',
         ),
     ]);
 }
@@ -172,7 +158,7 @@ function targetWorkbookNode(
     if (choices.length > 0) {
         const optionValues = new Set(choices.map((choice) => workbookIdentityKey(choice.filePath)));
         const options = [
-            ...(workbook ? [] : [{ label: 'Select Workbook...', value: '' }]),
+            ...(workbook ? [] : [{ label: 'Select File...', value: '' }]),
             ...(workbook && !optionValues.has(workbookIdentityKey(workbook.filePath))
                 ? [{
                     label: workbook.label,
@@ -189,12 +175,12 @@ function targetWorkbookNode(
         return {
             id: 'project.targetWorkbook',
             kind: 'select',
-            label: 'Target Workbook',
-            description: workbook ? workbook.label : 'Select Workbook',
+            label: 'Target File',
+            description: workbook ? workbook.label : 'Select File',
             status: workbook ? 'pass' : 'warn',
             tooltip: workbook
                 ? `${workbook.filePath}\nSelected from ${selectionSourceLabel(workbook.selectionSource)}.`
-                : 'Choose the workbook that sidebar actions should analyze, import/export, validate, run, or test.',
+                : 'Choose the file that sidebar actions should analyze, import/export, validate, run, or test.',
             value: workbook?.filePath ?? '',
             options,
         };
@@ -202,19 +188,61 @@ function targetWorkbookNode(
     if (!workbook) {
         return statusNode(
             'project.targetWorkbook',
-            'Target Workbook',
+            'Target File',
             'None Selected',
             'unknown',
-            'Open an XLIDE VBA module, choose a workbook in the sidebar, or keep exactly one workbook in the workspace to select a workbook context.',
+            'Open an XLIDE VBA module, choose a file in the sidebar, or keep exactly one macro-enabled file in the workspace to select a target.',
         );
     }
     return statusNode(
         'project.targetWorkbook',
-        'Target Workbook',
+        'Target File',
         workbook.label,
         'pass',
         `${workbook.filePath}\nSelected from ${selectionSourceLabel(workbook.selectionSource)}.`,
     );
+}
+
+/**
+ * The open-in-application actions for the selected file. Excel files keep
+ * the launcher pair (normal and read-only); every other host opens through
+ * its own application via the OS association, which has no read-only mode.
+ */
+function openActionNodes(
+    workbook: XlideSidebarActiveWorkbook | undefined,
+    workbookArg: unknown | undefined,
+): XlideSidebarNode[] {
+    if (workbook && !isExcelContainerPath(workbook.filePath)) {
+        const app = containerAppNameForPath(workbook.filePath);
+        return [
+            workbookActionNode(
+                'workbookActions.openWorkbook',
+                `Open in ${app}`,
+                undefined,
+                'xlide.openInOfficeApp',
+                `Open the selected target file in ${app}.`,
+                workbookArg,
+            ),
+        ];
+    }
+    return [
+        workbookActionNode(
+            'workbookActions.openWorkbook',
+            'Open Workbook in Excel',
+            undefined,
+            'xlide.openWorkbook',
+            'Open the selected target workbook in Excel.',
+            workbookArg,
+        ),
+        workbookActionNode(
+            'workbookActions.openWorkbookReadOnly',
+            'Open Workbook in Excel (Read Only)',
+            undefined,
+            'xlide.openWorkbookReadOnly',
+            'Open the selected target workbook in Excel as read-only.',
+            workbookArg,
+        ),
+    ];
 }
 
 function actionNode(
@@ -249,7 +277,7 @@ function workbookActionNode(
             kind: 'action',
             label,
             description,
-            tooltip: 'Select a target workbook before running this sidebar action.',
+            tooltip: 'Select a target file before running this sidebar action.',
             disabled: true,
         };
     }
@@ -269,9 +297,9 @@ function selectionSourceLabel(source: XlideSidebarActiveWorkbook['selectionSourc
         case 'activeEditor':
             return 'the active editor';
         case 'singleWorkbook':
-            return 'the only workbook in the workspace';
+            return 'the only macro-enabled file in the workspace';
         case 'sidebarSelection':
-            return 'the sidebar workbook picker';
+            return 'the sidebar file picker';
         default:
             return 'the current context';
     }

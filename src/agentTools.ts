@@ -614,7 +614,7 @@ export function registerAgentTools(
                 return {
                     invocationMessage: `Creating workbook "${options.input.filePath}"`,
                     confirmationMessages: {
-                        title: 'Create New Workbook',
+                        title: 'Create New Macro-Enabled File',
                         message: new vscode.MarkdownString(
                             `Create a new Excel workbook at \`${options.input.filePath}\`?`,
                         ),

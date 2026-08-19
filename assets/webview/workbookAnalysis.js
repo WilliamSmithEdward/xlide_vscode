@@ -156,13 +156,13 @@
         }
 
         function renderWorkbookUntrackedRules() {
-            settingsSource.textContent = 'Source: ' + (model.rulesSourceIsWorkbook ? 'Workbook settings' : 'No workbook override');
+            settingsSource.textContent = 'Source: ' + (model.rulesSourceIsWorkbook ? 'File settings' : 'No file override');
             settingsResetButton.disabled = !model.rulesSourceIsWorkbook;
             workbookUntrackedRulesContainer.textContent = '';
             const rules = model.workbookUntrackedRules ?? [];
             if (rules.length === 0) {
                 workbookUntrackedRulesContainer.appendChild(
-                    element('div', 'settingsEmpty', 'No workbook rules are manually untracked.'),
+                    element('div', 'settingsEmpty', 'No file rules are manually untracked.'),
                 );
                 return;
             }
@@ -682,7 +682,7 @@
             } else if (event.data?.type === 'ruleTrackingChanged') {
                 const code = String(event.data.code ?? '').toLowerCase();
                 const tracked = event.data.tracked === true;
-                const scope = event.data.scope === 'global' ? 'globally' : 'in workbook';
+                const scope = event.data.scope === 'global' ? 'globally' : 'in this file';
                 showToast(code
                     ? (tracked ? 'Tracked ' : 'Untracked ') + code + ' ' + scope
                     : 'Rule tracking updated');

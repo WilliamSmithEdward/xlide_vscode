@@ -467,7 +467,7 @@ and support actions.
 tested without VS Code APIs. `src/xlideSidebar.ts` renders that model into a
 VS Code-themed webview with section spacing, dividers, setup-only status dots,
 a compact welcome note that points users to the Explorer-hosted XLIDE tree, and
-a dedicated Workbook Actions group containing the target workbook picker and
+a dedicated File Actions group containing the target file picker and
 workbook-scoped action buttons. It does not render module-scoped actions or
 module-scoped information; those stay in editor or tree contexts where the
 module target is explicit. It refreshes on `xlide.*` configuration changes,
@@ -477,7 +477,7 @@ COM to render.
 
 There is no Setup section: the workbook engine runs in-process, so nothing has
 to be installed, detected, or repaired before the tree and the actions work. The
-Workbook Actions section lets the user pick the
+File Actions section lets the user pick the
 target workbook and keeps workbook-scoped actions directly under that picker. If
 no explicit sidebar target is selected, the context can fall back to the active
 `xlide-vba://` editor or a single-workbook workspace; if no target exists,
@@ -664,7 +664,7 @@ diagnosticKind}` problems, sorted by module/line/column. Semantic analyzer rules
 and structural block-balance codes resolve through the shared diagnostic
 metadata catalogue before the workbook summary is counted, so the command GUI
 and `xlide_analyzeWorkbook` agent JSON do not maintain separate rule buckets. The
-`xlide.analyzeWorkbook` command (`src/commands/analysisCommands.ts`, right-click "Analyze Workbook"
+`xlide.analyzeWorkbook` command (`src/commands/analysisCommands.ts`, right-click "Analyze File"
 on a workbook tree node) and `xlide.analyzeCurrentModule` both open the
 dedicated analysis results panel from `src/workbookAnalysisWebview.ts`. The panel is
 driven by the pure model in `src/workbookAnalysisResultsModel.ts`, shows severity

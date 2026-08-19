@@ -215,7 +215,7 @@ describe('module sync plan', () => {
 			existsInWorkbook: false,
 			existsInRepo: true,
 			leftTitle: 'Repo: Stale.bas (will remove)',
-			rightTitle: 'Workbook: missing module',
+			rightTitle: 'File: missing module',
 		});
 		expect(stale?.warning).toContain('stale .bas/.cls/.frm repo module file');
 	});
@@ -274,7 +274,7 @@ describe('module sync plan', () => {
 			checked: true,
 			selectable: true,
 			unsupportedDirectCreation: false,
-			rightTitle: 'Workbook: Sheet1 (will update)',
+			rightTitle: 'File: Sheet1 (will update)',
 		});
 		expect(byName.get('Sheet1')?.warning).toContain('code can be updated');
 		expect(byName.get('Sheet2')).toMatchObject({
@@ -282,7 +282,7 @@ describe('module sync plan', () => {
 			checked: false,
 			selectable: true,
 			unsupportedDirectCreation: true,
-			rightTitle: 'Workbook: Sheet2 (cannot create)',
+			rightTitle: 'File: Sheet2 (cannot create)',
 		});
 		expect(byName.get('Sheet2')?.warning).toContain('cannot be created directly');
 		expect(byName.get('UserForm1')).toMatchObject({
@@ -300,8 +300,8 @@ describe('module sync plan', () => {
 		});
 		expect(byName.get('UserForm2')?.warning).toContain('cannot be created directly');
 		expect(plan.warnings).toEqual([
-			'Sheet2: skipping import unless the module already exists in the workbook.',
-			'UserForm2: skipping import unless the module already exists in the workbook.',
+			'Sheet2: skipping import unless the module already exists in the file.',
+			'UserForm2: skipping import unless the module already exists in the file.',
 		]);
 	});
 
@@ -334,7 +334,7 @@ describe('module sync plan', () => {
 			existsInWorkbook: true,
 			existsInRepo: false,
 			detail: 'Will delete workbook module',
-			rightTitle: 'Workbook: StaleStandard (will delete)',
+			rightTitle: 'File: StaleStandard (will delete)',
 		});
 		expect(byName.get('StaleClass')).toMatchObject({
 			status: 'will-remove',
@@ -359,7 +359,7 @@ describe('module sync plan', () => {
 		expect(item).toMatchObject({
 			moduleName: 'NewModule',
 			status: 'will-create',
-			rightTitle: 'Workbook: NewModule (will create)',
+			rightTitle: 'File: NewModule (will create)',
 		});
 		expect(item.diff.filter((line) => line.left).every((line) => line.kind === 'added')).toBe(true);
 	});

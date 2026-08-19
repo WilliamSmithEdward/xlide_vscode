@@ -448,7 +448,7 @@ export function registerVbaTestCommands(deps: CommandDeps): vscode.Disposable[] 
     } | undefined> {
         const editor = activeLocalVbaEditor();
         if (!editor) {
-            vscode.window.showWarningMessage('XLIDE: Open a local workbook VBA module to run module tests.');
+            vscode.window.showWarningMessage('XLIDE: Open a local VBA module to run module tests.');
             return undefined;
         }
         let xlsmPath: string;
@@ -458,7 +458,7 @@ export function registerVbaTestCommands(deps: CommandDeps): vscode.Disposable[] 
         } catch {
             // isLocalXlideDocument verifies the scheme but not the *.bas module
             // shape decodeModuleUri requires, so guard against a non-module URI.
-            vscode.window.showWarningMessage('XLIDE: Open a local workbook VBA module to run module tests.');
+            vscode.window.showWarningMessage('XLIDE: Open a local VBA module to run module tests.');
             return undefined;
         }
         if (expectedWorkbookPath && !sameWorkbookPath(xlsmPath, expectedWorkbookPath)) {

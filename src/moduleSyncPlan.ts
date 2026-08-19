@@ -151,7 +151,7 @@ export async function buildExportModuleSyncPlan(
             existsInWorkbook: true,
             existsInRepo,
             unsupportedDirectCreation: false,
-            leftTitle: `Workbook: ${mod.name}`,
+            leftTitle: `File: ${mod.name}`,
             rightTitle: exportRepoTitle(relativeName, status),
             leftCode: liveDisplaySource,
             rightCode: repoDisplaySource,
@@ -192,7 +192,7 @@ export async function buildExportModuleSyncPlan(
                 existsInRepo: true,
                 unsupportedDirectCreation: false,
                 leftTitle: `Repo: ${relPath} (will remove)`,
-                rightTitle: 'Workbook: missing module',
+                rightTitle: 'File: missing module',
                 leftCode: repoDisplaySource,
                 rightCode: '',
                 leftRawCode: repoSource,
@@ -317,7 +317,7 @@ export async function buildImportModuleSyncPlan(
                 existsInRepo: false,
                 unsupportedDirectCreation: false,
                 leftTitle: 'Repo: missing file',
-                rightTitle: `Workbook: ${mod.name} (will delete)`,
+                rightTitle: `File: ${mod.name} (will delete)`,
                 leftCode: '',
                 rightCode: workbookDisplaySource,
                 leftRawCode: '',
@@ -340,7 +340,7 @@ export async function buildImportModuleSyncPlan(
         items: [...items, ...workbookOnlyItems].sort(compareSyncItems),
         warnings: items
             .filter((item) => item.unsupportedDirectCreation)
-            .map((item) => `${item.moduleName}: skipping import unless the module already exists in the workbook.`),
+            .map((item) => `${item.moduleName}: skipping import unless the module already exists in the file.`),
     };
     });
 }
@@ -466,13 +466,13 @@ function exportRepoTitle(relativeName: string, status: ModuleSyncItemStatus): st
 function importWorkbookTitle(moduleName: string, status: ModuleSyncItemStatus): string {
     switch (status) {
         case 'will-create':
-            return `Workbook: ${moduleName} (will create)`;
+            return `File: ${moduleName} (will create)`;
         case 'will-update':
-            return `Workbook: ${moduleName} (will update)`;
+            return `File: ${moduleName} (will update)`;
         case 'skipping-import':
-            return `Workbook: ${moduleName} (cannot create)`;
+            return `File: ${moduleName} (cannot create)`;
         default:
-            return `Workbook: ${moduleName}`;
+            return `File: ${moduleName}`;
     }
 }
 

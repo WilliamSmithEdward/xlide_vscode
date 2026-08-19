@@ -213,7 +213,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
     async function exportActiveModule(): Promise<void> {
         const editor = activeLocalVbaEditor();
         if (!editor) {
-            vscode.window.showWarningMessage('XLIDE: Open a local workbook VBA module to export the current module.');
+            vscode.window.showWarningMessage('XLIDE: Open a local VBA module to export the current module.');
             return;
         }
 

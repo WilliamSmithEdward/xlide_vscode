@@ -31,14 +31,14 @@ The current sidebar information architecture is considered stable:
 ```text
 Welcome
 Setup
-Workbook Actions
+File Actions
 Settings
 Support
 ```
 
 Do not rework the sidebar layout, section order, or status/action split without
 a specific product reason. Future sidebar work should be additive and tied to
-real workflow functionality. The expected next Workbook Actions addition is a
+real workflow functionality. The expected next File Actions addition is a
 Unit Tests button once the VBA test runner is implemented; it should use the
 sidebar target workbook and follow the same disabled-state contract as the other
 workbook-scoped actions.
@@ -89,7 +89,7 @@ Recommended sections:
 1. **Welcome**
    - Explain that workbook/module navigation lives in Explorer > XLIDE.
 
-2. **Workbook Actions**
+2. **File Actions**
    - Target workbook picker for workbook-scoped sidebar actions
    - Analyze selected workbook
    - Import/export selected workbook modules

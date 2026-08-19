@@ -12,20 +12,20 @@ describe('xlideSidebarModel', () => {
 
         expect(model.map((section) => section.label)).toEqual([
             'Welcome',
-            'Workbook Actions',
+            'File Actions',
             'Settings',
             'Support',
         ]);
         expect(model[0].children?.map((node) => [node.label, node.description, node.kind])).toEqual([
-            ['Workbook Tree', 'Find workbook and module navigation in Explorer > XLIDE.', 'status'],
+            ['File Tree', 'Find file and module navigation in Explorer > XLIDE.', 'status'],
         ]);
         expect(model[1].children?.map((node) => node.label)).toEqual([
-            'Target Workbook',
-            'Analyze Workbook',
+            'Target File',
+            'Analyze File',
             'Export Modules',
             'Import Modules',
-            'Open Workbook In Excel',
-            'Open Workbook Read Only',
+            'Open Workbook in Excel',
+            'Open Workbook in Excel (Read Only)',
             'Unit Tests',
         ]);
         expect(model[2].children?.map((node) => [node.label, node.description])).toEqual([
@@ -40,15 +40,15 @@ describe('xlideSidebarModel', () => {
 
     it('never gates the sidebar behind a setup section', () => {
         // The workbook engine runs in-process, so there is nothing to install
-        // or probe: the workbook actions are available from the first render.
+        // or probe: the file actions are available from the first render.
         const model = buildXlideSidebarModel({});
 
         expect(model.map((section) => section.id)).not.toContain('setup');
-        expect(model.map((section) => section.label)).toContain('Workbook Actions');
-        expect(model[0].children?.map((node) => node.label)).toEqual(['Workbook Tree']);
+        expect(model.map((section) => section.label)).toContain('File Actions');
+        expect(model[0].children?.map((node) => node.label)).toEqual(['File Tree']);
     });
 
-    it('always uses a selector for workspace workbook choices', () => {
+    it('always uses a selector for workspace file choices', () => {
         const model = buildXlideSidebarModel({
             workbookChoices: [
                 { label: 'Book.xlsm', filePath: 'C:\\work\\Book.xlsm' },
@@ -64,11 +64,52 @@ describe('xlideSidebarModel', () => {
         const selector = model[1].children?.find((node) => node.id === 'project.targetWorkbook');
 
         expect(selector?.kind).toBe('select');
-        expect(selector?.label).toBe('Target Workbook');
+        expect(selector?.label).toBe('Target File');
         expect(selector?.value).toBe('C:\\work\\Book.xlsm');
         expect(selector?.options?.map((option) => [option.label, option.value])).toEqual([
             ['Book.xlsm', 'C:\\work\\Book.xlsm'],
         ]);
+    });
+
+    it('offers the Excel launcher pair only for Excel files', () => {
+        const model = buildXlideSidebarModel({
+            workbookChoices: [
+                { label: 'Report.docm', filePath: 'C:\\work\\Report.docm' },
+            ],
+            activeWorkbook: {
+                label: 'Report.docm',
+                filePath: 'C:\\work\\Report.docm',
+                settingsPath: 'C:\\work\\Report.docm.xlide_settings.json',
+                selectionSource: 'sidebarSelection',
+                settingsState: 'valid',
+            },
+        });
+
+        const labels = model[1].children?.map((node) => node.label);
+        expect(labels).toContain('Open in Word');
+        expect(labels).not.toContain('Open Workbook in Excel');
+        expect(labels).not.toContain('Open Workbook in Excel (Read Only)');
+        const open = model[1].children?.find((node) => node.label === 'Open in Word');
+        expect(open?.command?.command).toBe('xlide.openInOfficeApp');
+    });
+
+    it('names the owning application for PowerPoint and Access files', () => {
+        for (const [fileName, app] of [
+            ['Deck.pptm', 'PowerPoint'],
+            ['Data.accdb', 'Access'],
+        ] as const) {
+            const model = buildXlideSidebarModel({
+                workbookChoices: [{ label: fileName, filePath: `C:\\work\\${fileName}` }],
+                activeWorkbook: {
+                    label: fileName,
+                    filePath: `C:\\work\\${fileName}`,
+                    settingsPath: `C:\\work\\${fileName}.xlide_settings.json`,
+                    selectionSource: 'sidebarSelection',
+                    settingsState: 'valid',
+                },
+            });
+            expect(model[1].children?.map((node) => node.label)).toContain(`Open in ${app}`);
+        }
     });
 
     it('keeps Workbook Settings JSON out of the permanent sidebar actions', () => {
@@ -90,7 +131,7 @@ describe('xlideSidebarModel', () => {
         expect(model[2].children?.map((node) => node.label)).not.toContain('Workbook Settings JSON');
     });
 
-    it('passes the selected workbook to every workbook-scoped action', () => {
+    it('passes the selected file to every file-scoped action', () => {
         const model = buildXlideSidebarModel({
             workbookChoices: [
                 { label: 'First.xlsm', filePath: 'C:\\work\\First.xlsm' },

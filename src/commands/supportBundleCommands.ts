@@ -188,7 +188,7 @@ export function registerSupportBundleCommands(deps: CommandDeps): vscode.Disposa
             const picks = await vscode.window.showQuickPick(
                 [
                     {
-                        label: 'Anonymized workbook analysis report',
+                        label: 'Anonymized file analysis report',
                         description: 'Counts by rule/module type only; no source or module names',
                         picked: true,
                         option: 'includeAnonymizedWorkbookAnalysisReport' as const,
@@ -241,7 +241,7 @@ export function registerSupportBundleCommands(deps: CommandDeps): vscode.Disposa
 
         const defaultFolder = vscode.workspace.workspaceFolders?.[0]?.uri;
         const target = await vscode.window.showSaveDialog({
-            title: 'Export XLIDE Support Bundle (redacted JSON; no workbook source)',
+            title: 'Export XLIDE Support Bundle (redacted JSON; no VBA source)',
             defaultUri: defaultFolder
                 ? vscode.Uri.joinPath(defaultFolder, defaultSupportBundleFileName(now))
                 : undefined,

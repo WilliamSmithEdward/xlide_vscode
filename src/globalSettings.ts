@@ -267,7 +267,7 @@ const XLIDE_GLOBAL_SETTINGS: {
         webviewCard: {
             section: 'editor',
             label: 'Auto Expand And Collapse Explorer Tree',
-            description: "Automatically reveal the active module in the XLIDE explorer and collapse the others as you switch editor tabs (a one-workbook, one-module accordion). Turn off to leave the tree as you arrange it - switching tabs and expanding nodes will not auto-collapse anything.",
+            description: "Automatically reveal the active module in the XLIDE explorer and collapse the others as you switch editor tabs (a one-file, one-module accordion). Turn off to leave the tree as you arrange it - switching tabs and expanding nodes will not auto-collapse anything.",
             control: { kind: 'boolean' },
         },
     },

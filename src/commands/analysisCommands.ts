@@ -372,7 +372,7 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
     async function analyzeActiveModule(): Promise<void> {
         const editor = vscode.window.activeTextEditor;
         if (!editor || editor.document.uri.scheme !== XLIDE_SCHEME) {
-            vscode.window.showWarningMessage('XLIDE: Open a workbook VBA module to analyze the current module.');
+            vscode.window.showWarningMessage('XLIDE: Open a VBA module from a macro-enabled file to analyze the current module.');
             return;
         }
 

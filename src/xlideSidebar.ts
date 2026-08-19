@@ -148,7 +148,7 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
             ? findWorkbook(workbooks, filePath)
             : undefined;
         if (filePath && !workbook) {
-            vscode.window.showWarningMessage('XLIDE: That workbook is no longer available in this workspace.');
+            vscode.window.showWarningMessage('XLIDE: That file is no longer available in this workspace.');
         }
         await this._setSelectedWorkbookPath(workbook?.fsPath);
         this.refresh();
@@ -218,7 +218,7 @@ function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRe
                 await vscode.window.showTextDocument(document, { preview: false });
             } catch (err) {
                 const message = errorMessage(err);
-                vscode.window.showErrorMessage(`XLIDE: Could not open workbook settings: ${message}`);
+                vscode.window.showErrorMessage(`XLIDE: Could not open file settings: ${message}`);
             }
         }),
         (() => {

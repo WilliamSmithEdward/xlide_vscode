@@ -109,8 +109,8 @@ describe('workbook analysis webview', () => {
         expect(html).toContain('Untrack Globally');
         expect(html).toContain('Track In File');
         expect(html).toContain('Track Globally');
-        expect(html).toContain('Workbook Untracked Rules');
-        expect(html).toContain('No workbook rules are manually untracked.');
+        expect(html).toContain('File Untracked Rules');
+        expect(html).toContain('No file rules are manually untracked.');
         expect(html).toContain('Track All');
         expect(html).not.toContain('Default Visible Severities');
         expect(html).not.toContain('Rule Behavior');

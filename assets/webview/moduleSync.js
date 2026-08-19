@@ -90,14 +90,14 @@
             if (title.startsWith('Repo:')) {
                 return item.existsInRepo ? 'No repo file code to copy.' : 'Repo file does not exist yet.';
             }
-            if (title.startsWith('Workbook:')) {
-                return item.existsInWorkbook ? 'No workbook module code to copy.' : 'Workbook module does not exist yet.';
+            if (title.startsWith('File:')) {
+                return item.existsInWorkbook ? 'No module code in the file to copy.' : 'The module does not exist in the file yet.';
             }
             return side === 'left' ? 'No left-side code to copy.' : 'No right-side code to copy.';
         }
 
         function shouldShowWarnings() {
-            return plan.warnings.some(warning => !warning.includes('skipping import unless the module already exists in the workbook'));
+            return plan.warnings.some(warning => !warning.includes('skipping import unless the module already exists in the file'));
         }
 
         function currentSettings() {
@@ -213,16 +213,16 @@
             const mode = modeValue || el('syncMode').value;
             if (plan.direction === 'export') {
                 return mode === 'trueUp'
-                    ? 'Export every workbook module to the selected folder, then delete stale .bas/.cls module files that no longer exist in the workbook.'
-                    : 'Export every workbook module to the selected folder. XLIDE will create missing module files and update changed files, but will not delete stale files.';
+                    ? 'Export every module in the file to the selected folder, then delete stale .bas/.cls module files that no longer exist in the file.'
+                    : 'Export every module in the file to the selected folder. XLIDE will create missing module files and update changed files, but will not delete stale files.';
             }
             return mode === 'trueUpStandardClass'
-                ? 'Import/update selected .bas/.cls files, then delete workbook-only standard/class modules missing from the folder. New standard/class modules can be created; existing document modules and UserForm .cls code-behind are updated on name match; document modules and UserForm code-behind are never created or deleted by this mode.'
-                : 'Import/update selected .bas/.cls files without deleting workbook modules. New standard/class modules can be created; existing document modules and UserForm .cls code-behind are updated on name match; missing document modules and UserForm code-behind are skipped because XLIDE cannot create them directly.';
+                ? 'Import/update selected .bas/.cls files, then delete file-only standard/class modules missing from the folder. New standard/class modules can be created; existing document modules and UserForm .cls code-behind are updated on name match; document modules and UserForm code-behind are never created or deleted by this mode.'
+                : 'Import/update selected .bas/.cls files without deleting existing file modules. New standard/class modules can be created; existing document modules and UserForm .cls code-behind are updated on name match; missing document modules and UserForm code-behind are skipped because XLIDE cannot create them directly.';
         }
 
         function settingsSourceLabel(source) {
-            if (source === 'workbook') return 'Workbook override';
+            if (source === 'workbook') return 'File override';
             if (source === 'session') return 'Current session';
             if (source === 'machine') return 'VS Code machine setting';
             if (source === 'unknown') return 'Unknown';
@@ -230,7 +230,7 @@
         }
 
         function folderSourceLabel(source) {
-            if (source === 'workbook') return 'Workbook sidecar';
+            if (source === 'workbook') return 'File sidecar';
             if (source === 'session') return 'Current session';
             return 'Not saved';
         }
@@ -252,12 +252,12 @@
             el('folderValue').textContent = plan.folderPath;
             el('folderSource').textContent = `Source: ${folderSourceLabel(plan.folderPathSource)}`;
             setTooltip('folderValue', plan.direction === 'export'
-                ? `Folder XLIDE will compare against and write selected workbook modules into: ${plan.folderPath}`
+                ? `Folder XLIDE will compare against and write selected file modules into: ${plan.folderPath}`
                 : `Folder XLIDE will compare against and import selected module files from: ${plan.folderPath}`);
-            setTooltip('folderSource', `This folder is workbook-scoped.${settingsPathDescription()}`);
+            setTooltip('folderSource', `This folder is saved per file.${settingsPathDescription()}`);
             setTooltip('chooseFolder', plan.direction === 'export'
-                ? 'Choose the folder to compare with this workbook and receive exported module files.'
-                : 'Choose the folder containing module files to compare with and import into this workbook.');
+                ? 'Choose the folder to compare with this file and receive exported module files.'
+                : 'Choose the folder containing module files to compare with and import into this file.');
             el('modeField').classList.remove('hidden');
             const mode = el('syncMode');
             mode.innerHTML = '';
@@ -278,11 +278,11 @@
             updateModeTitle();
             el('selectChanged').textContent = 'Select Pending';
             setTooltip('selectChanged', plan.direction === 'import'
-                ? 'Select every pending import row that will create, update, or delete a workbook module under the current import mode.'
+                ? 'Select every pending import row that will create, update, or delete a module under the current import mode.'
                 : 'Select every pending export row that will create, overwrite, or remove files under the current export mode.');
             setTooltip('clear', 'Clear the current module selection without changing files.');
             setTooltip('apply', plan.direction === 'import'
-                ? 'Apply the selected import changes to the workbook.'
+                ? 'Apply the selected import changes to the file.'
                 : 'Apply the selected export changes to the folder.');
             setTooltip('cancel', 'Close this preview without applying changes.');
             setTooltip('toggleHeaders', 'Toggle hidden VBA Attribute header lines in the diff preview and copy buttons.');
