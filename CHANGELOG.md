@@ -2,7 +2,7 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
-## [4.0.0] - Unreleased
+## [4.0.0] - 2026-08-18
 
 XLIDE opens the workspace to VBA everywhere Office puts it. Until now the
 extension read one container family; 4.0.0 reads eight and writes six, each
