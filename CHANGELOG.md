@@ -2,7 +2,7 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
-## [4.0.1] - Unreleased
+## [4.0.1] - 2026-08-19
 
 - **Origin labels name the module's host, not Excel** (#28). Since 4.0.0
   the resolvers answer from the module's own host model, but every origin
