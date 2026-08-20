@@ -1,12 +1,5 @@
 # XLIDE: VBA for VS Code
 
-<p align="center">
-  <a href="https://www.youtube.com/watch?v=l4m3CxAJcJA&amp;list=PLV2sm2CkHezw" title="XLIDE for VS Code: Getting Started">
-    <img src="https://img.youtube.com/vi/l4m3CxAJcJA/hqdefault.jpg" alt="XLIDE for VS Code: Getting Started (watch on YouTube)">
-  </a>
-</p>
-<p align="center"><em>▶ Click the video above for the install tutorial</em></p>
-
 ## New in 4.0.0: every Office VBA host
 
 XLIDE 4.0.0 opens the workspace to VBA everywhere Office puts it:
