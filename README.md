@@ -1,5 +1,9 @@
 # XLIDE: VBA for VS Code
 
+[Install XLIDE from the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide)
+
+---
+
 ## New in 4.0.0: every Office VBA host
 
 XLIDE 4.0.0 opens the workspace to VBA everywhere Office puts it:
@@ -76,8 +80,6 @@ code, run tests, inspect worksheet data, and sync modules with files through
 explicit XLIDE tools. That means AI help can work with the document itself, not
 just copied snippets or stale exports, making Office automation more
 reviewable, testable, and collaborative.
-
-[Install XLIDE from the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide)
 
 ---
 
