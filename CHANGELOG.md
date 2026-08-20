@@ -2,7 +2,7 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
-## [4.0.6] - Unreleased
+## [4.0.6] - 2026-08-19
 
 - **A real VBE export reads unchanged too** (#37). The VBE's Export writes
   the module text plus one trailing CRLF the live module never carries, so
