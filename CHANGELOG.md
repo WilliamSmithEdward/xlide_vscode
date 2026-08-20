@@ -2,7 +2,7 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
-## [4.0.7] - Unreleased
+## [4.0.7] - 2026-08-20
 
 - **Installing the test support module no longer re-cases your project**
   (#38). VBA cases identifiers project-wide to the latest declaration it
