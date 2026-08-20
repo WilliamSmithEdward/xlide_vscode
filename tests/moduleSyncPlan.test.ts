@@ -680,6 +680,26 @@ describe('a form compares on the half its text can say (issue #36)', () => {
 			.toBe('will-write');
 	});
 
+	it('the VBE exporter one extra trailing CRLF reads equal (issue #37)', async () => {
+		// Export writes the module text plus ONE extra CRLF at EOF; the live
+		// module never carries it, so a real VBE export read will-update
+		// forever by one phantom blank line.
+		const { workbook, repo } = tempWorkbook();
+		fs.writeFileSync(path.join(repo, 'EntryForm.frm'), REPO_FRM + '\r\n', 'utf8');
+		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: LIVE_FORM }]);
+		const imported = await buildImportModuleSyncPlan(bridge, { workbookPath: workbook, importFolder: repo });
+		expect(imported.items.find((candidate) => candidate.moduleName === 'EntryForm')?.status)
+			.toBe('unchanged');
+		const exported = await buildExportModuleSyncPlan(bridge, { workbookPath: workbook, exportFolder: repo });
+		expect(exported.items.find((candidate) => candidate.moduleName === 'EntryForm')?.status)
+			.toBe('unchanged');
+	});
+
+	it('trailing blank lines trim from the preview, interior ones stay', () => {
+		const source = 'Attribute VB_Name = "M"\r\nSub A()\r\n\r\n    x = 1\r\nEnd Sub\r\n\r\n \r\n';
+		expect(editorPreviewSource(source)).toBe('Sub A()\n\n    x = 1\nEnd Sub');
+	});
+
 	it('non-form kinds keep the raw comparison, headers included', async () => {
 		// A .cls attribute difference is a real pending change: class headers
 		// round-trip, so raw equality stays the honest test there.

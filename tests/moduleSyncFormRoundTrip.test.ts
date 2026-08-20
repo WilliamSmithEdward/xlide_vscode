@@ -67,6 +67,18 @@ describe('a form round-trips clean through export and import plan (issue #36)', 
 			.toBe('will-update');
 	});
 
+	it('one extra trailing CRLF on the repo .frm reads unchanged (issue #37)', async () => {
+		// The VBE's own Export writes the module text plus one trailing CRLF.
+		const { workbook, repo, frmPath } = await exportedFixture();
+		fs.appendFileSync(frmPath, '\r\n', 'utf8');
+		const plan = await buildImportModuleSyncPlan(realBridge(), {
+			workbookPath: workbook,
+			importFolder: repo,
+		});
+		expect(plan.items.find((item) => item.relativeName === 'FrmPicker.frm')?.status)
+			.toBe('unchanged');
+	});
+
 	it('a designer-only edit reads unchanged: the code half is the compare (issue #36 scope)', async () => {
 		// The accepted day-one trade: forms compare on the half the module
 		// text can say. A designer-only repo change does not surface as a

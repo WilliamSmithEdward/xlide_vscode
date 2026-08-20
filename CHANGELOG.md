@@ -2,6 +2,16 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [4.0.6] - Unreleased
+
+- **A real VBE export reads unchanged too** (#37). The VBE's Export writes
+  the module text plus one trailing CRLF the live module never carries, so
+  after #36 a form off a real export still read "Will update" by one
+  phantom blank line. The preview strip now trims the trailing blank-line
+  run the way it always trimmed the leading one - status, diff, and the
+  form compare all see the same text - and interior blank lines stay
+  untouched.
+
 ## [4.0.5] - 2026-08-19
 
 - **A form can read unchanged in the sync plan** (#36). The compare held

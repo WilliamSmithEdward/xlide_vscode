@@ -511,6 +511,12 @@ export function editorPreviewSource(source: string): string {
     while (lines.length > 0 && lines[0].trim() === '') {
         lines.shift();
     }
+    // The trailing run trims for the same reason the leading one does - and
+    // one blank line more is exactly what the VBE's own Export appends at
+    // EOF, so a real export would otherwise never compare equal (issue #37).
+    while (lines.length > 0 && lines[lines.length - 1].trim() === '') {
+        lines.pop();
+    }
     return lines.join('\n');
 }
 
