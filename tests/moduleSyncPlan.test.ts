@@ -610,3 +610,94 @@ describe('a UserForm syncs as a .frm (#21)', () => {
 		expect(item?.moduleType).toBe('userform');
 	});
 });
+
+describe('a form compares on the half its text can say (issue #36)', () => {
+	// The .frm file carries the designer header the VBE's export writes; a
+	// live module whose designer cannot be composed (readFormExport
+	// unavailable or failing - the fakeBridge here, an engine without the
+	// call, a form without designer storage) never has one. Raw equality was
+	// false forever, so every form read as a perpetual "Will update".
+	const CODE = [
+		'Option Explicit',
+		'',
+		'Private Sub UserForm_Initialize()',
+		'    Caption = "Entry"',
+		'End Sub',
+		'',
+	].join('\r\n');
+	const LIVE_FORM = [
+		'Attribute VB_Name = "EntryForm"',
+		'Attribute VB_Base = "0{11111111-0000-0000-0000-000000000000};{22222222-0000-0000-0000-000000000000}"',
+		CODE,
+	].join('\r\n');
+	const REPO_FRM = [
+		'VERSION 5.00',
+		'Begin {C62A69F0-16DC-11CE-9E98-00AA00574A4F} EntryForm ',
+		'   Caption         =   "Entry"',
+		'   ClientHeight    =   3000',
+		'   OleObjectBlob   =   "EntryForm.frx":0000',
+		'End',
+		'Attribute VB_Name = "EntryForm"',
+		'Attribute VB_Base = "0{11111111-0000-0000-0000-000000000000};{22222222-0000-0000-0000-000000000000}"',
+		CODE,
+	].join('\r\n');
+
+	it('a clean round trip reads unchanged on the import plan', async () => {
+		const { workbook, repo } = tempWorkbook();
+		fs.writeFileSync(path.join(repo, 'EntryForm.frm'), REPO_FRM, 'utf8');
+		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: LIVE_FORM }]);
+		const plan = await buildImportModuleSyncPlan(bridge, { workbookPath: workbook, importFolder: repo });
+		const item = plan.items.find((candidate) => candidate.moduleName === 'EntryForm');
+		expect(item?.status).toBe('unchanged');
+		expect(item?.checked).toBe(false);
+	});
+
+	it('a code edit still reads will-update on the import plan', async () => {
+		const { workbook, repo } = tempWorkbook();
+		fs.writeFileSync(path.join(repo, 'EntryForm.frm'),
+			REPO_FRM + 'Public Sub Added()\r\nEnd Sub\r\n', 'utf8');
+		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: LIVE_FORM }]);
+		const plan = await buildImportModuleSyncPlan(bridge, { workbookPath: workbook, importFolder: repo });
+		expect(plan.items.find((candidate) => candidate.moduleName === 'EntryForm')?.status)
+			.toBe('will-update');
+	});
+
+	it('the export plan reads the same way', async () => {
+		const { workbook, repo } = tempWorkbook();
+		fs.writeFileSync(path.join(repo, 'EntryForm.frm'), REPO_FRM, 'utf8');
+		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: LIVE_FORM }]);
+		const clean = await buildExportModuleSyncPlan(bridge, { workbookPath: workbook, exportFolder: repo });
+		expect(clean.items.find((candidate) => candidate.moduleName === 'EntryForm')?.status)
+			.toBe('unchanged');
+
+		const edited = fakeBridge([{
+			name: 'EntryForm',
+			type: 'userform',
+			source: LIVE_FORM.replace('"Entry"', '"Changed"'),
+		}]);
+		const dirty = await buildExportModuleSyncPlan(edited, { workbookPath: workbook, exportFolder: repo });
+		expect(dirty.items.find((candidate) => candidate.moduleName === 'EntryForm')?.status)
+			.toBe('will-write');
+	});
+
+	it('non-form kinds keep the raw comparison, headers included', async () => {
+		// A .cls attribute difference is a real pending change: class headers
+		// round-trip, so raw equality stays the honest test there.
+		const { workbook, repo } = tempWorkbook();
+		const liveClass = [
+			'Attribute VB_Name = "Person"',
+			'Option Explicit',
+			'',
+		].join('\r\n');
+		fs.writeFileSync(path.join(repo, 'Person.cls'), [
+			'Attribute VB_Name = "Person"',
+			'Attribute VB_Description = "A person."',
+			'Option Explicit',
+			'',
+		].join('\r\n'), 'utf8');
+		const bridge = fakeBridge([{ name: 'Person', type: 'class', source: liveClass }]);
+		const plan = await buildImportModuleSyncPlan(bridge, { workbookPath: workbook, importFolder: repo });
+		expect(plan.items.find((candidate) => candidate.moduleName === 'Person')?.status)
+			.toBe('will-update');
+	});
+});

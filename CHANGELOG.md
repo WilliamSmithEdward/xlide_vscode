@@ -2,6 +2,22 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [4.0.5] - Unreleased
+
+- **A form can read unchanged in the sync plan** (#36). The compare held
+  the `.frm` file - designer header and all - against live module text,
+  which reads equal only when the engine can compose the full form export;
+  any form whose designer cannot be read (and any `.frm` the VBE itself
+  exported) compared unequal forever, a "Will update" that never cleared.
+  Forms now compare on the half their module text can say - the same
+  header-stripped text the plan's default diff already shows, so the
+  status and the diff always agree - in both the import and export plans.
+  Standard and class modules keep the raw comparison: their headers
+  round-trip, so an attribute edit stays a real pending change. A
+  designer-only repo edit reads unchanged by this rule (the designer still
+  travels whenever the row is applied); a deeper designer compare remains
+  open by choice.
+
 ## [4.0.4] - 2026-08-19
 
 - **Host constants paint in one tier** (#35). The grammar could only carry

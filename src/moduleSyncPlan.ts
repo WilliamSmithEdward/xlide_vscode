@@ -129,7 +129,7 @@ export async function buildExportModuleSyncPlan(
             : '';
         const liveDisplaySource = editorPreviewSource(liveSource);
         const repoDisplaySource = editorPreviewSource(repoSource);
-        const equal = existsInRepo && normalizeEol(liveSource) === normalizeEol(repoSource);
+        const equal = existsInRepo && moduleSyncSourcesEqual(mod.type, liveSource, repoSource);
         const status: ModuleSyncItemStatus = equal
             ? 'unchanged'
             : existsInRepo
@@ -253,7 +253,8 @@ export async function buildImportModuleSyncPlan(
             : '';
         const repoDisplaySource = editorPreviewSource(repo.source);
         const workbookDisplaySource = editorPreviewSource(workbookSource);
-        const equal = existsInWorkbook && normalizeEol(repo.source) === normalizeEol(workbookSource);
+        const equal = existsInWorkbook &&
+            moduleSyncSourcesEqual(moduleType, repo.source, workbookSource);
         const status: ModuleSyncItemStatus = unsupportedDirectCreation
             ? 'skipping-import'
             : equal
@@ -474,6 +475,29 @@ function importWorkbookTitle(moduleName: string, status: ModuleSyncItemStatus): 
         default:
             return `File: ${moduleName}`;
     }
+}
+
+/**
+ * Whether a repo file and the live module carry the same pending-change-free
+ * text. Standard and class modules compare raw: their attribute headers
+ * reconstruct from project facts, so raw equality is the honest test and an
+ * attribute edit is a real pending change. A form compares on the half its
+ * module text can say (issue #36): the `.frm` file carries the designer
+ * header the export writes - `VERSION`/`Begin...End` and the attribute
+ * block - and a live side that cannot compose one (no designer storage, an
+ * engine without the read) would read unequal forever, a "Will update" that
+ * never clears. The stripped comparison is exactly the text the plan's own
+ * default diff shows, so the status and the diff always agree.
+ */
+function moduleSyncSourcesEqual(
+    moduleType: string | undefined,
+    left: string,
+    right: string,
+): boolean {
+    if (moduleType === 'userform') {
+        return editorPreviewSource(left) === editorPreviewSource(right);
+    }
+    return normalizeEol(left) === normalizeEol(right);
 }
 
 export function editorPreviewSource(source: string): string {
