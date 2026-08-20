@@ -53,8 +53,12 @@ export function buildVbaTestDirectRunnerModule(
         '    RunTest = FailureJson(actualNumber, actualSource, actualDescription)',
         'End Function',
         '',
-        'Private Function FailureJson(ByVal number As Long, ByVal source As String, ByVal message As String) As String',
-        '    FailureJson = "{""outcome"":""failed"",""number"":" & CStr(number) & ",""source"":""" & JsonEscape(source) & """,""message"":""" & JsonEscape(message) & """,""output"":" & XlideAssert.OutputJson() & "}"',
+        // The parameters carry the canonical casing of the host members they
+        // shadow (Err.Number/.Source, a user's Message): a lowercase spelling
+        // here re-cases every one of them project-wide (issue #38). The JSON
+        // KEYS in the literal are wire protocol and stay lowercase.
+        'Private Function FailureJson(ByVal Number As Long, ByVal Source As String, ByVal Message As String) As String',
+        '    FailureJson = "{""outcome"":""failed"",""number"":" & CStr(Number) & ",""source"":""" & JsonEscape(Source) & """,""message"":""" & JsonEscape(Message) & """,""output"":" & XlideAssert.OutputJson() & "}"',
         'End Function',
         '',
         ...XLIDE_VBA_JSON_ESCAPE_FUNCTION_LINES,
@@ -196,13 +200,15 @@ export function buildVbaTestDispatchModule(modules: readonly VbaTestDispatchModu
         '',
         "' Generated for one XLIDE test run and staged into the temporary copy",
         "' next to XlideAssert; never written into the user's file.",
-        'Public Sub XlideInvokeTarget(ByVal macroName As String)',
+        // MacroName, not macroName: the lowercase spelling would re-case every
+        // MacroName in the project the moment this module is staged (#38).
+        'Public Sub XlideInvokeTarget(ByVal MacroName As String)',
         '    On Error GoTo Caught',
         '    XlideAssert.RecordTargetOutcome 0, "", ""',
         '    Dim targetKey As String',
-        '    targetKey = Trim$(macroName)',
+        '    targetKey = Trim$(MacroName)',
         ...dispatchCalls,
-        '    Err.Raise 5, "XLIDE.TestDispatch", "Unknown test target: " & macroName',
+        '    Err.Raise 5, "XLIDE.TestDispatch", "Unknown test target: " & MacroName',
         '    Exit Sub',
         'Caught:',
         '    XlideAssert.RecordTargetOutcome Err.Number, Err.Source, Err.Description',

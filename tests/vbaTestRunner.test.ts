@@ -308,6 +308,54 @@ describe('VBA test runner discovery', () => {
             "XLIDE test directives only run from standard modules; 'Person' is a class module.",
         ]);
     });
+
+    it('does not discover a Private or Friend Sub the runner cannot call (issue #39)', () => {
+        // The runner codegen emits `Call <Module>.<Proc>`, which cannot compile
+        // against a Private target - one such test took down the whole
+        // generated module and failed every test in the run.
+        const source = [
+            "' @xlide-test",
+            'Private Sub HiddenScenario()',
+            'End Sub',
+            '',
+            "' @xlide-test",
+            'Friend Sub FriendScenario()',
+            'End Sub',
+            '',
+            "' @xlide-test",
+            'Public Sub VisibleScenario()',
+            'End Sub',
+            '',
+            "' @xlide-test",
+            'Sub ImplicitlyPublicScenario()',
+            'End Sub',
+        ].join('\n');
+
+        const tests = discoverVbaTestsFromModule({ name: 'TestModule', type: 'standard', source });
+        expect(tests.map((test) => test.procedureName))
+            .toEqual(['VisibleScenario', 'ImplicitlyPublicScenario']);
+    });
+
+    it('tells the author why a Private test Sub is not runnable (issue #39)', () => {
+        const issues = validateVbaTestDirectivesFromModule({
+            name: 'TestModule',
+            type: 'standard',
+            source: [
+                "' @xlide-test",
+                'Private Sub HiddenScenario()',
+                'End Sub',
+                '',
+                "' @xlide-test",
+                'Friend Sub FriendScenario()',
+                'End Sub',
+            ].join('\n'),
+        });
+
+        expect(issues.map((issue) => `${issue.line}:${issue.message}`)).toEqual([
+            '1:XLIDE test Sub procedures must be Public; the test runner calls them by name from a generated module.',
+            '5:XLIDE test Sub procedures must be Public; the test runner calls them by name from a generated module.',
+        ]);
+    });
 });
 
 describe('VBA test runner reporting', () => {

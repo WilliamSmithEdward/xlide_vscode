@@ -431,8 +431,21 @@ function isRunnableTestProcedure(member: unknown): member is ProcedureNode {
         typeof member === 'object' &&
         (member as ProcedureNode).kind === 'Procedure' &&
         (member as ProcedureNode).procKind === 'Sub' &&
-        (member as ProcedureNode).params.length === 0,
+        (member as ProcedureNode).params.length === 0 &&
+        isPubliclyCallableProcedure(member as ProcedureNode),
     );
+}
+
+/**
+ * A test the generated runner can actually call. The runner emits
+ * `Call <Module>.<Proc>`, which does not compile against a Private or Friend
+ * target - one such test failed the whole generated module, and with it every
+ * test in the run (issue #39). The staged dispatcher already filtered the same
+ * way; discovery now agrees, and the directive validator says why.
+ */
+function isPubliclyCallableProcedure(member: ProcedureNode): boolean {
+    const modifiers = member.modifiers.map((modifier) => modifier.toLowerCase());
+    return !modifiers.includes('private') && !modifiers.includes('friend');
 }
 
 function precedingTestAnnotation(
@@ -732,6 +745,9 @@ function testDirectiveTargetIssue(module: VbaTestModuleEntry, member: ModuleMemb
     }
     if (member.params.length > 0) {
         return 'XLIDE test Sub procedures must not declare parameters.';
+    }
+    if (!isPubliclyCallableProcedure(member)) {
+        return 'XLIDE test Sub procedures must be Public; the test runner calls them by name from a generated module.';
     }
     return undefined;
 }

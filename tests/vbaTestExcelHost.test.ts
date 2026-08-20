@@ -320,7 +320,7 @@ describe('the staged Throws dispatcher', () => {
         // Errors come back as recorded state, never across a Run boundary.
         expect(source).toContain('XlideAssert.RecordTargetOutcome 0, "", ""');
         expect(source).toContain('XlideAssert.RecordTargetOutcome Err.Number, Err.Source, Err.Description');
-        expect(source).toContain('Err.Raise 5, "XLIDE.TestDispatch", "Unknown test target: " & macroName');
+        expect(source).toContain('Err.Raise 5, "XLIDE.TestDispatch", "Unknown test target: " & MacroName');
         expect(source).not.toContain('Application.Run');
     });
 
@@ -357,10 +357,10 @@ describe('the staged Throws dispatcher', () => {
     });
 
     it('XlideAssert prefers the dispatcher and keeps the classic Run fallback', () => {
-        expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('Application.Run "XlideTestDispatch.XlideInvokeTarget", macroName');
+        expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('Application.Run "XlideTestDispatch.XlideInvokeTarget", MacroName');
         expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('Public Sub RecordTargetOutcome');
         // Editing-time installs have no dispatcher; Excel propagates through
         // the classic path exactly as before.
-        expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('Application.Run macroName');
+        expect(XLIDE_ASSERT_MODULE_SOURCE).toContain('Application.Run MacroName');
     });
 });

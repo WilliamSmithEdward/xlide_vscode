@@ -610,7 +610,10 @@ describe('member completion - standard modules', () => {
 		expect(got.map((member) => member.name)).toContain('AreNotEqual');
 		expect(areEqual?.owner).toBe('XlideAssert');
 		expect(areEqual?.kind).toBe('method');
-		expect(areEqual?.signature).toContain('AreEqual(expected As Variant, actual As Variant, [message As String = ""])');
+		// `Message`, not `message`: the parameter carries the canonical casing
+		// of the name it shadows, so installing XlideAssert re-cases nothing
+		// in the user's project (issue #38).
+		expect(areEqual?.signature).toContain('AreEqual(expected As Variant, actual As Variant, [Message As String = ""])');
 		expect(areEqual?.surfaceExhaustive).toBe(true);
 
 		const containsSrc = 'Sub TestInvoice()\n    XlideAssert.Con\nEnd Sub\n';
@@ -618,7 +621,7 @@ describe('member completion - standard modules', () => {
 			projectClassMembers: index.projectMemberSurfaces('Tests'),
 		}).find((member) => member.name === 'Contains');
 		expect(contains?.signature).toContain(
-			'Contains(actual As Variant, expectedSubstring As Variant, [message As String = ""])',
+			'Contains(actual As Variant, expectedSubstring As Variant, [Message As String = ""])',
 		);
 	});
 

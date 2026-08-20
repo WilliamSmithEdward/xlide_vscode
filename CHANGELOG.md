@@ -2,6 +2,35 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [4.0.7] - Unreleased
+
+- **Installing the test support module no longer re-cases your project**
+  (#38). VBA cases identifiers project-wide to the latest declaration it
+  sees, and XlideAssert declared `ByVal value`, `message`, `condition` and
+  `macroName` - so installing it re-spelled every `Err.Number`, `.Value`
+  and `Message` in the workbook to lower case, permanently. Every name the
+  injected modules declare now carries the canonical casing of the host or
+  runtime name it shadows, measured against the object models rather than
+  a hand-kept list, and a test enforces the rule mechanically. The runner
+  and dispatcher modules got the same treatment (their JSON wire keys are
+  unchanged).
+
+- **A module someone else re-cased no longer reads as outdated** (#38).
+  The version gate compared case-sensitively, so a project whose own
+  declarations re-cased XlideAssert reported a freshly installed module as
+  needing an update. Identifier case now folds in that comparison - VBA
+  owns it - while string literals and comments still compare verbatim, so
+  a real edit still shows. The module carries a revision stamp, so a
+  future fix that changes only casing still reaches installed copies.
+
+- **A Private test Sub is reported, not compiled into a broken run**
+  (#39). Discovery accepted any zero-argument Sub, but the generated
+  runner calls tests as `Call Module.Proc`, which cannot compile against a
+  Private or Friend target - so one `' @xlide-test` over a Private Sub
+  failed the whole generated module and with it every test in the run.
+  Discovery now skips them, matching the dispatcher's existing filter, and
+  the directive gets a diagnostic saying the Sub must be Public.
+
 ## [4.0.6] - 2026-08-19
 
 - **A real VBE export reads unchanged too** (#37). The VBE's Export writes
