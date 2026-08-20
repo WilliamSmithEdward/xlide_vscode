@@ -2,7 +2,7 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
-## [4.0.5] - Unreleased
+## [4.0.5] - 2026-08-19
 
 - **A form can read unchanged in the sync plan** (#36). The compare held
   the `.frm` file - designer header and all - against live module text,
