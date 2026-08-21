@@ -24,6 +24,7 @@ import { DeclareNode, ParameterNode, ProcedureNode } from '../parser/nodes';
 import { resolveMemberCompletionNamed, MemberCompletionContext } from '../completion/memberAccess';
 import { getHostType, resolveHostGlobalMember } from '../host/hostModel';
 import { resolveRuntimeFunction, runtimeAllowsExplicitCall } from '../runtime/vbaRuntime';
+import { vbaRuntimeDescription } from '../runtime/vbaRuntimeDocs';
 import { extractLeadingDoc } from '../docs/docComment';
 import { DocRegistry } from '../docs/docRegistry';
 import { VbaDoc, hasDocContent, renderParamDocMarkdown, renderSignatureDocMarkdown } from '../docs/docModel';
@@ -305,7 +306,10 @@ export function resolveSignatureHelp(
 				documentation: paramDocFor(doc, p),
 			})),
 			activeParameter: active,
-			documentation: signatureDocumentation(doc, details),
+			// A built-in's reference summary rides the call tip too, so the
+			// description is there while the arguments are being typed (#41).
+			documentation: signatureDocumentation(doc, details)
+				?? (site.isMember ? undefined : vbaRuntimeDescription(site.calleeName)),
 			details: details.length > 0 ? details : undefined,
 		};
 	} catch {

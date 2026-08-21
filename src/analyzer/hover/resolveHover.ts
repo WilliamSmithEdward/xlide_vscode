@@ -30,6 +30,7 @@ import {
 	resolveHostGlobalMember,
 } from '../host/hostModel';
 import { resolveRuntimeConstant, resolveRuntimeFunction, resolveRuntimeObject } from '../runtime/vbaRuntime';
+import { vbaRuntimeDescription } from '../runtime/vbaRuntimeDocs';
 import {
 	MemberCompletion,
 	resolveMemberCompletionNamed,
@@ -222,7 +223,10 @@ export function resolveHover(
 			signature: runtime.signature,
 			details: [`VBA runtime ${runtime.kind}`],
 			span,
-			documentation: externalDocMarkdown(ctx, name),
+			// A developer-supplied description still overrides the reference
+			// summary, the way it does for every other documented symbol.
+			documentation: externalDocMarkdown(ctx, name)
+				?? runtimeReferenceMarkdown(runtime.name, runtime.kind),
 		};
 	}
 
@@ -241,6 +245,16 @@ export function resolveHover(
 	}
 
 	return undefined;
+}
+
+/** The reference summary for a built-in, rendered for a hover body. */
+function runtimeReferenceMarkdown(name: string, kind: string): string | undefined {
+	const description = vbaRuntimeDescription(name);
+	return description === undefined
+		? undefined
+		: `**VBA runtime ${kind}**
+
+${description}`;
 }
 
 /** `InchesToPoints(Inches As Single) As Single`, or built from name and return. */

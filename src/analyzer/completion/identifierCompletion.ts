@@ -42,6 +42,7 @@ import {
 	isProcedureKind,
 } from '../symbols/symbolModel';
 import { hasDocContent, renderDocMarkdown } from '../docs/docModel';
+import { vbaRuntimeDescription } from '../runtime/vbaRuntimeDocs';
 import {
 	isExplicitCallTargetCompletionContext,
 	isIdentLike,
@@ -489,6 +490,7 @@ function detailWithType(base: string, asType?: string): string {
 }
 
 function runtimeDocumentation(fn: VbaRuntimeFunction): string {
+	const description = vbaRuntimeDescription(fn.name);
 	const lines = [
 		`**VBA runtime ${fn.kind}**`,
 		'',
@@ -496,6 +498,9 @@ function runtimeDocumentation(fn: VbaRuntimeFunction): string {
 		fn.signature,
 		'```',
 	];
+	if (description) {
+		lines.push('', description);
+	}
 	if (fn.params?.length) {
 		lines.push('', '**Parameters**');
 		for (const param of fn.params) {

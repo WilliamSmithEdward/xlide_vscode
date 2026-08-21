@@ -21,6 +21,8 @@ import {
     resolveRuntimeObject,
 } from '../src/analyzer';
 import { canonicalKeyword } from '../src/analyzer/lexer/keywordTable';
+import { vbaRuntimeDescription } from '../src/analyzer/runtime/vbaRuntimeDocs';
+import { resolveHover, resolveIdentifierCompletions, resolveSignatureHelp } from '../src/analyzer';
 import { getExcelObjectModel } from '../src/analyzer/host/excelObjectModel';
 import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
 import { getPowerPointObjectModel } from '../src/analyzer/host/powerpointObjectModel';
@@ -119,6 +121,46 @@ describe('VBA language reference coverage', () => {
             for (const name of ['fmMatchEntryComplete', 'fmAlignmentLeft', 'fmActionCut']) {
                 expect(resolveHostConstant(name, model), `${String(model.hostName)}: ${name}`).toBeDefined();
             }
+        }
+    });
+});
+
+describe('built-ins describe themselves, not just their spelling (issue #41)', () => {
+    it('carries a reference summary for every documented function', () => {
+        const undocumented = DOCUMENTED_FUNCTIONS.filter((name) => !vbaRuntimeDescription(name));
+        expect(undocumented).toEqual([]);
+    });
+
+    it('describes the documented statements too', () => {
+        const undocumented = DOCUMENTED_STATEMENTS.filter((name) => !vbaRuntimeDescription(name));
+        expect(undocumented).toEqual([]);
+    });
+
+    it('describes every type-conversion function', () => {
+        // CVErr has its own page; the rest share the type-conversion page.
+        const undocumented = TYPE_CONVERSION_FUNCTIONS.filter((name) => !vbaRuntimeDescription(name));
+        expect(undocumented).toEqual([]);
+    });
+
+    it('puts the summary in the hover, the completion and the call tip', () => {
+        const source = 'Sub T()\n    x = Left(\"ab\", 1)\nEnd Sub\n';
+        const hover = resolveHover(source, source.indexOf('Left') + 2, {});
+        expect(hover?.documentation).toContain('characters from the left side of a string');
+
+        const typed = 'Sub T()\n    Le\nEnd Sub\n';
+        const item = resolveIdentifierCompletions(typed, typed.indexOf('Le') + 2, { moduleName: 'M' })
+            .find((candidate) => candidate.name === 'Left');
+        expect(item?.documentation).toContain('characters from the left side of a string');
+
+        const tip = resolveSignatureHelp(source, source.indexOf('ab') + 1, {});
+        expect(tip?.documentation).toContain('characters from the left side of a string');
+    });
+
+    it('invents no prose for the undocumented hidden built-ins', () => {
+        // The reference documents these only in passing on a parent page, so
+        // they keep their signature and gain no made-up description.
+        for (const name of ['VarPtr', 'StrPtr', 'ObjPtr', 'LenB', 'MidB']) {
+            expect(vbaRuntimeDescription(name), name).toBeUndefined();
         }
     });
 });
