@@ -57,7 +57,18 @@ describe('type-position detection', () => {
 				],
 			},
 		);
-		expect(result.map((t) => t.name)).toEqual(['Person']);
+		// Of the PROJECT types, only the creatable one is offered. Host types are
+		// offered too - the next test is that contract - so this asserts the
+		// project side rather than the whole list, which otherwise depends on
+		// which host type names happen to start with "Pe".
+		const offered = result.map((t) => t.name);
+		expect(offered).toContain('Person');
+		expect(offered).not.toContain('CustomerForm');
+		expect(offered).not.toContain('Sheet1');
+		expect(offered).not.toContain('Status');
+		expect(offered).not.toContain('TPoint');
+		expect(result.filter((t) => t.kind !== 'host' && t.kind !== 'external').map((t) => t.name))
+			.toEqual(['Person']);
 	});
 
 	it('offers host types after expression-level "New" as deferred-creatability candidates', () => {

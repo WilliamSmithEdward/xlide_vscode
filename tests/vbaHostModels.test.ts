@@ -3,7 +3,13 @@ import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
 import { getPowerPointObjectModel } from '../src/analyzer/host/powerpointObjectModel';
 import { getAccessObjectModel } from '../src/analyzer/host/accessObjectModel';
 import { getExcelObjectModel, type HostObjectModel } from '../src/analyzer/host/excelObjectModel';
-import { resolveHostGlobal, getHostMembers, resolveHostConstant } from '../src/analyzer/host/hostModel';
+import {
+	getHostMembers,
+	resolveHostAlias,
+	resolveHostConstant,
+	resolveHostGlobal,
+	resolveMemberReturnType,
+} from '../src/analyzer/host/hostModel';
 import {
 	analyzeModule,
 	resolveIdentifierCompletions,
@@ -186,4 +192,40 @@ describe('PowerPoint and Access answer as themselves', () => {
 		expect(resolveHostGlobal('DoCmd', getPowerPointObjectModel())).toBeUndefined();
 		expect(resolveHostGlobal('ActiveDocument', getExcelObjectModel())).toBeUndefined();
 	});
+});
+
+describe('the shared Office library types reach every host', () => {
+    // Every Office VBA project references the Office library, and host
+    // members return its types: a Shape's TextFrame2 hands back an Office
+    // TextRange2. Without them the chain dead-ends at that hop, and
+    // TextRange2 was the one documented PowerPoint object the model lacked.
+    it('resolves an Office type in every host', () => {
+        for (const getModel of [getExcelObjectModel, getWordObjectModel, getPowerPointObjectModel, getAccessObjectModel]) {
+            const model = getModel();
+            expect(resolveHostAlias('TextRange2', model), String(model.hostName)).toBe('Office.TextRange2');
+        }
+    });
+
+    it('chains through a host member that returns an Office type', () => {
+        const ppt = getPowerPointObjectModel();
+        const frame = resolveMemberReturnType('PowerPoint.Shape', 'TextFrame2', ppt);
+        expect(frame).toBe('PowerPoint.TextFrame2');
+        const range = resolveMemberReturnType(frame!, 'TextRange', ppt);
+        expect(range).toBe('Office.TextRange2');
+        expect(getHostMembers(range!, ppt).length).toBeGreaterThan(20);
+    });
+
+    it('lets the host library win a shared type name', () => {
+        expect(resolveHostAlias('Font', getWordObjectModel())).toBe('Word.Font');
+        expect(resolveHostAlias('Font', getExcelObjectModel())).toBe('Excel.Font');
+    });
+
+    it('proves nothing absent: no Office type claims exhaustiveness', () => {
+        const model = getExcelObjectModel();
+        for (const [qualified, type] of Object.entries(model.types)) {
+            if (qualified.startsWith('Office.')) {
+                expect(type.exhaustive ?? false, qualified).toBe(false);
+            }
+        }
+    });
 });

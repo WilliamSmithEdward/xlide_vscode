@@ -49,10 +49,39 @@ const CLASS_KINDS = new Set(['Class', 'Dispatch Interface', 'Interface']);
 const classNames = new Set(dumps.filter((d) => CLASS_KINDS.has(d.kind)).map((d) => d.name));
 
 /** Same-library class types qualify (`Document` -> `Word.Document`); the rest pass through. */
+/**
+ * The shared Office library's class names, so a member that returns one of its
+ * types stays a resolvable chain step. The host corpora do not carry those
+ * dumps, so without this a PowerPoint TextFrame2.TextRange (an Office
+ * TextRange2) dead-ends at the first hop.
+ */
+const officeClassNames = (() => {
+    const officeDir = path.join(root, 'reference', 'office', 'json');
+    const names = new Set();
+    let entries = [];
+    try {
+        entries = fs.readdirSync(officeDir);
+    } catch {
+        return names;   // no Office corpus locally: host returns stay as they were
+    }
+    for (const fileName of entries) {
+        if (!fileName.endsWith('.json') || fileName.startsWith('_')) { continue; }
+        try {
+            const dump = JSON.parse(fs.readFileSync(path.join(officeDir, fileName), 'utf8'));
+            if (CLASS_KINDS.has(dump.kind)) { names.add(dump.name); }
+        } catch {
+            // Unreadable dump: that name simply stays unqualified.
+        }
+    }
+    return names;
+})();
+
 function qualifyReturn(type) {
     if (!type) { return undefined; }
     const bare = String(type).replace(/^\s+|\s+$/g, '');
-    return classNames.has(bare) ? `${prefix}.${bare}` : bare;
+    if (classNames.has(bare)) { return `${prefix}.${bare}`; }
+    // The host's own library wins; the shared Office library is the fallback.
+    return officeClassNames.has(bare) ? `Office.${bare}` : bare;
 }
 
 function summarize(text) {

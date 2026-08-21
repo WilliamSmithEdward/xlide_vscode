@@ -25,6 +25,7 @@ import {
 } from './excelReferenceMembers';
 import { OFFICE_REFERENCE_ENUM_CONSTANTS } from './officeReferenceConstants';
 import { MSFORMS_REFERENCE_ENUM_CONSTANTS } from './msformsReferenceMembers';
+import { officeReferenceTypeData } from './officeReferenceTypes';
 import type { VbaDoc } from '../docs/docModel';
 
 // Events are retained as a distinct metadata kind for future handler-authoring
@@ -441,6 +442,8 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 	hostName: 'Excel',
 	globalType: 'Excel.Global',
 	aliases: {
+		// The shared Office library first, so Excel's own names win any overlap.
+		...officeReferenceTypeData().aliases,
 		...promotedExcelReferenceAliases(),
 		workbook: WORKBOOK,
 		worksheet: WORKSHEET,
@@ -505,6 +508,9 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 		EXCEL_REFERENCE_ENUM_CONSTANTS,
 	),
 	types: {
+		// A Shape's TextFrame2 hands back an Office TextRange2; without the
+		// shared library's types the chain dead-ends at that hop.
+		...officeReferenceTypeData().types,
 		...promotedExcelHostTypes(EXCEL_REFERENCE_PROMOTED_TYPES),
 		[APPLICATION]: {
 			displayName: 'Application',

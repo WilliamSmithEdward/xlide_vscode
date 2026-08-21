@@ -319,6 +319,32 @@ function normalizeTypeName(typeName) {
 	return typeName.replace(/\(.*\)$/g, '').trim();
 }
 
+/**
+ * The shared Office library's class names. Excel members return them - a Shape's
+ * TextFrame2 hands back an Office TextRange2 - and the Excel corpus does not
+ * carry those dumps, so without this the chain dead-ends at the first hop.
+ */
+const officeClassNames = (() => {
+	const officeDir = path.join(root, 'reference', 'office', 'json');
+	const names = new Set();
+	let entries = [];
+	try {
+		entries = fs.readdirSync(officeDir);
+	} catch {
+		return names;   // no Office corpus locally: returns stay as they were
+	}
+	for (const fileName of entries) {
+		if (!fileName.endsWith('.json') || fileName.startsWith('_')) { continue; }
+		try {
+			const dump = JSON.parse(fs.readFileSync(path.join(officeDir, fileName), 'utf8'));
+			if (dump.kind === 'Class' || dump.kind === 'Dispatch Interface') { names.add(dump.name); }
+		} catch {
+			// Unreadable dump: that name simply stays unqualified.
+		}
+	}
+	return names;
+})();
+
 function excelQualifiedReturn(typeName) {
 	const clean = normalizeTypeName(typeName);
 	if (!clean || primitiveTypes.has(clean)) {
@@ -327,10 +353,11 @@ function excelQualifiedReturn(typeName) {
 	if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(clean)) {
 		return undefined;
 	}
-	if (!dumps.has(clean)) {
-		return undefined;
+	if (dumps.has(clean)) {
+		return `Excel.${clean}`;
 	}
-	return `Excel.${clean}`;
+	// Excel's own library wins; the shared Office library is the fallback.
+	return officeClassNames.has(clean) ? `Office.${clean}` : undefined;
 }
 
 function memberReturn(raw, kind) {

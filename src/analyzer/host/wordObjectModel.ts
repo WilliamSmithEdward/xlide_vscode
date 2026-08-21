@@ -12,6 +12,7 @@ import type { HostObjectModel } from './excelObjectModel';
 import { mergeHostConstants } from './excelObjectModel';
 import { OFFICE_REFERENCE_ENUM_CONSTANTS } from './officeReferenceConstants';
 import { MSFORMS_REFERENCE_ENUM_CONSTANTS } from './msformsReferenceMembers';
+import { officeReferenceTypeData } from './officeReferenceTypes';
 import { wordReferenceData } from './wordObjectModelData';
 
 let MODEL: HostObjectModel | undefined;
@@ -27,8 +28,11 @@ export function getWordObjectModel(): HostObjectModel {
 		source: 'Microsoft Word 16.0 Object Library via pyVBAReference; enriched from Microsoft Learn; shared Office reference enum constants',
 		hostName: 'Word',
 		globalType: 'Word.Global',
-		types: data.types as HostObjectModel['types'],
-		aliases: data.aliases as HostObjectModel['aliases'],
+		// The shared Office library's types, merged under the host's own so a
+		// chain that lands on one (TextFrame2.TextRange -> Office.TextRange2)
+		// keeps resolving. The host wins every shared name.
+		types: { ...officeReferenceTypeData().types, ...data.types } as HostObjectModel['types'],
+		aliases: { ...officeReferenceTypeData().aliases, ...data.aliases } as HostObjectModel['aliases'],
 		// Every Word VBA project auto-references the shared Office library, so
 		// msoTrue and friends are legal everyday names; Word's own table wins
 		// the shared chart-enum names (same values by measurement).

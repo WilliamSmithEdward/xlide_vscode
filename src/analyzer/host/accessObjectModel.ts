@@ -12,6 +12,7 @@ import type { HostObjectModel } from './excelObjectModel';
 import { mergeHostConstants } from './excelObjectModel';
 import { OFFICE_REFERENCE_ENUM_CONSTANTS } from './officeReferenceConstants';
 import { MSFORMS_REFERENCE_ENUM_CONSTANTS } from './msformsReferenceMembers';
+import { officeReferenceTypeData } from './officeReferenceTypes';
 import { accessReferenceData } from './accessObjectModelData';
 
 let MODEL: HostObjectModel | undefined;
@@ -26,8 +27,11 @@ export function getAccessObjectModel(): HostObjectModel {
 	MODEL = {
 		source: 'Microsoft Access 16.0 Object Library via pyVBAReference; enriched from Microsoft Learn; shared Office reference enum constants',
 		hostName: 'Access',
-		types: data.types as HostObjectModel['types'],
-		aliases: data.aliases as HostObjectModel['aliases'],
+		// The shared Office library's types, merged under the host's own so a
+		// chain that lands on one (TextFrame2.TextRange -> Office.TextRange2)
+		// keeps resolving. The host wins every shared name.
+		types: { ...officeReferenceTypeData().types, ...data.types } as HostObjectModel['types'],
+		aliases: { ...officeReferenceTypeData().aliases, ...data.aliases } as HostObjectModel['aliases'],
 		// The shared Office library is auto-referenced in every Access VBA
 		// project; Access's own names have no overlap with it (measured).
 		constants: mergeHostConstants(OFFICE_REFERENCE_ENUM_CONSTANTS, MSFORMS_REFERENCE_ENUM_CONSTANTS, data.constants),
