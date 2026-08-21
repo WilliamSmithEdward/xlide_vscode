@@ -18,8 +18,9 @@ import { completionCursorContext } from './cursorContext';
 import {
 	getExcelObjectModel,
 	type HostObjectModel,
+	type HostType,
 } from '../host/excelObjectModel';
-import { hostDisplayName } from '../host/hostModel';
+import { getHostEnums, hostDisplayName } from '../host/hostModel';
 import type { VbaProjectTypeKind } from '../symbols/symbolModel';
 import {
 	hasDocContent,
@@ -208,6 +209,25 @@ function detectTypePosition(tokens: readonly VbaToken[]): TypePosition | undefin
 	return undefined;
 }
 
+/**
+ * Rendered documentation for a host type, memoised because the candidate list
+ * is rebuilt per keystroke and every type in the model contributes one.
+ */
+const HOST_TYPE_DOCS_CACHE = new WeakMap<HostType, string>();
+
+function hostTypeDocumentation(type: HostType): string | undefined {
+	if (!hasDocContent(type.doc)) {
+		return undefined;
+	}
+	const cached = HOST_TYPE_DOCS_CACHE.get(type);
+	if (cached !== undefined) {
+		return cached;
+	}
+	const rendered = renderDocMarkdown(type.doc);
+	HOST_TYPE_DOCS_CACHE.set(type, rendered);
+	return rendered;
+}
+
 /** Short host type names (e.g. "Workbook") derived from the host model types. */
 const HOST_TYPE_NAMES_CACHE = new WeakMap<HostObjectModel, string[]>();
 
@@ -315,10 +335,29 @@ export function typeCompletionCandidates(
 	for (const t of OLE_AUTOMATION_TYPES) {
 		add(t.name, t.kind, t.detail, t.moduleName, t.documentation);
 	}
-	// 4. Host object-model types, labeled with the module's host (issue #28).
+	// 4. Host object-model types, labeled with the module's host (issue #28) and
+	// carrying the reference's own description of the type: before this,
+	// `Dim s As InlineShape` hovered with a bare name and no prose, even though
+	// the corpus had described the type all along.
 	const hostTypeDetail = `${hostDisplayName(model)} type`;
-	for (const name of hostTypeNames(model)) {
-		add(name, 'host', hostTypeDetail);
+	for (const [qualified, type] of Object.entries(model.types)) {
+		const short = qualified.split('.').pop();
+		if (short) {
+			add(short, 'host', hostTypeDetail, undefined, hostTypeDocumentation(type));
+		}
+	}
+	// 5. Host enumerations. `Dim k As XlAxisType` is ordinary VBA and the name
+	// resolved to nothing at all: no completion, no hover, no coloring, across
+	// 899 enumerations. They come last so an object type of the same name wins.
+	const hostEnumDetail = `${hostDisplayName(model)} enum`;
+	for (const entry of getHostEnums(model)) {
+		add(
+			entry.displayName,
+			'enum',
+			hostEnumDetail,
+			undefined,
+			hasDocContent(entry.doc) ? renderDocMarkdown(entry.doc) : undefined,
+		);
 	}
 
 	return out;

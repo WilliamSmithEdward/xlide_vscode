@@ -305,7 +305,7 @@ describe('host member method semantic tokens (issue #29)', () => {
 		);
 	}
 
-	it('paints resolved host method calls and leaves properties alone', () => {
+	it('paints resolved host members, telling methods from properties', () => {
 		const source = [
 			'Sub T()',
 			'    ActiveSheet.Calculate',
@@ -314,7 +314,13 @@ describe('host member method semantic tokens (issue #29)', () => {
 			'End Sub',
 			'',
 		].join('\n');
-		expect(methodTokens(source)).toEqual(['Calculate:function', 'Quit:function']);
+		// Properties paint too: the promoted surface reads as known
+		// code, with the token type saying which kind each name is.
+		expect(methodTokens(source)).toEqual([
+			'Calculate:function',
+			'Quit:function',
+			'Name:property',
+		]);
 	});
 
 	it('never paints an unresolved member', () => {
@@ -327,12 +333,27 @@ describe('host member method semantic tokens (issue #29)', () => {
 		expect(methodTokens(source)).toEqual([]);
 	});
 
-	it('leaves longer chains and With-block members out of scope', () => {
+	it('follows a chain and a With block to the end', () => {
 		const chain = 'Sub T()\n    ActiveSheet.Range("A1").Calculate\nEnd Sub\n';
-		expect(methodTokens(chain)).toEqual([]);
+		expect(methodTokens(chain)).toEqual(['Range:property', 'Calculate:function']);
 		const withBlock =
 			'Sub T()\n    With ActiveSheet\n        .Calculate\n    End With\nEnd Sub\n';
-		expect(methodTokens(withBlock)).toEqual([]);
+		expect(methodTokens(withBlock)).toEqual(['Calculate:function']);
+		const nested = [
+			'Sub T()',
+			'    With ActiveSheet.Range("A1")',
+			'        .Value = 1',
+			'    End With',
+			'End Sub',
+			'',
+		].join('\n');
+		expect(methodTokens(nested)).toEqual(['Range:property', 'Value:property']);
+	});
+
+	it('stops at the first hop it cannot resolve', () => {
+		// The widening is in reach, not in confidence: an unknown member ends the
+		// chain and everything after it stays plain.
+		expect(methodTokens('Sub T()\n    ActiveSheet.NotAMember.Calculate\nEnd Sub\n')).toEqual([]);
 	});
 
 	it('follows the module host: Word paints FitToPages, Excel does not', () => {
@@ -369,7 +390,7 @@ describe('host member method semantic tokens (issue #29)', () => {
 	it('paints Me-qualified host methods in a document module (issue #31)', () => {
 		const source = 'Sub T()\n    Me.Calculate\n    x = Me.Name\nEnd Sub\n';
 		expect(methodTokens(source, { meType: 'Excel.Worksheet' }))
-			.toEqual(['Calculate:function']);
+			.toEqual(['Calculate:function', 'Name:property']);
 		// Without a Me host type - a standard module, a loose file - Me stays
 		// plain, and an MSForms Me belongs to the implicit-member collector.
 		expect(methodTokens(source)).toEqual([]);
@@ -391,7 +412,7 @@ describe('host member method semantic tokens (issue #29)', () => {
 			.toEqual(['Range:function', 'InsertParagraphAfter:function']);
 
 		const excel = 'Sub T()\n    Dim ws As Worksheet\n    ws.Calculate\n    x = ws.Name\nEnd Sub\n';
-		expect(methodTokens(excel)).toEqual(['Calculate:function']);
+		expect(methodTokens(excel)).toEqual(['Calculate:function', 'Name:property']);
 
 		const param = 'Sub T(ByVal ws As Worksheet)\n    ws.Calculate\nEnd Sub\n';
 		expect(methodTokens(param)).toEqual(['Calculate:function']);
@@ -409,7 +430,9 @@ describe('host member method semantic tokens (issue #29)', () => {
 			'End Sub',
 			'',
 		].join('\n');
-		expect(methodTokens(ambiguous)).toEqual([]);
+		// Resolution is scope-aware, so each procedure reads its own declaration:
+		// Sub A's rng really is a Range and paints, Sub B's is a Long and does not.
+		expect(methodTokens(ambiguous)).toEqual(['Calculate:function']);
 
 		const untyped = 'Sub T()\n    Dim rng\n    rng.Calculate\nEnd Sub\n';
 		expect(methodTokens(untyped)).toEqual([]);
@@ -443,7 +466,7 @@ describe('host member method semantic tokens (issue #29)', () => {
 		expect(collectHostGlobalTokens(memberAccess, getWordObjectModel())).toEqual([]);
 	});
 
-	it('paints Word Me members and keeps chains and With out of scope', () => {
+	it('paints Word Me members, and its chains and With blocks too', () => {
 		expect(
 			methodTokens('Sub T()\n    Me.FitToPages\nEnd Sub\n', {
 				model: getWordObjectModel(),
@@ -451,8 +474,11 @@ describe('host member method semantic tokens (issue #29)', () => {
 			}),
 		).toEqual(['FitToPages:function']);
 		const chain = 'Sub T()\n    Me.Range("A1").Calculate\nEnd Sub\n';
-		expect(methodTokens(chain, { meType: 'Excel.Worksheet' })).toEqual([]);
+		// Chains and With blocks off `Me` follow through like any other receiver.
+		expect(methodTokens(chain, { meType: 'Excel.Worksheet' }))
+			.toEqual(['Range:property', 'Calculate:function']);
 		const withBlock = 'Sub T()\n    With Me\n        .Calculate\n    End With\nEnd Sub\n';
-		expect(methodTokens(withBlock, { meType: 'Excel.Worksheet' })).toEqual([]);
+		expect(methodTokens(withBlock, { meType: 'Excel.Worksheet' }))
+			.toEqual(['Calculate:function']);
 	});
 });

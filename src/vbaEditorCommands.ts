@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { isVbaDocument } from './xlideFileSystem';
 import { smartTabShouldIndentLine } from './vbaSmartTab';
+import { smartBackspaceShouldClearIndent } from './vbaSmartBackspace';
 
 export function registerVbaEditorCommands(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(
@@ -11,9 +12,25 @@ export function registerVbaEditorCommands(context: vscode.ExtensionContext): voi
 				return;
 			}
 			const handled = await clearEmptyContinuedComment(editor);
-			if (!handled) {
-				await vscode.commands.executeCommand('deleteLeft');
+			if (handled) {
+				return;
 			}
+			// A blank line keeps its indent here (trimAutoWhitespace is off), so
+			// removing one costs a press per tab stop unless the whole indent goes
+			// at once (issue #43).
+			const selection = editor.selection;
+			if (
+				editor.selections.length === 1
+				&& smartBackspaceShouldClearIndent(
+					editor.document.lineAt(selection.active.line).text,
+					selection.active.character,
+					selection.isEmpty,
+				)
+			) {
+				await vscode.commands.executeCommand('deleteAllLeft');
+				return;
+			}
+			await vscode.commands.executeCommand('deleteLeft');
 		}),
 		vscode.commands.registerCommand('xlide.vba.smartTab', async () => {
 			const editor = vscode.window.activeTextEditor;

@@ -34,12 +34,15 @@ import type {
 } from '../host/excelObjectModel';
 import {
 	getHostMembers,
+	getHostEnumMembers,
 	getHostType,
 	resolveHostMemberSignature,
 	resolveHostAlias,
 	resolveHostGlobal,
+	resolveHostEnum,
 	resolveHostGlobalMember,
 } from '../host/hostModel';
+import { derivedConstantDoc, derivedMemberDoc } from '../host/hostMemberDocs';
 import {
 	resolveRuntimeObject,
 	resolveRuntimeObjectType,
@@ -96,6 +99,13 @@ export interface MemberCompletionContext {
 	 * Must correspond exactly to the `source` string passed alongside.
 	 */
 	sourceTokens?: readonly VbaToken[];
+	/**
+	 * Per-pass memo of the active `With` stack, keyed by enclosing procedure
+	 * start. Callers resolving many references against one immutable source pass
+	 * a fresh Map; the scan is then paid once per procedure rather than once per
+	 * leading-dot member. Must be discarded whenever `source` changes.
+	 */
+	withScanCache?: Map<number, WithScanIndex>;
 }
 
 /** A single member-completion result. */
@@ -106,6 +116,10 @@ export interface MemberCompletion {
 	returns?: string;
 	/** Verified call signature, when the host metadata has one. */
 	signature?: string;
+	/** The type a host property declares, when it is not a chainable object. */
+	declaredType?: string;
+	/** The read/write contract the type library states for a host property. */
+	access?: HostMember['access'];
 	/** True when source proves assignment to the member is allowed. */
 	writable?: boolean;
 	/** Declared value type accepted by assignment when source provides one. */
@@ -133,6 +147,8 @@ export interface ResolvedMemberSurface {
 }
 
 const PROJECT_TYPE_PREFIX = 'project:';
+/** Receiver key for a host enumeration used as a qualifier: `XlAxisType.xlCategory`. */
+const HOST_ENUM_PREFIX = 'hostEnum:';
 const COMBINED_TYPE_PREFIX = 'combined:';
 const COMBINED_TYPE_SEPARATOR = '|';
 const UNION_TYPE_PREFIX = 'union:';
@@ -140,7 +156,7 @@ const UNION_TYPE_SEPARATOR = '|';
 
 type CompletionMemberSource = Pick<
 	HostMember,
-	'name' | 'kind' | 'returns' | 'signature' | 'doc'
+	'name' | 'kind' | 'returns' | 'signature' | 'declaredType' | 'access' | 'doc'
 > & {
 	writable?: boolean;
 	writeType?: string;
@@ -219,6 +235,29 @@ export function resolveMemberCompletionNamed(
 	return mem
 		? completionFromSurfaceMember(hit.currentType, hit.surface, mem, ctx)
 		: undefined;
+}
+
+/**
+ * The kind of the HOST member named `memberName` ending at `offset`, or
+ * undefined when the receiver is not a host object or carries no such member.
+ *
+ * Semantic-token painting calls this once per member-access dot in a module, so
+ * it stops at the member's kind rather than building a completion row. The
+ * receiver is resolved exactly the way hover resolves it, which is the point:
+ * what the editor can describe is what it should be willing to color.
+ */
+export function resolveHostMemberKindAt(
+	source: string,
+	offset: number,
+	memberName: string,
+	ctx: MemberCompletionContext = {},
+): HostMemberKind | undefined {
+	const hit = memberSurfaceAtDot(source, offset, ctx);
+	if (!hit || !getHostType(hit.surface.owner, ctx.model)) {
+		return undefined;
+	}
+	const lowerName = memberName.toLowerCase();
+	return hit.surface.members.find((member) => member.name.toLowerCase() === lowerName)?.kind;
 }
 
 /**
@@ -405,19 +444,28 @@ function completionFromSurfaceMember(
 	mem: CompletionMemberSource,
 	ctx: MemberCompletionContext,
 ): MemberCompletion {
+	// A host member the reference never described still gets a tooltip, composed
+	// from what the type library declares and marked `derived`.
+	const doc = mem.doc?.summary
+		? mem.doc
+		: (getHostType(surface.owner, ctx.model)
+			? derivedMemberDoc(mem, surface.owner) ?? mem.doc
+			: mem.doc);
 	return {
 		name: mem.name,
 		kind: mem.kind,
 		returns: mem.returns,
 		signature: mem.signature ?? signatureForMember(currentType, mem.name, ctx),
+		declaredType: mem.declaredType,
+		access: mem.access,
 		writable: mem.writable,
 		writeType: mem.writeType,
 		owner: surface.owner,
 		surfaceExhaustive: surface.exhaustive,
-		documentation: hasDocContent(mem.doc)
-			? renderDocMarkdown(mem.doc)
+		documentation: hasDocContent(doc)
+			? renderDocMarkdown(doc)
 			: undefined,
-		doc: mem.doc,
+		doc,
 		definitions: mem.definitions,
 		defaultMember: mem.defaultMember,
 		attributes: mem.attributes,
@@ -875,6 +923,12 @@ function resolveRoot(
 	if (asGlobalMember) {
 		return projectKey ? combinedTypeKey(projectKey, asGlobalMember) : asGlobalMember;
 	}
+	// An enum name reaches its own constants: `XlAxisType.xlCategory` is ordinary
+	// VBA and is how a reader tells one library's xlNone from another's.
+	const asEnum = !projectKey ? resolveHostEnum(root, model) : undefined;
+	if (asEnum) {
+		return `${HOST_ENUM_PREFIX}${asEnum.displayName}`;
+	}
 	if (
 		projectSurface?.kind === 'standardModule'
 		|| projectSurface?.kind === 'class'
@@ -938,13 +992,24 @@ function activeWithExpressionsAt(
 	ctx: MemberCompletionContext,
 ): ActiveWithExpression[] {
 	const scan = activeWithScanWindow(source, offset, ctx);
-	const stack: ActiveWithExpression[] = [];
+	const index = withScanIndex(source, scan, ctx);
+	// Resume from the last complete statement before `offset` rather than from
+	// the top of the procedure, then finish the partial statement the offset
+	// sits in. Same answer, paid once per procedure instead of once per dot.
+	const at = lastBoundaryAtOrBefore(index.boundaries, offset);
+	const stack = at < 0 ? [] : index.stacks[at].slice();
 	let statement: VbaToken[] = [];
 	const flush = (): void => {
-		processWithStackStatement(statement, stack, scan.sliceStart);
+		processWithStackStatement(statement, stack, index.sliceStart);
 		statement = [];
 	};
-	for (const token of tokenize(scan.text)) {
+	for (let i = at < 0 ? 0 : index.resumeAt[at]; i < index.tokens.length; i += 1) {
+		const token = index.tokens[i];
+		// Boundaries are absolute; the fallback lexer numbers its tokens from the
+		// start of the sliced procedure, so the window's own start is added back.
+		if (token.end + index.sliceStart > offset) {
+			break;
+		}
 		if (token.kind === 'comment') {
 			continue;
 		}
@@ -958,11 +1023,131 @@ function activeWithExpressionsAt(
 	return stack;
 }
 
+/**
+ * The active `With` stack after every complete statement of one procedure.
+ *
+ * Walking the procedure from its start for each leading-dot member is quadratic
+ * in the procedure's length: a single procedure holding 1,200 `With` blocks cost
+ * 433 ms to paint, against 78 ms for a module of the same size split into
+ * ordinary procedures. Callers that resolve many references against one source
+ * pass a `withScanCache`, and then each procedure is walked once.
+ */
+interface WithScanIndex {
+	tokens: readonly VbaToken[];
+	sliceStart: number;
+	/** End offset of each complete statement, ascending. */
+	boundaries: number[];
+	/** Stack after the statement ending at the same position in `boundaries`. */
+	stacks: ActiveWithExpression[][];
+	/** Token index to resume scanning from, per boundary. */
+	resumeAt: number[];
+}
+
+function withScanIndex(
+	source: string,
+	scan: { text: string; sliceStart: number; procedureStart: number; windowEnd: number },
+	ctx: MemberCompletionContext,
+): WithScanIndex {
+	const cached = scan.procedureStart >= 0
+		? ctx.withScanCache?.get(scan.procedureStart)
+		: undefined;
+	if (cached) {
+		return cached;
+	}
+	const window = withScanTokens(source, scan, Number.MAX_SAFE_INTEGER, ctx);
+	const boundaries: number[] = [];
+	const stacks: ActiveWithExpression[][] = [];
+	const resumeAt: number[] = [];
+	const stack: ActiveWithExpression[] = [];
+	let statement: VbaToken[] = [];
+	for (let i = 0; i < window.tokens.length; i += 1) {
+		const token = window.tokens[i];
+		if (token.kind === 'comment') {
+			continue;
+		}
+		if (!isBoundary(token)) {
+			statement.push(token);
+			continue;
+		}
+		processWithStackStatement(statement, stack, window.sliceStart);
+		statement = [];
+		boundaries.push(token.end + window.sliceStart);
+		stacks.push(stack.slice());
+		resumeAt.push(i + 1);
+	}
+	const index: WithScanIndex = {
+		tokens: window.tokens,
+		sliceStart: window.sliceStart,
+		boundaries,
+		stacks,
+		resumeAt,
+	};
+	if (scan.procedureStart >= 0) {
+		ctx.withScanCache?.set(scan.procedureStart, index);
+	}
+	return index;
+}
+
+/** Index of the last boundary at or before `offset`, or -1. */
+function lastBoundaryAtOrBefore(boundaries: readonly number[], offset: number): number {
+	let lo = 0;
+	let hi = boundaries.length - 1;
+	let found = -1;
+	while (lo <= hi) {
+		const mid = (lo + hi) >> 1;
+		if (boundaries[mid] <= offset) {
+			found = mid;
+			lo = mid + 1;
+		} else {
+			hi = mid - 1;
+		}
+	}
+	return found;
+}
+
+/**
+ * Tokens of the active `With` scan window.
+ *
+ * Re-lexing the enclosing procedure for every leading-dot member is quadratic in
+ * the procedure's length, and semantic-token painting asks once per dot: a
+ * module of 400 `With` blocks cost 455 microseconds per dot against 2 for every
+ * other receiver shape. When the caller holds the full-source stream, the window
+ * is a slice of it - the tokens are then already at absolute offsets, so the
+ * slice start the callers add is zero.
+ */
+function withScanTokens(
+	source: string,
+	scan: { text: string; sliceStart: number; windowEnd: number },
+	offset: number,
+	ctx: MemberCompletionContext,
+): { tokens: readonly VbaToken[]; sliceStart: number } {
+	const shared = ctx.sourceTokens;
+	if (!shared || shared.length === 0) {
+		return { tokens: [...tokenize(scan.text)], sliceStart: scan.sliceStart };
+	}
+	let lo = 0;
+	let hi = shared.length;
+	while (lo < hi) {
+		const mid = (lo + hi) >> 1;
+		if (shared[mid].start < scan.sliceStart) {
+			lo = mid + 1;
+		} else {
+			hi = mid;
+		}
+	}
+	const limit = Math.min(offset, scan.windowEnd);
+	let end = lo;
+	while (end < shared.length && shared[end].end <= limit) {
+		end += 1;
+	}
+	return { tokens: shared.slice(lo, end), sliceStart: 0 };
+}
+
 function activeWithScanWindow(
 	source: string,
 	offset: number,
 	ctx: MemberCompletionContext,
-): { text: string; sliceStart: number } {
+): { text: string; sliceStart: number; procedureStart: number; windowEnd: number } {
 	const safeOffset = Math.max(0, offset);
 	const module: ModuleNode = ctx.parsedModule ?? parseModule(source);
 	const enclosing = module.members.find(
@@ -972,11 +1157,15 @@ function activeWithScanWindow(
 			safeOffset <= mem.span.end,
 	);
 	if (!enclosing) {
-		return { text: source.slice(0, safeOffset), sliceStart: 0 };
+		// Module level: the window is everything before the offset, and there is
+		// no procedure to key an index on.
+		return { text: source.slice(0, safeOffset), sliceStart: 0, procedureStart: -1, windowEnd: safeOffset };
 	}
 	return {
-		text: source.slice(enclosing.span.start, safeOffset),
+		text: source.slice(enclosing.span.start, enclosing.span.end),
 		sliceStart: enclosing.span.start,
+		procedureStart: enclosing.span.start,
+		windowEnd: enclosing.span.end,
 	};
 }
 
@@ -1037,6 +1226,26 @@ function memberSurfaceForType(
 			owner: union.map(displayTypeName).join(' | '),
 			members: mergeCompletionMembers(...surfaces.map((surface) => surface.members)),
 			exhaustive: surfaces.every((surface) => surface.exhaustive),
+		};
+	}
+	if (typeName.startsWith(HOST_ENUM_PREFIX)) {
+		const enumName = typeName.slice(HOST_ENUM_PREFIX.length);
+		const constants = getHostEnumMembers(enumName, ctx.model);
+		if (constants.length === 0) {
+			return undefined;
+		}
+		return {
+			owner: enumName,
+			members: constants.map((constant) => ({
+				name: constant.name,
+				kind: 'property' as const,
+				declaredType: enumName,
+				access: 'read-only' as const,
+				doc: constant.doc ?? derivedConstantDoc(constant, resolveHostEnum(enumName, ctx.model)),
+			})),
+			// An enum's members are exactly its constants, so this surface can
+			// prove one absent - unlike the object types, which never can.
+			exhaustive: true,
 		};
 	}
 	const combined = parseCombinedTypeKey(typeName);

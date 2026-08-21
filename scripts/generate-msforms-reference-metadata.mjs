@@ -14,6 +14,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { collapseWhitespace } from './reference-curation.mjs';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -76,11 +77,13 @@ for (const fileName of fs.readdirSync(jsonDir).sort()) {
     if (dump.kind !== 'Enumeration') { continue; }
     for (const c of dump.constants ?? []) {
         if (c.name.startsWith('_') || constants[c.name]) { continue; }
+        const summary = collapseWhitespace(c.description);
         constants[c.name] = {
             name: c.name,
             type: dump.name,
             value: typeof c.value === 'number' ? c.value : String(c.value ?? ''),
             source: 'external',
+            ...(summary ? { doc: { summary, params: [], source: 'external' } } : {}),
         };
     }
 }

@@ -9,10 +9,10 @@
 // anything else would be a guess. Everything remains NON-exhaustive.
 
 import type { HostObjectModel } from './excelObjectModel';
-import { mergeHostConstants } from './excelObjectModel';
-import { OFFICE_REFERENCE_ENUM_CONSTANTS } from './officeReferenceConstants';
-import { MSFORMS_REFERENCE_ENUM_CONSTANTS } from './msformsReferenceMembers';
+import { hostBoundOfficeTypes, mergeHostConstants } from './excelObjectModel';
 import { officeReferenceTypeData } from './officeReferenceTypes';
+import { OFFICE_REFERENCE_ENUM_CONSTANTS, OFFICE_REFERENCE_ENUMS } from './officeReferenceConstants';
+import { MSFORMS_REFERENCE_ENUM_CONSTANTS } from './msformsReferenceMembers';
 import { accessReferenceData } from './accessObjectModelData';
 
 let MODEL: HostObjectModel | undefined;
@@ -30,10 +30,12 @@ export function getAccessObjectModel(): HostObjectModel {
 		// The shared Office library's types, merged under the host's own so a
 		// chain that lands on one (TextFrame2.TextRange -> Office.TextRange2)
 		// keeps resolving. The host wins every shared name.
-		types: { ...officeReferenceTypeData().types, ...data.types } as HostObjectModel['types'],
+		types: { ...hostBoundOfficeTypes('Access.Application'), ...data.types } as HostObjectModel['types'],
 		aliases: { ...officeReferenceTypeData().aliases, ...data.aliases } as HostObjectModel['aliases'],
 		// The shared Office library is auto-referenced in every Access VBA
 		// project; Access's own names have no overlap with it (measured).
+		// The host's own enumerations win a shared name, as its constants do.
+		enums: { ...OFFICE_REFERENCE_ENUMS, ...data.enums },
 		constants: mergeHostConstants(OFFICE_REFERENCE_ENUM_CONSTANTS, MSFORMS_REFERENCE_ENUM_CONSTANTS, data.constants),
 		globals: {
 			Application: 'Access.Application',

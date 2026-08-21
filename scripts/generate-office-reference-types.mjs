@@ -16,73 +16,67 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+    CLASS_KINDS,
+    createCurator,
+    declaredType,
+    memberAccess,
+    memberDoc,
+    memberSignature,
+    readDumps,
+    typeDoc,
+} from './reference-curation.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const jsonDir = path.join(root, 'reference', 'office', 'json');
 const outputPath = path.join(root, 'src', 'analyzer', 'host', 'officeReferenceTypes.ts');
-const MAX_SUMMARY = 300;
 
-const CLASS_KINDS = new Set(['Class', 'Dispatch Interface']);
+const dumps = readDumps(jsonDir);
+const curator = createCurator({ dumps, prefix: 'Office' });
 
-function summarize(text) {
-    if (!text) { return undefined; }
-    const line = String(text).replace(/\s+/g, ' ').trim();
-    if (!line) { return undefined; }
-    return line.length > MAX_SUMMARY ? `${line.slice(0, MAX_SUMMARY - 1)}\u2026` : line;
-}
-
-const dumps = [];
-for (const fileName of fs.readdirSync(jsonDir).sort()) {
-    if (!fileName.endsWith('.json') || fileName.startsWith('_')) { continue; }
-    try {
-        dumps.push(JSON.parse(fs.readFileSync(path.join(jsonDir, fileName), 'utf8')));
-    } catch {
-        // A malformed dump stays out of the model rather than breaking it.
-    }
-}
-
-const classNames = new Set(dumps.filter((d) => CLASS_KINDS.has(d.kind)).map((d) => d.name));
-
-/** An Office type reference stays qualified; anything else is left bare. */
-function qualifyReturn(type) {
-    if (!type) { return undefined; }
-    const bare = String(type).trim();
-    return classNames.has(bare) ? `Office.${bare}` : bare;
-}
-
-function memberOf(item, kind) {
-    const member = { name: item.name, kind };
-    const returns = qualifyReturn(kind === 'property' ? item.type : item.returns);
-    if (returns && returns !== 'void') { member.returns = returns; }
-    if (kind === 'method' && item.signature) { member.signature = item.signature; }
-    const summary = summarize(item.description);
-    if (summary) { member.doc = { summary, params: [], source: 'external' }; }
+function memberOf(ownerName, raw, kind) {
+    const member = { name: raw.name, kind };
+    const { returns, returnsAnyOf } = curator.resolveReturn(ownerName, raw, kind);
+    if (returns) { member.returns = returns; }
+    if (returnsAnyOf) { member.returnsAnyOf = returnsAnyOf; }
+    const declared = declaredType(raw, kind);
+    if (declared) { member.declaredType = declared; }
+    const access = memberAccess(raw, kind);
+    if (access) { member.access = access; }
+    const signature = memberSignature(raw, kind);
+    if (signature) { member.signature = signature; }
+    const doc = memberDoc(raw);
+    if (doc) { member.doc = doc; }
     return member;
 }
 
 const types = {};
 const aliases = {};
 let memberCount = 0;
-for (const dump of dumps) {
+let documented = 0;
+let repaired = 0;
+for (const [name, dump] of dumps) {
     if (!CLASS_KINDS.has(dump.kind)) { continue; }
     const members = [];
-    for (const property of dump.properties ?? []) {
-        if (property.name.startsWith('_')) { continue; }
-        members.push(memberOf(property, 'property'));
-    }
-    for (const method of dump.methods ?? []) {
-        if (method.name.startsWith('_')) { continue; }
-        members.push(memberOf(method, 'method'));
+    for (const [list, kind] of [[dump.properties ?? [], 'property'], [dump.methods ?? [], 'method']]) {
+        for (const raw of list) {
+            if (String(raw.name ?? '').startsWith('_')) { continue; }
+            const member = memberOf(name, raw, kind);
+            const declared = kind === 'property' ? raw.type : raw.returns;
+            if (declared === 'Object' && member.returns && member.returns !== 'Object') { repaired += 1; }
+            if (member.doc?.summary) { documented += 1; }
+            members.push(member);
+        }
     }
     if (members.length === 0) { continue; }
     members.sort((a, b) => a.name.localeCompare(b.name));
     memberCount += members.length;
-    const qualified = `Office.${dump.name}`;
-    const type = { displayName: dump.name, members };
-    const summary = summarize(dump.description);
-    if (summary) { type.provenance = summary; }
+    const qualified = `Office.${name}`;
+    const type = { displayName: name, members };
+    const doc = typeDoc(dump);
+    if (doc) { type.doc = doc; }
     types[qualified] = type;
-    aliases[dump.name.toLowerCase()] = qualified;
+    aliases[name.toLowerCase()] = qualified;
 }
 
 const lines = [];
@@ -125,4 +119,7 @@ lines.push('}');
 lines.push('');
 
 fs.writeFileSync(outputPath, lines.join('\n'), 'utf8');
-console.log(`Wrote ${path.relative(root, outputPath)}: ${Object.keys(types).length} Office types, ${memberCount} members.`);
+console.log(
+    `Wrote ${path.relative(root, outputPath)}: ${Object.keys(types).length} Office types, `
+    + `${memberCount} members (${documented} documented, ${repaired} generic returns repaired).`,
+);

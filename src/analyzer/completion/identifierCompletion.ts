@@ -547,7 +547,7 @@ function hostConstantDocumentation(
  * host-labeled kind otherwise.
  */
 function hostGlobalMemberDetail(
-	member: { kind: string; returns?: string; signature?: string },
+	member: { kind: string; returns?: string; signature?: string; declaredType?: string },
 	host: string,
 ): string {
 	if (member.kind === 'method') {
@@ -557,7 +557,8 @@ function hostGlobalMemberDetail(
 		const dot = member.returns.lastIndexOf('.');
 		return `${dot >= 0 ? member.returns.slice(dot + 1) : member.returns} object`;
 	}
-	return `${host} host property`;
+	// A property that chains nowhere still declares a type worth showing.
+	return member.declaredType ? `As ${member.declaredType}` : `${host} host property`;
 }
 
 /**

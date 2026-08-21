@@ -16,14 +16,16 @@
 
 import {
 	EXCEL_REFERENCE_ENUM_CONSTANTS,
+	EXCEL_REFERENCE_ENUMS,
 	EXCEL_REFERENCE_HARD_DIAGNOSTIC_TYPES,
 	EXCEL_REFERENCE_MEMBER_SETS,
 	EXCEL_REFERENCE_PROMOTED_TYPES,
 	EXCEL_REFERENCE_PROVENANCE,
+	EXCEL_REFERENCE_TYPE_DOCS,
 	EXCEL_WORKBOOK_REFERENCE_MEMBERS,
 	EXCEL_WORKBOOK_REFERENCE_PROVENANCE,
 } from './excelReferenceMembers';
-import { OFFICE_REFERENCE_ENUM_CONSTANTS } from './officeReferenceConstants';
+import { OFFICE_REFERENCE_ENUM_CONSTANTS, OFFICE_REFERENCE_ENUMS } from './officeReferenceConstants';
 import { MSFORMS_REFERENCE_ENUM_CONSTANTS } from './msformsReferenceMembers';
 import { officeReferenceTypeData } from './officeReferenceTypes';
 import type { VbaDoc } from '../docs/docModel';
@@ -42,6 +44,19 @@ export interface HostMember {
 	returnsAnyOf?: readonly string[];
 	/** Verified call signature from reference metadata, when available. */
 	signature?: string;
+	/**
+	 * The type a property declares, as the type library states it. Distinct from
+	 * `returns`, which names only a modelled object type so a member chain knows
+	 * where to go next: `Range.Value` declares Variant, chains nowhere, and still
+	 * hovers as `Value As Variant`.
+	 */
+	declaredType?: string;
+	/**
+	 * The read/write contract the type library states for a property. Methods
+	 * carry none. Surfaced in hover so a caller sees that `Range.Row` cannot be
+	 * assigned before they try.
+	 */
+	access?: 'read-only' | 'read/write' | 'write-only';
 	/** Reference documentation rendered in completion, hover, and call tips. */
 	doc?: VbaDoc;
 }
@@ -55,11 +70,31 @@ export interface HostConstant {
 	doc?: VbaDoc;
 }
 
+/**
+ * An enumeration the host library declares. Its members are the entries of
+ * `constants` whose `type` names it, so the two never disagree; this carries the
+ * name itself, which VBA accepts as a declared type (`Dim k As XlAxisType`) and
+ * as a qualifier (`XlAxisType.xlCategory`).
+ */
+export interface HostEnum {
+	/** Bare display name, e.g. "XlAxisType". */
+	displayName: string;
+	/** The reference's description of the enumeration. */
+	doc?: VbaDoc;
+}
+
 export interface HostType {
 	/** Bare display name, e.g. "Worksheet". */
 	displayName: string;
 	/** Reference/source provenance for generated or promoted host metadata. */
 	provenance?: string;
+	/**
+	 * The reference's own description, remarks and worked example for the type,
+	 * rendered when a declaration's type name is hovered or completed. Distinct
+	 * from `provenance`, which says where the metadata came from rather than
+	 * what the type is.
+	 */
+	doc?: VbaDoc;
 	/**
 	 * True only when `members` is complete enough to prove a member is absent.
 	 * Curated subsets must leave this false/undefined.
@@ -91,6 +126,12 @@ export interface HostObjectModel {
 	globalType?: string;
 	/** Host enum constants, keyed by canonical name. */
 	constants?: Record<string, HostConstant>;
+	/**
+	 * Host enumerations, keyed by canonical name. Separate from `types`, which
+	 * holds object types: an enum is a VALUE type, so `Dim k As XlAxisType`
+	 * declares a Long and chains nowhere, but the name must still resolve.
+	 */
+	enums?: Record<string, HostEnum>;
 	/**
 	 * Verified call signatures for callable members, keyed by qualified type
 	 * then lowercased member name. Used by signature help (parameter info).
@@ -331,6 +372,19 @@ function pAny(name: string, returnsAnyOf: readonly string[]): HostMember {
 function m(name: string, returns?: string): HostMember {
 	return { name, kind: 'method', returns };
 }
+/**
+ * A property whose declared type this model states directly, for the few
+ * members the reference dump cannot see: they live on Excel's hidden `_`
+ * dispatch interfaces (`_Chart.Type`), which the introspection skips, so
+ * nothing else would give them a type to hover.
+ */
+function pDeclared(
+	name: string,
+	declaredType: string,
+	access: HostMember['access'],
+): HostMember {
+	return { name, kind: 'property', declaredType, access };
+}
 
 function mergeHostMembers(
 	primary: readonly HostMember[],
@@ -356,6 +410,11 @@ function enrichHostMember(target: HostMember, source: HostMember): void {
 	target.returns ??= source.returns;
 	target.returnsAnyOf ??= source.returnsAnyOf;
 	target.signature ??= source.signature;
+	// The hand-written entries name a chaining type and nothing else, so the
+	// generated declaration is where the declared type and read/write contract
+	// come from - without this, Range.Value hovers bare.
+	target.declaredType ??= source.declaredType;
+	target.access ??= source.access;
 	target.doc ??= source.doc;
 }
 
@@ -387,6 +446,41 @@ export function mergeHostConstants(
 	return out;
 }
 
+const HOST_BOUND_OFFICE_TYPES = new Map<string, Record<string, HostType>>();
+
+/**
+ * The shared Office library's types, bound to the host that loaded them.
+ *
+ * The Office library has no Application class of its own - the host supplies it -
+ * so every `Application` member across its 263 types is declared `As Object` and
+ * a chain through one used to stop dead. Binding them to the host's own
+ * Application is the same fact the VBE resolves at run time from the project's
+ * references. Nothing else is rewritten: `Parent` stays generic because what
+ * owns a shared Office object genuinely varies by call site.
+ */
+export function hostBoundOfficeTypes(applicationType: string): Record<string, HostType> {
+	const cached = HOST_BOUND_OFFICE_TYPES.get(applicationType);
+	if (cached) {
+		return cached;
+	}
+	const source = officeReferenceTypeData().types;
+	const bound: Record<string, HostType> = {};
+	for (const [qualified, type] of Object.entries(source)) {
+		const index = type.members.findIndex(
+			(member) => member.name === 'Application' && !member.returns,
+		);
+		if (index < 0) {
+			bound[qualified] = type;
+			continue;
+		}
+		const members = type.members.slice();
+		members[index] = { ...members[index], returns: applicationType };
+		bound[qualified] = { ...type, members };
+	}
+	HOST_BOUND_OFFICE_TYPES.set(applicationType, bound);
+	return bound;
+}
+
 function promotedExcelReferenceProvenance(displayName: string): string {
 	return EXCEL_REFERENCE_PROVENANCE[displayName] ?? `reference/excel/json/${displayName}.json`;
 }
@@ -401,10 +495,12 @@ function promotedExcelHostType(
 	displayName: string,
 	primary: readonly HostMember[],
 ): HostType {
+	const doc = EXCEL_REFERENCE_TYPE_DOCS[displayName];
 	return {
 		displayName,
 		provenance: promotedExcelReferenceProvenance(displayName),
 		exhaustive: promotedExcelReferenceExhaustive(displayName),
+		...(doc ? { doc } : {}),
 		members: mergeHostMembers(primary, referenceMembers(displayName)),
 	};
 }
@@ -507,10 +603,12 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 		MSFORMS_REFERENCE_ENUM_CONSTANTS,
 		EXCEL_REFERENCE_ENUM_CONSTANTS,
 	),
+	// The host's own enumerations win a shared name, the way its constants do.
+	enums: { ...OFFICE_REFERENCE_ENUMS, ...EXCEL_REFERENCE_ENUMS },
 	types: {
 		// A Shape's TextFrame2 hands back an Office TextRange2; without the
 		// shared library's types the chain dead-ends at that hop.
-		...officeReferenceTypeData().types,
+		...hostBoundOfficeTypes(APPLICATION),
 		...promotedExcelHostTypes(EXCEL_REFERENCE_PROMOTED_TYPES),
 		[APPLICATION]: {
 			displayName: 'Application',
@@ -539,7 +637,6 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 				p('FindFormat', CELLFORMAT),
 				p('Height'),
 				p('International'),
-				p('IconSets', ICONSETS),
 				p('Name'),
 				p('Names', NAMES),
 				p('Parent'),
@@ -674,7 +771,6 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 				m('DrawingObjects', DRAWINGOBJECTS),
 				m('Drawings', DRAWINGS),
 				m('DropDowns', DROPDOWNS),
-				m('EditBoxes', EDITBOXES),
 				m('Evaluate'),
 				m('GroupBoxes', GROUPBOXES),
 				m('Labels', LABELS),
@@ -1035,7 +1131,6 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 		[PIVOTTABLE]: promotedExcelHostType('PivotTable', [
 				p('Application', APPLICATION),
 				p('CalculatedFields', CALCULATEDFIELDS),
-				p('CalculatedItems', CALCULATEDITEMS),
 				p('ColumnFields', PIVOTFIELDS),
 				p('ColumnGrand'),
 				p('CubeFields', CUBEFIELDS),
@@ -1048,7 +1143,6 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 				p('Parent'),
 				p('PivotCache', PIVOTCACHE),
 				p('PivotFields', PIVOTFIELDS),
-				p('PivotFilters', PIVOTFILTERS),
 				p('RefreshDate'),
 				p('RowFields', PIVOTFIELDS),
 				p('RowGrand'),
@@ -1081,7 +1175,6 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 				p('ParentItems', PIVOTITEMS),
 				p('PivotFilters', PIVOTFILTERS),
 				p('PivotItems', PIVOTITEMS),
-				p('SourceRange', RANGE),
 				p('VisibleItems', PIVOTITEMS),
 				m('ClearAllFilters'),
 			]),
@@ -1128,7 +1221,6 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 		[PIVOTFILTER]: promotedExcelHostType('PivotFilter', [
 				p('Application', APPLICATION),
 				p('DataField', PIVOTFIELD),
-				p('FilteringPivotField', PIVOTFIELD),
 				p('MemberPropertyField', PIVOTFIELD),
 				p('Parent'),
 				p('Value1'),
@@ -1387,7 +1479,6 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 				p('Parent'),
 				p('StartDate'),
 				m('SetFilterDateRange'),
-				m('SetFilterDateRange2'),
 			]),
 		[TIMELINEVIEWSTATE]: promotedExcelHostType('TimelineViewState', [
 				p('Application', APPLICATION),
@@ -1397,7 +1488,6 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 				p('ShowHorizontalScrollbar'),
 				p('ShowSelectionLabel'),
 				p('ShowTimeLevel'),
-				p('Visible'),
 			]),
 		[CHART]: promotedExcelHostType('Chart', [
 				p('Application', APPLICATION),
@@ -1414,7 +1504,7 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 				p('Parent'),
 				p('PlotArea', PLOTAREA),
 				p('Shapes', SHAPES),
-				p('Type'),
+				pDeclared('Type', 'Long', 'read/write'),   // _Chart.Type
 				p('Visible'),
 				p('Walls', WALLS),
 				m('Activate'),
@@ -1667,7 +1757,6 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 				p('Application', APPLICATION),
 				p('Count'),
 				p('Parent'),
-				p('_Default', CHARTGROUP),
 				m('Item', CHARTGROUP),
 			]),
 		[CHARTGROUP]: promotedExcelHostType('ChartGroup', [
@@ -1855,7 +1944,6 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 		[TEXTFRAME]: promotedExcelHostType('TextFrame', [
 				p('Application', APPLICATION),
 				p('Characters'),
-				p('HasText'),
 				p('HorizontalAlignment'),
 				p('MarginBottom'),
 				p('MarginLeft'),
@@ -1956,7 +2044,6 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 				p('Application', APPLICATION),
 				p('Count'),
 				p('Parent'),
-				p('_Default', SHAPENODE),
 				m('Delete'),
 				m('Insert'),
 				m('Item', SHAPENODE),
@@ -2064,7 +2151,6 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 				p('Interior', INTERIOR),
 				p('Parent'),
 				p('ShapeRange', SHAPERANGE),
-				p('_Default', DRAWING),
 				m('Add', DRAWING),
 				m('Group', GROUPOBJECT),
 				m('Item', DRAWING),
@@ -2088,7 +2174,6 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 				p('Count'),
 				p('Parent'),
 				p('ShapeRange', SHAPERANGE),
-				p('_Default', PICTURE),
 				m('Add', PICTURE),
 				m('Insert', PICTURE),
 				m('Item', PICTURE),
@@ -2110,7 +2195,6 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 				p('Count'),
 				p('Parent'),
 				p('ShapeRange', SHAPERANGE),
-				p('_Default', LINE),
 				m('Add', LINE),
 				m('Group', GROUPOBJECT),
 				m('Item', LINE),
@@ -2133,7 +2217,6 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 				p('Interior', INTERIOR),
 				p('Parent'),
 				p('ShapeRange', SHAPERANGE),
-				p('_Default', RECTANGLE),
 				m('Add', RECTANGLE),
 				m('Group', GROUPOBJECT),
 				m('Item', RECTANGLE),
@@ -2157,7 +2240,6 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 				p('Interior', INTERIOR),
 				p('Parent'),
 				p('ShapeRange', SHAPERANGE),
-				p('_Default', OVAL),
 				m('Add', OVAL),
 				m('Group', GROUPOBJECT),
 				m('Item', OVAL),
@@ -2180,7 +2262,6 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 				p('Count'),
 				p('Parent'),
 				p('ShapeRange', SHAPERANGE),
-				p('_Default', ARC),
 				m('Add', ARC),
 				m('Group', GROUPOBJECT),
 				m('Item', ARC),
@@ -2562,16 +2643,12 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 				m('ModifyAppliesToRange'),
 			]),
 		[COLORSCALECRITERIA]: promotedExcelHostType('ColorScaleCriteria', [
-				p('Application', APPLICATION),
 				p('Count'),
-				p('Parent'),
 				p('_Default', COLORSCALECRITERION),
 				m('Item', COLORSCALECRITERION),
 			]),
 		[COLORSCALECRITERION]: promotedExcelHostType('ColorScaleCriterion', [
-				p('Application', APPLICATION),
 				p('FormatColor', FORMATCOLOR),
-				p('Parent'),
 				p('Type'),
 				p('Value'),
 			]),
@@ -2585,17 +2662,13 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 				m('ModifyAppliesToRange'),
 			]),
 		[ICONCRITERIA]: promotedExcelHostType('IconCriteria', [
-				p('Application', APPLICATION),
 				p('Count'),
-				p('Parent'),
 				p('_Default', ICONCRITERION),
 				m('Item', ICONCRITERION),
 			]),
 		[ICONCRITERION]: promotedExcelHostType('IconCriterion', [
-				p('Application', APPLICATION),
 				p('Icon', ICON),
 				p('Operator'),
-				p('Parent'),
 				p('Type'),
 				p('Value'),
 			]),
@@ -2686,7 +2759,6 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 				p('Points', SPARKPOINTS),
 				p('SeriesColor', SPARKCOLOR),
 				p('SourceData'),
-				p('_Default', SPARKLINE),
 				m('Delete'),
 				m('Item', SPARKLINE),
 				m('Modify'),
@@ -2725,7 +2797,6 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 				p('Application', APPLICATION),
 				p('Axis', SPARKCOLOR),
 				p('Parent'),
-				p('Visible'),
 			]),
 		[SPARKVERTICALAXIS]: promotedExcelHostType('SparkVerticalAxis', [
 				p('Application', APPLICATION),
@@ -2789,7 +2860,6 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 			]),
 		[WEBOPTIONS]: promotedExcelHostType('WebOptions', [
 				p('AllowPNG'),
-				p('AlwaysSaveInDefaultEncoding'),
 				p('Application', APPLICATION),
 				p('Encoding'),
 				p('FolderSuffix'),

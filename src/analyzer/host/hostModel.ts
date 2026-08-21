@@ -5,6 +5,7 @@
 import {
 	getExcelObjectModel,
 	HostConstant,
+	HostEnum,
 	HostMember,
 	HostObjectModel,
 	HostType,
@@ -39,6 +40,12 @@ interface HostModelIndex {
 	membersByType: Map<string, HostTypeIndex>;
 	typeKeysByLower: Map<string, string>;
 	globalsByLower: Map<string, string>;
+	/** Every member name in the model, lowercased, across every type. */
+	memberNames: Set<string>;
+	/** Lowercased enum name -> the enumeration. */
+	enumsByLower: Map<string, HostEnum>;
+	/** Lowercased enum name -> its constants, in declaration order. */
+	constantsByEnum: Map<string, HostConstant[]>;
 }
 
 const HOST_MODEL_INDEX = new WeakMap<HostObjectModel, HostModelIndex>();
@@ -80,9 +87,86 @@ function hostModelIndex(model: HostObjectModel): HostModelIndex {
 			globalsByLower.set(keyLower, type);
 		}
 	}
-	const index = { membersByType, typeKeysByLower, globalsByLower };
+	const memberNames = new Set<string>();
+	for (const type of membersByType.values()) {
+		for (const lower of type.rawByLowerName.keys()) {
+			memberNames.add(lower);
+		}
+	}
+	const enumsByLower = new Map<string, HostEnum>();
+	for (const entry of Object.values(model.enums ?? {})) {
+		const lower = entry.displayName.toLowerCase();
+		if (!enumsByLower.has(lower)) {
+			enumsByLower.set(lower, entry);
+		}
+	}
+	// An enum's members are the constants that name it, so the two can never
+	// disagree and the generated tables stay a single list.
+	const constantsByEnum = new Map<string, HostConstant[]>();
+	for (const constant of Object.values(model.constants ?? {})) {
+		if (!constant.type) {
+			continue;
+		}
+		const lower = constant.type.toLowerCase();
+		const bucket = constantsByEnum.get(lower);
+		if (bucket) {
+			bucket.push(constant);
+		} else {
+			constantsByEnum.set(lower, [constant]);
+		}
+	}
+	const index = {
+		membersByType,
+		typeKeysByLower,
+		globalsByLower,
+		memberNames,
+		enumsByLower,
+		constantsByEnum,
+	};
 	HOST_MODEL_INDEX.set(model, index);
 	return index;
+}
+
+/** The enumerations the host library declares, for type positions and hover. */
+export function getHostEnums(
+	model: HostObjectModel = getExcelObjectModel(),
+): HostEnum[] {
+	return Object.values(model.enums ?? {});
+}
+
+/**
+ * The enumeration named `name`, case-insensitively. VBA accepts an enum name as
+ * a declared type (`Dim k As XlAxisType`) and as a qualifier
+ * (`XlAxisType.xlCategory`); neither resolved to anything before.
+ */
+export function resolveHostEnum(
+	name: string,
+	model: HostObjectModel = getExcelObjectModel(),
+): HostEnum | undefined {
+	if (!name) {
+		return undefined;
+	}
+	return hostModelIndex(model).enumsByLower.get(name.trim().toLowerCase());
+}
+
+/** The constants belonging to one enumeration, in declaration order. */
+export function getHostEnumMembers(
+	enumName: string,
+	model: HostObjectModel = getExcelObjectModel(),
+): HostConstant[] {
+	return hostModelIndex(model).constantsByEnum.get(enumName.toLowerCase()) ?? [];
+}
+
+/**
+ * True when any type in the model carries a member of this name. Cheap enough
+ * to run per member-access dot in a module, which is what semantic-token
+ * painting does before paying for a receiver walk that could only fail.
+ */
+export function isHostMemberNameAnywhere(
+	name: string,
+	model: HostObjectModel = getExcelObjectModel(),
+): boolean {
+	return hostModelIndex(model).memberNames.has(name.toLowerCase());
 }
 
 /** Returns the type metadata for a qualified type name (e.g. "Excel.Range"). */

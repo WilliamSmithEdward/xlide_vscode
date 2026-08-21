@@ -122,7 +122,10 @@ describe('host model resolution', () => {
 		expect(resolveMemberReturnType('Excel.PivotField', 'PivotItems')).toBe('Excel.PivotItems');
 		expect(resolveMemberReturnType('Excel.PivotItems', 'Item')).toBe('Excel.PivotItem');
 		expect(resolveMemberReturnType('Excel.PivotTable', 'PivotCache')).toBe('Excel.PivotCache');
-		expect(resolveMemberReturnType('Excel.PivotTable', 'PivotFilters')).toBe(
+		// PivotFilters hangs off a FIELD, not the table: the Excel type library and
+		// the reference agree, and this used to assert the member on PivotTable,
+		// where neither has ever carried it.
+		expect(resolveMemberReturnType('Excel.PivotField', 'PivotFilters')).toBe(
 			'Excel.PivotFilters',
 		);
 		expect(resolveMemberReturnType('Excel.PivotFilters', 'Item')).toBe('Excel.PivotFilter');

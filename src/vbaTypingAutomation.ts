@@ -125,9 +125,36 @@ export function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
         };
         placeCaret();
         setTimeout(placeCaret, 0);
+        suggestAfterAutoDot(editor, smartBlock.bodyText);
     });
 
     context.subscriptions.push(sub);
+}
+
+/**
+ * Opens the completion list after an auto-inserted leading `.`.
+ *
+ * Typing a dot triggers the suggest widget because `.` is a registered trigger
+ * character, but a dot the editor inserts is not typed, so dropping into a
+ * `With` body left the caret after a dot with no list - and backspacing over it
+ * and retyping the same character was the only way to see one.
+ */
+function suggestAfterAutoDot(editor: vscode.TextEditor, expectedLine: string): void {
+    if (!expectedLine.endsWith('.')) {
+        return;
+    }
+    // After the caret settles: the delayed placement pass wins same-Enter
+    // listener races, and asking earlier would target the pre-edit position.
+    setTimeout(() => {
+        if (vscode.window.activeTextEditor !== editor) {
+            return;
+        }
+        const caret = editor.selection.active;
+        if (!editor.selection.isEmpty || editor.document.lineAt(caret.line).text !== expectedLine) {
+            return;
+        }
+        void vscode.commands.executeCommand('editor.action.triggerSuggest');
+    }, 0);
 }
 
 /**
@@ -220,6 +247,7 @@ async function maybeContinueWithMemberLine(
     };
     placeCaret();
     setTimeout(placeCaret, 0);
+    suggestAfterAutoDot(editor, lineText);
 }
 
 /**

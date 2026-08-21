@@ -1,10 +1,23 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import {
+	CLASS_KINDS,
+	classNamesIn,
+	createCurator,
+	declaredType,
+	descriptionIndex,
+	memberAccess,
+	localizeHostName,
+	memberSignature,
+	typeDoc,
+} from './reference-curation.mjs';
+import {
 	cleanText,
 	collectConstants,
+	collectEnums,
 	readReferenceDumps,
 	renderConstant,
+	renderEnum,
 } from './reference-generator-utils.mjs';
 
 const root = process.cwd();
@@ -283,6 +296,9 @@ const primitiveTypes = new Set([
 ]);
 
 const dumps = readReferenceDumps(jsonDir);
+// Descriptions the reference cross-published from another host's page name that
+// host as the actor; the index is what proves a sentence was copied.
+const descriptions = descriptionIndex(path.join(root, 'reference'));
 
 /**
  * Every object type the corpus carries members for, in a stable order: the
@@ -319,53 +335,28 @@ function normalizeTypeName(typeName) {
 	return typeName.replace(/\(.*\)$/g, '').trim();
 }
 
-/**
- * The shared Office library's class names. Excel members return them - a Shape's
- * TextFrame2 hands back an Office TextRange2 - and the Excel corpus does not
- * carry those dumps, so without this the chain dead-ends at the first hop.
- */
-const officeClassNames = (() => {
-	const officeDir = path.join(root, 'reference', 'office', 'json');
-	const names = new Set();
-	let entries = [];
-	try {
-		entries = fs.readdirSync(officeDir);
-	} catch {
-		return names;   // no Office corpus locally: returns stay as they were
-	}
-	for (const fileName of entries) {
-		if (!fileName.endsWith('.json') || fileName.startsWith('_')) { continue; }
-		try {
-			const dump = JSON.parse(fs.readFileSync(path.join(officeDir, fileName), 'utf8'));
-			if (dump.kind === 'Class' || dump.kind === 'Dispatch Interface') { names.add(dump.name); }
-		} catch {
-			// Unreadable dump: that name simply stays unqualified.
-		}
-	}
-	return names;
-})();
-
-function excelQualifiedReturn(typeName) {
-	const clean = normalizeTypeName(typeName);
-	if (!clean || primitiveTypes.has(clean)) {
-		return undefined;
-	}
-	if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(clean)) {
-		return undefined;
-	}
-	if (dumps.has(clean)) {
-		return `Excel.${clean}`;
-	}
-	// Excel's own library wins; the shared Office library is the fallback.
-	return officeClassNames.has(clean) ? `Office.${clean}` : undefined;
-}
+// The shared Office library's class names, so a member that returns one of its
+// types stays a resolvable chain step: a Shape's TextFrame2 hands back an
+// Office TextRange2, and the Excel corpus does not carry those dumps.
+const foreignClasses = new Map(
+	[...classNamesIn(path.join(root, 'reference', 'office', 'json'))].map((name) => [name, 'Office']),
+);
+// The curator qualifies a declared return, and repairs the accessors the type
+// library declares `As Object` (Chart.Axes, ChartObjects.Item) from the
+// reference prose. Its rules are pinned against the return types this model
+// used to transcribe by hand: see tests/vbaHostReturnCuration.test.ts.
+const curator = createCurator({
+	dumps: new Map([...dumps].map(([name, entry]) => [name, entry.dump])),
+	prefix: 'Excel',
+	foreignClasses,
+});
 
 function memberReturn(raw, kind) {
 	return kind === 'method' ? raw.returns : raw.type ?? raw.returns;
 }
 
 function memberDoc(raw) {
-	const summary = cleanText(raw.description);
+	const summary = localizeHostName(cleanText(raw.description), 'Excel', descriptions);
 	const remarks = cleanText(raw.remarks);
 	const params = (raw.parameters ?? [])
 		.map((param) => {
@@ -395,20 +386,27 @@ function memberDoc(raw) {
 	};
 }
 
-function memberFrom(raw, kind) {
-	const qualifiedReturn = excelQualifiedReturn(memberReturn(raw, kind));
-	const signature = cleanText(raw.signature);
+function memberFrom(ownerName, raw, kind) {
+	const { returns, returnsAnyOf } = kind === 'event'
+		? {}
+		: curator.resolveReturn(ownerName, raw, kind);
+	const signature = kind === 'event' ? cleanText(raw.signature) : memberSignature(raw, kind);
+	const declared = declaredType(raw, kind);
+	const access = memberAccess(raw, kind);
 	const doc = memberDoc(raw);
 	return {
 		name: raw.name,
 		kind,
-		...(qualifiedReturn ? { returns: qualifiedReturn } : {}),
+		...(returns ? { returns } : {}),
+		...(returnsAnyOf ? { returnsAnyOf } : {}),
+		...(declared ? { declaredType: declared } : {}),
+		...(access ? { access } : {}),
 		...(signature ? { signature } : {}),
 		...(doc ? { doc } : {}),
 	};
 }
 
-function collectMembers(typeDump, options = {}) {
+function collectMembers(ownerName, typeDump, options = {}) {
 	const includeEvents = options.includeEvents === true;
 	const byName = new Map();
 	const duplicateNames = new Set();
@@ -421,7 +419,7 @@ function collectMembers(typeDump, options = {}) {
 			duplicateNames.add(raw.name);
 			return;
 		}
-		byName.set(key, memberFrom(raw, kind));
+		byName.set(key, memberFrom(ownerName, raw, kind));
 	};
 
 	for (const item of typeDump.properties ?? []) {
@@ -449,6 +447,15 @@ function renderMember(member) {
 	if (member.returns) {
 		parts.push(`returns: ${JSON.stringify(member.returns)}`);
 	}
+	if (member.returnsAnyOf) {
+		parts.push(`returnsAnyOf: ${JSON.stringify(member.returnsAnyOf)}`);
+	}
+	if (member.declaredType) {
+		parts.push(`declaredType: ${JSON.stringify(member.declaredType)}`);
+	}
+	if (member.access) {
+		parts.push(`access: ${JSON.stringify(member.access)}`);
+	}
 	if (member.signature) {
 		parts.push(`signature: ${JSON.stringify(member.signature)}`);
 	}
@@ -472,7 +479,7 @@ function renderPromotedMemberSet(typeName) {
 	if (!entry) {
 		throw new Error(`Missing Excel reference dump for promoted type ${typeName}`);
 	}
-	const { members } = collectMembers(entry.dump);
+	const { members } = collectMembers(typeName, entry.dump);
 	return `\t${JSON.stringify(typeName)}: [\n${members.map(renderMember).join('\n')}\n\t],`;
 }
 
@@ -483,8 +490,8 @@ function typeCoverage(entry) {
 	const events = dump.events?.length ?? 0;
 	const constants = dump.constants?.length ?? 0;
 	const totalMembers = properties + methods + events;
-	const { members, duplicateNames } = collectMembers(dump, { includeEvents: true });
-	const objectSurfaceMembers = collectMembers(dump).members.length;
+	const { members, duplicateNames } = collectMembers(dump.name, dump, { includeEvents: true });
+	const objectSurfaceMembers = collectMembers(dump.name, dump).members.length;
 	const memberRows = [
 		...(dump.properties ?? []).map((item) => ({ item, kind: 'property' })),
 		...(dump.methods ?? []).map((item) => ({ item, kind: 'method' })),
@@ -527,7 +534,8 @@ function typeCoverage(entry) {
 const coverage = [...dumps.values()]
 	.map(typeCoverage)
 	.sort((a, b) => a.name.localeCompare(b.name, 'en'));
-const constants = collectConstants(dumps);
+const constants = collectConstants(dumps, 'Excel', descriptions);
+const enums = collectEnums(dumps, 'Excel', descriptions);
 
 function countWhere(predicate) {
 	return coverage.filter(predicate).length;
@@ -664,13 +672,22 @@ function renderOutput() {
 		.map((typeName) => `\t${JSON.stringify(typeName)}: ${JSON.stringify(provenanceFor(typeName))},`)
 		.join('\n');
 	const memberSetEntries = promotedTypes.map(renderPromotedMemberSet).join('\n');
+	const typeDocEntries = promotedTypes
+		.map((typeName) => {
+			const doc = typeDoc(dumps.get(typeName)?.dump ?? {}, 300, 'Excel', descriptions);
+			return doc ? `\t${JSON.stringify(typeName)}: ${JSON.stringify(doc)},` : undefined;
+		})
+		.filter(Boolean)
+		.join('\n');
 	const constantEntries = constants.map(renderConstant).join('\n');
+	const enumEntries = enums.map(renderEnum).join('\n');
 	const workbookProvenance = provenanceFor('Workbook');
 
 	return `// Generated from reference/excel/json. Do not hand-edit member names here.
 // Regenerate from the repo-local reference dump with \`npm run generate:reference:excel\`.
 
-import type { HostConstant, HostMember } from './excelObjectModel';
+import type { HostConstant, HostEnum, HostMember } from './excelObjectModel';
+import type { VbaDoc } from '../docs/docModel';
 
 export const EXCEL_REFERENCE_PROMOTED_TYPES = ${JSON.stringify(promotedTypes)} as const;
 
@@ -680,12 +697,20 @@ export const EXCEL_REFERENCE_PROVENANCE: Record<string, string> = {
 ${provenanceEntries}
 };
 
+export const EXCEL_REFERENCE_TYPE_DOCS: Record<string, VbaDoc> = {
+${typeDocEntries}
+};
+
 export const EXCEL_REFERENCE_MEMBER_SETS: Record<string, readonly HostMember[]> = {
 ${memberSetEntries}
 };
 
 export const EXCEL_REFERENCE_ENUM_CONSTANTS: Record<string, HostConstant> = {
 ${constantEntries}
+};
+
+export const EXCEL_REFERENCE_ENUMS: Record<string, HostEnum> = {
+${enumEntries}
 };
 
 export const EXCEL_WORKBOOK_REFERENCE_PROVENANCE = ${JSON.stringify(workbookProvenance)};

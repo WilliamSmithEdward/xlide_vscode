@@ -13,6 +13,20 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+    CLASS_KINDS,
+    classNamesIn,
+    collapseWhitespace,
+    createCurator,
+    declaredType,
+    descriptionIndex,
+    localizeHostName,
+    memberAccess,
+    memberDoc,
+    memberSignature,
+    readDumps,
+    typeDoc,
+} from './reference-curation.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const host = process.argv[2];
@@ -29,112 +43,87 @@ if (!prefix) {
 
 const jsonDir = path.join(root, 'reference', host, 'json');
 const outputPath = path.join(root, 'src', 'analyzer', 'host', `${host}ObjectModelData.ts`);
-const MAX_SUMMARY = 300;
 
-const index = JSON.parse(fs.readFileSync(path.join(jsonDir, '_index.json'), 'utf8'));
-const dumps = [];
-for (const t of index.types ?? []) {
-    const file = path.join(jsonDir, `${t.name.replace(/[^A-Za-z0-9_.-]/g, '_')}.json`);
-    try {
-        dumps.push(JSON.parse(fs.readFileSync(file, 'utf8')));
-    } catch {
-        // A type listed but not written stays out of the model.
-    }
-}
+const dumps = readDumps(jsonDir);
+// Descriptions the reference cross-published from another host's page name that
+// host as the actor; the index is what proves a sentence was copied.
+const descriptions = descriptionIndex(path.join(root, 'reference'));
 
-// The dump vocabulary spans 'Class' (coclasses), 'Dispatch Interface' and
-// 'Interface' (the member-bearing shapes), and 'Enumeration'. Events-only
-// interfaces fall out naturally: no properties or methods, no type emitted.
-const CLASS_KINDS = new Set(['Class', 'Dispatch Interface', 'Interface']);
-const classNames = new Set(dumps.filter((d) => CLASS_KINDS.has(d.kind)).map((d) => d.name));
+// The shared Office library's class names, so a member that returns one of its
+// types stays a resolvable chain step. The host corpora do not carry those
+// dumps, so without this a PowerPoint TextFrame2.TextRange (an Office
+// TextRange2) dead-ends at the first hop.
+const foreignClasses = new Map(
+    [...classNamesIn(path.join(root, 'reference', 'office', 'json'))].map((name) => [name, 'Office']),
+);
+const curator = createCurator({ dumps, prefix, foreignClasses });
 
-/** Same-library class types qualify (`Document` -> `Word.Document`); the rest pass through. */
-/**
- * The shared Office library's class names, so a member that returns one of its
- * types stays a resolvable chain step. The host corpora do not carry those
- * dumps, so without this a PowerPoint TextFrame2.TextRange (an Office
- * TextRange2) dead-ends at the first hop.
- */
-const officeClassNames = (() => {
-    const officeDir = path.join(root, 'reference', 'office', 'json');
-    const names = new Set();
-    let entries = [];
-    try {
-        entries = fs.readdirSync(officeDir);
-    } catch {
-        return names;   // no Office corpus locally: host returns stay as they were
-    }
-    for (const fileName of entries) {
-        if (!fileName.endsWith('.json') || fileName.startsWith('_')) { continue; }
-        try {
-            const dump = JSON.parse(fs.readFileSync(path.join(officeDir, fileName), 'utf8'));
-            if (CLASS_KINDS.has(dump.kind)) { names.add(dump.name); }
-        } catch {
-            // Unreadable dump: that name simply stays unqualified.
-        }
-    }
-    return names;
-})();
-
-function qualifyReturn(type) {
-    if (!type) { return undefined; }
-    const bare = String(type).replace(/^\s+|\s+$/g, '');
-    if (classNames.has(bare)) { return `${prefix}.${bare}`; }
-    // The host's own library wins; the shared Office library is the fallback.
-    return officeClassNames.has(bare) ? `Office.${bare}` : bare;
-}
-
-function summarize(text) {
-    if (!text) { return undefined; }
-    const line = String(text).replace(/\s+/g, ' ').trim();
-    if (!line) { return undefined; }
-    return line.length > MAX_SUMMARY ? `${line.slice(0, MAX_SUMMARY - 1)}…` : line;
-}
-
-function memberOf(item, kind) {
-    const member = { name: item.name, kind };
-    const returns = qualifyReturn(kind === 'property' ? item.type : item.returns);
-    if (returns && returns !== 'void') { member.returns = returns; }
-    if (kind === 'method' && item.signature) { member.signature = item.signature; }
-    const summary = summarize(item.description);
-    if (summary) { member.doc = { summary, params: [], source: 'external' }; }
+function memberOf(ownerName, raw, kind) {
+    const member = { name: raw.name, kind };
+    const { returns, returnsAnyOf } = curator.resolveReturn(ownerName, raw, kind);
+    if (returns) { member.returns = returns; }
+    if (returnsAnyOf) { member.returnsAnyOf = returnsAnyOf; }
+    const declared = declaredType(raw, kind);
+    if (declared) { member.declaredType = declared; }
+    const access = memberAccess(raw, kind);
+    if (access) { member.access = access; }
+    const signature = memberSignature(raw, kind);
+    if (signature) { member.signature = signature; }
+    const doc = memberDoc(raw, 300, prefix, descriptions);
+    if (doc) { member.doc = doc; }
     return member;
 }
 
 const types = {};
 const aliases = {};
 const constants = {};
+const enums = {};
 let memberCount = 0;
 let constantCount = 0;
+let documented = 0;
+let repaired = 0;
 
-for (const dump of dumps) {
+for (const [name, dump] of dumps) {
     if (CLASS_KINDS.has(dump.kind)) {
         const members = [];
-        for (const p of dump.properties ?? []) {
-            if (p.name.startsWith('_')) { continue; }
-            members.push(memberOf(p, 'property'));
-        }
-        for (const m of dump.methods ?? []) {
-            if (m.name.startsWith('_')) { continue; }
-            members.push(memberOf(m, 'method'));
+        for (const [list, kind] of [[dump.properties ?? [], 'property'], [dump.methods ?? [], 'method']]) {
+            for (const raw of list) {
+                if (String(raw.name ?? '').startsWith('_')) { continue; }
+                const member = memberOf(name, raw, kind);
+                const declared = kind === 'property' ? raw.type : raw.returns;
+                if (declared === 'Object' && member.returns && member.returns !== 'Object') { repaired += 1; }
+                if (member.doc?.summary) { documented += 1; }
+                members.push(member);
+            }
         }
         if (members.length === 0) { continue; }
         members.sort((a, b) => a.name.localeCompare(b.name));
         memberCount += members.length;
-        const qualified = `${prefix}.${dump.name}`;
-        const type = { displayName: dump.name, members };
-        const summary = summarize(dump.description);
-        if (summary) { type.provenance = summary; }
+        const qualified = `${prefix}.${name}`;
+        const type = { displayName: name, members };
+        const doc = typeDoc(dump, 300, prefix, descriptions);
+        if (doc) { type.doc = doc; }
         types[qualified] = type;
-        aliases[dump.name.toLowerCase()] = qualified;
+        aliases[name.toLowerCase()] = qualified;
     } else if (dump.kind === 'Enumeration') {
+        // VBA accepts the enum NAME as a declared type and as a qualifier, so
+        // the model carries it alongside the members.
+        if (!enums[name]) {
+            const enumSummary = localizeHostName(collapseWhitespace(dump.description), prefix, descriptions);
+            enums[name] = {
+                displayName: name,
+                ...(enumSummary ? { doc: { summary: enumSummary, params: [], source: 'external' } } : {}),
+            };
+        }
         for (const c of dump.constants ?? []) {
-            if (c.name.startsWith('_') || constants[c.name]) { continue; }
+            if (String(c.name ?? '').startsWith('_') || constants[c.name]) { continue; }
+            const summary = localizeHostName(collapseWhitespace(c.description), prefix, descriptions);
             constants[c.name] = {
                 name: c.name,
                 type: dump.name,
                 value: typeof c.value === 'number' ? c.value : String(c.value ?? ''),
                 source: 'external',
+                ...(summary ? { doc: { summary, params: [], source: 'external' } } : {}),
             };
             constantCount += 1;
         }
@@ -145,12 +134,12 @@ const lines = [];
 lines.push(`// Generated from reference/${host}/json by generate-host-object-model.mjs.`);
 lines.push('// Do not hand-edit: regenerate instead.');
 lines.push('//');
-lines.push(`// Types, aliases and enum constants of the ${index.library ?? prefix} type`);
+lines.push(`// Types, aliases and enum constants of the ${prefix} type`);
 lines.push('// library, introspected via pyVBAReference and enriched from Microsoft');
 lines.push('// Learn. Every type is deliberately NON-exhaustive: this metadata offers');
 lines.push('// and describes, and must never prove a member absent.');
 lines.push('');
-lines.push("import type { HostConstant, HostType } from './excelObjectModel';");
+lines.push("import type { HostConstant, HostEnum, HostType } from './excelObjectModel';");
 lines.push('');
 lines.push('// The literals live inside a function body so V8 defers parsing and');
 lines.push('// evaluating them until the host model is first requested: the extension');
@@ -161,6 +150,7 @@ lines.push(`export interface ${prefix}ReferenceData {`);
 lines.push('\treadonly types: Readonly<Record<string, HostType>>;');
 lines.push('\treadonly aliases: Readonly<Record<string, string>>;');
 lines.push('\treadonly constants: Readonly<Record<string, HostConstant>>;');
+lines.push('\treadonly enums: Readonly<Record<string, HostEnum>>;');
 lines.push('}');
 lines.push('');
 lines.push(`let CACHE: ${prefix}ReferenceData | undefined;`);
@@ -178,10 +168,19 @@ for (const [name, constant] of Object.entries(constants).sort(([a], [b]) => a.lo
     lines.push(`\t\t\t${JSON.stringify(name)}: ${JSON.stringify(constant)},`);
 }
 lines.push('\t\t},');
+lines.push('\t\tenums: {');
+for (const [name, entry] of Object.entries(enums).sort(([a], [b]) => a.localeCompare(b))) {
+    lines.push(`\t\t\t${JSON.stringify(name)}: ${JSON.stringify(entry)},`);
+}
+lines.push('\t\t},');
 lines.push('\t};');
 lines.push('\treturn CACHE;');
 lines.push('}');
 lines.push('');
 
 fs.writeFileSync(outputPath, lines.join('\n'), 'utf8');
-console.log(`Wrote ${path.relative(root, outputPath)}: ${Object.keys(types).length} types, ${memberCount} members, ${constantCount} constants.`);
+console.log(
+    `Wrote ${path.relative(root, outputPath)}: ${Object.keys(types).length} types, ${memberCount} members `
+    + `(${documented} documented, ${repaired} generic returns repaired), `
+    + `${constantCount} constants in ${Object.keys(enums).length} enumerations.`,
+);

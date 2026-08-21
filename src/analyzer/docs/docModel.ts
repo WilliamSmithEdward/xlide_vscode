@@ -11,8 +11,13 @@
 // registry (docRegistry.ts). It carries no `vscode` dependency. See
 // user_guides/vba-doc-comments.md for the full standard and usage paths.
 
-/** Where a {@link VbaDoc} was authored. */
-export type VbaDocSource = 'inline' | 'external';
+/**
+ * Where a {@link VbaDoc} was authored. `derived` marks text XLIDE composed from
+ * type-library facts because the reference publishes no description for that
+ * member - it states the kind, declared type and read/write contract, and
+ * claims nothing beyond them.
+ */
+export type VbaDocSource = 'inline' | 'external' | 'derived';
 
 /** Documentation for a single named parameter (`<param name="x">...`). */
 export interface VbaDocParam {

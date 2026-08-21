@@ -2,6 +2,91 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [4.1.0] - 2026-08-21
+
+- **A blank line keeps the indent the editor gave it** (#43). VS Code trims
+  whitespace it inserted itself as soon as the caret leaves the line, so
+  pressing Enter twice and arrowing back up landed the caret at column 1. The
+  VBE does not do that, and the spaces it keeps are in the code store rather
+  than a rendering artefact, so the two editors disagreed on a gesture people
+  use constantly. `editor.trimAutoWhitespace` is now off for XLIDE's VBA
+  modules. Backspace on a blank indented line clears the whole indent in one
+  press,
+  so keeping the indent does not make an unwanted blank line cost a press per
+  tab stop.
+
+- **Enumerations joined the model**. `Dim k As XlAxisType` is ordinary VBA and
+  the name resolved to nothing at all: no completion, no hover, no coloring,
+  across 1,744 enumerations. They now complete in a declaration type position,
+  hover with the reference's description, color as enums, and answer as a
+  qualifier - `XlAxisType.` offers exactly its three constants, and Option
+  Explicit no longer calls the qualifier an undeclared variable. All 19,816
+  enum constants carry a description: the reference's own where it has one,
+  and their enumeration's where it does not.
+
+- **A shared reference page no longer names the wrong application**. Microsoft
+  publishes one page per shared object under every host namespace without
+  substituting the application name, so a PowerPoint developer hovering
+  `Axis.ReversePlotOrder` read "True if Microsoft Word plots data points from
+  last to first". A mention is rewritten only when the whole sentence appears
+  verbatim in the named application's own library, which is what proves it was
+  cross-published; a sentence genuinely about another application - a chart's
+  data really does live in "an external Microsoft Excel workbook" - is left
+  exactly as written. 16 descriptions repaired, every cross-application
+  reference kept.
+
+- **Dropping into a `With` block opens the completion list**. Typing a dot
+  opens it because `.` is a trigger character, but the dot Smart Enter inserts
+  is not typed, so the caret landed after a dot with no list and backspacing
+  over it and retyping the same character was the only way to get one.
+
+- **The object models describe themselves, everywhere**. The type
+  libraries state a type for every property and Microsoft's reference
+  describes most members, but almost none of that reached a tooltip: a
+  property hovered as a bare `Range.Value` with no type and no read/write
+  contract, an enum member showed its value and nothing else, and a type
+  name in a `Dim` hovered with no prose at all. Across Excel, Word,
+  PowerPoint and Access, all 34,241 members now carry a declared type or a
+  call signature, 21,249 carry the reference's own description and the rest
+  a note composed from the declaration and marked as derived, 15,570 of
+  19,816 enum constants carry their documented meaning, and 1,470 types
+  carry theirs. Parameter descriptions reach signature help in the
+  generated hosts, which used to drop them.
+
+- **A member chain no longer dies where the type library says `Object`**
+  An accessor that hands back a real object is declared `As Object`
+  in COM, so `.Chart.Axes(xlCategory).HasTitle` resolved in Excel - whose
+  model had the return types transcribed by hand - and nowhere else. The
+  repair is now derived from the reference corpus by rules shared across
+  every generator, validated against all 85 return types Excel had
+  transcribed, plus a small table for the facts no page states. 6,881
+  members now name a type a chain can follow. The shared Office library
+  binds to its host, so `Shape.Application` reaches Excel's Application in
+  Excel and Word's in Word.
+
+- **Host members are colored, at any depth and inside `With`**.
+  Coloring reached a method on a chain root and stopped: `.HasChart` inside
+  a `With` block, and every property anywhere, stayed plain. A member is now
+  colored exactly when hover can describe it, methods and properties told
+  apart, with the same refusal to guess - an unresolved hop ends the chain
+  and everything after it stays plain.
+
+- **Removed 28 members Excel does not have**. Hand-written entries had
+  been copied onto the wrong type: `TextFrame.HasText` belongs to
+  TextFrame2, `WebOptions.AlwaysSaveInDefaultEncoding` to DefaultWebOptions,
+  `PivotTable.PivotFilters` to PivotField, `Application.IconSets` to
+  Workbook. `TimelineState.SetFilterDateRange2` existed nowhere at all.
+  Completion offered every one of them. Each removal was checked against the
+  installed Excel type library and the published reference, and a test now
+  holds the model to what the type library actually carries.
+
+- **Painting a module of `With` blocks got 95x faster**. Resolving a
+  leading-dot member re-lexed the whole enclosing procedure, so cost grew
+  with the square of the procedure's length: 546 ms to paint 400 `With`
+  blocks, against 3 ms for the same code written any other way. The scan now
+  reuses the module's token stream and is indexed once per procedure - the
+  same file paints in 5.7 ms, and a 15,000-line module in 63 ms.
+
 ## [4.0.7] - 2026-08-20
 
 - **Installing the test support module no longer re-cases your project**

@@ -28,6 +28,7 @@ import { tokenizeCached } from '../lexer/tokenize';
 // garbage it makes).
 import { statementTokensCached as codeTokens, tokenName, tokenWord } from '../lexer/tokenHelpers';
 import {
+	isHostMemberNameAnywhere,
 	resolveHostAlias,
 	resolveHostConstant,
 	resolveHostGlobal,
@@ -41,7 +42,11 @@ import {
 	type TypeCompletionContext,
 	type TypeCompletionKind,
 } from '../completion/typeCompletion';
-import { msFormsControlMembers } from '../completion/memberAccess';
+import {
+	msFormsControlMembers,
+	resolveHostMemberKindAt,
+	type MemberCompletionContext,
+} from '../completion/memberAccess';
 import { VBA_USERFORM_TYPE as MSFORMS_USERFORM_TYPE } from '../host/userFormExtenderMembers';
 
 export type TypeSemanticTokenType =
@@ -51,7 +56,8 @@ export type TypeSemanticTokenType =
 	| 'struct'
 	| 'type'
 	| 'variable'
-	| 'function';
+	| 'function'
+	| 'property';
 
 export interface TypeSemanticToken {
 	name: string;
@@ -760,54 +766,73 @@ export interface HostMemberTokenContext {
 }
 
 /**
- * Method calls on a host receiver, for `function` semantic coloring:
- * `ActiveSheet.Calculate` and Word's `ActiveDocument.FitToPages` paint the
- * way `RegionPick.AddItem` does (issue #29, extending issue #20's
- * convention). Resolved only, never guessed: the receiver must be a host
- * global or a document code name at the chain root, shadowed by nothing in
- * the module, and the member must resolve to a method on the receiver's host
- * type. Properties and unresolved members take no token, and longer chains
- * stay out of scope the way they do for controls.
+ * Host members, for semantic coloring: `ActiveSheet.Calculate` paints as a
+ * method and `Range.Value` as a property, at any depth and inside a `With`
+ * block, so the whole promoted object surface reads as known code rather than
+ * as plain identifiers, widening issues #29 and #31.
+ *
+ * The rule is the editor's own: a member is colored exactly when hover can
+ * describe it, because both ask the same resolver the same question. That
+ * keeps the guarantee the narrower collector made - resolved only, never
+ * guessed - while dropping its chain-root and no-With restrictions. A member on
+ * a project class, a form control, or an unresolved receiver takes no token
+ * here; the implicit-member collector owns the controls.
  */
 export function collectHostMemberMethodTokens(
 	source: string,
 	ctx: HostMemberTokenContext = {},
 ): TypeSemanticToken[] {
-	const declared = collectDeclaredNameHostTypes(parseModule(source), ctx);
-	for (const member of ctx.implicitMembers ?? []) {
-		// Controls shadow the host reading; their members are the implicit
-		// collector's to paint.
-		declared.set(member.name.toLowerCase(), null);
-	}
-	const codeNames = ctx.codeNames ?? {};
-	// Newlines are KEPT for the same reason as collectImplicitMemberMethodTokens:
-	// a dot that opens a line is a With block's member access, not a member of
-	// whatever the line above happened to end with. (tokenizeCached; the filter
-	// keeps the shared stream unmutated.)
-	const tokens = tokenizeCached(source).filter((t) => t.kind !== 'comment');
+	// The shared stream powers the resolver's binary search for the receiver
+	// prefix, so each dot costs a chain walk rather than a re-tokenization.
+	const sourceTokens = tokenizeCached(source);
+	const memberCtx: MemberCompletionContext = {
+		// Parsed once for the whole pass. The resolver needs the AST to find the
+		// enclosing `With` header and a name's declaration, and re-parsing per dot
+		// made a module of 400 With blocks cost 546 ms - 455 microseconds for each
+		// leading-dot member, against 2 for every other receiver shape.
+		parsedModule: parseModule(source),
+		// One With-stack scan per procedure for the whole pass, not one per dot.
+		withScanCache: new Map(),
+		model: ctx.model,
+		codeNames: ctx.codeNames,
+		implicitMembers: ctx.implicitMembers as MemberCompletionContext['implicitMembers'],
+		meType: ctx.meType,
+		// The project's own type names bind before the library's, so a class the
+		// developer named Range must not paint as Excel's (issue #33). Only the
+		// names are known here; empty member lists are enough to claim the name.
+		projectClassMembers: (ctx.projectTypes ?? []).map((type) => ({
+			name: type.name,
+			kind: 'class' as const,
+			moduleName: type.name,
+			members: [],
+		})),
+		sourceTokens,
+	};
 	const out: TypeSemanticToken[] = [];
-	for (let i = 2; i < tokens.length; i++) {
-		const tok = tokens[i];
-		if (tok.kind !== 'identifier' || tokens[i - 1].rawText !== '.') {
+	for (let i = 1; i < sourceTokens.length; i++) {
+		const tok = sourceTokens[i];
+		if (tok.kind !== 'identifier' || sourceTokens[i - 1].rawText !== '.') {
 			continue;
 		}
-		const recv = tokens[i - 2];
-		const before = tokens[i - 3];
-		if (before && (before.rawText === '.' || before.rawText === '!')) {
-			continue; // not the chain root
-		}
-		const receiverType = hostReceiverType(recv, ctx, declared, codeNames);
-		if (!receiverType) {
+		// A name no host type carries cannot resolve to a host member, so the
+		// receiver walk behind it can only fail. Skipping those is what keeps a
+		// project-heavy module from paying for every dot in it.
+		if (!isHostMemberNameAnywhere(tok.rawText, ctx.model)) {
 			continue;
 		}
-		const member = resolveHostMember(receiverType, tok.rawText, ctx.model);
-		if (member?.kind !== 'method') {
+		const kind = resolveHostMemberKindAt(source, tok.end, tok.rawText, memberCtx);
+		if (!kind || kind === 'event') {
 			continue;
 		}
 		out.push({
 			name: tok.rawText,
-			tokenType: 'function',
+			tokenType: kind === 'method' ? 'function' : 'property',
 			span: { start: tok.start, end: tok.end },
+			// These are the referenced library's own members, and the modifier is
+			// what themes key on: most render a bare `property` as plain text, so
+			// without it a resolved member looked no different from an unresolved
+			// one - the whole point of painting it.
+			modifiers: ['defaultLibrary'],
 		});
 	}
 	return out;

@@ -21,16 +21,18 @@ import {
 	procedureSignatureFromSymbol,
 } from '../symbols/symbolModel';
 import { Span } from '../parser/nodes';
-import { HostMember, HostObjectModel } from '../host/excelObjectModel';
+import { HostConstant, HostMember, HostObjectModel } from '../host/excelObjectModel';
 import {
 	getHostType,
 	hostDisplayName,
 	resolveHostConstant,
+	resolveHostEnum,
 	resolveHostGlobal,
 	resolveHostGlobalMember,
 } from '../host/hostModel';
 import { resolveRuntimeConstant, resolveRuntimeFunction, resolveRuntimeObject } from '../runtime/vbaRuntime';
 import { vbaRuntimeDescription } from '../runtime/vbaRuntimeDocs';
+import { derivedConstantDoc } from '../host/hostMemberDocs';
 import {
 	MemberCompletion,
 	resolveMemberCompletionNamed,
@@ -84,6 +86,21 @@ export interface HoverContext {
 	projectProcedures?: readonly VbaProcedureSignature[];
 	/** Developer-defined external documentation (overrides the curated library). */
 	docRegistry?: DocRegistry;
+}
+
+/**
+ * The reference's description of a constant, or one composed from its
+ * enumeration when the reference does not describe it.
+ */
+function hostConstantDocumentation(
+	constant: HostConstant,
+	model: HostObjectModel | undefined,
+): string | undefined {
+	if (hasDocContent(constant.doc)) {
+		return renderDocMarkdown(constant.doc);
+	}
+	const derived = derivedConstantDoc(constant, constant.type ? resolveHostEnum(constant.type, model) : undefined);
+	return derived && hasDocContent(derived) ? renderDocMarkdown(derived) : undefined;
 }
 
 function contains(span: Span, offset: number): boolean {
@@ -212,7 +229,10 @@ export function resolveHover(
 			signature: constantSignature(hostConstant),
 			details: [`${hostDisplayName(ctx.model)}/Office constant`],
 			span,
-			documentation: externalDocMarkdown(ctx, name),
+			// The reference describes each enum member ("xlCategory: Axis displays
+			// categories"); a developer override still wins.
+			documentation: externalDocMarkdown(ctx, name)
+				?? hostConstantDocumentation(hostConstant, ctx.model),
 		};
 	}
 
@@ -263,7 +283,10 @@ function hostGlobalMemberSignature(member: HostMember): string {
 		return member.signature;
 	}
 	const call = member.kind === 'method' ? '()' : '';
-	const ret = member.returns ? ` As ${displayType(member.returns)}` : '';
+	// The declared type is what the reader wants to see, chainable or not:
+	// `Value As Variant` beats a bare `Value`.
+	const declared = member.declaredType ?? member.returns;
+	const ret = declared ? ` As ${displayType(declared)}` : '';
 	return `${member.name}${call}${ret}`;
 }
 
@@ -349,7 +372,10 @@ function buildMemberHover(
 	span: Span,
 ): HoverInfo {
 	const ownerName = displayType(member.owner);
-	const ret = member.returns ? ` As ${displayType(member.returns)}` : '';
+	// The declared type is what the reader wants to see, chainable or not:
+	// `Value As Variant` beats a bare `Value`.
+	const declared = member.declaredType ?? member.returns;
+	const ret = declared ? ` As ${displayType(declared)}` : '';
 	const call = member.kind === 'method' ? '()' : '';
 	const hostType = !!getHostType(member.owner, ctx.model);
 	const runtimeType = !!resolveRuntimeObject(member.owner);
@@ -357,20 +383,33 @@ function buildMemberHover(
 		? `${ownerName}.${member.signature}`
 		: `${ownerName}.${member.name}${call}${ret}`;
 	const externalDoc = externalDocMarkdown(ctx, member.name, ownerName);
-	return {
-		signature,
-		details: [
-			runtimeType
-				? `VBA runtime ${member.kind}`
-				: hostType
-					? `${hostDisplayName(ctx.model)} host ${member.kind}`
-					: `${ownerName} ${member.kind}`,
-		],
-		span,
-		documentation: hostType
-			? externalDoc ?? member.documentation
-			: member.documentation ?? externalDoc,
-	};
+	const documentation = hostType
+		? externalDoc ?? member.documentation
+		: member.documentation ?? externalDoc;
+	// The read/write contract belongs on the origin line, not in the signature:
+	// `Row As Long` is the VBA declaration, "read-only" is a fact about it.
+	// A constant reached through its enumeration is an enum member, not a
+	// property of an object, and saying "read-only" of one adds nothing.
+	const hostEnum = resolveHostEnum(ownerName, ctx.model);
+	if (hostEnum) {
+		return {
+			signature,
+			details: [`${ownerName} enum member`],
+			span,
+			documentation,
+		};
+	}
+	const origin = runtimeType
+		? `VBA runtime ${member.kind}`
+		: hostType
+			? `${hostDisplayName(ctx.model)} host ${member.kind}`
+			: `${ownerName} ${member.kind}`;
+	const details = [member.access ? `${origin} (${member.access})` : origin];
+	// A composed description must never read as a transcribed one.
+	if (member.doc?.source === 'derived' && documentation === member.documentation) {
+		details.push('Description derived from the type library');
+	}
+	return { signature, details, span, documentation };
 }
 
 /**

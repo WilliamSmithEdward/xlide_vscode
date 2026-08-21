@@ -14,6 +14,7 @@ import type { MemberCompletionContext } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import {
 	resolveHostConstant,
+	resolveHostEnum,
 	resolveHostGlobal,
 	resolveHostGlobalMember,
 } from '../../host/hostModel';
@@ -166,6 +167,7 @@ export function checkUnknownCallStatement(
 			resolveHostGlobal(name, hostModel) !== undefined ||
 			// The host's hidden Global interface is bare-callable too (issue #34).
 			resolveHostGlobalMember(name, hostModel) !== undefined ||
+			resolveHostEnum(name, hostModel) !== undefined ||
 			resolveRuntimeObject(name) !== undefined ||
 			resolveRuntimeFunction(name) !== undefined
 		);
@@ -427,6 +429,9 @@ export function checkUndeclaredVariables(
 			// (Word's InchesToPoints, Excel's Union) - issue #34.
 			resolveHostGlobalMember(name, hostModel) !== undefined ||
 			resolveHostConstant(name, hostModel) !== undefined ||
+			// An enum name is a legal qualifier: `XlAxisType.xlCategory` is
+			// ordinary VBA, and Option Explicit called the qualifier undeclared.
+			resolveHostEnum(name, hostModel) !== undefined ||
 			resolveRuntimeConstant(name) !== undefined ||
 			resolveRuntimeObject(name) !== undefined ||
 			resolveRuntimeFunction(name) !== undefined

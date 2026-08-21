@@ -40,6 +40,7 @@ const TYPE_TOKEN_TYPES: TypeSemanticTokenType[] = [
     'type',
     'variable',
     'function',
+    'property',
 ];
 // `defaultLibrary` marks host-injected globals (Application, ThisWorkbook, ...);
 // most themes give it a subtle tint and themes that don't fall back cleanly to
