@@ -158,6 +158,14 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('GetObject', 'GetObject([PathName], [Class]) As Object', 'Object'),
 	stmt('Beep', 'Beep'),
 	stmt('Randomize', 'Randomize [Number]'),
+	stmt('Load', 'Load Object'),
+	stmt('Unload', 'Unload Object'),
+	fn('IMEStatus', 'IMEStatus() As Integer', 'Integer'),
+	// Documented VBA functions that answer only on Mac hosts. They are part of
+	// the language reference either way, and a Windows-only analyzer reporting
+	// them as undeclared is a false positive on portable code (issue #41).
+	fn('MacID', 'MacID(Constant) As Long', 'Long'),
+	fn('MacScript', 'MacScript(Script) As Variant', 'Variant'),
 
 	// -- String functions ---------------------------------------------------
 	fn('Len', 'Len(Expression) As Long', 'Long'),
@@ -224,6 +232,10 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('Hex', 'Hex(Number) As String', 'String'),
 	fn('Oct', 'Oct(Number) As String', 'String'),
 
+	// CVDate is the legacy conversion function the type-conversion reference
+	// still documents beside CDate.
+	fn('CVDate', 'CVDate(Expression) As Date', 'Date'),
+
 	// -- Math ---------------------------------------------------------------
 	fn('Abs', 'Abs(Number) As Variant', 'Variant'),
 	fn('Int', 'Int(Number) As Variant', 'Variant'),
@@ -241,6 +253,10 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 
 	// -- Date / time --------------------------------------------------------
 	fn('Now', 'Now() As Date', 'Date'),
+	// `Time` is both a function and a statement (`Time = #12:00:00 PM#`); the
+	// name is what the identifier rules need, and the read form is the one
+	// with a signature to show (issue #41).
+	fn('Time', 'Time() As Date', 'Date'),
 	fn('Timer', 'Timer() As Single', 'Single'),
 	fn('Year', 'Year(Date) As Integer', 'Integer'),
 	fn('Month', 'Month(Date) As Integer', 'Integer'),
@@ -321,6 +337,7 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('FileLen', 'FileLen(PathName) As Long', 'Long'),
 	fn('FileDateTime', 'FileDateTime(PathName) As Date', 'Date'),
 	fn('GetAttr', 'GetAttr(PathName) As VbFileAttribute', 'VbFileAttribute'),
+	fn('FileAttr', 'FileAttr(FileNumber, ReturnType) As Long', 'Long'),
 	fn('CurDir', 'CurDir([Drive]) As String', 'String'),
 	stmt('ChDir', 'ChDir Path'),
 	stmt('ChDrive', 'ChDrive Drive'),
@@ -328,7 +345,12 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	stmt('RmDir', 'RmDir Path'),
 	stmt('Kill', 'Kill PathName'),
 	stmt('FileCopy', 'FileCopy Source, Destination'),
+	// Two words, one identifier as far as the rules are concerned.
+	stmt('Line', 'Line Input #FileNumber, VarName'),
 	stmt('SetAttr', 'SetAttr PathName, Attributes As VbFileAttribute'),
+	stmt('Name', 'Name OldPathName As NewPathName'),
+	stmt('Reset', 'Reset'),
+	stmt('Width', 'Width #FileNumber, Width'),
 
 	// -- Financial ----------------------------------------------------------
 	fn('PV', 'PV(Rate, NPer, Pmt, [FV = 0], [Type = 0]) As Double', 'Double'),
@@ -348,6 +370,168 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 
 /** The verified built-in VBA runtime constants and enum members. */
 export const VBA_RUNTIME_CONSTANTS: VbaRuntimeConstant[] = [
+	// Documented in the VBA constants reference (learn.microsoft.com/en-us/
+	// office/vba/language/reference/constants-visual-basic-for-applications)
+	// but absent until issue #41: every one of these read as an undeclared
+	// variable under Option Explicit. Values are the type library's where it
+	// declares an enumeration, and the reference tables' where it does not.
+	// CallType constants (VbCallType)
+	c('vbGet', 'VbCallType', 2),
+	c('vbLet', 'VbCallType', 4),
+	c('vbMethod', 'VbCallType', 1),
+	c('vbSet', 'VbCallType', 8),
+
+	// Comparison constants (VbCompareMethod)
+	c('vbUseCompareOption', 'VbCompareMethod', -1),
+
+	// QueryClose constants (VbQueryClose)
+	c('vbAppTaskManager', 'VbQueryClose', 3),
+	c('vbAppWindows', 'VbQueryClose', 2),
+	c('vbFormCode', 'VbQueryClose', 1),
+	c('vbFormControlMenu', 'VbQueryClose', 0),
+
+	// Form constants
+	c('vbModal', undefined, 1),
+	c('vbModeless', undefined, 0),
+
+	// Colour constants
+	c('vbBlack', undefined, 0),
+	c('vbBlue', undefined, 16711680),
+	c('vbCyan', undefined, 16776960),
+	c('vbGreen', undefined, 65280),
+	c('vbMagenta', undefined, 16711935),
+	c('vbRed', undefined, 255),
+	c('vbWhite', undefined, 16777215),
+	c('vbYellow', undefined, 65535),
+
+	// System colour constants
+	c('vb3DDKShadow', undefined, -2147483627),
+	c('vb3DHighlight', undefined, -2147483628),
+	c('vb3DLight', undefined, -2147483626),
+	c('vbActiveBorder', undefined, -2147483638),
+	c('vbActiveTitleBar', undefined, -2147483646),
+	c('vbApplicationWorkspace', undefined, -2147483636),
+	c('vbButtonFace', undefined, -2147483633),
+	c('vbButtonShadow', undefined, -2147483632),
+	c('vbButtonText', undefined, -2147483630),
+	c('vbDesktop', undefined, -2147483647),
+	c('vbGrayText', undefined, -2147483631),
+	c('vbHighlight', undefined, -2147483635),
+	c('vbHighlightText', undefined, -2147483634),
+	c('vbInactiveBorder', undefined, -2147483637),
+	c('vbInactiveCaptionText', undefined, -2147483629),
+	c('vbInactiveTitleBar', undefined, -2147483645),
+	c('vbInfoBackground', undefined, -2147483624),
+	c('vbInfoText', undefined, -2147483625),
+	c('vbMenuBar', undefined, -2147483644),
+	c('vbMenuText', undefined, -2147483641),
+	c('vbScrollBars', undefined, -2147483648),
+	c('vbTitleBarText', undefined, -2147483639),
+	c('vbWindowBackground', undefined, -2147483643),
+	c('vbWindowFrame', undefined, -2147483642),
+	c('vbWindowText', undefined, -2147483640),
+
+	// Keycode constants - no enumeration is documented for these
+	c('vbKey0', undefined, 48),
+	c('vbKey1', undefined, 49),
+	c('vbKey2', undefined, 50),
+	c('vbKey3', undefined, 51),
+	c('vbKey4', undefined, 52),
+	c('vbKey5', undefined, 53),
+	c('vbKey6', undefined, 54),
+	c('vbKey7', undefined, 55),
+	c('vbKey8', undefined, 56),
+	c('vbKey9', undefined, 57),
+	c('vbKeyA', undefined, 65),
+	c('vbKeyAdd', undefined, 107),
+	c('vbKeyB', undefined, 66),
+	c('vbKeyBack', undefined, 8),
+	c('vbKeyC', undefined, 67),
+	c('vbKeyCancel', undefined, 3),
+	c('vbKeyCapital', undefined, 20),
+	c('vbKeyClear', undefined, 12),
+	c('vbKeyControl', undefined, 17),
+	c('vbKeyD', undefined, 68),
+	c('vbKeyDecimal', undefined, 110),
+	c('vbKeyDelete', undefined, 46),
+	c('vbKeyDivide', undefined, 111),
+	c('vbKeyDown', undefined, 40),
+	c('vbKeyE', undefined, 69),
+	c('vbKeyEnd', undefined, 35),
+	c('vbKeyEscape', undefined, 27),
+	c('vbKeyExecute', undefined, 43),
+	c('vbKeyF', undefined, 70),
+	c('vbKeyF1', undefined, 112),
+	c('vbKeyF10', undefined, 121),
+	c('vbKeyF11', undefined, 122),
+	c('vbKeyF12', undefined, 123),
+	c('vbKeyF13', undefined, 124),
+	c('vbKeyF14', undefined, 125),
+	c('vbKeyF15', undefined, 126),
+	c('vbKeyF16', undefined, 127),
+	c('vbKeyF2', undefined, 113),
+	c('vbKeyF3', undefined, 114),
+	c('vbKeyF4', undefined, 115),
+	c('vbKeyF5', undefined, 116),
+	c('vbKeyF6', undefined, 117),
+	c('vbKeyF7', undefined, 118),
+	c('vbKeyF8', undefined, 119),
+	c('vbKeyF9', undefined, 120),
+	c('vbKeyG', undefined, 71),
+	c('vbKeyH', undefined, 72),
+	c('vbKeyHelp', undefined, 47),
+	c('vbKeyHome', undefined, 36),
+	c('vbKeyI', undefined, 73),
+	c('vbKeyInsert', undefined, 45),
+	c('vbKeyJ', undefined, 74),
+	c('vbKeyK', undefined, 75),
+	c('vbKeyL', undefined, 76),
+	c('vbKeyLButton', undefined, 1),
+	c('vbKeyLeft', undefined, 37),
+	c('vbKeyM', undefined, 77),
+	c('vbKeyMButton', undefined, 4),
+	c('vbKeyMenu', undefined, 18),
+	c('vbKeyMultiply', undefined, 106),
+	c('vbKeyN', undefined, 78),
+	c('vbKeyNumlock', undefined, 144),
+	c('vbKeyNumpad0', undefined, 96),
+	c('vbKeyNumpad1', undefined, 97),
+	c('vbKeyNumpad2', undefined, 98),
+	c('vbKeyNumpad3', undefined, 99),
+	c('vbKeyNumpad4', undefined, 100),
+	c('vbKeyNumpad5', undefined, 101),
+	c('vbKeyNumpad6', undefined, 102),
+	c('vbKeyNumpad7', undefined, 103),
+	c('vbKeyNumpad8', undefined, 104),
+	c('vbKeyNumpad9', undefined, 105),
+	c('vbKeyO', undefined, 79),
+	c('vbKeyP', undefined, 80),
+	c('vbKeyPageDown', undefined, 34),
+	c('vbKeyPageUp', undefined, 33),
+	c('vbKeyPause', undefined, 19),
+	c('vbKeyPrint', undefined, 42),
+	c('vbKeyQ', undefined, 81),
+	c('vbKeyR', undefined, 82),
+	c('vbKeyRButton', undefined, 2),
+	c('vbKeyReturn', undefined, 13),
+	c('vbKeyRight', undefined, 39),
+	c('vbKeyS', undefined, 83),
+	c('vbKeySelect', undefined, 41),
+	c('vbKeySeparator', undefined, 108),
+	c('vbKeyShift', undefined, 16),
+	c('vbKeySnapshot', undefined, 44),
+	c('vbKeySpace', undefined, 32),
+	c('vbKeySubtract', undefined, 109),
+	c('vbKeyT', undefined, 84),
+	c('vbKeyTab', undefined, 9),
+	c('vbKeyU', undefined, 85),
+	c('vbKeyUp', undefined, 38),
+	c('vbKeyV', undefined, 86),
+	c('vbKeyW', undefined, 87),
+	c('vbKeyX', undefined, 88),
+	c('vbKeyY', undefined, 89),
+	c('vbKeyZ', undefined, 90),
+
 	c('vbObjectError', 'Long', -2147221504),
 	c('vbNullString', 'String'),
 	c('vbNullChar', 'String'),

@@ -108,8 +108,10 @@ export const RESERVED_FOR_IMPLEMENTATION_USE: readonly string[] = [
 export const CONTEXTUAL_KEYWORDS: readonly string[] = [
 	// Option statements: Option Explicit / Base / Compare Binary / Compare Text.
 	'Explicit', 'Base', 'Compare', 'Binary', 'Text',
-	// Declare statement: Declare ... Lib "..." Alias "...".
-	'Lib', 'Alias',
+	// Declare statement: Declare [PtrSafe] ... Lib "..." Alias "...". PtrSafe is
+	// the 64-bit form every modern Declare carries, and the keywords reference
+	// lists it (issue #41).
+	'Lib', 'Alias', 'PtrSafe',
 	// Property statement keyword (note: not in section 3.3.5.2; Get/Let/Set are).
 	'Property',
 	// For ... Step.

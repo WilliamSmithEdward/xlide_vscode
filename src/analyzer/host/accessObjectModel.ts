@@ -11,6 +11,7 @@
 import type { HostObjectModel } from './excelObjectModel';
 import { mergeHostConstants } from './excelObjectModel';
 import { OFFICE_REFERENCE_ENUM_CONSTANTS } from './officeReferenceConstants';
+import { MSFORMS_REFERENCE_ENUM_CONSTANTS } from './msformsReferenceMembers';
 import { accessReferenceData } from './accessObjectModelData';
 
 let MODEL: HostObjectModel | undefined;
@@ -29,7 +30,7 @@ export function getAccessObjectModel(): HostObjectModel {
 		aliases: data.aliases as HostObjectModel['aliases'],
 		// The shared Office library is auto-referenced in every Access VBA
 		// project; Access's own names have no overlap with it (measured).
-		constants: mergeHostConstants(OFFICE_REFERENCE_ENUM_CONSTANTS, data.constants),
+		constants: mergeHostConstants(OFFICE_REFERENCE_ENUM_CONSTANTS, MSFORMS_REFERENCE_ENUM_CONSTANTS, data.constants),
 		globals: {
 			Application: 'Access.Application',
 			DoCmd: 'Access.DoCmd',

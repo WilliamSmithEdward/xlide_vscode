@@ -24,6 +24,7 @@ import {
 	EXCEL_WORKBOOK_REFERENCE_PROVENANCE,
 } from './excelReferenceMembers';
 import { OFFICE_REFERENCE_ENUM_CONSTANTS } from './officeReferenceConstants';
+import { MSFORMS_REFERENCE_ENUM_CONSTANTS } from './msformsReferenceMembers';
 import type { VbaDoc } from '../docs/docModel';
 
 // Events are retained as a distinct metadata kind for future handler-authoring
@@ -498,6 +499,9 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 	},
 	constants: mergeHostConstants(
 		OFFICE_REFERENCE_ENUM_CONSTANTS,
+		// The forms library is referenced by every project carrying a UserForm,
+		// and fm* names are legal anywhere in it (issue #41).
+		MSFORMS_REFERENCE_ENUM_CONSTANTS,
 		EXCEL_REFERENCE_ENUM_CONSTANTS,
 	),
 	types: {

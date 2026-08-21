@@ -8,6 +8,7 @@
 import type { HostObjectModel } from './excelObjectModel';
 import { mergeHostConstants } from './excelObjectModel';
 import { OFFICE_REFERENCE_ENUM_CONSTANTS } from './officeReferenceConstants';
+import { MSFORMS_REFERENCE_ENUM_CONSTANTS } from './msformsReferenceMembers';
 import { powerpointReferenceData } from './powerpointObjectModelData';
 
 let MODEL: HostObjectModel | undefined;
@@ -28,7 +29,7 @@ export function getPowerPointObjectModel(): HostObjectModel {
 		// The shared Office library is auto-referenced in every PowerPoint VBA
 		// project (msoTrue, msoShapeRectangle, ...); PowerPoint's own table
 		// wins the shared chart-enum names (same values by measurement).
-		constants: mergeHostConstants(OFFICE_REFERENCE_ENUM_CONSTANTS, data.constants),
+		constants: mergeHostConstants(OFFICE_REFERENCE_ENUM_CONSTANTS, MSFORMS_REFERENCE_ENUM_CONSTANTS, data.constants),
 		globals: {
 			Application: 'PowerPoint.Application',
 			ActivePresentation: 'PowerPoint.Presentation',

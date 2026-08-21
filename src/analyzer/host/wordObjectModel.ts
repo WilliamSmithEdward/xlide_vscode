@@ -11,6 +11,7 @@
 import type { HostObjectModel } from './excelObjectModel';
 import { mergeHostConstants } from './excelObjectModel';
 import { OFFICE_REFERENCE_ENUM_CONSTANTS } from './officeReferenceConstants';
+import { MSFORMS_REFERENCE_ENUM_CONSTANTS } from './msformsReferenceMembers';
 import { wordReferenceData } from './wordObjectModelData';
 
 let MODEL: HostObjectModel | undefined;
@@ -31,7 +32,7 @@ export function getWordObjectModel(): HostObjectModel {
 		// Every Word VBA project auto-references the shared Office library, so
 		// msoTrue and friends are legal everyday names; Word's own table wins
 		// the shared chart-enum names (same values by measurement).
-		constants: mergeHostConstants(OFFICE_REFERENCE_ENUM_CONSTANTS, data.constants),
+		constants: mergeHostConstants(OFFICE_REFERENCE_ENUM_CONSTANTS, MSFORMS_REFERENCE_ENUM_CONSTANTS, data.constants),
 		globals: {
 			Application: 'Word.Application',
 			ActiveDocument: 'Word.Document',

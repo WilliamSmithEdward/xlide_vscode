@@ -65,6 +65,26 @@ for (const fileName of fs.readdirSync(jsonDir).sort()) {
     }
 }
 
+// The library's enums (fmMatchEntry, fmAlignment, ...): their constants are
+// legal bare names in any project that carries a form, and were absent from
+// the model entirely, so `x = fmMatchEntryComplete` read as an undeclared
+// variable (issue #41).
+const constants = {};
+for (const fileName of fs.readdirSync(jsonDir).sort()) {
+    if (!fileName.endsWith('.json')) { continue; }
+    const dump = JSON.parse(fs.readFileSync(path.join(jsonDir, fileName), 'utf8'));
+    if (dump.kind !== 'Enumeration') { continue; }
+    for (const c of dump.constants ?? []) {
+        if (c.name.startsWith('_') || constants[c.name]) { continue; }
+        constants[c.name] = {
+            name: c.name,
+            type: dump.name,
+            value: typeof c.value === 'number' ? c.value : String(c.value ?? ''),
+            source: 'external',
+        };
+    }
+}
+
 const types = [];
 const emitted = new Set();
 function emit(dump, fileName) {
@@ -109,6 +129,8 @@ lines.push('// a form\'s implicit members (issue #17). Completion only - nothing
 lines.push('// the hard-diagnostic surface, so an unknown member on a control is not');
 lines.push('// reported rather than risking a fresh false-positive class on form code.');
 lines.push('');
+lines.push("import type { HostConstant } from './excelObjectModel';");
+lines.push('');
 lines.push('export interface MsFormsMember {');
 lines.push('\tname: string;');
 lines.push("\tkind: 'property' | 'method';");
@@ -136,6 +158,17 @@ lines.push('export const MSFORMS_CONTROL_CLASS_NAMES: readonly string[] = [');
 lines.push(`\t${types.filter((type) => type.isControl).map((type) => JSON.stringify(type.name)).join(', ')},`);
 lines.push('];');
 lines.push('');
+lines.push('/**');
+lines.push(' * Enum constants of the Microsoft Forms library, keyed by canonical name.');
+lines.push(' * Legal bare names wherever the library is referenced, which is every');
+lines.push(' * project carrying a UserForm (issue #41).');
+lines.push(' */');
+lines.push('export const MSFORMS_REFERENCE_ENUM_CONSTANTS: Readonly<Record<string, HostConstant>> = {');
+for (const [name, constant] of Object.entries(constants).sort(([a], [b]) => a.localeCompare(b))) {
+    lines.push(`	${JSON.stringify(name)}: ${JSON.stringify(constant)},`);
+}
+lines.push('};');
+lines.push('');
 lines.push('/** Where each type came from, so a member list can be traced to its dump. */');
 lines.push('export const MSFORMS_REFERENCE_PROVENANCE: Readonly<Record<string, string>> = {');
 for (const type of types) {
@@ -146,4 +179,4 @@ lines.push('');
 
 fs.writeFileSync(outputPath, lines.join('\n'), 'utf8');
 const memberCount = types.reduce((sum, type) => sum + type.members.length, 0);
-console.log(`Wrote ${path.relative(root, outputPath)}: ${types.length} types, ${memberCount} members.`);
+console.log(`Wrote ${path.relative(root, outputPath)}: ${types.length} types, ${memberCount} members, ${Object.keys(constants).length} enum constants.`);
