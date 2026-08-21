@@ -12,9 +12,18 @@ const jsonDir = path.join(root, 'reference', 'excel', 'json');
 const outputPath = path.join(root, 'src', 'analyzer', 'host', 'excelReferenceMembers.ts');
 const coveragePath = path.join(root, 'docs', 'excel_reference_coverage.md');
 
-// Keep runtime promotion explicit. The generator scans the full Excel corpus for
-// coverage, but only promotedTypes become checked-in host metadata. Only
-// hardDiagnosticTypes are allowed to prove hard member-not-found absence.
+// Keep runtime promotion explicit where it matters: only hardDiagnosticTypes
+// are allowed to prove hard member-not-found absence, and that list stays
+// hand-maintained and small.
+//
+// Which types are PROMOTED is a different question, and a hand-maintained list
+// answered it badly: it stopped at 229 of the 307 object types the Excel object
+// model reference documents, so AddIn, Characters, Dialog, Errors and 112 more
+// were absent from completion, hover and receiver chaining even though the
+// corpus carried their members and descriptions all along. The promoted set is
+// now derived from the corpus - every class/dispatch-interface dump that has
+// members - with curatedTypes kept as a floor so nothing already relied on can
+// silently drop out.
 const hardDiagnosticTypes = [
 	'Application',
 	'Workbook',
@@ -54,7 +63,7 @@ const hardDiagnosticTypes = [
 	'Validation',
 ];
 
-const promotedTypes = [
+const curatedTypes = [
 	...hardDiagnosticTypes,
 	// The hidden Global interface: the members VBA calls bare (Union,
 	// Intersect, Evaluate). Resolved by resolveHostGlobalMember (issue #34).
@@ -274,6 +283,34 @@ const primitiveTypes = new Set([
 ]);
 
 const dumps = readReferenceDumps(jsonDir);
+
+/**
+ * Every object type the corpus carries members for, in a stable order: the
+ * curated core first (so its ordering and provenance are unchanged), then the
+ * rest alphabetically. `_`-prefixed dispatch internals and member-less dumps
+ * are skipped, matching what the VBE's own completion shows.
+ */
+const promotedTypes = (() => {
+	const seen = new Set(curatedTypes);
+	const derived = [];
+	for (const [name, entry] of dumps) {
+		if (seen.has(name) || name.startsWith('_')) {
+			continue;
+		}
+		const kind = entry.dump?.kind;
+		if (kind !== 'Class' && kind !== 'Dispatch Interface') {
+			continue;
+		}
+		const members = [...(entry.dump.properties ?? []), ...(entry.dump.methods ?? [])]
+			.filter((member) => !String(member.name ?? '').startsWith('_'));
+		if (members.length === 0) {
+			continue;
+		}
+		derived.push(name);
+	}
+	derived.sort((left, right) => left.localeCompare(right));
+	return [...curatedTypes, ...derived];
+})();
 
 function normalizeTypeName(typeName) {
 	if (!typeName || typeof typeName !== 'string') {
