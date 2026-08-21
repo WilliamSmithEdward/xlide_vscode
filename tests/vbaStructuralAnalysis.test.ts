@@ -820,3 +820,47 @@ describe('commentContinuationText', () => {
         expect(commentContinuationText("    Dim y As Long\n\n", 0, true)).toBeUndefined();
     });
 });
+
+describe('one malformed procedure terminator reports once (issue #40)', () => {
+    const withTypo = (later: number): string => {
+        const out = ['Option Explicit', '', 'Public Function V2(ByVal seed As Long) As Long',
+            '    V2 = seed * 3', 'End Functiona', ''];
+        for (let i = 3; i < 3 + later; i += 1) {
+            out.push(
+                `Public Function V${i}(ByVal seed As Long) As Long`,
+                `    V${i} = seed`,
+                'End Function',
+                '',
+            );
+        }
+        return out.join('\n');
+    };
+
+    it('reports the unclosed procedure and nothing about the ones after it', () => {
+        // Before: one finding per later procedure - 7,199 of them in the
+        // module that raised this. A procedure header at the same indent is
+        // a resynchronisation point, because VBA procedures cannot nest.
+        const findings = analyzeVbaStructure(withTypo(25));
+        expect(findings).toHaveLength(1);
+        expect(findings[0].code).toBe('missing-block-closer');
+        expect(findings[0].message).toContain('End Function');
+        expect(findings[0].message).toContain('V2');
+    });
+
+    it('stays at one finding however many procedures follow', () => {
+        expect(analyzeVbaStructure(withTypo(1))).toHaveLength(1);
+        expect(analyzeVbaStructure(withTypo(200))).toHaveLength(1);
+    });
+
+    it('still reports a declaration genuinely nested inside a procedure body', () => {
+        const nested = 'Public Sub Outer()\n    Sub Inner()\n    End Sub\nEnd Sub\n';
+        expect(analyzeVbaStructure(nested).map((finding) => finding.code))
+            .toContain('module-declaration-in-procedure');
+    });
+
+    it('reports an indented Function inside a procedure body', () => {
+        const nested = 'Public Sub Outer()\n    Public Function Inner() As Long\n    End Function\nEnd Sub\n';
+        expect(analyzeVbaStructure(nested).map((finding) => finding.code))
+            .toContain('module-declaration-in-procedure');
+    });
+});

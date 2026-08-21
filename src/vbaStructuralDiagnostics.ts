@@ -477,7 +477,16 @@ export function analyzeVbaStructure(
         if (activeProcedure) {
             const declaration = moduleDeclarationInProcedureHit(physical[ll.line] ?? '');
             const procedureIndent = leadingWhitespace(physical[activeProcedure.line] ?? '').length;
-            if (declaration && !isConditionalAlternativeHeader && declaration.span.startCol > procedureIndent) {
+            // Compare the two LINES' indents. declaration.span.startCol is the
+            // column of the keyword, which for `Public Function` is 7 even at
+            // column 1 - so an unindented procedure header after an unclosed
+            // one used to read as nested, and every later procedure in the
+            // module was reported (issue #40: 7,199 findings for one typo).
+            // A header at the same indent is instead the resynchronisation
+            // point VBA itself guarantees: procedures cannot nest, so the
+            // previous one ended and its missing-closer is the whole story.
+            const declarationIndent = leadingWhitespace(physical[ll.line] ?? '').length;
+            if (declaration && !isConditionalAlternativeHeader && declarationIndent > procedureIndent) {
                 problems.push(fullLineProblem(
                     physical,
                     ll.line,
