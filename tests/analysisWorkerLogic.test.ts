@@ -263,3 +263,77 @@ describe('AnalysisWorkerState suppressed diagnostics', () => {
 		expect(response.suppressedDiagnostics).toEqual(inHost.suppressedDiagnostics);
 	});
 });
+
+describe('incremental reuse keys on the project surface, not the generation (issue #42)', () => {
+    const CALLER = [
+        'Option Explicit',
+        'Public Sub UseIt()',
+        '    Helper 1, 2',
+        'End Sub',
+    ].join('\n');
+    const oneArgument = [
+        'Option Explicit',
+        'Public Sub Helper(ByVal x As Long)',
+        'End Sub',
+    ].join('\n');
+    const twoArguments = [
+        'Option Explicit',
+        'Public Sub Helper(ByVal x As Long, ByVal y As Long)',
+        'End Sub',
+    ].join('\n');
+    const oneArgumentEditedBody = [
+        'Option Explicit',
+        'Public Sub Helper(ByVal x As Long)',
+        '    Debug.Print x',
+        'End Sub',
+    ].join('\n');
+
+    function codesForCaller(state: AnalysisWorkerState, helper: string, generation: number): string[] {
+        state.handle({
+            kind: 'seed',
+            workbookKey: 'wb',
+            generation,
+            modules: [
+                { moduleName: 'Helpers', source: helper, type: 'standard' },
+                { moduleName: 'Caller', source: CALLER, type: 'standard' },
+            ],
+        });
+        const response = state.handle({
+            kind: 'analyze',
+            requestId: 1,
+            docKey: 'doc:Caller',
+            workbookKey: 'wb',
+            generation,
+            moduleName: 'Caller',
+            source: CALLER,
+            moduleType: 'standard',
+            moduleKind: 'standard',
+        });
+        return (response?.kind === 'result' ? response.diagnostics : []).map((d) => d.code);
+    }
+
+    it('re-derives a caller when the callee signature changes', () => {
+        const state = new AnalysisWorkerState();
+        expect(codesForCaller(state, oneArgument, 1)).toContain('argument-count');
+        // The surface changed, so the stale finding must not survive.
+        expect(codesForCaller(state, twoArguments, 2)).not.toContain('argument-count');
+        expect(codesForCaller(state, oneArgument, 3)).toContain('argument-count');
+    });
+
+    it('keeps the finding when only a callee body changes', () => {
+        const state = new AnalysisWorkerState();
+        expect(codesForCaller(state, oneArgument, 1)).toContain('argument-count');
+        // A body edit re-seeds and bumps the generation, but the surface the
+        // caller consumes is identical, so its incremental state is kept and
+        // the answer is unchanged.
+        expect(codesForCaller(state, oneArgumentEditedBody, 2)).toContain('argument-count');
+    });
+
+    it('a re-seed with identical content re-uses the same fingerprint', () => {
+        const state = new AnalysisWorkerState();
+        expect(codesForCaller(state, oneArgument, 1)).toContain('argument-count');
+        // Same modules, new generation: nothing about the project moved.
+        expect(codesForCaller(state, oneArgument, 2)).toContain('argument-count');
+        expect(codesForCaller(state, oneArgument, 3)).toContain('argument-count');
+    });
+});

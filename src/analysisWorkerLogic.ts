@@ -27,6 +27,15 @@ interface WorkbookState {
 	procedures: ReturnType<typeof projectProcedureSignatures>;
 	/** Memoized per analyzed module name (lowercased). */
 	optionsByModule: Map<string, VbaProjectAnalysisOptions>;
+	/**
+	 * Digest of the cross-module surface each module actually consumes,
+	 * memoized beside its options (issue #42). Incremental reuse keys on this
+	 * rather than on the seed's generation counter: a generation changes on
+	 * every re-seed, including re-seeds caused by an edit in another module
+	 * that cannot affect this one, and discarding the state costs a full
+	 * re-analysis of every module in the project.
+	 */
+	surfaceDigestByModule: Map<string, string>;
 	/** Host-supplied designer members, per seeded module name (lowercased). */
 	implicitMembersByModule: Map<string, WorkerImplicitMember[]>;
 }
@@ -54,6 +63,7 @@ export class AnalysisWorkerState {
 					project,
 					procedures: projectProcedureSignatures(project),
 					optionsByModule: new Map(),
+					surfaceDigestByModule: new Map(),
 					implicitMembersByModule: new Map(
 						request.modules
 							.filter((m) => m.implicitMembers !== undefined)
@@ -86,6 +96,7 @@ export class AnalysisWorkerState {
 	): AnalysisWorkerResponse {
 		let projectOptions: VbaProjectAnalysisOptions = {};
 		let seededImplicitMembers: WorkerImplicitMember[] | undefined;
+		let surfaceDigest = '';
 		if (request.workbookKey !== undefined) {
 			const workbook = this._workbooks.get(request.workbookKey);
 			if (!workbook || (request.generation !== undefined && workbook.generation !== request.generation)) {
@@ -105,8 +116,13 @@ export class AnalysisWorkerState {
 					workbook.procedures,
 				);
 				workbook.optionsByModule.set(moduleKey, options);
+				// Computed once per module per seed, next to the options it
+				// summarises, so the extra pass costs the same order as
+				// building them (issue #42).
+				workbook.surfaceDigestByModule.set(moduleKey, projectSurfaceDigest(options));
 			}
 			projectOptions = options;
+			surfaceDigest = workbook.surfaceDigestByModule.get(moduleKey) ?? '';
 			seededImplicitMembers = workbook.implicitMembersByModule.get(moduleKey);
 		}
 
@@ -123,7 +139,11 @@ export class AnalysisWorkerState {
 
 		const fingerprint = [
 			request.workbookKey ?? '',
-			request.generation ?? -1,
+			// The project surface this module consumes, NOT the seed's
+			// generation: a re-seed with unchanged cross-module content keeps
+			// every module's incremental state, while a changed signature,
+			// type or member surface still invalidates it (issue #42).
+			surfaceDigest,
 			JSON.stringify(request.severityOverrides ?? null),
 			request.moduleType ?? '',
 			request.moduleKind ?? '',
@@ -162,4 +182,56 @@ export class AnalysisWorkerState {
 			incrementalMode: result.rulesIncrementalMode,
 		};
 	}
+}
+
+/**
+ * A digest of the cross-module surface a module's analysis consumes: the
+ * project-visible procedure, identifier and non-type names, the visible project
+ * types, and the source-backed member surfaces.
+ *
+ * Order-independent by construction, because the project index builds these
+ * collections by walking modules and a re-seed must not invalidate on iteration
+ * order alone. Content-addressed, so two seeds carrying the same project
+ * surface produce the same digest and incremental state survives (issue #42).
+ */
+function projectSurfaceDigest(options: VbaProjectAnalysisOptions): string {
+    let names = 0;
+    let accumulator = 0;
+    const fold = (text: string): void => {
+        // FNV-1a over the string, then summed into the accumulator so the
+        // result does not depend on the order items are visited in.
+        let hash = 0x811c9dc5;
+        for (let i = 0; i < text.length; i += 1) {
+            hash ^= text.charCodeAt(i);
+            hash = Math.imul(hash, 0x01000193);
+        }
+        accumulator = (accumulator + (hash >>> 0)) >>> 0;
+        names += 1;
+    };
+    for (const set of [options.knownProcedures, options.knownIdentifiers, options.knownNonTypeNames]) {
+        for (const name of set ?? []) {
+            fold(name);
+        }
+    }
+    for (const type of options.projectTypes ?? []) {
+        fold(`${type.name}:${type.kind}:${type.moduleName ?? ''}`);
+    }
+    for (const surface of options.projectClassMembers ?? []) {
+        fold(`${surface.name}:${surface.kind}:${surface.exhaustive === true ? '1' : '0'}`);
+        for (const member of surface.members) {
+            fold(`${surface.name}.${member.name}:${member.kind}:${member.returns ?? ''}`);
+        }
+    }
+    // projectProcedures is keyed by lowercased name; the signatures are what
+    // a call site in another module is checked against.
+    for (const [key, signatures] of options.projectProcedures ?? []) {
+        for (const signature of signatures) {
+            fold(`${key}:${signature.moduleName ?? ''}.${signature.name}:${signature.kind}:${signature.returnType ?? ''}:${
+                signature.params
+                    .map((param) => `${param.name}|${param.type ?? ''}|${param.optional ? '1' : '0'}|${param.paramArray ? '1' : '0'}`)
+                    .join(',')
+            }`);
+        }
+    }
+    return `${names}:${accumulator.toString(36)}`;
 }
