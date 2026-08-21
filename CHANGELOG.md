@@ -2,6 +2,22 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [4.1.3] - 2026-08-21
+
+- **A repeat analysis no longer costs multiples of the first** (#45). Four
+  analyzer memos find their entry by comparing a whole source string. Within one
+  pass that is free: the caller hands back the very instance the entry was
+  stored under and the comparison settles on the pointer. Across passes it is
+  not, because a host that re-materialises module text - a worker boundary, a
+  pipe, a re-read - produces a NEW string with the same content, so every lookup
+  compared the whole module. `statementTokensCached` is asked hundreds of
+  thousands of times per pass, which made every analysis after the first
+  quadratic in module size: a 64,802-line module took 0.9s cold and 15.8s every
+  time after. Each memo now adopts the caller's instance on a content hit, so
+  the first lookup of a pass pays one comparison and the rest settle on the
+  pointer. Measured on an 18,002-line module, a repeat analysis went from
+  2,666 ms to 492 ms and the curve is linear again; findings are identical.
+
 ## [4.1.2] - 2026-08-21
 
 - **`If cond Then: stmt` no longer owes an `End If`**. Statements were split on

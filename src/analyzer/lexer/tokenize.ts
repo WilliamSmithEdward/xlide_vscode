@@ -76,6 +76,9 @@ export function tokenizeCached(src: string): VbaToken[] {
 	for (let i = 0; i < tokenizeCache.length; i += 1) {
 		if (tokenizeCache[i].src === src) {
 			const hit = tokenizeCache[i];
+			// Adopt the caller's instance so later lookups settle on the pointer
+			// rather than comparing the whole module again (issue #45).
+			hit.src = src;
 			if (i > 0) {
 				tokenizeCache.splice(i, 1);
 				tokenizeCache.unshift(hit);

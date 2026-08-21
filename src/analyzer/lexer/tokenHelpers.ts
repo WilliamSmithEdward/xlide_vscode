@@ -52,6 +52,13 @@ export function statementTokensCached(
 	for (let i = 0; i < statementTokenCache.length; i += 1) {
 		if (statementTokenCache[i].src === source) {
 			entry = statementTokenCache[i];
+			// Adopt the caller's instance. A host that re-materialises module text
+			// per call - a worker boundary, a pipe, a re-read - hands over a NEW
+			// string with the same content, so every lookup compared a megabyte of
+			// characters and this pass, asked hundreds of thousands of times, went
+			// quadratic in module size. Adopting makes the first lookup of a pass
+			// pay one comparison and every lookup after it settle on the pointer.
+			entry.src = source;
 			if (i > 0) {
 				statementTokenCache.splice(i, 1);
 				statementTokenCache.unshift(entry);

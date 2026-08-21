@@ -54,6 +54,9 @@ export function completionCursorContext(
 	for (let i = 0; i < cursorContextCache.length; i += 1) {
 		const entry = cursorContextCache[i];
 		if (entry.offset === safeOffset && entry.source === source) {
+			// Adopt the caller's instance so later lookups settle on the pointer
+			// rather than comparing the whole module again (issue #45).
+			entry.source = source;
 			if (i > 0) {
 				cursorContextCache.splice(i, 1);
 				cursorContextCache.unshift(entry);

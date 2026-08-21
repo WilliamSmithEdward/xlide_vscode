@@ -140,6 +140,9 @@ export function parseModule(source: string): ModuleNode {
 	for (let i = 0; i < parseCache.length; i += 1) {
 		if (parseCache[i].source === source) {
 			const hit = parseCache[i];
+			// Adopt the caller's instance so later lookups settle on the pointer
+			// rather than comparing the whole module again (issue #45).
+			hit.source = source;
 			if (i > 0) {
 				parseCache.splice(i, 1);
 				parseCache.unshift(hit);
