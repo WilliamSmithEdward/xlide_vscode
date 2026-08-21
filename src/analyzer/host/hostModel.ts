@@ -162,7 +162,7 @@ export function resolveHostGlobalMember(
 	name: string,
 	model: HostObjectModel = getExcelObjectModel(),
 ): HostMember | undefined {
-	if (!model.globalType) {
+	if (!model.globalType || isHiddenDispatchName(name)) {
 		return undefined;
 	}
 	return hostModelIndex(model).membersByType
@@ -173,7 +173,19 @@ export function resolveHostGlobalMember(
 export function getHostGlobalMembers(
 	model: HostObjectModel = getExcelObjectModel(),
 ): HostMember[] {
-	return model.globalType ? getHostMembers(model.globalType, model) : [];
+	return model.globalType
+		? getHostMembers(model.globalType, model).filter((member) => !isHiddenDispatchName(member.name))
+		: [];
+}
+
+/**
+ * `_Run2`, `_Default` and friends: the type library's dispatch internals, which
+ * the VBE's own completion hides and no one writes by hand. They are members
+ * like any other for a qualified lookup, but they must not become bare-callable
+ * names just because the Global interface carries them (issue #41).
+ */
+function isHiddenDispatchName(name: string): boolean {
+	return name.startsWith('_');
 }
 
 /**

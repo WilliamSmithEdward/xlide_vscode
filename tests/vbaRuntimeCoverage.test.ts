@@ -15,7 +15,9 @@
 import { describe, expect, it } from 'vitest';
 import {
     analyzeModule,
+    getHostGlobalMembers,
     resolveHostConstant,
+    resolveHostGlobalMember,
     resolveRuntimeConstant,
     resolveRuntimeFunction,
     resolveRuntimeObject,
@@ -118,6 +120,17 @@ describe('VBA language reference coverage', () => {
             (name) => !resolveRuntimeConstant(name) && !resolveHostConstant(name, model),
         );
         expect(unknown).toEqual([]);
+    });
+
+    it('keeps hidden dispatch internals out of bare resolution', () => {
+        // _Run2 and friends are type-library plumbing the VBE's own completion
+        // hides; the Global interface carrying them must not make them names a
+        // developer can write bare.
+        const model = getExcelObjectModel();
+        expect(resolveHostGlobalMember('_Run2', model)).toBeUndefined();
+        expect(getHostGlobalMembers(model).some((m) => m.name.startsWith('_'))).toBe(false);
+        // The real members are still there.
+        expect(resolveHostGlobalMember('Union', model)).toBeDefined();
     });
 
     it('knows the MSForms enum constants in every host', () => {
