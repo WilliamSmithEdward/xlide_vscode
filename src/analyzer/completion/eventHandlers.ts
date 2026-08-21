@@ -9,7 +9,7 @@ import { parseModule } from '../parser/parseModule';
 import type { ModuleMember, ProcedureNode } from '../parser/nodes';
 import type { ModuleSymbolKind } from '../symbols/symbolModel';
 
-export type EventHandlerDocumentType = 'workbook' | 'worksheet' | 'chart' | 'document';
+export type EventHandlerDocumentType = 'workbook' | 'worksheet' | 'chart' | 'document' | 'userform';
 
 export interface EventHandlerCompletionContext {
 	moduleName?: string;
@@ -28,7 +28,7 @@ export interface EventHandlerCompletion {
 interface EventHandlerDefinition {
 	name: string;
 	params: string;
-	owner: 'Workbook' | 'Worksheet' | 'Chart' | 'Document';
+	owner: 'Workbook' | 'Worksheet' | 'Chart' | 'Document' | 'UserForm';
 	description: string;
 }
 
@@ -228,6 +228,50 @@ const CHART_EVENTS: readonly EventHandlerDefinition[] = [
 	},
 ];
 
+/**
+ * The events a UserForm's code-behind can handle, as the language reference's
+ * Events page lists them (issue #41). Form code-behind previously offered no
+ * event stubs at all, while a worksheet module offered its full set.
+ */
+const USERFORM_EVENTS: readonly EventHandlerDefinition[] = [
+	{
+		name: 'UserForm_Initialize',
+		params: '',
+		owner: 'UserForm',
+		description: "Occurs after an object is loaded, but before it's shown.",
+	},
+	{
+		name: 'UserForm_Activate',
+		params: '',
+		owner: 'UserForm',
+		description: 'Occurs when an object becomes the active window.',
+	},
+	{
+		name: 'UserForm_Deactivate',
+		params: '',
+		owner: 'UserForm',
+		description: 'Occurs when an object is no longer the active window.',
+	},
+	{
+		name: 'UserForm_QueryClose',
+		params: 'Cancel As Integer, CloseMode As Integer',
+		owner: 'UserForm',
+		description: 'Occurs before a UserForm closes.',
+	},
+	{
+		name: 'UserForm_Resize',
+		params: '',
+		owner: 'UserForm',
+		description: 'Occurs when a user form is resized.',
+	},
+	{
+		name: 'UserForm_Terminate',
+		params: '',
+		owner: 'UserForm',
+		description: 'Occurs when all references to an instance of an object are removed from memory.',
+	},
+];
+
 const DOCUMENT_EVENTS: readonly EventHandlerDefinition[] = [
 	{
 		name: 'Document_New',
@@ -309,7 +353,7 @@ export function resolveEventHandlerCompletions(
 	offset: number,
 	ctx: EventHandlerCompletionContext = {},
 ): EventHandlerCompletion[] {
-	if (ctx.moduleKind !== 'document') {
+	if (ctx.moduleKind !== 'document' && ctx.moduleKind !== 'userform') {
 		return [];
 	}
 
@@ -350,6 +394,9 @@ export function resolveEventHandlerCompletions(
 export function eventHandlerDocumentTypeForContext(
 	ctx: EventHandlerCompletionContext,
 ): EventHandlerDocumentType | undefined {
+	if (ctx.moduleKind === 'userform') {
+		return 'userform';
+	}
 	if (ctx.moduleKind !== 'document') {
 		return undefined;
 	}
@@ -390,6 +437,8 @@ function definitionsForDocumentType(
 			return CHART_EVENTS;
 		case 'document':
 			return DOCUMENT_EVENTS;
+		case 'userform':
+			return USERFORM_EVENTS;
 		default:
 			return [];
 	}
@@ -414,6 +463,8 @@ function documentTypeForOwner(
 			return 'chart';
 		case 'Document':
 			return 'document';
+		case 'UserForm':
+			return 'userform';
 	}
 }
 

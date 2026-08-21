@@ -22,7 +22,12 @@ import {
 } from '../src/analyzer';
 import { canonicalKeyword } from '../src/analyzer/lexer/keywordTable';
 import { vbaRuntimeDescription } from '../src/analyzer/runtime/vbaRuntimeDocs';
-import { resolveHover, resolveIdentifierCompletions, resolveSignatureHelp } from '../src/analyzer';
+import {
+    resolveEventHandlerCompletions,
+    resolveHover,
+    resolveIdentifierCompletions,
+    resolveSignatureHelp,
+} from '../src/analyzer';
 import { getExcelObjectModel } from '../src/analyzer/host/excelObjectModel';
 import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
 import { getPowerPointObjectModel } from '../src/analyzer/host/powerpointObjectModel';
@@ -162,6 +167,39 @@ describe('built-ins describe themselves, not just their spelling (issue #41)', (
         for (const name of ['VarPtr', 'StrPtr', 'ObjPtr', 'LenB', 'MidB']) {
             expect(vbaRuntimeDescription(name), name).toBeUndefined();
         }
+    });
+});
+
+describe('the directives and events surfaces (issue #41)', () => {
+    it('accepts a #Const directive above Option Explicit', () => {
+        // A directive is not a declaration. Verified against the live VBE:
+        // oracle case const_directive_before_option_explicit_compile.
+        const source = '#Const FLAG = 1\nOption Explicit\nSub T()\nEnd Sub\n';
+        expect(analyzeModule(source, {})).toEqual([]);
+    });
+
+    it('still reports an Option after a real declaration', () => {
+        const source = 'Option Explicit\nDim x As Long\nOption Base 1\nSub T()\nEnd Sub\n';
+        expect(analyzeModule(source, {}).map((d) => d.code)).toContain('option-after-declaration');
+    });
+
+    it('offers a form its own events, the way a sheet module gets its own', () => {
+        // The Events reference lists exactly these six for a UserForm; form
+        // code-behind offered none at all before.
+        const source = 'UserForm_\n';
+        const offered = resolveEventHandlerCompletions(source, source.indexOf('_') + 1, {
+            moduleKind: 'userform',
+            moduleName: 'EntryForm',
+        }).map((item) => item.name);
+        expect(offered.sort()).toEqual([
+            'UserForm_Activate', 'UserForm_Deactivate', 'UserForm_Initialize',
+            'UserForm_QueryClose', 'UserForm_Resize', 'UserForm_Terminate',
+        ]);
+        const queryClose = resolveEventHandlerCompletions(source, source.indexOf('_') + 1, {
+            moduleKind: 'userform',
+        }).find((item) => item.name === 'UserForm_QueryClose');
+        expect(queryClose?.signature).toBe('UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)');
+        expect(queryClose?.documentation).toContain('before a UserForm closes');
     });
 });
 

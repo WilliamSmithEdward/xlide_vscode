@@ -4872,6 +4872,16 @@
       ],
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "const_directive_before_option_explicit_compile",
+      "description": "A #Const conditional-compilation directive may precede Option Explicit: a directive is not a declaration.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "#Const XLIDEORACLEFLAG = 1\nOption Explicit\nPublic Sub XlideOracleEntry()\n#If XLIDEORACLEFLAG Then\n    Debug.Print \"on\"\n#End If\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }

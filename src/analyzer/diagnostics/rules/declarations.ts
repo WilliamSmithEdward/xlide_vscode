@@ -1896,6 +1896,14 @@ export function checkOptionPlacement(
 		if (member.kind === 'Attribute') {
 			continue;
 		}
+		// A conditional-compilation directive is not a declaration, so it does
+		// not close the window for Option statements. The live VBE compiles
+		// `#Const FLAG = 1` above `Option Explicit` (oracle case
+		// const_directive_before_option_explicit_compile), which the rule used
+		// to report as a misplaced Option (issue #41).
+		if (member.kind === 'ConditionalDirective') {
+			continue;
+		}
 		if (member.kind === 'Option') {
 			if (declarationSeen) {
 				push(
