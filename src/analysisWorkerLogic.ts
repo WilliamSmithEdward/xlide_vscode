@@ -38,6 +38,13 @@ interface WorkbookState {
 	surfaceDigestByModule: Map<string, string>;
 	/** Host-supplied designer members, per seeded module name (lowercased). */
 	implicitMembersByModule: Map<string, WorkerImplicitMember[]>;
+	/**
+	 * The exported-signature half of the surface digest. Identical for every
+	 * module in the project, so it is folded once per seed rather than once
+	 * per module - folding it per module cost more than building the options
+	 * it summarises (measured 8.6 ms/module on a 40-module project).
+	 */
+	proceduresDigest: string;
 }
 
 export class AnalysisWorkerState {
@@ -64,6 +71,7 @@ export class AnalysisWorkerState {
 					procedures: projectProcedureSignatures(project),
 					optionsByModule: new Map(),
 					surfaceDigestByModule: new Map(),
+					proceduresDigest: '',
 					implicitMembersByModule: new Map(
 						request.modules
 							.filter((m) => m.implicitMembers !== undefined)
@@ -116,10 +124,15 @@ export class AnalysisWorkerState {
 					workbook.procedures,
 				);
 				workbook.optionsByModule.set(moduleKey, options);
-				// Computed once per module per seed, next to the options it
-				// summarises, so the extra pass costs the same order as
-				// building them (issue #42).
-				workbook.surfaceDigestByModule.set(moduleKey, projectSurfaceDigest(options));
+				if (workbook.proceduresDigest === '') {
+					workbook.proceduresDigest = exportedProcedureDigest(options.projectProcedures);
+				}
+				// The per-module half covers only what visibility filtering makes
+				// specific to this module; the shared half rides along (issue #42).
+				workbook.surfaceDigestByModule.set(
+					moduleKey,
+					`${workbook.proceduresDigest}/${moduleSurfaceDigest(options)}`,
+				);
 			}
 			projectOptions = options;
 			surfaceDigest = workbook.surfaceDigestByModule.get(moduleKey) ?? '';
@@ -185,53 +198,79 @@ export class AnalysisWorkerState {
 }
 
 /**
- * A digest of the cross-module surface a module's analysis consumes: the
- * project-visible procedure, identifier and non-type names, the visible project
- * types, and the source-backed member surfaces.
+ * Order-independent content fold, used by both halves of the surface digest.
  *
- * Order-independent by construction, because the project index builds these
- * collections by walking modules and a re-seed must not invalidate on iteration
- * order alone. Content-addressed, so two seeds carrying the same project
- * surface produce the same digest and incremental state survives (issue #42).
+ * Two accumulators rather than one: a 32-bit sum collides far too readily for
+ * a key that decides whether a stale diagnostic is allowed to survive, so a
+ * second, differently-weighted accumulator widens the state to 64 bits at the
+ * cost of one multiply per item.
  */
-function projectSurfaceDigest(options: VbaProjectAnalysisOptions): string {
-    let names = 0;
-    let accumulator = 0;
-    const fold = (text: string): void => {
-        // FNV-1a over the string, then summed into the accumulator so the
-        // result does not depend on the order items are visited in.
+class SurfaceFold {
+    private _items = 0;
+    private _sum = 0;
+    private _mixed = 0;
+
+    add(text: string): void {
         let hash = 0x811c9dc5;
         for (let i = 0; i < text.length; i += 1) {
             hash ^= text.charCodeAt(i);
             hash = Math.imul(hash, 0x01000193);
         }
-        accumulator = (accumulator + (hash >>> 0)) >>> 0;
-        names += 1;
-    };
-    for (const set of [options.knownProcedures, options.knownIdentifiers, options.knownNonTypeNames]) {
-        for (const name of set ?? []) {
-            fold(name);
-        }
+        const value = hash >>> 0;
+        this._items += 1;
+        this._sum = (this._sum + value) >>> 0;
+        this._mixed = (this._mixed ^ Math.imul(value ^ text.length, 0x9e3779b1)) >>> 0;
     }
-    for (const type of options.projectTypes ?? []) {
-        fold(`${type.name}:${type.kind}:${type.moduleName ?? ''}`);
+
+    toString(): string {
+        return `${this._items}:${this._sum.toString(36)}:${this._mixed.toString(36)}`;
     }
-    for (const surface of options.projectClassMembers ?? []) {
-        fold(`${surface.name}:${surface.kind}:${surface.exhaustive === true ? '1' : '0'}`);
-        for (const member of surface.members) {
-            fold(`${surface.name}.${member.name}:${member.kind}:${member.returns ?? ''}`);
-        }
-    }
-    // projectProcedures is keyed by lowercased name; the signatures are what
-    // a call site in another module is checked against.
-    for (const [key, signatures] of options.projectProcedures ?? []) {
+}
+
+/**
+ * The project's exported procedure signatures - what a call site in ANY module
+ * is checked against. Identical for every module, so the worker folds it once
+ * per seed (issue #42).
+ */
+function exportedProcedureDigest(
+    projectProcedures: VbaProjectAnalysisOptions['projectProcedures'],
+): string {
+    const fold = new SurfaceFold();
+    for (const [key, signatures] of projectProcedures ?? []) {
         for (const signature of signatures) {
-            fold(`${key}:${signature.moduleName ?? ''}.${signature.name}:${signature.kind}:${signature.returnType ?? ''}:${
+            fold.add(`${key}:${signature.moduleName ?? ''}.${signature.name}:${signature.kind}:${signature.returnType ?? ''}:${
                 signature.params
                     .map((param) => `${param.name}|${param.type ?? ''}|${param.optional ? '1' : '0'}|${param.paramArray ? '1' : '0'}`)
                     .join(',')
             }`);
         }
     }
-    return `${names}:${accumulator.toString(36)}`;
+    return fold.toString();
+}
+
+/**
+ * The half of the cross-module surface that visibility filtering makes specific
+ * to one module: the names it can see, the types visible to it, and the
+ * source-backed member surfaces it resolves against.
+ *
+ * Order-independent by construction, because the project index builds these by
+ * walking modules and a re-seed must not invalidate on iteration order alone.
+ */
+function moduleSurfaceDigest(options: VbaProjectAnalysisOptions): string {
+    const fold = new SurfaceFold();
+    for (const set of [options.knownProcedures, options.knownIdentifiers, options.knownNonTypeNames]) {
+        for (const name of set ?? []) {
+            fold.add(name);
+        }
+    }
+    for (const type of options.projectTypes ?? []) {
+        fold.add(`${type.name}:${type.kind}:${type.moduleName ?? ''}`);
+    }
+    for (const surface of options.projectClassMembers ?? []) {
+        fold.add(`${surface.name}:${surface.kind}:${surface.exhaustive === true ? '1' : '0'}`);
+        for (const member of surface.members) {
+            fold.add(`${surface.name}.${member.name}:${member.kind}:${member.returns ?? ''}`);
+        }
+    }
+    return fold.toString();
 }
