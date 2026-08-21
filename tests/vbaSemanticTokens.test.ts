@@ -444,6 +444,23 @@ describe('host member method semantic tokens (issue #29)', () => {
 			.toEqual([]);
 	});
 
+	it('paints a code name beside Me in the module that IS that code name (issue #44)', () => {
+		// A document module's code name and `Me` are the same object, so the two
+		// mentions must read alike - the guarantee issue #31 closed. Painting
+		// stopped resolving the code name once the module's own name appeared in
+		// projectTypes, because a project surface was claiming it as a class.
+		const source = 'Public Sub T()\n    Me.Calculate\n    Sheet1.Calculate\nEnd Sub\n';
+		const ctx: HostMemberTokenContext = {
+			meType: 'Excel.Worksheet',
+			codeNames: { sheet1: 'Excel.Worksheet' },
+			projectTypes: [{ name: 'Sheet1', kind: 'document' }],
+		};
+		expect(methodTokens(source, ctx)).toEqual(['Calculate:function', 'Calculate:function']);
+		// And with no project types at all, which is how it behaved before.
+		expect(methodTokens(source, { meType: 'Excel.Worksheet', codeNames: { sheet1: 'Excel.Worksheet' } }))
+			.toEqual(['Calculate:function', 'Calculate:function']);
+	});
+
 	it('paints a bare host Global method and value (issue #34)', () => {
 		const word = 'Sub T()\n    TopM = InchesToPoints(1)\n    Set x = RecentFiles\nEnd Sub\n';
 		const wordTokens = collectHostGlobalTokens(word, getWordObjectModel()).map(

@@ -48,6 +48,7 @@ import {
 	type MemberCompletionContext,
 } from '../completion/memberAccess';
 import { VBA_USERFORM_TYPE as MSFORMS_USERFORM_TYPE } from '../host/userFormExtenderMembers';
+import type { VbaProjectClassMembers, VbaProjectTypeKind } from '../symbols/symbolModel';
 
 export type TypeSemanticTokenType =
 	| 'class'
@@ -760,9 +761,21 @@ export interface HostMemberTokenContext {
 	/**
 	 * Project type names visible to the module. A project class named like a
 	 * host type wins the `As` clause, so a local declared with that name must
-	 * not resolve as the host type (issue #33).
+	 * not resolve as the host type (issue #33). The kind matters as well as the
+	 * name: a document module's code name resolves differently from a class of
+	 * the same name (issue #44).
 	 */
-	projectTypes?: readonly { name: string }[];
+	projectTypes?: readonly { name: string; kind?: VbaProjectTypeKind }[];
+}
+
+/**
+ * The project-surface kind a visible type name declares. Absent kinds are read
+ * as a class, which is what a bare name meant before the kind was carried.
+ */
+function projectTypeKindOf(
+	type: { kind?: VbaProjectTypeKind },
+): VbaProjectClassMembers['kind'] {
+	return type.kind ?? 'class';
 }
 
 /**
@@ -800,9 +813,12 @@ export function collectHostMemberMethodTokens(
 		// The project's own type names bind before the library's, so a class the
 		// developer named Range must not paint as Excel's (issue #33). Only the
 		// names are known here; empty member lists are enough to claim the name.
+		// The KIND has to be carried through: calling a document module a class
+		// changed how its code name resolved, and `Sheet1.Calculate` stopped
+		// painting in the module named Sheet1 (issue #44).
 		projectClassMembers: (ctx.projectTypes ?? []).map((type) => ({
 			name: type.name,
-			kind: 'class' as const,
+			kind: projectTypeKindOf(type),
 			moduleName: type.name,
 			members: [],
 		})),

@@ -253,11 +253,33 @@ export function resolveHostMemberKindAt(
 	ctx: MemberCompletionContext = {},
 ): HostMemberKind | undefined {
 	const hit = memberSurfaceAtDot(source, offset, ctx);
-	if (!hit || !getHostType(hit.surface.owner, ctx.model)) {
+	if (!hit || !hostReceiverTypesOf(hit.currentType).some((type) => getHostType(type, ctx.model))) {
 		return undefined;
 	}
 	const lowerName = memberName.toLowerCase();
 	return hit.surface.members.find((member) => member.name.toLowerCase() === lowerName)?.kind;
+}
+
+/**
+ * The host types a receiver key denotes, for deciding whether a member came
+ * from a host library at all.
+ *
+ * A document module's code name resolves to a COMBINED key - the module's own
+ * source surface joined to `Excel.Worksheet` - and the surface built from one
+ * is owned by the project name. Reading the owner alone therefore said "not a
+ * host type" and `Sheet1.Calculate` stopped painting beside `Me.Calculate`,
+ * which is the pair issue #31 exists to keep identical (issue #44).
+ */
+function hostReceiverTypesOf(receiverType: string): string[] {
+	const union = parseUnionTypeKey(receiverType);
+	if (union) {
+		return union.flatMap((item) => hostReceiverTypesOf(item));
+	}
+	const combined = parseCombinedTypeKey(receiverType);
+	if (combined) {
+		return [combined.hostType];
+	}
+	return receiverType.startsWith(PROJECT_TYPE_PREFIX) ? [] : [receiverType];
 }
 
 /**

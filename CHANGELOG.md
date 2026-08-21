@@ -2,6 +2,20 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [Unreleased]
+
+- **A code name paints beside `Me` again** (#44). In a document module,
+  `Sheet1.Calculate` stopped being colored while `Me.Calculate` beside it kept
+  its token, which is exactly the inconsistency #31 exists to prevent - a
+  module's code name and `Me` are the same object. 4.1.0 rewrote the collector
+  to resolve a member the way hover does, and two details of that went wrong: a
+  document module's code name resolves to a combined project-and-host receiver
+  whose surface is owned by the PROJECT name, so the host-member check read it
+  as "not a host type"; and the collector flattened every visible project type
+  to a class, so the module's own name claimed itself as one. The check now
+  looks at the host half of a combined or union receiver, and the project type's
+  real kind is carried through.
+
 ## [4.1.0] - 2026-08-21
 
 - **A blank line keeps the indent the editor gave it** (#43). VS Code trims
