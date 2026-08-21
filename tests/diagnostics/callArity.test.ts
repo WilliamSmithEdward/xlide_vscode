@@ -288,6 +288,30 @@ describe('analyzeModule - argument count', () => {
 		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
 	});
 
+	it('accepts a named argument whose name spells a keyword', () => {
+		// `:=` has one meaning in VBA, so the word before it is a parameter name
+		// even when it spells a keyword. The Office libraries name 385 parameters
+		// across 370 members that way - Type alone on 197 - and requiring an
+		// identifier token read `Type:=` as POSITIONAL, so this correct call
+		// reported a positional argument following a named one.
+		const src = 'Sub test()\n    ThisWorkbook.BreakLink Name:="test", Type:=xlLinkTypeExcelLinks\nEnd Sub\n';
+		expect(byCode(analyzeModule(src, { host: 'excel' }), 'argument-count')).toHaveLength(0);
+
+		// A user procedure with the same shape, so the rule is checked away from
+		// the host signature tables too.
+		const project =
+			'Sub Main()\n' +
+			'    KeywordNamed Text:="a", Type:=1\n' +
+			'End Sub\n' +
+			'Sub KeywordNamed(ByVal Text As String, ByVal Type As Long)\nEnd Sub\n';
+		expect(byCode(analyzeModule(project), 'argument-count')).toHaveLength(0);
+	});
+
+	it('still flags a genuine positional after a keyword-named argument', () => {
+		const src = 'Sub test()\n    ThisWorkbook.BreakLink Type:=1, "test"\nEnd Sub\n';
+		expect(byCode(analyzeModule(src, { host: 'excel' }), 'argument-count')).toHaveLength(1);
+	});
+
 	it('does not flag a plain positional call with no named arguments', () => {
 		const src =
 			'Sub Main()\n' +

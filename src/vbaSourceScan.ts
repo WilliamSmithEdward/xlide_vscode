@@ -248,6 +248,9 @@ export function logicalLinesFromStripped(stripped: string[]): LogicalLine[] {
     return logical;
 }
 
+/** True for a segment that is exactly an `If ... Then` header, opening a block. */
+const BLOCK_IF_HEADER_RE = /^If\b.*\bThen$/i;
+
 function splitColonStatements(text: string): string[] {
     const out: string[] = [];
     let start = 0;
@@ -255,7 +258,17 @@ function splitColonStatements(text: string): string[] {
         if (text[i] !== ':') {
             continue;
         }
-        out.push(`${' '.repeat(start)}${text.slice(start, i)}`);
+        const segment = text.slice(start, i);
+        // A colon straight after `Then` separates statements INSIDE a
+        // single-line If; it does not end the header. Splitting there left a
+        // bare `If ... Then` segment, which reads as a block opener, so
+        // `If utc_NegativeOffset Then: utc_Offset = -utc_Offset` - a common
+        // idiom, and twice in Tim Hall's VBA-JSON - reported a missing End If
+        // against the enclosing block.
+        if (BLOCK_IF_HEADER_RE.test(segment.trim())) {
+            continue;
+        }
+        out.push(`${' '.repeat(start)}${segment}`);
         start = i + 1;
     }
     out.push(`${' '.repeat(start)}${text.slice(start)}`);

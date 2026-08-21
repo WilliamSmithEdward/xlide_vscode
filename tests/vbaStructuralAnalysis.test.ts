@@ -42,6 +42,33 @@ describe('analyzeVbaStructure', () => {
         expect(problems[0].endCol).toBe(3);
     });
 
+    it('accepts a single-line If whose Then is followed by a colon', () => {
+        // `If cond Then: stmt` is a SINGLE-line If - the colon separates
+        // statements inside it and no End If is owed. Splitting statements on
+        // every colon left a bare `If ... Then` segment, which reads as a block
+        // opener, so the enclosing block reported a missing End If. Tim Hall's
+        // VBA-JSON uses the idiom twice and reported two errors on code that
+        // compiles.
+        const cases = [
+            'Sub T()\n    If flag Then: total = 1\nEnd Sub\n',
+            'Sub T()\n    If flag Then: Exit Sub\nEnd Sub\n',
+            'Sub T()\n    If flag Then : total = 1\nEnd Sub\n',
+            'Sub T()\n    If flag Then: a = 1: b = 2\nEnd Sub\n',
+            // Nested inside a block If, which is the shape that failed.
+            'Sub T()\n    If outer Then\n        If flag Then: total = 1\n    End If\nEnd Sub\n',
+        ];
+        for (const src of cases) {
+            expect(analyzeVbaStructure(src), src).toHaveLength(0);
+        }
+    });
+
+    it('still flags a block If left unclosed', () => {
+        const src = 'Sub T()\n    If flag Then\n        total = 1\nEnd Sub\n';
+        const problems = analyzeVbaStructure(src);
+        expect(problems.map((problem) => problem.code)).toEqual(['missing-block-closer']);
+        expect(problems[0].message).toContain("Missing 'End If'");
+    });
+
     it('flags a Function missing End Function', () => {
         const src = 'Function Bar() As Long\n    Bar = 2\n';
         const problems = analyzeVbaStructure(src);

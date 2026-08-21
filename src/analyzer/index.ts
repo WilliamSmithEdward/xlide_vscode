@@ -145,6 +145,10 @@ export {
 	VbaRuntimeObject,
 } from './runtime/vbaRuntime';
 export {
+	resolveArgumentValueCompletion,
+	type ArgumentValueCompletion,
+} from './completion/argumentValueCompletion';
+export {
 	resolveSignatureHelp,
 	SignatureHelpContext,
 } from './signature/signatureHelp';

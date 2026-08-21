@@ -13,6 +13,7 @@
 // Extracted verbatim from vbaMemberCompletion.ts (audit #27).
 
 import * as vscode from 'vscode';
+import { hasDocContent, renderDocMarkdown } from './analyzer/docs/docModel';
 import { XLIDE_SCHEME, isVbaDocument } from './xlideFileSystem';
 import { leadingWhitespace } from './vbaSourceScan';
 import { xlideEditorBlockLayoutFromConfig } from './globalSettings';
@@ -25,7 +26,10 @@ import {
 	materializeKeywordSnippet,
 	callableCompletionShouldInsertParens,
 	resolveEventHandlerCompletions,
+	resolveArgumentValueCompletion,
 	resolveIdentifierCompletions,
+	type ArgumentValueCompletion,
+	type HostConstant,
 	resolveKeywordCompletions,
 	resolveMemberCompletions,
 	resolveProcedureLabelCompletions,
@@ -283,11 +287,49 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 
 		const identCtx = toIdentifierCompletionContext(projectCtx);
 		const idents = resolveIdentifierCompletions(source, offset, identCtx);
+		// An argument whose parameter declares an enumeration has a known set of
+		// legal values, and they sort above the general list rather than
+		// replacing it: `Type:=someVariable` is legal too.
+		const argumentValues = resolveArgumentValueCompletion(
+			source,
+			offset,
+			{
+				...memberCtx,
+				moduleName: projectCtx.moduleName,
+				moduleSource: source,
+				projectProcedures: projectCtx.projectProcedures,
+			},
+		);
 		return list([
 			...directiveItems,
+			...(argumentValues?.constants ?? []).map(
+				(constant) => this._toArgumentValueItem(constant, argumentValues!, range),
+			),
 			...idents.map((id) => this._toIdentItem(id, range, source, offset)),
 			...keywords.items.map((item) => this._toKeywordItem(item, range, document)),
 		]);
+	}
+
+	/**
+	 * A constant offered as the value of an argument whose parameter declares
+	 * that enumeration. Sorted ahead of everything else, because at `Type:=`
+	 * these are the only values the parameter accepts.
+	 */
+	private _toArgumentValueItem(
+		constant: HostConstant,
+		accepted: ArgumentValueCompletion,
+		range: vscode.Range,
+	): vscode.CompletionItem {
+		const item = new vscode.CompletionItem(constant.name, vscode.CompletionItemKind.EnumMember);
+		item.detail = constant.value === undefined
+			? accepted.enumName
+			: `${accepted.enumName} = ${constant.value}`;
+		if (hasDocContent(constant.doc)) {
+			item.documentation = new vscode.MarkdownString(renderDocMarkdown(constant.doc));
+		}
+		item.range = range;
+		item.sortText = `0:${constant.name}`;
+		return item;
 	}
 
 	private _toItem(

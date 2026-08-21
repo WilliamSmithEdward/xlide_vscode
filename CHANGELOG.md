@@ -2,6 +2,32 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [4.1.2] - 2026-08-21
+
+- **`If cond Then: stmt` no longer owes an `End If`**. Statements were split on
+  every colon, so a colon straight after `Then` left a bare `If ... Then`
+  segment, which reads as a block opener. It consumed the real `End If` and the
+  ENCLOSING block reported the missing one, pointing at a line that was fine.
+  Tim Hall's VBA-JSON uses the idiom twice and reported two errors on code that
+  compiles. A colon after `Then` now stays inside the single-line If.
+
+- **A named argument may be named after a keyword**. `:=` has exactly one
+  meaning in VBA, so the word before it is a parameter name - but the check
+  demanded an identifier token, and `Type` lexes as a keyword. So
+  `ThisWorkbook.BreakLink Name:="test", Type:=xlLinkTypeExcelLinks` reported a
+  positional argument following a named one. The Office libraries name 385
+  parameters across 370 members that way, `Type` alone on 197, with `Text`,
+  `Variant`, `To` and `String` behind it.
+
+- **An argument that takes an enumeration offers its values**. At `Type:=` the
+  model knows the parameter is an `XlLinkType` and that the enumeration has
+  exactly two members, but the caret got the general identifier list instead -
+  every global and constant in the library, in no useful order. The accepted
+  values now sort to the top, matched by NAME for a named argument and by
+  position otherwise, in both the bare and `Call ...(...)` forms. 390 Excel
+  parameters declare a modelled enumeration. The general list stays underneath,
+  because `Type:=someVariable` is legal too.
+
 ## [4.1.1] - 2026-08-21
 
 - **A code name paints beside `Me` again** (#44). In a document module,

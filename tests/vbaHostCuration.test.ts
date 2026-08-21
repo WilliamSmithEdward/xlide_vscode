@@ -14,6 +14,7 @@ import {
 import { derivedConstantDoc, derivedMemberDoc } from '../src/analyzer/host/hostMemberDocs';
 import {
 	analyzeModule,
+	resolveArgumentValueCompletion,
 	resolveHover,
 	resolveMemberCompletions,
 	resolveTypeCompletions,
@@ -435,5 +436,49 @@ describe('a shared page does not name the wrong application', () => {
 			}
 		}
 		expect(offenders).toEqual([]);
+	});
+});
+
+describe('an argument whose parameter is an enumeration offers its values', () => {
+	// `ThisWorkbook.BreakLink Name:="test", Type:=` accepts exactly two values and
+	// the model knows both, but the caret got the general identifier list - every
+	// global and constant in the library, in no useful order.
+	function accepted(src: string, marker: string): string[] {
+		const at = src.indexOf(marker) + marker.length;
+		const hit = resolveArgumentValueCompletion(src, at, { model: getExcelObjectModel() });
+		return hit ? hit.constants.map((constant) => constant.name) : [];
+	}
+
+	it('offers the enumeration a NAMED argument declares', () => {
+		const src = 'Sub T()\n    ThisWorkbook.BreakLink Name:="a", Type:=\nEnd Sub\n';
+		expect(accepted(src, 'Type:=')).toEqual(['xlLinkTypeExcelLinks', 'xlLinkTypeOLELinks']);
+	});
+
+	it('matches a named argument by NAME, not by position', () => {
+		// `Type:=` says which parameter it is wherever it sits.
+		const src = 'Sub T()\n    ThisWorkbook.BreakLink Type:=\nEnd Sub\n';
+		expect(accepted(src, 'Type:=')).toEqual(['xlLinkTypeExcelLinks', 'xlLinkTypeOLELinks']);
+	});
+
+	it('offers them for a positional slot too', () => {
+		const src = 'Sub T()\n    ThisWorkbook.BreakLink "a", \nEnd Sub\n';
+		expect(accepted(src, '"a", ')).toEqual(['xlLinkTypeExcelLinks', 'xlLinkTypeOLELinks']);
+	});
+
+	it('keeps offering them once a value is part-typed', () => {
+		const src = 'Sub T()\n    ThisWorkbook.BreakLink Name:="a", Type:=xlLink\nEnd Sub\n';
+		expect(accepted(src, 'Type:=xlLink')).toEqual(['xlLinkTypeExcelLinks', 'xlLinkTypeOLELinks']);
+	});
+
+	it('works in the parenthesised call form', () => {
+		const src = 'Sub T()\n    Call ThisWorkbook.BreakLink(Name:="a", Type:=)\nEnd Sub\n';
+		expect(accepted(src, 'Type:=')).toEqual(['xlLinkTypeExcelLinks', 'xlLinkTypeOLELinks']);
+	});
+
+	it('offers nothing where the parameter declares no enumeration', () => {
+		// BreakLink's first parameter is a String, and a caret outside any call
+		// has no parameter at all.
+		expect(accepted('Sub T()\n    ThisWorkbook.BreakLink \nEnd Sub\n', 'BreakLink ')).toEqual([]);
+		expect(accepted('Sub T()\n    Dim x As Long\nEnd Sub\n', 'Dim x')).toEqual([]);
 	});
 });

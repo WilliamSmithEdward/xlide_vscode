@@ -314,11 +314,22 @@ function argumentSlotSpan(
 	return { start: sliceStart, end: sliceStart };
 }
 
-/** True if a slot is a named argument (`name := value`). */
+/**
+ * True if a slot is a named argument (`name := value`).
+ *
+ * The name may spell a keyword. `:=` has exactly one meaning in VBA, so whatever
+ * word precedes it is a parameter name, and the Office libraries are full of
+ * parameters named Type, Date, String, Left and Error. Requiring an `identifier`
+ * token here read `Type:=xlLinkTypeExcelLinks` as POSITIONAL, so
+ * `BreakLink Name:="test", Type:=xlLinkTypeExcelLinks` - correct VBA - reported
+ * a positional argument following a named one.
+ */
 export function isNamedSlot(slot: VbaToken[]): boolean {
 	return (
 		slot.length >= 2 &&
-		(slot[0].kind === 'identifier' || slot[0].kind === 'bracketedIdentifier') &&
+		(slot[0].kind === 'identifier'
+			|| slot[0].kind === 'bracketedIdentifier'
+			|| slot[0].kind === 'keyword') &&
 		slot[1].kind === 'operator' &&
 		slot[1].rawText === ':='
 	);
