@@ -2,7 +2,7 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
-## [Unreleased]
+## [4.1.1] - 2026-08-21
 
 - **A code name paints beside `Me` again** (#44). In a document module,
   `Sheet1.Calculate` stopped being colored while `Me.Calculate` beside it kept
