@@ -5,7 +5,7 @@
 [![rating](https://vsmarketplacebadges.dev/rating-short/WilliamSmithE.xlide.svg?style=flat&color=blue)](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide&ssr=false#review-details)
 [![CI](https://img.shields.io/github/actions/workflow/status/WilliamSmithEdward/xlide_vscode/ci.yml?branch=main&label=CI)](https://github.com/WilliamSmithEdward/xlide_vscode/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
-[![Office](https://img.shields.io/badge/Office-Excel%2C%20Word%2C%20PowerPoint%2C%20Access-2ea44f)](#new-in-400-every-office-vba-host)
+[![Office](https://img.shields.io/badge/Office-Excel%2C%20Word%2C%20PowerPoint%2C%20Access-blue)](#new-in-400-every-office-vba-host)
 
 [Install XLIDE from the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide)
 
