@@ -2,6 +2,19 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [Unreleased]
+
+- **Six agent tools said Excel when they serve every host**. `xlide_listModules`
+  described itself as reading "the live Excel workbook", and `exportModules`,
+  `configureExportMode`, `validateWorkbook`, `analyzeWorkbook` and
+  `searchModules` all spoke of a workbook, while each takes a file path and
+  works on Word, PowerPoint and Access too - `xlide_readModule` sitting beside
+  them said so correctly, and the two disagreed. An agent reading the narrower
+  wording would conclude it could not enumerate the modules of a `.docm` and
+  reach for something else. Wording only; no behaviour changed, and the
+  genuinely Excel-only tools (`listSheets`, `readCells`, `readFormulas`,
+  `writeCells`) keep theirs.
+
 ## [4.1.3] - 2026-08-21
 
 - **A repeat analysis no longer costs multiples of the first** (#45). Four

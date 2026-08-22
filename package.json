@@ -630,7 +630,7 @@
       {
         "name": "xlide_validateWorkbook",
         "displayName": "Validate VBA Project",
-        "modelDescription": "Checks a workbook's VBA project for cross-structure inconsistencies and returns {issues: [...]}. An empty issues array means the project is structurally sound. Use this to audit a workbook before or after edits.",
+        "modelDescription": "Checks a macro-enabled Office file's VBA project (Excel, Word, PowerPoint, or Access) for cross-structure inconsistencies and returns {issues: [...]}. An empty issues array means the project is structurally sound. Use this to audit a file before or after edits.",
         "toolReferenceName": "xlideValidateWorkbook",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -649,7 +649,7 @@
       {
         "name": "xlide_analyzeWorkbook",
         "displayName": "Analyze VBA Workbook",
-        "modelDescription": "Analyzes every VBA module in a workbook using XLIDE's VBA syntax and structural analyzer - the SAME high-confidence, false-positive-free rule engine that powers the live editor diagnostics, letting an agent VERIFY THAT ANALYSIS PASSES IN REAL TIME. Returns a JSON report: {filePath, moduleCount, errorCount, warningCount, problems: [{moduleName, moduleType, line, column, severity, code, message}]}. An empty problems array means the workbook's VBA passes analysis. Use this after writing or editing modules (e.g. after xlide_writeModule) or to audit an entire workbook. Covers block-balance, unterminated strings, duplicate declarations, Const assignment, malformed procedure headers, argument-count mismatches, unbalanced parentheses, Sub/Function-not-defined and more - each carrying an MS-VBAL spec reference. Complements XLIDE's inline ''' XML doc-comments and external *.vbref.xml metadata files, which enrich hovers and call tips for the symbols this analyzer checks. Pass moduleName to analyze just one module after editing it.",
+        "modelDescription": "Analyzes every VBA module in a macro-enabled Office file (Excel, Word, PowerPoint, or Access) using XLIDE's VBA syntax and structural analyzer - the SAME high-confidence, false-positive-free rule engine that powers the live editor diagnostics, letting an agent VERIFY THAT ANALYSIS PASSES IN REAL TIME. Returns a JSON report: {filePath, moduleCount, errorCount, warningCount, problems: [{moduleName, moduleType, line, column, severity, code, message}]}. An empty problems array means the file's VBA passes analysis. Use this after writing or editing modules (e.g. after xlide_writeModule) or to audit an entire file. Covers block-balance, unterminated strings, duplicate declarations, Const assignment, malformed procedure headers, argument-count mismatches, unbalanced parentheses, Sub/Function-not-defined and more - each carrying an MS-VBAL spec reference. Complements XLIDE's inline ''' XML doc-comments and external *.vbref.xml metadata files, which enrich hovers and call tips for the symbols this analyzer checks. Pass moduleName to analyze just one module after editing it.",
         "toolReferenceName": "xlideAnalyzeWorkbook",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -747,7 +747,7 @@
       {
         "name": "xlide_listModules",
         "displayName": "List VBA Modules",
-        "modelDescription": "Lists all VBA modules from the live Excel workbook/XLIDE structure. Returns module names and types (standard, class, document). Use this before reading or editing workbook VBA; do not infer module state from exported .bas/.cls repo files, which can be stale, unless the user explicitly asks to work on those export artifacts.",
+        "modelDescription": "Lists all VBA modules in a macro-enabled Office file (Excel, Word, PowerPoint, or Access). Returns module names and types (standard, class, document). Use this before reading or editing that file's VBA; do not infer module state from exported .bas/.cls repo files, which can be stale, unless the user explicitly asks to work on those export artifacts.",
         "toolReferenceName": "xlideListModules",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -790,7 +790,7 @@
       {
         "name": "xlide_readModule",
         "displayName": "Read VBA Module",
-        "modelDescription": "Canonical way to read VBA source. Reads the full source of a module from the macro-enabled Office file (Excel, Word, PowerPoint, or Access) and returns raw VBA text including Attribute declarations. These files are binary containers, not text - always read VBA through this tool or through the XLIDE virtual file system (modules opened from the XLIDE tree are live workbook documents at xlide-vba:// URIs), never by opening the workbook file directly. Do not read exported .bas/.cls/.frm files in the project as a substitute, even when they look current: they are one-way artifacts and can be stale. Read those only when the user explicitly asks about the export artifacts themselves. Returns a contentToken on the first line: pass it back as expectedContentToken when writing so the write is refused if the module changed in the meantime. Use startLine/endLine to read part of a very large module.",
+        "modelDescription": "Canonical way to read VBA source. Reads the full source of a module from the macro-enabled Office file (Excel, Word, PowerPoint, or Access) and returns raw VBA text including Attribute declarations. These files are binary containers, not text - always read VBA through this tool or through the XLIDE virtual file system (modules opened from the XLIDE tree are live module documents at xlide-vba:// URIs), never by opening the container file directly. Do not read exported .bas/.cls/.frm files in the project as a substitute, even when they look current: they are one-way artifacts and can be stale. Read those only when the user explicitly asks about the export artifacts themselves. Returns a contentToken on the first line: pass it back as expectedContentToken when writing so the write is refused if the module changed in the meantime. Use startLine/endLine to read part of a very large module.",
         "toolReferenceName": "xlideReadModule",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -822,7 +822,7 @@
       {
         "name": "xlide_writeModule",
         "displayName": "Write VBA Module",
-        "modelDescription": "Canonical way to edit VBA. Writes VBA source directly into the macro-enabled Office file (Excel, Word, or PowerPoint; Access is read-only because Access runs compiled p-code) and saves automatically. These files are binary containers, so VBA changes persist only through this tool or through the XLIDE virtual file system: modules opened from the XLIDE tree are live workbook documents at xlide-vba:// URIs, and saving one writes into the workbook. Never edit the workbook file with generic file/text tools, and do not write exported .bas/.cls/.frm files in the project as a way of changing VBA - those are one-way artifacts that no workbook reads back, so editing one changes nothing. Touch them only when the user explicitly asks. Creates the module if it does not exist (optionally pass kind='class'; default is standard). IMPORTANT: Use only ASCII characters to avoid character mangling - no Unicode, emoji, or accented characters. Pass expectedContentToken from the read you based this edit on: without it, a change made by the host application or a user after your read is overwritten silently. After a chat-driven write, XLIDE shows the user a before/after diff and badges the module in its tree with Keep/Revert actions until they decide (xlide.agent.showWriteDiffs). A revert restores the pre-write source, or removes a module this write created, so if the user mentions reverting, re-read the module before editing further.",
+        "modelDescription": "Canonical way to edit VBA. Writes VBA source directly into the macro-enabled Office file (Excel, Word, or PowerPoint; Access is read-only because Access runs compiled p-code) and saves automatically. These files are binary containers, so VBA changes persist only through this tool or through the XLIDE virtual file system: modules opened from the XLIDE tree are live module documents at xlide-vba:// URIs, and saving one writes into the file. Never edit the container file with generic file/text tools, and do not write exported .bas/.cls/.frm files in the project as a way of changing VBA - those are one-way artifacts that no host reads back, so editing one changes nothing. Touch them only when the user explicitly asks. Creates the module if it does not exist (optionally pass kind='class'; default is standard). IMPORTANT: Use only ASCII characters to avoid character mangling - no Unicode, emoji, or accented characters. Pass expectedContentToken from the read you based this edit on: without it, a change made by the host application or a user after your read is overwritten silently. After a chat-driven write, XLIDE shows the user a before/after diff and badges the module in its tree with Keep/Revert actions until they decide (xlide.agent.showWriteDiffs). A revert restores the pre-write source, or removes a module this write created, so if the user mentions reverting, re-read the module before editing further.",
         "toolReferenceName": "xlideWriteModule",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -1023,7 +1023,7 @@
       {
         "name": "xlide_exportModules",
         "displayName": "Export VBA Modules to Folder",
-        "modelDescription": "Exports all VBA modules from an Excel VBA workbook to a folder using <workbook>.xlide_settings.json behavior shared with UI commands. This is a sync/export operation, not the primary agent editing surface: read and write workbook code through xlide_readModule/xlide_writeModule unless the user explicitly asks to manage exported repo files. Uses live module reads from the workbook. Supports exportMode exportAll (default: export every module, no deletes) and trueUp (export every module, then remove stale .bas/.cls module files missing from the workbook).",
+        "modelDescription": "Exports all VBA modules from a macro-enabled Office file (Excel, Word, PowerPoint, or Access) to a folder using <workbook>.xlide_settings.json behavior shared with UI commands. This is a sync/export operation, not the primary agent editing surface: read and write module code through xlide_readModule/xlide_writeModule unless the user explicitly asks to manage exported repo files. Uses live module reads from the file. Supports exportMode exportAll (default: export every module, no deletes) and trueUp (export every module, then remove stale .bas/.cls module files missing from the file).",
         "toolReferenceName": "xlideExportModules",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -1054,7 +1054,7 @@
       {
         "name": "xlide_configureExportMode",
         "displayName": "Configure VBA Export Mode",
-        "modelDescription": "Sets the persistent workbook-specific exportMode in <workbook>.xlide_settings.json beside the Excel VBA workbook. Use exportAll by default unless the user explicitly asks to delete stale .bas/.cls module files missing from the workbook.",
+        "modelDescription": "Sets the persistent per-file exportMode in <file>.xlide_settings.json beside the macro-enabled Office file (Excel, Word, PowerPoint, or Access). Use exportAll by default unless the user explicitly asks to delete stale .bas/.cls module files missing from the file.",
         "toolReferenceName": "xlideConfigureExportMode",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -1082,7 +1082,7 @@
       {
         "name": "xlide_searchModules",
         "displayName": "Search VBA Modules",
-        "modelDescription": "Searches the VBA source of every module in a workbook and returns the matching lines with their module name and 1-based line number. Use this instead of reading every module to find where a name is declared or used. Case-insensitive by default.",
+        "modelDescription": "Searches the VBA source of every module in a macro-enabled Office file (Excel, Word, PowerPoint, or Access) and returns the matching lines with their module name and 1-based line number. Use this instead of reading every module to find where a name is declared or used. Case-insensitive by default.",
         "toolReferenceName": "xlideSearchModules",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
