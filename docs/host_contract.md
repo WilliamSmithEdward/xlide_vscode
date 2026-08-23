@@ -111,6 +111,10 @@ Decides which `#If` branch is live, and therefore which code is analyzed at
 all. Absent uses the built-in defaults (VBA7 and friends). A host that knows the
 real bitness and the project's `#Const` values should send them.
 
+**The nesting is load-bearing.** A bare `{ VBA7: false }` sets no constant and
+is silently ignored - the built-in defaults still decide, so it looks like it
+worked. It must be `{ compilerConstants: { VBA7: false } }`.
+
 ### `host` - optional, per analyze request
 
 `excel` | `word` | `powerpoint` | `access` | ... . Selects the object model.
@@ -126,6 +130,19 @@ Three outcomes, and the middle one matters:
 This also decides host-specific syntax. `[A1]` is `Application.Evaluate`
 shorthand in Excel and reports as undefined in Word, so naming the host wrongly
 moves real findings.
+
+## What a host cannot supply yet
+
+`Attribute VB_UserMemId = 0` marks a class's **default member**, so
+`bag("key")` means `bag.Item("key")`. It is the same shape as `predeclaredId` -
+hidden in the code pane, present only in the export - and the analyzer reads it
+from source text only. There is no field for it, so a VBE host's class members
+always answer `defaultMember: undefined`.
+
+Nothing in this repo depends on the flag today; it is carried on the completion
+result for consumers rather than driving any rule here. So this costs nothing
+yet. If a host starts using it, the field should be added the same way
+`predeclaredId` was, with the same three states.
 
 ## The rule behind all of it
 

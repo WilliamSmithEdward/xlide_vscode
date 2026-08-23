@@ -4,6 +4,12 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **The host contract is documented and tested** (#50).
+  `docs/host_contract.md` states which facts a host must supply, what each one
+  costs when absent, and which of them have three states rather than two.
+  `tests/hostContract.test.ts` asserts every claim in it, so the document cannot
+  quietly stop being true.
+
 - **The default-instance field is `predeclaredId`** (#50), renamed from
   `predeclared` before anything depends on it, so it mirrors the attribute a
   host reads (`Attribute VB_PredeclaredId`) rather than paraphrasing it. The
