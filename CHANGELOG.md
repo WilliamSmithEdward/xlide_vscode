@@ -4,6 +4,11 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **The default-instance field is `predeclaredId`** (#50), renamed from
+  `predeclared` before anything depends on it, so it mirrors the attribute a
+  host reads (`Attribute VB_PredeclaredId`) rather than paraphrasing it. The
+  accessor is `ProjectIndex.modulePredeclaredId`.
+
 - **`ModuleInput` is exported** (#50). `ProjectIndex` was public but the shape
   its `setModule` accepts was not, so a host outside this repo could call the
   method without being able to import the contract it writes against - including

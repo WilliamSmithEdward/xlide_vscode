@@ -26,12 +26,12 @@ import {
 const TICKET_BODY = ['Option Explicit', 'Public Sub ChangeTest()', 'End Sub', ''].join('\n');
 
 /** A `.cls` header as the VBE exports it, which standalone files carry. */
-function clsSource(name: string, predeclared: boolean): string {
+function clsSource(name: string, predeclaredId: boolean): string {
     return [
         `Attribute VB_Name = "${name}"`,
         'Attribute VB_GlobalNameSpace = False',
         'Attribute VB_Creatable = False',
-        `Attribute VB_PredeclaredId = ${predeclared ? 'True' : 'False'}`,
+        `Attribute VB_PredeclaredId = ${predeclaredId ? 'True' : 'False'}`,
         'Attribute VB_Exposed = False',
         TICKET_BODY,
     ].join('\n');
@@ -74,18 +74,18 @@ function undeclaredIn(
 
 describe('a class name used as an instance (issue #47)', () => {
     it('reports a plain class module used as a qualifier', () => {
-        expect(undeclaredIn('    Ticket.ChangeTest', { predeclared: false }))
+        expect(undeclaredIn('    Ticket.ChangeTest', { predeclaredId: false }))
             .toEqual([
                 "Variable not defined: 'Ticket'. Declare it before using it, or remove Option Explicit.",
             ]);
     });
 
     it('reports it case-insensitively, as VBA resolves it', () => {
-        expect(undeclaredIn('    ticket.ChangeTest', { predeclared: false })).toHaveLength(1);
+        expect(undeclaredIn('    ticket.ChangeTest', { predeclaredId: false })).toHaveLength(1);
     });
 
     it('stays silent for a class with a default instance', () => {
-        expect(undeclaredIn('    Ticket.ChangeTest', { predeclared: true })).toEqual([]);
+        expect(undeclaredIn('    Ticket.ChangeTest', { predeclaredId: true })).toEqual([]);
     });
 
     it('stays silent when nobody read the attribute header', () => {
@@ -95,27 +95,27 @@ describe('a class name used as an instance (issue #47)', () => {
     });
 
     it('leaves the legal uses of a class NAME alone in every state', () => {
-        for (const predeclared of [false, true, undefined]) {
-            const at = { predeclared } as Partial<VbaProjectModuleInput>;
-            expect(undeclaredIn('    Dim d As Ticket', at), `As, ${predeclared}`).toEqual([]);
-            expect(undeclaredIn('    Set t = New Ticket', at), `New, ${predeclared}`).toEqual([]);
+        for (const predeclaredId of [false, true, undefined]) {
+            const at = { predeclaredId } as Partial<VbaProjectModuleInput>;
+            expect(undeclaredIn('    Dim d As Ticket', at), `As, ${predeclaredId}`).toEqual([]);
+            expect(undeclaredIn('    Set t = New Ticket', at), `New, ${predeclaredId}`).toEqual([]);
             expect(
                 undeclaredIn('    If TypeOf o Is Ticket Then\n    End If', at),
-                `TypeOf, ${predeclared}`,
+                `TypeOf, ${predeclaredId}`,
             ).toEqual([]);
         }
     });
 
     it('leaves standard-module and document qualifiers alone', () => {
-        expect(undeclaredIn('    Helper.Go', { predeclared: false })).toEqual([]);
-        expect(undeclaredIn('    Sheet1.Run', { predeclared: false })).toEqual([]);
+        expect(undeclaredIn('    Helper.Go', { predeclaredId: false })).toEqual([]);
+        expect(undeclaredIn('    Sheet1.Run', { predeclaredId: false })).toEqual([]);
     });
 
-    it('no longer calls a predeclared class undefined when read bare', () => {
+    it('no longer calls a predeclaredId class undefined when read bare', () => {
         // The same bit fixes the mirror defect: `Set x = stdArray` names a real
         // value when the class has a default instance.
-        expect(undeclaredIn('    Set t = Ticket', { predeclared: true })).toEqual([]);
-        expect(undeclaredIn('    Set t = Ticket', { predeclared: false })).toHaveLength(1);
+        expect(undeclaredIn('    Set t = Ticket', { predeclaredId: true })).toEqual([]);
+        expect(undeclaredIn('    Set t = Ticket', { predeclaredId: false })).toHaveLength(1);
     });
 
     it('reads the attribute from a standalone export when no host answers', () => {
@@ -131,14 +131,14 @@ describe('a class name used as an instance (issue #47)', () => {
         expect(
             undeclaredIn('    Ticket.ChangeTest', {
                 source: clsSource('Ticket', false),
-                predeclared: true,
+                predeclaredId: true,
             }),
         ).toEqual([]);
     });
 });
 
 describe('the attribute header itself', () => {
-    it('still classifies a predeclared+exposed module as a document', () => {
+    it('still classifies a predeclaredId+exposed module as a document', () => {
         // Guards the reader this bit shares: booleans are written UNQUOTED, and
         // reading only the quoted form made every one of them answer "".
         const header = [
@@ -166,9 +166,9 @@ describe('reading the bit out of a real workbook', () => {
 
     it('answers for every module the VBE gives a default instance', () => {
         const byName = new Map(readModules(FIXTURE, false).map((m) => [m.name, m]));
-        expect(byName.get('ThisWorkbook')?.predeclared).toBe(true);
-        expect(byName.get('Sheet1')?.predeclared).toBe(true);
-        expect(byName.get('FrmPicker')?.predeclared).toBe(true);
+        expect(byName.get('ThisWorkbook')?.predeclaredId).toBe(true);
+        expect(byName.get('Sheet1')?.predeclaredId).toBe(true);
+        expect(byName.get('FrmPicker')?.predeclaredId).toBe(true);
     });
 
     it('leaves a standard module unanswered rather than guessing', () => {
@@ -176,6 +176,6 @@ describe('reading the bit out of a real workbook', () => {
         // bit for a standard module, and inventing `false` for one would be a
         // claim the header never made.
         const byName = new Map(readModules(FIXTURE, false).map((m) => [m.name, m]));
-        expect(byName.get('XlideFormProbe')?.predeclared).toBeUndefined();
+        expect(byName.get('XlideFormProbe')?.predeclaredId).toBeUndefined();
     });
 });

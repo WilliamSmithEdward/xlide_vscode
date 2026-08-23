@@ -191,7 +191,7 @@ export {
 	ReferenceScope,
 	// The shape a host feeds ProjectIndex.setModule. Exported because a host
 	// outside this repo - the VBE add-in - writes against it, and the facts a
-	// CodeModule's text cannot carry (implicitMembers, predeclared) are
+	// CodeModule's text cannot carry (implicitMembers, predeclaredId) are
 	// supplied through it (issue #50).
 	ModuleInput,
 	ProjectIndexOptions,

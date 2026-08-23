@@ -63,7 +63,7 @@ export class AnalysisWorkerState {
 					// qualified `EntryForm.NameBox` resolves - not only the form's
 					// own code-behind (#22).
 					implicitMembers: m.implicitMembers,
-					predeclared: m.predeclared,
+					predeclaredId: m.predeclaredId,
 				})));
 				this._workbooks.set(request.workbookKey, {
 					generation: request.generation,
@@ -272,7 +272,7 @@ function moduleSurfaceDigest(options: VbaProjectAnalysisOptions): string {
         // re-seed that answers it differently must not reuse the old analysis. All
         // THREE states are distinct: unknown is not the same claim as false (#47).
         fold.add(`${surface.name}:${surface.kind}:${surface.exhaustive === true ? '1' : '0'}`
-            + `:${surface.predeclared === undefined ? '?' : surface.predeclared ? '1' : '0'}`);
+            + `:${surface.predeclaredId === undefined ? '?' : surface.predeclaredId ? '1' : '0'}`);
         for (const member of surface.members) {
             fold.add(`${surface.name}.${member.name}:${member.kind}:${member.returns ?? ''}`);
         }

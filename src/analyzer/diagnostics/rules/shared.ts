@@ -403,7 +403,7 @@ function isQualifiedProjectMemberQualifier(
 	// refuses to compile it (issue #47). Only a VOUCHED-FOR false reports:
 	// the attribute is invisible in the code pane, so a host that never read
 	// the header leaves this undefined and the name stays skipped.
-	if (surface.kind === 'class' && surface.predeclared === false) {
+	if (surface.kind === 'class' && surface.predeclaredId === false) {
 		return false;
 	}
 	return surface.members.some((candidate) => candidate.name.toLowerCase() === memberLower);

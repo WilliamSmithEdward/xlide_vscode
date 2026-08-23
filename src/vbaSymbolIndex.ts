@@ -20,7 +20,7 @@ export interface VbaModuleSymbols {
      * it a default instance so its own name is usable as a value. Absent means
      * the attribute header was not read, never "no".
      */
-    predeclared?: boolean;
+    predeclaredId?: boolean;
 }
 
 interface CachedWorkbook {
@@ -42,7 +42,7 @@ interface VbaModuleEntry {
      * it a default instance so its own name is usable as a value. Absent means
      * the attribute header was not read, never "no".
      */
-    predeclared?: boolean;
+    predeclaredId?: boolean;
 }
 
 interface VbaModuleSourceEntry extends VbaModuleEntry {
@@ -245,7 +245,7 @@ export class VbaSymbolIndex implements vscode.Disposable {
             }
             mod.type = entry.type;
             mod.documentType = entry.documentType;
-            mod.predeclared = entry.predeclared;
+            mod.predeclaredId = entry.predeclaredId;
             modules.push(mod);
         }
         return modules;
@@ -260,8 +260,8 @@ export class VbaSymbolIndex implements vscode.Disposable {
             { path: xlsmPath },
         );
         const wb = this.workbook(workbookKey);
-        wb.moduleList = entries.map(({ name, type, documentType, predeclared }) =>
-            ({ name, type, documentType, predeclared }));
+        wb.moduleList = entries.map(({ name, type, documentType, predeclaredId }) =>
+            ({ name, type, documentType, predeclaredId }));
         wb.moduleListLoadedAt = Date.now();
         const out: VbaModuleSymbols[] = [];
         for (const [index, entry] of entries.entries()) {
@@ -272,7 +272,7 @@ export class VbaSymbolIndex implements vscode.Disposable {
                 existing.type = entry.type;
                 existing.documentType = entry.documentType;
                 existing.implicitMembers = entry.implicitMembers;
-                existing.predeclared = entry.predeclared;
+                existing.predeclaredId = entry.predeclaredId;
                 out.push(existing);
                 if ((index + 1) % WORKBOOK_INDEX_YIELD_EVERY_MODULES === 0) {
                     await yieldToExtensionHost();
@@ -285,7 +285,7 @@ export class VbaSymbolIndex implements vscode.Disposable {
                 type: entry.type,
                 documentType: entry.documentType,
                 implicitMembers: entry.implicitMembers,
-                predeclared: entry.predeclared,
+                predeclaredId: entry.predeclaredId,
             };
             wb.modules.set(moduleKey, mod);
             out.push(mod);

@@ -61,9 +61,9 @@ export interface ModuleInput {
 	 * True`), from a host that can read the attribute header. Absent leaves the
 	 * index's own parse of {@link source} in charge, which answers only for a
 	 * standalone export that carries its header. See
-	 * {@link ProjectIndex.modulePredeclared}.
+	 * {@link ProjectIndex.modulePredeclaredId}.
 	 */
-	predeclared?: boolean;
+	predeclaredId?: boolean;
 }
 
 /** Project-wide symbol graph options shared by every indexed module. */
@@ -146,7 +146,7 @@ function addProcedureSignature(
  * and anything else is none. ABSENT returns undefined - a module whose header
  * was stripped has an unknown answer, not a negative one.
  */
-function predeclaredFromSource(source: string): boolean | undefined {
+function predeclaredIdFromSource(source: string): boolean | undefined {
 	const match = /^\s*Attribute\s+VB_PredeclaredId\s*=\s*([^\r\n]*)/im.exec(source);
 	if (!match) {
 		return undefined;
@@ -445,7 +445,7 @@ export class ProjectIndex {
 	/** Host-supplied designer members (a form's controls), per module name. */
 	private readonly moduleImplicitMembersByName = new Map<string, readonly { name: string; type: string }[]>();
 	/** Host-supplied default-instance answers, keyed by lowercased module name. */
-	private readonly modulePredeclaredByName = new Map<string, boolean>();
+	private readonly modulePredeclaredIdByName = new Map<string, boolean>();
 	/** Lazily resolved per-module integer constants, dropped on module change. */
 	private readonly moduleResolvedConstants = new Map<string, Map<string, number | undefined>>();
 	/** Lazily scanned per-module Implements lists, dropped on module change. */
@@ -474,10 +474,10 @@ export class ProjectIndex {
 		} else {
 			this.moduleImplicitMembersByName.delete(key);
 		}
-		if (input.predeclared !== undefined) {
-			this.modulePredeclaredByName.set(key, input.predeclared);
+		if (input.predeclaredId !== undefined) {
+			this.modulePredeclaredIdByName.set(key, input.predeclaredId);
 		} else {
-			this.modulePredeclaredByName.delete(key);
+			this.modulePredeclaredIdByName.delete(key);
 		}
 		this.invalidate(key);
 	}
@@ -488,7 +488,7 @@ export class ProjectIndex {
 		this.modules.delete(key);
 		this.moduleSources.delete(key);
 		this.moduleImplicitMembersByName.delete(key);
-		this.modulePredeclaredByName.delete(key);
+		this.modulePredeclaredIdByName.delete(key);
 		this.invalidate(key);
 	}
 
@@ -557,14 +557,14 @@ export class ProjectIndex {
 	 * VBE stripped, and that case must stay unknown rather than default to
 	 * either answer (issue #47).
 	 */
-	modulePredeclared(moduleName: string): boolean | undefined {
+	modulePredeclaredId(moduleName: string): boolean | undefined {
 		const key = moduleName.toLowerCase();
-		const supplied = this.modulePredeclaredByName.get(key);
+		const supplied = this.modulePredeclaredIdByName.get(key);
 		if (supplied !== undefined) {
 			return supplied;
 		}
-		return this.cached(`predeclared:${key}`, () =>
-			predeclaredFromSource(this.moduleSources.get(key) ?? ''));
+		return this.cached(`predeclaredId:${key}`, () =>
+			predeclaredIdFromSource(this.moduleSources.get(key) ?? ''));
 	}
 
 	/**
@@ -688,7 +688,7 @@ export class ProjectIndex {
 				// A class with `VB_PredeclaredId = True` has a default instance,
 				// so its bare name is a value exactly as a document module's is.
 				// A plain class name is a TYPE, and stays out (issue #47).
-				if (mod.moduleKind === 'class' && this.modulePredeclared(mod.moduleName) === true) {
+				if (mod.moduleKind === 'class' && this.modulePredeclaredId(mod.moduleName) === true) {
 					names.add(mod.moduleName.toLowerCase());
 				}
 				for (const symbol of this.visibleModuleLevelIdentifierSymbols(mod, sameModule)) {
@@ -952,8 +952,8 @@ export class ProjectIndex {
 						|| (kind === 'userform' && this.moduleImplicitMembersKnown(mod.moduleName)),
 					// Documents and forms always have one; only a class module
 					// has to be asked (issue #47).
-					predeclared: kind === 'class'
-						? this.modulePredeclared(mod.moduleName)
+					predeclaredId: kind === 'class'
+						? this.modulePredeclaredId(mod.moduleName)
 						: true,
 					members,
 				});

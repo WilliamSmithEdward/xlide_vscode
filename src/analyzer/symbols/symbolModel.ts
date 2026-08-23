@@ -299,7 +299,7 @@ export interface VbaProjectClassMembers {
 	 * because the attribute is invisible in the code pane and a host that
 	 * cannot see it would otherwise turn every predeclared class red.
 	 */
-	predeclared?: boolean;
+	predeclaredId?: boolean;
 	members: VbaProjectClassMember[];
 }
 

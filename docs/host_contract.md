@@ -12,7 +12,7 @@ host that cannot must say nothing rather than guess.
 
 ## The surfaces
 
-`predeclared` and the rest appear on every layer, so a host can enter wherever
+`predeclaredId` and the rest appear on every layer, so a host can enter wherever
 it already talks to the analyzer:
 
 | surface | file | used by |
@@ -82,7 +82,7 @@ the form has been shown.
 When absent, the analyzer parses the module's own `.frm` header, which only a
 standalone VB6-style export carries.
 
-### `predeclared` - three states
+### `predeclaredId` - three states
 
 `Attribute VB_PredeclaredId = True`, which gives a class module a default
 instance and makes its own name usable as a value.

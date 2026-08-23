@@ -30,7 +30,7 @@ export interface WorkerSeedModule {
 	 * it a default instance so its own name is usable as a value. Absent means
 	 * the attribute header was not read, never "no".
 	 */
-	predeclared?: boolean;
+	predeclaredId?: boolean;
 }
 
 export type AnalysisWorkerRequest =

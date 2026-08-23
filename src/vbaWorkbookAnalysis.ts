@@ -119,7 +119,7 @@ interface RawModule {
      * it a default instance so its own name is usable as a value. Absent means
      * the attribute header was not read, never "no".
      */
-    predeclared?: boolean;
+    predeclaredId?: boolean;
 }
 
 export interface AnalyzeWorkbookOptions {
@@ -141,7 +141,7 @@ export interface WorkbookAnalysisWorker {
             source: string;
             type?: string;
             documentType?: string;
-            predeclared?: boolean;
+            predeclaredId?: boolean;
         }>,
     ): void;
     analyze(request: {
@@ -391,7 +391,7 @@ async function loadWorkbookModules(
             documentType: mod.documentType,
             source: mod.source,
             implicitMembers: mod.implicitMembers,
-            predeclared: mod.predeclared,
+            predeclaredId: mod.predeclaredId,
         }));
 }
 

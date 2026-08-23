@@ -46,7 +46,7 @@ export interface ModuleEntry {
 	 * it a default instance so its own name is usable as a value. Absent means
 	 * the attribute header was not read, never "no".
 	 */
-	predeclared?: boolean;
+	predeclaredId?: boolean;
 }
 
 export interface ProcedureEntry {
@@ -192,7 +192,7 @@ function moduleEntry(module: VbaModule): ModuleEntry {
 	// stored without one has an UNKNOWN default instance, and answering
 	// `false` would turn every predeclared class red (issue #47).
 	if (/^\s*Attribute\s+VB_PredeclaredId\s*=/im.test(module.sourceHeader)) {
-		entry.predeclared = /^True$/i.test(attributeValue(module.sourceHeader, 'VB_PredeclaredId'));
+		entry.predeclaredId = /^True$/i.test(attributeValue(module.sourceHeader, 'VB_PredeclaredId'));
 	}
 	if (type === 'document') {
 		const documentType = classifyDocumentType(module.name, module.sourceHeader);
