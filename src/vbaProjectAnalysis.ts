@@ -20,6 +20,12 @@ export interface VbaProjectModuleInput {
      * qualified reference from another module resolves them.
      */
     implicitMembers?: readonly { name: string; type: string }[];
+    /**
+     * True when the module carries `Attribute VB_PredeclaredId = True`, giving
+     * it a default instance so its own name is usable as a value. Absent means
+     * the attribute header was not read, never "no".
+     */
+    predeclared?: boolean;
 }
 
 export interface VbaProjectLiveOverride {
@@ -107,6 +113,7 @@ function applyProjectModule(
         moduleKind: isOverride ? liveOverride.moduleKind : effectiveModuleKind(mod),
         source: isOverride ? liveOverride.source : mod.source,
         implicitMembers: mod.implicitMembers,
+        predeclared: mod.predeclared,
     });
     return !!isOverride && applied;
 }

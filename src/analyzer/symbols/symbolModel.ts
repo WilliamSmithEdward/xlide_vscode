@@ -287,6 +287,19 @@ export interface VbaProjectClassMembers {
 	 * host/designer members, so their source-only surface is not exhaustive yet.
 	 */
 	exhaustive?: boolean;
+	/**
+	 * Whether the module has a default instance - `Attribute VB_PredeclaredId
+	 * = True`, which makes the module's own name usable as a value. Document
+	 * modules and UserForms always have one; a plain class module does not,
+	 * and using its bare name where a value belongs is `Variable not defined`
+	 * (issue #47).
+	 *
+	 * Three states, not two: `true` and `false` are answers, and ABSENT means
+	 * the attribute header was never read - no rule may assume either way,
+	 * because the attribute is invisible in the code pane and a host that
+	 * cannot see it would otherwise turn every predeclared class red.
+	 */
+	predeclared?: boolean;
 	members: VbaProjectClassMember[];
 }
 

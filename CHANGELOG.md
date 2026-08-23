@@ -4,6 +4,24 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **A class module's name used as if it were an instance is reported** (#47).
+  `Ticket.ChangeTest`, where `Ticket` is a plain class, is `Variable not
+  defined` - the VBE refuses to compile it - and the analyzer said nothing,
+  because the bare-qualifier check accepted any project member surface as a
+  legal receiver. What actually makes a module's name usable as a value is a
+  DEFAULT INSTANCE: standard modules are namespaces, documents and UserForms
+  always have one, and a class has one only with `Attribute VB_PredeclaredId =
+  True`. That bit is now carried from the workbook reader to the analyzer, and
+  parsed from the module's own header for a standalone `.cls` export.
+
+  It has three states and only a vouched-for **false** reports. A host that
+  never read the attribute leaves it unknown, and unknown stays silent:
+  measured across the workbook corpus, 44 class modules answer the question and
+  12 of them (the stdVBA library in `fullBuild.xlsm`) are predeclared, so a
+  guess would have turned working code red. The same bit fixes the mirror
+  defect - a predeclared class read bare, `Set x = stdArray`, was being called
+  undefined when it names a real value.
+
 - **A boolean module attribute is no longer read as empty**. The `Attribute VB_*`
   reader accepted only a QUOTED value, and the VBE quotes strings while leaving
   booleans bare, so `VB_PredeclaredId = True` and `VB_Exposed = True` both

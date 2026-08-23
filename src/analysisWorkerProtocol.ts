@@ -25,6 +25,12 @@ export interface WorkerSeedModule {
 	 * parse in charge.
 	 */
 	implicitMembers?: WorkerImplicitMember[];
+	/**
+	 * True when the module carries `Attribute VB_PredeclaredId = True`, giving
+	 * it a default instance so its own name is usable as a value. Absent means
+	 * the attribute header was not read, never "no".
+	 */
+	predeclared?: boolean;
 }
 
 export type AnalysisWorkerRequest =

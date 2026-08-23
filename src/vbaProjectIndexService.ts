@@ -264,6 +264,7 @@ export class VbaProjectIndexService implements vscode.Disposable {
                 documentType: mod.documentType,
                 source: mod.source,
                 implicitMembers: mod.implicitMembers,
+                predeclared: mod.predeclared,
             })),
             undefined,
             {
@@ -290,6 +291,7 @@ export class VbaProjectIndexService implements vscode.Disposable {
                 type: mod.type,
                 documentType: mod.documentType,
                 implicitMembers: mod.implicitMembers,
+                predeclared: mod.predeclared,
             });
         }
         return record;

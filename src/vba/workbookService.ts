@@ -41,6 +41,12 @@ export interface ModuleEntry {
 	 * designer parsed cleanly; absent means "not known", never "none".
 	 */
 	implicitMembers?: { name: string; type: string }[];
+	/**
+	 * True when the module carries `Attribute VB_PredeclaredId = True`, giving
+	 * it a default instance so its own name is usable as a value. Absent means
+	 * the attribute header was not read, never "no".
+	 */
+	predeclared?: boolean;
 }
 
 export interface ProcedureEntry {
@@ -182,6 +188,12 @@ function moduleEntry(module: VbaModule): ModuleEntry {
 		if (type === 'standard') { type = 'class'; }
 	}
 	const entry: ModuleEntry = { name: module.name, type };
+	// Only vouch when the header is actually there. A module the container
+	// stored without one has an UNKNOWN default instance, and answering
+	// `false` would turn every predeclared class red (issue #47).
+	if (/^\s*Attribute\s+VB_PredeclaredId\s*=/im.test(module.sourceHeader)) {
+		entry.predeclared = /^True$/i.test(attributeValue(module.sourceHeader, 'VB_PredeclaredId'));
+	}
 	if (type === 'document') {
 		const documentType = classifyDocumentType(module.name, module.sourceHeader);
 		if (documentType) { entry.documentType = documentType; }

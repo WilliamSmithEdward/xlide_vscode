@@ -114,6 +114,12 @@ interface RawModule {
     source: string;
     /** A form's designer-declared controls, from the engine's designer read. */
     implicitMembers?: { name: string; type: string }[];
+    /**
+     * True when the module carries `Attribute VB_PredeclaredId = True`, giving
+     * it a default instance so its own name is usable as a value. Absent means
+     * the attribute header was not read, never "no".
+     */
+    predeclared?: boolean;
 }
 
 export interface AnalyzeWorkbookOptions {
@@ -130,7 +136,13 @@ export interface WorkbookAnalysisWorker {
     ensureSeeded(
         workbookKey: string,
         generation: number,
-        modules: () => Array<{ moduleName: string; source: string; type?: string; documentType?: string }>,
+        modules: () => Array<{
+            moduleName: string;
+            source: string;
+            type?: string;
+            documentType?: string;
+            predeclared?: boolean;
+        }>,
     ): void;
     analyze(request: {
         docKey: string;
@@ -379,6 +391,7 @@ async function loadWorkbookModules(
             documentType: mod.documentType,
             source: mod.source,
             implicitMembers: mod.implicitMembers,
+            predeclared: mod.predeclared,
         }));
 }
 

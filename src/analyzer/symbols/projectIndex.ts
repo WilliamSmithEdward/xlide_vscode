@@ -56,6 +56,14 @@ export interface ModuleInput {
 	 * `.frm` header, which only standalone VB6-style exports carry.
 	 */
 	implicitMembers?: readonly { name: string; type: string }[];
+	/**
+	 * Whether the module has a default instance (`Attribute VB_PredeclaredId =
+	 * True`), from a host that can read the attribute header. Absent leaves the
+	 * index's own parse of {@link source} in charge, which answers only for a
+	 * standalone export that carries its header. See
+	 * {@link ProjectIndex.modulePredeclared}.
+	 */
+	predeclared?: boolean;
 }
 
 /** Project-wide symbol graph options shared by every indexed module. */
@@ -130,6 +138,20 @@ function addProcedureSignature(
 	} else {
 		signatures.set(key, [sig]);
 	}
+}
+
+/**
+ * Reads `Attribute VB_PredeclaredId` out of a module's own text, which only a
+ * standalone export carries. Present and True is a default instance; present
+ * and anything else is none. ABSENT returns undefined - a module whose header
+ * was stripped has an unknown answer, not a negative one.
+ */
+function predeclaredFromSource(source: string): boolean | undefined {
+	const match = /^\s*Attribute\s+VB_PredeclaredId\s*=\s*([^\r\n]*)/im.exec(source);
+	if (!match) {
+		return undefined;
+	}
+	return /^True$/i.test(match[1].trim());
 }
 
 function moduleKindAsTypeName(kind: ModuleSymbolKind): VbaProjectTypeKind | undefined {
@@ -422,6 +444,8 @@ export class ProjectIndex {
 	private readonly moduleSources = new Map<string, string>();
 	/** Host-supplied designer members (a form's controls), per module name. */
 	private readonly moduleImplicitMembersByName = new Map<string, readonly { name: string; type: string }[]>();
+	/** Host-supplied default-instance answers, keyed by lowercased module name. */
+	private readonly modulePredeclaredByName = new Map<string, boolean>();
 	/** Lazily resolved per-module integer constants, dropped on module change. */
 	private readonly moduleResolvedConstants = new Map<string, Map<string, number | undefined>>();
 	/** Lazily scanned per-module Implements lists, dropped on module change. */
@@ -450,6 +474,11 @@ export class ProjectIndex {
 		} else {
 			this.moduleImplicitMembersByName.delete(key);
 		}
+		if (input.predeclared !== undefined) {
+			this.modulePredeclaredByName.set(key, input.predeclared);
+		} else {
+			this.modulePredeclaredByName.delete(key);
+		}
 		this.invalidate(key);
 	}
 
@@ -459,6 +488,7 @@ export class ProjectIndex {
 		this.modules.delete(key);
 		this.moduleSources.delete(key);
 		this.moduleImplicitMembersByName.delete(key);
+		this.modulePredeclaredByName.delete(key);
 		this.invalidate(key);
 	}
 
@@ -517,6 +547,24 @@ export class ProjectIndex {
 		// still answers its controls.
 		return this.cached(`implicitMembers:${key}`, () =>
 			parseUserFormControls(this.moduleSources.get(key) ?? ''));
+	}
+
+	/**
+	 * Whether the module has a default instance, or `undefined` when nobody
+	 * can say. A host that reads the attribute header answers directly; a
+	 * standalone `.bas`/`.cls` export carries the header in its own text, so
+	 * the source is the fallback. Neither applies to a module whose text the
+	 * VBE stripped, and that case must stay unknown rather than default to
+	 * either answer (issue #47).
+	 */
+	modulePredeclared(moduleName: string): boolean | undefined {
+		const key = moduleName.toLowerCase();
+		const supplied = this.modulePredeclaredByName.get(key);
+		if (supplied !== undefined) {
+			return supplied;
+		}
+		return this.cached(`predeclared:${key}`, () =>
+			predeclaredFromSource(this.moduleSources.get(key) ?? ''));
 	}
 
 	/**
@@ -635,6 +683,12 @@ export class ProjectIndex {
 			for (const mod of this.modules.values()) {
 				const sameModule = mod.moduleName.toLowerCase() === currentLower;
 				if (mod.moduleKind === 'document' || mod.moduleKind === 'userform') {
+					names.add(mod.moduleName.toLowerCase());
+				}
+				// A class with `VB_PredeclaredId = True` has a default instance,
+				// so its bare name is a value exactly as a document module's is.
+				// A plain class name is a TYPE, and stays out (issue #47).
+				if (mod.moduleKind === 'class' && this.modulePredeclared(mod.moduleName) === true) {
 					names.add(mod.moduleName.toLowerCase());
 				}
 				for (const symbol of this.visibleModuleLevelIdentifierSymbols(mod, sameModule)) {
@@ -896,6 +950,11 @@ export class ProjectIndex {
 					// list here.
 					exhaustive: kind === 'class'
 						|| (kind === 'userform' && this.moduleImplicitMembersKnown(mod.moduleName)),
+					// Documents and forms always have one; only a class module
+					// has to be asked (issue #47).
+					predeclared: kind === 'class'
+						? this.modulePredeclared(mod.moduleName)
+						: true,
 					members,
 				});
 			}

@@ -378,6 +378,17 @@ function isQualifiedProjectMemberQualifier(
 	if (surface.kind === 'standardModule') {
 		return true;
 	}
+	// A bare module name in front of a dot is only a legal receiver when the
+	// module IS a value: a standard module is a namespace, and documents,
+	// forms, and classes marked `VB_PredeclaredId = True` have a default
+	// instance. A plain class module is a TYPE, so `Ticket.ChangeTest` is the
+	// same `Variable not defined` as any other undeclared name - the VBE
+	// refuses to compile it (issue #47). Only a VOUCHED-FOR false reports:
+	// the attribute is invisible in the code pane, so a host that never read
+	// the header leaves this undefined and the name stays skipped.
+	if (surface.kind === 'class' && surface.predeclared === false) {
+		return false;
+	}
 	return surface.members.some((candidate) => candidate.name.toLowerCase() === memberLower);
 }
 

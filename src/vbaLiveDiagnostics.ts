@@ -580,6 +580,7 @@ export function registerVbaDiagnostics(
                     type: m.type,
                     documentType: m.documentType,
                     implicitMembers: m.implicitMembers,
+                    predeclared: m.predeclared,
                 })));
                 const workerResult = await workerClient.analyze({
                     docKey: key,
