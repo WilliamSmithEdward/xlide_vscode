@@ -109,11 +109,35 @@ describe('AnalysisWorkerState host-supplied implicit members', () => {
 	const undeclaredNames = (diagnostics: readonly { code: string; message: string }[]): string[] =>
 		diagnostics.filter((d) => d.code === 'undeclared-variable').map((d) => d.message);
 
-	it('reports a control as undeclared when nothing supplies it', () => {
+	it('claims nothing about a control when NO ONE vouched for the list (issue #48)', () => {
+		// A seed that carries no control list means the designer could not be
+		// read, not that the form has no controls. Reading the two the same way
+		// turned a form's own code-behind red the moment the VBE stopped handing
+		// out its designer - which it does as soon as the form has been shown.
 		const state = new AnalysisWorkerState();
 		state.handle({
 			kind: 'seed', workbookKey: 'wb-form', generation: 1,
 			modules: [{ moduleName: 'FrmPicker', source: FORM_SOURCE, type: 'userform' }],
+		});
+		const response = state.handle({
+			kind: 'analyze', requestId: 1, docKey: 'doc-form', workbookKey: 'wb-form', generation: 1,
+			source: FORM_SOURCE, moduleName: 'FrmPicker', moduleType: 'userform', moduleKind: 'userform',
+		});
+		expect(response?.kind).toBe('result');
+		if (response?.kind !== 'result') { return; }
+		expect(undeclaredNames(response.diagnostics).some((m) => m.includes('RegionPick'))).toBe(false);
+	});
+
+	it('reports a control when the list is vouched for as EMPTY (issue #48)', () => {
+		// The case worth protecting: the designer WAS read and the form genuinely
+		// has no controls, so a name that looks like one really is undeclared.
+		const state = new AnalysisWorkerState();
+		state.handle({
+			kind: 'seed', workbookKey: 'wb-form', generation: 1,
+			modules: [{
+				moduleName: 'FrmPicker', source: FORM_SOURCE, type: 'userform',
+				implicitMembers: [],
+			}],
 		});
 		const response = state.handle({
 			kind: 'analyze', requestId: 1, docKey: 'doc-form', workbookKey: 'wb-form', generation: 1,

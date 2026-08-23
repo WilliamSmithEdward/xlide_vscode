@@ -32,6 +32,7 @@ import {
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { BareIdentifierContext } from '../../symbols/nameResolution';
 import type {
+	ModuleSymbolKind,
 	VbaProcedureSignature,
 	VbaProjectClassMembers,
 	VbaSymbol,
@@ -398,10 +399,22 @@ export function checkUndeclaredVariables(
 	projectMembers: readonly VbaProjectClassMembers[] | undefined,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	implicitMembers: readonly { name: string; type: string }[] | undefined,
+	moduleKind: ModuleSymbolKind | undefined,
 	hostModel: HostObjectModel | undefined,
 	push: PushFn,
 ): void {
 	if (!hasOptionExplicit(mod, activity) || !knownIdentifiers) {
+		return;
+	}
+	// A form's controls are declared by its DESIGNER, not its text, and the seed
+	// has three states, not two: a list, a vouched-for-empty list, and no answer
+	// at all. Reading no answer as an empty one claimed every control the form's
+	// own code-behind names was undeclared - and the VBE stops handing out a
+	// designer once the form has been shown, so running your own form turned its
+	// code red against source that had just compiled. A form vouched for as EMPTY
+	// still reports: that is the case worth keeping, and the member rule draws the
+	// same line (issue #48).
+	if (moduleKind === 'userform' && implicitMembers === undefined) {
 		return;
 	}
 	const implicitMemberNames = new Set(

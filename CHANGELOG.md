@@ -4,6 +4,17 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **An unreadable form designer no longer turns its own code-behind red** (#48).
+  A UserForm's controls are declared by its designer, not its text, so the host
+  seeds them - and that seed has three states, not two: a list, a vouched-for
+  EMPTY list, and no answer because the designer could not be read.
+  `undeclared-variable` read the third as the second, so every control the form's
+  own code named was reported undeclared. The VBE stops handing out a form's
+  designer once the form has been shown, which means running your own form
+  turned its code red against source that had compiled a minute earlier. A form
+  vouched for as empty still reports, which is the case worth keeping; the member
+  rule already drew this line and now both do.
+
 - **A Function with a declared return type that never assigns it is reported**
   (#46). The rule skipped any declared return, so a `Function ... As Double`
   that never names itself - returning 0 to every caller, compiling cleanly, and
