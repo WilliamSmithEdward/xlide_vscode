@@ -4,6 +4,13 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **`ModuleInput` is exported** (#50). `ProjectIndex` was public but the shape
+  its `setModule` accepts was not, so a host outside this repo could call the
+  method without being able to import the contract it writes against - including
+  `predeclared` and `implicitMembers`, the two facts a VBE `CodeModule`'s text
+  cannot carry.
+
+
 ## [4.1.4] - 2026-08-23
 
 - **`rs!CustomerName` is member access, not an undeclared variable.** `!` is
