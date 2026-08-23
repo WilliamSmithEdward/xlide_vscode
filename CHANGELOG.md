@@ -4,6 +4,14 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **A boolean module attribute is no longer read as empty**. The `Attribute VB_*`
+  reader accepted only a QUOTED value, and the VBE quotes strings while leaving
+  booleans bare, so `VB_PredeclaredId = True` and `VB_Exposed = True` both
+  answered the empty string. That silently disabled the document-module fallback
+  in `classifyModuleType`, whose entire job is to recognise a host module by
+  those two being True - the branch could never fire. Module classification is
+  unchanged across the test workbooks; the fallback simply works now.
+
 - **An unreadable form designer no longer turns its own code-behind red** (#48).
   A UserForm's controls are declared by its designer, not its text, so the host
   seeds them - and that seed has three states, not two: a list, a vouched-for

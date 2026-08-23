@@ -118,9 +118,19 @@ export function joinVbaSource(header: string, body: string): string {
 	return `${header.replace(/[\r\n]+$/, '')}\r\n${body}`;
 }
 
+/**
+ * The value of an `Attribute VB_*` header line.
+ *
+ * Both spellings count. The VBE quotes a string value (`VB_Name = "Ticket"`)
+ * and leaves a boolean bare (`VB_PredeclaredId = True`), and reading only the
+ * quoted form made every boolean attribute answer the empty string - which
+ * silently disabled the document-module fallback below, whose whole job is to
+ * recognise a host module by `PredeclaredId` and `Exposed` both being True.
+ */
 function attributeValue(source: string, attribute: string): string {
-	const re = new RegExp(`^\\s*Attribute\\s+${attribute}\\s*=\\s*"([^"]*)"`, 'im');
-	return re.exec(source)?.[1] ?? '';
+	const re = new RegExp(`^\\s*Attribute\\s+${attribute}\\s*=\\s*(?:"([^"]*)"|([^\\r\\n]*))`, 'im');
+	const match = re.exec(source);
+	return (match?.[1] ?? match?.[2] ?? '').trim();
 }
 
 export function classifyModuleType(name: string, source: string): ModuleType {
