@@ -11,47 +11,6 @@
 
 ---
 
-## New in 4.0.0: every Office VBA host
-
-XLIDE 4.0.0 opens the workspace to VBA everywhere Office puts it:
-
-- **Word, PowerPoint, and Access files open natively** - `.docm`, `.dotm`,
-  `.doc`, `.dot`, `.pptm`, `.potm`, `.ppsm`, `.ppam`, `.ppt`, `.ppa`, and
-  read-only `.accdb`/`.mdb`/`.mda` - alongside the Excel formats, now
-  including `.xltm` templates and legacy `.xls`/`.xlt`/`.xla`. No Office
-  install is needed to read or edit; every container is parsed directly,
-  down to a native Jet/ACE page reader for Access databases.
-- **Edits write back everywhere writing is sound.** Word and PowerPoint
-  documents save like workbooks do (legacy binary formats included), each
-  write path certified by its own Office application. Access stays
-  read-only for a stated reason: Access executes compiled p-code, so
-  source edits there cannot take effect.
-- **The analyzer knows which host it is in.** A Word module completes
-  against Word's object model, `Me` in `ThisDocument` is `Word.Document`,
-  `wd*`/`pp*`/`ac*` constants resolve only under their own host, and
-  `ThisDocument` offers Word's `Document_*` event stubs - Excel-specific
-  knowledge never leaks into another host, in either direction.
-- **Unit tests run in Word and PowerPoint** through the same owned,
-  read-only, modal-watched test host that runs Excel tests, and `@xlide-test`
-  discovery, assertions, and results work identically in all three.
-- **UserForms work beyond Excel**: a form in a Word document reads, exports
-  as `.frm`/`.frx`, and writes back through the same native designer
-  machinery.
-- **New file creation** covers Word documents and templates and PowerPoint
-  presentations and templates, each seeded from a blank authored by its own
-  application so the package content types are right.
-- **AI edits are reviewable.** When Copilot or another agent writes a
-  module through the XLIDE tools, a native before/after diff opens and the
-  XLIDE tree badges the module with inline keep and revert actions until
-  you decide - the review agents cannot show for their own tool edits.
-- **Module names in any language.** A Cyrillic, Greek, or CJK module name
-  works even when the project's ANSI code page cannot spell it, stored the
-  way Office itself stores such names and verified against live Excel.
-- **Faster on large modules.** On a 947 KB class module from the
-  benchmark corpus, semantic coloring per edit went from 72 ms to 15 ms,
-  a full diagnostics pass from 684 ms to 390 ms, and completion's
-  per-keystroke cost from 22 ms to under 2 ms.
-
 XLIDE gives Office VBA projects a modern VS Code workspace.
 
 Add macro-enabled Office files to your VS Code project and XLIDE detects them
