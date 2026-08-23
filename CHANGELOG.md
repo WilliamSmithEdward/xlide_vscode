@@ -4,6 +4,14 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **A return assigned inside a single-line `If` counts** (#46). A single-line
+  `If` is one leaf statement, so the statement walk never reached the assignment
+  after `Then`, and an untyped `Function` whose only assignment was
+  `If ok Then F = 1` reported that it never assigns its own name. The rule now
+  reads the branches after `Then` and after `Else` too. The same blind spot is
+  in the shared statement walk, so other assignment-seeking rules have it; that
+  is left alone here because it touches every rule at once.
+
 - **Six agent tools said Excel when they serve every host**. `xlide_listModules`
   described itself as reading "the live Excel workbook", and `exportModules`,
   `configureExportMode`, `validateWorkbook`, `analyzeWorkbook` and

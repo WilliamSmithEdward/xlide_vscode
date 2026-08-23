@@ -444,6 +444,27 @@ describe('diagnostic message wording', () => {
 		expect(hits[0].message).toBe("Function 'myFunction' has no return assignment; VBA will return the default value. Assign to 'myFunction' before exit if a value is intended.");
 	});
 
+	it('sees a return assignment inside a single-line If (issue #46)', () => {
+		// A single-line If is ONE leaf statement, so the statement walk never
+		// reached the assignment after `Then` and `If ok Then F = 1` read as a
+		// Function that never assigns its own name.
+		const assigning = [
+			'Public Function F()\n    If True Then F = 1\nEnd Function\n',
+			'Public Function F()\n    If True Then F = 1 Else F = 2\nEnd Function\n',
+			'Public Function F()\n    If True Then Debug.Print 1 Else F = 2\nEnd Function\n',
+			'Public Function F()\n    If True Then Set F = Nothing\nEnd Function\n',
+			'Public Property Get P()\n    If True Then P = 1\nEnd Property\n',
+		];
+		for (const src of assigning) {
+			expect(byCode(analyzeModule(src), 'missing-return-assignment'), src).toHaveLength(0);
+		}
+	});
+
+	it('still reports a Function that assigns something else in a single-line If', () => {
+		const src = 'Public Function F()\n    Dim x As Long\n    If True Then x = 1\nEnd Function\n';
+		expect(byCode(analyzeModule(src), 'missing-return-assignment')).toHaveLength(1);
+	});
+
 	it('pins the message for module-declaration-after-procedure', () => {
 		const src =
 			'Public Sub Combined002DeclareAfterProc()\n' +

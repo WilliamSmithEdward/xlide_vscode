@@ -6,7 +6,11 @@
 
 import type { MemberCompletionContext } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
-import { matchParenFrom, splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
+import {
+	matchParenFrom,
+	splitTopLevelTokenGroups,
+	statementTokensCached,
+} from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type {
 	ModuleNode,
@@ -405,30 +409,74 @@ function procedureHasReturnAssignment(
 ): boolean {
 	const lower = proc.name.toLowerCase();
 	let found = false;
+	const assignsIn = (span: { start: number; end: number }): boolean => {
+		const bare = bareAssignmentTarget(source, span);
+		if (bare?.name.toLowerCase() === lower) {
+			return true;
+		}
+		const set = setAssignmentTarget(source, span);
+		if (set?.name.toLowerCase() === lower) {
+			return true;
+		}
+		const call = extractCall(source, span);
+		const qualifiedCall = call
+			? undefined
+			: extractQualifiedCall(source, span, moduleSignatures);
+		const effectiveCall = call ?? qualifiedCall;
+		return Boolean(
+			effectiveCall && callPassesNameToByRefParam(effectiveCall, lower, moduleSignatures),
+		);
+	};
 	forEachStatement(proc.body, (stmt) => {
 		if (found) {
 			return;
 		}
-		const bare = bareAssignmentTarget(source, stmt.span);
-		if (bare?.name.toLowerCase() === lower) {
+		if (assignsIn(stmt.span)) {
 			found = true;
 			return;
 		}
-		const set = setAssignmentTarget(source, stmt.span);
-		if (set?.name.toLowerCase() === lower) {
-			found = true;
-			return;
-		}
-		const call = extractCall(source, stmt.span);
-		const qualifiedCall = call
-			? undefined
-			: extractQualifiedCall(source, stmt.span, moduleSignatures);
-		const effectiveCall = call ?? qualifiedCall;
-		if (effectiveCall && callPassesNameToByRefParam(effectiveCall, lower, moduleSignatures)) {
-			found = true;
+		// A single-line If is ONE leaf statement, so the statement walk never
+		// reaches the assignment after `Then`, and `If ok Then F = 1` read as a
+		// Function that never assigns its own name.
+		for (const branch of singleLineIfBranchSpans(source, stmt.span)) {
+			if (assignsIn(branch)) {
+				found = true;
+				return;
+			}
 		}
 	}, activity);
 	return found;
+}
+
+/**
+ * The statement spans a single-line `If` carries after `Then` and after `Else`,
+ * or nothing when the statement is not one. A block `If` header ends at `Then`
+ * and yields no branch here; its body is walked as ordinary statements.
+ */
+function singleLineIfBranchSpans(
+	source: string,
+	span: { start: number; end: number },
+): Array<{ start: number; end: number }> {
+	const tokens = statementTokensCached(source, span);
+	if (tokens.length === 0 || (tokens[0].canonicalText ?? tokens[0].rawText).toLowerCase() !== 'if') {
+		return [];
+	}
+	const starts: number[] = [];
+	for (let i = 1; i < tokens.length; i += 1) {
+		const word = (tokens[i].canonicalText ?? tokens[i].rawText).toLowerCase();
+		if (word !== 'then' && word !== 'else') {
+			continue;
+		}
+		const next = tokens[i + 1];
+		if (next) {
+			// statementTokensCached numbers its tokens from the start of the span.
+			starts.push(span.start + next.start);
+		}
+	}
+	return starts.map((start, index) => ({
+		start,
+		end: index + 1 < starts.length ? starts[index + 1] : span.end,
+	}));
 }
 
 function callPassesNameToByRefParam(
