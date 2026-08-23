@@ -4,6 +4,8 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+## [4.1.4] - 2026-08-23
+
 - **`rs!CustomerName` is member access, not an undeclared variable.** `!` is
   VBA's default-member accessor, so a name after it belongs to the receiver
   exactly as a name after `.` does. The scanner skipped one and not the other,
