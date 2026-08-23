@@ -11,8 +11,8 @@
 
 ---
 
-XLIDE gives Office VBA projects a modern VS Code workspace. Read and write
-directly to Microsoft Office VBA files directly without COM.
+XLIDE gives Microsoft Office VBA projects a modern VS Code workspace. Read and write
+directly to VBA files directly without COM.
 
 Add macro-enabled Office files to your VS Code project and XLIDE detects them
 automatically: Excel workbooks, templates, and add-ins (`.xlsm`, `.xlsb`,
