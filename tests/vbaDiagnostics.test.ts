@@ -460,6 +460,20 @@ describe('diagnostic message wording', () => {
 		}
 	});
 
+	it('sees a return assignment whose name spells a keyword (issue #46)', () => {
+		// The lexer classifies `Text`, `Read` and `Type` as keywords, and the
+		// assignment reader demanded an identifier, so `Function text()` assigning
+		// `text = 1` read as never assigning its own return. A name that spells a
+		// keyword is still a name; the bare `=` after it is what settles it.
+		for (const name of ['text', 'Read', 'Type']) {
+			const src = `Public Function ${name}()\n    ${name} = 1\nEnd Function\n`;
+			expect(byCode(analyzeModule(src), 'missing-return-assignment'), name).toHaveLength(0);
+		}
+		// And one that genuinely never assigns still reports.
+		const miss = 'Public Function text()\n    Dim x As Long\n    x = 1\nEnd Function\n';
+		expect(byCode(analyzeModule(miss), 'missing-return-assignment')).toHaveLength(1);
+	});
+
 	it('still reports a Function that assigns something else in a single-line If', () => {
 		const src = 'Public Function F()\n    Dim x As Long\n    If True Then x = 1\nEnd Function\n';
 		expect(byCode(analyzeModule(src), 'missing-return-assignment')).toHaveLength(1);

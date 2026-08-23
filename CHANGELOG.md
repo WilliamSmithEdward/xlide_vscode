@@ -4,6 +4,15 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **A return assigned under a keyword-spelled name counts** (#46). The lexer
+  classifies `Text`, `Read` and `Type` as keywords, and the assignment reader
+  demanded an identifier, so an assignment to a variable or Function named one
+  of them was invisible: `Function text()` assigning `text = 1` reported that it
+  never assigns its own return. A name that spells a keyword is still a name -
+  the bare `=` after it is what settles the statement, and `Set`/`Let` are
+  handled before it. This sits in the shared assignment reader, so every rule
+  built on it stops being blind to those names.
+
 - **A return assigned inside a single-line `If` counts** (#46). A single-line
   `If` is one leaf statement, so the statement walk never reached the assignment
   after `Then`, and an untyped `Function` whose only assignment was

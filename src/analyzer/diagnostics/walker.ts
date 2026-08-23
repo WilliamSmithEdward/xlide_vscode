@@ -266,8 +266,14 @@ export function bareAssignmentTarget(
 		}
 	}
 	const nameTok = toks[i];
-	if (!nameTok || nameTok.kind !== 'identifier') {
-		return undefined; // first token must be a plain identifier LHS
+	// A name that SPELLS a keyword is still a name. The lexer classifies `Text`,
+	// `Read` and `Type` as keywords, so requiring an `identifier` here hid every
+	// assignment to a variable or Function named one of them - `Function text()`
+	// assigning `text = 1` read as never assigning its own return (issue #46).
+	// The `= ` that follows is what settles it: no VBA statement keyword is
+	// followed by a bare `=` at statement start, and `Set`/`Let` are handled above.
+	if (!nameTok || (nameTok.kind !== 'identifier' && nameTok.kind !== 'keyword')) {
+		return undefined; // first token must be a name-like LHS
 	}
 	const next = toks[i + 1];
 	if (!next || next.kind !== 'operator' || next.rawText !== '=') {
