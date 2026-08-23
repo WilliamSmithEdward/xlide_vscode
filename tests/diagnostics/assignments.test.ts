@@ -1594,13 +1594,46 @@ describe('analyzeModule - missing Function return assignment', () => {
 		});
 	});
 
-	it('does not warn when a typed Function or Property Get falls through', () => {
+	it('warns when a TYPED Function or Property Get falls through (issue #46)', () => {
+		// This used to be silent: the rule skipped any declared return type, on the
+		// reasoning that a typed default might be intentional. It is not, in the
+		// case that matters - a Function As Double that never names itself returns
+		// 0 to every caller, compiles, and gets found by a wrong number rather than
+		// by an error. Measured over 67 modules of third-party code, widening it
+		// costs 2 findings once the carve-outs below are in place, down from 40.
 		const src =
 			'Public Function Label() As String\n' +
+			'    Dim x As Long\n' +
+			'    x = 1\n' +
 			'End Function\n' +
 			'\n' +
 			'Public Property Get Name() As String\n' +
+			'    Dim y As Long\n' +
+			'    y = 1\n' +
 			'End Property\n';
+
+		expect(byCode(analyzeModule(src), 'missing-return-assignment')).toHaveLength(2);
+	});
+
+	it('accepts a return whose FIELDS are assigned (a UDT return)', () => {
+		// `utc_DateToSystemTime.utc_wYear = ...` IS the return assignment. Reading
+		// only a bare `Name =` counted 16 such functions in the corpus as silent.
+		const src =
+			'Private Type TPoint\n' +
+			'    X As Long\n' +
+			'End Type\n' +
+			'Public Function MakePoint() As TPoint\n' +
+			'    MakePoint.X = 1\n' +
+			'End Function\n';
+
+		expect(byCode(analyzeModule(src), 'missing-return-assignment')).toHaveLength(0);
+	});
+
+	it('accepts a typed Function whose work is to raise', () => {
+		const src =
+			'Public Function NotImplemented() As Long\n' +
+			'    Err.Raise 5, "NotImplemented"\n' +
+			'End Function\n';
 
 		expect(byCode(analyzeModule(src), 'missing-return-assignment')).toHaveLength(0);
 	});

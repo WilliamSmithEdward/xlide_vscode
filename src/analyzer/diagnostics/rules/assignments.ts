@@ -376,9 +376,16 @@ function knownScalarAssignmentTargetType(
 /**
  * Rule: a Function/Property Get returns through its hidden return variable.
  * Falling through without assigning that variable is legal VBA, but it silently
- * returns the default value. XLIDE only surfaces this for untyped returns, where
- * the implicit Variant fallthrough is more likely to be accidental than an
- * intentional typed default value.
+ * returns the default value, and the VBE says nothing at all.
+ *
+ * Typed returns were skipped for a long time, on the reasoning that a typed
+ * default might be intentional. The case that matters says otherwise: a
+ * `Function ... As Double` that never names itself hands 0 to every caller, and
+ * that surfaces as a wrong number rather than an error. Widening it was measured
+ * over 67 modules of third-party code - 40 findings, almost all false - so it
+ * arrived with the three things that made those false: a return whose FIELDS are
+ * assigned counts, a class's empty body is an unimplemented interface member,
+ * and a body whose work is to raise owes no return. That leaves 2.
  */
 export function checkMissingReturnAssignments(
 	source: string,
@@ -399,10 +406,10 @@ export function checkMissingReturnAssignments(
 		if (!member.closed) {
 			continue;
 		}
-		if (member.returnType) {
+		if (procedureHasReturnAssignment(source, member, activity, moduleSignatures)) {
 			continue;
 		}
-		if (procedureHasReturnAssignment(source, member, activity, moduleSignatures)) {
+		if (returnIsNotExpected(source, mod, member, activity)) {
 			continue;
 		}
 		const procLabel = member.procKind === 'PropertyGet' ? 'Property Get' : 'Function';
@@ -444,15 +451,10 @@ function procedureHasReturnAssignment(
 		if (found) {
 			return;
 		}
-		if (assignsIn(stmt.span)) {
-			found = true;
-			return;
-		}
-		// A single-line If is ONE leaf statement, so the statement walk never
-		// reaches the assignment after `Then`, and `If ok Then F = 1` read as a
-		// Function that never assigns its own name.
-		for (const branch of singleLineIfBranchSpans(source, stmt.span)) {
-			if (assignsIn(branch)) {
+		// The branch spans cover a single-line If, whose statements the walk
+		// itself does not reach (issue #46).
+		for (const span of statementAndBranchSpans(stmt)) {
+			if (assignsIn(span) || assignsOwnField(source, span, lower)) {
 				found = true;
 				return;
 			}
@@ -462,34 +464,54 @@ function procedureHasReturnAssignment(
 }
 
 /**
- * The statement spans a single-line `If` carries after `Then` and after `Else`,
- * or nothing when the statement is not one. A block `If` header ends at `Then`
- * and yields no branch here; its body is walked as ordinary statements.
+ * True for `Name.Field = value`, which fills in a UDT or object return field by
+ * field. `utc_DateToSystemTime.utc_wYear = ...` IS the return assignment, and
+ * reading only bare `Name =` counted 16 such functions in the test corpus as
+ * never assigning anything.
  */
-function singleLineIfBranchSpans(
+function assignsOwnField(source: string, span: Span, lower: string): boolean {
+	const toks = statementTokens(source, span);
+	let i = firstExecutableTokenIndex(toks);
+	if (toks[i] && tokenText(toks[i]).toLowerCase() === 'let') {
+		i += 1;
+	}
+	const name = toks[i];
+	if (!name || name.rawText.toLowerCase() !== lower || toks[i + 1]?.rawText !== '.') {
+		return false;
+	}
+	return toks.slice(i + 2).some((token) => token.kind === 'operator' && token.rawText === '=');
+}
+
+/**
+ * True for a procedure that is not expected to assign a return: an empty body in
+ * a CLASS (a member of an interface the class declares and does not implement)
+ * or one whose work is to raise. Measured on the test corpus these account for
+ * 16 of the 40 typed functions that never name themselves, every one deliberate.
+ */
+function returnIsNotExpected(
 	source: string,
-	span: { start: number; end: number },
-): Array<{ start: number; end: number }> {
-	const tokens = statementTokensCached(source, span);
-	if (tokens.length === 0 || (tokens[0].canonicalText ?? tokens[0].rawText).toLowerCase() !== 'if') {
-		return [];
-	}
-	const starts: number[] = [];
-	for (let i = 1; i < tokens.length; i += 1) {
-		const word = (tokens[i].canonicalText ?? tokens[i].rawText).toLowerCase();
-		if (word !== 'then' && word !== 'else') {
-			continue;
+	mod: ModuleNode,
+	proc: ProcedureNode,
+	activity: ConditionalActivityTracker | undefined,
+): boolean {
+	let executable = 0;
+	let raises = false;
+	forEachStatement(proc.body, (stmt) => {
+		const text = source.slice(stmt.span.start, stmt.span.end).trim();
+		if (!text || text.startsWith("'") || /^(Dim|Const|Static|ReDim)\b/i.test(text)) {
+			return;
 		}
-		const next = tokens[i + 1];
-		if (next) {
-			// statementTokensCached numbers its tokens from the start of the span.
-			starts.push(span.start + next.start);
+		executable += 1;
+		if (/\bErr\s*\.\s*Raise\b/i.test(text) || /^Error\s/i.test(text)) {
+			raises = true;
 		}
-	}
-	return starts.map((start, index) => ({
-		start,
-		end: index + 1 < starts.length ? starts[index + 1] : span.end,
-	}));
+	}, activity);
+	// An empty body is a stub only where stubs live: a class must DECLARE every
+	// member of an interface it implements, and leaving one empty is ordinary
+	// (stdICallable and stdEnumerator in the test corpus are exactly that). In a
+	// standard module an empty Function is unfinished code, and reporting it is
+	// the behaviour this rule has always had.
+	return (executable === 0 && mod.moduleKind === 'class') || raises;
 }
 
 function callPassesNameToByRefParam(

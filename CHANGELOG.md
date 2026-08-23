@@ -4,6 +4,17 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **A Function with a declared return type that never assigns it is reported**
+  (#46). The rule skipped any declared return, so a `Function ... As Double`
+  that never names itself - returning 0 to every caller, compiling cleanly, and
+  found later by a wrong number rather than an error - said nothing, while the
+  catalogue advertised exactly that check. Widening it was measured over 67
+  modules of third-party code: 40 findings, almost all false, so it ships with
+  the three things that made them false. A return whose FIELDS are assigned
+  counts as assigned (`MakePoint.X = 1`), a class's empty body is an interface
+  member it declares and does not implement, and a body whose work is to raise
+  owes no return. That leaves 2 findings on the same corpus.
+
 - **Three more rules read the statements a single-line `If` executes** (#46).
   A single-line `If` is one leaf statement, so every rule that reads a statement
   structurally saw only `If`: `argument-count`, `const-assignment` and
