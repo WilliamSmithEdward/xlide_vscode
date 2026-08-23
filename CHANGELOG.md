@@ -4,6 +4,25 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **`rs!CustomerName` is member access, not an undeclared variable.** `!` is
+  VBA's default-member accessor, so a name after it belongs to the receiver
+  exactly as a name after `.` does. The scanner skipped one and not the other,
+  so every field read through an ADO or DAO recordset, and every Access form
+  reference, was reported as undefined. The Single type suffix (`Dim x!`,
+  `a! + 2`) is unaffected: a suffix is only ever followed by an operator or the
+  end of the statement, never by a name.
+
+- **`[A1]` is an Excel lookup, not an undeclared variable.** The square brackets
+  are shorthand for `Application.Evaluate`, so `[A1]`, `[TaxRate]` and
+  `[A1].Value` compile with nothing declared. Word has no such feature -
+  measured in the VBE, `v = [foo]` with nothing declaring `foo` is a compile
+  error there - so Word and PowerPoint keep the report. An absent host model is
+  Excel's by default (#28) and a model that knows nothing asserts nothing, so
+  both of those stay silent rather than guess.
+
+  Across the workbook corpus this removes 10 findings and adds none, all of them
+  the bracketed reserved names the torture test annotates as compiling.
+
 - **A variable whose name spells a contextual keyword is read as a name.**
   MS-VBAL 3.3.5.2 does not reserve `Text`, `Error`, `Object`, `Read`, `Step`,
   `Base` and the rest of that set, so `Dim Text As String` is legal VBA - but

@@ -189,9 +189,9 @@ export function valueReadReferences(
 	isKnownForSkip: (name: string) => boolean,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
 	projectMembers: readonly VbaProjectClassMembers[] | undefined,
-): Array<{ name: string; span: Span }> {
+): Array<{ name: string; span: Span; bracketed: boolean }> {
 	const toks = statementTokens(source, span);
-	const out: Array<{ name: string; span: Span }> = [];
+	const out: Array<{ name: string; span: Span; bracketed: boolean }> = [];
 	const skip = undeclaredReferenceSkipIndexes(
 		source,
 		span,
@@ -204,7 +204,13 @@ export function valueReadReferences(
 		if (skip.has(i) || !isPotentialVariableReferenceToken(toks[i])) {
 			continue;
 		}
-		if (toks[i - 1]?.rawText === '.') {
+		// `!` is VBA's default-member accessor, so `rs!CustomerName` and
+		// `Forms!frmMain!txtName` are MEMBER ACCESS exactly as a dot is - the
+		// name after it belongs to the receiver and was never a variable. The
+		// same character is the Single type suffix (`Dim x!`), but a suffix is
+		// only ever followed by an operator or the end of the statement, never
+		// by a name, so one test covers both.
+		if (toks[i - 1]?.rawText === '.' || toks[i - 1]?.rawText === '!') {
 			continue;
 		}
 		const name = tokenName(toks[i]);
@@ -214,6 +220,7 @@ export function valueReadReferences(
 		out.push({
 			name,
 			span: { start: span.start + toks[i].start, end: span.start + toks[i].end },
+			bracketed: toks[i].kind === 'bracketedIdentifier',
 		});
 	}
 	return out;

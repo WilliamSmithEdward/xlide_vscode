@@ -421,6 +421,7 @@ export function checkUndeclaredVariables(
 		(implicitMembers ?? []).map((member) => member.name.toLowerCase()),
 	);
 
+	const bracketNamesEvaluate = hostEvaluatesBracketedNames(hostModel);
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
 	const appMembers = applicationMemberNames(hostModel);
 	const isKnown = (
@@ -488,10 +489,30 @@ export function checkUndeclaredVariables(
 				moduleSignatures,
 				projectMembers,
 			)) {
+				if (ref.bracketed && bracketNamesEvaluate) {
+					continue;
+				}
 				report(ref.name, ref.span, 'using it', 'expression');
 			}
 		}, activity);
 	}
+}
+
+/**
+ * Whether `[name]` on its own is a HOST LOOKUP rather than a variable.
+ *
+ * In Excel the square brackets are shorthand for `Application.Evaluate`, so
+ * `[A1]` and `[TaxRate]` are ordinary code that compiles and needs no
+ * declaration. Word has no such feature - measured in the VBE, `v = [foo]`
+ * with nothing declaring `foo` is a compile error there - so the report is
+ * right for Word and PowerPoint and must stay.
+ *
+ * Only a POSITIVELY identified non-Excel host reports. An absent model is
+ * Excel's by default (issue #28), and a host whose model knows nothing
+ * asserts nothing, so both of those suppress rather than guess.
+ */
+function hostEvaluatesBracketedNames(hostModel: HostObjectModel | undefined): boolean {
+	return hostModel?.hostName === undefined || hostModel.hostName === 'Excel';
 }
 
 function undeclaredReadReferences(
@@ -500,7 +521,7 @@ function undeclaredReadReferences(
 	isKnown: (name: string) => boolean,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
 	projectMembers: readonly VbaProjectClassMembers[] | undefined,
-): Array<{ name: string; span: Span }> {
+): Array<{ name: string; span: Span; bracketed: boolean }> {
 	return valueReadReferences(source, span, isKnown, moduleSignatures, projectMembers)
 		.filter((ref) => !isKnown(ref.name));
 }
