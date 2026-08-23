@@ -4,6 +4,8 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+## [4.1.5] - 2026-08-23
+
 - **The host contract is documented and tested** (#50).
   `docs/host_contract.md` states which facts a host must supply, what each one
   costs when absent, and which of them have three states rather than two.
