@@ -31,7 +31,7 @@ import {
 	sourceNameScopeFor,
 	uniqueProjectTypeSignatures,
 } from '../typeInference';
-import type { ProcedureStatementVisitor } from '../walker';
+import { statementAndBranchSpans, type ProcedureStatementVisitor } from '../walker';
 
 /**
  * Rule: a call to a known Sub/Function/Declare must supply an argument count the
@@ -107,6 +107,32 @@ export function checkArgumentCount(
 					continue;
 				}
 				validateArity(source, memberCall.signature, memberCall.call, push);
+			}
+			// A single-line If is one statement, so a CALL STATEMENT it carries -
+			// `If ok Then Helper 1, 2, 3` - was never read as one and its arity went
+			// unchecked (issue #46). Only the statement-call path repeats over the
+			// branches: the expression scans above already cover the whole line, and
+			// running them again would report the same call twice.
+			for (const branch of statementAndBranchSpans(stmt).slice(1)) {
+				const branchCall = extractCall(source, branch)
+					?? extractQualifiedCall(source, branch, moduleSignatures);
+				if (branchCall && !projectQualifiedCallSpans.has(callTargetSpanKey(branchCall))) {
+					validateCallableArity(
+						source,
+						branchCall,
+						sameModuleSignatures,
+						projectSignatures,
+						sourceNames,
+						push,
+					);
+					recordProjectQualifiedCallSpan(branchCall, projectQualifiedCallSpans);
+				}
+				for (const memberCall of memberStatementCalls(source, branch, memberCtx)) {
+					if (projectQualifiedCallSpans.has(callTargetSpanKey(memberCall.call))) {
+						continue;
+					}
+					validateArity(source, memberCall.signature, memberCall.call, push);
+				}
 			}
 		};
 	};

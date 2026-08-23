@@ -67,6 +67,7 @@ import {
 	firstExecutableTokenIndex,
 	forEachStatement,
 	setAssignmentTarget,
+	statementAndBranchSpans,
 	statementTokens,
 	statementTokensAfterLeadingLabel,
 	stripHeaderBrackets,
@@ -90,7 +91,13 @@ export function checkConstAssignment(
 	return (member) => {
 		const procSym = procedureSymbolFor(symbols, member);
 		return (stmt) => {
-			const hit = bareAssignmentTarget(source, stmt.span);
+			for (const span of statementAndBranchSpans(stmt)) {
+				checkSpan(span);
+			}
+		};
+
+		function checkSpan(span: Span): void {
+			const hit = bareAssignmentTarget(source, span);
 			if (!hit) {
 				return;
 			}
@@ -111,7 +118,7 @@ export function checkConstAssignment(
 					hit.span,
 				);
 			}
-		};
+		}
 	};
 }
 
@@ -193,7 +200,13 @@ export function checkAssignmentTypes(
 				name,
 			);
 		forEachStatement(member.body, (stmt) => {
-			const assignment = bareAssignmentTarget(source, stmt.span);
+			for (const span of statementAndBranchSpans(stmt)) {
+				checkAssignmentSpan(span);
+			}
+		}, activity);
+
+		function checkAssignmentSpan(span: Span): void {
+			const assignment = bareAssignmentTarget(source, span);
 			if (!assignment) {
 				return;
 			}
@@ -220,7 +233,7 @@ export function checkAssignmentTypes(
 			}
 			const arraySource = arrayAssignmentToScalarSource(
 				assignment,
-				stmt.span.start,
+				span.start,
 				expected,
 				shapes,
 				(name) => declaredShapeForSourceBinding(
@@ -249,7 +262,7 @@ export function checkAssignmentTypes(
 			const stringArithmetic = nonnumericStringArithmeticOperand(
 				expected,
 				assignment.valueTokens,
-				stmt.span.start,
+				span.start,
 			);
 			if (stringArithmetic) {
 				push(
@@ -261,7 +274,7 @@ export function checkAssignmentTypes(
 			}
 			const actual = inferArgumentType(
 				assignment.valueTokens,
-				stmt.span.start,
+				span.start,
 				env,
 				moduleSignatures,
 				sourceNames,
@@ -282,7 +295,7 @@ export function checkAssignmentTypes(
 				`Assignment to '${assignment.name}' expects ${expected}, but got ${actual.label}. ${reason}`,
 				actual.span,
 			);
-		}, activity);
+		}
 		checkMemberAssignmentTypes(
 			source,
 			member,
@@ -661,7 +674,13 @@ export function checkSetAssignments(
 				name,
 			);
 		return (stmt) => {
-			const target = setAssignmentTarget(source, stmt.span);
+			for (const span of statementAndBranchSpans(stmt)) {
+				checkSetSpan(span);
+			}
+		};
+
+		function checkSetSpan(span: Span): void {
+			const target = setAssignmentTarget(source, span);
 			if (!target) {
 				return;
 			}
@@ -682,7 +701,7 @@ export function checkSetAssignments(
 				}
 				const actual = inferArgumentType(
 					target.valueTokens,
-					stmt.span.start,
+					span.start,
 					env,
 					moduleSignatures,
 					sourceNames,
@@ -710,7 +729,7 @@ export function checkSetAssignments(
 				`Set assignment requires an object variable, but '${target.name}' is declared as ${expected}.`,
 				target.span,
 			);
-		};
+		}
 	};
 }
 

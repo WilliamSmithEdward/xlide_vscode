@@ -1737,11 +1737,43 @@ class Parser {
 	}
 
 	private makeStatement(stmt: LogicalStatement): StatementNode {
+		const branches = this.singleLineIfBranchSpans(stmt);
 		return {
 			kind: 'Statement',
 			raw: this.source.slice(stmt.start, stmt.end),
 			span: { start: stmt.start, end: stmt.end },
+			...(branches.length > 0 ? { singleLineIfBranches: branches } : {}),
 		};
+	}
+
+	/**
+	 * The statements a single-line `If` executes: what follows `Then`, and what
+	 * follows `Else`. A block `If` ends at `Then` and yields none; its body is
+	 * parsed as ordinary statements. Recorded here so a rule can reach them
+	 * without re-tokenizing, and NOT walked globally: rules disagree about
+	 * whether they read a statement structurally or scan its text, and a global
+	 * visit double-reported the text-scanning ones (issue #46).
+	 */
+	private singleLineIfBranchSpans(stmt: LogicalStatement): Span[] {
+		const tokens = codeTokensAfterLineNumber(stmt);
+		if (tokenWord(tokens[0]) !== 'if') {
+			return [];
+		}
+		const starts: number[] = [];
+		for (let i = 1; i < tokens.length; i += 1) {
+			const word = tokenWord(tokens[i]);
+			if (word !== 'then' && word !== 'else') {
+				continue;
+			}
+			const next = tokens[i + 1];
+			if (next) {
+				starts.push(next.start);
+			}
+		}
+		return starts.map((start, index) => ({
+			start,
+			end: index + 1 < starts.length ? starts[index + 1] : stmt.end,
+		}));
 	}
 
 	private detectModuleKind(members: ModuleMember[]): ModuleKind {

@@ -249,6 +249,22 @@ export function absoluteSpan(base: Span, token: VbaToken): Span {
  * otherwise undefined. `Set` (object) assignments and any left-hand side with a
  * `.` or `(` are excluded so only true scalar-name assignments are considered.
  */
+/**
+ * The spans a rule should read for one statement: the statement itself, plus
+ * the statements a single-line `If` executes after `Then` and after `Else`.
+ *
+ * Opt-in rather than folded into {@link forEachStatement}, because rules
+ * disagree about what a statement is. A rule that SCANS the text already sees
+ * inside a single-line If and would double-report; a rule that reads it
+ * STRUCTURALLY - first token is the assignment target, first token is the
+ * callee - sees only `If`, and was blind to `If ok Then x = 1` (issue #46).
+ * Only the structural ones call this.
+ */
+export function statementAndBranchSpans(stmt: LeafStatementNode): Span[] {
+	const branches = stmt.kind === 'Statement' ? stmt.singleLineIfBranches : undefined;
+	return branches ? [stmt.span, ...branches] : [stmt.span];
+}
+
 export function bareAssignmentTarget(
 	source: string,
 	span: Span,

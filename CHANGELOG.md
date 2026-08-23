@@ -4,6 +4,17 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **Three more rules read the statements a single-line `If` executes** (#46).
+  A single-line `If` is one leaf statement, so every rule that reads a statement
+  structurally saw only `If`: `argument-count`, `const-assignment` and
+  `assignment-object-type-mismatch` all missed the defect when it was written
+  `If ok Then ...`. Each now reads the branches after `Then` and after `Else`.
+  Deliberately opt-in rather than folded into the shared walk: a rule that scans
+  statement text already sees inside a single-line If, and visiting the branches
+  globally made `array-subscript-out-of-bounds` report the same defect twice,
+  while visiting the CONDITION as a statement read `If MAX = 10 Then` as an
+  assignment to a constant. Both are pinned.
+
 - **A return assigned under a keyword-spelled name counts** (#46). The lexer
   classifies `Text`, `Read` and `Type` as keywords, and the assignment reader
   demanded an identifier, so an assignment to a variable or Function named one

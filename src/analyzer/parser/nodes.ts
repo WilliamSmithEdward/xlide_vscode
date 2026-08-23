@@ -453,6 +453,14 @@ export interface StatementNode extends NodeBase {
 	kind: 'Statement';
 	/** Raw source text of the statement (without separators). */
 	raw: string;
+	/**
+	 * For a single-line `If`, the spans of the statements it carries after
+	 * `Then` and after `Else`. A single-line If is one leaf, so without these
+	 * the statement walk never reaches what it executes, and every rule built on
+	 * that walk was blind to `If ok Then x = 1` (issue #46). Absent on every
+	 * other statement.
+	 */
+	singleLineIfBranches?: Span[];
 }
 
 // Block statements (MS-VBAL 5.4). Each owns a body and records whether it was
