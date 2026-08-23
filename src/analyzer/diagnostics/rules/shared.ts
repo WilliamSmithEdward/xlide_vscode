@@ -16,6 +16,7 @@ import {
 	collectConditionalDirectives,
 	type ConditionalActivityTracker,
 } from '../../conditional/conditionalCompilation';
+import { isReservedIdentifier } from '../../lexer/keywordTable';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type {
 	BodyNode,
@@ -291,6 +292,15 @@ function undeclaredReferenceSkipIndexes(
 		if (word === 'addressof' && isPotentialVariableReferenceToken(toks[i + 1])) {
 			skip.add(i + 1);
 		}
+		// A CONTEXTUAL keyword is not a reserved identifier (MS-VBAL 3.3.5.2), so
+		// `Dim Text As String` is legal VBA and a reference to `Text` is a real
+		// variable read. The scanner therefore accepts one as a name - but each
+		// of these words also has a grammar position where it is SYNTAX, and
+		// reading the word there would report the statement's own keyword as an
+		// undefined variable. Those positions are skipped here.
+		if (isContextualGrammarWord(toks, i, statementHead, firstExecutable)) {
+			skip.add(i);
+		}
 		// Open-statement access-clause (MS-VBAL 5.4.5.1.1): in `Open path For
 		// mode [Access access] [lock] As #f`, `Access` is a grammar word, not a
 		// variable reference. It lexes as an identifier because it is not a
@@ -392,6 +402,64 @@ function isQualifiedProjectMemberQualifier(
 	return surface.members.some((candidate) => candidate.name.toLowerCase() === memberLower);
 }
 
+/** Words `Open ... For <mode>` accepts that are not reserved identifiers. */
+const OPEN_MODE_WORDS: ReadonlySet<string> = new Set([
+	'binary', 'output', 'append', 'random', 'read',
+]);
+
+/** Clause keywords an `Open` mode word may follow. */
+const OPEN_CLAUSE_HEADS: ReadonlySet<string> = new Set(['for', 'access', 'lock']);
+
+/** Tokens after which a new statement begins on the same line. */
+const STATEMENT_OPENERS: ReadonlySet<string> = new Set(['then', 'else', ':']);
+
+/**
+ * True when a contextual keyword sits in the grammar position that gives it its
+ * keyword meaning, rather than naming a variable.
+ *
+ * Only the positions reachable inside a PROCEDURE BODY are listed. `Option`,
+ * `Declare`, and `Property` headers never reach the reference scanner - the
+ * first two are module-level and an in-procedure declaration is skipped whole -
+ * so guarding them here would be dead code.
+ */
+function isContextualGrammarWord(
+	toks: readonly VbaToken[],
+	index: number,
+	statementHead: string,
+	firstExecutable: number,
+): boolean {
+	const word = tokenText(toks[index]);
+	const prev = tokenText(toks[index - 1]);
+	// `Exit Property` and the `End Property` footer. Sub, Function, For and Do
+	// are reserved, so Property is the only one of these words that reaches the
+	// scanner at all.
+	if (word === 'property' && (prev === 'exit' || prev === 'end')) {
+		return true;
+	}
+	// `On Error GoTo/Resume ...` and the bare `Error <number>` statement. The
+	// latter starts a statement, which is not always token 0: `If x Then Error
+	// 5 Else Exit Sub` puts it after `Then`.
+	if (word === 'error' && (prev === 'on' || index === firstExecutable || STATEMENT_OPENERS.has(prev))) {
+		return true;
+	}
+	// `Open path For Binary|Output|Append|Random [Access Read] [Lock Read] As #n`.
+	// The mode word follows the clause keyword that introduces it; the same
+	// words elsewhere in the statement stay readable.
+	if (statementHead === 'open' && OPEN_MODE_WORDS.has(word) && OPEN_CLAUSE_HEADS.has(prev)) {
+		return true;
+	}
+	// `For i = 1 To 10 Step 2`.
+	if (word === 'step' && statementHead === 'for') {
+		return true;
+	}
+	// `As Object` in any statement that reaches here, such as the type clause of
+	// a `ReDim ... As Object`.
+	if (word === 'object' && prev === 'as') {
+		return true;
+	}
+	return false;
+}
+
 function simpleAssignmentLhsIdentifierIndex(toks: readonly VbaToken[]): number {
 	let start = firstExecutableTokenIndex(toks);
 	if (tokenText(toks[start]) === 'let' || tokenText(toks[start]) === 'set') {
@@ -401,8 +469,15 @@ function simpleAssignmentLhsIdentifierIndex(toks: readonly VbaToken[]): number {
 	if (eq !== 1) {
 		return -1;
 	}
+	// A name that SPELLS a contextual keyword is still a name, and this skip is
+	// what stops the assignment TARGET also being counted as a read (#46).
+	// Bracketed names are deliberately NOT included: `[If] = x` is Excel's
+	// Evaluate shorthand rather than a variable, a separate question this skip
+	// must not answer as a side effect.
 	const nameTok = toks[start];
-	return nameTok && nameTok.kind === 'identifier' ? start : -1;
+	return nameTok && (nameTok.kind === 'identifier' || isNonReservedKeyword(nameTok))
+		? start
+		: -1;
 }
 
 function isLineLabelOnlyStatement(
@@ -421,7 +496,29 @@ function isLineLabelOnlyStatement(
 }
 
 function isPotentialVariableReferenceToken(tok: VbaToken | undefined): boolean {
-	return tok?.kind === 'identifier' || tok?.kind === 'bracketedIdentifier';
+	if (!tok) {
+		return false;
+	}
+	if (tok.kind === 'identifier' || tok.kind === 'bracketedIdentifier') {
+		return true;
+	}
+	return isNonReservedKeyword(tok);
+}
+
+/**
+ * A word the VBE capitalizes in its statement context but MS-VBAL 3.3.5.2 does
+ * not reserve, so `Dim Text As String` and `Dim Error As Long` are both legal
+ * and a reference to one is a real variable read.
+ */
+function isNonReservedKeyword(tok: VbaToken | undefined): boolean {
+	if (tok?.kind !== 'keyword' || isReservedIdentifier(tok.rawText)) {
+		return false;
+	}
+	// `Property` opens a declaration, and the parser already refuses `Dim
+	// Property As Long` with invalid-identifier-start, so the word can never
+	// reach a body as a variable. Scanning it only adds a second, confusing
+	// diagnostic to source that is already reported as malformed.
+	return tokenText(tok) !== 'property';
 }
 
 function hasEarlierTypeOf(toks: readonly VbaToken[], before: number): boolean {

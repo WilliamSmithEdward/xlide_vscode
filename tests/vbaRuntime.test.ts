@@ -50,15 +50,19 @@ describe('VBA runtime metadata', () => {
 	});
 
 	it('excludes intrinsic data-type names to avoid type/function ambiguity', () => {
-		// These three are MS-VBAL reserved names, so the keyword table already
+		// These two are MS-VBAL reserved names, so the keyword table already
 		// answers for them and the runtime table would only add ambiguity.
-		// `Time` is NOT reserved, so excluding it left nothing knowing the name
-		// at all and `t = Time` read as an undeclared variable - the measured
-		// cost that issue #41 reported. It now lives in the runtime table.
-		for (const name of ['String', 'Date', 'Error']) {
+		for (const name of ['String', 'Date']) {
 			expect(resolveRuntimeFunction(name)).toBeUndefined();
 		}
+		// `Time` and `Error` are NOT reserved, so excluding them left nothing
+		// knowing the name at all and `t = Time` read as an undeclared variable -
+		// the measured cost that issue #41 reported. `Error` sat in the same
+		// position: `Error 5` is the statement the parser handles, while `Error`
+		// and `Error(5)` are the function that reads a code's message text.
 		expect(resolveRuntimeFunction('Time')?.returns).toBe('Date');
+		expect(resolveRuntimeFunction('Error')?.returns).toBe('String');
+		expect(resolveRuntimeFunction('Error$')?.returns).toBe('String');
 		expect(resolveRuntimeFunction('String$')?.signature).toBe('String$(Number, Character) As String');
 	});
 

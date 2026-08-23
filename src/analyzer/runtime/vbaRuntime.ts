@@ -154,6 +154,11 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('Shell', 'Shell(PathName, [WindowStyle As VbAppWinStyle = vbMinimizedFocus]) As Double', 'Double'),
 	fn('DoEvents', 'DoEvents() As Integer', 'Integer', undefined, { explicitCall: 'forbidden' }),
 	fn('Erl', 'Erl() As Integer', 'Integer', undefined, { explicitCall: 'forbidden' }),
+	// The FUNCTION form. `Error 5` - the statement that raises one - is grammar
+	// handled by the parser; `Error` and `Error(5)` read the message text for a
+	// code, defaulting to the current Err.Number.
+	fn('Error', 'Error([ErrorNumber]) As String', 'String'),
+	fn('Error$', 'Error$([ErrorNumber]) As String', 'String'),
 	fn('CreateObject', 'CreateObject(Class, [ServerName]) As Object', 'Object'),
 	fn('GetObject', 'GetObject([PathName], [Class]) As Object', 'Object'),
 	stmt('Beep', 'Beep'),

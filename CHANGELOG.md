@@ -4,6 +4,24 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **A variable whose name spells a contextual keyword is read as a name.**
+  MS-VBAL 3.3.5.2 does not reserve `Text`, `Error`, `Object`, `Read`, `Step`,
+  `Base` and the rest of that set, so `Dim Text As String` is legal VBA - but
+  the reference scanner accepted only `identifier` tokens. The result was
+  incoherent: `Text = 1` reported `Variable not defined`, and `Debug.Print Text`
+  on the very next line reported nothing. Fourteen of the sixteen words were
+  affected. Same family as the keyword-named assignment target in #46.
+
+  Each of these words also has a position where it IS syntax, and those are now
+  guarded: `On Error GoTo`, the bare `Error` statement wherever a statement
+  starts, `Exit Property` and the `End Property` footer, `For ... Step`, and the
+  `Open` mode, access, and lock clauses. Across the workbook corpus the change
+  is finding-for-finding identical - 41 before, 41 after.
+
+- **`Error` and `Error$` are known runtime functions.** `Error[$]([errornumber])`
+  reads the message text for a code, defaulting to the current `Err.Number`. The
+  table had excluded it as an MS-VBAL reserved name, which it is not.
+
 - **A class module's name used as if it were an instance is reported** (#47).
   `Ticket.ChangeTest`, where `Ticket` is a plain class, is `Variable not
   defined` - the VBE refuses to compile it - and the analyzer said nothing,
