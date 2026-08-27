@@ -2,7 +2,7 @@
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
   "description": "Office VBA integration for VS Code - Excel, Word, PowerPoint, and Access files; tree view, edit VBA modules, run unit tests, AI agent tools",
-  "version": "4.1.6",
+  "version": "4.1.7",
   "publisher": "WilliamSmithE",
   "license": "MIT",
   "icon": "assets/images/extension_logo.png",

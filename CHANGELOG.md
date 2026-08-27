@@ -4,6 +4,8 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+## [4.1.7] - 2026-08-27
+
 - **The suppression quick fix writes a directive that can reach the rule**
   (#52). It offered `disable-next-line` whatever the rule's scope, and for a
   module-scoped rule that directive cannot work: `option-explicit-missing`
