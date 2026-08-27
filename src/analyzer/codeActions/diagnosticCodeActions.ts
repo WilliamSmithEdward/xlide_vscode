@@ -7,6 +7,7 @@ import {
 } from '../call/callContext';
 import { detectEol, leadingWhitespace } from '../../vbaSourceScan';
 import { ANALYSIS_SUPPRESSION_DIRECTIVE_CODE } from '../diagnostics/analysisSuppressions';
+import { diagnosticSuppressionScopesForCode } from '../diagnostics/ruleMetadata';
 import type { VbaDiagnosticData } from '../diagnostics/analyzeModule';
 
 export interface VbaDiagnosticCodeActionInput {
@@ -58,7 +59,7 @@ export function resolveDiagnosticCodeActions(
 ): VbaDiagnosticCodeAction[] {
 	const actions = ruleSpecificDiagnosticCodeActions(source, diagnostic);
 	if (diagnostic.includeSuppressionAction) {
-		const suppression = suppressNextLineAction(source, diagnostic);
+		const suppression = suppressionAction(source, diagnostic);
 		if (suppression) {
 			actions.push(suppression);
 		}
@@ -131,11 +132,58 @@ function createProcedureStubActions(
 	}];
 }
 
-function suppressNextLineAction(
+/**
+ * The suppression fix for one finding, chosen by what the RULE can be
+ * suppressed by.
+ *
+ * A rule whose only scope is `module` is evaluated for the whole module and
+ * anchors its finding at the module top, so no line ever carries it: inserting
+ * `disable-next-line` above line 1 moves the finding onto the directive itself,
+ * the comment suppresses nothing, and applying the fix again just stacks
+ * another one (issue #52). Those rules get the file directive, which is the
+ * only one that reaches them.
+ */
+function suppressionAction(
 	source: string,
 	diagnostic: VbaDiagnosticCodeActionInput,
 ): VbaDiagnosticCodeAction | undefined {
 	if (!diagnostic.code || diagnostic.code === ANALYSIS_SUPPRESSION_DIRECTIVE_CODE) {
+		return undefined;
+	}
+	const scopes = diagnosticSuppressionScopesForCode(diagnostic.code);
+	// `block` and `member` are the positional scopes: a rule carrying either
+	// reports somewhere a directive can sit above.
+	if (scopes.includes('block') || scopes.includes('member')) {
+		return suppressNextLineAction(source, diagnostic);
+	}
+	return suppressFileAction(source, diagnostic.code);
+}
+
+/**
+ * `disable-file`, placed after the module's `Attribute` header and before
+ * everything else - the same offset `Add Option Explicit` inserts at, and the
+ * placement the directive itself requires: before the first non-comment,
+ * non-attribute source line.
+ */
+function suppressFileAction(source: string, code: string): VbaDiagnosticCodeAction {
+	const insertAt = optionExplicitInsertOffset(source);
+	const eol = detectEol(source);
+	return {
+		title: `Suppress '${code}' in this file`,
+		kind: 'quickfix',
+		isPreferred: false,
+		edits: [{
+			span: { start: insertAt, end: insertAt },
+			newText: `' @xlide-analysis-disable-file ${code}${eol}`,
+		}],
+	};
+}
+
+function suppressNextLineAction(
+	source: string,
+	diagnostic: VbaDiagnosticCodeActionInput,
+): VbaDiagnosticCodeAction | undefined {
+	if (!diagnostic.code) {
 		return undefined;
 	}
 	const line = physicalLineSpan(source, diagnostic.span.start);

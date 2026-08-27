@@ -4,6 +4,19 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **The suppression quick fix writes a directive that can reach the rule**
+  (#52). It offered `disable-next-line` whatever the rule's scope, and for a
+  module-scoped rule that directive cannot work: `option-explicit-missing`
+  anchors its finding at the module top, so inserting a line directive above
+  line 1 re-anchored the finding onto the directive itself, which
+  `disable-next-line` never covers - it covers the line below. The comment
+  suppressed nothing and applying the fix again stacked another one.
+
+  The action is now chosen from the rule's own `suppressionScopes`. A rule with
+  no positional scope offers `Suppress '<code>' in this file`, writing
+  `disable-file` after the `Attribute` header where the directive is legal.
+  Everything else keeps the next-line action unchanged.
+
 ## [4.1.6] - 2026-08-27
 
 - **A named argument no longer breaks the block an `If` opens** (#51). A `:`
