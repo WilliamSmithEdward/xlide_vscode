@@ -4,6 +4,20 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **A named argument no longer breaks the block an `If` opens** (#51). A `:`
+  separates statements in VBA and the scanner split on every one of them, so
+  `If Range(Cell1:="a1") Is Nothing Then` was torn into `If Range(Cell1` and
+  `="a1") Is Nothing Then`. Neither opens a block, so the matching `End If` was
+  reported as unmatched. The colon in `:=` is the named-argument operator and is
+  never a separator.
+
+  The same root cause reached a second case the report did not name: the colons
+  inside a **date literal**. `If Now > #12:30:00 PM# Then` produced the
+  identical error, and `t = #12:30:00 PM#` was being split into three
+  statements. The literal match is deliberately narrow - a leading digit and
+  date punctuation only - so `Print #1, "a": Close #1`, where `#` opens a file
+  number rather than a literal, keeps its separator.
+
 ## [4.1.5] - 2026-08-23
 
 - **The host contract is documented and tested** (#50).

@@ -251,11 +251,51 @@ export function logicalLinesFromStripped(stripped: string[]): LogicalLine[] {
 /** True for a segment that is exactly an `If ... Then` header, opening a block. */
 const BLOCK_IF_HEADER_RE = /^If\b.*\bThen$/i;
 
+/**
+ * A date/time literal, whose interior colons are part of the VALUE:
+ * `#12:30:00 PM#`, `#1/1/2020#`, `#1/1/2020 12:30#`.
+ *
+ * Deliberately narrow. `#` also opens a file number and a preprocessor
+ * directive, and neither may be treated as a literal: requiring a leading
+ * DIGIT and nothing but date punctuation inside means `Print #1, x: Close #2`
+ * never matches, so the separator between those two statements survives.
+ */
+const DATE_LITERAL_RE = /#[0-9][0-9/:. -]*(?:[AaPp][Mm])?[ ]*#/g;
+
+/** Offsets covered by a date/time literal, whose colons are not separators. */
+function dateLiteralOffsets(text: string): ReadonlySet<number> {
+    const inside = new Set<number>();
+    if (!text.includes('#')) {
+        return inside;
+    }
+    for (const match of text.matchAll(DATE_LITERAL_RE)) {
+        for (let i = 0; i < match[0].length; i++) {
+            inside.add(match.index + i);
+        }
+    }
+    return inside;
+}
+
 function splitColonStatements(text: string): string[] {
     const out: string[] = [];
+    const inDateLiteral = dateLiteralOffsets(text);
     let start = 0;
     for (let i = 0; i < text.length; i++) {
         if (text[i] !== ':') {
+            continue;
+        }
+        // `:=` is the NAMED-ARGUMENT operator, never a statement separator.
+        // Splitting there tore `If Range(Cell1:="a1") Is Nothing Then` into
+        // `If Range(Cell1` and `="a1") Is Nothing Then`, so no block opened and
+        // the matching `End If` was reported as unmatched (issue #51). A
+        // statement can never BEGIN with `=`, so this cannot swallow a real
+        // separator - a line label followed by one is not VBA.
+        if (/^[ \t]*=/.test(text.slice(i + 1))) {
+            continue;
+        }
+        // The colons in `#12:30:00 PM#` belong to the literal, and produced the
+        // same unmatched-If report for `If Now > #12:30:00 PM# Then`.
+        if (inDateLiteral.has(i)) {
             continue;
         }
         const segment = text.slice(start, i);
