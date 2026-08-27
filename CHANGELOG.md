@@ -4,6 +4,8 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+## [4.1.6] - 2026-08-27
+
 - **A named argument no longer breaks the block an `If` opens** (#51). A `:`
   separates statements in VBA and the scanner split on every one of them, so
   `If Range(Cell1:="a1") Is Nothing Then` was torn into `If Range(Cell1` and
