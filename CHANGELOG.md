@@ -16,7 +16,9 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
   Font.Underline / Font.Strikethrough round out the effects. Verified in
   live Excel: a centered label, a right-aligned underlined text box, a
   multi-select two-column list, and a drop-list combo all answer with the
-  exact VBA enum values.
+  exact VBA enum values. The canvas draws what these set: alignment,
+  underline and strikethrough, and the GrayText a disabled control wears
+  over any custom color, the way the VBE paints it.
 
 - **The everyday booleans joined the dialect: Enabled, Locked, MultiLine,
   WordWrap, AutoSize, Visible, TabStop, Default, and Cancel.** They live in
