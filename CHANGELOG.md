@@ -4,6 +4,15 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **The canvas carries the vbide designer's hover ergonomics.** The control a
+  click would select outlines on hover, and only the DEEPEST hovered one does
+  - a Frame never lights up under its own children. Cursors follow the rule
+  the vbide settled: the hand across the whole face because every inch
+  responds to a press, the four-way move only on the control a press would
+  actually pick up, resize cursors only on handles, and a drag in flight
+  paints the canvas with its gesture's cursor. A control being carried lifts
+  above its siblings, slightly transparent, and invisible to the pointer.
+
 - **The canvas paints with the real Windows palette, not CSS keywords.**
   Frame, page-group, and tab-group borders had vanished: modern Chromium
   computes the deprecated `ButtonShadow` CSS keyword as the same near-white

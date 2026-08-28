@@ -228,6 +228,19 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 		background: ${formBack}; overflow: hidden; ${formFont} }
 	.ctl { position: absolute; box-sizing: border-box; overflow: hidden; white-space: nowrap; }
 	.ctl.selected { outline: 1px dashed #0e639c; outline-offset: 1px; }
+	/* Hover ergonomics, adopted from the vbide designer (settled 2026-08-15):
+	   the control a click would select lights up, and only the DEEPEST hovered
+	   one does - without :has, a Frame outlines under its own children. The
+	   HAND across the whole face because every inch responds to a press; the
+	   four-way MOVE only on the control a press would actually pick up and
+	   carry; a handle keeps its own resize cursor; a drag in flight paints
+	   the whole canvas with its gesture's cursor. */
+	.ctl:hover:not(:has(.ctl:hover)) { outline: 1px solid rgba(74, 106, 157, 0.8); outline-offset: 1px; }
+	.client, .ctl { cursor: pointer; }
+	.ctl.selected { cursor: move; }
+	.ctl.dragging { z-index: 5; opacity: 0.85; pointer-events: none; }
+	.client.gesture-move, .client.gesture-move * { cursor: move !important; }
+	.client.gesture-resize, .client.gesture-resize * { cursor: inherit; }
 	.label { display: flex; align-items: flex-start; }
 	.edit { background: #fff; color: #000; border: 1px solid #7a7a7a; padding: 1px 2px; }
 	.combo { display: flex; justify-content: space-between; align-items: center; }
@@ -416,13 +429,27 @@ ${interactive ? `	<script>
 			} else if (!e.target.closest('.toolbar')) {
 				select(null);
 			}
+			if (drag) {
+				const client = drag.el.closest('.client');
+				if (client) {
+					client.classList.add(drag.kind === 'move' ? 'gesture-move' : 'gesture-resize');
+					if (drag.kind === 'resize') { client.style.cursor = drag.dir + '-resize'; }
+				}
+			}
 		});
 
 		document.addEventListener('pointermove', (e) => {
 			if (!drag) { return; }
 			const dx = px2pt(e.clientX - drag.x);
 			const dy = px2pt(e.clientY - drag.y);
-			if (Math.abs(dx) + Math.abs(dy) > 0.5) { drag.moved = true; document.body.dataset.dragging = '1'; }
+			if (Math.abs(dx) + Math.abs(dy) > 0.5) {
+				drag.moved = true;
+				document.body.dataset.dragging = '1';
+				// A control being carried lifts above its siblings and goes
+				// transparent to the pointer, so it is never hidden by what it
+				// passes over and never answers its own hit test.
+				if (drag.kind === 'move') { drag.el.classList.add('dragging'); }
+			}
 			clearGuides();
 			const surface = drag.el.parentElement.closest('[data-surface]') || drag.el.parentElement;
 			const lines = neighborsOn() ? snapLines(drag.el.parentElement, drag.el) : { xs: [], ys: [] };
@@ -465,6 +492,12 @@ ${interactive ? `	<script>
 		document.addEventListener('pointerup', () => {
 			if (!drag) { return; }
 			clearGuides();
+			drag.el.classList.remove('dragging');
+			const client = drag.el.closest('.client');
+			if (client) {
+				client.classList.remove('gesture-move', 'gesture-resize');
+				client.style.cursor = '';
+			}
 			const g = geometryOf(drag.el);
 			const name = drag.el.dataset.name;
 			const changed = drag.moved || drag.kind === 'resize';
