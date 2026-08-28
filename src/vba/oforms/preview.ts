@@ -15,24 +15,29 @@ import { controlKindOfSite, type FormPackage } from './formPackage';
 import { decodeArrayStrings, formatOleColor } from './markup';
 import { parseStdFont } from './formStream';
 
-/** OLE_COLOR -> CSS. System palette indices map to CSS system color names. */
+// The Windows default palette, by GetSysColor value - what MSForms actually
+// paints with. CSS system-color KEYWORDS are useless here: modern Chromium
+// computes the deprecated ButtonShadow as rgb(240,240,240), identical to
+// ButtonFace, so a keyword-colored border on a ButtonFace surface is
+// invisible by definition (measured; the page and frame borders vanished).
+const WINDOWS_PALETTE: Readonly<Record<string, string>> = {
+	ScrollBars: '#c8c8c8', Desktop: '#000000', ActiveTitleBar: '#99b4d1',
+	InactiveTitleBar: '#bfcddb', MenuBar: '#f0f0f0', WindowBackground: '#ffffff',
+	WindowFrame: '#646464', MenuText: '#000000', WindowText: '#000000',
+	TitleBarText: '#000000', ActiveBorder: '#b4b4b4', InactiveBorder: '#f4f7fc',
+	ApplicationWorkspace: '#ababab', Highlight: '#0078d7', HighlightText: '#ffffff',
+	ButtonFace: '#f0f0f0', ButtonShadow: '#a0a0a0', GrayText: '#6d6d6d',
+	ButtonText: '#000000', InactiveTitleBarText: '#000000', ButtonHighlight: '#ffffff',
+	ButtonDarkShadow: '#696969', ButtonLight: '#e3e3e3', InfoText: '#000000',
+	InfoBackground: '#ffffe1', HotTracking: '#0066cc', GradientActiveTitleBar: '#b9d1ea',
+	GradientInactiveTitleBar: '#d7e4f2', MenuHighlight: '#3399ff', MenuBackground: '#f0f0f0',
+};
+
+/** OLE_COLOR -> CSS: literals verbatim, system indices via the palette. */
 function cssColor(value: number): string {
 	const spelled = formatOleColor(value);
 	if (spelled.startsWith('#')) { return spelled; }
-	// The markup's system-color names are the CSS system color keywords'
-	// ancestors; the modern CSS equivalents keep the classics alive.
-	const css: Record<string, string> = {
-		ScrollBars: 'ButtonFace', Desktop: 'Canvas', ActiveTitleBar: 'ActiveCaption',
-		InactiveTitleBar: 'InactiveCaption', MenuBar: 'Menu', WindowBackground: 'Window',
-		WindowFrame: 'WindowFrame', MenuText: 'MenuText', WindowText: 'WindowText',
-		TitleBarText: 'CaptionText', ActiveBorder: 'ActiveBorder', InactiveBorder: 'InactiveBorder',
-		ApplicationWorkspace: 'AppWorkspace', Highlight: 'Highlight', HighlightText: 'HighlightText',
-		ButtonFace: 'ButtonFace', ButtonShadow: 'ButtonShadow', GrayText: 'GrayText',
-		ButtonText: 'ButtonText', InactiveTitleBarText: 'InactiveCaptionText',
-		ButtonHighlight: 'ButtonHighlight', ButtonDarkShadow: 'ThreeDDarkShadow',
-		ButtonLight: 'ThreeDLightShadow', InfoText: 'InfoText', InfoBackground: 'InfoBackground',
-	};
-	return css[spelled] ?? 'ButtonFace';
+	return WINDOWS_PALETTE[spelled] ?? WINDOWS_PALETTE.ButtonFace;
 }
 
 function esc(text: string): string {
@@ -192,7 +197,7 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	const height = pts(size.height);
 	const caption = options.caption ?? record.strings.get('Caption')?.text ?? options.formName;
 	const back = record.values.get('BackColor');
-	const formBack = back !== undefined && recordHas(record, 'BackColor') ? cssColor(back) : 'ButtonFace';
+	const formBack = back !== undefined && recordHas(record, 'BackColor') ? cssColor(back) : WINDOWS_PALETTE.ButtonFace;
 	const stdFont = pkg.form.fontRaw ? parseStdFont(pkg.form.fontRaw) : undefined;
 	const formFont = stdFont
 		? `font-family:'${esc(stdFont.face)}',Tahoma,sans-serif;font-size:${stdFont.heightTenThousandthsPt / 10000}pt;`
@@ -217,48 +222,49 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.toolbar label { display: flex; gap: 4px; align-items: center; margin-left: 8px; }
 	.stage { padding: 24px; }
 	.dialog { width: ${width}pt; box-shadow: 2px 2px 8px rgba(0,0,0,.5); }
-	.titlebar { background: ActiveCaption; color: CaptionText; padding: 2px 6px;
+	.titlebar { background: #99b4d1; color: #000; padding: 2px 6px;
 		font: bold 9pt Tahoma, sans-serif; display: flex; justify-content: space-between; }
 	.client { position: relative; width: ${width}pt; height: ${height}pt;
 		background: ${formBack}; overflow: hidden; ${formFont} }
 	.ctl { position: absolute; box-sizing: border-box; overflow: hidden; white-space: nowrap; }
 	.ctl.selected { outline: 1px dashed #0e639c; outline-offset: 1px; }
 	.label { display: flex; align-items: flex-start; }
-	.edit { background: Field; color: FieldText; border: 1px inset ButtonShadow; padding: 1px 2px; }
+	.edit { background: #fff; color: #000; border: 1px solid #7a7a7a; padding: 1px 2px; }
 	.combo { display: flex; justify-content: space-between; align-items: center; }
-	.combo .drop { border-left: 1px solid ButtonShadow; background: ButtonFace; align-self: stretch;
+	.combo .drop { border-left: 1px solid #a0a0a0; background: #f0f0f0; align-self: stretch;
 		display: flex; align-items: center; padding: 0 2px; }
 	.opt { display: flex; align-items: center; gap: 4px; }
-	.opt .box { width: 9pt; height: 9pt; background: Field; border: 1px inset ButtonShadow; flex: none; }
+	.opt .box { width: 9pt; height: 9pt; background: #fff; border: 1px solid #7a7a7a; flex: none; }
 	.opt .box.on::after { content: '\\2713'; display: block; text-align: center; line-height: 9pt; }
-	.opt .radio { width: 9pt; height: 9pt; background: Field; border: 1px inset ButtonShadow;
+	.opt .radio { width: 9pt; height: 9pt; background: #fff; border: 1px solid #7a7a7a;
 		border-radius: 50%; flex: none; }
-	.opt .radio.on { background: radial-gradient(circle at center, WindowText 35%, Field 40%); }
-	.button { background: ButtonFace; border: 2px outset ButtonHighlight;
+	.opt .radio.on { background: radial-gradient(circle at center, #000 35%, #fff 40%); }
+	.button { background: #f0f0f0; border: 1px solid #707070;
+		box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #a0a0a0;
 		display: flex; align-items: center; justify-content: center; }
 	.button.pressed { border-style: inset; }
-	.image, .foreign { border: 1px solid ButtonShadow;
+	.image, .foreign { border: 1px solid #a0a0a0;
 		background: repeating-linear-gradient(45deg, #ddd 0 6px, #eee 6px 12px);
 		display: flex; align-items: center; justify-content: center; color: #555; font-size: 7pt; }
 	.spin { display: flex; flex-direction: column; }
-	.spin span { flex: 1; background: ButtonFace; border: 1px outset ButtonHighlight;
+	.spin span { flex: 1; background: #f0f0f0; border: 1px solid #a0a0a0;
 		display: flex; align-items: center; justify-content: center; font-size: 6pt; }
-	.scroll { background: #d4d0c8; border: 1px inset ButtonShadow; position: relative; }
+	.scroll { background: #d4d0c8; border: 1px solid #a0a0a0; position: relative; }
 	.scroll::after { content: ''; position: absolute; left: 1px; right: 1px; top: 15%; height: 30%;
-		background: ButtonFace; border: 1px outset ButtonHighlight; }
-	.frame { border: 1px solid ButtonShadow; box-shadow: inset 0 0 0 1px ButtonHighlight;
+		background: #f0f0f0; border: 1px solid #808080; }
+	.frame { border: 1px solid #a0a0a0; box-shadow: inset 0 0 0 1px #fff;
 		overflow: visible; }
 	.frame .legend { position: absolute; top: 0; left: 6pt; transform: translateY(-55%);
 		background: ${formBack}; padding: 0 3px; line-height: 1.1; }
 	.frame .surface { position: absolute; inset: 0; overflow: hidden; }
 	.tabs { display: flex; gap: 1px; padding: 0 2px; height: 14pt; align-items: flex-end;
 		position: relative; z-index: 1; }
-	.tab { background: ButtonFace; border: 1px solid ButtonShadow; border-bottom: none;
+	.tab { background: #f0f0f0; border: 1px solid #a0a0a0; border-bottom: none;
 		padding: 0 8px 1px; border-radius: 3px 3px 0 0; cursor: pointer; }
-	.tab.active { background: ButtonHighlight; position: relative; top: 1px; }
-	.tabstrip, .multipage { background: ButtonFace; overflow: visible; }
-	.tabbody, .pagearea { position: absolute; inset: 14pt 0 0; border: 1px solid ButtonShadow;
-		box-shadow: inset 0 0 0 1px ButtonHighlight; background: ButtonFace; overflow: hidden; }
+	.tab.active { background: #fff; position: relative; top: 1px; }
+	.tabstrip, .multipage { background: #f0f0f0; overflow: visible; }
+	.tabbody, .pagearea { position: absolute; inset: 14pt 0 0; border: 1px solid #a0a0a0;
+		box-shadow: inset 0 0 0 1px #fff; background: #f0f0f0; overflow: hidden; }
 	.page { position: absolute; inset: 0; }
 	.handle { position: absolute; width: 6px; height: 6px; background: #fff;
 		border: 1px solid #0e639c; z-index: 5; }

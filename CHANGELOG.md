@@ -4,6 +4,15 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **The canvas paints with the real Windows palette, not CSS keywords.**
+  Frame, page-group, and tab-group borders had vanished: modern Chromium
+  computes the deprecated `ButtonShadow` CSS keyword as the same near-white
+  as `ButtonFace`, so a keyword-colored border on a keyword-colored surface
+  is invisible by definition - measured in the rendered page's computed
+  styles. Every structural color, and every OLE system color a control
+  carries, now resolves to the explicit Windows default palette value MSForms
+  actually paints with.
+
 - **The form designer has a canvas.** Right-click a UserForm for **Preview
   Form**: the designer model renders in a webview - real bounds, captions,
   colors and fonts from the binary, Frames and MultiPage pages nested, honest
