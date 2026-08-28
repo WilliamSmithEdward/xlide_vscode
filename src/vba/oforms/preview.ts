@@ -12,7 +12,7 @@ import { himetricToPoints, formatPointsShortest as pts } from './bytes';
 import { recordHas, type ParsedRecord } from './records';
 import { siteName, siteId, siteIsContainer, siteCacheIndex, type SiteModel } from './formStream';
 import { controlKindOfSite, type FormPackage } from './formPackage';
-import { decodeArrayStrings, formatOleColor } from './markup';
+import { decodeArrayStrings, effectiveVariousPropertyBits, formatOleColor } from './markup';
 import { parseStdFont } from './formStream';
 
 // The Windows default palette, by GetSysColor value - what MSForms actually
@@ -78,7 +78,25 @@ function fontCss(record: ParsedRecord | undefined): string {
 		parts.push('font-weight:bold;');
 	}
 	if (recordHas(tp, 'FontEffects') && (effects & 0x2)) { parts.push('font-style:italic;'); }
+	const deco = [
+		recordHas(tp, 'FontEffects') && (effects & 0x4) ? 'underline' : '',
+		recordHas(tp, 'FontEffects') && (effects & 0x8) ? 'line-through' : '',
+	].filter(Boolean).join(' ');
+	if (deco) { parts.push(`text-decoration:${deco};`); }
+	const pa = tp.values.get('ParagraphAlign');
+	if (pa !== undefined && recordHas(tp, 'ParagraphAlign')) {
+		if (pa === 2) { parts.push('text-align:right;justify-content:flex-end;'); }
+		if (pa === 3) { parts.push('text-align:center;justify-content:center;'); }
+	}
 	return parts.join('');
+}
+
+/** The GrayText the face wears when a control is disabled. */
+function stateCss(record: ParsedRecord | undefined, kind: string): string {
+	if (!record) { return ''; }
+	const vpb = effectiveVariousPropertyBits(record, kind);
+	if (vpb !== undefined && (vpb & 0x2) === 0) { return `color:${WINDOWS_PALETTE.GrayText};`; }
+	return '';
 }
 
 function colorCss(record: ParsedRecord | undefined): string {
@@ -102,7 +120,7 @@ function renderSurface(pkg: FormPackage, idPrefix: string, selected?: string): s
 		const inner = siteIsContainer(site) ? pkg.containers.get(siteId(site)) : undefined;
 		const box = siteBox(site, record, inner);
 		const style = `left:${pts(box.left)}pt;top:${pts(box.top)}pt;width:${pts(box.width)}pt;height:${pts(box.height)}pt;`
-			+ fontCss(record) + colorCss(record);
+			+ fontCss(record) + colorCss(record) + stateCss(record, kind);
 		const sel = selected !== undefined && selected.toLowerCase() === name.toLowerCase() ? ' selected' : '';
 		const dn = `data-name="${esc(name)}"`;
 		const caption = record?.strings.get('Caption')?.text

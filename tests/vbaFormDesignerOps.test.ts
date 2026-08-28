@@ -346,6 +346,18 @@ describe('the interactive canvas contract', () => {
 		expect(html).toContain('"prop":"Caption"');
 	});
 
+	it('draws the disabled gray, alignment, and text decoration it can set', () => {
+		const wb = workbook();
+		applyFormDesignerOp(wb, 'EntryForm', { kind: 'setProp', name: 'OkButton', prop: 'Enabled', value: 'False' });
+		applyFormDesignerOp(wb, 'EntryForm', { kind: 'setProp', name: 'NameLabel', prop: 'TextAlign', value: 'Center' });
+		applyFormDesignerOp(wb, 'EntryForm', { kind: 'setProp', name: 'NameBox', prop: 'Font.Underline', value: 'True' });
+		resetWorkbookCacheForTests();
+		const { html } = readFormPreview(wb, 'EntryForm');
+		expect(html).toMatch(/data-name="OkButton"[^>]*color:#6d6d6d/);
+		expect(html).toMatch(/data-name="NameLabel"[^>]*text-align:center/);
+		expect(html).toMatch(/data-name="NameBox"[^>]*text-decoration:underline/);
+	});
+
 	it('jumps to the default event handler on double-click', () => {
 		const { html } = readFormPreview(workbook(), 'EntryForm');
 		expect(html).toContain("type: 'openHandler'");
