@@ -4,6 +4,21 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **The markup document is no longer analyzed as VBA** - opening a `.form`
+  painted every element as "statement outside a procedure" and offered VBA
+  completion inside XML. Two gates were at fault: the VBA-document check
+  claimed everything on the xlide scheme, and the language-provider selector
+  carried a bare scheme match. Both now serve only the code face, and `.form`
+  documents get XML colorization by extension.
+
+- **The toolbox drags.** Press a kind and carry it: a ghost at the control's
+  real default size follows the pointer onto whichever surface is underneath
+  - the form, a Frame, a Page - at the grid-snapped point the drop will use,
+  so what you see is what you get. A plain click still arms click-to-place.
+
+- **"Preview Form" is now "Open Designer"**, listed above Open Form Markup -
+  the canvas edits, so the old name undersold it.
+
 - **The canvas carries the vbide designer's hover ergonomics.** The control a
   click would select outlines on hover, and only the DEEPEST hovered one does
   - a Frame never lights up under its own children. Cursors follow the rule

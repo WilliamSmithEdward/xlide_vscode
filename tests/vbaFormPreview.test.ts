@@ -87,3 +87,12 @@ describe('the service entry point', () => {
 		expect(html).toContain('title="OkButton"');
 	});
 });
+
+describe('the toolbox drag', () => {
+	it('carries its hooks in the canvas script', () => {
+		const { html } = readFormPreview(FIXTURE, 'EntryForm');
+		expect(html).toContain('toolDrag');
+		expect(html).toContain("className = 'ghost'");
+		expect(html).toContain('.ghost {');
+	});
+});

@@ -285,6 +285,8 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.guide.v { width: 1px; top: 0; bottom: 0; }
 	.guide.h { height: 1px; left: 0; right: 0; }
 	.placing, .placing .ctl { cursor: crosshair !important; }
+	.ghost { position: absolute; border: 1px dashed #0e639c; background: rgba(14, 99, 156, 0.12);
+		z-index: 6; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -534,14 +536,77 @@ ${interactive ? `	<script>
 			document.body.classList.remove('placing');
 			document.querySelectorAll('.tool.armed').forEach((t) => t.classList.remove('armed'));
 		};
+
+		// The toolbox works both ways: press-and-DRAG carries a ghost of the
+		// control onto a surface and drops it there; a plain CLICK arms the
+		// kind for click-to-place. The default size the ghost shows is the
+		// size the drop creates.
+		const DEFAULT_SIZES = {
+			Label: [72, 12], CommandButton: [72, 24], ToggleButton: [72, 24],
+			CheckBox: [90, 15], OptionButton: [90, 15], ComboBox: [96, 18],
+			TextBox: [96, 18], ListBox: [96, 60], Frame: [120, 90],
+			Image: [72, 54], SpinButton: [13, 36], ScrollBar: [13, 90], TabStrip: [150, 90],
+		};
+		let toolDrag = null;
+		const dropPoint = (surface, clientX, clientY) => {
+			const rect = surface.getBoundingClientRect();
+			let left = px2pt(clientX - rect.left);
+			let top = px2pt(clientY - rect.top);
+			if (gridOn()) { left = Math.round(left / GRID) * GRID; top = Math.round(top / GRID) * GRID; }
+			return { left: Math.max(0, left), top: Math.max(0, top) };
+		};
 		document.querySelectorAll('.tool').forEach((tool) => {
-			tool.addEventListener('click', () => {
-				if (armedKind === tool.dataset.kind) { disarm(); return; }
-				disarm();
-				armedKind = tool.dataset.kind;
-				tool.classList.add('armed');
-				document.body.classList.add('placing');
+			tool.addEventListener('pointerdown', (e) => {
+				toolDrag = { kind: tool.dataset.kind, x: e.clientX, y: e.clientY, ghost: null, tool };
+				e.preventDefault();
 			});
+		});
+		document.addEventListener('pointermove', (e) => {
+			if (!toolDrag) { return; }
+			if (!toolDrag.ghost) {
+				if (Math.abs(e.clientX - toolDrag.x) + Math.abs(e.clientY - toolDrag.y) < 4) { return; }
+				toolDrag.ghost = document.createElement('div');
+				toolDrag.ghost.className = 'ghost';
+				const [w, h] = DEFAULT_SIZES[toolDrag.kind] ?? [72, 24];
+				toolDrag.ghost.style.width = w + 'pt';
+				toolDrag.ghost.style.height = h + 'pt';
+				document.body.classList.add('placing');
+			}
+			// The ghost lives on the surface under the pointer, at the snapped
+			// point the drop would use - so what you see is what you get.
+			toolDrag.ghost.remove();
+			const under = document.elementFromPoint(e.clientX, e.clientY);
+			const surface = under && under.closest('[data-surface]');
+			if (!surface) { return; }
+			const p = dropPoint(surface, e.clientX, e.clientY);
+			toolDrag.ghost.style.left = p.left + 'pt';
+			toolDrag.ghost.style.top = p.top + 'pt';
+			surface.appendChild(toolDrag.ghost);
+		});
+		document.addEventListener('pointerup', (e) => {
+			if (!toolDrag) { return; }
+			const wasDragging = !!toolDrag.ghost;
+			const kind = toolDrag.kind;
+			const tool = toolDrag.tool;
+			if (toolDrag.ghost) { toolDrag.ghost.remove(); }
+			toolDrag = null;
+			document.body.classList.remove('placing');
+			if (wasDragging) {
+				const under = document.elementFromPoint(e.clientX, e.clientY);
+				const surface = under && under.closest('[data-surface]');
+				if (surface) {
+					const p = dropPoint(surface, e.clientX, e.clientY);
+					post({ type: 'add', container: surface.dataset.surface, controlKind: kind,
+						left: p.left, top: p.top });
+				}
+				return;
+			}
+			// No movement: a plain click, which toggles click-to-place.
+			if (armedKind === kind) { disarm(); return; }
+			disarm();
+			armedKind = kind;
+			tool.classList.add('armed');
+			document.body.classList.add('placing');
 		});
 		document.addEventListener('keyup', (e) => { if (e.key === 'Escape') { disarm(); } });
 	})();

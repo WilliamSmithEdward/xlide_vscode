@@ -268,9 +268,9 @@
       },
       {
         "command": "xlide.previewForm",
-        "title": "Preview Form",
+        "title": "Open Designer",
         "category": "XLIDE",
-        "icon": "$(open-preview)"
+        "icon": "$(layout-panel)"
       },
       {
         "command": "xlide.deleteModule",
@@ -455,12 +455,12 @@
           "group": "1_create@3"
         },
         {
-          "command": "xlide.openFormMarkup",
+          "command": "xlide.previewForm",
           "when": "view == xlide.explorer && viewItem =~ /^module-userform(-agent-pending)?$/",
           "group": "2_edit@1"
         },
         {
-          "command": "xlide.previewForm",
+          "command": "xlide.openFormMarkup",
           "when": "view == xlide.explorer && viewItem =~ /^module-userform(-agent-pending)?$/",
           "group": "2_edit@2"
         },
@@ -596,6 +596,12 @@
       }
     ],
     "languages": [
+      {
+        "id": "xml",
+        "extensions": [
+          ".form"
+        ]
+      },
       {
         "id": "vba",
         "aliases": [

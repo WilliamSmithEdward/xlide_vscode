@@ -24,11 +24,18 @@ export const XLIDE_VBA_LANGUAGE_ID = 'xlide-vba';
 
 export { moduleIdentityKey, sameWorkbookPath, workbookIdentityKey } from './workbookIdentity';
 
-/** True for any VBA document: by language id or by xlide scheme. */
+/**
+ * True for any VBA document: by language id or by xlide scheme. A `.form`
+ * document rides the same scheme but is the form's MARKUP face, not VBA -
+ * running the VBA analyzer on it painted every element as a statement
+ * outside a procedure.
+ */
 export function isVbaDocument(document: vscode.TextDocument): boolean {
+    if (document.uri.scheme === XLIDE_SCHEME) {
+        return !document.uri.path.toLowerCase().endsWith('.form');
+    }
     return document.languageId === 'vba'
-        || document.languageId === XLIDE_VBA_LANGUAGE_ID
-        || document.uri.scheme === XLIDE_SCHEME;
+        || document.languageId === XLIDE_VBA_LANGUAGE_ID;
 }
 
 /** True for xlide-scheme documents backed by a workbook on disk. */

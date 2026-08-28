@@ -40,7 +40,10 @@ import { VbaProjectIndexService } from './vbaProjectIndexService';
 const VBA_SELECTOR: vscode.DocumentSelector = [
     { scheme: XLIDE_SCHEME, language: 'vba' },
     { scheme: XLIDE_SCHEME, language: XLIDE_VBA_LANGUAGE_ID },
-    { scheme: XLIDE_SCHEME },
+    // The scheme carries TWO faces: `.bas` code and `.form` markup. The VBA
+    // providers serve only the code face - a bare scheme match handed VBA
+    // completion and hovers to the markup document.
+    { scheme: XLIDE_SCHEME, pattern: '**/*.bas' },
     { language: 'vba' },
     { language: XLIDE_VBA_LANGUAGE_ID },
 ];
