@@ -4,6 +4,42 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **The UserForm designer is native.** XLIDE now reads and WRITES a form's
+  [MS-OFORMS] designer storage itself - no Office application in the loop.
+  Right-click a workbook for **Add UserForm** and a form module for **Open
+  Form Markup**: the form opens as an editable text projection in the dialect
+  xlide_vbide defined (XAML-shaped elements, quoted values, `Font.Size`
+  dotting, colors as `#rrggbb` or system names like `ButtonFace`), and saving
+  the document applies it back as a name-keyed diff. A control present only in
+  the document is added, one present only in the designer is removed, and an
+  unspoken property is never touched. A parse error applies nothing.
+
+  The engine's contract is BYTE IDENTITY, pinned across four Office-authored
+  fixtures (Excel, Word, PowerPoint, and a 19-control form with fonts,
+  multi-hundred-KB pictures, a Frame, and a MultiPage with nested Pages):
+  parse then serialize reproduces every stream of every designer storage
+  exactly, undefined padding included. Editing writes only what changed.
+
+  New forms are authored from nothing - module, `BaseClass` registration,
+  attribute header, VBFrame, minimal FormControl, Forms 2.0 CompObj - and the
+  result flows straight into the existing pipeline: the module classifies as
+  `userform`, carries `predeclaredId`, and its designer-declared controls
+  reach completion and diagnostics.
+
+  Verified against live Excel (verification only, per the no-COM-in-engine
+  rule): a workbook whose form this engine recaptioned, moved a button in,
+  and added a Label to - and a second form authored entirely from scratch -
+  compiled and instantiated under `Application.Run`. That verification also
+  caught a real defect the fixtures alone would not have: Excel's own
+  NextAvailableID can EQUAL the highest live control ID, so a fresh ID is now
+  chosen above both.
+
+  Not in this slice, each refused with a named error rather than silently:
+  creating ActiveX controls (needs class-table authoring), adding or removing
+  MultiPage Pages and TabStrip tabs (captions and contents edit fine), and a
+  visual canvas renderer - the markup document is the design surface, as the
+  vbide plan intended.
+
 ## [4.1.7] - 2026-08-27
 
 - **The suppression quick fix writes a directive that can reach the rule**

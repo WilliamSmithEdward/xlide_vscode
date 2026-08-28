@@ -248,6 +248,119 @@ export class Cfb {
 		this.directory[parent].childId = this.rebuildBalancedSubtree(siblings);
 	}
 
+	// ------------------------------------------------- nested storage paths
+	//
+	// A form's designer nests: a Frame or a MultiPage Page is a storage INSIDE
+	// its parent's storage ([MS-OFORMS] 2.1.2.2.2), so flat name lookup cannot
+	// address one unambiguously - two forms may both hold an `i06`. These walk
+	// the directory tree from the root, one path segment per storage level.
+
+	/** Directory index of the storage at `path`, walking from the root. */
+	private resolveStoragePath(path: readonly string[]): number {
+		let current = this.directory.findIndex((e) => e.objType === OBJTYPE_ROOT);
+		if (current < 0) {
+			throw new CfbError('compound file has no root entry');
+		}
+		for (const segment of path) {
+			const next = this.collectSubtree(this.directory[current].childId).find(
+				(i) => this.directory[i].objType === OBJTYPE_STORAGE
+					&& this.directory[i].name.toLowerCase() === segment.toLowerCase(),
+			);
+			if (next === undefined) {
+				throw new CfbError(`Storage not found: ${path.join('/')}`);
+			}
+			current = next;
+		}
+		return current;
+	}
+
+	hasStoragePath(path: readonly string[]): boolean {
+		try { this.resolveStoragePath(path); return true; } catch { return false; }
+	}
+
+	listStreamsAtPath(path: readonly string[]): string[] {
+		const parent = this.resolveStoragePath(path);
+		return this.collectSubtree(this.directory[parent].childId)
+			.filter((i) => this.directory[i].objType === OBJTYPE_STREAM)
+			.sort((a, b) => a - b)
+			.map((i) => this.directory[i].name);
+	}
+
+	listStoragesAtPath(path: readonly string[]): string[] {
+		const parent = this.resolveStoragePath(path);
+		return this.collectSubtree(this.directory[parent].childId)
+			.filter((i) => this.directory[i].objType === OBJTYPE_STORAGE)
+			.sort((a, b) => a - b)
+			.map((i) => this.directory[i].name);
+	}
+
+	getStreamAtPath(path: readonly string[], name: string): Buffer {
+		const parent = this.resolveStoragePath(path);
+		const idx = this.findChildStreamIndex(parent, name);
+		if (idx === undefined) {
+			throw new CfbError(`Stream ${name} not found in ${path.join('/')}`);
+		}
+		return this.readStream(idx);
+	}
+
+	hasStreamAtPath(path: readonly string[], name: string): boolean {
+		const parent = this.resolveStoragePath(path);
+		return this.findChildStreamIndex(parent, name) !== undefined;
+	}
+
+	/** Writes the stream, creating it when the storage does not hold one yet. */
+	setStreamAtPath(path: readonly string[], name: string, data: Buffer): void {
+		const parent = this.resolveStoragePath(path);
+		const existing = this.findChildStreamIndex(parent, name);
+		if (existing !== undefined) {
+			this.overrides.set(existing, Buffer.from(data));
+			return;
+		}
+		const target = this.claimSlot(name, OBJTYPE_STREAM);
+		this.overrides.set(target, Buffer.from(data));
+		const siblings = this.collectSubtree(this.directory[parent].childId);
+		siblings.push(target);
+		this.directory[parent].childId = this.rebuildBalancedSubtree(siblings);
+	}
+
+	addStorageAtPath(parentPath: readonly string[], name: string): void {
+		const parent = this.resolveStoragePath(parentPath);
+		const clash = this.collectSubtree(this.directory[parent].childId).some(
+			(i) => this.directory[i].name.toLowerCase() === name.toLowerCase(),
+		);
+		if (clash) {
+			throw new CfbError(`${name} already exists in ${parentPath.join('/') || 'root'}`);
+		}
+		const target = this.claimSlot(name, OBJTYPE_STORAGE);
+		const siblings = this.collectSubtree(this.directory[parent].childId);
+		siblings.push(target);
+		this.directory[parent].childId = this.rebuildBalancedSubtree(siblings);
+	}
+
+	/** Removes the storage at `path` and every descendant entry. */
+	removeStorageAtPath(path: readonly string[]): void {
+		if (path.length === 0) {
+			throw new CfbError('cannot remove the root');
+		}
+		const parentIdx = this.resolveStoragePath(path.slice(0, -1));
+		const targetIdx = this.resolveStoragePath(path);
+		const clearSubtree = (idx: number): void => {
+			for (const child of this.collectSubtree(this.directory[idx].childId)) {
+				clearSubtree(child);
+			}
+			this.overrides.delete(idx);
+			this.directory[idx] = {
+				name: '', objType: OBJTYPE_EMPTY, childId: NOSTREAM,
+				leftSiblingId: NOSTREAM, rightSiblingId: NOSTREAM,
+				startSector: ENDOFCHAIN, size: 0, raw: Buffer.alloc(0),
+			};
+		};
+		const siblings = this.collectSubtree(this.directory[parentIdx].childId)
+			.filter((i) => i !== targetIdx);
+		clearSubtree(targetIdx);
+		this.directory[parentIdx].childId = this.rebuildBalancedSubtree(siblings);
+	}
+
 	// ------------------------------------------------------------ internal
 
 	private parse(): void {

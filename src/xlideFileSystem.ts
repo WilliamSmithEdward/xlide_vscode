@@ -17,7 +17,7 @@ import { workbookIdentityKey } from './workbookIdentity';
 export const XLIDE_SCHEME = 'xlide-vba';
 
 const MODULE_URI_RE = new RegExp(
-    `^(.*\\.(?:${MACRO_CONTAINER_EXTENSION_PATTERN}))/([^/]+)\\.bas$`,
+    `^(.*\\.(?:${MACRO_CONTAINER_EXTENSION_PATTERN}))/([^/]+)\\.(bas|form)$`,
     'i',
 );
 export const XLIDE_VBA_LANGUAGE_ID = 'xlide-vba';
@@ -122,9 +122,23 @@ export function encodeModuleUri(xlsmPath: string, moduleName: string): vscode.Ur
 }
 
 /**
+ * Encodes a form's MARKUP document: the same workbook path, the module name,
+ * and a .form suffix so the provider routes reads and saves to the designer
+ * rather than the code-behind.
+ */
+export function encodeFormMarkupUri(xlsmPath: string, moduleName: string): vscode.Uri {
+    const forward = xlsmPath.replace(/\\/g, '/');
+    const base = forward.startsWith('/') ? forward : `/${forward}`;
+    return vscode.Uri.from({
+        scheme: XLIDE_SCHEME,
+        path: `${base}/${moduleName}.form`,
+    });
+}
+
+/**
  * Decodes a virtual URI back to (xlsmPath, moduleName).
  */
-export function decodeModuleUri(uri: vscode.Uri): { xlsmPath: string; moduleName: string } {
+export function decodeModuleUri(uri: vscode.Uri): { xlsmPath: string; moduleName: string; face?: 'code' | 'form' } {
     const p = uri.path;
     // Match the macro-container boundary in the path: any extension the
     // engine opens (.xlsm through .accdb), so modules from every container
@@ -135,13 +149,14 @@ export function decodeModuleUri(uri: vscode.Uri): { xlsmPath: string; moduleName
     }
     let rawPath = match[1]; // e.g. /C:/Users/.../workbook.xlsm
     const moduleName = decodeURIComponent(match[2]);
+    const face = match[3]?.toLowerCase() === 'form' ? 'form' as const : 'code' as const;
 
     // On Windows, the leading slash before the drive letter is artificial
     if (process.platform === 'win32' && /^\/[A-Za-z]:/.test(rawPath)) {
         rawPath = rawPath.slice(1);
     }
     const xlsmPath = rawPath.replace(/\//g, path.sep);
-    return { xlsmPath, moduleName };
+    return { xlsmPath, moduleName, face };
 }
 
 /**
@@ -226,13 +241,20 @@ export class XlideFileSystemProvider
     // ------------------------------------------------------------------
 
     async readFile(uri: vscode.Uri): Promise<Uint8Array> {
-        const { xlsmPath, moduleName } = decodeModuleUri(uri);
+        const { xlsmPath, moduleName, face } = decodeModuleUri(uri);
         const trace = startPerformanceTrace('filesystem.readFile', moduleName);
         try {
-            const result = await this._bridge.call<{ source: string }>(
-                'readModule',
-                { path: xlsmPath, module: moduleName },
-            );
+            // A .form document is the designer's markup projection; .bas is
+            // the module's code. Same workbook, two faces.
+            const result = face === 'form'
+                ? { source: (await this._bridge.call<{ markup: string }>(
+                    'readFormMarkup',
+                    { path: xlsmPath, module: moduleName },
+                )).markup }
+                : await this._bridge.call<{ source: string }>(
+                    'readModule',
+                    { path: xlsmPath, module: moduleName },
+                );
             const bytes = Buffer.from(result.source, 'utf-8');
             this.updateSize(uri, bytes.byteLength);
             trace.end('ok', moduleName);
@@ -253,13 +275,68 @@ export class XlideFileSystemProvider
         }
     }
 
+    /**
+     * Saves a `.form` document: the whole edited markup goes to the engine,
+     * which parses it entirely first (a parse error applies nothing), diffs
+     * it against the designer by control name, and writes only what changed.
+     */
+    private async applyFormMarkupDocument(
+        uri: vscode.Uri,
+        xlsmPath: string,
+        moduleName: string,
+        markup: string,
+    ): Promise<void> {
+        const trace = startPerformanceTrace('filesystem.applyFormMarkup', moduleName);
+        try {
+            const result = await runWriteWithExcelCoordination(xlsmPath, () =>
+                this._bridge.call<{ ok: boolean; signatureDropped: boolean; applied: string[] }>(
+                    'applyFormMarkup',
+                    { path: xlsmPath, module: moduleName, markup },
+                ),
+            );
+            notifySignatureDropped(xlsmPath, result.signatureDropped);
+            this.updateSize(uri, Buffer.byteLength(markup, 'utf-8'));
+            recordXlideWriteAudit({
+                timestamp: new Date().toISOString(),
+                command: 'xlide.editorSave',
+                operation: 'apply-form-markup',
+                outcome: 'succeeded',
+                workbookPath: xlsmPath,
+                moduleName,
+                summary: result.applied.length
+                    ? `Apply form markup: ${result.applied.join('; ')}`
+                    : 'Apply form markup: no changes',
+            });
+            trace.end('ok', moduleName);
+        } catch (err) {
+            trace.end('failed', moduleName);
+            recordXlideWriteAudit({
+                timestamp: new Date().toISOString(),
+                command: 'xlide.editorSave',
+                operation: 'apply-form-markup',
+                outcome: 'failed',
+                workbookPath: xlsmPath,
+                moduleName,
+                summary: `Apply form markup failed: ${errorMessage(err)}`,
+            });
+            // Surface the engine's own message (line-numbered for markup
+            // errors) instead of a generic save failure.
+            void vscode.window.showErrorMessage(`XLIDE: ${errorMessage(err)}`);
+            throw vscode.FileSystemError.Unavailable(errorMessage(err));
+        }
+    }
+
     async writeFile(
         uri: vscode.Uri,
         content: Uint8Array,
         _options: { create: boolean; overwrite: boolean },
     ): Promise<void> {
         const source = Buffer.from(content).toString('utf-8');
-        const { xlsmPath, moduleName } = decodeModuleUri(uri);
+        const { xlsmPath, moduleName, face } = decodeModuleUri(uri);
+        if (face === 'form') {
+            await this.applyFormMarkupDocument(uri, xlsmPath, moduleName, source);
+            return;
+        }
         // A rename's own edits and a developer pressing Save arrive here alike.
         // The rename registers the writes it is about to cause; anything else
         // means its before-images are stale and must not be restored over the

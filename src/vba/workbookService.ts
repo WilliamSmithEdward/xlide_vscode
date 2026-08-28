@@ -10,6 +10,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Cfb } from './cfb';
 import { decodeCodePage, encodeCodePage } from './codePages';
+import { parseFormPackage, writeFormPackage } from './oforms/formPackage';
+import { printFormMarkup as printOformsMarkup, parseFormMarkup as parseOformsMarkup, applyFormMarkup as applyOformsMarkup } from './oforms/markup';
+import { composeNewForm } from './oforms/newForm';
+import type { OformsTextCodec } from './oforms/records';
 import {
 	composeFormFrx,
 	composeFrmDesignerBlock,
@@ -465,6 +469,120 @@ export function writeFormDesigner(
 }
 
 const VBFRAME_STREAM = '\x03VBFrame';
+
+/** MBCS/UTF-16 codec bound to one project's code page. */
+function oformsCodec(codePage: number): OformsTextCodec {
+	return {
+		decode: (bytes, compressed) =>
+			compressed ? decodeCodePage(bytes, codePage) : bytes.toString('utf16le'),
+		encode: (text, compressed) =>
+			compressed ? encodeCodePage(text, codePage) : Buffer.from(text, 'utf16le'),
+	};
+}
+
+/**
+ * A form's design, projected to XLIDE form markup. Read natively from the
+ * designer storage; no host is involved.
+ */
+export function readFormMarkup(filePath: string, moduleName: string): { markup: string } {
+	const { cfb, project } = openWorkbook(filePath);
+	const module = project.getModule(moduleName);
+	if (!module) {
+		throw new Error(`Module not found: ${moduleName}`);
+	}
+	if (!cfb.hasStoragePath([module.name])) {
+		throw new Error(`Module has no designer storage: ${moduleName}`);
+	}
+	const pkg = parseFormPackage(cfb, [module.name], oformsCodec(project.codePage));
+	const frame = decodeCodePage(cfb.getStreamInStorage(module.name, VBFRAME_STREAM), project.codePage);
+	const captionFallback = /^\s*Caption\s*=\s*"([^"]*)"/m.exec(frame)?.[1];
+	return { markup: printOformsMarkup(pkg, module.name, { captionFallback }) };
+}
+
+/**
+ * Applies an edited markup document back to the form's designer storage.
+ * The document parses whole first - a parse error applies nothing - and the
+ * apply is a name-keyed diff, so an unspoken property is never touched.
+ */
+export function applyFormMarkup(
+	filePath: string,
+	moduleName: string,
+	markup: string,
+): WriteResult & { applied: string[] } {
+	const root = parseOformsMarkup(markup);
+	const wb = openWorkbookForWrite(filePath);
+	const signatureDropped = detectSignature(wb.cfb).present;
+	const module = wb.project.getModule(moduleName);
+	if (!module) {
+		throw new Error(`Module not found: ${moduleName}`);
+	}
+	if (!wb.cfb.hasStoragePath([module.name])) {
+		throw new Error(`Module has no designer storage: ${moduleName}`);
+	}
+	const codec = oformsCodec(wb.project.codePage);
+	const pkg = parseFormPackage(wb.cfb, [module.name], codec);
+	const outcome = applyOformsMarkup(pkg, root);
+
+	// The form's own caption is persisted in the VBFrame text, so the
+	// document's <Form Caption> diffs against that rather than the f record.
+	const frame = decodeCodePage(wb.cfb.getStreamInStorage(module.name, VBFRAME_STREAM), wb.project.codePage);
+	const currentCaption = /^\s*Caption\s*=\s*"([^"]*)"/m.exec(frame)?.[1];
+	const documentCaption = root.attrs.get('Caption');
+	let vbFrameUpdated: string | undefined;
+	if (documentCaption !== undefined && currentCaption !== undefined && documentCaption !== currentCaption) {
+		vbFrameUpdated = frame.replace(
+			/^(\s*Caption\s*=\s*)"[^"]*"/m,
+			`$1"${documentCaption.replace(/"/g, '')}"`,
+		);
+		outcome.applied.push('Caption of the form');
+	}
+
+	if (outcome.applied.length === 0) {
+		return { ok: true, signatureDropped: false, applied: [] };
+	}
+	writeFormPackage(wb.cfb, [module.name], pkg, codec);
+	if (vbFrameUpdated !== undefined) {
+		wb.cfb.writeStreamInStorage(module.name, VBFRAME_STREAM, encodeCodePage(vbFrameUpdated, wb.project.codePage));
+	}
+	saveWorkbook(filePath, wb);
+	return { ok: true, signatureDropped, applied: outcome.applied };
+}
+
+/**
+ * Creates a UserForm module natively: the module stream with its exported
+ * header, the BaseClass registration, and a designer storage holding a
+ * minimal FormControl, an empty object stream, the VBFrame, and the Forms
+ * 2.0 CompObj - the same shape live Excel writes for a new form.
+ */
+export function addFormModule(
+	filePath: string,
+	moduleName: string,
+	body = '',
+): WriteResult {
+	const wb = openWorkbookForWrite(filePath);
+	const signatureDropped = detectSignature(wb.cfb).present;
+	if (wb.project.getModule(moduleName)) {
+		throw new Error(`Module already exists: ${moduleName}`);
+	}
+	assertFoldedNameDistinct(wb.project.modules, wb.project.codePage, moduleName);
+	if (wb.cfb.hasStoragePath([moduleName])) {
+		throw new Error(`A designer storage named ${moduleName} already exists.`);
+	}
+	const streams = composeNewForm({ name: moduleName });
+	wb.project.addModule(
+		moduleName,
+		joinVbaSource(streams.header, body),
+		'other',
+		{ projectKeyword: 'BaseClass' },
+	);
+	wb.cfb.addStorageAtPath([], moduleName);
+	wb.cfb.setStreamAtPath([moduleName], 'f', streams.f);
+	wb.cfb.setStreamAtPath([moduleName], 'o', streams.o);
+	wb.cfb.setStreamAtPath([moduleName], VBFRAME_STREAM, encodeCodePage(streams.vbFrame, wb.project.codePage));
+	wb.cfb.setStreamAtPath([moduleName], '\x01CompObj', streams.compObj);
+	saveWorkbook(filePath, wb);
+	return { ok: true, signatureDropped };
+}
 
 /** The designer storage's streams for a module, or undefined when it has none. */
 function readDesignerStorage(

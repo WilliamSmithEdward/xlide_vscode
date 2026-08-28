@@ -199,7 +199,7 @@ export class VbaProject {
 	private projectStreamRaw: Buffer | undefined;
 	private readonly dirtySources = new Set<string>();
 	private readonly renames = new Map<string, string>();
-	private readonly added: Array<{ name: string; kind: VbaModuleKind }> = [];
+	private readonly added: Array<{ name: string; kind: VbaModuleKind; projectKeyword?: string }> = [];
 	private readonly deleted = new Set<string>();
 	private readonly removedStreams: string[] = [];
 	private readonly renamedStreams: Array<[string, string]> = [];
@@ -384,7 +384,12 @@ export class VbaProject {
 		this.dirtySources.add(module.name.toLowerCase());
 	}
 
-	addModule(name: string, source: string, kind: VbaModuleKind): VbaModule {
+	addModule(
+		name: string,
+		source: string,
+		kind: VbaModuleKind,
+		options: { projectKeyword?: string } = {},
+	): VbaModule {
 		if (this.getModule(name)) {
 			throw new VbaProjectError(`Module already exists: ${name}`);
 		}
@@ -407,7 +412,7 @@ export class VbaProject {
 		};
 		defineEagerSource(module, source);
 		this.modules.push(module);
-		this.added.push({ name, kind });
+		this.added.push({ name, kind, projectKeyword: options.projectKeyword });
 		this.dirtySources.add(name.toLowerCase());
 		return module;
 	}
@@ -483,7 +488,10 @@ export class VbaProject {
 
 		if (this.projectStreamRaw && (this.renames.size > 0 || this.added.length > 0 || this.deleted.size > 0)) {
 			const updated = serializeProjectStream(this.projectStreamRaw, this.renames, {
-				addModules: this.added.map((a) => [a.name, a.kind === 'standard' ? 'Module' : 'Class'] as [string, string]),
+				// A form registers as BaseClass, which is what MAKES it a form to
+				// the VBE; classes and modules keep their own keywords.
+				addModules: this.added.map((a) =>
+					[a.name, a.projectKeyword ?? (a.kind === 'standard' ? 'Module' : 'Class')] as [string, string]),
 				deleteNames: this.deleted,
 				codePage: this.codePage,
 			});

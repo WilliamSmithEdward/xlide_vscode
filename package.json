@@ -255,6 +255,18 @@
         "icon": "$(symbol-class)"
       },
       {
+        "command": "xlide.newUserForm",
+        "title": "Add UserForm",
+        "category": "XLIDE",
+        "icon": "$(window)"
+      },
+      {
+        "command": "xlide.openFormMarkup",
+        "title": "Open Form Markup",
+        "category": "XLIDE",
+        "icon": "$(layout)"
+      },
+      {
         "command": "xlide.deleteModule",
         "title": "Delete Module",
         "category": "XLIDE"
@@ -430,6 +442,16 @@
           "command": "xlide.newClassModule",
           "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument)$/",
           "group": "1_create@2"
+        },
+        {
+          "command": "xlide.newUserForm",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument)$/",
+          "group": "1_create@3"
+        },
+        {
+          "command": "xlide.openFormMarkup",
+          "when": "view == xlide.explorer && viewItem =~ /^module-userform(-agent-pending)?$/",
+          "group": "2_edit@1"
         },
         {
           "command": "xlide.renameModule",

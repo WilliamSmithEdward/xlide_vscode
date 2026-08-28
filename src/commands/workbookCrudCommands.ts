@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { takeRenameForUndo } from '../vbaRenameHistory';
 import * as path from 'path';
 import {
+    encodeFormMarkupUri,
     encodeModuleUri,
     isWorkbookLockedError,
     reportWorkbookLocked,
@@ -28,6 +29,7 @@ import {
     writeWorkbookModule,
 } from '../workbookModuleOperations';
 import { registerXlideCommand } from '../xlideCommandRegistration';
+import { runWriteWithExcelCoordination } from '../excelWorkbookCoordinator';
 import type { XlideNode } from '../xlsmExplorer';
 import {
     logChangeSummary,
@@ -248,6 +250,60 @@ export function registerWorkbookCrudCommands(deps: CommandDeps): vscode.Disposab
                     error: err,
                 });
                 surfaceWorkbookWriteError(node.filePath, err, 'XLIDE: Failed to create class module');
+            }
+        }),
+
+        // Add a new UserForm: the module with its code-behind and a designer
+        // storage authored natively - no Office application is involved.
+        registerXlideCommand('xlide.newUserForm', async (node: XlideNode) => {
+            if (node?.kind !== 'xlsm') { return; }
+            const name = await promptForNewModuleName(bridge, node.filePath, {
+                prompt: 'New UserForm name',
+                placeHolder: 'FrmMain',
+            });
+            if (!name) { return; }
+            try {
+                await runWriteWithExcelCoordination(node.filePath, () =>
+                    bridge.call('addForm', { path: node.filePath, module: name, source: 'Option Explicit\r\n' }));
+                const summaryText = logChangeSummary(log, 'newUserForm', {
+                    operation: 'Create UserForm',
+                    changed: [name],
+                });
+                recordWriteAudit({
+                    command: 'xlide.newUserForm',
+                    operation: 'create-userform',
+                    outcome: 'succeeded',
+                    workbookPath: node.filePath,
+                    moduleName: name,
+                    summary: summaryText,
+                });
+                explorer.refresh();
+                const doc = await vscode.workspace.openTextDocument(encodeFormMarkupUri(node.filePath, name));
+                await vscode.languages.setTextDocumentLanguage(doc, 'xml');
+                await vscode.window.showTextDocument(doc, { preview: false });
+            } catch (err) {
+                recordWriteAudit({
+                    command: 'xlide.newUserForm',
+                    operation: 'create-userform',
+                    outcome: 'failed',
+                    workbookPath: node.filePath,
+                    moduleName: name,
+                    summary: 'Create UserForm: 0 changed, 1 failed',
+                    error: err,
+                });
+                surfaceWorkbookWriteError(node.filePath, err, 'XLIDE: Failed to create UserForm');
+            }
+        }),
+
+        // Open a form's markup projection beside its code-behind.
+        registerXlideCommand('xlide.openFormMarkup', async (node: XlideNode) => {
+            if (node?.kind !== 'module' || node.moduleType !== 'userform' || !node.moduleName) { return; }
+            try {
+                const doc = await vscode.workspace.openTextDocument(encodeFormMarkupUri(node.filePath, node.moduleName));
+                await vscode.languages.setTextDocumentLanguage(doc, 'xml');
+                await vscode.window.showTextDocument(doc, { preview: false });
+            } catch (err) {
+                void vscode.window.showErrorMessage(`XLIDE: ${errorMessage(err)}`);
             }
         }),
 
