@@ -4,6 +4,19 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **Controls drag between containers.** Carry a control over a different
+  surface - the form face, a Frame, a Page - and the prospective home
+  outlines; the drop moves it there, the VBE's own gesture. The site, its
+  record bytes, and (for a Frame or MultiPage) its entire nested storage move
+  intact, so every property and child survives; position maps into the new
+  surface, tab order joins the end of the target's, and group membership
+  stays behind with the old container. Pages keep their MultiPage, a
+  container never lands inside itself, and an ActiveX control - whose class
+  entry lives in its container - stays put. Verified in live Excel: a form
+  with a button moved into a frame, and that frame (button aboard) moved
+  onto a page, instantiates with every parent correct and the control count
+  identical to the untouched fixture's.
+
 - **The form itself is selectable and resizable.** Click the empty face to
   activate the form: a dashed outline, and resize handles on the east, south,
   and southeast edges - the ones a form can grow by, since position is not a

@@ -1280,7 +1280,7 @@ function addControl(
 	outcome.applied.push(`added ${kind} ${name}`);
 }
 
-function nextTabIndex(pkg: FormPackage): number {
+export function nextTabIndex(pkg: FormPackage): number {
 	let max = -1;
 	for (const site of pkg.form.sites) {
 		const t = site.values.get('TabIndex');

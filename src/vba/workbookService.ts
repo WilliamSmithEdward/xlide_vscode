@@ -18,6 +18,7 @@ import { renderFormPreviewHtml } from './oforms/preview';
 import {
 	addControlAt as designerAddControlAt,
 	removeControl as designerRemoveControl,
+	reparentControl as designerReparentControl,
 	setControlGeometry as designerSetControlGeometry,
 	setFormSize as designerSetFormSize,
 } from './oforms/designerOps';
@@ -622,6 +623,7 @@ export function applyFormDesignerOp(
 		| { kind: 'geometry'; name: string; left?: number; top?: number; width?: number; height?: number }
 		| { kind: 'add'; container: string; controlKind: string; left: number; top: number }
 		| { kind: 'remove'; name: string }
+		| { kind: 'reparent'; name: string; container: string; left: number; top: number }
 		| { kind: 'formSize'; width: number; height: number },
 ): WriteResult & { newName?: string } {
 	const wb = openWorkbookForWrite(filePath);
@@ -645,6 +647,8 @@ export function applyFormDesignerOp(
 		newName = designerAddControlAt(pkg, op.container, op.controlKind, op.left, op.top);
 	} else if (op.kind === 'remove') {
 		designerRemoveControl(pkg, op.name);
+	} else if (op.kind === 'reparent') {
+		designerReparentControl(pkg, op.name, op.container, op.left, op.top);
 	} else {
 		designerSetFormSize(pkg, op.width, op.height);
 		// The VBFrame's client box repeats the size in twips and must follow.

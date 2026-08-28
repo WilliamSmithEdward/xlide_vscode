@@ -27,6 +27,7 @@ type DesignerMessage =
 	| { type: 'geometry'; name: string; left?: number; top?: number; width?: number; height?: number }
 	| { type: 'add'; container: string; controlKind: string; left: number; top: number }
 	| { type: 'remove'; name: string }
+	| { type: 'reparent'; name: string; container: string; left: number; top: number }
 	| { type: 'formResize'; width: number; height: number };
 
 export function registerFormPreview(
@@ -63,9 +64,11 @@ export function registerFormPreview(
 			? { kind: 'geometry' as const, name: message.name, left: message.left, top: message.top, width: message.width, height: message.height }
 			: message.type === 'add'
 				? { kind: 'add' as const, container: message.container, controlKind: message.controlKind, left: message.left, top: message.top }
-				: message.type === 'formResize'
-					? { kind: 'formSize' as const, width: message.width, height: message.height }
-					: { kind: 'remove' as const, name: message.name };
+				: message.type === 'reparent'
+					? { kind: 'reparent' as const, name: message.name, container: message.container, left: message.left, top: message.top }
+					: message.type === 'formResize'
+						? { kind: 'formSize' as const, width: message.width, height: message.height }
+						: { kind: 'remove' as const, name: message.name };
 		try {
 			const result = await runWriteWithExcelCoordination(xlsmPath, () =>
 				bridge.call<{ ok: boolean; signatureDropped: boolean; newName?: string }>(
@@ -81,9 +84,11 @@ export function registerFormPreview(
 				moduleName,
 				summary: message.type === 'add'
 					? `Designer: added ${op.kind === 'add' ? op.controlKind : ''} ${result.newName ?? ''}`
-					: message.type === 'formResize'
-						? `Designer: form resized to ${message.width}x${message.height}pt`
-						: `Designer: ${message.type} ${'name' in message ? message.name : ''}`,
+					: message.type === 'reparent'
+						? `Designer: moved ${message.name} into ${message.container || 'the form'}`
+						: message.type === 'formResize'
+							? `Designer: form resized to ${message.width}x${message.height}pt`
+							: `Designer: ${message.type} ${'name' in message ? message.name : ''}`,
 			});
 			// The markup document is another face of the same form; a canvas
 			// gesture must reach an open one the way an agent edit reaches code.

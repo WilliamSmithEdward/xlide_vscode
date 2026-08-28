@@ -297,6 +297,7 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.placing, .placing .ctl { cursor: crosshair !important; }
 	.ghost { position: absolute; border: 1px dashed #0e639c; background: rgba(14, 99, 156, 0.12);
 		z-index: 6; pointer-events: none; }
+	.drop-target { outline: 2px solid #0e639c; outline-offset: -2px; }
 </style>
 </head>
 <body>
@@ -579,6 +580,16 @@ ${interactive ? `	<script>
 					if (hit !== null) { top += hit - edge; drawGuide(drag.el.parentElement, 'h', hit); break; }
 				}
 				setGeometry(drag.el, { left: Math.max(0, left), top: Math.max(0, top) });
+				// Carrying over a DIFFERENT surface offers reparenting: the
+				// prospective home lights up, and the drop lands there. The
+				// carried control is pointer-transparent, so the hit test sees
+				// through it and a Frame can never offer itself.
+				document.querySelectorAll('.drop-target').forEach((s) => s.classList.remove('drop-target'));
+				if (drag.moved) {
+					const under = document.elementFromPoint(e.clientX, e.clientY);
+					const over = under && under.closest('[data-surface]');
+					if (over && over !== drag.el.parentElement) { over.classList.add('drop-target'); }
+				}
 			} else {
 				const g = { ...drag.start };
 				const dir = drag.dir;
@@ -601,7 +612,7 @@ ${interactive ? `	<script>
 			layHandles();
 		});
 
-		document.addEventListener('pointerup', () => {
+		document.addEventListener('pointerup', (e) => {
 			if (formDrag) {
 				const width = parseFloat(client.style.width);
 				const height = parseFloat(client.style.height);
@@ -619,6 +630,25 @@ ${interactive ? `	<script>
 			if (client) {
 				client.classList.remove('gesture-move', 'gesture-resize');
 				client.style.cursor = '';
+			}
+			document.querySelectorAll('.drop-target').forEach((s) => s.classList.remove('drop-target'));
+			if (drag.kind === 'move' && drag.moved) {
+				const under = document.elementFromPoint(e.clientX, e.clientY);
+				const surf = under && under.closest('[data-surface]');
+				if (surf && surf !== drag.el.parentElement) {
+					// The drop crossed containers: map the carried position into
+					// the new surface and let the engine move the site there.
+					const rect = drag.el.getBoundingClientRect();
+					const srect = surf.getBoundingClientRect();
+					let left = px2pt(rect.left - srect.left);
+					let top = px2pt(rect.top - srect.top);
+					if (gridOn()) { left = Math.round(left / GRID) * GRID; top = Math.round(top / GRID) * GRID; }
+					post({ type: 'reparent', name: drag.el.dataset.name, container: surf.dataset.surface,
+						left: Math.max(0, left), top: Math.max(0, top) });
+					drag = null;
+					delete document.body.dataset.dragging;
+					return;
+				}
 			}
 			const g = geometryOf(drag.el);
 			const name = drag.el.dataset.name;

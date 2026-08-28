@@ -12,8 +12,10 @@ import { walkPackages, type FormPackage } from './formPackage';
 import {
 	addControlForDesigner,
 	FormMarkupError,
+	nextTabIndex,
 	type MarkupElement,
 } from './markup';
+import { setRecordValue } from './records';
 
 export interface ControlLocation {
 	pkg: FormPackage;
@@ -200,6 +202,78 @@ export function removeControl(root: FormPackage, name: string): void {
 	pkg.entries = pkg.entries.filter((e) => e.site !== site);
 	pkg.containers.delete(siteId(site));
 	pkg.form.sitesStructurallyChanged = true;
+}
+
+/**
+ * Moves one control onto a different surface - the VBE's drag between
+ * containers. The site, its record bytes, and (for a container) its whole
+ * nested storage move intact, so every property survives; only position,
+ * TabIndex, and group membership answer to the new home. Pages stay with
+ * their MultiPage, and a container never lands inside itself.
+ */
+export function reparentControl(
+	root: FormPackage,
+	name: string,
+	containerName: string,
+	leftPt: number,
+	topPt: number,
+): void {
+	const location = findControl(root, name);
+	if (!location) {
+		throw new FormMarkupError(0, `no control named ${name}`);
+	}
+	const { pkg: source, site, entry } = location;
+	if (siteCacheIndex(site) === 7) {
+		throw new FormMarkupError(0, `${name} is a Page; pages stay inside their MultiPage`);
+	}
+	if ((siteCacheIndex(site) & 0x8000) !== 0) {
+		// A class-table index points into ITS container's SiteClassInfo list;
+		// the entry does not exist in the target, so the site cannot move.
+		throw new FormMarkupError(0, `${name}: an ActiveX control's class entry lives in its container and cannot move`);
+	}
+	const target = findSurface(root, containerName);
+	if (!target) {
+		throw new FormMarkupError(0, `no container named ${containerName}`);
+	}
+	if (target === source) {
+		// The same surface: an ordinary move.
+		setControlGeometry(root, name, { left: leftPt, top: topPt });
+		return;
+	}
+	const subtree = siteIsContainer(site) ? source.containers.get(siteId(site)) : undefined;
+	if (subtree) {
+		let cyclic = false;
+		walkPackages(subtree, (p) => { if (p === target) { cyclic = true; } });
+		if (cyclic) {
+			throw new FormMarkupError(0, `${name} cannot move into itself`);
+		}
+	}
+
+	source.form.sites = source.form.sites.filter((s) => s !== site);
+	source.entries = source.entries.filter((e) => e.site !== site);
+	source.containers.delete(siteId(site));
+	source.form.sitesStructurallyChanged = true;
+
+	// Tab order joins the end of the target's, as the VBE assigns on a drop,
+	// and a group stays behind with its container. The ShapeCookie rule from
+	// the page-binding work applies to any surface gaining its first control.
+	if (site.values.get('TabIndex') !== undefined) {
+		site.values.set('TabIndex', nextTabIndex(target));
+	}
+	if ((site.values.get('GroupID') ?? 0) !== 0) {
+		site.values.set('GroupID', 0);
+	}
+	if (target.form.record.values.get('ShapeCookie') === undefined) {
+		setRecordValue(target.form.record, 'ShapeCookie', 1);
+	}
+	target.form.sites.push(site);
+	target.entries.push(entry);
+	if (subtree) { target.containers.set(siteId(site), subtree); }
+	target.form.sitesStructurallyChanged = true;
+
+	// Position is container-relative; the drop names the point in the new one.
+	site.position = { left: pointsToHimetric(leftPt), top: pointsToHimetric(topPt) };
+	site.mask = (site.mask | (1 << 8)) >>> 0;
 }
 
 /** Resizes the form's own client area, in points. */

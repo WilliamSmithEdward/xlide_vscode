@@ -119,6 +119,58 @@ describe('removal', () => {
 	});
 });
 
+describe('reparent', () => {
+	const between = (markup: string, name: string, openTag: RegExp, closeTag: string): boolean => {
+		const open = markup.search(openTag);
+		const close = markup.indexOf(closeTag, open);
+		const at = markup.indexOf(`Name="${name}"`);
+		return open >= 0 && at > open && at < close;
+	};
+
+	it('moves a top-level control into a Frame', () => {
+		const wb = workbook();
+		applyFormDesignerOp(wb, 'EntryForm', { kind: 'reparent', name: 'OkButton', container: 'Options', left: 12, top: 48 });
+		resetWorkbookCacheForTests();
+		const markup = readFormMarkup(wb, 'EntryForm').markup;
+		expect(between(markup, 'OkButton', /<Frame Name="Options"/, '</Frame>')).toBe(true);
+		expect(markup).toContain('<CommandButton Name="OkButton" Left="12" Top="48"');
+	});
+
+	it('moves a nested control out to the form', () => {
+		const wb = workbook();
+		applyFormDesignerOp(wb, 'EntryForm', { kind: 'reparent', name: 'PickAir', container: '', left: 200, top: 6 });
+		resetWorkbookCacheForTests();
+		const markup = readFormMarkup(wb, 'EntryForm').markup;
+		expect(between(markup, 'PickAir', /<Frame Name="Options"/, '</Frame>')).toBe(false);
+		expect(markup).toContain('<OptionButton Name="PickAir" Left="200" Top="6"');
+	});
+
+	it('moves a whole Frame onto a Page, children intact', () => {
+		const wb = workbook();
+		applyFormDesignerOp(wb, 'EntryForm', { kind: 'reparent', name: 'Options', container: 'Page1', left: 6, top: 6 });
+		resetWorkbookCacheForTests();
+		const markup = readFormMarkup(wb, 'EntryForm').markup;
+		expect(between(markup, 'Options', /<Page Name="Page1"/, '</Page>')).toBe(true);
+		expect(between(markup, 'PickAir', /<Frame Name="Options"/, '</Frame>')).toBe(true);
+	});
+
+	it('treats a drop on its own surface as a plain move', () => {
+		const wb = workbook();
+		applyFormDesignerOp(wb, 'EntryForm', { kind: 'reparent', name: 'OkButton', container: '', left: 111, top: 222 });
+		resetWorkbookCacheForTests();
+		expect(readFormMarkup(wb, 'EntryForm').markup)
+			.toContain('<CommandButton Name="OkButton" Left="111" Top="222"');
+	});
+
+	it('refuses to move a Page, and a Frame into itself', () => {
+		const wb = workbook();
+		expect(() => applyFormDesignerOp(wb, 'EntryForm', { kind: 'reparent', name: 'Page2', container: '', left: 0, top: 0 }))
+			.toThrow(/pages stay inside their MultiPage/);
+		expect(() => applyFormDesignerOp(wb, 'EntryForm', { kind: 'reparent', name: 'Options', container: 'Options', left: 0, top: 0 }))
+			.toThrow(/cannot move into itself/);
+	});
+});
+
 describe('form resize', () => {
 	it('resizes the client area and keeps the VBFrame in step', () => {
 		const wb = workbook();
@@ -163,6 +215,12 @@ describe('the interactive canvas contract', () => {
 		const { html } = readFormPreview(workbook(), 'EntryForm');
 		expect(html).toContain('body.grid-on [data-surface]::before');
 		expect(html).toContain('syncGridDots');
+	});
+
+	it('offers cross-surface drops in the gesture script', () => {
+		const { html } = readFormPreview(workbook(), 'EntryForm');
+		expect(html).toContain("type: 'reparent'");
+		expect(html).toContain('.drop-target');
 	});
 
 	it('activates the form itself when the selection is the empty name', () => {
