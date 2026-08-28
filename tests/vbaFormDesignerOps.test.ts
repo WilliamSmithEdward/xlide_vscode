@@ -213,6 +213,37 @@ describe('property writes', () => {
 		expect(readFormMarkup(wb, 'EntryForm').markup).not.toContain('Enabled=');
 	});
 
+	it('writes alignment, list behavior, combo style, and the extra font effects', () => {
+		const wb = workbook();
+		set(wb, 'NameLabel', 'TextAlign', 'Center');
+		set(wb, 'NameBox', 'TextAlign', 'Right');
+		set(wb, 'NameBox', 'Font.Underline', 'True');
+		set(wb, 'NameBox', 'Font.Strikethrough', 'True');
+		set(wb, 'HistoryList', 'MultiSelect', '1');
+		set(wb, 'HistoryList', 'ColumnCount', '2');
+		set(wb, 'RegionPick', 'Style', '2');
+		resetWorkbookCacheForTests();
+		const markup = readFormMarkup(wb, 'EntryForm').markup;
+		expect(markup).toMatch(/Name="NameLabel"[^>]*TextAlign="Center"/);
+		expect(markup).toMatch(/Name="NameBox"[^>]*TextAlign="Right"/);
+		expect(markup).toMatch(/Name="NameBox"[^>]*Font\.Underline="True"/);
+		expect(markup).toMatch(/Name="NameBox"[^>]*Font\.Strikethrough="True"/);
+		expect(markup).toMatch(/Name="HistoryList"[^>]*MultiSelect="1"/);
+		expect(markup).toMatch(/Name="HistoryList"[^>]*ColumnCount="2"/);
+		expect(markup).toMatch(/Name="RegionPick"[^>]*Style="2"/);
+		// Style back to the dropdown combo goes quiet again.
+		set(wb, 'RegionPick', 'Style', '0');
+		resetWorkbookCacheForTests();
+		expect(readFormMarkup(wb, 'EntryForm').markup).not.toContain('Style=');
+	});
+
+	it('refuses alignment and style where they do not belong', () => {
+		const wb = workbook();
+		expect(() => set(wb, 'NameBox', 'TextAlign', 'Justified')).toThrow(/not Left, Center, or Right/);
+		expect(() => set(wb, 'NameBox', 'Style', '2')).toThrow(/has no Style/);
+		expect(() => set(wb, 'RegionPick', 'Style', '1')).toThrow(/not 0 or 2/);
+	});
+
 	it('refuses a flag the kind does not carry', () => {
 		const wb = workbook();
 		expect(() => set(wb, 'OkButton', 'MultiLine', 'True')).toThrow(/has no MultiLine/);

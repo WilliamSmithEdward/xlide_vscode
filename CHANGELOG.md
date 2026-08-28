@@ -4,6 +4,20 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **TextAlign, the list behaviors, ComboBox Style, and the last two font
+  effects joined the dialect and the pane.** TextAlign speaks words - Left,
+  Center, Right - because the stored PARAFORMAT_Alignment and VBA's
+  TextAlign enum number the same three positions differently, and a bare
+  number would mean two things; it applies to the kinds whose VBA surface
+  has the property (a CommandButton stores an alignment but exposes none, so
+  the dialect stays silent there). MultiSelect, ColumnCount, and ListStyle
+  print for list and combo boxes as stored numerics; ComboBox Style="2" is
+  the drop-down list (DisplayStyle 7), quiet when it is the plain combo; and
+  Font.Underline / Font.Strikethrough round out the effects. Verified in
+  live Excel: a centered label, a right-aligned underlined text box, a
+  multi-select two-column list, and a drop-list combo all answer with the
+  exact VBA enum values.
+
 - **The everyday booleans joined the dialect: Enabled, Locked, MultiLine,
   WordWrap, AutoSize, Visible, TabStop, Default, and Cancel.** They live in
   two bitfields - the control record's VariousPropertyBits and the site's

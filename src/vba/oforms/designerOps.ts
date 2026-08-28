@@ -23,6 +23,7 @@ import {
 	PRINTED_FIELDS,
 	SITE_BITFLAGS_DEFAULT,
 	SITE_FLAGS,
+	TEXT_ALIGN_KINDS,
 	VPB_FLAGS,
 	type ApplyOutcome,
 	type MarkupElement,
@@ -316,6 +317,8 @@ function fontRows(record: ParsedRecord): PropertyRow[] {
 		{ prop: 'Font.Size', value: height !== undefined && recordHas(tp, 'FontHeight') ? String(Math.round((height / 20) * 100) / 100) : '' },
 		{ prop: 'Font.Bold', value: bold ? 'True' : '' },
 		{ prop: 'Font.Italic', value: (effects & 0x2) !== 0 ? 'True' : '' },
+		{ prop: 'Font.Underline', value: (effects & 0x4) !== 0 ? 'True' : '' },
+		{ prop: 'Font.Strikethrough', value: (effects & 0x8) !== 0 ? 'True' : '' },
 	];
 }
 
@@ -360,6 +363,14 @@ function recordControlRows(kind: string, site: SiteModel, record: ParsedRecord):
 		if (!record.spec.data.some((f) => f.name === field)) { continue; }
 		const v = record.values.get(field);
 		rows.push({ prop: field, value: v !== undefined && recordHas(record, field) && v !== 0 ? String.fromCharCode(v) : '' });
+	}
+	if (kind === 'ComboBox') {
+		rows.push({ prop: 'Style', value: record.values.get('DisplayStyle') === 7 ? '2' : '0' });
+	}
+	if (TEXT_ALIGN_KINDS.has(kind) && record.textProps) {
+		const pa = recordHas(record.textProps, 'ParagraphAlign')
+			? (record.textProps.values.get('ParagraphAlign') ?? 1) : 1;
+		rows.push({ prop: 'TextAlign', value: pa === 2 ? 'Right' : pa === 3 ? 'Center' : 'Left' });
 	}
 	const effectiveVpb = effectiveVariousPropertyBits(record, kind);
 	if (effectiveVpb !== undefined) {

@@ -139,8 +139,8 @@ export function encodeArrayStrings(captions: readonly string[]): Buffer {
 /** Numeric record fields printed per kind, in this order, when stored. */
 export const PRINTED_FIELDS: Readonly<Record<string, readonly string[]>> = {
 	TextBox: ['MaxLength', 'BorderStyle', 'SpecialEffect', 'ScrollBars'],
-	ComboBox: ['BorderStyle', 'SpecialEffect', 'ListRows'],
-	ListBox: ['BorderStyle', 'SpecialEffect'],
+	ComboBox: ['BorderStyle', 'SpecialEffect', 'ListRows', 'ColumnCount', 'ListStyle'],
+	ListBox: ['BorderStyle', 'SpecialEffect', 'MultiSelect', 'ColumnCount', 'ListStyle'],
 	CheckBox: ['SpecialEffect'],
 	OptionButton: ['SpecialEffect'],
 	ToggleButton: [],
@@ -178,6 +178,19 @@ export const VPB_FLAGS: ReadonlyArray<readonly [string, number, readonly string[
 	['AutoSize', 0x10000000, ['CheckBox', 'ComboBox', 'CommandButton', 'Label', 'OptionButton', 'TextBox', 'ToggleButton']],
 	['MultiLine', 0x80000000, ['TextBox']],
 ];
+
+// PARAFORMAT_Alignment ([MS-OFORMS] 2.5.60.1). VBA's TextAlign enum numbers
+// the same three positions DIFFERENTLY (center and right swap), so the
+// dialect speaks words and never a bare number.
+const TEXT_ALIGN_WORDS: Readonly<Record<number, string>> = { 1: 'Left', 2: 'Right', 3: 'Center' };
+const TEXT_ALIGN_VALUES: Readonly<Record<string, number>> = { left: 1, right: 2, center: 3 };
+
+// The kinds whose VBA surface exposes TextAlign. A CommandButton STORES a
+// ParagraphAlign (Excel writes 3, centered) but has no TextAlign property,
+// so the dialect stays silent about it there.
+export const TEXT_ALIGN_KINDS: ReadonlySet<string> = new Set([
+	'Label', 'TextBox', 'ComboBox', 'ListBox', 'CheckBox', 'OptionButton', 'ToggleButton',
+]);
 
 /** The stored-or-default VariousPropertyBits a control answers with. */
 export function effectiveVariousPropertyBits(record: ParsedRecord, kind: string): number | undefined {
@@ -329,6 +342,16 @@ function printChild(pkg: FormPackage, child: PrintableChild, lines: string[], de
 				attrs.push(`${field}="${v}"`);
 			}
 		}
+		const pa = record.textProps?.values.get('ParagraphAlign');
+		if (TEXT_ALIGN_KINDS.has(kind) && pa !== undefined && record.textProps
+			&& recordHas(record.textProps, 'ParagraphAlign') && pa !== 1 && TEXT_ALIGN_WORDS[pa]) {
+			attrs.push(`TextAlign="${TEXT_ALIGN_WORDS[pa]}"`);
+		}
+		if (kind === 'ComboBox' && recordHas(record, 'DisplayStyle')
+			&& record.values.get('DisplayStyle') === 7) {
+			// fmDisplayStyleDropList - VBA spells it Style 2 (fmStyleDropDownList).
+			attrs.push('Style="2"');
+		}
 		const effectiveVpb = effectiveVariousPropertyBits(record, kind);
 		if (effectiveVpb !== undefined) {
 			const fallback = VPB_DEFAULTS[kind];
@@ -459,6 +482,8 @@ function pushFont(attrs: string[], record: ParsedRecord): void {
 	if (effects !== undefined && recordHas(tp, 'FontEffects')) {
 		if (effects & 0x1) { attrs.push('Font.Bold="True"'); }
 		if (effects & 0x2) { attrs.push('Font.Italic="True"'); }
+		if (effects & 0x4) { attrs.push('Font.Underline="True"'); }
+		if (effects & 0x8) { attrs.push('Font.Strikethrough="True"'); }
 	}
 	const weight = tp.values.get('FontWeight');
 	if (weight !== undefined && recordHas(tp, 'FontWeight') && weight >= 600
@@ -1122,6 +1147,37 @@ export function applyRecordAttrs(
 			outcome.applied.push(`${field} of ${name}`);
 		}
 	}
+	const textAlign = element.attrs.get('TextAlign');
+	if (textAlign !== undefined) {
+		const tp = record.textProps;
+		if (!TEXT_ALIGN_KINDS.has(kind) || !tp || !tp.spec.data.some((f) => f.name === 'ParagraphAlign')) {
+			throw new FormMarkupError(element.line, `a ${kind} has no TextAlign`);
+		}
+		const value = TEXT_ALIGN_VALUES[textAlign.toLowerCase()];
+		if (value === undefined) {
+			throw new FormMarkupError(element.line, `TextAlign="${textAlign}" is not Left, Center, or Right`);
+		}
+		if (tp.values.get('ParagraphAlign') !== value || !recordHas(tp, 'ParagraphAlign')) {
+			setRecordValue(tp, 'ParagraphAlign', value);
+			outcome.applied.push(`TextAlign of ${name}`);
+		}
+	}
+	const style = element.attrs.get('Style');
+	if (style !== undefined) {
+		if (kind !== 'ComboBox') {
+			throw new FormMarkupError(element.line, `a ${kind} has no Style`);
+		}
+		// VBA Style 0 (fmStyleDropDownCombo) is DisplayStyle 3; Style 2
+		// (fmStyleDropDownList) is DisplayStyle 7. There is no Style 1.
+		const display = style === '0' ? 3 : style === '2' ? 7 : undefined;
+		if (display === undefined) {
+			throw new FormMarkupError(element.line, `Style="${style}" is not 0 or 2`);
+		}
+		if (record.values.get('DisplayStyle') !== display) {
+			setRecordValue(record, 'DisplayStyle', display);
+			outcome.applied.push(`Style of ${name}`);
+		}
+	}
 	for (const [attr, bit, kinds] of VPB_FLAGS) {
 		const text = element.attrs.get(attr);
 		if (text === undefined) { continue; }
@@ -1187,11 +1243,19 @@ function applyFontAttrs(
 	}
 	const boldAttr = element.attrs.get('Font.Bold');
 	const italicAttr = element.attrs.get('Font.Italic');
-	if (boldAttr !== undefined || italicAttr !== undefined) {
+	const underlineAttr = element.attrs.get('Font.Underline');
+	const strikeAttr = element.attrs.get('Font.Strikethrough');
+	if (boldAttr !== undefined || italicAttr !== undefined
+		|| underlineAttr !== undefined || strikeAttr !== undefined) {
 		const current = recordHas(tp, 'FontEffects') ? (tp.values.get('FontEffects') ?? 0) : 0;
-		const bold = boldAttr !== undefined ? /^true$/i.test(boldAttr) : (current & 0x1) !== 0;
-		const italic = italicAttr !== undefined ? /^true$/i.test(italicAttr) : (current & 0x2) !== 0;
-		const next = (current & ~0x3) | (bold ? 0x1 : 0) | (italic ? 0x2 : 0);
+		const decide = (attr: string | undefined, bit: number): boolean =>
+			attr !== undefined ? /^true$/i.test(attr) : (current & bit) !== 0;
+		const bold = decide(boldAttr, 0x1);
+		const italic = decide(italicAttr, 0x2);
+		const underline = decide(underlineAttr, 0x4);
+		const strike = decide(strikeAttr, 0x8);
+		const next = (current & ~0xf) | (bold ? 0x1 : 0) | (italic ? 0x2 : 0)
+			| (underline ? 0x4 : 0) | (strike ? 0x8 : 0);
 		if (next !== current || !recordHas(tp, 'FontEffects')) {
 			setRecordValue(tp, 'FontEffects', next >>> 0);
 			setRecordValue(tp, 'FontWeight', bold ? 700 : 400);
