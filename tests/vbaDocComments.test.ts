@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest';
+import { scanAnalysisSuppressions } from '../src/analyzer';
+import { discoverVbaTestsFromModule } from '../src/vbaTestRunner';
 import {
 	buildModuleSymbols,
 	DocRegistry,
@@ -138,6 +140,75 @@ describe('extractModuleHeaderDoc', () => {
 		expect(extractModuleHeaderDoc(src)).toBeUndefined();
 		expect(extractLeadingDoc(src, src.indexOf('Public Function'))?.summary)
 			.toBe('Adds two numbers.');
+	});
+});
+
+// The three comment grammars - suppression directives, ''' doc blocks, and
+// test directives - stack on one member in whatever order a person writes
+// them. The other two scanners were always tolerant; the doc scan treats
+// xlide's own directive lines as transparent so every order attaches (#53).
+describe('xlide directives are transparent to the doc scan', () => {
+	it('attaches through a test directive, a suppression, or both - in any order', () => {
+		const orders = [
+			["' @xlide-analysis-disable-next-member duplicate-procedure", "''' <summary>Stacked.</summary>", "' @xlide-test"],
+			["' @xlide-test", "''' <summary>Stacked.</summary>"],
+			["''' <summary>Stacked.</summary>", "' @xlide-test"],
+			["''' <summary>Stacked.</summary>", "' @xlide-analysis-disable-next-member duplicate-procedure"],
+			["' @xlide-analysis-disable-next-member duplicate-procedure", "' @xlide-test", "''' <summary>Stacked.</summary>"],
+		];
+		for (const order of orders) {
+			const src = [...order, 'Sub Probe()', 'End Sub'].join('\n');
+			expect(extractLeadingDoc(src, src.indexOf('Sub Probe'))?.summary, src).toBe('Stacked.');
+		}
+	});
+
+	it('keeps every grammar working in one stacked order', () => {
+		const src = [
+			"' @xlide-analysis-disable-next-member duplicate-procedure",
+			"''' <summary>All three.</summary>",
+			"' @xlide-test",
+			'Sub Probe()',
+			'End Sub',
+			'',
+		].join('\n');
+		expect(extractLeadingDoc(src, src.indexOf('Sub Probe'))?.summary).toBe('All three.');
+		const tests = discoverVbaTestsFromModule({ name: 'M', type: 'standard', source: src });
+		expect(tests.map((t) => t.procedureName)).toEqual(['Probe']);
+		const suppressions = scanAnalysisSuppressions(src);
+		const subLine = src.split('\n').findIndex((l) => l.startsWith('Sub Probe'));
+		expect(suppressions.isSuppressed('duplicate-procedure', subLine)).toBe(true);
+		expect(suppressions.diagnostics).toHaveLength(0);
+	});
+
+	it('joins doc runs a directive interleaves', () => {
+		const src = [
+			"''' <summary>Both halves.</summary>",
+			"' @xlide-test",
+			"''' <remarks>Kept too.</remarks>",
+			'Sub Probe()',
+			'End Sub',
+		].join('\n');
+		const doc = extractLeadingDoc(src, src.indexOf('Sub Probe'));
+		expect(doc?.summary).toBe('Both halves.');
+		expect(doc?.remarks).toBe('Kept too.');
+	});
+
+	it('still detaches on a blank line or an ordinary comment', () => {
+		const blank = ["''' <summary>Lost.</summary>", '', 'Sub Probe()', 'End Sub'].join('\n');
+		expect(extractLeadingDoc(blank, blank.indexOf('Sub Probe'))).toBeUndefined();
+		const note = ["''' <summary>Lost.</summary>", "' just a note", 'Sub Probe()', 'End Sub'].join('\n');
+		expect(extractLeadingDoc(note, note.indexOf('Sub Probe'))).toBeUndefined();
+	});
+
+	it('gives a directive-separated top block to the member, not the header', () => {
+		const src = [
+			"''' <summary>For the Sub.</summary>",
+			"' @xlide-analysis-disable-next-member duplicate-procedure",
+			'Sub Probe()',
+			'End Sub',
+		].join('\n');
+		expect(extractModuleHeaderDoc(src)).toBeUndefined();
+		expect(extractLeadingDoc(src, src.indexOf('Sub Probe'))?.summary).toBe('For the Sub.');
 	});
 });
 

@@ -4,6 +4,17 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **A `'''` doc block now attaches to its member through xlide's own
+  directives** (#53). The doc scan was the strict one of the three comment
+  grammars: any line between the block and its declaration silently detached
+  the docs - including a `' @xlide-analysis-*` suppression or `' @xlide-test*`
+  marker, the product's own two grammars, whose scanners were already
+  tolerant in every stacking order. Directive lines are now transparent to
+  the backward scan, so every order works and hover keeps the summary; a
+  blank line or an ordinary comment still ends the block, as documented. A
+  top-of-module block a directive separates from the first declaration now
+  belongs to that declaration, never double-claimed as module docs.
+
 - **The designer has a Properties pane.** A panel on the canvas's right edge
   follows the selection the way the VBE's Properties window does - click a
   control for its rows, the empty face (or nothing) for the form's own. The

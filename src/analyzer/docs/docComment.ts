@@ -3,7 +3,9 @@
 // A documentation comment is a run of contiguous lines whose first non-space
 // characters are `'''` (three apostrophes), sitting directly above a procedure,
 // type, enum, Declare, or module-level variable declaration - mirroring the
-// Visual Studio C# `///` convention. Object-module docs use the same block above
+// Visual Studio C# `///` convention. xlide's own directive comments
+// (`' @xlide-analysis-*` suppressions, `' @xlide-test*` markers) are
+// transparent: the block attaches through them in any stacking order. Object-module docs use the same block above
 // the first Option directive because VBA has no source-level class declaration.
 // The body is a fragment of XML using the tag vocabulary in docModel.ts
 // (<summary>, <param>, <returns>, <remarks>, <example>). Parsing is
@@ -213,9 +215,22 @@ function isOrdinaryComment(trimmed: string): boolean {
 	return trimmed.startsWith("'") && !trimmed.startsWith("'''");
 }
 
+/**
+ * xlide's own directive comments - analysis suppressions and test markers -
+ * are transparent to the doc scans: a `'''` block attaches to its member
+ * through them, whatever order the three comment grammars stack in. Any
+ * OTHER intervening line still detaches the block, as documented.
+ */
+function isXlideDirectiveComment(trimmed: string): boolean {
+	return isOrdinaryComment(trimmed) && /^'+\s*@xlide-\S/i.test(trimmed);
+}
+
 function isModuleHeaderBoundary(trimmed: string): boolean {
+	// A directive is NOT enough separation: the member scan reads through
+	// directives, so a block a directive "separates" belongs to the member
+	// below - letting the header also claim it would attach it twice.
 	return trimmed === '' ||
-		isOrdinaryComment(trimmed) ||
+		(isOrdinaryComment(trimmed) && !isXlideDirectiveComment(trimmed)) ||
 		/^Option\b/i.test(trimmed);
 }
 
@@ -289,6 +304,12 @@ export function extractLeadingDoc(
 		const prevStart = source.lastIndexOf('\n', prevEnd - 1) + 1;
 		const line = source.slice(prevStart, prevEnd).replace(/\r$/, '');
 		const trimmed = line.trimStart();
+		if (isXlideDirectiveComment(trimmed)) {
+			// Suppression and test directives are the product's own grammar;
+			// the block attaches through them in any stacking order.
+			lineStart = prevStart;
+			continue;
+		}
 		if (!trimmed.startsWith("'''")) {
 			break;
 		}

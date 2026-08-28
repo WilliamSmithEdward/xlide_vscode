@@ -44,6 +44,10 @@ Rules:
 
 - The block must sit on the lines immediately above the declaration. A blank
   line or an ordinary `'` comment between the block and the declaration ends it.
+- XLIDE's own directive comments are the exception: `' @xlide-analysis-*`
+  suppressions and `' @xlide-test*` markers are transparent, so the block
+  attaches to its declaration through them in whatever order the three comment
+  grammars stack.
 - Ordinary single-apostrophe comments (`'`) are **not** documentation and are
   ignored.
 - A leading space after `'''` is stripped, so `''' <summary>` and
