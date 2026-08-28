@@ -14,7 +14,7 @@
 //     only-in-model removes, matched controls set what changed;
 //   - a parse error applies nothing.
 
-import { himetricToPoints, pointsToHimetric, OformsReader, OformsWriter } from './bytes';
+import { himetricToPoints, pointsToHimetric, formatPointsShortest as formatPoints, OformsReader, OformsWriter } from './bytes';
 import {
 	recordHas,
 	setRecordString,
@@ -84,24 +84,6 @@ export function parseOleColor(text: string): number | undefined {
 }
 
 // ------------------------------------------------------------------ numbers
-
-/**
- * Points, printed as the SHORTEST decimal that converts back to the same
- * HIMETRIC value. Excel stores 12 pt as round(12 * 2540/72) = 423, and the
- * naive back-conversion prints 11.99; the designer says 12, and so should
- * the document.
- */
-function formatPoints(himetric: number): string {
-	const pt = himetricToPoints(himetric);
-	for (const decimals of [0, 1, 2]) {
-		const factor = 10 ** decimals;
-		const candidate = Math.round(pt * factor) / factor;
-		if (pointsToHimetric(candidate) === himetric) {
-			return String(candidate);
-		}
-	}
-	return String(Math.round(pt * 100) / 100);
-}
 
 function escapeAttr(text: string): string {
 	return text
@@ -1189,6 +1171,15 @@ function allocateControlId(root: FormPackage, local: FormPackage): number {
 }
 
 // ------------------------------------------------------------- additions
+
+/** The canvas's entry into the same authoring path the markup diff uses. */
+export function addControlForDesigner(
+	pkg: FormPackage,
+	element: MarkupElement,
+	root: FormPackage,
+): void {
+	addControl(pkg, element, { applied: [] }, root);
+}
 
 function addControl(
 	pkg: FormPackage,

@@ -68,3 +68,21 @@ export function himetricToPoints(h: number): number {
 export function pointsToHimetric(pt: number): number {
 	return Math.round(pt * HIMETRIC_PER_POINT);
 }
+
+/**
+ * Points, printed as the SHORTEST decimal that converts back to the same
+ * HIMETRIC value. Excel stores 12 pt as round(12 * 2540/72) = 423, and the
+ * naive back-conversion prints 11.99; the designer says 12, and so do the
+ * markup document and the preview.
+ */
+export function formatPointsShortest(himetric: number): string {
+	const pt = himetricToPoints(himetric);
+	for (const decimals of [0, 1, 2]) {
+		const factor = 10 ** decimals;
+		const candidate = Math.round(pt * factor) / factor;
+		if (pointsToHimetric(candidate) === himetric) {
+			return String(candidate);
+		}
+	}
+	return String(Math.round(pt * 100) / 100);
+}

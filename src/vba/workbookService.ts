@@ -10,9 +10,17 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Cfb } from './cfb';
 import { decodeCodePage, encodeCodePage } from './codePages';
-import { parseFormPackage, writeFormPackage } from './oforms/formPackage';
+import { parseFormPackage, writeFormPackage, walkPackages as walkOformsPackages, controlKindOfSite as oformsControlKind } from './oforms/formPackage';
+import { siteName as oformsSiteName } from './oforms/formStream';
 import { printFormMarkup as printOformsMarkup, parseFormMarkup as parseOformsMarkup, applyFormMarkup as applyOformsMarkup } from './oforms/markup';
 import { composeNewForm } from './oforms/newForm';
+import { renderFormPreviewHtml } from './oforms/preview';
+import {
+	addControlAt as designerAddControlAt,
+	removeControl as designerRemoveControl,
+	setControlGeometry as designerSetControlGeometry,
+	setFormSize as designerSetFormSize,
+} from './oforms/designerOps';
 import type { OformsTextCodec } from './oforms/records';
 import {
 	composeFormFrx,
@@ -385,19 +393,52 @@ function moduleEntryWithDesigner(cfb: Cfb, project: VbaProject, module: VbaModul
 	if (entry.type !== 'userform') {
 		return entry;
 	}
+	// VBA exposes EVERY control as a member of the form, however deeply it
+	// nests - `Me.PickAir` works when PickAir sits inside a Frame - so the
+	// member surface must walk the whole package tree. The flat top-level
+	// read this replaced under-reported: nested controls were missing, and a
+	// code-behind touching one was called undeclared.
 	try {
-		const f = cfb.getStreamInStorage(module.name, 'f');
-		const o = cfb.hasStreamInStorage(module.name, 'o')
-			? cfb.getStreamInStorage(module.name, 'o')
-			: undefined;
-		const controls = parseFormDesignerStreams(f, o, (bytes, compressed) =>
-			compressed ? decodeCodePage(bytes, project.codePage) : bytes.toString('utf16le'));
-		if (controls) {
-			entry.implicitMembers = controls;
-		}
+		const pkg = parseFormPackage(cfb, [module.name], oformsCodec(project.codePage));
+		const controls: { name: string; type: string }[] = [];
+		walkOformsPackages(pkg, (surface) => {
+			for (const surfaceEntry of surface.entries) {
+				const name = oformsSiteName(surfaceEntry.site);
+				if (!name) { continue; }
+				controls.push({
+					name,
+					type: oformsControlKind(surfaceEntry.site, surfaceEntry.kind === 'record' ? surfaceEntry.record : undefined) === 'ActiveX'
+						? 'ActiveX.Control'
+						: `MSForms.${oformsControlKind(surfaceEntry.site, surfaceEntry.kind === 'record' ? surfaceEntry.record : undefined)}`,
+				});
+			}
+			// Container controls are members too: the Frame, the MultiPage,
+			// and each Page answer to their names on the form.
+			for (const site of surface.form.sites) {
+				const kind = oformsControlKind(site);
+				if (kind !== 'Frame' && kind !== 'MultiPage' && kind !== 'Page') { continue; }
+				const name = oformsSiteName(site);
+				if (name) { controls.push({ name, type: `MSForms.${kind}` }); }
+			}
+		});
+		entry.implicitMembers = controls;
 	} catch {
-		// No designer storage, or a shape this reader does not understand:
-		// the entry simply carries no members, same as before.
+		// The new engine could not read the storage; fall back to the proven
+		// flat reader so behavior never regresses below what it was.
+		try {
+			const f = cfb.getStreamInStorage(module.name, 'f');
+			const o = cfb.hasStreamInStorage(module.name, 'o')
+				? cfb.getStreamInStorage(module.name, 'o')
+				: undefined;
+			const controls = parseFormDesignerStreams(f, o, (bytes, compressed) =>
+				compressed ? decodeCodePage(bytes, project.codePage) : bytes.toString('utf16le'));
+			if (controls) {
+				entry.implicitMembers = controls;
+			}
+		} catch {
+			// No designer storage, or a shape neither reader understands: the
+			// entry simply carries no members, same as before.
+		}
 	}
 	return entry;
 }
@@ -499,6 +540,26 @@ export function readFormMarkup(filePath: string, moduleName: string): { markup: 
 	return { markup: printOformsMarkup(pkg, module.name, { captionFallback }) };
 }
 
+/** The form rendered as a self-contained HTML preview document. */
+export function readFormPreview(
+	filePath: string,
+	moduleName: string,
+	selected?: string,
+): { html: string } {
+	const { cfb, project } = openWorkbook(filePath);
+	const module = project.getModule(moduleName);
+	if (!module) {
+		throw new Error(`Module not found: ${moduleName}`);
+	}
+	if (!cfb.hasStoragePath([module.name])) {
+		throw new Error(`Module has no designer storage: ${moduleName}`);
+	}
+	const pkg = parseFormPackage(cfb, [module.name], oformsCodec(project.codePage));
+	const frame = decodeCodePage(cfb.getStreamInStorage(module.name, VBFRAME_STREAM), project.codePage);
+	const caption = /^\s*Caption\s*=\s*"([^"]*)"/m.exec(frame)?.[1];
+	return { html: renderFormPreviewHtml(pkg, { formName: module.name, caption, selected }) };
+}
+
 /**
  * Applies an edited markup document back to the form's designer storage.
  * The document parses whole first - a parse error applies nothing - and the
@@ -546,6 +607,56 @@ export function applyFormMarkup(
 	}
 	saveWorkbook(filePath, wb);
 	return { ok: true, signatureDropped, applied: outcome.applied };
+}
+
+/**
+ * One canvas gesture applied to a form: move or resize a control, add one at
+ * a point, remove one, or resize the form itself. Each gesture is one
+ * parse-mutate-write of the designer storage, through the same primitives
+ * the markup apply uses.
+ */
+export function applyFormDesignerOp(
+	filePath: string,
+	moduleName: string,
+	op:
+		| { kind: 'geometry'; name: string; left?: number; top?: number; width?: number; height?: number }
+		| { kind: 'add'; container: string; controlKind: string; left: number; top: number }
+		| { kind: 'remove'; name: string }
+		| { kind: 'formSize'; width: number; height: number },
+): WriteResult & { newName?: string } {
+	const wb = openWorkbookForWrite(filePath);
+	const signatureDropped = detectSignature(wb.cfb).present;
+	const module = wb.project.getModule(moduleName);
+	if (!module) {
+		throw new Error(`Module not found: ${moduleName}`);
+	}
+	if (!wb.cfb.hasStoragePath([module.name])) {
+		throw new Error(`Module has no designer storage: ${moduleName}`);
+	}
+	const codec = oformsCodec(wb.project.codePage);
+	const pkg = parseFormPackage(wb.cfb, [module.name], codec);
+	let newName: string | undefined;
+	if (op.kind === 'geometry') {
+		const applied = designerSetControlGeometry(pkg, op.name, op);
+		if (applied.length === 0) {
+			return { ok: true, signatureDropped: false };
+		}
+	} else if (op.kind === 'add') {
+		newName = designerAddControlAt(pkg, op.container, op.controlKind, op.left, op.top);
+	} else if (op.kind === 'remove') {
+		designerRemoveControl(pkg, op.name);
+	} else {
+		designerSetFormSize(pkg, op.width, op.height);
+		// The VBFrame's client box repeats the size in twips and must follow.
+		const frame = decodeCodePage(wb.cfb.getStreamInStorage(module.name, VBFRAME_STREAM), wb.project.codePage);
+		const updated = frame
+			.replace(/^(\s*ClientWidth\s*=\s*)\d+/m, `$1${Math.round(op.width * 20)}`)
+			.replace(/^(\s*ClientHeight\s*=\s*)\d+/m, `$1${Math.round(op.height * 20)}`);
+		wb.cfb.writeStreamInStorage(module.name, VBFRAME_STREAM, encodeCodePage(updated, wb.project.codePage));
+	}
+	writeFormPackage(wb.cfb, [module.name], pkg, codec);
+	saveWorkbook(filePath, wb);
+	return { ok: true, signatureDropped, newName };
 }
 
 /**

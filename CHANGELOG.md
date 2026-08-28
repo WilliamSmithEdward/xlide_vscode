@@ -4,6 +4,30 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **The form designer has a canvas.** Right-click a UserForm for **Preview
+  Form**: the designer model renders in a webview - real bounds, captions,
+  colors and fonts from the binary, Frames and MultiPage pages nested, honest
+  hatched placeholders where fidelity runs out (pictures, foreign controls).
+  And it is not only a picture: the canvas carries the VBE designer's
+  ergonomics - drag to move, eight resize handles, a toolbox that places new
+  controls where you click, a 6pt grid, snapping to neighbor edges and
+  centers with alignment guides, arrow-key nudges (Shift for grid steps), and
+  Delete. Every gesture is one write through the same primitives the markup
+  diff uses, on the authoring path live Excel verified; the canvas re-renders
+  from the workbook after each, so it always shows what the bytes say. The
+  markup document and the canvas track each other in both directions.
+
+  Apply verification now covers all three hosts: a Word form and a PowerPoint
+  form mutated by the engine each compiled and instantiated in their live
+  application (`ok:native word edit`, `ok:native ppt edit`), closing the
+  Excel-only caveat.
+
+- **Every control on a form is a member of the form, however deeply it
+  nests.** The designer-declared member surface used to carry only top-level
+  controls, so `Me.PickAir` - a control inside a Frame - was reported
+  undeclared in its own code-behind. The surface now walks the whole
+  container tree: controls in Frames, on Pages, and the containers themselves.
+
 - **MultiPage Pages and TabStrip tabs are editable through markup** - the one
   structural refusal worth lifting is lifted. A `<Page>` present only in the
   document is created (its nested storage, its site, its tab entry, and the

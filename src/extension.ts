@@ -12,6 +12,7 @@ import {
     isLocalXlideDocument,
 } from './xlideFileSystem';
 import { WorkbookEngine } from './workbookEngine';
+import { registerFormPreview } from './vbaFormPreview';
 import { registerAgentTools } from './agentTools';
 import { registerCommands } from './commands';
 import { registerVbaLanguageProviders } from './vbaLanguageProviders';
@@ -75,6 +76,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     const bridge = new WorkbookEngine(context, out);
     const fsProvider = new XlideFileSystemProvider(bridge);
+    registerFormPreview(context, bridge, fsProvider);
     const explorer = new XlsmExplorer(bridge, out);
     const statusBar = new XlideStatusBar();
     // The workbook engine runs in-process: there is no backend to install,
