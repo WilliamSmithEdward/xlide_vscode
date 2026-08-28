@@ -747,13 +747,17 @@ function applyToMultiPage(
 		outcome.applied.push(`removed page ${siteName(site)} of ${mpName}`);
 	}
 
-	// Survivors must appear in the document in designer order.
+	// Survivors take the DOCUMENT's order. The reorder moves the page
+	// sites, the tab arrays, the x bookkeeping, and the selected-page index
+	// as one permutation, so the page a tab names, the storage it binds,
+	// and the caption it wears travel together.
 	const survivorOrder = currentSites().map((s) => siteName(s).toLowerCase());
 	const documentOrder = pages
 		.map((page) => page.attrs.get('Name')!.toLowerCase())
 		.filter((n) => survivorOrder.includes(n));
 	if (survivorOrder.join('|') !== documentOrder.join('|')) {
-		throw new FormMarkupError(element.line, `${mpName}: reordering pages is not supported yet`);
+		reorderPages(mp, documentOrder, tabStrip);
+		outcome.applied.push(`page order of ${mpName}`);
 	}
 
 	// Additions, at their document positions.
@@ -817,6 +821,69 @@ function removePage(
 		book.pageProps.splice(Math.min(index + 1, book.pageProps.length - 1), 1);
 		book.pageIds.splice(index, 1);
 		book.pageCount -= 1;
+		mp.xRaw = serializePageBookkeeping(book);
+	}
+}
+
+/**
+ * Puts the surviving pages into `order` (lower-cased names). Everything a
+ * page's position touches moves in one permutation: the page sites (in
+ * place - the TabStrip site and any other neighbors stay put), each page's
+ * TabIndex (position-tracking, the value set preserved), the tab strip's
+ * per-tab arrays with their flags tail, the selected-tab ListIndex
+ * (remapped so the same PAGE stays current, as the VBE keeps it), and the
+ * x bookkeeping's PageProperties rows and PageIDs.
+ */
+function reorderPages(
+	mp: FormPackage,
+	order: readonly string[],
+	tabStrip: ParsedRecord | undefined,
+): void {
+	const pageSites = mp.form.sites.filter((s) => siteCacheIndex(s) === 7);
+	const perm = order.map((name) =>
+		pageSites.findIndex((s) => siteName(s).toLowerCase() === name));
+	const desired = perm.map((i) => pageSites[i]);
+
+	if (desired.every((s) => s.values.get('TabIndex') !== undefined)) {
+		const tabValues = desired
+			.map((s) => s.values.get('TabIndex') as number)
+			.sort((a, b) => a - b);
+		desired.forEach((site, index) => { site.values.set('TabIndex', tabValues[index]); });
+	}
+
+	let slot = 0;
+	mp.form.sites = mp.form.sites.map((s) => (siteCacheIndex(s) === 7 ? desired[slot++] : s));
+	mp.form.sitesStructurallyChanged = true;
+
+	if (tabStrip) {
+		for (const [arrayName, sizeField] of TAB_PARALLEL_ARRAYS) {
+			const raw = tabStrip.arrays.get(arrayName);
+			if (raw === undefined) { continue; }
+			const entries = decodeArrayStrings(raw);
+			const encoded = encodeArrayStrings(perm.map((i) => entries[i] ?? ''));
+			tabStrip.arrays.set(arrayName, encoded);
+			setRecordValue(tabStrip, sizeField, encoded.length);
+		}
+		if (tabStrip.values.get('TabData') !== undefined && recordHas(tabStrip, 'TabData')) {
+			const flags = tabStrip.tailRaw ?? Buffer.alloc(0);
+			const chunks: Buffer[] = [];
+			for (let i = 0; i + 4 <= flags.length; i += 4) { chunks.push(flags.subarray(i, i + 4)); }
+			tabStrip.tailRaw = Buffer.concat(perm.map((i) => chunks[i] ?? Buffer.alloc(4)));
+		}
+		const selected = tabStrip.values.get('ListIndex');
+		if (selected !== undefined && recordHas(tabStrip, 'ListIndex')) {
+			const moved = perm.indexOf(selected);
+			if (moved >= 0 && moved !== selected) {
+				setRecordValue(tabStrip, 'ListIndex', moved);
+			}
+		}
+	}
+
+	if (mp.xRaw) {
+		const book = parsePageBookkeeping(mp.xRaw);
+		const props = book.pageProps;
+		book.pageProps = [props[0], ...perm.map((i) => props[i + 1] ?? emptyPageProperties())];
+		book.pageIds = perm.map((i) => book.pageIds[i]);
 		mp.xRaw = serializePageBookkeeping(book);
 	}
 }

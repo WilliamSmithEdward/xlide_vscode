@@ -327,14 +327,34 @@ describe('pages and tabs, structurally', () => {
 		expect(readFormMarkup(wb, 'EntryForm').markup).not.toContain('Extra');
 	});
 
-	it('refuses reordering surviving pages, by name', () => {
+	it('reorders surviving pages to the document order, everything riding along', () => {
 		const wb = workbook();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
-		const swapped = markup
-			.replace('<Page Name="Page1" Caption="Page1">', '<Page Name="PageX" Caption="Page1">')
-			.replace('<Page Name="Page2" Caption="Page2" />', '<Page Name="Page1" Caption="Page2" />')
-			.replace('<Page Name="PageX" Caption="Page1">', '<Page Name="Page2" Caption="Page1">');
-		expect(() => applyFormMarkup(wb, 'EntryForm', swapped)).toThrow(/reordering pages/);
+		const p1 = /^[ \t]*<Page Name="Page1"[\s\S]*?<\/Page>\r\n/m.exec(markup);
+		const p2 = /^[ \t]*<Page Name="Page2"[^\r\n]*\/>\r\n/m.exec(markup);
+		const swapped = markup.replace(p2![0], '').replace(p1![0], p2![0] + p1![0]);
+		const outcome = applyFormMarkup(wb, 'EntryForm', swapped);
+		expect(outcome.applied).toContain('page order of Wizard');
+		resetWorkbookCacheForTests();
+		const after = readFormMarkup(wb, 'EntryForm').markup;
+		expect(after.indexOf('Name="Page2"')).toBeLessThan(after.indexOf('Name="Page1"'));
+		// The caption and the contents travel with their page.
+		expect(after).toContain('<Page Name="Page2" Caption="Page2" />');
+		expect(after).toMatch(/<Page Name="Page1" Caption="Page1">[\s\S]*?Agree[\s\S]*?<\/Page>/);
+	});
+
+	it('reorders and recaptions in one apply', () => {
+		const wb = workbook();
+		const markup = readFormMarkup(wb, 'EntryForm').markup;
+		const p1 = /^[ \t]*<Page Name="Page1"[\s\S]*?<\/Page>\r\n/m.exec(markup);
+		const p2 = /^[ \t]*<Page Name="Page2"[^\r\n]*\/>\r\n/m.exec(markup);
+		const swapped = markup.replace(p2![0], '').replace(p1![0], p2![0] + p1![0])
+			.replace('Caption="Page2"', 'Caption="Second First"');
+		applyFormMarkup(wb, 'EntryForm', swapped);
+		resetWorkbookCacheForTests();
+		const after = readFormMarkup(wb, 'EntryForm').markup;
+		expect(after).toContain('<Page Name="Page2" Caption="Second First" />');
+		expect(after).toContain('<Page Name="Page1" Caption="Page1">');
 	});
 });
 

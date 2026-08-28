@@ -4,6 +4,18 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **Pages reorder through the markup.** List the `<Page>` elements in the
+  order you want and the apply permutes everything a page's position touches
+  as one move: the page sites, each page's position-tracking TabIndex, the
+  tab strip's per-tab arrays with their flags, the selected-tab index
+  (remapped so the same PAGE stays current), and the x bookkeeping's rows
+  and PageIDs - so the page a tab names, the storage it binds, and the
+  caption it wears travel together. Reorder composes with recaptions and
+  additions in the same apply. This closes the last "not supported yet" in
+  the page grammar; verified in live Excel, where the swapped form loads
+  with both pages in the new order, their own captions, and their contents
+  still bound.
+
 - **Double-click opens the event handler.** The VBE's signature gesture:
   double-click a control on the canvas and the code face opens at its
   DEFAULT event handler - Click for buttons and labels, Change for inputs -
