@@ -149,4 +149,25 @@ describe('the interactive canvas contract', () => {
 		const { html } = readFormPreview(workbook(), 'EntryForm', 'OkButton');
 		expect(html).toMatch(/class="ctl button selected" data-name="OkButton"/);
 	});
+
+	it('starts with grid snap on and neighbor snap off, and keeps them exclusive', () => {
+		const { html } = readFormPreview(workbook(), 'EntryForm');
+		expect(html).toContain('id="snapGrid" checked');
+		expect(html).toContain('id="snapNeighbors">');
+		// Checking either snap clears the other in the gesture script.
+		expect(html).toContain('neighborsBox.checked = false');
+		expect(html).toContain('gridBox.checked = false');
+	});
+
+	it('paints the 6pt lattice on every surface while grid snap is on', () => {
+		const { html } = readFormPreview(workbook(), 'EntryForm');
+		expect(html).toContain('body.grid-on [data-surface]::before');
+		expect(html).toContain('syncGridDots');
+	});
+
+	it('activates the form itself when the selection is the empty name', () => {
+		const { html } = readFormPreview(workbook(), 'EntryForm', '');
+		expect(html).toContain('class="dialog form-selected"');
+		expect(html).toContain("post({ type: 'formResize', width, height })");
+	});
 });

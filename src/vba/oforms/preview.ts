@@ -221,11 +221,21 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.toolbar .tool.armed { background: #0e639c; color: #fff; border-color: #1177bb; }
 	.toolbar label { display: flex; gap: 4px; align-items: center; margin-left: 8px; }
 	.stage { padding: 24px; }
-	.dialog { width: ${width}pt; box-shadow: 2px 2px 8px rgba(0,0,0,.5); }
+	.dialog { width: ${width}pt; box-shadow: 2px 2px 8px rgba(0,0,0,.5); position: relative; }
+	.dialog.form-selected { outline: 1px dashed #0e639c; outline-offset: 2px; }
+	.form-handle { position: absolute; width: 7px; height: 7px; background: #fff;
+		border: 1px solid #0e639c; z-index: 7; }
 	.titlebar { background: #99b4d1; color: #000; padding: 2px 6px;
 		font: bold 9pt Tahoma, sans-serif; display: flex; justify-content: space-between; }
 	.client { position: relative; width: ${width}pt; height: ${height}pt;
 		background: ${formBack}; overflow: hidden; ${formFont} }
+	/* While grid snap is on, every design surface shows the 6pt lattice the
+	   snapping answers to, as the VBE's dotted face does. The half-cell
+	   offset centers a dot on each grid point, so dots mark exactly where a
+	   snapped edge lands. */
+	body.grid-on [data-surface]::before { content: ''; position: absolute; inset: 0;
+		background-image: radial-gradient(circle, #666 1px, transparent 1px);
+		background-size: 6pt 6pt; background-position: -3pt -3pt; pointer-events: none; }
 	.ctl { position: absolute; box-sizing: border-box; overflow: hidden; white-space: nowrap; }
 	.ctl.selected { outline: 1px dashed #0e639c; outline-offset: 1px; }
 	/* Hover ergonomics, adopted from the vbide designer (settled 2026-08-15):
@@ -294,10 +304,10 @@ ${interactive ? `	<div class="toolbar" id="toolbar">
 		<span>Add:</span>
 		${toolbox.map((k) => `<button class="tool" data-kind="${k}">${k}</button>`).join('')}
 		<label><input type="checkbox" id="snapGrid" checked>Grid 6pt</label>
-		<label><input type="checkbox" id="snapNeighbors" checked>Snap to neighbors</label>
+		<label><input type="checkbox" id="snapNeighbors">Snap to neighbors</label>
 	</div>` : ''}
 	<div class="stage">
-	<div class="dialog">
+	<div class="dialog${options.selected === '' ? ' form-selected' : ''}">
 		<div class="titlebar"><span>${esc(caption)}</span><span>&#10005;</span></div>
 		<div class="client" data-surface="">
 ${renderSurface(pkg, 'c', options.selected)}
@@ -321,6 +331,39 @@ ${interactive ? `	<script>
 	(() => {
 		const vscode = typeof acquireVsCodeApi === 'function' ? acquireVsCodeApi() : undefined;
 		const post = (msg) => { if (vscode) { vscode.postMessage(msg); } };
+
+		// Every gesture re-renders the whole page, which reset the snap
+		// toggles to their defaults - a toggle the user turned OFF came back
+		// ON after the next drag. The webview state store survives reloads,
+		// so the toggles read from it and every change writes back.
+		//
+		// The two snaps are rivals - grid pulls to fixed lines, neighbors to
+		// living ones, and both at once fight over the same drag - so checking
+		// either one clears the other. Both may be off. While grid snap is on,
+		// the surfaces paint the lattice it answers to.
+		const savedState = vscode?.getState?.() ?? {};
+		const gridBox = document.getElementById('snapGrid');
+		const neighborsBox = document.getElementById('snapNeighbors');
+		if (savedState.grid !== undefined) { gridBox.checked = savedState.grid; }
+		if (savedState.neighbors !== undefined) { neighborsBox.checked = savedState.neighbors; }
+		if (gridBox.checked && neighborsBox.checked) { neighborsBox.checked = false; }
+		const syncGridDots = () => { document.body.classList.toggle('grid-on', gridBox.checked); };
+		const saveToggles = () => {
+			if (vscode?.setState) {
+				vscode.setState({ grid: gridBox.checked, neighbors: neighborsBox.checked });
+			}
+		};
+		gridBox.addEventListener('change', () => {
+			if (gridBox.checked) { neighborsBox.checked = false; }
+			syncGridDots();
+			saveToggles();
+		});
+		neighborsBox.addEventListener('change', () => {
+			if (neighborsBox.checked) { gridBox.checked = false; }
+			syncGridDots();
+			saveToggles();
+		});
+		syncGridDots();
 		const PX_PER_PT = 96 / 72;
 		const GRID = 6;
 		const SNAP_TOL = 3;
@@ -397,8 +440,56 @@ ${interactive ? `	<script>
 			guides.push(g);
 		};
 
+		// The FORM itself is selectable: a click on the empty face activates
+		// it (the VBE's own gesture), outlining the dialog and laying resize
+		// handles on the edges a form can grow by - east, south, southeast.
+		// Position is not a form property, so there is no move gesture.
+		const dialog = document.querySelector('.dialog');
+		const client = document.querySelector('.client');
+		const formHandles = [];
+		const clearFormHandles = () => { formHandles.splice(0).forEach((h) => h.remove()); };
+		const layFormHandles = () => {
+			clearFormHandles();
+			if (!dialog.classList.contains('form-selected')) { return; }
+			for (const dir of ['e', 's', 'se']) {
+				const h = document.createElement('div');
+				h.className = 'form-handle';
+				h.dataset.dir = dir;
+				h.style.cursor = dir + '-resize';
+				if (dir === 'e') { h.style.right = '-4px'; h.style.top = 'calc(50% - 4px)'; }
+				if (dir === 's') { h.style.bottom = '-4px'; h.style.left = 'calc(50% - 4px)'; }
+				if (dir === 'se') { h.style.right = '-4px'; h.style.bottom = '-4px'; }
+				dialog.appendChild(h);
+				formHandles.push(h);
+			}
+		};
+		const selectForm = () => {
+			select(null);
+			dialog.classList.add('form-selected');
+			layFormHandles();
+		};
+		const deselectForm = () => {
+			dialog.classList.remove('form-selected');
+			clearFormHandles();
+		};
+		if (dialog.classList.contains('form-selected')) { layFormHandles(); }
+
+		let formDrag = null;
 		let drag = null;
 		document.addEventListener('pointerdown', (e) => {
+			const formHandle = e.target.closest('.form-handle');
+			if (formHandle) {
+				formDrag = {
+					dir: formHandle.dataset.dir,
+					x: e.clientX, y: e.clientY,
+					width: parseFloat(client.style.width),
+					height: parseFloat(client.style.height),
+				};
+				client.classList.add('gesture-resize');
+				client.style.cursor = formHandle.dataset.dir + '-resize';
+				e.preventDefault();
+				return;
+			}
 			const handle = e.target.closest('.handle');
 			if (handle && selected) {
 				drag = { kind: 'resize', dir: handle.dataset.dir, el: selected,
@@ -428,9 +519,14 @@ ${interactive ? `	<script>
 				drag = { kind: 'move', el: ctl, start: geometryOf(ctl), x: e.clientX, y: e.clientY, moved: false };
 				document.body.dataset.dragging = '';
 				e.preventDefault();
+			} else if (e.target.closest('.client')) {
+				// The empty face: activate the form itself.
+				selectForm();
 			} else if (!e.target.closest('.toolbar')) {
 				select(null);
+				deselectForm();
 			}
+			if (ctl) { deselectForm(); }
 			if (drag) {
 				const client = drag.el.closest('.client');
 				if (client) {
@@ -441,6 +537,20 @@ ${interactive ? `	<script>
 		});
 
 		document.addEventListener('pointermove', (e) => {
+			if (formDrag) {
+				let width = formDrag.width;
+				let height = formDrag.height;
+				if (formDrag.dir.includes('e')) { width = Math.max(60, formDrag.width + px2pt(e.clientX - formDrag.x)); }
+				if (formDrag.dir.includes('s')) { height = Math.max(40, formDrag.height + px2pt(e.clientY - formDrag.y)); }
+				if (gridOn()) {
+					width = Math.round(width / GRID) * GRID;
+					height = Math.round(height / GRID) * GRID;
+				}
+				client.style.width = width + 'pt';
+				client.style.height = height + 'pt';
+				dialog.style.width = width + 'pt';
+				return;
+			}
 			if (!drag) { return; }
 			const dx = px2pt(e.clientX - drag.x);
 			const dy = px2pt(e.clientY - drag.y);
@@ -492,6 +602,16 @@ ${interactive ? `	<script>
 		});
 
 		document.addEventListener('pointerup', () => {
+			if (formDrag) {
+				const width = parseFloat(client.style.width);
+				const height = parseFloat(client.style.height);
+				const changed = width !== formDrag.width || height !== formDrag.height;
+				formDrag = null;
+				client.classList.remove('gesture-resize');
+				client.style.cursor = '';
+				if (changed) { post({ type: 'formResize', width, height }); }
+				return;
+			}
 			if (!drag) { return; }
 			clearGuides();
 			drag.el.classList.remove('dragging');
@@ -608,7 +728,9 @@ ${interactive ? `	<script>
 			tool.classList.add('armed');
 			document.body.classList.add('placing');
 		});
-		document.addEventListener('keyup', (e) => { if (e.key === 'Escape') { disarm(); } });
+		document.addEventListener('keyup', (e) => {
+			if (e.key === 'Escape') { disarm(); select(null); deselectForm(); }
+		});
 	})();
 	</script>` : ''}
 </body>

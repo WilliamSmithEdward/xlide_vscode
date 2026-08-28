@@ -4,6 +4,21 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **The form itself is selectable and resizable.** Click the empty face to
+  activate the form: a dashed outline, and resize handles on the east, south,
+  and southeast edges - the ones a form can grow by, since position is not a
+  form property. Dragging resizes live and commits one write through the same
+  size primitive the markup uses, so the VBFrame's twips client box stays in
+  step. Escape clears any selection.
+
+- **The snap toggles behave.** Grid and neighbor snapping are exclusive now -
+  checking either clears the other, both may be off, and grid is the default;
+  the two pulled the same drag toward different lines when combined. The
+  choices also survive gestures: every canvas edit re-renders the page, and
+  the toggles used to reset to their defaults with it. And while grid snap is
+  on, every design surface paints the 6pt lattice as dots, the VBE's dotted
+  face, each dot exactly where a snapped edge lands.
+
 - **The markup document is no longer analyzed as VBA** - opening a `.form`
   painted every element as "statement outside a procedure" and offered VBA
   completion inside XML. Two gates were at fault: the VBA-document check

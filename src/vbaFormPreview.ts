@@ -26,7 +26,8 @@ function panelKey(xlsmPath: string, moduleName: string): string {
 type DesignerMessage =
 	| { type: 'geometry'; name: string; left?: number; top?: number; width?: number; height?: number }
 	| { type: 'add'; container: string; controlKind: string; left: number; top: number }
-	| { type: 'remove'; name: string };
+	| { type: 'remove'; name: string }
+	| { type: 'formResize'; width: number; height: number };
 
 export function registerFormPreview(
 	context: vscode.ExtensionContext,
@@ -62,7 +63,9 @@ export function registerFormPreview(
 			? { kind: 'geometry' as const, name: message.name, left: message.left, top: message.top, width: message.width, height: message.height }
 			: message.type === 'add'
 				? { kind: 'add' as const, container: message.container, controlKind: message.controlKind, left: message.left, top: message.top }
-				: { kind: 'remove' as const, name: message.name };
+				: message.type === 'formResize'
+					? { kind: 'formSize' as const, width: message.width, height: message.height }
+					: { kind: 'remove' as const, name: message.name };
 		try {
 			const result = await runWriteWithExcelCoordination(xlsmPath, () =>
 				bridge.call<{ ok: boolean; signatureDropped: boolean; newName?: string }>(
@@ -78,14 +81,18 @@ export function registerFormPreview(
 				moduleName,
 				summary: message.type === 'add'
 					? `Designer: added ${op.kind === 'add' ? op.controlKind : ''} ${result.newName ?? ''}`
-					: `Designer: ${message.type} ${'name' in message ? message.name : ''}`,
+					: message.type === 'formResize'
+						? `Designer: form resized to ${message.width}x${message.height}pt`
+						: `Designer: ${message.type} ${'name' in message ? message.name : ''}`,
 			});
 			// The markup document is another face of the same form; a canvas
 			// gesture must reach an open one the way an agent edit reaches code.
 			fsProvider?.notifyFileChanged(encodeFormMarkupUri(xlsmPath, moduleName));
 			const keepSelected = message.type === 'remove'
 				? undefined
-				: message.type === 'add' ? result.newName : message.name;
+				: message.type === 'formResize'
+					? ''
+					: message.type === 'add' ? result.newName : message.name;
 			await render(panel, xlsmPath, moduleName, keepSelected);
 		} catch (err) {
 			void vscode.window.showErrorMessage(`XLIDE: ${errorMessage(err)}`);
