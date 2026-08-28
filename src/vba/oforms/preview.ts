@@ -99,6 +99,43 @@ function stateCss(record: ParsedRecord | undefined, kind: string): string {
 	return '';
 }
 
+// A GuidAndPicture is a 16-byte CLSID, a 4-byte preamble, a 4-byte size,
+// then the picture bytes in their ORIGINAL format. Browsers paint BMP, PNG,
+// JPEG, GIF, and ICO from data URIs; WMF and EMF have no browser decoder,
+// so those keep the honest hatched placeholder.
+function pictureDataUri(guidAndPicture: Buffer | undefined): string | undefined {
+	if (!guidAndPicture || guidAndPicture.length <= 24) { return undefined; }
+	const bytes = guidAndPicture.subarray(24);
+	const mime = bytes[0] === 0x42 && bytes[1] === 0x4d ? 'image/bmp'
+		: bytes[0] === 0x89 && bytes[1] === 0x50 ? 'image/png'
+			: bytes[0] === 0xff && bytes[1] === 0xd8 ? 'image/jpeg'
+				: bytes.subarray(0, 4).toString('latin1') === 'GIF8' ? 'image/gif'
+					: bytes[0] === 0 && bytes[1] === 0 && bytes[2] === 1 && bytes[3] === 0 ? 'image/x-icon'
+						: undefined;
+	return mime ? `data:${mime};base64,${Buffer.from(bytes).toString('base64')}` : undefined;
+}
+
+const PICTURE_ALIGNMENTS: Readonly<Record<number, string>> = {
+	0: 'left top', 1: 'right top', 2: 'center center', 3: 'left bottom', 4: 'right bottom',
+};
+
+/** Background CSS for a control's stored picture, honoring size mode and alignment. */
+function pictureCss(record: ParsedRecord | undefined, kind: string): string {
+	const uri = pictureDataUri(record?.streamData.get('Picture'));
+	if (!uri || !record) { return ''; }
+	if (kind !== 'Image') {
+		// A picture on a button or label sits with its caption; centered and
+		// unscaled is the honest approximation of the VBE's layout.
+		return `background-image:url('${uri}');background-repeat:no-repeat;background-position:center center;`;
+	}
+	const mode = recordHas(record, 'PictureSizeMode') ? (record.values.get('PictureSizeMode') ?? 0) : 0;
+	const align = recordHas(record, 'PictureAlignment') ? (record.values.get('PictureAlignment') ?? 2) : 2;
+	const size = mode === 1 ? '100% 100%' : mode === 3 ? 'contain' : 'auto';
+	const position = PICTURE_ALIGNMENTS[align] ?? 'center center';
+	return `background-image:url('${uri}');background-repeat:no-repeat;`
+		+ `background-size:${size};background-position:${position};`;
+}
+
 function colorCss(record: ParsedRecord | undefined): string {
 	if (!record) { return ''; }
 	const parts: string[] = [];
@@ -120,7 +157,7 @@ function renderSurface(pkg: FormPackage, idPrefix: string, selected?: string): s
 		const inner = siteIsContainer(site) ? pkg.containers.get(siteId(site)) : undefined;
 		const box = siteBox(site, record, inner);
 		const style = `left:${pts(box.left)}pt;top:${pts(box.top)}pt;width:${pts(box.width)}pt;height:${pts(box.height)}pt;`
-			+ fontCss(record) + colorCss(record) + stateCss(record, kind);
+			+ fontCss(record) + colorCss(record) + stateCss(record, kind) + pictureCss(record, kind);
 		const sel = selected !== undefined && selected.toLowerCase() === name.toLowerCase() ? ' selected' : '';
 		const dn = `data-name="${esc(name)}"`;
 		const caption = record?.strings.get('Caption')?.text
@@ -153,7 +190,9 @@ function renderSurface(pkg: FormPackage, idPrefix: string, selected?: string): s
 				parts.push(`<div class="ctl button${kind === 'ToggleButton' && value === '1' ? ' pressed' : ''}${sel}" ${dn} style="${style}" title="${esc(name)}">${esc(caption)}</div>`);
 				break;
 			case 'Image':
-				parts.push(`<div class="ctl image${sel}" ${dn} style="${style}" title="${esc(name)}"><span>${esc(name)}</span></div>`);
+				parts.push(pictureDataUri(record?.streamData.get('Picture'))
+					? `<div class="ctl image pictured${sel}" ${dn} style="${style}" title="${esc(name)}"></div>`
+					: `<div class="ctl image${sel}" ${dn} style="${style}" title="${esc(name)}"><span>${esc(name)}</span></div>`);
 				break;
 			case 'SpinButton':
 				parts.push(`<div class="ctl spin${sel}" ${dn} style="${style}" title="${esc(name)}"><span>&#9652;</span><span>&#9662;</span></div>`);
@@ -218,6 +257,10 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	const caption = options.caption ?? record.strings.get('Caption')?.text ?? options.formName;
 	const back = record.values.get('BackColor');
 	const formBack = back !== undefined && recordHas(record, 'BackColor') ? cssColor(back) : WINDOWS_PALETTE.ButtonFace;
+	const formPictureUri = pictureDataUri(pkg.form.pictureRaw);
+	const formPicture = formPictureUri
+		? `background-image:url('${formPictureUri}');background-repeat:no-repeat;background-position:center center;`
+		: '';
 	const stdFont = pkg.form.fontRaw ? parseStdFont(pkg.form.fontRaw) : undefined;
 	const formFont = stdFont
 		? `font-family:'${esc(stdFont.face)}',Tahoma,sans-serif;font-size:${stdFont.heightTenThousandthsPt / 10000}pt;`
@@ -264,7 +307,7 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.titlebar { background: #99b4d1; color: #000; padding: 2px 6px;
 		font: bold 9pt Tahoma, sans-serif; display: flex; justify-content: space-between; }
 	.client { position: relative; width: ${width}pt; height: ${height}pt;
-		background: ${formBack}; overflow: hidden; ${formFont} }
+		background: ${formBack}; overflow: hidden; ${formPicture}${formFont} }
 	/* While grid snap is on, every design surface shows the 6pt lattice the
 	   snapping answers to, as the VBE's dotted face does. The half-cell
 	   offset centers a dot on each grid point, so dots mark exactly where a
@@ -305,6 +348,7 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.image, .foreign { border: 1px solid #a0a0a0;
 		background: repeating-linear-gradient(45deg, #ddd 0 6px, #eee 6px 12px);
 		display: flex; align-items: center; justify-content: center; color: #555; font-size: 7pt; }
+	.image.pictured { background: #fff; }
 	.spin { display: flex; flex-direction: column; }
 	.spin span { flex: 1; background: #f0f0f0; border: 1px solid #a0a0a0;
 		display: flex; align-items: center; justify-content: center; font-size: 6pt; }

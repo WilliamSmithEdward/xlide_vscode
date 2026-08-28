@@ -68,9 +68,10 @@ describe('the rendered form', () => {
 		expect(html).toContain('>Tab2</span>');
 	});
 
-	it('draws the picture-bearing Image as honest bounds, not a guess', () => {
+	it('paints the picture-bearing Image with its real BMP', () => {
 		const html = fixtureHtml();
-		expect(html).toMatch(/class="ctl image"[^>]*title="Badge"/);
+		expect(html).toMatch(/class="ctl image pictured"[^>]*title="Badge"/);
+		expect(html).toMatch(/data-name="Badge"[^>]*data:image\/bmp;base64,/);
 	});
 
 	it('carries the fixture font onto controls', () => {

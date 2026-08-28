@@ -4,6 +4,16 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **The canvas paints real pictures.** A stored picture - on an Image
+  control, on a button or label, or as the form's own background - renders
+  from its actual bytes when the browser can decode the format (BMP, PNG,
+  JPEG, GIF, ICO), honoring PictureSizeMode (clip, stretch, zoom) and
+  PictureAlignment on Image controls. WMF and EMF have no browser decoder,
+  so those keep the honest hatched placeholder rather than a guess.
+  Measured in the rendered page: the fixture's 196KB BMP decodes at its
+  real 256x256, zoom maps to contain, and the button wears its picture
+  under its caption.
+
 - **TextAlign, the list behaviors, ComboBox Style, and the last two font
   effects joined the dialect and the pane.** TextAlign speaks words - Left,
   Center, Right - because the stored PARAFORMAT_Alignment and VBA's

@@ -346,6 +346,19 @@ describe('the interactive canvas contract', () => {
 		expect(html).toContain('"prop":"Caption"');
 	});
 
+	it('paints stored pictures instead of placeholders', () => {
+		const { html } = readFormPreview(workbook(), 'EntryForm');
+		// The fixture carries two real BMPs: the Badge image and a picture ON
+		// the OK button. Both should arrive as data URIs; the Badge drops its
+		// placeholder label, the button keeps its caption over the picture.
+		// Single-quoted url() - the style attribute is double-quoted, and a
+		// double-quoted URI truncated it silently once (measured in the page:
+		// class survived, backgrounds died).
+		expect(html.split("url('data:image/bmp;base64,").length - 1).toBe(2);
+		expect(html).toMatch(/data-name="Badge"[^>]*background-size:contain/);
+		expect(html).not.toMatch(/data-name="Badge"[^>]*><span>/);
+	});
+
 	it('draws the disabled gray, alignment, and text decoration it can set', () => {
 		const wb = workbook();
 		applyFormDesignerOp(wb, 'EntryForm', { kind: 'setProp', name: 'OkButton', prop: 'Enabled', value: 'False' });
