@@ -4,6 +4,22 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **The everyday booleans joined the dialect: Enabled, Locked, MultiLine,
+  WordWrap, AutoSize, Visible, TabStop, Default, and Cancel.** They live in
+  two bitfields - the control record's VariousPropertyBits and the site's
+  BitFlags - which most Office-authored controls do not store at all, so
+  every write composes from the kind's file-format default straight out of
+  [MS-OFORMS] 2.5.96 and 2.5.4 (measured: only text and combo boxes carry
+  the record field; buttons, labels, and checks sit on defaults). The markup
+  prints a flag only when it differs from that default, so quiet forms stay
+  quiet and every pinned fixture projection is unchanged; the Properties
+  pane always shows the effective True/False. Kind rules enforced: MultiLine
+  is a TextBox property, Default and Cancel belong to CommandButton, a Label
+  has no TabStop, and a Page's visibility bit is the current-page marker the
+  dialect never spells. Verified in live Excel: a disabled default button, a
+  locked multiline text box, an unwrapped label, and a hidden checkbox all
+  load and answer with the written values.
+
 - **Pages reorder through the markup.** List the `<Page>` elements in the
   order you want and the apply permutes everything a page's position touches
   as one move: the page sites, each page's position-tracking TabIndex, the

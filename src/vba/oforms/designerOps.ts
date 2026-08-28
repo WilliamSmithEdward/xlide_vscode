@@ -14,12 +14,16 @@ import {
 	applyRecordAttrs,
 	applySiteAttrs,
 	decodeArrayStrings,
+	effectiveVariousPropertyBits,
 	encodeArrayStrings,
 	formatOleColor,
 	FormMarkupError,
 	nextTabIndex,
 	parseOleColor,
 	PRINTED_FIELDS,
+	SITE_BITFLAGS_DEFAULT,
+	SITE_FLAGS,
+	VPB_FLAGS,
 	type ApplyOutcome,
 	type MarkupElement,
 } from './markup';
@@ -315,13 +319,20 @@ function fontRows(record: ParsedRecord): PropertyRow[] {
 	];
 }
 
-function siteRows(site: SiteModel): PropertyRow[] {
+function siteRows(site: SiteModel, kind: string): PropertyRow[] {
 	const tab = site.values.get('TabIndex');
-	return [
+	const rows: PropertyRow[] = [
 		{ prop: 'TabIndex', value: tab !== undefined && tab >= 0 ? String(tab) : '' },
 		{ prop: 'ControlTipText', value: site.strings.get('ControlTipText')?.text ?? '' },
 		{ prop: 'Tag', value: site.strings.get('Tag')?.text ?? '' },
 	];
+	const bits = (site.values.get('BitFlags') ?? SITE_BITFLAGS_DEFAULT) >>> 0;
+	for (const [prop, bit] of SITE_FLAGS) {
+		if (kind === 'Page' || (prop === 'TabStop' && (kind === 'Label' || kind === 'Image'))) { continue; }
+		if ((prop === 'Default' || prop === 'Cancel') && kind !== 'CommandButton') { continue; }
+		rows.push({ prop, value: (bits & bit) !== 0 ? 'True' : 'False' });
+	}
+	return rows;
 }
 
 function recordControlRows(kind: string, site: SiteModel, record: ParsedRecord): PropertyRow[] {
@@ -350,8 +361,15 @@ function recordControlRows(kind: string, site: SiteModel, record: ParsedRecord):
 		const v = record.values.get(field);
 		rows.push({ prop: field, value: v !== undefined && recordHas(record, field) && v !== 0 ? String.fromCharCode(v) : '' });
 	}
+	const effectiveVpb = effectiveVariousPropertyBits(record, kind);
+	if (effectiveVpb !== undefined) {
+		for (const [prop, bit, kinds] of VPB_FLAGS) {
+			if (!kinds.includes(kind)) { continue; }
+			rows.push({ prop, value: (effectiveVpb & bit) !== 0 ? 'True' : 'False' });
+		}
+	}
 	rows.push(...fontRows(record));
-	rows.push(...siteRows(site));
+	rows.push(...siteRows(site, kind));
 	return rows;
 }
 
@@ -386,7 +404,7 @@ function containerRows(
 		rows.push({ prop: 'Caption', value: pageCaption ?? '' });
 	}
 	if (inner) { rows.push(...innerRecordRows(inner.form.record)); }
-	rows.push(...siteRows(site));
+	rows.push(...siteRows(site, kind));
 	return rows;
 }
 
@@ -434,7 +452,7 @@ export function listFormProperties(
 			} else if (entry.kind === 'record') {
 				out[name] = { kind, rows: recordControlRows(kind, site, entry.record) };
 			} else {
-				out[name] = { kind: 'ActiveX', rows: [{ prop: 'Name', value: name }, ...siteRows(site)] };
+				out[name] = { kind: 'ActiveX', rows: [{ prop: 'Name', value: name }, ...siteRows(site, 'ActiveX')] };
 			}
 		}
 	});
@@ -529,7 +547,7 @@ export function setControlProperty(
 		? containerRows(kind, site, pkg.containers.get(siteId(site)), '')
 		: entry.kind === 'record'
 			? recordControlRows(kind, site, entry.record)
-			: [{ prop: 'Name', value: name }, ...siteRows(site)];
+			: [{ prop: 'Name', value: name }, ...siteRows(site, 'ActiveX')];
 	if (!rows.some((r) => r.prop === prop)) {
 		throw new FormMarkupError(0, `a ${kind} has no ${prop}`);
 	}

@@ -157,6 +157,56 @@ export const PRINTED_FIELDS: Readonly<Record<string, readonly string[]>> = {
 
 const COLOR_FIELDS = new Set(['BackColor', 'ForeColor', 'BorderColor']);
 
+// VariousPropertyBits file-format defaults, per kind ([MS-OFORMS] 2.5.96) -
+// what an ABSENT field means, so flag edits compose without touching any
+// other property. TextBox and ComboBox carry Editable (bit 14) on top of the
+// table's MorphData default: the spec makes it MUST-be-1 for a TextBox, and
+// live Excel stores 0x2C80481B.
+const VPB_DEFAULTS: Readonly<Record<string, number>> = {
+	TextBox: 0x2C80481B, ComboBox: 0x2C80481B, ListBox: 0x2C80081B, CheckBox: 0x2C80081B,
+	OptionButton: 0x2C80081B, ToggleButton: 0x2C80081B, Label: 0x0080001B,
+	CommandButton: 0x1B, Image: 0x1B, TabStrip: 0x1B, ScrollBar: 0x1B, SpinButton: 0x1B,
+};
+
+// The named booleans the dialect speaks from that bitfield, with the kinds
+// each applies to ([MS-OFORMS] 2.5.96.1). A flag prints only when it differs
+// from the kind's default bit, so quiet forms stay quiet.
+export const VPB_FLAGS: ReadonlyArray<readonly [string, number, readonly string[]]> = [
+	['Enabled', 0x2, ['CheckBox', 'ComboBox', 'CommandButton', 'Image', 'Label', 'ListBox', 'OptionButton', 'ScrollBar', 'SpinButton', 'TabStrip', 'TextBox', 'ToggleButton']],
+	['Locked', 0x4, ['CheckBox', 'ComboBox', 'CommandButton', 'ListBox', 'OptionButton', 'TextBox', 'ToggleButton']],
+	['WordWrap', 0x800000, ['CheckBox', 'ComboBox', 'CommandButton', 'Label', 'ListBox', 'OptionButton', 'TextBox', 'ToggleButton']],
+	['AutoSize', 0x10000000, ['CheckBox', 'ComboBox', 'CommandButton', 'Label', 'OptionButton', 'TextBox', 'ToggleButton']],
+	['MultiLine', 0x80000000, ['TextBox']],
+];
+
+/** The stored-or-default VariousPropertyBits a control answers with. */
+export function effectiveVariousPropertyBits(record: ParsedRecord, kind: string): number | undefined {
+	const fallback = VPB_DEFAULTS[kind];
+	if (fallback === undefined) { return undefined; }
+	return recordHas(record, 'VariousPropertyBits')
+		? (record.values.get('VariousPropertyBits') ?? fallback) >>> 0
+		: fallback;
+}
+
+// Site BitFlags ([MS-OFORMS] 2.5.4): default 0x33 is fTabStop + fVisible +
+// fStreamed + fAutoSize. TabStop is not a Label or Image property, Default
+// and Cancel belong to CommandButton, and a Page's Visible bit is the
+// CURRENT-page marker - never a property to spell.
+export const SITE_BITFLAGS_DEFAULT = 0x33;
+export const SITE_FLAGS: ReadonlyArray<readonly [string, number]> = [
+	['TabStop', 0x1],
+	['Visible', 0x2],
+	['Default', 0x4],
+	['Cancel', 0x8],
+];
+
+function siteFlagApplies(attr: string, kind: string | undefined): boolean {
+	if (kind === undefined || kind === 'Form' || kind === 'Page') { return false; }
+	if (attr === 'TabStop') { return kind !== 'Label' && kind !== 'Image'; }
+	if (attr === 'Default' || attr === 'Cancel') { return kind === 'CommandButton'; }
+	return true;
+}
+
 export function printFormMarkup(
 	pkg: FormPackage,
 	formName: string,
@@ -205,7 +255,7 @@ function printPackage(
 	if (se !== undefined && recordHas(record, 'SpecialEffect')) {
 		attrs.push(`SpecialEffect="${se}"`);
 	}
-	pushSiteExtras(attrs, site);
+	pushSiteExtras(attrs, site, tag);
 	const children = printableChildren(pkg);
 	if (children.length === 0) {
 		lines.push(`${indent}<${tag} ${attrs.join(' ')} />`);
@@ -279,6 +329,16 @@ function printChild(pkg: FormPackage, child: PrintableChild, lines: string[], de
 				attrs.push(`${field}="${v}"`);
 			}
 		}
+		const effectiveVpb = effectiveVariousPropertyBits(record, kind);
+		if (effectiveVpb !== undefined) {
+			const fallback = VPB_DEFAULTS[kind];
+			for (const [attr, bit, kinds] of VPB_FLAGS) {
+				if (!kinds.includes(kind)) { continue; }
+				if (((effectiveVpb & bit) >>> 0) !== ((fallback & bit) >>> 0)) {
+					attrs.push(`${attr}="${(effectiveVpb & bit) !== 0 ? 'True' : 'False'}"`);
+				}
+			}
+		}
 		const pw = record.values.get('PasswordChar');
 		if (pw !== undefined && recordHas(record, 'PasswordChar') && pw !== 0) {
 			attrs.push(`PasswordChar="${escapeAttr(String.fromCharCode(pw))}"`);
@@ -289,7 +349,7 @@ function printChild(pkg: FormPackage, child: PrintableChild, lines: string[], de
 		}
 		pushFont(attrs, record);
 	}
-	pushSiteExtras(attrs, site);
+	pushSiteExtras(attrs, site, kind);
 	if (child.raw) {
 		attrs.push('ProgId=""');
 		lines.push(`${indent}<ActiveX ${attrs.join(' ')} />`);
@@ -321,7 +381,7 @@ function printMultiPage(
 	const indent = '    '.repeat(depth);
 	const attrs: string[] = [`Name="${escapeAttr(siteName(site))}"`];
 	pushGeometry(attrs, site, mp);
-	pushSiteExtras(attrs, site);
+	pushSiteExtras(attrs, site, 'MultiPage');
 	// Page captions live on the MultiPage's own TabStrip record (its o).
 	const tabStrip = mp.entries.find((e) => e.kind === 'record' && siteCacheIndex(e.site) === 18);
 	const captions = tabStrip && tabStrip.kind === 'record'
@@ -368,7 +428,7 @@ function pushGeometry(
 	}
 }
 
-function pushSiteExtras(attrs: string[], site: SiteModel | undefined): void {
+function pushSiteExtras(attrs: string[], site: SiteModel | undefined, kind?: string): void {
 	if (!site) { return; }
 	const tab = site.values.get('TabIndex');
 	if (tab !== undefined && tab >= 0) { attrs.push(`TabIndex="${tab}"`); }
@@ -376,6 +436,13 @@ function pushSiteExtras(attrs: string[], site: SiteModel | undefined): void {
 	if (tip && tip.text.length) { attrs.push(`ControlTipText="${escapeAttr(tip.text)}"`); }
 	const tag = site.strings.get('Tag');
 	if (tag && tag.text.length) { attrs.push(`Tag="${escapeAttr(tag.text)}"`); }
+	const bits = (site.values.get('BitFlags') ?? SITE_BITFLAGS_DEFAULT) >>> 0;
+	for (const [attr, bit] of SITE_FLAGS) {
+		if (!siteFlagApplies(attr, kind)) { continue; }
+		if (((bits & bit) >>> 0) !== ((SITE_BITFLAGS_DEFAULT & bit) >>> 0)) {
+			attrs.push(`${attr}="${(bits & bit) !== 0 ? 'True' : 'False'}"`);
+		}
+	}
 }
 
 function pushFont(attrs: string[], record: ParsedRecord): void {
@@ -978,6 +1045,24 @@ export function applySiteAttrs(site: SiteModel, element: MarkupElement, outcome:
 	};
 	applyString('ControlTipText', 'ControlTipTextData', 'ControlTipText', 11);
 	applyString('Tag', 'TagData', 'Tag', 1);
+	for (const [attr, bit] of SITE_FLAGS) {
+		const text = element.attrs.get(attr);
+		if (text === undefined) { continue; }
+		if (!siteFlagApplies(attr, element.tag)) {
+			throw new FormMarkupError(element.line, `a ${element.tag} has no ${attr}`);
+		}
+		if (!/^(true|false)$/i.test(text)) {
+			throw new FormMarkupError(element.line, `${attr}="${text}" is not True or False`);
+		}
+		const stored = site.values.get('BitFlags');
+		const base = (stored ?? SITE_BITFLAGS_DEFAULT) >>> 0;
+		const next = (/^true$/i.test(text) ? (base | bit) : (base & ~bit)) >>> 0;
+		if (next !== base || stored === undefined) {
+			site.values.set('BitFlags', next);
+			site.mask = (site.mask | (1 << 4)) >>> 0;
+			outcome.applied.push(`${attr} of ${siteName(site)}`);
+		}
+	}
 }
 
 export function applyRecordAttrs(
@@ -1035,6 +1120,22 @@ export function applyRecordAttrs(
 		if (record.values.get(field) !== value || !recordHas(record, field)) {
 			setRecordValue(record, field, value);
 			outcome.applied.push(`${field} of ${name}`);
+		}
+	}
+	for (const [attr, bit, kinds] of VPB_FLAGS) {
+		const text = element.attrs.get(attr);
+		if (text === undefined) { continue; }
+		if (!kinds.includes(kind) || !record.spec.data.some((f) => f.name === 'VariousPropertyBits')) {
+			throw new FormMarkupError(element.line, `a ${kind} has no ${attr}`);
+		}
+		if (!/^(true|false)$/i.test(text)) {
+			throw new FormMarkupError(element.line, `${attr}="${text}" is not True or False`);
+		}
+		const base = effectiveVariousPropertyBits(record, kind) ?? 0x1B;
+		const next = (/^true$/i.test(text) ? (base | bit) : (base & ~bit)) >>> 0;
+		if (next !== base || !recordHas(record, 'VariousPropertyBits')) {
+			setRecordValue(record, 'VariousPropertyBits', next);
+			outcome.applied.push(`${attr} of ${name}`);
 		}
 	}
 	applyFontAttrs(record, element, outcome, name);

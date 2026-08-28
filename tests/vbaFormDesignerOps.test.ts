@@ -189,6 +189,38 @@ describe('property writes', () => {
 		expect(markup).toMatch(/Name="OkButton"[^>]*TabIndex="9"/);
 	});
 
+	it('writes the boolean flags, printed only off their kind defaults', () => {
+		const wb = workbook();
+		set(wb, 'OkButton', 'Enabled', 'False');
+		set(wb, 'OkButton', 'Default', 'True');
+		set(wb, 'OkButton', 'TabStop', 'False');
+		set(wb, 'NameBox', 'MultiLine', 'True');
+		set(wb, 'NameBox', 'Locked', 'True');
+		set(wb, 'NameLabel', 'WordWrap', 'False');
+		set(wb, 'Taxable', 'Visible', 'False');
+		resetWorkbookCacheForTests();
+		const markup = readFormMarkup(wb, 'EntryForm').markup;
+		expect(markup).toMatch(/Name="OkButton"[^>]*Enabled="False"/);
+		expect(markup).toMatch(/Name="OkButton"[^>]*Default="True"/);
+		expect(markup).toMatch(/Name="OkButton"[^>]*TabStop="False"/);
+		expect(markup).toMatch(/Name="NameBox"[^>]*MultiLine="True"/);
+		expect(markup).toMatch(/Name="NameBox"[^>]*Locked="True"/);
+		expect(markup).toMatch(/Name="NameLabel"[^>]*WordWrap="False"/);
+		expect(markup).toMatch(/Name="Taxable"[^>]*Visible="False"/);
+		// Setting a flag BACK to its default silences it again.
+		set(wb, 'OkButton', 'Enabled', 'True');
+		resetWorkbookCacheForTests();
+		expect(readFormMarkup(wb, 'EntryForm').markup).not.toContain('Enabled=');
+	});
+
+	it('refuses a flag the kind does not carry', () => {
+		const wb = workbook();
+		expect(() => set(wb, 'OkButton', 'MultiLine', 'True')).toThrow(/has no MultiLine/);
+		expect(() => set(wb, 'NameLabel', 'TabStop', 'False')).toThrow(/has no TabStop/);
+		expect(() => set(wb, 'NameBox', 'Default', 'True')).toThrow(/has no Default/);
+		expect(() => set(wb, 'OkButton', 'Enabled', 'maybe')).toThrow(/not True or False/);
+	});
+
 	it('renames a control and reports the new name', () => {
 		const wb = workbook();
 		const result = set(wb, 'OkButton', 'Name', 'GoButton');
