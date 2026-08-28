@@ -394,6 +394,27 @@ ${interactive ? `	<script>
 			}
 		};
 
+		// The VBE's double-click: jump to the control's DEFAULT event
+		// handler in the code face - Click for buttons and labels, Change
+		// for inputs - creating the stub when none exists. The empty face is
+		// the form itself: UserForm_Click, whatever the form is named. A
+		// dblclick inside a container resolves to the DEEPEST control under
+		// the pointer, so a page's empty area belongs to its MultiPage.
+		const DEFAULT_EVENTS = {
+			Form: 'Click', CommandButton: 'Click', Label: 'Click', TextBox: 'Change',
+			ComboBox: 'Change', ListBox: 'Click', CheckBox: 'Click', OptionButton: 'Click',
+			ToggleButton: 'Click', Frame: 'Click', MultiPage: 'Change', TabStrip: 'Change',
+			ScrollBar: 'Change', SpinButton: 'Change', Image: 'Click',
+		};
+		document.addEventListener('dblclick', (e) => {
+			if (e.target.closest('.toolbar') || e.target.closest('.props')) { return; }
+			if (!e.target.closest('.dialog')) { return; }
+			const ctl = e.target.closest('.ctl');
+			const name = ctl ? ctl.dataset.name : '';
+			const kind = PROPS[name] ? PROPS[name].kind : '';
+			post({ type: 'openHandler', name, event: DEFAULT_EVENTS[kind] || 'Click' });
+		});
+
 		// Every gesture re-renders the whole page, which reset the snap
 		// toggles to their defaults - a toggle the user turned OFF came back
 		// ON after the next drag. The webview state store survives reloads,

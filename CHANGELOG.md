@@ -4,6 +4,15 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **Double-click opens the event handler.** The VBE's signature gesture:
+  double-click a control on the canvas and the code face opens at its
+  DEFAULT event handler - Click for buttons and labels, Change for inputs -
+  creating the `Private Sub Name_Event()` stub at the end of the module when
+  none exists, cursor inside. The empty face is the form itself
+  (`UserForm_Click`), and a page's empty area belongs to its MultiPage. The
+  stub is a document edit you save like any typed code, not a silent
+  workbook write.
+
 - **A `'''` doc block now attaches to its member through xlide's own
   directives** (#53). The doc scan was the strict one of the three comment
   grammars: any line between the block and its declaration silently detached

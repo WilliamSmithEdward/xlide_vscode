@@ -12,7 +12,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import type { WorkbookEngine } from './workbookEngine';
-import { decodeModuleUri, encodeFormMarkupUri, XLIDE_SCHEME, XlideFileSystemProvider } from './xlideFileSystem';
+import { decodeModuleUri, encodeFormMarkupUri, encodeModuleUri, XLIDE_SCHEME, XlideFileSystemProvider } from './xlideFileSystem';
 import { runWriteWithExcelCoordination } from './excelWorkbookCoordinator';
 import { recordXlideWriteAudit } from './xlideWriteAudit';
 import { errorMessage } from './util/errors';
@@ -29,6 +29,7 @@ type DesignerMessage =
 	| { type: 'remove'; name: string }
 	| { type: 'reparent'; name: string; container: string; left: number; top: number }
 	| { type: 'setProp'; name: string; prop: string; value: string }
+	| { type: 'openHandler'; name: string; event: string }
 	| { type: 'formResize'; width: number; height: number };
 
 export function registerFormPreview(
@@ -52,6 +53,46 @@ export function registerFormPreview(
 			panel.webview.html = `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:16px">`
 				+ `<p>XLIDE could not render this form.</p><pre>${errorMessage(err)
 					.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre></body></html>`;
+		}
+	};
+
+	// The VBE's double-click: the control's default event handler in the
+	// code face - navigate to it, or append the stub the VBE would write and
+	// land the cursor inside it. Not a workbook write: the stub is a document
+	// edit the user saves like any typed code.
+	const openEventHandler = async (
+		xlsmPath: string,
+		moduleName: string,
+		controlName: string,
+		eventName: string,
+	): Promise<void> => {
+		try {
+			const handler = `${controlName === '' ? 'UserForm' : controlName}_${eventName}`;
+			const escaped = handler.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+			const signature = new RegExp(`^[ \\t]*(?:Private\\s+|Public\\s+|Friend\\s+)?Sub\\s+${escaped}\\s*\\(`, 'im');
+			const uri = encodeModuleUri(xlsmPath, moduleName);
+			const doc = await vscode.workspace.openTextDocument(uri);
+			if (!signature.test(doc.getText())) {
+				const eol = doc.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
+				const text = doc.getText();
+				const lead = text.length === 0 ? '' : text.endsWith(eol) ? eol : eol + eol;
+				const edit = new vscode.WorkspaceEdit();
+				edit.insert(uri, doc.positionAt(text.length), `${lead}Private Sub ${handler}()${eol}${eol}End Sub${eol}`);
+				await vscode.workspace.applyEdit(edit);
+			}
+			const match = signature.exec(doc.getText());
+			const editor = await vscode.window.showTextDocument(doc, {
+				viewColumn: vscode.ViewColumn.One,
+				preserveFocus: false,
+			});
+			if (match) {
+				const line = Math.min(doc.positionAt(match.index).line + 1, doc.lineCount - 1);
+				const at = new vscode.Position(line, 0);
+				editor.selection = new vscode.Selection(at, at);
+				editor.revealRange(new vscode.Range(at, at), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+			}
+		} catch (err) {
+			void vscode.window.showErrorMessage(`XLIDE: ${errorMessage(err)}`);
 		}
 	};
 
@@ -164,7 +205,9 @@ export function registerFormPreview(
 			panels.set(key, panel);
 			panel.onDidDispose(() => panels.delete(key), undefined, context.subscriptions);
 			panel.webview.onDidReceiveMessage(
-				(message: DesignerMessage) => void applyGesture(panel, xlsmPath!, moduleName!, message),
+				(message: DesignerMessage) => void (message.type === 'openHandler'
+					? openEventHandler(xlsmPath!, moduleName!, message.name, message.event)
+					: applyGesture(panel, xlsmPath!, moduleName!, message)),
 				undefined,
 				context.subscriptions,
 			);

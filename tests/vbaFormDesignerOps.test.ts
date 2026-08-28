@@ -283,6 +283,13 @@ describe('the interactive canvas contract', () => {
 		expect(html).toContain('"prop":"Caption"');
 	});
 
+	it('jumps to the default event handler on double-click', () => {
+		const { html } = readFormPreview(workbook(), 'EntryForm');
+		expect(html).toContain("type: 'openHandler'");
+		expect(html).toContain('DEFAULT_EVENTS');
+		expect(html).toContain("MultiPage: 'Change'");
+	});
+
 	it('offers cross-surface drops in the gesture script', () => {
 		const { html } = readFormPreview(workbook(), 'EntryForm');
 		expect(html).toContain("type: 'reparent'");
