@@ -393,15 +393,23 @@ export function serializeFormStream(model: FormStreamModel, codec: OformsTextCod
 	return w.toBuffer();
 }
 
-/** One depth/type entry per site (depth 0, ST_Ole), padded to four bytes. */
+/**
+ * The SiteDepthsAndTypes for `count` uniform sites (depth 0, ST_Ole), in the
+ * RUN-LENGTH form Excel itself always writes: one counted entry per run of
+ * up to 127. The per-entry form is spec-legal too, but matching the only
+ * producer fm20 is tested against costs nothing.
+ */
 function composeDepths(count: number): Buffer {
-	const entries = Buffer.alloc(count * 2);
-	for (let i = 0; i < count; i++) {
-		entries.writeUInt8(0x00, i * 2);
-		entries.writeUInt8(0x01, i * 2 + 1);
+	const entries: number[] = [];
+	let remaining = count;
+	while (remaining > 0) {
+		const run = Math.min(remaining, 0x7f);
+		entries.push(0x00, 0x80 | run, 0x01);
+		remaining -= run;
 	}
-	const over = entries.length % 4;
-	return over === 0 ? entries : Buffer.concat([entries, Buffer.alloc(4 - over)]);
+	const raw = Buffer.from(entries);
+	const over = raw.length % 4;
+	return over === 0 ? raw : Buffer.concat([raw, Buffer.alloc(4 - over)]);
 }
 
 function serializeSite(site: SiteModel, codec: OformsTextCodec): Buffer {

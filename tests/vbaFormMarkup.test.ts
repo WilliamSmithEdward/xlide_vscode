@@ -178,9 +178,9 @@ describe('what the apply refuses, whole-document', () => {
 			`    <ActiveX Name="Web1" Left="0" Top="0" />${CRLF}</Form>`,
 		))).toThrow(/class table/);
 		expect(() => applyFormMarkup(wb, 'EntryForm', markup.replace(
-			'<Page Name="Page2" Caption="Page2" />' + CRLF,
-			'',
-		))).toThrow(/adding or removing pages/);
+			'</Form>',
+			`    <Page Name="Stray" />${CRLF}</Form>`,
+		))).toThrow(/lives inside a MultiPage/);
 	});
 
 	it('applies nothing when any part of the document is broken', () => {
@@ -271,5 +271,142 @@ describe('spoken font and tab edits land', () => {
 		const markup = readFormMarkup(wb, 'EntryForm').markup
 			.replace('<Image Name="Badge"', '<Image Name="Badge" Font.Size="10"');
 		expect(() => applyFormMarkup(wb, 'EntryForm', markup)).toThrow(/carries no font/);
+	});
+});
+
+describe('pages and tabs, structurally', () => {
+	it('round-trips the x bookkeeping byte-identically', async () => {
+		const { Cfb } = await import('../src/vba/cfb');
+		const { XlsxWorkbook } = await import('../src/vba/xlsx');
+		const { parsePageBookkeeping, serializePageBookkeeping } = await import('../src/vba/oforms/pageBookkeeping');
+		const cfb = Cfb.fromBytes(XlsxWorkbook.fromBuffer(fs.readFileSync(FIXTURE)).readVbaProject());
+		const x = cfb.getStreamAtPath(['EntryForm', 'i10'], 'x');
+		expect(serializePageBookkeeping(parsePageBookkeeping(x)).equals(x)).toBe(true);
+	});
+
+	it('adds a page with a control on it, and removes another', () => {
+		const wb = workbook();
+		const markup = readFormMarkup(wb, 'EntryForm').markup;
+		const edited = markup
+			.replace('<Page Name="Page2" Caption="Page2" />',
+				[
+					'<Page Name="Details" Caption="Details">',
+					'            <TextBox Name="NotesBox" Left="8" Top="8" Width="120" Height="60" />',
+					'        </Page>',
+				].join(CRLF + '        ').replace(/^\s+</, '<'));
+		const result = applyFormMarkup(wb, 'EntryForm', edited);
+		expect(result.applied).toContain('removed page Page2 of Wizard');
+		expect(result.applied).toContain('added page Details of Wizard');
+		expect(result.applied).toContain('added TextBox NotesBox');
+
+		resetWorkbookCacheForTests();
+		const after = readFormMarkup(wb, 'EntryForm').markup;
+		expect(after).toContain('<Page Name="Details" Caption="Details">');
+		expect(after).toContain('<TextBox Name="NotesBox"');
+		expect(after).not.toContain('Page2');
+		expect(after).toContain('<Page Name="Page1" Caption="Page1">');
+	});
+
+	it('appends and truncates tabs on a standalone TabStrip', () => {
+		const wb = workbook();
+		const markup = readFormMarkup(wb, 'EntryForm').markup;
+		const added = applyFormMarkup(wb, 'EntryForm', markup.replace(
+			'<Tab Caption="Tab2" />',
+			`<Tab Caption="Tab2" />${CRLF}        <Tab Caption="Extra" />`,
+		));
+		expect(added.applied).toContain('added a tab of Views');
+		resetWorkbookCacheForTests();
+		const grown = readFormMarkup(wb, 'EntryForm').markup;
+		expect(grown).toContain('<Tab Caption="Extra" />');
+
+		const truncated = applyFormMarkup(wb, 'EntryForm', grown
+			.replace(`<Tab Caption="Extra" />${CRLF}`, '')
+			.replace(/^\s*<Tab Caption="Extra" \/>\r\n/m, ''));
+		expect(truncated.applied).toContain('removed a tab of Views');
+		resetWorkbookCacheForTests();
+		expect(readFormMarkup(wb, 'EntryForm').markup).not.toContain('Extra');
+	});
+
+	it('refuses reordering surviving pages, by name', () => {
+		const wb = workbook();
+		const markup = readFormMarkup(wb, 'EntryForm').markup;
+		const swapped = markup
+			.replace('<Page Name="Page1" Caption="Page1">', '<Page Name="PageX" Caption="Page1">')
+			.replace('<Page Name="Page2" Caption="Page2" />', '<Page Name="Page1" Caption="Page2" />')
+			.replace('<Page Name="PageX" Caption="Page1">', '<Page Name="Page2" Caption="Page1">');
+		expect(() => applyFormMarkup(wb, 'EntryForm', swapped)).toThrow(/reordering pages/);
+	});
+});
+
+describe('what live Excel taught the authoring, pinned', () => {
+	it('allocates control IDs uniquely across the WHOLE form tree', async () => {
+		// The fixture's IDs prove the scope: the root runs 1..20 with gaps at
+		// exactly the nested containers' controls (7,8 in the Frame; 11,12,13
+		// in the MultiPage; 14 on a Page). One counter serves everything, and
+		// a page control re-using a root-level ID broke the page's binding.
+		const wb = workbook();
+		const markup = readFormMarkup(wb, 'EntryForm').markup;
+		applyFormMarkup(wb, 'EntryForm', markup.replace(
+			'<Page Name="Page2" Caption="Page2" />',
+			`<Page Name="Page2" Caption="Page2" />${CRLF}        <Page Name="Details" Caption="Details">${CRLF}            <TextBox Name="NotesBox" Left="8" Top="8" Width="120" Height="60" />${CRLF}        </Page>`,
+		));
+		resetWorkbookCacheForTests();
+		const { Cfb } = await import('../src/vba/cfb');
+		const { XlsxWorkbook } = await import('../src/vba/xlsx');
+		const { parseFormPackage, walkPackages } = await import('../src/vba/oforms/formPackage');
+		const cfb = Cfb.fromBytes(XlsxWorkbook.fromBuffer(fs.readFileSync(wb)).readVbaProject());
+		const pkg = parseFormPackage(cfb, ['EntryForm']);
+		const ids: number[] = [];
+		walkPackages(pkg, (p) => {
+			for (const site of p.form.sites) {
+				const id = site.values.get('ID');
+				if (id !== undefined) { ids.push(id); }
+			}
+		});
+		expect(new Set(ids).size).toBe(ids.length);
+	});
+
+	it('authors a fresh MorphData the way Excel does', async () => {
+		// Reserved mask bit 31, VariousPropertyBits, and a populated TextProps
+		// - a TextBox without them loaded at top level but silently broke the
+		// binding of a MultiPage page carrying it, measured in live Excel.
+		const wb = workbook();
+		addFormModule(wb, 'FrmFresh', `Option Explicit${CRLF}`);
+		resetWorkbookCacheForTests();
+		const markup = readFormMarkup(wb, 'FrmFresh').markup;
+		applyFormMarkup(wb, 'FrmFresh', markup.replace(
+			/<Form([^>]*?)\s*\/>/,
+			`<Form$1>${CRLF}    <TextBox Name="T1" Left="8" Top="8" Width="72" Height="18" />${CRLF}</Form>`,
+		));
+		resetWorkbookCacheForTests();
+		const { Cfb } = await import('../src/vba/cfb');
+		const { XlsxWorkbook } = await import('../src/vba/xlsx');
+		const { parseFormStream, parseObjectStream } = await import('../src/vba/oforms/formStream');
+		const cfb = Cfb.fromBytes(XlsxWorkbook.fromBuffer(fs.readFileSync(wb)).readVbaProject());
+		const m = parseFormStream(cfb.getStreamAtPath(['FrmFresh'], 'f'));
+		const [entry] = parseObjectStream(cfb.getStreamAtPath(['FrmFresh'], 'o'), m.sites);
+		if (entry.kind !== 'record') { throw new Error('expected a record'); }
+		expect((entry.record.maskLo & (1 << 31)) !== 0).toBe(true);
+		expect(entry.record.values.get('VariousPropertyBits')).toBe(0x2c80481b);
+		expect(entry.record.textProps?.strings.get('FontName')?.text).toBe('Tahoma');
+		expect(entry.record.textProps?.values.get('FontHeight')).toBe(165);
+	});
+
+	it('writes the empty class-table count word into a fresh form', async () => {
+		// With BooleanProperties defaulted, fm20 reads a class-table count
+		// before CountOfSites. A fresh form without the word survives while
+		// EMPTY (both reads are zero) and refuses to load the moment it gains
+		// its first control - the misread count becomes 1 and garbage parses
+		// as class info. Real Excel roots all carry the empty word.
+		const wb = workbook();
+		addFormModule(wb, 'FrmFresh', `Option Explicit${CRLF}`);
+		resetWorkbookCacheForTests();
+		const { Cfb } = await import('../src/vba/cfb');
+		const { XlsxWorkbook } = await import('../src/vba/xlsx');
+		const { parseFormStream } = await import('../src/vba/oforms/formStream');
+		const cfb = Cfb.fromBytes(XlsxWorkbook.fromBuffer(fs.readFileSync(wb)).readVbaProject());
+		const m = parseFormStream(cfb.getStreamAtPath(['FrmFresh'], 'f'));
+		expect(m.classTablePresent).toBe(true);
+		expect(m.classTableRaw.equals(Buffer.from([0, 0]))).toBe(true);
 	});
 });

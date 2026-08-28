@@ -10,12 +10,36 @@
 import { randomBytes } from 'crypto';
 import { OformsWriter, pointsToHimetric } from './bytes';
 
-/** The Forms 2.0 CompObj stream, byte-for-byte as Excel writes it. */
+/** The Forms 2.0 CompObj stream for a top-level form, as Excel writes it. */
 export const FORMS20_COMPOBJ: Buffer = Buffer.from(
 	'0100feff030a0000ffffffff00000000000000000000000000000000'
 	+ '190000004d6963726f736f667420466f726d7320322e3020466f726d'
 	+ '0010000000456d626564646564204f626a6563740000000000f439b271'
 	+ '000000000000000000000000',
+	'hex',
+);
+
+// A container's CompObj names the kind fm20 should bind the storage as - a
+// Page's says Forms.Form.1 under the Form CLSID, a Frame's Forms.Frame.1 -
+// and binding fails silently with the wrong one: a page authored with its
+// parent MultiPage's CompObj loaded without erroring and simply did not
+// appear in Pages. Bytes verbatim from the Excel-authored fixture.
+
+/** CompObj for a MultiPage Page's storage. */
+export const PAGE_COMPOBJ: Buffer = Buffer.from(
+	'0100feff030a0000fffffffff0692ac6dc16ce119e9800aa00574a4f'
+	+ '190000004d6963726f736f667420466f726d7320322e3020466f726d'
+	+ '0010000000456d626564646564204f626a656374000d000000466f72'
+	+ '6d732e466f726d2e3100f439b271000000000000000000000000',
+	'hex',
+);
+
+/** CompObj for a Frame's storage. */
+export const FRAME_COMPOBJ: Buffer = Buffer.from(
+	'0100feff030a0000ffffffff2020186e60f4ce119bcd00aa00608e01'
+	+ '1a0000004d6963726f736f667420466f726d7320322e30204672616d'
+	+ '650010000000456d626564646564204f626a656374000e000000466f'
+	+ '726d732e4672616d652e3100f439b271000000000000000000000000',
 	'hex',
 );
 
@@ -58,7 +82,9 @@ export function composeNewForm(options: NewFormOptions): NewFormStreams {
 	const height = pointsToHimetric(heightPt);
 	const mask = (1 << 3) | (1 << 10) | (1 << 11) | (1 << 27);
 	const body = new OformsWriter();
-	body.u32(1);       // NextAvailableID
+	// NextAvailableID records the LAST id handed out (Excel leaves it equal
+	// to the highest live control ID), so an untouched form says zero.
+	body.u32(0);
 	body.u32(32000);   // DrawBuffer, the value Excel always writes
 	body.i32(width); body.i32(height);   // DisplayedSize
 	body.i32(width); body.i32(height);   // LogicalSize
@@ -68,7 +94,14 @@ export function composeNewForm(options: NewFormOptions): NewFormStreams {
 	w.u16(bodyBytes.length + 4);
 	w.u32(mask >>> 0);
 	w.bytes(bodyBytes);
-	// FormSiteData: no class table, no sites.
+	// FormSiteData. The empty class-table COUNT WORD must be here: with
+	// BooleanProperties defaulted, DONTSAVECLASSTABLE is 0 and fm20 reads a
+	// count before CountOfSites - omit it and the low bytes of CountOfSites
+	// are read AS the count. An empty form survives that by luck (both are
+	// zero); the form's first control makes the misread count 1, fm20 parses
+	// garbage as class info, and the whole form refuses to load. Real
+	// Excel-authored root forms all carry the empty word.
+	w.u16(0); // class table: zero SiteClassInfo entries
 	w.u32(0); // CountOfSites
 	w.u32(0); // CountOfBytes
 	const f = w.toBuffer();

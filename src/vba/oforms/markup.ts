@@ -31,6 +31,8 @@ import {
 	type SiteModel,
 } from './formStream';
 import { containerStorageName, controlKindOfSite, type FormPackage } from './formPackage';
+import { parsePageBookkeeping, serializePageBookkeeping, emptyPageProperties } from './pageBookkeeping';
+import { PAGE_COMPOBJ, FRAME_COMPOBJ } from './newForm';
 
 // ------------------------------------------------------------------ colors
 
@@ -571,7 +573,7 @@ const KIND_TO_CACHE_INDEX: Readonly<Record<string, number>> = {
  */
 export function applyFormMarkup(pkg: FormPackage, root: MarkupElement): ApplyOutcome {
 	const outcome: ApplyOutcome = { applied: [] };
-	applyToPackage(pkg, root, outcome, true);
+	applyToPackage(pkg, root, outcome, true, pkg);
 	return outcome;
 }
 
@@ -580,6 +582,7 @@ function applyToPackage(
 	element: MarkupElement,
 	outcome: ApplyOutcome,
 	isForm: boolean,
+	root: FormPackage,
 ): void {
 	// The container's own attributes. A Page's Caption is NOT its FormControl
 	// caption - it lives in the parent MultiPage's tab items, where
@@ -661,10 +664,10 @@ function applyToPackage(
 		const name = child.attrs.get('Name')!;
 		const existing = pkg.entries.find((e) => siteName(e.site).toLowerCase() === name.toLowerCase());
 		if (existing) {
-			applyToExisting(pkg, existing, child, outcome);
+			applyToExisting(pkg, existing, child, outcome, root);
 			continue;
 		}
-		addControl(pkg, child, outcome);
+		addControl(pkg, child, outcome, root);
 	}
 }
 
@@ -673,6 +676,7 @@ function applyToExisting(
 	entry: FormPackage['entries'][number],
 	element: MarkupElement,
 	outcome: ApplyOutcome,
+	root: FormPackage,
 ): void {
 	const site = entry.site;
 	const declaredKind = element.tag;
@@ -695,10 +699,10 @@ function applyToExisting(
 		const inner = pkg.containers.get(siteId(site));
 		if (inner) {
 			if (actualKind === 'Frame') {
-				applyToPackage(inner, element, outcome, false);
+				applyToPackage(inner, element, outcome, false, root);
 				syncContainerSize(inner, element, site, outcome);
 			} else if (actualKind === 'MultiPage') {
-				applyToMultiPage(inner, element, outcome, siteName(site));
+				applyToMultiPage(inner, element, outcome, siteName(site), root);
 				syncContainerSize(inner, element, site, outcome);
 			}
 		}
@@ -730,40 +734,165 @@ function applyToMultiPage(
 	element: MarkupElement,
 	outcome: ApplyOutcome,
 	mpName: string,
+	root: FormPackage,
 ): void {
 	const pages = element.children.filter((c) => c.tag.toLowerCase() === 'page');
-	const pageSites = mp.form.sites.filter((s) => siteCacheIndex(s) === 7);
-	if (pages.length !== pageSites.length) {
-		throw new FormMarkupError(
-			element.line,
-			`${mpName} has ${pageSites.length} pages; adding or removing pages through markup is not supported yet`,
-		);
+	const tabStripEntry = mp.entries.find((e) => e.kind === 'record' && siteCacheIndex(e.site) === 18);
+	const tabStrip = tabStripEntry && tabStripEntry.kind === 'record' ? tabStripEntry.record : undefined;
+
+	// Pages HAVE names, so the diff is by name: only-in-document adds,
+	// only-in-designer removes. The surviving pages must keep their relative
+	// order - reordering moves the x bookkeeping, the tab arrays, and the
+	// site list at once, and is refused until it is proven.
+	const byName = new Map<string, MarkupElement>();
+	for (const page of pages) {
+		const pageName = page.attrs.get('Name');
+		if (!pageName) {
+			throw new FormMarkupError(page.line, '<Page> has no Name; the name is the key the diff matches by');
+		}
+		if (byName.has(pageName.toLowerCase())) {
+			throw new FormMarkupError(page.line, `two pages are named ${pageName}`);
+		}
+		byName.set(pageName.toLowerCase(), page);
 	}
-	// Page captions live on the MultiPage's TabStrip Items array.
-	const tabStrip = mp.entries.find((e) => e.kind === 'record' && siteCacheIndex(e.site) === 18);
-	if (tabStrip && tabStrip.kind === 'record') {
-		const items = tabStrip.record.arrays.get('Items');
+
+	// Removals, from the end so indices stay stable.
+	const currentSites = (): SiteModel[] => mp.form.sites.filter((s) => siteCacheIndex(s) === 7);
+	for (let index = currentSites().length - 1; index >= 0; index--) {
+		const site = currentSites()[index];
+		if (byName.has(siteName(site).toLowerCase())) { continue; }
+		removePage(mp, site, index, tabStrip);
+		outcome.applied.push(`removed page ${siteName(site)} of ${mpName}`);
+	}
+
+	// Survivors must appear in the document in designer order.
+	const survivorOrder = currentSites().map((s) => siteName(s).toLowerCase());
+	const documentOrder = pages
+		.map((page) => page.attrs.get('Name')!.toLowerCase())
+		.filter((n) => survivorOrder.includes(n));
+	if (survivorOrder.join('|') !== documentOrder.join('|')) {
+		throw new FormMarkupError(element.line, `${mpName}: reordering pages is not supported yet`);
+	}
+
+	// Additions, at their document positions.
+	pages.forEach((page, index) => {
+		const pageName = page.attrs.get('Name')!;
+		if (currentSites().some((s) => siteName(s).toLowerCase() === pageName.toLowerCase())) { return; }
+		addPage(mp, page, Math.min(index, currentSites().length), tabStrip, root);
+		outcome.applied.push(`added page ${pageName} of ${mpName}`);
+	});
+
+	// Captions, positional against the final page order.
+	if (tabStrip) {
+		const items = tabStrip.arrays.get('Items');
 		const captions = items ? decodeArrayStrings(items) : [];
 		let changed = false;
-		pages.forEach((page, index) => {
+		const finalSites = currentSites();
+		pages.forEach((page) => {
 			const caption = page.attrs.get('Caption');
-			if (caption !== undefined && captions[index] !== undefined && caption !== captions[index]) {
+			if (caption === undefined) { return; }
+			const index = finalSites.findIndex(
+				(s) => siteName(s).toLowerCase() === page.attrs.get('Name')!.toLowerCase(),
+			);
+			if (index >= 0 && captions[index] !== undefined && captions[index] !== caption) {
 				captions[index] = caption;
 				changed = true;
 			}
 		});
 		if (changed) {
 			const encoded = encodeArrayStrings(captions);
-			tabStrip.record.arrays.set('Items', encoded);
-			setRecordValue(tabStrip.record, 'ItemsSize', encoded.length);
+			tabStrip.arrays.set('Items', encoded);
+			setRecordValue(tabStrip, 'ItemsSize', encoded.length);
 			outcome.applied.push(`page captions of ${mpName}`);
 		}
 	}
-	pages.forEach((page, index) => {
-		const pageSite = pageSites[index];
-		const inner = mp.containers.get(siteId(pageSite));
-		if (inner) { applyToPackage(inner, page, outcome, false); }
+
+	// The pages' own contents.
+	for (const page of pages) {
+		const site = currentSites().find(
+			(s) => siteName(s).toLowerCase() === page.attrs.get('Name')!.toLowerCase(),
+		);
+		if (!site) { continue; }
+		const inner = mp.containers.get(siteId(site));
+		if (inner) { applyToPackage(inner, page, outcome, false, root); }
+	}
+}
+
+/** Removes one page: its site, its storage package, its tab entry, its x row. */
+function removePage(
+	mp: FormPackage,
+	site: SiteModel,
+	index: number,
+	tabStrip: ParsedRecord | undefined,
+): void {
+	mp.form.sites = mp.form.sites.filter((s) => s !== site);
+	mp.entries = mp.entries.filter((e) => e.site !== site);
+	mp.containers.delete(siteId(site));
+	mp.form.sitesStructurallyChanged = true;
+	if (tabStrip) { removeTabEntry(tabStrip, index); }
+	if (mp.xRaw) {
+		const book = parsePageBookkeeping(mp.xRaw);
+		book.pageProps.splice(Math.min(index + 1, book.pageProps.length - 1), 1);
+		book.pageIds.splice(index, 1);
+		book.pageCount -= 1;
+		mp.xRaw = serializePageBookkeeping(book);
+	}
+}
+
+/** Adds one page: a fresh site, an empty storage package, arrays, x row. */
+function addPage(
+	mp: FormPackage,
+	element: MarkupElement,
+	index: number,
+	tabStrip: ParsedRecord | undefined,
+	root: FormPackage,
+): void {
+	const pageName = element.attrs.get('Name')!;
+	// The page's site ID names its iNN storage, drawn from the same
+	// tree-global pool as every control ID.
+	const id = allocateControlId(root, mp);
+
+	const reference = mp.form.sites.find((s) => siteCacheIndex(s) === 7);
+	const site: SiteModel = { mask: 0, values: new Map(), strings: new Map(), pads: new Map() };
+	site.mask = ((1 << 0) | (1 << 2) | (1 << 4) | (1 << 6) | (1 << 7) | (1 << 8)) >>> 0;
+	site.strings.set('Name', {
+		text: pageName,
+		compressed: [...pageName].every((c) => c.charCodeAt(0) <= 0xff),
+		raw: Buffer.alloc(0),
+		edited: true,
 	});
+	site.values.set('NameData', 0);
+	site.values.set('ID', id);
+	// 0x00040021 is what Excel writes for a page that is NOT the current
+	// one; the current page differs by one bit, and copying it from an
+	// existing page would leave two pages claiming to be current.
+	site.values.set('BitFlags', 0x00040021);
+	site.values.set('TabIndex', mp.form.sites.filter((s) => siteCacheIndex(s) === 7).length + 1);
+	site.values.set('ClsidCacheIndex', 7);
+	site.position = reference?.position ? { ...reference.position } : { left: 0, top: 0 };
+
+	// Page sites sit after the TabStrip site, in page order.
+	const pageSites = mp.form.sites.filter((s) => siteCacheIndex(s) === 7);
+	const anchor = index < pageSites.length
+		? mp.form.sites.indexOf(pageSites[index])
+		: mp.form.sites.length;
+	mp.form.sites.splice(anchor, 0, site);
+	mp.entries.push({ kind: 'container', site });
+	mp.form.sitesStructurallyChanged = true;
+
+	const inner = newEmptyContainerPackage(mp, element, 'Page');
+	mp.containers.set(id, inner);
+
+	if (tabStrip) {
+		insertTabEntry(tabStrip, index, element.attrs.get('Caption') ?? pageName, pageName);
+	}
+	if (mp.xRaw) {
+		const book = parsePageBookkeeping(mp.xRaw);
+		book.pageProps.splice(index + 1, 0, emptyPageProperties());
+		book.pageIds.splice(index, 0, id);
+		book.pageCount += 1;
+		mp.xRaw = serializePageBookkeeping(book);
+	}
 }
 
 function applySiteAttrs(site: SiteModel, element: MarkupElement, outcome: ApplyOutcome): void {
@@ -921,7 +1050,78 @@ function applyFontAttrs(
 	}
 }
 
-/** Caption edits on a standalone TabStrip's <Tab> children. */
+/** The TabStrip's per-tab arrays and their DataBlock size fields, by name. */
+const TAB_PARALLEL_ARRAYS: ReadonlyArray<readonly [string, string]> = [
+	['Items', 'ItemsSize'],
+	['TipStrings', 'TipStringsSize'],
+	['TabNames', 'NamesSize'],
+	['Tags', 'TagsSize'],
+	['Accelerators', 'AcceleratorsSize'],
+];
+
+/**
+ * Inserts one tab's entries at `index` across every stored per-tab array of a
+ * TabStrip record, plus the flags tail and the counters - the spec requires
+ * every stored array to carry an entry for every tab, so they move together.
+ */
+function insertTabEntry(record: ParsedRecord, index: number, caption: string, tabName: string): void {
+	for (const [arrayName, sizeField] of TAB_PARALLEL_ARRAYS) {
+		const raw = record.arrays.get(arrayName);
+		if (raw === undefined) { continue; }
+		const entries = decodeArrayStrings(raw);
+		const value = arrayName === 'Items' ? caption : arrayName === 'TabNames' ? tabName : '';
+		entries.splice(index, 0, value);
+		const encoded = encodeArrayStrings(entries);
+		record.arrays.set(arrayName, encoded);
+		setRecordValue(record, sizeField, encoded.length);
+	}
+	adjustTabFlags(record, index, 'insert');
+}
+
+function removeTabEntry(record: ParsedRecord, index: number): void {
+	for (const [arrayName, sizeField] of TAB_PARALLEL_ARRAYS) {
+		const raw = record.arrays.get(arrayName);
+		if (raw === undefined) { continue; }
+		const entries = decodeArrayStrings(raw);
+		entries.splice(index, 1);
+		const encoded = encodeArrayStrings(entries);
+		record.arrays.set(arrayName, encoded);
+		setRecordValue(record, sizeField, encoded.length);
+	}
+	adjustTabFlags(record, index, 'remove');
+}
+
+/** Keeps TabData, the TabStripTabFlags tail, and TabsAllocated in step. */
+function adjustTabFlags(record: ParsedRecord, index: number, op: 'insert' | 'remove'): void {
+	const count = record.values.get('TabData');
+	if (count !== undefined && recordHas(record, 'TabData')) {
+		const flags = record.tailRaw ?? Buffer.alloc(0);
+		const entries: Buffer[] = [];
+		for (let i = 0; i + 4 <= flags.length; i += 4) { entries.push(flags.subarray(i, i + 4)); }
+		if (op === 'insert') {
+			// Visible and enabled, the flags every fixture tab carries.
+			const fresh = Buffer.alloc(4);
+			fresh.writeUInt32LE(0x00000003);
+			entries.splice(index, 0, fresh);
+		} else {
+			entries.splice(index, 1);
+		}
+		record.tailRaw = Buffer.concat(entries);
+		setRecordValue(record, 'TabData', count + (op === 'insert' ? 1 : -1));
+	}
+	const itemsRaw = record.arrays.get('Items');
+	const newCount = itemsRaw ? decodeArrayStrings(itemsRaw).length : 0;
+	const allocated = record.values.get('TabsAllocated');
+	if (allocated !== undefined && recordHas(record, 'TabsAllocated') && newCount > allocated) {
+		setRecordValue(record, 'TabsAllocated', newCount);
+	}
+}
+
+/**
+ * <Tab> edits on a standalone TabStrip. Tabs carry no name, so the diff is
+ * POSITIONAL: same count recaptions in place, a longer document appends new
+ * tabs at the end, a shorter one truncates from the end.
+ */
 function applyTabCaptions(
 	record: ParsedRecord,
 	element: MarkupElement,
@@ -929,33 +1129,73 @@ function applyTabCaptions(
 	name: string,
 ): void {
 	const tabs = element.children.filter((c) => c.tag.toLowerCase() === 'tab');
-	if (tabs.length === 0) { return; }
+	if (tabs.length === 0 && element.children.length === 0) { return; }
 	const items = record.arrays.get('Items');
 	const captions = items ? decodeArrayStrings(items) : [];
-	if (tabs.length !== captions.length) {
-		throw new FormMarkupError(
-			element.line,
-			`${name} has ${captions.length} tabs; adding or removing tabs through markup is not supported yet`,
-		);
+
+	while (captions.length > tabs.length) {
+		removeTabEntry(record, captions.length - 1);
+		captions.pop();
+		outcome.applied.push(`removed a tab of ${name}`);
 	}
-	let changed = false;
+	for (let i = captions.length; i < tabs.length; i++) {
+		const caption = tabs[i].attrs.get('Caption') ?? `Tab${i + 1}`;
+		insertTabEntry(record, i, caption, `Tab${i + 1}`);
+		captions.push(caption);
+		outcome.applied.push(`added a tab of ${name}`);
+	}
+
+	let recaptioned = false;
 	tabs.forEach((tab, index) => {
 		const caption = tab.attrs.get('Caption');
 		if (caption !== undefined && caption !== captions[index]) {
 			captions[index] = caption;
-			changed = true;
+			recaptioned = true;
 		}
 	});
-	if (!changed) { return; }
-	const encoded = encodeArrayStrings(captions);
-	record.arrays.set('Items', encoded);
-	setRecordValue(record, 'ItemsSize', encoded.length);
-	outcome.applied.push(`tab captions of ${name}`);
+	if (recaptioned) {
+		const encoded = encodeArrayStrings(captions);
+		record.arrays.set('Items', encoded);
+		setRecordValue(record, 'ItemsSize', encoded.length);
+		outcome.applied.push(`tab captions of ${name}`);
+	}
+}
+
+/**
+ * Allocates a control ID unique across the WHOLE form tree. The fixture's
+ * IDs prove the scope: the root form runs 1..20 with gaps at exactly the IDs
+ * its nested containers' controls hold (7,8 in the Frame, 11,12,13 in the
+ * MultiPage, 14 on a Page) - one counter serves everything, and a page
+ * control re-using a root-level ID broke the page's binding in Excel.
+ * Every NextAvailableID on the path records the assignment, the way the VBE
+ * leaves each container's counter at the last ID it handed out.
+ */
+function allocateControlId(root: FormPackage, local: FormPackage): number {
+	let id = 1;
+	const consider = (candidate: number | undefined): void => {
+		if (candidate !== undefined && candidate >= id) { id = candidate + 1; }
+	};
+	const walk = (pkg: FormPackage): void => {
+		consider(pkg.form.record.values.get('NextAvailableID'));
+		for (const site of pkg.form.sites) { consider(site.values.get('ID')); }
+		for (const child of pkg.containers.values()) { walk(child); }
+	};
+	walk(root);
+	setRecordValue(root.form.record, 'NextAvailableID', id);
+	if (local !== root) {
+		setRecordValue(local.form.record, 'NextAvailableID', id);
+	}
+	return id;
 }
 
 // ------------------------------------------------------------- additions
 
-function addControl(pkg: FormPackage, element: MarkupElement, outcome: ApplyOutcome): void {
+function addControl(
+	pkg: FormPackage,
+	element: MarkupElement,
+	outcome: ApplyOutcome,
+	root: FormPackage,
+): void {
 	const kind = element.tag;
 	const name = element.attrs.get('Name')!;
 	if (kind === 'ActiveX') {
@@ -964,10 +1204,16 @@ function addControl(pkg: FormPackage, element: MarkupElement, outcome: ApplyOutc
 			`${name}: creating an ActiveX control needs a class table entry this engine does not author yet`,
 		);
 	}
-	if (kind === 'MultiPage' || kind === 'Page' || kind === 'Tab') {
+	if (kind === 'MultiPage') {
 		throw new FormMarkupError(
 			element.line,
-			`${name}: adding a ${kind} through markup is not supported yet; leaf controls and Frames are`,
+			`${name}: adding a whole MultiPage is not supported yet; pages of an existing one are`,
+		);
+	}
+	if (kind === 'Page' || kind === 'Tab') {
+		throw new FormMarkupError(
+			element.line,
+			`${name}: a ${kind} lives inside a ${kind === 'Page' ? 'MultiPage' : 'TabStrip'}, not on the form`,
 		);
 	}
 	const cacheIndex = KIND_TO_CACHE_INDEX[kind];
@@ -981,12 +1227,17 @@ function addControl(pkg: FormPackage, element: MarkupElement, outcome: ApplyOutc
 	// The safe rule: above both the field and every existing ID, then record
 	// the assignment the way Excel does, as the last ID handed out.
 	const formRecord = pkg.form.record;
-	let id = formRecord.values.get('NextAvailableID') ?? 1;
-	for (const existing of pkg.form.sites) {
-		const existingId = existing.values.get('ID');
-		if (existingId !== undefined && existingId >= id) { id = existingId + 1; }
+	// ShapeCookie: an Excel-authored container that holds controls carries
+	// one, and a page without one bound its content only once the rest of the
+	// authorship matched Excel - but BUMPING an existing cookie broke a form
+	// that loaded fine before the bump (measured: a top-level add with 17->18
+	// failed, the same add leaving 17 alone loaded). The cookie is the design
+	// surface's own bookkeeping: set one only where none exists, never touch
+	// one that does.
+	if (formRecord.values.get('ShapeCookie') === undefined) {
+		setRecordValue(formRecord, 'ShapeCookie', 1);
 	}
-	setRecordValue(formRecord, 'NextAvailableID', id);
+	const id = allocateControlId(root, pkg);
 
 	const site: SiteModel = {
 		mask: 0,
@@ -1020,10 +1271,10 @@ function addControl(pkg: FormPackage, element: MarkupElement, outcome: ApplyOutc
 	pkg.form.sitesStructurallyChanged = true;
 
 	if (kind === 'Frame') {
-		const inner = newEmptyContainerPackage(pkg, element);
+		const inner = newEmptyContainerPackage(pkg, element, 'Frame');
 		pkg.containers.set(id, inner);
 		pkg.entries.push({ kind: 'container', site });
-		applyToPackage(inner, element, outcome, false);
+		applyToPackage(inner, element, outcome, false, root);
 		outcome.applied.push(`added Frame ${name}`);
 		return;
 	}
@@ -1047,6 +1298,14 @@ function nextTabIndex(pkg: FormPackage): number {
 	return max + 1;
 }
 
+/**
+ * A fresh control record, authored field-for-field as live Excel authors one
+ * of the same kind - measured from the fixture form the VBE built. The
+ * differences are not cosmetic: a TextBox without Excel's
+ * VariousPropertyBits, or a MorphData without its reserved mask bit, loads
+ * at top level but silently breaks the binding of a MultiPage page that
+ * carries it.
+ */
 function newRecordForKind(kind: string): ParsedRecord {
 	const cacheIndex = KIND_TO_CACHE_INDEX[kind];
 	const specIndex = cacheIndex === 14 || cacheIndex === 57 ? undefined : cacheIndex;
@@ -1071,20 +1330,55 @@ function newRecordForKind(kind: string): ParsedRecord {
 		if (sizeExtra.bit < 32) { record.maskLo = (record.maskLo | (1 << sizeExtra.bit)) >>> 0; }
 		else { record.maskHi = (record.maskHi | (1 << (sizeExtra.bit - 32))) >>> 0; }
 	}
-	// The MorphData family carries its concrete type in DisplayStyle.
 	if (spec.mask64) {
+		// MorphData's mask bit 31 is reserved-MUST-be-1 ([MS-OFORMS] 2.2.5.2).
+		record.maskLo = (record.maskLo | (1 << 31)) >>> 0;
 		const style = ({ TextBox: 1, ListBox: 2, ComboBox: 3, CheckBox: 4, OptionButton: 5, ToggleButton: 6 } as Record<string, number>)[kind];
 		if (style !== undefined && style !== 1) {
 			setRecordValue(record, 'DisplayStyle', style);
 		}
+		switch (kind) {
+			case 'TextBox':
+				setRecordValue(record, 'VariousPropertyBits', 0x2c80481b);
+				break;
+			case 'ComboBox':
+				setRecordValue(record, 'VariousPropertyBits', 0x2c80481b);
+				setRecordValue(record, 'MatchEntry', 1);
+				setRecordValue(record, 'ShowDropButtonWhen', 2);
+				break;
+			case 'ListBox':
+				setRecordValue(record, 'ScrollBars', 3);
+				setRecordValue(record, 'MatchEntry', 0);
+				break;
+			case 'CheckBox':
+			case 'OptionButton':
+			case 'ToggleButton':
+				setRecordValue(record, 'BackColor', 0x8000000f);
+				setRecordValue(record, 'ForeColor', 0x80000012);
+				setRecordString(record, 'Value', '0');
+				break;
+		}
+	} else if (kind === 'SpinButton' || kind === 'ScrollBar') {
+		setRecordValue(record, 'Orientation', -1);
 	}
 	if (spec.textProps) {
-		record.textProps = {
+		// Every record Excel writes carries Tahoma at 8.25pt (165 twips) with
+		// charset 0 and pitch-and-family 2; button-like kinds centre their
+		// text with ParagraphAlign 3.
+		const textProps: ParsedRecord = {
 			spec: TEXT_PROPS_REF,
 			maskLo: 0, maskHi: 0,
 			values: new Map(), strings: new Map(), sizes: new Map(), arrays: new Map(),
 			pads: new Map(), streamData: new Map(),
 		};
+		setRecordString(textProps, 'FontName', 'Tahoma');
+		setRecordValue(textProps, 'FontHeight', 165);
+		setRecordValue(textProps, 'FontCharSet', 0);
+		setRecordValue(textProps, 'FontPitchAndFamily', 2);
+		if (kind === 'CommandButton' || kind === 'ToggleButton') {
+			setRecordValue(textProps, 'ParagraphAlign', 3);
+		}
+		record.textProps = textProps;
 	}
 	return record;
 }
@@ -1095,8 +1389,17 @@ function requireSpec(cacheIndex: number) {
 	return spec;
 }
 
-/** A fresh, empty Frame package: a minimal FormControl and no sites. */
-function newEmptyContainerPackage(parent: FormPackage, element: MarkupElement): FormPackage {
+/**
+ * A fresh, empty container package: the minimal FormControl an Excel-authored
+ * Frame or Page carries. BooleanProperties 0x8004 (enabled, class table not
+ * saved), DrawBuffer 32000, LogicalSize zero - measured from the fixture's
+ * own containers, where a page authored without them was silently not bound.
+ */
+function newEmptyContainerPackage(
+	parent: FormPackage,
+	element: MarkupElement,
+	kind: 'Frame' | 'Page',
+): FormPackage {
 	const width = pointsToHimetric(Number(element.attrs.get('Width') ?? '100'));
 	const height = pointsToHimetric(Number(element.attrs.get('Height') ?? '80'));
 	const record: ParsedRecord = {
@@ -1107,9 +1410,23 @@ function newEmptyContainerPackage(parent: FormPackage, element: MarkupElement): 
 	};
 	const setBit = (bit: number): void => { record.maskLo = (record.maskLo | (1 << bit)) >>> 0; };
 	setBit(3); record.values.set('NextAvailableID', 1);
+	setBit(6); record.values.set('BooleanProperties', 0x00008004);
 	setBit(10); record.sizes.set('DisplayedSize', { width, height });
-	setBit(11); record.sizes.set('LogicalSize', { width, height });
-	setBit(27); record.values.set('DrawBuffer', 16000);
+	setBit(11); record.sizes.set('LogicalSize', { width: 0, height: 0 });
+	setBit(27); record.values.set('DrawBuffer', 32000);
+	if (kind === 'Frame') {
+		const caption = element.attrs.get('Caption');
+		if (caption !== undefined) {
+			setBit(19);
+			record.strings.set('Caption', {
+				text: caption,
+				compressed: [...caption].every((c) => c.charCodeAt(0) <= 0xff),
+				raw: Buffer.alloc(0),
+				edited: true,
+			});
+			record.values.set('Caption', 0);
+		}
+	}
 	return {
 		form: {
 			record,
@@ -1122,6 +1439,6 @@ function newEmptyContainerPackage(parent: FormPackage, element: MarkupElement): 
 		},
 		entries: [],
 		containers: new Map(),
-		compObjRaw: parent.compObjRaw,
+		compObjRaw: kind === 'Page' ? PAGE_COMPOBJ : FRAME_COMPOBJ,
 	};
 }

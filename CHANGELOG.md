@@ -4,6 +4,34 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **MultiPage Pages and TabStrip tabs are editable through markup** - the one
+  structural refusal worth lifting is lifted. A `<Page>` present only in the
+  document is created (its nested storage, its site, its tab entry, and the
+  `x` bookkeeping move together), one present only in the designer is removed,
+  and page captions, tab captions, and every control ON a page edit as before.
+  Tabs have no names, so their diff is positional: append, truncate, recaption.
+  Reordering surviving pages stays refused by name until it is proven.
+
+  Verified in live Excel end to end: a form whose MultiPage gained a page
+  carrying a TextBox, lost another page, and whose TabStrip gained a third tab
+  answered `Pages.Count = 3`, the new page's caption, its control's name, and
+  the new tab's caption under `Application.Run` - alongside re-verification of
+  every previously proven flow, combined in one workbook.
+
+  Getting there surfaced four authorship rules the spec alone does not teach,
+  each found by live Excel refusing a form and pinned as a test:
+  control IDs are allocated from ONE counter across the whole form tree (the
+  fixture's ID gaps at the root are exactly its nested controls); a fresh
+  MorphData needs its reserved mask bit plus the `VariousPropertyBits` and
+  populated `TextProps` Excel always writes; a fresh form must carry the empty
+  class-table count word, without which its FIRST control makes fm20 parse
+  garbage as class info (an empty form survives by coincidence - both misread
+  values are zero); and a container's `ShapeCookie` is set only where none
+  exists, never bumped, because rewriting an existing one broke a form that
+  loaded fine before. A container's CompObj also names its kind: a Page
+  authored with its parent MultiPage's CompObj loads and silently drops out
+  of `Pages`.
+
 - **The UserForm designer is native.** XLIDE now reads and WRITES a form's
   [MS-OFORMS] designer storage itself - no Office application in the loop.
   Right-click a workbook for **Add UserForm** and a form module for **Open
