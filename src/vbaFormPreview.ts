@@ -28,6 +28,7 @@ type DesignerMessage =
 	| { type: 'add'; container: string; controlKind: string; left: number; top: number }
 	| { type: 'remove'; name: string }
 	| { type: 'reparent'; name: string; container: string; left: number; top: number }
+	| { type: 'setProp'; name: string; prop: string; value: string }
 	| { type: 'formResize'; width: number; height: number };
 
 export function registerFormPreview(
@@ -66,7 +67,9 @@ export function registerFormPreview(
 				? { kind: 'add' as const, container: message.container, controlKind: message.controlKind, left: message.left, top: message.top }
 				: message.type === 'reparent'
 					? { kind: 'reparent' as const, name: message.name, container: message.container, left: message.left, top: message.top }
-					: message.type === 'formResize'
+					: message.type === 'setProp'
+						? { kind: 'setProp' as const, name: message.name, prop: message.prop, value: message.value }
+						: message.type === 'formResize'
 						? { kind: 'formSize' as const, width: message.width, height: message.height }
 						: { kind: 'remove' as const, name: message.name };
 		try {
@@ -86,7 +89,9 @@ export function registerFormPreview(
 					? `Designer: added ${op.kind === 'add' ? op.controlKind : ''} ${result.newName ?? ''}`
 					: message.type === 'reparent'
 						? `Designer: moved ${message.name} into ${message.container || 'the form'}`
-						: message.type === 'formResize'
+						: message.type === 'setProp'
+							? `Designer: set ${message.prop} of ${message.name || 'the form'}`
+							: message.type === 'formResize'
 							? `Designer: form resized to ${message.width}x${message.height}pt`
 							: `Designer: ${message.type} ${'name' in message ? message.name : ''}`,
 			});
@@ -97,7 +102,9 @@ export function registerFormPreview(
 				? undefined
 				: message.type === 'formResize'
 					? ''
-					: message.type === 'add' ? result.newName : message.name;
+					: message.type === 'setProp'
+						? (result.newName ?? message.name)
+						: message.type === 'add' ? result.newName : message.name;
 			await render(panel, xlsmPath, moduleName, keepSelected);
 		} catch (err) {
 			void vscode.window.showErrorMessage(`XLIDE: ${errorMessage(err)}`);
@@ -124,11 +131,28 @@ export function registerFormPreview(
 				);
 				return;
 			}
+			// The vbide's designer shows the document under the form; here the
+			// markup opens in an editor group below the canvas, unless some
+			// group already shows it.
+			const showMarkupBelow = async (panel: vscode.WebviewPanel): Promise<void> => {
+				try {
+					const markupUri = encodeFormMarkupUri(xlsmPath!, moduleName!);
+					const shown = vscode.window.visibleTextEditors
+						.some((e) => e.document.uri.toString() === markupUri.toString());
+					if (shown) { return; }
+					panel.reveal(undefined, false);
+					await vscode.commands.executeCommand('workbench.action.newGroupBelow');
+					await vscode.window.showTextDocument(markupUri, { preserveFocus: false });
+				} catch {
+					// The split is a nicety; the designer stands alone.
+				}
+			};
 			const key = panelKey(xlsmPath, moduleName);
 			const existing = panels.get(key);
 			if (existing) {
 				existing.reveal(vscode.ViewColumn.Beside, true);
 				await render(existing, xlsmPath, moduleName);
+				await showMarkupBelow(existing);
 				return;
 			}
 			const panel = vscode.window.createWebviewPanel(
@@ -145,6 +169,7 @@ export function registerFormPreview(
 				context.subscriptions,
 			);
 			await render(panel, xlsmPath, moduleName);
+			await showMarkupBelow(panel);
 		}),
 
 		// A saved markup document refreshes its form's open canvas, so the two

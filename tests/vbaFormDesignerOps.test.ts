@@ -171,6 +171,65 @@ describe('reparent', () => {
 	});
 });
 
+describe('property writes', () => {
+	const set = (wb: string, name: string, prop: string, value: string) =>
+		applyFormDesignerOp(wb, 'EntryForm', { kind: 'setProp', name, prop, value });
+
+	it('sets a caption, a color, a font style, and a tab index', () => {
+		const wb = workbook();
+		set(wb, 'OkButton', 'Caption', 'Go');
+		set(wb, 'NameBox', 'BackColor', '#FF0000');
+		set(wb, 'NameBox', 'Font.Bold', 'True');
+		set(wb, 'OkButton', 'TabIndex', '9');
+		resetWorkbookCacheForTests();
+		const markup = readFormMarkup(wb, 'EntryForm').markup;
+		expect(markup).toContain('Caption="Go"');
+		expect(markup).toMatch(/Name="NameBox"[^>]*BackColor="#ff0000"/);
+		expect(markup).toMatch(/Name="NameBox"[^>]*Font\.Bold="True"/);
+		expect(markup).toMatch(/Name="OkButton"[^>]*TabIndex="9"/);
+	});
+
+	it('renames a control and reports the new name', () => {
+		const wb = workbook();
+		const result = set(wb, 'OkButton', 'Name', 'GoButton');
+		expect(result.newName).toBe('GoButton');
+		resetWorkbookCacheForTests();
+		const markup = readFormMarkup(wb, 'EntryForm').markup;
+		expect(markup).toContain('Name="GoButton"');
+		expect(markup).not.toContain('Name="OkButton"');
+	});
+
+	it('refuses a taken name, an illegal name, and an unknown property', () => {
+		const wb = workbook();
+		expect(() => set(wb, 'OkButton', 'Name', 'NameBox')).toThrow(/already exists/);
+		expect(() => set(wb, 'OkButton', 'Name', '1Bad')).toThrow(/not a legal control name/);
+		expect(() => set(wb, 'OkButton', 'Bogus', 'x')).toThrow(/has no Bogus/);
+	});
+
+	it('writes captions where each container keeps its own', () => {
+		const wb = workbook();
+		set(wb, 'Options', 'Caption', 'Choices');
+		set(wb, 'Page1', 'Caption', 'First Things');
+		resetWorkbookCacheForTests();
+		const markup = readFormMarkup(wb, 'EntryForm').markup;
+		expect(markup).toMatch(/<Frame Name="Options"[^>]*Caption="Choices"/);
+		expect(markup).toMatch(/<Page Name="Page1" Caption="First Things"/);
+	});
+
+	it('writes the form itself: caption via the VBFrame, size with its twips echo', () => {
+		const wb = workbook();
+		set(wb, '', 'Caption', 'Entry Station');
+		set(wb, '', 'Width', '400');
+		set(wb, '', 'BackColor', '#00FF00');
+		resetWorkbookCacheForTests();
+		const markup = readFormMarkup(wb, 'EntryForm').markup;
+		expect(markup).toMatch(/<Form Name="EntryForm" Caption="Entry Station"[^>]*Width="400"/);
+		expect(markup).toMatch(/<Form[^>]*BackColor="#00ff00"/);
+		const { frm } = readFormExport(wb, 'EntryForm');
+		expect(frm).toMatch(/ClientWidth\s*=\s*8000/);
+	});
+});
+
 describe('form resize', () => {
 	it('resizes the client area and keeps the VBFrame in step', () => {
 		const wb = workbook();
@@ -215,6 +274,13 @@ describe('the interactive canvas contract', () => {
 		const { html } = readFormPreview(workbook(), 'EntryForm');
 		expect(html).toContain('body.grid-on [data-surface]::before');
 		expect(html).toContain('syncGridDots');
+	});
+
+	it('carries the Properties pane and its rows', () => {
+		const { html } = readFormPreview(workbook(), 'EntryForm');
+		expect(html).toContain('id="props"');
+		expect(html).toContain("type: 'setProp'");
+		expect(html).toContain('"prop":"Caption"');
 	});
 
 	it('offers cross-surface drops in the gesture script', () => {

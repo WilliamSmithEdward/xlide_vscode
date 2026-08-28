@@ -4,6 +4,25 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **The designer has a Properties pane.** A panel on the canvas's right edge
+  follows the selection the way the VBE's Properties window does - click a
+  control for its rows, the empty face (or nothing) for the form's own. The
+  rows are the markup dialect's vocabulary, drawn from the same record and
+  site fields the document prints - one answer behind both faces - with a
+  blank meaning a property at its default. Editing a row commits ONE
+  property write on Enter or blur; Escape reverts the row and keeps the
+  selection; typing in the pane never nudges or deletes the selected
+  control. Renaming is a row like any other: the pane follows the control to
+  its new name (code that mentioned the old name is yours to update, as in
+  the VBE). Verified in live Excel: a renamed button, a recolored text box,
+  a recaptioned page, and the form's own caption all load and answer with
+  their new values.
+
+- **The markup document opens beneath the designer** - the xlide vbide
+  arrangement, canvas above and document below - whenever Open Designer runs
+  and no editor group already shows it. The two faces still track each other
+  both ways.
+
 - **Controls drag between containers.** Carry a control over a different
   surface - the form face, a Frame, a Page - and the prospective home
   outlines; the drop moves it there, the VBE's own gesture. The site, its

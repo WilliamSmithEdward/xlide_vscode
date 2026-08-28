@@ -137,7 +137,7 @@ export function encodeArrayStrings(captions: readonly string[]): Buffer {
 // ------------------------------------------------------------------- print
 
 /** Numeric record fields printed per kind, in this order, when stored. */
-const PRINTED_FIELDS: Readonly<Record<string, readonly string[]>> = {
+export const PRINTED_FIELDS: Readonly<Record<string, readonly string[]>> = {
 	TextBox: ['MaxLength', 'BorderStyle', 'SpecialEffect', 'ScrollBars'],
 	ComboBox: ['BorderStyle', 'SpecialEffect', 'ListRows'],
 	ListBox: ['BorderStyle', 'SpecialEffect'],
@@ -877,7 +877,7 @@ function addPage(
 	}
 }
 
-function applySiteAttrs(site: SiteModel, element: MarkupElement, outcome: ApplyOutcome): void {
+export function applySiteAttrs(site: SiteModel, element: MarkupElement, outcome: ApplyOutcome): void {
 	const left = element.attrs.get('Left');
 	const top = element.attrs.get('Top');
 	if (left !== undefined || top !== undefined) {
@@ -913,7 +913,7 @@ function applySiteAttrs(site: SiteModel, element: MarkupElement, outcome: ApplyO
 	applyString('Tag', 'TagData', 'Tag', 1);
 }
 
-function applyRecordAttrs(
+export function applyRecordAttrs(
 	record: ParsedRecord,
 	element: MarkupElement,
 	kind: string,

@@ -6,16 +6,24 @@
 // through the same authoring path the markup uses, which is the path live
 // Excel verified: per-kind recipes, tree-global IDs, the cookie rules.
 
-import { pointsToHimetric } from './bytes';
+import { pointsToHimetric, formatPointsShortest as pts } from './bytes';
 import { siteName, siteId, siteIsContainer, siteCacheIndex, type SiteModel } from './formStream';
-import { walkPackages, type FormPackage } from './formPackage';
+import { controlKindOfSite, walkPackages, type FormPackage } from './formPackage';
 import {
 	addControlForDesigner,
+	applyRecordAttrs,
+	applySiteAttrs,
+	decodeArrayStrings,
+	encodeArrayStrings,
+	formatOleColor,
 	FormMarkupError,
 	nextTabIndex,
+	parseOleColor,
+	PRINTED_FIELDS,
+	type ApplyOutcome,
 	type MarkupElement,
 } from './markup';
-import { setRecordValue } from './records';
+import { recordHas, setRecordString, setRecordValue, type ParsedRecord } from './records';
 
 export interface ControlLocation {
 	pkg: FormPackage;
@@ -274,6 +282,317 @@ export function reparentControl(
 	// Position is container-relative; the drop names the point in the new one.
 	site.position = { left: pointsToHimetric(leftPt), top: pointsToHimetric(topPt) };
 	site.mask = (site.mask | (1 << 8)) >>> 0;
+}
+
+// ------------------------------------------------------------ property pane
+//
+// The pane's rows are the markup dialect's own vocabulary: everything a row
+// shows is exactly what the document could spell, drawn from the same record
+// and site fields the printer reads - one answer behind both faces. A blank
+// value is a property at its default, spelled nowhere.
+
+export interface PropertyRow {
+	prop: string;
+	value: string;
+}
+
+const COLOR_PROPS = ['BackColor', 'ForeColor', 'BorderColor'] as const;
+const GEOMETRY_PROPS = ['Left', 'Top', 'Width', 'Height'] as const;
+
+function fontRows(record: ParsedRecord): PropertyRow[] {
+	const tp = record.textProps;
+	if (!tp) { return []; }
+	const face = tp.strings.get('FontName');
+	const height = tp.values.get('FontHeight');
+	const effects = recordHas(tp, 'FontEffects') ? (tp.values.get('FontEffects') ?? 0) : 0;
+	const weight = recordHas(tp, 'FontWeight') ? (tp.values.get('FontWeight') ?? 0) : 0;
+	const bold = (effects & 0x1) !== 0 || weight >= 600;
+	return [
+		{ prop: 'Font.Name', value: face && recordHas(tp, 'FontName') ? face.text : '' },
+		{ prop: 'Font.Size', value: height !== undefined && recordHas(tp, 'FontHeight') ? String(Math.round((height / 20) * 100) / 100) : '' },
+		{ prop: 'Font.Bold', value: bold ? 'True' : '' },
+		{ prop: 'Font.Italic', value: (effects & 0x2) !== 0 ? 'True' : '' },
+	];
+}
+
+function siteRows(site: SiteModel): PropertyRow[] {
+	const tab = site.values.get('TabIndex');
+	return [
+		{ prop: 'TabIndex', value: tab !== undefined && tab >= 0 ? String(tab) : '' },
+		{ prop: 'ControlTipText', value: site.strings.get('ControlTipText')?.text ?? '' },
+		{ prop: 'Tag', value: site.strings.get('Tag')?.text ?? '' },
+	];
+}
+
+function recordControlRows(kind: string, site: SiteModel, record: ParsedRecord): PropertyRow[] {
+	const rows: PropertyRow[] = [{ prop: 'Name', value: siteName(site) }];
+	const pos = site.position;
+	rows.push({ prop: 'Left', value: pos ? pts(pos.left) : '' }, { prop: 'Top', value: pos ? pts(pos.top) : '' });
+	const size = record.sizes.get('Size');
+	rows.push({ prop: 'Width', value: size ? pts(size.width) : '' }, { prop: 'Height', value: size ? pts(size.height) : '' });
+	for (const field of ['Caption', 'Value', 'GroupName']) {
+		if (!record.spec.extra.some((f) => f.name === field && f.kind === 'str')) { continue; }
+		rows.push({ prop: field, value: record.strings.get(field)?.text ?? '' });
+	}
+	for (const field of COLOR_PROPS) {
+		if (!record.spec.data.some((f) => f.name === field)) { continue; }
+		const v = record.values.get(field);
+		rows.push({ prop: field, value: v !== undefined && recordHas(record, field) ? formatOleColor(v) : '' });
+	}
+	for (const field of PRINTED_FIELDS[kind] ?? []) {
+		if ((COLOR_PROPS as readonly string[]).includes(field)) { continue; }
+		if (!record.spec.data.some((f) => f.name === field)) { continue; }
+		const v = record.values.get(field);
+		rows.push({ prop: field, value: v !== undefined && recordHas(record, field) ? String(v) : '' });
+	}
+	for (const field of ['PasswordChar', 'Accelerator']) {
+		if (!record.spec.data.some((f) => f.name === field)) { continue; }
+		const v = record.values.get(field);
+		rows.push({ prop: field, value: v !== undefined && recordHas(record, field) && v !== 0 ? String.fromCharCode(v) : '' });
+	}
+	rows.push(...fontRows(record));
+	rows.push(...siteRows(site));
+	return rows;
+}
+
+function innerRecordRows(record: ParsedRecord): PropertyRow[] {
+	const rows: PropertyRow[] = [];
+	for (const field of [...COLOR_PROPS, 'SpecialEffect']) {
+		if (!record.spec.data.some((f) => f.name === field)) { continue; }
+		const v = record.values.get(field);
+		const shown = v !== undefined && recordHas(record, field)
+			? (field === 'SpecialEffect' ? String(v) : formatOleColor(v))
+			: '';
+		rows.push({ prop: field, value: shown });
+	}
+	return rows;
+}
+
+function containerRows(
+	kind: string,
+	site: SiteModel,
+	inner: FormPackage | undefined,
+	pageCaption: string | undefined,
+): PropertyRow[] {
+	const rows: PropertyRow[] = [{ prop: 'Name', value: siteName(site) }];
+	const pos = site.position;
+	if (pos) { rows.push({ prop: 'Left', value: pts(pos.left) }, { prop: 'Top', value: pts(pos.top) }); }
+	const size = inner?.form.record.sizes.get('DisplayedSize');
+	rows.push({ prop: 'Width', value: size ? pts(size.width) : '' }, { prop: 'Height', value: size ? pts(size.height) : '' });
+	if (kind === 'Frame') {
+		rows.push({ prop: 'Caption', value: inner?.form.record.strings.get('Caption')?.text ?? '' });
+	}
+	if (kind === 'Page') {
+		rows.push({ prop: 'Caption', value: pageCaption ?? '' });
+	}
+	if (inner) { rows.push(...innerRecordRows(inner.form.record)); }
+	rows.push(...siteRows(site));
+	return rows;
+}
+
+function formRows(root: FormPackage, formName: string, captionFallback?: string): PropertyRow[] {
+	const record = root.form.record;
+	const rows: PropertyRow[] = [{ prop: 'Name', value: formName }];
+	rows.push({ prop: 'Caption', value: record.strings.get('Caption')?.text ?? captionFallback ?? '' });
+	const size = record.sizes.get('DisplayedSize');
+	rows.push({ prop: 'Width', value: size ? pts(size.width) : '' }, { prop: 'Height', value: size ? pts(size.height) : '' });
+	rows.push(...innerRecordRows(record));
+	return rows;
+}
+
+/** The tab captions of a package that owns pages (a MultiPage's inside). */
+function tabCaptionsOf(pkg: FormPackage): string[] {
+	const entry = pkg.entries.find((e) => e.kind === 'record' && siteCacheIndex(e.site) === 18);
+	return entry && entry.kind === 'record'
+		? decodeArrayStrings(entry.record.arrays.get('Items') ?? Buffer.alloc(0))
+		: [];
+}
+
+/**
+ * Every target's property rows, keyed by control name - '' is the form. The
+ * designer's Properties pane renders straight from this.
+ */
+export function listFormProperties(
+	root: FormPackage,
+	formName: string,
+	captionFallback?: string,
+): Record<string, { kind: string; rows: PropertyRow[] }> {
+	const out: Record<string, { kind: string; rows: PropertyRow[] }> = {
+		'': { kind: 'Form', rows: formRows(root, formName, captionFallback) },
+	};
+	walkPackages(root, (pkg) => {
+		const captions = tabCaptionsOf(pkg);
+		let pageIndex = 0;
+		for (const entry of pkg.entries) {
+			const site = entry.site;
+			const name = siteName(site);
+			if (!name) { continue; }
+			const kind = controlKindOfSite(site, entry.kind === 'record' ? entry.record : undefined);
+			if (siteIsContainer(site)) {
+				const pageCaption = siteCacheIndex(site) === 7 ? captions[pageIndex++] : undefined;
+				out[name] = { kind, rows: containerRows(kind, site, pkg.containers.get(siteId(site)), pageCaption) };
+			} else if (entry.kind === 'record') {
+				out[name] = { kind, rows: recordControlRows(kind, site, entry.record) };
+			} else {
+				out[name] = { kind: 'ActiveX', rows: [{ prop: 'Name', value: name }, ...siteRows(site)] };
+			}
+		}
+	});
+	return out;
+}
+
+function setColorValue(record: ParsedRecord, field: string, text: string, applied: string[], owner: string): void {
+	const value = parseOleColor(text);
+	if (value === undefined) {
+		throw new FormMarkupError(0, `${field}="${text}" is not a color this dialect knows`);
+	}
+	if (record.values.get(field) !== value || !recordHas(record, field)) {
+		setRecordValue(record, field, value);
+		applied.push(`${field} of ${owner}`);
+	}
+}
+
+function setNumericValue(record: ParsedRecord, field: string, text: string, applied: string[], owner: string): void {
+	const value = Number(text);
+	if (!Number.isFinite(value)) {
+		throw new FormMarkupError(0, `${field}="${text}" is not a number`);
+	}
+	if (record.values.get(field) !== value || !recordHas(record, field)) {
+		setRecordValue(record, field, value);
+		applied.push(`${field} of ${owner}`);
+	}
+}
+
+/**
+ * Writes ONE property of one target - the Properties pane's gesture, the
+ * vbide's setProperty. '' targets the form (its Caption and size belong to
+ * the service, which owns the VBFrame). Renaming returns the new name so the
+ * pane can follow its control.
+ */
+export function setControlProperty(
+	root: FormPackage,
+	name: string,
+	prop: string,
+	value: string,
+): { applied: string[]; renamed?: string } {
+	if (name === '') {
+		const record = root.form.record;
+		const applied: string[] = [];
+		if ((COLOR_PROPS as readonly string[]).includes(prop) && record.spec.data.some((f) => f.name === prop)) {
+			setColorValue(record, prop, value, applied, 'the form');
+			return { applied };
+		}
+		if (prop === 'SpecialEffect' && record.spec.data.some((f) => f.name === prop)) {
+			setNumericValue(record, prop, value, applied, 'the form');
+			return { applied };
+		}
+		throw new FormMarkupError(0, `the form has no ${prop} this pane can write`);
+	}
+
+	const location = findControl(root, name);
+	if (!location) {
+		throw new FormMarkupError(0, `no control named ${name}`);
+	}
+	const { pkg, site, entry } = location;
+	const kind = controlKindOfSite(site, entry.kind === 'record' ? entry.record : undefined);
+
+	if (prop === 'Name') {
+		if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(value)) {
+			throw new FormMarkupError(0, `${value} is not a legal control name`);
+		}
+		if (siteName(site) === value) { return { applied: [] }; }
+		if (value.toLowerCase() !== name.toLowerCase()) {
+			let taken = false;
+			walkPackages(root, (p) => {
+				for (const s of p.form.sites) {
+					if (siteName(s).toLowerCase() === value.toLowerCase()) { taken = true; }
+				}
+			});
+			if (taken) {
+				throw new FormMarkupError(0, `a control named ${value} already exists`);
+			}
+		}
+		site.strings.set('Name', {
+			text: value,
+			compressed: [...value].every((c) => c.charCodeAt(0) <= 0xff),
+			raw: Buffer.alloc(0),
+			edited: true,
+		});
+		site.values.set('NameData', 0);
+		site.mask = (site.mask | (1 << 0)) >>> 0;
+		return { applied: [`Name of ${name}`], renamed: value };
+	}
+
+	// The pane's vocabulary is the contract: a prop that has no row is not a
+	// property of this kind.
+	const rows = siteIsContainer(site)
+		? containerRows(kind, site, pkg.containers.get(siteId(site)), '')
+		: entry.kind === 'record'
+			? recordControlRows(kind, site, entry.record)
+			: [{ prop: 'Name', value: name }, ...siteRows(site)];
+	if (!rows.some((r) => r.prop === prop)) {
+		throw new FormMarkupError(0, `a ${kind} has no ${prop}`);
+	}
+
+	if ((GEOMETRY_PROPS as readonly string[]).includes(prop)) {
+		const n = Number(value);
+		if (!Number.isFinite(n)) {
+			throw new FormMarkupError(0, `${prop}="${value}" is not a number`);
+		}
+		const applied = setControlGeometry(root, name, { [prop.toLowerCase()]: n });
+		return { applied };
+	}
+
+	if (siteCacheIndex(site) === 7 && prop === 'Caption') {
+		// A Page's caption lives in its MultiPage's tab items, positionally.
+		const tabEntry = pkg.entries.find((e) => e.kind === 'record' && siteCacheIndex(e.site) === 18);
+		if (!tabEntry || tabEntry.kind !== 'record') {
+			throw new FormMarkupError(0, `${name}: its MultiPage carries no tab record`);
+		}
+		const captions = decodeArrayStrings(tabEntry.record.arrays.get('Items') ?? Buffer.alloc(0));
+		const index = pkg.form.sites.filter((s) => siteCacheIndex(s) === 7).indexOf(site);
+		if (index < 0 || captions[index] === undefined) {
+			throw new FormMarkupError(0, `${name} has no tab caption to edit`);
+		}
+		if (captions[index] === value) { return { applied: [] }; }
+		captions[index] = value;
+		const encoded = encodeArrayStrings(captions);
+		tabEntry.record.arrays.set('Items', encoded);
+		setRecordValue(tabEntry.record, 'ItemsSize', encoded.length);
+		return { applied: [`Caption of ${name}`] };
+	}
+
+	if (siteIsContainer(site)) {
+		const inner = pkg.containers.get(siteId(site));
+		const applied: string[] = [];
+		if (prop === 'Caption' && kind === 'Frame' && inner) {
+			if ((inner.form.record.strings.get('Caption')?.text ?? '') !== value) {
+				setRecordString(inner.form.record, 'Caption', value);
+				applied.push(`Caption of ${name}`);
+			}
+			return { applied };
+		}
+		if ((COLOR_PROPS as readonly string[]).includes(prop) && inner) {
+			setColorValue(inner.form.record, prop, value, applied, name);
+			return { applied };
+		}
+		if (prop === 'SpecialEffect' && inner) {
+			setNumericValue(inner.form.record, prop, value, applied, name);
+			return { applied };
+		}
+		const outcome: ApplyOutcome = { applied };
+		const el: MarkupElement = { tag: kind, attrs: new Map([[prop, value]]), children: [], line: 0 };
+		applySiteAttrs(site, el, outcome);
+		return { applied: outcome.applied };
+	}
+
+	const outcome: ApplyOutcome = { applied: [] };
+	const el: MarkupElement = { tag: kind, attrs: new Map([[prop, value]]), children: [], line: 0 };
+	applySiteAttrs(site, el, outcome);
+	if (entry.kind === 'record') {
+		applyRecordAttrs(entry.record, el, kind, outcome, name);
+	}
+	return { applied: outcome.applied };
 }
 
 /** Resizes the form's own client area, in points. */

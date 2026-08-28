@@ -13,13 +13,16 @@ import { decodeCodePage, encodeCodePage } from './codePages';
 import { parseFormPackage, writeFormPackage, walkPackages as walkOformsPackages, controlKindOfSite as oformsControlKind } from './oforms/formPackage';
 import { siteName as oformsSiteName } from './oforms/formStream';
 import { printFormMarkup as printOformsMarkup, parseFormMarkup as parseOformsMarkup, applyFormMarkup as applyOformsMarkup } from './oforms/markup';
+import { formatPointsShortest } from './oforms/bytes';
 import { composeNewForm } from './oforms/newForm';
 import { renderFormPreviewHtml } from './oforms/preview';
 import {
 	addControlAt as designerAddControlAt,
+	listFormProperties as designerListFormProperties,
 	removeControl as designerRemoveControl,
 	reparentControl as designerReparentControl,
 	setControlGeometry as designerSetControlGeometry,
+	setControlProperty as designerSetControlProperty,
 	setFormSize as designerSetFormSize,
 } from './oforms/designerOps';
 import type { OformsTextCodec } from './oforms/records';
@@ -558,7 +561,8 @@ export function readFormPreview(
 	const pkg = parseFormPackage(cfb, [module.name], oformsCodec(project.codePage));
 	const frame = decodeCodePage(cfb.getStreamInStorage(module.name, VBFRAME_STREAM), project.codePage);
 	const caption = /^\s*Caption\s*=\s*"([^"]*)"/m.exec(frame)?.[1];
-	return { html: renderFormPreviewHtml(pkg, { formName: module.name, caption, selected }) };
+	const properties = designerListFormProperties(pkg, module.name, caption);
+	return { html: renderFormPreviewHtml(pkg, { formName: module.name, caption, selected, properties }) };
 }
 
 /**
@@ -624,6 +628,7 @@ export function applyFormDesignerOp(
 		| { kind: 'add'; container: string; controlKind: string; left: number; top: number }
 		| { kind: 'remove'; name: string }
 		| { kind: 'reparent'; name: string; container: string; left: number; top: number }
+		| { kind: 'setProp'; name: string; prop: string; value: string }
 		| { kind: 'formSize'; width: number; height: number },
 ): WriteResult & { newName?: string } {
 	const wb = openWorkbookForWrite(filePath);
@@ -649,6 +654,39 @@ export function applyFormDesignerOp(
 		designerRemoveControl(pkg, op.name);
 	} else if (op.kind === 'reparent') {
 		designerReparentControl(pkg, op.name, op.container, op.left, op.top);
+	} else if (op.kind === 'setProp') {
+		if (op.name === '' && op.prop === 'Caption') {
+			// The form's caption is persisted in the VBFrame text.
+			const frame = decodeCodePage(wb.cfb.getStreamInStorage(module.name, VBFRAME_STREAM), wb.project.codePage);
+			const updated = frame.replace(
+				/^(\s*Caption\s*=\s*)"[^"]*"/m,
+				`$1"${op.value.replace(/"/g, '')}"`,
+			);
+			if (updated === frame) {
+				return { ok: true, signatureDropped: false };
+			}
+			wb.cfb.writeStreamInStorage(module.name, VBFRAME_STREAM, encodeCodePage(updated, wb.project.codePage));
+		} else if (op.name === '' && (op.prop === 'Width' || op.prop === 'Height')) {
+			const n = Number(op.value);
+			if (!Number.isFinite(n)) {
+				throw new Error(`${op.prop}="${op.value}" is not a number`);
+			}
+			const size = pkg.form.record.sizes.get('DisplayedSize') ?? { width: 0, height: 0 };
+			const widthPt = op.prop === 'Width' ? n : Number(formatPointsShortest(size.width));
+			const heightPt = op.prop === 'Height' ? n : Number(formatPointsShortest(size.height));
+			designerSetFormSize(pkg, widthPt, heightPt);
+			const frame = decodeCodePage(wb.cfb.getStreamInStorage(module.name, VBFRAME_STREAM), wb.project.codePage);
+			const updated = frame
+				.replace(/^(\s*ClientWidth\s*=\s*)\d+/m, `$1${Math.round(widthPt * 20)}`)
+				.replace(/^(\s*ClientHeight\s*=\s*)\d+/m, `$1${Math.round(heightPt * 20)}`);
+			wb.cfb.writeStreamInStorage(module.name, VBFRAME_STREAM, encodeCodePage(updated, wb.project.codePage));
+		} else {
+			const result = designerSetControlProperty(pkg, op.name, op.prop, op.value);
+			if (result.applied.length === 0) {
+				return { ok: true, signatureDropped: false };
+			}
+			newName = result.renamed;
+		}
 	} else {
 		designerSetFormSize(pkg, op.width, op.height);
 		// The VBFrame's client box repeats the size in twips and must follow.

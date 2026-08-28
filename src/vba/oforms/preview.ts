@@ -183,6 +183,8 @@ export interface FormPreviewOptions {
 	selected?: string;
 	/** False renders a static picture; true adds the designer interactions. */
 	interactive?: boolean;
+	/** Property rows per target ('' is the form), rendered in the pane. */
+	properties?: Record<string, { kind: string; rows: Array<{ prop: string; value: string }> }>;
 }
 
 /**
@@ -206,6 +208,7 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	const toolbox = ['Label', 'TextBox', 'ComboBox', 'ListBox', 'CheckBox', 'OptionButton',
 		'ToggleButton', 'Frame', 'CommandButton', 'TabStrip', 'ScrollBar', 'SpinButton', 'Image'];
 	const interactive = options.interactive !== false;
+	const propsJson = JSON.stringify(options.properties ?? {}).replace(/</g, '\\u003c');
 	return `<!DOCTYPE html>
 <html>
 <head>
@@ -220,7 +223,22 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 		border-radius: 3px; cursor: pointer; }
 	.toolbar .tool.armed { background: #0e639c; color: #fff; border-color: #1177bb; }
 	.toolbar label { display: flex; gap: 4px; align-items: center; margin-left: 8px; }
-	.stage { padding: 24px; }
+	.main { display: flex; align-items: flex-start; }
+	.stage { padding: 24px; flex: 1; min-width: 0; }
+	.props { width: 240px; flex: none; position: sticky; top: 40px; box-sizing: border-box;
+		max-height: calc(100vh - 48px); overflow-y: auto; background: #252526; color: #ccc;
+		font: 12px sans-serif; border-left: 1px solid #3c3c3c; }
+	.props .props-head { padding: 6px 10px; font-weight: bold; background: #2d2d2d;
+		position: sticky; top: 0; }
+	.props .row { display: grid; grid-template-columns: 45% 55%; align-items: center;
+		padding: 1px 0 1px 10px; }
+	.props .row:hover { background: #2a2d2e; }
+	.props label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+		cursor: default; }
+	.props input { width: 100%; box-sizing: border-box; background: #3c3c3c; color: #ddd;
+		border: 1px solid transparent; padding: 2px 4px; font: inherit; }
+	.props input:focus { border-color: #0e639c; outline: none; }
+	.props input:disabled { color: #888; }
 	.dialog { width: ${width}pt; box-shadow: 2px 2px 8px rgba(0,0,0,.5); position: relative; }
 	.dialog.form-selected { outline: 1px dashed #0e639c; outline-offset: 2px; }
 	.form-handle { position: absolute; width: 7px; height: 7px; background: #fff;
@@ -307,6 +325,7 @@ ${interactive ? `	<div class="toolbar" id="toolbar">
 		<label><input type="checkbox" id="snapGrid" checked>Grid 6pt</label>
 		<label><input type="checkbox" id="snapNeighbors">Snap to neighbors</label>
 	</div>` : ''}
+	<div class="main">
 	<div class="stage">
 	<div class="dialog${options.selected === '' ? ' form-selected' : ''}">
 		<div class="titlebar"><span>${esc(caption)}</span><span>&#10005;</span></div>
@@ -314,6 +333,8 @@ ${interactive ? `	<div class="toolbar" id="toolbar">
 ${renderSurface(pkg, 'c', options.selected)}
 		</div>
 	</div>
+	</div>
+${interactive ? `	<aside class="props" id="props"></aside>` : ''}
 	</div>
 	<script>
 		document.querySelectorAll('.multipage .tabs .tab').forEach((tab) => {
@@ -332,6 +353,46 @@ ${interactive ? `	<script>
 	(() => {
 		const vscode = typeof acquireVsCodeApi === 'function' ? acquireVsCodeApi() : undefined;
 		const post = (msg) => { if (vscode) { vscode.postMessage(msg); } };
+
+		// The Properties pane, following the selection the way the VBE's
+		// Properties window does - '' is the form itself. Rows arrive baked
+		// from the engine (the same fields the markup prints); committing an
+		// edit posts ONE property write, and the canvas re-renders from the
+		// bytes. Escape in a row reverts it without touching the selection.
+		const PROPS = ${propsJson};
+		const FORM_NAME = ${JSON.stringify(options.formName)};
+		const propsPane = document.getElementById('props');
+		const renderProps = (target) => {
+			if (!propsPane) { return; }
+			const info = PROPS[target];
+			propsPane.textContent = '';
+			if (!info) { return; }
+			const head = document.createElement('div');
+			head.className = 'props-head';
+			head.textContent = (target === '' ? FORM_NAME : target) + ' (' + info.kind + ')';
+			propsPane.appendChild(head);
+			for (const row of info.rows) {
+				const div = document.createElement('div');
+				div.className = 'row';
+				const label = document.createElement('label');
+				label.textContent = row.prop;
+				label.title = row.prop;
+				const input = document.createElement('input');
+				input.value = row.value;
+				input.disabled = target === '' && row.prop === 'Name';
+				input.addEventListener('keydown', (e) => {
+					if (e.key === 'Enter') { input.blur(); }
+					if (e.key === 'Escape') { input.value = row.value; input.blur(); }
+				});
+				input.addEventListener('change', () => {
+					if (input.value === row.value) { return; }
+					post({ type: 'setProp', name: target, prop: row.prop, value: input.value });
+				});
+				div.appendChild(label);
+				div.appendChild(input);
+				propsPane.appendChild(div);
+			}
+		};
 
 		// Every gesture re-renders the whole page, which reset the snap
 		// toggles to their defaults - a toggle the user turned OFF came back
@@ -411,8 +472,10 @@ ${interactive ? `	<script>
 			selected = el;
 			if (el) { el.classList.add('selected'); }
 			layHandles();
+			renderProps(el ? el.dataset.name : '');
 		};
 		if (selected) { layHandles(); }
+		renderProps(selected ? selected.dataset.name : '');
 
 		// Neighbor snapping: edges and centers of siblings on the same surface.
 		const guides = [];
@@ -468,6 +531,7 @@ ${interactive ? `	<script>
 			select(null);
 			dialog.classList.add('form-selected');
 			layFormHandles();
+			renderProps('');
 		};
 		const deselectForm = () => {
 			dialog.classList.remove('form-selected');
@@ -664,6 +728,7 @@ ${interactive ? `	<script>
 		});
 
 		document.addEventListener('keydown', (e) => {
+			if (e.target.closest('.props')) { return; }
 			if (!selected) { return; }
 			const name = selected.dataset.name;
 			const step = e.shiftKey ? GRID : 1;
@@ -759,6 +824,7 @@ ${interactive ? `	<script>
 			document.body.classList.add('placing');
 		});
 		document.addEventListener('keyup', (e) => {
+			if (e.target.closest('.props')) { return; }
 			if (e.key === 'Escape') { disarm(); select(null); deselectForm(); }
 		});
 	})();
