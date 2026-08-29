@@ -151,6 +151,7 @@ describe('globalSettings', () => {
             'xlide.excelIntegration.reopenReadOnlyAfterSave',
             'xlide.excelIntegration.trackOpenedWorkbooks',
             'xlide.explorer.autoExpandCollapse',
+            'xlide.formRun.injectShowMacro',
             'xlide.performance.trace',
         ]);
         expect(settings.find((setting) => setting.key === 'xlide.docs.metadataGlob')).toMatchObject({

@@ -4,6 +4,14 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **F5 can truly RUN the form.** Excel can only run a macro, so with your
+  consent XLIDE injects a small launcher module (XlideRun, safe to delete)
+  and runs it - the form opens immediately, the way F5 in the VBE does. A
+  modal asks the first time: Yes runs it once, Always remembers the choice,
+  No just opens the workbook. The memory lives in the new
+  xlide.formRun.injectShowMacro setting (ask / always / never), on the
+  settings page beside the other Excel integration choices.
+
 - **The property surface is complete, form and controls both.** The form
   pane gains BorderStyle, ScrollBars, Cycle, Zoom, MousePointer, its Font
   (Name, Size, Bold, Italic through the StdFont composer), and the VBFrame

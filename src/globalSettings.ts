@@ -49,6 +49,7 @@ interface XlideGlobalSettingValues {
     'excelIntegration.reopenAfterClose': boolean;
     'excelIntegration.reopenMode': ExcelReopenMode;
     'excelIntegration.reopenReadOnlyAfterSave': boolean;
+    'formRun.injectShowMacro': FormRunInjectShowMacro;
     'agent.showWriteDiffs': boolean;
     'diagnostics.enabled': boolean;
     'editor.blockLayout': VbaSmartBlockLayout;
@@ -114,6 +115,16 @@ function normalizeExcelReopenMode(value: unknown): ExcelReopenMode {
     return (EXCEL_REOPEN_MODE_VALUES as readonly string[]).includes(value as string)
         ? (value as ExcelReopenMode)
         : 'lastState';
+}
+
+const FORM_RUN_INJECT_SHOW_MACRO_VALUES = ['ask', 'always', 'never'] as const;
+
+export type FormRunInjectShowMacro = (typeof FORM_RUN_INJECT_SHOW_MACRO_VALUES)[number];
+
+function normalizeFormRunInjectShowMacro(value: unknown): FormRunInjectShowMacro {
+    return (FORM_RUN_INJECT_SHOW_MACRO_VALUES as readonly string[]).includes(value as string)
+        ? (value as FormRunInjectShowMacro)
+        : 'ask';
 }
 
 const BLOCK_LAYOUT_VALUES = ['comfy', 'compact'] as const;
@@ -185,6 +196,18 @@ const XLIDE_GLOBAL_SETTINGS: {
             label: 'Reopen Read-Only Workbook After Module Save',
             description: 'A workbook open read-only in Excel does not lock the file, so XLIDE\'s save succeeds, but Excel keeps showing its older copy. Turn this on to silently close and reopen the read-only workbook after each save so Excel matches the saved file. Only acts when the workbook is actually open read-only; never reopens one you closed or one open for editing.',
             control: { kind: 'boolean' },
+        },
+    },
+    'formRun.injectShowMacro': {
+        defaultValue: (): FormRunInjectShowMacro => 'ask',
+        normalize: normalizeFormRunInjectShowMacro,
+        validate: (values, problems, key) => expectEnum(values, problems, key, FORM_RUN_INJECT_SHOW_MACRO_VALUES),
+        manifest: { type: 'string', enum: FORM_RUN_INJECT_SHOW_MACRO_VALUES },
+        webviewCard: {
+            section: 'excel',
+            label: 'Run Form (F5) Show Macro',
+            description: 'When F5 launches a form workbook, XLIDE can inject a small launcher macro (module XlideRun) and run it so the form opens immediately, the way F5 in the VBE does. Ask (default): confirm each time, with an Always answer that remembers the choice here. Always: inject and show without asking. Never: F5 just opens the workbook. The injected module stays in the workbook and is safe to delete.',
+            control: { kind: 'enum', values: FORM_RUN_INJECT_SHOW_MACRO_VALUES },
         },
     },
     'attachToRunningExcel': {

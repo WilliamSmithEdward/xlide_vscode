@@ -14,6 +14,8 @@ import * as path from 'path';
 import type { WorkbookEngine } from './workbookEngine';
 import { decodeModuleUri, encodeFormMarkupUri, encodeModuleUri, XLIDE_SCHEME, XlideFileSystemProvider } from './xlideFileSystem';
 import { runWriteWithExcelCoordination } from './excelWorkbookCoordinator';
+import { runWorkbookMacroReadOnly } from './excelLauncher';
+import { xlideAttachToRunningExcelFromConfig } from './globalSettings';
 import { recordXlideWriteAudit } from './xlideWriteAudit';
 import { errorMessage } from './util/errors';
 
@@ -21,6 +23,8 @@ const panels = new Map<string, vscode.WebviewPanel>();
 
 /** The workbook behind the most recently focused designer panel, for F5. */
 let lastFocusedDesignerWorkbook: string | undefined;
+/** Its form module, so F5 knows which form a Show launcher should open. */
+let lastFocusedDesignerModule: string | undefined;
 /** The panel key of the most recently focused designer, for undo/redo. */
 let lastFocusedDesignerKey: string | undefined;
 
@@ -315,11 +319,13 @@ export function registerFormPreview(
 		panels.set(key, panel);
 		keyParts.set(key, [xlsmPath, moduleName]);
 		lastFocusedDesignerWorkbook = xlsmPath;
+		lastFocusedDesignerModule = moduleName;
 		lastFocusedDesignerKey = key;
 		panel.onDidChangeViewState(
 			(e) => {
 				if (e.webviewPanel.active) {
 					lastFocusedDesignerWorkbook = xlsmPath;
+					lastFocusedDesignerModule = moduleName;
 					lastFocusedDesignerKey = key;
 				}
 			},
@@ -470,16 +476,75 @@ export function registerFormPreview(
 		// focused designer panel remembered its own.
 		vscode.commands.registerCommand('xlide.launchFormHost', async () => {
 			const active = vscode.window.activeTextEditor;
-			const fromEditor = active && active.document.uri.scheme === XLIDE_SCHEME
-				? decodeModuleUri(active.document.uri).xlsmPath
-				: undefined;
-			const filePath = fromEditor ?? lastFocusedDesignerWorkbook;
+			let filePath: string | undefined;
+			let formModule: string | undefined;
+			if (active && active.document.uri.scheme === XLIDE_SCHEME) {
+				const decoded = decodeModuleUri(active.document.uri);
+				filePath = decoded.xlsmPath;
+				if (decoded.face === 'form') { formModule = decoded.moduleName; }
+			}
+			if (!filePath) {
+				filePath = lastFocusedDesignerWorkbook;
+				formModule = lastFocusedDesignerModule;
+			}
 			if (!filePath) {
 				void vscode.window.showInformationMessage('XLIDE: F5 found no form workbook - focus a designer or a markup document.');
 				return;
 			}
-			vscode.window.setStatusBarMessage(`XLIDE: opening ${path.basename(filePath)} in its host application...`, 5000);
 			const excel = /\.(xlsm|xlsb|xlam|xls)$/i.test(filePath);
+
+			// The VBE's F5 SHOWS the form. Excel can only run a macro, so
+			// with consent XLIDE injects a small launcher module and runs
+			// it; the choice persists in xlide.formRun.injectShowMacro.
+			if (excel && formModule) {
+				const config = vscode.workspace.getConfiguration('xlide');
+				let mode = config.get<string>('formRun.injectShowMacro') ?? 'ask';
+				if (mode === 'ask') {
+					const pick = await vscode.window.showInformationMessage(
+						`Show ${formModule} on launch?`,
+						{
+							modal: true,
+							detail: `XLIDE can inject a small launcher macro (module XlideRun) into ${path.basename(filePath)} and run it, so F5 behaves like the VBE's. `
+								+ 'The module stays in the workbook and is safe to delete. '
+								+ '"Always" remembers this in the xlide.formRun.injectShowMacro setting.',
+						},
+						'Yes', 'Always', 'No',
+					);
+					if (pick === 'Always') {
+						await config.update('formRun.injectShowMacro', 'always', vscode.ConfigurationTarget.Global);
+						mode = 'always';
+					} else if (pick === 'Yes') {
+						mode = 'once';
+					} else {
+						mode = 'never-once';
+					}
+				}
+				if (mode === 'always' || mode === 'once') {
+					const source = [
+						"' XLIDE Run-Form launcher, injected by F5. Safe to delete.",
+						'Sub XlideShowForm()',
+						`    UserForms.Add("${formModule}").Show`,
+						'End Sub',
+						'',
+					].join('\r\n');
+					try {
+						await runWriteWithExcelCoordination(filePath, () =>
+							bridge.call('writeModule', { path: filePath, module: 'XlideRun', source }));
+						vscode.window.setStatusBarMessage(`XLIDE: showing ${formModule} in Excel...`, 8000);
+						await runWorkbookMacroReadOnly(
+							filePath,
+							'XlideRun.XlideShowForm',
+							{ attachToRunning: xlideAttachToRunningExcelFromConfig(config).value },
+							() => { /* the launcher's own logging channel is elsewhere */ },
+						);
+					} catch (err) {
+						void vscode.window.showErrorMessage(`XLIDE: could not show the form: ${errorMessage(err)}`);
+					}
+					return;
+				}
+			}
+
+			vscode.window.setStatusBarMessage(`XLIDE: opening ${path.basename(filePath)} in its host application...`, 5000);
 			await vscode.commands.executeCommand(
 				excel ? 'xlide.openWorkbook' : 'xlide.openInOfficeApp',
 				{ kind: 'xlsm', label: path.basename(filePath), filePath },

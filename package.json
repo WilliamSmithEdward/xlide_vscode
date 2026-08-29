@@ -177,6 +177,17 @@
           "scope": "machine",
           "default": false,
           "description": "Write slow XLIDE performance trace events to the XLIDE output channel. Recent timings are always available from the Copy Performance Snapshot command."
+        },
+        "xlide.formRun.injectShowMacro": {
+          "type": "string",
+          "enum": [
+            "ask",
+            "always",
+            "never"
+          ],
+          "scope": "machine",
+          "default": "ask",
+          "description": "When F5 launches a form workbook, XLIDE can inject a small launcher macro (module XlideRun) and run it so the form opens immediately, the way F5 in the VBE does. Ask (default): confirm each time, with an Always answer that remembers the choice here. Always: inject and show without asking. Never: F5 just opens the workbook. The injected module stays in the workbook and is safe to delete."
         }
       }
     },
