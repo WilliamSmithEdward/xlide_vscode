@@ -311,9 +311,13 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 		border-radius: 3px; font: inherit; }
 	.main { display: flex; align-items: flex-start; }
 	.stage { padding: 24px; flex: 1; min-width: 0; }
+	/* The pane floats: the aside's gutter wears the designer's own gray, and
+	   the content is a dark card with its own edge and shadow. */
 	.props { width: 240px; flex: none; position: sticky; top: 40px; box-sizing: border-box;
-		max-height: calc(100vh - 48px); overflow-y: auto; background: #252526; color: #ccc;
-		font: 12px sans-serif; border-left: 1px solid #3c3c3c; padding: 8px 8px 0 0; }
+		max-height: calc(100vh - 48px); overflow-y: auto; background: #808080; color: #ccc;
+		font: 12px sans-serif; padding: 10px; }
+	#propsBody { background: #252526; border: 1px solid #3c3c3c; border-radius: 4px;
+		box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35); overflow: hidden; padding-bottom: 6px; }
 	.props .props-head { padding: 6px 10px; font-weight: bold; background: #2d2d2d;
 		position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center; }
 	.props .props-sash { position: absolute; left: 0; top: 0; bottom: 0; width: 5px;
@@ -325,7 +329,7 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.props.collapsed { width: 24px !important; overflow: hidden; }
 	.props.collapsed .row, .props.collapsed .props-head span, .props.collapsed .props-sash { display: none; }
 	.props .row { display: grid; grid-template-columns: 45% 55%; align-items: center;
-		padding: 1px 0 1px 10px; column-gap: 4px; }
+		padding: 1px 8px 1px 10px; column-gap: 4px; }
 	.props .row:hover { background: #2a2d2e; }
 	.props label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 		cursor: default; }
@@ -553,17 +557,25 @@ ${interactive ? `	<script>
 			post({ type: 'splitDrag', phase: 'end' });
 		};
 		gripDots?.addEventListener('pointerdown', (e) => {
-			gripDrag = { y: e.clientY, lastSent: 0 };
+			gripDrag = { y: e.clientY, lastSent: 0, delta: 0, raf: 0 };
 			try { gripDots.setPointerCapture(e.pointerId); } catch { /* capture is a nicety */ }
 			post({ type: 'splitDrag', phase: 'start' });
 			e.preventDefault();
 		});
 		gripDots?.addEventListener('pointermove', (e) => {
 			if (!gripDrag) { return; }
-			const delta = e.clientY - gripDrag.y;
-			if (Math.abs(delta - gripDrag.lastSent) < 3) { return; }
-			gripDrag.lastSent = delta;
-			post({ type: 'splitDrag', phase: 'move', delta });
+			// One send per FRAME, latest position wins - the panel coalesces
+			// on its side too, so the border tracks without flooding.
+			gripDrag.delta = e.clientY - gripDrag.y;
+			if (gripDrag.raf) { return; }
+			gripDrag.raf = requestAnimationFrame(() => {
+				if (!gripDrag) { return; }
+				gripDrag.raf = 0;
+				if (gripDrag.delta !== gripDrag.lastSent) {
+					gripDrag.lastSent = gripDrag.delta;
+					post({ type: 'splitDrag', phase: 'move', delta: gripDrag.delta });
+				}
+			});
 		});
 		gripDots?.addEventListener('pointerup', endGripDrag);
 		gripDots?.addEventListener('pointercancel', endGripDrag);

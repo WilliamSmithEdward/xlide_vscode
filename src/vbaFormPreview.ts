@@ -229,6 +229,10 @@ export function registerFormPreview(
 		sibling: LayoutNode;
 		leafBase: number;
 		siblingBase: number;
+		/** Latest unapplied delta; applies coalesce to it. */
+		pending: number | null;
+		applying: boolean;
+		lastApplied: number;
 	}
 	const splitGrabs = new Map<string, SplitGrab>();
 
@@ -262,22 +266,43 @@ export function registerFormPreview(
 			sibling,
 			leafBase: leaf.node.size,
 			siblingBase: sibling.size,
+			pending: null,
+			applying: false,
+			lastApplied: leaf.node.size,
 		};
 	};
 
-	const moveSplit = async (key: string, panel: vscode.WebviewPanel, delta: number): Promise<void> => {
+	// Applies COALESCE: deltas stream faster than setEditorLayout runs, and
+	// un-serialized applies interleave out of order - the stutter - while
+	// the sheer rate thrashed the grid - the flicker. One apply loop per
+	// grab drains only the LATEST delta, on integer sizes, skipping no-ops.
+	const moveSplit = async (key: string, delta: number): Promise<void> => {
 		const grab = splitGrabs.get(key);
 		if (!grab) { return; }
-		const total = grab.leafBase + grab.siblingBase;
-		const MIN = 40;
-		const leafSize = Math.min(total - MIN, Math.max(MIN, grab.leafBase + delta));
-		grab.leaf.size = leafSize;
-		grab.sibling.size = total - leafSize;
+		grab.pending = delta;
+		if (grab.applying) { return; }
+		grab.applying = true;
 		try {
-			await vscode.commands.executeCommand('vscode.setEditorLayout', grab.layout);
-		} catch {
-			// The layout changed under the drag; the next grab starts fresh.
-			splitGrabs.delete(key);
+			while (grab.pending !== null && splitGrabs.get(key) === grab) {
+				const next = grab.pending;
+				grab.pending = null;
+				const total = grab.leafBase + grab.siblingBase;
+				const MIN = 40;
+				const leafSize = Math.round(Math.min(total - MIN, Math.max(MIN, grab.leafBase + next)));
+				if (leafSize === grab.lastApplied) { continue; }
+				grab.leaf.size = leafSize;
+				grab.sibling.size = total - leafSize;
+				try {
+					await vscode.commands.executeCommand('vscode.setEditorLayout', grab.layout);
+					grab.lastApplied = leafSize;
+				} catch {
+					// The layout changed under the drag; the next grab starts fresh.
+					splitGrabs.delete(key);
+					break;
+				}
+			}
+		} finally {
+			grab.applying = false;
 		}
 	};
 
@@ -308,7 +333,7 @@ export function registerFormPreview(
 							const grab = await grabSplit(panel);
 							if (grab) { splitGrabs.set(key, grab); }
 						} else if (message.phase === 'move') {
-							await moveSplit(key, panel, message.delta);
+							await moveSplit(key, message.delta);
 						} else {
 							splitGrabs.delete(key);
 						}
@@ -321,7 +346,7 @@ export function registerFormPreview(
 						if (!grab) { return; }
 						splitGrabs.set(key, grab);
 						const total = grab.leafBase + grab.siblingBase;
-						await moveSplit(key, panel, message.which === 'self' ? -total : total);
+						await moveSplit(key, message.which === 'self' ? -total : total);
 						splitGrabs.delete(key);
 					})();
 				} else {
