@@ -8,7 +8,7 @@ import { findMacroContainerFiles } from './macroContainerDiscovery';
 import { hasPendingAgentReview } from './xlideAgentDiff';
 import { startPerformanceTrace } from './performanceTrace';
 
-export type XlideNodeKind = 'xlsm' | 'module' | 'sub' | 'loadError';
+export type XlideNodeKind = 'xlsm' | 'module' | 'designer' | 'sub' | 'loadError';
 
 const PROTECTION_PROBE_IDLE_DELAY_MS = 2000;
 
@@ -228,7 +228,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
             workbookNodeKey(node.filePath) === this._activeWorkbookKey;
         const item = new vscode.TreeItem(
             node.label,
-            node.kind === 'sub' || node.kind === 'loadError'
+            node.kind === 'sub' || node.kind === 'designer' || node.kind === 'loadError'
                 ? vscode.TreeItemCollapsibleState.None
                 : isActiveModule
                     ? vscode.TreeItemCollapsibleState.Expanded
@@ -243,6 +243,8 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
             item.id = `m::${key}::${version}`;
         } else if (node.kind === 'sub') {
             item.id = `s::${node.filePath}::${node.moduleName}::${node.label}::${node.line ?? 0}`;
+        } else if (node.kind === 'designer') {
+            item.id = `d::${node.filePath}::${node.moduleName}`;
         } else if (node.kind === 'xlsm') {
             const key = workbookNodeKey(node.filePath);
             const version = this._xlsmRenderVersions.get(key) ?? 0;
@@ -300,6 +302,19 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
                 };
                 break;
 
+            case 'designer':
+                // The vbide's arrangement: the design face announces itself as
+                // the form's first child, above the handlers.
+                item.iconPath = new vscode.ThemeIcon('symbol-color');
+                item.contextValue = 'designer';
+                item.tooltip = `Open the designer for ${node.moduleName}`;
+                item.command = {
+                    command: 'xlide.previewForm',
+                    title: 'Open Designer',
+                    arguments: [node],
+                };
+                break;
+
             case 'sub':
                 item.iconPath = new vscode.ThemeIcon('symbol-method');
                 item.contextValue = 'sub';
@@ -345,7 +360,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
             return this._getModules(node.filePath);
         }
         if (node.kind === 'module') {
-            return this._getSubs(node.filePath, node.moduleName!);
+            return this._getSubs(node.filePath, node.moduleName!, node.moduleType);
         }
         return [];
     }
@@ -491,7 +506,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
         await load;
     }
 
-    private async _getSubs(filePath: string, moduleName: string): Promise<XlideNode[]> {
+    private async _getSubs(filePath: string, moduleName: string, moduleType?: string): Promise<XlideNode[]> {
         this._cancelProtectionTimer(filePath);
         const cacheKey = moduleNodeKey(filePath, moduleName);
         try {
@@ -526,13 +541,20 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
                     this._subsListCache.set(cacheKey, subs);
                 }
             }
-            const nodes = subs.map((s) => ({
+            const nodes: XlideNode[] = subs.map((s) => ({
                 kind: 'sub' as const,
                 label: `${s.kind} ${s.name}`,
                 filePath,
                 moduleName,
                 line: s.line,
             }));
+            if (moduleType === 'userform') {
+                // The designer sits FIRST under its form, above the handlers -
+                // the xlide vbide arrangement: the design comes before the code
+                // that answers it, and a fixed position means the row never
+                // moves as procedures are added and renamed.
+                nodes.unshift({ kind: 'designer', label: 'Designer', filePath, moduleName });
+            }
             this._scheduleProtectionLoad(filePath);
             return nodes;
         } catch (err) {
