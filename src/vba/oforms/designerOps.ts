@@ -463,14 +463,15 @@ function formRows(
 		const v = record.values.get(field);
 		rows.push({ prop: field, value: v !== undefined && recordHas(record, field) ? String(v) : '' });
 	}
-	// The form's font is a StdFont blob, not TextProps; underline and
-	// strikethrough do not survive its composer, so the pane offers what a
-	// write can honor.
+	// The form's font is a StdFont blob, not TextProps. Its fBold flag MUST
+	// stay zero per the spec, so bold reads from the weight.
 	const font = root.form.fontRaw ? parseStdFont(root.form.fontRaw) : undefined;
 	rows.push({ prop: 'Font.Name', value: font?.face ?? '' });
 	rows.push({ prop: 'Font.Size', value: font ? String(Math.round(font.heightTenThousandthsPt / 100) / 100) : '' });
 	rows.push({ prop: 'Font.Bold', value: font && ((font.flags & 0x1) !== 0 || font.weight >= 600) ? 'True' : 'False' });
 	rows.push({ prop: 'Font.Italic', value: font && (font.flags & 0x2) !== 0 ? 'True' : 'False' });
+	rows.push({ prop: 'Font.Underline', value: font && (font.flags & 0x4) !== 0 ? 'True' : 'False' });
+	rows.push({ prop: 'Font.Strikethrough', value: font && (font.flags & 0x8) !== 0 ? 'True' : 'False' });
 	if (vbFrame) {
 		rows.push({ prop: 'StartUpPosition', value: vbFrame.startUpPosition ?? '1' });
 		rows.push({ prop: 'ShowModal', value: vbFrame.showModal ?? 'True' });
@@ -580,15 +581,20 @@ export function setControlProperty(
 			}
 			const wasBold = !!current && ((current.flags & 0x1) !== 0 || current.weight >= 600);
 			const wasItalic = !!current && (current.flags & 0x2) !== 0;
+			const wasUnderline = !!current && (current.flags & 0x4) !== 0;
+			const wasStrikeout = !!current && (current.flags & 0x8) !== 0;
 			const bold = prop === 'Font.Bold' ? /^true$/i.test(value) : wasBold;
 			const italic = prop === 'Font.Italic' ? /^true$/i.test(value) : wasItalic;
-			if (prop === 'Font.Bold' || prop === 'Font.Italic') {
+			const underline = prop === 'Font.Underline' ? /^true$/i.test(value) : wasUnderline;
+			const strikeout = prop === 'Font.Strikethrough' ? /^true$/i.test(value) : wasStrikeout;
+			if (prop === 'Font.Bold' || prop === 'Font.Italic'
+				|| prop === 'Font.Underline' || prop === 'Font.Strikethrough') {
 				if (!/^(true|false)$/i.test(value)) {
 					throw new FormMarkupError(0, `${prop}="${value}" is not True or False`);
 				}
 			}
 			root.form.fontRaw = composeStdFont(face, heightTT, {
-				bold, italic, charset: current?.charset ?? 0,
+				bold, italic, underline, strikeout, charset: current?.charset ?? 0,
 			});
 			root.form.record.maskLo = (root.form.record.maskLo | (1 << 20)) >>> 0;
 			// The DataBlock's Font marker MUST be 0xFFFF ([MS-OFORMS]); a

@@ -103,8 +103,18 @@ function containerFontCss(inner: FormPackage | undefined): string {
 	if (!font) { return "font-family:Tahoma,sans-serif;font-size:8.25pt;"; }
 	return `font-family:'${esc(font.face)}',Tahoma,sans-serif;`
 		+ `font-size:${font.heightTenThousandthsPt / 10000}pt;`
-		+ (((font.flags & 0x1) !== 0 || font.weight >= 600) ? 'font-weight:bold;' : '')
-		+ ((font.flags & 0x2) !== 0 ? 'font-style:italic;' : '');
+		+ stdFontStyleCss(font);
+}
+
+/** Weight, slant, and decoration of a StdFont; bold reads from the weight. */
+function stdFontStyleCss(font: { flags: number; weight: number }): string {
+	const deco = [
+		(font.flags & 0x4) !== 0 ? 'underline' : '',
+		(font.flags & 0x8) !== 0 ? 'line-through' : '',
+	].filter(Boolean).join(' ');
+	return (((font.flags & 0x1) !== 0 || font.weight >= 600) ? 'font-weight:bold;' : '')
+		+ ((font.flags & 0x2) !== 0 ? 'font-style:italic;' : '')
+		+ (deco ? `text-decoration:${deco};` : '');
 }
 
 /**
@@ -363,6 +373,7 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	const stdFont = pkg.form.fontRaw ? parseStdFont(pkg.form.fontRaw) : undefined;
 	const formFont = stdFont
 		? `font-family:'${esc(stdFont.face)}',Tahoma,sans-serif;font-size:${stdFont.heightTenThousandthsPt / 10000}pt;`
+			+ stdFontStyleCss(stdFont)
 		: "font-family:Tahoma,sans-serif;font-size:8.25pt;";
 
 	const toolbox = ['Label', 'TextBox', 'ComboBox', 'ListBox', 'CheckBox', 'OptionButton',
@@ -437,6 +448,18 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.colorpop .sys button:hover { background: #3c3c3c; }
 	.colorpop .sys i { width: 12px; height: 12px; flex: none; border: 1px solid #555;
 		display: inline-block; }
+	.props .fontcell { display: flex; gap: 2px; align-items: center; }
+	.props .fontdrop { flex: none; width: 16px; align-self: stretch; background: none;
+		border: 1px solid transparent; color: #ccc; cursor: pointer; padding: 0; font-size: 9px; }
+	.props .fontdrop:hover { border-color: #555; }
+	.fontpop { position: fixed; z-index: 30; background: #2d2d2d; border: 1px solid #555;
+		border-radius: 4px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); padding: 4px; width: 208px;
+		max-height: 240px; overflow-y: auto; }
+	.fontpop button { display: block; width: 100%; background: none; border: none; color: #ccc;
+		cursor: pointer; padding: 2px 6px; text-align: left; font-size: 13px; white-space: nowrap;
+		overflow: hidden; text-overflow: ellipsis; }
+	.fontpop button:hover { background: #3c3c3c; }
+	.fontpop button.current { color: #fff; background: #0e639c; }
 	.dialog { width: ${width}pt; box-shadow: 2px 2px 8px rgba(0,0,0,.5); position: relative; }
 	.dialog.form-selected { outline: 1px dashed #0e639c; outline-offset: 2px; }
 	.form-handle { position: absolute; width: 7px; height: 7px; background: #fff;
@@ -766,8 +789,33 @@ ${interactive ? `	<script>
 		};
 		const COLOR_PROPS = new Set(['BackColor', 'ForeColor', 'BorderColor']);
 		const SYSTEM_COLORS = ${JSON.stringify(WINDOWS_PALETTE)};
-		const FONT_FACES = ['Tahoma', 'Segoe UI', 'Arial', 'Calibri', 'Verdana', 'Georgia',
-			'Times New Roman', 'Courier New', 'Consolas', 'MS Sans Serif'];
+		// Every face the picker offers: the common Windows set plus whatever
+		// the form already uses, kept when the renderer can actually resolve
+		// it (in-use names always stay - the list must not hide the truth).
+		const FONT_FACES = (() => {
+			const names = ['Tahoma', 'Segoe UI', 'Segoe UI Semibold', 'Arial', 'Arial Black',
+				'Arial Narrow', 'Bahnschrift', 'Book Antiqua', 'Bookman Old Style', 'Calibri',
+				'Calibri Light', 'Cambria', 'Candara', 'Century Gothic', 'Comic Sans MS',
+				'Consolas', 'Constantia', 'Corbel', 'Courier New', 'Franklin Gothic Medium',
+				'Garamond', 'Georgia', 'Impact', 'Lucida Console', 'Lucida Sans Unicode',
+				'Microsoft Sans Serif', 'MS Sans Serif', 'MS Serif', 'Palatino Linotype',
+				'Segoe Print', 'Segoe Script', 'Sylfaen', 'Symbol', 'Times New Roman',
+				'Trebuchet MS', 'Verdana', 'Webdings', 'Wingdings'];
+			const used = new Set();
+			for (const info of Object.values(PROPS)) {
+				for (const row of info.rows) {
+					if (row.prop === 'Font.Name' && row.value) {
+						used.add(row.value);
+						if (!names.includes(row.value)) { names.push(row.value); }
+					}
+				}
+			}
+			const present = names.filter((face) => {
+				if (used.has(face)) { return true; }
+				try { return document.fonts.check('12px "' + face + '"'); } catch { return true; }
+			});
+			return (present.length ? present : names).sort((a, b) => a.localeCompare(b));
+		})();
 		// vbide's ramp: a greys row, then eight hues by seven lightness steps.
 		const paletteSwatches = (() => {
 			const rows = [['#000000', '#404040', '#808080', '#a6a6a6', '#c0c0c0', '#d9d9d9', '#f0f0f0', '#ffffff']];
@@ -788,9 +836,32 @@ ${interactive ? `	<script>
 		const cssOfColorValue = (value) => value.startsWith('#') ? value : (SYSTEM_COLORS[value] ?? 'transparent');
 		let colorPop = null;
 		const closeColorPop = () => { colorPop?.remove(); colorPop = null; };
+		let fontPop = null;
+		const closeFontPop = () => { fontPop?.remove(); fontPop = null; };
 		document.addEventListener('pointerdown', (e) => {
 			if (colorPop && !e.target.closest('.colorpop') && !e.target.closest('.swatch')) { closeColorPop(); }
+			if (fontPop && !e.target.closest('.fontpop') && !e.target.closest('.fontdrop')) { closeFontPop(); }
 		}, true);
+		const openFontPop = (anchor, current, apply) => {
+			closeFontPop();
+			fontPop = document.createElement('div');
+			fontPop.className = 'fontpop';
+			for (const face of FONT_FACES) {
+				const b = document.createElement('button');
+				b.textContent = face;
+				b.style.fontFamily = '"' + face + '", Tahoma, sans-serif';
+				if (face === current) { b.classList.add('current'); }
+				b.addEventListener('click', () => { apply(face); closeFontPop(); });
+				fontPop.appendChild(b);
+			}
+			document.body.appendChild(fontPop);
+			const at = anchor.getBoundingClientRect();
+			const width = 208;
+			fontPop.style.left = Math.max(4, Math.min(window.innerWidth - width - 4, at.left - width + at.width)) + 'px';
+			fontPop.style.top = Math.min(window.innerHeight - fontPop.offsetHeight - 4, at.bottom + 2) + 'px';
+			const currentRow = fontPop.querySelector('.current');
+			if (currentRow) { currentRow.scrollIntoView({ block: 'center' }); }
+		};
 		const openColorPop = (anchor, apply) => {
 			closeColorPop();
 			colorPop = document.createElement('div');
@@ -903,11 +974,30 @@ ${interactive ? `	<script>
 					}));
 					cell.append(swatch, input);
 					div.appendChild(cell);
+				} else if (row.prop === 'Font.Name') {
+					const cell = document.createElement('div');
+					cell.className = 'fontcell';
+					const input = document.createElement('input');
+					input.value = row.value;
+					input.addEventListener('keydown', (e) => {
+						if (e.key === 'Enter') { input.blur(); }
+						if (e.key === 'Escape') { input.value = row.value; input.blur(); }
+					});
+					input.addEventListener('change', () => commit(input.value));
+					const drop = document.createElement('button');
+					drop.className = 'fontdrop';
+					drop.title = 'Pick a font';
+					drop.textContent = String.fromCharCode(0x25be);
+					drop.addEventListener('click', () => openFontPop(drop, input.value, (face) => {
+						input.value = face;
+						commit(face);
+					}));
+					cell.append(input, drop);
+					div.appendChild(cell);
 				} else {
 					const input = document.createElement('input');
 					input.value = row.value;
 					input.disabled = target === '' && row.prop === 'Name';
-					if (row.prop === 'Font.Name') { input.setAttribute('list', 'fontFaces'); }
 					if (row.prop === 'Font.Size') { input.type = 'number'; input.step = '0.25'; input.min = '1'; }
 					input.addEventListener('keydown', (e) => {
 						if (e.key === 'Enter') { input.blur(); }
@@ -917,16 +1007,6 @@ ${interactive ? `	<script>
 					div.appendChild(input);
 				}
 				propsBody.appendChild(div);
-			}
-			if (!document.getElementById('fontFaces')) {
-				const list = document.createElement('datalist');
-				list.id = 'fontFaces';
-				for (const face of FONT_FACES) {
-					const o = document.createElement('option');
-					o.value = face;
-					list.appendChild(o);
-				}
-				document.body.appendChild(list);
 			}
 		};
 

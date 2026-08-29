@@ -4,6 +4,18 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **The form's font styles truly paint, and the picker shows real fonts.**
+  Form-level Font.Bold and Font.Italic were written to the bytes but never
+  drawn; the client area now wears the StdFont's weight, slant, underline,
+  and strikethrough - Underline and Strikethrough join the form pane as
+  editable rows, and any single style edit carries the other three instead
+  of erasing them. The bytes follow the spec while they are at it: StdFont's
+  fBold flag MUST be zero, so bold rides the weight (700), as Excel writes
+  it. Font.Name trades its datalist - which filtered to whatever was already
+  typed, showing only Tahoma - for a proper dropdown of the Windows faces
+  the renderer can resolve, each previewed in its own face, with the current
+  one highlighted; typing any other name still works.
+
 - **F5 can truly RUN the form.** Excel can only run a macro, so with your
   consent XLIDE injects a small launcher module (XlideRun, safe to delete)
   and runs it - the form opens immediately, the way F5 in the VBE does. A

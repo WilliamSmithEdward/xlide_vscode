@@ -317,6 +317,35 @@ describe('property writes', () => {
 		expect(frx.toString('hex')).toContain('0352e30b918fce119de300aa004bb851');
 	});
 
+	it('carries every form font effect across edits, painting them on the client', () => {
+		const wb = workbook();
+		set(wb, '', 'Font.Bold', 'True');
+		set(wb, '', 'Font.Italic', 'True');
+		set(wb, '', 'Font.Underline', 'True');
+		set(wb, '', 'Font.Strikethrough', 'True');
+		set(wb, '', 'Font.Name', 'Segoe UI');
+		resetWorkbookCacheForTests();
+		const { html } = readFormPreview(wb, 'EntryForm');
+		for (const pin of [
+			'"prop":"Font.Bold","value":"True"',
+			'"prop":"Font.Italic","value":"True"',
+			'"prop":"Font.Underline","value":"True"',
+			'"prop":"Font.Strikethrough","value":"True"',
+		]) {
+			expect(html).toContain(pin);
+		}
+		expect(html).toContain('font-weight:bold;font-style:italic;text-decoration:underline line-through;');
+		// The bytes obey the spec: FONT_fBold MUST stay zero, sWeight says bold.
+		const { frx } = readFormExport(wb, 'EntryForm');
+		const hex = frx.toString('hex');
+		const at = hex.indexOf('0352e30b918fce119de300aa004bb851');
+		expect(at).toBeGreaterThan(-1);
+		const font = Buffer.from(hex.slice(at, at + 96), 'hex');
+		expect(font[16]).toBe(1); // Version
+		expect(font[19]).toBe(0x02 | 0x04 | 0x08); // italic, underline, strikeout - no fBold
+		expect(font.readInt16LE(20)).toBe(700);
+	});
+
 	it('writes the form record extras, the StdFont, and the VBFrame trio', () => {
 		const wb = workbook();
 		set(wb, '', 'Zoom', '150');
@@ -461,7 +490,8 @@ describe('the interactive canvas contract', () => {
 		expect(html).toContain('BOOL_PROPS');
 		expect(html).toContain('ENUM_OPTIONS');
 		expect(html).toContain('paletteSwatches');
-		expect(html).toContain('fontFaces');
+		expect(html).toContain('openFontPop');
+		expect(html).toContain('document.fonts.check');
 	});
 
 	it('paints stored pictures instead of placeholders', () => {

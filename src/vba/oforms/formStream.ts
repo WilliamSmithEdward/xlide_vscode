@@ -354,7 +354,7 @@ export function parseStdFont(fontRaw: Buffer): {
 export function composeStdFont(
 	face: string,
 	heightTenThousandthsPt: number,
-	options: { bold?: boolean; italic?: boolean; charset?: number } = {},
+	options: { bold?: boolean; italic?: boolean; underline?: boolean; strikeout?: boolean; charset?: number } = {},
 ): Buffer {
 	const w = new OformsWriter();
 	w.u32(STDFONT_GUID_HEAD);
@@ -365,7 +365,8 @@ export function composeStdFont(
 	w.bytes(Buffer.from('918fce119de300aa004bb851', 'hex'));
 	w.u8(0x01);
 	w.i16(options.charset ?? 0);
-	w.u8((options.bold ? 0x01 : 0) | (options.italic ? 0x02 : 0));
+	// FONTFLAGS: the fBold bit "MUST be set to zero" - bold rides sWeight.
+	w.u8((options.italic ? 0x02 : 0) | (options.underline ? 0x04 : 0) | (options.strikeout ? 0x08 : 0));
 	w.i16(options.bold ? 700 : 400);
 	w.u32(heightTenThousandthsPt >>> 0);
 	const faceBytes = Buffer.from(face, 'latin1');
