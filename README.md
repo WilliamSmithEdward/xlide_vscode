@@ -190,7 +190,7 @@ Guide:
 
 ## What XLIDE Adds To VS Code
 
-- Workbook and module tree for `.xlsm`, `.xlsb`, and `.xlam` files.
+- Workbook and module tree for office 365 files.
 - Writable VBA editors backed by the workbook.
 - VBA syntax highlighting and semantic coloring.
 - IntelliSense for workbook symbols, VBA language features, and Excel host
