@@ -313,7 +313,7 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.stage { padding: 24px; flex: 1; min-width: 0; }
 	.props { width: 240px; flex: none; position: sticky; top: 40px; box-sizing: border-box;
 		max-height: calc(100vh - 48px); overflow-y: auto; background: #252526; color: #ccc;
-		font: 12px sans-serif; border-left: 1px solid #3c3c3c; }
+		font: 12px sans-serif; border-left: 1px solid #3c3c3c; padding: 8px 8px 0 0; }
 	.props .props-head { padding: 6px 10px; font-weight: bold; background: #2d2d2d;
 		position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center; }
 	.props .props-sash { position: absolute; left: 0; top: 0; bottom: 0; width: 5px;
@@ -325,7 +325,7 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.props.collapsed { width: 24px !important; overflow: hidden; }
 	.props.collapsed .row, .props.collapsed .props-head span, .props.collapsed .props-sash { display: none; }
 	.props .row { display: grid; grid-template-columns: 45% 55%; align-items: center;
-		padding: 1px 0 1px 10px; }
+		padding: 1px 0 1px 10px; column-gap: 4px; }
 	.props .row:hover { background: #2a2d2e; }
 	.props label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 		cursor: default; }
@@ -538,18 +538,34 @@ ${interactive ? `	<script>
 		const FORM_NAME = ${JSON.stringify(options.formName)};
 		document.getElementById('gripUp')?.addEventListener('click', () => post({ type: 'splitCommand', action: 'collapseSelf' }));
 		document.getElementById('gripDown')?.addEventListener('click', () => post({ type: 'splitCommand', action: 'collapseBelow' }));
+		// The dots drag with POINTER CAPTURE, for three measured reasons: a
+		// downward drag leaves the iframe immediately (the markup pane is
+		// millimeters away) and uncaptured events stop at the edge; capture
+		// keeps them streaming to the dots wherever the pointer goes. And a
+		// drag that loses its pointer (Alt+Tab) must END - pointercancel,
+		// capture loss, and window blur all release it, or the split chases
+		// the mouse forever after.
 		const gripDots = document.getElementById('gripDots');
 		let gripDrag = null;
-		gripDots?.addEventListener('pointerdown', (e) => { gripDrag = { y: e.clientY, sent: 0 }; e.preventDefault(); });
-		document.addEventListener('pointermove', (e) => {
+		const endGripDrag = () => { gripDrag = null; };
+		gripDots?.addEventListener('pointerdown', (e) => {
+			gripDrag = { y: e.clientY, sent: 0 };
+			try { gripDots.setPointerCapture(e.pointerId); } catch { /* capture is a nicety */ }
+			e.preventDefault();
+		});
+		gripDots?.addEventListener('pointermove', (e) => {
 			if (!gripDrag) { return; }
-			// Down grows the designer; each 24px step asks the workbench to
-			// move the group border one notch.
-			const step = Math.trunc((e.clientY - gripDrag.y) / 24);
+			// Down grows the designer. The workbench moves the border a fixed
+			// notch per step, so the divisor approximates one notch of mouse
+			// travel per notch of border.
+			const step = Math.trunc((e.clientY - gripDrag.y) / 50);
 			while (gripDrag.sent < step) { post({ type: 'splitCommand', action: 'grow' }); gripDrag.sent += 1; }
 			while (gripDrag.sent > step) { post({ type: 'splitCommand', action: 'shrink' }); gripDrag.sent -= 1; }
 		});
-		document.addEventListener('pointerup', () => { gripDrag = null; });
+		gripDots?.addEventListener('pointerup', endGripDrag);
+		gripDots?.addEventListener('pointercancel', endGripDrag);
+		gripDots?.addEventListener('lostpointercapture', endGripDrag);
+		window.addEventListener('blur', endGripDrag);
 		const propsPane = document.getElementById('props');
 		const propsBody = document.getElementById('propsBody');
 		const mergeState = (patch) => {
