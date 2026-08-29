@@ -145,13 +145,19 @@ function pictureCss(record: ParsedRecord | undefined, kind: string): string {
  * the whole face (measured in xlide vbide off the running form) - decisions
  * that need the picture's natural size, which only a loaded <img> knows.
  */
-function captionPictureHtml(record: ParsedRecord | undefined, kind: string): string {
+function captionPictureHtml(
+	record: ParsedRecord | undefined,
+	kind: string,
+	pictures: Map<string, string>,
+): string {
 	if (!record || kind === 'Image') { return ''; }
 	const uri = pictureDataUri(record.streamData.get('Picture'));
 	if (!uri) { return ''; }
 	const position = recordHas(record, 'PicturePosition') ? (record.values.get('PicturePosition') ?? 7) : 7;
 	if (position === 12) { return ''; }
-	return `<img class="cpic" src="${uri}" data-pos="${position}" draggable="false">`;
+	const key = `p${pictures.size}`;
+	pictures.set(key, uri);
+	return `<img class="cpic" data-pic="${key}" data-pos="${position}" draggable="false">`;
 }
 
 function colorCss(record: ParsedRecord | undefined, kind?: string): string {
@@ -172,7 +178,12 @@ function colorCss(record: ParsedRecord | undefined, kind?: string): string {
 }
 
 /** Renders one form package to the inner HTML of its surface. */
-function renderSurface(pkg: FormPackage, idPrefix: string, selected?: string): string {
+function renderSurface(
+	pkg: FormPackage,
+	idPrefix: string,
+	selected: string | undefined,
+	pictures: Map<string, string>,
+): string {
 	const parts: string[] = [];
 	pkg.entries.forEach((entry, index) => {
 		const site = entry.site;
@@ -193,7 +204,7 @@ function renderSurface(pkg: FormPackage, idPrefix: string, selected?: string): s
 
 		switch (kind) {
 			case 'Label':
-				parts.push(`<div class="ctl label${sel}" ${dn} style="${style}" title="${esc(name)}">${captionPictureHtml(record, kind)}${esc(caption)}</div>`);
+				parts.push(`<div class="ctl label${sel}" ${dn} style="${style}" title="${esc(name)}">${captionPictureHtml(record, kind, pictures)}${esc(caption)}</div>`);
 				break;
 			case 'TextBox':
 				parts.push(`<div class="ctl edit${sel}" ${dn} style="${style}" title="${esc(name)}">${esc(value)}</div>`);
@@ -212,7 +223,7 @@ function renderSurface(pkg: FormPackage, idPrefix: string, selected?: string): s
 				break;
 			case 'CommandButton':
 			case 'ToggleButton':
-				parts.push(`<div class="ctl button${kind === 'ToggleButton' && value === '1' ? ' pressed' : ''}${sel}" ${dn} style="${style}" title="${esc(name)}">${captionPictureHtml(record, kind)}${esc(caption)}</div>`);
+				parts.push(`<div class="ctl button${kind === 'ToggleButton' && value === '1' ? ' pressed' : ''}${sel}" ${dn} style="${style}" title="${esc(name)}">${captionPictureHtml(record, kind, pictures)}${esc(caption)}</div>`);
 				break;
 			case 'Image':
 				parts.push(pictureDataUri(record?.streamData.get('Picture'))
@@ -232,7 +243,7 @@ function renderSurface(pkg: FormPackage, idPrefix: string, selected?: string): s
 				break;
 			}
 			case 'Frame':
-				parts.push(`<div class="ctl frame${sel}" ${dn} style="${style}" title="${esc(name)}"><span class="legend">${esc(caption)}</span><div class="surface" data-surface="${esc(name)}" style="${inner ? colorCss(inner.form.record) : ''}">${inner ? renderSurface(inner, childId, selected) : ''}</div></div>`);
+				parts.push(`<div class="ctl frame${sel}" ${dn} style="${style}" title="${esc(name)}"><span class="legend">${esc(caption)}</span><div class="surface" data-surface="${esc(name)}" style="${inner ? colorCss(inner.form.record) : ''}">${inner ? renderSurface(inner, childId, selected, pictures) : ''}</div></div>`);
 				break;
 			case 'MultiPage': {
 				if (!inner) { break; }
@@ -245,7 +256,7 @@ function renderSurface(pkg: FormPackage, idPrefix: string, selected?: string): s
 					`<span class="tab${i === 0 ? ' active' : ''}" data-page="${childId}-p${i}">${esc(captions[i] ?? siteName(pageSite))}</span>`).join('');
 				const pages = pageSites.map((pageSite, i) => {
 					const pagePkg = inner.containers.get(siteId(pageSite));
-					return `<div class="page" id="${childId}-p${i}" data-surface="${esc(siteName(pageSite))}"${i === 0 ? '' : ' hidden'}>${pagePkg ? renderSurface(pagePkg, `${childId}-p${i}`, selected) : ''}</div>`;
+					return `<div class="page" id="${childId}-p${i}" data-surface="${esc(siteName(pageSite))}"${i === 0 ? '' : ' hidden'}>${pagePkg ? renderSurface(pagePkg, `${childId}-p${i}`, selected, pictures) : ''}</div>`;
 				}).join('');
 				parts.push(`<div class="ctl multipage${sel}" ${dn} style="${style}" title="${esc(name)}"><div class="tabs">${headers}</div><div class="pagearea">${pages}</div></div>`);
 				break;
@@ -298,6 +309,9 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 		'ToggleButton', 'Frame', 'CommandButton', 'TabStrip', 'ScrollBar', 'SpinButton', 'Image'];
 	const interactive = options.interactive !== false;
 	const propsJson = JSON.stringify(options.properties ?? {}).replace(/</g, '\\u003c');
+	const pictures = new Map<string, string>();
+	const surfaceHtml = renderSurface(pkg, 'c', options.selected, pictures);
+	const picturesJson = JSON.stringify(Object.fromEntries(pictures)).replace(/</g, '\\u003c');
 	return `<!DOCTYPE html>
 <html>
 <head>
@@ -476,13 +490,14 @@ ${interactive ? `	<div class="toolbar" id="toolbar">
 	<div class="dialog${options.selected === '' ? ' form-selected' : ''}">
 		<div class="titlebar"><span>${esc(caption)}</span><span>&#10005;</span></div>
 		<div class="client" data-surface="">
-${renderSurface(pkg, 'c', options.selected)}
+${surfaceHtml}
 		</div>
 	</div>
 	</div>
 ${interactive ? `	<aside class="props" id="props"><div class="props-sash" id="propsSash"></div><div id="propsBody"></div></aside>` : ''}
 	</div>
 ${interactive ? `	<div class="split-grip" id="splitGrip"><button class="grip-btn" id="gripUp" title="Push the split up: the markup below takes the designer's space">&#9650;</button><div class="grip-dots" id="gripDots" title="Drag to resize the split between the designer and the markup below"><span></span><span></span><span></span><span></span><span></span></div><button class="grip-btn" id="gripDown" title="Push the split down: the designer takes the markup's space">&#9660;</button></div>` : ''}
+	<script type="application/json" id="cpicData">${picturesJson}</script>
 	<script>
 		// Caption pictures, the way MSForms actually draws them (measured in
 		// xlide vbide off the running form, 2026-08-17): the top-left pixel
@@ -493,9 +508,21 @@ ${interactive ? `	<div class="split-grip" id="splitGrip"><button class="grip-btn
 		// natural size beside the caption where fmPicturePosition says.
 		// Surface pictures (Image, the form) draw the same pixels SOLID -
 		// MSForms treats the two surfaces differently, so this canvas does.
+		const cpicData = (() => {
+			try { return JSON.parse(document.getElementById('cpicData')?.textContent ?? '{}'); }
+			catch { return {}; }
+		})();
 		document.querySelectorAll('img.cpic').forEach((image) => {
 			const box = image.parentElement;
 			const position = Number(image.dataset.pos) || 7;
+			// A picture that cannot load must not take its control with it:
+			// the img leaves, the chrome and caption stay, and the console
+			// says why.
+			image.addEventListener('error', () => {
+				console.error('xlide designer: caption picture failed to load for', box?.getAttribute('data-name') ?? '(unknown)');
+				image.remove();
+			});
+			image.src = cpicData[image.dataset.pic] ?? '';
 			box.style.flexDirection = position <= 5 ? 'row' : 'column';
 			box.style.alignItems = ['flex-start', 'center', 'flex-end'][position % 3] || 'center';
 			if (position <= 2 || (position >= 6 && position <= 8)) { box.prepend(image); }
