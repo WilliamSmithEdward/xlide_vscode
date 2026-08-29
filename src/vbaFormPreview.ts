@@ -45,6 +45,7 @@ type DesignerMessage =
 	| { type: 'openHandler'; name: string; event: string }
 	| { type: 'splitCollapse'; which: 'self' | 'below' }
 	| { type: 'splitStateQuery' }
+	| { type: 'launchHost' }
 	| { type: 'splitDrag'; phase: 'start' | 'end' }
 	| { type: 'splitDrag'; phase: 'move'; delta: number }
 	| { type: 'formResize'; width: number; height: number };
@@ -117,7 +118,7 @@ export function registerFormPreview(
 		panel: vscode.WebviewPanel,
 		xlsmPath: string,
 		moduleName: string,
-		message: Exclude<DesignerMessage, { type: 'openHandler' } | { type: 'splitCollapse' } | { type: 'splitDrag' } | { type: 'splitStateQuery' }>,
+		message: Exclude<DesignerMessage, { type: 'openHandler' } | { type: 'splitCollapse' } | { type: 'splitDrag' } | { type: 'splitStateQuery' } | { type: 'launchHost' }>,
 	): Promise<void> => {
 		const op = message.type === 'geometry'
 			? { kind: 'geometry' as const, name: message.name, left: message.left, top: message.top, width: message.width, height: message.height }
@@ -371,6 +372,8 @@ export function registerFormPreview(
 						splitGrabs.delete(key);
 						void panel.webview.postMessage({ type: 'splitState', collapsed: state.collapsed });
 					})();
+				} else if (message.type === 'launchHost') {
+					void vscode.commands.executeCommand('xlide.launchFormHost');
 				} else if (message.type === 'splitStateQuery') {
 					void panel.webview.postMessage({
 						type: 'splitState',
@@ -471,7 +474,11 @@ export function registerFormPreview(
 				? decodeModuleUri(active.document.uri).xlsmPath
 				: undefined;
 			const filePath = fromEditor ?? lastFocusedDesignerWorkbook;
-			if (!filePath) { return; }
+			if (!filePath) {
+				void vscode.window.showInformationMessage('XLIDE: F5 found no form workbook - focus a designer or a markup document.');
+				return;
+			}
+			vscode.window.setStatusBarMessage(`XLIDE: opening ${path.basename(filePath)} in its host application...`, 5000);
 			const excel = /\.(xlsm|xlsb|xlam|xls)$/i.test(filePath);
 			await vscode.commands.executeCommand(
 				excel ? 'xlide.openWorkbook' : 'xlide.openInOfficeApp',

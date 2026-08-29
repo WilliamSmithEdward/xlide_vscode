@@ -91,6 +91,48 @@ function fontCss(record: ParsedRecord | undefined): string {
 	return parts.join('');
 }
 
+/**
+ * A container's own font, from its inner form's StdFont - falling back to
+ * the CONTROL default (Tahoma 8.25), never to the form's font: MSForms
+ * containers do not inherit the form's typeface, so a large form font must
+ * not swell frame legends and page tabs (measured against the native
+ * render).
+ */
+function containerFontCss(inner: FormPackage | undefined): string {
+	const font = inner?.form.fontRaw ? parseStdFont(inner.form.fontRaw) : undefined;
+	if (!font) { return "font-family:Tahoma,sans-serif;font-size:8.25pt;"; }
+	return `font-family:'${esc(font.face)}',Tahoma,sans-serif;`
+		+ `font-size:${font.heightTenThousandthsPt / 10000}pt;`
+		+ (((font.flags & 0x1) !== 0 || font.weight >= 600) ? 'font-weight:bold;' : '')
+		+ ((font.flags & 0x2) !== 0 ? 'font-style:italic;' : '');
+}
+
+/**
+ * The border a control's stored SpecialEffect / BorderStyle / BorderColor
+ * ask for, overriding the class defaults inline. fmSpecialEffect: 0 flat,
+ * 1 raised, 2 sunken, 3 etched, 6 bump - CSS's outset/inset/groove/ridge
+ * are their direct ancestors.
+ */
+function borderCss(record: ParsedRecord | undefined): string {
+	if (!record) { return ''; }
+	const hasStyle = record.spec.data.some((f) => f.name === 'BorderStyle') && recordHas(record, 'BorderStyle');
+	const hasEffect = record.spec.data.some((f) => f.name === 'SpecialEffect') && recordHas(record, 'SpecialEffect');
+	if (!hasStyle && !hasEffect) { return ''; }
+	const borderColor = record.spec.data.some((f) => f.name === 'BorderColor') && recordHas(record, 'BorderColor')
+		? cssColor(record.values.get('BorderColor') ?? 0)
+		: '#7a7a7a';
+	if (hasStyle && (record.values.get('BorderStyle') ?? 0) === 1) {
+		return `border:1px solid ${borderColor};box-shadow:none;`;
+	}
+	const effect = hasEffect ? (record.values.get('SpecialEffect') ?? 0) : 0;
+	const styleOf: Record<number, string> = { 0: 'none', 1: 'outset', 2: 'inset', 3: 'groove', 6: 'ridge' };
+	const line = styleOf[effect];
+	if (line === undefined) { return ''; }
+	return line === 'none'
+		? 'border:none;box-shadow:none;'
+		: `border:2px ${line} #d9d9d9;box-shadow:none;`;
+}
+
 /** The GrayText the face wears when a control is disabled. */
 function stateCss(record: ParsedRecord | undefined, kind: string): string {
 	if (!record) { return ''; }
@@ -193,7 +235,11 @@ function renderSurface(
 		const inner = siteIsContainer(site) ? pkg.containers.get(siteId(site)) : undefined;
 		const box = siteBox(site, record, inner);
 		const style = `left:${pts(box.left)}pt;top:${pts(box.top)}pt;width:${pts(box.width)}pt;height:${pts(box.height)}pt;`
-			+ fontCss(record) + colorCss(record, kind) + stateCss(record, kind) + pictureCss(record, kind);
+			+ fontCss(record) + colorCss(record, kind) + stateCss(record, kind) + pictureCss(record, kind)
+			+ borderCss(record)
+			+ (kind === 'TextBox' && record && ((effectiveVariousPropertyBits(record, kind) ?? 0) & 0x80000000) !== 0
+				? 'white-space:pre-wrap;'
+				: '');
 		const sel = selected !== undefined && selected.toLowerCase() === name.toLowerCase() ? ' selected' : '';
 		const dn = `data-name="${esc(name)}"`;
 		const caption = record?.strings.get('Caption')?.text
@@ -243,7 +289,7 @@ function renderSurface(
 				break;
 			}
 			case 'Frame':
-				parts.push(`<div class="ctl frame${sel}" ${dn} style="${style}" title="${esc(name)}"><span class="legend">${esc(caption)}</span><div class="surface" data-surface="${esc(name)}" style="${inner ? colorCss(inner.form.record) : ''}">${inner ? renderSurface(inner, childId, selected, pictures) : ''}</div></div>`);
+				parts.push(`<div class="ctl frame${sel}" ${dn} style="${style}${containerFontCss(inner)}" title="${esc(name)}"><span class="legend">${esc(caption)}</span><div class="surface" data-surface="${esc(name)}" style="${inner ? colorCss(inner.form.record) : ''}">${inner ? renderSurface(inner, childId, selected, pictures) : ''}</div></div>`);
 				break;
 			case 'MultiPage': {
 				if (!inner) { break; }
@@ -258,7 +304,7 @@ function renderSurface(
 					const pagePkg = inner.containers.get(siteId(pageSite));
 					return `<div class="page" id="${childId}-p${i}" data-surface="${esc(siteName(pageSite))}"${i === 0 ? '' : ' hidden'}>${pagePkg ? renderSurface(pagePkg, `${childId}-p${i}`, selected, pictures) : ''}</div>`;
 				}).join('');
-				parts.push(`<div class="ctl multipage${sel}" ${dn} style="${style}" title="${esc(name)}"><div class="tabs">${headers}</div><div class="pagearea">${pages}</div></div>`);
+				parts.push(`<div class="ctl multipage${sel}" ${dn} style="${style}${containerFontCss(inner)}" title="${esc(name)}"><div class="tabs">${headers}</div><div class="pagearea">${pages}</div></div>`);
 				break;
 			}
 			default:
@@ -300,6 +346,20 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	const formPicture = formPictureUri
 		? `background-image:url('${formPictureUri}');background-repeat:no-repeat;background-position:center center;`
 		: '';
+	const fore = record.values.get('ForeColor');
+	const formFore = fore !== undefined && recordHas(record, 'ForeColor') ? cssColor(fore) : '#000';
+	const formBorder = (() => {
+		const color = recordHas(record, 'BorderColor') ? cssColor(record.values.get('BorderColor') ?? 0) : '#7a7a7a';
+		if (recordHas(record, 'BorderStyle') && (record.values.get('BorderStyle') ?? 0) === 1) {
+			return `border:1px solid ${color};`;
+		}
+		const styleOf: Record<number, string> = { 1: 'outset', 2: 'inset', 3: 'groove', 6: 'ridge' };
+		const effect = recordHas(record, 'SpecialEffect') ? (record.values.get('SpecialEffect') ?? 0) : 0;
+		return styleOf[effect] ? `border:2px ${styleOf[effect]} #d9d9d9;` : '';
+	})();
+	const scrollBars = recordHas(record, 'ScrollBars') ? (record.values.get('ScrollBars') ?? 0) : 0;
+	const scrollRails = `${(scrollBars & 2) !== 0 ? '<div class="rail v"></div>' : ''}${(scrollBars & 1) !== 0 ? '<div class="rail h"></div>' : ''}`;
+	const formZoom = recordHas(record, 'Zoom') ? Math.max(10, Math.min(400, record.values.get('Zoom') ?? 100)) : 100;
 	const stdFont = pkg.form.fontRaw ? parseStdFont(pkg.form.fontRaw) : undefined;
 	const formFont = stdFont
 		? `font-family:'${esc(stdFont.face)}',Tahoma,sans-serif;font-size:${stdFont.heightTenThousandthsPt / 10000}pt;`
@@ -384,7 +444,11 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.titlebar { background: #fff; color: #000; padding: 4px 8px; border-bottom: 1px solid #e5e5e5;
 		font: 9pt 'Segoe UI', Tahoma, sans-serif; display: flex; justify-content: space-between; }
 	.client { position: relative; width: ${width}pt; height: ${height}pt;
-		background: ${formBack}; overflow: hidden; color: #000; ${formPicture}${formFont} }
+		background: ${formBack}; overflow: hidden; color: ${formFore}; ${formBorder}${formPicture}${formFont} }
+	.rail { position: absolute; background: #d4d0c8; border: 1px solid #a0a0a0; z-index: 3;
+		pointer-events: none; }
+	.rail.v { right: 0; top: 0; bottom: 0; width: 11pt; }
+	.rail.h { left: 0; right: 0; bottom: 0; height: 11pt; }
 	img.cpic { max-width: none; max-height: none; }
 	/* While grid snap is on, every design surface shows the 6pt lattice the
 	   snapping answers to, as the VBE's dotted face does. The half-cell
@@ -490,7 +554,7 @@ ${interactive ? `	<div class="toolbar" id="toolbar">
 	<div class="stage">
 	<div class="dialog${options.selected === '' ? ' form-selected' : ''}">
 		<div class="titlebar"><span>${esc(caption)}</span><span>&#10005;</span></div>
-		<div class="client" data-surface="">
+		<div class="client" data-surface="">${scrollRails}
 ${surfaceHtml}
 		</div>
 	</div>
@@ -996,7 +1060,8 @@ ${interactive ? `	<script>
 		const PX_PER_PT = 96 / 72;
 		const GRID = 6;
 		const SNAP_TOL = 3;
-		let ZOOM = 1;
+		const FORM_ZOOM = ${formZoom} / 100;
+		let ZOOM = FORM_ZOOM;
 		const px2pt = (px) => px / (PX_PER_PT * ZOOM);
 		const gridOn = () => document.getElementById('snapGrid').checked;
 		const neighborsOn = () => document.getElementById('snapNeighbors').checked;
@@ -1115,20 +1180,28 @@ ${interactive ? `	<script>
 		const zoomPick = document.getElementById('zoomPick');
 		const zoomShow = document.getElementById('zoomShow');
 		const paintZoom = () => {
+			const ui = parseFloat(zoomPick.value) || 1;
+			ZOOM = ui * FORM_ZOOM;
 			dialog.style.transform = ZOOM === 1 ? '' : 'scale(' + ZOOM + ')';
 			dialog.style.transformOrigin = 'top left';
-			if (zoomShow) { zoomShow.textContent = Math.round(ZOOM * 100) + '%'; }
-			if ([...zoomPick.options].some((o) => Number(o.value) === ZOOM)) { zoomPick.value = String(ZOOM); }
+			if (zoomShow) { zoomShow.textContent = Math.round(ui * 100) + '%'; }
 		};
-		if (typeof savedState.zoom === 'number') { ZOOM = savedState.zoom; }
+		if (typeof savedState.zoom === 'number' && [...zoomPick.options].some((o) => Number(o.value) === savedState.zoom)) {
+			zoomPick.value = String(savedState.zoom);
+		}
 		paintZoom();
-		zoomPick.addEventListener('change', () => { ZOOM = parseFloat(zoomPick.value) || 1; paintZoom(); saveToggles(); });
+		zoomPick.addEventListener('change', () => { paintZoom(); saveToggles(); });
 		document.addEventListener('wheel', (e) => {
 			if (!e.ctrlKey) { return; }
 			e.preventDefault();
+			// The wheel glides the TOTAL scale; paintZoom would snap it back
+			// to the select's preset, so the transform applies directly and
+			// the label and saved state speak in user-zoom units.
 			ZOOM = Math.min(4, Math.max(0.25, ZOOM * Math.exp(-e.deltaY * 0.0015)));
-			paintZoom();
-			mergeState({ zoom: ZOOM });
+			dialog.style.transform = ZOOM === 1 ? '' : 'scale(' + ZOOM + ')';
+			dialog.style.transformOrigin = 'top left';
+			if (zoomShow) { zoomShow.textContent = Math.round((ZOOM / FORM_ZOOM) * 100) + '%'; }
+			mergeState({ zoom: ZOOM / FORM_ZOOM });
 		}, { passive: false });
 
 		let formDrag = null;
@@ -1427,6 +1500,11 @@ ${interactive ? `	<script>
 		document.addEventListener('keyup', (e) => {
 			if (e.target.closest('.props')) { return; }
 			if (e.key === 'Escape') { disarm(); select(null); deselectForm(); }
+		});
+		// F5 posted from INSIDE the canvas: key forwarding from webviews to
+		// workbench keybindings has not proven reliable for it.
+		document.addEventListener('keydown', (e) => {
+			if (e.key === 'F5') { e.preventDefault(); post({ type: 'launchHost' }); }
 		});
 	})();
 	</script>` : ''}

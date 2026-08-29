@@ -481,6 +481,31 @@ describe('the interactive canvas contract', () => {
 		expect(html).toContain('keyOut');
 	});
 
+	it('renders the full property walk: form chrome, borders, wrap, scoped fonts', () => {
+		const wb = workbook();
+		const set = (name: string, prop: string, value: string) =>
+			applyFormDesignerOp(wb, 'EntryForm', { kind: 'setProp', name, prop, value });
+		set('', 'ForeColor', '#aa0000');
+		set('', 'BorderStyle', '1');
+		set('', 'ScrollBars', '3');
+		set('', 'Zoom', '150');
+		set('', 'Font.Size', '11.75');
+		set('NameLabel', 'BorderStyle', '1');
+		set('Taxable', 'SpecialEffect', '2');
+		set('NameBox', 'MultiLine', 'True');
+		resetWorkbookCacheForTests();
+		const { html } = readFormPreview(wb, 'EntryForm');
+		expect(html).toContain('color: #aa0000');
+		expect(html).toMatch(/\.client[^}]*border:1px solid #7a7a7a/);
+		expect(html.split('class="rail').length - 1).toBe(2);
+		expect(html).toContain('const FORM_ZOOM = 150 / 100;');
+		expect(html).toMatch(/data-name="NameLabel"[^>]*border:1px solid/);
+		expect(html).toMatch(/data-name="Taxable"[^>]*border:2px inset/);
+		expect(html).toMatch(/data-name="NameBox"[^>]*white-space:pre-wrap/);
+		// A container's font never inherits the form's: 8.25pt default holds.
+		expect(html).toMatch(/data-name="Options"[^>]*font-size:8\.25pt/);
+	});
+
 	it('draws the disabled gray, alignment, and text decoration it can set', () => {
 		const wb = workbook();
 		applyFormDesignerOp(wb, 'EntryForm', { kind: 'setProp', name: 'OkButton', prop: 'Enabled', value: 'False' });

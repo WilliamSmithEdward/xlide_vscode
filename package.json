@@ -635,6 +635,11 @@
         "key": "ctrl+shift+z",
         "mac": "cmd+shift+z",
         "when": "activeWebviewPanelId == 'xlideFormPreview'"
+      },
+      {
+        "command": "xlide.launchFormHost",
+        "key": "F5",
+        "when": "editorTextFocus && resourceExtname == '.form'"
       }
     ],
     "languages": [
