@@ -4,6 +4,24 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **The property surface is complete, form and controls both.** The form
+  pane gains BorderStyle, ScrollBars, Cycle, Zoom, MousePointer, its Font
+  (Name, Size, Bold, Italic through the StdFont composer), and the VBFrame
+  trio - ShowModal, StartUpPosition, WhatsThisButton - replacing the line or
+  inserting it before End, spelled 0 and -1 as VB does. Controls gain
+  ControlSource and RowSource, HelpContextID, MousePointer, and Alignment
+  (the caption side of a CheckBox or OptionButton). One live-Excel probe
+  answers for all of it: Zoom 150, ScrollBars 3, Cycle 2, StartUpPosition 2,
+  Segoe UI 10, MousePointer 11, a bound ControlSource, Alignment left.
+
+- **A form-font write could crash Excel; it cannot now.** The StdFont
+  composer - never before exercised, since no fixture form stores a font -
+  wrote the FontGUID's Data2 and Data3 big-endian where MS-DTYP stores them
+  little-endian, and Excel answered the malformed component GUID by dying at
+  form load. Found by clean-room bisection down to the single Font write;
+  the GUID bytes are pinned in a test, and the fresh Font marker seeds its
+  mandated 0xFFFF.
+
 - **The Properties pane speaks each property's language** - the xlide vbide
   shapes: True/False dropdowns for the booleans, named dropdowns for the
   enums (SpecialEffect, BorderStyle, MultiSelect, ListStyle, Style,
