@@ -124,8 +124,11 @@ function pictureCss(record: ParsedRecord | undefined, kind: string): string {
 	const uri = pictureDataUri(record?.streamData.get('Picture'));
 	if (!uri || !record) { return ''; }
 	if (kind !== 'Image') {
-		// A picture on a button or label sits with its caption; centered and
-		// unscaled is the honest approximation of the VBE's layout.
+		// Only fmPicturePosition 12 - the picture BEHIND the caption - is a
+		// background; the other eleven positions render as a real <img> the
+		// runtime script dresses (see captionPictureHtml).
+		const position = recordHas(record, 'PicturePosition') ? (record.values.get('PicturePosition') ?? 7) : 7;
+		if (position !== 12) { return ''; }
 		return `background-image:url('${uri}');background-repeat:no-repeat;background-position:center center;`;
 	}
 	const mode = recordHas(record, 'PictureSizeMode') ? (record.values.get('PictureSizeMode') ?? 0) : 0;
@@ -134,6 +137,21 @@ function pictureCss(record: ParsedRecord | undefined, kind: string): string {
 	const position = PICTURE_ALIGNMENTS[align] ?? 'center center';
 	return `background-image:url('${uri}');background-repeat:no-repeat;`
 		+ `background-size:${size};background-position:${position};`;
+}
+
+/**
+ * A picture that sits WITH a caption, as an <img> the runtime script dresses.
+ * MSForms draws these through a color key and stretches an oversized one over
+ * the whole face (measured in xlide vbide off the running form) - decisions
+ * that need the picture's natural size, which only a loaded <img> knows.
+ */
+function captionPictureHtml(record: ParsedRecord | undefined, kind: string): string {
+	if (!record || kind === 'Image') { return ''; }
+	const uri = pictureDataUri(record.streamData.get('Picture'));
+	if (!uri) { return ''; }
+	const position = recordHas(record, 'PicturePosition') ? (record.values.get('PicturePosition') ?? 7) : 7;
+	if (position === 12) { return ''; }
+	return `<img class="cpic" src="${uri}" data-pos="${position}" draggable="false">`;
 }
 
 function colorCss(record: ParsedRecord | undefined): string {
@@ -168,7 +186,7 @@ function renderSurface(pkg: FormPackage, idPrefix: string, selected?: string): s
 
 		switch (kind) {
 			case 'Label':
-				parts.push(`<div class="ctl label${sel}" ${dn} style="${style}" title="${esc(name)}">${esc(caption)}</div>`);
+				parts.push(`<div class="ctl label${sel}" ${dn} style="${style}" title="${esc(name)}">${captionPictureHtml(record, kind)}${esc(caption)}</div>`);
 				break;
 			case 'TextBox':
 				parts.push(`<div class="ctl edit${sel}" ${dn} style="${style}" title="${esc(name)}">${esc(value)}</div>`);
@@ -187,7 +205,7 @@ function renderSurface(pkg: FormPackage, idPrefix: string, selected?: string): s
 				break;
 			case 'CommandButton':
 			case 'ToggleButton':
-				parts.push(`<div class="ctl button${kind === 'ToggleButton' && value === '1' ? ' pressed' : ''}${sel}" ${dn} style="${style}" title="${esc(name)}">${esc(caption)}</div>`);
+				parts.push(`<div class="ctl button${kind === 'ToggleButton' && value === '1' ? ' pressed' : ''}${sel}" ${dn} style="${style}" title="${esc(name)}">${captionPictureHtml(record, kind)}${esc(caption)}</div>`);
 				break;
 			case 'Image':
 				parts.push(pictureDataUri(record?.streamData.get('Picture'))
@@ -242,6 +260,9 @@ export interface FormPreviewOptions {
 	interactive?: boolean;
 	/** Property rows per target ('' is the form), rendered in the pane. */
 	properties?: Record<string, { kind: string; rows: Array<{ prop: string; value: string }> }>;
+	/** Workbook path and module name, stamped into webview state so VS Code
+	 *  can restore the panel after a window reload. */
+	identity?: { workbook: string; module: string };
 }
 
 /**
@@ -282,15 +303,27 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 		font: 12px sans-serif; }
 	.toolbar .tool { background: #3c3c3c; color: #ddd; border: 1px solid #555; padding: 2px 8px;
 		border-radius: 3px; cursor: pointer; }
-	.toolbar .tool.armed { background: #0e639c; color: #fff; border-color: #1177bb; }
+	/* The blue is ROLLOVER feedback, not a latch: an armed tool shows no
+	   fill (the canvas's crosshair announces placing mode instead). */
+	.toolbar .tool:hover { background: #0e639c; color: #fff; border-color: #1177bb; }
 	.toolbar label { display: flex; gap: 4px; align-items: center; margin-left: 8px; }
+	.toolbar select { background: #3c3c3c; color: #ddd; border: 1px solid #555;
+		border-radius: 3px; font: inherit; }
 	.main { display: flex; align-items: flex-start; }
 	.stage { padding: 24px; flex: 1; min-width: 0; }
 	.props { width: 240px; flex: none; position: sticky; top: 40px; box-sizing: border-box;
 		max-height: calc(100vh - 48px); overflow-y: auto; background: #252526; color: #ccc;
 		font: 12px sans-serif; border-left: 1px solid #3c3c3c; }
 	.props .props-head { padding: 6px 10px; font-weight: bold; background: #2d2d2d;
-		position: sticky; top: 0; }
+		position: sticky; top: 0; display: flex; justify-content: space-between; align-items: center; }
+	.props .props-sash { position: absolute; left: 0; top: 0; bottom: 0; width: 5px;
+		cursor: col-resize; z-index: 2; }
+	.props .props-sash:hover { background: rgba(14, 99, 156, 0.4); }
+	.props-collapse { background: none; border: none; color: #ccc; cursor: pointer;
+		font: inherit; padding: 0 2px; }
+	.props-collapse:hover { color: #fff; }
+	.props.collapsed { width: 24px !important; overflow: hidden; }
+	.props.collapsed .row, .props.collapsed .props-head span, .props.collapsed .props-sash { display: none; }
 	.props .row { display: grid; grid-template-columns: 45% 55%; align-items: center;
 		padding: 1px 0 1px 10px; }
 	.props .row:hover { background: #2a2d2e; }
@@ -304,8 +337,8 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.dialog.form-selected { outline: 1px dashed #0e639c; outline-offset: 2px; }
 	.form-handle { position: absolute; width: 7px; height: 7px; background: #fff;
 		border: 1px solid #0e639c; z-index: 7; }
-	.titlebar { background: #99b4d1; color: #000; padding: 2px 6px;
-		font: bold 9pt Tahoma, sans-serif; display: flex; justify-content: space-between; }
+	.titlebar { background: #fff; color: #000; padding: 4px 8px; border-bottom: 1px solid #e5e5e5;
+		font: 9pt 'Segoe UI', Tahoma, sans-serif; display: flex; justify-content: space-between; }
 	.client { position: relative; width: ${width}pt; height: ${height}pt;
 		background: ${formBack}; overflow: hidden; ${formPicture}${formFont} }
 	/* While grid snap is on, every design surface shows the 6pt lattice the
@@ -374,10 +407,24 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.guide { position: absolute; background: #e51400; z-index: 4; pointer-events: none; }
 	.guide.v { width: 1px; top: 0; bottom: 0; }
 	.guide.h { height: 1px; left: 0; right: 0; }
+	.cpic { flex: none; pointer-events: none; }
 	.placing, .placing .ctl { cursor: crosshair !important; }
 	.ghost { position: absolute; border: 1px dashed #0e639c; background: rgba(14, 99, 156, 0.12);
 		z-index: 6; pointer-events: none; }
 	.drop-target { outline: 2px solid #0e639c; outline-offset: -2px; }
+	/* The vbide splitter chrome, docked at the bottom edge: an arrow either
+	   side of the dots collapses one half or the other, and the dots DRAG
+	   the split itself. */
+	.split-grip { position: fixed; left: 0; right: 0; bottom: 0; height: 14px; z-index: 11;
+		background: #2d2d2d; border-top: 1px solid #3c3c3c; display: flex;
+		align-items: stretch; justify-content: center; }
+	.grip-dots { display: flex; align-items: center; justify-content: center; gap: 3px;
+		padding: 0 18px; cursor: ns-resize; }
+	.grip-dots span { width: 3px; height: 3px; border-radius: 50%; background: #777; }
+	.grip-dots:hover span { background: #ccc; }
+	.grip-btn { background: none; border: none; color: #777; cursor: pointer;
+		font-size: 8px; padding: 0 8px; }
+	.grip-btn:hover { color: #fff; }
 </style>
 </head>
 <body>
@@ -386,6 +433,11 @@ ${interactive ? `	<div class="toolbar" id="toolbar">
 		${toolbox.map((k) => `<button class="tool" data-kind="${k}">${k}</button>`).join('')}
 		<label><input type="checkbox" id="snapGrid" checked>Grid 6pt</label>
 		<label><input type="checkbox" id="snapNeighbors">Snap to neighbors</label>
+		<label>Zoom <select id="zoomPick">
+			<option value="0.5">50%</option><option value="0.75">75%</option>
+			<option value="1" selected>100%</option><option value="1.25">125%</option>
+			<option value="1.5">150%</option><option value="2">200%</option>
+		</select> <span id="zoomShow"></span></label>
 	</div>` : ''}
 	<div class="main">
 	<div class="stage">
@@ -396,9 +448,61 @@ ${renderSurface(pkg, 'c', options.selected)}
 		</div>
 	</div>
 	</div>
-${interactive ? `	<aside class="props" id="props"></aside>` : ''}
+${interactive ? `	<aside class="props" id="props"><div class="props-sash" id="propsSash"></div><div id="propsBody"></div></aside>` : ''}
 	</div>
+${interactive ? `	<div class="split-grip" id="splitGrip"><button class="grip-btn" id="gripUp" title="Collapse the designer: the markup below takes the space">&#9650;</button><div class="grip-dots" id="gripDots" title="Drag to resize the split; double-click to collapse or restore the markup below"><span></span><span></span><span></span><span></span><span></span></div><button class="grip-btn" id="gripDown" title="Collapse the markup below: the designer takes the space">&#9660;</button></div>` : ''}
 	<script>
+		// Caption pictures, the way MSForms actually draws them (measured in
+		// xlide vbide off the running form, 2026-08-17): the top-left pixel
+		// is a COLOR KEY - exactly-matching pixels go transparent, and the
+		// anti-aliased halo that misses the key stays, because it does on the
+		// real form too. A picture too big for its control is STRETCHED over
+		// the whole face with the caption underneath; one that fits keeps its
+		// natural size beside the caption where fmPicturePosition says.
+		// Surface pictures (Image, the form) draw the same pixels SOLID -
+		// MSForms treats the two surfaces differently, so this canvas does.
+		document.querySelectorAll('img.cpic').forEach((image) => {
+			const box = image.parentElement;
+			const position = Number(image.dataset.pos) || 7;
+			box.style.flexDirection = position <= 5 ? 'row' : 'column';
+			box.style.alignItems = ['flex-start', 'center', 'flex-end'][position % 3] || 'center';
+			if (position <= 2 || (position >= 6 && position <= 8)) { box.prepend(image); }
+			const keyOut = () => {
+				if (image.naturalWidth === 0 || image.dataset.keyed === 'yes') { return; }
+				const sheet = document.createElement('canvas');
+				sheet.width = image.naturalWidth;
+				sheet.height = image.naturalHeight;
+				const ink = sheet.getContext('2d');
+				if (!ink) { return; }
+				ink.drawImage(image, 0, 0);
+				let field;
+				try { field = ink.getImageData(0, 0, sheet.width, sheet.height); } catch { return; }
+				const px = field.data;
+				const r = px[0], g = px[1], b = px[2];
+				for (let at = 0; at < px.length; at += 4) {
+					if (px[at] === r && px[at + 1] === g && px[at + 2] === b) { px[at + 3] = 0; }
+				}
+				ink.putImageData(field, 0, 0);
+				image.dataset.keyed = 'yes';
+				image.src = sheet.toDataURL('image/png');
+			};
+			const stretchIfOversized = () => {
+				const room = box.getBoundingClientRect();
+				if (room.width <= 0 || room.height <= 0 || image.naturalWidth === 0) { return; }
+				if (image.naturalWidth > room.width || image.naturalHeight > room.height) {
+					box.style.position = 'relative';
+					image.style.position = 'absolute';
+					image.style.inset = '0';
+					image.style.width = '100%';
+					image.style.height = '100%';
+					image.style.objectFit = 'fill';
+				}
+			};
+			const dress = () => { keyOut(); stretchIfOversized(); };
+			image.addEventListener('load', dress);
+			if (image.complete) { dress(); }
+		});
+
 		document.querySelectorAll('.multipage .tabs .tab').forEach((tab) => {
 			tab.addEventListener('click', (e) => {
 				if (document.body.dataset.dragging) { return; }
@@ -416,6 +520,15 @@ ${interactive ? `	<script>
 		const vscode = typeof acquireVsCodeApi === 'function' ? acquireVsCodeApi() : undefined;
 		const post = (msg) => { if (vscode) { vscode.postMessage(msg); } };
 
+		// The panel's identity rides in webview state, so a window reload can
+		// deserialize the designer back onto its form.
+		if (vscode?.setState) {
+			vscode.setState({ ...(vscode.getState?.() ?? {}), ...${JSON.stringify({
+				wb: options.identity?.workbook ?? '',
+				mod: options.identity?.module ?? '',
+			})} });
+		}
+
 		// The Properties pane, following the selection the way the VBE's
 		// Properties window does - '' is the form itself. Rows arrive baked
 		// from the engine (the same fields the markup prints); committing an
@@ -423,16 +536,60 @@ ${interactive ? `	<script>
 		// bytes. Escape in a row reverts it without touching the selection.
 		const PROPS = ${propsJson};
 		const FORM_NAME = ${JSON.stringify(options.formName)};
+		document.getElementById('gripUp')?.addEventListener('click', () => post({ type: 'splitCommand', action: 'collapseSelf' }));
+		document.getElementById('gripDown')?.addEventListener('click', () => post({ type: 'splitCommand', action: 'collapseBelow' }));
+		const gripDots = document.getElementById('gripDots');
+		gripDots?.addEventListener('dblclick', () => post({ type: 'splitCommand', action: 'collapseBelow' }));
+		let gripDrag = null;
+		gripDots?.addEventListener('pointerdown', (e) => { gripDrag = { y: e.clientY, sent: 0 }; e.preventDefault(); });
+		document.addEventListener('pointermove', (e) => {
+			if (!gripDrag) { return; }
+			// Down grows the designer; each 24px step asks the workbench to
+			// move the group border one notch.
+			const step = Math.trunc((e.clientY - gripDrag.y) / 24);
+			while (gripDrag.sent < step) { post({ type: 'splitCommand', action: 'grow' }); gripDrag.sent += 1; }
+			while (gripDrag.sent > step) { post({ type: 'splitCommand', action: 'shrink' }); gripDrag.sent -= 1; }
+		});
+		document.addEventListener('pointerup', () => { gripDrag = null; });
 		const propsPane = document.getElementById('props');
-		const renderProps = (target) => {
+		const propsBody = document.getElementById('propsBody');
+		const mergeState = (patch) => {
+			if (vscode?.setState) {
+				vscode.setState({ ...(vscode.getState?.() ?? {}), ...patch });
+			}
+		};
+		const paneState = vscode?.getState?.() ?? {};
+		let propsCollapsed = paneState.propsCollapsed === true;
+		let propsWidth = typeof paneState.propsWidth === 'number' ? paneState.propsWidth : 240;
+		const applyPropsChrome = () => {
 			if (!propsPane) { return; }
+			propsPane.classList.toggle('collapsed', propsCollapsed);
+			propsPane.style.width = propsCollapsed ? '' : propsWidth + 'px';
+		};
+		applyPropsChrome();
+		let lastPropsTarget = '';
+		const renderProps = (target) => {
+			if (!propsPane || !propsBody) { return; }
+			lastPropsTarget = target;
 			const info = PROPS[target];
-			propsPane.textContent = '';
+			propsBody.textContent = '';
 			if (!info) { return; }
 			const head = document.createElement('div');
 			head.className = 'props-head';
-			head.textContent = (target === '' ? FORM_NAME : target) + ' (' + info.kind + ')';
-			propsPane.appendChild(head);
+			const title = document.createElement('span');
+			title.textContent = (target === '' ? FORM_NAME : target) + ' (' + info.kind + ')';
+			const collapse = document.createElement('button');
+			collapse.className = 'props-collapse';
+			collapse.textContent = propsCollapsed ? '\u00ab' : '\u00bb';
+			collapse.title = propsCollapsed ? 'Expand the properties pane' : 'Collapse the properties pane';
+			collapse.addEventListener('click', () => {
+				propsCollapsed = !propsCollapsed;
+				applyPropsChrome();
+				mergeState({ propsCollapsed });
+				renderProps(lastPropsTarget);
+			});
+			head.append(title, collapse);
+			propsBody.appendChild(head);
 			for (const row of info.rows) {
 				const div = document.createElement('div');
 				div.className = 'row';
@@ -452,9 +609,23 @@ ${interactive ? `	<script>
 				});
 				div.appendChild(label);
 				div.appendChild(input);
-				propsPane.appendChild(div);
+				propsBody.appendChild(div);
 			}
 		};
+
+		// The sash on the pane's left edge resizes it; the width persists.
+		const propsSash = document.getElementById('propsSash');
+		let sashDrag = false;
+		propsSash?.addEventListener('pointerdown', (e) => { sashDrag = true; e.preventDefault(); });
+		document.addEventListener('pointermove', (e) => {
+			if (!sashDrag || !propsPane) { return; }
+			const edge = propsPane.getBoundingClientRect().right;
+			propsWidth = Math.min(480, Math.max(140, edge - e.clientX));
+			propsPane.style.width = propsWidth + 'px';
+		});
+		document.addEventListener('pointerup', () => {
+			if (sashDrag) { sashDrag = false; mergeState({ propsWidth }); }
+		});
 
 		// The VBE's double-click: jump to the control's DEFAULT event
 		// handler in the code face - Click for buttons and labels, Change
@@ -495,7 +666,12 @@ ${interactive ? `	<script>
 		const syncGridDots = () => { document.body.classList.toggle('grid-on', gridBox.checked); };
 		const saveToggles = () => {
 			if (vscode?.setState) {
-				vscode.setState({ grid: gridBox.checked, neighbors: neighborsBox.checked });
+				vscode.setState({
+					...(vscode.getState?.() ?? {}),
+					grid: gridBox.checked,
+					neighbors: neighborsBox.checked,
+					zoom: ZOOM,
+				});
 			}
 		};
 		gridBox.addEventListener('change', () => {
@@ -512,7 +688,8 @@ ${interactive ? `	<script>
 		const PX_PER_PT = 96 / 72;
 		const GRID = 6;
 		const SNAP_TOL = 3;
-		const px2pt = (px) => px / PX_PER_PT;
+		let ZOOM = 1;
+		const px2pt = (px) => px / (PX_PER_PT * ZOOM);
 		const gridOn = () => document.getElementById('snapGrid').checked;
 		const neighborsOn = () => document.getElementById('snapNeighbors').checked;
 
@@ -622,16 +799,45 @@ ${interactive ? `	<script>
 		};
 		if (dialog.classList.contains('form-selected')) { layFormHandles(); }
 
+		// Zoom scales the DIALOG - handles, guides, and grid dots ride along -
+		// and every pointer-to-points conversion divides the factor back out,
+		// so the model always sees true points. The select picks presets;
+		// Ctrl+wheel glides on an exponential curve between them; the label
+		// always tells the truth. The choice survives re-renders.
+		const zoomPick = document.getElementById('zoomPick');
+		const zoomShow = document.getElementById('zoomShow');
+		const paintZoom = () => {
+			dialog.style.transform = ZOOM === 1 ? '' : 'scale(' + ZOOM + ')';
+			dialog.style.transformOrigin = 'top left';
+			if (zoomShow) { zoomShow.textContent = Math.round(ZOOM * 100) + '%'; }
+			if ([...zoomPick.options].some((o) => Number(o.value) === ZOOM)) { zoomPick.value = String(ZOOM); }
+		};
+		if (typeof savedState.zoom === 'number') { ZOOM = savedState.zoom; }
+		paintZoom();
+		zoomPick.addEventListener('change', () => { ZOOM = parseFloat(zoomPick.value) || 1; paintZoom(); saveToggles(); });
+		document.addEventListener('wheel', (e) => {
+			if (!e.ctrlKey) { return; }
+			e.preventDefault();
+			ZOOM = Math.min(4, Math.max(0.25, ZOOM * Math.exp(-e.deltaY * 0.0015)));
+			paintZoom();
+			mergeState({ zoom: ZOOM });
+		}, { passive: false });
+
 		let formDrag = null;
 		let drag = null;
 		document.addEventListener('pointerdown', (e) => {
+			if (e.target.closest('.props') || e.target.closest('.split-grip')) { return; }
 			const formHandle = e.target.closest('.form-handle');
 			if (formHandle) {
+				// The client's size lives in the STYLESHEET until the first
+				// live resize writes an inline value, so the seed measures
+				// the box - a NaN seed made every frame a silent no-op.
+				const rect = client.getBoundingClientRect();
 				formDrag = {
 					dir: formHandle.dataset.dir,
 					x: e.clientX, y: e.clientY,
-					width: parseFloat(client.style.width),
-					height: parseFloat(client.style.height),
+					width: px2pt(rect.width),
+					height: px2pt(rect.height),
 				};
 				client.classList.add('gesture-resize');
 				client.style.cursor = formHandle.dataset.dir + '-resize';
@@ -694,6 +900,8 @@ ${interactive ? `	<script>
 					width = Math.round(width / GRID) * GRID;
 					height = Math.round(height / GRID) * GRID;
 				}
+				formDrag.liveWidth = width;
+				formDrag.liveHeight = height;
 				client.style.width = width + 'pt';
 				client.style.height = height + 'pt';
 				dialog.style.width = width + 'pt';
@@ -761,13 +969,15 @@ ${interactive ? `	<script>
 
 		document.addEventListener('pointerup', (e) => {
 			if (formDrag) {
-				const width = parseFloat(client.style.width);
-				const height = parseFloat(client.style.height);
-				const changed = width !== formDrag.width || height !== formDrag.height;
+				// Commit the TRACKED size: the inline style is untouched when
+				// the pointer never moved, and a no-move click posts nothing.
+				const { width, height, liveWidth, liveHeight } = formDrag;
 				formDrag = null;
 				client.classList.remove('gesture-resize');
 				client.style.cursor = '';
-				if (changed) { post({ type: 'formResize', width, height }); }
+				if (liveWidth !== undefined && (liveWidth !== width || liveHeight !== height)) {
+					post({ type: 'formResize', width: liveWidth, height: liveHeight });
+				}
 				return;
 			}
 			if (!drag) { return; }

@@ -4,6 +4,51 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **The designer sits under its form in the tree.** Expanding a userform
+  module shows a Designer row first - above the procedures, the xlide vbide
+  arrangement - and clicking it opens the canvas. The markup projection also
+  lost its banner comment: the document now starts at `<Form>`.
+
+- **Designer sessions undo.** Ctrl+Z / Ctrl+Y (and Ctrl+Shift+Z) while the
+  designer is focused walk a per-form history of byte-true designer
+  snapshots - up to 50 gestures - restoring exactly what a gesture changed,
+  structure included; the markup face follows every step. The engine grew
+  the snapshot/restore pair, pinned by tests that put a moved control and
+  an added control back to the exact prior bytes.
+
+- **The designer restores after a window reload.** A webview serializer
+  brings the canvas back onto its form (the markup below always restored
+  natively; now both do).
+
+- **F5 launches the host.** From the designer or the markup document, F5
+  opens the workbook in its application - Excel for Excel containers, the
+  owning app otherwise.
+
+- **Form resize handles actually drag now.** The east/south/southeast
+  handles seeded from an inline style the client never had, so every frame
+  was a silent no-op; the seed measures the box, and the commit posts the
+  tracked size (a no-move click posts nothing). Verified by driving the
+  handles in the rendered page.
+
+- **Caption pictures render the way MSForms draws them** - the rules xlide
+  vbide measured off the running form: the top-left pixel is a color key
+  (exact matches go transparent, the anti-aliased halo stays), an oversized
+  picture stretches over the whole face with the caption underneath, one
+  that fits keeps its natural size beside the caption where
+  fmPicturePosition says, and position 12 stays a background. Surface
+  pictures (Image, the form) still draw solid and letterbox. The titlebar
+  also matches the native form now: flat white, regular Segoe UI.
+
+- **Designer shell ergonomics.** The toolbox highlights on rollover instead
+  of latching blue on click. The splitter strip at the bottom edge carries
+  vbide's chrome: collapse arrows either side of the grip dots, the dots
+  drag the split with the resize cursor they promise, double-click
+  collapses or restores the markup below. The Properties pane gained a
+  left-edge sash (width persists), a collapse button in its header, and a
+  guard so clicking inside it never clears the canvas selection. Zoom: a
+  preset picker plus Ctrl+wheel on a smooth exponential curve (25%-400%),
+  with every pointer-to-points conversion dividing the factor back out.
+
 - **The canvas paints real pictures.** A stored picture - on an Image
   control, on a button or label, or as the form's own background - renders
   from its actual bytes when the browser can decode the format (BMP, PNG,

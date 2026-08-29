@@ -388,6 +388,21 @@
         "command": "xlide.undoRename",
         "title": "Undo Rename",
         "category": "XLIDE"
+      },
+      {
+        "command": "xlide.launchFormHost",
+        "title": "Launch Workbook in Host Application",
+        "category": "XLIDE"
+      },
+      {
+        "command": "xlide.designerUndo",
+        "title": "Designer: Undo",
+        "category": "XLIDE"
+      },
+      {
+        "command": "xlide.designerRedo",
+        "title": "Designer: Redo",
+        "category": "XLIDE"
       }
     ],
     "views": {
@@ -593,6 +608,33 @@
         "key": "right",
         "args": "right",
         "when": "editorTextFocus && editorLangId =~ /^(vba|xlide-vba)$/ && inSnippetMode && !suggestWidgetVisible"
+      },
+      {
+        "command": "xlide.launchFormHost",
+        "key": "F5",
+        "when": "activeWebviewPanelId == 'xlideFormPreview'"
+      },
+      {
+        "command": "xlide.launchFormHost",
+        "key": "F5",
+        "when": "editorTextFocus && resourceScheme == 'xlide-vba' && editorLangId == 'xml'"
+      },
+      {
+        "command": "xlide.designerUndo",
+        "key": "ctrl+z",
+        "mac": "cmd+z",
+        "when": "activeWebviewPanelId == 'xlideFormPreview'"
+      },
+      {
+        "command": "xlide.designerRedo",
+        "key": "ctrl+y",
+        "when": "activeWebviewPanelId == 'xlideFormPreview'"
+      },
+      {
+        "command": "xlide.designerRedo",
+        "key": "ctrl+shift+z",
+        "mac": "cmd+shift+z",
+        "when": "activeWebviewPanelId == 'xlideFormPreview'"
       }
     ],
     "languages": [

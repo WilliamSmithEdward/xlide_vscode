@@ -19,6 +19,19 @@ import { errorMessage } from './util/errors';
 
 const panels = new Map<string, vscode.WebviewPanel>();
 
+/** The workbook behind the most recently focused designer panel, for F5. */
+let lastFocusedDesignerWorkbook: string | undefined;
+/** The panel key of the most recently focused designer, for undo/redo. */
+let lastFocusedDesignerKey: string | undefined;
+
+interface DesignerHistory {
+	undo: Array<Record<string, string>>;
+	redo: Array<Record<string, string>>;
+}
+const histories = new Map<string, DesignerHistory>();
+const keyParts = new Map<string, [string, string]>();
+const HISTORY_LIMIT = 50;
+
 function panelKey(xlsmPath: string, moduleName: string): string {
 	return `${xlsmPath.toLowerCase()}::${moduleName.toLowerCase()}`;
 }
@@ -30,6 +43,7 @@ type DesignerMessage =
 	| { type: 'reparent'; name: string; container: string; left: number; top: number }
 	| { type: 'setProp'; name: string; prop: string; value: string }
 	| { type: 'openHandler'; name: string; event: string }
+	| { type: 'splitCommand'; action: 'collapseSelf' | 'collapseBelow' | 'grow' | 'shrink' }
 	| { type: 'formResize'; width: number; height: number };
 
 export function registerFormPreview(
@@ -100,7 +114,7 @@ export function registerFormPreview(
 		panel: vscode.WebviewPanel,
 		xlsmPath: string,
 		moduleName: string,
-		message: DesignerMessage,
+		message: Exclude<DesignerMessage, { type: 'openHandler' } | { type: 'splitCommand' }>,
 	): Promise<void> => {
 		const op = message.type === 'geometry'
 			? { kind: 'geometry' as const, name: message.name, left: message.left, top: message.top, width: message.width, height: message.height }
@@ -114,6 +128,21 @@ export function registerFormPreview(
 						? { kind: 'formSize' as const, width: message.width, height: message.height }
 						: { kind: 'remove' as const, name: message.name };
 		try {
+			const key = panelKey(xlsmPath, moduleName);
+			try {
+				const snapshot = await bridge.call<{ streams: Record<string, string> }>(
+					'readFormDesignerSnapshot',
+					{ path: xlsmPath, module: moduleName },
+				);
+				const history = histories.get(key) ?? { undo: [], redo: [] };
+				history.undo.push(snapshot.streams);
+				if (history.undo.length > HISTORY_LIMIT) { history.undo.shift(); }
+				history.redo = [];
+				histories.set(key, history);
+			} catch {
+				// A gesture without its snapshot still applies; only its undo
+				// step is lost.
+			}
 			const result = await runWriteWithExcelCoordination(xlsmPath, () =>
 				bridge.call<{ ok: boolean; signatureDropped: boolean; newName?: string }>(
 					'formDesignerOp',
@@ -152,6 +181,99 @@ export function registerFormPreview(
 			await render(panel, xlsmPath, moduleName);
 		}
 	};
+
+	// Ctrl+Z / Ctrl+Y while the designer is focused: the gesture history is
+	// a stack of byte-true designer snapshots, restored whole - so undo puts
+	// back exactly what the gesture changed, wherever in the form it landed.
+	const stepHistory = async (direction: 'undo' | 'redo'): Promise<void> => {
+		const key = lastFocusedDesignerKey;
+		const panel = key ? panels.get(key) : undefined;
+		const history = key ? histories.get(key) : undefined;
+		if (!key || !panel || !history) { return; }
+		const from = direction === 'undo' ? history.undo : history.redo;
+		const to = direction === 'undo' ? history.redo : history.undo;
+		const snapshot = from.pop();
+		if (!snapshot) { return; }
+		const [xlsmPath, moduleName] = keyParts.get(key) ?? [];
+		if (!xlsmPath || !moduleName) { return; }
+		try {
+			const current = await bridge.call<{ streams: Record<string, string> }>(
+				'readFormDesignerSnapshot',
+				{ path: xlsmPath, module: moduleName },
+			);
+			to.push(current.streams);
+			if (to.length > HISTORY_LIMIT) { to.shift(); }
+			await runWriteWithExcelCoordination(xlsmPath, () =>
+				bridge.call('restoreFormDesignerSnapshot', { path: xlsmPath, module: moduleName, streams: snapshot }));
+			fsProvider?.notifyFileChanged(encodeFormMarkupUri(xlsmPath, moduleName));
+			await render(panel, xlsmPath, moduleName);
+		} catch (err) {
+			from.push(snapshot);
+			void vscode.window.showErrorMessage(`XLIDE: ${errorMessage(err)}`);
+		}
+	};
+
+	const wirePanel = (panel: vscode.WebviewPanel, xlsmPath: string, moduleName: string): void => {
+		const key = panelKey(xlsmPath, moduleName);
+		panels.set(key, panel);
+		keyParts.set(key, [xlsmPath, moduleName]);
+		lastFocusedDesignerWorkbook = xlsmPath;
+		lastFocusedDesignerKey = key;
+		panel.onDidChangeViewState(
+			(e) => {
+				if (e.webviewPanel.active) {
+					lastFocusedDesignerWorkbook = xlsmPath;
+					lastFocusedDesignerKey = key;
+				}
+			},
+			undefined,
+			context.subscriptions,
+		);
+		panel.onDidDispose(() => panels.delete(key), undefined, context.subscriptions);
+		panel.webview.onDidReceiveMessage(
+			(message: DesignerMessage) => {
+				if (message.type === 'openHandler') {
+					void openEventHandler(xlsmPath, moduleName, message.name, message.event);
+				} else if (message.type === 'splitCommand') {
+					// The grip strip: both collapses ride the workbench's own
+					// maximize toggle, and the dots' drag steps the group size.
+					if (message.action === 'collapseSelf') {
+						void vscode.commands.executeCommand('workbench.action.focusBelowGroup')
+							.then(() => vscode.commands.executeCommand('workbench.action.toggleMaximizeEditorGroup'));
+					} else if (message.action === 'collapseBelow') {
+						void vscode.commands.executeCommand('workbench.action.toggleMaximizeEditorGroup');
+					} else {
+						void vscode.commands.executeCommand(message.action === 'grow'
+							? 'workbench.action.increaseViewSize'
+							: 'workbench.action.decreaseViewSize');
+					}
+				} else {
+					void applyGesture(panel, xlsmPath, moduleName, message);
+				}
+			},
+			undefined,
+			context.subscriptions,
+		);
+	};
+
+	// A window reload restores text editors natively; the designer needs
+	// this serializer to come back beside them. Its identity rides in the
+	// webview state the canvas stamps on every load.
+	if (typeof vscode.window.registerWebviewPanelSerializer === 'function') {
+		context.subscriptions.push(vscode.window.registerWebviewPanelSerializer('xlideFormPreview', {
+			deserializeWebviewPanel: async (
+				panel: vscode.WebviewPanel,
+				state?: { wb?: string; mod?: string },
+			): Promise<void> => {
+				if (!state?.wb || !state?.mod) {
+					panel.dispose();
+					return;
+				}
+				wirePanel(panel, state.wb, state.mod);
+				await render(panel, state.wb, state.mod);
+			},
+		}));
+	}
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand('xlide.previewForm', async (node?: { kind?: string; filePath?: string; moduleName?: string; moduleType?: string }) => {
@@ -202,17 +324,30 @@ export function registerFormPreview(
 				{ viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
 				{ enableScripts: true, retainContextWhenHidden: true },
 			);
-			panels.set(key, panel);
-			panel.onDidDispose(() => panels.delete(key), undefined, context.subscriptions);
-			panel.webview.onDidReceiveMessage(
-				(message: DesignerMessage) => void (message.type === 'openHandler'
-					? openEventHandler(xlsmPath!, moduleName!, message.name, message.event)
-					: applyGesture(panel, xlsmPath!, moduleName!, message)),
-				undefined,
-				context.subscriptions,
-			);
+			wirePanel(panel, xlsmPath, moduleName);
 			await render(panel, xlsmPath, moduleName);
 			await showMarkupBelow(panel);
+		}),
+
+		vscode.commands.registerCommand('xlide.designerUndo', () => stepHistory('undo')),
+		vscode.commands.registerCommand('xlide.designerRedo', () => stepHistory('redo')),
+
+		// F5 from the designer or the markup launches the workbook's host
+		// application - the closest thing to the VBE's Run while the engine
+		// stays COMless. The active markup editor names the workbook; a
+		// focused designer panel remembered its own.
+		vscode.commands.registerCommand('xlide.launchFormHost', async () => {
+			const active = vscode.window.activeTextEditor;
+			const fromEditor = active && active.document.uri.scheme === XLIDE_SCHEME
+				? decodeModuleUri(active.document.uri).xlsmPath
+				: undefined;
+			const filePath = fromEditor ?? lastFocusedDesignerWorkbook;
+			if (!filePath) { return; }
+			const excel = /\.(xlsm|xlsb|xlam|xls)$/i.test(filePath);
+			await vscode.commands.executeCommand(
+				excel ? 'xlide.openWorkbook' : 'xlide.openInOfficeApp',
+				{ kind: 'xlsm', label: path.basename(filePath), filePath },
+			);
 		}),
 
 		// A saved markup document refreshes its form's open canvas, so the two

@@ -562,7 +562,15 @@ export function readFormPreview(
 	const frame = decodeCodePage(cfb.getStreamInStorage(module.name, VBFRAME_STREAM), project.codePage);
 	const caption = /^\s*Caption\s*=\s*"([^"]*)"/m.exec(frame)?.[1];
 	const properties = designerListFormProperties(pkg, module.name, caption);
-	return { html: renderFormPreviewHtml(pkg, { formName: module.name, caption, selected, properties }) };
+	return {
+		html: renderFormPreviewHtml(pkg, {
+			formName: module.name,
+			caption,
+			selected,
+			properties,
+			identity: { workbook: filePath, module: module.name },
+		}),
+	};
 }
 
 /**
@@ -699,6 +707,74 @@ export function applyFormDesignerOp(
 	writeFormPackage(wb.cfb, [module.name], pkg, codec);
 	saveWorkbook(filePath, wb);
 	return { ok: true, signatureDropped, newName };
+}
+
+/**
+ * A byte-true snapshot of one form's whole designer storage - every stream,
+ * however deeply the containers nest - keyed by its path inside the module's
+ * storage. The designer's undo walks these: restoring one puts back exactly
+ * the bytes a gesture changed, and only those (the code face lives outside
+ * the designer storage and is never touched).
+ */
+export function readFormDesignerSnapshot(
+	filePath: string,
+	moduleName: string,
+): { streams: Record<string, string> } {
+	const { cfb, project } = openWorkbook(filePath);
+	const module = project.getModule(moduleName);
+	if (!module) {
+		throw new Error(`Module not found: ${moduleName}`);
+	}
+	if (!cfb.hasStoragePath([module.name])) {
+		throw new Error(`Module has no designer storage: ${moduleName}`);
+	}
+	const streams: Record<string, string> = {};
+	const walk = (rel: string[]): void => {
+		const at = [module.name, ...rel];
+		for (const name of cfb.listStreamsAtPath(at)) {
+			streams[[...rel, name].join('/')] = cfb.getStreamAtPath(at, name).toString('base64');
+		}
+		for (const child of cfb.listStoragesAtPath(at)) {
+			walk([...rel, child]);
+		}
+	};
+	walk([]);
+	return { streams };
+}
+
+/** Puts a designer snapshot back, byte for byte - the undo/redo restore. */
+export function restoreFormDesignerSnapshot(
+	filePath: string,
+	moduleName: string,
+	streams: Record<string, string>,
+): WriteResult {
+	const wb = openWorkbookForWrite(filePath);
+	const signatureDropped = detectSignature(wb.cfb).present;
+	const module = wb.project.getModule(moduleName);
+	if (!module) {
+		throw new Error(`Module not found: ${moduleName}`);
+	}
+	if (wb.cfb.hasStoragePath([module.name])) {
+		wb.cfb.removeStorageAtPath([module.name]);
+	}
+	wb.cfb.addStorageAtPath([], module.name);
+	const ensured = new Set<string>(['']);
+	for (const key of Object.keys(streams).sort()) {
+		const parts = key.split('/');
+		const streamName = parts.pop()!;
+		let parent: string[] = [];
+		for (const part of parts) {
+			const pathKey = [...parent, part].join('/');
+			if (!ensured.has(pathKey)) {
+				wb.cfb.addStorageAtPath([module.name, ...parent], part);
+				ensured.add(pathKey);
+			}
+			parent = [...parent, part];
+		}
+		wb.cfb.setStreamAtPath([module.name, ...parts], streamName, Buffer.from(streams[key], 'base64'));
+	}
+	saveWorkbook(filePath, wb);
+	return { ok: true, signatureDropped };
 }
 
 /**

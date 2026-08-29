@@ -226,7 +226,6 @@ export function printFormMarkup(
 	options: { captionFallback?: string } = {},
 ): string {
 	const lines: string[] = [];
-	lines.push(`<!-- ${formName}, as xlide projects it. Edits here apply back to the workbook. -->`);
 	printPackage(pkg, formName, lines, 0, 'Form', undefined, options.captionFallback);
 	return lines.join('\r\n') + '\r\n';
 }

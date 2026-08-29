@@ -145,6 +145,10 @@ export class WorkbookEngine implements vscode.Disposable {
 				return svc.deleteModule(str(p, 'path'), str(p, 'module'));
 			case 'formDesignerOp':
 				return svc.applyFormDesignerOp(str(p, 'path'), str(p, 'module'), p.op as never);
+			case 'readFormDesignerSnapshot':
+				return svc.readFormDesignerSnapshot(str(p, 'path'), str(p, 'module'));
+			case 'restoreFormDesignerSnapshot':
+				return svc.restoreFormDesignerSnapshot(str(p, 'path'), str(p, 'module'), p.streams as Record<string, string>);
 			case 'readFormPreview':
 				return svc.readFormPreview(str(p, 'path'), str(p, 'module'),
 					typeof p.selected === 'string' ? p.selected : undefined);

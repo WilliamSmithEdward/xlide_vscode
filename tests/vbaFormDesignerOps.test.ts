@@ -4,11 +4,13 @@ import * as path from 'path';
 import * as os from 'os';
 import {
 	applyFormDesignerOp,
+	readFormDesignerSnapshot,
 	readFormExport,
 	readFormMarkup,
 	readFormPreview,
 	readModules,
 	resetWorkbookCacheForTests,
+	restoreFormDesignerSnapshot,
 } from '../src/vba/workbookService';
 
 // Canvas gestures: the same mutations the markup diff performs, addressed by
@@ -307,6 +309,33 @@ describe('form resize', () => {
 	});
 });
 
+describe('designer snapshots, the undo material', () => {
+	it('captures and restores the designer bytes exactly', () => {
+		const wb = workbook();
+		const before = readFormMarkup(wb, 'EntryForm').markup;
+		const snap = readFormDesignerSnapshot(wb, 'EntryForm');
+		applyFormDesignerOp(wb, 'EntryForm', { kind: 'geometry', name: 'OkButton', left: 1, top: 2 });
+		resetWorkbookCacheForTests();
+		expect(readFormMarkup(wb, 'EntryForm').markup).not.toBe(before);
+		restoreFormDesignerSnapshot(wb, 'EntryForm', snap.streams);
+		resetWorkbookCacheForTests();
+		expect(readFormMarkup(wb, 'EntryForm').markup).toBe(before);
+		// Byte-true: a fresh snapshot after the restore matches the first.
+		expect(readFormDesignerSnapshot(wb, 'EntryForm').streams).toEqual(snap.streams);
+	});
+
+	it('restores structure, not just values: an added control vanishes', () => {
+		const wb = workbook();
+		const snap = readFormDesignerSnapshot(wb, 'EntryForm');
+		applyFormDesignerOp(wb, 'EntryForm', { kind: 'add', container: 'Options', controlKind: 'CheckBox', left: 4, top: 4 });
+		resetWorkbookCacheForTests();
+		expect(readFormMarkup(wb, 'EntryForm').markup).toContain('CheckBox1');
+		restoreFormDesignerSnapshot(wb, 'EntryForm', snap.streams);
+		resetWorkbookCacheForTests();
+		expect(readFormMarkup(wb, 'EntryForm').markup).not.toContain('CheckBox1');
+	});
+});
+
 describe('the interactive canvas contract', () => {
 	it('tags every control and surface for the gesture script', () => {
 		const { html } = readFormPreview(workbook(), 'EntryForm');
@@ -351,12 +380,16 @@ describe('the interactive canvas contract', () => {
 		// The fixture carries two real BMPs: the Badge image and a picture ON
 		// the OK button. Both should arrive as data URIs; the Badge drops its
 		// placeholder label, the button keeps its caption over the picture.
-		// Single-quoted url() - the style attribute is double-quoted, and a
-		// double-quoted URI truncated it silently once (measured in the page:
-		// class survived, backgrounds died).
-		expect(html.split("url('data:image/bmp;base64,").length - 1).toBe(2);
+		// The Badge (a surface picture) stays a background - single-quoted
+		// url(), because the style attribute is double-quoted and a
+		// double-quoted URI truncated it silently once. The button's picture
+		// is a caption picture: a real <img> the runtime script keys and
+		// stretches the way MSForms draws it.
+		expect(html.split("url('data:image/bmp;base64,").length - 1).toBe(1);
 		expect(html).toMatch(/data-name="Badge"[^>]*background-size:contain/);
 		expect(html).not.toMatch(/data-name="Badge"[^>]*><span>/);
+		expect(html.split('<img class="cpic"').length - 1).toBe(1);
+		expect(html).toContain('keyOut');
 	});
 
 	it('draws the disabled gray, alignment, and text decoration it can set', () => {
@@ -369,6 +402,12 @@ describe('the interactive canvas contract', () => {
 		expect(html).toMatch(/data-name="OkButton"[^>]*color:#6d6d6d/);
 		expect(html).toMatch(/data-name="NameLabel"[^>]*text-align:center/);
 		expect(html).toMatch(/data-name="NameBox"[^>]*text-decoration:underline/);
+	});
+
+	it('zooms the dialog and divides the factor out of pointer math', () => {
+		const { html } = readFormPreview(workbook(), 'EntryForm');
+		expect(html).toContain('id="zoomPick"');
+		expect(html).toContain('px / (PX_PER_PT * ZOOM)');
 	});
 
 	it('jumps to the default event handler on double-click', () => {
@@ -387,6 +426,6 @@ describe('the interactive canvas contract', () => {
 	it('activates the form itself when the selection is the empty name', () => {
 		const { html } = readFormPreview(workbook(), 'EntryForm', '');
 		expect(html).toContain('class="dialog form-selected"');
-		expect(html).toContain("post({ type: 'formResize', width, height })");
+		expect(html).toContain("post({ type: 'formResize', width: liveWidth, height: liveHeight })");
 	});
 });
