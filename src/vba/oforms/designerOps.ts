@@ -21,6 +21,7 @@ import {
 	nextTabIndex,
 	parseOleColor,
 	PRINTED_FIELDS,
+	ALIGNMENT_KINDS,
 	SITE_BITFLAGS_DEFAULT,
 	SITE_FLAGS,
 	TEXT_ALIGN_KINDS,
@@ -329,6 +330,16 @@ function siteRows(site: SiteModel, kind: string): PropertyRow[] {
 		{ prop: 'ControlTipText', value: site.strings.get('ControlTipText')?.text ?? '' },
 		{ prop: 'Tag', value: site.strings.get('Tag')?.text ?? '' },
 	];
+	if (CONTROL_SOURCE_KINDS.has(kind)) {
+		rows.push({ prop: 'ControlSource', value: site.strings.get('ControlSource')?.text ?? '' });
+	}
+	if (ROW_SOURCE_KINDS.has(kind)) {
+		rows.push({ prop: 'RowSource', value: site.strings.get('RowSource')?.text ?? '' });
+	}
+	if (kind !== 'Page') {
+		const help = site.values.get('HelpContextID');
+		rows.push({ prop: 'HelpContextID', value: help !== undefined && help !== 0 ? String(help) : '' });
+	}
 	const bits = (site.values.get('BitFlags') ?? SITE_BITFLAGS_DEFAULT) >>> 0;
 	for (const [prop, bit] of SITE_FLAGS) {
 		if (kind === 'Page' || (prop === 'TabStop' && (kind === 'Label' || kind === 'Image'))) { continue; }
@@ -366,6 +377,10 @@ function recordControlRows(kind: string, site: SiteModel, record: ParsedRecord):
 	}
 	if (kind === 'ComboBox') {
 		rows.push({ prop: 'Style', value: record.values.get('DisplayStyle') === 7 ? '2' : '0' });
+	}
+	if (ALIGNMENT_KINDS.has(kind)) {
+		const vpbNow = effectiveVariousPropertyBits(record, kind) ?? 0;
+		rows.push({ prop: 'Alignment', value: (vpbNow & 0x2000) !== 0 ? '0' : '1' });
 	}
 	if (TEXT_ALIGN_KINDS.has(kind) && record.textProps) {
 		const pa = recordHas(record.textProps, 'ParagraphAlign')
@@ -426,7 +441,10 @@ export interface VbFrameProps {
 	whatsThisButton?: string;
 }
 
-const FORM_NUMERIC_PROPS = ['BorderStyle', 'ScrollBars', 'Cycle', 'Zoom'] as const;
+const FORM_NUMERIC_PROPS = ['BorderStyle', 'ScrollBars', 'Cycle', 'Zoom', 'MousePointer'] as const;
+
+const CONTROL_SOURCE_KINDS = new Set(['TextBox', 'ComboBox', 'ListBox', 'CheckBox', 'OptionButton', 'ToggleButton', 'ScrollBar', 'SpinButton']);
+const ROW_SOURCE_KINDS = new Set(['ComboBox', 'ListBox']);
 
 function formRows(
 	root: FormPackage,
@@ -573,6 +591,9 @@ export function setControlProperty(
 				bold, italic, charset: current?.charset ?? 0,
 			});
 			root.form.record.maskLo = (root.form.record.maskLo | (1 << 20)) >>> 0;
+			// The DataBlock's Font marker MUST be 0xFFFF ([MS-OFORMS]); a
+			// fresh enablement has no captured value to replay.
+			root.form.record.values.set('Font', 0xffff);
 			return { applied: [`${prop} of the form`] };
 		}
 		throw new FormMarkupError(0, `the form has no ${prop} this pane can write`);

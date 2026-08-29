@@ -138,22 +138,28 @@ export function encodeArrayStrings(captions: readonly string[]): Buffer {
 
 /** Numeric record fields printed per kind, in this order, when stored. */
 export const PRINTED_FIELDS: Readonly<Record<string, readonly string[]>> = {
-	TextBox: ['MaxLength', 'BorderStyle', 'SpecialEffect', 'ScrollBars'],
-	ComboBox: ['BorderStyle', 'SpecialEffect', 'ListRows', 'ColumnCount', 'ListStyle'],
-	ListBox: ['BorderStyle', 'SpecialEffect', 'MultiSelect', 'ColumnCount', 'ListStyle'],
-	CheckBox: ['SpecialEffect'],
-	OptionButton: ['SpecialEffect'],
-	ToggleButton: [],
-	Label: ['BorderStyle', 'SpecialEffect'],
-	CommandButton: [],
-	Image: ['BorderStyle', 'SpecialEffect', 'PictureSizeMode', 'PictureAlignment'],
-	SpinButton: ['Min', 'Max', 'Position', 'SmallChange', 'Orientation', 'Delay'],
-	ScrollBar: ['Min', 'Max', 'Position', 'SmallChange', 'LargeChange', 'Orientation', 'ProportionalThumb', 'Delay'],
-	TabStrip: ['TabOrientation', 'TabStyle'],
+	TextBox: ['MaxLength', 'BorderStyle', 'SpecialEffect', 'ScrollBars', 'MousePointer'],
+	ComboBox: ['BorderStyle', 'SpecialEffect', 'ListRows', 'ColumnCount', 'ListStyle', 'MousePointer'],
+	ListBox: ['BorderStyle', 'SpecialEffect', 'MultiSelect', 'ColumnCount', 'ListStyle', 'MousePointer'],
+	CheckBox: ['SpecialEffect', 'MousePointer'],
+	OptionButton: ['SpecialEffect', 'MousePointer'],
+	ToggleButton: ['MousePointer'],
+	Label: ['BorderStyle', 'SpecialEffect', 'MousePointer'],
+	CommandButton: ['MousePointer'],
+	Image: ['BorderStyle', 'SpecialEffect', 'PictureSizeMode', 'PictureAlignment', 'MousePointer'],
+	SpinButton: ['Min', 'Max', 'Position', 'SmallChange', 'Orientation', 'Delay', 'MousePointer'],
+	ScrollBar: ['Min', 'Max', 'Position', 'SmallChange', 'LargeChange', 'Orientation', 'ProportionalThumb', 'Delay', 'MousePointer'],
+	TabStrip: ['TabOrientation', 'TabStyle', 'MousePointer'],
 	MultiPage: [],
 	Frame: [],
 	Page: [],
 };
+
+// Alignment ([MS-OFORMS] VariousPropertiesBitfield bit 13) says which side a
+// CheckBox or OptionButton caption sits on: the bit set puts the caption to
+// the LEFT, which VBA spells Alignment 0; clear is the default 1, right.
+const ALIGNMENT_BIT = 0x2000;
+export const ALIGNMENT_KINDS: ReadonlySet<string> = new Set(['CheckBox', 'OptionButton']);
 
 const COLOR_FIELDS = new Set(['BackColor', 'ForeColor', 'BorderColor']);
 
@@ -352,6 +358,9 @@ function printChild(pkg: FormPackage, child: PrintableChild, lines: string[], de
 			attrs.push('Style="2"');
 		}
 		const effectiveVpb = effectiveVariousPropertyBits(record, kind);
+		if (effectiveVpb !== undefined && ALIGNMENT_KINDS.has(kind) && (effectiveVpb & ALIGNMENT_BIT) !== 0) {
+			attrs.push('Alignment="0"');
+		}
 		if (effectiveVpb !== undefined) {
 			const fallback = VPB_DEFAULTS[kind];
 			for (const [attr, bit, kinds] of VPB_FLAGS) {
@@ -458,6 +467,12 @@ function pushSiteExtras(attrs: string[], site: SiteModel | undefined, kind?: str
 	if (tip && tip.text.length) { attrs.push(`ControlTipText="${escapeAttr(tip.text)}"`); }
 	const tag = site.strings.get('Tag');
 	if (tag && tag.text.length) { attrs.push(`Tag="${escapeAttr(tag.text)}"`); }
+	const source = site.strings.get('ControlSource');
+	if (source && source.text.length) { attrs.push(`ControlSource="${escapeAttr(source.text)}"`); }
+	const rowSource = site.strings.get('RowSource');
+	if (rowSource && rowSource.text.length) { attrs.push(`RowSource="${escapeAttr(rowSource.text)}"`); }
+	const help = site.values.get('HelpContextID');
+	if (help !== undefined && help !== 0) { attrs.push(`HelpContextID="${help}"`); }
 	const bits = (site.values.get('BitFlags') ?? SITE_BITFLAGS_DEFAULT) >>> 0;
 	for (const [attr, bit] of SITE_FLAGS) {
 		if (!siteFlagApplies(attr, kind)) { continue; }
@@ -1069,6 +1084,20 @@ export function applySiteAttrs(site: SiteModel, element: MarkupElement, outcome:
 	};
 	applyString('ControlTipText', 'ControlTipTextData', 'ControlTipText', 11);
 	applyString('Tag', 'TagData', 'Tag', 1);
+	applyString('ControlSource', 'ControlSourceData', 'ControlSource', 13);
+	applyString('RowSource', 'RowSourceData', 'RowSource', 14);
+	const help = element.attrs.get('HelpContextID');
+	if (help !== undefined) {
+		const v = Number(help);
+		if (!Number.isFinite(v)) {
+			throw new FormMarkupError(element.line, `HelpContextID="${help}" is not a number`);
+		}
+		if (v !== site.values.get('HelpContextID')) {
+			site.values.set('HelpContextID', v);
+			site.mask = (site.mask | (1 << 3)) >>> 0;
+			outcome.applied.push(`HelpContextID of ${siteName(site)}`);
+		}
+	}
 	for (const [attr, bit] of SITE_FLAGS) {
 		const text = element.attrs.get(attr);
 		if (text === undefined) { continue; }
@@ -1175,6 +1204,21 @@ export function applyRecordAttrs(
 		if (record.values.get('DisplayStyle') !== display) {
 			setRecordValue(record, 'DisplayStyle', display);
 			outcome.applied.push(`Style of ${name}`);
+		}
+	}
+	const alignment = element.attrs.get('Alignment');
+	if (alignment !== undefined) {
+		if (!ALIGNMENT_KINDS.has(kind)) {
+			throw new FormMarkupError(element.line, `a ${kind} has no Alignment`);
+		}
+		if (!/^[01]$/.test(alignment)) {
+			throw new FormMarkupError(element.line, `Alignment="${alignment}" is not 0 or 1`);
+		}
+		const base = effectiveVariousPropertyBits(record, kind) ?? 0x1B;
+		const next = (alignment === '0' ? (base | ALIGNMENT_BIT) : (base & ~ALIGNMENT_BIT)) >>> 0;
+		if (next !== base || !recordHas(record, 'VariousPropertyBits')) {
+			setRecordValue(record, 'VariousPropertyBits', next);
+			outcome.applied.push(`Alignment of ${name}`);
 		}
 	}
 	for (const [attr, bit, kinds] of VPB_FLAGS) {

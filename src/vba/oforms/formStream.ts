@@ -358,7 +358,11 @@ export function composeStdFont(
 ): Buffer {
 	const w = new OformsWriter();
 	w.u32(STDFONT_GUID_HEAD);
-	w.bytes(Buffer.from('8f9111ce9de300aa004bb851', 'hex'));
+	// MS-DTYP 2.3.4.2: Data2 and Data3 are stored little-endian too - the
+	// GUID {0BE35203-8F91-11CE-...} persists as 03 52 E3 0B 91 8F CE 11.
+	// Big-endian here made Excel refuse the font as an unregistered
+	// component and killed the form load (measured).
+	w.bytes(Buffer.from('918fce119de300aa004bb851', 'hex'));
 	w.u8(0x01);
 	w.i16(options.charset ?? 0);
 	w.u8((options.bold ? 0x01 : 0) | (options.italic ? 0x02 : 0));

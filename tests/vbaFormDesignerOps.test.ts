@@ -239,6 +239,33 @@ describe('property writes', () => {
 		expect(readFormMarkup(wb, 'EntryForm').markup).not.toContain('Style=');
 	});
 
+	it('writes binding sources, help ids, pointers, and caption alignment', () => {
+		const wb = workbook();
+		set(wb, 'NameBox', 'ControlSource', 'Sheet1!A1');
+		set(wb, 'RegionPick', 'RowSource', 'Sheet1!B1:B9');
+		set(wb, 'OkButton', 'HelpContextID', '42');
+		set(wb, 'OkButton', 'MousePointer', '11');
+		set(wb, 'Taxable', 'Alignment', '0');
+		resetWorkbookCacheForTests();
+		const markup = readFormMarkup(wb, 'EntryForm').markup;
+		expect(markup).toMatch(/Name="NameBox"[^>]*ControlSource="Sheet1!A1"/);
+		expect(markup).toMatch(/Name="RegionPick"[^>]*RowSource="Sheet1!B1:B9"/);
+		expect(markup).toMatch(/Name="OkButton"[^>]*HelpContextID="42"/);
+		expect(markup).toMatch(/Name="OkButton"[^>]*MousePointer="11"/);
+		expect(markup).toMatch(/Name="Taxable"[^>]*Alignment="0"/);
+		// Back to the right side goes quiet again.
+		set(wb, 'Taxable', 'Alignment', '1');
+		resetWorkbookCacheForTests();
+		expect(readFormMarkup(wb, 'EntryForm').markup).not.toContain('Alignment=');
+	});
+
+	it('refuses sources and alignment where they do not belong', () => {
+		const wb = workbook();
+		expect(() => set(wb, 'OkButton', 'RowSource', 'x')).toThrow(/has no RowSource/);
+		expect(() => set(wb, 'OkButton', 'Alignment', '0')).toThrow(/has no Alignment/);
+		expect(() => set(wb, 'Taxable', 'Alignment', '2')).toThrow(/not 0 or 1/);
+	});
+
 	it('refuses alignment and style where they do not belong', () => {
 		const wb = workbook();
 		expect(() => set(wb, 'NameBox', 'TextAlign', 'Justified')).toThrow(/not Left, Center, or Right/);
@@ -279,6 +306,15 @@ describe('property writes', () => {
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		expect(markup).toMatch(/<Frame Name="Options"[^>]*Caption="Choices"/);
 		expect(markup).toMatch(/<Page Name="Page1" Caption="First Things"/);
+	});
+
+	it('composes the StdFont GUID little-endian, as MS-DTYP stores it', () => {
+		const wb = workbook();
+		set(wb, '', 'Font.Name', 'Segoe UI');
+		resetWorkbookCacheForTests();
+		const { frx } = readFormExport(wb, 'EntryForm');
+		// {0BE35203-8F91-11CE-9DE3-00AA004BB851}: Data1-3 flip, Data4 stays.
+		expect(frx.toString('hex')).toContain('0352e30b918fce119de300aa004bb851');
 	});
 
 	it('writes the form record extras, the StdFont, and the VBFrame trio', () => {

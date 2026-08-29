@@ -693,6 +693,11 @@ ${interactive ? `	<script>
 			ScrollBars: [['0', 'None'], ['1', 'Horizontal'], ['2', 'Vertical'], ['3', 'Both']],
 			TextAlign: [['Left', 'Left'], ['Center', 'Center'], ['Right', 'Right']],
 			Cycle: [['0', 'AllForms'], ['2', 'CurrentForm']],
+			Alignment: [['0', 'Left'], ['1', 'Right']],
+			MousePointer: [['0', 'Default'], ['1', 'Arrow'], ['2', 'Cross'], ['3', 'IBeam'],
+				['6', 'SizeNESW'], ['7', 'SizeNS'], ['8', 'SizeNWSE'], ['9', 'SizeWE'],
+				['10', 'UpArrow'], ['11', 'HourGlass'], ['12', 'NoDrop'], ['13', 'AppStarting'],
+				['14', 'Help'], ['15', 'SizeAll'], ['99', 'Custom']],
 			StartUpPosition: [['0', 'Manual'], ['1', 'CenterOwner'], ['2', 'CenterScreen'], ['3', 'WindowsDefault']],
 		};
 		const COLOR_PROPS = new Set(['BackColor', 'ForeColor', 'BorderColor']);
