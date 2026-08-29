@@ -199,6 +199,21 @@ describe('VBA language configuration', () => {
 			.toContain('xlide-vba');
 	});
 
+	it('registers the form designer as the DEFAULT editor for .form documents', () => {
+		// The designer and the markup are one unit: opening a .form face
+		// anywhere lands in the custom editor, and F5 works from inside it.
+		const pkg = loadPackage() as PackageConfiguration & {
+			contributes?: { customEditors?: Array<{ viewType?: string; selector?: Array<{ filenamePattern?: string }>; priority?: string }> };
+		};
+		const editor = pkg.contributes?.customEditors?.find((e) => e.viewType === 'xlideFormDesigner');
+		expect(editor?.priority).toBe('default');
+		expect(editor?.selector?.some((s) => s.filenamePattern === '*.form')).toBe(true);
+		expect(pkg.contributes?.keybindings?.some((k) =>
+			k.command === 'xlide.launchFormHost' && k.when?.includes('xlideFormDesigner'))).toBe(true);
+		// The old webview-panel undo bindings are gone: undo is text undo now.
+		expect(pkg.contributes?.commands?.some((c) => c.command === 'xlide.designerUndo')).toBe(false);
+	});
+
 	it('lets the smartTab keybinding yield to a visible inline suggestion', () => {
 		// When AI ghost text (an inline suggestion) is showing, Tab must reach
 		// VS Code's editor.action.inlineSuggest.commit to accept it, not be

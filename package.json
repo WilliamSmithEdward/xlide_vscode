@@ -404,16 +404,18 @@
         "command": "xlide.launchFormHost",
         "title": "Launch Workbook in Host Application",
         "category": "XLIDE"
-      },
+      }
+    ],
+    "customEditors": [
       {
-        "command": "xlide.designerUndo",
-        "title": "Designer: Undo",
-        "category": "XLIDE"
-      },
-      {
-        "command": "xlide.designerRedo",
-        "title": "Designer: Redo",
-        "category": "XLIDE"
+        "viewType": "xlideFormDesigner",
+        "displayName": "XLIDE Form Designer",
+        "selector": [
+          {
+            "filenamePattern": "*.form"
+          }
+        ],
+        "priority": "default"
       }
     ],
     "views": {
@@ -623,29 +625,12 @@
       {
         "command": "xlide.launchFormHost",
         "key": "F5",
-        "when": "activeWebviewPanelId == 'xlideFormPreview'"
+        "when": "activeCustomEditorId == 'xlideFormDesigner'"
       },
       {
         "command": "xlide.launchFormHost",
         "key": "F5",
         "when": "editorTextFocus && resourceScheme == 'xlide-vba' && editorLangId == 'xml'"
-      },
-      {
-        "command": "xlide.designerUndo",
-        "key": "ctrl+z",
-        "mac": "cmd+z",
-        "when": "activeWebviewPanelId == 'xlideFormPreview'"
-      },
-      {
-        "command": "xlide.designerRedo",
-        "key": "ctrl+y",
-        "when": "activeWebviewPanelId == 'xlideFormPreview'"
-      },
-      {
-        "command": "xlide.designerRedo",
-        "key": "ctrl+shift+z",
-        "mac": "cmd+shift+z",
-        "when": "activeWebviewPanelId == 'xlideFormPreview'"
       },
       {
         "command": "xlide.launchFormHost",

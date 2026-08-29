@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as os from 'os';
 import {
 	applyFormDesignerOp,
+	applyFormMarkup,
 	readFormDesignerSnapshot,
 	readFormExport,
 	readFormMarkup,
@@ -571,5 +572,143 @@ describe('the interactive canvas contract', () => {
 		const { html } = readFormPreview(workbook(), 'EntryForm', '');
 		expect(html).toContain('class="dialog form-selected"');
 		expect(html).toContain("post({ type: 'formResize', width: liveWidth, height: liveHeight })");
+	});
+});
+
+// The designer and its markup are ONE custom editor over the .form document:
+// the canvas embeds the markup pane, gestures land as text edits, and the
+// host acts on the document for undo, redo, and save.
+describe('the one-unit canvas', () => {
+	it('embeds the markup pane, the internal grip, and the document keys', () => {
+		const { html } = readFormPreview(workbook(), 'EntryForm');
+		expect(html).toContain('id="markupPane"');
+		expect(html).toContain('id="markupText"');
+		expect(html).toContain('id="gripDots"');
+		expect(html).toContain("type: 'markupEdit'");
+		expect(html).toContain("type: 'docUndo'");
+		expect(html).toContain("type: 'docRedo'");
+		expect(html).toContain("type: 'docSave'");
+		// With no document text supplied, the pane shows the engine's print.
+		expect(html).toContain('&lt;Form Name=&quot;EntryForm&quot;');
+	});
+
+	it('shows the document text verbatim-escaped and honors the identity override', () => {
+		const { html } = readFormPreview(
+			workbook(), 'EntryForm', undefined, 'A </textarea> B', 'Z:/elsewhere/Real.xlsm');
+		expect(html).toContain('A &lt;/textarea&gt; B');
+		expect(html.split('</textarea>').length - 1).toBe(1);
+		expect(html).toContain('"wb":"Z:/elsewhere/Real.xlsm"');
+	});
+});
+
+// The undo model the one-document designer stands on: any prior document
+// text, applied whole onto a fresh copy of the saved workbook, reproduces
+// that state - including properties whose lines DISAPPEARED and controls
+// that were added or removed. Text undo is exactly that replay.
+describe('the one-document undo model', () => {
+	it('returns to the baseline when a property line disappears', () => {
+		const real = workbook();
+		const scratch = path.join(path.dirname(real), 'Scratch.xlsm');
+		fs.copyFileSync(real, scratch);
+		const markup0 = readFormMarkup(scratch, 'EntryForm').markup;
+		applyFormDesignerOp(scratch, 'EntryForm', { kind: 'setProp', name: 'NameLabel', prop: 'BackColor', value: '#ff0000' });
+		resetWorkbookCacheForTests();
+		const markup1 = readFormMarkup(scratch, 'EntryForm').markup;
+		expect(markup1).toMatch(/NameLabel[^>]*BackColor="#ff0000"/i);
+		// Undo: a fresh baseline plus the earlier text, applied whole.
+		fs.copyFileSync(real, scratch);
+		resetWorkbookCacheForTests();
+		applyFormMarkup(scratch, 'EntryForm', markup0);
+		resetWorkbookCacheForTests();
+		expect(readFormMarkup(scratch, 'EntryForm').markup).toBe(markup0);
+		// Redo: the same rebuild with the later text.
+		fs.copyFileSync(real, scratch);
+		resetWorkbookCacheForTests();
+		applyFormMarkup(scratch, 'EntryForm', markup1);
+		resetWorkbookCacheForTests();
+		expect(readFormMarkup(scratch, 'EntryForm').markup).toBe(markup1);
+	});
+
+	it('adds and removes controls purely through the document text', () => {
+		const real = workbook();
+		const scratch = path.join(path.dirname(real), 'Scratch2.xlsm');
+		fs.copyFileSync(real, scratch);
+		const markup0 = readFormMarkup(scratch, 'EntryForm').markup;
+		applyFormDesignerOp(scratch, 'EntryForm', { kind: 'add', container: '', controlKind: 'CommandButton', left: 30, top: 200 });
+		resetWorkbookCacheForTests();
+		const markup1 = readFormMarkup(scratch, 'EntryForm').markup;
+		expect(markup1).not.toBe(markup0);
+		fs.copyFileSync(real, scratch);
+		resetWorkbookCacheForTests();
+		applyFormMarkup(scratch, 'EntryForm', markup0);
+		resetWorkbookCacheForTests();
+		expect(readFormMarkup(scratch, 'EntryForm').markup).toBe(markup0);
+		fs.copyFileSync(real, scratch);
+		resetWorkbookCacheForTests();
+		applyFormMarkup(scratch, 'EntryForm', markup1);
+		resetWorkbookCacheForTests();
+		expect(readFormMarkup(scratch, 'EntryForm').markup).toBe(markup1);
+	});
+
+	it('carries defaults-restoring edits through the document to a save', () => {
+		// The vanish trap: a property SAVED non-default, edited back TO its
+		// default, disappears from the printed document - the total apply
+		// must read that absence as the default, or the edit dies on save.
+		const real = workbook();
+		applyFormDesignerOp(real, 'EntryForm', { kind: 'setProp', name: 'OkButton', prop: 'Enabled', value: 'False' });
+		applyFormDesignerOp(real, 'EntryForm', { kind: 'setProp', name: 'NameBox', prop: 'Font.Bold', value: 'True' });
+		applyFormDesignerOp(real, 'EntryForm', { kind: 'setProp', name: 'NameBox', prop: 'HelpContextID', value: '77' });
+		applyFormDesignerOp(real, 'EntryForm', { kind: 'setProp', name: 'NameBox', prop: 'ControlSource', value: 'Sheet1!A1' });
+		applyFormDesignerOp(real, 'EntryForm', { kind: 'setProp', name: '', prop: 'ShowModal', value: 'False' });
+		resetWorkbookCacheForTests();
+		const saved = readFormMarkup(real, 'EntryForm').markup;
+		expect(saved).toMatch(/OkButton[^>]*Enabled="False"/);
+		expect(saved).toContain('ShowModal="False"');
+		// The session sets every one of those back to its default; the
+		// scratch's printed document loses the attributes.
+		const scratch = path.join(path.dirname(real), 'Scratch3.xlsm');
+		fs.copyFileSync(real, scratch);
+		applyFormDesignerOp(scratch, 'EntryForm', { kind: 'setProp', name: 'OkButton', prop: 'Enabled', value: 'True' });
+		applyFormDesignerOp(scratch, 'EntryForm', { kind: 'setProp', name: 'NameBox', prop: 'Font.Bold', value: 'False' });
+		applyFormDesignerOp(scratch, 'EntryForm', { kind: 'setProp', name: 'NameBox', prop: 'HelpContextID', value: '0' });
+		applyFormDesignerOp(scratch, 'EntryForm', { kind: 'setProp', name: 'NameBox', prop: 'ControlSource', value: '' });
+		applyFormDesignerOp(scratch, 'EntryForm', { kind: 'setProp', name: '', prop: 'ShowModal', value: 'True' });
+		resetWorkbookCacheForTests();
+		const doc = readFormMarkup(scratch, 'EntryForm').markup;
+		expect(doc).not.toContain('Enabled=');
+		expect(doc).not.toContain('ShowModal=');
+		// The save: applying that document to the real workbook restores the
+		// defaults there too, and re-printing reproduces the document.
+		applyFormMarkup(real, 'EntryForm', doc);
+		resetWorkbookCacheForTests();
+		expect(readFormMarkup(real, 'EntryForm').markup).toBe(doc);
+	});
+
+	it('speaks the form extras, the StdFont, and the VBFrame trio in the document', () => {
+		const wb = workbook();
+		const write = (prop: string, value: string) =>
+			applyFormDesignerOp(wb, 'EntryForm', { kind: 'setProp', name: '', prop, value });
+		write('Zoom', '150');
+		write('MousePointer', '11');
+		write('Font.Name', 'Segoe UI');
+		write('Font.Size', '10');
+		write('Font.Bold', 'True');
+		write('StartUpPosition', '2');
+		write('ShowModal', 'False');
+		write('WhatsThisButton', 'True');
+		resetWorkbookCacheForTests();
+		const markup = readFormMarkup(wb, 'EntryForm').markup;
+		for (const pin of ['Zoom="150"', 'MousePointer="11"', 'Font.Name="Segoe UI"', 'Font.Size="10"',
+			'Font.Bold="True"', 'StartUpPosition="2"', 'ShowModal="False"', 'WhatsThisButton="True"']) {
+			expect(markup).toMatch(new RegExp(`<Form [^>]*${pin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+		}
+		// The same document applied to a FRESH copy reproduces all of it.
+		const fresh = workbook();
+		applyFormMarkup(fresh, 'EntryForm', markup);
+		resetWorkbookCacheForTests();
+		expect(readFormMarkup(fresh, 'EntryForm').markup).toBe(markup);
+		const { frm } = readFormExport(fresh, 'EntryForm');
+		expect(frm).toMatch(/ShowModal\s*=\s*0/);
+		expect(frm).toMatch(/StartUpPosition\s*=\s*2/);
 	});
 });

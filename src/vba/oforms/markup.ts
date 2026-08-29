@@ -8,8 +8,11 @@
 //
 // The rules that make the document honest, from the vbide design:
 //   - projection, not source: generated FROM the binary, applied back TO it;
-//   - the control list is total, the property list is not - an unspoken
-//     property is never touched on apply;
+//   - the control list is total, and so is each spoken control's DIALECT
+//     vocabulary: an attribute quiet at its default means the default, so a
+//     document apply restores what an edit set back (that is what makes the
+//     designer's text undo honest). Fields OUTSIDE the dialect - pictures,
+//     unknown records, foreign controls' payloads - are never touched;
 //   - apply is a diff keyed by control name: only-in-markup adds,
 //     only-in-model removes, matched controls set what changed;
 //   - a parse error applies nothing.
@@ -24,6 +27,8 @@ import {
 	type ParsedRecord,
 } from './records';
 import {
+	composeStdFont,
+	parseStdFont,
 	siteName,
 	siteId,
 	siteCacheIndex,
@@ -226,13 +231,23 @@ function siteFlagApplies(attr: string, kind: string | undefined): boolean {
 	return true;
 }
 
+/** The VBFrame-persisted form properties the dialect spells on <Form>. */
+export interface VbFrameMarkupProps {
+	showModal?: string;
+	startUpPosition?: string;
+	whatsThisButton?: string;
+}
+
+/** The form record's own extra numerics the dialect prints and applies. */
+export const FORM_EXTRA_FIELDS = ['BorderStyle', 'ScrollBars', 'Cycle', 'Zoom', 'MousePointer'] as const;
+
 export function printFormMarkup(
 	pkg: FormPackage,
 	formName: string,
-	options: { captionFallback?: string } = {},
+	options: { captionFallback?: string; vbFrame?: VbFrameMarkupProps } = {},
 ): string {
 	const lines: string[] = [];
-	printPackage(pkg, formName, lines, 0, 'Form', undefined, options.captionFallback);
+	printPackage(pkg, formName, lines, 0, 'Form', undefined, options.captionFallback, options.vbFrame);
 	return lines.join('\r\n') + '\r\n';
 }
 
@@ -244,6 +259,7 @@ function printPackage(
 	tag: 'Form' | 'Frame' | 'Page',
 	site?: SiteModel,
 	captionFallback?: string,
+	vbFrame?: VbFrameMarkupProps,
 ): void {
 	const indent = '    '.repeat(depth);
 	const attrs: string[] = [`Name="${escapeAttr(name)}"`];
@@ -272,6 +288,32 @@ function printPackage(
 	const se = record.values.get('SpecialEffect');
 	if (se !== undefined && recordHas(record, 'SpecialEffect')) {
 		attrs.push(`SpecialEffect="${se}"`);
+	}
+	if (tag === 'Form') {
+		// The form's own extras and its StdFont, quiet at their defaults -
+		// the document must carry EVERYTHING a save is expected to keep.
+		for (const field of FORM_EXTRA_FIELDS) {
+			const v = record.values.get(field);
+			if (v !== undefined && recordHas(record, field)) {
+				attrs.push(`${field}="${v}"`);
+			}
+		}
+		const font = pkg.form.fontRaw ? parseStdFont(pkg.form.fontRaw) : undefined;
+		if (font) {
+			attrs.push(`Font.Name="${escapeAttr(font.face)}"`);
+			attrs.push(`Font.Size="${font.heightTenThousandthsPt / 10000}"`);
+			if ((font.flags & 0x1) !== 0 || font.weight >= 600) { attrs.push('Font.Bold="True"'); }
+			if ((font.flags & 0x2) !== 0) { attrs.push('Font.Italic="True"'); }
+			if ((font.flags & 0x4) !== 0) { attrs.push('Font.Underline="True"'); }
+			if ((font.flags & 0x8) !== 0) { attrs.push('Font.Strikethrough="True"'); }
+		}
+		if (vbFrame) {
+			if (vbFrame.startUpPosition !== undefined && vbFrame.startUpPosition !== '1') {
+				attrs.push(`StartUpPosition="${escapeAttr(vbFrame.startUpPosition)}"`);
+			}
+			if (vbFrame.showModal === 'False') { attrs.push('ShowModal="False"'); }
+			if (vbFrame.whatsThisButton === 'True') { attrs.push('WhatsThisButton="True"'); }
+		}
 	}
 	pushSiteExtras(attrs, site, tag);
 	const children = printableChildren(pkg);
@@ -715,6 +757,23 @@ function applyToPackage(
 			outcome.applied.push(`${field} of ${element.attrs.get('Name') ?? element.tag}`);
 		}
 	}
+	const owner = element.attrs.get('Name') ?? element.tag;
+	const numericFields = isForm
+		? ['SpecialEffect', ...FORM_EXTRA_FIELDS]
+		: ['SpecialEffect'];
+	for (const field of numericFields) {
+		const text = element.attrs.get(field);
+		if (text === undefined || !record.spec.data.some((f) => f.name === field)) { continue; }
+		const value = Number(text);
+		if (!Number.isFinite(value)) {
+			throw new FormMarkupError(element.line, `${field}="${text}" is not a number`);
+		}
+		if (record.values.get(field) !== value || !recordHas(record, field)) {
+			setRecordValue(record, field, value >>> 0);
+			outcome.applied.push(`${field} of ${owner}`);
+		}
+	}
+	if (isForm) { applyFormFontAttrs(pkg, element, outcome); }
 
 	// The children, diffed by name.
 	const childElements = element.children.filter((c) => c.tag.toLowerCase() !== 'tab');
@@ -776,9 +835,9 @@ function applyToExisting(
 			`${siteName(site)} is a ${actualKind}; changing its type means removing it and adding a new control`,
 		);
 	}
-	applySiteAttrs(site, element, outcome);
+	applySiteAttrs(site, element, outcome, true);
 	if (entry.kind === 'record') {
-		applyRecordAttrs(entry.record, element, actualKind, outcome, siteName(site));
+		applyRecordAttrs(entry.record, element, actualKind, outcome, siteName(site), true);
 		if (actualKind === 'TabStrip') {
 			applyTabCaptions(entry.record, element, outcome, siteName(site));
 		}
@@ -1050,7 +1109,19 @@ function addPage(
 	}
 }
 
-export function applySiteAttrs(site: SiteModel, element: MarkupElement, outcome: ApplyOutcome): void {
+/**
+ * Applies one element's site-level attrs. With `total`, the element speaks
+ * for its WHOLE printed vocabulary: an absent value-gated attr (a flag, a
+ * source, a tip, a help id) means its DEFAULT, so a document produced by the
+ * printer round-trips edits that returned to a default. Without it (the
+ * pane's single-property writes), an unspoken attr is never touched.
+ */
+export function applySiteAttrs(
+	site: SiteModel,
+	element: MarkupElement,
+	outcome: ApplyOutcome,
+	total = false,
+): void {
 	const left = element.attrs.get('Left');
 	const top = element.attrs.get('Top');
 	if (left !== undefined || top !== undefined) {
@@ -1072,7 +1143,7 @@ export function applySiteAttrs(site: SiteModel, element: MarkupElement, outcome:
 		outcome.applied.push(`TabIndex of ${siteName(site)}`);
 	}
 	const applyString = (attr: string, lenField: string, name: string, bit: number): void => {
-		const text = element.attrs.get(attr);
+		const text = element.attrs.get(attr) ?? (total ? '' : undefined);
 		if (text === undefined) { return; }
 		const current = site.strings.get(name)?.text ?? '';
 		if (text === current) { return; }
@@ -1086,20 +1157,24 @@ export function applySiteAttrs(site: SiteModel, element: MarkupElement, outcome:
 	applyString('Tag', 'TagData', 'Tag', 1);
 	applyString('ControlSource', 'ControlSourceData', 'ControlSource', 13);
 	applyString('RowSource', 'RowSourceData', 'RowSource', 14);
-	const help = element.attrs.get('HelpContextID');
+	const help = element.attrs.get('HelpContextID') ?? (total ? '0' : undefined);
 	if (help !== undefined) {
 		const v = Number(help);
 		if (!Number.isFinite(v)) {
 			throw new FormMarkupError(element.line, `HelpContextID="${help}" is not a number`);
 		}
-		if (v !== site.values.get('HelpContextID')) {
+		const current = site.values.get('HelpContextID') ?? 0;
+		if (v !== current) {
 			site.values.set('HelpContextID', v);
 			site.mask = (site.mask | (1 << 3)) >>> 0;
 			outcome.applied.push(`HelpContextID of ${siteName(site)}`);
 		}
 	}
 	for (const [attr, bit] of SITE_FLAGS) {
-		const text = element.attrs.get(attr);
+		const explicit = element.attrs.get(attr);
+		const filled = explicit === undefined && total && siteFlagApplies(attr, element.tag);
+		const text = explicit
+			?? (filled ? (((SITE_BITFLAGS_DEFAULT & bit) >>> 0) !== 0 ? 'True' : 'False') : undefined);
 		if (text === undefined) { continue; }
 		if (!siteFlagApplies(attr, element.tag)) {
 			throw new FormMarkupError(element.line, `a ${element.tag} has no ${attr}`);
@@ -1110,7 +1185,9 @@ export function applySiteAttrs(site: SiteModel, element: MarkupElement, outcome:
 		const stored = site.values.get('BitFlags');
 		const base = (stored ?? SITE_BITFLAGS_DEFAULT) >>> 0;
 		const next = (/^true$/i.test(text) ? (base | bit) : (base & ~bit)) >>> 0;
-		if (next !== base || stored === undefined) {
+		// A default filled in for an unspoken attr must not materialize the
+		// field; only an EXPLICIT spelling does that.
+		if (next !== base || (stored === undefined && explicit !== undefined)) {
 			site.values.set('BitFlags', next);
 			site.mask = (site.mask | (1 << 4)) >>> 0;
 			outcome.applied.push(`${attr} of ${siteName(site)}`);
@@ -1124,6 +1201,7 @@ export function applyRecordAttrs(
 	kind: string,
 	outcome: ApplyOutcome,
 	name: string,
+	total = false,
 ): void {
 	const width = element.attrs.get('Width');
 	const height = element.attrs.get('Height');
@@ -1175,22 +1253,25 @@ export function applyRecordAttrs(
 			outcome.applied.push(`${field} of ${name}`);
 		}
 	}
-	const textAlign = element.attrs.get('TextAlign');
+	const canAlignText = TEXT_ALIGN_KINDS.has(kind) && record.textProps
+		&& record.textProps.spec.data.some((f) => f.name === 'ParagraphAlign');
+	const textAlign = element.attrs.get('TextAlign') ?? (total && canAlignText ? 'Left' : undefined);
 	if (textAlign !== undefined) {
 		const tp = record.textProps;
-		if (!TEXT_ALIGN_KINDS.has(kind) || !tp || !tp.spec.data.some((f) => f.name === 'ParagraphAlign')) {
+		if (!canAlignText || !tp) {
 			throw new FormMarkupError(element.line, `a ${kind} has no TextAlign`);
 		}
 		const value = TEXT_ALIGN_VALUES[textAlign.toLowerCase()];
 		if (value === undefined) {
 			throw new FormMarkupError(element.line, `TextAlign="${textAlign}" is not Left, Center, or Right`);
 		}
-		if (tp.values.get('ParagraphAlign') !== value || !recordHas(tp, 'ParagraphAlign')) {
+		const current = recordHas(tp, 'ParagraphAlign') ? tp.values.get('ParagraphAlign') : 1;
+		if (current !== value || (!recordHas(tp, 'ParagraphAlign') && element.attrs.has('TextAlign'))) {
 			setRecordValue(tp, 'ParagraphAlign', value);
 			outcome.applied.push(`TextAlign of ${name}`);
 		}
 	}
-	const style = element.attrs.get('Style');
+	const style = element.attrs.get('Style') ?? (total && kind === 'ComboBox' ? '0' : undefined);
 	if (style !== undefined) {
 		if (kind !== 'ComboBox') {
 			throw new FormMarkupError(element.line, `a ${kind} has no Style`);
@@ -1206,7 +1287,7 @@ export function applyRecordAttrs(
 			outcome.applied.push(`Style of ${name}`);
 		}
 	}
-	const alignment = element.attrs.get('Alignment');
+	const alignment = element.attrs.get('Alignment') ?? (total && ALIGNMENT_KINDS.has(kind) ? '1' : undefined);
 	if (alignment !== undefined) {
 		if (!ALIGNMENT_KINDS.has(kind)) {
 			throw new FormMarkupError(element.line, `a ${kind} has no Alignment`);
@@ -1216,15 +1297,21 @@ export function applyRecordAttrs(
 		}
 		const base = effectiveVariousPropertyBits(record, kind) ?? 0x1B;
 		const next = (alignment === '0' ? (base | ALIGNMENT_BIT) : (base & ~ALIGNMENT_BIT)) >>> 0;
-		if (next !== base || !recordHas(record, 'VariousPropertyBits')) {
+		if (next !== base || (!recordHas(record, 'VariousPropertyBits') && element.attrs.has('Alignment'))) {
 			setRecordValue(record, 'VariousPropertyBits', next);
 			outcome.applied.push(`Alignment of ${name}`);
 		}
 	}
 	for (const [attr, bit, kinds] of VPB_FLAGS) {
-		const text = element.attrs.get(attr);
+		const explicit = element.attrs.get(attr);
+		const canFlag = kinds.includes(kind) && record.spec.data.some((f) => f.name === 'VariousPropertyBits');
+		const fallback = VPB_DEFAULTS[kind];
+		const text = explicit
+			?? (total && canFlag && fallback !== undefined
+				? (((fallback & bit) >>> 0) !== 0 ? 'True' : 'False')
+				: undefined);
 		if (text === undefined) { continue; }
-		if (!kinds.includes(kind) || !record.spec.data.some((f) => f.name === 'VariousPropertyBits')) {
+		if (!canFlag) {
 			throw new FormMarkupError(element.line, `a ${kind} has no ${attr}`);
 		}
 		if (!/^(true|false)$/i.test(text)) {
@@ -1232,23 +1319,68 @@ export function applyRecordAttrs(
 		}
 		const base = effectiveVariousPropertyBits(record, kind) ?? 0x1B;
 		const next = (/^true$/i.test(text) ? (base | bit) : (base & ~bit)) >>> 0;
-		if (next !== base || !recordHas(record, 'VariousPropertyBits')) {
+		if (next !== base || (!recordHas(record, 'VariousPropertyBits') && explicit !== undefined)) {
 			setRecordValue(record, 'VariousPropertyBits', next);
 			outcome.applied.push(`${attr} of ${name}`);
 		}
 	}
-	applyFontAttrs(record, element, outcome, name);
+	applyFontAttrs(record, element, outcome, name, total);
 	for (const [attr, field] of [['PasswordChar', 'PasswordChar'], ['Accelerator', 'Accelerator']] as const) {
-		const text = element.attrs.get(attr);
+		const explicit = element.attrs.get(attr);
+		const canCarry = record.spec.data.some((f) => f.name === field);
+		const text = explicit ?? (total && canCarry ? '' : undefined);
 		if (text === undefined) { continue; }
-		if (!record.spec.data.some((f) => f.name === field)) {
+		if (!canCarry) {
 			throw new FormMarkupError(element.line, `a ${kind} has no ${attr}`);
 		}
 		const value = text.length ? text.charCodeAt(0) : 0;
-		if (record.values.get(field) !== value || !recordHas(record, field)) {
+		const current = recordHas(record, field) ? record.values.get(field) : 0;
+		if (current !== value || (!recordHas(record, field) && explicit !== undefined && text.length > 0)) {
 			setRecordValue(record, field, value);
 			outcome.applied.push(`${attr} of ${name}`);
 		}
+	}
+}
+
+/**
+ * Font.* on the FORM lands on its StdFont blob: the fBold flag stays zero
+ * per the spec (weight 700 carries bold), and a fresh enablement seeds the
+ * 0xFFFF Font marker.
+ */
+function applyFormFontAttrs(
+	pkg: FormPackage,
+	element: MarkupElement,
+	outcome: ApplyOutcome,
+): void {
+	const wantsFont = [...element.attrs.keys()].some((k) => k.startsWith('Font.'));
+	if (!wantsFont) { return; }
+	const current = pkg.form.fontRaw ? parseStdFont(pkg.form.fontRaw) : undefined;
+	const face = element.attrs.get('Font.Name') ?? current?.face ?? 'Tahoma';
+	let heightTT = current?.heightTenThousandthsPt ?? 82500;
+	const sizeAttr = element.attrs.get('Font.Size');
+	if (sizeAttr !== undefined) {
+		const pt = Number(sizeAttr);
+		if (!Number.isFinite(pt) || pt <= 0) {
+			throw new FormMarkupError(element.line, `Font.Size="${sizeAttr}" is not a size`);
+		}
+		heightTT = Math.round(pt * 10000);
+	}
+	// The document is TOTAL for the form's font: the printer speaks every
+	// set style, so an absent style attr means unset.
+	const decide = (attr: string | undefined): boolean =>
+		attr !== undefined && /^true$/i.test(attr);
+	const next = composeStdFont(face, heightTT, {
+		bold: decide(element.attrs.get('Font.Bold')),
+		italic: decide(element.attrs.get('Font.Italic')),
+		underline: decide(element.attrs.get('Font.Underline')),
+		strikeout: decide(element.attrs.get('Font.Strikethrough')),
+		charset: current?.charset ?? 0,
+	});
+	if (!pkg.form.fontRaw || !next.equals(pkg.form.fontRaw)) {
+		pkg.form.fontRaw = next;
+		pkg.form.record.maskLo = (pkg.form.record.maskLo | (1 << 20)) >>> 0;
+		pkg.form.record.values.set('Font', 0xffff);
+		outcome.applied.push('Font of the form');
 	}
 }
 
@@ -1261,6 +1393,7 @@ function applyFontAttrs(
 	element: MarkupElement,
 	outcome: ApplyOutcome,
 	name: string,
+	total = false,
 ): void {
 	const wantsFont = [...element.attrs.keys()].some((k) => k.startsWith('Font.'));
 	if (!wantsFont) { return; }
@@ -1288,18 +1421,23 @@ function applyFontAttrs(
 	const italicAttr = element.attrs.get('Font.Italic');
 	const underlineAttr = element.attrs.get('Font.Underline');
 	const strikeAttr = element.attrs.get('Font.Strikethrough');
-	if (boldAttr !== undefined || italicAttr !== undefined
+	if (total || boldAttr !== undefined || italicAttr !== undefined
 		|| underlineAttr !== undefined || strikeAttr !== undefined) {
 		const current = recordHas(tp, 'FontEffects') ? (tp.values.get('FontEffects') ?? 0) : 0;
+		// The printer speaks a set style and stays quiet on an unset one, so
+		// a TOTAL apply reads absence as unset; the pane's single write keeps
+		// the styles it does not mention.
 		const decide = (attr: string | undefined, bit: number): boolean =>
-			attr !== undefined ? /^true$/i.test(attr) : (current & bit) !== 0;
+			attr !== undefined ? /^true$/i.test(attr) : (total ? false : (current & bit) !== 0);
 		const bold = decide(boldAttr, 0x1);
 		const italic = decide(italicAttr, 0x2);
 		const underline = decide(underlineAttr, 0x4);
 		const strike = decide(strikeAttr, 0x8);
 		const next = (current & ~0xf) | (bold ? 0x1 : 0) | (italic ? 0x2 : 0)
 			| (underline ? 0x4 : 0) | (strike ? 0x8 : 0);
-		if (next !== current || !recordHas(tp, 'FontEffects')) {
+		const anyExplicit = boldAttr !== undefined || italicAttr !== undefined
+			|| underlineAttr !== undefined || strikeAttr !== undefined;
+		if (next !== current || (!recordHas(tp, 'FontEffects') && anyExplicit)) {
 			setRecordValue(tp, 'FontEffects', next >>> 0);
 			setRecordValue(tp, 'FontWeight', bold ? 700 : 400);
 			outcome.applied.push(`Font style of ${name}`);

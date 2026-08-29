@@ -16,6 +16,7 @@ import {
 	decodeArrayStrings,
 	effectiveVariousPropertyBits,
 	encodeArrayStrings,
+	FORM_EXTRA_FIELDS,
 	formatOleColor,
 	FormMarkupError,
 	nextTabIndex,
@@ -441,7 +442,8 @@ export interface VbFrameProps {
 	whatsThisButton?: string;
 }
 
-const FORM_NUMERIC_PROPS = ['BorderStyle', 'ScrollBars', 'Cycle', 'Zoom', 'MousePointer'] as const;
+// One list, one concept: the dialect's own form extras (markup.ts).
+const FORM_NUMERIC_PROPS = FORM_EXTRA_FIELDS;
 
 const CONTROL_SOURCE_KINDS = new Set(['TextBox', 'ComboBox', 'ListBox', 'CheckBox', 'OptionButton', 'ToggleButton', 'ScrollBar', 'SpinButton']);
 const ROW_SOURCE_KINDS = new Set(['ComboBox', 'ListBox']);

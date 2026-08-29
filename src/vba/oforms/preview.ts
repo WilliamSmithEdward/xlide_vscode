@@ -337,6 +337,9 @@ export interface FormPreviewOptions {
 	/** Workbook path and module name, stamped into webview state so VS Code
 	 *  can restore the panel after a window reload. */
 	identity?: { workbook: string; module: string };
+	/** The markup document's exact text, shown in the pane below the canvas -
+	 *  the user's own spelling, never a re-print under their caret. */
+	markup?: string;
 }
 
 /**
@@ -389,7 +392,12 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 <meta charset="utf-8">
 <style>
 	:root { color-scheme: light; }
-	body { margin: 0; padding: 0; background: #808080; user-select: none; }
+	html, body { height: 100%; }
+	body { margin: 0; padding: 0; background: #808080; user-select: none;
+		display: flex; flex-direction: column; overflow: hidden; }
+	/* The scrolling half of the ONE editor: toolbar, canvas, properties.
+	   The markup pane below shares the same document and the same tab. */
+	.work { flex: 1 1 auto; min-height: 0; overflow: auto; position: relative; }
 	.toolbar { position: sticky; top: 0; z-index: 10; display: flex; flex-wrap: wrap; gap: 4px;
 		align-items: center; background: #2d2d2d; color: #ccc; padding: 6px 10px;
 		font: 12px sans-serif; }
@@ -546,10 +554,10 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.ghost { position: absolute; border: 1px dashed #0e639c; background: rgba(14, 99, 156, 0.12);
 		z-index: 6; pointer-events: none; }
 	.drop-target { outline: 2px solid #0e639c; outline-offset: -2px; }
-	/* The vbide splitter chrome, docked at the bottom edge: an arrow either
-	   side of the dots collapses one half or the other, and the dots DRAG
-	   the split itself. */
-	.split-grip { position: fixed; left: 0; right: 0; bottom: 0; height: 14px; z-index: 11;
+	/* The vbide splitter chrome between the canvas and the markup pane: an
+	   arrow either side of the dots collapses one half or the other, and the
+	   dots DRAG the split - all inside this one editor now. */
+	.split-grip { flex: none; height: 14px;
 		background: #2d2d2d; border-top: 1px solid #3c3c3c; display: flex;
 		align-items: stretch; justify-content: center; }
 	.grip-dots { display: flex; align-items: center; justify-content: center; gap: 3px;
@@ -559,9 +567,20 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.grip-btn { background: none; border: none; color: #777; cursor: pointer;
 		font-size: 8px; padding: 0 8px; }
 	.grip-btn:hover { color: #fff; }
+	/* The markup pane: the .form document itself, one face of one editor. */
+	.markup-pane { flex: none; display: flex; flex-direction: column; min-height: 0;
+		background: #1e1e1e; }
+	.markup-pane.fill { flex: 1 1 auto; }
+	.markup-error { display: none; background: #5a1d1d; color: #f48771; padding: 2px 10px;
+		font: 12px sans-serif; white-space: pre-wrap; }
+	#markupText { flex: 1 1 auto; width: 100%; box-sizing: border-box; border: none;
+		outline: none; resize: none; background: #1e1e1e; color: #d4d4d4; padding: 6px 10px;
+		font: 13px Consolas, 'Courier New', monospace; white-space: pre; overflow: auto;
+		tab-size: 4; user-select: text; }
 </style>
 </head>
 <body>
+	<div class="work">
 ${interactive ? `	<div class="toolbar" id="toolbar">
 		<span>Add:</span>
 		${toolbox.map((k) => `<button class="tool" data-kind="${k}">${k}</button>`).join('')}
@@ -584,7 +603,9 @@ ${surfaceHtml}
 	</div>
 ${interactive ? `	<aside class="props" id="props"><div class="props-sash" id="propsSash"></div><div id="propsBody"></div></aside>` : ''}
 	</div>
-${interactive ? `	<div class="split-grip" id="splitGrip"><button class="grip-btn" id="gripUp" title="Push the split up: the markup below takes the designer's space">&#9650;</button><div class="grip-dots" id="gripDots" title="Drag to resize the split between the designer and the markup below"><span></span><span></span><span></span><span></span><span></span></div><button class="grip-btn" id="gripDown" title="Push the split down: the designer takes the markup's space">&#9660;</button></div>` : ''}
+	</div>
+${interactive ? `	<div class="split-grip" id="splitGrip"><button class="grip-btn" id="gripUp" title="Collapse the designer: the markup takes the space">&#9650;</button><div class="grip-dots" id="gripDots" title="Drag to resize the split between the designer and the markup"><span></span><span></span><span></span><span></span><span></span></div><button class="grip-btn" id="gripDown" title="Collapse the markup: the designer takes the space">&#9660;</button></div>
+	<div class="markup-pane" id="markupPane"><div class="markup-error" id="markupError"></div><textarea id="markupText" spellcheck="false" wrap="off">${esc(options.markup ?? '')}</textarea></div>` : ''}
 	<script type="application/json" id="cpicData">${picturesJson}</script>
 	<script>
 		// Caption pictures, the way MSForms actually draws them (measured in
@@ -683,72 +704,6 @@ ${interactive ? `	<script>
 		// bytes. Escape in a row reverts it without touching the selection.
 		const PROPS = ${propsJson};
 		const FORM_NAME = ${JSON.stringify(options.formName)};
-		// The arrows are TOGGLES, as in xlide vbide: a collapse flips the
-		// glyph, and the flipped arrow restores the split it replaced. The
-		// panel owns the saved sizes and answers with the current state,
-		// which also survives re-renders (the canvas asks on every load).
-		const gripUp = document.getElementById('gripUp');
-		const gripDown = document.getElementById('gripDown');
-		const paintSplitState = (collapsed) => {
-			if (gripUp) {
-				gripUp.innerHTML = collapsed === 'self' ? '&#9660;' : '&#9650;';
-				gripUp.title = collapsed === 'self'
-					? 'Restore the split'
-					: 'Push the split up: the markup below takes the space';
-			}
-			if (gripDown) {
-				gripDown.innerHTML = collapsed === 'below' ? '&#9650;' : '&#9660;';
-				gripDown.title = collapsed === 'below'
-					? 'Restore the split'
-					: 'Push the split down: the designer takes the space';
-			}
-		};
-		window.addEventListener('message', (e) => {
-			const m = e.data;
-			if (m && m.type === 'splitState') { paintSplitState(m.collapsed ?? null); }
-		});
-		gripUp?.addEventListener('click', () => post({ type: 'splitCollapse', which: 'self' }));
-		gripDown?.addEventListener('click', () => post({ type: 'splitCollapse', which: 'below' }));
-		post({ type: 'splitStateQuery' });
-		// The dots drag with POINTER CAPTURE (a downward drag leaves the
-		// iframe within millimeters, and uncaptured events stop at the edge),
-		// and every way a pointer can abandon a drag ends it - pointercancel,
-		// capture loss, window blur. The panel does the actual sizing with
-		// layout-tree pixel math, so the motion is CONTINUOUS and the
-		// direction is the mouse's by construction; deltas stream a few
-		// pixels apart.
-		const gripDots = document.getElementById('gripDots');
-		let gripDrag = null;
-		const endGripDrag = () => {
-			if (!gripDrag) { return; }
-			gripDrag = null;
-			post({ type: 'splitDrag', phase: 'end' });
-		};
-		gripDots?.addEventListener('pointerdown', (e) => {
-			gripDrag = { y: e.clientY, lastSent: 0, delta: 0, raf: 0 };
-			try { gripDots.setPointerCapture(e.pointerId); } catch { /* capture is a nicety */ }
-			post({ type: 'splitDrag', phase: 'start' });
-			e.preventDefault();
-		});
-		gripDots?.addEventListener('pointermove', (e) => {
-			if (!gripDrag) { return; }
-			// One send per FRAME, latest position wins - the panel coalesces
-			// on its side too, so the border tracks without flooding.
-			gripDrag.delta = e.clientY - gripDrag.y;
-			if (gripDrag.raf) { return; }
-			gripDrag.raf = requestAnimationFrame(() => {
-				if (!gripDrag) { return; }
-				gripDrag.raf = 0;
-				if (gripDrag.delta !== gripDrag.lastSent) {
-					gripDrag.lastSent = gripDrag.delta;
-					post({ type: 'splitDrag', phase: 'move', delta: gripDrag.delta });
-				}
-			});
-		});
-		gripDots?.addEventListener('pointerup', endGripDrag);
-		gripDots?.addEventListener('pointercancel', endGripDrag);
-		gripDots?.addEventListener('lostpointercapture', endGripDrag);
-		window.addEventListener('blur', endGripDrag);
 		const propsPane = document.getElementById('props');
 		const propsBody = document.getElementById('propsBody');
 		const mergeState = (patch) => {
@@ -1082,6 +1037,126 @@ ${interactive ? `	<script>
 			saveToggles();
 		});
 		syncGridDots();
+
+		// The split between the canvas and the markup is INTERNAL now - the
+		// designer and its markup are one document in one editor - so the
+		// grip is plain flex arithmetic: the dots drag the pane height, the
+		// arrows are the vbide toggles (collapse one half, the flipped arrow
+		// restores), and a manual drag always resets a collapse.
+		const workArea = document.querySelector('.work');
+		const markupPane = document.getElementById('markupPane');
+		const gripUp = document.getElementById('gripUp');
+		const gripDown = document.getElementById('gripDown');
+		let markupHeight = typeof savedState.markupHeight === 'number' ? savedState.markupHeight : 160;
+		let splitCollapsed = savedState.splitCollapsed === 'canvas' || savedState.splitCollapsed === 'markup'
+			? savedState.splitCollapsed : null;
+		const paintSplit = () => {
+			if (!markupPane || !workArea) { return; }
+			workArea.style.display = splitCollapsed === 'canvas' ? 'none' : '';
+			markupPane.style.display = splitCollapsed === 'markup' ? 'none' : 'flex';
+			markupPane.classList.toggle('fill', splitCollapsed === 'canvas');
+			markupPane.style.height = splitCollapsed === 'canvas' ? 'auto' : Math.max(60, markupHeight) + 'px';
+			if (gripUp) {
+				gripUp.innerHTML = splitCollapsed === 'canvas' ? '&#9660;' : '&#9650;';
+				gripUp.title = splitCollapsed === 'canvas'
+					? 'Restore the split'
+					: 'Collapse the designer: the markup takes the space';
+			}
+			if (gripDown) {
+				gripDown.innerHTML = splitCollapsed === 'markup' ? '&#9650;' : '&#9660;';
+				gripDown.title = splitCollapsed === 'markup'
+					? 'Restore the split'
+					: 'Collapse the markup: the designer takes the space';
+			}
+		};
+		const setSplit = (collapsed) => {
+			splitCollapsed = collapsed;
+			mergeState({ splitCollapsed, markupHeight });
+			paintSplit();
+		};
+		gripUp?.addEventListener('click', () => setSplit(splitCollapsed === 'canvas' ? null : 'canvas'));
+		gripDown?.addEventListener('click', () => setSplit(splitCollapsed === 'markup' ? null : 'markup'));
+		paintSplit();
+		const gripDots = document.getElementById('gripDots');
+		let gripDrag = null;
+		gripDots?.addEventListener('pointerdown', (e) => {
+			if (splitCollapsed !== null) { setSplit(null); }
+			gripDrag = { y: e.clientY, base: markupPane ? markupPane.getBoundingClientRect().height : markupHeight };
+			try { gripDots.setPointerCapture(e.pointerId); } catch { /* capture is a nicety */ }
+			e.preventDefault();
+		});
+		gripDots?.addEventListener('pointermove', (e) => {
+			if (!gripDrag || !markupPane) { return; }
+			markupHeight = Math.max(60, Math.min(window.innerHeight - 80, gripDrag.base + (gripDrag.y - e.clientY)));
+			markupPane.style.height = markupHeight + 'px';
+		});
+		const endGripDrag = () => {
+			if (!gripDrag) { return; }
+			gripDrag = null;
+			mergeState({ markupHeight, splitCollapsed });
+		};
+		gripDots?.addEventListener('pointerup', endGripDrag);
+		gripDots?.addEventListener('pointercancel', endGripDrag);
+		gripDots?.addEventListener('lostpointercapture', endGripDrag);
+		window.addEventListener('blur', endGripDrag);
+
+		// The markup pane IS the document, debounced: typing applies after a
+		// pause, a parse error lands in the strip without touching the canvas,
+		// and the caret, scroll, and focus survive the re-render that follows
+		// a successful apply.
+		const markupText = document.getElementById('markupText');
+		const markupError = document.getElementById('markupError');
+		let markupTimer = 0;
+		const rememberMarkupView = () => {
+			if (!markupText) { return; }
+			mergeState({
+				markupCaret: markupText.selectionStart,
+				markupScroll: [markupText.scrollLeft, markupText.scrollTop],
+				markupFocus: document.activeElement === markupText,
+			});
+		};
+		const flushMarkup = () => {
+			if (!markupText) { return; }
+			if (markupTimer) { clearTimeout(markupTimer); markupTimer = 0; }
+			rememberMarkupView();
+			post({ type: 'markupEdit', text: markupText.value });
+		};
+		markupText?.addEventListener('input', () => {
+			if (markupTimer) { clearTimeout(markupTimer); }
+			markupTimer = setTimeout(flushMarkup, 400);
+		});
+		markupText?.addEventListener('blur', () => {
+			if (markupTimer) { flushMarkup(); }
+			rememberMarkupView();
+		});
+		markupText?.addEventListener('focus', rememberMarkupView);
+		markupText?.addEventListener('scroll', rememberMarkupView);
+		markupText?.addEventListener('keydown', (e) => {
+			if (e.key === 'Tab') {
+				e.preventDefault();
+				markupText.setRangeText('    ', markupText.selectionStart, markupText.selectionEnd, 'end');
+				markupText.dispatchEvent(new Event('input'));
+			}
+		});
+		window.addEventListener('message', (e) => {
+			const m = e.data;
+			if (!m || !markupError) { return; }
+			if (m.type === 'markupError') { markupError.textContent = m.message; markupError.style.display = 'block'; }
+			if (m.type === 'markupOk') { markupError.style.display = 'none'; }
+		});
+		if (markupText) {
+			if (Array.isArray(savedState.markupScroll)) {
+				markupText.scrollLeft = savedState.markupScroll[0] || 0;
+				markupText.scrollTop = savedState.markupScroll[1] || 0;
+			}
+			if (savedState.markupFocus) {
+				markupText.focus();
+				const at = Math.min(
+					typeof savedState.markupCaret === 'number' ? savedState.markupCaret : 0,
+					markupText.value.length);
+				try { markupText.setSelectionRange(at, at); } catch { /* selection is a nicety */ }
+			}
+		}
 		// Self-check: every control the engine LISTED must be in the DOM
 		// with real bounds (hidden pages excepted). One control kept
 		// vanishing on one machine while every harness showed it; this names
@@ -1272,7 +1347,7 @@ ${interactive ? `	<script>
 		paintZoom();
 		zoomPick.addEventListener('change', () => { paintZoom(); saveToggles(); });
 		document.addEventListener('wheel', (e) => {
-			if (!e.ctrlKey) { return; }
+			if (!e.ctrlKey || e.target.closest('.markup-pane')) { return; }
 			e.preventDefault();
 			// The wheel glides the TOTAL scale; paintZoom would snap it back
 			// to the select's preset, so the transform applies directly and
@@ -1287,7 +1362,7 @@ ${interactive ? `	<script>
 		let formDrag = null;
 		let drag = null;
 		document.addEventListener('pointerdown', (e) => {
-			if (e.target.closest('.props') || e.target.closest('.split-grip')) { return; }
+			if (e.target.closest('.props') || e.target.closest('.split-grip') || e.target.closest('.markup-pane')) { return; }
 			const formHandle = e.target.closest('.form-handle');
 			if (formHandle) {
 				// The client's size lives in the STYLESHEET until the first
@@ -1482,7 +1557,7 @@ ${interactive ? `	<script>
 		});
 
 		document.addEventListener('keydown', (e) => {
-			if (e.target.closest('.props')) { return; }
+			if (e.target.closest('.props') || e.target.closest('.markup-pane')) { return; }
 			if (!selected) { return; }
 			const name = selected.dataset.name;
 			const step = e.shiftKey ? GRID : 1;
@@ -1578,13 +1653,29 @@ ${interactive ? `	<script>
 			document.body.classList.add('placing');
 		});
 		document.addEventListener('keyup', (e) => {
-			if (e.target.closest('.props')) { return; }
+			if (e.target.closest('.props') || e.target.closest('.markup-pane')) { return; }
 			if (e.key === 'Escape') { disarm(); select(null); deselectForm(); }
 		});
-		// F5 posted from INSIDE the canvas: key forwarding from webviews to
-		// workbench keybindings has not proven reliable for it.
+		// F5, Ctrl+Z/Y, Ctrl+S posted from INSIDE the page: key forwarding
+		// from webviews to workbench keybindings has not proven reliable (F5
+		// measured), so the page speaks and the host acts on the DOCUMENT -
+		// undo is text undo now, save is the only workbook write. Inside a
+		// field only Ctrl+S is taken (flushing a pending markup edit first);
+		// the field keeps its own native undo.
 		document.addEventListener('keydown', (e) => {
-			if (e.key === 'F5') { e.preventDefault(); post({ type: 'launchHost' }); }
+			if (e.key === 'F5') { e.preventDefault(); post({ type: 'launchHost' }); return; }
+			if (!(e.ctrlKey || e.metaKey)) { return; }
+			const key = e.key.toLowerCase();
+			const inField = e.target.closest('input, textarea, select');
+			if (key === 's') {
+				e.preventDefault();
+				if (inField && e.target === markupText && markupTimer) { flushMarkup(); }
+				post({ type: 'docSave' });
+				return;
+			}
+			if (inField) { return; }
+			if (key === 'z' && !e.shiftKey) { e.preventDefault(); post({ type: 'docUndo' }); }
+			else if (key === 'y' || (key === 'z' && e.shiftKey)) { e.preventDefault(); post({ type: 'docRedo' }); }
 		});
 	})();
 	</script>` : ''}

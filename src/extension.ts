@@ -76,7 +76,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     const bridge = new WorkbookEngine(context, out);
     const fsProvider = new XlideFileSystemProvider(bridge);
-    registerFormPreview(context, bridge, fsProvider);
+    registerFormPreview(context, bridge);
     const explorer = new XlsmExplorer(bridge, out);
     const statusBar = new XlideStatusBar();
     // The workbook engine runs in-process: there is no backend to install,

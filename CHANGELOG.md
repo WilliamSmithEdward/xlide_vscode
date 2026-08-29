@@ -4,6 +4,30 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **The designer and its markup are ONE editor now.** Opening a form lands
+  in a single tab: the canvas and properties pane above, the markup text
+  below the vbide grip - no second tab strip, no editor-group acrobatics.
+  The tab carries a real dirty dot: gestures and markup edits are pending
+  document changes, Ctrl+Z is ordinary text undo (from the canvas too), and
+  Ctrl+S is the ONLY write to your workbook. Under the hood the canvas
+  renders from a scratch copy holding the document's state applied, so what
+  you see is always real bytes without your file being touched; the grip's
+  arrows and drag work as before, now purely inside the editor, and typing
+  in the markup pane repaints the canvas after a pause, with parse errors on
+  a strip instead of a broken canvas.
+
+- **The document now carries the WHOLE form.** The markup dialect gains the
+  form-level surface the pane could already edit - BorderStyle, ScrollBars,
+  Cycle, Zoom, MousePointer, the form's StdFont, and the VBFrame trio
+  (ShowModal, StartUpPosition, WhatsThisButton) - printed quiet at their
+  defaults and applied back, with the VBFrame twips echo kept in step on
+  form resizes. And within the dialect's vocabulary the document is total
+  on apply: a property edited back to its default (a re-enabled control, an
+  unbolded font, a cleared ControlSource) stays that way through save and
+  undo instead of silently reverting. A live-Excel probe vouches for the
+  whole save path: Zoom 150, MousePointer 11, Segoe UI bold, StartUpPosition
+  2, and both defaults-restorations read back exactly.
+
 - **The form's font styles truly paint, and the picker shows real fonts.**
   Form-level Font.Bold and Font.Italic were written to the bytes but never
   drawn; the client area now wears the StdFont's weight, slant, underline,

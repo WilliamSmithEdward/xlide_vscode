@@ -1,44 +1,29 @@
-// The form designer panel: the parsed designer model rendered in a webview,
-// with the canvas gestures the VBE's own designer has - drag to move, resize
-// handles, a toolbox that places new controls, grid and neighbor snapping,
-// arrow-key nudges, Delete.
-//
-// The webview owns only the GESTURE. Every mutation posts back here, applies
-// through the engine's designer ops (the same primitives the markup diff
-// uses, on the same authoring path live Excel verified), and the panel
-// re-renders from the workbook - so what the canvas shows is always what the
-// bytes say, never an optimistic guess.
+// The form designer: ONE custom editor over the .form document - the canvas,
+// the properties pane, and the markup text live in a single tab, the way the
+// vbide draws them. The document is the truth the user edits; a SCRATCH COPY
+// of the workbook holds that truth applied, so the canvas renders real bytes
+// without ever writing the user's file. A gesture mutates the scratch through
+// the engine's designer ops, prints back to markup, and lands in the document
+// as an ordinary text edit - so the tab carries the dirty dot, Ctrl+Z is text
+// undo, and SAVE is the only workbook write (the .form provider's apply).
 
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
+import * as crypto from 'crypto';
 import type { WorkbookEngine } from './workbookEngine';
-import { decodeModuleUri, encodeFormMarkupUri, encodeModuleUri, XLIDE_SCHEME, XlideFileSystemProvider } from './xlideFileSystem';
+import { decodeModuleUri, encodeFormMarkupUri, encodeModuleUri, XLIDE_SCHEME } from './xlideFileSystem';
 import { runWriteWithExcelCoordination } from './excelWorkbookCoordinator';
 import { runWorkbookMacroReadOnly } from './excelLauncher';
 import { xlideAttachToRunningExcelFromConfig } from './globalSettings';
-import { recordXlideWriteAudit } from './xlideWriteAudit';
 import { errorMessage } from './util/errors';
 
-const panels = new Map<string, vscode.WebviewPanel>();
+export const FORM_DESIGNER_VIEW_TYPE = 'xlideFormDesigner';
 
-/** The workbook behind the most recently focused designer panel, for F5. */
+/** The workbook behind the most recently focused designer, for F5. */
 let lastFocusedDesignerWorkbook: string | undefined;
 /** Its form module, so F5 knows which form a Show launcher should open. */
 let lastFocusedDesignerModule: string | undefined;
-/** The panel key of the most recently focused designer, for undo/redo. */
-let lastFocusedDesignerKey: string | undefined;
-
-interface DesignerHistory {
-	undo: Array<Record<string, string>>;
-	redo: Array<Record<string, string>>;
-}
-const histories = new Map<string, DesignerHistory>();
-const keyParts = new Map<string, [string, string]>();
-const HISTORY_LIMIT = 50;
-
-function panelKey(xlsmPath: string, moduleName: string): string {
-	return `${xlsmPath.toLowerCase()}::${moduleName.toLowerCase()}`;
-}
 
 type DesignerMessage =
 	| { type: 'geometry'; name: string; left?: number; top?: number; width?: number; height?: number }
@@ -47,36 +32,33 @@ type DesignerMessage =
 	| { type: 'reparent'; name: string; container: string; left: number; top: number }
 	| { type: 'setProp'; name: string; prop: string; value: string }
 	| { type: 'openHandler'; name: string; event: string }
-	| { type: 'splitCollapse'; which: 'self' | 'below' }
-	| { type: 'splitStateQuery' }
+	| { type: 'markupEdit'; text: string }
+	| { type: 'docUndo' }
+	| { type: 'docRedo' }
+	| { type: 'docSave' }
 	| { type: 'launchHost' }
-	| { type: 'splitDrag'; phase: 'start' | 'end' }
-	| { type: 'splitDrag'; phase: 'move'; delta: number }
 	| { type: 'formResize'; width: number; height: number };
+
+type GestureMessage = Extract<DesignerMessage,
+	{ type: 'geometry' } | { type: 'add' } | { type: 'remove' }
+	| { type: 'reparent' } | { type: 'setProp' } | { type: 'formResize' }>;
 
 export function registerFormPreview(
 	context: vscode.ExtensionContext,
 	bridge: Pick<WorkbookEngine, 'call'>,
-	fsProvider?: Pick<XlideFileSystemProvider, 'notifyFileChanged'>,
 ): void {
-	const render = async (
-		panel: vscode.WebviewPanel,
-		xlsmPath: string,
-		moduleName: string,
-		selected?: string,
-	): Promise<void> => {
-		try {
-			const { html } = await bridge.call<{ html: string }>(
-				'readFormPreview',
-				{ path: xlsmPath, module: moduleName, selected },
-			);
-			panel.webview.html = html;
-		} catch (err) {
-			panel.webview.html = `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:16px">`
-				+ `<p>XLIDE could not render this form.</p><pre>${errorMessage(err)
-					.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre></body></html>`;
+	const scratchDir = path.join(context.globalStorageUri.fsPath, 'designer-scratch');
+	try {
+		fs.mkdirSync(scratchDir, { recursive: true });
+		// Scratches from editors that never got to clean up (a crash, a kill).
+		const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+		for (const name of fs.readdirSync(scratchDir)) {
+			const file = path.join(scratchDir, name);
+			try {
+				if (fs.statSync(file).mtimeMs < weekAgo) { fs.unlinkSync(file); }
+			} catch { /* someone else's scratch; leave it */ }
 		}
-	};
+	} catch { /* the first render will surface a real failure */ }
 
 	// The VBE's double-click: the control's default event handler in the
 	// code face - navigate to it, or append the stub the VBE would write and
@@ -118,302 +100,238 @@ export function registerFormPreview(
 		}
 	};
 
-	const applyGesture = async (
-		panel: vscode.WebviewPanel,
-		xlsmPath: string,
-		moduleName: string,
-		message: Exclude<DesignerMessage, { type: 'openHandler' } | { type: 'splitCollapse' } | { type: 'splitDrag' } | { type: 'splitStateQuery' } | { type: 'launchHost' }>,
-	): Promise<void> => {
-		const op = message.type === 'geometry'
-			? { kind: 'geometry' as const, name: message.name, left: message.left, top: message.top, width: message.width, height: message.height }
-			: message.type === 'add'
-				? { kind: 'add' as const, container: message.container, controlKind: message.controlKind, left: message.left, top: message.top }
-				: message.type === 'reparent'
-					? { kind: 'reparent' as const, name: message.name, container: message.container, left: message.left, top: message.top }
-					: message.type === 'setProp'
-						? { kind: 'setProp' as const, name: message.name, prop: message.prop, value: message.value }
-						: message.type === 'formResize'
-						? { kind: 'formSize' as const, width: message.width, height: message.height }
-						: { kind: 'remove' as const, name: message.name };
-		try {
-			const key = panelKey(xlsmPath, moduleName);
-			try {
-				const snapshot = await bridge.call<{ streams: Record<string, string> }>(
-					'readFormDesignerSnapshot',
-					{ path: xlsmPath, module: moduleName },
-				);
-				const history = histories.get(key) ?? { undo: [], redo: [] };
-				history.undo.push(snapshot.streams);
-				if (history.undo.length > HISTORY_LIMIT) { history.undo.shift(); }
-				history.redo = [];
-				histories.set(key, history);
-			} catch {
-				// A gesture without its snapshot still applies; only its undo
-				// step is lost.
-			}
-			const result = await runWriteWithExcelCoordination(xlsmPath, () =>
-				bridge.call<{ ok: boolean; signatureDropped: boolean; newName?: string }>(
-					'formDesignerOp',
-					{ path: xlsmPath, module: moduleName, op },
-				));
-			recordXlideWriteAudit({
-				timestamp: new Date().toISOString(),
-				command: 'xlide.previewForm',
-				operation: `designer-${message.type}`,
-				outcome: 'succeeded',
-				workbookPath: xlsmPath,
-				moduleName,
-				summary: message.type === 'add'
-					? `Designer: added ${op.kind === 'add' ? op.controlKind : ''} ${result.newName ?? ''}`
-					: message.type === 'reparent'
-						? `Designer: moved ${message.name} into ${message.container || 'the form'}`
-						: message.type === 'setProp'
-							? `Designer: set ${message.prop} of ${message.name || 'the form'}`
-							: message.type === 'formResize'
-							? `Designer: form resized to ${message.width}x${message.height}pt`
-							: `Designer: ${message.type} ${'name' in message ? message.name : ''}`,
-			});
-			// The markup document is another face of the same form; a canvas
-			// gesture must reach an open one the way an agent edit reaches code.
-			fsProvider?.notifyFileChanged(encodeFormMarkupUri(xlsmPath, moduleName));
-			const keepSelected = message.type === 'remove'
-				? undefined
-				: message.type === 'formResize'
-					? ''
-					: message.type === 'setProp'
-						? (result.newName ?? message.name)
-						: message.type === 'add' ? result.newName : message.name;
-			await render(panel, xlsmPath, moduleName, keepSelected);
-		} catch (err) {
-			void vscode.window.showErrorMessage(`XLIDE: ${errorMessage(err)}`);
-			await render(panel, xlsmPath, moduleName);
-		}
-	};
+	class FormDesignerProvider implements vscode.CustomTextEditorProvider {
+		async resolveCustomTextEditor(
+			document: vscode.TextDocument,
+			panel: vscode.WebviewPanel,
+		): Promise<void> {
+			const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
+			panel.webview.options = { enableScripts: true };
+			lastFocusedDesignerWorkbook = xlsmPath;
+			lastFocusedDesignerModule = moduleName;
 
-	// Ctrl+Z / Ctrl+Y while the designer is focused: the gesture history is
-	// a stack of byte-true designer snapshots, restored whole - so undo puts
-	// back exactly what the gesture changed, wherever in the form it landed.
-	const stepHistory = async (direction: 'undo' | 'redo'): Promise<void> => {
-		const key = lastFocusedDesignerKey;
-		const panel = key ? panels.get(key) : undefined;
-		const history = key ? histories.get(key) : undefined;
-		if (!key || !panel || !history) { return; }
-		const from = direction === 'undo' ? history.undo : history.redo;
-		const to = direction === 'undo' ? history.redo : history.undo;
-		const snapshot = from.pop();
-		if (!snapshot) { return; }
-		const [xlsmPath, moduleName] = keyParts.get(key) ?? [];
-		if (!xlsmPath || !moduleName) { return; }
-		try {
-			const current = await bridge.call<{ streams: Record<string, string> }>(
-				'readFormDesignerSnapshot',
-				{ path: xlsmPath, module: moduleName },
+			// The pid keeps two windows on the same form from sharing a scratch;
+			// a crash's orphan falls to the age sweep above.
+			const scratchPath = path.join(
+				scratchDir,
+				crypto.createHash('sha1')
+					.update(`${xlsmPath.toLowerCase()}::${moduleName.toLowerCase()}`)
+					.digest('hex').slice(0, 20) + `-${process.pid}${path.extname(xlsmPath)}`,
 			);
-			to.push(current.streams);
-			if (to.length > HISTORY_LIMIT) { to.shift(); }
-			await runWriteWithExcelCoordination(xlsmPath, () =>
-				bridge.call('restoreFormDesignerSnapshot', { path: xlsmPath, module: moduleName, streams: snapshot }));
-			fsProvider?.notifyFileChanged(encodeFormMarkupUri(xlsmPath, moduleName));
-			await render(panel, xlsmPath, moduleName);
-		} catch (err) {
-			from.push(snapshot);
-			void vscode.window.showErrorMessage(`XLIDE: ${errorMessage(err)}`);
-		}
-	};
+			/** Real workbook mtime the scratch was last copied from. */
+			let baselineMtime = -1;
+			/** Document text currently applied to the scratch; null = bare copy. */
+			let appliedText: string | null = null;
+			/** Text this provider just placed in the document (a gesture echo). */
+			let suppressEcho: string | null = null;
+			/** All work runs through one lane: edits never interleave. */
+			let queue: Promise<void> = Promise.resolve();
+			let disposed = false;
 
-	// The split between the designer and the markup below, resized with
-	// LAYOUT-TREE pixel math (vscode.get/setEditorLayout): the drag is
-	// continuous, its direction is the mouse's by construction, and nothing
-	// outside the designer+markup column can move - the two earlier
-	// mechanisms failed all three ways (the workbench maximize swallowed the
-	// window; focus-dependent height steps were coarse and could grab the
-	// wrong group).
-	interface LayoutNode { groups?: LayoutNode[]; size?: number }
-	interface SplitGrab {
-		layout: { orientation: number; groups: LayoutNode[] };
-		leaf: LayoutNode;
-		sibling: LayoutNode;
-		leafBase: number;
-		siblingBase: number;
-		/** Latest unapplied delta; applies coalesce to it. */
-		pending: number | null;
-		applying: boolean;
-		lastApplied: number;
-	}
-	const splitGrabs = new Map<string, SplitGrab>();
-	/** Per-panel collapse toggle: the sizes a collapse replaced, to restore. */
-	const splitToggles = new Map<string, { saved?: { leaf: number; sibling: number }; collapsed: 'self' | 'below' | null }>();
+			const enqueue = (work: () => Promise<void>): void => {
+				queue = queue.then(work).catch((err) => {
+					if (!disposed) {
+						void vscode.window.showErrorMessage(`XLIDE: ${errorMessage(err)}`);
+					}
+				});
+			};
 
-	const grabSplit = async (panel: vscode.WebviewPanel): Promise<SplitGrab | undefined> => {
-		const layout = await vscode.commands.executeCommand<{ orientation: number; groups: LayoutNode[] }>('vscode.getEditorLayout');
-		if (!layout?.groups) { return undefined; }
-		// Leaves in depth-first order correspond to tabGroups.all order.
-		const leaves: Array<{ node: LayoutNode; parent: LayoutNode[]; index: number; vertical: boolean }> = [];
-		const walk = (nodes: LayoutNode[], vertical: boolean): void => {
-			for (const node of nodes) {
-				if (node.groups?.length) { walk(node.groups, !vertical); }
-				else { leaves.push({ node, parent: nodes, index: nodes.indexOf(node), vertical }); }
-			}
-		};
-		// orientation 0 lays the root row out horizontally, so root children
-		// stack vertically only when orientation is 1.
-		walk(layout.groups, layout.orientation === 1);
-		const groups = vscode.window.tabGroups.all;
-		const at = groups.findIndex((group) => group.tabs.some((tab) =>
-			tab.input instanceof vscode.TabInputWebview
-			&& tab.input.viewType.includes('xlideFormPreview')
-			&& tab.label === panel.title));
-		const leaf = at >= 0 ? leaves[at] : undefined;
-		if (!leaf || !leaf.vertical) { return undefined; }
-		const sibling = leaf.parent[leaf.index + 1] ?? leaf.parent[leaf.index - 1];
-		if (!sibling || sibling === leaf.node) { return undefined; }
-		if (typeof leaf.node.size !== 'number' || typeof sibling.size !== 'number') { return undefined; }
-		return {
-			layout,
-			leaf: leaf.node,
-			sibling,
-			leafBase: leaf.node.size,
-			siblingBase: sibling.size,
-			pending: null,
-			applying: false,
-			lastApplied: leaf.node.size,
-		};
-	};
-
-	// Applies COALESCE: deltas stream faster than setEditorLayout runs, and
-	// un-serialized applies interleave out of order - the stutter - while
-	// the sheer rate thrashed the grid - the flicker. One apply loop per
-	// grab drains only the LATEST delta, on integer sizes, skipping no-ops.
-	const moveSplit = async (key: string, delta: number): Promise<void> => {
-		const grab = splitGrabs.get(key);
-		if (!grab) { return; }
-		grab.pending = delta;
-		if (grab.applying) { return; }
-		grab.applying = true;
-		try {
-			while (grab.pending !== null && splitGrabs.get(key) === grab) {
-				const next = grab.pending;
-				grab.pending = null;
-				const total = grab.leafBase + grab.siblingBase;
-				const MIN = 40;
-				const leafSize = Math.round(Math.min(total - MIN, Math.max(MIN, grab.leafBase + next)));
-				if (leafSize === grab.lastApplied) { continue; }
-				grab.leaf.size = leafSize;
-				grab.sibling.size = total - leafSize;
-				try {
-					await vscode.commands.executeCommand('vscode.setEditorLayout', grab.layout);
-					grab.lastApplied = leafSize;
-				} catch {
-					// The layout changed under the drag; the next grab starts fresh.
-					splitGrabs.delete(key);
-					break;
+			/** Copies the real workbook under the scratch when it moved. */
+			const ensureScratch = (): void => {
+				const mtime = Math.floor(fs.statSync(xlsmPath).mtimeMs);
+				if (mtime !== baselineMtime || !fs.existsSync(scratchPath)) {
+					fs.copyFileSync(xlsmPath, scratchPath);
+					baselineMtime = mtime;
+					appliedText = null;
 				}
-			}
-		} finally {
-			grab.applying = false;
-		}
-	};
+			};
 
-	const wirePanel = (panel: vscode.WebviewPanel, xlsmPath: string, moduleName: string): void => {
-		const key = panelKey(xlsmPath, moduleName);
-		panels.set(key, panel);
-		keyParts.set(key, [xlsmPath, moduleName]);
-		lastFocusedDesignerWorkbook = xlsmPath;
-		lastFocusedDesignerModule = moduleName;
-		lastFocusedDesignerKey = key;
-		panel.onDidChangeViewState(
-			(e) => {
+			/**
+			 * Makes the scratch say exactly what the document says: a fresh
+			 * baseline copy plus one whole-document apply. Rebuilding from the
+			 * baseline is what makes text UNDO honest - an attribute line that
+			 * disappears returns to the saved value, not to the edit before.
+			 */
+			const syncScratchToText = async (text: string): Promise<void> => {
+				ensureScratch();
+				if (appliedText === text) { return; }
+				if (appliedText !== null) {
+					fs.copyFileSync(xlsmPath, scratchPath);
+					appliedText = null;
+				}
+				await bridge.call('applyFormMarkup', { path: scratchPath, module: moduleName, markup: text });
+				appliedText = text;
+			};
+
+			const render = async (selected?: string): Promise<void> => {
+				if (disposed) { return; }
+				try {
+					const { html } = await bridge.call<{ html: string }>('readFormPreview', {
+						path: scratchPath,
+						module: moduleName,
+						selected,
+						markup: document.getText(),
+						identityPath: xlsmPath,
+					});
+					panel.webview.html = html;
+				} catch (err) {
+					panel.webview.html = `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:16px">`
+						+ `<p>XLIDE could not render this form.</p><pre>${errorMessage(err)
+							.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre></body></html>`;
+				}
+			};
+
+			/** A text change lands on the canvas, or its error on the strip. */
+			const syncAndRender = async (): Promise<void> => {
+				if (disposed) { return; }
+				try {
+					await syncScratchToText(document.getText());
+				} catch (err) {
+					void panel.webview.postMessage({ type: 'markupError', message: errorMessage(err) });
+					return;
+				}
+				void panel.webview.postMessage({ type: 'markupOk' });
+				await render();
+			};
+
+			/** Replaces the whole document with `text` as one undo step. */
+			const setDocumentText = async (text: string): Promise<void> => {
+				if (document.getText() === text) { return; }
+				suppressEcho = text;
+				const edit = new vscode.WorkspaceEdit();
+				edit.replace(
+					document.uri,
+					new vscode.Range(new vscode.Position(0, 0), document.positionAt(document.getText().length)),
+					text,
+				);
+				const applied = await vscode.workspace.applyEdit(edit);
+				if (!applied) { suppressEcho = null; }
+			};
+
+			const applyGesture = async (message: GestureMessage): Promise<void> => {
+				const op = message.type === 'geometry'
+					? { kind: 'geometry' as const, name: message.name, left: message.left, top: message.top, width: message.width, height: message.height }
+					: message.type === 'add'
+						? { kind: 'add' as const, container: message.container, controlKind: message.controlKind, left: message.left, top: message.top }
+						: message.type === 'reparent'
+							? { kind: 'reparent' as const, name: message.name, container: message.container, left: message.left, top: message.top }
+							: message.type === 'setProp'
+								? { kind: 'setProp' as const, name: message.name, prop: message.prop, value: message.value }
+								: message.type === 'formResize'
+									? { kind: 'formSize' as const, width: message.width, height: message.height }
+									: { kind: 'remove' as const, name: message.name };
+				try {
+					await syncScratchToText(document.getText());
+					const result = await bridge.call<{ ok: boolean; newName?: string }>(
+						'formDesignerOp',
+						{ path: scratchPath, module: moduleName, op },
+					);
+					const { markup } = await bridge.call<{ markup: string }>(
+						'readFormMarkup',
+						{ path: scratchPath, module: moduleName },
+					);
+					appliedText = markup;
+					await setDocumentText(markup);
+					const keepSelected = message.type === 'remove'
+						? undefined
+						: message.type === 'formResize'
+							? ''
+							: message.type === 'setProp'
+								? (result.newName ?? message.name)
+								: message.type === 'add' ? result.newName : message.name;
+					await render(keepSelected);
+				} catch (err) {
+					void vscode.window.showErrorMessage(`XLIDE: ${errorMessage(err)}`);
+					await render();
+				}
+			};
+
+			// Text changes from ANY face - the markup pane, undo/redo, a
+			// reopened text editor - re-apply to the scratch after a breath.
+			// A gesture's own echo is already applied and already rendered.
+			let changeTimer: ReturnType<typeof setTimeout> | undefined;
+			const changeListener = vscode.workspace.onDidChangeTextDocument((e) => {
+				if (e.document !== document || e.contentChanges.length === 0) { return; }
+				if (suppressEcho !== null && document.getText() === suppressEcho) {
+					suppressEcho = null;
+					return;
+				}
+				suppressEcho = null;
+				if (changeTimer) { clearTimeout(changeTimer); }
+				changeTimer = setTimeout(() => enqueue(syncAndRender), 250);
+			});
+
+			// A save writes the real workbook through the .form provider; the
+			// scratch already says the same, so only the baseline stamp moves.
+			const saveListener = vscode.workspace.onDidSaveTextDocument((doc) => {
+				if (doc !== document) { return; }
+				try {
+					baselineMtime = Math.floor(fs.statSync(xlsmPath).mtimeMs);
+				} catch { /* the next gesture recopies */ }
+			});
+
+			const viewStateListener = panel.onDidChangeViewState((e) => {
 				if (e.webviewPanel.active) {
 					lastFocusedDesignerWorkbook = xlsmPath;
 					lastFocusedDesignerModule = moduleName;
-					lastFocusedDesignerKey = key;
 				}
-			},
-			undefined,
-			context.subscriptions,
-		);
-		panel.onDidDispose(() => panels.delete(key), undefined, context.subscriptions);
-		panel.webview.onDidReceiveMessage(
-			(message: DesignerMessage) => {
-				if (message.type === 'openHandler') {
-					void openEventHandler(xlsmPath, moduleName, message.name, message.event);
-				} else if (message.type === 'splitDrag') {
-					void (async () => {
-						if (message.phase === 'start') {
-							const grab = await grabSplit(panel);
-							if (grab) { splitGrabs.set(key, grab); }
-							// A hand on the sash means the collapse is over.
-							const toggle = splitToggles.get(key);
-							if (toggle && toggle.collapsed !== null) {
-								toggle.collapsed = null;
-								void panel.webview.postMessage({ type: 'splitState', collapsed: null });
-							}
-						} else if (message.phase === 'move') {
-							await moveSplit(key, message.delta);
-						} else {
-							splitGrabs.delete(key);
-						}
-					})();
-				} else if (message.type === 'splitCollapse') {
-					// The arrows TOGGLE: the first press saves the split and
-					// pushes it to the clamp; pressing the flipped arrow puts
-					// the saved split back - the vbide behavior.
-					void (async () => {
-						const state = splitToggles.get(key) ?? { collapsed: null };
-						const grab = await grabSplit(panel);
-						if (!grab) { return; }
-						splitGrabs.set(key, grab);
-						const total = grab.leafBase + grab.siblingBase;
-						if (state.collapsed === message.which && state.saved) {
-							await moveSplit(key, state.saved.leaf - grab.leafBase);
-							state.collapsed = null;
-						} else {
-							if (state.collapsed === null) {
-								state.saved = { leaf: grab.leafBase, sibling: grab.siblingBase };
-							}
-							await moveSplit(key, message.which === 'self' ? -total : total);
-							state.collapsed = message.which;
-						}
-						splitToggles.set(key, state);
-						splitGrabs.delete(key);
-						void panel.webview.postMessage({ type: 'splitState', collapsed: state.collapsed });
-					})();
-				} else if (message.type === 'launchHost') {
-					void vscode.commands.executeCommand('xlide.launchFormHost');
-				} else if (message.type === 'splitStateQuery') {
-					void panel.webview.postMessage({
-						type: 'splitState',
-						collapsed: splitToggles.get(key)?.collapsed ?? null,
-					});
-				} else {
-					void applyGesture(panel, xlsmPath, moduleName, message);
-				}
-			},
-			undefined,
-			context.subscriptions,
-		);
-	};
+			});
 
-	// A window reload restores text editors natively; the designer needs
-	// this serializer to come back beside them. Its identity rides in the
-	// webview state the canvas stamps on every load.
-	if (typeof vscode.window.registerWebviewPanelSerializer === 'function') {
-		context.subscriptions.push(vscode.window.registerWebviewPanelSerializer('xlideFormPreview', {
-			deserializeWebviewPanel: async (
-				panel: vscode.WebviewPanel,
-				state?: { wb?: string; mod?: string },
-			): Promise<void> => {
-				if (!state?.wb || !state?.mod) {
-					panel.dispose();
-					return;
+			const messageListener = panel.webview.onDidReceiveMessage((message: DesignerMessage) => {
+				switch (message.type) {
+					case 'openHandler':
+						void openEventHandler(xlsmPath, moduleName, message.name, message.event);
+						break;
+					case 'launchHost':
+						void vscode.commands.executeCommand('xlide.launchFormHost');
+						break;
+					case 'markupEdit':
+						enqueue(() => setDocumentText(message.text).then(() => {
+							// The change listener sees this as a real edit (no
+							// echo suppression), applies it, and re-renders.
+						}));
+						break;
+					case 'docUndo':
+						enqueue(async () => { await vscode.commands.executeCommand('undo'); });
+						break;
+					case 'docRedo':
+						enqueue(async () => { await vscode.commands.executeCommand('redo'); });
+						break;
+					case 'docSave':
+						enqueue(async () => { await vscode.workspace.save(document.uri); });
+						break;
+					default:
+						enqueue(() => applyGesture(message));
+						break;
 				}
-				wirePanel(panel, state.wb, state.mod);
-				await render(panel, state.wb, state.mod);
-			},
-		}));
+			});
+
+			panel.onDidDispose(() => {
+				disposed = true;
+				if (changeTimer) { clearTimeout(changeTimer); }
+				changeListener.dispose();
+				saveListener.dispose();
+				viewStateListener.dispose();
+				messageListener.dispose();
+				try { fs.unlinkSync(scratchPath); } catch { /* already gone */ }
+			});
+
+			// First light: the document may already be dirty (a restored
+			// backup), so the scratch takes the document's word from the start.
+			enqueue(syncAndRender);
+		}
 	}
 
 	context.subscriptions.push(
+		vscode.window.registerCustomEditorProvider(
+			FORM_DESIGNER_VIEW_TYPE,
+			new FormDesignerProvider(),
+			{
+				webviewOptions: { retainContextWhenHidden: true },
+				supportsMultipleEditorsPerDocument: false,
+			},
+		),
+
 		vscode.commands.registerCommand('xlide.previewForm', async (node?: { kind?: string; filePath?: string; moduleName?: string; moduleType?: string }) => {
 			let xlsmPath = node?.filePath;
 			let moduleName = node?.moduleName;
@@ -432,48 +350,17 @@ export function registerFormPreview(
 				);
 				return;
 			}
-			// The vbide's designer shows the document under the form; here the
-			// markup opens in an editor group below the canvas, unless some
-			// group already shows it.
-			const showMarkupBelow = async (panel: vscode.WebviewPanel): Promise<void> => {
-				try {
-					const markupUri = encodeFormMarkupUri(xlsmPath!, moduleName!);
-					const shown = vscode.window.visibleTextEditors
-						.some((e) => e.document.uri.toString() === markupUri.toString());
-					if (shown) { return; }
-					panel.reveal(undefined, false);
-					await vscode.commands.executeCommand('workbench.action.newGroupBelow');
-					await vscode.window.showTextDocument(markupUri, { preserveFocus: false });
-				} catch {
-					// The split is a nicety; the designer stands alone.
-				}
-			};
-			const key = panelKey(xlsmPath, moduleName);
-			const existing = panels.get(key);
-			if (existing) {
-				existing.reveal(vscode.ViewColumn.Beside, true);
-				await render(existing, xlsmPath, moduleName);
-				await showMarkupBelow(existing);
-				return;
-			}
-			const panel = vscode.window.createWebviewPanel(
-				'xlideFormPreview',
-				`${moduleName} (${path.basename(xlsmPath)})`,
-				{ viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
-				{ enableScripts: true, retainContextWhenHidden: true },
+			await vscode.commands.executeCommand(
+				'vscode.openWith',
+				encodeFormMarkupUri(xlsmPath, moduleName),
+				FORM_DESIGNER_VIEW_TYPE,
 			);
-			wirePanel(panel, xlsmPath, moduleName);
-			await render(panel, xlsmPath, moduleName);
-			await showMarkupBelow(panel);
 		}),
 
-		vscode.commands.registerCommand('xlide.designerUndo', () => stepHistory('undo')),
-		vscode.commands.registerCommand('xlide.designerRedo', () => stepHistory('redo')),
-
-		// F5 from the designer or the markup launches the workbook's host
-		// application - the closest thing to the VBE's Run while the engine
-		// stays COMless. The active markup editor names the workbook; a
-		// focused designer panel remembered its own.
+		// F5 from the designer or a markup text editor launches the
+		// workbook's host application - the closest thing to the VBE's Run
+		// while the engine stays COMless. The active markup editor names the
+		// workbook; a focused designer remembered its own.
 		vscode.commands.registerCommand('xlide.launchFormHost', async () => {
 			const active = vscode.window.activeTextEditor;
 			let filePath: string | undefined;
@@ -549,20 +436,6 @@ export function registerFormPreview(
 				excel ? 'xlide.openWorkbook' : 'xlide.openInOfficeApp',
 				{ kind: 'xlsm', label: path.basename(filePath), filePath },
 			);
-		}),
-
-		// A saved markup document refreshes its form's open canvas, so the two
-		// faces track each other in both directions.
-		vscode.workspace.onDidSaveTextDocument((doc) => {
-			if (doc.uri.scheme !== XLIDE_SCHEME) { return; }
-			try {
-				const { xlsmPath, moduleName, face } = decodeModuleUri(doc.uri);
-				if (face !== 'form') { return; }
-				const panel = panels.get(panelKey(xlsmPath, moduleName));
-				if (panel) { void render(panel, xlsmPath, moduleName); }
-			} catch {
-				// Not a module URI this preview knows; nothing to refresh.
-			}
 		}),
 	);
 }

@@ -541,7 +541,7 @@ export function readFormMarkup(filePath: string, moduleName: string): { markup: 
 	const pkg = parseFormPackage(cfb, [module.name], oformsCodec(project.codePage));
 	const frame = decodeCodePage(cfb.getStreamInStorage(module.name, VBFRAME_STREAM), project.codePage);
 	const captionFallback = /^\s*Caption\s*=\s*"([^"]*)"/m.exec(frame)?.[1];
-	return { markup: printOformsMarkup(pkg, module.name, { captionFallback }) };
+	return { markup: printOformsMarkup(pkg, module.name, { captionFallback, vbFrame: vbFramePropsOf(frame) }) };
 }
 
 /** The form rendered as a self-contained HTML preview document. */
@@ -573,6 +573,8 @@ export function readFormPreview(
 	filePath: string,
 	moduleName: string,
 	selected?: string,
+	markup?: string,
+	identityPath?: string,
 ): { html: string } {
 	const { cfb, project } = openWorkbook(filePath);
 	const module = project.getModule(moduleName);
@@ -592,7 +594,12 @@ export function readFormPreview(
 			caption,
 			selected,
 			properties,
-			identity: { workbook: filePath, module: module.name },
+			// The designer may render from a scratch copy; its identity - what
+			// F5 launches, what the state names - is the real workbook.
+			identity: { workbook: identityPath ?? filePath, module: module.name },
+			// The pane shows the document's own spelling; when no document
+			// exists yet, the engine's canonical print stands in.
+			markup: markup ?? readFormMarkup(filePath, moduleName).markup,
 		}),
 	};
 }
@@ -600,7 +607,10 @@ export function readFormPreview(
 /**
  * Applies an edited markup document back to the form's designer storage.
  * The document parses whole first - a parse error applies nothing - and the
- * apply is a name-keyed diff, so an unspoken property is never touched.
+ * apply is a name-keyed diff. Within the dialect's vocabulary the document
+ * is TOTAL: an attribute quiet at its default means the default, so an edit
+ * that returned a property to its default survives the save. Anything the
+ * dialect cannot spell (pictures, foreign payloads) is never touched.
  */
 export function applyFormMarkup(
 	filePath: string,
@@ -621,25 +631,65 @@ export function applyFormMarkup(
 	const pkg = parseFormPackage(wb.cfb, [module.name], codec);
 	const outcome = applyOformsMarkup(pkg, root);
 
-	// The form's own caption is persisted in the VBFrame text, so the
-	// document's <Form Caption> diffs against that rather than the f record.
+	// The form's own caption and the VBFrame trio are persisted in the
+	// VBFrame text, so the document's <Form> attrs diff against that rather
+	// than the f record. Absent trio attrs mean the DEFAULTS - the document
+	// carries the whole form state, which is what makes text undo honest.
 	const frame = decodeCodePage(wb.cfb.getStreamInStorage(module.name, VBFRAME_STREAM), wb.project.codePage);
 	const currentCaption = /^\s*Caption\s*=\s*"([^"]*)"/m.exec(frame)?.[1];
 	const documentCaption = root.attrs.get('Caption');
-	let vbFrameUpdated: string | undefined;
+	let vbFrameUpdated = frame;
+	let vbFrameChanged = false;
 	if (documentCaption !== undefined && currentCaption !== undefined && documentCaption !== currentCaption) {
-		vbFrameUpdated = frame.replace(
+		vbFrameUpdated = vbFrameUpdated.replace(
 			/^(\s*Caption\s*=\s*)"[^"]*"/m,
 			`$1"${documentCaption.replace(/"/g, '')}"`,
 		);
+		vbFrameChanged = true;
 		outcome.applied.push('Caption of the form');
+	}
+	const frameProps = vbFramePropsOf(frame);
+	const sup = root.attrs.get('StartUpPosition') ?? '1';
+	if (!/^[0-3]$/.test(sup)) {
+		throw new Error(`StartUpPosition="${sup}" is not 0-3`);
+	}
+	if (sup !== (frameProps.startUpPosition ?? '1')) {
+		vbFrameUpdated = setVbFrameLine(vbFrameUpdated, 'StartUpPosition', sup);
+		vbFrameChanged = true;
+		outcome.applied.push('StartUpPosition of the form');
+	}
+	for (const [attr, fallback] of [['ShowModal', 'True'], ['WhatsThisButton', 'False']] as const) {
+		const text = root.attrs.get(attr) ?? fallback;
+		if (!/^(true|false)$/i.test(text)) {
+			throw new Error(`${attr}="${text}" is not True or False`);
+		}
+		const want = /^true$/i.test(text) ? 'True' : 'False';
+		const current = attr === 'ShowModal' ? frameProps.showModal : frameProps.whatsThisButton;
+		if (want !== (current ?? fallback)) {
+			vbFrameUpdated = setVbFrameLine(vbFrameUpdated, attr, want === 'True' ? "-1  'True" : "0   'False");
+			vbFrameChanged = true;
+			outcome.applied.push(`${attr} of the form`);
+		}
+	}
+	// A real form resize keeps the VBFrame's twips echo in step, as the
+	// designer's own resize gesture always has.
+	if (outcome.applied.includes('Form size')) {
+		const width = Number(root.attrs.get('Width'));
+		const height = Number(root.attrs.get('Height'));
+		if (Number.isFinite(width)) {
+			vbFrameUpdated = vbFrameUpdated.replace(/^(\s*ClientWidth\s*=\s*)\d+/m, `$1${Math.round(width * 20)}`);
+		}
+		if (Number.isFinite(height)) {
+			vbFrameUpdated = vbFrameUpdated.replace(/^(\s*ClientHeight\s*=\s*)\d+/m, `$1${Math.round(height * 20)}`);
+		}
+		vbFrameChanged = vbFrameChanged || vbFrameUpdated !== frame;
 	}
 
 	if (outcome.applied.length === 0) {
 		return { ok: true, signatureDropped: false, applied: [] };
 	}
 	writeFormPackage(wb.cfb, [module.name], pkg, codec);
-	if (vbFrameUpdated !== undefined) {
+	if (vbFrameChanged) {
 		wb.cfb.writeStreamInStorage(module.name, VBFRAME_STREAM, encodeCodePage(vbFrameUpdated, wb.project.codePage));
 	}
 	saveWorkbook(filePath, wb);
