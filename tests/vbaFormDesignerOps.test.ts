@@ -281,6 +281,38 @@ describe('property writes', () => {
 		expect(markup).toMatch(/<Page Name="Page1" Caption="First Things"/);
 	});
 
+	it('writes the form record extras, the StdFont, and the VBFrame trio', () => {
+		const wb = workbook();
+		set(wb, '', 'Zoom', '150');
+		set(wb, '', 'ScrollBars', '3');
+		set(wb, '', 'Cycle', '2');
+		set(wb, '', 'Font.Name', 'Segoe UI');
+		set(wb, '', 'Font.Size', '10');
+		set(wb, '', 'Font.Bold', 'True');
+		set(wb, '', 'StartUpPosition', '2');
+		set(wb, '', 'ShowModal', 'False');
+		set(wb, '', 'WhatsThisButton', 'True');
+		resetWorkbookCacheForTests();
+		const { html } = readFormPreview(wb, 'EntryForm');
+		for (const pin of [
+			'"prop":"Zoom","value":"150"',
+			'"prop":"ScrollBars","value":"3"',
+			'"prop":"Cycle","value":"2"',
+			'"prop":"Font.Name","value":"Segoe UI"',
+			'"prop":"Font.Size","value":"10"',
+			'"prop":"Font.Bold","value":"True"',
+			'"prop":"StartUpPosition","value":"2"',
+			'"prop":"ShowModal","value":"False"',
+			'"prop":"WhatsThisButton","value":"True"',
+		]) {
+			expect(html).toContain(pin);
+		}
+		const { frm } = readFormExport(wb, 'EntryForm');
+		expect(frm).toMatch(/StartUpPosition\s*=\s*2/);
+		expect(frm).toMatch(/ShowModal\s*=\s*0/);
+		expect(frm).toMatch(/WhatsThisButton\s*=\s*-1/);
+	});
+
 	it('writes the form itself: caption via the VBFrame, size with its twips echo', () => {
 		const wb = workbook();
 		set(wb, '', 'Caption', 'Entry Station');

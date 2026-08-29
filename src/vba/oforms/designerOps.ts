@@ -7,7 +7,7 @@
 // Excel verified: per-kind recipes, tree-global IDs, the cookie rules.
 
 import { pointsToHimetric, formatPointsShortest as pts } from './bytes';
-import { siteName, siteId, siteIsContainer, siteCacheIndex, type SiteModel } from './formStream';
+import { composeStdFont, parseStdFont, siteName, siteId, siteIsContainer, siteCacheIndex, type SiteModel } from './formStream';
 import { controlKindOfSite, walkPackages, type FormPackage } from './formPackage';
 import {
 	addControlForDesigner,
@@ -419,13 +419,45 @@ function containerRows(
 	return rows;
 }
 
-function formRows(root: FormPackage, formName: string, captionFallback?: string): PropertyRow[] {
+/** VBFrame-held form properties the service reads out of the frame text. */
+export interface VbFrameProps {
+	showModal?: string;
+	startUpPosition?: string;
+	whatsThisButton?: string;
+}
+
+const FORM_NUMERIC_PROPS = ['BorderStyle', 'ScrollBars', 'Cycle', 'Zoom'] as const;
+
+function formRows(
+	root: FormPackage,
+	formName: string,
+	captionFallback?: string,
+	vbFrame?: VbFrameProps,
+): PropertyRow[] {
 	const record = root.form.record;
 	const rows: PropertyRow[] = [{ prop: 'Name', value: formName }];
 	rows.push({ prop: 'Caption', value: record.strings.get('Caption')?.text ?? captionFallback ?? '' });
 	const size = record.sizes.get('DisplayedSize');
 	rows.push({ prop: 'Width', value: size ? pts(size.width) : '' }, { prop: 'Height', value: size ? pts(size.height) : '' });
 	rows.push(...innerRecordRows(record));
+	for (const field of FORM_NUMERIC_PROPS) {
+		if (!record.spec.data.some((f) => f.name === field)) { continue; }
+		const v = record.values.get(field);
+		rows.push({ prop: field, value: v !== undefined && recordHas(record, field) ? String(v) : '' });
+	}
+	// The form's font is a StdFont blob, not TextProps; underline and
+	// strikethrough do not survive its composer, so the pane offers what a
+	// write can honor.
+	const font = root.form.fontRaw ? parseStdFont(root.form.fontRaw) : undefined;
+	rows.push({ prop: 'Font.Name', value: font?.face ?? '' });
+	rows.push({ prop: 'Font.Size', value: font ? String(Math.round(font.heightTenThousandthsPt / 100) / 100) : '' });
+	rows.push({ prop: 'Font.Bold', value: font && ((font.flags & 0x1) !== 0 || font.weight >= 600) ? 'True' : 'False' });
+	rows.push({ prop: 'Font.Italic', value: font && (font.flags & 0x2) !== 0 ? 'True' : 'False' });
+	if (vbFrame) {
+		rows.push({ prop: 'StartUpPosition', value: vbFrame.startUpPosition ?? '1' });
+		rows.push({ prop: 'ShowModal', value: vbFrame.showModal ?? 'True' });
+		rows.push({ prop: 'WhatsThisButton', value: vbFrame.whatsThisButton ?? 'False' });
+	}
 	return rows;
 }
 
@@ -445,9 +477,10 @@ export function listFormProperties(
 	root: FormPackage,
 	formName: string,
 	captionFallback?: string,
+	vbFrame?: VbFrameProps,
 ): Record<string, { kind: string; rows: PropertyRow[] }> {
 	const out: Record<string, { kind: string; rows: PropertyRow[] }> = {
-		'': { kind: 'Form', rows: formRows(root, formName, captionFallback) },
+		'': { kind: 'Form', rows: formRows(root, formName, captionFallback, vbFrame) },
 	};
 	walkPackages(root, (pkg) => {
 		const captions = tabCaptionsOf(pkg);
@@ -511,9 +544,36 @@ export function setControlProperty(
 			setColorValue(record, prop, value, applied, 'the form');
 			return { applied };
 		}
-		if (prop === 'SpecialEffect' && record.spec.data.some((f) => f.name === prop)) {
+		if ((prop === 'SpecialEffect' || (FORM_NUMERIC_PROPS as readonly string[]).includes(prop))
+			&& record.spec.data.some((f) => f.name === prop)) {
 			setNumericValue(record, prop, value, applied, 'the form');
 			return { applied };
+		}
+		if (prop.startsWith('Font.')) {
+			const current = root.form.fontRaw ? parseStdFont(root.form.fontRaw) : undefined;
+			const face = prop === 'Font.Name' ? value : current?.face ?? 'Tahoma';
+			let heightTT = current?.heightTenThousandthsPt ?? 82500;
+			if (prop === 'Font.Size') {
+				const pt = Number(value);
+				if (!Number.isFinite(pt) || pt <= 0) {
+					throw new FormMarkupError(0, `Font.Size="${value}" is not a size`);
+				}
+				heightTT = Math.round(pt * 10000);
+			}
+			const wasBold = !!current && ((current.flags & 0x1) !== 0 || current.weight >= 600);
+			const wasItalic = !!current && (current.flags & 0x2) !== 0;
+			const bold = prop === 'Font.Bold' ? /^true$/i.test(value) : wasBold;
+			const italic = prop === 'Font.Italic' ? /^true$/i.test(value) : wasItalic;
+			if (prop === 'Font.Bold' || prop === 'Font.Italic') {
+				if (!/^(true|false)$/i.test(value)) {
+					throw new FormMarkupError(0, `${prop}="${value}" is not True or False`);
+				}
+			}
+			root.form.fontRaw = composeStdFont(face, heightTT, {
+				bold, italic, charset: current?.charset ?? 0,
+			});
+			root.form.record.maskLo = (root.form.record.maskLo | (1 << 20)) >>> 0;
+			return { applied: [`${prop} of the form`] };
 		}
 		throw new FormMarkupError(0, `the form has no ${prop} this pane can write`);
 	}

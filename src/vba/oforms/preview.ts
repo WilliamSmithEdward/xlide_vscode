@@ -680,7 +680,7 @@ ${interactive ? `	<script>
 		applyPropsChrome();
 		const BOOL_PROPS = new Set(['Enabled', 'Locked', 'MultiLine', 'WordWrap', 'AutoSize',
 			'Visible', 'TabStop', 'Default', 'Cancel', 'Font.Bold', 'Font.Italic',
-			'Font.Underline', 'Font.Strikethrough']);
+			'Font.Underline', 'Font.Strikethrough', 'ShowModal', 'WhatsThisButton']);
 		const ENUM_OPTIONS = {
 			SpecialEffect: [['0', 'Flat'], ['1', 'Raised'], ['2', 'Sunken'], ['3', 'Etched'], ['6', 'Bump']],
 			BorderStyle: [['0', 'None'], ['1', 'Single']],
@@ -692,6 +692,8 @@ ${interactive ? `	<script>
 			Orientation: [['-1', 'Auto'], ['0', 'Vertical'], ['1', 'Horizontal']],
 			ScrollBars: [['0', 'None'], ['1', 'Horizontal'], ['2', 'Vertical'], ['3', 'Both']],
 			TextAlign: [['Left', 'Left'], ['Center', 'Center'], ['Right', 'Right']],
+			Cycle: [['0', 'AllForms'], ['2', 'CurrentForm']],
+			StartUpPosition: [['0', 'Manual'], ['1', 'CenterOwner'], ['2', 'CenterScreen'], ['3', 'WindowsDefault']],
 		};
 		const COLOR_PROPS = new Set(['BackColor', 'ForeColor', 'BorderColor']);
 		const SYSTEM_COLORS = ${JSON.stringify(WINDOWS_PALETTE)};

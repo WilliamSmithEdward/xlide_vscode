@@ -545,6 +545,30 @@ export function readFormMarkup(filePath: string, moduleName: string): { markup: 
 }
 
 /** The form rendered as a self-contained HTML preview document. */
+/** The form properties the VBFrame text carries, for the Properties pane. */
+function vbFramePropsOf(frame: string): { showModal?: string; startUpPosition?: string; whatsThisButton?: string } {
+	const numberOf = (key: string): string | undefined =>
+		new RegExp(`^\\s*${key}\\s*=\\s*(-?\\d+)`, 'm').exec(frame)?.[1];
+	const modal = numberOf('ShowModal');
+	const whats = numberOf('WhatsThisButton');
+	return {
+		startUpPosition: numberOf('StartUpPosition') ?? '1',
+		// Absent means the DEFAULT: modal True, the help button False.
+		showModal: modal === undefined ? 'True' : (modal === '0' ? 'False' : 'True'),
+		whatsThisButton: whats === undefined ? 'False' : (whats === '0' ? 'False' : 'True'),
+	};
+}
+
+/** Sets one numeric VBFrame line, replacing it or inserting it before End. */
+function setVbFrameLine(frame: string, key: string, value: string): string {
+	const line = new RegExp(`^(\\s*${key}\\s*=\\s*).*$`, 'm');
+	if (line.test(frame)) {
+		return frame.replace(line, `$1${value}`);
+	}
+	const eol = frame.includes('\r\n') ? '\r\n' : '\n';
+	return frame.replace(/^End\b/m, `   ${key}       =   ${value}${eol}End`);
+}
+
 export function readFormPreview(
 	filePath: string,
 	moduleName: string,
@@ -561,7 +585,7 @@ export function readFormPreview(
 	const pkg = parseFormPackage(cfb, [module.name], oformsCodec(project.codePage));
 	const frame = decodeCodePage(cfb.getStreamInStorage(module.name, VBFRAME_STREAM), project.codePage);
 	const caption = /^\s*Caption\s*=\s*"([^"]*)"/m.exec(frame)?.[1];
-	const properties = designerListFormProperties(pkg, module.name, caption);
+	const properties = designerListFormProperties(pkg, module.name, caption, vbFramePropsOf(frame));
 	return {
 		html: renderFormPreviewHtml(pkg, {
 			formName: module.name,
@@ -670,6 +694,27 @@ export function applyFormDesignerOp(
 				/^(\s*Caption\s*=\s*)"[^"]*"/m,
 				`$1"${op.value.replace(/"/g, '')}"`,
 			);
+			if (updated === frame) {
+				return { ok: true, signatureDropped: false };
+			}
+			wb.cfb.writeStreamInStorage(module.name, VBFRAME_STREAM, encodeCodePage(updated, wb.project.codePage));
+		} else if (op.name === '' && ['ShowModal', 'WhatsThisButton', 'StartUpPosition'].includes(op.prop)) {
+			// These live in the VBFrame text, like the caption. VB spells the
+			// booleans 0 and -1.
+			let text: string;
+			if (op.prop === 'StartUpPosition') {
+				if (!/^[0-3]$/.test(op.value)) {
+					throw new Error(`StartUpPosition="${op.value}" is not 0, 1, 2, or 3`);
+				}
+				text = op.value;
+			} else {
+				if (!/^(true|false)$/i.test(op.value)) {
+					throw new Error(`${op.prop}="${op.value}" is not True or False`);
+				}
+				text = /^true$/i.test(op.value) ? "-1  'True" : "0   'False";
+			}
+			const frame = decodeCodePage(wb.cfb.getStreamInStorage(module.name, VBFRAME_STREAM), wb.project.codePage);
+			const updated = setVbFrameLine(frame, op.prop, text);
 			if (updated === frame) {
 				return { ok: true, signatureDropped: false };
 			}
