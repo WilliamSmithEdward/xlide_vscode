@@ -450,7 +450,7 @@ ${renderSurface(pkg, 'c', options.selected)}
 	</div>
 ${interactive ? `	<aside class="props" id="props"><div class="props-sash" id="propsSash"></div><div id="propsBody"></div></aside>` : ''}
 	</div>
-${interactive ? `	<div class="split-grip" id="splitGrip"><button class="grip-btn" id="gripUp" title="Collapse the designer: the markup below takes the space">&#9650;</button><div class="grip-dots" id="gripDots" title="Drag to resize the split; double-click to collapse or restore the markup below"><span></span><span></span><span></span><span></span><span></span></div><button class="grip-btn" id="gripDown" title="Collapse the markup below: the designer takes the space">&#9660;</button></div>` : ''}
+${interactive ? `	<div class="split-grip" id="splitGrip"><button class="grip-btn" id="gripUp" title="Push the split up: the markup below takes the designer's space">&#9650;</button><div class="grip-dots" id="gripDots" title="Drag to resize the split between the designer and the markup below"><span></span><span></span><span></span><span></span><span></span></div><button class="grip-btn" id="gripDown" title="Push the split down: the designer takes the markup's space">&#9660;</button></div>` : ''}
 	<script>
 		// Caption pictures, the way MSForms actually draws them (measured in
 		// xlide vbide off the running form, 2026-08-17): the top-left pixel
@@ -539,7 +539,6 @@ ${interactive ? `	<script>
 		document.getElementById('gripUp')?.addEventListener('click', () => post({ type: 'splitCommand', action: 'collapseSelf' }));
 		document.getElementById('gripDown')?.addEventListener('click', () => post({ type: 'splitCommand', action: 'collapseBelow' }));
 		const gripDots = document.getElementById('gripDots');
-		gripDots?.addEventListener('dblclick', () => post({ type: 'splitCommand', action: 'collapseBelow' }));
 		let gripDrag = null;
 		gripDots?.addEventListener('pointerdown', (e) => { gripDrag = { y: e.clientY, sent: 0 }; e.preventDefault(); });
 		document.addEventListener('pointermove', (e) => {

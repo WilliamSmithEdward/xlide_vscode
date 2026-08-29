@@ -235,18 +235,21 @@ export function registerFormPreview(
 				if (message.type === 'openHandler') {
 					void openEventHandler(xlsmPath, moduleName, message.name, message.event);
 				} else if (message.type === 'splitCommand') {
-					// The grip strip: both collapses ride the workbench's own
-					// maximize toggle, and the dots' drag steps the group size.
-					if (message.action === 'collapseSelf') {
-						void vscode.commands.executeCommand('workbench.action.focusBelowGroup')
-							.then(() => vscode.commands.executeCommand('workbench.action.toggleMaximizeEditorGroup'));
-					} else if (message.action === 'collapseBelow') {
-						void vscode.commands.executeCommand('workbench.action.toggleMaximizeEditorGroup');
-					} else {
-						void vscode.commands.executeCommand(message.action === 'grow'
-							? 'workbench.action.increaseViewSize'
-							: 'workbench.action.decreaseViewSize');
-					}
+					// The grip strip. Size steps trade space with the group's
+					// OWN neighbor, so everything here stays inside the
+					// designer+markup column - the workbench's maximize toggle
+					// swallowed the whole window (measured), so the collapses
+					// are bursts of steps instead: enough to hit the clamp,
+					// where further steps are no-ops.
+					const step = message.action === 'collapseSelf' || message.action === 'shrink'
+						? 'workbench.action.decreaseViewSize'
+						: 'workbench.action.increaseViewSize';
+					const count = message.action === 'grow' || message.action === 'shrink' ? 1 : 12;
+					void (async () => {
+						for (let i = 0; i < count; i += 1) {
+							await vscode.commands.executeCommand(step);
+						}
+					})();
 				} else {
 					void applyGesture(panel, xlsmPath, moduleName, message);
 				}
