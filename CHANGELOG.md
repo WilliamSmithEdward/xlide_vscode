@@ -4,6 +4,35 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **The Properties pane speaks each property's language** - the xlide vbide
+  shapes: True/False dropdowns for the booleans, named dropdowns for the
+  enums (SpecialEffect, BorderStyle, MultiSelect, ListStyle, Style,
+  PictureSizeMode, PictureAlignment, Orientation, ScrollBars, TextAlign), a
+  color popover with vbide's palette ramp plus the SYSTEM color names (the
+  OS dialog only speaks #rrggbb, and half of a form's colors are names), a
+  font-face list that stays free-text, and a numeric size field.
+
+- **The split grip earned its keep the hard way.** Its drag is layout-tree
+  pixel math now (vscode.get/setEditorLayout on this group and its column
+  sibling): continuous, direction-true, and unable to move anything outside
+  the designer+markup column. Applies coalesce to the latest delta - the
+  earlier command-based mechanisms maximized across the whole window,
+  stepped coarsely, could grab the wrong group (the direction inversion),
+  flickered, and stuttered. Pointer capture keeps a drag alive across the
+  iframe edge, and pointer loss (Alt+Tab) always ends it. The collapse
+  arrows push the same math to its clamp.
+
+- **The canvas renders like the native form, in a webview.** VS Code
+  injects default styles into every webview; un-colored canvas text was
+  inheriting the workbench foreground (gray in a dark theme), and injected
+  img rules fought the caption-picture layout - both armored now. A control
+  whose BackStyle is opaque wears the default ButtonFace when it stores no
+  BackColor, which is what MSForms paints and what keeps the grid dots OUT
+  of controls; a Frame's own BackColor finally lands on its surface.
+  Buttons carry a soft raised face, edits a sunken whisper, frames the
+  etched line. The Properties pane floats on the designer's gray as a
+  carded panel with a resize sash and a collapse button.
+
 - **The designer sits under its form in the tree.** Expanding a userform
   module shows a Designer row first - above the procedures, the xlide vbide
   arrangement - and clicking it opens the canvas. The markup projection also

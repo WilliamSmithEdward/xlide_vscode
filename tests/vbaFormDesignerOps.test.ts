@@ -375,6 +375,14 @@ describe('the interactive canvas contract', () => {
 		expect(html).toContain('"prop":"Caption"');
 	});
 
+	it('gives rows their typed editors', () => {
+		const { html } = readFormPreview(workbook(), 'EntryForm');
+		expect(html).toContain('BOOL_PROPS');
+		expect(html).toContain('ENUM_OPTIONS');
+		expect(html).toContain('paletteSwatches');
+		expect(html).toContain('fontFaces');
+	});
+
 	it('paints stored pictures instead of placeholders', () => {
 		const { html } = readFormPreview(workbook(), 'EntryForm');
 		// The fixture carries two real BMPs: the Badge image and a picture ON

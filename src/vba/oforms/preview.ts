@@ -344,6 +344,25 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 		border: 1px solid transparent; padding: 2px 4px; font: inherit; }
 	.props input:focus { border-color: #0e639c; outline: none; }
 	.props input:disabled { color: #888; }
+	.props select { width: 100%; box-sizing: border-box; background: #3c3c3c; color: #ddd;
+		border: 1px solid transparent; padding: 2px 2px; font: inherit; }
+	.props select:focus { border-color: #0e639c; outline: none; }
+	.props .colorcell { display: flex; gap: 4px; align-items: center; }
+	.props .swatch { width: 16px; height: 16px; flex: none; border: 1px solid #555;
+		cursor: pointer; background: transparent; padding: 0; }
+	.colorpop { position: fixed; z-index: 30; background: #2d2d2d; border: 1px solid #555;
+		border-radius: 4px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); padding: 8px; width: 208px; }
+	.colorpop .grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 3px; }
+	.colorpop .grid button { width: 20px; height: 16px; border: 1px solid #555; cursor: pointer;
+		padding: 0; }
+	.colorpop .grid button:hover { outline: 2px solid #0e639c; }
+	.colorpop .sys { margin-top: 6px; max-height: 120px; overflow-y: auto; }
+	.colorpop .sys button { display: flex; gap: 6px; align-items: center; width: 100%;
+		background: none; border: none; color: #ccc; cursor: pointer; font: inherit;
+		padding: 1px 2px; text-align: left; }
+	.colorpop .sys button:hover { background: #3c3c3c; }
+	.colorpop .sys i { width: 12px; height: 12px; flex: none; border: 1px solid #555;
+		display: inline-block; }
 	.dialog { width: ${width}pt; box-shadow: 2px 2px 8px rgba(0,0,0,.5); position: relative; }
 	.dialog.form-selected { outline: 1px dashed #0e639c; outline-offset: 2px; }
 	.form-handle { position: absolute; width: 7px; height: 7px; background: #fff;
@@ -606,6 +625,79 @@ ${interactive ? `	<script>
 			propsPane.style.width = propsCollapsed ? '' : propsWidth + 'px';
 		};
 		applyPropsChrome();
+		const BOOL_PROPS = new Set(['Enabled', 'Locked', 'MultiLine', 'WordWrap', 'AutoSize',
+			'Visible', 'TabStop', 'Default', 'Cancel', 'Font.Bold', 'Font.Italic',
+			'Font.Underline', 'Font.Strikethrough']);
+		const ENUM_OPTIONS = {
+			SpecialEffect: [['0', 'Flat'], ['1', 'Raised'], ['2', 'Sunken'], ['3', 'Etched'], ['6', 'Bump']],
+			BorderStyle: [['0', 'None'], ['1', 'Single']],
+			MultiSelect: [['0', 'Single'], ['1', 'Multi'], ['2', 'Extended']],
+			ListStyle: [['0', 'Plain'], ['1', 'Option']],
+			Style: [['0', 'DropDownCombo'], ['2', 'DropDownList']],
+			PictureSizeMode: [['0', 'Clip'], ['1', 'Stretch'], ['3', 'Zoom']],
+			PictureAlignment: [['0', 'TopLeft'], ['1', 'TopRight'], ['2', 'Center'], ['3', 'BottomLeft'], ['4', 'BottomRight']],
+			Orientation: [['-1', 'Auto'], ['0', 'Vertical'], ['1', 'Horizontal']],
+			ScrollBars: [['0', 'None'], ['1', 'Horizontal'], ['2', 'Vertical'], ['3', 'Both']],
+			TextAlign: [['Left', 'Left'], ['Center', 'Center'], ['Right', 'Right']],
+		};
+		const COLOR_PROPS = new Set(['BackColor', 'ForeColor', 'BorderColor']);
+		const SYSTEM_COLORS = ${JSON.stringify(WINDOWS_PALETTE)};
+		const FONT_FACES = ['Tahoma', 'Segoe UI', 'Arial', 'Calibri', 'Verdana', 'Georgia',
+			'Times New Roman', 'Courier New', 'Consolas', 'MS Sans Serif'];
+		// vbide's ramp: a greys row, then eight hues by seven lightness steps.
+		const paletteSwatches = (() => {
+			const rows = [['#000000', '#404040', '#808080', '#a6a6a6', '#c0c0c0', '#d9d9d9', '#f0f0f0', '#ffffff']];
+			const hsl = (h, sPct, l) => {
+				const a = (sPct * Math.min(l, 100 - l)) / 100;
+				const ch = (n) => {
+					const k = (n + h / 30) % 12;
+					const v = l - a * Math.max(-1, Math.min(k - 3, Math.min(9 - k, 1)));
+					return Math.round((v * 255) / 100).toString(16).padStart(2, '0');
+				};
+				return '#' + ch(0) + ch(8) + ch(4);
+			};
+			for (const l of [22, 32, 42, 52, 62, 74, 86]) {
+				rows.push([0, 30, 60, 120, 180, 210, 270, 330].map((h) => hsl(h, 68, l)));
+			}
+			return rows.flat();
+		})();
+		const cssOfColorValue = (value) => value.startsWith('#') ? value : (SYSTEM_COLORS[value] ?? 'transparent');
+		let colorPop = null;
+		const closeColorPop = () => { colorPop?.remove(); colorPop = null; };
+		document.addEventListener('pointerdown', (e) => {
+			if (colorPop && !e.target.closest('.colorpop') && !e.target.closest('.swatch')) { closeColorPop(); }
+		}, true);
+		const openColorPop = (anchor, apply) => {
+			closeColorPop();
+			colorPop = document.createElement('div');
+			colorPop.className = 'colorpop';
+			const grid = document.createElement('div');
+			grid.className = 'grid';
+			for (const hex of paletteSwatches) {
+				const b = document.createElement('button');
+				b.style.background = hex;
+				b.title = hex;
+				b.addEventListener('click', () => { apply(hex); closeColorPop(); });
+				grid.appendChild(b);
+			}
+			const sys = document.createElement('div');
+			sys.className = 'sys';
+			for (const name of Object.keys(SYSTEM_COLORS)) {
+				const b = document.createElement('button');
+				const chip = document.createElement('i');
+				chip.style.background = SYSTEM_COLORS[name];
+				b.append(chip, document.createTextNode(name));
+				b.addEventListener('click', () => { apply(name); closeColorPop(); });
+				sys.appendChild(b);
+			}
+			colorPop.append(grid, sys);
+			document.body.appendChild(colorPop);
+			const at = anchor.getBoundingClientRect();
+			const width = 208;
+			colorPop.style.left = Math.max(4, Math.min(window.innerWidth - width - 4, at.left - width + at.width)) + 'px';
+			colorPop.style.top = Math.min(window.innerHeight - colorPop.offsetHeight - 4, at.bottom + 2) + 'px';
+		};
+
 		let lastPropsTarget = '';
 		const renderProps = (target) => {
 			if (!propsPane || !propsBody) { return; }
@@ -635,20 +727,82 @@ ${interactive ? `	<script>
 				const label = document.createElement('label');
 				label.textContent = row.prop;
 				label.title = row.prop;
-				const input = document.createElement('input');
-				input.value = row.value;
-				input.disabled = target === '' && row.prop === 'Name';
-				input.addEventListener('keydown', (e) => {
-					if (e.key === 'Enter') { input.blur(); }
-					if (e.key === 'Escape') { input.value = row.value; input.blur(); }
-				});
-				input.addEventListener('change', () => {
-					if (input.value === row.value) { return; }
-					post({ type: 'setProp', name: target, prop: row.prop, value: input.value });
-				});
 				div.appendChild(label);
-				div.appendChild(input);
+				const commit = (value) => {
+					if (value === row.value) { return; }
+					post({ type: 'setProp', name: target, prop: row.prop, value });
+				};
+				if (BOOL_PROPS.has(row.prop)) {
+					const pick = document.createElement('select');
+					for (const v of ['True', 'False']) {
+						const o = document.createElement('option');
+						o.value = v; o.textContent = v;
+						pick.appendChild(o);
+					}
+					pick.value = row.value === 'True' ? 'True' : 'False';
+					pick.addEventListener('change', () => commit(pick.value));
+					div.appendChild(pick);
+				} else if (ENUM_OPTIONS[row.prop]) {
+					const pick = document.createElement('select');
+					if (!ENUM_OPTIONS[row.prop].some(([v]) => v === row.value)) {
+						const blank = document.createElement('option');
+						blank.value = row.value; blank.textContent = row.value || '(default)';
+						pick.appendChild(blank);
+					}
+					for (const [v, word] of ENUM_OPTIONS[row.prop]) {
+						const o = document.createElement('option');
+						o.value = v;
+						o.textContent = /^[A-Za-z]/.test(v) ? word : v + ' - ' + word;
+						pick.appendChild(o);
+					}
+					pick.value = row.value;
+					pick.addEventListener('change', () => commit(pick.value));
+					div.appendChild(pick);
+				} else if (COLOR_PROPS.has(row.prop)) {
+					const cell = document.createElement('div');
+					cell.className = 'colorcell';
+					const swatch = document.createElement('button');
+					swatch.className = 'swatch';
+					swatch.title = 'Pick a color';
+					swatch.style.background = row.value ? cssOfColorValue(row.value) : 'transparent';
+					const input = document.createElement('input');
+					input.value = row.value;
+					input.addEventListener('keydown', (e) => {
+						if (e.key === 'Enter') { input.blur(); }
+						if (e.key === 'Escape') { input.value = row.value; input.blur(); }
+					});
+					input.addEventListener('change', () => commit(input.value));
+					swatch.addEventListener('click', () => openColorPop(swatch, (value) => {
+						input.value = value;
+						swatch.style.background = cssOfColorValue(value);
+						commit(value);
+					}));
+					cell.append(swatch, input);
+					div.appendChild(cell);
+				} else {
+					const input = document.createElement('input');
+					input.value = row.value;
+					input.disabled = target === '' && row.prop === 'Name';
+					if (row.prop === 'Font.Name') { input.setAttribute('list', 'fontFaces'); }
+					if (row.prop === 'Font.Size') { input.type = 'number'; input.step = '0.25'; input.min = '1'; }
+					input.addEventListener('keydown', (e) => {
+						if (e.key === 'Enter') { input.blur(); }
+						if (e.key === 'Escape') { input.value = row.value; input.blur(); }
+					});
+					input.addEventListener('change', () => commit(input.value));
+					div.appendChild(input);
+				}
 				propsBody.appendChild(div);
+			}
+			if (!document.getElementById('fontFaces')) {
+				const list = document.createElement('datalist');
+				list.id = 'fontFaces';
+				for (const face of FONT_FACES) {
+					const o = document.createElement('option');
+					o.value = face;
+					list.appendChild(o);
+				}
+				document.body.appendChild(list);
 			}
 		};
 
