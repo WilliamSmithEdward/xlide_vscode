@@ -437,7 +437,7 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.frame { border: 1px solid #bdbdbd; box-shadow: inset 0 0 0 1px #fbfbfb;
 		overflow: visible; }
 	.frame .legend { position: absolute; top: 0; left: 6pt; transform: translateY(-55%);
-		background: ${formBack}; padding: 0 3px; line-height: 1.1; }
+		background: ${formBack}; padding: 0 3px; line-height: 1.1; z-index: 1; }
 	.frame .surface { position: absolute; inset: 0; overflow: hidden; background: #f0f0f0; }
 	.tabs { display: flex; gap: 1px; padding: 0 2px; height: 14pt; align-items: flex-end;
 		position: relative; z-index: 1; }
@@ -607,13 +607,13 @@ ${interactive ? `	<script>
 				gripUp.innerHTML = collapsed === 'self' ? '&#9660;' : '&#9650;';
 				gripUp.title = collapsed === 'self'
 					? 'Restore the split'
-					: 'Push the split up: the markup below takes the designer\u0027s space';
+					: 'Push the split up: the markup below takes the space';
 			}
 			if (gripDown) {
 				gripDown.innerHTML = collapsed === 'below' ? '&#9650;' : '&#9660;';
 				gripDown.title = collapsed === 'below'
 					? 'Restore the split'
-					: 'Push the split down: the designer takes the markup\u0027s space';
+					: 'Push the split down: the designer takes the space';
 			}
 		};
 		window.addEventListener('message', (e) => {
@@ -940,7 +940,7 @@ ${interactive ? `	<script>
 			const missing = [];
 			for (const name of Object.keys(PROPS)) {
 				if (!name) { continue; }
-				const el = document.querySelector('[data-name="' + name.replace(/"/g, '\\"') + '"]');
+				const el = document.querySelector('[data-name="' + name.replace(/"/g, '\\"') + '"], [data-surface="' + name.replace(/"/g, '\\"') + '"]');
 				if (!el) { missing.push(name + ' (absent)'); continue; }
 				if (el.closest('[hidden]')) { continue; }
 				const r = el.getBoundingClientRect();
@@ -948,8 +948,12 @@ ${interactive ? `	<script>
 			}
 			for (const name of Object.keys(PROPS)) {
 				if (!name) { continue; }
-				const el = document.querySelector('[data-name="' + name.replace(/"/g, '\\"') + '"]');
+				const el = document.querySelector('[data-name="' + name.replace(/"/g, '\\"') + '"], [data-surface="' + name.replace(/"/g, '\\"') + '"]');
 				if (!el || el.closest('[hidden]')) { continue; }
+				// A Page matches by its surface and stores an inner offset
+				// that says nothing about where it draws; placement talk is
+				// for controls only.
+				if (!el.hasAttribute('data-name')) { continue; }
 				const rows = PROPS[name].rows;
 				const expectedLeft = Number(rows.find((r) => r.prop === 'Left')?.value);
 				const expectedTop = Number(rows.find((r) => r.prop === 'Top')?.value);

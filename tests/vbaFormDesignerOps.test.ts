@@ -375,6 +375,19 @@ describe('the interactive canvas contract', () => {
 		expect(html).toContain('"prop":"Caption"');
 	});
 
+	it('generates scripts a JS parser accepts', () => {
+		// The pins above check substrings; this EXECUTES the parse. One
+		// apostrophe that a template escape smuggled into a single-quoted
+		// string killed the whole interactive script silently (grid, pane,
+		// zoom, every gesture) - a class of break only a parser catches.
+		const { html } = readFormPreview(workbook(), 'EntryForm');
+		const scripts = [...html.matchAll(/<script(?![^>]*type="application\/json")[^>]*>([\s\S]*?)<\/script>/g)];
+		expect(scripts.length).toBeGreaterThanOrEqual(2);
+		for (const [, body] of scripts) {
+			expect(() => new Function(body)).not.toThrow();
+		}
+	});
+
 	it('gives rows their typed editors', () => {
 		const { html } = readFormPreview(workbook(), 'EntryForm');
 		expect(html).toContain('BOOL_PROPS');
