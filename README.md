@@ -7,7 +7,8 @@
 [![license](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
 [![Office](https://img.shields.io/badge/Office-Excel%2C%20Word%2C%20PowerPoint%2C%20Access-blue)](#new-in-400-every-office-vba-host)
 
-[Install XLIDE from the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide) \
+[Install XLIDE from the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide)\
+\
 [See XLIDE's Sister Project Which Puts XLIDE Directly in the VBA Editor](https://github.com/WilliamSmithEdward/xlide_vbide)
 
 ---
