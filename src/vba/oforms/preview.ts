@@ -154,11 +154,18 @@ function captionPictureHtml(record: ParsedRecord | undefined, kind: string): str
 	return `<img class="cpic" src="${uri}" data-pos="${position}" draggable="false">`;
 }
 
-function colorCss(record: ParsedRecord | undefined): string {
+function colorCss(record: ParsedRecord | undefined, kind?: string): string {
 	if (!record) { return ''; }
 	const parts: string[] = [];
 	const back = record.values.get('BackColor');
-	if (back !== undefined && recordHas(record, 'BackColor')) { parts.push(`background:${cssColor(back)};`); }
+	if (back !== undefined && recordHas(record, 'BackColor')) {
+		parts.push(`background:${cssColor(back)};`);
+	} else if (kind) {
+		const vpb = effectiveVariousPropertyBits(record, kind);
+		if (vpb !== undefined && (vpb & 0x8) !== 0) {
+			parts.push(`background:${WINDOWS_PALETTE.ButtonFace};`);
+		}
+	}
 	const fore = record.values.get('ForeColor');
 	if (fore !== undefined && recordHas(record, 'ForeColor')) { parts.push(`color:${cssColor(fore)};`); }
 	return parts.join('');
@@ -175,7 +182,7 @@ function renderSurface(pkg: FormPackage, idPrefix: string, selected?: string): s
 		const inner = siteIsContainer(site) ? pkg.containers.get(siteId(site)) : undefined;
 		const box = siteBox(site, record, inner);
 		const style = `left:${pts(box.left)}pt;top:${pts(box.top)}pt;width:${pts(box.width)}pt;height:${pts(box.height)}pt;`
-			+ fontCss(record) + colorCss(record) + stateCss(record, kind) + pictureCss(record, kind);
+			+ fontCss(record) + colorCss(record, kind) + stateCss(record, kind) + pictureCss(record, kind);
 		const sel = selected !== undefined && selected.toLowerCase() === name.toLowerCase() ? ' selected' : '';
 		const dn = `data-name="${esc(name)}"`;
 		const caption = record?.strings.get('Caption')?.text
@@ -225,7 +232,7 @@ function renderSurface(pkg: FormPackage, idPrefix: string, selected?: string): s
 				break;
 			}
 			case 'Frame':
-				parts.push(`<div class="ctl frame${sel}" ${dn} style="${style}" title="${esc(name)}"><span class="legend">${esc(caption)}</span><div class="surface" data-surface="${esc(name)}">${inner ? renderSurface(inner, childId, selected) : ''}</div></div>`);
+				parts.push(`<div class="ctl frame${sel}" ${dn} style="${style}" title="${esc(name)}"><span class="legend">${esc(caption)}</span><div class="surface" data-surface="${esc(name)}" style="${inner ? colorCss(inner.form.record) : ''}">${inner ? renderSurface(inner, childId, selected) : ''}</div></div>`);
 				break;
 			case 'MultiPage': {
 				if (!inner) { break; }
@@ -344,7 +351,8 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.titlebar { background: #fff; color: #000; padding: 4px 8px; border-bottom: 1px solid #e5e5e5;
 		font: 9pt 'Segoe UI', Tahoma, sans-serif; display: flex; justify-content: space-between; }
 	.client { position: relative; width: ${width}pt; height: ${height}pt;
-		background: ${formBack}; overflow: hidden; ${formPicture}${formFont} }
+		background: ${formBack}; overflow: hidden; color: #000; ${formPicture}${formFont} }
+	img.cpic { max-width: none; max-height: none; }
 	/* While grid snap is on, every design surface shows the 6pt lattice the
 	   snapping answers to, as the VBE's dotted face does. The half-cell
 	   offset centers a dot on each grid point, so dots mark exactly where a
@@ -368,7 +376,8 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.client.gesture-move, .client.gesture-move * { cursor: move !important; }
 	.client.gesture-resize, .client.gesture-resize * { cursor: inherit; }
 	.label { display: flex; align-items: flex-start; }
-	.edit { background: #fff; color: #000; border: 1px solid #7a7a7a; padding: 1px 2px; }
+	.edit { background: #fff; color: #000; border: 1px solid #7a7a7a; padding: 1px 2px;
+		box-shadow: inset 1px 1px 2px rgba(0, 0, 0, 0.08); }
 	.combo { display: flex; justify-content: space-between; align-items: center; }
 	.combo .drop { border-left: 1px solid #a0a0a0; background: #f0f0f0; align-self: stretch;
 		display: flex; align-items: center; padding: 0 2px; }
@@ -378,8 +387,8 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.opt .radio { width: 9pt; height: 9pt; background: #fff; border: 1px solid #7a7a7a;
 		border-radius: 50%; flex: none; }
 	.opt .radio.on { background: radial-gradient(circle at center, #000 35%, #fff 40%); }
-	.button { background: #f0f0f0; border: 1px solid #707070;
-		box-shadow: inset 1px 1px 0 #fff, inset -1px -1px 0 #a0a0a0;
+	.button { background: linear-gradient(#f6f6f6, #e8e8e8); border: 1px solid #8b8b8b;
+		border-radius: 2px; box-shadow: 0 1px 1px rgba(0, 0, 0, 0.10);
 		display: flex; align-items: center; justify-content: center; }
 	.button.pressed { border-style: inset; }
 	.image, .foreign { border: 1px solid #a0a0a0;
@@ -392,20 +401,20 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.scroll { background: #d4d0c8; border: 1px solid #a0a0a0; position: relative; }
 	.scroll::after { content: ''; position: absolute; left: 1px; right: 1px; top: 15%; height: 30%;
 		background: #f0f0f0; border: 1px solid #808080; }
-	.frame { border: 1px solid #a0a0a0; box-shadow: inset 0 0 0 1px #fff;
+	.frame { border: 1px solid #bdbdbd; box-shadow: inset 0 0 0 1px #fbfbfb;
 		overflow: visible; }
 	.frame .legend { position: absolute; top: 0; left: 6pt; transform: translateY(-55%);
 		background: ${formBack}; padding: 0 3px; line-height: 1.1; }
-	.frame .surface { position: absolute; inset: 0; overflow: hidden; }
+	.frame .surface { position: absolute; inset: 0; overflow: hidden; background: #f0f0f0; }
 	.tabs { display: flex; gap: 1px; padding: 0 2px; height: 14pt; align-items: flex-end;
 		position: relative; z-index: 1; }
 	.tab { background: #f0f0f0; border: 1px solid #a0a0a0; border-bottom: none;
 		padding: 0 8px 1px; border-radius: 3px 3px 0 0; cursor: pointer; }
 	.tab.active { background: #fff; position: relative; top: 1px; }
 	.tabstrip, .multipage { background: #f0f0f0; overflow: visible; }
-	.tabbody, .pagearea { position: absolute; inset: 14pt 0 0; border: 1px solid #a0a0a0;
-		box-shadow: inset 0 0 0 1px #fff; background: #f0f0f0; overflow: hidden; }
-	.page { position: absolute; inset: 0; }
+	.tabbody, .pagearea { position: absolute; inset: 14pt 0 0; border: 1px solid #bdbdbd;
+		box-shadow: inset 0 0 0 1px #fbfbfb; background: #f0f0f0; overflow: hidden; }
+	.page { position: absolute; inset: 0; background: #f0f0f0; }
 	.handle { position: absolute; width: 6px; height: 6px; background: #fff;
 		border: 1px solid #0e639c; z-index: 5; }
 	.guide { position: absolute; background: #e51400; z-index: 4; pointer-events: none; }
