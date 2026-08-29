@@ -536,31 +536,34 @@ ${interactive ? `	<script>
 		// bytes. Escape in a row reverts it without touching the selection.
 		const PROPS = ${propsJson};
 		const FORM_NAME = ${JSON.stringify(options.formName)};
-		document.getElementById('gripUp')?.addEventListener('click', () => post({ type: 'splitCommand', action: 'collapseSelf' }));
-		document.getElementById('gripDown')?.addEventListener('click', () => post({ type: 'splitCommand', action: 'collapseBelow' }));
-		// The dots drag with POINTER CAPTURE, for three measured reasons: a
-		// downward drag leaves the iframe immediately (the markup pane is
-		// millimeters away) and uncaptured events stop at the edge; capture
-		// keeps them streaming to the dots wherever the pointer goes. And a
-		// drag that loses its pointer (Alt+Tab) must END - pointercancel,
-		// capture loss, and window blur all release it, or the split chases
-		// the mouse forever after.
+		document.getElementById('gripUp')?.addEventListener('click', () => post({ type: 'splitCollapse', which: 'self' }));
+		document.getElementById('gripDown')?.addEventListener('click', () => post({ type: 'splitCollapse', which: 'below' }));
+		// The dots drag with POINTER CAPTURE (a downward drag leaves the
+		// iframe within millimeters, and uncaptured events stop at the edge),
+		// and every way a pointer can abandon a drag ends it - pointercancel,
+		// capture loss, window blur. The panel does the actual sizing with
+		// layout-tree pixel math, so the motion is CONTINUOUS and the
+		// direction is the mouse's by construction; deltas stream a few
+		// pixels apart.
 		const gripDots = document.getElementById('gripDots');
 		let gripDrag = null;
-		const endGripDrag = () => { gripDrag = null; };
+		const endGripDrag = () => {
+			if (!gripDrag) { return; }
+			gripDrag = null;
+			post({ type: 'splitDrag', phase: 'end' });
+		};
 		gripDots?.addEventListener('pointerdown', (e) => {
-			gripDrag = { y: e.clientY, sent: 0 };
+			gripDrag = { y: e.clientY, lastSent: 0 };
 			try { gripDots.setPointerCapture(e.pointerId); } catch { /* capture is a nicety */ }
+			post({ type: 'splitDrag', phase: 'start' });
 			e.preventDefault();
 		});
 		gripDots?.addEventListener('pointermove', (e) => {
 			if (!gripDrag) { return; }
-			// Down grows the designer. The workbench moves the border a fixed
-			// notch per step, so the divisor approximates one notch of mouse
-			// travel per notch of border.
-			const step = Math.trunc((e.clientY - gripDrag.y) / 50);
-			while (gripDrag.sent < step) { post({ type: 'splitCommand', action: 'grow' }); gripDrag.sent += 1; }
-			while (gripDrag.sent > step) { post({ type: 'splitCommand', action: 'shrink' }); gripDrag.sent -= 1; }
+			const delta = e.clientY - gripDrag.y;
+			if (Math.abs(delta - gripDrag.lastSent) < 3) { return; }
+			gripDrag.lastSent = delta;
+			post({ type: 'splitDrag', phase: 'move', delta });
 		});
 		gripDots?.addEventListener('pointerup', endGripDrag);
 		gripDots?.addEventListener('pointercancel', endGripDrag);

@@ -43,7 +43,9 @@ type DesignerMessage =
 	| { type: 'reparent'; name: string; container: string; left: number; top: number }
 	| { type: 'setProp'; name: string; prop: string; value: string }
 	| { type: 'openHandler'; name: string; event: string }
-	| { type: 'splitCommand'; action: 'collapseSelf' | 'collapseBelow' | 'grow' | 'shrink' }
+	| { type: 'splitCollapse'; which: 'self' | 'below' }
+	| { type: 'splitDrag'; phase: 'start' | 'end' }
+	| { type: 'splitDrag'; phase: 'move'; delta: number }
 	| { type: 'formResize'; width: number; height: number };
 
 export function registerFormPreview(
@@ -114,7 +116,7 @@ export function registerFormPreview(
 		panel: vscode.WebviewPanel,
 		xlsmPath: string,
 		moduleName: string,
-		message: Exclude<DesignerMessage, { type: 'openHandler' } | { type: 'splitCommand' }>,
+		message: Exclude<DesignerMessage, { type: 'openHandler' } | { type: 'splitCollapse' } | { type: 'splitDrag' }>,
 	): Promise<void> => {
 		const op = message.type === 'geometry'
 			? { kind: 'geometry' as const, name: message.name, left: message.left, top: message.top, width: message.width, height: message.height }
@@ -213,6 +215,72 @@ export function registerFormPreview(
 		}
 	};
 
+	// The split between the designer and the markup below, resized with
+	// LAYOUT-TREE pixel math (vscode.get/setEditorLayout): the drag is
+	// continuous, its direction is the mouse's by construction, and nothing
+	// outside the designer+markup column can move - the two earlier
+	// mechanisms failed all three ways (the workbench maximize swallowed the
+	// window; focus-dependent height steps were coarse and could grab the
+	// wrong group).
+	interface LayoutNode { groups?: LayoutNode[]; size?: number }
+	interface SplitGrab {
+		layout: { orientation: number; groups: LayoutNode[] };
+		leaf: LayoutNode;
+		sibling: LayoutNode;
+		leafBase: number;
+		siblingBase: number;
+	}
+	const splitGrabs = new Map<string, SplitGrab>();
+
+	const grabSplit = async (panel: vscode.WebviewPanel): Promise<SplitGrab | undefined> => {
+		const layout = await vscode.commands.executeCommand<{ orientation: number; groups: LayoutNode[] }>('vscode.getEditorLayout');
+		if (!layout?.groups) { return undefined; }
+		// Leaves in depth-first order correspond to tabGroups.all order.
+		const leaves: Array<{ node: LayoutNode; parent: LayoutNode[]; index: number; vertical: boolean }> = [];
+		const walk = (nodes: LayoutNode[], vertical: boolean): void => {
+			for (const node of nodes) {
+				if (node.groups?.length) { walk(node.groups, !vertical); }
+				else { leaves.push({ node, parent: nodes, index: nodes.indexOf(node), vertical }); }
+			}
+		};
+		// orientation 0 lays the root row out horizontally, so root children
+		// stack vertically only when orientation is 1.
+		walk(layout.groups, layout.orientation === 1);
+		const groups = vscode.window.tabGroups.all;
+		const at = groups.findIndex((group) => group.tabs.some((tab) =>
+			tab.input instanceof vscode.TabInputWebview
+			&& tab.input.viewType.includes('xlideFormPreview')
+			&& tab.label === panel.title));
+		const leaf = at >= 0 ? leaves[at] : undefined;
+		if (!leaf || !leaf.vertical) { return undefined; }
+		const sibling = leaf.parent[leaf.index + 1] ?? leaf.parent[leaf.index - 1];
+		if (!sibling || sibling === leaf.node) { return undefined; }
+		if (typeof leaf.node.size !== 'number' || typeof sibling.size !== 'number') { return undefined; }
+		return {
+			layout,
+			leaf: leaf.node,
+			sibling,
+			leafBase: leaf.node.size,
+			siblingBase: sibling.size,
+		};
+	};
+
+	const moveSplit = async (key: string, panel: vscode.WebviewPanel, delta: number): Promise<void> => {
+		const grab = splitGrabs.get(key);
+		if (!grab) { return; }
+		const total = grab.leafBase + grab.siblingBase;
+		const MIN = 40;
+		const leafSize = Math.min(total - MIN, Math.max(MIN, grab.leafBase + delta));
+		grab.leaf.size = leafSize;
+		grab.sibling.size = total - leafSize;
+		try {
+			await vscode.commands.executeCommand('vscode.setEditorLayout', grab.layout);
+		} catch {
+			// The layout changed under the drag; the next grab starts fresh.
+			splitGrabs.delete(key);
+		}
+	};
+
 	const wirePanel = (panel: vscode.WebviewPanel, xlsmPath: string, moduleName: string): void => {
 		const key = panelKey(xlsmPath, moduleName);
 		panels.set(key, panel);
@@ -234,24 +302,27 @@ export function registerFormPreview(
 			(message: DesignerMessage) => {
 				if (message.type === 'openHandler') {
 					void openEventHandler(xlsmPath, moduleName, message.name, message.event);
-				} else if (message.type === 'splitCommand') {
-					// The grip strip. HEIGHT steps trade space with the
-					// group's own neighbor, so everything stays inside the
-					// designer+markup column - the workbench's maximize
-					// toggle swallowed the whole window (measured). Focus
-					// must sit on the editor GROUP first: with the webview
-					// iframe focused, the size commands resolve no current
-					// view and silently do nothing (also measured). The
-					// collapses are bursts of steps, clamping harmlessly.
-					const step = message.action === 'collapseSelf' || message.action === 'shrink'
-						? 'workbench.action.decreaseViewHeight'
-						: 'workbench.action.increaseViewHeight';
-					const count = message.action === 'grow' || message.action === 'shrink' ? 1 : 12;
+				} else if (message.type === 'splitDrag') {
 					void (async () => {
-						await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
-						for (let i = 0; i < count; i += 1) {
-							await vscode.commands.executeCommand(step);
+						if (message.phase === 'start') {
+							const grab = await grabSplit(panel);
+							if (grab) { splitGrabs.set(key, grab); }
+						} else if (message.phase === 'move') {
+							await moveSplit(key, panel, message.delta);
+						} else {
+							splitGrabs.delete(key);
 						}
+					})();
+				} else if (message.type === 'splitCollapse') {
+					// The arrows push the split all the way, through the same
+					// layout math the drag uses.
+					void (async () => {
+						const grab = await grabSplit(panel);
+						if (!grab) { return; }
+						splitGrabs.set(key, grab);
+						const total = grab.leafBase + grab.siblingBase;
+						await moveSplit(key, panel, message.which === 'self' ? -total : total);
+						splitGrabs.delete(key);
 					})();
 				} else {
 					void applyGesture(panel, xlsmPath, moduleName, message);
