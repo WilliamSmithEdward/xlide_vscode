@@ -235,17 +235,20 @@ export function registerFormPreview(
 				if (message.type === 'openHandler') {
 					void openEventHandler(xlsmPath, moduleName, message.name, message.event);
 				} else if (message.type === 'splitCommand') {
-					// The grip strip. Size steps trade space with the group's
-					// OWN neighbor, so everything here stays inside the
-					// designer+markup column - the workbench's maximize toggle
-					// swallowed the whole window (measured), so the collapses
-					// are bursts of steps instead: enough to hit the clamp,
-					// where further steps are no-ops.
+					// The grip strip. HEIGHT steps trade space with the
+					// group's own neighbor, so everything stays inside the
+					// designer+markup column - the workbench's maximize
+					// toggle swallowed the whole window (measured). Focus
+					// must sit on the editor GROUP first: with the webview
+					// iframe focused, the size commands resolve no current
+					// view and silently do nothing (also measured). The
+					// collapses are bursts of steps, clamping harmlessly.
 					const step = message.action === 'collapseSelf' || message.action === 'shrink'
-						? 'workbench.action.decreaseViewSize'
-						: 'workbench.action.increaseViewSize';
+						? 'workbench.action.decreaseViewHeight'
+						: 'workbench.action.increaseViewHeight';
 					const count = message.action === 'grow' || message.action === 'shrink' ? 1 : 12;
 					void (async () => {
+						await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
 						for (let i = 0; i < count; i += 1) {
 							await vscode.commands.executeCommand(step);
 						}
