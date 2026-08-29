@@ -44,6 +44,7 @@ type DesignerMessage =
 	| { type: 'setProp'; name: string; prop: string; value: string }
 	| { type: 'openHandler'; name: string; event: string }
 	| { type: 'splitCollapse'; which: 'self' | 'below' }
+	| { type: 'splitStateQuery' }
 	| { type: 'splitDrag'; phase: 'start' | 'end' }
 	| { type: 'splitDrag'; phase: 'move'; delta: number }
 	| { type: 'formResize'; width: number; height: number };
@@ -116,7 +117,7 @@ export function registerFormPreview(
 		panel: vscode.WebviewPanel,
 		xlsmPath: string,
 		moduleName: string,
-		message: Exclude<DesignerMessage, { type: 'openHandler' } | { type: 'splitCollapse' } | { type: 'splitDrag' }>,
+		message: Exclude<DesignerMessage, { type: 'openHandler' } | { type: 'splitCollapse' } | { type: 'splitDrag' } | { type: 'splitStateQuery' }>,
 	): Promise<void> => {
 		const op = message.type === 'geometry'
 			? { kind: 'geometry' as const, name: message.name, left: message.left, top: message.top, width: message.width, height: message.height }
@@ -235,6 +236,8 @@ export function registerFormPreview(
 		lastApplied: number;
 	}
 	const splitGrabs = new Map<string, SplitGrab>();
+	/** Per-panel collapse toggle: the sizes a collapse replaced, to restore. */
+	const splitToggles = new Map<string, { saved?: { leaf: number; sibling: number }; collapsed: 'self' | 'below' | null }>();
 
 	const grabSplit = async (panel: vscode.WebviewPanel): Promise<SplitGrab | undefined> => {
 		const layout = await vscode.commands.executeCommand<{ orientation: number; groups: LayoutNode[] }>('vscode.getEditorLayout');
@@ -332,6 +335,12 @@ export function registerFormPreview(
 						if (message.phase === 'start') {
 							const grab = await grabSplit(panel);
 							if (grab) { splitGrabs.set(key, grab); }
+							// A hand on the sash means the collapse is over.
+							const toggle = splitToggles.get(key);
+							if (toggle && toggle.collapsed !== null) {
+								toggle.collapsed = null;
+								void panel.webview.postMessage({ type: 'splitState', collapsed: null });
+							}
 						} else if (message.phase === 'move') {
 							await moveSplit(key, message.delta);
 						} else {
@@ -339,16 +348,34 @@ export function registerFormPreview(
 						}
 					})();
 				} else if (message.type === 'splitCollapse') {
-					// The arrows push the split all the way, through the same
-					// layout math the drag uses.
+					// The arrows TOGGLE: the first press saves the split and
+					// pushes it to the clamp; pressing the flipped arrow puts
+					// the saved split back - the vbide behavior.
 					void (async () => {
+						const state = splitToggles.get(key) ?? { collapsed: null };
 						const grab = await grabSplit(panel);
 						if (!grab) { return; }
 						splitGrabs.set(key, grab);
 						const total = grab.leafBase + grab.siblingBase;
-						await moveSplit(key, message.which === 'self' ? -total : total);
+						if (state.collapsed === message.which && state.saved) {
+							await moveSplit(key, state.saved.leaf - grab.leafBase);
+							state.collapsed = null;
+						} else {
+							if (state.collapsed === null) {
+								state.saved = { leaf: grab.leafBase, sibling: grab.siblingBase };
+							}
+							await moveSplit(key, message.which === 'self' ? -total : total);
+							state.collapsed = message.which;
+						}
+						splitToggles.set(key, state);
 						splitGrabs.delete(key);
+						void panel.webview.postMessage({ type: 'splitState', collapsed: state.collapsed });
 					})();
+				} else if (message.type === 'splitStateQuery') {
+					void panel.webview.postMessage({
+						type: 'splitState',
+						collapsed: splitToggles.get(key)?.collapsed ?? null,
+					});
 				} else {
 					void applyGesture(panel, xlsmPath, moduleName, message);
 				}

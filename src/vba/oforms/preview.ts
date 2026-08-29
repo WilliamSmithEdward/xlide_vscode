@@ -454,6 +454,7 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.guide.v { width: 1px; top: 0; bottom: 0; }
 	.guide.h { height: 1px; left: 0; right: 0; }
 	.cpic { flex: none; pointer-events: none; }
+	.diag { color: #ff6b6b; margin-left: 12px; font-weight: bold; }
 	.placing, .placing .ctl { cursor: crosshair !important; }
 	.ghost { position: absolute; border: 1px dashed #0e639c; background: rgba(14, 99, 156, 0.12);
 		z-index: 6; pointer-events: none; }
@@ -549,7 +550,7 @@ ${interactive ? `	<div class="split-grip" id="splitGrip"><button class="grip-btn
 				const room = box.getBoundingClientRect();
 				if (room.width <= 0 || room.height <= 0 || image.naturalWidth === 0) { return; }
 				if (image.naturalWidth > room.width || image.naturalHeight > room.height) {
-					box.style.position = 'relative';
+					if (getComputedStyle(box).position === 'static') { box.style.position = 'relative'; }
 					image.style.position = 'absolute';
 					image.style.inset = '0';
 					image.style.width = '100%';
@@ -595,8 +596,33 @@ ${interactive ? `	<script>
 		// bytes. Escape in a row reverts it without touching the selection.
 		const PROPS = ${propsJson};
 		const FORM_NAME = ${JSON.stringify(options.formName)};
-		document.getElementById('gripUp')?.addEventListener('click', () => post({ type: 'splitCollapse', which: 'self' }));
-		document.getElementById('gripDown')?.addEventListener('click', () => post({ type: 'splitCollapse', which: 'below' }));
+		// The arrows are TOGGLES, as in xlide vbide: a collapse flips the
+		// glyph, and the flipped arrow restores the split it replaced. The
+		// panel owns the saved sizes and answers with the current state,
+		// which also survives re-renders (the canvas asks on every load).
+		const gripUp = document.getElementById('gripUp');
+		const gripDown = document.getElementById('gripDown');
+		const paintSplitState = (collapsed) => {
+			if (gripUp) {
+				gripUp.innerHTML = collapsed === 'self' ? '&#9660;' : '&#9650;';
+				gripUp.title = collapsed === 'self'
+					? 'Restore the split'
+					: 'Push the split up: the markup below takes the designer\u0027s space';
+			}
+			if (gripDown) {
+				gripDown.innerHTML = collapsed === 'below' ? '&#9650;' : '&#9660;';
+				gripDown.title = collapsed === 'below'
+					? 'Restore the split'
+					: 'Push the split down: the designer takes the markup\u0027s space';
+			}
+		};
+		window.addEventListener('message', (e) => {
+			const m = e.data;
+			if (m && m.type === 'splitState') { paintSplitState(m.collapsed ?? null); }
+		});
+		gripUp?.addEventListener('click', () => post({ type: 'splitCollapse', which: 'self' }));
+		gripDown?.addEventListener('click', () => post({ type: 'splitCollapse', which: 'below' }));
+		post({ type: 'splitStateQuery' });
 		// The dots drag with POINTER CAPTURE (a downward drag leaves the
 		// iframe within millimeters, and uncaptured events stop at the edge),
 		// and every way a pointer can abandon a drag ends it - pointercancel,
@@ -905,6 +931,57 @@ ${interactive ? `	<script>
 			saveToggles();
 		});
 		syncGridDots();
+		// Self-check: every control the engine LISTED must be in the DOM
+		// with real bounds (hidden pages excepted). One control kept
+		// vanishing on one machine while every harness showed it; this names
+		// the victim on the face of the canvas instead of leaving the gap
+		// silent.
+		setTimeout(() => {
+			const missing = [];
+			for (const name of Object.keys(PROPS)) {
+				if (!name) { continue; }
+				const el = document.querySelector('[data-name="' + name.replace(/"/g, '\\"') + '"]');
+				if (!el) { missing.push(name + ' (absent)'); continue; }
+				if (el.closest('[hidden]')) { continue; }
+				const r = el.getBoundingClientRect();
+				if (r.width <= 0 || r.height <= 0) { missing.push(name + ' (zero-sized)'); }
+			}
+			for (const name of Object.keys(PROPS)) {
+				if (!name) { continue; }
+				const el = document.querySelector('[data-name="' + name.replace(/"/g, '\\"') + '"]');
+				if (!el || el.closest('[hidden]')) { continue; }
+				const rows = PROPS[name].rows;
+				const expectedLeft = Number(rows.find((r) => r.prop === 'Left')?.value);
+				const expectedTop = Number(rows.find((r) => r.prop === 'Top')?.value);
+				if (!Number.isFinite(expectedLeft) || !Number.isFinite(expectedTop)) { continue; }
+				const surface = el.parentElement.closest('[data-surface]') || el.parentElement;
+				const rect = el.getBoundingClientRect();
+				const srect = surface.getBoundingClientRect();
+				const actualLeft = px2pt(rect.left - srect.left);
+				const actualTop = px2pt(rect.top - srect.top);
+				if (Math.abs(actualLeft - expectedLeft) > 2 || Math.abs(actualTop - expectedTop) > 2) {
+					missing.push(name + ' misplaced (' + expectedLeft + ',' + expectedTop + ')->('
+						+ Math.round(actualLeft) + ',' + Math.round(actualTop) + ') pos=' + getComputedStyle(el).position);
+					console.error('xlide designer: misplaced control', name, {
+						expected: [expectedLeft, expectedTop],
+						actual: [actualLeft, actualTop],
+						inlineStyle: el.getAttribute('style'),
+						computedPosition: getComputedStyle(el).position,
+						parent: surface.getAttribute('data-surface'),
+					});
+				}
+			}
+			if (missing.length) {
+				console.error('xlide designer: controls not rendered:', missing);
+				console.error('xlide designer: data-names present:',
+					[...document.querySelectorAll('[data-name]')].map((c) => c.getAttribute('data-name')));
+				const diag = document.createElement('span');
+				diag.className = 'diag';
+				diag.textContent = '\u26a0 not rendered: ' + missing.join(', ');
+				document.getElementById('toolbar')?.appendChild(diag);
+			}
+		}, 300);
+
 		const PX_PER_PT = 96 / 72;
 		const GRID = 6;
 		const SNAP_TOL = 3;
