@@ -4,6 +4,20 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **Hunt findings in the one-unit designer, fixed the same day.** Typing in
+  the markup pane dirtied the document but never repainted the canvas: the
+  edit's own echo suppression swallowed the very change event that applies
+  it. Gestures keep suppressing their echo; markup edits no longer do.
+  Keystrokes typed in the race between a flush and the re-render could die
+  with the replaced textarea; an unflushed draft now rides the webview state
+  and is restored - caret, scroll, and debounce re-armed - when the new page
+  arrives. Opening a clean designer no longer runs a whole parse-and-diff to
+  prove the document says what the workbook says, and a typing debounce that
+  fires right after a gesture no longer repeats the identical render. The
+  engine loop was measured on the corpus workbooks while hunting: a gesture
+  costs 11-26 ms and an undo/typing rebuild 5-6 ms, fixture through the
+  2.25 MB giant-module profile - the model needs no engine-side tuning.
+
 - **The designer and its markup are ONE editor now.** Opening a form lands
   in a single tab: the canvas and properties pane above, the markup text
   below the vbide grip - no second tab strip, no editor-group acrobatics.

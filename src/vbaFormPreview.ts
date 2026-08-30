@@ -163,18 +163,23 @@ export function registerFormPreview(
 				appliedText = text;
 			};
 
+			/** The document text the webview last rendered, to skip repeats. */
+			let lastRenderedText: string | null = null;
 			const render = async (selected?: string): Promise<void> => {
 				if (disposed) { return; }
 				try {
+					const markup = document.getText();
 					const { html } = await bridge.call<{ html: string }>('readFormPreview', {
 						path: scratchPath,
 						module: moduleName,
 						selected,
-						markup: document.getText(),
+						markup,
 						identityPath: xlsmPath,
 					});
 					panel.webview.html = html;
+					lastRenderedText = markup;
 				} catch (err) {
+					lastRenderedText = null;
 					panel.webview.html = `<!DOCTYPE html><html><body style="font-family:sans-serif;padding:16px">`
 						+ `<p>XLIDE could not render this form.</p><pre>${errorMessage(err)
 							.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</pre></body></html>`;
@@ -191,13 +196,22 @@ export function registerFormPreview(
 					return;
 				}
 				void panel.webview.postMessage({ type: 'markupOk' });
+				// A pending typing debounce can fire right after a gesture
+				// already rendered this very text; repeating the render only
+				// flickers.
+				if (document.getText() === lastRenderedText) { return; }
 				await render();
 			};
 
-			/** Replaces the whole document with `text` as one undo step. */
-			const setDocumentText = async (text: string): Promise<void> => {
+			/**
+			 * Replaces the whole document with `text` as one undo step. A
+			 * gesture SUPPRESSES its own echo (its scratch is already applied
+			 * and rendered); a markup-pane edit must NOT - the change listener
+			 * is exactly what applies it and repaints the canvas.
+			 */
+			const setDocumentText = async (text: string, suppress: boolean): Promise<void> => {
 				if (document.getText() === text) { return; }
-				suppressEcho = text;
+				suppressEcho = suppress ? text : null;
 				const edit = new vscode.WorkspaceEdit();
 				edit.replace(
 					document.uri,
@@ -231,7 +245,7 @@ export function registerFormPreview(
 						{ path: scratchPath, module: moduleName },
 					);
 					appliedText = markup;
-					await setDocumentText(markup);
+					await setDocumentText(markup, true);
 					const keepSelected = message.type === 'remove'
 						? undefined
 						: message.type === 'formResize'
@@ -286,10 +300,7 @@ export function registerFormPreview(
 						void vscode.commands.executeCommand('xlide.launchFormHost');
 						break;
 					case 'markupEdit':
-						enqueue(() => setDocumentText(message.text).then(() => {
-							// The change listener sees this as a real edit (no
-							// echo suppression), applies it, and re-renders.
-						}));
+						enqueue(() => setDocumentText(message.text, false));
 						break;
 					case 'docUndo':
 						enqueue(async () => { await vscode.commands.executeCommand('undo'); });
@@ -317,7 +328,16 @@ export function registerFormPreview(
 			});
 
 			// First light: the document may already be dirty (a restored
-			// backup), so the scratch takes the document's word from the start.
+			// backup), so the scratch takes the document's word from the
+			// start. A CLEAN document just came from the workbook itself, so
+			// its text IS the baseline's print - trusting that skips a whole
+			// parse-and-diff on every designer open.
+			if (!document.isDirty) {
+				try {
+					ensureScratch();
+					appliedText = document.getText();
+				} catch { /* the first sync will surface the real failure */ }
+			}
 			enqueue(syncAndRender);
 		}
 	}

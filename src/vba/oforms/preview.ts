@@ -1107,12 +1107,16 @@ ${interactive ? `	<script>
 		const markupText = document.getElementById('markupText');
 		const markupError = document.getElementById('markupError');
 		let markupTimer = 0;
+		// The DRAFT rides the state on every keystroke: a re-render arrives
+		// asynchronously, and any keys typed after the last flush would die
+		// with the replaced textarea - the draft is where they survive.
 		const rememberMarkupView = () => {
 			if (!markupText) { return; }
 			mergeState({
 				markupCaret: markupText.selectionStart,
 				markupScroll: [markupText.scrollLeft, markupText.scrollTop],
 				markupFocus: document.activeElement === markupText,
+				markupDraft: markupText.value,
 			});
 		};
 		const flushMarkup = () => {
@@ -1120,8 +1124,10 @@ ${interactive ? `	<script>
 			if (markupTimer) { clearTimeout(markupTimer); markupTimer = 0; }
 			rememberMarkupView();
 			post({ type: 'markupEdit', text: markupText.value });
+			mergeState({ markupDraft: null });
 		};
 		markupText?.addEventListener('input', () => {
+			rememberMarkupView();
 			if (markupTimer) { clearTimeout(markupTimer); }
 			markupTimer = setTimeout(flushMarkup, 400);
 		});
@@ -1145,6 +1151,15 @@ ${interactive ? `	<script>
 			if (m.type === 'markupOk') { markupError.style.display = 'none'; }
 		});
 		if (markupText) {
+			// An unflushed draft outranks the rendered text: those are the
+			// keystrokes the re-render raced past. Restoring re-arms the
+			// debounce so the tail still reaches the document.
+			if (savedState.markupFocus && typeof savedState.markupDraft === 'string'
+				&& savedState.markupDraft !== markupText.value) {
+				markupText.value = savedState.markupDraft;
+				if (markupTimer) { clearTimeout(markupTimer); }
+				markupTimer = setTimeout(flushMarkup, 400);
+			}
 			if (Array.isArray(savedState.markupScroll)) {
 				markupText.scrollLeft = savedState.markupScroll[0] || 0;
 				markupText.scrollTop = savedState.markupScroll[1] || 0;
