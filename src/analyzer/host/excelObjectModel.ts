@@ -57,6 +57,17 @@ export interface HostMember {
 	 * assigned before they try.
 	 */
 	access?: 'read-only' | 'read/write' | 'write-only';
+	/**
+	 * The type library marks this member hidden or restricted (issue #56): the
+	 * Object Browser keeps it behind "Show Hidden Members" and the VBE's own
+	 * completion leaves it out. The model still CARRIES it - a model that is
+	 * complete is the right model, and code that names one must still resolve
+	 * and hover - so consumers filter on this flag rather than on a naming
+	 * convention. The convention would not do: Excel's library flags 238
+	 * members that have no leading underscore (ActiveMenuBar, Assistant,
+	 * CheckBoxes ...), and a third-party library need not use underscores at all.
+	 */
+	hidden?: boolean;
 	/** Reference documentation rendered in completion, hover, and call tips. */
 	doc?: VbaDoc;
 }

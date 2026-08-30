@@ -156,7 +156,7 @@ const UNION_TYPE_SEPARATOR = '|';
 
 type CompletionMemberSource = Pick<
 	HostMember,
-	'name' | 'kind' | 'returns' | 'signature' | 'declaredType' | 'access' | 'doc'
+	'name' | 'kind' | 'returns' | 'signature' | 'declaredType' | 'access' | 'doc' | 'hidden'
 > & {
 	writable?: boolean;
 	writeType?: string;
@@ -213,6 +213,12 @@ export function resolveMemberCompletions(
 	const lowerPrefix = typedPrefix.toLowerCase();
 	return surface.members
 		.filter((mem) => mem.name.toLowerCase().startsWith(lowerPrefix))
+		// OFFERED is narrower than KNOWN (issue #56): a member the type
+		// library marks hidden or restricted, or whose name VBA cannot write
+		// at all, is still resolved, hovered and coloured - code that names
+		// one is real code - but it is never proposed, because accepting the
+		// proposal would produce something the VBE refuses to compile.
+		.filter((mem) => !mem.hidden)
 		.map((mem) => completionFromSurfaceMember(currentType, surface, mem, ctx));
 }
 
