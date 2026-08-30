@@ -12,6 +12,7 @@ export {
 	VBA_KEYWORDS,
 } from './lexer/keywordTable';
 export * from './parser/nodes';
+export { classifyReferenceKinds, type ReferenceKind } from './references/referenceKinds';
 export { parseModule } from './parser/parseModule';
 export { splitLogicalStatements } from './parser/parserState';
 export {

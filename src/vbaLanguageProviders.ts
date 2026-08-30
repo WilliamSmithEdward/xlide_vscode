@@ -12,6 +12,7 @@ import {
 } from './xlideFileSystem';
 import {
     VbaDefinitionProvider,
+    VbaDocumentHighlightProvider,
     VbaDocumentSymbolProvider,
     VbaReferenceProvider,
     VbaRenameProvider,
@@ -83,6 +84,10 @@ export function registerVbaLanguageProviders(
         vscode.languages.registerReferenceProvider(
             VBA_SELECTOR,
             new VbaReferenceProvider(projectIndexService),
+        ),
+        vscode.languages.registerDocumentHighlightProvider(
+            VBA_SELECTOR,
+            new VbaDocumentHighlightProvider(projectIndexService),
         ),
         vscode.languages.registerRenameProvider(
             VBA_SELECTOR,

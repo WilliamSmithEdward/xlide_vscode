@@ -14,6 +14,7 @@
 // invoked from the declaration, a qualified reference, or a bare call site.
 
 import {
+    classifyReferenceKinds,
     EventHandlerDocumentType,
     eventHandlerDocumentTypeForContext,
     precededByMemberAccessDot,
@@ -22,6 +23,7 @@ import {
     resolveMemberDefinitionsAt,
     tokenizeCached,
     type MemberCompletionContext,
+    type ReferenceKind,
     type VbaProjectClassMember,
     type VbaProjectClassMemberDefinition,
     type VbaSymbol as AstSymbol,
@@ -40,7 +42,15 @@ export interface ReferenceSpan {
     column: number;
     /** Length of the matched identifier. */
     length: number;
+    /**
+     * What this occurrence DOES (issue #55): the assignment family and the
+     * declarations write, Mid and ReDim Preserve read and write in place,
+     * everything else - argument positions included - reads.
+     */
+    kind?: ReferenceKind;
 }
+
+export type { ReferenceKind } from './analyzer';
 
 export interface SymbolReferenceResult {
     references: ReferenceSpan[];
@@ -423,6 +433,23 @@ export function collectSymbolReferences(
             const offset = (lineStartOffsets(mod.source)[span.line] ?? 0) + span.column;
             return !declKeys.has(`${span.moduleName.toLowerCase()}:${offset}`);
         });
+    }
+
+    // Each reference says what it DOES: kinds classify per module against
+    // the same indexed source the spans were found in.
+    const byModuleSpans = new Map<string, ReferenceSpan[]>();
+    for (const span of references) {
+        const key = span.moduleName.toLowerCase();
+        const list = byModuleSpans.get(key);
+        if (list) { list.push(span); } else { byModuleSpans.set(key, [span]); }
+    }
+    for (const [key, spans] of byModuleSpans) {
+        const mod = byModule.get(key);
+        if (!mod) { continue; }
+        const starts = lineStartOffsets(mod.source);
+        const offsets = spans.map((span) => (starts[span.line] ?? 0) + span.column);
+        const kinds = classifyReferenceKinds(mod.source, offsets);
+        spans.forEach((span, i) => { span.kind = kinds.get(offsets[i]) ?? 'read'; });
     }
 
     return { references, hasSymbol: true, ambiguous: dedupeReferences(ambiguous) };

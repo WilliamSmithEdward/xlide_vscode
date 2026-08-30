@@ -4,6 +4,24 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **Every reference now says whether it reads or writes.** Issue #55's ask:
+  find-all-references answered positions but not what each one DOES, and
+  the vbide's Extract Method needs exactly that. Each reference span now
+  carries a kind - read, write, or readwrite - decided by the logical
+  statement it sits in: the assignment family writes its target's terminal
+  name (x =, x(i) =, a.b.c =, With's .field =, Set, Let, LSet, RSet, a
+  Function's return assignment), declarations write the names they
+  introduce (Dim, Const, parameters, the procedure name), For and For Each
+  write their loop variables, ReDim writes and ReDim Preserve read-writes,
+  Erase writes, Mid(s, ...) = read-writes its target, and Line Input /
+  Input # / Get # write the variables they fill. Inline If classifies the
+  statements after Then and Else on their own. The one gray zone stays
+  honest: a variable passed where a ByRef parameter might write it remains
+  a read, because claiming otherwise would need call-site signature
+  resolution and be wrong for every ByVal. VS Code gets the first consumer
+  in the same change: read/write occurrence shading when the caret sits on
+  an identifier, writes shaded as writes.
+
 - **Hunt ten found nothing to fix - and that is the finding.** The two
   territories no hunt had visited both came back sound. The VBA analyzer
   took a pathological sweep - 3000-deep parentheses, 2000-deep If nests, a

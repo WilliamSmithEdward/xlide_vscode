@@ -508,6 +508,63 @@ export class VbaReferenceProvider implements vscode.ReferenceProvider {
     }
 }
 
+/**
+ * Read/write occurrence shading for the identifier under the caret - the
+ * first VS Code consumer of the reference KINDS (issue #55): a write shades
+ * the way an assignment target should, a read the way a use does.
+ */
+export class VbaDocumentHighlightProvider implements vscode.DocumentHighlightProvider {
+    constructor(private readonly _projectIndexService: VbaProjectIndexService) {}
+
+    async provideDocumentHighlights(
+        document: vscode.TextDocument,
+        position: vscode.Position,
+        token?: vscode.CancellationToken,
+    ): Promise<vscode.DocumentHighlight[] | undefined> {
+        if (document.uri.scheme !== XLIDE_SCHEME) { return undefined; }
+        if (token?.isCancellationRequested) { return undefined; }
+        const documentVersion = document.version;
+        const wordRange = document.getWordRangeAtPosition(position, VBA_IDENTIFIER_RE);
+        if (!wordRange) { return undefined; }
+        const word = document.getText(wordRange);
+        const source = document.getText();
+        let xlsmPath: string;
+        let moduleName: string;
+        try {
+            ({ xlsmPath, moduleName } = decodeModuleUri(document.uri));
+        } catch {
+            return undefined;
+        }
+        const navigation = await this._projectIndexService.contextForWorkbook(xlsmPath, 'live');
+        if (token?.isCancellationRequested || document.version !== documentVersion) { return undefined; }
+        const { modules, project, byModule } = navigation;
+        const current = byModule.get(moduleIdentityKey(moduleName));
+        const { references } = collectSymbolReferences(
+            byModule,
+            project,
+            modules,
+            source,
+            moduleName,
+            current,
+            word,
+            document.offsetAt(wordRange.end),
+            document.offsetAt(position),
+            true,
+        );
+        const highlights: vscode.DocumentHighlight[] = [];
+        for (const span of references) {
+            if (span.moduleName.toLowerCase() !== moduleName.toLowerCase()) { continue; }
+            highlights.push(new vscode.DocumentHighlight(
+                new vscode.Range(span.line, span.column, span.line, span.column + span.length),
+                span.kind === 'read'
+                    ? vscode.DocumentHighlightKind.Read
+                    : vscode.DocumentHighlightKind.Write,
+            ));
+        }
+        return highlights.length > 0 ? highlights : undefined;
+    }
+}
+
 export class VbaRenameProvider implements vscode.RenameProvider {
     constructor(private readonly _projectIndexService: VbaProjectIndexService) {}
 
