@@ -4,6 +4,16 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **F5 asks once per form, then never again.** The launcher is now one sub
+  per form (XlideShow_EntryForm, XlideShow_OrderForm, ...) inside module
+  XlideRun, instead of a single sub rewritten for whichever form ran last -
+  so running a second form ADDS its launcher beside the first rather than
+  taking the first one away, and any hand edits to the module survive. Once
+  a form has its sub, F5 stops asking: there is nothing new to put in the
+  workbook, so it just runs it - and skips the write entirely, meaning a
+  repeat F5 no longer touches the file at all. An explicit Never still
+  means never.
+
 - **F5 on a form opens ONE Excel.** The launch writes the launcher module
   and then runs it, and the write's own Excel coordination reopens the
   workbook after a save or a close - so the workbook was opened twice for

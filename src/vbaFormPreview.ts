@@ -22,6 +22,12 @@ import {
 	withWorkbookReopenSuppressed,
 } from './excelWorkbookCoordinator';
 import { ExcelMacroError, runWorkbookMacroReadOnly } from './excelLauncher';
+import {
+	composeLauncherSource,
+	launcherSubExists,
+	launcherSubName,
+	LAUNCHER_MODULE,
+} from './vbaFormLauncher';
 import { xlideAttachToRunningExcelFromConfig } from './globalSettings';
 import { errorMessage } from './util/errors';
 
@@ -423,18 +429,41 @@ export function registerFormPreview(
 			const excel = /\.(xlsm|xlsb|xlam|xls)$/i.test(filePath);
 
 			// The VBE's F5 SHOWS the form. Excel can only run a macro, so
-			// with consent XLIDE injects a small launcher module and runs
-			// it; the choice persists in xlide.formRun.injectShowMacro.
+			// with consent XLIDE injects a launcher and runs it; the choice
+			// persists in xlide.formRun.injectShowMacro.
+			//
+			// ONE SUB PER FORM, all in module XlideRun: F5 on a second form
+			// ADDS its sub beside the first rather than rewriting it, so the
+			// launchers accumulate and each form keeps its own entry point.
 			if (excel && formModule) {
 				const config = vscode.workspace.getConfiguration('xlide');
+				const wbPath = filePath;
+				const subName = launcherSubName(formModule);
+				const macro = `${LAUNCHER_MODULE}.${subName}`;
+				// What the workbook already carries decides whether anything
+				// is being injected at all.
+				let launcherSource: string | undefined;
+				try {
+					launcherSource = (await bridge.call<{ source: string }>(
+						'readModule', { path: wbPath, module: LAUNCHER_MODULE },
+					)).source;
+				} catch {
+					launcherSource = undefined; // no launcher module yet
+				}
+				const subExists = launcherSubExists(launcherSource, subName);
+
 				let mode = config.get<string>('formRun.injectShowMacro') ?? 'ask';
+				// THIS form's launcher is already installed: nothing goes into
+				// the workbook, so there is nothing to consent to - just run
+				// it. An explicit Never still means never.
+				if (mode === 'ask' && subExists) { mode = 'once'; }
 				if (mode === 'ask') {
 					const pick = await vscode.window.showInformationMessage(
 						`Show ${formModule} on launch?`,
 						{
 							modal: true,
-							detail: `XLIDE can inject a small launcher macro (module XlideRun) into ${path.basename(filePath)} and run it, so F5 behaves like the VBE's. `
-								+ 'The module stays in the workbook and is safe to delete. '
+							detail: `XLIDE can add a small launcher macro (${subName}, in module XlideRun) to ${path.basename(filePath)} and run it, so F5 behaves like the VBE's. `
+								+ 'Each form gets its own sub; they stay in the workbook and are safe to delete. '
 								+ '"Always" remembers this in the xlide.formRun.injectShowMacro setting.',
 						},
 						'Yes', 'Always', 'No',
@@ -449,25 +478,22 @@ export function registerFormPreview(
 					}
 				}
 				if (mode === 'always' || mode === 'once') {
-					const wbPath = filePath;
-					const macro = 'XlideRun.XlideShowForm';
 					const attachToRunning = xlideAttachToRunningExcelFromConfig(config).value;
 					const quiet = (): void => { /* the launcher logs on its own channel */ };
-					const source = [
-						"' XLIDE Run-Form launcher, injected by F5. Safe to delete.",
-						'Sub XlideShowForm()',
-						`    UserForms.Add("${formModule}").Show`,
-						'End Sub',
-						'',
-					].join('\r\n');
+					const source = composeLauncherSource(launcherSource, formModule);
 					try {
 						// Suppression spans the write AND the run, as the Run-Macro
 						// command does: the write's own background read-only refresh
 						// would otherwise open the workbook in one Excel while the
 						// macro host spawns another - two Excels for one F5.
 						await withWorkbookReopenSuppressed(wbPath, async () => {
-							await runWriteWithExcelCoordination(wbPath, () =>
-								bridge.call('writeModule', { path: wbPath, module: 'XlideRun', source }));
+							// An installed launcher is run as it stands: no write, so
+							// a repeat F5 never touches the workbook at all (and any
+							// hand edit to the sub is honored rather than clobbered).
+							if (!subExists) {
+								await runWriteWithExcelCoordination(wbPath, () =>
+									bridge.call('writeModule', { path: wbPath, module: LAUNCHER_MODULE, source }));
+							}
 							vscode.window.setStatusBarMessage(`XLIDE: showing ${formModule} in Excel...`, 8000);
 							try {
 								await runWorkbookMacroReadOnly(wbPath, macro, { attachToRunning }, quiet);

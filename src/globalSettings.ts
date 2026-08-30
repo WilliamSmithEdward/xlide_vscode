@@ -206,7 +206,7 @@ const XLIDE_GLOBAL_SETTINGS: {
         webviewCard: {
             section: 'excel',
             label: 'Run Form (F5) Show Macro',
-            description: 'When F5 launches a form workbook, XLIDE can inject a small launcher macro (module XlideRun) and run it so the form opens immediately, the way F5 in the VBE does. Ask (default): confirm each time, with an Always answer that remembers the choice here. Always: inject and show without asking. Never: F5 just opens the workbook. The injected module stays in the workbook and is safe to delete.',
+            description: 'When F5 launches a form workbook, XLIDE can add a small launcher macro to it - one sub per form, all in module XlideRun - and run it so the form opens immediately, the way F5 in the VBE does. Ask (default): confirm the first time a form needs its launcher; once that sub exists F5 just runs it, with no prompt. Always: add and show without asking. Never: F5 just opens the workbook. The subs stay in the workbook and are safe to delete.',
             control: { kind: 'enum', values: FORM_RUN_INJECT_SHOW_MACRO_VALUES },
         },
     },
