@@ -4,6 +4,19 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **A fuzz oracle now guards the document model - and its first sweep found
+  a real one.** Every property the pane offers, on every control and the
+  form, is machine-checked against the two invariants the one-document
+  designer stands on: the printed document reproduces the state on a fresh
+  baseline, and applying a state's own print to itself changes nothing.
+  The sweep (492 writes, plus revert-to-default and same-field batch
+  passes) caught the empty-string asymmetry: a caption or value cleared to
+  empty printed as Caption="", which no apply could re-create - and a
+  frame's cleared legend quietly resurrected on save. Empty strings are
+  unspoken in the dialect now, and a whole-document apply reads absence as
+  empty, so cleared text stays cleared through save and undo. A trimmed
+  oracle runs in the suite permanently.
+
 - **Hunt findings in the one-unit designer, fixed the same day.** Typing in
   the markup pane dirtied the document but never repainted the canvas: the
   edit's own echo suppression swallowed the very change event that applies

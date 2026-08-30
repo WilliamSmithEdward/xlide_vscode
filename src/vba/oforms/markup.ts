@@ -266,8 +266,10 @@ function printPackage(
 	const record = pkg.form.record;
 	// A top-level form's caption is persisted in the VBFrame text, not in the
 	// f record - the service passes it in; a Frame's caption IS in its record.
+	// A FRAME'S empty caption stays unspoken (apply reads absence as empty);
+	// the FORM'S prints even empty - it diffs against the VBFrame's line.
 	const caption = record.strings.get('Caption');
-	if (caption) { attrs.push(`Caption="${escapeAttr(caption.text)}"`); }
+	if (caption && caption.text.length) { attrs.push(`Caption="${escapeAttr(caption.text)}"`); }
 	else if (tag === 'Form' && captionFallback !== undefined) {
 		attrs.push(`Caption="${escapeAttr(captionFallback)}"`);
 	}
@@ -370,10 +372,13 @@ function printChild(pkg: FormPackage, child: PrintableChild, lines: string[], de
 	pushGeometry(attrs, site, undefined, child.record);
 	const record = child.record;
 	if (record) {
+		// Empty strings stay UNSPOKEN: the dialect cannot re-create a stored
+		// empty on apply, so printing one would make the document say more
+		// than a save could keep (the fuzz oracle's find, 2026-08-29).
 		const caption = record.strings.get('Caption');
-		if (caption) { attrs.push(`Caption="${escapeAttr(caption.text)}"`); }
+		if (caption && caption.text.length) { attrs.push(`Caption="${escapeAttr(caption.text)}"`); }
 		const value = record.strings.get('Value');
-		if (value) { attrs.push(`Value="${escapeAttr(value.text)}"`); }
+		if (value && value.text.length) { attrs.push(`Value="${escapeAttr(value.text)}"`); }
 		const group = record.strings.get('GroupName');
 		if (group && group.text.length) { attrs.push(`GroupName="${escapeAttr(group.text)}"`); }
 		for (const field of COLOR_FIELDS) {
@@ -719,9 +724,11 @@ function applyToPackage(
 	// applyToMultiPage routes it - and the FORM's lives in the VBFrame the
 	// service owns; only a Frame's caption belongs to this record.
 	const record = pkg.form.record;
+	// A Frame's absent Caption means EMPTY - the printer stays quiet on an
+	// empty legend, so a cleared one must clear here too.
 	const caption = element.tag.toLowerCase() === 'page' || isForm
 		? undefined
-		: element.attrs.get('Caption');
+		: (element.attrs.get('Caption') ?? '');
 	if (caption !== undefined && caption !== (record.strings.get('Caption')?.text ?? '')) {
 		setRecordString(record, 'Caption', caption);
 		outcome.applied.push(`Caption of ${element.attrs.get('Name') ?? element.tag}`);
@@ -1217,9 +1224,14 @@ export function applyRecordAttrs(
 		}
 	}
 	for (const [attr, field] of [['Caption', 'Caption'], ['Value', 'Value'], ['GroupName', 'GroupName']] as const) {
-		const text = element.attrs.get(attr);
+		const explicit = element.attrs.get(attr);
+		const canCarry = record.spec.extra.some((f) => f.name === field && f.kind === 'str');
+		// TOTAL semantics: the printer stays quiet on an empty string, so an
+		// absent attr in a whole-document apply means empty - a cleared
+		// caption must not resurrect on save.
+		const text = explicit ?? (total && canCarry ? '' : undefined);
 		if (text === undefined) { continue; }
-		if (!record.spec.extra.some((f) => f.name === field && f.kind === 'str')) {
+		if (!canCarry) {
 			throw new FormMarkupError(element.line, `a ${kind} has no ${attr}`);
 		}
 		if ((record.strings.get(field)?.text ?? '') === text) { continue; }

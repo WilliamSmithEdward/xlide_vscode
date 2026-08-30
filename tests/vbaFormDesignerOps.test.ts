@@ -684,6 +684,85 @@ describe('the one-document undo model', () => {
 		expect(readFormMarkup(real, 'EntryForm').markup).toBe(doc);
 	});
 
+	it('keeps a cleared caption cleared through the document', () => {
+		// The fuzz oracle's find: a string cleared to EMPTY printed as
+		// Caption="", which a fresh apply could never re-create - and a
+		// frame's cleared legend resurrected on save. Empty strings are
+		// unspoken now, and a whole-document apply reads absence as empty.
+		const real = workbook();
+		const scratch = path.join(path.dirname(real), 'Cleared.xlsm');
+		fs.copyFileSync(real, scratch);
+		applyFormDesignerOp(scratch, 'EntryForm', { kind: 'setProp', name: 'OkButton', prop: 'Caption', value: '' });
+		applyFormDesignerOp(scratch, 'EntryForm', { kind: 'setProp', name: 'Options', prop: 'Caption', value: '' });
+		resetWorkbookCacheForTests();
+		const doc = readFormMarkup(scratch, 'EntryForm').markup;
+		expect(doc).not.toMatch(/OkButton[^>]*Caption=/);
+		expect(doc).not.toMatch(/<Frame Name="Options"[^>]*Caption=/);
+		applyFormMarkup(real, 'EntryForm', doc);
+		resetWorkbookCacheForTests();
+		expect(readFormMarkup(real, 'EntryForm').markup).toBe(doc);
+		const { html } = readFormPreview(real, 'EntryForm');
+		expect(html).not.toContain('>Start</div>');
+	});
+
+	it('round-trips every pane row of a control and the form (the oracle, trimmed)', () => {
+		// For each property the pane offers, write a non-default value and
+		// require the two invariants the one-document designer stands on:
+		// the document reproduces the state on a fresh baseline, and
+		// applying a state's own print to itself changes nothing.
+		const baseline = workbook();
+		const scratch = path.join(path.dirname(baseline), 'Oracle.xlsm');
+		const fresh = path.join(path.dirname(baseline), 'OracleFresh.xlsm');
+		const rowsOf = (target: string): PropertyRowLike[] => {
+			const html = readFormPreview(baseline, 'EntryForm').html;
+			const propsJson = /const PROPS = (\{.*?\});\r?\n/.exec(html)?.[1] ?? '{}';
+			resetWorkbookCacheForTests();
+			return (JSON.parse(propsJson)[target]?.rows ?? []) as PropertyRowLike[];
+		};
+		interface PropertyRowLike { prop: string; value: string }
+		const enums: Record<string, string[]> = {
+			SpecialEffect: ['0', '2'], BorderStyle: ['0', '1'], MultiSelect: ['0', '2'],
+			ListStyle: ['0', '1'], Style: ['0', '2'], Orientation: ['-1', '1'],
+			ScrollBars: ['0', '3'], TextAlign: ['Left', 'Center'], Cycle: ['0', '2'],
+			Alignment: ['0', '1'], MousePointer: ['0', '11'], StartUpPosition: ['1', '3'],
+			PictureSizeMode: ['0', '3'], PictureAlignment: ['0', '2'],
+		};
+		const pick = (prop: string, current: string): string | undefined => {
+			if (prop === 'Name' || prop === 'TabIndex') { return undefined; }
+			if (prop === 'Font.Name') { return current === 'Segoe UI' ? 'Verdana' : 'Segoe UI'; }
+			if (prop === 'Font.Size') { return current === '10' ? '12' : '10'; }
+			if (['BackColor', 'ForeColor', 'BorderColor'].includes(prop)) { return '#123456'; }
+			if (enums[prop]) { return enums[prop].find((v) => v !== current); }
+			if (current === 'True') { return 'False'; }
+			if (current === 'False') { return 'True'; }
+			if (prop === 'PasswordChar' || prop === 'Accelerator') { return 'K'; }
+			if (/^-?\d+(\.\d+)?$/.test(current)) { return String(Number(current) + 7); }
+			return current === '' && prop.includes('Source') ? 'Sheet1!A1' : current + 'X';
+		};
+		for (const target of ['NameBox', '']) {
+			for (const row of rowsOf(target)) {
+				const value = pick(row.prop, row.value);
+				if (value === undefined || value === row.value) { continue; }
+				fs.copyFileSync(baseline, scratch);
+				resetWorkbookCacheForTests();
+				try {
+					applyFormDesignerOp(scratch, 'EntryForm', { kind: 'setProp', name: target, prop: row.prop, value });
+				} catch {
+					continue; // a vocabulary refusal is the gate working
+				}
+				resetWorkbookCacheForTests();
+				const doc = readFormMarkup(scratch, 'EntryForm').markup;
+				const self = applyFormMarkup(scratch, 'EntryForm', doc);
+				expect(self.applied, `${target || 'form'} ${row.prop}=${value} self-apply`).toEqual([]);
+				fs.copyFileSync(baseline, fresh);
+				resetWorkbookCacheForTests();
+				applyFormMarkup(fresh, 'EntryForm', doc);
+				resetWorkbookCacheForTests();
+				expect(readFormMarkup(fresh, 'EntryForm').markup, `${target || 'form'} ${row.prop}=${value} reprint`).toBe(doc);
+			}
+		}
+	});
+
 	it('speaks the form extras, the StdFont, and the VBFrame trio in the document', () => {
 		const wb = workbook();
 		const write = (prop: string, value: string) =>
