@@ -568,6 +568,24 @@ describe('the interactive canvas contract', () => {
 		expect(html).toContain('.drop-target');
 	});
 
+	it('resolves the drop BEFORE stripping the carried control transparent', () => {
+		// Found by the browser harness (2026-08-30): removing the dragging
+		// class before the drop hit test made the carried control catch its
+		// own drop - the walk up found its OLD surface, and every
+		// cross-container drop silently became a same-container move. The
+		// same handler carried a function-scoped client shadow that put the
+		// form-resize branch in its temporal dead zone: every form resize
+		// THREW instead of posting.
+		const { html } = readFormPreview(workbook(), 'EntryForm');
+		expect(html).not.toContain("const client = drag.el.closest('.client')");
+		const dropBlock = html.slice(html.indexOf("if (drag.kind === 'move' && drag.moved)"));
+		const hit = dropBlock.indexOf('document.elementFromPoint');
+		const strip = dropBlock.indexOf(".classList.remove('dragging')");
+		expect(hit).toBeGreaterThan(-1);
+		expect(strip).toBeGreaterThan(-1);
+		expect(hit).toBeLessThan(strip);
+	});
+
 	it('activates the form itself when the selection is the empty name', () => {
 		const { html } = readFormPreview(workbook(), 'EntryForm', '');
 		expect(html).toContain('class="dialog form-selected"');

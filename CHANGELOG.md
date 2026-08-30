@@ -4,6 +4,21 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **Drag-to-reparent and form resizing actually work again - a browser
+  harness now drives the real canvas.** Hunt three shimmed the webview API
+  into a rendered page and replayed every gesture with synthetic pointers,
+  asserting each posted message against hand-computed points. Two kills:
+  the drop hit test ran AFTER the carried control lost its
+  pointer-transparency, so it caught its own drop and every cross-container
+  drag silently became a same-container move (the frame even highlighted,
+  then nothing) - the hit test now runs first; and a local client shadow
+  put the form-resize commit in its temporal dead zone, so every form
+  resize THREW instead of posting - the shadow is gone and a suite pin
+  keeps both orderings. Everything else measured exact: move, resize from
+  every edge, nudges, click-to-place and drag-to-place, zoom-scaled drags
+  (points stay true at 150%), the markup draft lifecycle, the Ctrl+Z/Y/S
+  and F5 keys, and both popovers.
+
 - **A fuzz oracle now guards the document model - and its first sweep found
   a real one.** Every property the pane offers, on every control and the
   form, is machine-checked against the two invariants the one-document

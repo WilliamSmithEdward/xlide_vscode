@@ -1433,11 +1433,8 @@ ${interactive ? `	<script>
 			}
 			if (ctl) { deselectForm(); }
 			if (drag) {
-				const client = drag.el.closest('.client');
-				if (client) {
-					client.classList.add(drag.kind === 'move' ? 'gesture-move' : 'gesture-resize');
-					if (drag.kind === 'resize') { client.style.cursor = drag.dir + '-resize'; }
-				}
+				client.classList.add(drag.kind === 'move' ? 'gesture-move' : 'gesture-resize');
+				if (drag.kind === 'resize') { client.style.cursor = drag.dir + '-resize'; }
 			}
 		});
 
@@ -1533,14 +1530,18 @@ ${interactive ? `	<script>
 			}
 			if (!drag) { return; }
 			clearGuides();
-			drag.el.classList.remove('dragging');
-			const client = drag.el.closest('.client');
-			if (client) {
-				client.classList.remove('gesture-move', 'gesture-resize');
-				client.style.cursor = '';
-			}
+			// NO local client shadow in this handler: a function-scoped one
+			// here put the formDrag branch above into its temporal dead zone,
+			// and every form-resize commit threw instead of posting (found by
+			// the browser harness, 2026-08-30).
+			client.classList.remove('gesture-move', 'gesture-resize');
+			client.style.cursor = '';
 			document.querySelectorAll('.drop-target').forEach((s) => s.classList.remove('drop-target'));
 			if (drag.kind === 'move' && drag.moved) {
+				// The hit test runs while the dragging class still holds the
+				// carried control pointer-transparent - stripping it first made
+				// the control catch its own drop, so the walk up found its OLD
+				// surface and a cross-container drop silently became a move.
 				const under = document.elementFromPoint(e.clientX, e.clientY);
 				const surf = under && under.closest('[data-surface]');
 				if (surf && surf !== drag.el.parentElement) {
@@ -1551,6 +1552,7 @@ ${interactive ? `	<script>
 					let left = px2pt(rect.left - srect.left);
 					let top = px2pt(rect.top - srect.top);
 					if (gridOn()) { left = Math.round(left / GRID) * GRID; top = Math.round(top / GRID) * GRID; }
+					drag.el.classList.remove('dragging');
 					post({ type: 'reparent', name: drag.el.dataset.name, container: surf.dataset.surface,
 						left: Math.max(0, left), top: Math.max(0, top) });
 					drag = null;
@@ -1558,6 +1560,7 @@ ${interactive ? `	<script>
 					return;
 				}
 			}
+			drag.el.classList.remove('dragging');
 			const g = geometryOf(drag.el);
 			const name = drag.el.dataset.name;
 			const changed = drag.moved || drag.kind === 'resize';
