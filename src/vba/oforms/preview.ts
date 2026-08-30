@@ -567,16 +567,29 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.grip-btn { background: none; border: none; color: #777; cursor: pointer;
 		font-size: 8px; padding: 0 8px; }
 	.grip-btn:hover { color: #fff; }
-	/* The markup pane: the .form document itself, one face of one editor. */
+	/* The markup pane: the .form document itself, one face of one editor.
+	   The COLOR rides a layer under a transparent-text textarea - the caret,
+	   selection, and IME stay native while the paint underneath speaks the
+	   dialect. The two layers MUST share every text metric. */
 	.markup-pane { flex: none; display: flex; flex-direction: column; min-height: 0;
 		background: #1e1e1e; }
 	.markup-pane.fill { flex: 1 1 auto; }
 	.markup-error { display: none; background: #5a1d1d; color: #f48771; padding: 2px 10px;
 		font: 12px sans-serif; white-space: pre-wrap; }
-	#markupText { flex: 1 1 auto; width: 100%; box-sizing: border-box; border: none;
-		outline: none; resize: none; background: #1e1e1e; color: #d4d4d4; padding: 6px 10px;
-		font: 13px Consolas, 'Courier New', monospace; white-space: pre; overflow: auto;
-		tab-size: 4; user-select: text; }
+	.markup-editor { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+	#markupText, #markupColor { position: absolute; inset: 0; margin: 0; border: none;
+		box-sizing: border-box; padding: 6px 10px; font: 13px Consolas, 'Courier New', monospace;
+		line-height: 1.4; white-space: pre; tab-size: 4; }
+	#markupText { outline: none; resize: none; width: 100%; height: 100%;
+		background: transparent; color: transparent; caret-color: #d4d4d4;
+		overflow: auto; user-select: text; z-index: 2; }
+	#markupText::selection { background: rgba(38, 79, 120, 0.9); color: transparent; }
+	#markupColor { overflow: hidden; color: #d4d4d4; pointer-events: none; z-index: 1; }
+	#markupColor .mk-t { color: #569cd6; }
+	#markupColor .mk-a { color: #9cdcfe; }
+	#markupColor .mk-s { color: #ce9178; }
+	#markupColor .mk-p { color: #808080; }
+	#markupColor .mk-c { color: #6a9955; }
 </style>
 </head>
 <body>
@@ -605,7 +618,7 @@ ${interactive ? `	<aside class="props" id="props"><div class="props-sash" id="pr
 	</div>
 	</div>
 ${interactive ? `	<div class="split-grip" id="splitGrip"><button class="grip-btn" id="gripUp" title="Collapse the designer: the markup takes the space">&#9650;</button><div class="grip-dots" id="gripDots" title="Drag to resize the split between the designer and the markup"><span></span><span></span><span></span><span></span><span></span></div><button class="grip-btn" id="gripDown" title="Collapse the markup: the designer takes the space">&#9660;</button></div>
-	<div class="markup-pane" id="markupPane"><div class="markup-error" id="markupError"></div><textarea id="markupText" spellcheck="false" wrap="off">${esc(options.markup ?? '')}</textarea></div>` : ''}
+	<div class="markup-pane" id="markupPane"><div class="markup-error" id="markupError"></div><div class="markup-editor"><pre id="markupColor" aria-hidden="true"></pre><textarea id="markupText" spellcheck="false" wrap="off">${esc(options.markup ?? '')}</textarea></div></div>` : ''}
 	<script type="application/json" id="cpicData">${picturesJson}</script>
 	<script>
 		// Caption pictures, the way MSForms actually draws them (measured in
@@ -1106,6 +1119,51 @@ ${interactive ? `	<script>
 		// a successful apply.
 		const markupText = document.getElementById('markupText');
 		const markupError = document.getElementById('markupError');
+		const markupColor = document.getElementById('markupColor');
+		// The dialect, painted on the layer UNDER the transparent textarea:
+		// one scanner pass over comments, tags, attribute names, quoted
+		// values, and punctuation. The two layers share every text metric, so
+		// the paint sits exactly under the glyphs the textarea draws. A very
+		// large document reads plain instead - a giant paste must never make
+		// typing crawl.
+		const MK_PAINT_LIMIT = 200000;
+		const MK_RE = /<!--[\\s\\S]*?-->|<\\/?[A-Za-z_][A-Za-z0-9_.\\-]*|\\/?>|"[^"]*"|[A-Za-z_][A-Za-z0-9_.]*(?=\\s*=)/g;
+		const mkEsc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+		const mkSpan = (cls, text) => "<span class=\\"" + cls + "\\">" + mkEsc(text) + "</span>";
+		const paintMarkup = () => {
+			if (!markupColor || !markupText) { return; }
+			const text = markupText.value;
+			if (text.length > MK_PAINT_LIMIT) {
+				markupColor.textContent = text;
+			} else {
+				let html = "";
+				let at = 0;
+				let m;
+				MK_RE.lastIndex = 0;
+				while ((m = MK_RE.exec(text)) !== null) {
+					if (m.index > at) { html += mkEsc(text.slice(at, m.index)); }
+					const tok = m[0];
+					const head = tok.charAt(0);
+					if (tok.slice(0, 4) === "<!--") {
+						html += mkSpan("mk-c", tok);
+					} else if (head === "<") {
+						const cut = tok.charAt(1) === "/" ? 2 : 1;
+						html += mkSpan("mk-p", tok.slice(0, cut)) + mkSpan("mk-t", tok.slice(cut));
+					} else if (head === ">" || head === "/") {
+						html += mkSpan("mk-p", tok);
+					} else if (head === "\\"") {
+						html += mkSpan("mk-s", tok);
+					} else {
+						html += mkSpan("mk-a", tok);
+					}
+					at = m.index + tok.length;
+				}
+				html += mkEsc(text.slice(at)) + "\\n";
+				markupColor.innerHTML = html;
+			}
+			markupColor.scrollTop = markupText.scrollTop;
+			markupColor.scrollLeft = markupText.scrollLeft;
+		};
 		let markupTimer = 0;
 		// The DRAFT rides the state on every keystroke: a re-render arrives
 		// asynchronously, and any keys typed after the last flush would die
@@ -1127,6 +1185,7 @@ ${interactive ? `	<script>
 			mergeState({ markupDraft: null });
 		};
 		markupText?.addEventListener('input', () => {
+			paintMarkup();
 			rememberMarkupView();
 			if (markupTimer) { clearTimeout(markupTimer); }
 			markupTimer = setTimeout(flushMarkup, 400);
@@ -1136,7 +1195,14 @@ ${interactive ? `	<script>
 			rememberMarkupView();
 		});
 		markupText?.addEventListener('focus', rememberMarkupView);
-		markupText?.addEventListener('scroll', rememberMarkupView);
+		markupText?.addEventListener('scroll', () => {
+			// The paint must follow the text exactly, every frame it moves.
+			if (markupColor) {
+				markupColor.scrollTop = markupText.scrollTop;
+				markupColor.scrollLeft = markupText.scrollLeft;
+			}
+			rememberMarkupView();
+		});
 		markupText?.addEventListener('keydown', (e) => {
 			if (e.key === 'Tab') {
 				e.preventDefault();
@@ -1171,6 +1237,7 @@ ${interactive ? `	<script>
 					markupText.value.length);
 				try { markupText.setSelectionRange(at, at); } catch { /* selection is a nicety */ }
 			}
+			paintMarkup();
 		}
 		// Self-check: every control the engine LISTED must be in the DOM
 		// with real bounds (hidden pages excepted). One control kept
@@ -1674,14 +1741,18 @@ ${interactive ? `	<script>
 			if (e.target.closest('.props') || e.target.closest('.markup-pane')) { return; }
 			if (e.key === 'Escape') { disarm(); select(null); deselectForm(); }
 		});
-		// F5, Ctrl+Z/Y, Ctrl+S posted from INSIDE the page: key forwarding
-		// from webviews to workbench keybindings has not proven reliable (F5
-		// measured), so the page speaks and the host acts on the DOCUMENT -
-		// undo is text undo now, save is the only workbook write. Inside a
-		// field only Ctrl+S is taken (flushing a pending markup edit first);
-		// the field keeps its own native undo.
+		// Ctrl+Z/Y, Ctrl+S posted from INSIDE the page: key forwarding from
+		// webviews to workbench keybindings has not proven reliable for
+		// these, so the page speaks and the host acts on the DOCUMENT - undo
+		// is text undo now, save is the only workbook write. Inside a field
+		// only Ctrl+S is taken (flushing a pending markup edit first); the
+		// field keeps its own native undo.
+		//
+		// F5 is NOT posted here: the custom editor is the active editor, so
+		// the workbench keybinding (activeCustomEditorId) reaches the command
+		// on its own. Posting as well ran it TWICE and stacked two consent
+		// dialogs on one keypress.
 		document.addEventListener('keydown', (e) => {
-			if (e.key === 'F5') { e.preventDefault(); post({ type: 'launchHost' }); return; }
 			if (!(e.ctrlKey || e.metaKey)) { return; }
 			const key = e.key.toLowerCase();
 			const inField = e.target.closest('input, textarea, select');

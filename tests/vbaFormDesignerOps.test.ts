@@ -606,8 +606,31 @@ describe('the one-unit canvas', () => {
 		expect(html).toContain("type: 'docUndo'");
 		expect(html).toContain("type: 'docRedo'");
 		expect(html).toContain("type: 'docSave'");
+		// F5 is the WORKBENCH keybinding's alone: posting it from the page as
+		// well ran the command twice and stacked two consent dialogs.
+		expect(html).not.toContain("type: 'launchHost'");
 		// With no document text supplied, the pane shows the engine's print.
 		expect(html).toContain('&lt;Form Name=&quot;EntryForm&quot;');
+	});
+
+	it('paints the markup pane, on a layer that shares the text metrics', () => {
+		const { html } = readFormPreview(workbook(), 'EntryForm');
+		// The colors ride a layer UNDER a transparent-text textarea, so the
+		// caret and selection stay native. Both layers must be declared with
+		// one font, padding, and line-height rule or the paint drifts off the
+		// glyphs; the scanner and its classes must survive generation.
+		expect(html).toContain('id="markupColor"');
+		expect(html).toContain('#markupText, #markupColor {');
+		expect(html).toMatch(/#markupText \{[^}]*color: transparent/);
+		expect(html).toContain('paintMarkup');
+		for (const cls of ['mk-t', 'mk-a', 'mk-s', 'mk-p', 'mk-c']) {
+			expect(html).toContain('#markupColor .' + cls + ' {');
+		}
+		// The scanner must reach the emitted script with its escapes intact:
+		// a template literal eats a lone backslash, which would silently turn
+		// [\s\S] into [sS] and paint garbage.
+		expect(html).toContain('<!--[\\s\\S]*?-->');
+		expect(html).toContain('mkEsc');
 	});
 
 	it('shows the document text verbatim-escaped and honors the identity override', () => {

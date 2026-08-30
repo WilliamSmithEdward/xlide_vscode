@@ -24,6 +24,8 @@ export const FORM_DESIGNER_VIEW_TYPE = 'xlideFormDesigner';
 let lastFocusedDesignerWorkbook: string | undefined;
 /** Its form module, so F5 knows which form a Show launcher should open. */
 let lastFocusedDesignerModule: string | undefined;
+/** A launch (its consent modal included) is running; a second F5 waits. */
+let launchInFlight = false;
 
 type DesignerMessage =
 	| { type: 'geometry'; name: string; left?: number; top?: number; width?: number; height?: number }
@@ -36,7 +38,6 @@ type DesignerMessage =
 	| { type: 'docUndo' }
 	| { type: 'docRedo' }
 	| { type: 'docSave' }
-	| { type: 'launchHost' }
 	| { type: 'formResize'; width: number; height: number };
 
 type GestureMessage = Extract<DesignerMessage,
@@ -296,9 +297,6 @@ export function registerFormPreview(
 					case 'openHandler':
 						void openEventHandler(xlsmPath, moduleName, message.name, message.event);
 						break;
-					case 'launchHost':
-						void vscode.commands.executeCommand('xlide.launchFormHost');
-						break;
 					case 'markupEdit':
 						enqueue(() => setDocumentText(message.text, false));
 						break;
@@ -381,7 +379,24 @@ export function registerFormPreview(
 		// workbook's host application - the closest thing to the VBE's Run
 		// while the engine stays COMless. The active markup editor names the
 		// workbook; a focused designer remembered its own.
+		//
+		// ONE launch at a time: the consent modal and the Excel run are both
+		// long, and a second F5 arriving meanwhile must not stack a second
+		// dialog on top of the first (measured when the canvas posted the
+		// launch as well as the keybinding firing it).
 		vscode.commands.registerCommand('xlide.launchFormHost', async () => {
+			if (launchInFlight) { return; }
+			launchInFlight = true;
+			try {
+				await launchFormHost();
+			} finally {
+				launchInFlight = false;
+			}
+		}),
+	);
+
+	async function launchFormHost(): Promise<void> {
+		{
 			const active = vscode.window.activeTextEditor;
 			let filePath: string | undefined;
 			let formModule: string | undefined;
@@ -456,6 +471,6 @@ export function registerFormPreview(
 				excel ? 'xlide.openWorkbook' : 'xlide.openInOfficeApp',
 				{ kind: 'xlsm', label: path.basename(filePath), filePath },
 			);
-		}),
-	);
+		}
+	}
 }

@@ -4,6 +4,20 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **The markup pane has its colors back, and F5 asks once.** Folding the
+  markup into the designer traded a real editor for a bare textarea, and
+  the syntax coloring went with it. The pane now paints the dialect again -
+  tags, attribute names, quoted values, punctuation, comments - on a layer
+  under a transparent-text textarea, so the caret, selection, IME, and
+  native undo all stay exactly as they were while the colors sit under the
+  glyphs (both layers share one font, padding, and line-height rule;
+  measured aligned to the pixel, with a very large document falling back to
+  plain text so a giant paste cannot make typing crawl). And F5 in the
+  designer raised its consent dialog TWICE: the canvas posted the launch
+  and the workbench keybinding ran the same command. The keybinding is the
+  single source now, with a one-at-a-time guard on the command so no second
+  press can ever stack another modal.
+
 - **Every reference now says whether it reads or writes.** Issue #55's ask:
   find-all-references answered positions but not what each one DOES, and
   the vbide's Extract Method needs exactly that. Each reference span now
