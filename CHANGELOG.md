@@ -4,6 +4,16 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **F5 on a form opens ONE Excel.** The launch writes the launcher module
+  and then runs it, and the write's own Excel coordination reopens the
+  workbook after a save or a close - so the workbook was opened twice for
+  one keypress, once by the save's reopen and once by the macro host. The
+  Run-Macro command has always held XLIDE's reopen suppressed across both
+  halves for exactly this reason; the form launch now does the same, and
+  additionally adopts that command's locked-workbook handling (close and
+  retry under the coordination policy instead of asking you to close Excel
+  by hand) and its tracking of the workbook the macro host reopened.
+
 - **The markup pane has its colors back, and F5 asks once.** Folding the
   markup into the designer traded a real editor for a bare textarea, and
   the syntax coloring went with it. The pane now paints the dialect again -

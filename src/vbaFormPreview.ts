@@ -13,8 +13,15 @@ import * as fs from 'fs';
 import * as crypto from 'crypto';
 import type { WorkbookEngine } from './workbookEngine';
 import { decodeModuleUri, encodeFormMarkupUri, encodeModuleUri, XLIDE_SCHEME } from './xlideFileSystem';
-import { runWriteWithExcelCoordination } from './excelWorkbookCoordinator';
-import { runWorkbookMacroReadOnly } from './excelLauncher';
+import {
+	closeWorkbookInExcel,
+	markWorkbookOpenedByXlide,
+	resolveExcelCoordinationSettings,
+	runWriteWithExcelCoordination,
+	shouldAttemptClose,
+	withWorkbookReopenSuppressed,
+} from './excelWorkbookCoordinator';
+import { ExcelMacroError, runWorkbookMacroReadOnly } from './excelLauncher';
 import { xlideAttachToRunningExcelFromConfig } from './globalSettings';
 import { errorMessage } from './util/errors';
 
@@ -442,6 +449,10 @@ export function registerFormPreview(
 					}
 				}
 				if (mode === 'always' || mode === 'once') {
+					const wbPath = filePath;
+					const macro = 'XlideRun.XlideShowForm';
+					const attachToRunning = xlideAttachToRunningExcelFromConfig(config).value;
+					const quiet = (): void => { /* the launcher logs on its own channel */ };
 					const source = [
 						"' XLIDE Run-Form launcher, injected by F5. Safe to delete.",
 						'Sub XlideShowForm()',
@@ -450,15 +461,38 @@ export function registerFormPreview(
 						'',
 					].join('\r\n');
 					try {
-						await runWriteWithExcelCoordination(filePath, () =>
-							bridge.call('writeModule', { path: filePath, module: 'XlideRun', source }));
-						vscode.window.setStatusBarMessage(`XLIDE: showing ${formModule} in Excel...`, 8000);
-						await runWorkbookMacroReadOnly(
-							filePath,
-							'XlideRun.XlideShowForm',
-							{ attachToRunning: xlideAttachToRunningExcelFromConfig(config).value },
-							() => { /* the launcher's own logging channel is elsewhere */ },
-						);
+						// Suppression spans the write AND the run, as the Run-Macro
+						// command does: the write's own background read-only refresh
+						// would otherwise open the workbook in one Excel while the
+						// macro host spawns another - two Excels for one F5.
+						await withWorkbookReopenSuppressed(wbPath, async () => {
+							await runWriteWithExcelCoordination(wbPath, () =>
+								bridge.call('writeModule', { path: wbPath, module: 'XlideRun', source }));
+							vscode.window.setStatusBarMessage(`XLIDE: showing ${formModule} in Excel...`, 8000);
+							try {
+								await runWorkbookMacroReadOnly(wbPath, macro, { attachToRunning }, quiet);
+							} catch (err) {
+								// Open for editing in Excel: honor the coordination
+								// policy - close and retry - rather than asking the
+								// user to close it by hand. block mode still rethrows.
+								const settings = resolveExcelCoordinationSettings();
+								if (err instanceof ExcelMacroError && err.code === 'REOPEN_BLOCKED'
+									&& settings.mode !== 'block' && shouldAttemptClose(settings, wbPath)) {
+									await closeWorkbookInExcel(wbPath, { force: settings.mode === 'closeForce' }, quiet);
+									markWorkbookOpenedByXlide(wbPath);
+									await runWorkbookMacroReadOnly(wbPath, macro, { attachToRunning }, quiet);
+								} else {
+									// RUN_FAILED means the host already reopened the
+									// workbook before the macro raised; keep it tracked
+									// so a later closeTracked save frees the lock.
+									if (err instanceof ExcelMacroError && err.code === 'RUN_FAILED') {
+										markWorkbookOpenedByXlide(wbPath);
+									}
+									throw err;
+								}
+							}
+							markWorkbookOpenedByXlide(wbPath);
+						});
 					} catch (err) {
 						void vscode.window.showErrorMessage(`XLIDE: could not show the form: ${errorMessage(err)}`);
 					}
