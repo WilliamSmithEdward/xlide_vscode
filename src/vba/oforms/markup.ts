@@ -933,8 +933,35 @@ function applyToMultiPage(
 		byName.set(pageName.toLowerCase(), page);
 	}
 
-	// Removals, from the end so indices stay stable.
+	// A RENAMED page pairs before the diff can read it as remove-plus-add,
+	// which rebuilt its contents from text alone and killed anything the
+	// dialect cannot spell (hunt nine: a picture on a renamed page died on
+	// save while the reprint stayed equal). The pairing is the unambiguous
+	// single rename at the SAME position; anything else falls back honestly.
 	const currentSites = (): SiteModel[] => mp.form.sites.filter((s) => siteCacheIndex(s) === 7);
+	{
+		const modelPages = currentSites();
+		const removedPages = modelPages.filter((s) => !byName.has(siteName(s).toLowerCase()));
+		const addedPages = pages.filter((p) =>
+			!modelPages.some((s) => siteName(s).toLowerCase() === p.attrs.get('Name')!.toLowerCase()));
+		if (removedPages.length === 1 && addedPages.length === 1) {
+			const site = removedPages[0];
+			const el = addedPages[0];
+			const newName = el.attrs.get('Name')!;
+			// Caption gate, as for controls: a rename keeps its caption (the
+			// tab Items array is untouched); a fresh page brings its own.
+			const captions = tabStrip ? decodeArrayStrings(tabStrip.arrays.get('Items') ?? Buffer.alloc(0)) : [];
+			const modelIdx = modelPages.indexOf(site);
+			const captionMatches = (el.attrs.get('Caption') ?? '') === (captions[modelIdx] ?? '');
+			if (modelIdx === pages.indexOf(el) && captionMatches && LEGAL_CONTROL_NAME.test(newName)) {
+				const oldName = siteName(site);
+				renameSiteInPlace(site, newName);
+				outcome.applied.push(`renamed page ${oldName} to ${newName} of ${mpName}`);
+			}
+		}
+	}
+
+	// Removals, from the end so indices stay stable.
 	for (let index = currentSites().length - 1; index >= 0; index--) {
 		const site = currentSites()[index];
 		if (byName.has(siteName(site).toLowerCase())) { continue; }
@@ -1743,6 +1770,18 @@ function addControl(
 	applySiteAttrs(site, element, outcome);
 	applyRecordAttrs(record, element, kind, outcome, name);
 	outcome.applied.push(`added ${kind} ${name}`);
+}
+
+/** Renames a site where it stands: the string, its length field, the mask. */
+export function renameSiteInPlace(site: SiteModel, newName: string): void {
+	site.strings.set('Name', {
+		text: newName,
+		compressed: [...newName].every((c) => c.charCodeAt(0) <= 0xff),
+		raw: Buffer.alloc(0),
+		edited: true,
+	});
+	site.values.set('NameData', 0);
+	site.mask = (site.mask | (1 << 0)) >>> 0;
 }
 
 export function nextTabIndex(pkg: FormPackage): number {

@@ -4,6 +4,23 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **A renamed page keeps its contents through the save.** Hunt nine went
+  after the one identity the reconciliation had excluded: MultiPage pages.
+  A page rename still saved as remove-plus-add, so the renamed page came
+  back rebuilt from text alone - a picture on it died while the reprint
+  stayed equal, the oracle-blind loss shape again. Pages pair FIRST of all
+  now (before control moves, so a control dragged onto a renamed page
+  resolves against its new name): the unambiguous single rename at the
+  same position with the SAME caption - the caption is the discriminator,
+  since a rename keeps it and a genuinely fresh page brings its own -
+  renames the site in place; anything else falls back honestly. Live Excel
+  read the save output back: two pages, the renamed one keyed by its new
+  name with both children and the picture alive. Also learned from the
+  bytes: the tab-strip TabNames array is internal bookkeeping (Tab3/Tab4
+  in the fixture), not page identity, so a site rename needs no array
+  sync. The chain fuzz now rolls page renames and captions too - 40 seeds
+  green.
+
 - **Exported forms import into the VBE now - containers, classes, pictures,
   the lot.** Hunt eight pointed the live oracle at the one output no probe
   had ever consumed: our .frm/.frx export pair. The VBE refused it -

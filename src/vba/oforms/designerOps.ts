@@ -21,6 +21,7 @@ import {
 	FormMarkupError,
 	LEGAL_CONTROL_NAME,
 	nextTabIndex,
+	renameSiteInPlace,
 	parseOleColor,
 	PRINTED_FIELDS,
 	ALIGNMENT_KINDS,
@@ -814,6 +815,52 @@ const docFpOf = (d: ReconcileDocEntry): string | undefined => {
  */
 export function reconcileMarkupIdentities(root: FormPackage, doc: MarkupElement): string[] {
 	const applied: string[] = [];
+
+	// PAGE renames pair FIRST OF ALL: a control moved onto a renamed page
+	// resolves its target by the page's NEW name in the phases below, and
+	// the MultiPage diff later sees a match instead of remove-plus-add
+	// (which rebuilt the page's contents and killed their pictures). The
+	// pairing is the unambiguous single rename at the same position.
+	const pairPagesOf = (mpElement: MarkupElement): void => {
+		const mpName = mpElement.attrs.get('Name') ?? '';
+		const found = mpName ? findControl(root, mpName) : undefined;
+		const inner = found && found.entry.kind === 'container'
+			? found.pkg.containers.get(siteId(found.site))
+			: undefined;
+		if (inner) {
+			const docPages = mpElement.children.filter((c) => c.tag.toLowerCase() === 'page');
+			const modelPages = inner.form.sites.filter((s) => siteCacheIndex(s) === 7);
+			const docNames = new Set(docPages.map((p) => (p.attrs.get('Name') ?? '').toLowerCase()));
+			const removed = modelPages.filter((s) => !docNames.has(siteName(s).toLowerCase()));
+			const added = docPages.filter((p) =>
+				!modelPages.some((s) => siteName(s).toLowerCase() === (p.attrs.get('Name') ?? '').toLowerCase()));
+			if (removed.length === 1 && added.length === 1) {
+				const newName = added[0].attrs.get('Name') ?? '';
+				// The CAPTION is the discriminator, as it is for controls: a
+				// rename keeps the caption (it lives in the tab Items array,
+				// untouched), while a genuinely fresh page brings its own.
+				const tabEntry = inner.entries.find((e) => e.kind === 'record' && siteCacheIndex(e.site) === 18);
+				const captions = tabEntry && tabEntry.kind === 'record'
+					? decodeArrayStrings(tabEntry.record.arrays.get('Items') ?? Buffer.alloc(0))
+					: [];
+				const modelIdx = modelPages.indexOf(removed[0]);
+				const captionMatches = (added[0].attrs.get('Caption') ?? '') === (captions[modelIdx] ?? '');
+				if (modelIdx === docPages.indexOf(added[0]) && captionMatches && LEGAL_CONTROL_NAME.test(newName)) {
+					const oldName = siteName(removed[0]);
+					renameSiteInPlace(removed[0], newName);
+					applied.push(`renamed page ${oldName} to ${newName} of ${mpName}`);
+				}
+			}
+		}
+	};
+	const walkForMultiPages = (el: MarkupElement): void => {
+		for (const child of el.children) {
+			if (child.tag.toLowerCase() === 'multipage') { pairPagesOf(child); }
+			walkForMultiPages(child);
+		}
+	};
+	walkForMultiPages(doc);
+
 	const docs: ReconcileDocEntry[] = [];
 	collectDocEntries(doc, '', docs);
 	const docNames = new Set(docs.map((d) => d.nameLower));

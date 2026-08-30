@@ -678,6 +678,30 @@ describe('identity reconciliation on apply', () => {
 		expect(frame.reprint).toMatch(/<Frame Name="Choices"[\s\S]*?PickGround[\s\S]*?<\/Frame>/);
 	});
 
+	it('a renamed page keeps its contents - pictures included - through the save', () => {
+		// Pages were excluded from the reconcile, so a page rename still went
+		// remove-plus-add: the renamed page came back rebuilt from text and a
+		// picture on it died while the reprint stayed equal (hunt nine). The
+		// page pairs FIRST of all now, so a control moved onto it resolves
+		// against the new name too.
+		const real = workbook();
+		const scratch = path.join(path.dirname(real), 'PageRen.xlsm');
+		fs.copyFileSync(real, scratch);
+		resetWorkbookCacheForTests();
+		applyFormDesignerOp(scratch, 'EntryForm', { kind: 'reparent', name: 'Badge', container: 'Page1', left: 10, top: 30 });
+		resetWorkbookCacheForTests();
+		applyFormDesignerOp(scratch, 'EntryForm', { kind: 'setProp', name: 'Page1', prop: 'Name', value: 'Intro' });
+		resetWorkbookCacheForTests();
+		const doc = readFormMarkup(scratch, 'EntryForm').markup;
+		const outcome = applyFormMarkup(real, 'EntryForm', doc);
+		resetWorkbookCacheForTests();
+		expect(outcome.applied.some((a) => a.includes('renamed page Page1 to Intro'))).toBe(true);
+		expect(readFormMarkup(real, 'EntryForm').markup).toBe(doc);
+		const { html } = readFormPreview(real, 'EntryForm');
+		resetWorkbookCacheForTests();
+		expect(html).toMatch(/data-name="Badge"[^>]*data:image/);
+	});
+
 	it('never guesses: a fresh add stays fresh, and true ambiguity falls back', () => {
 		// Delete plus a default-sized add of the same kind: the captions
 		// differ, so no pairing - and no ghost picture on the new button.
