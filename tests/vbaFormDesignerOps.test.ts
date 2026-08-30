@@ -703,6 +703,57 @@ describe('identity reconciliation on apply', () => {
 	});
 });
 
+// The markup pane accepts arbitrary text now, so the write path must refuse
+// what the format cannot hold instead of wrapping a u16 and corrupting the
+// workbook (the parser fuzz caught a 1MB caption doing exactly that).
+describe('oversized text refuses cleanly', () => {
+	it('a giant caption throws through BOTH entry paths and the file never changes', () => {
+		const wb = workbook();
+		const pristine = fs.readFileSync(wb);
+		const doc = readFormMarkup(wb, 'EntryForm').markup;
+		const giant = doc.replace('Caption="Customer"', `Caption="${'A'.repeat(1024 * 1024)}"`);
+		resetWorkbookCacheForTests();
+		expect(() => applyFormMarkup(wb, 'EntryForm', giant)).toThrow(/too much data|caps a record/);
+		expect(fs.readFileSync(wb).equals(pristine)).toBe(true);
+		resetWorkbookCacheForTests();
+		expect(() => applyFormDesignerOp(wb, 'EntryForm', {
+			kind: 'setProp', name: 'NameLabel', prop: 'Caption', value: 'B'.repeat(1024 * 1024),
+		})).toThrow(/too much data|caps a record/);
+		expect(fs.readFileSync(wb).equals(pristine)).toBe(true);
+	});
+
+	it('a giant site string (Tag) refuses the same way', () => {
+		const wb = workbook();
+		const pristine = fs.readFileSync(wb);
+		resetWorkbookCacheForTests();
+		expect(() => applyFormDesignerOp(wb, 'EntryForm', {
+			kind: 'setProp', name: 'NameBox', prop: 'Tag', value: 'T'.repeat(70 * 1024),
+		})).toThrow(/too much data|caps a site/);
+		expect(fs.readFileSync(wb).equals(pristine)).toBe(true);
+	});
+
+	it('a large-but-legal caption still lands and round-trips', () => {
+		const wb = workbook();
+		const value = 'C'.repeat(30 * 1024);
+		applyFormDesignerOp(wb, 'EntryForm', { kind: 'setProp', name: 'NameLabel', prop: 'Caption', value });
+		resetWorkbookCacheForTests();
+		expect(readFormMarkup(wb, 'EntryForm').markup).toContain(`Caption="${value}"`);
+	});
+
+	it('a very large pasted document applies and self-applies as a no-op', () => {
+		const wb = workbook();
+		const doc = '<Form Name="F" Width="400" Height="300">'
+			+ Array.from({ length: 800 }, (_, i) =>
+				`<Label Name="L${i}" Left="1" Top="1" Width="10" Height="10" Caption="c${i}" />`).join('\r\n')
+			+ '</Form>';
+		applyFormMarkup(wb, 'EntryForm', doc);
+		resetWorkbookCacheForTests();
+		const reprint = readFormMarkup(wb, 'EntryForm').markup;
+		const self = applyFormMarkup(wb, 'EntryForm', reprint);
+		expect(self.applied).toEqual([]);
+	});
+});
+
 // The undo model the one-document designer stands on: any prior document
 // text, applied whole onto a fresh copy of the saved workbook, reproduces
 // that state - including properties whose lines DISAPPEARED and controls

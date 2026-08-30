@@ -833,10 +833,39 @@ export function reconcileMarkupIdentities(root: FormPackage, doc: MarkupElement)
 	const sizeFpModel = (m: ReconcileModelEntry): string =>
 		`${m.kind.toLowerCase()}|${m.geo.w}|${m.geo.h}|${m.caption}`;
 
+	// ONE collection, maintained incrementally: the first version rebuilt the
+	// whole model index per document entry, and the parser fuzz measured the
+	// quadratic (a 4000-control paste spent seconds in here).
+	const current = models();
+	const byName = new Map(current.map((entry) => [entry.nameLower, entry]));
+	const removed = current.filter((entry) => !docNames.has(entry.nameLower));
+	const ownerPosDoc = (a: ReconcileDocEntry): string | undefined => {
+		const fp = docFpOf(a);
+		return fp === undefined ? undefined : `${a.owner.toLowerCase()}::${fp}`;
+	};
+	const ownerPosModel = (entry: ReconcileModelEntry): string =>
+		`${entry.owner.toLowerCase()}::${posFpModel(entry)}`;
+	const bump = (map: Map<string, number>, key: string | undefined, by: number): void => {
+		if (key !== undefined) { map.set(key, (map.get(key) ?? 0) + by); }
+	};
+	const docPos = new Map<string, number>();
+	const docSize = new Map<string, number>();
+	for (const a of docs) {
+		if (a.nameLower && !byName.has(a.nameLower)) {
+			bump(docPos, ownerPosDoc(a), 1);
+			bump(docSize, sizeFpDoc(a), 1);
+		}
+	}
+	const modelPos = new Map<string, number>();
+	const modelSize = new Map<string, number>();
+	for (const entry of removed) {
+		bump(modelPos, ownerPosModel(entry), 1);
+		bump(modelSize, sizeFpModel(entry), 1);
+	}
+
 	for (const d of docs) {
 		if (!d.nameLower) { continue; }
-		const current = models();
-		const m = current.find((entry) => entry.nameLower === d.nameLower);
+		const m = byName.get(d.nameLower);
 
 		if (m) {
 			// The same name under a different owner is a REPARENT, at the
@@ -848,10 +877,12 @@ export function reconcileMarkupIdentities(root: FormPackage, doc: MarkupElement)
 			if (!Number.isFinite(left) || !Number.isFinite(top)) { continue; }
 			try {
 				reparentControl(root, m.name, d.owner, left, top);
+				m.owner = d.owner;
 				applied.push(`moved ${m.name} into ${d.owner || 'the form'}`);
 			} catch { /* an unmovable site falls back to remove-plus-add */ }
 			continue;
 		}
+		if (removed.length === 0) { continue; } // plain additions pair with nothing
 
 		// A document-only name: a RENAME when exactly one model-only control
 		// matches - same owner by kind + full printed geometry, or anywhere
@@ -861,35 +892,45 @@ export function reconcileMarkupIdentities(root: FormPackage, doc: MarkupElement)
 		// old remove-plus-add.
 		const newName = d.el.attrs.get('Name') ?? '';
 		if (!LEGAL_NAME.test(newName)) { continue; }
-		const removed = current.filter((entry) => !docNames.has(entry.nameLower));
-		const addedNow = docs.filter((a) =>
-			a.nameLower && !current.some((entry) => entry.nameLower === a.nameLower));
-
-		const docFp = docFpOf(d);
-		const samePlace = docFp === undefined ? [] : removed.filter(
-			(entry) => entry.owner.toLowerCase() === d.owner.toLowerCase() && posFpModel(entry) === docFp);
-		const samePlaceDocs = docFp === undefined ? [] : addedNow.filter(
-			(a) => a.owner.toLowerCase() === d.owner.toLowerCase() && docFpOf(a) === docFp);
-		let pairTo = samePlace.length === 1 && samePlaceDocs.length === 1 ? samePlace[0] : undefined;
-
-		if (!pairTo) {
-			const key = sizeFpDoc(d);
-			if (key !== undefined) {
-				const bySize = removed.filter((entry) => sizeFpModel(entry) === key);
-				const bySizeDocs = addedNow.filter((a) => sizeFpDoc(a) === key);
-				if (bySize.length === 1 && bySizeDocs.length === 1) { pairTo = bySize[0]; }
-			}
+		const posKey = ownerPosDoc(d);
+		let pairTo: ReconcileModelEntry | undefined;
+		if (posKey !== undefined && docPos.get(posKey) === 1 && modelPos.get(posKey) === 1) {
+			pairTo = removed.find((entry) => ownerPosModel(entry) === posKey);
+		}
+		const sizeKey = sizeFpDoc(d);
+		if (!pairTo && sizeKey !== undefined && docSize.get(sizeKey) === 1 && modelSize.get(sizeKey) === 1) {
+			pairTo = removed.find((entry) => sizeFpModel(entry) === sizeKey);
 		}
 		if (!pairTo) { continue; }
 		const left = Number(d.el.attrs.get('Left'));
 		const top = Number(d.el.attrs.get('Top'));
+		const moves = pairTo.owner.toLowerCase() !== d.owner.toLowerCase();
+		const oldName = pairTo.name;
+		const oldNameLower = pairTo.nameLower;
+		const oldPosKey = ownerPosModel(pairTo);
+		const oldSizeKey = sizeFpModel(pairTo);
 		try {
-			if (pairTo.owner.toLowerCase() !== d.owner.toLowerCase()) {
+			if (moves) {
 				if (!Number.isFinite(left) || !Number.isFinite(top)) { continue; }
-				reparentControl(root, pairTo.name, d.owner, left, top);
+				reparentControl(root, oldName, d.owner, left, top);
 			}
-			setControlProperty(root, pairTo.name, 'Name', newName);
-			applied.push(`renamed ${pairTo.name} to ${newName}${pairTo.owner.toLowerCase() !== d.owner.toLowerCase() ? ` in ${d.owner || 'the form'}` : ''}`);
+			setControlProperty(root, oldName, 'Name', newName);
+			applied.push(`renamed ${oldName} to ${newName}${moves ? ` in ${d.owner || 'the form'}` : ''}`);
+			// The pair is CONSUMED: fix every index the loop still reads.
+			removed.splice(removed.indexOf(pairTo), 1);
+			bump(modelPos, oldPosKey, -1);
+			bump(modelSize, oldSizeKey, -1);
+			bump(docPos, posKey, -1);
+			bump(docSize, sizeKey, -1);
+			byName.delete(oldNameLower);
+			pairTo.name = newName;
+			pairTo.nameLower = newName.toLowerCase();
+			if (moves) { pairTo.owner = d.owner; }
+			byName.set(pairTo.nameLower, pairTo);
+			// A renamed CONTAINER re-homes its children's owner strings.
+			for (const entry of current) {
+				if (entry.owner.toLowerCase() === oldNameLower) { entry.owner = newName; }
+			}
 		} catch { /* an uncertain pairing falls back to remove-plus-add */ }
 	}
 

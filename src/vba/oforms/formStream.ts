@@ -473,9 +473,15 @@ function serializeSite(site: SiteModel, codec: OformsTextCodec): Buffer {
 	for (const s of SITE_STRINGS_AFTER_POSITION) { writeString(s.name); }
 
 	const bodyBytes = body.toBuffer();
+	const cbSite = bodyBytes.length + 4; // cbSite counts the mask
+	if (cbSite > 0xffff) {
+		// Same u16 wrap hazard as the record cb: refuse, never corrupt.
+		throw new RangeError(
+			`site ${siteName(site)}: too much data for one site (${cbSite} bytes; the format caps a site at 65535) - a name, tag, tip, or source is too long`);
+	}
 	const w = new OformsWriter();
 	w.u16(0x0000);
-	w.u16(bodyBytes.length + 4); // cbSite counts the mask
+	w.u16(cbSite);
 	w.u32(site.mask >>> 0);
 	w.bytes(bodyBytes);
 	return w.toBuffer();

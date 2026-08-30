@@ -4,6 +4,21 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **A pasted megabyte caption can no longer corrupt the workbook.** Hunt six
+  fuzzed the markup pane's new freedom - 2,015 adversarial documents (tag
+  soup, truncations, null bytes, 2000-deep nesting, megabyte attributes) -
+  against three contracts: throw cleanly or apply, never touch the file on
+  a refusal, and stay fast. Two finds. The bad one: a 1MB caption was
+  ACCEPTED, silently wrapped the format's 16-bit record length, and wrote a
+  corrupt workbook the engine then refused to re-read; both the record and
+  site writers now refuse oversized text with a clear message before a
+  single byte lands, from the markup pane and the properties pane alike
+  (large-but-legal text still works). The slow one: a 4000-control paste
+  cost 4.7 seconds - the identity reconciliation rebuilt its whole index
+  per document line; it maintains the index incrementally now, and the same
+  paste costs 0.34s with near-linear scaling. The full fuzz closes at 2,015
+  cases, zero failures, worst case 500ms.
+
 - **The whole authored surface survives Excel's own resave - verified.**
   Hunt five put the harshest oracle available over the engine: a workbook
   carrying everything the designer can author (every form and control

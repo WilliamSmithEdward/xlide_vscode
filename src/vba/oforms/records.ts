@@ -516,9 +516,17 @@ export function serializeRecord(rec: ParsedRecord, codec: OformsTextCodec): Buff
 	}
 
 	const bodyBytes = body.toBuffer();
+	const cb = bodyBytes.length + (spec.mask64 ? 8 : 4);
+	if (cb > 0xffff) {
+		// The format's cb is a u16; the writer's masking would wrap it and
+		// CORRUPT the workbook (found by the parser fuzz: a 1MB caption
+		// saved, then the re-read overran). Refuse before any byte lands.
+		throw new RangeError(
+			`${spec.type}: too much data for one record (${cb} bytes; the format caps a record at 65535) - a caption or other text is too long`);
+	}
 	w.u8(0x00);
 	w.u8(spec.major ?? 0x02);
-	w.u16(bodyBytes.length + (spec.mask64 ? 8 : 4));
+	w.u16(cb);
 	w.u32(rec.maskLo >>> 0);
 	if (spec.mask64) { w.u32(rec.maskHi >>> 0); }
 	w.bytes(bodyBytes);
