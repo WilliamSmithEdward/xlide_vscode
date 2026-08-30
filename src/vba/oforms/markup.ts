@@ -241,6 +241,16 @@ export interface VbFrameMarkupProps {
 /** The form record's own extra numerics the dialect prints and applies. */
 export const FORM_EXTRA_FIELDS = ['BorderStyle', 'ScrollBars', 'Cycle', 'Zoom', 'MousePointer'] as const;
 
+/**
+ * What VBA accepts as a control name: a LETTER first (any script - Japanese
+ * control names are legal VBA), then letters, digits, and underscores, at
+ * most 255 characters. Enforced when a control is CREATED (an addition or a
+ * rename); a control an existing workbook already carries is matched as-is.
+ * A name outside this can never have an event handler, so accepting one
+ * authors a form the user cannot wire up.
+ */
+export const LEGAL_CONTROL_NAME = /^\p{L}[\p{L}\p{Nd}_]{0,254}$/u;
+
 export function printFormMarkup(
 	pkg: FormPackage,
 	formName: string,
@@ -936,6 +946,12 @@ function applyToMultiPage(
 	pages.forEach((page, index) => {
 		const pageName = page.attrs.get('Name')!;
 		if (currentSites().some((s) => siteName(s).toLowerCase() === pageName.toLowerCase())) { return; }
+		if (!LEGAL_CONTROL_NAME.test(pageName)) {
+			throw new FormMarkupError(
+				page.line,
+				`${pageName}: not a legal page name - VBA wants a letter first, then letters, digits, or underscores`,
+			);
+		}
 		addPage(mp, page, Math.min(index, currentSites().length), tabStrip, root);
 		outcome.applied.push(`added page ${pageName} of ${mpName}`);
 	});
@@ -1614,6 +1630,12 @@ function addControl(
 ): void {
 	const kind = element.tag;
 	const name = element.attrs.get('Name')!;
+	if (!LEGAL_CONTROL_NAME.test(name)) {
+		throw new FormMarkupError(
+			element.line,
+			`${name}: not a legal control name - VBA wants a letter first, then letters, digits, or underscores`,
+		);
+	}
 	if (kind === 'ActiveX') {
 		throw new FormMarkupError(
 			element.line,

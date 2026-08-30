@@ -19,6 +19,7 @@ import {
 	FORM_EXTRA_FIELDS,
 	formatOleColor,
 	FormMarkupError,
+	LEGAL_CONTROL_NAME,
 	nextTabIndex,
 	parseOleColor,
 	PRINTED_FIELDS,
@@ -615,7 +616,7 @@ export function setControlProperty(
 	const kind = controlKindOfSite(site, entry.kind === 'record' ? entry.record : undefined);
 
 	if (prop === 'Name') {
-		if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(value)) {
+		if (!LEGAL_CONTROL_NAME.test(value)) {
 			throw new FormMarkupError(0, `${value} is not a legal control name`);
 		}
 		if (siteName(site) === value) { return { applied: [] }; }
@@ -802,7 +803,6 @@ const docFpOf = (d: ReconcileDocEntry): string | undefined => {
 	return `${d.kind.toLowerCase()}|${l}|${t}|${w}|${h}`;
 };
 
-const LEGAL_NAME = /^[A-Za-z][A-Za-z0-9_]*$/;
 
 /**
  * Pairs renamed and reparented controls between the document and the model,
@@ -891,7 +891,7 @@ export function reconcileMarkupIdentities(root: FormPackage, doc: MarkupElement)
 		// a FRESH default-sized add). Anything ambiguous falls back to the
 		// old remove-plus-add.
 		const newName = d.el.attrs.get('Name') ?? '';
-		if (!LEGAL_NAME.test(newName)) { continue; }
+		if (!LEGAL_CONTROL_NAME.test(newName)) { continue; }
 		const posKey = ownerPosDoc(d);
 		let pairTo: ReconcileModelEntry | undefined;
 		if (posKey !== undefined && docPos.get(posKey) === 1 && modelPos.get(posKey) === 1) {

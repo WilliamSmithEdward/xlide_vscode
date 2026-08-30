@@ -4,6 +4,21 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **A created control must carry a name VBA can wire.** Hunt seven noticed
+  the fuzz had been ACCEPTING mutated names: markup could add a control
+  named "Bad Name!" or "2Start" - names no event handler can ever exist
+  for, wired into the workbook where the VBE itself would refuse them. A
+  creation (an addition or a rename, from the markup pane or the
+  properties pane) now demands what VBA demands: a letter first - any
+  script, Japanese and accented names are legal VBA and stay legal here -
+  then letters, digits, or underscores; a control an existing workbook
+  already carries is matched as-is. Also verified this round: the vbide
+  reads our new form attributes safely by construction (its apply resolves
+  names against the live VBE dispatch, which knows ShowModal and friends
+  natively), and the canvas math is exact under a form's own stored Zoom
+  and under grid snap - drags, placements, and snapping all measured to
+  the point in the browser harness.
+
 - **A pasted megabyte caption can no longer corrupt the workbook.** Hunt six
   fuzzed the markup pane's new freedom - 2,015 adversarial documents (tag
   soup, truncations, null bytes, 2000-deep nesting, megabyte attributes) -

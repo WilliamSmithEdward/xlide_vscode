@@ -430,3 +430,30 @@ describe('what live Excel taught the authoring, pinned', () => {
 		expect(m.classTableRaw.equals(Buffer.from([0, 0]))).toBe(true);
 	});
 });
+
+// A control the dialect CREATES must carry a name VBA can wire: an event
+// handler cannot exist for "Bad Name!", so accepting it authors a form the
+// user cannot code against (hunt seven's find - the fuzz accepted mutated
+// names without complaint). Existing controls keep whatever they carry.
+describe('control names obey VBA on creation', () => {
+	it('refuses additions whose names VBA could never wire, leaving the file whole', () => {
+		const wb = workbook();
+		const before = fs.readFileSync(wb);
+		for (const bad of ['Bad Name', '2Start', 'Dot.Ted', '_Lead']) {
+			const doc = readFormMarkup(wb, 'EntryForm').markup
+				.replace('</Form>', `<Label Name="${bad}" Left="5" Top="5" Width="20" Height="10" />${CRLF}</Form>`);
+			expect(() => applyFormMarkup(wb, 'EntryForm', doc)).toThrow(/not a legal control name/);
+			resetWorkbookCacheForTests();
+		}
+		expect(fs.readFileSync(wb).equals(before)).toBe(true);
+	});
+
+	it('accepts the letters VBA accepts, beyond ASCII', () => {
+		const wb = workbook();
+		const doc = readFormMarkup(wb, 'EntryForm').markup
+			.replace('</Form>', `<Label Name="Étiquette" Left="5" Top="5" Width="20" Height="10" />${CRLF}</Form>`);
+		applyFormMarkup(wb, 'EntryForm', doc);
+		resetWorkbookCacheForTests();
+		expect(readFormMarkup(wb, 'EntryForm').markup).toContain('Name="Étiquette"');
+	});
+});
