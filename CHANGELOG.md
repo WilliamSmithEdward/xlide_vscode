@@ -4,6 +4,23 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **A renamed or reparented control no longer loses its picture on save.**
+  The markup diff is keyed by name, so a rename or a move read as
+  remove-plus-add - and the rebuilt control kept only what the dialect can
+  spell. Its picture, its mouse icon, an ActiveX payload: silently gone
+  from the SAVED workbook while the canvas still showed them (the fuzz
+  oracle was provably blind to the reparent case - reprints matched while
+  the bytes lost the image). A reconciliation pass now runs before the
+  diff, in document order: the same name under a new container is executed
+  as a real in-place MOVE, a document-only name that matches exactly one
+  missing control - by kind and printed geometry in the same container, or
+  by kind, size, and caption anywhere - is executed as a real RENAME, and
+  anything ambiguous honestly falls back to remove-plus-add (a genuine
+  delete-plus-add never inherits a dead control's picture). Frame renames
+  keep their children; a child moved out of a deleted frame survives it.
+  Live Excel vouches for the save output: the renamed image and the moved
+  button both load pictured, inside the right parent.
+
 - **Drag-to-reparent and form resizing actually work again - a browser
   harness now drives the real canvas.** Hunt three shimmed the webview API
   into a rendered page and replayed every gesture with synthetic pointers,

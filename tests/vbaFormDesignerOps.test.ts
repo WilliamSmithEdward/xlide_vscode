@@ -619,6 +619,90 @@ describe('the one-unit canvas', () => {
 	});
 });
 
+// The markup diff is keyed by NAME, so a renamed or reparented control used
+// to die on save as remove-plus-add - taking its PICTURE (and anything else
+// the dialect cannot spell) with it, while the scratch-backed canvas still
+// showed it. The reconcile pre-pass pairs identities in place; these pin the
+// pairs it must make and the guesses it must refuse.
+describe('identity reconciliation on apply', () => {
+	const saveShape = (
+		ops: Array<Parameters<typeof applyFormDesignerOp>[2]>,
+	): { real: string; doc: string; reprint: string; applied: string[] } => {
+		const real = workbook();
+		const scratch = path.join(path.dirname(real), 'Recon.xlsm');
+		fs.copyFileSync(real, scratch);
+		resetWorkbookCacheForTests();
+		for (const op of ops) {
+			applyFormDesignerOp(scratch, 'EntryForm', op);
+			resetWorkbookCacheForTests();
+		}
+		const doc = readFormMarkup(scratch, 'EntryForm').markup;
+		const outcome = applyFormMarkup(real, 'EntryForm', doc);
+		resetWorkbookCacheForTests();
+		const reprint = readFormMarkup(real, 'EntryForm').markup;
+		return { real, doc, reprint, applied: outcome.applied };
+	};
+	const badgePictured = (wb: string): boolean => {
+		const { html } = readFormPreview(wb, 'EntryForm');
+		resetWorkbookCacheForTests();
+		return /data-name="(Badge|Crest)"[^>]*data:image/.test(html);
+	};
+
+	it('a renamed control keeps its picture through the save', () => {
+		const r = saveShape([{ kind: 'setProp', name: 'Badge', prop: 'Name', value: 'Crest' }]);
+		expect(r.applied.some((a) => a.includes('renamed Badge to Crest'))).toBe(true);
+		expect(r.reprint).toBe(r.doc);
+		expect(badgePictured(r.real)).toBe(true);
+	});
+
+	it('a reparented control keeps its caption picture through the save', () => {
+		const r = saveShape([{ kind: 'reparent', name: 'OkButton', container: 'Options', left: 6, top: 60 }]);
+		expect(r.applied.some((a) => a.includes('moved OkButton into Options'))).toBe(true);
+		expect(r.reprint).toBe(r.doc);
+		const { html } = readFormPreview(r.real, 'EntryForm');
+		resetWorkbookCacheForTests();
+		expect(html).toContain('<img class="cpic"');
+	});
+
+	it('renamed AND moved between saves still pairs, and a frame rename keeps its children', () => {
+		const combo = saveShape([
+			{ kind: 'setProp', name: 'Badge', prop: 'Name', value: 'Crest' },
+			{ kind: 'reparent', name: 'Crest', container: 'Options', left: 8, top: 40 },
+		]);
+		expect(combo.applied.some((a) => a.includes('renamed Badge to Crest in Options'))).toBe(true);
+		expect(combo.reprint).toBe(combo.doc);
+		expect(badgePictured(combo.real)).toBe(true);
+		const frame = saveShape([{ kind: 'setProp', name: 'Options', prop: 'Name', value: 'Choices' }]);
+		expect(frame.applied.some((a) => a.includes('renamed Options to Choices'))).toBe(true);
+		expect(frame.reprint).toBe(frame.doc);
+		expect(frame.reprint).toMatch(/<Frame Name="Choices"[\s\S]*?PickGround[\s\S]*?<\/Frame>/);
+	});
+
+	it('never guesses: a fresh add stays fresh, and true ambiguity falls back', () => {
+		// Delete plus a default-sized add of the same kind: the captions
+		// differ, so no pairing - and no ghost picture on the new button.
+		const fresh = saveShape([
+			{ kind: 'remove', name: 'OkButton' },
+			{ kind: 'add', container: '', controlKind: 'CommandButton', left: 30, top: 240 },
+		]);
+		expect(fresh.applied.some((a) => a.startsWith('renamed OkButton'))).toBe(false);
+		expect(fresh.reprint).toBe(fresh.doc);
+		expect(readFormPreview(fresh.real, 'EntryForm').html).not.toContain('<img class="cpic"');
+		resetWorkbookCacheForTests();
+		// Two identical candidates (kind, size, caption all equal): refused.
+		const ambig = saveShape([
+			{ kind: 'setProp', name: 'PickGround', prop: 'Caption', value: '' },
+			{ kind: 'setProp', name: 'PickAir', prop: 'Caption', value: '' },
+			{ kind: 'setProp', name: 'PickGround', prop: 'Name', value: 'PickSea' },
+			{ kind: 'setProp', name: 'PickAir', prop: 'Name', value: 'PickSky' },
+			{ kind: 'reparent', name: 'PickSea', container: '', left: 10, top: 250 },
+			{ kind: 'reparent', name: 'PickSky', container: '', left: 10, top: 265 },
+		]);
+		expect(ambig.applied.some((a) => a.startsWith('renamed Pick'))).toBe(false);
+		expect(ambig.reprint).toBe(ambig.doc);
+	});
+});
+
 // The undo model the one-document designer stands on: any prior document
 // text, applied whole onto a fresh copy of the saved workbook, reproduces
 // that state - including properties whose lines DISAPPEARED and controls

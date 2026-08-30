@@ -19,6 +19,7 @@ import { renderFormPreviewHtml } from './oforms/preview';
 import {
 	addControlAt as designerAddControlAt,
 	listFormProperties as designerListFormProperties,
+	reconcileMarkupIdentities as designerReconcileMarkupIdentities,
 	removeControl as designerRemoveControl,
 	reparentControl as designerReparentControl,
 	setControlGeometry as designerSetControlGeometry,
@@ -629,7 +630,12 @@ export function applyFormMarkup(
 	}
 	const codec = oformsCodec(wb.project.codePage);
 	const pkg = parseFormPackage(wb.cfb, [module.name], codec);
+	// Renames and reparents pair IN PLACE before the name-keyed diff, so a
+	// renamed control keeps what the dialect cannot spell - its picture, its
+	// icon, an ActiveX payload - instead of dying as remove-plus-add.
+	const reconciled = designerReconcileMarkupIdentities(pkg, root);
 	const outcome = applyOformsMarkup(pkg, root);
+	outcome.applied.unshift(...reconciled);
 
 	// The form's own caption and the VBFrame trio are persisted in the
 	// VBFrame text, so the document's <Form> attrs diff against that rather

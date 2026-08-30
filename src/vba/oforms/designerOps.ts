@@ -713,6 +713,189 @@ export function setControlProperty(
 	return { applied: outcome.applied };
 }
 
+// ------------------------------------------------- identity reconciliation
+//
+// The markup diff is keyed by NAME, so a renamed or reparented control used
+// to read as remove-plus-add - and the rebuilt site kept only what the
+// dialect can spell. Its picture, its mouse icon, an ActiveX payload: gone
+// from the saved workbook while the canvas (whose scratch renamed in place)
+// still showed them. This pre-pass pairs the document's identities with the
+// model's and executes the pairs through the IN-PLACE primitives, so the
+// diff that follows sees matches. Every pairing demands an unambiguous
+// match; anything uncertain falls back to the old remove-plus-add.
+
+interface ReconcileDocEntry {
+	owner: string;
+	el: MarkupElement;
+	kind: string;
+	nameLower: string;
+}
+
+interface ReconcileModelEntry {
+	owner: string;
+	name: string;
+	kind: string;
+	/** Geometry AS THE PRINTER SPELLS IT - stored himetrics do not round-trip
+	 *  to whole points (258pt persists as 9102hm = 258.0094pt), so the only
+	 *  fingerprint that matches the document is the printed string itself. */
+	geo: { l: string; t: string; w: string; h: string };
+	/** The stored caption ('' when the kind has none), for the global key. */
+	caption: string;
+	nameLower: string;
+}
+
+function collectDocEntries(el: MarkupElement, owner: string, out: ReconcileDocEntry[]): void {
+	for (const child of el.children) {
+		const tag = child.tag.toLowerCase();
+		if (tag === 'tab') { continue; }
+		const name = child.attrs.get('Name') ?? '';
+		if (tag === 'page') {
+			collectDocEntries(child, name, out);
+			continue;
+		}
+		out.push({ owner, el: child, kind: child.tag, nameLower: name.toLowerCase() });
+		if (tag === 'frame') { collectDocEntries(child, name, out); }
+		if (tag === 'multipage') { collectDocEntries(child, name, out); }
+	}
+}
+
+function collectModelEntries(pkg: FormPackage, owner: string, out: ReconcileModelEntry[]): void {
+	for (const entry of pkg.entries) {
+		const site = entry.site;
+		if (siteCacheIndex(site) === 7) { continue; } // pages walk below
+		const record = entry.kind === 'record' ? entry.record : undefined;
+		const inner = entry.kind === 'container' ? pkg.containers.get(siteId(site)) : undefined;
+		const size = record?.sizes.get('Size') ?? inner?.form.record.sizes.get('DisplayedSize');
+		out.push({
+			owner,
+			name: siteName(site),
+			nameLower: siteName(site).toLowerCase(),
+			kind: controlKindOfSite(site, record),
+			geo: {
+				l: pts(site.position?.left ?? 0),
+				t: pts(site.position?.top ?? 0),
+				w: pts(size?.width ?? 0),
+				h: pts(size?.height ?? 0),
+			},
+			caption: record?.strings.get('Caption')?.text
+				?? inner?.form.record.strings.get('Caption')?.text
+				?? '',
+		});
+		if (inner) {
+			if (controlKindOfSite(site, undefined) === 'MultiPage') {
+				for (const pageSite of inner.form.sites) {
+					if (siteCacheIndex(pageSite) !== 7) { continue; }
+					const pagePkg = inner.containers.get(siteId(pageSite));
+					if (pagePkg) { collectModelEntries(pagePkg, siteName(pageSite), out); }
+				}
+			} else {
+				collectModelEntries(inner, siteName(site), out);
+			}
+		}
+	}
+}
+
+const docFpOf = (d: ReconcileDocEntry): string | undefined => {
+	const l = d.el.attrs.get('Left'), t = d.el.attrs.get('Top');
+	const w = d.el.attrs.get('Width'), h = d.el.attrs.get('Height');
+	if (l === undefined || t === undefined || w === undefined || h === undefined) { return undefined; }
+	return `${d.kind.toLowerCase()}|${l}|${t}|${w}|${h}`;
+};
+
+const LEGAL_NAME = /^[A-Za-z][A-Za-z0-9_]*$/;
+
+/**
+ * Pairs renamed and reparented controls between the document and the model,
+ * executing them in place BEFORE the name-keyed diff runs. One pass in
+ * DOCUMENT order - two controls moved into the same container must land in
+ * the order the document lists them, and a renamed container is visited
+ * before its children, so their moves resolve against its new name. Returns
+ * what it did, in the apply outcome's own voice.
+ */
+export function reconcileMarkupIdentities(root: FormPackage, doc: MarkupElement): string[] {
+	const applied: string[] = [];
+	const docs: ReconcileDocEntry[] = [];
+	collectDocEntries(doc, '', docs);
+	const docNames = new Set(docs.map((d) => d.nameLower));
+	const models = (): ReconcileModelEntry[] => {
+		const out: ReconcileModelEntry[] = [];
+		collectModelEntries(root, '', out);
+		return out;
+	};
+	const posFpModel = (m: ReconcileModelEntry): string =>
+		`${m.kind.toLowerCase()}|${m.geo.l}|${m.geo.t}|${m.geo.w}|${m.geo.h}`;
+	const sizeFpDoc = (d: ReconcileDocEntry): string | undefined => {
+		const w = d.el.attrs.get('Width');
+		const h = d.el.attrs.get('Height');
+		if (w === undefined || h === undefined) { return undefined; }
+		return `${d.kind.toLowerCase()}|${w}|${h}|${d.el.attrs.get('Caption') ?? ''}`;
+	};
+	const sizeFpModel = (m: ReconcileModelEntry): string =>
+		`${m.kind.toLowerCase()}|${m.geo.w}|${m.geo.h}|${m.caption}`;
+
+	for (const d of docs) {
+		if (!d.nameLower) { continue; }
+		const current = models();
+		const m = current.find((entry) => entry.nameLower === d.nameLower);
+
+		if (m) {
+			// The same name under a different owner is a REPARENT, at the
+			// document's own coordinates.
+			if (m.owner.toLowerCase() === d.owner.toLowerCase()) { continue; }
+			if (d.kind.toLowerCase() !== m.kind.toLowerCase() && d.kind !== 'ActiveX') { continue; }
+			const left = Number(d.el.attrs.get('Left'));
+			const top = Number(d.el.attrs.get('Top'));
+			if (!Number.isFinite(left) || !Number.isFinite(top)) { continue; }
+			try {
+				reparentControl(root, m.name, d.owner, left, top);
+				applied.push(`moved ${m.name} into ${d.owner || 'the form'}`);
+			} catch { /* an unmovable site falls back to remove-plus-add */ }
+			continue;
+		}
+
+		// A document-only name: a RENAME when exactly one model-only control
+		// matches - same owner by kind + full printed geometry, or anywhere
+		// by kind + size + caption (position changes with a move; size and
+		// caption travel, and the caption tells a moved "Start" button from
+		// a FRESH default-sized add). Anything ambiguous falls back to the
+		// old remove-plus-add.
+		const newName = d.el.attrs.get('Name') ?? '';
+		if (!LEGAL_NAME.test(newName)) { continue; }
+		const removed = current.filter((entry) => !docNames.has(entry.nameLower));
+		const addedNow = docs.filter((a) =>
+			a.nameLower && !current.some((entry) => entry.nameLower === a.nameLower));
+
+		const docFp = docFpOf(d);
+		const samePlace = docFp === undefined ? [] : removed.filter(
+			(entry) => entry.owner.toLowerCase() === d.owner.toLowerCase() && posFpModel(entry) === docFp);
+		const samePlaceDocs = docFp === undefined ? [] : addedNow.filter(
+			(a) => a.owner.toLowerCase() === d.owner.toLowerCase() && docFpOf(a) === docFp);
+		let pairTo = samePlace.length === 1 && samePlaceDocs.length === 1 ? samePlace[0] : undefined;
+
+		if (!pairTo) {
+			const key = sizeFpDoc(d);
+			if (key !== undefined) {
+				const bySize = removed.filter((entry) => sizeFpModel(entry) === key);
+				const bySizeDocs = addedNow.filter((a) => sizeFpDoc(a) === key);
+				if (bySize.length === 1 && bySizeDocs.length === 1) { pairTo = bySize[0]; }
+			}
+		}
+		if (!pairTo) { continue; }
+		const left = Number(d.el.attrs.get('Left'));
+		const top = Number(d.el.attrs.get('Top'));
+		try {
+			if (pairTo.owner.toLowerCase() !== d.owner.toLowerCase()) {
+				if (!Number.isFinite(left) || !Number.isFinite(top)) { continue; }
+				reparentControl(root, pairTo.name, d.owner, left, top);
+			}
+			setControlProperty(root, pairTo.name, 'Name', newName);
+			applied.push(`renamed ${pairTo.name} to ${newName}${pairTo.owner.toLowerCase() !== d.owner.toLowerCase() ? ` in ${d.owner || 'the form'}` : ''}`);
+		} catch { /* an uncertain pairing falls back to remove-plus-add */ }
+	}
+
+	return applied;
+}
+
 /** Resizes the form's own client area, in points. */
 export function setFormSize(root: FormPackage, widthPt: number, heightPt: number): void {
 	const record = root.form.record;
