@@ -40,6 +40,41 @@ let lastFocusedDesignerModule: string | undefined;
 /** A launch (its consent modal included) is running; a second F5 waits. */
 let launchInFlight = false;
 
+/**
+ * Persists what F5 is about to run: the form's own document (the designer
+ * writes its gestures there) and the focused XLIDE document, when either is
+ * dirty. False means a save was refused - the caller must NOT run on, because
+ * the workbook still holds the previous version of the form.
+ */
+async function savePendingLaunchEdits(
+	filePath: string,
+	formModule: string | undefined,
+): Promise<boolean> {
+	const pending: vscode.TextDocument[] = [];
+	const active = vscode.window.activeTextEditor?.document;
+	if (active && active.uri.scheme === XLIDE_SCHEME && active.isDirty) {
+		pending.push(active);
+	}
+	if (formModule) {
+		// The designer's document, whether or not it is the focused editor -
+		// F5 from the canvas has no active text editor at all.
+		const formUri = encodeFormMarkupUri(filePath, formModule).toString();
+		for (const doc of vscode.workspace.textDocuments) {
+			if (doc.uri.toString() === formUri && doc.isDirty && !pending.includes(doc)) {
+				pending.push(doc);
+			}
+		}
+	}
+	for (const doc of pending) {
+		try {
+			if (!(await doc.save())) { return false; }
+		} catch {
+			return false;
+		}
+	}
+	return true;
+}
+
 type DesignerMessage =
 	| { type: 'geometry'; name: string; left?: number; top?: number; width?: number; height?: number }
 	| { type: 'add'; container: string; controlKind: string; left: number; top: number }
@@ -426,7 +461,26 @@ export function registerFormPreview(
 				void vscode.window.showInformationMessage('XLIDE: F5 found no form workbook - focus a designer or a markup document.');
 				return;
 			}
-			const excel = /\.(xlsm|xlsb|xlam|xls)$/i.test(filePath);
+			const wbPath = filePath;
+			const excel = /\.(xlsm|xlsb|xlam|xls)$/i.test(wbPath);
+
+			// F5 runs WHAT YOU SEE. The designer holds its gestures and markup
+			// edits as pending document changes, so without this Excel would
+			// faithfully show the LAST SAVED form and the change would look
+			// like it had failed. (The Run-Macro command persists a dirty code
+			// module for the same reason.) Suppressed, because the save's own
+			// reopen would otherwise race the macro host's.
+			const saved = excel
+				? await withWorkbookReopenSuppressed(wbPath, () => savePendingLaunchEdits(wbPath, formModule))
+				: await savePendingLaunchEdits(wbPath, formModule);
+			if (!saved) {
+				// The provider already surfaced WHY (a markup parse error names
+				// its line); running on regardless would show a stale form.
+				void vscode.window.showErrorMessage(
+					'XLIDE: F5 did not launch - the pending changes could not be saved.',
+				);
+				return;
+			}
 
 			// The VBE's F5 SHOWS the form. Excel can only run a macro, so
 			// with consent XLIDE injects a launcher and runs it; the choice
@@ -437,7 +491,6 @@ export function registerFormPreview(
 			// launchers accumulate and each form keeps its own entry point.
 			if (excel && formModule) {
 				const config = vscode.workspace.getConfiguration('xlide');
-				const wbPath = filePath;
 				const subName = launcherSubName(formModule);
 				const macro = `${LAUNCHER_MODULE}.${subName}`;
 				// What the workbook already carries decides whether anything
@@ -462,7 +515,7 @@ export function registerFormPreview(
 						`Show ${formModule} on launch?`,
 						{
 							modal: true,
-							detail: `XLIDE can add a small launcher macro (${subName}, in module XlideRun) to ${path.basename(filePath)} and run it, so F5 behaves like the VBE's. `
+							detail: `XLIDE can add a small launcher macro (${subName}, in module XlideRun) to ${path.basename(wbPath)} and run it, so F5 behaves like the VBE's. `
 								+ 'Each form gets its own sub; they stay in the workbook and are safe to delete. '
 								+ '"Always" remembers this in the xlide.formRun.injectShowMacro setting.',
 						},
@@ -526,10 +579,10 @@ export function registerFormPreview(
 				}
 			}
 
-			vscode.window.setStatusBarMessage(`XLIDE: opening ${path.basename(filePath)} in its host application...`, 5000);
+			vscode.window.setStatusBarMessage(`XLIDE: opening ${path.basename(wbPath)} in its host application...`, 5000);
 			await vscode.commands.executeCommand(
 				excel ? 'xlide.openWorkbook' : 'xlide.openInOfficeApp',
-				{ kind: 'xlsm', label: path.basename(filePath), filePath },
+				{ kind: 'xlsm', label: path.basename(wbPath), filePath: wbPath },
 			);
 		}
 	}

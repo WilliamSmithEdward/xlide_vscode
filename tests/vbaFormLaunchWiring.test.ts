@@ -68,6 +68,20 @@ describe('the F5 form launch', () => {
 		expect(run).toBeGreaterThan(suppress);
 	});
 
+	it('saves the pending designer edits BEFORE running, and stops if that fails', () => {
+		// F5 runs what you see: without this the macro shows the last saved
+		// form. The save sits inside the reopen suppression, or its own
+		// post-save reopen races the macro host.
+		const suppress = LAUNCH_SOURCE.indexOf('withWorkbookReopenSuppressed(wbPath, () => savePendingLaunchEdits(');
+		expect(suppress).toBeGreaterThan(-1);
+		expect(LAUNCH_SOURCE).toContain('if (!saved) {');
+		expect(LAUNCH_SOURCE.indexOf('const saved = excel'))
+			.toBeLessThan(LAUNCH_SOURCE.indexOf('runWorkbookMacroReadOnly('));
+		// The designer's own document is saved even with no active editor,
+		// which is exactly the F5-from-the-canvas case.
+		expect(LAUNCH_SOURCE).toContain('encodeFormMarkupUri(filePath, formModule).toString()');
+	});
+
 	it('does not prompt, and does not write, when the sub is already installed', () => {
 		expect(LAUNCH_SOURCE).toContain("if (mode === 'ask' && subExists) { mode = 'once'; }");
 		expect(LAUNCH_SOURCE).toContain('if (!subExists) {');

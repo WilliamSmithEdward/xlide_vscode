@@ -4,6 +4,16 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **F5 runs what you see: the designer saves first.** The designer holds
+  its gestures and markup edits as pending document changes, so pressing F5
+  with a dirty form showed the LAST SAVED version in Excel - the change
+  looked like it had failed. F5 now persists the form's document (and the
+  focused XLIDE document) before launching, exactly as the Run-Macro
+  command has always done for a dirty code module, and it does so inside
+  the reopen suppression so the save cannot race the macro host. If the
+  save is refused - markup mid-edit that will not parse - the launch stops
+  and says so rather than quietly running the previous form.
+
 - **F5 asks once per form, then never again.** The launcher is now one sub
   per form (XlideShow_EntryForm, XlideShow_OrderForm, ...) inside module
   XlideRun, instead of a single sub rewritten for whichever form ran last -
