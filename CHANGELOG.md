@@ -4,6 +4,28 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **Exported forms import into the VBE now - containers, classes, pictures,
+  the lot.** Hunt eight pointed the live oracle at the one output no probe
+  had ever consumed: our .frm/.frx export pair. The VBE refused it -
+  "Property OleObjectBlob could not be set" - and the diff against the
+  VBE's own export of the same form told the whole story: a real .frx
+  embeds the form's ENTIRE designer storage tree (a Frame's and a
+  MultiPage's container storages, each tagged with its class CLSID, plus a
+  Forms.Form CLSID on the root that OLE binds by), while ours packed only
+  the flat top-level streams - containers were silently absent, and the
+  in-workbook CompObj variant it copied zeroes the very CLSID the sidecar
+  needs. Export now deep-copies the whole classed tree, composes the
+  sidecar's own CompObj, and stamps the root CLSID and the real outer
+  dimensions; import plants the tree back the same way (it too used to
+  drop every container's contents). The VBE now imports our export whole:
+  17 controls, frame children in place, both pictures alive. Also this
+  round: a 40-seed random-chain fuzz over structural op sequences caught
+  markup additions dropping their site-level say (a fresh control lost its
+  Tag and had its document-spelled TabIndex reassigned) and sibling order
+  diverging when a move and an add interleave - additions apply the full
+  element now, and each container re-syncs its sibling order to the
+  document after the diff.
+
 - **A created control must carry a name VBA can wire.** Hunt seven noticed
   the fuzz had been ACCEPTING mutated names: markup could add a control
   named "Bad Name!" or "2Start" - names no event handler can ever exist

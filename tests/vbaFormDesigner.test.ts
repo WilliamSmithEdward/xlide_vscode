@@ -6,6 +6,8 @@ import { parseFormDesignerStreams, parseFormFrx, splitFrmSource, type DesignerCo
 import {
 	listModules,
 	readFormExport,
+	readFormMarkup,
+	readFormPreview,
 	readModule,
 	resetWorkbookCacheForTests,
 	writeFormDesigner,
@@ -289,5 +291,56 @@ describe('sync plan symmetry over the real form workbook', () => {
 		const item = importPlan.items.find((candidate) => candidate.moduleName === 'FrmPicker');
 		expect(item?.moduleType).toBe('userform');
 		expect(item?.status).toBe('unchanged');
+	});
+});
+
+// The sidecar is the WHOLE designer tree, not the flat pair: a Frame's and a
+// MultiPage's container storages ride inside it with their class CLSIDs, or
+// the VBE refuses the import outright and their contents die (hunt eight,
+// proven against the VBE's own export and import of the same form).
+describe('the .frx carries containers whole', () => {
+	const CONTAINER_FIXTURE = path.join(__dirname, 'fixtures', 'binaries', 'FormFixtureVbide.xlsm');
+
+	function tempCopy(name: string): string {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-frx-'));
+		tempDirs.push(dir);
+		const wb = path.join(dir, name);
+		fs.copyFileSync(CONTAINER_FIXTURE, wb);
+		return wb;
+	}
+
+	it('exports the container storages with their classes and the Forms.Form root', () => {
+		const { frx } = readFormExport(tempCopy('Src.xlsm'), 'EntryForm');
+		resetWorkbookCacheForTests();
+		const unpacked = parseFormFrx(frx)!;
+		const names = unpacked.tree!.listChildrenAtPath([]).map((c) => c.name).sort();
+		expect(names).toContain('i06');
+		expect(names).toContain('i10');
+		// Frame {6E182020-F460-11CE-9BCD-00AA00608E01}, bytes as persisted.
+		expect(unpacked.tree!.storageClsidAtPath(['i06']).toString('hex'))
+			.toBe('2020186e60f4ce119bcd00aa00608e01');
+		// Root binds Forms.Form, and the CompObj names it for OLE - 110
+		// bytes, byte-shaped like the VBE's own export.
+		const compObj = unpacked.compObj!;
+		expect(compObj.length).toBe(110);
+		expect(compObj.subarray(12, 28).toString('hex')).toBe('f0692ac6dc16ce119e9800aa00574a4f');
+		expect(ascii(compObj)).toContain('Forms.Form.1');
+	});
+
+	it('imports the whole tree back: frame children, pages, and pictures arrive', () => {
+		const src = tempCopy('Src2.xlsm');
+		const { frm, frx } = readFormExport(src, 'EntryForm');
+		resetWorkbookCacheForTests();
+		const dst = tempCopy('Dst.xlsm');
+		// Overwrite the destination form's designer wholesale from the pair.
+		writeFormDesigner(dst, 'EntryForm', frx, splitFrmSource(frm)!.designerBlock);
+		resetWorkbookCacheForTests();
+		const markup = readFormMarkup(dst, 'EntryForm').markup;
+		expect(markup).toMatch(/<Frame Name="Options"[\s\S]*?PickGround[\s\S]*?<\/Frame>/);
+		expect(markup).toContain('<MultiPage Name="Wizard"');
+		expect(markup).toContain('Name="Agree"');
+		const { html } = readFormPreview(dst, 'EntryForm');
+		resetWorkbookCacheForTests();
+		expect(html).toMatch(/data-name="Badge"[^>]*data:image/);
 	});
 });

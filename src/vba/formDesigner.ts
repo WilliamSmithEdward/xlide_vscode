@@ -337,6 +337,32 @@ export interface FormDesignerStreams {
 	f: Buffer;
 	o: Buffer;
 	compObj?: Buffer;
+	/** The sidecar's whole embedded container, container storages included -
+	 *  a Frame's or MultiPage's children live here, not in the flat pair. */
+	tree?: Cfb;
+}
+
+/** Forms.Form {C62A69F0-16DC-11CE-9E98-00AA00574A4F}, as bytes persist it. */
+const FORMS_FORM_CLSID = Buffer.from('f0692ac6dc16ce119e9800aa00574a4f', 'hex');
+
+/**
+ * The \x01CompObj a .frx carries, byte-for-byte the VBE's own: the header,
+ * the Forms.Form CLSID, the ANSI user type, the clipboard format, and the
+ * ProgId. The IN-WORKBOOK CompObj is a different variant (CLSID zeroed, no
+ * ProgId) and copying it into the sidecar left OLE nothing to bind - the
+ * VBE refused the import (hunt eight, measured against its own export).
+ */
+function composeFrxCompObj(): Buffer {
+	const w: Buffer[] = [];
+	w.push(Buffer.from('0100feff030a0000ffffffff', 'hex'));
+	w.push(FORMS_FORM_CLSID);
+	for (const text of ['Microsoft Forms 2.0 Form', 'Embedded Object', 'Forms.Form.1']) {
+		const len = Buffer.alloc(4);
+		len.writeUInt32LE(text.length + 1);
+		w.push(len, Buffer.from(text + '\0', 'latin1'));
+	}
+	w.push(Buffer.from('f439b271', 'hex'), Buffer.alloc(12));
+	return Buffer.concat(w);
 }
 
 /**
@@ -349,11 +375,14 @@ export function parseFormFrx(frx: Buffer): FormDesignerStreams | undefined {
 		if (frx[0] !== FRX_MAGIC_0 || frx[1] !== FRX_MAGIC_1) { return undefined; }
 		const cbEmbedded = frx.readUInt32LE(4);
 		if (FRX_HEADER_SIZE + cbEmbedded > frx.length) { return undefined; }
+		// Addressed at the ROOT explicitly: containers carry their own f, o,
+		// and CompObj children now, and a flat name search finds the wrong one.
 		const cfb = Cfb.fromBytes(frx.subarray(FRX_HEADER_SIZE, FRX_HEADER_SIZE + cbEmbedded));
 		return {
-			f: cfb.getStream('f'),
-			o: cfb.getStream('o'),
-			compObj: cfb.hasStream(FRX_COMPOBJ_STREAM) ? cfb.getStream(FRX_COMPOBJ_STREAM) : undefined,
+			f: cfb.getStreamAtPath([], 'f'),
+			o: cfb.getStreamAtPath([], 'o'),
+			compObj: cfb.hasStreamAtPath([], FRX_COMPOBJ_STREAM) ? cfb.getStreamAtPath([], FRX_COMPOBJ_STREAM) : undefined,
+			tree: cfb,
 		};
 	} catch {
 		return undefined;
@@ -367,25 +396,53 @@ export function parseFormFrx(frx: Buffer): FormDesignerStreams | undefined {
  * round-trips this exactly; the VBE's acceptance of it awaits an Excel
  * round-trip and is not claimed.
  */
-export function composeFormFrx(streams: FormDesignerStreams): Buffer {
-	const cfb = Cfb.createEmpty();
-	cfb.addStream('f', streams.f);
-	cfb.addStream('o', streams.o);
-	if (streams.compObj) {
-		cfb.addStream(FRX_COMPOBJ_STREAM, streams.compObj);
-	}
+/**
+ * Packs a form's WHOLE designer storage tree into a `.frx` sidecar: the
+ * top-level f/o, and every container storage - a Frame's i-storage, a
+ * MultiPage's, their nested children - each with its class CLSID. The first
+ * version packed only the flat streams, and the VBE refused the import: the
+ * form's sites referenced containers the sidecar did not carry (hunt eight,
+ * measured against the VBE's own export of the same form).
+ */
+export function composeFormFrx(source: Cfb, storageName: string, vbFrame?: string): Buffer {
+	// Root CLSID = Forms.Form: OLE binds the embedded object's class from
+	// the root storage, and a zeroed one fails OleObjectBlob outright.
+	const cfb = Cfb.createEmpty(FORMS_FORM_CLSID);
+	const copyTree = (srcPath: string[], dstPath: string[]): void => {
+		for (const child of source.listChildrenAtPath(srcPath)) {
+			if (child.kind === 'stream') {
+				// The root VBFrame stays in the .frm text, and the root
+				// CompObj is composed fresh below: the in-workbook variant
+				// zeroes the CLSID the sidecar's loader binds by.
+				if (dstPath.length === 0 && (child.name === VBFRAME_STREAM_NAME || child.name === FRX_COMPOBJ_STREAM)) {
+					continue;
+				}
+				cfb.setStreamAtPath(dstPath, child.name, source.getStreamAtPath(srcPath, child.name));
+			} else {
+				cfb.addStorageAtPath(dstPath, child.name, source.storageClsidAtPath([...srcPath, child.name]));
+				copyTree([...srcPath, child.name], [...dstPath, child.name]);
+			}
+		}
+	};
+	copyTree([storageName], []);
+	cfb.setStreamAtPath([], FRX_COMPOBJ_STREAM, composeFrxCompObj());
 	const embedded = cfb.toBytes();
 	const header = Buffer.alloc(FRX_HEADER_SIZE);
 	header[0] = FRX_MAGIC_0;
 	header[1] = FRX_MAGIC_1;
 	header.writeUInt16LE(0x0008, 2);
 	header.writeUInt32LE(embedded.length, 4);
-	// Bytes 8..15 are zero in the observed export; 16..23 held 0x12C0/0x0E10
-	// there, purpose unknown. Reproduced verbatim rather than invented.
-	header.writeUInt32LE(0x12c0, 16);
-	header.writeUInt32LE(0x0e10, 20);
+	// Bytes 16..23: the form's OUTER size in twips - client size plus the
+	// dialog chrome (+240 wide, +585 tall), measured against the VBE's own
+	// export of the fixture (7200x6405 for a 6960x5820 client).
+	const clientW = Number(/^\s*ClientWidth\s*=\s*(\d+)/m.exec(vbFrame ?? '')?.[1] ?? 4560);
+	const clientH = Number(/^\s*ClientHeight\s*=\s*(\d+)/m.exec(vbFrame ?? '')?.[1] ?? 3015);
+	header.writeUInt32LE(clientW + 240, 16);
+	header.writeUInt32LE(clientH + 585, 20);
 	return Buffer.concat([header, embedded]);
 }
+
+const VBFRAME_STREAM_NAME = '\x03VBFrame';
 
 // ------------------------------------------------------------------ .frm text
 //

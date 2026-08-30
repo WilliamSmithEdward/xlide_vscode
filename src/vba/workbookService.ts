@@ -475,7 +475,7 @@ export function readFormExport(filePath: string, moduleName: string): { frm: str
 	}
 	const safeName = module.name.replace(/[<>:"/\|?*\x00-\x1f]/g, '_');
 	const frm = composeFrmDesignerBlock(designer.vbFrame, `${safeName}.frx`) + module.source;
-	return { frm, frx: composeFormFrx(designer) };
+	return { frm, frx: composeFormFrx(cfb, module.name, designer.vbFrame) };
 }
 
 /**
@@ -506,6 +506,27 @@ export function writeFormDesigner(
 	}
 	wb.cfb.writeStreamInStorage(module.name, 'f', streams.f);
 	wb.cfb.writeStreamInStorage(module.name, 'o', streams.o);
+	// The container storages travel too: a sidecar's Frame and MultiPage
+	// children replace the module's own, class CLSIDs and all - the flat
+	// pair alone silently dropped every container's contents (hunt eight).
+	if (streams.tree) {
+		const tree = streams.tree;
+		for (const child of wb.cfb.listChildrenAtPath([module.name])) {
+			if (child.kind === 'storage') { wb.cfb.removeStorageAtPath([module.name, child.name]); }
+		}
+		const plant = (srcPath: string[], dstPath: string[]): void => {
+			for (const child of tree.listChildrenAtPath(srcPath)) {
+				if (child.kind === 'stream') {
+					if (srcPath.length === 0) { continue; } // f/o written above; root CompObj stays the workbook's
+					wb.cfb.setStreamAtPath(dstPath, child.name, tree.getStreamAtPath(srcPath, child.name));
+				} else {
+					wb.cfb.addStorageAtPath(dstPath, child.name, tree.storageClsidAtPath([...srcPath, child.name]));
+					plant([...srcPath, child.name], [...dstPath, child.name]);
+				}
+			}
+		};
+		plant([], [module.name]);
+	}
 	if (frmDesignerBlock) {
 		const merged = mergeVbFrameFromFrm(frmDesignerBlock, existing.vbFrame);
 		wb.cfb.writeStreamInStorage(module.name, VBFRAME_STREAM, encodeCodePage(merged, wb.project.codePage));

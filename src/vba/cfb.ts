@@ -71,7 +71,7 @@ export class Cfb {
 	 * container built from scratch, such as a form's `.frx` sidecar - streams
 	 * are then added with {@link addStream} and serialized by {@link toBytes}.
 	 */
-	static createEmpty(): Cfb {
+	static createEmpty(rootClsid?: Buffer): Cfb {
 		const bytes = Buffer.alloc(3 * 512);
 		bytes.set(MAGIC, 0);
 		bytes.writeUInt16LE(0x003e, 24); // minor version
@@ -101,6 +101,10 @@ export class Cfb {
 		bytes.writeUInt32LE(NOSTREAM, 1024 + 68); // left sibling
 		bytes.writeUInt32LE(NOSTREAM, 1024 + 72); // right sibling
 		bytes.writeUInt32LE(NOSTREAM, 1024 + 76); // child
+		// The root CLSID names the class OLE binds when the container is
+		// loaded as an object - a form's .frx root must say Forms.Form, or
+		// the VBE's import fails to set OleObjectBlob (measured).
+		if (rootClsid && rootClsid.length === 16) { rootClsid.copy(bytes, 1024 + 80); }
 		bytes.writeUInt32LE(ENDOFCHAIN, 1024 + 116); // ministream start
 		return Cfb.fromBytes(bytes);
 	}
@@ -323,7 +327,7 @@ export class Cfb {
 		this.directory[parent].childId = this.rebuildBalancedSubtree(siblings);
 	}
 
-	addStorageAtPath(parentPath: readonly string[], name: string): void {
+	addStorageAtPath(parentPath: readonly string[], name: string, clsid?: Buffer): void {
 		const parent = this.resolveStoragePath(parentPath);
 		const clash = this.collectSubtree(this.directory[parent].childId).some(
 			(i) => this.directory[i].name.toLowerCase() === name.toLowerCase(),
@@ -332,9 +336,36 @@ export class Cfb {
 			throw new CfbError(`${name} already exists in ${parentPath.join('/') || 'root'}`);
 		}
 		const target = this.claimSlot(name, OBJTYPE_STORAGE);
+		// A CLSID rides a raw-entry template the serializer copies misc bytes
+		// from - the same mechanism that preserves parsed entries' CLSIDs. A
+		// container storage without its class is dead to OLE (the .frx find).
+		if (clsid && clsid.length === 16 && clsid.some((b) => b !== 0)) {
+			const template = Buffer.alloc(DIR_ENTRY_SIZE);
+			clsid.copy(template, 80);
+			this.directory[target].raw = template;
+		}
 		const siblings = this.collectSubtree(this.directory[parent].childId);
 		siblings.push(target);
 		this.directory[parent].childId = this.rebuildBalancedSubtree(siblings);
+	}
+
+	/** Direct children of the storage at `path`, in directory order. */
+	listChildrenAtPath(path: readonly string[]): Array<{ name: string; kind: 'stream' | 'storage' }> {
+		const parent = this.resolveStoragePath(path);
+		return this.collectSubtree(this.directory[parent].childId)
+			.sort((a, b) => a - b)
+			.filter((i) => this.directory[i].objType === OBJTYPE_STREAM || this.directory[i].objType === OBJTYPE_STORAGE)
+			.map((i) => ({
+				name: this.directory[i].name,
+				kind: this.directory[i].objType === OBJTYPE_STREAM ? 'stream' as const : 'storage' as const,
+			}));
+	}
+
+	/** The CLSID bytes of the entry at `path` (zeros when unset). */
+	storageClsidAtPath(path: readonly string[]): Buffer {
+		const idx = this.resolveStoragePath(path);
+		const raw = this.directory[idx].raw;
+		return raw.length === DIR_ENTRY_SIZE ? Buffer.from(raw.subarray(80, 96)) : Buffer.alloc(16);
 	}
 
 	/** Removes the storage at `path` and every descendant entry. */

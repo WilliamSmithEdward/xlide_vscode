@@ -833,6 +833,19 @@ function applyToPackage(
 		}
 		addControl(pkg, child, outcome, root);
 	}
+
+	// The SIBLING ORDER re-syncs to the document once everyone exists: a
+	// reconcile-executed move lands before a diff-phase addition whatever
+	// the document interleaved, and the document's order is the truth.
+	const orderOf = new Map(childElements.map((c, i) => [c.attrs.get('Name')!.toLowerCase(), i]));
+	const sorted = [...pkg.entries].sort((a, b) =>
+		(orderOf.get(siteName(a.site).toLowerCase()) ?? 0) - (orderOf.get(siteName(b.site).toLowerCase()) ?? 0));
+	if (sorted.some((e, i) => e !== pkg.entries[i])) {
+		pkg.entries = sorted;
+		pkg.form.sites = sorted.map((e) => e.site);
+		pkg.form.sitesStructurallyChanged = true;
+		outcome.applied.push(`sibling order of ${element.attrs.get('Name') ?? element.tag}`);
+	}
 }
 
 function applyToExisting(
@@ -1712,6 +1725,10 @@ function addControl(
 		const inner = newEmptyContainerPackage(pkg, element, 'Frame');
 		pkg.containers.set(id, inner);
 		pkg.entries.push({ kind: 'container', site });
+		// The document's site-level say - its own TabIndex, a Tag, the site
+		// flags - lands on the fresh site too; skipping this dropped them on
+		// every creation (the chain fuzz's find).
+		applySiteAttrs(site, element, outcome);
 		applyToPackage(inner, element, outcome, false, root);
 		outcome.applied.push(`added Frame ${name}`);
 		return;
@@ -1723,6 +1740,7 @@ function addControl(
 		height: pointsToHimetric(Number(element.attrs.get('Height') ?? '18')),
 	});
 	pkg.entries.push({ kind: 'record', site, record });
+	applySiteAttrs(site, element, outcome);
 	applyRecordAttrs(record, element, kind, outcome, name);
 	outcome.applied.push(`added ${kind} ${name}`);
 }
