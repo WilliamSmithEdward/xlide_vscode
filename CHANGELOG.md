@@ -4,6 +4,15 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+## [5.0.0] - 2026-08-30
+
+**The UserForm designer.** XLIDE edits forms now, not just the code behind
+them: a canvas with the VBE's own gestures, a full properties pane, and the
+form's markup - all in ONE editor over one document, with a real dirty dot,
+text undo, and a save that is the only write to your workbook. The engine
+underneath reads and writes MS-OFORMS designer storages natively, so none of
+it needs Excel running. F5 shows the form the way the VBE does.
+
 - **Hunt eleven: the day's new code holds.** Everything that landed today
   got its own adversarial pass and came back clean. The read/write
   classifier ran over 43,474 identifier occurrences in four real workbooks
