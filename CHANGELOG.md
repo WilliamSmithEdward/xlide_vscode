@@ -4,6 +4,23 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **The whole authored surface survives Excel's own resave - verified.**
+  Hunt five put the harshest oracle available over the engine: a workbook
+  carrying everything the designer can author (every form and control
+  property family, the reconciled renames and reparents, fresh-added
+  controls, pictures) was opened in the VBE's own DESIGNER, dirtied
+  through it, and re-saved by Excel - then re-read here. Nothing was
+  lost: every property, both pictures, every identity survived Excel's
+  re-serialization, with three understood normalizations on Excel's side
+  (font sizes snap to the raster grid, 10 becomes 9.75, exactly as the
+  VBE's grid does it; a value stored at its kind default may drop to
+  implicit; sibling order can shuffle under VBE edits - which the
+  name-keyed diff is immune to by design). For future probes: setting a
+  design property via VBComponents.Properties fails under automation
+  with a focus error on ANY workbook, Excel-authored ones included -
+  dirty through the designer surface (DesignerWindow plus a temp control
+  add/remove) instead.
+
 - **A renamed or reparented control no longer loses its picture on save.**
   The markup diff is keyed by name, so a rename or a move read as
   remove-plus-add - and the rebuilt control kept only what the dialect can
