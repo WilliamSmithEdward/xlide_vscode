@@ -4,6 +4,21 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **Hunt eleven: the day's new code holds.** Everything that landed today
+  got its own adversarial pass and came back clean. The read/write
+  classifier ran over 43,474 identifier occurrences in four real workbooks
+  against an independently written oracle - zero disagreements, nothing
+  thrown, 5 ms on the largest module - plus a sixty-shape matrix covering
+  what the corpus oracle cannot judge: comparisons in While / Do / Until /
+  Case Is that must not read as assignments, With and Me and property
+  chains resolving to their terminal name, Set chains, multi-statement
+  colon lines, line labels, file I/O statements, signatures, and
+  bracketed FOREIGN-NAME targets. The document-highlight provider, which
+  now runs on every caret move, measures 0.1 ms on the 165 KB corpus
+  module. And live Excel compiled a two-form XlideRun and resolved both
+  launcher subs by name, which is the first proof that the accumulating
+  module is valid VBA. The shape matrix is now in the suite.
+
 - **F5 runs what you see: the designer saves first.** The designer holds
   its gestures and markup edits as pending document changes, so pressing F5
   with a dirty form showed the LAST SAVED version in Excel - the change

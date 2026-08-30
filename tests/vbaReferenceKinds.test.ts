@@ -91,6 +91,46 @@ describe('classifyReferenceKinds', () => {
 		expect(kindOf('Debug.Print total', 'total')).toBe('read');
 	});
 
+	it('never mistakes a comparison for an assignment', () => {
+		// Every `=` that is NOT an assignment: the loop and branch headers,
+		// Case Is, the comparison operators, and a named argument.
+		expect(kindOf('While total = 1\r\nWend', 'total')).toBe('read');
+		expect(kindOf('Do While total = 1\r\nLoop', 'total')).toBe('read');
+		expect(kindOf('Do Until total = 1\r\nLoop', 'total')).toBe('read');
+		expect(kindOf('Select Case x\r\nCase Is = total\r\nEnd Select', 'total')).toBe('read');
+		expect(kindOf('If a <= total Then\r\nEnd If', 'total')).toBe('read');
+		expect(kindOf('If a <> total Then\r\nEnd If', 'total')).toBe('read');
+		expect(kindOf('Call Foo(target:=total)', 'total')).toBe('read');
+		expect(kindOf('Call Foo(target:=total)', 'target')).toBe('read');
+	});
+
+	it('follows the target chain to its terminal name, and no further', () => {
+		expect(kindOf('With obj\r\n    .Field = 1\r\nEnd With', 'Field')).toBe('write');
+		expect(kindOf('With obj\r\n    .Field = 1\r\nEnd With', 'obj')).toBe('read');
+		expect(kindOf('Me.Caption = "x"', 'Caption')).toBe('write');
+		expect(kindOf('Range("A1").Value = 5', 'Value')).toBe('write');
+		expect(kindOf('Range("A1").Value = 5', 'Range')).toBe('read');
+		expect(kindOf('Set a.b = c', 'b')).toBe('write');
+		expect(kindOf('Set a.b = c', 'a')).toBe('read');
+		expect(kindOf('arr(idx) = 5', 'idx')).toBe('read');
+	});
+
+	it('classifies a FOREIGN-NAME target at its own token offset', () => {
+		// [My Name] is ONE token starting at the bracket - a references query
+		// hands back that offset, so the classifier must key on it.
+		const src = '[My Name] = 1';
+		const at = src.indexOf('[');
+		expect(classifyReferenceKinds(src, [at]).get(at)).toBe('write');
+	});
+
+	it('handles multi-statement lines and labels', () => {
+		expect(kindOf('a = 1: b = 2', 'a')).toBe('write');
+		expect(kindOf('a = 1: b = 2', 'b')).toBe('write');
+		expect(kindOf('a = 1: b = a', 'a', 1)).toBe('read');
+		expect(kindOf('Handler:\r\n    Resume Next', 'Handler')).toBe('read');
+		expect(kindOf('On Error GoTo Handler', 'Handler')).toBe('read');
+	});
+
 	it('writes the parameter names and the procedure name in a signature', () => {
 		const src = 'Public Function Sum(ByVal a As Long, Optional b As Long = 0) As Long\r\n    Sum = a + b\r\nEnd Function';
 		expect(kindOf(src, 'Sum', 0)).toBe('write');  // declaration
