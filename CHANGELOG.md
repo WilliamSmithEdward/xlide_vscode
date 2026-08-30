@@ -4,6 +4,19 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **Hunt ten found nothing to fix - and that is the finding.** The two
+  territories no hunt had visited both came back sound. The VBA analyzer
+  took a pathological sweep - 3000-deep parentheses, 2000-deep If nests, a
+  one-megabyte line, ten thousand line continuations, keyword soup, null
+  bytes, three hundred seeded mutants, and a scaling ladder - and stayed
+  bounded everywhere (worst case 466ms, near-linear growth, the corpus's
+  giant module analyzed in 119ms). And the TabStrip's tab structure,
+  written through the document (a caption rename plus an added tab, five
+  parallel arrays and the flags tail behind it), loaded in live Excel
+  exactly as authored: three tabs, Overview / Tab2 / Extra. After ten
+  hunts, every layer of the designer and the paths around it has had a
+  dedicated adversarial pass.
+
 - **A renamed page keeps its contents through the save.** Hunt nine went
   after the one identity the reconciliation had excluded: MultiPage pages.
   A page rename still saved as remove-plus-add, so the renamed page came
