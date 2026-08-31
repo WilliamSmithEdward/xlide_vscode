@@ -156,3 +156,35 @@ describe('tab order', () => {
 		});
 	});
 });
+
+// Align and Make Same Size are many geometry writes as ONE gesture: one
+// workbook write, one undo step, and all-or-nothing if a name is wrong.
+describe('batched geometry', () => {
+	it('moves and resizes several controls in one op', () => {
+		const wb = workbook();
+		applyFormDesignerOp(wb, 'EntryForm', {
+			kind: 'geometryBatch',
+			items: [
+				{ name: 'RegionPick', left: 24, top: 38 },
+				{ name: 'HistoryList', left: 24, top: 64, width: 66, height: 16 },
+			],
+		});
+		resetWorkbookCacheForTests();
+		const markup = readFormMarkup(wb, 'EntryForm').markup;
+		expect(markup).toMatch(/<ComboBox Name="RegionPick" Left="24" Top="38"/);
+		expect(markup).toMatch(/<ListBox Name="HistoryList" Left="24" Top="64" Width="66" Height="16"/);
+	});
+
+	it('refuses the whole batch when one name is unknown', () => {
+		const wb = workbook();
+		const before = readFormMarkup(wb, 'EntryForm').markup;
+		resetWorkbookCacheForTests();
+		expect(() => applyFormDesignerOp(wb, 'EntryForm', {
+			kind: 'geometryBatch',
+			items: [{ name: 'RegionPick', left: 5 }, { name: 'NoSuchControl', left: 5 }],
+		})).toThrow(/no control named NoSuchControl/);
+		resetWorkbookCacheForTests();
+		// Nothing moved: a half-applied align is worse than none.
+		expect(readFormMarkup(wb, 'EntryForm').markup).toBe(before);
+	});
+});

@@ -565,6 +565,13 @@ describe('the interactive canvas contract', () => {
 	it('offers cross-surface drops in the gesture script', () => {
 		const { html } = readFormPreview(workbook(), 'EntryForm');
 		expect(html).toContain("type: 'reparent'");
+		// The Format surface: depth, tab order, align and same-size.
+		expect(html).toContain('id="zFront"');
+		expect(html).toContain('id="tabOrderBtn"');
+		expect(html).toContain('id="alignPick"');
+		expect(html).toContain("type: 'geometryBatch'");
+		expect(html).toContain("type: 'zOrder'");
+		expect(html).toContain("type: 'tabOrder'");
 		expect(html).toContain('.drop-target');
 	});
 

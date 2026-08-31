@@ -4,6 +4,23 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **Align and Make Same Size, on a multi-selection.** Ctrl-click or
+  Shift-click adds controls to the selection; the one picked FIRST stays the
+  anchor - it keeps the handles, it never moves, and it is the ruler the
+  others are measured against. Align lefts, centers, rights, tops, middles
+  or bottoms, and make the selection the anchor's width, height or both.
+  However many controls move, it is ONE write and ONE undo step: the canvas
+  computes the target geometry in points and hands the engine a single
+  batch, which refuses outright if any name in it is unknown rather than
+  half-applying an align.
+
+- **Opening a form in the VBE does not reorder it.** The depth work raised
+  the question of whether a VBE visit rewrites what XLIDE wrote. Measured:
+  a form opened in the VBE designer, dirtied and saved comes back with its
+  site order byte-identical. The reshuffle seen earlier belongs to Excel's
+  own ZOrder call recomputing depth, not to opening a form.
+
+
 - **Tab order and depth, the two orders geometry does not show.** The
   designer gains the VBE's Tab Order dialog - the whole surface listed in
   tab sequence, Move Up and Move Down, applied as ONE gesture so it is one

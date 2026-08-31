@@ -512,6 +512,10 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 		background-size: 6pt 6pt; background-position: -3pt -3pt; pointer-events: none; }
 	.ctl { position: absolute; box-sizing: border-box; overflow: hidden; white-space: nowrap; }
 	.ctl.selected { outline: 1px dashed #0e639c; outline-offset: 1px; }
+	/* A multi-selection: the ANCHOR keeps the dashed outline and the resize
+	   handles, the others wear a solid tint. Align and Make Same Size read
+	   the anchor, so which control that is has to be visible. */
+	.ctl.co-selected { outline: 2px solid rgba(14, 99, 156, 0.85); outline-offset: 1px; }
 	/* Hover ergonomics, adopted from the vbide designer (settled 2026-08-15):
 	   the control a click would select lights up, and only the DEEPEST hovered
 	   one does - without :has, a Frame outlines under its own children. The
@@ -625,6 +629,22 @@ ${interactive ? `	<div class="toolbar" id="toolbar">
 		<button class="cmd" id="zFront" title="Bring the selected control to the front" disabled>Front</button>
 		<button class="cmd" id="zBack" title="Send the selected control to the back" disabled>Back</button>
 		<button class="cmd" id="tabOrderBtn" title="Set the tab order of this surface">Tab Order</button>
+		<span class="sep"></span>
+		<select class="cmd" id="alignPick" title="Align the selection to the anchor - the control selected first" disabled>
+			<option value="">Align...</option>
+			<option value="left">Lefts</option>
+			<option value="centers">Centers</option>
+			<option value="right">Rights</option>
+			<option value="top">Tops</option>
+			<option value="middles">Middles</option>
+			<option value="bottom">Bottoms</option>
+		</select>
+		<select class="cmd" id="sizePick" title="Make the selection the same size as the anchor" disabled>
+			<option value="">Same size...</option>
+			<option value="width">Width</option>
+			<option value="height">Height</option>
+			<option value="both">Both</option>
+		</select>
 		<label>Zoom <select id="zoomPick">
 			<option value="0.5">50%</option><option value="0.75">75%</option>
 			<option value="1" selected>100%</option><option value="1.25">125%</option>
@@ -1364,6 +1384,7 @@ ${interactive ? `	<script>
 			}
 		};
 		const select = (el) => {
+			clearCoSelected();
 			document.querySelectorAll('.ctl.selected').forEach((c) => c.classList.remove('selected'));
 			selected = el;
 			if (el) { el.classList.add('selected'); }
@@ -1378,6 +1399,30 @@ ${interactive ? `	<script>
 		// reading back what it wrote - so Front and Back are document moves.
 		// Tab order is the TabIndex run, renumbered as one gesture the way the
 		// VBE dialog does, so it is one undo step and one write.
+		// A MULTI-SELECTION is the anchor plus the co-selected. Only the
+		// anchor carries handles and takes a drag; the rest are there to be
+		// aligned or sized against it.
+		const coSelected = [];
+		const clearCoSelected = () => {
+			coSelected.splice(0).forEach((el) => el.classList.remove('co-selected'));
+		};
+		const toggleCoSelected = (el) => {
+			if (!selected) { select(el); return; }
+			if (el === selected) { return; }
+			const at = coSelected.indexOf(el);
+			if (at >= 0) {
+				coSelected.splice(at, 1);
+				el.classList.remove('co-selected');
+			} else {
+				coSelected.push(el);
+				el.classList.add('co-selected');
+			}
+			syncCommandButtons();
+		};
+		const selectionSet = () => (selected ? [selected, ...coSelected] : []);
+
+		const alignPick = document.getElementById('alignPick');
+		const sizePick = document.getElementById('sizePick');
 		const zFrontBtn = document.getElementById('zFront');
 		const zBackBtn = document.getElementById('zBack');
 		const tabOrderBtn = document.getElementById('tabOrderBtn');
@@ -1385,6 +1430,9 @@ ${interactive ? `	<script>
 			const on = !!selected && !!selected.dataset.name;
 			if (zFrontBtn) { zFrontBtn.disabled = !on; }
 			if (zBackBtn) { zBackBtn.disabled = !on; }
+			const many = on && coSelected.length > 0;
+			if (alignPick) { alignPick.disabled = !many; }
+			if (sizePick) { sizePick.disabled = !many; }
 		};
 		zFrontBtn?.addEventListener('click', () => {
 			if (selected?.dataset.name) { post({ type: 'zOrder', name: selected.dataset.name, toFront: true }); }
@@ -1471,6 +1519,56 @@ ${interactive ? `	<script>
 			}
 			paint();
 		};
+		// ALIGN and MAKE SAME SIZE: computed here, where the geometry already
+		// lives in points, and sent as ONE batch so six controls move in one
+		// write and one undo step. The anchor never moves - it is the ruler.
+		const applyBatch = (compute) => {
+			const set = selectionSet();
+			if (set.length < 2 || !selected) { return; }
+			const anchor = geometryOf(selected);
+			const items = [];
+			for (const el of set) {
+				if (el === selected) { continue; }
+				const was = geometryOf(el);
+				const next = compute(anchor, was);
+				if (next.left === was.left && next.top === was.top
+					&& next.width === was.width && next.height === was.height) {
+					continue;
+				}
+				setGeometry(el, next);
+				items.push({ name: el.dataset.name, ...next });
+			}
+			layHandles();
+			if (items.length > 0) { post({ type: 'geometryBatch', items }); }
+		};
+		alignPick?.addEventListener('change', () => {
+			const how = alignPick.value;
+			alignPick.value = '';
+			if (!how) { return; }
+			applyBatch((anchor, was) => {
+				const next = { ...was };
+				if (how === 'left') { next.left = anchor.left; }
+				if (how === 'right') { next.left = anchor.left + anchor.width - was.width; }
+				if (how === 'centers') { next.left = anchor.left + (anchor.width - was.width) / 2; }
+				if (how === 'top') { next.top = anchor.top; }
+				if (how === 'bottom') { next.top = anchor.top + anchor.height - was.height; }
+				if (how === 'middles') { next.top = anchor.top + (anchor.height - was.height) / 2; }
+				next.left = Math.max(0, Math.round(next.left * 100) / 100);
+				next.top = Math.max(0, Math.round(next.top * 100) / 100);
+				return next;
+			});
+		});
+		sizePick?.addEventListener('change', () => {
+			const how = sizePick.value;
+			sizePick.value = '';
+			if (!how) { return; }
+			applyBatch((anchor, was) => ({
+				...was,
+				width: how === 'height' ? was.width : anchor.width,
+				height: how === 'width' ? was.height : anchor.height,
+			}));
+		});
+
 		tabOrderBtn?.addEventListener('click', openTabOrder);
 		document.addEventListener('keydown', (e) => {
 			if (e.key === 'Escape' && tabDialog) { closeTabOrder(); }
@@ -1619,7 +1717,14 @@ ${interactive ? `	<script>
 			const ctl = e.target.closest('.ctl[data-name]');
 			if (ctl) {
 				// The innermost control under the pointer wins; a click on a
-				// frame's child selects the child, not the frame.
+				// frame's child selects the child, not the frame. Ctrl or Shift
+				// EXTENDS instead: the first control picked stays the anchor,
+				// because Align and Make Same Size measure against it.
+				if (e.ctrlKey || e.metaKey || e.shiftKey) {
+					toggleCoSelected(ctl);
+					e.preventDefault();
+					return;
+				}
 				select(ctl);
 				drag = { kind: 'move', el: ctl, start: geometryOf(ctl), x: e.clientX, y: e.clientY, moved: false };
 				document.body.dataset.dragging = '';

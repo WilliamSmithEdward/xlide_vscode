@@ -985,6 +985,30 @@ export function reconcileMarkupIdentities(root: FormPackage, doc: MarkupElement)
 }
 
 /**
+ * MANY controls moved or resized as ONE gesture - what Align and Make Same
+ * Size are underneath. The canvas computes the target geometry (it already
+ * owns the pointer-to-points math) and hands over the whole batch, so a
+ * six-control align is one write, one undo step, and one re-render rather
+ * than six of each. A name that resolves to nothing fails the batch before
+ * anything moves: a half-applied align is worse than none.
+ */
+export function setGeometryBatch(
+	root: FormPackage,
+	items: readonly (GeometryPt & { name: string })[],
+): string[] {
+	for (const item of items) {
+		if (!findControl(root, item.name)) {
+			throw new FormMarkupError(0, `no control named ${item.name}`);
+		}
+	}
+	const applied: string[] = [];
+	for (const item of items) {
+		applied.push(...setControlGeometry(root, item.name, item));
+	}
+	return applied;
+}
+
+/**
  * Z-ORDER: a control's depth is its position in its container's site list, and
  * the LAST site draws on TOP. Measured by letting MSForms do it - calling
  * ZOrder(fmZOrderFront) on a control in the live designer and saving moved

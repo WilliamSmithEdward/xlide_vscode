@@ -23,6 +23,7 @@ import {
 	removeControl as designerRemoveControl,
 	reparentControl as designerReparentControl,
 	setControlGeometry as designerSetControlGeometry,
+	setGeometryBatch as designerSetGeometryBatch,
 	setTabOrder as designerSetTabOrder,
 	setZOrder as designerSetZOrder,
 	setControlProperty as designerSetControlProperty,
@@ -741,6 +742,7 @@ export function applyFormDesignerOp(
 		| { kind: 'reparent'; name: string; container: string; left: number; top: number }
 		| { kind: 'setProp'; name: string; prop: string; value: string }
 		| { kind: 'formSize'; width: number; height: number }
+		| { kind: 'geometryBatch'; items: readonly { name: string; left?: number; top?: number; width?: number; height?: number }[] }
 		| { kind: 'zOrder'; name: string; toFront: boolean }
 		| { kind: 'tabOrder'; container: string; names: readonly string[] },
 ): WriteResult & { newName?: string } {
@@ -767,6 +769,10 @@ export function applyFormDesignerOp(
 		designerRemoveControl(pkg, op.name);
 	} else if (op.kind === 'reparent') {
 		designerReparentControl(pkg, op.name, op.container, op.left, op.top);
+	} else if (op.kind === 'geometryBatch') {
+		if (designerSetGeometryBatch(pkg, op.items).length === 0) {
+			return { ok: true, signatureDropped: false };
+		}
 	} else if (op.kind === 'zOrder') {
 		if (designerSetZOrder(pkg, op.name, op.toFront).length === 0) {
 			return { ok: true, signatureDropped: false };
