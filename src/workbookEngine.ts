@@ -156,6 +156,15 @@ export class WorkbookEngine implements vscode.Disposable {
 					typeof p.identityPath === 'string' ? p.identityPath : undefined);
 			case 'readFormMarkup':
 				return svc.readFormMarkup(str(p, 'path'), str(p, 'module'));
+			case 'duplicateFormControls':
+				return svc.duplicateFormControls(
+					str(p, 'path'), str(p, 'module'),
+					Array.isArray(p.names) ? (p.names as string[]) : [],
+					typeof p.offsetPt === 'number' ? p.offsetPt : undefined);
+			case 'removeFormControls':
+				return svc.removeFormControls(
+					str(p, 'path'), str(p, 'module'),
+					Array.isArray(p.names) ? (p.names as string[]) : []);
 			case 'applyFormMarkup':
 				return svc.applyFormMarkup(str(p, 'path'), str(p, 'module'), str(p, 'markup'));
 			case 'addForm':

@@ -171,6 +171,19 @@ changes.
 Guide:
 [Import and export](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/sync.md)
 
+### Design UserForms
+
+Open a UserForm and the designer opens with it: the canvas, a properties pane,
+and the form's markup in one tab. Drag from the toolbox to add controls, drag
+and resize on the canvas, and double-click a control for its event handler.
+Ctrl-click or Shift-click builds a multi-selection, and so does dragging a band
+across the form; the selection aligns, resizes, moves, copies (Ctrl+C, Ctrl+V)
+and deletes as one. Every gesture is an ordinary text edit of the markup, so
+Ctrl+Z undoes it and the workbook is written only when you save.
+
+The designer is native: it reads and writes the form's binary storage directly
+and never needs Excel open.
+
 ### Run tests
 
 Mark VBA procedures as workbook tests, then run them from XLIDE. Test execution
@@ -271,8 +284,9 @@ Open the Command Palette and type `XLIDE` to find these commands:
 - XLIDE reads and writes VBA modules through the workbook file. Keep normal
   backups for important workbooks, especially before large sync operations.
 - Running macros or tests uses Excel automation and is Windows-only.
-- UserForm designer files are not edited directly. XLIDE can work with the VBA
-  code-behind where supported.
+- UserForms are designed in XLIDE's own designer, which reads and writes the
+  form's binary storage directly. Its markup is the editable face of that
+  storage: a property XLIDE does not name is carried through untouched.
 - Exported `.bas` and `.cls` files are useful for review and source control, but
   the workbook remains the source of truth unless you explicitly import files
   back into it.

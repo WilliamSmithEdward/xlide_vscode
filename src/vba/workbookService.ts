@@ -637,6 +637,135 @@ export function readFormPreview(
  * that returned a property to its default survives the save. Anything the
  * dialect cannot spell (pictures, foreign payloads) is never touched.
  */
+/**
+ * The markup lines one named control occupies: a single self-closing line, or
+ * an open line through its matching close at the SAME indent, which is all the
+ * printer emits. Copy and delete both work on these spans, so a container's
+ * children travel with it without either having to understand nesting.
+ */
+function formElementBlock(
+	lines: readonly string[],
+	name: string,
+): { start: number; end: number; tag: string } {
+	const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+	const opener = new RegExp(`^(\\s*)<(\\w+) Name="${escaped}"`);
+	let at = -1;
+	let indent = '';
+	let tag = '';
+	for (let i = 0; i < lines.length; i++) {
+		const found = opener.exec(lines[i]);
+		if (found) { at = i; indent = found[1]; tag = found[2]; break; }
+	}
+	if (at < 0) { throw new Error(`no control named ${name}`); }
+	if (/\/>\s*$/.test(lines[at])) { return { start: at, end: at, tag }; }
+	const closing = `${indent}</${tag}>`;
+	for (let i = at + 1; i < lines.length; i++) {
+		if (lines[i] === closing) { return { start: at, end: i, tag }; }
+	}
+	throw new Error(`${name}: its element is not closed`);
+}
+
+/**
+ * DELETING A SELECTION in one step: every named element's span is cut, so a
+ * multi-control delete is a single document edit and a single undo - and a
+ * container drags its children out with it. A name nested inside another name
+ * being deleted is dropped rather than refused: the parent already takes it.
+ *
+ * All-or-nothing on unknown names, so a stale selection cannot half-delete.
+ */
+export function removeFormControls(
+	filePath: string,
+	moduleName: string,
+	names: readonly string[],
+): WriteResult & { removed: string[] } {
+	const markup = readFormMarkup(filePath, moduleName).markup;
+	const lines = markup.split('\r\n');
+	const found = names.map((name) => ({ name, block: formElementBlock(lines, name) }));
+	for (const one of found) {
+		if (one.block.tag === 'Page') {
+			throw new Error(`${one.name} is a Page; remove pages through the form markup`);
+		}
+	}
+	// Keep only the outermost spans, and only one entry per span.
+	const seen = new Set<number>();
+	const outermost = found.filter((one) => {
+		if (seen.has(one.block.start)) { return false; }
+		seen.add(one.block.start);
+		return !found.some((other) => other !== one
+			&& other.block.start < one.block.start && one.block.end <= other.block.end);
+	});
+	if (outermost.length === 0) {
+		return { ok: true, signatureDropped: false, removed: [] };
+	}
+	// Last span first, so a cut never shifts an earlier span's index.
+	for (const one of [...outermost].sort((a, b) => b.block.start - a.block.start)) {
+		lines.splice(one.block.start, one.block.end - one.block.start + 1);
+	}
+	const result = applyFormMarkup(filePath, moduleName, lines.join('\r\n'));
+	return { ok: true, signatureDropped: result.signatureDropped, removed: outermost.map((one) => one.name) };
+}
+
+/**
+ * COPY AND PASTE, as a document transform: each named control's element is
+ * cloned in place, given fresh names, nudged so the copy is visible, and the
+ * whole document re-applied. Working on the MARKUP rather than on the sites
+ * is deliberate - the clone then travels the same authoring path every other
+ * addition takes, containers included, whose children come along and are
+ * renamed with them.
+ *
+ * Returns the new top-level names, so the canvas can select what it pasted.
+ */
+export function duplicateFormControls(
+	filePath: string,
+	moduleName: string,
+	names: readonly string[],
+	offsetPt = 6,
+): WriteResult & { newNames: string[] } {
+	const markup = readFormMarkup(filePath, moduleName).markup;
+	const lines = markup.split('\r\n');
+	const taken = new Set<string>();
+	for (const line of lines) {
+		const found = /\sName="([^"]*)"/.exec(line);
+		if (found) { taken.add(found[1].toLowerCase()); }
+	}
+	const freshName = (kind: string): string => {
+		for (let i = 1; ; i++) {
+			const candidate = `${kind}${i}`;
+			if (!taken.has(candidate.toLowerCase())) {
+				taken.add(candidate.toLowerCase());
+				return candidate;
+			}
+		}
+	};
+	const newNames: string[] = [];
+	// Last block first, so an earlier clone never shifts a later block's index.
+	const blocks = names.map((name) => ({ name, block: formElementBlock(lines, name) }))
+		.sort((a, b) => b.block.start - a.block.start);
+	for (const { name, block } of blocks) {
+		if (block.tag === 'Page') {
+			throw new Error(`${name} is a Page; add pages through the form markup`);
+		}
+		const clone = lines.slice(block.start, block.end + 1).map((line) => {
+			const kind = /^\s*<(\w+)/.exec(line)?.[1];
+			return line.replace(/(\sName=")([^"]*)(")/, (_all, lead: string, was: string, tail: string) => {
+				const fresh = freshName(kind ?? was.replace(/\d+$/, ''));
+				if (was.toLowerCase() === name.toLowerCase()) { newNames.push(fresh); }
+				return `${lead}${fresh}${tail}`;
+			});
+		});
+		// Only the copy's own position moves; a child's is relative to it.
+		clone[0] = clone[0]
+			.replace(/\sLeft="(-?[\d.]+)"/, (_a, v: string) => ` Left="${Number(v) + offsetPt}"`)
+			.replace(/\sTop="(-?[\d.]+)"/, (_a, v: string) => ` Top="${Number(v) + offsetPt}"`);
+		lines.splice(block.end + 1, 0, ...clone);
+	}
+	if (newNames.length === 0) {
+		return { ok: true, signatureDropped: false, newNames: [] };
+	}
+	const result = applyFormMarkup(filePath, moduleName, lines.join('\r\n'));
+	return { ok: true, signatureDropped: result.signatureDropped, newNames: newNames.reverse() };
+}
+
 export function applyFormMarkup(
 	filePath: string,
 	moduleName: string,

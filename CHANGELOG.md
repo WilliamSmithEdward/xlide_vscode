@@ -4,6 +4,23 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **A multi-selection is one thing.** Ctrl-click, Shift-click, or drag a band
+  across the form to pick several controls; whatever they then do, they do
+  together. Ctrl+C and Ctrl+V copy the selection - a container brings its
+  children, renamed and still at their own offsets - Delete removes all of
+  it, and dragging or arrow-nudging any member carries the rest with their
+  spacing intact, clamped as a group at the form's edge. Each is ONE write
+  and ONE undo step. Copy holds NAMES rather than bytes, so pasting after
+  the source is gone fails out loud instead of pasting a ghost.
+
+- **Fixed: Align and Make Same Size did nothing.** The canvas computed the
+  batch correctly and the engine applied it correctly, but the message
+  between them was never routed - it fell through the host's gesture map
+  into a malformed delete and surfaced as an error. Found by driving the
+  real canvas in a browser and following the message all the way to the
+  engine rather than stopping at what the canvas posted. Unreleased, so no
+  version shipped with it.
+
 - **Align and Make Same Size, on a multi-selection.** Ctrl-click or
   Shift-click adds controls to the selection; the one picked FIRST stays the
   anchor - it keeps the handles, it never moves, and it is the ruler the

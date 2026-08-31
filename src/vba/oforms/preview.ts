@@ -571,6 +571,8 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.page { position: absolute; inset: 0; background: #f0f0f0; }
 	.handle { position: absolute; width: 6px; height: 6px; background: #fff;
 		border: 1px solid #0e639c; z-index: 5; }
+	.marquee { position: absolute; border: 1px dashed #0e639c; background: rgba(14, 99, 156, 0.10);
+		z-index: 6; pointer-events: none; }
 	.guide { position: absolute; background: #e51400; z-index: 4; pointer-events: none; }
 	.guide.v { width: 1px; top: 0; bottom: 0; }
 	.guide.h { height: 1px; left: 0; right: 0; }
@@ -1421,6 +1423,10 @@ ${interactive ? `	<script>
 		};
 		const selectionSet = () => (selected ? [selected, ...coSelected] : []);
 
+		// What Ctrl+C put down, kept in webview state so it survives the
+		// re-render every gesture causes.
+		let clipboard = Array.isArray(savedState.clipboard) ? savedState.clipboard : [];
+
 		const alignPick = document.getElementById('alignPick');
 		const sizePick = document.getElementById('sizePick');
 		const zFrontBtn = document.getElementById('zFront');
@@ -1539,7 +1545,7 @@ ${interactive ? `	<script>
 				items.push({ name: el.dataset.name, ...next });
 			}
 			layHandles();
-			if (items.length > 0) { post({ type: 'geometryBatch', items }); }
+			if (items.length > 0) { post({ type: 'geometryBatch', anchor: selected.dataset.name, items }); }
 		};
 		alignPick?.addEventListener('change', () => {
 			const how = alignPick.value;
@@ -1674,6 +1680,7 @@ ${interactive ? `	<script>
 
 		let formDrag = null;
 		let drag = null;
+		let marquee = null;
 		document.addEventListener('pointerdown', (e) => {
 			if (e.target.closest('.props') || e.target.closest('.split-grip') || e.target.closest('.markup-pane')) { return; }
 			const formHandle = e.target.closest('.form-handle');
@@ -1725,12 +1732,32 @@ ${interactive ? `	<script>
 					e.preventDefault();
 					return;
 				}
-				select(ctl);
-				drag = { kind: 'move', el: ctl, start: geometryOf(ctl), x: e.clientX, y: e.clientY, moved: false };
+				// Dragging a control that is ALREADY in the selection carries
+				// the whole selection, the way the VBE does - but only while
+				// they share a surface, because a group cannot be reparented
+				// into one container by a single drop. Anything else is a
+				// fresh single pick, which drops the co-selection.
+				const set = selectionSet();
+				const group = set.length > 1 && set.indexOf(ctl) >= 0
+					&& set.every((el) => el.parentElement === ctl.parentElement)
+					? set.map((el) => ({ el, start: geometryOf(el) }))
+					: null;
+				if (!group) { select(ctl); }
+				drag = { kind: 'move', el: ctl, start: geometryOf(ctl), x: e.clientX, y: e.clientY, moved: false, group };
 				document.body.dataset.dragging = '';
 				e.preventDefault();
 			} else if (e.target.closest('.client')) {
-				// The empty face: activate the form itself.
+				// The empty face: a press starts a RUBBER BAND, and a press that
+				// never moves falls back to activating the form itself - the
+				// gesture the canvas has always had.
+				const surface = e.target.closest('[data-surface]') || client;
+				const rect = surface.getBoundingClientRect();
+				marquee = {
+					surface,
+					x: e.clientX, y: e.clientY,
+					originLeft: e.clientX - rect.left, originTop: e.clientY - rect.top,
+					box: null,
+				};
 				selectForm();
 			} else if (!e.target.closest('.toolbar')) {
 				select(null);
@@ -1744,6 +1771,26 @@ ${interactive ? `	<script>
 		});
 
 		document.addEventListener('pointermove', (e) => {
+			if (marquee) {
+				// The band lives ON the surface, so its rectangle is already in
+				// that surface's coordinates - the same ones the hit test uses.
+				if (!marquee.box) {
+					if (Math.abs(e.clientX - marquee.x) + Math.abs(e.clientY - marquee.y) < 3) { return; }
+					marquee.box = document.createElement('div');
+					marquee.box.className = 'marquee';
+					marquee.surface.appendChild(marquee.box);
+				}
+				const rect = marquee.surface.getBoundingClientRect();
+				const nowLeft = e.clientX - rect.left;
+				const nowTop = e.clientY - rect.top;
+				const left = Math.min(marquee.originLeft, nowLeft);
+				const top = Math.min(marquee.originTop, nowTop);
+				marquee.box.style.left = px2pt(left) + 'pt';
+				marquee.box.style.top = px2pt(top) + 'pt';
+				marquee.box.style.width = px2pt(Math.abs(nowLeft - marquee.originLeft)) + 'pt';
+				marquee.box.style.height = px2pt(Math.abs(nowTop - marquee.originTop)) + 'pt';
+				return;
+			}
 			if (formDrag) {
 				let width = formDrag.width;
 				let height = formDrag.height;
@@ -1769,7 +1816,10 @@ ${interactive ? `	<script>
 				// A control being carried lifts above its siblings and goes
 				// transparent to the pointer, so it is never hidden by what it
 				// passes over and never answers its own hit test.
-				if (drag.kind === 'move') { drag.el.classList.add('dragging'); }
+				if (drag.kind === 'move') {
+					(drag.group ? drag.group.map((m) => m.el) : [drag.el])
+						.forEach((el) => el.classList.add('dragging'));
+				}
 			}
 			clearGuides();
 			const surface = drag.el.parentElement.closest('[data-surface]') || drag.el.parentElement;
@@ -1786,6 +1836,18 @@ ${interactive ? `	<script>
 				for (const [edge] of [[top], [top + g.height], [top + g.height / 2]]) {
 					const hit = snapValue(edge, lines.ys);
 					if (hit !== null) { top += hit - edge; drawGuide(drag.el.parentElement, 'h', hit); break; }
+				}
+				if (drag.group) {
+					// One clamped shift for the group, so the spacing holds.
+					const dl = left - drag.start.left;
+					const dt = top - drag.start.top;
+					const shiftX = Math.max(dl, -Math.min(...drag.group.map((m) => m.start.left)));
+					const shiftY = Math.max(dt, -Math.min(...drag.group.map((m) => m.start.top)));
+					for (const m of drag.group) {
+						setGeometry(m.el, { left: m.start.left + shiftX, top: m.start.top + shiftY });
+					}
+					layHandles();
+					return;
 				}
 				setGeometry(drag.el, { left: Math.max(0, left), top: Math.max(0, top) });
 				// Carrying over a DIFFERENT surface offers reparenting: the
@@ -1821,6 +1883,27 @@ ${interactive ? `	<script>
 		});
 
 		document.addEventListener('pointerup', (e) => {
+			if (marquee) {
+				// Everything the band TOUCHES on that surface, in document order
+				// so the anchor is predictable: the first one is the ruler.
+				const band = marquee.box?.getBoundingClientRect();
+				const surface = marquee.surface;
+				marquee.box?.remove();
+				marquee = null;
+				if (band && band.width > 0 && band.height > 0) {
+					const hit = [...surface.querySelectorAll(':scope > .ctl[data-name]')].filter((el) => {
+						const r = el.getBoundingClientRect();
+						return r.left < band.right && r.right > band.left
+							&& r.top < band.bottom && r.bottom > band.top;
+					});
+					if (hit.length > 0) {
+						deselectForm();
+						select(hit[0]);
+						hit.slice(1).forEach((el) => toggleCoSelected(el));
+					}
+				}
+				return;
+			}
 			if (formDrag) {
 				// Commit the TRACKED size: the inline style is untouched when
 				// the pointer never moved, and a no-move click posts nothing.
@@ -1842,6 +1925,23 @@ ${interactive ? `	<script>
 			client.classList.remove('gesture-move', 'gesture-resize');
 			client.style.cursor = '';
 			document.querySelectorAll('.drop-target').forEach((s) => s.classList.remove('drop-target'));
+			if (drag.group) {
+				// The group commits as ONE batch: one write, one undo step.
+				const items = [];
+				for (const m of drag.group) {
+					const now = geometryOf(m.el);
+					m.el.classList.remove('dragging');
+					if (now.left !== m.start.left || now.top !== m.start.top) {
+						items.push({ name: m.el.dataset.name, left: now.left, top: now.top });
+					}
+				}
+				if (drag.moved && items.length > 0) {
+					post({ type: 'geometryBatch', anchor: selected?.dataset.name, items });
+				}
+				drag = null;
+				delete document.body.dataset.dragging;
+				return;
+			}
 			if (drag.kind === 'move' && drag.moved) {
 				// The hit test runs while the dragging class still holds the
 				// carried control pointer-transparent - stripping it first made
@@ -1879,23 +1979,50 @@ ${interactive ? `	<script>
 			delete document.body.dataset.dragging;
 		});
 
+		// Delete takes the WHOLE selection: one control through the designer op
+		// it has always used, several through the markup transform, which is
+		// one document edit and so one Ctrl+Z for the lot.
+		const removeSelection = () => {
+			const names = selectionSet().map((el) => el.dataset.name);
+			if (names.length === 0) { return; }
+			post(names.length === 1
+				? { type: 'remove', name: names[0] }
+				: { type: 'removeMany', names });
+		};
+
 		document.addEventListener('keydown', (e) => {
 			if (e.target.closest('.props') || e.target.closest('.markup-pane')) { return; }
 			if (!selected) { return; }
 			const name = selected.dataset.name;
 			const step = e.shiftKey ? GRID : 1;
 			const g = geometryOf(selected);
+			// A nudge carries the WHOLE selection, and the shift is clamped
+			// once for the group so the controls keep their spacing when one
+			// of them reaches the edge.
 			const move = (dl, dt) => {
-				setGeometry(selected, { left: Math.max(0, g.left + dl), top: Math.max(0, g.top + dt) });
+				const set = selectionSet();
+				const starts = set.map((el) => ({ el, g: geometryOf(el) }));
+				const shiftX = Math.max(dl, -Math.min(...starts.map((s) => s.g.left)));
+				const shiftY = Math.max(dt, -Math.min(...starts.map((s) => s.g.top)));
+				for (const s of starts) {
+					setGeometry(s.el, { left: s.g.left + shiftX, top: s.g.top + shiftY });
+				}
 				layHandles();
-				const now = geometryOf(selected);
-				post({ type: 'geometry', name, left: now.left, top: now.top });
+				if (set.length > 1) {
+					post({ type: 'geometryBatch', anchor: name, items: starts.map((s) => {
+						const now = geometryOf(s.el);
+						return { name: s.el.dataset.name, left: now.left, top: now.top };
+					}) });
+				} else {
+					const now = geometryOf(selected);
+					post({ type: 'geometry', name, left: now.left, top: now.top });
+				}
 			};
 			if (e.key === 'ArrowLeft') { move(-step, 0); e.preventDefault(); }
 			else if (e.key === 'ArrowRight') { move(step, 0); e.preventDefault(); }
 			else if (e.key === 'ArrowUp') { move(0, -step); e.preventDefault(); }
 			else if (e.key === 'ArrowDown') { move(0, step); e.preventDefault(); }
-			else if (e.key === 'Delete') { post({ type: 'remove', name }); e.preventDefault(); }
+			else if (e.key === 'Delete') { removeSelection(); e.preventDefault(); }
 		});
 
 		const disarm = () => {
@@ -1994,6 +2121,22 @@ ${interactive ? `	<script>
 			if (!(e.ctrlKey || e.metaKey)) { return; }
 			const key = e.key.toLowerCase();
 			const inField = e.target.closest('input, textarea, select');
+			// COPY and PASTE hold NAMES, not bytes: the paste asks the engine to
+			// duplicate what is still in the form, so a copy whose source was
+			// deleted fails loudly instead of pasting a stale ghost. In a field
+			// the browser's own copy and paste win, untouched.
+			if (!inField && (key === 'c' || key === 'x') && selectionSet().length > 0) {
+				clipboard = selectionSet().map((el) => el.dataset.name);
+				mergeState({ clipboard });
+				if (key === 'x') { removeSelection(); }
+				e.preventDefault();
+				return;
+			}
+			if (!inField && key === 'v' && clipboard.length > 0) {
+				post({ type: 'paste', names: clipboard });
+				e.preventDefault();
+				return;
+			}
 			if (key === 's') {
 				e.preventDefault();
 				if (inField && e.target === markupText && markupTimer) { flushMarkup(); }

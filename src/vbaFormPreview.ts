@@ -77,6 +77,7 @@ async function savePendingLaunchEdits(
 
 type DesignerMessage =
 	| { type: 'geometry'; name: string; left?: number; top?: number; width?: number; height?: number }
+	| { type: 'geometryBatch'; anchor?: string; items: { name: string; left?: number; top?: number; width?: number; height?: number }[] }
 	| { type: 'add'; container: string; controlKind: string; left: number; top: number }
 	| { type: 'remove'; name: string }
 	| { type: 'reparent'; name: string; container: string; left: number; top: number }
@@ -87,11 +88,13 @@ type DesignerMessage =
 	| { type: 'docRedo' }
 	| { type: 'docSave' }
 	| { type: 'formResize'; width: number; height: number }
+	| { type: 'paste'; names: string[] }
+	| { type: 'removeMany'; names: string[] }
 	| { type: 'zOrder'; name: string; toFront: boolean }
 	| { type: 'tabOrder'; container: string; names: string[] };
 
 type GestureMessage = Extract<DesignerMessage,
-	{ type: 'geometry' } | { type: 'add' } | { type: 'remove' }
+	{ type: 'geometry' } | { type: 'geometryBatch' } | { type: 'add' } | { type: 'remove' }
 	| { type: 'reparent' } | { type: 'setProp' } | { type: 'formResize' }
 	| { type: 'zOrder' } | { type: 'tabOrder' }>;
 
@@ -274,22 +277,64 @@ export function registerFormPreview(
 				if (!applied) { suppressEcho = null; }
 			};
 
+			/**
+			 * The selection gestures the engine answers by rewriting the whole
+			 * MARKUP rather than by moving sites: paste and multi-delete. Both
+			 * land as ONE document edit, so a three-control delete is a single
+			 * Ctrl+Z, and both name their result so the canvas can select it.
+			 */
+			const applyMarkupTransform = async <T>(
+				verb: string,
+				method: string,
+				names: string[],
+				selectAfter: (result: T) => string | undefined,
+			): Promise<void> => {
+				try {
+					await syncScratchToText(document.getText());
+					const result = await bridge.call<T>(
+						method, { path: scratchPath, module: moduleName, names },
+					);
+					const { markup } = await bridge.call<{ markup: string }>(
+						'readFormMarkup',
+						{ path: scratchPath, module: moduleName },
+					);
+					appliedText = markup;
+					await setDocumentText(markup, true);
+					await render(selectAfter(result));
+				} catch (err) {
+					void vscode.window.showErrorMessage(`XLIDE: could not ${verb}: ${errorMessage(err)}`);
+					await render();
+				}
+			};
+
+			/** Paste duplicates by NAME, and lands selected on the first copy. */
+			const applyPaste = (names: string[]): Promise<void> =>
+				applyMarkupTransform<{ newNames: string[] }>(
+					'paste', 'duplicateFormControls', names, (r) => r.newNames[0]);
+
+			/** Deleting a multi-selection: every name goes in one edit. */
+			const applyRemoveMany = (names: string[]): Promise<void> =>
+				applyMarkupTransform<{ removed: string[] }>(
+					'delete', 'removeFormControls', names, () => undefined);
+
 			const applyGesture = async (message: GestureMessage): Promise<void> => {
 				const op = message.type === 'geometry'
 					? { kind: 'geometry' as const, name: message.name, left: message.left, top: message.top, width: message.width, height: message.height }
-					: message.type === 'add'
-						? { kind: 'add' as const, container: message.container, controlKind: message.controlKind, left: message.left, top: message.top }
-						: message.type === 'reparent'
-							? { kind: 'reparent' as const, name: message.name, container: message.container, left: message.left, top: message.top }
-							: message.type === 'setProp'
-								? { kind: 'setProp' as const, name: message.name, prop: message.prop, value: message.value }
-								: message.type === 'formResize'
-									? { kind: 'formSize' as const, width: message.width, height: message.height }
-									: message.type === 'zOrder'
-										? { kind: 'zOrder' as const, name: message.name, toFront: message.toFront }
-										: message.type === 'tabOrder'
-											? { kind: 'tabOrder' as const, container: message.container, names: message.names }
-											: { kind: 'remove' as const, name: message.name };
+					: message.type === 'geometryBatch'
+						? { kind: 'geometryBatch' as const, items: message.items }
+						: message.type === 'add'
+							? { kind: 'add' as const, container: message.container, controlKind: message.controlKind, left: message.left, top: message.top }
+							: message.type === 'reparent'
+								? { kind: 'reparent' as const, name: message.name, container: message.container, left: message.left, top: message.top }
+								: message.type === 'setProp'
+									? { kind: 'setProp' as const, name: message.name, prop: message.prop, value: message.value }
+									: message.type === 'formResize'
+										? { kind: 'formSize' as const, width: message.width, height: message.height }
+										: message.type === 'zOrder'
+											? { kind: 'zOrder' as const, name: message.name, toFront: message.toFront }
+											: message.type === 'tabOrder'
+												? { kind: 'tabOrder' as const, container: message.container, names: message.names }
+												: { kind: 'remove' as const, name: message.name };
 				try {
 					await syncScratchToText(document.getText());
 					const result = await bridge.call<{ ok: boolean; newName?: string }>(
@@ -304,13 +349,15 @@ export function registerFormPreview(
 					await setDocumentText(markup, true);
 					const keepSelected = message.type === 'remove'
 						? undefined
-						: message.type === 'formResize'
-							? ''
-							: message.type === 'tabOrder'
-								? undefined
-								: message.type === 'setProp'
-									? (result.newName ?? message.name)
-									: message.type === 'add' ? result.newName : message.name;
+						: message.type === 'geometryBatch'
+							? message.anchor
+							: message.type === 'formResize'
+								? ''
+								: message.type === 'tabOrder'
+									? undefined
+									: message.type === 'setProp'
+										? (result.newName ?? message.name)
+										: message.type === 'add' ? result.newName : message.name;
 					await render(keepSelected);
 				} catch (err) {
 					void vscode.window.showErrorMessage(`XLIDE: ${errorMessage(err)}`);
@@ -353,6 +400,12 @@ export function registerFormPreview(
 				switch (message.type) {
 					case 'openHandler':
 						void openEventHandler(xlsmPath, moduleName, message.name, message.event);
+						break;
+					case 'paste':
+						enqueue(() => applyPaste(message.names));
+						break;
+					case 'removeMany':
+						enqueue(() => applyRemoveMany(message.names));
 						break;
 					case 'markupEdit':
 						enqueue(() => setDocumentText(message.text, false));
