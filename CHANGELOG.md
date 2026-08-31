@@ -4,6 +4,20 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **A container's children were already members; now they are pinned.** #57
+  reported that a Frame's and a MultiPage's controls are invisible to the
+  analyzer, because the two-buffer designer reader can only see the form's
+  own `f` stream. Measured against a nested form: they are visible - the
+  member surface is read by the package walker, which recurses into every
+  child storage, and code touching `PickAir` inside a Frame or `Agree` on a
+  Page analyzes clean. The flat reader is now only the fallback for a form
+  the walker cannot parse, and says so. What the check DID find is that a
+  container was listed twice, once with its own record and again in the
+  sweep that catches a container carrying no record; completion deduped it
+  downstream, so nothing showed, but the member list was wrong and is fixed.
+  The fixture the old tests used has no containers at all, so nesting was
+  never exercised: it is now, against an Excel-authored nested form.
+
 ## [5.0.1] - 2026-08-31
 
 - **A multi-selection is one thing.** Ctrl-click, Shift-click, or drag a band

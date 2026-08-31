@@ -96,6 +96,15 @@ interface SiteRecord {
  * (each site's own control record). Returns undefined when the streams are not
  * what this was written for - the caller treats that as "no knowledge", never
  * as "no controls".
+ *
+ * TOP LEVEL ONLY, and deliberately so. Taking two buffers and no CFB handle,
+ * this can reach nothing but the form's own `f`: a Frame's children and a
+ * MultiPage's Pages each live in a storage of their own inside the form's
+ * storage. It is no longer the reader of record - `parseFormPackage` in
+ * oforms/ walks the whole tree and is what the member surface uses (see
+ * readModuleEntry in workbookService). This stays as the FALLBACK for a form
+ * that engine cannot parse, where a flat answer beats no answer, and it is
+ * why a partial member list here is not a bug (#57).
  */
 export function parseFormDesignerStreams(
 	fStream: Buffer,

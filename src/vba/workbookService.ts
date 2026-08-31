@@ -409,24 +409,33 @@ function moduleEntryWithDesigner(cfb: Cfb, project: VbaProject, module: VbaModul
 	try {
 		const pkg = parseFormPackage(cfb, [module.name], oformsCodec(project.codePage));
 		const controls: { name: string; type: string }[] = [];
+		// One entry per control: MSForms names are unique across the whole
+		// form, so a name already taken is the SAME control reached twice -
+		// a container arrives once with its record and again in the site
+		// sweep below, and listing it twice would be a duplicate member.
+		const named = new Set<string>();
+		const take = (name: string | undefined, type: string): void => {
+			if (!name || named.has(name.toLowerCase())) { return; }
+			named.add(name.toLowerCase());
+			controls.push({ name, type });
+		};
 		walkOformsPackages(pkg, (surface) => {
 			for (const surfaceEntry of surface.entries) {
-				const name = oformsSiteName(surfaceEntry.site);
-				if (!name) { continue; }
-				controls.push({
-					name,
-					type: oformsControlKind(surfaceEntry.site, surfaceEntry.kind === 'record' ? surfaceEntry.record : undefined) === 'ActiveX'
-						? 'ActiveX.Control'
-						: `MSForms.${oformsControlKind(surfaceEntry.site, surfaceEntry.kind === 'record' ? surfaceEntry.record : undefined)}`,
-				});
+				const kind = oformsControlKind(
+					surfaceEntry.site,
+					surfaceEntry.kind === 'record' ? surfaceEntry.record : undefined,
+				);
+				take(oformsSiteName(surfaceEntry.site),
+					kind === 'ActiveX' ? 'ActiveX.Control' : `MSForms.${kind}`);
 			}
 			// Container controls are members too: the Frame, the MultiPage,
-			// and each Page answer to their names on the form.
+			// and each Page answer to their names on the form. Most arrive
+			// with the entries above; this catches one whose surface carries
+			// no record of its own.
 			for (const site of surface.form.sites) {
 				const kind = oformsControlKind(site);
 				if (kind !== 'Frame' && kind !== 'MultiPage' && kind !== 'Page') { continue; }
-				const name = oformsSiteName(site);
-				if (name) { controls.push({ name, type: `MSForms.${kind}` }); }
+				take(oformsSiteName(site), `MSForms.${kind}`);
 			}
 		});
 		entry.implicitMembers = controls;
