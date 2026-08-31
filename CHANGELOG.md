@@ -4,6 +4,8 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+## [5.0.2] - 2026-08-31
+
 - **A container's children were already members; now they are pinned.** #57
   reported that a Frame's and a MultiPage's controls are invisible to the
   analyzer, because the two-buffer designer reader can only see the form's
