@@ -4,6 +4,8 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+## [5.0.1] - 2026-08-31
+
 - **A multi-selection is one thing.** Ctrl-click, Shift-click, or drag a band
   across the form to pick several controls; whatever they then do, they do
   together. Ctrl+C and Ctrl+V copy the selection - a container brings its
@@ -12,14 +14,6 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
   spacing intact, clamped as a group at the form's edge. Each is ONE write
   and ONE undo step. Copy holds NAMES rather than bytes, so pasting after
   the source is gone fails out loud instead of pasting a ghost.
-
-- **Fixed: Align and Make Same Size did nothing.** The canvas computed the
-  batch correctly and the engine applied it correctly, but the message
-  between them was never routed - it fell through the host's gesture map
-  into a malformed delete and surfaced as an error. Found by driving the
-  real canvas in a browser and following the message all the way to the
-  engine rather than stopping at what the canvas posted. Unreleased, so no
-  version shipped with it.
 
 - **Align and Make Same Size, on a multi-selection.** Ctrl-click or
   Shift-click adds controls to the selection; the one picked FIRST stays the
@@ -37,7 +31,6 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
   site order byte-identical. The reshuffle seen earlier belongs to Excel's
   own ZOrder call recomputing depth, not to opening a form.
 
-
 - **Tab order and depth, the two orders geometry does not show.** The
   designer gains the VBE's Tab Order dialog - the whole surface listed in
   tab sequence, Move Up and Move Down, applied as ONE gesture so it is one
@@ -50,7 +43,6 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
   different one to the front, and its result extends ours under the same
   rule. Tab order and depth are independent: reordering depth leaves every
   TabIndex untouched, which is exactly what MSForms does.
-
 
 ## [5.0.0] - 2026-08-30
 
