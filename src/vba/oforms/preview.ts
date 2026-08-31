@@ -456,6 +456,28 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.colorpop .sys button:hover { background: #3c3c3c; }
 	.colorpop .sys i { width: 12px; height: 12px; flex: none; border: 1px solid #555;
 		display: inline-block; }
+	.toolbar .cmd { background: #3c3c3c; color: #ddd; border: 1px solid #555; padding: 2px 8px;
+		border-radius: 3px; cursor: pointer; font: inherit; }
+	.toolbar .cmd:hover:not(:disabled) { background: #0e639c; color: #fff; border-color: #1177bb; }
+	.toolbar .cmd:disabled { opacity: 0.45; cursor: default; }
+	.toolbar .sep { width: 1px; align-self: stretch; background: #555; margin: 0 4px; }
+	/* The Tab Order dialog, the VBE's own: one list, Move Up and Move Down. */
+	.taborder { position: fixed; z-index: 40; left: 50%; top: 20%; transform: translateX(-50%);
+		background: #252526; color: #ccc; border: 1px solid #555; border-radius: 4px;
+		box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55); padding: 10px; width: 320px; font: 12px sans-serif; }
+	.taborder h3 { margin: 0 0 8px; font-size: 12px; font-weight: bold; }
+	.taborder ol { list-style: none; margin: 0; padding: 0; max-height: 240px; overflow-y: auto;
+		border: 1px solid #3c3c3c; background: #1e1e1e; }
+	.taborder li { padding: 3px 8px; cursor: pointer; display: flex; justify-content: space-between; }
+	.taborder li.picked { background: #0e639c; color: #fff; }
+	.taborder li span.at { color: #808080; }
+	.taborder li.picked span.at { color: #cfe3f5; }
+	.taborder .row { display: flex; gap: 6px; margin-top: 8px; justify-content: flex-end; }
+	.taborder button { background: #3c3c3c; color: #ddd; border: 1px solid #555; padding: 3px 10px;
+		border-radius: 3px; cursor: pointer; font: inherit; }
+	.taborder button:hover:not(:disabled) { background: #4a4a4a; }
+	.taborder button:disabled { opacity: 0.45; cursor: default; }
+	.taborder .primary { background: #0e639c; border-color: #1177bb; color: #fff; }
 	.props .fontcell { display: flex; gap: 2px; align-items: center; }
 	.props .fontdrop { flex: none; width: 16px; align-self: stretch; background: none;
 		border: 1px solid transparent; color: #ccc; cursor: pointer; padding: 0; font-size: 9px; }
@@ -599,6 +621,10 @@ ${interactive ? `	<div class="toolbar" id="toolbar">
 		${toolbox.map((k) => `<button class="tool" data-kind="${k}">${k}</button>`).join('')}
 		<label><input type="checkbox" id="snapGrid" checked>Grid 6pt</label>
 		<label><input type="checkbox" id="snapNeighbors">Snap to neighbors</label>
+		<span class="sep"></span>
+		<button class="cmd" id="zFront" title="Bring the selected control to the front" disabled>Front</button>
+		<button class="cmd" id="zBack" title="Send the selected control to the back" disabled>Back</button>
+		<button class="cmd" id="tabOrderBtn" title="Set the tab order of this surface">Tab Order</button>
 		<label>Zoom <select id="zoomPick">
 			<option value="0.5">50%</option><option value="0.75">75%</option>
 			<option value="1" selected>100%</option><option value="1.25">125%</option>
@@ -1343,8 +1369,115 @@ ${interactive ? `	<script>
 			if (el) { el.classList.add('selected'); }
 			layHandles();
 			renderProps(el ? el.dataset.name : '');
+			syncCommandButtons();
 		};
+
+		// DEPTH and TAB ORDER, the two orders a form carries that geometry does
+		// not show. Depth is the sibling order in the saved stream - the LAST
+		// site draws on top, measured by letting MSForms reorder a control and
+		// reading back what it wrote - so Front and Back are document moves.
+		// Tab order is the TabIndex run, renumbered as one gesture the way the
+		// VBE dialog does, so it is one undo step and one write.
+		const zFrontBtn = document.getElementById('zFront');
+		const zBackBtn = document.getElementById('zBack');
+		const tabOrderBtn = document.getElementById('tabOrderBtn');
+		const syncCommandButtons = () => {
+			const on = !!selected && !!selected.dataset.name;
+			if (zFrontBtn) { zFrontBtn.disabled = !on; }
+			if (zBackBtn) { zBackBtn.disabled = !on; }
+		};
+		zFrontBtn?.addEventListener('click', () => {
+			if (selected?.dataset.name) { post({ type: 'zOrder', name: selected.dataset.name, toFront: true }); }
+		});
+		zBackBtn?.addEventListener('click', () => {
+			if (selected?.dataset.name) { post({ type: 'zOrder', name: selected.dataset.name, toFront: false }); }
+		});
+
+		const surfaceOfSelection = () => {
+			if (!selected) { return client; }
+			return selected.parentElement.closest('[data-surface]') || client;
+		};
+		const tabIndexOf = (name) => {
+			const row = PROPS[name]?.rows.find((r) => r.prop === 'TabIndex');
+			const value = row ? Number(row.value) : NaN;
+			return Number.isFinite(value) ? value : -1;
+		};
+		let tabDialog = null;
+		const closeTabOrder = () => { tabDialog?.remove(); tabDialog = null; };
+        const openTabOrder = () => {
+			closeTabOrder();
+			const surface = surfaceOfSelection();
+			const container = surface.dataset.surface ?? '';
+			// The controls of THIS surface that are in the tab order at all -
+			// the same set the engine will renumber, so the two cannot disagree.
+			let names = [...surface.querySelectorAll(':scope > .ctl[data-name]')]
+				.map((el) => el.dataset.name)
+				.filter((name) => tabIndexOf(name) >= 0);
+			names.sort((a, b) => tabIndexOf(a) - tabIndexOf(b));
+			tabDialog = document.createElement('div');
+			tabDialog.className = 'taborder';
+			const title = document.createElement('h3');
+			title.textContent = 'Tab order of ' + (container || FORM_NAME);
+			const list = document.createElement('ol');
+			let picked = names.length > 0 ? names[0] : null;
+			const paint = () => {
+				list.textContent = '';
+				names.forEach((name, index) => {
+					const item = document.createElement('li');
+					if (name === picked) { item.classList.add('picked'); }
+					const label = document.createElement('span');
+					label.textContent = name;
+					const at = document.createElement('span');
+					at.className = 'at';
+					at.textContent = String(index);
+					item.append(label, at);
+					item.addEventListener('click', () => { picked = name; paint(); });
+					list.appendChild(item);
+				});
+				const at = picked ? names.indexOf(picked) : -1;
+				up.disabled = at <= 0;
+				down.disabled = at < 0 || at >= names.length - 1;
+			};
+			const move = (delta) => {
+				const at = names.indexOf(picked);
+				const to = at + delta;
+				if (at < 0 || to < 0 || to >= names.length) { return; }
+				names.splice(to, 0, names.splice(at, 1)[0]);
+				paint();
+			};
+			const up = document.createElement('button');
+			up.textContent = 'Move Up';
+			up.addEventListener('click', () => move(-1));
+			const down = document.createElement('button');
+			down.textContent = 'Move Down';
+			down.addEventListener('click', () => move(1));
+			const apply = document.createElement('button');
+			apply.className = 'primary';
+			apply.textContent = 'OK';
+			apply.addEventListener('click', () => {
+				post({ type: 'tabOrder', container, names });
+				closeTabOrder();
+			});
+			const cancel = document.createElement('button');
+			cancel.textContent = 'Cancel';
+			cancel.addEventListener('click', closeTabOrder);
+			const row = document.createElement('div');
+			row.className = 'row';
+			row.append(up, down, cancel, apply);
+			tabDialog.append(title, list, row);
+			document.body.appendChild(tabDialog);
+			if (names.length === 0) {
+				title.textContent = 'Nothing on ' + (container || FORM_NAME) + ' carries a tab order';
+			}
+			paint();
+		};
+		tabOrderBtn?.addEventListener('click', openTabOrder);
+		document.addEventListener('keydown', (e) => {
+			if (e.key === 'Escape' && tabDialog) { closeTabOrder(); }
+		});
+
 		if (selected) { layHandles(); }
+		syncCommandButtons();
 		renderProps(selected ? selected.dataset.name : '');
 
 		// Neighbor snapping: edges and centers of siblings on the same surface.

@@ -984,6 +984,94 @@ export function reconcileMarkupIdentities(root: FormPackage, doc: MarkupElement)
 	return applied;
 }
 
+/**
+ * Z-ORDER: a control's depth is its position in its container's site list, and
+ * the LAST site draws on TOP. Measured by letting MSForms do it - calling
+ * ZOrder(fmZOrderFront) on a control in the live designer and saving moved
+ * that control to the end of the saved site list, while its TabIndex stayed
+ * put (2026-08-31). Tab order and z-order are therefore independent, and the
+ * document's sibling order already IS the z-order the form loads with.
+ */
+export function setZOrder(root: FormPackage, name: string, toFront: boolean): string[] {
+	const location = findControl(root, name);
+	if (!location) {
+		throw new FormMarkupError(0, `no control named ${name}`);
+	}
+	const { pkg, site, entry } = location;
+	if (siteCacheIndex(site) === 7) {
+		throw new FormMarkupError(0, `${name} is a Page; pages are ordered by their tabs, not by depth`);
+	}
+	const sites = pkg.form.sites;
+	const at = sites.indexOf(site);
+	const entryAt = pkg.entries.indexOf(entry);
+	if (at < 0 || entryAt < 0) {
+		throw new FormMarkupError(0, `${name} is not a member of its own container`);
+	}
+	if (sites.length < 2) { return []; }
+	if (toFront ? at === sites.length - 1 : at === 0) {
+		return []; // already there
+	}
+	sites.splice(at, 1);
+	pkg.entries.splice(entryAt, 1);
+	if (toFront) {
+		sites.push(site);
+		pkg.entries.push(entry);
+	} else {
+		sites.unshift(site);
+		pkg.entries.unshift(entry);
+	}
+	pkg.form.sitesStructurallyChanged = true;
+	return [`${name} to the ${toFront ? 'front' : 'back'}`];
+}
+
+/**
+ * TAB ORDER: renumbers one container's children, in the order given, the way
+ * the VBE's Tab Order dialog does. Names not in the container are refused
+ * rather than ignored - a half-applied order is worse than none - and every
+ * child must be listed, so the result is a total order rather than a set of
+ * collisions.
+ */
+export function setTabOrder(root: FormPackage, containerName: string, names: readonly string[]): string[] {
+	const target = findSurface(root, containerName);
+	if (!target) {
+		throw new FormMarkupError(0, `no container named ${containerName}`);
+	}
+	// A tab order lists what the VBE's dialog lists: children carrying a real
+	// index. A site with none, or with -1, is out of the tab order entirely
+	// (that is what TabStop False leaves behind) and must not be renumbered
+	// into it - which also keeps this set identical to the one the pane shows.
+	const orderable = target.form.sites.filter((site) => {
+		const tab = site.values.get('TabIndex');
+		return siteCacheIndex(site) !== 7 && tab !== undefined && tab >= 0;
+	});
+	const byLower = new Map(orderable.map((site) => [siteName(site).toLowerCase(), site]));
+	const wanted: SiteModel[] = [];
+	for (const name of names) {
+		const site = byLower.get(name.toLowerCase());
+		if (!site) {
+			throw new FormMarkupError(0, `${name} is not a control of ${containerName || 'the form'} that carries a tab order`);
+		}
+		if (wanted.includes(site)) {
+			throw new FormMarkupError(0, `${name} is listed twice`);
+		}
+		wanted.push(site);
+	}
+	if (wanted.length !== orderable.length) {
+		throw new FormMarkupError(
+			0,
+			`the tab order must list every control of ${containerName || 'the form'} (${orderable.length}); it listed ${wanted.length}`,
+		);
+	}
+	const applied: string[] = [];
+	wanted.forEach((site, index) => {
+		if (site.values.get('TabIndex') === index) { return; }
+		site.values.set('TabIndex', index);
+		site.mask = (site.mask | (1 << 6)) >>> 0;
+		applied.push(`TabIndex of ${siteName(site)}`);
+	});
+	return applied;
+}
+
 /** Resizes the form's own client area, in points. */
 export function setFormSize(root: FormPackage, widthPt: number, heightPt: number): void {
 	const record = root.form.record;

@@ -4,6 +4,20 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **Tab order and depth, the two orders geometry does not show.** The
+  designer gains the VBE's Tab Order dialog - the whole surface listed in
+  tab sequence, Move Up and Move Down, applied as ONE gesture so it is one
+  undo step and one write - and Front / Back buttons that set a control's
+  depth. Depth is real, not cosmetic: MSForms stores it as the sibling
+  order in the saved form, last site on top. That was established by
+  letting Excel do it (calling ZOrder on a control in the live designer and
+  reading back what it wrote), and then checked in both directions - XLIDE
+  writes a control to the front natively, Excel opens the form, sends a
+  different one to the front, and its result extends ours under the same
+  rule. Tab order and depth are independent: reordering depth leaves every
+  TabIndex untouched, which is exactly what MSForms does.
+
+
 ## [5.0.0] - 2026-08-30
 
 **The UserForm designer.** XLIDE edits forms now, not just the code behind

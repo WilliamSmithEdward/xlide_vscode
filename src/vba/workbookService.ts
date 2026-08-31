@@ -23,6 +23,8 @@ import {
 	removeControl as designerRemoveControl,
 	reparentControl as designerReparentControl,
 	setControlGeometry as designerSetControlGeometry,
+	setTabOrder as designerSetTabOrder,
+	setZOrder as designerSetZOrder,
 	setControlProperty as designerSetControlProperty,
 	setFormSize as designerSetFormSize,
 } from './oforms/designerOps';
@@ -738,7 +740,9 @@ export function applyFormDesignerOp(
 		| { kind: 'remove'; name: string }
 		| { kind: 'reparent'; name: string; container: string; left: number; top: number }
 		| { kind: 'setProp'; name: string; prop: string; value: string }
-		| { kind: 'formSize'; width: number; height: number },
+		| { kind: 'formSize'; width: number; height: number }
+		| { kind: 'zOrder'; name: string; toFront: boolean }
+		| { kind: 'tabOrder'; container: string; names: readonly string[] },
 ): WriteResult & { newName?: string } {
 	const wb = openWorkbookForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
@@ -763,6 +767,14 @@ export function applyFormDesignerOp(
 		designerRemoveControl(pkg, op.name);
 	} else if (op.kind === 'reparent') {
 		designerReparentControl(pkg, op.name, op.container, op.left, op.top);
+	} else if (op.kind === 'zOrder') {
+		if (designerSetZOrder(pkg, op.name, op.toFront).length === 0) {
+			return { ok: true, signatureDropped: false };
+		}
+	} else if (op.kind === 'tabOrder') {
+		if (designerSetTabOrder(pkg, op.container, op.names).length === 0) {
+			return { ok: true, signatureDropped: false };
+		}
 	} else if (op.kind === 'setProp') {
 		if (op.name === '' && op.prop === 'Caption') {
 			// The form's caption is persisted in the VBFrame text.

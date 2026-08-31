@@ -86,11 +86,14 @@ type DesignerMessage =
 	| { type: 'docUndo' }
 	| { type: 'docRedo' }
 	| { type: 'docSave' }
-	| { type: 'formResize'; width: number; height: number };
+	| { type: 'formResize'; width: number; height: number }
+	| { type: 'zOrder'; name: string; toFront: boolean }
+	| { type: 'tabOrder'; container: string; names: string[] };
 
 type GestureMessage = Extract<DesignerMessage,
 	{ type: 'geometry' } | { type: 'add' } | { type: 'remove' }
-	| { type: 'reparent' } | { type: 'setProp' } | { type: 'formResize' }>;
+	| { type: 'reparent' } | { type: 'setProp' } | { type: 'formResize' }
+	| { type: 'zOrder' } | { type: 'tabOrder' }>;
 
 export function registerFormPreview(
 	context: vscode.ExtensionContext,
@@ -282,7 +285,11 @@ export function registerFormPreview(
 								? { kind: 'setProp' as const, name: message.name, prop: message.prop, value: message.value }
 								: message.type === 'formResize'
 									? { kind: 'formSize' as const, width: message.width, height: message.height }
-									: { kind: 'remove' as const, name: message.name };
+									: message.type === 'zOrder'
+										? { kind: 'zOrder' as const, name: message.name, toFront: message.toFront }
+										: message.type === 'tabOrder'
+											? { kind: 'tabOrder' as const, container: message.container, names: message.names }
+											: { kind: 'remove' as const, name: message.name };
 				try {
 					await syncScratchToText(document.getText());
 					const result = await bridge.call<{ ok: boolean; newName?: string }>(
@@ -299,9 +306,11 @@ export function registerFormPreview(
 						? undefined
 						: message.type === 'formResize'
 							? ''
-							: message.type === 'setProp'
-								? (result.newName ?? message.name)
-								: message.type === 'add' ? result.newName : message.name;
+							: message.type === 'tabOrder'
+								? undefined
+								: message.type === 'setProp'
+									? (result.newName ?? message.name)
+									: message.type === 'add' ? result.newName : message.name;
 					await render(keepSelected);
 				} catch (err) {
 					void vscode.window.showErrorMessage(`XLIDE: ${errorMessage(err)}`);
