@@ -6,7 +6,7 @@ import { FrmHeaderError, frmControls, frmProperty, parseFrmHeader } from '../src
 import { readFrxRecords } from '../src/vba/vb6/frx';
 import type { FrmControl, FrmHeader } from '../src/vba/vb6/frmHeader';
 import {
-	applyFrmDesignerOp, twipsOfPt, vb6FormHandlerPrefix, vb6HeaderEndOf, vb6PendingRecordsToWrite,
+	applyFrmDesignerOp, frmDesignerOpOfGesture, twipsOfPt, vb6FormHandlerPrefix, vb6HeaderEndOf, vb6PendingRecordsToWrite,
 } from '../src/vba/vb6/frmDesignerOps';
 import type { FrmDesignerOp } from '../src/vba/vb6/frmDesignerOps';
 import { vb6CanvasKind, vb6ControlName } from '../src/vba/vb6/frmScene';
@@ -398,7 +398,7 @@ describe('remove, reparent, order, duplicate', () => {
 	it('reorders tab stops within the indices the controls already hold', () => {
 		const text = read(FORM1);
 		const before = ['Text1', 'Text2', 'Command1'].map((n) => num(text, n, 'TabIndex')).sort((a, b) => a - b);
-		const after = apply(text, { kind: 'tabOrder', container: '', names: ['Command1', 'Text2', 'Text1'] });
+		const after = apply(text, { kind: 'tabOrder', names: ['Command1', 'Text2', 'Text1'] });
 		expect(num(after, 'Command1', 'TabIndex')).toBe(before[0]);
 		expect(num(after, 'Text2', 'TabIndex')).toBe(before[1]);
 		expect(num(after, 'Text1', 'TabIndex')).toBe(before[2]);
@@ -553,6 +553,20 @@ describe('the engine: gestures over a form file with its sidecar', () => {
 				if (a.kind === 'list') { expect(b).toEqual(a); }
 			}
 		}
+	});
+
+	it('answers every canvas gesture with an op and a selection', () => {
+		expect(frmDesignerOpOfGesture({ type: 'formResize', width: 10, height: 20 }).op).toEqual({ kind: 'formSize', width: 10, height: 20 });
+		expect(frmDesignerOpOfGesture({ type: 'paste', names: ['A'] }).op).toEqual({ kind: 'duplicate', names: ['A'] });
+		expect(frmDesignerOpOfGesture({ type: 'tabOrder', container: 'Frame1', names: ['A', 'B'] }).op).toEqual({ kind: 'tabOrder', names: ['A', 'B'] });
+		expect(frmDesignerOpOfGesture({ type: 'geometry', name: 'A', left: 1 }).selectAfter({})).toBe('A');
+		expect(frmDesignerOpOfGesture({ type: 'add', container: '', controlKind: 'Label', left: 0, top: 0 }).selectAfter({ newName: 'Label4' })).toBe('Label4');
+		expect(frmDesignerOpOfGesture({ type: 'setProp', name: 'A', prop: 'Name', value: 'B' }).selectAfter({ newName: 'B' })).toBe('B');
+		expect(frmDesignerOpOfGesture({ type: 'setProp', name: 'A', prop: 'Caption', value: 'x' }).selectAfter({})).toBe('A');
+		expect(frmDesignerOpOfGesture({ type: 'paste', names: ['A'] }).selectAfter({ newNames: ['A1', 'B1'] })).toBe('A1');
+		expect(frmDesignerOpOfGesture({ type: 'formResize', width: 1, height: 1 }).selectAfter({})).toBe('');
+		expect(frmDesignerOpOfGesture({ type: 'remove', name: 'A' }).selectAfter({})).toBeUndefined();
+		expect(frmDesignerOpOfGesture({ type: 'geometryBatch', anchor: 'B', items: [] }).selectAfter({})).toBe('B');
 	});
 
 	it('writes pending records up to the last one the document still references', () => {

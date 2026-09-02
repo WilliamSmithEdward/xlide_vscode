@@ -13,7 +13,7 @@
 // canvas speaks points (72 per inch), so a twip is a twentieth of a point.
 
 import type { FormScene, SceneControl } from '../oforms/preview';
-import { cssColor, esc, sceneControl } from '../oforms/preview';
+import { cssColor, esc, imageDataUri, sceneControl } from '../oforms/preview';
 import { formatOleColor, parseOleColor } from '../oforms/markup';
 import { getVb6ObjectModel } from '../../analyzer/host/vb6ObjectModel';
 import type { HostConstant } from '../../analyzer/host/excelObjectModel';
@@ -29,41 +29,119 @@ export interface FrmSceneOptions {
 	frx?: FrxLookup;
 }
 
-/** The VB6 toolbox: the intrinsic controls a form can add. */
-export const VB6_TOOLBOX = ['Label', 'TextBox', 'ComboBox', 'ListBox', 'CheckBox', 'OptionButton',
-	'CommandButton', 'Frame', 'PictureBox', 'Image', 'HScrollBar', 'VScrollBar', 'Timer', 'Line', 'Shape'];
-
 /**
- * The design-time properties the designer writes per kind, measured as the
- * union of the fixture designers' headers (tests/fixtures/vb6, eleven of
- * them) and cross-read against the `VB` model, which knows every key but a
- * form's client position and a UserControl's toolbox bitmap - keys the
- * designer alone writes. The pane lists these beside what a header states,
- * blank until set; `Font` stands for the Font group's own rows. Geometry and
- * Index have rows of their own, and a kind not measured here shows its
- * header alone. The model's own property list is not used for this: it is
- * the runtime surface (`hWnd`, `Parent`, `SelText`) with no design-time flag.
+ * What the designer knows about one intrinsic kind. One table carries
+ * everything the canvas, the toolbox, the pane and the gestures ask about a
+ * kind, so a kind is described once and the answers cannot drift apart.
  */
-export const VB6_DESIGN_PROPERTIES: Readonly<Record<string, readonly string[]>> = {
-	'VB.CheckBox': ['BackColor', 'Caption', 'Font', 'TabIndex', 'Value'],
-	'VB.ComboBox': ['Appearance', 'Font', 'Style', 'TabIndex', 'TabStop', 'Tag'],
-	'VB.CommandButton': ['BackColor', 'Caption', 'Default', 'Enabled', 'Font', 'MaskColor', 'Style', 'TabIndex', 'TabStop'],
-	'VB.Form': ['AutoRedraw', 'BackColor', 'BorderStyle', 'Caption', 'ClientLeft', 'ClientTop', 'ControlBox', 'Font', 'ForeColor',
-		'Icon', 'KeyPreview', 'LinkTopic', 'MaxButton', 'MinButton', 'Picture', 'ScaleHeight', 'ScaleMode', 'ScaleWidth',
-		'ShowInTaskbar', 'StartUpPosition', 'Tag'],
-	'VB.Frame': ['BackColor', 'BorderStyle', 'Caption', 'Font', 'TabIndex'],
-	'VB.Label': ['Alignment', 'AutoSize', 'BackColor', 'BackStyle', 'Caption', 'Font', 'ForeColor', 'MouseIcon', 'MousePointer',
-		'TabIndex', 'Tag', 'ToolTipText', 'UseMnemonic', 'Visible', 'WordWrap'],
-	'VB.Line': ['BorderColor', 'BorderStyle'],
-	'VB.OptionButton': ['BackColor', 'Caption', 'TabIndex', 'Value'],
-	'VB.PictureBox': ['Align', 'Appearance', 'AutoRedraw', 'BackColor', 'BorderStyle', 'Font', 'ForeColor', 'ScaleHeight',
-		'ScaleMode', 'ScaleWidth', 'TabIndex', 'TabStop', 'Tag', 'ToolTipText', 'Visible'],
-	'VB.Shape': ['BackColor', 'BackStyle', 'BorderColor', 'BorderWidth', 'FillColor', 'Shape', 'Visible'],
-	'VB.TextBox': ['Alignment', 'Appearance', 'BackColor', 'BorderStyle', 'Enabled', 'Font', 'ForeColor', 'Locked', 'MultiLine',
-		'ScrollBars', 'TabIndex', 'Tag', 'Text', 'ToolTipText', 'Visible'],
-	'VB.Timer': [],
-	'VB.UserControl': ['BackColor', 'BackStyle', 'ClientLeft', 'ClientTop', 'ScaleHeight', 'ScaleWidth', 'ToolboxBitmap'],
+export interface Vb6ControlSpec {
+	/** The canvas kind: Label, TextBox, ScrollBar, ... or the designer's own class (Form, UserControl). */
+	kind: string;
+	/** A designer class (Form, MDIForm, UserControl, PropertyPage) rather than a control on it. */
+	designer?: boolean;
+	/** The designer's base name for a new one (Command1, Text1); absent for a kind the toolbox does not add. */
+	base?: string;
+	/** The size a new one takes, in twips: the toolbox defaults as `.frm` files commonly show them. A Timer and a Line have none. */
+	size?: { width: number; height: number };
+	/** The property that repeats a new control's name. */
+	text?: 'Caption' | 'Text';
+	/** Takes a TabIndex. */
+	tab?: boolean;
+	/** Writes its scale, the client area inside its border, when added. */
+	scale?: boolean;
+	/** Holds controls. */
+	container?: boolean;
+	/** Shows its Caption on the canvas. */
+	captioned?: boolean;
+	/** The double-click event where it differs from MSForms' (the canvas falls back to Click); '' for a kind with no events. */
+	defaultEvent?: string;
+	/**
+	 * The design-time properties the designer writes for the kind, measured
+	 * as the union of the fixture designers' headers (tests/fixtures/vb6,
+	 * eleven of them) and cross-read against the `VB` model, which knows every
+	 * key but a form's client position and a UserControl's toolbox bitmap -
+	 * keys the designer alone writes. The pane lists these beside what a header
+	 * states, blank until set; `Font` stands for the Font group's own rows.
+	 * Geometry and Index have rows of their own, and a kind not measured shows
+	 * its header alone. The model's own property list is not used for this: it
+	 * is the runtime surface (`hWnd`, `Parent`, `SelText`) with no design-time
+	 * flag.
+	 */
+	designProperties: readonly string[];
+}
+
+const FONT = 'Font';
+
+/** The intrinsic kinds, keyed by prog id, in the toolbox's order. */
+export const VB6_CONTROLS: Readonly<Record<string, Vb6ControlSpec>> = {
+	'VB.Form': {
+		kind: 'Form', designer: true, defaultEvent: 'Load',
+		designProperties: ['AutoRedraw', 'BackColor', 'BorderStyle', 'Caption', 'ClientLeft', 'ClientTop', 'ControlBox', FONT, 'ForeColor',
+			'Icon', 'KeyPreview', 'LinkTopic', 'MaxButton', 'MinButton', 'Picture', 'ScaleHeight', 'ScaleMode', 'ScaleWidth',
+			'ShowInTaskbar', 'StartUpPosition', 'Tag'],
+	},
+	'VB.MDIForm': { kind: 'MDIForm', designer: true, defaultEvent: 'Load', designProperties: [] },
+	'VB.UserControl': {
+		kind: 'UserControl', designer: true,
+		designProperties: ['BackColor', 'BackStyle', 'ClientLeft', 'ClientTop', 'ScaleHeight', 'ScaleWidth', 'ToolboxBitmap'],
+	},
+	'VB.PropertyPage': { kind: 'PropertyPage', designer: true, designProperties: [] },
+	'VB.Label': {
+		kind: 'Label', base: 'Label', size: { width: 1215, height: 255 }, text: 'Caption', tab: true, captioned: true,
+		designProperties: ['Alignment', 'AutoSize', 'BackColor', 'BackStyle', 'Caption', FONT, 'ForeColor', 'MouseIcon', 'MousePointer',
+			'TabIndex', 'Tag', 'ToolTipText', 'UseMnemonic', 'Visible', 'WordWrap'],
+	},
+	'VB.TextBox': {
+		kind: 'TextBox', base: 'Text', size: { width: 1215, height: 285 }, text: 'Text', tab: true,
+		designProperties: ['Alignment', 'Appearance', 'BackColor', 'BorderStyle', 'Enabled', FONT, 'ForeColor', 'Locked', 'MultiLine',
+			'ScrollBars', 'TabIndex', 'Tag', 'Text', 'ToolTipText', 'Visible'],
+	},
+	'VB.ComboBox': {
+		kind: 'ComboBox', base: 'Combo', size: { width: 1215, height: 315 }, text: 'Text', tab: true,
+		designProperties: ['Appearance', FONT, 'Style', 'TabIndex', 'TabStop', 'Tag'],
+	},
+	'VB.ListBox': { kind: 'ListBox', base: 'List', size: { width: 1215, height: 1035 }, tab: true, designProperties: [] },
+	'VB.CheckBox': {
+		kind: 'CheckBox', base: 'Check', size: { width: 1215, height: 255 }, text: 'Caption', tab: true, captioned: true,
+		designProperties: ['BackColor', 'Caption', FONT, 'TabIndex', 'Value'],
+	},
+	'VB.OptionButton': {
+		kind: 'OptionButton', base: 'Option', size: { width: 1215, height: 255 }, text: 'Caption', tab: true, captioned: true,
+		designProperties: ['BackColor', 'Caption', 'TabIndex', 'Value'],
+	},
+	'VB.CommandButton': {
+		kind: 'CommandButton', base: 'Command', size: { width: 1215, height: 495 }, text: 'Caption', tab: true, captioned: true,
+		designProperties: ['BackColor', 'Caption', 'Default', 'Enabled', FONT, 'MaskColor', 'Style', 'TabIndex', 'TabStop'],
+	},
+	'VB.Frame': {
+		kind: 'Frame', base: 'Frame', size: { width: 1215, height: 1215 }, text: 'Caption', tab: true, container: true, captioned: true,
+		designProperties: ['BackColor', 'BorderStyle', 'Caption', FONT, 'TabIndex'],
+	},
+	'VB.PictureBox': {
+		kind: 'PictureBox', base: 'Picture', size: { width: 1215, height: 1215 }, tab: true, scale: true, container: true, defaultEvent: 'Click',
+		designProperties: ['Align', 'Appearance', 'AutoRedraw', 'BackColor', 'BorderStyle', FONT, 'ForeColor', 'ScaleHeight',
+			'ScaleMode', 'ScaleWidth', 'TabIndex', 'TabStop', 'Tag', 'ToolTipText', 'Visible'],
+	},
+	'VB.Image': { kind: 'Image', base: 'Image', size: { width: 1215, height: 1215 }, designProperties: [] },
+	'VB.HScrollBar': { kind: 'ScrollBar', base: 'HScroll', size: { width: 1215, height: 255 }, tab: true, designProperties: [] },
+	'VB.VScrollBar': { kind: 'ScrollBar', base: 'VScroll', size: { width: 255, height: 1215 }, tab: true, designProperties: [] },
+	'VB.Timer': { kind: 'Timer', base: 'Timer', defaultEvent: 'Timer', designProperties: [] },
+	'VB.Line': { kind: 'Line', base: 'Line', defaultEvent: '', designProperties: ['BorderColor', 'BorderStyle'] },
+	'VB.Shape': {
+		kind: 'Shape', base: 'Shape', size: { width: 1215, height: 1215 }, defaultEvent: '',
+		designProperties: ['BackColor', 'BackStyle', 'BorderColor', 'BorderWidth', 'FillColor', 'Shape', 'Visible'],
+	},
 };
+
+/** The VB6 toolbox: the intrinsic controls a form can add, by name. */
+export const VB6_TOOLBOX: readonly string[] = Object.entries(VB6_CONTROLS)
+	.filter(([, spec]) => spec.base !== undefined)
+	.map(([progId]) => progId.slice(3));
+
+/** The design-time properties per prog id (see `Vb6ControlSpec.designProperties`). */
+export const VB6_DESIGN_PROPERTIES: Readonly<Record<string, readonly string[]>> = Object.fromEntries(
+	Object.entries(VB6_CONTROLS).map(([progId, spec]) => [progId, spec.designProperties]),
+);
 
 /** The Font group's members, in the order the designer writes them. */
 export const VB6_FONT_FIELDS = ['Name', 'Size', 'Charset', 'Weight', 'Underline', 'Italic', 'Strikethrough'] as const;
@@ -155,30 +233,37 @@ export function vb6PaneVocabulary(): Vb6PaneVocabulary {
 }
 
 /**
- * The event a double-click opens where VB6's differs from MSForms': a Form
- * loads, a Timer ticks, a PictureBox clicks. A Line or Shape has no events
- * at all; the empty string leaves the canvas's fallback, and the handler
- * opener refuses it by name.
+ * The event a double-click opens where VB6's differs from MSForms', by
+ * canvas kind: a Form loads, a Timer ticks, a PictureBox clicks. A Line or
+ * Shape has no events at all; the empty string is passed through to the
+ * host, which refuses it by name.
  */
-export const VB6_DEFAULT_EVENTS: Readonly<Record<string, string>> = {
-	Form: 'Load', MDIForm: 'Load', Timer: 'Timer', PictureBox: 'Click', Line: '', Shape: '',
-};
+export const VB6_DEFAULT_EVENTS: Readonly<Record<string, string>> = Object.fromEntries(
+	Object.values(VB6_CONTROLS)
+		.filter((spec) => spec.defaultEvent !== undefined)
+		.map((spec) => [spec.kind, spec.defaultEvent as string]),
+);
+
+/** The spec of a control's prog id, or undefined for a designer class, a menu, an OCX or a custom control. */
+export function vb6ControlSpec(progId: string): Vb6ControlSpec | undefined {
+	const spec = VB6_CONTROLS[progId];
+	return spec && !spec.designer ? spec : undefined;
+}
 
 /** The canvas kind for a VB6 prog id, or undefined for an OCX or custom control. */
 export function vb6CanvasKind(progId: string): string | undefined {
-	const bare = progId.startsWith('VB.') ? progId.slice(3) : undefined;
-	if (!bare) { return undefined; }
-	switch (bare) {
-		case 'HScrollBar':
-		case 'VScrollBar':
-			return 'ScrollBar';
-		case 'Label': case 'TextBox': case 'ComboBox': case 'ListBox': case 'CheckBox':
-		case 'OptionButton': case 'CommandButton': case 'Frame': case 'PictureBox':
-		case 'Image': case 'Timer': case 'Line': case 'Shape':
-			return bare;
-		default:
-			return undefined;
-	}
+	return vb6ControlSpec(progId)?.kind;
+}
+
+/** A Line's two points in twips; a far point the header omits sits on the near one. */
+export function frmLineEnds(control: FrmControl): { x1: number; y1: number; x2: number; y2: number } {
+	const x1 = frmNumberOf(frmProperty(control, 'X1')?.value) ?? 0;
+	const y1 = frmNumberOf(frmProperty(control, 'Y1')?.value) ?? 0;
+	return {
+		x1, y1,
+		x2: frmNumberOf(frmProperty(control, 'X2')?.value) ?? x1,
+		y2: frmNumberOf(frmProperty(control, 'Y2')?.value) ?? y1,
+	};
 }
 
 /** Twips to points, printed shortest: 240 -> "12", 250 -> "12.5". */
@@ -301,14 +386,7 @@ export function pictureDataUriOf(bytes: Buffer): string | undefined {
 	if (marker === undefined) { return undefined; }
 	const length = bytes.readUInt32LE(marker + 4);
 	const image = bytes.subarray(marker + 8, marker + 8 + length);
-	if (length === 0 || image.length < 4) { return undefined; }
-	const mime = image[0] === 0x42 && image[1] === 0x4d ? 'image/bmp'
-		: image[0] === 0x89 && image[1] === 0x50 && image[2] === 0x4e && image[3] === 0x47 ? 'image/png'
-			: image[0] === 0xff && image[1] === 0xd8 && image[2] === 0xff ? 'image/jpeg'
-				: image.subarray(0, 4).toString('latin1') === 'GIF8' ? 'image/gif'
-					: image[0] === 0 && image[1] === 0 && (image[2] === 1 || image[2] === 2) && image[3] === 0 ? 'image/x-icon'
-						: undefined;
-	return mime ? `data:${mime};base64,${Buffer.from(image).toString('base64')}` : undefined;
+	return length === 0 ? undefined : imageDataUri(image);
 }
 
 function pictureCssOf(control: FrmControl, key: string, frx: FrxLookup | undefined): string {
@@ -330,10 +408,7 @@ export function vb6ControlName(control: FrmControl): string {
 
 function boundsOf(control: FrmControl, kind: string | undefined): { left: number; top: number; width: number; height: number } {
 	if (kind === 'Line') {
-		const x1 = frmNumberOf(frmProperty(control, 'X1')?.value) ?? 0;
-		const y1 = frmNumberOf(frmProperty(control, 'Y1')?.value) ?? 0;
-		const x2 = frmNumberOf(frmProperty(control, 'X2')?.value) ?? x1;
-		const y2 = frmNumberOf(frmProperty(control, 'Y2')?.value) ?? y1;
+		const { x1, y1, x2, y2 } = frmLineEnds(control);
 		return {
 			left: Math.min(x1, x2), top: Math.min(y1, y2),
 			width: Math.max(Math.abs(x2 - x1), 20), height: Math.max(Math.abs(y2 - y1), 20),
@@ -356,12 +431,14 @@ function sceneControlsOfChildren(children: readonly FrmControl[], frx: FrxLookup
 	const out: SceneControl[] = [];
 	children.forEach((control, index) => {
 		if (control.progId === 'VB.Menu') { return; }
-		const kind = vb6CanvasKind(control.progId);
+		const spec = vb6ControlSpec(control.progId);
+		const kind = spec?.kind;
 		const box = boundsOf(control, kind);
 		const name = vb6ControlName(control);
+		const font = fontCssOf(control);
 		const parts = [
 			`left:${twipsToPt(box.left)}pt;top:${twipsToPt(box.top)}pt;width:${twipsToPt(box.width)}pt;height:${twipsToPt(box.height)}pt;`,
-			fontCssOf(control),
+			font,
 		];
 		const back = colorCssOf(control, 'BackColor');
 		const fore = colorCssOf(control, 'ForeColor');
@@ -395,25 +472,20 @@ function sceneControlsOfChildren(children: readonly FrmControl[], frx: FrxLookup
 		const picture = kind === 'Image' || kind === 'PictureBox' ? pictureCssOf(control, 'Picture', frx) : '';
 		parts.push(picture);
 		const scene = sceneControl({ kind: kind ?? 'Foreign', name, index, style: parts.join('') });
-		scene.caption = kind === 'Frame' || kind === 'Label' || kind === 'CommandButton' || kind === 'CheckBox' || kind === 'OptionButton'
-			? (textOf(control, 'Caption', frx) ?? '')
-			: '';
+		scene.caption = spec?.captioned ? (textOf(control, 'Caption', frx) ?? '') : '';
 		if (kind === 'TextBox' || kind === 'ComboBox') { scene.value = textOf(control, 'Text', frx) ?? ''; }
 		if (kind === 'CheckBox') { scene.on = (frmNumberOf(frmProperty(control, 'Value')?.value) ?? 0) === 1; }
 		if (kind === 'OptionButton') { scene.on = boolOf(control, 'Value') === true; }
 		scene.pictured = picture !== '';
 		if (kind === 'Line') {
-			const x1 = frmNumberOf(frmProperty(control, 'X1')?.value) ?? 0;
-			const y1 = frmNumberOf(frmProperty(control, 'Y1')?.value) ?? 0;
-			const x2 = frmNumberOf(frmProperty(control, 'X2')?.value) ?? x1;
-			const y2 = frmNumberOf(frmProperty(control, 'Y2')?.value) ?? y1;
-			scene.on = (x1 <= x2) === (y1 <= y2);
+			const { x1, y1, x2, y2 } = frmLineEnds(control);
+			scene.lineDown = (x1 <= x2) === (y1 <= y2);
 		}
 		// Frames and PictureBoxes hold controls; so does any OCX or UserControl
 		// the header nests children under (an SSTab page, a container
 		// UserControl): those children draw on the foreign control's surface.
-		if (kind === 'Frame' || kind === 'PictureBox' || control.children.some((c) => c.progId !== 'VB.Menu')) {
-			scene.containerFontCss = fontCssOf(control) || DEFAULT_FONT_CSS;
+		if (spec?.container || control.children.some((c) => c.progId !== 'VB.Menu')) {
+			scene.containerFontCss = font || DEFAULT_FONT_CSS;
 			scene.surfaceStyle = back ? `background:${back};` : '';
 			scene.children = sceneControlsOfChildren(control.children, frx);
 		}
@@ -456,7 +528,7 @@ export function sceneOfFrmHeader(header: FrmHeader, options: FrmSceneOptions): F
 		},
 		controls: sceneControlsOfChildren(form.children, frx),
 		pictures: {},
-		toolbox: VB6_TOOLBOX,
+		toolbox: [...VB6_TOOLBOX],
 		defaultEvents: VB6_DEFAULT_EVENTS,
 		enums: vb6PaneVocabulary().enums,
 		bools: vb6PaneVocabulary().bools,

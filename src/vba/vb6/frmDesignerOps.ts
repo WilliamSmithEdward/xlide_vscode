@@ -21,8 +21,10 @@ import {
 } from './frmHeader';
 import { parseOleColor } from '../oforms/markup';
 import {
-	GEOMETRY_KEYS, VB6_ENUM_GLOSSES, VB6_FONT_FIELDS, frmNumberOf, vb6CanvasKind, vb6ControlName, vb6DeclaredType,
+	GEOMETRY_KEYS, VB6_CONTROLS, VB6_ENUM_GLOSSES, VB6_FONT_FIELDS, frmLineEnds, frmNumberOf, vb6CanvasKind, vb6ControlName,
+	vb6ControlSpec, vb6DeclaredType,
 } from './frmScene';
+import type { GestureMessage } from '../oforms/designerMessages';
 
 export interface FrmGeometry {
 	name: string;
@@ -42,8 +44,45 @@ export type FrmDesignerOp =
 	| { kind: 'setProp'; name: string; prop: string; value: string }
 	| { kind: 'formSize'; width: number; height: number }
 	| { kind: 'zOrder'; name: string; toFront: boolean }
-	| { kind: 'tabOrder'; container: string; names: string[] }
+	| { kind: 'tabOrder'; names: string[] }
 	| { kind: 'duplicate'; names: string[]; offsetPt?: number };
+
+/**
+ * A canvas gesture as the op that answers it, and what the canvas should
+ * select afterwards: the gesture's own subject, unless the op names another
+ * (an added control, a renamed one, the first of a paste) or none.
+ */
+export function frmDesignerOpOfGesture(message: GestureMessage): {
+	op: FrmDesignerOp;
+	selectAfter: (result: { newName?: string; newNames?: string[] }) => string | undefined;
+} {
+	switch (message.type) {
+		case 'geometry':
+			return { op: { kind: 'geometry', name: message.name, left: message.left, top: message.top, width: message.width, height: message.height }, selectAfter: () => message.name };
+		case 'geometryBatch':
+			return { op: { kind: 'geometryBatch', items: message.items }, selectAfter: () => message.anchor };
+		case 'add':
+			return { op: { kind: 'add', container: message.container, controlKind: message.controlKind, left: message.left, top: message.top }, selectAfter: (r) => r.newName };
+		case 'remove':
+			return { op: { kind: 'remove', name: message.name }, selectAfter: () => undefined };
+		case 'reparent':
+			return { op: { kind: 'reparent', name: message.name, container: message.container, left: message.left, top: message.top }, selectAfter: () => message.name };
+		case 'setProp':
+			return { op: { kind: 'setProp', name: message.name, prop: message.prop, value: message.value }, selectAfter: (r) => r.newName ?? message.name };
+		case 'formResize':
+			return { op: { kind: 'formSize', width: message.width, height: message.height }, selectAfter: () => '' };
+		case 'zOrder':
+			return { op: { kind: 'zOrder', name: message.name, toFront: message.toFront }, selectAfter: () => message.name };
+		case 'tabOrder':
+			return { op: { kind: 'tabOrder', names: message.names }, selectAfter: () => undefined };
+		case 'paste':
+			return { op: { kind: 'duplicate', names: message.names }, selectAfter: (r) => r.newNames?.[0] };
+		case 'removeMany':
+			return { op: { kind: 'removeMany', names: message.names }, selectAfter: () => undefined };
+		default:
+			throw new Error(`Unknown designer gesture: ${(message as { type: string }).type}`);
+	}
+}
 
 export interface FrmDesignerOpResult {
 	/** The whole document, header rewritten, code as it was. */
@@ -163,17 +202,27 @@ function locate(header: FrmHeader, canvasName: string): Located {
 function containerOf(header: FrmHeader, name: string): FrmControl {
 	if (name === '' || name.toLowerCase() === header.form.name.toLowerCase()) { return header.form; }
 	const { control } = locate(header, name);
-	const kind = vb6CanvasKind(control.progId);
+	const spec = vb6ControlSpec(control.progId);
 	// An OCX or UserControl may be a container (an SSTab is); only the
 	// intrinsic kinds that are not containers are refused.
-	if (kind !== undefined && kind !== 'Frame' && kind !== 'PictureBox') {
-		throw new Error(`${name} is a ${kind}; it cannot hold controls.`);
+	if (spec && !spec.container) {
+		throw new Error(`${name} is a ${spec.kind}; it cannot hold controls.`);
 	}
 	return control;
 }
 
 function contains(ancestor: FrmControl, control: FrmControl): boolean {
 	return ancestor.children.some((c) => c === control || contains(c, control));
+}
+
+/**
+ * The located controls no other located control contains, one entry per
+ * control: what a delete or a copy of a selection acts on, since a
+ * container takes its children with it either way.
+ */
+function outermostOf<T extends { control: FrmControl }>(located: readonly T[]): T[] {
+	return located.filter((one, i) => located.findIndex((o) => o.control === one.control) === i
+		&& !located.some((other) => other.control !== one.control && contains(other.control, one.control)));
 }
 
 function allNames(header: FrmHeader): Set<string> {
@@ -296,10 +345,7 @@ function setGeometry(header: FrmHeader, g: FrmGeometry): void {
 
 /** A Line is its two points; the canvas moves and resizes their bounding box, and the ends keep their sides. */
 function setLineGeometry(control: FrmControl, g: FrmGeometry): void {
-	const x1 = numberProp(control, 'X1') ?? 0;
-	const y1 = numberProp(control, 'Y1') ?? 0;
-	const x2 = numberProp(control, 'X2') ?? x1;
-	const y2 = numberProp(control, 'Y2') ?? y1;
+	const { x1, y1, x2, y2 } = frmLineEnds(control);
 	const left = Math.min(x1, x2);
 	const top = Math.min(y1, y2);
 	const width = Math.abs(x2 - x1);
@@ -328,43 +374,6 @@ function setFormSize(header: FrmHeader, width: number, height: number): void {
 
 // --- add ---------------------------------------------------------------------
 
-interface NewControlSpec {
-	/** The designer's base name: Command1, Text1, Picture1. */
-	base: string;
-	width?: number;
-	height?: number;
-	/** The property that carries the control's own name as its first value. */
-	text?: 'Caption' | 'Text';
-	/** Whether the kind takes a TabIndex. */
-	tab: boolean;
-	/** A PictureBox writes its scale, the client area inside its border. */
-	scale?: boolean;
-}
-
-/**
- * What the designer writes for a control dropped from the toolbox: its
- * base name, its default size in twips, the caption or text that repeats
- * the name, a TabIndex where the kind has one. The sizes are the toolbox
- * defaults as `.frm` files commonly show them; any size is a valid header.
- */
-const NEW_CONTROL: Readonly<Record<string, NewControlSpec>> = {
-	Label: { base: 'Label', width: 1215, height: 255, text: 'Caption', tab: true },
-	TextBox: { base: 'Text', width: 1215, height: 285, text: 'Text', tab: true },
-	ComboBox: { base: 'Combo', width: 1215, height: 315, text: 'Text', tab: true },
-	ListBox: { base: 'List', width: 1215, height: 1035, tab: true },
-	CheckBox: { base: 'Check', width: 1215, height: 255, text: 'Caption', tab: true },
-	OptionButton: { base: 'Option', width: 1215, height: 255, text: 'Caption', tab: true },
-	CommandButton: { base: 'Command', width: 1215, height: 495, text: 'Caption', tab: true },
-	Frame: { base: 'Frame', width: 1215, height: 1215, text: 'Caption', tab: true },
-	PictureBox: { base: 'Picture', width: 1215, height: 1215, tab: true, scale: true },
-	Image: { base: 'Image', width: 1215, height: 1215, tab: false },
-	HScrollBar: { base: 'HScroll', width: 1215, height: 255, tab: true },
-	VScrollBar: { base: 'VScroll', width: 255, height: 1215, tab: true },
-	Timer: { base: 'Timer', tab: false },
-	Line: { base: 'Line', tab: false },
-	Shape: { base: 'Shape', width: 1215, height: 1215, tab: false },
-};
-
 function nextTabIndex(header: FrmHeader): number {
 	let max = -1;
 	for (const control of walk(header.form)) {
@@ -374,16 +383,22 @@ function nextTabIndex(header: FrmHeader): number {
 	return max + 1;
 }
 
+/**
+ * Adds a control dropped from the toolbox, written as the designer writes
+ * one: the kind's base name with the next free number, its default size,
+ * the caption or text that repeats the name, a TabIndex where the kind has
+ * one, members in name order (`VB6_CONTROLS`).
+ */
 function addControl(header: FrmHeader, containerName: string, controlKind: string, left: number, top: number): string {
-	const spec = NEW_CONTROL[controlKind];
-	if (!spec) { throw new Error(`${controlKind} is not a control the VB6 toolbox offers.`); }
+	const progId = `VB.${controlKind}`;
+	const spec = VB6_CONTROLS[progId];
+	if (!spec?.base) { throw new Error(`${controlKind} is not a control the VB6 toolbox offers.`); }
 	const container = containerOf(header, containerName);
 	const name = freshName(header, spec.base);
 	const members: FrmPropertyNode[] = [];
 	const num = (key: string, value: number): void => { members.push({ kind: 'property', key, value: String(value) }); };
-	if (spec.text === 'Caption') { members.push({ kind: 'property', key: 'Caption', value: quoted(name) }); }
-	if (spec.text === 'Text') { members.push({ kind: 'property', key: 'Text', value: quoted(name) }); }
-	if (controlKind === 'Line') {
+	if (spec.text) { members.push({ kind: 'property', key: spec.text, value: quoted(name) }); }
+	if (spec.kind === 'Line') {
 		num('X1', left);
 		num('X2', left + 1215);
 		num('Y1', top);
@@ -391,16 +406,18 @@ function addControl(header: FrmHeader, containerName: string, controlKind: strin
 	} else {
 		num('Left', left);
 		num('Top', top);
-		if (spec.width !== undefined) { num('Width', spec.width); }
-		if (spec.height !== undefined) { num('Height', spec.height); }
-		if (spec.scale && spec.width !== undefined && spec.height !== undefined) {
-			num('ScaleWidth', spec.width - 60);
-			num('ScaleHeight', spec.height - 60);
+		if (spec.size) {
+			num('Width', spec.size.width);
+			num('Height', spec.size.height);
+			if (spec.scale) {
+				num('ScaleWidth', spec.size.width - 60);
+				num('ScaleHeight', spec.size.height - 60);
+			}
 		}
 	}
 	if (spec.tab) { num('TabIndex', nextTabIndex(header)); }
 	members.sort((a, b) => collate(memberName(a), memberName(b)));
-	container.children.push({ progId: `VB.${controlKind}`, name, members, children: [] });
+	container.children.push({ progId, name, members, children: [] });
 	return name;
 }
 
@@ -408,9 +425,7 @@ function addControl(header: FrmHeader, containerName: string, controlKind: strin
 
 /** Removes the named controls, outermost only: a child of a removed container goes with it. All-or-nothing on unknown names. */
 function removeControls(header: FrmHeader, names: readonly string[]): string[] {
-	const located = names.map((name) => ({ name, ...locate(header, name) }));
-	const outermost = located.filter((one, i) => located.findIndex((o) => o.control === one.control) === i
-		&& !located.some((other) => other.control !== one.control && contains(other.control, one.control)));
+	const outermost = outermostOf(names.map((name) => ({ name, ...locate(header, name) })));
 	for (const one of outermost) {
 		one.parent.children.splice(one.parent.children.indexOf(one.control), 1);
 	}
@@ -614,9 +629,7 @@ function setFontProp(control: FrmControl, field: string, value: string): void {
 
 /** Clones the named controls beside their originals, nudged, under fresh names; a container's children come along and are renamed with it. */
 function duplicate(header: FrmHeader, names: readonly string[], nudge: number): string[] {
-	const located = names.map((name) => locate(header, name));
-	const outermost = located.filter((one, i) => located.findIndex((o) => o.control === one.control) === i
-		&& !located.some((other) => other.control !== one.control && contains(other.control, one.control)));
+	const outermost = outermostOf(names.map((name) => locate(header, name)));
 	const taken = allNames(header);
 	let nextTab = nextTabIndex(header);
 	const newNames: string[] = [];

@@ -354,9 +354,14 @@ export function readVb6FormPreview(
 	};
 }
 
+/** The sidecar a header names on its references, or undefined when it keeps nothing there. */
+function vb6SidecarNamedBy(header: FrmHeader): string | undefined {
+	return frmFrxRefs(header)[0]?.property.frx?.file;
+}
+
 /** The sidecar a designer's header names, else the one VB6 pairs with the module's extension (.frx, .ctx, .pgx, .dsx). */
 export function vb6SidecarFileFor(modulePath: string, header: FrmHeader | undefined): string {
-	const named = header ? frmFrxRefs(header)[0]?.property.frx?.file : undefined;
+	const named = header ? vb6SidecarNamedBy(header) : undefined;
 	if (named) {
 		return named;
 	}
@@ -374,6 +379,30 @@ function readVb6Sidecar(frxPath: string): Buffer {
 			return Buffer.alloc(0);
 		}
 		throw new Error(`Cannot read the form's sidecar ${path.basename(frxPath)}: ${err instanceof Error ? err.message : String(err)}`);
+	}
+}
+
+/** Sidecars as last read, by path, good while the file's stamp and size hold: a render per gesture must not reread a picture set. */
+const sidecarCache = new Map<string, { mtimeMs: number; size: number; blob: Buffer }>();
+
+/** The sidecar's bytes for a render, cached by the file's stamp; undefined when there is no file to read. */
+function readVb6SidecarForRender(frxPath: string): Buffer | undefined {
+	let stat: fs.Stats;
+	try {
+		stat = fs.statSync(frxPath);
+	} catch {
+		return undefined;
+	}
+	const cached = sidecarCache.get(frxPath);
+	if (cached && cached.mtimeMs === stat.mtimeMs && cached.size === stat.size) {
+		return cached.blob;
+	}
+	try {
+		const blob = fs.readFileSync(frxPath);
+		sidecarCache.set(frxPath, { mtimeMs: stat.mtimeMs, size: stat.size, blob });
+		return blob;
+	} catch {
+		return undefined;
 	}
 }
 
@@ -439,6 +468,7 @@ export function appendVb6Sidecar(modulePath: string, file: string, base: number,
 	}
 	const out = Buffer.concat([blob, ...records.map((record) => Buffer.from(record, 'base64'))]);
 	atomicWrite(frxPath, out);
+	sidecarCache.delete(frxPath);
 	return { length: out.length };
 }
 
@@ -450,17 +480,11 @@ export function appendVb6Sidecar(modulePath: string, file: string, base: number,
  * alone (the strings it keeps there are then blank).
  */
 function vb6FrxLookup(header: FrmHeader, dir: string, pending?: Vb6PendingSidecar): FrxLookup | undefined {
-	const refs = frmFrxRefs(header);
-	if (refs.length === 0) {
+	const file = vb6SidecarNamedBy(header);
+	if (!file) {
 		return undefined;
 	}
-	const file = refs[0].property.frx!.file;
-	let blob: Buffer;
-	try {
-		blob = fs.readFileSync(path.join(dir, file));
-	} catch {
-		blob = Buffer.alloc(0);
-	}
+	let blob = readVb6SidecarForRender(path.join(dir, file)) ?? Buffer.alloc(0);
 	if (pending && pending.file.toLowerCase() === file.toLowerCase() && blob.length === pending.base) {
 		blob = Buffer.concat([blob, ...pending.records.map((record) => Buffer.from(record, 'base64'))]);
 	}

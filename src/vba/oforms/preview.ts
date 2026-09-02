@@ -157,14 +157,24 @@ function stateCss(record: ParsedRecord | undefined, kind: string): string {
 // so those keep the honest hatched placeholder.
 function pictureDataUri(guidAndPicture: Buffer | undefined): string | undefined {
 	if (!guidAndPicture || guidAndPicture.length <= 24) { return undefined; }
-	const bytes = guidAndPicture.subarray(24);
+	return imageDataUri(guidAndPicture.subarray(24));
+}
+
+/**
+ * An image file's bytes as a data URI the browser paints, by their magic:
+ * BMP, PNG, JPEG, GIF, ICO or CUR; undefined for anything else (a metafile
+ * has no browser decoder). Shared by every picture envelope the designers
+ * read - an OFORMS GuidAndPicture, a VB6 sidecar record.
+ */
+export function imageDataUri(bytes: Buffer): string | undefined {
+	if (bytes.length < 4) { return undefined; }
 	const mime = bytes[0] === 0x42 && bytes[1] === 0x4d ? 'image/bmp'
-		: bytes[0] === 0x89 && bytes[1] === 0x50 ? 'image/png'
-			: bytes[0] === 0xff && bytes[1] === 0xd8 ? 'image/jpeg'
+		: bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 ? 'image/png'
+			: bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff ? 'image/jpeg'
 				: bytes.subarray(0, 4).toString('latin1') === 'GIF8' ? 'image/gif'
-					: bytes[0] === 0 && bytes[1] === 0 && bytes[2] === 1 && bytes[3] === 0 ? 'image/x-icon'
+					: bytes[0] === 0 && bytes[1] === 0 && (bytes[2] === 1 || bytes[2] === 2) && bytes[3] === 0 ? 'image/x-icon'
 						: undefined;
-	return mime ? `data:${mime};base64,${Buffer.from(bytes).toString('base64')}` : undefined;
+	return mime ? `data:${mime};base64,${bytes.toString('base64')}` : undefined;
 }
 
 const PICTURE_ALIGNMENTS: Readonly<Record<number, string>> = {
@@ -252,6 +262,8 @@ export interface SceneControl {
 	pictured: boolean;
 	/** ToggleButton pressed, CheckBox or OptionButton on. */
 	on: boolean;
+	/** Line: runs from the top-left corner of its box to the bottom-right (else top-right to bottom-left). */
+	lineDown: boolean;
 	/** Frame and MultiPage: the container's own font. */
 	containerFontCss: string;
 	/** Frame: the inner surface's colors. */
@@ -307,7 +319,7 @@ export function sceneControl(
 	partial: Partial<SceneControl> & Pick<SceneControl, 'kind' | 'name' | 'index' | 'style'>,
 ): SceneControl {
 	return {
-		caption: '', value: '', captionHtml: '', pictured: false, on: false,
+		caption: '', value: '', captionHtml: '', pictured: false, on: false, lineDown: false,
 		containerFontCss: '', surfaceStyle: '', children: [], tabs: [], pages: [],
 		...partial,
 	};
@@ -451,7 +463,7 @@ export function renderSceneControls(
 				parts.push(`<div class="ctl frame picture${sel}" ${dn} style="${style}${control.containerFontCss}" title="${esc(name)}"><div class="surface" data-surface="${esc(name)}" style="${control.surfaceStyle}">${renderSceneControls(control.children, childId, selected)}</div></div>`);
 				break;
 			case 'Line':
-				parts.push(`<div class="ctl line${sel}" ${dn} style="${style}" title="${esc(name)}"><svg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 100"><line x1="${control.on ? 0 : 100}" y1="0" x2="${control.on ? 100 : 0}" y2="100" vector-effect="non-scaling-stroke" stroke="currentColor" stroke-width="1"/></svg></div>`);
+				parts.push(`<div class="ctl line${sel}" ${dn} style="${style}" title="${esc(name)}"><svg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 100"><line x1="${control.lineDown ? 0 : 100}" y1="0" x2="${control.lineDown ? 100 : 0}" y2="100" vector-effect="non-scaling-stroke" stroke="currentColor" stroke-width="1"/></svg></div>`);
 				break;
 			case 'Shape':
 				parts.push(`<div class="ctl shape${sel}" ${dn} style="${style}" title="${esc(name)}"></div>`);

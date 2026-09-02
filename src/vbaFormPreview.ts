@@ -32,6 +32,8 @@ import { xlideAttachToRunningExcelFromConfig } from './globalSettings';
 import { errorMessage } from './util/errors';
 import { isVb6ProjectPath } from './vba/vb6/vb6Project';
 import { VB6_FORM_DESIGNER_VIEW_TYPE } from './vb6FormDesigner';
+import type { DesignerMessage, GestureMessage as GestureMessageAny } from './vba/oforms/designerMessages';
+import { openOrCreateEventHandler } from './vbaEventHandlerNavigation';
 
 export const FORM_DESIGNER_VIEW_TYPE = 'xlideFormDesigner';
 
@@ -77,28 +79,8 @@ async function savePendingLaunchEdits(
 	return true;
 }
 
-type DesignerMessage =
-	| { type: 'geometry'; name: string; left?: number; top?: number; width?: number; height?: number }
-	| { type: 'geometryBatch'; anchor?: string; items: { name: string; left?: number; top?: number; width?: number; height?: number }[] }
-	| { type: 'add'; container: string; controlKind: string; left: number; top: number }
-	| { type: 'remove'; name: string }
-	| { type: 'reparent'; name: string; container: string; left: number; top: number }
-	| { type: 'setProp'; name: string; prop: string; value: string }
-	| { type: 'openHandler'; name: string; event: string }
-	| { type: 'markupEdit'; text: string }
-	| { type: 'docUndo' }
-	| { type: 'docRedo' }
-	| { type: 'docSave' }
-	| { type: 'formResize'; width: number; height: number }
-	| { type: 'paste'; names: string[] }
-	| { type: 'removeMany'; names: string[] }
-	| { type: 'zOrder'; name: string; toFront: boolean }
-	| { type: 'tabOrder'; container: string; names: string[] };
-
-type GestureMessage = Extract<DesignerMessage,
-	{ type: 'geometry' } | { type: 'geometryBatch' } | { type: 'add' } | { type: 'remove' }
-	| { type: 'reparent' } | { type: 'setProp' } | { type: 'formResize' }
-	| { type: 'zOrder' } | { type: 'tabOrder' }>;
+/** The gestures this designer answers through the engine's site ops; paste and multi-delete go through the markup instead. */
+type GestureMessage = Exclude<GestureMessageAny, { type: 'paste' } | { type: 'removeMany' }>;
 
 export function registerFormPreview(
 	context: vscode.ExtensionContext,
@@ -128,30 +110,8 @@ export function registerFormPreview(
 		eventName: string,
 	): Promise<void> => {
 		try {
-			const handler = `${controlName === '' ? 'UserForm' : controlName}_${eventName}`;
-			const escaped = handler.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-			const signature = new RegExp(`^[ \\t]*(?:Private\\s+|Public\\s+|Friend\\s+)?Sub\\s+${escaped}\\s*\\(`, 'im');
-			const uri = encodeModuleUri(projectPath, moduleName);
-			const doc = await vscode.workspace.openTextDocument(uri);
-			if (!signature.test(doc.getText())) {
-				const eol = doc.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
-				const text = doc.getText();
-				const lead = text.length === 0 ? '' : text.endsWith(eol) ? eol : eol + eol;
-				const edit = new vscode.WorkspaceEdit();
-				edit.insert(uri, doc.positionAt(text.length), `${lead}Private Sub ${handler}()${eol}${eol}End Sub${eol}`);
-				await vscode.workspace.applyEdit(edit);
-			}
-			const match = signature.exec(doc.getText());
-			const editor = await vscode.window.showTextDocument(doc, {
-				viewColumn: vscode.ViewColumn.One,
-				preserveFocus: false,
-			});
-			if (match) {
-				const line = Math.min(doc.positionAt(match.index).line + 1, doc.lineCount - 1);
-				const at = new vscode.Position(line, 0);
-				editor.selection = new vscode.Selection(at, at);
-				editor.revealRange(new vscode.Range(at, at), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
-			}
+			const doc = await vscode.workspace.openTextDocument(encodeModuleUri(projectPath, moduleName));
+			await openOrCreateEventHandler(doc, `${controlName === '' ? 'UserForm' : controlName}_${eventName}`);
 		} catch (err) {
 			void vscode.window.showErrorMessage(`XLIDE: ${errorMessage(err)}`);
 		}

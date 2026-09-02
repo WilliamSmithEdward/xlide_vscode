@@ -12,28 +12,12 @@
 import * as vscode from 'vscode';
 import type { ProjectEngine } from './projectEngine';
 import { moduleLocationOfDocument } from './vbaDocumentLocation';
-import { vb6FormHandlerPrefix, vb6HeaderEndOf, vb6PendingRecordsToWrite } from './vba/vb6/frmDesignerOps';
+import { frmDesignerOpOfGesture, vb6FormHandlerPrefix, vb6HeaderEndOf, vb6PendingRecordsToWrite } from './vba/vb6/frmDesignerOps';
+import type { DesignerMessage, GestureMessage } from './vba/oforms/designerMessages';
+import { openOrCreateEventHandler } from './vbaEventHandlerNavigation';
 import { errorMessage } from './util/errors';
 
 export const VB6_FORM_DESIGNER_VIEW_TYPE = 'xlideVb6FormDesigner';
-
-type DesignerMessage =
-	| { type: 'geometry'; name: string; left?: number; top?: number; width?: number; height?: number }
-	| { type: 'geometryBatch'; anchor?: string; items: { name: string; left?: number; top?: number; width?: number; height?: number }[] }
-	| { type: 'add'; container: string; controlKind: string; left: number; top: number }
-	| { type: 'remove'; name: string }
-	| { type: 'reparent'; name: string; container: string; left: number; top: number }
-	| { type: 'setProp'; name: string; prop: string; value: string }
-	| { type: 'openHandler'; name: string; event: string }
-	| { type: 'markupEdit'; text: string }
-	| { type: 'docUndo' }
-	| { type: 'docRedo' }
-	| { type: 'docSave' }
-	| { type: 'formResize'; width: number; height: number }
-	| { type: 'paste'; names: string[] }
-	| { type: 'removeMany'; names: string[] }
-	| { type: 'zOrder'; name: string; toFront: boolean }
-	| { type: 'tabOrder'; container: string; names: string[] };
 
 interface SidecarRecord {
 	file: string;
@@ -190,7 +174,8 @@ export function registerVb6FormDesigner(
 				pending.bytes += bytes;
 			};
 
-			const applyOp = async (op: Record<string, unknown>, selectAfter: (result: OpResult) => string | undefined): Promise<void> => {
+			const applyGesture = async (message: GestureMessage): Promise<void> => {
+				const { op, selectAfter } = frmDesignerOpOfGesture(message);
 				try {
 					const text = document.getText();
 					const result = await bridge.call<OpResult>('vb6FormDesignerOp', {
@@ -214,35 +199,6 @@ export function registerVb6FormDesigner(
 				} catch (err) {
 					void vscode.window.showErrorMessage(`XLIDE: ${errorMessage(err)}`);
 					await render();
-				}
-			};
-
-			const applyGesture = (message: DesignerMessage): Promise<void> => {
-				switch (message.type) {
-					case 'geometry':
-						return applyOp({ kind: 'geometry', name: message.name, left: message.left, top: message.top, width: message.width, height: message.height }, () => message.name);
-					case 'geometryBatch':
-						return applyOp({ kind: 'geometryBatch', items: message.items }, () => message.anchor);
-					case 'add':
-						return applyOp({ kind: 'add', container: message.container, controlKind: message.controlKind, left: message.left, top: message.top }, (r) => r.newName);
-					case 'remove':
-						return applyOp({ kind: 'remove', name: message.name }, () => undefined);
-					case 'reparent':
-						return applyOp({ kind: 'reparent', name: message.name, container: message.container, left: message.left, top: message.top }, () => message.name);
-					case 'setProp':
-						return applyOp({ kind: 'setProp', name: message.name, prop: message.prop, value: message.value }, (r) => r.newName ?? message.name);
-					case 'formResize':
-						return applyOp({ kind: 'formSize', width: message.width, height: message.height }, () => '');
-					case 'zOrder':
-						return applyOp({ kind: 'zOrder', name: message.name, toFront: message.toFront }, () => message.name);
-					case 'tabOrder':
-						return applyOp({ kind: 'tabOrder', container: message.container, names: message.names }, () => undefined);
-					case 'paste':
-						return applyOp({ kind: 'duplicate', names: message.names }, (r) => r.newNames?.[0]);
-					case 'removeMany':
-						return applyOp({ kind: 'removeMany', names: message.names }, () => undefined);
-					default:
-						return Promise.resolve();
 				}
 			};
 
@@ -281,31 +237,9 @@ export function registerVb6FormDesigner(
 					return;
 				}
 				try {
-					const text = document.getText();
-					const owner = controlName === '' ? vb6FormHandlerPrefix(text) : controlName.replace(/\(\d+\)$/, '');
+					const owner = controlName === '' ? vb6FormHandlerPrefix(document.getText()) : controlName.replace(/\(\d+\)$/, '');
 					const isArray = /\(\d+\)$/.test(controlName);
-					const handler = `${owner}_${eventName}`;
-					const escaped = handler.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-					const signature = new RegExp(`^[ \\t]*(?:Private\\s+|Public\\s+|Friend\\s+)?Sub\\s+${escaped}\\s*\\(`, 'im');
-					if (!signature.test(text)) {
-						const eol = document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
-						const lead = text.length === 0 ? '' : text.endsWith(eol) ? eol : eol + eol;
-						const params = isArray ? 'Index As Integer' : '';
-						const edit = new vscode.WorkspaceEdit();
-						edit.insert(document.uri, document.positionAt(text.length), `${lead}Private Sub ${handler}(${params})${eol}${eol}End Sub${eol}`);
-						await vscode.workspace.applyEdit(edit);
-					}
-					const match = signature.exec(document.getText());
-					const editor = await vscode.window.showTextDocument(document, {
-						viewColumn: vscode.ViewColumn.One,
-						preserveFocus: false,
-					});
-					if (match) {
-						const line = Math.min(document.positionAt(match.index).line + 1, document.lineCount - 1);
-						const at = new vscode.Position(line, 0);
-						editor.selection = new vscode.Selection(at, at);
-						editor.revealRange(new vscode.Range(at, at), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
-					}
+					await openOrCreateEventHandler(document, `${owner}_${eventName}`, isArray ? 'Index As Integer' : '');
 				} catch (err) {
 					void vscode.window.showErrorMessage(`XLIDE: ${errorMessage(err)}`);
 				}

@@ -6,8 +6,8 @@ import type { FrmHeader } from '../src/vba/vb6/frmHeader';
 import { readFrxRecords } from '../src/vba/vb6/frx';
 import { decodeCodePage } from '../src/vba/codePages';
 import {
-	VB6_TOOLBOX, listFrmProperties, pictureDataUriOf, sceneOfFrmHeader, twipsToPt, vb6CanvasKind, vb6MenuCaptions,
-	vb6PaneVocabulary,
+	VB6_CONTROLS, VB6_DEFAULT_EVENTS, VB6_DESIGN_PROPERTIES, VB6_TOOLBOX, listFrmProperties, pictureDataUriOf, sceneOfFrmHeader,
+	twipsToPt, vb6CanvasKind, vb6ControlSpec, vb6MenuCaptions, vb6PaneVocabulary,
 } from '../src/vba/vb6/frmScene';
 import { renderFormSceneHtml } from '../src/vba/oforms/preview';
 import type { SceneControl } from '../src/vba/oforms/preview';
@@ -66,6 +66,21 @@ describe('vb6CanvasKind', () => {
 	it('offers every toolbox kind', () => {
 		for (const kind of VB6_TOOLBOX) {
 			expect(vb6CanvasKind(`VB.${kind}`)).toBeDefined();
+		}
+		expect(VB6_TOOLBOX).toEqual(['Label', 'TextBox', 'ComboBox', 'ListBox', 'CheckBox', 'OptionButton',
+			'CommandButton', 'Frame', 'PictureBox', 'Image', 'HScrollBar', 'VScrollBar', 'Timer', 'Line', 'Shape']);
+	});
+
+	it('describes each kind once, and the designer classes as no control', () => {
+		expect(vb6CanvasKind('VB.Form')).toBeUndefined();
+		expect(vb6ControlSpec('VB.Frame')).toMatchObject({ kind: 'Frame', container: true, captioned: true, base: 'Frame' });
+		expect(vb6ControlSpec('VB.Timer')?.size).toBeUndefined();
+		expect(VB6_DEFAULT_EVENTS).toEqual({ Form: 'Load', MDIForm: 'Load', PictureBox: 'Click', Timer: 'Timer', Line: '', Shape: '' });
+		expect(VB6_DESIGN_PROPERTIES['VB.Label']).toContain('Caption');
+		for (const [progId, spec] of Object.entries(VB6_CONTROLS)) {
+			expect(progId.startsWith('VB.'), progId).toBe(true);
+			if (spec.text === 'Caption') { expect(spec.captioned, progId).toBe(true); }
+			if (spec.scale) { expect(spec.size, progId).toBeDefined(); }
 		}
 	});
 });
