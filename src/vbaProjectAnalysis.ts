@@ -70,6 +70,12 @@ export function moduleKindFromType(type?: string): ModuleSymbolKind {
         case 'class': return 'class';
         case 'document': return 'document';
         case 'userform': return 'userform';
+        // A VB6 UserControl, PropertyPage or Designer is an object module
+        // with a designer, like a form: `Me` is valid and controls live on it.
+        case 'usercontrol':
+        case 'propertypage':
+        case 'designer':
+            return 'userform';
         default: return 'standard';
     }
 }

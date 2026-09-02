@@ -84,6 +84,22 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
         await vscode.commands.executeCommand('references-view.findReferences', originUri, origin);
     }
 
+    /**
+     * The editor for a tree node's module: the workbook module's virtual
+     * document, or - when the container's modules are files, a VB6 project -
+     * the file itself, which already carries the VBA language by extension.
+     */
+    const showModuleEditor = async (node: XlideNode): Promise<vscode.TextEditor> => {
+        if (node.moduleFilePath) {
+            const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(node.moduleFilePath));
+            return vscode.window.showTextDocument(doc, { preview: false });
+        }
+        const uri = encodeModuleUri(node.filePath, node.moduleName ?? '');
+        const doc = await vscode.workspace.openTextDocument(uri);
+        await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
+        return vscode.window.showTextDocument(doc, { preview: false });
+    };
+
     return [
         registerXlideCommand('xlide.refreshExplorer', () => {
             explorer.refresh();
@@ -99,11 +115,7 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
         // Open a module (or navigate to a sub's line inside one)
         registerXlideCommand('xlide.openModule', async (node: XlideNode) => {
             if (!node?.moduleName) { return; }
-            const uri = encodeModuleUri(node.filePath, node.moduleName);
-
-            const doc = await vscode.workspace.openTextDocument(uri);
-            await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
-            const editor = await vscode.window.showTextDocument(doc, { preview: false });
+            const editor = await showModuleEditor(node);
 
             // If a specific line was requested (sub navigation), move cursor there
             if (node.line !== undefined && node.line > 0) {
@@ -124,11 +136,8 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
                 return;
             }
             if (node.kind !== 'sub') { return; }
-            const uri = encodeModuleUri(node.filePath, node.moduleName);
-
-            const doc = await vscode.workspace.openTextDocument(uri);
-            await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
-            const editor = await vscode.window.showTextDocument(doc, { preview: false });
+            const editor = await showModuleEditor(node);
+            const doc = editor.document;
 
             // Locate the procedure name on its declaration line so the reference
             // search starts on the identifier. The node label is "<kind> <name>"
@@ -154,7 +163,7 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
                 new vscode.Range(pos, pos),
                 vscode.TextEditorRevealType.InCenterIfOutsideViewport,
             );
-            await vscode.commands.executeCommand('references-view.findReferences', uri, pos);
+            await vscode.commands.executeCommand('references-view.findReferences', doc.uri, pos);
         }),
 
         // DEV: smoke test - verifies listModules + readModule against a workspace workbook

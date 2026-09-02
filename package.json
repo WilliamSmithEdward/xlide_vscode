@@ -544,7 +544,7 @@
         },
         {
           "command": "xlide.analyzeWorkbook",
-          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|macroReadOnly)$/",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|macroReadOnly|vb6Project)$/",
           "group": "4_analyze@1"
         },
         {
@@ -682,7 +682,7 @@
       {
         "name": "xlide_listWorkbooks",
         "displayName": "List Excel Workbooks",
-        "modelDescription": "Finds all macro-enabled Office files in the current workspace and returns their absolute paths: Excel (.xlsm, .xlsb, .xlam, .xltm, .xls, .xlt, .xla), Word (.docm, .dotm, .doc, .dot), PowerPoint (.pptm, .potm, .ppsm, .ppam, .ppt, .ppa), and Access (.accdb, .accda, .mdb, .mda; read-only). Call this first when the user has not specified a file path, or when you need to discover which files are available.",
+        "modelDescription": "Finds all macro-enabled Office files in the current workspace and returns their absolute paths: Excel (.xlsm, .xlsb, .xlam, .xltm, .xls, .xlt, .xla), Word (.docm, .dotm, .doc, .dot), PowerPoint (.pptm, .potm, .ppsm, .ppam, .ppt, .ppa), and Access (.accdb, .accda, .mdb, .mda; read-only). Visual Basic 6 projects (.vbp) are listed too; their modules are the .bas, .cls and .frm files the manifest names. Call this first when the user has not specified a file path, or when you need to discover which files are available.",
         "toolReferenceName": "xlideListWorkbooks",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -829,7 +829,7 @@
       {
         "name": "xlide_listModules",
         "displayName": "List VBA Modules",
-        "modelDescription": "Lists all VBA modules in a macro-enabled Office file (Excel, Word, PowerPoint, or Access). Returns module names and types (standard, class, document). Use this before reading or editing that file's VBA; do not infer module state from exported .bas/.cls repo files, which can be stale, unless the user explicitly asks to work on those export artifacts.",
+        "modelDescription": "Lists all VBA modules in a macro-enabled Office file (Excel, Word, PowerPoint, or Access) or a Visual Basic 6 project (.vbp). Returns module names and types (standard, class, document, userform; a VB6 project may also list usercontrol, propertypage and designer). Use this before reading or editing that file's VBA; do not infer module state from exported .bas/.cls repo files, which can be stale, unless the user explicitly asks to work on those export artifacts.",
         "toolReferenceName": "xlideListModules",
         "canBeReferencedInPrompt": true,
         "inputSchema": {

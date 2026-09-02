@@ -3,7 +3,7 @@ import * as path from 'path';
 import { WorkbookEngine } from './workbookEngine';
 import { workbookIdentityKey } from './xlideFileSystem';
 import { compareVbaModulesForTreeOrder, moduleThemeIconName } from './moduleDisplay';
-import { containerAppNameForPath, containerContextValue, isReadOnlyContainerPath } from './macroContainerUi';
+import { containerAppNameForPath, containerContextValue, isReadOnlyContainerPath, isVb6ProjectPath } from './macroContainerUi';
 import { findMacroContainerFiles } from './macroContainerDiscovery';
 import { hasPendingAgentReview } from './xlideAgentDiff';
 import { startPerformanceTrace } from './performanceTrace';
@@ -19,8 +19,13 @@ export interface XlideNode {
     filePath: string;
     /** Module name (for 'module' and 'sub' nodes). */
     moduleName?: string;
-    /** Module type: 'standard' | 'class' | 'document' */
+    /** Module type: 'standard' | 'class' | 'document' | 'userform', or a VB6-only kind. */
     moduleType?: string;
+    /**
+     * The module's own file, when the container's modules are files (a VB6
+     * project): opening the node opens this file, not a virtual document.
+     */
+    moduleFilePath?: string;
     /** 1-based line number of the procedure (for 'sub' nodes). */
     line?: number;
     /** Workbook only: VBA project carries a password lock. */
@@ -45,8 +50,8 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
     private _xlsmFilesLoad: Promise<XlideNode[]> | undefined;
     // listModules cache: avoids repeated bridge round-trips while the tree is
     // expanded.  Cleared on refresh() so edits always re-fetch.
-    private _modulesListCache = new Map<string, Array<{ name: string; type: string }>>();
-    private _modulesListLoads = new Map<string, Promise<Array<{ name: string; type: string }>>>();
+    private _modulesListCache = new Map<string, Array<{ name: string; type: string; filePath?: string }>>();
+    private _modulesListLoads = new Map<string, Promise<Array<{ name: string; type: string; filePath?: string }>>>();
     // Bumped on every refresh(). An in-flight load captured before a refresh must
     // not write its now-stale result into the freshly-cleared cache (which would
     // leave a just-added module invisible until the next refresh).
@@ -253,7 +258,8 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
 
         switch (node.kind) {
             case 'xlsm':
-                item.iconPath = new vscode.ThemeIcon('file-code');
+                // A VB6 project is a manifest over files, and its icon says so.
+                item.iconPath = new vscode.ThemeIcon(isVb6ProjectPath(node.filePath) ? 'project' : 'file-code');
                 item.tooltip = node.filePath;
                 item.description = path.relative(
                     vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '',
@@ -407,7 +413,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
             if (!modules) {
                 let load = this._modulesListLoads.get(cacheKey);
                 if (!load) {
-                    load = this._bridge.call<Array<{ name: string; type: string }>>(
+                    load = this._bridge.call<Array<{ name: string; type: string; filePath?: string }>>(
                         'listModules',
                         { path: filePath },
                     );
@@ -452,6 +458,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
                             filePath,
                             moduleName: m.name,
                             moduleType: m.type,
+                            ...(m.filePath ? { moduleFilePath: m.filePath } : {}),
                         };
                         if (populateNodeMap) {
                             this._moduleNodes.set(key, node);
@@ -548,7 +555,9 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
                 moduleName,
                 line: s.line,
             }));
-            if (moduleType === 'userform') {
+            // A VB6 form's designer is a text header this designer does not open
+            // yet (roadmap_vb6_support.md, Slice 5); until it does, the row stays off.
+            if (moduleType === 'userform' && !isVb6ProjectPath(filePath)) {
                 // The designer sits FIRST under its form, above the handlers -
                 // the xlide vbide arrangement: the design comes before the code
                 // that answers it, and a fixed position means the row never

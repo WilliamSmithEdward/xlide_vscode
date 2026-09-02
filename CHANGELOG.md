@@ -4,6 +4,20 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
+- **A VB6 project in the tree.** A `.vbp` shows in the explorer like a
+  workbook: its `.bas`, `.cls` and `.frm` files listed from the manifest
+  with their kinds, each named by its own `VB_Name` attribute, procedures
+  beneath, and a click opening the file itself - the file is the module.
+  UserControls, PropertyPages and Designers are listed too, with their
+  code-behind readable and their designers left alone. The engine answers
+  the workbook questions for a project (list, read, procedures, validate,
+  rewrite an existing module with its header, line endings and code page
+  kept), refuses the ones that have no meaning for files, and analysis
+  requests from a project carry a `vb6` host that asserts nothing yet. The
+  manifest prints back byte for byte, unknown keys included. Fixtures are
+  two MIT-licensed projects authored in Visual Basic 6 itself, vendored
+  with their licenses. First slice of `docs/roadmap_vb6_support.md`.
+
 ## [5.0.2] - 2026-08-31
 
 - **A container's children were already members; now they are pinned.** #57

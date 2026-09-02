@@ -21,7 +21,12 @@ import { getWordObjectModel } from './wordObjectModel';
 import { getPowerPointObjectModel } from './powerpointObjectModel';
 import { getAccessObjectModel } from './accessObjectModel';
 
-/** The host tokens xlide_vbide sends with project/open. */
+/**
+ * The host tokens xlide_vbide sends with project/open, plus 'vb6': a VB6
+ * project is not an Office host at all, but the analyzer selects an object
+ * model by this token, and a VB6 form's code-behind needs the VB runtime's
+ * surface (App, Screen, Printer, the intrinsic controls), not Excel's.
+ */
 export type VbaHostToken =
 	| 'excel'
 	| 'word'
@@ -30,6 +35,7 @@ export type VbaHostToken =
 	| 'outlook'
 	| 'visio'
 	| 'project'
+	| 'vb6'
 	| 'other';
 
 /** A model that knows nothing: every lookup misses, so nothing is asserted. */
@@ -105,6 +111,8 @@ export function hostTokenForFileName(fileName: string): VbaHostToken | undefined
 		case 'mdb':
 		case 'mda':
 			return 'access';
+		case 'vbp':
+			return 'vb6';
 		default:
 			return undefined;
 	}

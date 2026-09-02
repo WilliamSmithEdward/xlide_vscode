@@ -206,11 +206,11 @@ scenarios do not need bespoke one-off test wiring.
 
 | Level | Node kind | Children source |
 |---|---|---|
-| 0 | `xlsm` - one per file found by `findFiles('**/*.{xlsm,xlsb,xlam}')` | modules |
+| 0 | `xlsm` - one per file found by `findFiles(MACRO_CONTAINER_GLOB)`, VB6 `.vbp` projects included (context value `vb6Project`) | modules |
 | 1 | `module` - name + type (standard / class / document) | subs |
 | 2 | `sub` - procedure name, kind, 1-based line number | none |
 
-Clicking a `module` node opens the module via `xlide.openModule`. Clicking a `sub` node opens the module and moves the cursor to that line.
+Clicking a `module` node opens the module via `xlide.openModule`. Clicking a `sub` node opens the module and moves the cursor to that line. A VB6 project's module nodes carry `moduleFilePath`, and the command opens that file itself rather than a virtual document: the file is the module. A VB6 form gets no `designer` row yet (`docs/roadmap_vb6_support.md`, Slice 5).
 
 Module type is inferred from the VBA source and name (`classifyModuleType` in
 `src/vba/workbookService.ts`, mirrored for sync planning in
@@ -262,6 +262,7 @@ is):
 | `.ppt` | CFB + `PowerPoint Document` stream | zlib-compressed CFB in an `ExOleObjStg` record, located through the persist chain (`pptContainer.ts`) | yes (record rebuild + persist-offset shift) |
 | `.ppa` | CFB that IS the VBA project (a bare `VBA` storage, no document stream) | the file itself | yes (CFB re-serialize) |
 | `.accdb`/`.mdb`/`.mda` | ACE/Jet page-0 signature | MS-OVBA streams in LVAL rows/chains, reassembled into a synthetic CFB (`accessDatabase.ts`) | no |
+| `.vbp` (VB6 project) | the `.vbp` extension; the manifest is text, parsed by `vb6/vbpProject.ts` | no project stream: the modules ARE the `.bas`/`.cls`/`.frm` files the manifest names (`vb6/vb6Project.ts`) | existing modules only (the file is rewritten with its header kept); add/rename/delete refuse and name the manifest |
 
 The legacy compound files need no special project handling: `VbaProject`'s
 stream lookups are storage-agnostic (a storage named `VBA` is found wherever
@@ -1403,6 +1404,7 @@ TypeScript dev: `typescript`, `esbuild`, `vitest`, `@types/vscode`, `@types/node
 | New analyzer grammar rule | `src/analyzer/**` (lexer/parser), matching fixtures in `tests/`, an MS-VBAL section cite in code, a row in `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
 | New host object-model member/type/constant | `src/analyzer/host/excelObjectModel.ts` (or the word/powerpoint/access model modules and their generated `*ObjectModelData.ts`, regenerated via `scripts/generate-host-object-model.mjs`), `tests/vbaMemberCompletion.test.ts` / `tests/vbaHostModels.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |
 | New macro container format | `src/vba/macroContainer.ts` (detection + write policy), `src/vba/xlsx.ts` or a format module beside `pptContainer.ts`/`accessDatabase.ts`, `src/macroContainerUi.ts` (`MACRO_CONTAINER_EXTENSIONS`), `src/analyzer/host/hostRegistry.ts` (`hostTokenForFileName`), an Office-authored fixture in `tests/fixtures/binaries/` with `.gitignore`/`.vscodeignore` entries, `tests/vbaMacroContainers.test.ts`, `docs/architecture.md` |
+| VB6 project (manifest, module files) | `src/vba/vb6/vbpProject.ts` (manifest parse/print), `src/vba/vb6/vb6Project.ts` (module reads/writes), the `isVb6ProjectPath` guards in `src/vba/workbookService.ts`, `src/macroContainerUi.ts`, `src/analyzer/host/hostRegistry.ts` (`vb6`), `src/xlsmExplorer.ts` (`moduleFilePath`), a licensed fixture under `tests/fixtures/vb6/<project>/` with its `LICENSE` and `NOTICE.md`, `tests/vb6Project.test.ts`, `docs/roadmap_vb6_support.md`, `docs/architecture.md` |
 | New host-member call signature | `src/analyzer/host/excelObjectModel.ts` (`memberSignatures` entry, transcribed + source-verified), `tests/vbaSignatureHelp.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |
 | New built-in VBA runtime function/statement | `src/analyzer/runtime/vbaRuntime.ts` (signature transcribed + source-verified), `tests/vbaRuntime.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
 | New built-in VBA runtime constant | `src/analyzer/runtime/vbaRuntime.ts` (constant/type/value transcribed + source-verified), `tests/vbaRuntime.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |

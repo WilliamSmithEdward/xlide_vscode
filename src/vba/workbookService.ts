@@ -46,8 +46,26 @@ import {
 	type VbaModule,
 } from './vbaProject';
 import { XlsxWorkbook, type CellValue, type NamedRange, type SheetSummary } from './xlsx';
+import { atomicWrite } from './atomicWrite';
+import { attributeValue, joinVbaSource, listProcedures, splitVbaSource, type ProcedureEntry } from './moduleSource';
+import {
+	isVb6ProjectPath,
+	listVb6Modules,
+	listVb6Procedures,
+	readVb6Module,
+	readVb6Modules,
+	validateVb6Project,
+	writeVb6Module,
+	type Vb6ModuleEntry,
+} from './vb6/vb6Project';
 
-export type ModuleType = 'standard' | 'class' | 'document' | 'userform';
+/**
+ * A module's kind. The last three exist only in a VB6 project, whose manifest
+ * names UserControls, PropertyPages and Designers beside its forms: they are
+ * listed so the project reads whole, and their designers stay opaque.
+ */
+export type ModuleType = 'standard' | 'class' | 'document' | 'userform'
+	| 'usercontrol' | 'propertypage' | 'designer';
 export type DocumentType = 'workbook' | 'worksheet' | 'chart' | 'document';
 
 export interface ModuleEntry {
@@ -67,13 +85,13 @@ export interface ModuleEntry {
 	 * the attribute header was not read, never "no".
 	 */
 	predeclaredId?: boolean;
+	/**
+	 * The module's own file, for the containers whose modules ARE files (a
+	 * VB6 project). Absent for a workbook module, which lives in a stream.
+	 */
+	filePath?: string;
 }
 
-export interface ProcedureEntry {
-	name: string;
-	kind: string;
-	line: number;
-}
 
 export interface ProtectionInfo {
 	isPasswordProtected: boolean;
@@ -91,73 +109,11 @@ const CHART_CLSID = '{00020821-0000-0000-C000-000000000046}';
 const WORD_DOCUMENT_CLSID = '{00020906-0000-0000-C000-000000000046}';
 const GUID_RE = /\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}/g;
 const DOCUMENT_NAME_RE = /^(Sheet|Feuil|Hoja|Tabelle|Foglio|Planilha)\d*$/i;
-const ATTR_LINE_RE = /^Attribute\s+VB_/i;
-// \p{L}, not \w: VBA identifiers may use any locale letter (a Russian
-// project legitimately declares `Sub Proverka()` in Cyrillic), and the
-// ASCII-only \w made such procedures vanish from the explorer tree. \p{M}
-// after the first character because Thai and Devanagari build a letter from
-// a base plus a combining mark, and stopping at the mark made those
-// procedures vanish the same way.
-const PROC_RE =
-	/^[ \t]*(?:(?:Public|Private|Friend|Static)\s+)*(Sub|Function|Property\s+(?:Get|Let|Set))\s+([\p{L}_][\p{L}\p{M}\p{N}_]*)\s*[(\r\n]/gimu;
-
-/**
- * Split module source into (hidden header, visible body) exactly as the editor
- * surface expects: the VERSION/BEGIN/END class preamble plus the contiguous run
- * of `Attribute VB_*` lines are hidden; the body has leading blank lines removed.
- */
-export function splitVbaSource(source: string): { header: string; body: string } {
-	const lines = source.split(/(?<=\n)/); // keep line endings
-	let i = 0;
-	if (lines.length > 0 && /^VERSION\s+\d/i.test(lines[0])) {
-		i++;
-		// A class preamble opens with a bare BEGIN; a form's designer block
-		// opens with `Begin {GUID} Name` and can NEST further Begin blocks for
-		// its controls. Both are one balanced block, walked by depth - without
-		// this, importing a .frm spliced the designer text into the code module.
-		const opener = i < lines.length ? lines[i].replace(/[\r\n]+$/, '').trim() : '';
-		if (/^BEGIN\b/i.test(opener)) {
-			let depth = 1;
-			i++;
-			while (i < lines.length && depth > 0) {
-				const line = lines[i].replace(/[\r\n]+$/, '').trim();
-				if (/^Begin\b/i.test(line)) {
-					depth++;
-				} else if (/^End$/i.test(line)) {
-					depth--;
-				}
-				i++;
-			}
-		}
-	}
-	while (i < lines.length && ATTR_LINE_RE.test(lines[i])) {
-		i++;
-	}
-	return {
-		header: lines.slice(0, i).join(''),
-		body: lines.slice(i).join('').replace(/^[\r\n]+/, ''),
-	};
-}
-
-export function joinVbaSource(header: string, body: string): string {
-	if (!header) { return body; }
-	return `${header.replace(/[\r\n]+$/, '')}\r\n${body}`;
-}
-
-/**
- * The value of an `Attribute VB_*` header line.
- *
- * Both spellings count. The VBE quotes a string value (`VB_Name = "Ticket"`)
- * and leaves a boolean bare (`VB_PredeclaredId = True`), and reading only the
- * quoted form made every boolean attribute answer the empty string - which
- * silently disabled the document-module fallback below, whose whole job is to
- * recognise a host module by `PredeclaredId` and `Exposed` both being True.
- */
-function attributeValue(source: string, attribute: string): string {
-	const re = new RegExp(`^\\s*Attribute\\s+${attribute}\\s*=\\s*(?:"([^"]*)"|([^\\r\\n]*))`, 'im');
-	const match = re.exec(source);
-	return (match?.[1] ?? match?.[2] ?? '').trim();
-}
+// The module text helpers live in moduleSource.ts, shared with the VB6
+// project reader; they are re-exported here so every caller keeps its import.
+export { joinVbaSource, splitVbaSource } from './moduleSource';
+export type { ProcedureEntry } from './moduleSource';
+export { atomicWrite } from './atomicWrite';
 
 export function classifyModuleType(name: string, source: string): ModuleType {
 	const vbBase = attributeValue(source, 'VB_Base');
@@ -291,6 +247,9 @@ function cachedPackage(filePath: string): WorkbookCacheEntry {
 
 /** Shared read-only parse. Callers must not mutate the returned project. */
 function openWorkbook(filePath: string): OpenWorkbook {
+	if (isVb6ProjectPath(filePath)) {
+		throw vb6ProjectRefusal(filePath);
+	}
 	const entry = cachedPackage(filePath);
 	entry.cfb ??= entry.container.vbaCfb();
 	entry.project ??= VbaProject.parse(entry.cfb);
@@ -299,6 +258,9 @@ function openWorkbook(filePath: string): OpenWorkbook {
 
 /** Fresh parse for mutating operations; never aliases the shared cache. */
 function openWorkbookForWrite(filePath: string): OpenWorkbook {
+	if (isVb6ProjectPath(filePath)) {
+		throw vb6ProjectRefusal(filePath);
+	}
 	const container = openMacroContainer(fs.readFileSync(filePath));
 	if (!container.writable) {
 		throw new Error(`${path.basename(filePath)} is ${container.description}.`);
@@ -342,40 +304,50 @@ export function resetWorkbookCacheForTests(): void {
 /** Write the mutated VBA project back into the container, atomically. */
 function saveWorkbook(filePath: string, wb: OpenWorkbook): void {
 	wb.project.save(wb.cfb);
-	atomicWrite(filePath, wb.container.toFileBytes(wb.cfb));
+	atomicWorkbookWrite(filePath, wb.container.toFileBytes(wb.cfb));
 }
 
-export function atomicWrite(filePath: string, data: Buffer): void {
-	const dir = path.dirname(path.resolve(filePath));
-	const tmp = path.join(dir, `.xlide-${process.pid}-${Date.now()}.tmp`);
-	try {
-		fs.writeFileSync(tmp, data);
-		try {
-			// Preserve the original file mode; a fresh temp file would otherwise
-			// narrow permissions on POSIX.
-			const stat = fs.statSync(filePath);
-			fs.chmodSync(tmp, stat.mode);
-		} catch { /* new file: keep the default mode */ }
-		fs.renameSync(tmp, filePath);
-	} catch (err) {
-		try { fs.unlinkSync(tmp); } catch { /* nothing to clean up */ }
-		throw err;
-	}
-	// Every in-process mutation funnels through here, so this is the one place
-	// cache invalidation cannot be forgotten. (A caller-supplied path with
-	// different casing would miss this delete; the per-call mtime check still
-	// catches that, so a stale entry can cost a re-parse but never stale data.)
+/**
+ * Every in-process workbook mutation lands through here, so this is the one
+ * place cache invalidation cannot be forgotten. (A caller-supplied path with
+ * different casing would miss this delete; the per-call mtime check still
+ * catches that, so a stale entry can cost a re-parse but never stale data.)
+ */
+function atomicWorkbookWrite(filePath: string, data: Buffer): void {
+	atomicWrite(filePath, data);
 	workbookCache.delete(filePath);
 }
 
 // ------------------------------------------------------------------ read API
 
+/** A VB6 module entry in the workbook vocabulary. */
+function vb6ModuleEntry(entry: Vb6ModuleEntry): ModuleEntry {
+	const out: ModuleEntry = { name: entry.name, type: entry.type, filePath: entry.filePath };
+	if (entry.source !== undefined) { out.source = entry.source; }
+	if (entry.implicitMembers) { out.implicitMembers = entry.implicitMembers; }
+	if (entry.predeclaredId !== undefined) { out.predeclaredId = entry.predeclaredId; }
+	return out;
+}
+
+function vb6ProjectRefusal(filePath: string): Error {
+	return new Error(
+		`${path.basename(filePath)} is a Visual Basic 6 project: its modules are files beside it, `
+		+ 'and this workbook operation has no meaning for them.',
+	);
+}
+
 export function listModules(filePath: string): ModuleEntry[] {
+	if (isVb6ProjectPath(filePath)) {
+		return listVb6Modules(filePath).map(vb6ModuleEntry);
+	}
 	const { cfb, project } = openWorkbook(filePath);
 	return project.modules.map((module) => moduleEntryWithDesigner(cfb, project, module));
 }
 
 export function readModules(filePath: string, full = false): ModuleEntry[] {
+	if (isVb6ProjectPath(filePath)) {
+		return readVb6Modules(filePath, full).map(vb6ModuleEntry);
+	}
 	const { cfb, project } = openWorkbook(filePath);
 	const out: ModuleEntry[] = [];
 	for (const module of project.modules) {
@@ -461,6 +433,9 @@ function moduleEntryWithDesigner(cfb: Cfb, project: VbaProject, module: VbaModul
 }
 
 export function readModule(filePath: string, moduleName: string, full = false): { source: string } {
+	if (isVb6ProjectPath(filePath)) {
+		return { source: readVb6Module(filePath, moduleName, full).source ?? '' };
+	}
 	const { project } = openWorkbook(filePath);
 	const module = project.getModule(moduleName);
 	if (!module) {
@@ -1111,39 +1086,26 @@ function readDesignerStorage(
 }
 
 export function listSubs(filePath: string, moduleName: string): ProcedureEntry[] {
-	const { source } = readModule(filePath, moduleName, true);
-	const { body } = splitVbaSource(source);
-	const out: ProcedureEntry[] = [];
-	PROC_RE.lastIndex = 0;
-	let m: RegExpExecArray | null;
-	// Line numbers come from one forward pass. Counting them per match with
-	// `body.slice(0, m.index).split('\n')` re-walked the module from the start
-	// every time - quadratic, and on a 26,000-line class it made expanding the
-	// module in the explorer cost about 370 ms of which 1.5 ms was the search.
-	// Matches arrive in increasing order, so each character is counted once.
-	let scanned = 0;
-	let line = 1;
-	while ((m = PROC_RE.exec(body)) !== null) {
-		for (; scanned < m.index; scanned += 1) {
-			if (body.charCodeAt(scanned) === 10) {
-				line += 1;
-			}
-		}
-		out.push({
-			name: m[2],
-			kind: m[1].replace(/\s+/g, ' ').trim(),
-			line,
-		});
+	if (isVb6ProjectPath(filePath)) {
+		return listVb6Procedures(filePath, moduleName);
 	}
-	return out;
+	const { source } = readModule(filePath, moduleName, true);
+	return listProcedures(splitVbaSource(source).body);
 }
 
 export function getProtectionInfo(filePath: string): ProtectionInfo {
+	if (isVb6ProjectPath(filePath)) {
+		// Files on disk: nothing to lock and nothing to sign.
+		return { isPasswordProtected: false, isSigned: false };
+	}
 	const { cfb, project } = openWorkbook(filePath);
 	return { isPasswordProtected: project.hasPassword, isSigned: detectSignature(cfb).present };
 }
 
 export function getModulesAndProtectionInfo(filePath: string): ProtectionInfo & { modules: ModuleEntry[] } {
+	if (isVb6ProjectPath(filePath)) {
+		return { modules: listModules(filePath), isPasswordProtected: false, isSigned: false };
+	}
 	const { cfb, project } = openWorkbook(filePath);
 	return {
 		modules: project.modules.map(moduleEntry),
@@ -1163,6 +1125,9 @@ export function getWorkbookInfo(filePath: string): {
 	isPasswordProtected: boolean;
 	isSigned: boolean;
 } {
+	if (isVb6ProjectPath(filePath)) {
+		return { sheets: [], namedRanges: [], modules: listModules(filePath), isPasswordProtected: false, isSigned: false };
+	}
 	const { container, cfb, project } = openWorkbook(filePath);
 	// Only the OOXML Excel container has a READABLE sheet surface (.xlsb
 	// keeps a binary workbook part); for every other shape the modules and
@@ -1193,6 +1158,9 @@ export function readFormulas(filePath: string, sheet: string, range: string): { 
  * readable stream, names must be unique, and the PROJECT stream must agree.
  */
 export function validateWorkbook(filePath: string): { issues: string[] } {
+	if (isVb6ProjectPath(filePath)) {
+		return validateVb6Project(filePath);
+	}
 	const issues: string[] = [];
 	let wb: OpenWorkbook;
 	try {
@@ -1270,6 +1238,10 @@ export function writeModule(
 	source: string,
 	kind: 'standard' | 'class' = 'standard',
 ): WriteResult {
+	if (isVb6ProjectPath(filePath)) {
+		writeVb6Module(filePath, moduleName, source);
+		return { ok: true, signatureDropped: false };
+	}
 	// Callers may pass a bare body or a full export; strip any incoming header
 	// so the workbook's own header is always the one that persists.
 	const { body } = splitVbaSource(source);
@@ -1291,6 +1263,9 @@ export function writeModule(
 }
 
 export function renameModule(filePath: string, moduleName: string, newName: string): WriteResult {
+	if (isVb6ProjectPath(filePath)) {
+		throw new Error(`Renaming a module of a VB6 project is not supported yet; rename ${moduleName} in the .vbp and its file.`);
+	}
 	const wb = openWorkbookForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
 	assertFoldedNameDistinct(wb.project.modules, wb.project.codePage, newName, moduleName);
@@ -1300,6 +1275,9 @@ export function renameModule(filePath: string, moduleName: string, newName: stri
 }
 
 export function deleteModule(filePath: string, moduleName: string): WriteResult {
+	if (isVb6ProjectPath(filePath)) {
+		throw new Error(`Deleting a module of a VB6 project is not supported yet; remove ${moduleName} from the .vbp and delete its file.`);
+	}
 	const wb = openWorkbookForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
 	wb.project.deleteModule(moduleName);

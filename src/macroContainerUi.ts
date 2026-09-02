@@ -8,12 +8,18 @@
 
 import { hostTokenForFileName, type VbaHostToken } from './analyzer/host/hostRegistry';
 
-/** Every macro-container extension the engine reads, lowercase, no dot. */
+/**
+ * Every macro-container extension the engine reads, lowercase, no dot. The
+ * VB6 project manifest is listed with them: it is not an Office container,
+ * but it is a file the engine answers module questions for, and discovery
+ * is where "the workspace's projects" is decided.
+ */
 export const MACRO_CONTAINER_EXTENSIONS = [
 	'xlsm', 'xlsb', 'xlam', 'xltm', 'xls', 'xlt', 'xla',
 	'docm', 'dotm', 'doc', 'dot',
 	'pptm', 'potm', 'ppsm', 'ppam', 'ppt', 'ppa',
 	'accdb', 'accda', 'mdb', 'mda',
+	'vbp',
 ] as const;
 
 /** Every macro container the engine reads, for workspace discovery. */
@@ -38,18 +44,27 @@ export function isExcelContainerPath(fsPath: string): boolean {
 	return containerHostForPath(fsPath) === 'excel';
 }
 
+/** A VB6 project: modules are the files on disk, not streams in a container. */
+export function isVb6ProjectPath(fsPath: string): boolean {
+	return containerHostForPath(fsPath) === 'vb6';
+}
+
 /** The application display name for user-facing messages about a container. */
 export function containerAppNameForPath(fsPath: string): string {
 	switch (containerHostForPath(fsPath)) {
 		case 'word': return 'Word';
 		case 'powerpoint': return 'PowerPoint';
 		case 'access': return 'Access';
+		case 'vb6': return 'Visual Basic 6';
 		default: return 'Excel';
 	}
 }
 
 /** The tree item context value that gates a workbook node's menu surface. */
-export function containerContextValue(fsPath: string): 'xlsm' | 'macroDocument' | 'macroReadOnly' {
+export function containerContextValue(fsPath: string): 'xlsm' | 'macroDocument' | 'macroReadOnly' | 'vb6Project' {
+	if (isVb6ProjectPath(fsPath)) {
+		return 'vb6Project';
+	}
 	if (isReadOnlyContainerPath(fsPath)) {
 		return 'macroReadOnly';
 	}

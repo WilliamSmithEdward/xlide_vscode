@@ -1,0 +1,281 @@
+# XLIDE Roadmap: VB6 Support
+
+Classic Visual Basic 6 projects become first-class in XLIDE: a `.vbp` shows in
+the tree like a workbook, its `.bas`/`.cls`/`.frm` files get the same language
+services VBA has (completion, hover, signature help, navigation, diagnostics),
+its forms open in a designer, and a developer-only twinBASIC oracle keeps the
+analyzer honest where no VB6 install exists to ask. This roadmap names the
+complete system, the vertical slices that build it, the evidence each slice
+must produce, and the risks. It follows the owner's decisions of 2026-09-02:
+
+- Strict VB6. twinBASIC's language extensions are out of scope.
+- No `VB6.OLB` is available. The `VB` library model comes from documents and
+  from twinBASIC, carried as reported evidence with its gaps preserved.
+- A `.vbp` project shows in the XLIDE tree like the workbooks do; its files are
+  edited as the plain text they already are.
+- Forms get a designer, after they are first readable.
+- twinBASIC is a developer oracle only: never bundled, never in a runtime path.
+- First increment covers `.bas`, `.cls`, `.frm`; other module kinds are
+  recognized in the manifest and left opaque.
+- Reference material stays in this repository.
+- Fixtures come from open-source VB6 codebases with clear licenses.
+
+The evidence discipline is the repository's own (`xlide_development_principles.md`):
+deterministic logic, no guessed diagnostics, a hard diagnostic only when proven,
+and provenance recorded for every host fact. VB6 raises the bar on provenance,
+because the two authorities that exist for it, Microsoft's archived
+documentation and twinBASIC, are both documents about the runtime rather than
+the runtime itself.
+
+## The intended complete system
+
+| Surface | VBA today | VB6 at the end of this roadmap |
+| --- | --- | --- |
+| Container | Office file with an MS-OVBA project inside | `.vbp` manifest over loose text files |
+| Tree | file, modules, procedures | project, modules (kind from the manifest), procedures |
+| Editing | `xlide://` virtual documents written back to the container | the native `.bas`/`.cls`/`.frm` files |
+| Host model | Excel, Word, PowerPoint, Access, MSForms | `VBA` + `VBRUN` from the runtime's own type libraries, `VB` from documents and twinBASIC |
+| Forms | MS-OFORMS engine, designer over the binary storage | VB6 forms engine over text `.frm` plus `.frx`, designer as a custom editor over the real file |
+| Oracle | Excel/VBE harness (`syntax_corpus/oracle`) | twinBASIC harness beside it, verdicts typed `twinbasic-oracle-verified` |
+| Run | F5 into Excel | deferred: opt-in build through a configured twinBASIC once its CLI is finished |
+
+## What is already in place (measured 2026-09-02)
+
+- MS-VBAL covers the VB6 grammar including `Load`, `Unload`, `Implements`,
+  `Event`, `RaiseEvent`, `Declare`. A VB6 form's code-behind with control arrays
+  (`Command1(1)`, `Load Command1(1)`), `App`, `Screen`, `Printer`, `Clipboard`,
+  `WithEvents` and `Timer1_Timer` analyzes with zero syntax rejections when the
+  controls are supplied as implicit members.
+- `splitFrmSource` accepts a real VB6 `.frm` (`VERSION 5.00`, `Begin VB.Form`)
+  and returns the code-behind cleanly.
+- The host registry treats a named host with no model as "assert nothing", so a
+  `vb6` token is safe before its model exists.
+- `msvbvm60.dll` (shipped with Windows, present in `SysWOW64`) carries the
+  `VBA` type library (resource 1, 29 types) and the `VBRUN` type library
+  (resource 3, 96 types); both load with the pythoncom extractor already used for
+  Excel. Neither contains `App`, `Screen`, `Printer`, `Clipboard`, `Forms` or the
+  intrinsic controls: those are `VB6.OLB`, which is not on this machine.
+- The `TWINBASIC` conditional constant is already modeled.
+- Import/export already treats a folder of `.bas`/`.cls`/`.frm` as a first-class
+  counterpart.
+
+## Measured gaps the slices must close
+
+- `hasAuthoritativeDesignerHeader` and `parseUserFormControls` fail on a real
+  VB6 form: the fixture's `BeginProperty Font ... EndProperty` blocks are neither
+  `Begin` nor `End` nor `name = value`, so the gate answers "not authoritative"
+  and the control list comes back empty. The synthetic probe passed only because
+  it had no property blocks.
+- `.frx` references take the form `Caption = $"Form1.frx":0000` (a `$` prefix on
+  string-valued blobs) and the blob itself is length-prefixed
+  (`8f 00 00 00` then 143 bytes of text in the fixture). Pictures, icons, list
+  contents and long strings all live there. There is no Microsoft specification;
+  the layout is measured from fixtures, the way MS-OFORMS gaps were.
+- `controlTypeFor` maps only `Forms.*` prog ids to `MSForms.*`; `VB.*` passes
+  through untyped, so nothing is known about a VB6 control's members.
+- twinBASIC's `VB` package documents 6 objects and 29 controls. Four of the
+  controls are twinBASIC's own (`CheckMark`, `MultiFrame`, `QRCode`, `Report`) and
+  must be excluded from a strict-VB6 model; `OLE` is marked a "compatibility
+  stub, mostly unimplemented"; `App` marks `LogEvent`, `StartLogging`,
+  `StartMode`, `TaskVisible`, `UnattendedApp` and others as "reserved for
+  compatibility with VB6; not currently implemented".
+
+## Slice 1: a VB6 project in the tree
+
+The `.vbp` is the container. It is a text manifest; keys observed in the first
+fixture: `Type`, `Form`, `Module`, `Reference`, `ResFile32`, `IconForm`,
+`Startup`, `Title`, `ExeName32`, `Name`, `Description`, `CompatibleMode`,
+`MajorVer`/`MinorVer`/`RevisionVer`, and the compiler switches. `Class`,
+`UserControl`, `PropertyPage`, `Designer`, `RelatedDoc`, `Object` and the
+`[MS Transaction Server]` section are documented shapes to be confirmed against
+the wider fixture set before they are relied on.
+
+- [ ] `src/vba/vb6/vbpProject.ts`: parse the manifest into a project model
+      (kind of project, module list with kind and file path, references,
+      objects, startup). Every key not understood is preserved verbatim; the
+      parser never invents a module the manifest does not name.
+- [ ] Project discovery beside the workbook glob, a tree node per `.vbp`, module
+      nodes from the manifest (`standard`, `class`, `userform`; the opaque kinds
+      shown with their manifest name and no children), procedure nodes from the
+      existing source scan. Clicking opens the native file.
+- [ ] `hostTokenForFileName` answers `vb6` for `.vbp`, and for `.bas`/`.cls`/`.frm`
+      that belong to a discovered project; `VbaHostToken` gains `vb6`, registered
+      with the empty model until Slice 3.
+- [ ] Fixtures under `tests/fixtures/vb6/<project>/`, each with its upstream
+      `LICENSE` and a `NOTICE.md` naming the source commit; first set from the
+      MIT-licensed candidates already inventoried (`fafalone/RunAsTrustedInstaller`,
+      `Gagniuc/Diabetes-prediction-1.0`, `RZulu54/ChessBrainVB`,
+      `opensoldat/polyworks`, `Sibra-Soft/audiostation`). The license text is
+      read, not inferred from GitHub's detection, before a file is vendored.
+- [ ] `docs/architecture.md`: container table row, tree row, and a "Files to
+      keep up to date" row for VB6 projects.
+
+Definition of done: every vendored `.vbp` loads; the tree shows its modules
+with the right kinds; a manifest key the parser does not know survives a
+parse-and-print round trip; tests cover a malformed manifest, a missing file,
+and the opaque kinds.
+
+## Slice 2: VB6 forms readable
+
+- [ ] A VB6 `.frm` header parser (`src/vba/vb6/frmHeader.ts`) that understands
+      `Begin <ProgId> <Name>` nesting, `BeginProperty`/`EndProperty` blocks,
+      trailing comments after values (`0   'False`), `Index` on control-array
+      members, and both `"file.frx":offset` and `$"file.frx":offset` references.
+      It replaces the `Forms.*`-only path in `vbaUserFormControls.ts` for VB6
+      files rather than sitting beside it.
+- [ ] A printer that reproduces the header byte for byte from the parsed tree,
+      pinned on every fixture form (the same byte-identity oracle the OFORMS
+      engine uses).
+- [ ] An `.frx` reader for referenced blobs, measured on fixtures: string blobs,
+      pictures, list contents. Unreferenced bytes are preserved untouched.
+- [ ] `controlTypeFor` and the implicit-member path type `VB.*` controls; a form
+      module's `Me` resolves as `combined:<form>|VB.Form`.
+
+Definition of done: every fixture `.frm` parses and prints back identical; the
+analyzer reports no `undeclared-variable` on any fixture code-behind with the
+header-supplied controls; a mutation that drops the nested controls fails the
+tests.
+
+## Slice 3: the `vb6` host model
+
+- [ ] `VBA` and `VBRUN` generated from `msvbvm60.dll` resources 1 and 3 through
+      the existing extractor path (`scripts/generate-host-object-model.mjs` and
+      the pythoncom typelib dumper), landing as `src/analyzer/host/vb6ObjectModelData.ts`
+      with `source: "typelib"`.
+- [ ] The `VB` library transcribed from twinBASIC's package documentation
+      (`docs.twinbasic.com/tB/Packages/VB/`), filtered to VB6's real surface,
+      with each member carrying `source: "twinbasic-docs"` and any "reserved"
+      or "unimplemented" flag preserved; cross-read against the archived
+      Microsoft pages (App, Screen, Printer, Clipboard, the control pages) with
+      disagreements recorded rather than resolved by preference.
+- [ ] Globals: `App`, `Screen`, `Printer`, `Printers`, `Clipboard`, `Forms`, and
+      the `Global` members (`Load`, `Unload`, `LoadPicture`, `SavePicture`,
+      `LoadResString`, `LoadResPicture`, `LoadResData`).
+- [ ] Analyzer semantics for control arrays: `Ctl(i)` yields the control's type,
+      event handlers carry `Index As Integer`, `Load`/`Unload` accept an
+      indexed control.
+- [ ] Diagnostic policy: the `VB` model is reported evidence, so it drives
+      completion, hover and signature help, and it never produces a red on its
+      own. `member-not-found` on a `VB.*` type stays quiet until Slice 4 has
+      confirmed the member's absence.
+
+Definition of done: completion on `App.`, `Screen.`, `Printer.`, `Me.` and on
+every intrinsic control type in the fixtures; hover shows provenance; the
+fixture code-behind produces no diagnostics that the fixtures' own authors would
+call wrong (each fixture is a negative control).
+
+## Slice 4: the twinBASIC oracle
+
+twinBASIC is a superset with published incompatibilities, so a verdict from it
+is typed evidence about twinBASIC and inferred evidence about VB6. The harness
+records that, never "VB6-accepted".
+
+- [ ] `syntax_corpus/oracle/twinbasic/`: a runner shaped like
+      `run_excel_vbe_oracle.mjs` and a worker that stages a case as a VB6
+      project in a scratch folder, imports it (`bin\twinBASIC_win64.exe import
+      "<out.twinproj>" "<folder>" --overwrite`), builds it
+      (`twinBASIC.exe "<proj>" --buildAndExit64`), and reads the outcome from the
+      compiler's own markers (`* BUILD SUCCESSFUL *`, `*** BUILD FAILURE ***`)
+      and its diagnostics. The twinBASIC location comes from an environment
+      variable; nothing is bundled. A watchdog bounds every run and kills only
+      the processes the worker spawned.
+- [ ] Case provenance `twinbasic-oracle-verified`, evidence phase `compile`, and
+      the same `accepted`/`rejected` vocabulary as the VBE corpus.
+- [ ] A parity report: the existing 418 VBE-verified cases run through
+      twinBASIC, giving a measured agreement matrix. That number is the fidelity
+      the `VB` model and every VB6 diagnostic inherit.
+- [ ] Surface extraction: a language-server client (`--lspPort`) asking hover
+      and completion over a project that references `VB`, diffed against the
+      Slice 3 transcription. Members the server does not know are flagged in the
+      model; members it knows and the docs do not are recorded, not added.
+
+Definition of done: the harness runs end to end on the fixture projects; the
+parity matrix is in `docs/`; the `VB` model carries a per-member flag from the
+diff; oracle runs stay sequential and out of `npm test`.
+
+## Slice 5: the VB6 forms designer
+
+The document is the `.frm` itself. The designer is a custom editor over the
+real file, the pattern the OFORMS designer already uses over its document:
+gestures rewrite the header block, the code-behind is untouched, the tab carries
+the dirty dot, Ctrl+Z is text undo, and save writes the file.
+
+- [ ] Canvas rendering for the intrinsic control set in twips, from the Slice 2
+      tree and the Slice 3 property surface; menus (`Begin VB.Menu`) rendered as
+      a menu bar; MDI forms recognized and shown as a plain form until MDI has
+      its own treatment.
+- [ ] Designer ops on the text tree: add, move, resize, remove, reparent,
+      z-order (block order), tab order, control arrays (`Index`), properties
+      pane driven by the `VB` model.
+- [ ] `.frx` writes for the blob kinds the reader measured; anything unmeasured
+      is refused with the reason, never guessed.
+- [ ] Byte identity on save when nothing changed, and diffs confined to the
+      header when something did, pinned on every fixture.
+
+Definition of done: every fixture form opens, round-trips identically, survives
+each gesture with a header-only diff, and reopens in twinBASIC's own IDE with
+the same control tree (the only external designer available to check against).
+
+## Slice 6: build and run (deferred)
+
+twinBASIC's command-line build exists (`--buildAndExit32`/`--buildAndExit64`
+on `twinBASIC.exe` in beta 983) but the finished form is still open
+(twinbasic/twinbasic#508). When it lands, an opt-in "Build with twinBASIC"
+command through a configured path, the way Excel is invoked for tests. Not
+before.
+
+## Risks
+
+- **Fidelity without VB6.** No VB6 exists here to ask. Every `VB` fact is
+  reported, and the oracle is a superset. Mitigation: provenance on every
+  member, the parity matrix as a published number, and no red diagnostic from
+  the `VB` model alone.
+- **`.frx` is undocumented.** Mitigation: fixtures first, byte identity on
+  untouched bytes, refusal on unmeasured blob kinds.
+- **License diligence.** Mitigation: the license text read before vendoring, an
+  attribution file per fixture, and no fixture from a repository without one.
+- **Scope creep into twinBASIC's dialect.** Mitigation: the four twinBASIC-only
+  controls and every extension are excluded by name; a case that only twinBASIC
+  accepts is recorded as such and does not move the VB6 model.
+- **The beta compiler in the repository.** It is git-ignored (`/twinBASIC*/`)
+  and excluded from the package (`twinBASIC*/**`); the harness finds it through
+  an environment variable so a clone without it still tests green.
+
+## References
+
+- [MS-VBAL] (`docs/[MS-VBAL].pdf`, 2025-05-18 build; also online under
+  learn.microsoft.com/openspecs): the grammar, including `Load`, `Unload`,
+  `Implements`, `Event`, `RaiseEvent`, `Declare`.
+- Microsoft's archived Visual Basic 6.0 documentation
+  (`learn.microsoft.com/en-us/previous-versions/visualstudio/visual-basic-6/`):
+  the Documentation Map `aa232759`, the Reference (one alphabetical tree, e.g.
+  App Object `aa267182`, Clipboard Object `aa267187`, CommandButton Control
+  `aa267189`, Controls Collection `aa445317`), and the appendix "Visual Basic
+  Specifications, Limitations, and File Formats" `aa733725` with Project File
+  Formats `aa241721` and Form Structures `aa241723`. Pages are `NOINDEX` but
+  fetch normally; the source archive is not on GitHub, so transcription is a
+  per-page crawl driven by the archive's `toc.json`.
+- twinBASIC documentation (`docs.twinbasic.com`): FAQ (compatibility scope and
+  known gaps), the `VB`, `VBA` and `VBRUN` package pages with per-member
+  signatures and "reserved for compatibility" flags.
+- `msvbvm60.dll` type libraries `VBA` and `VBRUN` (Windows-shipped).
+- Rubberduck's `VBAParser.g4` (ANTLR, "based on MS VBAL", GPLv3): a grammar to
+  read against, not to copy from.
+- Community `.frx` notes (vb-decompiler.org and forum threads): orientation
+  only; nothing in them is treated as verified.
+
+## Files to keep up to date
+
+| Change | Files to touch |
+| --- | --- |
+| VB6 project container | `src/vba/vb6/vbpProject.ts`, `src/macroContainerUi.ts` (discovery, context values), `src/analyzer/host/hostRegistry.ts` (`vb6` token), `tests/fixtures/vb6/**` with `LICENSE` and `NOTICE.md`, `tests/vb6Project.test.ts`, `docs/architecture.md` |
+| VB6 form header / `.frx` | `src/vba/vb6/frmHeader.ts`, `src/vba/vb6/frx.ts`, `src/vbaUserFormControls.ts`, `tests/vb6Forms.test.ts`, `docs/architecture.md` |
+| `vb6` host model | `src/analyzer/host/vb6ObjectModel.ts` and generated `vb6ObjectModelData.ts`, the generator under `scripts/`, `tests/vbaHostModels.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum), `docs/architecture.md` |
+| twinBASIC oracle | `syntax_corpus/oracle/twinbasic/**`, `package.json` (`test:oracle:twinbasic`), `docs/` parity report, `xlide_development_principles.md` (oracle usage) |
+| VB6 forms designer | `src/vb6FormDesigner.ts` and the canvas beside `src/vba/oforms/preview.ts`, `package.json` (custom editor), `tests/vb6Designer.test.ts`, `docs/architecture.md` |
+
+## Releases
+
+Slices 1 to 3 ship as 5.1.0: projects in the tree, forms readable, language
+services with the `vb6` model. Slice 4 ships when its parity report exists.
+Slice 5 ships as its own minor release.

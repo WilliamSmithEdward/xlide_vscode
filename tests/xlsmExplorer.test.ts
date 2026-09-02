@@ -25,6 +25,44 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
 import { XlsmExplorer } from '../src/xlsmExplorer';
 import { MACRO_CONTAINER_GLOB } from '../src/macroContainerUi';
 
+describe('a VB6 project in the explorer', () => {
+    beforeEach(() => {
+        vscodeMock.findFiles.mockReset();
+        vscodeMock.showErrorMessage.mockReset();
+        vscodeMock.treeEvents = [];
+        vscodeMock.findFiles.mockResolvedValue([
+            { scheme: 'file', fsPath: 'C:\\work\\App.vbp' },
+        ]);
+    });
+
+    it('lists the .vbp at the root, its modules with their files, and no designer row', async () => {
+        const explorer = new XlsmExplorer(fakeBridge(
+            [
+                { name: 'Form1', type: 'userform', filePath: 'C:\\work\\Form1.frm' },
+                { name: 'modMain', type: 'standard', filePath: 'C:\\work\\modMain.bas' },
+                { name: 'ctxThing', type: 'usercontrol', filePath: 'C:\\work\\ctxThing.ctl' },
+            ],
+            [{ name: 'Form_Load', kind: 'Sub', line: 12 }],
+        ));
+
+        const [project] = await explorer.getChildren();
+        expect(project).toMatchObject({ kind: 'xlsm', label: 'App.vbp', filePath: 'C:\\work\\App.vbp' });
+        expect(explorer.getTreeItem(project).contextValue).toBe('vb6Project');
+
+        const modules = await explorer.getChildren(project);
+        expect(modules.map((m) => [m.moduleName, m.moduleType, m.moduleFilePath])).toEqual([
+            ['Form1', 'userform', 'C:\\work\\Form1.frm'],
+            ['modMain', 'standard', 'C:\\work\\modMain.bas'],
+            ['ctxThing', 'usercontrol', 'C:\\work\\ctxThing.ctl'],
+        ]);
+
+        // A VB6 form's designer is not the workbook designer: no row for it.
+        const children = await explorer.getChildren(modules[0]);
+        expect(children.map((c) => c.kind)).toEqual(['sub']);
+        expect(children[0]).toMatchObject({ moduleName: 'Form1', line: 12 });
+    });
+});
+
 describe('XlsmExplorer', () => {
     beforeEach(() => {
         vscodeMock.findFiles.mockReset();
@@ -443,7 +481,7 @@ describe('XlsmExplorer transient load failures', () => {
 });
 
 function fakeBridge(
-    modules: Array<{ name: string; type: string }> = [],
+    modules: Array<{ name: string; type: string; filePath?: string }> = [],
     subs: Array<{ name: string; kind: string; line: number }> = [],
 ) {
     return {

@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import { findMacroContainerFiles } from './macroContainerDiscovery';
+import { MACRO_CONTAINER_GLOB } from './macroContainerUi';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import {
@@ -222,7 +223,9 @@ function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRe
             }
         }),
         (() => {
-            const watcher = vscode.workspace.createFileSystemWatcher('**/*.{xlsm,xlsb,xlam}');
+            // The same glob discovery uses, so a project the tree lists is one the
+            // sidebar notices arriving and leaving.
+            const watcher = vscode.workspace.createFileSystemWatcher(MACRO_CONTAINER_GLOB);
             watcher.onDidCreate(workbookFilesChanged);
             watcher.onDidDelete(workbookFilesChanged);
             return watcher;
