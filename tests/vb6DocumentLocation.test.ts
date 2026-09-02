@@ -9,6 +9,7 @@ import { vbaHeaderBlockEnd } from '../src/vbaSourceScan';
 import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
 import { ownersFromListings, setVb6ModuleOwnersForTests } from '../src/vb6ProjectLocator';
 import { moduleDocumentUri, moduleLocationOfDocument } from '../src/vbaDocumentLocation';
+import { workbookIdentityKey } from '../src/workbookIdentity';
 import {
 	isStandaloneVbaDocument,
 	moduleKindFromDocument,
@@ -89,19 +90,31 @@ describe('the designer header, blanked in place', () => {
 describe('which project a file belongs to', () => {
 	it('maps every listed file to its manifest, first manifest winning', () => {
 		const owners = ownersFromListings([
-			{ vbpPath: 'C:\\a\\A.vbp', modules: [
-				{ name: 'Form1', type: 'userform', filePath: 'C:\\a\\Form1.frm' },
-				{ name: 'modShared', type: 'standard', filePath: 'C:\\shared\\modShared.bas' },
+			{ vbpPath: '/a/A.vbp', modules: [
+				{ name: 'Form1', type: 'userform', filePath: '/a/Form1.frm' },
+				{ name: 'modShared', type: 'standard', filePath: '/shared/modShared.bas' },
 			] },
-			{ vbpPath: 'C:\\b\\B.vbp', modules: [
-				{ name: 'modShared', type: 'standard', filePath: 'C:\\SHARED\\modshared.bas' },
+			{ vbpPath: '/b/B.vbp', modules: [
+				{ name: 'modShared', type: 'standard', filePath: '/shared/modShared.bas' },
 				{ name: 'NoFile', type: 'standard' },
 			] },
 		]);
-		const key = (p: string) => (process.platform === 'win32' ? p.toLowerCase() : p);
-		expect(owners.get(key('C:\\a\\Form1.frm'))).toEqual({ vbpPath: 'C:\\a\\A.vbp', moduleName: 'Form1', moduleType: 'userform' });
-		expect(owners.get(key('C:\\shared\\modShared.bas'))?.vbpPath).toBe('C:\\a\\A.vbp');
+		const key = (p: string) => workbookIdentityKey(p);
+		expect(owners.get(key('/a/Form1.frm'))).toEqual({ vbpPath: '/a/A.vbp', moduleName: 'Form1', moduleType: 'userform' });
+		expect(owners.get(key('/shared/modShared.bas'))?.vbpPath).toBe('/a/A.vbp');
 		expect(owners.size).toBe(2);
+	});
+
+	it('folds path case on Windows, where the file system does', () => {
+		if (process.platform !== 'win32') {
+			return;
+		}
+		const owners = ownersFromListings([
+			{ vbpPath: 'C:\\a\\A.vbp', modules: [{ name: 'modShared', type: 'standard', filePath: 'C:\\Shared\\modShared.bas' }] },
+			{ vbpPath: 'C:\\b\\B.vbp', modules: [{ name: 'modShared', type: 'standard', filePath: 'C:\\SHARED\\MODSHARED.BAS' }] },
+		]);
+		expect(owners.size).toBe(1);
+		expect(owners.get(workbookIdentityKey('c:\\shared\\modshared.bas'))?.vbpPath).toBe('C:\\a\\A.vbp');
 	});
 
 	it('answers a document\'s location, name and kind from its owner', () => {

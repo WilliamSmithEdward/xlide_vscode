@@ -68,6 +68,9 @@ export function splitVbaSource(source: string): { header: string; body: string }
  * header.
  */
 export function designerHeaderEnd(text: string): number {
+	if (!/^\s*VERSION\s+\d/i.test(text.slice(0, 64))) {
+		return 0;
+	}
 	const lines = text.split(/(?<=\n)/);
 	let i = 0;
 	while (i < lines.length && lines[i].trim() === '') {

@@ -22,6 +22,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import {
+    XLIDE_SCHEME,
     moduleIdentityKey,
     workbookIdentityKey,
 } from './xlideFileSystem';
@@ -345,6 +346,10 @@ export class VbaProjectIndexService implements vscode.Disposable {
         const location = moduleLocationOfDocument(document);
         if (location) {
             this.invalidate(location.xlsmPath);
+        } else if (document.uri.scheme === XLIDE_SCHEME) {
+            // A virtual document whose URI no longer decodes: nothing says
+            // which workbook it was, so every record is suspect.
+            this._records.clear();
         }
     }
 }

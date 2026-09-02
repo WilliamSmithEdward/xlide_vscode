@@ -1306,7 +1306,7 @@ export function writeCells(
 		);
 	}
 	container.xlsx.writeCells(sheet, startCell, data);
-	atomicWrite(filePath, container.xlsx.toBytes());
+	atomicWorkbookWrite(filePath, container.xlsx.toBytes());
 	return { ok: true };
 }
 
@@ -1318,6 +1318,6 @@ export function writeCells(
  */
 export function createWorkbook(filePath: string, templatePath: string): { ok: true; path: string } {
 	const template = fs.readFileSync(templatePath);
-	atomicWrite(filePath, template);
+	atomicWorkbookWrite(filePath, template);
 	return { ok: true, path: filePath };
 }

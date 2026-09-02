@@ -1,0 +1,10 @@
+# VB6 fixtures are ground truth from Visual Basic 6 itself: CRLF text and
+# binary sidecars, byte for byte. Normalizing them to LF on commit made the
+# Linux checkout differ from the Windows one, and the byte-identity tests
+# with it.
+tests/fixtures/vb6/** -text
+*.frx binary
+*.ctx binary
+*.pgx binary
+*.dsx binary
+*.res binary
