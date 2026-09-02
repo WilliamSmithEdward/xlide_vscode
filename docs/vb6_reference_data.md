@@ -87,6 +87,31 @@ hides:
 - one real VB6 member, `DataMemberChanged`, has no page of its kind in the
   archive and is kept by name (`KNOWN_VB6_MISSING_FROM_ARCHIVE`).
 
+### Cross-read against twinBASIC's own source
+
+The IDE ships the VB compatibility package as a `.twinproj` of MIT-licensed
+twinBASIC source (`packages\{F50B82D0-DCAB-43FE-9631-11959D4A4728}_VB\package.twinproj`).
+Exported with the compiler's CLI, it is the oracle's exact statement of what
+it implements, member by member:
+
+    <ide>\bin\twinBASIC_win64.exe export "<ide>\packages\{F50B82D0-DCAB-43FE-9631-11959D4A4728}_VB\package.twinproj" "<folder>\" --overwrite
+    node scripts/twinbasic-vb-surface.mjs <folder> --ide "twinBASIC v0.15.983 (BETA 983)"
+
+`scripts/twinbasic-vb-surface.mjs` reads the exported `.twin` classes (bases
+by `Inherits`, coclasses by their default interface, `[Unimplemented]` and
+`[Hidden]` attributes, `#If FEATURE_...` guards recorded and treated as on)
+into `reference/vb6/twinbasic-vb-surface.json`; its reader is pinned by
+`tests/twinbasicVbSurface.test.ts`. The transcriber then marks every `VB`
+member with `oracle`: `implemented`, `unimplemented` (declared for VB6
+compatibility, not run) or `absent` (unknown to the package, so no oracle
+verdict can vouch for it), and the generator carries the flag into the
+model as `HostMember.oracle`. `docs/vb6_reference_surface.md` is the
+record: per-class counts, the absent members, where the pages and the
+package disagree on implementation, and the members the package has that
+the pages do not (recorded, never added). This replaces the LSP probing the
+roadmap first proposed: the source says exactly what a hover could only
+sample.
+
 ## Generating the model
 
     node scripts/generate-host-object-model.mjs vb6

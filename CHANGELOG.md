@@ -74,6 +74,22 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
   the UserForm table. The model offers and describes and never produces a
   red on its own.
 
+- **twinBASIC is the VB6 oracle, in two roles.** Its VB compatibility
+  package ships as MIT-licensed twinBASIC source, and reading that export
+  marks every `VB` member in the model with the oracle's own word:
+  implemented, declared for VB6 compatibility but not run, or unknown to it
+  (`docs/vb6_reference_surface.md` is the record, disagreements with the
+  documentation included). And `syntax_corpus/oracle/twinbasic/` builds
+  VBA/VB6 snippets headlessly through twinBASIC's compiler, three instances
+  at a time with controls before and after every batch, reading accepted or
+  rejected from what the IDE does - it prints nothing and stalls on errors
+  by design, so the harness says what it cannot say too. The 418
+  VBE-verified corpus cases run through it agree 356 times (85.2%,
+  `docs/vb6_twinbasic_parity.md`): a twinBASIC rejection matches a VBE
+  rejection in 95 of 98 cases, a twinBASIC acceptance matches in 261 of 320,
+  because twinBASIC accepts 59 constructs the VBE refuses. Developer-only,
+  never in `npm test`, nothing bundled.
+
 ## [5.0.2] - 2026-08-31
 
 - **A container's children were already members; now they are pinned.** #57

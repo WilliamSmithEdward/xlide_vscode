@@ -6,6 +6,7 @@ import { DIAGNOSTIC_RULES, STRUCTURAL_DIAGNOSTIC_RULES } from '../src/analyzer';
 type Provenance =
 	| 'spec-derived'
 	| 'vbe-oracle-verified'
+	| 'twinbasic-oracle-verified'
 	| 'observed-not-asserted'
 	| 'pending-verification';
 
@@ -65,6 +66,7 @@ const corpusRoot = join(process.cwd(), 'syntax_corpus');
 const allowedProvenance: Provenance[] = [
 	'spec-derived',
 	'vbe-oracle-verified',
+	'twinbasic-oracle-verified',
 	'observed-not-asserted',
 	'pending-verification',
 ];

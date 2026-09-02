@@ -100,6 +100,11 @@ function memberOf(ownerName, raw, kind) {
     if (typeof raw.reservedNote === 'string' && raw.reservedNote) {
         member.doc = { ...(member.doc ?? { params: [], source: 'external' }), remarks: raw.reservedNote };
     }
+    // The oracle's own word on the member (vb6: twinBASIC's VB package
+    // source, cross-read by scripts/transcribe-vb6-docs.mjs).
+    if (raw.oracle === 'implemented' || raw.oracle === 'unimplemented' || raw.oracle === 'absent') {
+        member.oracle = raw.oracle;
+    }
     return member;
 }
 

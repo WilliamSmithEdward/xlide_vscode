@@ -153,6 +153,23 @@ describe('the vb6 host model', () => {
 		expect(bare).toBeDefined();
 	});
 
+	it('carries the oracle\'s word on each VB member', () => {
+		// twinBASIC's VB package source, cross-read by the transcriber: the
+		// oracle runs Caption, declares RightToLeft for VB6 compatibility
+		// without running it, and every VB member carries one of the three.
+		const model = getVb6ObjectModel();
+		const button = getHostMembers('VB.CommandButton', model);
+		expect(button.find((m) => m.name === 'Caption')?.oracle).toBe('implemented');
+		expect(button.find((m) => m.name === 'RightToLeft')?.oracle).toBe('unimplemented');
+		expect(button.find((m) => m.name === 'MaskColor')?.oracle).toBe('unimplemented');
+		const statuses = new Set(Object.entries(model.types)
+			.filter(([q]) => q.startsWith('VB.'))
+			.flatMap(([, t]) => t.members.map((m) => m.oracle)));
+		expect([...statuses].sort()).toEqual(['absent', 'implemented', 'unimplemented']);
+		// VBRUN comes from the type library, which no oracle annotates.
+		expect(getHostMembers('VBRUN.DataObject', model).every((m) => m.oracle === undefined)).toBe(true);
+	});
+
 	it('carries a reserved member with its note, and events apart from members', () => {
 		const model = getVb6ObjectModel();
 		const maskColor = getHostMembers('VB.CommandButton', model).find((m) => m.name === 'MaskColor');

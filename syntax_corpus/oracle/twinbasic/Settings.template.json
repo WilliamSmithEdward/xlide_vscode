@@ -1,0 +1,48 @@
+{
+	"configuration.inherits": "Defaults",
+	"project.appTitle": "XlideOracleCase",
+	"project.buildPath": "${SourcePath}\\Build\\${ProjectName}_${Architecture}.${FileExtension}",
+	"project.buildType": "Standard EXE",
+	"project.description": "XLIDE twinBASIC oracle case",
+	"project.exportPathIsV2": true,
+	"project.id": "{EAEAEAEA-EAEA-EAEA-EAEA-EAEAEAEAEA00}",
+	"project.name": "XlideOracleCase",
+	"project.optionExplicit": false,
+	"project.references": [
+		{
+			"id": "{00020430-0000-0000-C000-000000000046}",
+			"lcid": 0,
+			"name": "OLE Automation",
+			"path32": "C:\\Windows\\SysWOW64\\stdole2.tlb",
+			"path64": "C:\\Windows\\System32\\stdole2.tlb",
+			"symbolId": "stdole",
+			"versionMajor": 2,
+			"versionMinor": 0
+		},
+		{
+			"hasBeenSplit": true,
+			"id": "{F50B82D0-DCAB-43FE-9631-11959D4A4728}",
+			"isCompilerPackage": true,
+			"licence": "MIT",
+			"name": "[COMPILER PACKAGE] twinBASIC - VB Compatibility Package (Forms)",
+			"path32": "",
+			"path64": "",
+			"publisher": "TWINBASIC-COMPILER",
+			"symbolId": "VB",
+			"versionBuild": 0,
+			"versionMajor": 0,
+			"versionMinor": 0,
+			"versionRevision": 31
+		}
+	],
+	"project.settingsVersion": 1,
+	"project.startupObject": "Sub Main",
+	"project.warnings": {
+		"errors": [],
+		"hints": [],
+		"ignored": [],
+		"info": [],
+		"warnings": []
+	},
+	"runtime.useUnicodeStandardLibrary": true
+}

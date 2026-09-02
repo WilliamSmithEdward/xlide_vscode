@@ -3,6 +3,7 @@
   "allowedProvenance": [
     "spec-derived",
     "vbe-oracle-verified",
+    "twinbasic-oracle-verified",
     "observed-not-asserted",
     "pending-verification"
   ],

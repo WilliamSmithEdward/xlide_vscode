@@ -200,7 +200,7 @@ twinBASIC is a superset with published incompatibilities, so a verdict from it
 is typed evidence about twinBASIC and inferred evidence about VB6. The harness
 records that, never "VB6-accepted".
 
-- [ ] `syntax_corpus/oracle/twinbasic/`: a runner shaped like
+- [x] `syntax_corpus/oracle/twinbasic/`: a runner shaped like
       `run_excel_vbe_oracle.mjs` and a worker that stages a case as a VB6
       project in a scratch folder, imports it (`bin\twinBASIC_win64.exe import
       "<out.twinproj>" "<folder>" --overwrite`), builds it
@@ -208,20 +208,49 @@ records that, never "VB6-accepted".
       compiler's own markers (`* BUILD SUCCESSFUL *`, `*** BUILD FAILURE ***`)
       and its diagnostics. The twinBASIC location comes from an environment
       variable; nothing is bundled. A watchdog bounds every run and kills only
-      the processes the worker spawned.
-- [ ] Case provenance `twinbasic-oracle-verified`, evidence phase `compile`, and
+      the processes the worker spawned. (Measured departure: the markers and
+      diagnostics never leave the IDE's panels, so the verdict is read from
+      what the IDE does - see the README there.)
+- [x] Case provenance `twinbasic-oracle-verified`, evidence phase `compile`, and
       the same `accepted`/`rejected` vocabulary as the VBE corpus.
-- [ ] A parity report: the existing 418 VBE-verified cases run through
+- [x] A parity report: the existing 418 VBE-verified cases run through
       twinBASIC, giving a measured agreement matrix. That number is the fidelity
       the `VB` model and every VB6 diagnostic inherit.
-- [ ] Surface extraction: a language-server client (`--lspPort`) asking hover
+- [x] Surface extraction: a language-server client (`--lspPort`) asking hover
       and completion over a project that references `VB`, diffed against the
       Slice 3 transcription. Members the server does not know are flagged in the
       model; members it knows and the docs do not are recorded, not added.
+      (Measured departure: the IDE ships the VB package as MIT-licensed
+      twinBASIC source, and its export is the exact surface, `[Unimplemented]`
+      and `[Hidden]` included; `scripts/twinbasic-vb-surface.mjs` reads that
+      instead of sampling a server.)
 
 Definition of done: the harness runs end to end on the fixture projects; the
 parity matrix is in `docs/`; the `VB` model carries a per-member flag from the
-diff; oracle runs stay sequential and out of `npm test`.
+diff; oracle runs stay sequential and out of `npm test`. Met on 2026-09-02,
+with the measured departures recorded above and in
+`syntax_corpus/oracle/twinbasic/README.md`. The parity matrix
+(`docs/vb6_twinbasic_parity.md`, twinBASIC BETA 983, Excel and Office
+referenced): 356 of 418 VBE-verified cases agree at compile time (85.2%),
+with no infrastructure failure. The disagreement runs almost entirely in the
+superset direction: twinBASIC accepts 59 constructs the VBE rejects
+(`Attribute` lines inside procedures, `DoEvents` as a `Call` target, a
+type-declaration character beside an `As` clause, fixed-length strings of
+length 0 or above 65,526, Public `Type`/`Declare`/arrays in a class module,
+`#ElseIf` after `#Else`, duplicate `Case Else`, `Friend`/`Implements`/
+`WithEvents` in a standard module, the VBE's implementation limits on
+arguments, dimensions, identifier and line length, `Exit Sub` inside a
+`Property Let`) and rejects 3 the VBE accepts (a numeric literal default on
+an Optional Long, an over-range `&` literal glued to a string, a `ByVal
+ParamArray`). So a twinBASIC rejection is strong evidence of a VB6
+rejection (95 of 98) and a twinBASIC acceptance is weaker evidence of
+acceptance (261 of 320): the oracle can confirm that a diagnostic is right
+to fire far better than it can confirm that silence is right. Runs are
+sequential per instance and out of `npm test`; the harness runs three
+instances staggered, which is what made the full corpus a ten-minute run.
+Open residual: the compiler's diagnostics never leave the IDE's panels, so
+the verdict has no text or position; reaching them means the compiler's
+websocket protocol, or a twinBASIC change to `--buildAndExit`.
 
 ## Slice 5: the VB6 forms designer
 

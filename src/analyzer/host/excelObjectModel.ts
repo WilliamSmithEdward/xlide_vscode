@@ -68,6 +68,16 @@ export interface HostMember {
 	 * CheckBoxes ...), and a third-party library need not use underscores at all.
 	 */
 	hidden?: boolean;
+	/**
+	 * What the host's oracle can say about this member, when the model has
+	 * one. VB6's oracle is twinBASIC, whose VB package source declares each
+	 * member it implements: `implemented` means the oracle runs it,
+	 * `unimplemented` means the oracle declares it for VB6 compatibility but
+	 * does not run it (the member is still real VB6), and `absent` means the
+	 * oracle does not know it at all, so no verdict from the oracle can vouch
+	 * for the member. Absent for hosts with no oracle.
+	 */
+	oracle?: 'implemented' | 'unimplemented' | 'absent';
 	/** Reference documentation rendered in completion, hover, and call tips. */
 	doc?: VbaDoc;
 }

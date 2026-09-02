@@ -1,7 +1,9 @@
 # Excel/VBE Oracle Harness
 
 This folder contains an optional Windows-only harness that asks a real Excel/VBE
-instance whether small VBA snippets are accepted or rejected.
+instance whether small VBA snippets are accepted or rejected. Its sibling for
+VB6, `twinbasic/`, asks twinBASIC's compiler the same question and has its
+own README.
 
 It is a developer audit tool only. XLIDE production code must stay deterministic
 and must not depend on Excel, COM, Office, or VBE automation at runtime.

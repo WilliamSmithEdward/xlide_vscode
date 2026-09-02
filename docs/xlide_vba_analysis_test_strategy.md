@@ -258,6 +258,16 @@ Important product boundary: XLIDE should remain no-COM/no-Office at runtime.
 Oracle tests are a developer validation tool only; they must never become a
 runtime dependency or a prerequisite for normal local development.
 
+The VB6 side has its own oracle in the same layer: twinBASIC, a
+VB6-compatible compiler, driven by `syntax_corpus/oracle/twinbasic/`
+(`npm run test:oracle:twinbasic`, README there). It answers accepted or
+rejected at compile time only, with no error text, and its verdict is typed
+evidence about twinBASIC and inferred evidence about VB6, never
+"VB6-accepted". `docs/vb6_twinbasic_parity.md` measures how far it agrees
+with the VBE corpus, and that agreement is the fidelity every VB6 diagnostic
+inherits. Same rules as the VBE oracle: Windows only, sequential, nothing
+bundled, never in `npm test`.
+
 ### Why It Should Be Optional
 
 Excel COM tests are useful, but they are also:
