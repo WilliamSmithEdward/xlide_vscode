@@ -114,7 +114,11 @@ export function parseFrmHeader(text: string): FrmHeader | undefined {
 	for (let i = 0; i < all.length; i++) {
 		const line = all[i];
 		header.lines.push(line);
-		consumed += line.length + (i < all.length - 1 ? eol.length : 0);
+		// The offset advances by the line's own newline, whichever it is: a
+		// header spliced in with one convention above code with the other
+		// must still end exactly where its End line does.
+		consumed += line.length;
+		if (i < all.length - 1) { consumed += text.startsWith('\r\n', consumed) ? 2 : 1; }
 		if (i === 0) {
 			continue;
 		}

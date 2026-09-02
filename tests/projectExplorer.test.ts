@@ -41,6 +41,7 @@ describe('a VB6 project in the explorer', () => {
                 { name: 'Form1', type: 'userform', filePath: 'C:\\work\\Form1.frm' },
                 { name: 'modMain', type: 'standard', filePath: 'C:\\work\\modMain.bas' },
                 { name: 'ctxThing', type: 'usercontrol', filePath: 'C:\\work\\ctxThing.ctl' },
+                { name: 'dsrThing', type: 'designer', filePath: 'C:\\work\\dsrThing.dsr' },
             ],
             [{ name: 'Form_Load', kind: 'Sub', line: 12 }],
         ));
@@ -54,6 +55,7 @@ describe('a VB6 project in the explorer', () => {
             ['Form1', 'userform', 'C:\\work\\Form1.frm'],
             ['modMain', 'standard', 'C:\\work\\modMain.bas'],
             ['ctxThing', 'usercontrol', 'C:\\work\\ctxThing.ctl'],
+            ['dsrThing', 'designer', 'C:\\work\\dsrThing.dsr'],
         ]);
 
         // A VB6 form's designer opens over the form's own file; its row sits
@@ -62,9 +64,11 @@ describe('a VB6 project in the explorer', () => {
         expect(children.map((c) => c.kind)).toEqual(['designer', 'sub']);
         expect(children[0]).toMatchObject({ kind: 'designer', moduleName: 'Form1', filePath: 'C:\\work\\App.vbp' });
         expect(children[1]).toMatchObject({ moduleName: 'Form1', line: 12 });
-        // A UserControl has a designer too.
+        // A UserControl has a designer too; an ActiveX Designer (.dsr) does not.
         const controlChildren = await explorer.getChildren(modules[2]);
         expect(controlChildren[0]).toMatchObject({ kind: 'designer', moduleName: 'ctxThing' });
+        const designerChildren = await explorer.getChildren(modules[3]);
+        expect(designerChildren.map((c) => c.kind)).toEqual(['sub']);
     });
 });
 

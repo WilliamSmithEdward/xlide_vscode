@@ -108,7 +108,7 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
   constants in the dropdowns (`vbFixedDialog`, `vbGrayed`) and every value
   spelled as VB6 spells it (`-1  'True`, `3  'Fixed Dialog`, `&H00FF0000&`,
   a Font group in its fixed order). A multi-line Text goes to the sidecar as
-  a new record; nothing else
+  a new record when the form saves; nothing else
   in the sidecar is written. Double-click opens the handler in the code below
   (`Form_Load`, `Timer1_Timer`, `Command1_Click(Index As Integer)` for an
   array). Fifth slice of `docs/roadmap_vb6_support.md`.

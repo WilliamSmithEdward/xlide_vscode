@@ -269,8 +269,9 @@ the dirty dot, Ctrl+Z is text undo, and save writes the file.
       is the design-time set measured per kind on the fixtures, because the
       model's property list is the runtime surface with no design-time flag;
       see below.)
-- [x] `.frx` writes for the blob kinds the reader measured; anything unmeasured
-      is refused with the reason, never guessed.
+- [x] `.frx` writes for the string kinds the reader measured (short and long
+      strings), taken by the sidecar when the document saves; pictures and
+      lists are refused with the reason, never guessed.
 - [x] Byte identity on save when nothing changed, and diffs confined to the
       header when something did, pinned on every fixture.
 
@@ -288,9 +289,11 @@ writes. The model does drive the pane's editors: a property declared as an
 enum whose constants the model holds gets a dropdown of those constants, a
 Boolean gets True/False, and the value the header takes back carries the gloss
 the fixtures measured for it (`3  'Fixed Dialog`) or none. Sidecar writes are one
-measured kind, a string with line breaks, appended in the short or long record
-layout the reader measured; pictures, lists and every other record are read,
-never written. The twinBASIC reopen check is a developer check, not a test:
+measured kind, a string with line breaks, in the short or long record layout
+the reader measured; the records a designer places wait with the document and
+reach the sidecar when it saves, so a document closed unsaved leaves the
+sidecar as it was. Pictures, lists and every other record are read, never
+written, and a gesture that would set one is refused with the reason. The twinBASIC reopen check is a developer check, not a test:
 Slice 4 measured that the IDE imports a `.vbp` only through its own dialogs,
 so the check is opening a fixture project there by hand after a gesture, and it
 was not run in this slice.

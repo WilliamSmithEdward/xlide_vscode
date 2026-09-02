@@ -472,6 +472,10 @@ export function registerFormPreview(
 					const decoded = decodeModuleUri(uri);
 					projectPath = decoded.projectPath;
 					moduleName = decoded.moduleName;
+				} else if (uri.scheme === 'file' && /\.(frm|ctl|pag)$/i.test(uri.fsPath)) {
+					// A VB6 designer's own file: the designer opens over it.
+					await vscode.commands.executeCommand('vscode.openWith', uri, VB6_FORM_DESIGNER_VIEW_TYPE);
+					return;
 				}
 			}
 			if (!projectPath || !moduleName) {

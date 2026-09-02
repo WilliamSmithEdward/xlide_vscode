@@ -295,6 +295,12 @@ export interface FormScene {
 	enums?: Record<string, [string, string][]>;
 	/** Boolean props per `Kind.Prop` (or bare prop), added to the pane's own set. */
 	bools?: string[];
+	/**
+	 * Whether the pane's built-in MSForms enum tables may answer a row by bare
+	 * property name. On by default (an OFORMS form); a VB6 scene turns it off,
+	 * because the same property name holds a different value set there.
+	 */
+	paneBareEnums?: boolean;
 }
 
 export function sceneControl(
@@ -566,6 +572,7 @@ export function renderFormSceneHtml(scene: FormScene, options: FormPreviewOption
 	const defaultEventsJson = JSON.stringify(scene.defaultEvents ?? {}).replace(/</g, '\\u003c');
 	const enumsJson = JSON.stringify(scene.enums ?? {}).replace(/</g, '\\u003c');
 	const boolsJson = JSON.stringify(scene.bools ?? []).replace(/</g, '\\u003c');
+	const bareEnums = scene.paneBareEnums === false ? 'false' : 'true';
 	return `<!DOCTYPE html>
 <html>
 <head>
@@ -999,7 +1006,8 @@ ${interactive ? `	<script>
 				['14', 'Help'], ['15', 'SizeAll'], ['99', 'Custom']],
 			StartUpPosition: [['0', 'Manual'], ['1', 'CenterOwner'], ['2', 'CenterScreen'], ['3', 'WindowsDefault']],
 		}, ${enumsJson});
-		const COLOR_PROPS = new Set(['BackColor', 'ForeColor', 'BorderColor']);
+		const ENUM_FALLBACK = ${bareEnums};
+		const COLOR_PROPS = new Set(['BackColor', 'ForeColor', 'BorderColor', 'FillColor', 'MaskColor']);
 		const SYSTEM_COLORS = ${JSON.stringify(WINDOWS_PALETTE)};
 		// Every face the picker offers: the common Windows set plus whatever
 		// the form already uses, kept when the renderer can actually resolve
@@ -1140,7 +1148,7 @@ ${interactive ? `	<script>
 					post({ type: 'setProp', name: target, prop: row.prop, value });
 				};
 				const kindProp = info.kind + '.' + row.prop;
-				const enumOptions = ENUM_OPTIONS[kindProp] || ENUM_OPTIONS[row.prop];
+				const enumOptions = ENUM_OPTIONS[kindProp] || (ENUM_FALLBACK ? ENUM_OPTIONS[row.prop] : undefined);
 				if (BOOL_PROPS.has(kindProp) || BOOL_PROPS.has(row.prop)) {
 					const pick = document.createElement('select');
 					for (const v of ['True', 'False']) {
@@ -1256,7 +1264,10 @@ ${interactive ? `	<script>
 			const ctl = e.target.closest('.ctl');
 			const name = ctl ? ctl.dataset.name : '';
 			const kind = PROPS[name] ? PROPS[name].kind : '';
-			post({ type: 'openHandler', name, event: DEFAULT_EVENTS[kind] || 'Click' });
+			// A kind the table names with an empty event has no events at all
+			// (a VB6 Line or Shape); the host refuses it by name.
+			const event = Object.prototype.hasOwnProperty.call(DEFAULT_EVENTS, kind) ? DEFAULT_EVENTS[kind] : 'Click';
+			post({ type: 'openHandler', name, event });
 		});
 
 		// Every gesture re-renders the whole page, which reset the snap

@@ -21,6 +21,15 @@ function str(params: Params, key: string): string {
 	return value;
 }
 
+/** A text parameter that may be empty: a blank document is still a document. */
+function text(params: Params, key: string): string {
+	const value = params[key];
+	if (typeof value !== 'string') {
+		throw new ProjectEngineError(`Missing required '${key}' parameter.`, -32602);
+	}
+	return value;
+}
+
 function optionalBool(params: Params, key: string, fallback = false): boolean {
 	const value = params[key];
 	return typeof value === 'boolean' ? value : fallback;
@@ -146,7 +155,12 @@ export class ProjectEngine implements vscode.Disposable {
 			case 'formDesignerOp':
 				return svc.applyFormDesignerOp(str(p, 'path'), str(p, 'module'), p.op as never);
 			case 'vb6FormDesignerOp':
-				return svc.applyVb6FormDesignerOp(str(p, 'path'), str(p, 'text'), p.op as never);
+				return svc.applyVb6FormDesignerOp(str(p, 'path'), text(p, 'text'), p.op as never,
+					typeof p.pendingBytes === 'number' ? p.pendingBytes : 0);
+			case 'vb6AppendSidecar':
+				return svc.appendVb6Sidecar(str(p, 'path'), str(p, 'file'),
+					typeof p.base === 'number' ? p.base : 0,
+					Array.isArray(p.records) ? (p.records as string[]) : []);
 			case 'readFormDesignerSnapshot':
 				return svc.readFormDesignerSnapshot(str(p, 'path'), str(p, 'module'));
 			case 'restoreFormDesignerSnapshot':
@@ -157,9 +171,10 @@ export class ProjectEngine implements vscode.Disposable {
 					typeof p.markup === 'string' ? p.markup : undefined,
 					typeof p.identityPath === 'string' ? p.identityPath : undefined);
 			case 'readVb6FormPreview':
-				return svc.readVb6FormPreview(str(p, 'path'), str(p, 'text'),
+				return svc.readVb6FormPreview(str(p, 'path'), text(p, 'text'),
 					typeof p.selected === 'string' ? p.selected : undefined,
-					typeof p.vbpPath === 'string' ? p.vbpPath : undefined);
+					typeof p.vbpPath === 'string' ? p.vbpPath : undefined,
+					p.pending && typeof p.pending === 'object' ? (p.pending as never) : undefined);
 			case 'readFormMarkup':
 				return svc.readFormMarkup(str(p, 'path'), str(p, 'module'));
 			case 'duplicateFormControls':

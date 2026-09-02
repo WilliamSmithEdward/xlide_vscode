@@ -1,15 +1,18 @@
 // The VB6 form designer: the MSForms designer's canvas over a form's own
 // file. The document IS the .frm (or .ctl, .pag), so there is no scratch
 // copy and no apply. The canvas renders from the document's text; a gesture
-// asks the engine for the header rewritten and lands as one edit at the top
-// of the document, undoable like any edit; a save is the file's own save.
-// The pane below the canvas shows the header as written, and an edit there
-// replaces the header and leaves the code alone.
+// asks the engine for the header rewritten and lands as one edit over the
+// header alone - the span the parser bounds - so the code below is never
+// inside an edit, and text undo is the undo. A save is the file's own save,
+// and the sidecar records a gesture placed (a multi-line Text) go into the
+// .frx right before it, so the file and its sidecar move together. The pane
+// below the canvas shows the header as written, and an edit there replaces
+// the header and leaves the code alone.
 
 import * as vscode from 'vscode';
 import type { ProjectEngine } from './projectEngine';
 import { moduleLocationOfDocument } from './vbaDocumentLocation';
-import { vb6FormHandlerPrefix, vb6HeaderEndOf } from './vba/vb6/frmDesignerOps';
+import { vb6FormHandlerPrefix, vb6HeaderEndOf, vb6PendingRecordsToWrite } from './vba/vb6/frmDesignerOps';
 import { errorMessage } from './util/errors';
 
 export const VB6_FORM_DESIGNER_VIEW_TYPE = 'xlideVb6FormDesigner';
@@ -32,22 +35,82 @@ type DesignerMessage =
 	| { type: 'zOrder'; name: string; toFront: boolean }
 	| { type: 'tabOrder'; container: string; names: string[] };
 
+interface SidecarRecord {
+	file: string;
+	base: number;
+	offset: number;
+	record: string;
+}
+
 interface OpResult {
 	text: string;
+	headerEnd: number;
+	oldHeaderEnd: number;
 	newName?: string;
 	newNames?: string[];
+	sidecar?: SidecarRecord;
 }
+
+/**
+ * Sidecar records a document's designer placed that the file has not taken
+ * yet, keyed by document URI: appended to the sidecar right before the
+ * document saves, dropped when the document closes unsaved. Kept outside
+ * the panel because the document can outlive it.
+ */
+interface PendingSidecar {
+	file: string;
+	base: number;
+	records: string[];
+	/** Each record's offset, as the header spells it in its reference. */
+	offsets: number[];
+	bytes: number;
+}
+
+const pendingSidecars = new Map<string, PendingSidecar>();
 
 export function registerVb6FormDesigner(
 	context: vscode.ExtensionContext,
 	bridge: Pick<ProjectEngine, 'call'>,
 ): void {
+	context.subscriptions.push(
+		vscode.workspace.onWillSaveTextDocument((e) => {
+			const key = e.document.uri.toString();
+			const pending = pendingSidecars.get(key);
+			if (!pending || pending.records.length === 0) { return; }
+			const records = vb6PendingRecordsToWrite(pending.file, pending.records, pending.offsets, e.document.getText());
+			if (records.length === 0) {
+				pendingSidecars.delete(key);
+				return;
+			}
+			e.waitUntil((async (): Promise<vscode.TextEdit[]> => {
+				try {
+					await bridge.call('vb6AppendSidecar', {
+						path: e.document.uri.fsPath,
+						file: pending.file,
+						base: pending.base,
+						records,
+					});
+					pendingSidecars.delete(key);
+				} catch (err) {
+					// The document still saves; the values stay pending for the
+					// next save, and the message says what to do about them.
+					void vscode.window.showErrorMessage(`XLIDE: ${errorMessage(err)}`);
+				}
+				return [];
+			})());
+		}),
+		vscode.workspace.onDidCloseTextDocument((doc) => {
+			pendingSidecars.delete(doc.uri.toString());
+		}),
+	);
+
 	class Vb6FormDesignerProvider implements vscode.CustomTextEditorProvider {
 		async resolveCustomTextEditor(
 			document: vscode.TextDocument,
 			panel: vscode.WebviewPanel,
 		): Promise<void> {
 			const modulePath = document.uri.fsPath;
+			const key = document.uri.toString();
 			const vbpPath = moduleLocationOfDocument(document)?.projectPath;
 			panel.webview.options = { enableScripts: true };
 
@@ -56,6 +119,8 @@ export function registerVb6FormDesigner(
 			let suppressEcho: string | null = null;
 			/** The document text the webview last rendered, to skip repeats. */
 			let lastRenderedText: string | null = null;
+			/** The header text the pane placed last, which need not parse while it is being typed. */
+			let paneHeader: string | null = null;
 			/** All work runs through one lane: edits never interleave. */
 			let queue: Promise<void> = Promise.resolve();
 
@@ -67,15 +132,19 @@ export function registerVb6FormDesigner(
 				});
 			};
 
+			const pendingOf = (): PendingSidecar | undefined => pendingSidecars.get(key);
+
 			const render = async (selected?: string): Promise<void> => {
 				if (disposed) { return; }
 				const text = document.getText();
+				const pending = pendingOf();
 				try {
 					const { html } = await bridge.call<{ html: string }>('readVb6FormPreview', {
 						path: modulePath,
 						text,
 						selected,
 						vbpPath,
+						pending: pending ? { file: pending.file, base: pending.base, records: pending.records } : undefined,
 					});
 					panel.webview.html = html;
 					lastRenderedText = text;
@@ -93,40 +162,54 @@ export function registerVb6FormDesigner(
 			};
 
 			/**
-			 * Replaces the document's text as one edit, touching only the span
-			 * that changed - the header, for a gesture - so a text editor open
-			 * on the same file keeps its place in the code.
+			 * Replaces the document's header - the span [0, end) - with
+			 * `header` as one edit. The code below the header is never in
+			 * the edit, so a text editor open on the same file keeps what it
+			 * typed there meanwhile.
 			 */
-			const setDocumentText = async (text: string, suppress: boolean): Promise<void> => {
+			const replaceHeader = async (end: number, header: string, suppress: boolean): Promise<void> => {
 				const current = document.getText();
-				if (current === text) { return; }
-				let start = 0;
-				while (start < current.length && start < text.length && current[start] === text[start]) { start += 1; }
-				let endOld = current.length;
-				let endNew = text.length;
-				while (endOld > start && endNew > start && current[endOld - 1] === text[endNew - 1]) {
-					endOld -= 1;
-					endNew -= 1;
-				}
-				suppressEcho = suppress ? text : null;
+				if (current.slice(0, end) === header) { return; }
+				suppressEcho = suppress ? header + current.slice(end) : null;
 				const edit = new vscode.WorkspaceEdit();
-				edit.replace(
-					document.uri,
-					new vscode.Range(document.positionAt(start), document.positionAt(endOld)),
-					text.slice(start, endNew),
-				);
+				edit.replace(document.uri, new vscode.Range(document.positionAt(0), document.positionAt(end)), header);
 				const applied = await vscode.workspace.applyEdit(edit);
 				if (!applied) { suppressEcho = null; }
 			};
 
+			/** A record a gesture placed joins the document's pending sidecar. */
+			const takePending = (sidecar: SidecarRecord): void => {
+				const bytes = Buffer.from(sidecar.record, 'base64').length;
+				const pending = pendingOf();
+				if (!pending) {
+					pendingSidecars.set(key, { file: sidecar.file, base: sidecar.base, records: [sidecar.record], offsets: [sidecar.offset], bytes });
+					return;
+				}
+				pending.records.push(sidecar.record);
+				pending.offsets.push(sidecar.offset);
+				pending.bytes += bytes;
+			};
+
 			const applyOp = async (op: Record<string, unknown>, selectAfter: (result: OpResult) => string | undefined): Promise<void> => {
 				try {
+					const text = document.getText();
 					const result = await bridge.call<OpResult>('vb6FormDesignerOp', {
 						path: modulePath,
-						text: document.getText(),
+						text,
 						op,
+						pendingBytes: pendingOf()?.bytes ?? 0,
 					});
-					await setDocumentText(result.text, true);
+					// The gesture rewrote the header of the text it was given. The
+					// document may have moved on below that header meanwhile; only
+					// the header span is replaced, and only while it is still the
+					// header the gesture saw.
+					if (!document.getText().startsWith(text.slice(0, result.oldHeaderEnd))) {
+						await render();
+						return;
+					}
+					if (result.sidecar) { takePending(result.sidecar); }
+					await replaceHeader(result.oldHeaderEnd, result.text.slice(0, result.headerEnd), true);
+					paneHeader = null;
 					await render(selectAfter(result));
 				} catch (err) {
 					void vscode.window.showErrorMessage(`XLIDE: ${errorMessage(err)}`);
@@ -163,19 +246,34 @@ export function registerVb6FormDesigner(
 				}
 			};
 
-			/** The pane's text is the header; the code below it stays. */
+			/**
+			 * The pane's text is the header; the code below it stays. The
+			 * text arrives with the browser's line endings and takes the
+			 * document's, so a CRLF form never gets an LF header.
+			 */
 			const applyMarkupEdit = async (headerText: string): Promise<void> => {
 				const text = document.getText();
 				const eol = document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
-				const header = headerText.endsWith('\n') ? headerText : headerText + eol;
-				await setDocumentText(header + text.slice(vb6HeaderEndOf(text)), false);
+				let header = headerText.replace(/\r?\n/g, eol);
+				if (!header.endsWith(eol)) { header += eol; }
+				const end = vb6HeaderEndOf(text, paneHeader ?? undefined);
+				if (end === undefined) {
+					void panel.webview.postMessage({
+						type: 'markupError',
+						message: 'The document no longer opens with a form header this text can replace; edit the file in the text editor.',
+					});
+					return;
+				}
+				paneHeader = header;
+				await replaceHeader(end, header, false);
 			};
 
 			/**
 			 * The VBE's double-click: the control's default event handler in
 			 * the code below the header - navigate to it, or append the stub
 			 * the VBE would write and land the cursor inside it. A control
-			 * array's handler takes the element's Index.
+			 * array's handler takes the element's Index. Runs on the queue,
+			 * so its edit never crosses a gesture's.
 			 */
 			const openHandler = async (controlName: string, eventName: string): Promise<void> => {
 				if (!eventName) {
@@ -234,7 +332,7 @@ export function registerVb6FormDesigner(
 			const messageListener = panel.webview.onDidReceiveMessage((message: DesignerMessage) => {
 				switch (message.type) {
 					case 'openHandler':
-						void openHandler(message.name, message.event);
+						enqueue(() => openHandler(message.name, message.event));
 						break;
 					case 'markupEdit':
 						enqueue(() => applyMarkupEdit(message.text));

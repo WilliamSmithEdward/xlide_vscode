@@ -14,9 +14,10 @@
 
 import type { FormScene, SceneControl } from '../oforms/preview';
 import { cssColor, esc, sceneControl } from '../oforms/preview';
-import { parseOleColor } from '../oforms/markup';
+import { formatOleColor, parseOleColor } from '../oforms/markup';
 import { getVb6ObjectModel } from '../../analyzer/host/vb6ObjectModel';
 import type { HostConstant } from '../../analyzer/host/excelObjectModel';
+import { frmProperty } from './frmHeader';
 import type { FrmControl, FrmHeader, FrmProperty, FrmPropertyGroup, FrxRef } from './frmHeader';
 import type { FrxValue } from './frx';
 
@@ -26,8 +27,6 @@ export type FrxLookup = (ref: FrxRef) => FrxValue | undefined;
 export interface FrmSceneOptions {
 	formName: string;
 	frx?: FrxLookup;
-	/** Restores selection across re-renders. */
-	selected?: string;
 }
 
 /** The VB6 toolbox: the intrinsic controls a form can add. */
@@ -209,14 +208,20 @@ export function frmNumberOf(value: string | undefined): number | undefined {
 	return m ? Number(m[1]) : undefined;
 }
 
-const numberOf = frmNumberOf;
+const declaredTypes = new Map<string, Map<string, string | undefined>>();
 
-function property(control: FrmControl, key: string): FrmProperty | undefined {
-	const lower = key.toLowerCase();
-	for (const m of control.members) {
-		if (m.kind === 'property' && m.key.toLowerCase() === lower) { return m; }
+/** The type the `VB` model declares for a property of a kind (`String`, `Boolean`, `OLE_COLOR`, an enum), or undefined when it does not know the kind or the key. */
+export function vb6DeclaredType(progId: string, key: string): string | undefined {
+	let table = declaredTypes.get(progId);
+	if (!table) {
+		table = new Map();
+		const type = getVb6ObjectModel().types[progId];
+		for (const m of type?.members ?? []) {
+			if (m.kind === 'property') { table.set(m.name.toLowerCase(), m.declaredType); }
+		}
+		declaredTypes.set(progId, table);
 	}
-	return undefined;
+	return table.get(key.toLowerCase());
 }
 
 function group(control: FrmControl, name: string): FrmPropertyGroup | undefined {
@@ -238,7 +243,7 @@ function groupValue(g: FrmPropertyGroup | undefined, key: string): string | unde
 
 /** A string property: inline, or from the sidecar when the header points there. */
 function textOf(control: FrmControl, key: string, frx: FrxLookup | undefined): string | undefined {
-	const p = property(control, key);
+	const p = frmProperty(control, key);
 	if (!p) { return undefined; }
 	if (p.frx) {
 		const value = frx?.(p.frx);
@@ -249,7 +254,7 @@ function textOf(control: FrmControl, key: string, frx: FrxLookup | undefined): s
 }
 
 function colorCssOf(control: FrmControl, key: string): string | undefined {
-	const p = property(control, key);
+	const p = frmProperty(control, key);
 	if (!p || p.frx) { return undefined; }
 	const value = parseOleColor(p.value);
 	return value === undefined ? undefined : cssColor(value);
@@ -257,7 +262,7 @@ function colorCssOf(control: FrmControl, key: string): string | undefined {
 
 /** True/False as VB6 writes them: -1 and 0, with the `'True` gloss beside. */
 function boolOf(control: FrmControl, key: string): boolean | undefined {
-	const n = numberOf(property(control, key)?.value);
+	const n = frmNumberOf(frmProperty(control, key)?.value);
 	return n === undefined ? undefined : n !== 0;
 }
 
@@ -270,14 +275,14 @@ function fontCssOf(control: FrmControl): string {
 	const parts: string[] = [];
 	const name = groupValue(g, 'Name');
 	if (name !== undefined) { parts.push(`font-family:'${esc(unquoteVb6(name))}',Tahoma,sans-serif;`); }
-	const size = numberOf(groupValue(g, 'Size'));
+	const size = frmNumberOf(groupValue(g, 'Size'));
 	if (size !== undefined) { parts.push(`font-size:${size}pt;`); }
-	const weight = numberOf(groupValue(g, 'Weight'));
+	const weight = frmNumberOf(groupValue(g, 'Weight'));
 	if (weight !== undefined && weight >= 600) { parts.push('font-weight:bold;'); }
-	if ((numberOf(groupValue(g, 'Italic')) ?? 0) !== 0) { parts.push('font-style:italic;'); }
+	if ((frmNumberOf(groupValue(g, 'Italic')) ?? 0) !== 0) { parts.push('font-style:italic;'); }
 	const deco = [
-		(numberOf(groupValue(g, 'Underline')) ?? 0) !== 0 ? 'underline' : '',
-		(numberOf(groupValue(g, 'Strikethrough')) ?? 0) !== 0 ? 'line-through' : '',
+		(frmNumberOf(groupValue(g, 'Underline')) ?? 0) !== 0 ? 'underline' : '',
+		(frmNumberOf(groupValue(g, 'Strikethrough')) ?? 0) !== 0 ? 'line-through' : '',
 	].filter(Boolean).join(' ');
 	if (deco) { parts.push(`text-decoration:${deco};`); }
 	return parts.join('');
@@ -307,7 +312,7 @@ export function pictureDataUriOf(bytes: Buffer): string | undefined {
 }
 
 function pictureCssOf(control: FrmControl, key: string, frx: FrxLookup | undefined): string {
-	const p = property(control, key);
+	const p = frmProperty(control, key);
 	if (!p?.frx) { return ''; }
 	const value = frx?.(p.frx);
 	const bytes = value && (value.kind === 'picture' || value.kind === 'opaque') ? value.bytes : undefined;
@@ -319,31 +324,31 @@ const ALIGNMENT_CSS: Readonly<Record<number, string>> = { 1: 'text-align:right;j
 
 /** The display name of a control: its name, with its Index when it is an array element. */
 export function vb6ControlName(control: FrmControl): string {
-	const index = property(control, 'Index');
+	const index = frmProperty(control, 'Index');
 	return index && !index.frx ? `${control.name}(${index.value.trim()})` : control.name;
 }
 
 function boundsOf(control: FrmControl, kind: string | undefined): { left: number; top: number; width: number; height: number } {
 	if (kind === 'Line') {
-		const x1 = numberOf(property(control, 'X1')?.value) ?? 0;
-		const y1 = numberOf(property(control, 'Y1')?.value) ?? 0;
-		const x2 = numberOf(property(control, 'X2')?.value) ?? x1;
-		const y2 = numberOf(property(control, 'Y2')?.value) ?? y1;
+		const x1 = frmNumberOf(frmProperty(control, 'X1')?.value) ?? 0;
+		const y1 = frmNumberOf(frmProperty(control, 'Y1')?.value) ?? 0;
+		const x2 = frmNumberOf(frmProperty(control, 'X2')?.value) ?? x1;
+		const y2 = frmNumberOf(frmProperty(control, 'Y2')?.value) ?? y1;
 		return {
 			left: Math.min(x1, x2), top: Math.min(y1, y2),
 			width: Math.max(Math.abs(x2 - x1), 20), height: Math.max(Math.abs(y2 - y1), 20),
 		};
 	}
-	const left = numberOf(property(control, 'Left')?.value) ?? 0;
-	const top = numberOf(property(control, 'Top')?.value) ?? 0;
+	const left = frmNumberOf(frmProperty(control, 'Left')?.value) ?? 0;
+	const top = frmNumberOf(frmProperty(control, 'Top')?.value) ?? 0;
 	if (kind === 'Timer') {
 		// A Timer has no size; the designer shows it as an icon.
 		return { left, top, width: 480, height: 480 };
 	}
 	return {
 		left, top,
-		width: numberOf(property(control, 'Width')?.value) ?? 0,
-		height: numberOf(property(control, 'Height')?.value) ?? 0,
+		width: frmNumberOf(frmProperty(control, 'Width')?.value) ?? 0,
+		height: frmNumberOf(frmProperty(control, 'Height')?.value) ?? 0,
 	};
 }
 
@@ -360,19 +365,19 @@ function sceneControlsOfChildren(children: readonly FrmControl[], frx: FrxLookup
 		];
 		const back = colorCssOf(control, 'BackColor');
 		const fore = colorCssOf(control, 'ForeColor');
-		if (kind === 'Label' && (numberOf(property(control, 'BackStyle')?.value) ?? 1) === 0) {
+		if (kind === 'Label' && (frmNumberOf(frmProperty(control, 'BackStyle')?.value) ?? 1) === 0) {
 			parts.push('background:transparent;');
 		} else if (back) {
 			parts.push(`background:${back};`);
 		}
 		if (fore) { parts.push(`color:${fore};`); }
 		if (boolOf(control, 'Enabled') === false) { parts.push('color:#6d6d6d;'); }
-		const alignment = numberOf(property(control, 'Alignment')?.value);
+		const alignment = frmNumberOf(frmProperty(control, 'Alignment')?.value);
 		if ((kind === 'Label' || kind === 'TextBox') && alignment !== undefined && ALIGNMENT_CSS[alignment]) {
 			parts.push(ALIGNMENT_CSS[alignment]);
 		}
 		if (kind === 'TextBox' && boolOf(control, 'MultiLine')) { parts.push('white-space:pre-wrap;'); }
-		if (kind === 'Label' && (numberOf(property(control, 'BorderStyle')?.value) ?? 0) === 1) {
+		if (kind === 'Label' && (frmNumberOf(frmProperty(control, 'BorderStyle')?.value) ?? 0) === 1) {
 			parts.push('border:1px solid #7a7a7a;');
 		}
 		if (kind === 'Line' || kind === 'Shape') {
@@ -380,27 +385,28 @@ function sceneControlsOfChildren(children: readonly FrmControl[], frx: FrxLookup
 			if (kind === 'Line') {
 				parts.push(`color:${border};`);
 			} else {
-				const shape = numberOf(property(control, 'Shape')?.value) ?? 0;
+				const shape = frmNumberOf(frmProperty(control, 'Shape')?.value) ?? 0;
 				const radius = shape === 2 || shape === 3 ? '50%' : shape === 4 || shape === 5 ? '12%' : '0';
-				const fillStyle = numberOf(property(control, 'FillStyle')?.value) ?? 1;
+				const fillStyle = frmNumberOf(frmProperty(control, 'FillStyle')?.value) ?? 1;
 				const fill = fillStyle === 0 ? (colorCssOf(control, 'FillColor') ?? '#000000') : 'transparent';
 				parts.push(`border:1px solid ${border};border-radius:${radius};background:${fill};`);
 			}
 		}
-		if (kind === 'Image' || kind === 'PictureBox') { parts.push(pictureCssOf(control, 'Picture', frx)); }
+		const picture = kind === 'Image' || kind === 'PictureBox' ? pictureCssOf(control, 'Picture', frx) : '';
+		parts.push(picture);
 		const scene = sceneControl({ kind: kind ?? 'Foreign', name, index, style: parts.join('') });
 		scene.caption = kind === 'Frame' || kind === 'Label' || kind === 'CommandButton' || kind === 'CheckBox' || kind === 'OptionButton'
 			? (textOf(control, 'Caption', frx) ?? '')
 			: '';
 		if (kind === 'TextBox' || kind === 'ComboBox') { scene.value = textOf(control, 'Text', frx) ?? ''; }
-		if (kind === 'CheckBox') { scene.on = (numberOf(property(control, 'Value')?.value) ?? 0) === 1; }
+		if (kind === 'CheckBox') { scene.on = (frmNumberOf(frmProperty(control, 'Value')?.value) ?? 0) === 1; }
 		if (kind === 'OptionButton') { scene.on = boolOf(control, 'Value') === true; }
-		if (kind === 'Image' || kind === 'PictureBox') { scene.pictured = parts[parts.length - 1] !== ''; }
+		scene.pictured = picture !== '';
 		if (kind === 'Line') {
-			const x1 = numberOf(property(control, 'X1')?.value) ?? 0;
-			const y1 = numberOf(property(control, 'Y1')?.value) ?? 0;
-			const x2 = numberOf(property(control, 'X2')?.value) ?? x1;
-			const y2 = numberOf(property(control, 'Y2')?.value) ?? y1;
+			const x1 = frmNumberOf(frmProperty(control, 'X1')?.value) ?? 0;
+			const y1 = frmNumberOf(frmProperty(control, 'Y1')?.value) ?? 0;
+			const x2 = frmNumberOf(frmProperty(control, 'X2')?.value) ?? x1;
+			const y2 = frmNumberOf(frmProperty(control, 'Y2')?.value) ?? y1;
 			scene.on = (x1 <= x2) === (y1 <= y2);
 		}
 		// Frames and PictureBoxes hold controls; so does any OCX or UserControl
@@ -420,7 +426,7 @@ function sceneControlsOfChildren(children: readonly FrmControl[], frx: FrxLookup
 export function vb6MenuCaptions(form: FrmControl): string[] {
 	return form.children
 		.filter((c) => c.progId === 'VB.Menu')
-		.map((c) => (unquoteVb6(property(c, 'Caption')?.value ?? c.name)).replace(/&(?!&)/g, '').replace(/&&/g, '&'))
+		.map((c) => (unquoteVb6(frmProperty(c, 'Caption')?.value ?? c.name)).replace(/&(?!&)/g, '').replace(/&&/g, '&'))
 		.filter((caption) => caption !== '-');
 }
 
@@ -431,14 +437,14 @@ export function sceneOfFrmHeader(header: FrmHeader, options: FrmSceneOptions): F
 	const caption = textOf(form, 'Caption', frx) ?? options.formName;
 	const back = colorCssOf(form, 'BackColor') ?? cssColor(0x8000000f);
 	const fore = colorCssOf(form, 'ForeColor') ?? '#000';
-	const borderStyle = numberOf(property(form, 'BorderStyle')?.value) ?? 2;
+	const borderStyle = frmNumberOf(frmProperty(form, 'BorderStyle')?.value) ?? 2;
 	const border = borderStyle === 0 ? 'border:none;' : borderStyle === 1 || borderStyle === 3 ? 'border:1px solid #7a7a7a;' : '';
 	return {
 		form: {
 			name: options.formName,
 			caption,
-			widthPt: twipsToPt(numberOf(property(form, 'ClientWidth')?.value) ?? 4800),
-			heightPt: twipsToPt(numberOf(property(form, 'ClientHeight')?.value) ?? 3600),
+			widthPt: twipsToPt(frmNumberOf(frmProperty(form, 'ClientWidth')?.value) ?? 4800),
+			heightPt: twipsToPt(frmNumberOf(frmProperty(form, 'ClientHeight')?.value) ?? 3600),
 			backCss: back,
 			foreCss: fore,
 			borderCss: border,
@@ -454,6 +460,8 @@ export function sceneOfFrmHeader(header: FrmHeader, options: FrmSceneOptions): F
 		defaultEvents: VB6_DEFAULT_EVENTS,
 		enums: vb6PaneVocabulary().enums,
 		bools: vb6PaneVocabulary().bools,
+		// MSForms' own enum tables must not answer a VB6 row: the value sets differ.
+		paneBareEnums: false,
 	};
 }
 
@@ -462,26 +470,36 @@ export interface FrmPropertyRow {
 	value: string;
 }
 
-const GEOMETRY_KEYS = new Set(['left', 'top', 'width', 'height']);
+/** The geometry keys the pane shows in points, in rows of their own. */
+export const GEOMETRY_KEYS: ReadonlySet<string> = new Set(['left', 'top', 'width', 'height']);
 /** The form's size lives in its client size; the pane shows it as Width and Height. */
 const FORM_SIZE_KEYS = new Set(['clientwidth', 'clientheight']);
 
-/** A property value as the pane shows it: booleans by name, an enum by its number, a string unquoted. */
+/**
+ * A property value as the pane shows it: booleans by name, an enum by its
+ * number, a string unquoted, a color in the pane's own spelling (`#rrggbb`
+ * or a system color name) so its swatch and picker work as they do for an
+ * MSForms form; a gesture writes it back as `&H00BBGGRR&`.
+ */
 export function frmDisplayValue(p: FrmProperty): string {
 	if (p.comment === 'True' && p.value.trim() === '-1') { return 'True'; }
 	if (/^0\s+'False$/.test(p.value.trim())) { return 'False'; }
+	if (/color$/i.test(p.key) && /^&H/i.test(p.value.trim())) {
+		const color = parseOleColor(p.value);
+		if (color !== undefined) { return formatOleColor(color); }
+	}
 	return unquoteVb6(p.value);
 }
 
 /** The property rows the pane shows for one control: its header, as written, geometry in points. */
 function controlRows(control: FrmControl, frx: FrxLookup | undefined, kind: string | undefined): FrmPropertyRow[] {
 	const rows: FrmPropertyRow[] = [{ prop: 'Name', value: control.name }];
-	const index = property(control, 'Index');
+	const index = frmProperty(control, 'Index');
 	if (index && !index.frx) { rows.push({ prop: 'Index', value: index.value.trim() }); }
 	if (kind === 'Form') {
 		rows.push(
-			{ prop: 'Width', value: twipsToPt(numberOf(property(control, 'ClientWidth')?.value) ?? 0) },
-			{ prop: 'Height', value: twipsToPt(numberOf(property(control, 'ClientHeight')?.value) ?? 0) },
+			{ prop: 'Width', value: twipsToPt(frmNumberOf(frmProperty(control, 'ClientWidth')?.value) ?? 0) },
+			{ prop: 'Height', value: twipsToPt(frmNumberOf(frmProperty(control, 'ClientHeight')?.value) ?? 0) },
 		);
 	} else if (kind !== 'Line' && kind !== 'Timer') {
 		const box = boundsOf(control, kind);

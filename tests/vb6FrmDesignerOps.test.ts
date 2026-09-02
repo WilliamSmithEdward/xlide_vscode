@@ -3,13 +3,14 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { FrmHeaderError, frmControls, frmProperty, parseFrmHeader } from '../src/vba/vb6/frmHeader';
+import { readFrxRecords } from '../src/vba/vb6/frx';
 import type { FrmControl, FrmHeader } from '../src/vba/vb6/frmHeader';
 import {
-	applyFrmDesignerOp, twipsOfPt, vb6FormHandlerPrefix, vb6HeaderEndOf,
+	applyFrmDesignerOp, twipsOfPt, vb6FormHandlerPrefix, vb6HeaderEndOf, vb6PendingRecordsToWrite,
 } from '../src/vba/vb6/frmDesignerOps';
 import type { FrmDesignerOp } from '../src/vba/vb6/frmDesignerOps';
 import { vb6CanvasKind, vb6ControlName } from '../src/vba/vb6/frmScene';
-import { applyVb6FormDesignerOp, readVb6FormPreview } from '../src/vba/projectService';
+import { appendVb6Sidecar, applyVb6FormDesignerOp, readVb6FormPreview, vb6SidecarFileFor } from '../src/vba/projectService';
 
 // Designer gestures as header rewrites, measured on the fixture forms: a
 // gesture that changes nothing returns the file's own bytes, a real gesture
@@ -321,12 +322,30 @@ describe('setProp', () => {
 		expect(() => apply(prefs, { kind: 'setProp', name: first, prop: 'Index', value: '' })).toThrow(/control array/);
 	});
 
+	it('spells a value by the type the model declares, not by how the value reads', () => {
+		const text = read(FORM1);
+		expect(apply(text, { kind: 'setProp', name: 'Label1', prop: 'Caption', value: 'True' })).toContain('      Caption         =   "True"\r\n');
+		expect(apply(text, { kind: 'setProp', name: 'Label1', prop: 'Caption', value: '42' })).toContain('      Caption         =   "42"\r\n');
+		expect(apply(text, { kind: 'setProp', name: 'Text1', prop: 'Tag', value: '0' })).toContain('      Tag             =   "0"\r\n');
+		expect(apply(text, { kind: 'setProp', name: 'Command1', prop: 'Enabled', value: '1' })).toContain("      Enabled         =   -1  'True\r\n");
+		expect(() => apply(text, { kind: 'setProp', name: 'Command1', prop: 'Enabled', value: 'maybe' })).toThrow(/True or False/);
+		expect(apply(text, { kind: 'setProp', name: 'Label1', prop: 'ForeColor', value: '#ff0000' })).toContain('      ForeColor       =   &H000000FF&\r\n');
+	});
+
+	it('refuses the sidecar kinds it does not write: pictures and lists', () => {
+		const text = read(FORM1);
+		expect(() => apply(text, { kind: 'setProp', name: 'Command1', prop: 'Picture', value: 'x' })).toThrow(/picture.*sidecar/);
+		expect(() => apply(text, { kind: 'setProp', name: '', prop: 'Icon', value: 'x' })).toThrow(/picture.*sidecar/);
+		expect(() => apply(text, { kind: 'setProp', name: 'Text1', prop: 'List', value: 'x' })).toThrow(/sidecar/);
+		expect(() => apply(text, { kind: 'setProp', name: 'Label1', prop: 'MouseIcon', value: '' })).toThrow(/picture/);
+	});
+
 	it('keeps a multi-line string in the sidecar, through the store the caller supplies', () => {
 		const text = read(FORM1);
 		expect(() => apply(text, { kind: 'setProp', name: 'Text1', prop: 'Text', value: 'one\r\ntwo' })).toThrow(/\.frx/);
 		const stored: string[] = [];
 		const result = applyFrmDesignerOp(text, { kind: 'setProp', name: 'Text1', prop: 'Text', value: 'one\r\ntwo' }, {
-			storeString: (v) => { stored.push(v); return { file: 'Form1.frx', offset: 0x2a, long: false }; },
+			storeString: (v, header) => { stored.push(v); expect(header.form.name).toBe('Form1'); return { file: 'Form1.frx', offset: 0x2a, long: false }; },
 		});
 		expect(stored).toEqual(['one\r\ntwo']);
 		expect(value(result.text, 'Text1', 'Text')).toBe('"Form1.frx":002A');
@@ -412,7 +431,7 @@ describe('remove, reparent, order, duplicate', () => {
 });
 
 describe('the document around the header', () => {
-	it('finds the header end at the form block\'s own End, and the handler prefix by designer class', () => {
+	it('finds the header end where the parser does, and the handler prefix by designer class', () => {
 		const text = read(FORM1);
 		expect(vb6HeaderEndOf(text)).toBe(headerOf(text).endOffset);
 		for (const file of fixtureForms()) {
@@ -422,7 +441,46 @@ describe('the document around the header', () => {
 		expect(vb6FormHandlerPrefix(text)).toBe('Form');
 		expect(vb6FormHandlerPrefix(read(path.join(ROOT, 'audiostation', 'Hyperlink.ctl')))).toBe('UserControl');
 		expect(vb6FormHandlerPrefix('VERSION 5.00\r\nBegin VB.MDIForm MDIForm1 \r\nEnd\r\n')).toBe('MDIForm');
-		expect(vb6HeaderEndOf('no header here')).toBe('no header here'.length);
+	});
+
+	it('never puts code inside the header span', () => {
+		// A nested End written without its indent: the parser tracks depth, and so does the boundary.
+		const nested = 'VERSION 5.00\r\nBegin VB.Form Form1 \r\n   Begin VB.TextBox Text1 \r\n      Left = 0\r\nEnd\r\nEnd\r\nAttribute VB_Name = "Form1"\r\n';
+		expect(vb6HeaderEndOf(nested)).toBe(headerOf(nested).endOffset);
+		expect(nested.slice(vb6HeaderEndOf(nested)!)).toBe('Attribute VB_Name = "Form1"\r\n');
+		// The header's own End is gone: `End Sub` in the code is not a boundary.
+		const broken = 'VERSION 5.00\r\nBegin VB.Form Form1 \r\n   Caption = "x"\r\nAttribute VB_Name = "Form1"\r\nPrivate Sub Form_Load()\r\nEnd Sub\r\n';
+		expect(vb6HeaderEndOf(broken)).toBeUndefined();
+		// ...unless the document still opens with the text a pane placed last, whose length is the boundary.
+		const placed = 'VERSION 5.00\r\nBegin VB.Form Form1 \r\n   Caption = "x"\r\n';
+		expect(vb6HeaderEndOf(broken, placed)).toBe(placed.length);
+		expect(vb6HeaderEndOf(broken, 'VERSION 5.00\r\nBegin VB.Form Other \r\n')).toBeUndefined();
+		// An unindented End line with nothing after it on the line is the fallback boundary.
+		const bare = 'VERSION 5.00\r\nBegin VB.Form Form1 \r\n   Begin VB.TextBox T \r\nEnd\r\nOption Explicit\r\n';
+		expect(vb6HeaderEndOf(bare)).toBe(bare.indexOf('Option'));
+		expect(vb6HeaderEndOf('no header here')).toBeUndefined();
+	});
+
+	it('bounds a header exactly whatever line endings it and the code use', () => {
+		const mixed = 'VERSION 5.00\nBegin VB.Form Form1 \n   Caption = "x"\nEnd\n' + 'Attribute VB_Name = "Form1"\r\nOption Explicit\r\n';
+		const header = headerOf(mixed);
+		expect(mixed.slice(header.endOffset)).toBe('Attribute VB_Name = "Form1"\r\nOption Explicit\r\n');
+		const moved = applyFrmDesignerOp(mixed, { kind: 'formSize', width: 100, height: 100 });
+		expect(moved.text.slice(moved.headerEnd)).toBe('Attribute VB_Name = "Form1"\r\nOption Explicit\r\n');
+		expect(moved.oldHeaderEnd).toBe(header.endOffset);
+	});
+
+	it('reports where the header ends before and after a gesture', () => {
+		const text = read(FORM1);
+		const same = applyFrmDesignerOp(text, { kind: 'formSize', width: Number(value(text, 'Text1', 'Width')) / 20 + 0, height: 1 });
+		expect(same.oldHeaderEnd).toBe(headerOf(text).endOffset);
+		const added = applyFrmDesignerOp(text, { kind: 'add', container: '', controlKind: 'Label', left: 0, top: 0 });
+		expect(added.oldHeaderEnd).toBe(headerOf(text).endOffset);
+		expect(added.text.slice(added.headerEnd)).toBe(codeOf(text));
+		expect(added.text.slice(0, added.headerEnd)).toBe(codeOf(added.text) === codeOf(text) ? added.text.slice(0, headerOf(added.text).endOffset) : '');
+		const untouched = applyFrmDesignerOp(text, { kind: 'zOrder', name: 'Label1', toFront: true });
+		expect(untouched.text).toBe(text);
+		expect(untouched.headerEnd).toBe(headerOf(text).endOffset);
 	});
 
 	it('refuses text that is not a form', () => {
@@ -437,22 +495,84 @@ describe('the engine: gestures over a form file with its sidecar', () => {
 		dir = undefined;
 	});
 
-	it('appends a multi-line Text to the .frx and points the header at it, then renders it', () => {
+	it('places a multi-line Text as a pending sidecar record, renders it pending, and writes it at save', () => {
 		dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-vb6-designer-'));
 		const frm = path.join(dir, 'Form1.frm');
 		fs.copyFileSync(FORM1, frm);
 		const frx = path.join(dir, 'Form1.frx');
-		if (fs.existsSync(FORM1.replace(/frm$/, 'frx'))) { fs.copyFileSync(FORM1.replace(/frm$/, 'frx'), frx); }
-		const sizeBefore = fs.existsSync(frx) ? fs.statSync(frx).size : 0;
+		fs.copyFileSync(FORM1.replace(/frm$/, 'frx'), frx);
+		const sizeBefore = fs.statSync(frx).size;
 		const text = read(frm);
-		const result = applyVb6FormDesignerOp(frm, text, { kind: 'setProp', name: 'Text1', prop: 'Text', value: 'one\r\ntwo' });
-		expect(fs.statSync(frx).size).toBe(sizeBefore + 1 + 'one\r\ntwo'.length);
-		const ref = frmProperty(control(result.text, 'Text1'), 'Text')!;
-		expect(ref.frx).toEqual({ file: 'Form1.frx', offset: sizeBefore, long: false });
-		fs.writeFileSync(frm, result.text, 'latin1');
-		const { html } = readVb6FormPreview(frm, result.text, 'Text1');
-		expect(html).toContain('data-name="Text1"');
-		expect(html).toContain('one\ntwo'.replace('\n', '\r\n').replace(/\r\n/, '\r\n'));
+		// The gesture: a record placed, nothing written.
+		const first = applyVb6FormDesignerOp(frm, text, { kind: 'setProp', name: 'Text1', prop: 'Text', value: 'one\r\ntwo' });
+		expect(fs.statSync(frx).size).toBe(sizeBefore);
+		expect(first.sidecar).toMatchObject({ file: 'Form1.frx', base: sizeBefore, offset: sizeBefore });
+		const record = Buffer.from(first.sidecar!.record, 'base64');
+		expect(record.length).toBe(1 + 'one\r\ntwo'.length);
+		expect(record[0]).toBe('one\r\ntwo'.length);
+		expect(frmProperty(control(first.text, 'Text1'), 'Text')!.frx).toEqual({ file: 'Form1.frx', offset: sizeBefore, long: false });
+		// A second record lands after the first, by the pending bytes.
+		const second = applyVb6FormDesignerOp(frm, first.text, { kind: 'setProp', name: 'Text2', prop: 'Text', value: 'a\r\nb' }, record.length);
+		expect(second.sidecar).toMatchObject({ base: sizeBefore, offset: sizeBefore + record.length });
+		const pending = { file: 'Form1.frx', base: sizeBefore, records: [first.sidecar!.record, second.sidecar!.record] };
+		// Rendered from disk plus the pending records.
+		const preview = readVb6FormPreview(frm, second.text, 'Text1', undefined, pending);
+		expect(preview.html).toContain('one\r\ntwo');
+		expect(preview.html).toContain('a\r\nb');
+		expect(preview.headerEnd).toBe(headerOf(second.text).endOffset);
+		// Without them, the references point past the file: blank, not wrong.
+		expect(readVb6FormPreview(frm, second.text).html).not.toContain('one\r\ntwo');
+		// The save: appended in order; a sidecar that moved on is refused.
+		expect(() => appendVb6Sidecar(frm, 'Form1.frx', sizeBefore + 1, pending.records)).toThrow(/changed on disk/);
+		expect(fs.statSync(frx).size).toBe(sizeBefore);
+		const written = appendVb6Sidecar(frm, 'Form1.frx', sizeBefore, pending.records);
+		expect(written.length).toBe(sizeBefore + record.length + Buffer.from(second.sidecar!.record, 'base64').length);
+		expect(fs.statSync(frx).size).toBe(written.length);
+		fs.writeFileSync(frm, second.text, 'latin1');
+		const saved = readVb6FormPreview(frm, second.text, 'Text1');
+		expect(saved.html).toContain('one\r\ntwo');
+		expect(saved.html).toContain('a\r\nb');
+	});
+
+	it('reads every record even when unreferenced bytes follow it in the sidecar', () => {
+		for (const rel of ['RunAsTrustedInstaller/Form1', 'audiostation/Form_OpenDialog', 'polyworks/frmPreferences']) {
+			const frm = path.join(ROOT, ...`${rel}.frm`.split('/'));
+			const header = headerOf(read(frm));
+			const blob = fs.readFileSync(frm.replace(/frm$/, 'frx'));
+			const decode = (b: Buffer): string => b.toString('latin1');
+			const clean = readFrxRecords(header, blob, decode);
+			// An undone value's record, left at the end by an earlier save.
+			const orphan = Buffer.concat([blob, Buffer.from([5]), Buffer.from('stale')]);
+			const withOrphan = readFrxRecords(header, orphan, decode);
+			expect(withOrphan.map((r) => r.value.kind), rel).toEqual(clean.map((r) => r.value.kind));
+			for (let i = 0; i < clean.length; i++) {
+				const a = clean[i].value;
+				const b = withOrphan[i].value;
+				if (a.kind === 'longString' || a.kind === 'shortString') { expect(b).toEqual(a); }
+				if (a.kind === 'picture' && b.kind === 'picture') { expect(b.bytes.equals(a.bytes)).toBe(true); }
+				if (a.kind === 'list') { expect(b).toEqual(a); }
+			}
+		}
+	});
+
+	it('writes pending records up to the last one the document still references', () => {
+		const records = ['AA==', 'AQ==', 'Ag=='];
+		const offsets = [0x93, 0x9a, 0xa1];
+		const all = 'Text = "Form1.frx":0093\r\nText = "Form1.frx":009A\r\nCaption = $"Form1.frx":00A1\r\n';
+		expect(vb6PendingRecordsToWrite('Form1.frx', records, offsets, all)).toEqual(records);
+		// The last one undone: not written. The middle one undone: still written, the last one's offset counts on it.
+		expect(vb6PendingRecordsToWrite('Form1.frx', records, offsets, 'Text = "Form1.frx":0093\r\nText = "Form1.frx":009A\r\n')).toEqual(['AA==', 'AQ==']);
+		expect(vb6PendingRecordsToWrite('Form1.frx', records, offsets, 'Text = "Form1.frx":0093\r\nCaption = $"Form1.frx":00A1\r\n')).toEqual(records);
+		expect(vb6PendingRecordsToWrite('Form1.frx', records, offsets, 'Option Explicit\r\n')).toEqual([]);
+	});
+
+	it('names the sidecar VB6 pairs with the module: .frx, .ctx, .pgx, .dsx', () => {
+		expect(vb6SidecarFileFor('C:\\work\\Form1.frm', undefined)).toBe('Form1.frx');
+		expect(vb6SidecarFileFor('/work/Mix.ctl', undefined)).toBe('Mix.ctx');
+		expect(vb6SidecarFileFor('/work/Page.pag', undefined)).toBe('Page.pgx');
+		expect(vb6SidecarFileFor('/work/Thing.dsr', undefined)).toBe('Thing.dsx');
+		const named = headerOf(read(path.join(ROOT, 'audiostation', 'MixSlider.ctl')));
+		expect(vb6SidecarFileFor('/elsewhere/Other.ctl', named)).toBe('MixSlider.ctx');
 	});
 
 	it('renders a form without a sidecar and refuses text without a header', () => {

@@ -323,10 +323,19 @@ control kind on the fixture forms (`VB6_DESIGN_PROPERTIES` in `frmScene.ts`);
 the `VB` model drives the editors (`vb6PaneVocabulary`): a property declared
 as an enum whose constants the model holds gets a dropdown of those constants,
 a Boolean gets True/False, and a value the fixtures glossed is written with the
-designer's own gloss (`VB6_ENUM_GLOSSES`, `3  'Fixed Dialog`). A string the
-header cannot hold (line
-breaks) is appended to the `.frx` in the measured record layout; every other
-sidecar record is read, never written.
+designer's own gloss (`VB6_ENUM_GLOSSES`, `3  'Fixed Dialog`). A gesture and a
+pane edit replace only the header span, `[0, endOffset)` as the parser bounds
+it (`vb6HeaderEndOf`), so the code below is never inside an edit and a text
+editor on the same file keeps what it typed there. A string the header cannot
+hold (line breaks) becomes a sidecar record the host keeps with the document
+(`pendingSidecars` in `vb6FormDesigner.ts`) and `appendVb6Sidecar` writes in
+`onWillSaveTextDocument`, so the file and its sidecar move together; the
+canvas renders pending records as if written, and a record the document no
+longer references by save time is dropped when nothing behind it counts on
+its offset. Every other sidecar record is read, never written, and a gesture
+that would set one is refused. The reader tolerates the record nothing
+references that an append-only save can still leave: a second pass reads a
+record by the length it declares when the exact span fails (`frx.ts`).
 
 The VB6 oracle is twinBASIC, a VB6-compatible compiler, in two roles. Its VB
 package ships as MIT-licensed twinBASIC source; `scripts/twinbasic-vb-surface.mjs`

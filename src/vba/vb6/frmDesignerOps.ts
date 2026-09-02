@@ -20,7 +20,9 @@ import {
 	type FrmControl, type FrmHeader, type FrmProperty, type FrmPropertyGroup, type FrmPropertyNode, type FrxRef,
 } from './frmHeader';
 import { parseOleColor } from '../oforms/markup';
-import { VB6_ENUM_GLOSSES, frmNumberOf, vb6CanvasKind, vb6ControlName } from './frmScene';
+import {
+	GEOMETRY_KEYS, VB6_ENUM_GLOSSES, VB6_FONT_FIELDS, frmNumberOf, vb6CanvasKind, vb6ControlName, vb6DeclaredType,
+} from './frmScene';
 
 export interface FrmGeometry {
 	name: string;
@@ -46,6 +48,10 @@ export type FrmDesignerOp =
 export interface FrmDesignerOpResult {
 	/** The whole document, header rewritten, code as it was. */
 	text: string;
+	/** Where the header ends in `text`: the code below starts here. */
+	headerEnd: number;
+	/** Where the header ended in the text the gesture was given, so a host can replace exactly that span. */
+	oldHeaderEnd: number;
 	/** What the canvas should select next: a renamed or added control. */
 	newName?: string;
 	/** The names a paste created, outermost controls only. */
@@ -57,9 +63,11 @@ export interface FrmDesignerOpResult {
 export interface FrmDesignerOpOptions {
 	/**
 	 * Stores a string the header cannot spell inline in the sidecar and
-	 * returns the reference to write. Absent, such a value is refused.
+	 * returns the reference to write; the parsed header is passed so the
+	 * store can read which sidecar the form names. Absent, such a value is
+	 * refused.
 	 */
-	storeString?: (value: string) => FrxRef;
+	storeString?: (value: string, header: FrmHeader) => FrxRef;
 }
 
 export function twipsOfPt(pt: number): number {
@@ -75,10 +83,18 @@ export function applyFrmDesignerOp(text: string, op: FrmDesignerOp, options: Frm
 	const before = formatFrmHeader(header);
 	const result = applyToHeader(header, op, options);
 	const after = formatFrmHeader(header);
-	return { text: after === before ? text : after + text.slice(header.endOffset), ...result };
+	const unchanged = after === before;
+	return {
+		text: unchanged ? text : after + text.slice(header.endOffset),
+		headerEnd: unchanged ? header.endOffset : after.length,
+		oldHeaderEnd: header.endOffset,
+		...result,
+	};
 }
 
-function applyToHeader(header: FrmHeader, op: FrmDesignerOp, options: FrmDesignerOpOptions): Omit<FrmDesignerOpResult, 'text'> {
+type OpOutcome = Omit<FrmDesignerOpResult, 'text' | 'headerEnd' | 'oldHeaderEnd'>;
+
+function applyToHeader(header: FrmHeader, op: FrmDesignerOp, options: FrmDesignerOpOptions): OpOutcome {
 	switch (op.kind) {
 		case 'geometry':
 			setGeometry(header, op);
@@ -97,6 +113,7 @@ function applyToHeader(header: FrmHeader, op: FrmDesignerOp, options: FrmDesigne
 			return {};
 		case 'setProp':
 			return { newName: setProp(header, op.name, op.prop, op.value, options) };
+		// The header is what storeString reads the sidecar's name from.
 		case 'formSize':
 			setFormSize(header, twipsOfPt(op.width), twipsOfPt(op.height));
 			return {};
@@ -226,13 +243,13 @@ function boolMember(key: string, on: boolean): FrmProperty {
 	return on ? { kind: 'property', key, value: '-1', comment: 'True' } : { kind: 'property', key, value: "0   'False" };
 }
 
-function stringMember(key: string, value: string, options: FrmDesignerOpOptions): FrmProperty {
+function stringMember(key: string, value: string, header: FrmHeader, options: FrmDesignerOpOptions): FrmProperty {
 	// eslint-disable-next-line no-control-regex
 	if (/[\u0000-\u001f]/.test(value)) {
 		if (!options.storeString) {
 			throw new Error(`${key}: a value with line breaks is stored in the form's .frx sidecar, which this operation cannot write.`);
 		}
-		const ref = options.storeString(value);
+		const ref = options.storeString(value, header);
 		const offset = ref.offset.toString(16).toUpperCase().padStart(4, '0');
 		return { kind: 'property', key, value: `${ref.long ? '$' : ''}"${ref.file}":${offset}`, frx: ref };
 	}
@@ -247,12 +264,18 @@ function colorMember(key: string, value: string): FrmProperty {
 
 function isTrue(value: string): boolean {
 	const v = value.trim().toLowerCase();
-	return v === 'true' || v === '-1' || v === 'yes' || v === 'on';
+	return v === 'true' || v === '-1' || v === '1' || v === 'yes' || v === 'on';
 }
 
 function isBooleanText(value: string): boolean {
 	const v = value.trim().toLowerCase();
 	return v === 'true' || v === 'false';
+}
+
+/** What a Boolean property accepts, spelled any of the ways a pane or a person writes it. */
+function isBooleanish(value: string): boolean {
+	const v = value.trim().toLowerCase();
+	return isBooleanText(v) || v === '-1' || v === '0' || v === '1' || v === 'yes' || v === 'no' || v === 'on' || v === 'off';
 }
 
 // --- geometry ----------------------------------------------------------------
@@ -424,11 +447,20 @@ function setTabOrder(header: FrmHeader, names: readonly string[]): void {
 // --- setProp -----------------------------------------------------------------
 
 const COLOR_KEYS = new Set(['backcolor', 'forecolor', 'fillcolor', 'bordercolor', 'maskcolor']);
-const GEOMETRY_KEYS = new Set(['left', 'top', 'width', 'height']);
+/** Pictures live in the sidecar as records the designer reads and never writes. */
+const PICTURE_KEYS = new Set(['picture', 'icon', 'mouseicon', 'dragicon', 'downpicture', 'disabledpicture', 'maskpicture', 'toolboxbitmap']);
+/** A ListBox's or ComboBox's rows: sidecar records too. */
+const LIST_KEYS = new Set(['list', 'itemdata']);
 const IDENTIFIER = /^[A-Za-z][A-Za-z0-9_]{0,39}$/;
-const FONT_ORDER = ['Name', 'Size', 'Charset', 'Weight', 'Underline', 'Italic', 'Strikethrough'];
 
-/** Sets one property as the pane spells it; returns the canvas name to select when the name changed. */
+/**
+ * Sets one property as the pane spells it; returns the canvas name to
+ * select when the name changed. The spelling follows the type the `VB`
+ * model declares for the property - a String is quoted even when it reads
+ * as True or 42, a Boolean takes True/False, a color takes `#rrggbb` or a
+ * system name - and falls back to the value's own look for a property the
+ * model does not know (an OCX's).
+ */
 function setProp(header: FrmHeader, name: string, prop: string, value: string, options: FrmDesignerOpOptions): string | undefined {
 	const isForm = name === '' || name.toLowerCase() === header.form.name.toLowerCase();
 	const target = isForm ? header.form : locate(header, name).control;
@@ -454,9 +486,21 @@ function setProp(header: FrmHeader, name: string, prop: string, value: string, o
 	const existing = frmProperty(target, prop);
 	const key = existing?.key ?? prop;
 	const trimmed = value.trim();
-	if (COLOR_KEYS.has(lower)) {
+	const declared = vb6DeclaredType(target.progId, key);
+	if (PICTURE_KEYS.has(lower) || declared === 'StdPicture') {
+		throw new Error(`${prop} is a picture, stored in the form's .frx sidecar; the designer reads pictures and does not write them.`);
+	}
+	if (LIST_KEYS.has(lower)) {
+		throw new Error(`${prop} holds the control's rows in the form's .frx sidecar; the designer does not write them.`);
+	}
+	if (COLOR_KEYS.has(lower) || declared === 'OLE_COLOR') {
 		setMember(target.members, colorMember(key, trimmed));
-	} else if (isBooleanText(trimmed)) {
+	} else if (declared === 'Boolean') {
+		if (!isBooleanish(trimmed)) { throw new Error(`${prop}: ${value} is not True or False.`); }
+		setMember(target.members, boolMember(key, isTrue(trimmed)));
+	} else if (declared === 'String') {
+		setMember(target.members, stringMember(key, value, header, options));
+	} else if (declared === undefined && isBooleanText(trimmed)) {
 		setMember(target.members, boolMember(key, isTrue(trimmed)));
 	} else if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
 		// The same value again keeps the line, gloss included.
@@ -467,7 +511,7 @@ function setProp(header: FrmHeader, name: string, prop: string, value: string, o
 		// Clearing a number or an enum returns it to its default: the line goes.
 		removeMember(target, key);
 	} else {
-		setMember(target.members, stringMember(key, value, options));
+		setMember(target.members, stringMember(key, value, header, options));
 	}
 	return undefined;
 }
@@ -561,8 +605,8 @@ function setFontProp(control: FrmControl, field: string, value: string): void {
 		group.members[at] = node;
 		return;
 	}
-	const rank = FONT_ORDER.indexOf(node.key);
-	const before = group.members.findIndex((m) => FONT_ORDER.indexOf(memberName(m)) > rank);
+	const rank = VB6_FONT_FIELDS.indexOf(node.key as typeof VB6_FONT_FIELDS[number]);
+	const before = group.members.findIndex((m) => VB6_FONT_FIELDS.indexOf(memberName(m) as typeof VB6_FONT_FIELDS[number]) > rank);
 	if (before < 0) { group.members.push(node); } else { group.members.splice(before, 0, node); }
 }
 
@@ -606,13 +650,42 @@ function duplicate(header: FrmHeader, names: readonly string[], nudge: number): 
 // --- the document around the header ------------------------------------------
 
 /**
- * Where the header ends in a form's text: after the form block's own `End`,
- * the one header line with no indent (every nested block's End is indented).
- * The whole text when no such line exists; a parse then names the problem.
+ * Where the header ends in a form's text, for a host that replaces the
+ * header alone: the parser's own boundary when the header parses; the
+ * length of `lastHeader` when the document still opens with the header text
+ * a pane placed last (which need not parse - it is being edited); else the
+ * end of the first unindented `End` line, which no code line is (a
+ * procedure's is `End Sub`); else undefined, because guessing here would put
+ * code inside the edit.
  */
-export function vb6HeaderEndOf(text: string): number {
-	const match = /^End[ \t]*\r?\n?/m.exec(text);
-	return match ? match.index + match[0].length : text.length;
+export function vb6HeaderEndOf(text: string, lastHeader?: string): number | undefined {
+	try {
+		const header = parseFrmHeader(text);
+		if (header) { return header.endOffset; }
+	} catch {
+		// Not a header the parser accepts; the fallbacks below decide.
+	}
+	if (lastHeader && lastHeader.length > 0 && text.startsWith(lastHeader)) { return lastHeader.length; }
+	const match = /^End[ \t]*(?:\r?\n|$)/m.exec(text);
+	return match ? match.index + match[0].length : undefined;
+}
+
+/**
+ * The pending sidecar records to write at save: every record up to the last
+ * one the document's text still references (`"file":OFFSET`, as a gesture
+ * spelled it). A record the user undid before saving is not written when it
+ * is the last one, or among the last few, since nothing points at it; an
+ * undone record with a later, still-referenced record behind it has to stay,
+ * because that record's offset counts on it.
+ */
+export function vb6PendingRecordsToWrite(file: string, records: readonly string[], offsets: readonly number[], text: string): string[] {
+	let keep = records.length;
+	while (keep > 0) {
+		const offset = offsets[keep - 1].toString(16).toUpperCase().padStart(4, '0');
+		if (text.includes(`"${file}":${offset}`)) { break; }
+		keep -= 1;
+	}
+	return records.slice(0, keep);
 }
 
 /** The handler prefix a designer's own events use: Form_Load, MDIForm_Load, UserControl_Initialize. */

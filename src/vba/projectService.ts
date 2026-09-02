@@ -60,7 +60,7 @@ import {
 	type Vb6ModuleEntry,
 	VB6_CODE_PAGE,
 } from './vb6/vb6Project';
-import { frmFrxRefs, parseFrmHeader, printFrmHeader, type FrmHeader, type FrxRef } from './vb6/frmHeader';
+import { frmFrxRefs, parseFrmHeader, printFrmHeader, type FrmHeader } from './vb6/frmHeader';
 import { readFrxRecords, type FrxValue } from './vb6/frx';
 import { listFrmProperties, sceneOfFrmHeader, type FrxLookup } from './vb6/frmScene';
 import { applyFrmDesignerOp, type FrmDesignerOp, type FrmDesignerOpResult } from './vb6/frmDesignerOps';
@@ -306,10 +306,25 @@ function sheetSurface(filePath: string): XlsxWorkbook {
 export const readVb6FormHeaderForTests = readVb6FormHeader;
 
 /**
+ * Sidecar records a designer has placed that the file has not taken yet:
+ * they follow the bytes on disk in order, from `base`, and reach the file
+ * when the document saves (`appendVb6Sidecar`).
+ */
+export interface Vb6PendingSidecar {
+	/** The sidecar's file name, as the header spells it. */
+	file: string;
+	/** The sidecar's byte length on disk when the first record was placed. */
+	base: number;
+	/** The records, base64, in offset order from `base`. */
+	records: string[];
+}
+
+/**
  * A VB6 form rendered for the designer, from the header text the document
- * holds right now and the sidecar on disk. The document IS the module's
- * file, so nothing is copied and nothing is applied: the header is parsed
- * from `text`, and the `.frx` it names is read beside `modulePath` for the
+ * holds right now, the sidecar on disk, and the records a designer holds
+ * pending until the document saves. The document IS the module's file, so
+ * nothing is copied and nothing is applied: the header is parsed from
+ * `text`, and the `.frx` it names is read beside `modulePath` for the
  * strings and pictures the header keeps there. The pane's markup is the
  * header itself, as written.
  */
@@ -318,14 +333,15 @@ export function readVb6FormPreview(
 	text: string,
 	selected?: string,
 	vbpPath?: string,
-): { html: string } {
+	pending?: Vb6PendingSidecar,
+): { html: string; headerEnd: number } {
 	const header = parseFrmHeader(text);
 	if (!header) {
 		throw new Error(`${path.basename(modulePath)} has no designer header (VERSION 5.00 / Begin VB.Form ... End).`);
 	}
 	const formName = header.form.name;
-	const frx = vb6FrxLookup(header, path.dirname(modulePath));
-	const scene = sceneOfFrmHeader(header, { formName, frx, selected });
+	const frx = vb6FrxLookup(header, path.dirname(modulePath), pending);
+	const scene = sceneOfFrmHeader(header, { formName, frx });
 	return {
 		html: renderFormSceneHtml(scene, {
 			formName,
@@ -334,50 +350,106 @@ export function readVb6FormPreview(
 			identity: { project: vbpPath ?? modulePath, module: formName },
 			markup: printFrmHeader(header),
 		}),
+		headerEnd: header.endOffset,
 	};
+}
+
+/** The sidecar a designer's header names, else the one VB6 pairs with the module's extension (.frx, .ctx, .pgx, .dsx). */
+export function vb6SidecarFileFor(modulePath: string, header: FrmHeader | undefined): string {
+	const named = header ? frmFrxRefs(header)[0]?.property.frx?.file : undefined;
+	if (named) {
+		return named;
+	}
+	const ext = path.extname(modulePath);
+	const sidecarExt = { '.ctl': '.ctx', '.pag': '.pgx', '.dsr': '.dsx' }[ext.toLowerCase()] ?? '.frx';
+	return `${path.basename(modulePath, ext)}${sidecarExt}`;
+}
+
+/** The sidecar's bytes, or none when the file does not exist yet; any other failure is the caller's to see, never an empty file. */
+function readVb6Sidecar(frxPath: string): Buffer {
+	try {
+		return fs.readFileSync(frxPath);
+	} catch (err) {
+		if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+			return Buffer.alloc(0);
+		}
+		throw new Error(`Cannot read the form's sidecar ${path.basename(frxPath)}: ${err instanceof Error ? err.message : String(err)}`);
+	}
+}
+
+/** A sidecar record a gesture placed: the host holds it with the document until the save that writes it. */
+export interface Vb6SidecarRecord {
+	file: string;
+	/** The sidecar's byte length on disk when the record was placed. */
+	base: number;
+	/** The record's offset: `base` plus the pending bytes before it. */
+	offset: number;
+	/** The record's bytes, base64: a length, then the string in the form's code page. */
+	record: string;
 }
 
 /**
  * A designer gesture on a VB6 form: the header rewritten in the document's
  * text, the code kept (frmDesignerOps.ts). A string the header cannot hold
- * inline - a multi-line Text - is appended to the form's `.frx` sidecar in
- * the record layout the reader measures (a length, then the bytes), and
- * the header points at it; that append is the only sidecar write, and it
- * happens before the text is returned, so a document the user then
- * discards leaves an unreferenced record behind and nothing worse.
+ * inline - a multi-line Text - becomes a sidecar record in the layout the
+ * reader measures (a length, then the bytes) at the offset it will have
+ * after the records already pending (`pendingBytes` of them), and the
+ * header points there. Nothing is written here: the host keeps the record
+ * with the document and `appendVb6Sidecar` writes it when the document
+ * saves, so the file and its sidecar move together.
  */
-export function applyVb6FormDesignerOp(modulePath: string, text: string, op: FrmDesignerOp): FrmDesignerOpResult {
-	return applyFrmDesignerOp(text, op, {
-		storeString: (value) => appendVb6SidecarString(modulePath, text, value),
+export function applyVb6FormDesignerOp(
+	modulePath: string,
+	text: string,
+	op: FrmDesignerOp,
+	pendingBytes = 0,
+): FrmDesignerOpResult & { sidecar?: Vb6SidecarRecord } {
+	let sidecar: Vb6SidecarRecord | undefined;
+	const result = applyFrmDesignerOp(text, op, {
+		storeString: (value, header) => {
+			const file = vb6SidecarFileFor(modulePath, header);
+			const base = readVb6Sidecar(path.join(path.dirname(modulePath), file)).length;
+			const bytes = encodeCodePage(value, VB6_CODE_PAGE);
+			const long = bytes.length > 255;
+			const length = long ? Buffer.alloc(4) : Buffer.from([bytes.length]);
+			if (long) { length.writeUInt32LE(bytes.length, 0); }
+			const offset = base + pendingBytes;
+			sidecar = { file, base, offset, record: Buffer.concat([length, bytes]).toString('base64') };
+			return { file, offset, long };
+		},
 	});
-}
-
-function appendVb6SidecarString(modulePath: string, text: string, value: string): FrxRef {
-	// The sidecar the header already names, else the module's own `.frx`.
-	const header = parseFrmHeader(text);
-	const named = header ? frmFrxRefs(header)[0]?.property.frx?.file : undefined;
-	const file = named ?? `${path.basename(modulePath).replace(/\.[^.]+$/, '')}.frx`;
-	const frxPath = path.join(path.dirname(modulePath), file);
-	let blob: Buffer;
-	try {
-		blob = fs.readFileSync(frxPath);
-	} catch {
-		blob = Buffer.alloc(0);
-	}
-	const bytes = encodeCodePage(value, VB6_CODE_PAGE);
-	const long = bytes.length > 255;
-	const length = long ? Buffer.alloc(4) : Buffer.from([bytes.length]);
-	if (long) { length.writeUInt32LE(bytes.length, 0); }
-	atomicWrite(frxPath, Buffer.concat([blob, length, bytes]));
-	return { file, offset: blob.length, long };
+	return sidecar ? { ...result, sidecar } : result;
 }
 
 /**
- * The sidecar values a header points at, keyed by offset. A form has one
- * `.frx`, named on every reference; a missing or unreadable sidecar leaves
- * the header to draw alone (the strings it keeps there are then blank).
+ * Writes a document's pending sidecar records, at save: they go after the
+ * bytes on disk in the order they were placed, which is the order their
+ * offsets assume. Refused when the sidecar is not the length the records
+ * were placed against - another program wrote it - because appending would
+ * put every pending reference at the wrong offset.
  */
-function vb6FrxLookup(header: FrmHeader, dir: string): FrxLookup | undefined {
+export function appendVb6Sidecar(modulePath: string, file: string, base: number, records: readonly string[]): { length: number } {
+	const frxPath = path.join(path.dirname(modulePath), file);
+	const blob = readVb6Sidecar(frxPath);
+	if (blob.length !== base) {
+		throw new Error(
+			`${file} is ${blob.length} bytes but the form's pending values were placed against ${base}; `
+			+ 'the sidecar changed on disk meanwhile, so those values were not written. Undo the edits that set them and set them again.',
+		);
+	}
+	const out = Buffer.concat([blob, ...records.map((record) => Buffer.from(record, 'base64'))]);
+	atomicWrite(frxPath, out);
+	return { length: out.length };
+}
+
+/**
+ * The sidecar values a header points at, keyed by offset: the bytes on disk
+ * with the pending records after them when they still fit (the file has not
+ * moved on since they were placed). A form has one sidecar, named on every
+ * reference; a missing or unreadable sidecar leaves the header to draw
+ * alone (the strings it keeps there are then blank).
+ */
+function vb6FrxLookup(header: FrmHeader, dir: string, pending?: Vb6PendingSidecar): FrxLookup | undefined {
 	const refs = frmFrxRefs(header);
 	if (refs.length === 0) {
 		return undefined;
@@ -387,6 +459,12 @@ function vb6FrxLookup(header: FrmHeader, dir: string): FrxLookup | undefined {
 	try {
 		blob = fs.readFileSync(path.join(dir, file));
 	} catch {
+		blob = Buffer.alloc(0);
+	}
+	if (pending && pending.file.toLowerCase() === file.toLowerCase() && blob.length === pending.base) {
+		blob = Buffer.concat([blob, ...pending.records.map((record) => Buffer.from(record, 'base64'))]);
+	}
+	if (blob.length === 0) {
 		return undefined;
 	}
 	const byOffset = new Map<number, FrxValue>();

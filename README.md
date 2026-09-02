@@ -297,8 +297,8 @@ Open the Command Palette and type `XLIDE` to find these commands:
 - VB6 forms are designed from their `.frm` text. A gesture rewrites the header
   in the designer's own layout, so a form the designer never touched saves
   byte for byte and a real gesture changes header lines only. A multi-line
-  text goes to the form's `.frx` as a new record; pictures and every other
-  sidecar record are read, never written.
+  text goes to the form's `.frx` as a new record when the form is saved;
+  pictures and every other sidecar record are read, never written.
 - Exported `.bas` and `.cls` files are useful for review and source control, but
   the project remains the source of truth unless you explicitly import files
   back into it.

@@ -11,6 +11,8 @@ import {
 } from '../src/vba/vb6/frmScene';
 import { renderFormSceneHtml } from '../src/vba/oforms/preview';
 import type { SceneControl } from '../src/vba/oforms/preview';
+import { formatOleColor, parseOleColor } from '../src/vba/oforms/markup';
+import { frmDisplayValue } from '../src/vba/vb6/frmScene';
 
 // The VB6 scene adapter, measured on every fixture form: the canvas draws
 // each control the header holds, at the bounds the header states, in points.
@@ -296,6 +298,21 @@ describe('listFrmProperties', () => {
 		const html = renderFormSceneHtml(sceneOfFrmHeader(header, { formName: 'Form1' }), { formName: 'Form1' });
 		expect(html).toContain('"Form.BorderStyle"');
 		expect(html).toContain('"Form.KeyPreview"');
+		// The pane's own MSForms tables never answer a VB6 row by bare name.
+		expect(html).toContain('const ENUM_FALLBACK = false;');
+		// A Line or Shape has no events; the table says so and the canvas passes it on.
+		expect(html).toContain('"Line":""');
+	});
+
+	it('shows a color the way the pane\'s swatch and picker speak it', () => {
+		const rgb = frmDisplayValue({ kind: 'property', key: 'BackColor', value: '&H004A3C31&' });
+		expect(rgb).toBe(formatOleColor(parseOleColor('&H004A3C31&')!));
+		expect(rgb).toMatch(/^#[0-9a-f]{6}$/i);
+		expect(frmDisplayValue({ kind: 'property', key: 'BackColor', value: '&H8000000F&' })).toBe(formatOleColor(0x8000000f));
+		expect(frmDisplayValue({ kind: 'property', key: 'Caption', value: '"&H00&"' })).toBe('&H00&');
+		const header = headerOf(fixture('polyworks/frmInfo.frm'));
+		const rows = listFrmProperties(header, { formName: 'frmInfo' })[''].rows;
+		expect(rows.find((r) => r.prop === 'BackColor')?.value).toBe(rgb);
 	});
 
 	it('flattens a Font group into Font.* rows, unquoted', () => {

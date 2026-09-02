@@ -54,31 +54,38 @@ export function frxSpans(blob: Buffer, offsets: readonly number[]): Map<number, 
 	return spans;
 }
 
-/** A 32-bit-length string, when the bytes are exactly one. */
-export function decodeFrxLongString(bytes: Buffer, decode: (b: Buffer) => string): string | undefined {
+/**
+ * A 32-bit-length string, when the bytes are exactly one - or, with
+ * `allowTrailing`, when they start with one and what follows is not the
+ * record's (a record nothing references any more, left by an editor that
+ * appends and never rewrites).
+ */
+export function decodeFrxLongString(bytes: Buffer, decode: (b: Buffer) => string, allowTrailing = false): string | undefined {
 	if (bytes.length < 4) {
 		return undefined;
 	}
 	const length = bytes.readUInt32LE(0);
-	return length + 4 === bytes.length ? decode(bytes.subarray(4)) : undefined;
+	const fits = allowTrailing ? length + 4 <= bytes.length : length + 4 === bytes.length;
+	return fits ? decode(bytes.subarray(4, 4 + length)) : undefined;
 }
 
-/** An 8-bit-length string, when the bytes are exactly one. */
-export function decodeFrxShortString(bytes: Buffer, decode: (b: Buffer) => string): string | undefined {
+/** An 8-bit-length string, when the bytes are exactly one (or start with one, with `allowTrailing`). */
+export function decodeFrxShortString(bytes: Buffer, decode: (b: Buffer) => string, allowTrailing = false): string | undefined {
 	if (bytes.length < 1) {
 		return undefined;
 	}
-	return bytes[0] + 1 === bytes.length ? decode(bytes.subarray(1)) : undefined;
+	const fits = allowTrailing ? bytes[0] + 1 <= bytes.length : bytes[0] + 1 === bytes.length;
+	return fits ? decode(bytes.subarray(1, 1 + bytes[0])) : undefined;
 }
 
-/** A `List`/`ItemData` record's rows, when the bytes parse as one exactly. */
-export function decodeFrxList(bytes: Buffer, decode: (b: Buffer) => string): string[] | undefined {
+/** A `List`/`ItemData` record's rows, when the bytes parse as one exactly (or start with one, with `allowTrailing`). */
+export function decodeFrxList(bytes: Buffer, decode: (b: Buffer) => string, allowTrailing = false): string[] | undefined {
 	if (bytes.length < 2) {
 		return undefined;
 	}
 	const count = bytes.readUInt16LE(0);
 	if (count === 0) {
-		return bytes.length === 2 ? [] : undefined;
+		return allowTrailing || bytes.length === 2 ? [] : undefined;
 	}
 	let at = 4;
 	const items: string[] = [];
@@ -94,16 +101,27 @@ export function decodeFrxList(bytes: Buffer, decode: (b: Buffer) => string): str
 		items.push(decode(bytes.subarray(at, at + length)));
 		at += length;
 	}
-	return at === bytes.length ? items : undefined;
+	return allowTrailing || at === bytes.length ? items : undefined;
 }
 
-/** A 32-bit-length picture record, when the bytes are exactly one. */
-export function decodeFrxPicture(bytes: Buffer): Buffer | undefined {
+/** A 32-bit-length picture record, when the bytes are exactly one (or start with one, with `allowTrailing`). */
+export function decodeFrxPicture(bytes: Buffer, allowTrailing = false): Buffer | undefined {
 	if (bytes.length < 4) {
 		return undefined;
 	}
-	return bytes.readUInt32LE(0) + 4 === bytes.length ? bytes.subarray(4) : undefined;
+	const length = bytes.readUInt32LE(0);
+	const fits = allowTrailing ? length + 4 <= bytes.length : length + 4 === bytes.length;
+	return fits ? bytes.subarray(4, 4 + length) : undefined;
 }
+
+/** The intrinsic properties that keep a picture in the sidecar. */
+const PICTURE_PROPERTIES = new Set([
+	'picture', 'icon', 'mouseicon', 'dragicon', 'downpicture', 'disabledpicture', 'maskpicture', 'toolboxbitmap', 'tabpicture',
+]);
+/** The intrinsic properties that keep a string in the sidecar when it is long or has line breaks. */
+const STRING_PROPERTIES = new Set([
+	'caption', 'text', 'tooltiptext', 'tag', 'datafield', 'datamember', 'linktopic', 'linkitem', 'helpfile', 'title', 'formatstring',
+]);
 
 /**
  * Every record the header references, decoded where its shape is one of the
@@ -147,6 +165,34 @@ function decodeFrxValue(key: string, long: boolean, bytes: Buffer, decode: (b: B
 	const short = decodeFrxShortString(bytes, decode);
 	if (short !== undefined) {
 		return { kind: 'shortString', text: short };
+	}
+	// The bytes run to the next referenced offset, so a record that nothing
+	// references any more (an editor that appends and never rewrites leaves
+	// them) sits inside the span of the record before it. A second pass
+	// reads the record by the length it declares, for the kind the
+	// reference and the property imply; an OCX's own record stays opaque,
+	// because nothing says what it is.
+	const base = key.replace(/\(.*$/, '').toLowerCase();
+	if (long) {
+		const text = decodeFrxLongString(bytes, decode, true);
+		if (text !== undefined) {
+			return { kind: 'longString', text };
+		}
+	} else if (LIST_PROPERTIES.has(base)) {
+		const items = decodeFrxList(bytes, decode, true);
+		if (items !== undefined) {
+			return { kind: 'list', items };
+		}
+	} else if (PICTURE_PROPERTIES.has(base)) {
+		const prefix = decodeFrxPicture(bytes, true);
+		if (prefix !== undefined) {
+			return { kind: 'picture', bytes: prefix };
+		}
+	} else if (STRING_PROPERTIES.has(base)) {
+		const prefix = decodeFrxShortString(bytes, decode, true);
+		if (prefix !== undefined) {
+			return { kind: 'shortString', text: prefix };
+		}
 	}
 	return { kind: 'opaque', bytes };
 }
