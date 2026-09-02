@@ -185,7 +185,9 @@ describe('VBA language configuration', () => {
 		expect(contributes?.configurationDefaults?.['[xlide-vba]']).toEqual(Object.fromEntries(
 			XLIDE_VBA_EDITOR_OVERRIDES.map(({ key, value }) => [`editor.${key}`, value]),
 		));
-		expect(standaloneLanguage?.extensions).toEqual(['.bas', '.cls', '.frm']);
+		// Every file a VB6 project names as a module, so a UserControl or a
+		// PropertyPage opened from disk colours and completes like a form.
+		expect(standaloneLanguage?.extensions).toEqual(['.bas', '.cls', '.frm', '.ctl', '.pag', '.dsr']);
 		expect(xlideLanguage).toMatchObject({
 			id: 'xlide-vba',
 			configuration: './language-configuration/vba-language-configuration.json',

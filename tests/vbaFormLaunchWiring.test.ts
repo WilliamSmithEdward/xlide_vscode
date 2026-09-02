@@ -117,12 +117,26 @@ describe('F5 on a VB6 form', () => {
 	});
 
 	it('knows which project a focused VB6 form belongs to', () => {
-		// The canvas has no text editor, so it records its own target; a
+		// The canvas has no text editor, so it says when it is on screen; a
 		// focused module file names its project through the locator.
-		expect(DESIGNER_SOURCE).toContain('rememberFormLaunchTarget(');
+		expect(DESIGNER_SOURCE).toContain('setActiveFormDesigner(');
 		expect(DESIGNER_SOURCE).toContain('onDidChangeViewState');
 		expect(LAUNCH_SOURCE).toContain('lastFormLaunchTarget()');
 		expect(LAUNCH_SOURCE).toContain('isVb6ProjectPath(location.projectPath)');
+	});
+
+	it('gives the designer on screen the launch, whatever the text editors say', () => {
+		// `activeTextEditor` keeps naming the last text editor even while a
+		// canvas has focus, so an Excel module open in another tab would
+		// otherwise take F5 away from the VB6 form being looked at.
+		expect(LAUNCH_SOURCE).toContain('const onScreen = activeFormLaunchTarget();');
+		expect(LAUNCH_SOURCE.indexOf('const onScreen = activeFormLaunchTarget();'))
+			.toBeLessThan(LAUNCH_SOURCE.indexOf("active.document.uri.scheme === XLIDE_SCHEME"));
+		// Both designers report their own focus, and release it when they go.
+		for (const source of [LAUNCH_SOURCE, DESIGNER_SOURCE]) {
+			expect(source).toContain('setActiveFormDesigner(panelOwner, undefined)');
+			expect(source).toContain('e.webviewPanel.active ?');
+		}
 	});
 
 	it('saves every dirty file of the project before opening it', () => {

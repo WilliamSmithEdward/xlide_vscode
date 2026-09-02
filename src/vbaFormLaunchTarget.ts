@@ -1,10 +1,12 @@
 // What F5 runs when the focus is on a canvas rather than on a text editor.
 //
-// Both designers remember the form they are showing here: the MSForms one
-// over a project's storage, the VB6 one over a form's own file. F5 from a
-// canvas has no active text editor to read, so the launcher asks this
-// instead. Kept in its own module so neither designer has to import the
-// other.
+// Both designers report the form they are showing here: the MSForms one over
+// a project's storage, the VB6 one over a form's own file. A canvas has no
+// text editor of its own, and `window.activeTextEditor` does NOT go quiet
+// while a webview has focus - it keeps naming the last text editor the user
+// touched, which may belong to an entirely different project. So a designer
+// that is on screen says so, and the launcher believes it before it believes
+// the editor. Kept in its own module so neither designer imports the other.
 
 export interface FormLaunchTarget {
 	/** The container: a project path, or a VB6 project's `.vbp`. */
@@ -14,18 +16,37 @@ export interface FormLaunchTarget {
 }
 
 let lastFocused: FormLaunchTarget | undefined;
+/** The designer on screen right now, with the panel that claimed it. */
+let onScreen: { owner: object; target: FormLaunchTarget } | undefined;
 
-/** Records the designer that just took focus. */
-export function rememberFormLaunchTarget(target: FormLaunchTarget): void {
-	lastFocused = target;
+/**
+ * Reports whether this designer holds the screen. `owner` is the panel's own
+ * identity, so a panel losing focus clears only its own claim and never the
+ * claim of the panel that just took focus from it.
+ */
+export function setActiveFormDesigner(owner: object, target: FormLaunchTarget | undefined): void {
+	if (target) {
+		onScreen = { owner, target };
+		lastFocused = target;
+		return;
+	}
+	if (onScreen?.owner === owner) {
+		onScreen = undefined;
+	}
 }
 
-/** The last designer to take focus, or undefined when none has. */
+/** The designer on screen, which F5 belongs to whatever the text editors say. */
+export function activeFormLaunchTarget(): FormLaunchTarget | undefined {
+	return onScreen?.target;
+}
+
+/** The last designer to have been on screen, for an F5 from somewhere else. */
 export function lastFormLaunchTarget(): FormLaunchTarget | undefined {
 	return lastFocused;
 }
 
-/** Forgets the target, for a test that must start from nothing. */
+/** Forgets both, for a test that must start from nothing. */
 export function resetFormLaunchTargetForTests(): void {
 	lastFocused = undefined;
+	onScreen = undefined;
 }

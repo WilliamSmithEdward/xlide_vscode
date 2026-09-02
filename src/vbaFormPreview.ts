@@ -34,7 +34,7 @@ import { isVb6ProjectPath } from './vba/vb6/vb6Project';
 import { VB6_FORM_DESIGNER_VIEW_TYPE } from './vb6FormDesigner';
 import type { DesignerMessage, GestureMessage as GestureMessageAny } from './vba/oforms/designerMessages';
 import { openOrCreateEventHandler } from './vbaEventHandlerNavigation';
-import { lastFormLaunchTarget, rememberFormLaunchTarget } from './vbaFormLaunchTarget';
+import { activeFormLaunchTarget, lastFormLaunchTarget, setActiveFormDesigner } from './vbaFormLaunchTarget';
 import { moduleLocationOfDocument } from './vbaDocumentLocation';
 
 export const FORM_DESIGNER_VIEW_TYPE = 'xlideFormDesigner';
@@ -134,7 +134,9 @@ export function registerFormPreview(
 		): Promise<void> {
 			const { projectPath, moduleName } = decodeModuleUri(document.uri);
 			panel.webview.options = { enableScripts: true };
-			rememberFormLaunchTarget({ projectPath, moduleName });
+			// This panel's identity, so its own focus claim is the only one it clears.
+			const panelOwner = {};
+			setActiveFormDesigner(panelOwner, panel.active ? { projectPath, moduleName } : undefined);
 
 			// The pid keeps two windows on the same form from sharing a scratch;
 			// a crash's orphan falls to the age sweep above.
@@ -361,9 +363,7 @@ export function registerFormPreview(
 			});
 
 			const viewStateListener = panel.onDidChangeViewState((e) => {
-				if (e.webviewPanel.active) {
-					rememberFormLaunchTarget({ projectPath, moduleName });
-				}
+				setActiveFormDesigner(panelOwner, e.webviewPanel.active ? { projectPath, moduleName } : undefined);
 			});
 
 			const messageListener = panel.webview.onDidReceiveMessage((message: DesignerMessage) => {
@@ -402,6 +402,7 @@ export function registerFormPreview(
 				saveListener.dispose();
 				viewStateListener.dispose();
 				messageListener.dispose();
+				setActiveFormDesigner(panelOwner, undefined);
 				try { fs.unlinkSync(scratchPath); } catch { /* already gone */ }
 			});
 
@@ -496,7 +497,15 @@ export function registerFormPreview(
 			const active = vscode.window.activeTextEditor;
 			let filePath: string | undefined;
 			let formModule: string | undefined;
-			if (active && active.document.uri.scheme === XLIDE_SCHEME) {
+			// A designer on screen owns F5. `activeTextEditor` keeps naming the
+			// last text editor the user touched even while a canvas has focus,
+			// so without this an Excel module open in another tab would take
+			// the launch away from the VB6 form actually being looked at.
+			const onScreen = activeFormLaunchTarget();
+			if (onScreen) {
+				filePath = onScreen.projectPath;
+				formModule = onScreen.moduleName;
+			} else if (active && active.document.uri.scheme === XLIDE_SCHEME) {
 				const decoded = decodeModuleUri(active.document.uri);
 				filePath = decoded.projectPath;
 				if (decoded.face === 'form') { formModule = decoded.moduleName; }

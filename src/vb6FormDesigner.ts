@@ -15,7 +15,7 @@ import { moduleLocationOfDocument } from './vbaDocumentLocation';
 import { frmDesignerOpOfGesture, vb6FormHandlerPrefix, vb6HeaderEndOf, vb6PendingRecordsToWrite } from './vba/vb6/frmDesignerOps';
 import type { DesignerMessage, GestureMessage } from './vba/oforms/designerMessages';
 import { openOrCreateEventHandler } from './vbaEventHandlerNavigation';
-import { rememberFormLaunchTarget } from './vbaFormLaunchTarget';
+import { setActiveFormDesigner } from './vbaFormLaunchTarget';
 import { errorMessage } from './util/errors';
 
 export const VB6_FORM_DESIGNER_VIEW_TYPE = 'xlideVb6FormDesigner';
@@ -99,13 +99,14 @@ export function registerVb6FormDesigner(
 			const location = moduleLocationOfDocument(document);
 			const vbpPath = location?.projectPath;
 			panel.webview.options = { enableScripts: true };
-			// F5 from this canvas has no text editor to read; it asks here.
-			const rememberTarget = (): void => {
-				if (vbpPath) { rememberFormLaunchTarget({ projectPath: vbpPath, moduleName: location?.moduleName ?? '' }); }
-			};
-			rememberTarget();
+			// F5 from this canvas has no text editor to read, and the one VS
+			// Code reports belongs to whatever the user touched last. This
+			// panel says when it is the thing on screen.
+			const panelOwner = {};
+			const target = vbpPath ? { projectPath: vbpPath, moduleName: location?.moduleName ?? '' } : undefined;
+			setActiveFormDesigner(panelOwner, panel.active ? target : undefined);
 			const viewStateListener = panel.onDidChangeViewState((e) => {
-				if (e.webviewPanel.active) { rememberTarget(); }
+				setActiveFormDesigner(panelOwner, e.webviewPanel.active ? target : undefined);
 			});
 
 			let disposed = false;
@@ -302,6 +303,7 @@ export function registerVb6FormDesigner(
 				changeListener.dispose();
 				messageListener.dispose();
 				viewStateListener.dispose();
+				setActiveFormDesigner(panelOwner, undefined);
 			});
 
 			enqueue(() => render());

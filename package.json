@@ -680,7 +680,10 @@
         "extensions": [
           ".bas",
           ".cls",
-          ".frm"
+          ".frm",
+          ".ctl",
+          ".pag",
+          ".dsr"
         ],
         "configuration": "./language-configuration/vba-language-configuration.json"
       },
