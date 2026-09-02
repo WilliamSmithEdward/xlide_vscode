@@ -75,3 +75,6 @@ reference/
 !tests/fixtures/binaries/AccessFixture.mda
 excel_test_workbook/
 .claude/
+
+# Twin Basic
+/twinBASIC*/

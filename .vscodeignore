@@ -56,3 +56,5 @@ out/**/*.map
 **/*.mdb
 **/*.mda
 **/*.laccdb
+# The twinBASIC compiler lives beside the source for local use only; it is never part of the package.
+twinBASIC*/**
