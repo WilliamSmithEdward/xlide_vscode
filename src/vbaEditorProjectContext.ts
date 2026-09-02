@@ -41,6 +41,8 @@ const WORKSHEET = 'Excel.Worksheet';
 const CHART = 'Excel.Chart';
 const USERFORM = 'MSForms.UserForm';
 const WORD_DOCUMENT = 'Word.Document';
+const VB6_FORM = 'VB.Form';
+const VB6_MDI_FORM = 'VB.MDIForm';
 const EDITOR_PROJECT_CONTEXT_CACHE_TTL_MS = 10_000;
 const EDITOR_PROJECT_CONTEXT_CACHE_MAX_DOCUMENTS = 32;
 
@@ -48,6 +50,8 @@ export interface ModuleEntry {
 	name: string;
 	type: string;
 	documentType?: EventHandlerDocumentType;
+	/** A VB6 designer's class (`VB.Form`, `VB.MDIForm`), which decides what `Me` is. */
+	designerClass?: string;
 }
 
 export interface EditorProjectContext {
@@ -85,10 +89,14 @@ interface EditorProjectContextBuild {
 /** Maps a document module to the host type that `Me` denotes inside it. */
 function meTypeFor(entry: ModuleEntry | undefined, host?: VbaHostToken): string | undefined {
 	if (host === 'vb6') {
-		// A VB6 form is a VB.Form, not an MSForms.UserForm, and its surface
-		// arrives with the vb6 model (roadmap_vb6_support.md, Slice 3).
-		// Until then silence beats the wrong type.
-		return undefined;
+		// A VB6 form is a VB.Form (or an MDIForm, as its designer says), not
+		// an MSForms.UserForm: its `Me` reaches Caption, Show, Hide and the
+		// rest of that surface from the vb6 model. A VB6 project has no
+		// document modules, so nothing else carries a `Me` type here.
+		if (entry?.type !== 'userform') {
+			return undefined;
+		}
+		return entry.designerClass === VB6_MDI_FORM ? VB6_MDI_FORM : VB6_FORM;
 	}
 	if (entry?.type === 'userform') {
 		// A form IS an MSForms.UserForm, so `Me.` reaches Caption, Controls and
@@ -223,6 +231,12 @@ export function toEventHandlerCompletionContext(ctx: EditorProjectContext): Even
 		moduleName: ctx.moduleName,
 		moduleKind: ctx.moduleKind,
 		documentType: ctx.documentType,
+		// A VB6 form's handlers come from its model, not from a table: the
+		// form's own class and its controls decide which stubs exist.
+		host: ctx.host,
+		model: ctx.hostModel,
+		meType: ctx.meType,
+		implicitMembers: ctx.implicitMembers,
 	};
 }
 
@@ -380,6 +394,7 @@ export class VbaEditorProjectContextService {
 					name: metadata.moduleName,
 					type: metadata.moduleType ?? 'standard',
 					documentType: metadata.documentType,
+					designerClass: metadata.designerClass,
 				}),
 			);
 			const current = allEntries.find(

@@ -41,7 +41,10 @@ export interface Vb6ModuleEntry {
 	manifestKind: VbpModuleKind;
 	/** Present only when the file was read; a listing never reads sources. */
 	source?: string;
-	implicitMembers?: { name: string; type: string }[];
+	/** The designer's controls, typed by prog id; `array` marks a control array. */
+	implicitMembers?: { name: string; type: string; array?: boolean }[];
+	/** The designer's own class, e.g. `VB.Form` or `VB.MDIForm`. */
+	designerClass?: string;
 	predeclaredId?: boolean;
 }
 
@@ -245,7 +248,10 @@ function moduleWithSource(read: ReadModuleFile, full: boolean): Vb6ModuleEntry {
 		// known" - never an empty list.
 		const header = tryParseFrmHeader(designerBlock + moduleText);
 		if (header) {
-			out.implicitMembers = frmMembers(header).map((m) => ({ name: m.name, type: m.type }));
+			out.implicitMembers = frmMembers(header).map((m) => (
+				m.array ? { name: m.name, type: m.type, array: true } : { name: m.name, type: m.type }
+			));
+			out.designerClass = header.form.progId;
 		}
 	}
 	return out;

@@ -154,23 +154,23 @@ all 34 headers byte for byte from the model.
 
 ## Slice 3: the `vb6` host model
 
-- [ ] `VBA` and `VBRUN` generated from `msvbvm60.dll` resources 1 and 3 through
+- [x] `VBA` and `VBRUN` generated from `msvbvm60.dll` resources 1 and 3 through
       the existing extractor path (`scripts/generate-host-object-model.mjs` and
       the pythoncom typelib dumper), landing as `src/analyzer/host/vb6ObjectModelData.ts`
       with `source: "typelib"`.
-- [ ] The `VB` library transcribed from twinBASIC's package documentation
+- [x] The `VB` library transcribed from twinBASIC's package documentation
       (`docs.twinbasic.com/tB/Packages/VB/`), filtered to VB6's real surface,
       with each member carrying `source: "twinbasic-docs"` and any "reserved"
       or "unimplemented" flag preserved; cross-read against the archived
       Microsoft pages (App, Screen, Printer, Clipboard, the control pages) with
       disagreements recorded rather than resolved by preference.
-- [ ] Globals: `App`, `Screen`, `Printer`, `Printers`, `Clipboard`, `Forms`, and
+- [x] Globals: `App`, `Screen`, `Printer`, `Printers`, `Clipboard`, `Forms`, and
       the `Global` members (`Load`, `Unload`, `LoadPicture`, `SavePicture`,
       `LoadResString`, `LoadResPicture`, `LoadResData`).
-- [ ] Analyzer semantics for control arrays: `Ctl(i)` yields the control's type,
+- [x] Analyzer semantics for control arrays: `Ctl(i)` yields the control's type,
       event handlers carry `Index As Integer`, `Load`/`Unload` accept an
       indexed control.
-- [ ] Diagnostic policy: the `VB` model is reported evidence, so it drives
+- [x] Diagnostic policy: the `VB` model is reported evidence, so it drives
       completion, hover and signature help, and it never produces a red on its
       own. `member-not-found` on a `VB.*` type stays quiet until Slice 4 has
       confirmed the member's absence.
@@ -178,7 +178,21 @@ all 34 headers byte for byte from the model.
 Definition of done: completion on `App.`, `Screen.`, `Printer.`, `Me.` and on
 every intrinsic control type in the fixtures; hover shows provenance; the
 fixture code-behind produces no diagnostics that the fixtures' own authors would
-call wrong (each fixture is a negative control).
+call wrong (each fixture is a negative control). Met on 2026-09-02, with two
+departures from the plan recorded rather than papered over. VBA6 (resource 1)
+is dumped as evidence but not modelled: the analyzer's VBA runtime already
+answers those names for every host, and a second copy would collide with it.
+The cross-read against Microsoft's archive is name-level: the archive keeps
+the reference pages but not the "Applies To" object lists behind them, so
+per-object membership rests on twinBASIC's pages; it settled every property
+and method (Opacity, TransparencyKey, Anchors, Dock, App.IsInIDE and the rest
+left out on the record, `DataMemberChanged` kept by name because the archive
+lost its page), and it could not settle events, whose pages the archive is
+also missing (Unload, the OLE drag-and-drop events, Scroll). The model as
+generated: 51 types (31 `VB` classes plus `Forms` transcribed, 19 `VBRUN`
+types read), 1869 members, 591 constants in 61 enumerations. A VB6 form's
+event-handler stubs (`Form_Load`, `Command1_Click(Index As Integer)`) come
+from the model's events, and an MDI form's from `MDIForm_`.
 
 ## Slice 4: the twinBASIC oracle
 

@@ -21,6 +21,8 @@ export interface VbaModuleSymbols {
      * the attribute header was not read, never "no".
      */
     predeclaredId?: boolean;
+    /** A VB6 designer's class (`VB.Form`, `VB.MDIForm`), absent for Office forms. */
+    designerClass?: string;
     /** The module's own file when the container's modules are files (VB6). */
     filePath?: string;
 }
@@ -45,6 +47,8 @@ interface VbaModuleEntry {
      * the attribute header was not read, never "no".
      */
     predeclaredId?: boolean;
+    /** A VB6 designer's class (`VB.Form`, `VB.MDIForm`), absent for Office forms. */
+    designerClass?: string;
     /** The module's own file when the container's modules are files (VB6). */
     filePath?: string;
 }
@@ -250,6 +254,7 @@ export class VbaSymbolIndex implements vscode.Disposable {
             mod.type = entry.type;
             mod.documentType = entry.documentType;
             mod.predeclaredId = entry.predeclaredId;
+            mod.designerClass = entry.designerClass;
             modules.push(mod);
         }
         return modules;
@@ -264,8 +269,8 @@ export class VbaSymbolIndex implements vscode.Disposable {
             { path: projectPath },
         );
         const wb = this.cachedProject(projectKey);
-        wb.moduleList = entries.map(({ name, type, documentType, predeclaredId }) =>
-            ({ name, type, documentType, predeclaredId }));
+        wb.moduleList = entries.map(({ name, type, documentType, predeclaredId, designerClass }) =>
+            ({ name, type, documentType, predeclaredId, designerClass }));
         wb.moduleListLoadedAt = Date.now();
         const out: VbaModuleSymbols[] = [];
         for (const [index, entry] of entries.entries()) {
@@ -277,6 +282,7 @@ export class VbaSymbolIndex implements vscode.Disposable {
                 existing.documentType = entry.documentType;
                 existing.implicitMembers = entry.implicitMembers;
                 existing.predeclaredId = entry.predeclaredId;
+                existing.designerClass = entry.designerClass;
                 existing.filePath = entry.filePath;
                 out.push(existing);
                 if ((index + 1) % WORKBOOK_INDEX_YIELD_EVERY_MODULES === 0) {
@@ -291,6 +297,7 @@ export class VbaSymbolIndex implements vscode.Disposable {
                 documentType: entry.documentType,
                 implicitMembers: entry.implicitMembers,
                 predeclaredId: entry.predeclaredId,
+                designerClass: entry.designerClass,
                 filePath: entry.filePath,
             };
             wb.modules.set(moduleKey, mod);

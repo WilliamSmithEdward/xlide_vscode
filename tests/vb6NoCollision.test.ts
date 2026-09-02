@@ -59,12 +59,16 @@ describe('the Office containers answer exactly as before VB6', () => {
 		expect(hostTokenForFileName('C:\\w\\thing.unknown')).toBeUndefined();
 	});
 
-	it('leaves the host models alone: Excel is the default, vb6 asserts nothing', () => {
+	it('leaves the host models alone: Excel is the default, vb6 answers as itself', () => {
 		expect(hostObjectModelForToken(undefined)).toBeUndefined();
 		expect(hostObjectModelForToken('excel')).toBeUndefined();
 		expect(hostObjectModelForToken('word')).toBeDefined();
 		expect(hostObjectModelForToken('word')).not.toBe(EMPTY_HOST_MODEL);
-		expect(hostObjectModelForToken('vb6')).toBe(EMPTY_HOST_MODEL);
+		// The vb6 model exists now (roadmap Slice 3); the collision claim is
+		// that it is its own model, never Excel's and never the empty one.
+		expect(hostObjectModelForToken('vb6')).not.toBe(EMPTY_HOST_MODEL);
+		expect(hostObjectModelForToken('vb6')?.hostName).toBe('VB6');
+		expect(hostObjectModelForToken('vb6')).not.toBe(hostObjectModelForToken('word'));
 	});
 
 	it('maps the project module kinds as before; only VB6 kinds are new', () => {

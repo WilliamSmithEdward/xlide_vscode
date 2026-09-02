@@ -287,6 +287,21 @@ a line of the file the editor shows. `readModule(full)` answers the raw file.
 A project module has a virtual document that hides its header; a VB6 module
 has no such view, which is why alignment happens in the text instead.
 
+A VB6 project's host model (`analyzer/host/vb6ObjectModel.ts`, data generated
+into `vb6ObjectModelData.ts`) has two sources, each named as provenance on
+every type: `VBRUN`, read from the type library inside `msvbvm60.dll` by
+`scripts/dump-vb6-typelib.py`, and `VB` (App, Screen, Printer, Clipboard,
+Global, Form, MDIForm, the intrinsic controls), transcribed from twinBASIC's
+documentation by `scripts/transcribe-vb6-docs.mjs` because VB6's own
+`VB.OLB` is not available; `reference/vb6/README.md` records the filtering
+(the pages' own compatibility notes, a name-level cross-read against
+Microsoft's archived VB6 reference) and its limits. `Me` in a form is
+`VB.Form` or `VB.MDIForm` as the designer's class says (`designerClass` on
+the module entry), a control array's elements carry the control's type, and
+the form's event-handler stubs (`Form_Load`, `Command1_Click(Index As
+Integer)`) come from the model's events. The model offers and describes and
+never produces a red on its own.
+
 The legacy compound files need no special project handling: `VbaProject`'s
 stream lookups are storage-agnostic (a storage named `VBA` is found wherever
 it sits, with a flat-root fallback), so the same parser reads a
@@ -1425,7 +1440,7 @@ TypeScript dev: `typescript`, `esbuild`, `vitest`, `@types/vscode`, `@types/node
 | Dependency added/removed | `package.json`, `README.md`, `docs/architecture.md` |
 | New VBA language feature | `src/vbaSymbolIndex.ts` (parsing/index), `src/vbaStructuralDiagnostics.ts` (structural analysis), the matching provider subsystem module registered in `src/vbaLanguageProviders.ts`, `syntaxes/vba.tmLanguage.json` (coloring), `language-configuration/vba-language-configuration.json` (brackets/indent/folding), `docs/architecture.md` |
 | New analyzer grammar rule | `src/analyzer/**` (lexer/parser), matching fixtures in `tests/`, an MS-VBAL section cite in code, a row in `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
-| New host object-model member/type/constant | `src/analyzer/host/excelObjectModel.ts` (or the word/powerpoint/access model modules and their generated `*ObjectModelData.ts`, regenerated via `scripts/generate-host-object-model.mjs`), `tests/vbaMemberCompletion.test.ts` / `tests/vbaHostModels.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |
+| New host object-model member/type/constant | `src/analyzer/host/excelObjectModel.ts` (or the word/powerpoint/access/vb6 model modules and their generated `*ObjectModelData.ts`, regenerated via `scripts/generate-host-object-model.mjs`; the vb6 dumps come from `scripts/dump-vb6-typelib.py` and `scripts/transcribe-vb6-docs.mjs`, see `reference/vb6/README.md`), `tests/vbaMemberCompletion.test.ts` / `tests/vbaHostModels.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |
 | New macro container format | `src/vba/macroContainer.ts` (detection + write policy), `src/vba/xlsx.ts` or a format module beside `pptContainer.ts`/`accessDatabase.ts`, `src/macroContainerUi.ts` (`MACRO_CONTAINER_EXTENSIONS`), `src/analyzer/host/hostRegistry.ts` (`hostTokenForFileName`), an Office-authored fixture in `tests/fixtures/binaries/` with `.gitignore`/`.vscodeignore` entries, `tests/vbaMacroContainers.test.ts`, `docs/architecture.md` |
 | VB6 project (manifest, module files) | `src/vba/vb6/vbpProject.ts` (manifest parse/print), `src/vba/vb6/vb6Project.ts` (module reads/writes), the `isVb6ProjectPath` guards in `src/vba/projectService.ts`, `src/macroContainerUi.ts`, `src/analyzer/host/hostRegistry.ts` (`vb6`), `src/projectExplorer.ts` (`moduleFilePath`), a licensed fixture under `tests/fixtures/vb6/<project>/` with its `LICENSE` and `NOTICE.md`, `tests/vb6Project.test.ts`, `docs/roadmap_vb6_support.md`, `docs/architecture.md` |
 | New host-member call signature | `src/analyzer/host/excelObjectModel.ts` (`memberSignatures` entry, transcribed + source-verified), `tests/vbaSignatureHelp.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |

@@ -8,6 +8,8 @@
 import { parseModule } from '../parser/parseModule';
 import type { ModuleMember, ProcedureNode } from '../parser/nodes';
 import type { ModuleSymbolKind } from '../symbols/symbolModel';
+import type { HostMember, HostObjectModel } from '../host/excelObjectModel';
+import { getHostEvents, getHostType } from '../host/hostModel';
 
 export type EventHandlerDocumentType = 'workbook' | 'worksheet' | 'chart' | 'document' | 'userform';
 
@@ -15,6 +17,17 @@ export interface EventHandlerCompletionContext {
 	moduleName?: string;
 	moduleKind?: ModuleSymbolKind;
 	documentType?: EventHandlerDocumentType;
+	/**
+	 * The host token, model, `Me` type and designer controls of the module.
+	 * A VB6 form ('vb6') derives its stubs from these - Form_Load from the
+	 * form's class, Command1_Click from each control's class, `Index As
+	 * Integer` first for a control array - where an Office module reads a
+	 * fixed table.
+	 */
+	host?: string;
+	model?: HostObjectModel;
+	meType?: string;
+	implicitMembers?: readonly { name: string; type: string; array?: boolean }[];
 }
 
 export interface EventHandlerCompletion {
@@ -28,7 +41,8 @@ export interface EventHandlerCompletion {
 interface EventHandlerDefinition {
 	name: string;
 	params: string;
-	owner: 'Workbook' | 'Worksheet' | 'Chart' | 'Document' | 'UserForm';
+	/** The Office owners are a fixed set; a VB6 form's owners are its own class and its controls' classes. */
+	owner: 'Workbook' | 'Worksheet' | 'Chart' | 'Document' | 'UserForm' | string;
 	description: string;
 }
 
@@ -363,7 +377,7 @@ export function resolveEventHandlerCompletions(
 	}
 
 	const documentType = eventHandlerDocumentTypeForContext(ctx);
-	const definitions = definitionsForDocumentType(documentType);
+	const definitions = ctx.host === 'vb6' ? vb6EventDefinitions(ctx) : definitionsForDocumentType(documentType);
 	if (definitions.length === 0) {
 		return [];
 	}
@@ -451,6 +465,48 @@ export const ALL_EVENT_DEFINITIONS: readonly EventHandlerDefinition[] = [
 	...DOCUMENT_EVENTS,
 ];
 
+/**
+ * The event stubs a VB6 form can declare: its own class's events under the
+ * `Form_` (or `MDIForm_`) prefix the VB6 IDE uses whatever the form is
+ * named, then each designer control's events under the control's name. A
+ * control array's handlers take `Index As Integer` first, as the IDE
+ * writes them. Nothing comes from a table: the model's events (transcribed
+ * from twinBASIC's documentation) are the only source, so a type the model
+ * lacks offers no stubs rather than wrong ones.
+ */
+function vb6EventDefinitions(ctx: EventHandlerCompletionContext): EventHandlerDefinition[] {
+	const model = ctx.model;
+	if (!model || ctx.moduleKind !== 'userform') {
+		return [];
+	}
+	const formType = ctx.meType?.includes('|') ? ctx.meType.slice(ctx.meType.lastIndexOf('|') + 1) : ctx.meType ?? 'VB.Form';
+	const out: EventHandlerDefinition[] = [];
+	const handlerPrefix = getHostType(formType, model)?.displayName === 'MDIForm' ? 'MDIForm' : 'Form';
+	for (const event of getHostEvents(formType, model)) {
+		out.push(vb6Definition(handlerPrefix, event, getHostType(formType, model)?.displayName ?? formType, false));
+	}
+	for (const control of ctx.implicitMembers ?? []) {
+		const owner = getHostType(control.type, model)?.displayName ?? control.type;
+		for (const event of getHostEvents(control.type, model)) {
+			out.push(vb6Definition(control.name, event, owner, control.array === true));
+		}
+	}
+	return out;
+}
+
+function vb6Definition(prefix: string, event: HostMember, owner: string, indexed: boolean): EventHandlerDefinition {
+	const params = (event.doc?.params ?? []).map((param) => `${param.name} As ${param.type ?? 'Variant'}`);
+	if (indexed) {
+		params.unshift('Index As Integer');
+	}
+	return {
+		name: `${prefix}_${event.name}`,
+		params: params.join(', '),
+		owner,
+		description: event.doc?.summary ?? '',
+	};
+}
+
 function documentTypeForOwner(
 	owner: EventHandlerDefinition['owner'],
 ): EventHandlerDocumentType | undefined {
@@ -465,6 +521,8 @@ function documentTypeForOwner(
 			return 'document';
 		case 'UserForm':
 			return 'userform';
+		default:
+			return undefined;
 	}
 }
 

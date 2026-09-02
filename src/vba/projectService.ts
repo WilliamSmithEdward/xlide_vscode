@@ -79,7 +79,13 @@ export interface ModuleEntry {
 	 * storage inside vbaProject.bin. Present only for userform modules whose
 	 * designer parsed cleanly; absent means "not known", never "none".
 	 */
-	implicitMembers?: { name: string; type: string }[];
+	implicitMembers?: { name: string; type: string; array?: boolean }[];
+	/**
+	 * A VB6 designer's own class (`VB.Form`, `VB.MDIForm`, `VB.UserControl`),
+	 * which decides what `Me` is and what its event handlers are called.
+	 * Office forms carry none: a UserForm is always an MSForms.UserForm.
+	 */
+	designerClass?: string;
 	/**
 	 * True when the module carries `Attribute VB_PredeclaredId = True`, giving
 	 * it a default instance so its own name is usable as a value. Absent means
@@ -329,6 +335,7 @@ function vb6ModuleEntry(entry: Vb6ModuleEntry): ModuleEntry {
 	const out: ModuleEntry = { name: entry.name, type: entry.type, filePath: entry.filePath };
 	if (entry.source !== undefined) { out.source = entry.source; }
 	if (entry.implicitMembers) { out.implicitMembers = entry.implicitMembers; }
+	if (entry.designerClass !== undefined) { out.designerClass = entry.designerClass; }
 	if (entry.predeclaredId !== undefined) { out.predeclaredId = entry.predeclaredId; }
 	return out;
 }

@@ -60,12 +60,13 @@ export function splitVbaSource(source: string): { header: string; body: string }
 
 /**
  * The end offset of the block a file opens with when it is a designer or
- * class preamble: `VERSION n` then `Begin`/`BEGIN` ... `End`/`END`, nested
- * once per control. `BeginProperty` ... `EndProperty` blocks inside it are
- * property groups (a Font), not nesting, and pass through. Zero when the
- * file opens with no such block, or the block never closes - in which case
- * nothing is treated as header, because hiding code is worse than showing a
- * header.
+ * class preamble: `VERSION n`, any `Object = "{guid}#..."; "x.ocx"` lines a
+ * VB6 form lists for the controls it references, then `Begin`/`BEGIN` ...
+ * `End`/`END`, nested once per control. `BeginProperty` ... `EndProperty`
+ * blocks inside it are property groups (a Font), not nesting, and pass
+ * through. Zero when the file opens with no such block, or the block never
+ * closes - in which case nothing is treated as header, because hiding code
+ * is worse than showing a header.
  */
 export function designerHeaderEnd(text: string): number {
 	if (!/^\s*VERSION\s+\d/i.test(text.slice(0, 64))) {
@@ -80,7 +81,7 @@ export function designerHeaderEnd(text: string): number {
 		return 0;
 	}
 	i++;
-	while (i < lines.length && lines[i].trim() === '') {
+	while (i < lines.length && (lines[i].trim() === '' || /^\s*Object\s*=/i.test(lines[i]))) {
 		i++;
 	}
 	if (i >= lines.length || !/^\s*Begin\b/i.test(lines[i])) {

@@ -50,6 +50,8 @@ export interface VbaProjectModuleMetadata {
     moduleType?: string;
     moduleKind: ModuleSymbolKind;
     documentType?: EventHandlerDocumentType;
+    /** A VB6 designer's class (`VB.Form`, `VB.MDIForm`), absent for Office forms. */
+    designerClass?: string;
 }
 
 export interface VbaProjectContext {
@@ -97,7 +99,7 @@ class ProjectRecord implements VbaProjectContext {
     applyModule(
         moduleName: string,
         source: string,
-        metadata: { moduleType?: string; documentType?: EventHandlerDocumentType },
+        metadata: { moduleType?: string; documentType?: EventHandlerDocumentType; designerClass?: string },
     ): void {
         const moduleKey = moduleIdentityKey(moduleName);
         const previous = this.moduleMetadata.get(moduleKey);
@@ -107,6 +109,7 @@ class ProjectRecord implements VbaProjectContext {
             moduleType,
             moduleKind: moduleKindFromType(moduleType),
             documentType: metadata.documentType ?? previous?.documentType,
+            designerClass: metadata.designerClass ?? previous?.designerClass,
         };
         this.moduleMetadata.set(moduleKey, meta);
         this._recordChange(moduleName);
@@ -280,6 +283,7 @@ export class VbaProjectIndexService implements vscode.Disposable {
                 moduleType: mod.type,
                 moduleKind: moduleKindFromType(mod.type),
                 documentType: mod.documentType,
+                designerClass: mod.designerClass,
             });
             if (invalid.has(moduleKey)) {
                 record.invalidModules.set(moduleKey, invalid.get(moduleKey));
@@ -338,6 +342,7 @@ export class VbaProjectIndexService implements vscode.Disposable {
         record.applyModule(mod.moduleName, mod.source, {
             moduleType: mod.type,
             documentType: mod.documentType,
+            designerClass: mod.designerClass,
         });
         return true;
     }

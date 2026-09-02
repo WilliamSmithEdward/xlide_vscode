@@ -57,6 +57,22 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
   analyzer as members typed by prog id (`VB.TextBox`), so code touching
   them is not called undeclared.
 
+- **A VB6 project has a host model.** `App.`, `Screen.`, `Printer.`,
+  `Clipboard.`, `Me.` in a form and every intrinsic control type complete,
+  hover and offer call tips, and `vbKeyReturn` and its 590 siblings resolve
+  with their values. `VBRUN` is read from the type library inside
+  `msvbvm60.dll`; the `VB` library (App, Screen, Printer, Clipboard, Global,
+  Form, MDIForm, the controls) is transcribed from twinBASIC's documentation
+  because VB6's own `VB.OLB` is not available, filtered to VB6's real surface
+  by the pages' own compatibility notes and a cross-read against Microsoft's
+  archived VB6 reference, with everything left out listed in the reference
+  data. A member twinBASIC marks reserved keeps a note saying so. A VB6 form
+  offers its own event-handler stubs - `Form_Load`, `Form_QueryUnload(Cancel
+  As Integer, UnloadMode As Integer)`, `Command1_Click(Index As Integer)` for
+  a control array, `MDIForm_*` for an MDI form - from those events, not from
+  the UserForm table. The model offers and describes and never produces a
+  red on its own.
+
 ## [5.0.2] - 2026-08-31
 
 - **A container's children were already members; now they are pinned.** #57

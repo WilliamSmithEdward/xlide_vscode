@@ -20,6 +20,7 @@ import { getExcelObjectModel } from './excelObjectModel';
 import { getWordObjectModel } from './wordObjectModel';
 import { getPowerPointObjectModel } from './powerpointObjectModel';
 import { getAccessObjectModel } from './accessObjectModel';
+import { getVb6ObjectModel } from './vb6ObjectModel';
 
 /**
  * The host tokens xlide_vbide sends with project/open, plus 'vb6': a VB6
@@ -51,6 +52,7 @@ const MODELS_BY_TOKEN = new Map<string, () => HostObjectModel>([
 	['word', getWordObjectModel],
 	['powerpoint', getPowerPointObjectModel],
 	['access', getAccessObjectModel],
+	['vb6', getVb6ObjectModel],
 ]);
 
 /**

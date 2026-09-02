@@ -1,8 +1,12 @@
 #!/usr/bin/env node
-// Generates a complete HostObjectModel for an Office host from its
-// pyVBAReference dump: node scripts/generate-host-object-model.mjs <host>
-// (word, powerpoint, access). The sixth-and-counting instance of the
-// reference-generator pattern (issue #25).
+// Generates a complete HostObjectModel for a host from its reference dumps:
+// node scripts/generate-host-object-model.mjs <host> (word, powerpoint,
+// access, vb6). The Office hosts' dumps come from pyVBAReference; vb6's come
+// from scripts/dump-vb6-typelib.py (VBRUN, the msvbvm60.dll type library)
+// and scripts/transcribe-vb6-docs.mjs (VB, from twinBASIC's documentation),
+// two libraries that each carry a `libraryId` mapped to its own namespace.
+// The sixth-and-counting instance of the reference-generator pattern
+// (issue #25).
 //
 // Deliberately mechanical where Excel's model is curated: every class becomes
 // a type, every enum becomes constants, and NOTHING is exhaustive - these
@@ -30,15 +34,26 @@ import {
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const host = process.argv[2];
-if (!host || !/^[a-z]+$/.test(host)) {
-    console.error('usage: generate-host-object-model.mjs <host>   (word | powerpoint | access)');
+if (!host || !/^[a-z][a-z0-9]*$/.test(host)) {
+    console.error('usage: generate-host-object-model.mjs <host>   (word | powerpoint | access | vb6)');
     process.exit(1);
 }
-const PREFIXES = { word: 'Word', powerpoint: 'PowerPoint', access: 'Access' };
+const PREFIXES = { word: 'Word', powerpoint: 'PowerPoint', access: 'Access', vb6: 'VB' };
+// A host whose dumps span several libraries names each one: a dump's
+// `libraryId` picks its namespace, and a library with no entry here is
+// evidence only (VBA6 is dumped beside VBRUN but the analyzer's VBA runtime
+// already models those names for every host).
+const LIBRARY_PREFIXES = { vb6: { VB: 'VB', VBRUN: 'VBRUN' } };
 const prefix = PREFIXES[host];
 if (!prefix) {
     console.error(`unknown host ${host}; add it to PREFIXES deliberately.`);
     process.exit(1);
+}
+function prefixOf(dump) {
+    if (dump.libraryId === undefined) {
+        return prefix;
+    }
+    return LIBRARY_PREFIXES[host]?.[dump.libraryId];
 }
 
 const jsonDir = path.join(root, 'reference', host, 'json');
@@ -53,10 +68,19 @@ const descriptions = descriptionIndex(path.join(root, 'reference'));
 // types stays a resolvable chain step. The host corpora do not carry those
 // dumps, so without this a PowerPoint TextFrame2.TextRange (an Office
 // TextRange2) dead-ends at the first hop.
+// A VB6 project references no Office library, so its chains never leave its
+// own two namespaces.
 const foreignClasses = new Map(
-    [...classNamesIn(path.join(root, 'reference', 'office', 'json'))].map((name) => [name, 'Office']),
+    host === 'vb6'
+        ? []
+        : [...classNamesIn(path.join(root, 'reference', 'office', 'json'))].map((name) => [name, 'Office']),
 );
-const curator = createCurator({ dumps, prefix, foreignClasses });
+const namespaces = new Map(
+    [...dumps.values()]
+        .filter((dump) => CLASS_KINDS.has(dump.kind) && prefixOf(dump))
+        .map((dump) => [dump.name, prefixOf(dump)]),
+);
+const curator = createCurator({ dumps, prefix, foreignClasses, namespaces });
 
 function memberOf(ownerName, raw, kind) {
     const member = { name: raw.name, kind };
@@ -71,6 +95,11 @@ function memberOf(ownerName, raw, kind) {
     if (signature) { member.signature = signature; }
     const doc = memberDoc(raw, 300, prefix, descriptions);
     if (doc) { member.doc = doc; }
+    // A member the documentation marks reserved is real in VB6 and not run by
+    // the oracle; the note travels with it so a hover says so.
+    if (typeof raw.reservedNote === 'string' && raw.reservedNote) {
+        member.doc = { ...(member.doc ?? { params: [], source: 'external' }), remarks: raw.reservedNote };
+    }
     return member;
 }
 
@@ -82,11 +111,24 @@ let memberCount = 0;
 let constantCount = 0;
 let documented = 0;
 let repaired = 0;
+let evidenceOnly = 0;
 
 for (const [name, dump] of dumps) {
+    const libraryPrefix = prefixOf(dump);
+    if (!libraryPrefix) {
+        evidenceOnly += 1;
+        continue;
+    }
     if (CLASS_KINDS.has(dump.kind)) {
         const members = [];
-        for (const [list, kind] of [[dump.properties ?? [], 'property'], [dump.methods ?? [], 'method']]) {
+        // Office hosts keep their events out of the object surfaces (the
+        // analyzer's event-handler tables carry them); VB6's form and control
+        // events are carried here, kind 'event', because the handler stubs a
+        // VB6 form offers (Form_Load, Command1_Click ...) are derived from
+        // them, and member completion filters events out by kind.
+        const lists = [[dump.properties ?? [], 'property'], [dump.methods ?? [], 'method']];
+        if (host === 'vb6') { lists.push([dump.events ?? [], 'event']); }
+        for (const [list, kind] of lists) {
             for (const raw of list) {
                 if (String(raw.name ?? '').startsWith('_')) { continue; }
                 const member = memberOf(name, raw, kind);
@@ -99,12 +141,27 @@ for (const [name, dump] of dumps) {
         if (members.length === 0) { continue; }
         members.sort((a, b) => a.name.localeCompare(b.name));
         memberCount += members.length;
-        const qualified = `${prefix}.${name}`;
+        const qualified = `${libraryPrefix}.${name}`;
         const type = { displayName: name, members };
+        if (typeof dump.source === 'string' && dump.source) { type.provenance = dump.source; }
         const doc = typeDoc(dump, 300, prefix, descriptions);
         if (doc) { type.doc = doc; }
         types[qualified] = type;
         aliases[name.toLowerCase()] = qualified;
+    } else if (dump.kind === 'Module') {
+        // A module's constants are plain names with no enum to belong to
+        // (VBRUN's RecordsetTypeConstants); its functions are not modelled.
+        for (const c of dump.constants ?? []) {
+            if (String(c.name ?? '').startsWith('_') || constants[c.name]) { continue; }
+            const summary = collapseWhitespace(c.description);
+            constants[c.name] = {
+                name: c.name,
+                value: typeof c.value === 'number' ? c.value : String(c.value ?? ''),
+                source: 'external',
+                ...(summary ? { doc: { summary, params: [], source: 'external' } } : {}),
+            };
+            constantCount += 1;
+        }
     } else if (dump.kind === 'Enumeration') {
         // VBA accepts the enum NAME as a declared type and as a qualifier, so
         // the model carries it alongside the members.
@@ -134,10 +191,19 @@ const lines = [];
 lines.push(`// Generated from reference/${host}/json by generate-host-object-model.mjs.`);
 lines.push('// Do not hand-edit: regenerate instead.');
 lines.push('//');
-lines.push(`// Types, aliases and enum constants of the ${prefix} type`);
-lines.push('// library, introspected via pyVBAReference and enriched from Microsoft');
-lines.push('// Learn. Every type is deliberately NON-exhaustive: this metadata offers');
-lines.push('// and describes, and must never prove a member absent.');
+if (host === 'vb6') {
+    lines.push('// Types, aliases and constants of the VB6 runtime: VBRUN read from the');
+    lines.push('// type library inside msvbvm60.dll (scripts/dump-vb6-typelib.py) and VB');
+    lines.push('// transcribed from twinBASIC\'s documentation (scripts/transcribe-vb6-docs.mjs),');
+    lines.push('// each type carrying its source as provenance. Every type is deliberately');
+    lines.push('// NON-exhaustive: this metadata offers and describes, and must never prove');
+    lines.push('// a member absent.');
+} else {
+    lines.push(`// Types, aliases and enum constants of the ${prefix} type`);
+    lines.push('// library, introspected via pyVBAReference and enriched from Microsoft');
+    lines.push('// Learn. Every type is deliberately NON-exhaustive: this metadata offers');
+    lines.push('// and describes, and must never prove a member absent.');
+}
 lines.push('');
 lines.push("import type { HostConstant, HostEnum, HostType } from './excelObjectModel';");
 lines.push('');
@@ -182,5 +248,6 @@ fs.writeFileSync(outputPath, lines.join('\n'), 'utf8');
 console.log(
     `Wrote ${path.relative(root, outputPath)}: ${Object.keys(types).length} types, ${memberCount} members `
     + `(${documented} documented, ${repaired} generic returns repaired), `
-    + `${constantCount} constants in ${Object.keys(enums).length} enumerations.`,
+    + `${constantCount} constants in ${Object.keys(enums).length} enumerations`
+    + (evidenceOnly ? `; ${evidenceOnly} evidence-only dumps left out.` : '.'),
 );

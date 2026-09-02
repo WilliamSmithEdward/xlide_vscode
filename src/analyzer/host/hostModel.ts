@@ -209,6 +209,22 @@ export function getHostMembers(
 	return hostModelIndex(model).membersByType.get(qualified)?.members ?? [];
 }
 
+/**
+ * The events a qualified type raises, in declaration order. Events are not
+ * object-access members (`Form.Load()` is not a call), so `getHostMembers`
+ * leaves them out; a form's handler stubs (Form_Load, Command1_Click) are
+ * what reads them. Empty for a type the model does not carry or whose
+ * events it does not model.
+ */
+export function getHostEvents(
+	qualified: string,
+	model: HostObjectModel = getExcelObjectModel(),
+): HostMember[] {
+	const key = hostModelIndex(model).typeKeysByLower.get(qualified.toLowerCase());
+	const type = key === undefined ? undefined : model.types[key];
+	return (type?.members ?? []).filter((member) => member.kind === 'event');
+}
+
 const HOST_MEMBER_NAMES = new WeakMap<HostObjectModel, Set<string>>();
 
 /**

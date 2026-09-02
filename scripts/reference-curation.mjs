@@ -286,14 +286,22 @@ function describedReturnTypes(description) {
  * `foreignClasses` maps a bare class name to the namespace that owns it, for
  * the shared Office types every host library returns.
  */
-export function createCurator({ dumps, prefix, foreignClasses = new Map() }) {
+export function createCurator({ dumps, prefix, foreignClasses = new Map(), namespaces = new Map() }) {
 	const classNames = new Set(
 		[...dumps.values()].filter((dump) => CLASS_KINDS.has(dump.kind)).map((dump) => dump.name),
 	);
 	const curated = CURATED_RETURNS[prefix] ?? {};
 
-	/** The namespace that owns a bare class name, or undefined when nothing does. */
+	/**
+	 * The namespace that owns a bare class name, or undefined when nothing
+	 * does. `namespaces` answers first, for a corpus whose dumps come from more
+	 * than one library (VB6's VB and VBRUN); the single prefix covers the rest.
+	 */
 	function namespaceOf(bare) {
+		const owned = namespaces.get(bare);
+		if (owned) {
+			return owned;
+		}
 		if (classNames.has(bare)) {
 			return prefix;
 		}
