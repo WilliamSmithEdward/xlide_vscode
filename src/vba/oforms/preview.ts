@@ -471,6 +471,21 @@ export function renderSceneControls(
 			case 'Timer':
 				parts.push(`<div class="ctl timer${sel}" ${dn} style="${style}" title="${esc(name)}"><span>&#9201;</span></div>`);
 				break;
+			case 'DriveListBox':
+				// A drive list is a dropdown; its list is the machine's, so the
+				// canvas draws the box the designer shows and no drive letter.
+				parts.push(`<div class="ctl edit combo${sel}" ${dn} style="${style}" title="${esc(name)}"><span></span><span class="drop">&#9662;</span></div>`);
+				break;
+			case 'DirListBox':
+			case 'FileListBox':
+				parts.push(`<div class="ctl edit list${sel}" ${dn} style="${style}" title="${esc(name)}"></div>`);
+				break;
+			case 'Data':
+				parts.push(`<div class="ctl data${sel}" ${dn} style="${style}" title="${esc(name)}"><span class="nav">&#9198;</span><span class="nav">&#9664;</span><span class="cap">${esc(caption)}</span><span class="nav">&#9654;</span><span class="nav">&#9197;</span></div>`);
+				break;
+			case 'OLE':
+				parts.push(`<div class="ctl ole${sel}" ${dn} style="${style}" title="${esc(name)}"><span>${esc(name)}</span></div>`);
+				break;
 			default:
 				// A foreign control that holds children (a VB6 SSTab, a container
 				// UserControl) gets a surface for them; one without draws as before.
@@ -715,6 +730,15 @@ export function renderFormSceneHtml(scene: FormScene, options: FormPreviewOption
 	.shape { box-shadow: none; }
 	.timer { background: #f0f0f0; border: 1px solid #808080; display: flex; align-items: center;
 		justify-content: center; font-size: 12pt; }
+	/* A Data control: its record navigator, with the caption between the arrows. */
+	.data { background: #d4d0c8; border: 2px inset #d9d9d9; display: flex; align-items: center; gap: 1px;
+		overflow: hidden; padding: 1px; }
+	.data .nav { background: #d4d0c8; border: 1px outset #f0f0f0; min-width: 14px; text-align: center;
+		font-size: 7pt; line-height: 1.4; }
+	.data .cap { flex: 1 1 auto; text-align: center; overflow: hidden; white-space: nowrap; }
+	/* An OLE container: the empty frame the designer shows until an object is inserted. */
+	.ole { background: #fff; border: 1px solid #a0a0a0; display: flex; align-items: center; justify-content: center;
+		color: #808080; overflow: hidden; }
 	/* While grid snap is on, every design surface shows the 6pt lattice the
 	   snapping answers to, as the VBE's dotted face does. The half-cell
 	   offset centers a dot on each grid point, so dots mark exactly where a
@@ -764,7 +788,10 @@ export function renderFormSceneHtml(scene: FormScene, options: FormPreviewOption
 	.spin { display: flex; flex-direction: column; }
 	.spin span { flex: 1; background: #f0f0f0; border: 1px solid #a0a0a0;
 		display: flex; align-items: center; justify-content: center; font-size: 6pt; }
-	.scroll { background: #d4d0c8; border: 1px solid #a0a0a0; position: relative; }
+	/* No position here: .ctl already places the control absolutely, and that
+	   is the containing block ::after needs. Saying relative again took the
+	   scroll bar out of its stated place and into the flow. */
+	.scroll { background: #d4d0c8; border: 1px solid #a0a0a0; }
 	.scroll::after { content: ''; position: absolute; left: 1px; right: 1px; top: 15%; height: 30%;
 		background: #f0f0f0; border: 1px solid #808080; }
 	.frame { border: 1px solid #bdbdbd; box-shadow: inset 0 0 0 1px #fbfbfb;

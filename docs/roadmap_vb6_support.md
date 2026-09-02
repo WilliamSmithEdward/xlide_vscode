@@ -259,10 +259,11 @@ real file, the pattern the OFORMS designer already uses over its document:
 gestures rewrite the header block, the code-behind is untouched, the tab carries
 the dirty dot, Ctrl+Z is text undo, and save writes the file.
 
-- [x] Canvas rendering for the intrinsic control set in twips, from the Slice 2
-      tree and the Slice 3 property surface; menus (`Begin VB.Menu`) rendered as
-      a menu bar; MDI forms recognized and shown as a plain form until MDI has
-      its own treatment.
+- [x] Canvas rendering for the whole intrinsic control set in twips (all twenty
+      toolbox kinds, the drive/directory/file lists, the Data control and the
+      OLE container included), from the Slice 2 tree and the Slice 3 property
+      surface; menus (`Begin VB.Menu`) rendered as a menu bar; MDI forms
+      recognized and shown as a plain form until MDI has its own treatment.
 - [x] Designer ops on the text tree: add, move, resize, remove, reparent,
       z-order (block order), tab order, control arrays (`Index`), properties
       pane driven by the `VB` model. (Measured departure: the pane's vocabulary
@@ -279,13 +280,18 @@ Definition of done: every fixture form opens, round-trips identically, survives
 each gesture with a header-only diff, and reopens in twinBASIC's own IDE with
 the same control tree (the only external designer available to check against).
 Met on 2026-09-02, with these measured departures and limits. The properties
-pane is driven by what the header states plus the design-time vocabulary
-measured per control kind on the fixture forms (`VB6_DESIGN_PROPERTIES` in
-`src/vba/vb6/frmScene.ts`, every key cross-read against the `VB` model), not by
-the model's own property list: that list is the runtime surface (`hWnd`,
-`Parent`, `SelText` beside `Caption`) and carries no design-time flag to
-filter on, so a model-driven pane would offer properties the designer never
-writes. The model does drive the pane's editors: a property declared as an
+pane is driven by what the header states plus the design-time vocabulary in
+`VB6_CONTROLS` (`src/vba/vb6/frmScene.ts`), not by the model's own property
+list: that list is the runtime surface (`hWnd`, `Parent`, `SelText` beside
+`Caption`) and carries no design-time flag to filter on, so a model-driven
+pane would offer properties the designer never writes. Each kind's vocabulary
+carries where it came from (`vocabularyFrom`): `fixtures` for the eleven kinds
+the fixture forms use, which is what VB6 itself wrote, and `model` for the
+nine they do not (Timer, ListBox, Image, the two scroll bars, the drive,
+directory and file lists, Data, OLE), whose lists are the model's properties
+narrowed to the ones the Properties window offers - inferred, not measured,
+and a fixture using such a kind should replace them. Every name is checked
+against the model by test, bar the three keys only the designer writes. The model does drive the pane's editors: a property declared as an
 enum whose constants the model holds gets a dropdown of those constants, a
 Boolean gets True/False, and the value the header takes back carries the gloss
 the fixtures measured for it (`3  'Fixed Dialog`) or none. Sidecar writes are one

@@ -111,7 +111,25 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
   a new record when the form saves; nothing else
   in the sidecar is written. Double-click opens the handler in the code below
   (`Form_Load`, `Timer1_Timer`, `Command1_Click(Index As Integer)` for an
-  array). Fifth slice of `docs/roadmap_vb6_support.md`.
+  array), and the event it opens is one the control actually raises: a
+  scroll bar and a drive list get their Change, a Data control its
+  Reposition, and a Line or Shape, which raise nothing, are refused rather
+  than given a Click handler VB6 would never call. Fifth slice of
+  `docs/roadmap_vb6_support.md`.
+
+- **Every intrinsic VB6 control draws.** The drive, directory and file
+  lists, the Data control with its record navigator and caption, and the
+  OLE container are drawn as themselves rather than as unnamed boxes, and
+  the toolbox adds all twenty kinds. Each kind is described once - canvas
+  look, toolbox name and default size, caption, container, default event
+  and the properties the pane offers - and the pane's vocabulary for a kind
+  no fixture uses is taken from the `VB` model and marked as such.
+
+- **A scroll bar sits where the form puts it.** In both designers a
+  ScrollBar was laid out in normal flow rather than at its own position,
+  because its style re-declared `position` and overrode the rule that
+  places every control. Measured on the canvas's own layout check, which
+  had been reporting it as a misplaced control.
 
 ## [5.0.2] - 2026-08-31
 

@@ -53,19 +53,29 @@ export interface Vb6ControlSpec {
 	container?: boolean;
 	/** Shows its Caption on the canvas. */
 	captioned?: boolean;
-	/** The double-click event where it differs from MSForms' (the canvas falls back to Click); '' for a kind with no events. */
+	/**
+	 * The event a double-click opens. Absent means Click, which the model
+	 * must declare for the kind; `''` means the kind has no event a
+	 * double-click should write.
+	 */
 	defaultEvent?: string;
 	/**
-	 * The design-time properties the designer writes for the kind, measured
-	 * as the union of the fixture designers' headers (tests/fixtures/vb6,
-	 * eleven of them) and cross-read against the `VB` model, which knows every
-	 * key but a form's client position and a UserControl's toolbox bitmap -
-	 * keys the designer alone writes. The pane lists these beside what a header
-	 * states, blank until set; `Font` stands for the Font group's own rows.
-	 * Geometry and Index have rows of their own, and a kind not measured shows
-	 * its header alone. The model's own property list is not used for this: it
-	 * is the runtime surface (`hWnd`, `Parent`, `SelText`) with no design-time
-	 * flag.
+	 * Where `designProperties` comes from. `fixtures`: the union of the
+	 * fixture designers' own headers, which is what VB6 itself wrote.
+	 * `model`: the `VB` model's property list for the kind, narrowed to the
+	 * ones VB6's Properties window offers, because no fixture uses the kind.
+	 * The second is inferred rather than measured, and a fixture that uses
+	 * such a kind should replace it.
+	 */
+	vocabularyFrom: 'fixtures' | 'model';
+	/**
+	 * The design-time properties the designer writes for the kind. The pane
+	 * lists these beside what a header states, blank until set; `Font` stands
+	 * for the Font group's own rows. Geometry and Index have rows of their
+	 * own, and a property kept in the `.frx` (a picture, a list) is listed
+	 * only when the header states it, because the designer will not write one.
+	 * Every name is checked against the model, bar the keys only the designer
+	 * writes (a form's client position, a UserControl's toolbox bitmap).
 	 */
 	designProperties: readonly string[];
 }
@@ -75,63 +85,134 @@ const FONT = 'Font';
 /** The intrinsic kinds, keyed by prog id, in the toolbox's order. */
 export const VB6_CONTROLS: Readonly<Record<string, Vb6ControlSpec>> = {
 	'VB.Form': {
-		kind: 'Form', designer: true, defaultEvent: 'Load',
+		kind: 'Form', designer: true, defaultEvent: 'Load', vocabularyFrom: 'fixtures',
 		designProperties: ['AutoRedraw', 'BackColor', 'BorderStyle', 'Caption', 'ClientLeft', 'ClientTop', 'ControlBox', FONT, 'ForeColor',
 			'Icon', 'KeyPreview', 'LinkTopic', 'MaxButton', 'MinButton', 'Picture', 'ScaleHeight', 'ScaleMode', 'ScaleWidth',
 			'ShowInTaskbar', 'StartUpPosition', 'Tag'],
 	},
-	'VB.MDIForm': { kind: 'MDIForm', designer: true, defaultEvent: 'Load', designProperties: [] },
+	'VB.MDIForm': { kind: 'MDIForm', designer: true, defaultEvent: 'Load', vocabularyFrom: 'fixtures', designProperties: [] },
 	'VB.UserControl': {
-		kind: 'UserControl', designer: true,
+		kind: 'UserControl', designer: true, vocabularyFrom: 'fixtures',
 		designProperties: ['BackColor', 'BackStyle', 'ClientLeft', 'ClientTop', 'ScaleHeight', 'ScaleWidth', 'ToolboxBitmap'],
 	},
-	'VB.PropertyPage': { kind: 'PropertyPage', designer: true, designProperties: [] },
+	'VB.PropertyPage': { kind: 'PropertyPage', designer: true, vocabularyFrom: 'fixtures', designProperties: [] },
 	'VB.Label': {
 		kind: 'Label', base: 'Label', size: { width: 1215, height: 255 }, text: 'Caption', tab: true, captioned: true,
+		vocabularyFrom: 'fixtures',
 		designProperties: ['Alignment', 'AutoSize', 'BackColor', 'BackStyle', 'Caption', FONT, 'ForeColor', 'MouseIcon', 'MousePointer',
 			'TabIndex', 'Tag', 'ToolTipText', 'UseMnemonic', 'Visible', 'WordWrap'],
 	},
 	'VB.TextBox': {
-		kind: 'TextBox', base: 'Text', size: { width: 1215, height: 285 }, text: 'Text', tab: true,
+		kind: 'TextBox', base: 'Text', size: { width: 1215, height: 285 }, text: 'Text', tab: true, vocabularyFrom: 'fixtures',
 		designProperties: ['Alignment', 'Appearance', 'BackColor', 'BorderStyle', 'Enabled', FONT, 'ForeColor', 'Locked', 'MultiLine',
 			'ScrollBars', 'TabIndex', 'Tag', 'Text', 'ToolTipText', 'Visible'],
 	},
 	'VB.ComboBox': {
-		kind: 'ComboBox', base: 'Combo', size: { width: 1215, height: 315 }, text: 'Text', tab: true,
+		kind: 'ComboBox', base: 'Combo', size: { width: 1215, height: 315 }, text: 'Text', tab: true, vocabularyFrom: 'fixtures',
 		designProperties: ['Appearance', FONT, 'Style', 'TabIndex', 'TabStop', 'Tag'],
 	},
-	'VB.ListBox': { kind: 'ListBox', base: 'List', size: { width: 1215, height: 1035 }, tab: true, designProperties: [] },
+	'VB.ListBox': {
+		kind: 'ListBox', base: 'List', size: { width: 1215, height: 1035 }, tab: true, vocabularyFrom: 'model',
+		designProperties: ['Appearance', 'BackColor', 'BorderStyle', 'Columns', 'Enabled', FONT, 'ForeColor', 'IntegralHeight',
+			'MultiSelect', 'Sorted', 'Style', 'TabIndex', 'TabStop', 'Tag', 'ToolTipText', 'Visible'],
+	},
 	'VB.CheckBox': {
 		kind: 'CheckBox', base: 'Check', size: { width: 1215, height: 255 }, text: 'Caption', tab: true, captioned: true,
+		vocabularyFrom: 'fixtures',
 		designProperties: ['BackColor', 'Caption', FONT, 'TabIndex', 'Value'],
 	},
 	'VB.OptionButton': {
 		kind: 'OptionButton', base: 'Option', size: { width: 1215, height: 255 }, text: 'Caption', tab: true, captioned: true,
+		vocabularyFrom: 'fixtures',
 		designProperties: ['BackColor', 'Caption', 'TabIndex', 'Value'],
 	},
 	'VB.CommandButton': {
 		kind: 'CommandButton', base: 'Command', size: { width: 1215, height: 495 }, text: 'Caption', tab: true, captioned: true,
+		vocabularyFrom: 'fixtures',
 		designProperties: ['BackColor', 'Caption', 'Default', 'Enabled', FONT, 'MaskColor', 'Style', 'TabIndex', 'TabStop'],
 	},
 	'VB.Frame': {
 		kind: 'Frame', base: 'Frame', size: { width: 1215, height: 1215 }, text: 'Caption', tab: true, container: true, captioned: true,
+		vocabularyFrom: 'fixtures',
 		designProperties: ['BackColor', 'BorderStyle', 'Caption', FONT, 'TabIndex'],
 	},
 	'VB.PictureBox': {
-		kind: 'PictureBox', base: 'Picture', size: { width: 1215, height: 1215 }, tab: true, scale: true, container: true, defaultEvent: 'Click',
+		kind: 'PictureBox', base: 'Picture', size: { width: 1215, height: 1215 }, tab: true, scale: true, container: true,
+		defaultEvent: 'Click', vocabularyFrom: 'fixtures',
 		designProperties: ['Align', 'Appearance', 'AutoRedraw', 'BackColor', 'BorderStyle', FONT, 'ForeColor', 'ScaleHeight',
 			'ScaleMode', 'ScaleWidth', 'TabIndex', 'TabStop', 'Tag', 'ToolTipText', 'Visible'],
 	},
-	'VB.Image': { kind: 'Image', base: 'Image', size: { width: 1215, height: 1215 }, designProperties: [] },
-	'VB.HScrollBar': { kind: 'ScrollBar', base: 'HScroll', size: { width: 1215, height: 255 }, tab: true, designProperties: [] },
-	'VB.VScrollBar': { kind: 'ScrollBar', base: 'VScroll', size: { width: 255, height: 1215 }, tab: true, designProperties: [] },
-	'VB.Timer': { kind: 'Timer', base: 'Timer', defaultEvent: 'Timer', designProperties: [] },
-	'VB.Line': { kind: 'Line', base: 'Line', defaultEvent: '', designProperties: ['BorderColor', 'BorderStyle'] },
+	'VB.Image': {
+		kind: 'Image', base: 'Image', size: { width: 1215, height: 1215 }, vocabularyFrom: 'model',
+		designProperties: ['Appearance', 'BorderStyle', 'Enabled', 'Stretch', 'Tag', 'ToolTipText', 'Visible'],
+	},
+	// A scroll bar raises Change, never Click: a double-click that wrote
+	// HScroll1_Click would name an event VB6 does not have.
+	'VB.HScrollBar': {
+		kind: 'ScrollBar', base: 'HScroll', size: { width: 1215, height: 255 }, tab: true, defaultEvent: 'Change',
+		vocabularyFrom: 'model',
+		designProperties: ['Enabled', 'LargeChange', 'Max', 'Min', 'SmallChange', 'TabIndex', 'TabStop', 'Tag', 'Value', 'Visible'],
+	},
+	'VB.VScrollBar': {
+		kind: 'ScrollBar', base: 'VScroll', size: { width: 255, height: 1215 }, tab: true, defaultEvent: 'Change',
+		vocabularyFrom: 'model',
+		designProperties: ['Enabled', 'LargeChange', 'Max', 'Min', 'SmallChange', 'TabIndex', 'TabStop', 'Tag', 'Value', 'Visible'],
+	},
+	'VB.Timer': {
+		kind: 'Timer', base: 'Timer', defaultEvent: 'Timer', vocabularyFrom: 'model',
+		designProperties: ['Enabled', 'Interval', 'Tag'],
+	},
+	// The model gives Line and Shape an Initialize event; VB6 gives them no
+	// events at all, and the model's events are the one part the transcription
+	// could not cross-read against Microsoft's reference
+	// (docs/vb6_reference_data.md), so the designer writes neither.
+	'VB.Line': { kind: 'Line', base: 'Line', defaultEvent: '', vocabularyFrom: 'fixtures', designProperties: ['BorderColor', 'BorderStyle'] },
 	'VB.Shape': {
-		kind: 'Shape', base: 'Shape', size: { width: 1215, height: 1215 }, defaultEvent: '',
+		kind: 'Shape', base: 'Shape', size: { width: 1215, height: 1215 }, defaultEvent: '', vocabularyFrom: 'fixtures',
 		designProperties: ['BackColor', 'BackStyle', 'BorderColor', 'BorderWidth', 'FillColor', 'Shape', 'Visible'],
 	},
+	'VB.DriveListBox': {
+		kind: 'DriveListBox', base: 'Drive', size: { width: 1215, height: 315 }, tab: true, defaultEvent: 'Change',
+		vocabularyFrom: 'model',
+		designProperties: ['Appearance', 'BackColor', 'Enabled', FONT, 'ForeColor', 'TabIndex', 'TabStop', 'Tag', 'ToolTipText', 'Visible'],
+	},
+	'VB.DirListBox': {
+		kind: 'DirListBox', base: 'Dir', size: { width: 1215, height: 1035 }, tab: true, defaultEvent: 'Change',
+		vocabularyFrom: 'model',
+		designProperties: ['Appearance', 'BackColor', 'BorderStyle', 'Enabled', FONT, 'ForeColor', 'IntegralHeight', 'TabIndex',
+			'TabStop', 'Tag', 'ToolTipText', 'Visible'],
+	},
+	'VB.FileListBox': {
+		kind: 'FileListBox', base: 'File', size: { width: 1215, height: 1035 }, tab: true, vocabularyFrom: 'model',
+		designProperties: ['Appearance', 'Archive', 'BackColor', 'BorderStyle', 'Enabled', FONT, 'ForeColor', 'Hidden',
+			'IntegralHeight', 'MultiSelect', 'Normal', 'Pattern', 'ReadOnly', 'System', 'TabIndex', 'TabStop', 'Tag',
+			'ToolTipText', 'Visible'],
+	},
+	// The Data control raises Reposition; it has no Click.
+	'VB.Data': {
+		kind: 'Data', base: 'Data', size: { width: 1755, height: 345 }, text: 'Caption', tab: true, captioned: true,
+		defaultEvent: 'Reposition', vocabularyFrom: 'model',
+		designProperties: ['Appearance', 'BackColor', 'BOFAction', 'Caption', 'Connect', 'DatabaseName', 'DefaultCursorType',
+			'DefaultType', 'Enabled', 'EOFAction', 'Exclusive', FONT, 'ForeColor', 'Options', 'ReadOnly', 'RecordsetType',
+			'RecordSource', 'TabIndex', 'TabStop', 'Tag', 'ToolTipText', 'Visible'],
+	},
+	'VB.OLE': {
+		kind: 'OLE', base: 'OLE', size: { width: 1215, height: 1215 }, tab: true, vocabularyFrom: 'model',
+		designProperties: ['Appearance', 'AutoActivate', 'AutoVerbMenu', 'BackColor', 'BackStyle', 'BorderStyle', 'Class',
+			'DisplayType', 'Enabled', 'HostName', 'MiscFlags', 'OLEDropAllowed', 'OLETypeAllowed', 'SizeMode', 'SourceDoc',
+			'SourceItem', 'TabIndex', 'TabStop', 'Tag', 'UpdateOptions', 'Visible'],
+	},
 };
+
+/** The keys only the designer writes: the model has no property for them. */
+export const VB6_DESIGNER_ONLY_KEYS: readonly string[] = ['ClientLeft', 'ClientTop', 'ToolboxBitmap'];
+
+/** Properties whose value lives in the `.frx`: a picture the designer reads and never writes. */
+export const VB6_SIDECAR_PICTURE_KEYS: ReadonlySet<string> = new Set([
+	'picture', 'icon', 'mouseicon', 'dragicon', 'downpicture', 'disabledpicture', 'maskpicture', 'toolboxbitmap',
+]);
+/** Properties whose rows live in the `.frx`: a ListBox's or ComboBox's items. */
+export const VB6_SIDECAR_LIST_KEYS: ReadonlySet<string> = new Set(['list', 'itemdata']);
 
 /** The VB6 toolbox: the intrinsic controls a form can add, by name. */
 export const VB6_TOOLBOX: readonly string[] = Object.entries(VB6_CONTROLS)
@@ -603,6 +684,9 @@ function controlRows(control: FrmControl, frx: FrxLookup | undefined, kind: stri
 		rows.push({ prop: m.key, value: frmDisplayValue(m) });
 	}
 	// The kind's design-time vocabulary, blank where the header says nothing.
+	// A value the designer keeps in the `.frx` is listed only when the header
+	// states it: the gesture that would set a blank one is refused, and a row
+	// that cannot be filled is a promise the pane does not keep.
 	const present = new Set(rows.map((r) => r.prop.toLowerCase()));
 	for (const key of VB6_DESIGN_PROPERTIES[control.progId] ?? []) {
 		if (key === 'Font') {
@@ -611,7 +695,9 @@ function controlRows(control: FrmControl, frx: FrxLookup | undefined, kind: stri
 			}
 			continue;
 		}
-		if (!present.has(key.toLowerCase())) { rows.push({ prop: key, value: '' }); }
+		const lower = key.toLowerCase();
+		if (present.has(lower) || VB6_SIDECAR_PICTURE_KEYS.has(lower) || VB6_SIDECAR_LIST_KEYS.has(lower)) { continue; }
+		rows.push({ prop: key, value: '' });
 	}
 	return rows;
 }

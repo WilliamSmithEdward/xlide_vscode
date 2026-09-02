@@ -319,10 +319,13 @@ document with the code below the header untouched - a gesture that changes
 nothing returns the file's own bytes. The provider lands the result as one
 edit over the changed span, so text undo is the undo. The properties pane
 lists what the header states plus the design-time vocabulary measured per
-control kind on the fixture forms (`VB6_CONTROLS` in `frmScene.ts`, one spec
-per intrinsic kind carrying its canvas kind, toolbox name and default size,
-caption, container, default event and design-time properties, from which
-`VB6_TOOLBOX`, `VB6_DESIGN_PROPERTIES` and `VB6_DEFAULT_EVENTS` derive);
+control kind (`VB6_CONTROLS` in `frmScene.ts`, one spec per intrinsic kind -
+all twenty - carrying its canvas kind, toolbox name and default size, caption,
+container, default event, where its vocabulary came from and its design-time
+properties, from which `VB6_TOOLBOX`, `VB6_DESIGN_PROPERTIES` and
+`VB6_DEFAULT_EVENTS` derive; tests check every property name and every default
+event against the model, so a double-click never writes a handler for an event
+the control does not raise);
 the `VB` model drives the editors (`vb6PaneVocabulary`): a property declared
 as an enum whose constants the model holds gets a dropdown of those constants,
 a Boolean gets True/False, and a value the fixtures glossed is written with the

@@ -6,9 +6,11 @@ import type { FrmHeader } from '../src/vba/vb6/frmHeader';
 import { readFrxRecords } from '../src/vba/vb6/frx';
 import { decodeCodePage } from '../src/vba/codePages';
 import {
-	VB6_CONTROLS, VB6_DEFAULT_EVENTS, VB6_DESIGN_PROPERTIES, VB6_TOOLBOX, listFrmProperties, pictureDataUriOf, sceneOfFrmHeader,
-	twipsToPt, vb6CanvasKind, vb6ControlSpec, vb6MenuCaptions, vb6PaneVocabulary,
+	VB6_CONTROLS, VB6_DEFAULT_EVENTS, VB6_DESIGNER_ONLY_KEYS, VB6_DESIGN_PROPERTIES, VB6_TOOLBOX, listFrmProperties,
+	pictureDataUriOf, sceneOfFrmHeader, twipsToPt, vb6CanvasKind, vb6ControlSpec, vb6MenuCaptions, vb6PaneVocabulary,
 } from '../src/vba/vb6/frmScene';
+import { applyFrmDesignerOp } from '../src/vba/vb6/frmDesignerOps';
+import { getVb6ObjectModel } from '../src/analyzer/host/vb6ObjectModel';
 import { renderFormSceneHtml } from '../src/vba/oforms/preview';
 import type { SceneControl } from '../src/vba/oforms/preview';
 import { formatOleColor, parseOleColor } from '../src/vba/oforms/markup';
@@ -63,25 +65,111 @@ describe('vb6CanvasKind', () => {
 		expect(vb6CanvasKind('MSComctlLib.ListView')).toBeUndefined();
 		expect(vb6CanvasKind('Audiostation.ButtonBig')).toBeUndefined();
 	});
-	it('offers every toolbox kind', () => {
+	it('offers every intrinsic control the toolbox has, including the file-system, data and OLE controls', () => {
 		for (const kind of VB6_TOOLBOX) {
-			expect(vb6CanvasKind(`VB.${kind}`)).toBeDefined();
+			expect(vb6CanvasKind(`VB.${kind}`), kind).toBeDefined();
 		}
 		expect(VB6_TOOLBOX).toEqual(['Label', 'TextBox', 'ComboBox', 'ListBox', 'CheckBox', 'OptionButton',
-			'CommandButton', 'Frame', 'PictureBox', 'Image', 'HScrollBar', 'VScrollBar', 'Timer', 'Line', 'Shape']);
+			'CommandButton', 'Frame', 'PictureBox', 'Image', 'HScrollBar', 'VScrollBar', 'Timer', 'Line', 'Shape',
+			'DriveListBox', 'DirListBox', 'FileListBox', 'Data', 'OLE']);
+		// Every intrinsic control type the model knows is a kind the designer draws.
+		const model = getVb6ObjectModel();
+		const controlTypes = Object.keys(model.types).filter((name) => {
+			const members = model.types[name].members;
+			return name.startsWith('VB.') && members.some((m) => m.kind === 'property' && m.name === 'TabIndex');
+		});
+		for (const progId of controlTypes) {
+			expect(VB6_CONTROLS[progId], progId).toBeDefined();
+		}
 	});
 
 	it('describes each kind once, and the designer classes as no control', () => {
 		expect(vb6CanvasKind('VB.Form')).toBeUndefined();
 		expect(vb6ControlSpec('VB.Frame')).toMatchObject({ kind: 'Frame', container: true, captioned: true, base: 'Frame' });
 		expect(vb6ControlSpec('VB.Timer')?.size).toBeUndefined();
-		expect(VB6_DEFAULT_EVENTS).toEqual({ Form: 'Load', MDIForm: 'Load', PictureBox: 'Click', Timer: 'Timer', Line: '', Shape: '' });
 		expect(VB6_DESIGN_PROPERTIES['VB.Label']).toContain('Caption');
 		for (const [progId, spec] of Object.entries(VB6_CONTROLS)) {
 			expect(progId.startsWith('VB.'), progId).toBe(true);
+			expect(spec.vocabularyFrom, progId).toMatch(/^(fixtures|model)$/);
 			if (spec.text === 'Caption') { expect(spec.captioned, progId).toBe(true); }
 			if (spec.scale) { expect(spec.size, progId).toBeDefined(); }
+			if (spec.base && spec.kind !== 'Timer' && spec.kind !== 'Line') { expect(spec.size, progId).toBeDefined(); }
 		}
+	});
+
+	it('names only properties the model declares, bar the keys only the designer writes', () => {
+		const model = getVb6ObjectModel();
+		const designerOnly = new Set(VB6_DESIGNER_ONLY_KEYS.map((k) => k.toLowerCase()));
+		for (const [progId, spec] of Object.entries(VB6_CONTROLS)) {
+			const type = model.types[progId];
+			expect(type, progId).toBeDefined();
+			const known = new Set(type.members.filter((m) => m.kind === 'property').map((m) => m.name.toLowerCase()));
+			for (const key of spec.designProperties) {
+				if (key === 'Font' || designerOnly.has(key.toLowerCase())) { continue; }
+				expect(known.has(key.toLowerCase()), `${progId}.${key}`).toBe(true);
+			}
+		}
+	});
+
+	it('opens a double-click on an event the kind actually has, or refuses by name', () => {
+		const model = getVb6ObjectModel();
+		for (const [progId, spec] of Object.entries(VB6_CONTROLS)) {
+			const events = new Set((model.types[progId]?.members ?? [])
+				.filter((m) => m.kind === 'event').map((m) => m.name.toLowerCase()));
+			// The canvas falls back to Click for a kind with no entry.
+			const effective = spec.defaultEvent ?? 'Click';
+			if (effective === '') {
+				// Only for a kind the designer refuses outright.
+				expect(VB6_DEFAULT_EVENTS[spec.kind], progId).toBe('');
+				continue;
+			}
+			expect(events.has(effective.toLowerCase()), `${progId} has no ${effective} event`).toBe(true);
+		}
+		// The kinds VB6 gives no Click: they must not fall back to one.
+		for (const progId of ['VB.HScrollBar', 'VB.VScrollBar', 'VB.Data', 'VB.DriveListBox']) {
+			expect(VB6_CONTROLS[progId].defaultEvent, progId).toBeTruthy();
+		}
+		expect(VB6_DEFAULT_EVENTS.ScrollBar).toBe('Change');
+		expect(VB6_DEFAULT_EVENTS.Data).toBe('Reposition');
+	});
+
+	it('draws the file-system, data and OLE controls rather than a foreign box', () => {
+		const header = headerOf(fixture('RunAsTrustedInstaller/Form1.frm'));
+		let text = fs.readFileSync(fixture('RunAsTrustedInstaller/Form1.frm'), 'latin1');
+		for (const kind of ['DriveListBox', 'DirListBox', 'FileListBox', 'Data', 'OLE']) {
+			text = applyFrmDesignerOp(text, { kind: 'add', container: '', controlKind: kind, left: 5, top: 5 }).text;
+		}
+		const grown = parseFrmHeader(text)!;
+		const scene = sceneOfFrmHeader(grown, { formName: 'Form1' });
+		const drawn = new Map(flatten(scene.controls).map((c) => [c.name, c]));
+		expect(drawn.get('Drive1')?.kind).toBe('DriveListBox');
+		expect(drawn.get('Dir1')?.kind).toBe('DirListBox');
+		expect(drawn.get('File1')?.kind).toBe('FileListBox');
+		expect(drawn.get('Data1')?.kind).toBe('Data');
+		expect(drawn.get('OLE1')?.kind).toBe('OLE');
+		expect(flatten(scene.controls).some((c) => c.kind === 'Foreign')).toBe(false);
+		const html = renderFormSceneHtml(scene, { formName: 'Form1' });
+		expect(html).toContain('class="ctl edit combo" data-name="Drive1"');
+		expect(html).toContain('class="ctl edit list" data-name="Dir1"');
+		expect(html).toContain('class="ctl data" data-name="Data1"');
+		expect(html).toContain('class="ctl ole" data-name="OLE1"');
+		expect(html).toContain('.data .nav');
+		// The Data control shows its caption between the navigator's arrows.
+		expect(html).toContain('<span class="cap">Data1</span>');
+		expect(header.form.children.length).toBeLessThan(grown.form.children.length);
+	});
+
+	it('lists a vocabulary for the kinds no fixture uses, and says where it came from', () => {
+		for (const progId of ['VB.Timer', 'VB.ListBox', 'VB.Image', 'VB.HScrollBar', 'VB.Data', 'VB.FileListBox', 'VB.OLE']) {
+			expect(VB6_CONTROLS[progId].vocabularyFrom, progId).toBe('model');
+			expect(VB6_DESIGN_PROPERTIES[progId].length, progId).toBeGreaterThan(0);
+		}
+		expect(VB6_DESIGN_PROPERTIES['VB.Timer']).toEqual(['Enabled', 'Interval', 'Tag']);
+		expect(VB6_DESIGN_PROPERTIES['VB.HScrollBar']).toContain('LargeChange');
+		expect(VB6_CONTROLS['VB.Label'].vocabularyFrom).toBe('fixtures');
+		// A scroll bar has no ToolTipText, and an OLE container none either: the model says so.
+		expect(VB6_DESIGN_PROPERTIES['VB.VScrollBar']).not.toContain('ToolTipText');
+		expect(VB6_DESIGN_PROPERTIES['VB.OLE']).not.toContain('ToolTipText');
 	});
 });
 
@@ -290,6 +378,12 @@ describe('listFrmProperties', () => {
 		expect(rows.find((r) => r.prop === 'BackColor')).toEqual({ prop: 'BackColor', value: '' });
 		expect(rows.find((r) => r.prop === 'Font.Name')).toEqual({ prop: 'Font.Name', value: '' });
 		expect(rows.some((r) => r.prop === 'hWnd' || r.prop === 'Parent')).toBe(false);
+		// A picture the designer will not write is never offered blank; a
+		// header that states one still shows it, as its sidecar reference.
+		const form = props[''].rows;
+		expect(form.some((r) => r.prop === 'Picture' && r.value === '')).toBe(false);
+		const withIcon = listFrmProperties(headerOf(fixture('audiostation/Form_OpenDialog.frm')), { formName: 'f' })[''].rows;
+		expect(withIcon.find((r) => r.prop === 'Icon')?.value).toMatch(/Form_OpenDialog\.frx:0000/);
 		for (const target of Object.values(props)) {
 			const names = target.rows.map((r) => r.prop.toLowerCase());
 			expect(new Set(names).size).toBe(names.length);

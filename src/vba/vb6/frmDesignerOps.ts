@@ -21,8 +21,8 @@ import {
 } from './frmHeader';
 import { parseOleColor } from '../oforms/markup';
 import {
-	GEOMETRY_KEYS, VB6_CONTROLS, VB6_ENUM_GLOSSES, VB6_FONT_FIELDS, frmLineEnds, frmNumberOf, vb6CanvasKind, vb6ControlName,
-	vb6ControlSpec, vb6DeclaredType,
+	GEOMETRY_KEYS, VB6_CONTROLS, VB6_ENUM_GLOSSES, VB6_FONT_FIELDS, VB6_SIDECAR_LIST_KEYS, VB6_SIDECAR_PICTURE_KEYS,
+	frmLineEnds, frmNumberOf, vb6CanvasKind, vb6ControlName, vb6ControlSpec, vb6DeclaredType,
 } from './frmScene';
 import type { GestureMessage } from '../oforms/designerMessages';
 
@@ -462,10 +462,6 @@ function setTabOrder(header: FrmHeader, names: readonly string[]): void {
 // --- setProp -----------------------------------------------------------------
 
 const COLOR_KEYS = new Set(['backcolor', 'forecolor', 'fillcolor', 'bordercolor', 'maskcolor']);
-/** Pictures live in the sidecar as records the designer reads and never writes. */
-const PICTURE_KEYS = new Set(['picture', 'icon', 'mouseicon', 'dragicon', 'downpicture', 'disabledpicture', 'maskpicture', 'toolboxbitmap']);
-/** A ListBox's or ComboBox's rows: sidecar records too. */
-const LIST_KEYS = new Set(['list', 'itemdata']);
 const IDENTIFIER = /^[A-Za-z][A-Za-z0-9_]{0,39}$/;
 
 /**
@@ -502,10 +498,10 @@ function setProp(header: FrmHeader, name: string, prop: string, value: string, o
 	const key = existing?.key ?? prop;
 	const trimmed = value.trim();
 	const declared = vb6DeclaredType(target.progId, key);
-	if (PICTURE_KEYS.has(lower) || declared === 'StdPicture') {
+	if (VB6_SIDECAR_PICTURE_KEYS.has(lower) || declared === 'StdPicture') {
 		throw new Error(`${prop} is a picture, stored in the form's .frx sidecar; the designer reads pictures and does not write them.`);
 	}
-	if (LIST_KEYS.has(lower)) {
+	if (VB6_SIDECAR_LIST_KEYS.has(lower)) {
 		throw new Error(`${prop} holds the control's rows in the form's .frx sidecar; the designer does not write them.`);
 	}
 	if (COLOR_KEYS.has(lower) || declared === 'OLE_COLOR') {

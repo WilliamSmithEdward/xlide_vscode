@@ -9,7 +9,7 @@ import {
 	applyFrmDesignerOp, frmDesignerOpOfGesture, twipsOfPt, vb6FormHandlerPrefix, vb6HeaderEndOf, vb6PendingRecordsToWrite,
 } from '../src/vba/vb6/frmDesignerOps';
 import type { FrmDesignerOp } from '../src/vba/vb6/frmDesignerOps';
-import { vb6CanvasKind, vb6ControlName } from '../src/vba/vb6/frmScene';
+import { VB6_TOOLBOX, vb6CanvasKind, vb6ControlName } from '../src/vba/vb6/frmScene';
 import { appendVb6Sidecar, applyVb6FormDesignerOp, readVb6FormPreview, vb6SidecarFileFor } from '../src/vba/projectService';
 
 // Designer gestures as header rewrites, measured on the fixture forms: a
@@ -222,6 +222,26 @@ describe('add', () => {
 		expect(control(timer.text, 'Timer1').members.map((m) => (m.kind === 'property' ? m.key : m.name))).toEqual(['Left', 'Top']);
 		const scroll = applyFrmDesignerOp(text, { kind: 'add', container: '', controlKind: 'VScrollBar', left: 0, top: 0 });
 		expect(control(scroll.text, 'VScroll1').progId).toBe('VB.VScrollBar');
+	});
+
+	it('adds every kind the toolbox offers, each parsing back as its own prog id', () => {
+		let text = read(FORM1);
+		const added: string[] = [];
+		for (const kind of VB6_TOOLBOX) {
+			const result = applyFrmDesignerOp(text, { kind: 'add', container: '', controlKind: kind, left: 10, top: 10 });
+			expect(result.newName, kind).toBeTruthy();
+			added.push(result.newName!);
+			text = result.text;
+			expect(control(text, result.newName!).progId).toBe(`VB.${kind}`);
+		}
+		expect(new Set(added).size).toBe(VB6_TOOLBOX.length);
+		expect(added).toEqual(expect.arrayContaining(['Drive1', 'Dir1', 'File1', 'Data1', 'OLE1']));
+		// Every one of them still round-trips through the header printer.
+		expect(headerOf(text).form.children.length).toBe(headerOf(read(FORM1)).form.children.length + VB6_TOOLBOX.length);
+		expect(codeOf(text)).toBe(codeOf(read(FORM1)));
+		// Tab stops stay unique across the lot.
+		const tabs = frmControls(headerOf(text)).map((c) => frmProperty(c, 'TabIndex')?.value).filter((v) => v !== undefined);
+		expect(new Set(tabs).size).toBe(tabs.length);
 	});
 
 	it('nests a control added inside a PictureBox, and refuses a container that cannot hold one', () => {

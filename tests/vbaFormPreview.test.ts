@@ -20,6 +20,28 @@ function fixtureHtml(): string {
 	return renderFormPreviewHtml(pkg, { formName: 'EntryForm', caption: 'Quarter Entry' });
 }
 
+describe('the canvas stylesheet places every control where the scene says', () => {
+	// A control's box comes from .ctl { position: absolute } plus the inline
+	// left/top the adapter computed. A kind rule that names position again
+	// wins on order and drops the control into normal flow, which the canvas
+	// reports at runtime as "misplaced ... pos=relative" - measured on a
+	// scroll bar, whose own rule did exactly that.
+	const KIND_CLASSES = ['label', 'edit', 'combo', 'list', 'opt', 'button', 'image', 'spin', 'scroll', 'tabstrip',
+		'frame', 'multipage', 'foreign', 'line', 'shape', 'timer', 'data', 'ole', 'picture'];
+
+	it('never lets a control kind override the absolute position .ctl sets', () => {
+		const style = /<style>([\s\S]*?)<\/style>/.exec(fixtureHtml())?.[1];
+		expect(style).toBeDefined();
+		for (const cls of KIND_CLASSES) {
+			const rule = new RegExp(`(^|[^-\\w.])\\.${cls}\\s*\\{([^}]*)\\}`, 'g');
+			for (let m = rule.exec(style!); m; m = rule.exec(style!)) {
+				const position = /(^|;)\s*position\s*:\s*([a-z]+)/.exec(m[2]);
+				expect(position?.[2] ?? 'absolute', `.${cls} { position: ${position?.[2]} }`).toBe('absolute');
+			}
+		}
+	});
+});
+
 describe('the rendered form', () => {
 	it('draws the dialog at the form size with its caption', () => {
 		const html = fixtureHtml();
