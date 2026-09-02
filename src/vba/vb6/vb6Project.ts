@@ -18,7 +18,7 @@ import {
 	splitVbaSource,
 	type ProcedureEntry,
 } from '../moduleSource';
-import { hasAuthoritativeDesignerHeader, parseUserFormControls } from '../../vbaUserFormControls';
+import { frmMembers, parseFrmHeader, type FrmHeader } from './frmHeader';
 import { parseVbpManifest, type VbpManifest, type VbpModuleKind, type VbpModuleRef } from './vbpProject';
 
 /**
@@ -239,13 +239,31 @@ function moduleWithSource(read: ReadModuleFile, full: boolean): Vb6ModuleEntry {
 	if (predeclared) {
 		out.predeclaredId = /^True$/i.test(predeclared);
 	}
-	if (entry.type === 'userform') {
-		const header = designerBlock + moduleText;
-		if (hasAuthoritativeDesignerHeader(header)) {
-			out.implicitMembers = parseUserFormControls(header).map((c) => ({ name: c.name, type: c.type }));
+	if (DESIGNER_KINDS.has(entry.manifestKind) && designerBlock) {
+		// The designer declares the controls; the code-behind never does. A
+		// header this parser cannot read leaves the members absent - "not
+		// known" - never an empty list.
+		const header = tryParseFrmHeader(designerBlock + moduleText);
+		if (header) {
+			out.implicitMembers = frmMembers(header).map((m) => ({ name: m.name, type: m.type }));
 		}
 	}
 	return out;
+}
+
+function tryParseFrmHeader(text: string): FrmHeader | undefined {
+	try {
+		return parseFrmHeader(text);
+	} catch {
+		return undefined;
+	}
+}
+
+/** The parsed designer header of a form-like module, when it has one this parser reads. */
+export function readVb6FormHeader(vbpPath: string, moduleName: string): FrmHeader | undefined {
+	const project = openVb6Project(vbpPath);
+	const read = readModuleFile(project, findModule(project, moduleName));
+	return read.designerBlock ? tryParseFrmHeader(read.designerBlock + read.moduleText) : undefined;
 }
 
 /** Every module with its source, skipping files that cannot be read. */

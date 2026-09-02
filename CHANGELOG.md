@@ -29,6 +29,18 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
   land in the project's files. A VB6 form's `Me` stays untyped until the
   `vb6` model exists; silence beats `MSForms.UserForm`.
 
+- **VB6 forms are readable.** The designer header a `.frm`, `.ctl`, `.pag`
+  or `.dsr` opens with is parsed into a model - controls nested in their
+  containers, property groups such as a Font or an ImageList's images, OCX
+  references, menus, control arrays - and printed back two ways: as read,
+  and regenerated from the model in the designer's own layout, which on
+  every fixture (and on 34 forms from five open-source projects) is the
+  same bytes. The `.frx` sidecar's records are read at the offsets the
+  header names: long and short strings, pictures, and ComboBox rows, each
+  shape measured rather than assumed. A VB6 form's controls now reach the
+  analyzer as members typed by prog id (`VB.TextBox`), so code touching
+  them is not called undeclared.
+
 ## [5.0.2] - 2026-08-31
 
 - **A container's children were already members; now they are pinned.** #57

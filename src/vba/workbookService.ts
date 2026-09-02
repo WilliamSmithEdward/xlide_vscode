@@ -54,6 +54,7 @@ import {
 	listVb6Procedures,
 	readVb6Module,
 	readVb6Modules,
+	readVb6FormHeader,
 	validateVb6Project,
 	writeVb6Module,
 	type Vb6ModuleEntry,
@@ -289,6 +290,9 @@ function sheetSurface(filePath: string): XlsxWorkbook {
 	}
 	return container.xlsx;
 }
+
+/** Test hook: a VB6 form's parsed designer header through the service's own dispatch. */
+export const readVb6FormHeaderForTests = readVb6FormHeader;
 
 /** Test hooks; product code never reads these. */
 export function workbookCacheStatsForTests(): { hits: number; misses: number; size: number } {

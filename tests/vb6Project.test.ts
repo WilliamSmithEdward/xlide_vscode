@@ -183,10 +183,8 @@ describe('a VB6 project through the engine', () => {
 		const form = modules.find((m) => m.name === 'Form1');
 		expect(form?.predeclaredId).toBe(true);
 		expect(form?.source).toMatch(/Attribute VB_PredeclaredId = True/);
-		// A real VB6 form header carries BeginProperty blocks the header
-		// parser cannot yet read, so the controls stay "not known" (absent),
-		// never an empty list (roadmap_vb6_support.md, Slice 2).
-		expect(form?.implicitMembers).toBeUndefined();
+		// The designer declares the controls, typed by prog id (slice 2).
+		expect(form?.implicitMembers).toEqual(expect.arrayContaining([{ name: 'Command1', type: 'VB.CommandButton' }]));
 		expect(modules.find((m) => m.name === 'modRunAsTI')?.source).toMatch(/Option Explicit/);
 		expect(modules.map((m) => m.filePath)).toEqual([
 			path.join(path.dirname(RUN_AS_TI), 'Form1.frm'),

@@ -122,24 +122,35 @@ editor buffer before analysis.
 
 ## Slice 2: VB6 forms readable
 
-- [ ] A VB6 `.frm` header parser (`src/vba/vb6/frmHeader.ts`) that understands
+- [x] A VB6 `.frm` header parser (`src/vba/vb6/frmHeader.ts`) that understands
       `Begin <ProgId> <Name>` nesting, `BeginProperty`/`EndProperty` blocks,
       trailing comments after values (`0   'False`), `Index` on control-array
       members, and both `"file.frx":offset` and `$"file.frx":offset` references.
       It replaces the `Forms.*`-only path in `vbaUserFormControls.ts` for VB6
       files rather than sitting beside it.
-- [ ] A printer that reproduces the header byte for byte from the parsed tree,
+- [x] A printer that reproduces the header byte for byte from the parsed tree,
       pinned on every fixture form (the same byte-identity oracle the OFORMS
       engine uses).
-- [ ] An `.frx` reader for referenced blobs, measured on fixtures: string blobs,
+- [x] An `.frx` reader for referenced blobs, measured on fixtures: string blobs,
       pictures, list contents. Unreferenced bytes are preserved untouched.
-- [ ] `controlTypeFor` and the implicit-member path type `VB.*` controls; a form
-      module's `Me` resolves as `combined:<form>|VB.Form`.
+- [x] The implicit-member path types `VB.*` controls by prog id (the type the
+      `vb6` model will key on); a form module's `Me` stays untyped until that
+      model exists (Slice 3), where `combined:<form>|VB.Form` lands.
 
 Definition of done: every fixture `.frm` parses and prints back identical; the
 analyzer reports no `undeclared-variable` on any fixture code-behind with the
 header-supplied controls; a mutation that drops the nested controls fails the
-tests.
+tests. Met on 2026-09-02. Measured on the way, over 34 forms from five
+projects: the header grammar (OCX `Object =` lines before the form block,
+`BeginProperty` groups with optional class ids nested inside each other, keys
+with parentheses and dots, `'comment` glosses after numeric values, both
+`"file.frx":HEX` and `$"file.frx":HEX` references), the layout the designer
+writes (three spaces per level, keys padded to 16 columns, extender keys such
+as `Object.Width` to 23, a trailing space after every `Begin` and
+`BeginProperty` name, two spaces before a comment), and the sidecar records
+(contiguous; 32-bit-length pictures and `$` strings; 8-bit-length short
+strings; 16-bit-counted `List`/`ItemData` rows). The formatter regenerates
+all 34 headers byte for byte from the model.
 
 ## Slice 3: the `vb6` host model
 

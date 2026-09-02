@@ -70,7 +70,8 @@ export function hasAuthoritativeDesignerHeader(source: string): boolean {
             }
             continue;
         }
-        if (line.trim() !== '' && !/^\s*[\w.]+\s*=/.test(line)) {
+        if (line.trim() !== '' && !/^\s*[\w.()]+\s*=/.test(line)
+            && !/^\s*(?:BeginProperty|EndProperty)\b/i.test(line)) {
             return false;
         }
     }
@@ -112,10 +113,12 @@ export function parseUserFormControls(source: string): UserFormControl[] {
             }
             continue;
         }
-        // Property lines and blanks are the only other thing a header holds; a
-        // line that is neither means the block never closed, so stop rather
-        // than run on into the code and invent controls out of it.
-        if (line.trim() !== '' && !/^\s*[\w.]+\s*=/.test(line)) {
+        // Property lines, property groups (a Font), and blanks are the only
+        // other things a header holds; a line that is none of them means the
+        // block never closed, so stop rather than run on into the code and
+        // invent controls out of it.
+        if (line.trim() !== '' && !/^\s*[\w.()]+\s*=/.test(line)
+            && !/^\s*(?:BeginProperty|EndProperty)\b/i.test(line)) {
             break;
         }
     }
