@@ -65,8 +65,9 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
   Form, MDIForm, the controls) is transcribed from twinBASIC's documentation
   because VB6's own `VB.OLB` is not available, filtered to VB6's real surface
   by the pages' own compatibility notes and a cross-read against Microsoft's
-  archived VB6 reference, with everything left out listed in the reference
-  data. A member twinBASIC marks reserved keeps a note saying so. A VB6 form
+  archived VB6 reference, with everything left out listed in
+  `docs/vb6_reference_exclusions.md`. A member twinBASIC marks reserved keeps
+  a note saying so. A VB6 form
   offers its own event-handler stubs - `Form_Load`, `Form_QueryUnload(Cancel
   As Integer, UnloadMode As Integer)`, `Command1_Click(Index As Integer)` for
   a control array, `MDIForm_*` for an MDI form - from those events, not from
