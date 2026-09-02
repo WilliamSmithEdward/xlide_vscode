@@ -254,6 +254,19 @@ describe('setProp', () => {
 		expect(codeOf(after)).toBe(codeOf(text));
 	});
 
+	it('writes the designer\'s gloss after a measured enum value, and a bare number otherwise', () => {
+		const text = read(FORM1);
+		const dialog = apply(text, { kind: 'setProp', name: '', prop: 'BorderStyle', value: '3' });
+		expect(dialog).toContain("   BorderStyle     =   3  'Fixed Dialog\r\n");
+		const sizable = apply(text, { kind: 'setProp', name: '', prop: 'BorderStyle', value: '2' });
+		expect(sizable).toContain('   BorderStyle     =   2\r\n');
+		const centered = apply(text, { kind: 'setProp', name: 'Text1', prop: 'Alignment', value: '2' });
+		expect(centered).toContain("      Alignment       =   2  'Center\r\n");
+		// The value a line already holds is left as written, gloss and all.
+		const again = apply(dialog, { kind: 'setProp', name: '', prop: 'BorderStyle', value: '3' });
+		expect(again).toBe(dialog);
+	});
+
 	it('sets geometry in points, the form size through Width and Height', () => {
 		const text = read(FORM1);
 		const after = apply(text, { kind: 'setProp', name: 'Text1', prop: 'Width', value: '100' });

@@ -20,7 +20,7 @@ import {
 	type FrmControl, type FrmHeader, type FrmProperty, type FrmPropertyGroup, type FrmPropertyNode, type FrxRef,
 } from './frmHeader';
 import { parseOleColor } from '../oforms/markup';
-import { frmNumberOf, vb6CanvasKind, vb6ControlName } from './frmScene';
+import { VB6_ENUM_GLOSSES, frmNumberOf, vb6CanvasKind, vb6ControlName } from './frmScene';
 
 export interface FrmGeometry {
 	name: string;
@@ -459,7 +459,10 @@ function setProp(header: FrmHeader, name: string, prop: string, value: string, o
 	} else if (isBooleanText(trimmed)) {
 		setMember(target.members, boolMember(key, isTrue(trimmed)));
 	} else if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
-		setMember(target.members, { kind: 'property', key, value: trimmed });
+		// The same value again keeps the line, gloss included.
+		if (existing && !existing.frx && existing.value.trim() === trimmed) { return undefined; }
+		const gloss = VB6_ENUM_GLOSSES[`${target.progId}.${key}`]?.[trimmed];
+		setMember(target.members, gloss ? { kind: 'property', key, value: trimmed, comment: gloss } : { kind: 'property', key, value: trimmed });
 	} else if (trimmed === '' && existing && !/^"/.test(existing.value) && !existing.frx) {
 		// Clearing a number or an enum returns it to its default: the line goes.
 		removeMember(target, key);

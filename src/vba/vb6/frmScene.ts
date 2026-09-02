@@ -15,6 +15,8 @@
 import type { FormScene, SceneControl } from '../oforms/preview';
 import { cssColor, esc, sceneControl } from '../oforms/preview';
 import { parseOleColor } from '../oforms/markup';
+import { getVb6ObjectModel } from '../../analyzer/host/vb6ObjectModel';
+import type { HostConstant } from '../../analyzer/host/excelObjectModel';
 import type { FrmControl, FrmHeader, FrmProperty, FrmPropertyGroup, FrxRef } from './frmHeader';
 import type { FrxValue } from './frx';
 
@@ -66,6 +68,92 @@ export const VB6_DESIGN_PROPERTIES: Readonly<Record<string, readonly string[]>> 
 
 /** The Font group's members, in the order the designer writes them. */
 export const VB6_FONT_FIELDS = ['Name', 'Size', 'Charset', 'Weight', 'Underline', 'Italic', 'Strikethrough'] as const;
+
+/**
+ * The gloss the designer writes after an enum value (`BorderStyle = 3
+ * 'Fixed Dialog`), measured per kind, property and value on the fixture
+ * headers. A write of a measured value carries its gloss; any other value
+ * is written bare, which VB6 reads the same and re-glosses on its own save.
+ */
+export const VB6_ENUM_GLOSSES: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+	'VB.Form.BorderStyle': { '1': 'Fixed Single', '3': 'Fixed Dialog' },
+	'VB.Line.BorderStyle': { '3': 'Dot' },
+	'VB.Frame.BorderStyle': { '0': 'None' },
+	'VB.TextBox.BorderStyle': { '0': 'None' },
+	'VB.PictureBox.BorderStyle': { '0': 'None' },
+	'VB.Label.Alignment': { '1': 'Right Justify', '2': 'Center' },
+	'VB.TextBox.Alignment': { '1': 'Right Justify', '2': 'Center' },
+	'VB.TextBox.Appearance': { '0': 'Flat' },
+	'VB.PictureBox.Appearance': { '0': 'Flat' },
+	'VB.ComboBox.Appearance': { '0': 'Flat' },
+	'VB.Label.BackStyle': { '0': 'Transparent' },
+	'VB.UserControl.BackStyle': { '0': 'Transparent' },
+	'VB.Shape.BackStyle': { '1': 'Opaque' },
+	'VB.PictureBox.Align': { '1': 'Align Top' },
+	'VB.Label.MousePointer': { '99': 'Custom' },
+	'VB.Form.ScaleMode': { '3': 'Pixel' },
+	'VB.PictureBox.ScaleMode': { '3': 'Pixel' },
+	'VB.TextBox.ScrollBars': { '2': 'Vertical' },
+	'VB.Shape.Shape': { '3': 'Circle' },
+	'VB.Form.StartUpPosition': { '1': 'CenterOwner', '2': 'CenterScreen', '3': 'Windows Default' },
+	'VB.CommandButton.Style': { '1': 'Graphical' },
+	'VB.ComboBox.Style': { '2': 'Dropdown List' },
+	'VB.CheckBox.Value': { '1': 'Checked', '2': 'Grayed' },
+};
+
+export interface Vb6PaneVocabulary {
+	/** Dropdown options per `Kind.Prop`: the constants of the enum the model declares for the property, by value. */
+	enums: Record<string, [string, string][]>;
+	/** The `Kind.Prop` names the model declares Boolean. */
+	bools: string[];
+}
+
+let paneVocabulary: Vb6PaneVocabulary | undefined;
+
+/**
+ * What the pane offers for the design-time vocabulary, from the `VB` model:
+ * a property declared as an enum whose constants the model holds gets a
+ * dropdown of those constants (`Form.BorderStyle`: vbBSNone through
+ * vbSizableToolWindow); a property declared Boolean gets True/False. An
+ * enum the model declares but holds no constants for stays a text field
+ * rather than a dropdown that could not offer every value.
+ */
+export function vb6PaneVocabulary(): Vb6PaneVocabulary {
+	if (paneVocabulary) { return paneVocabulary; }
+	const model = getVb6ObjectModel();
+	const constantsByType = new Map<string, HostConstant[]>();
+	for (const constant of Object.values(model.constants ?? {})) {
+		if (!constant.type) { continue; }
+		const list = constantsByType.get(constant.type) ?? [];
+		list.push(constant);
+		constantsByType.set(constant.type, list);
+	}
+	const enums: Record<string, [string, string][]> = {};
+	const bools: string[] = [];
+	for (const [progId, keys] of Object.entries(VB6_DESIGN_PROPERTIES)) {
+		const type = model.types[progId];
+		if (!type) { continue; }
+		const kind = vb6CanvasKind(progId) ?? progId.slice(3);
+		for (const key of keys) {
+			if (key === 'Font') { continue; }
+			const member = type.members.find((m) => m.kind === 'property' && m.name.toLowerCase() === key.toLowerCase());
+			const declared = member?.declaredType;
+			if (!declared) { continue; }
+			if (declared === 'Boolean') {
+				bools.push(`${kind}.${key}`);
+				continue;
+			}
+			const constants = constantsByType.get(declared);
+			if (constants && constants.length > 0) {
+				enums[`${kind}.${key}`] = [...constants]
+					.sort((a, b) => Number(a.value) - Number(b.value))
+					.map((c) => [String(c.value), c.name]);
+			}
+		}
+	}
+	paneVocabulary = { enums, bools };
+	return paneVocabulary;
+}
 
 /**
  * The event a double-click opens where VB6's differs from MSForms': a Form
@@ -364,6 +452,8 @@ export function sceneOfFrmHeader(header: FrmHeader, options: FrmSceneOptions): F
 		pictures: {},
 		toolbox: VB6_TOOLBOX,
 		defaultEvents: VB6_DEFAULT_EVENTS,
+		enums: vb6PaneVocabulary().enums,
+		bools: vb6PaneVocabulary().bools,
 	};
 }
 

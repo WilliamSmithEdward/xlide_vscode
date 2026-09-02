@@ -319,8 +319,12 @@ document with the code below the header untouched - a gesture that changes
 nothing returns the file's own bytes. The provider lands the result as one
 edit over the changed span, so text undo is the undo. The properties pane
 lists what the header states plus the design-time vocabulary measured per
-control kind on the fixture forms (`VB6_DESIGN_PROPERTIES` in `frmScene.ts`),
-spelled back as the designer spells it. A string the header cannot hold (line
+control kind on the fixture forms (`VB6_DESIGN_PROPERTIES` in `frmScene.ts`);
+the `VB` model drives the editors (`vb6PaneVocabulary`): a property declared
+as an enum whose constants the model holds gets a dropdown of those constants,
+a Boolean gets True/False, and a value the fixtures glossed is written with the
+designer's own gloss (`VB6_ENUM_GLOSSES`, `3  'Fixed Dialog`). A string the
+header cannot hold (line
 breaks) is appended to the `.frx` in the measured record layout; every other
 sidecar record is read, never written.
 

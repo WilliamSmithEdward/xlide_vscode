@@ -7,6 +7,7 @@ import { readFrxRecords } from '../src/vba/vb6/frx';
 import { decodeCodePage } from '../src/vba/codePages';
 import {
 	VB6_TOOLBOX, listFrmProperties, pictureDataUriOf, sceneOfFrmHeader, twipsToPt, vb6CanvasKind, vb6MenuCaptions,
+	vb6PaneVocabulary,
 } from '../src/vba/vb6/frmScene';
 import { renderFormSceneHtml } from '../src/vba/oforms/preview';
 import type { SceneControl } from '../src/vba/oforms/preview';
@@ -279,6 +280,22 @@ describe('listFrmProperties', () => {
 		const width = header.form.members.find((m) => m.kind === 'property' && m.key === 'ClientWidth');
 		expect(props[''].rows.find((r) => r.prop === 'Width')?.value).toBe(twipsToPt(Number(width?.kind === 'property' ? width.value : 0)));
 		expect(props[''].rows.some((r) => r.prop === 'ClientWidth')).toBe(false);
+	});
+
+	it('offers the model\'s own constants for enum properties, True/False for Booleans, and a text field otherwise', () => {
+		const { enums, bools } = vb6PaneVocabulary();
+		expect(enums['Form.BorderStyle']).toEqual(expect.arrayContaining([['2', 'vbSizable'], ['3', 'vbFixedDialog']]));
+		expect(enums['Form.BorderStyle'].map(([v]) => v)).toEqual(['0', '1', '2', '3', '4', '5']);
+		expect(enums['CheckBox.Value']).toEqual(expect.arrayContaining([['2', 'vbGrayed']]));
+		expect(enums['Form.StartUpPosition'].length).toBe(4);
+		// The model declares the type but holds no constants for it: no dropdown.
+		expect(enums['TextBox.BorderStyle']).toBeUndefined();
+		expect(bools).toEqual(expect.arrayContaining(['Form.KeyPreview', 'TextBox.Locked', 'Label.AutoSize']));
+		expect(bools).not.toContain('CheckBox.Value');
+		const header = headerOf(fixture('RunAsTrustedInstaller/Form1.frm'));
+		const html = renderFormSceneHtml(sceneOfFrmHeader(header, { formName: 'Form1' }), { formName: 'Form1' });
+		expect(html).toContain('"Form.BorderStyle"');
+		expect(html).toContain('"Form.KeyPreview"');
 	});
 
 	it('flattens a Font group into Font.* rows, unquoted', () => {

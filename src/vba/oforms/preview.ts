@@ -291,6 +291,10 @@ export interface FormScene {
 	toolbox: string[];
 	/** The default event per kind where the world's differs from MSForms' (a VB6 Form loads, a Timer ticks). */
 	defaultEvents?: Record<string, string>;
+	/** Dropdown options per `Kind.Prop` (or bare prop), added to the pane's own tables. */
+	enums?: Record<string, [string, string][]>;
+	/** Boolean props per `Kind.Prop` (or bare prop), added to the pane's own set. */
+	bools?: string[];
 }
 
 export function sceneControl(
@@ -560,6 +564,8 @@ export function renderFormSceneHtml(scene: FormScene, options: FormPreviewOption
 	const surfaceHtml = renderSceneControls(scene.controls, 'c', options.selected);
 	const picturesJson = JSON.stringify(scene.pictures).replace(/</g, '\\u003c');
 	const defaultEventsJson = JSON.stringify(scene.defaultEvents ?? {}).replace(/</g, '\\u003c');
+	const enumsJson = JSON.stringify(scene.enums ?? {}).replace(/</g, '\\u003c');
+	const boolsJson = JSON.stringify(scene.bools ?? []).replace(/</g, '\\u003c');
 	return `<!DOCTYPE html>
 <html>
 <head>
@@ -971,7 +977,10 @@ ${interactive ? `	<script>
 		const BOOL_PROPS = new Set(['Enabled', 'Locked', 'MultiLine', 'WordWrap', 'AutoSize',
 			'Visible', 'TabStop', 'Default', 'Cancel', 'Font.Bold', 'Font.Italic',
 			'Font.Underline', 'Font.Strikethrough', 'ShowModal', 'WhatsThisButton']);
-		const ENUM_OPTIONS = {
+		for (const prop of ${boolsJson}) { BOOL_PROPS.add(prop); }
+		// The scene's own tables first (a VB6 form's Kind.Prop entries), then
+		// the MSForms tables by bare property name.
+		const ENUM_OPTIONS = Object.assign({
 			SpecialEffect: [['0', 'Flat'], ['1', 'Raised'], ['2', 'Sunken'], ['3', 'Etched'], ['6', 'Bump']],
 			BorderStyle: [['0', 'None'], ['1', 'Single']],
 			MultiSelect: [['0', 'Single'], ['1', 'Multi'], ['2', 'Extended']],
@@ -989,7 +998,7 @@ ${interactive ? `	<script>
 				['10', 'UpArrow'], ['11', 'HourGlass'], ['12', 'NoDrop'], ['13', 'AppStarting'],
 				['14', 'Help'], ['15', 'SizeAll'], ['99', 'Custom']],
 			StartUpPosition: [['0', 'Manual'], ['1', 'CenterOwner'], ['2', 'CenterScreen'], ['3', 'WindowsDefault']],
-		};
+		}, ${enumsJson});
 		const COLOR_PROPS = new Set(['BackColor', 'ForeColor', 'BorderColor']);
 		const SYSTEM_COLORS = ${JSON.stringify(WINDOWS_PALETTE)};
 		// Every face the picker offers: the common Windows set plus whatever
@@ -1130,7 +1139,9 @@ ${interactive ? `	<script>
 					if (value === row.value) { return; }
 					post({ type: 'setProp', name: target, prop: row.prop, value });
 				};
-				if (BOOL_PROPS.has(row.prop)) {
+				const kindProp = info.kind + '.' + row.prop;
+				const enumOptions = ENUM_OPTIONS[kindProp] || ENUM_OPTIONS[row.prop];
+				if (BOOL_PROPS.has(kindProp) || BOOL_PROPS.has(row.prop)) {
 					const pick = document.createElement('select');
 					for (const v of ['True', 'False']) {
 						const o = document.createElement('option');
@@ -1140,14 +1151,14 @@ ${interactive ? `	<script>
 					pick.value = row.value === 'True' ? 'True' : 'False';
 					pick.addEventListener('change', () => commit(pick.value));
 					div.appendChild(pick);
-				} else if (ENUM_OPTIONS[row.prop]) {
+				} else if (enumOptions) {
 					const pick = document.createElement('select');
-					if (!ENUM_OPTIONS[row.prop].some(([v]) => v === row.value)) {
+					if (!enumOptions.some(([v]) => v === row.value)) {
 						const blank = document.createElement('option');
 						blank.value = row.value; blank.textContent = row.value || '(default)';
 						pick.appendChild(blank);
 					}
-					for (const [v, word] of ENUM_OPTIONS[row.prop]) {
+					for (const [v, word] of enumOptions) {
 						const o = document.createElement('option');
 						o.value = v;
 						o.textContent = /^[A-Za-z]/.test(v) ? word : v + ' - ' + word;

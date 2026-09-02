@@ -284,7 +284,10 @@ measured per control kind on the fixture forms (`VB6_DESIGN_PROPERTIES` in
 the model's own property list: that list is the runtime surface (`hWnd`,
 `Parent`, `SelText` beside `Caption`) and carries no design-time flag to
 filter on, so a model-driven pane would offer properties the designer never
-writes. The model types the rows and the handler stubs. Sidecar writes are one
+writes. The model does drive the pane's editors: a property declared as an
+enum whose constants the model holds gets a dropdown of those constants, a
+Boolean gets True/False, and the value the header takes back carries the gloss
+the fixtures measured for it (`3  'Fixed Dialog`) or none. Sidecar writes are one
 measured kind, a string with line breaks, appended in the short or long record
 layout the reader measured; pictures, lists and every other record are read,
 never written. The twinBASIC reopen check is a developer check, not a test:

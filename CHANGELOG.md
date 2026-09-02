@@ -104,9 +104,11 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
   changes header lines only - pinned on every fixture. Add, move, resize,
   remove, reparent, z-order, tab order, copy and paste, rename, control
   arrays through Index, and a properties pane that lists what the header
-  states and the properties the designer writes for that kind, spelled as
-  VB6 spells them (`-1  'True`, `&H00FF0000&`, a Font group in its fixed
-  order). A multi-line Text goes to the sidecar as a new record; nothing else
+  states and the properties the designer writes for that kind, with VB6's own
+  constants in the dropdowns (`vbFixedDialog`, `vbGrayed`) and every value
+  spelled as VB6 spells it (`-1  'True`, `3  'Fixed Dialog`, `&H00FF0000&`,
+  a Font group in its fixed order). A multi-line Text goes to the sidecar as
+  a new record; nothing else
   in the sidecar is written. Double-click opens the handler in the code below
   (`Form_Load`, `Timer1_Timer`, `Command1_Click(Index As Integer)` for an
   array). Fifth slice of `docs/roadmap_vb6_support.md`.
