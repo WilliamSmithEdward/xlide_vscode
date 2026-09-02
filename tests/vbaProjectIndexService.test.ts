@@ -9,7 +9,7 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
 import * as vscode from 'vscode';
 import { VbaSymbolIndex } from '../src/vbaSymbolIndex';
 import { VbaProjectIndexService } from '../src/vbaProjectIndexService';
-import { fakeWorkbookEngine, type FakeBridgeModule } from './helpers/fakeWorkbookEngine';
+import { fakeProjectEngine, type FakeBridgeModule } from './helpers/fakeProjectEngine';
 import { ownersFromListings, setVb6ModuleOwnersForTests } from '../src/vb6ProjectLocator';
 
 // Platform-appropriate absolute path: decodeModuleUri and path.resolve are
@@ -23,7 +23,7 @@ function service(modules: FakeBridgeModule[]): {
 	projectIndexService: VbaProjectIndexService;
 	callCount: () => number;
 } {
-	const bridge = fakeWorkbookEngine({ [BOOK]: modules });
+	const bridge = fakeProjectEngine({ [BOOK]: modules });
 	const index = new VbaSymbolIndex(bridge);
 	return {
 		index,
@@ -63,7 +63,7 @@ describe('a VB6 project in the project index', () => {
 	it('folds an open VB6 file into its project, designer header blanked, at its own offsets', async () => {
 		const header = 'VERSION 5.00\r\nBegin VB.Form Form1 \r\n   Caption = "F"\r\n   BeginProperty Font \r\n      Name = "Tahoma"\r\n   EndProperty\r\nEnd\r\n';
 		const code = 'Attribute VB_Name = "Form1"\r\nPrivate Sub Form_Load()\r\nEnd Sub\r\n';
-		const bridge = fakeWorkbookEngine({ [VBP]: [
+		const bridge = fakeProjectEngine({ [VBP]: [
 			{ name: 'Form1', type: 'userform', source: header.replace(/[^\r\n]/g, ' ') + code, filePath: FRM },
 			{ name: 'modMain', type: 'standard', source: 'Attribute VB_Name = "modMain"\r\nPublic Sub Alpha()\r\nEnd Sub\r\n', filePath: BAS },
 		] });
@@ -84,7 +84,7 @@ describe('a VB6 project in the project index', () => {
 			getText: () => edited,
 		});
 
-		const context = await projectIndexService.contextForWorkbook(VBP, 'live');
+		const context = await projectIndexService.contextForProject(VBP, 'live');
 		const form = context.byModule.get('form1');
 		expect(form?.source.length).toBe(edited.length);
 		expect(form?.source).not.toMatch(/Begin VB\.Form/);
@@ -96,14 +96,14 @@ describe('a VB6 project in the project index', () => {
 });
 
 describe('VbaProjectIndexService', () => {
-	it('builds one shared workbook project and reuses it across requests', async () => {
+	it('builds one shared project index and reuses it across requests', async () => {
 		const { projectIndexService, callCount } = service([
 			{ name: 'Module1', type: 'standard', source: 'Public Sub Alpha()\nEnd Sub\n' },
 			{ name: 'Sheet1', type: 'document', source: 'Private Sub Worksheet_Activate()\nEnd Sub\n' },
 		]);
 
-		const first = await projectIndexService.contextForWorkbook(BOOK);
-		const second = await projectIndexService.contextForWorkbook(BOOK);
+		const first = await projectIndexService.contextForProject(BOOK);
+		const second = await projectIndexService.contextForProject(BOOK);
 
 		expect(second.project).toBe(first.project);
 		expect(callCount()).toBe(1);
@@ -113,15 +113,15 @@ describe('VbaProjectIndexService', () => {
 		expect(first.modules.map((mod) => mod.moduleName)).toEqual(['Module1', 'Sheet1']);
 	});
 
-	it('folds saved module changes incrementally without a workbook rebuild', async () => {
+	it('folds saved module changes incrementally without a project rebuild', async () => {
 		const { index, projectIndexService, callCount } = service([
 			{ name: 'Module1', type: 'standard', source: 'Public Sub Alpha()\nEnd Sub\n' },
 			{ name: 'Module2', type: 'standard', source: 'Public Sub Beta()\nEnd Sub\n' },
 		]);
-		const first = await projectIndexService.contextForWorkbook(BOOK);
+		const first = await projectIndexService.contextForProject(BOOK);
 
 		index.updateModuleSource(BOOK, 'Module1', 'Public Sub Gamma()\nEnd Sub\n');
-		const second = await projectIndexService.contextForWorkbook(BOOK);
+		const second = await projectIndexService.contextForProject(BOOK);
 
 		expect(second.project).toBe(first.project);
 		expect(callCount()).toBe(1);
@@ -130,14 +130,14 @@ describe('VbaProjectIndexService', () => {
 		expect(second.byModule.get('module1')?.source).toContain('Gamma');
 	});
 
-	it('rebuilds after a workbook-level symbol index invalidation', async () => {
+	it('rebuilds after a project-level symbol index invalidation', async () => {
 		const { index, projectIndexService, callCount } = service([
 			{ name: 'Module1', type: 'standard', source: 'Public Sub Alpha()\nEnd Sub\n' },
 		]);
-		const first = await projectIndexService.contextForWorkbook(BOOK);
+		const first = await projectIndexService.contextForProject(BOOK);
 
 		index.invalidate(BOOK);
-		const second = await projectIndexService.contextForWorkbook(BOOK);
+		const second = await projectIndexService.contextForProject(BOOK);
 
 		expect(second.project).not.toBe(first.project);
 		expect(callCount()).toBe(2);
@@ -150,13 +150,13 @@ describe('VbaProjectIndexService', () => {
 		const document = openXlideDocument('Module1', 'Public Sub FromEditor()\nEnd Sub\n');
 		(vscode.workspace.textDocuments as unknown[]).push(document);
 
-		const first = await projectIndexService.contextForWorkbook(BOOK);
+		const first = await projectIndexService.contextForProject(BOOK);
 		expect(first.byModule.get('module1')?.source).toContain('FromEditor');
 		expect(first.project.visibleProcedureNames('Module1').has('fromeditor')).toBe(true);
 
 		document.version = 2;
 		document.getText = () => 'Public Sub Edited()\nEnd Sub\n';
-		const second = await projectIndexService.contextForWorkbook(BOOK);
+		const second = await projectIndexService.contextForProject(BOOK);
 
 		expect(second.project).toBe(first.project);
 		expect(callCount()).toBe(1);
@@ -173,15 +173,15 @@ describe('VbaProjectIndexService', () => {
 			{ name: 'Bad', type: 'standard', source: undefined as unknown as string },
 		]);
 
-		const live = await projectIndexService.contextForWorkbook(BOOK, 'live');
+		const live = await projectIndexService.contextForProject(BOOK, 'live');
 		expect(live.byModule.has('bad')).toBe(false);
 		expect(live.moduleMetadata.has('bad')).toBe(true);
 		expect(live.project.visibleProcedureNames('Bad').has('alpha')).toBe(true);
 
-		await expect(projectIndexService.contextForWorkbook(BOOK, 'strict')).rejects.toBeTruthy();
+		await expect(projectIndexService.contextForProject(BOOK, 'strict')).rejects.toBeTruthy();
 
 		index.updateModuleSource(BOOK, 'Bad', 'Public Sub Fixed()\nEnd Sub\n');
-		const strict = await projectIndexService.contextForWorkbook(BOOK, 'strict');
+		const strict = await projectIndexService.contextForProject(BOOK, 'strict');
 		expect(strict.byModule.get('bad')?.source).toContain('Fixed');
 		expect(strict.project.visibleProcedureNames('Module1').has('fixed')).toBe(true);
 	});
@@ -190,11 +190,11 @@ describe('VbaProjectIndexService', () => {
 		const { index, projectIndexService } = service([
 			{ name: 'Module1', type: 'standard', source: 'Public Sub Alpha()\nEnd Sub\n' },
 		]);
-		const context = await projectIndexService.contextForWorkbook(BOOK);
+		const context = await projectIndexService.contextForProject(BOOK);
 		context.projectProcedures = new Map();
 
 		index.updateModuleSource(BOOK, 'Module1', 'Public Sub Beta()\nEnd Sub\n');
-		const next = await projectIndexService.contextForWorkbook(BOOK);
+		const next = await projectIndexService.contextForProject(BOOK);
 
 		expect(next.projectProcedures).toBeUndefined();
 	});

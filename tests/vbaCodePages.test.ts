@@ -7,7 +7,7 @@ import { Cfb } from '../src/vba/cfb';
 import { compress, decompress } from '../src/vba/ovba';
 import { VbaProject } from '../src/vba/vbaProject';
 import { XlsxWorkbook } from '../src/vba/xlsx';
-import * as svc from '../src/vba/workbookService';
+import * as svc from '../src/vba/projectService';
 import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
 
 // The regression from issue #6: cp1251 bytes for 'Модуль' read back as
@@ -75,7 +75,7 @@ describe('code-page conversion', () => {
 	});
 });
 
-describe('cp1251 workbook end to end', () => {
+describe('cp1251 project end to end', () => {
 	const TEMPLATE = path.join(__dirname, '..', 'assets', 'templates', 'blank.xlsm');
 	const REC_PROJECTCODEPAGE = 0x0003;
 
@@ -130,7 +130,7 @@ describe('cp1251 workbook end to end', () => {
 
 		// And a fresh listModules still classifies + validates cleanly.
 		expect(svc.listModules(file).map((m) => m.name)).toContain('mdTest');
-		expect(svc.validateWorkbook(file).issues).toEqual([]);
+		expect(svc.validateProject(file).issues).toEqual([]);
 	});
 });
 
@@ -192,7 +192,7 @@ describe('non-ASCII module and procedure names (the wider bug class)', () => {
 		const subs = svc.listSubs(file, 'НовыйМодуль');
 		expect(subs.map((s) => s.name)).toContain('Проверка');
 
-		expect(svc.validateWorkbook(file).issues).toEqual([]);
+		expect(svc.validateProject(file).issues).toEqual([]);
 	});
 });
 

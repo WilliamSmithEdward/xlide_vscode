@@ -735,7 +735,7 @@ function renderOutput() {
 		.join('\n');
 	const constantEntries = constants.map(renderConstant).join('\n');
 	const enumEntries = enums.map(renderEnum).join('\n');
-	const workbookProvenance = provenanceFor('Workbook');
+	const projectProvenance = provenanceFor('Workbook');
 
 	return `// Generated from reference/excel/json. Do not hand-edit member names here.
 // Regenerate from the repo-local reference dump with \`npm run generate:reference:excel\`.
@@ -767,7 +767,7 @@ export const EXCEL_REFERENCE_ENUMS: Record<string, HostEnum> = {
 ${enumEntries}
 };
 
-export const EXCEL_WORKBOOK_REFERENCE_PROVENANCE = ${JSON.stringify(workbookProvenance)};
+export const EXCEL_WORKBOOK_REFERENCE_PROVENANCE = ${JSON.stringify(projectProvenance)};
 
 export const EXCEL_WORKBOOK_REFERENCE_MEMBERS = EXCEL_REFERENCE_MEMBER_SETS.Workbook;
 `;

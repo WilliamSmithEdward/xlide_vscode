@@ -6,14 +6,14 @@ import { manifestValue, parseVbpManifest, printVbpManifest } from '../src/vba/vb
 import { resetVb6ProjectCacheForTests } from '../src/vba/vb6/vb6Project';
 import {
 	getProtectionInfo,
-	getWorkbookInfo,
+	getProjectInfo,
 	listModules,
 	listSubs,
 	readModule,
 	readModules,
-	validateWorkbook,
+	validateProject,
 	writeModule,
-} from '../src/vba/workbookService';
+} from '../src/vba/projectService';
 import { hostTokenForFileName } from '../src/analyzer/host/hostRegistry';
 import { containerContextValue, MACRO_CONTAINER_GLOB } from '../src/macroContainerUi';
 
@@ -192,12 +192,12 @@ describe('a VB6 project through the engine', () => {
 		]);
 	});
 
-	it('answers the workbook-shaped questions honestly for a project', () => {
+	it('answers the project-shaped questions honestly for a project', () => {
 		expect(getProtectionInfo(RUN_AS_TI)).toEqual({ isPasswordProtected: false, isSigned: false });
-		const info = getWorkbookInfo(RUN_AS_TI);
+		const info = getProjectInfo(RUN_AS_TI);
 		expect(info.sheets).toEqual([]);
 		expect(info.modules.map((m) => m.name)).toEqual(['Form1', 'modRunAsTI']);
-		expect(validateWorkbook(RUN_AS_TI)).toEqual({ issues: [] });
+		expect(validateProject(RUN_AS_TI)).toEqual({ issues: [] });
 	});
 
 	it('lists a module whose file is missing, and names the file when it is read', () => {
@@ -210,7 +210,7 @@ describe('a VB6 project through the engine', () => {
 		expect(listModules(vbp).map((m) => m.name)).toEqual(['modGone', 'modHere']);
 		expect(() => readModule(vbp, 'modGone')).toThrow(/Module file not found: .*modGone\.bas/);
 		expect(readModules(vbp).map((m) => m.name)).toEqual(['modHere']);
-		expect(validateWorkbook(vbp).issues).toEqual([expect.stringMatching(/Missing module file: modGone\.bas/)]);
+		expect(validateProject(vbp).issues).toEqual([expect.stringMatching(/Missing module file: modGone\.bas/)]);
 	});
 
 	it('lists the opaque kinds by name and answers no procedures for them', () => {

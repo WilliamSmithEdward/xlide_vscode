@@ -1,12 +1,12 @@
 import * as vscode from 'vscode';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { WorkbookAnalysisResult } from '../src/vbaWorkbookAnalysis';
-import { buildWorkbookAnalysisResultsModel } from '../src/workbookAnalysisResultsModel';
-import { openWorkbookAnalysisResults, renderWorkbookAnalysisResultsHtml } from '../src/workbookAnalysisWebview';
+import type { ProjectAnalysisResult } from '../src/vbaProjectWideAnalysis';
+import { buildProjectAnalysisResultsModel } from '../src/projectAnalysisResultsModel';
+import { openProjectAnalysisResults, renderProjectAnalysisResultsHtml } from '../src/projectAnalysisWebview';
 
 vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 
-function resultFixture(): WorkbookAnalysisResult {
+function resultFixture(): ProjectAnalysisResult {
     return {
         filePath: 'C:/work/Book.xlsm',
         moduleCount: 1,
@@ -37,7 +37,7 @@ function resultFixture(): WorkbookAnalysisResult {
     };
 }
 
-function suppressedOnlyResultFixture(): WorkbookAnalysisResult {
+function suppressedOnlyResultFixture(): ProjectAnalysisResult {
     const fixture = resultFixture();
     fixture.errorCount = 0;
     fixture.warningCount = 0;
@@ -61,23 +61,23 @@ function suppressedOnlyResultFixture(): WorkbookAnalysisResult {
     return fixture;
 }
 
-describe('workbook analysis webview', () => {
+describe('project analysis webview', () => {
     beforeEach(() => {
         vi.clearAllMocks();
     });
 
-    it('reuses an existing analysis panel for the workbook in the active editor group', () => {
+    it('reuses an existing analysis panel for the project in the active editor group', () => {
         const panel = fakeWebviewPanel();
         vi.mocked(vscode.window.createWebviewPanel).mockReturnValue(panel as unknown as vscode.WebviewPanel);
         const context = { subscriptions: [] } as unknown as vscode.ExtensionContext;
 
-        const first = openWorkbookAnalysisResults(context, resultFixture());
-        const second = openWorkbookAnalysisResults(context, resultFixture());
+        const first = openProjectAnalysisResults(context, resultFixture());
+        const second = openProjectAnalysisResults(context, resultFixture());
 
         expect(first).toBe(second);
         expect(vscode.window.createWebviewPanel).toHaveBeenCalledTimes(1);
         expect(vscode.window.createWebviewPanel).toHaveBeenCalledWith(
-            'xlideWorkbookAnalysisResults',
+            'xlideProjectAnalysisResults',
             'XLIDE Analysis: Book.xlsm',
             vscode.ViewColumn.Active,
             expect.objectContaining({
@@ -90,27 +90,27 @@ describe('workbook analysis webview', () => {
     });
 
     it('renders scope-explicit rule tracking controls', () => {
-        const html = renderWorkbookAnalysisResultsHtml(
-            buildWorkbookAnalysisResultsModel(resultFixture()),
+        const html = renderProjectAnalysisResultsHtml(
+            buildProjectAnalysisResultsModel(resultFixture()),
             {
                 visibleSeverities: ['error', 'warning', 'information'],
                 visibleSeveritiesSource: 'default',
                 untrackedRules: [],
                 untrackedRulesSource: 'default',
-                workbookUntrackedRules: [],
+                projectUntrackedRules: [],
                 ruleSeverityOverrides: {},
                 ruleSeverityOverridesSource: 'default',
             },
         );
 
-        expect(html).toContain('data-context-action="setRuleTrackingWorkbook"');
+        expect(html).toContain('data-context-action="setRuleTrackingProject"');
         expect(html).toContain('data-context-action="setRuleTrackingGlobal"');
-        expect(html).toContain('Untrack In File');
+        expect(html).toContain('Untrack In Project');
         expect(html).toContain('Untrack Globally');
-        expect(html).toContain('Track In File');
+        expect(html).toContain('Track In Project');
         expect(html).toContain('Track Globally');
-        expect(html).toContain('File Untracked Rules');
-        expect(html).toContain('No file rules are manually untracked.');
+        expect(html).toContain('Project Untracked Rules');
+        expect(html).toContain('No project rules are manually untracked.');
         expect(html).toContain('Track All');
         expect(html).not.toContain('Default Visible Severities');
         expect(html).not.toContain('Rule Behavior');
@@ -122,20 +122,20 @@ describe('workbook analysis webview', () => {
         expect(html).toContain('id="trackingDivider"');
         expect(html).toContain('syncTrackingActions(row)');
         expect(html).toContain('grid-template-columns: 124px minmax(184px, 210px)');
-        expect(html).toContain('trackingScope: \'workbook\'');
-        expect(html).toContain('trackingScope: action === \'setRuleTrackingGlobal\' ? \'global\' : \'workbook\'');
+        expect(html).toContain('trackingScope: \'project\'');
+        expect(html).toContain('trackingScope: action === \'setRuleTrackingGlobal\' ? \'global\' : \'project\'');
         expect(html).not.toContain('id="trackingAction"');
     });
 
     it('renders analysis table headers as sortable controls', () => {
-        const html = renderWorkbookAnalysisResultsHtml(
-            buildWorkbookAnalysisResultsModel(resultFixture()),
+        const html = renderProjectAnalysisResultsHtml(
+            buildProjectAnalysisResultsModel(resultFixture()),
             {
                 visibleSeverities: ['error', 'warning', 'information'],
                 visibleSeveritiesSource: 'default',
                 untrackedRules: [],
                 untrackedRulesSource: 'default',
-                workbookUntrackedRules: [],
+                projectUntrackedRules: [],
                 ruleSeverityOverrides: {},
                 ruleSeverityOverridesSource: 'default',
             },
@@ -148,14 +148,14 @@ describe('workbook analysis webview', () => {
     });
 
     it('posts stable finding location data when opening a row', () => {
-        const html = renderWorkbookAnalysisResultsHtml(
-            buildWorkbookAnalysisResultsModel(resultFixture()),
+        const html = renderProjectAnalysisResultsHtml(
+            buildProjectAnalysisResultsModel(resultFixture()),
             {
                 visibleSeverities: ['error', 'warning', 'information'],
                 visibleSeveritiesSource: 'default',
                 untrackedRules: [],
                 untrackedRulesSource: 'default',
-                workbookUntrackedRules: [],
+                projectUntrackedRules: [],
                 ruleSeverityOverrides: {},
                 ruleSeverityOverridesSource: 'default',
             },
@@ -171,14 +171,14 @@ describe('workbook analysis webview', () => {
     });
 
     it('labels globally untracked rule rows distinctly', () => {
-        const html = renderWorkbookAnalysisResultsHtml(
-            buildWorkbookAnalysisResultsModel(resultFixture()),
+        const html = renderProjectAnalysisResultsHtml(
+            buildProjectAnalysisResultsModel(resultFixture()),
             {
                 visibleSeverities: ['error', 'warning', 'information'],
                 visibleSeveritiesSource: 'default',
                 untrackedRules: ['undeclared-variable'],
                 untrackedRulesSource: 'machine',
-                workbookUntrackedRules: [],
+                projectUntrackedRules: [],
                 ruleSeverityOverrides: {},
                 ruleSeverityOverridesSource: 'default',
             },
@@ -189,15 +189,15 @@ describe('workbook analysis webview', () => {
         expect(html).toContain('data-tracking-source="global"');
     });
 
-    it('labels workbook-untracked rule rows distinctly', () => {
-        const html = renderWorkbookAnalysisResultsHtml(
-            buildWorkbookAnalysisResultsModel(resultFixture()),
+    it('labels project-untracked rule rows distinctly', () => {
+        const html = renderProjectAnalysisResultsHtml(
+            buildProjectAnalysisResultsModel(resultFixture()),
             {
                 visibleSeverities: ['error', 'warning', 'information'],
                 visibleSeveritiesSource: 'default',
                 untrackedRules: ['undeclared-variable'],
-                untrackedRulesSource: 'workbook',
-                workbookUntrackedRules: ['undeclared-variable'],
+                untrackedRulesSource: 'project',
+                projectUntrackedRules: ['undeclared-variable'],
                 ruleSeverityOverrides: {},
                 ruleSeverityOverridesSource: 'default',
             },
@@ -205,20 +205,20 @@ describe('workbook analysis webview', () => {
 
         expect(html).toContain('Untracked In File');
         expect(html).toContain('data-tracked="no"');
-        expect(html).toContain('data-tracking-source="workbook"');
+        expect(html).toContain('data-tracking-source="project"');
         expect(html).toContain('<td class="settingsTableCode">undeclared-variable</td>');
         expect(html).toContain('data-settings-track-rule-code="undeclared-variable"');
     });
 
     it('gives untracked status precedence over suppressed findings', () => {
-        const html = renderWorkbookAnalysisResultsHtml(
-            buildWorkbookAnalysisResultsModel(suppressedOnlyResultFixture()),
+        const html = renderProjectAnalysisResultsHtml(
+            buildProjectAnalysisResultsModel(suppressedOnlyResultFixture()),
             {
                 visibleSeverities: ['error', 'warning', 'information'],
                 visibleSeveritiesSource: 'default',
                 untrackedRules: ['option-explicit-missing'],
                 untrackedRulesSource: 'machine',
-                workbookUntrackedRules: [],
+                projectUntrackedRules: [],
                 ruleSeverityOverrides: {},
                 ruleSeverityOverridesSource: 'default',
             },

@@ -15,19 +15,19 @@ afterEach(() => {
 	}
 });
 
-function tempWorkbook(): { root: string; workbook: string } {
+function tempWorkbook(): { root: string; project: string } {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-workbook-test-settings-'));
 	tempRoots.push(root);
-	const workbook = path.join(root, 'Book.xlsm');
-	fs.writeFileSync(workbook, '', 'utf8');
-	return { root, workbook };
+	const project = path.join(root, 'Book.xlsm');
+	fs.writeFileSync(project, '', 'utf8');
+	return { root, project };
 }
 
-describe('workbook test settings', () => {
-	it('uses default artifact settings until workbook overrides exist', async () => {
-		const { workbook } = tempWorkbook();
+describe('project test settings', () => {
+	it('uses default artifact settings until project overrides exist', async () => {
+		const { project } = tempWorkbook();
 
-		await expect(effectiveWorkbookTestSettings(workbook)).resolves.toMatchObject({
+		await expect(effectiveWorkbookTestSettings(project)).resolves.toMatchObject({
 			artifactFolder: 'tests',
 			artifactFolderSource: 'default',
 			artifactRetention: 20,
@@ -35,7 +35,7 @@ describe('workbook test settings', () => {
 		});
 	});
 
-	it('resolves artifact settings from already-loaded workbook config', () => {
+	it('resolves artifact settings from already-loaded project config', () => {
 		expect(effectiveWorkbookTestSettingsFromConfig('Book.xlsm', {
 			tests: {
 				artifactFolder: 'ci-artifacts',
@@ -43,9 +43,9 @@ describe('workbook test settings', () => {
 			},
 		})).toMatchObject({
 			artifactFolder: 'ci-artifacts',
-			artifactFolderSource: 'workbook',
+			artifactFolderSource: 'project',
 			artifactRetention: 5,
-			artifactRetentionSource: 'workbook',
+			artifactRetentionSource: 'project',
 		});
 	});
 

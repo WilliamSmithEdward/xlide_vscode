@@ -1,6 +1,6 @@
 import * as path from 'path';
 import { containerHostForPath } from './macroContainerUi';
-import type { WorkbookEngine } from './workbookEngine';
+import type { ProjectEngine } from './projectEngine';
 import type { VbaTestHostOracleEvent } from './vbaTestHostOracle';
 import {
     runOwnedExcelTestHostSession,
@@ -42,7 +42,7 @@ export interface VbaTestRunExecution {
 }
 
 export async function runWorkbookVbaTests(
-    bridge: WorkbookEngine,
+    bridge: ProjectEngine,
     filePath: string,
     options: RunWorkbookVbaTestsOptions = {},
 ): Promise<VbaTestRunExecution> {
@@ -166,7 +166,7 @@ export async function runWorkbookVbaTests(
 }
 
 async function runOwnedReadOnlyExcelTestHost(
-    bridge: WorkbookEngine,
+    bridge: ProjectEngine,
     filePath: string,
     tests: readonly VbaTestCase[],
     options: VbaTestRunOptions,

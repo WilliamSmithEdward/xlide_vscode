@@ -72,7 +72,7 @@ export interface HoverContext {
 	moduleKind?: ModuleSymbolKind;
 	/** Host object model to resolve against. Defaults to the Excel model. */
 	model?: HostObjectModel;
-	/** Source-declared workbook object members and visible UDT fields, keyed by type. */
+	/** Source-declared project object members and visible UDT fields, keyed by type. */
 	projectClassMembers?: readonly VbaProjectClassMembers[];
 	/**
 	 * Members the module has that its own text never declares - a form's

@@ -13,7 +13,7 @@ export const MACRO_CONTAINER_FIND_EXCLUDES = '{**/node_modules/**,**/.venv/**,**
  * Lists the workspace's macro container files the way every XLIDE surface
  * agrees to see them: dependency folders excluded, Office owner-lock stubs
  * (`~$Name.xlsm`) dropped, file scheme only, sorted by path. The explorer,
- * the sidebar, and the agent's xlide_listWorkbooks all answer from here, so
+ * the sidebar, and the agent's xlide_listProjects all answer from here, so
  * an agent can never see a file the trees would hide.
  */
 export async function findMacroContainerFiles(): Promise<vscode.Uri[]> {

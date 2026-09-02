@@ -27,7 +27,7 @@ export type DiagnosticSeverity = 'error' | 'warning' | 'information';
 /** User-configurable severity override value for an analysis rule. */
 export type DiagnosticSeverityOverride = DiagnosticSeverity | 'off';
 
-/** Analysis suppression scopes exposed by the workbook analysis UI. */
+/** Analysis suppression scopes exposed by the project analysis UI. */
 export type DiagnosticSuppressionScope = 'block' | 'member' | 'module';
 
 const DEFAULT_DIAGNOSTIC_SUPPRESSION_SCOPES: readonly DiagnosticSuppressionScope[] = [

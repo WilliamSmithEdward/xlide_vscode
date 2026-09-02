@@ -32,7 +32,7 @@ import { moduleKindFromType } from './vbaProjectAnalysis';
 import { findIdentifierOccurrences, lineStartOffsets } from './vbaSourceScan';
 import type { VbaModuleSymbols } from './vbaSymbolIndex';
 
-/** An offset-based reference location within one workbook module. */
+/** An offset-based reference location within one project module. */
 export interface ReferenceSpan {
     /** Original-cased owning module name. */
     moduleName: string;

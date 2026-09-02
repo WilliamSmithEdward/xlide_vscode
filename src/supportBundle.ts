@@ -22,9 +22,9 @@ export interface SupportBundleAnalysisSummary {
     byCode?: Record<string, number>;
 }
 
-export interface SupportBundleWorkbookSummary {
+export interface SupportBundleProjectSummary {
     available: boolean;
-    workbookPath?: string;
+    projectPath?: string;
     extension?: string;
     moduleCount?: number;
     moduleTypes?: Record<string, number>;
@@ -42,9 +42,9 @@ export interface SupportBundleAnonymizedAnalysisModule {
 
 export interface SupportBundleAnonymizedAnalysisReport {
     included: boolean;
-    unavailableReason?: 'not-requested' | 'no-active-workbook' | 'analysis-failed';
+    unavailableReason?: 'not-requested' | 'no-active-project' | 'analysis-failed';
     errorCategory?: string;
-    workbookExtension?: string;
+    projectExtension?: string;
     moduleCount?: number;
     problemCount?: number;
     errorCount?: number;
@@ -78,11 +78,11 @@ export interface SupportBundleInput {
         folderCount: number;
     };
     settings: SupportBundleSetting[];
-    workbook: SupportBundleWorkbookSummary;
+    project: SupportBundleProjectSummary;
     analysis: SupportBundleAnalysisSummary;
     commands: XlideCommandLogEntry[];
     writeAudits?: XlideWriteAuditEntry[];
-    anonymizedWorkbookAnalysisReport?: SupportBundleAnonymizedAnalysisReport;
+    anonymizedProjectAnalysisReport?: SupportBundleAnonymizedAnalysisReport;
     selectedLogs?: XlideOutputLogEntry[];
 }
 
@@ -99,10 +99,10 @@ export interface SupportBundle {
         docsEnabled: boolean | undefined;
         excelComStatus: 'available-on-windows-not-checked' | 'not-supported-on-platform';
     };
-    workbook: SupportBundleWorkbookSummary;
+    project: SupportBundleProjectSummary;
     analysis: SupportBundleAnalysisSummary;
     anonymizedReports: {
-        workbookAnalysis: SupportBundleAnonymizedAnalysisReport;
+        projectAnalysis: SupportBundleAnonymizedAnalysisReport;
     };
     recentCommands: XlideCommandLogEntry[];
     recentWriteAudits: XlideWriteAuditEntry[];
@@ -111,7 +111,7 @@ export interface SupportBundle {
         entries: XlideOutputLogEntry[];
     };
     privacy: {
-        workbookSourceIncluded: false;
+        projectSourceIncluded: false;
         pathsRedacted: true;
         commandArgumentsIncluded: false;
         writeAuditIncluded: true;
@@ -147,10 +147,10 @@ export function buildSupportBundle(input: SupportBundleInput): SupportBundle {
                 ? 'available-on-windows-not-checked'
                 : 'not-supported-on-platform',
         },
-        workbook: sanitizeWorkbookSummary(input.workbook),
+        project: sanitizeProjectSummary(input.project),
         analysis: input.analysis,
         anonymizedReports: {
-            workbookAnalysis: input.anonymizedWorkbookAnalysisReport ?? {
+            projectAnalysis: input.anonymizedProjectAnalysisReport ?? {
                 included: false,
                 unavailableReason: 'not-requested',
             },
@@ -165,18 +165,18 @@ export function buildSupportBundle(input: SupportBundleInput): SupportBundle {
             })),
         },
         privacy: {
-            workbookSourceIncluded: false,
+            projectSourceIncluded: false,
             pathsRedacted: true,
             commandArgumentsIncluded: false,
             writeAuditIncluded: true,
-            anonymizedAnalysisReportIncluded: input.anonymizedWorkbookAnalysisReport?.included === true,
+            anonymizedAnalysisReportIncluded: input.anonymizedProjectAnalysisReport?.included === true,
             selectedLogsIncluded: Boolean(input.selectedLogs),
             logPathsRedacted: true,
         },
     };
 }
 
-export function anonymizedWorkbookAnalysisReportFromResult(result: {
+export function anonymizedProjectAnalysisReportFromResult(result: {
     filePath: string;
     moduleCount: number;
     problems: readonly {
@@ -228,7 +228,7 @@ export function anonymizedWorkbookAnalysisReportFromResult(result: {
 
     return {
         included: true,
-        workbookExtension: path.extname(result.filePath),
+        projectExtension: path.extname(result.filePath),
         moduleCount: result.moduleCount,
         problemCount: result.problems.length,
         errorCount: result.errorCount,
@@ -270,21 +270,21 @@ export function supportBundleDisclosureText(bundle: SupportBundle): string {
         '- Extension, VS Code, platform, Node, and workspace folder count.',
         '- XLIDE settings with path-like values redacted.',
         '- Setup states that can be determined without probing Excel.',
-        '- Active workbook/module metadata and active-module analysis counts when available.',
+        '- Active project/module metadata and active-module analysis counts when available.',
         '- Recent XLIDE command ids, outcomes, durations, and error categories.',
         '- Recent XLIDE write-audit entries with paths redacted.',
         '',
         'Optional when explicitly selected:',
-        '- Anonymized workbook analysis report with counts by rule/module type only.',
+        '- Anonymized project analysis report with counts by rule/module type only.',
         '- Recent selected XLIDE operation log lines with paths redacted.',
         '',
         'Not included:',
-        '- Workbook VBA source or cell data.',
-        '- Full workbook paths or path-like setting values.',
+        '- VBA source or cell data.',
+        '- Full project paths or path-like setting values.',
         '- Command arguments.',
         '- Output logs unless you explicitly select the log option.',
         '',
-        `Active workbook: ${workbookLine(bundle)}`,
+        `Active project: ${projectLine(bundle)}`,
         `Active module analysis: ${analysisLine(bundle)}`,
         `Anonymized analysis report included: ${bundle.privacy.anonymizedAnalysisReportIncluded}`,
         `Selected logs included: ${bundle.privacy.selectedLogsIncluded}`,
@@ -306,7 +306,7 @@ export function supportDiagnosticsText(bundle: SupportBundle): string {
         `Excel COM status: ${bundle.setup.excelComStatus}`,
         '',
         'Active Workbook',
-        workbookLine(bundle),
+        projectLine(bundle),
         '',
         'Active Module Analysis',
         analysisLine(bundle),
@@ -323,13 +323,13 @@ export function supportDiagnosticsText(bundle: SupportBundle): string {
         ...writeAuditLines(bundle),
         '',
         'Anonymized Workbook Analysis Report',
-        anonymizedAnalysisReportLine(bundle.anonymizedReports.workbookAnalysis),
+        anonymizedAnalysisReportLine(bundle.anonymizedReports.projectAnalysis),
         '',
         'Selected Logs',
         ...selectedLogLines(bundle),
         '',
         'Privacy',
-        `Workbook source included: ${bundle.privacy.workbookSourceIncluded}`,
+        `Workbook source included: ${bundle.privacy.projectSourceIncluded}`,
         `Paths redacted: ${bundle.privacy.pathsRedacted}`,
         `Command arguments included: ${bundle.privacy.commandArgumentsIncluded}`,
         `Write audit included: ${bundle.privacy.writeAuditIncluded}`,
@@ -352,20 +352,20 @@ function sanitizeSettingValue(key: string, value: unknown): unknown {
     return value;
 }
 
-function sanitizeWorkbookSummary(summary: SupportBundleWorkbookSummary): SupportBundleWorkbookSummary {
+function sanitizeProjectSummary(summary: SupportBundleProjectSummary): SupportBundleProjectSummary {
     if (!summary.available) {
         return { available: false };
     }
     return {
         ...summary,
-        workbookPath: summary.workbookPath ? redactPath(summary.workbookPath) : undefined,
+        projectPath: summary.projectPath ? redactPath(summary.projectPath) : undefined,
     };
 }
 
 function sanitizeWriteAuditEntry(entry: XlideWriteAuditEntry): XlideWriteAuditEntry {
     return {
         ...entry,
-        workbookPath: entry.workbookPath ? redactPath(entry.workbookPath) : undefined,
+        projectPath: entry.projectPath ? redactPath(entry.projectPath) : undefined,
         sourcePath: entry.sourcePath ? redactPath(entry.sourcePath) : undefined,
         targetPath: entry.targetPath ? redactPath(entry.targetPath) : undefined,
         // Defense-in-depth: the free-form summary is not constrained to be
@@ -393,22 +393,22 @@ function sortedRecord(
     );
 }
 
-function workbookLine(bundle: SupportBundle): string {
-    if (!bundle.workbook.available) {
+function projectLine(bundle: SupportBundle): string {
+    if (!bundle.project.available) {
         return UNAVAILABLE;
     }
-    const moduleTypes = bundle.workbook.moduleTypes
-        ? Object.entries(bundle.workbook.moduleTypes)
+    const moduleTypes = bundle.project.moduleTypes
+        ? Object.entries(bundle.project.moduleTypes)
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([name, count]) => `${name} ${count}`)
             .join(', ')
         : UNAVAILABLE;
     return [
-        bundle.workbook.workbookPath ?? '<redacted>',
-        `extension ${bundle.workbook.extension ?? UNAVAILABLE}`,
-        `modules ${bundle.workbook.moduleCount ?? UNAVAILABLE}`,
+        bundle.project.projectPath ?? '<redacted>',
+        `extension ${bundle.project.extension ?? UNAVAILABLE}`,
+        `modules ${bundle.project.moduleCount ?? UNAVAILABLE}`,
         `moduleTypes ${moduleTypes}`,
-        `activeModuleType ${bundle.workbook.activeModuleType ?? UNAVAILABLE}`,
+        `activeModuleType ${bundle.project.activeModuleType ?? UNAVAILABLE}`,
     ].join('; ');
 }
 
@@ -478,7 +478,7 @@ function anonymizedAnalysisReportLine(report: SupportBundleAnonymizedAnalysisRep
         return report.unavailableReason ?? 'not-requested';
     }
     return [
-        `workbookExtension ${report.workbookExtension ?? UNAVAILABLE}`,
+        `projectExtension ${report.projectExtension ?? UNAVAILABLE}`,
         `modules ${report.moduleCount ?? 0}`,
         `problems ${report.problemCount ?? 0}`,
         `errors ${report.errorCount ?? 0}`,

@@ -3,14 +3,14 @@ import {
     DEFAULT_VBA_TEST_ARTIFACT_RETENTION,
 } from './vbaTestArtifacts';
 import {
-    readWorkbookSettings,
-    resolveWorkbookSetting,
-    settingsPathForWorkbook,
-    type WorkbookSettingSource,
-    type WorkbookSettingsConfig,
-} from './workbookSettings';
+    readProjectSettings,
+    resolveProjectSetting,
+    settingsPathForProject,
+    type ProjectSettingSource,
+    type ProjectSettingsConfig,
+} from './projectSettings';
 
-export type WorkbookTestSettingsSource = WorkbookSettingSource;
+export type WorkbookTestSettingsSource = ProjectSettingSource;
 
 export interface EffectiveWorkbookTestSettings {
     artifactFolder: string;
@@ -21,23 +21,23 @@ export interface EffectiveWorkbookTestSettings {
 }
 
 export async function effectiveWorkbookTestSettings(
-    workbookPath: string,
+    projectPath: string,
 ): Promise<EffectiveWorkbookTestSettings> {
     return effectiveWorkbookTestSettingsFromConfig(
-        workbookPath,
-        await readWorkbookSettings(workbookPath, { lenient: true }),
+        projectPath,
+        await readProjectSettings(projectPath, { lenient: true }),
     );
 }
 
 export function effectiveWorkbookTestSettingsFromConfig(
-    workbookPath: string,
-    config: WorkbookSettingsConfig,
+    projectPath: string,
+    config: ProjectSettingsConfig,
 ): EffectiveWorkbookTestSettings {
-    const artifactFolder = resolveWorkbookSetting(config.tests?.artifactFolder, {
+    const artifactFolder = resolveProjectSetting(config.tests?.artifactFolder, {
         value: DEFAULT_VBA_TEST_ARTIFACT_FOLDER,
         source: 'default',
     });
-    const artifactRetention = resolveWorkbookSetting(config.tests?.artifactRetention, {
+    const artifactRetention = resolveProjectSetting(config.tests?.artifactRetention, {
         value: DEFAULT_VBA_TEST_ARTIFACT_RETENTION,
         source: 'default',
     });
@@ -46,7 +46,7 @@ export function effectiveWorkbookTestSettingsFromConfig(
         artifactFolderSource: artifactFolder.source,
         artifactRetention: artifactRetention.value,
         artifactRetentionSource: artifactRetention.source,
-        settingsPath: settingsPathForWorkbook(workbookPath),
+        settingsPath: settingsPathForProject(projectPath),
     };
 }
 

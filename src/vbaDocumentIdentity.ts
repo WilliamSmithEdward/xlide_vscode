@@ -3,7 +3,7 @@
 // Answers "what module is this TextDocument?" (name, module kind, standalone
 // vs project-backed) and builds the live ProjectIndex for a document either
 // from the shared project context or from the lone editor buffer. A
-// workbook module is backed by its container; a VB6 module file is backed
+// project module is backed by its container; a VB6 module file is backed
 // by the `.vbp` that names it; a loose file nobody claims stands alone.
 
 import * as vscode from 'vscode';
@@ -70,7 +70,7 @@ export async function liveProjectIndexForDocument(
 
     // The shared project context already folds in the open editors' text
     // (including this document) one changed module at a time.
-    const context = await projectIndexService.contextForWorkbook(location.xlsmPath, 'live');
+    const context = await projectIndexService.contextForProject(location.projectPath, 'live');
     if (token?.isCancellationRequested) {
         throw new vscode.CancellationError();
     }

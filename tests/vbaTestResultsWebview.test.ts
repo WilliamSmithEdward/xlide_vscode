@@ -215,7 +215,7 @@ function reportFixture(): VbaTestRunReport {
     };
     return {
         filePath: 'C:/work/Book.xlsm',
-        workbookName: 'Book.xlsm',
+        projectName: 'Book.xlsm',
         startedAt: '2026-01-01T00:00:00.000Z',
         durationMs: 45,
         discovery: {

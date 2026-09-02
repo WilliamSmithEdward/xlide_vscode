@@ -41,7 +41,7 @@ vi.mock('vscode', async () => {
     });
 });
 
-vi.mock('../src/xlsmExplorer', () => ({ XlsmExplorer: class XlsmExplorer {} }));
+vi.mock('../src/projectExplorer', () => ({ ProjectExplorer: class ProjectExplorer {} }));
 vi.mock('../src/xlideFileSystem', () => ({
     XlideFileSystemProvider: class XlideFileSystemProvider {},
     encodeModuleUri: vi.fn((filePath: string, moduleName: string) => ({
@@ -50,12 +50,12 @@ vi.mock('../src/xlideFileSystem', () => ({
     })),
     notifySignatureDropped: vi.fn(),
     moduleIdentityKey: (name: string) => name.toLowerCase(),
-    workbookIdentityKey: (filePath: string) => filePath.toLowerCase(),
+    projectIdentityKey: (filePath: string) => filePath.toLowerCase(),
 }));
 vi.mock('../src/vbaMemberCompletion', () => ({ invalidateVbaMemberCompletionCache: vi.fn() }));
-vi.mock('../src/moduleExport', () => ({ exportWorkbookModules: vi.fn() }));
-vi.mock('../src/workbookModuleSyncSettings', () => ({ setWorkbookModuleSyncExportMode: vi.fn() }));
-vi.mock('../src/vbaWorkbookAnalysis', () => ({ analyzeWorkbook: vi.fn() }));
+vi.mock('../src/moduleExport', () => ({ exportProjectModules: vi.fn() }));
+vi.mock('../src/projectModuleSyncSettings', () => ({ setProjectModuleSyncExportMode: vi.fn() }));
+vi.mock('../src/vbaProjectWideAnalysis', () => ({ analyzeProject: vi.fn() }));
 vi.mock('../src/vbaTestRunPipeline', () => ({ executeVbaTestRun: vi.fn() }));
 vi.mock('../src/agentVbaTestArtifacts', () => ({ agentVbaTestArtifactPayloadFromPipeline: vi.fn() }));
 vi.mock('../src/vbaTestRunner', () => ({
@@ -65,7 +65,7 @@ vi.mock('../src/vbaTestRunner', () => ({
 
 import { registerAgentTools } from '../src/agentTools';
 import { hasPendingAgentReview, trackModuleWriteForAgentReview } from '../src/xlideAgentDiff';
-import { writeWorkbookModule } from '../src/workbookModuleOperations';
+import { writeProjectModule } from '../src/projectModuleOperations';
 import { clearXlideWriteAudit, recentXlideWriteAudits } from '../src/xlideWriteAudit';
 
 function registerTools(bridgeCall: ReturnType<typeof vi.fn>) {
@@ -82,7 +82,7 @@ function registerTools(bridgeCall: ReturnType<typeof vi.fn>) {
     return { explorer };
 }
 
-describe('xlide_createWorkbook agent tool', () => {
+describe('xlide_createProject agent tool', () => {
     let tempDir: string;
 
     beforeEach(() => {
@@ -94,12 +94,12 @@ describe('xlide_createWorkbook agent tool', () => {
         fs.rmSync(tempDir, { recursive: true, force: true });
     });
 
-    it('refuses to overwrite an existing workbook and audits the failure', async () => {
+    it('refuses to overwrite an existing project and audits the failure', async () => {
         const existing = path.join(tempDir, 'Book.xlsm');
         fs.writeFileSync(existing, 'stub');
         const bridgeCall = vi.fn();
         const { explorer } = registerTools(bridgeCall);
-        const tool = vscodeMock.registeredTools.get('xlide_createWorkbook');
+        const tool = vscodeMock.registeredTools.get('xlide_createProject');
 
         await expect(tool?.invoke({ input: { filePath: existing } }, undefined))
             .rejects.toThrow(/already exists/);
@@ -107,49 +107,49 @@ describe('xlide_createWorkbook agent tool', () => {
         expect(bridgeCall).not.toHaveBeenCalled();
         expect(explorer.refresh).not.toHaveBeenCalled();
         expect(recentXlideWriteAudits(1)).toMatchObject([{
-            command: 'xlide_createWorkbook',
-            operation: 'create-workbook',
+            command: 'xlide_createProject',
+            operation: 'create-project',
             outcome: 'failed',
-            workbookPath: existing,
-            summary: 'Create workbook: 0 changed, 1 failed',
+            projectPath: existing,
+            summary: 'Create project: 0 changed, 1 failed',
         }]);
     });
 
-    it('creates a new workbook and audits the success', async () => {
+    it('creates a new project and audits the success', async () => {
         const target = path.join(tempDir, 'New.xlsm');
         const bridgeCall = vi.fn(async () => ({ ok: true, path: target }));
         const { explorer } = registerTools(bridgeCall);
-        const tool = vscodeMock.registeredTools.get('xlide_createWorkbook');
+        const tool = vscodeMock.registeredTools.get('xlide_createProject');
 
         await tool?.invoke({ input: { filePath: target } }, undefined);
 
-        expect(bridgeCall).toHaveBeenCalledWith('createWorkbook', { path: target });
+        expect(bridgeCall).toHaveBeenCalledWith('createProject', { path: target });
         expect(explorer.refresh).toHaveBeenCalled();
         expect(recentXlideWriteAudits(1)).toMatchObject([{
-            command: 'xlide_createWorkbook',
-            operation: 'create-workbook',
+            command: 'xlide_createProject',
+            operation: 'create-project',
             outcome: 'succeeded',
-            workbookPath: target,
-            summary: 'Create workbook: 1 changed',
+            projectPath: target,
+            summary: 'Create project: 1 changed',
         }]);
     });
 
-    it('audits bridge failures during workbook creation', async () => {
+    it('audits bridge failures during project creation', async () => {
         const target = path.join(tempDir, 'New.xlsm');
         const bridgeCall = vi.fn(async () => {
             throw new Error('workbook engine unavailable');
         });
         registerTools(bridgeCall);
-        const tool = vscodeMock.registeredTools.get('xlide_createWorkbook');
+        const tool = vscodeMock.registeredTools.get('xlide_createProject');
 
         await expect(tool?.invoke({ input: { filePath: target } }, undefined))
             .rejects.toThrow('workbook engine unavailable');
 
         expect(recentXlideWriteAudits(1)).toMatchObject([{
-            command: 'xlide_createWorkbook',
-            operation: 'create-workbook',
+            command: 'xlide_createProject',
+            operation: 'create-project',
             outcome: 'failed',
-            workbookPath: target,
+            projectPath: target,
         }]);
     });
 });
@@ -284,7 +284,7 @@ describe('agent write review (diff + tree badge, native surfaces only)', () => {
             command: 'xlide.revertAgentChange',
             operation: 'write-module',
             outcome: 'succeeded',
-            workbookPath: target,
+            projectPath: target,
             moduleName: 'Module1',
             summary: 'Revert agent change: 1 changed',
         }]);
@@ -359,7 +359,7 @@ describe('agent write review (diff + tree badge, native surfaces only)', () => {
 
         await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub First()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
         await settle();
-        await writeWorkbookModule(ops as never, {
+        await writeProjectModule(ops as never, {
             filePath: target,
             moduleName: 'Module1',
             source: 'Sub Second()\r\nEnd Sub\r\n',

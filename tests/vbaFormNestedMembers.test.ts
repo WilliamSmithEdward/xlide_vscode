@@ -3,8 +3,8 @@ import * as path from 'path';
 import {
 	listModules,
 	readModule,
-	resetWorkbookCacheForTests,
-} from '../src/vba/workbookService';
+	resetProjectCacheForTests,
+} from '../src/vba/projectService';
 import { buildVbaProjectIndex, projectAnalysisOptionsForModule } from '../src/vbaProjectAnalysis';
 import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
 
@@ -44,9 +44,9 @@ const EXPECTED = [
 ];
 
 function formEntry() {
-	resetWorkbookCacheForTests();
+	resetProjectCacheForTests();
 	const entry = listModules(FIXTURE).find((candidate) => candidate.name === 'EntryForm');
-	resetWorkbookCacheForTests();
+	resetProjectCacheForTests();
 	return entry;
 }
 
@@ -76,7 +76,7 @@ describe('a container\'s children are members of the form', () => {
 	});
 
 	it('code touching a nested control is not called undeclared', () => {
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const entries = listModules(FIXTURE).map((entry) => ({
 			moduleName: entry.name,
 			type: entry.type,
@@ -84,7 +84,7 @@ describe('a container\'s children are members of the form', () => {
 			source: readModule(FIXTURE, entry.name, true).source,
 			implicitMembers: entry.implicitMembers,
 		}));
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const project = buildVbaProjectIndex(entries);
 		const form = entries.find((entry) => entry.moduleName === 'EntryForm')!;
 		// The exact false-positive class #57 names: every control here lives

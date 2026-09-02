@@ -1,6 +1,6 @@
 // Which VB6 project a file on disk belongs to.
 //
-// A workbook module announces its container in its URI; a VB6 module is a
+// A project module announces its container in its URI; a VB6 module is a
 // plain `.bas`/`.cls`/`.frm` file, and only the `.vbp` that names it says
 // which project it is part of. This keeps that answer ready synchronously,
 // the way the language surfaces need it, from the workspace's discovered
@@ -9,10 +9,10 @@
 // rebuilds the whole map.
 
 import * as vscode from 'vscode';
-import type { WorkbookEngine } from './workbookEngine';
+import type { ProjectEngine } from './projectEngine';
 import { findMacroContainerFiles } from './macroContainerDiscovery';
 import { isVb6ProjectPath } from './macroContainerUi';
-import { workbookIdentityKey } from './workbookIdentity';
+import { projectIdentityKey } from './projectIdentity';
 
 export interface Vb6ModuleOwner {
 	/** The absolute path of the `.vbp`. */
@@ -36,7 +36,7 @@ export function ownersFromListings(listings: readonly Vb6ProjectListing[]): Map<
 			if (!module.filePath) {
 				continue;
 			}
-			const key = workbookIdentityKey(module.filePath);
+			const key = projectIdentityKey(module.filePath);
 			if (owners.has(key)) {
 				continue;
 			}
@@ -56,7 +56,7 @@ export const onDidChangeVb6Projects: vscode.Event<void> = changeEmitter.event;
 
 /** The project a file belongs to, from the last completed load; undefined when none. */
 export function vb6ModuleOwnerOf(fsPath: string): Vb6ModuleOwner | undefined {
-	return owners.get(workbookIdentityKey(fsPath));
+	return owners.get(projectIdentityKey(fsPath));
 }
 
 /** Resolves once the current load (if any) has landed. */
@@ -84,7 +84,7 @@ export function setVb6ModuleOwnersForTests(map: Map<string, Vb6ModuleOwner>): vo
  */
 export function registerVb6ProjectLocator(
 	context: vscode.ExtensionContext,
-	bridge: Pick<WorkbookEngine, 'call'>,
+	bridge: Pick<ProjectEngine, 'call'>,
 	log?: (line: string) => void,
 ): void {
 	loader = async (): Promise<void> => {

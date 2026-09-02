@@ -8,8 +8,8 @@ import {
 	addFormModule,
 	readModules,
 	readFormExport,
-	resetWorkbookCacheForTests,
-} from '../src/vba/workbookService';
+	resetProjectCacheForTests,
+} from '../src/vba/projectService';
 import { parseFormFrx, parseFormDesignerStreams } from '../src/vba/formDesigner';
 import { parseFormMarkup, formatOleColor, parseOleColor } from '../src/vba/oforms/markup';
 
@@ -30,13 +30,13 @@ const CRLF = '\r\n';
 
 const tempDirs: string[] = [];
 afterEach(() => {
-	resetWorkbookCacheForTests();
+	resetProjectCacheForTests();
 	for (const dir of tempDirs.splice(0)) {
 		fs.rmSync(dir, { recursive: true, force: true });
 	}
 });
 
-function workbook(): string {
+function project(): string {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-form-'));
 	tempDirs.push(dir);
 	const wb = path.join(dir, 'Forms.xlsm');
@@ -46,7 +46,7 @@ function workbook(): string {
 
 describe('the printed document', () => {
 	it('projects the whole control tree in the shared dialect', () => {
-		const markup = readFormMarkup(workbook(), 'EntryForm').markup;
+		const markup = readFormMarkup(project(), 'EntryForm').markup;
 		expect(markup).toContain('<Form Name="EntryForm" Caption="Quarter Entry" Width="348" Height="291">');
 		expect(markup).toContain('<Label Name="NameLabel" Left="12" Top="14" Width="66" Height="16" Caption="Customer"');
 		expect(markup).toContain('<Frame Name="Options" Caption="Freight"');
@@ -62,7 +62,7 @@ describe('the printed document', () => {
 	it('prints geometry as the shortest points that re-encode identically', () => {
 		// Excel stores 12pt as round(12 * 2540/72) = 423 HIMETRIC; the naive
 		// back-conversion says 11.99, the designer says 12, and so does this.
-		const markup = readFormMarkup(workbook(), 'EntryForm').markup;
+		const markup = readFormMarkup(project(), 'EntryForm').markup;
 		expect(markup).toContain('Left="12" Top="14"');
 		expect(markup).not.toContain('11.99');
 	});
@@ -84,7 +84,7 @@ describe('colors', () => {
 
 describe('a no-op apply', () => {
 	it('changes nothing and reports nothing', () => {
-		const wb = workbook();
+		const wb = project();
 		const before = fs.readFileSync(wb);
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		const result = applyFormMarkup(wb, 'EntryForm', markup);
@@ -94,9 +94,9 @@ describe('a no-op apply', () => {
 	});
 });
 
-describe('mutations, re-read from the workbook', () => {
+describe('mutations, re-read from the project', () => {
 	it('moves a control, recaptions the form, adds and removes controls', () => {
-		const wb = workbook();
+		const wb = project();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		const edited = markup
 			.replace('Caption="Quarter Entry"', 'Caption="Quarter Entry v2"')
@@ -109,7 +109,7 @@ describe('mutations, re-read from the workbook', () => {
 		expect(result.applied).toContain('removed Views');
 		expect(result.applied).toContain('added Label AddedNote');
 
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const after = readFormMarkup(wb, 'EntryForm').markup;
 		expect(after).toContain('Caption="Quarter Entry v2"');
 		expect(after).toContain('<CommandButton Name="OkButton" Left="250"');
@@ -124,13 +124,13 @@ describe('mutations, re-read from the workbook', () => {
 		// The fixture carries NextAvailableID EQUAL to OkButton's ID (20), so
 		// trusting the field alone reuses a live ID - and duplicate site IDs
 		// kill the form at load. Found by real Excel refusing to compile.
-		const wb = workbook();
+		const wb = project();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		applyFormMarkup(wb, 'EntryForm', markup.replace(
 			'</Form>',
 			`    <Label Name="AddedNote" Left="12" Top="270" Width="150" Height="14" />${CRLF}</Form>`,
 		));
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const { frx } = readFormExport(wb, 'EntryForm');
 		const streams = parseFormFrx(frx)!;
 		const controls = parseFormDesignerStreams(streams.f, streams.o, (b, c) => b.toString(c ? 'latin1' : 'utf16le'));
@@ -139,7 +139,7 @@ describe('mutations, re-read from the workbook', () => {
 	});
 
 	it('edits controls inside a Frame and captions of MultiPage pages', () => {
-		const wb = workbook();
+		const wb = project();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		const edited = markup
 			.replace('<OptionButton Name="PickAir" Left="8"', '<OptionButton Name="PickAir" Left="10"')
@@ -147,7 +147,7 @@ describe('mutations, re-read from the workbook', () => {
 		const result = applyFormMarkup(wb, 'EntryForm', edited);
 		expect(result.applied).toContain('position of PickAir');
 		expect(result.applied).toContain('page captions of Wizard');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const after = readFormMarkup(wb, 'EntryForm').markup;
 		expect(after).toContain('<OptionButton Name="PickAir" Left="10"');
 		expect(after).toContain('Caption="Basics"');
@@ -156,7 +156,7 @@ describe('mutations, re-read from the workbook', () => {
 
 describe('what the apply refuses, whole-document', () => {
 	it('refuses an unquoted value with its line', () => {
-		const wb = workbook();
+		const wb = project();
 		const markup = readFormMarkup(wb, 'EntryForm').markup
 			.replace('Left="250"', 'Left=250')
 			.replace('Left="262"', 'Left=262');
@@ -164,14 +164,14 @@ describe('what the apply refuses, whole-document', () => {
 	});
 
 	it('refuses two controls with one name', () => {
-		const wb = workbook();
+		const wb = project();
 		const markup = readFormMarkup(wb, 'EntryForm').markup
 			.replace('<Label Name="ViewNote"', '<Label Name="NameLabel"');
 		expect(() => applyFormMarkup(wb, 'EntryForm', markup)).toThrow(/named NameLabel/);
 	});
 
 	it('refuses adding what it cannot author yet, by name', () => {
-		const wb = workbook();
+		const wb = project();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		expect(() => applyFormMarkup(wb, 'EntryForm', markup.replace(
 			'</Form>',
@@ -184,7 +184,7 @@ describe('what the apply refuses, whole-document', () => {
 	});
 
 	it('applies nothing when any part of the document is broken', () => {
-		const wb = workbook();
+		const wb = project();
 		const before = fs.readFileSync(wb);
 		const markup = readFormMarkup(wb, 'EntryForm').markup
 			.replace('Caption="Quarter Entry"', 'Caption="Half Entry"')  // a valid edit...
@@ -196,9 +196,9 @@ describe('what the apply refuses, whole-document', () => {
 
 describe('a form from nothing', () => {
 	it('creates a UserForm the reader stack fully recognises', () => {
-		const wb = workbook();
+		const wb = project();
 		addFormModule(wb, 'FrmFresh', `Option Explicit${CRLF}`);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const mods = readModules(wb, false);
 		const fresh = mods.find((m) => m.name === 'FrmFresh');
 		expect(fresh?.type).toBe('userform');
@@ -211,16 +211,16 @@ describe('a form from nothing', () => {
 	});
 
 	it('takes controls through markup, and the analyzer sees them', () => {
-		const wb = workbook();
+		const wb = project();
 		addFormModule(wb, 'FrmFresh', `Option Explicit${CRLF}`);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const markup = readFormMarkup(wb, 'FrmFresh').markup;
 		const result = applyFormMarkup(wb, 'FrmFresh', markup.replace(
 			/<Form([^>]*?)\s*\/>/,
 			`<Form$1>${CRLF}    <CommandButton Name="GoBtn" Left="80" Top="120" Width="72" Height="24" Caption="Go" />${CRLF}</Form>`,
 		));
 		expect(result.applied).toContain('added CommandButton GoBtn');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const fresh = readModules(wb, false).find((m) => m.name === 'FrmFresh');
 		// The designer-declared control surface feeds completion/diagnostics.
 		expect(fresh?.implicitMembers).toEqual([{ name: 'GoBtn', type: 'MSForms.CommandButton' }]);
@@ -249,7 +249,7 @@ describe('the parser alone', () => {
 
 describe('spoken font and tab edits land', () => {
 	it('applies Font.Size, Font.Bold, and a tab caption', () => {
-		const wb = workbook();
+		const wb = project();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		const edited = markup
 			.replace('<CommandButton Name="OkButton" Left="262" Top="250" Width="72" Height="24" Caption="Start" Font.Name="Tahoma" Font.Size="8.25"',
@@ -259,7 +259,7 @@ describe('spoken font and tab edits land', () => {
 		expect(result.applied).toContain('Font.Size of OkButton');
 		expect(result.applied).toContain('Font style of OkButton');
 		expect(result.applied).toContain('tab captions of Views');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const after = readFormMarkup(wb, 'EntryForm').markup;
 		expect(after).toContain('Font.Size="12"');
 		expect(after).toMatch(/OkButton[^\r\n]*Font\.Bold="True"/);
@@ -267,7 +267,7 @@ describe('spoken font and tab edits land', () => {
 	});
 
 	it('refuses a font on a kind that carries none', () => {
-		const wb = workbook();
+		const wb = project();
 		const markup = readFormMarkup(wb, 'EntryForm').markup
 			.replace('<Image Name="Badge"', '<Image Name="Badge" Font.Size="10"');
 		expect(() => applyFormMarkup(wb, 'EntryForm', markup)).toThrow(/carries no font/);
@@ -285,7 +285,7 @@ describe('pages and tabs, structurally', () => {
 	});
 
 	it('adds a page with a control on it, and removes another', () => {
-		const wb = workbook();
+		const wb = project();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		const edited = markup
 			.replace('<Page Name="Page2" Caption="Page2" />',
@@ -299,7 +299,7 @@ describe('pages and tabs, structurally', () => {
 		expect(result.applied).toContain('added page Details of Wizard');
 		expect(result.applied).toContain('added TextBox NotesBox');
 
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const after = readFormMarkup(wb, 'EntryForm').markup;
 		expect(after).toContain('<Page Name="Details" Caption="Details">');
 		expect(after).toContain('<TextBox Name="NotesBox"');
@@ -308,14 +308,14 @@ describe('pages and tabs, structurally', () => {
 	});
 
 	it('appends and truncates tabs on a standalone TabStrip', () => {
-		const wb = workbook();
+		const wb = project();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		const added = applyFormMarkup(wb, 'EntryForm', markup.replace(
 			'<Tab Caption="Tab2" />',
 			`<Tab Caption="Tab2" />${CRLF}        <Tab Caption="Extra" />`,
 		));
 		expect(added.applied).toContain('added a tab of Views');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const grown = readFormMarkup(wb, 'EntryForm').markup;
 		expect(grown).toContain('<Tab Caption="Extra" />');
 
@@ -323,19 +323,19 @@ describe('pages and tabs, structurally', () => {
 			.replace(`<Tab Caption="Extra" />${CRLF}`, '')
 			.replace(/^\s*<Tab Caption="Extra" \/>\r\n/m, ''));
 		expect(truncated.applied).toContain('removed a tab of Views');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(readFormMarkup(wb, 'EntryForm').markup).not.toContain('Extra');
 	});
 
 	it('reorders surviving pages to the document order, everything riding along', () => {
-		const wb = workbook();
+		const wb = project();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		const p1 = /^[ \t]*<Page Name="Page1"[\s\S]*?<\/Page>\r\n/m.exec(markup);
 		const p2 = /^[ \t]*<Page Name="Page2"[^\r\n]*\/>\r\n/m.exec(markup);
 		const swapped = markup.replace(p2![0], '').replace(p1![0], p2![0] + p1![0]);
 		const outcome = applyFormMarkup(wb, 'EntryForm', swapped);
 		expect(outcome.applied).toContain('page order of Wizard');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const after = readFormMarkup(wb, 'EntryForm').markup;
 		expect(after.indexOf('Name="Page2"')).toBeLessThan(after.indexOf('Name="Page1"'));
 		// The caption and the contents travel with their page.
@@ -344,14 +344,14 @@ describe('pages and tabs, structurally', () => {
 	});
 
 	it('reorders and recaptions in one apply', () => {
-		const wb = workbook();
+		const wb = project();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		const p1 = /^[ \t]*<Page Name="Page1"[\s\S]*?<\/Page>\r\n/m.exec(markup);
 		const p2 = /^[ \t]*<Page Name="Page2"[^\r\n]*\/>\r\n/m.exec(markup);
 		const swapped = markup.replace(p2![0], '').replace(p1![0], p2![0] + p1![0])
 			.replace('Caption="Page2"', 'Caption="Second First"');
 		applyFormMarkup(wb, 'EntryForm', swapped);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const after = readFormMarkup(wb, 'EntryForm').markup;
 		expect(after).toContain('<Page Name="Page2" Caption="Second First" />');
 		expect(after).toContain('<Page Name="Page1" Caption="Page1">');
@@ -364,13 +364,13 @@ describe('what live Excel taught the authoring, pinned', () => {
 		// exactly the nested containers' controls (7,8 in the Frame; 11,12,13
 		// in the MultiPage; 14 on a Page). One counter serves everything, and
 		// a page control re-using a root-level ID broke the page's binding.
-		const wb = workbook();
+		const wb = project();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		applyFormMarkup(wb, 'EntryForm', markup.replace(
 			'<Page Name="Page2" Caption="Page2" />',
 			`<Page Name="Page2" Caption="Page2" />${CRLF}        <Page Name="Details" Caption="Details">${CRLF}            <TextBox Name="NotesBox" Left="8" Top="8" Width="120" Height="60" />${CRLF}        </Page>`,
 		));
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const { Cfb } = await import('../src/vba/cfb');
 		const { XlsxWorkbook } = await import('../src/vba/xlsx');
 		const { parseFormPackage, walkPackages } = await import('../src/vba/oforms/formPackage');
@@ -390,15 +390,15 @@ describe('what live Excel taught the authoring, pinned', () => {
 		// Reserved mask bit 31, VariousPropertyBits, and a populated TextProps
 		// - a TextBox without them loaded at top level but silently broke the
 		// binding of a MultiPage page carrying it, measured in live Excel.
-		const wb = workbook();
+		const wb = project();
 		addFormModule(wb, 'FrmFresh', `Option Explicit${CRLF}`);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const markup = readFormMarkup(wb, 'FrmFresh').markup;
 		applyFormMarkup(wb, 'FrmFresh', markup.replace(
 			/<Form([^>]*?)\s*\/>/,
 			`<Form$1>${CRLF}    <TextBox Name="T1" Left="8" Top="8" Width="72" Height="18" />${CRLF}</Form>`,
 		));
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const { Cfb } = await import('../src/vba/cfb');
 		const { XlsxWorkbook } = await import('../src/vba/xlsx');
 		const { parseFormStream, parseObjectStream } = await import('../src/vba/oforms/formStream');
@@ -418,9 +418,9 @@ describe('what live Excel taught the authoring, pinned', () => {
 		// EMPTY (both reads are zero) and refuses to load the moment it gains
 		// its first control - the misread count becomes 1 and garbage parses
 		// as class info. Real Excel roots all carry the empty word.
-		const wb = workbook();
+		const wb = project();
 		addFormModule(wb, 'FrmFresh', `Option Explicit${CRLF}`);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const { Cfb } = await import('../src/vba/cfb');
 		const { XlsxWorkbook } = await import('../src/vba/xlsx');
 		const { parseFormStream } = await import('../src/vba/oforms/formStream');
@@ -437,23 +437,23 @@ describe('what live Excel taught the authoring, pinned', () => {
 // names without complaint). Existing controls keep whatever they carry.
 describe('control names obey VBA on creation', () => {
 	it('refuses additions whose names VBA could never wire, leaving the file whole', () => {
-		const wb = workbook();
+		const wb = project();
 		const before = fs.readFileSync(wb);
 		for (const bad of ['Bad Name', '2Start', 'Dot.Ted', '_Lead']) {
 			const doc = readFormMarkup(wb, 'EntryForm').markup
 				.replace('</Form>', `<Label Name="${bad}" Left="5" Top="5" Width="20" Height="10" />${CRLF}</Form>`);
 			expect(() => applyFormMarkup(wb, 'EntryForm', doc)).toThrow(/not a legal control name/);
-			resetWorkbookCacheForTests();
+			resetProjectCacheForTests();
 		}
 		expect(fs.readFileSync(wb).equals(before)).toBe(true);
 	});
 
 	it('accepts the letters VBA accepts, beyond ASCII', () => {
-		const wb = workbook();
+		const wb = project();
 		const doc = readFormMarkup(wb, 'EntryForm').markup
 			.replace('</Form>', `<Label Name="Étiquette" Left="5" Top="5" Width="20" Height="10" />${CRLF}</Form>`);
 		applyFormMarkup(wb, 'EntryForm', doc);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(readFormMarkup(wb, 'EntryForm').markup).toContain('Name="Étiquette"');
 	});
 });

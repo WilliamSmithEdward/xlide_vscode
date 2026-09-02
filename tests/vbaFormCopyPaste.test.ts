@@ -6,8 +6,8 @@ import {
 	duplicateFormControls,
 	readFormMarkup,
 	removeFormControls,
-	resetWorkbookCacheForTests,
-} from '../src/vba/workbookService';
+	resetProjectCacheForTests,
+} from '../src/vba/projectService';
 
 // Copy, paste, and deleting a multi-selection. All three are MARKUP
 // transforms: a clone travels the same authoring path a hand-typed control
@@ -18,13 +18,13 @@ const FIXTURE = path.join('tests', 'fixtures', 'binaries', 'FormFixtureVbide.xls
 
 const tempDirs: string[] = [];
 afterEach(() => {
-	resetWorkbookCacheForTests();
+	resetProjectCacheForTests();
 	for (const dir of tempDirs.splice(0)) {
 		fs.rmSync(dir, { recursive: true, force: true });
 	}
 });
 
-function workbook(): string {
+function project(): string {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-copy-'));
 	tempDirs.push(dir);
 	const wb = path.join(dir, 'Forms.xlsm');
@@ -35,7 +35,7 @@ function workbook(): string {
 /** Markup as the engine prints it back, read from the saved bytes. */
 function markupOf(wb: string): string {
 	const markup = readFormMarkup(wb, 'EntryForm').markup;
-	resetWorkbookCacheForTests();
+	resetProjectCacheForTests();
 	return markup;
 }
 
@@ -55,7 +55,7 @@ function names(wb: string): string[] {
 
 describe('duplicateFormControls', () => {
 	it('clones a control under a fresh name, nudged clear of the original', () => {
-		const wb = workbook();
+		const wb = project();
 		const before = lineFor(wb, 'NameLabel');
 
 		const result = duplicateFormControls(wb, 'EntryForm', ['NameLabel']);
@@ -73,7 +73,7 @@ describe('duplicateFormControls', () => {
 	});
 
 	it('takes a container\'s children with it, renamed, at their old offsets', () => {
-		const wb = workbook();
+		const wb = project();
 
 		const result = duplicateFormControls(wb, 'EntryForm', ['Options']);
 
@@ -91,7 +91,7 @@ describe('duplicateFormControls', () => {
 	});
 
 	it('duplicates a whole selection in one write, answering in the order asked', () => {
-		const wb = workbook();
+		const wb = project();
 
 		const result = duplicateFormControls(wb, 'EntryForm', ['NameLabel', 'NameBox', 'OkButton']);
 
@@ -102,7 +102,7 @@ describe('duplicateFormControls', () => {
 	});
 
 	it('refuses an unknown name and leaves the form alone', () => {
-		const wb = workbook();
+		const wb = project();
 		const before = markupOf(wb);
 
 		expect(() => duplicateFormControls(wb, 'EntryForm', ['NameLabel', 'Ghost']))
@@ -112,7 +112,7 @@ describe('duplicateFormControls', () => {
 	});
 
 	it('refuses to clone a Page: a page is added through the markup', () => {
-		const wb = workbook();
+		const wb = project();
 		const before = markupOf(wb);
 
 		expect(() => duplicateFormControls(wb, 'EntryForm', ['Page1'])).toThrow(/is a Page/);
@@ -121,7 +121,7 @@ describe('duplicateFormControls', () => {
 	});
 
 	it('does nothing at all when nothing was copied', () => {
-		const wb = workbook();
+		const wb = project();
 		const before = markupOf(wb);
 
 		expect(duplicateFormControls(wb, 'EntryForm', []).newNames).toEqual([]);
@@ -132,7 +132,7 @@ describe('duplicateFormControls', () => {
 
 describe('removeFormControls', () => {
 	it('deletes a whole selection in one write', () => {
-		const wb = workbook();
+		const wb = project();
 
 		const result = removeFormControls(wb, 'EntryForm', ['NameLabel', 'Taxable', 'HoldToggle']);
 
@@ -145,7 +145,7 @@ describe('removeFormControls', () => {
 	});
 
 	it('takes a container\'s children out with it', () => {
-		const wb = workbook();
+		const wb = project();
 
 		removeFormControls(wb, 'EntryForm', ['Options']);
 
@@ -156,7 +156,7 @@ describe('removeFormControls', () => {
 	});
 
 	it('accepts a child named alongside its container: the parent already takes it', () => {
-		const wb = workbook();
+		const wb = project();
 
 		const result = removeFormControls(wb, 'EntryForm', ['PickGround', 'Options']);
 
@@ -165,7 +165,7 @@ describe('removeFormControls', () => {
 	});
 
 	it('refuses an unknown name rather than half-deleting a stale selection', () => {
-		const wb = workbook();
+		const wb = project();
 		const before = markupOf(wb);
 
 		expect(() => removeFormControls(wb, 'EntryForm', ['NameLabel', 'Ghost']))
@@ -175,7 +175,7 @@ describe('removeFormControls', () => {
 	});
 
 	it('refuses to delete a Page', () => {
-		const wb = workbook();
+		const wb = project();
 		const before = markupOf(wb);
 
 		expect(() => removeFormControls(wb, 'EntryForm', ['Page1'])).toThrow(/is a Page/);
@@ -184,7 +184,7 @@ describe('removeFormControls', () => {
 	});
 
 	it('pastes and then deletes the copies, leaving the form as it started', () => {
-		const wb = workbook();
+		const wb = project();
 		const before = markupOf(wb);
 
 		const pasted = duplicateFormControls(wb, 'EntryForm', ['NameLabel', 'Options']);

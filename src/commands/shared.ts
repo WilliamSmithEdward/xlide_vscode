@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import type { WorkbookEngine } from '../workbookEngine';
-import type { XlsmExplorer, XlideNode } from '../xlsmExplorer';
+import type { ProjectEngine } from '../projectEngine';
+import type { ProjectExplorer, XlideNode } from '../projectExplorer';
 import type { XlideFileSystemProvider } from '../xlideFileSystem';
 import type { VbaSymbolIndex } from '../vbaSymbolIndex';
 import {
@@ -23,8 +23,8 @@ import { spanContainsOffset, spanLength } from '../vbaAnalysisSuppression';
  */
 export interface CommandDeps {
     context: vscode.ExtensionContext;
-    bridge: WorkbookEngine;
-    explorer: XlsmExplorer;
+    bridge: ProjectEngine;
+    explorer: ProjectExplorer;
     fsProvider: XlideFileSystemProvider;
     out: vscode.OutputChannel;
     vbaIndex: VbaSymbolIndex;
@@ -54,20 +54,20 @@ export function logChangeSummary(
 }
 
 /** Workbook path from an explorer node, falling back to the active XLIDE editor. */
-export function resolveWorkbookPath(node?: XlideNode): string | undefined {
+export function resolveProjectPath(node?: XlideNode): string | undefined {
     let filePath = node?.filePath;
     if (!filePath) {
         const active = vscode.window.activeTextEditor;
         if (active && active.document.uri.scheme === XLIDE_SCHEME) {
-            filePath = decodeModuleUri(active.document.uri).xlsmPath;
+            filePath = decodeModuleUri(active.document.uri).projectPath;
         }
     }
     return filePath;
 }
 
-export async function activeLocalWorkbookPath(): Promise<string | undefined> {
+export async function activeLocalProjectPath(): Promise<string | undefined> {
     const editor = activeLocalVbaEditor();
-    return editor ? decodeModuleUri(editor.document.uri).xlsmPath : undefined;
+    return editor ? decodeModuleUri(editor.document.uri).projectPath : undefined;
 }
 
 /**

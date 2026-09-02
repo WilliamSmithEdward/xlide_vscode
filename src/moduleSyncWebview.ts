@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import type { ImportMode, ModuleSyncFolderSource, ModuleSyncModeSource, ModuleSyncPlan } from './moduleSyncPlan';
-import { settingsPathForWorkbook, type ExportMode } from './workbookSettings';
+import { settingsPathForProject, type ExportMode } from './projectSettings';
 import { measurePerformance, measurePerformanceSync } from './performanceTrace';
 import { randomNonce, scriptJson } from './webview/html';
 import { webviewHeadHtml } from './webview/page';
@@ -30,7 +30,7 @@ export interface ModuleSyncSettings {
 export interface ModuleSyncPreviewOptions {
     onChooseFolder?: (current: ModuleSyncSettings) => Promise<ModuleSyncPlan | undefined>;
     onRefresh?: (settings: ModuleSyncSettings) => Promise<ModuleSyncPlan>;
-    onReloadWorkbookSettings?: () => Promise<ModuleSyncPlan | undefined>;
+    onReloadProjectSettings?: () => Promise<ModuleSyncPlan | undefined>;
     onSaveSettings?: (settings: ModuleSyncSettings) => Promise<ModuleSyncApplyResult>;
 }
 
@@ -83,7 +83,7 @@ export function openModuleSyncPreview(
             gate,
         });
         const settingsRefresher = new DebouncedRefresher({
-            refresh: () => refreshPlanFromWorkbookSettings(),
+            refresh: () => refreshPlanFromProjectSettings(),
             onError: postRefreshError,
             defaultDelayMs: 300,
             gate,
@@ -129,12 +129,12 @@ export function openModuleSyncPreview(
                 });
             });
         }
-        async function refreshPlanFromWorkbookSettings(): Promise<void> {
-            const reload = options.onReloadWorkbookSettings;
+        async function refreshPlanFromProjectSettings(): Promise<void> {
+            const reload = options.onReloadProjectSettings;
             if (!reload || disposed) {
                 return;
             }
-            await measurePerformance('moduleSync.refreshWorkbookSettings', currentPlan.direction, async () => {
+            await measurePerformance('moduleSync.refreshProjectSettings', currentPlan.direction, async () => {
                 await panel.webview.postMessage({ type: 'refreshing', message: 'Workbook settings changed. Refreshing preview...' });
                 const nextPlan = await reload();
                 if (nextPlan) {
@@ -150,16 +150,16 @@ export function openModuleSyncPreview(
             });
         }
         configureFolderWatcher();
-        const workbookSettingsPath = settingsPathForWorkbook(currentPlan.workbookPath);
-        const workbookSettingsWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(
-            path.dirname(workbookSettingsPath),
-            path.basename(workbookSettingsPath),
+        const projectSettingsPath = settingsPathForProject(currentPlan.projectPath);
+        const projectSettingsWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(
+            path.dirname(projectSettingsPath),
+            path.basename(projectSettingsPath),
         ));
-        const workbookSettingsWatcherDisposables = [
-            workbookSettingsWatcher.onDidCreate(() => settingsRefresher.schedule()),
-            workbookSettingsWatcher.onDidChange(() => settingsRefresher.schedule()),
-            workbookSettingsWatcher.onDidDelete(() => settingsRefresher.schedule()),
-            workbookSettingsWatcher,
+        const projectSettingsWatcherDisposables = [
+            projectSettingsWatcher.onDidCreate(() => settingsRefresher.schedule()),
+            projectSettingsWatcher.onDidChange(() => settingsRefresher.schedule()),
+            projectSettingsWatcher.onDidDelete(() => settingsRefresher.schedule()),
+            projectSettingsWatcher,
         ];
         panel.webview.html = measurePerformanceSync(
             'moduleSync.renderHtml',
@@ -291,7 +291,7 @@ export function openModuleSyncPreview(
             folderRefresher.dispose();
             settingsRefresher.dispose();
             disposeFolderWatcher();
-            for (const disposable of workbookSettingsWatcherDisposables) {
+            for (const disposable of projectSettingsWatcherDisposables) {
                 disposable.dispose();
             }
             messageSub.dispose();

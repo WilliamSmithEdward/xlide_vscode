@@ -243,7 +243,7 @@ function model(
 ): VbaTestsPanelModel {
     return {
         filePath: 'C:\\work\\Book.xlsm',
-        workbookName: 'Book.xlsm',
+        projectName: 'Book.xlsm',
         support,
         runtime,
         discovery,

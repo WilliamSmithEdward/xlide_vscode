@@ -6,13 +6,13 @@ import { afterAll, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import * as svc from '../src/vba/workbookService';
-import type { WorkbookEngine } from '../src/workbookEngine';
-import { exportWorkbookModules } from '../src/moduleExport';
+import * as svc from '../src/vba/projectService';
+import type { ProjectEngine } from '../src/projectEngine';
+import { exportProjectModules } from '../src/moduleExport';
 import { buildImportModuleSyncPlan } from '../src/moduleSyncPlan';
 
 /** The engine's dispatch for the calls export and the sync plan make. */
-function realBridge(): WorkbookEngine {
+function realBridge(): ProjectEngine {
 	return {
 		async call<T>(method: string, p: Record<string, unknown>): Promise<T> {
 			switch (method) {
@@ -23,7 +23,7 @@ function realBridge(): WorkbookEngine {
 				default: throw new Error(`test bridge: unexpected call ${method}`);
 			}
 		},
-	} as WorkbookEngine;
+	} as ProjectEngine;
 }
 
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-sync-form-'));
@@ -31,21 +31,21 @@ afterAll(() => {
 	fs.rmSync(tempRoot, { recursive: true, force: true });
 });
 
-async function exportedFixture(): Promise<{ workbook: string; repo: string; frmPath: string }> {
+async function exportedFixture(): Promise<{ project: string; repo: string; frmPath: string }> {
 	const dir = fs.mkdtempSync(path.join(tempRoot, 'case-'));
-	const workbook = path.join(dir, 'FormFixture.xlsm');
-	fs.copyFileSync(path.join(__dirname, 'fixtures', 'binaries', 'FormFixture.xlsm'), workbook);
+	const project = path.join(dir, 'FormFixture.xlsm');
+	fs.copyFileSync(path.join(__dirname, 'fixtures', 'binaries', 'FormFixture.xlsm'), project);
 	const repo = path.join(dir, 'repo');
 	fs.mkdirSync(repo);
-	await exportWorkbookModules(realBridge(), { filePath: workbook, exportFolder: repo });
-	return { workbook, repo, frmPath: path.join(repo, 'FrmPicker.frm') };
+	await exportProjectModules(realBridge(), { filePath: project, exportFolder: repo });
+	return { project, repo, frmPath: path.join(repo, 'FrmPicker.frm') };
 }
 
 describe('a form round-trips clean through export and import plan (issue #36)', () => {
 	it('every row of a fresh round trip reads unchanged, the form included', async () => {
-		const { workbook, repo } = await exportedFixture();
+		const { project, repo } = await exportedFixture();
 		const plan = await buildImportModuleSyncPlan(realBridge(), {
-			workbookPath: workbook,
+			projectPath: project,
 			importFolder: repo,
 		});
 		expect(plan.items.map((item) => `${item.relativeName}:${item.status}`).sort()).toEqual([
@@ -57,10 +57,10 @@ describe('a form round-trips clean through export and import plan (issue #36)', 
 	});
 
 	it('a code edit in the repo .frm reads will-update', async () => {
-		const { workbook, repo, frmPath } = await exportedFixture();
+		const { project, repo, frmPath } = await exportedFixture();
 		fs.appendFileSync(frmPath, 'Public Sub Added()\r\nEnd Sub\r\n', 'utf8');
 		const plan = await buildImportModuleSyncPlan(realBridge(), {
-			workbookPath: workbook,
+			projectPath: project,
 			importFolder: repo,
 		});
 		expect(plan.items.find((item) => item.relativeName === 'FrmPicker.frm')?.status)
@@ -69,10 +69,10 @@ describe('a form round-trips clean through export and import plan (issue #36)', 
 
 	it('one extra trailing CRLF on the repo .frm reads unchanged (issue #37)', async () => {
 		// The VBE's own Export writes the module text plus one trailing CRLF.
-		const { workbook, repo, frmPath } = await exportedFixture();
+		const { project, repo, frmPath } = await exportedFixture();
 		fs.appendFileSync(frmPath, '\r\n', 'utf8');
 		const plan = await buildImportModuleSyncPlan(realBridge(), {
-			workbookPath: workbook,
+			projectPath: project,
 			importFolder: repo,
 		});
 		expect(plan.items.find((item) => item.relativeName === 'FrmPicker.frm')?.status)
@@ -83,13 +83,13 @@ describe('a form round-trips clean through export and import plan (issue #36)', 
 		// The accepted day-one trade: forms compare on the half the module
 		// text can say. A designer-only repo change does not surface as a
 		// pending row; the designer still travels whenever the row is applied.
-		const { workbook, repo, frmPath } = await exportedFixture();
+		const { project, repo, frmPath } = await exportedFixture();
 		const frm = fs.readFileSync(frmPath, 'utf8');
 		const edited = frm.replace(/^(\s*Caption\s*=\s*).*$/m, '$1"Renamed"');
 		expect(edited).not.toBe(frm);
 		fs.writeFileSync(frmPath, edited, 'utf8');
 		const plan = await buildImportModuleSyncPlan(realBridge(), {
-			workbookPath: workbook,
+			projectPath: project,
 			importFolder: repo,
 		});
 		expect(plan.items.find((item) => item.relativeName === 'FrmPicker.frm')?.status)

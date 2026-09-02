@@ -45,7 +45,7 @@ signature help, and completions for project symbols, VBA runtime symbols, and
 the object model of the file's own host: Excel members in a workbook, Word
 members in a document, PowerPoint and Access members in theirs. `Me` in
 Word's `ThisDocument` is a `Word.Document`, `wd*` constants resolve in Word
-files and not in workbooks, and `ThisDocument` offers Word's `Document_*`
+files and not in projects, and `ThisDocument` offers Word's `Document_*`
 event stubs.
 
 Useful editor flows:
@@ -66,7 +66,7 @@ prefers no hard diagnostic over a guessed error.
 Use one of these actions:
 
 - **Analyze Current Module** from the editor context menu or command palette.
-- **Analyze File** from the file tree or XLIDE sidebar.
+- **Analyze Project** from the file tree or XLIDE sidebar.
 - Live diagnostics in open VBA editors.
 
 Analysis results use stable diagnostic codes. Red diagnostics represent

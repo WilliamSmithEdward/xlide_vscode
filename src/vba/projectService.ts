@@ -1,10 +1,10 @@
-// Native workbook service: every VBA/cell operation XLIDE needs, implemented
+// Native project service: every VBA/cell operation XLIDE needs, implemented
 // directly against the OOXML package and the MS-OVBA VBA project. This replaces
 // the external backend entirely.
 //
 // Writes are atomic: the updated package is written to a sibling temp file and
 // renamed over the original, so a failure part-way through never leaves a
-// truncated workbook.
+// truncated project.
 
 import * as fs from 'fs';
 import * as path from 'path';
@@ -88,7 +88,7 @@ export interface ModuleEntry {
 	predeclaredId?: boolean;
 	/**
 	 * The module's own file, for the containers whose modules ARE files (a
-	 * VB6 project). Absent for a workbook module, which lives in a stream.
+	 * VB6 project). Absent for a project module, which lives in a stream.
 	 */
 	filePath?: string;
 }
@@ -178,7 +178,7 @@ function moduleEntry(module: VbaModule): ModuleEntry {
 	return entry;
 }
 
-interface OpenWorkbook {
+interface OpenContainer {
 	container: MacroContainer;
 	cfb: Cfb;
 	project: VbaProject;
@@ -187,10 +187,10 @@ interface OpenWorkbook {
 // -------------------------------------------------------------- parse cache
 //
 // Re-reading and re-parsing the file IS the cost of a read now that the engine
-// is in-process, and callers arrive in bursts that hit the same workbook: an
+// is in-process, and callers arrive in bursts that hit the same project: an
 // explorer expansion is listModules + a protection probe + one listSubs per
 // module, and every one of those re-opened the file. Reads share one parse per
-// workbook, validated against (mtimeMs, size) on every call so out-of-band
+// project, validated against (mtimeMs, size) on every call so out-of-band
 // writers (Excel, git, another window) are always seen.
 //
 // Writes never touch the cache: they parse fresh, because a mutating save that
@@ -198,7 +198,7 @@ interface OpenWorkbook {
 // mutation lands through atomicWrite, which drops the entry. The mtime check
 // is the backstop for writers that bypass this process entirely.
 
-interface WorkbookCacheEntry {
+interface ProjectCacheEntry {
 	mtimeMs: number;
 	size: number;
 	container: MacroContainer;
@@ -209,45 +209,45 @@ interface WorkbookCacheEntry {
 
 /**
  * Small on purpose: an entry retains the package plus decompressed module
- * sources (a few MB for a large workbook), and a session's hot set is the
- * handful of workbooks whose trees or editors are open.
+ * sources (a few MB for a large project), and a session's hot set is the
+ * handful of projects whose trees or editors are open.
  */
 const WORKBOOK_CACHE_MAX = 4;
-const workbookCache = new Map<string, WorkbookCacheEntry>();
+const projectCache = new Map<string, ProjectCacheEntry>();
 let cacheHits = 0;
 let cacheMisses = 0;
 
-function cachedPackage(filePath: string): WorkbookCacheEntry {
+function cachedPackage(filePath: string): ProjectCacheEntry {
 	// Stat BEFORE reading: if a writer swaps the file between the stat and the
 	// read, this entry holds the new bytes under the old mtime, so the next
 	// call mismatches and rebuilds - a stale parse can never survive.
 	const stat = fs.statSync(filePath);
-	const hit = workbookCache.get(filePath);
+	const hit = projectCache.get(filePath);
 	if (hit && hit.mtimeMs === stat.mtimeMs && hit.size === stat.size) {
 		cacheHits++;
 		// Refresh recency: Map iteration order is insertion order.
-		workbookCache.delete(filePath);
-		workbookCache.set(filePath, hit);
+		projectCache.delete(filePath);
+		projectCache.set(filePath, hit);
 		return hit;
 	}
 	cacheMisses++;
-	const entry: WorkbookCacheEntry = {
+	const entry: ProjectCacheEntry = {
 		mtimeMs: stat.mtimeMs,
 		size: stat.size,
 		container: openMacroContainer(fs.readFileSync(filePath)),
 	};
-	workbookCache.delete(filePath);
-	workbookCache.set(filePath, entry);
-	while (workbookCache.size > WORKBOOK_CACHE_MAX) {
-		const oldest = workbookCache.keys().next().value;
+	projectCache.delete(filePath);
+	projectCache.set(filePath, entry);
+	while (projectCache.size > WORKBOOK_CACHE_MAX) {
+		const oldest = projectCache.keys().next().value;
 		if (oldest === undefined) { break; }
-		workbookCache.delete(oldest);
+		projectCache.delete(oldest);
 	}
 	return entry;
 }
 
 /** Shared read-only parse. Callers must not mutate the returned project. */
-function openWorkbook(filePath: string): OpenWorkbook {
+function openContainer(filePath: string): OpenContainer {
 	if (isVb6ProjectPath(filePath)) {
 		throw vb6ProjectRefusal(filePath);
 	}
@@ -258,7 +258,7 @@ function openWorkbook(filePath: string): OpenWorkbook {
 }
 
 /** Fresh parse for mutating operations; never aliases the shared cache. */
-function openWorkbookForWrite(filePath: string): OpenWorkbook {
+function openContainerForWrite(filePath: string): OpenContainer {
 	if (isVb6ProjectPath(filePath)) {
 		throw vb6ProjectRefusal(filePath);
 	}
@@ -295,36 +295,36 @@ function sheetSurface(filePath: string): XlsxWorkbook {
 export const readVb6FormHeaderForTests = readVb6FormHeader;
 
 /** Test hooks; product code never reads these. */
-export function workbookCacheStatsForTests(): { hits: number; misses: number; size: number } {
-	return { hits: cacheHits, misses: cacheMisses, size: workbookCache.size };
+export function projectCacheStatsForTests(): { hits: number; misses: number; size: number } {
+	return { hits: cacheHits, misses: cacheMisses, size: projectCache.size };
 }
 
-export function resetWorkbookCacheForTests(): void {
-	workbookCache.clear();
+export function resetProjectCacheForTests(): void {
+	projectCache.clear();
 	cacheHits = 0;
 	cacheMisses = 0;
 }
 
 /** Write the mutated VBA project back into the container, atomically. */
-function saveWorkbook(filePath: string, wb: OpenWorkbook): void {
+function saveContainer(filePath: string, wb: OpenContainer): void {
 	wb.project.save(wb.cfb);
-	atomicWorkbookWrite(filePath, wb.container.toFileBytes(wb.cfb));
+	atomicContainerWrite(filePath, wb.container.toFileBytes(wb.cfb));
 }
 
 /**
- * Every in-process workbook mutation lands through here, so this is the one
+ * Every in-process project mutation lands through here, so this is the one
  * place cache invalidation cannot be forgotten. (A caller-supplied path with
  * different casing would miss this delete; the per-call mtime check still
  * catches that, so a stale entry can cost a re-parse but never stale data.)
  */
-function atomicWorkbookWrite(filePath: string, data: Buffer): void {
+function atomicContainerWrite(filePath: string, data: Buffer): void {
 	atomicWrite(filePath, data);
-	workbookCache.delete(filePath);
+	projectCache.delete(filePath);
 }
 
 // ------------------------------------------------------------------ read API
 
-/** A VB6 module entry in the workbook vocabulary. */
+/** A VB6 module entry in the project vocabulary. */
 function vb6ModuleEntry(entry: Vb6ModuleEntry): ModuleEntry {
 	const out: ModuleEntry = { name: entry.name, type: entry.type, filePath: entry.filePath };
 	if (entry.source !== undefined) { out.source = entry.source; }
@@ -336,7 +336,7 @@ function vb6ModuleEntry(entry: Vb6ModuleEntry): ModuleEntry {
 function vb6ProjectRefusal(filePath: string): Error {
 	return new Error(
 		`${path.basename(filePath)} is a Visual Basic 6 project: its modules are files beside it, `
-		+ 'and this workbook operation has no meaning for them.',
+		+ 'and this project operation has no meaning for them.',
 	);
 }
 
@@ -344,7 +344,7 @@ export function listModules(filePath: string): ModuleEntry[] {
 	if (isVb6ProjectPath(filePath)) {
 		return listVb6Modules(filePath).map(vb6ModuleEntry);
 	}
-	const { cfb, project } = openWorkbook(filePath);
+	const { cfb, project } = openContainer(filePath);
 	return project.modules.map((module) => moduleEntryWithDesigner(cfb, project, module));
 }
 
@@ -352,7 +352,7 @@ export function readModules(filePath: string, full = false): ModuleEntry[] {
 	if (isVb6ProjectPath(filePath)) {
 		return readVb6Modules(filePath, full).map(vb6ModuleEntry);
 	}
-	const { cfb, project } = openWorkbook(filePath);
+	const { cfb, project } = openContainer(filePath);
 	const out: ModuleEntry[] = [];
 	for (const module of project.modules) {
 		try {
@@ -360,7 +360,7 @@ export function readModules(filePath: string, full = false): ModuleEntry[] {
 			entry.source = full ? module.source : splitVbaSource(module.source).body;
 			out.push(entry);
 		} catch {
-			// Keep workbook-wide reads best-effort at the module boundary.
+			// Keep project-wide reads best-effort at the module boundary.
 			continue;
 		}
 	}
@@ -440,7 +440,7 @@ export function readModule(filePath: string, moduleName: string, full = false): 
 	if (isVb6ProjectPath(filePath)) {
 		return { source: readVb6Module(filePath, moduleName, full).source ?? '' };
 	}
-	const { project } = openWorkbook(filePath);
+	const { project } = openContainer(filePath);
 	const module = project.getModule(moduleName);
 	if (!module) {
 		throw new Error(`Module not found: ${moduleName}`);
@@ -449,13 +449,13 @@ export function readModule(filePath: string, moduleName: string, full = false): 
 }
 
 /**
- * A form's export pair, composed natively from the workbook: the `.frm` text
+ * A form's export pair, composed natively from the project: the `.frm` text
  * (designer block from the VBFrame stream, `OleObjectBlob` naming the sidecar,
  * then the module's own attributes and code) and the `.frx` sidecar packaging
  * the designer storage's binary streams.
  */
 export function readFormExport(filePath: string, moduleName: string): { frm: string; frx: Buffer } {
-	const { cfb, project } = openWorkbook(filePath);
+	const { cfb, project } = openContainer(filePath);
 	const module = project.getModule(moduleName);
 	if (!module) {
 		throw new Error(`Module not found: ${moduleName}`);
@@ -470,7 +470,7 @@ export function readFormExport(filePath: string, moduleName: string): { frm: str
 }
 
 /**
- * Writes a form's designer back into the workbook from a `.frx` sidecar (the
+ * Writes a form's designer back into the project from a `.frx` sidecar (the
  * binary control tree) and, when provided, the `.frm`'s designer block (the
  * form's own textual properties). The module's code is untouched: that is
  * writeModule's job, and the two writes compose.
@@ -485,7 +485,7 @@ export function writeFormDesigner(
 	if (!streams) {
 		throw new Error('Not a .frx sidecar this importer understands.');
 	}
-	const wb = openWorkbookForWrite(filePath);
+	const wb = openContainerForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
 	const module = wb.project.getModule(moduleName);
 	if (!module) {
@@ -508,7 +508,7 @@ export function writeFormDesigner(
 		const plant = (srcPath: string[], dstPath: string[]): void => {
 			for (const child of tree.listChildrenAtPath(srcPath)) {
 				if (child.kind === 'stream') {
-					if (srcPath.length === 0) { continue; } // f/o written above; root CompObj stays the workbook's
+					if (srcPath.length === 0) { continue; } // f/o written above; root CompObj stays the project's
 					wb.cfb.setStreamAtPath(dstPath, child.name, tree.getStreamAtPath(srcPath, child.name));
 				} else {
 					wb.cfb.addStorageAtPath(dstPath, child.name, tree.storageClsidAtPath([...srcPath, child.name]));
@@ -522,7 +522,7 @@ export function writeFormDesigner(
 		const merged = mergeVbFrameFromFrm(frmDesignerBlock, existing.vbFrame);
 		wb.cfb.writeStreamInStorage(module.name, VBFRAME_STREAM, encodeCodePage(merged, wb.project.codePage));
 	}
-	saveWorkbook(filePath, wb);
+	saveContainer(filePath, wb);
 	return { ok: true, signatureDropped };
 }
 
@@ -543,7 +543,7 @@ function oformsCodec(codePage: number): OformsTextCodec {
  * designer storage; no host is involved.
  */
 export function readFormMarkup(filePath: string, moduleName: string): { markup: string } {
-	const { cfb, project } = openWorkbook(filePath);
+	const { cfb, project } = openContainer(filePath);
 	const module = project.getModule(moduleName);
 	if (!module) {
 		throw new Error(`Module not found: ${moduleName}`);
@@ -589,7 +589,7 @@ export function readFormPreview(
 	markup?: string,
 	identityPath?: string,
 ): { html: string } {
-	const { cfb, project } = openWorkbook(filePath);
+	const { cfb, project } = openContainer(filePath);
 	const module = project.getModule(moduleName);
 	if (!module) {
 		throw new Error(`Module not found: ${moduleName}`);
@@ -609,7 +609,7 @@ export function readFormPreview(
 			properties,
 			// The designer may render from a scratch copy; its identity - what
 			// F5 launches, what the state names - is the real workbook.
-			identity: { workbook: identityPath ?? filePath, module: module.name },
+			identity: { project: identityPath ?? filePath, module: module.name },
 			// The pane shows the document's own spelling; when no document
 			// exists yet, the engine's canonical print stands in.
 			markup: markup ?? readFormMarkup(filePath, moduleName).markup,
@@ -760,7 +760,7 @@ export function applyFormMarkup(
 	markup: string,
 ): WriteResult & { applied: string[] } {
 	const root = parseOformsMarkup(markup);
-	const wb = openWorkbookForWrite(filePath);
+	const wb = openContainerForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
 	const module = wb.project.getModule(moduleName);
 	if (!module) {
@@ -839,7 +839,7 @@ export function applyFormMarkup(
 	if (vbFrameChanged) {
 		wb.cfb.writeStreamInStorage(module.name, VBFRAME_STREAM, encodeCodePage(vbFrameUpdated, wb.project.codePage));
 	}
-	saveWorkbook(filePath, wb);
+	saveContainer(filePath, wb);
 	return { ok: true, signatureDropped, applied: outcome.applied };
 }
 
@@ -863,7 +863,7 @@ export function applyFormDesignerOp(
 		| { kind: 'zOrder'; name: string; toFront: boolean }
 		| { kind: 'tabOrder'; container: string; names: readonly string[] },
 ): WriteResult & { newName?: string } {
-	const wb = openWorkbookForWrite(filePath);
+	const wb = openContainerForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
 	const module = wb.project.getModule(moduleName);
 	if (!module) {
@@ -962,7 +962,7 @@ export function applyFormDesignerOp(
 		wb.cfb.writeStreamInStorage(module.name, VBFRAME_STREAM, encodeCodePage(updated, wb.project.codePage));
 	}
 	writeFormPackage(wb.cfb, [module.name], pkg, codec);
-	saveWorkbook(filePath, wb);
+	saveContainer(filePath, wb);
 	return { ok: true, signatureDropped, newName };
 }
 
@@ -977,7 +977,7 @@ export function readFormDesignerSnapshot(
 	filePath: string,
 	moduleName: string,
 ): { streams: Record<string, string> } {
-	const { cfb, project } = openWorkbook(filePath);
+	const { cfb, project } = openContainer(filePath);
 	const module = project.getModule(moduleName);
 	if (!module) {
 		throw new Error(`Module not found: ${moduleName}`);
@@ -1005,7 +1005,7 @@ export function restoreFormDesignerSnapshot(
 	moduleName: string,
 	streams: Record<string, string>,
 ): WriteResult {
-	const wb = openWorkbookForWrite(filePath);
+	const wb = openContainerForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
 	const module = wb.project.getModule(moduleName);
 	if (!module) {
@@ -1030,7 +1030,7 @@ export function restoreFormDesignerSnapshot(
 		}
 		wb.cfb.setStreamAtPath([module.name, ...parts], streamName, Buffer.from(streams[key], 'base64'));
 	}
-	saveWorkbook(filePath, wb);
+	saveContainer(filePath, wb);
 	return { ok: true, signatureDropped };
 }
 
@@ -1045,7 +1045,7 @@ export function addFormModule(
 	moduleName: string,
 	body = '',
 ): WriteResult {
-	const wb = openWorkbookForWrite(filePath);
+	const wb = openContainerForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
 	if (wb.project.getModule(moduleName)) {
 		throw new Error(`Module already exists: ${moduleName}`);
@@ -1066,7 +1066,7 @@ export function addFormModule(
 	wb.cfb.setStreamAtPath([moduleName], 'o', streams.o);
 	wb.cfb.setStreamAtPath([moduleName], VBFRAME_STREAM, encodeCodePage(streams.vbFrame, wb.project.codePage));
 	wb.cfb.setStreamAtPath([moduleName], '\x01CompObj', streams.compObj);
-	saveWorkbook(filePath, wb);
+	saveContainer(filePath, wb);
 	return { ok: true, signatureDropped };
 }
 
@@ -1102,7 +1102,7 @@ export function getProtectionInfo(filePath: string): ProtectionInfo {
 		// Files on disk: nothing to lock and nothing to sign.
 		return { isPasswordProtected: false, isSigned: false };
 	}
-	const { cfb, project } = openWorkbook(filePath);
+	const { cfb, project } = openContainer(filePath);
 	return { isPasswordProtected: project.hasPassword, isSigned: detectSignature(cfb).present };
 }
 
@@ -1110,7 +1110,7 @@ export function getModulesAndProtectionInfo(filePath: string): ProtectionInfo & 
 	if (isVb6ProjectPath(filePath)) {
 		return { modules: listModules(filePath), isPasswordProtected: false, isSigned: false };
 	}
-	const { cfb, project } = openWorkbook(filePath);
+	const { cfb, project } = openContainer(filePath);
 	return {
 		modules: project.modules.map(moduleEntry),
 		isPasswordProtected: project.hasPassword,
@@ -1122,7 +1122,7 @@ export function listSheets(filePath: string): { sheets: SheetSummary[] } {
 	return { sheets: sheetSurface(filePath).sheetSummaries() };
 }
 
-export function getWorkbookInfo(filePath: string): {
+export function getProjectInfo(filePath: string): {
 	sheets: SheetSummary[];
 	namedRanges: NamedRange[];
 	modules: ModuleEntry[];
@@ -1132,9 +1132,9 @@ export function getWorkbookInfo(filePath: string): {
 	if (isVb6ProjectPath(filePath)) {
 		return { sheets: [], namedRanges: [], modules: listModules(filePath), isPasswordProtected: false, isSigned: false };
 	}
-	const { container, cfb, project } = openWorkbook(filePath);
+	const { container, cfb, project } = openContainer(filePath);
 	// Only the OOXML Excel container has a READABLE sheet surface (.xlsb
-	// keeps a binary workbook part); for every other shape the modules and
+	// keeps a binary project part); for every other shape the modules and
 	// protection facts still answer.
 	const xlsx = container.kind === 'excel' && container.xlsx?.hasSheetSurface()
 		? container.xlsx
@@ -1161,14 +1161,14 @@ export function readFormulas(filePath: string, sheet: string, range: string): { 
  * previous backend's validate(): every dir-declared module must resolve to a
  * readable stream, names must be unique, and the PROJECT stream must agree.
  */
-export function validateWorkbook(filePath: string): { issues: string[] } {
+export function validateProject(filePath: string): { issues: string[] } {
 	if (isVb6ProjectPath(filePath)) {
 		return validateVb6Project(filePath);
 	}
 	const issues: string[] = [];
-	let wb: OpenWorkbook;
+	let wb: OpenContainer;
 	try {
-		wb = openWorkbook(filePath);
+		wb = openContainer(filePath);
 	} catch (err) {
 		return { issues: [`VBA project could not be parsed: ${err instanceof Error ? err.message : String(err)}`] };
 	}
@@ -1247,9 +1247,9 @@ export function writeModule(
 		return { ok: true, signatureDropped: false };
 	}
 	// Callers may pass a bare body or a full export; strip any incoming header
-	// so the workbook's own header is always the one that persists.
+	// so the project's own header is always the one that persists.
 	const { body } = splitVbaSource(source);
-	const wb = openWorkbookForWrite(filePath);
+	const wb = openContainerForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
 	const existing = wb.project.getModule(moduleName);
 	if (existing) {
@@ -1262,7 +1262,7 @@ export function writeModule(
 			: synthesizeStandardHeader(moduleName);
 		wb.project.addModule(moduleName, joinVbaSource(header, body), kind === 'class' ? 'other' : 'standard');
 	}
-	saveWorkbook(filePath, wb);
+	saveContainer(filePath, wb);
 	return { ok: true, signatureDropped };
 }
 
@@ -1270,11 +1270,11 @@ export function renameModule(filePath: string, moduleName: string, newName: stri
 	if (isVb6ProjectPath(filePath)) {
 		throw new Error(`Renaming a module of a VB6 project is not supported yet; rename ${moduleName} in the .vbp and its file.`);
 	}
-	const wb = openWorkbookForWrite(filePath);
+	const wb = openContainerForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
 	assertFoldedNameDistinct(wb.project.modules, wb.project.codePage, newName, moduleName);
 	wb.project.renameModule(moduleName, newName);
-	saveWorkbook(filePath, wb);
+	saveContainer(filePath, wb);
 	return { ok: true, signatureDropped };
 }
 
@@ -1282,10 +1282,10 @@ export function deleteModule(filePath: string, moduleName: string): WriteResult 
 	if (isVb6ProjectPath(filePath)) {
 		throw new Error(`Deleting a module of a VB6 project is not supported yet; remove ${moduleName} from the .vbp and delete its file.`);
 	}
-	const wb = openWorkbookForWrite(filePath);
+	const wb = openContainerForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
 	wb.project.deleteModule(moduleName);
-	saveWorkbook(filePath, wb);
+	saveContainer(filePath, wb);
 	return { ok: true, signatureDropped };
 }
 
@@ -1310,7 +1310,7 @@ export function writeCells(
 		);
 	}
 	container.xlsx.writeCells(sheet, startCell, data);
-	atomicWorkbookWrite(filePath, container.xlsx.toBytes());
+	atomicContainerWrite(filePath, container.xlsx.toBytes());
 	return { ok: true };
 }
 
@@ -1320,8 +1320,8 @@ export function writeCells(
  * gate that: the New File command's save dialog confirms replacement
  * natively, and the agent tool refuses existing paths outright.
  */
-export function createWorkbook(filePath: string, templatePath: string): { ok: true; path: string } {
+export function createProject(filePath: string, templatePath: string): { ok: true; path: string } {
 	const template = fs.readFileSync(templatePath);
-	atomicWorkbookWrite(filePath, template);
+	atomicContainerWrite(filePath, template);
 	return { ok: true, path: filePath };
 }

@@ -4,18 +4,18 @@ import { MACRO_CONTAINER_GLOB } from './macroContainerUi';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import {
-    isWorkbookSettingsError,
-    readWorkbookSettings,
-    settingsPathForWorkbook,
-} from './workbookSettings';
+    isProjectSettingsError,
+    readProjectSettings,
+    settingsPathForProject,
+} from './projectSettings';
 import { registerXlideCommand } from './xlideCommandRegistration';
-import { activeLocalVbaEditor, decodeModuleUri, sameWorkbookPath, XLIDE_SCHEME } from './xlideFileSystem';
+import { activeLocalVbaEditor, decodeModuleUri, sameProjectPath, XLIDE_SCHEME } from './xlideFileSystem';
 import {
     buildXlideSidebarModel,
-    type XlideSidebarActiveWorkbook,
+    type XlideSidebarActiveProject,
     type XlideSidebarCommand,
     type XlideSidebarNode,
-    type XlideSidebarWorkbookChoice,
+    type XlideSidebarProjectChoice,
 } from './xlideSidebarModel';
 import { measurePerformance, startPerformanceTrace } from './performanceTrace';
 import { escapeAttr, escapeHtml, randomNonce } from './webview/html';
@@ -39,27 +39,27 @@ interface XlideSidebarRegistration {
 class XlideSidebarProvider implements vscode.WebviewViewProvider {
     private _view: vscode.WebviewView | undefined;
     private _refreshVersion = 0;
-    private _selectedWorkbookPath: string | undefined;
-    private _lastSelectionSource: XlideSidebarActiveWorkbook['selectionSource'] | undefined;
+    private _selectedProjectPath: string | undefined;
+    private _lastSelectionSource: XlideSidebarActiveProject['selectionSource'] | undefined;
     private _lastRenderedModelJson: string | undefined;
-    private _workbookFilesPromise: Promise<vscode.Uri[]> | undefined;
+    private _projectFilesPromise: Promise<vscode.Uri[]> | undefined;
 
     constructor(private readonly _options: XlideSidebarOptions = {}) {
-        this._selectedWorkbookPath = _options.workspaceState?.get<string>(SELECTED_WORKBOOK_KEY);
+        this._selectedProjectPath = _options.workspaceState?.get<string>(SELECTED_WORKBOOK_KEY);
     }
 
     refresh(): void {
         void this._render();
     }
 
-    /** Drops the cached workspace workbook scan; the next render re-globs. */
-    invalidateWorkbookFiles(): void {
-        this._workbookFilesPromise = undefined;
+    /** Drops the cached workspace project scan; the next render re-globs. */
+    invalidateProjectFiles(): void {
+        this._projectFilesPromise = undefined;
     }
 
     /**
      * An editor change only affects the model when an XLIDE editor became
-     * active or the displayed workbook was derived from the active editor.
+     * active or the displayed project was derived from the active editor.
      */
     shouldRefreshForActiveEditorChange(editor: vscode.TextEditor | undefined): boolean {
         return editor?.document.uri.scheme === XLIDE_SCHEME ||
@@ -77,19 +77,19 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
         this.refresh();
     }
 
-    private _workbookFiles(): Promise<vscode.Uri[]> {
-        this._workbookFilesPromise ??= workbookFiles();
-        return this._workbookFilesPromise;
+    private _projectFiles(): Promise<vscode.Uri[]> {
+        this._projectFilesPromise ??= projectFiles();
+        return this._projectFilesPromise;
     }
 
     private async _model(): Promise<XlideSidebarNode[]> {
-        const workbooks = await this._workbookFiles();
-        const selectedWorkbookPath = await this._validSelectedWorkbookPath(workbooks);
-        const activeWorkbook = await activeWorkbookContext(workbooks, selectedWorkbookPath);
-        this._lastSelectionSource = activeWorkbook?.selectionSource;
+        const projects = await this._projectFiles();
+        const selectedProjectPath = await this._validSelectedProjectPath(projects);
+        const activeProject = await activeProjectContext(projects, selectedProjectPath);
+        this._lastSelectionSource = activeProject?.selectionSource;
         return buildXlideSidebarModel({
-            workbookChoices: workbookChoices(workbooks),
-            activeWorkbook,
+            projectChoices: projectChoices(projects),
+            activeProject,
         });
     }
 
@@ -125,8 +125,8 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
             return;
         }
         const payload = message as { type?: unknown; command?: unknown; arguments?: unknown; filePath?: unknown };
-        if (payload.type === 'selectWorkbook') {
-            await this._selectWorkbook(typeof payload.filePath === 'string' ? payload.filePath : undefined);
+        if (payload.type === 'selectProject') {
+            await this._selectProject(typeof payload.filePath === 'string' ? payload.filePath : undefined);
             return;
         }
         if (payload.type !== 'runCommand' || typeof payload.command !== 'string') {
@@ -143,37 +143,37 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
         await vscode.commands.executeCommand(payload.command, ...args);
     }
 
-    private async _selectWorkbook(filePath: string | undefined): Promise<void> {
-        const workbooks = await this._workbookFiles();
-        const workbook = filePath
-            ? findWorkbook(workbooks, filePath)
+    private async _selectProject(filePath: string | undefined): Promise<void> {
+        const projects = await this._projectFiles();
+        const project = filePath
+            ? findProject(projects, filePath)
             : undefined;
-        if (filePath && !workbook) {
+        if (filePath && !project) {
             vscode.window.showWarningMessage('XLIDE: That file is no longer available in this workspace.');
         }
-        await this._setSelectedWorkbookPath(workbook?.fsPath);
+        await this._setSelectedProjectPath(project?.fsPath);
         this.refresh();
     }
 
-    private async _validSelectedWorkbookPath(workbooks: readonly vscode.Uri[]): Promise<string | undefined> {
-        if (!this._selectedWorkbookPath) {
+    private async _validSelectedProjectPath(projects: readonly vscode.Uri[]): Promise<string | undefined> {
+        if (!this._selectedProjectPath) {
             return undefined;
         }
-        const workbook = findWorkbook(workbooks, this._selectedWorkbookPath);
-        if (workbook) {
-            return workbook.fsPath;
+        const project = findProject(projects, this._selectedProjectPath);
+        if (project) {
+            return project.fsPath;
         }
-        await this._setSelectedWorkbookPath(undefined);
+        await this._setSelectedProjectPath(undefined);
         return undefined;
     }
 
-    private async _setSelectedWorkbookPath(filePath: string | undefined): Promise<void> {
-        this._selectedWorkbookPath = filePath;
+    private async _setSelectedProjectPath(filePath: string | undefined): Promise<void> {
+        this._selectedProjectPath = filePath;
         await this._options.workspaceState?.update(SELECTED_WORKBOOK_KEY, filePath);
     }
 }
 
-const SELECTED_WORKBOOK_KEY = 'xlide.sidebar.selectedWorkbookPath';
+const SELECTED_WORKBOOK_KEY = 'xlide.sidebar.selectedProjectPath';
 
 function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRegistration {
     const provider = new XlideSidebarProvider(options);
@@ -181,8 +181,8 @@ function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRe
     // so a re-shown sidebar rebuilds for free.
     const view = vscode.window.registerWebviewViewProvider('xlide.sidebar', provider);
     const scheduleRefresh = debounce(() => provider.refresh(), 200);
-    const workbookFilesChanged = () => {
-        provider.invalidateWorkbookFiles();
+    const projectFilesChanged = () => {
+        provider.invalidateProjectFiles();
         scheduleRefresh();
     };
 
@@ -194,13 +194,13 @@ function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRe
                 scheduleRefresh();
             }
         }),
-        vscode.workspace.onDidChangeWorkspaceFolders(workbookFilesChanged),
+        vscode.workspace.onDidChangeWorkspaceFolders(projectFilesChanged),
         vscode.window.onDidChangeActiveTextEditor((editor) => {
             if (provider.shouldRefreshForActiveEditorChange(editor)) {
                 scheduleRefresh();
             }
         }),
-        registerXlideCommand('xlide.openWorkbookSettings', async (settingsPath?: string) => {
+        registerXlideCommand('xlide.openProjectSettings', async (settingsPath?: string) => {
             if (!settingsPath) {
                 vscode.window.showWarningMessage('XLIDE: No settings file is available for this file.');
                 return;
@@ -226,8 +226,8 @@ function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRe
             // The same glob discovery uses, so a project the tree lists is one the
             // sidebar notices arriving and leaving.
             const watcher = vscode.workspace.createFileSystemWatcher(MACRO_CONTAINER_GLOB);
-            watcher.onDidCreate(workbookFilesChanged);
-            watcher.onDidDelete(workbookFilesChanged);
+            watcher.onDidCreate(projectFilesChanged);
+            watcher.onDidDelete(projectFilesChanged);
             return watcher;
         })(),
         (() => {
@@ -245,58 +245,58 @@ function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRe
     };
 }
 
-async function workbookFiles(): Promise<vscode.Uri[]> {
-    return measurePerformance('sidebar.workbookFiles', undefined, () => findMacroContainerFiles());
+async function projectFiles(): Promise<vscode.Uri[]> {
+    return measurePerformance('sidebar.projectFiles', undefined, () => findMacroContainerFiles());
 }
 
-async function activeWorkbookContext(
-    workbooks: readonly vscode.Uri[],
-    selectedWorkbookPath?: string,
-): Promise<XlideSidebarActiveWorkbook | undefined> {
-    if (selectedWorkbookPath && findWorkbook(workbooks, selectedWorkbookPath)) {
-        return sidebarWorkbookForPath(selectedWorkbookPath, 'sidebarSelection');
+async function activeProjectContext(
+    projects: readonly vscode.Uri[],
+    selectedProjectPath?: string,
+): Promise<XlideSidebarActiveProject | undefined> {
+    if (selectedProjectPath && findProject(projects, selectedProjectPath)) {
+        return sidebarProjectForPath(selectedProjectPath, 'sidebarSelection');
     }
-    const activeFromEditor = activeWorkbookPathFromEditor();
+    const activeFromEditor = activeProjectPathFromEditor();
     if (activeFromEditor) {
-        return sidebarWorkbookForPath(activeFromEditor, 'activeEditor');
+        return sidebarProjectForPath(activeFromEditor, 'activeEditor');
     }
-    if (workbooks.length === 1) {
-        return sidebarWorkbookForPath(workbooks[0].fsPath, 'singleWorkbook');
+    if (projects.length === 1) {
+        return sidebarProjectForPath(projects[0].fsPath, 'singleProject');
     }
     return undefined;
 }
 
-function workbookChoices(workbooks: readonly vscode.Uri[]): XlideSidebarWorkbookChoice[] {
-    return workbooks.map((uri) => ({
+function projectChoices(projects: readonly vscode.Uri[]): XlideSidebarProjectChoice[] {
+    return projects.map((uri) => ({
         label: vscode.workspace.asRelativePath(uri, false),
         filePath: uri.fsPath,
         description: uri.fsPath,
     }));
 }
 
-function findWorkbook(workbooks: readonly vscode.Uri[], filePath: string): vscode.Uri | undefined {
-    return workbooks.find((uri) => sameWorkbookPath(uri.fsPath, filePath));
+function findProject(projects: readonly vscode.Uri[], filePath: string): vscode.Uri | undefined {
+    return projects.find((uri) => sameProjectPath(uri.fsPath, filePath));
 }
 
-function activeWorkbookPathFromEditor(): string | undefined {
+function activeProjectPathFromEditor(): string | undefined {
     const editor = activeLocalVbaEditor();
-    return editor ? decodeModuleUri(editor.document.uri).xlsmPath : undefined;
+    return editor ? decodeModuleUri(editor.document.uri).projectPath : undefined;
 }
 
-async function sidebarWorkbookForPath(
-    workbookPath: string,
-    selectionSource: XlideSidebarActiveWorkbook['selectionSource'],
-): Promise<XlideSidebarActiveWorkbook> {
-    const settingsPath = settingsPathForWorkbook(workbookPath);
+async function sidebarProjectForPath(
+    projectPath: string,
+    selectionSource: XlideSidebarActiveProject['selectionSource'],
+): Promise<XlideSidebarActiveProject> {
+    const settingsPath = settingsPathForProject(projectPath);
     const base = {
-        label: path.basename(workbookPath),
-        filePath: workbookPath,
+        label: path.basename(projectPath),
+        filePath: projectPath,
         settingsPath,
         selectionSource,
     };
     try {
         const exists = await fileExists(settingsPath);
-        await readWorkbookSettings(workbookPath);
+        await readProjectSettings(projectPath);
         return {
             ...base,
             settingsState: exists ? 'valid' : 'missing',
@@ -305,9 +305,9 @@ async function sidebarWorkbookForPath(
         return {
             ...base,
             settingsState: 'invalid',
-            settingsMessage: isWorkbookSettingsError(err)
+            settingsMessage: isProjectSettingsError(err)
                 ? err.message
-                : `Unable to read workbook settings: ${errorMessage(err)}`,
+                : `Unable to read project settings: ${errorMessage(err)}`,
         };
     }
 }
@@ -614,9 +614,9 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
             options[nextIndex].focus();
         }
         function selectOption(option) {
-            if (option.dataset.selectId === 'project.targetWorkbook') {
+            if (option.dataset.selectId === 'project.targetProject') {
                 vscode.postMessage({
-                    type: 'selectWorkbook',
+                    type: 'selectProject',
                     filePath: option.dataset.selectValue || undefined
                 });
             }
@@ -702,7 +702,7 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
 
 function renderSection(section: XlideSidebarNode): string {
     const children = section.children ?? [];
-    const isActionSection = section.id === 'workbookActions' ||
+    const isActionSection = section.id === 'projectActions' ||
         section.id === 'settings' ||
         section.id === 'support';
     const sectionClass = children.some((child) => child.kind === 'select') ? 'section hasCustomSelect' : 'section';
@@ -852,5 +852,5 @@ export {
     XlideSidebarProvider,
     type XlideSidebarRegistration,
     registerXlideSidebar,
-    workbookFiles,
+    projectFiles,
 };

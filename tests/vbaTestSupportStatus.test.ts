@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { WorkbookEngine } from '../src/workbookEngine';
+import type { ProjectEngine } from '../src/projectEngine';
 import { getVbaTestSupportStatus } from '../src/vbaTestSupportStatus';
 import { XLIDE_ASSERT_MODULE_SOURCE } from '../src/vbaTestSupportModule';
 
 function bridgeWithModules(
     modules: Array<{ name: string; type: string }>,
     sourceByModule: Record<string, string> = {},
-): WorkbookEngine {
+): ProjectEngine {
     return {
         call: vi.fn(async (method: string, args: { module?: string }) => {
             if (method === 'listModules') {
@@ -17,7 +17,7 @@ function bridgeWithModules(
             }
             throw new Error(`Unexpected bridge call: ${method}`);
         }),
-    } as unknown as WorkbookEngine;
+    } as unknown as ProjectEngine;
 }
 
 describe('VBA test support status', () => {

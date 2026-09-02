@@ -1,14 +1,14 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { WorkbookEngine } from './workbookEngine';
-import { workbookIdentityKey } from './xlideFileSystem';
+import { ProjectEngine } from './projectEngine';
+import { projectIdentityKey } from './xlideFileSystem';
 import { compareVbaModulesForTreeOrder, moduleThemeIconName } from './moduleDisplay';
 import { containerAppNameForPath, containerContextValue, isReadOnlyContainerPath, isVb6ProjectPath } from './macroContainerUi';
 import { findMacroContainerFiles } from './macroContainerDiscovery';
 import { hasPendingAgentReview } from './xlideAgentDiff';
 import { startPerformanceTrace } from './performanceTrace';
 
-export type XlideNodeKind = 'xlsm' | 'module' | 'designer' | 'sub' | 'loadError';
+export type XlideNodeKind = 'project' | 'module' | 'designer' | 'sub' | 'loadError';
 
 const PROTECTION_PROBE_IDLE_DELAY_MS = 2000;
 
@@ -36,18 +36,18 @@ export interface XlideNode {
     isSigned?: boolean;
 }
 
-export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.Disposable {
+export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.Disposable {
     private _emitter = new vscode.EventEmitter<XlideNode | undefined | null | void>();
     readonly onDidChangeTreeData = this._emitter.event;
 
 
     // Stable node references required by treeView.reveal()
-    private _xlsmNodes = new Map<string, XlideNode>(); // key: filePath
+    private _projectNodes = new Map<string, XlideNode>(); // key: filePath
     private _moduleNodes = new Map<string, XlideNode>(); // key: filePath + '::' + moduleName
-    private _xlsmRenderVersions = new Map<string, number>();
+    private _projectRenderVersions = new Map<string, number>();
     private _moduleRenderVersions = new Map<string, number>();
-    private _xlsmFilesCache: XlideNode[] | undefined;
-    private _xlsmFilesLoad: Promise<XlideNode[]> | undefined;
+    private _projectFilesCache: XlideNode[] | undefined;
+    private _projectFilesLoad: Promise<XlideNode[]> | undefined;
     // listModules cache: avoids repeated bridge round-trips while the tree is
     // expanded.  Cleared on refresh() so edits always re-fetch.
     private _modulesListCache = new Map<string, Array<{ name: string; type: string; filePath?: string }>>();
@@ -58,17 +58,17 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
     private _generation = 0;
     private _subsListCache = new Map<string, Array<{ name: string; kind: string; line: number }>>();
     private _subsListLoads = new Map<string, Promise<Array<{ name: string; kind: string; line: number }>>>();
-    // Protection-state cache: {isPasswordProtected, isSigned} per workbook path.
+    // Protection-state cache: {isPasswordProtected, isSigned} per project path.
     // Loaded lazily after tree expansion has gone idle; cleared on refresh().
     private _protectionCache = new Map<string, { isPasswordProtected: boolean; isSigned: boolean }>();
     private _protectionLoads = new Map<string, Promise<void>>();
     private _protectionTimers = new Map<string, ReturnType<typeof setTimeout>>();
     // Accordion: only one module node is expanded at a time.
     private _activeModuleKey: string | undefined;
-    private _activeWorkbookKey: string | undefined;
+    private _activeProjectKey: string | undefined;
 
     constructor(
-        private readonly _bridge: WorkbookEngine,
+        private readonly _bridge: ProjectEngine,
         private readonly _out?: vscode.OutputChannel,
     ) {}
 
@@ -79,12 +79,12 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
 
     refresh(): void {
         this._generation++;
-        this._xlsmNodes.clear();
+        this._projectNodes.clear();
         this._moduleNodes.clear();
-        this._xlsmRenderVersions.clear();
+        this._projectRenderVersions.clear();
         this._moduleRenderVersions.clear();
-        this._xlsmFilesCache = undefined;
-        this._xlsmFilesLoad = undefined;
+        this._projectFilesCache = undefined;
+        this._projectFilesLoad = undefined;
         this._modulesListCache.clear();
         this._modulesListLoads.clear();
         this._subsListCache.clear();
@@ -113,7 +113,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
     /** Required by treeView.reveal() - walks xlsm -> module -> sub. */
     getParent(node: XlideNode): XlideNode | undefined {
         if (node.kind === 'module') {
-            return this._xlsmNodes.get(node.filePath);
+            return this._projectNodes.get(node.filePath);
         }
         if (node.kind === 'sub') {
             return this._moduleNodes.get(moduleNodeKey(node.filePath, node.moduleName ?? ''));
@@ -121,13 +121,13 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
         if (node.kind === 'loadError') {
             return node.moduleName
                 ? this._moduleNodes.get(moduleNodeKey(node.filePath, node.moduleName))
-                : this._xlsmNodes.get(node.filePath);
+                : this._projectNodes.get(node.filePath);
         }
         return undefined;
     }
 
     /**
-     * Retry a failed workbook/module listing from its in-tree "click to retry"
+     * Retry a failed project/module listing from its in-tree "click to retry"
      * placeholder. A transient failure (e.g. Excel briefly holding an exclusive
      * lock on the file during open/save) must never permanently brick the node:
      * VS Code caches resolved children until the node is re-fired, so without
@@ -141,12 +141,12 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
             this.refreshModuleSubs(node.filePath, node.moduleName);
             return;
         }
-        const key = workbookNodeKey(node.filePath);
+        const key = projectNodeKey(node.filePath);
         this._modulesListCache.delete(key);
         this._modulesListLoads.delete(key);
-        const workbook = this._xlsmNodes.get(node.filePath);
-        if (workbook) {
-            this._emitter.fire(workbook);
+        const project = this._projectNodes.get(node.filePath);
+        if (project) {
+            this._emitter.fire(project);
         } else {
             this._emitter.fire();
         }
@@ -168,37 +168,37 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
     }
 
     /** Returns the cached xlsm node, if the tree has loaded it. */
-    getXlsmNode(filePath: string): XlideNode | undefined {
-        return this._xlsmNodes.get(filePath);
+    getProjectNode(filePath: string): XlideNode | undefined {
+        return this._projectNodes.get(filePath);
     }
 
     /**
      * Accordion-expand the given module and collapse all sibling module nodes
-     * under the same workbook. Safe to call before the tree has loaded.
+     * under the same project. Safe to call before the tree has loaded.
      */
     setActiveModule(filePath: string, moduleName: string): void {
         const key = moduleNodeKey(filePath, moduleName);
         if (this._activeModuleKey === key) { return; }
         const previousKey = this._activeModuleKey;
-        const previousWorkbookKey = this._activeWorkbookKey;
-        const nextWorkbookKey = workbookNodeKey(filePath);
+        const previousProjectKey = this._activeProjectKey;
+        const nextProjectKey = projectNodeKey(filePath);
         this._activeModuleKey = key;
-        this._activeWorkbookKey = nextWorkbookKey;
+        this._activeProjectKey = nextProjectKey;
         this._refreshModuleExpansion(previousKey);
         this._refreshModuleExpansion(key);
-        if (previousWorkbookKey !== nextWorkbookKey) {
-            this._refreshNonActiveWorkbookExpansions(nextWorkbookKey);
-            // Only when actually switching away from a previously-active workbook
+        if (previousProjectKey !== nextProjectKey) {
+            this._refreshNonActiveProjectExpansions(nextProjectKey);
+            // Only when actually switching away from a previously-active project
             // (not the first activation, which has nothing to collapse): bump the
-            // now-active workbook's render id so it re-renders Expanded, then
-            // refresh from the root so VS Code rebuilds the workbook list and
+            // now-active project's render id so it re-renders Expanded, then
+            // refresh from the root so VS Code rebuilds the project list and
             // actually applies the new collapsed/expanded states. Firing the
-            // individual workbook nodes above only refreshes them in place, which
-            // does not reliably collapse an already-expanded workbook.
-            if (previousWorkbookKey !== undefined) {
-                this._xlsmRenderVersions.set(
-                    nextWorkbookKey,
-                    (this._xlsmRenderVersions.get(nextWorkbookKey) ?? 0) + 1,
+            // individual project nodes above only refreshes them in place, which
+            // does not reliably collapse an already-expanded project.
+            if (previousProjectKey !== undefined) {
+                this._projectRenderVersions.set(
+                    nextProjectKey,
+                    (this._projectRenderVersions.get(nextProjectKey) ?? 0) + 1,
                 );
                 this._emitter.fire();
             }
@@ -206,12 +206,12 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
     }
 
     /**
-     * Clears the forced-expand state for a workbook the user manually collapsed,
+     * Clears the forced-expand state for a project the user manually collapsed,
      * so a later refresh does not re-stamp it Expanded and spring it back open.
      */
-    notifyWorkbookCollapsed(filePath: string): void {
-        if (this._activeWorkbookKey === workbookNodeKey(filePath)) {
-            this._activeWorkbookKey = undefined;
+    notifyProjectCollapsed(filePath: string): void {
+        if (this._activeProjectKey === projectNodeKey(filePath)) {
+            this._activeProjectKey = undefined;
         }
     }
 
@@ -219,8 +219,8 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
      * Eagerly loads and caches the root xlsm nodes without waiting for the tree
      * to expand them. Returns the first node (if any) so callers can auto-reveal.
      */
-    async warmXlsmCache(): Promise<XlideNode | undefined> {
-        const nodes = await this._getXlsmFiles();
+    async warmProjectCache(): Promise<XlideNode | undefined> {
+        const nodes = await this._getProjectFiles();
         return nodes[0];
     }
 
@@ -228,16 +228,16 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
         const isActiveModule =
             node.kind === 'module' &&
             moduleNodeKey(node.filePath, node.moduleName ?? '') === this._activeModuleKey;
-        const isActiveWorkbook =
-            node.kind === 'xlsm' &&
-            workbookNodeKey(node.filePath) === this._activeWorkbookKey;
+        const isActiveProject =
+            node.kind === 'project' &&
+            projectNodeKey(node.filePath) === this._activeProjectKey;
         const item = new vscode.TreeItem(
             node.label,
             node.kind === 'sub' || node.kind === 'designer' || node.kind === 'loadError'
                 ? vscode.TreeItemCollapsibleState.None
                 : isActiveModule
                     ? vscode.TreeItemCollapsibleState.Expanded
-                    : isActiveWorkbook
+                    : isActiveProject
                         ? vscode.TreeItemCollapsibleState.Expanded
                     : vscode.TreeItemCollapsibleState.Collapsed,
         );
@@ -250,14 +250,14 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
             item.id = `s::${node.filePath}::${node.moduleName}::${node.label}::${node.line ?? 0}`;
         } else if (node.kind === 'designer') {
             item.id = `d::${node.filePath}::${node.moduleName}`;
-        } else if (node.kind === 'xlsm') {
-            const key = workbookNodeKey(node.filePath);
-            const version = this._xlsmRenderVersions.get(key) ?? 0;
+        } else if (node.kind === 'project') {
+            const key = projectNodeKey(node.filePath);
+            const version = this._projectRenderVersions.get(key) ?? 0;
             item.id = `w::${key}::${version}`;
         }
 
         switch (node.kind) {
-            case 'xlsm':
+            case 'project':
                 // A VB6 project is a manifest over files, and its icon says so.
                 item.iconPath = new vscode.ThemeIcon(isVb6ProjectPath(node.filePath) ? 'project' : 'file-code');
                 item.tooltip = node.filePath;
@@ -360,9 +360,9 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
 
     private async _getChildren(node?: XlideNode): Promise<XlideNode[]> {
         if (!node) {
-            return this._getXlsmFiles();
+            return this._getProjectFiles();
         }
-        if (node.kind === 'xlsm') {
+        if (node.kind === 'project') {
             return this._getModules(node.filePath);
         }
         if (node.kind === 'module') {
@@ -371,34 +371,34 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
         return [];
     }
 
-    private async _getXlsmFiles(): Promise<XlideNode[]> {
-        if (this._xlsmFilesCache) {
-            return this._xlsmFilesCache;
+    private async _getProjectFiles(): Promise<XlideNode[]> {
+        if (this._projectFilesCache) {
+            return this._projectFilesCache;
         }
-        if (this._xlsmFilesLoad) {
-            return this._xlsmFilesLoad;
+        if (this._projectFilesLoad) {
+            return this._projectFilesLoad;
         }
-        const load = this._loadXlsmFiles();
-        this._xlsmFilesLoad = load;
+        const load = this._loadProjectFiles();
+        this._projectFilesLoad = load;
         try {
             const nodes = await load;
-            this._xlsmFilesCache = nodes;
+            this._projectFilesCache = nodes;
             return nodes;
         } finally {
-            if (this._xlsmFilesLoad === load) {
-                this._xlsmFilesLoad = undefined;
+            if (this._projectFilesLoad === load) {
+                this._projectFilesLoad = undefined;
             }
         }
     }
 
-    private async _loadXlsmFiles(): Promise<XlideNode[]> {
+    private async _loadProjectFiles(): Promise<XlideNode[]> {
         const uris = await findMacroContainerFiles();
         return uris
             .map((uri) => {
-                let node = this._xlsmNodes.get(uri.fsPath);
+                let node = this._projectNodes.get(uri.fsPath);
                 if (!node) {
-                    node = { kind: 'xlsm', label: fileNameForDisplay(uri.fsPath), filePath: uri.fsPath };
-                    this._xlsmNodes.set(uri.fsPath, node);
+                    node = { kind: 'project', label: fileNameForDisplay(uri.fsPath), filePath: uri.fsPath };
+                    this._projectNodes.set(uri.fsPath, node);
                 }
                 return node;
             });
@@ -407,7 +407,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
     private async _getModules(filePath: string): Promise<XlideNode[]> {
         this._cancelProtectionTimer(filePath);
         try {
-            const cacheKey = workbookNodeKey(filePath);
+            const cacheKey = projectNodeKey(filePath);
             let modules = this._modulesListCache.get(cacheKey);
             let loadGeneration: number | undefined;
             if (!modules) {
@@ -471,14 +471,14 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
         } catch (err) {
             vscode.window.showErrorMessage(`XLIDE: Failed to list modules in "${fileNameForDisplay(filePath)}": ${err}`);
             // Return a retry placeholder, never [] - VS Code caches resolved
-            // children, so an empty result would leave the workbook permanently
+            // children, so an empty result would leave the project permanently
             // empty after a transient failure (e.g. Excel holding the file).
             return [this._loadErrorNode(filePath, undefined, err)];
         }
     }
 
     /**
-     * Lazily fetch the workbook's VBA protection/signature state and, once
+     * Lazily fetch the project's VBA protection/signature state and, once
      * known, stamp it onto the cached xlsm node and re-render so the tree item
      * shows the locked/signed badge. Best-effort: failures are ignored.
      */
@@ -496,7 +496,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
                     { path: filePath },
                 );
                 this._protectionCache.set(filePath, info);
-                const node = this._xlsmNodes.get(filePath);
+                const node = this._projectNodes.get(filePath);
                 if (node) {
                     node.isPasswordProtected = info.isPasswordProtected;
                     node.isSigned = info.isSigned;
@@ -504,7 +504,7 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
                 }
             } catch (err) {
                 // Badge is best-effort; log the probe failure without surfacing it.
-                this._out?.appendLine(`[xlsmExplorer] Protection probe failed for "${fileNameForDisplay(filePath)}": ${err}`);
+                this._out?.appendLine(`[projectExplorer] Protection probe failed for "${fileNameForDisplay(filePath)}": ${err}`);
             } finally {
                 this._protectionLoads.delete(filePath);
             }
@@ -612,13 +612,13 @@ export class XlsmExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.
         this._protectionTimers.clear();
     }
 
-    private _refreshNonActiveWorkbookExpansions(activeWorkbookKey: string | undefined): void {
-        for (const node of this._xlsmNodes.values()) {
-            const key = workbookNodeKey(node.filePath);
-            if (key === activeWorkbookKey) {
+    private _refreshNonActiveProjectExpansions(activeProjectKey: string | undefined): void {
+        for (const node of this._projectNodes.values()) {
+            const key = projectNodeKey(node.filePath);
+            if (key === activeProjectKey) {
                 continue;
             }
-            this._xlsmRenderVersions.set(key, (this._xlsmRenderVersions.get(key) ?? 0) + 1);
+            this._projectRenderVersions.set(key, (this._projectRenderVersions.get(key) ?? 0) + 1);
             this._emitter.fire(node);
         }
     }
@@ -632,6 +632,6 @@ function moduleNodeKey(filePath: string, moduleName: string): string {
     return `${filePath}::${moduleName}`;
 }
 
-function workbookNodeKey(filePath: string): string {
-    return workbookIdentityKey(filePath);
+function projectNodeKey(filePath: string): string {
+    return projectIdentityKey(filePath);
 }

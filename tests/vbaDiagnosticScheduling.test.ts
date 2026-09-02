@@ -31,7 +31,7 @@ describe('diagnostic pass scheduling', () => {
         });
     });
 
-    it('drops the in-host local pass for large workbook modules', () => {
+    it('drops the in-host local pass for large project modules', () => {
         // The in-host local pass is a full module analysis (~700ms on a
         // 24k-line class). With no worker, the paced full pass covers the
         // document; running local too would block the host twice per pause.

@@ -130,17 +130,17 @@ const CI_FAILURE_STATUSES = new Set<VbaTestStatus>(['failed', 'timeout', 'host-e
 const MAX_CI_MESSAGE_LENGTH = 500;
 
 export function buildVbaTestRunArtifactPaths(
-    report: Pick<VbaTestRunReport, 'filePath' | 'workbookName' | 'startedAt'>,
+    report: Pick<VbaTestRunReport, 'filePath' | 'projectName' | 'startedAt'>,
     options: VbaTestRunArtifactOptions = {},
 ): VbaTestRunArtifactPaths {
     const outputFolder = resolveVbaTestArtifactOutputFolder(report.filePath, options.outputFolder);
-    const runId = `${sanitizePathPart(path.basename(report.workbookName, path.extname(report.workbookName)))}_${formatRunTimestamp(new Date(report.startedAt))}`;
+    const runId = `${sanitizePathPart(path.basename(report.projectName, path.extname(report.projectName)))}_${formatRunTimestamp(new Date(report.startedAt))}`;
     const runDirectory = path.join(outputFolder, runId);
     const summaryPath = path.join(runDirectory, 'summary.json');
     const hostTracePath = path.join(runDirectory, 'host-trace.json');
     const outputLogPath = path.join(runDirectory, 'output.log');
     const statusPath = path.join(outputFolder, VBA_TEST_CI_STATUS_FILE_NAME);
-    const workbookDirectory = path.dirname(report.filePath);
+    const projectDirectory = path.dirname(report.filePath);
 
     return {
         outputFolder,
@@ -151,10 +151,10 @@ export function buildVbaTestRunArtifactPaths(
         statusPath,
         runId,
         relativePaths: {
-            runDirectory: relativeArtifactPath(workbookDirectory, runDirectory),
-            summary: relativeArtifactPath(workbookDirectory, summaryPath),
-            hostTrace: relativeArtifactPath(workbookDirectory, hostTracePath),
-            outputLog: relativeArtifactPath(workbookDirectory, outputLogPath),
+            runDirectory: relativeArtifactPath(projectDirectory, runDirectory),
+            summary: relativeArtifactPath(projectDirectory, summaryPath),
+            hostTrace: relativeArtifactPath(projectDirectory, hostTracePath),
+            outputLog: relativeArtifactPath(projectDirectory, outputLogPath),
         },
     };
 }
@@ -173,7 +173,7 @@ export function createVbaTestCiStatus(
         generatedAt: (options.generatedAt ?? new Date()).toISOString(),
         runId: paths.runId,
         workbook: {
-            name: report.workbookName,
+            name: report.projectName,
         },
         paths: {
             runDirectory: paths.relativePaths.runDirectory,
@@ -201,13 +201,13 @@ export function createVbaTestCiStatus(
 
 export function sanitizeVbaTestHostTraceForArtifacts(
     events: readonly VbaTestHostOracleEvent[],
-    workbookPath: string,
+    projectPath: string,
 ): VbaTestHostOracleEvent[] {
     return events.map((event) => {
         if ('filePath' in event && typeof event.filePath === 'string') {
             return {
                 ...event,
-                filePath: artifactSafeWorkbookPath(event.filePath, workbookPath),
+                filePath: artifactSafeProjectPath(event.filePath, projectPath),
             };
         }
         return { ...event };
@@ -217,7 +217,7 @@ export function sanitizeVbaTestHostTraceForArtifacts(
 export function renderVbaTestOutputLog(report: VbaTestRunReport, ciStatus: VbaTestCiStatus): string {
     const lines = [
         'XLIDE VBA Test Run',
-        `Workbook: ${report.workbookName}`,
+        `Workbook: ${report.projectName}`,
         `Started: ${report.startedAt}`,
         `Duration: ${report.durationMs} ms`,
         `Status: ${ciStatus.status} (${ciStatus.reason})`,
@@ -258,11 +258,11 @@ export async function writeVbaTestRunArtifacts(
     };
 }
 
-function resolveVbaTestArtifactOutputFolder(workbookPath: string, configuredFolder?: string): string {
+function resolveVbaTestArtifactOutputFolder(projectPath: string, configuredFolder?: string): string {
     const folder = configuredFolder?.trim() || DEFAULT_VBA_TEST_ARTIFACT_FOLDER;
     return path.isAbsolute(folder)
         ? path.normalize(folder)
-        : path.join(path.dirname(workbookPath), folder);
+        : path.join(path.dirname(projectPath), folder);
 }
 
 async function pruneOldVbaTestRunArtifacts(
@@ -449,9 +449,9 @@ function summarizeHostPhaseDurations(events: readonly VbaTestHostOracleEvent[]):
     return [...summaries.values()].sort((left, right) => left.phase.localeCompare(right.phase));
 }
 
-function artifactSafeWorkbookPath(value: string, workbookPath: string): string {
-    const workbookDirectory = path.dirname(workbookPath);
-    const relative = path.relative(workbookDirectory, value);
+function artifactSafeProjectPath(value: string, projectPath: string): string {
+    const projectDirectory = path.dirname(projectPath);
+    const relative = path.relative(projectDirectory, value);
     if (relative && !relative.startsWith('..') && !path.isAbsolute(relative)) {
         return toPosixPath(relative);
     }
@@ -476,8 +476,8 @@ function sanitizePathPart(value: string): string {
     return sanitized || 'workbook';
 }
 
-function relativeArtifactPath(workbookDirectory: string, targetPath: string): string {
-    return toPosixPath(path.relative(workbookDirectory, targetPath) || '.');
+function relativeArtifactPath(projectDirectory: string, targetPath: string): string {
+    return toPosixPath(path.relative(projectDirectory, targetPath) || '.');
 }
 
 function toPosixPath(value: string): string {

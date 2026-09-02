@@ -3,7 +3,7 @@ import { MACRO_CONTAINER_GLOB } from './macroContainerUi';
 import * as path from 'path';
 import { errorMessage } from './util/errors';
 import { debounce } from './util/debounce';
-import { XlsmExplorer } from './xlsmExplorer';
+import { ProjectExplorer } from './projectExplorer';
 import {
     XlideFileSystemProvider,
     XLIDE_SCHEME,
@@ -11,7 +11,7 @@ import {
     decodeModuleUri,
     isLocalXlideDocument,
 } from './xlideFileSystem';
-import { WorkbookEngine } from './workbookEngine';
+import { ProjectEngine } from './projectEngine';
 import { registerFormPreview } from './vbaFormPreview';
 import { registerAgentTools } from './agentTools';
 import { registerCommands } from './commands';
@@ -32,7 +32,7 @@ import { AnalysisWorkerClient } from './analysisWorkerClient';
 import { setExtensionAssetRoot } from './extensionAssets';
 import { cleanupStaleVbaTestHostTempDirsAsync } from './vbaTestTempFiles';
 import { setPerformanceTraceLogger } from './performanceTrace';
-import { setWorkbookAnalysisWorker } from './vbaWorkbookAnalysis';
+import { setProjectAnalysisWorker } from './vbaProjectWideAnalysis';
 import { XLIDE_VBA_EDITOR_OVERRIDES } from './xlideVbaEditorOverrides';
 
 // ---------------------------------------------------------------------------
@@ -74,12 +74,12 @@ export function activate(context: vscode.ExtensionContext): void {
             out.appendLine(`VBA test temp cleanup skipped: ${message}`);
         });
 
-    const bridge = new WorkbookEngine(context, out);
+    const bridge = new ProjectEngine(context, out);
     const fsProvider = new XlideFileSystemProvider(bridge);
     registerFormPreview(context, bridge);
-    const explorer = new XlsmExplorer(bridge, out);
+    const explorer = new ProjectExplorer(bridge, out);
     const statusBar = new XlideStatusBar();
-    // The workbook engine runs in-process: there is no backend to install,
+    // The project engine runs in-process: there is no backend to install,
     // start, probe, or recover, so nothing gates the tree or the sidebar.
     const sidebar = registerXlideSidebar({
         workspaceState: context.workspaceState,
@@ -103,7 +103,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // Analyze Workbook (the command, the agent tool, and the support bundle's
     // anonymized report) rides the same worker so a large module's analysis
     // never blocks the host mid-command.
-    setWorkbookAnalysisWorker(analysisWorkerClient);
+    setProjectAnalysisWorker(analysisWorkerClient);
     const vbaIndex = registerVbaLanguageProviders(context, bridge, analysisWorkerClient);
     registerVbaEditorCommands(context);
     registerXlideVbaLanguageSync(context, out);
@@ -161,18 +161,18 @@ export function activate(context: vscode.ExtensionContext): void {
         // single setActiveModule + reveal, avoiding overlapping async reveal
         // calls that could leave stale modules expanded.
         (() => {
-            let pending: { xlsmPath: string; moduleName: string } | undefined;
+            let pending: { projectPath: string; moduleName: string } | undefined;
             const apply = debounce(() => {
                 if (!pending) { return; }
-                const { xlsmPath, moduleName } = pending;
+                const { projectPath, moduleName } = pending;
                 pending = undefined;
                 // Honor the user's auto-expand/collapse preference: when off, the
                 // tree never follows the active tab or accordion-collapses.
                 if (!xlideExplorerAutoExpandCollapseFromConfig(vscode.workspace.getConfiguration('xlide')).value) {
                     return;
                 }
-                explorer.setActiveModule(xlsmPath, moduleName);
-                const node = explorer.getModuleNode(xlsmPath, moduleName);
+                explorer.setActiveModule(projectPath, moduleName);
+                const node = explorer.getModuleNode(projectPath, moduleName);
                 if (node && treeView.visible) {
                     void treeView.reveal(node, { select: true, focus: false, expand: true });
                 }
@@ -180,8 +180,8 @@ export function activate(context: vscode.ExtensionContext): void {
             const subscription = vscode.window.onDidChangeActiveTextEditor((editor) => {
                 // Focus moved off any text editor (the Output panel, terminal, the
                 // tree, a webview, or the last tab closed). Leave the tree as-is: a
-                // workbook only collapses when focus moves to a module in a DIFFERENT
-                // workbook, never on transient focus loss.
+                // project only collapses when focus moves to a module in a DIFFERENT
+                // project, never on transient focus loss.
                 if (!editor) {
                     pending = undefined;
                     apply.cancel();
@@ -198,7 +198,7 @@ export function activate(context: vscode.ExtensionContext): void {
         })(),
 
         // Accordion: if the user manually clicks the expand arrow on a module node,
-        // collapse all sibling modules under the same workbook.
+        // collapse all sibling modules under the same project.
         treeView.onDidExpandElement((e) => {
             if (!xlideExplorerAutoExpandCollapseFromConfig(vscode.workspace.getConfiguration('xlide')).value) { return; }
             if (e.element.kind === 'module' && e.element.filePath && e.element.moduleName) {
@@ -206,12 +206,12 @@ export function activate(context: vscode.ExtensionContext): void {
             }
         }),
 
-        // When the user manually collapses the active workbook, stop forcing it
+        // When the user manually collapses the active project, stop forcing it
         // Expanded so it stays collapsed - otherwise the next refresh re-stamps it
-        // Expanded against the still-set active-workbook key and springs it open.
+        // Expanded against the still-set active-project key and springs it open.
         treeView.onDidCollapseElement((e) => {
-            if (e.element.kind === 'xlsm' && e.element.filePath) {
-                explorer.notifyWorkbookCollapsed(e.element.filePath);
+            if (e.element.kind === 'project' && e.element.filePath) {
+                explorer.notifyProjectCollapsed(e.element.filePath);
             }
         }),
 
@@ -247,23 +247,23 @@ export function activate(context: vscode.ExtensionContext): void {
     // the matching module's sub list in the explorer so renamed procedures
     // appear immediately.
     context.subscriptions.push(
-        vbaIndex.onDidChange(({ xlsmPath, moduleName }) => {
-            if (!xlsmPath || !moduleName) {
+        vbaIndex.onDidChange(({ projectPath, moduleName }) => {
+            if (!projectPath || !moduleName) {
                 explorer.refresh();
             } else {
-                explorer.refreshModuleSubs(xlsmPath, moduleName);
+                explorer.refreshModuleSubs(projectPath, moduleName);
             }
         }),
     );
 
-    // Item 7: Auto-expand the first workbook so modules are visible. Listing
-    // workbooks only globs the workspace; expanding the first one performs the
+    // Item 7: Auto-expand the first project so modules are visible. Listing
+    // projects only globs the workspace; expanding the first one performs the
     // first bridge call, which lazy-starts the backend. Workspaces without
     // Excel workbooks (or with the explorer hidden) never open a workbook.
     if (treeView.visible) {
         const autoExpandTimer = setTimeout(() => {
             if (!treeView.visible) { return; }
-            void explorer.warmXlsmCache().then(firstNode => {
+            void explorer.warmProjectCache().then(firstNode => {
                 if (firstNode && treeView.visible) {
                     void treeView.reveal(firstNode, { select: false, focus: false, expand: true });
                 }

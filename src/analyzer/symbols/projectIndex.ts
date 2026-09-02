@@ -1,6 +1,6 @@
 // Project-wide symbol graph (Phase 4: Project-Wide Symbol Graph).
 //
-// Aggregates per-module symbol views into a workbook-project index and provides
+// Aggregates per-module symbol views into a project-project index and provides
 // document symbols, workspace symbols, and conservative go-to-definition name
 // resolution. No `vscode` dependency: the VS Code providers consume this index
 // and translate spans to ranges.
@@ -42,7 +42,7 @@ import {
 import type { Span } from '../parser/nodes';
 import { hasAuthoritativeDesignerHeader, parseUserFormControls } from '../../vbaUserFormControls';
 
-/** Source text + workbook role for one module fed into the index. */
+/** Source text + project role for one module fed into the index. */
 export interface ModuleInput {
 	moduleName: string;
 	moduleKind: ModuleSymbolKind;
@@ -532,8 +532,8 @@ export class ProjectIndex {
 	/**
 	 * A form's designer-declared controls: what the host supplied with the
 	 * module, or what the module's own `.frm` header carries. Excel stores a
-	 * workbook form's control tree in a binary designer blob, so for a
-	 * workbook-backed form with no host this answers nothing.
+	 * project form's control tree in a binary designer blob, so for a
+	 * project-backed form with no host this answers nothing.
 	 */
 	moduleImplicitMembers(moduleName: string): readonly { name: string; type: string }[] {
 		const key = moduleName.toLowerCase();
@@ -571,7 +571,7 @@ export class ProjectIndex {
 	 * True when the module's control list is AUTHORITATIVE: a designer-reading
 	 * host supplied it with the module (an empty array included), or the
 	 * source itself carries a `.frm` designer header. Absence claims about a
-	 * form's members are only sound behind this - a workbook form whose
+	 * form's members are only sound behind this - a project form whose
 	 * binary designer nobody has read has an unknown control list, not an
 	 * empty one (issue #26).
 	 */
@@ -703,7 +703,7 @@ export class ProjectIndex {
 	 * Source-backed module-level symbols visible as bare identifiers from
 	 * `moduleName`. Document/UserForm code names are intentionally not included
 	 * here because they are object-module globals rather than source
-	 * declarations; callers that need them should use the workbook module list.
+	 * declarations; callers that need them should use the project module list.
 	 */
 	visibleIdentifierSymbols(moduleName: string): VbaSymbol[] {
 		const currentLower = moduleName.toLowerCase();
@@ -900,7 +900,7 @@ export class ProjectIndex {
 	}
 
 	/**
-	 * Public/default-public members of workbook-defined object modules. This is
+	 * Public/default-public members of project-defined object modules. This is
 	 * the source-backed surface used by member completion for variables declared
 	 * `As Person` where `Person` is a class/UserForm/document module. Private
 	 * members are deliberately hidden. Public fields are represented as properties;
@@ -988,7 +988,7 @@ export class ProjectIndex {
 	}
 
 	/**
-	 * Source-backed member surfaces visible from `moduleName`: workbook object
+	 * Source-backed member surfaces visible from `moduleName`: project object
 	 * modules, standard module-qualified members, plus visible `Type ... End Type`
 	 * declarations. UDT fields are exhaustive, writable property-like members.
 	 */

@@ -245,7 +245,7 @@ export const FORM_EXTRA_FIELDS = ['BorderStyle', 'ScrollBars', 'Cycle', 'Zoom', 
  * What VBA accepts as a control name: a LETTER first (any script - Japanese
  * control names are legal VBA), then letters, digits, and underscores, at
  * most 255 characters. Enforced when a control is CREATED (an addition or a
- * rename); a control an existing workbook already carries is matched as-is.
+ * rename); a control an existing project already carries is matched as-is.
  * A name outside this can never have an event handler, so accepting one
  * authors a form the user cannot wire up.
  */
@@ -714,7 +714,7 @@ const KIND_TO_CACHE_INDEX: Readonly<Record<string, number>> = {
 /**
  * Applies the parsed document to the package, keyed by control name. The
  * document must have parsed whole; a refused operation throws with its line
- * and nothing after it lands (the caller reparses the workbook on failure).
+ * and nothing after it lands (the caller reparses the project on failure).
  */
 export function applyFormMarkup(pkg: FormPackage, root: MarkupElement): ApplyOutcome {
 	const outcome: ApplyOutcome = { applied: [] };

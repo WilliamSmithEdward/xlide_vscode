@@ -36,13 +36,13 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
 	},
 }));
 
-import { readWorkbookSettings, writeWorkbookSettings } from '../src/workbookSettings';
+import { readProjectSettings, writeProjectSettings } from '../src/projectSettings';
 import {
-	effectiveWorkbookAnalysisSettings,
-	effectiveWorkbookAnalysisSettingsFromConfig,
-	resetWorkbookAnalysisRuleTracking,
-	setWorkbookAnalysisRuleTracked,
-} from '../src/workbookAnalysisSettings';
+	effectiveProjectAnalysisSettings,
+	effectiveProjectAnalysisSettingsFromConfig,
+	resetProjectAnalysisRuleTracking,
+	setProjectAnalysisRuleTracked,
+} from '../src/projectAnalysisSettings';
 
 const tempRoots: string[] = [];
 
@@ -59,18 +59,18 @@ afterEach(() => {
 	}
 });
 
-function tempWorkbook(): { root: string; workbook: string; exportFolder: string } {
+function tempWorkbook(): { root: string; project: string; exportFolder: string } {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-analysis-settings-'));
 	tempRoots.push(root);
-	const workbook = path.join(root, 'Book.xlsm');
+	const project = path.join(root, 'Book.xlsm');
 	const exportFolder = path.join(root, 'repo');
-	fs.writeFileSync(workbook, '', 'utf8');
-	return { root, workbook, exportFolder };
+	fs.writeFileSync(project, '', 'utf8');
+	return { root, project, exportFolder };
 }
 
-describe('workbook analysis settings', () => {
-	it('uses global defaults until a workbook override exists', async () => {
-		const { workbook } = tempWorkbook();
+describe('project analysis settings', () => {
+	it('uses global defaults until a project override exists', async () => {
+		const { project } = tempWorkbook();
 		mockConfig.visibleSeverities = ['error', 'information'];
 		mockConfig.untrackedRules = ['option-explicit-missing'];
 		mockConfig.ruleSeverityOverrides = { 'unknown-call': 'warning' };
@@ -78,22 +78,22 @@ describe('workbook analysis settings', () => {
 		mockConfig.machineKeys.add('analysis.untrackedRules');
 		mockConfig.machineKeys.add('analysis.ruleSeverityOverrides');
 
-		await expect(effectiveWorkbookAnalysisSettings(workbook)).resolves.toMatchObject({
+		await expect(effectiveProjectAnalysisSettings(project)).resolves.toMatchObject({
 			visibleSeverities: ['error', 'information'],
 			visibleSeveritiesSource: 'machine',
 			untrackedRules: ['option-explicit-missing'],
 			untrackedRulesSource: 'machine',
-			workbookUntrackedRules: [],
+			projectUntrackedRules: [],
 			ruleSeverityOverrides: { 'unknown-call': 'warning' },
 			ruleSeverityOverridesSource: 'machine',
 		});
 	});
 
-	it('resolves effective settings from an already-loaded workbook config', () => {
+	it('resolves effective settings from an already-loaded project config', () => {
 		mockConfig.visibleSeverities = ['error'];
 		mockConfig.machineKeys.add('analysis.visibleSeverities');
 
-		expect(effectiveWorkbookAnalysisSettingsFromConfig('Book.xlsm', {
+		expect(effectiveProjectAnalysisSettingsFromConfig('Book.xlsm', {
 			analysis: {
 				untrackedRules: ['argument-count'],
 			},
@@ -101,38 +101,38 @@ describe('workbook analysis settings', () => {
 			visibleSeverities: ['error'],
 			visibleSeveritiesSource: 'machine',
 			untrackedRules: ['argument-count'],
-			untrackedRulesSource: 'workbook',
-			workbookUntrackedRules: ['argument-count'],
+			untrackedRulesSource: 'project',
+			projectUntrackedRules: ['argument-count'],
 			ruleSeverityOverridesSource: 'default',
 		});
 	});
 
-	it('stores workbook rule tracking separately from the effective global default', async () => {
-		const { workbook } = tempWorkbook();
+	it('stores project rule tracking separately from the effective global default', async () => {
+		const { project } = tempWorkbook();
 		mockConfig.untrackedRules = ['argument-count'];
 		mockConfig.machineKeys.add('analysis.untrackedRules');
 
-		const update = await setWorkbookAnalysisRuleTracked(workbook, 'Option-Explicit-Missing', false);
+		const update = await setProjectAnalysisRuleTracked(project, 'Option-Explicit-Missing', false);
 
 		expect(update).toMatchObject({
 			tracked: false,
 			changed: true,
 			untrackedRules: ['option-explicit-missing'],
 		});
-		expect((await readWorkbookSettings(workbook)).analysis?.untrackedRules)
+		expect((await readProjectSettings(project)).analysis?.untrackedRules)
 			.toEqual(['option-explicit-missing']);
-		await expect(effectiveWorkbookAnalysisSettings(workbook)).resolves.toMatchObject({
+		await expect(effectiveProjectAnalysisSettings(project)).resolves.toMatchObject({
 			untrackedRules: ['argument-count', 'option-explicit-missing'],
-			untrackedRulesSource: 'workbook',
-			workbookUntrackedRules: ['option-explicit-missing'],
+			untrackedRulesSource: 'project',
+			projectUntrackedRules: ['option-explicit-missing'],
 		});
 	});
 
 	it('resets rule tracking and removes empty analysis settings', async () => {
-		const { workbook, exportFolder } = tempWorkbook();
+		const { project, exportFolder } = tempWorkbook();
 		mockConfig.untrackedRules = ['option-explicit-missing'];
 		mockConfig.machineKeys.add('analysis.untrackedRules');
-		await writeWorkbookSettings(workbook, {
+		await writeProjectSettings(project, {
 			exportFolder,
 			importMode: 'trueUpStandardClass',
 			analysis: {
@@ -140,16 +140,16 @@ describe('workbook analysis settings', () => {
 			},
 		});
 
-		await resetWorkbookAnalysisRuleTracking(workbook);
+		await resetProjectAnalysisRuleTracking(project);
 
-		expect(await readWorkbookSettings(workbook)).toEqual({
+		expect(await readProjectSettings(project)).toEqual({
 			exportFolder,
 			importMode: 'trueUpStandardClass',
 		});
-		await expect(effectiveWorkbookAnalysisSettings(workbook)).resolves.toMatchObject({
+		await expect(effectiveProjectAnalysisSettings(project)).resolves.toMatchObject({
 			untrackedRules: ['option-explicit-missing'],
 			untrackedRulesSource: 'machine',
-			workbookUntrackedRules: [],
+			projectUntrackedRules: [],
 		});
 	});
 

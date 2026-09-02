@@ -18,7 +18,7 @@ describe('XLIDE write audit', () => {
 			command: 'xlide.writeModule',
 			operation: 'write-module',
 			outcome: 'succeeded',
-			workbookPath: 'C:\\Work\\Book.xlsm',
+			projectPath: 'C:\\Work\\Book.xlsm',
 			moduleName: 'Module1',
 			summary: 'Write module: 1 changed',
 		});
@@ -29,7 +29,7 @@ describe('XLIDE write audit', () => {
 				command: 'xlide.writeModule',
 				operation: 'write-module',
 				outcome: 'succeeded',
-				workbookPath: 'C:\\Work\\Book.xlsm',
+				projectPath: 'C:\\Work\\Book.xlsm',
 				moduleName: 'Module1',
 				summary: 'Write module: 1 changed',
 			},

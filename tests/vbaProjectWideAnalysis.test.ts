@@ -2,14 +2,14 @@
 
 vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 
-import { analyzeWorkbook, resetWorkbookAnalysisResultCacheForTests, setWorkbookAnalysisWorker, type WorkbookAnalysisWorker } from '../src/vbaWorkbookAnalysis';
-import type { WorkbookEngine } from '../src/workbookEngine';
-import { fakeWorkbookEngine } from './helpers/fakeWorkbookEngine';
+import { analyzeProject, resetProjectAnalysisResultCacheForTests, setProjectAnalysisWorker, type ProjectAnalysisWorker } from '../src/vbaProjectWideAnalysis';
+import type { ProjectEngine } from '../src/projectEngine';
+import { fakeProjectEngine } from './helpers/fakeProjectEngine';
 import { deferred, flushPromises } from './helpers/async';
 
-describe('analyzeWorkbook metadata summary', () => {
-	it('loads workbook modules through the batch read endpoint', async () => {
-		const bridge = fakeWorkbookEngine([
+describe('analyzeProject metadata summary', () => {
+	it('loads project modules through the batch read endpoint', async () => {
+		const bridge = fakeProjectEngine([
 			{
 				name: 'Module1',
 				type: 'standard',
@@ -17,14 +17,14 @@ describe('analyzeWorkbook metadata summary', () => {
 			},
 		]);
 
-		const result = await analyzeWorkbook(bridge, 'Book.xlsm');
+		const result = await analyzeProject(bridge, 'Book.xlsm');
 
 		expect(result.moduleCount).toBe(1);
 		expect(vi.mocked(bridge.call).mock.calls.map(([method]) => method)).toEqual(['readModules']);
 	});
 
 	it('attaches shared rule metadata to structural and semantic workbook problems', async () => {
-		const bridge = fakeWorkbookEngine([
+		const bridge = fakeProjectEngine([
 			{
 				name: 'BlockBroken',
 				type: 'standard',
@@ -42,7 +42,7 @@ describe('analyzeWorkbook metadata summary', () => {
 			},
 		]);
 
-		const result = await analyzeWorkbook(bridge, 'Book.xlsm');
+		const result = await analyzeProject(bridge, 'Book.xlsm');
 		const byCode = new Map(result.problems.map((problem) => [problem.code, problem]));
 
 		expect([...byCode.keys()].sort()).toEqual([
@@ -80,7 +80,7 @@ describe('analyzeWorkbook metadata summary', () => {
 	});
 
 	it('surfaces replacement quick fixes for mismatched procedure closers', async () => {
-		const bridge = fakeWorkbookEngine([
+		const bridge = fakeProjectEngine([
 			{
 				name: 'Performance',
 				type: 'class',
@@ -91,7 +91,7 @@ describe('analyzeWorkbook metadata summary', () => {
 			},
 		]);
 
-		const result = await analyzeWorkbook(bridge, 'Book.xlsm');
+		const result = await analyzeProject(bridge, 'Book.xlsm');
 		const problem = result.problems.find((item) => item.code === 'mismatched-end-keyword');
 
 		expect(problem).toMatchObject({
@@ -102,8 +102,8 @@ describe('analyzeWorkbook metadata summary', () => {
 		});
 	});
 
-	it('uses project ByRef helper signatures for workbook return-assignment analysis', async () => {
-		const bridge = fakeWorkbookEngine([
+	it('uses project ByRef helper signatures for project return-assignment analysis', async () => {
+		const bridge = fakeProjectEngine([
 			{
 				name: 'Runner',
 				type: 'standard',
@@ -124,13 +124,13 @@ describe('analyzeWorkbook metadata summary', () => {
 			},
 		]);
 
-		const result = await analyzeWorkbook(bridge, 'Book.xlsm');
+		const result = await analyzeProject(bridge, 'Book.xlsm');
 
 		expect(result.problems.filter((item) => item.code === 'missing-return-assignment')).toEqual([]);
 	});
 
-	it('uses source bindings before host globals in workbook member diagnostics', async () => {
-		const bridge = fakeWorkbookEngine([
+	it('uses source bindings before host globals in project member diagnostics', async () => {
+		const bridge = fakeProjectEngine([
 			{
 				name: 'Caller',
 				type: 'standard',
@@ -154,7 +154,7 @@ describe('analyzeWorkbook metadata summary', () => {
 			},
 		]);
 
-		const result = await analyzeWorkbook(bridge, 'Book.xlsm');
+		const result = await analyzeProject(bridge, 'Book.xlsm');
 		const memberHits = result.problems.filter((item) => item.code === 'member-not-found');
 
 		expect(memberHits).toHaveLength(1);
@@ -167,10 +167,10 @@ describe('analyzeWorkbook metadata summary', () => {
 	});
 });
 
-describe('analyzeWorkbook worker routing', () => {
+describe('analyzeProject worker routing', () => {
 	afterEach(() => {
-		setWorkbookAnalysisWorker(undefined);
-		resetWorkbookAnalysisResultCacheForTests();
+		setProjectAnalysisWorker(undefined);
+		resetProjectAnalysisResultCacheForTests();
 	});
 
 	const MODULES = [
@@ -181,7 +181,7 @@ describe('analyzeWorkbook worker routing', () => {
 	function cannedWorker() {
 		const analyzed: string[] = [];
 		const seeded: Array<{ key: string; generation: number; count: number }> = [];
-		const worker: WorkbookAnalysisWorker = {
+		const worker: ProjectAnalysisWorker = {
 			available: true,
 			ensureSeeded(key, generation, modules) {
 				seeded.push({ key, generation, count: modules().length });
@@ -209,14 +209,14 @@ describe('analyzeWorkbook worker routing', () => {
 
 	it('routes every module through the worker and keeps suppressed findings', async () => {
 		const { worker, analyzed, seeded } = cannedWorker();
-		setWorkbookAnalysisWorker(worker);
+		setProjectAnalysisWorker(worker);
 
-		const result = await analyzeWorkbook(fakeWorkbookEngine(MODULES), 'Book.xlsm');
+		const result = await analyzeProject(fakeProjectEngine(MODULES), 'Book.xlsm');
 
 		expect(analyzed.sort()).toEqual(['ModA', 'ModB']);
 		expect(seeded).toHaveLength(1);
 		expect(seeded[0].count).toBe(2);
-		expect(seeded[0].key).toContain('workbook-analysis:');
+		expect(seeded[0].key).toContain('project-analysis:');
 		// The worker's findings are what the result reports - the in-host
 		// analyzer (which would say "missingA") never ran.
 		expect(result.problems.map((p) => p.message).sort()).toEqual([
@@ -230,14 +230,14 @@ describe('analyzeWorkbook worker routing', () => {
 	});
 
 	it('falls back to the identical in-host pass when the worker rejects', async () => {
-		const worker: WorkbookAnalysisWorker = {
+		const worker: ProjectAnalysisWorker = {
 			available: true,
 			ensureSeeded() { /* accepted */ },
 			analyze() { return Promise.reject(new Error('worker crashed')); },
 		};
-		setWorkbookAnalysisWorker(worker);
+		setProjectAnalysisWorker(worker);
 
-		const result = await analyzeWorkbook(fakeWorkbookEngine(MODULES), 'Book.xlsm');
+		const result = await analyzeProject(fakeProjectEngine(MODULES), 'Book.xlsm');
 
 		// Real analysis findings, produced in-host.
 		expect(result.problems.some((p) => p.message.includes('missingA'))).toBe(true);
@@ -246,7 +246,7 @@ describe('analyzeWorkbook worker routing', () => {
 
 	it('never touches an unavailable worker', async () => {
 		const analyzed: string[] = [];
-		const worker: WorkbookAnalysisWorker = {
+		const worker: ProjectAnalysisWorker = {
 			available: false,
 			ensureSeeded() { analyzed.push('seed'); },
 			analyze(request) {
@@ -254,20 +254,20 @@ describe('analyzeWorkbook worker routing', () => {
 				return Promise.resolve({ diagnostics: [], suppressedDiagnostics: [] });
 			},
 		};
-		setWorkbookAnalysisWorker(worker);
+		setProjectAnalysisWorker(worker);
 
-		const result = await analyzeWorkbook(fakeWorkbookEngine(MODULES), 'Book.xlsm');
+		const result = await analyzeProject(fakeProjectEngine(MODULES), 'Book.xlsm');
 
 		expect(analyzed).toEqual([]);
 		expect(result.problems.some((p) => p.message.includes('missingA'))).toBe(true);
 	});
 
-	it('returns the cached result for an unchanged workbook without re-analyzing', async () => {
+	it('returns the cached result for an unchanged project without re-analyzing', async () => {
 		const { worker, analyzed, seeded } = cannedWorker();
-		setWorkbookAnalysisWorker(worker);
+		setProjectAnalysisWorker(worker);
 
-		const first = await analyzeWorkbook(fakeWorkbookEngine(MODULES), 'CacheHit.xlsm');
-		const second = await analyzeWorkbook(fakeWorkbookEngine(MODULES), 'CacheHit.xlsm');
+		const first = await analyzeProject(fakeProjectEngine(MODULES), 'CacheHit.xlsm');
+		const second = await analyzeProject(fakeProjectEngine(MODULES), 'CacheHit.xlsm');
 
 		// Identical content: one seed, one analysis per module, same result -
 		// the re-run must not occupy the worker at all.
@@ -278,13 +278,13 @@ describe('analyzeWorkbook worker routing', () => {
 
 	it('re-analyzes when a module source changes, with a new seed generation', async () => {
 		const { worker, analyzed, seeded } = cannedWorker();
-		setWorkbookAnalysisWorker(worker);
+		setProjectAnalysisWorker(worker);
 
-		await analyzeWorkbook(fakeWorkbookEngine(MODULES), 'CacheMiss.xlsm');
+		await analyzeProject(fakeProjectEngine(MODULES), 'CacheMiss.xlsm');
 		const edited = MODULES.map((m) => m.name === 'ModA'
 			? { ...m, source: m.source.replace('missingA', 'missingEdited') }
 			: m);
-		await analyzeWorkbook(fakeWorkbookEngine(edited), 'CacheMiss.xlsm');
+		await analyzeProject(fakeProjectEngine(edited), 'CacheMiss.xlsm');
 
 		expect(seeded).toHaveLength(2);
 		expect(seeded[0].generation).not.toBe(seeded[1].generation);
@@ -292,25 +292,25 @@ describe('analyzeWorkbook worker routing', () => {
 	});
 });
 
-describe('analyzeWorkbook progress', () => {
+describe('analyzeProject progress', () => {
 	afterEach(() => {
-		setWorkbookAnalysisWorker(undefined);
-		resetWorkbookAnalysisResultCacheForTests();
+		setProjectAnalysisWorker(undefined);
+		resetProjectAnalysisResultCacheForTests();
 	});
 
 	it('reports each module completion, forced past the start-report throttle', async () => {
 		// All start reports fire within milliseconds now that analysis is
 		// async, so the throttle drops them and only completion reports keep
 		// the notification moving.
-		const worker: WorkbookAnalysisWorker = {
+		const worker: ProjectAnalysisWorker = {
 			available: true,
 			ensureSeeded() { /* accepted */ },
 			analyze() { return Promise.resolve({ diagnostics: [], suppressedDiagnostics: [] }); },
 		};
-		setWorkbookAnalysisWorker(worker);
+		setProjectAnalysisWorker(worker);
 		const messages: string[] = [];
 
-		await analyzeWorkbook(fakeWorkbookEngine([
+		await analyzeProject(fakeProjectEngine([
 			{ name: 'ModA', type: 'standard', source: 'Option Explicit\nSub A()\nEnd Sub\n' },
 			{ name: 'ModB', type: 'standard', source: 'Option Explicit\nSub B()\nEnd Sub\n' },
 		]), 'Book.xlsm', { progress: (message) => messages.push(message) });

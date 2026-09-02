@@ -7,7 +7,7 @@ import {
     decodeModuleUri,
 } from '../xlideFileSystem';
 import {
-    exportWorkbookModule,
+    exportProjectModule,
     withExportFolderLock,
 } from '../moduleExport';
 import {
@@ -22,37 +22,37 @@ import {
     type ModuleSyncSettings,
 } from '../moduleSyncWebview';
 import {
-    effectiveWorkbookModuleSyncSettings,
-    updateWorkbookModuleSyncSettings,
-    type WorkbookModuleSyncFolderSource,
-    type WorkbookModuleSyncModeSource,
-} from '../workbookModuleSyncSettings';
+    effectiveProjectModuleSyncSettings,
+    updateProjectModuleSyncSettings,
+    type ProjectModuleSyncFolderSource,
+    type ProjectModuleSyncModeSource,
+} from '../projectModuleSyncSettings';
 import {
     recordXlideWriteAuditEvent as recordWriteAudit,
     type XlideChangeSummary,
 } from '../xlideWriteAudit';
 import {
-    deleteWorkbookModule,
-    refreshWorkbookProjectState,
-    writeWorkbookFormDesigner,
-    writeWorkbookModule,
-} from '../workbookModuleOperations';
+    deleteProjectModule,
+    refreshProjectState,
+    writeProjectFormDesigner,
+    writeProjectModule,
+} from '../projectModuleOperations';
 import { registerXlideCommand } from '../xlideCommandRegistration';
-import type { XlideNode } from '../xlsmExplorer';
+import type { XlideNode } from '../projectExplorer';
 import { errorMessage } from '../util/errors';
 import { fileExists, isPathInside } from '../util/fs';
 import {
-    activeLocalWorkbookPath,
+    activeLocalProjectPath,
     logChangeSummary,
-    resolveWorkbookPath,
+    resolveProjectPath,
     statusMessage,
     type CommandDeps,
 } from './shared';
 
 interface ResolvedModuleSyncSettings extends ModuleSyncSettings {
-    folderPathSource: WorkbookModuleSyncFolderSource;
-    exportModeSource?: WorkbookModuleSyncModeSource;
-    importModeSource?: WorkbookModuleSyncModeSource;
+    folderPathSource: ProjectModuleSyncFolderSource;
+    exportModeSource?: ProjectModuleSyncModeSource;
+    importModeSource?: ProjectModuleSyncModeSource;
     settingsPath: string;
 }
 
@@ -68,7 +68,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
         direction: 'export' | 'import',
         options: { promptIfMissing?: boolean; openLabel?: string } = {},
     ): Promise<ResolvedModuleSyncSettings | undefined> {
-        const existing = await effectiveWorkbookModuleSyncSettings(filePath);
+        const existing = await effectiveProjectModuleSyncSettings(filePath);
         const modeFields = direction === 'export'
             ? { exportMode: existing.exportMode, exportModeSource: existing.exportModeSource }
             : { importMode: existing.importMode, importModeSource: existing.importModeSource };
@@ -135,7 +135,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
         log(`[exportModules] Target folder: ${settings.folderPath}`);
         log(`[exportModules] Mode: ${settings.exportMode ?? 'exportAll'}`);
         return buildExportModuleSyncPlan(bridge, {
-            workbookPath: filePath,
+            projectPath: filePath,
             exportFolder: settings.folderPath,
             exportMode: settings.exportMode,
             folderPathSource: settings.folderPathSource,
@@ -151,7 +151,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
         log(`[importModules] Source folder: ${settings.folderPath}`);
         log(`[importModules] Mode: ${settings.importMode ?? 'updateOnly'}`);
         return buildImportModuleSyncPlan(bridge, {
-            workbookPath: filePath,
+            projectPath: filePath,
             importFolder: settings.folderPath,
             importMode: settings.importMode,
             folderPathSource: settings.folderPathSource,
@@ -160,14 +160,14 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
         });
     }
 
-    async function buildExportSyncPlanFromWorkbookSettings(
+    async function buildExportSyncPlanFromProjectSettings(
         filePath: string,
     ): Promise<ModuleSyncPlan | undefined> {
         const settings = await resolveModuleSyncFolder(filePath, 'export');
         return settings ? buildExportSyncPlanFromSettings(filePath, settings) : undefined;
     }
 
-    async function buildImportSyncPlanFromWorkbookSettings(
+    async function buildImportSyncPlanFromProjectSettings(
         filePath: string,
     ): Promise<ModuleSyncPlan | undefined> {
         const settings = await resolveModuleSyncFolder(filePath, 'import');
@@ -178,7 +178,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
         filePath: string,
         settings: ModuleSyncSettings,
     ): Promise<string> {
-        const updated = await updateWorkbookModuleSyncSettings(filePath, {
+        const updated = await updateProjectModuleSyncSettings(filePath, {
             folderPath: settings.folderPath,
             exportMode: settings.exportMode,
             importMode: settings.importMode,
@@ -198,7 +198,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
             command,
             operation: 'configure-module-sync',
             outcome: 'succeeded',
-            workbookPath: filePath,
+            projectPath: filePath,
             targetPath: settings.folderPath,
             summary,
         });
@@ -225,19 +225,19 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
             }
         }
 
-        const { xlsmPath, moduleName } = decodeModuleUri(editor.document.uri);
-        const target = await resolveModuleSyncFolder(xlsmPath, 'export', { promptIfMissing: true, openLabel: 'Select export folder' });
+        const { projectPath, moduleName } = decodeModuleUri(editor.document.uri);
+        const target = await resolveModuleSyncFolder(projectPath, 'export', { promptIfMissing: true, openLabel: 'Select export folder' });
         if (!target) {
             return;
         }
 
-        log(`[exportCurrentModule] Workbook: ${xlsmPath}`);
+        log(`[exportCurrentModule] Workbook: ${projectPath}`);
         log(`[exportCurrentModule] Module: ${moduleName}`);
         log(`[exportCurrentModule] Target folder: ${target.folderPath}`);
         log(`[exportCurrentModule] Mode: ${target.exportMode}`);
 
-        const result = await exportWorkbookModule(bridge, {
-            filePath: xlsmPath,
+        const result = await exportProjectModule(bridge, {
+            filePath: projectPath,
             moduleName,
             exportFolder: target.folderPath,
             exportMode: target.exportMode,
@@ -251,7 +251,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
             command: 'xlide.exportCurrentModuleToFolder',
             operation: 'export-current-module',
             outcome: 'succeeded',
-            workbookPath: xlsmPath,
+            projectPath: projectPath,
             moduleName,
             targetPath: target.folderPath,
             summary: summaryText,
@@ -291,7 +291,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
                     return buildExportSyncPlanFromSettings(filePath, { ...settings, folderPath, folderPathSource: 'session' });
                 },
                 onRefresh: (settings) => buildExportSyncPlanFromSettings(filePath, settings),
-                onReloadWorkbookSettings: () => buildExportSyncPlanFromWorkbookSettings(filePath),
+                onReloadProjectSettings: () => buildExportSyncPlanFromProjectSettings(filePath),
                 onSaveSettings: (settings) => saveModuleSyncSettings(filePath, 'xlide.exportModulesToFolder', settings),
             },
         );
@@ -336,7 +336,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
                     return buildImportSyncPlanFromSettings(filePath, { ...settings, folderPath, folderPathSource: 'session' });
                 },
                 onRefresh: (settings) => buildImportSyncPlanFromSettings(filePath, settings),
-                onReloadWorkbookSettings: () => buildImportSyncPlanFromWorkbookSettings(filePath),
+                onReloadProjectSettings: () => buildImportSyncPlanFromProjectSettings(filePath),
                 onSaveSettings: (settings) => saveModuleSyncSettings(filePath, 'xlide.importModulesFromFolder', settings),
             },
         );
@@ -393,8 +393,8 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
             }
 
             try {
-                const result = await exportWorkbookModule(bridge, {
-                    filePath: plan.workbookPath,
+                const result = await exportProjectModule(bridge, {
+                    filePath: plan.projectPath,
                     moduleName: item.moduleName,
                     exportFolder: plan.folderPath,
                     exportMode: plan.exportMode,
@@ -407,19 +407,19 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
         }
 
         try {
-            await persistModuleSyncSettings(plan.workbookPath, syncSettingsFromPlan(plan));
+            await persistModuleSyncSettings(plan.projectPath, syncSettingsFromPlan(plan));
         } catch (err) {
-            failed.push('workbook settings');
+            failed.push('project settings');
             recordWriteAudit({
                 command: 'xlide.exportModulesToFolder',
                 operation: 'configure-module-sync',
                 outcome: 'failed',
-                workbookPath: plan.workbookPath,
+                projectPath: plan.projectPath,
                 targetPath: plan.folderPath,
                 summary: 'Sync settings: 0 changed, 1 failed',
                 error: err,
             });
-            log(`[exportModules] Error updating workbook settings: ${errorMessage(err)}`);
+            log(`[exportModules] Error updating project settings: ${errorMessage(err)}`);
         }
         const summaryText = logChangeSummary(log, 'exportModules', {
             operation: 'Export modules',
@@ -432,7 +432,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
             command: 'xlide.exportModulesToFolder',
             operation: 'export-modules',
             outcome: failed.length > 0 ? 'failed' : changed.length > 0 || removed.length > 0 ? 'succeeded' : 'skipped',
-            workbookPath: plan.workbookPath,
+            projectPath: plan.projectPath,
             targetPath: plan.folderPath,
             summary: summaryText,
         });
@@ -462,9 +462,9 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
             }
             if (item.status === 'will-remove') {
                 try {
-                    log(`[importModules] Deleting workbook module ${item.moduleName} during import true-up`);
-                    await deleteWorkbookModule(deps, {
-                        filePath: plan.workbookPath,
+                    log(`[importModules] Deleting project module ${item.moduleName} during import true-up`);
+                    await deleteProjectModule(deps, {
+                        filePath: plan.projectPath,
                         moduleName: item.moduleName,
                     }, { refreshProjectState: false });
                     removed.push(item.relativeName);
@@ -472,7 +472,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
                         command: 'xlide.importModulesFromFolder',
                         operation: 'delete-module',
                         outcome: 'succeeded',
-                        workbookPath: plan.workbookPath,
+                        projectPath: plan.projectPath,
                         moduleName: item.moduleName,
                         summary: 'Import true-up: 1 removed',
                     });
@@ -482,7 +482,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
                         command: 'xlide.importModulesFromFolder',
                         operation: 'delete-module',
                         outcome: 'failed',
-                        workbookPath: plan.workbookPath,
+                        projectPath: plan.projectPath,
                         moduleName: item.moduleName,
                         summary: 'Import true-up: 0 removed, 1 failed',
                         error: err,
@@ -491,13 +491,13 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
                 }
                 continue;
             }
-            if (item.status === 'skipping-import' || (item.unsupportedDirectCreation && !item.existsInWorkbook)) {
+            if (item.status === 'skipping-import' || (item.unsupportedDirectCreation && !item.existsInProject)) {
                 skipped.push(`${item.relativeName} (${item.moduleType} cannot be created directly)`);
                 recordWriteAudit({
                     command: 'xlide.importModulesFromFolder',
                     operation: 'import-module',
                     outcome: 'skipped',
-                    workbookPath: plan.workbookPath,
+                    projectPath: plan.projectPath,
                     moduleName: item.moduleName,
                     sourcePath: item.sourcePath,
                     summary: 'Import module: 0 changed, 1 skipped',
@@ -515,23 +515,23 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
                 const source = await withExportFolderLock(plan.folderPath, () =>
                     fs.promises.readFile(sourcePath, 'utf8'));
                 log(`[importModules] Importing ${item.moduleName} from ${item.relativeName}`);
-                await writeWorkbookModule(deps, {
-                    filePath: plan.workbookPath,
+                await writeProjectModule(deps, {
+                    filePath: plan.projectPath,
                     moduleName: item.moduleName,
                     source,
                     kind: item.moduleType,
                 }, { refreshProjectState: false });
                 // A .frm carries the form's designer in a sibling .frx; when the
                 // pair is present and the form exists, the designer travels too.
-                if (/\.frm$/i.test(item.relativeName) && item.existsInWorkbook) {
+                if (/\.frm$/i.test(item.relativeName) && item.existsInProject) {
                     const frxPath = sourcePath.replace(/\.frm$/i, '.frx');
                     const frx = await withExportFolderLock(plan.folderPath, () =>
                         fs.promises.readFile(frxPath).catch(() => undefined));
                     const designerBlock = splitFrmSource(source)?.designerBlock;
                     if (frx) {
                         log(`[importModules] Importing designer for ${item.moduleName} from ${path.basename(frxPath)}`);
-                        await writeWorkbookFormDesigner(deps, {
-                            filePath: plan.workbookPath,
+                        await writeProjectFormDesigner(deps, {
+                            filePath: plan.projectPath,
                             moduleName: item.moduleName,
                             frx,
                             frmDesignerBlock: designerBlock,
@@ -543,7 +543,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
                     command: 'xlide.importModulesFromFolder',
                     operation: 'import-module',
                     outcome: 'succeeded',
-                    workbookPath: plan.workbookPath,
+                    projectPath: plan.projectPath,
                     moduleName: item.moduleName,
                     sourcePath: item.sourcePath,
                     summary: 'Import module: 1 changed',
@@ -554,7 +554,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
                     command: 'xlide.importModulesFromFolder',
                     operation: 'import-module',
                     outcome: 'failed',
-                    workbookPath: plan.workbookPath,
+                    projectPath: plan.projectPath,
                     moduleName: item.moduleName,
                     sourcePath: item.sourcePath,
                     summary: 'Import module: 0 changed, 1 failed',
@@ -565,17 +565,17 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
         }
 
         if (changed.length > 0 || removed.length > 0) {
-            refreshWorkbookProjectState(deps, plan.workbookPath);
+            refreshProjectState(deps, plan.projectPath);
         }
         try {
-            await persistModuleSyncSettings(plan.workbookPath, syncSettingsFromPlan(plan));
+            await persistModuleSyncSettings(plan.projectPath, syncSettingsFromPlan(plan));
         } catch (err) {
-            failed.push('workbook settings');
+            failed.push('project settings');
             recordWriteAudit({
                 command: 'xlide.importModulesFromFolder',
                 operation: 'configure-module-sync',
                 outcome: 'failed',
-                workbookPath: plan.workbookPath,
+                projectPath: plan.projectPath,
                 targetPath: plan.folderPath,
                 summary: 'Sync settings: 0 changed, 1 failed',
                 error: err,
@@ -606,9 +606,9 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
     }
 
     return [
-        // Export all modules to a user-selected folder and persist folder in workbook config JSON
+        // Export all modules to a user-selected folder and persist folder in project config JSON
         registerXlideCommand('xlide.exportModulesToFolder', async (node: XlideNode) => {
-            const filePath = resolveWorkbookPath(node);
+            const filePath = resolveProjectPath(node);
             if (!filePath) { return; }
             await showExportModulesDiffGui(filePath);
         }, {
@@ -619,7 +619,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
                 command: 'xlide.exportModulesToFolder',
                 operation: 'export-modules',
                 outcome: 'failed',
-                workbookPath: resolveWorkbookPath(node),
+                projectPath: resolveProjectPath(node),
                 summary: 'Export modules: 0 changed, 1 failed',
                 error: err,
             }),
@@ -634,7 +634,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
                 command: 'xlide.exportCurrentModuleToFolder',
                 operation: 'export-current-module',
                 outcome: 'failed',
-                workbookPath: await activeLocalWorkbookPath(),
+                projectPath: await activeLocalProjectPath(),
                 summary: 'Export current module: 0 changed, 1 failed',
                 error: err,
             }),
@@ -642,7 +642,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
 
         // Import selected module files from the configured (or user-chosen) export folder
         registerXlideCommand('xlide.importModulesFromFolder', async (node: XlideNode) => {
-            const filePath = resolveWorkbookPath(node);
+            const filePath = resolveProjectPath(node);
             if (!filePath) { return; }
             await showImportModulesDiffGui(filePath);
         }, { errorPrefix: 'Import failed', logTag: 'importModules', log }),

@@ -81,13 +81,13 @@ export interface VbaProjectFixtureDiagnosticAssertion {
 }
 
 export interface VbaProjectFixtureOpenDocumentAssertion {
-	/** Optional absolute workbook path. When omitted, the fixture workbook path is used. */
-	workbookPath?: string;
+	/** Optional absolute project path. When omitted, the fixture project path is used. */
+	projectPath?: string;
 	moduleName: string;
 	sourceLines: string[];
 }
 
-export interface VbaProjectFixtureWorkbookProblemAssertion {
+export interface VbaProjectFixtureProblemAssertion {
 	moduleName?: string;
 	code?: string;
 	line?: number;
@@ -97,10 +97,10 @@ export interface VbaProjectFixtureWorkbookProblemAssertion {
 	quickFixTitles?: string[];
 }
 
-export interface VbaProjectFixtureWorkbookAnalysisAssertion {
+export interface VbaProjectFixtureAnalysisAssertion {
 	problemCount?: number;
 	openDocuments?: VbaProjectFixtureOpenDocumentAssertion[];
-	problems?: VbaProjectFixtureWorkbookProblemAssertion[];
+	problems?: VbaProjectFixtureProblemAssertion[];
 	codes?: VbaProjectFixtureDiagnosticCodeAssertion[];
 	absentCodes?: string[];
 }
@@ -137,7 +137,7 @@ export interface VbaProjectFixtureAssertions {
 	typeCompletions?: VbaProjectFixtureTypeCompletionAssertion[];
 	identifierCompletions?: VbaProjectFixtureIdentifierCompletionAssertion[];
 	diagnostics?: VbaProjectFixtureDiagnosticAssertion[];
-	workbookAnalysis?: VbaProjectFixtureWorkbookAnalysisAssertion;
+	projectAnalysis?: VbaProjectFixtureAnalysisAssertion;
 	semanticTokens?: VbaProjectFixtureSemanticTokensAssertion[];
 	signatureHelp?: VbaProjectFixtureSignatureHelpAssertion[];
 	hovers?: VbaProjectFixtureHoverAssertion[];

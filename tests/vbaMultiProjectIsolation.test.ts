@@ -46,9 +46,9 @@ function dotOffset(src: string, marker: string): number {
 	return idx + marker.length;
 }
 
-describe('multi-workbook isolation', () => {
-	it('feeds completion, diagnostics, and semantic coloring from only the requested workbook', () => {
-		const workbookOne = path.join(path.sep, 'one', 'book.xlsm');
+describe('multi-project isolation', () => {
+	it('feeds completion, diagnostics, and semantic coloring from only the requested project', () => {
+		const projectOne = path.join(path.sep, 'one', 'book.xlsm');
 		const caller = [
 			'Public Sub Main()',
 			'    Dim p As Person',
@@ -90,7 +90,7 @@ describe('multi-workbook isolation', () => {
 			doc('/two/book.xlsm/Sheet1.bas', 'Public Sub TwoSheetMember()\nEnd Sub\n'),
 		];
 
-		const overlaid = applyOpenDocumentSources(modules, workbookOne, docs);
+		const overlaid = applyOpenDocumentSources(modules, projectOne, docs);
 		const project = buildVbaProjectIndex(overlaid);
 		const options = projectAnalysisOptionsForModule(project, 'Caller');
 		const memberSurfaces = options.projectClassMembers ?? [];
@@ -130,8 +130,8 @@ describe('multi-workbook isolation', () => {
 		expect(typeTokens).toEqual(['Person']);
 	});
 
-	it('keeps class reference locations bound to the requested workbook overlay', () => {
-		const workbookOne = path.join(path.sep, 'one', 'book.xlsm');
+	it('keeps class reference locations bound to the requested project overlay', () => {
+		const projectOne = path.join(path.sep, 'one', 'book.xlsm');
 		const caller = [
 			'Public Sub Main()',
 			'    Dim p As Person',
@@ -150,7 +150,7 @@ describe('multi-workbook isolation', () => {
 			),
 		];
 
-		const overlaid = applyOpenDocumentSources(modules, workbookOne, docs);
+		const overlaid = applyOpenDocumentSources(modules, projectOne, docs);
 		const project = buildVbaProjectIndex(overlaid);
 		const byModule = new Map<string, VbaNavigationModule>(
 			overlaid.map((mod) => [mod.moduleName.toLowerCase(), mod]),
@@ -159,7 +159,7 @@ describe('multi-workbook isolation', () => {
 		expect(definition).toBeDefined();
 
 		const references = projectClassReferenceLocations(
-			workbookOne,
+			projectOne,
 			byModule,
 			project,
 			'Person',
@@ -175,7 +175,7 @@ describe('multi-workbook isolation', () => {
 	});
 
 	it('keeps qualified type reference locations bound to the named module', () => {
-		const workbookOne = path.join(path.sep, 'one', 'book.xlsm');
+		const projectOne = path.join(path.sep, 'one', 'book.xlsm');
 		const caller = [
 			'Public Sub Main()',
 			'    Dim a As Geometry.TPoint',
@@ -204,7 +204,7 @@ describe('multi-workbook isolation', () => {
 			.filter((definition) => definition.moduleName === 'Geometry');
 
 		const references = typeReferenceLocations(
-			workbookOne,
+			projectOne,
 			byModule,
 			project,
 			'TPoint',
@@ -217,7 +217,7 @@ describe('multi-workbook isolation', () => {
 	});
 
 	it('finds bound standard-module qualifier references for tree rename edits', () => {
-		const workbookOne = path.join(path.sep, 'one', 'book.xlsm');
+		const projectOne = path.join(path.sep, 'one', 'book.xlsm');
 		const caller = [
 			'Public Sub Main()',
 			'    Helpers.PrintTotal 100',
@@ -258,7 +258,7 @@ describe('multi-workbook isolation', () => {
 		);
 
 		const references = projectStandardModuleReferenceLocations(
-			workbookOne,
+			projectOne,
 			byModule,
 			project,
 			'Helpers',

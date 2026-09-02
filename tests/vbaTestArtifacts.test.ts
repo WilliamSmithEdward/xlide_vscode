@@ -240,7 +240,7 @@ describe('VBA test artifacts', () => {
         expect(fs.existsSync(written.statusPath)).toBe(true);
 
         expect(JSON.parse(fs.readFileSync(written.summaryPath, 'utf8'))).toMatchObject({
-            workbookName: 'Live Test.xlsm',
+            projectName: 'Live Test.xlsm',
             results: [{ status: 'passed', output: ['created invoice', 'checked total'] }],
         });
         const hostTrace = JSON.parse(fs.readFileSync(written.hostTracePath, 'utf8'));
@@ -358,7 +358,7 @@ function testReport(workbook: string, results: VbaTestRunItem[]): VbaTestRunRepo
     const tests = results.map((entry) => entry.test);
     return {
         filePath: workbook,
-        workbookName: path.basename(workbook),
+        projectName: path.basename(workbook),
         startedAt: '2026-06-03T21:22:33.000Z',
         durationMs: results.reduce((total, entry) => total + entry.durationMs, 0),
         discovery: {

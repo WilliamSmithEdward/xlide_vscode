@@ -14,7 +14,7 @@ import {
 // file's share and leave the rest renamed.
 function snapshot(overrides: Partial<RenameSnapshot> = {}): RenameSnapshot {
 	return {
-		workbookPath: 'C:/w/Book.xlsm',
+		projectPath: 'C:/w/Book.xlsm',
 		oldName: 'Alpha',
 		newName: 'Beta',
 		modules: [
@@ -65,19 +65,19 @@ describe('the rename that can be put back', () => {
 });
 
 describe('the history is dropped when it would be wrong to use', () => {
-	it('is dropped for the workbook that was written to', () => {
+	it('is dropped for the project that was written to', () => {
 		recordRename(snapshot());
 		invalidateRenameHistory('c:/W/BOOK.XLSM');
 		expect(pendingUndo()).toBeUndefined();
 	});
 
-	it('survives a write to a different workbook', () => {
+	it('survives a write to a different project', () => {
 		recordRename(snapshot());
 		invalidateRenameHistory('C:/w/Other.xlsm');
 		expect(pendingUndo()).toBeDefined();
 	});
 
-	it('is dropped entirely when no workbook is named', () => {
+	it('is dropped entirely when no project is named', () => {
 		recordRename(snapshot());
 		invalidateRenameHistory();
 		expect(pendingUndo()).toBeUndefined();
@@ -127,13 +127,13 @@ describe('telling the rename own writes from everyone else', () => {
         expect(pendingUndo()).toBeUndefined();
     });
 
-    it('ignores a write to a different workbook', () => {
+    it('ignores a write to a different project', () => {
         recordRename(snapshot());
         noteModuleWrite('C:/w/Other.xlsm', 'Helpers');
         expect(pendingUndo()).toBeDefined();
     });
 
-    it('matches module and workbook case-insensitively', () => {
+    it('matches module and project case-insensitively', () => {
         recordRename(snapshot());
         noteModuleWrite('c:/W/BOOK.XLSM', 'helpers');
         noteModuleWrite('c:/W/BOOK.XLSM', 'CONSUMER');

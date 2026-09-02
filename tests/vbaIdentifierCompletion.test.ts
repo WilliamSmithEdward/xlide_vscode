@@ -91,10 +91,10 @@ describe('identifier completion - code names', () => {
 			codeNames: ['ThisWorkbook'],
 			codeNameTypes: { thisworkbook: 'Excel.Workbook' },
 		});
-		const workbook = excel.find(
+		const project = excel.find(
 			(item) => item.name === 'ThisWorkbook' && item.kind === 'codeName',
 		);
-		expect(workbook?.detail).toBe('Workbook object');
+		expect(project?.detail).toBe('Workbook object');
 
 		const word = resolveIdentifierCompletions(src, at(src, '    This'), {
 			codeNames: ['ThisDocument'],

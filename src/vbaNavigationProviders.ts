@@ -1,5 +1,5 @@
 // VBA navigation providers: document/workspace symbols, definition,
-// references, and rename over the shared workbook ProjectIndex.
+// references, and rename over the shared ProjectIndex.
 //
 // Extracted verbatim from vbaLanguageProviders.ts (audit #21).
 
@@ -155,14 +155,14 @@ function detectQualifier(line: string, wordStart: number): string | undefined {
 
 /** Translates an AST symbol's nameSpan to a Location in its owning module. */
 function astSymbolToLocation(
-    xlsmPath: string,
+    projectPath: string,
     byModule: Map<string, VbaModuleSymbols>,
     symbol: AstSymbol,
 ): vscode.Location | undefined {
     const mod = byModule.get(symbol.moduleName.toLowerCase());
     if (!mod) { return undefined; }
     return new vscode.Location(
-        moduleDocumentUri(xlsmPath, mod),
+        moduleDocumentUri(projectPath, mod),
         new vscode.Range(
             offsetToPosition(mod.source, symbol.nameSpan.start),
             offsetToPosition(mod.source, symbol.nameSpan.end),
@@ -171,14 +171,14 @@ function astSymbolToLocation(
 }
 
 function projectMemberDefinitionToLocation(
-    xlsmPath: string,
+    projectPath: string,
     byModule: Map<string, VbaModuleSymbols>,
     definition: VbaProjectClassMemberDefinition,
 ): vscode.Location | undefined {
     const mod = byModule.get(definition.moduleName.toLowerCase());
     if (!mod) { return undefined; }
     return new vscode.Location(
-        moduleDocumentUri(xlsmPath, mod),
+        moduleDocumentUri(projectPath, mod),
         new vscode.Range(
             offsetToPosition(mod.source, definition.nameSpan.start),
             offsetToPosition(mod.source, definition.nameSpan.end),
@@ -188,7 +188,7 @@ function projectMemberDefinitionToLocation(
 
 /** Adapts pure offset-based reference spans into VS Code locations. */
 function referenceSpansToLocations(
-    xlsmPath: string,
+    projectPath: string,
     byModule: Map<string, VbaModuleSymbols>,
     spans: readonly ReferenceSpan[],
 ): vscode.Location[] {
@@ -197,7 +197,7 @@ function referenceSpansToLocations(
         const mod = byModule.get(span.moduleName.toLowerCase());
         if (!mod) { continue; }
         out.push(new vscode.Location(
-            moduleDocumentUri(xlsmPath, mod),
+            moduleDocumentUri(projectPath, mod),
             new vscode.Range(span.line, span.column, span.line, span.column + span.length),
         ));
     }
@@ -246,18 +246,18 @@ export class VbaWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProvide
         token: vscode.CancellationToken,
     ): Promise<vscode.SymbolInformation[]> {
         const out: vscode.SymbolInformation[] = [];
-        const workbookPaths = new Set<string>();
+        const projectPaths = new Set<string>();
         for (const document of vscode.workspace.textDocuments) {
             const location = moduleLocationOfDocument(document);
             if (location) {
-                workbookPaths.add(location.xlsmPath);
+                projectPaths.add(location.projectPath);
             }
         }
 
-        for (const xlsmPath of workbookPaths) {
+        for (const projectPath of projectPaths) {
             if (token.isCancellationRequested) { return out; }
             try {
-                const context = await this._projectIndexService.contextForWorkbook(xlsmPath, 'live');
+                const context = await this._projectIndexService.contextForProject(projectPath, 'live');
                 if (token.isCancellationRequested) { return out; }
                 const converters = new Map<string, OffsetToPositionConverter>();
                 for (const symbol of presentedWorkspaceSymbols(context.project, query)) {
@@ -270,13 +270,13 @@ export class VbaWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProvide
                         converters.set(moduleKey, toPosition);
                     }
                     out.push(workspaceSymbolToVscode(
-                        moduleDocumentUri(xlsmPath, mod),
+                        moduleDocumentUri(projectPath, mod),
                         toPosition,
                         symbol,
                     ));
                 }
             } catch {
-                // Workspace symbols are best-effort; skip workbooks that fail to read.
+                // Workspace symbols are best-effort; skip projects that fail to read.
             }
         }
 
@@ -333,14 +333,14 @@ export class VbaDefinitionProvider implements vscode.DefinitionProvider {
         const line = document.lineAt(position.line).text;
         const qualifier = detectQualifier(line, wordRange.start.character);
 
-        let xlsmPath: string;
+        let projectPath: string;
         let moduleName: string;
         try {
-            ({ xlsmPath, moduleName } = moduleLocationOrThrow(document));
+            ({ projectPath, moduleName } = moduleLocationOrThrow(document));
         } catch {
             return undefined;
         }
-        const context = await this._projectIndexService.contextForWorkbook(xlsmPath, 'live');
+        const context = await this._projectIndexService.contextForProject(projectPath, 'live');
         if (token?.isCancellationRequested || document.version !== documentVersion) { return undefined; }
         const { modules, project, byModule } = context;
         const current = byModule.get(moduleIdentityKey(moduleName));
@@ -358,7 +358,7 @@ export class VbaDefinitionProvider implements vscode.DefinitionProvider {
         if (memberDefinitions.length > 0) {
             const locations = memberDefinitions
                 .map((definition) =>
-                    projectMemberDefinitionToLocation(xlsmPath, byModule, definition),
+                    projectMemberDefinitionToLocation(projectPath, byModule, definition),
                 )
                 .filter((loc): loc is vscode.Location => Boolean(loc));
             return locations.length > 0 ? locations : undefined;
@@ -373,7 +373,7 @@ export class VbaDefinitionProvider implements vscode.DefinitionProvider {
             if (typeReference) {
                 const typeDefinitions = typeDefinitionsForReference(project, moduleName, typeReference);
                 const locations = typeDefinitions
-                    .map((definition) => projectTypeDefinitionToLocation(xlsmPath, byModule, definition))
+                    .map((definition) => projectTypeDefinitionToLocation(projectPath, byModule, definition))
                     .filter((loc): loc is vscode.Location => Boolean(loc));
                 if (locations.length > 0) {
                     return locations;
@@ -387,7 +387,7 @@ export class VbaDefinitionProvider implements vscode.DefinitionProvider {
 
         const locations: vscode.Location[] = [];
         for (const sym of defs) {
-            const loc = astSymbolToLocation(xlsmPath, byModule, sym);
+            const loc = astSymbolToLocation(projectPath, byModule, sym);
             if (loc) { locations.push(loc); }
         }
         return locations.length > 0 ? locations : undefined;
@@ -408,14 +408,14 @@ export class VbaReferenceProvider implements vscode.ReferenceProvider {
         const documentVersion = document.version;
         const wordRange = document.getWordRangeAtPosition(position, VBA_IDENTIFIER_RE);
         const source = analysisSourceForDocument(document);
-        let xlsmPath: string;
+        let projectPath: string;
         let moduleName: string;
         try {
-            ({ xlsmPath, moduleName } = moduleLocationOrThrow(document));
+            ({ projectPath, moduleName } = moduleLocationOrThrow(document));
         } catch {
             return undefined;
         }
-        const navigation = await this._projectIndexService.contextForWorkbook(xlsmPath, 'live');
+        const navigation = await this._projectIndexService.contextForProject(projectPath, 'live');
         if (token?.isCancellationRequested || document.version !== documentVersion) { return undefined; }
         const { modules, project, byModule } = navigation;
         const current = byModule.get(moduleIdentityKey(moduleName));
@@ -430,7 +430,7 @@ export class VbaReferenceProvider implements vscode.ReferenceProvider {
                 return undefined;
             }
             return typeReferenceLocations(
-                xlsmPath,
+                projectPath,
                 byModule,
                 project,
                 moduleName,
@@ -474,7 +474,7 @@ export class VbaReferenceProvider implements vscode.ReferenceProvider {
                 const definitions = typeDefinitionsForReference(project, moduleName, typeReference);
                 if (definitions.length > 0) {
                     return typeReferenceLocations(
-                        xlsmPath,
+                        projectPath,
                         byModule,
                         project,
                         typeReference.name,
@@ -486,7 +486,7 @@ export class VbaReferenceProvider implements vscode.ReferenceProvider {
         }
 
         return referenceSpansToLocations(
-            xlsmPath,
+            projectPath,
             byModule,
             collectSymbolReferences(
                 byModule,
@@ -524,14 +524,14 @@ export class VbaDocumentHighlightProvider implements vscode.DocumentHighlightPro
         if (!wordRange) { return undefined; }
         const word = document.getText(wordRange);
         const source = analysisSourceForDocument(document);
-        let xlsmPath: string;
+        let projectPath: string;
         let moduleName: string;
         try {
-            ({ xlsmPath, moduleName } = moduleLocationOrThrow(document));
+            ({ projectPath, moduleName } = moduleLocationOrThrow(document));
         } catch {
             return undefined;
         }
-        const navigation = await this._projectIndexService.contextForWorkbook(xlsmPath, 'live');
+        const navigation = await this._projectIndexService.contextForProject(projectPath, 'live');
         if (token?.isCancellationRequested || document.version !== documentVersion) { return undefined; }
         const { modules, project, byModule } = navigation;
         const current = byModule.get(moduleIdentityKey(moduleName));
@@ -581,14 +581,14 @@ export class VbaRenameProvider implements vscode.RenameProvider {
         const word = document.getText(wordRange);
 
         const source = analysisSourceForDocument(document);
-        let xlsmPath: string;
+        let projectPath: string;
         let moduleName: string;
         try {
-            ({ xlsmPath, moduleName } = moduleLocationOrThrow(document));
+            ({ projectPath, moduleName } = moduleLocationOrThrow(document));
         } catch {
-            throw new Error('XLIDE cannot rename here: this is not a workbook VBA module.');
+            throw new Error('XLIDE cannot rename here: this is not a project VBA module.');
         }
-        const navigation = await this._projectIndexService.contextForWorkbook(xlsmPath, 'strict');
+        const navigation = await this._projectIndexService.contextForProject(projectPath, 'strict');
         if (token?.isCancellationRequested || document.version !== documentVersion) {
             throw new vscode.CancellationError();
         }
@@ -623,7 +623,7 @@ export class VbaRenameProvider implements vscode.RenameProvider {
             document.offsetAt(position),
         );
         if (scope.definitions.length === 0) {
-            throw new Error(`'${word}' is not a renameable VBA symbol in this workbook.`);
+            throw new Error(`'${word}' is not a renameable VBA symbol in this project.`);
         }
         return { range: wordRange, placeholder: word };
     }
@@ -651,14 +651,14 @@ export class VbaRenameProvider implements vscode.RenameProvider {
         if (oldName === newName) { return undefined; }
 
         const source = analysisSourceForDocument(document);
-        let xlsmPath: string;
+        let projectPath: string;
         let moduleName: string;
         try {
-            ({ xlsmPath, moduleName } = moduleLocationOrThrow(document));
+            ({ projectPath, moduleName } = moduleLocationOrThrow(document));
         } catch {
-            throw new Error('XLIDE cannot rename here: this is not a workbook VBA module.');
+            throw new Error('XLIDE cannot rename here: this is not a project VBA module.');
         }
-        const navigation = await this._projectIndexService.contextForWorkbook(xlsmPath, 'strict');
+        const navigation = await this._projectIndexService.contextForProject(projectPath, 'strict');
         if (token?.isCancellationRequested || document.version !== documentVersion) {
             return undefined;
         }
@@ -696,7 +696,7 @@ export class VbaRenameProvider implements vscode.RenameProvider {
                     + 'including Implements and Interface_Member prefixes.',
                 );
             }
-            throw new Error(`'${oldName}' is not a renameable VBA symbol in this workbook.`);
+            throw new Error(`'${oldName}' is not a renameable VBA symbol in this project.`);
         }
 
         // Nothing is written until the new name is known to be free where the
@@ -734,7 +734,7 @@ export class VbaRenameProvider implements vscode.RenameProvider {
         // the rest renamed. Keep what each module said immediately before the
         // write, and offer to put all of them back together.
         recordRename({
-            workbookPath: xlsmPath,
+            projectPath: projectPath,
             oldName,
             newName,
             modules: renamedModuleNames(result.references)
@@ -746,7 +746,7 @@ export class VbaRenameProvider implements vscode.RenameProvider {
         });
 
         const edit = new vscode.WorkspaceEdit();
-        for (const loc of referenceSpansToLocations(xlsmPath, byModule, result.references)) {
+        for (const loc of referenceSpansToLocations(projectPath, byModule, result.references)) {
             edit.replace(loc.uri, loc.range, newName);
         }
         const touched = renamedModuleNames(result.references).length;

@@ -1,6 +1,6 @@
 import { parseModule } from './analyzer/parser/parseModule';
 import type { BodyNode, ModuleMember, Span } from './analyzer/parser/nodes';
-import type { WorkbookAnalysisSuppressScope } from './workbookAnalysisWebview';
+import type { ProjectAnalysisSuppressScope } from './projectAnalysisWebview';
 
 /**
  * Pure helpers that locate where an analysis-suppression directive should be
@@ -21,7 +21,7 @@ export function suppressionTargetForProblem(
     source: string,
     starts: readonly number[],
     problemOffset: number,
-    scope: WorkbookAnalysisSuppressScope,
+    scope: ProjectAnalysisSuppressScope,
 ): AnalysisSuppressionInsertionTarget {
     if (scope === 'module') {
         return { kind: 'module', startLine: moduleSuppressionInsertLine(source) };

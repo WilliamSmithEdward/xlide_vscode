@@ -305,18 +305,18 @@ describe('VBA language configuration', () => {
 		]);
 	});
 
-	it('contributes the workbook settings command used by the XLIDE sidebar', () => {
+	it('contributes the project settings command used by the XLIDE sidebar', () => {
 		const commands = loadPackage()
 			.contributes
 			?.commands ?? [];
-		const command = commands.find((entry) => entry.command === 'xlide.openWorkbookSettings');
+		const command = commands.find((entry) => entry.command === 'xlide.openProjectSettings');
 		const globalCommand = commands.find((entry) => entry.command === 'xlide.openGlobalSettings');
 		const runVbaTestsCommand = commands.find((entry) => entry.command === 'xlide.runVbaTests');
 		const performanceCommand = commands.find((entry) => entry.command === 'xlide.copyPerformanceSnapshot');
 
 		expect(command).toMatchObject({
-			command: 'xlide.openWorkbookSettings',
-			title: 'Open File Settings',
+			command: 'xlide.openProjectSettings',
+			title: 'Open Project Settings',
 			category: 'XLIDE',
 		});
 		expect(globalCommand).toMatchObject({
@@ -336,7 +336,7 @@ describe('VBA language configuration', () => {
 		});
 	});
 
-	it('keeps workbook tree tests centralized through the Unit Tests GUI', () => {
+	it('keeps project tree tests centralized through the Unit Tests GUI', () => {
 		// Workbook nodes carry contextValue 'xlsm'; other containers use
 		// 'macroDocument'/'macroReadOnly', so a workbook-tree command is any
 		// entry whose when-clause matches the xlsm context value.
@@ -344,15 +344,15 @@ describe('VBA language configuration', () => {
 			when !== undefined
 			&& when.startsWith('view == xlide.explorer && viewItem')
 			&& /viewItem (== xlsm$|=~ .*[(|]xlsm[)|])/.test(when);
-		const workbookTreeCommands = loadPackage()
+		const projectTreeCommands = loadPackage()
 			.contributes
 			?.menus
 			?.['view/item/context']
 			?.filter((entry) => matchesXlsm(entry.when))
 			.map((entry) => entry.command) ?? [];
 
-		expect(workbookTreeCommands).toContain('xlide.analyzeWorkbook');
-		expect(workbookTreeCommands).toContain('xlide.runVbaTests');
-		expect(workbookTreeCommands).not.toContain('xlide.validateWorkbook');
+		expect(projectTreeCommands).toContain('xlide.analyzeProject');
+		expect(projectTreeCommands).toContain('xlide.runVbaTests');
+		expect(projectTreeCommands).not.toContain('xlide.validateProject');
 	});
 });

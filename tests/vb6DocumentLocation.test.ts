@@ -9,7 +9,7 @@ import { vbaHeaderBlockEnd } from '../src/vbaSourceScan';
 import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
 import { ownersFromListings, setVb6ModuleOwnersForTests } from '../src/vb6ProjectLocator';
 import { moduleDocumentUri, moduleLocationOfDocument } from '../src/vbaDocumentLocation';
-import { workbookIdentityKey } from '../src/workbookIdentity';
+import { projectIdentityKey } from '../src/projectIdentity';
 import {
 	isStandaloneVbaDocument,
 	moduleKindFromDocument,
@@ -99,7 +99,7 @@ describe('which project a file belongs to', () => {
 				{ name: 'NoFile', type: 'standard' },
 			] },
 		]);
-		const key = (p: string) => workbookIdentityKey(p);
+		const key = (p: string) => projectIdentityKey(p);
 		expect(owners.get(key('/a/Form1.frm'))).toEqual({ vbpPath: '/a/A.vbp', moduleName: 'Form1', moduleType: 'userform' });
 		expect(owners.get(key('/shared/modShared.bas'))?.vbpPath).toBe('/a/A.vbp');
 		expect(owners.size).toBe(2);
@@ -114,7 +114,7 @@ describe('which project a file belongs to', () => {
 			{ vbpPath: 'C:\\b\\B.vbp', modules: [{ name: 'modShared', type: 'standard', filePath: 'C:\\SHARED\\MODSHARED.BAS' }] },
 		]);
 		expect(owners.size).toBe(1);
-		expect(owners.get(workbookIdentityKey('c:\\shared\\modshared.bas'))?.vbpPath).toBe('C:\\a\\A.vbp');
+		expect(owners.get(projectIdentityKey('c:\\shared\\modshared.bas'))?.vbpPath).toBe('C:\\a\\A.vbp');
 	});
 
 	it('answers a document\'s location, name and kind from its owner', () => {
@@ -123,7 +123,7 @@ describe('which project a file belongs to', () => {
 			{ vbpPath: VBP, modules: [{ name: 'Form1', type: 'userform', filePath: frm }] },
 		]));
 		const owned = fakeDocument('file', frm);
-		expect(moduleLocationOfDocument(owned)).toEqual({ xlsmPath: VBP, moduleName: 'Form1', moduleType: 'userform', native: true });
+		expect(moduleLocationOfDocument(owned)).toEqual({ projectPath: VBP, moduleName: 'Form1', moduleType: 'userform', native: true });
 		expect(moduleNameFromDocument(owned)).toBe('Form1');
 		expect(moduleKindFromDocument(owned)).toBe('userform');
 		expect(isStandaloneVbaDocument(owned)).toBe(false);

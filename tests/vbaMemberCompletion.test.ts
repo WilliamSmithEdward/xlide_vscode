@@ -427,11 +427,11 @@ describe('member completion - collections', () => {
 	});
 
 	it('excludes host events from object member surfaces', () => {
-		const workbook = getHostMembers('Excel.Workbook').map((member) => member.name);
+		const project = getHostMembers('Excel.Workbook').map((member) => member.name);
 		const worksheet = getHostMembers('Excel.Worksheet').map((member) => member.name);
 		const application = getHostMembers('Excel.Application').map((member) => member.name);
-		expect(workbook).not.toContain('AfterSave');
-		expect(workbook).not.toContain('Open');
+		expect(project).not.toContain('AfterSave');
+		expect(project).not.toContain('Open');
 		expect(worksheet).not.toContain('Change');
 		expect(application).not.toContain('SheetCalculate');
 		expect(resolveHostMemberSignature('Excel.Workbook', 'AfterSave')).toBeUndefined();
@@ -926,7 +926,7 @@ describe('member completion - declared variables', () => {
 	});
 });
 
-describe('member completion - workbook classes', () => {
+describe('member completion - project classes', () => {
 	const projectClassMembers = [
 		{
 			name: 'Person',
@@ -1444,9 +1444,9 @@ describe('member completion - negative cases', () => {
 	it('marks generated promoted Excel host member surfaces as exhaustive', () => {
 		const src = 'Sub Test()\n    Application.Work\nEnd Sub\n';
 		const got = resolveMemberCompletions(src, dotOffset(src, 'Application.Work'));
-		const workbooks = got.find((member) => member.name === 'Workbooks');
-		expect(workbooks?.owner).toBe('Excel.Application');
-		expect(workbooks?.surfaceExhaustive).toBe(true);
+		const projects = got.find((member) => member.name === 'Workbooks');
+		expect(projects?.owner).toBe('Excel.Application');
+		expect(projects?.surfaceExhaustive).toBe(true);
 		expect(getHostType('Excel.Application')?.provenance).toContain('reference/excel/json/Application.json');
 		for (const typeName of [
 			'Excel.Workbooks',

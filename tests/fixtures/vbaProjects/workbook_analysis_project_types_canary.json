@@ -84,7 +84,7 @@
     }
   ],
   "assertions": {
-    "workbookAnalysis": {
+    "projectAnalysis": {
       "problemCount": 3,
       "problems": [
         {

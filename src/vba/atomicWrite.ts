@@ -1,6 +1,6 @@
 // One way to land bytes on disk: a temp file beside the target, then a
 // rename over it, so a crash mid-write cannot leave a half-written file.
-// Every workbook save and every VB6 module write goes through here.
+// Every project save and every VB6 module write goes through here.
 
 import * as fs from 'fs';
 import * as path from 'path';

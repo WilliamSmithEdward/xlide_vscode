@@ -9,11 +9,11 @@ import {
 	readFormMarkup,
 	readFormPreview,
 	readModule,
-	resetWorkbookCacheForTests,
+	resetProjectCacheForTests,
 	writeFormDesigner,
 	writeModule,
-} from '../src/vba/workbookService';
-import { readModules as readModulesFull } from '../src/vba/workbookService';
+} from '../src/vba/projectService';
+import { readModules as readModulesFull } from '../src/vba/projectService';
 import { Cfb } from '../src/vba/cfb';
 import { buildExportModuleSyncPlan, buildImportModuleSyncPlan } from '../src/moduleSyncPlan';
 import { XlsxWorkbook } from '../src/vba/xlsx';
@@ -106,12 +106,12 @@ describe('the designer storage of a real Excel form', () => {
 	});
 });
 
-describe('a workbook form knows its controls with no host at all', () => {
+describe('a project form knows its controls with no host at all', () => {
 	// The end of the story #17 started: Excel keeps a form's control tree in
 	// a binary designer blob, so a workbook-backed form's controls were
 	// unknowable without a host. The engine reads them natively now.
 	it('listModules carries the controls on the form entry', () => {
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const entries = listModules(FIXTURE);
 		const form = entries.find((entry) => entry.name === 'FrmPicker');
 		expect(form?.type).toBe('userform');
@@ -197,12 +197,12 @@ describe('the form export pair, composed and round-tripped natively', () => {
 		expect(split.moduleText).not.toContain('OleObjectBlob');
 	});
 
-	it('writes the designer back and the workbook round-trips identically', () => {
+	it('writes the designer back and the project round-trips identically', () => {
 		const copy = tempCopy();
 		const { frm, frx } = readFormExport(FIXTURE, 'FrmPicker');
 		const result = writeFormDesigner(copy, 'FrmPicker', frx, splitFrmSource(frm)!.designerBlock);
 		expect(result.ok).toBe(true);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 
 		// The written workbook's designer streams equal the original's exactly -
 		// the sidecar round-trip loses nothing - and the VBFrame merge restores
@@ -233,7 +233,7 @@ describe('the form export pair, composed and round-tripped natively', () => {
 		const edited = frm.replace('RegionPick.AddItem "West"', 'RegionPick.AddItem "East"');
 		const result = writeModule(copy, 'FrmPicker', edited, 'class');
 		expect(result.ok).toBe(true);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const source = readModule(copy, 'FrmPicker', true).source;
 		expect(source).toContain('RegionPick.AddItem "East"');
 		expect(source).not.toContain('VERSION 5.00');
@@ -242,7 +242,7 @@ describe('the form export pair, composed and round-tripped natively', () => {
 	});
 });
 
-describe('sync plan symmetry over the real form workbook', () => {
+describe('sync plan symmetry over the real form project', () => {
 	// The plan compares live against repo; the exporter writes the same
 	// composed .frm, so one export must make the form read as unchanged.
 	const engineBridge = {
@@ -256,37 +256,37 @@ describe('sync plan symmetry over the real form workbook', () => {
 				default: throw new Error(`unexpected: ${method}`);
 			}
 		},
-	} as unknown as import('../src/workbookEngine').WorkbookEngine;
+	} as unknown as import('../src/projectEngine').ProjectEngine;
 
 	it('a fresh export leaves the form unchanged in the next plan', async () => {
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-form-plan-'));
 		tempDirs.push(dir);
-		const workbook = path.join(dir, 'FormFixture.xlsm');
-		fs.copyFileSync(FIXTURE, workbook);
+		const project = path.join(dir, 'FormFixture.xlsm');
+		fs.copyFileSync(FIXTURE, project);
 		const repo = path.join(dir, 'repo');
 		fs.mkdirSync(repo);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 
 		const before = await buildExportModuleSyncPlan(engineBridge, {
-			workbookPath: workbook, exportFolder: repo,
+			projectPath: project, exportFolder: repo,
 		});
 		const create = before.items.find((item) => item.moduleName === 'FrmPicker');
 		expect(create?.relativeName).toBe('FrmPicker.frm');
 		expect(create?.status).toBe('will-create');
 
 		// Write exactly what the plan promised: the composed pair.
-		const pair = readFormExport(workbook, 'FrmPicker');
+		const pair = readFormExport(project, 'FrmPicker');
 		fs.writeFileSync(path.join(repo, 'FrmPicker.frm'), pair.frm, 'utf8');
 		fs.writeFileSync(path.join(repo, 'FrmPicker.frx'), pair.frx);
 
 		const after = await buildExportModuleSyncPlan(engineBridge, {
-			workbookPath: workbook, exportFolder: repo,
+			projectPath: project, exportFolder: repo,
 		});
 		expect(after.items.find((item) => item.moduleName === 'FrmPicker')?.status).toBe('unchanged');
 
 		// And the import plan agrees from the other direction.
 		const importPlan = await buildImportModuleSyncPlan(engineBridge, {
-			workbookPath: workbook, importFolder: repo,
+			projectPath: project, importFolder: repo,
 		});
 		const item = importPlan.items.find((candidate) => candidate.moduleName === 'FrmPicker');
 		expect(item?.moduleType).toBe('userform');
@@ -311,7 +311,7 @@ describe('the .frx carries containers whole', () => {
 
 	it('exports the container storages with their classes and the Forms.Form root', () => {
 		const { frx } = readFormExport(tempCopy('Src.xlsm'), 'EntryForm');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const unpacked = parseFormFrx(frx)!;
 		const names = unpacked.tree!.listChildrenAtPath([]).map((c) => c.name).sort();
 		expect(names).toContain('i06');
@@ -330,17 +330,17 @@ describe('the .frx carries containers whole', () => {
 	it('imports the whole tree back: frame children, pages, and pictures arrive', () => {
 		const src = tempCopy('Src2.xlsm');
 		const { frm, frx } = readFormExport(src, 'EntryForm');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const dst = tempCopy('Dst.xlsm');
 		// Overwrite the destination form's designer wholesale from the pair.
 		writeFormDesigner(dst, 'EntryForm', frx, splitFrmSource(frm)!.designerBlock);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const markup = readFormMarkup(dst, 'EntryForm').markup;
 		expect(markup).toMatch(/<Frame Name="Options"[\s\S]*?PickGround[\s\S]*?<\/Frame>/);
 		expect(markup).toContain('<MultiPage Name="Wizard"');
 		expect(markup).toContain('Name="Agree"');
 		const { html } = readFormPreview(dst, 'EntryForm');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(html).toMatch(/data-name="Badge"[^>]*data:image/);
 	});
 });

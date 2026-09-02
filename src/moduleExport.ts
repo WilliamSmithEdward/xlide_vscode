@@ -1,14 +1,14 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { WorkbookEngine } from './workbookEngine';
+import { ProjectEngine } from './projectEngine';
 import {
     normalizeExportMode,
     type ExportMode,
-} from './workbookSettings';
+} from './projectSettings';
 import {
-    effectiveWorkbookModuleSyncSettings,
-    updateWorkbookModuleSyncSettings,
-} from './workbookModuleSyncSettings';
+    effectiveProjectModuleSyncSettings,
+    updateProjectModuleSyncSettings,
+} from './projectModuleSyncSettings';
 import { measurePerformance } from './performanceTrace';
 import { fileExists, isPathInside } from './util/fs';
 import { createKeyedAsyncLock } from './util/keyedAsyncLock';
@@ -32,7 +32,7 @@ function caseNormalizedRelName(name: string): string {
 
 /**
  * Serializes mutating operations on a given export folder so a single export, a
- * whole-workbook export, a sync-plan apply's deletes, and an import apply's reads
+ * whole-project export, a sync-plan apply's deletes, and an import apply's reads
  * cannot interleave their file writes/deletes/reads (which would risk partial
  * files or deleting freshly-written content). Keyed per folder, so different
  * folders run concurrently.
@@ -118,7 +118,7 @@ async function listRootVbaModuleFiles(folder: string): Promise<string[]> {
 }
 
 // Stale repo files for trueUp export: root .bas/.cls/.frm files with no live
-// workbook module, guarded against escaping the export folder. Shared by the
+// project module, guarded against escaping the export folder. Shared by the
 // sync-plan preview and the export action so both agree on what gets removed.
 async function computeStaleExportFiles(
     exportFolder: string,
@@ -146,7 +146,7 @@ function relativeNameForModule(mod: ModuleInfo): string {
 }
 
 async function exportModuleFile(
-    bridge: WorkbookEngine,
+    bridge: ProjectEngine,
     filePath: string,
     mod: ModuleInfo,
     exportFolder: string,
@@ -182,7 +182,7 @@ async function exportModuleFile(
 }
 
 async function readFullModuleSource(
-    bridge: WorkbookEngine,
+    bridge: ProjectEngine,
     filePath: string,
     moduleName: string,
 ): Promise<string> {
@@ -194,16 +194,16 @@ async function readFullModuleSource(
     return result.source;
 }
 
-interface WorkbookModulesWithSources {
+interface ProjectModulesWithSources {
     modules: ModuleInfo[];
     sourceFor: (moduleName: string) => Promise<string>;
 }
 
-// Full-source batch read in a single workbook open.
-async function loadWorkbookModulesWithSources(
-    bridge: WorkbookEngine,
+// Full-source batch read in a single project open.
+async function loadProjectModulesWithSources(
+    bridge: ProjectEngine,
     filePath: string,
-): Promise<WorkbookModulesWithSources> {
+): Promise<ProjectModulesWithSources> {
     const modules = await bridge.call<Array<ModuleInfo & { source?: string }>>(
         'readModules',
         { path: filePath, full: true },
@@ -239,12 +239,12 @@ async function loadWorkbookModulesWithSources(
     };
 }
 
-async function exportWorkbookModule(
-    bridge: WorkbookEngine,
+async function exportProjectModule(
+    bridge: ProjectEngine,
     params: ExportModuleParams,
 ): Promise<ExportModuleResult> {
     return measurePerformance('moduleExport.single', params.moduleName, async () => {
-    const existingSettings = await effectiveWorkbookModuleSyncSettings(params.filePath);
+    const existingSettings = await effectiveProjectModuleSyncSettings(params.filePath);
     const exportFolder = params.exportFolder ?? existingSettings.folderPath;
     if (!exportFolder) {
         throw new Error('No export folder configured. Choose a folder first or provide exportFolder.');
@@ -259,12 +259,12 @@ async function exportWorkbookModule(
         (candidate) => candidate.name.toLowerCase() === params.moduleName.toLowerCase(),
     );
     if (!mod) {
-        throw new Error(`Module "${params.moduleName}" was not found in the workbook.`);
+        throw new Error(`Module "${params.moduleName}" was not found in the project.`);
     }
 
     const exported = await exportModuleFile(bridge, params.filePath, mod, exportFolder);
 
-    const updatedSettings = await updateWorkbookModuleSyncSettings(params.filePath, {
+    const updatedSettings = await updateProjectModuleSyncSettings(params.filePath, {
         folderPath: exportFolder,
         exportMode,
     });
@@ -284,12 +284,12 @@ async function exportWorkbookModule(
     });
 }
 
-async function exportWorkbookModules(
-    bridge: WorkbookEngine,
+async function exportProjectModules(
+    bridge: ProjectEngine,
     params: ExportModulesParams,
 ): Promise<ExportModulesResult> {
-    return measurePerformance('moduleExport.workbook', path.basename(params.filePath), async () => {
-    const existingSettings = await effectiveWorkbookModuleSyncSettings(params.filePath);
+    return measurePerformance('moduleExport.project', path.basename(params.filePath), async () => {
+    const existingSettings = await effectiveProjectModuleSyncSettings(params.filePath);
     const exportFolder = params.exportFolder ?? existingSettings.folderPath;
     if (!exportFolder) {
         throw new Error('No export folder configured. Choose a folder first or provide exportFolder.');
@@ -299,7 +299,7 @@ async function exportWorkbookModules(
     return withExportFolderLock(exportFolder, async () => {
     await fs.promises.mkdir(exportFolder, { recursive: true });
 
-    const { modules, sourceFor } = await loadWorkbookModulesWithSources(bridge, params.filePath);
+    const { modules, sourceFor } = await loadProjectModulesWithSources(bridge, params.filePath);
     const liveRelativeNames = new Set<string>();
     const writtenFiles: string[] = [];
     const removedFiles: string[] = [];
@@ -326,7 +326,7 @@ async function exportWorkbookModules(
         }
     }
 
-    const updatedSettings = await updateWorkbookModuleSyncSettings(params.filePath, {
+    const updatedSettings = await updateProjectModuleSyncSettings(params.filePath, {
         folderPath: exportFolder,
         exportMode,
     });
@@ -352,12 +352,12 @@ export {
     type ExportModulesResult,
     type ExportModuleParams,
     type ExportModuleResult,
-    type WorkbookModulesWithSources,
+    type ProjectModulesWithSources,
     computeStaleExportFiles,
     extensionForModuleType,
-    loadWorkbookModulesWithSources,
+    loadProjectModulesWithSources,
     relativeNameForModule,
     sanitizeFileName,
-    exportWorkbookModule,
-    exportWorkbookModules,
+    exportProjectModule,
+    exportProjectModules,
 };

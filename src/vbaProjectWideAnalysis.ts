@@ -1,4 +1,4 @@
-// Workbook-wide VBA analysis. Reads every module's source from a workbook and
+// Workbook-wide VBA analysis. Reads every module's source from a project and
 // runs the same two analysis passes the live editor uses - the structural
 // block-balance analyzer (analyzeVbaStructure) and the high-confidence semantic rule
 // engine (analyzeModule) - then flattens the findings into a single, sorted
@@ -9,7 +9,7 @@
 // pure analysis stays reusable and testable.
 
 import * as vscode from 'vscode';
-import type { WorkbookEngine } from './workbookEngine';
+import type { ProjectEngine } from './projectEngine';
 import {
     diagnosticMetadataForCode,
     DiagnosticCategory,
@@ -29,23 +29,23 @@ import {
     projectProcedureSignatures,
 } from './vbaProjectAnalysis';
 import { compareVbaModulesForTreeOrder } from './moduleDisplay';
-import { workbookIdentityKey } from './workbookIdentity';
-import { openModuleSourceMapForWorkbook } from './vbaOpenDocuments';
+import { projectIdentityKey } from './projectIdentity';
+import { openModuleSourceMapForProject } from './vbaOpenDocuments';
 import {
     analysisSuppressionScopeResolver,
     type AnalysisSuppressionScope,
 } from './analysisSuppressionScopes';
-import { effectiveWorkbookAnalysisSettings } from './workbookAnalysisSettings';
+import { effectiveProjectAnalysisSettings } from './projectAnalysisSettings';
 import { measurePerformance, measurePerformanceSync, startPerformanceTrace } from './performanceTrace';
 import { mapWithConcurrency, yieldToExtensionHost } from './util/async';
 
-export type WorkbookAnalysisSeverity = 'error' | 'warning' | 'information';
-export type WorkbookAnalysisSummaryCategory = DiagnosticCategory | 'uncategorized';
-export type WorkbookAnalysisSummaryKind = DiagnosticEvidenceKind | 'unknown';
+export type ProjectAnalysisSeverity = 'error' | 'warning' | 'information';
+export type ProjectAnalysisSummaryCategory = DiagnosticCategory | 'uncategorized';
+export type ProjectAnalysisSummaryKind = DiagnosticEvidenceKind | 'unknown';
 export type { AnalysisSuppressionScope } from './analysisSuppressionScopes';
 
-/** A single analysis finding located within one module of a workbook. */
-export interface WorkbookAnalysisProblem {
+/** A single analysis finding located within one module of a project. */
+export interface ProjectAnalysisProblem {
     moduleName: string;
     moduleType: string;
     /** 1-based line number of the finding. */
@@ -54,7 +54,7 @@ export interface WorkbookAnalysisProblem {
     column: number;
     /** 1-based end column (exclusive) of the finding. */
     endColumn: number;
-    severity: WorkbookAnalysisSeverity;
+    severity: ProjectAnalysisSeverity;
     /** Stable rule code shared by structural and semantic diagnostics. */
     code?: string;
     /** Human-readable title from the shared diagnostic metadata catalogue. */
@@ -87,24 +87,24 @@ export interface WorkbookAnalysisProblem {
     documentVersion?: number;
 }
 
-/** Aggregate metadata summary for a workbook analysis run. */
-export interface WorkbookAnalysisSummary {
-    byCategory: Partial<Record<WorkbookAnalysisSummaryCategory, number>>;
-    byDiagnosticKind: Partial<Record<WorkbookAnalysisSummaryKind, number>>;
+/** Aggregate metadata summary for a project analysis run. */
+export interface ProjectAnalysisSummary {
+    byCategory: Partial<Record<ProjectAnalysisSummaryCategory, number>>;
+    byDiagnosticKind: Partial<Record<ProjectAnalysisSummaryKind, number>>;
     vbeCompileEquivalentCount: number;
     nonVbeCompileEquivalentCount: number;
     suppressedCount: number;
 }
 
-/** Aggregate result of analyzing an entire workbook. */
-export interface WorkbookAnalysisResult {
+/** Aggregate result of analyzing an entire project. */
+export interface ProjectAnalysisResult {
     filePath: string;
     moduleCount: number;
-    problems: WorkbookAnalysisProblem[];
-    suppressedProblems: WorkbookAnalysisProblem[];
+    problems: ProjectAnalysisProblem[];
+    suppressedProblems: ProjectAnalysisProblem[];
     errorCount: number;
     warningCount: number;
-    summary: WorkbookAnalysisSummary;
+    summary: ProjectAnalysisSummary;
 }
 
 interface RawModule {
@@ -122,19 +122,19 @@ interface RawModule {
     predeclaredId?: boolean;
 }
 
-export interface AnalyzeWorkbookOptions {
+export interface AnalyzeProjectOptions {
     progress?: (message: string) => void;
     token?: vscode.CancellationToken;
 }
 
 /**
- * The slice of AnalysisWorkerClient workbook analysis needs. Structural, so
+ * The slice of AnalysisWorkerClient project analysis needs. Structural, so
  * tests can hand in a fake without touching worker_threads.
  */
-export interface WorkbookAnalysisWorker {
+export interface ProjectAnalysisWorker {
     readonly available: boolean;
     ensureSeeded(
-        workbookKey: string,
+        projectKey: string,
         generation: number,
         modules: () => Array<{
             moduleName: string;
@@ -146,7 +146,7 @@ export interface WorkbookAnalysisWorker {
     ): void;
     analyze(request: {
         docKey: string;
-        workbookKey: string;
+        projectKey: string;
         generation: number;
         source: string;
         moduleName: string;
@@ -162,7 +162,7 @@ export interface WorkbookAnalysisWorker {
     }>;
 }
 
-let workbookAnalysisWorker: WorkbookAnalysisWorker | undefined;
+let projectAnalysisWorker: ProjectAnalysisWorker | undefined;
 
 /**
  * Route per-module analysis through the analysis worker thread when it is
@@ -171,23 +171,23 @@ let workbookAnalysisWorker: WorkbookAnalysisWorker | undefined;
  * depends on it (every worker failure falls back to the identical in-host
  * pass).
  */
-export function setWorkbookAnalysisWorker(worker: WorkbookAnalysisWorker | undefined): void {
-    workbookAnalysisWorker = worker;
+export function setProjectAnalysisWorker(worker: ProjectAnalysisWorker | undefined): void {
+    projectAnalysisWorker = worker;
 }
 
-/** Test hook: clears the per-workbook result cache between test cases. */
-export function resetWorkbookAnalysisResultCacheForTests(): void {
-    lastWorkbookAnalysisResults.clear();
+/** Test hook: clears the per-project result cache between test cases. */
+export function resetProjectAnalysisResultCacheForTests(): void {
+    lastProjectAnalysisResults.clear();
 }
 
 /**
  * Content fingerprint standing in for a seed generation. The command seeds
  * under its own key namespace (never fighting live diagnostics over a
- * workbook's seed), so the only requirement is that unchanged sources map to
+ * project's seed), so the only requirement is that unchanged sources map to
  * the same number - a re-run then skips the seed transfer entirely - and any
  * change maps elsewhere. FNV-1a over every module's name and full source.
  */
-function workbookSeedFingerprint(
+function projectSeedFingerprint(
     modules: ReadonlyArray<{ name: string; source: string }>,
 ): number {
     let hash = 0x811c9dc5;
@@ -209,13 +209,13 @@ function workbookSeedFingerprint(
 const WORKBOOK_ANALYSIS_PROGRESS_MIN_INTERVAL_MS = 100;
 const WORKBOOK_MODULE_ANALYSIS_CONCURRENCY = 4;
 
-interface WorkbookAnalysisProgress {
+interface ProjectAnalysisProgress {
     report(message: string, options?: { force?: boolean }): void;
 }
 
-function workbookAnalysisProgress(
-    progress: AnalyzeWorkbookOptions['progress'],
-): WorkbookAnalysisProgress {
+function projectAnalysisProgress(
+    progress: AnalyzeProjectOptions['progress'],
+): ProjectAnalysisProgress {
     let lastReportAt = 0;
 
     return {
@@ -246,14 +246,14 @@ function offsetToLineColumn(
     return { line: lo + 1, column: offset - starts[lo] + 1 };
 }
 
-function severityFromRule(s: RuleSeverity): WorkbookAnalysisSeverity {
+function severityFromRule(s: RuleSeverity): ProjectAnalysisSeverity {
     return s;
 }
 
 function metadataFieldsForCode(
     code: string | undefined,
 ): Pick<
-    WorkbookAnalysisProblem,
+    ProjectAnalysisProblem,
     'ruleTitle' | 'category' | 'vbeCompileEquivalent' | 'diagnosticKind' | 'specReference'
 > {
     const meta = diagnosticMetadataForCode(code);
@@ -276,12 +276,12 @@ function incrementCount<K extends string>(
     counts[key] = (counts[key] ?? 0) + 1;
 }
 
-export function summarizeWorkbookAnalysisProblems(
-    problems: readonly WorkbookAnalysisProblem[],
+export function summarizeProjectAnalysisProblems(
+    problems: readonly ProjectAnalysisProblem[],
     suppressedCount: number,
-): WorkbookAnalysisSummary {
-    const byCategory: Partial<Record<WorkbookAnalysisSummaryCategory, number>> = {};
-    const byDiagnosticKind: Partial<Record<WorkbookAnalysisSummaryKind, number>> = {};
+): ProjectAnalysisSummary {
+    const byCategory: Partial<Record<ProjectAnalysisSummaryCategory, number>> = {};
+    const byDiagnosticKind: Partial<Record<ProjectAnalysisSummaryKind, number>> = {};
     let vbeCompileEquivalentCount = 0;
     let nonVbeCompileEquivalentCount = 0;
 
@@ -304,13 +304,13 @@ export function summarizeWorkbookAnalysisProblems(
     };
 }
 
-export function workbookProblemsForModule(
+export function projectProblemsForModule(
     moduleName: string,
     moduleType: string,
     source: string,
     diagnostics: readonly VbaModuleAnalysisDiagnostic[],
     options: { suppressed?: boolean } = {},
-): WorkbookAnalysisProblem[] {
+): ProjectAnalysisProblem[] {
     const starts = lineStartOffsets(source);
     const suppressionScopesFor = analysisSuppressionScopeResolver(source);
     return diagnostics.map((diagnostic) => {
@@ -356,7 +356,7 @@ export function workbookProblemsForModule(
     });
 }
 
-function sortWorkbookProblems(problems: WorkbookAnalysisProblem[]): void {
+function sortProjectProblems(problems: ProjectAnalysisProblem[]): void {
     problems.sort((a, b) => {
         const moduleOrder = compareVbaModulesForTreeOrder(a, b);
         if (moduleOrder !== 0) { return moduleOrder; }
@@ -365,16 +365,16 @@ function sortWorkbookProblems(problems: WorkbookAnalysisProblem[]): void {
     });
 }
 
-/** Loads every module's source from the workbook (best-effort per module). */
-async function loadWorkbookModules(
-    bridge: WorkbookEngine,
+/** Loads every module's source from the project (best-effort per module). */
+async function loadProjectModules(
+    bridge: ProjectEngine,
     filePath: string,
-    progress: WorkbookAnalysisProgress,
-    options: AnalyzeWorkbookOptions = {},
+    progress: ProjectAnalysisProgress,
+    options: AnalyzeProjectOptions = {},
 ): Promise<RawModule[]> {
     progress.report('Reading VBA modules...', { force: true });
     const modules = await measurePerformance(
-        'analyzeWorkbook.readModules',
+        'analyzeProject.readModules',
         undefined,
         () => bridge.call<RawModule[]>(
             'readModules',
@@ -402,64 +402,64 @@ function throwIfAnalysisCancelled(token: vscode.CancellationToken | undefined): 
 }
 
 /**
- * Last completed result per workbook, keyed by the same content fingerprint
+ * Last completed result per project, keyed by the same content fingerprint
  * the worker seed uses (plus the analysis settings that shape diagnostics).
- * An unchanged workbook returns its previous result in milliseconds instead
+ * An unchanged project returns its previous result in milliseconds instead
  * of re-analyzing - which also empties the worker queue of the background
  * re-runs (results-panel refreshes) that used to stack up behind a user's
  * explicit run and make it appear hung.
  */
-interface CachedWorkbookAnalysis {
+interface CachedProjectAnalysis {
     fingerprint: number;
     settingsKey: string;
-    result: WorkbookAnalysisResult;
+    result: ProjectAnalysisResult;
 }
 const WORKBOOK_ANALYSIS_RESULT_CACHE_MAX = 8;
-const lastWorkbookAnalysisResults = new Map<string, CachedWorkbookAnalysis>();
+const lastProjectAnalysisResults = new Map<string, CachedProjectAnalysis>();
 
-// Single-flight: concurrent analyses of the SAME workbook share one run, so a
+// Single-flight: concurrent analyses of the SAME project share one run, so a
 // double-trigger (the analysis command + the agent tool, or a re-run) neither
 // repeats the expensive read+analyze nor renders out-of-order results. The shared
 // run is driven by the FIRST caller's cancellation token and progress; a later
 // concurrent caller reuses that run (and, in the rare case the first caller
 // cancels, observes that cancellation). Cleared when the run settles.
-const inFlightWorkbookAnalyses = new Map<string, Promise<WorkbookAnalysisResult>>();
+const inFlightProjectAnalyses = new Map<string, Promise<ProjectAnalysisResult>>();
 
 /**
- * Analyzes every module in a workbook and returns the flattened, sorted problem
+ * Analyzes every module in a project and returns the flattened, sorted problem
  * list. Never throws on a per-module analysis failure - those modules simply
- * contribute no problems. Concurrent calls for the same workbook are coalesced
+ * contribute no problems. Concurrent calls for the same project are coalesced
  * into a single in-flight run.
  */
-export function analyzeWorkbook(
-    bridge: WorkbookEngine,
+export function analyzeProject(
+    bridge: ProjectEngine,
     filePath: string,
-    options: AnalyzeWorkbookOptions = {},
-): Promise<WorkbookAnalysisResult> {
-    const key = workbookIdentityKey(filePath);
-    const existing = inFlightWorkbookAnalyses.get(key);
+    options: AnalyzeProjectOptions = {},
+): Promise<ProjectAnalysisResult> {
+    const key = projectIdentityKey(filePath);
+    const existing = inFlightProjectAnalyses.get(key);
     if (existing) {
         return existing;
     }
-    const run = runWorkbookAnalysis(bridge, filePath, options);
-    inFlightWorkbookAnalyses.set(key, run);
+    const run = runProjectAnalysis(bridge, filePath, options);
+    inFlightProjectAnalyses.set(key, run);
     return run.finally(() => {
-        if (inFlightWorkbookAnalyses.get(key) === run) {
-            inFlightWorkbookAnalyses.delete(key);
+        if (inFlightProjectAnalyses.get(key) === run) {
+            inFlightProjectAnalyses.delete(key);
         }
     });
 }
 
-async function runWorkbookAnalysis(
-    bridge: WorkbookEngine,
+async function runProjectAnalysis(
+    bridge: ProjectEngine,
     filePath: string,
-    options: AnalyzeWorkbookOptions = {},
-): Promise<WorkbookAnalysisResult> {
-    const totalTrace = startPerformanceTrace('analyzeWorkbook.total');
-    const progress = workbookAnalysisProgress(options.progress);
+    options: AnalyzeProjectOptions = {},
+): Promise<ProjectAnalysisResult> {
+    const totalTrace = startPerformanceTrace('analyzeProject.total');
+    const progress = projectAnalysisProgress(options.progress);
     try {
-        const modules = await loadWorkbookModules(bridge, filePath, progress, options);
-        const openSources = openModuleSourceMapForWorkbook(filePath);
+        const modules = await loadProjectModules(bridge, filePath, progress, options);
+        const openSources = openModuleSourceMapForProject(filePath);
         for (const mod of modules) {
             mod.source = openSources.get(mod.name.toLowerCase()) ?? mod.source;
         }
@@ -476,7 +476,7 @@ async function runWorkbookAnalysis(
         }> | undefined;
         const ensureHostContext = () => hostContext ??= (async () => {
             progress.report('Building project context...', { force: true });
-            const project = await measurePerformance('analyzeWorkbook.buildProjectContext', undefined, () =>
+            const project = await measurePerformance('analyzeProject.buildProjectContext', undefined, () =>
                 buildVbaProjectIndexAsync(modules.map((mod) => ({
                     moduleName: mod.name,
                     source: mod.source,
@@ -491,9 +491,9 @@ async function runWorkbookAnalysis(
         })();
 
         const analysisSettings = await measurePerformance(
-            'analyzeWorkbook.settings',
+            'analyzeProject.settings',
             undefined,
-            () => effectiveWorkbookAnalysisSettings(filePath),
+            () => effectiveProjectAnalysisSettings(filePath),
         );
         throwIfAnalysisCancelled(options.token);
 
@@ -501,10 +501,10 @@ async function runWorkbookAnalysis(
         // overlays included). It keys both the worker seed and the result
         // cache; the settings that shape diagnostics join the cache key so a
         // severity-override change re-analyzes.
-        const contentFingerprint = workbookSeedFingerprint(modules);
+        const contentFingerprint = projectSeedFingerprint(modules);
         const settingsKey = JSON.stringify(analysisSettings.ruleSeverityOverrides ?? {});
-        const resultCacheKey = workbookIdentityKey(filePath);
-        const cached = lastWorkbookAnalysisResults.get(resultCacheKey);
+        const resultCacheKey = projectIdentityKey(filePath);
+        const cached = lastProjectAnalysisResults.get(resultCacheKey);
         if (cached && cached.fingerprint === contentFingerprint && cached.settingsKey === settingsKey) {
             progress.report('Analysis up to date (no changes since the last run).', { force: true });
             totalTrace.end('ok');
@@ -512,11 +512,11 @@ async function runWorkbookAnalysis(
         }
 
         // Seed the worker under the command's own key namespace so it never
-        // fights live diagnostics over a workbook's editor-driven seed, keyed
+        // fights live diagnostics over a project's editor-driven seed, keyed
         // by content so an unchanged re-run skips the transfer.
-        const worker = workbookAnalysisWorker;
+        const worker = projectAnalysisWorker;
         const workerAvailable = worker?.available === true;
-        const seedKey = `workbook-analysis:${workbookIdentityKey(filePath)}`;
+        const seedKey = `project-analysis:${projectIdentityKey(filePath)}`;
         const seedGeneration = contentFingerprint;
         if (workerAvailable && worker) {
             worker.ensureSeeded(seedKey, seedGeneration, () => modules.map((mod) => ({
@@ -553,14 +553,14 @@ async function runWorkbookAnalysis(
                 if (workerAvailable && worker) {
                     try {
                         const workerResult = await measurePerformance(
-                            'analyzeWorkbook.analyzeModule',
+                            'analyzeProject.analyzeModule',
                             mod.name,
                             () => worker.analyze({
-                                // Stable per (workbook, module): a re-run reuses
+                                // Stable per (project, module): a re-run reuses
                                 // the worker's incremental state and re-analyzes
                                 // only what changed since the last run.
                                 docKey: `${seedKey}:${mod.name.toLowerCase()}`,
-                                workbookKey: seedKey,
+                                projectKey: seedKey,
                                 generation: seedGeneration,
                                 source: mod.source,
                                 moduleName: mod.name,
@@ -574,13 +574,13 @@ async function runWorkbookAnalysis(
                         throwIfAnalysisCancelled(options.token);
                         reportModuleDone(mod.name);
                         return {
-                            problems: workbookProblemsForModule(
+                            problems: projectProblemsForModule(
                                 mod.name,
                                 mod.type,
                                 mod.source,
                                 workerResult.diagnostics,
                             ),
-                            suppressedProblems: workbookProblemsForModule(
+                            suppressedProblems: projectProblemsForModule(
                                 mod.name,
                                 mod.type,
                                 mod.source,
@@ -599,7 +599,7 @@ async function runWorkbookAnalysis(
                 const { project, procedures } = await ensureHostContext();
                 const projectOptions = projectAnalysisOptionsForModule(project, mod.name, procedures);
                 const moduleAnalysis = measurePerformanceSync(
-                    'analyzeWorkbook.analyzeModule',
+                    'analyzeProject.analyzeModule',
                     mod.name,
                     () => analyzeVbaModuleSource({
                         source: mod.source,
@@ -614,13 +614,13 @@ async function runWorkbookAnalysis(
                 );
                 reportModuleDone(mod.name);
                 return {
-                    problems: workbookProblemsForModule(
+                    problems: projectProblemsForModule(
                         mod.name,
                         mod.type,
                         mod.source,
                         moduleAnalysis.diagnostics,
                     ),
-                    suppressedProblems: workbookProblemsForModule(
+                    suppressedProblems: projectProblemsForModule(
                         mod.name,
                         mod.type,
                         mod.source,
@@ -634,15 +634,15 @@ async function runWorkbookAnalysis(
         const suppressedProblems = analysisResults.flatMap((result) => result.suppressedProblems);
 
         progress.report('Preparing results...', { force: true });
-        sortWorkbookProblems(problems);
-        sortWorkbookProblems(suppressedProblems);
+        sortProjectProblems(problems);
+        sortProjectProblems(suppressedProblems);
 
         const errorCount = problems.filter((p) => p.severity === 'error').length;
         const warningCount = problems.filter((p) => p.severity === 'warning').length;
-        const summary = summarizeWorkbookAnalysisProblems(problems, suppressedProblems.length);
+        const summary = summarizeProjectAnalysisProblems(problems, suppressedProblems.length);
 
         totalTrace.end('ok');
-        const analysisResult: WorkbookAnalysisResult = {
+        const analysisResult: ProjectAnalysisResult = {
             filePath,
             moduleCount: modules.length,
             problems,
@@ -651,16 +651,16 @@ async function runWorkbookAnalysis(
             warningCount,
             summary,
         };
-        lastWorkbookAnalysisResults.delete(resultCacheKey);
-        lastWorkbookAnalysisResults.set(resultCacheKey, {
+        lastProjectAnalysisResults.delete(resultCacheKey);
+        lastProjectAnalysisResults.set(resultCacheKey, {
             fingerprint: contentFingerprint,
             settingsKey,
             result: analysisResult,
         });
-        while (lastWorkbookAnalysisResults.size > WORKBOOK_ANALYSIS_RESULT_CACHE_MAX) {
-            const oldest = lastWorkbookAnalysisResults.keys().next().value;
+        while (lastProjectAnalysisResults.size > WORKBOOK_ANALYSIS_RESULT_CACHE_MAX) {
+            const oldest = lastProjectAnalysisResults.keys().next().value;
             if (oldest === undefined) { break; }
-            lastWorkbookAnalysisResults.delete(oldest);
+            lastProjectAnalysisResults.delete(oldest);
         }
         return analysisResult;
     } catch (err) {

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import type { WorkbookEngine } from '../src/workbookEngine';
+import type { ProjectEngine } from '../src/projectEngine';
 import { synthesizeClassHeader } from '../src/vba/vbaProject';
 import {
 	buildExportModuleSyncPlan,
@@ -27,17 +27,17 @@ afterEach(() => {
 	}
 });
 
-function tempWorkbook(): { root: string; workbook: string; repo: string } {
+function tempWorkbook(): { root: string; project: string; repo: string } {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-sync-plan-'));
 	tempRoots.push(root);
-	const workbook = path.join(root, 'Book.xlsm');
+	const project = path.join(root, 'Book.xlsm');
 	const repo = path.join(root, 'repo');
-	fs.writeFileSync(workbook, '', 'utf8');
+	fs.writeFileSync(project, '', 'utf8');
 	fs.mkdirSync(repo, { recursive: true });
-	return { root, workbook, repo };
+	return { root, project, repo };
 }
 
-function fakeBridge(modules: readonly FakeModule[]): WorkbookEngine {
+function fakeBridge(modules: readonly FakeModule[]): ProjectEngine {
 	return {
 		async call<T>(method: string, args: Record<string, unknown>): Promise<T> {
 			if (method === 'listModules') {
@@ -60,10 +60,10 @@ function fakeBridge(modules: readonly FakeModule[]): WorkbookEngine {
 			}
 			throw new Error(`Unexpected bridge call ${method}`);
 		},
-	} as WorkbookEngine;
+	} as ProjectEngine;
 }
 
-function batchFakeBridge(modules: readonly FakeModule[], calls: string[]): WorkbookEngine {
+function batchFakeBridge(modules: readonly FakeModule[], calls: string[]): ProjectEngine {
 	return {
 		async call<T>(method: string): Promise<T> {
 			calls.push(method);
@@ -77,10 +77,10 @@ function batchFakeBridge(modules: readonly FakeModule[], calls: string[]): Workb
 			}
 			throw new Error(`Unexpected bridge call ${method}`);
 		},
-	} as WorkbookEngine;
+	} as ProjectEngine;
 }
 
-// Pins classifyModuleType (src/vba/workbookService.ts) row by row. This table
+// Pins classifyModuleType (src/vba/projectService.ts) row by row. This table
 // began life shared with the retired Python backend's classifier; it survives
 // because the rows encode VBE behavior worth keeping pinned, not because a
 // second implementation still mirrors it.
@@ -109,7 +109,7 @@ describe('module sync plan', () => {
 	});
 
 	it('imports a predeclared class module as a creatable class, not a skipped document', async () => {
-		const { workbook, repo } = tempWorkbook();
+		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'stdArray.cls'), [
 			'VERSION 1.0 CLASS',
 			'BEGIN',
@@ -123,7 +123,7 @@ describe('module sync plan', () => {
 		].join('\r\n'), 'utf8');
 
 		const plan = await buildImportModuleSyncPlan(fakeBridge([]), {
-			workbookPath: workbook,
+			projectPath: project,
 			importFolder: repo,
 		});
 
@@ -137,8 +137,8 @@ describe('module sync plan', () => {
 		expect(plan.warnings).toEqual([]);
 	});
 
-	it('plans export row statuses from one workbook-vs-repo comparison path', async () => {
-		const { workbook, repo } = tempWorkbook();
+	it('plans export row statuses from one project-vs-repo comparison path', async () => {
+		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'Existing.bas'), 'Sub Same()\nEnd Sub\n', 'utf8');
 		fs.writeFileSync(path.join(repo, 'Changed.bas'), 'Sub Old()\nEnd Sub\n', 'utf8');
 
@@ -147,7 +147,7 @@ describe('module sync plan', () => {
 			{ name: 'Changed', type: 'standard', source: 'Sub Newer()\nEnd Sub\n' },
 			{ name: 'NewModule', type: 'standard', source: 'Sub NewModule()\nEnd Sub\n' },
 		]), {
-			workbookPath: workbook,
+			projectPath: project,
 			exportFolder: repo,
 			exportMode: 'exportAll',
 		});
@@ -175,7 +175,7 @@ describe('module sync plan', () => {
 	});
 
 	it('builds the export plan from a single batch readModules call when available', async () => {
-		const { workbook, repo } = tempWorkbook();
+		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'Existing.bas'), 'Sub Same()\nEnd Sub\n', 'utf8');
 		const calls: string[] = [];
 
@@ -183,7 +183,7 @@ describe('module sync plan', () => {
 			{ name: 'Existing', type: 'standard', source: 'Sub Same()\nEnd Sub\n' },
 			{ name: 'Changed', type: 'standard', source: 'Sub Newer()\nEnd Sub\n' },
 		], calls), {
-			workbookPath: workbook,
+			projectPath: project,
 			exportFolder: repo,
 			exportMode: 'exportAll',
 		});
@@ -195,13 +195,13 @@ describe('module sync plan', () => {
 	});
 
 	it('surfaces true-up stale root module files as removable preview rows', async () => {
-		const { workbook, repo } = tempWorkbook();
+		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'Stale.bas'), 'Sub Old()\nEnd Sub\n', 'utf8');
 
 		const plan = await buildExportModuleSyncPlan(fakeBridge([
 			{ name: 'Module1', type: 'standard', source: 'Sub T()\nEnd Sub\n' },
 		]), {
-			workbookPath: workbook,
+			projectPath: project,
 			exportFolder: repo,
 			exportMode: 'trueUp',
 		});
@@ -212,7 +212,7 @@ describe('module sync plan', () => {
 			status: 'will-remove',
 			checked: true,
 			selectable: true,
-			existsInWorkbook: false,
+			existsInProject: false,
 			existsInRepo: true,
 			leftTitle: 'Repo: Stale.bas (will remove)',
 			rightTitle: 'File: missing module',
@@ -221,7 +221,7 @@ describe('module sync plan', () => {
 	});
 
 	it('does not preview non-module or nested files as export deletions', async () => {
-		const { workbook, repo } = tempWorkbook();
+		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'Stale.bas'), 'Sub Old()\nEnd Sub\n', 'utf8');
 		fs.writeFileSync(path.join(repo, 'StaleClass.cls'), 'VERSION 1.0 CLASS\n', 'utf8');
 		fs.writeFileSync(path.join(repo, 'Notes.txt'), 'keep', 'utf8');
@@ -233,7 +233,7 @@ describe('module sync plan', () => {
 		const plan = await buildExportModuleSyncPlan(fakeBridge([
 			{ name: 'Module1', type: 'standard', source: 'Sub T()\nEnd Sub\n' },
 		]), {
-			workbookPath: workbook,
+			projectPath: project,
 			exportFolder: repo,
 			exportMode: 'trueUp',
 		});
@@ -243,7 +243,7 @@ describe('module sync plan', () => {
 	});
 
 	it('warns and skips missing document/userform cls code-behind modules while allowing existing name-match updates', async () => {
-		const { workbook, repo } = tempWorkbook();
+		const { project, repo } = tempWorkbook();
 		const sheetBase = 'Attribute VB_Base = "{00020820-0000-0000-C000-000000000046}"\n';
 		const formBase = 'Attribute VB_Base = "{00000000-0000-0000-0000-000000000001}{00000000-0000-0000-0000-000000000002}"\n';
 		fs.writeFileSync(path.join(repo, 'Sheet1.cls'), `${sheetBase}Private Sub Worksheet_Change()\nEnd Sub\n`, 'utf8');
@@ -264,7 +264,7 @@ describe('module sync plan', () => {
 				source: `${formBase}Private Sub UserForm_Initialize()\nEnd Sub\n`,
 			},
 		]), {
-			workbookPath: workbook,
+			projectPath: project,
 			importFolder: repo,
 		});
 
@@ -305,8 +305,8 @@ describe('module sync plan', () => {
 		]);
 	});
 
-	it('plans import true-up deletions for workbook-only standard and class modules only', async () => {
-		const { workbook, repo } = tempWorkbook();
+	it('plans import true-up deletions for project-only standard and class modules only', async () => {
+		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'Module1.bas'), 'Sub T()\nEnd Sub\n', 'utf8');
 
 		const plan = await buildImportModuleSyncPlan(fakeBridge([
@@ -321,7 +321,7 @@ describe('module sync plan', () => {
 			},
 			{ name: 'UserForm1', type: 'userform', source: 'VERSION 5.00\n' },
 		]), {
-			workbookPath: workbook,
+			projectPath: project,
 			importFolder: repo,
 			importMode: 'trueUpStandardClass',
 		});
@@ -331,9 +331,9 @@ describe('module sync plan', () => {
 			status: 'will-remove',
 			checked: true,
 			selectable: true,
-			existsInWorkbook: true,
+			existsInProject: true,
 			existsInRepo: false,
-			detail: 'Will delete workbook module',
+			detail: 'Will delete project module',
 			rightTitle: 'File: StaleStandard (will delete)',
 		});
 		expect(byName.get('StaleClass')).toMatchObject({
@@ -347,11 +347,11 @@ describe('module sync plan', () => {
 	});
 
 	it('tones import-created source lines as additions', async () => {
-		const { workbook, repo } = tempWorkbook();
+		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'NewModule.bas'), 'Sub T()\nEnd Sub\n', 'utf8');
 
 		const plan = await buildImportModuleSyncPlan(fakeBridge([]), {
-			workbookPath: workbook,
+			projectPath: project,
 			importFolder: repo,
 		});
 
@@ -365,13 +365,13 @@ describe('module sync plan', () => {
 	});
 
 	it('plans .frm files as forms and ignores their .frx sidecars (#21)', async () => {
-		const { workbook, repo } = tempWorkbook();
+		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'UserForm1.frm'), 'VERSION 5.00\nBegin VB.UserForm UserForm1\nEnd\n', 'utf8');
 		fs.writeFileSync(path.join(repo, 'UserForm1.frx'), 'binary', 'utf8');
 		fs.writeFileSync(path.join(repo, 'Module1.bas'), 'Sub T()\nEnd Sub\n', 'utf8');
 
 		const plan = await buildImportModuleSyncPlan(fakeBridge([]), {
-			workbookPath: workbook,
+			projectPath: project,
 			importFolder: repo,
 		});
 
@@ -408,7 +408,7 @@ describe('module sync plan', () => {
 	});
 
 	it('keeps raw source available for optional header diff display', async () => {
-		const { workbook, repo } = tempWorkbook();
+		const { project, repo } = tempWorkbook();
 		const source = [
 			'Attribute VB_Name = "Module1"',
 			'',
@@ -419,7 +419,7 @@ describe('module sync plan', () => {
 		fs.writeFileSync(path.join(repo, 'Module1.bas'), source, 'utf8');
 
 		const plan = await buildImportModuleSyncPlan(fakeBridge([]), {
-			workbookPath: workbook,
+			projectPath: project,
 			importFolder: repo,
 		});
 		const item = plan.items[0];
@@ -544,56 +544,56 @@ describe('a UserForm syncs as a .frm (#21)', () => {
 	].join('\r\n');
 
 	it('exports a form under Name.frm, the name the VBE itself writes', async () => {
-		const { workbook, repo } = tempWorkbook();
+		const { project, repo } = tempWorkbook();
 		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: FORM_SOURCE }]);
-		const plan = await buildExportModuleSyncPlan(bridge, { workbookPath: workbook, exportFolder: repo });
+		const plan = await buildExportModuleSyncPlan(bridge, { projectPath: project, exportFolder: repo });
 		const item = plan.items.find((candidate) => candidate.moduleName === 'EntryForm');
 		expect(item?.relativeName).toBe('EntryForm.frm');
 	});
 
 	it('classifies a .frm as a userform by its name alone', async () => {
-		const { workbook, repo } = tempWorkbook();
+		const { project, repo } = tempWorkbook();
 		// Deliberately headerless: a real Excel form's module text carries no
 		// designer block, so the extension must be enough.
 		fs.writeFileSync(path.join(repo, 'EntryForm.frm'), 'Option Explicit\r\n', 'utf8');
 		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: FORM_SOURCE }]);
-		const plan = await buildImportModuleSyncPlan(bridge, { workbookPath: workbook, importFolder: repo });
+		const plan = await buildImportModuleSyncPlan(bridge, { projectPath: project, importFolder: repo });
 		const item = plan.items.find((candidate) => candidate.moduleName === 'EntryForm');
 		expect(item?.moduleType).toBe('userform');
 		expect(item?.status).toBe('will-update');
 	});
 
 	it('still cannot create a form from a repo file alone', async () => {
-		const { workbook, repo } = tempWorkbook();
+		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'NewForm.frm'), 'Option Explicit\r\n', 'utf8');
 		const bridge = fakeBridge([]);
-		const plan = await buildImportModuleSyncPlan(bridge, { workbookPath: workbook, importFolder: repo });
+		const plan = await buildImportModuleSyncPlan(bridge, { projectPath: project, importFolder: repo });
 		const item = plan.items.find((candidate) => candidate.moduleName === 'NewForm');
 		expect(item?.status).toBe('skipping-import');
 	});
 
 	it('never treats a .frx sidecar as a module, in either direction', async () => {
-		const { workbook, repo } = tempWorkbook();
+		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'EntryForm.frm'), 'Option Explicit\r\n', 'utf8');
 		fs.writeFileSync(path.join(repo, 'EntryForm.frx'), Buffer.from([0x01, 0x02, 0x03]));
 		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: FORM_SOURCE }]);
-		const importPlan = await buildImportModuleSyncPlan(bridge, { workbookPath: workbook, importFolder: repo });
+		const importPlan = await buildImportModuleSyncPlan(bridge, { projectPath: project, importFolder: repo });
 		expect(importPlan.items.some((item) => /\.frx$/i.test(item.relativeName))).toBe(false);
 		// A trueUp export must not list the sidecar as a stale module either -
 		// the .frx belongs to the .frm and is the VBE importer's to read.
 		const exportPlan = await buildExportModuleSyncPlan(bridge, {
-			workbookPath: workbook, exportFolder: repo, exportMode: 'trueUp',
+			projectPath: project, exportFolder: repo, exportMode: 'trueUp',
 		});
 		expect(exportPlan.items.some((item) => /\.frx$/i.test(item.relativeName))).toBe(false);
 	});
 
 	it('retires an old .cls export of the same form on trueUp', async () => {
-		const { workbook, repo } = tempWorkbook();
+		const { project, repo } = tempWorkbook();
 		// What 3.8.0 and earlier wrote: the form under a .cls name.
 		fs.writeFileSync(path.join(repo, 'EntryForm.cls'), FORM_SOURCE, 'utf8');
 		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: FORM_SOURCE }]);
 		const plan = await buildExportModuleSyncPlan(bridge, {
-			workbookPath: workbook, exportFolder: repo, exportMode: 'trueUp',
+			projectPath: project, exportFolder: repo, exportMode: 'trueUp',
 		});
 		const create = plan.items.find((item) => item.relativeName === 'EntryForm.frm');
 		const stale = plan.items.find((item) => item.relativeName === 'EntryForm.cls');
@@ -602,10 +602,10 @@ describe('a UserForm syncs as a .frm (#21)', () => {
 	});
 
 	it('a legacy .cls carrying a form header still classifies as a form', async () => {
-		const { workbook, repo } = tempWorkbook();
+		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'OldForm.cls'), FORM_SOURCE, 'utf8');
 		const bridge = fakeBridge([{ name: 'OldForm', type: 'userform', source: FORM_SOURCE }]);
-		const plan = await buildImportModuleSyncPlan(bridge, { workbookPath: workbook, importFolder: repo });
+		const plan = await buildImportModuleSyncPlan(bridge, { projectPath: project, importFolder: repo });
 		const item = plan.items.find((candidate) => candidate.moduleName === 'OldForm');
 		expect(item?.moduleType).toBe('userform');
 	});
@@ -643,30 +643,30 @@ describe('a form compares on the half its text can say (issue #36)', () => {
 	].join('\r\n');
 
 	it('a clean round trip reads unchanged on the import plan', async () => {
-		const { workbook, repo } = tempWorkbook();
+		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'EntryForm.frm'), REPO_FRM, 'utf8');
 		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: LIVE_FORM }]);
-		const plan = await buildImportModuleSyncPlan(bridge, { workbookPath: workbook, importFolder: repo });
+		const plan = await buildImportModuleSyncPlan(bridge, { projectPath: project, importFolder: repo });
 		const item = plan.items.find((candidate) => candidate.moduleName === 'EntryForm');
 		expect(item?.status).toBe('unchanged');
 		expect(item?.checked).toBe(false);
 	});
 
 	it('a code edit still reads will-update on the import plan', async () => {
-		const { workbook, repo } = tempWorkbook();
+		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'EntryForm.frm'),
 			REPO_FRM + 'Public Sub Added()\r\nEnd Sub\r\n', 'utf8');
 		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: LIVE_FORM }]);
-		const plan = await buildImportModuleSyncPlan(bridge, { workbookPath: workbook, importFolder: repo });
+		const plan = await buildImportModuleSyncPlan(bridge, { projectPath: project, importFolder: repo });
 		expect(plan.items.find((candidate) => candidate.moduleName === 'EntryForm')?.status)
 			.toBe('will-update');
 	});
 
 	it('the export plan reads the same way', async () => {
-		const { workbook, repo } = tempWorkbook();
+		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'EntryForm.frm'), REPO_FRM, 'utf8');
 		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: LIVE_FORM }]);
-		const clean = await buildExportModuleSyncPlan(bridge, { workbookPath: workbook, exportFolder: repo });
+		const clean = await buildExportModuleSyncPlan(bridge, { projectPath: project, exportFolder: repo });
 		expect(clean.items.find((candidate) => candidate.moduleName === 'EntryForm')?.status)
 			.toBe('unchanged');
 
@@ -675,7 +675,7 @@ describe('a form compares on the half its text can say (issue #36)', () => {
 			type: 'userform',
 			source: LIVE_FORM.replace('"Entry"', '"Changed"'),
 		}]);
-		const dirty = await buildExportModuleSyncPlan(edited, { workbookPath: workbook, exportFolder: repo });
+		const dirty = await buildExportModuleSyncPlan(edited, { projectPath: project, exportFolder: repo });
 		expect(dirty.items.find((candidate) => candidate.moduleName === 'EntryForm')?.status)
 			.toBe('will-write');
 	});
@@ -684,13 +684,13 @@ describe('a form compares on the half its text can say (issue #36)', () => {
 		// Export writes the module text plus ONE extra CRLF at EOF; the live
 		// module never carries it, so a real VBE export read will-update
 		// forever by one phantom blank line.
-		const { workbook, repo } = tempWorkbook();
+		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'EntryForm.frm'), REPO_FRM + '\r\n', 'utf8');
 		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: LIVE_FORM }]);
-		const imported = await buildImportModuleSyncPlan(bridge, { workbookPath: workbook, importFolder: repo });
+		const imported = await buildImportModuleSyncPlan(bridge, { projectPath: project, importFolder: repo });
 		expect(imported.items.find((candidate) => candidate.moduleName === 'EntryForm')?.status)
 			.toBe('unchanged');
-		const exported = await buildExportModuleSyncPlan(bridge, { workbookPath: workbook, exportFolder: repo });
+		const exported = await buildExportModuleSyncPlan(bridge, { projectPath: project, exportFolder: repo });
 		expect(exported.items.find((candidate) => candidate.moduleName === 'EntryForm')?.status)
 			.toBe('unchanged');
 	});
@@ -703,7 +703,7 @@ describe('a form compares on the half its text can say (issue #36)', () => {
 	it('non-form kinds keep the raw comparison, headers included', async () => {
 		// A .cls attribute difference is a real pending change: class headers
 		// round-trip, so raw equality stays the honest test there.
-		const { workbook, repo } = tempWorkbook();
+		const { project, repo } = tempWorkbook();
 		const liveClass = [
 			'Attribute VB_Name = "Person"',
 			'Option Explicit',
@@ -716,7 +716,7 @@ describe('a form compares on the half its text can say (issue #36)', () => {
 			'',
 		].join('\r\n'), 'utf8');
 		const bridge = fakeBridge([{ name: 'Person', type: 'class', source: liveClass }]);
-		const plan = await buildImportModuleSyncPlan(bridge, { workbookPath: workbook, importFolder: repo });
+		const plan = await buildImportModuleSyncPlan(bridge, { projectPath: project, importFolder: repo });
 		expect(plan.items.find((candidate) => candidate.moduleName === 'Person')?.status)
 			.toBe('will-update');
 	});

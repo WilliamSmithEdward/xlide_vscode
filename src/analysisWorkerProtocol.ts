@@ -36,7 +36,7 @@ export interface WorkerSeedModule {
 export type AnalysisWorkerRequest =
 	| {
 		kind: 'seed';
-		workbookKey: string;
+		projectKey: string;
 		generation: number;
 		modules: WorkerSeedModule[];
 	}
@@ -44,8 +44,8 @@ export type AnalysisWorkerRequest =
 		kind: 'analyze';
 		requestId: number;
 		docKey: string;
-		/** Present for workbook-backed modules; undefined analyzes standalone. */
-		workbookKey?: string;
+		/** Present for project-backed modules; undefined analyzes standalone. */
+		projectKey?: string;
 		/** The cross-module generation the seed must match for incremental reuse. */
 		generation?: number;
 		source: string;
@@ -77,7 +77,7 @@ export type AnalysisWorkerResponse =
 		requestId: number;
 		docKey: string;
 		diagnostics: VbaModuleAnalysisDiagnostic[];
-		/** Findings silenced by suppression directives; workbook analysis reports them separately. */
+		/** Findings silenced by suppression directives; project analysis reports them separately. */
 		suppressedDiagnostics: VbaModuleAnalysisDiagnostic[];
 		incrementalMode?: 'full' | 'incremental';
 	}
@@ -88,9 +88,9 @@ export type AnalysisWorkerResponse =
 		message: string;
 	}
 	| {
-		/** The worker has no (or a stale) seed for this workbook; reseed and retry. */
+		/** The worker has no (or a stale) seed for this project; reseed and retry. */
 		kind: 'needSeed';
 		requestId: number;
 		docKey: string;
-		workbookKey: string;
+		projectKey: string;
 	};

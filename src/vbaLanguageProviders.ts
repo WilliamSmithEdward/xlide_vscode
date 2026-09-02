@@ -4,7 +4,7 @@
 // navigation, code actions, and semantic tokens).
 
 import * as vscode from 'vscode';
-import { WorkbookEngine } from './workbookEngine';
+import { ProjectEngine } from './projectEngine';
 import {
     XLIDE_SCHEME,
     XLIDE_VBA_LANGUAGE_ID,
@@ -52,13 +52,13 @@ const VBA_SELECTOR: vscode.DocumentSelector = [
 
 export function registerVbaLanguageProviders(
     context: vscode.ExtensionContext,
-    bridge: WorkbookEngine,
+    bridge: ProjectEngine,
     workerClient?: AnalysisWorkerClient,
 ): VbaSymbolIndex {
     const index = new VbaSymbolIndex(bridge);
     const projectIndexService = new VbaProjectIndexService(index);
     // Which .vbp a file on disk belongs to: the answer every provider below
-    // needs before it can treat a VB6 module like a workbook module.
+    // needs before it can treat a VB6 module like a project module.
     registerVb6ProjectLocator(context, bridge);
 
     registerVbaDiagnostics(context, projectIndexService, workerClient);
@@ -113,14 +113,14 @@ export function registerVbaLanguageProviders(
             typeSemanticTokensProvider,
             TYPE_TOKEN_LEGEND,
         ),
-        // Keep the index consistent with saves: a workbook's virtual document,
+        // Keep the index consistent with saves: a project's virtual document,
         // or a VB6 project's own file (whose designer header is blanked the way
         // every analysis sees it).
         vscode.workspace.onDidSaveTextDocument((doc) => {
             const location = moduleLocationOfDocument(doc);
             if (!location) { return; }
             index.updateModuleSource(
-                location.xlsmPath,
+                location.projectPath,
                 location.moduleName,
                 analysisSourceForDocument(doc),
                 location.moduleType ? { type: location.moduleType } : {},

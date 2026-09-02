@@ -7,7 +7,7 @@ export interface XlideWriteAuditEntry {
     command: string;
     operation: string;
     outcome: XlideWriteAuditOutcome;
-    workbookPath?: string;
+    projectPath?: string;
     moduleName?: string;
     sourcePath?: string;
     targetPath?: string;
@@ -51,7 +51,7 @@ export function recordXlideWriteAuditEvent(event: XlideWriteAuditEvent): void {
 export interface XlideWriteAuditTarget {
     command: string;
     operation: string;
-    workbookPath?: string;
+    projectPath?: string;
     moduleName?: string;
     sourcePath?: string;
     targetPath?: string;

@@ -3,7 +3,7 @@ import * as path from 'path';
 import { decodeModuleUri, XLIDE_SCHEME } from './xlideFileSystem';
 
 /**
- * One status bar item: shows "XLIDE: <workbook> | <module>" when the focused
+ * One status bar item: shows "XLIDE: <project> | <module>" when the focused
  * editor is a xlide-vba:// document. Click to refresh the XLIDE explorer.
  */
 export class XlideStatusBar implements vscode.Disposable {
@@ -33,9 +33,9 @@ export class XlideStatusBar implements vscode.Disposable {
             return;
         }
         try {
-            const { xlsmPath, moduleName } = decodeModuleUri(editor.document.uri);
-            this._activeItem.text = `$(file-code) ${path.basename(xlsmPath)} | ${moduleName}`;
-            this._activeItem.tooltip = xlsmPath;
+            const { projectPath, moduleName } = decodeModuleUri(editor.document.uri);
+            this._activeItem.text = `$(file-code) ${path.basename(projectPath)} | ${moduleName}`;
+            this._activeItem.tooltip = projectPath;
             this._activeItem.show();
         } catch {
             this._activeItem.hide();

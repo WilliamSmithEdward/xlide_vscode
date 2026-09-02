@@ -14,7 +14,7 @@
         const table = document.querySelector('.table');
         const statsSection = document.querySelector('.stats');
         const moduleList = document.querySelector('.moduleList');
-        const workbookSubtitle = document.querySelector('header .subtle');
+        const projectSubtitle = document.querySelector('header .subtle');
         const showHiddenButton = document.querySelector('[data-show-hidden]');
         const visibleCount = document.getElementById('visibleCount');
         const contextMenu = document.getElementById('rowContextMenu');
@@ -22,12 +22,12 @@
         const quickFixSubmenu = document.getElementById('quickFixSubmenu');
         const suppressionDivider = document.getElementById('suppressionDivider');
         const trackingDivider = document.getElementById('trackingDivider');
-        const trackingWorkbookAction = document.getElementById('trackingWorkbookAction');
+        const trackingProjectAction = document.getElementById('trackingProjectAction');
         const trackingGlobalAction = document.getElementById('trackingGlobalAction');
         const settingsDialog = document.getElementById('analysisSettingsDialog');
         const settingsSource = document.querySelector('.settingsSource');
         const settingsResetButton = document.querySelector('[data-reset-analysis]');
-        const workbookUntrackedRulesContainer = document.getElementById('workbookUntrackedRules');
+        const projectUntrackedRulesContainer = document.getElementById('projectUntrackedRules');
         let contextRow = null;
 
         function applyModel(next) {
@@ -36,13 +36,13 @@
                 analysisSettingsKey = next.analysisSettingsKey;
                 visibleSeverities = new Set(normalizeSeverityList(next.visibleSeverities ?? severityIds));
             }
-            if (workbookSubtitle) {
-                workbookSubtitle.textContent = next.workbookName;
+            if (projectSubtitle) {
+                projectSubtitle.textContent = next.projectName;
             }
             renderStats();
             renderModuleFilters();
             renderRows();
-            renderWorkbookUntrackedRules();
+            renderProjectUntrackedRules();
             reattachContextRow();
             sortRows();
             syncSortHeaders();
@@ -155,14 +155,14 @@
             return button;
         }
 
-        function renderWorkbookUntrackedRules() {
-            settingsSource.textContent = 'Source: ' + (model.rulesSourceIsWorkbook ? 'File settings' : 'No file override');
-            settingsResetButton.disabled = !model.rulesSourceIsWorkbook;
-            workbookUntrackedRulesContainer.textContent = '';
-            const rules = model.workbookUntrackedRules ?? [];
+        function renderProjectUntrackedRules() {
+            settingsSource.textContent = 'Source: ' + (model.rulesSourceIsProject ? 'File settings' : 'No file override');
+            settingsResetButton.disabled = !model.rulesSourceIsProject;
+            projectUntrackedRulesContainer.textContent = '';
+            const rules = model.projectUntrackedRules ?? [];
             if (rules.length === 0) {
-                workbookUntrackedRulesContainer.appendChild(
-                    element('div', 'settingsEmpty', 'No file rules are manually untracked.'),
+                projectUntrackedRulesContainer.appendChild(
+                    element('div', 'settingsEmpty', 'No project rules are manually untracked.'),
                 );
                 return;
             }
@@ -194,7 +194,7 @@
                 body.appendChild(ruleRow);
             }
             rulesTable.appendChild(body);
-            workbookUntrackedRulesContainer.appendChild(rulesTable);
+            projectUntrackedRulesContainer.appendChild(rulesTable);
         }
 
         function reattachContextRow() {
@@ -429,10 +429,10 @@
         function syncTrackingActions(row) {
             const hasRuleCode = String(row.dataset.ruleCode ?? '').trim().length > 0;
             const tracked = row.dataset.tracked !== 'no';
-            const source = row.dataset.trackingSource === 'workbook' ? 'workbook' : 'global';
-            return configureTrackingAction(trackingWorkbookAction, {
-                hidden: !hasRuleCode || (!tracked && source !== 'workbook'),
-                label: tracked ? 'Untrack In File' : 'Track In File',
+            const source = row.dataset.trackingSource === 'project' ? 'project' : 'global';
+            return configureTrackingAction(trackingProjectAction, {
+                hidden: !hasRuleCode || (!tracked && source !== 'project'),
+                label: tracked ? 'Untrack In Project' : 'Track In Project',
             }) + configureTrackingAction(trackingGlobalAction, {
                 hidden: !hasRuleCode || (!tracked && source !== 'global'),
                 label: tracked ? 'Untrack Globally' : 'Track Globally',
@@ -529,14 +529,14 @@
                     });
                 } else if (action === 'askCopilot') {
                     vscode.postMessage({ type: 'askCopilot', index, suppressed, ...identity });
-                } else if (action === 'setRuleTrackingWorkbook' || action === 'setRuleTrackingGlobal') {
+                } else if (action === 'setRuleTrackingProject' || action === 'setRuleTrackingGlobal') {
                     vscode.postMessage({
                         type: 'setRuleTracking',
                         index,
                         suppressed,
                         ...identity,
                         tracked: !currentlyTracked,
-                        trackingScope: action === 'setRuleTrackingGlobal' ? 'global' : 'workbook',
+                        trackingScope: action === 'setRuleTrackingGlobal' ? 'global' : 'project',
                     });
                 } else if (action === 'suppressBlock') {
                     vscode.postMessage({ type: 'suppressProblem', index, suppressed, ...identity, scope: 'block' });
@@ -580,7 +580,7 @@
                     type: 'setRuleTracking',
                     code,
                     tracked: true,
-                    trackingScope: 'workbook',
+                    trackingScope: 'project',
                 });
                 return;
             }

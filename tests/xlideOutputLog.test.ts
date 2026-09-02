@@ -20,7 +20,7 @@ describe('XLIDE output log', () => {
 		).toBe('Open <redacted-uri>');
 	});
 
-	it('redacts paths that contain spaces (username / workbook filename)', () => {
+	it('redacts paths that contain spaces (username / project filename)', () => {
 		expect(
 			redactSupportLogLine('Reading C:\\Users\\John Smith\\Documents\\Q4 Acquisition Model.xlsm'),
 		).toBe('Reading <redacted>.xlsm');

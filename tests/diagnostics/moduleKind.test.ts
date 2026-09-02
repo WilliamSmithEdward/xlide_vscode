@@ -398,7 +398,7 @@ describe('analyzeModule - conditional Declare platform rules', () => {
 });
 
 describe('analyzeModule - event handler module scope guidance', () => {
-	it('guides when a workbook handler is declared in a standard module', () => {
+	it('guides when a project handler is declared in a standard module', () => {
 		const src = 'Option Explicit\nPrivate Sub Workbook_Open()\nEnd Sub\n';
 		const hits = byCode(
 			analyzeModule(src, { moduleName: 'Module1', moduleKind: 'standard' }),

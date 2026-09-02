@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import { WorkbookEngine } from './workbookEngine';
-import { XlsmExplorer } from './xlsmExplorer';
+import { ProjectEngine } from './projectEngine';
+import { ProjectExplorer } from './projectExplorer';
 import { XlideFileSystemProvider } from './xlideFileSystem';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
 import { type CommandDeps } from './commands/shared';
@@ -9,7 +9,7 @@ import { registerMiscCommands } from './commands/miscCommands';
 import { registerModuleSyncCommands } from './commands/moduleSyncCommands';
 import { registerSupportBundleCommands } from './commands/supportBundleCommands';
 import { registerVbaTestCommands } from './commands/vbaTestCommands';
-import { registerWorkbookCrudCommands } from './commands/workbookCrudCommands';
+import { registerProjectCrudCommands } from './commands/projectCrudCommands';
 
 /**
  * Composition root for the XLIDE command palette/explorer commands.
@@ -18,8 +18,8 @@ import { registerWorkbookCrudCommands } from './commands/workbookCrudCommands';
  */
 export function registerCommands(
     context: vscode.ExtensionContext,
-    bridge: WorkbookEngine,
-    explorer: XlsmExplorer,
+    bridge: ProjectEngine,
+    explorer: ProjectExplorer,
     fsProvider: XlideFileSystemProvider,
     out: vscode.OutputChannel,
     vbaIndex: VbaSymbolIndex,
@@ -28,7 +28,7 @@ export function registerCommands(
 
     return [
         ...registerMiscCommands(deps),
-        ...registerWorkbookCrudCommands(deps),
+        ...registerProjectCrudCommands(deps),
         ...registerModuleSyncCommands(deps),
         ...registerSupportBundleCommands(deps),
         ...registerAnalysisCommands(deps),

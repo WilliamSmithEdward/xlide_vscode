@@ -66,7 +66,7 @@ function isIdentPart(ch: string): boolean {
 // Hot editor paths (hover, canonical casing) re-tokenize the same full module
 // text several times per request; a value-keyed memo collapses those scans to
 // one. Sized to hold a handful of recent modules (matching the parser cache) so
-// a workbook pass touching sibling modules does not evict the active one.
+// a project pass touching sibling modules does not evict the active one.
 // Callers must not mutate the returned array or its tokens.
 const TOKENIZE_CACHE_MAX = 8;
 const tokenizeCache: { src: string; tokens: VbaToken[] }[] = [];

@@ -20,7 +20,7 @@ export interface RenamedModuleImage {
 }
 
 export interface RenameSnapshot {
-    workbookPath: string;
+    projectPath: string;
     oldName: string;
     newName: string;
     modules: RenamedModuleImage[];
@@ -37,8 +37,8 @@ let lastRename: RenameSnapshot | undefined;
  */
 let expectedWrites = new Set<string>();
 
-function writeKey(workbookPath: string, moduleName: string): string {
-    return `${workbookPath.toLowerCase()}::${moduleName.toLowerCase()}`;
+function writeKey(projectPath: string, moduleName: string): string {
+    return `${projectPath.toLowerCase()}::${moduleName.toLowerCase()}`;
 }
 
 /** Records the before-images of a rename that is about to be written. */
@@ -46,7 +46,7 @@ export function recordRename(snapshot: RenameSnapshot): void {
     lastRename = snapshot.modules.length > 0 || snapshot.renamedModule ? snapshot : undefined;
     expectedWrites = new Set(
         lastRename
-            ? lastRename.modules.map((image) => writeKey(snapshot.workbookPath, image.moduleName))
+            ? lastRename.modules.map((image) => writeKey(snapshot.projectPath, image.moduleName))
             : [],
     );
 }
@@ -57,12 +57,12 @@ export function recordRename(snapshot: RenameSnapshot): void {
  * what is on disk, so the history is dropped rather than left to overwrite
  * somebody else's change.
  */
-export function noteModuleWrite(workbookPath: string, moduleName: string): void {
-    const key = writeKey(workbookPath, moduleName);
+export function noteModuleWrite(projectPath: string, moduleName: string): void {
+    const key = writeKey(projectPath, moduleName);
     if (expectedWrites.delete(key)) {
         return;
     }
-    invalidateRenameHistory(workbookPath);
+    invalidateRenameHistory(projectPath);
 }
 
 /** The rename that can currently be undone, if any. */
@@ -83,17 +83,17 @@ export function takeRenameForUndo(): RenameSnapshot | undefined {
 }
 
 /**
- * Drops the recorded rename. Called when something else writes to the workbook,
+ * Drops the recorded rename. Called when something else writes to the project,
  * because the before-images no longer describe what is on disk and restoring
  * them would discard that other change.
  */
-export function invalidateRenameHistory(workbookPath?: string): void {
-    if (!workbookPath || !lastRename) {
+export function invalidateRenameHistory(projectPath?: string): void {
+    if (!projectPath || !lastRename) {
         lastRename = undefined;
         expectedWrites = new Set();
         return;
     }
-    if (lastRename.workbookPath.toLowerCase() === workbookPath.toLowerCase()) {
+    if (lastRename.projectPath.toLowerCase() === projectPath.toLowerCase()) {
         lastRename = undefined;
         expectedWrites = new Set();
     }

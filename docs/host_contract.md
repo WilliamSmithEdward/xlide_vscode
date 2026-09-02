@@ -20,7 +20,7 @@ it already talks to the analyzer:
 | `ModuleInput` | `analyzer/symbols/projectIndex.ts` | `ProjectIndex.setModule` |
 | `VbaProjectModuleInput` | `vbaProjectAnalysis.ts` | `buildVbaProjectIndex` |
 | `WorkerSeedModule` | `analysisWorkerProtocol.ts` | the worker `seed` message |
-| `ModuleEntry` | `vba/workbookService.ts` | this repo's own file reader |
+| `ModuleEntry` | `vba/projectService.ts` | this repo's own file reader |
 
 `ModuleInput` and `ProjectIndexOptions` are exported from `analyzer/index.ts`
 so an external host can import the type it writes against.

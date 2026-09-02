@@ -8,75 +8,75 @@ import {
     type AnalysisSeverityFilter,
 } from './analysisSettingsCore';
 import {
-    readWorkbookSettings,
-    resolveWorkbookSetting,
-    updateWorkbookSettings,
-    type WorkbookAnalysisSettingsConfig,
-    type WorkbookSettingSource,
-    type WorkbookSettingsConfig,
-} from './workbookSettings';
+    readProjectSettings,
+    resolveProjectSetting,
+    updateProjectSettings,
+    type ProjectAnalysisSettingsConfig,
+    type ProjectSettingSource,
+    type ProjectSettingsConfig,
+} from './projectSettings';
 import {
     ruleSeverityOverridesSettingFromConfig,
     untrackedAnalysisRulesSettingFromConfig,
     visibleAnalysisSeveritiesSettingFromConfig,
 } from './analysisOptions';
 
-export type WorkbookAnalysisSettingsSource = WorkbookSettingSource;
+export type ProjectAnalysisSettingsSource = ProjectSettingSource;
 
-export interface EffectiveWorkbookAnalysisSettings {
+export interface EffectiveProjectAnalysisSettings {
     visibleSeverities: AnalysisSeverityFilter[];
-    visibleSeveritiesSource: WorkbookAnalysisSettingsSource;
+    visibleSeveritiesSource: ProjectAnalysisSettingsSource;
     untrackedRules: string[];
-    untrackedRulesSource: WorkbookAnalysisSettingsSource;
-    workbookUntrackedRules: string[];
+    untrackedRulesSource: ProjectAnalysisSettingsSource;
+    projectUntrackedRules: string[];
     ruleSeverityOverrides: AnalysisRuleSeverityOverrides;
-    ruleSeverityOverridesSource: WorkbookAnalysisSettingsSource;
+    ruleSeverityOverridesSource: ProjectAnalysisSettingsSource;
 }
 
-export async function effectiveWorkbookAnalysisSettings(
-    workbookPath: string | undefined,
-): Promise<EffectiveWorkbookAnalysisSettings> {
-    if (!workbookPath) {
-        return effectiveWorkbookAnalysisSettingsFromConfig(undefined);
+export async function effectiveProjectAnalysisSettings(
+    projectPath: string | undefined,
+): Promise<EffectiveProjectAnalysisSettings> {
+    if (!projectPath) {
+        return effectiveProjectAnalysisSettingsFromConfig(undefined);
     }
-    return effectiveWorkbookAnalysisSettingsFromConfig(
-        workbookPath,
-        await readWorkbookSettings(workbookPath, { lenient: true }),
+    return effectiveProjectAnalysisSettingsFromConfig(
+        projectPath,
+        await readProjectSettings(projectPath, { lenient: true }),
     );
 }
 
-export function effectiveWorkbookAnalysisSettingsFromConfig(
-    workbookPath: string | undefined,
-    config: WorkbookSettingsConfig = {},
-): EffectiveWorkbookAnalysisSettings {
+export function effectiveProjectAnalysisSettingsFromConfig(
+    projectPath: string | undefined,
+    config: ProjectSettingsConfig = {},
+): EffectiveProjectAnalysisSettings {
     const globalVisibleSeverities = visibleAnalysisSeveritiesSettingFromConfig();
     const globalUntrackedRules = untrackedAnalysisRulesSettingFromConfig();
     const globalRuleSeverityOverrides = ruleSeverityOverridesSettingFromConfig();
-    if (!workbookPath) {
+    if (!projectPath) {
         return {
             visibleSeverities: globalVisibleSeverities.value,
             visibleSeveritiesSource: globalVisibleSeverities.source,
             untrackedRules: globalUntrackedRules.value,
             untrackedRulesSource: globalUntrackedRules.source,
-            workbookUntrackedRules: [],
+            projectUntrackedRules: [],
             ruleSeverityOverrides: globalRuleSeverityOverrides.value,
             ruleSeverityOverridesSource: globalRuleSeverityOverrides.source,
         };
     }
 
     const { analysis } = config;
-    const visibleSeverities = resolveWorkbookSetting(analysis?.visibleSeverities, globalVisibleSeverities);
-    const workbookUntrackedRules = normalizeAnalysisRuleCodes(analysis?.untrackedRules ?? []);
-    const untrackedRules = analysis?.untrackedRules === undefined || workbookUntrackedRules.length === 0
+    const visibleSeverities = resolveProjectSetting(analysis?.visibleSeverities, globalVisibleSeverities);
+    const projectUntrackedRules = normalizeAnalysisRuleCodes(analysis?.untrackedRules ?? []);
+    const untrackedRules = analysis?.untrackedRules === undefined || projectUntrackedRules.length === 0
         ? {
             value: globalUntrackedRules.value,
             source: globalUntrackedRules.source,
         }
         : {
-            value: normalizeAnalysisRuleCodes([...globalUntrackedRules.value, ...workbookUntrackedRules]),
-            source: 'workbook' as const,
+            value: normalizeAnalysisRuleCodes([...globalUntrackedRules.value, ...projectUntrackedRules]),
+            source: 'project' as const,
         };
-    const ruleSeverityOverrides = resolveWorkbookSetting(
+    const ruleSeverityOverrides = resolveProjectSetting(
         analysis?.ruleSeverityOverrides,
         globalRuleSeverityOverrides,
     );
@@ -85,14 +85,14 @@ export function effectiveWorkbookAnalysisSettingsFromConfig(
         visibleSeveritiesSource: visibleSeverities.source,
         untrackedRules: untrackedRules.value,
         untrackedRulesSource: untrackedRules.source,
-        workbookUntrackedRules,
+        projectUntrackedRules,
         ruleSeverityOverrides: ruleSeverityOverrides.value,
         ruleSeverityOverridesSource: ruleSeverityOverrides.source,
     };
 }
 
-export async function setWorkbookAnalysisRuleTracked(
-    workbookPath: string,
+export async function setProjectAnalysisRuleTracked(
+    projectPath: string,
     code: string | undefined,
     tracked: boolean,
 ): Promise<AnalysisRuleTrackingUpdate> {
@@ -100,7 +100,7 @@ export async function setWorkbookAnalysisRuleTracked(
     // Mirror the global guard: refuse to persist codes that are not known
     // diagnostic rules, so a stale/renamed code cannot linger in the sidecar.
     if (!normalized || normalizeKnownAnalysisRuleCodes([normalized]).length === 0) {
-        const settings = await effectiveWorkbookAnalysisSettings(workbookPath);
+        const settings = await effectiveProjectAnalysisSettings(projectPath);
         return {
             tracked,
             changed: false,
@@ -114,7 +114,7 @@ export async function setWorkbookAnalysisRuleTracked(
         changed: false,
         untrackedRules: [],
     };
-    await updateWorkbookSettings(workbookPath, (existing) => {
+    await updateProjectSettings(projectPath, (existing) => {
         const update = planAnalysisRuleTrackingUpdate(existing.analysis?.untrackedRules ?? [], normalized, tracked);
         result = update;
         return update.changed || !existing.analysis?.untrackedRules
@@ -127,24 +127,24 @@ export async function setWorkbookAnalysisRuleTracked(
     return result;
 }
 
-export async function resetWorkbookAnalysisRuleTracking(
-    workbookPath: string,
-): Promise<EffectiveWorkbookAnalysisSettings> {
-    const updated = await updateWorkbookSettings(workbookPath, (existing) => {
+export async function resetProjectAnalysisRuleTracking(
+    projectPath: string,
+): Promise<EffectiveProjectAnalysisSettings> {
+    const updated = await updateProjectSettings(projectPath, (existing) => {
         const analysis = { ...(existing.analysis ?? {}) };
         delete analysis.untrackedRules;
         return withAnalysisSettings(existing, analysis);
     });
-    return effectiveWorkbookAnalysisSettingsFromConfig(workbookPath, updated);
+    return effectiveProjectAnalysisSettingsFromConfig(projectPath, updated);
 }
 
 function withAnalysisSettings(
-    config: WorkbookSettingsConfig,
-    analysis: WorkbookAnalysisSettingsConfig,
-): WorkbookSettingsConfig {
+    config: ProjectSettingsConfig,
+    analysis: ProjectAnalysisSettingsConfig,
+): ProjectSettingsConfig {
     // Spread the existing config so other known top-level keys (exportFolder,
     // tests, etc.) survive analysis-settings writes. Unknown top-level keys are
-    // intentionally dropped on write by normalizeWorkbookSettingsConfig, so this
+    // intentionally dropped on write by normalizeProjectSettingsConfig, so this
     // is not forward-compatible persistence for unrecognized keys.
     const normalizedAnalysis = compactAnalysisSettings(analysis);
     const next = { ...config };
@@ -157,9 +157,9 @@ function withAnalysisSettings(
 }
 
 function compactAnalysisSettings(
-    analysis: WorkbookAnalysisSettingsConfig,
-): WorkbookAnalysisSettingsConfig | undefined {
-    const compacted: WorkbookAnalysisSettingsConfig = {};
+    analysis: ProjectAnalysisSettingsConfig,
+): ProjectAnalysisSettingsConfig | undefined {
+    const compacted: ProjectAnalysisSettingsConfig = {};
     if (analysis.visibleSeverities) {
         compacted.visibleSeverities = analysis.visibleSeverities;
     }

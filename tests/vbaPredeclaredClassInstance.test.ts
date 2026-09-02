@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as path from 'path';
 import { analyzeModule } from '../src/analyzer';
-import { classifyModuleType, readModules } from '../src/vba/workbookService';
+import { classifyModuleType, readModules } from '../src/vba/projectService';
 import {
     buildVbaProjectIndex,
     projectAnalysisOptionsForModule,
@@ -159,7 +159,7 @@ describe('the attribute header itself', () => {
     });
 });
 
-describe('reading the bit out of a real workbook', () => {
+describe('reading the bit out of a real project', () => {
     // FormFixture.xlsm was authored by live Excel, so its headers are the ones
     // the VBE actually writes rather than any shape this repo invented.
     const FIXTURE = path.join(__dirname, 'fixtures', 'binaries', 'FormFixture.xlsm');

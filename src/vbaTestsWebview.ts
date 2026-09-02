@@ -14,7 +14,7 @@ import { DebouncedRefresher } from './webview/refresh';
 import { WEBVIEW_BODY_CSS, WEBVIEW_PRIMARY_BUTTON_CSS, xlideAccentPaletteCss } from './webview/styles';
 import { renderWebviewTemplate } from './webview/templates';
 import { errorMessage } from './util/errors';
-import { XLIDE_SCHEME, decodeModuleUri, workbookIdentityKey } from './xlideFileSystem';
+import { XLIDE_SCHEME, decodeModuleUri, projectIdentityKey } from './xlideFileSystem';
 
 export type VbaTestSupportState = 'installed' | 'missing' | 'outdated' | 'blocked' | 'unknown';
 
@@ -70,7 +70,7 @@ export interface VbaTestLastFailedModel {
 
 export interface VbaTestsPanelModel {
     filePath: string;
-    workbookName: string;
+    projectName: string;
     support: VbaTestSupportStatusModel;
     runtime: VbaTestRuntimeStatusModel;
     discovery: VbaTestDiscoveryStatusModel;
@@ -101,7 +101,7 @@ export interface VbaTestsPanelOptions {
     onRunCurrentModule?: (request: VbaTestsRunModeRequest) => Promise<void>;
     onRunCurrentTest?: (request: VbaTestsRunModeRequest) => Promise<void>;
     onRerunFailed?: () => Promise<void>;
-    onDidChangeWorkbookTree?: vscode.Event<unknown>;
+    onDidChangeProjectTree?: vscode.Event<unknown>;
 }
 
 interface VbaTestsWebviewMessage {
@@ -159,7 +159,7 @@ export function openVbaTestsPanel(
         if (disposed) {
             return;
         }
-        panel.title = `XLIDE Tests: ${model.workbookName}`;
+        panel.title = `XLIDE Tests: ${model.projectName}`;
         panel.webview.html = renderVbaTestsHtml(model);
         });
     };
@@ -256,19 +256,19 @@ export function openVbaTestsPanel(
         () => renderPanel().catch(() => { /* keep existing error visible */ }),
     );
 
-    const treeSub = entry.options.onDidChangeWorkbookTree?.(() => refresher.schedule());
+    const treeSub = entry.options.onDidChangeProjectTree?.(() => refresher.schedule());
     // Re-discover tests when a module of THIS workbook is saved. The explorer tree
     // event only fires when the changed module's node is already rendered, so on its
     // own it misses content changes (a new/edited test sub) to modules that are not
     // currently expanded in the explorer; a save reliably reflects the on-disk
     // workbook the discovery reads.
-    const workbookKey = workbookIdentityKey(filePath);
+    const projectKey = projectIdentityKey(filePath);
     const saveSub = vscode.workspace.onDidSaveTextDocument((doc) => {
         if (doc.uri.scheme !== XLIDE_SCHEME) {
             return;
         }
         try {
-            if (workbookIdentityKey(decodeModuleUri(doc.uri).xlsmPath) === workbookKey) {
+            if (projectIdentityKey(decodeModuleUri(doc.uri).projectPath) === projectKey) {
                 refresher.schedule();
             }
         } catch {
@@ -299,7 +299,7 @@ export function renderVbaTestsHtml(model: VbaTestsPanelModel): string {
     const runDisabled = runEnabled ? '' : 'disabled';
     const installDisabled = model.support.canInstall ? '' : 'disabled';
     const installTitle = model.support.canInstall
-        ? `${model.support.actionLabel} ${model.workbookName}`
+        ? `${model.support.actionLabel} ${model.projectName}`
         : model.support.description;
     const runHelp = !model.support.canRun
         ? 'Install the bundled XlideAssert.bas support module before running VBA tests.'
@@ -325,7 +325,7 @@ export function renderVbaTestsHtml(model: VbaTestsPanelModel): string {
             : 'No tests discovered in this file.';
     const currentScopeTitle = !runEnabled
         ? runHelp
-        : `Use the active editor if it belongs to ${model.workbookName}.`;
+        : `Use the active editor if it belongs to ${model.projectName}.`;
     const rerunFailedTitle = !runEnabled
         ? runHelp
         : hasLastFailed
@@ -333,7 +333,7 @@ export function renderVbaTestsHtml(model: VbaTestsPanelModel): string {
             : 'No failed tests from the last run.';
     const tagNamesJson = scriptJson(model.discovery.tags.map((tag) => tag.name));
     const testIdsJson = scriptJson(model.discovery.tests.map((test) => test.id));
-    const workbookPathJson = scriptJson(model.filePath);
+    const projectPathJson = scriptJson(model.filePath);
     const canRunJson = JSON.stringify(runEnabled);
     const hasTagsJson = JSON.stringify(hasTagFilters);
     const hasTestsJson = JSON.stringify(hasTests);
@@ -348,7 +348,7 @@ export function renderVbaTestsHtml(model: VbaTestsPanelModel): string {
             primaryButtonCss: WEBVIEW_PRIMARY_BUTTON_CSS,
             toastCss: WEBVIEW_TOAST_CSS,
         }),
-        workbookName: escapeHtml(model.workbookName),
+        projectName: escapeHtml(model.projectName),
         supportState: escapeAttr(model.support.state),
         installTitle: escapeAttr(installTitle),
         installDisabled,
@@ -373,7 +373,7 @@ export function renderVbaTestsHtml(model: VbaTestsPanelModel): string {
         toastHtml: WEBVIEW_TOAST_HTML,
         js: renderWebviewTemplate('assets/webview/vbaTests.js', {
             toastScript: WEBVIEW_TOAST_SCRIPT,
-            workbookPathJson,
+            projectPathJson,
             tagNamesJson,
             testIdsJson,
             canRunJson,
@@ -385,11 +385,11 @@ export function renderVbaTestsHtml(model: VbaTestsPanelModel): string {
 }
 
 
-function renderVbaTestsErrorHtml(workbookName: string, error: string): string {
+function renderVbaTestsErrorHtml(projectName: string, error: string): string {
     return renderWebviewErrorPageHtml({
         title: 'XLIDE Tests Error',
         heading: 'XLIDE Tests Could Not Load',
-        subtitle: workbookName,
+        subtitle: projectName,
         error,
     });
 }

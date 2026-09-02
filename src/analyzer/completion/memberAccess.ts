@@ -67,7 +67,7 @@ export interface MemberCompletionContext {
 	meType?: string;
 	/** Project object type that `Me` resolves to in the current class/document module. */
 	meProjectType?: string;
-	/** Source-declared workbook object members and visible UDT fields, keyed by type. */
+	/** Source-declared project object members and visible UDT fields, keyed by type. */
 	projectClassMembers?: readonly VbaProjectClassMembers[];
 	/**
 	 * Members the module has that its own text never declares - a UserForm's
@@ -132,7 +132,7 @@ export interface MemberCompletion {
 	documentation?: string;
 	/** Raw documentation model, used by signature help for parameter notes. */
 	doc?: VbaDoc;
-	/** Source declaration locations, when this completion comes from workbook code. */
+	/** Source declaration locations, when this completion comes from project code. */
 	definitions?: readonly VbaProjectClassMemberDefinition[];
 	/** True when exported source marks this member as the VBA default member. */
 	defaultMember?: boolean;

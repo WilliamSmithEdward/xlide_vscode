@@ -1,5 +1,5 @@
 import * as path from 'path';
-import type { WorkbookEngine } from './workbookEngine';
+import type { ProjectEngine } from './projectEngine';
 import { checkExcelComAvailability, type ExcelComAvailabilityStatus } from './excelComAvailability';
 import { containerHostForPath } from './macroContainerUi';
 import { getVbaTestSupportStatus, type VbaTestSupportStatus } from './vbaTestSupportStatus';
@@ -51,7 +51,7 @@ let activeRunDescription: string | undefined;
 // gate, host run, artifact write) shared by the command-palette and agent
 // tool entry points. Callers adapt the result to their own presentation.
 export async function executeVbaTestRun(
-    bridge: WorkbookEngine,
+    bridge: ProjectEngine,
     filePath: string,
     options: ExecuteVbaTestRunOptions = {},
 ): Promise<VbaTestRunPipelineResult> {

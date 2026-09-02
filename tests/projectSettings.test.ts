@@ -3,13 +3,13 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import {
-	isWorkbookSettingsError,
-	readWorkbookSettings,
-	resolveWorkbookSetting,
-	settingsPathForWorkbook,
-	updateWorkbookSettings,
-	writeWorkbookSettings,
-} from '../src/workbookSettings';
+	isProjectSettingsError,
+	readProjectSettings,
+	resolveProjectSetting,
+	settingsPathForProject,
+	updateProjectSettings,
+	writeProjectSettings,
+} from '../src/projectSettings';
 
 const tempRoots: string[] = [];
 
@@ -19,37 +19,37 @@ afterEach(() => {
 	}
 });
 
-function tempWorkbook(): { root: string; workbook: string } {
+function tempWorkbook(): { root: string; project: string } {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-workbook-settings-'));
 	tempRoots.push(root);
-	const workbook = path.join(root, 'Book.xlsm');
-	fs.writeFileSync(workbook, '', 'utf8');
-	return { root, workbook };
+	const project = path.join(root, 'Book.xlsm');
+	fs.writeFileSync(project, '', 'utf8');
+	return { root, project };
 }
 
-describe('workbookSettings', () => {
-	it('resolves workbook overrides over global defaults with explicit source', () => {
+describe('projectSettings', () => {
+	it('resolves project overrides over global defaults with explicit source', () => {
 		const fallback = { value: ['error'], source: 'default' as const };
-		expect(resolveWorkbookSetting(['warning'], fallback)).toEqual({
+		expect(resolveProjectSetting(['warning'], fallback)).toEqual({
 			value: ['warning'],
-			source: 'workbook',
+			source: 'project',
 		});
-		expect(resolveWorkbookSetting(undefined, fallback)).toEqual({
+		expect(resolveProjectSetting(undefined, fallback)).toEqual({
 			value: ['error'],
 			source: 'default',
 		});
 	});
 
-	it('treats a missing workbook settings sidecar as no workbook settings', async () => {
-		const { workbook } = tempWorkbook();
+	it('treats a missing project settings sidecar as no project settings', async () => {
+		const { project } = tempWorkbook();
 
-		await expect(readWorkbookSettings(workbook)).resolves.toEqual({});
+		await expect(readProjectSettings(project)).resolves.toEqual({});
 	});
 
-	it('writes normalized workbook settings to the workbook sidecar', async () => {
-		const { workbook } = tempWorkbook();
+	it('writes normalized project settings to the project sidecar', async () => {
+		const { project } = tempWorkbook();
 
-		await writeWorkbookSettings(workbook, {
+		await writeProjectSettings(project, {
 			exportFolder: 'C:/repo',
 			exportMode: 'trueUp',
 			importMode: 'updateOnly',
@@ -67,7 +67,7 @@ describe('workbookSettings', () => {
 			},
 		});
 
-		expect(JSON.parse(fs.readFileSync(settingsPathForWorkbook(workbook), 'utf8'))).toEqual({
+		expect(JSON.parse(fs.readFileSync(settingsPathForProject(project), 'utf8'))).toEqual({
 			exportFolder: 'C:/repo',
 			exportMode: 'trueUp',
 			importMode: 'updateOnly',
@@ -85,9 +85,9 @@ describe('workbookSettings', () => {
 		});
 	});
 
-	it('updates workbook settings through one read-normalize-write owner', async () => {
-		const { workbook } = tempWorkbook();
-		await writeWorkbookSettings(workbook, {
+	it('updates project settings through one read-normalize-write owner', async () => {
+		const { project } = tempWorkbook();
+		await writeProjectSettings(project, {
 			exportFolder: 'C:/repo',
 			exportMode: 'exportAll',
 			analysis: {
@@ -95,7 +95,7 @@ describe('workbookSettings', () => {
 			},
 		});
 
-		await expect(updateWorkbookSettings(workbook, (existing) => ({
+		await expect(updateProjectSettings(project, (existing) => ({
 			...existing,
 			importMode: 'trueUpStandardClass',
 			analysis: {
@@ -112,49 +112,49 @@ describe('workbookSettings', () => {
 		});
 	});
 
-	it('can skip workbook settings writes when an update is unnecessary', async () => {
-		const { workbook } = tempWorkbook();
-		await writeWorkbookSettings(workbook, { exportFolder: 'C:/repo' });
-		const before = fs.readFileSync(settingsPathForWorkbook(workbook), 'utf8');
+	it('can skip project settings writes when an update is unnecessary', async () => {
+		const { project } = tempWorkbook();
+		await writeProjectSettings(project, { exportFolder: 'C:/repo' });
+		const before = fs.readFileSync(settingsPathForProject(project), 'utf8');
 
-		await expect(updateWorkbookSettings(workbook, () => undefined)).resolves.toEqual({
+		await expect(updateProjectSettings(project, () => undefined)).resolves.toEqual({
 			exportFolder: 'C:/repo',
 		});
 
-		expect(fs.readFileSync(settingsPathForWorkbook(workbook), 'utf8')).toBe(before);
+		expect(fs.readFileSync(settingsPathForProject(project), 'utf8')).toBe(before);
 	});
 
-	it('rejects invalid workbook settings JSON with the sidecar path', async () => {
-		const { workbook } = tempWorkbook();
-		fs.writeFileSync(settingsPathForWorkbook(workbook), '{ nope', 'utf8');
+	it('rejects invalid project settings JSON with the sidecar path', async () => {
+		const { project } = tempWorkbook();
+		fs.writeFileSync(settingsPathForProject(project), '{ nope', 'utf8');
 
-		await expect(readWorkbookSettings(workbook)).rejects.toMatchObject({
-			settingsPath: settingsPathForWorkbook(workbook),
-			name: 'WorkbookSettingsError',
+		await expect(readProjectSettings(project)).rejects.toMatchObject({
+			settingsPath: settingsPathForProject(project),
+			name: 'ProjectSettingsError',
 		});
-		await expect(readWorkbookSettings(workbook)).rejects.toThrow('Expected valid JSON');
+		await expect(readProjectSettings(project)).rejects.toThrow('Expected valid JSON');
 	});
 
-	it('recovers a workbook settings sidecar with trailing duplicate JSON and normalizes it on update', async () => {
-		const { workbook } = tempWorkbook();
+	it('recovers a project settings sidecar with trailing duplicate JSON and normalizes it on update', async () => {
+		const { project } = tempWorkbook();
 		fs.writeFileSync(
-			settingsPathForWorkbook(workbook),
+			settingsPathForProject(project),
 			`${JSON.stringify({ exportFolder: 'C:/old' })}\n${JSON.stringify({ exportFolder: 'C:/repo' })}\n`,
 			'utf8',
 		);
 
-		await expect(readWorkbookSettings(workbook)).resolves.toEqual({
+		await expect(readProjectSettings(project)).resolves.toEqual({
 			exportFolder: 'C:/repo',
 		});
 
-		await updateWorkbookSettings(workbook, (existing) => ({
+		await updateProjectSettings(project, (existing) => ({
 			...existing,
 			analysis: {
 				untrackedRules: ['option-explicit-missing'],
 			},
 		}));
 
-		expect(fs.readFileSync(settingsPathForWorkbook(workbook), 'utf8'))
+		expect(fs.readFileSync(settingsPathForProject(project), 'utf8'))
 			.toBe(`${JSON.stringify({
 				exportFolder: 'C:/repo',
 				analysis: {
@@ -163,15 +163,15 @@ describe('workbookSettings', () => {
 			}, null, 2)}\n`);
 	});
 
-	it('serializes concurrent workbook settings updates for the same sidecar', async () => {
-		const { workbook } = tempWorkbook();
+	it('serializes concurrent project settings updates for the same sidecar', async () => {
+		const { project } = tempWorkbook();
 
 		await Promise.all([
-			updateWorkbookSettings(workbook, (existing) => ({
+			updateProjectSettings(project, (existing) => ({
 				...existing,
 				exportFolder: 'C:/repo',
 			})),
-			updateWorkbookSettings(workbook, (existing) => ({
+			updateProjectSettings(project, (existing) => ({
 				...existing,
 				analysis: {
 					...existing.analysis,
@@ -180,7 +180,7 @@ describe('workbookSettings', () => {
 			})),
 		]);
 
-		expect(await readWorkbookSettings(workbook)).toEqual({
+		expect(await readProjectSettings(project)).toEqual({
 			exportFolder: 'C:/repo',
 			analysis: {
 				untrackedRules: ['option-explicit-missing'],
@@ -188,28 +188,28 @@ describe('workbookSettings', () => {
 		});
 	});
 
-	it('rejects non-object workbook settings', async () => {
-		const { workbook } = tempWorkbook();
-		fs.writeFileSync(settingsPathForWorkbook(workbook), '[]', 'utf8');
+	it('rejects non-object project settings', async () => {
+		const { project } = tempWorkbook();
+		fs.writeFileSync(settingsPathForProject(project), '[]', 'utf8');
 
-		await expect(readWorkbookSettings(workbook)).rejects.toThrow('Expected the root value to be a JSON object');
+		await expect(readProjectSettings(project)).rejects.toThrow('Expected the root value to be a JSON object');
 	});
 
-	it('rejects unknown workbook settings keys instead of ignoring them', async () => {
-		const { workbook } = tempWorkbook();
+	it('rejects unknown project settings keys instead of ignoring them', async () => {
+		const { project } = tempWorkbook();
 		fs.writeFileSync(
-			settingsPathForWorkbook(workbook),
+			settingsPathForProject(project),
 			`${JSON.stringify({ exportFolder: 'C:/repo', typoMode: true }, null, 2)}\n`,
 			'utf8',
 		);
 
-		await expect(readWorkbookSettings(workbook)).rejects.toThrow('Unknown setting "typoMode"');
+		await expect(readProjectSettings(project)).rejects.toThrow('Unknown setting "typoMode"');
 	});
 
 	it('lenient read keeps the valid subset of a stale sidecar instead of throwing', async () => {
-		const { workbook } = tempWorkbook();
+		const { project } = tempWorkbook();
 		fs.writeFileSync(
-			settingsPathForWorkbook(workbook),
+			settingsPathForProject(project),
 			`${JSON.stringify({
 				exportFolder: 'C:/repo',
 				legacyOption: true,
@@ -219,31 +219,31 @@ describe('workbookSettings', () => {
 		);
 
 		// Strict read (the settings editor) still surfaces a stale key as a typo.
-		await expect(readWorkbookSettings(workbook)).rejects.toThrow('Unknown setting "legacyOption"');
+		await expect(readProjectSettings(project)).rejects.toThrow('Unknown setting "legacyOption"');
 
 		// Lenient read (the diagnostics/apply path) never throws on version skew:
 		// it drops the unknown key and stale rule code and keeps the valid subset,
 		// so a stale sidecar cannot blast an error across every module.
-		const lenient = await readWorkbookSettings(workbook, { lenient: true });
+		const lenient = await readProjectSettings(project, { lenient: true });
 		expect(lenient.exportFolder).toBe('C:/repo');
 		expect(lenient.analysis?.ruleSeverityOverrides ?? {}).toEqual({});
 	});
 
-	it('rejects invalid workbook sync modes from disk', async () => {
-		const { workbook } = tempWorkbook();
+	it('rejects invalid project sync modes from disk', async () => {
+		const { project } = tempWorkbook();
 		fs.writeFileSync(
-			settingsPathForWorkbook(workbook),
+			settingsPathForProject(project),
 			`${JSON.stringify({ exportFolder: 'C:/repo', exportMode: 'anythingElse' }, null, 2)}\n`,
 			'utf8',
 		);
 
-		await expect(readWorkbookSettings(workbook)).rejects.toThrow('Expected "exportMode" to be "exportAll" or "trueUp"');
+		await expect(readProjectSettings(project)).rejects.toThrow('Expected "exportMode" to be "exportAll" or "trueUp"');
 	});
 
-	it('rejects invalid workbook analysis settings from disk', async () => {
-		const { workbook } = tempWorkbook();
+	it('rejects invalid project analysis settings from disk', async () => {
+		const { project } = tempWorkbook();
 		fs.writeFileSync(
-			settingsPathForWorkbook(workbook),
+			settingsPathForProject(project),
 			`${JSON.stringify({
 				analysis: {
 					visibleSeverities: ['error', 'hint'],
@@ -256,22 +256,22 @@ describe('workbookSettings', () => {
 		);
 
 		try {
-			await readWorkbookSettings(workbook);
-			throw new Error('Expected readWorkbookSettings to reject');
+			await readProjectSettings(project);
+			throw new Error('Expected readProjectSettings to reject');
 		} catch (err) {
-			expect(isWorkbookSettingsError(err)).toBe(true);
+			expect(isProjectSettingsError(err)).toBe(true);
 			expect(err).toMatchObject({
-				settingsPath: settingsPathForWorkbook(workbook),
+				settingsPath: settingsPathForProject(project),
 			});
 			expect(err instanceof Error ? err.message : String(err))
 				.toContain('Expected "analysis.visibleSeverities" entries');
 		}
 	});
 
-	it('rejects invalid workbook test settings from disk', async () => {
-		const { workbook } = tempWorkbook();
+	it('rejects invalid project test settings from disk', async () => {
+		const { project } = tempWorkbook();
 		fs.writeFileSync(
-			settingsPathForWorkbook(workbook),
+			settingsPathForProject(project),
 			`${JSON.stringify({
 				tests: {
 					artifactFolder: 123,
@@ -281,12 +281,12 @@ describe('workbookSettings', () => {
 			'utf8',
 		);
 
-		await expect(readWorkbookSettings(workbook)).rejects.toThrow(
+		await expect(readProjectSettings(project)).rejects.toThrow(
 			'Expected "tests.artifactFolder" to be a string.',
 		);
 
 		fs.writeFileSync(
-			settingsPathForWorkbook(workbook),
+			settingsPathForProject(project),
 			`${JSON.stringify({
 				tests: {
 					artifactFolder: 'tests',
@@ -296,15 +296,15 @@ describe('workbookSettings', () => {
 			'utf8',
 		);
 
-		await expect(readWorkbookSettings(workbook)).rejects.toThrow(
+		await expect(readProjectSettings(project)).rejects.toThrow(
 			'Expected "tests.artifactRetention" to be a positive integer.',
 		);
 	});
 
-	it('rejects invalid workbook rule severity overrides from disk', async () => {
-		const { workbook } = tempWorkbook();
+	it('rejects invalid project rule severity overrides from disk', async () => {
+		const { project } = tempWorkbook();
 		fs.writeFileSync(
-			settingsPathForWorkbook(workbook),
+			settingsPathForProject(project),
 			`${JSON.stringify({
 				analysis: {
 					ruleSeverityOverrides: {
@@ -315,7 +315,7 @@ describe('workbookSettings', () => {
 			'utf8',
 		);
 
-		await expect(readWorkbookSettings(workbook)).rejects.toThrow(
+		await expect(readProjectSettings(project)).rejects.toThrow(
 			'Expected "analysis.ruleSeverityOverrides.option-explicit-missing" to be one of: off.',
 		);
 	});

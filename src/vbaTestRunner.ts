@@ -1,5 +1,5 @@
 import * as path from 'path';
-import type { WorkbookEngine } from './workbookEngine';
+import type { ProjectEngine } from './projectEngine';
 import { parseModule } from './analyzer/parser/parseModule';
 import type { ModuleMember, ModuleNode, ProcedureNode, Span } from './analyzer/parser/nodes';
 import { lineStartOffsets } from './vbaSourceScan';
@@ -87,7 +87,7 @@ export interface VbaTestRunItem {
 
 export interface VbaTestRunReport {
     filePath: string;
-    workbookName: string;
+    projectName: string;
     startedAt: string;
     durationMs: number;
     discovery: VbaTestDiscoveryResult;
@@ -206,8 +206,8 @@ export function validateVbaTestDirectivesFromModule(
 }
 
 // Batch read of every module in one workbook open.
-async function listWorkbookModulesForDiscovery(
-    bridge: WorkbookEngine,
+async function listProjectModulesForDiscovery(
+    bridge: ProjectEngine,
     filePath: string,
 ): Promise<VbaTestModuleEntry[]> {
     const modules = await bridge.call<VbaTestModuleEntry[]>(
@@ -218,13 +218,13 @@ async function listWorkbookModulesForDiscovery(
 }
 
 export async function discoverWorkbookVbaTests(
-    bridge: WorkbookEngine,
+    bridge: ProjectEngine,
     filePath: string,
     selection?: VbaTestSelectionOptions,
 ): Promise<VbaTestDiscoveryResult> {
     return measurePerformance('vbaTests.discoverWorkbook', path.basename(filePath), async () => {
     const normalizedSelection = normalizeVbaTestSelection(selection);
-    const modules = await listWorkbookModulesForDiscovery(bridge, filePath);
+    const modules = await listProjectModulesForDiscovery(bridge, filePath);
     const orderedModules = [...modules].sort(compareVbaModulesForTreeOrder);
     const testableModules = orderedModules.filter((module) =>
         module.type === 'standard' &&
@@ -349,7 +349,7 @@ export function createVbaTestRunReport(input: {
 }): VbaTestRunReport {
     return {
         filePath: input.filePath,
-        workbookName: path.basename(input.filePath),
+        projectName: path.basename(input.filePath),
         startedAt: input.startedAt.toISOString(),
         durationMs: input.durationMs,
         discovery: input.discovery,

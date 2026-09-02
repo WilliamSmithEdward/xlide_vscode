@@ -1,7 +1,7 @@
 // Live VBA diagnostics engine: runs the analyzer's module analysis on open
 // and (debounced) on every edit. Local/full pass scheduling and generation
 // tracking live in DiagnosticScheduler; the engine adds a TTL'd
-// analysis-settings cache and per-workbook settings-sidecar
+// analysis-settings cache and per-project settings-sidecar
 // FileSystemWatcher lifecycle.
 //
 // Extracted verbatim from vbaLanguageProviders.ts (audit #21).
@@ -12,7 +12,7 @@ import {
     XLIDE_SCHEME,
     isVbaDocument,
     moduleIdentityKey,
-    workbookIdentityKey,
+    projectIdentityKey,
 } from './xlideFileSystem';
 import { analysisSourceForDocument, moduleLocationOfDocument, moduleNameFromDocument } from './vbaDocumentIdentity';
 import { onDidChangeVb6Projects } from './vb6ProjectLocator';
@@ -36,11 +36,11 @@ import {
     isAnalysisRuleTracked,
 } from './analysisSettingsCore';
 import {
-    effectiveWorkbookAnalysisSettings,
-    type EffectiveWorkbookAnalysisSettings,
-} from './workbookAnalysisSettings';
+    effectiveProjectAnalysisSettings,
+    type EffectiveProjectAnalysisSettings,
+} from './projectAnalysisSettings';
 import { startPerformanceTrace } from './performanceTrace';
-import { isWorkbookSettingsError, settingsPathForWorkbook } from './workbookSettings';
+import { isProjectSettingsError, settingsPathForProject } from './projectSettings';
 import {
     validateXlideGlobalSettingsFromConfig,
     xlideDiagnosticsEnabledFromConfig,
@@ -53,8 +53,8 @@ import {
     type XlideDiagnosticWithData,
 } from './xlideDiagnosticData';
 
-function workbookContextKey(xlsmPath: string): string {
-    return workbookIdentityKey(path.resolve(xlsmPath));
+function projectContextKey(projectPath: string): string {
+    return projectIdentityKey(path.resolve(projectPath));
 }
 
 const DIAGNOSTIC_OPEN_LOCAL_DELAY_MS = 25;
@@ -67,7 +67,7 @@ const DIAGNOSTIC_EDIT_FULL_DELAY_MS = 450;
 // to pace around, so it keeps the flat fast cadence.
 const DIAGNOSTIC_LARGE_MODULE_LINES = 8000;
 const DIAGNOSTIC_EDIT_FULL_DELAY_MAX_MS = 2000;
-// While the workbook has not yet reported a module's kind (backend starting on
+// While the project has not yet reported a module's kind (backend starting on
 // first open), kind-sensitive analysis is deferred and retried instead of
 // guessing 'standard' - which floods class modules with bogus Me/Friend errors.
 const FULL_PASS_METADATA_RETRY_MS = 750;
@@ -114,7 +114,7 @@ export function editScheduleDelaysFor(
         : DIAGNOSTIC_EDIT_FULL_DELAY_MS;
     // The in-host local pass is a full module analysis, not just structure, so
     // on a large module it blocks the extension host for hundreds of ms. With
-    // no worker to absorb that: workbook documents drop the local pass (the
+    // no worker to absorb that: project documents drop the local pass (the
     // paced full pass above covers them - running both would block the host
     // twice for one result), and loose .bas documents - which never get a full
     // pass - keep a local pass paced to the same backoff.
@@ -218,29 +218,29 @@ class DiagnosticScheduler {
 }
 
 /**
- * Lazily creates one FileSystemWatcher per workbook settings sidecar the
- * first time a module of that workbook is analyzed, notifies the engine when
- * the sidecar changes, and prunes watchers for workbooks that no longer have
+ * Lazily creates one FileSystemWatcher per project settings sidecar the
+ * first time a module of that project is analyzed, notifies the engine when
+ * the sidecar changes, and prunes watchers for projects that no longer have
  * open XLIDE documents.
  */
-class WorkbookSettingsWatcherRegistry implements vscode.Disposable {
+class ProjectSettingsWatcherRegistry implements vscode.Disposable {
     private readonly _watchers = new Map<string, vscode.Disposable[]>();
 
     constructor(
-        private readonly _onSettingsChanged: (workbookPath: string) => void,
+        private readonly _onSettingsChanged: (projectPath: string) => void,
     ) {}
 
-    ensure(workbookPath: string): void {
-        const key = workbookContextKey(workbookPath);
+    ensure(projectPath: string): void {
+        const key = projectContextKey(projectPath);
         if (this._watchers.has(key)) {
             return;
         }
-        const settingsPath = settingsPathForWorkbook(workbookPath);
+        const settingsPath = settingsPathForProject(projectPath);
         const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(
             path.dirname(settingsPath),
             path.basename(settingsPath),
         ));
-        const rerun = () => this._onSettingsChanged(workbookPath);
+        const rerun = () => this._onSettingsChanged(projectPath);
         this._watchers.set(key, [
             watcher.onDidCreate(rerun),
             watcher.onDidChange(rerun),
@@ -250,15 +250,15 @@ class WorkbookSettingsWatcherRegistry implements vscode.Disposable {
     }
 
     prune(): void {
-        const openWorkbookKeys = new Set<string>();
+        const openProjectKeys = new Set<string>();
         for (const document of vscode.workspace.textDocuments) {
             const location = moduleLocationOfDocument(document);
             if (location) {
-                openWorkbookKeys.add(workbookContextKey(location.xlsmPath));
+                openProjectKeys.add(projectContextKey(location.projectPath));
             }
         }
         for (const [key, disposables] of this._watchers) {
-            if (openWorkbookKeys.has(key)) {
+            if (openProjectKeys.has(key)) {
                 continue;
             }
             disposables.forEach((disposable) => disposable.dispose());
@@ -280,7 +280,7 @@ class WorkbookSettingsWatcherRegistry implements vscode.Disposable {
  * duplicate procedures/declarations, assignment to a constant, and a
  * configurable Option Explicit reminder. Runs on open and (debounced) on every
  * edit so problems surface while typing, the way a real IDE does. No save and
- * no workbook round-trip required - everything is computed from the editor text.
+ * no project round-trip required - everything is computed from the editor text.
  */
 export function registerVbaDiagnostics(
     context: vscode.ExtensionContext,
@@ -292,7 +292,7 @@ export function registerVbaDiagnostics(
         (document, generation, pass) => runPass(document, generation, pass),
         () => workerClient?.available === true,
     );
-    // Last-known workbook metadata per document, learned from successful full
+    // Last-known project metadata per document, learned from successful full
     // passes. Local passes reuse it so they never analyze a class module under
     // a guessed 'standard' kind (the Me/Friend false-error flood); until the
     // kind is known, passes publish nothing and the deferred full pass leads.
@@ -302,16 +302,16 @@ export function registerVbaDiagnostics(
         documentType?: EventHandlerDocumentType;
     }>();
     const fullPassMetadataRetries = new Map<string, number>();
-    const settingsWatchers = new WorkbookSettingsWatcherRegistry((workbookPath) => {
-        invalidateAnalysisSettingsForWorkbook(workbookPath);
-        rerunWorkbookDocuments(workbookPath);
+    const settingsWatchers = new ProjectSettingsWatcherRegistry((projectPath) => {
+        invalidateAnalysisSettingsForProject(projectPath);
+        rerunProjectDocuments(projectPath);
     });
     const analysisSettingsCache = new Map<string, {
         loadedAt: number;
-        promise: Promise<EffectiveWorkbookAnalysisSettings>;
+        promise: Promise<EffectiveProjectAnalysisSettings>;
     }>();
 
-    const workbookKey = (workbookPath: string): string => workbookContextKey(workbookPath);
+    const projectKey = (projectPath: string): string => projectContextKey(projectPath);
 
     const severityToVscode = (s: RuleSeverity): vscode.DiagnosticSeverity => {
         switch (s) {
@@ -396,9 +396,9 @@ export function registerVbaDiagnostics(
     ): vscode.Diagnostic => {
         const firstLine = document.lineCount > 0 ? document.lineAt(0).text : '';
         const range = new vscode.Range(0, 0, 0, Math.min(firstLine.length, 1));
-        const settingsError = isWorkbookSettingsError(err);
+        const settingsError = isProjectSettingsError(err);
         const message = settingsError
-            ? `${err.message} Fix or delete the workbook settings sidecar.`
+            ? `${err.message} Fix or delete the project settings sidecar.`
             : `XLIDE diagnostics failed: ${errorMessage(err)}`;
         const diagnostic = new vscode.Diagnostic(
             range,
@@ -406,7 +406,7 @@ export function registerVbaDiagnostics(
             vscode.DiagnosticSeverity.Error,
         );
         diagnostic.source = settingsError ? 'XLIDE/settings' : 'XLIDE';
-        diagnostic.code = settingsError ? 'workbook-settings-invalid' : 'diagnostics-failed';
+        diagnostic.code = settingsError ? 'project-settings-invalid' : 'diagnostics-failed';
         return diagnostic;
     };
 
@@ -428,26 +428,26 @@ export function registerVbaDiagnostics(
         });
     };
 
-    const invalidateAnalysisSettingsForWorkbook = (workbookPath: string | undefined): void => {
-        if (!workbookPath) {
+    const invalidateAnalysisSettingsForProject = (projectPath: string | undefined): void => {
+        if (!projectPath) {
             analysisSettingsCache.clear();
             return;
         }
-        analysisSettingsCache.delete(workbookKey(workbookPath));
+        analysisSettingsCache.delete(projectKey(projectPath));
     };
 
     const analysisSettingsForDiagnostics = (
-        workbookPath: string | undefined,
-    ): Promise<EffectiveWorkbookAnalysisSettings> => {
-        if (!workbookPath) {
-            return effectiveWorkbookAnalysisSettings(undefined);
+        projectPath: string | undefined,
+    ): Promise<EffectiveProjectAnalysisSettings> => {
+        if (!projectPath) {
+            return effectiveProjectAnalysisSettings(undefined);
         }
-        const key = workbookKey(workbookPath);
+        const key = projectKey(projectPath);
         const cached = analysisSettingsCache.get(key);
         if (cached && Date.now() - cached.loadedAt < DIAGNOSTIC_ANALYSIS_SETTINGS_CACHE_TTL_MS) {
             return cached.promise;
         }
-        const promise = effectiveWorkbookAnalysisSettings(workbookPath).catch((err) => {
+        const promise = effectiveProjectAnalysisSettings(projectPath).catch((err) => {
             if (analysisSettingsCache.get(key)?.promise === promise) {
                 analysisSettingsCache.delete(key);
             }
@@ -489,25 +489,24 @@ export function registerVbaDiagnostics(
         const text = analysisSourceForDocument(document);
 
         const moduleName = moduleNameFromDocument(document);
-        let workbookPath: string | undefined;
+        let projectPath: string | undefined;
         let moduleType: string | undefined;
         let moduleKind: ModuleSymbolKind | undefined;
         let documentType: EventHandlerDocumentType | undefined;
         let projectOptions: VbaProjectAnalysisOptions = {};
-        let workbookRecord: Awaited<ReturnType<VbaProjectIndexService['contextForWorkbook']>> | undefined;
+        let projectRecord: Awaited<ReturnType<VbaProjectIndexService['contextForProject']>> | undefined;
         // A loose document (a .bas on disk no project claims) has no metadata
-        // source and keeps the historical standard-kind analysis. A workbook
+        // source and keeps the historical standard-kind analysis. A project
         // module and a VB6 project's file both have a project to ask.
         const location = moduleLocationOfDocument(document);
         let moduleMetadataKnown = location === undefined;
         if (location) {
             try {
-                const xlsmPath = location.xlsmPath;
-                workbookPath = xlsmPath;
-                settingsWatchers.ensure(xlsmPath);
+                projectPath = location.projectPath;
+                settingsWatchers.ensure(projectPath);
                 if (pass === 'full' || workerClient?.available === true) {
-                    const diagnosticProject = await projectIndexService.contextForWorkbook(xlsmPath);
-                    workbookRecord = diagnosticProject;
+                    const diagnosticProject = await projectIndexService.contextForProject(projectPath);
+                    projectRecord = diagnosticProject;
                     const current = diagnosticProject.moduleMetadata.get(moduleIdentityKey(moduleName));
                     if (current) {
                         moduleMetadataKnown = true;
@@ -537,8 +536,8 @@ export function registerVbaDiagnostics(
             }
         }
         if (!moduleMetadataKnown) {
-            // The workbook has not reported this module's kind yet (typically
-            // the workbook has not been indexed yet on first open). Analyzing
+            // The project has not reported this module's kind yet (typically
+            // the project has not been indexed yet on first open). Analyzing
             // with a guessed 'standard' kind floods class modules with bogus
             // "'Me' is only valid in a class..." errors until a later pass
             // corrects them - publish nothing and retry the full pass instead.
@@ -554,7 +553,7 @@ export function registerVbaDiagnostics(
         }
         fullPassMetadataRetries.delete(key);
 
-        const analysisSettings = await analysisSettingsForDiagnostics(workbookPath);
+        const analysisSettings = await analysisSettingsForDiagnostics(projectPath);
         const activeEditor = vscode.window.activeTextEditor;
         const activeIncompleteExpressionOffset = activeEditor?.document === document
             ? document.offsetAt(activeEditor.selection.active)
@@ -567,10 +566,10 @@ export function registerVbaDiagnostics(
         // and keeps per-document incremental state, so the follow-up full pass
         // of the same generation re-analyzes only what changed. Any failure
         // falls through to the identical in-host pass below.
-        if (workerClient?.available && workbookPath && workbookRecord) {
+        if (workerClient?.available && projectPath && projectRecord) {
             try {
-                const record = workbookRecord;
-                const wbKey = workbookKey(workbookPath);
+                const record = projectRecord;
+                const wbKey = projectKey(projectPath);
                 const crossGeneration = record.crossModuleGeneration(moduleName);
                 workerClient.ensureSeeded(wbKey, crossGeneration, () => record.modules.map((m) => ({
                     moduleName: m.moduleName,
@@ -582,7 +581,7 @@ export function registerVbaDiagnostics(
                 })));
                 const workerResult = await workerClient.analyze({
                     docKey: key,
-                    workbookKey: wbKey,
+                    projectKey: wbKey,
                     generation: crossGeneration,
                     source: text,
                     moduleName,
@@ -591,7 +590,7 @@ export function registerVbaDiagnostics(
                     documentType,
                     severityOverrides: analysisSettings.ruleSeverityOverrides,
                     activeIncompleteExpressionOffset,
-                    host: workbookPath ? hostTokenForFileName(workbookPath) : undefined,
+                    host: projectPath ? hostTokenForFileName(projectPath) : undefined,
                 });
                 const diagnostics = diagnosticsFromModuleAnalysis(
                     document,
@@ -616,7 +615,7 @@ export function registerVbaDiagnostics(
             severityOverrides: analysisSettings.ruleSeverityOverrides,
             ...projectOptions,
             activeIncompleteExpressionOffset,
-            host: workbookPath ? hostTokenForFileName(workbookPath) : undefined,
+            host: projectPath ? hostTokenForFileName(projectPath) : undefined,
         });
         const diagnostics = diagnosticsFromModuleAnalysis(
             document,
@@ -680,11 +679,11 @@ export function registerVbaDiagnostics(
         publish(document.uri, documentVersion, diagnostics);
     };
 
-    const rerunWorkbookDocuments = (workbookPath: string): void => {
-        const key = workbookKey(workbookPath);
+    const rerunProjectDocuments = (projectPath: string): void => {
+        const key = projectKey(projectPath);
         for (const document of vscode.workspace.textDocuments) {
             const location = moduleLocationOfDocument(document);
-            if (location && workbookKey(location.xlsmPath) === key) {
+            if (location && projectKey(location.projectPath) === key) {
                 run(document);
             }
         }
@@ -760,7 +759,7 @@ export function registerVbaDiagnostics(
         vscode.workspace.onDidChangeConfiguration((e) => {
             if (e.affectsConfiguration('xlide.diagnostics') ||
                 e.affectsConfiguration('xlide.analysis')) {
-                invalidateAnalysisSettingsForWorkbook(undefined);
+                invalidateAnalysisSettingsForProject(undefined);
                 vscode.workspace.textDocuments.forEach((document) => run(document));
             }
         }),

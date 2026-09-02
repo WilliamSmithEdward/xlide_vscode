@@ -10,8 +10,8 @@ import {
     decodeModuleUri,
     encodeModuleUri,
     moduleIdentityKey,
-    sameWorkbookPath,
-    workbookIdentityKey,
+    sameProjectPath,
+    projectIdentityKey,
     XlideFileSystemProvider,
 } from '../src/xlideFileSystem';
 
@@ -20,8 +20,8 @@ function fakeUri(uriPath: string): VscodeType.Uri {
     return { path: uriPath, toString: () => uriPath } as VscodeType.Uri;
 }
 
-function moduleUriPath(workbookPath: string, moduleName = 'Module1'): string {
-    const forward = workbookPath.replace(/\\/g, '/');
+function moduleUriPath(projectPath: string, moduleName = 'Module1'): string {
+    const forward = projectPath.replace(/\\/g, '/');
     const base = forward.startsWith('/') ? forward : `/${forward}`;
     return `${base}/${moduleName}.bas`;
 }
@@ -39,9 +39,9 @@ describe('decodeModuleUri', () => {
             ['/work/Old.mdb/Module1.bas', 'Module1'],
         ];
         for (const [uriPath, expectedModule] of cases) {
-            const { moduleName, xlsmPath } = decodeModuleUri(fakeUri(uriPath));
+            const { moduleName, projectPath } = decodeModuleUri(fakeUri(uriPath));
             expect(moduleName, uriPath).toBe(expectedModule);
-            expect(xlsmPath.toLowerCase(), uriPath).toContain(uriPath.split('/')[2].toLowerCase());
+            expect(projectPath.toLowerCase(), uriPath).toContain(uriPath.split('/')[2].toLowerCase());
         }
     });
 
@@ -67,12 +67,12 @@ describe('decodeModuleUri', () => {
         expect(moduleName).toBe('Helpers');
     });
 
-    it('xlsmPath ends with the workbook filename', () => {
-        const { xlsmPath } = decodeModuleUri(fakeUri('/home/user/mybook.xlsm/Module1.bas'));
-        expect(xlsmPath.endsWith('mybook.xlsm')).toBe(true);
+    it('projectPath ends with the project filename', () => {
+        const { projectPath } = decodeModuleUri(fakeUri('/home/user/mybook.xlsm/Module1.bas'));
+        expect(projectPath.endsWith('mybook.xlsm')).toBe(true);
     });
 
-    it('throws on a path with no recognised workbook extension', () => {
+    it('throws on a path with no recognised project extension', () => {
         expect(() => decodeModuleUri(fakeUri('/home/user/file.txt'))).toThrow();
     });
 
@@ -80,39 +80,39 @@ describe('decodeModuleUri', () => {
         expect(() => decodeModuleUri(fakeUri('/home/user/workbook.xlsm/'))).toThrow();
     });
 
-    it('round-trips workbook paths containing reserved characters (# and %)', () => {
+    it('round-trips project paths containing reserved characters (# and %)', () => {
         // Built from a structured path (Uri.from), these must survive encode ->
         // decode rather than being split on '#' or having '%xx' decoded.
-        for (const workbookPath of [
+        for (const projectPath of [
             '/home/user/My #1 Book.xlsm',
             '/home/user/50%done.xlsm',
             '/home/user/report%20v2.xlsm',
         ]) {
-            const uri = encodeModuleUri(workbookPath, 'Module1');
+            const uri = encodeModuleUri(projectPath, 'Module1');
             const decoded = decodeModuleUri(uri);
             expect(decoded.moduleName).toBe('Module1');
-            expect(decoded.xlsmPath.replace(/\\/g, '/')).toBe(workbookPath);
+            expect(decoded.projectPath.replace(/\\/g, '/')).toBe(projectPath);
         }
     });
 });
 
-describe('workbook identity helpers', () => {
-    it('normalizes workbook paths case-insensitively on Windows only', () => {
-        expect(workbookIdentityKey('C:/Repo/Book.xlsm', 'win32')).toBe('c:\\repo\\book.xlsm');
-        expect(workbookIdentityKey('/Users/me/Book.xlsm', 'darwin')).toBe('/Users/me/Book.xlsm');
-        expect(sameWorkbookPath('C:/Repo/Book.xlsm', 'c:/repo/book.xlsm', 'win32')).toBe(true);
-        expect(sameWorkbookPath('C:/Repo/Book.xlsm', 'C:\\Repo\\Book.xlsm', 'win32')).toBe(true);
-        expect(sameWorkbookPath('/repo/Book.xlsm', '/repo/book.xlsm', 'linux')).toBe(false);
+describe('project identity helpers', () => {
+    it('normalizes project paths case-insensitively on Windows only', () => {
+        expect(projectIdentityKey('C:/Repo/Book.xlsm', 'win32')).toBe('c:\\repo\\book.xlsm');
+        expect(projectIdentityKey('/Users/me/Book.xlsm', 'darwin')).toBe('/Users/me/Book.xlsm');
+        expect(sameProjectPath('C:/Repo/Book.xlsm', 'c:/repo/book.xlsm', 'win32')).toBe(true);
+        expect(sameProjectPath('C:/Repo/Book.xlsm', 'C:\\Repo\\Book.xlsm', 'win32')).toBe(true);
+        expect(sameProjectPath('/repo/Book.xlsm', '/repo/book.xlsm', 'linux')).toBe(false);
     });
 
-    it('normalizes VBA module identity independent of workbook identity', () => {
+    it('normalizes VBA module identity independent of project identity', () => {
         expect(moduleIdentityKey('Module1')).toBe('module1');
         expect(moduleIdentityKey('Person')).toBe(moduleIdentityKey('person'));
     });
 });
 
 describe('XlideFileSystemProvider stats', () => {
-    it('falls back to provider-owned mtimes when the workbook file cannot be statted', () => {
+    it('falls back to provider-owned mtimes when the project file cannot be statted', () => {
         const uri = fakeUri(moduleUriPath('C:/xlide-does-not-exist/book.xlsm'));
         const firstProvider = new XlideFileSystemProvider({ call: vi.fn() } as never);
         const secondProvider = new XlideFileSystemProvider({ call: vi.fn() } as never);
@@ -167,31 +167,31 @@ describe('XlideFileSystemProvider stats', () => {
     });
 });
 
-describe('XlideFileSystemProvider stats (real workbook file)', () => {
+describe('XlideFileSystemProvider stats (real project file)', () => {
     const t0 = Date.parse('2024-01-01T00:00:00Z');
     const t1 = Date.parse('2024-01-02T00:00:00Z');
     const t2 = Date.parse('2024-01-03T00:00:00Z');
     let tempDir: string;
-    let workbookPath: string;
+    let projectPath: string;
 
     beforeEach(() => {
         tempDir = fs.mkdtempSync(nodePath.join(os.tmpdir(), 'xlide-fs-stats-'));
-        workbookPath = nodePath.join(tempDir, 'book.xlsm');
-        fs.writeFileSync(workbookPath, 'stub');
-        setWorkbookMtime(t0);
+        projectPath = nodePath.join(tempDir, 'book.xlsm');
+        fs.writeFileSync(projectPath, 'stub');
+        setProjectMtime(t0);
     });
 
     afterEach(() => {
         fs.rmSync(tempDir, { recursive: true, force: true });
     });
 
-    function setWorkbookMtime(ms: number): void {
-        fs.utimesSync(workbookPath, new Date(ms), new Date(ms));
+    function setProjectMtime(ms: number): void {
+        fs.utimesSync(projectPath, new Date(ms), new Date(ms));
     }
 
-    it('derives module mtimes from the backing workbook file', () => {
+    it('derives module mtimes from the backing project file', () => {
         const provider = new XlideFileSystemProvider({ call: vi.fn() } as never);
-        const uri = fakeUri(moduleUriPath(workbookPath));
+        const uri = fakeUri(moduleUriPath(projectPath));
 
         const stat = provider.stat(uri);
 
@@ -199,30 +199,30 @@ describe('XlideFileSystemProvider stats (real workbook file)', () => {
         expect(stat.ctime).toBe(t0);
     });
 
-    it('bumps every open module stat when the workbook changes out of band', () => {
+    it('bumps every open module stat when the project changes out of band', () => {
         const provider = new XlideFileSystemProvider({ call: vi.fn() } as never);
-        const uriA = fakeUri(moduleUriPath(workbookPath, 'ModuleA'));
-        const uriB = fakeUri(moduleUriPath(workbookPath, 'ModuleB'));
+        const uriA = fakeUri(moduleUriPath(projectPath, 'ModuleA'));
+        const uriB = fakeUri(moduleUriPath(projectPath, 'ModuleB'));
         expect(provider.stat(uriA).mtime).toBe(t0);
         expect(provider.stat(uriB).mtime).toBe(t0);
 
-        setWorkbookMtime(t1);
+        setProjectMtime(t1);
 
         expect(provider.stat(uriA).mtime).toBe(t1);
         expect(provider.stat(uriB).mtime).toBe(t1);
     });
 
-    it('does not flag sibling modules when the provider itself saves the workbook', async () => {
+    it('does not flag sibling modules when the provider itself saves the project', async () => {
         const bridge = {
             call: vi.fn(async () => {
                 // The bridge saves the workbook in place
-                setWorkbookMtime(t1);
+                setProjectMtime(t1);
                 return { ok: true, signatureDropped: false };
             }),
         };
         const provider = new XlideFileSystemProvider(bridge as never);
-        const uriA = fakeUri(moduleUriPath(workbookPath, 'ModuleA'));
-        const uriB = fakeUri(moduleUriPath(workbookPath, 'ModuleB'));
+        const uriA = fakeUri(moduleUriPath(projectPath, 'ModuleA'));
+        const uriB = fakeUri(moduleUriPath(projectPath, 'ModuleB'));
         expect(provider.stat(uriA).mtime).toBe(t0);
         expect(provider.stat(uriB).mtime).toBe(t0);
 
@@ -235,18 +235,18 @@ describe('XlideFileSystemProvider stats (real workbook file)', () => {
         expect(provider.stat(uriB).mtime).toBe(t0);
 
         // ...but a later out-of-band change (e.g. Excel VBE edit) is seen
-        setWorkbookMtime(t2);
+        setProjectMtime(t2);
         expect(provider.stat(uriB).mtime).toBe(t2);
     });
 
-    it('adopts the new workbook mtime via notifyFileChanged without disturbing siblings', () => {
+    it('adopts the new project mtime via notifyFileChanged without disturbing siblings', () => {
         const provider = new XlideFileSystemProvider({ call: vi.fn() } as never);
-        const uriA = fakeUri(moduleUriPath(workbookPath, 'ModuleA'));
-        const uriB = fakeUri(moduleUriPath(workbookPath, 'ModuleB'));
+        const uriA = fakeUri(moduleUriPath(projectPath, 'ModuleA'));
+        const uriB = fakeUri(moduleUriPath(projectPath, 'ModuleB'));
         expect(provider.stat(uriA).mtime).toBe(t0);
         expect(provider.stat(uriB).mtime).toBe(t0);
 
-        setWorkbookMtime(t1);
+        setProjectMtime(t1);
         provider.notifyFileChanged(uriA);
 
         expect(provider.stat(uriA).mtime).toBe(t1);

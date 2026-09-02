@@ -7,9 +7,9 @@ PowerPoint, or Access - without driving the XLIDE panels by hand.
 
 ## Recommended Agent Flow
 
-1. Discover the target file with `xlide_listWorkbooks` (it lists every macro
+1. Discover the target file with `xlide_listProjects` (it lists every macro
    container and every VB6 `.vbp` project) or confirm structure with
-   `xlide_getWorkbookInfo`.
+   `xlide_getProjectInfo`.
 2. Read the file's VBA with `xlide_readModule`.
 3. Write changes with `xlide_writeModule` or the other module tools. Access
    files refuse writes with the reason (compiled p-code). Each chat-driven
@@ -17,7 +17,7 @@ PowerPoint, or Access - without driving the XLIDE panels by hand.
    the module (` ● agent edit`) with inline Keep and Revert actions until
    they decide - no notifications, and reverting a module the write created
    removes it. `xlide.agent.showWriteDiffs` turns the review off.
-4. Run `xlide_analyzeWorkbook` and treat an empty `problems` array as analysis
+4. Run `xlide_analyzeProject` and treat an empty `problems` array as analysis
    pass.
 5. Run `xlide_runVbaTests` to execute discovered `@xlide-test` procedures
    through the production read-only test host of the file's own application
@@ -50,7 +50,7 @@ If setup is incomplete, the tool returns `blocked: true` with `reason:
 
 ## Analysis Contract
 
-`xlide_analyzeWorkbook` uses the same analyzer that powers editor diagnostics.
+`xlide_analyzeProject` uses the same analyzer that powers editor diagnostics.
 Problems include module, line, column, severity, code, and message. Test
 directives such as `expected-error` suppress only the intentionally expected
 deterministic runtime diagnostic path inside that test procedure; unrelated

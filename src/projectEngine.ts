@@ -1,4 +1,4 @@
-// Native workbook engine.
+// Native project engine.
 //
 // Exposes the request/response surface the extension already speaks
 // (`call(method, params)`) but answers every method in-process from
@@ -7,8 +7,8 @@
 // unchanged.
 
 import * as vscode from 'vscode';
-import { WorkbookEngineError } from './workbookEngineErrors';
-import * as svc from './vba/workbookService';
+import { ProjectEngineError } from './projectEngineErrors';
+import * as svc from './vba/projectService';
 import type { CellValue } from './vba/xlsx';
 
 type Params = Record<string, unknown>;
@@ -16,7 +16,7 @@ type Params = Record<string, unknown>;
 function str(params: Params, key: string): string {
 	const value = params[key];
 	if (typeof value !== 'string' || value.length === 0) {
-		throw new WorkbookEngineError(`Missing required '${key}' parameter.`, -32602);
+		throw new ProjectEngineError(`Missing required '${key}' parameter.`, -32602);
 	}
 	return value;
 }
@@ -29,12 +29,12 @@ function optionalBool(params: Params, key: string, fallback = false): boolean {
 function grid(params: Params, key: string): CellValue[][] {
 	const value = params[key];
 	if (!Array.isArray(value)) {
-		throw new WorkbookEngineError(`Missing required '${key}' parameter.`, -32602);
+		throw new ProjectEngineError(`Missing required '${key}' parameter.`, -32602);
 	}
 	return value.map((row) => (Array.isArray(row) ? row : [row]) as CellValue[]);
 }
 
-export class WorkbookEngine implements vscode.Disposable {
+export class ProjectEngine implements vscode.Disposable {
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
 		private readonly _out?: vscode.OutputChannel,
@@ -53,19 +53,19 @@ export class WorkbookEngine implements vscode.Disposable {
 		const lower = targetPath.toLowerCase();
 		const extension = /\.([a-z0-9]+)$/.exec(lower)?.[1] ?? '';
 		if (['xls', 'xlt', 'xla', 'doc', 'dot', 'ppt', 'ppa'].includes(extension)) {
-			throw new WorkbookEngineError(
+			throw new ProjectEngineError(
 				`Creating new legacy-format files (.${extension}) is not supported; create the modern macro format and use the Office app to save down.`,
 				-32602,
 			);
 		}
 		if (extension === 'ppam') {
-			throw new WorkbookEngineError(
+			throw new ProjectEngineError(
 				'PowerPoint add-ins are saved from a presentation; create a .pptm and use PowerPoint to save it as an add-in.',
 				-32602,
 			);
 		}
 		if (['accdb', 'accda', 'mdb', 'mda'].includes(extension)) {
-			throw new WorkbookEngineError(
+			throw new ProjectEngineError(
 				'Access databases cannot be created by XLIDE (Access files are read-only).',
 				-32602,
 			);
@@ -74,13 +74,13 @@ export class WorkbookEngine implements vscode.Disposable {
 			// A slideshow's package content type differs from a presentation's,
 			// and renaming a .pptm cannot change it - there is no authored
 			// .ppsm template to seed from.
-			throw new WorkbookEngineError(
+			throw new ProjectEngineError(
 				'Creating .ppsm slideshows is not supported; create a .pptm and use PowerPoint to save it as a slideshow.',
 				-32602,
 			);
 		}
 		if (['xlsx', 'xltx', 'docx', 'dotx', 'pptx', 'potx', 'csv'].includes(extension)) {
-			throw new WorkbookEngineError(
+			throw new ProjectEngineError(
 				`.${extension} is not a macro-enabled format, so it cannot hold a VBA project; use .xlsm, .docm, or .pptm instead.`,
 				-32602,
 			);
@@ -112,12 +112,12 @@ export class WorkbookEngine implements vscode.Disposable {
 		try {
 			return this.dispatch(method, p) as T;
 		} catch (err) {
-			if (err instanceof WorkbookEngineError || err instanceof vscode.CancellationError) {
+			if (err instanceof ProjectEngineError || err instanceof vscode.CancellationError) {
 				throw err;
 			}
 			const message = err instanceof Error ? err.message : String(err);
-			this._out?.appendLine(`[workbook] ${method} failed: ${message}`);
-			throw new WorkbookEngineError(message, -32000);
+			this._out?.appendLine(`[project] ${method} failed: ${message}`);
+			throw new ProjectEngineError(message, -32000);
 		}
 	}
 
@@ -179,18 +179,18 @@ export class WorkbookEngine implements vscode.Disposable {
 					typeof p.frmDesignerBlock === 'string' ? p.frmDesignerBlock : undefined,
 				);
 
-			// --- workbook structure ---
+			// --- project structure ---
 			case 'getProtectionInfo':
 				return svc.getProtectionInfo(str(p, 'path'));
 			case 'getModulesAndProtectionInfo':
 				return svc.getModulesAndProtectionInfo(str(p, 'path'));
-			case 'getWorkbookInfo':
-				return svc.getWorkbookInfo(str(p, 'path'));
-			case 'validateWorkbook':
-				return svc.validateWorkbook(str(p, 'path'));
-			case 'createWorkbook': {
+			case 'getProjectInfo':
+				return svc.getProjectInfo(str(p, 'path'));
+			case 'validateProject':
+				return svc.validateProject(str(p, 'path'));
+			case 'createProject': {
 				const target = str(p, 'path');
-				return svc.createWorkbook(target, this.templatePathFor(target));
+				return svc.createProject(target, this.templatePathFor(target));
 			}
 
 			// --- sheets and cells ---
@@ -204,7 +204,7 @@ export class WorkbookEngine implements vscode.Disposable {
 				return svc.writeCells(str(p, 'path'), str(p, 'sheet'), str(p, 'startCell'), grid(p, 'data'));
 
 			default:
-				throw new WorkbookEngineError(`Method not found: ${method}`, -32601);
+				throw new ProjectEngineError(`Method not found: ${method}`, -32601);
 		}
 	}
 

@@ -17,7 +17,7 @@
 // it refuse.
 
 import * as vscode from 'vscode';
-import { encodeModuleUri, moduleIdentityKey, workbookIdentityKey } from './xlideFileSystem';
+import { encodeModuleUri, moduleIdentityKey, projectIdentityKey } from './xlideFileSystem';
 import { errorMessage } from './util/errors';
 
 export const XLIDE_AGENT_BEFORE_SCHEME = 'xlide-vba-before';
@@ -43,7 +43,7 @@ const pendingEmitter = new vscode.EventEmitter<{ filePath: string; moduleName: s
 export const onDidChangePendingAgentReviews = pendingEmitter.event;
 
 function pendingKey(filePath: string, moduleName: string): string {
-    return `${workbookIdentityKey(filePath)}::${moduleIdentityKey(moduleName)}`;
+    return `${projectIdentityKey(filePath)}::${moduleIdentityKey(moduleName)}`;
 }
 
 export function hasPendingAgentReview(filePath: string, moduleName: string): boolean {

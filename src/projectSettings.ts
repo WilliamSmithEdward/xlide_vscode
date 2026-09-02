@@ -11,26 +11,26 @@ import {
     type AnalysisSeverityFilter,
 } from './analysisSettingsCore';
 import type { XlideGlobalSettingSource } from './globalSettings';
-import { workbookIdentityKey } from './workbookIdentity';
+import { projectIdentityKey } from './projectIdentity';
 import { errorMessage } from './util/errors';
 
 type ExportMode = 'exportAll' | 'trueUp';
-type WorkbookSettingSource = 'workbook' | XlideGlobalSettingSource;
+type ProjectSettingSource = 'project' | XlideGlobalSettingSource;
 
-interface ResolvedWorkbookSetting<T> {
+interface ResolvedProjectSetting<T> {
     value: T;
-    source: WorkbookSettingSource;
+    source: ProjectSettingSource;
 }
 
-interface WorkbookSettingsConfig {
+interface ProjectSettingsConfig {
     exportFolder?: string;
     exportMode?: ExportMode;
     importMode?: ImportMode;
-    analysis?: WorkbookAnalysisSettingsConfig;
+    analysis?: ProjectAnalysisSettingsConfig;
     tests?: WorkbookTestSettingsConfig;
 }
 
-interface WorkbookAnalysisSettingsConfig {
+interface ProjectAnalysisSettingsConfig {
     visibleSeverities?: AnalysisSeverityFilter[];
     untrackedRules?: string[];
     ruleSeverityOverrides?: AnalysisRuleSeverityOverrides;
@@ -41,23 +41,23 @@ interface WorkbookTestSettingsConfig {
     artifactRetention?: number;
 }
 
-type WorkbookSettingsConfigInput = Omit<WorkbookSettingsConfig, 'exportMode'> & {
+type ProjectSettingsConfigInput = Omit<ProjectSettingsConfig, 'exportMode'> & {
     exportMode?: ExportMode;
 };
 
-class WorkbookSettingsError extends Error {
+class ProjectSettingsError extends Error {
     constructor(
         public readonly settingsPath: string,
         message: string,
     ) {
-        super(`XLIDE workbook settings file is invalid: ${settingsPath}. ${message}`);
-        this.name = 'WorkbookSettingsError';
+        super(`XLIDE project settings file is invalid: ${settingsPath}. ${message}`);
+        this.name = 'ProjectSettingsError';
     }
 }
 
-const workbookSettingsWriteQueues = new Map<string, Promise<unknown>>();
+const projectSettingsWriteQueues = new Map<string, Promise<unknown>>();
 
-function settingsPathForWorkbook(filePath: string): string {
+function settingsPathForProject(filePath: string): string {
     return path.join(path.dirname(filePath), `${path.basename(filePath)}.xlide_settings.json`);
 }
 
@@ -69,52 +69,52 @@ function normalizeImportMode(mode: ImportMode | unknown): ImportMode {
     return mode === 'trueUpStandardClass' ? 'trueUpStandardClass' : 'updateOnly';
 }
 
-function resolveWorkbookSetting<T>(
-    workbookValue: T | undefined,
+function resolveProjectSetting<T>(
+    projectValue: T | undefined,
     fallback: { value: T; source: XlideGlobalSettingSource },
-): ResolvedWorkbookSetting<T> {
-    return workbookValue === undefined
+): ResolvedProjectSetting<T> {
+    return projectValue === undefined
         ? { value: fallback.value, source: fallback.source }
-        : { value: workbookValue, source: 'workbook' };
+        : { value: projectValue, source: 'project' };
 }
 
 // One codec serves both sidecar passes: strict parsing passes a `reject`
-// callback that throws WorkbookSettingsError (and rejects unknown keys),
+// callback that throws ProjectSettingsError (and rejects unknown keys),
 // while the lenient normalizer passes undefined and coerces or drops
 // invalid values instead.
-type WorkbookSettingsReject = ((message: string) => never) | undefined;
+type ProjectSettingsReject = ((message: string) => never) | undefined;
 
-function normalizeWorkbookSettingsConfig(config: {
+function normalizeProjectSettingsConfig(config: {
     exportFolder?: unknown;
     exportMode?: unknown;
     importMode?: unknown;
     analysis?: unknown;
     tests?: unknown;
-}): WorkbookSettingsConfig {
-    return codecWorkbookSettingsConfig(config as Record<string, unknown>, undefined);
+}): ProjectSettingsConfig {
+    return codecProjectSettingsConfig(config as Record<string, unknown>, undefined);
 }
 
-function isWorkbookSettingsError(value: unknown): value is WorkbookSettingsError {
-    return value instanceof WorkbookSettingsError;
+function isProjectSettingsError(value: unknown): value is ProjectSettingsError {
+    return value instanceof ProjectSettingsError;
 }
 
-function parseWorkbookSettingsConfig(value: unknown, configPath: string): WorkbookSettingsConfig {
+function parseProjectSettingsConfig(value: unknown, configPath: string): ProjectSettingsConfig {
     if (!isPlainObject(value)) {
-        throw new WorkbookSettingsError(configPath, 'Expected the root value to be a JSON object.');
+        throw new ProjectSettingsError(configPath, 'Expected the root value to be a JSON object.');
     }
-    return codecWorkbookSettingsConfig(value, (message: string): never => {
-        throw new WorkbookSettingsError(configPath, message);
+    return codecProjectSettingsConfig(value, (message: string): never => {
+        throw new ProjectSettingsError(configPath, message);
     });
 }
 
-function codecWorkbookSettingsConfig(
+function codecProjectSettingsConfig(
     value: Record<string, unknown>,
-    reject: WorkbookSettingsReject,
-): WorkbookSettingsConfig {
+    reject: ProjectSettingsReject,
+): ProjectSettingsConfig {
     if (reject) {
         assertKnownKeys(value, 'root', ['exportFolder', 'exportMode', 'importMode', 'analysis', 'tests'], reject);
     }
-    const config: WorkbookSettingsConfig = {};
+    const config: ProjectSettingsConfig = {};
     const exportFolder = codecOptionalString(value.exportFolder, 'exportFolder', reject);
     if (exportFolder !== undefined) {
         config.exportFolder = exportFolder;
@@ -141,8 +141,8 @@ function codecWorkbookSettingsConfig(
 function codecAnalysisSettings(
     value: unknown,
     fieldPath: string,
-    reject: WorkbookSettingsReject,
-): WorkbookAnalysisSettingsConfig | undefined {
+    reject: ProjectSettingsReject,
+): ProjectAnalysisSettingsConfig | undefined {
     if (value === undefined) {
         return undefined;
     }
@@ -152,7 +152,7 @@ function codecAnalysisSettings(
     if (reject) {
         assertKnownKeys(value, fieldPath, ['visibleSeverities', 'untrackedRules', 'ruleSeverityOverrides'], reject);
     }
-    const analysis: WorkbookAnalysisSettingsConfig = {};
+    const analysis: ProjectAnalysisSettingsConfig = {};
     const visibleSeverities = codecSeverityList(value.visibleSeverities, `${fieldPath}.visibleSeverities`, reject);
     if (visibleSeverities !== undefined) {
         analysis.visibleSeverities = visibleSeverities;
@@ -175,7 +175,7 @@ function codecAnalysisSettings(
 function codecTestSettings(
     value: unknown,
     fieldPath: string,
-    reject: WorkbookSettingsReject,
+    reject: ProjectSettingsReject,
 ): WorkbookTestSettingsConfig | undefined {
     if (value === undefined) {
         return undefined;
@@ -201,7 +201,7 @@ function codecTestSettings(
 function codecSeverityList(
     value: unknown,
     fieldPath: string,
-    reject: WorkbookSettingsReject,
+    reject: ProjectSettingsReject,
 ): AnalysisSeverityFilter[] | undefined {
     if (value === undefined) {
         return undefined;
@@ -223,7 +223,7 @@ function codecSeverityList(
 function codecRuleCodeList(
     value: unknown,
     fieldPath: string,
-    reject: WorkbookSettingsReject,
+    reject: ProjectSettingsReject,
 ): string[] | undefined {
     if (value === undefined) {
         return undefined;
@@ -240,7 +240,7 @@ function codecRuleCodeList(
 function codecRuleSeverityOverrides(
     value: unknown,
     fieldPath: string,
-    reject: WorkbookSettingsReject,
+    reject: ProjectSettingsReject,
 ): AnalysisRuleSeverityOverrides | undefined {
     if (value === undefined) {
         return undefined;
@@ -260,7 +260,7 @@ function codecRuleSeverityOverrides(
 function codecPositiveInteger(
     value: unknown,
     fieldPath: string,
-    reject: WorkbookSettingsReject,
+    reject: ProjectSettingsReject,
 ): number | undefined {
     if (value === undefined) {
         return undefined;
@@ -274,7 +274,7 @@ function codecPositiveInteger(
 function codecOptionalString(
     value: unknown,
     fieldPath: string,
-    reject: WorkbookSettingsReject,
+    reject: ProjectSettingsReject,
 ): string | undefined {
     if (value === undefined) {
         return undefined;
@@ -288,7 +288,7 @@ function codecOptionalString(
 function codecExportMode(
     value: unknown,
     fieldPath: string,
-    reject: WorkbookSettingsReject,
+    reject: ProjectSettingsReject,
 ): ExportMode | undefined {
     if (value === undefined) {
         return undefined;
@@ -302,7 +302,7 @@ function codecExportMode(
 function codecImportMode(
     value: unknown,
     fieldPath: string,
-    reject: WorkbookSettingsReject,
+    reject: ProjectSettingsReject,
 ): ImportMode | undefined {
     if (value === undefined) {
         return undefined;
@@ -330,11 +330,11 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
     return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-async function readWorkbookSettings(
+async function readProjectSettings(
     filePath: string,
     opts: { lenient?: boolean } = {},
-): Promise<WorkbookSettingsConfig> {
-    const configPath = settingsPathForWorkbook(filePath);
+): Promise<ProjectSettingsConfig> {
+    const configPath = settingsPathForProject(filePath);
     let raw: string;
     try {
         raw = await fs.promises.readFile(configPath, 'utf8');
@@ -344,11 +344,11 @@ async function readWorkbookSettings(
         }
         // The lenient (apply) read powers per-keystroke diagnostics, so it must
         // never throw on a stale/unreadable sidecar - otherwise a single bad file
-        // blasts an error across every module. Fall back to no workbook settings.
+        // blasts an error across every module. Fall back to no project settings.
         if (opts.lenient) {
             return {};
         }
-        throw new WorkbookSettingsError(
+        throw new ProjectSettingsError(
             configPath,
             `Unable to read settings: ${errorMessage(err)}`,
         );
@@ -358,12 +358,12 @@ async function readWorkbookSettings(
     try {
         parsed = JSON.parse(raw);
     } catch (err) {
-        parsed = recoverWorkbookSettingsJson(raw);
+        parsed = recoverProjectSettingsJson(raw);
         if (parsed === undefined) {
             if (opts.lenient) {
                 return {};
             }
-            throw new WorkbookSettingsError(
+            throw new ProjectSettingsError(
                 configPath,
                 `Expected valid JSON: ${errorMessage(err)}`,
             );
@@ -374,23 +374,23 @@ async function readWorkbookSettings(
     // as a diagnostic. Strict: reject unknown keys so the settings editor can
     // surface a genuine user typo.
     if (opts.lenient) {
-        return normalizeWorkbookSettingsConfig(isPlainObject(parsed) ? parsed : {});
+        return normalizeProjectSettingsConfig(isPlainObject(parsed) ? parsed : {});
     }
-    return parseWorkbookSettingsConfig(parsed, configPath);
+    return parseProjectSettingsConfig(parsed, configPath);
 }
 
-async function updateWorkbookSettings(
+async function updateProjectSettings(
     filePath: string,
-    update: (existing: WorkbookSettingsConfig) => WorkbookSettingsConfig | undefined,
-): Promise<WorkbookSettingsConfig> {
-    return withWorkbookSettingsWriteLock(filePath, async () => {
-        const existing = await readWorkbookSettings(filePath);
+    update: (existing: ProjectSettingsConfig) => ProjectSettingsConfig | undefined,
+): Promise<ProjectSettingsConfig> {
+    return withProjectSettingsWriteLock(filePath, async () => {
+        const existing = await readProjectSettings(filePath);
         const updatedInput = update(existing);
         if (!updatedInput) {
             return existing;
         }
-        const updated = normalizeWorkbookSettingsConfig(updatedInput);
-        await writeWorkbookSettingsUnlocked(filePath, updated);
+        const updated = normalizeProjectSettingsConfig(updatedInput);
+        await writeProjectSettingsUnlocked(filePath, updated);
         return updated;
     });
 }
@@ -399,54 +399,54 @@ function isNodeError(value: unknown): value is NodeJS.ErrnoException {
     return value !== null && typeof value === 'object' && 'code' in value;
 }
 
-async function writeWorkbookSettings(
+async function writeProjectSettings(
     filePath: string,
-    config: WorkbookSettingsConfigInput,
+    config: ProjectSettingsConfigInput,
 ): Promise<void> {
-    await withWorkbookSettingsWriteLock(filePath, () => writeWorkbookSettingsUnlocked(filePath, config));
+    await withProjectSettingsWriteLock(filePath, () => writeProjectSettingsUnlocked(filePath, config));
 }
 
-async function writeWorkbookSettingsUnlocked(
+async function writeProjectSettingsUnlocked(
     filePath: string,
-    config: WorkbookSettingsConfigInput,
+    config: ProjectSettingsConfigInput,
 ): Promise<void> {
-    const configPath = settingsPathForWorkbook(filePath);
+    const configPath = settingsPathForProject(filePath);
     await fs.promises.writeFile(
         configPath,
-        `${JSON.stringify(normalizeWorkbookSettingsConfig(config), null, 2)}\n`,
+        `${JSON.stringify(normalizeProjectSettingsConfig(config), null, 2)}\n`,
         'utf8',
     );
 }
 
-async function withWorkbookSettingsWriteLock<T>(
+async function withProjectSettingsWriteLock<T>(
     filePath: string,
     action: () => Promise<T>,
 ): Promise<T> {
-    const key = workbookIdentityKey(settingsPathForWorkbook(filePath));
-    const previous = workbookSettingsWriteQueues.get(key) ?? Promise.resolve();
+    const key = projectIdentityKey(settingsPathForProject(filePath));
+    const previous = projectSettingsWriteQueues.get(key) ?? Promise.resolve();
     let release: () => void = () => undefined;
     const current = new Promise<void>((resolve) => {
         release = resolve;
     });
     const queued = previous.catch(() => undefined).then(() => current);
-    workbookSettingsWriteQueues.set(key, queued);
+    projectSettingsWriteQueues.set(key, queued);
     await previous.catch(() => undefined);
     try {
         return await action();
     } finally {
         release();
-        if (workbookSettingsWriteQueues.get(key) === queued) {
-            workbookSettingsWriteQueues.delete(key);
+        if (projectSettingsWriteQueues.get(key) === queued) {
+            projectSettingsWriteQueues.delete(key);
         }
     }
 }
 
-function recoverWorkbookSettingsJson(raw: string): unknown | undefined {
+function recoverProjectSettingsJson(raw: string): unknown | undefined {
     // Recovery is only safe when the ENTIRE input parses as a sequence of complete
     // top-level objects (the intended "trailing duplicate, last wins" case). If any
     // trailing content is truncated or garbage, we must NOT silently fall back to an
     // earlier object and overwrite the newer (intended) one - return undefined so the
-    // caller surfaces a WorkbookSettingsError instead of destroying newer settings.
+    // caller surfaces a ProjectSettingsError instead of destroying newer settings.
     let offset = skipJsonWhitespace(raw, 0);
     let recovered: unknown;
     let recoveredAny = false;
@@ -523,18 +523,18 @@ function findJsonRootEnd(raw: string, start: number): number | undefined {
 
 export {
     type ExportMode,
-    type ResolvedWorkbookSetting,
-    type WorkbookAnalysisSettingsConfig,
-    type WorkbookSettingSource,
-    type WorkbookSettingsConfig,
+    type ResolvedProjectSetting,
+    type ProjectAnalysisSettingsConfig,
+    type ProjectSettingSource,
+    type ProjectSettingsConfig,
     type WorkbookTestSettingsConfig,
-    WorkbookSettingsError,
-    isWorkbookSettingsError,
+    ProjectSettingsError,
+    isProjectSettingsError,
     normalizeExportMode,
     normalizeImportMode,
-    readWorkbookSettings,
-    resolveWorkbookSetting,
-    settingsPathForWorkbook,
-    updateWorkbookSettings,
-    writeWorkbookSettings,
+    readProjectSettings,
+    resolveProjectSetting,
+    settingsPathForProject,
+    updateProjectSettings,
+    writeProjectSettings,
 };

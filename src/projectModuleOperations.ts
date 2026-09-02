@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
-import type { WorkbookEngine } from './workbookEngine';
-import type { XlsmExplorer } from './xlsmExplorer';
+import type { ProjectEngine } from './projectEngine';
+import type { ProjectExplorer } from './projectExplorer';
 import type { VbaSymbolIndex } from './vbaSymbolIndex';
 import {
     encodeModuleUri,
@@ -17,7 +17,7 @@ import {
 } from './xlideAgentDiff';
 
 /**
- * Shared workbook module mutations used by both the command handlers and the
+ * Shared project module mutations used by both the command handlers and the
  * agent (language-model) tools. Every write/rename/delete goes through one
  * code path: bridge call + signature-dropped notice + file-change event for
  * open editors + (for delete) closing stale tabs + project-state refresh.
@@ -25,21 +25,21 @@ import {
  * Audit records and user-facing messaging intentionally stay with the
  * callers - commands and agent tools present outcomes differently.
  */
-export interface WorkbookModuleOperationDeps {
-    bridge: WorkbookEngine;
-    explorer: XlsmExplorer;
+export interface ProjectModuleOperationDeps {
+    bridge: ProjectEngine;
+    explorer: ProjectExplorer;
     fsProvider: XlideFileSystemProvider;
     vbaIndex: VbaSymbolIndex;
 }
 
-export interface WorkbookModuleMutationResult {
+export interface ProjectModuleMutationResult {
     ok?: boolean;
     signatureDropped?: boolean;
 }
 
-export interface WorkbookModuleOperationOptions {
+export interface ProjectModuleOperationOptions {
     /**
-     * Invalidate the per-workbook symbol/completion caches and refresh the
+     * Invalidate the per-project symbol/completion caches and refresh the
      * explorer after the mutation (default). Batch callers (module sync)
      * pass false and refresh once after their loop.
      */
@@ -53,9 +53,9 @@ export interface WorkbookModuleOperationOptions {
     agentReviewHandled?: boolean;
 }
 
-/** Drops cached per-workbook project state and refreshes the explorer tree. */
-export function refreshWorkbookProjectState(
-    deps: Pick<WorkbookModuleOperationDeps, 'explorer' | 'vbaIndex'>,
+/** Drops cached per-project state and refreshes the explorer tree. */
+export function refreshProjectState(
+    deps: Pick<ProjectModuleOperationDeps, 'explorer' | 'vbaIndex'>,
     filePath: string,
 ): void {
     deps.vbaIndex.invalidate(filePath);
@@ -63,8 +63,8 @@ export function refreshWorkbookProjectState(
     deps.explorer.refresh();
 }
 
-export async function writeWorkbookModule(
-    deps: WorkbookModuleOperationDeps,
+export async function writeProjectModule(
+    deps: ProjectModuleOperationDeps,
     request: {
         filePath: string;
         moduleName: string;
@@ -72,8 +72,8 @@ export async function writeWorkbookModule(
         /** VBA module kind for the backend (e.g. 'standard', 'class'). */
         kind?: string;
     },
-    options: WorkbookModuleOperationOptions = {},
-): Promise<WorkbookModuleMutationResult> {
+    options: ProjectModuleOperationOptions = {},
+): Promise<ProjectModuleMutationResult> {
     const { filePath, moduleName, source, kind } = request;
     // Any other write makes the recorded rename's before-images stale: putting
     // them back would discard whatever this write is about to do. The undo path
@@ -81,7 +81,7 @@ export async function writeWorkbookModule(
     // restores.
     noteModuleWrite(filePath, moduleName);
     const result = await runWriteWithExcelCoordination(filePath, () =>
-        deps.bridge.call<WorkbookModuleMutationResult>('writeModule', {
+        deps.bridge.call<ProjectModuleMutationResult>('writeModule', {
             path: filePath,
             module: moduleName,
             source,
@@ -100,30 +100,30 @@ export async function writeWorkbookModule(
     // Notify VS Code that the file changed so open editors reload
     deps.fsProvider.notifyFileChanged(encodeModuleUri(filePath, moduleName));
     if (options.refreshProjectState !== false) {
-        refreshWorkbookProjectState(deps, filePath);
+        refreshProjectState(deps, filePath);
     }
     return result;
 }
 
 /**
  * Writes a form's designer (control tree and textual properties) back into
- * the workbook from an imported `.frm`/`.frx` pair. Composes with
- * {@link writeWorkbookModule}, which owns the module's code.
+ * the project from an imported `.frm`/`.frx` pair. Composes with
+ * {@link writeProjectModule}, which owns the module's code.
  */
-export async function writeWorkbookFormDesigner(
-    deps: WorkbookModuleOperationDeps,
+export async function writeProjectFormDesigner(
+    deps: ProjectModuleOperationDeps,
     request: {
         filePath: string;
         moduleName: string;
         frx: Buffer;
         frmDesignerBlock?: string;
     },
-    options: WorkbookModuleOperationOptions = {},
-): Promise<WorkbookModuleMutationResult> {
+    options: ProjectModuleOperationOptions = {},
+): Promise<ProjectModuleMutationResult> {
     const { filePath, moduleName, frx, frmDesignerBlock } = request;
     noteModuleWrite(filePath, moduleName);
     const result = await runWriteWithExcelCoordination(filePath, () =>
-        deps.bridge.call<WorkbookModuleMutationResult>('writeFormDesigner', {
+        deps.bridge.call<ProjectModuleMutationResult>('writeFormDesigner', {
             path: filePath,
             module: moduleName,
             frxBase64: frx.toString('base64'),
@@ -136,19 +136,19 @@ export async function writeWorkbookFormDesigner(
     notifySignatureDropped(filePath, Boolean(result.signatureDropped));
     deps.fsProvider.notifyFileChanged(encodeModuleUri(filePath, moduleName));
     if (options.refreshProjectState !== false) {
-        refreshWorkbookProjectState(deps, filePath);
+        refreshProjectState(deps, filePath);
     }
     return result;
 }
 
-export async function renameWorkbookModule(
-    deps: WorkbookModuleOperationDeps,
+export async function renameProjectModule(
+    deps: ProjectModuleOperationDeps,
     request: { filePath: string; moduleName: string; newName: string },
-    options: WorkbookModuleOperationOptions = {},
-): Promise<WorkbookModuleMutationResult> {
+    options: ProjectModuleOperationOptions = {},
+): Promise<ProjectModuleMutationResult> {
     const { filePath, moduleName, newName } = request;
     const result = await runWriteWithExcelCoordination(filePath, () =>
-        deps.bridge.call<WorkbookModuleMutationResult>('renameModule', {
+        deps.bridge.call<ProjectModuleMutationResult>('renameModule', {
             path: filePath,
             module: moduleName,
             newName,
@@ -157,22 +157,22 @@ export async function renameWorkbookModule(
     notifySignatureDropped(filePath, Boolean(result.signatureDropped));
     // An unreviewed agent change follows the module to its new name.
     renamePendingAgentReview(filePath, moduleName, newName);
-    // Tell open editors the old module is gone and refresh workbook stats
+    // Tell open editors the old module is gone and refresh project stats
     deps.fsProvider.notifyFileChanged(encodeModuleUri(filePath, moduleName));
     if (options.refreshProjectState !== false) {
-        refreshWorkbookProjectState(deps, filePath);
+        refreshProjectState(deps, filePath);
     }
     return result;
 }
 
-export async function deleteWorkbookModule(
-    deps: WorkbookModuleOperationDeps,
+export async function deleteProjectModule(
+    deps: ProjectModuleOperationDeps,
     request: { filePath: string; moduleName: string },
-    options: WorkbookModuleOperationOptions = {},
-): Promise<WorkbookModuleMutationResult> {
+    options: ProjectModuleOperationOptions = {},
+): Promise<ProjectModuleMutationResult> {
     const { filePath, moduleName } = request;
     const result = await runWriteWithExcelCoordination(filePath, () =>
-        deps.bridge.call<WorkbookModuleMutationResult>('deleteModule', {
+        deps.bridge.call<ProjectModuleMutationResult>('deleteModule', {
             path: filePath,
             module: moduleName,
         }),
@@ -193,7 +193,7 @@ export async function deleteWorkbookModule(
     }
     deps.fsProvider.notifyFileChanged(uri);
     if (options.refreshProjectState !== false) {
-        refreshWorkbookProjectState(deps, filePath);
+        refreshProjectState(deps, filePath);
     }
     return result;
 }

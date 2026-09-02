@@ -5,16 +5,16 @@ import { afterAll, describe, expect, it } from 'vitest';
 import {
 	deleteModule,
 	getProtectionInfo,
-	getWorkbookInfo,
+	getProjectInfo,
 	listModules,
 	listSubs,
 	readCells,
 	readModule,
 	renameModule,
-	validateWorkbook,
+	validateProject,
 	writeCells,
 	writeModule,
-} from '../src/vba/workbookService';
+} from '../src/vba/projectService';
 import { openMacroContainer } from '../src/vba/macroContainer';
 
 // Issues #24/#25, engine half: every macro container Office writes, read (and
@@ -130,7 +130,7 @@ describe.each(READ_CASES)('reading $file', ({ file, modules }) => {
 	it('answers protection and structural validation', () => {
 		const protection = getProtectionInfo(fixture(file));
 		expect(protection.isPasswordProtected).toBe(false);
-		expect(validateWorkbook(fixture(file)).issues).toEqual([]);
+		expect(validateProject(fixture(file)).issues).toEqual([]);
 	});
 });
 
@@ -146,8 +146,8 @@ describe('the containers behave as their formats require', () => {
 		}
 	});
 
-	it('getWorkbookInfo answers modules without a sheet surface for a Word document', () => {
-		const info = getWorkbookInfo(fixture('WordFixture.docm'));
+	it('getProjectInfo answers modules without a sheet surface for a Word document', () => {
+		const info = getProjectInfo(fixture('WordFixture.docm'));
 		expect(info.sheets).toEqual([]);
 		expect(info.namedRanges).toEqual([]);
 		expect(info.modules.map((module) => module.name)).toContain('ThisDocument');
@@ -165,7 +165,7 @@ describe('the containers behave as their formats require', () => {
 	it('refuses .xlsb sheet APIs honestly and still answers its modules', () => {
 		// .xlsb passes the Excel-container gate but keeps its workbook part
 		// as binary xl/workbook.bin: the sheet reader used to surface a raw
-		// "Entry not found: xl/workbook.xml" and getWorkbookInfo threw
+		// "Entry not found: xl/workbook.xml" and getProjectInfo threw
 		// outright instead of answering the modules.
 		const target = path.join(tempRoot, 'BinaryBook.xlsb');
 		fs.copyFileSync(path.join(__dirname, '..', 'assets', 'templates', 'blank.xlsb'), target);
@@ -175,7 +175,7 @@ describe('the containers behave as their formats require', () => {
 		expect(() => writeCells(target, 'Sheet1', 'A1', [['x']]))
 			.toThrow(/binary Excel workbook \(\.xlsb\).*VBA editing is unaffected/);
 
-		const info = getWorkbookInfo(target);
+		const info = getProjectInfo(target);
 		expect(info.sheets).toEqual([]);
 		expect(info.namedRanges).toEqual([]);
 		expect(info.modules.map((module) => module.name)).toContain('ThisWorkbook');
@@ -217,7 +217,7 @@ describe.each(WRITE_CASES.map((file) => ({ file })))('writing $file', ({ file })
 			expect(readModule(target, name, true).source, `${name} must survive the write`)
 				.toBe(beforeSources.get(name));
 		}
-		expect(validateWorkbook(target).issues).toEqual([]);
+		expect(validateProject(target).issues).toEqual([]);
 	});
 
 	it('edits an existing module in place', () => {
@@ -225,7 +225,7 @@ describe.each(WRITE_CASES.map((file) => ({ file })))('writing $file', ({ file })
 		writeModule(target, 'Module1', 'Public Sub Rewritten()\r\nEnd Sub\r\n');
 		const { source } = readModule(target, 'Module1', true);
 		expect(source).toContain('Public Sub Rewritten()');
-		expect(validateWorkbook(target).issues).toEqual([]);
+		expect(validateProject(target).issues).toEqual([]);
 	});
 });
 
@@ -237,7 +237,7 @@ describe('rename and delete on a non-Excel host', () => {
 		expect(readModule(target, 'CRenamed', true).source).toContain('Attribute VB_Name = "CRenamed"');
 		deleteModule(target, 'CRenamed');
 		expect(listModules(target).map((module) => module.name)).not.toContain('CRenamed');
-		expect(validateWorkbook(target).issues).toEqual([]);
+		expect(validateProject(target).issues).toEqual([]);
 	});
 });
 
@@ -262,11 +262,11 @@ describe('Access stays read-only, with the reason stated', () => {
 // through a minimal bridge shim (the plan layer is bridge-driven and never
 // looks at the container itself).
 
-import type { WorkbookEngine } from '../src/workbookEngine';
+import type { ProjectEngine } from '../src/projectEngine';
 import { buildExportModuleSyncPlan, buildImportModuleSyncPlan } from '../src/moduleSyncPlan';
-import * as svc from '../src/vba/workbookService';
+import * as svc from '../src/vba/projectService';
 
-function realServiceBridge(): WorkbookEngine {
+function realServiceBridge(): ProjectEngine {
 	return {
 		async call<T>(method: string, args: Record<string, unknown>): Promise<T> {
 			const p = String(args.path);
@@ -279,7 +279,7 @@ function realServiceBridge(): WorkbookEngine {
 				default: throw new Error(`bridge shim: unhandled ${method}`);
 			}
 		},
-	} as WorkbookEngine;
+	} as ProjectEngine;
 }
 
 describe('the module sync plans cover the non-Excel containers', () => {
@@ -287,7 +287,7 @@ describe('the module sync plans cover the non-Excel containers', () => {
 		const target = copyOf('WordFixture.docm');
 		const exportFolder = path.join(tempRoot, 'word-export');
 		const plan = await buildExportModuleSyncPlan(realServiceBridge(), {
-			workbookPath: target,
+			projectPath: target,
 			exportFolder,
 		});
 		const names = plan.items.map((item) => item.moduleName).sort();
@@ -298,7 +298,7 @@ describe('the module sync plans cover the non-Excel containers', () => {
 	it('plans an Access database export (read-only container, read-only operation)', async () => {
 		const exportFolder = path.join(tempRoot, 'access-export');
 		const plan = await buildExportModuleSyncPlan(realServiceBridge(), {
-			workbookPath: fixture('AccessFixture.accdb'),
+			projectPath: fixture('AccessFixture.accdb'),
 			exportFolder,
 		});
 		const names = plan.items.map((item) => item.moduleName).sort();
@@ -314,7 +314,7 @@ describe('the module sync plans cover the non-Excel containers', () => {
 			'Attribute VB_Name = "Module1"\r\nPublic Sub Reworked()\r\nEnd Sub\r\n',
 		);
 		const plan = await buildImportModuleSyncPlan(realServiceBridge(), {
-			workbookPath: target,
+			projectPath: target,
 			importFolder,
 		});
 		const item = plan.items.find((candidate) => candidate.moduleName === 'Module1');
@@ -367,7 +367,7 @@ describe('test staging covers Word containers', () => {
 			expect(script.charCodeAt(0)).toBe(0xfeff);
 			expect(script).toContain("$hostKind = 'word'");
 			expect(script).toContain('$excel.Documents.Open($targetPath, $false, $true, $false)');
-			expect(validateWorkbook(staging.tempWorkbookPath).issues).toEqual([]);
+			expect(validateProject(staging.tempWorkbookPath).issues).toEqual([]);
 		} finally {
 			staging.dispose();
 		}
@@ -379,7 +379,7 @@ describe('test staging covers Word containers', () => {
 // container-agnostic, and this fixture (a form authored by Word's own VBE,
 // with two controls and code-behind) proves it outside Excel.
 
-import { readFormExport, writeFormDesigner } from '../src/vba/workbookService';
+import { readFormExport, writeFormDesigner } from '../src/vba/projectService';
 import { parseFormFrx } from '../src/vba/formDesigner';
 
 describe('a Word document with a UserForm', () => {
@@ -407,7 +407,7 @@ describe('a Word document with a UserForm', () => {
 		expect(after?.type).toBe('userform');
 		expect((after?.implicitMembers ?? []).map((member) => member.name))
 			.toEqual(expect.arrayContaining(['LblMessage', 'BtnClose']));
-		expect(validateWorkbook(target).issues).toEqual([]);
+		expect(validateProject(target).issues).toEqual([]);
 	});
 });
 
@@ -477,7 +477,7 @@ describe('repeated saves keep the .ppt persist machinery consistent', () => {
 		expect(names).toEqual(expect.arrayContaining(['Module1', 'CDeck', 'MFirst', 'MSecond']));
 		expect(readModule(target, 'MFirst', true).source).toContain('OneRewritten');
 		expect(readModule(target, 'Module1', true).source).toContain('ActivePresentation.Slides.');
-		expect(validateWorkbook(target).issues).toEqual([]);
+		expect(validateProject(target).issues).toEqual([]);
 	});
 });
 
@@ -491,7 +491,7 @@ describe('an Access database that has been edited and re-saved', () => {
 			const { source } = readModule(fixture(file), 'MShadow', true);
 			expect(source).toContain('second version, the one the reader must pick');
 			expect(source).not.toContain('first version');
-			expect(validateWorkbook(fixture(file)).issues).toEqual([]);
+			expect(validateProject(fixture(file)).issues).toEqual([]);
 		},
 	);
 
@@ -514,7 +514,7 @@ describe('the remaining containers nothing had exercised', () => {
 		expect(readModule(target, 'Module1', true).source).toContain('ActivePresentation.Slides.');
 		writeModule(target, 'MAdded', 'Public Sub AddedProc()\r\nEnd Sub\r\n');
 		expect(listModules(target).map((module) => module.name)).toContain('MAdded');
-		expect(validateWorkbook(target).issues).toEqual([]);
+		expect(validateProject(target).issues).toEqual([]);
 	});
 
 	it.each([
@@ -530,7 +530,7 @@ describe('the remaining containers nothing had exercised', () => {
 			.toEqual(expect.arrayContaining(expected));
 		writeModule(target, 'MSeeded', 'Public Sub Seeded()\r\nEnd Sub\r\n');
 		expect(listModules(target).map((module) => module.name)).toContain('MSeeded');
-		expect(validateWorkbook(target).issues).toEqual([]);
+		expect(validateProject(target).issues).toEqual([]);
 	});
 });
 
@@ -538,7 +538,7 @@ describe('the remaining containers nothing had exercised', () => {
 // The export APPLY over a Word form: the same writer the export command uses,
 // producing a real .frm/.frx pair on disk from a non-Excel container.
 
-import { exportWorkbookModules } from '../src/moduleExport';
+import { exportProjectModules } from '../src/moduleExport';
 
 describe('exporting a Word document with a form writes the pair to disk', () => {
 	it('lands FrmNotice.frm and FrmNotice.frx beside the .bas/.cls files', async () => {
@@ -547,7 +547,7 @@ describe('exporting a Word document with a form writes the pair to disk', () => 
 		// A copy: the export writes a settings sidecar beside the file, and
 		// nothing may land beside the checked-in fixture.
 		const target = copyOf('WordFormFixture.docm');
-		await exportWorkbookModules(realServiceBridge(), {
+		await exportProjectModules(realServiceBridge(), {
 			filePath: target,
 			exportFolder,
 		});
@@ -579,7 +579,7 @@ describe.each(ADDED_EXTENSION_CASES)('template/add-in container $file', ({ file,
 		const names = listModules(fixture(file)).map((module) => module.name);
 		expect(names).toContain('Module1');
 		expect(readModule(fixture(file), 'Module1', true).source).toContain('Attribute VB_Name = "Module1"');
-		expect(validateWorkbook(fixture(file)).issues).toEqual([]);
+		expect(validateProject(fixture(file)).issues).toEqual([]);
 	});
 
 	it(writable ? 'accepts a module write' : 'refuses writes with the p-code reason', () => {
@@ -587,7 +587,7 @@ describe.each(ADDED_EXTENSION_CASES)('template/add-in container $file', ({ file,
 		if (writable) {
 			writeModule(target, 'MAdded', 'Public Sub AddedProc()\r\nEnd Sub\r\n');
 			expect(listModules(target).map((module) => module.name)).toContain('MAdded');
-			expect(validateWorkbook(target).issues).toEqual([]);
+			expect(validateProject(target).issues).toEqual([]);
 		} else {
 			expect(() => writeModule(target, 'MAdded', 'Public Sub P()\r\nEnd Sub\r\n'))
 				.toThrow(/read-only: Access runs VBA from its compiled p-code/);
@@ -610,6 +610,6 @@ describe('a PowerPoint presentation with a UserForm', () => {
 		const after = listModules(target).find((entry) => entry.name === 'FrmDeck');
 		expect((after?.implicitMembers ?? []).map((member) => member.name))
 			.toEqual(expect.arrayContaining(['LblBanner', 'BtnDismiss']));
-		expect(validateWorkbook(target).issues).toEqual([]);
+		expect(validateProject(target).issues).toEqual([]);
 	});
 });

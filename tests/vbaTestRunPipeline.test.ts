@@ -11,14 +11,14 @@ vi.mock('../src/vbaTestArtifacts', async (importOriginal) => {
     return { ...actual, writeVbaTestRunArtifacts: vi.fn(actual.writeVbaTestRunArtifacts) };
 });
 
-import type { WorkbookEngine } from '../src/workbookEngine';
+import type { ProjectEngine } from '../src/projectEngine';
 import { checkExcelComAvailability, type ExcelComAvailabilityStatus } from '../src/excelComAvailability';
 import { getVbaTestSupportStatus, type VbaTestSupportStatus } from '../src/vbaTestSupportStatus';
 import { runWorkbookVbaTests, type VbaTestRunExecution } from '../src/vbaTestExecution';
 import { writeVbaTestRunArtifacts } from '../src/vbaTestArtifacts';
 import { executeVbaTestRun, type VbaTestRunPipelineRunner } from '../src/vbaTestRunPipeline';
 import type { VbaTestCase, VbaTestRunReport } from '../src/vbaTestRunner';
-import { writeWorkbookSettings } from '../src/workbookSettings';
+import { writeProjectSettings } from '../src/projectSettings';
 
 const tempRoots: string[] = [];
 
@@ -32,8 +32,8 @@ afterEach(() => {
     }
 });
 
-function bridge(): WorkbookEngine {
-    return {} as WorkbookEngine;
+function bridge(): ProjectEngine {
+    return {} as ProjectEngine;
 }
 
 function tempWorkbook(): string {
@@ -78,7 +78,7 @@ function executionFor(workbook: string): VbaTestRunExecution {
     };
     const report: VbaTestRunReport = {
         filePath: workbook,
-        workbookName: path.basename(workbook),
+        projectName: path.basename(workbook),
         startedAt: '2026-06-03T12:34:56.000Z',
         durationMs: 42,
         discovery: {
@@ -117,7 +117,7 @@ describe('executeVbaTestRun', () => {
 
     it('runs tests through the caller wrapper and writes artifacts once', async () => {
         const workbook = tempWorkbook();
-        await writeWorkbookSettings(workbook, {
+        await writeProjectSettings(workbook, {
             tests: {
                 artifactFolder: 'ci-tests',
                 artifactRetention: 3,
@@ -156,9 +156,9 @@ describe('executeVbaTestRun', () => {
         }
         expect(result.artifacts.settings).toMatchObject({
             artifactFolder: 'ci-tests',
-            artifactFolderSource: 'workbook',
+            artifactFolderSource: 'project',
             artifactRetention: 3,
-            artifactRetentionSource: 'workbook',
+            artifactRetentionSource: 'project',
         });
         expect(fs.existsSync(result.artifacts.artifacts.statusPath)).toBe(true);
     });

@@ -2,16 +2,16 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import type { WorkbookEngine } from '../src/workbookEngine';
+import type { ProjectEngine } from '../src/projectEngine';
 import {
-	exportWorkbookModule,
-	exportWorkbookModules,
+	exportProjectModule,
+	exportProjectModules,
 } from '../src/moduleExport';
 import {
-	readWorkbookSettings,
-	settingsPathForWorkbook,
-	writeWorkbookSettings,
-} from '../src/workbookSettings';
+	readProjectSettings,
+	settingsPathForProject,
+	writeProjectSettings,
+} from '../src/projectSettings';
 
 interface FakeModule {
 	name: string;
@@ -27,16 +27,16 @@ afterEach(() => {
 	}
 });
 
-function tempWorkbook(): { root: string; workbook: string; exportFolder: string } {
+function tempWorkbook(): { root: string; project: string; exportFolder: string } {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-export-'));
 	tempRoots.push(root);
-	const workbook = path.join(root, 'Book.xlsm');
+	const project = path.join(root, 'Book.xlsm');
 	const exportFolder = path.join(root, 'repo');
-	fs.writeFileSync(workbook, '', 'utf8');
-	return { root, workbook, exportFolder };
+	fs.writeFileSync(project, '', 'utf8');
+	return { root, project, exportFolder };
 }
 
-function fakeBridge(modules: readonly FakeModule[]): WorkbookEngine {
+function fakeBridge(modules: readonly FakeModule[]): ProjectEngine {
 	return {
 		async call<T>(method: string, args: Record<string, unknown>): Promise<T> {
 			if (method === 'listModules') {
@@ -55,13 +55,13 @@ function fakeBridge(modules: readonly FakeModule[]): WorkbookEngine {
 			}
 			throw new Error(`Unexpected bridge call ${method}`);
 		},
-	} as WorkbookEngine;
+	} as ProjectEngine;
 }
 
 describe('moduleExport', () => {
-	it('exports one module and writes only workbook sync settings to the sidecar', async () => {
-		const { workbook, exportFolder } = tempWorkbook();
-		await writeWorkbookSettings(workbook, {
+	it('exports one module and writes only project sync settings to the sidecar', async () => {
+		const { project, exportFolder } = tempWorkbook();
+		await writeProjectSettings(project, {
 			exportFolder,
 			exportMode: 'trueUp',
 		});
@@ -70,8 +70,8 @@ describe('moduleExport', () => {
 			{ name: 'Other', type: 'standard', source: 'Sub Other()\nEnd Sub\n' },
 		]);
 
-		const result = await exportWorkbookModule(bridge, {
-			filePath: workbook,
+		const result = await exportProjectModule(bridge, {
+			filePath: project,
 			moduleName: 'module1',
 		});
 
@@ -85,18 +85,18 @@ describe('moduleExport', () => {
 		expect(fs.readFileSync(path.join(exportFolder, 'Module1.bas'), 'utf8')).toBe(
 			'Attribute VB_Name = "Module1"\nSub T()\nEnd Sub\n',
 		);
-		expect(await readWorkbookSettings(workbook)).toEqual({
+		expect(await readProjectSettings(project)).toEqual({
 			exportFolder,
 			exportMode: 'trueUp',
 		});
-		expect(settingsPathForWorkbook(workbook)).toBe(path.join(path.dirname(workbook), 'Book.xlsm.xlide_settings.json'));
+		expect(settingsPathForProject(project)).toBe(path.join(path.dirname(project), 'Book.xlsm.xlide_settings.json'));
 	});
 
 	it('keeps all-module true-up behavior on the shared module-file writer', async () => {
-		const { workbook, exportFolder } = tempWorkbook();
+		const { project, exportFolder } = tempWorkbook();
 		fs.mkdirSync(exportFolder, { recursive: true });
 		fs.writeFileSync(path.join(exportFolder, 'Stale.bas'), 'old', 'utf8');
-		await writeWorkbookSettings(workbook, {
+		await writeProjectSettings(project, {
 			exportFolder,
 			exportMode: 'trueUp',
 		});
@@ -105,7 +105,7 @@ describe('moduleExport', () => {
 			{ name: 'Person', type: 'class', source: 'VERSION 1.0 CLASS\n' },
 		]);
 
-		const result = await exportWorkbookModules(bridge, { filePath: workbook });
+		const result = await exportProjectModules(bridge, { filePath: project });
 
 		expect(result).toMatchObject({
 			writtenCount: 2,
@@ -116,11 +116,11 @@ describe('moduleExport', () => {
 		expect(fs.existsSync(path.join(exportFolder, 'Stale.bas'))).toBe(false);
 		expect(fs.existsSync(path.join(exportFolder, 'Module1.bas'))).toBe(true);
 		expect(fs.existsSync(path.join(exportFolder, 'Person.cls'))).toBe(true);
-		expect(settingsPathForWorkbook(workbook)).toBe(path.join(path.dirname(workbook), 'Book.xlsm.xlide_settings.json'));
+		expect(settingsPathForProject(project)).toBe(path.join(path.dirname(project), 'Book.xlsm.xlide_settings.json'));
 	});
 
 	it('only deletes root bas/cls/frm module files during true-up', async () => {
-		const { workbook, exportFolder } = tempWorkbook();
+		const { project, exportFolder } = tempWorkbook();
 		fs.mkdirSync(exportFolder, { recursive: true });
 		fs.writeFileSync(path.join(exportFolder, 'Stale.bas'), 'old', 'utf8');
 		fs.writeFileSync(path.join(exportFolder, 'StaleClass.cls'), 'old', 'utf8');
@@ -131,11 +131,11 @@ describe('moduleExport', () => {
 		fs.writeFileSync(path.join(exportFolder, 'UserForm1.frx'), 'keep', 'utf8');
 		fs.mkdirSync(path.join(exportFolder, 'nested'));
 		fs.writeFileSync(path.join(exportFolder, 'nested', 'StaleClass.cls'), 'keep', 'utf8');
-		await writeWorkbookSettings(workbook, { exportFolder, exportMode: 'trueUp' });
+		await writeProjectSettings(project, { exportFolder, exportMode: 'trueUp' });
 
-		const result = await exportWorkbookModules(fakeBridge([
+		const result = await exportProjectModules(fakeBridge([
 			{ name: 'Module1', type: 'standard', source: 'Sub T()\nEnd Sub\n' },
-		]), { filePath: workbook });
+		]), { filePath: project });
 
 		expect(result.removedFiles).toEqual(['Stale.bas', 'StaleClass.cls', 'UserForm1.frm']);
 		expect(fs.existsSync(path.join(exportFolder, 'Stale.bas'))).toBe(false);
@@ -146,9 +146,9 @@ describe('moduleExport', () => {
 		expect(fs.existsSync(path.join(exportFolder, 'nested', 'StaleClass.cls'))).toBe(true);
 	});
 
-	it('preserves workbook analysis overrides when exporting modules', async () => {
-		const { workbook, exportFolder } = tempWorkbook();
-		await writeWorkbookSettings(workbook, {
+	it('preserves project analysis overrides when exporting modules', async () => {
+		const { project, exportFolder } = tempWorkbook();
+		await writeProjectSettings(project, {
 			exportFolder,
 			exportMode: 'exportAll',
 			analysis: {
@@ -157,11 +157,11 @@ describe('moduleExport', () => {
 			},
 		});
 
-		await exportWorkbookModules(fakeBridge([
+		await exportProjectModules(fakeBridge([
 			{ name: 'Module1', type: 'standard', source: 'Sub T()\nEnd Sub\n' },
-		]), { filePath: workbook, exportMode: 'trueUp' });
+		]), { filePath: project, exportMode: 'trueUp' });
 
-		expect(await readWorkbookSettings(workbook)).toEqual({
+		expect(await readProjectSettings(project)).toEqual({
 			exportFolder,
 			exportMode: 'trueUp',
 			analysis: {
@@ -179,8 +179,8 @@ describe('non-ASCII export bytes (issue #6, the "exporting" half)', () => {
 		// half is pinned in vbaCodePages.test.ts; this pins the disk half: the
 		// exported .bas contains the real text as UTF-8 - the same on-disk
 		// format 2.6.1's backend wrote - not mojibake, not '?' substitutions.
-		const { workbook, exportFolder } = tempWorkbook();
-		await writeWorkbookSettings(workbook, {
+		const { project, exportFolder } = tempWorkbook();
+		await writeProjectSettings(project, {
 			exportFolder,
 			exportMode: 'exportAll',
 		});
@@ -189,8 +189,8 @@ describe('non-ASCII export bytes (issue #6, the "exporting" half)', () => {
 			{ name: 'mdTest', type: 'standard', source },
 		]);
 
-		const result = await exportWorkbookModule(bridge, {
-			filePath: workbook,
+		const result = await exportProjectModule(bridge, {
+			filePath: project,
 			moduleName: 'mdTest',
 		});
 		expect(result.written).toBe(true);

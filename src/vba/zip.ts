@@ -3,7 +3,7 @@
 // Only what Office writes is supported: stored (0) and deflate (8) entries, no
 // encryption, no spanning. Entries the caller does not modify are carried over
 // with their ORIGINAL compressed bytes, so an edit to one part cannot perturb
-// any other part (and saving stays fast on large workbooks).
+// any other part (and saving stays fast on large projects).
 
 import * as zlib from 'zlib';
 
@@ -13,10 +13,10 @@ const SIG_EOCD = 0x06054b50;
 const SIG_ZIP64_EOCD = 0x06064b50;
 
 /**
- * Deflate level for rewritten entries. The dominant cost of saving a workbook
+ * Deflate level for rewritten entries. The dominant cost of saving a project
  * is re-deflating vbaProject.bin, and on a large project level 6 spends about
  * 18 ms to level 4's 10 ms while producing an entry only ~2.5% smaller - well
- * under a percent of the finished workbook. Ctrl+S happens far more often than
+ * under a percent of the finished project. Ctrl+S happens far more often than
  * anyone counts those bytes, so buy the latency.
  */
 const DEFLATE_LEVEL = 4;

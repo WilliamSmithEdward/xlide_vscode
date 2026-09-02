@@ -72,7 +72,7 @@ interface LineTokenSummary {
  * Parses XLIDE analysis suppression directives:
  * apostrophe comments only, no doc comments, no Rem comments, and physical-line
  * line directives. Member and block directives are lexical source ranges. The
- * resulting predicate is intentionally shared by live diagnostics, workbook
+ * resulting predicate is intentionally shared by live diagnostics, project
  * analysis, and tests so suppression semantics cannot drift by surface.
  */
 export function scanAnalysisSuppressions(

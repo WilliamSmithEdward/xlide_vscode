@@ -1,12 +1,12 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import type { WorkbookAnalysisProblem, WorkbookAnalysisResult } from './vbaWorkbookAnalysis';
+import type { ProjectAnalysisProblem, ProjectAnalysisResult } from './vbaProjectWideAnalysis';
 import {
-    buildWorkbookAnalysisPlainText,
-    buildWorkbookAnalysisResultsModel,
-    type WorkbookAnalysisResultRow,
-    type WorkbookAnalysisResultsModel,
-} from './workbookAnalysisResultsModel';
+    buildProjectAnalysisPlainText,
+    buildProjectAnalysisResultsModel,
+    type ProjectAnalysisResultRow,
+    type ProjectAnalysisResultsModel,
+} from './projectAnalysisResultsModel';
 import {
     ANALYSIS_SEVERITIES,
     isAnalysisRuleTracked,
@@ -15,14 +15,14 @@ import {
 import { diagnosticMetadataForCode } from './analyzer';
 import { setGlobalAnalysisRuleTracked } from './analysisOptions';
 import {
-    effectiveWorkbookAnalysisSettings,
-    resetWorkbookAnalysisRuleTracking,
-    setWorkbookAnalysisRuleTracked,
-    type EffectiveWorkbookAnalysisSettings,
-} from './workbookAnalysisSettings';
+    effectiveProjectAnalysisSettings,
+    resetProjectAnalysisRuleTracking,
+    setProjectAnalysisRuleTracked,
+    type EffectiveProjectAnalysisSettings,
+} from './projectAnalysisSettings';
 import { sanitizeFileName } from './moduleExport';
-import { settingsPathForWorkbook } from './workbookSettings';
-import { decodeModuleUri, sameWorkbookPath, XLIDE_SCHEME } from './xlideFileSystem';
+import { settingsPathForProject } from './projectSettings';
+import { decodeModuleUri, sameProjectPath, XLIDE_SCHEME } from './xlideFileSystem';
 import { measurePerformance } from './performanceTrace';
 import { escapeAttr, escapeHtml, randomNonce, scriptJson } from './webview/html';
 import {
@@ -39,34 +39,34 @@ import { WEBVIEW_BODY_CSS, xlideAccentPaletteCss } from './webview/styles';
 import { renderWebviewTemplate } from './webview/templates';
 import { errorMessage } from './util/errors';
 
-export type WorkbookAnalysisSuppressScope = 'block' | 'member' | 'module';
+export type ProjectAnalysisSuppressScope = 'block' | 'member' | 'module';
 
-export interface WorkbookAnalysisResultsOptions {
-    onOpenProblem?: (problem: WorkbookAnalysisProblem, analysisPanelColumn?: vscode.ViewColumn) => Promise<void>;
+export interface ProjectAnalysisResultsOptions {
+    onOpenProblem?: (problem: ProjectAnalysisProblem, analysisPanelColumn?: vscode.ViewColumn) => Promise<void>;
     onQuickFixProblem?: (
-        problem: WorkbookAnalysisProblem,
+        problem: ProjectAnalysisProblem,
         analysisPanelColumn?: vscode.ViewColumn,
         fixIndex?: number,
     ) => Promise<boolean>;
     onSuppressProblem?: (
-        problem: WorkbookAnalysisProblem,
-        scope: WorkbookAnalysisSuppressScope,
+        problem: ProjectAnalysisProblem,
+        scope: ProjectAnalysisSuppressScope,
         analysisPanelColumn?: vscode.ViewColumn,
     ) => Promise<void>;
-    onAskCopilot?: (problem: WorkbookAnalysisProblem, analysisPanelColumn?: vscode.ViewColumn) => Promise<void>;
-    onRefreshResult?: () => Promise<WorkbookAnalysisResult>;
+    onAskCopilot?: (problem: ProjectAnalysisProblem, analysisPanelColumn?: vscode.ViewColumn) => Promise<void>;
+    onRefreshResult?: () => Promise<ProjectAnalysisResult>;
 }
 
-interface WorkbookAnalysisMessage {
+interface ProjectAnalysisMessage {
     type?: string;
     index?: number;
-    scope?: WorkbookAnalysisSuppressScope;
+    scope?: ProjectAnalysisSuppressScope;
     severity?: string;
     severities?: string[];
     fixIndex?: number;
     suppressed?: boolean;
     tracked?: boolean;
-    trackingScope?: 'workbook' | 'global';
+    trackingScope?: 'project' | 'global';
     code?: string;
     moduleName?: string;
     moduleType?: string;
@@ -76,25 +76,25 @@ interface WorkbookAnalysisMessage {
     message?: string;
 }
 
-interface OpenWorkbookAnalysisResultsPanelEntry {
+interface OpenProjectAnalysisResultsPanelEntry {
     panel: vscode.WebviewPanel;
-    options: WorkbookAnalysisResultsOptions;
+    options: ProjectAnalysisResultsOptions;
     refresh: () => Promise<void>;
-    setResult: (result: WorkbookAnalysisResult) => void;
+    setResult: (result: ProjectAnalysisResult) => void;
     showErrorPage: (error: string) => void;
 }
 
 const WORKBOOK_ANALYSIS_REFRESH_DELAY_MS = 350;
 const WORKBOOK_ANALYSIS_TEXT_CHANGE_REFRESH_DELAY_MS = 1200;
 
-const openWorkbookAnalysisResultsPanels = createWebviewPanelRegistry<OpenWorkbookAnalysisResultsPanelEntry>();
+const openProjectAnalysisResultsPanels = createWebviewPanelRegistry<OpenProjectAnalysisResultsPanelEntry>();
 
-export function openWorkbookAnalysisResults(
+export function openProjectAnalysisResults(
     context: vscode.ExtensionContext,
-    result: WorkbookAnalysisResult,
-    options: WorkbookAnalysisResultsOptions = {},
+    result: ProjectAnalysisResult,
+    options: ProjectAnalysisResultsOptions = {},
 ): vscode.WebviewPanel {
-    const existing = openWorkbookAnalysisResultsPanels.get(result.filePath);
+    const existing = openProjectAnalysisResultsPanels.get(result.filePath);
     if (existing) {
         existing.options = options;
         existing.setResult(result);
@@ -106,14 +106,14 @@ export function openWorkbookAnalysisResults(
     }
 
     let currentResult = result;
-    let currentModel = buildWorkbookAnalysisResultsModel(currentResult);
+    let currentModel = buildProjectAnalysisResultsModel(currentResult);
     let disposed = false;
     let htmlRendered = false;
     let ignoreOwnSettingsRefresh = false;
     let ignoreOwnSettingsRefreshTimer: ReturnType<typeof setTimeout> | undefined;
     const panel = vscode.window.createWebviewPanel(
-        'xlideWorkbookAnalysisResults',
-        `XLIDE Analysis: ${currentModel.workbookName}`,
+        'xlideProjectAnalysisResults',
+        `XLIDE Analysis: ${currentModel.projectName}`,
         vscode.ViewColumn.Active,
         {
             enableScripts: true,
@@ -123,18 +123,18 @@ export function openWorkbookAnalysisResults(
         },
     );
 
-    const updateResult = (nextResult: WorkbookAnalysisResult): void => {
+    const updateResult = (nextResult: ProjectAnalysisResult): void => {
         currentResult = nextResult;
-        currentModel = buildWorkbookAnalysisResultsModel(currentResult);
+        currentModel = buildProjectAnalysisResultsModel(currentResult);
     };
 
     /** Full document render: first paint and recovery from the error page. */
     const renderPanel = async (): Promise<void> => {
-        await measurePerformance('workbookAnalysis.renderPanel', currentModel.workbookName, async () => {
-        const analysisSettings = await effectiveWorkbookAnalysisSettings(currentResult.filePath);
+        await measurePerformance('projectAnalysis.renderPanel', currentModel.projectName, async () => {
+        const analysisSettings = await effectiveProjectAnalysisSettings(currentResult.filePath);
         if (disposed) { return; }
-        panel.title = `XLIDE Analysis: ${currentModel.workbookName}`;
-        panel.webview.html = renderWorkbookAnalysisResultsHtml(
+        panel.title = `XLIDE Analysis: ${currentModel.projectName}`;
+        panel.webview.html = renderProjectAnalysisResultsHtml(
             currentModel,
             analysisSettings,
         );
@@ -144,13 +144,13 @@ export function openWorkbookAnalysisResults(
 
     /** Non-destructive refresh: posts the new model for client-side re-render. */
     const postModelUpdate = async (): Promise<void> => {
-        await measurePerformance('workbookAnalysis.postModelUpdate', currentModel.workbookName, async () => {
-        const analysisSettings = await effectiveWorkbookAnalysisSettings(currentResult.filePath);
+        await measurePerformance('projectAnalysis.postModelUpdate', currentModel.projectName, async () => {
+        const analysisSettings = await effectiveProjectAnalysisSettings(currentResult.filePath);
         if (disposed) { return; }
-        panel.title = `XLIDE Analysis: ${currentModel.workbookName}`;
+        panel.title = `XLIDE Analysis: ${currentModel.projectName}`;
         await panel.webview.postMessage({
             type: 'model',
-            model: buildWorkbookAnalysisClientModel(currentModel, analysisSettings),
+            model: buildProjectAnalysisClientModel(currentModel, analysisSettings),
         });
         });
     };
@@ -159,17 +159,17 @@ export function openWorkbookAnalysisResults(
 
     const showErrorPage = (error: string): void => {
         htmlRendered = false;
-        panel.webview.html = renderWorkbookAnalysisErrorHtml(currentModel.workbookName, error);
+        panel.webview.html = renderProjectAnalysisErrorHtml(currentModel.projectName, error);
     };
 
-    const entry: OpenWorkbookAnalysisResultsPanelEntry = {
+    const entry: OpenProjectAnalysisResultsPanelEntry = {
         panel,
         options,
         refresh: refreshView,
         setResult: updateResult,
         showErrorPage,
     };
-    openWorkbookAnalysisResultsPanels.set(result.filePath, entry);
+    openProjectAnalysisResultsPanels.set(result.filePath, entry);
 
     const refresher = new DebouncedRefresher({
         refresh: async () => {
@@ -211,7 +211,7 @@ export function openWorkbookAnalysisResults(
         scheduleRefresh();
     };
 
-    const problemAt = (index: unknown, suppressed?: boolean): WorkbookAnalysisProblem | undefined => {
+    const problemAt = (index: unknown, suppressed?: boolean): ProjectAnalysisProblem | undefined => {
         if (typeof index !== 'number') {
             return undefined;
         }
@@ -220,7 +220,7 @@ export function openWorkbookAnalysisResults(
             : currentResult.problems[index];
     };
 
-    const problemForOpenMessage = (message: WorkbookAnalysisMessage): WorkbookAnalysisProblem | undefined => {
+    const problemForOpenMessage = (message: ProjectAnalysisMessage): ProjectAnalysisProblem | undefined => {
         const indexedProblem = problemAt(message.index, message.suppressed);
         const rowProblem = problemFromOpenMessage(message);
         if (indexedProblem && (!rowProblem || sameProblemLocation(indexedProblem, rowProblem))) {
@@ -234,7 +234,7 @@ export function openWorkbookAnalysisResults(
     // background refresh shifted the problem array underneath the panel, the
     // problem now at the sent index will not match that identity - refuse to act
     // so we never suppress or rewrite the WRONG finding.
-    const verifiedMutationProblem = (message: WorkbookAnalysisMessage): WorkbookAnalysisProblem | undefined => {
+    const verifiedMutationProblem = (message: ProjectAnalysisMessage): ProjectAnalysisProblem | undefined => {
         const indexed = problemAt(message.index, message.suppressed);
         if (!indexed) {
             return undefined;
@@ -248,14 +248,14 @@ export function openWorkbookAnalysisResults(
 
     const reportText = (json: boolean): string => json
         ? JSON.stringify(currentModel, null, 2)
-        : buildWorkbookAnalysisPlainText(currentModel);
+        : buildProjectAnalysisPlainText(currentModel);
 
     void renderPanel().catch((err) => {
         showErrorPage(errorMessage(err));
     });
     const messageSub = bridgeWebviewMessages(
         panel.webview,
-        async (message: WorkbookAnalysisMessage) => {
+        async (message: ProjectAnalysisMessage) => {
             if (message.type === 'openProblem') {
                 const problem = problemForOpenMessage(message);
                 if (problem && entry.options.onOpenProblem) {
@@ -305,17 +305,17 @@ export function openWorkbookAnalysisResults(
                 const problem = verifiedMutationProblem(message);
                 const code = typeof message.code === 'string' ? message.code : problem?.code;
                 if (code) {
-                    const scope = message.trackingScope === 'global' ? 'global' : 'workbook';
-                    if (scope === 'workbook') {
+                    const scope = message.trackingScope === 'global' ? 'global' : 'project';
+                    if (scope === 'project') {
                         ignoreOwnSidecarRefreshBriefly();
                     }
                     const update = scope === 'global'
                         ? await setGlobalAnalysisRuleTracked(code, message.tracked === true)
-                        : await setWorkbookAnalysisRuleTracked(currentResult.filePath, code, message.tracked === true);
+                        : await setProjectAnalysisRuleTracked(currentResult.filePath, code, message.tracked === true);
                     // Re-arm the suppression window now that the sidecar write has
                     // resolved, so a slow filesystem-watcher notification after the
                     // initial window still does not trigger a redundant self-refresh.
-                    if (scope === 'workbook') {
+                    if (scope === 'project') {
                         ignoreOwnSidecarRefreshBriefly();
                     }
                     await refreshAfterAnalysisMutation();
@@ -331,7 +331,7 @@ export function openWorkbookAnalysisResults(
             }
             if (message.type === 'resetAnalysisRuleTracking') {
                 ignoreOwnSidecarRefreshBriefly();
-                await resetWorkbookAnalysisRuleTracking(currentResult.filePath);
+                await resetProjectAnalysisRuleTracking(currentResult.filePath);
                 ignoreOwnSidecarRefreshBriefly();
                 await refreshAfterAnalysisMutation();
                 return;
@@ -348,7 +348,7 @@ export function openWorkbookAnalysisResults(
                     title: json ? 'Export XLIDE Analysis JSON' : 'Export XLIDE Analysis Report',
                     defaultUri: vscode.Uri.file(path.join(
                         path.dirname(currentModel.filePath),
-                        `${sanitizeFileName(currentModel.workbookName)}.xlide-analysis.${extension}`,
+                        `${sanitizeFileName(currentModel.projectName)}.xlide-analysis.${extension}`,
                     )),
                     filters: json ? { JSON: ['json'] } : { Text: ['txt'] },
                 });
@@ -369,16 +369,16 @@ export function openWorkbookAnalysisResults(
         }
     });
     const textChangeSub = vscode.workspace.onDidChangeTextDocument((e) => {
-        if (isWorkbookDocument(e.document, currentResult.filePath)) {
+        if (isProjectDocument(e.document, currentResult.filePath)) {
             scheduleRefresh(WORKBOOK_ANALYSIS_TEXT_CHANGE_REFRESH_DELAY_MS);
         }
     });
     const saveSub = vscode.workspace.onDidSaveTextDocument((document) => {
-        if (isWorkbookDocument(document, currentResult.filePath)) {
+        if (isProjectDocument(document, currentResult.filePath)) {
             scheduleRefresh();
         }
     });
-    const sidecarPath = settingsPathForWorkbook(currentResult.filePath);
+    const sidecarPath = settingsPathForProject(currentResult.filePath);
     const sidecarWatcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(
         path.dirname(sidecarPath),
         path.basename(sidecarPath),
@@ -395,7 +395,7 @@ export function openWorkbookAnalysisResults(
     ];
     panel.onDidDispose(() => {
         disposed = true;
-        openWorkbookAnalysisResultsPanels.delete(result.filePath);
+        openProjectAnalysisResultsPanels.delete(result.filePath);
         refresher.dispose();
         if (ignoreOwnSettingsRefreshTimer) {
             clearTimeout(ignoreOwnSettingsRefreshTimer);
@@ -410,24 +410,24 @@ export function openWorkbookAnalysisResults(
     return panel;
 }
 
-function isWorkbookDocument(document: vscode.TextDocument, filePath: string): boolean {
+function isProjectDocument(document: vscode.TextDocument, filePath: string): boolean {
     if (document.uri.scheme !== XLIDE_SCHEME) {
         return false;
     }
     try {
-        return sameWorkbookPath(decodeModuleUri(document.uri).xlsmPath, filePath);
+        return sameProjectPath(decodeModuleUri(document.uri).projectPath, filePath);
     } catch {
         return false;
     }
 }
 
-interface WorkbookAnalysisClientRow {
+interface ProjectAnalysisClientRow {
     index: number;
     suppressed: boolean;
     moduleName: string;
     moduleType: string;
     moduleOrder: number;
-    severity: WorkbookAnalysisResultRow['severity'];
+    severity: ProjectAnalysisResultRow['severity'];
     vbeCompileEquivalent: boolean;
     line: number;
     column: number;
@@ -439,14 +439,14 @@ interface WorkbookAnalysisClientRow {
     quickFixTitles: string[];
     suppressionScopes: string[];
     tracked: boolean;
-    trackingSource: 'tracked' | 'workbook' | 'global';
+    trackingSource: 'tracked' | 'project' | 'global';
     statusKey: 'tracked' | 'untracked' | 'suppressed';
     statusLabel: string;
     location: string;
 }
 
-interface WorkbookAnalysisClientModel {
-    workbookName: string;
+interface ProjectAnalysisClientModel {
+    projectName: string;
     totalProblems: number;
     errorCount: number;
     warningCount: number;
@@ -455,27 +455,27 @@ interface WorkbookAnalysisClientModel {
     untrackedCount: number;
     moduleCount: number;
     groups: Array<{ moduleName: string; moduleIcon: string; moduleTypeLabel: string; total: number }>;
-    rows: WorkbookAnalysisClientRow[];
+    rows: ProjectAnalysisClientRow[];
     visibleSeverities: readonly AnalysisSeverityFilter[];
     untrackedRules: readonly string[];
     analysisSettingsKey: string;
-    rulesSourceIsWorkbook: boolean;
-    workbookUntrackedRules: Array<{ code: string; title: string }>;
+    rulesSourceIsProject: boolean;
+    projectUntrackedRules: Array<{ code: string; title: string }>;
 }
 
 /** Everything the webview script needs to render or re-render the panel body. */
-function buildWorkbookAnalysisClientModel(
-    model: WorkbookAnalysisResultsModel,
-    analysisSettings: EffectiveWorkbookAnalysisSettings,
-): WorkbookAnalysisClientModel {
+function buildProjectAnalysisClientModel(
+    model: ProjectAnalysisResultsModel,
+    analysisSettings: EffectiveProjectAnalysisSettings,
+): ProjectAnalysisClientModel {
     const untrackedRules = analysisSettings.untrackedRules;
     const moduleOrder = new Map(model.groups.map((group, index) => [group.moduleName.toLowerCase(), index]));
-    const rows = [...model.rows, ...model.suppressedRows].map((row): WorkbookAnalysisClientRow => {
+    const rows = [...model.rows, ...model.suppressedRows].map((row): ProjectAnalysisClientRow => {
         const tracked = isAnalysisRuleTracked(row.code, untrackedRules);
         const trackingSource = analysisRuleTrackingSourceForRow(
             tracked,
             row.code,
-            analysisSettings.workbookUntrackedRules,
+            analysisSettings.projectUntrackedRules,
         );
         return {
             index: row.index,
@@ -504,7 +504,7 @@ function buildWorkbookAnalysisClientModel(
         };
     });
     return {
-        workbookName: model.workbookName,
+        projectName: model.projectName,
         totalProblems: model.totalProblems,
         // Derive all three counts uniformly from the same row set so the
         // Information stat cannot silently desync from Errors/Warnings.
@@ -523,20 +523,20 @@ function buildWorkbookAnalysisClientModel(
         rows,
         visibleSeverities: analysisSettings.visibleSeverities,
         untrackedRules: analysisSettings.untrackedRules,
-        analysisSettingsKey: workbookAnalysisSettingsKey(analysisSettings),
-        rulesSourceIsWorkbook: analysisSettings.untrackedRulesSource === 'workbook',
-        workbookUntrackedRules: [...analysisSettings.workbookUntrackedRules]
+        analysisSettingsKey: projectAnalysisSettingsKey(analysisSettings),
+        rulesSourceIsProject: analysisSettings.untrackedRulesSource === 'project',
+        projectUntrackedRules: [...analysisSettings.projectUntrackedRules]
             .sort((left, right) => left.localeCompare(right))
             .map((code) => ({ code, title: diagnosticMetadataForCode(code)?.title ?? code })),
     };
 }
 
-export function renderWorkbookAnalysisResultsHtml(
-    model: WorkbookAnalysisResultsModel,
-    analysisSettings: EffectiveWorkbookAnalysisSettings,
+export function renderProjectAnalysisResultsHtml(
+    model: ProjectAnalysisResultsModel,
+    analysisSettings: EffectiveProjectAnalysisSettings,
 ): string {
     const nonce = randomNonce();
-    const clientModel = buildWorkbookAnalysisClientModel(model, analysisSettings);
+    const clientModel = buildProjectAnalysisClientModel(model, analysisSettings);
     const modelJson = scriptJson(clientModel);
     const rowsHtml = clientModel.rows.length === 0
         ? '<div class="empty">No analysis findings.</div>'
@@ -588,8 +588,8 @@ export function renderWorkbookAnalysisResultsHtml(
         const active = clientModel.visibleSeverities.includes(severity);
         return `<button class="filterButton${active ? ' active' : ''}" type="button" data-severity-toggle="${severity}" aria-pressed="${active ? 'true' : 'false'}">${severityFilterLabel(severity)}</button>`;
     }).join('');
-    const workbookUntrackedRulesHtml = workbookUntrackedRulesSettingsHtml(clientModel.workbookUntrackedRules);
-    const rulesSourceIsWorkbook = clientModel.rulesSourceIsWorkbook;
+    const projectUntrackedRulesHtml = projectUntrackedRulesSettingsHtml(clientModel.projectUntrackedRules);
+    const rulesSourceIsProject = clientModel.rulesSourceIsProject;
     const summaryStatsHtml = [
         statHtml(String(clientModel.errorCount), 'Errors'),
         statHtml(String(clientModel.warningCount), 'Warnings'),
@@ -599,15 +599,15 @@ export function renderWorkbookAnalysisResultsHtml(
         statHtml(String(clientModel.moduleCount), 'Modules'),
     ].join('');
 
-    return renderWebviewTemplate('assets/webview/workbookAnalysis.html', {
+    return renderWebviewTemplate('assets/webview/projectAnalysis.html', {
         head: webviewHeadHtml(nonce, 'XLIDE Analysis Results'),
         nonce,
-        css: renderWebviewTemplate('assets/webview/workbookAnalysis.css', {
+        css: renderWebviewTemplate('assets/webview/projectAnalysis.css', {
             accentPalette: xlideAccentPaletteCss(),
             bodyCss: WEBVIEW_BODY_CSS,
             toastCss: WEBVIEW_TOAST_CSS,
         }),
-        workbookName: escapeHtml(model.workbookName),
+        projectName: escapeHtml(model.projectName),
         summaryStats: summaryStatsHtml,
         moduleButtons,
         filterButtons,
@@ -620,11 +620,11 @@ export function renderWorkbookAnalysisResultsHtml(
             sortHeaderHtml('message', 'Message'),
         ].join(''),
         rows: rowsHtml,
-        rulesSourceLabel: rulesSourceIsWorkbook ? 'File settings' : 'No file override',
-        rulesResetDisabled: rulesSourceIsWorkbook ? '' : 'disabled',
-        workbookUntrackedRules: workbookUntrackedRulesHtml,
+        rulesSourceLabel: rulesSourceIsProject ? 'File settings' : 'No file override',
+        rulesResetDisabled: rulesSourceIsProject ? '' : 'disabled',
+        projectUntrackedRules: projectUntrackedRulesHtml,
         toastHtml: WEBVIEW_TOAST_HTML,
-        js: renderWebviewTemplate('assets/webview/workbookAnalysis.js', {
+        js: renderWebviewTemplate('assets/webview/projectAnalysis.js', {
             toastScript: WEBVIEW_TOAST_SCRIPT,
             modelJson,
         }),
@@ -632,16 +632,16 @@ export function renderWorkbookAnalysisResultsHtml(
 }
 
 
-function renderWorkbookAnalysisErrorHtml(
-    workbookName: string,
+function renderProjectAnalysisErrorHtml(
+    projectName: string,
     error: string,
 ): string {
     return renderWebviewErrorPageHtml({
         title: 'XLIDE Analysis Error',
         heading: 'XLIDE Analysis Could Not Load',
-        subtitle: workbookName,
+        subtitle: projectName,
         error,
-        help: 'Fix or delete the workbook settings sidecar, then run analysis again.',
+        help: 'Fix or delete the project settings sidecar, then run analysis again.',
     });
 }
 
@@ -657,7 +657,7 @@ function sortHeaderHtml(key: string, label: string): string {
     ><span class="sortHeaderText">${escapeHtml(label)}</span><span class="sortIndicator" aria-hidden="true"></span></button>`;
 }
 
-function problemFromOpenMessage(message: WorkbookAnalysisMessage): WorkbookAnalysisProblem | undefined {
+function problemFromOpenMessage(message: ProjectAnalysisMessage): ProjectAnalysisProblem | undefined {
     const moduleName = typeof message.moduleName === 'string' && message.moduleName.trim()
         ? message.moduleName
         : undefined;
@@ -682,7 +682,7 @@ function problemFromOpenMessage(message: WorkbookAnalysisMessage): WorkbookAnaly
     };
 }
 
-function sameProblemLocation(left: WorkbookAnalysisProblem, right: WorkbookAnalysisProblem): boolean {
+function sameProblemLocation(left: ProjectAnalysisProblem, right: ProjectAnalysisProblem): boolean {
     return left.moduleName.toLowerCase() === right.moduleName.toLowerCase() &&
         left.line === right.line &&
         left.column === right.column &&
@@ -696,13 +696,13 @@ function positiveIntegerFromUnknown(value: unknown): number | undefined {
     return Number.isInteger(value) && Number(value) > 0 ? Number(value) : undefined;
 }
 
-function analysisProblemSeverityFromUnknown(value: unknown): WorkbookAnalysisProblem['severity'] {
+function analysisProblemSeverityFromUnknown(value: unknown): ProjectAnalysisProblem['severity'] {
     return value === 'error' || value === 'warning' || value === 'information'
         ? value
         : 'information';
 }
 
-function workbookAnalysisSettingsKey(settings: EffectiveWorkbookAnalysisSettings): string {
+function projectAnalysisSettingsKey(settings: EffectiveProjectAnalysisSettings): string {
     return JSON.stringify({
         visibleSeverities: [...settings.visibleSeverities],
         visibleSeveritiesSource: settings.visibleSeveritiesSource,
@@ -717,34 +717,34 @@ function workbookAnalysisSettingsKey(settings: EffectiveWorkbookAnalysisSettings
 function analysisRuleTrackingSourceForRow(
     tracked: boolean,
     code: string | undefined,
-    workbookUntrackedRules: readonly string[],
-): 'tracked' | 'workbook' | 'global' {
+    projectUntrackedRules: readonly string[],
+): 'tracked' | 'project' | 'global' {
     if (tracked) {
         return 'tracked';
     }
     const normalizedCode = typeof code === 'string' ? code.trim().toLowerCase() : '';
-    if (normalizedCode && workbookUntrackedRules.includes(normalizedCode)) {
-        return 'workbook';
+    if (normalizedCode && projectUntrackedRules.includes(normalizedCode)) {
+        return 'project';
     }
     return 'global';
 }
 
-function analysisRuleTrackingStatusLabel(source: 'tracked' | 'workbook' | 'global'): string {
+function analysisRuleTrackingStatusLabel(source: 'tracked' | 'project' | 'global'): string {
     switch (source) {
         case 'tracked':
             return 'Tracked';
-        case 'workbook':
+        case 'project':
             return 'Untracked In File';
         case 'global':
             return 'Untracked Globally';
     }
 }
 
-function workbookUntrackedRulesSettingsHtml(
-    workbookUntrackedRules: ReadonlyArray<{ code: string; title: string }>,
+function projectUntrackedRulesSettingsHtml(
+    projectUntrackedRules: ReadonlyArray<{ code: string; title: string }>,
 ): string {
-    if (workbookUntrackedRules.length === 0) {
-        return '<div class="settingsEmpty">No file rules are manually untracked.</div>';
+    if (projectUntrackedRules.length === 0) {
+        return '<div class="settingsEmpty">No project rules are manually untracked.</div>';
     }
     return `
         <table class="settingsTable">
@@ -756,7 +756,7 @@ function workbookUntrackedRulesSettingsHtml(
                 </tr>
             </thead>
             <tbody>
-                ${workbookUntrackedRules.map((rule) => `
+                ${projectUntrackedRules.map((rule) => `
                         <tr>
                             <td class="settingsTableCode">${escapeHtml(rule.code)}</td>
                             <td>${escapeHtml(rule.title)}</td>

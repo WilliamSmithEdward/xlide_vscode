@@ -58,10 +58,10 @@ function fixtureCodeNames(fixture: VbaProjectFixture): string[] {
 		.map((mod) => mod.name);
 }
 
-describe('machine-readable VBA workbook project fixtures', () => {
+describe('machine-readable VBA project fixtures', () => {
 	for (const fixture of loadVbaProjectFixtures()) {
 		describe(fixture.id, () => {
-			it('declares a valid workbook-level fixture shape', () => {
+			it('declares a valid project-level fixture shape', () => {
 				expect(fixture.version).toBe(1);
 				expect(fixture.modules.length).toBeGreaterThan(0);
 				expect(fixture.assertions).toBeDefined();

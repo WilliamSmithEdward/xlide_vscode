@@ -1,4 +1,4 @@
-import type { WorkbookEngine } from './workbookEngine';
+import type { ProjectEngine } from './projectEngine';
 import {
     normalizeVbaTestSupportModuleSource,
     XLIDE_ASSERT_MODULE_NAME,
@@ -16,7 +16,7 @@ export interface VbaTestSupportStatus {
 }
 
 export async function getVbaTestSupportStatus(
-    bridge: WorkbookEngine,
+    bridge: ProjectEngine,
     filePath: string,
 ): Promise<VbaTestSupportStatus> {
     try {

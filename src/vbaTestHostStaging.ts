@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { WorkbookEngine } from './workbookEngine';
+import type { ProjectEngine } from './projectEngine';
 import type { VbaTestCase } from './vbaTestRunner';
 import {
     buildOwnedReadOnlyExcelTestHostScript,
@@ -41,7 +41,7 @@ export interface VbaTestHostStaging {
  * removed before the error propagates.
  */
 export async function stageOwnedReadOnlyExcelTestHost(
-    bridge: WorkbookEngine,
+    bridge: ProjectEngine,
     filePath: string,
     tests: readonly VbaTestCase[],
     options: VbaTestHostStagingOptions,

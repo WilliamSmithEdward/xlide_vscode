@@ -3,8 +3,8 @@
 // Excel stores a UserForm's control tree in a binary designer storage inside
 // vbaProject.bin - a storage named after the module, whose `f` stream is the
 // MS-OFORMS FormControl. The module's text carries none of it, which is why a
-// workbook form's controls were unknowable without a host. This reads them out
-// of the workbook itself: names, and the type each control answers to.
+// project form's controls were unknowable without a host. This reads them out
+// of the project itself: names, and the type each control answers to.
 //
 // Decoded against [MS-OFORMS] v20250819 (docs/[MS-OFORMS].pdf) and verified
 // byte-for-byte against a real Excel-authored form before being written: every
@@ -102,7 +102,7 @@ interface SiteRecord {
  * MultiPage's Pages each live in a storage of their own inside the form's
  * storage. It is no longer the reader of record - `parseFormPackage` in
  * oforms/ walks the whole tree and is what the member surface uses (see
- * readModuleEntry in workbookService). This stays as the FALLBACK for a form
+ * readModuleEntry in projectService). This stays as the FALLBACK for a form
  * that engine cannot parse, where a flat answer beats no answer, and it is
  * why a partial member list here is not a bug (#57).
  */
@@ -332,7 +332,7 @@ export function parseFormDesignerStreams(
 // The VBE's .frx sidecar, decoded from a real export before being written:
 // a 24-byte header - "LB" magic, a version word, the embedded size - followed
 // by a compound file holding the designer storage's `f` and `o` streams (and
-// a CompObj). Diffed against the same form inside the workbook, `f` and `o`
+// a CompObj). Diffed against the same form inside the project, `f` and `o`
 // matched byte-for-byte except spec-declared undefined padding, so the
 // sidecar IS the designer storage in travel dress.
 
@@ -421,7 +421,7 @@ export function composeFormFrx(source: Cfb, storageName: string, vbFrame?: strin
 		for (const child of source.listChildrenAtPath(srcPath)) {
 			if (child.kind === 'stream') {
 				// The root VBFrame stays in the .frm text, and the root
-				// CompObj is composed fresh below: the in-workbook variant
+				// CompObj is composed fresh below: the in-project variant
 				// zeroes the CLSID the sidecar's loader binds by.
 				if (dstPath.length === 0 && (child.name === VBFRAME_STREAM_NAME || child.name === FRX_COMPOBJ_STREAM)) {
 					continue;
@@ -487,8 +487,8 @@ export function composeFrmDesignerBlock(vbFrame: string, frxFileName: string): s
 
 /**
  * Rebuilds the VBFrame stream from an imported `.frm`'s designer block:
- * `OleObjectBlob` names a file that does not exist inside a workbook and is
- * dropped; `TypeInfoVer` is the workbook's own bookkeeping and is carried
+ * `OleObjectBlob` names a file that does not exist inside a project and is
+ * dropped; `TypeInfoVer` is the project's own bookkeeping and is carried
  * over from the existing stream.
  */
 export function mergeVbFrameFromFrm(frmDesignerBlock: string, existingVbFrame: string): string {

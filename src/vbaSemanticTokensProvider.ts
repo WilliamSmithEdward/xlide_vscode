@@ -1,6 +1,6 @@
 // Semantic tokens for VBA type references (class/enum/struct/type names),
 // with a TTL'd per-document project-types cache and debounced background
-// refresh against the shared workbook ProjectIndex.
+// refresh against the shared ProjectIndex.
 //
 // Extracted verbatim from vbaLanguageProviders.ts (audit #21).
 
@@ -31,7 +31,7 @@ import {
     hostTokenForFileName,
 } from './analyzer/host/hostRegistry';
 import type { HostObjectModel } from './analyzer/host/excelObjectModel';
-import { moduleIdentityKey } from './workbookIdentity';
+import { moduleIdentityKey } from './projectIdentity';
 import { startPerformanceTrace } from './performanceTrace';
 
 const TYPE_TOKEN_TYPES: TypeSemanticTokenType[] = [
@@ -303,16 +303,16 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
             return undefined;
         }
         try {
-            const xlsmPath = location.xlsmPath;
-            // The same cached workbook context the project build above used.
-            const context = await this._projectIndexService.contextForWorkbook(xlsmPath, 'live');
+            const projectPath = location.projectPath;
+            // The same cached project context the project build above used.
+            const context = await this._projectIndexService.contextForProject(projectPath, 'live');
             return codeNameHostTypesForModules(
                 [...context.moduleMetadata.values()].map((meta) => ({
                     name: meta.moduleName,
                     type: meta.moduleType ?? '',
                     documentType: meta.documentType,
                 })),
-                hostTokenForFileName(xlsmPath),
+                hostTokenForFileName(projectPath),
             );
         } catch {
             return undefined;
@@ -329,14 +329,14 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
         if (!location) {
             return moduleKindFromDocument(document) === 'userform' ? 'MSForms.UserForm' : undefined;
         }
-        if (hostTokenForFileName(location.xlsmPath) === 'vb6') {
+        if (hostTokenForFileName(location.projectPath) === 'vb6') {
             // A VB6 form is a VB.Form; its surface arrives with the vb6 model.
             return undefined;
         }
         try {
-            // The same cached workbook context the project build above used.
-            const context = await this._projectIndexService.contextForWorkbook(
-                location.xlsmPath,
+            // The same cached project context the project build above used.
+            const context = await this._projectIndexService.contextForProject(
+                location.projectPath,
                 'live',
             );
             return context.moduleMetadata.get(moduleIdentityKey(moduleName))?.moduleKind === 'userform'
@@ -351,5 +351,5 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
 /** The host model for the document's container; undefined keeps Excel defaults. */
 function hostModelForDocument(document: vscode.TextDocument): HostObjectModel | undefined {
     const location = moduleLocationOfDocument(document);
-    return location ? hostObjectModelForToken(hostTokenForFileName(location.xlsmPath)) : undefined;
+    return location ? hostObjectModelForToken(hostTokenForFileName(location.projectPath)) : undefined;
 }

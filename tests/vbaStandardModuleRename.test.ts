@@ -15,12 +15,12 @@ import { projectStandardModuleReferenceLocations } from '../src/vbaStandardModul
 // rewriting it would corrupt code the rename never owned.
 
 function locations(modules: VbaProjectModuleInput[], oldName: string): string[] {
-    const workbook = path.join(path.sep, 'work', 'book.xlsm');
+    const projectPath = path.join(path.sep, 'work', 'book.xlsm');
     const project = buildVbaProjectIndex(modules);
     const byModule = new Map<string, VbaNavigationModule>(
         modules.map((mod) => [mod.moduleName.toLowerCase(), mod]),
     );
-    return projectStandardModuleReferenceLocations(workbook, byModule, project, oldName)
+    return projectStandardModuleReferenceLocations(projectPath, byModule, project, oldName)
         .map((ref) => `${ref.uri.path.split('/').pop()}:${ref.range.start.line}`);
 }
 

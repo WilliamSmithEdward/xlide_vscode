@@ -1,17 +1,17 @@
 // The form designer: ONE custom editor over the .form document - the canvas,
 // the properties pane, and the markup text live in a single tab, the way the
 // vbide draws them. The document is the truth the user edits; a SCRATCH COPY
-// of the workbook holds that truth applied, so the canvas renders real bytes
+// of the project holds that truth applied, so the canvas renders real bytes
 // without ever writing the user's file. A gesture mutates the scratch through
 // the engine's designer ops, prints back to markup, and lands in the document
 // as an ordinary text edit - so the tab carries the dirty dot, Ctrl+Z is text
-// undo, and SAVE is the only workbook write (the .form provider's apply).
+// undo, and SAVE is the only project write (the .form provider's apply).
 
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as crypto from 'crypto';
-import type { WorkbookEngine } from './workbookEngine';
+import type { ProjectEngine } from './projectEngine';
 import { decodeModuleUri, encodeFormMarkupUri, encodeModuleUri, XLIDE_SCHEME } from './xlideFileSystem';
 import {
 	closeWorkbookInExcel,
@@ -34,7 +34,7 @@ import { errorMessage } from './util/errors';
 export const FORM_DESIGNER_VIEW_TYPE = 'xlideFormDesigner';
 
 /** The workbook behind the most recently focused designer, for F5. */
-let lastFocusedDesignerWorkbook: string | undefined;
+let lastFocusedDesignerProject: string | undefined;
 /** Its form module, so F5 knows which form a Show launcher should open. */
 let lastFocusedDesignerModule: string | undefined;
 /** A launch (its consent modal included) is running; a second F5 waits. */
@@ -44,7 +44,7 @@ let launchInFlight = false;
  * Persists what F5 is about to run: the form's own document (the designer
  * writes its gestures there) and the focused XLIDE document, when either is
  * dirty. False means a save was refused - the caller must NOT run on, because
- * the workbook still holds the previous version of the form.
+ * the project still holds the previous version of the form.
  */
 async function savePendingLaunchEdits(
 	filePath: string,
@@ -100,7 +100,7 @@ type GestureMessage = Extract<DesignerMessage,
 
 export function registerFormPreview(
 	context: vscode.ExtensionContext,
-	bridge: Pick<WorkbookEngine, 'call'>,
+	bridge: Pick<ProjectEngine, 'call'>,
 ): void {
 	const scratchDir = path.join(context.globalStorageUri.fsPath, 'designer-scratch');
 	try {
@@ -117,10 +117,10 @@ export function registerFormPreview(
 
 	// The VBE's double-click: the control's default event handler in the
 	// code face - navigate to it, or append the stub the VBE would write and
-	// land the cursor inside it. Not a workbook write: the stub is a document
+	// land the cursor inside it. Not a project write: the stub is a document
 	// edit the user saves like any typed code.
 	const openEventHandler = async (
-		xlsmPath: string,
+		projectPath: string,
 		moduleName: string,
 		controlName: string,
 		eventName: string,
@@ -129,7 +129,7 @@ export function registerFormPreview(
 			const handler = `${controlName === '' ? 'UserForm' : controlName}_${eventName}`;
 			const escaped = handler.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 			const signature = new RegExp(`^[ \\t]*(?:Private\\s+|Public\\s+|Friend\\s+)?Sub\\s+${escaped}\\s*\\(`, 'im');
-			const uri = encodeModuleUri(xlsmPath, moduleName);
+			const uri = encodeModuleUri(projectPath, moduleName);
 			const doc = await vscode.workspace.openTextDocument(uri);
 			if (!signature.test(doc.getText())) {
 				const eol = doc.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
@@ -160,9 +160,9 @@ export function registerFormPreview(
 			document: vscode.TextDocument,
 			panel: vscode.WebviewPanel,
 		): Promise<void> {
-			const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
+			const { projectPath, moduleName } = decodeModuleUri(document.uri);
 			panel.webview.options = { enableScripts: true };
-			lastFocusedDesignerWorkbook = xlsmPath;
+			lastFocusedDesignerProject = projectPath;
 			lastFocusedDesignerModule = moduleName;
 
 			// The pid keeps two windows on the same form from sharing a scratch;
@@ -170,10 +170,10 @@ export function registerFormPreview(
 			const scratchPath = path.join(
 				scratchDir,
 				crypto.createHash('sha1')
-					.update(`${xlsmPath.toLowerCase()}::${moduleName.toLowerCase()}`)
-					.digest('hex').slice(0, 20) + `-${process.pid}${path.extname(xlsmPath)}`,
+					.update(`${projectPath.toLowerCase()}::${moduleName.toLowerCase()}`)
+					.digest('hex').slice(0, 20) + `-${process.pid}${path.extname(projectPath)}`,
 			);
-			/** Real workbook mtime the scratch was last copied from. */
+			/** Real project mtime the scratch was last copied from. */
 			let baselineMtime = -1;
 			/** Document text currently applied to the scratch; null = bare copy. */
 			let appliedText: string | null = null;
@@ -191,11 +191,11 @@ export function registerFormPreview(
 				});
 			};
 
-			/** Copies the real workbook under the scratch when it moved. */
+			/** Copies the real project under the scratch when it moved. */
 			const ensureScratch = (): void => {
-				const mtime = Math.floor(fs.statSync(xlsmPath).mtimeMs);
+				const mtime = Math.floor(fs.statSync(projectPath).mtimeMs);
 				if (mtime !== baselineMtime || !fs.existsSync(scratchPath)) {
-					fs.copyFileSync(xlsmPath, scratchPath);
+					fs.copyFileSync(projectPath, scratchPath);
 					baselineMtime = mtime;
 					appliedText = null;
 				}
@@ -211,7 +211,7 @@ export function registerFormPreview(
 				ensureScratch();
 				if (appliedText === text) { return; }
 				if (appliedText !== null) {
-					fs.copyFileSync(xlsmPath, scratchPath);
+					fs.copyFileSync(projectPath, scratchPath);
 					appliedText = null;
 				}
 				await bridge.call('applyFormMarkup', { path: scratchPath, module: moduleName, markup: text });
@@ -229,7 +229,7 @@ export function registerFormPreview(
 						module: moduleName,
 						selected,
 						markup,
-						identityPath: xlsmPath,
+						identityPath: projectPath,
 					});
 					panel.webview.html = html;
 					lastRenderedText = markup;
@@ -380,18 +380,18 @@ export function registerFormPreview(
 				changeTimer = setTimeout(() => enqueue(syncAndRender), 250);
 			});
 
-			// A save writes the real workbook through the .form provider; the
+			// A save writes the real project through the .form provider; the
 			// scratch already says the same, so only the baseline stamp moves.
 			const saveListener = vscode.workspace.onDidSaveTextDocument((doc) => {
 				if (doc !== document) { return; }
 				try {
-					baselineMtime = Math.floor(fs.statSync(xlsmPath).mtimeMs);
+					baselineMtime = Math.floor(fs.statSync(projectPath).mtimeMs);
 				} catch { /* the next gesture recopies */ }
 			});
 
 			const viewStateListener = panel.onDidChangeViewState((e) => {
 				if (e.webviewPanel.active) {
-					lastFocusedDesignerWorkbook = xlsmPath;
+					lastFocusedDesignerProject = projectPath;
 					lastFocusedDesignerModule = moduleName;
 				}
 			});
@@ -399,7 +399,7 @@ export function registerFormPreview(
 			const messageListener = panel.webview.onDidReceiveMessage((message: DesignerMessage) => {
 				switch (message.type) {
 					case 'openHandler':
-						void openEventHandler(xlsmPath, moduleName, message.name, message.event);
+						void openEventHandler(projectPath, moduleName, message.name, message.event);
 						break;
 					case 'paste':
 						enqueue(() => applyPaste(message.names));
@@ -437,7 +437,7 @@ export function registerFormPreview(
 
 			// First light: the document may already be dirty (a restored
 			// backup), so the scratch takes the document's word from the
-			// start. A CLEAN document just came from the workbook itself, so
+			// start. A CLEAN document just came from the project itself, so
 			// its text IS the baseline's print - trusting that skips a whole
 			// parse-and-diff on every designer open.
 			if (!document.isDirty) {
@@ -461,18 +461,18 @@ export function registerFormPreview(
 		),
 
 		vscode.commands.registerCommand('xlide.previewForm', async (node?: { kind?: string; filePath?: string; moduleName?: string; moduleType?: string }) => {
-			let xlsmPath = node?.filePath;
+			let projectPath = node?.filePath;
 			let moduleName = node?.moduleName;
-			if ((!xlsmPath || !moduleName) && vscode.window.activeTextEditor) {
+			if ((!projectPath || !moduleName) && vscode.window.activeTextEditor) {
 				// Invoked from the palette with a form's document focused.
 				const uri = vscode.window.activeTextEditor.document.uri;
 				if (uri.scheme === XLIDE_SCHEME) {
 					const decoded = decodeModuleUri(uri);
-					xlsmPath = decoded.xlsmPath;
+					projectPath = decoded.projectPath;
 					moduleName = decoded.moduleName;
 				}
 			}
-			if (!xlsmPath || !moduleName) {
+			if (!projectPath || !moduleName) {
 				void vscode.window.showInformationMessage(
 					'XLIDE: Preview Form needs a UserForm - pick one in the explorer or focus its document.',
 				);
@@ -480,15 +480,15 @@ export function registerFormPreview(
 			}
 			await vscode.commands.executeCommand(
 				'vscode.openWith',
-				encodeFormMarkupUri(xlsmPath, moduleName),
+				encodeFormMarkupUri(projectPath, moduleName),
 				FORM_DESIGNER_VIEW_TYPE,
 			);
 		}),
 
 		// F5 from the designer or a markup text editor launches the
-		// workbook's host application - the closest thing to the VBE's Run
+		// project's host application - the closest thing to the VBE's Run
 		// while the engine stays COMless. The active markup editor names the
-		// workbook; a focused designer remembered its own.
+		// project; a focused designer remembered its own.
 		//
 		// ONE launch at a time: the consent modal and the Excel run are both
 		// long, and a second F5 arriving meanwhile must not stack a second
@@ -512,11 +512,11 @@ export function registerFormPreview(
 			let formModule: string | undefined;
 			if (active && active.document.uri.scheme === XLIDE_SCHEME) {
 				const decoded = decodeModuleUri(active.document.uri);
-				filePath = decoded.xlsmPath;
+				filePath = decoded.projectPath;
 				if (decoded.face === 'form') { formModule = decoded.moduleName; }
 			}
 			if (!filePath) {
-				filePath = lastFocusedDesignerWorkbook;
+				filePath = lastFocusedDesignerProject;
 				formModule = lastFocusedDesignerModule;
 			}
 			if (!filePath) {
@@ -555,7 +555,7 @@ export function registerFormPreview(
 				const config = vscode.workspace.getConfiguration('xlide');
 				const subName = launcherSubName(formModule);
 				const macro = `${LAUNCHER_MODULE}.${subName}`;
-				// What the workbook already carries decides whether anything
+				// What the project already carries decides whether anything
 				// is being injected at all.
 				let launcherSource: string | undefined;
 				try {
@@ -569,7 +569,7 @@ export function registerFormPreview(
 
 				let mode = config.get<string>('formRun.injectShowMacro') ?? 'ask';
 				// THIS form's launcher is already installed: nothing goes into
-				// the workbook, so there is nothing to consent to - just run
+				// the project, so there is nothing to consent to - just run
 				// it. An explicit Never still means never.
 				if (mode === 'ask' && subExists) { mode = 'once'; }
 				if (mode === 'ask') {
@@ -578,7 +578,7 @@ export function registerFormPreview(
 						{
 							modal: true,
 							detail: `XLIDE can add a small launcher macro (${subName}, in module XlideRun) to ${path.basename(wbPath)} and run it, so F5 behaves like the VBE's. `
-								+ 'Each form gets its own sub; they stay in the workbook and are safe to delete. '
+								+ 'Each form gets its own sub; they stay in the project and are safe to delete. '
 								+ '"Always" remembers this in the xlide.formRun.injectShowMacro setting.',
 						},
 						'Yes', 'Always', 'No',
@@ -624,7 +624,7 @@ export function registerFormPreview(
 									await runWorkbookMacroReadOnly(wbPath, macro, { attachToRunning }, quiet);
 								} else {
 									// RUN_FAILED means the host already reopened the
-									// workbook before the macro raised; keep it tracked
+									// project before the macro raised; keep it tracked
 									// so a later closeTracked save frees the lock.
 									if (err instanceof ExcelMacroError && err.code === 'RUN_FAILED') {
 										markWorkbookOpenedByXlide(wbPath);
@@ -644,7 +644,7 @@ export function registerFormPreview(
 			vscode.window.setStatusBarMessage(`XLIDE: opening ${path.basename(wbPath)} in its host application...`, 5000);
 			await vscode.commands.executeCommand(
 				excel ? 'xlide.openWorkbook' : 'xlide.openInOfficeApp',
-				{ kind: 'xlsm', label: path.basename(wbPath), filePath: wbPath },
+				{ kind: 'project', label: path.basename(wbPath), filePath: wbPath },
 			);
 		}
 	}

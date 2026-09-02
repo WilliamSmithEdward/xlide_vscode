@@ -25,7 +25,7 @@ describe('AnalysisWorkerState', () => {
 		const state = new AnalysisWorkerState();
 		state.handle({
 			kind: 'seed',
-			workbookKey: 'wb1',
+			projectKey: 'wb1',
 			generation: 1,
 			modules: [
 				{ moduleName: 'ModA', source: MOD_A, type: 'standard' },
@@ -33,7 +33,7 @@ describe('AnalysisWorkerState', () => {
 			],
 		});
 		const response = state.handle({
-			kind: 'analyze', requestId: 1, docKey: 'doc1', workbookKey: 'wb1', generation: 1,
+			kind: 'analyze', requestId: 1, docKey: 'doc1', projectKey: 'wb1', generation: 1,
 			source: MOD_A, moduleName: 'ModA', moduleType: 'standard',
 		});
 		expect(response?.kind).toBe('result');
@@ -42,7 +42,7 @@ describe('AnalysisWorkerState', () => {
 		// Second analyze with a body-only change engages incremental.
 		const edited = MOD_A.replace('    undeclaredThing = 1', '    undeclaredThing = 1\n    alsoUndeclared = 2');
 		const second = state.handle({
-			kind: 'analyze', requestId: 2, docKey: 'doc1', workbookKey: 'wb1', generation: 1,
+			kind: 'analyze', requestId: 2, docKey: 'doc1', projectKey: 'wb1', generation: 1,
 			source: edited, moduleName: 'ModA', moduleType: 'standard',
 		});
 		expect(second?.kind).toBe('result');
@@ -51,22 +51,22 @@ describe('AnalysisWorkerState', () => {
 		expect(second.diagnostics.some((d) => d.message.includes('alsoUndeclared'))).toBe(true);
 	});
 
-	it('requests a reseed for an unknown or stale workbook generation', () => {
+	it('requests a reseed for an unknown or stale project generation', () => {
 		const state = new AnalysisWorkerState();
 		const unknown = state.handle({
-			kind: 'analyze', requestId: 1, docKey: 'doc1', workbookKey: 'nope', generation: 1,
+			kind: 'analyze', requestId: 1, docKey: 'doc1', projectKey: 'nope', generation: 1,
 			source: MOD_A, moduleName: 'ModA',
 		});
 		expect(unknown?.kind).toBe('needSeed');
-		state.handle({ kind: 'seed', workbookKey: 'wb1', generation: 1, modules: [{ moduleName: 'ModA', source: MOD_A }] });
+		state.handle({ kind: 'seed', projectKey: 'wb1', generation: 1, modules: [{ moduleName: 'ModA', source: MOD_A }] });
 		const stale = state.handle({
-			kind: 'analyze', requestId: 2, docKey: 'doc1', workbookKey: 'wb1', generation: 2,
+			kind: 'analyze', requestId: 2, docKey: 'doc1', projectKey: 'wb1', generation: 2,
 			source: MOD_A, moduleName: 'ModA',
 		});
 		expect(stale?.kind).toBe('needSeed');
 	});
 
-	it('analyzes standalone (no workbook) and matches direct analysis', () => {
+	it('analyzes standalone (no project) and matches direct analysis', () => {
 		const state = new AnalysisWorkerState();
 		const response = state.handle({
 			kind: 'analyze', requestId: 1, docKey: 'doc1',
@@ -81,11 +81,11 @@ describe('AnalysisWorkerState', () => {
 
 	it('forget clears per-document incremental state', () => {
 		const state = new AnalysisWorkerState();
-		state.handle({ kind: 'seed', workbookKey: 'wb1', generation: 1, modules: [{ moduleName: 'ModA', source: MOD_A }] });
-		state.handle({ kind: 'analyze', requestId: 1, docKey: 'doc1', workbookKey: 'wb1', generation: 1, source: MOD_A, moduleName: 'ModA' });
+		state.handle({ kind: 'seed', projectKey: 'wb1', generation: 1, modules: [{ moduleName: 'ModA', source: MOD_A }] });
+		state.handle({ kind: 'analyze', requestId: 1, docKey: 'doc1', projectKey: 'wb1', generation: 1, source: MOD_A, moduleName: 'ModA' });
 		state.handle({ kind: 'forget', docKey: 'doc1' });
 		const after = state.handle({
-			kind: 'analyze', requestId: 2, docKey: 'doc1', workbookKey: 'wb1', generation: 1,
+			kind: 'analyze', requestId: 2, docKey: 'doc1', projectKey: 'wb1', generation: 1,
 			source: MOD_A.replace('= 1', '= 2'), moduleName: 'ModA',
 		});
 		expect(after?.kind).toBe('result');
@@ -116,11 +116,11 @@ describe('AnalysisWorkerState host-supplied implicit members', () => {
 		// out its designer - which it does as soon as the form has been shown.
 		const state = new AnalysisWorkerState();
 		state.handle({
-			kind: 'seed', workbookKey: 'wb-form', generation: 1,
+			kind: 'seed', projectKey: 'wb-form', generation: 1,
 			modules: [{ moduleName: 'FrmPicker', source: FORM_SOURCE, type: 'userform' }],
 		});
 		const response = state.handle({
-			kind: 'analyze', requestId: 1, docKey: 'doc-form', workbookKey: 'wb-form', generation: 1,
+			kind: 'analyze', requestId: 1, docKey: 'doc-form', projectKey: 'wb-form', generation: 1,
 			source: FORM_SOURCE, moduleName: 'FrmPicker', moduleType: 'userform', moduleKind: 'userform',
 		});
 		expect(response?.kind).toBe('result');
@@ -133,14 +133,14 @@ describe('AnalysisWorkerState host-supplied implicit members', () => {
 		// has no controls, so a name that looks like one really is undeclared.
 		const state = new AnalysisWorkerState();
 		state.handle({
-			kind: 'seed', workbookKey: 'wb-form', generation: 1,
+			kind: 'seed', projectKey: 'wb-form', generation: 1,
 			modules: [{
 				moduleName: 'FrmPicker', source: FORM_SOURCE, type: 'userform',
 				implicitMembers: [],
 			}],
 		});
 		const response = state.handle({
-			kind: 'analyze', requestId: 1, docKey: 'doc-form', workbookKey: 'wb-form', generation: 1,
+			kind: 'analyze', requestId: 1, docKey: 'doc-form', projectKey: 'wb-form', generation: 1,
 			source: FORM_SOURCE, moduleName: 'FrmPicker', moduleType: 'userform', moduleKind: 'userform',
 		});
 		expect(response?.kind).toBe('result');
@@ -151,14 +151,14 @@ describe('AnalysisWorkerState host-supplied implicit members', () => {
 	it('takes implicit members from the seed and matches the in-host pass', () => {
 		const state = new AnalysisWorkerState();
 		state.handle({
-			kind: 'seed', workbookKey: 'wb-form', generation: 1,
+			kind: 'seed', projectKey: 'wb-form', generation: 1,
 			modules: [{
 				moduleName: 'FrmPicker', source: FORM_SOURCE, type: 'userform',
 				implicitMembers: CONTROLS,
 			}],
 		});
 		const response = state.handle({
-			kind: 'analyze', requestId: 1, docKey: 'doc-form', workbookKey: 'wb-form', generation: 1,
+			kind: 'analyze', requestId: 1, docKey: 'doc-form', projectKey: 'wb-form', generation: 1,
 			source: FORM_SOURCE, moduleName: 'FrmPicker', moduleType: 'userform', moduleKind: 'userform',
 		});
 		expect(response?.kind).toBe('result');
@@ -179,14 +179,14 @@ describe('AnalysisWorkerState host-supplied implicit members', () => {
 		// the request is what a host with live designer state sends.
 		const state = new AnalysisWorkerState();
 		state.handle({
-			kind: 'seed', workbookKey: 'wb-form', generation: 1,
+			kind: 'seed', projectKey: 'wb-form', generation: 1,
 			modules: [{
 				moduleName: 'FrmPicker', source: FORM_SOURCE, type: 'userform',
 				implicitMembers: [{ name: 'StaleName', type: 'MSForms.ComboBox' }],
 			}],
 		});
 		const response = state.handle({
-			kind: 'analyze', requestId: 1, docKey: 'doc-form', workbookKey: 'wb-form', generation: 1,
+			kind: 'analyze', requestId: 1, docKey: 'doc-form', projectKey: 'wb-form', generation: 1,
 			source: FORM_SOURCE, moduleName: 'FrmPicker', moduleType: 'userform', moduleKind: 'userform',
 			implicitMembers: CONTROLS,
 		});
@@ -201,17 +201,17 @@ describe('AnalysisWorkerState host-supplied implicit members', () => {
 		// otherwise the first answer sticks for the rest of the session.
 		const state = new AnalysisWorkerState();
 		state.handle({
-			kind: 'seed', workbookKey: 'wb-form', generation: 1,
+			kind: 'seed', projectKey: 'wb-form', generation: 1,
 			modules: [{ moduleName: 'FrmPicker', source: FORM_SOURCE, type: 'userform' }],
 		});
 		const first = state.handle({
-			kind: 'analyze', requestId: 1, docKey: 'doc-form', workbookKey: 'wb-form', generation: 1,
+			kind: 'analyze', requestId: 1, docKey: 'doc-form', projectKey: 'wb-form', generation: 1,
 			source: FORM_SOURCE, moduleName: 'FrmPicker', moduleType: 'userform', moduleKind: 'userform',
 			implicitMembers: CONTROLS,
 		});
 		expect(first?.kind === 'result' ? undeclaredNames(first.diagnostics) : undefined).toEqual([]);
 		const renamed = state.handle({
-			kind: 'analyze', requestId: 2, docKey: 'doc-form', workbookKey: 'wb-form', generation: 1,
+			kind: 'analyze', requestId: 2, docKey: 'doc-form', projectKey: 'wb-form', generation: 1,
 			source: FORM_SOURCE, moduleName: 'FrmPicker', moduleType: 'userform', moduleKind: 'userform',
 			implicitMembers: [{ name: 'RegionPicker', type: 'MSForms.ComboBox' }],
 		});
@@ -236,11 +236,11 @@ describe('AnalysisWorkerState host-supplied implicit members', () => {
 		].join('\n');
 		const state = new AnalysisWorkerState();
 		state.handle({
-			kind: 'seed', workbookKey: 'wb-frm', generation: 1,
+			kind: 'seed', projectKey: 'wb-frm', generation: 1,
 			modules: [{ moduleName: 'FrmPicker', source: withHeader, type: 'userform' }],
 		});
 		const response = state.handle({
-			kind: 'analyze', requestId: 1, docKey: 'doc-frm', workbookKey: 'wb-frm', generation: 1,
+			kind: 'analyze', requestId: 1, docKey: 'doc-frm', projectKey: 'wb-frm', generation: 1,
 			source: withHeader, moduleName: 'FrmPicker', moduleType: 'userform', moduleKind: 'userform',
 		});
 		expect(response?.kind).toBe('result');
@@ -264,11 +264,11 @@ describe('AnalysisWorkerState suppressed diagnostics', () => {
 		].join('\n');
 		const state = new AnalysisWorkerState();
 		state.handle({
-			kind: 'seed', workbookKey: 'wb-supp', generation: 1,
+			kind: 'seed', projectKey: 'wb-supp', generation: 1,
 			modules: [{ moduleName: 'ModS', source, type: 'standard' }],
 		});
 		const response = state.handle({
-			kind: 'analyze', requestId: 1, docKey: 'doc-supp', workbookKey: 'wb-supp', generation: 1,
+			kind: 'analyze', requestId: 1, docKey: 'doc-supp', projectKey: 'wb-supp', generation: 1,
 			source, moduleName: 'ModS', moduleType: 'standard',
 		});
 		expect(response?.kind).toBe('result');
@@ -315,7 +315,7 @@ describe('incremental reuse keys on the project surface, not the generation (iss
     function codesForCaller(state: AnalysisWorkerState, helper: string, generation: number): string[] {
         state.handle({
             kind: 'seed',
-            workbookKey: 'wb',
+            projectKey: 'wb',
             generation,
             modules: [
                 { moduleName: 'Helpers', source: helper, type: 'standard' },
@@ -326,7 +326,7 @@ describe('incremental reuse keys on the project surface, not the generation (iss
             kind: 'analyze',
             requestId: 1,
             docKey: 'doc:Caller',
-            workbookKey: 'wb',
+            projectKey: 'wb',
             generation,
             moduleName: 'Caller',
             source: CALLER,

@@ -5,7 +5,7 @@
 // reference only when BOTH hold: nothing else resolves at that position, and it
 // stands somewhere only a module can stand.
 //
-// Asking the name alone is a bug worth not repeating: a workbook with modules
+// Asking the name alone is a bug worth not repeating: a project with modules
 // called Log, Config or Data also has LOCALS called Log, Config and Data, and
 // treating the word as a module renamed the module and left the variable alone.
 //

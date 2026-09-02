@@ -1,5 +1,5 @@
 import { vi } from 'vitest';
-import type { WorkbookEngine } from '../../src/workbookEngine';
+import type { ProjectEngine } from '../../src/projectEngine';
 
 export interface FakeBridgeModule {
 	name: string;
@@ -10,19 +10,19 @@ export interface FakeBridgeModule {
 	filePath?: string;
 }
 
-/** Single-workbook module list (any path) or per-workbook-path module lists. */
-type FakeBridgeWorkbooks = FakeBridgeModule[] | Record<string, FakeBridgeModule[]>;
+/** Single-project module list (any path) or per-project-path module lists. */
+type FakeBridgeProjects = FakeBridgeModule[] | Record<string, FakeBridgeModule[]>;
 
 /**
- * Builds a fake WorkbookEngine covering the module-read RPC surface
+ * Builds a fake ProjectEngine covering the module-read RPC surface
  * (readModules/listModules/readModule). Calls are recorded via vi.fn so tests
  * can assert on the call sequence.
  */
-export function fakeWorkbookEngine(
-	workbooks: FakeBridgeWorkbooks,
-): WorkbookEngine {
-	const modulesFor = (workbookPath: string): FakeBridgeModule[] | undefined =>
-		Array.isArray(workbooks) ? workbooks : workbooks[workbookPath];
+export function fakeProjectEngine(
+	projects: FakeBridgeProjects,
+): ProjectEngine {
+	const modulesFor = (projectPath: string): FakeBridgeModule[] | undefined =>
+		Array.isArray(projects) ? projects : projects[projectPath];
 	return {
 		call: vi.fn(async (method: string, payload: { path: string; module?: string }) => {
 			const modules = modulesFor(payload.path);
@@ -48,5 +48,5 @@ export function fakeWorkbookEngine(
 			}
 			throw new Error(`Unexpected bridge call ${method}`);
 		}),
-	} as unknown as WorkbookEngine;
+	} as unknown as ProjectEngine;
 }

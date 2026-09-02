@@ -1,10 +1,10 @@
 import * as vscode from 'vscode';
 import { checkModuleContentToken, moduleContentToken } from './moduleContentToken';
-import type { WorkbookAnalysisResult } from './vbaWorkbookAnalysis';
+import type { ProjectAnalysisResult } from './vbaProjectWideAnalysis';
 import * as fs from 'fs';
 import * as path from 'path';
-import { WorkbookEngine } from './workbookEngine';
-import { XlsmExplorer } from './xlsmExplorer';
+import { ProjectEngine } from './projectEngine';
+import { ProjectExplorer } from './projectExplorer';
 import { XlideFileSystemProvider } from './xlideFileSystem';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
 import { findMacroContainerFiles } from './macroContainerDiscovery';
@@ -19,17 +19,17 @@ import {
     type AgentWriteReviewDeps,
 } from './xlideAgentDiff';
 import {
-    deleteWorkbookModule,
-    renameWorkbookModule,
-    writeWorkbookModule,
-    type WorkbookModuleOperationDeps,
-} from './workbookModuleOperations';
+    deleteProjectModule,
+    renameProjectModule,
+    writeProjectModule,
+    type ProjectModuleOperationDeps,
+} from './projectModuleOperations';
 import {
-    exportWorkbookModules,
+    exportProjectModules,
 } from './moduleExport';
-import { type ExportMode } from './workbookSettings';
-import { setWorkbookModuleSyncExportMode } from './workbookModuleSyncSettings';
-import { analyzeWorkbook } from './vbaWorkbookAnalysis';
+import { type ExportMode } from './projectSettings';
+import { setProjectModuleSyncExportMode } from './projectModuleSyncSettings';
+import { analyzeProject } from './vbaProjectWideAnalysis';
 import { executeVbaTestRun } from './vbaTestRunPipeline';
 import { agentVbaTestArtifactPayloadFromPipeline } from './agentVbaTestArtifacts';
 import {
@@ -52,9 +52,9 @@ interface WriteModuleInput { filePath: string; moduleName: string; source: strin
 interface RenameModuleInput { filePath: string; moduleName: string; newName: string; }
 interface DeleteModuleInput { filePath: string; moduleName: string; }
 interface ListSheetsInput  { filePath: string; }
-interface GetWorkbookInfoInput { filePath: string; }
-interface ValidateWorkbookInput { filePath: string; }
-interface AnalyzeWorkbookInput { filePath: string; moduleName?: string; }
+interface GetProjectInfoInput { filePath: string; }
+interface ValidateProjectInput { filePath: string; }
+interface AnalyzeProjectInput { filePath: string; moduleName?: string; }
 interface RunVbaTestsInput {
     filePath: string;
     moduleName?: string;
@@ -65,7 +65,7 @@ interface RunVbaTestsInput {
     failFast?: boolean;
     includeHostEvents?: boolean;
 }
-interface CreateWorkbookInput { filePath: string; }
+interface CreateProjectInput { filePath: string; }
 interface ReadCellsInput   { filePath: string; sheet: string; range: string; }
 interface ReadFormulasInput { filePath: string; sheet: string; range: string; }
 interface WriteCellsInput  { filePath: string; sheet: string; startCell: string; data: unknown[][]; }
@@ -100,12 +100,12 @@ function vbaTestSelectionFromInput(input: RunVbaTestsInput): VbaTestSelectionOpt
 
 export function registerAgentTools(
     _context: vscode.ExtensionContext,
-    bridge: WorkbookEngine,
-    explorer: XlsmExplorer,
+    bridge: ProjectEngine,
+    explorer: ProjectExplorer,
     fsProvider: XlideFileSystemProvider,
     vbaIndex: VbaSymbolIndex,
 ): vscode.Disposable[] {
-    const ops: WorkbookModuleOperationDeps = { bridge, explorer, fsProvider, vbaIndex };
+    const ops: ProjectModuleOperationDeps = { bridge, explorer, fsProvider, vbaIndex };
     // Revert runs through the same audited write path as the tools, so the
     // audit log shows the user's revert next to the agent write it undoes.
     const agentDiffDeps: AgentWriteReviewDeps = {
@@ -119,12 +119,12 @@ export function registerAgentTools(
             await withWriteAudit({
                 command: 'xlide.revertAgentChange',
                 operation: 'write-module',
-                workbookPath: filePath,
+                projectPath: filePath,
                 moduleName,
                 failedSummary: 'Revert agent change: 0 changed, 1 failed',
             }, async () => ({
                 // agentReviewHandled: the revert resolves its own review.
-                result: await writeWorkbookModule(
+                result: await writeProjectModule(
                     ops,
                     { filePath, moduleName, source },
                     { agentReviewHandled: true },
@@ -136,11 +136,11 @@ export function registerAgentTools(
             await withWriteAudit({
                 command: 'xlide.revertAgentChange',
                 operation: 'delete-module',
-                workbookPath: filePath,
+                projectPath: filePath,
                 moduleName,
                 failedSummary: 'Revert agent change: 0 changed, 1 failed',
             }, async () => ({
-                result: await deleteWorkbookModule(ops, { filePath, moduleName }),
+                result: await deleteProjectModule(ops, { filePath, moduleName }),
                 summary: 'Revert agent change: 1 removed',
             }));
         },
@@ -171,9 +171,9 @@ export function registerAgentTools(
             await revertAgentChange(agentDiffDeps, node.filePath, node.moduleName);
         }),
         // ----------------------------------------------------------------
-        // xlide_listWorkbooks
+        // xlide_listProjects
         // ----------------------------------------------------------------
-        vscode.lm.registerTool<Record<string, never>>('xlide_listWorkbooks', {
+        vscode.lm.registerTool<Record<string, never>>('xlide_listProjects', {
             async invoke(_options, _token) {
                 const uris = await findMacroContainerFiles();
                 const files = uris.map((u) => u.fsPath);
@@ -314,14 +314,14 @@ export function registerAgentTools(
                 const { summary } = await withWriteAudit({
                     command: 'xlide_writeModule',
                     operation: 'write-module',
-                    workbookPath: filePath,
+                    projectPath: filePath,
                     moduleName,
                     failedSummary: 'Write module: 0 changed, 1 failed',
                 }, async () => {
                     // agentReviewHandled only when a review will actually be
                     // presented below; a token-less programmatic write is
                     // tracked like any other out-of-band write.
-                    const result = await writeWorkbookModule(
+                    const result = await writeProjectModule(
                         ops,
                         { filePath, moduleName, source },
                         { agentReviewHandled: wantsReview },
@@ -358,7 +358,7 @@ export function registerAgentTools(
                         title: 'Write VBA Module',
                         message: new vscode.MarkdownString(
                             `Write changes to **${moduleName}** in \`${filePath}\`?\n\n` +
-                            `This will overwrite the module source and save the workbook.`,
+                            `This will overwrite the module source and save the project.`,
                         ),
                     },
                 };
@@ -374,11 +374,11 @@ export function registerAgentTools(
                 const { summary } = await withWriteAudit({
                     command: 'xlide_renameModule',
                     operation: 'rename-module',
-                    workbookPath: filePath,
+                    projectPath: filePath,
                     moduleName,
                     failedSummary: 'Rename module: 0 changed, 1 failed',
                 }, async () => {
-                    const result = await renameWorkbookModule(ops, { filePath, moduleName, newName });
+                    const result = await renameProjectModule(ops, { filePath, moduleName, newName });
                     return {
                         result,
                         moduleName: newName,
@@ -413,11 +413,11 @@ export function registerAgentTools(
                 const { summary } = await withWriteAudit({
                     command: 'xlide_deleteModule',
                     operation: 'delete-module',
-                    workbookPath: filePath,
+                    projectPath: filePath,
                     moduleName,
                     failedSummary: 'Delete module: 0 changed, 1 failed',
                 }, async () => {
-                    const result = await deleteWorkbookModule(ops, { filePath, moduleName });
+                    const result = await deleteProjectModule(ops, { filePath, moduleName });
                     return {
                         result,
                         summary: formatChangeSummary({
@@ -458,26 +458,26 @@ export function registerAgentTools(
         }),
 
         // ----------------------------------------------------------------
-        // xlide_getWorkbookInfo
+        // xlide_getProjectInfo
         // ----------------------------------------------------------------
-        vscode.lm.registerTool<GetWorkbookInfoInput>('xlide_getWorkbookInfo', {
+        vscode.lm.registerTool<GetProjectInfoInput>('xlide_getProjectInfo', {
             async invoke(options, token) {
                 const result = await bridge.call<{
                     modules: Array<{ name: string; type: string }>;
                     sheets: Array<{ name: string; dimensions: string }>;
                     namedRanges: Array<{ name: string; ref: string }>;
-                }>('getWorkbookInfo', { path: options.input.filePath }, token);
+                }>('getProjectInfo', { path: options.input.filePath }, token);
                 return textResult(JSON.stringify(result, null, 2));
             },
         }),
 
         // ----------------------------------------------------------------
-        // xlide_validateWorkbook
+        // xlide_validateProject
         // ----------------------------------------------------------------
-        vscode.lm.registerTool<ValidateWorkbookInput>('xlide_validateWorkbook', {
+        vscode.lm.registerTool<ValidateProjectInput>('xlide_validateProject', {
             async invoke(options, token) {
                 const result = await bridge.call<{ issues: string[] }>(
-                    'validateWorkbook',
+                    'validateProject',
                     { path: options.input.filePath },
                     token,
                 );
@@ -486,21 +486,21 @@ export function registerAgentTools(
         }),
 
         // ----------------------------------------------------------------
-        // xlide_analyzeWorkbook
+        // xlide_analyzeProject
         // ----------------------------------------------------------------
-        vscode.lm.registerTool<AnalyzeWorkbookInput>('xlide_analyzeWorkbook', {
+        vscode.lm.registerTool<AnalyzeProjectInput>('xlide_analyzeProject', {
             async invoke(options, token) {
                 const { filePath, moduleName } = options.input;
-                const result = await analyzeWorkbook(bridge, filePath, { token });
+                const result = await analyzeProject(bridge, filePath, { token });
                 if (!moduleName) {
                     return textResult(JSON.stringify(result, null, 2));
                 }
                 // Checking one module you just edited should not mean reading
-                // back every finding in the workbook.
+                // back every finding in the project.
                 const wanted = moduleName.toLowerCase();
                 const forModule = (p: { moduleName: string }) => p.moduleName.toLowerCase() === wanted;
                 const problems = result.problems.filter(forModule);
-                const scoped: WorkbookAnalysisResult = {
+                const scoped: ProjectAnalysisResult = {
                     ...result,
                     moduleCount: 1,
                     problems,
@@ -582,40 +582,40 @@ export function registerAgentTools(
         }),
 
         // ----------------------------------------------------------------
-        // xlide_createWorkbook
+        // xlide_createProject
         // ----------------------------------------------------------------
-        vscode.lm.registerTool<CreateWorkbookInput>('xlide_createWorkbook', {
+        vscode.lm.registerTool<CreateProjectInput>('xlide_createProject', {
             async invoke(options, _token) {
                 const { filePath } = options.input;
                 const { result } = await withWriteAudit({
-                    command: 'xlide_createWorkbook',
-                    operation: 'create-workbook',
-                    workbookPath: filePath,
-                    failedSummary: 'Create workbook: 0 changed, 1 failed',
+                    command: 'xlide_createProject',
+                    operation: 'create-project',
+                    projectPath: filePath,
+                    failedSummary: 'Create project: 0 changed, 1 failed',
                 }, async () => {
                     if (!path.isAbsolute(filePath)) {
                         // A relative path resolves against this process's cwd, which
                         // is not the user's workspace, so the existsSync overwrite guard
                         // below could check a different directory than the write.
                         throw new Error(
-                            `xlide_createWorkbook requires an absolute filePath (got "${filePath}").`,
+                            `xlide_createProject requires an absolute filePath (got "${filePath}").`,
                         );
                     }
                     if (fs.existsSync(filePath)) {
                         throw new Error(
                             `Workbook already exists: "${filePath}". ` +
-                            `xlide_createWorkbook does not overwrite existing workbooks - choose a different filePath.`,
+                            `xlide_createProject does not overwrite existing projects - choose a different filePath.`,
                         );
                     }
                     const result = await bridge.call<{ ok: boolean; path: string }>(
-                        'createWorkbook',
+                        'createProject',
                         { path: filePath },
                     );
                     explorer.refresh();
                     return {
                         result,
                         summary: formatChangeSummary({
-                            operation: 'Create workbook',
+                            operation: 'Create project',
                             changed: [filePath],
                         }),
                     };
@@ -624,7 +624,7 @@ export function registerAgentTools(
             },
             async prepareInvocation(options, _token) {
                 return {
-                    invocationMessage: `Creating workbook "${options.input.filePath}"`,
+                    invocationMessage: `Creating project "${options.input.filePath}"`,
                     confirmationMessages: {
                         title: 'Create New Macro-Enabled File',
                         message: new vscode.MarkdownString(
@@ -674,7 +674,7 @@ export function registerAgentTools(
                 const { summary } = await withWriteAudit({
                     command: 'xlide_writeCells',
                     operation: 'write-cells',
-                    workbookPath: filePath,
+                    projectPath: filePath,
                     failedSummary: 'Write cells: 0 changed, 1 failed',
                 }, async () => {
                     const result = await bridge.call('writeCells', {
@@ -715,11 +715,11 @@ export function registerAgentTools(
                 const { result, summary } = await withWriteAudit({
                     command: 'xlide_exportModules',
                     operation: 'export-modules',
-                    workbookPath: filePath,
+                    projectPath: filePath,
                     targetPath: exportFolder,
                     failedSummary: 'Export modules: 0 changed, 1 failed',
                 }, async () => {
-                    const result = await exportWorkbookModules(bridge, { filePath, exportFolder, exportMode });
+                    const result = await exportProjectModules(bridge, { filePath, exportFolder, exportMode });
                     return {
                         result,
                         targetPath: result.exportFolder,
@@ -741,7 +741,7 @@ export function registerAgentTools(
                         message: new vscode.MarkdownString(
                             `Export all modules for \`${filePath}\` using mode **${exportMode ?? 'exportAll'}**` +
                             `${exportFolder ? ` to folder \`${exportFolder}\`` : ' using configured folder'}` +
-                            `?\n\nThis writes files and updates <workbook>.xlide_settings.json.`,
+                            `?\n\nThis writes files and updates <project>.xlide_settings.json.`,
                         ),
                     },
                 };
@@ -754,7 +754,7 @@ export function registerAgentTools(
         vscode.lm.registerTool<ConfigureExportModeInput>('xlide_configureExportMode', {
             async invoke(options, _token) {
                 const { filePath, exportMode } = options.input;
-                const updated = await setWorkbookModuleSyncExportMode(filePath, exportMode);
+                const updated = await setProjectModuleSyncExportMode(filePath, exportMode);
                 return textResult(JSON.stringify({ filePath, ...updated }, null, 2));
             },
             async prepareInvocation(options, _token) {
@@ -765,7 +765,7 @@ export function registerAgentTools(
                         title: 'Configure Export Mode',
                         message: new vscode.MarkdownString(
                             `Set export mode for \`${filePath}\` to **${exportMode}**?\n\n` +
-                            `This updates <workbook>.xlide_settings.json beside the workbook.`,
+                            `This updates <project>.xlide_settings.json beside the project.`,
                         ),
                     },
                 };

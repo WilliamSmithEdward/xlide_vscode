@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
-import { WorkbookEngine } from './workbookEngine';
+import { ProjectEngine } from './projectEngine';
 import type { EventHandlerDocumentType } from './analyzer/completion/eventHandlers';
-import { moduleIdentityKey, workbookIdentityKey } from './xlideFileSystem';
+import { moduleIdentityKey, projectIdentityKey } from './xlideFileSystem';
 import { startPerformanceTrace } from './performanceTrace';
 import { yieldToExtensionHost } from './util/async';
 
@@ -25,10 +25,10 @@ export interface VbaModuleSymbols {
     filePath?: string;
 }
 
-interface CachedWorkbook {
+interface CachedProject {
     /** moduleName -> module symbols */
     modules: Map<string, VbaModuleSymbols>;
-    /** Cached workbook module list from the bridge. */
+    /** Cached project module list from the bridge. */
     moduleList?: VbaModuleEntry[];
     moduleListLoadedAt?: number;
 }
@@ -58,26 +58,26 @@ const WORKBOOK_INDEX_YIELD_EVERY_MODULES = 8;
 
 /**
  * Workbook-scoped VBA module source cache. Lazily loads modules on first
- * query; callers can invalidate single modules or whole workbooks after edits.
+ * query; callers can invalidate single modules or whole projects after edits.
  */
 export class VbaSymbolIndex implements vscode.Disposable {
-    private _cache = new Map<string, CachedWorkbook>();
+    private _cache = new Map<string, CachedProject>();
     private _moduleReads = new Map<string, Promise<VbaModuleSymbols>>();
     private _moduleListReads = new Map<string, Promise<VbaModuleEntry[]>>();
     private _allModuleReads = new Map<string, Promise<VbaModuleSymbols[]>>();
     private _moduleGenerations = new Map<string, number>();
-    private _emitter = new vscode.EventEmitter<{ xlsmPath: string; moduleName?: string }>();
+    private _emitter = new vscode.EventEmitter<{ projectPath: string; moduleName?: string }>();
     readonly onDidChange = this._emitter.event;
 
-    constructor(private readonly _bridge: WorkbookEngine) {}
+    constructor(private readonly _bridge: ProjectEngine) {}
 
-    /** Invalidate one module (or the whole workbook when moduleName is omitted). */
-    invalidate(xlsmPath: string, moduleName?: string): void {
-        const key = workbookIdentityKey(xlsmPath);
+    /** Invalidate one module (or the whole project when moduleName is omitted). */
+    invalidate(projectPath: string, moduleName?: string): void {
+        const key = projectIdentityKey(projectPath);
         const wb = this._cache.get(key);
         if (moduleName === undefined) {
             this._cache.delete(key);
-            this.deleteWorkbookInflight(key);
+            this.deleteProjectInflight(key);
         } else {
             const moduleKey = moduleIdentityKey(moduleName);
             wb?.modules.delete(moduleKey);
@@ -86,7 +86,7 @@ export class VbaSymbolIndex implements vscode.Disposable {
             this._moduleReads.delete(requestKey);
             this._allModuleReads.delete(key);
         }
-        this._emitter.fire({ xlsmPath, moduleName });
+        this._emitter.fire({ projectPath, moduleName });
     }
 
     invalidateAll(): void {
@@ -95,13 +95,13 @@ export class VbaSymbolIndex implements vscode.Disposable {
         this._moduleListReads.clear();
         this._allModuleReads.clear();
         this._moduleGenerations.clear();
-        this._emitter.fire({ xlsmPath: '' });
+        this._emitter.fire({ projectPath: '' });
     }
 
     /** Returns the cached source for a single module, loading on demand. */
-    async getModule(xlsmPath: string, moduleName: string): Promise<VbaModuleSymbols> {
-        const key = workbookIdentityKey(xlsmPath);
-        const wb = this.workbook(key);
+    async getModule(projectPath: string, moduleName: string): Promise<VbaModuleSymbols> {
+        const key = projectIdentityKey(projectPath);
+        const wb = this.cachedProject(key);
         const moduleKey = moduleIdentityKey(moduleName);
         const cached = wb.modules.get(moduleKey);
         if (cached) { return cached; }
@@ -114,7 +114,7 @@ export class VbaSymbolIndex implements vscode.Disposable {
         const promise = (async () => {
             const result = await this._bridge.call<{ source: string }>(
                 'readModule',
-                { path: xlsmPath, module: moduleName },
+                { path: projectPath, module: moduleName },
             );
             const mod: VbaModuleSymbols = {
                 moduleName,
@@ -142,21 +142,21 @@ export class VbaSymbolIndex implements vscode.Disposable {
         return promise;
     }
 
-    /** Returns the cached source for every module in the workbook. */
-    async getAllModules(xlsmPath: string): Promise<VbaModuleSymbols[]> {
-        const key = workbookIdentityKey(xlsmPath);
+    /** Returns the cached source for every module in the project. */
+    async getAllModules(projectPath: string): Promise<VbaModuleSymbols[]> {
+        const key = projectIdentityKey(projectPath);
         const existingRead = this._allModuleReads.get(key);
         if (existingRead) { return existingRead; }
 
         const promise = (async () => {
-            const trace = startPerformanceTrace('workbookContext.getAllModules');
+            const trace = startPerformanceTrace('projectContext.getAllModules');
             try {
                 const cached = this.cachedAllModules(key);
                 if (cached) {
                     trace.end('ok', 'cached');
                     return cached;
                 }
-                const batch = await this.getAllModulesFromBatchRead(xlsmPath, key);
+                const batch = await this.getAllModulesFromBatchRead(projectPath, key);
                 trace.end('ok', 'batch');
                 return batch;
             } catch (err) {
@@ -181,9 +181,9 @@ export class VbaSymbolIndex implements vscode.Disposable {
     }
 
     /** Returns the cached module entry without triggering a load. */
-    peekModule(xlsmPath: string, moduleName: string): VbaModuleSymbols | undefined {
+    peekModule(projectPath: string, moduleName: string): VbaModuleSymbols | undefined {
         return this._cache
-            .get(workbookIdentityKey(xlsmPath))
+            .get(projectIdentityKey(projectPath))
             ?.modules.get(moduleIdentityKey(moduleName));
     }
 
@@ -191,9 +191,9 @@ export class VbaSymbolIndex implements vscode.Disposable {
      * Refreshes a single module's source from disk.
      * Useful immediately after a write so the cache reflects the new content.
      */
-    async refreshModule(xlsmPath: string, moduleName: string): Promise<VbaModuleSymbols> {
-        this.invalidate(xlsmPath, moduleName);
-        return this.getModule(xlsmPath, moduleName);
+    async refreshModule(projectPath: string, moduleName: string): Promise<VbaModuleSymbols> {
+        this.invalidate(projectPath, moduleName);
+        return this.getModule(projectPath, moduleName);
     }
 
     /**
@@ -201,19 +201,19 @@ export class VbaSymbolIndex implements vscode.Disposable {
      * This avoids a bridge round-trip after saving a virtual VBA editor buffer.
      */
     updateModuleSource(
-        xlsmPath: string,
+        projectPath: string,
         moduleName: string,
         source: string,
         metadata: { type?: string; documentType?: EventHandlerDocumentType } = {},
     ): VbaModuleSymbols {
-        const key = workbookIdentityKey(xlsmPath);
+        const key = projectIdentityKey(projectPath);
         const moduleKey = moduleIdentityKey(moduleName);
         const requestKey = this.moduleRequestKey(key, moduleKey);
         this.bumpModuleGeneration(requestKey);
         this._moduleReads.delete(requestKey);
         this._allModuleReads.delete(key);
 
-        const wb = this.workbook(key);
+        const wb = this.cachedProject(key);
         const existing = wb.modules.get(moduleKey);
         const mod: VbaModuleSymbols = {
             moduleName,
@@ -222,7 +222,7 @@ export class VbaSymbolIndex implements vscode.Disposable {
             documentType: metadata.documentType ?? existing?.documentType,
         };
         wb.modules.set(moduleKey, mod);
-        this._emitter.fire({ xlsmPath, moduleName });
+        this._emitter.fire({ projectPath, moduleName });
         return mod;
     }
 
@@ -235,8 +235,8 @@ export class VbaSymbolIndex implements vscode.Disposable {
         this._emitter.dispose();
     }
 
-    private cachedAllModules(workbookKey: string): VbaModuleSymbols[] | undefined {
-        const wb = this._cache.get(workbookKey);
+    private cachedAllModules(projectKey: string): VbaModuleSymbols[] | undefined {
+        const wb = this._cache.get(projectKey);
         const loadedAt = wb?.moduleListLoadedAt ?? 0;
         if (!wb?.moduleList || Date.now() - loadedAt >= MODULE_LIST_CACHE_TTL_MS) {
             return undefined;
@@ -256,21 +256,21 @@ export class VbaSymbolIndex implements vscode.Disposable {
     }
 
     private async getAllModulesFromBatchRead(
-        xlsmPath: string,
-        workbookKey: string,
+        projectPath: string,
+        projectKey: string,
     ): Promise<VbaModuleSymbols[]> {
         const entries = await this._bridge.call<VbaModuleSourceEntry[]>(
             'readModules',
-            { path: xlsmPath },
+            { path: projectPath },
         );
-        const wb = this.workbook(workbookKey);
+        const wb = this.cachedProject(projectKey);
         wb.moduleList = entries.map(({ name, type, documentType, predeclaredId }) =>
             ({ name, type, documentType, predeclaredId }));
         wb.moduleListLoadedAt = Date.now();
         const out: VbaModuleSymbols[] = [];
         for (const [index, entry] of entries.entries()) {
             const moduleKey = moduleIdentityKey(entry.name);
-            const requestKey = this.moduleRequestKey(workbookKey, moduleKey);
+            const requestKey = this.moduleRequestKey(projectKey, moduleKey);
             const existing = wb.modules.get(moduleKey);
             if (existing && this.moduleGeneration(requestKey) > 0) {
                 existing.type = entry.type;
@@ -302,17 +302,17 @@ export class VbaSymbolIndex implements vscode.Disposable {
         return out;
     }
 
-    private workbook(workbookKey: string): CachedWorkbook {
-        let wb = this._cache.get(workbookKey);
+    private cachedProject(projectKey: string): CachedProject {
+        let wb = this._cache.get(projectKey);
         if (!wb) {
             wb = { modules: new Map() };
-            this._cache.set(workbookKey, wb);
+            this._cache.set(projectKey, wb);
         }
         return wb;
     }
 
-    private moduleRequestKey(workbookKey: string, moduleKey: string): string {
-        return `${workbookKey}\n${moduleKey}`;
+    private moduleRequestKey(projectKey: string, moduleKey: string): string {
+        return `${projectKey}\n${moduleKey}`;
     }
 
     private moduleGeneration(requestKey: string): number {
@@ -323,15 +323,15 @@ export class VbaSymbolIndex implements vscode.Disposable {
         this._moduleGenerations.set(requestKey, this.moduleGeneration(requestKey) + 1);
     }
 
-    private deleteWorkbookInflight(workbookKey: string): void {
-        const modulePrefix = `${workbookKey}\n`;
+    private deleteProjectInflight(projectKey: string): void {
+        const modulePrefix = `${projectKey}\n`;
         for (const key of this._moduleReads.keys()) {
             if (key.startsWith(modulePrefix)) {
                 this._moduleReads.delete(key);
                 this.bumpModuleGeneration(key);
             }
         }
-        this._moduleListReads.delete(workbookKey);
-        this._allModuleReads.delete(workbookKey);
+        this._moduleListReads.delete(projectKey);
+        this._allModuleReads.delete(projectKey);
     }
 }

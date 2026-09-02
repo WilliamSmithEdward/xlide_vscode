@@ -4,7 +4,7 @@
 
 All code and analyzer logic must be deterministic. The same inputs must produce
 the same outputs for tokens, parse trees, symbols, completions, diagnostics,
-workbook operations, and generated metadata.
+project operations, and generated metadata.
 
 Do not implement heuristic, fuzzy, probability-based, or "looks like" behavior
 unless the operator explicitly and unwaveringly agrees before implementation.
@@ -74,22 +74,22 @@ claiming the syntax is invalid.
 Use discernment when deciding where settings live.
 
 - Global extension settings are defaults and environment/user preferences.
-- Workbook-scoped settings are choices that are meaningful for one workbook and
-  may differ from another workbook in the same workspace.
-- Workbook-facing GUIs should write workbook-scoped settings for workbook
-  decisions and should inherit global defaults only when the workbook has no
+- Project-scoped settings are choices that are meaningful for one project and
+  may differ from another project in the same workspace.
+- Project-facing GUIs should write project-scoped settings for project
+  decisions and should inherit global defaults only when the project has no
   explicit value.
-- Some workbook settings have no global equivalent. Workbook-specific facts
-  such as a selected sync folder should live only with the workbook.
-- A workbook GUI action must not silently mutate global defaults.
+- Some project settings have no global equivalent. Project-specific facts
+  such as a selected sync folder should live only with the project.
+- A project GUI action must not silently mutate global defaults.
 - Sidecar path resolution, schema validation, and reads/writes should live in
-  the shared workbook settings owner, not in individual feature modules.
+  the shared project settings owner, not in individual feature modules.
 - Feature-specific effective setting modules may project those shared settings
   into product concepts, but they must consume the shared owners rather than
   reading, writing, or normalizing sidecars independently.
-- Workbook-over-global fallback and source provenance should use the shared
-  workbook settings resolver; production sidecar mutations should use the
-  shared read/patch/write helper so unrelated workbook settings are preserved.
+- Project-over-global fallback and source provenance should use the shared
+  project settings resolver; production sidecar mutations should use the
+  shared read/patch/write helper so unrelated project settings are preserved.
 - Global VS Code XLIDE settings should resolve through the shared global
   settings owner. Runtime fallback for malformed settings should use the same
   helper that reports the malformed value, and surfaces that display settings

@@ -6,7 +6,7 @@ import {
     type ProjectIndex,
     type Span,
 } from './analyzer';
-import { WorkbookEngine } from './workbookEngine';
+import { ProjectEngine } from './projectEngine';
 import { encodeModuleUri, notifySignatureDropped } from './xlideFileSystem';
 import { moduleDocumentUri } from './vbaDocumentLocation';
 import {
@@ -23,16 +23,16 @@ type StandardModuleReferenceEdit = {
 };
 
 export async function renameProjectStandardModule(
-    bridge: WorkbookEngine,
-    xlsmPath: string,
+    bridge: ProjectEngine,
+    projectPath: string,
     oldName: string,
     newName: string,
 ): Promise<void> {
     const result = await bridge.call<{ ok: boolean; signatureDropped: boolean }>(
         'renameModule',
-        { path: xlsmPath, module: oldName, newName },
+        { path: projectPath, module: oldName, newName },
     );
-    notifySignatureDropped(xlsmPath, result.signatureDropped);
+    notifySignatureDropped(projectPath, result.signatureDropped);
 }
 
 function tokenName(token: ReturnType<typeof tokenize>[number] | undefined): string | undefined {
@@ -49,12 +49,12 @@ function tokenName(token: ReturnType<typeof tokenize>[number] | undefined): stri
 }
 
 function spanLocation(
-    xlsmPath: string,
+    projectPath: string,
     mod: VbaNavigationModule,
     span: Span,
 ): vscode.Location {
     return new vscode.Location(
-        moduleDocumentUri(xlsmPath, mod),
+        moduleDocumentUri(projectPath, mod),
         new vscode.Range(
             offsetToPosition(mod.source, span.start),
             offsetToPosition(mod.source, span.end),
@@ -131,7 +131,7 @@ function shadowScopesFor(source: string, lowerOld: string): ModuleNameShadowScop
 }
 
 function addQualifiedMemberQualifierLocations(
-    xlsmPath: string,
+    projectPath: string,
     mod: VbaNavigationModule,
     project: ProjectIndex,
     oldName: string,
@@ -174,13 +174,13 @@ function addQualifiedMemberQualifierLocations(
         addLocation(
             locations,
             seen,
-            spanLocation(xlsmPath, mod, { start: tokens[i].start, end: tokens[i].end }),
+            spanLocation(projectPath, mod, { start: tokens[i].start, end: tokens[i].end }),
         );
     }
 }
 
 function addQualifiedTypeQualifierLocations(
-    xlsmPath: string,
+    projectPath: string,
     mod: VbaNavigationModule,
     project: ProjectIndex,
     oldName: string,
@@ -196,7 +196,7 @@ function addQualifiedTypeQualifierLocations(
         if (!definitions.some((definition) => definition.moduleName.toLowerCase() === lowerOld)) {
             continue;
         }
-        addLocation(locations, seen, spanLocation(xlsmPath, mod, ref.qualifierSpan));
+        addLocation(locations, seen, spanLocation(projectPath, mod, ref.qualifierSpan));
     }
 }
 
@@ -212,7 +212,7 @@ function compareLocations(a: vscode.Location, b: vscode.Location): number {
 }
 
 export function projectStandardModuleReferenceLocations(
-    xlsmPath: string,
+    projectPath: string,
     byModule: Map<string, VbaNavigationModule>,
     project: ProjectIndex,
     oldName: string,
@@ -226,18 +226,18 @@ export function projectStandardModuleReferenceLocations(
     const locations: vscode.Location[] = [];
     const seen = new Set<string>();
     for (const mod of byModule.values()) {
-        addQualifiedMemberQualifierLocations(xlsmPath, mod, project, oldName, locations, seen);
-        addQualifiedTypeQualifierLocations(xlsmPath, mod, project, oldName, locations, seen);
+        addQualifiedMemberQualifierLocations(projectPath, mod, project, oldName, locations, seen);
+        addQualifiedTypeQualifierLocations(projectPath, mod, project, oldName, locations, seen);
     }
 
     const out = newName
-        ? locations.map((location) => retargetModuleLocation(location, xlsmPath, oldName, newName))
+        ? locations.map((location) => retargetModuleLocation(location, projectPath, oldName, newName))
         : locations;
     return out.sort(compareLocations);
 }
 
 export function projectStandardModuleReferenceEdit(
-    xlsmPath: string,
+    projectPath: string,
     byModule: Map<string, VbaNavigationModule>,
     project: ProjectIndex,
     oldName: string,
@@ -247,7 +247,7 @@ export function projectStandardModuleReferenceEdit(
     const seenUris = new Map<string, vscode.Uri>();
     let count = 0;
     for (const location of projectStandardModuleReferenceLocations(
-        xlsmPath,
+        projectPath,
         byModule,
         project,
         oldName,

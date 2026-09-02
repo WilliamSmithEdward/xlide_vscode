@@ -8,7 +8,7 @@ export interface XlideOutputLogEntry {
 
 const MAX_OUTPUT_LOG_ENTRIES = 250;
 // Paths frequently contain spaces (Windows account names like "First Last",
-// "Program Files", "OneDrive - Company", workbook filenames). Match a path with a
+// "Program Files", "OneDrive - Company", project filenames). Match a path with a
 // file extension lazily up to that extension (so interior spaces are captured),
 // but DO NOT let the interior-space run cross whitespace that introduces another
 // path - otherwise two paths plus the prose between them collapse into one token.

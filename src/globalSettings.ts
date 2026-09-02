@@ -338,7 +338,7 @@ const XLIDE_GLOBAL_SETTINGS: {
         webviewCard: {
             section: 'analysis',
             label: 'Globally Untracked Rules',
-            description: 'Analysis rules to disable everywhere, across all workbooks. Use this to permanently silence a rule you never want.',
+            description: 'Analysis rules to disable everywhere, across all projects. Use this to permanently silence a rule you never want.',
             control: { kind: 'rulePicker' },
         },
     },

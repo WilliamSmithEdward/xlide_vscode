@@ -142,9 +142,9 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 		private readonly _projectContext: VbaEditorProjectContextService,
 	) {}
 
-	/** Drop derived editor contexts for a workbook (e.g. after a project change). */
-	invalidate(xlsmPath?: string): void {
-		this._projectContext.invalidate(xlsmPath);
+	/** Drop derived editor contexts for a project (e.g. after a project change). */
+	invalidate(projectPath?: string): void {
+		this._projectContext.invalidate(projectPath);
 	}
 
 	async provideCompletionItems(

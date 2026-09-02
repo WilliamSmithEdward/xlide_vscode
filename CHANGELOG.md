@@ -4,13 +4,29 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [Unreleased]
 
-- **A VB6 project in the tree.** A `.vbp` shows in the explorer like a
-  workbook: its `.bas`, `.cls` and `.frm` files listed from the manifest
+- **Project, not workbook.** The thing in the XLIDE tree is a project: an
+  Excel, Word, PowerPoint or Access file, or a VB6 `.vbp`. Every name that
+  called it a workbook now calls it a project. This is a breaking rename for
+  agents and keybindings, kept without aliases: the language-model tools
+  `xlide_listWorkbooks`, `xlide_getWorkbookInfo`, `xlide_validateWorkbook`,
+  `xlide_analyzeWorkbook` and `xlide_createWorkbook` are now
+  `xlide_listProjects`, `xlide_getProjectInfo`, `xlide_validateProject`,
+  `xlide_analyzeProject` and `xlide_createProject`; the commands
+  `xlide.analyzeWorkbook`, `xlide.validateWorkbook`, `xlide.newWorkbook` and
+  `xlide.openWorkbookSettings` are `xlide.analyzeProject`,
+  `xlide.validateProject`, `xlide.newProject` and `xlide.openProjectSettings`;
+  the sidebar's File Actions are Project Actions, and the tree's root node
+  kind is `project`. Excel's own vocabulary is untouched: `ThisWorkbook`,
+  `Excel.Workbook`, the open-in-Excel commands, the Excel coordination
+  settings, and the VBA test runner, which only ever runs in Excel.
+
+- **A VB6 project in the tree.** A `.vbp` shows in the explorer like any
+  other project: its `.bas`, `.cls` and `.frm` files listed from the manifest
   with their kinds, each named by its own `VB_Name` attribute, procedures
   beneath, and a click opening the file itself - the file is the module.
   UserControls, PropertyPages and Designers are listed too, with their
   code-behind readable and their designers left alone. The engine answers
-  the workbook questions for a project (list, read, procedures, validate,
+  the project questions for a `.vbp` (list, read, procedures, validate,
   rewrite an existing module with its header, line endings and code page
   kept), refuses the ones that have no meaning for files, and analysis
   requests from a project carry a `vb6` host that asserts nothing yet. The

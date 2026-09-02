@@ -7,11 +7,11 @@ import { codePageLabel, decodeCodePage, encodeCodePage, supportedCodePages } fro
 import { Cfb } from '../src/vba/cfb';
 import { compress, decompress } from '../src/vba/ovba';
 import { XlsxWorkbook } from '../src/vba/xlsx';
-import * as svc from '../src/vba/workbookService';
+import * as svc from '../src/vba/projectService';
 
 // One native-language sample per supported code page. Each runs the REAL
 // engine end to end: a workbook whose PROJECTCODEPAGE is that page, a module
-// written and read back through workbookService, and a clean validate. This is
+// written and read back through projectService, and a clean validate. This is
 // the CI gate for the issue-#6 bug class: an ASCII-only assumption anywhere in
 // the pipeline fails one of these rows instead of reaching a user.
 const LANGUAGE_MATRIX: Array<[number, string, string]> = [
@@ -103,7 +103,7 @@ describe('CI language matrix', () => {
 			svc.writeModule(file, 'LangModule', source, 'standard');
 			expect(nfc(svc.readModule(file, 'LangModule', false).source)).toBe(nfc(source));
 			expect(svc.listModules(file).map((m) => m.name)).toContain('LangModule');
-			expect(svc.validateWorkbook(file).issues).toEqual([]);
+			expect(svc.validateProject(file).issues).toEqual([]);
 		});
 	}
 
@@ -127,7 +127,7 @@ describe('CI language matrix', () => {
 		expect(nfc(svc.readModule(file, 'MarkModule', false).source)).toBe(nfc(source));
 		// The explorer tree must see the whole name, not the part before the mark.
 		expect(svc.listSubs(file, 'MarkModule').map((s) => s.name)).toContain(procName);
-		expect(svc.validateWorkbook(file).issues).toEqual([]);
+		expect(svc.validateProject(file).issues).toEqual([]);
 	});
 
 	it('supports native-language MODULE NAMES end to end for major scripts', () => {
@@ -144,7 +144,7 @@ describe('CI language matrix', () => {
 			expect(svc.listModules(file).map((m) => m.name), `cp${codePage}`).toContain(renamed);
 			expect(svc.readModule(file, renamed, true).source)
 				.toContain(`Attribute VB_Name = "${renamed}"`);
-			expect(svc.validateWorkbook(file).issues, `cp${codePage}`).toEqual([]);
+			expect(svc.validateProject(file).issues, `cp${codePage}`).toEqual([]);
 		}
 	});
 });

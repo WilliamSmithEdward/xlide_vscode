@@ -14,7 +14,7 @@ import {
 } from '../src/macroContainerUi';
 import { decodeModuleUri, encodeModuleUri } from '../src/xlideFileSystem';
 import { analysisSourceForDocument, moduleDocumentUri, moduleLocationOfDocument } from '../src/vbaDocumentLocation';
-import { listModules, readModules, resetWorkbookCacheForTests } from '../src/vba/workbookService';
+import { listModules, readModules, resetProjectCacheForTests } from '../src/vba/projectService';
 import { moduleKindFromType } from '../src/vbaProjectAnalysis';
 
 // VB6 support arrived beside the workbook engine, never in front of it. This
@@ -67,7 +67,7 @@ describe('the Office containers answer exactly as before VB6', () => {
 		expect(hostObjectModelForToken('vb6')).toBe(EMPTY_HOST_MODEL);
 	});
 
-	it('maps the workbook module kinds as before; only VB6 kinds are new', () => {
+	it('maps the project module kinds as before; only VB6 kinds are new', () => {
 		expect(moduleKindFromType('standard')).toBe('standard');
 		expect(moduleKindFromType('class')).toBe('class');
 		expect(moduleKindFromType('document')).toBe('document');
@@ -77,18 +77,18 @@ describe('the Office containers answer exactly as before VB6', () => {
 	});
 });
 
-describe('a workbook module still has no file of its own', () => {
+describe('a project module still has no file of its own', () => {
 	const FIXTURE = path.join(__dirname, 'fixtures', 'binaries', 'FormFixtureVbide.xlsm');
 
-	it('lists and reads workbook modules without a filePath', () => {
-		resetWorkbookCacheForTests();
+	it('lists and reads project modules without a filePath', () => {
+		resetProjectCacheForTests();
 		for (const entry of [...listModules(FIXTURE), ...readModules(FIXTURE)]) {
 			expect(entry.filePath, entry.name).toBeUndefined();
 		}
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 	});
 
-	it('opens a workbook module at its virtual document', () => {
+	it('opens a project module at its virtual document', () => {
 		const uri = moduleDocumentUri('C:\\w\\Book.xlsm', { moduleName: 'Module1' });
 		expect(uri.toString()).toBe(encodeModuleUri('C:\\w\\Book.xlsm', 'Module1').toString());
 	});
@@ -102,7 +102,7 @@ describe('a virtual document is located and read exactly as before', () => {
 	it('decodes its URI, the same answer decodeModuleUri gives', () => {
 		const decoded = decodeModuleUri(uri);
 		expect(moduleLocationOfDocument(document)).toEqual({
-			xlsmPath: decoded.xlsmPath,
+			projectPath: decoded.projectPath,
 			moduleName: decoded.moduleName,
 			native: false,
 		});

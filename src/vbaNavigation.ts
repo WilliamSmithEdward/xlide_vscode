@@ -48,7 +48,7 @@ function typeDefinitionKey(definition: VbaProjectTypeName): string {
 }
 
 export function projectTypeDefinitionToLocation(
-    xlsmPath: string,
+    projectPath: string,
     byModule: Map<string, VbaNavigationModule>,
     definition: VbaProjectTypeName,
 ): vscode.Location | undefined {
@@ -57,7 +57,7 @@ export function projectTypeDefinitionToLocation(
     const span = definition.nameSpan ?? { start: 0, end: 0 };
     const toPosition = createOffsetToPositionConverter(mod.source);
     return new vscode.Location(
-        moduleDocumentUri(xlsmPath, mod),
+        moduleDocumentUri(projectPath, mod),
         new vscode.Range(toPosition(span.start), toPosition(span.end)),
     );
 }
@@ -77,7 +77,7 @@ export function projectClassModuleDefinition(
 }
 
 export function typeReferenceLocations(
-    xlsmPath: string,
+    projectPath: string,
     byModule: Map<string, VbaNavigationModule>,
     project: ProjectIndex,
     typeName: string,
@@ -98,13 +98,13 @@ export function typeReferenceLocations(
 
     if (includeDeclaration) {
         for (const definition of definitions) {
-            const loc = projectTypeDefinitionToLocation(xlsmPath, byModule, definition);
+            const loc = projectTypeDefinitionToLocation(projectPath, byModule, definition);
             if (loc) { push(loc); }
         }
     }
 
     for (const mod of byModule.values()) {
-        const uri = moduleDocumentUri(xlsmPath, mod);
+        const uri = moduleDocumentUri(projectPath, mod);
         const toPosition = createOffsetToPositionConverter(mod.source);
         for (const ref of collectTypeNameReferences(mod.source)) {
             if (ref.name.toLowerCase() !== lower) {
@@ -140,31 +140,31 @@ export function typeDefinitionsForReference(
 
 export function retargetModuleLocation(
     location: vscode.Location,
-    xlsmPath: string,
+    projectPath: string,
     oldName: string,
     newName: string,
 ): vscode.Location {
-    const oldUri = encodeModuleUri(xlsmPath, oldName).toString();
+    const oldUri = encodeModuleUri(projectPath, oldName).toString();
     if (location.uri.toString() !== oldUri) {
         return location;
     }
     return new vscode.Location(
-        encodeModuleUri(xlsmPath, newName),
+        encodeModuleUri(projectPath, newName),
         location.range,
     );
 }
 
 export function retargetClassModuleLocation(
     location: vscode.Location,
-    xlsmPath: string,
+    projectPath: string,
     oldName: string,
     newName: string,
 ): vscode.Location {
-    return retargetModuleLocation(location, xlsmPath, oldName, newName);
+    return retargetModuleLocation(location, projectPath, oldName, newName);
 }
 
 export function projectClassReferenceLocations(
-    xlsmPath: string,
+    projectPath: string,
     byModule: Map<string, VbaNavigationModule>,
     project: ProjectIndex,
     oldName: string,
@@ -172,16 +172,16 @@ export function projectClassReferenceLocations(
     newName?: string,
 ): vscode.Location[] {
     const locations = typeReferenceLocations(
-        xlsmPath,
+        projectPath,
         byModule,
         project,
         oldName,
         [definition],
         false,
     );
-    locations.push(...interfacePrefixLocations(xlsmPath, byModule, project, oldName));
+    locations.push(...interfacePrefixLocations(projectPath, byModule, project, oldName));
     return newName
-        ? locations.map((loc) => retargetClassModuleLocation(loc, xlsmPath, oldName, newName))
+        ? locations.map((loc) => retargetClassModuleLocation(loc, projectPath, oldName, newName))
         : locations;
 }
 
@@ -195,7 +195,7 @@ export function projectClassReferenceLocations(
  * part of the contract.
  */
 function interfacePrefixLocations(
-    xlsmPath: string,
+    projectPath: string,
     byModule: Map<string, VbaNavigationModule>,
     project: ProjectIndex,
     interfaceName: string,
@@ -207,7 +207,7 @@ function interfacePrefixLocations(
         if (!implemented.some((name) => name.toLowerCase() === wanted)) {
             continue;
         }
-        const uri = moduleDocumentUri(xlsmPath, mod);
+        const uri = moduleDocumentUri(projectPath, mod);
         for (const hit of interfacePrefixHits(mod.source, interfaceName)) {
             out.push(new vscode.Location(
                 uri,

@@ -11,7 +11,7 @@
         <header>
             <div>
                 <h1>XLIDE Analysis Results</h1>
-                <div class="subtle">{{workbookName}}</div>
+                <div class="subtle">{{projectName}}</div>
             </div>
             <div class="headerActions">
                 <button class="actionButton" id="analysisSettings" type="button">Analysis Settings</button>
@@ -60,7 +60,7 @@
         <button type="button" data-context-action="suppressMember" data-suppress-scope="member">Ignore Sub/Function</button>
         <button type="button" data-context-action="suppressModule" data-suppress-scope="module">Ignore Module</button>
         <div class="contextDivider" id="trackingDivider"></div>
-        <button type="button" data-context-action="setRuleTrackingWorkbook" id="trackingWorkbookAction">Untrack In File</button>
+        <button type="button" data-context-action="setRuleTrackingProject" id="trackingProjectAction">Untrack In Project</button>
         <button type="button" data-context-action="setRuleTrackingGlobal" id="trackingGlobalAction">Untrack Globally</button>
     </div>
     <div class="settingsBackdrop" id="analysisSettingsDialog" hidden>
@@ -73,12 +73,12 @@
                 <section class="settingsSection">
                     <div class="settingsSectionHeader">
                         <div>
-                            <h3>File Untracked Rules</h3>
+                            <h3>Project Untracked Rules</h3>
                             <div class="settingsSource">Source: {{rulesSourceLabel}}</div>
                         </div>
                         <button class="secondaryButton settingsResetButton" type="button" data-reset-analysis="rules" {{rulesResetDisabled}}>Track All</button>
                     </div>
-                    <div id="workbookUntrackedRules">{{workbookUntrackedRules}}</div>
+                    <div id="projectUntrackedRules">{{projectUntrackedRules}}</div>
                 </section>
             </div>
         </section>

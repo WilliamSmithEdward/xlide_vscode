@@ -100,11 +100,11 @@ describe('the worker carries the host token', () => {
 	it('analyzes under the requested host and re-analyzes when it changes', () => {
 		const state = new AnalysisWorkerState();
 		state.handle({
-			kind: 'seed', workbookKey: 'wb-host', generation: 1,
+			kind: 'seed', projectKey: 'wb-host', generation: 1,
 			modules: [{ moduleName: 'Module1', source: SOURCE, type: 'standard' }],
 		});
 		const excel = state.handle({
-			kind: 'analyze', requestId: 1, docKey: 'doc-host', workbookKey: 'wb-host', generation: 1,
+			kind: 'analyze', requestId: 1, docKey: 'doc-host', projectKey: 'wb-host', generation: 1,
 			source: SOURCE, moduleName: 'Module1', moduleType: 'standard',
 		});
 		expect(excel?.kind === 'result'
@@ -114,7 +114,7 @@ describe('the worker carries the host token', () => {
 		// Same document, host changed: the fingerprint must not reuse the
 		// Excel answer.
 		const word = state.handle({
-			kind: 'analyze', requestId: 2, docKey: 'doc-host', workbookKey: 'wb-host', generation: 1,
+			kind: 'analyze', requestId: 2, docKey: 'doc-host', projectKey: 'wb-host', generation: 1,
 			source: SOURCE, moduleName: 'Module1', moduleType: 'standard', host: 'word',
 		});
 		expect(word?.kind).toBe('result');

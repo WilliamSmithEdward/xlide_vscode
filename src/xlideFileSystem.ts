@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
-import { WorkbookEngine } from './workbookEngine';
+import { ProjectEngine } from './projectEngine';
 import { errorCategoryForSupportLog, WORKBOOK_LOCKED_ERROR_RE } from './xlideCommandLog';
 import { formatChangeSummary, recordXlideWriteAudit } from './xlideWriteAudit';
 import { startPerformanceTrace } from './performanceTrace';
@@ -12,7 +12,7 @@ import { noteModuleWrite } from './vbaRenameHistory';
 // from this module); neither side touches the other at module-eval time.
 import { trackModuleWriteForAgentReview } from './xlideAgentDiff';
 import { containerAppNameForPath, isReadOnlyContainerPath, MACRO_CONTAINER_EXTENSION_PATTERN } from './macroContainerUi';
-import { workbookIdentityKey } from './workbookIdentity';
+import { projectIdentityKey } from './projectIdentity';
 
 export const XLIDE_SCHEME = 'xlide-vba';
 
@@ -22,7 +22,7 @@ const MODULE_URI_RE = new RegExp(
 );
 export const XLIDE_VBA_LANGUAGE_ID = 'xlide-vba';
 
-export { moduleIdentityKey, sameWorkbookPath, workbookIdentityKey } from './workbookIdentity';
+export { moduleIdentityKey, sameProjectPath, projectIdentityKey } from './projectIdentity';
 
 /**
  * True for any VBA document: by language id or by xlide scheme. A `.form`
@@ -38,19 +38,19 @@ export function isVbaDocument(document: vscode.TextDocument): boolean {
         || document.languageId === XLIDE_VBA_LANGUAGE_ID;
 }
 
-/** True for xlide-scheme documents backed by a workbook on disk. */
+/** True for xlide-scheme documents backed by a project on disk. */
 export function isLocalXlideDocument(document: vscode.TextDocument): boolean {
     return document.uri.scheme === XLIDE_SCHEME;
 }
 
-/** The active editor when it shows a local workbook VBA module, else undefined. */
+/** The active editor when it shows a local project VBA module, else undefined. */
 export function activeLocalVbaEditor(): vscode.TextEditor | undefined {
     const editor = vscode.window.activeTextEditor;
     return editor && isLocalXlideDocument(editor.document) ? editor : undefined;
 }
 
 /**
- * Tracks workbook paths for which the signature-dropped notice has already
+ * Tracks project paths for which the signature-dropped notice has already
  * been shown this session, so the user sees it at most once per file.
  */
 const _sigWarnedPaths = new Set<string>();
@@ -58,15 +58,15 @@ const _sigWarnedPaths = new Set<string>();
 /**
  * Show a one-time warning when a VBA digital signature was invalidated by a
  * save.  Safe to call on every write - suppressed after the first occurrence
- * per workbook path per session.
+ * per project path per session.
  */
 export function notifySignatureDropped(filePath: string, signatureDropped: boolean): void {
-    const key = workbookIdentityKey(filePath);
+    const key = projectIdentityKey(filePath);
     if (!signatureDropped || _sigWarnedPaths.has(key)) { return; }
     _sigWarnedPaths.add(key);
     void vscode.window.showWarningMessage(
         `XLIDE: "${path.basename(filePath)}" had a VBA digital signature that was invalidated by this edit. ` +
-        `Re-sign the workbook externally to restore trust.`,
+        `Re-sign the project externally to restore trust.`,
     );
 }
 
@@ -74,51 +74,51 @@ export function notifySignatureDropped(filePath: string, signatureDropped: boole
  * Heuristic: does this error string look like a Windows file-sharing violation
  * caused by Excel having the workbook open?
  */
-export function isWorkbookLockedError(message: string): boolean {
+export function isProjectLockedError(message: string): boolean {
     return WORKBOOK_LOCKED_ERROR_RE.test(message);
 }
 
-// Collapse rapid repeat lock notices for the same workbook into a single popup
+// Collapse rapid repeat lock notices for the same project into a single popup
 // (e.g. a burst of operations, or a writeFile failure followed by a re-read).
 const LOCKED_NOTICE_THROTTLE_MS = 2000;
 const recentLockedNotices = new Map<string, number>();
 
-export function reportWorkbookLocked(xlsmPath: string, op: 'read' | 'write'): void {
-    const noticeKey = workbookIdentityKey(xlsmPath);
+export function reportProjectLocked(projectPath: string, op: 'read' | 'write'): void {
+    const noticeKey = projectIdentityKey(projectPath);
     const now = Date.now();
     const last = recentLockedNotices.get(noticeKey);
     if (last !== undefined && now - last < LOCKED_NOTICE_THROTTLE_MS) {
         return;
     }
     recentLockedNotices.set(noticeKey, now);
-    const name = path.basename(xlsmPath);
+    const name = path.basename(projectPath);
     const verb = op === 'read' ? 'open' : 'save';
     // Retry (a revert to re-read the file) only fits the READ case: on a
     // failed write it would revert whatever editor happens to be active,
     // discarding unrelated dirty edits instead of retrying anything.
     const actions = op === 'read' ? ['Retry', 'Reveal File'] : ['Reveal File'];
     void vscode.window.showWarningMessage(
-        `XLIDE: Cannot ${verb} "${name}" - it appears to be open in ${containerAppNameForPath(xlsmPath)}. Close the file and try again.`,
+        `XLIDE: Cannot ${verb} "${name}" - it appears to be open in ${containerAppNameForPath(projectPath)}. Close the file and try again.`,
         ...actions,
     ).then((choice) => {
         if (choice === 'Retry') {
             void vscode.commands.executeCommand('workbench.action.files.revert');
         } else if (choice === 'Reveal File') {
-            void vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(xlsmPath));
+            void vscode.commands.executeCommand('revealFileInOS', vscode.Uri.file(projectPath));
         }
     });
 }
 
 /**
- * Encodes a (xlsmPath, moduleName) pair into a virtual URI.
+ * Encodes a (projectPath, moduleName) pair into a virtual URI.
  * URI form: xlide-vba:///C:/path/to/workbook.xlsm/ModuleName.bas
  */
-export function encodeModuleUri(xlsmPath: string, moduleName: string): vscode.Uri {
-    const forward = xlsmPath.replace(/\\/g, '/');
+export function encodeModuleUri(projectPath: string, moduleName: string): vscode.Uri {
+    const forward = projectPath.replace(/\\/g, '/');
     const base = forward.startsWith('/') ? forward : `/${forward}`;
     // Build from a structured path rather than interpolating into a URI string.
     // vscode.Uri.from percent-encodes the path on serialization while keeping
-    // uri.path literal, so workbook paths containing reserved characters like
+    // uri.path literal, so project paths containing reserved characters like
     // '#' or '%' round-trip correctly. (String interpolation + Uri.parse would
     // split the path on '#'/'?' into the fragment/query and silently decode a
     // stray '%xx', breaking decode or pointing the bridge at the wrong file.)
@@ -129,12 +129,12 @@ export function encodeModuleUri(xlsmPath: string, moduleName: string): vscode.Ur
 }
 
 /**
- * Encodes a form's MARKUP document: the same workbook path, the module name,
+ * Encodes a form's MARKUP document: the same project path, the module name,
  * and a .form suffix so the provider routes reads and saves to the designer
  * rather than the code-behind.
  */
-export function encodeFormMarkupUri(xlsmPath: string, moduleName: string): vscode.Uri {
-    const forward = xlsmPath.replace(/\\/g, '/');
+export function encodeFormMarkupUri(projectPath: string, moduleName: string): vscode.Uri {
+    const forward = projectPath.replace(/\\/g, '/');
     const base = forward.startsWith('/') ? forward : `/${forward}`;
     return vscode.Uri.from({
         scheme: XLIDE_SCHEME,
@@ -143,9 +143,9 @@ export function encodeFormMarkupUri(xlsmPath: string, moduleName: string): vscod
 }
 
 /**
- * Decodes a virtual URI back to (xlsmPath, moduleName).
+ * Decodes a virtual URI back to (projectPath, moduleName).
  */
-export function decodeModuleUri(uri: vscode.Uri): { xlsmPath: string; moduleName: string; face?: 'code' | 'form' } {
+export function decodeModuleUri(uri: vscode.Uri): { projectPath: string; moduleName: string; face?: 'code' | 'form' } {
     const p = uri.path;
     // Match the macro-container boundary in the path: any extension the
     // engine opens (.xlsm through .accdb), so modules from every container
@@ -162,15 +162,15 @@ export function decodeModuleUri(uri: vscode.Uri): { xlsmPath: string; moduleName
     if (process.platform === 'win32' && /^\/[A-Za-z]:/.test(rawPath)) {
         rawPath = rawPath.slice(1);
     }
-    const xlsmPath = rawPath.replace(/\//g, path.sep);
-    return { xlsmPath, moduleName, face };
+    const projectPath = rawPath.replace(/\//g, path.sep);
+    return { projectPath, moduleName, face };
 }
 
 /**
  * Virtual FileSystemProvider for the xlide-vba:// scheme.
  *
- * - readFile  -> calls the workbook engine's readModule
- * - writeFile -> calls the workbook engine's writeModule (saves the .xlsm in place)
+ * - readFile  -> calls the project engine's readModule
+ * - writeFile -> calls the project engine's writeModule (saves the file in place)
  * - All other mutation operations are rejected.
  */
 export class XlideFileSystemProvider
@@ -180,12 +180,12 @@ export class XlideFileSystemProvider
     readonly onDidChangeFile = this._emitter.event;
 
     private _clock = Date.now();
-    private readonly _stats = new Map<string, { ctime: number; mtime: number; size: number; workbookKey?: string }>();
-    /** Last known real workbook file mtime per workbook identity key. */
-    private readonly _workbookMtimes = new Map<string, number>();
+    private readonly _stats = new Map<string, { ctime: number; mtime: number; size: number; projectKey?: string }>();
+    /** Last known real project file mtime per project identity key. */
+    private readonly _projectMtimes = new Map<string, number>();
     private readonly _disposables: vscode.Disposable[] = [];
 
-    constructor(private readonly _bridge: WorkbookEngine) {
+    constructor(private readonly _bridge: ProjectEngine) {
         // Evict per-module stat entries when their document closes so _stats does
         // not grow unbounded over a long-lived window.
         this._disposables.push(
@@ -207,12 +207,12 @@ export class XlideFileSystemProvider
 
     stat(uri: vscode.Uri): vscode.FileStat {
         const state = this.ensureStat(uri);
-        this.syncWithWorkbookFile(state, uri);
+        this.syncWithProjectFile(state, uri);
         let permissions: vscode.FilePermission | undefined;
         try {
             // Access modules open read-only: the editor shows the lock instead
             // of letting a save fail after the fact.
-            if (isReadOnlyContainerPath(decodeModuleUri(uri).xlsmPath)) {
+            if (isReadOnlyContainerPath(decodeModuleUri(uri).projectPath)) {
                 permissions = vscode.FilePermission.Readonly;
             }
         } catch {
@@ -248,19 +248,19 @@ export class XlideFileSystemProvider
     // ------------------------------------------------------------------
 
     async readFile(uri: vscode.Uri): Promise<Uint8Array> {
-        const { xlsmPath, moduleName, face } = decodeModuleUri(uri);
+        const { projectPath, moduleName, face } = decodeModuleUri(uri);
         const trace = startPerformanceTrace('filesystem.readFile', moduleName);
         try {
             // A .form document is the designer's markup projection; .bas is
-            // the module's code. Same workbook, two faces.
+            // the module's code. Same project, two faces.
             const result = face === 'form'
                 ? { source: (await this._bridge.call<{ markup: string }>(
                     'readFormMarkup',
-                    { path: xlsmPath, module: moduleName },
+                    { path: projectPath, module: moduleName },
                 )).markup }
                 : await this._bridge.call<{ source: string }>(
                     'readModule',
-                    { path: xlsmPath, module: moduleName },
+                    { path: projectPath, module: moduleName },
                 );
             const bytes = Buffer.from(result.source, 'utf-8');
             this.updateSize(uri, bytes.byteLength);
@@ -269,13 +269,13 @@ export class XlideFileSystemProvider
         } catch (err) {
             trace.end('failed', moduleName);
             const message = errorMessage(err);
-            if (isWorkbookLockedError(message)) {
+            if (isProjectLockedError(message)) {
                 // VS Code shows its own "Unable to open" notification (with a Retry)
                 // when this FileSystemError is thrown, so we do NOT also raise our
                 // own warning here, which would double the popup. The thrown message
                 // carries the friendly, XLIDE-prefixed guidance.
                 throw vscode.FileSystemError.Unavailable(
-                    `XLIDE: "${path.basename(xlsmPath)}" is open in ${containerAppNameForPath(xlsmPath)}. Close it and click Retry.`,
+                    `XLIDE: "${path.basename(projectPath)}" is open in ${containerAppNameForPath(projectPath)}. Close it and click Retry.`,
                 );
             }
             throw err;
@@ -289,26 +289,26 @@ export class XlideFileSystemProvider
      */
     private async applyFormMarkupDocument(
         uri: vscode.Uri,
-        xlsmPath: string,
+        projectPath: string,
         moduleName: string,
         markup: string,
     ): Promise<void> {
         const trace = startPerformanceTrace('filesystem.applyFormMarkup', moduleName);
         try {
-            const result = await runWriteWithExcelCoordination(xlsmPath, () =>
+            const result = await runWriteWithExcelCoordination(projectPath, () =>
                 this._bridge.call<{ ok: boolean; signatureDropped: boolean; applied: string[] }>(
                     'applyFormMarkup',
-                    { path: xlsmPath, module: moduleName, markup },
+                    { path: projectPath, module: moduleName, markup },
                 ),
             );
-            notifySignatureDropped(xlsmPath, result.signatureDropped);
+            notifySignatureDropped(projectPath, result.signatureDropped);
             this.updateSize(uri, Buffer.byteLength(markup, 'utf-8'));
             recordXlideWriteAudit({
                 timestamp: new Date().toISOString(),
                 command: 'xlide.editorSave',
                 operation: 'apply-form-markup',
                 outcome: 'succeeded',
-                workbookPath: xlsmPath,
+                projectPath: projectPath,
                 moduleName,
                 summary: result.applied.length
                     ? `Apply form markup: ${result.applied.join('; ')}`
@@ -322,7 +322,7 @@ export class XlideFileSystemProvider
                 command: 'xlide.editorSave',
                 operation: 'apply-form-markup',
                 outcome: 'failed',
-                workbookPath: xlsmPath,
+                projectPath: projectPath,
                 moduleName,
                 summary: `Apply form markup failed: ${errorMessage(err)}`,
             });
@@ -339,33 +339,33 @@ export class XlideFileSystemProvider
         _options: { create: boolean; overwrite: boolean },
     ): Promise<void> {
         const source = Buffer.from(content).toString('utf-8');
-        const { xlsmPath, moduleName, face } = decodeModuleUri(uri);
+        const { projectPath, moduleName, face } = decodeModuleUri(uri);
         if (face === 'form') {
-            await this.applyFormMarkupDocument(uri, xlsmPath, moduleName, source);
+            await this.applyFormMarkupDocument(uri, projectPath, moduleName, source);
             return;
         }
         // A rename's own edits and a developer pressing Save arrive here alike.
         // The rename registers the writes it is about to cause; anything else
         // means its before-images are stale and must not be restored over the
         // change that just happened.
-        noteModuleWrite(xlsmPath, moduleName);
+        noteModuleWrite(projectPath, moduleName);
         const trace = startPerformanceTrace('filesystem.writeFile', moduleName);
         try {
-            const result = await runWriteWithExcelCoordination(xlsmPath, () =>
+            const result = await runWriteWithExcelCoordination(projectPath, () =>
                 this._bridge.call<{ ok: boolean; signatureDropped: boolean }>(
                     'writeModule',
                     {
-                        path: xlsmPath,
+                        path: projectPath,
                         module: moduleName,
                         source,
                     },
                 ),
             );
-            notifySignatureDropped(xlsmPath, result.signatureDropped);
+            notifySignatureDropped(projectPath, result.signatureDropped);
             // A save over a pending agent review keeps the review tracking the
             // live content - editor edits an agent makes arrive here too - so
             // Revert stays offered, still restoring the pre-agent original.
-            trackModuleWriteForAgentReview(xlsmPath, moduleName, source);
+            trackModuleWriteForAgentReview(projectPath, moduleName, source);
             const summary = formatChangeSummary({
                 operation: 'Save module',
                 changed: [moduleName],
@@ -375,7 +375,7 @@ export class XlideFileSystemProvider
                 command: 'xlide.editorSave',
                 operation: 'write-module',
                 outcome: 'succeeded',
-                workbookPath: xlsmPath,
+                projectPath: projectPath,
                 moduleName,
                 summary,
             });
@@ -387,18 +387,18 @@ export class XlideFileSystemProvider
                 command: 'xlide.editorSave',
                 operation: 'write-module',
                 outcome: 'failed',
-                workbookPath: xlsmPath,
+                projectPath: projectPath,
                 moduleName,
                 summary: 'Save module: 0 changed, 1 failed',
                 errorCategory: errorCategoryForSupportLog(err),
             });
-            if (isWorkbookLockedError(message)) {
+            if (isProjectLockedError(message)) {
                 // VS Code shows its own "Failed to save" notification (with a Retry)
                 // when this FileSystemError is thrown, so we do NOT also raise our
                 // own warning here, which would double the popup. The thrown message
                 // carries the friendly, XLIDE-prefixed guidance.
                 throw vscode.FileSystemError.Unavailable(
-                    `XLIDE: "${path.basename(xlsmPath)}" is open in ${containerAppNameForPath(xlsmPath)}. Close it and save again.`,
+                    `XLIDE: "${path.basename(projectPath)}" is open in ${containerAppNameForPath(projectPath)}. Close it and save again.`,
                 );
             }
             throw err;
@@ -422,34 +422,34 @@ export class XlideFileSystemProvider
         this._emitter.dispose();
     }
 
-    private ensureStat(uri: vscode.Uri): { ctime: number; mtime: number; size: number; workbookKey?: string } {
+    private ensureStat(uri: vscode.Uri): { ctime: number; mtime: number; size: number; projectKey?: string } {
         const key = this.statKey(uri);
         const existing = this._stats.get(key);
         if (existing) {
             return existing;
         }
-        const real = this.workbookFileMtime(uri);
+        const real = this.projectFileMtime(uri);
         const now = real?.mtime ?? this.nextTimestamp();
-        const created = { ctime: now, mtime: now, size: 0, workbookKey: real?.workbookKey };
+        const created = { ctime: now, mtime: now, size: 0, projectKey: real?.projectKey };
         this._stats.set(key, created);
-        if (real && !this._workbookMtimes.has(real.workbookKey)) {
-            this._workbookMtimes.set(real.workbookKey, real.mtime);
+        if (real && !this._projectMtimes.has(real.projectKey)) {
+            this._projectMtimes.set(real.projectKey, real.mtime);
         }
         return created;
     }
 
     /**
-     * Real mtime of the backing workbook file, keyed by workbook identity.
+     * Real mtime of the backing project file, keyed by project identity.
      * Module mtimes are derived from it so VS Code's save-conflict detection
      * sees out-of-band changes (Excel VBE edits, module sync, agent writes).
      * Undefined for paths that cannot be statted.
      */
-    private workbookFileMtime(uri: vscode.Uri): { workbookKey: string; mtime: number } | undefined {
+    private projectFileMtime(uri: vscode.Uri): { projectKey: string; mtime: number } | undefined {
         try {
-            const { xlsmPath } = decodeModuleUri(uri);
+            const { projectPath } = decodeModuleUri(uri);
             return {
-                workbookKey: workbookIdentityKey(xlsmPath),
-                mtime: Math.floor(fs.statSync(xlsmPath).mtimeMs),
+                projectKey: projectIdentityKey(projectPath),
+                mtime: Math.floor(fs.statSync(projectPath).mtimeMs),
             };
         } catch {
             return undefined;
@@ -457,26 +457,26 @@ export class XlideFileSystemProvider
     }
 
     /**
-     * Detect workbook file changes made outside this provider. When the real
+     * Detect project file changes made outside this provider. When the real
      * file mtime moved past the last mtime this provider produced or observed,
-     * any module may differ, so every cached module stat of that workbook is
+     * any module may differ, so every cached module stat of that project is
      * bumped to the new file mtime.
      */
-    private syncWithWorkbookFile(state: { mtime: number; workbookKey?: string }, uri: vscode.Uri): void {
-        const real = this.workbookFileMtime(uri);
+    private syncWithProjectFile(state: { mtime: number; projectKey?: string }, uri: vscode.Uri): void {
+        const real = this.projectFileMtime(uri);
         if (!real) {
             return;
         }
-        state.workbookKey = real.workbookKey;
-        const baseline = this._workbookMtimes.get(real.workbookKey);
+        state.projectKey = real.projectKey;
+        const baseline = this._projectMtimes.get(real.projectKey);
         if (baseline !== undefined && real.mtime !== baseline) {
             for (const entry of this._stats.values()) {
-                if (entry.workbookKey === real.workbookKey) {
+                if (entry.projectKey === real.projectKey) {
                     entry.mtime = real.mtime;
                 }
             }
         }
-        this._workbookMtimes.set(real.workbookKey, real.mtime);
+        this._projectMtimes.set(real.projectKey, real.mtime);
     }
 
     private updateSize(uri: vscode.Uri, size: number): void {
@@ -493,11 +493,11 @@ export class XlideFileSystemProvider
 
     private markChanged(uri: vscode.Uri, size?: number): void {
         const state = this.ensureStat(uri);
-        const real = this.workbookFileMtime(uri);
+        const real = this.projectFileMtime(uri);
         if (real) {
-            state.workbookKey = real.workbookKey;
+            state.projectKey = real.projectKey;
             state.mtime = real.mtime;
-            this._workbookMtimes.set(real.workbookKey, real.mtime);
+            this._projectMtimes.set(real.projectKey, real.mtime);
         } else {
             state.mtime = this.nextTimestamp(state.mtime);
         }

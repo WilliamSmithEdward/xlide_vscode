@@ -10,7 +10,7 @@ export const XLIDE_VBA_EDITOR_OVERRIDES: Array<{ key: string; value: boolean | n
     { key: 'minimap.showRegionSectionHeaders', value: false },
     { key: 'overviewRulerBorder', value: false },
     { key: 'overviewRulerLanes', value: 3 },
-    // Make XLIDE's workbook-aware suggestion list the primary completion UI for
+    // Make XLIDE's project-aware suggestion list the primary completion UI for
     // VBA modules: turn off ghost-text inline suggestions (and the inline suggest
     // preview) so they don't pre-empt the dropdown. Users who want inline
     // suggestions in VBA can re-enable them with a `[xlide-vba]` language override.

@@ -5,7 +5,7 @@ import * as path from 'path';
 import { agentVbaTestArtifactPayloadFromPipeline } from '../src/agentVbaTestArtifacts';
 import { writeVbaTestRunPipelineArtifacts } from '../src/vbaTestRunPipeline';
 import type { VbaTestCase, VbaTestRunReport } from '../src/vbaTestRunner';
-import { writeWorkbookSettings } from '../src/workbookSettings';
+import { writeProjectSettings } from '../src/projectSettings';
 
 const tempRoots: string[] = [];
 
@@ -15,12 +15,12 @@ afterEach(() => {
     }
 });
 
-function tempWorkbook(): { root: string; workbook: string } {
+function tempWorkbook(): { root: string; project: string } {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-agent-test-artifacts-'));
     tempRoots.push(root);
-    const workbook = path.join(root, 'Book.xlsm');
-    fs.writeFileSync(workbook, '', 'utf8');
-    return { root, workbook };
+    const project = path.join(root, 'Book.xlsm');
+    fs.writeFileSync(project, '', 'utf8');
+    return { root, project };
 }
 
 function testCase(): VbaTestCase {
@@ -39,15 +39,15 @@ function testCase(): VbaTestCase {
     };
 }
 
-function reportFor(workbook: string): VbaTestRunReport {
+function reportFor(project: string): VbaTestRunReport {
     const test = testCase();
     return {
-        filePath: workbook,
-        workbookName: path.basename(workbook),
+        filePath: project,
+        projectName: path.basename(project),
         startedAt: '2026-06-03T12:34:56.000Z',
         durationMs: 42,
         discovery: {
-            filePath: workbook,
+            filePath: project,
             tests: [test],
             unfilteredTestCount: 1,
             modulesScanned: 1,
@@ -65,8 +65,8 @@ function reportFor(workbook: string): VbaTestRunReport {
 
 describe('agent VBA test artifacts', () => {
     it('writes the same CI artifact surface for agent-driven test runs', async () => {
-        const { workbook } = tempWorkbook();
-        await writeWorkbookSettings(workbook, {
+        const { project } = tempWorkbook();
+        await writeProjectSettings(project, {
             tests: {
                 artifactFolder: 'ci-tests',
                 artifactRetention: 3,
@@ -74,7 +74,7 @@ describe('agent VBA test artifacts', () => {
         });
 
         const artifacts = agentVbaTestArtifactPayloadFromPipeline(
-            await writeVbaTestRunPipelineArtifacts({ report: reportFor(workbook), hostEvents: [] }),
+            await writeVbaTestRunPipelineArtifacts({ report: reportFor(project), hostEvents: [] }),
         );
 
         expect(artifacts.ok).toBe(true);
@@ -85,9 +85,9 @@ describe('agent VBA test artifacts', () => {
         expect(path.basename(artifacts.statusPath)).toBe('status_for_ci.json');
         expect(artifacts.settings).toMatchObject({
             artifactFolder: 'ci-tests',
-            artifactFolderSource: 'workbook',
+            artifactFolderSource: 'project',
             artifactRetention: 3,
-            artifactRetentionSource: 'workbook',
+            artifactRetentionSource: 'project',
         });
         expect(fs.existsSync(artifacts.summaryPath)).toBe(true);
         expect(fs.existsSync(artifacts.hostTracePath)).toBe(true);

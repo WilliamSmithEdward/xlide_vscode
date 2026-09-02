@@ -8,7 +8,7 @@
 
 import * as vscode from 'vscode';
 import {
-	workbookIdentityKey,
+	projectIdentityKey,
 } from './xlideFileSystem';
 import {
 	EventHandlerCompletionContext,
@@ -232,13 +232,13 @@ export class VbaEditorProjectContextService {
 
 	constructor(private readonly _projectIndexService: VbaProjectIndexService) {}
 
-	/** Drop derived editor contexts for a workbook (e.g. after a project change). */
-	invalidate(xlsmPath?: string): void {
-		if (xlsmPath === undefined) {
+	/** Drop derived editor contexts for a project (e.g. after a project change). */
+	invalidate(projectPath?: string): void {
+		if (projectPath === undefined) {
 			this._projectContextCache.clear();
 			this._projectContextBuilds.clear();
 		} else {
-			this._clearProjectContextCacheForWorkbook(xlsmPath);
+			this._clearProjectContextCacheForPath(projectPath);
 		}
 	}
 
@@ -294,17 +294,17 @@ export class VbaEditorProjectContextService {
 		}
 	}
 
-	private _clearProjectContextCacheForWorkbook(xlsmPath: string): void {
-		const workbookKey = workbookIdentityKey(xlsmPath);
+	private _clearProjectContextCacheForPath(projectPath: string): void {
+		const projectKey = projectIdentityKey(projectPath);
 		for (const key of [...this._projectContextCache.keys()]) {
 			const location = moduleLocationOfUri(vscode.Uri.parse(key));
-			if (!location || workbookIdentityKey(location.xlsmPath) === workbookKey) {
+			if (!location || projectIdentityKey(location.projectPath) === projectKey) {
 				this._projectContextCache.delete(key);
 			}
 		}
 		for (const key of [...this._projectContextBuilds.keys()]) {
 			const location = moduleLocationOfUri(vscode.Uri.parse(key));
-			if (!location || workbookIdentityKey(location.xlsmPath) === workbookKey) {
+			if (!location || projectIdentityKey(location.projectPath) === projectKey) {
 				this._projectContextBuilds.delete(key);
 			}
 		}
@@ -365,17 +365,17 @@ export class VbaEditorProjectContextService {
 
 		try {
 			const decoded = location;
-			const host = hostTokenForFileName(decoded.xlsmPath);
-			// The shared workbook context already folds in the open editors'
+			const host = hostTokenForFileName(decoded.projectPath);
+			// The shared project context already folds in the open editors'
 			// text (including this document) one changed module at a time.
-			const workbookContext = await this._projectIndexService.contextForWorkbook(
-				decoded.xlsmPath,
+			const projectContext = await this._projectIndexService.contextForProject(
+				decoded.projectPath,
 				'live',
 			);
 			if (!this._isCurrentProjectContextBuild(document, documentVersion)) {
 				return this.cachedEditorProjectContext(document) ?? {};
 			}
-			const allEntries: ModuleEntry[] = [...workbookContext.moduleMetadata.values()].map(
+			const allEntries: ModuleEntry[] = [...projectContext.moduleMetadata.values()].map(
 				(metadata) => ({
 					name: metadata.moduleName,
 					type: metadata.moduleType ?? 'standard',
@@ -387,7 +387,7 @@ export class VbaEditorProjectContextService {
 			);
 			const moduleKind = moduleKindFromType(current?.type);
 			const context = projectEditorSymbolContextForModule(
-				workbookContext.project,
+				projectContext.project,
 				decoded.moduleName,
 			);
 			return this._storeEditorProjectContext(document, {
@@ -507,7 +507,7 @@ export class VbaEditorProjectContextService {
 		const location = moduleLocationOfDocument(document);
 		if (location) {
 			moduleName = location.moduleName;
-			host = hostTokenForFileName(location.xlsmPath);
+			host = hostTokenForFileName(location.projectPath);
 		}
 		const documentType = localDocumentTypeFromModuleName(moduleName, host);
 		const moduleKind: ModuleSymbolKind = documentType ? 'document' : 'standard';

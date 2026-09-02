@@ -720,7 +720,7 @@ export function setControlProperty(
 // The markup diff is keyed by NAME, so a renamed or reparented control used
 // to read as remove-plus-add - and the rebuilt site kept only what the
 // dialect can spell. Its picture, its mouse icon, an ActiveX payload: gone
-// from the saved workbook while the canvas (whose scratch renamed in place)
+// from the saved project while the canvas (whose scratch renamed in place)
 // still showed them. This pre-pass pairs the document's identities with the
 // model's and executes the pairs through the IN-PLACE primitives, so the
 // diff that follows sees matches. Every pairing demands an unambiguous

@@ -26,7 +26,7 @@
     }
   ],
   "assertions": {
-    "workbookAnalysis": {
+    "projectAnalysis": {
       "problemCount": 0,
       "codes": [
         {

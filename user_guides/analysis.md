@@ -14,8 +14,8 @@ Use one of these entry points:
 
 - Live diagnostics in open `xlide-vba` editors.
 - **Analyze Current Module** from the editor context menu or command palette.
-- **Analyze File** from the file tree or XLIDE Activity Bar/sidebar.
-- `xlide_analyzeWorkbook` from an AI-agent workflow.
+- **Analyze Project** from the file tree or XLIDE Activity Bar/sidebar.
+- `xlide_analyzeProject` from an AI-agent workflow.
 
 File analysis opens a dedicated results panel. It groups findings by module,
 shows counts, supports severity filters, can show suppressed diagnostics, and
@@ -46,7 +46,7 @@ to the file's sidecar only when you choose a file-scoped action.
 
 Use these actions when available:
 
-- **Untrack In File** - writes the selected diagnostic code to
+- **Untrack In Project** - writes the selected diagnostic code to
   `<file>.xlide_settings.json`.
 - **Untrack Globally** - writes the selected diagnostic code to the global
   machine/profile setting `xlide.analysis.untrackedRules`.
@@ -143,7 +143,7 @@ directives.
 
 Use **filters** when you only want to inspect part of a result set.
 
-Use **Untrack In File** when a rule is not useful for one file.
+Use **Untrack In Project** when a rule is not useful for one file.
 
 Use **Untrack Globally** when a rule is not useful for your machine/profile.
 

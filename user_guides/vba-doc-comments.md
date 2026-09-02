@@ -63,7 +63,7 @@ Modules do not have a source-level declaration that can carry documentation, so
 XLIDE supports module-header docs with the same XML comment syntax.
 
 ```vba
-''' <summary>Represents a person in the workbook domain.</summary>
+''' <summary>Represents a person in the project domain.</summary>
 Option Explicit
 
 Public Property Get Name() As String
@@ -77,7 +77,7 @@ above the first declaration documents that declaration.
 
 ```vba
 ''' <summary>Finance helper module.</summary>
-''' <remarks>Shared workbook calculations.</remarks>
+''' <remarks>Shared project calculations.</remarks>
 
 ''' <summary>Calculates the invoice total.</summary>
 Public Function InvoiceTotal(ByVal Subtotal As Currency) As Currency

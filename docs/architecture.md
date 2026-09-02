@@ -20,7 +20,7 @@ Workbook engine  (src/vba/**, no COM, no Office install required)
         |-- pptContainer.ts   [MS-PPT] persist chain + embedded VBA storage in binary .ppt
         |-- accessDatabase.ts Jet/ACE page reader: LVAL rows/chains -> synthetic CFB
         |-- formDesigner.ts   [MS-OFORMS] UserForm designer storage, .frm/.frx compose/parse
-        +-- workbookService.ts  the operations the extension calls
+        +-- projectService.ts  the operations the extension calls
 ```
 
 ---
@@ -31,33 +31,33 @@ Workbook engine  (src/vba/**, no COM, no Office install required)
 xlide_vscode/
   src/
     extension.ts        Activation entry point - registers all providers and commands
-    workbookEngine.ts   WorkbookEngine class - in-process dispatcher for every workbook operation
-    xlsmExplorer.ts     XlsmExplorer - TreeDataProvider for the XLIDE workbook tree in VS Code Explorer
+    projectEngine.ts   ProjectEngine class - in-process dispatcher for every project operation
+    projectExplorer.ts     ProjectExplorer - TreeDataProvider for the XLIDE project tree in VS Code Explorer
     xlideSidebar.ts     Polished XLIDE Activity Bar/sidebar WebviewView
     xlideSidebarModel.ts Pure model for sidebar status/action/configuration sections
     xlideFileSystem.ts  XlideFileSystemProvider - virtual xlide-vba:// filesystem
     commands.ts         Thin command composition root; handlers live in the per-domain modules under src/commands/
-    commands/           Per-domain command modules: analysisCommands.ts, moduleSyncCommands.ts, vbaTestCommands.ts, workbookCrudCommands.ts, supportBundleCommands.ts, miscCommands.ts, shared.ts (CommandDeps + cross-domain helpers)
+    commands/           Per-domain command modules: analysisCommands.ts, moduleSyncCommands.ts, vbaTestCommands.ts, projectCrudCommands.ts, supportBundleCommands.ts, miscCommands.ts, shared.ts (CommandDeps + cross-domain helpers)
     agentTools.ts       LanguageModelTool registrations for AI agent use
-    workbookModuleOperations.ts  Shared workbook module write/rename/delete service used by both UI commands and agent tools
+    projectModuleOperations.ts  Shared project module write/rename/delete service used by both UI commands and agent tools
     moduleExport.ts     Shared module export logic for UI commands and AI tools
-    workbookSettings.ts Strict workbook settings sidecar path, schema validation, and persistence
-    workbookModuleSyncSettings.ts Effective workbook import/export sync settings and provenance
+    projectSettings.ts Strict project settings sidecar path, schema validation, and persistence
+    projectModuleSyncSettings.ts Effective project import/export sync settings and provenance
     globalSettings.ts  Machine-scoped VS Code XLIDE setting validation, normalization, and provenance
-    statusBar.ts        XlideStatusBar - status bar item showing the active workbook/module
-    vbaSymbolIndex.ts   VbaSymbolIndex - workbook-scoped cache of VBA module sources
+    statusBar.ts        XlideStatusBar - status bar item showing the active project/module
+    vbaSymbolIndex.ts   VbaSymbolIndex - project-scoped cache of VBA module sources
     vbaLanguageProviders.ts  Composition root that registers the vba language subsystems; implementations live in vbaLiveDiagnostics.ts, vbaCompletionProvider.ts, vbaHoverSignatureProvider.ts, vbaNavigationProviders.ts, vbaSemanticTokensProvider.ts, vbaCodeActions.ts, and vbaTypingAutomation.ts
     vbaSourceScan.ts    Pure shared VBA source-scan utilities - stripVba, line start offsets, logical lines, identifier search/validation (no vscode dependency)
     vbaStructuralDiagnostics.ts     Pure structural block-balance analysis (analyzeVbaStructure) and the block opener/closer grammar (no vscode dependency)
     vbaSmartEnter.ts    Pure Smart Enter block completion, With-member continuation, loop-iterator sync, and procedure-header paren repair (no vscode dependency)
     vbaSmartBlockSnippets.ts        Shared smart-block snippet catalogue projected into keyword completion and conformance tests (no vscode dependency)
-    vbaModuleAnalysis.ts    Shared module analysis core used by live diagnostics, current-module analysis, and workbook analysis; merges structural analysis, semantic analysis, and analysis suppression directives
-    vbaOpenDocuments.ts Shared same-workbook open-document source overlay helper for editor-backed project analysis
+    vbaModuleAnalysis.ts    Shared module analysis core used by live diagnostics, current-module analysis, and project analysis; merges structural analysis, semantic analysis, and analysis suppression directives
+    vbaOpenDocuments.ts Shared same-project open-document source overlay helper for editor-backed project analysis
     vbaProjectAnalysis.ts  Shared ProjectIndex construction and analyzer-option derivation for project-aware analysis, diagnostics, semantic tokens, completion, and hover surfaces
-    vbaProjectIndexService.ts  VbaProjectIndexService - one shared incremental ProjectIndex per workbook (cold build, then per-module folds), read by diagnostics, completion/hover/signature help, navigation, and semantic tokens
-    vbaWorkbookAnalysis.ts  Workbook-wide analysis core (analyzeWorkbook) reused by commands and the xlide_analyzeWorkbook agent tool; flattens vbaModuleAnalysis results into 1-based problems with diagnostic metadata and summary counts
-    workbookAnalysisResultsModel.ts  Pure workbook analysis results view model and copy-report formatting shared by analysis result UI tests and the webview
-    workbookAnalysisWebview.ts  Dedicated VS Code webview panel for current-module/workbook analysis results, filters, workbook-scoped analysis settings provenance/reset controls, copy actions, and click-through navigation
+    vbaProjectIndexService.ts  VbaProjectIndexService - one shared incremental ProjectIndex per project (cold build, then per-module folds), read by diagnostics, completion/hover/signature help, navigation, and semantic tokens
+    vbaProjectWideAnalysis.ts  Project-wide analysis core (analyzeProject) reused by commands and the xlide_analyzeProject agent tool; flattens vbaModuleAnalysis results into 1-based problems with diagnostic metadata and summary counts
+    projectAnalysisResultsModel.ts  Pure project analysis results view model and copy-report formatting shared by analysis result UI tests and the webview
+    projectAnalysisWebview.ts  Dedicated VS Code webview panel for current-module/project analysis results, filters, project-scoped analysis settings provenance/reset controls, copy actions, and click-through navigation
     analyzer/
       lexer/
         keywordTable.ts MS-VBAL 3.3.5.2 reserved-identifier + contextual keyword tables with canonical casing
@@ -82,7 +82,7 @@ xlide_vscode/
         callExtraction.ts Call extraction and arity validation helpers
         constExpr.ts    Constant-expression collection and evaluation
         dataflow.ts     Shared straight-line dataflow walker
-        analysisSuppressions.ts  Shared XLIDE analysis suppression directive scanner/filter for live diagnostics and workbook analysis
+        analysisSuppressions.ts  Shared XLIDE analysis suppression directive scanner/filter for live diagnostics and project analysis
       semantic/
         typeSemanticTokens.ts  Pure resolver for type-name semantic tokens and hover in declaration/New positions
       index.ts          Public, vscode-free analyzer surface (lexer + parser)
@@ -101,10 +101,10 @@ xlide_vscode/
       accessDatabase.ts Jet/ACE (.accdb/.mdb) page reader: LVAL rows and chains reassembled into a synthetic CFB the project parser reads unchanged
       formDesigner.ts   [MS-OFORMS] designer storage reader, control tree, .frm/.frx compose and parse
       codePages.ts      MBCS code-page encode/decode for project text streams
-      workbookService.ts  The operation layer the extension calls: module CRUD, protection info, sheets, cells, atomic container writes
+      projectService.ts  The operation layer the extension calls: module CRUD, protection info, sheets, cells, atomic container writes
 
   assets/
-    webview/            Externalized webview template assets (HTML/CSS/JS) for workbookAnalysis, moduleSync, vbaTests, vbaTestResults, and globalSettings panels
+    webview/            Externalized webview template assets (HTML/CSS/JS) for projectAnalysis, moduleSync, vbaTests, vbaTestResults, and globalSettings panels
     testhost/           Externalized VBA test host sources loaded at runtime: XlideTestModalWatcher.cs, run-vba-tests.ps1 (parameterized per Office host)
     templates/          Office-authored blanks for New Macro-Enabled File: blank.xlsm/.xlsb/.xlam/.docm/.dotm/.pptm/.potm
 
@@ -144,7 +144,7 @@ index knows: its file when it has one, else the virtual document.
 
 ## Virtual filesystem - `xlide-vba://`
 
-Clicking a module in the XLIDE Explorer workbook tree opens it under the custom
+Clicking a module in the XLIDE Explorer project tree opens it under the custom
 scheme:
 
 ```
@@ -155,7 +155,7 @@ xlide-vba:///C:/path/to/workbook.xlsm/Module1.bas
 
 | Method | Action |
 |---|---|
-| `readFile(uri)` | Calls `readModule` on the workbook engine; returns UTF-8 bytes |
+| `readFile(uri)` | Calls `readModule` on the project engine; returns UTF-8 bytes |
 | `writeFile(uri, content)` | Calls `writeModule`; saves the .xlsm in place |
 | `stat()` | Returns a `FileStat` whose `mtime` derives from the real workbook file mtime; when the workbook file changes out-of-band (for example a concurrent Excel VBE edit), module mtimes move forward so VS Code's save-conflict detection triggers instead of silently overwriting the newer workbook copy |
 | All others | Throw `FileSystemError.NoPermissions` |
@@ -164,7 +164,7 @@ VS Code treats the file as fully editable - Ctrl+S triggers `writeFile` with no 
 
 `src/xlideDirtyModuleBackups.ts` adds an XLIDE-owned safety layer for dirty
 module editors. Because VS Code Hot Exit is not reliable enough for virtual
-workbook modules, every dirty local `xlide-vba://` document is synchronously
+project modules, every dirty local `xlide-vba://` document is synchronously
 mirrored into extension global storage. When the same module reopens after a
 VS Code restart, XLIDE reapplies the stored text as an editor edit, making the
 tab dirty again and offering Save/Revert actions. A successful save removes the
@@ -175,47 +175,47 @@ backup.
 - Encode: replace `\` with `/`; prepend `/` for Windows drive letters; append `/<moduleName>.bas`
 - Decode: regex matches everything up to `.xlsm`/`.xlsb`/`.xlam` as the workbook path; the final segment (minus `.bas`) is the module name; on Windows strip the leading `/` before the drive letter
 
-### Workbook identity and siloing
+### Project identity and siloing
 
-Each local workbook is a separate VBA project boundary. The `xlide-vba://` URI
-embeds the workbook path, and workbook-aware services must key cache entries,
+Each local project is a separate VBA project boundary. The `xlide-vba://` URI
+embeds the project path, and project-aware services must key cache entries,
 project indexes, diagnostics, open-document overlays, reference/rename scopes,
-and mutation commands by that workbook identity before considering module names.
-The shared helpers in `src/xlideFileSystem.ts` (`workbookIdentityKey`,
-`sameWorkbookPath`, and `moduleIdentityKey`) define that boundary. This is
-deliberate: two open workbooks can both contain `Module1`, `Person`, or
+and mutation commands by that project identity before considering module names.
+The shared helpers in `src/xlideFileSystem.ts` (`projectIdentityKey`,
+`sameProjectPath`, and `moduleIdentityKey`) define that boundary. This is
+deliberate: two open projects can both contain `Module1`, `Person`, or
 `ThisWorkbook`, and those names must not share completion, hover, diagnostics,
 references, rename edits, analysis context, or live source overlays. On Windows,
 path comparisons are case-insensitive; on other platforms they are exact unless
 a caller has explicitly normalized the path. VBA module-name identity is
-case-insensitive inside the workbook boundary.
+case-insensitive inside the project boundary.
 
-Cross-workbook actions, such as copying modules from one workbook to another,
+Cross-project actions, such as copying modules from one project to another,
 must be exposed as explicit user-chosen workflows with source/destination
 selection, preview, conflict handling, and safety checks. They must not happen
 implicitly through project analysis or editor IntelliSense.
 
-Same-workbook live source overlays are centralized in `src/vbaOpenDocuments.ts`.
-That helper scans open `xlide-vba://` documents, decodes the workbook/module
+Same-project live source overlays are centralized in `src/vbaOpenDocuments.ts`.
+That helper scans open `xlide-vba://` documents, decodes the project/module
 identity through the same URI helpers, and replaces cached module source only
-when the open editor belongs to the requested workbook. Completion, hover,
+when the open editor belongs to the requested project. Completion, hover,
 signature help, live diagnostics, semantic tokens, definition/reference/rename,
 current-module analysis, and tree-level class rename all use that overlay path
 instead of carrying local workspace-document scans.
-`tests/vbaMultiWorkbookIsolation.test.ts` locks the shared overlay and
-project-analysis inputs with two same-named open workbooks so provider surfaces
-stay workbook-siloed by construction.
-Larger project-analysis regressions should use machine-readable workbook
+`tests/vbaMultiProjectIsolation.test.ts` locks the shared overlay and
+project-analysis inputs with two same-named open projects so provider surfaces
+stay project-siloed by construction.
+Larger project-analysis regressions should use machine-readable project
 fixtures under `tests/fixtures/vbaProjects/*.json`, loaded by
 `tests/helpers/vbaProjectFixtures.ts` and asserted by
 `tests/vbaProjectWorkbookFixtures.test.ts`. Those fixtures carry module source
 plus expected project context, member/type/identifier completion, diagnostics,
-semantic-token, hover, and signature-help behavior so multi-surface workbook
+semantic-token, hover, and signature-help behavior so multi-surface project
 scenarios do not need bespoke one-off test wiring.
 
 ---
 
-## Sidebar tree - `XlsmExplorer`
+## Sidebar tree - `ProjectExplorer`
 
 `TreeDataProvider<XlideNode>` with three levels:
 
@@ -228,7 +228,7 @@ scenarios do not need bespoke one-off test wiring.
 Clicking a `module` node opens the module via `xlide.openModule`. Clicking a `sub` node opens the module and moves the cursor to that line. A VB6 project's module nodes carry `moduleFilePath`, and the command opens that file itself rather than a virtual document: the file is the module. A VB6 form gets no `designer` row yet (`docs/roadmap_vb6_support.md`, Slice 5).
 
 Module type is inferred from the VBA source and name (`classifyModuleType` in
-`src/vba/workbookService.ts`, mirrored for sync planning in
+`src/vba/projectService.ts`, mirrored for sync planning in
 `src/moduleSyncPlan.ts`):
 - `Attribute VB_Base` carries two GUIDs → `userform`
 - `Attribute VB_Base` carries a Workbook/Worksheet/Chart CLSID → `document`
@@ -249,9 +249,9 @@ the subtype when they need workbook-vs-worksheet-vs-chart semantics.
 
 ---
 
-## Workbook engine - `WorkbookEngine`
+## Project engine - `ProjectEngine`
 
-`WorkbookEngine.call(method, params)` dispatches straight into `src/vba/workbookService.ts` on the extension host thread. There is no process to start, probe, recover, or configure: the first call after activation is as cheap as the hundredth, and a workspace with no Excel workbooks never opens one.
+`ProjectEngine.call(method, params)` dispatches straight into `src/vba/projectService.ts` on the extension host thread. There is no process to start, probe, recover, or configure: the first call after activation is as cheap as the hundredth, and a workspace with no Excel workbooks never opens one.
 
 The call shape is deliberately the same request/response surface the extension used when the work lived behind a JSON-RPC child process, so every caller - explorer, virtual filesystem, analysis, commands, agent tools - is unchanged. Failures reject with `BridgeError` carrying a JSON-RPC-style code (`-32601` unknown method, `-32602` bad params, `-32000` operation failed).
 
@@ -284,7 +284,7 @@ the designer block (`VERSION 5.00` / `Begin VB.Form` ... `End`) blanked to
 whitespace (`blankDesignerHeader` in `vba/moduleSource.ts`): line breaks kept,
 attributes kept, so every line an analysis, a tree row, or an agent reports is
 a line of the file the editor shows. `readModule(full)` answers the raw file.
-A workbook module has a virtual document that hides its header; a VB6 module
+A project module has a virtual document that hides its header; a VB6 module
 has no such view, which is why alignment happens in the text instead.
 
 The legacy compound files need no special project handling: `VbaProject`'s
@@ -337,10 +337,10 @@ Setting:
 | `renameModule` | `path`, `module`, `newName` | - | `{ok, signatureDropped}` |
 | `deleteModule` | `path`, `module` | - | `{ok, signatureDropped}` |
 | `listSheets` | `path` | - | `{sheets: [{name, dimensions}]}` |
-| `getWorkbookInfo` | `path` | - | `{modules, sheets, namedRanges, isPasswordProtected, isSigned}` |
+| `getProjectInfo` | `path` | - | `{modules, sheets, namedRanges, isPasswordProtected, isSigned}` |
 | `getProtectionInfo` | `path` | - | `{isPasswordProtected, isSigned}` |
-| `validateWorkbook` | `path` | - | `{issues: [string]}` |
-| `createWorkbook` | `path` | - | `{ok, path}` |
+| `validateProject` | `path` | - | `{issues: [string]}` |
+| `createProject` | `path` | - | `{ok, path}` |
 | `readCells` | `path`, `sheet`, `range` | - | `{data: [[...]]}` |
 | `readFormulas` | `path`, `sheet`, `range` | - | `{data: [[...]]}` (raw formula strings) |
 | `writeCells` | `path`, `sheet`, `startCell`, `data` | - | `{ok}` |
@@ -349,36 +349,36 @@ Failures reject with a `BridgeError` whose `code` follows the JSON-RPC conventio
 
 Every method takes any macro container. The sheet/cell methods (`listSheets`,
 `readCells`, `readFormulas`, `writeCells`) require the OOXML Excel container
-and refuse others with the container named; `getWorkbookInfo` answers modules
+and refuse others with the container named; `getProjectInfo` answers modules
 and protection for every container and empty sheet/name lists where no sheet
 surface exists. The write methods refuse Access with the p-code reason.
-`createWorkbook` seeds `.xlsm`/`.xlsb`/`.xlam`/`.docm`/`.dotm`/`.pptm`/`.potm`
+`createProject` seeds `.xlsm`/`.xlsb`/`.xlam`/`.docm`/`.dotm`/`.pptm`/`.potm`
 from application-authored templates and refuses legacy formats, `.ppsm`, and
 non-macro formats with the reason. `readFormExport`/`writeFormDesigner`
 compose and apply a form's `.frm`/`.frx` pair in any writable container.
 
 ---
 
-## Protected & signed workbooks
+## Protected & signed projects
 
-A VBA project password protects the project from being *opened in the VBE*, not the bytes on disk, so `writeModule`, `renameModule`, and `deleteModule` edit password-locked projects in place. Each reports `signatureDropped: true` when the workbook carried a digital signature, because rewriting module streams invalidates the signature the workbook was signed with.
+A VBA project password protects the project from being *opened in the VBE*, not the bytes on disk, so `writeModule`, `renameModule`, and `deleteModule` edit password-locked projects in place. Each reports `signatureDropped: true` when the project carried a digital signature, because rewriting module streams invalidates the signature the project was signed with.
 
-On the TypeScript side, `notifySignatureDropped(filePath, signatureDropped)` in `xlideFileSystem.ts` shows a one-time-per-workbook warning when a signature is invalidated. `writeFile` and the three write agent tools/commands all forward the flag.
+On the TypeScript side, `notifySignatureDropped(filePath, signatureDropped)` in `xlideFileSystem.ts` shows a one-time-per-project warning when a signature is invalidated. `writeFile` and the three write agent tools/commands all forward the flag.
 
-`getProtectionInfo` reports `{isPasswordProtected, isSigned}` from the parsed project: the dir stream's protection state, plus `detectSignature`, which looks for the `_VBA_PROJECT_CUR` / `_VBA_PROJECT_SIGNATURE` streams in the compound file. `XlsmExplorer` lazily probes this when a workbook is expanded and renders `[locked]`/`[signed]` badges on the workbook node. `getWorkbookInfo` folds the same two flags into its summary.
+`getProtectionInfo` reports `{isPasswordProtected, isSigned}` from the parsed project: the dir stream's protection state, plus `detectSignature`, which looks for the `_VBA_PROJECT_CUR` / `_VBA_PROJECT_SIGNATURE` streams in the compound file. `ProjectExplorer` lazily probes this when a project is expanded and renders `[locked]`/`[signed]` badges on the project node. `getProjectInfo` folds the same two flags into its summary.
 
-`validateWorkbook` runs structural checks over the parsed project: every dir-declared module must resolve to a readable stream, names must be unique and non-empty, and the PROJECT stream must agree with the dir stream. `createWorkbook` copies the matching `assets/templates/blank.*` (each authored by its own Office application) to the target path.
+`validateProject` runs structural checks over the parsed project: every dir-declared module must resolve to a readable stream, names must be unique and non-empty, and the PROJECT stream must agree with the dir stream. `createProject` copies the matching `assets/templates/blank.*` (each authored by its own Office application) to the target path.
 
 ---
 
 ## Module export / import
 
 `moduleExport.ts` is the single source of truth for writing exported module
-files. `workbookSettings.ts` owns the workbook settings sidecar path, strict
-schema validation, generic workbook-over-global provenance resolution, and
-normalized read/patch/write persistence. `workbookModuleSyncSettings.ts` owns
+files. `projectSettings.ts` owns the project settings sidecar path, strict
+schema validation, generic project-over-global provenance resolution, and
+normalized read/patch/write persistence. `projectModuleSyncSettings.ts` owns
 the effective import/export folder and mode model, including source provenance
-for workbook overrides, built-in defaults, and unsaved session edits.
+for project overrides, built-in defaults, and unsaved session edits.
 `moduleSyncPlan.ts` builds the UI preview model used by bulk import/export and
 carries that resolved settings metadata into the webview.
 
@@ -391,23 +391,23 @@ Both lanes call into these shared owners:
 **Export** reads all VBA modules live from Excel macro workbooks (`.xlsm`, `.xlsb`, `.xlam`) over JSON-RPC (`listModules` then `readModule` per module) and writes module files to a folder. The UI bulk export command opens a webview diff preview where the user can change the export folder, switch export mode, autosave settings after a short debounce, click each module, compare workbook-vs-repo text, check/uncheck modules, and apply only the selected changes. In `trueUp` mode, stale `.bas`/`.cls` repo module files appear as removable diff rows instead of being removed invisibly.
 
 - Output file extension is `.bas` for standard modules and `.cls` for class/document modules.
-- Export mode is per-workbook and persisted in the workbook-local JSON config:
-  - `exportAll` (default): export every workbook module; create missing files and update changed files; do not delete stale files
-  - `trueUp`: `exportAll` plus remove stale `.bas`/`.cls` module files that no longer exist in the workbook
+- Export mode is per-project and persisted in the project-local JSON config:
+  - `exportAll` (default): export every project module; create missing files and update changed files; do not delete stale files
+  - `trueUp`: `exportAll` plus remove stale `.bas`/`.cls` module files that no longer exist in the project
 
-**Import** (`xlide.importModulesFromFolder`) reads `.bas`/`.cls` files from the configured (or user-chosen) folder and opens the same webview diff preview. Existing modules can be updated through `writeModule`. Standard and class modules can be created from imported files. Document modules and UserForm `.cls` code-behind modules can be updated when the workbook already has a same-named module, but they cannot be created directly from import; missing document/UserForm-code-behind rows show `Skipping import`, remain visible in the preview, and are skipped on apply with an audit entry rather than failing the whole import. `.frm` designer files are ignored by import/export sync. Import mode defaults to `updateOnly` (`Import/Update (No Deletes)`). `trueUpStandardClass` (`Import/Update + Delete Missing`) performs the same create/update pass, then previews workbook-only standard/class modules as removable rows; document modules and UserForm code-behind modules are excluded from true-up removals.
+**Import** (`xlide.importModulesFromFolder`) reads `.bas`/`.cls` files from the configured (or user-chosen) folder and opens the same webview diff preview. Existing modules can be updated through `writeModule`. Standard and class modules can be created from imported files. Document modules and UserForm `.cls` code-behind modules can be updated when the project already has a same-named module, but they cannot be created directly from import; missing document/UserForm-code-behind rows show `Skipping import`, remain visible in the preview, and are skipped on apply with an audit entry rather than failing the whole import. `.frm` designer files are ignored by import/export sync. Import mode defaults to `updateOnly` (`Import/Update (No Deletes)`). `trueUpStandardClass` (`Import/Update + Delete Missing`) performs the same create/update pass, then previews project-only standard/class modules as removable rows; document modules and UserForm code-behind modules are excluded from true-up removals.
 
 Import/export settings live in the preview GUI so folder and mode edits use the
 same resolver, planner, and persistence path as apply. The preview shows quiet
-source labels for folder and mode values. Workbook-specific settings are
-written beside the workbook; global/default settings live in machine-scoped VS
+source labels for folder and mode values. Project-specific settings are
+written beside the project; global/default settings live in machine-scoped VS
 Code configuration:
 
 ```
-<workbook-filename>.xlide_settings.json
+<project-filename>.xlide_settings.json
 ```
 
-Workbook settings schema:
+Project settings schema:
 
 ```json
 {
@@ -421,13 +421,13 @@ Workbook settings schema:
 }
 ```
 
-`trueUp` export treats the selected folder as the workbook's module folder: it proposes/removes only root `.bas` and `.cls` module files that do not map to a live workbook module. Other file types, nested files, and `.frm` designer files are outside import/export sync.
+`trueUp` export treats the selected folder as the project's module folder: it proposes/removes only root `.bas` and `.cls` module files that do not map to a live project module. Other file types, nested files, and `.frm` designer files are outside import/export sync.
 
 On later runs, `exportFolder` is used as the default folder in the preview GUI.
-Mode edits write only the edited sync mode and preserve unrelated workbook
+Mode edits write only the edited sync mode and preserve unrelated project
 settings, so export saves do not stamp import defaults and import saves do not
 stamp export defaults. XLIDE reads and writes only
-`<workbook-filename>.xlide_settings.json`; older sidecar names are not part of
+`<project-filename>.xlide_settings.json`; older sidecar names are not part of
 the supported settings contract. If that sidecar exists but contains invalid
 JSON, unknown keys, invalid sync modes, or invalid analysis settings, XLIDE
 reports the settings file as invalid instead of treating it as empty defaults.
@@ -438,15 +438,15 @@ reports the settings file as invalid instead of treating it as empty defaults.
 
 Declared in `package.json` under `contributes.languageModelTools` and registered at activation via `vscode.lm.registerTool`. Copilot can invoke them inline or via `#` references in chat.
 
-For agentic editing, the workbook/XLIDE virtual module structure is the source
-of truth. Agents should discover with `xlide_getWorkbookInfo`/`xlide_listModules`,
+For agentic editing, the project/XLIDE virtual module structure is the source
+of truth. Agents should discover with `xlide_getProjectInfo`/`xlide_listModules`,
 read with `xlide_readModule`, and write with `xlide_writeModule`. Exported
 `.bas`/`.cls` files are sync artifacts unless the user explicitly asks
 to operate on export files.
 
 | Tool name | Chat reference | Side effects | Confirmation |
 |---|---|---|---|
-| `xlide_listWorkbooks` | `#xlideListWorkbooks` | none | No |
+| `xlide_listProjects` | `#xlideListProjects` | none | No |
 | `xlide_listModules` | `#xlideListModules` | none | No |
 | `xlide_listSubs` | `#xlideListSubs` | none | No |
 | `xlide_readModule` | `#xlideReadModule` | none | No |
@@ -454,16 +454,16 @@ to operate on export files.
 | `xlide_renameModule` | `#xlideRenameModule` | saves .xlsm | Yes |
 | `xlide_deleteModule` | `#xlideDeleteModule` | saves .xlsm | Yes |
 | `xlide_listSheets` | `#xlideListSheets` | none | No |
-| `xlide_getWorkbookInfo` | `#xlideGetWorkbookInfo` | none | No |
-| `xlide_validateWorkbook` | `#xlideValidateWorkbook` | none | No |
-| `xlide_analyzeWorkbook` | `#xlideAnalyzeWorkbook` | none | No |
+| `xlide_getProjectInfo` | `#xlideGetProjectInfo` | none | No |
+| `xlide_validateProject` | `#xlideValidateProject` | none | No |
+| `xlide_analyzeProject` | `#xlideAnalyzeProject` | none | No |
 | `xlide_runVbaTests` | `#xlideRunVbaTests` | runs tests + writes artifacts | Yes |
-| `xlide_createWorkbook` | `#xlideCreateWorkbook` | creates .xlsm (fails if the file exists) | Yes |
+| `xlide_createProject` | `#xlideCreateProject` | creates .xlsm (fails if the file exists) | Yes |
 | `xlide_readCells` | `#xlideReadCells` | none | No |
 | `xlide_readFormulas` | `#xlideReadFormulas` | none | No |
 | `xlide_writeCells` | `#xlideWriteCells` | saves .xlsm | Yes |
-| `xlide_exportModules` | `#xlideExportModules` | writes export files + updates workbook JSON config | Yes |
-| `xlide_configureExportMode` | `#xlideConfigureExportMode` | updates workbook JSON config | Yes |
+| `xlide_exportModules` | `#xlideExportModules` | writes export files + updates project JSON config | Yes |
+| `xlide_configureExportMode` | `#xlideConfigureExportMode` | updates project JSON config | Yes |
 
 ---
 
@@ -475,14 +475,14 @@ to operate on export files.
 
 | Item | Shown when | Text | Click action |
 |---|---|---|---|
-| Active module | Active editor is an `xlide-vba://` document | `<workbook> | <module>` | `xlide.refreshExplorer` |
+| Active module | Active editor is an `xlide-vba://` document | `<project> | <module>` | `xlide.refreshExplorer` |
 
 ---
 
 ## Activity Bar sidebar - `xlideSidebar.ts`
 
 XLIDE contributes a dedicated Activity Bar container (`xlide`) and a polished
-WebviewView (`xlide.sidebar`). The workbook/module navigation tree remains in
+WebviewView (`xlide.sidebar`). The project/module navigation tree remains in
 the VS Code Explorer as `xlide.explorer`; the Activity Bar sidebar is the
 product shell for setup status, common actions, compact settings entry points,
 and support actions.
@@ -491,31 +491,31 @@ and support actions.
 tested without VS Code APIs. `src/xlideSidebar.ts` renders that model into a
 VS Code-themed webview with section spacing, dividers, setup-only status dots,
 a compact welcome note that points users to the Explorer-hosted XLIDE tree, and
-a dedicated File Actions group containing the target file picker and
-workbook-scoped action buttons. It does not render module-scoped actions or
+a dedicated Project Actions group containing the target file picker and
+project-scoped action buttons. It does not render module-scoped actions or
 module-scoped information; those stay in editor or tree contexts where the
 module target is explicit. It refreshes on `xlide.*` configuration changes,
-workspace-folder changes, active-editor changes, workbook file create/delete
+workspace-folder changes, active-editor changes, project file create/delete
 events, and `.xlide_settings.json` sidecar changes, and does not require Excel
 COM to render.
 
-There is no Setup section: the workbook engine runs in-process, so nothing has
+There is no Setup section: the project engine runs in-process, so nothing has
 to be installed, detected, or repaired before the tree and the actions work. The
-File Actions section lets the user pick the
-target workbook and keeps workbook-scoped actions directly under that picker. If
+Project Actions section lets the user pick the
+target project and keeps project-scoped actions directly under that picker. If
 no explicit sidebar target is selected, the context can fall back to the active
-`xlide-vba://` editor or a single-workbook workspace; if no target exists,
-workbook-scoped sidebar buttons are disabled rather than falling back to an
+`xlide-vba://` editor or a single-project workspace; if no target exists,
+project-scoped sidebar buttons are disabled rather than falling back to an
 unrelated editor. The selected target is workspace UI state, not a global
-setting or workbook sidecar value. The Settings section offers a compact global
+setting or project sidecar value. The Settings section offers a compact global
 settings launcher that opens `xlide.openGlobalSettings`, a dedicated webview for
-VS Code machine/profile settings, without rendering workbook-scoped
+VS Code machine/profile settings, without rendering project-scoped
 import/export, analysis, or sidecar rows. The Support section keeps
-troubleshooting actions together. Workbook-facing GUIs read
-`<workbook-filename>.xlide_settings.json`
-through `workbookSettings.ts` and the effective settings helpers that production
+troubleshooting actions together. Project-facing GUIs read
+`<project-filename>.xlide_settings.json`
+through `projectSettings.ts` and the effective settings helpers that production
 commands use.
-Workbook-specific settings are not stored globally.
+Project-specific settings are not stored globally.
 
 ---
 
@@ -525,14 +525,14 @@ XLIDE supports two configuration scopes:
 
 1. Global/editor settings live in VS Code machine/profile settings and are
    declared as machine-scoped `xlide.*` contributions in `package.json`.
-2. Workbook-specific settings live beside the workbook in
-   `<workbook-filename>.xlide_settings.json`.
+2. Project-specific settings live beside the project in
+   `<project-filename>.xlide_settings.json`.
 
 Precedence is deterministic: built-in defaults are the floor, VS Code global
 settings override those defaults for the current machine/profile, and
-workbook-specific sidecar values override global defaults only for that
-workbook. There are no legacy sidecar names and no secondary JSON settings
-surface outside workbook sidecars.
+project-specific sidecar values override global defaults only for that
+project. There are no legacy sidecar names and no secondary JSON settings
+surface outside project sidecars.
 
 ---
 
@@ -556,13 +556,13 @@ updating one pure contract and then satisfying the completion, Smart Enter, and
 static JSON conformance tests.
 The dependency-free `src/vbaSourceScan.ts` owns shared VBA source-text helpers such
 as identifier validation, comment/string-safe identifier occurrence search, line
-start offsets, and leading-whitespace detection. Providers, workbook analysis,
+start offsets, and leading-whitespace detection. Providers, project analysis,
 code actions, and tree/module commands should reuse those helpers rather than
 carrying local regex copies.
 
-**Symbol intelligence** - `src/vbaSymbolIndex.ts` keeps a workbook-scoped cache
+**Symbol intelligence** - `src/vbaSymbolIndex.ts` keeps a project-scoped cache
 of module sources and metadata. The cache loads modules lazily through the
-workbook engine (`readModules`, falling back to `listModules` + `readModule`) and
+project engine (`readModules`, falling back to `listModules` + `readModule`) and
 can refresh a single module after a save. Symbol extraction itself lives in the
 analyzer (`src/analyzer/symbols/projectIndex.ts`), which consumers feed with the
 cached sources.
@@ -580,9 +580,9 @@ per-subsystem modules listed in the repository layout (`vbaLiveDiagnostics.ts`,
 | `DocumentSymbolProvider` | Outlines the current module from the analyzer `ProjectIndex` via `documentOutlineSymbolsForSource` |
 | `DefinitionProvider` | Builds an AST `ProjectIndex` and resolves source-backed `object.Member` references through the shared member-completion binder, resolves project type-name tokens through `resolveTypeDefinitions`, then falls back to scope-aware name resolution (`resolveDefinition`); honors a `Module.Member` qualifier via `resolveQualifiedDefinition`, and follows MS-VBAL visibility (locals shadow module members shadow exported cross-module declarations, including enum members exported by their containing `Enum`) |
 | `ReferenceProvider` | Project type-name tokens are matched through `resolveTypeDefinitions`; everything else flows through the shared pure `collectSymbolReferences` (`src/vbaReferenceResolution.ts`), which returns the **union** of (a) member-access / module-qualified occurrences (`Module.Proc`, `obj.Member`, `Me.Member`) validated by their resolved class-member definition spans, and (b) bare-identifier occurrences each re-resolved in their own module context and kept only when they bind *solely* to the target declarations. Honors VS Code's include-declaration toggle |
-| `RenameProvider` | Shares the exact same `collectSymbolReferences` resolver as references, so a standard-module procedure/variable, class member, property family, Declare, Enum member, or local/parameter renames its declaration **and every bare call (same- and cross-module) plus its validated qualified/member-access references** - regardless of whether rename is invoked from the declaration, a bare call, or a qualified reference. The per-occurrence bind check keeps a same-named member on an unrelated receiver, a same-named procedure in another module, a shadowing local, and ambiguous bare calls from being renamed. VBA component/module rename is intentionally tree-only because standard and class module names are workbook component names rather than in-source declarations; Enum-type-qualified access (`Color.Red`) is not matched (the analyzer exposes no `EnumType.Member` resolver, matching go-to-definition) |
-| `CodeActionProvider` | Delegates XLIDE diagnostics to the pure `resolveDiagnosticCodeActions` resolver and converts returned offset edits into VS Code quick fixes; first supported fixes add `Option Explicit`, move misplaced `Option` statements, split local `Dim` initializers, insert missing block closers, insert missing explicit-`Call` and expression-call argument-list parentheses, remove illegal empty parentheses from standalone zero-argument calls, rewrite invalid `Call DoEvents()`-style runtime statements, add/remove `Set` for proven object/scalar assignments, and expose an XLIDE source action for analyzing the current workbook-backed module. Call-related quick fixes consume shared `callContext` range helpers so diagnostics and repairs do not parse chained callees, empty parentheses, or invalid explicit `Call` syntax differently |
-| Diagnostics | Debounced `vbaModuleAnalysis` results merge structural block-balance, semantic analysis, and suppression directives before rendering VS Code diagnostics; live diagnostics pass the active cursor offset through the shared incomplete-expression detector so dangling member access, trailing binary operators, and unmatched opening parentheses are hidden only while their active statement is being edited, then restored on selection/editor change, current-module analysis, or workbook analysis. Structural block diagnostics pin ranges to the opener/closer syntax phrase, and analyzer declaration-order rules prefer the exact offending token over whole-line or whole-parameter spans |
+| `RenameProvider` | Shares the exact same `collectSymbolReferences` resolver as references, so a standard-module procedure/variable, class member, property family, Declare, Enum member, or local/parameter renames its declaration **and every bare call (same- and cross-module) plus its validated qualified/member-access references** - regardless of whether rename is invoked from the declaration, a bare call, or a qualified reference. The per-occurrence bind check keeps a same-named member on an unrelated receiver, a same-named procedure in another module, a shadowing local, and ambiguous bare calls from being renamed. VBA component/module rename is intentionally tree-only because standard and class module names are project component names rather than in-source declarations; Enum-type-qualified access (`Color.Red`) is not matched (the analyzer exposes no `EnumType.Member` resolver, matching go-to-definition) |
+| `CodeActionProvider` | Delegates XLIDE diagnostics to the pure `resolveDiagnosticCodeActions` resolver and converts returned offset edits into VS Code quick fixes; first supported fixes add `Option Explicit`, move misplaced `Option` statements, split local `Dim` initializers, insert missing block closers, insert missing explicit-`Call` and expression-call argument-list parentheses, remove illegal empty parentheses from standalone zero-argument calls, rewrite invalid `Call DoEvents()`-style runtime statements, add/remove `Set` for proven object/scalar assignments, and expose an XLIDE source action for analyzing the current project-backed module. Call-related quick fixes consume shared `callContext` range helpers so diagnostics and repairs do not parse chained callees, empty parentheses, or invalid explicit `Call` syntax differently |
+| Diagnostics | Debounced `vbaModuleAnalysis` results merge structural block-balance, semantic analysis, and suppression directives before rendering VS Code diagnostics; live diagnostics pass the active cursor offset through the shared incomplete-expression detector so dangling member access, trailing binary operators, and unmatched opening parentheses are hidden only while their active statement is being edited, then restored on selection/editor change, current-module analysis, or project analysis. Structural block diagnostics pin ranges to the opener/closer syntax phrase, and analyzer declaration-order rules prefer the exact offending token over whole-line or whole-parameter spans |
 | Smart enter (auto-block) | Pressing Enter after a safe block opener inserts the matching closer through the shared smart-block helper. The default `xlide.editor.blockLayout = "comfy"` layout uses a spacer line, one editable body line one real tab deeper than the opener, another spacer line, then the closer at opener indentation; `"compact"` places the editable body directly above the closer. If a matching closer already exists ahead, Smart Enter only normalizes the newly created body line indentation. Supported openers include procedures, `If ... Then`, `With`, `For`, `Do`, `While`, `Select Case`, `Type`, `Enum`, and `#If`, with `With` seeding a leading `.` for member completion. Pressing Enter after a leading-dot member line inside an active `With` block keeps the same indentation and seeds another leading `.` |
 | Loop iterator sync | Editing the iterator token in a simple `For` / `For Each` opener or its matching `Next name` updates the paired token, using the same lexer-derived string/comment stripping as the rest of Smart Enter and conservative block matching |
 
@@ -590,7 +590,7 @@ The expanded Smart Enter layout is the default `comfy` block style. The
 `compact` style removes spacer lines and is exposed as the VS Code extension
 setting `xlide.editor.blockLayout`, contributed by `package.json` with machine
 scope rather than
-workbook sidecar configuration. Both modes are expressed in the same
+project sidecar configuration. Both modes are expressed in the same
 smart-block helper/catalogue so Enter auto-blocking and Tab snippets share one
 behavior contract.
 
@@ -601,16 +601,16 @@ formatter logic, and code actions must all consume the same analyzer rules or
 provider helpers for the same VBA construct.
 
 The `DefinitionProvider`, `ReferenceProvider`, and `RenameProvider` read the
-shared per-workbook incremental `ProjectIndex`
+shared per-project incremental `ProjectIndex`
 (`src/vbaProjectIndexService.ts`, over
 `src/analyzer/symbols/projectIndex.ts`) with the live editor text overlaid for
 the current module - definition/references use the `live` view, while rename
 uses the `strict` view so reference edits never silently skip modules that
 fail to index. Offset-based symbol spans are converted to editor ranges in the shared
 `vbaNavigation.ts` helpers and provider wiring. `VbaSymbolIndex` still backs
-the workbook-scoped source cache those queries read from.
+the project-scoped source cache those queries read from.
 Tree-level module rename uses source-backed project helpers before changing the
-component name through `renameModule`: class modules rewrite workbook
+component name through `renameModule`: class modules rewrite project
 project-defined class type tokens, while standard modules rewrite bound
 module-qualified qualifier tokens for exported members and visible qualified
 type names.
@@ -625,17 +625,17 @@ diagnostics, semantic coloring, hover/signature contexts, and current-module
 analysis use that path. It also exposes `projectEditorSymbolContextForModule()`,
 the provider-facing bridge for external project procedures/symbols plus the
 analysis options used by editor surfaces. `src/vbaMemberCompletion.ts` derives a
-single workbook-aware project context per completion/hover/signature/casing
+single project-aware project context per completion/hover/signature/casing
 request from the shared `VbaProjectIndexService` (via
 `src/vbaEditorProjectContext.ts`), then projects it into member, type,
 identifier, hover, signature-help, event-handler, and canonical-casing
 resolver contexts. Rename and tree-level module rename are the deliberate
 mutation-safety exception: they use strict project indexes so reference edits do
 not silently skip modules that cannot be parsed.
-Before those project indexes are built for live editor providers, workbook
+Before those project indexes are built for live editor providers, project
 modules are passed through `src/vbaOpenDocuments.ts` so unsaved open modules from
-the same workbook participate in cross-module diagnostics, type coloring,
-navigation, completion, hover, and signature help without crossing workbook
+the same project participate in cross-module diagnostics, type coloring,
+navigation, completion, hover, and signature help without crossing project
 boundaries.
 
 **Structural analysis** - `src/vbaStructuralDiagnostics.ts` is a pure, `vscode`-free module so it
@@ -674,30 +674,30 @@ visible.
 The index also subscribes to `onDidSaveTextDocument` for `xlide-vba://` URIs so
 the cache stays in sync with user edits.
 
-**Workbook-wide analysis (command + agent tool)** - `src/vbaWorkbookAnalysis.ts`
-(`analyzeWorkbook`) loads every module from the workbook via the workbook engine, routes each module's analysis through the analysis worker when it is healthy (seeded under its own key namespace so it never disturbs live diagnostics' seed; identical in-host fallback on any worker failure),
+**Project-wide analysis (command + agent tool)** - `src/vbaProjectWideAnalysis.ts`
+(`analyzeProject`) loads every module from the project via the project engine, routes each module's analysis through the analysis worker when it is healthy (seeded under its own key namespace so it never disturbs live diagnostics' seed; identical in-host fallback on any worker failure),
 builds shared project-analysis options so cross-module rules have the current
 module's visibility-filtered procedure/Declare names, bare identifier names,
 visible type/non-type names, exported signatures, and source-backed member
 surfaces, then delegates each module to `src/vbaModuleAnalysis.ts`. That shared
 module core merges
 `analyzeVbaStructure`, `analyzeModule`, and analysis suppression directives before
-workbook analysis flattens results into 1-based `{moduleName, moduleType, line,
+project analysis flattens results into 1-based `{moduleName, moduleType, line,
 column, endColumn, severity, code, message, category, vbeCompileEquivalent,
 diagnosticKind}` problems, sorted by module/line/column. Semantic analyzer rules
 and structural block-balance codes resolve through the shared diagnostic
-metadata catalogue before the workbook summary is counted, so the command GUI
-and `xlide_analyzeWorkbook` agent JSON do not maintain separate rule buckets. The
-`xlide.analyzeWorkbook` command (`src/commands/analysisCommands.ts`, right-click "Analyze File"
-on a workbook tree node) and `xlide.analyzeCurrentModule` both open the
-dedicated analysis results panel from `src/workbookAnalysisWebview.ts`. The panel is
-driven by the pure model in `src/workbookAnalysisResultsModel.ts`, shows severity
+metadata catalogue before the project summary is counted, so the command GUI
+and `xlide_analyzeProject` agent JSON do not maintain separate rule buckets. The
+`xlide.analyzeProject` command (`src/commands/analysisCommands.ts`, right-click "Analyze Project"
+on a project tree node) and `xlide.analyzeCurrentModule` both open the
+dedicated analysis results panel from `src/projectAnalysisWebview.ts`. The panel is
+driven by the pure model in `src/projectAnalysisResultsModel.ts`, shows severity
 and VBE-equivalence filters, module grouping, counts, suppressed-diagnostic
 visibility, copy-report/copy-JSON actions, and click-through navigation that
 opens the exact module span in an adjacent editor group through
 `encodeModuleUri`. The Output channel remains a
 support log, not the primary analysis-results surface. The same core is exposed to
-AI agents as the `xlide_analyzeWorkbook` LM tool (`src/agentTools.ts`), returning
+AI agents as the `xlide_analyzeProject` LM tool (`src/agentTools.ts`), returning
 the structured JSON report so an agent can verify analysis passes in real time after
 editing modules.
 
@@ -791,29 +791,29 @@ into a pure analyzer layer and a thin VS Code provider:
   `obj.` to worksheet members while `Set obj = Sheets(1)` keeps the merged
   worksheet/chart surface. Diagnostic callers can opt out of this refinement so
   late-bound `Object`/`Variant` receivers are not treated as hard absence proof;
-  editor completion leaves it enabled. It also accepts source-backed workbook
+  editor completion leaves it enabled. It also accepts source-backed project
   member surfaces from `ProjectIndex.projectMemberSurfaces(moduleName)`, so
-  variables declared as workbook classes (for example `Dim p As Person`) can
+  variables declared as project classes (for example `Dim p As Person`) can
   offer public/default-public source members and public fields at `p.`, and
   variables declared as visible user-defined types can offer their fields at
   `point.` without guessing from names. Public constants are not exposed as
   object members because VBE rejects them in class/document/UserForm modules. The same context also
   resolves `Me.` to the current class/document module's source-backed member
   surface, merging with a known host surface when the caller supplies one.
-  Source-backed workbook members carry inline `'''` documentation through to
+  Source-backed project members carry inline `'''` documentation through to
   completion, hover, and member-call signature help, and carry declaration spans
   for source-backed member go-to-definition. Exported member attributes such as
   `Attribute Value.VB_UserMemId = 0` are attached to the same source-backed
   member surface and mark `defaultMember`, but direct object-expression
   inference is not enabled until that behavior has separate oracle coverage.
 - `src/vbaMemberCompletion.ts` is the VS Code `CompletionItemProvider` (trigger
-  characters `.` and space). For member access it loads the workbook's module
-  list via the workbook engine, then uses `src/vbaProjectAnalysis.ts` for
+  characters `.` and space). For member access it loads the project's module
+  list via the project engine, then uses `src/vbaProjectAnalysis.ts` for
   module-kind normalization, live-current-module overlay, project type/member
   derivation, and invalid-module tolerance while the user is mid-edit. The
   resulting context includes document code names with workbook, worksheet, or
   chart host type where known, plus the host/source `Me` context for the current
-  object module. For workbook class members, open XLIDE module documents are
+  object module. For project class members, open XLIDE module documents are
   read from their live editor text first, so unsaved changes in an open
   `Person` class are reflected the next time completion is requested elsewhere;
   saved module text is read through the bridge when no live editor text exists.
@@ -887,7 +887,7 @@ into a pure analyzer layer and a thin VS Code provider:
 - The same `src/vbaMemberCompletion.ts` class also registers a VS Code
   `HoverProvider`. It delegates to `src/analyzer/hover/resolveHover.ts`
   (`resolveHover`), a pure resolver that describes the identifier under the
-  cursor: `receiver.member` host/reference or source-backed workbook members
+  cursor: `receiver.member` host/reference or source-backed project members
   (reusing the same member-access resolver as completion), host globals,
   worksheet code names, type names in declaration/`New` positions (using the same
   primitive/host/project resolver as type completion and semantic coloring), user
@@ -1102,7 +1102,7 @@ Diagnostic severity policy:
   operands suppress diagnostics. Bare member functions with required
   arguments do not infer as value references unless the expression is an actual
   call. For
-  workbook-backed modules, the provider also passes a
+  project-backed modules, the provider also passes a
   project-wide map of exported standard-module `Sub`/`Function`/`Declare`
   signatures, so argument count/type checks can cross module boundaries when
   the target is unambiguous. Ambiguous bare exported names stay silent, while
@@ -1112,7 +1112,7 @@ Diagnostic severity policy:
   deterministic-runtime-error diagnostic for numeric contexts containing a
   provably nonnumeric string literal in an arithmetic expression; focused oracle
   cases confirm the representative expression compiles but raises runtime error
-  13 when executed. Source-backed workbook class members and public fields feed
+  13 when executed. Source-backed project class members and public fields feed
   the same assignment validator for member assignments such as
   `p.Age = "blah"` when the receiver and setter/write type are known; focused
   multi-module oracle cases confirm the nonnumeric string case raises runtime
@@ -1130,7 +1130,7 @@ Diagnostic severity policy:
   leading-dot members inside simple or nested `With` blocks share that receiver
   contract because diagnostics call the same member resolver as completion.
   document modules and UserForms stay silent until their host/designer
-  catalogues are complete enough to prove absence, except for known workbook
+  catalogues are complete enough to prove absence, except for known project
   host references such as `ThisWorkbook`/`Me` inside `ThisWorkbook`. Focused
   oracle evidence rejects unknown
   class property assignment and unknown class method calls with
@@ -1277,7 +1277,7 @@ terminator" family) and analysis suppression directives. `registerVbaDiagnostics
 `src/vbaLiveDiagnostics.ts` runs that shared module core on open and debounced
 (300 ms) on every edit, on real `.vba` files and on virtual `xlide-vba` module
 documents, with no save. Everything is computed from the live editor text plus
-deterministic project context. For workbook-backed documents the provider
+deterministic project context. For project-backed documents the provider
 overlays the current live module text into a fresh shared project-analysis
 context, then passes its visibility-filtered procedures, visible bare
 identifiers, visible project type names, non-type-name exclusions,
@@ -1287,18 +1287,18 @@ Live editor diagnostics also pass the active cursor offset into
 `incompleteExpressionEditSpan`, which scopes to the active colon-separated
 statement and suppresses overlapping hard syntax diagnostics for incomplete
 member access, trailing binary operators, and unmatched opening parentheses.
-Current-module analysis and workbook analysis do not pass that offset, so completed
+Current-module analysis and project analysis do not pass that offset, so completed
 invalid source remains diagnostic-strict outside the active edit.
 Setting `xlide.diagnostics.enabled` gates it and re-runs open documents on
 change. Analysis rule severity overrides are keyed by stable diagnostic code and
 resolved through `xlide.analysis.ruleSeverityOverrides` globally or the
-workbook sidecar per workbook. Contributed `xlide.*` VS Code settings are
+project sidecar per project. Contributed `xlide.*` VS Code settings are
 machine-scoped in `package.json`. `globalSettings.ts` validates, normalizes,
 and resolves those contributed settings with explicit provenance (`default`,
 `machine`, or `unknown`). Malformed values surface as `XLIDE/settings`
 diagnostics on VBA documents; invalid rule severity overrides are rejected by
 the same guardrail model used by live diagnostics, current-module analysis, and
-workbook analysis.
+project analysis.
 Before diagnostics are displayed, `src/analyzer/diagnostics/analysisSuppressions.ts`
 scans tokenized apostrophe comments for explicit `@xlide-analysis` directives and
 applies the same lexical file, member, line, next-line, and paired block filter
@@ -1306,12 +1306,12 @@ inside `vbaModuleAnalysis`. Directive diagnostics, such as
 malformed code lists, unknown diagnostic codes, late `disable-file`, invalid
 `disable-next-member` placement, or stray/unbalanced/mismatched block pairs, are
 added back as `XLIDE/style` warnings and are not suppressed by suppression
-directives. Workbook analysis includes the suppressed diagnostic count in its
+directives. Project analysis includes the suppressed diagnostic count in its
 summary so hidden problems remain auditable.
 
 **Project-wide symbol graph** - `src/analyzer/symbols/` projects the parser AST
 into a host-agnostic symbol model so XLIDE can offer document symbols, workspace
-symbols, and go-to-definition over the whole workbook project rather than a
+symbols, and go-to-definition over the whole project rather than a
 single module:
 
 - `src/analyzer/symbols/symbolModel.ts` defines the `VbaSymbol` shape (name,
@@ -1371,7 +1371,7 @@ single module:
   `RenameProvider` (see "Symbol intelligence").
 
 **Type-name semantic coloring and hover** - TextMate grammar handles static VBA
-tokens only, while workbook classes, document modules, UserForms, UDTs, and enums
+tokens only, while project classes, document modules, UserForms, UDTs, and enums
 are dynamic project symbols. `src/analyzer/semantic/typeSemanticTokens.ts`
 therefore parses the live module and resolves actual type-name positions (`As
 Person`, parameter types, return types, module/local variables, UDT fields, and
@@ -1398,9 +1398,9 @@ Unresolved names and non-type positions are ignored.
 | `FileSystemProvider` over `TextDocumentContentProvider` | Read/write virtual FS - Ctrl+S writes back with no custom save command |
 | In-process engine over an external backend | No runtime to install, detect, or recover; no per-call IPC or process-startup cost, and no setup gate between install and first use |
 | Own the container formats ([MS-CFB], [MS-OVBA], OOXML) | The binary formats are specified and stable; owning them removes the last third-party dependency and lets writes preserve untouched bytes exactly |
-| Rebuild-and-rename on every mutating save | A canonical rebuild keeps the compound file self-consistent, and the atomic rename means a crash mid-write cannot corrupt the workbook |
+| Rebuild-and-rename on every mutating save | A canonical rebuild keeps the compound file self-consistent, and the atomic rename means a crash mid-write cannot corrupt the project |
 | No COM, no Office | Works on Windows, macOS, Linux, WSL, and remote containers |
-| Confirmation on write tools | Prevents AI agents from silently mutating production workbooks |
+| Confirmation on write tools | Prevents AI agents from silently mutating production projects |
 
 ---
 
@@ -1418,16 +1418,16 @@ TypeScript dev: `typescript`, `esbuild`, `vitest`, `@types/vscode`, `@types/node
 
 | Change | Files to touch |
 |---|---|
-| New engine method | `src/vba/workbookService.ts` (implementation), `src/workbookEngine.ts` (dispatch), `tests/vbaNativeWorkbook.test.ts`, `src/agentTools.ts` + `package.json` if exposed as LM tool, `docs/architecture.md` |
+| New engine method | `src/vba/projectService.ts` (implementation), `src/projectEngine.ts` (dispatch), `tests/vbaNativeProject.test.ts`, `src/agentTools.ts` + `package.json` if exposed as LM tool, `docs/architecture.md` |
 | New VS Code command | the matching per-domain module under `src/commands/` (wired through `src/commands.ts`), `package.json` (`contributes.commands`, `menus`), `docs/architecture.md` |
 | New AI agent (LM) tool | `package.json` (`contributes.languageModelTools`), `src/agentTools.ts` (registration), `.github/copilot-instructions.md` (tool reference + workflow), `docs/architecture.md` |
-| New workbook-wide analysis behavior | `src/vbaModuleAnalysis.ts` (shared module analysis core), `src/vbaWorkbookAnalysis.ts` (workbook analysis core), `src/workbookAnalysisResultsModel.ts` (results view model/copy report), `src/workbookAnalysisWebview.ts` (analysis results GUI), `src/commands/analysisCommands.ts` (command wiring + location navigation), `src/agentTools.ts` (`xlide_analyzeWorkbook`), `package.json` (command/menu/LM tool), `.github/copilot-instructions.md`, `docs/architecture.md` |
+| New project-wide analysis behavior | `src/vbaModuleAnalysis.ts` (shared module analysis core), `src/vbaProjectWideAnalysis.ts` (project analysis core), `src/projectAnalysisResultsModel.ts` (results view model/copy report), `src/projectAnalysisWebview.ts` (analysis results GUI), `src/commands/analysisCommands.ts` (command wiring + location navigation), `src/agentTools.ts` (`xlide_analyzeProject`), `package.json` (command/menu/LM tool), `.github/copilot-instructions.md`, `docs/architecture.md` |
 | Dependency added/removed | `package.json`, `README.md`, `docs/architecture.md` |
 | New VBA language feature | `src/vbaSymbolIndex.ts` (parsing/index), `src/vbaStructuralDiagnostics.ts` (structural analysis), the matching provider subsystem module registered in `src/vbaLanguageProviders.ts`, `syntaxes/vba.tmLanguage.json` (coloring), `language-configuration/vba-language-configuration.json` (brackets/indent/folding), `docs/architecture.md` |
 | New analyzer grammar rule | `src/analyzer/**` (lexer/parser), matching fixtures in `tests/`, an MS-VBAL section cite in code, a row in `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
 | New host object-model member/type/constant | `src/analyzer/host/excelObjectModel.ts` (or the word/powerpoint/access model modules and their generated `*ObjectModelData.ts`, regenerated via `scripts/generate-host-object-model.mjs`), `tests/vbaMemberCompletion.test.ts` / `tests/vbaHostModels.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |
 | New macro container format | `src/vba/macroContainer.ts` (detection + write policy), `src/vba/xlsx.ts` or a format module beside `pptContainer.ts`/`accessDatabase.ts`, `src/macroContainerUi.ts` (`MACRO_CONTAINER_EXTENSIONS`), `src/analyzer/host/hostRegistry.ts` (`hostTokenForFileName`), an Office-authored fixture in `tests/fixtures/binaries/` with `.gitignore`/`.vscodeignore` entries, `tests/vbaMacroContainers.test.ts`, `docs/architecture.md` |
-| VB6 project (manifest, module files) | `src/vba/vb6/vbpProject.ts` (manifest parse/print), `src/vba/vb6/vb6Project.ts` (module reads/writes), the `isVb6ProjectPath` guards in `src/vba/workbookService.ts`, `src/macroContainerUi.ts`, `src/analyzer/host/hostRegistry.ts` (`vb6`), `src/xlsmExplorer.ts` (`moduleFilePath`), a licensed fixture under `tests/fixtures/vb6/<project>/` with its `LICENSE` and `NOTICE.md`, `tests/vb6Project.test.ts`, `docs/roadmap_vb6_support.md`, `docs/architecture.md` |
+| VB6 project (manifest, module files) | `src/vba/vb6/vbpProject.ts` (manifest parse/print), `src/vba/vb6/vb6Project.ts` (module reads/writes), the `isVb6ProjectPath` guards in `src/vba/projectService.ts`, `src/macroContainerUi.ts`, `src/analyzer/host/hostRegistry.ts` (`vb6`), `src/projectExplorer.ts` (`moduleFilePath`), a licensed fixture under `tests/fixtures/vb6/<project>/` with its `LICENSE` and `NOTICE.md`, `tests/vb6Project.test.ts`, `docs/roadmap_vb6_support.md`, `docs/architecture.md` |
 | New host-member call signature | `src/analyzer/host/excelObjectModel.ts` (`memberSignatures` entry, transcribed + source-verified), `tests/vbaSignatureHelp.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |
 | New built-in VBA runtime function/statement | `src/analyzer/runtime/vbaRuntime.ts` (signature transcribed + source-verified), `tests/vbaRuntime.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
 | New built-in VBA runtime constant | `src/analyzer/runtime/vbaRuntime.ts` (constant/type/value transcribed + source-verified), `tests/vbaRuntime.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
@@ -1436,7 +1436,7 @@ TypeScript dev: `typescript`, `esbuild`, `vitest`, `@types/vscode`, `@types/node
 | New active diagnostic rule | `src/analyzer/diagnostics/ruleMetadata.ts` plus the matching `src/analyzer/diagnostics/rules/<family>.ts` registered in `registry.ts` (rule + MS-VBAL `specReference`), the family's `tests/diagnostics/<family>.test.ts`, `src/vbaLiveDiagnostics.ts` (provider merge + any new config), `package.json` (settings), `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |
 | New analyzer quick fix | `src/analyzer/codeActions/diagnosticCodeActions.ts`, `src/vbaCodeActions.ts` (`CodeActionProvider` adapter only when needed), `tests/vbaCodeActions.test.ts`, `docs/roadmap_version_2.x.md`, `docs/architecture.md` |
 | New editor source action | `src/vbaCodeActions.ts`, the matching per-domain module under `src/commands/`, `package.json` (`contributes.commands`/menus), focused tests when a pure helper is added, `docs/roadmap_version_2.x.md`, `docs/architecture.md` |
-| New analysis suppression directive behavior | `src/analyzer/diagnostics/analysisSuppressions.ts`, `src/vbaLiveDiagnostics.ts`, `src/vbaWorkbookAnalysis.ts`, `src/commands/analysisCommands.ts`, `tests/vbaAnalysisSuppressions.test.ts`, `docs/xlide_vba_analysis_suppression_comments.md`, `docs/roadmap_version_2.x.md`, `docs/architecture.md` |
+| New analysis suppression directive behavior | `src/analyzer/diagnostics/analysisSuppressions.ts`, `src/vbaLiveDiagnostics.ts`, `src/vbaProjectWideAnalysis.ts`, `src/commands/analysisCommands.ts`, `tests/vbaAnalysisSuppressions.test.ts`, `docs/xlide_vba_analysis_suppression_comments.md`, `docs/roadmap_version_2.x.md`, `docs/architecture.md` |
 | New completion/hover resolver or rule | `src/analyzer/completion/**` or `src/analyzer/hover/**`, `src/analyzer/index.ts` (barrel export), `src/vbaMemberCompletion.ts` (provider wiring), matching `tests/vba*.test.ts`, `docs/architecture.md` |
 | New signature-help rule/source | `src/analyzer/signature/signatureHelp.ts`, `src/analyzer/index.ts` (barrel export), `src/vbaMemberCompletion.ts` (`provideSignatureHelp` + `registerSignatureHelpProvider`), `tests/vbaSignatureHelp.test.ts`, `docs/architecture.md` |
 | New doc-comment tag or metadata behavior | `src/analyzer/docs/**`, `src/analyzer/index.ts` (barrel export), `src/vbaDocMetadata.ts` (loader/glob), `src/vbaMemberCompletion.ts` (context wiring), `package.json` (`xlide.docs.*` settings), `tests/vbaDocComments.test.ts`, `user_guides/vba-doc-comments.md`, `docs/architecture.md` |

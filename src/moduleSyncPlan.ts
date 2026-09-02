@@ -1,10 +1,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import type { WorkbookEngine } from './workbookEngine';
+import type { ProjectEngine } from './projectEngine';
 import {
     type ModuleInfo,
     computeStaleExportFiles,
-    loadWorkbookModulesWithSources,
+    loadProjectModulesWithSources,
     relativeNameForModule,
     sanitizeFileName,
 } from './moduleExport';
@@ -12,16 +12,16 @@ import {
     normalizeExportMode,
     normalizeImportMode,
     type ExportMode,
-    type WorkbookSettingSource,
-} from './workbookSettings';
+    type ProjectSettingSource,
+} from './projectSettings';
 import { measurePerformance } from './performanceTrace';
 import { isVbaAttributeLine, normalizeEol, vbaHeaderBlockEnd } from './vbaSourceScan';
 import { fileExists } from './util/fs';
 
 export type ModuleSyncDirection = 'export' | 'import';
 export type ImportMode = 'updateOnly' | 'trueUpStandardClass';
-export type ModuleSyncFolderSource = 'workbook' | 'session' | 'missing';
-export type ModuleSyncModeSource = WorkbookSettingSource | 'session';
+export type ModuleSyncFolderSource = 'project' | 'session' | 'missing';
+export type ModuleSyncModeSource = ProjectSettingSource | 'session';
 export type ModuleSyncItemStatus =
     | 'will-write'
     | 'unchanged'
@@ -57,7 +57,7 @@ export interface ModuleSyncPlanItem {
     selectable: boolean;
     warning?: string;
     detail?: string;
-    existsInWorkbook: boolean;
+    existsInProject: boolean;
     existsInRepo: boolean;
     unsupportedDirectCreation: boolean;
     leftTitle: string;
@@ -72,7 +72,7 @@ export interface ModuleSyncPlanItem {
 
 export interface ModuleSyncPlan {
     direction: ModuleSyncDirection;
-    workbookPath: string;
+    projectPath: string;
     folderPath: string;
     folderPathSource?: ModuleSyncFolderSource;
     exportMode?: ExportMode;
@@ -104,9 +104,9 @@ const VB_BASE_RE = /^\s*Attribute\s+VB_Base\s*=\s*"([^"]*)"/im;
 const DOCUMENT_MODULE_NAME_RE = /^(Sheet|Feuil|Hoja|Tabelle|Foglio|Planilha)\d*$/i;
 
 export async function buildExportModuleSyncPlan(
-    bridge: WorkbookEngine,
+    bridge: ProjectEngine,
     params: {
-        workbookPath: string;
+        projectPath: string;
         exportFolder: string;
         exportMode?: ExportMode;
         folderPathSource?: ModuleSyncFolderSource;
@@ -114,10 +114,10 @@ export async function buildExportModuleSyncPlan(
         settingsPath?: string;
     },
 ): Promise<ModuleSyncPlan> {
-    return measurePerformance('moduleSync.buildExportPlan', path.basename(params.workbookPath), async () => {
+    return measurePerformance('moduleSync.buildExportPlan', path.basename(params.projectPath), async () => {
     const exportMode = normalizeExportMode(params.exportMode);
     await fs.promises.mkdir(params.exportFolder, { recursive: true });
-    const { modules, sourceFor } = await loadWorkbookModulesWithSources(bridge, params.workbookPath);
+    const { modules, sourceFor } = await loadProjectModulesWithSources(bridge, params.projectPath);
     const liveRelativeNames = new Set(modules.map(relativeNameForModule));
     const items = await Promise.all(modules.map(async (mod): Promise<ModuleSyncPlanItem> => {
         const relativeName = relativeNameForModule(mod);
@@ -148,7 +148,7 @@ export async function buildExportModuleSyncPlan(
             selectable: true,
             warning: undefined,
             detail: statusLabel(status),
-            existsInWorkbook: true,
+            existsInProject: true,
             existsInRepo,
             unsupportedDirectCreation: false,
             leftTitle: `File: ${mod.name}`,
@@ -186,9 +186,9 @@ export async function buildExportModuleSyncPlan(
                 status: 'will-remove',
                 checked: true,
                 selectable: true,
-                warning: 'This stale .bas/.cls/.frm repo module file no longer exists as a workbook module and will be removed during mirror export.',
+                warning: 'This stale .bas/.cls/.frm repo module file no longer exists as a project module and will be removed during mirror export.',
                 detail: statusLabel('will-remove'),
-                existsInWorkbook: false,
+                existsInProject: false,
                 existsInRepo: true,
                 unsupportedDirectCreation: false,
                 leftTitle: `Repo: ${relPath} (will remove)`,
@@ -205,13 +205,13 @@ export async function buildExportModuleSyncPlan(
 
     return {
         direction: 'export',
-        workbookPath: params.workbookPath,
+        projectPath: params.projectPath,
         folderPath: params.exportFolder,
         folderPathSource: params.folderPathSource,
         exportMode,
         exportModeSource: params.exportModeSource,
         settingsPath: params.settingsPath,
-        title: `Export modules: ${path.basename(params.workbookPath)}`,
+        title: `Export modules: ${path.basename(params.projectPath)}`,
         items: [...items, ...staleItems].sort(compareSyncItems),
         warnings: [],
     };
@@ -219,9 +219,9 @@ export async function buildExportModuleSyncPlan(
 }
 
 export async function buildImportModuleSyncPlan(
-    bridge: WorkbookEngine,
+    bridge: ProjectEngine,
     params: {
-        workbookPath: string;
+        projectPath: string;
         importFolder: string;
         importMode?: ImportMode;
         folderPathSource?: ModuleSyncFolderSource;
@@ -229,9 +229,9 @@ export async function buildImportModuleSyncPlan(
         settingsPath?: string;
     },
 ): Promise<ModuleSyncPlan> {
-    return measurePerformance('moduleSync.buildImportPlan', path.basename(params.workbookPath), async () => {
+    return measurePerformance('moduleSync.buildImportPlan', path.basename(params.projectPath), async () => {
     const importMode = normalizeImportMode(params.importMode);
-    const { modules: liveModules, sourceFor } = await loadWorkbookModulesWithSources(bridge, params.workbookPath);
+    const { modules: liveModules, sourceFor } = await loadProjectModulesWithSources(bridge, params.projectPath);
     const liveByName = new Map(liveModules.map((mod) => [mod.name.toLowerCase(), mod]));
     const entries = (await fs.promises.readdir(params.importFolder, { withFileTypes: true }))
         .filter((entry) => entry.isFile() && /\.(bas|cls|frm)$/i.test(entry.name))
@@ -244,28 +244,28 @@ export async function buildImportModuleSyncPlan(
 
     const items = await Promise.all(repoFiles.map(async (repo): Promise<ModuleSyncPlanItem> => {
         const live = liveByName.get(repo.moduleName.toLowerCase());
-        const existsInWorkbook = Boolean(live);
+        const existsInProject = Boolean(live);
         const moduleType = live?.type ?? repo.inferredType;
         const unsupportedDirectCreation =
-            !existsInWorkbook && (repo.subtype === 'document' || repo.subtype === 'userform');
-        const workbookSource = existsInWorkbook
+            !existsInProject && (repo.subtype === 'document' || repo.subtype === 'userform');
+        const projectSource = existsInProject
             ? await sourceFor(repo.moduleName)
             : '';
         const repoDisplaySource = editorPreviewSource(repo.source);
-        const workbookDisplaySource = editorPreviewSource(workbookSource);
-        const equal = existsInWorkbook &&
-            moduleSyncSourcesEqual(moduleType, repo.source, workbookSource);
+        const projectDisplaySource = editorPreviewSource(projectSource);
+        const equal = existsInProject &&
+            moduleSyncSourcesEqual(moduleType, repo.source, projectSource);
         const status: ModuleSyncItemStatus = unsupportedDirectCreation
             ? 'skipping-import'
             : equal
                 ? 'unchanged'
-                : existsInWorkbook
+                : existsInProject
                     ? 'will-update'
                     : 'will-create';
         const warning = unsupportedDirectCreation
-            ? `${moduleKindLabel(repo.subtype)} modules cannot be created directly. XLIDE will skip this import unless the module already exists in the workbook.`
+            ? `${moduleKindLabel(repo.subtype)} modules cannot be created directly. XLIDE will skip this import unless the module already exists in the project.`
             : documentLike(moduleType)
-                ? `${moduleKindLabel(moduleType)} code can be updated because the module already exists in the workbook.`
+                ? `${moduleKindLabel(moduleType)} code can be updated because the module already exists in the project.`
                 : undefined;
 
         return {
@@ -280,20 +280,20 @@ export async function buildImportModuleSyncPlan(
             selectable: true,
             warning,
             detail: statusLabel(status),
-            existsInWorkbook,
+            existsInProject,
             existsInRepo: true,
             unsupportedDirectCreation,
             leftTitle: `Repo: ${repo.file}`,
-            rightTitle: importWorkbookTitle(repo.moduleName, status),
+            rightTitle: importProjectTitle(repo.moduleName, status),
             leftCode: repoDisplaySource,
-            rightCode: workbookDisplaySource,
+            rightCode: projectDisplaySource,
             leftRawCode: repo.source,
-            rightRawCode: workbookSource,
-            diff: buildSideBySideDiff(repoDisplaySource, workbookDisplaySource, writeDiffTones()),
-            diffWithHeaders: buildSideBySideDiff(repo.source, workbookSource, writeDiffTones()),
+            rightRawCode: projectSource,
+            diff: buildSideBySideDiff(repoDisplaySource, projectDisplaySource, writeDiffTones()),
+            diffWithHeaders: buildSideBySideDiff(repo.source, projectSource, writeDiffTones()),
         };
     }));
-    const workbookOnlyItems: ModuleSyncPlanItem[] = [];
+    const projectOnlyItems: ModuleSyncPlanItem[] = [];
 
     if (importMode === 'trueUpStandardClass') {
         for (const mod of liveModules) {
@@ -301,9 +301,9 @@ export async function buildImportModuleSyncPlan(
                 continue;
             }
             const relativeName = relativeNameForModule(mod);
-            const workbookSource = await sourceFor(mod.name);
-            const workbookDisplaySource = editorPreviewSource(workbookSource);
-            workbookOnlyItems.push({
+            const projectSource = await sourceFor(mod.name);
+            const projectDisplaySource = editorPreviewSource(projectSource);
+            projectOnlyItems.push({
                 id: `import-stale:${mod.name}`,
                 moduleName: mod.name,
                 moduleType: mod.type,
@@ -312,33 +312,33 @@ export async function buildImportModuleSyncPlan(
                 status: 'will-remove',
                 checked: true,
                 selectable: true,
-                warning: 'This standard/class workbook module is not present in the import folder and will be deleted during import true-up.',
-                detail: 'Will delete workbook module',
-                existsInWorkbook: true,
+                warning: 'This standard/class project module is not present in the import folder and will be deleted during import true-up.',
+                detail: 'Will delete project module',
+                existsInProject: true,
                 existsInRepo: false,
                 unsupportedDirectCreation: false,
                 leftTitle: 'Repo: missing file',
                 rightTitle: `File: ${mod.name} (will delete)`,
                 leftCode: '',
-                rightCode: workbookDisplaySource,
+                rightCode: projectDisplaySource,
                 leftRawCode: '',
-                rightRawCode: workbookSource,
-                diff: buildSideBySideDiff('', workbookDisplaySource, deleteDiffTones()),
-                diffWithHeaders: buildSideBySideDiff('', workbookSource, deleteDiffTones()),
+                rightRawCode: projectSource,
+                diff: buildSideBySideDiff('', projectDisplaySource, deleteDiffTones()),
+                diffWithHeaders: buildSideBySideDiff('', projectSource, deleteDiffTones()),
             });
         }
     }
 
     return {
         direction: 'import',
-        workbookPath: params.workbookPath,
+        projectPath: params.projectPath,
         folderPath: params.importFolder,
         folderPathSource: params.folderPathSource,
         importMode,
         importModeSource: params.importModeSource,
         settingsPath: params.settingsPath,
-        title: `Import modules: ${path.basename(params.workbookPath)}`,
-        items: [...items, ...workbookOnlyItems].sort(compareSyncItems),
+        title: `Import modules: ${path.basename(params.projectPath)}`,
+        items: [...items, ...projectOnlyItems].sort(compareSyncItems),
         warnings: items
             .filter((item) => item.unsupportedDirectCreation)
             .map((item) => `${item.moduleName}: skipping import unless the module already exists in the file.`),
@@ -464,7 +464,7 @@ function exportRepoTitle(relativeName: string, status: ModuleSyncItemStatus): st
     }
 }
 
-function importWorkbookTitle(moduleName: string, status: ModuleSyncItemStatus): string {
+function importProjectTitle(moduleName: string, status: ModuleSyncItemStatus): string {
     switch (status) {
         case 'will-create':
             return `File: ${moduleName} (will create)`;
@@ -527,7 +527,7 @@ export function statusLabel(status: ModuleSyncItemStatus): string {
         case 'will-create':
             return 'Will create';
         case 'will-update':
-            return 'Will update workbook module';
+            return 'Will update project module';
         case 'will-remove':
             return 'Will remove stale repo file';
         case 'unchanged':
@@ -564,7 +564,7 @@ async function readRepoModuleFile(folder: string, file: string): Promise<RepoMod
 /**
  * Infer module type from source content and name.
  *
- * Mirrors classifyModuleType in src/vba/workbookService.ts - the shared classification
+ * Mirrors classifyModuleType in src/vba/projectService.ts - the shared classification
  * table tests on both sides pin the two implementations together.
  */
 export function classifyModuleType(name: string, source: string): 'standard' | 'document' | 'userform' {

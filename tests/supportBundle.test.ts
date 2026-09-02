@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-	anonymizedWorkbookAnalysisReportFromResult,
+	anonymizedProjectAnalysisReportFromResult,
 	buildSupportBundle,
 	defaultSupportBundleFileName,
 	redactPath,
@@ -35,9 +35,9 @@ function baseInput(overrides: Partial<SupportBundleInput> = {}): SupportBundleIn
 			{ key: 'xlide.docs.enabled', value: false, source: 'machine' },
 			{ key: 'xlide.editor.blockLayout', value: 'comfy', source: 'default' },
 		],
-		workbook: {
+		project: {
 			available: true,
-			workbookPath: 'C:\\Users\\William\\Documents\\ClientWorkbook.xlsm',
+			projectPath: 'C:\\Users\\William\\Documents\\ClientWorkbook.xlsm',
 			extension: '.xlsm',
 			moduleCount: 3,
 			moduleTypes: { standard: 2, class: 1 },
@@ -62,7 +62,7 @@ describe('support bundle', () => {
 		expect(redactPath('C:\\Users\\William\\repo')).toBe('<redacted>');
 	});
 
-	it('builds a non-source support snapshot with redacted settings and workbook path', () => {
+	it('builds a non-source support snapshot with redacted settings and project path', () => {
 		const bundle = buildSupportBundle(baseInput());
 
 		expect(bundle.schemaVersion).toBe(1);
@@ -80,10 +80,10 @@ describe('support bundle', () => {
 		expect(bundle.settings.find((setting) => setting.key === 'xlide.docs.metadataGlob')?.value).toBe(
 			'<redacted>.xml',
 		);
-		expect(bundle.workbook.workbookPath).toBe('<redacted>.xlsm');
-		expect(bundle.workbook.moduleTypes).toEqual({ standard: 2, class: 1 });
+		expect(bundle.project.projectPath).toBe('<redacted>.xlsm');
+		expect(bundle.project.moduleTypes).toEqual({ standard: 2, class: 1 });
 		expect(bundle.privacy).toEqual({
-			workbookSourceIncluded: false,
+			projectSourceIncluded: false,
 			pathsRedacted: true,
 			commandArgumentsIncluded: false,
 			writeAuditIncluded: true,
@@ -91,7 +91,7 @@ describe('support bundle', () => {
 			selectedLogsIncluded: false,
 			logPathsRedacted: true,
 		});
-		expect(bundle.anonymizedReports.workbookAnalysis).toEqual({
+		expect(bundle.anonymizedReports.projectAnalysis).toEqual({
 			included: false,
 			unavailableReason: 'not-requested',
 		});
@@ -128,8 +128,8 @@ describe('support bundle', () => {
 
 		expect(disclosure).toContain('Included:');
 		expect(disclosure).toContain('Not included:');
-		expect(disclosure).toContain('Workbook VBA source or cell data');
-		expect(disclosure).toContain('Anonymized workbook analysis report');
+		expect(disclosure).toContain('VBA source or cell data');
+		expect(disclosure).toContain('Anonymized project analysis report');
 		expect(disclosure).toContain('<redacted>.xlsm');
 		expect(disclosure).not.toContain('C:\\Users\\William');
 	});
@@ -142,7 +142,7 @@ describe('support bundle', () => {
 					command: 'xlide.openModule',
 					outcome: 'failed',
 					durationMs: 50,
-					errorCategory: 'workbook-missing',
+					errorCategory: 'project-missing',
 				},
 			],
 		}));
@@ -150,7 +150,7 @@ describe('support bundle', () => {
 
 		expect(text).toContain('XLIDE Diagnostics');
 		expect(text).toContain('xlide.openModule | failed');
-		expect(text).toContain('errorCategory=workbook-missing');
+		expect(text).toContain('errorCategory=project-missing');
 		expect(text).toContain('xlide.docs.metadataGlob (machine): <redacted>.xml');
 		expect(text).toContain('Workbook source included: false');
 		expect(text).not.toContain('C:\\Users\\William');
@@ -164,7 +164,7 @@ describe('support bundle', () => {
 					command: 'xlide.exportModulesToFolder',
 					operation: 'export-modules',
 					outcome: 'succeeded',
-					workbookPath: 'C:\\Users\\William\\Documents\\ClientWorkbook.xlsm',
+					projectPath: 'C:\\Users\\William\\Documents\\ClientWorkbook.xlsm',
 					targetPath: 'C:\\Users\\William\\Documents\\repo',
 					summary: 'Export modules: 2 changed',
 				},
@@ -172,7 +172,7 @@ describe('support bundle', () => {
 		}));
 		const text = supportDiagnosticsText(bundle);
 
-		expect(bundle.recentWriteAudits[0].workbookPath).toBe('<redacted>.xlsm');
+		expect(bundle.recentWriteAudits[0].projectPath).toBe('<redacted>.xlsm');
 		expect(bundle.recentWriteAudits[0].targetPath).toBe('<redacted>');
 		expect(text).toContain('xlide.exportModulesToFolder | export-modules | succeeded');
 		expect(text).not.toContain('C:\\Users\\William');
@@ -194,8 +194,8 @@ describe('support bundle', () => {
 		expect(supportDiagnosticsText(bundle)).not.toContain('C:\\Users\\William');
 	});
 
-	it('creates anonymized workbook analysis reports without source paths or module names', () => {
-		const report = anonymizedWorkbookAnalysisReportFromResult({
+	it('creates anonymized project analysis reports without source paths or module names', () => {
+		const report = anonymizedProjectAnalysisReportFromResult({
 			filePath: 'C:\\Users\\William\\Documents\\ClientWorkbook.xlsm',
 			moduleCount: 2,
 			errorCount: 1,
@@ -228,13 +228,13 @@ describe('support bundle', () => {
 				},
 			],
 		});
-		const bundle = buildSupportBundle(baseInput({ anonymizedWorkbookAnalysisReport: report }));
+		const bundle = buildSupportBundle(baseInput({ anonymizedProjectAnalysisReport: report }));
 		const json = JSON.stringify(bundle);
 
 		expect(bundle.privacy.anonymizedAnalysisReportIncluded).toBe(true);
-		expect(bundle.anonymizedReports.workbookAnalysis).toMatchObject({
+		expect(bundle.anonymizedReports.projectAnalysis).toMatchObject({
 			included: true,
-			workbookExtension: '.xlsm',
+			projectExtension: '.xlsm',
 			moduleCount: 2,
 			problemCount: 2,
 			suppressedCount: 3,

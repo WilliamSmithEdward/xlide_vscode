@@ -120,5 +120,5 @@ If something goes wrong:
 4. Use the import/export diff preview to inspect file-vs-export differences.
 5. Use the support bundle if the failure involves setup, COM, test host, or
    unclear command outcomes.
-6. Restore from your own workbook backup or source-controlled module export when
+6. Restore from your own project backup or source-controlled module export when
    the desired state is known.

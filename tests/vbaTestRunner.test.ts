@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { WorkbookEngine } from '../src/workbookEngine';
-import { fakeWorkbookEngine } from './helpers/fakeWorkbookEngine';
+import type { ProjectEngine } from '../src/projectEngine';
+import { fakeProjectEngine } from './helpers/fakeProjectEngine';
 import {
     createVbaTestRunReport,
     describeVbaTestSelection,
@@ -146,7 +146,7 @@ describe('VBA test runner discovery', () => {
                 }
                 throw new Error(`Unexpected bridge call ${method}`);
             },
-        } as unknown as WorkbookEngine;
+        } as unknown as ProjectEngine;
 
         const result = await discoverWorkbookVbaTests(bridge, 'C:/work/Book.xlsm');
 
@@ -394,7 +394,7 @@ describe('VBA test runner reporting', () => {
             ],
         });
 
-        expect(report.workbookName).toBe('Book.xlsm');
+        expect(report.projectName).toBe('Book.xlsm');
         expect(summarizeVbaTestRun(report)).toEqual({
             total: 7,
             passed: 1,
@@ -408,6 +408,6 @@ describe('VBA test runner reporting', () => {
     });
 });
 
-function bridgeForModules(modules: Array<{ name: string; type: string; source: string }>): WorkbookEngine {
-    return fakeWorkbookEngine(modules);
+function bridgeForModules(modules: Array<{ name: string; type: string; source: string }>): ProjectEngine {
+    return fakeProjectEngine(modules);
 }

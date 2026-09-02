@@ -1,19 +1,19 @@
-import { workbookIdentityKey } from './workbookIdentity';
+import { projectIdentityKey } from './projectIdentity';
 import { containerAppNameForPath, isExcelContainerPath } from './macroContainerUi';
 
 type XlideSidebarNodeKind = 'section' | 'status' | 'action' | 'select';
 type XlideSidebarStatus = 'pass' | 'warn' | 'fail' | 'unknown';
 
-interface XlideSidebarActiveWorkbook {
+interface XlideSidebarActiveProject {
     label: string;
     filePath: string;
     settingsPath: string;
-    selectionSource: 'activeEditor' | 'singleWorkbook' | 'sidebarSelection';
+    selectionSource: 'activeEditor' | 'singleProject' | 'sidebarSelection';
     settingsState: 'missing' | 'valid' | 'invalid';
     settingsMessage?: string;
 }
 
-interface XlideSidebarWorkbookChoice {
+interface XlideSidebarProjectChoice {
     label: string;
     filePath: string;
     description?: string;
@@ -51,48 +51,48 @@ interface XlideSidebarNode {
 }
 
 interface XlideSidebarModelInput {
-    workbookChoices?: readonly XlideSidebarWorkbookChoice[];
-    activeWorkbook?: XlideSidebarActiveWorkbook;
+    projectChoices?: readonly XlideSidebarProjectChoice[];
+    activeProject?: XlideSidebarActiveProject;
 }
 
 function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode[] {
-    const workbookArg = input.activeWorkbook ? workbookCommandArg(input.activeWorkbook) : undefined;
+    const projectArg = input.activeProject ? projectCommandArg(input.activeProject) : undefined;
     return [
         welcomeSection(),
-        section('workbookActions', 'File Actions', [
-            targetWorkbookNode(input.workbookChoices ?? [], input.activeWorkbook),
-            workbookActionNode(
-                'workbookActions.analyzeWorkbook',
-                'Analyze File',
+        section('projectActions', 'Project Actions', [
+            targetProjectNode(input.projectChoices ?? [], input.activeProject),
+            projectActionNode(
+                'projectActions.analyzeProject',
+                'Analyze Project',
                 undefined,
-                'xlide.analyzeWorkbook',
+                'xlide.analyzeProject',
                 'Analyze the selected target file.',
-                workbookArg,
+                projectArg,
             ),
-            workbookActionNode(
-                'workbookActions.exportModules',
+            projectActionNode(
+                'projectActions.exportModules',
                 'Export Modules',
                 undefined,
                 'xlide.exportModulesToFolder',
                 'Open the module export diff GUI for the selected target file.',
-                workbookArg,
+                projectArg,
             ),
-            workbookActionNode(
-                'workbookActions.importModules',
+            projectActionNode(
+                'projectActions.importModules',
                 'Import Modules',
                 undefined,
                 'xlide.importModulesFromFolder',
                 'Open the module import diff GUI for the selected target file.',
-                workbookArg,
+                projectArg,
             ),
-            ...openActionNodes(input.activeWorkbook, workbookArg),
-            workbookActionNode(
-                'workbookActions.runVbaTests',
+            ...openActionNodes(input.activeProject, projectArg),
+            projectActionNode(
+                'projectActions.runVbaTests',
                 'Unit Tests',
                 undefined,
                 'xlide.runVbaTests',
                 'Open the VBA unit tests GUI for the selected target file.',
-                workbookArg,
+                projectArg,
             ),
         ]),
         section('settings', 'Settings', [
@@ -151,19 +151,19 @@ function statusNode(
     return { id, kind: 'status', label, description, status, tooltip, command, disabled };
 }
 
-function targetWorkbookNode(
-    choices: readonly XlideSidebarWorkbookChoice[],
-    workbook: XlideSidebarActiveWorkbook | undefined,
+function targetProjectNode(
+    choices: readonly XlideSidebarProjectChoice[],
+    project: XlideSidebarActiveProject | undefined,
 ): XlideSidebarNode {
     if (choices.length > 0) {
-        const optionValues = new Set(choices.map((choice) => workbookIdentityKey(choice.filePath)));
+        const optionValues = new Set(choices.map((choice) => projectIdentityKey(choice.filePath)));
         const options = [
-            ...(workbook ? [] : [{ label: 'Select File...', value: '' }]),
-            ...(workbook && !optionValues.has(workbookIdentityKey(workbook.filePath))
+            ...(project ? [] : [{ label: 'Select Project...', value: '' }]),
+            ...(project && !optionValues.has(projectIdentityKey(project.filePath))
                 ? [{
-                    label: workbook.label,
-                    value: workbook.filePath,
-                    description: workbook.filePath,
+                    label: project.label,
+                    value: project.filePath,
+                    description: project.filePath,
                 }]
                 : []),
             ...choices.map((choice) => ({
@@ -173,21 +173,21 @@ function targetWorkbookNode(
             })),
         ];
         return {
-            id: 'project.targetWorkbook',
+            id: 'project.targetProject',
             kind: 'select',
             label: 'Target File',
-            description: workbook ? workbook.label : 'Select File',
-            status: workbook ? 'pass' : 'warn',
-            tooltip: workbook
-                ? `${workbook.filePath}\nSelected from ${selectionSourceLabel(workbook.selectionSource)}.`
+            description: project ? project.label : 'Select Project',
+            status: project ? 'pass' : 'warn',
+            tooltip: project
+                ? `${project.filePath}\nSelected from ${selectionSourceLabel(project.selectionSource)}.`
                 : 'Choose the file that sidebar actions should analyze, import/export, validate, run, or test.',
-            value: workbook?.filePath ?? '',
+            value: project?.filePath ?? '',
             options,
         };
     }
-    if (!workbook) {
+    if (!project) {
         return statusNode(
-            'project.targetWorkbook',
+            'project.targetProject',
             'Target File',
             'None Selected',
             'unknown',
@@ -195,11 +195,11 @@ function targetWorkbookNode(
         );
     }
     return statusNode(
-        'project.targetWorkbook',
+        'project.targetProject',
         'Target File',
-        workbook.label,
+        project.label,
         'pass',
-        `${workbook.filePath}\nSelected from ${selectionSourceLabel(workbook.selectionSource)}.`,
+        `${project.filePath}\nSelected from ${selectionSourceLabel(project.selectionSource)}.`,
     );
 }
 
@@ -209,38 +209,38 @@ function targetWorkbookNode(
  * its own application via the OS association, which has no read-only mode.
  */
 function openActionNodes(
-    workbook: XlideSidebarActiveWorkbook | undefined,
-    workbookArg: unknown | undefined,
+    project: XlideSidebarActiveProject | undefined,
+    projectArg: unknown | undefined,
 ): XlideSidebarNode[] {
-    if (workbook && !isExcelContainerPath(workbook.filePath)) {
-        const app = containerAppNameForPath(workbook.filePath);
+    if (project && !isExcelContainerPath(project.filePath)) {
+        const app = containerAppNameForPath(project.filePath);
         return [
-            workbookActionNode(
-                'workbookActions.openWorkbook',
+            projectActionNode(
+                'projectActions.openWorkbook',
                 `Open in ${app}`,
                 undefined,
                 'xlide.openInOfficeApp',
                 `Open the selected target file in ${app}.`,
-                workbookArg,
+                projectArg,
             ),
         ];
     }
     return [
-        workbookActionNode(
-            'workbookActions.openWorkbook',
+        projectActionNode(
+            'projectActions.openWorkbook',
             'Open Workbook in Excel',
             undefined,
             'xlide.openWorkbook',
             'Open the selected target workbook in Excel.',
-            workbookArg,
+            projectArg,
         ),
-        workbookActionNode(
-            'workbookActions.openWorkbookReadOnly',
+        projectActionNode(
+            'projectActions.openWorkbookReadOnly',
             'Open Workbook in Excel (Read Only)',
             undefined,
             'xlide.openWorkbookReadOnly',
             'Open the selected target workbook in Excel as read-only.',
-            workbookArg,
+            projectArg,
         ),
     ];
 }
@@ -263,15 +263,15 @@ function actionNode(
     };
 }
 
-function workbookActionNode(
+function projectActionNode(
     id: string,
     label: string,
     description: string | undefined,
     command: string,
     tooltip: string,
-    workbookArg: unknown | undefined,
+    projectArg: unknown | undefined,
 ): XlideSidebarNode {
-    if (!workbookArg) {
+    if (!projectArg) {
         return {
             id,
             kind: 'action',
@@ -281,22 +281,22 @@ function workbookActionNode(
             disabled: true,
         };
     }
-    return actionNode(id, label, description, command, tooltip, [workbookArg]);
+    return actionNode(id, label, description, command, tooltip, [projectArg]);
 }
 
-function workbookCommandArg(workbook: XlideSidebarActiveWorkbook): { kind: 'xlsm'; label: string; filePath: string } {
+function projectCommandArg(project: XlideSidebarActiveProject): { kind: 'project'; label: string; filePath: string } {
     return {
-        kind: 'xlsm',
-        label: workbook.label,
-        filePath: workbook.filePath,
+        kind: 'project',
+        label: project.label,
+        filePath: project.filePath,
     };
 }
 
-function selectionSourceLabel(source: XlideSidebarActiveWorkbook['selectionSource']): string {
+function selectionSourceLabel(source: XlideSidebarActiveProject['selectionSource']): string {
     switch (source) {
         case 'activeEditor':
             return 'the active editor';
-        case 'singleWorkbook':
+        case 'singleProject':
             return 'the only macro-enabled file in the workspace';
         case 'sidebarSelection':
             return 'the sidebar file picker';
@@ -307,11 +307,11 @@ function selectionSourceLabel(source: XlideSidebarActiveWorkbook['selectionSourc
 
 export {
     buildXlideSidebarModel,
-    type XlideSidebarActiveWorkbook,
+    type XlideSidebarActiveProject,
     type XlideSidebarCommand,
     type XlideSidebarModelInput,
     type XlideSidebarNode,
     type XlideSidebarNodeKind,
-    type XlideSidebarWorkbookChoice,
+    type XlideSidebarProjectChoice,
     type XlideSidebarStatus,
 };

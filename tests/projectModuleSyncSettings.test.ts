@@ -3,15 +3,15 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import {
-	effectiveWorkbookModuleSyncSettings,
-	setWorkbookModuleSyncExportMode,
-	updateWorkbookModuleSyncSettings,
-} from '../src/workbookModuleSyncSettings';
+	effectiveProjectModuleSyncSettings,
+	setProjectModuleSyncExportMode,
+	updateProjectModuleSyncSettings,
+} from '../src/projectModuleSyncSettings';
 import {
-	readWorkbookSettings,
-	settingsPathForWorkbook,
-	writeWorkbookSettings,
-} from '../src/workbookSettings';
+	readProjectSettings,
+	settingsPathForProject,
+	writeProjectSettings,
+} from '../src/projectSettings';
 
 const tempRoots: string[] = [];
 
@@ -21,51 +21,51 @@ afterEach(() => {
 	}
 });
 
-function tempWorkbook(): { root: string; workbook: string } {
+function tempWorkbook(): { root: string; project: string } {
 	const root = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-module-sync-settings-'));
 	tempRoots.push(root);
-	const workbook = path.join(root, 'Book.xlsm');
-	fs.writeFileSync(workbook, '', 'utf8');
-	return { root, workbook };
+	const project = path.join(root, 'Book.xlsm');
+	fs.writeFileSync(project, '', 'utf8');
+	return { root, project };
 }
 
-describe('workbook module sync settings', () => {
-	it('resolves missing workbook sync settings to built-in defaults', async () => {
-		const { workbook } = tempWorkbook();
+describe('project module sync settings', () => {
+	it('resolves missing project sync settings to built-in defaults', async () => {
+		const { project } = tempWorkbook();
 
-		await expect(effectiveWorkbookModuleSyncSettings(workbook)).resolves.toEqual({
+		await expect(effectiveProjectModuleSyncSettings(project)).resolves.toEqual({
 			folderPath: undefined,
 			folderPathSource: 'missing',
 			exportMode: 'exportAll',
 			exportModeSource: 'default',
 			importMode: 'updateOnly',
 			importModeSource: 'default',
-			settingsPath: settingsPathForWorkbook(workbook),
+			settingsPath: settingsPathForProject(project),
 		});
 	});
 
-	it('reports workbook sync overrides with workbook provenance', async () => {
-		const { workbook } = tempWorkbook();
-		await writeWorkbookSettings(workbook, {
+	it('reports project sync overrides with project provenance', async () => {
+		const { project } = tempWorkbook();
+		await writeProjectSettings(project, {
 			exportFolder: 'C:/repo',
 			exportMode: 'trueUp',
 			importMode: 'trueUpStandardClass',
 		});
 
-		await expect(effectiveWorkbookModuleSyncSettings(workbook)).resolves.toEqual({
+		await expect(effectiveProjectModuleSyncSettings(project)).resolves.toEqual({
 			folderPath: 'C:/repo',
-			folderPathSource: 'workbook',
+			folderPathSource: 'project',
 			exportMode: 'trueUp',
-			exportModeSource: 'workbook',
+			exportModeSource: 'project',
 			importMode: 'trueUpStandardClass',
-			importModeSource: 'workbook',
-			settingsPath: settingsPathForWorkbook(workbook),
+			importModeSource: 'project',
+			settingsPath: settingsPathForProject(project),
 		});
 	});
 
-	it('updates only provided sync settings and preserves unrelated workbook settings', async () => {
-		const { workbook } = tempWorkbook();
-		await writeWorkbookSettings(workbook, {
+	it('updates only provided sync settings and preserves unrelated project settings', async () => {
+		const { project } = tempWorkbook();
+		await writeProjectSettings(project, {
 			exportFolder: 'C:/repo',
 			analysis: {
 				visibleSeverities: ['error', 'information'],
@@ -73,14 +73,14 @@ describe('workbook module sync settings', () => {
 			},
 		});
 
-		await expect(updateWorkbookModuleSyncSettings(workbook, { exportMode: 'trueUp' })).resolves.toMatchObject({
+		await expect(updateProjectModuleSyncSettings(project, { exportMode: 'trueUp' })).resolves.toMatchObject({
 			folderPath: 'C:/repo',
 			exportMode: 'trueUp',
-			exportModeSource: 'workbook',
+			exportModeSource: 'project',
 			importMode: 'updateOnly',
 			importModeSource: 'default',
 		});
-		expect(await readWorkbookSettings(workbook)).toEqual({
+		expect(await readProjectSettings(project)).toEqual({
 			exportFolder: 'C:/repo',
 			exportMode: 'trueUp',
 			analysis: {
@@ -91,8 +91,8 @@ describe('workbook module sync settings', () => {
 	});
 
 	it('sets export mode through the module sync settings owner', async () => {
-		const { workbook } = tempWorkbook();
-		await writeWorkbookSettings(workbook, {
+		const { project } = tempWorkbook();
+		await writeProjectSettings(project, {
 			exportFolder: 'C:/repo',
 			exportMode: 'exportAll',
 			importMode: 'trueUpStandardClass',
@@ -102,14 +102,14 @@ describe('workbook module sync settings', () => {
 			},
 		});
 
-		await expect(setWorkbookModuleSyncExportMode(workbook, 'trueUp')).resolves.toMatchObject({
+		await expect(setProjectModuleSyncExportMode(project, 'trueUp')).resolves.toMatchObject({
 			folderPath: 'C:/repo',
 			exportMode: 'trueUp',
-			exportModeSource: 'workbook',
+			exportModeSource: 'project',
 			importMode: 'trueUpStandardClass',
-			importModeSource: 'workbook',
+			importModeSource: 'project',
 		});
-		expect(await readWorkbookSettings(workbook)).toEqual({
+		expect(await readProjectSettings(project)).toEqual({
 			exportFolder: 'C:/repo',
 			exportMode: 'trueUp',
 			importMode: 'trueUpStandardClass',

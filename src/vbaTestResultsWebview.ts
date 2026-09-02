@@ -44,7 +44,7 @@ export function openVbaTestResults(
     if (existing) {
         existing.options = options;
         existing.report = report;
-        existing.panel.title = `XLIDE Test Results: ${report.workbookName}`;
+        existing.panel.title = `XLIDE Test Results: ${report.projectName}`;
         existing.panel.webview.html = renderVbaTestResultsHtml(report, {
             canRerunFailed: Boolean(options.onRerunFailed),
         });
@@ -54,7 +54,7 @@ export function openVbaTestResults(
 
     const panel = vscode.window.createWebviewPanel(
         'xlideVbaTestResults',
-        `XLIDE Test Results: ${report.workbookName}`,
+        `XLIDE Test Results: ${report.projectName}`,
         vscode.ViewColumn.Active,
         {
             enableScripts: true,
@@ -149,8 +149,8 @@ export function renderVbaTestResultsHtml(
         }),
         subtitle: escapeHtml(
             selectionDescription
-                ? `${report.workbookName} - ${selectionDescription}`
-                : report.workbookName,
+                ? `${report.projectName} - ${selectionDescription}`
+                : report.projectName,
         ),
         startedIso: escapeAttr(timing.startedIso),
         startedLabel: escapeHtml(timing.startedLabel),

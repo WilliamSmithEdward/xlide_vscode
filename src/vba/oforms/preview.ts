@@ -336,7 +336,7 @@ export interface FormPreviewOptions {
 	properties?: Record<string, { kind: string; rows: Array<{ prop: string; value: string }> }>;
 	/** Workbook path and module name, stamped into webview state so VS Code
 	 *  can restore the panel after a window reload. */
-	identity?: { workbook: string; module: string };
+	identity?: { project: string; module: string };
 	/** The markup document's exact text, shown in the pane below the canvas -
 	 *  the user's own spelling, never a re-print under their caret. */
 	markup?: string;
@@ -753,7 +753,7 @@ ${interactive ? `	<script>
 		// deserialize the designer back onto its form.
 		if (vscode?.setState) {
 			vscode.setState({ ...(vscode.getState?.() ?? {}), ...${JSON.stringify({
-				wb: options.identity?.workbook ?? '',
+				wb: options.identity?.project ?? '',
 				mod: options.identity?.module ?? '',
 			})} });
 		}
@@ -2109,7 +2109,7 @@ ${interactive ? `	<script>
 		// Ctrl+Z/Y, Ctrl+S posted from INSIDE the page: key forwarding from
 		// webviews to workbench keybindings has not proven reliable for
 		// these, so the page speaks and the host acts on the DOCUMENT - undo
-		// is text undo now, save is the only workbook write. Inside a field
+		// is text undo now, save is the only project write. Inside a field
 		// only Ctrl+S is taken (flushing a pending markup edit first); the
 		// field keeps its own native undo.
 		//

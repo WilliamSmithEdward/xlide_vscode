@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
-	buildWorkbookAnalysisPlainText,
-	buildWorkbookAnalysisResultsModel,
-} from '../src/workbookAnalysisResultsModel';
-import type { WorkbookAnalysisResult } from '../src/vbaWorkbookAnalysis';
+	buildProjectAnalysisPlainText,
+	buildProjectAnalysisResultsModel,
+} from '../src/projectAnalysisResultsModel';
+import type { ProjectAnalysisResult } from '../src/vbaProjectWideAnalysis';
 
-function resultFixture(): WorkbookAnalysisResult {
+function resultFixture(): ProjectAnalysisResult {
 	return {
 		filePath: 'C:/work/Book.xlsm',
 		moduleCount: 3,
@@ -89,12 +89,12 @@ function resultFixture(): WorkbookAnalysisResult {
 	};
 }
 
-describe('workbook analysis results model', () => {
-	it('groups rows by module while preserving workbook analysis summary counts', () => {
-		const model = buildWorkbookAnalysisResultsModel(resultFixture());
+describe('project analysis results model', () => {
+	it('groups rows by module while preserving project analysis summary counts', () => {
+		const model = buildProjectAnalysisResultsModel(resultFixture());
 
 		expect(model).toMatchObject({
-			workbookName: 'Book.xlsm',
+			projectName: 'Book.xlsm',
 			moduleCount: 3,
 			totalProblems: 3,
 			errorCount: 2,
@@ -142,7 +142,7 @@ describe('workbook analysis results model', () => {
 			{ ...base, moduleName: 'UserForm1', moduleType: 'userform' },
 		];
 
-		const model = buildWorkbookAnalysisResultsModel(fixture);
+		const model = buildProjectAnalysisResultsModel(fixture);
 
 		expect(model.groups.map((group) => `${group.moduleIcon}:${group.moduleName}`)).toEqual([
 			'D:Sheet1',
@@ -153,7 +153,7 @@ describe('workbook analysis results model', () => {
 	});
 
 	it('builds a copyable report with module locations and rule codes', () => {
-		const text = buildWorkbookAnalysisPlainText(buildWorkbookAnalysisResultsModel(resultFixture()));
+		const text = buildProjectAnalysisPlainText(buildProjectAnalysisResultsModel(resultFixture()));
 
 		expect(text).toContain('XLIDE Analysis Results - Book.xlsm');
 		expect(text).toContain('3 problem(s), 2 error(s), 1 warning(s), 3 module(s) checked.');

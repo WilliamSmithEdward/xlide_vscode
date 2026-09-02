@@ -6,11 +6,11 @@ import {
     decodeModuleUri,
 } from '../xlideFileSystem';
 import {
-    analyzeWorkbook,
-    workbookProblemsForModule,
-} from '../vbaWorkbookAnalysis';
+    analyzeProject,
+    projectProblemsForModule,
+} from '../vbaProjectWideAnalysis';
 import {
-    anonymizedWorkbookAnalysisReportFromResult,
+    anonymizedProjectAnalysisReportFromResult,
     buildSupportBundle,
     defaultSupportBundleFileName,
     supportBundleDisclosureText,
@@ -19,7 +19,7 @@ import {
     type SupportBundleAnonymizedAnalysisReport,
     type SupportBundleAnalysisSummary,
     type SupportBundleSetting,
-    type SupportBundleWorkbookSummary,
+    type SupportBundleProjectSummary,
 } from '../supportBundle';
 import {
     errorCategoryForSupportLog,
@@ -32,13 +32,13 @@ import { resolvedXlideGlobalSettingsFromConfig } from '../globalSettings';
 import { registerXlideCommand } from '../xlideCommandRegistration';
 import { analyzeOpenModule } from './analysisCommands';
 import {
-    activeLocalWorkbookPath,
+    activeLocalProjectPath,
     statusMessage,
     type CommandDeps,
 } from './shared';
 
 interface SupportBundleOptions {
-    includeAnonymizedWorkbookAnalysisReport?: boolean;
+    includeAnonymizedProjectAnalysisReport?: boolean;
     includeSelectedLogs?: boolean;
 }
 
@@ -50,38 +50,38 @@ export function registerSupportBundleCommands(deps: CommandDeps): vscode.Disposa
     }
 
     async function activeModuleSupportData(): Promise<{
-        workbook: SupportBundleWorkbookSummary;
+        project: SupportBundleProjectSummary;
         analysis: SupportBundleAnalysisSummary;
     }> {
         const editor = activeLocalVbaEditor();
         if (!editor) {
             return {
-                workbook: { available: false },
+                project: { available: false },
                 analysis: { available: false },
             };
         }
 
-        const { xlsmPath, moduleName } = decodeModuleUri(editor.document.uri);
+        const { projectPath, moduleName } = decodeModuleUri(editor.document.uri);
         const source = editor.document.getText();
-        const { modules, moduleType, result } = await analyzeOpenModule(vbaIndex, xlsmPath, moduleName, source);
+        const { modules, moduleType, result } = await analyzeOpenModule(vbaIndex, projectPath, moduleName, source);
         const moduleTypes = countBy(modules.map((mod) => mod.type || 'unknown'));
-        const workbook: SupportBundleWorkbookSummary = {
+        const project: SupportBundleProjectSummary = {
             available: true,
-            workbookPath: xlsmPath,
-            extension: path.extname(xlsmPath).toLowerCase(),
+            projectPath: projectPath,
+            extension: path.extname(projectPath).toLowerCase(),
             moduleCount: modules.length,
             moduleTypes,
             activeModuleType: moduleType,
         };
 
-        const problems = workbookProblemsForModule(
+        const problems = projectProblemsForModule(
             moduleName,
             moduleType,
             source,
             result.diagnostics,
         );
         return {
-            workbook,
+            project,
             analysis: {
                 available: true,
                 moduleType,
@@ -105,14 +105,14 @@ export function registerSupportBundleCommands(deps: CommandDeps): vscode.Disposa
         return resolvedXlideGlobalSettingsFromConfig(vscode.workspace.getConfiguration('xlide'));
     }
 
-    async function anonymizedWorkbookAnalysisReportForActiveWorkbook():
+    async function anonymizedProjectAnalysisReportForActiveProject():
         Promise<SupportBundleAnonymizedAnalysisReport> {
-        const workbookPath = await activeLocalWorkbookPath();
-        if (!workbookPath) {
-            return { included: false, unavailableReason: 'no-active-workbook' };
+        const projectPath = await activeLocalProjectPath();
+        if (!projectPath) {
+            return { included: false, unavailableReason: 'no-active-project' };
         }
         try {
-            return anonymizedWorkbookAnalysisReportFromResult(await analyzeWorkbook(bridge, workbookPath));
+            return anonymizedProjectAnalysisReportFromResult(await analyzeProject(bridge, projectPath));
         } catch (err) {
             return {
                 included: false,
@@ -133,8 +133,8 @@ export function registerSupportBundleCommands(deps: CommandDeps): vscode.Disposa
             displayName?: string;
         };
         const active = await activeModuleSupportData();
-        const anonymizedWorkbookAnalysisReport = options.includeAnonymizedWorkbookAnalysisReport
-            ? await anonymizedWorkbookAnalysisReportForActiveWorkbook()
+        const anonymizedProjectAnalysisReport = options.includeAnonymizedProjectAnalysisReport
+            ? await anonymizedProjectAnalysisReportForActiveProject()
             : undefined;
         return buildSupportBundle({
             generatedAt: now.toISOString(),
@@ -158,11 +158,11 @@ export function registerSupportBundleCommands(deps: CommandDeps): vscode.Disposa
                 folderCount: vscode.workspace.workspaceFolders?.length ?? 0,
             },
             settings: xlideSettingsForSupportBundle(),
-            workbook: active.workbook,
+            project: active.project,
             analysis: active.analysis,
             commands: recentXlideCommands(),
             writeAudits: recentXlideWriteAudits(),
-            anonymizedWorkbookAnalysisReport,
+            anonymizedProjectAnalysisReport,
             selectedLogs: options.includeSelectedLogs ? recentXlideOutputLog() : undefined,
         });
     }
@@ -191,7 +191,7 @@ export function registerSupportBundleCommands(deps: CommandDeps): vscode.Disposa
                         label: 'Anonymized file analysis report',
                         description: 'Counts by rule/module type only; no source or module names',
                         picked: true,
-                        option: 'includeAnonymizedWorkbookAnalysisReport' as const,
+                        option: 'includeAnonymizedProjectAnalysisReport' as const,
                     },
                     {
                         label: 'Selected recent XLIDE logs',
@@ -210,8 +210,8 @@ export function registerSupportBundleCommands(deps: CommandDeps): vscode.Disposa
                 return undefined;
             }
             return {
-                includeAnonymizedWorkbookAnalysisReport:
-                    picks.some((pick) => pick.option === 'includeAnonymizedWorkbookAnalysisReport'),
+                includeAnonymizedProjectAnalysisReport:
+                    picks.some((pick) => pick.option === 'includeAnonymizedProjectAnalysisReport'),
                 includeSelectedLogs:
                     picks.some((pick) => pick.option === 'includeSelectedLogs'),
             };

@@ -53,12 +53,12 @@ describe('performanceTrace', () => {
     });
 
     it('records failed async measurements and rethrows', async () => {
-        await expect(measurePerformance('workbookEngine.call', 'readModule', async () => {
+        await expect(measurePerformance('projectEngine.call', 'readModule', async () => {
             throw new Error('boom');
         })).rejects.toThrow('boom');
 
         const [entry] = recentPerformanceTraceEntries();
-        expect(entry.name).toBe('workbookEngine.call');
+        expect(entry.name).toBe('projectEngine.call');
         expect(entry.detail).toBe('readModule');
         expect(entry.outcome).toBe('failed');
     });

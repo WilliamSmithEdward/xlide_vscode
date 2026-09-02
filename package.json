@@ -354,14 +354,14 @@
         "icon": "$(beaker)"
       },
       {
-        "command": "xlide.validateWorkbook",
+        "command": "xlide.validateProject",
         "title": "Validate VBA Project",
         "category": "XLIDE",
         "icon": "$(check)"
       },
       {
-        "command": "xlide.analyzeWorkbook",
-        "title": "Analyze File",
+        "command": "xlide.analyzeProject",
+        "title": "Analyze Project",
         "category": "XLIDE",
         "icon": "$(checklist)"
       },
@@ -378,14 +378,14 @@
         "icon": "$(export)"
       },
       {
-        "command": "xlide.newWorkbook",
+        "command": "xlide.newProject",
         "title": "New Macro-Enabled File",
         "category": "XLIDE",
         "icon": "$(new-file)"
       },
       {
-        "command": "xlide.openWorkbookSettings",
-        "title": "Open File Settings",
+        "command": "xlide.openProjectSettings",
+        "title": "Open Project Settings",
         "category": "XLIDE",
         "icon": "$(json)"
       },
@@ -402,7 +402,7 @@
       },
       {
         "command": "xlide.launchFormHost",
-        "title": "Launch Workbook in Host Application",
+        "title": "Launch Project in Host Application",
         "category": "XLIDE"
       }
     ],
@@ -446,7 +446,7 @@
     "menus": {
       "view/title": [
         {
-          "command": "xlide.newWorkbook",
+          "command": "xlide.newProject",
           "when": "view == xlide.explorer",
           "group": "navigation@1"
         },
@@ -530,20 +530,20 @@
         {
           "command": "xlide.openWorkbook",
           "when": "view == xlide.explorer && viewItem == xlsm",
-          "group": "3_workbook@1"
+          "group": "3_project@1"
         },
         {
           "command": "xlide.openWorkbookReadOnly",
           "when": "view == xlide.explorer && viewItem == xlsm",
-          "group": "3_workbook@2"
+          "group": "3_project@2"
         },
         {
           "command": "xlide.openInOfficeApp",
           "when": "view == xlide.explorer && viewItem =~ /^(macroDocument|macroReadOnly)$/",
-          "group": "3_workbook@1"
+          "group": "3_project@1"
         },
         {
-          "command": "xlide.analyzeWorkbook",
+          "command": "xlide.analyzeProject",
           "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|macroReadOnly|vb6Project)$/",
           "group": "4_analyze@1"
         },
@@ -680,10 +680,10 @@
     ],
     "languageModelTools": [
       {
-        "name": "xlide_listWorkbooks",
-        "displayName": "List Excel Workbooks",
+        "name": "xlide_listProjects",
+        "displayName": "List Projects",
         "modelDescription": "Finds all macro-enabled Office files in the current workspace and returns their absolute paths: Excel (.xlsm, .xlsb, .xlam, .xltm, .xls, .xlt, .xla), Word (.docm, .dotm, .doc, .dot), PowerPoint (.pptm, .potm, .ppsm, .ppam, .ppt, .ppa), and Access (.accdb, .accda, .mdb, .mda; read-only). Visual Basic 6 projects (.vbp) are listed too; their modules are the .bas, .cls and .frm files the manifest names. Call this first when the user has not specified a file path, or when you need to discover which files are available.",
-        "toolReferenceName": "xlideListWorkbooks",
+        "toolReferenceName": "xlideListProjects",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
           "type": "object",
@@ -691,10 +691,10 @@
         }
       },
       {
-        "name": "xlide_getWorkbookInfo",
-        "displayName": "Get Workbook Info",
+        "name": "xlide_getProjectInfo",
+        "displayName": "Get Project Info",
         "modelDescription": "Returns a combined one-shot summary of a macro-enabled Office file: VBA modules (name + type), worksheets (name + used dimensions), and named ranges. Sheets and named ranges are populated for OOXML Excel workbooks only; for Word, PowerPoint, Access, and legacy .xls files those arrays are empty even though the file may have its own non-worksheet content. Treat the file/XLIDE virtual modules as the source of truth for VBA. Use this as the first discovery call instead of calling xlide_listModules and xlide_listSheets separately.",
-        "toolReferenceName": "xlideGetWorkbookInfo",
+        "toolReferenceName": "xlideGetProjectInfo",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
           "type": "object",
@@ -710,10 +710,10 @@
         }
       },
       {
-        "name": "xlide_validateWorkbook",
+        "name": "xlide_validateProject",
         "displayName": "Validate VBA Project",
         "modelDescription": "Checks a macro-enabled Office file's VBA project (Excel, Word, PowerPoint, or Access) for cross-structure inconsistencies and returns {issues: [...]}. An empty issues array means the project is structurally sound. Use this to audit a file before or after edits.",
-        "toolReferenceName": "xlideValidateWorkbook",
+        "toolReferenceName": "xlideValidateProject",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
           "type": "object",
@@ -729,10 +729,10 @@
         }
       },
       {
-        "name": "xlide_analyzeWorkbook",
-        "displayName": "Analyze VBA Workbook",
+        "name": "xlide_analyzeProject",
+        "displayName": "Analyze VBA Project",
         "modelDescription": "Analyzes every VBA module in a macro-enabled Office file (Excel, Word, PowerPoint, or Access) using XLIDE's VBA syntax and structural analyzer - the SAME high-confidence, false-positive-free rule engine that powers the live editor diagnostics, letting an agent VERIFY THAT ANALYSIS PASSES IN REAL TIME. Returns a JSON report: {filePath, moduleCount, errorCount, warningCount, problems: [{moduleName, moduleType, line, column, severity, code, message}]}. An empty problems array means the file's VBA passes analysis. Use this after writing or editing modules (e.g. after xlide_writeModule) or to audit an entire file. Covers block-balance, unterminated strings, duplicate declarations, Const assignment, malformed procedure headers, argument-count mismatches, unbalanced parentheses, Sub/Function-not-defined and more - each carrying an MS-VBAL spec reference. Complements XLIDE's inline ''' XML doc-comments and external *.vbref.xml metadata files, which enrich hovers and call tips for the symbols this analyzer checks. Pass moduleName to analyze just one module after editing it.",
-        "toolReferenceName": "xlideAnalyzeWorkbook",
+        "toolReferenceName": "xlideAnalyzeProject",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
           "type": "object",
@@ -743,7 +743,7 @@
             },
             "moduleName": {
               "type": "string",
-              "description": "Optional single module to analyze. Use this to check one module you just edited instead of re-analyzing the whole workbook."
+              "description": "Optional single module to analyze. Use this to check one module you just edited instead of re-analyzing the whole project."
             }
           },
           "required": [
@@ -808,10 +808,10 @@
         }
       },
       {
-        "name": "xlide_createWorkbook",
-        "displayName": "Create New Workbook or Add-In",
+        "name": "xlide_createProject",
+        "displayName": "Create New Project File or Add-In",
         "modelDescription": "Creates a new macro-enabled file with an empty VBA project at the given absolute path: an Excel workbook (.xlsm, .xlsb), Excel add-in (.xlam), Word document or template (.docm, .dotm), or PowerPoint presentation or template (.pptm, .potm). The extension of filePath selects the format; each format comes from a genuine Office-authored template, never a renamed container. Legacy formats (.xls/.doc/.ppt) and Access files cannot be created. Fails if the file already exists; it never overwrites an existing file.",
-        "toolReferenceName": "xlideCreateWorkbook",
+        "toolReferenceName": "xlideCreateProject",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
           "type": "object",
@@ -1105,7 +1105,7 @@
       {
         "name": "xlide_exportModules",
         "displayName": "Export VBA Modules to Folder",
-        "modelDescription": "Exports all VBA modules from a macro-enabled Office file (Excel, Word, PowerPoint, or Access) to a folder using <workbook>.xlide_settings.json behavior shared with UI commands. This is a sync/export operation, not the primary agent editing surface: read and write module code through xlide_readModule/xlide_writeModule unless the user explicitly asks to manage exported repo files. Uses live module reads from the file. Supports exportMode exportAll (default: export every module, no deletes) and trueUp (export every module, then remove stale .bas/.cls module files missing from the file).",
+        "modelDescription": "Exports all VBA modules from a macro-enabled Office file (Excel, Word, PowerPoint, or Access) to a folder using <file>.xlide_settings.json behavior shared with UI commands. This is a sync/export operation, not the primary agent editing surface: read and write module code through xlide_readModule/xlide_writeModule unless the user explicitly asks to manage exported repo files. Uses live module reads from the file. Supports exportMode exportAll (default: export every module, no deletes) and trueUp (export every module, then remove stale .bas/.cls module files missing from the file).",
         "toolReferenceName": "xlideExportModules",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -1117,7 +1117,7 @@
             },
             "exportFolder": {
               "type": "string",
-              "description": "Optional absolute folder path. If omitted, uses the workbook-specific exportFolder from <workbook>.xlide_settings.json"
+              "description": "Optional absolute folder path. If omitted, uses the project-specific exportFolder from <file>.xlide_settings.json"
             },
             "exportMode": {
               "type": "string",
@@ -1152,7 +1152,7 @@
                 "exportAll",
                 "trueUp"
               ],
-              "description": "Persistent workbook-specific export mode to store in <workbook>.xlide_settings.json"
+              "description": "Persistent project-specific export mode to store in <file>.xlide_settings.json"
             }
           },
           "required": [

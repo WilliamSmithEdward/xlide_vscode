@@ -128,7 +128,7 @@ const CLOSER_LABELS: Readonly<Record<string, string>> = {
 // the same module text many times within one request, so a value-keyed memo
 // collapses those parses to one. The AST is treated as immutable by all
 // consumers; callers must not mutate the returned nodes. The cache holds a
-// handful of recent modules (not just the active one) so a workbook analysis
+// handful of recent modules (not just the active one) so a project analysis
 // pass that parses several sibling modules between two requests for the active
 // module does not evict it. ASTs are immutable and small, so the memory cost is
 // negligible.

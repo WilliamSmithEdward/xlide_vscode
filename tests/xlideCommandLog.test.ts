@@ -56,18 +56,18 @@ describe('XLIDE command log', () => {
 
 	it('classifies common support error categories without preserving messages', () => {
 		expect(errorCategoryForSupportLog(new Error('PermissionError: WinError 32'))).toBe(
-			'workbook-locked',
+			'project-locked',
 		);
 		// Read-only Excel opens surface as WinError 5 / Access is denied rather than
-		// WinError 32; these must still classify (and report) as workbook-locked.
+		// WinError 32; these must still classify (and report) as project-locked.
 		expect(
 			errorCategoryForSupportLog(new Error("[WinError 5] Access is denied: 'C:\\\\book.xlsm'")),
-		).toBe('workbook-locked');
+		).toBe('project-locked');
 		expect(errorCategoryForSupportLog(new Error('[Errno 13] EACCES: permission'))).toBe(
-			'workbook-locked',
+			'project-locked',
 		);
 		expect(errorCategoryForSupportLog(new Error('ENOENT: no such file or directory'))).toBe(
-			'workbook-missing',
+			'project-missing',
 		);
 		expect(errorCategoryForSupportLog(new Error('User cancelled operation'))).toBe('cancelled');
 		expect(errorCategoryForSupportLog(new Error('something else'))).toBe('unknown');

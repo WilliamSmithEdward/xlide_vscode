@@ -19,17 +19,17 @@ function languageModelTools(): PackageToolContribution[] {
 }
 
 describe('XLIDE agent tool manifest', () => {
-    it('exposes workbook analysis to AI agents', () => {
-        const tool = languageModelTools().find((entry) => entry.name === 'xlide_analyzeWorkbook');
+    it('exposes project analysis to AI agents', () => {
+        const tool = languageModelTools().find((entry) => entry.name === 'xlide_analyzeProject');
 
         expect(tool).toEqual(expect.objectContaining({
-            toolReferenceName: 'xlideAnalyzeWorkbook',
+            toolReferenceName: 'xlideAnalyzeProject',
         }));
         expect(tool?.inputSchema?.required).toContain('filePath');
     });
 
-    it('tells agents that createWorkbook never overwrites an existing file', () => {
-        const tool = languageModelTools().find((entry) => entry.name === 'xlide_createWorkbook');
+    it('tells agents that createProject never overwrites an existing file', () => {
+        const tool = languageModelTools().find((entry) => entry.name === 'xlide_createProject');
 
         expect(tool?.modelDescription).toContain('never overwrites');
         expect(tool?.modelDescription).not.toContain('Overwrites the file');

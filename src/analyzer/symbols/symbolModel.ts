@@ -17,8 +17,8 @@ import type { Span } from '../parser/nodes';
 import type { VbaDoc } from '../docs/docModel';
 
 /**
- * The workbook-project role of a module, as reported by the host
- * (the workbook engine's `listModules`). Maps to MS-VBAL 4.2 module kinds plus the two
+ * The project-project role of a module, as reported by the host
+ * (the project engine's `listModules`). Maps to MS-VBAL 4.2 module kinds plus the two
  * host-specific document kinds (worksheet/ThisWorkbook documents and UserForms).
  */
 export type ModuleSymbolKind = 'standard' | 'class' | 'document' | 'userform';
@@ -272,7 +272,7 @@ export interface VbaProjectClassMember {
 	attributes?: VbaSymbolAttribute[];
 }
 
-/** Public member surface for a workbook-defined object type, standard module, or user-defined Type. */
+/** Public member surface for a project-defined object type, standard module, or user-defined Type. */
 export interface VbaProjectClassMembers {
 	name: string;
 	kind: Extract<VbaProjectTypeKind, 'class' | 'document' | 'userform' | 'userType' | 'enum'> | 'standardModule';

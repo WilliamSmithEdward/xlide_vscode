@@ -63,7 +63,7 @@ export interface VbaModuleAnalysisResult {
 
 /**
  * Shared module-level analysis core. Live diagnostics, current-module analysis,
- * and workbook analysis all flow through this function so structural checks, semantic
+ * and project analysis all flow through this function so structural checks, semantic
  * checks, and XLIDE suppression directives cannot drift by surface.
  */
 export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModuleAnalysisResult {

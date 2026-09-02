@@ -5,20 +5,20 @@ import type * as VscodeType from 'vscode';
 vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 
 import * as vscode from 'vscode';
-import { analyzeWorkbook } from '../src/vbaWorkbookAnalysis';
-import type { WorkbookEngine } from '../src/workbookEngine';
-import type { WorkbookAnalysisProblem } from '../src/vbaWorkbookAnalysis';
+import { analyzeProject } from '../src/vbaProjectWideAnalysis';
+import type { ProjectEngine } from '../src/projectEngine';
+import type { ProjectAnalysisProblem } from '../src/vbaProjectWideAnalysis';
 import {
 	fixtureModules,
 	loadVbaProjectFixtures,
-	type VbaProjectFixtureWorkbookProblemAssertion,
+	type VbaProjectFixtureProblemAssertion,
 	type VbaProjectFixtureOpenDocumentAssertion,
 	type VbaProjectFixture,
 } from './helpers/vbaProjectFixtures';
-import { fakeWorkbookEngine } from './helpers/fakeWorkbookEngine';
+import { fakeProjectEngine } from './helpers/fakeProjectEngine';
 
-function bridgeForFixture(fixture: VbaProjectFixture): WorkbookEngine {
-	return fakeWorkbookEngine(fixtureModules(fixture).map((mod) => ({
+function bridgeForFixture(fixture: VbaProjectFixture): ProjectEngine {
+	return fakeProjectEngine(fixtureModules(fixture).map((mod) => ({
 		name: mod.moduleName,
 		type: mod.type ?? 'standard',
 		documentType: mod.documentType,
@@ -30,16 +30,16 @@ function fixtureWorkbookPath(fixture: VbaProjectFixture): string {
 	return path.join(path.sep, 'fixtures', `${fixture.id}.xlsm`);
 }
 
-function documentPath(workbookPath: string, moduleName: string): string {
-	return `${workbookPath.replace(/\\/g, '/')}/${encodeURIComponent(moduleName)}.bas`;
+function documentPath(projectPath: string, moduleName: string): string {
+	return `${projectPath.replace(/\\/g, '/')}/${encodeURIComponent(moduleName)}.bas`;
 }
 
 function openDocument(
 	fixture: VbaProjectFixture,
 	doc: VbaProjectFixtureOpenDocumentAssertion,
 ) {
-	const workbookPath = doc.workbookPath ?? fixtureWorkbookPath(fixture);
-	const uriPath = documentPath(workbookPath, doc.moduleName);
+	const projectPath = doc.projectPath ?? fixtureWorkbookPath(fixture);
+	const uriPath = documentPath(projectPath, doc.moduleName);
 	return {
 		uri: {
 			scheme: 'xlide-vba',
@@ -55,9 +55,9 @@ function setOpenDocuments(documents: ReturnType<typeof openDocument>[]): void {
 }
 
 function matchingProblems(
-	problems: readonly WorkbookAnalysisProblem[],
-	expected: VbaProjectFixtureWorkbookProblemAssertion,
-): WorkbookAnalysisProblem[] {
+	problems: readonly ProjectAnalysisProblem[],
+	expected: VbaProjectFixtureProblemAssertion,
+): ProjectAnalysisProblem[] {
 	return problems.filter((problem) => {
 		if (expected.moduleName && problem.moduleName !== expected.moduleName) {
 			return false;
@@ -88,14 +88,14 @@ function matchingProblems(
 	});
 }
 
-describe('machine-readable VBA workbook analysis fixtures', () => {
-	for (const fixture of loadVbaProjectFixtures().filter((item) => item.assertions.workbookAnalysis)) {
-		it(`matches workbook analysis expectations for ${fixture.id}`, async () => {
-			const assertion = fixture.assertions.workbookAnalysis;
+describe('machine-readable VBA project analysis fixtures', () => {
+	for (const fixture of loadVbaProjectFixtures().filter((item) => item.assertions.projectAnalysis)) {
+		it(`matches project analysis expectations for ${fixture.id}`, async () => {
+			const assertion = fixture.assertions.projectAnalysis;
 			setOpenDocuments((assertion?.openDocuments ?? []).map((doc) => openDocument(fixture, doc)));
-			let result: Awaited<ReturnType<typeof analyzeWorkbook>> | undefined;
+			let result: Awaited<ReturnType<typeof analyzeProject>> | undefined;
 			try {
-				result = await analyzeWorkbook(bridgeForFixture(fixture), fixtureWorkbookPath(fixture));
+				result = await analyzeProject(bridgeForFixture(fixture), fixtureWorkbookPath(fixture));
 			} finally {
 				setOpenDocuments([]);
 			}

@@ -20,7 +20,7 @@ import type { ModuleSymbolKind } from './analyzer/symbols/symbolModel';
 import type { EventHandlerDocumentType } from './analyzer';
 import type { DiagnosticSeverityOverrides } from './analyzer/diagnostics/analysisContext';
 
-interface WorkbookState {
+interface ProjectState {
 	generation: number;
 	modules: WorkerSeedModule[];
 	project: ReturnType<typeof buildVbaProjectIndex>;
@@ -48,7 +48,7 @@ interface WorkbookState {
 }
 
 export class AnalysisWorkerState {
-	private readonly _workbooks = new Map<string, WorkbookState>();
+	private readonly _workbooks = new Map<string, ProjectState>();
 	private readonly _incrementalByDoc = new Map<string, ModuleRulesIncrementalState>();
 
 	handle(request: AnalysisWorkerRequest): AnalysisWorkerResponse | undefined {
@@ -65,7 +65,7 @@ export class AnalysisWorkerState {
 					implicitMembers: m.implicitMembers,
 					predeclaredId: m.predeclaredId,
 				})));
-				this._workbooks.set(request.workbookKey, {
+				this._workbooks.set(request.projectKey, {
 					generation: request.generation,
 					modules: request.modules,
 					project,
@@ -106,38 +106,38 @@ export class AnalysisWorkerState {
 		let projectOptions: VbaProjectAnalysisOptions = {};
 		let seededImplicitMembers: WorkerImplicitMember[] | undefined;
 		let surfaceDigest = '';
-		if (request.workbookKey !== undefined) {
-			const workbook = this._workbooks.get(request.workbookKey);
-			if (!workbook || (request.generation !== undefined && workbook.generation !== request.generation)) {
+		if (request.projectKey !== undefined) {
+			const state = this._workbooks.get(request.projectKey);
+			if (!state || (request.generation !== undefined && state.generation !== request.generation)) {
 				return {
 					kind: 'needSeed',
 					requestId: request.requestId,
 					docKey: request.docKey,
-					workbookKey: request.workbookKey,
+					projectKey: request.projectKey,
 				};
 			}
 			const moduleKey = request.moduleName.toLowerCase();
-			let options = workbook.optionsByModule.get(moduleKey);
+			let options = state.optionsByModule.get(moduleKey);
 			if (!options) {
 				options = projectAnalysisOptionsForModule(
-					workbook.project,
+					state.project,
 					request.moduleName,
-					workbook.procedures,
+					state.procedures,
 				);
-				workbook.optionsByModule.set(moduleKey, options);
-				if (workbook.proceduresDigest === '') {
-					workbook.proceduresDigest = exportedProcedureDigest(options.projectProcedures);
+				state.optionsByModule.set(moduleKey, options);
+				if (state.proceduresDigest === '') {
+					state.proceduresDigest = exportedProcedureDigest(options.projectProcedures);
 				}
 				// The per-module half covers only what visibility filtering makes
 				// specific to this module; the shared half rides along (issue #42).
-				workbook.surfaceDigestByModule.set(
+				state.surfaceDigestByModule.set(
 					moduleKey,
-					`${workbook.proceduresDigest}/${moduleSurfaceDigest(options)}`,
+					`${state.proceduresDigest}/${moduleSurfaceDigest(options)}`,
 				);
 			}
 			projectOptions = options;
-			surfaceDigest = workbook.surfaceDigestByModule.get(moduleKey) ?? '';
-			seededImplicitMembers = workbook.implicitMembersByModule.get(moduleKey);
+			surfaceDigest = state.surfaceDigestByModule.get(moduleKey) ?? '';
+			seededImplicitMembers = state.implicitMembersByModule.get(moduleKey);
 		}
 
 		// A form's controls reach the analysis from whoever actually knows them:
@@ -152,7 +152,7 @@ export class AnalysisWorkerState {
 		}
 
 		const fingerprint = [
-			request.workbookKey ?? '',
+			request.projectKey ?? '',
 			// The project surface this module consumes, NOT the seed's
 			// generation: a re-seed with unchanged cross-module content keeps
 			// every module's incremental state, while a changed signature,

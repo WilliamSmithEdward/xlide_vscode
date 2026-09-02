@@ -1,5 +1,5 @@
 // A VB6 project as the engine sees it: a `.vbp` manifest over loose text
-// files, answering the same module questions a workbook does so the tree,
+// files, answering the same module questions a project does so the tree,
 // the analyzer, and the agent tools treat it as one more container. The
 // files stay the truth - there is no project stream to rebuild - so reading
 // is a parse of the manifest plus the member files, and writing an existing
@@ -96,7 +96,7 @@ function encodeTextFile(text: string, shape: DecodedFile): Buffer {
 /**
  * A module file as its two halves: the designer block a form-like file opens
  * with (kept verbatim, never parsed here) and the module text - attributes
- * then code - which is what a workbook module's source is.
+ * then code - which is what a project module's source is.
  */
 function splitModuleFile(kind: VbpModuleKind, text: string): { designerBlock: string; moduleText: string } {
 	if (DESIGNER_KINDS.has(kind)) {

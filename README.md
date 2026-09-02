@@ -72,19 +72,19 @@ reviewable, testable, and collaborative.
    object model of the host the file belongs to - Excel members in a workbook,
    Word members in a document, PowerPoint and Access members in theirs.
 
-4. **Edit workbook VBA in a real code editor**
-   Work with workbook modules in VS Code using normal editor habits: tabs,
+4. **Edit project VBA in a real code editor**
+   Work with project modules in VS Code using normal editor habits: tabs,
    search, save, rename, Go to Definition, Find All References, hover,
    signature help, formatting-friendly indentation, and semantic coloring.
 
-5. **Keep workbook code reviewable**
+5. **Keep project code reviewable**
    Export modules to `.bas` and `.cls` files, preview exactly what will change,
    and use source control workflows without guessing what is inside a binary
-   workbook.
+   project.
 
 6. **Import and export safely**
    XLIDE previews create, update, overwrite, and delete actions before applying
-   them. Workbook-specific settings live beside the workbook so each project can
+   them. Project-specific settings live beside the project so each project can
    keep its own sync rules.
 
 7. **Analyze the whole file**
@@ -111,16 +111,16 @@ XLIDE is useful if you:
 - Are learning VBA for a class, internship, first automation project, or career
   change.
 - Use Excel heavily and want to start programming without losing sight of the
-  workbook.
+  project.
 - Are a student, analyst, accountant, engineer, researcher, or operations user
   turning repeated spreadsheet work into reusable automation.
 - Own business-critical Excel workbooks with VBA.
 - Maintain shared macros for finance, operations, reporting, engineering, or
   internal tools.
 - Want better visibility into old VBA projects before changing them.
-- Need to review workbook code with teammates.
+- Need to review project code with teammates.
 - Prefer VS Code editing, search, navigation, and source control.
-- Want AI help that can inspect the workbook directly.
+- Want AI help that can inspect the project directly.
 
 Excel remains where the workbook runs. XLIDE adds a better workspace around the
 VBA project.
@@ -133,12 +133,12 @@ VBA project.
    [XLIDE on the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide)
 
 2. Open a folder in VS Code that contains an `.xlsm`, `.xlsb`, or `.xlam`
-   workbook.
+   project.
 
-3. Expand your workbook in the XLIDE view, open a module, and start editing.
-   Press `Ctrl+S` to save code back to the workbook.
+3. Expand your project in the XLIDE view, open a module, and start editing.
+   Press `Ctrl+S` to save code back to the project.
 
-There is nothing else to install: XLIDE reads and writes workbooks itself, with
+There is nothing else to install: XLIDE reads and writes projects itself, with
 no external runtime and no setup step.
 
 Start here for a guided first-hour walkthrough:
@@ -150,13 +150,13 @@ Start here for a guided first-hour walkthrough:
 
 ### Edit VBA modules
 
-Open a workbook in the XLIDE tree, choose a module, edit it in VS Code, and save.
-XLIDE writes the module back to the workbook.
+Open a project in the XLIDE tree, choose a module, edit it in VS Code, and save.
+XLIDE writes the module back to the project.
 
 ### Fix red squiggles
 
 Live diagnostics appear as you type. For a bigger pass, run **XLIDE: Analyze
-Workbook** from the workbook menu and review the analysis report.
+Project** from the project menu and review the analysis report.
 
 Guide:
 [Analysis and ignores](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/analysis.md)
@@ -165,7 +165,7 @@ Guide:
 
 Use **Export Modules to Folder** to create or update `.bas` and `.cls` files.
 Use **Import Modules from Folder** to bring reviewed files back into the
-selected workbook. XLIDE shows a workbook-scoped preview before applying
+selected project. XLIDE shows a project-scoped preview before applying
 changes.
 
 Guide:
@@ -179,22 +179,22 @@ and resize on the canvas, and double-click a control for its event handler.
 Ctrl-click or Shift-click builds a multi-selection, and so does dragging a band
 across the form; the selection aligns, resizes, moves, copies (Ctrl+C, Ctrl+V)
 and deletes as one. Every gesture is an ordinary text edit of the markup, so
-Ctrl+Z undoes it and the workbook is written only when you save.
+Ctrl+Z undoes it and the project is written only when you save.
 
 The designer is native: it reads and writes the form's binary storage directly
 and never needs Excel open.
 
 ### Run tests
 
-Mark VBA procedures as workbook tests, then run them from XLIDE. Test execution
+Mark VBA procedures as project tests, then run them from XLIDE. Test execution
 requires Microsoft Excel on Windows.
 
 Guide:
-[Testing VBA workbooks](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/testing.md)
+[Testing VBA projects](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/testing.md)
 
 ### Use AI assistants safely
 
-XLIDE gives compatible VS Code AI agents tools to inspect and edit workbook VBA,
+XLIDE gives compatible VS Code AI agents tools to inspect and edit project VBA,
 run analysis, export modules, and read worksheet data with explicit workbook
 context.
 
@@ -205,16 +205,16 @@ Guide:
 
 ## What XLIDE Adds To VS Code
 
-- Workbook and module tree for office 365 files.
-- Writable VBA editors backed by the workbook.
+- Project and module tree for office 365 files.
+- Writable VBA editors backed by the project.
 - VBA syntax highlighting and semantic coloring.
 - IntelliSense for workbook symbols, VBA language features, and Excel host
   objects.
 - Hover, signature help, Go to Definition, Find All References, and Rename
   Symbol.
 - Smart Enter and block snippets for common VBA structures.
-- Live diagnostics and workbook-wide analysis.
-- Workbook-specific analysis tracking and rule controls.
+- Live diagnostics and project-wide analysis.
+- Project-specific analysis tracking and rule controls.
 - Previewable module import/export.
 - Macro and workbook-test execution on Windows with Excel.
 - Support bundle and diagnostics commands for troubleshooting.
@@ -228,7 +228,7 @@ Required for normal browsing, editing, analysis, import, and export:
 
 - Visual Studio Code 1.95 or newer.
 
-That is the whole list. XLIDE parses and rewrites the workbook container
+That is the whole list. XLIDE parses and rewrites the project container
 (OLE compound file, VBA project, and OOXML package) natively in the extension,
 so there is no runtime, interpreter, or library to install.
 
@@ -236,9 +236,9 @@ Required only for running VBA code from XLIDE:
 
 - Windows.
 - Microsoft Excel.
-- Workbook macro settings that allow the code to run.
+- Project macro settings that allow the code to run.
 
-Reading, editing, analyzing, importing, and exporting workbook VBA do not require
+Reading, editing, analyzing, importing, and exporting project VBA do not require
 Excel automation.
 
 Setup and recovery guide:
@@ -250,10 +250,10 @@ Setup and recovery guide:
 
 | Need | Guide |
 |---|---|
-| First setup and first workbook workflow | [Getting started](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/getting_started.md) |
+| First setup and first project workflow | [Getting started](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/getting_started.md) |
 | Diagnostics, analysis results, and ignored findings | [Analysis and ignores](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/analysis.md) |
 | Import/export and module sync | [Import and export](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/sync.md) |
-| Writing and running workbook tests | [Testing VBA workbooks](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/testing.md) |
+| Writing and running project tests | [Testing VBA projects](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/testing.md) |
 | XML documentation comments for IntelliSense | [VBA documentation comments](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/vba-doc-comments.md) |
 | AI-agent and CI workflows | [Automation and CI](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/automation.md) |
 | Trust model, Excel setup, support bundles, and recovery | [Safety, trust, and support](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/support.md) |
@@ -267,7 +267,7 @@ Open the Command Palette and type `XLIDE` to find these commands:
 
 | Command | Use it when you want to |
 |---|---|
-| `XLIDE: Analyze File` | Review a file's issues in one report. |
+| `XLIDE: Analyze Project` | Review a file's issues in one report. |
 | `XLIDE: Analyze Current Module` | Check only the module you are editing. |
 | `XLIDE: Export All Modules to Folder` | Save a file's code as reviewable source files. |
 | `XLIDE: Import Modules from Folder` | Bring reviewed module files back into the file. |
@@ -281,14 +281,14 @@ Open the Command Palette and type `XLIDE` to find these commands:
 
 ## Notes And Limits
 
-- XLIDE reads and writes VBA modules through the workbook file. Keep normal
-  backups for important workbooks, especially before large sync operations.
+- XLIDE reads and writes VBA modules through the project file. Keep normal
+  backups for important projects, especially before large sync operations.
 - Running macros or tests uses Excel automation and is Windows-only.
 - UserForms are designed in XLIDE's own designer, which reads and writes the
   form's binary storage directly. Its markup is the editable face of that
   storage: a property XLIDE does not name is carried through untouched.
 - Exported `.bas` and `.cls` files are useful for review and source control, but
-  the workbook remains the source of truth unless you explicitly import files
+  the project remains the source of truth unless you explicitly import files
   back into it.
 
 ---
@@ -327,7 +327,7 @@ Architecture reference:
 ## Support Open Source
 
 XLIDE is open-source software. If it saves you time or helps your team keep VBA
-workbooks maintainable, support helps keep the project moving.
+projects maintainable, support helps keep the project moving.
 
 - [GitHub Sponsors](https://github.com/sponsors/WilliamSmithEdward)
 - [PayPal](https://www.paypal.com/donate/?business=ML855BRLNR838&no_recurring=0&item_name=VBA+has+always+treated+me+well.+It+was+how+I+first+grew+professional+as+a+programmer%2C+I%27m+happy+to+show+it+some+love+%E2%9D%A4%EF%B8%8F&currency_code=USD)

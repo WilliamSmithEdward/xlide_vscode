@@ -5,7 +5,7 @@ import { Cfb } from '../src/vba/cfb';
 import { XlsxWorkbook } from '../src/vba/xlsx';
 import { parseFormPackage } from '../src/vba/oforms/formPackage';
 import { renderFormPreviewHtml } from '../src/vba/oforms/preview';
-import { readFormPreview } from '../src/vba/workbookService';
+import { readFormPreview } from '../src/vba/projectService';
 
 // The preview is a RENDERER of the same projection the markup edits: real
 // bounds, captions, colors and fonts from the binary, with honest hatched
@@ -82,7 +82,7 @@ describe('the rendered form', () => {
 });
 
 describe('the service entry point', () => {
-	it('renders straight from a workbook path', () => {
+	it('renders straight from a project path', () => {
 		const { html } = readFormPreview(FIXTURE, 'EntryForm');
 		expect(html).toContain('Quarter Entry');
 		expect(html).toContain('title="OkButton"');

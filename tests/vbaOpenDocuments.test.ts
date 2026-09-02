@@ -6,8 +6,8 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
 
 import {
 	applyOpenDocumentSources,
-	openModuleSourceForWorkbook,
-	openModuleSourceMapForWorkbook,
+	openModuleSourceForProject,
+	openModuleSourceMapForProject,
 	openXlideModuleSources,
 	type VbaOpenDocumentLike,
 } from '../src/vbaOpenDocuments';
@@ -24,8 +24,8 @@ function doc(path: string, source: string): VbaOpenDocumentLike {
 }
 
 describe('vbaOpenDocuments', () => {
-	it('collects only decodable XLIDE workbook module documents', () => {
-		const workbook = path.join(path.sep, 'one', 'book.xlsm');
+	it('collects only decodable XLIDE project module documents', () => {
+		const project = path.join(path.sep, 'one', 'book.xlsm');
 		const docs = [
 			doc('/one/book.xlsm/Module1.bas', 'Sub One()\nEnd Sub\n'),
 			{
@@ -37,14 +37,14 @@ describe('vbaOpenDocuments', () => {
 
 		expect(openXlideModuleSources(docs)).toEqual([
 			{
-				xlsmPath: workbook,
+				projectPath: project,
 				moduleName: 'Module1',
 				source: 'Sub One()\nEnd Sub\n',
 			},
 		]);
 	});
 
-	it('finds an open source only within the requested workbook', () => {
+	it('finds an open source only within the requested project', () => {
 		const oneWorkbook = path.join(path.sep, 'one', 'book.xlsm');
 		const missingWorkbook = path.join(path.sep, 'missing', 'book.xlsm');
 		const docs = [
@@ -52,13 +52,13 @@ describe('vbaOpenDocuments', () => {
 			doc('/two/book.xlsm/Module1.bas', 'Sub FromTwo()\nEnd Sub\n'),
 		];
 
-		expect(openModuleSourceForWorkbook(oneWorkbook, 'module1', docs))
+		expect(openModuleSourceForProject(oneWorkbook, 'module1', docs))
 			.toContain('FromOne');
-		expect(openModuleSourceForWorkbook(missingWorkbook, 'Module1', docs))
+		expect(openModuleSourceForProject(missingWorkbook, 'Module1', docs))
 			.toBeUndefined();
 	});
 
-	it('builds a same-workbook open source map keyed by module identity', () => {
+	it('builds a same-project open source map keyed by module identity', () => {
 		const oneWorkbook = path.join(path.sep, 'one', 'book.xlsm');
 		const docs = [
 			doc('/one/book.xlsm/Module1.bas', 'Sub FromOne()\nEnd Sub\n'),
@@ -66,14 +66,14 @@ describe('vbaOpenDocuments', () => {
 			doc('/two/book.xlsm/Module1.bas', 'Sub OtherWorkbook()\nEnd Sub\n'),
 		];
 
-		const map = openModuleSourceMapForWorkbook(oneWorkbook, docs);
+		const map = openModuleSourceMapForProject(oneWorkbook, docs);
 
 		expect(map.get('module1')).toContain('FromOne');
 		expect(map.get('module2')).toContain('FromTwo');
 		expect(map.size).toBe(2);
 	});
 
-	it('overlays same-workbook modules without mutating cached modules', () => {
+	it('overlays same-project modules without mutating cached modules', () => {
 		const oneWorkbook = path.join(path.sep, 'one', 'book.xlsm');
 		const modules = [
 			{ moduleName: 'Module1', source: 'Sub SavedOne()\nEnd Sub\n', type: 'standard' },

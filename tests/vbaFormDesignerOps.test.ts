@@ -10,9 +10,9 @@ import {
 	readFormMarkup,
 	readFormPreview,
 	readModules,
-	resetWorkbookCacheForTests,
+	resetProjectCacheForTests,
 	restoreFormDesignerSnapshot,
-} from '../src/vba/workbookService';
+} from '../src/vba/projectService';
 
 // Canvas gestures: the same mutations the markup diff performs, addressed by
 // control name (VBA requires names unique form-wide) and applied one gesture
@@ -22,13 +22,13 @@ const FIXTURE = path.join('tests', 'fixtures', 'binaries', 'FormFixtureVbide.xls
 
 const tempDirs: string[] = [];
 afterEach(() => {
-	resetWorkbookCacheForTests();
+	resetProjectCacheForTests();
 	for (const dir of tempDirs.splice(0)) {
 		fs.rmSync(dir, { recursive: true, force: true });
 	}
 });
 
-function workbook(): string {
+function project(): string {
 	const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-designer-'));
 	tempDirs.push(dir);
 	const wb = path.join(dir, 'Forms.xlsm');
@@ -38,33 +38,33 @@ function workbook(): string {
 
 describe('geometry gestures', () => {
 	it('moves a top-level control', () => {
-		const wb = workbook();
+		const wb = project();
 		applyFormDesignerOp(wb, 'EntryForm', { kind: 'geometry', name: 'OkButton', left: 250, top: 250 });
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(readFormMarkup(wb, 'EntryForm').markup)
 			.toContain('<CommandButton Name="OkButton" Left="250" Top="250"');
 	});
 
 	it('moves a control nested in a Frame, found by name alone', () => {
-		const wb = workbook();
+		const wb = project();
 		applyFormDesignerOp(wb, 'EntryForm', { kind: 'geometry', name: 'PickAir', left: 10, top: 36 });
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(readFormMarkup(wb, 'EntryForm').markup)
 			.toContain('<OptionButton Name="PickAir" Left="10" Top="36"');
 	});
 
 	it('resizes a control and a container', () => {
-		const wb = workbook();
+		const wb = project();
 		applyFormDesignerOp(wb, 'EntryForm', { kind: 'geometry', name: 'NameBox', width: 150, height: 22 });
 		applyFormDesignerOp(wb, 'EntryForm', { kind: 'geometry', name: 'Options', width: 100, height: 72 });
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		expect(markup).toMatch(/NameBox[^\r\n]*Width="150" Height="22"/);
 		expect(markup).toMatch(/<Frame Name="Options"[^\r\n]*Width="100" Height="72"/);
 	});
 
 	it('reports a no-op honestly and writes nothing', () => {
-		const wb = workbook();
+		const wb = project();
 		const before = fs.readFileSync(wb);
 		const result = applyFormDesignerOp(wb, 'EntryForm', { kind: 'geometry', name: 'OkButton', left: 262 });
 		expect(result.signatureDropped).toBe(false);
@@ -74,26 +74,26 @@ describe('geometry gestures', () => {
 
 describe('toolbox additions', () => {
 	it('adds at a point with a generated unique name', () => {
-		const wb = workbook();
+		const wb = project();
 		const result = applyFormDesignerOp(wb, 'EntryForm', {
 			kind: 'add', container: '', controlKind: 'Label', left: 12, top: 264,
 		});
 		// NameLabel and ViewNote exist; the generator still starts fresh at 1.
 		expect(result.newName).toBe('Label1');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(readFormMarkup(wb, 'EntryForm').markup)
 			.toContain('<Label Name="Label1" Left="12" Top="264"');
 	});
 
 	it('adds INTO a Frame and onto a Page by container name', () => {
-		const wb = workbook();
+		const wb = project();
 		applyFormDesignerOp(wb, 'EntryForm', {
 			kind: 'add', container: 'Options', controlKind: 'OptionButton', left: 8, top: 50,
 		});
 		applyFormDesignerOp(wb, 'EntryForm', {
 			kind: 'add', container: 'Page2', controlKind: 'TextBox', left: 10, top: 10,
 		});
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		const frame = markup.slice(markup.indexOf('<Frame Name="Options"'), markup.indexOf('</Frame>'));
 		expect(frame).toContain('OptionButton1');
@@ -109,14 +109,14 @@ describe('toolbox additions', () => {
 
 describe('removal', () => {
 	it('removes by name, wherever it nests', () => {
-		const wb = workbook();
+		const wb = project();
 		applyFormDesignerOp(wb, 'EntryForm', { kind: 'remove', name: 'PickAir' });
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(readFormMarkup(wb, 'EntryForm').markup).not.toContain('PickAir');
 	});
 
 	it('refuses removing a Page from the canvas, by name', () => {
-		const wb = workbook();
+		const wb = project();
 		expect(() => applyFormDesignerOp(wb, 'EntryForm', { kind: 'remove', name: 'Page2' }))
 			.toThrow(/remove pages through the form markup/);
 	});
@@ -131,42 +131,42 @@ describe('reparent', () => {
 	};
 
 	it('moves a top-level control into a Frame', () => {
-		const wb = workbook();
+		const wb = project();
 		applyFormDesignerOp(wb, 'EntryForm', { kind: 'reparent', name: 'OkButton', container: 'Options', left: 12, top: 48 });
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		expect(between(markup, 'OkButton', /<Frame Name="Options"/, '</Frame>')).toBe(true);
 		expect(markup).toContain('<CommandButton Name="OkButton" Left="12" Top="48"');
 	});
 
 	it('moves a nested control out to the form', () => {
-		const wb = workbook();
+		const wb = project();
 		applyFormDesignerOp(wb, 'EntryForm', { kind: 'reparent', name: 'PickAir', container: '', left: 200, top: 6 });
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		expect(between(markup, 'PickAir', /<Frame Name="Options"/, '</Frame>')).toBe(false);
 		expect(markup).toContain('<OptionButton Name="PickAir" Left="200" Top="6"');
 	});
 
 	it('moves a whole Frame onto a Page, children intact', () => {
-		const wb = workbook();
+		const wb = project();
 		applyFormDesignerOp(wb, 'EntryForm', { kind: 'reparent', name: 'Options', container: 'Page1', left: 6, top: 6 });
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		expect(between(markup, 'Options', /<Page Name="Page1"/, '</Page>')).toBe(true);
 		expect(between(markup, 'PickAir', /<Frame Name="Options"/, '</Frame>')).toBe(true);
 	});
 
 	it('treats a drop on its own surface as a plain move', () => {
-		const wb = workbook();
+		const wb = project();
 		applyFormDesignerOp(wb, 'EntryForm', { kind: 'reparent', name: 'OkButton', container: '', left: 111, top: 222 });
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(readFormMarkup(wb, 'EntryForm').markup)
 			.toContain('<CommandButton Name="OkButton" Left="111" Top="222"');
 	});
 
 	it('refuses to move a Page, and a Frame into itself', () => {
-		const wb = workbook();
+		const wb = project();
 		expect(() => applyFormDesignerOp(wb, 'EntryForm', { kind: 'reparent', name: 'Page2', container: '', left: 0, top: 0 }))
 			.toThrow(/pages stay inside their MultiPage/);
 		expect(() => applyFormDesignerOp(wb, 'EntryForm', { kind: 'reparent', name: 'Options', container: 'Options', left: 0, top: 0 }))
@@ -179,12 +179,12 @@ describe('property writes', () => {
 		applyFormDesignerOp(wb, 'EntryForm', { kind: 'setProp', name, prop, value });
 
 	it('sets a caption, a color, a font style, and a tab index', () => {
-		const wb = workbook();
+		const wb = project();
 		set(wb, 'OkButton', 'Caption', 'Go');
 		set(wb, 'NameBox', 'BackColor', '#FF0000');
 		set(wb, 'NameBox', 'Font.Bold', 'True');
 		set(wb, 'OkButton', 'TabIndex', '9');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		expect(markup).toContain('Caption="Go"');
 		expect(markup).toMatch(/Name="NameBox"[^>]*BackColor="#ff0000"/);
@@ -193,7 +193,7 @@ describe('property writes', () => {
 	});
 
 	it('writes the boolean flags, printed only off their kind defaults', () => {
-		const wb = workbook();
+		const wb = project();
 		set(wb, 'OkButton', 'Enabled', 'False');
 		set(wb, 'OkButton', 'Default', 'True');
 		set(wb, 'OkButton', 'TabStop', 'False');
@@ -201,7 +201,7 @@ describe('property writes', () => {
 		set(wb, 'NameBox', 'Locked', 'True');
 		set(wb, 'NameLabel', 'WordWrap', 'False');
 		set(wb, 'Taxable', 'Visible', 'False');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		expect(markup).toMatch(/Name="OkButton"[^>]*Enabled="False"/);
 		expect(markup).toMatch(/Name="OkButton"[^>]*Default="True"/);
@@ -212,12 +212,12 @@ describe('property writes', () => {
 		expect(markup).toMatch(/Name="Taxable"[^>]*Visible="False"/);
 		// Setting a flag BACK to its default silences it again.
 		set(wb, 'OkButton', 'Enabled', 'True');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(readFormMarkup(wb, 'EntryForm').markup).not.toContain('Enabled=');
 	});
 
 	it('writes alignment, list behavior, combo style, and the extra font effects', () => {
-		const wb = workbook();
+		const wb = project();
 		set(wb, 'NameLabel', 'TextAlign', 'Center');
 		set(wb, 'NameBox', 'TextAlign', 'Right');
 		set(wb, 'NameBox', 'Font.Underline', 'True');
@@ -225,7 +225,7 @@ describe('property writes', () => {
 		set(wb, 'HistoryList', 'MultiSelect', '1');
 		set(wb, 'HistoryList', 'ColumnCount', '2');
 		set(wb, 'RegionPick', 'Style', '2');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		expect(markup).toMatch(/Name="NameLabel"[^>]*TextAlign="Center"/);
 		expect(markup).toMatch(/Name="NameBox"[^>]*TextAlign="Right"/);
@@ -236,18 +236,18 @@ describe('property writes', () => {
 		expect(markup).toMatch(/Name="RegionPick"[^>]*Style="2"/);
 		// Style back to the dropdown combo goes quiet again.
 		set(wb, 'RegionPick', 'Style', '0');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(readFormMarkup(wb, 'EntryForm').markup).not.toContain('Style=');
 	});
 
 	it('writes binding sources, help ids, pointers, and caption alignment', () => {
-		const wb = workbook();
+		const wb = project();
 		set(wb, 'NameBox', 'ControlSource', 'Sheet1!A1');
 		set(wb, 'RegionPick', 'RowSource', 'Sheet1!B1:B9');
 		set(wb, 'OkButton', 'HelpContextID', '42');
 		set(wb, 'OkButton', 'MousePointer', '11');
 		set(wb, 'Taxable', 'Alignment', '0');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		expect(markup).toMatch(/Name="NameBox"[^>]*ControlSource="Sheet1!A1"/);
 		expect(markup).toMatch(/Name="RegionPick"[^>]*RowSource="Sheet1!B1:B9"/);
@@ -256,26 +256,26 @@ describe('property writes', () => {
 		expect(markup).toMatch(/Name="Taxable"[^>]*Alignment="0"/);
 		// Back to the right side goes quiet again.
 		set(wb, 'Taxable', 'Alignment', '1');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(readFormMarkup(wb, 'EntryForm').markup).not.toContain('Alignment=');
 	});
 
 	it('refuses sources and alignment where they do not belong', () => {
-		const wb = workbook();
+		const wb = project();
 		expect(() => set(wb, 'OkButton', 'RowSource', 'x')).toThrow(/has no RowSource/);
 		expect(() => set(wb, 'OkButton', 'Alignment', '0')).toThrow(/has no Alignment/);
 		expect(() => set(wb, 'Taxable', 'Alignment', '2')).toThrow(/not 0 or 1/);
 	});
 
 	it('refuses alignment and style where they do not belong', () => {
-		const wb = workbook();
+		const wb = project();
 		expect(() => set(wb, 'NameBox', 'TextAlign', 'Justified')).toThrow(/not Left, Center, or Right/);
 		expect(() => set(wb, 'NameBox', 'Style', '2')).toThrow(/has no Style/);
 		expect(() => set(wb, 'RegionPick', 'Style', '1')).toThrow(/not 0 or 2/);
 	});
 
 	it('refuses a flag the kind does not carry', () => {
-		const wb = workbook();
+		const wb = project();
 		expect(() => set(wb, 'OkButton', 'MultiLine', 'True')).toThrow(/has no MultiLine/);
 		expect(() => set(wb, 'NameLabel', 'TabStop', 'False')).toThrow(/has no TabStop/);
 		expect(() => set(wb, 'NameBox', 'Default', 'True')).toThrow(/has no Default/);
@@ -283,49 +283,49 @@ describe('property writes', () => {
 	});
 
 	it('renames a control and reports the new name', () => {
-		const wb = workbook();
+		const wb = project();
 		const result = set(wb, 'OkButton', 'Name', 'GoButton');
 		expect(result.newName).toBe('GoButton');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		expect(markup).toContain('Name="GoButton"');
 		expect(markup).not.toContain('Name="OkButton"');
 	});
 
 	it('refuses a taken name, an illegal name, and an unknown property', () => {
-		const wb = workbook();
+		const wb = project();
 		expect(() => set(wb, 'OkButton', 'Name', 'NameBox')).toThrow(/already exists/);
 		expect(() => set(wb, 'OkButton', 'Name', '1Bad')).toThrow(/not a legal control name/);
 		expect(() => set(wb, 'OkButton', 'Bogus', 'x')).toThrow(/has no Bogus/);
 	});
 
 	it('writes captions where each container keeps its own', () => {
-		const wb = workbook();
+		const wb = project();
 		set(wb, 'Options', 'Caption', 'Choices');
 		set(wb, 'Page1', 'Caption', 'First Things');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		expect(markup).toMatch(/<Frame Name="Options"[^>]*Caption="Choices"/);
 		expect(markup).toMatch(/<Page Name="Page1" Caption="First Things"/);
 	});
 
 	it('composes the StdFont GUID little-endian, as MS-DTYP stores it', () => {
-		const wb = workbook();
+		const wb = project();
 		set(wb, '', 'Font.Name', 'Segoe UI');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const { frx } = readFormExport(wb, 'EntryForm');
 		// {0BE35203-8F91-11CE-9DE3-00AA004BB851}: Data1-3 flip, Data4 stays.
 		expect(frx.toString('hex')).toContain('0352e30b918fce119de300aa004bb851');
 	});
 
 	it('carries every form font effect across edits, painting them on the client', () => {
-		const wb = workbook();
+		const wb = project();
 		set(wb, '', 'Font.Bold', 'True');
 		set(wb, '', 'Font.Italic', 'True');
 		set(wb, '', 'Font.Underline', 'True');
 		set(wb, '', 'Font.Strikethrough', 'True');
 		set(wb, '', 'Font.Name', 'Segoe UI');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const { html } = readFormPreview(wb, 'EntryForm');
 		for (const pin of [
 			'"prop":"Font.Bold","value":"True"',
@@ -348,7 +348,7 @@ describe('property writes', () => {
 	});
 
 	it('writes the form record extras, the StdFont, and the VBFrame trio', () => {
-		const wb = workbook();
+		const wb = project();
 		set(wb, '', 'Zoom', '150');
 		set(wb, '', 'ScrollBars', '3');
 		set(wb, '', 'Cycle', '2');
@@ -358,7 +358,7 @@ describe('property writes', () => {
 		set(wb, '', 'StartUpPosition', '2');
 		set(wb, '', 'ShowModal', 'False');
 		set(wb, '', 'WhatsThisButton', 'True');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const { html } = readFormPreview(wb, 'EntryForm');
 		for (const pin of [
 			'"prop":"Zoom","value":"150"',
@@ -380,11 +380,11 @@ describe('property writes', () => {
 	});
 
 	it('writes the form itself: caption via the VBFrame, size with its twips echo', () => {
-		const wb = workbook();
+		const wb = project();
 		set(wb, '', 'Caption', 'Entry Station');
 		set(wb, '', 'Width', '400');
 		set(wb, '', 'BackColor', '#00FF00');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		expect(markup).toMatch(/<Form Name="EntryForm" Caption="Entry Station"[^>]*Width="400"/);
 		expect(markup).toMatch(/<Form[^>]*BackColor="#00ff00"/);
@@ -395,9 +395,9 @@ describe('property writes', () => {
 
 describe('form resize', () => {
 	it('resizes the client area and keeps the VBFrame in step', () => {
-		const wb = workbook();
+		const wb = project();
 		applyFormDesignerOp(wb, 'EntryForm', { kind: 'formSize', width: 400, height: 320 });
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		expect(markup).toContain('Width="400" Height="320"');
 		// The VBFrame's twips client box repeats the size and must follow.
@@ -409,34 +409,34 @@ describe('form resize', () => {
 
 describe('designer snapshots, the undo material', () => {
 	it('captures and restores the designer bytes exactly', () => {
-		const wb = workbook();
+		const wb = project();
 		const before = readFormMarkup(wb, 'EntryForm').markup;
 		const snap = readFormDesignerSnapshot(wb, 'EntryForm');
 		applyFormDesignerOp(wb, 'EntryForm', { kind: 'geometry', name: 'OkButton', left: 1, top: 2 });
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(readFormMarkup(wb, 'EntryForm').markup).not.toBe(before);
 		restoreFormDesignerSnapshot(wb, 'EntryForm', snap.streams);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(readFormMarkup(wb, 'EntryForm').markup).toBe(before);
 		// Byte-true: a fresh snapshot after the restore matches the first.
 		expect(readFormDesignerSnapshot(wb, 'EntryForm').streams).toEqual(snap.streams);
 	});
 
 	it('restores structure, not just values: an added control vanishes', () => {
-		const wb = workbook();
+		const wb = project();
 		const snap = readFormDesignerSnapshot(wb, 'EntryForm');
 		applyFormDesignerOp(wb, 'EntryForm', { kind: 'add', container: 'Options', controlKind: 'CheckBox', left: 4, top: 4 });
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(readFormMarkup(wb, 'EntryForm').markup).toContain('CheckBox1');
 		restoreFormDesignerSnapshot(wb, 'EntryForm', snap.streams);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(readFormMarkup(wb, 'EntryForm').markup).not.toContain('CheckBox1');
 	});
 });
 
 describe('the interactive canvas contract', () => {
 	it('tags every control and surface for the gesture script', () => {
-		const { html } = readFormPreview(workbook(), 'EntryForm');
+		const { html } = readFormPreview(project(), 'EntryForm');
 		expect(html).toContain('data-name="OkButton"');
 		expect(html).toContain('data-surface=""');
 		expect(html).toContain('data-surface="Options"');
@@ -447,12 +447,12 @@ describe('the interactive canvas contract', () => {
 	});
 
 	it('restores a selection across re-renders', () => {
-		const { html } = readFormPreview(workbook(), 'EntryForm', 'OkButton');
+		const { html } = readFormPreview(project(), 'EntryForm', 'OkButton');
 		expect(html).toMatch(/class="ctl button selected" data-name="OkButton"/);
 	});
 
 	it('starts with grid snap on and neighbor snap off, and keeps them exclusive', () => {
-		const { html } = readFormPreview(workbook(), 'EntryForm');
+		const { html } = readFormPreview(project(), 'EntryForm');
 		expect(html).toContain('id="snapGrid" checked');
 		expect(html).toContain('id="snapNeighbors">');
 		// Checking either snap clears the other in the gesture script.
@@ -461,13 +461,13 @@ describe('the interactive canvas contract', () => {
 	});
 
 	it('paints the 6pt lattice on every surface while grid snap is on', () => {
-		const { html } = readFormPreview(workbook(), 'EntryForm');
+		const { html } = readFormPreview(project(), 'EntryForm');
 		expect(html).toContain('body.grid-on [data-surface]::before');
 		expect(html).toContain('syncGridDots');
 	});
 
 	it('carries the Properties pane and its rows', () => {
-		const { html } = readFormPreview(workbook(), 'EntryForm');
+		const { html } = readFormPreview(project(), 'EntryForm');
 		expect(html).toContain('id="props"');
 		expect(html).toContain("type: 'setProp'");
 		expect(html).toContain('"prop":"Caption"');
@@ -478,7 +478,7 @@ describe('the interactive canvas contract', () => {
 		// apostrophe that a template escape smuggled into a single-quoted
 		// string killed the whole interactive script silently (grid, pane,
 		// zoom, every gesture) - a class of break only a parser catches.
-		const { html } = readFormPreview(workbook(), 'EntryForm');
+		const { html } = readFormPreview(project(), 'EntryForm');
 		const scripts = [...html.matchAll(/<script(?![^>]*type="application\/json")[^>]*>([\s\S]*?)<\/script>/g)];
 		expect(scripts.length).toBeGreaterThanOrEqual(2);
 		for (const [, body] of scripts) {
@@ -487,7 +487,7 @@ describe('the interactive canvas contract', () => {
 	});
 
 	it('gives rows their typed editors', () => {
-		const { html } = readFormPreview(workbook(), 'EntryForm');
+		const { html } = readFormPreview(project(), 'EntryForm');
 		expect(html).toContain('BOOL_PROPS');
 		expect(html).toContain('ENUM_OPTIONS');
 		expect(html).toContain('paletteSwatches');
@@ -496,7 +496,7 @@ describe('the interactive canvas contract', () => {
 	});
 
 	it('paints stored pictures instead of placeholders', () => {
-		const { html } = readFormPreview(workbook(), 'EntryForm');
+		const { html } = readFormPreview(project(), 'EntryForm');
 		// The fixture carries two real BMPs: the Badge image and a picture ON
 		// the OK button. Both should arrive as data URIs; the Badge drops its
 		// placeholder label, the button keeps its caption over the picture.
@@ -513,7 +513,7 @@ describe('the interactive canvas contract', () => {
 	});
 
 	it('renders the full property walk: form chrome, borders, wrap, scoped fonts', () => {
-		const wb = workbook();
+		const wb = project();
 		const set = (name: string, prop: string, value: string) =>
 			applyFormDesignerOp(wb, 'EntryForm', { kind: 'setProp', name, prop, value });
 		set('', 'ForeColor', '#aa0000');
@@ -524,7 +524,7 @@ describe('the interactive canvas contract', () => {
 		set('NameLabel', 'BorderStyle', '1');
 		set('Taxable', 'SpecialEffect', '2');
 		set('NameBox', 'MultiLine', 'True');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const { html } = readFormPreview(wb, 'EntryForm');
 		expect(html).toContain('color: #aa0000');
 		expect(html).toMatch(/\.client[^}]*border:1px solid #7a7a7a/);
@@ -538,11 +538,11 @@ describe('the interactive canvas contract', () => {
 	});
 
 	it('draws the disabled gray, alignment, and text decoration it can set', () => {
-		const wb = workbook();
+		const wb = project();
 		applyFormDesignerOp(wb, 'EntryForm', { kind: 'setProp', name: 'OkButton', prop: 'Enabled', value: 'False' });
 		applyFormDesignerOp(wb, 'EntryForm', { kind: 'setProp', name: 'NameLabel', prop: 'TextAlign', value: 'Center' });
 		applyFormDesignerOp(wb, 'EntryForm', { kind: 'setProp', name: 'NameBox', prop: 'Font.Underline', value: 'True' });
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const { html } = readFormPreview(wb, 'EntryForm');
 		expect(html).toMatch(/data-name="OkButton"[^>]*color:#6d6d6d/);
 		expect(html).toMatch(/data-name="NameLabel"[^>]*text-align:center/);
@@ -550,20 +550,20 @@ describe('the interactive canvas contract', () => {
 	});
 
 	it('zooms the dialog and divides the factor out of pointer math', () => {
-		const { html } = readFormPreview(workbook(), 'EntryForm');
+		const { html } = readFormPreview(project(), 'EntryForm');
 		expect(html).toContain('id="zoomPick"');
 		expect(html).toContain('px / (PX_PER_PT * ZOOM)');
 	});
 
 	it('jumps to the default event handler on double-click', () => {
-		const { html } = readFormPreview(workbook(), 'EntryForm');
+		const { html } = readFormPreview(project(), 'EntryForm');
 		expect(html).toContain("type: 'openHandler'");
 		expect(html).toContain('DEFAULT_EVENTS');
 		expect(html).toContain("MultiPage: 'Change'");
 	});
 
 	it('offers cross-surface drops in the gesture script', () => {
-		const { html } = readFormPreview(workbook(), 'EntryForm');
+		const { html } = readFormPreview(project(), 'EntryForm');
 		expect(html).toContain("type: 'reparent'");
 		// The Format surface: depth, tab order, align and same-size.
 		expect(html).toContain('id="zFront"');
@@ -583,7 +583,7 @@ describe('the interactive canvas contract', () => {
 		// same handler carried a function-scoped client shadow that put the
 		// form-resize branch in its temporal dead zone: every form resize
 		// THREW instead of posting.
-		const { html } = readFormPreview(workbook(), 'EntryForm');
+		const { html } = readFormPreview(project(), 'EntryForm');
 		expect(html).not.toContain("const client = drag.el.closest('.client')");
 		const dropBlock = html.slice(html.indexOf("if (drag.kind === 'move' && drag.moved)"));
 		const hit = dropBlock.indexOf('document.elementFromPoint');
@@ -594,7 +594,7 @@ describe('the interactive canvas contract', () => {
 	});
 
 	it('activates the form itself when the selection is the empty name', () => {
-		const { html } = readFormPreview(workbook(), 'EntryForm', '');
+		const { html } = readFormPreview(project(), 'EntryForm', '');
 		expect(html).toContain('class="dialog form-selected"');
 		expect(html).toContain("post({ type: 'formResize', width: liveWidth, height: liveHeight })");
 	});
@@ -605,7 +605,7 @@ describe('the interactive canvas contract', () => {
 // host acts on the document for undo, redo, and save.
 describe('the one-unit canvas', () => {
 	it('embeds the markup pane, the internal grip, and the document keys', () => {
-		const { html } = readFormPreview(workbook(), 'EntryForm');
+		const { html } = readFormPreview(project(), 'EntryForm');
 		expect(html).toContain('id="markupPane"');
 		expect(html).toContain('id="markupText"');
 		expect(html).toContain('id="gripDots"');
@@ -621,7 +621,7 @@ describe('the one-unit canvas', () => {
 	});
 
 	it('paints the markup pane, on a layer that shares the text metrics', () => {
-		const { html } = readFormPreview(workbook(), 'EntryForm');
+		const { html } = readFormPreview(project(), 'EntryForm');
 		// The colors ride a layer UNDER a transparent-text textarea, so the
 		// caret and selection stay native. Both layers must be declared with
 		// one font, padding, and line-height rule or the paint drifts off the
@@ -642,7 +642,7 @@ describe('the one-unit canvas', () => {
 
 	it('shows the document text verbatim-escaped and honors the identity override', () => {
 		const { html } = readFormPreview(
-			workbook(), 'EntryForm', undefined, 'A </textarea> B', 'Z:/elsewhere/Real.xlsm');
+			project(), 'EntryForm', undefined, 'A </textarea> B', 'Z:/elsewhere/Real.xlsm');
 		expect(html).toContain('A &lt;/textarea&gt; B');
 		expect(html.split('</textarea>').length - 1).toBe(1);
 		expect(html).toContain('"wb":"Z:/elsewhere/Real.xlsm"');
@@ -658,23 +658,23 @@ describe('identity reconciliation on apply', () => {
 	const saveShape = (
 		ops: Array<Parameters<typeof applyFormDesignerOp>[2]>,
 	): { real: string; doc: string; reprint: string; applied: string[] } => {
-		const real = workbook();
+		const real = project();
 		const scratch = path.join(path.dirname(real), 'Recon.xlsm');
 		fs.copyFileSync(real, scratch);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		for (const op of ops) {
 			applyFormDesignerOp(scratch, 'EntryForm', op);
-			resetWorkbookCacheForTests();
+			resetProjectCacheForTests();
 		}
 		const doc = readFormMarkup(scratch, 'EntryForm').markup;
 		const outcome = applyFormMarkup(real, 'EntryForm', doc);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const reprint = readFormMarkup(real, 'EntryForm').markup;
 		return { real, doc, reprint, applied: outcome.applied };
 	};
 	const badgePictured = (wb: string): boolean => {
 		const { html } = readFormPreview(wb, 'EntryForm');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		return /data-name="(Badge|Crest)"[^>]*data:image/.test(html);
 	};
 
@@ -690,7 +690,7 @@ describe('identity reconciliation on apply', () => {
 		expect(r.applied.some((a) => a.includes('moved OkButton into Options'))).toBe(true);
 		expect(r.reprint).toBe(r.doc);
 		const { html } = readFormPreview(r.real, 'EntryForm');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(html).toContain('<img class="cpic"');
 	});
 
@@ -714,21 +714,21 @@ describe('identity reconciliation on apply', () => {
 		// picture on it died while the reprint stayed equal (hunt nine). The
 		// page pairs FIRST of all now, so a control moved onto it resolves
 		// against the new name too.
-		const real = workbook();
+		const real = project();
 		const scratch = path.join(path.dirname(real), 'PageRen.xlsm');
 		fs.copyFileSync(real, scratch);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		applyFormDesignerOp(scratch, 'EntryForm', { kind: 'reparent', name: 'Badge', container: 'Page1', left: 10, top: 30 });
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		applyFormDesignerOp(scratch, 'EntryForm', { kind: 'setProp', name: 'Page1', prop: 'Name', value: 'Intro' });
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const doc = readFormMarkup(scratch, 'EntryForm').markup;
 		const outcome = applyFormMarkup(real, 'EntryForm', doc);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(outcome.applied.some((a) => a.includes('renamed page Page1 to Intro'))).toBe(true);
 		expect(readFormMarkup(real, 'EntryForm').markup).toBe(doc);
 		const { html } = readFormPreview(real, 'EntryForm');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(html).toMatch(/data-name="Badge"[^>]*data:image/);
 	});
 
@@ -742,7 +742,7 @@ describe('identity reconciliation on apply', () => {
 		expect(fresh.applied.some((a) => a.startsWith('renamed OkButton'))).toBe(false);
 		expect(fresh.reprint).toBe(fresh.doc);
 		expect(readFormPreview(fresh.real, 'EntryForm').html).not.toContain('<img class="cpic"');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		// Two identical candidates (kind, size, caption all equal): refused.
 		const ambig = saveShape([
 			{ kind: 'setProp', name: 'PickGround', prop: 'Caption', value: '' },
@@ -762,14 +762,14 @@ describe('identity reconciliation on apply', () => {
 // workbook (the parser fuzz caught a 1MB caption doing exactly that).
 describe('oversized text refuses cleanly', () => {
 	it('a giant caption throws through BOTH entry paths and the file never changes', () => {
-		const wb = workbook();
+		const wb = project();
 		const pristine = fs.readFileSync(wb);
 		const doc = readFormMarkup(wb, 'EntryForm').markup;
 		const giant = doc.replace('Caption="Customer"', `Caption="${'A'.repeat(1024 * 1024)}"`);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(() => applyFormMarkup(wb, 'EntryForm', giant)).toThrow(/too much data|caps a record/);
 		expect(fs.readFileSync(wb).equals(pristine)).toBe(true);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(() => applyFormDesignerOp(wb, 'EntryForm', {
 			kind: 'setProp', name: 'NameLabel', prop: 'Caption', value: 'B'.repeat(1024 * 1024),
 		})).toThrow(/too much data|caps a record/);
@@ -777,9 +777,9 @@ describe('oversized text refuses cleanly', () => {
 	});
 
 	it('a giant site string (Tag) refuses the same way', () => {
-		const wb = workbook();
+		const wb = project();
 		const pristine = fs.readFileSync(wb);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(() => applyFormDesignerOp(wb, 'EntryForm', {
 			kind: 'setProp', name: 'NameBox', prop: 'Tag', value: 'T'.repeat(70 * 1024),
 		})).toThrow(/too much data|caps a site/);
@@ -787,21 +787,21 @@ describe('oversized text refuses cleanly', () => {
 	});
 
 	it('a large-but-legal caption still lands and round-trips', () => {
-		const wb = workbook();
+		const wb = project();
 		const value = 'C'.repeat(30 * 1024);
 		applyFormDesignerOp(wb, 'EntryForm', { kind: 'setProp', name: 'NameLabel', prop: 'Caption', value });
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(readFormMarkup(wb, 'EntryForm').markup).toContain(`Caption="${value}"`);
 	});
 
 	it('a very large pasted document applies and self-applies as a no-op', () => {
-		const wb = workbook();
+		const wb = project();
 		const doc = '<Form Name="F" Width="400" Height="300">'
 			+ Array.from({ length: 800 }, (_, i) =>
 				`<Label Name="L${i}" Left="1" Top="1" Width="10" Height="10" Caption="c${i}" />`).join('\r\n')
 			+ '</Form>';
 		applyFormMarkup(wb, 'EntryForm', doc);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const reprint = readFormMarkup(wb, 'EntryForm').markup;
 		const self = applyFormMarkup(wb, 'EntryForm', reprint);
 		expect(self.applied).toEqual([]);
@@ -814,46 +814,46 @@ describe('oversized text refuses cleanly', () => {
 // that were added or removed. Text undo is exactly that replay.
 describe('the one-document undo model', () => {
 	it('returns to the baseline when a property line disappears', () => {
-		const real = workbook();
+		const real = project();
 		const scratch = path.join(path.dirname(real), 'Scratch.xlsm');
 		fs.copyFileSync(real, scratch);
 		const markup0 = readFormMarkup(scratch, 'EntryForm').markup;
 		applyFormDesignerOp(scratch, 'EntryForm', { kind: 'setProp', name: 'NameLabel', prop: 'BackColor', value: '#ff0000' });
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const markup1 = readFormMarkup(scratch, 'EntryForm').markup;
 		expect(markup1).toMatch(/NameLabel[^>]*BackColor="#ff0000"/i);
 		// Undo: a fresh baseline plus the earlier text, applied whole.
 		fs.copyFileSync(real, scratch);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		applyFormMarkup(scratch, 'EntryForm', markup0);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(readFormMarkup(scratch, 'EntryForm').markup).toBe(markup0);
 		// Redo: the same rebuild with the later text.
 		fs.copyFileSync(real, scratch);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		applyFormMarkup(scratch, 'EntryForm', markup1);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(readFormMarkup(scratch, 'EntryForm').markup).toBe(markup1);
 	});
 
 	it('adds and removes controls purely through the document text', () => {
-		const real = workbook();
+		const real = project();
 		const scratch = path.join(path.dirname(real), 'Scratch2.xlsm');
 		fs.copyFileSync(real, scratch);
 		const markup0 = readFormMarkup(scratch, 'EntryForm').markup;
 		applyFormDesignerOp(scratch, 'EntryForm', { kind: 'add', container: '', controlKind: 'CommandButton', left: 30, top: 200 });
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const markup1 = readFormMarkup(scratch, 'EntryForm').markup;
 		expect(markup1).not.toBe(markup0);
 		fs.copyFileSync(real, scratch);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		applyFormMarkup(scratch, 'EntryForm', markup0);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(readFormMarkup(scratch, 'EntryForm').markup).toBe(markup0);
 		fs.copyFileSync(real, scratch);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		applyFormMarkup(scratch, 'EntryForm', markup1);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(readFormMarkup(scratch, 'EntryForm').markup).toBe(markup1);
 	});
 
@@ -861,13 +861,13 @@ describe('the one-document undo model', () => {
 		// The vanish trap: a property SAVED non-default, edited back TO its
 		// default, disappears from the printed document - the total apply
 		// must read that absence as the default, or the edit dies on save.
-		const real = workbook();
+		const real = project();
 		applyFormDesignerOp(real, 'EntryForm', { kind: 'setProp', name: 'OkButton', prop: 'Enabled', value: 'False' });
 		applyFormDesignerOp(real, 'EntryForm', { kind: 'setProp', name: 'NameBox', prop: 'Font.Bold', value: 'True' });
 		applyFormDesignerOp(real, 'EntryForm', { kind: 'setProp', name: 'NameBox', prop: 'HelpContextID', value: '77' });
 		applyFormDesignerOp(real, 'EntryForm', { kind: 'setProp', name: 'NameBox', prop: 'ControlSource', value: 'Sheet1!A1' });
 		applyFormDesignerOp(real, 'EntryForm', { kind: 'setProp', name: '', prop: 'ShowModal', value: 'False' });
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const saved = readFormMarkup(real, 'EntryForm').markup;
 		expect(saved).toMatch(/OkButton[^>]*Enabled="False"/);
 		expect(saved).toContain('ShowModal="False"');
@@ -880,14 +880,14 @@ describe('the one-document undo model', () => {
 		applyFormDesignerOp(scratch, 'EntryForm', { kind: 'setProp', name: 'NameBox', prop: 'HelpContextID', value: '0' });
 		applyFormDesignerOp(scratch, 'EntryForm', { kind: 'setProp', name: 'NameBox', prop: 'ControlSource', value: '' });
 		applyFormDesignerOp(scratch, 'EntryForm', { kind: 'setProp', name: '', prop: 'ShowModal', value: 'True' });
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const doc = readFormMarkup(scratch, 'EntryForm').markup;
 		expect(doc).not.toContain('Enabled=');
 		expect(doc).not.toContain('ShowModal=');
 		// The save: applying that document to the real workbook restores the
 		// defaults there too, and re-printing reproduces the document.
 		applyFormMarkup(real, 'EntryForm', doc);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(readFormMarkup(real, 'EntryForm').markup).toBe(doc);
 	});
 
@@ -896,17 +896,17 @@ describe('the one-document undo model', () => {
 		// Caption="", which a fresh apply could never re-create - and a
 		// frame's cleared legend resurrected on save. Empty strings are
 		// unspoken now, and a whole-document apply reads absence as empty.
-		const real = workbook();
+		const real = project();
 		const scratch = path.join(path.dirname(real), 'Cleared.xlsm');
 		fs.copyFileSync(real, scratch);
 		applyFormDesignerOp(scratch, 'EntryForm', { kind: 'setProp', name: 'OkButton', prop: 'Caption', value: '' });
 		applyFormDesignerOp(scratch, 'EntryForm', { kind: 'setProp', name: 'Options', prop: 'Caption', value: '' });
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const doc = readFormMarkup(scratch, 'EntryForm').markup;
 		expect(doc).not.toMatch(/OkButton[^>]*Caption=/);
 		expect(doc).not.toMatch(/<Frame Name="Options"[^>]*Caption=/);
 		applyFormMarkup(real, 'EntryForm', doc);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(readFormMarkup(real, 'EntryForm').markup).toBe(doc);
 		const { html } = readFormPreview(real, 'EntryForm');
 		expect(html).not.toContain('>Start</div>');
@@ -917,13 +917,13 @@ describe('the one-document undo model', () => {
 		// require the two invariants the one-document designer stands on:
 		// the document reproduces the state on a fresh baseline, and
 		// applying a state's own print to itself changes nothing.
-		const baseline = workbook();
+		const baseline = project();
 		const scratch = path.join(path.dirname(baseline), 'Oracle.xlsm');
 		const fresh = path.join(path.dirname(baseline), 'OracleFresh.xlsm');
 		const rowsOf = (target: string): PropertyRowLike[] => {
 			const html = readFormPreview(baseline, 'EntryForm').html;
 			const propsJson = /const PROPS = (\{.*?\});\r?\n/.exec(html)?.[1] ?? '{}';
-			resetWorkbookCacheForTests();
+			resetProjectCacheForTests();
 			return (JSON.parse(propsJson)[target]?.rows ?? []) as PropertyRowLike[];
 		};
 		interface PropertyRowLike { prop: string; value: string }
@@ -951,27 +951,27 @@ describe('the one-document undo model', () => {
 				const value = pick(row.prop, row.value);
 				if (value === undefined || value === row.value) { continue; }
 				fs.copyFileSync(baseline, scratch);
-				resetWorkbookCacheForTests();
+				resetProjectCacheForTests();
 				try {
 					applyFormDesignerOp(scratch, 'EntryForm', { kind: 'setProp', name: target, prop: row.prop, value });
 				} catch {
 					continue; // a vocabulary refusal is the gate working
 				}
-				resetWorkbookCacheForTests();
+				resetProjectCacheForTests();
 				const doc = readFormMarkup(scratch, 'EntryForm').markup;
 				const self = applyFormMarkup(scratch, 'EntryForm', doc);
 				expect(self.applied, `${target || 'form'} ${row.prop}=${value} self-apply`).toEqual([]);
 				fs.copyFileSync(baseline, fresh);
-				resetWorkbookCacheForTests();
+				resetProjectCacheForTests();
 				applyFormMarkup(fresh, 'EntryForm', doc);
-				resetWorkbookCacheForTests();
+				resetProjectCacheForTests();
 				expect(readFormMarkup(fresh, 'EntryForm').markup, `${target || 'form'} ${row.prop}=${value} reprint`).toBe(doc);
 			}
 		}
 	});
 
 	it('speaks the form extras, the StdFont, and the VBFrame trio in the document', () => {
-		const wb = workbook();
+		const wb = project();
 		const write = (prop: string, value: string) =>
 			applyFormDesignerOp(wb, 'EntryForm', { kind: 'setProp', name: '', prop, value });
 		write('Zoom', '150');
@@ -982,16 +982,16 @@ describe('the one-document undo model', () => {
 		write('StartUpPosition', '2');
 		write('ShowModal', 'False');
 		write('WhatsThisButton', 'True');
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		const markup = readFormMarkup(wb, 'EntryForm').markup;
 		for (const pin of ['Zoom="150"', 'MousePointer="11"', 'Font.Name="Segoe UI"', 'Font.Size="10"',
 			'Font.Bold="True"', 'StartUpPosition="2"', 'ShowModal="False"', 'WhatsThisButton="True"']) {
 			expect(markup).toMatch(new RegExp(`<Form [^>]*${pin.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
 		}
 		// The same document applied to a FRESH copy reproduces all of it.
-		const fresh = workbook();
+		const fresh = project();
 		applyFormMarkup(fresh, 'EntryForm', markup);
-		resetWorkbookCacheForTests();
+		resetProjectCacheForTests();
 		expect(readFormMarkup(fresh, 'EntryForm').markup).toBe(markup);
 		const { frm } = readFormExport(fresh, 'EntryForm');
 		expect(frm).toMatch(/ShowModal\s*=\s*0/);

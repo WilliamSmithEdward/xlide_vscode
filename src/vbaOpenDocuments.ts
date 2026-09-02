@@ -3,7 +3,7 @@ import {
 	XLIDE_SCHEME,
 	decodeModuleUri,
 	moduleIdentityKey,
-	sameWorkbookPath,
+	sameProjectPath,
 } from './xlideFileSystem';
 
 export interface VbaOpenDocumentLike {
@@ -12,7 +12,7 @@ export interface VbaOpenDocumentLike {
 }
 
 export interface VbaOpenModuleSource {
-	xlsmPath: string;
+	projectPath: string;
 	moduleName: string;
 	source: string;
 }
@@ -33,7 +33,7 @@ export function openXlideModuleSources(
 		try {
 			const decoded = decodeModuleUri(document.uri);
 			out.push({
-				xlsmPath: decoded.xlsmPath,
+				projectPath: decoded.projectPath,
 				moduleName: decoded.moduleName,
 				source: document.getText(),
 			});
@@ -44,22 +44,22 @@ export function openXlideModuleSources(
 	return out;
 }
 
-export function openModuleSourceForWorkbook(
-	xlsmPath: string,
+export function openModuleSourceForProject(
+	projectPath: string,
 	moduleName: string,
 	documents: readonly VbaOpenDocumentLike[] = vscode.workspace.textDocuments ?? [],
 ): string | undefined {
 	const moduleKey = moduleIdentityKey(moduleName);
-	return openModuleSourceMapForWorkbook(xlsmPath, documents).get(moduleKey);
+	return openModuleSourceMapForProject(projectPath, documents).get(moduleKey);
 }
 
-export function openModuleSourceMapForWorkbook(
-	xlsmPath: string,
+export function openModuleSourceMapForProject(
+	projectPath: string,
 	documents: readonly VbaOpenDocumentLike[] = vscode.workspace.textDocuments ?? [],
 ): Map<string, string> {
 	const out = new Map<string, string>();
 	for (const open of openXlideModuleSources(documents)) {
-		if (sameWorkbookPath(open.xlsmPath, xlsmPath)) {
+		if (sameProjectPath(open.projectPath, projectPath)) {
 			out.set(moduleIdentityKey(open.moduleName), open.source);
 		}
 	}
@@ -68,12 +68,12 @@ export function openModuleSourceMapForWorkbook(
 
 export function applyOpenDocumentSources<T extends VbaSourceModule>(
 	modules: readonly T[],
-	xlsmPath: string,
+	projectPath: string,
 	documents: readonly VbaOpenDocumentLike[] = vscode.workspace.textDocuments ?? [],
 ): T[] {
 	const out = modules.map((mod) => ({ ...mod }));
 	const byName = new Map(out.map((mod) => [moduleIdentityKey(mod.moduleName), mod]));
-	for (const [moduleKey, source] of openModuleSourceMapForWorkbook(xlsmPath, documents)) {
+	for (const [moduleKey, source] of openModuleSourceMapForProject(projectPath, documents)) {
 		const mod = byName.get(moduleKey);
 		if (!mod) {
 			continue;

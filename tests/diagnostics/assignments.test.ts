@@ -1062,7 +1062,7 @@ describe('analyzeModule - assignment type validation', () => {
 	});
 
 	it('does not use source-only document module members to prove absence', () => {
-		const workbook =
+		const project =
 			'Public Sub Hello()\n' +
 			'End Sub\n';
 		const src =
@@ -1072,7 +1072,7 @@ describe('analyzeModule - assignment type validation', () => {
 			'End Sub\n';
 		const diagnostics = analyzeModule(src, {
 			projectClassMembers: projectClassMembers([
-				{ moduleName: 'ThisWorkbook', moduleKind: 'document', source: workbook },
+				{ moduleName: 'ThisWorkbook', moduleKind: 'document', source: project },
 			]),
 		});
 		expect(byCode(diagnostics, 'member-not-found')).toHaveLength(0);
@@ -1122,7 +1122,7 @@ describe('analyzeModule - assignment type validation', () => {
 	});
 
 	it('errors when ThisWorkbook uses a member absent from source and the exhaustive Workbook host surface', () => {
-		const workbook =
+		const project =
 			'Public Sub Hello()\n' +
 			'End Sub\n';
 		const src =
@@ -1131,7 +1131,7 @@ describe('analyzeModule - assignment type validation', () => {
 			'End Sub\n';
 		const diagnostics = analyzeModule(src, {
 			projectClassMembers: projectClassMembers([
-				{ moduleName: 'ThisWorkbook', moduleKind: 'document', source: workbook },
+				{ moduleName: 'ThisWorkbook', moduleKind: 'document', source: project },
 			]),
 		});
 		expectDiagnostic(src, diagnostics, 'member-not-found', { span: 'doesnotexist' });
@@ -1146,7 +1146,7 @@ describe('analyzeModule - assignment type validation', () => {
 	});
 
 	it('accepts ThisWorkbook members from source and the exhaustive Workbook host surface', () => {
-		const workbook =
+		const project =
 			'Public Sub Hello()\n' +
 			'End Sub\n';
 		const src =
@@ -1156,7 +1156,7 @@ describe('analyzeModule - assignment type validation', () => {
 			'End Sub\n';
 		const diagnostics = analyzeModule(src, {
 			projectClassMembers: projectClassMembers([
-				{ moduleName: 'ThisWorkbook', moduleKind: 'document', source: workbook },
+				{ moduleName: 'ThisWorkbook', moduleKind: 'document', source: project },
 			]),
 		});
 		expect(byCode(diagnostics, 'member-not-found')).toHaveLength(0);

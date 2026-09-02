@@ -4,7 +4,7 @@
 // completion provider + keyword-snippet tracker (vbaCompletionProvider.ts),
 // hover/signature provider (vbaHoverSignatureProvider.ts), and canonical-case
 // controller (vbaCanonicalCaseController.ts) into VS Code, plus the
-// workbook-save cache invalidation.
+// project-save cache invalidation.
 
 import * as vscode from 'vscode';
 import { moduleLocationOfDocument } from './vbaDocumentLocation';
@@ -21,9 +21,9 @@ import {
 
 const ACTIVE_MEMBER_COMPLETION_PROVIDERS = new Set<VbaMemberCompletionProvider>();
 
-export function invalidateVbaMemberCompletionCache(xlsmPath?: string): void {
+export function invalidateVbaMemberCompletionCache(projectPath?: string): void {
 	for (const provider of ACTIVE_MEMBER_COMPLETION_PROVIDERS) {
-		provider.invalidate(xlsmPath);
+		provider.invalidate(projectPath);
 	}
 }
 
@@ -60,7 +60,7 @@ export function registerVbaMemberCompletion(
 		vscode.workspace.onDidChangeTextDocument((event) => {
 			keywordSnippets.handleTextDocumentChange(event);
 			canonicalCase.handleTextDocumentChange(event);
-			// Drop the workbook's derived editor-context cache when ANY of its
+			// Drop the project's derived editor-context cache when ANY of its
 			// modules is edited (even unsaved), so completion/hover for one module
 			// does not serve stale cross-module symbols from a sibling module's
 			// snapshot within the cache TTL. Editing the active module already
@@ -68,7 +68,7 @@ export function registerVbaMemberCompletion(
 			// on the sibling-edit case this fixes.
 			const location = moduleLocationOfDocument(event.document);
 			if (location) {
-				provider.invalidate(location.xlsmPath);
+				provider.invalidate(location.projectPath);
 			}
 		}),
 		vscode.window.onDidChangeTextEditorSelection((event) => {
@@ -93,7 +93,7 @@ export function registerVbaMemberCompletion(
 		vscode.workspace.onDidSaveTextDocument((doc) => {
 			const location = moduleLocationOfDocument(doc);
 			if (location) {
-				provider.invalidate(location.xlsmPath);
+				provider.invalidate(location.projectPath);
 			}
 		}),
 		vscode.workspace.onDidCloseTextDocument((doc) => { keywordSnippets.handleDocumentClose(doc); canonicalCase.handleDocumentClose(doc); }),

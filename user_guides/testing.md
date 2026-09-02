@@ -62,14 +62,14 @@ whole procedure: syntax errors, compile-equivalent diagnostics, invalid test
 marker syntax, style diagnostics, and unrelated findings remain visible.
 
 XLIDE reports invalid marker syntax as a `vba-test-directive` warning in live
-diagnostics and workbook analysis. This catches typos, unsupported metadata
+diagnostics and project analysis. This catches typos, unsupported metadata
 keys, invalid timeouts, detached markers, markers in class/document modules,
 Functions, Properties, and parameterized Subs.
 
 ## Assertions And Output
 
 Install `XlideAssert.bas` from the Tests GUI before running tests. The module is
-also used for IntelliSense when it is present in the workbook.
+also used for IntelliSense when it is present in the project.
 
 Core assertions:
 
@@ -169,10 +169,10 @@ targets as direct calls so every host behaves alike. The original file is not
 modified by the run.
 
 The Tests GUI runs all discovered tests, checked tests from the discovered test
-list, current-module/current-test scopes from the active workbook editor,
+list, current-module/current-test scopes from the active project editor,
 selected include/exclude tag filters from discovered tag checkboxes, fail-fast
 mode, and reruns failed/timed-out/host-error/unexpected-pass tests from the
-previous run. It refreshes with the XLIDE workbook tree, so installing/removing
+previous run. It refreshes with the XLIDE project tree, so installing/removing
 modules or refreshing the tree updates the support gate without reopening the
 panel.
 

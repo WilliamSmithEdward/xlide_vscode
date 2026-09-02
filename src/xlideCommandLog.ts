@@ -28,7 +28,7 @@ export function clearXlideCommandLog(): void {
 /**
  * Error signatures indicating Excel holds the workbook open (Windows file
  * sharing violation).  Shared by support-log categorization here and the
- * user-facing workbook-locked warning in xlideFileSystem.
+ * user-facing project-locked warning in xlideFileSystem.
  */
 export const WORKBOOK_LOCKED_ERROR_RE =
     /WinError\s*3[23]\b|WinError\s*5\b|being used by another process|sharing violation|access is denied|permission denied|permissionerror|\bEACCES\b|\bEBUSY\b/i;
@@ -36,10 +36,10 @@ export const WORKBOOK_LOCKED_ERROR_RE =
 export function errorCategoryForSupportLog(error: unknown): string {
     const message = errorMessage(error);
     if (WORKBOOK_LOCKED_ERROR_RE.test(message)) {
-        return 'workbook-locked';
+        return 'project-locked';
     }
     if (/\bENOENT\b|no such file|cannot find|not found/i.test(message)) {
-        return 'workbook-missing';
+        return 'project-missing';
     }
     if (/cancel|canceled|cancelled/i.test(message)) {
         return 'cancelled';

@@ -56,11 +56,11 @@ function excelComRegistered() {
 }
 
 /** Bundle the standalone workbook service so plain node can call it. */
-async function loadWorkbookService(workDir) {
+async function loadProjectService(workDir) {
     const esbuild = await import('esbuild');
-    const bundle = path.join(workDir, 'workbookService.mjs');
+    const bundle = path.join(workDir, 'projectService.mjs');
     await esbuild.build({
-        entryPoints: [path.join(ROOT, 'src', 'vba', 'workbookService.ts')],
+        entryPoints: [path.join(ROOT, 'src', 'vba', 'projectService.ts')],
         outfile: bundle,
         bundle: true,
         format: 'esm',
@@ -74,7 +74,7 @@ function main(svc, workDir) {
     const files = [];
     for (const [extension, template] of FORMATS) {
         const target = path.join(workDir, `Probe${extension}`);
-        svc.createWorkbook(target, path.join(TEMPLATE_DIR, template));
+        svc.createProject(target, path.join(TEMPLATE_DIR, template));
         svc.writeModule(target, PROBE_MODULE, PROBE_SOURCE, 'standard');
         const back = svc.readModule(target, PROBE_MODULE, false).source;
         if (!back.includes(`${PROBE_PROC} = "XLIDE-OK|"`)) {
@@ -132,7 +132,7 @@ if (!excelComRegistered()) {
 const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-formats-'));
 let failed = 1;
 try {
-    failed = main(await loadWorkbookService(workDir), workDir);
+    failed = main(await loadProjectService(workDir), workDir);
 } finally {
     fs.rmSync(workDir, { recursive: true, force: true });
 }

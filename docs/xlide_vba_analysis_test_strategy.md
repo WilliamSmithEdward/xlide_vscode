@@ -75,7 +75,7 @@ Current pure pieces:
 - `src/analyzer/diagnostics/analyzeModule.ts` owns high-confidence semantic and
   syntax-adjacent diagnostics over one module.
 - `src/analyzer/diagnostics/ruleMetadata.ts` owns the diagnostic rule catalogue.
-- `src/vbaWorkbookAnalysis.ts` flattens module diagnostics across a workbook for the
+- `src/vbaProjectWideAnalysis.ts` flattens module diagnostics across a workbook for the
   command and agent-tool path.
 - `src/vbaLanguageProviders.ts` adapts pure diagnostics to VS Code ranges,
   severities, debounce, and `DiagnosticCollection`.

@@ -1,6 +1,6 @@
         const vscode = acquireVsCodeApi();
         {{toastScript}}
-        const workbookPath = {{workbookPathJson}};
+        const projectPath = {{projectPathJson}};
         const tagNames = {{tagNamesJson}};
         const testIds = {{testIdsJson}};
         const canRun = {{canRunJson}};
@@ -12,9 +12,9 @@
 
         function initialFilterState() {
             const saved = vscode.getState?.();
-            if (saved?.workbookPath === workbookPath) {
+            if (saved?.projectPath === projectPath) {
                 return {
-                    workbookPath,
+                    projectPath,
                     includeTags: reconcileTags(saved.includeTags),
                     excludeTags: reconcileTags(saved.excludeTags),
                     selectedTestIds: Array.isArray(saved.selectedTestIds)
@@ -24,7 +24,7 @@
                 };
             }
             return {
-                workbookPath,
+                projectPath,
                 includeTags: [...tagNames],
                 excludeTags: [],
                 selectedTestIds: [...testIds],

@@ -8,19 +8,19 @@ import {
 } from '../xlideFileSystem';
 import { applyOpenDocumentSources } from '../vbaOpenDocuments';
 import {
-    analyzeWorkbook,
-    summarizeWorkbookAnalysisProblems,
-    workbookProblemsForModule,
-    type WorkbookAnalysisProblem,
-    type WorkbookAnalysisResult,
-} from '../vbaWorkbookAnalysis';
+    analyzeProject,
+    summarizeProjectAnalysisProblems,
+    projectProblemsForModule,
+    type ProjectAnalysisProblem,
+    type ProjectAnalysisResult,
+} from '../vbaProjectWideAnalysis';
 import {
-    openWorkbookAnalysisResults,
-    type WorkbookAnalysisSuppressScope,
-} from '../workbookAnalysisWebview';
+    openProjectAnalysisResults,
+    type ProjectAnalysisSuppressScope,
+} from '../projectAnalysisWebview';
 import { analyzeVbaModuleSource } from '../vbaModuleAnalysis';
 import { hostTokenForFileName } from '../analyzer/host/hostRegistry';
-import { effectiveWorkbookAnalysisSettings } from '../workbookAnalysisSettings';
+import { effectiveProjectAnalysisSettings } from '../projectAnalysisSettings';
 import { lineStartOffsets } from '../vbaSourceScan';
 import type { VbaSymbolIndex } from '../vbaSymbolIndex';
 import { moduleKindFromType } from '../vbaNavigation';
@@ -31,11 +31,11 @@ import {
 } from '../vbaProjectAnalysis';
 import { resolveDiagnosticCodeActions } from '../analyzer';
 import { registerXlideCommand } from '../xlideCommandRegistration';
-import type { XlideNode } from '../xlsmExplorer';
+import type { XlideNode } from '../projectExplorer';
 import { suppressionTargetForProblem } from '../vbaAnalysisSuppression';
 import { errorMessage } from '../util/errors';
 import {
-    resolveWorkbookPath,
+    resolveProjectPath,
     showAnalysisSourceDocument,
     statusMessage,
     type CommandDeps,
@@ -43,7 +43,7 @@ import {
 
 function copilotAnalysisPrompt(
     filePath: string,
-    problem: WorkbookAnalysisProblem,
+    problem: ProjectAnalysisProblem,
     source: string,
 ): string {
     const lines = source.split(/\r\n|\r|\n/);
@@ -82,13 +82,13 @@ function copilotAnalysisPrompt(
 // cannot drift between the two surfaces.
 export async function analyzeOpenModule(
     vbaIndex: VbaSymbolIndex,
-    xlsmPath: string,
+    projectPath: string,
     moduleName: string,
     source: string,
 ) {
     const modules = applyOpenDocumentSources(
-        await vbaIndex.getAllModules(xlsmPath),
-        xlsmPath,
+        await vbaIndex.getAllModules(projectPath),
+        projectPath,
     );
     const current = modules.find(
         (mod) => mod.moduleName.toLowerCase() === moduleName.toLowerCase(),
@@ -105,7 +105,7 @@ export async function analyzeOpenModule(
         moduleName,
         projectProcedureSignatures(project),
     );
-    const analysisSettings = await effectiveWorkbookAnalysisSettings(xlsmPath);
+    const analysisSettings = await effectiveProjectAnalysisSettings(projectPath);
     const result = analyzeVbaModuleSource({
         source,
         moduleName,
@@ -114,7 +114,7 @@ export async function analyzeOpenModule(
         documentType: current?.documentType,
         severityOverrides: analysisSettings.ruleSeverityOverrides,
         ...projectOptions,
-        host: hostTokenForFileName(xlsmPath),
+        host: hostTokenForFileName(projectPath),
     });
     return { modules, current, moduleType, result };
 }
@@ -129,20 +129,20 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
     let analysisSourceOpenQueue: Promise<void> = Promise.resolve();
     let analysisSourceOpenSequence = 0;
 
-    async function openWorkbookAnalysisProblem(
+    async function openProjectAnalysisProblem(
         filePath: string,
-        problem: WorkbookAnalysisProblem,
+        problem: ProjectAnalysisProblem,
         _analysisPanelColumn?: vscode.ViewColumn,
     ): Promise<void> {
-        await queueAnalysisSourceOpen(() => openWorkbookAnalysisProblemNow(
+        await queueAnalysisSourceOpen(() => openProjectAnalysisProblemNow(
             filePath,
             problem,
         ));
     }
 
-    async function openWorkbookAnalysisProblemNow(
+    async function openProjectAnalysisProblemNow(
         filePath: string,
-        problem: WorkbookAnalysisProblem,
+        problem: ProjectAnalysisProblem,
     ): Promise<void> {
         const uri = encodeModuleUri(filePath, problem.moduleName);
         const doc = await vscode.workspace.openTextDocument(uri);
@@ -158,7 +158,7 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
         editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
     }
 
-    function analysisSourceDrifted(doc: vscode.TextDocument, problem: WorkbookAnalysisProblem): boolean {
+    function analysisSourceDrifted(doc: vscode.TextDocument, problem: ProjectAnalysisProblem): boolean {
         if (problem.documentVersion !== undefined && doc.version !== problem.documentVersion) {
             vscode.window.showWarningMessage(
                 'XLIDE: The module changed since it was analyzed, so this action could land on the wrong location. Re-run analysis, then try again.',
@@ -168,10 +168,10 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
         return false;
     }
 
-    async function suppressWorkbookAnalysisProblem(
+    async function suppressProjectAnalysisProblem(
         filePath: string,
-        problem: WorkbookAnalysisProblem,
-        scope: WorkbookAnalysisSuppressScope,
+        problem: ProjectAnalysisProblem,
+        scope: ProjectAnalysisSuppressScope,
         _analysisPanelColumn?: vscode.ViewColumn,
     ): Promise<void> {
         const uri = encodeModuleUri(filePath, problem.moduleName);
@@ -215,15 +215,15 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
         statusMessage(`XLIDE: Added ${scope} analysis ignore directive for '${code}'.`);
     }
 
-    async function askCopilotAboutWorkbookAnalysisProblem(
+    async function askCopilotAboutProjectAnalysisProblem(
         filePath: string,
-        problem: WorkbookAnalysisProblem,
+        problem: ProjectAnalysisProblem,
         analysisPanelColumn?: vscode.ViewColumn,
     ): Promise<void> {
         const uri = encodeModuleUri(filePath, problem.moduleName);
         const doc = await vscode.workspace.openTextDocument(uri);
         await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
-        await openWorkbookAnalysisProblem(filePath, problem, analysisPanelColumn);
+        await openProjectAnalysisProblem(filePath, problem, analysisPanelColumn);
         const prompt = copilotAnalysisPrompt(filePath, problem, doc.getText());
         try {
             await vscode.commands.executeCommand('workbench.action.chat.open', { query: prompt });
@@ -235,9 +235,9 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
         }
     }
 
-    async function quickFixWorkbookAnalysisProblem(
+    async function quickFixProjectAnalysisProblem(
         filePath: string,
-        problem: WorkbookAnalysisProblem,
+        problem: ProjectAnalysisProblem,
         _analysisPanelColumn?: vscode.ViewColumn,
         fixIndex = 0,
     ): Promise<boolean> {
@@ -298,20 +298,20 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
         return true;
     }
 
-    function showWorkbookAnalysisResults(
-        result: WorkbookAnalysisResult,
-        onRefreshResult?: () => Promise<WorkbookAnalysisResult>,
+    function showProjectAnalysisResults(
+        result: ProjectAnalysisResult,
+        onRefreshResult?: () => Promise<ProjectAnalysisResult>,
     ): void {
         const filePath = result.filePath;
-        openWorkbookAnalysisResults(context, result, {
+        openProjectAnalysisResults(context, result, {
             onOpenProblem: (problem, analysisPanelColumn) =>
-                openWorkbookAnalysisProblem(filePath, problem, analysisPanelColumn),
+                openProjectAnalysisProblem(filePath, problem, analysisPanelColumn),
             onQuickFixProblem: (problem, analysisPanelColumn, fixIndex) =>
-                quickFixWorkbookAnalysisProblem(filePath, problem, analysisPanelColumn, fixIndex),
+                quickFixProjectAnalysisProblem(filePath, problem, analysisPanelColumn, fixIndex),
             onSuppressProblem: (problem, scope, analysisPanelColumn) =>
-                suppressWorkbookAnalysisProblem(filePath, problem, scope, analysisPanelColumn),
+                suppressProjectAnalysisProblem(filePath, problem, scope, analysisPanelColumn),
             onAskCopilot: (problem, analysisPanelColumn) =>
-                askCopilotAboutWorkbookAnalysisProblem(filePath, problem, analysisPanelColumn),
+                askCopilotAboutProjectAnalysisProblem(filePath, problem, analysisPanelColumn),
             onRefreshResult,
         });
     }
@@ -330,25 +330,25 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
         await run;
     }
 
-    async function currentModuleAnalysisResult(document: vscode.TextDocument): Promise<WorkbookAnalysisResult> {
-        const { xlsmPath, moduleName } = decodeModuleUri(document.uri);
+    async function currentModuleAnalysisResult(document: vscode.TextDocument): Promise<ProjectAnalysisResult> {
+        const { projectPath, moduleName } = decodeModuleUri(document.uri);
         const source = document.getText();
         // Capture the version alongside the source snapshot the problems are
         // computed from, so mutating actions can detect later edits (drift).
         const documentVersion = document.version;
-        const { moduleType, result } = await analyzeOpenModule(vbaIndex, xlsmPath, moduleName, source);
-        const byPosition = (a: WorkbookAnalysisProblem, b: WorkbookAnalysisProblem) => {
+        const { moduleType, result } = await analyzeOpenModule(vbaIndex, projectPath, moduleName, source);
+        const byPosition = (a: ProjectAnalysisProblem, b: ProjectAnalysisProblem) => {
             if (a.line !== b.line) { return a.line - b.line; }
             return a.column - b.column;
         };
-        const stampVersion = (p: WorkbookAnalysisProblem): WorkbookAnalysisProblem => ({ ...p, documentVersion });
-        const problems = workbookProblemsForModule(
+        const stampVersion = (p: ProjectAnalysisProblem): ProjectAnalysisProblem => ({ ...p, documentVersion });
+        const problems = projectProblemsForModule(
             moduleName,
             moduleType,
             source,
             result.diagnostics,
         ).sort(byPosition).map(stampVersion);
-        const suppressedProblems = workbookProblemsForModule(
+        const suppressedProblems = projectProblemsForModule(
             moduleName,
             moduleType,
             source,
@@ -357,9 +357,9 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
         ).sort(byPosition).map(stampVersion);
         const errorCount = problems.filter((p) => p.severity === 'error').length;
         const warningCount = problems.filter((p) => p.severity === 'warning').length;
-        const summary = summarizeWorkbookAnalysisProblems(problems, suppressedProblems.length);
+        const summary = summarizeProjectAnalysisProblems(problems, suppressedProblems.length);
         return {
-            filePath: xlsmPath,
+            filePath: projectPath,
             moduleCount: 1,
             problems,
             suppressedProblems,
@@ -384,7 +384,7 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
         // Re-resolve the document fresh on each refresh (rather than capturing the
         // possibly-disposed editor) so the long-lived analysis panel re-analyzes the
         // current content and survives the original editor being closed.
-        showWorkbookAnalysisResults(analysisResult, async () =>
+        showProjectAnalysisResults(analysisResult, async () =>
             currentModuleAnalysisResult(await vscode.workspace.openTextDocument(documentUri)));
         // The results panel just opened with these exact counts; a popup toast
         // on top of it is pure noise. A transient status-bar line suffices.
@@ -394,9 +394,9 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
     }
 
     return [
-        // Validate the workbook's VBA project structure
-        registerXlideCommand('xlide.validateWorkbook', async (node: XlideNode) => {
-            const filePath = resolveWorkbookPath(node);
+        // Validate the project's VBA project structure
+        registerXlideCommand('xlide.validateProject', async (node: XlideNode) => {
+            const filePath = resolveProjectPath(node);
             if (!filePath) {
                 vscode.window.showWarningMessage('XLIDE: No file selected to validate.');
                 return;
@@ -405,7 +405,7 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
             await vscode.window.withProgress(
                 { location: vscode.ProgressLocation.Notification, title: `XLIDE: Validating "${name}"...`, cancellable: false },
                 async () => {
-                    const res = await bridge.call<{ issues: string[] }>('validateWorkbook', { path: filePath });
+                    const res = await bridge.call<{ issues: string[] }>('validateProject', { path: filePath });
                     const issues = res.issues ?? [];
                     if (issues.length === 0) {
                         log(`[validate] "${name}": no issues`);
@@ -430,9 +430,9 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
             log,
         }),
 
-        // Analyze every VBA module in the workbook and show a navigable results panel.
-        registerXlideCommand('xlide.analyzeWorkbook', async (node: XlideNode) => {
-            const filePath = resolveWorkbookPath(node);
+        // Analyze every VBA module in the project and show a navigable results panel.
+        registerXlideCommand('xlide.analyzeProject', async (node: XlideNode) => {
+            const filePath = resolveProjectPath(node);
             if (!filePath) {
                 vscode.window.showWarningMessage('XLIDE: No file selected to analyze.');
                 return;
@@ -442,11 +442,11 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
                 { location: vscode.ProgressLocation.Notification, title: `XLIDE: Analyzing "${name}"...`, cancellable: true },
                 async (progress, token) => {
                     try {
-                        const result = await analyzeWorkbook(bridge, filePath, {
+                        const result = await analyzeProject(bridge, filePath, {
                             token,
                             progress: (message) => progress.report({ message }),
                         });
-                        showWorkbookAnalysisResults(result, () => analyzeWorkbook(bridge, filePath, {
+                        showProjectAnalysisResults(result, () => analyzeProject(bridge, filePath, {
                             progress: (message) => progress.report({ message }),
                         }));
                         // The results panel just opened with these exact counts;
@@ -457,10 +457,10 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
                     } catch (err) {
                         const msg = errorMessage(err);
                         if (err instanceof vscode.CancellationError) {
-                            log(`[analyzeWorkbook] Canceled: ${name}`);
+                            log(`[analyzeProject] Canceled: ${name}`);
                             return;
                         }
-                        log(`[analyzeWorkbook] FAILED: ${msg}`);
+                        log(`[analyzeProject] FAILED: ${msg}`);
                         vscode.window.showErrorMessage(`XLIDE: Analysis failed: ${msg}`);
                     }
                 },

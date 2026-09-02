@@ -1,7 +1,7 @@
 # XLIDE Roadmap: VB6 Support
 
 Classic Visual Basic 6 projects become first-class in XLIDE: a `.vbp` shows in
-the tree like a workbook, its `.bas`/`.cls`/`.frm` files get the same language
+the tree like any other project, its `.bas`/`.cls`/`.frm` files get the same language
 services VBA has (completion, hover, signature help, navigation, diagnostics),
 its forms open in a designer, and a developer-only twinBASIC oracle keeps the
 analyzer honest where no VB6 install exists to ask. This roadmap names the
@@ -11,7 +11,7 @@ must produce, and the risks. It follows the owner's decisions of 2026-09-02:
 - Strict VB6. twinBASIC's language extensions are out of scope.
 - No `VB6.OLB` is available. The `VB` library model comes from documents and
   from twinBASIC, carried as reported evidence with its gaps preserved.
-- A `.vbp` project shows in the XLIDE tree like the workbooks do; its files are
+- A `.vbp` project shows in the XLIDE tree like the Office files do; its files are
   edited as the plain text they already are.
 - Forms get a designer, after they are first readable.
 - twinBASIC is a developer oracle only: never bundled, never in a runtime path.
@@ -94,7 +94,7 @@ the wider fixture set before they are relied on.
       (kind of project, module list with kind and file path, references,
       objects, startup). Every key not understood is preserved verbatim; the
       parser never invents a module the manifest does not name.
-- [x] Project discovery beside the workbook glob, a tree node per `.vbp`, module
+- [x] Project discovery beside the macro-container glob, a tree node per `.vbp`, module
       nodes from the manifest (`standard`, `class`, `userform`; the opaque kinds
       shown with their manifest name and no children), procedure nodes from the
       existing source scan. Clicking opens the native file.

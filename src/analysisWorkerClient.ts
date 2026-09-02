@@ -1,5 +1,5 @@
 // Extension-host client for the analysis worker thread. Spawns lazily, tracks
-// per-workbook seed generations, and degrades permanently to the caller's
+// per-project seed generations, and degrades permanently to the caller's
 // in-host fallback path when the worker cannot start or dies: analysis
 // correctness never depends on the worker being alive.
 
@@ -15,7 +15,7 @@ import type { VbaModuleAnalysisDiagnostic } from './vbaModuleAnalysis';
 
 export interface WorkerAnalyzeRequest {
 	docKey: string;
-	workbookKey?: string;
+	projectKey?: string;
 	generation?: number;
 	source: string;
 	moduleName: string;
@@ -68,16 +68,16 @@ export class AnalysisWorkerClient {
 	) {}
 
 	/**
-	 * Ensures the worker holds this workbook's module sources at `generation`.
+	 * Ensures the worker holds this project's module sources at `generation`.
 	 * The provider is retained so a needSeed round-trip can reseed on its own.
 	 */
-	ensureSeeded(workbookKey: string, generation: number, modules: () => WorkerSeedModule[]): void {
-		this._seedProviders.set(workbookKey, modules);
+	ensureSeeded(projectKey: string, generation: number, modules: () => WorkerSeedModule[]): void {
+		this._seedProviders.set(projectKey, modules);
 		const worker = this._ensureWorker();
 		if (!worker) {
 			return;
 		}
-		this._postSeed(worker, workbookKey, generation);
+		this._postSeed(worker, projectKey, generation);
 	}
 
 	/** False once the worker failed to start or died; callers use the sync path. */
@@ -97,8 +97,8 @@ export class AnalysisWorkerClient {
 		if (!worker) {
 			return Promise.reject(new Error('Analysis worker unavailable.'));
 		}
-		if (request.workbookKey !== undefined && request.generation !== undefined) {
-			this._postSeed(worker, request.workbookKey, request.generation);
+		if (request.projectKey !== undefined && request.generation !== undefined) {
+			this._postSeed(worker, request.projectKey, request.generation);
 		}
 		return new Promise<WorkerAnalyzeResult>((resolve, reject) => {
 			const requestId = this._nextRequestId++;
@@ -123,16 +123,16 @@ export class AnalysisWorkerClient {
 		}
 	}
 
-	private _postSeed(worker: Worker, workbookKey: string, generation: number): void {
-		if (this._seededGenerations.get(workbookKey) === generation) {
+	private _postSeed(worker: Worker, projectKey: string, generation: number): void {
+		if (this._seededGenerations.get(projectKey) === generation) {
 			return;
 		}
-		const modules = this._seedProviders.get(workbookKey)?.();
+		const modules = this._seedProviders.get(projectKey)?.();
 		if (!modules) {
 			return;
 		}
-		worker.postMessage({ kind: 'seed', workbookKey, generation, modules } satisfies AnalysisWorkerRequest);
-		this._seededGenerations.set(workbookKey, generation);
+		worker.postMessage({ kind: 'seed', projectKey, generation, modules } satisfies AnalysisWorkerRequest);
+		this._seededGenerations.set(projectKey, generation);
 	}
 
 	private _ensureWorker(): Worker | undefined {
@@ -177,9 +177,9 @@ export class AnalysisWorkerClient {
 				pending.reject(new Error('Analysis worker seed mismatch.'));
 				return;
 			}
-			this._seededGenerations.delete(response.workbookKey);
-			if (pending.request.workbookKey !== undefined && pending.request.generation !== undefined) {
-				this._postSeed(worker, pending.request.workbookKey, pending.request.generation);
+			this._seededGenerations.delete(response.projectKey);
+			if (pending.request.projectKey !== undefined && pending.request.generation !== undefined) {
+				this._postSeed(worker, pending.request.projectKey, pending.request.generation);
 			}
 			const requestId = this._nextRequestId++;
 			this._track(requestId, { ...pending, retried: true });

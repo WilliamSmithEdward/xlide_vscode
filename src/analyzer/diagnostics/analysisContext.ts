@@ -117,14 +117,14 @@ export interface AnalyzeModuleOptions {
 	 */
 	implicitMembers?: readonly { name: string; type: string }[];
 	/**
-	 * Exported Sub/Function/Declare signatures across the workbook project, grouped by
+	 * Exported Sub/Function/Declare signatures across the project, grouped by
 	 * lowercased procedure name. When omitted, type and arity validation remain
 	 * single-module only.
 	 */
 	projectProcedures?: ReadonlyMap<string, readonly VbaProcedureSignature[]>;
-	/** Source-declared workbook object members and UDT fields visible to this module. */
+	/** Source-declared project object members and UDT fields visible to this module. */
 	projectClassMembers?: readonly VbaProjectClassMembers[];
-	/** Source-declared workbook type names visible to this module. */
+	/** Source-declared project type names visible to this module. */
 	projectTypes?: readonly ProjectTypeName[];
 	/**
 	 * Source-backed module-level symbols visible as bare identifiers from this

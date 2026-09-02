@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { WorkbookEngine } from './workbookEngine';
+import { ProjectEngine } from './projectEngine';
 import { notifySignatureDropped } from './xlideFileSystem';
 import {
     projectClassReferenceLocations,
@@ -11,20 +11,20 @@ import {
 } from './analyzer';
 
 export async function renameProjectClassModule(
-    bridge: WorkbookEngine,
-    xlsmPath: string,
+    bridge: ProjectEngine,
+    projectPath: string,
     oldName: string,
     newName: string,
 ): Promise<void> {
     const result = await bridge.call<{ ok: boolean; signatureDropped: boolean }>(
         'renameModule',
-        { path: xlsmPath, module: oldName, newName },
+        { path: projectPath, module: oldName, newName },
     );
-    notifySignatureDropped(xlsmPath, result.signatureDropped);
+    notifySignatureDropped(projectPath, result.signatureDropped);
 }
 
 export function projectClassReferenceEdit(
-    xlsmPath: string,
+    projectPath: string,
     byModule: Map<string, VbaNavigationModule>,
     project: ProjectIndex,
     oldName: string,
@@ -35,7 +35,7 @@ export function projectClassReferenceEdit(
     const seenUris = new Map<string, vscode.Uri>();
     let count = 0;
     for (const loc of projectClassReferenceLocations(
-        xlsmPath,
+        projectPath,
         byModule,
         project,
         oldName,

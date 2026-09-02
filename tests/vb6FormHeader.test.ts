@@ -14,7 +14,7 @@ import {
 } from '../src/vba/vb6/frmHeader';
 import { decodeFrxList, readFrxRecords } from '../src/vba/vb6/frx';
 import { decodeCodePage } from '../src/vba/codePages';
-import { readModules, readVb6FormHeaderForTests } from '../src/vba/workbookService';
+import { readModules, readVb6FormHeaderForTests } from '../src/vba/projectService';
 import { resetVb6ProjectCacheForTests } from '../src/vba/vb6/vb6Project';
 
 // A VB6 form's designer header and its .frx sidecar, measured on files Visual

@@ -18,7 +18,7 @@ interface PendingDirtyModuleBackup {
 }
 
 const DIRTY_BACKUP_DEBOUNCE_MS = 250;
-// Backups for workbooks that are deleted/moved (or modules that are renamed)
+// Backups for projects that are deleted/moved (or modules that are renamed)
 // while dirty never get reopened, so their files are pruned once stale.
 const DIRTY_BACKUP_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -159,7 +159,7 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
             /* keep generic label */
         }
         void vscode.window.showWarningMessage(
-            `XLIDE restored unsaved edits for "${label}". Save to write them to the workbook, or revert the file to discard them.`,
+            `XLIDE restored unsaved edits for "${label}". Save to write them to the project, or revert the file to discard them.`,
             'Save Now',
             'Revert',
         ).then((choice) => {

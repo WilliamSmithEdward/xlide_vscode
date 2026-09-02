@@ -6,7 +6,7 @@
 // second form adds its sub beside the first instead of rewriting it, so every
 // form keeps its own entry point and nobody loses a launcher by running a
 // different form. A form whose sub already exists needs no consent and no
-// write - there is nothing new going into the workbook.
+// write - there is nothing new going into the project.
 //
 // vscode-free on purpose, so the rules are unit-testable without an extension
 // host (src/vbaFormPreview.ts owns the command that uses them).

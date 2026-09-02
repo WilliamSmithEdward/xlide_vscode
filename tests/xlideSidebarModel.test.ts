@@ -4,7 +4,7 @@ import { buildXlideSidebarModel } from '../src/xlideSidebarModel';
 describe('xlideSidebarModel', () => {
     it('builds the sidebar sections in the product order with title-case labels', () => {
         const model = buildXlideSidebarModel({
-            workbookChoices: [
+            projectChoices: [
                 { label: 'BookA.xlsm', filePath: 'C:\\work\\BookA.xlsm' },
                 { label: 'BookB.xlsm', filePath: 'C:\\work\\BookB.xlsm' },
             ],
@@ -12,7 +12,7 @@ describe('xlideSidebarModel', () => {
 
         expect(model.map((section) => section.label)).toEqual([
             'Welcome',
-            'File Actions',
+            'Project Actions',
             'Settings',
             'Support',
         ]);
@@ -21,7 +21,7 @@ describe('xlideSidebarModel', () => {
         ]);
         expect(model[1].children?.map((node) => node.label)).toEqual([
             'Target File',
-            'Analyze File',
+            'Analyze Project',
             'Export Modules',
             'Import Modules',
             'Open Workbook in Excel',
@@ -44,24 +44,24 @@ describe('xlideSidebarModel', () => {
         const model = buildXlideSidebarModel({});
 
         expect(model.map((section) => section.id)).not.toContain('setup');
-        expect(model.map((section) => section.label)).toContain('File Actions');
+        expect(model.map((section) => section.label)).toContain('Project Actions');
         expect(model[0].children?.map((node) => node.label)).toEqual(['File Tree']);
     });
 
     it('always uses a selector for workspace file choices', () => {
         const model = buildXlideSidebarModel({
-            workbookChoices: [
+            projectChoices: [
                 { label: 'Book.xlsm', filePath: 'C:\\work\\Book.xlsm' },
             ],
-            activeWorkbook: {
+            activeProject: {
                 label: 'Book.xlsm',
                 filePath: 'C:\\work\\Book.xlsm',
                 settingsPath: 'C:\\work\\Book.xlsm.xlide_settings.json',
-                selectionSource: 'singleWorkbook',
+                selectionSource: 'singleProject',
                 settingsState: 'valid',
             },
         });
-        const selector = model[1].children?.find((node) => node.id === 'project.targetWorkbook');
+        const selector = model[1].children?.find((node) => node.id === 'project.targetProject');
 
         expect(selector?.kind).toBe('select');
         expect(selector?.label).toBe('Target File');
@@ -73,10 +73,10 @@ describe('xlideSidebarModel', () => {
 
     it('offers the Excel launcher pair only for Excel files', () => {
         const model = buildXlideSidebarModel({
-            workbookChoices: [
+            projectChoices: [
                 { label: 'Report.docm', filePath: 'C:\\work\\Report.docm' },
             ],
-            activeWorkbook: {
+            activeProject: {
                 label: 'Report.docm',
                 filePath: 'C:\\work\\Report.docm',
                 settingsPath: 'C:\\work\\Report.docm.xlide_settings.json',
@@ -99,8 +99,8 @@ describe('xlideSidebarModel', () => {
             ['Data.accdb', 'Access'],
         ] as const) {
             const model = buildXlideSidebarModel({
-                workbookChoices: [{ label: fileName, filePath: `C:\\work\\${fileName}` }],
-                activeWorkbook: {
+                projectChoices: [{ label: fileName, filePath: `C:\\work\\${fileName}` }],
+                activeProject: {
                     label: fileName,
                     filePath: `C:\\work\\${fileName}`,
                     settingsPath: `C:\\work\\${fileName}.xlide_settings.json`,
@@ -114,10 +114,10 @@ describe('xlideSidebarModel', () => {
 
     it('keeps Workbook Settings JSON out of the permanent sidebar actions', () => {
         const model = buildXlideSidebarModel({
-            workbookChoices: [
+            projectChoices: [
                 { label: 'Book.xlsm', filePath: 'C:\\work\\Book.xlsm' },
             ],
-            activeWorkbook: {
+            activeProject: {
                 label: 'Book.xlsm',
                 filePath: 'C:\\work\\Book.xlsm',
                 settingsPath: 'C:\\work\\Book.xlsm.xlide_settings.json',
@@ -126,18 +126,18 @@ describe('xlideSidebarModel', () => {
             },
         });
 
-        expect(model[1].children?.map((node) => node.id)).not.toContain('workbookActions.settingsJson');
+        expect(model[1].children?.map((node) => node.id)).not.toContain('projectActions.settingsJson');
         expect(model[1].children?.map((node) => node.label)).not.toContain('Workbook Settings JSON');
         expect(model[2].children?.map((node) => node.label)).not.toContain('Workbook Settings JSON');
     });
 
     it('passes the selected file to every file-scoped action', () => {
         const model = buildXlideSidebarModel({
-            workbookChoices: [
+            projectChoices: [
                 { label: 'First.xlsm', filePath: 'C:\\work\\First.xlsm' },
                 { label: 'Second.xlsm', filePath: 'C:\\work\\Second.xlsm' },
             ],
-            activeWorkbook: {
+            activeProject: {
                 label: 'Second.xlsm',
                 filePath: 'C:\\work\\Second.xlsm',
                 settingsPath: 'C:\\work\\Second.xlsm.xlide_settings.json',
@@ -147,19 +147,19 @@ describe('xlideSidebarModel', () => {
         });
 
         for (const id of [
-            'workbookActions.analyzeWorkbook',
-            'workbookActions.runVbaTests',
-            'workbookActions.importModules',
-            'workbookActions.exportModules',
-            'workbookActions.openWorkbook',
-            'workbookActions.openWorkbookReadOnly',
+            'projectActions.analyzeProject',
+            'projectActions.runVbaTests',
+            'projectActions.importModules',
+            'projectActions.exportModules',
+            'projectActions.openWorkbook',
+            'projectActions.openWorkbookReadOnly',
         ]) {
             expect(model[1].children?.find((node) => node.id === id)?.command?.arguments).toEqual([{
-                kind: 'xlsm',
+                kind: 'project',
                 label: 'Second.xlsm',
                 filePath: 'C:\\work\\Second.xlsm',
             }]);
         }
-        expect(model[1].children?.map((node) => node.id)).not.toContain('workbookActions.validateWorkbook');
+        expect(model[1].children?.map((node) => node.id)).not.toContain('projectActions.validateProject');
     });
 });

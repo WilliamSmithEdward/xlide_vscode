@@ -65,7 +65,7 @@
     }
   ],
   "assertions": {
-    "workbookAnalysis": {
+    "projectAnalysis": {
       "openDocuments": [
         {
           "moduleName": "OverlayTarget",
@@ -78,7 +78,7 @@
           ]
         },
         {
-          "workbookPath": "/fixtures/other-workbook.xlsm",
+          "projectPath": "/fixtures/other-workbook.xlsm",
           "moduleName": "ModuleA",
           "sourceLines": [
             "Option Explicit",

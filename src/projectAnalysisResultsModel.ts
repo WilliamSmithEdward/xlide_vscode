@@ -1,15 +1,15 @@
 import * as path from 'path';
 import type {
     AnalysisSuppressionScope,
-    WorkbookAnalysisProblem,
-    WorkbookAnalysisResult,
-    WorkbookAnalysisSeverity,
-    WorkbookAnalysisSummaryCategory,
-    WorkbookAnalysisSummaryKind,
-} from './vbaWorkbookAnalysis';
+    ProjectAnalysisProblem,
+    ProjectAnalysisResult,
+    ProjectAnalysisSeverity,
+    ProjectAnalysisSummaryCategory,
+    ProjectAnalysisSummaryKind,
+} from './vbaProjectWideAnalysis';
 import { compareVbaModulesForTreeOrder, moduleTypeBadge, moduleTypeLabel } from './moduleDisplay';
 
-export interface WorkbookAnalysisResultRow {
+export interface ProjectAnalysisResultRow {
     index: number;
     suppressed: boolean;
     moduleName: string;
@@ -20,11 +20,11 @@ export interface WorkbookAnalysisResultRow {
     line: number;
     column: number;
     endColumn: number;
-    severity: WorkbookAnalysisSeverity;
+    severity: ProjectAnalysisSeverity;
     code: string;
     ruleTitle: string;
-    category: WorkbookAnalysisSummaryCategory;
-    diagnosticKind: WorkbookAnalysisSummaryKind;
+    category: ProjectAnalysisSummaryCategory;
+    diagnosticKind: ProjectAnalysisSummaryKind;
     vbeCompileEquivalent: boolean;
     quickFixAvailable: boolean;
     quickFixTitles: string[];
@@ -33,7 +33,7 @@ export interface WorkbookAnalysisResultRow {
     specReference: string;
 }
 
-export interface WorkbookAnalysisModuleGroup {
+export interface ProjectAnalysisModuleGroup {
     moduleName: string;
     moduleType: string;
     moduleIcon: string;
@@ -42,12 +42,12 @@ export interface WorkbookAnalysisModuleGroup {
     errorCount: number;
     warningCount: number;
     informationCount: number;
-    rows: WorkbookAnalysisResultRow[];
+    rows: ProjectAnalysisResultRow[];
 }
 
-export interface WorkbookAnalysisResultsModel {
+export interface ProjectAnalysisResultsModel {
     filePath: string;
-    workbookName: string;
+    projectName: string;
     moduleCount: number;
     totalProblems: number;
     errorCount: number;
@@ -55,18 +55,18 @@ export interface WorkbookAnalysisResultsModel {
     suppressedCount: number;
     vbeCompileEquivalentCount: number;
     nonVbeCompileEquivalentCount: number;
-    byCategory: Array<{ name: WorkbookAnalysisSummaryCategory; count: number }>;
-    byDiagnosticKind: Array<{ name: WorkbookAnalysisSummaryKind; count: number }>;
-    rows: WorkbookAnalysisResultRow[];
-    suppressedRows: WorkbookAnalysisResultRow[];
-    groups: WorkbookAnalysisModuleGroup[];
+    byCategory: Array<{ name: ProjectAnalysisSummaryCategory; count: number }>;
+    byDiagnosticKind: Array<{ name: ProjectAnalysisSummaryKind; count: number }>;
+    rows: ProjectAnalysisResultRow[];
+    suppressedRows: ProjectAnalysisResultRow[];
+    groups: ProjectAnalysisModuleGroup[];
 }
 
-export function buildWorkbookAnalysisResultsModel(result: WorkbookAnalysisResult): WorkbookAnalysisResultsModel {
+export function buildProjectAnalysisResultsModel(result: ProjectAnalysisResult): ProjectAnalysisResultsModel {
     const rows = result.problems.map((problem, index) => problemToRow(problem, index, false));
     const suppressedRows = (result.suppressedProblems ?? [])
         .map((problem, index) => problemToRow(problem, index, true));
-    const groupsByModule = new Map<string, WorkbookAnalysisModuleGroup>();
+    const groupsByModule = new Map<string, ProjectAnalysisModuleGroup>();
 
     for (const row of rows) {
         const key = row.moduleName.toLowerCase();
@@ -106,7 +106,7 @@ export function buildWorkbookAnalysisResultsModel(result: WorkbookAnalysisResult
 
     return {
         filePath: result.filePath,
-        workbookName: path.basename(result.filePath),
+        projectName: path.basename(result.filePath),
         moduleCount: result.moduleCount,
         totalProblems: rows.length,
         errorCount: result.errorCount,
@@ -122,9 +122,9 @@ export function buildWorkbookAnalysisResultsModel(result: WorkbookAnalysisResult
     };
 }
 
-export function buildWorkbookAnalysisPlainText(model: WorkbookAnalysisResultsModel): string {
+export function buildProjectAnalysisPlainText(model: ProjectAnalysisResultsModel): string {
     const lines = [
-        `XLIDE Analysis Results - ${model.workbookName}`,
+        `XLIDE Analysis Results - ${model.projectName}`,
         `${model.totalProblems} problem(s), ${model.errorCount} error(s), ${model.warningCount} warning(s), ${model.moduleCount} module(s) checked.`,
         `VBE compile-equivalent: ${model.vbeCompileEquivalentCount}; XLIDE guidance/risk: ${model.nonVbeCompileEquivalentCount}.`,
     ];
@@ -148,10 +148,10 @@ export function buildWorkbookAnalysisPlainText(model: WorkbookAnalysisResultsMod
 }
 
 function problemToRow(
-    problem: WorkbookAnalysisProblem,
+    problem: ProjectAnalysisProblem,
     index: number,
     suppressed: boolean,
-): WorkbookAnalysisResultRow {
+): ProjectAnalysisResultRow {
     return {
         index,
         suppressed,

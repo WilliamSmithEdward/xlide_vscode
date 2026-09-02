@@ -1,25 +1,25 @@
 import * as vscode from 'vscode';
-import { workbookIdentityKey } from '../xlideFileSystem';
+import { projectIdentityKey } from '../xlideFileSystem';
 import { errorMessage } from '../util/errors';
 
 export interface WebviewPanelRegistry<TEntry> {
-    /** Returns the open entry for the workbook, if any. */
+    /** Returns the open entry for the project, if any. */
     get(filePath: string): TEntry | undefined;
     /** Stores the entry; the panel's dispose handler must call delete(filePath). */
     set(filePath: string, entry: TEntry): void;
     delete(filePath: string): void;
 }
 
-/** Singleton-panel registry keyed by canonical workbook identity. */
+/** Singleton-panel registry keyed by canonical project identity. */
 export function createWebviewPanelRegistry<TEntry>(): WebviewPanelRegistry<TEntry> {
     const open = new Map<string, TEntry>();
     return {
-        get: (filePath) => open.get(workbookIdentityKey(filePath)),
+        get: (filePath) => open.get(projectIdentityKey(filePath)),
         set: (filePath, entry) => {
-            open.set(workbookIdentityKey(filePath), entry);
+            open.set(projectIdentityKey(filePath), entry);
         },
         delete: (filePath) => {
-            open.delete(workbookIdentityKey(filePath));
+            open.delete(projectIdentityKey(filePath));
         },
     };
 }

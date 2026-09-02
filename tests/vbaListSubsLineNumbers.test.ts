@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import * as svc from '../src/vba/workbookService';
+import * as svc from '../src/vba/projectService';
 
 // Procedure line numbers used to be computed per match with
 // `body.slice(0, m.index).split('\n').length`, which re-walked the module from

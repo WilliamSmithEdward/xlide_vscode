@@ -22,7 +22,7 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
     },
 }));
 
-import { XlsmExplorer } from '../src/xlsmExplorer';
+import { ProjectExplorer } from '../src/projectExplorer';
 import { MACRO_CONTAINER_GLOB } from '../src/macroContainerUi';
 
 describe('a VB6 project in the explorer', () => {
@@ -36,7 +36,7 @@ describe('a VB6 project in the explorer', () => {
     });
 
     it('lists the .vbp at the root, its modules with their files, and no designer row', async () => {
-        const explorer = new XlsmExplorer(fakeBridge(
+        const explorer = new ProjectExplorer(fakeBridge(
             [
                 { name: 'Form1', type: 'userform', filePath: 'C:\\work\\Form1.frm' },
                 { name: 'modMain', type: 'standard', filePath: 'C:\\work\\modMain.bas' },
@@ -46,7 +46,7 @@ describe('a VB6 project in the explorer', () => {
         ));
 
         const [project] = await explorer.getChildren();
-        expect(project).toMatchObject({ kind: 'xlsm', label: 'App.vbp', filePath: 'C:\\work\\App.vbp' });
+        expect(project).toMatchObject({ kind: 'project', label: 'App.vbp', filePath: 'C:\\work\\App.vbp' });
         expect(explorer.getTreeItem(project).contextValue).toBe('vb6Project');
 
         const modules = await explorer.getChildren(project);
@@ -63,7 +63,7 @@ describe('a VB6 project in the explorer', () => {
     });
 });
 
-describe('XlsmExplorer', () => {
+describe('ProjectExplorer', () => {
     beforeEach(() => {
         vscodeMock.findFiles.mockReset();
         vscodeMock.showErrorMessage.mockReset();
@@ -73,11 +73,11 @@ describe('XlsmExplorer', () => {
         ]);
     });
 
-    it('lists workspace workbooks at the tree root', async () => {
-        const explorer = new XlsmExplorer(fakeBridge());
+    it('lists workspace projects at the tree root', async () => {
+        const explorer = new ProjectExplorer(fakeBridge());
 
         await expect(explorer.getChildren()).resolves.toMatchObject([{
-            kind: 'xlsm',
+            kind: 'project',
             label: 'Book.xlsm',
             filePath: 'C:\\work\\Book.xlsm',
         }]);
@@ -87,12 +87,12 @@ describe('XlsmExplorer', () => {
         );
     });
 
-    it('coalesces root workbook discovery while the tree is resolving', async () => {
+    it('coalesces root project discovery while the tree is resolving', async () => {
         let resolveFind: (value: Array<{ scheme: string; fsPath: string }>) => void = () => undefined;
         vscodeMock.findFiles.mockReturnValue(new Promise((resolve) => {
             resolveFind = resolve;
         }));
-        const explorer = new XlsmExplorer(fakeBridge());
+        const explorer = new ProjectExplorer(fakeBridge());
 
         const first = explorer.getChildren();
         const second = explorer.getChildren();
@@ -103,41 +103,41 @@ describe('XlsmExplorer', () => {
     });
 
     it('refreshes only affected module nodes during accordion transitions', async () => {
-        const explorer = new XlsmExplorer(fakeBridge([
+        const explorer = new ProjectExplorer(fakeBridge([
             { name: 'Module1', type: 'standard' },
             { name: 'Module2', type: 'standard' },
         ]));
         vscodeMock.treeEvents = [];
 
-        const [workbook] = await explorer.getChildren();
+        const [project] = await explorer.getChildren();
         await Promise.resolve();
         vscodeMock.treeEvents = [];
-        const [module1, module2] = await explorer.getChildren(workbook);
+        const [module1, module2] = await explorer.getChildren(project);
 
-        explorer.setActiveModule(workbook.filePath, 'Module1');
+        explorer.setActiveModule(project.filePath, 'Module1');
         expect(vscodeMock.treeEvents).toEqual([module1]);
 
         vscodeMock.treeEvents = [];
-        explorer.setActiveModule(workbook.filePath, 'Module2');
+        explorer.setActiveModule(project.filePath, 'Module2');
         expect(vscodeMock.treeEvents).toEqual([module1, module2]);
-        expect(vscodeMock.treeEvents).not.toContain(workbook);
+        expect(vscodeMock.treeEvents).not.toContain(project);
     });
 
     it('rotates only the affected module ids when active state changes', async () => {
-        const explorer = new XlsmExplorer(fakeBridge([
+        const explorer = new ProjectExplorer(fakeBridge([
             { name: 'Module1', type: 'standard' },
             { name: 'Module2', type: 'standard' },
         ]));
         vscodeMock.treeEvents = [];
 
-        const [workbook] = await explorer.getChildren();
+        const [project] = await explorer.getChildren();
         await Promise.resolve();
         vscodeMock.treeEvents = [];
-        const [module1, module2] = await explorer.getChildren(workbook);
+        const [module1, module2] = await explorer.getChildren(project);
         const module1Initial = explorer.getTreeItem(module1);
         const module2Initial = explorer.getTreeItem(module2);
 
-        explorer.setActiveModule(workbook.filePath, 'Module1');
+        explorer.setActiveModule(project.filePath, 'Module1');
         const module1Active = explorer.getTreeItem(module1);
         const module2Unchanged = explorer.getTreeItem(module2);
 
@@ -147,12 +147,12 @@ describe('XlsmExplorer', () => {
         expect(module2Unchanged.collapsibleState).toBe(1);
     });
 
-    it('collapses loaded non-active workbook roots when the active module changes', async () => {
+    it('collapses loaded non-active project roots when the active module changes', async () => {
         vscodeMock.findFiles.mockResolvedValue([
             { scheme: 'file', fsPath: 'C:\\work\\Book1.xlsm' },
             { scheme: 'file', fsPath: 'C:\\work\\Book2.xlsm' },
         ]);
-        const explorer = new XlsmExplorer(fakeBridge([
+        const explorer = new ProjectExplorer(fakeBridge([
             { name: 'Module1', type: 'standard' },
         ]));
 
@@ -187,12 +187,12 @@ describe('XlsmExplorer', () => {
         expect(book2AfterSwitch.collapsibleState).toBe(2);
     });
 
-    it('re-expands a workbook when focus returns to it (A -> B -> A)', async () => {
+    it('re-expands a project when focus returns to it (A -> B -> A)', async () => {
         vscodeMock.findFiles.mockResolvedValue([
             { scheme: 'file', fsPath: 'C:\\work\\Book1.xlsm' },
             { scheme: 'file', fsPath: 'C:\\work\\Book2.xlsm' },
         ]);
-        const explorer = new XlsmExplorer(fakeBridge([
+        const explorer = new ProjectExplorer(fakeBridge([
             { name: 'Module1', type: 'standard' },
         ]));
 
@@ -209,7 +209,7 @@ describe('XlsmExplorer', () => {
 
         const book1Back = explorer.getTreeItem(book1);
         const book2Back = explorer.getTreeItem(book2);
-        // Returning to A is a real cross-workbook switch (previousWorkbookKey is B,
+        // Returning to A is a real cross-project switch (previousProjectKey is B,
         // not undefined), so the root refresh fires and A re-expands rather than
         // keeping VS Code's remembered collapsed state.
         expect(vscodeMock.treeEvents).toContain(undefined);
@@ -218,13 +218,13 @@ describe('XlsmExplorer', () => {
         expect(book2Back.collapsibleState).toBe(1);
     });
 
-    it('collapses every other workbook on a cross-workbook switch (strict accordion, 3 workbooks)', async () => {
+    it('collapses every other project on a cross-project switch (strict accordion, 3 projects)', async () => {
         vscodeMock.findFiles.mockResolvedValue([
             { scheme: 'file', fsPath: 'C:\\work\\Book1.xlsm' },
             { scheme: 'file', fsPath: 'C:\\work\\Book2.xlsm' },
             { scheme: 'file', fsPath: 'C:\\work\\Book3.xlsm' },
         ]);
-        const explorer = new XlsmExplorer(fakeBridge([
+        const explorer = new ProjectExplorer(fakeBridge([
             { name: 'Module1', type: 'standard' },
         ]));
 
@@ -245,12 +245,12 @@ describe('XlsmExplorer', () => {
         expect(explorer.getTreeItem(book3).collapsibleState).toBe(1);
     });
 
-    it('does not re-render other workbook roots when switching modules in the same workbook', async () => {
+    it('does not re-render other project roots when switching modules in the same project', async () => {
         vscodeMock.findFiles.mockResolvedValue([
             { scheme: 'file', fsPath: 'C:\\work\\Book1.xlsm' },
             { scheme: 'file', fsPath: 'C:\\work\\Book2.xlsm' },
         ]);
-        const explorer = new XlsmExplorer(fakeBridge([
+        const explorer = new ProjectExplorer(fakeBridge([
             { name: 'Module1', type: 'standard' },
             { name: 'Module2', type: 'standard' },
         ]));
@@ -267,10 +267,10 @@ describe('XlsmExplorer', () => {
         expect(vscodeMock.treeEvents).not.toContain(book2);
     });
 
-    it('does not run protection probes while discovering root workbooks', async () => {
+    it('does not run protection probes while discovering root projects', async () => {
         const call = vi.fn(() => Promise.resolve({ isPasswordProtected: false, isSigned: false }));
-        const bridge = { call } as unknown as ConstructorParameters<typeof XlsmExplorer>[0];
-        const explorer = new XlsmExplorer(bridge);
+        const bridge = { call } as unknown as ConstructorParameters<typeof ProjectExplorer>[0];
+        const explorer = new ProjectExplorer(bridge);
 
         await explorer.getChildren();
         await explorer.getChildren();
@@ -278,7 +278,7 @@ describe('XlsmExplorer', () => {
         expect(call).not.toHaveBeenCalled();
     });
 
-    it('coalesces concurrent module list loads for one workbook', async () => {
+    it('coalesces concurrent module list loads for one project', async () => {
         let resolveModules: (value: Array<{ name: string; type: string }>) => void = () => undefined;
         const call = vi.fn((method: string) => {
             if (method === 'listModules') {
@@ -288,11 +288,11 @@ describe('XlsmExplorer', () => {
             }
             return Promise.resolve({ isPasswordProtected: false, isSigned: false });
         });
-        const explorer = new XlsmExplorer({ call } as unknown as ConstructorParameters<typeof XlsmExplorer>[0]);
-        const [workbook] = await explorer.getChildren();
+        const explorer = new ProjectExplorer({ call } as unknown as ConstructorParameters<typeof ProjectExplorer>[0]);
+        const [project] = await explorer.getChildren();
 
-        const first = explorer.getChildren(workbook);
-        const second = explorer.getChildren(workbook);
+        const first = explorer.getChildren(project);
+        const second = explorer.getChildren(project);
         resolveModules([{ name: 'Module1', type: 'standard' }]);
 
         await expect(Promise.all([first, second])).resolves.toHaveLength(2);
@@ -304,16 +304,16 @@ describe('XlsmExplorer', () => {
             [{ name: 'Module1', type: 'standard' }],
             [{ name: 'Run', kind: 'Sub', line: 1 }],
         );
-        const explorer = new XlsmExplorer(bridge);
-        const [workbook] = await explorer.getChildren();
-        const [module] = await explorer.getChildren(workbook);
+        const explorer = new ProjectExplorer(bridge);
+        const [project] = await explorer.getChildren();
+        const [module] = await explorer.getChildren(project);
 
         await explorer.getChildren(module);
         await explorer.getChildren(module);
 
         expect(vi.mocked(bridge.call).mock.calls.filter(([method]) => method === 'listSubs')).toHaveLength(1);
 
-        explorer.refreshModuleSubs(workbook.filePath, 'Module1');
+        explorer.refreshModuleSubs(project.filePath, 'Module1');
         await explorer.getChildren(module);
 
         expect(vi.mocked(bridge.call).mock.calls.filter(([method]) => method === 'listSubs')).toHaveLength(2);
@@ -329,9 +329,9 @@ describe('XlsmExplorer', () => {
             }
             return Promise.resolve({ isPasswordProtected: false, isSigned: false });
         });
-        const explorer = new XlsmExplorer({ call } as unknown as ConstructorParameters<typeof XlsmExplorer>[0]);
-        const [workbook] = await explorer.getChildren();
-        const [module] = await explorer.getChildren(workbook);
+        const explorer = new ProjectExplorer({ call } as unknown as ConstructorParameters<typeof ProjectExplorer>[0]);
+        const [project] = await explorer.getChildren();
+        const [module] = await explorer.getChildren(project);
 
         // Failures yield a retry placeholder (never []): VS Code caches resolved
         // children, so [] would leave the node permanently empty after a
@@ -361,13 +361,13 @@ describe('XlsmExplorer', () => {
                 return Promise.resolve([]);
             });
             const appendLine = vi.fn();
-            const explorer = new XlsmExplorer(
-                { call } as unknown as ConstructorParameters<typeof XlsmExplorer>[0],
-                { appendLine } as unknown as ConstructorParameters<typeof XlsmExplorer>[1],
+            const explorer = new ProjectExplorer(
+                { call } as unknown as ConstructorParameters<typeof ProjectExplorer>[0],
+                { appendLine } as unknown as ConstructorParameters<typeof ProjectExplorer>[1],
             );
-            const [workbook] = await explorer.getChildren();
+            const [project] = await explorer.getChildren();
 
-            await explorer.getChildren(workbook);
+            await explorer.getChildren(project);
             await vi.advanceTimersByTimeAsync(2000);
 
             expect(appendLine).toHaveBeenCalledWith(
@@ -383,10 +383,10 @@ describe('XlsmExplorer', () => {
         vi.useFakeTimers();
         try {
             const bridge = fakeBridge([{ name: 'Module1', type: 'standard' }]);
-            const explorer = new XlsmExplorer(bridge);
-            const [workbook] = await explorer.getChildren();
+            const explorer = new ProjectExplorer(bridge);
+            const [project] = await explorer.getChildren();
 
-            await explorer.getChildren(workbook);
+            await explorer.getChildren(project);
 
             expect(vi.mocked(bridge.call).mock.calls.filter(([method]) => method === 'getProtectionInfo'))
                 .toHaveLength(0);
@@ -404,7 +404,7 @@ describe('XlsmExplorer', () => {
     });
 });
 
-describe('XlsmExplorer transient load failures', () => {
+describe('ProjectExplorer transient load failures', () => {
     beforeEach(() => {
         vscodeMock.findFiles.mockReset();
         vscodeMock.showErrorMessage.mockReset();
@@ -428,14 +428,14 @@ describe('XlsmExplorer transient load failures', () => {
                 }
                 return Promise.resolve({ isPasswordProtected: false, isSigned: false });
             }),
-        } as unknown as ConstructorParameters<typeof XlsmExplorer>[0];
+        } as unknown as ConstructorParameters<typeof ProjectExplorer>[0];
 
-        const explorer = new XlsmExplorer(bridge);
-        const [workbook] = await explorer.getChildren();
+        const explorer = new ProjectExplorer(bridge);
+        const [project] = await explorer.getChildren();
 
         // Failure: the node must yield a clickable placeholder, not [] (VS Code
         // caches resolved children, so [] would brick the node until restart).
-        const failed = await explorer.getChildren(workbook);
+        const failed = await explorer.getChildren(project);
         expect(failed).toMatchObject([{ kind: 'loadError', filePath: 'C:\\work\\Book.xlsm' }]);
         expect(failed[0].moduleName).toBeUndefined();
 
@@ -444,8 +444,8 @@ describe('XlsmExplorer transient load failures', () => {
         failNext = false;
         vscodeMock.treeEvents = [];
         explorer.retryLoad(failed[0]);
-        expect(vscodeMock.treeEvents).toContainEqual(expect.objectContaining({ kind: 'xlsm' }));
-        const recovered = await explorer.getChildren(workbook);
+        expect(vscodeMock.treeEvents).toContainEqual(expect.objectContaining({ kind: 'project' }));
+        const recovered = await explorer.getChildren(project);
         expect(recovered).toMatchObject([{ kind: 'module', moduleName: 'Module1' }]);
     });
 
@@ -464,11 +464,11 @@ describe('XlsmExplorer transient load failures', () => {
                 }
                 return Promise.resolve({ isPasswordProtected: false, isSigned: false });
             }),
-        } as unknown as ConstructorParameters<typeof XlsmExplorer>[0];
+        } as unknown as ConstructorParameters<typeof ProjectExplorer>[0];
 
-        const explorer = new XlsmExplorer(bridge);
-        const [workbook] = await explorer.getChildren();
-        const [module] = await explorer.getChildren(workbook);
+        const explorer = new ProjectExplorer(bridge);
+        const [project] = await explorer.getChildren();
+        const [module] = await explorer.getChildren(project);
 
         const failed = await explorer.getChildren(module);
         expect(failed).toMatchObject([{ kind: 'loadError', moduleName: 'Module1' }]);
@@ -497,5 +497,5 @@ function fakeBridge(
             }
             return Promise.resolve({ isPasswordProtected: false, isSigned: false });
         }),
-    } as unknown as ConstructorParameters<typeof XlsmExplorer>[0];
+    } as unknown as ConstructorParameters<typeof ProjectExplorer>[0];
 }

@@ -60,7 +60,7 @@ export function containerAppNameForPath(fsPath: string): string {
 	}
 }
 
-/** The tree item context value that gates a workbook node's menu surface. */
+/** The tree item context value that gates a project node's menu surface. */
 export function containerContextValue(fsPath: string): 'xlsm' | 'macroDocument' | 'macroReadOnly' | 'vb6Project' {
 	if (isVb6ProjectPath(fsPath)) {
 		return 'vb6Project';

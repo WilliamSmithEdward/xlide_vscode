@@ -48,7 +48,7 @@ export async function withWorkbookReopenSuppressed<T>(
     filePath: string,
     fn: () => Promise<T>,
 ): Promise<T> {
-    const key = workbookKey(filePath);
+    const key = projectKey(filePath);
     reopenSuppressedPaths.set(key, (reopenSuppressedPaths.get(key) ?? 0) + 1);
     try {
         return await fn();
@@ -63,7 +63,7 @@ export async function withWorkbookReopenSuppressed<T>(
 }
 
 function isWorkbookReopenSuppressed(filePath: string): boolean {
-    return reopenSuppressedPaths.has(workbookKey(filePath));
+    return reopenSuppressedPaths.has(projectKey(filePath));
 }
 
 // Workbooks whose read-only refresh PowerShell is currently in flight, so rapid
@@ -74,20 +74,20 @@ const readOnlyRefreshInFlight = new Set<string>();
 // closeTracked only ever closes workbooks the user opened through XLIDE.
 const xlideOpenedWorkbooks = new Set<string>();
 
-function workbookKey(filePath: string): string {
+function projectKey(filePath: string): string {
     return path.win32.normalize(filePath).toLowerCase();
 }
 
 export function markWorkbookOpenedByXlide(filePath: string): void {
-    xlideOpenedWorkbooks.add(workbookKey(filePath));
+    xlideOpenedWorkbooks.add(projectKey(filePath));
 }
 
 export function wasWorkbookOpenedByXlide(filePath: string): boolean {
-    return xlideOpenedWorkbooks.has(workbookKey(filePath));
+    return xlideOpenedWorkbooks.has(projectKey(filePath));
 }
 
 export function forgetWorkbookOpenedByXlide(filePath: string): void {
-    xlideOpenedWorkbooks.delete(workbookKey(filePath));
+    xlideOpenedWorkbooks.delete(projectKey(filePath));
 }
 
 export interface ExcelCoordinationSettings {
@@ -320,7 +320,7 @@ export async function refreshReadOnlyViewAfterSave(
     if (process.platform !== 'win32') {
         return;
     }
-    const key = workbookKey(filePath);
+    const key = projectKey(filePath);
     if (readOnlyRefreshInFlight.has(key)) {
         return;
     }

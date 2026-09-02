@@ -2,14 +2,14 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 
-import type { WorkbookEngine } from '../src/workbookEngine';
+import type { ProjectEngine } from '../src/projectEngine';
 import { VbaSymbolIndex } from '../src/vbaSymbolIndex';
-import { fakeWorkbookEngine } from './helpers/fakeWorkbookEngine';
+import { fakeProjectEngine } from './helpers/fakeProjectEngine';
 import { deferred, flushPromises } from './helpers/async';
 
-describe('VbaSymbolIndex workbook identity', () => {
-	it('keeps identical module names siloed by workbook path', async () => {
-		const bridge = fakeWorkbookEngine({
+describe('VbaSymbolIndex project identity', () => {
+	it('keeps identical module names siloed by project path', async () => {
+		const bridge = fakeProjectEngine({
 			'C:/One/Book.xlsm': [{ name: 'Module1', type: 'standard', source: 'Sub FromOne()\nEnd Sub\n' }],
 			'C:/Two/Book.xlsm': [{ name: 'Module1', type: 'standard', source: 'Sub FromTwo()\nEnd Sub\n' }],
 		});
@@ -22,8 +22,8 @@ describe('VbaSymbolIndex workbook identity', () => {
 		expect(second.source).toContain('FromTwo');
 	});
 
-	it('uses one case-insensitive module cache key within a workbook', async () => {
-		const bridge = fakeWorkbookEngine({
+	it('uses one case-insensitive module cache key within a project', async () => {
+		const bridge = fakeProjectEngine({
 			'C:/Book.xlsm': [{ name: 'Module1', type: 'standard', source: 'Sub Cached()\nEnd Sub\n' }],
 		});
 		const index = new VbaSymbolIndex(bridge);
@@ -35,7 +35,7 @@ describe('VbaSymbolIndex workbook identity', () => {
 	});
 
 	it('updates a cached module directly from saved editor text', async () => {
-		const bridge = fakeWorkbookEngine({});
+		const bridge = fakeProjectEngine({});
 		const index = new VbaSymbolIndex(bridge);
 
 		index.updateModuleSource('C:/Book.xlsm', 'Module1', 'Sub Saved()\nEnd Sub\n');
@@ -49,7 +49,7 @@ describe('VbaSymbolIndex workbook identity', () => {
 		const read = deferred<{ source: string }>();
 		const bridge = {
 			call: vi.fn((_method: string, _payload: { path: string; module?: string }) => read.promise),
-		} as unknown as WorkbookEngine;
+		} as unknown as ProjectEngine;
 		const index = new VbaSymbolIndex(bridge);
 
 		const first = index.getModule('C:/Book.xlsm', 'Module1');
@@ -63,8 +63,8 @@ describe('VbaSymbolIndex workbook identity', () => {
 		expect(firstModule.source).toContain('Shared');
 	});
 
-	it('shares workbook indexing and reuses the cached module list', async () => {
-		const bridge = fakeWorkbookEngine({
+	it('shares project indexing and reuses the cached module list', async () => {
+		const bridge = fakeProjectEngine({
 			'C:/Book.xlsm': [
 				{ name: 'Module1', type: 'standard', source: 'Sub First()\nEnd Sub\n' },
 				{ name: 'Module2', type: 'standard', source: 'Sub Second()\nEnd Sub\n' },
@@ -90,7 +90,7 @@ describe('VbaSymbolIndex workbook identity', () => {
 		const read = deferred<{ source: string }>();
 		const bridge = {
 			call: vi.fn((_method: string, _payload: { path: string; module?: string }) => read.promise),
-		} as unknown as WorkbookEngine;
+		} as unknown as ProjectEngine;
 		const index = new VbaSymbolIndex(bridge);
 
 		const pending = index.getModule('C:/Book.xlsm', 'Module1');

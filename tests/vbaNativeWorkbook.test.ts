@@ -7,7 +7,7 @@ import { compress, decompress } from '../src/vba/ovba';
 import { VbaProject, detectSignature } from '../src/vba/vbaProject';
 import { ZipArchive } from '../src/vba/zip';
 import { XlsxWorkbook } from '../src/vba/xlsx';
-import * as svc from '../src/vba/workbookService';
+import * as svc from '../src/vba/projectService';
 
 // The bundled blank workbook is a real macro-enabled package (OOXML ZIP + a
 // vbaProject.bin CFB), so these run the whole native stack without needing any
@@ -163,7 +163,7 @@ describe('native workbook service', () => {
 		for (const module of before) {
 			expect(after.find((m) => m.name === module.name)?.source, module.name).toBe(module.source);
 		}
-		expect(svc.validateWorkbook(target).issues).toEqual([]);
+		expect(svc.validateProject(target).issues).toEqual([]);
 	});
 
 	it('creates class modules with a class header', () => {
@@ -195,7 +195,7 @@ describe('native workbook service', () => {
 	});
 
 	it('reports workbook info in one pass', () => {
-		const info = svc.getWorkbookInfo(TEMPLATE);
+		const info = svc.getProjectInfo(TEMPLATE);
 		expect(info.sheets.length).toBeGreaterThan(0);
 		expect(Array.isArray(info.namedRanges)).toBe(true);
 		expect(info.modules.length).toBeGreaterThan(0);
@@ -300,7 +300,7 @@ describe('lazy module sources', () => {
 });
 
 describe('packaged assets', () => {
-	// createWorkbook copies these files out of the installed extension, so each
+	// createProject copies these files out of the installed extension, so each
 	// has to be inside the .vsix. The broad `**/*.xls?` rules in .vscodeignore
 	// keep test workbooks out of the package and silently took the .xlsm one
 	// with it once; the failure only shows up as New Macro-Enabled File
@@ -361,9 +361,9 @@ describe('blank file templates', () => {
 	});
 });
 
-describe('createWorkbook template dispatch', () => {
+describe('createProject template dispatch', () => {
 	// The template is chosen by the target's extension. Before this existed the
-	// command's own save dialog offered .xlsb while createWorkbook always copied
+	// command's own save dialog offered .xlsb while createProject always copied
 	// blank.xlsm, so choosing .xlsb produced an .xlsm-format file under an .xlsb
 	// name - a file Excel rejects or repairs.
 	it.each([
@@ -373,7 +373,7 @@ describe('createWorkbook template dispatch', () => {
 	])('seeds %s from %s', (targetName, templateFile) => {
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-create-'));
 		const target = path.join(dir, targetName);
-		svc.createWorkbook(target, path.join(TEMPLATE_DIR, templateFile));
+		svc.createProject(target, path.join(TEMPLATE_DIR, templateFile));
 
 		expect(fs.readFileSync(target).equals(fs.readFileSync(path.join(TEMPLATE_DIR, templateFile)))).toBe(true);
 	});
@@ -383,7 +383,7 @@ describe('createWorkbook template dispatch', () => {
 		// macro into it, read it back through the same engine an editor uses.
 		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-create-'));
 		const target = path.join(dir, 'SentinelAddIn.xlam');
-		svc.createWorkbook(target, path.join(TEMPLATE_DIR, 'blank.xlam'));
+		svc.createProject(target, path.join(TEMPLATE_DIR, 'blank.xlam'));
 
 		svc.writeModule(target, 'Sentinel', 'Public Sub Ping()\r\n    Debug.Print "ok"\r\nEnd Sub\r\n');
 
@@ -396,15 +396,15 @@ describe('createWorkbook template dispatch', () => {
 describe('workbook parse cache', () => {
 	it('serves repeated reads from one parse, with identical results', () => {
 		const file = tempCopy();
-		svc.resetWorkbookCacheForTests();
+		svc.resetProjectCacheForTests();
 
 		const first = svc.listModules(file);
-		const afterFirst = svc.workbookCacheStatsForTests();
+		const afterFirst = svc.projectCacheStatsForTests();
 		const again = svc.listModules(file);
 		const subs = svc.listSubs(file, first[0].name);
 		const protection = svc.getProtectionInfo(file);
 		const sheets = svc.listSheets(file);
-		const after = svc.workbookCacheStatsForTests();
+		const after = svc.projectCacheStatsForTests();
 
 		expect(again).toEqual(first);
 		expect(subs).toEqual(svc.listSubs(file, first[0].name));
@@ -418,7 +418,7 @@ describe('workbook parse cache', () => {
 
 	it('a write through the engine invalidates the cached parse', () => {
 		const file = tempCopy();
-		svc.resetWorkbookCacheForTests();
+		svc.resetProjectCacheForTests();
 
 		expect(svc.listModules(file).map((m) => m.name)).not.toContain('CacheProbe');
 		svc.writeModule(file, 'CacheProbe', 'Public Sub P()\r\nEnd Sub\r\n', 'standard');
@@ -431,7 +431,7 @@ describe('workbook parse cache', () => {
 		const file = tempCopy();
 		const other = tempCopy();
 		svc.writeModule(other, 'External', 'Public Sub E()\r\nEnd Sub\r\n', 'standard');
-		svc.resetWorkbookCacheForTests();
+		svc.resetProjectCacheForTests();
 
 		expect(svc.listModules(file).map((m) => m.name)).not.toContain('External');
 		// Simulate Excel/git/another window replacing the file behind XLIDE's
@@ -446,10 +446,10 @@ describe('workbook parse cache', () => {
 	});
 
 	it('caps the cache and evicts the least recently used entry', () => {
-		svc.resetWorkbookCacheForTests();
+		svc.resetProjectCacheForTests();
 		const files = Array.from({ length: 6 }, () => tempCopy());
 		for (const file of files) { svc.listModules(file); }
-		expect(svc.workbookCacheStatsForTests().size).toBeLessThanOrEqual(4);
+		expect(svc.projectCacheStatsForTests().size).toBeLessThanOrEqual(4);
 		// The evicted workbook still reads correctly - just via a fresh parse.
 		expect(svc.listModules(files[0]).length).toBeGreaterThan(0);
 	});

@@ -91,7 +91,7 @@
                 return item.existsInRepo ? 'No repo file code to copy.' : 'Repo file does not exist yet.';
             }
             if (title.startsWith('File:')) {
-                return item.existsInWorkbook ? 'No module code in the file to copy.' : 'The module does not exist in the file yet.';
+                return item.existsInProject ? 'No module code in the file to copy.' : 'The module does not exist in the file yet.';
             }
             return side === 'left' ? 'No left-side code to copy.' : 'No right-side code to copy.';
         }
@@ -222,7 +222,7 @@
         }
 
         function settingsSourceLabel(source) {
-            if (source === 'workbook') return 'File override';
+            if (source === 'project') return 'Project override';
             if (source === 'session') return 'Current session';
             if (source === 'machine') return 'VS Code machine setting';
             if (source === 'unknown') return 'Unknown';
@@ -230,7 +230,7 @@
         }
 
         function folderSourceLabel(source) {
-            if (source === 'workbook') return 'File sidecar';
+            if (source === 'project') return 'Project sidecar';
             if (source === 'session') return 'Current session';
             return 'Not saved';
         }
@@ -247,7 +247,7 @@
 
         function renderChrome() {
             el('title').textContent = plan.title;
-            el('subtitle').textContent = `${plan.workbookPath} <-> ${plan.folderPath}${plan.exportMode ? '  [' + plan.exportMode + ']' : ''}`;
+            el('subtitle').textContent = `${plan.projectPath} <-> ${plan.folderPath}${plan.exportMode ? '  [' + plan.exportMode + ']' : ''}`;
             el('folderLabel').textContent = plan.direction === 'export' ? 'Export folder' : 'Import folder';
             el('folderValue').textContent = plan.folderPath;
             el('folderSource').textContent = `Source: ${folderSourceLabel(plan.folderPathSource)}`;
@@ -274,7 +274,7 @@
             }
             const modeSource = plan.direction === 'export' ? plan.exportModeSource : plan.importModeSource;
             el('modeSource').textContent = `Source: ${settingsSourceLabel(modeSource)}`;
-            setTooltip('modeSource', `This mode uses a workbook override when present, otherwise the built-in default.${settingsPathDescription()}`);
+            setTooltip('modeSource', `This mode uses a project override when present, otherwise the built-in default.${settingsPathDescription()}`);
             updateModeTitle();
             el('selectChanged').textContent = 'Select Pending';
             setTooltip('selectChanged', plan.direction === 'import'
@@ -366,7 +366,7 @@
          * Selection and active-row changes only touch attributes on rows that
          * already exist - rebuilding the list on every click also rebuilt every
          * listener, and paired with a full diff rebuild made each click O(whole
-         * workbook).
+         * project).
          */
         function syncListState() {
             for (const item of plan.items) {
