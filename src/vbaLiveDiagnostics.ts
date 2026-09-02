@@ -10,12 +10,12 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import {
     XLIDE_SCHEME,
-    decodeModuleUri,
     isVbaDocument,
     moduleIdentityKey,
     workbookIdentityKey,
 } from './xlideFileSystem';
-import { moduleNameFromDocument } from './vbaDocumentIdentity';
+import { analysisSourceForDocument, moduleLocationOfDocument, moduleNameFromDocument } from './vbaDocumentIdentity';
+import { onDidChangeVb6Projects } from './vb6ProjectLocator';
 import {
     diagnosticMetadataForCode,
     diagnosticSourceForCode,
@@ -252,13 +252,9 @@ class WorkbookSettingsWatcherRegistry implements vscode.Disposable {
     prune(): void {
         const openWorkbookKeys = new Set<string>();
         for (const document of vscode.workspace.textDocuments) {
-            if (document.uri.scheme !== XLIDE_SCHEME) {
-                continue;
-            }
-            try {
-                openWorkbookKeys.add(workbookContextKey(decodeModuleUri(document.uri).xlsmPath));
-            } catch {
-                // Ignore invalid XLIDE URIs.
+            const location = moduleLocationOfDocument(document);
+            if (location) {
+                openWorkbookKeys.add(workbookContextKey(location.xlsmPath));
             }
         }
         for (const [key, disposables] of this._watchers) {
@@ -490,7 +486,7 @@ export function registerVbaDiagnostics(
             }
             return;
         }
-        const text = document.getText();
+        const text = analysisSourceForDocument(document);
 
         const moduleName = moduleNameFromDocument(document);
         let workbookPath: string | undefined;
@@ -499,12 +495,14 @@ export function registerVbaDiagnostics(
         let documentType: EventHandlerDocumentType | undefined;
         let projectOptions: VbaProjectAnalysisOptions = {};
         let workbookRecord: Awaited<ReturnType<VbaProjectIndexService['contextForWorkbook']>> | undefined;
-        // Non-workbook documents (a .bas on disk) have no metadata source and
-        // keep the historical standard-kind analysis.
-        let moduleMetadataKnown = document.uri.scheme !== XLIDE_SCHEME;
-        if (document.uri.scheme === XLIDE_SCHEME) {
+        // A loose document (a .bas on disk no project claims) has no metadata
+        // source and keeps the historical standard-kind analysis. A workbook
+        // module and a VB6 project's file both have a project to ask.
+        const location = moduleLocationOfDocument(document);
+        let moduleMetadataKnown = location === undefined;
+        if (location) {
             try {
-                const { xlsmPath } = decodeModuleUri(document.uri);
+                const xlsmPath = location.xlsmPath;
                 workbookPath = xlsmPath;
                 settingsWatchers.ensure(xlsmPath);
                 if (pass === 'full' || workerClient?.available === true) {
@@ -685,21 +683,25 @@ export function registerVbaDiagnostics(
     const rerunWorkbookDocuments = (workbookPath: string): void => {
         const key = workbookKey(workbookPath);
         for (const document of vscode.workspace.textDocuments) {
-            if (document.uri.scheme !== XLIDE_SCHEME) {
-                continue;
-            }
-            try {
-                if (workbookKey(decodeModuleUri(document.uri).xlsmPath) === key) {
-                    run(document);
-                }
-            } catch {
-                // Ignore URIs that are no longer valid XLIDE module documents.
+            const location = moduleLocationOfDocument(document);
+            if (location && workbookKey(location.xlsmPath) === key) {
+                run(document);
             }
         }
     };
 
     context.subscriptions.push(
         collection,
+        // A VB6 project map that just loaded or changed can move a file from
+        // "loose module" to "member of a project", which changes its
+        // analysis: rerun every open file on disk.
+        onDidChangeVb6Projects(() => {
+            for (const document of vscode.workspace.textDocuments) {
+                if (document.uri.scheme === 'file' && isVbaDocument(document)) {
+                    scheduler.schedule(document);
+                }
+            }
+        }),
         vscode.workspace.onDidOpenTextDocument((document) => scheduler.schedule(document, {
             localDelayMs: DIAGNOSTIC_OPEN_LOCAL_DELAY_MS,
             fullDelayMs: DIAGNOSTIC_OPEN_FULL_DELAY_MS,

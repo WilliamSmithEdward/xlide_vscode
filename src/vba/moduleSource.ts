@@ -58,6 +58,61 @@ export function splitVbaSource(source: string): { header: string; body: string }
 	};
 }
 
+/**
+ * The end offset of the block a file opens with when it is a designer or
+ * class preamble: `VERSION n` then `Begin`/`BEGIN` ... `End`/`END`, nested
+ * once per control. `BeginProperty` ... `EndProperty` blocks inside it are
+ * property groups (a Font), not nesting, and pass through. Zero when the
+ * file opens with no such block, or the block never closes - in which case
+ * nothing is treated as header, because hiding code is worse than showing a
+ * header.
+ */
+export function designerHeaderEnd(text: string): number {
+	const lines = text.split(/(?<=\n)/);
+	let i = 0;
+	while (i < lines.length && lines[i].trim() === '') {
+		i++;
+	}
+	if (i >= lines.length || !/^\s*VERSION\s+\d/i.test(lines[i])) {
+		return 0;
+	}
+	i++;
+	while (i < lines.length && lines[i].trim() === '') {
+		i++;
+	}
+	if (i >= lines.length || !/^\s*Begin\b/i.test(lines[i])) {
+		return 0;
+	}
+	let depth = 0;
+	let offset = lines.slice(0, i).reduce((sum, line) => sum + line.length, 0);
+	for (; i < lines.length; i++) {
+		const line = lines[i];
+		offset += line.length;
+		if (/^\s*Begin\b/i.test(line)) {
+			depth++;
+		} else if (/^\s*End\s*$/i.test(line)) {
+			depth--;
+			if (depth === 0) {
+				return offset;
+			}
+		}
+	}
+	return 0;
+}
+
+/**
+ * The text with its designer or class preamble turned to spaces, line
+ * breaks kept: the parser sees VBA only, and every offset is still the
+ * file's own.
+ */
+export function blankDesignerHeader(text: string): string {
+	const end = designerHeaderEnd(text);
+	if (end === 0) {
+		return text;
+	}
+	return text.slice(0, end).replace(/[^\r\n]/g, ' ') + text.slice(end);
+}
+
 export function joinVbaSource(header: string, body: string): string {
 	if (!header) { return body; }
 	return `${header.replace(/[\r\n]+$/, '')}\r\n${body}`;

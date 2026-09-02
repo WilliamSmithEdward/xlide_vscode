@@ -8,6 +8,7 @@ import {
 } from './analyzer';
 import { WorkbookEngine } from './workbookEngine';
 import { encodeModuleUri, notifySignatureDropped } from './xlideFileSystem';
+import { moduleDocumentUri } from './vbaDocumentLocation';
 import {
     offsetToPosition,
     retargetModuleLocation,
@@ -53,7 +54,7 @@ function spanLocation(
     span: Span,
 ): vscode.Location {
     return new vscode.Location(
-        encodeModuleUri(xlsmPath, mod.moduleName),
+        moduleDocumentUri(xlsmPath, mod),
         new vscode.Range(
             offsetToPosition(mod.source, span.start),
             offsetToPosition(mod.source, span.end),

@@ -7,10 +7,12 @@
 import * as vscode from 'vscode';
 import { XLIDE_SCHEME, decodeModuleUri, isVbaDocument } from './xlideFileSystem';
 import {
+    analysisSourceForDocument,
     liveProjectIndexForDocument,
     moduleKindFromDocument,
     moduleNameFromDocument,
 } from './vbaDocumentIdentity';
+import { moduleLocationOfDocument } from './vbaDocumentLocation';
 import {
     collectHostGlobalTokens,
     collectHostMemberMethodTokens,
@@ -103,7 +105,7 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
         try {
             if (!isVbaDocument(document)) { return builder.build(); }
 
-            const source = document.getText();
+            const source = analysisSourceForDocument(document);
             const moduleName = moduleNameFromDocument(document);
             const projectContext = document.uri.scheme === XLIDE_SCHEME
                 ? this._cachedProjectTypesForDocument(document, { requireFresh: false })
@@ -203,7 +205,7 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
             }
             this._refreshProjectTypesInBackground(
                 document,
-                document.getText(),
+                analysisSourceForDocument(document),
                 moduleNameFromDocument(document),
             );
         }, TYPE_SEMANTIC_PROJECT_TYPES_REFRESH_DELAY_MS);
@@ -296,11 +298,12 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
     private async _codeNamesForDocument(
         document: vscode.TextDocument,
     ): Promise<Record<string, string> | undefined> {
-        if (document.uri.scheme !== XLIDE_SCHEME) {
+        const location = moduleLocationOfDocument(document);
+        if (!location) {
             return undefined;
         }
         try {
-            const xlsmPath = decodeModuleUri(document.uri).xlsmPath;
+            const xlsmPath = location.xlsmPath;
             // The same cached workbook context the project build above used.
             const context = await this._projectIndexService.contextForWorkbook(xlsmPath, 'live');
             return codeNameHostTypesForModules(
@@ -322,13 +325,18 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
         document: vscode.TextDocument,
         moduleName: string,
     ): Promise<string | undefined> {
-        if (document.uri.scheme !== XLIDE_SCHEME) {
+        const location = moduleLocationOfDocument(document);
+        if (!location) {
             return moduleKindFromDocument(document) === 'userform' ? 'MSForms.UserForm' : undefined;
+        }
+        if (hostTokenForFileName(location.xlsmPath) === 'vb6') {
+            // A VB6 form is a VB.Form; its surface arrives with the vb6 model.
+            return undefined;
         }
         try {
             // The same cached workbook context the project build above used.
             const context = await this._projectIndexService.contextForWorkbook(
-                decodeModuleUri(document.uri).xlsmPath,
+                location.xlsmPath,
                 'live',
             );
             return context.moduleMetadata.get(moduleIdentityKey(moduleName))?.moduleKind === 'userform'
@@ -342,12 +350,6 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
 
 /** The host model for the document's container; undefined keeps Excel defaults. */
 function hostModelForDocument(document: vscode.TextDocument): HostObjectModel | undefined {
-    if (document.uri.scheme !== XLIDE_SCHEME) {
-        return undefined;
-    }
-    try {
-        return hostObjectModelForToken(hostTokenForFileName(decodeModuleUri(document.uri).xlsmPath));
-    } catch {
-        return undefined;
-    }
+    const location = moduleLocationOfDocument(document);
+    return location ? hostObjectModelForToken(hostTokenForFileName(location.xlsmPath)) : undefined;
 }

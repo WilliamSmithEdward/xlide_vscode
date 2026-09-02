@@ -22,12 +22,11 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import {
-    XLIDE_SCHEME,
-    decodeModuleUri,
     moduleIdentityKey,
     workbookIdentityKey,
 } from './xlideFileSystem';
 import { VbaSymbolIndex, type VbaModuleSymbols } from './vbaSymbolIndex';
+import { analysisSourceForDocument, moduleLocationOfDocument } from './vbaDocumentLocation';
 import type {
     EventHandlerDocumentType,
     ModuleSymbolKind,
@@ -292,32 +291,28 @@ export class VbaProjectIndexService implements vscode.Disposable {
                 documentType: mod.documentType,
                 implicitMembers: mod.implicitMembers,
                 predeclaredId: mod.predeclaredId,
+                filePath: mod.filePath,
             });
         }
         return record;
     }
 
-    /** Folds the editor text of every open module of the workbook (by version). */
+    /**
+     * Folds the editor text of every open module of the container (by
+     * version): a workbook's virtual documents, or a VB6 project's own files.
+     */
     private _applyOpenDocumentSources(xlsmPath: string, record: WorkbookProjectRecord): void {
         const key = workbookProjectKey(xlsmPath);
         for (const openDocument of vscode.workspace.textDocuments) {
-            if (openDocument.uri.scheme !== XLIDE_SCHEME) {
-                continue;
-            }
-            let decoded: { xlsmPath: string; moduleName: string };
-            try {
-                decoded = decodeModuleUri(openDocument.uri);
-            } catch {
-                continue;
-            }
-            if (workbookProjectKey(decoded.xlsmPath) !== key) {
+            const location = moduleLocationOfDocument(openDocument);
+            if (!location || workbookProjectKey(location.xlsmPath) !== key) {
                 continue;
             }
             const documentKey = openDocument.uri.toString();
             if (record.appliedDocumentVersions.get(documentKey) === openDocument.version) {
                 continue;
             }
-            record.applyModule(decoded.moduleName, openDocument.getText(), {});
+            record.applyModule(location.moduleName, analysisSourceForDocument(openDocument), {});
             record.appliedDocumentVersions.set(documentKey, openDocument.version);
         }
     }
@@ -347,13 +342,9 @@ export class VbaProjectIndexService implements vscode.Disposable {
     }
 
     private _invalidateForDocument(document: vscode.TextDocument): void {
-        if (document.uri.scheme !== XLIDE_SCHEME) {
-            return;
-        }
-        try {
-            this.invalidate(decodeModuleUri(document.uri).xlsmPath);
-        } catch {
-            this._records.clear();
+        const location = moduleLocationOfDocument(document);
+        if (location) {
+            this.invalidate(location.xlsmPath);
         }
     }
 }

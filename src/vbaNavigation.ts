@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { encodeModuleUri } from './xlideFileSystem';
+import { moduleDocumentUri } from './vbaDocumentLocation';
 import { interfacePrefixHits } from './vbaInterfacePrefix';
 import {
     collectTypeNameReferences,
@@ -56,7 +57,7 @@ export function projectTypeDefinitionToLocation(
     const span = definition.nameSpan ?? { start: 0, end: 0 };
     const toPosition = createOffsetToPositionConverter(mod.source);
     return new vscode.Location(
-        encodeModuleUri(xlsmPath, mod.moduleName),
+        moduleDocumentUri(xlsmPath, mod),
         new vscode.Range(toPosition(span.start), toPosition(span.end)),
     );
 }
@@ -103,7 +104,7 @@ export function typeReferenceLocations(
     }
 
     for (const mod of byModule.values()) {
-        const uri = encodeModuleUri(xlsmPath, mod.moduleName);
+        const uri = moduleDocumentUri(xlsmPath, mod);
         const toPosition = createOffsetToPositionConverter(mod.source);
         for (const ref of collectTypeNameReferences(mod.source)) {
             if (ref.name.toLowerCase() !== lower) {
@@ -206,7 +207,7 @@ function interfacePrefixLocations(
         if (!implemented.some((name) => name.toLowerCase() === wanted)) {
             continue;
         }
-        const uri = encodeModuleUri(xlsmPath, mod.moduleName);
+        const uri = moduleDocumentUri(xlsmPath, mod);
         for (const hit of interfacePrefixHits(mod.source, interfaceName)) {
             out.push(new vscode.Location(
                 uri,

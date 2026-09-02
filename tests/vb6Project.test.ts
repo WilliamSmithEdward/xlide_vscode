@@ -150,26 +150,32 @@ describe('a VB6 project through the engine', () => {
 		expect(listModules(DIABETES).map((m) => `${m.name}:${m.type}`)).toEqual(['Form1:userform', 'OS:standard']);
 	});
 
-	it('reads a form as its code-behind, designer block stripped, header kept only when asked', () => {
-		const body = readModule(RUN_AS_TI, 'Form1').source;
-		expect(body).not.toMatch(/Begin VB\.Form/);
-		expect(body).not.toMatch(/^Attribute VB_Name/m);
-		expect(body).toMatch(/Private Sub Form_Load\(\)/);
+	it('reads a form as its own file with the designer block blanked, every offset kept', () => {
+		const raw = fs.readFileSync(path.join(path.dirname(RUN_AS_TI), 'Form1.frm'), 'latin1');
+		const aligned = readModule(RUN_AS_TI, 'Form1').source;
+		expect(aligned.length).toBe(raw.length);
+		expect(aligned).not.toMatch(/Begin VB\.Form/);
+		expect(aligned).toMatch(/^Attribute VB_Name = "Form1"/m);
+		expect(aligned).toMatch(/Private Sub Form_Load\(\)/);
+		// The module's lines ARE the file's lines: what an analysis or an
+		// agent reports as line 128 is line 128 of Form1.frm.
+		expect(aligned.split('\r\n')[127]).toBe(raw.split('\r\n')[127]);
 
-		const full = readModule(RUN_AS_TI, 'Form1', true).source;
-		expect(full).toMatch(/^Attribute VB_Name = "Form1"/m);
-		expect(full).not.toMatch(/Begin VB\.Form/);
+		expect(readModule(RUN_AS_TI, 'Form1', true).source).toBe(raw);
 	});
 
 	it('reads a standard module and lists its procedures with lines', () => {
 		expect(readModule(DIABETES, 'OS').source).toMatch(/GetVersionEx/);
 		const subs = listSubs(DIABETES, 'OS');
 		expect(subs).toEqual(expect.arrayContaining([
-			expect.objectContaining({ name: 'ItIsWin7', kind: 'Function' }),
+			expect.objectContaining({ name: 'ItIsWin7', kind: 'Function', line: 26 }),
 		]));
-		expect(listSubs(RUN_AS_TI, 'Form1').map((s) => s.name)).toEqual(
+		// Lines are the file's own, designer block and attributes counted.
+		const formSubs = listSubs(RUN_AS_TI, 'Form1');
+		expect(formSubs.map((s) => s.name)).toEqual(
 			expect.arrayContaining(['Command1_Click', 'Form_Load', 'AppendLog', 'Form_Unload']),
 		);
+		expect(formSubs.find((s) => s.name === 'Form_Load')?.line).toBe(128);
 	});
 
 	it('reads every module with sources and predeclared-instance facts', () => {
@@ -182,6 +188,10 @@ describe('a VB6 project through the engine', () => {
 		// never an empty list (roadmap_vb6_support.md, Slice 2).
 		expect(form?.implicitMembers).toBeUndefined();
 		expect(modules.find((m) => m.name === 'modRunAsTI')?.source).toMatch(/Option Explicit/);
+		expect(modules.map((m) => m.filePath)).toEqual([
+			path.join(path.dirname(RUN_AS_TI), 'Form1.frm'),
+			path.join(path.dirname(RUN_AS_TI), 'modRunAsTI.bas'),
+		]);
 	});
 
 	it('answers the workbook-shaped questions honestly for a project', () => {
@@ -216,8 +226,10 @@ describe('a VB6 project through the engine', () => {
 
 		expect(listModules(vbp).map((m) => `${m.name}:${m.type}`)).toEqual(['ctxThing:usercontrol', 'ppThing:propertypage']);
 		// The code-behind is readable like any module's; the designer is what stays opaque.
-		expect(listSubs(vbp, 'ctxThing').map((s) => s.name)).toEqual(['UserControl_Resize']);
-		expect(readModule(vbp, 'ppThing').source).toBe('');
+		expect(listSubs(vbp, 'ctxThing')).toEqual([{ name: 'UserControl_Resize', kind: 'Sub', line: 7 }]);
+		const page = readModule(vbp, 'ppThing').source;
+		expect(page).not.toMatch(/Begin VB\.PropertyPage/);
+		expect(page).toMatch(/Attribute VB_Name = "ppThing"/);
 	});
 
 	it('refuses a manifest that is not one', () => {
@@ -236,11 +248,14 @@ describe('a VB6 project through the engine', () => {
 		// Windows-1252 on disk: one byte for e-acute.
 		expect(before.includes(Buffer.from([0xe9]))).toBe(true);
 
-		writeModule(vbp, 'modA', 'Option Explicit\nSub Main()\n    Debug.Print "na\u00efve"\nEnd Sub\n');
+		// What an agent hands back is what it read: blank lines where the
+		// header was, the attributes, then the code - only the code is new.
+		writeModule(vbp, 'modA', '\n\nAttribute VB_Name = "modA"\nOption Explicit\nSub Main()\n    Debug.Print "na\u00efve"\nEnd Sub\n');
 
 		const after = fs.readFileSync(file);
 		const text = after.toString('latin1');
-		expect(text.startsWith('Attribute VB_Name = "modA"\r\n')).toBe(true);
+		expect(text.startsWith('Attribute VB_Name = "modA"\r\nOption Explicit\r\n')).toBe(true);
+		expect(text.match(/Attribute VB_Name/g)).toHaveLength(1);
 		expect(text).toContain('Debug.Print "na\u00efve"');
 		expect(text).not.toContain('\n' + 'Sub Main()\n'); // CRLF kept
 		expect(after.includes(Buffer.from([0xef]))).toBe(true); // i-diaeresis as one byte

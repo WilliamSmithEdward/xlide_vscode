@@ -90,30 +90,35 @@ fixture: `Type`, `Form`, `Module`, `Reference`, `ResFile32`, `IconForm`,
 `[MS Transaction Server]` section are documented shapes to be confirmed against
 the wider fixture set before they are relied on.
 
-- [ ] `src/vba/vb6/vbpProject.ts`: parse the manifest into a project model
+- [x] `src/vba/vb6/vbpProject.ts`: parse the manifest into a project model
       (kind of project, module list with kind and file path, references,
       objects, startup). Every key not understood is preserved verbatim; the
       parser never invents a module the manifest does not name.
-- [ ] Project discovery beside the workbook glob, a tree node per `.vbp`, module
+- [x] Project discovery beside the workbook glob, a tree node per `.vbp`, module
       nodes from the manifest (`standard`, `class`, `userform`; the opaque kinds
       shown with their manifest name and no children), procedure nodes from the
       existing source scan. Clicking opens the native file.
-- [ ] `hostTokenForFileName` answers `vb6` for `.vbp`, and for `.bas`/`.cls`/`.frm`
-      that belong to a discovered project; `VbaHostToken` gains `vb6`, registered
-      with the empty model until Slice 3.
-- [ ] Fixtures under `tests/fixtures/vb6/<project>/`, each with its upstream
+- [x] `hostTokenForFileName` answers `vb6` for `.vbp`; a `.bas`/`.cls`/`.frm` that
+      belongs to a discovered project reaches the same answer through
+      `vbaDocumentLocation.ts` and the locator; `VbaHostToken` gains `vb6`,
+      registered with the empty model until Slice 3.
+- [x] Fixtures under `tests/fixtures/vb6/<project>/`, each with its upstream
       `LICENSE` and a `NOTICE.md` naming the source commit; first set from the
       MIT-licensed candidates already inventoried (`fafalone/RunAsTrustedInstaller`,
       `Gagniuc/Diabetes-prediction-1.0`, `RZulu54/ChessBrainVB`,
       `opensoldat/polyworks`, `Sibra-Soft/audiostation`). The license text is
       read, not inferred from GitHub's detection, before a file is vendored.
-- [ ] `docs/architecture.md`: container table row, tree row, and a "Files to
+- [x] `docs/architecture.md`: container table row, tree row, and a "Files to
       keep up to date" row for VB6 projects.
 
 Definition of done: every vendored `.vbp` loads; the tree shows its modules
 with the right kinds; a manifest key the parser does not know survives a
 parse-and-print round trip; tests cover a malformed manifest, a missing file,
-and the opaque kinds.
+and the opaque kinds. Met on 2026-09-02 (commits `6fbb1fb` and the slice 1b
+commit after it). Learned on the way: a VB6 module's source is served as
+file-aligned text (designer block blanked, attributes kept) because a file has
+no virtual view to hide its header behind, and the same blanking runs on the
+editor buffer before analysis.
 
 ## Slice 2: VB6 forms readable
 

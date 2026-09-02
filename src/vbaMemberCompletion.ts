@@ -7,10 +7,7 @@
 // workbook-save cache invalidation.
 
 import * as vscode from 'vscode';
-import {
-	XLIDE_SCHEME,
-	decodeModuleUri,
-} from './xlideFileSystem';
+import { moduleLocationOfDocument } from './vbaDocumentLocation';
 import { DocRegistry } from './analyzer';
 import { VbaProjectIndexService } from './vbaProjectIndexService';
 import { VbaCanonicalCaseController } from './vbaCanonicalCaseController';
@@ -69,12 +66,9 @@ export function registerVbaMemberCompletion(
 			// snapshot within the cache TTL. Editing the active module already
 			// cache-misses via its own version bump, so the extra cost falls only
 			// on the sibling-edit case this fixes.
-			if (event.document.uri.scheme === XLIDE_SCHEME) {
-				try {
-					provider.invalidate(decodeModuleUri(event.document.uri).xlsmPath);
-				} catch {
-					// Ignore URIs we cannot decode.
-				}
+			const location = moduleLocationOfDocument(event.document);
+			if (location) {
+				provider.invalidate(location.xlsmPath);
 			}
 		}),
 		vscode.window.onDidChangeTextEditorSelection((event) => {
@@ -97,14 +91,9 @@ export function registerVbaMemberCompletion(
 			' ',
 		),
 		vscode.workspace.onDidSaveTextDocument((doc) => {
-			if (doc.uri.scheme !== XLIDE_SCHEME) {
-				return;
-			}
-			try {
-				const { xlsmPath } = decodeModuleUri(doc.uri);
-				provider.invalidate(xlsmPath);
-			} catch {
-				// Ignore URIs we cannot decode.
+			const location = moduleLocationOfDocument(doc);
+			if (location) {
+				provider.invalidate(location.xlsmPath);
 			}
 		}),
 		vscode.workspace.onDidCloseTextDocument((doc) => { keywordSnippets.handleDocumentClose(doc); canonicalCase.handleDocumentClose(doc); }),

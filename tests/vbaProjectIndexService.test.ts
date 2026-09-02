@@ -10,6 +10,7 @@ import * as vscode from 'vscode';
 import { VbaSymbolIndex } from '../src/vbaSymbolIndex';
 import { VbaProjectIndexService } from '../src/vbaProjectIndexService';
 import { fakeWorkbookEngine, type FakeBridgeModule } from './helpers/fakeWorkbookEngine';
+import { ownersFromListings, setVb6ModuleOwnersForTests } from '../src/vb6ProjectLocator';
 
 // Platform-appropriate absolute path: decodeModuleUri and path.resolve are
 // deliberately platform-sensitive, so a hardcoded Windows path never matches
@@ -52,6 +53,46 @@ function openXlideDocument(moduleName: string, source: string): FakeOpenDocument
 
 beforeEach(() => {
 	(vscode.workspace.textDocuments as unknown[]).length = 0;
+});
+
+describe('a VB6 project in the project index', () => {
+	const VBP = process.platform === 'win32' ? 'C:/proj/App.vbp' : '/proj/App.vbp';
+	const FRM = process.platform === 'win32' ? 'C:/proj/Form1.frm' : '/proj/Form1.frm';
+	const BAS = process.platform === 'win32' ? 'C:/proj/modMain.bas' : '/proj/modMain.bas';
+
+	it('folds an open VB6 file into its project, designer header blanked, at its own offsets', async () => {
+		const header = 'VERSION 5.00\r\nBegin VB.Form Form1 \r\n   Caption = "F"\r\n   BeginProperty Font \r\n      Name = "Tahoma"\r\n   EndProperty\r\nEnd\r\n';
+		const code = 'Attribute VB_Name = "Form1"\r\nPrivate Sub Form_Load()\r\nEnd Sub\r\n';
+		const bridge = fakeWorkbookEngine({ [VBP]: [
+			{ name: 'Form1', type: 'userform', source: header.replace(/[^\r\n]/g, ' ') + code, filePath: FRM },
+			{ name: 'modMain', type: 'standard', source: 'Attribute VB_Name = "modMain"\r\nPublic Sub Alpha()\r\nEnd Sub\r\n', filePath: BAS },
+		] });
+		setVb6ModuleOwnersForTests(ownersFromListings([
+			{ vbpPath: VBP, modules: [
+				{ name: 'Form1', type: 'userform', filePath: FRM },
+				{ name: 'modMain', type: 'standard', filePath: BAS },
+			] },
+		]));
+		const index = new VbaSymbolIndex(bridge);
+		const projectIndexService = new VbaProjectIndexService(index);
+
+		// The editor holds the WHOLE file, header included, with one new procedure.
+		const edited = header + code + 'Private Sub Command1_Click()\r\nEnd Sub\r\n';
+		(vscode.workspace.textDocuments as unknown[]).push({
+			uri: { scheme: 'file', fsPath: FRM.replace(/\//g, process.platform === 'win32' ? '\\' : '/'), path: FRM.startsWith('/') ? FRM : `/${FRM}`, toString: () => `file:///${FRM}` },
+			version: 2,
+			getText: () => edited,
+		});
+
+		const context = await projectIndexService.contextForWorkbook(VBP, 'live');
+		const form = context.byModule.get('form1');
+		expect(form?.source.length).toBe(edited.length);
+		expect(form?.source).not.toMatch(/Begin VB\.Form/);
+		expect(form?.source).toMatch(/Private Sub Command1_Click/);
+		expect(context.byModule.get('modmain')?.filePath).toBe(BAS);
+		expect(context.project.visibleProcedureNames('Form1').has('alpha')).toBe(true);
+		setVb6ModuleOwnersForTests(new Map());
+	});
 });
 
 describe('VbaProjectIndexService', () => {

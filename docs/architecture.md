@@ -127,6 +127,21 @@ xlide_vscode/
 
 ---
 
+## Where a document lives - `vbaDocumentLocation.ts`
+
+Every language surface (project context, live diagnostics, navigation,
+semantic tokens, completion invalidation, the save-to-index hook) asks one
+question before it works: which container and module is this document?
+`moduleLocationOfDocument` answers for both kinds - an `xlide-vba:` document
+decodes its URI; a `file:` document is looked up in the VB6 project locator
+(`vb6ProjectLocator.ts`), which maps every file a discovered `.vbp` names to
+its project and module, rebuilt whenever a manifest appears, changes or goes
+away. A file no project claims is a loose module, analyzed on its own as
+before. `analysisSourceForDocument` is the text the analyzer sees: the
+document's text, with a designer or class preamble blanked in place for files
+on disk. `moduleDocumentUri` is the editor target for a module the project
+index knows: its file when it has one, else the virtual document.
+
 ## Virtual filesystem - `xlide-vba://`
 
 Clicking a module in the XLIDE Explorer workbook tree opens it under the custom
@@ -263,6 +278,14 @@ is):
 | `.ppa` | CFB that IS the VBA project (a bare `VBA` storage, no document stream) | the file itself | yes (CFB re-serialize) |
 | `.accdb`/`.mdb`/`.mda` | ACE/Jet page-0 signature | MS-OVBA streams in LVAL rows/chains, reassembled into a synthetic CFB (`accessDatabase.ts`) | no |
 | `.vbp` (VB6 project) | the `.vbp` extension; the manifest is text, parsed by `vb6/vbpProject.ts` | no project stream: the modules ARE the `.bas`/`.cls`/`.frm` files the manifest names (`vb6/vb6Project.ts`) | existing modules only (the file is rewritten with its header kept); add/rename/delete refuse and name the manifest |
+
+A VB6 module's source, as the engine answers it, is the FILE'S OWN TEXT with
+the designer block (`VERSION 5.00` / `Begin VB.Form` ... `End`) blanked to
+whitespace (`blankDesignerHeader` in `vba/moduleSource.ts`): line breaks kept,
+attributes kept, so every line an analysis, a tree row, or an agent reports is
+a line of the file the editor shows. `readModule(full)` answers the raw file.
+A workbook module has a virtual document that hides its header; a VB6 module
+has no such view, which is why alignment happens in the text instead.
 
 The legacy compound files need no special project handling: `VbaProject`'s
 stream lookups are storage-agnostic (a storage named `VBA` is found wherever

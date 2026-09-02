@@ -178,10 +178,12 @@ export function vbaHeaderBlockEnd(lines: readonly string[]): number {
             }
             continue;
         }
-        // Inside the block only property assignments and blank lines are legal.
-        // Anything else means the block never closed, and scanning on would let
-        // a body `End Sub` close it and take the whole module with it.
-        if (line.trim() !== '' && !/^\s*[\w.]+\s*=/.test(line)) {
+        // Inside the block only property assignments, `BeginProperty` groups
+        // (a VB6 form's Font), and blank lines are legal. Anything else means
+        // the block never closed, and scanning on would let a body `End Sub`
+        // close it and take the whole module with it.
+        if (line.trim() !== '' && !/^\s*[\w.]+\s*=/.test(line)
+            && !/^\s*(?:BeginProperty|EndProperty)\b/i.test(line)) {
             return 0;
         }
     }

@@ -6,6 +6,8 @@ export interface FakeBridgeModule {
 	type: string;
 	documentType?: string;
 	source: string;
+	/** A VB6 project's module: the file it is. */
+	filePath?: string;
 }
 
 /** Single-workbook module list (any path) or per-workbook-path module lists. */
@@ -28,13 +30,13 @@ export function fakeWorkbookEngine(
 				if (!modules) {
 					throw new Error(`Unknown workbook ${payload.path}`);
 				}
-				return modules.map(({ name, type, documentType, source }) => ({ name, type, documentType, source }));
+				return modules.map(({ name, type, documentType, source, filePath }) => ({ name, type, documentType, source, filePath }));
 			}
 			if (method === 'listModules') {
 				if (!modules) {
 					throw new Error(`Unknown workbook ${payload.path}`);
 				}
-				return modules.map(({ name, type, documentType }) => ({ name, type, documentType }));
+				return modules.map(({ name, type, documentType, filePath }) => ({ name, type, documentType, filePath }));
 			}
 			if (method === 'readModule' && payload.module) {
 				const moduleName = payload.module.toLowerCase();

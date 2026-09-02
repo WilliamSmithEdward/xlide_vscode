@@ -18,6 +18,17 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
   two MIT-licensed projects authored in Visual Basic 6 itself, vendored
   with their licenses. First slice of `docs/roadmap_vb6_support.md`.
 
+- **A VB6 module's file gets its project's language services.** Opening a
+  `.bas`, `.cls` or `.frm` that a discovered `.vbp` names now analyzes it
+  as a member of that project - the other modules' procedures and types
+  in scope, its own name from `VB_Name`, its kind from the manifest, the
+  `vb6` host - instead of as a lone buffer. A form file's designer block
+  is blanked in place before the parser sees it, so a real VB6 `.frm` no
+  longer paints every header line as a statement outside a procedure, and
+  every line number is the file's own. Go to definition and references
+  land in the project's files. A VB6 form's `Me` stays untyped until the
+  `vb6` model exists; silence beats `MSForms.UserForm`.
+
 ## [5.0.2] - 2026-08-31
 
 - **A container's children were already members; now they are pinned.** #57

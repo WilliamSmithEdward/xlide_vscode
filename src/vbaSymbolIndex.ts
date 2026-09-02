@@ -21,6 +21,8 @@ export interface VbaModuleSymbols {
      * the attribute header was not read, never "no".
      */
     predeclaredId?: boolean;
+    /** The module's own file when the container's modules are files (VB6). */
+    filePath?: string;
 }
 
 interface CachedWorkbook {
@@ -43,6 +45,8 @@ interface VbaModuleEntry {
      * the attribute header was not read, never "no".
      */
     predeclaredId?: boolean;
+    /** The module's own file when the container's modules are files (VB6). */
+    filePath?: string;
 }
 
 interface VbaModuleSourceEntry extends VbaModuleEntry {
@@ -273,6 +277,7 @@ export class VbaSymbolIndex implements vscode.Disposable {
                 existing.documentType = entry.documentType;
                 existing.implicitMembers = entry.implicitMembers;
                 existing.predeclaredId = entry.predeclaredId;
+                existing.filePath = entry.filePath;
                 out.push(existing);
                 if ((index + 1) % WORKBOOK_INDEX_YIELD_EVERY_MODULES === 0) {
                     await yieldToExtensionHost();
@@ -286,6 +291,7 @@ export class VbaSymbolIndex implements vscode.Disposable {
                 documentType: entry.documentType,
                 implicitMembers: entry.implicitMembers,
                 predeclaredId: entry.predeclaredId,
+                filePath: entry.filePath,
             };
             wb.modules.set(moduleKey, mod);
             out.push(mod);

@@ -8,7 +8,6 @@ import { WorkbookEngine } from './workbookEngine';
 import {
     XLIDE_SCHEME,
     XLIDE_VBA_LANGUAGE_ID,
-    decodeModuleUri,
 } from './xlideFileSystem';
 import {
     VbaDefinitionProvider,
@@ -37,6 +36,8 @@ import { VbaSymbolIndex } from './vbaSymbolIndex';
 import { registerVbaMemberCompletion } from './vbaMemberCompletion';
 import { DocMetadataLoader } from './vbaDocMetadata';
 import { VbaProjectIndexService } from './vbaProjectIndexService';
+import { registerVb6ProjectLocator } from './vb6ProjectLocator';
+import { analysisSourceForDocument, moduleLocationOfDocument } from './vbaDocumentLocation';
 
 const VBA_SELECTOR: vscode.DocumentSelector = [
     { scheme: XLIDE_SCHEME, language: 'vba' },
@@ -56,6 +57,9 @@ export function registerVbaLanguageProviders(
 ): VbaSymbolIndex {
     const index = new VbaSymbolIndex(bridge);
     const projectIndexService = new VbaProjectIndexService(index);
+    // Which .vbp a file on disk belongs to: the answer every provider below
+    // needs before it can treat a VB6 module like a workbook module.
+    registerVb6ProjectLocator(context, bridge);
 
     registerVbaDiagnostics(context, projectIndexService, workerClient);
     registerVbaAutoBlock(context);
@@ -109,15 +113,18 @@ export function registerVbaLanguageProviders(
             typeSemanticTokensProvider,
             TYPE_TOKEN_LEGEND,
         ),
-        // Keep the index consistent with saves to virtual VBA documents.
+        // Keep the index consistent with saves: a workbook's virtual document,
+        // or a VB6 project's own file (whose designer header is blanked the way
+        // every analysis sees it).
         vscode.workspace.onDidSaveTextDocument((doc) => {
-            if (doc.uri.scheme !== XLIDE_SCHEME) { return; }
-            try {
-                const { xlsmPath, moduleName } = decodeModuleUri(doc.uri);
-                index.updateModuleSource(xlsmPath, moduleName, doc.getText());
-            } catch {
-                // Ignore URIs we cannot decode.
-            }
+            const location = moduleLocationOfDocument(doc);
+            if (!location) { return; }
+            index.updateModuleSource(
+                location.xlsmPath,
+                location.moduleName,
+                analysisSourceForDocument(doc),
+                location.moduleType ? { type: location.moduleType } : {},
+            );
         }),
     );
 

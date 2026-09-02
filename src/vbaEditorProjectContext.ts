@@ -8,8 +8,6 @@
 
 import * as vscode from 'vscode';
 import {
-	XLIDE_SCHEME,
-	decodeModuleUri,
 	workbookIdentityKey,
 } from './xlideFileSystem';
 import {
@@ -35,6 +33,8 @@ import {
 } from './analyzer/host/hostRegistry';
 import type { HostObjectModel } from './analyzer/host/excelObjectModel';
 import { VbaProjectIndexService } from './vbaProjectIndexService';
+import { moduleLocationOfDocument, moduleLocationOfUri } from './vbaDocumentLocation';
+import { blankDesignerHeader } from './vba/moduleSource';
 
 const WORKBOOK = 'Excel.Workbook';
 const WORKSHEET = 'Excel.Worksheet';
@@ -84,6 +84,12 @@ interface EditorProjectContextBuild {
 
 /** Maps a document module to the host type that `Me` denotes inside it. */
 function meTypeFor(entry: ModuleEntry | undefined, host?: VbaHostToken): string | undefined {
+	if (host === 'vb6') {
+		// A VB6 form is a VB.Form, not an MSForms.UserForm, and its surface
+		// arrives with the vb6 model (roadmap_vb6_support.md, Slice 3).
+		// Until then silence beats the wrong type.
+		return undefined;
+	}
 	if (entry?.type === 'userform') {
 		// A form IS an MSForms.UserForm, so `Me.` reaches Caption, Controls and
 		// the rest of that surface as well as the form's own code. Forms are
@@ -291,22 +297,14 @@ export class VbaEditorProjectContextService {
 	private _clearProjectContextCacheForWorkbook(xlsmPath: string): void {
 		const workbookKey = workbookIdentityKey(xlsmPath);
 		for (const key of [...this._projectContextCache.keys()]) {
-			try {
-				const decoded = decodeModuleUri(vscode.Uri.parse(key));
-				if (workbookIdentityKey(decoded.xlsmPath) === workbookKey) {
-					this._projectContextCache.delete(key);
-				}
-			} catch {
+			const location = moduleLocationOfUri(vscode.Uri.parse(key));
+			if (!location || workbookIdentityKey(location.xlsmPath) === workbookKey) {
 				this._projectContextCache.delete(key);
 			}
 		}
 		for (const key of [...this._projectContextBuilds.keys()]) {
-			try {
-				const decoded = decodeModuleUri(vscode.Uri.parse(key));
-				if (workbookIdentityKey(decoded.xlsmPath) === workbookKey) {
-					this._projectContextBuilds.delete(key);
-				}
-			} catch {
+			const location = moduleLocationOfUri(vscode.Uri.parse(key));
+			if (!location || workbookIdentityKey(location.xlsmPath) === workbookKey) {
 				this._projectContextBuilds.delete(key);
 			}
 		}
@@ -341,10 +339,11 @@ export class VbaEditorProjectContextService {
 		source: string,
 		documentVersion: number,
 	): Promise<EditorProjectContext> {
-		if (document.uri.scheme !== XLIDE_SCHEME) {
+		const location = moduleLocationOfDocument(document);
+		if (!location) {
 			try {
 				const project = await buildLiveVbaProjectIndexAsync(
-					[{ moduleName: 'Module', moduleKind: 'standard', source }],
+					[{ moduleName: 'Module', moduleKind: 'standard', source: blankDesignerHeader(source) }],
 				);
 				if (!this._isCurrentProjectContextBuild(document, documentVersion)) {
 					return this.cachedEditorProjectContext(document) ?? {};
@@ -365,7 +364,7 @@ export class VbaEditorProjectContextService {
 		}
 
 		try {
-			const decoded = decodeModuleUri(document.uri);
+			const decoded = location;
 			const host = hostTokenForFileName(decoded.xlsmPath);
 			// The shared workbook context already folds in the open editors'
 			// text (including this document) one changed module at a time.
@@ -505,14 +504,10 @@ export class VbaEditorProjectContextService {
 	} {
 		let moduleName = 'Module';
 		let host: VbaHostToken | undefined;
-		if (document.uri.scheme === XLIDE_SCHEME) {
-			try {
-				const decoded = decodeModuleUri(document.uri);
-				moduleName = decoded.moduleName;
-				host = hostTokenForFileName(decoded.xlsmPath);
-			} catch {
-				moduleName = 'Module';
-			}
+		const location = moduleLocationOfDocument(document);
+		if (location) {
+			moduleName = location.moduleName;
+			host = hostTokenForFileName(location.xlsmPath);
 		}
 		const documentType = localDocumentTypeFromModuleName(moduleName, host);
 		const moduleKind: ModuleSymbolKind = documentType ? 'document' : 'standard';

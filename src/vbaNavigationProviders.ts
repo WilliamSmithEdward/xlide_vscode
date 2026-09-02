@@ -6,8 +6,6 @@
 import * as vscode from 'vscode';
 import {
     XLIDE_SCHEME,
-    decodeModuleUri,
-    encodeModuleUri,
     isVbaDocument,
     moduleIdentityKey,
 } from './xlideFileSystem';
@@ -30,10 +28,12 @@ import {
     type VbaSymbolKind,
 } from './analyzer';
 import {
+    analysisSourceForDocument,
     isStandaloneVbaDocument,
     moduleKindFromDocument,
     moduleNameFromDocument,
 } from './vbaDocumentIdentity';
+import { moduleDocumentUri, moduleLocationOfDocument, moduleLocationOrThrow } from './vbaDocumentLocation';
 import {
     createOffsetToPositionConverter,
     offsetToPosition,
@@ -162,7 +162,7 @@ function astSymbolToLocation(
     const mod = byModule.get(symbol.moduleName.toLowerCase());
     if (!mod) { return undefined; }
     return new vscode.Location(
-        encodeModuleUri(xlsmPath, mod.moduleName),
+        moduleDocumentUri(xlsmPath, mod),
         new vscode.Range(
             offsetToPosition(mod.source, symbol.nameSpan.start),
             offsetToPosition(mod.source, symbol.nameSpan.end),
@@ -178,7 +178,7 @@ function projectMemberDefinitionToLocation(
     const mod = byModule.get(definition.moduleName.toLowerCase());
     if (!mod) { return undefined; }
     return new vscode.Location(
-        encodeModuleUri(xlsmPath, mod.moduleName),
+        moduleDocumentUri(xlsmPath, mod),
         new vscode.Range(
             offsetToPosition(mod.source, definition.nameSpan.start),
             offsetToPosition(mod.source, definition.nameSpan.end),
@@ -197,7 +197,7 @@ function referenceSpansToLocations(
         const mod = byModule.get(span.moduleName.toLowerCase());
         if (!mod) { continue; }
         out.push(new vscode.Location(
-            encodeModuleUri(xlsmPath, mod.moduleName),
+            moduleDocumentUri(xlsmPath, mod),
             new vscode.Range(span.line, span.column, span.line, span.column + span.length),
         ));
     }
@@ -227,7 +227,7 @@ export class VbaDocumentSymbolProvider implements vscode.DocumentSymbolProvider 
     ): vscode.DocumentSymbol[] {
         if (!isVbaDocument(document)) { return []; }
         if (token.isCancellationRequested) { return []; }
-        const source = document.getText();
+        const source = analysisSourceForDocument(document);
         const moduleName = moduleNameFromDocument(document);
         const toPosition = createOffsetToPositionConverter(source);
         return documentOutlineSymbolsForSource(
@@ -248,13 +248,9 @@ export class VbaWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProvide
         const out: vscode.SymbolInformation[] = [];
         const workbookPaths = new Set<string>();
         for (const document of vscode.workspace.textDocuments) {
-            if (document.uri.scheme !== XLIDE_SCHEME) {
-                continue;
-            }
-            try {
-                workbookPaths.add(decodeModuleUri(document.uri).xlsmPath);
-            } catch {
-                // Ignore malformed XLIDE URIs.
+            const location = moduleLocationOfDocument(document);
+            if (location) {
+                workbookPaths.add(location.xlsmPath);
             }
         }
 
@@ -274,7 +270,7 @@ export class VbaWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProvide
                         converters.set(moduleKey, toPosition);
                     }
                     out.push(workspaceSymbolToVscode(
-                        encodeModuleUri(xlsmPath, mod.moduleName),
+                        moduleDocumentUri(xlsmPath, mod),
                         toPosition,
                         symbol,
                     ));
@@ -289,7 +285,7 @@ export class VbaWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProvide
             if (!isStandaloneVbaDocument(document)) {
                 continue;
             }
-            const source = document.getText();
+            const source = analysisSourceForDocument(document);
             const moduleName = moduleNameFromDocument(document);
             const project = await buildLiveVbaProjectIndexAsync([], {
                 moduleName,
@@ -314,11 +310,11 @@ export class VbaDefinitionProvider implements vscode.DefinitionProvider {
         position: vscode.Position,
         token?: vscode.CancellationToken,
     ): Promise<vscode.Location[] | undefined> {
-        if (document.uri.scheme !== XLIDE_SCHEME) { return undefined; }
+        if (!moduleLocationOfDocument(document)) { return undefined; }
         if (token?.isCancellationRequested) { return undefined; }
 
         const documentVersion = document.version;
-        const source = document.getText();
+        const source = analysisSourceForDocument(document);
         const offset = document.offsetAt(position);
         const labelDefinition = resolveProcedureLabelDefinitionAt(source, offset);
         if (labelDefinition) {
@@ -340,7 +336,7 @@ export class VbaDefinitionProvider implements vscode.DefinitionProvider {
         let xlsmPath: string;
         let moduleName: string;
         try {
-            ({ xlsmPath, moduleName } = decodeModuleUri(document.uri));
+            ({ xlsmPath, moduleName } = moduleLocationOrThrow(document));
         } catch {
             return undefined;
         }
@@ -411,11 +407,11 @@ export class VbaReferenceProvider implements vscode.ReferenceProvider {
         if (token?.isCancellationRequested) { return undefined; }
         const documentVersion = document.version;
         const wordRange = document.getWordRangeAtPosition(position, VBA_IDENTIFIER_RE);
-        const source = document.getText();
+        const source = analysisSourceForDocument(document);
         let xlsmPath: string;
         let moduleName: string;
         try {
-            ({ xlsmPath, moduleName } = decodeModuleUri(document.uri));
+            ({ xlsmPath, moduleName } = moduleLocationOrThrow(document));
         } catch {
             return undefined;
         }
@@ -527,11 +523,11 @@ export class VbaDocumentHighlightProvider implements vscode.DocumentHighlightPro
         const wordRange = document.getWordRangeAtPosition(position, VBA_IDENTIFIER_RE);
         if (!wordRange) { return undefined; }
         const word = document.getText(wordRange);
-        const source = document.getText();
+        const source = analysisSourceForDocument(document);
         let xlsmPath: string;
         let moduleName: string;
         try {
-            ({ xlsmPath, moduleName } = decodeModuleUri(document.uri));
+            ({ xlsmPath, moduleName } = moduleLocationOrThrow(document));
         } catch {
             return undefined;
         }
@@ -584,11 +580,11 @@ export class VbaRenameProvider implements vscode.RenameProvider {
         if (!wordRange) { throw new Error('No symbol at cursor.'); }
         const word = document.getText(wordRange);
 
-        const source = document.getText();
+        const source = analysisSourceForDocument(document);
         let xlsmPath: string;
         let moduleName: string;
         try {
-            ({ xlsmPath, moduleName } = decodeModuleUri(document.uri));
+            ({ xlsmPath, moduleName } = moduleLocationOrThrow(document));
         } catch {
             throw new Error('XLIDE cannot rename here: this is not a workbook VBA module.');
         }
@@ -654,11 +650,11 @@ export class VbaRenameProvider implements vscode.RenameProvider {
         // MyVar) is a legitimate operation for a canonical-case tool, not a no-op.
         if (oldName === newName) { return undefined; }
 
-        const source = document.getText();
+        const source = analysisSourceForDocument(document);
         let xlsmPath: string;
         let moduleName: string;
         try {
-            ({ xlsmPath, moduleName } = decodeModuleUri(document.uri));
+            ({ xlsmPath, moduleName } = moduleLocationOrThrow(document));
         } catch {
             throw new Error('XLIDE cannot rename here: this is not a workbook VBA module.');
         }

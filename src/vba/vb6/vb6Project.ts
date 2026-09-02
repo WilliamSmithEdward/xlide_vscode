@@ -10,7 +10,14 @@ import * as path from 'path';
 import { decodeCodePage, encodeCodePage } from '../codePages';
 import { splitFrmSource } from '../formDesigner';
 import { atomicWrite } from '../atomicWrite';
-import { attributeValue, joinVbaSource, listProcedures, splitVbaSource, type ProcedureEntry } from '../moduleSource';
+import {
+	attributeValue,
+	blankDesignerHeader,
+	joinVbaSource,
+	listProcedures,
+	splitVbaSource,
+	type ProcedureEntry,
+} from '../moduleSource';
 import { hasAuthoritativeDesignerHeader, parseUserFormControls } from '../../vbaUserFormControls';
 import { parseVbpManifest, type VbpManifest, type VbpModuleKind, type VbpModuleRef } from './vbpProject';
 
@@ -208,10 +215,13 @@ function readModuleFile(project: Vb6Project, entry: Vb6ModuleEntry): ReadModuleF
 }
 
 /**
- * A module with its source read. `full` keeps the attribute header the way
- * a workbook module's full source does; otherwise the body alone. A form's
- * controls are supplied only when its header can be read authoritatively,
- * and absent otherwise - "not known", never "none".
+ * A module with its source read. The source is the FILE'S OWN TEXT with the
+ * designer block blanked to whitespace, so every line number an analysis,
+ * a tree row or an agent reports is a line of the file the editor shows -
+ * a VB6 module has no virtual view to hide its header behind. `full`
+ * answers the raw file, designer block included, for callers that want the
+ * bytes as written. A form's controls are supplied only when its header can
+ * be read authoritatively, and absent otherwise - "not known", never "none".
  */
 export function readVb6Module(vbpPath: string, moduleName: string, full = false): Vb6ModuleEntry {
 	const project = openVb6Project(vbpPath);
@@ -220,10 +230,10 @@ export function readVb6Module(vbpPath: string, moduleName: string, full = false)
 }
 
 function moduleWithSource(read: ReadModuleFile, full: boolean): Vb6ModuleEntry {
-	const { entry, moduleText, designerBlock } = read;
+	const { entry, moduleText, designerBlock, file } = read;
 	const out: Vb6ModuleEntry = {
 		...entry,
-		source: full ? moduleText : splitVbaSource(moduleText).body,
+		source: full ? file.text : blankDesignerHeader(file.text),
 	};
 	const predeclared = attributeValue(moduleText, 'VB_PredeclaredId');
 	if (predeclared) {
@@ -252,12 +262,12 @@ export function readVb6Modules(vbpPath: string, full = false): Vb6ModuleEntry[] 
 	return out;
 }
 
-/** The procedures of one module; an opaque kind's designer answers none. */
+/** The procedures of one module, at the lines they hold in the file. */
 export function listVb6Procedures(vbpPath: string, moduleName: string): ProcedureEntry[] {
 	const project = openVb6Project(vbpPath);
 	const entry = findModule(project, moduleName);
-	const { moduleText } = readModuleFile(project, entry);
-	return listProcedures(splitVbaSource(moduleText).body);
+	const { file } = readModuleFile(project, entry);
+	return listProcedures(blankDesignerHeader(file.text));
 }
 
 /**
@@ -277,7 +287,10 @@ export function writeVb6Module(vbpPath: string, moduleName: string, source: stri
 		);
 	}
 	const read = readModuleFile(project, findModule(project, moduleName));
-	const { body } = splitVbaSource(source);
+	// A caller may hand back what it read - blanked header lines, then the
+	// attributes, then the code - or a bare body; either way only the body
+	// is new, and the file's own header is the one that persists.
+	const { body } = splitVbaSource(source.replace(/^\s+/, ''));
 	const { header } = splitVbaSource(read.moduleText);
 	const normalizedBody = body.replace(/\r\n|\r|\n/g, read.file.eol);
 	const text = read.designerBlock + joinVbaSource(header, normalizedBody);

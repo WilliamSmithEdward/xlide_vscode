@@ -8,7 +8,8 @@ PowerPoint, or Access - without driving the XLIDE panels by hand.
 ## Recommended Agent Flow
 
 1. Discover the target file with `xlide_listWorkbooks` (it lists every macro
-   container) or confirm structure with `xlide_getWorkbookInfo`.
+   container and every VB6 `.vbp` project) or confirm structure with
+   `xlide_getWorkbookInfo`.
 2. Read the file's VBA with `xlide_readModule`.
 3. Write changes with `xlide_writeModule` or the other module tools. Access
    files refuse writes with the reason (compiled p-code). Each chat-driven
