@@ -15,6 +15,7 @@ import { moduleLocationOfDocument } from './vbaDocumentLocation';
 import { frmDesignerOpOfGesture, vb6FormHandlerPrefix, vb6HeaderEndOf, vb6PendingRecordsToWrite } from './vba/vb6/frmDesignerOps';
 import type { DesignerMessage, GestureMessage } from './vba/oforms/designerMessages';
 import { openOrCreateEventHandler } from './vbaEventHandlerNavigation';
+import { rememberFormLaunchTarget } from './vbaFormLaunchTarget';
 import { errorMessage } from './util/errors';
 
 export const VB6_FORM_DESIGNER_VIEW_TYPE = 'xlideVb6FormDesigner';
@@ -95,8 +96,17 @@ export function registerVb6FormDesigner(
 		): Promise<void> {
 			const modulePath = document.uri.fsPath;
 			const key = document.uri.toString();
-			const vbpPath = moduleLocationOfDocument(document)?.projectPath;
+			const location = moduleLocationOfDocument(document);
+			const vbpPath = location?.projectPath;
 			panel.webview.options = { enableScripts: true };
+			// F5 from this canvas has no text editor to read; it asks here.
+			const rememberTarget = (): void => {
+				if (vbpPath) { rememberFormLaunchTarget({ projectPath: vbpPath, moduleName: location?.moduleName ?? '' }); }
+			};
+			rememberTarget();
+			const viewStateListener = panel.onDidChangeViewState((e) => {
+				if (e.webviewPanel.active) { rememberTarget(); }
+			});
 
 			let disposed = false;
 			/** Text this provider just placed in the document (a gesture echo). */
@@ -291,6 +301,7 @@ export function registerVb6FormDesigner(
 				if (changeTimer) { clearTimeout(changeTimer); }
 				changeListener.dispose();
 				messageListener.dispose();
+				viewStateListener.dispose();
 			});
 
 			enqueue(() => render());

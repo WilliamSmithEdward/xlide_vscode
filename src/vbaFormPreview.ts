@@ -34,13 +34,13 @@ import { isVb6ProjectPath } from './vba/vb6/vb6Project';
 import { VB6_FORM_DESIGNER_VIEW_TYPE } from './vb6FormDesigner';
 import type { DesignerMessage, GestureMessage as GestureMessageAny } from './vba/oforms/designerMessages';
 import { openOrCreateEventHandler } from './vbaEventHandlerNavigation';
+import { lastFormLaunchTarget, rememberFormLaunchTarget } from './vbaFormLaunchTarget';
+import { moduleLocationOfDocument } from './vbaDocumentLocation';
 
 export const FORM_DESIGNER_VIEW_TYPE = 'xlideFormDesigner';
 
-/** The workbook behind the most recently focused designer, for F5. */
-let lastFocusedDesignerProject: string | undefined;
-/** Its form module, so F5 knows which form a Show launcher should open. */
-let lastFocusedDesignerModule: string | undefined;
+// The project and form behind the most recently focused designer live in
+// vbaFormLaunchTarget.ts, which the VB6 designer writes to as well.
 /** A launch (its consent modal included) is running; a second F5 waits. */
 let launchInFlight = false;
 
@@ -59,7 +59,17 @@ async function savePendingLaunchEdits(
 	if (active && active.uri.scheme === XLIDE_SCHEME && active.isDirty) {
 		pending.push(active);
 	}
-	if (formModule) {
+	if (isVb6ProjectPath(filePath)) {
+		// A VB6 module IS its file, so what F5 must persist is every dirty
+		// file the project claims: the form the designer edited (whose save
+		// also writes any pending `.frx` records) and any code beside it.
+		const wanted = filePath.toLowerCase();
+		for (const doc of vscode.workspace.textDocuments) {
+			if (doc.uri.scheme !== 'file' || !doc.isDirty || pending.includes(doc)) { continue; }
+			if (moduleLocationOfDocument(doc)?.projectPath.toLowerCase() === wanted) { pending.push(doc); }
+		}
+	}
+	if (formModule && !isVb6ProjectPath(filePath)) {
 		// The designer's document, whether or not it is the focused editor -
 		// F5 from the canvas has no active text editor at all.
 		const formUri = encodeFormMarkupUri(filePath, formModule).toString();
@@ -124,8 +134,7 @@ export function registerFormPreview(
 		): Promise<void> {
 			const { projectPath, moduleName } = decodeModuleUri(document.uri);
 			panel.webview.options = { enableScripts: true };
-			lastFocusedDesignerProject = projectPath;
-			lastFocusedDesignerModule = moduleName;
+			rememberFormLaunchTarget({ projectPath, moduleName });
 
 			// The pid keeps two windows on the same form from sharing a scratch;
 			// a crash's orphan falls to the age sweep above.
@@ -353,8 +362,7 @@ export function registerFormPreview(
 
 			const viewStateListener = panel.onDidChangeViewState((e) => {
 				if (e.webviewPanel.active) {
-					lastFocusedDesignerProject = projectPath;
-					lastFocusedDesignerModule = moduleName;
+					rememberFormLaunchTarget({ projectPath, moduleName });
 				}
 			});
 
@@ -492,13 +500,21 @@ export function registerFormPreview(
 				const decoded = decodeModuleUri(active.document.uri);
 				filePath = decoded.projectPath;
 				if (decoded.face === 'form') { formModule = decoded.moduleName; }
+			} else if (active && active.document.uri.scheme === 'file') {
+				// A VB6 module's own file: its project is the thing to launch.
+				const location = moduleLocationOfDocument(active.document);
+				if (location && isVb6ProjectPath(location.projectPath)) {
+					filePath = location.projectPath;
+					formModule = location.moduleName;
+				}
 			}
 			if (!filePath) {
-				filePath = lastFocusedDesignerProject;
-				formModule = lastFocusedDesignerModule;
+				const remembered = lastFormLaunchTarget();
+				filePath = remembered?.projectPath;
+				formModule = remembered?.moduleName;
 			}
 			if (!filePath) {
-				void vscode.window.showInformationMessage('XLIDE: F5 found no form workbook - focus a designer or a markup document.');
+				void vscode.window.showInformationMessage('XLIDE: F5 found no form project - focus a designer or a module document.');
 				return;
 			}
 			const wbPath = filePath;
@@ -619,7 +635,16 @@ export function registerFormPreview(
 				}
 			}
 
-			vscode.window.setStatusBarMessage(`XLIDE: opening ${path.basename(wbPath)} in its host application...`, 5000);
+			// A VB6 project's host application is Visual Basic 6 itself, which
+			// the shell opens from the `.vbp` association. XLIDE does not build
+			// or run the project (docs/roadmap_vb6_support.md, Slice 6); it
+			// hands the saved project to whatever is registered for it.
+			vscode.window.setStatusBarMessage(
+				isVb6ProjectPath(wbPath)
+					? `XLIDE: opening ${path.basename(wbPath)} in Visual Basic...`
+					: `XLIDE: opening ${path.basename(wbPath)} in its host application...`,
+				5000,
+			);
 			await vscode.commands.executeCommand(
 				excel ? 'xlide.openWorkbook' : 'xlide.openInOfficeApp',
 				{ kind: 'project', label: path.basename(wbPath), filePath: wbPath },

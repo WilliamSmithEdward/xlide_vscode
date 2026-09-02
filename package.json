@@ -652,6 +652,16 @@
         "command": "xlide.launchFormHost",
         "key": "F5",
         "when": "editorTextFocus && resourceExtname == '.form'"
+      },
+      {
+        "command": "xlide.launchFormHost",
+        "key": "F5",
+        "when": "activeCustomEditorId == 'xlideVb6FormDesigner'"
+      },
+      {
+        "command": "xlide.launchFormHost",
+        "key": "F5",
+        "when": "editorTextFocus && editorLangId == 'vba' && resourceExtname =~ /^\\.(frm|ctl|pag)$/"
       }
     ],
     "languages": [

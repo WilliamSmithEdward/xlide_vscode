@@ -191,6 +191,10 @@ below it alone, Ctrl+Z is text undo, and save is the file's own save. Menus
 draw as a menu bar, and a control from an OCX draws at its bounds under its
 name.
 
+F5 there saves the project's files and opens the `.vbp` in whatever
+application the system has registered for it, which is Visual Basic 6 where
+it is installed. XLIDE does not build or run VB6 projects.
+
 ### Run tests
 
 Mark VBA procedures as project tests, then run them from XLIDE. Test execution

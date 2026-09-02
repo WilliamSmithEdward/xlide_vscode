@@ -96,3 +96,50 @@ describe('the F5 form launch', () => {
 		expect(LAUNCH_SOURCE).toContain('markWorkbookOpenedByXlide(wbPath)');
 	});
 });
+
+// A VB6 project's host application is Visual Basic itself. F5 saves the
+// files and hands the `.vbp` to whatever the shell has registered for it;
+// XLIDE neither builds nor runs the project (Slice 6 of the VB6 roadmap),
+// and nothing here knows about twinBASIC.
+describe('F5 on a VB6 form', () => {
+	const PACKAGE = JSON.parse(readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')) as {
+		contributes: { keybindings: { command: string; key: string; when: string }[] };
+	};
+	const DESIGNER_SOURCE = readFileSync(path.join(__dirname, '..', 'src', 'vb6FormDesigner.ts'), 'utf8');
+
+	it('is bound in the VB6 designer and on a VB6 module document', () => {
+		const f5 = PACKAGE.contributes.keybindings.filter((k) => k.command === 'xlide.launchFormHost' && k.key === 'F5');
+		expect(f5.some((k) => k.when.includes("activeCustomEditorId == 'xlideVb6FormDesigner'"))).toBe(true);
+		expect(f5.some((k) => /resourceExtname =~ .*frm\|ctl\|pag/.test(k.when))).toBe(true);
+		// The MSForms bindings stay as they were.
+		expect(f5.some((k) => k.when.includes("activeCustomEditorId == 'xlideFormDesigner'"))).toBe(true);
+		expect(f5.some((k) => k.when.includes("resourceExtname == '.form'"))).toBe(true);
+	});
+
+	it('knows which project a focused VB6 form belongs to', () => {
+		// The canvas has no text editor, so it records its own target; a
+		// focused module file names its project through the locator.
+		expect(DESIGNER_SOURCE).toContain('rememberFormLaunchTarget(');
+		expect(DESIGNER_SOURCE).toContain('onDidChangeViewState');
+		expect(LAUNCH_SOURCE).toContain('lastFormLaunchTarget()');
+		expect(LAUNCH_SOURCE).toContain('isVb6ProjectPath(location.projectPath)');
+	});
+
+	it('saves every dirty file of the project before opening it', () => {
+		// A VB6 module IS its file, so there is no markup document to save;
+		// the form's own save is also what writes its pending .frx records.
+		expect(LAUNCH_SOURCE).toContain('if (isVb6ProjectPath(filePath)) {');
+		expect(LAUNCH_SOURCE).toContain("moduleLocationOfDocument(doc)?.projectPath.toLowerCase() === wanted");
+		expect(LAUNCH_SOURCE.indexOf('savePendingLaunchEdits(wbPath, formModule)'))
+			.toBeLessThan(LAUNCH_SOURCE.indexOf("'xlide.openInOfficeApp'"));
+	});
+
+	it('opens the project rather than building it, and names no build tool', () => {
+		expect(LAUNCH_SOURCE).toContain('in Visual Basic...');
+		// The launcher-macro path is Excel's alone: a .vbp never reaches it.
+		expect(LAUNCH_SOURCE).toContain("const excel = /\\.(xlsm|xlsb|xlam|xls)$/i.test(wbPath)");
+		expect(LAUNCH_SOURCE).toContain('excel && formModule');
+		expect(LAUNCH_SOURCE.toLowerCase()).not.toContain('twinbasic');
+		expect(DESIGNER_SOURCE.toLowerCase()).not.toContain('twinbasic');
+	});
+});
