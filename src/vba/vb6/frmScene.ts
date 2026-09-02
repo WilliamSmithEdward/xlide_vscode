@@ -1,0 +1,459 @@
+// A VB6 form's designer header, read into the scene the form canvas draws.
+//
+// The header (frmHeader.ts) is the designer's own text: every control's
+// class, name, and properties in twips, nested in its container. This turns
+// that into the same FormScene an MSForms package becomes (oforms/preview.ts),
+// so a VB6 form gets the canvas, the script, and the gestures the OFORMS
+// designer already has. It draws what the header honestly says: bounds,
+// captions, colors and fonts, a Line between its two points, a Shape in
+// its shape; a picture only when the sidecar bytes are an image a browser
+// paints; a control from an OCX as its true bounds and identity.
+//
+// Units: VB6 stores design-time geometry in twips (1440 per inch); the
+// canvas speaks points (72 per inch), so a twip is a twentieth of a point.
+
+import type { FormScene, SceneControl } from '../oforms/preview';
+import { cssColor, esc, sceneControl } from '../oforms/preview';
+import { parseOleColor } from '../oforms/markup';
+import type { FrmControl, FrmHeader, FrmProperty, FrmPropertyGroup, FrxRef } from './frmHeader';
+import type { FrxValue } from './frx';
+
+/** Sidecar lookup by reference, when the `.frx` was read. */
+export type FrxLookup = (ref: FrxRef) => FrxValue | undefined;
+
+export interface FrmSceneOptions {
+	formName: string;
+	frx?: FrxLookup;
+	/** Restores selection across re-renders. */
+	selected?: string;
+}
+
+/** The VB6 toolbox: the intrinsic controls a form can add. */
+export const VB6_TOOLBOX = ['Label', 'TextBox', 'ComboBox', 'ListBox', 'CheckBox', 'OptionButton',
+	'CommandButton', 'Frame', 'PictureBox', 'Image', 'HScrollBar', 'VScrollBar', 'Timer', 'Line', 'Shape'];
+
+/**
+ * The design-time properties the designer writes per kind, measured as the
+ * union of the fixture designers' headers (tests/fixtures/vb6, eleven of
+ * them) and cross-read against the `VB` model, which knows every key but a
+ * form's client position and a UserControl's toolbox bitmap - keys the
+ * designer alone writes. The pane lists these beside what a header states,
+ * blank until set; `Font` stands for the Font group's own rows. Geometry and
+ * Index have rows of their own, and a kind not measured here shows its
+ * header alone. The model's own property list is not used for this: it is
+ * the runtime surface (`hWnd`, `Parent`, `SelText`) with no design-time flag.
+ */
+export const VB6_DESIGN_PROPERTIES: Readonly<Record<string, readonly string[]>> = {
+	'VB.CheckBox': ['BackColor', 'Caption', 'Font', 'TabIndex', 'Value'],
+	'VB.ComboBox': ['Appearance', 'Font', 'Style', 'TabIndex', 'TabStop', 'Tag'],
+	'VB.CommandButton': ['BackColor', 'Caption', 'Default', 'Enabled', 'Font', 'MaskColor', 'Style', 'TabIndex', 'TabStop'],
+	'VB.Form': ['AutoRedraw', 'BackColor', 'BorderStyle', 'Caption', 'ClientLeft', 'ClientTop', 'ControlBox', 'Font', 'ForeColor',
+		'Icon', 'KeyPreview', 'LinkTopic', 'MaxButton', 'MinButton', 'Picture', 'ScaleHeight', 'ScaleMode', 'ScaleWidth',
+		'ShowInTaskbar', 'StartUpPosition', 'Tag'],
+	'VB.Frame': ['BackColor', 'BorderStyle', 'Caption', 'Font', 'TabIndex'],
+	'VB.Label': ['Alignment', 'AutoSize', 'BackColor', 'BackStyle', 'Caption', 'Font', 'ForeColor', 'MouseIcon', 'MousePointer',
+		'TabIndex', 'Tag', 'ToolTipText', 'UseMnemonic', 'Visible', 'WordWrap'],
+	'VB.Line': ['BorderColor', 'BorderStyle'],
+	'VB.OptionButton': ['BackColor', 'Caption', 'TabIndex', 'Value'],
+	'VB.PictureBox': ['Align', 'Appearance', 'AutoRedraw', 'BackColor', 'BorderStyle', 'Font', 'ForeColor', 'ScaleHeight',
+		'ScaleMode', 'ScaleWidth', 'TabIndex', 'TabStop', 'Tag', 'ToolTipText', 'Visible'],
+	'VB.Shape': ['BackColor', 'BackStyle', 'BorderColor', 'BorderWidth', 'FillColor', 'Shape', 'Visible'],
+	'VB.TextBox': ['Alignment', 'Appearance', 'BackColor', 'BorderStyle', 'Enabled', 'Font', 'ForeColor', 'Locked', 'MultiLine',
+		'ScrollBars', 'TabIndex', 'Tag', 'Text', 'ToolTipText', 'Visible'],
+	'VB.Timer': [],
+	'VB.UserControl': ['BackColor', 'BackStyle', 'ClientLeft', 'ClientTop', 'ScaleHeight', 'ScaleWidth', 'ToolboxBitmap'],
+};
+
+/** The Font group's members, in the order the designer writes them. */
+export const VB6_FONT_FIELDS = ['Name', 'Size', 'Charset', 'Weight', 'Underline', 'Italic', 'Strikethrough'] as const;
+
+/**
+ * The event a double-click opens where VB6's differs from MSForms': a Form
+ * loads, a Timer ticks, a PictureBox clicks. A Line or Shape has no events
+ * at all; the empty string leaves the canvas's fallback, and the handler
+ * opener refuses it by name.
+ */
+export const VB6_DEFAULT_EVENTS: Readonly<Record<string, string>> = {
+	Form: 'Load', MDIForm: 'Load', Timer: 'Timer', PictureBox: 'Click', Line: '', Shape: '',
+};
+
+/** The canvas kind for a VB6 prog id, or undefined for an OCX or custom control. */
+export function vb6CanvasKind(progId: string): string | undefined {
+	const bare = progId.startsWith('VB.') ? progId.slice(3) : undefined;
+	if (!bare) { return undefined; }
+	switch (bare) {
+		case 'HScrollBar':
+		case 'VScrollBar':
+			return 'ScrollBar';
+		case 'Label': case 'TextBox': case 'ComboBox': case 'ListBox': case 'CheckBox':
+		case 'OptionButton': case 'CommandButton': case 'Frame': case 'PictureBox':
+		case 'Image': case 'Timer': case 'Line': case 'Shape':
+			return bare;
+		default:
+			return undefined;
+	}
+}
+
+/** Twips to points, printed shortest: 240 -> "12", 250 -> "12.5". */
+export function twipsToPt(twips: number): string {
+	const pt = twips / 20;
+	return String(Math.round(pt * 100) / 100);
+}
+
+/** A VB6 property value spelled as the designer writes it: a quoted string, a number, a color, a boolean gloss. */
+export function unquoteVb6(value: string): string {
+	const trimmed = value.trim();
+	if (trimmed.length >= 2 && trimmed.startsWith('"') && trimmed.endsWith('"')) {
+		return trimmed.slice(1, -1).replace(/""/g, '"');
+	}
+	return trimmed;
+}
+
+/**
+ * The number a header value starts with. The designer's boolean spelling
+ * `0   'False` pads the zero to the width of `-1`, which the parser cannot
+ * split from its gloss, so the value text carries the gloss along; the
+ * number is its leading token either way.
+ */
+export function frmNumberOf(value: string | undefined): number | undefined {
+	if (value === undefined) { return undefined; }
+	const m = /^\s*(-?\d+(?:\.\d+)?)(?:\s|$)/.exec(value);
+	return m ? Number(m[1]) : undefined;
+}
+
+const numberOf = frmNumberOf;
+
+function property(control: FrmControl, key: string): FrmProperty | undefined {
+	const lower = key.toLowerCase();
+	for (const m of control.members) {
+		if (m.kind === 'property' && m.key.toLowerCase() === lower) { return m; }
+	}
+	return undefined;
+}
+
+function group(control: FrmControl, name: string): FrmPropertyGroup | undefined {
+	const lower = name.toLowerCase();
+	for (const m of control.members) {
+		if (m.kind === 'group' && m.name.toLowerCase() === lower) { return m; }
+	}
+	return undefined;
+}
+
+function groupValue(g: FrmPropertyGroup | undefined, key: string): string | undefined {
+	if (!g) { return undefined; }
+	const lower = key.toLowerCase();
+	for (const m of g.members) {
+		if (m.kind === 'property' && m.key.toLowerCase() === lower) { return m.value; }
+	}
+	return undefined;
+}
+
+/** A string property: inline, or from the sidecar when the header points there. */
+function textOf(control: FrmControl, key: string, frx: FrxLookup | undefined): string | undefined {
+	const p = property(control, key);
+	if (!p) { return undefined; }
+	if (p.frx) {
+		const value = frx?.(p.frx);
+		if (value && (value.kind === 'longString' || value.kind === 'shortString')) { return value.text; }
+		return undefined;
+	}
+	return unquoteVb6(p.value);
+}
+
+function colorCssOf(control: FrmControl, key: string): string | undefined {
+	const p = property(control, key);
+	if (!p || p.frx) { return undefined; }
+	const value = parseOleColor(p.value);
+	return value === undefined ? undefined : cssColor(value);
+}
+
+/** True/False as VB6 writes them: -1 and 0, with the `'True` gloss beside. */
+function boolOf(control: FrmControl, key: string): boolean | undefined {
+	const n = numberOf(property(control, key)?.value);
+	return n === undefined ? undefined : n !== 0;
+}
+
+/** The form's own default font, and every control's when it says nothing. */
+const DEFAULT_FONT_CSS = "font-family:'MS Sans Serif',Tahoma,sans-serif;font-size:8.25pt;";
+
+function fontCssOf(control: FrmControl): string {
+	const g = group(control, 'Font');
+	if (!g) { return ''; }
+	const parts: string[] = [];
+	const name = groupValue(g, 'Name');
+	if (name !== undefined) { parts.push(`font-family:'${esc(unquoteVb6(name))}',Tahoma,sans-serif;`); }
+	const size = numberOf(groupValue(g, 'Size'));
+	if (size !== undefined) { parts.push(`font-size:${size}pt;`); }
+	const weight = numberOf(groupValue(g, 'Weight'));
+	if (weight !== undefined && weight >= 600) { parts.push('font-weight:bold;'); }
+	if ((numberOf(groupValue(g, 'Italic')) ?? 0) !== 0) { parts.push('font-style:italic;'); }
+	const deco = [
+		(numberOf(groupValue(g, 'Underline')) ?? 0) !== 0 ? 'underline' : '',
+		(numberOf(groupValue(g, 'Strikethrough')) ?? 0) !== 0 ? 'line-through' : '',
+	].filter(Boolean).join(' ');
+	if (deco) { parts.push(`text-decoration:${deco};`); }
+	return parts.join('');
+}
+
+/**
+ * The image inside a sidecar picture record, as a data URI the browser can
+ * paint, or undefined when the record holds no picture or one no browser
+ * shows (a metafile). Measured on the fixtures' `.frx` files: the payload is
+ * an optional 16-byte StdPicture class id, then `lt` and two zero bytes,
+ * then the image's byte length and the image itself - a BMP, ICO, or JPEG
+ * file as it stands. An empty picture is `lt` followed by zeros.
+ */
+export function pictureDataUriOf(bytes: Buffer): string | undefined {
+	const marker = [0, 16].find((at) => bytes.length >= at + 8 && bytes[at] === 0x6c && bytes[at + 1] === 0x74);
+	if (marker === undefined) { return undefined; }
+	const length = bytes.readUInt32LE(marker + 4);
+	const image = bytes.subarray(marker + 8, marker + 8 + length);
+	if (length === 0 || image.length < 4) { return undefined; }
+	const mime = image[0] === 0x42 && image[1] === 0x4d ? 'image/bmp'
+		: image[0] === 0x89 && image[1] === 0x50 && image[2] === 0x4e && image[3] === 0x47 ? 'image/png'
+			: image[0] === 0xff && image[1] === 0xd8 && image[2] === 0xff ? 'image/jpeg'
+				: image.subarray(0, 4).toString('latin1') === 'GIF8' ? 'image/gif'
+					: image[0] === 0 && image[1] === 0 && (image[2] === 1 || image[2] === 2) && image[3] === 0 ? 'image/x-icon'
+						: undefined;
+	return mime ? `data:${mime};base64,${Buffer.from(image).toString('base64')}` : undefined;
+}
+
+function pictureCssOf(control: FrmControl, key: string, frx: FrxLookup | undefined): string {
+	const p = property(control, key);
+	if (!p?.frx) { return ''; }
+	const value = frx?.(p.frx);
+	const bytes = value && (value.kind === 'picture' || value.kind === 'opaque') ? value.bytes : undefined;
+	const uri = bytes ? pictureDataUriOf(bytes) : undefined;
+	return uri ? `background-image:url('${uri}');background-repeat:no-repeat;background-position:center center;` : '';
+}
+
+const ALIGNMENT_CSS: Readonly<Record<number, string>> = { 1: 'text-align:right;justify-content:flex-end;', 2: 'text-align:center;justify-content:center;' };
+
+/** The display name of a control: its name, with its Index when it is an array element. */
+export function vb6ControlName(control: FrmControl): string {
+	const index = property(control, 'Index');
+	return index && !index.frx ? `${control.name}(${index.value.trim()})` : control.name;
+}
+
+function boundsOf(control: FrmControl, kind: string | undefined): { left: number; top: number; width: number; height: number } {
+	if (kind === 'Line') {
+		const x1 = numberOf(property(control, 'X1')?.value) ?? 0;
+		const y1 = numberOf(property(control, 'Y1')?.value) ?? 0;
+		const x2 = numberOf(property(control, 'X2')?.value) ?? x1;
+		const y2 = numberOf(property(control, 'Y2')?.value) ?? y1;
+		return {
+			left: Math.min(x1, x2), top: Math.min(y1, y2),
+			width: Math.max(Math.abs(x2 - x1), 20), height: Math.max(Math.abs(y2 - y1), 20),
+		};
+	}
+	const left = numberOf(property(control, 'Left')?.value) ?? 0;
+	const top = numberOf(property(control, 'Top')?.value) ?? 0;
+	if (kind === 'Timer') {
+		// A Timer has no size; the designer shows it as an icon.
+		return { left, top, width: 480, height: 480 };
+	}
+	return {
+		left, top,
+		width: numberOf(property(control, 'Width')?.value) ?? 0,
+		height: numberOf(property(control, 'Height')?.value) ?? 0,
+	};
+}
+
+function sceneControlsOfChildren(children: readonly FrmControl[], frx: FrxLookup | undefined): SceneControl[] {
+	const out: SceneControl[] = [];
+	children.forEach((control, index) => {
+		if (control.progId === 'VB.Menu') { return; }
+		const kind = vb6CanvasKind(control.progId);
+		const box = boundsOf(control, kind);
+		const name = vb6ControlName(control);
+		const parts = [
+			`left:${twipsToPt(box.left)}pt;top:${twipsToPt(box.top)}pt;width:${twipsToPt(box.width)}pt;height:${twipsToPt(box.height)}pt;`,
+			fontCssOf(control),
+		];
+		const back = colorCssOf(control, 'BackColor');
+		const fore = colorCssOf(control, 'ForeColor');
+		if (kind === 'Label' && (numberOf(property(control, 'BackStyle')?.value) ?? 1) === 0) {
+			parts.push('background:transparent;');
+		} else if (back) {
+			parts.push(`background:${back};`);
+		}
+		if (fore) { parts.push(`color:${fore};`); }
+		if (boolOf(control, 'Enabled') === false) { parts.push('color:#6d6d6d;'); }
+		const alignment = numberOf(property(control, 'Alignment')?.value);
+		if ((kind === 'Label' || kind === 'TextBox') && alignment !== undefined && ALIGNMENT_CSS[alignment]) {
+			parts.push(ALIGNMENT_CSS[alignment]);
+		}
+		if (kind === 'TextBox' && boolOf(control, 'MultiLine')) { parts.push('white-space:pre-wrap;'); }
+		if (kind === 'Label' && (numberOf(property(control, 'BorderStyle')?.value) ?? 0) === 1) {
+			parts.push('border:1px solid #7a7a7a;');
+		}
+		if (kind === 'Line' || kind === 'Shape') {
+			const border = colorCssOf(control, 'BorderColor') ?? '#000000';
+			if (kind === 'Line') {
+				parts.push(`color:${border};`);
+			} else {
+				const shape = numberOf(property(control, 'Shape')?.value) ?? 0;
+				const radius = shape === 2 || shape === 3 ? '50%' : shape === 4 || shape === 5 ? '12%' : '0';
+				const fillStyle = numberOf(property(control, 'FillStyle')?.value) ?? 1;
+				const fill = fillStyle === 0 ? (colorCssOf(control, 'FillColor') ?? '#000000') : 'transparent';
+				parts.push(`border:1px solid ${border};border-radius:${radius};background:${fill};`);
+			}
+		}
+		if (kind === 'Image' || kind === 'PictureBox') { parts.push(pictureCssOf(control, 'Picture', frx)); }
+		const scene = sceneControl({ kind: kind ?? 'Foreign', name, index, style: parts.join('') });
+		scene.caption = kind === 'Frame' || kind === 'Label' || kind === 'CommandButton' || kind === 'CheckBox' || kind === 'OptionButton'
+			? (textOf(control, 'Caption', frx) ?? '')
+			: '';
+		if (kind === 'TextBox' || kind === 'ComboBox') { scene.value = textOf(control, 'Text', frx) ?? ''; }
+		if (kind === 'CheckBox') { scene.on = (numberOf(property(control, 'Value')?.value) ?? 0) === 1; }
+		if (kind === 'OptionButton') { scene.on = boolOf(control, 'Value') === true; }
+		if (kind === 'Image' || kind === 'PictureBox') { scene.pictured = parts[parts.length - 1] !== ''; }
+		if (kind === 'Line') {
+			const x1 = numberOf(property(control, 'X1')?.value) ?? 0;
+			const y1 = numberOf(property(control, 'Y1')?.value) ?? 0;
+			const x2 = numberOf(property(control, 'X2')?.value) ?? x1;
+			const y2 = numberOf(property(control, 'Y2')?.value) ?? y1;
+			scene.on = (x1 <= x2) === (y1 <= y2);
+		}
+		// Frames and PictureBoxes hold controls; so does any OCX or UserControl
+		// the header nests children under (an SSTab page, a container
+		// UserControl): those children draw on the foreign control's surface.
+		if (kind === 'Frame' || kind === 'PictureBox' || control.children.some((c) => c.progId !== 'VB.Menu')) {
+			scene.containerFontCss = fontCssOf(control) || DEFAULT_FONT_CSS;
+			scene.surfaceStyle = back ? `background:${back};` : '';
+			scene.children = sceneControlsOfChildren(control.children, frx);
+		}
+		out.push(scene);
+	});
+	return out;
+}
+
+/** The form's menu bar: the captions of its top-level menus, ampersands dropped. */
+export function vb6MenuCaptions(form: FrmControl): string[] {
+	return form.children
+		.filter((c) => c.progId === 'VB.Menu')
+		.map((c) => (unquoteVb6(property(c, 'Caption')?.value ?? c.name)).replace(/&(?!&)/g, '').replace(/&&/g, '&'))
+		.filter((caption) => caption !== '-');
+}
+
+/** Reads a VB6 form header into the scene the canvas draws. */
+export function sceneOfFrmHeader(header: FrmHeader, options: FrmSceneOptions): FormScene {
+	const form = header.form;
+	const frx = options.frx;
+	const caption = textOf(form, 'Caption', frx) ?? options.formName;
+	const back = colorCssOf(form, 'BackColor') ?? cssColor(0x8000000f);
+	const fore = colorCssOf(form, 'ForeColor') ?? '#000';
+	const borderStyle = numberOf(property(form, 'BorderStyle')?.value) ?? 2;
+	const border = borderStyle === 0 ? 'border:none;' : borderStyle === 1 || borderStyle === 3 ? 'border:1px solid #7a7a7a;' : '';
+	return {
+		form: {
+			name: options.formName,
+			caption,
+			widthPt: twipsToPt(numberOf(property(form, 'ClientWidth')?.value) ?? 4800),
+			heightPt: twipsToPt(numberOf(property(form, 'ClientHeight')?.value) ?? 3600),
+			backCss: back,
+			foreCss: fore,
+			borderCss: border,
+			pictureCss: pictureCssOf(form, 'Picture', frx),
+			fontCss: fontCssOf(form) || DEFAULT_FONT_CSS,
+			scrollBars: 0,
+			zoom: 100,
+			menus: vb6MenuCaptions(form),
+		},
+		controls: sceneControlsOfChildren(form.children, frx),
+		pictures: {},
+		toolbox: VB6_TOOLBOX,
+		defaultEvents: VB6_DEFAULT_EVENTS,
+	};
+}
+
+export interface FrmPropertyRow {
+	prop: string;
+	value: string;
+}
+
+const GEOMETRY_KEYS = new Set(['left', 'top', 'width', 'height']);
+/** The form's size lives in its client size; the pane shows it as Width and Height. */
+const FORM_SIZE_KEYS = new Set(['clientwidth', 'clientheight']);
+
+/** A property value as the pane shows it: booleans by name, an enum by its number, a string unquoted. */
+export function frmDisplayValue(p: FrmProperty): string {
+	if (p.comment === 'True' && p.value.trim() === '-1') { return 'True'; }
+	if (/^0\s+'False$/.test(p.value.trim())) { return 'False'; }
+	return unquoteVb6(p.value);
+}
+
+/** The property rows the pane shows for one control: its header, as written, geometry in points. */
+function controlRows(control: FrmControl, frx: FrxLookup | undefined, kind: string | undefined): FrmPropertyRow[] {
+	const rows: FrmPropertyRow[] = [{ prop: 'Name', value: control.name }];
+	const index = property(control, 'Index');
+	if (index && !index.frx) { rows.push({ prop: 'Index', value: index.value.trim() }); }
+	if (kind === 'Form') {
+		rows.push(
+			{ prop: 'Width', value: twipsToPt(numberOf(property(control, 'ClientWidth')?.value) ?? 0) },
+			{ prop: 'Height', value: twipsToPt(numberOf(property(control, 'ClientHeight')?.value) ?? 0) },
+		);
+	} else if (kind !== 'Line' && kind !== 'Timer') {
+		const box = boundsOf(control, kind);
+		rows.push(
+			{ prop: 'Left', value: twipsToPt(box.left) }, { prop: 'Top', value: twipsToPt(box.top) },
+			{ prop: 'Width', value: twipsToPt(box.width) }, { prop: 'Height', value: twipsToPt(box.height) },
+		);
+	} else if (kind === 'Timer') {
+		const box = boundsOf(control, kind);
+		rows.push({ prop: 'Left', value: twipsToPt(box.left) }, { prop: 'Top', value: twipsToPt(box.top) });
+	}
+	for (const m of control.members) {
+		if (m.kind === 'group') {
+			if (m.name.toLowerCase() === 'font') {
+				for (const f of m.members) {
+					if (f.kind === 'property') { rows.push({ prop: `Font.${f.key}`, value: frmDisplayValue(f) }); }
+				}
+			}
+			continue;
+		}
+		const lower = m.key.toLowerCase();
+		if (lower === 'index') { continue; }
+		if (kind === 'Form' ? FORM_SIZE_KEYS.has(lower) : (kind !== 'Line' && GEOMETRY_KEYS.has(lower))) { continue; }
+		if (m.frx) {
+			const value = frx?.(m.frx);
+			rows.push({ prop: m.key, value: value && (value.kind === 'longString' || value.kind === 'shortString') ? value.text : `(${m.frx.file}:${m.frx.offset.toString(16).toUpperCase().padStart(4, '0')})` });
+			continue;
+		}
+		rows.push({ prop: m.key, value: frmDisplayValue(m) });
+	}
+	// The kind's design-time vocabulary, blank where the header says nothing.
+	const present = new Set(rows.map((r) => r.prop.toLowerCase()));
+	for (const key of VB6_DESIGN_PROPERTIES[control.progId] ?? []) {
+		if (key === 'Font') {
+			if (!present.has('font.name')) {
+				for (const field of VB6_FONT_FIELDS) { rows.push({ prop: `Font.${field}`, value: '' }); }
+			}
+			continue;
+		}
+		if (!present.has(key.toLowerCase())) { rows.push({ prop: key, value: '' }); }
+	}
+	return rows;
+}
+
+/** Property rows per target ('' is the form), keyed the way the canvas names controls. */
+export function listFrmProperties(header: FrmHeader, options: FrmSceneOptions): Record<string, { kind: string; rows: FrmPropertyRow[] }> {
+	const out: Record<string, { kind: string; rows: FrmPropertyRow[] }> = {};
+	const form = header.form;
+	const formRows = controlRows(form, options.frx, 'Form');
+	if (!formRows.some((r) => r.prop === 'Caption')) {
+		// A header without a Caption line shows the name, as the canvas does.
+		formRows.splice(1, 0, { prop: 'Caption', value: options.formName });
+	}
+	out[''] = { kind: form.progId.startsWith('VB.') ? form.progId.slice(3) : form.progId, rows: formRows };
+	const walk = (children: readonly FrmControl[]): void => {
+		for (const control of children) {
+			if (control.progId === 'VB.Menu') { continue; }
+			const kind = vb6CanvasKind(control.progId);
+			out[vb6ControlName(control)] = { kind: kind ?? control.progId, rows: controlRows(control, options.frx, kind) };
+			walk(control.children);
+		}
+	};
+	walk(form.children);
+	return out;
+}

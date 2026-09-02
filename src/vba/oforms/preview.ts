@@ -34,13 +34,13 @@ const WINDOWS_PALETTE: Readonly<Record<string, string>> = {
 };
 
 /** OLE_COLOR -> CSS: literals verbatim, system indices via the palette. */
-function cssColor(value: number): string {
+export function cssColor(value: number): string {
 	const spelled = formatOleColor(value);
 	if (spelled.startsWith('#')) { return spelled; }
 	return WINDOWS_PALETTE[spelled] ?? WINDOWS_PALETTE.ButtonFace;
 }
 
-function esc(text: string): string {
+export function esc(text: string): string {
 	return text
 		.replace(/&/g, '&amp;')
 		.replace(/</g, '&lt;')
@@ -229,14 +229,83 @@ function colorCss(record: ParsedRecord | undefined, kind?: string): string {
 	return parts.join('');
 }
 
-/** Renders one form package to the inner HTML of its surface. */
-function renderSurface(
-	pkg: FormPackage,
-	idPrefix: string,
-	selected: string | undefined,
-	pictures: Map<string, string>,
-): string {
-	const parts: string[] = [];
+/**
+ * The scene: what the canvas draws, with the model already read. An OFORMS
+ * package (sceneOfPackage, below) and a VB6 form header (vb6/frmScene.ts)
+ * each become one of these, and the renderer knows only the scene - so a
+ * form from either world gets the same canvas, the same script, and the
+ * same gestures. Every style is inline CSS the adapter finished: bounds in
+ * points, font, colors, state, picture, border.
+ */
+export interface SceneControl {
+	/** The canvas kind: Label, TextBox, ..., Frame, MultiPage, or Foreign. */
+	kind: string;
+	name: string;
+	/** Position in the surface's entry order, for stable element ids. */
+	index: number;
+	style: string;
+	caption: string;
+	value: string;
+	/** A caption picture's <img>, registered in the scene's pictures. */
+	captionHtml: string;
+	/** An Image that carries a real picture (its style draws it). */
+	pictured: boolean;
+	/** ToggleButton pressed, CheckBox or OptionButton on. */
+	on: boolean;
+	/** Frame and MultiPage: the container's own font. */
+	containerFontCss: string;
+	/** Frame: the inner surface's colors. */
+	surfaceStyle: string;
+	/** Frame: the controls it holds. */
+	children: SceneControl[];
+	/** TabStrip captions. */
+	tabs: string[];
+	/** MultiPage pages, each a surface named after its page. */
+	pages: { name: string; caption: string; children: SceneControl[] }[];
+}
+
+export interface SceneForm {
+	name: string;
+	caption: string;
+	widthPt: string;
+	heightPt: string;
+	backCss: string;
+	foreCss: string;
+	borderCss: string;
+	pictureCss: string;
+	fontCss: string;
+	/** fmScrollBars bits: 1 horizontal, 2 vertical. */
+	scrollBars: number;
+	/** Percent. */
+	zoom: number;
+	/** A VB6 form's menu bar captions, in order; empty for an MSForms form. */
+	menus: string[];
+}
+
+export interface FormScene {
+	form: SceneForm;
+	controls: SceneControl[];
+	/** Caption pictures by key, for the script that dresses them. */
+	pictures: Record<string, string>;
+	/** The kinds the toolbar offers to add. */
+	toolbox: string[];
+	/** The default event per kind where the world's differs from MSForms' (a VB6 Form loads, a Timer ticks). */
+	defaultEvents?: Record<string, string>;
+}
+
+export function sceneControl(
+	partial: Partial<SceneControl> & Pick<SceneControl, 'kind' | 'name' | 'index' | 'style'>,
+): SceneControl {
+	return {
+		caption: '', value: '', captionHtml: '', pictured: false, on: false,
+		containerFontCss: '', surfaceStyle: '', children: [], tabs: [], pages: [],
+		...partial,
+	};
+}
+
+/** Reads one form package into scene controls, in entry order. */
+function sceneControlsOfPackage(pkg: FormPackage, pictures: Map<string, string>): SceneControl[] {
+	const out: SceneControl[] = [];
 	pkg.entries.forEach((entry, index) => {
 		const site = entry.site;
 		const record = entry.kind === 'record' ? entry.record : undefined;
@@ -250,17 +319,78 @@ function renderSurface(
 			+ (kind === 'TextBox' && record && ((effectiveVariousPropertyBits(record, kind) ?? 0) & 0x80000000) !== 0
 				? 'white-space:pre-wrap;'
 				: '');
-		const sel = selected !== undefined && selected.toLowerCase() === name.toLowerCase() ? ' selected' : '';
-		const dn = `data-name="${esc(name)}"`;
 		const caption = record?.strings.get('Caption')?.text
 			?? inner?.form.record.strings.get('Caption')?.text
 			?? '';
 		const value = record?.strings.get('Value')?.text ?? '';
-		const childId = `${idPrefix}-${index}`;
+		const control = sceneControl({ kind, name, index, style, caption, value });
+		switch (kind) {
+			case 'Label':
+			case 'CommandButton':
+			case 'ToggleButton':
+				control.captionHtml = captionPictureHtml(record, kind, pictures);
+				control.on = kind === 'ToggleButton' && value === '1';
+				break;
+			case 'CheckBox':
+			case 'OptionButton':
+				control.on = value === '1';
+				break;
+			case 'Image':
+				control.pictured = pictureDataUri(record?.streamData.get('Picture')) !== undefined;
+				break;
+			case 'TabStrip': {
+				const items = record?.arrays.get('Items');
+				control.tabs = items ? decodeArrayStrings(items) : [];
+				break;
+			}
+			case 'Frame':
+				control.containerFontCss = containerFontCss(inner);
+				control.surfaceStyle = inner ? colorCss(inner.form.record) : '';
+				control.children = inner ? sceneControlsOfPackage(inner, pictures) : [];
+				break;
+			case 'MultiPage': {
+				// A MultiPage without its inner package draws nothing at all.
+				if (!inner) { return; }
+				const tabStripEntry = inner.entries.find((e) => e.kind === 'record' && siteCacheIndex(e.site) === 18);
+				const captions = tabStripEntry && tabStripEntry.kind === 'record'
+					? decodeArrayStrings(tabStripEntry.record.arrays.get('Items') ?? Buffer.alloc(0))
+					: [];
+				const pageSites = inner.form.sites.filter((s) => siteCacheIndex(s) === 7);
+				control.containerFontCss = containerFontCss(inner);
+				control.pages = pageSites.map((pageSite, i) => {
+					const pagePkg = inner.containers.get(siteId(pageSite));
+					return {
+						name: siteName(pageSite),
+						caption: captions[i] ?? siteName(pageSite),
+						children: pagePkg ? sceneControlsOfPackage(pagePkg, pictures) : [],
+					};
+				});
+				break;
+			}
+			default:
+				break;
+		}
+		out.push(control);
+	});
+	return out;
+}
+
+/** Renders scene controls to the inner HTML of their surface. */
+export function renderSceneControls(
+	controls: readonly SceneControl[],
+	idPrefix: string,
+	selected: string | undefined,
+): string {
+	const parts: string[] = [];
+	for (const control of controls) {
+		const { kind, name, style, caption, value } = control;
+		const sel = selected !== undefined && selected.toLowerCase() === name.toLowerCase() ? ' selected' : '';
+		const dn = `data-name="${esc(name)}"`;
+		const childId = `${idPrefix}-${control.index}`;
 
 		switch (kind) {
 			case 'Label':
-				parts.push(`<div class="ctl label${sel}" ${dn} style="${style}" title="${esc(name)}">${captionPictureHtml(record, kind, pictures)}${esc(caption)}</div>`);
+				parts.push(`<div class="ctl label${sel}" ${dn} style="${style}" title="${esc(name)}">${control.captionHtml}${esc(caption)}</div>`);
 				break;
 			case 'TextBox':
 				parts.push(`<div class="ctl edit${sel}" ${dn} style="${style}" title="${esc(name)}">${esc(value)}</div>`);
@@ -272,17 +402,17 @@ function renderSurface(
 				parts.push(`<div class="ctl edit list${sel}" ${dn} style="${style}" title="${esc(name)}"></div>`);
 				break;
 			case 'CheckBox':
-				parts.push(`<div class="ctl opt${sel}" ${dn} style="${style}" title="${esc(name)}"><span class="box${value === '1' ? ' on' : ''}"></span>${esc(caption)}</div>`);
+				parts.push(`<div class="ctl opt${sel}" ${dn} style="${style}" title="${esc(name)}"><span class="box${control.on ? ' on' : ''}"></span>${esc(caption)}</div>`);
 				break;
 			case 'OptionButton':
-				parts.push(`<div class="ctl opt${sel}" ${dn} style="${style}" title="${esc(name)}"><span class="radio${value === '1' ? ' on' : ''}"></span>${esc(caption)}</div>`);
+				parts.push(`<div class="ctl opt${sel}" ${dn} style="${style}" title="${esc(name)}"><span class="radio${control.on ? ' on' : ''}"></span>${esc(caption)}</div>`);
 				break;
 			case 'CommandButton':
 			case 'ToggleButton':
-				parts.push(`<div class="ctl button${kind === 'ToggleButton' && value === '1' ? ' pressed' : ''}${sel}" ${dn} style="${style}" title="${esc(name)}">${captionPictureHtml(record, kind, pictures)}${esc(caption)}</div>`);
+				parts.push(`<div class="ctl button${control.on ? ' pressed' : ''}${sel}" ${dn} style="${style}" title="${esc(name)}">${control.captionHtml}${esc(caption)}</div>`);
 				break;
 			case 'Image':
-				parts.push(pictureDataUri(record?.streamData.get('Picture'))
+				parts.push(control.pictured
 					? `<div class="ctl image pictured${sel}" ${dn} style="${style}" title="${esc(name)}"></div>`
 					: `<div class="ctl image${sel}" ${dn} style="${style}" title="${esc(name)}"><span>${esc(name)}</span></div>`);
 				break;
@@ -292,36 +422,42 @@ function renderSurface(
 			case 'ScrollBar':
 				parts.push(`<div class="ctl scroll${sel}" ${dn} style="${style}" title="${esc(name)}"></div>`);
 				break;
-			case 'TabStrip': {
-				const items = record?.arrays.get('Items');
-				const tabs = items ? decodeArrayStrings(items) : [];
-				parts.push(`<div class="ctl tabstrip${sel}" ${dn} style="${style}" title="${esc(name)}"><div class="tabs">${tabs.map((t, i) => `<span class="tab${i === 0 ? ' active' : ''}">${esc(t)}</span>`).join('')}</div><div class="tabbody"></div></div>`);
+			case 'TabStrip':
+				parts.push(`<div class="ctl tabstrip${sel}" ${dn} style="${style}" title="${esc(name)}"><div class="tabs">${control.tabs.map((t, i) => `<span class="tab${i === 0 ? ' active' : ''}">${esc(t)}</span>`).join('')}</div><div class="tabbody"></div></div>`);
 				break;
-			}
 			case 'Frame':
-				parts.push(`<div class="ctl frame${sel}" ${dn} style="${style}${containerFontCss(inner)}" title="${esc(name)}"><span class="legend">${esc(caption)}</span><div class="surface" data-surface="${esc(name)}" style="${inner ? colorCss(inner.form.record) : ''}">${inner ? renderSurface(inner, childId, selected, pictures) : ''}</div></div>`);
+				parts.push(`<div class="ctl frame${sel}" ${dn} style="${style}${control.containerFontCss}" title="${esc(name)}"><span class="legend">${esc(caption)}</span><div class="surface" data-surface="${esc(name)}" style="${control.surfaceStyle}">${renderSceneControls(control.children, childId, selected)}</div></div>`);
 				break;
 			case 'MultiPage': {
-				if (!inner) { break; }
-				const tabStripEntry = inner.entries.find((e) => e.kind === 'record' && siteCacheIndex(e.site) === 18);
-				const captions = tabStripEntry && tabStripEntry.kind === 'record'
-					? decodeArrayStrings(tabStripEntry.record.arrays.get('Items') ?? Buffer.alloc(0))
-					: [];
-				const pageSites = inner.form.sites.filter((s) => siteCacheIndex(s) === 7);
-				const headers = pageSites.map((pageSite, i) =>
-					`<span class="tab${i === 0 ? ' active' : ''}" data-page="${childId}-p${i}">${esc(captions[i] ?? siteName(pageSite))}</span>`).join('');
-				const pages = pageSites.map((pageSite, i) => {
-					const pagePkg = inner.containers.get(siteId(pageSite));
-					return `<div class="page" id="${childId}-p${i}" data-surface="${esc(siteName(pageSite))}"${i === 0 ? '' : ' hidden'}>${pagePkg ? renderSurface(pagePkg, `${childId}-p${i}`, selected, pictures) : ''}</div>`;
-				}).join('');
-				parts.push(`<div class="ctl multipage${sel}" ${dn} style="${style}${containerFontCss(inner)}" title="${esc(name)}"><div class="tabs">${headers}</div><div class="pagearea">${pages}</div></div>`);
+				const headers = control.pages.map((page, i) =>
+					`<span class="tab${i === 0 ? ' active' : ''}" data-page="${childId}-p${i}">${esc(page.caption)}</span>`).join('');
+				const pages = control.pages.map((page, i) =>
+					`<div class="page" id="${childId}-p${i}" data-surface="${esc(page.name)}"${i === 0 ? '' : ' hidden'}>${renderSceneControls(page.children, `${childId}-p${i}`, selected)}</div>`).join('');
+				parts.push(`<div class="ctl multipage${sel}" ${dn} style="${style}${control.containerFontCss}" title="${esc(name)}"><div class="tabs">${headers}</div><div class="pagearea">${pages}</div></div>`);
 				break;
 			}
+			case 'PictureBox':
+				// A VB6 PictureBox: a sunken surface that holds controls, no legend.
+				parts.push(`<div class="ctl frame picture${sel}" ${dn} style="${style}${control.containerFontCss}" title="${esc(name)}"><div class="surface" data-surface="${esc(name)}" style="${control.surfaceStyle}">${renderSceneControls(control.children, childId, selected)}</div></div>`);
+				break;
+			case 'Line':
+				parts.push(`<div class="ctl line${sel}" ${dn} style="${style}" title="${esc(name)}"><svg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 100"><line x1="${control.on ? 0 : 100}" y1="0" x2="${control.on ? 100 : 0}" y2="100" vector-effect="non-scaling-stroke" stroke="currentColor" stroke-width="1"/></svg></div>`);
+				break;
+			case 'Shape':
+				parts.push(`<div class="ctl shape${sel}" ${dn} style="${style}" title="${esc(name)}"></div>`);
+				break;
+			case 'Timer':
+				parts.push(`<div class="ctl timer${sel}" ${dn} style="${style}" title="${esc(name)}"><span>&#9201;</span></div>`);
+				break;
 			default:
-				parts.push(`<div class="ctl foreign${sel}" ${dn} style="${style}" title="${esc(name)}"><span>${esc(name)}</span></div>`);
+				// A foreign control that holds children (a VB6 SSTab, a container
+				// UserControl) gets a surface for them; one without draws as before.
+				parts.push(control.children.length
+					? `<div class="ctl foreign${sel}" ${dn} style="${style}${control.containerFontCss}" title="${esc(name)}"><span>${esc(name)}</span><div class="surface" data-surface="${esc(name)}" style="${control.surfaceStyle}">${renderSceneControls(control.children, childId, selected)}</div></div>`
+					: `<div class="ctl foreign${sel}" ${dn} style="${style}" title="${esc(name)}"><span>${esc(name)}</span></div>`);
 				break;
 		}
-	});
+	}
 	return parts.join('\n');
 }
 
@@ -342,16 +478,14 @@ export interface FormPreviewOptions {
 	markup?: string;
 }
 
-/**
- * The whole preview document: the form's dialog chrome, its control tree,
- * and the few lines of script that switch MultiPage pages. Self-contained -
- * no external resources - so it drops straight into a webview.
- */
-export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOptions): string {
+/** The MSForms kinds the toolbar offers an OFORMS form. */
+const OFORMS_TOOLBOX = ['Label', 'TextBox', 'ComboBox', 'ListBox', 'CheckBox', 'OptionButton',
+	'ToggleButton', 'Frame', 'CommandButton', 'TabStrip', 'ScrollBar', 'SpinButton', 'Image'];
+
+/** Reads an OFORMS package into the scene the canvas draws. */
+export function sceneOfPackage(pkg: FormPackage, options: FormPreviewOptions): FormScene {
 	const record = pkg.form.record;
 	const size = record.sizes.get('DisplayedSize') ?? { width: 0, height: 0 };
-	const width = pts(size.width);
-	const height = pts(size.height);
 	const caption = options.caption ?? record.strings.get('Caption')?.text ?? options.formName;
 	const back = record.values.get('BackColor');
 	const formBack = back !== undefined && recordHas(record, 'BackColor') ? cssColor(back) : WINDOWS_PALETTE.ButtonFace;
@@ -371,21 +505,61 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 		return styleOf[effect] ? `border:2px ${styleOf[effect]} #d9d9d9;` : '';
 	})();
 	const scrollBars = recordHas(record, 'ScrollBars') ? (record.values.get('ScrollBars') ?? 0) : 0;
-	const scrollRails = `${(scrollBars & 2) !== 0 ? '<div class="rail v"></div>' : ''}${(scrollBars & 1) !== 0 ? '<div class="rail h"></div>' : ''}`;
 	const formZoom = recordHas(record, 'Zoom') ? Math.max(10, Math.min(400, record.values.get('Zoom') ?? 100)) : 100;
 	const stdFont = pkg.form.fontRaw ? parseStdFont(pkg.form.fontRaw) : undefined;
 	const formFont = stdFont
 		? `font-family:'${esc(stdFont.face)}',Tahoma,sans-serif;font-size:${stdFont.heightTenThousandthsPt / 10000}pt;`
 			+ stdFontStyleCss(stdFont)
 		: "font-family:Tahoma,sans-serif;font-size:8.25pt;";
+	const pictures = new Map<string, string>();
+	const controls = sceneControlsOfPackage(pkg, pictures);
+	return {
+		form: {
+			name: options.formName,
+			caption,
+			widthPt: pts(size.width),
+			heightPt: pts(size.height),
+			backCss: formBack,
+			foreCss: formFore,
+			borderCss: formBorder,
+			pictureCss: formPicture,
+			fontCss: formFont,
+			scrollBars,
+			zoom: formZoom,
+			menus: [],
+		},
+		controls,
+		pictures: Object.fromEntries(pictures),
+		toolbox: OFORMS_TOOLBOX,
+	};
+}
 
-	const toolbox = ['Label', 'TextBox', 'ComboBox', 'ListBox', 'CheckBox', 'OptionButton',
-		'ToggleButton', 'Frame', 'CommandButton', 'TabStrip', 'ScrollBar', 'SpinButton', 'Image'];
+/**
+ * The whole preview document: the form's dialog chrome, its control tree,
+ * and the few lines of script that switch MultiPage pages. Self-contained -
+ * no external resources - so it drops straight into a webview.
+ */
+export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOptions): string {
+	return renderFormSceneHtml(sceneOfPackage(pkg, options), options);
+}
+
+/** The preview document for any scene: the same chrome, script, and gestures. */
+export function renderFormSceneHtml(scene: FormScene, options: FormPreviewOptions): string {
+	const {
+		widthPt: width, heightPt: height, caption, backCss: formBack, foreCss: formFore,
+		borderCss: formBorder, pictureCss: formPicture, fontCss: formFont, zoom: formZoom, scrollBars,
+	} = scene.form;
+	const scrollRails = `${(scrollBars & 2) !== 0 ? '<div class="rail v"></div>' : ''}${(scrollBars & 1) !== 0 ? '<div class="rail h"></div>' : ''}`;
+	// A VB6 form's menu bar sits under the title bar, as the runtime draws it.
+	const menuBar = scene.form.menus.length
+		? `<div class="menubar">${scene.form.menus.map((m) => `<span>${esc(m)}</span>`).join('')}</div>`
+		: '';
+	const toolbox = scene.toolbox;
 	const interactive = options.interactive !== false;
 	const propsJson = JSON.stringify(options.properties ?? {}).replace(/</g, '\\u003c');
-	const pictures = new Map<string, string>();
-	const surfaceHtml = renderSurface(pkg, 'c', options.selected, pictures);
-	const picturesJson = JSON.stringify(Object.fromEntries(pictures)).replace(/</g, '\\u003c');
+	const surfaceHtml = renderSceneControls(scene.controls, 'c', options.selected);
+	const picturesJson = JSON.stringify(scene.pictures).replace(/</g, '\\u003c');
+	const defaultEventsJson = JSON.stringify(scene.defaultEvents ?? {}).replace(/</g, '\\u003c');
 	return `<!DOCTYPE html>
 <html>
 <head>
@@ -503,6 +677,19 @@ export function renderFormPreviewHtml(pkg: FormPackage, options: FormPreviewOpti
 	.rail.v { right: 0; top: 0; bottom: 0; width: 11pt; }
 	.rail.h { left: 0; right: 0; bottom: 0; height: 11pt; }
 	img.cpic { max-width: none; max-height: none; }
+	/* VB6 kinds the MSForms canvas never had: a menu bar, a PictureBox
+	   (a sunken surface without a legend), a Line drawn between its two
+	   points, a Shape in its own shape, a Timer's design-time icon. */
+	.menubar { background: #f0f0f0; border-bottom: 1px solid #a0a0a0; padding: 1px 4px;
+		font: 8.25pt 'MS Sans Serif', Tahoma, sans-serif; color: #000; display: flex; gap: 12px; }
+	.frame.picture { border: 2px inset #d9d9d9; }
+	.frame.picture > .surface { position: absolute; inset: 0; }
+	.foreign > .surface { position: absolute; inset: 0; }
+	.line { background: transparent; border: none; box-shadow: none; overflow: visible; }
+	.line svg { display: block; overflow: visible; }
+	.shape { box-shadow: none; }
+	.timer { background: #f0f0f0; border: 1px solid #808080; display: flex; align-items: center;
+		justify-content: center; font-size: 12pt; }
 	/* While grid snap is on, every design surface shows the 6pt lattice the
 	   snapping answers to, as the VBE's dotted face does. The half-cell
 	   offset centers a dot on each grid point, so dots mark exactly where a
@@ -656,7 +843,7 @@ ${interactive ? `	<div class="toolbar" id="toolbar">
 	<div class="main">
 	<div class="stage">
 	<div class="dialog${options.selected === '' ? ' form-selected' : ''}">
-		<div class="titlebar"><span>${esc(caption)}</span><span>&#10005;</span></div>
+		<div class="titlebar"><span>${esc(caption)}</span><span>&#10005;</span></div>${menuBar}
 		<div class="client" data-surface="">${scrollRails}
 ${surfaceHtml}
 		</div>
@@ -1046,12 +1233,12 @@ ${interactive ? `	<script>
 		// the form itself: UserForm_Click, whatever the form is named. A
 		// dblclick inside a container resolves to the DEEPEST control under
 		// the pointer, so a page's empty area belongs to its MultiPage.
-		const DEFAULT_EVENTS = {
+		const DEFAULT_EVENTS = Object.assign({
 			Form: 'Click', CommandButton: 'Click', Label: 'Click', TextBox: 'Change',
 			ComboBox: 'Change', ListBox: 'Click', CheckBox: 'Click', OptionButton: 'Click',
 			ToggleButton: 'Click', Frame: 'Click', MultiPage: 'Change', TabStrip: 'Change',
 			ScrollBar: 'Change', SpinButton: 'Change', Image: 'Click',
-		};
+		}, ${defaultEventsJson});
 		document.addEventListener('dblclick', (e) => {
 			if (e.target.closest('.toolbar') || e.target.closest('.props')) { return; }
 			if (!e.target.closest('.dialog')) { return; }

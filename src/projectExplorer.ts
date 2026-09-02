@@ -555,9 +555,11 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                 moduleName,
                 line: s.line,
             }));
-            // A VB6 form's designer is a text header this designer does not open
-            // yet (roadmap_vb6_support.md, Slice 5); until it does, the row stays off.
-            if (moduleType === 'userform' && !isVb6ProjectPath(filePath)) {
+            // A VB6 form, UserControl, or PropertyPage opens in the designer
+            // too, drawn from its own header (roadmap_vb6_support.md, Slice 5).
+            const vb6Designer = isVb6ProjectPath(filePath)
+                && (moduleType === 'usercontrol' || moduleType === 'propertypage');
+            if (moduleType === 'userform' || vb6Designer) {
                 // The designer sits FIRST under its form, above the handlers -
                 // the xlide vbide arrangement: the design comes before the code
                 // that answers it, and a fixed position means the row never

@@ -15,7 +15,7 @@ import { siteName as oformsSiteName } from './oforms/formStream';
 import { printFormMarkup as printOformsMarkup, parseFormMarkup as parseOformsMarkup, applyFormMarkup as applyOformsMarkup } from './oforms/markup';
 import { formatPointsShortest } from './oforms/bytes';
 import { composeNewForm } from './oforms/newForm';
-import { renderFormPreviewHtml } from './oforms/preview';
+import { renderFormPreviewHtml, renderFormSceneHtml } from './oforms/preview';
 import {
 	addControlAt as designerAddControlAt,
 	listFormProperties as designerListFormProperties,
@@ -58,7 +58,12 @@ import {
 	validateVb6Project,
 	writeVb6Module,
 	type Vb6ModuleEntry,
+	VB6_CODE_PAGE,
 } from './vb6/vb6Project';
+import { frmFrxRefs, parseFrmHeader, printFrmHeader, type FrmHeader, type FrxRef } from './vb6/frmHeader';
+import { readFrxRecords, type FrxValue } from './vb6/frx';
+import { listFrmProperties, sceneOfFrmHeader, type FrxLookup } from './vb6/frmScene';
+import { applyFrmDesignerOp, type FrmDesignerOp, type FrmDesignerOpResult } from './vb6/frmDesignerOps';
 
 /**
  * A module's kind. The last three exist only in a VB6 project, whose manifest
@@ -299,6 +304,97 @@ function sheetSurface(filePath: string): XlsxWorkbook {
 
 /** Test hook: a VB6 form's parsed designer header through the service's own dispatch. */
 export const readVb6FormHeaderForTests = readVb6FormHeader;
+
+/**
+ * A VB6 form rendered for the designer, from the header text the document
+ * holds right now and the sidecar on disk. The document IS the module's
+ * file, so nothing is copied and nothing is applied: the header is parsed
+ * from `text`, and the `.frx` it names is read beside `modulePath` for the
+ * strings and pictures the header keeps there. The pane's markup is the
+ * header itself, as written.
+ */
+export function readVb6FormPreview(
+	modulePath: string,
+	text: string,
+	selected?: string,
+	vbpPath?: string,
+): { html: string } {
+	const header = parseFrmHeader(text);
+	if (!header) {
+		throw new Error(`${path.basename(modulePath)} has no designer header (VERSION 5.00 / Begin VB.Form ... End).`);
+	}
+	const formName = header.form.name;
+	const frx = vb6FrxLookup(header, path.dirname(modulePath));
+	const scene = sceneOfFrmHeader(header, { formName, frx, selected });
+	return {
+		html: renderFormSceneHtml(scene, {
+			formName,
+			selected,
+			properties: listFrmProperties(header, { formName, frx }),
+			identity: { project: vbpPath ?? modulePath, module: formName },
+			markup: printFrmHeader(header),
+		}),
+	};
+}
+
+/**
+ * A designer gesture on a VB6 form: the header rewritten in the document's
+ * text, the code kept (frmDesignerOps.ts). A string the header cannot hold
+ * inline - a multi-line Text - is appended to the form's `.frx` sidecar in
+ * the record layout the reader measures (a length, then the bytes), and
+ * the header points at it; that append is the only sidecar write, and it
+ * happens before the text is returned, so a document the user then
+ * discards leaves an unreferenced record behind and nothing worse.
+ */
+export function applyVb6FormDesignerOp(modulePath: string, text: string, op: FrmDesignerOp): FrmDesignerOpResult {
+	return applyFrmDesignerOp(text, op, {
+		storeString: (value) => appendVb6SidecarString(modulePath, text, value),
+	});
+}
+
+function appendVb6SidecarString(modulePath: string, text: string, value: string): FrxRef {
+	// The sidecar the header already names, else the module's own `.frx`.
+	const header = parseFrmHeader(text);
+	const named = header ? frmFrxRefs(header)[0]?.property.frx?.file : undefined;
+	const file = named ?? `${path.basename(modulePath).replace(/\.[^.]+$/, '')}.frx`;
+	const frxPath = path.join(path.dirname(modulePath), file);
+	let blob: Buffer;
+	try {
+		blob = fs.readFileSync(frxPath);
+	} catch {
+		blob = Buffer.alloc(0);
+	}
+	const bytes = encodeCodePage(value, VB6_CODE_PAGE);
+	const long = bytes.length > 255;
+	const length = long ? Buffer.alloc(4) : Buffer.from([bytes.length]);
+	if (long) { length.writeUInt32LE(bytes.length, 0); }
+	atomicWrite(frxPath, Buffer.concat([blob, length, bytes]));
+	return { file, offset: blob.length, long };
+}
+
+/**
+ * The sidecar values a header points at, keyed by offset. A form has one
+ * `.frx`, named on every reference; a missing or unreadable sidecar leaves
+ * the header to draw alone (the strings it keeps there are then blank).
+ */
+function vb6FrxLookup(header: FrmHeader, dir: string): FrxLookup | undefined {
+	const refs = frmFrxRefs(header);
+	if (refs.length === 0) {
+		return undefined;
+	}
+	const file = refs[0].property.frx!.file;
+	let blob: Buffer;
+	try {
+		blob = fs.readFileSync(path.join(dir, file));
+	} catch {
+		return undefined;
+	}
+	const byOffset = new Map<number, FrxValue>();
+	for (const record of readFrxRecords(header, blob, (b) => decodeCodePage(b, VB6_CODE_PAGE))) {
+		byOffset.set(record.offset, record.value);
+	}
+	return (ref) => (ref.file.toLowerCase() === file.toLowerCase() ? byOffset.get(ref.offset) : undefined);
+}
 
 /** Test hooks; product code never reads these. */
 export function projectCacheStatsForTests(): { hits: number; misses: number; size: number } {

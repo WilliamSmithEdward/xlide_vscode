@@ -259,21 +259,38 @@ real file, the pattern the OFORMS designer already uses over its document:
 gestures rewrite the header block, the code-behind is untouched, the tab carries
 the dirty dot, Ctrl+Z is text undo, and save writes the file.
 
-- [ ] Canvas rendering for the intrinsic control set in twips, from the Slice 2
+- [x] Canvas rendering for the intrinsic control set in twips, from the Slice 2
       tree and the Slice 3 property surface; menus (`Begin VB.Menu`) rendered as
       a menu bar; MDI forms recognized and shown as a plain form until MDI has
       its own treatment.
-- [ ] Designer ops on the text tree: add, move, resize, remove, reparent,
+- [x] Designer ops on the text tree: add, move, resize, remove, reparent,
       z-order (block order), tab order, control arrays (`Index`), properties
-      pane driven by the `VB` model.
-- [ ] `.frx` writes for the blob kinds the reader measured; anything unmeasured
+      pane driven by the `VB` model. (Measured departure: the pane's vocabulary
+      is the design-time set measured per kind on the fixtures, because the
+      model's property list is the runtime surface with no design-time flag;
+      see below.)
+- [x] `.frx` writes for the blob kinds the reader measured; anything unmeasured
       is refused with the reason, never guessed.
-- [ ] Byte identity on save when nothing changed, and diffs confined to the
+- [x] Byte identity on save when nothing changed, and diffs confined to the
       header when something did, pinned on every fixture.
 
 Definition of done: every fixture form opens, round-trips identically, survives
 each gesture with a header-only diff, and reopens in twinBASIC's own IDE with
 the same control tree (the only external designer available to check against).
+Met on 2026-09-02, with these measured departures and limits. The properties
+pane is driven by what the header states plus the design-time vocabulary
+measured per control kind on the fixture forms (`VB6_DESIGN_PROPERTIES` in
+`src/vba/vb6/frmScene.ts`, every key cross-read against the `VB` model), not by
+the model's own property list: that list is the runtime surface (`hWnd`,
+`Parent`, `SelText` beside `Caption`) and carries no design-time flag to
+filter on, so a model-driven pane would offer properties the designer never
+writes. The model types the rows and the handler stubs. Sidecar writes are one
+measured kind, a string with line breaks, appended in the short or long record
+layout the reader measured; pictures, lists and every other record are read,
+never written. The twinBASIC reopen check is a developer check, not a test:
+Slice 4 measured that the IDE imports a `.vbp` only through its own dialogs,
+so the check is opening a fixture project there by hand after a gesture, and it
+was not run in this slice.
 
 ## Slice 6: build and run (deferred)
 

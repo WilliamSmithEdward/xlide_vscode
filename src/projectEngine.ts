@@ -145,6 +145,8 @@ export class ProjectEngine implements vscode.Disposable {
 				return svc.deleteModule(str(p, 'path'), str(p, 'module'));
 			case 'formDesignerOp':
 				return svc.applyFormDesignerOp(str(p, 'path'), str(p, 'module'), p.op as never);
+			case 'vb6FormDesignerOp':
+				return svc.applyVb6FormDesignerOp(str(p, 'path'), str(p, 'text'), p.op as never);
 			case 'readFormDesignerSnapshot':
 				return svc.readFormDesignerSnapshot(str(p, 'path'), str(p, 'module'));
 			case 'restoreFormDesignerSnapshot':
@@ -154,6 +156,10 @@ export class ProjectEngine implements vscode.Disposable {
 					typeof p.selected === 'string' ? p.selected : undefined,
 					typeof p.markup === 'string' ? p.markup : undefined,
 					typeof p.identityPath === 'string' ? p.identityPath : undefined);
+			case 'readVb6FormPreview':
+				return svc.readVb6FormPreview(str(p, 'path'), str(p, 'text'),
+					typeof p.selected === 'string' ? p.selected : undefined,
+					typeof p.vbpPath === 'string' ? p.vbpPath : undefined);
 			case 'readFormMarkup':
 				return svc.readFormMarkup(str(p, 'path'), str(p, 'module'));
 			case 'duplicateFormControls':

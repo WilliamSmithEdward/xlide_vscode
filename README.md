@@ -184,6 +184,13 @@ Ctrl+Z undoes it and the project is written only when you save.
 The designer is native: it reads and writes the form's binary storage directly
 and never needs Excel open.
 
+A VB6 form (`.frm`, and a `.ctl` or `.pag`) opens in the same designer from
+its project's Designer row, or through Open With. The file is the document:
+a gesture rewrites the header block at the top of the file and leaves the code
+below it alone, Ctrl+Z is text undo, and save is the file's own save. Menus
+draw as a menu bar, and a control from an OCX draws at its bounds under its
+name.
+
 ### Run tests
 
 Mark VBA procedures as project tests, then run them from XLIDE. Test execution
@@ -287,6 +294,11 @@ Open the Command Palette and type `XLIDE` to find these commands:
 - UserForms are designed in XLIDE's own designer, which reads and writes the
   form's binary storage directly. Its markup is the editable face of that
   storage: a property XLIDE does not name is carried through untouched.
+- VB6 forms are designed from their `.frm` text. A gesture rewrites the header
+  in the designer's own layout, so a form the designer never touched saves
+  byte for byte and a real gesture changes header lines only. A multi-line
+  text goes to the form's `.frx` as a new record; pictures and every other
+  sidecar record are read, never written.
 - Exported `.bas` and `.cls` files are useful for review and source control, but
   the project remains the source of truth unless you explicitly import files
   back into it.

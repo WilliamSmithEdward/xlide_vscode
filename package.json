@@ -416,6 +416,22 @@
           }
         ],
         "priority": "default"
+      },
+      {
+        "viewType": "xlideVb6FormDesigner",
+        "displayName": "XLIDE Form Designer (VB6)",
+        "selector": [
+          {
+            "filenamePattern": "*.frm"
+          },
+          {
+            "filenamePattern": "*.ctl"
+          },
+          {
+            "filenamePattern": "*.pag"
+          }
+        ],
+        "priority": "option"
       }
     ],
     "views": {

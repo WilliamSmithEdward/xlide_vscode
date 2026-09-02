@@ -30,6 +30,8 @@ import {
 } from './vbaFormLauncher';
 import { xlideAttachToRunningExcelFromConfig } from './globalSettings';
 import { errorMessage } from './util/errors';
+import { isVb6ProjectPath } from './vba/vb6/vb6Project';
+import { VB6_FORM_DESIGNER_VIEW_TYPE } from './vb6FormDesigner';
 
 export const FORM_DESIGNER_VIEW_TYPE = 'xlideFormDesigner';
 
@@ -476,6 +478,18 @@ export function registerFormPreview(
 				void vscode.window.showInformationMessage(
 					'XLIDE: Preview Form needs a UserForm - pick one in the explorer or focus its document.',
 				);
+				return;
+			}
+			if (isVb6ProjectPath(projectPath)) {
+				// A VB6 form's designer opens over the form's own file.
+				const modules = await bridge.call<Array<{ name: string; filePath?: string }>>('listModules', { path: projectPath });
+				const wanted = moduleName.toLowerCase();
+				const found = modules.find((m) => m.name.toLowerCase() === wanted);
+				if (!found?.filePath) {
+					void vscode.window.showErrorMessage(`XLIDE: ${moduleName} is not a module of ${path.basename(projectPath)}.`);
+					return;
+				}
+				await vscode.commands.executeCommand('vscode.openWith', vscode.Uri.file(found.filePath), VB6_FORM_DESIGNER_VIEW_TYPE);
 				return;
 			}
 			await vscode.commands.executeCommand(

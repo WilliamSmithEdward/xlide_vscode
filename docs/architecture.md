@@ -20,6 +20,7 @@ Workbook engine  (src/vba/**, no COM, no Office install required)
         |-- pptContainer.ts   [MS-PPT] persist chain + embedded VBA storage in binary .ppt
         |-- accessDatabase.ts Jet/ACE page reader: LVAL rows/chains -> synthetic CFB
         |-- formDesigner.ts   [MS-OFORMS] UserForm designer storage, .frm/.frx compose/parse
+        |-- vb6/frmHeader.ts, frmScene.ts, frmDesignerOps.ts  VB6 .frm designer: header model, canvas scene, gestures as header rewrites
         +-- projectService.ts  the operations the extension calls
 ```
 
@@ -301,6 +302,27 @@ the module entry), a control array's elements carry the control's type, and
 the form's event-handler stubs (`Form_Load`, `Command1_Click(Index As
 Integer)`) come from the model's events. The model offers and describes and
 never produces a red on its own.
+
+A VB6 form's designer is the MSForms designer's canvas over the form's own
+file (`src/vb6FormDesigner.ts`, view type `xlideVb6FormDesigner`: an Open
+With option on `.frm`/`.ctl`/`.pag`, and the explorer's Designer row). The
+renderer draws a scene (`oforms/preview.ts`: `FormScene`,
+`renderFormSceneHtml`) that either world produces - an OFORMS package through
+`sceneOfPackage`, a VB6 header through `vb6/frmScene.ts` (`sceneOfFrmHeader`:
+twips to points, OLE colors, Font groups, menus as a menu bar, Line and Shape
+and Timer, sidecar strings and pictures through `vb6/frx.ts`, the children of
+any container, an OCX included). There is no scratch copy: the provider
+renders from the document's text (`readVb6FormPreview`), and a gesture is
+`applyVb6FormDesignerOp` (`vb6/frmDesignerOps.ts`), which parses the header,
+changes the tree, prints it back in the designer's layout, and returns the
+document with the code below the header untouched - a gesture that changes
+nothing returns the file's own bytes. The provider lands the result as one
+edit over the changed span, so text undo is the undo. The properties pane
+lists what the header states plus the design-time vocabulary measured per
+control kind on the fixture forms (`VB6_DESIGN_PROPERTIES` in `frmScene.ts`),
+spelled back as the designer spells it. A string the header cannot hold (line
+breaks) is appended to the `.frx` in the measured record layout; every other
+sidecar record is read, never written.
 
 The VB6 oracle is twinBASIC, a VB6-compatible compiler, in two roles. Its VB
 package ships as MIT-licensed twinBASIC source; `scripts/twinbasic-vb-surface.mjs`
@@ -1453,6 +1475,7 @@ TypeScript dev: `typescript`, `esbuild`, `vitest`, `@types/vscode`, `@types/node
 | New host object-model member/type/constant | `src/analyzer/host/excelObjectModel.ts` (or the word/powerpoint/access/vb6 model modules and their generated `*ObjectModelData.ts`, regenerated via `scripts/generate-host-object-model.mjs`; the vb6 dumps come from `scripts/dump-vb6-typelib.py` and `scripts/transcribe-vb6-docs.mjs`, see `docs/vb6_reference_data.md`), `tests/vbaMemberCompletion.test.ts` / `tests/vbaHostModels.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |
 | New macro container format | `src/vba/macroContainer.ts` (detection + write policy), `src/vba/xlsx.ts` or a format module beside `pptContainer.ts`/`accessDatabase.ts`, `src/macroContainerUi.ts` (`MACRO_CONTAINER_EXTENSIONS`), `src/analyzer/host/hostRegistry.ts` (`hostTokenForFileName`), an Office-authored fixture in `tests/fixtures/binaries/` with `.gitignore`/`.vscodeignore` entries, `tests/vbaMacroContainers.test.ts`, `docs/architecture.md` |
 | VB6 project (manifest, module files) | `src/vba/vb6/vbpProject.ts` (manifest parse/print), `src/vba/vb6/vb6Project.ts` (module reads/writes), the `isVb6ProjectPath` guards in `src/vba/projectService.ts`, `src/macroContainerUi.ts`, `src/analyzer/host/hostRegistry.ts` (`vb6`), `src/projectExplorer.ts` (`moduleFilePath`), a licensed fixture under `tests/fixtures/vb6/<project>/` with its `LICENSE` and `NOTICE.md`, `tests/vb6Project.test.ts`, `docs/roadmap_vb6_support.md`, `docs/architecture.md` |
+| VB6 form designer | `src/vba/vb6/frmScene.ts` (header to scene, the pane's rows and vocabulary), `src/vba/vb6/frmDesignerOps.ts` (gestures as header rewrites), `src/vba/oforms/preview.ts` (the scene and its renderer, shared with OFORMS), `src/vba/projectService.ts` (`readVb6FormPreview`, `applyVb6FormDesignerOp`), `src/projectEngine.ts` (dispatch), `src/vb6FormDesigner.ts` (the custom editor), `package.json` (`customEditors`), `tests/vb6FormScene.test.ts`, `tests/vb6FrmDesignerOps.test.ts`, `docs/roadmap_vb6_support.md`, `docs/architecture.md` |
 | VB6 oracle evidence (twinBASIC) | `syntax_corpus/oracle/twinbasic/run_twinbasic_oracle.mjs` (runner), `Settings.template.json`, `tests/twinbasicOracleStaging.test.ts`; the surface side is `scripts/twinbasic-vb-surface.mjs` + `tests/twinbasicVbSurface.test.ts`, then `scripts/transcribe-vb6-docs.mjs` and `scripts/generate-host-object-model.mjs vb6`; records in `docs/vb6_reference_surface.md`, `docs/vb6_twinbasic_parity.md`, `docs/vb6_reference_data.md` |
 | New host-member call signature | `src/analyzer/host/excelObjectModel.ts` (`memberSignatures` entry, transcribed + source-verified), `tests/vbaSignatureHelp.test.ts`, `docs/spec/MS-VBAL.verification-map.md` (addendum table), `docs/architecture.md` |
 | New built-in VBA runtime function/statement | `src/analyzer/runtime/vbaRuntime.ts` (signature transcribed + source-verified), `tests/vbaRuntime.test.ts`, `docs/spec/MS-VBAL.verification-map.md`, `docs/architecture.md` |

@@ -90,6 +90,27 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
   because twinBASIC accepts 59 constructs the VBE refuses. Developer-only,
   never in `npm test`, nothing bundled.
 
+- **VB6 forms have a designer.** A `.frm` (and a `.ctl` or `.pag`) opens in
+  the form designer from its project's Designer row or through Open With:
+  the same canvas, properties pane, toolbox and gestures the UserForm
+  designer has, drawn from the form's own header - twips to points, OLE
+  colors, Font groups, a menu bar from its menus, a Line between its points,
+  a Shape in its shape, a Timer as its icon, an OCX control at its bounds
+  under its name with its children on its surface, and the strings and
+  pictures the `.frx` sidecar holds. The file is the document: every gesture
+  rewrites the header block in the designer's own layout and leaves the code
+  below it alone, so Ctrl+Z is text undo, save is the file's own save, a
+  form the designer never touched saves byte for byte, and a real gesture
+  changes header lines only - pinned on every fixture. Add, move, resize,
+  remove, reparent, z-order, tab order, copy and paste, rename, control
+  arrays through Index, and a properties pane that lists what the header
+  states and the properties the designer writes for that kind, spelled as
+  VB6 spells them (`-1  'True`, `&H00FF0000&`, a Font group in its fixed
+  order). A multi-line Text goes to the sidecar as a new record; nothing else
+  in the sidecar is written. Double-click opens the handler in the code below
+  (`Form_Load`, `Timer1_Timer`, `Command1_Click(Index As Integer)` for an
+  array). Fifth slice of `docs/roadmap_vb6_support.md`.
+
 ## [5.0.2] - 2026-08-31
 
 - **A container's children were already members; now they are pinned.** #57

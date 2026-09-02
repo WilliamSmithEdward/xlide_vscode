@@ -35,7 +35,7 @@ describe('a VB6 project in the explorer', () => {
         ]);
     });
 
-    it('lists the .vbp at the root, its modules with their files, and no designer row', async () => {
+    it('lists the .vbp at the root, its modules with their files, and a designer row under a form', async () => {
         const explorer = new ProjectExplorer(fakeBridge(
             [
                 { name: 'Form1', type: 'userform', filePath: 'C:\\work\\Form1.frm' },
@@ -56,10 +56,15 @@ describe('a VB6 project in the explorer', () => {
             ['ctxThing', 'usercontrol', 'C:\\work\\ctxThing.ctl'],
         ]);
 
-        // A VB6 form's designer is not the workbook designer: no row for it.
+        // A VB6 form's designer opens over the form's own file; its row sits
+        // first, above the handlers, as it does for a UserForm.
         const children = await explorer.getChildren(modules[0]);
-        expect(children.map((c) => c.kind)).toEqual(['sub']);
-        expect(children[0]).toMatchObject({ moduleName: 'Form1', line: 12 });
+        expect(children.map((c) => c.kind)).toEqual(['designer', 'sub']);
+        expect(children[0]).toMatchObject({ kind: 'designer', moduleName: 'Form1', filePath: 'C:\\work\\App.vbp' });
+        expect(children[1]).toMatchObject({ moduleName: 'Form1', line: 12 });
+        // A UserControl has a designer too.
+        const controlChildren = await explorer.getChildren(modules[2]);
+        expect(controlChildren[0]).toMatchObject({ kind: 'designer', moduleName: 'ctxThing' });
     });
 });
 

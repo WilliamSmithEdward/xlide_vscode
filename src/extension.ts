@@ -13,6 +13,7 @@ import {
 } from './xlideFileSystem';
 import { ProjectEngine } from './projectEngine';
 import { registerFormPreview } from './vbaFormPreview';
+import { registerVb6FormDesigner } from './vb6FormDesigner';
 import { registerAgentTools } from './agentTools';
 import { registerCommands } from './commands';
 import { registerVbaLanguageProviders } from './vbaLanguageProviders';
@@ -77,6 +78,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const bridge = new ProjectEngine(context, out);
     const fsProvider = new XlideFileSystemProvider(bridge);
     registerFormPreview(context, bridge);
+    registerVb6FormDesigner(context, bridge);
     const explorer = new ProjectExplorer(bridge, out);
     const statusBar = new XlideStatusBar();
     // The project engine runs in-process: there is no backend to install,
