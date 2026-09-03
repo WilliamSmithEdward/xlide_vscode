@@ -27,6 +27,7 @@ import {
     projectIdentityKey,
 } from './xlideFileSystem';
 import { VbaSymbolIndex, type VbaModuleSymbols } from './vbaSymbolIndex';
+import { parseProjectConditionalConstants } from './analyzer';
 import { analysisSourceForDocument, moduleLocationOfDocument } from './vbaDocumentLocation';
 import type {
     EventHandlerDocumentType,
@@ -273,6 +274,13 @@ export class VbaProjectIndexService implements vscode.Disposable {
             {
                 onInvalidModule: (moduleName, error) =>
                     invalid.set(moduleIdentityKey(moduleName), error),
+                // The project's own #If arguments, so a custom flag is decided
+                // rather than leaving every arm of its chains live.
+                conditionalCompilation: {
+                    projectConstants: parseProjectConditionalConstants(
+                        this._index.projectConditionalConstants(projectPath),
+                    ),
+                },
             },
         );
         const record = new ProjectRecord(projectPath, project);

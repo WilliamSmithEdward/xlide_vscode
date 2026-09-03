@@ -19,6 +19,7 @@ export {
 	collectConditionalDirectives,
 	conditionalActivityAtOffset,
 	conditionalCompilerConstants,
+	parseProjectConditionalConstants,
 	createConditionalActivityTracker,
 	evaluateConditionalExpression,
 	indexConditionalCompilation,

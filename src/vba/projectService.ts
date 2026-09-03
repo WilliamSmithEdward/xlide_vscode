@@ -93,6 +93,12 @@ export interface ModuleEntry {
 	 */
 	designerClass?: string;
 	/**
+	 * The PROJECT's conditional compilation arguments (the VBE project
+	 * property), repeated on every entry of one read so a caller that only sees
+	 * the module list still gets them. Absent when the project declares none.
+	 */
+	projectConditionalConstants?: string;
+	/**
 	 * True when the module carries `Attribute VB_PredeclaredId = True`, giving
 	 * it a default instance so its own name is usable as a value. Absent means
 	 * the attribute header was not read, never "no".
@@ -560,10 +566,12 @@ export function readModules(filePath: string, full = false): ModuleEntry[] {
 	}
 	const { cfb, project } = openContainer(filePath);
 	const out: ModuleEntry[] = [];
+	const constants = project.conditionalConstantsRaw || undefined;
 	for (const module of project.modules) {
 		try {
 			const entry = moduleEntryWithDesigner(cfb, project, module);
 			entry.source = full ? module.source : splitVbaSource(module.source).body;
+			entry.projectConditionalConstants = constants;
 			out.push(entry);
 		} catch {
 			// Keep project-wide reads best-effort at the module boundary.

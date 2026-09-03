@@ -38,6 +38,11 @@ const REC_PROJECTCOOKIE = 0x0013;
 const REC_DIR_TERMINATOR = 0x0010;
 const REC_PROJECTCODEPAGE = 0x0003;
 const REC_PROJECTVERSION = 0x0009;
+// MS-OVBA 2.3.4.2.1.12: the VBE "Conditional Compilation Arguments" project
+// property, as `Name = Value : Name = Value`. The Unicode twin at 0x003C holds
+// the same text, and is preferred because it needs no code page.
+const REC_PROJECTCONSTANTS = 0x000c;
+const REC_PROJECTCONSTANTS_UNICODE = 0x003c;
 
 const SIGNATURE_STREAMS: Record<string, string> = {
 	_VBA_PROJECT_SIGNATURE: 'legacy',
@@ -191,6 +196,11 @@ function defineSourceAccessors(module: VbaModule, inflate: (maxBytes: number) =>
 export class VbaProject {
 	codePage = 1252;
 	projectCookie = 0;
+	/**
+	 * Raw text of the project's conditional compilation arguments, exactly as
+	 * the VBE stores it. Empty when the project declares none.
+	 */
+	conditionalConstantsRaw = '';
 	modules: VbaModule[] = [];
 	hasPassword = false;
 
@@ -260,10 +270,30 @@ export class VbaProject {
 				project.projectCookie = dirRaw.readUInt16LE(rec.dataStart);
 			}
 		}
+		// Conditional compilation arguments, Unicode first: it carries the same
+		// text without needing the code page, and both records are written
+		// together. Absent or empty in most projects, which is why the analyzer
+		// treats a custom `#If` as undecidable unless one is declared here.
+		for (const rec of records) {
+			if (rec.id === REC_PROJECTCONSTANTS_UNICODE && rec.dataEnd > rec.dataStart) {
+				project.conditionalConstantsRaw =
+					dirRaw.subarray(rec.dataStart, rec.dataEnd).toString('utf16le');
+				break;
+			}
+		}
 
 		const cp = project.codePage;
 		const ansi = (r: DirRecord): string => decodeAnsi(dirRaw.subarray(r.dataStart, r.dataEnd), cp);
 		const uni = (r: DirRecord): string => dirRaw.subarray(r.dataStart, r.dataEnd).toString('utf16le');
+		if (!project.conditionalConstantsRaw) {
+			// Older writers emit only the MBCS record, which needs the code page.
+			const ansiConstants = records.find(
+				(r) => r.id === REC_PROJECTCONSTANTS && r.dataEnd > r.dataStart,
+			);
+			if (ansiConstants) {
+				project.conditionalConstantsRaw = ansi(ansiConstants);
+			}
+		}
 
 		let current: VbaModule | undefined;
 		const flush = (): void => {

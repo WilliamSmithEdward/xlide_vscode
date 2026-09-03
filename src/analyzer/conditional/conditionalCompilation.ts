@@ -248,6 +248,35 @@ export function collectConditionalDirectives(
 	return out.sort((a, b) => a.directive.span.start - b.directive.span.start);
 }
 
+/**
+ * Parses the VBE "Conditional Compilation Arguments" project property, which
+ * MS-OVBA stores as `Name = Value : Name2 = Value2`.
+ *
+ * The VBE accepts integers here, and writes booleans as VBA does: -1 for True,
+ * 0 for False. A value that is not an integer is kept as its raw text, so a
+ * comparison against a string constant still works and an unreadable entry
+ * cannot silently become a number. An entry with no `=` names nothing and is
+ * skipped rather than guessed at.
+ */
+export function parseProjectConditionalConstants(
+	raw: string | undefined,
+): Record<string, ConditionalValue> {
+	const constants: Record<string, ConditionalValue> = {};
+	for (const entry of (raw ?? '').split(':')) {
+		const eq = entry.indexOf('=');
+		if (eq < 0) {
+			continue;
+		}
+		const name = entry.slice(0, eq).trim();
+		const valueText = entry.slice(eq + 1).trim();
+		if (!name || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+			continue;
+		}
+		constants[name] = /^[+-]?\d+$/.test(valueText) ? Number(valueText) : valueText;
+	}
+	return constants;
+}
+
 export function conditionalCompilerConstants(
 	env: ConditionalCompilationEnvironment = {},
 ): Map<string, ConditionalValue> {

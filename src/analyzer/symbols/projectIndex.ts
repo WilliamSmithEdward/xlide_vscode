@@ -598,6 +598,11 @@ export class ProjectIndex {
 	 * for an implementer to fill in, so an empty body is the point of it rather
 	 * than an unfinished procedure.
 	 */
+	/** The conditional compilation environment every module was indexed under. */
+	conditionalCompilation(): ProjectIndexOptions['conditionalCompilation'] {
+		return this.options.conditionalCompilation;
+	}
+
 	implementedInterfaceNames(): ReadonlySet<string> {
 		const names = new Set<string>();
 		for (const mod of this.modules.values()) {

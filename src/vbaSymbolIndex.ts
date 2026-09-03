@@ -21,6 +21,8 @@ export interface VbaModuleSymbols {
      * the attribute header was not read, never "no".
      */
     predeclaredId?: boolean;
+    /** The project's conditional compilation arguments; same on every entry. */
+    projectConditionalConstants?: string;
     /** A VB6 designer's class (`VB.Form`, `VB.MDIForm`), absent for Office forms. */
     designerClass?: string;
     /** The module's own file when the container's modules are files (VB6). */
@@ -33,6 +35,12 @@ interface CachedProject {
     /** Cached project module list from the bridge. */
     moduleList?: VbaModuleEntry[];
     moduleListLoadedAt?: number;
+    /**
+     * The project's conditional compilation arguments, as the VBE stores them.
+     * A project-level fact that arrives with the module read, since the engine
+     * has the dir stream open at that point.
+     */
+    conditionalConstants?: string;
 }
 
 interface VbaModuleEntry {
@@ -47,6 +55,8 @@ interface VbaModuleEntry {
      * the attribute header was not read, never "no".
      */
     predeclaredId?: boolean;
+    /** The project's conditional compilation arguments; same on every entry. */
+    projectConditionalConstants?: string;
     /** A VB6 designer's class (`VB.Form`, `VB.MDIForm`), absent for Office forms. */
     designerClass?: string;
     /** The module's own file when the container's modules are files (VB6). */
@@ -147,6 +157,15 @@ export class VbaSymbolIndex implements vscode.Disposable {
     }
 
     /** Returns the cached source for every module in the project. */
+    /**
+     * The project's conditional compilation arguments, if a module read has
+     * already fetched them. Empty until then, which leaves a custom `#If`
+     * undecidable rather than guessing at it.
+     */
+    projectConditionalConstants(projectPath: string): string | undefined {
+        return this.cachedProject(projectIdentityKey(projectPath)).conditionalConstants;
+    }
+
     async getAllModules(projectPath: string): Promise<VbaModuleSymbols[]> {
         const key = projectIdentityKey(projectPath);
         const existingRead = this._allModuleReads.get(key);
@@ -272,6 +291,8 @@ export class VbaSymbolIndex implements vscode.Disposable {
         wb.moduleList = entries.map(({ name, type, documentType, predeclaredId, designerClass }) =>
             ({ name, type, documentType, predeclaredId, designerClass }));
         wb.moduleListLoadedAt = Date.now();
+        wb.conditionalConstants = entries.find((e) => e.projectConditionalConstants)
+            ?.projectConditionalConstants;
         const out: VbaModuleSymbols[] = [];
         for (const [index, entry] of entries.entries()) {
             const moduleKey = moduleIdentityKey(entry.name);

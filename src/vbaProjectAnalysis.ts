@@ -1,6 +1,7 @@
 import {
     ProjectIndex,
     type AnalyzeModuleOptions,
+    type ConditionalCompilationEnvironment,
     type EventHandlerDocumentType,
     type ModuleSymbolKind,
     type VbaProcedureSignature,
@@ -42,6 +43,12 @@ export interface VbaProjectIndexBuildOptions {
     yieldEveryModules?: number;
     /** Called for each module skipped by ignoreInvalidModules. */
     onInvalidModule?: (moduleName: string, error: unknown) => void;
+    /**
+     * The project's own conditional compilation arguments, from the VBE project
+     * property. Supplying them lets `#If MY_FLAG` be decided instead of leaving
+     * every arm live.
+     */
+    conditionalCompilation?: ConditionalCompilationEnvironment;
 }
 
 const PROJECT_INDEX_YIELD_EVERY_MODULES = 8;
@@ -58,6 +65,7 @@ export type VbaProjectAnalysisOptions = Pick<
     | 'projectIntegerConstants'
     | 'implicitMembers'
     | 'implementedInterfaces'
+    | 'conditionalCompilation'
 >;
 
 export interface VbaProjectEditorSymbolContext {
@@ -130,7 +138,7 @@ export function buildVbaProjectIndex(
     liveOverride?: VbaProjectLiveOverride,
     options: VbaProjectIndexBuildOptions = {},
 ): ProjectIndex {
-    const index = new ProjectIndex();
+    const index = new ProjectIndex({ conditionalCompilation: options.conditionalCompilation });
     const setModule = projectIndexModuleSetter(index, options);
     let appliedOverride = false;
     for (const mod of modules) {
@@ -154,7 +162,7 @@ export async function buildVbaProjectIndexAsync(
     liveOverride?: VbaProjectLiveOverride,
     options: VbaProjectIndexBuildOptions = {},
 ): Promise<ProjectIndex> {
-    const index = new ProjectIndex();
+    const index = new ProjectIndex({ conditionalCompilation: options.conditionalCompilation });
     const setModule = projectIndexModuleSetter(index, options);
     let appliedOverride = false;
     const yieldEvery = Math.max(1, options.yieldEveryModules ?? PROJECT_INDEX_YIELD_EVERY_MODULES);
@@ -209,6 +217,9 @@ export function projectAnalysisOptionsForModule(
         options.projectClassMembers = project.projectMemberSurfaces(moduleName);
         options.projectIntegerConstants = project.visibleExternalIntegerConstantExpressions(moduleName);
         options.implementedInterfaces = project.implementedInterfaceNames();
+        // The rules must see the same constants the symbol table was built
+        // with, or a branch dropped from the symbols would still be analyzed.
+        options.conditionalCompilation = project.conditionalCompilation();
         // A UserForm's controls are members its own text never declares, so
         // without them every reference in the code-behind reads as undeclared.
         // The index knows them: host-supplied with the module, or parsed from
