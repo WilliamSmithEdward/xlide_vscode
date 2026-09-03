@@ -164,9 +164,23 @@ function validateCallableArity(
 		? undefined
 		: sameModuleSignatures.get(call.name.toLowerCase());
 	if (candidates) {
-		// Skip ambiguous same-module targets where the signature is not unique.
 		if (candidates.length === 1) {
 			validateArity(source, candidates[0], call, push);
+			return;
+		}
+		// Several same-module signatures share the name. Since XLIDE cannot say
+		// which one a build compiles, it can still say that NONE of them accepts
+		// this call, which is wrong under every build. Declaring a procedure
+		// once per arm of a `#If` chain is the shape that makes this common, and
+		// it used to turn arity checking off for every call to that name
+		// (github.com/WilliamSmithEdward/xlide_vscode/issues/58).
+		const rejections = candidates.map((signature) => {
+			const hits: Parameters<PushFn>[] = [];
+			validateArity(source, signature, call, (...args) => { hits.push(args); });
+			return hits;
+		});
+		if (rejections.every((hits) => hits.length > 0)) {
+			push(...rejections[0][0]);
 		}
 		return;
 	}

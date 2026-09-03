@@ -14,6 +14,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { analyzeVbaModuleSource } from '../../src/vbaModuleAnalysis';
+import { analyzeProjectModule } from './helpers';
 
 type Kind = 'standard' | 'class';
 
@@ -210,5 +211,32 @@ describe('the structural engine reads arms, not labels', () => {
 		expect(balance(['Option Explicit', 'Sub T()',
 			'#If CUSTOM_FLAG Then', 'With Sheet1', '.Range("A1").Value = 1', '#End If',
 			'End Sub'])).toBe(1);
+	});
+});
+
+// A procedure declared once per arm gives the module several signatures for one
+// name, and arity checking used to switch off entirely for that name. XLIDE
+// cannot say which arm a build compiles, but it can say that NO arm accepts the
+// call, which is wrong under every build.
+describe('argument-count with a procedure declared once per arm', () => {
+	const perArm = (call: string): string => [
+		'Option Explicit',
+		'#If CUSTOM_FLAG Then', 'Public Sub T(ByVal a As Long)', 'End Sub',
+		'#Else', 'Public Sub T(ByVal a As Long, ByVal b As Long)', 'End Sub', '#End If',
+		'Public Sub Drive()', `    ${call}`, 'End Sub',
+	].join('\r\n') + '\r\n';
+
+	const arity = (source: string): number =>
+		analyzeProjectModule(source, [{ moduleName: 'Mod1', source }], 'Mod1')
+			.filter((d) => d.code === 'argument-count').length;
+
+	it('reports a call no arm accepts', () => {
+		expect(arity(perArm('T 1, 2, 3, 4, 5'))).toBe(1);
+		expect(arity(perArm('T'))).toBe(1);
+	});
+
+	it('accepts a call any arm accepts', () => {
+		expect(arity(perArm('T 1'))).toBe(0);
+		expect(arity(perArm('T 1, 2'))).toBe(0);
 	});
 });
