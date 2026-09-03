@@ -12,6 +12,7 @@ import {
     isLocalXlideDocument,
 } from './xlideFileSystem';
 import { ProjectEngine } from './projectEngine';
+import { moduleLocationOfDocument } from './vbaDocumentLocation';
 import { registerFormPreview } from './vbaFormPreview';
 import { registerVb6FormDesigner } from './vb6FormDesigner';
 import { registerAgentTools } from './agentTools';
@@ -189,8 +190,13 @@ export function activate(context: vscode.ExtensionContext): void {
                     apply.cancel();
                     return;
                 }
-                if (!isLocalXlideDocument(editor.document)) { return; }
-                pending = decodeModuleUri(editor.document.uri);
+                // A project module's virtual document and a VB6 module's own
+                // file are both modules of a project; the locator answers for
+                // both, so the tree follows a `.frm` the way it follows a
+                // `.bas` in a workbook.
+                const location = moduleLocationOfDocument(editor.document);
+                if (!location) { return; }
+                pending = { projectPath: location.projectPath, moduleName: location.moduleName };
                 apply();
             });
             return new vscode.Disposable(() => {

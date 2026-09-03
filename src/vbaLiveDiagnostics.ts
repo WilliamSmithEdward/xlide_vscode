@@ -300,6 +300,7 @@ export function registerVbaDiagnostics(
         moduleType?: string;
         moduleKind?: ModuleSymbolKind;
         documentType?: EventHandlerDocumentType;
+        designerClass?: string;
     }>();
     const fullPassMetadataRetries = new Map<string, number>();
     const settingsWatchers = new ProjectSettingsWatcherRegistry((projectPath) => {
@@ -493,6 +494,10 @@ export function registerVbaDiagnostics(
         let moduleType: string | undefined;
         let moduleKind: ModuleSymbolKind | undefined;
         let documentType: EventHandlerDocumentType | undefined;
+        // The class the module's designer makes it: its members are the
+        // module's own, so they must be in scope here as they are in the
+        // project analyzer, or the two surfaces disagree on the same code.
+        let designerClass: string | undefined;
         let projectOptions: VbaProjectAnalysisOptions = {};
         let projectRecord: Awaited<ReturnType<VbaProjectIndexService['contextForProject']>> | undefined;
         // A loose document (a .bas on disk no project claims) has no metadata
@@ -513,7 +518,8 @@ export function registerVbaDiagnostics(
                         moduleType = current.moduleType;
                         moduleKind = current.moduleKind;
                         documentType = current.documentType;
-                        moduleMetaByDoc.set(key, { moduleType, moduleKind, documentType });
+                        designerClass = current.designerClass;
+                        moduleMetaByDoc.set(key, { moduleType, moduleKind, documentType, designerClass });
                     }
                     const project = diagnosticProject.project;
                     diagnosticProject.projectProcedures ??= projectProcedureSignatures(project);
@@ -529,6 +535,7 @@ export function registerVbaDiagnostics(
                         moduleType = cached.moduleType;
                         moduleKind = cached.moduleKind;
                         documentType = cached.documentType;
+                        designerClass = cached.designerClass;
                     }
                 }
             } catch {
@@ -591,6 +598,7 @@ export function registerVbaDiagnostics(
                     severityOverrides: analysisSettings.ruleSeverityOverrides,
                     activeIncompleteExpressionOffset,
                     host: projectPath ? hostTokenForFileName(projectPath) : undefined,
+                    designerClass,
                 });
                 const diagnostics = diagnosticsFromModuleAnalysis(
                     document,
@@ -616,6 +624,7 @@ export function registerVbaDiagnostics(
             ...projectOptions,
             activeIncompleteExpressionOffset,
             host: projectPath ? hostTokenForFileName(projectPath) : undefined,
+            designerClass,
         });
         const diagnostics = diagnosticsFromModuleAnalysis(
             document,

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as path from 'path';
+import { readFileSync } from 'fs';
 
 vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock({
 	EventEmitter: class {
@@ -74,5 +75,25 @@ describe('the tree over a VB6 project on disk', () => {
 		const formChildren = await explorer.getChildren(form!);
 		expect(formChildren[0].kind).toBe('designer');
 		expect(formChildren.filter((c) => c.kind === 'sub').length).toBeGreaterThan(0);
+	});
+
+	it('expands the module the active editor is showing, file or virtual document', () => {
+		// Opening a module marks it active, and an active module renders
+		// Expanded - which is how clicking a module in the tree reveals its
+		// procedures. That tracking read the module out of an `xlide-vba:`
+		// URI, so a VB6 module, whose document is its own file, was never the
+		// active one and its row never opened.
+		const activation = readFileSync(path.join(__dirname, '..', 'src', 'extension.ts'), 'utf8');
+		expect(activation).toContain('moduleLocationOfDocument(editor.document)');
+		expect(activation).not.toContain('pending = decodeModuleUri(editor.document.uri);');
+
+		const explorer = new ProjectExplorer(engineBridge());
+		const node = {
+			kind: 'module' as const, label: 'Form1', filePath: PROJECT,
+			moduleName: 'Form1', moduleType: 'userform',
+		};
+		expect(explorer.getTreeItem(node).collapsibleState).toBe(1); // Collapsed
+		explorer.setActiveModule(PROJECT, 'Form1');
+		expect(explorer.getTreeItem(node).collapsibleState).toBe(2); // Expanded
 	});
 });
