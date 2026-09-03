@@ -2,7 +2,7 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
-## [Unreleased]
+## [6.0.1] - 2026-09-02
 
 - **A new form brings the library it needs.** Adding the first UserForm to
   a project wrote the form, its designer storage and its registration, but
