@@ -2,6 +2,63 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [6.1.0] - 2026-09-03
+
+- **XLIDE reads your project's conditional compilation arguments.** The VBE
+  keeps them in a project property, and XLIDE never read it, so every
+  `#If MY_FLAG Then` was undecidable and both arms had to be analyzed at once.
+  It is read now, from the project file, and both the symbol table and the
+  rules are built under it. A project that sets `MY_FLAG = 1` gets the arm it
+  actually compiles, and the arms it does not are dropped the way `#If VBA7`
+  arms always were.
+
+- **Fourteen rules read conditional arms correctly** (#58). 6.0.3 fixed the
+  duplicate declarations the report named; the same fault ran through every
+  rule that scans a module asking "have I seen this already". Six were
+  reporting errors on legal code:
+
+  - a block opener that differs between arms - `With Sheet1` in one and
+    `With Sheet2` in the other, or `If x > 0` against `If x >= 0` - got a
+    phantom "Missing 'End With'", and a mismatched pair added an unmatched
+    closer on top;
+  - a `GoTo` whose label sat in another arm, a declaration after a procedure in
+    another arm, an `Option` after a declaration in another arm, an
+    `Implements` after a procedure in another arm, an `Else` before an `ElseIf`
+    from another arm, and a `For i` paired against a `Next j` from another
+    chain.
+
+  Six more were going quiet inside an arm, missing errors that are really
+  there: a repeated `Enum` member, `Type` field, `Option` or `Case Else` within
+  a single arm, a call matching no arm's version of a procedure, and two
+  same-name procedure headers inside one arm.
+
+- **An interface's own members are not unfinished functions** (#60). A class
+  that another module declares with `Implements` states its members for the
+  implementer to fill in, so every one of them is empty on purpose.
+  `missing-return-assignment` reported all of them. The carve-out for this
+  existed but asked the parsed module kind, which only says `class` when the
+  source carries `Attribute VB_Exposed` - and module text read out of a project
+  carries no attribute lines, so it never fired. An ordinary class with a
+  forgotten empty body still reports.
+
+- **`undeclared-variable` offers to declare the variable** (#59). The most
+  common finding in any `Option Explicit` project had nothing on the lightbulb
+  but the generic suppression. The fix inserts a `Dim` at the top of the
+  procedure, under any declarations already there, typed from the assignment:
+  `Set` means an object, a whole number means `Long`, and `Variant` where
+  nothing narrows it. Offered only for an assignment, since a bare read gives
+  nothing to infer from.
+
+- **`Collection` requires `Set`.** It is VBA's own creatable class, belonging
+  to no host model and no project, so `Dim c As Collection` followed by
+  `c = New Collection` was reported clean while refusing to compile.
+
+- **New for extensions: `resolveExpressionType`** (#61). Given a span, it
+  answers the expression's declared type, whether assigning it needs `Set`, and
+  whether the span holds a whole expression at all. Extract Variable needs all
+  three, and `Set` is not optional detail: VBA has no assignment form that
+  works for both objects and values.
+
 ## [6.0.3] - 2026-09-03
 
 - **The arms of one `#If` chain are alternatives, not repeats** (#58). A name

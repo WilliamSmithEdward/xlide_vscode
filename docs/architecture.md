@@ -737,14 +737,31 @@ declaration checks, type/call validation, and Win64 `Declare PtrSafe`
 diagnostics all skip only branches proven inactive and leave unknown branches
 visible.
 
-The tracker also answers `mutuallyExclusive(a, b)`: whether two spans sit in
-different arms of one `#If` chain, and so are never compiled together whatever
-the constants are worth. Activity alone cannot say that - both arms of an
-undecidable chain are `unknown`, and both are analyzed - so the duplicate
-procedure, declaration, and module-member rules use this instead to tell an
-alternative from a repeat. It is a per-arm identity comparison, not a
-satisfiability test: two declarations under separate `#If` chains can both
-compile and still collide.
+The tracker also answers two arm questions activity cannot, because both arms
+of an undecidable chain are `unknown` and both get analyzed.
+`mutuallyExclusive(a, b)` is true when two spans sit in DIFFERENT arms of one
+chain, so no build compiles them together; every rule that scans a module
+asking "have I seen this already" uses it to tell an alternative from a repeat.
+`inSameBranch(a, b)` is the stricter question - the same arms, so every build
+compiles both or neither - and is what a rule needs when it PAIRS two halves of
+one construct, such as a `For` header with its `Next`. Neither is a
+satisfiability test: two spans under separate chains are neither exclusive nor
+the same branch.
+
+The structural block-balance engine (`src/vbaStructuralDiagnostics.ts`) tracks
+the same arms independently, since it runs on physical lines rather than the
+AST. VBA lets the arms of a chain open a block differently and close it once
+below the `#End If`, so an opener that diverges from the block already open is
+a restatement rather than a new block.
+
+**Project conditional compilation arguments** - The VBE project property lives
+in the dir stream as MS-OVBA record `0x000C`, with a Unicode twin at `0x003C`.
+`vbaProject` reads it, `readModules` carries it out, `VbaSymbolIndex` caches it
+per project, and `VbaProjectIndexService` parses it into the environment BOTH
+the symbol table and the rules are built under; supplying it to only one would
+leave a branch dropped from the symbols still being analyzed. Without it every
+custom `#If MY_FLAG` is undecidable, which is why the arm questions above carry
+the weight they do.
 
 The index also subscribes to `onDidSaveTextDocument` for `xlide-vba://` URIs so
 the cache stays in sync with user edits.
@@ -971,6 +988,17 @@ into a pure analyzer layer and a thin VS Code provider:
   with their `As` type, enums and members, user types and fields), built-in
   constants, and built-in VBA runtime functions, annotated with the declaring
   module, visibility, or metadata source.
+- `src/analyzer/expression/resolveExpressionType.ts` (`resolveExpressionType`)
+  answers the same binder for a SPAN rather than an identifier, returning
+  `{type, isObject, complete}`. Hover returns a display string a consumer would
+  have to parse back; a refactoring needs the type itself, whether assigning it
+  takes `Set` (VBA has no form that works for both), and whether the selection
+  is even a whole expression. `isObject` is asked of the resolved type rather
+  than its name, so a project class is decided by the same table the assignment
+  rules use; `New T` and `Collection` are handled directly, since the former is
+  a reference whatever T is and the latter belongs to no host model and no
+  project. Extract Variable and the `undeclared-variable` quick fix both read
+  it.
   Unknown members are never guessed. Built-ins resolve last so a user
   declaration of the same name shadows the built-in.
 
