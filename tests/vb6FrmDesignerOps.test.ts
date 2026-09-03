@@ -601,7 +601,9 @@ describe('the engine: gestures over a form file with its sidecar', () => {
 	});
 
 	it('names the sidecar VB6 pairs with the module: .frx, .ctx, .pgx, .dsx', () => {
-		expect(vb6SidecarFileFor('C:\\work\\Form1.frm', undefined)).toBe('Form1.frx');
+		// Separators stay forward: `path` splits a Windows path only on Windows,
+		// and this assertion runs on the CI Linux box too.
+		expect(vb6SidecarFileFor('/work/Form1.frm', undefined)).toBe('Form1.frx');
 		expect(vb6SidecarFileFor('/work/Mix.ctl', undefined)).toBe('Mix.ctx');
 		expect(vb6SidecarFileFor('/work/Page.pag', undefined)).toBe('Page.pgx');
 		expect(vb6SidecarFileFor('/work/Thing.dsr', undefined)).toBe('Thing.dsx');
