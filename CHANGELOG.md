@@ -2,6 +2,30 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [6.0.3] - 2026-09-03
+
+- **The arms of one `#If` chain are alternatives, not repeats** (#58). A name
+  declared once in each arm of a `#If` / `#ElseIf` / `#Else` chain was reported
+  as a duplicate declaration, an ambiguous procedure name, or a duplicate
+  module member, depending on what it declared. Only one arm is ever compiled,
+  so the name is declared once in whatever build the compiler makes.
+
+  Where XLIDE can evaluate the conditions this was already quiet, because the
+  losing arms are dropped as inactive - `#If VBA7` and `#If Win64` never
+  reported. The errors came from chains XLIDE cannot decide, such as one
+  turning on a project compilation argument, where every arm has to be
+  analyzed. Two declarations now count as a repeat only when some build
+  compiles them both, so a name repeated inside one arm, declared
+  unconditionally and again inside an arm, or shared by two separate `#If`
+  chains still reports.
+
+- **A line label placed once per arm is placed once** (#58). The same fault
+  reached `duplicate-label`, where an `On Error GoTo Fail` with a per-build
+  `Fail:` handler in each arm was reported as a label defined twice. Named
+  labels and numeric line labels both. A label repeated inside one arm, placed
+  before the chain and again inside it, or shared by two separate `#If` chains
+  still reports.
+
 ## [6.0.2] - 2026-09-02
 
 - **The F5 launcher module declares Option Explicit.** `XlideRun` is code
