@@ -11,6 +11,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parseProjectConditionalConstants } from '../src/analyzer';
 import { readModules } from '../src/vba/projectService';
+import { AnalysisWorkerState } from '../src/analysisWorkerLogic';
 import { analyzeModule } from '../src/analyzer';
 import {
 	buildVbaProjectIndex,
@@ -106,5 +107,54 @@ describe('supplying the arguments decides a branch', () => {
 		// `Unwanted` sits in the arm that loses, so it is no longer declared at
 		// all and using it is the error the VBE would raise.
 		expect(undeclared(SRC.replace('Wanted = 1', 'Unwanted = 1'), 'stdFullIntegration = 1')).toBe(1);
+	});
+});
+
+// github.com/WilliamSmithEdward/xlide_vscode/issues/63. The worker is the
+// shared entry point an out-of-process consumer uses, and its seed carried
+// modules and nothing project-wide - so the same analyzer gave two answers for
+// one file depending on which surface asked.
+describe('the analysis worker seed carries them too', () => {
+	const SRC = [
+		'Option Explicit',
+		'#If stdFullIntegration Then',
+		'Public Wanted As Long',
+		'#Else',
+		'Public Unwanted As Long',
+		'#End If',
+		'Sub T()',
+		'    Unwanted = 1',
+		'End Sub',
+	].join('\r\n') + '\r\n';
+
+	function undeclaredThroughWorker(conditionalConstants?: string): number {
+		const state = new AnalysisWorkerState();
+		state.handle({
+			kind: 'seed',
+			projectKey: 'wb',
+			generation: 1,
+			modules: [{ moduleName: 'M', source: SRC, type: 'standard' }],
+			...(conditionalConstants ? { conditionalConstants } : {}),
+		});
+		const result = state.handle({
+			kind: 'analyze', requestId: 1, docKey: 'd', projectKey: 'wb',
+			generation: 1, source: SRC, moduleName: 'M', moduleType: 'standard',
+		});
+		if (result?.kind !== 'result') {
+			throw new Error('the worker returned no result');
+		}
+		return result.diagnostics.filter((d) => d.code === 'undeclared-variable').length;
+	}
+
+	it('leaves both arms live when the seed carries none', () => {
+		expect(undeclaredThroughWorker()).toBe(0);
+	});
+
+	it('drops the losing arm, whichever one that is', () => {
+		// The `#If` arm wins, so `Unwanted` is never declared and using it is
+		// the error the VBE would raise.
+		expect(undeclaredThroughWorker('stdFullIntegration = 1')).toBe(1);
+		// The `#Else` arm wins, so `Unwanted` is declared and nothing reports.
+		expect(undeclaredThroughWorker('stdFullIntegration = 0')).toBe(0);
 	});
 });

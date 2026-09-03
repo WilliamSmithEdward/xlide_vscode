@@ -44,6 +44,25 @@ describe('the declared type of an expression', () => {
 	});
 });
 
+// github.com/WilliamSmithEdward/xlide_vscode/issues/64. VBA types a
+// whole-number literal as Integer or Long, never Double. The shared inference
+// widens every numeric literal to Double, which is right for CHECKING
+// compatibility and wrong for a caller about to write the type into a `Dim` -
+// and every caller of this function is doing exactly that. Asked of the parse,
+// so the suffixed, hex and parenthesised forms all agree.
+describe('a whole-number literal is a Long', () => {
+	it('answers Long for every spelling of one', () => {
+		for (const literal of ['10', '10&', '&H10', '(10)', '-10']) {
+			expect(typeOf(`num = ${literal}`, literal), literal).toMatchObject({ type: 'Long' });
+		}
+	});
+
+	it('leaves anything else to the shared inference', () => {
+		expect(typeOf('num = 1.5', '1.5')).toMatchObject({ type: 'Double' });
+		expect(typeOf('num = 1 + 2', '1 + 2')).toMatchObject({ type: 'Double' });
+	});
+});
+
 describe('whether the assignment needs Set', () => {
 	it('says yes for an object', () => {
 		expect(typeOf('Set obj = Nothing', 'obj')).toMatchObject({ type: 'Object', isObject: true });

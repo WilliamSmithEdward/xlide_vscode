@@ -17,7 +17,7 @@ import type {
 	WorkerSeedModule,
 } from './analysisWorkerProtocol';
 import type { ModuleSymbolKind } from './analyzer/symbols/symbolModel';
-import type { EventHandlerDocumentType } from './analyzer';
+import { parseProjectConditionalConstants, type EventHandlerDocumentType } from './analyzer';
 import type { DiagnosticSeverityOverrides } from './analyzer/diagnostics/analysisContext';
 
 interface ProjectState {
@@ -64,7 +64,14 @@ export class AnalysisWorkerState {
 					// own code-behind (#22).
 					implicitMembers: m.implicitMembers,
 					predeclaredId: m.predeclaredId,
-				})));
+				})), undefined, {
+					// Both halves must be built under the same constants: giving
+					// them to the rules alone would leave a branch dropped from
+					// the symbols still being analyzed (issues/63).
+					conditionalCompilation: {
+						projectConstants: parseProjectConditionalConstants(request.conditionalConstants),
+					},
+				});
 				this._workbooks.set(request.projectKey, {
 					generation: request.generation,
 					modules: request.modules,

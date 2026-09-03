@@ -596,19 +596,9 @@ function assignedValueType(
 		start: span.start + tokens[0].start,
 		end: span.start + tokens[tokens.length - 1].end,
 	};
-	// A whole-number literal is a Long to VBA and to anyone declaring the name
-	// by hand. The shared inference widens every numeric literal to Double,
-	// which is right for checking compatibility and wrong on a declaration.
-	const text = source.slice(valueSpan.start, valueSpan.end).trim();
-	if (LONG_LITERAL_RE.test(text) && Number.isSafeInteger(Number(text))
-		&& Math.abs(Number(text)) <= 2147483647) {
-		return 'Long';
-	}
 	const value = resolveExpressionType(source, valueSpan, ctx);
 	return value?.complete ? value.type : 'Variant';
 }
-
-const LONG_LITERAL_RE = /^[+-]?[0-9]+$/;
 
 /**
  * A `Dim` for the missing name, placed at the top of the enclosing procedure

@@ -18,7 +18,7 @@ import type { HostObjectModel } from '../host/excelObjectModel';
 import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
 import { parseExpression } from '../parser/parseExpression';
-import type { ProcedureNode, Span } from '../parser/nodes';
+import type { ExprNode, ProcedureNode, Span } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import type { ModuleSymbolKind, VbaProjectClassMembers, VbaSymbol } from '../symbols/symbolModel';
@@ -133,16 +133,27 @@ function enclosingProcedure(
 }
 
 /**
- * Whether the tokens parse as one complete expression, with nothing left over.
- * A trailing operator, an unbalanced paren, or a second expression after the
- * first all fail here.
+ * Whether the expression is a whole-number literal, through any parentheses and
+ * a leading sign.
+ *
+ * VBA types one as Integer or Long, never Double. The shared inference widens
+ * every numeric literal to Double, which is right for CHECKING compatibility -
+ * a Double accepts any of them - and wrong for a caller about to write the type
+ * into a `Dim` (github.com/WilliamSmithEdward/xlide_vscode/issues/64). Asked of
+ * the parse rather than the source text, so `10&`, `&H10` and `(10)` all answer
+ * the same.
  */
-function parsesAsWholeExpression(tokens: readonly VbaToken[]): boolean {
-	if (tokens.length === 0) {
+function isWholeNumberLiteral(expr: ExprNode | null | undefined): boolean {
+	if (!expr) {
 		return false;
 	}
-	const parsed = parseExpression(tokens);
-	return !!parsed.expr && parsed.diagnostics.length === 0 && parsed.endIndex === tokens.length;
+	if (expr.exprKind === 'ParenExpr') {
+		return isWholeNumberLiteral(expr.inner);
+	}
+	if (expr.exprKind === 'UnaryExpr' && (expr.operator === '-' || expr.operator === '+')) {
+		return isWholeNumberLiteral(expr.operand);
+	}
+	return expr.exprKind === 'LiteralExpr' && expr.literalKind === 'integer';
 }
 
 /**
@@ -161,7 +172,10 @@ export function resolveExpressionType(
 	if (tokens.length === 0) {
 		return undefined;
 	}
-	const complete = parsesAsWholeExpression(tokens);
+	const parsed = parseExpression(tokens);
+	const complete = !!parsed.expr
+		&& parsed.diagnostics.length === 0
+		&& parsed.endIndex === tokens.length;
 
 	const { module, symbols } = boundModule(
 		source,
@@ -197,7 +211,9 @@ export function resolveExpressionType(
 	);
 
 	// Nothing narrowed it. Variant is the honest answer and the compiling one.
-	const type = inferred?.type?.trim() || 'Variant';
+	const type = isWholeNumberLiteral(parsed.expr)
+		? 'Long'
+		: inferred?.type?.trim() || 'Variant';
 	// `New T` yields a reference whatever T is, so the expression settles this
 	// even when the type table does not carry the class.
 	const isObject = isNewExpression(tokens) || needsSetAssignment(type, memberCtx);

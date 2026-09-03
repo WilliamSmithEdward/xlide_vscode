@@ -39,6 +39,18 @@ export type AnalysisWorkerRequest =
 		projectKey: string;
 		generation: number;
 		modules: WorkerSeedModule[];
+		/**
+		 * The project's own `#If` constants, raw as the VBE property holds them
+		 * (`Name = Value : Name = Value`). Raw rather than parsed so
+		 * `parseProjectConditionalConstants` stays the one implementation of the
+		 * format and a consumer cannot disagree with it about what `-1` means.
+		 *
+		 * Without them every `#If MY_FLAG` is undecidable and both arms are
+		 * analyzed, so a consumer that seeds them and one that does not get
+		 * different answers for the same file
+		 * (github.com/WilliamSmithEdward/xlide_vscode/issues/63).
+		 */
+		conditionalConstants?: string;
 	}
 	| {
 		kind: 'analyze';
