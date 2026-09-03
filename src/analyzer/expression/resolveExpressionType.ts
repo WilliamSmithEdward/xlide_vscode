@@ -63,6 +63,56 @@ export interface ExpressionTypeInfo {
 	complete: boolean;
 }
 
+
+// Binding a module is the expensive half of answering for a span, and a caller
+// asking about several spans in one module would otherwise pay it per span -
+// which is quadratic over a module's assignments
+// (github.com/WilliamSmithEdward/xlide_vscode/issues/62). Value-keyed like
+// `tokenizeCached`, and sized the same, so a project pass touching sibling
+// modules does not evict the active one. Callers must not mutate what they get.
+const BOUND_MODULE_CACHE_MAX = 8;
+interface BoundModule {
+	source: string;
+	moduleName: string;
+	moduleKind: ModuleSymbolKind;
+	module: ReturnType<typeof parseModule>;
+	symbols: ReturnType<typeof buildModuleSymbols>;
+}
+const boundModuleCache: BoundModule[] = [];
+
+function boundModule(
+	source: string,
+	moduleName: string,
+	moduleKind: ModuleSymbolKind,
+): BoundModule {
+	for (let i = 0; i < boundModuleCache.length; i += 1) {
+		const hit = boundModuleCache[i];
+		if (hit.source === source && hit.moduleName === moduleName && hit.moduleKind === moduleKind) {
+			// Adopt the caller's instance so later lookups settle on the pointer
+			// rather than comparing the whole module again.
+			hit.source = source;
+			if (i > 0) {
+				boundModuleCache.splice(i, 1);
+				boundModuleCache.unshift(hit);
+			}
+			return hit;
+		}
+	}
+	const module = parseModule(source);
+	const entry: BoundModule = {
+		source,
+		moduleName,
+		moduleKind,
+		module,
+		symbols: buildModuleSymbols(moduleName, moduleKind, source, { parsedModule: module }),
+	};
+	boundModuleCache.unshift(entry);
+	if (boundModuleCache.length > BOUND_MODULE_CACHE_MAX) {
+		boundModuleCache.pop();
+	}
+	return entry;
+}
+
 /** Tokens of `span`, with comments and line breaks dropped. */
 function expressionTokens(source: string, span: Span): VbaToken[] {
 	return tokenize(source.slice(span.start, span.end))
@@ -113,12 +163,10 @@ export function resolveExpressionType(
 	}
 	const complete = parsesAsWholeExpression(tokens);
 
-	const module = parseModule(source);
-	const symbols = buildModuleSymbols(
+	const { module, symbols } = boundModule(
+		source,
 		ctx.moduleName ?? 'Module',
 		ctx.moduleKind ?? 'standard',
-		source,
-		{ parsedModule: module },
 	);
 	const proc = enclosingProcedure(module.members, span);
 	const procSym = proc ? procedureSymbolFor(symbols, proc) : undefined;

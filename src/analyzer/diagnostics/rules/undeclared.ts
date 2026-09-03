@@ -488,6 +488,7 @@ export function checkUndeclaredVariables(
 				span: Span,
 				mode: 'assigning to it' | 'using it',
 				context: BareIdentifierContext,
+				assignedType?: () => string,
 			): void => {
 				const key = `${span.start}:${span.end}`;
 				if (reported.has(key) || isKnown(name, procSym, context)) {
@@ -498,21 +499,29 @@ export function checkUndeclaredVariables(
 					'undeclaredVariable',
 					`Variable not defined: '${name}'. Declare it before ${mode}, or remove Option Explicit.`,
 					span,
-					declareVariableData(source, member, name, assignedType),
+					declareVariableData(source, member, name, assignedType?.()),
 				);
 			};
 			const scalarTarget = bareAssignmentTarget(source, span);
 			const objectTarget = scalarTarget ? undefined : setAssignmentTarget(source, span);
 			const target = scalarTarget ?? objectTarget;
-			// What the assignment says the name is. A `Set` makes it an object
-			// whatever the right-hand side turns out to be; anything else is
-			// read off the expression, and Variant where nothing narrows it.
-			let assignedType: string | undefined;
 			if (target) {
-				assignedType = objectTarget
-					? 'Object'
-					: assignedValueType(source, span, ctxForTypes);
-				report(target.name, target.span, 'assigning to it', 'assignmentTarget');
+				// A THUNK, called past the isKnown guard inside `report`. Typing
+				// the right-hand side costs a bind of the module, and running it
+				// for every assignment made a module whose variables are all
+				// declared - which is most modules - pay that for no findings
+				// (github.com/WilliamSmithEdward/xlide_vscode/issues/62).
+				//
+				// A `Set` makes the name an object whatever the right-hand side
+				// turns out to be; anything else is read off the expression, and
+				// Variant where nothing narrows it.
+				report(
+					target.name,
+					target.span,
+					'assigning to it',
+					'assignmentTarget',
+					() => (objectTarget ? 'Object' : assignedValueType(source, span, ctxForTypes)),
+				);
 			}
 			for (const ref of undeclaredReadReferences(
 				source,
