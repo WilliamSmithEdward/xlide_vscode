@@ -41,103 +41,142 @@ import {
 } from '../typeInference';
 import { activeModuleMembers, type ProcedureStatementVisitor } from '../walker';
 
+/** True when the symbol is one of the three Property accessor kinds. */
+function isPropertyAccessor(sym: VbaSymbol): boolean {
+	return sym.kind === 'propertyGet' || sym.kind === 'propertyLet' || sym.kind === 'propertySet';
+}
+
+/** What one of the name-collision rules below is looking for. */
+interface RepeatedNameRule {
+	/** Whether this symbol is one of the declarations the rule governs. */
+	declares(sym: VbaSymbol): boolean;
+	/** Whether an earlier declaration and a later one may not coexist. */
+	collides(earlier: VbaSymbol, later: VbaSymbol): boolean;
+	report(repeat: VbaSymbol): void;
+}
+
+/**
+ * Reports every declaration that repeats a name an earlier one already took,
+ * once per repeat, in source order.
+ *
+ * Two declarations in different arms of one `#If` chain never reach the
+ * compiler together, so they are not a repeat however the conditional constants
+ * evaluate. The arms XLIDE cannot decide are exactly where that matters: a
+ * decidable condition has already left the losing arms inactive, and their
+ * declarations never reach this rule.
+ *
+ * Almost every name is taken once, so a name holds its lone declaration
+ * directly and grows a list only when a second one claims it. A name that DOES
+ * collide stops at the first prior it collides with, so the cost is quadratic
+ * only in how many same-name declarations exclude each other - that is, how
+ * many arms one `#If` chain has. Real chains have a handful; it takes on the
+ * order of a thousand arms of one chain, all declaring the same name, before
+ * the scan is worth measuring.
+ */
+function reportRepeatedNames(
+	symbols: readonly VbaSymbol[],
+	activity: ConditionalActivityTracker | undefined,
+	rule: RepeatedNameRule,
+): void {
+	const taken = new Map<string, VbaSymbol | VbaSymbol[]>();
+	for (const sym of symbols) {
+		if (!rule.declares(sym)) {
+			continue;
+		}
+		const key = sym.name.toLowerCase();
+		const holder = taken.get(key);
+		if (holder === undefined) {
+			taken.set(key, sym);
+			continue;
+		}
+		const earlier = Array.isArray(holder) ? holder : [holder];
+		const collision = earlier.some(
+			(prior) =>
+				rule.collides(prior, sym) &&
+				!activity?.mutuallyExclusive(prior.nameSpan, sym.nameSpan),
+		);
+		if (collision) {
+			rule.report(sym);
+		}
+		earlier.push(sym);
+		taken.set(key, earlier);
+	}
+}
+
 /**
  * Rule: a procedure name may name at most one Sub/Function, OR a set of distinct
  * Property accessors (one Get, one Let, one Set). Any other repeat is the VBA
  * "Ambiguous name detected" compile error.
  */
-export function checkDuplicateProcedures(members: VbaSymbol[], push: PushFn): void {
-	const groups = new Map<string, VbaSymbol[]>();
-	for (const sym of members) {
-		if (!isProcedureKind(sym.kind)) {
-			continue;
-		}
-		const key = sym.name.toLowerCase();
-		(groups.get(key) ?? groups.set(key, []).get(key)!).push(sym);
-	}
-
-	for (const group of groups.values()) {
-		if (group.length < 2) {
-			continue;
-		}
-		let valueProcSeen = false;
-		const accessorSeen = new Set<string>();
-		for (const sym of group) {
-			const isProperty =
-				sym.kind === 'propertyGet' ||
-				sym.kind === 'propertyLet' ||
-				sym.kind === 'propertySet';
-			let conflict = false;
-			if (!isProperty) {
-				conflict = valueProcSeen || accessorSeen.size > 0;
-				valueProcSeen = true;
-			} else {
-				conflict = valueProcSeen || accessorSeen.has(sym.kind);
-				accessorSeen.add(sym.kind);
-			}
-			if (conflict) {
-				push(
-					'duplicateProcedure',
-					`Ambiguous name detected: '${sym.name}' is already declared in this module.`,
-					sym.nameSpan,
-				);
-			}
-		}
-	}
+export function checkDuplicateProcedures(
+	members: VbaSymbol[],
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	reportRepeatedNames(members, activity, {
+		declares: (sym) => isProcedureKind(sym.kind),
+		// Distinct accessors of one property share their name legitimately;
+		// every other repeat is the ambiguity error.
+		collides: (a, b) => !isPropertyAccessor(a) || !isPropertyAccessor(b) || a.kind === b.kind,
+		report: (repeat) =>
+			push(
+				'duplicateProcedure',
+				`Ambiguous name detected: '${repeat.name}' is already declared in this module.`,
+				repeat.nameSpan,
+			),
+	});
 }
+
+/** Two declarations of one name always collide; only the scope differs. */
+const DECLARATIONS_COLLIDE = (): boolean => true;
 
 /**
  * Rule: within one procedure, a name may be declared once across its parameters,
  * local Dim/Static variables, and local Const declarations. Repeats are the VBA
  * "Duplicate declaration in current scope" error. Procedure scope is flat in VBA
- * (no block scope), so locals from different branches still collide.
+ * (no block scope), so locals from different `If` branches still collide - but
+ * locals from different `#If` branches do not, because only one of those arms
+ * is ever compiled.
  */
-export function checkDuplicateDeclarations(members: VbaSymbol[], push: PushFn): void {
+export function checkDuplicateDeclarations(
+	members: VbaSymbol[],
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const rule: RepeatedNameRule = {
+		declares: (sym) =>
+			sym.kind === 'parameter' || sym.kind === 'localVariable' || sym.kind === 'constant',
+		collides: DECLARATIONS_COLLIDE,
+		report: (repeat) =>
+			push(
+				'duplicateDeclaration',
+				`Duplicate declaration in current scope: '${repeat.name}'.`,
+				repeat.nameSpan,
+			),
+	};
 	for (const proc of members) {
-		if (!isProcedureKind(proc.kind)) {
-			continue;
-		}
-		const seen = new Set<string>();
-		for (const child of proc.children ?? []) {
-			if (
-				child.kind !== 'parameter' &&
-				child.kind !== 'localVariable' &&
-				child.kind !== 'constant'
-			) {
-				continue;
-			}
-			const key = child.name.toLowerCase();
-			if (seen.has(key)) {
-				push(
-					'duplicateDeclaration',
-					`Duplicate declaration in current scope: '${child.name}'.`,
-					child.nameSpan,
-				);
-			} else {
-				seen.add(key);
-			}
+		if (isProcedureKind(proc.kind)) {
+			reportRepeatedNames(proc.children ?? [], activity, rule);
 		}
 	}
 }
 
 /** Rule: a module-level variable or constant declared more than once. */
-export function checkDuplicateModuleMembers(members: VbaSymbol[], push: PushFn): void {
-	const seen = new Set<string>();
-	for (const sym of members) {
-		if (sym.kind !== 'moduleVariable' && sym.kind !== 'constant') {
-			continue;
-		}
-		const key = sym.name.toLowerCase();
-		if (seen.has(key)) {
+export function checkDuplicateModuleMembers(
+	members: VbaSymbol[],
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	reportRepeatedNames(members, activity, {
+		declares: (sym) => sym.kind === 'moduleVariable' || sym.kind === 'constant',
+		collides: DECLARATIONS_COLLIDE,
+		report: (repeat) =>
 			push(
 				'duplicateModuleMember',
-				`Duplicate declaration: '${sym.name}' is already declared at module level.`,
-				sym.nameSpan,
-			);
-		} else {
-			seen.add(key);
-		}
-	}
+				`Duplicate declaration: '${repeat.name}' is already declared at module level.`,
+				repeat.nameSpan,
+			),
+	});
 }
 
 /** Rule: member names inside one Enum block must be unique. */

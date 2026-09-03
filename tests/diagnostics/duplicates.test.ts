@@ -52,6 +52,39 @@ describe('analyzeModule - duplicate procedures', () => {
 			),
 		).toHaveLength(0);
 	});
+
+	it('allows one procedure per arm when the condition is not decidable', () => {
+		const src =
+			'#If HostIsExcel Then\n' +
+			'Public Sub Configure()\nEnd Sub\n' +
+			'#ElseIf HostIsWord Then\n' +
+			'Public Sub Configure()\nEnd Sub\n' +
+			'#Else\n' +
+			'Public Sub Configure()\nEnd Sub\n' +
+			'#End If\n';
+		expect(byCode(analyzeModule(src), 'duplicate-procedure')).toHaveLength(0);
+	});
+
+	it('allows one Property Get per arm when the condition is not decidable', () => {
+		const src =
+			'#If HostIsExcel Then\n' +
+			'Property Get Item() As Long\nItem = 1\nEnd Property\n' +
+			'#Else\n' +
+			'Property Get Item() As Long\nItem = 2\nEnd Property\n' +
+			'#End If\n';
+		expect(byCode(analyzeModule(src), 'duplicate-procedure')).toHaveLength(0);
+	});
+
+	it('still flags two procedures in one arm', () => {
+		const src =
+			'#If HostIsExcel Then\n' +
+			'Public Sub Configure()\nEnd Sub\n' +
+			'Public Sub Configure()\nEnd Sub\n' +
+			'#End If\n';
+		const hits = byCode(analyzeModule(src), 'duplicate-procedure');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('Configure');
+	});
 });
 
 describe('analyzeModule - duplicate declarations in scope', () => {
@@ -109,6 +142,33 @@ describe('analyzeModule - duplicate declarations in scope', () => {
 		).toHaveLength(0);
 	});
 
+	it('allows one local per arm when the condition is not decidable', () => {
+		const src =
+			'Sub T()\n' +
+			'#If Whatever Then\n    Dim value As Variant\n' +
+			'#ElseIf AnotherExample Then\n    Dim value As String\n' +
+			'#Else\n    Dim value As Long\n' +
+			'#End If\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'duplicate-declaration')).toHaveLength(0);
+	});
+
+	it('still flags a local repeated within one arm', () => {
+		const src =
+			'Sub T()\n' +
+			'#If Whatever Then\n    Dim value As Long\n    Dim value As String\n#End If\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'duplicate-declaration')).toHaveLength(1);
+	});
+
+	it('still flags a local colliding with a parameter from inside an arm', () => {
+		const src =
+			'Sub T(ByVal value As Long)\n' +
+			'#If Whatever Then\n    Dim value As String\n#End If\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'duplicate-declaration')).toHaveLength(1);
+	});
+
 	it('does not flag distinct local names', () => {
 		const src = 'Sub T()\n    Dim x As Long\n    Dim y As Long\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), 'duplicate-declaration')).toHaveLength(0);
@@ -157,6 +217,69 @@ describe('analyzeModule - duplicate module members', () => {
 				'duplicate-module-variable',
 			),
 		).toHaveLength(0);
+	});
+
+	// github.com/WilliamSmithEdward/xlide_vscode/issues/58: the arms of one
+	// `#If` chain are alternatives, so a name declared in each is declared once
+	// in whichever build the compiler makes. That holds however the conditions
+	// evaluate; a decidable condition already leaves the losing arms inactive,
+	// so the arms XLIDE cannot decide are where it matters.
+	it('allows one module variable per arm when the condition is not decidable', () => {
+		const src =
+			'#If Whatever Then\n    Dim Test As Variant\n' +
+			'#ElseIf AnotherExample Then\n    Dim Test As String\n' +
+			'#Else\n    Dim test As Long\n' +
+			'#End If\n';
+		expect(byCode(analyzeModule(src), 'duplicate-module-variable')).toHaveLength(0);
+	});
+
+	it('allows one Const per arm when the condition is not decidable', () => {
+		const src =
+			'#If Whatever Then\nPrivate Const Limit As Long = 1\n' +
+			'#Else\nPrivate Const Limit As Long = 2\n#End If\n';
+		expect(byCode(analyzeModule(src), 'duplicate-module-variable')).toHaveLength(0);
+	});
+
+	it('allows a name in an outer arm and in a chain nested in the other arm', () => {
+		const src =
+			'#If Whatever Then\nDim Test As Long\n' +
+			'#Else\n#If AnotherExample Then\nDim Test As String\n#End If\n' +
+			'#End If\n';
+		expect(byCode(analyzeModule(src), 'duplicate-module-variable')).toHaveLength(0);
+	});
+
+	it('still flags a name repeated within one arm', () => {
+		const src = '#If Whatever Then\nDim Test As Long\nDim Test As String\n#End If\n';
+		expect(byCode(analyzeModule(src), 'duplicate-module-variable')).toHaveLength(1);
+	});
+
+	it('still flags an unconditional name repeated inside an arm', () => {
+		const src = 'Dim Test As Long\n#If Whatever Then\nDim Test As String\n#End If\n';
+		expect(byCode(analyzeModule(src), 'duplicate-module-variable')).toHaveLength(1);
+	});
+
+	it('still flags a name shared by two separate #If chains, which can both compile', () => {
+		const src =
+			'#If Whatever Then\nDim Test As Long\n#End If\n' +
+			'#If AnotherExample Then\nDim Test As String\n#End If\n';
+		expect(byCode(analyzeModule(src), 'duplicate-module-variable')).toHaveLength(1);
+	});
+
+	it('still flags a name repeated in one arm alongside a legitimate use of the other', () => {
+		const src =
+			'#If Whatever Then\nDim Test As Long\nDim Test As String\n' +
+			'#Else\nDim Test As Double\n#End If\n';
+		const hits = byCode(analyzeModule(src), 'duplicate-module-variable');
+		expect(hits).toHaveLength(1);
+		expect(hits[0].span.start).toBeLessThan(src.indexOf('#Else'));
+	});
+
+	it('reports repeats in source order, not grouped by name', () => {
+		const src =
+			'Dim Alpha As Long\nDim Beta As Long\n' +
+			'Dim Beta As String\nDim Alpha As String\n';
+		const hits = byCode(analyzeModule(src), 'duplicate-module-variable');
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['Beta', 'Alpha']);
 	});
 
 	it('does not flag distinct module variables', () => {

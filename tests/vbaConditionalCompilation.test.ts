@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	collectConditionalDirectives,
 	conditionalActivityAtOffset,
+	createConditionalActivityTracker,
 	evaluateConditionalExpression,
 	indexConditionalCompilation,
 } from '../src/analyzer/conditional/conditionalCompilation';
@@ -162,5 +163,57 @@ describe('conditional compilation branch activity', () => {
 		const module = parseModule(source);
 		expect(conditionalActivityAtOffset(module, source.indexOf('PutMemPtr'))).toBe('inactive');
 		expect(conditionalActivityAtOffset(module, source.indexOf('Dim ok'))).toBe('active');
+	});
+});
+
+describe('conditional compilation mutual exclusion', () => {
+	// Which arm wins is a build-time decision, but that AT MOST ONE wins is
+	// known even when none of the conditions can be evaluated. That is what
+	// lets the duplicate-declaration rules keep quiet about a name declared
+	// once per arm.
+	function exclusive(source: string, first: string, second: string): boolean {
+		const tracker = createConditionalActivityTracker(parseModule(source));
+		expect(tracker, 'the module has directives').toBeDefined();
+		const at = (needle: string) => {
+			const start = source.indexOf(needle);
+			expect(start, needle).toBeGreaterThanOrEqual(0);
+			return { start, end: start + needle.length };
+		};
+		return tracker!.mutuallyExclusive(at(first), at(second));
+	}
+
+	it('separates the arms of one chain, however many there are', () => {
+		const source =
+			'#If A Then\nDim first As Long\n' +
+			'#ElseIf B Then\nDim second As Long\n' +
+			'#Else\nDim third As Long\n#End If\n';
+		expect(exclusive(source, 'first', 'second')).toBe(true);
+		expect(exclusive(source, 'second', 'third')).toBe(true);
+		expect(exclusive(source, 'first', 'third')).toBe(true);
+	});
+
+	it('joins statements in the same arm, across a nested chain', () => {
+		const source =
+			'#If A Then\nDim first As Long\n#If B Then\n#End If\nDim second As Long\n#End If\n';
+		expect(exclusive(source, 'first', 'second')).toBe(false);
+	});
+
+	it('separates an outer arm from a chain nested in the other arm', () => {
+		const source =
+			'#If A Then\nDim first As Long\n' +
+			'#Else\n#If B Then\nDim second As Long\n#End If\n#End If\n';
+		expect(exclusive(source, 'first', 'second')).toBe(true);
+	});
+
+	it('joins arms of two separate chains, which can both compile', () => {
+		const source =
+			'#If A Then\nDim first As Long\n#End If\n' +
+			'#If B Then\nDim second As Long\n#End If\n';
+		expect(exclusive(source, 'first', 'second')).toBe(false);
+	});
+
+	it('joins unconditional code to any arm', () => {
+		const source = 'Dim first As Long\n#If A Then\nDim second As Long\n#End If\n';
+		expect(exclusive(source, 'first', 'second')).toBe(false);
 	});
 });

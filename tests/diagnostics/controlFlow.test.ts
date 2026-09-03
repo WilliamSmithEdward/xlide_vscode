@@ -141,6 +141,83 @@ describe('analyzeModule - procedure labels', () => {
 		expect(spanText(src, hits[0])).toBe('10');
 	});
 
+	// github.com/WilliamSmithEdward/xlide_vscode/issues/58, same fault as the
+	// duplicate declaration rules: only one arm of a `#If` chain is compiled,
+	// so a label placed once per arm is placed once.
+	it('allows the same label once per arm when the condition is not decidable', () => {
+		const src =
+			'Sub T()\n' +
+			'    On Error GoTo Fail\n' +
+			'#If TRACE_ON Then\n' +
+			'    Exit Sub\n' +
+			'Fail:\n' +
+			'    Debug.Print Err.Description\n' +
+			'#ElseIf QUIET_MODE Then\n' +
+			'    Exit Sub\n' +
+			'Fail:\n' +
+			'    Resume Next\n' +
+			'#Else\n' +
+			'    Exit Sub\n' +
+			'Fail:\n' +
+			'    Err.Raise Err.Number\n' +
+			'#End If\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'duplicate-label')).toHaveLength(0);
+	});
+
+	it('allows a numeric line label once per arm', () => {
+		const src =
+			'Sub T()\n' +
+			'#If TRACE_ON Then\n' +
+			'10 Debug.Print "trace"\n' +
+			'#Else\n' +
+			'10 Debug.Print "quiet"\n' +
+			'#End If\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'duplicate-label')).toHaveLength(0);
+	});
+
+	it('still flags a label repeated within one arm', () => {
+		const src =
+			'Sub T()\n' +
+			'#If TRACE_ON Then\n' +
+			'Fail:\n' +
+			'    Debug.Print "first"\n' +
+			'Fail:\n' +
+			'    Debug.Print "second"\n' +
+			'#End If\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'duplicate-label')).toHaveLength(1);
+	});
+
+	it('still flags a label placed before the chain and again inside an arm', () => {
+		const src =
+			'Sub T()\n' +
+			'Fail:\n' +
+			'    Debug.Print "always"\n' +
+			'#If TRACE_ON Then\n' +
+			'Fail:\n' +
+			'    Debug.Print "sometimes"\n' +
+			'#End If\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'duplicate-label')).toHaveLength(1);
+	});
+
+	it('still flags a label shared by two separate chains, which can both compile', () => {
+		const src =
+			'Sub T()\n' +
+			'#If TRACE_ON Then\n' +
+			'Fail:\n' +
+			'    Debug.Print "one"\n' +
+			'#End If\n' +
+			'#If QUIET_MODE Then\n' +
+			'Fail:\n' +
+			'    Debug.Print "two"\n' +
+			'#End If\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'duplicate-label')).toHaveLength(1);
+	});
+
 	it('allows the same label name in separate procedures', () => {
 		const src =
 			'Sub A()\n' +

@@ -737,6 +737,15 @@ declaration checks, type/call validation, and Win64 `Declare PtrSafe`
 diagnostics all skip only branches proven inactive and leave unknown branches
 visible.
 
+The tracker also answers `mutuallyExclusive(a, b)`: whether two spans sit in
+different arms of one `#If` chain, and so are never compiled together whatever
+the constants are worth. Activity alone cannot say that - both arms of an
+undecidable chain are `unknown`, and both are analyzed - so the duplicate
+procedure, declaration, and module-member rules use this instead to tell an
+alternative from a repeat. It is a per-arm identity comparison, not a
+satisfiability test: two declarations under separate `#If` chains can both
+compile and still collide.
+
 The index also subscribes to `onDidSaveTextDocument` for `xlide-vba://` URIs so
 the cache stays in sync with user edits.
 

@@ -40,6 +40,11 @@ export interface ConditionalCompilationIndex {
 export interface ConditionalActivityTracker {
 	activityForSpan(span: Span): ConditionalActivity;
 	isInactive(span: Span): boolean;
+	/**
+	 * Whether the two spans sit in different arms of one `#If` chain, and so
+	 * are never compiled together however the constants evaluate.
+	 */
+	mutuallyExclusive(a: Span, b: Span): boolean;
 }
 
 const DEFAULT_COMPILER_CONSTANTS: Readonly<Record<string, ConditionalValue>> = {
@@ -81,9 +86,9 @@ export function createConditionalActivityTracker(
 	// record the activity in effect after each directive, so per-span queries
 	// become a binary search instead of a full replay from offset 0.
 	const events = collectConditionalActivityEvents(module, effectiveEnv);
-	const activityForSpan = (span: Span): ConditionalActivity => {
-		// Mirror conditionalActivityAtOffset: directives starting at or after
-		// the queried offset are not applied.
+	// Mirror conditionalActivityAtOffset: directives starting at or after the
+	// queried offset are not applied.
+	const eventForSpan = (span: Span): ConditionalActivityEvent | undefined => {
 		let lo = -1;
 		let hi = events.length - 1;
 		while (lo < hi) {
@@ -94,17 +99,52 @@ export function createConditionalActivityTracker(
 				hi = mid - 1;
 			}
 		}
-		return lo >= 0 ? events[lo].activity : 'active';
+		return lo >= 0 ? events[lo] : undefined;
 	};
+	const activityForSpan = (span: Span): ConditionalActivity =>
+		eventForSpan(span)?.activity ?? 'active';
 	return {
 		activityForSpan,
 		isInactive: (span: Span): boolean => activityForSpan(span) === 'inactive',
+		mutuallyExclusive: (a: Span, b: Span): boolean =>
+			armsDiverge(eventForSpan(a)?.branch, eventForSpan(b)?.branch),
 	};
+}
+
+/**
+ * One arm of one `#If` chain, as a persistent stack: `parent` is the enclosing
+ * chain's arm. Immutable, so an event can keep the arm in effect when it was
+ * recorded without copying the stack.
+ */
+interface ConditionalArm {
+	/** Identifies the `#If` chain; every arm of one chain shares it. */
+	chain: number;
+	/** 0 for the `#If`, then one per `#ElseIf` / `#Else`. */
+	index: number;
+	parent: ConditionalArm | undefined;
+}
+
+/**
+ * Whether the two arm stacks disagree about which arm of a shared chain they
+ * are in - the branches then exclude each other, whatever the constants are
+ * worth. Stacks are as deep as the source nests directives, so the walk is
+ * short.
+ */
+function armsDiverge(a: ConditionalArm | undefined, b: ConditionalArm | undefined): boolean {
+	for (let outer = a; outer; outer = outer.parent) {
+		for (let inner = b; inner; inner = inner.parent) {
+			if (outer.chain === inner.chain) {
+				return outer.index !== inner.index;
+			}
+		}
+	}
+	return false;
 }
 
 interface ConditionalActivityEvent {
 	start: number;
 	activity: ConditionalActivity;
+	branch: ConditionalArm | undefined;
 }
 
 function collectConditionalActivityEvents(
@@ -118,10 +158,30 @@ function collectConditionalActivityEvents(
 	}
 	const stack: ConditionalFrame[] = [];
 	let current: ConditionalActivity = 'active';
+	let branch: ConditionalArm | undefined;
+	let chains = 0;
 	const events: ConditionalActivityEvent[] = [];
 	for (const { directive } of directives) {
 		current = applyConditionalDirective(directive, effectiveEnv, projectConstants, stack, current);
-		events.push({ start: directive.span.start, activity: current });
+		switch (directive.directiveKind) {
+			case 'If':
+				branch = { chain: chains++, index: 0, parent: branch };
+				break;
+			case 'ElseIf':
+			case 'Else':
+				// An `#ElseIf` with no open `#If` is a parse-level error; leave
+				// the stack alone rather than inventing an arm for it.
+				if (branch) {
+					branch = { chain: branch.chain, index: branch.index + 1, parent: branch.parent };
+				}
+				break;
+			case 'EndIf':
+				branch = branch?.parent;
+				break;
+			default:
+				break;
+		}
+		events.push({ start: directive.span.start, activity: current, branch });
 	}
 	return events;
 }

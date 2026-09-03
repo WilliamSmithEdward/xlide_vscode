@@ -164,15 +164,15 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'duplicateProcedures',
-		run: (ctx, push) => checkDuplicateProcedures(ctx.symbols.root.children ?? [], push),
+		run: (ctx, push) => checkDuplicateProcedures(ctx.symbols.root.children ?? [], ctx.activity, push),
 	},
 	{
 		name: 'duplicateDeclarations',
-		run: (ctx, push) => checkDuplicateDeclarations(ctx.symbols.root.children ?? [], push),
+		run: (ctx, push) => checkDuplicateDeclarations(ctx.symbols.root.children ?? [], ctx.activity, push),
 	},
 	{
 		name: 'duplicateModuleMembers',
-		run: (ctx, push) => checkDuplicateModuleMembers(ctx.symbols.root.children ?? [], push),
+		run: (ctx, push) => checkDuplicateModuleMembers(ctx.symbols.root.children ?? [], ctx.activity, push),
 	},
 	{
 		name: 'duplicateEnumMembers',

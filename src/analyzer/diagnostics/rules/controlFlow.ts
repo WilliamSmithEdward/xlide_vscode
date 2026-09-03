@@ -167,6 +167,12 @@ export function checkUndefinedLabels(
 /**
  * Rule: procedure-local labels must be unique within the same procedure. This
  * catches duplicate named labels and normalized decimal line labels.
+ *
+ * A label placed once in each arm of a `#If` chain is placed once in whatever
+ * build the compiler makes, so it is not a repeat - the same reasoning the
+ * duplicate declaration rules use, and the same `mutuallyExclusive` question
+ * (github.com/WilliamSmithEdward/xlide_vscode/issues/58). An `On Error GoTo
+ * Fail` with a per-platform `Fail:` handler is the shape that hit this.
  */
 export function checkDuplicateLabels(
 	source: string,
@@ -178,17 +184,24 @@ export function checkDuplicateLabels(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		const seen = new Set<string>();
+		const placed = new Map<string, Span[]>();
 		for (const label of collectProcedureLabelDeclarations(source, member, activity)) {
-			if (!seen.has(label.key)) {
-				seen.add(label.key);
+			const earlier = placed.get(label.key);
+			if (!earlier) {
+				placed.set(label.key, [label.span]);
 				continue;
 			}
-			push(
-				'duplicateLabel',
-				`Label '${label.text}' is already defined in procedure '${member.name}'.`,
-				label.span,
+			const collides = earlier.some(
+				(prior) => !activity?.mutuallyExclusive(prior, label.span),
 			);
+			earlier.push(label.span);
+			if (collides) {
+				push(
+					'duplicateLabel',
+					`Label '${label.text}' is already defined in procedure '${member.name}'.`,
+					label.span,
+				);
+			}
 		}
 	}
 }
