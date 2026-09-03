@@ -2,6 +2,24 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [Unreleased]
+
+- **A new form brings the library it needs.** Adding the first UserForm to
+  a project wrote the form, its designer storage and its registration, but
+  not the Microsoft Forms reference the project needs to instantiate it.
+  The file still read perfectly in XLIDE while the host could neither show
+  the form nor compile the project. None of the blank templates carries
+  that reference, so every project that gained its first form through
+  XLIDE was affected, in Word and PowerPoint as much as Excel. The
+  reference is now written with the form, once, and its record shapes are
+  pinned against a workbook Excel itself wrote: a test rebuilds that
+  workbook's own reference block byte for byte.
+
+- **Validation names a form with no library.** A project holding a form
+  whose Microsoft Forms reference is missing now reports it, naming the
+  forms and how to add it. Previously nothing anywhere said so, because
+  every module and designer storage reads correctly without it.
+
 ## [6.0.0] - 2026-09-02
 
 - **BREAKING: project, not workbook.** The thing in the XLIDE tree is a project: an

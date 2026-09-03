@@ -47,6 +47,7 @@ import {
 } from './vbaProject';
 import { XlsxWorkbook, type CellValue, type NamedRange, type SheetSummary } from './xlsx';
 import { atomicWrite } from './atomicWrite';
+import { buildMsFormsReference, hasMsFormsReference, readProjectReferences } from './vbaProjectReferences';
 import { attributeValue, joinVbaSource, listProcedures, splitVbaSource, type ProcedureEntry } from './moduleSource';
 import {
 	isVb6ProjectPath,
@@ -1259,6 +1260,15 @@ export function addFormModule(
 	if (wb.cfb.hasStoragePath([moduleName])) {
 		throw new Error(`A designer storage named ${moduleName} already exists.`);
 	}
+	// A project holding a form must reference the Microsoft Forms library, or
+	// its host cannot instantiate the form and nothing in the project compiles,
+	// while every reader here still finds the file healthy. This is not Excel's
+	// alone: a UserForm in a Word or PowerPoint project needs the same library,
+	// and none of the blank templates carries it. A project that gains its
+	// first form through XLIDE had no such reference before.
+	if (!hasMsFormsReference(wb.project.dirStream)) {
+		wb.project.addReferenceRecords(buildMsFormsReference());
+	}
 	const streams = composeNewForm({ name: moduleName });
 	wb.project.addModule(
 		moduleName,
@@ -1396,6 +1406,22 @@ export function validateProject(filePath: string): { issues: string[] } {
 		if (module.sourceHeader === '' && module.prefixBytes.length === 0) {
 			issues.push(`Module ${module.name} has no readable source stream.`);
 		}
+	}
+	// A form needs the Microsoft Forms library declared, or its host cannot
+	// instantiate it and the project will not compile - a failure every reader
+	// here is blind to, because the modules and the designer storage are all
+	// perfectly readable without it. True of every host that has UserForms,
+	// not Excel alone.
+	const forms = wb.project.modules
+		.filter((module) => moduleEntry(module).type === 'userform')
+		.map((module) => module.name);
+	if (forms.length > 0 && !hasMsFormsReference(wb.project.dirStream)) {
+		const named = forms.length === 1 ? `Form ${forms[0]}` : `Forms ${forms.join(', ')}`;
+		issues.push(
+			`${named} need the Microsoft Forms library, which this project does not reference. `
+			+ 'The host application cannot instantiate the form or compile the project until it is '
+			+ 'added (Tools > References > Microsoft Forms 2.0 Object Library).',
+		);
 	}
 	return { issues };
 }

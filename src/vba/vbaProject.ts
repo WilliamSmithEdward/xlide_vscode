@@ -33,7 +33,7 @@ const REC_MODULETYPE_OTHER = 0x0022;
 const REC_MODULEREADONLY = 0x0025;
 const REC_MODULEPRIVATE = 0x0028;
 const REC_MODULE_TERMINATOR = 0x002b;
-const REC_PROJECTMODULES = 0x000f;
+export const REC_PROJECTMODULES = 0x000f;
 const REC_PROJECTCOOKIE = 0x0013;
 const REC_DIR_TERMINATOR = 0x0010;
 const REC_PROJECTCODEPAGE = 0x0003;
@@ -52,7 +52,7 @@ const SIGNATURE_STREAMS: Record<string, string> = {
 const decodeAnsi = decodeCodePage;
 const encodeAnsi = encodeCodePage;
 
-interface DirRecord {
+export interface DirRecord {
 	id: number;
 	start: number;
 	dataStart: number;
@@ -61,7 +61,7 @@ interface DirRecord {
 }
 
 /** Tokenize a decompressed dir stream into flat records. */
-function readDirRecords(raw: Buffer): DirRecord[] {
+export function readDirRecords(raw: Buffer): DirRecord[] {
 	const out: DirRecord[] = [];
 	let pos = 0;
 	while (pos + 2 <= raw.length) {
@@ -203,6 +203,32 @@ export class VbaProject {
 	private readonly deleted = new Set<string>();
 	private readonly removedStreams: string[] = [];
 	private readonly renamedStreams: Array<[string, string]> = [];
+
+	/**
+	 * The decompressed dir stream as parsed, which carries the reference
+	 * section this class otherwise passes through untouched.
+	 */
+	get dirStream(): Buffer {
+		return this.dirRaw;
+	}
+
+	/**
+	 * Adds reference records to the project's reference section, which sits
+	 * immediately before the module section. Everything already declared is
+	 * kept: the records go in at the end of the section, where the format
+	 * puts a reference added last.
+	 */
+	addReferenceRecords(records: Buffer): void {
+		if (this.dirModulesOffset < 0) {
+			throw new VbaProjectError('dir stream has no PROJECTMODULES section; refusing to add a reference.');
+		}
+		this.dirRaw = Buffer.concat([
+			this.dirRaw.subarray(0, this.dirModulesOffset),
+			records,
+			this.dirRaw.subarray(this.dirModulesOffset),
+		]);
+		this.dirModulesOffset += records.length;
+	}
 
 	static parse(cfb: Cfb): VbaProject {
 		const project = new VbaProject();
