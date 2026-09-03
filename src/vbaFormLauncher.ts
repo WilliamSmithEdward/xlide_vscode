@@ -14,6 +14,40 @@
 /** The module F5 keeps its per-form launcher subs in. */
 export const LAUNCHER_MODULE = 'XlideRun';
 
+const LAUNCHER_HEADER = "' XLIDE Run-Form launchers, injected by F5. Safe to delete.";
+const OPTION_EXPLICIT = 'Option Explicit';
+
+/** Whether the module already opens with the declaration XLIDE's own analysis asks for. */
+function declaresOptionExplicit(source: string): boolean {
+	return /^[ \t]*option[ \t]+explicit\b/im.test(source);
+}
+
+/**
+ * Whether every line is one XLIDE wrote: the header, the option, and launcher
+ * subs. A module anyone has touched fails this, and then the option is left
+ * alone - adding it to code that was written without it is how you turn
+ * someone's working macro into a compile error.
+ */
+function isUntouchedLauncherModule(source: string): boolean {
+	return source.split(/\r?\n/).every((line) => {
+		const text = line.trim();
+		return text === ''
+			|| text === LAUNCHER_HEADER
+			|| text === OPTION_EXPLICIT
+			|| /^sub\s+XlideShow_\w+\s*\(\s*\)$/i.test(text)
+			|| /^UserForms\.Add\("[^"]*"\)\.Show$/i.test(text)
+			|| /^end\s+sub$/i.test(text);
+	});
+}
+
+/** The module's source with `Option Explicit` in its declarations, below the header comment. */
+function withOptionExplicit(source: string): string {
+	const lines = source.split(/\r?\n/);
+	const header = lines.findIndex((line) => line.trim() === LAUNCHER_HEADER);
+	lines.splice(header + 1, 0, OPTION_EXPLICIT);
+	return lines.join('\r\n');
+}
+
 /** The launcher sub for one form - one per form, never shared. */
 export function launcherSubName(formModule: string): string {
 	return `XlideShow_${formModule}`;
@@ -39,7 +73,13 @@ export function composeLauncherSource(existingSource: string | undefined, formMo
 		'',
 	].join('\r\n');
 	const existing = (existingSource ?? '').replace(/\s+$/, '');
-	return existing.length > 0
-		? `${existing}\r\n\r\n${subText}`
-		: `' XLIDE Run-Form launchers, injected by F5. Safe to delete.\r\n\r\n${subText}`;
+	if (existing.length === 0) {
+		return `${LAUNCHER_HEADER}\r\n${OPTION_EXPLICIT}\r\n\r\n${subText}`;
+	}
+	// A module XLIDE wrote and nobody has edited gains the option it should
+	// have had; anything else is left exactly as the user left it.
+	const head = declaresOptionExplicit(existing) || !isUntouchedLauncherModule(existing)
+		? existing
+		: withOptionExplicit(existing);
+	return `${head}\r\n\r\n${subText}`;
 }

@@ -2,6 +2,17 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [Unreleased]
+
+- **The F5 launcher module declares Option Explicit.** `XlideRun` is code
+  XLIDE puts in your project, and it was the one generated module that did
+  not declare what XLIDE's own analysis asks of every module. It does now,
+  above the launcher subs. A module XLIDE wrote and nobody has edited gains
+  the declaration the next time F5 adds a launcher to it; a module with any
+  hand-written code in it is left exactly as it is, because adding the
+  declaration to code written without it turns a working macro into a
+  compile error.
+
 ## [6.0.1] - 2026-09-02
 
 - **A new form brings the library it needs.** Adding the first UserForm to

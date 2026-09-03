@@ -50,6 +50,75 @@ describe('the F5 launcher module', () => {
 		// A mention in a comment or a call is not a declaration.
 		expect(launcherSubExists("' XlideShow_EntryForm is gone\r\n", 'XlideShow_EntryForm')).toBe(false);
 	});
+
+	// The module is code XLIDE puts in someone's project, so it declares what
+	// XLIDE's own analysis asks every module to declare. The generated test
+	// modules always did; this one did not.
+	it('declares Option Explicit, above the subs where it belongs', () => {
+		const source = composeLauncherSource(undefined, 'EntryForm');
+		const lines = source.split('\r\n');
+		expect(lines[0]).toContain('Safe to delete');
+		expect(lines[1]).toBe('Option Explicit');
+		expect(lines.indexOf('Option Explicit')).toBeLessThan(lines.findIndex((line) => /^Sub /.test(line)));
+		// A second form adds a sub, not another declaration.
+		const both = composeLauncherSource(source, 'OrderForm');
+		expect(both.split('Option Explicit').length - 1).toBe(1);
+		expect(both.split('Safe to delete').length - 1).toBe(1);
+	});
+
+	it('adds the declaration to a module XLIDE wrote before it declared one', () => {
+		const older = [
+			"' XLIDE Run-Form launchers, injected by F5. Safe to delete.",
+			'',
+			'Sub XlideShow_EntryForm()',
+			'    UserForms.Add("EntryForm").Show',
+			'End Sub',
+			'',
+		].join('\r\n');
+		const updated = composeLauncherSource(older, 'OrderForm');
+		expect(updated.split('\r\n')[1]).toBe('Option Explicit');
+		expect(launcherSubExists(updated, 'XlideShow_EntryForm')).toBe(true);
+		expect(launcherSubExists(updated, 'XlideShow_OrderForm')).toBe(true);
+	});
+
+	it('leaves a hand-edited module alone, declaration and all', () => {
+		// Adding Option Explicit to code written without it turns a working
+		// macro into a compile error, so an edited module keeps what it has.
+		const edited = [
+			"' XLIDE Run-Form launchers, injected by F5. Safe to delete.",
+			'',
+			'Sub XlideShow_EntryForm()',
+			'    UserForms.Add("EntryForm").Show',
+			'End Sub',
+			'',
+			'Sub MyOwnHelper()',
+			'    counter = counter + 1',
+			'End Sub',
+			'',
+		].join('\r\n');
+		const updated = composeLauncherSource(edited, 'OrderForm');
+		expect(updated).not.toContain('Option Explicit');
+		expect(updated).toContain('MyOwnHelper');
+		expect(launcherSubExists(updated, 'XlideShow_OrderForm')).toBe(true);
+	});
+
+	it('never adds a second declaration to a module that has one', () => {
+		const already = [
+			"' XLIDE Run-Form launchers, injected by F5. Safe to delete.",
+			'Option Explicit',
+			'',
+			'Sub XlideShow_EntryForm()',
+			'    UserForms.Add("EntryForm").Show',
+			'End Sub',
+			'',
+		].join('\r\n');
+		expect(composeLauncherSource(already, 'OrderForm').split('Option Explicit').length - 1).toBe(1);
+		// However the user spelled it.
+		const lowercase = already.replace('Option Explicit', 'option explicit');
+		const updated = composeLauncherSource(lowercase, 'OrderForm');
+		expect(updated).toContain('option explicit');
+		expect(updated).not.toContain('Option Explicit');
+	});
 });
 
 // The command itself cannot run outside a real extension host, so its wiring
