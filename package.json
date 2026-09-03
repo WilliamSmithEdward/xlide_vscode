@@ -2,7 +2,7 @@
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
   "description": "Office VBA and Visual Basic 6 in VS Code - Excel, Word, PowerPoint, Access and .vbp projects; project tree, module editing, UserForm and VB6 form designers, static analysis, unit tests, AI agent tools",
-  "version": "6.0.1",
+  "version": "6.0.2",
   "publisher": "WilliamSmithE",
   "license": "MIT",
   "icon": "assets/images/extension_logo.png",

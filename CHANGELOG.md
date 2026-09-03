@@ -2,7 +2,7 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
-## [Unreleased]
+## [6.0.2] - 2026-09-02
 
 - **The F5 launcher module declares Option Explicit.** `XlideRun` is code
   XLIDE puts in your project, and it was the one generated module that did
