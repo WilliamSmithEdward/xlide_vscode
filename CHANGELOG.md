@@ -2,6 +2,18 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [6.1.1] - 2026-09-03
+
+- **Analysis is no longer quadratic in module size** (#62). 6.1.0's new
+  `undeclared-variable` quick fix typed the right-hand side of every
+  assignment before asking whether the target was undeclared, and typing one
+  costs a bind of the whole module. A module whose variables are all declared -
+  most modules - paid that for no findings, and the total grew with the square
+  of the module: a 21,602-line module went from half a second to 37 seconds.
+  The type is now computed once per finding rather than once per assignment,
+  and the resolver memoises its parse and symbol build. On 1,600 procedures
+  that is 5,700 ms down to 93 ms.
+
 ## [6.1.0] - 2026-09-03
 
 - **XLIDE reads your project's conditional compilation arguments.** The VBE
