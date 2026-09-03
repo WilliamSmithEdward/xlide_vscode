@@ -31,7 +31,7 @@ import {
 	procedureSymbolFor,
 	type PushFn,
 } from '../analysisContext';
-import { scanConditionalCompilationBranchOrder } from '../rules/shared';
+import { reportRepeatedKeys, scanConditionalCompilationBranchOrder } from '../rules/shared';
 import {
 	declarationShapeEnvironmentFor,
 	declaredShapeForSourceBinding,
@@ -651,35 +651,41 @@ export function checkDuplicateCaseElse(
 			continue;
 		}
 		forEachSelectBlock(member.body, activity, (select) => {
-			let seenCaseElse = false;
-			for (const node of select.body) {
-				// Only provably-active Case Else clauses collide; clauses in an
-				// inactive or unknown #If branch are not guaranteed to compile
-				// together, so flagging them would be a false positive.
-				if (!isLeafStatement(node) || (activity && activity.activityForSpan(node.span) !== 'active')) {
-					continue;
-				}
-				const toks = statementTokensAfterLeadingLabel(source, node.span);
-				const caseTok = toks[0];
-				const elseTok = toks[1];
-				if (!caseTok || !elseTok || tokenText(caseTok) !== 'case' || tokenText(elseTok) !== 'else') {
-					continue;
-				}
-				if (seenCaseElse) {
+			// Every `Case Else` shares one key, so they all compete. Only the
+			// arms of one `#If` chain are alternatives; an undecidable branch
+			// still counts, which is what a genuine repeat inside one arm needs.
+			reportRepeatedKeys(select.body, activity, {
+				keyOf: (node) => (isLeafStatement(node) && !activity?.isInactive(node.span)
+					&& caseElseTokens(source, node.span) ? 'case else' : undefined),
+				spanOf: (node) => node.span,
+				report: (repeat) => {
+					const hit = caseElseTokens(source, repeat.span)!;
 					push(
 						'duplicateCaseElse',
 						"A 'Select Case' block can have only one 'Case Else'.",
 						{
-							start: absoluteSpan(node.span, caseTok).start,
-							end: absoluteSpan(node.span, elseTok).end,
+							start: absoluteSpan(repeat.span, hit.caseTok).start,
+							end: absoluteSpan(repeat.span, hit.elseTok).end,
 						},
 					);
-				} else {
-					seenCaseElse = true;
-				}
-			}
+				},
+			});
 		});
 	}
+}
+
+/** The `Case` and `Else` tokens of a `Case Else` clause, or undefined. */
+function caseElseTokens(
+	source: string,
+	span: Span,
+): { caseTok: VbaToken; elseTok: VbaToken } | undefined {
+	const toks = statementTokensAfterLeadingLabel(source, span);
+	const caseTok = toks[0];
+	const elseTok = toks[1];
+	if (!caseTok || !elseTok || tokenText(caseTok) !== 'case' || tokenText(elseTok) !== 'else') {
+		return undefined;
+	}
+	return { caseTok, elseTok };
 }
 
 /** Visits every active `SelectBlock` in a body, descending into nested blocks. */

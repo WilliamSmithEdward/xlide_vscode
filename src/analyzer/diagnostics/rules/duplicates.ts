@@ -28,6 +28,7 @@ import {
 import {
 	declarationNameHit,
 	forEachUndeclaredReferenceSpan,
+	reportRepeatedKeys,
 	valueReadReferences,
 } from '../rules/shared';
 import { extractCall } from '../callExtraction';
@@ -190,30 +191,20 @@ export function checkDuplicateEnumMembers(
 		if (member.kind !== 'Enum') {
 			continue;
 		}
-		const seen = new Set<string>();
-		for (const enumMember of member.members) {
-			// Only provably-active members can collide. A member in an inactive
-			// branch is never compiled, and a member in a not-provably-active
-			// branch (an `#If` on an unknown constant - including the two arms of
-			// an `#If`/`#Else`) is not guaranteed to be compiled alongside another
-			// same-named member, so reporting it as a duplicate would be a false
-			// positive. When there are no directives, `activity` is undefined and
-			// every member counts as active.
-			if (activity && activity.activityForSpan(enumMember.span) !== 'active') {
-				continue;
-			}
-			const key = enumMember.name.toLowerCase();
-			const hit = declarationNameHit(source, enumMember.span, enumMember.name);
-			if (seen.has(key)) {
-				push(
-					'duplicateEnumMember',
-					`Duplicate Enum member '${enumMember.name}' in Enum '${member.name}'.`,
-					hit?.span ?? enumMember.span,
-				);
-			} else {
-				seen.add(key);
-			}
-		}
+		// A member in a branch that cannot be decided still counts: it collides
+		// with anything the same build would compile beside it, and only the
+		// arms of one chain are alternatives. Skipping every undecidable branch
+		// (which is what asking for `active` did) went blind to a genuine repeat
+		// inside one arm.
+		reportRepeatedKeys(member.members, activity, {
+			keyOf: (entry) => (activity?.isInactive(entry.span) ? undefined : entry.name.toLowerCase()),
+			spanOf: (entry) => entry.span,
+			report: (repeat) => push(
+				'duplicateEnumMember',
+				`Duplicate Enum member '${repeat.name}' in Enum '${member.name}'.`,
+				declarationNameHit(source, repeat.span, repeat.name)?.span ?? repeat.span,
+			),
+		});
 	}
 }
 
@@ -228,25 +219,17 @@ export function checkDuplicateTypeFields(
 		if (member.kind !== 'Type') {
 			continue;
 		}
-		const seen = new Set<string>();
-		for (const field of member.fields) {
-			// Only provably-active fields can collide (see checkDuplicateEnumMembers
-			// for the rationale - inactive/unknown #If branches do not collide).
-			if (activity && activity.activityForSpan(field.span) !== 'active') {
-				continue;
-			}
-			const key = field.name.toLowerCase();
-			const hit = declarationNameHit(source, field.span, field.name);
-			if (seen.has(key)) {
-				push(
-					'duplicateTypeField',
-					`Duplicate field '${field.name}' in Type '${member.name}'.`,
-					hit?.span ?? field.span,
-				);
-			} else {
-				seen.add(key);
-			}
-		}
+		// See checkDuplicateEnumMembers: only provably-inactive fields drop out,
+		// and the arms of one chain are alternatives rather than repeats.
+		reportRepeatedKeys(member.fields, activity, {
+			keyOf: (entry) => (activity?.isInactive(entry.span) ? undefined : entry.name.toLowerCase()),
+			spanOf: (entry) => entry.span,
+			report: (repeat) => push(
+				'duplicateTypeField',
+				`Duplicate field '${repeat.name}' in Type '${member.name}'.`,
+				declarationNameHit(source, repeat.span, repeat.name)?.span ?? repeat.span,
+			),
+		});
 	}
 }
 

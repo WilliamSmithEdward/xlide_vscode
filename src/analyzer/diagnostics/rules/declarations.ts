@@ -55,6 +55,7 @@ import {
 	moduleDeclarationStatementInProcedure,
 	NameTokenHit,
 	nameTokenHit,
+	reportRepeatedKeys,
 	scanConditionalCompilationBranchOrder,
 } from '../rules/shared';
 import {
@@ -1960,32 +1961,30 @@ export function checkDuplicateOptions(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	const seen = new Set<string>();
-	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Option') {
-			continue;
-		}
-		// Only provably-active Options can collide; two Options in mutually
-		// exclusive #If/#Else arms (or an unknown branch) are not guaranteed to
-		// compile together, so flagging them would be a false positive.
-		if (activity && activity.activityForSpan(member.span) !== 'active') {
-			continue;
-		}
-		const firstWord = member.optionText.trim().split(/\s+/)[0] ?? '';
-		const category = firstWord.toLowerCase();
-		if (!category) {
-			continue;
-		}
-		if (seen.has(category)) {
-			push(
-				'duplicateOption',
-				`Duplicate Option statement; only one 'Option ${firstWord}' is allowed per module.`,
-				firstTokenSpan(source, member.span),
-			);
-		} else {
-			seen.add(category);
-		}
-	}
+	// Two Options in different arms of one `#If` chain are alternatives, so
+	// only the arm matters, not whether the branch can be decided. Skipping
+	// every undecidable branch went blind to a real repeat inside one arm.
+	const options = [...activeModuleMembers(mod, activity)].filter((m) => m.kind === 'Option');
+	reportRepeatedKeys(options, activity, {
+		keyOf: (member) => {
+			if (activity?.isInactive(member.span)) {
+				return undefined;
+			}
+			const category = optionCategory(member).toLowerCase();
+			return category || undefined;
+		},
+		spanOf: (member) => member.span,
+		report: (repeat) => push(
+			'duplicateOption',
+			`Duplicate Option statement; only one 'Option ${optionCategory(repeat)}' is allowed per module.`,
+			firstTokenSpan(source, repeat.span),
+		),
+	});
+}
+
+/** The word after `Option`, which is what may appear at most once. */
+function optionCategory(member: { optionText: string }): string {
+	return member.optionText.trim().split(/\s+/)[0] ?? '';
 }
 
 /** VBA allows at most 60 parameters on a procedure. */

@@ -289,6 +289,40 @@ describe('analyzeModule - duplicate module members', () => {
 });
 
 describe('analyzeModule - duplicate Enum members', () => {
+	// These two rules used to skip any member in a branch they could not
+	// decide, which kept them quiet across arms (right) and also inside a
+	// single arm (wrong). They now drop only provably-inactive members and ask
+	// the arm question for the rest (issues/58).
+	it('flags an Enum member repeated inside one arm of an undecidable chain', () => {
+		const src =
+			'Public Enum E\n#If CUSTOM_FLAG Then\n    A = 1\n    A = 2\n#End If\nEnd Enum\n';
+		expect(byCode(analyzeModule(src), 'duplicate-enum-member')).toHaveLength(1);
+	});
+
+	it('allows an Enum member once per arm', () => {
+		const src =
+			'Public Enum E\n#If CUSTOM_FLAG Then\n    A = 1\n#Else\n    A = 2\n#End If\nEnd Enum\n';
+		expect(byCode(analyzeModule(src), 'duplicate-enum-member')).toHaveLength(0);
+	});
+
+	it('ignores a repeat inside a provably dead arm', () => {
+		const src =
+			'Public Enum E\n#If Mac Then\n    A = 1\n    A = 2\n#End If\n    B = 3\nEnd Enum\n';
+		expect(byCode(analyzeModule(src), 'duplicate-enum-member')).toHaveLength(0);
+	});
+
+	it('flags a Type field repeated inside one arm of an undecidable chain', () => {
+		const src =
+			'Public Type P\n#If CUSTOM_FLAG Then\n    F As Long\n    F As String\n#End If\nEnd Type\n';
+		expect(byCode(analyzeModule(src), 'duplicate-type-field')).toHaveLength(1);
+	});
+
+	it('allows a Type field once per arm', () => {
+		const src =
+			'Public Type P\n#If CUSTOM_FLAG Then\n    F As Long\n#Else\n    F As String\n#End If\nEnd Type\n';
+		expect(byCode(analyzeModule(src), 'duplicate-type-field')).toHaveLength(0);
+	});
+
 	it('flags duplicate member names inside the same Enum block', () => {
 		const src =
 			'Public Enum ENeg_DuplicateMembers\n' +

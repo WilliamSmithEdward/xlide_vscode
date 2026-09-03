@@ -121,6 +121,65 @@ export function moduleDeclarationStatementInProcedure(
 	return undefined;
 }
 
+/**
+ * What one "this may appear at most once" rule is looking for. `keyOf` returns
+ * undefined for an entry the rule does not govern.
+ */
+export interface RepeatedKeyRule<T> {
+	keyOf(entry: T): string | undefined;
+	spanOf(entry: T): Span;
+	/**
+	 * Whether an earlier entry and a later one may not coexist. Defaults to
+	 * "any repeat collides"; Property accessors are the exception that needs it.
+	 */
+	collides?(earlier: T, later: T): boolean;
+	report(repeat: T, earlier: T): void;
+}
+
+/**
+ * Reports every entry that repeats a key an earlier entry already took, once
+ * per repeat, in source order.
+ *
+ * Entries in different arms of one `#If` chain never reach the compiler
+ * together, so they are alternatives rather than repeats however the
+ * conditional constants evaluate. Asking `activity` for the arm rather than for
+ * the activity is what lets a rule keep looking inside a chain it cannot
+ * decide, instead of skipping the whole chain and going blind
+ * (github.com/WilliamSmithEdward/xlide_vscode/issues/58).
+ *
+ * Almost every key is taken once, so a key holds its lone entry directly and
+ * grows a list only when a second one claims it.
+ */
+export function reportRepeatedKeys<T>(
+	entries: Iterable<T>,
+	activity: ConditionalActivityTracker | undefined,
+	rule: RepeatedKeyRule<T>,
+): void {
+	const taken = new Map<string, T | T[]>();
+	for (const entry of entries) {
+		const key = rule.keyOf(entry);
+		if (key === undefined) {
+			continue;
+		}
+		const holder = taken.get(key);
+		if (holder === undefined) {
+			taken.set(key, entry);
+			continue;
+		}
+		const earlier = Array.isArray(holder) ? holder : [holder];
+		const hit = earlier.find(
+			(prior) =>
+				(rule.collides?.(prior, entry) ?? true) &&
+				!activity?.mutuallyExclusive(rule.spanOf(prior), rule.spanOf(entry)),
+		);
+		earlier.push(entry);
+		taken.set(key, earlier);
+		if (hit !== undefined) {
+			rule.report(entry, hit);
+		}
+	}
+}
+
 export interface NameTokenHit {
 	name: string;
 	span: Span;

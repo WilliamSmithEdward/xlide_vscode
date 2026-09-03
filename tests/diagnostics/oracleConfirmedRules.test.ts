@@ -76,6 +76,14 @@ describe('analyzeModule - duplicate-option (PCEC_006 / CANARY_002)', () => {
 		const src = '#If CUSTOM_FLAG Then\nOption Explicit\n#Else\nOption Explicit\n#End If\n';
 		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
 	});
+
+	// The arms of one chain are alternatives, but a repeat WITHIN one arm is a
+	// repeat. Skipping every branch it could not decide is how this went blind
+	// (github.com/WilliamSmithEdward/xlide_vscode/issues/58).
+	it('flags a repeat inside one arm of a chain it cannot decide', () => {
+		const src = '#If CUSTOM_FLAG Then\nOption Explicit\nOption Explicit\n#End If\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(1);
+	});
 });
 
 describe('analyzeModule - duplicate-case-else (PCEC_007)', () => {
@@ -130,6 +138,22 @@ describe('analyzeModule - duplicate-case-else (PCEC_007)', () => {
 			'    End Select\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+	});
+
+	// Same as duplicate-option above: alternatives across arms, but a repeat
+	// inside one arm is real (issues/58).
+	it('flags two Case Else inside one arm of a chain it cannot decide', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim n As Long\n' +
+			'    Select Case n\n' +
+			'#If CUSTOM_FLAG Then\n' +
+			'        Case Else\n' +
+			'        Case Else\n' +
+			'#End If\n' +
+			'    End Select\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(1);
 	});
 
 	it('stays quiet for Case Else in mutually-exclusive #If/#Else (unknown constant)', () => {
