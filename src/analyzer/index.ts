@@ -134,6 +134,11 @@ export {
 	resolveHover,
 } from './hover/resolveHover';
 export {
+	resolveExpressionType,
+	type ExpressionTypeContext,
+	type ExpressionTypeInfo,
+} from './expression/resolveExpressionType';
+export {
 	resolveRuntimeConstant,
 	resolveRuntimeFunction,
 	resolveRuntimeObject,
