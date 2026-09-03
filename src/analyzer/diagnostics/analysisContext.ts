@@ -75,9 +75,21 @@ export interface VbaCreateProcedureStubData {
 	};
 }
 
+/** A `Dim` the editor can insert for a name Option Explicit says is missing. */
+export interface VbaDeclareVariableData {
+	variableName: string;
+	/** The type the declaration will name, e.g. `Long` or `Variant`. */
+	declaredType: string;
+	edit: {
+		span: Span;
+		newText: string;
+	};
+}
+
 export interface VbaDiagnosticData {
 	missingRequiredArgumentPlaceholder?: VbaMissingRequiredArgumentPlaceholderData;
 	createProcedureStub?: VbaCreateProcedureStubData;
+	declareVariable?: VbaDeclareVariableData;
 }
 
 /** Per-rule severity overrides keyed by stable diagnostic code; `'off'` disables an allowed rule. */

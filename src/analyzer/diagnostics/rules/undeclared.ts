@@ -22,8 +22,14 @@ import { isReservedIdentifier } from '../../lexer/keywordTable';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type {
 	ModuleNode,
+	ProcedureNode,
 	Span,
 } from '../../parser/nodes';
+import { isLeafStatement } from '../../parser/nodes';
+import {
+	resolveExpressionType,
+	type ExpressionTypeContext,
+} from '../../expression/resolveExpressionType';
 import {
 	resolveRuntimeConstant,
 	resolveRuntimeFunction,
@@ -463,6 +469,13 @@ export function checkUndeclaredVariables(
 		);
 	};
 
+	const ctxForTypes = {
+		moduleName: symbols.moduleName,
+		moduleKind,
+		model: hostModel,
+		projectClassMembers: projectMembers,
+		projectVisibleSymbols,
+	};
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -485,12 +498,20 @@ export function checkUndeclaredVariables(
 					'undeclaredVariable',
 					`Variable not defined: '${name}'. Declare it before ${mode}, or remove Option Explicit.`,
 					span,
+					declareVariableData(source, member, name, assignedType),
 				);
 			};
 			const scalarTarget = bareAssignmentTarget(source, span);
 			const objectTarget = scalarTarget ? undefined : setAssignmentTarget(source, span);
 			const target = scalarTarget ?? objectTarget;
+			// What the assignment says the name is. A `Set` makes it an object
+			// whatever the right-hand side turns out to be; anything else is
+			// read off the expression, and Variant where nothing narrows it.
+			let assignedType: string | undefined;
 			if (target) {
+				assignedType = objectTarget
+					? 'Object'
+					: assignedValueType(source, span, ctxForTypes);
 				report(target.name, target.span, 'assigning to it', 'assignmentTarget');
 			}
 			for (const ref of undeclaredReadReferences(
@@ -545,4 +566,121 @@ function hasOptionExplicit(
 		(member) =>
 			member.kind === 'Option' && /^explicit\b/i.test(member.optionText.trim()),
 	);
+}
+
+/**
+ * The type the right-hand side of an assignment gives the name being declared.
+ * `Variant` where nothing narrows it, which is what VBA would have given the
+ * name anyway and what the developer would have typed by hand.
+ */
+function assignedValueType(
+	source: string,
+	span: Span,
+	ctx: ExpressionTypeContext,
+): string {
+	const target = bareAssignmentTarget(source, span);
+	const tokens = target?.valueTokens.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
+	if (!tokens || tokens.length === 0) {
+		return 'Variant';
+	}
+	const valueSpan = {
+		start: span.start + tokens[0].start,
+		end: span.start + tokens[tokens.length - 1].end,
+	};
+	// A whole-number literal is a Long to VBA and to anyone declaring the name
+	// by hand. The shared inference widens every numeric literal to Double,
+	// which is right for checking compatibility and wrong on a declaration.
+	const text = source.slice(valueSpan.start, valueSpan.end).trim();
+	if (LONG_LITERAL_RE.test(text) && Number.isSafeInteger(Number(text))
+		&& Math.abs(Number(text)) <= 2147483647) {
+		return 'Long';
+	}
+	const value = resolveExpressionType(source, valueSpan, ctx);
+	return value?.complete ? value.type : 'Variant';
+}
+
+const LONG_LITERAL_RE = /^[+-]?[0-9]+$/;
+
+/**
+ * A `Dim` for the missing name, placed at the top of the enclosing procedure
+ * under any declarations already there - where a VBA author puts them, and
+ * where `Dim` must appear before the first use anyway.
+ *
+ * Only offered for an ASSIGNMENT to the name: a bare read gives nothing to
+ * infer a type from, and declaring a name the author only reads is as likely to
+ * be papering over a typo as to be the fix.
+ */
+function declareVariableData(
+	source: string,
+	member: ProcedureNode,
+	name: string,
+	declaredType: string | undefined,
+): VbaDiagnosticData | undefined {
+	if (!declaredType || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+		return undefined;
+	}
+	const insertAt = declarationInsertOffset(source, member);
+	if (insertAt === undefined) {
+		return undefined;
+	}
+	const eol = detectEol(source);
+	const indent = leadingWhitespaceOfLineAt(source, insertAt);
+	return {
+		declareVariable: {
+			variableName: name,
+			declaredType,
+			edit: {
+				span: { start: insertAt, end: insertAt },
+				newText: `${indent}Dim ${name} As ${declaredType}${eol}`,
+			},
+		},
+	};
+}
+
+/** Offset of the line after the procedure's leading declarations. */
+function declarationInsertOffset(source: string, member: ProcedureNode): number | undefined {
+	let insertAt: number | undefined;
+	for (const stmt of member.body) {
+		if (!isLeafStatement(stmt)) {
+			break;
+		}
+		const text = source.slice(stmt.span.start, stmt.span.end).trim();
+		if (text === '' || text.startsWith("'")) {
+			continue;
+		}
+		if (!/^(?:Dim|Static|Const)/i.test(text)) {
+			break;
+		}
+		insertAt = lineStartAfter(source, stmt.span.end);
+	}
+	return insertAt ?? firstBodyLineStart(source, member);
+}
+
+/** Start of the line following `offset`. */
+function lineStartAfter(source: string, offset: number): number {
+	const next = source.indexOf('\n', offset);
+	return next < 0 ? source.length : next + 1;
+}
+
+/** Start of the first body line of a procedure, just after its header line. */
+function firstBodyLineStart(source: string, member: ProcedureNode): number | undefined {
+	const first = member.body.find((stmt) => isLeafStatement(stmt));
+	if (first) {
+		return lineStartOf(source, first.span.start);
+	}
+	return lineStartAfter(source, member.span.start);
+}
+
+/** Start of the line containing `offset`. */
+function lineStartOf(source: string, offset: number): number {
+	const prev = source.lastIndexOf('\n', Math.max(0, offset - 1));
+	return prev < 0 ? 0 : prev + 1;
+}
+
+/** The indentation of the line at `offset`, reused for the inserted line. */
+function leadingWhitespaceOfLineAt(source: string, offset: number): string {
+	const start = lineStartOf(source, offset);
+	const end = source.indexOf('\n', start);
+	const line = source.slice(start, end < 0 ? source.length : end);
+	return /^[ \t]*/.exec(line)?.[0] ?? '';
 }

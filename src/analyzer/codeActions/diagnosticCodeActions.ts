@@ -97,6 +97,8 @@ function ruleSpecificDiagnosticCodeActions(
 			return missingRequiredArgumentPlaceholderActions(diagnostic);
 		case 'unknown-call':
 			return createProcedureStubActions(diagnostic);
+		case 'undeclared-variable':
+			return declareVariableActions(diagnostic);
 		default:
 			return [];
 	}
@@ -128,6 +130,29 @@ function createProcedureStubActions(
 		title: `Create Private Sub '${data.procedureName}' in this module`,
 		kind: 'quickfix',
 		isPreferred: false,
+		edits: [data.edit],
+	}];
+}
+
+/**
+ * The `Dim` for a name Option Explicit says is missing.
+ *
+ * The neighbouring `unknown-call` has offered to write the missing procedure
+ * for a long time; the most common finding in any Option Explicit project had
+ * nothing on the lightbulb but the generic suppression
+ * (github.com/WilliamSmithEdward/xlide_vscode/issues/59).
+ */
+function declareVariableActions(
+	diagnostic: VbaDiagnosticCodeActionInput,
+): VbaDiagnosticCodeAction[] {
+	const data = diagnostic.data?.declareVariable;
+	if (!data) {
+		return [];
+	}
+	return [{
+		title: `Declare '${data.variableName}' As ${data.declaredType} in this procedure`,
+		kind: 'quickfix',
+		isPreferred: true,
 		edits: [data.edit],
 	}];
 }
