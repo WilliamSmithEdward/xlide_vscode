@@ -2,6 +2,22 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [6.1.2] - 2026-09-03
+
+- **The analysis worker can be told a project's `#If` constants** (#63). 6.1.0
+  taught the analyzer to decide `#If MY_FLAG` from a project's own conditional
+  compilation arguments, but only through the VS Code path. A consumer using
+  the shared worker had no way to supply them, so the same analyzer gave two
+  answers for one file: both arms analyzed on one surface, the compiled arm on
+  the other. The seed now takes them, raw as the VBE property holds them.
+
+- **A whole-number literal is a Long everywhere** (#64). `resolveExpressionType`
+  widened one to `Double` while the declare-variable quick fix carried its own
+  rule calling it `Long`, so extracting `10` to a variable declared it `As
+  Double`. Every caller of that function is about to write the type into a
+  declaration, so the case moved there, and it now reads the parse rather than
+  the source text - `10&`, `&H10`, `(10)` and `-10` all agree.
+
 ## [6.1.1] - 2026-09-03
 
 - **Analysis is no longer quadratic in module size** (#62). 6.1.0's new
