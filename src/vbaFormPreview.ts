@@ -137,7 +137,7 @@ export function registerFormPreview(
 			panel.webview.options = { enableScripts: true };
 			// This panel's identity, so its own focus claim is the only one it clears.
 			const panelOwner = {};
-			setActiveFormDesigner(panelOwner, panel.active ? { projectPath, moduleName } : undefined);
+			setActiveFormDesigner(panelOwner, panel.active ? () => ({ projectPath, moduleName }) : undefined);
 
 			// The pid keeps two windows on the same form from sharing a scratch;
 			// a crash's orphan falls to the age sweep above.
@@ -364,7 +364,7 @@ export function registerFormPreview(
 			});
 
 			const viewStateListener = panel.onDidChangeViewState((e) => {
-				setActiveFormDesigner(panelOwner, e.webviewPanel.active ? { projectPath, moduleName } : undefined);
+				setActiveFormDesigner(panelOwner, e.webviewPanel.active ? () => ({ projectPath, moduleName }) : undefined);
 			});
 
 			const messageListener = panel.webview.onDidReceiveMessage((message: DesignerMessage) => {

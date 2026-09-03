@@ -15,19 +15,31 @@ export interface FormLaunchTarget {
 	moduleName: string;
 }
 
+/**
+ * How a designer names the form it shows. A function, not a value, because
+ * what a VB6 form belongs to is only known once the project locator has
+ * scanned the workspace, which finishes after activation - and a designer
+ * restored with the window opens before that. Answering the question when
+ * F5 asks it, rather than when the panel opened, removes the race.
+ */
+export type FormLaunchTargetSource = () => FormLaunchTarget | undefined;
+
 let lastFocused: FormLaunchTarget | undefined;
 /** The designer on screen right now, with the panel that claimed it. */
-let onScreen: { owner: object; target: FormLaunchTarget } | undefined;
+let onScreen: { owner: object; resolve: FormLaunchTargetSource } | undefined;
 
 /**
  * Reports whether this designer holds the screen. `owner` is the panel's own
  * identity, so a panel losing focus clears only its own claim and never the
  * claim of the panel that just took focus from it.
  */
-export function setActiveFormDesigner(owner: object, target: FormLaunchTarget | undefined): void {
-	if (target) {
-		onScreen = { owner, target };
-		lastFocused = target;
+export function setActiveFormDesigner(owner: object, resolve: FormLaunchTargetSource | undefined): void {
+	if (resolve) {
+		onScreen = { owner, resolve };
+		const target = resolve();
+		if (target) {
+			lastFocused = target;
+		}
 		return;
 	}
 	if (onScreen?.owner === owner) {
@@ -37,7 +49,11 @@ export function setActiveFormDesigner(owner: object, target: FormLaunchTarget | 
 
 /** The designer on screen, which F5 belongs to whatever the text editors say. */
 export function activeFormLaunchTarget(): FormLaunchTarget | undefined {
-	return onScreen?.target;
+	const target = onScreen?.resolve();
+	if (target) {
+		lastFocused = target;
+	}
+	return target;
 }
 
 /** The last designer to have been on screen, for an F5 from somewhere else. */

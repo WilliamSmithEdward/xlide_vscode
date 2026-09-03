@@ -12,6 +12,7 @@
 import * as vscode from 'vscode';
 import type { ProjectEngine } from './projectEngine';
 import { moduleLocationOfDocument } from './vbaDocumentLocation';
+import { ensureVb6ProjectsLoaded } from './vb6ProjectLocator';
 import { frmDesignerOpOfGesture, vb6FormHandlerPrefix, vb6HeaderEndOf, vb6PendingRecordsToWrite } from './vba/vb6/frmDesignerOps';
 import type { DesignerMessage, GestureMessage } from './vba/oforms/designerMessages';
 import { openOrCreateEventHandler } from './vbaEventHandlerNavigation';
@@ -96,17 +97,23 @@ export function registerVb6FormDesigner(
 		): Promise<void> {
 			const modulePath = document.uri.fsPath;
 			const key = document.uri.toString();
-			const location = moduleLocationOfDocument(document);
-			const vbpPath = location?.projectPath;
+			// Asked again on every use: which project claims this file is only
+			// known once the locator has scanned the workspace, and a designer
+			// restored with the window opens before that scan finishes.
+			const locate = (): ReturnType<typeof moduleLocationOfDocument> => moduleLocationOfDocument(document);
+			void ensureVb6ProjectsLoaded();
 			panel.webview.options = { enableScripts: true };
 			// F5 from this canvas has no text editor to read, and the one VS
 			// Code reports belongs to whatever the user touched last. This
 			// panel says when it is the thing on screen.
 			const panelOwner = {};
-			const target = vbpPath ? { projectPath: vbpPath, moduleName: location?.moduleName ?? '' } : undefined;
-			setActiveFormDesigner(panelOwner, panel.active ? target : undefined);
+			const resolveTarget = (): { projectPath: string; moduleName: string } | undefined => {
+				const found = locate();
+				return found ? { projectPath: found.projectPath, moduleName: found.moduleName } : undefined;
+			};
+			setActiveFormDesigner(panelOwner, panel.active ? resolveTarget : undefined);
 			const viewStateListener = panel.onDidChangeViewState((e) => {
-				setActiveFormDesigner(panelOwner, e.webviewPanel.active ? target : undefined);
+				setActiveFormDesigner(panelOwner, e.webviewPanel.active ? resolveTarget : undefined);
 			});
 
 			let disposed = false;
@@ -138,7 +145,7 @@ export function registerVb6FormDesigner(
 						path: modulePath,
 						text,
 						selected,
-						vbpPath,
+						vbpPath: locate()?.projectPath,
 						pending: pending ? { file: pending.file, base: pending.base, records: pending.records } : undefined,
 					});
 					panel.webview.html = html;
