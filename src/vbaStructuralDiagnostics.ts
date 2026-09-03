@@ -48,6 +48,34 @@ export interface OpenBlock {
     line: number;
     /** Friendly descriptor, e.g. "Sub Foo" or "If". */
     label: string;
+    /** Arms of the `#If` chains enclosing the opener, outermost first. */
+    branch?: readonly ConditionalArm[];
+}
+
+/** One arm of one `#If` chain: which chain, and which of its arms. */
+interface ConditionalArm {
+    chain: number;
+    arm: number;
+}
+
+/**
+ * Whether two arm paths disagree about which arm of a chain they are in. Such
+ * blocks are alternatives: at most one of them is ever compiled, so a second
+ * opener is a restatement of the first rather than a new block that needs its
+ * own closer (github.com/WilliamSmithEdward/xlide_vscode/issues/58).
+ */
+function armsDiverge(
+    a: readonly ConditionalArm[] | undefined,
+    b: readonly ConditionalArm[] | undefined,
+): boolean {
+    for (const outer of a ?? []) {
+        for (const inner of b ?? []) {
+            if (outer.chain === inner.chain) {
+                return outer.arm !== inner.arm;
+            }
+        }
+    }
+    return false;
 }
 
 interface ColumnSpan {
@@ -294,18 +322,24 @@ function isProcedureBlockKind(kind: BlockKind): boolean {
     return kind === 'Sub' || kind === 'Function' || kind === 'Property';
 }
 
-function isConditionalAlternativeProcedureHeader(
+/**
+ * Whether this opener restates the block already open, from a different arm of
+ * the same `#If` chain.
+ *
+ * VBA lets the arms of a chain open a block differently - `With Sheet1` in one
+ * and `With Sheet2` in the other, or `If x > 0` against `If x >= 0` - with a
+ * single closer below the `#End If`. Only one arm compiles, so only one opener
+ * is real. This used to test same-kind-and-same-label instead of the arm, which
+ * both missed every opener that differs between arms (a phantom
+ * missing-block-closer) and wrongly merged two identical openers inside ONE arm
+ * (a real missing closer, unreported).
+ */
+function isConditionalAlternativeOpener(
     stack: readonly OpenBlock[],
-    opener: OpenBlock,
-    preprocessorDepth: number,
+    branch: readonly ConditionalArm[],
 ): boolean {
-    if (preprocessorDepth === 0 || !isProcedureBlockKind(opener.kind)) {
-        return false;
-    }
     const active = stack[stack.length - 1];
-    return !!active &&
-        active.kind === opener.kind &&
-        active.label.toLowerCase() === opener.label.toLowerCase();
+    return !!active && armsDiverge(active.branch, branch);
 }
 
 function isTypeFieldNamedTypeInsideType(stack: readonly OpenBlock[], opener: OpenBlock, text: string): boolean {
@@ -345,7 +379,11 @@ export function analyzeVbaStructure(
     const physical = source.split(/\r\n|\r|\n/);
     const { logical } = toLogicalLines(source);
     const stack: OpenBlock[] = [];
-    const preprocessorStack: number[] = [];
+    // One entry per open `#If`, carrying which arm of it we are currently in.
+    const preprocessorStack: Array<{ line: number; chain: number; arm: number }> = [];
+    let conditionalChains = 0;
+    const currentBranch = (): ConditionalArm[] =>
+        preprocessorStack.map((frame) => ({ chain: frame.chain, arm: frame.arm }));
     const problems: VbaStructuralDiagnostic[] = [];
 
     const closeOne = (closerKind: BlockKind, line: number, closerWord: string): void => {
@@ -419,7 +457,7 @@ export function analyzeVbaStructure(
         }
 
         if (/^#\s*If\b/i.test(t)) {
-            preprocessorStack.push(ll.line);
+            preprocessorStack.push({ line: ll.line, chain: conditionalChains++, arm: 0 });
             continue;
         }
 
@@ -433,6 +471,8 @@ export function analyzeVbaStructure(
                     { code: 'unmatched-block-closer' },
                     preprocessorBranchColumnSpan(physical[ll.line] ?? ''),
                 ));
+            } else {
+                preprocessorStack[preprocessorStack.length - 1].arm += 1;
             }
             continue;
         }
@@ -471,8 +511,9 @@ export function analyzeVbaStructure(
         }
 
         const opener = matchOpener(t);
+        const branch = currentBranch();
         const isConditionalAlternativeHeader = !!opener &&
-            isConditionalAlternativeProcedureHeader(stack, opener, preprocessorStack.length);
+            isConditionalAlternativeOpener(stack, branch);
         const activeProcedure = activeProcedureBlock(stack);
         if (activeProcedure) {
             const declaration = moduleDeclarationInProcedureHit(physical[ll.line] ?? '');
@@ -505,7 +546,7 @@ export function analyzeVbaStructure(
             if (isConditionalAlternativeHeader) {
                 continue;
             }
-            stack.push({ ...opener, line: ll.line });
+            stack.push({ ...opener, line: ll.line, branch });
         }
     }
 
@@ -522,7 +563,7 @@ export function analyzeVbaStructure(
             blockOpenerColumnSpan(physical[open.line] ?? '', open.kind),
         ));
     }
-    for (const line of preprocessorStack) {
+    for (const { line } of preprocessorStack) {
         problems.push(fullLineProblem(
             physical, line,
             `Missing '${CLOSE_PHRASE.PreprocessorIf}' for '#If'.`,

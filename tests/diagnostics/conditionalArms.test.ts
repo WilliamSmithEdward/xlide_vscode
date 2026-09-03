@@ -154,3 +154,61 @@ describe('the same rules still catch the real fault', () => {
 		], 'implements-statement-placement', 'class')).toBe(1);
 	});
 });
+
+// The structural block-balance engine is separate from the rule engine, and
+// had the same fault in both directions. Its exemption tested "same kind and
+// same label" rather than the arm, so it missed every opener that DIFFERS
+// between arms, and wrongly merged two identical openers inside ONE arm.
+describe('the structural engine reads arms, not labels', () => {
+	function balance(lines: string[]): number {
+		return analyzeVbaModuleSource({
+			source: lines.join('\r\n') + '\r\n',
+			moduleName: 'Mod1',
+			moduleType: 'standard',
+		}).diagnostics.filter(
+			(d) => d.code === 'missing-block-closer' || d.code === 'unmatched-block-closer',
+		).length;
+	}
+
+	it('accepts a block opened differently in each arm and closed once below', () => {
+		expect(balance(['Option Explicit', 'Sub T()',
+			'#If CUSTOM_FLAG Then', 'With Sheet1', '#Else', 'With Sheet2', '#End If',
+			'.Range("A1").Value = 1', 'End With', 'End Sub'])).toBe(0);
+	});
+
+	it('accepts a differing If, For and Do the same way', () => {
+		expect(balance(['Option Explicit', 'Sub T()', 'Dim x As Long',
+			'#If CUSTOM_FLAG Then', 'If x > 0 Then', '#Else', 'If x >= 0 Then', '#End If',
+			'Debug.Print 1', 'End If', 'End Sub'])).toBe(0);
+		expect(balance(['Option Explicit', 'Sub T()', 'Dim i As Long',
+			'#If CUSTOM_FLAG Then', 'For i = 1 To 10', '#Else', 'For i = 1 To 20', '#End If',
+			'Debug.Print i', 'Next i', 'End Sub'])).toBe(0);
+		expect(balance(['Option Explicit', 'Sub T()', 'Dim x As Long',
+			'#If CUSTOM_FLAG Then', 'Do While x < 2', '#Else', 'Do Until x >= 2', '#End If',
+			'x = x + 1', 'Loop', 'End Sub'])).toBe(0);
+	});
+
+	it('accepts three arms, and procedures whose NAMES differ between arms', () => {
+		expect(balance(['Option Explicit', 'Sub T()',
+			'#If A_FLAG Then', 'With Sheet1', '#ElseIf B_FLAG Then', 'With Sheet2',
+			'#Else', 'With Sheet3', '#End If', '.Range("A1").Value = 1', 'End With',
+			'End Sub'])).toBe(0);
+		expect(balance(['Option Explicit',
+			'#If CUSTOM_FLAG Then', 'Public Sub Alpha()', '#Else', 'Public Sub Beta()',
+			'#End If', 'Debug.Print 1', 'End Sub'])).toBe(0);
+	});
+
+	it('still reports two openers inside ONE arm, which really do need two closers', () => {
+		expect(balance(['Option Explicit',
+			'#If CUSTOM_FLAG Then', 'Sub T()', 'Sub T()', '#End If',
+			'Debug.Print 1', 'End Sub'])).toBe(1);
+	});
+
+	it('still reports a genuinely unclosed block, inside an arm or outside one', () => {
+		expect(balance(['Option Explicit', 'Sub T()',
+			'With Sheet1', '.Range("A1").Value = 1', 'End Sub'])).toBe(1);
+		expect(balance(['Option Explicit', 'Sub T()',
+			'#If CUSTOM_FLAG Then', 'With Sheet1', '.Range("A1").Value = 1', '#End If',
+			'End Sub'])).toBe(1);
+	});
+});
