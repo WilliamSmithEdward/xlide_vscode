@@ -592,6 +592,22 @@ export class ProjectIndex {
 		return mod ? this.moduleImplementsFor(mod) : [];
 	}
 
+	/**
+	 * Every interface some module in the project declares with `Implements`,
+	 * lowercased. A module in this set is a contract: its members are declared
+	 * for an implementer to fill in, so an empty body is the point of it rather
+	 * than an unfinished procedure.
+	 */
+	implementedInterfaceNames(): ReadonlySet<string> {
+		const names = new Set<string>();
+		for (const mod of this.modules.values()) {
+			for (const name of this.moduleImplementsFor(mod)) {
+				names.add(name.toLowerCase());
+			}
+		}
+		return names;
+	}
+
 	/** Implements declarations of one module, scanned at most once. */
 	private moduleImplementsFor(mod: ModuleSymbols): string[] {
 		const key = mod.moduleName.toLowerCase();

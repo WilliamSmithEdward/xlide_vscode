@@ -667,6 +667,8 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.symbols,
 			ctx.opts.projectProcedures,
 			ctx.activity,
+			ctx.opts.moduleName,
+			ctx.opts.implementedInterfaces,
 			push,
 		),
 	},

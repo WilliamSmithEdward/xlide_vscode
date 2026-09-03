@@ -57,6 +57,7 @@ export type VbaProjectAnalysisOptions = Pick<
     | 'projectVisibleSymbols'
     | 'projectIntegerConstants'
     | 'implicitMembers'
+    | 'implementedInterfaces'
 >;
 
 export interface VbaProjectEditorSymbolContext {
@@ -207,6 +208,7 @@ export function projectAnalysisOptionsForModule(
         options.projectVisibleSymbols = project.visibleIdentifierSymbols(moduleName);
         options.projectClassMembers = project.projectMemberSurfaces(moduleName);
         options.projectIntegerConstants = project.visibleExternalIntegerConstantExpressions(moduleName);
+        options.implementedInterfaces = project.implementedInterfaceNames();
         // A UserForm's controls are members its own text never declares, so
         // without them every reference in the code-behind reads as undeclared.
         // The index knows them: host-supplied with the module, or parsed from

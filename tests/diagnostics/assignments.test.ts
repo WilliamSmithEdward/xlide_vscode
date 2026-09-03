@@ -1629,6 +1629,64 @@ describe('analyzeModule - missing Function return assignment', () => {
 		expect(byCode(analyzeModule(src), 'missing-return-assignment')).toHaveLength(0);
 	});
 
+	// github.com/WilliamSmithEdward/xlide_vscode/issues/60. The carve-out used
+	// to ask the PARSED module kind, which only says `class` when the source
+	// carries `Attribute VB_Exposed` and friends. Module text read out of a
+	// project carries no attribute lines, so it never fired for a real class.
+	// It now asks whether some module in the project implements this one, which
+	// is both the authoritative signal and a narrower one.
+	describe('an interface declares its members empty on purpose', () => {
+		const IFACE =
+			'Option Explicit\n' +
+			'Public Sub Save()\n' +
+			'End Sub\n' +
+			'Public Function Total(ByVal n As Long) As Currency\n' +
+			'End Function\n' +
+			'Public Property Get Name() As String\n' +
+			'End Property\n';
+		const IMPL =
+			'Option Explicit\n' +
+			'Implements IStore\n' +
+			'Private Sub IStore_Save()\n' +
+			'End Sub\n' +
+			'Private Function IStore_Total(ByVal n As Long) As Currency\n' +
+			'    IStore_Total = 0\n' +
+			'End Function\n' +
+			'Private Property Get IStore_Name() As String\n' +
+			'    IStore_Name = ""\n' +
+			'End Property\n';
+		const PROJECT = [
+			{ moduleName: 'IStore', source: IFACE, moduleKind: 'class' as const },
+			{ moduleName: 'Store', source: IMPL, moduleKind: 'class' as const },
+		];
+
+		it('stays quiet on a module another module implements', () => {
+			const hits = analyzeProjectModule(IFACE, PROJECT, 'IStore', { moduleKind: 'class' });
+			expect(byCode(hits, 'missing-return-assignment')).toHaveLength(0);
+		});
+
+		it('stays quiet on the implementer, which supplies the bodies', () => {
+			const hits = analyzeProjectModule(IMPL, PROJECT, 'Store', { moduleKind: 'class' });
+			expect(byCode(hits, 'missing-return-assignment')).toHaveLength(0);
+		});
+
+		it('still reports an ordinary class nobody implements', () => {
+			const alone = [{ moduleName: 'IStore', source: IFACE, moduleKind: 'class' as const }];
+			const hits = analyzeProjectModule(IFACE, alone, 'IStore', { moduleKind: 'class' });
+			expect(byCode(hits, 'missing-return-assignment')).toHaveLength(2);
+		});
+
+		it('still reports an interface member that has a body but forgets the return', () => {
+			const forgot = IFACE.replace(
+				'Public Function Total(ByVal n As Long) As Currency\nEnd Function',
+				'Public Function Total(ByVal n As Long) As Currency\n    Debug.Print n\nEnd Function',
+			);
+			const project = [{ moduleName: 'IStore', source: forgot, moduleKind: 'class' as const }, PROJECT[1]];
+			const hits = analyzeProjectModule(forgot, project, 'IStore', { moduleKind: 'class' });
+			expect(byCode(hits, 'missing-return-assignment')).toHaveLength(1);
+		});
+	});
+
 	it('accepts a typed Function whose work is to raise', () => {
 		const src =
 			'Public Function NotImplemented() As Long\n' +

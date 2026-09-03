@@ -393,9 +393,13 @@ export function checkMissingReturnAssignments(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
 	activity: ConditionalActivityTracker | undefined,
+	moduleName: string | undefined,
+	implementedInterfaces: ReadonlySet<string> | undefined,
 	push: PushFn,
 ): void {
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
+	const isInterface = moduleName !== undefined
+		&& implementedInterfaces?.has(moduleName.toLowerCase()) === true;
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (
 			member.kind !== 'Procedure' ||
@@ -409,7 +413,7 @@ export function checkMissingReturnAssignments(
 		if (procedureHasReturnAssignment(source, member, activity, moduleSignatures)) {
 			continue;
 		}
-		if (returnIsNotExpected(source, mod, member, activity)) {
+		if (returnIsNotExpected(source, member, activity, isInterface)) {
 			continue;
 		}
 		const procLabel = member.procKind === 'PropertyGet' ? 'Property Get' : 'Function';
@@ -490,9 +494,9 @@ function assignsOwnField(source: string, span: Span, lower: string): boolean {
  */
 function returnIsNotExpected(
 	source: string,
-	mod: ModuleNode,
 	proc: ProcedureNode,
 	activity: ConditionalActivityTracker | undefined,
+	isInterface: boolean,
 ): boolean {
 	let executable = 0;
 	let raises = false;
@@ -506,12 +510,18 @@ function returnIsNotExpected(
 			raises = true;
 		}
 	}, activity);
-	// An empty body is a stub only where stubs live: a class must DECLARE every
-	// member of an interface it implements, and leaving one empty is ordinary
-	// (stdICallable and stdEnumerator in the test corpus are exactly that). In a
-	// standard module an empty Function is unfinished code, and reporting it is
-	// the behaviour this rule has always had.
-	return (executable === 0 && mod.moduleKind === 'class') || raises;
+	// An empty body is a stub where the module is a contract: a class that
+	// another module declares with `Implements` states its members for the
+	// implementer to fill in, so every one of them is empty on purpose
+	// (stdICallable and stdEnumerator in the test corpus are exactly that).
+	// An empty Function anywhere else is unfinished code and still reports.
+	//
+	// This used to ask the PARSED module kind, which only says `class` when the
+	// source carries `Attribute VB_Exposed` and friends. Module text read out of
+	// a project carries no attribute lines, so it never said `class` for a real
+	// class module and the carve-out never fired
+	// (github.com/WilliamSmithEdward/xlide_vscode/issues/60).
+	return (executable === 0 && isInterface) || raises;
 }
 
 function callPassesNameToByRefParam(

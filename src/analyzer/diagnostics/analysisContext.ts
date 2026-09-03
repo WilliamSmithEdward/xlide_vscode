@@ -136,6 +136,12 @@ export interface AnalyzeModuleOptions {
 	/** Source-declared project type names visible to this module. */
 	projectTypes?: readonly ProjectTypeName[];
 	/**
+	 * Lowercased names of every module some module in the project declares with
+	 * `Implements`. A module named here is an interface, so its own members are
+	 * declarations for an implementer to fill in rather than unfinished code.
+	 */
+	implementedInterfaces?: ReadonlySet<string>;
+	/**
 	 * Source-backed module-level symbols visible as bare identifiers from this
 	 * module. Used by call-target diagnostics to distinguish "not found" from
 	 * "found, but not callable" across modules.
