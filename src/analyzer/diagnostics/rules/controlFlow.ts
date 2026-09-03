@@ -151,9 +151,27 @@ export function checkUndefinedLabels(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		const labels = collectProcedureLabels(source, member, activity);
+		// Grouped rather than deduplicated by name: a label placed once per arm
+		// of a `#If` chain has several declarations, and which of them can serve
+		// a given reference depends on where that reference sits. Keeping only
+		// the first would answer for the wrong arm.
+		const declarations = new Map<string, Span[]>();
+		for (const label of collectProcedureLabelDeclarations(source, member, activity)) {
+			const spans = declarations.get(label.key);
+			if (spans) {
+				spans.push(label.span);
+			} else {
+				declarations.set(label.key, [label.span]);
+			}
+		}
 		for (const ref of collectProcedureLabelReferences(source, member, activity)) {
-			if (!labels.has(ref.key)) {
+			// A label in a different arm from the reference is not a target: the
+			// build that compiles the `GoTo` does not compile that label
+			// (github.com/WilliamSmithEdward/xlide_vscode/issues/58).
+			const reachable = (declarations.get(ref.key) ?? []).some(
+				(span) => !activity?.mutuallyExclusive(span, ref.span),
+			);
+			if (!reachable) {
 				push(
 					'undefinedLabel',
 					`Label '${ref.text}' is not defined in procedure '${member.name}'.`,

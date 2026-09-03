@@ -2211,7 +2211,10 @@ export function isKnownObjectAssignmentType(
 }
 
 export type KnownObjectAssignmentType =
-	| { kind: 'generic'; display: string; key: 'object' }
+	// `generic` short-circuits compatibility in both directions, which is what
+	// the untyped `Object` needs and what keeps `Collection` from inventing
+	// mismatch errors while still requiring `Set`.
+	| { kind: 'generic'; display: string; key: 'object' | 'collection' }
 	| { kind: 'host'; display: string; key: string }
 	| { kind: 'project'; display: string; key: string; implements: readonly string[] };
 
@@ -2231,6 +2234,12 @@ export function resolveKnownObjectAssignmentType(
 	}
 	if (isKnownScalarType(normalized)) {
 		return undefined;
+	}
+	// VBA's own creatable class. It belongs to no host model and to no project,
+	// so neither lookup below reaches it, and `Dim c As Collection : c = ...`
+	// was reported clean while refusing to compile.
+	if (normalized === 'collection') {
+		return { kind: 'generic', display: type, key: 'collection' };
 	}
 	const host = resolveHostAlias(type, memberCtx.model);
 	if (host) {

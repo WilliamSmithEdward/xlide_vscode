@@ -240,3 +240,41 @@ describe('argument-count with a procedure declared once per arm', () => {
 		expect(arity(perArm('T 1, 2'))).toBe(0);
 	});
 });
+
+// A `GoTo` and its label must be able to reach each other in the SAME build.
+// The label collector took the union across arms, so a jump to a label that
+// only exists in the other arm resolved against code no build compiles.
+describe('undefined-label reads arms', () => {
+	const labels = (lines: string[]): number =>
+		count(lines, 'undefined-label');
+
+	it('accepts a handler placed once per arm', () => {
+		expect(labels([
+			'Sub T()', '    On Error GoTo Fail',
+			'#If CUSTOM_FLAG Then', '    Exit Sub', 'Fail:', '    Debug.Print 1',
+			'#Else', '    Exit Sub', 'Fail:', '    Debug.Print 2', '#End If', 'End Sub',
+		])).toBe(0);
+	});
+
+	it('accepts a jump and its label in the same arm, or an unconditional label', () => {
+		expect(labels([
+			'Sub T()', '#If CUSTOM_FLAG Then', '    GoTo Fail', 'Fail:',
+			'    Debug.Print 1', '#End If', 'End Sub',
+		])).toBe(0);
+		expect(labels([
+			'Sub T()', '#If CUSTOM_FLAG Then', '    GoTo Fail', '#End If',
+			'Fail:', '    Debug.Print 1', 'End Sub',
+		])).toBe(0);
+	});
+
+	it('reports a jump whose only label is in the other arm', () => {
+		expect(labels([
+			'Sub T()', '#If CUSTOM_FLAG Then', '    GoTo Fail',
+			'#Else', 'Fail:', '    Debug.Print 1', '#End If', 'End Sub',
+		])).toBe(1);
+	});
+
+	it('still reports a label that is simply absent', () => {
+		expect(labels(['Sub T()', '    GoTo Nowhere', 'End Sub'])).toBe(1);
+	});
+});

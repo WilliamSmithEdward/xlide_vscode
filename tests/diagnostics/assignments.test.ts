@@ -1687,6 +1687,24 @@ describe('analyzeModule - missing Function return assignment', () => {
 		});
 	});
 
+	// Collection is VBA's own creatable class: it belongs to no host model and
+	// to no project, so neither lookup in the object-assignment table reached
+	// it and `c = New Collection` was reported clean while refusing to compile.
+	it('requires Set for a Collection', () => {
+		const src = 'Sub T()\n    Dim c As Collection\n    c = New Collection\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), 'set-required')).toHaveLength(1);
+	});
+
+	it('accepts a Collection assigned with Set, and invents no mismatch', () => {
+		const withSet = 'Sub T()\n    Dim c As Collection\n    Set c = New Collection\nEnd Sub\n';
+		expect(byCode(analyzeModule(withSet), 'set-required')).toHaveLength(0);
+		const fromObject =
+			'Sub T()\n    Dim c As Collection\n    Dim o As Object\n    Set c = o\nEnd Sub\n';
+		expect(byCode(analyzeModule(fromObject), 'assignment-object-type-mismatch')).toHaveLength(0);
+		const nothing = 'Sub T()\n    Dim c As Collection\n    Set c = Nothing\nEnd Sub\n';
+		expect(byCode(analyzeModule(nothing), 'set-required')).toHaveLength(0);
+	});
+
 	it('accepts a typed Function whose work is to raise', () => {
 		const src =
 			'Public Function NotImplemented() As Long\n' +
