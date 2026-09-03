@@ -2,9 +2,9 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
-## [Unreleased]
+## [6.0.0] - 2026-09-02
 
-- **Project, not workbook.** The thing in the XLIDE tree is a project: an
+- **BREAKING: project, not workbook.** The thing in the XLIDE tree is a project: an
   Excel, Word, PowerPoint or Access file, or a VB6 `.vbp`. Every name that
   called it a workbook now calls it a project. This is a breaking rename for
   agents and keybindings, kept without aliases: the language-model tools

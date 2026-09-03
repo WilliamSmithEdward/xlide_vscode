@@ -1,8 +1,8 @@
 {
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
-  "description": "Office VBA integration for VS Code - Excel, Word, PowerPoint, and Access files; tree view, edit VBA modules, run unit tests, AI agent tools",
-  "version": "5.0.2",
+  "description": "Office VBA and Visual Basic 6 in VS Code - Excel, Word, PowerPoint, Access and .vbp projects; project tree, module editing, UserForm and VB6 form designers, static analysis, unit tests, AI agent tools",
+  "version": "6.0.0",
   "publisher": "WilliamSmithE",
   "license": "MIT",
   "icon": "assets/images/extension_logo.png",
@@ -15,6 +15,20 @@
   },
   "categories": [
     "Programming Languages"
+  ],
+  "keywords": [
+    "vba",
+    "vb6",
+    "visual basic",
+    "visual basic 6",
+    "excel",
+    "word",
+    "powerpoint",
+    "access",
+    "macro",
+    "userform",
+    "xlsm",
+    "vbp"
   ],
   "activationEvents": [
     "onStartupFinished",

@@ -21,6 +21,8 @@ Available guides:
   comments, module-header docs, and external `.vbref.xml` IntelliSense metadata.
 - [testing.md](testing.md) - writing, running, filtering, reviewing, and automating
   `@xlide-test` unit tests in Excel, Word, and PowerPoint files.
+- [vb6.md](vb6.md) - Visual Basic 6 projects: the tree, language services, the
+  form designer, what it writes to `.frm` and `.frx`, F5, and the limits.
 - [automation.md](automation.md) - AI-agent file discovery, editing, analysis, test runs,
   and CI artifact flow.
 - [support.md](support.md) - safety model, Trust Center notes, file mutation,

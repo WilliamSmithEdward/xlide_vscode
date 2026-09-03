@@ -364,6 +364,6 @@ before.
 
 ## Releases
 
-Slices 1 to 3 ship as 5.1.0: projects in the tree, forms readable, language
+Slices 1 to 3 ship in 6.0.0: projects in the tree, forms readable, language
 services with the `vb6` model. Slice 4 ships when its parity report exists.
-Slice 5 ships as its own minor release.
+Slice 5 ships in the same release. What was planned as a minor became 6.0.0: the project-not-workbook rename landed in the same window and renames commands and agent tools with no aliases, which is a breaking change whatever else ships beside it.

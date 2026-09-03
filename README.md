@@ -5,7 +5,7 @@
 [![rating](https://vsmarketplacebadges.dev/rating-short/WilliamSmithE.xlide.svg?style=flat&color=blue)](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide&ssr=false#review-details)
 [![CI](https://img.shields.io/github/actions/workflow/status/WilliamSmithEdward/xlide_vscode/ci.yml?branch=main&label=CI)](https://github.com/WilliamSmithEdward/xlide_vscode/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
-[![Office](https://img.shields.io/badge/Office-Excel%2C%20Word%2C%20PowerPoint%2C%20Access-blue)](#new-in-400-every-office-vba-host)
+[![Hosts](https://img.shields.io/badge/Hosts-Excel%2C%20Word%2C%20PowerPoint%2C%20Access%2C%20VB6-blue)](#what-xlide-adds-to-vs-code)
 
 [Install XLIDE from the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide)\
 \
@@ -13,8 +13,8 @@
 
 ---
 
-XLIDE gives Microsoft Office VBA projects a modern VS Code workspace. Read and write
-directly to VBA files directly without COM.
+XLIDE gives Microsoft Office VBA projects and classic Visual Basic 6 projects a
+modern VS Code workspace. Read and write VBA directly, without COM.
 
 Add macro-enabled Office files to your VS Code project and XLIDE detects them
 automatically: Excel workbooks, templates, and add-ins (`.xlsm`, `.xlsb`,
@@ -29,6 +29,15 @@ When you want a file-based workflow, use the full local disk push/pull
 workflow for the selected file: preview detailed side-by-side diffs, export
 modules to `.bas` and `.cls` files, commit them to your favorite version
 control platform, and import reviewed files back.
+
+XLIDE also opens classic Visual Basic 6 projects. Put a `.vbp` in the folder
+and the project appears in the same tree, with the `.bas`, `.cls`, `.frm`,
+`.ctl` and `.pag` files it names as its modules. A VB6 module is edited as the
+plain text file it already is, with the same completion, hover, navigation and
+analysis the Office hosts get, resolved against a VB6 object model built from
+the Visual Basic runtime's own type libraries. VB6 forms open in the same
+designer the UserForms use, drawn from the form's own header text, and every
+gesture is an ordinary edit of that text.
 
 For new programmers, XLIDE makes the VBA language easier to approach.
 It shows useful completion lists, explains symbols, highlights likely mistakes,
@@ -120,6 +129,8 @@ XLIDE is useful if you:
 - Want better visibility into old VBA projects before changing them.
 - Need to review project code with teammates.
 - Prefer VS Code editing, search, navigation, and source control.
+- Maintain a classic Visual Basic 6 codebase and want modern editing,
+  navigation, and analysis for it without a VB6 install.
 - Want AI help that can inspect the project directly.
 
 Excel remains where the workbook runs. XLIDE adds a better workspace around the
@@ -133,7 +144,7 @@ VBA project.
    [XLIDE on the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide)
 
 2. Open a folder in VS Code that contains an `.xlsm`, `.xlsb`, or `.xlam`
-   project.
+   project, or a Visual Basic 6 `.vbp`.
 
 3. Expand your project in the XLIDE view, open a module, and start editing.
    Press `Ctrl+S` to save code back to the project.
@@ -218,7 +229,7 @@ Guide:
 
 ## What XLIDE Adds To VS Code
 
-- Project and module tree for office 365 files.
+- Project and module tree for Office files and Visual Basic 6 `.vbp` projects.
 - Writable VBA editors backed by the project.
 - VBA syntax highlighting and semantic coloring.
 - IntelliSense for workbook symbols, VBA language features, and Excel host
@@ -229,6 +240,8 @@ Guide:
 - Live diagnostics and project-wide analysis.
 - Project-specific analysis tracking and rule controls.
 - Previewable module import/export.
+- UserForm designer over the form's binary storage, and a VB6 form designer
+  over the form's own `.frm` text.
 - Macro and workbook-test execution on Windows with Excel.
 - Support bundle and diagnostics commands for troubleshooting.
 - Optional performance snapshot command for debugging slow workflows.
@@ -244,6 +257,10 @@ Required for normal browsing, editing, analysis, import, and export:
 That is the whole list. XLIDE parses and rewrites the project container
 (OLE compound file, VBA project, and OOXML package) natively in the extension,
 so there is no runtime, interpreter, or library to install.
+
+Visual Basic 6 is not required to open, edit, analyze, or design a VB6
+project. XLIDE reads and writes `.vbp`, `.frm` and `.frx` itself. VB6 is
+needed only if you want F5 to hand the project to it.
 
 Required only for running VBA code from XLIDE:
 
@@ -268,6 +285,7 @@ Setup and recovery guide:
 | Import/export and module sync | [Import and export](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/sync.md) |
 | Writing and running project tests | [Testing VBA projects](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/testing.md) |
 | XML documentation comments for IntelliSense | [VBA documentation comments](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/vba-doc-comments.md) |
+| Visual Basic 6 projects, forms, and limits | [Visual Basic 6 projects](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/vb6.md) |
 | AI-agent and CI workflows | [Automation and CI](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/automation.md) |
 | Trust model, Excel setup, support bundles, and recovery | [Safety, trust, and support](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/support.md) |
 | Full guide index | [User guides README](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/README.md) |
