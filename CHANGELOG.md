@@ -128,11 +128,14 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 - **F5 opens a VB6 project in Visual Basic.** From a VB6 form's designer or
   its module document, F5 saves every dirty file the project claims, which
   is also what writes the form's pending `.frx` records, and hands the
-  `.vbp` to whatever the shell has registered for it. On a machine with
-  Visual Basic 6 that is VB6 itself; on one without, Windows asks which
-  application to use. This is the same thing F5 already does for a Word or
-  PowerPoint project. XLIDE does not build or run VB6 projects: that is
-  Slice 6 of `docs/roadmap_vb6_support.md`, still deferred.
+  `.vbp` to whatever the shell has registered for it, which is Visual Basic
+  6 where it is installed. This is the same thing F5 already does for a Word
+  or PowerPoint project. Where nothing is registered the shell fails with a
+  bare "Application not found", so F5 reads the association first and says
+  what happened instead: the files are saved, there is nothing to launch,
+  and these are the applications Windows offers under Open With. XLIDE does
+  not build or run VB6 projects: that is Slice 6 of
+  `docs/roadmap_vb6_support.md`, still deferred.
 
 - **A scroll bar sits where the form puts it.** In both designers a
   ScrollBar was laid out in normal flow rather than at its own position,

@@ -193,7 +193,9 @@ name.
 
 F5 there saves the project's files and opens the `.vbp` in whatever
 application the system has registered for it, which is Visual Basic 6 where
-it is installed. XLIDE does not build or run VB6 projects.
+it is installed. Where nothing is registered, F5 says so and names what
+Windows offers under Open With rather than failing. XLIDE does not build or
+run VB6 projects.
 
 ### Run tests
 

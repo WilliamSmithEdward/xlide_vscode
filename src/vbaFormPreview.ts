@@ -32,6 +32,7 @@ import { xlideAttachToRunningExcelFromConfig } from './globalSettings';
 import { errorMessage } from './util/errors';
 import { isVb6ProjectPath } from './vba/vb6/vb6Project';
 import { VB6_FORM_DESIGNER_VIEW_TYPE } from './vb6FormDesigner';
+import { vb6ProjectAssociation } from './vb6ProjectAssociation';
 import type { DesignerMessage, GestureMessage as GestureMessageAny } from './vba/oforms/designerMessages';
 import { openOrCreateEventHandler } from './vbaEventHandlerNavigation';
 import { activeFormLaunchTarget, lastFormLaunchTarget, setActiveFormDesigner } from './vbaFormLaunchTarget';
@@ -647,7 +648,22 @@ export function registerFormPreview(
 			// A VB6 project's host application is Visual Basic 6 itself, which
 			// the shell opens from the `.vbp` association. XLIDE does not build
 			// or run the project (docs/roadmap_vb6_support.md, Slice 6); it
-			// hands the saved project to whatever is registered for it.
+			// hands the saved project to whatever is registered for it. When
+			// nothing is, the shell's own failure dialog says only "Application
+			// not found", so say what actually happened instead.
+			if (isVb6ProjectPath(wbPath)) {
+				const association = vb6ProjectAssociation();
+				if (!association.opensDirectly && !association.unknown) {
+					const offered = association.candidates.length > 0
+						? ` Windows offers ${association.candidates.join(', ')} under Open With.`
+						: '';
+					void vscode.window.showInformationMessage(
+						`XLIDE: your changes are saved, but no application is registered to open ${path.basename(wbPath)}, `
+						+ `so there is nothing for F5 to launch.${offered} XLIDE does not build or run VB6 projects.`,
+					);
+					return;
+				}
+			}
 			vscode.window.setStatusBarMessage(
 				isVb6ProjectPath(wbPath)
 					? `XLIDE: opening ${path.basename(wbPath)} in Visual Basic...`
