@@ -68,6 +68,12 @@ export type AnalysisWorkerRequest =
 		 * them here.
 		 */
 		implicitMembers?: WorkerImplicitMember[];
+		/**
+		 * The host type the module's designer makes it (`VB.MDIForm`,
+		 * `VB.UserControl`). Its members are the module's own, so `Me` reaches
+		 * them and a bare call binds to them.
+		 */
+		designerClass?: string;
 	}
 	| { kind: 'forget'; docKey: string };
 

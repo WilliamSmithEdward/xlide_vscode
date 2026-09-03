@@ -39,6 +39,7 @@ import type {
 } from '../../symbols/symbolModel';
 import {
 	applicationMemberNames,
+	designerClassMemberNames,
 	procedureSymbolFor,
 	type PushFn,
 	type VbaDiagnosticData,
@@ -153,11 +154,15 @@ export function checkUnknownCallStatement(
 	knownProcedures: ReadonlySet<string>,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	hostModel: HostObjectModel | undefined,
+	designerClass: string | undefined,
 	push: PushFn,
 ): ProcedureStatementVisitor {
 	// The host injects Application's members into the global scope, so a bare
 	// call may legitimately bind to one of them (Calculate, Volatile, ...).
 	const appMembers = applicationMemberNames(hostModel);
+	// A module IS its designer's class, so that class's own methods are in
+	// scope unqualified: PropertyChanged in a UserControl, Show in a form.
+	const designerMembers = designerClassMemberNames(designerClass, hostModel);
 
 	const isKnown = (name: string, procSym: VbaSymbol | undefined): boolean => {
 		const lower = name.toLowerCase();
@@ -165,6 +170,7 @@ export function checkUnknownCallStatement(
 			knownProcedures.has(lower) ||
 			sourceIdentifierBound(symbols, procSym, projectVisibleSymbols, name, 'call') ||
 			appMembers.has(lower) ||
+			designerMembers.has(lower) ||
 			resolveHostGlobal(name, hostModel) !== undefined ||
 			// The host's hidden Global interface is bare-callable too (issue #34).
 			resolveHostGlobalMember(name, hostModel) !== undefined ||
@@ -401,6 +407,7 @@ export function checkUndeclaredVariables(
 	implicitMembers: readonly { name: string; type: string }[] | undefined,
 	moduleKind: ModuleSymbolKind | undefined,
 	hostModel: HostObjectModel | undefined,
+	designerClass: string | undefined,
 	push: PushFn,
 ): void {
 	if (!hasOptionExplicit(mod, activity) || !knownIdentifiers) {
@@ -424,6 +431,9 @@ export function checkUndeclaredVariables(
 	const bracketNamesEvaluate = hostEvaluatesBracketedNames(hostModel);
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
 	const appMembers = applicationMemberNames(hostModel);
+	// The designer's class contributes members the text never declares, and a
+	// bare reference to one - `Caption = "x"` in a form - is correct code.
+	const designerMembers = designerClassMemberNames(designerClass, hostModel);
 	const isKnown = (
 		name: string,
 		procSym: VbaSymbol | undefined,
@@ -435,6 +445,7 @@ export function checkUndeclaredVariables(
 			// A UserForm's controls are members the designer declared, not the
 			// module's text; referring to one is correct VBA.
 			implicitMemberNames.has(lower) ||
+			designerMembers.has(lower) ||
 			sourceIdentifierBound(symbols, procSym, projectVisibleSymbols, name, context) ||
 			knownIdentifiers.has(lower) ||
 			appMembers.has(lower) ||

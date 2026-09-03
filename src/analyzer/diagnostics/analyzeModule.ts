@@ -258,7 +258,7 @@ function diagnosticMemberCompletionContext(
 	if (meProjectType) {
 		ctx.meProjectType = meProjectType;
 	}
-	const meType = meHostTypeFor(opts.moduleName, opts.moduleKind, opts.host);
+	const meType = meHostTypeFor(opts.moduleName, opts.moduleKind, opts.host, opts.designerClass);
 	if (meType) {
 		ctx.meType = meType;
 	}
@@ -276,7 +276,15 @@ function meHostTypeFor(
 	moduleName: string | undefined,
 	moduleKind: ModuleSymbolKind | undefined,
 	host?: string,
+	designerClass?: string,
 ): string | undefined {
+	// A designer class is what the module IS, whatever kind it is listed as: a
+	// VB6 form's `Me` reaches Arrange and Show from `VB.MDIForm`, which the
+	// module's own text never declares. The module's project type still applies
+	// alongside, so `Me` keeps its own procedures too.
+	if (designerClass) {
+		return designerClass;
+	}
 	if (!moduleName || moduleKind !== 'document') {
 		return undefined;
 	}

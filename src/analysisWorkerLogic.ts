@@ -167,6 +167,8 @@ export class AnalysisWorkerState {
 			// Editing the designer changes diagnostics without changing a line
 			// of code, so incremental reuse has to see the control list.
 			JSON.stringify(implicitMembers ?? null),
+			// The class the designer makes the module is part of its scope.
+			request.designerClass ?? '',
 		] as const;
 
 		const result = analyzeVbaModuleSource({
@@ -174,6 +176,7 @@ export class AnalysisWorkerState {
 			moduleName: request.moduleName,
 			moduleType: request.moduleType,
 			host: request.host,
+			designerClass: request.designerClass,
 			moduleKind: request.moduleKind as ModuleSymbolKind | undefined,
 			documentType: request.documentType as EventHandlerDocumentType | undefined,
 			severityOverrides: request.severityOverrides as DiagnosticSeverityOverrides | undefined,

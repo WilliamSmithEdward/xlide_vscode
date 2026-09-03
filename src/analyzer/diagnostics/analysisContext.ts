@@ -117,6 +117,15 @@ export interface AnalyzeModuleOptions {
 	 */
 	implicitMembers?: readonly { name: string; type: string }[];
 	/**
+	 * The host type of the class the module's DESIGNER makes it, when the host
+	 * can say: `VB.Form`, `VB.MDIForm`, `VB.UserControl`, `VB.PropertyPage`.
+	 * Its members belong to the module the same way a control does - the text
+	 * never declares `Arrange` or `PropertyChanged`, and calling one bare or
+	 * through `Me` is correct code. Without it the module's own procedures are
+	 * the whole of `Me`, so every inherited member reads as missing.
+	 */
+	designerClass?: string;
+	/**
 	 * Exported Sub/Function/Declare signatures across the project, grouped by
 	 * lowercased procedure name. When omitted, type and arity validation remain
 	 * single-module only.
@@ -227,6 +236,37 @@ function computeApplicationMemberNames(model: HostObjectModel | undefined): Read
 	return new Set(
 		(appType ? getHostMembers(appType, model) : []).map((member) => member.name.toLowerCase()),
 	);
+}
+
+const NO_NAMES: ReadonlySet<string> = new Set();
+const DESIGNER_CLASS_MEMBER_NAMES = new WeakMap<HostObjectModel, Map<string, ReadonlySet<string>>>();
+
+/**
+ * The members of the class a module's designer makes it, lowercased. Inside
+ * such a module they are in scope unqualified - `PropertyChanged` in a
+ * UserControl, `Show` in a form - exactly as the module's own procedures are,
+ * because the module IS one of these. Empty when the host cannot say which
+ * class it is, or the model does not carry that type.
+ */
+export function designerClassMemberNames(
+	designerClass: string | undefined,
+	model: HostObjectModel | undefined,
+): ReadonlySet<string> {
+	if (!designerClass || !model) {
+		return NO_NAMES;
+	}
+	let byType = DESIGNER_CLASS_MEMBER_NAMES.get(model);
+	if (!byType) {
+		byType = new Map();
+		DESIGNER_CLASS_MEMBER_NAMES.set(model, byType);
+	}
+	const key = designerClass.toLowerCase();
+	let names = byType.get(key);
+	if (!names) {
+		names = new Set(getHostMembers(designerClass, model).map((member) => member.name.toLowerCase()));
+		byType.set(key, names);
+	}
+	return names;
 }
 
 // The statement-token cache (audit #5) now lives in lexer/tokenHelpers as

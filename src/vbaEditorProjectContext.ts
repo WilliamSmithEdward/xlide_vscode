@@ -93,10 +93,17 @@ function meTypeFor(entry: ModuleEntry | undefined, host?: VbaHostToken): string 
 		// an MSForms.UserForm: its `Me` reaches Caption, Show, Hide and the
 		// rest of that surface from the vb6 model. A VB6 project has no
 		// document modules, so nothing else carries a `Me` type here.
+		// The designer's own class is what the module is, whichever kind the
+		// manifest lists: a UserControl's `Me` reaches PropertyChanged and
+		// Refresh, a PropertyPage's reaches Changed, exactly as a form's
+		// reaches Show. The manifest kind decides only the fallback.
+		if (entry?.designerClass) {
+			return entry.designerClass;
+		}
 		if (entry?.type !== 'userform') {
 			return undefined;
 		}
-		return entry.designerClass === VB6_MDI_FORM ? VB6_MDI_FORM : VB6_FORM;
+		return VB6_FORM;
 	}
 	if (entry?.type === 'userform') {
 		// A form IS an MSForms.UserForm, so `Me.` reaches Caption, Controls and

@@ -120,6 +120,8 @@ interface RawModule {
      * the attribute header was not read, never "no".
      */
     predeclaredId?: boolean;
+    /** The host type the module's designer makes it, when the engine could read one. */
+    designerClass?: string;
 }
 
 export interface AnalyzeProjectOptions {
@@ -156,6 +158,8 @@ export interface ProjectAnalysisWorker {
         severityOverrides?: Record<string, string>;
         /** Office host token for the container. Absent means Excel. */
         host?: string;
+        /** The host type the module's designer makes it, when the engine read one. */
+        designerClass?: string;
     }): Promise<{
         diagnostics: VbaModuleAnalysisDiagnostic[];
         suppressedDiagnostics: VbaModuleAnalysisDiagnostic[];
@@ -392,6 +396,7 @@ async function loadProjectModules(
             source: mod.source,
             implicitMembers: mod.implicitMembers,
             predeclaredId: mod.predeclaredId,
+            designerClass: mod.designerClass,
         }));
 }
 
@@ -568,6 +573,7 @@ async function runProjectAnalysis(
                                 moduleKind: moduleKindFromType(mod.type),
                                 documentType: mod.documentType,
                                 severityOverrides: analysisSettings.ruleSeverityOverrides,
+                                designerClass: mod.designerClass,
                                 host: hostTokenForFileName(filePath),
                             }),
                         );
@@ -608,6 +614,7 @@ async function runProjectAnalysis(
                         moduleKind: moduleKindFromType(mod.type),
                         documentType: mod.documentType,
                         severityOverrides: analysisSettings.ruleSeverityOverrides,
+                        designerClass: mod.designerClass,
                         ...projectOptions,
                         host: hostTokenForFileName(filePath),
                     }),

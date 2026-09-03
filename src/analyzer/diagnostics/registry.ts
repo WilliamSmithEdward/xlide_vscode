@@ -252,6 +252,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.opts.implicitMembers,
 			ctx.opts.moduleKind,
 			ctx.opts.hostModel,
+			ctx.opts.designerClass,
 			push,
 		),
 	},
@@ -684,6 +685,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 				knownProcedures,
 				ctx.opts.projectVisibleSymbols,
 				ctx.opts.hostModel,
+				ctx.opts.designerClass,
 				push,
 			);
 		},
