@@ -329,6 +329,13 @@ function checkForNextControlVariable(
 	if (node.controlVariable.toLowerCase() === node.nextVariable.toLowerCase()) {
 		return;
 	}
+	// The header and its `Next` must sit under the same arms for the pairing to
+	// mean anything. A `For i` guarded by one chain and a `Next j` guarded by
+	// another is a pairing no build necessarily makes - each arm is internally
+	// consistent, and the parser just sees one loop (issues/58).
+	if (activity && !activity.inSameBranch(node.controlVariableSpan, node.nextVariableSpan)) {
+		return;
+	}
 	push(
 		'nextVariableMismatch',
 		`Next variable '${node.nextVariable}' does not match active For control variable '${node.controlVariable}'.`,
@@ -587,7 +594,11 @@ function checkSingleIfBlockElseBranchOrder(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	let seenElse = false;
+	// `Else` clauses above the one under test that could be compiled beside it.
+	// An `Else` supplied by one arm of a `#If` chain and an `ElseIf` from
+	// another arm never appear in the same build, and each arm on its own is
+	// ordered correctly (issues/58).
+	const elsesAbove: Span[] = [];
 	for (const child of node.body) {
 		if (isInactiveNode(activity, child)) {
 			continue;
@@ -598,22 +609,30 @@ function checkSingleIfBlockElseBranchOrder(
 		const toks = statementTokensAfterLeadingLabel(source, child.span);
 		const first = toks[0];
 		const word = first ? tokenText(first) : undefined;
-		if (word === 'elseif' && seenElse) {
-			push(
-				'elseBranchOrder',
-				"'ElseIf' cannot appear after 'Else' in the same If block.",
-				absoluteSpan(child.span, first),
-			);
-		} else if (word === 'else') {
-			if (seenElse) {
+		if (word !== 'elseif' && word !== 'else') {
+			continue;
+		}
+		const after = elsesAbove.some(
+			(prior) => !activity?.mutuallyExclusive(prior, child.span),
+		);
+		if (word === 'elseif') {
+			if (after) {
 				push(
 					'elseBranchOrder',
-					"Only one 'Else' branch is allowed in an If block.",
+					"'ElseIf' cannot appear after 'Else' in the same If block.",
 					absoluteSpan(child.span, first),
 				);
 			}
-			seenElse = true;
+			continue;
 		}
+		if (after) {
+			push(
+				'elseBranchOrder',
+				"Only one 'Else' branch is allowed in an If block.",
+				absoluteSpan(child.span, first),
+			);
+		}
+		elsesAbove.push(child.span);
 	}
 }
 

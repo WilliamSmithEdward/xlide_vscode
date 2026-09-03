@@ -453,14 +453,21 @@ export function checkModuleDeclarationsAfterProcedures(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	let procedureSeen = false;
+	// Procedures that precede the declaration under test AND could be compiled
+	// beside it. A procedure in one arm of a `#If` chain and a declaration in
+	// another arm never reach the compiler together, so the declaration is not
+	// "after" it in any build (issues/58).
+	const proceduresAbove: Span[] = [];
 	const malformedConditionalBlocks = scanConditionalCompilationBranchOrder(mod).malformedBlockSpans;
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'Procedure') {
-			procedureSeen = true;
+			proceduresAbove.push(member.span);
 			continue;
 		}
-		if (!procedureSeen) {
+		const compiledTogether = proceduresAbove.some(
+			(prior) => !activity?.mutuallyExclusive(prior, member.span),
+		);
+		if (!compiledTogether) {
 			continue;
 		}
 		const hit = moduleDeclarationAfterProcedureHit(source, member);
@@ -1892,7 +1899,10 @@ export function checkOptionPlacement(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	let declarationSeen = false;
+	// Declarations that precede the Option under test AND could be compiled
+	// beside it: a declaration in the other arm of a chain closes no window,
+	// because only one arm is ever built (issues/58).
+	const declarationsAbove: Span[] = [];
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'Attribute') {
 			continue;
@@ -1906,7 +1916,10 @@ export function checkOptionPlacement(
 			continue;
 		}
 		if (member.kind === 'Option') {
-			if (declarationSeen) {
+			const compiledTogether = declarationsAbove.some(
+				(prior) => !activity?.mutuallyExclusive(prior, member.span),
+			);
+			if (compiledTogether) {
 				push(
 					'optionAfterDeclaration',
 					'Option statements must appear before any declaration or procedure.',
@@ -1915,7 +1928,7 @@ export function checkOptionPlacement(
 			}
 			continue;
 		}
-		declarationSeen = true;
+		declarationsAbove.push(member.span);
 	}
 }
 

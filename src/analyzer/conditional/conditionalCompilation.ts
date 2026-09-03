@@ -45,6 +45,15 @@ export interface ConditionalActivityTracker {
 	 * are never compiled together however the constants evaluate.
 	 */
 	mutuallyExclusive(a: Span, b: Span): boolean;
+	/**
+	 * Whether the two spans sit under exactly the same arms, so every build
+	 * either compiles both or neither. Stricter than "not mutually exclusive":
+	 * spans in two SEPARATE chains are neither exclusive nor the same branch,
+	 * because a build may take one and not the other. Rules that pair two
+	 * pieces of one construct need this, since a pairing made across different
+	 * chains is a guess about a build that may never exist.
+	 */
+	inSameBranch(a: Span, b: Span): boolean;
 }
 
 const DEFAULT_COMPILER_CONSTANTS: Readonly<Record<string, ConditionalValue>> = {
@@ -108,6 +117,11 @@ export function createConditionalActivityTracker(
 		isInactive: (span: Span): boolean => activityForSpan(span) === 'inactive',
 		mutuallyExclusive: (a: Span, b: Span): boolean =>
 			armsDiverge(eventForSpan(a)?.branch, eventForSpan(b)?.branch),
+		// Arms are immutable and structurally shared, so one arm is one object:
+		// identity IS the comparison, including after a nested chain has opened
+		// and closed again between the two spans.
+		inSameBranch: (a: Span, b: Span): boolean =>
+			eventForSpan(a)?.branch === eventForSpan(b)?.branch,
 	};
 }
 

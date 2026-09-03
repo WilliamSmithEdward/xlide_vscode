@@ -269,7 +269,9 @@ export function checkImplementsStatementPlacement(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	let procedureSeen = false;
+	// Procedures above the Implements under test that could be compiled beside
+	// it. One in the other arm of a `#If` chain never is (issues/58).
+	const proceduresAbove: Span[] = [];
 	const reportModuleKind = (hit: ImplementsStatementHit): void => {
 		push(
 			'implementsStatementPlacement',
@@ -287,7 +289,7 @@ export function checkImplementsStatementPlacement(
 
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'Procedure') {
-			procedureSeen = true;
+			proceduresAbove.push(member.span);
 			forEachStatement(member.body, (stmt) => {
 				const hit = implementsStatementHit(source, stmt.span);
 				if (hit) {
@@ -307,7 +309,10 @@ export function checkImplementsStatementPlacement(
 			reportModuleKind(hit);
 			continue;
 		}
-		if (procedureSeen) {
+		const compiledTogether = proceduresAbove.some(
+			(prior) => !activity?.mutuallyExclusive(prior, member.span),
+		);
+		if (compiledTogether) {
 			reportProcedurePlacement(hit);
 		}
 	}
