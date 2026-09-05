@@ -2,6 +2,64 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [8.0.0] - 2026-09-05
+
+- **Access databases are writable** (#65). They opened read-only, because
+  Access runs the compiled project rather than the source, so writing source
+  changed nothing it would run. XLIDE now writes the source and marks the
+  compiled project stale, which is what Access's own `/decompile` switch does:
+  the next open recompiles and the edit takes effect. A module's source can be
+  replaced, and a module can be added, renamed and deleted, standard or class.
+
+  Access keeps no compound file. Its VBA is one `MSysAccessStorage` row per
+  stream, under a tree of folders, and a module costs rows in five of them plus
+  rows in three catalog tables - a module listed in one and missing from
+  another is one Access will show and then refuse to open. Writing one row
+  means writing the page it lands on, the long-value pages its value lands on,
+  the B-tree pages of every index over the table, the definition's counters,
+  and the usage maps that say which pages the table owns and which have room.
+  All of that is now implemented: data pages, long values, inline and reference
+  usage maps, page allocation, B-tree insert and delete with page splits, and
+  the collation table Access orders text keys by.
+
+  Every layer was checked byte for byte against pyOpenVBA, which was measured
+  against Access itself, and then against Access 16.0 directly: a database
+  XLIDE wrote opens, compiles, lists its modules through
+  `CurrentProject.AllModules`, and runs the code that was written into it.
+
+- **Access forms and reports are writable** (#67). Read, edit, create and
+  delete, for both. A design is a stream of property records whose id is the
+  property's slot in its own type's schema, so a property written at the wrong
+  id is one Access reads as something else; the slot tables cover 26 object
+  types and the records Access writes for a new control of each of 23. Adding a
+  control also brings the type's control-defaults object, which is what Access
+  reads a themed control against, and updates the `TypeInfo` stream, which is
+  what makes `Me.MyControl` compile and `MyControl_Click` bind.
+
+  A new form or report starts from a blank one captured from Access, with a
+  GUID of its own patched into the design and the catalog row that repeats it.
+  Verified in Access: a form XLIDE created from nothing opens, shows the
+  caption and controls it was given, and its code reaches them through `Me`.
+
+- **Names and source outside the project's code page.** Everything on the
+  Access side goes through the project's declared `PROJECTCODEPAGE` rather than
+  latin-1, so a module named in Cyrillic or Japanese keeps its real name in the
+  unicode dir record while the ANSI record beside it holds the folded
+  projection, which is what the VBE writes. Access lists such a module by its
+  real name and runs its code. The em dash, the curly quotes and the euro sign
+  that live in cp1252's 0x80-0x9F round-trip exactly.
+
+- **An Access row that outgrew its page was invisible.** When a row no longer
+  fits, the engine moves it to another page and leaves a four-byte pointer in
+  its home slot. The reader skipped both the pointer and the moved copy, so the
+  row - and the stream it held - was lost from every table it read. It now
+  follows the pointer.
+
+- **`RECORD_OFFSET_MASK` is thirteen bits, not twelve.** A deleted slot records
+  the boundary the rows below it start at, and that boundary can be the page
+  end, 4096. Masking with 0x0FFF turned such a slot's offset into 0 and skipped
+  the row above it.
+
 ## [7.0.0] - 2026-09-05
 
 - **Annotations write a module's hidden attributes on save.** A VBA module
