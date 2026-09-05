@@ -27,7 +27,7 @@ export { matchParenFrom, tokenWord as tokenText, tokenName } from '../lexer/toke
 export { statementTokens } from './analysisContext';
 import { tokenWord as tokenText, tokenName } from '../lexer/tokenHelpers';
 import { statementTokens } from './analysisContext';
-import { trackedLocalsPassedAsCallArguments } from './dataflow';
+import { trackedLocalsNamedWhole } from './dataflow';
 
 export function isInactiveNode(
 	activity: ConditionalActivityTracker | undefined,
@@ -328,14 +328,29 @@ export function setAssignmentTarget(
 }
 
 /** Lowercased tracked locals passed as bare call arguments in one statement. */
-export function localsPassedAsCallArguments(
+/**
+ * Every tracked local the statement names whole - bare, not the statement's
+ * own head, not a member access, not indexed - in an argument position: a
+ * call statement's argument, an argument to a function inside an expression,
+ * or an argument to a qualified member call. VBA passes by reference by
+ * default, so the callee may have assigned or allocated the caller's variable
+ * and its state is unknown from that point on (#70). A mention the callee
+ * provably only reads is left out: the operand of `Is`, and the argument of
+ * an intrinsic in `readOnlyIntrinsics`. The value is the first such mention's
+ * absolute offset, so a rule can tell an access before the pass from one
+ * after it within the same statement.
+ */
+export function localsNamedWhole(
 	source: string,
 	span: Span,
 	tracked: ReadonlyMap<string, unknown>,
-): Set<string> {
-	return trackedLocalsPassedAsCallArguments(
+	readOnlyIntrinsics: ReadonlySet<string>,
+): Map<string, number> {
+	return trackedLocalsNamedWhole(
 		statementTokensAfterLeadingLabel(source, span),
+		span.start,
 		(lower) => tracked.has(lower),
+		readOnlyIntrinsics,
 	);
 }
 

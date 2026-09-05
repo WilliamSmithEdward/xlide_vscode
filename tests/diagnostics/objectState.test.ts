@@ -169,6 +169,77 @@ describe('analyzeModule - object variable not set', () => {
 		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(0);
 	});
 
+	it('treats an object passed to a call in any position as possibly Set (#70 class)', () => {
+		const src =
+			'Private Function TryGet(ByRef target As Object) As Boolean\n' +
+			'    Set target = New Collection\n' +
+			'    TryGet = True\n' +
+			'End Function\n' +
+			'Public Sub T(ByVal factory As Object)\n' +
+			'    Dim a As Object\n' +
+			'    Dim b As Object\n' +
+			'    Dim c As Object\n' +
+			'    Dim d As Object\n' +
+			'    Dim n As Long\n' +
+			'    If TryGet(a) Then a.ToString\n' +
+			'    n = TryGet(b)\n' +
+			'    b.ToString\n' +
+			'    Debug.Print TryGet(c)\n' +
+			'    c.ToString\n' +
+			'    factory.Build d\n' +
+			'    d.ToString\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(0);
+	});
+
+	it('treats an object passed to a call inside a branch as possibly Set after the merge', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim obj As Object\n' +
+			'    If Ready Then\n' +
+			'        TryGet obj\n' +
+			'    End If\n' +
+			'    obj.ToString\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(0);
+	});
+
+	it('treats a With-relative call and a named argument as passing the object', () => {
+		const src =
+			'Public Sub T(ByVal factory As Object)\n' +
+			'    Dim a As Object\n' +
+			'    Dim b As Object\n' +
+			'    With factory\n' +
+			'        .Build a\n' +
+			'    End With\n' +
+			'    a.ToString\n' +
+			'    Build target:=b\n' +
+			'    b.ToString\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(0);
+	});
+
+	it('still flags member access inside a call argument, an Is test, and a read-only intrinsic', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim obj As Object\n' +
+			'    Dim n As Long\n' +
+			'    n = Load(obj.Name)\n' +
+			'    If obj Is Nothing Then Debug.Print TypeName(obj)\n' +
+			'    obj.ToString\n' +
+			'End Sub\n';
+
+		const hits = byCode(analyzeModule(src), 'object-variable-not-set');
+		const lineOf = (offset: number): number => src.slice(0, offset).split('\n').length;
+		expect(hits.map((hit) => [spanText(src, hit), lineOf(hit.span.start)])).toEqual([
+			['obj', 4],
+			['obj', 6],
+		]);
+	});
+
 	it('stays quiet after branch-local initialization makes straight-line state unknown', () => {
 		const src =
 			'Public Sub T()\n' +

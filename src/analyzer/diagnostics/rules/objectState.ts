@@ -33,7 +33,7 @@ import {
 	activeModuleMembers,
 	blockHeaderLineSpan,
 	isInactiveNode,
-	localsPassedAsCallArguments,
+	localsNamedWhole,
 	setAssignmentTarget,
 	statementTokens,
 	statementTokensAfterLeadingLabel,
@@ -160,8 +160,14 @@ export function checkObjectVariableNotSet(
 				}
 			},
 			touchesInStatement: (stmt) => {
+				const touched = new Set(
+					localsNamedWhole(source, stmt.span, locals, OBJECT_READ_ONLY_INTRINSICS).keys(),
+				);
 				const lower = setAssignmentTarget(source, stmt.span)?.name.toLowerCase();
-				return lower && locals.has(lower) ? [lower] : [];
+				if (lower && locals.has(lower)) {
+					touched.add(lower);
+				}
+				return touched;
 			},
 			demoteToUnknown: (lower) => {
 				if (state.get(lower) === 'unset') {
@@ -189,7 +195,15 @@ function checkObjectVariableNotSetStatement(
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
+	const passedWhole = localsNamedWhole(source, stmt.span, locals, OBJECT_READ_ONLY_INTRINSICS);
 	for (const hit of unsetObjectMemberAccesses(source, stmt.span, locals, state, memberCtx)) {
+		// An access after a whole pass in the same statement, as in
+		// `If TryGet(obj) Then obj.Name`, runs after the callee had its chance
+		// to Set it. One before the pass, as in `Load(obj.Name)`, does not.
+		const passAt = passedWhole.get(hit.name.toLowerCase());
+		if (passAt !== undefined && hit.span.start > passAt) {
+			continue;
+		}
 		push(
 			'objectVariableNotSet',
 			`Object variable '${hit.name}' is Nothing before member access. This will raise Run-time error '91': Object variable or With block variable not set.`,
@@ -204,12 +218,17 @@ function checkObjectVariableNotSetStatement(
 			return;
 		}
 	}
-	for (const lower of localsPassedAsCallArguments(source, stmt.span, locals)) {
+	for (const lower of passedWhole.keys()) {
 		if (state.get(lower) === 'unset') {
 			state.set(lower, 'unknown');
 		}
 	}
 }
+
+/** Intrinsics that read an object argument and never Set it. */
+const OBJECT_READ_ONLY_INTRINSICS: ReadonlySet<string> = new Set([
+	'typename', 'vartype', 'isobject', 'isnull', 'isempty', 'ismissing', 'objptr',
+]);
 
 function localObjectVariablesFor(
 	symbols: ReturnType<typeof buildModuleSymbols>,

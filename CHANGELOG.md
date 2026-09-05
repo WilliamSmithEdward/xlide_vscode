@@ -2,6 +2,35 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [8.1.0] - 2026-09-05
+
+- **A Support XLIDE section at the bottom of the sidebar.** The same three
+  addresses and wording as the VBA editor add-in's Support dialog: GitHub
+  Sponsors, PayPal and Cash App. Each row opens in the browser, and each has a
+  Copy button for a machine where the browser is slow to come up. The host
+  opens only the addresses in the sidebar model's own list.
+
+- **`unallocated-dynamic-array-access` follows an array through a call** (#70).
+  VBA passes arrays by reference, so a callee that `ReDim`s its parameter
+  allocates the caller's array. The rule counted only a bare call statement,
+  `Fill items`, as passing the array. `n = Fill(items)`, `If Fill(items) Then`,
+  `Debug.Print Fill(items)`, `loader.Fill items`, `.Fill items` inside a With
+  block and `Fill target:=items` all left it marked unallocated, and every
+  later index was reported as a definite Run-time error 9. Any whole-array
+  mention in an argument position now makes the array possibly allocated.
+  Within one statement the order counts: `If Load(a) Then Debug.Print a(0)` is
+  quiet, `Load(a(0))` still reports. `LBound`, `UBound` and `IsArray`
+  arguments are left out, since they allocate nothing.
+
+- **`object-variable-not-set` had the same blind spot.** A callee that `Set`s
+  a `ByRef` parameter sets the caller's variable, and the rule saw only a bare
+  call statement do it. `If TryGet(obj) Then obj.Name`, and `n = Load(obj)`
+  followed by `obj.Name`, reported Run-time error 91 on code that runs. A pass
+  inside an If arm now survives the branch merge too. The operand of `Is` and
+  the argument of `TypeName`, `VarType`, `IsObject`, `IsNull`, `IsEmpty`,
+  `IsMissing` and `ObjPtr` still count as reads, so `If obj Is Nothing` no
+  longer hides the access after it, which it did before.
+
 ## [8.0.3] - 2026-09-05
 
 - **The README names every host the test runner drives.** Five places said

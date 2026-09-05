@@ -205,26 +205,53 @@ function collectNestedTouches(
  * (`Helper x`, `Call Helper(x)`), where ByRef passing may rebind them. `toks`
  * are the statement's significant tokens after any leading label.
  */
-export function trackedLocalsPassedAsCallArguments(
+export function trackedLocalsNamedWhole(
 	toks: readonly VbaToken[],
+	spanStart: number,
 	isTracked: (lowerName: string) => boolean,
-): Set<string> {
-	if (toks.length < 2 || hasTopLevelAssignment(toks)) {
-		return new Set();
+	readOnlyIntrinsics: ReadonlySet<string>,
+): Map<string, number> {
+	const out = new Map<string, number>();
+	if (toks.length < 2) {
+		return out;
 	}
-	const start = tokenWord(toks[0]) === 'call' ? 1 : 0;
-	if (!tokenName(toks[start]) || toks[start + 1]?.rawText === '.') {
-		return new Set();
-	}
-	const out = new Set<string>();
-	for (let i = start + 1; i < toks.length; i++) {
-		if (toks[i - 1]?.rawText === '.' || toks[i + 1]?.rawText === '.') {
+	// A bare mention at the top level is an argument only in a call statement:
+	// `Foo x`, `Call Foo(x)`, `obj.Method x`, or `.Method x` inside With. In
+	// `Set a = b`, `Dim a As T`, or `If a Is Nothing` it is not.
+	const head = tokenWord(toks[0]) === 'call' ? 1 : 0;
+	const isCallStatement =
+		(tokenName(toks[head]) !== undefined || toks[head]?.rawText === '.') &&
+		!hasTopLevelAssignment(toks);
+	let depth = 0;
+	for (let i = 1; i < toks.length; i++) {
+		const raw = toks[i].rawText;
+		if (raw === '(' || raw === '[') {
+			depth++;
+			continue;
+		}
+		if (raw === ')' || raw === ']') {
+			depth--;
 			continue;
 		}
 		const lower = tokenName(toks[i])?.toLowerCase();
-		if (lower && isTracked(lower)) {
-			out.add(lower);
+		if (!lower || !isTracked(lower) || out.has(lower)) {
+			continue;
 		}
+		if (depth === 0 && !isCallStatement) {
+			continue;
+		}
+		const prev = toks[i - 1]?.rawText;
+		const next = toks[i + 1];
+		if (prev === '.' || prev === '!' || next?.rawText === '(' || next?.rawText === '.' || next?.rawText === '!') {
+			continue;
+		}
+		if (tokenWord(next) === 'is') {
+			continue;
+		}
+		if (prev === '(' && readOnlyIntrinsics.has(tokenName(toks[i - 2])?.toLowerCase() ?? '')) {
+			continue;
+		}
+		out.set(lower, spanStart + toks[i].start);
 	}
 	return out;
 }

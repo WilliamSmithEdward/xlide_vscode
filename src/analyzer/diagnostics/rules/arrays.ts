@@ -40,7 +40,7 @@ import {
 	forEachStatement,
 	forEachVariableGroup,
 	isInactiveNode,
-	localsPassedAsCallArguments,
+	localsNamedWhole,
 	matchParenFrom,
 	pluralizeCount,
 	statementTokens,
@@ -788,11 +788,22 @@ function checkUnallocatedDynamicArrayAccessStatement(
 		return;
 	}
 	const conditionalRedims = singleLineIfRedimTargets(source, stmt.span);
+	const passedWhole = localsNamedWhole(source, stmt.span, arrays, ARRAY_READ_ONLY_INTRINSICS);
+	// An access that follows a whole-array pass in the same statement, as in
+	// `If Load(a) Then Debug.Print a(0)`, runs after the callee had its chance
+	// to allocate. One that precedes it, as in `Load(a(0))`, does not.
+	const followsPass = (hit: { name: string; span: Span }): boolean => {
+		const passAt = passedWhole.get(hit.name.toLowerCase());
+		return passAt !== undefined && hit.span.start > passAt;
+	};
 	for (const hit of unallocatedDynamicArrayIndexAccesses(source, stmt.span, arrays, state)) {
 		// The "access" may be the target of a ReDim embedded in a single-line
 		// If...Then - the allocation itself, not a read. Suppress exactly that
 		// target's name-token span; bounds expressions still report.
 		if (conditionalRedims.some((t) => t.span.start === hit.span.start && t.span.end === hit.span.end)) {
+			continue;
+		}
+		if (followsPass(hit)) {
 			continue;
 		}
 		push(
@@ -802,6 +813,9 @@ function checkUnallocatedDynamicArrayAccessStatement(
 		);
 	}
 	for (const hit of unallocatedDynamicArrayBoundCalls(source, stmt.span, arrays, state)) {
+		if (followsPass(hit)) {
+			continue;
+		}
 		push(
 			'unallocatedDynamicArrayAccess',
 			`Dynamic array '${hit.name}' is not allocated before ${hit.functionName}. This will raise Run-time error '9': Subscript out of range.`,
@@ -813,7 +827,7 @@ function checkUnallocatedDynamicArrayAccessStatement(
 	if (assignmentLower && arrays.has(assignmentLower)) {
 		state.set(assignmentLower, 'unknown');
 	}
-	for (const lower of localsPassedAsCallArguments(source, stmt.span, arrays)) {
+	for (const lower of passedWhole.keys()) {
 		if (state.get(lower) === 'unallocated') {
 			state.set(lower, 'unknown');
 		}
@@ -949,11 +963,14 @@ function dynamicArrayTouchesInStatement(
 	if (assignmentLower && arrays.has(assignmentLower)) {
 		out.add(assignmentLower);
 	}
-	for (const lower of localsPassedAsCallArguments(source, stmt.span, arrays)) {
+	for (const lower of localsNamedWhole(source, stmt.span, arrays, ARRAY_READ_ONLY_INTRINSICS).keys()) {
 		out.add(lower);
 	}
 	return out;
 }
+
+/** Intrinsics that read an array argument and allocate nothing. */
+const ARRAY_READ_ONLY_INTRINSICS: ReadonlySet<string> = new Set(['lbound', 'ubound', 'isarray']);
 
 function eraseStatementSimpleTargets(source: string, span: Span): Set<string> {
 	const toks = statementTokensAfterLeadingLabel(source, span);

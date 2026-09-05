@@ -12,6 +12,7 @@ import { registerXlideCommand } from './xlideCommandRegistration';
 import { activeLocalVbaEditor, decodeModuleUri, sameProjectPath, XLIDE_SCHEME } from './xlideFileSystem';
 import {
     buildXlideSidebarModel,
+    isSponsorUrl,
     type XlideSidebarActiveProject,
     type XlideSidebarCommand,
     type XlideSidebarNode,
@@ -124,9 +125,28 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
         if (!message || typeof message !== 'object') {
             return;
         }
-        const payload = message as { type?: unknown; command?: unknown; arguments?: unknown; filePath?: unknown };
+        const payload = message as {
+            type?: unknown;
+            command?: unknown;
+            arguments?: unknown;
+            filePath?: unknown;
+            url?: unknown;
+        };
         if (payload.type === 'selectProject') {
             await this._selectProject(typeof payload.filePath === 'string' ? payload.filePath : undefined);
+            return;
+        }
+        // The sponsor rows open or copy an address. The webview names it, but
+        // only an address from the model's own list is honored (xlideSidebarModel.ts).
+        if (payload.type === 'openSponsorUrl' || payload.type === 'copySponsorUrl') {
+            if (!isSponsorUrl(payload.url)) {
+                return;
+            }
+            if (payload.type === 'openSponsorUrl') {
+                await vscode.env.openExternal(vscode.Uri.parse(payload.url));
+            } else {
+                await vscode.env.clipboard.writeText(payload.url);
+            }
             return;
         }
         if (payload.type !== 'runCommand' || typeof payload.command !== 'string') {
@@ -555,6 +575,82 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
             padding: 10px;
             color: var(--vscode-descriptionForeground);
         }
+        .sponsorBody {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 10px;
+        }
+        .sponsorNote {
+            margin: 0;
+            color: var(--vscode-descriptionForeground);
+            line-height: 1.5;
+        }
+        .sponsorNote.thanks {
+            margin-top: 4px;
+            font-size: 12px;
+        }
+        .sponsorRow {
+            display: flex;
+            align-items: stretch;
+            gap: 6px;
+            min-width: 0;
+        }
+        /* The whole row is the target, not the label, and the arrow on the
+           right says where pressing it goes. */
+        .sponsorOpen {
+            flex: 1 1 auto;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+            padding: 8px 10px;
+            text-align: left;
+        }
+        .sponsorIcon {
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            font-size: 13px;
+            line-height: 1;
+        }
+        .sponsorIcon svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+        }
+        .sponsorWords {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+        .sponsorDetail {
+            font-size: 11px;
+            opacity: 0.7;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .sponsorAway {
+            flex: 0 0 auto;
+            opacity: 0.55;
+        }
+        .sponsorAway svg {
+            width: 12px;
+            height: 12px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 1.6;
+        }
+        .sponsorCopy {
+            flex: 0 0 auto;
+            padding: 3px 10px;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
@@ -644,6 +740,18 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
                 }
                 return;
             }
+            const sponsorOpen = event.target.closest?.('[data-sponsor-open]');
+            if (sponsorOpen) {
+                vscode.postMessage({ type: 'openSponsorUrl', url: sponsorOpen.dataset.sponsorOpen });
+                return;
+            }
+            const sponsorCopy = event.target.closest?.('[data-sponsor-copy]');
+            if (sponsorCopy) {
+                vscode.postMessage({ type: 'copySponsorUrl', url: sponsorCopy.dataset.sponsorCopy });
+                sponsorCopy.textContent = 'Copied';
+                window.setTimeout(() => { sponsorCopy.textContent = 'Copy'; }, 1200);
+                return;
+            }
             const button = event.target.closest('[data-command]');
             if (!button) {
                 closeSelects();
@@ -701,6 +809,9 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
 }
 
 function renderSection(section: XlideSidebarNode): string {
+    if (section.id === 'sponsor') {
+        return renderSponsorSection(section);
+    }
     const children = section.children ?? [];
     const isActionSection = section.id === 'projectActions' ||
         section.id === 'settings' ||
@@ -717,6 +828,57 @@ function renderSection(section: XlideSidebarNode): string {
         </div>
     </section>`;
 }
+
+function renderSponsorSection(section: XlideSidebarNode): string {
+    const children = section.children ?? [];
+    return `<section class="section" aria-label="${escapeAttr(section.label)}">
+        <div class="sectionHeader">${escapeHtml(section.label)}</div>
+        <div class="sponsorBody">
+            ${children.map((node) => node.kind === 'link' ? renderSponsorRow(node) : renderSponsorNote(node)).join('')}
+        </div>
+    </section>`;
+}
+
+function renderSponsorNote(node: XlideSidebarNode): string {
+    const cls = node.id === 'sponsor.thanks' ? 'sponsorNote thanks' : 'sponsorNote';
+    return `<p class="${cls}">${escapeHtml(node.label)}</p>`;
+}
+
+function renderSponsorRow(node: XlideSidebarNode): string {
+    const url = node.url ?? '';
+    return `<div class="sponsorRow">
+        <button class="sponsorOpen secondary" type="button" data-sponsor-open="${escapeAttr(url)}" title="${escapeAttr(url)}">
+            <span class="sponsorIcon" aria-hidden="true">${sponsorIconHtml(node.icon ?? '')}</span>
+            <span class="sponsorWords">
+                <span class="label">${escapeHtml(node.label)}</span>
+                <span class="sponsorDetail">${escapeHtml(node.description ?? '')}</span>
+            </span>
+            <span class="sponsorAway" aria-hidden="true">${EXTERNAL_LINK_SVG}</span>
+        </button>
+        <button class="sponsorCopy secondary" type="button" data-sponsor-copy="${escapeAttr(url)}" title="Copy the address">Copy</button>
+    </div>`;
+}
+
+/**
+ * The webview's CSP allows no fonts or images, so the marks are inline SVG
+ * paths. An icon name outside the set is printed as text: the emoji case.
+ */
+function sponsorIconHtml(icon: string): string {
+    switch (icon) {
+        case 'github':
+            return GITHUB_SVG;
+        case 'credit-card':
+            return CREDIT_CARD_SVG;
+        default:
+            return escapeHtml(icon);
+    }
+}
+
+const GITHUB_SVG = '<svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>';
+
+const CREDIT_CARD_SVG = '<svg viewBox="0 0 16 16"><path d="M1 3.5A1.5 1.5 0 0 1 2.5 2h11A1.5 1.5 0 0 1 15 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 12.5v-9zM2.5 3a.5.5 0 0 0-.5.5V5h12V3.5a.5.5 0 0 0-.5-.5h-11zM14 7H2v5.5a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5V7zM3 9h4v1.5H3V9z"/></svg>';
+
+const EXTERNAL_LINK_SVG = '<svg viewBox="0 0 16 16"><path d="M9 2h5v5M14 2 7 9M12 9v4.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5H7"/></svg>';
 
 function renderSidebarNode(node: XlideSidebarNode, sectionId: string): string {
     if (node.kind === 'select') {
@@ -852,5 +1014,6 @@ export {
     XlideSidebarProvider,
     type XlideSidebarRegistration,
     registerXlideSidebar,
+    renderXlideSidebarHtml,
     projectFiles,
 };

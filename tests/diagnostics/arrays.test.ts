@@ -511,6 +511,85 @@ describe('analyzeModule - unallocated dynamic array access', () => {
 		expect(byCode(analyzeModule(src), 'unallocated-dynamic-array-access')).toHaveLength(0);
 	});
 
+	it('treats an array passed to a function in an expression as possibly allocated (#70)', () => {
+		const src =
+			'Option Explicit\n' +
+			'Private Type Thing\n' +
+			'    Value As Long\n' +
+			'End Type\n' +
+			'Public Function FillUdt(ByRef items() As Thing) As Long\n' +
+			'    ReDim items(0 To 2)\n' +
+			'    FillUdt = 3\n' +
+			'End Function\n' +
+			'Public Function FillLong(ByRef items() As Long) As Long\n' +
+			'    ReDim items(0 To 2)\n' +
+			'    FillLong = 3\n' +
+			'End Function\n' +
+			'Public Sub CaseA_UdtByRef()\n' +
+			'    Dim items() As Thing\n' +
+			'    Dim n As Long\n' +
+			'    n = FillUdt(items)\n' +
+			'    Debug.Print "A " & n & " " & items(0).Value\n' +
+			'End Sub\n' +
+			'Public Sub CaseB_LongByRef()\n' +
+			'    Dim items() As Long\n' +
+			'    Dim n As Long\n' +
+			'    n = FillLong(items)\n' +
+			'    Debug.Print "B " & n & " " & items(0)\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'unallocated-dynamic-array-access')).toHaveLength(0);
+	});
+
+	it('treats an array passed in any call position as possibly allocated', () => {
+		const src =
+			'Public Sub T(ByVal loader As Object)\n' +
+			'    Dim a() As Long\n' +
+			'    Dim b() As Long\n' +
+			'    Dim c() As Long\n' +
+			'    Dim d() As Long\n' +
+			'    If Load(a) Then Debug.Print a(0)\n' +
+			'    loader.Fill b\n' +
+			'    Debug.Print b(0)\n' +
+			'    Debug.Print Load(c)\n' +
+			'    Debug.Print c(0)\n' +
+			'    Call loader.Fill(1, d)\n' +
+			'    Debug.Print d(0)\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'unallocated-dynamic-array-access')).toHaveLength(0);
+	});
+
+	it('treats a With-relative call and a named argument as passing the array', () => {
+		const src =
+			'Public Sub T(ByVal loader As Object)\n' +
+			'    Dim a() As Long\n' +
+			'    Dim b() As Long\n' +
+			'    With loader\n' +
+			'        .Fill a\n' +
+			'    End With\n' +
+			'    Debug.Print a(0)\n' +
+			'    Fill target:=b\n' +
+			'    Debug.Print b(0)\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'unallocated-dynamic-array-access')).toHaveLength(0);
+	});
+
+	it('still flags an indexed access inside a call argument and after a bound call', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim values() As Long\n' +
+			'    Dim n As Long\n' +
+			'    n = Load(values(0))\n' +
+			'    Debug.Print UBound(values)\n' +
+			'    Debug.Print values(1)\n' +
+			'End Sub\n';
+
+		const hits = byCode(analyzeModule(src), 'unallocated-dynamic-array-access');
+		expect(hits).toHaveLength(3);
+	});
+
 	it('stays quiet after nested block allocation makes straight-line state unknown', () => {
 		const src =
 			'Public Sub T(ByVal ready As Boolean)\n' +

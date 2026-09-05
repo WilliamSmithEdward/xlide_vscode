@@ -1,7 +1,7 @@
 import { projectIdentityKey } from './projectIdentity';
 import { containerAppNameForPath, isExcelContainerPath } from './macroContainerUi';
 
-type XlideSidebarNodeKind = 'section' | 'status' | 'action' | 'select';
+type XlideSidebarNodeKind = 'section' | 'status' | 'action' | 'select' | 'note' | 'link';
 type XlideSidebarStatus = 'pass' | 'warn' | 'fail' | 'unknown';
 
 interface XlideSidebarActiveProject {
@@ -48,6 +48,49 @@ interface XlideSidebarNode {
     options?: XlideSidebarSelectOption[];
     command?: XlideSidebarCommand;
     children?: XlideSidebarNode[];
+    /** A link node's destination; the host opens it, and only from SPONSOR_LINKS. */
+    url?: string;
+    /** A link node's mark: an inline icon name, or an emoji when there is no icon for it. */
+    icon?: string;
+}
+
+interface XlideSponsorLink {
+    label: string;
+    detail: string;
+    url: string;
+    icon: string;
+}
+
+/**
+ * Where to support the work, if it has been useful. The same three addresses
+ * the VBA editor add-in offers, and the only ones the sidebar will open.
+ */
+const SPONSOR_LINKS: readonly XlideSponsorLink[] = [
+    {
+        label: 'GitHub Sponsors',
+        detail: 'Recurring or one-off, through GitHub',
+        icon: 'github',
+        url: 'https://github.com/sponsors/WilliamSmithEdward',
+    },
+    {
+        label: 'PayPal',
+        detail: 'One-off, no account needed',
+        icon: 'credit-card',
+        url: 'https://www.paypal.com/donate/?business=ML855BRLNR838&no_recurring=0&item_name=VBA+has+always+treated+me+well.+It+was+how+I+first+grew+professional+as+a+programmer%2C+I%27m+happy+to+show+it+some+love+%E2%9D%A4%EF%B8%8F&currency_code=USD',
+    },
+    {
+        // The banknote emoji: the inline icon set has nothing for cash, and the
+        // add-in draws the same one.
+        label: 'Cash App',
+        detail: '$williamesmithjcil',
+        icon: '\u{1F4B5}',
+        url: 'https://cash.app/$williamesmithjcil',
+    },
+];
+
+/** True only for an address in SPONSOR_LINKS: the webview may ask to open or copy nothing else. */
+function isSponsorUrl(url: unknown): url is string {
+    return typeof url === 'string' && SPONSOR_LINKS.some((link) => link.url === url);
 }
 
 interface XlideSidebarModelInput {
@@ -120,7 +163,36 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
                 'Export a redacted support bundle for troubleshooting.',
             ),
         ]),
+        sponsorSection(),
     ];
+}
+
+function sponsorSection(): XlideSidebarNode {
+    return section('sponsor', 'Support XLIDE', [
+        noteNode(
+            'sponsor.blurb',
+            'VBA has always treated me well. It is how I first grew professional as a programmer, '
+            + 'and XLIDE is what I wish it had come with. If it has been useful, here is where to say so.',
+        ),
+        ...SPONSOR_LINKS.map((link) => linkNode(link)),
+        noteNode('sponsor.thanks', 'Nothing here is ever required. Thank you for using it either way.'),
+    ]);
+}
+
+function noteNode(id: string, label: string): XlideSidebarNode {
+    return { id, kind: 'note', label };
+}
+
+function linkNode(link: XlideSponsorLink): XlideSidebarNode {
+    return {
+        id: `sponsor.${link.label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+        kind: 'link',
+        label: link.label,
+        description: link.detail,
+        tooltip: link.url,
+        url: link.url,
+        icon: link.icon,
+    };
 }
 
 function welcomeSection(): XlideSidebarNode {
@@ -307,6 +379,8 @@ function selectionSourceLabel(source: XlideSidebarActiveProject['selectionSource
 
 export {
     buildXlideSidebarModel,
+    isSponsorUrl,
+    SPONSOR_LINKS,
     type XlideSidebarActiveProject,
     type XlideSidebarCommand,
     type XlideSidebarModelInput,

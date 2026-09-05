@@ -34,7 +34,14 @@ Setup
 Project Actions
 Settings
 Support
+Support XLIDE
 ```
+
+Support XLIDE is the sponsor section, last so it never sits above a workflow
+action. It carries the same three addresses and wording as the VBA editor
+add-in's Support dialog. The rows open through the host, which honors only the
+addresses in the model's own list, and each row also copies its address for a
+machine where the browser is slow to come up.
 
 Do not rework the sidebar layout, section order, or status/action split without
 a specific product reason. Future sidebar work should be additive and tied to

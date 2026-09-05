@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildXlideSidebarModel } from '../src/xlideSidebarModel';
+import { buildXlideSidebarModel, isSponsorUrl, SPONSOR_LINKS } from '../src/xlideSidebarModel';
 
 describe('xlideSidebarModel', () => {
     it('builds the sidebar sections in the product order with title-case labels', () => {
@@ -15,6 +15,7 @@ describe('xlideSidebarModel', () => {
             'Project Actions',
             'Settings',
             'Support',
+            'Support XLIDE',
         ]);
         expect(model[0].children?.map((node) => [node.label, node.description, node.kind])).toEqual([
             ['File Tree', 'Find file and module navigation in Explorer > XLIDE.', 'status'],
@@ -36,6 +37,30 @@ describe('xlideSidebarModel', () => {
             'Copy Diagnostics',
             'Export Support Bundle',
         ]);
+    });
+
+    it('ends with the sponsor section: a blurb, the three addresses, and the thanks line', () => {
+        const model = buildXlideSidebarModel({});
+        const sponsor = model[model.length - 1];
+
+        expect(sponsor.id).toBe('sponsor');
+        expect(sponsor.children?.map((node) => node.kind)).toEqual(['note', 'link', 'link', 'link', 'note']);
+        expect(sponsor.children?.filter((node) => node.kind === 'link').map((node) => [node.label, node.description, node.url])).toEqual([
+            ['GitHub Sponsors', 'Recurring or one-off, through GitHub', 'https://github.com/sponsors/WilliamSmithEdward'],
+            ['PayPal', 'One-off, no account needed', SPONSOR_LINKS[1].url],
+            ['Cash App', '$williamesmithjcil', 'https://cash.app/$williamesmithjcil'],
+        ]);
+        expect(sponsor.children?.[4]?.label).toBe('Nothing here is ever required. Thank you for using it either way.');
+    });
+
+    it('opens or copies only the three sponsor addresses', () => {
+        for (const link of SPONSOR_LINKS) {
+            expect(isSponsorUrl(link.url)).toBe(true);
+        }
+        expect(isSponsorUrl('https://github.com/sponsors/SomeoneElse')).toBe(false);
+        expect(isSponsorUrl('https://cash.app/$williamesmithjcil/extra')).toBe(false);
+        expect(isSponsorUrl(undefined)).toBe(false);
+        expect(isSponsorUrl(42)).toBe(false);
     });
 
     it('never gates the sidebar behind a setup section', () => {
