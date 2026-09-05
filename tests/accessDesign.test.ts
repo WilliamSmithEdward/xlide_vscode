@@ -439,3 +439,170 @@ describe('creating and deleting a design', () => {
 			.toThrow(/no form or report named NotThere/);
 	});
 });
+
+// ---------------------------------------------------------------------------
+// The designer surface over an Access design: the same markup, canvas and
+// gestures a UserForm gets. The engine answers `readFormMarkup`,
+// `applyFormMarkup`, `readFormPreview` and `applyFormDesignerOp` for an Access
+// form or report exactly as it does for a UserForm, so the designer, the
+// markup editor and the preview all work without knowing which host it is.
+
+import * as os from 'os';
+import {
+	applyFormDesignerOp,
+	applyFormMarkup,
+	listModules,
+	readFormMarkup,
+	readFormPreview,
+} from '../src/vba/projectService';
+import { setExtensionAssetRoot } from '../src/extensionAssets';
+
+setExtensionAssetRoot(path.join(__dirname, '..'));
+
+/** A scratch copy, so a test that writes never touches the fixture. */
+function scratchCopy(name: string): string {
+	const target = path.join(
+		fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-access-')), name,
+	);
+	fs.copyFileSync(path.join(BINARIES, name), target);
+	return target;
+}
+
+const FIXTURE = 'AccessFormFixture.accdb';
+const DESIGN_MODULE = 'Form_Calculator';
+
+describe('an Access design in the project listing', () => {
+	it('is typed as the form it is, not as a class', () => {
+		const entry = listModules(path.join(BINARIES, FIXTURE))
+			.find((module) => module.name === DESIGN_MODULE);
+		// The type is what gives the tree its icon, its sort position and its
+		// Designer child; a form listed as a class has none of them.
+		expect(entry?.type).toBe('accessform');
+	});
+
+	it('lists a design whose code window Access never opened', () => {
+		// A design with no module behind it is still a design. It reaches the
+		// listing through the container's own storage rather than the project.
+		const target = scratchCopy(FIXTURE);
+		const writer = new AccessVbaWriter(fs.readFileSync(target));
+		writer.addDesign('Standalone', 'form');
+		writer.addDesign('Printed', 'report');
+		fs.writeFileSync(target, writer.toBuffer());
+		const entries = listModules(target);
+		expect(entries.find((module) => module.name === 'Form_Standalone')?.type)
+			.toBe('accessform');
+		expect(entries.find((module) => module.name === 'Report_Printed')?.type)
+			.toBe('accessreport');
+	});
+});
+
+describe('the markup projection', () => {
+	it('prints the design with its sections and controls', () => {
+		const { markup } = readFormMarkup(path.join(BINARIES, FIXTURE), DESIGN_MODULE);
+		expect(markup).toMatch(/^<Form Name="Calculator"/);
+		expect(markup).toContain('<Detail Name="Detail"');
+		expect(markup).toContain('<TextBox Name="Qty"');
+		expect(markup).toContain('<CommandButton Name="AddLine"');
+		// Only properties the object's own schema names are printed, so a
+		// reader can act on every one of them.
+		expect(markup).not.toMatch(/\sP\d+="/);
+	});
+
+	it('applies what it printed without changing anything', () => {
+		const target = scratchCopy(FIXTURE);
+		const { markup } = readFormMarkup(target, DESIGN_MODULE);
+		// Idempotence is what the designer relies on: it rewrites the whole
+		// document after every gesture.
+		expect(applyFormMarkup(target, DESIGN_MODULE, markup).applied).toEqual([]);
+	});
+
+	it('applies an edit and reads it back', () => {
+		const target = scratchCopy(FIXTURE);
+		const before = readFormMarkup(target, DESIGN_MODULE).markup;
+		const result = applyFormMarkup(
+			target,
+			DESIGN_MODULE,
+			before.replace('Caption="Order calculator"', 'Caption="Edited"')
+				.replace('<TextBox Name="Qty" Left="360"', '<TextBox Name="Qty" Left="500"'),
+		);
+		expect(result.applied).toEqual(expect.arrayContaining([
+			'the design.Caption = Edited', 'Qty.Left = 500',
+		]));
+		const after = readFormMarkup(target, DESIGN_MODULE).markup;
+		expect(after).toContain('Caption="Edited"');
+		expect(after).toContain('<TextBox Name="Qty" Left="500"');
+	});
+
+	it('adds and removes a control through the markup alone', () => {
+		const target = scratchCopy(FIXTURE);
+		const before = readFormMarkup(target, DESIGN_MODULE).markup;
+		const added = before.replace(
+			'  </Detail>',
+			'    <Label Name="LblNew" Caption="New" Left="100" Top="100" Width="1000" Height="300" />\n  </Detail>',
+		);
+		expect(applyFormMarkup(target, DESIGN_MODULE, added).applied)
+			.toEqual(expect.arrayContaining([expect.stringContaining('added Label LblNew')]));
+		expect(readFormMarkup(target, DESIGN_MODULE).markup).toContain('Name="LblNew"');
+		const removed = readFormMarkup(target, DESIGN_MODULE).markup
+			.split('\n').filter((line) => !line.includes('Name="LblNew"')).join('\n');
+		expect(applyFormMarkup(target, DESIGN_MODULE, removed).applied)
+			.toEqual(expect.arrayContaining(['removed LblNew']));
+		expect(readFormMarkup(target, DESIGN_MODULE).markup).not.toContain('LblNew');
+	});
+
+	it('refuses a property the control type does not have', () => {
+		const target = scratchCopy(FIXTURE);
+		const markup = readFormMarkup(target, DESIGN_MODULE).markup
+			.replace('<Rectangle Name="Banner"', '<Rectangle Name="Banner" ForeColor="0"');
+		expect(() => applyFormMarkup(target, DESIGN_MODULE, markup))
+			.toThrow(/A Rectangle has no ForeColor/);
+	});
+});
+
+describe('the designer canvas', () => {
+	it('renders the design with its controls', () => {
+		const { html } = readFormPreview(path.join(BINARIES, FIXTURE), DESIGN_MODULE);
+		expect(html).toContain('<!DOCTYPE html>');
+		// Every control the design holds is drawn, positioned in points from
+		// the twips Access stores.
+		expect((html.match(/data-name="/g) ?? []).length).toBeGreaterThanOrEqual(15);
+		expect(html).toContain('Order calculator');
+	});
+
+	it('moves and resizes a control', () => {
+		const target = scratchCopy(FIXTURE);
+		applyFormDesignerOp(target, DESIGN_MODULE, {
+			kind: 'geometry', name: 'Qty', left: 40, top: 90, width: 100, height: 30,
+		});
+		// The canvas measures in points and Access in twips: twenty to one.
+		expect(readFormMarkup(target, DESIGN_MODULE).markup)
+			.toContain('<TextBox Name="Qty" Left="800" Top="1800" Width="2000" Height="600"');
+	});
+
+	it('sets a property from the pane', () => {
+		const target = scratchCopy(FIXTURE);
+		applyFormDesignerOp(target, DESIGN_MODULE, {
+			kind: 'setProp', name: 'Title', prop: 'Caption', value: 'From the pane',
+		});
+		expect(readFormMarkup(target, DESIGN_MODULE).markup)
+			.toContain('<Label Name="Title" Caption="From the pane"');
+	});
+
+	it('drops a control from the toolbox and deletes it again', () => {
+		const target = scratchCopy(FIXTURE);
+		const added = applyFormDesignerOp(target, DESIGN_MODULE, {
+			kind: 'add', container: 'Detail', controlKind: 'Label', left: 20, top: 250,
+		});
+		expect(added.newName).toBe('Label0');
+		expect(readFormMarkup(target, DESIGN_MODULE).markup).toContain('Name="Label0"');
+		applyFormDesignerOp(target, DESIGN_MODULE, { kind: 'remove', name: 'Label0' });
+		expect(readFormMarkup(target, DESIGN_MODULE).markup).not.toContain('Name="Label0"');
+	});
+
+	it('names a gesture it does not take rather than half-applying it', () => {
+		const target = scratchCopy(FIXTURE);
+		expect(() => applyFormDesignerOp(target, DESIGN_MODULE, {
+			kind: 'zOrder', name: 'Qty', toFront: true,
+		})).toThrow(/does not take the zOrder gesture/);
+	});
+});

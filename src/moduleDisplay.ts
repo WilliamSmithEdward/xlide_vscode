@@ -8,6 +8,8 @@ export interface VbaModuleDisplayInput {
 const MODULE_TYPE_ORDER: Record<string, number> = {
     document: 0,
     userform: 1,
+    accessform: 1,
+    accessreport: 1,
     standard: 2,
     class: 3,
 };
@@ -17,11 +19,15 @@ const MODULE_THEME_ICONS: Record<string, string> = {
     class: 'symbol-class',
     document: 'symbol-namespace',
     userform: 'window',
+    accessform: 'window',
+    accessreport: 'book',
 };
 
 const MODULE_TYPE_BADGES: Record<string, string> = {
     document: 'D',
     userform: 'F',
+    accessform: 'F',
+    accessreport: 'R',
     standard: 'M',
     class: 'C',
 };

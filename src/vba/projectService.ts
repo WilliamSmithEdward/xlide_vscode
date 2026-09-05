@@ -38,6 +38,20 @@ import {
 	parseFormFrx,
 } from './formDesigner';
 import { openMacroContainer, type MacroContainer } from './macroContainer';
+import { AccessVbaWriter, type AccessDesignEntry } from './access/accessVbaWriter';
+import {
+	applyAccessDesignMarkup,
+	printAccessDesignMarkup,
+} from './access/accessDesignMarkup';
+import type { MarkupElement } from './oforms/markup';
+import { sceneOfAccessDesign } from './access/accessDesignScene';
+import {
+	addDesignControl,
+	removeDesignControl,
+	setDesignProperty,
+} from './access/accessDesignEdit';
+import { accessDesignObjectName, type AccessDesign } from './access/accessDesign';
+import { randomBytes } from 'crypto';
 import {
 	detectSignature,
 	synthesizeClassHeader,
@@ -75,6 +89,10 @@ import { applyFrmDesignerOp, type FrmDesignerOp, type FrmDesignerOpResult } from
  * listed so the project reads whole, and their designers stay opaque.
  */
 export type ModuleType = 'standard' | 'class' | 'document' | 'userform'
+	// An Access form or report: the design, with the module behind it when it
+	// has one. Access names that module `Form_<design>` / `Report_<design>`,
+	// which is what the VBE lists, so the design and its code are one entry.
+	| 'accessform' | 'accessreport'
 	| 'usercontrol' | 'propertypage' | 'designer';
 export type DocumentType = 'workbook' | 'worksheet' | 'chart' | 'document';
 
@@ -344,6 +362,143 @@ function sheetSurface(filePath: string): XlsxWorkbook {
 	return container.xlsx;
 }
 
+/**
+ * The Access form or report a module name stands for, or undefined when the
+ * container has none. An Access design is named `Form_<design>` in the module
+ * list, which is what the VBE calls the module behind it.
+ */
+function accessDesignFor(
+	filePath: string,
+	moduleName: string,
+): { entry: AccessDesignEntry } | undefined {
+	if (isVb6ProjectPath(filePath)) {
+		return undefined;
+	}
+	const { container } = openContainer(filePath);
+	const design = container.designs?.().find(
+		(entry) => entry.moduleName.toLowerCase() === moduleName.toLowerCase(),
+	);
+	if (!design) {
+		return undefined;
+	}
+	const found = new AccessVbaWriter(fs.readFileSync(filePath)).designs().find(
+		(entry) => entry.name === design.name && entry.kind === design.kind,
+	);
+	return found ? { entry: found } : undefined;
+}
+
+/** Apply markup to an Access design and write the database back. */
+function applyAccessMarkup(
+	filePath: string,
+	designName: string,
+	root: MarkupElement,
+): WriteResult & { applied: string[] } {
+	const writer = new AccessVbaWriter(fs.readFileSync(filePath));
+	let applied: string[] = [];
+	writer.editDesign(designName, (design) => {
+		const outcome = applyAccessDesignMarkup(
+			design,
+			root,
+			writer.designPrototypesFor(designName),
+			() => randomBytes(16),
+		);
+		applied = outcome.applied;
+		return outcome.design;
+	});
+	// Through the one write that cannot forget to invalidate the cache.
+	atomicContainerWrite(filePath, writer.toBuffer());
+	return { ok: true, signatureDropped: false, applied };
+}
+
+/**
+ * A designer gesture on an Access design.
+ *
+ * Every gesture the canvas makes lands here and the designer then re-reads the
+ * markup, so a gesture is the design edit it stands for and takes the same
+ * path a markup edit takes. The canvas measures in points and Access stores
+ * twips, which is the twentyfold everywhere below.
+ */
+function applyAccessDesignerOp(
+	filePath: string,
+	designName: string,
+	op: FormDesignerOp,
+): WriteResult & { newName?: string } {
+	const writer = new AccessVbaWriter(fs.readFileSync(filePath));
+	let newName: string | undefined;
+	writer.editDesign(designName, (design) => {
+		switch (op.kind) {
+			case 'geometry':
+				return setAccessGeometry(design, op.name, op);
+			case 'geometryBatch':
+				return op.items.reduce(
+					(next: AccessDesign, item) => setAccessGeometry(next, item.name, item), design,
+				);
+			case 'setProp':
+				return setDesignProperty(design, op.name, op.prop, op.value);
+			case 'formSize':
+				// Access sizes a form by its sections rather than by one outer
+				// box: the width is the design's, the height the detail band's.
+				return setDesignProperty(
+					setDesignProperty(design, undefined, 'Width', twips(op.width)),
+					'Detail', 'Height', twips(op.height),
+				);
+			case 'remove':
+				return removeDesignControl(design, op.name);
+			case 'add': {
+				newName = nextAccessControlName(design, op.controlKind);
+				return addDesignControl(
+					design, op.controlKind, newName, randomBytes(16),
+					writer.designPrototypesFor(designName),
+					{ left: twips(op.left), top: twips(op.top) },
+				);
+			}
+			default:
+				throw new Error(
+					`An Access design does not take the ${op.kind} gesture yet; it takes geometry, `
+					+ 'properties, add and remove.',
+				);
+		}
+	});
+	atomicContainerWrite(filePath, writer.toBuffer());
+	return newName === undefined
+		? { ok: true, signatureDropped: false }
+		: { ok: true, signatureDropped: false, newName };
+}
+
+function twips(points: number): number {
+	return Math.max(0, Math.round(points * 20));
+}
+
+function setAccessGeometry(
+	design: AccessDesign,
+	name: string,
+	box: { left?: number; top?: number; width?: number; height?: number },
+): AccessDesign {
+	let next = design;
+	for (const [property, value] of [
+		['Left', box.left], ['Top', box.top], ['Width', box.width], ['Height', box.height],
+	] as Array<[string, number | undefined]>) {
+		if (value !== undefined) {
+			next = setDesignProperty(next, name, property, twips(value));
+		}
+	}
+	return next;
+}
+
+/** The next free `TextBox0`-style name for a control the canvas just dropped. */
+function nextAccessControlName(design: AccessDesign, controlKind: string): string {
+	const taken = new Set(design.objects
+		.map(accessDesignObjectName)
+		.filter((name): name is string => name !== undefined)
+		.map((name) => name.toLowerCase()));
+	for (let n = 0; ; n += 1) {
+		const candidate = `${controlKind}${n}`;
+		if (!taken.has(candidate.toLowerCase())) {
+			return candidate;
+		}
+	}
+}
+
 /** Test hook: a VB6 form's parsed designer header through the service's own dispatch. */
 export const readVb6FormHeaderForTests = readVb6FormHeader;
 
@@ -592,15 +747,16 @@ export function listModules(filePath: string): ModuleEntry[] {
 	if (isVb6ProjectPath(filePath)) {
 		return listVb6Modules(filePath).map(vb6ModuleEntry);
 	}
-	const { cfb, project } = openContainer(filePath);
-	return project.modules.map((module) => moduleEntryWithDesigner(cfb, project, module));
+	const { container, cfb, project } = openContainer(filePath);
+	const entries = project.modules.map((module) => moduleEntryWithDesigner(cfb, project, module));
+	return withHostDesigns(container, entries);
 }
 
 export function readModules(filePath: string, full = false): ModuleEntry[] {
 	if (isVb6ProjectPath(filePath)) {
 		return readVb6Modules(filePath, full).map(vb6ModuleEntry);
 	}
-	const { cfb, project } = openContainer(filePath);
+	const { container, cfb, project } = openContainer(filePath);
 	const out: ModuleEntry[] = [];
 	const constants = project.conditionalConstantsRaw || undefined;
 	for (const module of project.modules) {
@@ -614,7 +770,51 @@ export function readModules(filePath: string, full = false): ModuleEntry[] {
 			continue;
 		}
 	}
+	return withHostDesigns(container, out, constants);
+}
+
+/**
+ * The host's own forms and reports, folded into a module listing.
+ *
+ * Only Access has any. Its designs are objects in the database and the module
+ * behind one is optional, so a design with code is the module Access names for
+ * it - retyped, so the tree shows it as the form it is - and a design without
+ * code is an entry of its own with no source behind it. Every other host keeps
+ * its forms in the project, where they are already modules.
+ */
+function withHostDesigns(
+	container: MacroContainer,
+	entries: ModuleEntry[],
+	constants?: string,
+): ModuleEntry[] {
+	const designs = container.designs?.() ?? [];
+	if (designs.length === 0) {
+		return entries;
+	}
+	const byModule = new Map(designs.map((design) => [design.moduleName.toLowerCase(), design]));
+	const out = entries.map((entry) => {
+		const design = byModule.get(entry.name.toLowerCase());
+		return design ? { ...entry, type: designModuleType(design.kind) } : entry;
+	});
+	const covered = new Set(out.map((entry) => entry.name.toLowerCase()));
+	for (const design of designs) {
+		if (covered.has(design.moduleName.toLowerCase())) {
+			continue;
+		}
+		// A design Access has never opened the code window for has no module
+		// at all. It is still a design, and the designer is what reaches it.
+		const entry: ModuleEntry = {
+			name: design.moduleName,
+			type: designModuleType(design.kind),
+		};
+		if (constants) { entry.projectConditionalConstants = constants; }
+		out.push(entry);
+	}
 	return out;
+}
+
+function designModuleType(kind: 'form' | 'report'): ModuleType {
+	return kind === 'form' ? 'accessform' : 'accessreport';
 }
 
 /**
@@ -793,6 +993,12 @@ function oformsCodec(codePage: number): OformsTextCodec {
  * designer storage; no host is involved.
  */
 export function readFormMarkup(filePath: string, moduleName: string): { markup: string } {
+	const design = accessDesignFor(filePath, moduleName);
+	if (design) {
+		return {
+			markup: printAccessDesignMarkup(design.entry.design, design.entry.name, design.entry.kind),
+		};
+	}
 	const { cfb, project } = openContainer(filePath);
 	const module = project.getModule(moduleName);
 	if (!module) {
@@ -839,6 +1045,15 @@ export function readFormPreview(
 	markup?: string,
 	identityPath?: string,
 ): { html: string } {
+	const design = accessDesignFor(filePath, moduleName);
+	if (design) {
+		const scene = sceneOfAccessDesign(design.entry.design, design.entry.name, design.entry.kind);
+		const options: Parameters<typeof renderFormSceneHtml>[1] = {
+			formName: design.entry.name,
+		};
+		if (selected !== undefined) { options.selected = selected; }
+		return { html: renderFormSceneHtml(scene, options) };
+	}
 	const { cfb, project } = openContainer(filePath);
 	const module = project.getModule(moduleName);
 	if (!module) {
@@ -1010,6 +1225,10 @@ export function applyFormMarkup(
 	markup: string,
 ): WriteResult & { applied: string[] } {
 	const root = parseOformsMarkup(markup);
+	const design = accessDesignFor(filePath, moduleName);
+	if (design) {
+		return applyAccessMarkup(filePath, design.entry.name, root);
+	}
 	const wb = openContainerForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
 	const module = wb.project.getModule(moduleName);
@@ -1099,20 +1318,27 @@ export function applyFormMarkup(
  * parse-mutate-write of the designer storage, through the same primitives
  * the markup apply uses.
  */
+/** One gesture the designer canvas makes, whatever host the form belongs to. */
+export type FormDesignerOp =
+	| { kind: 'geometry'; name: string; left?: number; top?: number; width?: number; height?: number }
+	| { kind: 'add'; container: string; controlKind: string; left: number; top: number }
+	| { kind: 'remove'; name: string }
+	| { kind: 'reparent'; name: string; container: string; left: number; top: number }
+	| { kind: 'setProp'; name: string; prop: string; value: string }
+	| { kind: 'formSize'; width: number; height: number }
+	| { kind: 'geometryBatch'; items: readonly { name: string; left?: number; top?: number; width?: number; height?: number }[] }
+	| { kind: 'zOrder'; name: string; toFront: boolean }
+	| { kind: 'tabOrder'; container: string; names: readonly string[] };
+
 export function applyFormDesignerOp(
 	filePath: string,
 	moduleName: string,
-	op:
-		| { kind: 'geometry'; name: string; left?: number; top?: number; width?: number; height?: number }
-		| { kind: 'add'; container: string; controlKind: string; left: number; top: number }
-		| { kind: 'remove'; name: string }
-		| { kind: 'reparent'; name: string; container: string; left: number; top: number }
-		| { kind: 'setProp'; name: string; prop: string; value: string }
-		| { kind: 'formSize'; width: number; height: number }
-		| { kind: 'geometryBatch'; items: readonly { name: string; left?: number; top?: number; width?: number; height?: number }[] }
-		| { kind: 'zOrder'; name: string; toFront: boolean }
-		| { kind: 'tabOrder'; container: string; names: readonly string[] },
+	op: FormDesignerOp,
 ): WriteResult & { newName?: string } {
+	const design = accessDesignFor(filePath, moduleName);
+	if (design) {
+		return applyAccessDesignerOp(filePath, design.entry.name, op);
+	}
 	const wb = openContainerForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
 	const module = wb.project.getModule(moduleName);

@@ -82,6 +82,14 @@ function surfaceProjectWriteError(filePath: string, err: unknown, fallbackPrefix
     }
 }
 
+/**
+ * Module kinds that have a design to open: a UserForm, an Access form or
+ * report, and the VB6 designers, which carry their own header instead.
+ */
+const DESIGNABLE_MODULE_TYPES: ReadonlySet<string> = new Set([
+    'userform', 'accessform', 'accessreport',
+]);
+
 export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposable[] {
     const { bridge, explorer, fsProvider, out, vbaIndex } = deps;
 
@@ -297,7 +305,8 @@ export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposabl
 
         // Open a form's markup projection beside its code-behind.
         registerXlideCommand('xlide.openFormMarkup', async (node: XlideNode) => {
-            if (node?.kind !== 'module' || node.moduleType !== 'userform' || !node.moduleName) { return; }
+            if (node?.kind !== 'module' || !node.moduleName
+                || !DESIGNABLE_MODULE_TYPES.has(node.moduleType ?? '')) { return; }
             try {
                 const doc = await vscode.workspace.openTextDocument(encodeFormMarkupUri(node.filePath, node.moduleName));
                 await vscode.languages.setTextDocumentLanguage(doc, 'xml');

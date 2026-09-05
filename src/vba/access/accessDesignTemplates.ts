@@ -101,7 +101,15 @@ export function availablePrototypes(
 	kind: AccessDesignKind,
 	carried: AccessDesignPrototypes,
 ): AccessDesignPrototypes {
-	const out = new Map(accessDesignTemplate(kind).prototypes);
+	let out: Map<number, readonly AccessDesignRecord[]>;
+	try {
+		out = new Map(accessDesignTemplate(kind).prototypes);
+	} catch {
+		// Without the captured templates a design can still be edited; only a
+		// control of a type it does not already hold is out of reach, and
+		// addDesignControl refuses that with the reason.
+		out = new Map();
+	}
 	for (const [type, records] of carried) {
 		out.set(type, records);
 	}

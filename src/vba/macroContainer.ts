@@ -24,7 +24,7 @@
 import { accessVbaCfb, isAccessDatabase } from './accessDatabase';
 import { Cfb } from './cfb';
 import { pptVbaCfb, pptWriteVbaStorage } from './pptContainer';
-import { applyAccessVbaProject } from './access/accessVbaWriter';
+import { applyAccessVbaProject, readAccessDesignNames } from './access/accessVbaWriter';
 import { XlsxWorkbook } from './xlsx';
 
 export class MacroContainerError extends Error {}
@@ -45,6 +45,20 @@ export interface MacroContainer {
 	/** The whole container file's bytes with the (mutated) VBA project CFB
 	 * spliced back in. Throws for read-only containers. */
 	toFileBytes(cfb: Cfb): Buffer;
+	/**
+	 * Forms and reports the host keeps outside the VBA project. Only Access
+	 * has any: its designs are objects in the database, and the module behind
+	 * one is optional, so they cannot be found by walking the project alone.
+	 */
+	designs?(): AccessContainerDesign[];
+}
+
+/** One design a container carries, and the module Access names for its code. */
+export interface AccessContainerDesign {
+	name: string;
+	kind: 'form' | 'report';
+	/** `Form_<name>` or `Report_<name>`, whether or not that module exists. */
+	moduleName: string;
 }
 
 const ZIP_MAGIC = Buffer.from('PK', 'latin1');
@@ -67,6 +81,7 @@ export function openMacroContainer(data: Buffer): MacroContainer {
 			// write only takes effect once the compiled cache is marked stale;
 			// the writer does that, and Access recompiles on the next open.
 			toFileBytes: (cfb: Cfb): Buffer => applyAccessVbaProject(data, cfb),
+			designs: cachedDesigns(data),
 		};
 	}
 	throw new MacroContainerError(
@@ -133,6 +148,22 @@ function wholeCfbContainer(outer: Cfb, kind: MacroContainerKind, description: st
 		description,
 		vbaCfb: (): Cfb => outer,
 		toFileBytes: (cfb: Cfb): Buffer => cfb.toBytes(),
+	};
+}
+
+/**
+ * The database's forms and reports, read once. A design with no module behind
+ * it is still a design, so the list comes from the storage rather than from
+ * the project's module list.
+ */
+function cachedDesigns(data: Buffer): () => AccessContainerDesign[] {
+	let value: AccessContainerDesign[] | undefined;
+	return (): AccessContainerDesign[] => {
+		value ??= readAccessDesignNames(data).map((entry) => ({
+			...entry,
+			moduleName: `${entry.kind === 'form' ? 'Form' : 'Report'}_${entry.name}`,
+		}));
+		return value;
 	};
 }
 

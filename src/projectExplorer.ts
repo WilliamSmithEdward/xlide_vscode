@@ -23,7 +23,7 @@ export interface XlideNode {
     filePath: string;
     /** Module name (for 'module' and 'sub' nodes). */
     moduleName?: string;
-    /** Module type: 'standard' | 'class' | 'document' | 'userform', or a VB6-only kind. */
+    /** Module type: 'standard' | 'class' | 'document' | 'userform' | 'accessform' | 'accessreport', or a VB6-only kind. */
     moduleType?: string;
     /**
      * The module's own file, when the container's modules are files (a VB6
@@ -884,7 +884,10 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         // drawn from its own header (roadmap_vb6_support.md, Slice 5).
         const vb6Designer = isVb6ProjectPath(filePath)
             && (moduleType === 'usercontrol' || moduleType === 'propertypage');
-        if (moduleType === 'userform' || vb6Designer) {
+        // An Access form or report is a design first: it has one whether or
+        // not Access has ever opened its code window.
+        const accessDesign = moduleType === 'accessform' || moduleType === 'accessreport';
+        if (moduleType === 'userform' || vb6Designer || accessDesign) {
             // The designer sits FIRST under its form, above the handlers - the
             // xlide vbide arrangement: the design comes before the code that
             // answers it, and a fixed position means the row never moves as

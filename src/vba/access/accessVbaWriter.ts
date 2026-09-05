@@ -9,7 +9,11 @@ import { AccessTable, type AccessRowId } from './accessTableWriter';
 import { decodeLongValue, readLongValueFrom } from './accessLongValue';
 import { splitRow } from './accessRow';
 import type { AccessScalar } from './accessValue';
-import { readAccessCatalog } from './accessStorage';
+import {
+	readAccessCatalog,
+	readAccessStorage,
+	type AccessStorageEntry,
+} from './accessStorage';
 import { buildAccessDesign, parseAccessDesign, type AccessDesign } from './accessDesign';
 import { updateTypeInfo } from './accessTypeInfo';
 import {
@@ -922,6 +926,50 @@ export class AccessVbaWriter {
 		this.storage.setLongValue(row.rowId, 'Lv', bytes);
 		row.bytes = bytes;
 	}
+}
+
+/**
+ * The forms and reports a database holds, by name and kind. Cheaper than
+ * `AccessVbaWriter.designs()`, which parses every design blob; a listing only
+ * needs what the containers' own listings say is there.
+ */
+export function readAccessDesignNames(
+	data: Buffer,
+): Array<{ name: string; kind: AccessDesignKind }> {
+	let roots;
+	try {
+		roots = readAccessStorage(data);
+	} catch {
+		return [];
+	}
+	if (!roots) {
+		return [];
+	}
+	const out: Array<{ name: string; kind: AccessDesignKind }> = [];
+	const walk = (nodes: readonly AccessStorageEntry[]): void => {
+		for (const node of nodes) {
+			const kind = node.name === 'Forms' ? 'form' : node.name === 'Reports' ? 'report' : undefined;
+			if (kind) {
+				const listing = node.children.find(
+					(child) => child.name.endsWith(DIR_DATA) && child.bytes,
+				);
+				const ordinals = new Set(node.children
+					.filter((child) => /^\d+$/.test(child.name))
+					.map((child) => child.name));
+				for (const entry of listing ? dirDataEntries(listing.bytes!) : []) {
+					// A listing can outlive the folder it names; the folder is
+					// what actually holds the design.
+					if (ordinals.has(entry.folder)) {
+						out.push({ name: entry.name, kind });
+					}
+				}
+				continue;
+			}
+			walk(node.children);
+		}
+	};
+	walk(roots);
+	return out;
 }
 
 /** Replace a module's text and give the database back. */

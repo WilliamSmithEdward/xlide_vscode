@@ -41,6 +41,14 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
   Verified in Access: a form XLIDE created from nothing opens, shows the
   caption and controls it was given, and its code reaches them through `Me`.
 
+- **Access forms and reports reach the designer.** They appear in the project
+  tree as the forms and reports they are, with a **Designer** under each, and
+  the same three surfaces a UserForm has answer for them: the markup editor,
+  the canvas and the property pane. A drag, a resize, a property set, a
+  toolbox drop and a delete are the same gestures, and each is one edit of the
+  markup, so `Ctrl+Z` undoes it. A design whose code window Access has never
+  opened has no module at all, and is listed anyway.
+
 - **Names and source outside the project's code page.** Everything on the
   Access side goes through the project's declared `PROJECTCODEPAGE` rather than
   latin-1, so a module named in Cyrillic or Japanese keeps its real name in the
