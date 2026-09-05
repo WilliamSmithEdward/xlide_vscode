@@ -97,6 +97,73 @@ export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposabl
         out.appendLine(msg);
     }
 
+    /** What each designer object is called where the user can see it. */
+    const DESIGNER_WORDS = {
+        userform: { title: 'UserForm', command: 'xlide.newUserForm', placeHolder: 'FrmMain' },
+        form: { title: 'form', command: 'xlide.newAccessForm', placeHolder: 'Orders' },
+        report: { title: 'report', command: 'xlide.newAccessReport', placeHolder: 'Invoices' },
+    } as const;
+
+    /**
+     * Create a designer object and open its markup: a UserForm in the project,
+     * or an Access form or report in the database. The engine decides which
+     * from the container; the kind here is what the user asked for and what
+     * the messages say.
+     */
+    async function newDesigner(
+        node: XlideNode,
+        kind: keyof typeof DESIGNER_WORDS,
+    ): Promise<void> {
+        if (node?.kind !== 'project') { return; }
+        const words = DESIGNER_WORDS[kind];
+        const name = await promptForNewModuleName(bridge, node.filePath, {
+            prompt: `New ${words.title} name`,
+            placeHolder: words.placeHolder,
+        });
+        if (!name) { return; }
+        try {
+            const created = await runWriteWithExcelCoordination(node.filePath, () =>
+                bridge.call('addForm', {
+                    path: node.filePath,
+                    module: name,
+                    source: 'Option Explicit\r\n',
+                    ...(kind === 'userform' ? {} : { kind }),
+                })) as { moduleName?: string } | undefined;
+            const opened = created?.moduleName ?? name;
+            const summaryText = logChangeSummary(log, words.command.replace('xlide.', ''), {
+                operation: `Create ${words.title}`,
+                changed: [opened],
+            });
+            recordWriteAudit({
+                command: words.command,
+                operation: `create-${kind}`,
+                outcome: 'succeeded',
+                projectPath: node.filePath,
+                moduleName: opened,
+                summary: summaryText,
+            });
+            explorer.refresh();
+            const doc = await vscode.workspace.openTextDocument(
+                encodeFormMarkupUri(node.filePath, opened),
+            );
+            await vscode.languages.setTextDocumentLanguage(doc, 'xml');
+            await vscode.window.showTextDocument(doc, { preview: false });
+        } catch (err) {
+            recordWriteAudit({
+                command: words.command,
+                operation: `create-${kind}`,
+                outcome: 'failed',
+                projectPath: node.filePath,
+                moduleName: name,
+                summary: `Create ${words.title}: 0 changed, 1 failed`,
+                error: err,
+            });
+            surfaceProjectWriteError(
+                node.filePath, err, `XLIDE: Failed to create the ${words.title}`,
+            );
+        }
+    }
+
     return [
         // Put the last rename back as one operation (issue #9 rule 10).
         // A rename edits several modules; an editor's undo stack is per
@@ -263,45 +330,11 @@ export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposabl
 
         // Add a new UserForm: the module with its code-behind and a designer
         // storage authored natively - no Office application is involved.
-        registerXlideCommand('xlide.newUserForm', async (node: XlideNode) => {
-            if (node?.kind !== 'project') { return; }
-            const name = await promptForNewModuleName(bridge, node.filePath, {
-                prompt: 'New UserForm name',
-                placeHolder: 'FrmMain',
-            });
-            if (!name) { return; }
-            try {
-                await runWriteWithExcelCoordination(node.filePath, () =>
-                    bridge.call('addForm', { path: node.filePath, module: name, source: 'Option Explicit\r\n' }));
-                const summaryText = logChangeSummary(log, 'newUserForm', {
-                    operation: 'Create UserForm',
-                    changed: [name],
-                });
-                recordWriteAudit({
-                    command: 'xlide.newUserForm',
-                    operation: 'create-userform',
-                    outcome: 'succeeded',
-                    projectPath: node.filePath,
-                    moduleName: name,
-                    summary: summaryText,
-                });
-                explorer.refresh();
-                const doc = await vscode.workspace.openTextDocument(encodeFormMarkupUri(node.filePath, name));
-                await vscode.languages.setTextDocumentLanguage(doc, 'xml');
-                await vscode.window.showTextDocument(doc, { preview: false });
-            } catch (err) {
-                recordWriteAudit({
-                    command: 'xlide.newUserForm',
-                    operation: 'create-userform',
-                    outcome: 'failed',
-                    projectPath: node.filePath,
-                    moduleName: name,
-                    summary: 'Create UserForm: 0 changed, 1 failed',
-                    error: err,
-                });
-                surfaceProjectWriteError(node.filePath, err, 'XLIDE: Failed to create UserForm');
-            }
-        }),
+        registerXlideCommand('xlide.newUserForm', (node: XlideNode) => newDesigner(node, 'userform')),
+        // An Access database keeps its designer objects in the database rather
+        // than in the project, and has two kinds of them.
+        registerXlideCommand('xlide.newAccessForm', (node: XlideNode) => newDesigner(node, 'form')),
+        registerXlideCommand('xlide.newAccessReport', (node: XlideNode) => newDesigner(node, 'report')),
 
         // Open a form's markup projection beside its code-behind.
         registerXlideCommand('xlide.openFormMarkup', async (node: XlideNode) => {

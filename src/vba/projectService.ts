@@ -38,17 +38,26 @@ import {
 	parseFormFrx,
 } from './formDesigner';
 import { openMacroContainer, type MacroContainer } from './macroContainer';
-import { AccessVbaWriter, type AccessDesignEntry } from './access/accessVbaWriter';
 import {
+	AccessVbaWriter,
+	accessDesignModuleName,
+	type AccessDesignEntry,
+} from './access/accessVbaWriter';
+import {
+	accessDesignProperties,
 	applyAccessDesignMarkup,
 	printAccessDesignMarkup,
+	setAccessDesignPropertyText,
 } from './access/accessDesignMarkup';
 import type { MarkupElement } from './oforms/markup';
 import { sceneOfAccessDesign } from './access/accessDesignScene';
 import {
 	addDesignControl,
 	removeDesignControl,
+	reparentDesignControl,
 	setDesignProperty,
+	setDesignTabOrder,
+	setDesignZOrder,
 } from './access/accessDesignEdit';
 import { accessDesignObjectName, type AccessDesign } from './access/accessDesign';
 import { randomBytes } from 'crypto';
@@ -387,6 +396,23 @@ function accessDesignFor(
 	return found ? { entry: found } : undefined;
 }
 
+/**
+ * The design name behind what the tree calls a module. A design is listed as
+ * the module Access binds its code to, `Form_Orders`, so a new name typed with
+ * or without that prefix means the same design: the prefix is Access's, not
+ * the user's to drop.
+ */
+function accessDesignRename(
+	kind: 'form' | 'report',
+	newName: string,
+): { design: string; module: string } {
+	const prefix = accessDesignModuleName(kind, '');
+	const design = newName.toLowerCase().startsWith(prefix.toLowerCase())
+		? newName.slice(prefix.length)
+		: newName;
+	return { design, module: accessDesignModuleName(kind, design) };
+}
+
 /** Apply markup to an Access design and write the database back. */
 function applyAccessMarkup(
 	filePath: string,
@@ -434,7 +460,17 @@ function applyAccessDesignerOp(
 					(next: AccessDesign, item) => setAccessGeometry(next, item.name, item), design,
 				);
 			case 'setProp':
-				return setDesignProperty(design, op.name, op.prop, op.value);
+				// The pane sends what a reader would type, so it lands the same
+				// way the markup's own attribute does.
+				return setAccessDesignPropertyText(design, op.name || undefined, op.prop, op.value);
+			case 'zOrder':
+				return setDesignZOrder(design, op.name, op.toFront);
+			case 'tabOrder':
+				return setDesignTabOrder(design, op.container, op.names);
+			case 'reparent':
+				return reparentDesignControl(
+					design, op.name, op.container, twips(op.left), twips(op.top),
+				);
 			case 'formSize':
 				// Access sizes a form by its sections rather than by one outer
 				// box: the width is the design's, the height the detail band's.
@@ -452,11 +488,6 @@ function applyAccessDesignerOp(
 					{ left: twips(op.left), top: twips(op.top) },
 				);
 			}
-			default:
-				throw new Error(
-					`An Access design does not take the ${op.kind} gesture yet; it takes geometry, `
-					+ 'properties, add and remove.',
-				);
 		}
 	});
 	atomicContainerWrite(filePath, writer.toBuffer());
@@ -1047,12 +1078,17 @@ export function readFormPreview(
 ): { html: string } {
 	const design = accessDesignFor(filePath, moduleName);
 	if (design) {
-		const scene = sceneOfAccessDesign(design.entry.design, design.entry.name, design.entry.kind);
+		const { design: parsed, name, kind } = design.entry;
 		const options: Parameters<typeof renderFormSceneHtml>[1] = {
-			formName: design.entry.name,
+			formName: name,
+			properties: accessDesignProperties(parsed, name, kind),
+			markup: markup ?? printAccessDesignMarkup(parsed, name, kind),
 		};
 		if (selected !== undefined) { options.selected = selected; }
-		return { html: renderFormSceneHtml(scene, options) };
+		if (identityPath !== undefined) {
+			options.identity = { project: identityPath, module: moduleName };
+		}
+		return { html: renderFormSceneHtml(sceneOfAccessDesign(parsed, name, kind), options) };
 	}
 	const { cfb, project } = openContainer(filePath);
 	const module = project.getModule(moduleName);
@@ -1520,7 +1556,19 @@ export function addFormModule(
 	filePath: string,
 	moduleName: string,
 	body = '',
-): WriteResult {
+	kind: 'form' | 'report' = 'form',
+): WriteResult & { moduleName: string } {
+	// An Access database keeps its forms and reports as database objects, so a
+	// new one is a design rather than a module with a designer storage. The
+	// tree lists it as the module Access binds its code to, which is the name
+	// the caller has to open it by.
+	if (!isVb6ProjectPath(filePath) && openContainer(filePath).container.kind === 'access') {
+		const named = accessDesignRename(kind, moduleName);
+		const writer = new AccessVbaWriter(fs.readFileSync(filePath));
+		writer.addDesign(named.design, kind);
+		atomicContainerWrite(filePath, writer.toBuffer());
+		return { ok: true, signatureDropped: false, moduleName: named.module };
+	}
 	const wb = openContainerForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
 	if (wb.project.getModule(moduleName)) {
@@ -1552,7 +1600,7 @@ export function addFormModule(
 	wb.cfb.setStreamAtPath([moduleName], VBFRAME_STREAM, encodeCodePage(streams.vbFrame, wb.project.codePage));
 	wb.cfb.setStreamAtPath([moduleName], '\x01CompObj', streams.compObj);
 	saveContainer(filePath, wb);
-	return { ok: true, signatureDropped };
+	return { ok: true, signatureDropped, moduleName };
 }
 
 /** The designer storage's streams for a module, or undefined when it has none. */
@@ -1800,6 +1848,17 @@ export function renameModule(filePath: string, moduleName: string, newName: stri
 	if (isVb6ProjectPath(filePath)) {
 		throw new Error(`Renaming a module of a VB6 project is not supported yet; rename ${moduleName} in the .vbp and its file.`);
 	}
+	// An Access form or report is an object in the database, not a module in
+	// the project: renaming it moves its catalog row, its container's listing
+	// and the module behind it together.
+	const design = accessDesignFor(filePath, moduleName);
+	if (design) {
+		const renamed = accessDesignRename(design.entry.kind, newName);
+		const writer = new AccessVbaWriter(fs.readFileSync(filePath));
+		writer.renameDesign(design.entry.name, renamed.design);
+		atomicContainerWrite(filePath, writer.toBuffer());
+		return { ok: true, signatureDropped: false };
+	}
 	const wb = openContainerForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
 	assertFoldedNameDistinct(wb.project.modules, wb.project.codePage, newName, moduleName);
@@ -1811,6 +1870,13 @@ export function renameModule(filePath: string, moduleName: string, newName: stri
 export function deleteModule(filePath: string, moduleName: string): WriteResult {
 	if (isVb6ProjectPath(filePath)) {
 		throw new Error(`Deleting a module of a VB6 project is not supported yet; remove ${moduleName} from the .vbp and delete its file.`);
+	}
+	const design = accessDesignFor(filePath, moduleName);
+	if (design) {
+		const writer = new AccessVbaWriter(fs.readFileSync(filePath));
+		writer.deleteDesign(design.entry.name);
+		atomicContainerWrite(filePath, writer.toBuffer());
+		return { ok: true, signatureDropped: false };
 	}
 	const wb = openContainerForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;

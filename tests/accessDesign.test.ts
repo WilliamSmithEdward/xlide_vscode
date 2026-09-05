@@ -22,7 +22,13 @@ import {
 	isAccessDesignSection,
 	parseAccessDesign,
 } from '../src/vba/access/accessDesign';
-import { readAccessCatalog, readAccessDesigns, readAccessStorage } from '../src/vba/access/accessStorage';
+import {
+	readAccessCatalog,
+	readAccessDesigns,
+	readAccessStorage,
+	readAccessVbaStreams,
+	readTableRows,
+} from '../src/vba/access/accessStorage';
 
 const BINARIES = path.join(__dirname, 'fixtures', 'binaries');
 const FORMS = fs.readFileSync(path.join(BINARIES, 'AccessFormFixture.accdb'));
@@ -449,12 +455,22 @@ describe('creating and deleting a design', () => {
 
 import * as os from 'os';
 import {
+	addFormModule,
 	applyFormDesignerOp,
 	applyFormMarkup,
+	deleteModule,
 	listModules,
 	readFormMarkup,
 	readFormPreview,
+	renameModule,
 } from '../src/vba/projectService';
+import { sceneOfAccessDesign } from '../src/vba/access/accessDesignScene';
+import {
+	accessDesignProperties,
+	printAccessDesignMarkup,
+} from '../src/vba/access/accessDesignMarkup';
+import { PROPERTY_SLOTS } from '../src/vba/access/accessDesignTable';
+import { readTableDefinition } from '../src/vba/access/accessFormat';
 import { setExtensionAssetRoot } from '../src/extensionAssets';
 
 setExtensionAssetRoot(path.join(__dirname, '..'));
@@ -523,14 +539,14 @@ describe('the markup projection', () => {
 			target,
 			DESIGN_MODULE,
 			before.replace('Caption="Order calculator"', 'Caption="Edited"')
-				.replace('<TextBox Name="Qty" Left="360"', '<TextBox Name="Qty" Left="500"'),
+				.replace('<TextBox Name="Qty" Left="18"', '<TextBox Name="Qty" Left="25"'),
 		);
 		expect(result.applied).toEqual(expect.arrayContaining([
-			'the design.Caption = Edited', 'Qty.Left = 500',
+			'the design.Caption = Edited', 'Qty.Left = 25',
 		]));
 		const after = readFormMarkup(target, DESIGN_MODULE).markup;
 		expect(after).toContain('Caption="Edited"');
-		expect(after).toContain('<TextBox Name="Qty" Left="500"');
+		expect(after).toContain('<TextBox Name="Qty" Left="25"');
 	});
 
 	it('adds and removes a control through the markup alone', () => {
@@ -574,9 +590,10 @@ describe('the designer canvas', () => {
 		applyFormDesignerOp(target, DESIGN_MODULE, {
 			kind: 'geometry', name: 'Qty', left: 40, top: 90, width: 100, height: 30,
 		});
-		// The canvas measures in points and Access in twips: twenty to one.
+		// The gesture, the markup and the pane all count points; Access stores
+		// twips, twenty to the point, and the conversion never leaks out.
 		expect(readFormMarkup(target, DESIGN_MODULE).markup)
-			.toContain('<TextBox Name="Qty" Left="800" Top="1800" Width="2000" Height="600"');
+			.toContain('<TextBox Name="Qty" Left="40" Top="90" Width="100" Height="30"');
 	});
 
 	it('sets a property from the pane', () => {
@@ -599,10 +616,220 @@ describe('the designer canvas', () => {
 		expect(readFormMarkup(target, DESIGN_MODULE).markup).not.toContain('Name="Label0"');
 	});
 
-	it('names a gesture it does not take rather than half-applying it', () => {
+	it('brings a control to the front and sends it back', () => {
 		const target = scratchCopy(FIXTURE);
-		expect(() => applyFormDesignerOp(target, DESIGN_MODULE, {
-			kind: 'zOrder', name: 'Qty', toFront: true,
-		})).toThrow(/does not take the zOrder gesture/);
+		const order = (): string[] => [...readFormMarkup(target, DESIGN_MODULE).markup
+			.matchAll(/<\w+ Name="(\w+)"/g)].map((match) => match[1]);
+		const before = order();
+		applyFormDesignerOp(target, DESIGN_MODULE, { kind: 'zOrder', name: 'Banner', toFront: true });
+		// Access paints in list order, so the last control drawn is on top.
+		expect(order().at(-1)).toBe('Banner');
+		applyFormDesignerOp(target, DESIGN_MODULE, { kind: 'zOrder', name: 'Banner', toFront: false });
+		expect(order()).toEqual(before);
+	});
+
+	it('rewrites the tab order of a section', () => {
+		const target = scratchCopy(FIXTURE);
+		applyFormDesignerOp(target, DESIGN_MODULE, {
+			kind: 'tabOrder',
+			container: 'Detail',
+			names: ['Price', 'Qty', 'Express', 'AddLine', 'Reset', 'Lines'],
+		});
+		const markup = readFormMarkup(target, DESIGN_MODULE).markup;
+		// The first control carries no TabIndex at all, which is how Access
+		// writes it; the rest count up from one.
+		expect(markup).toMatch(/<TextBox Name="Price"(?![^>]*TabIndex)/);
+		expect(markup).toMatch(/<TextBox Name="Qty"[^>]*TabIndex="1"/);
+		expect(markup).toMatch(/<CheckBox Name="Express"[^>]*TabIndex="2"/);
+		expect(markup).toMatch(/<ListBox Name="Lines"[^>]*TabIndex="5"/);
+	});
+
+	it('takes a colour, a Yes/No and a measurement from the pane as text', () => {
+		const target = scratchCopy(FIXTURE);
+		for (const [name, prop, value] of [
+			['Title', 'ForeColor', '#c00000'],
+			['Title', 'Visible', 'False'],
+			['Qty', 'Left', '36.5'],
+			['', 'Caption', 'From the pane'],
+		] as const) {
+			applyFormDesignerOp(target, DESIGN_MODULE, { kind: 'setProp', name, prop, value });
+		}
+		const markup = readFormMarkup(target, DESIGN_MODULE).markup;
+		expect(markup).toMatch(/<Label Name="Title"[^>]*ForeColor="#c00000"/);
+		expect(markup).toMatch(/<Label Name="Title"[^>]*Visible="False"/);
+		expect(markup).toMatch(/<TextBox Name="Qty"[^>]*Left="36.5"/);
+		expect(markup).toContain('<Form Name="Calculator" Caption="From the pane"');
+	});
+
+	it('shows every property the control type has, the same list every time', () => {
+		// The sheet for a control is its type's whole property list, not
+		// whatever the design happened to store: two buttons that differ only
+		// in what was saved get the same rows in the same order.
+		const props = accessDesignProperties(design(), 'Calculator', 'form');
+		const hidden = new Set(['GUID', 'OverlapFlags', 'IMESentenceMode',
+			'LayoutCachedLeft', 'LayoutCachedTop', 'LayoutCachedWidth', 'LayoutCachedHeight']);
+		for (const [target, schema] of [['Reset', 'CommandButton'], ['Title', 'Label'],
+			['Qty', 'TextBox'], ['Lines', 'ListBox']] as const) {
+			const want = [...PROPERTY_SLOTS.get(schema)!.keys()]
+				.filter((prop) => !hidden.has(prop) && !prop.startsWith('Unidentified'));
+			const shown = props[target].rows.map((row) => row.prop);
+			expect(new Set(shown)).toEqual(new Set(want));
+			expect(shown).toHaveLength(want.length);
+		}
+		expect(props.Reset.rows.map((row) => row.prop))
+			.toEqual(props.AddLine.rows.map((row) => row.prop));
+		// The first rows are the ones a reader looks for first.
+		expect(props.Reset.rows.slice(0, 6).map((row) => row.prop))
+			.toEqual(['Name', 'Caption', 'Left', 'Top', 'Width', 'Height']);
+	});
+
+	it('shows what a control inherits from its type\'s defaults', () => {
+		// Access stores a property once on the control-defaults object for the
+		// type and leaves it off every control that agrees: both buttons here
+		// take their font size from there, and only the bold one carries a
+		// weight of its own.
+		const props = accessDesignProperties(design(), 'Calculator', 'form');
+		const row = (target: string, prop: string): string | undefined =>
+			props[target].rows.find((entry) => entry.prop === prop)?.value;
+		expect(row('AddLine', 'FontWeight')).toBe('700');
+		expect(row('Reset', 'FontWeight')).toBe('400');
+		expect(row('AddLine', 'FontSize')).toBe('11');
+		expect(row('Reset', 'FontSize')).toBe('11');
+		// Under those, the value Access gives a control it has just made.
+		expect(row('Reset', 'Visible')).toBe('True');
+		expect(row('Reset', 'Enabled')).toBe('True');
+		expect(row('Reset', 'DisplayWhen')).toBe('0');
+		// And a property none of the three has is empty, not guessed at.
+		expect(row('Reset', 'Tag')).toBe('');
+		// The markup stays the design's own text: printing an inherited value
+		// there would write it onto the control on the way back.
+		const markup = printAccessDesignMarkup(design(), 'Calculator', 'form');
+		expect(/<CommandButton Name="Reset"[^>]*/.exec(markup)![0]).not.toContain('FontSize');
+		// And the canvas draws the inherited size rather than a guess.
+		const scene = sceneOfAccessDesign(design(), 'Calculator', 'form');
+		const reset = scene.controls[0].children.find((control) => control.name === 'Reset');
+		expect(reset?.style).toContain('font-size:11pt;');
+	});
+
+	it('offers the pane a dropdown, a swatch and the font list', () => {
+		const scene = sceneOfAccessDesign(design(), 'Calculator', 'form');
+		expect(scene.paneBareEnums).toBe(false);
+		// A published value set becomes the dropdown, in Access's own words.
+		expect(scene.enums?.TextAlign).toEqual([
+			['0', 'General'], ['1', 'Left'], ['2', 'Center'], ['3', 'Right'], ['4', 'Distribute'],
+		]);
+		expect(scene.enums?.SpecialEffect?.[5]).toEqual(['5', 'Chiseled']);
+		// BorderLineStyle's settings are not published, so it stays a field.
+		expect(scene.enums?.BorderLineStyle).toBeUndefined();
+		expect(scene.bools).toContain('Visible');
+		expect(scene.paneEditors?.BackColor).toBe('color');
+		expect(scene.paneEditors?.HoverForeColor).toBe('color');
+		// A theme index is a long that reads like a colour and is not one.
+		expect(scene.paneEditors?.BackThemeColorIndex).toBeUndefined();
+		expect(scene.paneEditors?.FontName).toBe('font');
+		expect(scene.paneEditors?.Left).toBe('number');
+	});
+
+	it('moves a control to where the gesture dropped it', () => {
+		const target = scratchCopy(FIXTURE);
+		// The fixture has one section, so a move within it is a move of the
+		// control's own corner and nothing else.
+		applyFormDesignerOp(target, DESIGN_MODULE, {
+			kind: 'reparent', name: 'Qty', container: 'Detail', left: 12, top: 24,
+		});
+		expect(readFormMarkup(target, DESIGN_MODULE).markup)
+			.toMatch(/<TextBox Name="Qty" Left="12" Top="24"/);
+	});
+});
+
+describe('renaming an Access design', () => {
+	/** Every `Name` the catalog and the navigation pane carry. */
+	function catalogNames(file: string): Set<string> {
+		const bytes = fs.readFileSync(file);
+		const out = new Set<string>();
+		for (const table of readAccessCatalog(bytes)) {
+			if (!/^MSys(Objects|NavPaneObjectIDs)$/.test(table.name) || table.type !== 1) {
+				continue;
+			}
+			for (const row of readTableRows(bytes, readTableDefinition(bytes, table.definitionPage))) {
+				const name = row.values.get('Name');
+				if (typeof name === 'string') { out.add(name); }
+			}
+		}
+		return out;
+	}
+
+	it('renames the design, its module and both catalog rows', () => {
+		const target = scratchCopy(FIXTURE);
+		renameModule(target, DESIGN_MODULE, 'Form_Invoice');
+		const listed = listModules(target).map((module) => module.name);
+		expect(listed).toContain('Form_Invoice');
+		expect(listed).not.toContain(DESIGN_MODULE);
+		expect(readAccessDesigns(fs.readFileSync(target)).map((entry) => entry.name))
+			.toEqual(['Invoice']);
+		// Access refuses to open a design the catalog, the navigation pane and
+		// the container's listing disagree about.
+		const names = catalogNames(target);
+		expect(names.has('Invoice')).toBe(true);
+		expect(names.has('Calculator')).toBe(false);
+		expect(readFormMarkup(target, 'Form_Invoice').markup).toContain('<Form Name="Invoice"');
+		expect(listModules(target).find((module) => module.name === 'Form_Invoice')?.type)
+			.toBe('accessform');
+	});
+
+	it('moves the DocClass line PROJECT names the module by', () => {
+		// PROJECT lists a design's module as `DocClass=Form_X/&H...`, never as
+		// `Module=` or `Class=`. Leaving it naming a module the project no
+		// longer has is how Access decides the whole project is corrupt, which
+		// it reports on the next open and not before.
+		const target = scratchCopy(FIXTURE);
+		renameModule(target, DESIGN_MODULE, 'Form_Invoice');
+		const project = readAccessVbaStreams(fs.readFileSync(target)).get('PROJECT')!.toString('latin1');
+		expect(project).toContain('DocClass=Form_Invoice/&H00000000');
+		expect(project).not.toContain('Form_Calculator');
+		expect(project).toContain('Form_Invoice=0, 0, 0, 0, C');
+	});
+
+	it('takes the design name with or without the module prefix', () => {
+		const target = scratchCopy(FIXTURE);
+		renameModule(target, DESIGN_MODULE, 'Invoice');
+		expect(listModules(target).map((module) => module.name)).toContain('Form_Invoice');
+	});
+
+	it('refuses a name another design already has', () => {
+		const target = scratchCopy(FIXTURE);
+		addFormModule(target, 'Second');
+		expect(() => renameModule(target, 'Form_Second', 'Calculator')).toThrow(/already exists/);
+	});
+});
+
+describe('creating and deleting an Access design', () => {
+	it('adds a form the designer can open and deletes it again', () => {
+		const target = scratchCopy(FIXTURE);
+		addFormModule(target, 'Orders');
+		expect(listModules(target).find((module) => module.name === 'Form_Orders')?.type)
+			.toBe('accessform');
+		expect(readFormMarkup(target, 'Form_Orders').markup).toContain('<Form Name="Orders"');
+		deleteModule(target, 'Form_Orders');
+		expect(listModules(target).map((module) => module.name)).not.toContain('Form_Orders');
+	});
+
+	it('takes the module behind a design with it', () => {
+		const target = scratchCopy(FIXTURE);
+		deleteModule(target, DESIGN_MODULE);
+		expect(readAccessDesigns(fs.readFileSync(target))).toEqual([]);
+		// The module goes too: a DocClass whose design is gone is a corrupt
+		// project, and the module is unreachable either way.
+		expect(listModules(target).map((module) => module.name)).not.toContain(DESIGN_MODULE);
+		const project = readAccessVbaStreams(fs.readFileSync(target)).get('PROJECT')!.toString('latin1');
+		expect(project).not.toContain('Form_Calculator');
+	});
+
+	it('adds a report', () => {
+		const target = scratchCopy(FIXTURE);
+		addFormModule(target, 'Summary', '', 'report');
+		expect(listModules(target).find((module) => module.name === 'Report_Summary')?.type)
+			.toBe('accessreport');
+		expect(readFormMarkup(target, 'Report_Summary').markup).toContain('<Report Name="Summary"');
 	});
 });

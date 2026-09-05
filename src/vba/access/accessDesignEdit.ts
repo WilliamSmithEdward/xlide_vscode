@@ -673,6 +673,254 @@ export function designPrototypes(design: AccessDesign): AccessDesignPrototypes {
 	return out;
 }
 
+// --- the object list as a tree ----------------------------------------------
+//
+// Reordering and re-homing a control are moves in the nesting, and the flat
+// list encodes that nesting in markers whose values depend on how many
+// siblings each level has. Reading the list into a tree, moving a node and
+// writing it back re-marks every level that changed and leaves the rest as it
+// was: the round trip on a design nothing moved in is the identity, which is
+// what the tests hold it to.
+
+/** One control and whatever it holds. */
+export interface AccessDesignNode {
+	object: AccessDesignObject;
+	children: AccessDesignNode[];
+}
+
+/** A design's objects as the shape they describe. */
+export interface AccessDesignTree {
+	/** The design's own object, always first. */
+	own: AccessDesignObject;
+	/** The control-defaults objects, which sit ahead of the first section. */
+	prototypes: AccessDesignObject[];
+	sections: AccessDesignNode[];
+}
+
+function nodesOf(
+	objects: readonly AccessDesignObject[],
+	start: number,
+	stop: number,
+): AccessDesignNode[] {
+	return topLevel(objects as AccessDesignObject[], start, stop).map((owner) => ({
+		object: objects[owner.index],
+		children: nodesOf(objects, owner.index + 1, owner.index + 1 + owner.owned),
+	}));
+}
+
+export function readDesignTree(design: AccessDesign): AccessDesignTree {
+	const objects = design.objects;
+	const firstSection = objects.findIndex(isAccessDesignSection);
+	const end = firstSection < 0 ? objects.length : firstSection;
+	const sections: AccessDesignNode[] = [];
+	let at = end;
+	while (at < objects.length) {
+		let stop = at + 1;
+		while (stop < objects.length && !isAccessDesignSection(objects[stop])) {
+			stop += 1;
+		}
+		sections.push({ object: objects[at], children: nodesOf(objects, at + 1, stop) });
+		at = stop;
+	}
+	return { own: objects[0], prototypes: objects.slice(1, end), sections };
+}
+
+function emit(nodes: readonly AccessDesignNode[], out: AccessDesignObject[]): void {
+	const marked = placed(nodes.map((node) => node.object));
+	nodes.forEach((node, position) => {
+		out.push(marked[position]);
+		emit(node.children, out);
+	});
+}
+
+export function writeDesignTree(design: AccessDesign, tree: AccessDesignTree): AccessDesign {
+	// The prototypes and the sections are one run at the top level, so they
+	// are marked together the way Access marks them.
+	const top = placed([...tree.prototypes, ...tree.sections.map((section) => section.object)]);
+	const objects: AccessDesignObject[] = [tree.own, ...top.slice(0, tree.prototypes.length)];
+	tree.sections.forEach((section, position) => {
+		objects.push(top[tree.prototypes.length + position]);
+		emit(section.children, objects);
+	});
+	return { ...design, objects };
+}
+
+/** The node a name belongs to, with the list it sits in and where. */
+function findNode(
+	tree: AccessDesignTree,
+	name: string,
+): { siblings: AccessDesignNode[]; at: number } | undefined {
+	const walk = (
+		siblings: AccessDesignNode[],
+	): { siblings: AccessDesignNode[]; at: number } | undefined => {
+		for (let at = 0; at < siblings.length; at += 1) {
+			if (nameOf(siblings[at].object) === name) {
+				return { siblings, at };
+			}
+			const found = walk(siblings[at].children);
+			if (found) {
+				return found;
+			}
+		}
+		return undefined;
+	};
+	for (const section of tree.sections) {
+		const found = walk(section.children);
+		if (found) {
+			return found;
+		}
+	}
+	return undefined;
+}
+
+/** The controls a container holds, by the name of the section or control. */
+function childrenOfContainer(tree: AccessDesignTree, container: string): AccessDesignNode[] {
+	const section = tree.sections.find((entry) => nameOf(entry.object) === container);
+	if (section) {
+		return section.children;
+	}
+	const found = findNode(tree, container);
+	if (!found) {
+		throw new AccessFormatError(`This design has no section or control named ${container}.`);
+	}
+	return found.siblings[found.at].children;
+}
+
+/**
+ * Move a control to the front or the back of what holds it. Access paints its
+ * objects in the order the design lists them, so the last one drawn is the one
+ * on top, and the move is a move in that list.
+ */
+export function setDesignZOrder(
+	design: AccessDesign,
+	name: string,
+	toFront: boolean,
+): AccessDesign {
+	const tree = readDesignTree(design);
+	const found = findNode(tree, name);
+	if (!found) {
+		throw new AccessFormatError(`This design has no control named ${name}.`);
+	}
+	const [node] = found.siblings.splice(found.at, 1);
+	if (toFront) {
+		found.siblings.push(node);
+	} else {
+		found.siblings.unshift(node);
+	}
+	return writeDesignTree(design, tree);
+}
+
+/**
+ * Move a control into another section, or into a control that holds controls,
+ * placing it where the gesture dropped it. A control keeps whatever it holds.
+ */
+export function reparentDesignControl(
+	design: AccessDesign,
+	name: string,
+	container: string,
+	left: number,
+	top: number,
+): AccessDesign {
+	const tree = readDesignTree(design);
+	const found = findNode(tree, name);
+	if (!found) {
+		throw new AccessFormatError(`This design has no control named ${name}.`);
+	}
+	const target = childrenOfContainer(tree, container);
+	if (found.siblings === target) {
+		return setDesignGeometry(design, name, left, top);
+	}
+	if (target.some((node) => node.object === found.siblings[found.at].object)) {
+		throw new AccessFormatError(`${name} already sits in ${container}.`);
+	}
+	const [node] = found.siblings.splice(found.at, 1);
+	target.push(node);
+	return setDesignGeometry(writeDesignTree(design, tree), name, left, top);
+}
+
+/** A control's top-left corner, in the twips Access stores. */
+function setDesignGeometry(
+	design: AccessDesign,
+	name: string,
+	left: number,
+	top: number,
+): AccessDesign {
+	return setDesignProperty(setDesignProperty(design, name, 'Left', left), name, 'Top', top);
+}
+
+/**
+ * Rewrite the tab order of one container: the names in the order the focus
+ * should walk them. Access writes the first control without a `TabIndex`
+ * record at all, so a control that lands at zero loses its, and a control the
+ * order does not name keeps whatever it had.
+ */
+export function setDesignTabOrder(
+	design: AccessDesign,
+	container: string,
+	names: readonly string[],
+): AccessDesign {
+	const tabCode = PROPERTY_CODES.get('TabIndex');
+	if (tabCode === undefined) {
+		throw new AccessFormatError('TabIndex has no property code.');
+	}
+	const tree = readDesignTree(design);
+	const holds = new Set(childrenOfContainer(tree, container)
+		.map((node) => nameOf(node.object))
+		.filter((entry): entry is string => entry !== undefined));
+	const wanted = names.filter((name) => holds.has(name));
+	let next = design;
+	wanted.forEach((name, index) => {
+		const object = next.objects.find((entry) => nameOf(entry) === name);
+		if (!object || object.type === undefined
+			|| !TABBABLE.has(CONTROL_TYPES.get(object.type) ?? '')) {
+			return;
+		}
+		if (index === 0) {
+			const records = object.records.filter((entry) => entry.code !== tabCode);
+			if (records.length === object.records.length) {
+				return;
+			}
+			next = {
+				...next,
+				objects: next.objects.map((entry) => (entry === object ? { ...entry, records } : entry)),
+			};
+			return;
+		}
+		next = setDesignProperty(next, name, 'TabIndex', index);
+	});
+	return next;
+}
+
+/**
+ * The design's objects with each control's type defaults folded in, for a
+ * reader.
+ *
+ * Access stores a property once on the control-defaults object for its type
+ * and leaves it off every control that agrees with it: a command button whose
+ * font size is the one the form's theme gives it carries no `FontSize` record
+ * at all, and a reader looking only at the control finds nothing. What the
+ * control carries wins; the defaults fill in the rest.
+ *
+ * For reading only. Writing these objects back would put a record on every
+ * control for a value Access deliberately keeps in one place.
+ */
+export function accessDesignEffectiveObjects(design: AccessDesign): AccessDesignObject[] {
+	const defaults = designPrototypes(design);
+	const firstSection = design.objects.findIndex(isAccessDesignSection);
+	return design.objects.map((object, index) => {
+		const inherited = index === 0 || (firstSection >= 0 && index < firstSection)
+			|| object.type === undefined
+			? undefined
+			: defaults.get(object.type);
+		if (!inherited || inherited.length === 0) {
+			return object;
+		}
+		const carried = new Set(object.records.map((record) => record.code));
+		const extra = inherited.filter((record) => !carried.has(record.code));
+		return extra.length === 0 ? object : { ...object, records: [...object.records, ...extra] };
+	});
+}
+
 /** Parse, edit and rebuild in one step, for a caller holding only bytes. */
 export function editDesignBlob(
 	blob: Buffer,

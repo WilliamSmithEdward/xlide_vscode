@@ -8,7 +8,6 @@ import {
 	containerAppNameForPath,
 	containerContextValue,
 	isExcelContainerPath,
-	isReadOnlyContainerPath,
 	isVb6ProjectPath,
 	MACRO_CONTAINER_EXTENSIONS,
 } from '../src/macroContainerUi';
@@ -43,13 +42,13 @@ describe('the Office containers answer exactly as before VB6', () => {
 		expect(Object.keys(HOST_BY_EXTENSION).sort()).toEqual([...OFFICE_EXTENSIONS].sort());
 	});
 
-	it('keeps the context values, read-only rule, and app names for Office files', () => {
+	it('keeps the context values and app names for Office files', () => {
 		expect(containerContextValue('C:\\w\\Book.xlsm')).toBe('xlsm');
 		expect(containerContextValue('C:\\w\\Doc.docm')).toBe('macroDocument');
 		expect(containerContextValue('C:\\w\\Deck.pptm')).toBe('macroDocument');
-		expect(containerContextValue('C:\\w\\Db.accdb')).toBe('macroReadOnly');
-		expect(isReadOnlyContainerPath('C:\\w\\Db.accdb')).toBe(true);
-		expect(isReadOnlyContainerPath('C:\\w\\Book.xlsm')).toBe(false);
+		// An Access database creates forms and reports rather than UserForms,
+		// so its menu surface is its own. It is not read-only: 8.0.0 writes it.
+		expect(containerContextValue('C:\\w\\Db.accdb')).toBe('accessDatabase');
 		expect(isExcelContainerPath('C:\\w\\Book.xlsm')).toBe(true);
 		expect(isExcelContainerPath('C:\\w\\App.vbp')).toBe(false);
 		expect(containerAppNameForPath('C:\\w\\Book.xlsm')).toBe('Excel');

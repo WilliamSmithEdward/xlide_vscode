@@ -369,6 +369,30 @@ export class AccessVbaWriter {
 	/** Rename a module in all eight places its name lives. */
 	renameModule(name: string, newName: string): void {
 		assertModuleName(newName);
+		const from = this.renameModuleStreams(name, newName);
+		const ids = this.folderIds(this.rows());
+		const listing = this.rows().find(
+			(row) => row.name === DIR_DATA && row.parentId === ids.modules && row.bytes?.length,
+		);
+		if (listing) {
+			this.writeStream(listing, renameDirData(listing.bytes!, from, newName));
+		}
+		this.renameCatalogRows(from, newName);
+		this.invalidateCache(this.rows());
+	}
+
+	/**
+	 * Rename a module wherever the VBA project itself names it: the two `dir`
+	 * records, the module's own `Attribute VB_Name`, `PROJECT` and `PROJECTwm`.
+	 * Returns the name as the project spelled it, which is what the container's
+	 * listing and the catalog have to be looked up by.
+	 *
+	 * The container's `\x03DirData` is deliberately not touched here. It lists
+	 * modules under `Modules` and forms under `Forms`, and a form's code module
+	 * is in neither: the project carries `Form_Calculator` while the listing
+	 * carries `Calculator`.
+	 */
+	private renameModuleStreams(name: string, newName: string): string {
 		let rows = this.rows();
 		const { raw: dirRaw, codePage } = this.dir(rows);
 		const blocks = moduleBlocks(dirRaw, codePage);
@@ -409,14 +433,12 @@ export class AccessVbaWriter {
 
 		rows = this.rows();
 		for (const row of rows) {
-			if (!row.bytes || row.bytes.length === 0) {
+			if (!row.bytes || row.bytes.length === 0 || row.parentId !== ids.project) {
 				continue;
 			}
-			if (row.name === DIR_DATA && row.parentId === ids.modules) {
-				this.writeStream(row, renameDirData(row.bytes, block.name, newName));
-			} else if (row.name === 'PROJECTwm' && row.parentId === ids.project) {
+			if (row.name === 'PROJECTwm') {
 				this.writeStream(row, renameProjectWm(row.bytes, block.name, newName, codePage));
-			} else if (row.name === 'PROJECT' && row.parentId === ids.project) {
+			} else if (row.name === 'PROJECT') {
 				const before = decodeCodePage(row.bytes, codePage);
 				const after = renameProject(before, block.name, newName);
 				if (after !== before) {
@@ -424,12 +446,24 @@ export class AccessVbaWriter {
 				}
 			}
 		}
-		this.renameCatalogRows(block.name, newName);
-		this.invalidateCache(this.rows());
+		return block.name;
 	}
 
 	/** Remove a module and every structure it occupies. */
 	deleteModule(name: string): void {
+		this.deleteModuleRows(name, true);
+		this.invalidateCache(this.rows());
+	}
+
+	/**
+	 * Take a module out of the VBA project, and out of the `Modules` container
+	 * too when it has a folder there.
+	 *
+	 * A module behind a form or report has none: it is listed in the project's
+	 * `dir` and in `PROJECT` as a `DocClass`, and nowhere under `Modules`. It
+	 * goes when its design does, which is what `owned` is false for.
+	 */
+	private deleteModuleRows(name: string, owned: boolean): string {
 		const rows = this.rows();
 		const { raw: dirRaw, codePage } = this.dir(rows);
 		const blocks = moduleBlocks(dirRaw, codePage);
@@ -450,15 +484,15 @@ export class AccessVbaWriter {
 		const folder = named === undefined ? undefined : rows.find(
 			(row) => row.parentId === ids.modules && row.type === TYPE_FOLDER && row.name === named,
 		);
-		if (!folder) {
+		if (owned && !folder) {
 			throw new AccessVbaWriteError(
 				`The storage lists no folder for module ${block.name}; a module behind a form or `
 				+ 'report has none, and is removed with its design.',
 			);
 		}
-		const doomed = new Set<StorageRow>([folder]);
+		const doomed = new Set<StorageRow>(folder && owned ? [folder] : []);
 		for (const row of rows) {
-			if (row.parentId === folder.id
+			if ((folder && owned && row.parentId === folder.id)
 				|| (row.parentId === ids.streams && row.name === block.streamName)) {
 				doomed.add(row);
 			}
@@ -469,10 +503,10 @@ export class AccessVbaWriter {
 			}
 			if (row.name === 'dir') {
 				this.writeStream(row, compress(removeFromDir(dirRaw, block.name, codePage)));
-			} else if (row.name === DIR_DATA && row.parentId === ids.modules) {
+			} else if (owned && row.name === DIR_DATA && row.parentId === ids.modules) {
 				this.writeStream(row, removeFromDirData(row.bytes, block.name));
-			} else if (row.name === 'PropData' && row.parentId === ids.modules) {
-				this.writeStream(row, removeFromFolderList(row.bytes, folder.name));
+			} else if (owned && row.name === 'PropData' && row.parentId === ids.modules) {
+				this.writeStream(row, removeFromFolderList(row.bytes, folder!.name));
 			} else if (row.name === 'PROJECTwm' && row.parentId === ids.project) {
 				this.writeStream(row, removeFromProjectWm(row.bytes, block.name, codePage));
 			} else if (row.name === 'PROJECT' && row.parentId === ids.project) {
@@ -488,8 +522,10 @@ export class AccessVbaWriter {
 		for (const row of doomed) {
 			this.storage.deleteRow(row.rowId, false);
 		}
-		this.deleteCatalogRows(block.name);
-		this.invalidateCache(this.rows());
+		if (owned) {
+			this.deleteCatalogRows(block.name);
+		}
+		return block.name;
 	}
 
 	toBuffer(): Buffer {
@@ -658,6 +694,44 @@ export class AccessVbaWriter {
 		this.addDesignCatalogRows(name, kind, when, catalogProperties);
 	}
 
+	/**
+	 * Rename a form or report in the four places its name lives: the
+	 * container's listing, the catalog row, the navigation pane's row, and the
+	 * code module behind it, which Access binds by name as `Form_<name>` or
+	 * `Report_<name>`. A design Access has never opened a code window for has
+	 * no module, and then there are three.
+	 */
+	renameDesign(name: string, newName: string): void {
+		assertModuleName(newName);
+		const found = this.designs().find(
+			(entry) => entry.name.toLowerCase() === name.toLowerCase(),
+		);
+		if (!found) {
+			throw new AccessVbaWriteError(`This database has no form or report named ${name}.`);
+		}
+		if (newName.toLowerCase() !== found.name.toLowerCase()
+			&& this.designs().some((entry) => entry.name.toLowerCase() === newName.toLowerCase())) {
+			throw new AccessVbaWriteError(`A ${found.kind} named ${newName} already exists.`);
+		}
+		const container = DESIGN_CONTAINERS[found.kind];
+		const module = accessDesignModuleName(found.kind, found.name);
+		if (this.moduleNames().some((entry) => entry.toLowerCase() === module.toLowerCase())) {
+			this.renameModuleStreams(module, accessDesignModuleName(found.kind, newName));
+		}
+		const rows = this.rows();
+		const folderRow = rows.find(
+			(row) => row.name === container && row.type === TYPE_FOLDER,
+		)!;
+		const listing = rows.find(
+			(row) => row.parentId === folderRow.id && row.name === DIR_DATA && row.bytes?.length,
+		);
+		if (listing) {
+			this.writeStream(listing, renameDirData(listing.bytes!, found.name, newName));
+		}
+		this.renameDesignCatalogRows(found.name, newName, found.kind);
+		this.invalidateCache(this.rows());
+	}
+
 	/** Remove a form or report and every structure it occupies. */
 	deleteDesign(name: string): void {
 		const found = this.designs().find(
@@ -689,7 +763,14 @@ export class AccessVbaWriter {
 			this.storage.deleteRow(row.rowId, false);
 		}
 		this.storage.deleteRow(ordinal.rowId, false);
+		// The module behind it goes too, or the project is left naming a
+		// DocClass whose design is gone, which Access reads as corrupt.
+		const module = accessDesignModuleName(found.kind, found.name);
+		if (this.moduleNames().some((entry) => entry.toLowerCase() === module.toLowerCase())) {
+			this.deleteModuleRows(module, false);
+		}
 		this.deleteDesignCatalogRows(found.name, found.kind);
+		this.invalidateCache(this.rows());
 	}
 
 	private addDesignCatalogRows(
@@ -726,6 +807,34 @@ export class AccessVbaWriter {
 		this.optionalTable('MSysNavPaneObjectIDs')?.insertNamedRow(new Map<string, AccessScalar>([
 			['Id', objectId], ['Name', name], ['Type', NAV_DESIGN_TYPES[kind]],
 		]));
+	}
+
+	private renameDesignCatalogRows(
+		name: string,
+		newName: string,
+		kind: AccessDesignKind,
+	): void {
+		const objects = this.table('MSysObjects');
+		let objectId: number | undefined;
+		for (const row of objects.rows()) {
+			const values = decodeRowValues(row.bytes, objects.definition);
+			if (numberOf(values?.get('Type')) === OBJECT_TYPES[kind]
+				&& values?.get('Name') === name) {
+				objectId = numberOf(values.get('Id'));
+				objects.updateNamedRow(row.id, new Map<string, AccessScalar>([['Name', newName]]));
+				break;
+			}
+		}
+		if (objectId === undefined) {
+			return;
+		}
+		const nav = this.optionalTable('MSysNavPaneObjectIDs');
+		for (const row of nav?.rows() ?? []) {
+			const values = decodeRowValues(row.bytes, nav!.definition);
+			if (numberOf(values?.get('Id')) === objectId) {
+				nav!.updateNamedRow(row.id, new Map<string, AccessScalar>([['Name', newName]]));
+			}
+		}
 	}
 
 	private deleteDesignCatalogRows(name: string, kind: AccessDesignKind): void {
@@ -926,6 +1035,14 @@ export class AccessVbaWriter {
 		this.storage.setLongValue(row.rowId, 'Lv', bytes);
 		row.bytes = bytes;
 	}
+}
+
+/**
+ * The module Access binds a design's code to. It exists only once the code
+ * window has been opened, but the name is fixed either way.
+ */
+export function accessDesignModuleName(kind: AccessDesignKind, name: string): string {
+	return `${kind === 'form' ? 'Form' : 'Report'}_${name}`;
 }
 
 /**

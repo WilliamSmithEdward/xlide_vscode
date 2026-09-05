@@ -40,6 +40,37 @@ export function cssColor(value: number): string {
 	return WINDOWS_PALETTE[spelled] ?? WINDOWS_PALETTE.ButtonFace;
 }
 
+/**
+ * The value sets the property pane offers for an MSForms designer, by property
+ * name. A scene whose host spells the same names with different values behind
+ * them turns these off with `paneBareEnums: false` and supplies its own.
+ */
+const MSFORMS_PANE_ENUMS: Readonly<Record<string, [string, string][]>> = {
+	SpecialEffect: [['0', 'Flat'], ['1', 'Raised'], ['2', 'Sunken'], ['3', 'Etched'], ['6', 'Bump']],
+	BorderStyle: [['0', 'None'], ['1', 'Single']],
+	MultiSelect: [['0', 'Single'], ['1', 'Multi'], ['2', 'Extended']],
+	ListStyle: [['0', 'Plain'], ['1', 'Option']],
+	Style: [['0', 'DropDownCombo'], ['2', 'DropDownList']],
+	PictureSizeMode: [['0', 'Clip'], ['1', 'Stretch'], ['3', 'Zoom']],
+	PictureAlignment: [['0', 'TopLeft'], ['1', 'TopRight'], ['2', 'Center'], ['3', 'BottomLeft'], ['4', 'BottomRight']],
+	Orientation: [['-1', 'Auto'], ['0', 'Vertical'], ['1', 'Horizontal']],
+	ScrollBars: [['0', 'None'], ['1', 'Horizontal'], ['2', 'Vertical'], ['3', 'Both']],
+	TextAlign: [['Left', 'Left'], ['Center', 'Center'], ['Right', 'Right']],
+	Cycle: [['0', 'AllForms'], ['2', 'CurrentForm']],
+	Alignment: [['0', 'Left'], ['1', 'Right']],
+	MousePointer: [['0', 'Default'], ['1', 'Arrow'], ['2', 'Cross'], ['3', 'IBeam'],
+		['6', 'SizeNESW'], ['7', 'SizeNS'], ['8', 'SizeNWSE'], ['9', 'SizeWE'],
+		['10', 'UpArrow'], ['11', 'HourGlass'], ['12', 'NoDrop'], ['13', 'AppStarting'],
+		['14', 'Help'], ['15', 'SizeAll'], ['99', 'Custom']],
+	StartUpPosition: [['0', 'Manual'], ['1', 'CenterOwner'], ['2', 'CenterScreen'], ['3', 'WindowsDefault']],
+};
+
+/** The rows an MSForms pane edits with a swatch or the font list. */
+const MSFORMS_PANE_EDITORS: Readonly<Record<string, 'color' | 'font' | 'number'>> = {
+	BackColor: 'color', ForeColor: 'color', BorderColor: 'color',
+	FillColor: 'color', MaskColor: 'color', 'Font.Name': 'font',
+};
+
 export function esc(text: string): string {
 	return text
 		.replace(/&/g, '&amp;')
@@ -308,9 +339,17 @@ export interface FormScene {
 	/** Boolean props per `Kind.Prop` (or bare prop), added to the pane's own set. */
 	bools?: string[];
 	/**
-	 * Whether the pane's built-in MSForms enum tables may answer a row by bare
-	 * property name. On by default (an OFORMS form); a VB6 scene turns it off,
-	 * because the same property name holds a different value set there.
+	 * The row editor a property wants where a text field is not it, per
+	 * `Kind.Prop` (or bare prop): a swatch and colour picker, the font list, or
+	 * a spinner. MSForms' own `BackColor`, `Font.Name` and the rest are
+	 * built in; this is for a host that names them differently.
+	 */
+	paneEditors?: Record<string, 'color' | 'font' | 'number'>;
+	/**
+	 * Whether the pane's built-in MSForms enum tables are in play at all. On by
+	 * default (an OFORMS form); a VB6 or Access scene turns it off, because the
+	 * same property name holds a different value set there. A scene's own
+	 * tables always answer, by `Kind.Prop` first and then by bare name.
 	 */
 	paneBareEnums?: boolean;
 }
@@ -597,9 +636,16 @@ export function renderFormSceneHtml(scene: FormScene, options: FormPreviewOption
 	const surfaceHtml = renderSceneControls(scene.controls, 'c', options.selected);
 	const picturesJson = JSON.stringify(scene.pictures).replace(/</g, '\\u003c');
 	const defaultEventsJson = JSON.stringify(scene.defaultEvents ?? {}).replace(/</g, '\\u003c');
-	const enumsJson = JSON.stringify(scene.enums ?? {}).replace(/</g, '\\u003c');
+	// The scene's own tables win, and a scene that spells the same property
+	// names with different values behind them leaves MSForms' out entirely.
+	const enumsJson = JSON.stringify({
+		...(scene.paneBareEnums === false ? {} : MSFORMS_PANE_ENUMS),
+		...(scene.enums ?? {}),
+	}).replace(/</g, '\\u003c');
 	const boolsJson = JSON.stringify(scene.bools ?? []).replace(/</g, '\\u003c');
-	const bareEnums = scene.paneBareEnums === false ? 'false' : 'true';
+	const editorsJson = JSON.stringify({
+		...MSFORMS_PANE_EDITORS, ...(scene.paneEditors ?? {}),
+	}).replace(/</g, '\\u003c');
 	return `<!DOCTYPE html>
 <html>
 <head>
@@ -742,9 +788,13 @@ export function renderFormSceneHtml(scene: FormScene, options: FormPreviewOption
 	/* While grid snap is on, every design surface shows the 6pt lattice the
 	   snapping answers to, as the VBE's dotted face does. The half-cell
 	   offset centers a dot on each grid point, so dots mark exactly where a
-	   snapped edge lands. */
+	   snapped edge lands.
+
+	   A control with no fill of its own is transparent, as a label usually is,
+	   so the lattice shows through its text: it is drawn light enough to read
+	   through rather than dark enough to compete with the glyphs. */
 	body.grid-on [data-surface]::before { content: ''; position: absolute; inset: 0;
-		background-image: radial-gradient(circle, #666 1px, transparent 1px);
+		background-image: radial-gradient(circle, #c9c9c9 0.7px, transparent 0.7px);
 		background-size: 6pt 6pt; background-position: -3pt -3pt; pointer-events: none; }
 	.ctl { position: absolute; box-sizing: border-box; overflow: hidden; white-space: nowrap; }
 	.ctl.selected { outline: 1px dashed #0e639c; outline-offset: 1px; }
@@ -1024,29 +1074,12 @@ ${interactive ? `	<script>
 			'Visible', 'TabStop', 'Default', 'Cancel', 'Font.Bold', 'Font.Italic',
 			'Font.Underline', 'Font.Strikethrough', 'ShowModal', 'WhatsThisButton']);
 		for (const prop of ${boolsJson}) { BOOL_PROPS.add(prop); }
-		// The scene's own tables first (a VB6 form's Kind.Prop entries), then
-		// the MSForms tables by bare property name.
-		const ENUM_OPTIONS = Object.assign({
-			SpecialEffect: [['0', 'Flat'], ['1', 'Raised'], ['2', 'Sunken'], ['3', 'Etched'], ['6', 'Bump']],
-			BorderStyle: [['0', 'None'], ['1', 'Single']],
-			MultiSelect: [['0', 'Single'], ['1', 'Multi'], ['2', 'Extended']],
-			ListStyle: [['0', 'Plain'], ['1', 'Option']],
-			Style: [['0', 'DropDownCombo'], ['2', 'DropDownList']],
-			PictureSizeMode: [['0', 'Clip'], ['1', 'Stretch'], ['3', 'Zoom']],
-			PictureAlignment: [['0', 'TopLeft'], ['1', 'TopRight'], ['2', 'Center'], ['3', 'BottomLeft'], ['4', 'BottomRight']],
-			Orientation: [['-1', 'Auto'], ['0', 'Vertical'], ['1', 'Horizontal']],
-			ScrollBars: [['0', 'None'], ['1', 'Horizontal'], ['2', 'Vertical'], ['3', 'Both']],
-			TextAlign: [['Left', 'Left'], ['Center', 'Center'], ['Right', 'Right']],
-			Cycle: [['0', 'AllForms'], ['2', 'CurrentForm']],
-			Alignment: [['0', 'Left'], ['1', 'Right']],
-			MousePointer: [['0', 'Default'], ['1', 'Arrow'], ['2', 'Cross'], ['3', 'IBeam'],
-				['6', 'SizeNESW'], ['7', 'SizeNS'], ['8', 'SizeNWSE'], ['9', 'SizeWE'],
-				['10', 'UpArrow'], ['11', 'HourGlass'], ['12', 'NoDrop'], ['13', 'AppStarting'],
-				['14', 'Help'], ['15', 'SizeAll'], ['99', 'Custom']],
-			StartUpPosition: [['0', 'Manual'], ['1', 'CenterOwner'], ['2', 'CenterScreen'], ['3', 'WindowsDefault']],
-		}, ${enumsJson});
-		const ENUM_FALLBACK = ${bareEnums};
-		const COLOR_PROPS = new Set(['BackColor', 'ForeColor', 'BorderColor', 'FillColor', 'MaskColor']);
+		// Both tables are keyed by Kind.Prop first and by bare property name
+		// after, and the generator has already merged in whatever the host's
+		// own vocabulary adds.
+		const ENUM_OPTIONS = ${enumsJson};
+		const ROW_EDITORS = ${editorsJson};
+		const editorOf = (kind, prop) => ROW_EDITORS[kind + '.' + prop] || ROW_EDITORS[prop];
 		const SYSTEM_COLORS = ${JSON.stringify(WINDOWS_PALETTE)};
 		// Every face the picker offers: the common Windows set plus whatever
 		// the form already uses, kept when the renderer can actually resolve
@@ -1063,7 +1096,7 @@ ${interactive ? `	<script>
 			const used = new Set();
 			for (const info of Object.values(PROPS)) {
 				for (const row of info.rows) {
-					if (row.prop === 'Font.Name' && row.value) {
+					if (editorOf(info.kind, row.prop) === 'font' && row.value) {
 						used.add(row.value);
 						if (!names.includes(row.value)) { names.push(row.value); }
 					}
@@ -1187,7 +1220,8 @@ ${interactive ? `	<script>
 					post({ type: 'setProp', name: target, prop: row.prop, value });
 				};
 				const kindProp = info.kind + '.' + row.prop;
-				const enumOptions = ENUM_OPTIONS[kindProp] || (ENUM_FALLBACK ? ENUM_OPTIONS[row.prop] : undefined);
+				const enumOptions = ENUM_OPTIONS[kindProp] || ENUM_OPTIONS[row.prop];
+				const editor = editorOf(info.kind, row.prop);
 				if (BOOL_PROPS.has(kindProp) || BOOL_PROPS.has(row.prop)) {
 					const pick = document.createElement('select');
 					for (const v of ['True', 'False']) {
@@ -1214,7 +1248,7 @@ ${interactive ? `	<script>
 					pick.value = row.value;
 					pick.addEventListener('change', () => commit(pick.value));
 					div.appendChild(pick);
-				} else if (COLOR_PROPS.has(row.prop)) {
+				} else if (editor === 'color') {
 					const cell = document.createElement('div');
 					cell.className = 'colorcell';
 					const swatch = document.createElement('button');
@@ -1235,7 +1269,7 @@ ${interactive ? `	<script>
 					}));
 					cell.append(swatch, input);
 					div.appendChild(cell);
-				} else if (row.prop === 'Font.Name') {
+				} else if (editor === 'font') {
 					const cell = document.createElement('div');
 					cell.className = 'fontcell';
 					const input = document.createElement('input');
@@ -1260,6 +1294,7 @@ ${interactive ? `	<script>
 					input.value = row.value;
 					input.disabled = target === '' && row.prop === 'Name';
 					if (row.prop === 'Font.Size') { input.type = 'number'; input.step = '0.25'; input.min = '1'; }
+					else if (editor === 'number') { input.type = 'number'; input.step = 'any'; }
 					input.addEventListener('keydown', (e) => {
 						if (e.key === 'Enter') { input.blur(); }
 						if (e.key === 'Escape') { input.value = row.value; input.blur(); }

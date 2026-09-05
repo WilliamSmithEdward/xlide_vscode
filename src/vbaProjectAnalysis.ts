@@ -85,6 +85,11 @@ export function moduleKindFromType(type?: string): ModuleSymbolKind {
         case 'propertypage':
         case 'designer':
             return 'userform';
+        // An Access form or report is the same shape: `Me` is the design, and
+        // its controls are members of it.
+        case 'accessform':
+        case 'accessreport':
+            return 'userform';
         default: return 'standard';
     }
 }

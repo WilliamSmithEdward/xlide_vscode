@@ -4,69 +4,115 @@ All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
 ## [8.0.0] - 2026-09-05
 
-- **Access databases are writable** (#65). They opened read-only, because
-  Access runs the compiled project rather than the source, so writing source
-  changed nothing it would run. XLIDE now writes the source and marks the
-  compiled project stale, which is what Access's own `/decompile` switch does:
-  the next open recompiles and the edit takes effect. A module's source can be
-  replaced, and a module can be added, renamed and deleted, standard or class.
+- **Access databases are writable** (#65). They used to open read-only: Access
+  runs a compiled copy of the project, so writing the source alone changed
+  nothing it would run. XLIDE now writes the source and marks that copy stale,
+  so Access recompiles on the next open - the same thing its `/decompile`
+  switch does. A module's source can be replaced, and a module can be added,
+  renamed or deleted, standard or class.
 
-  Access keeps no compound file. Its VBA is one `MSysAccessStorage` row per
-  stream, under a tree of folders, and a module costs rows in five of them plus
-  rows in three catalog tables - a module listed in one and missing from
-  another is one Access will show and then refuse to open. Writing one row
-  means writing the page it lands on, the long-value pages its value lands on,
-  the B-tree pages of every index over the table, the definition's counters,
-  and the usage maps that say which pages the table owns and which have room.
-  All of that is now implemented: data pages, long values, inline and reference
-  usage maps, page allocation, B-tree insert and delete with page splits, and
-  the collation table Access orders text keys by.
+  An Access database has no compound file inside it. Its VBA is one
+  `MSysAccessStorage` row per stream under a tree of folders, and one module
+  costs rows in five of those folders plus rows in three catalog tables. All of
+  them have to agree: Access shows a module that is listed in one place and
+  missing from another, then refuses to open it.
+
+  Writing a single row means writing the page it lands on, the long-value pages
+  its value lands on, the B-tree pages of every index over the table, the
+  definition's counters, and the usage maps that say which pages the table owns
+  and which have room. All of that is implemented here: data pages, long
+  values, inline and reference usage maps, page allocation, B-tree insert and
+  delete with page splits, and the collation table Access orders text keys by.
 
   Every layer was checked byte for byte against pyOpenVBA, which was measured
   against Access itself, and then against Access 16.0 directly: a database
   XLIDE wrote opens, compiles, lists its modules through
-  `CurrentProject.AllModules`, and runs the code that was written into it.
+  `CurrentProject.AllModules`, and runs the code written into it.
 
-- **Access forms and reports are writable** (#67). Read, edit, create and
-  delete, for both. A design is a stream of property records whose id is the
-  property's slot in its own type's schema, so a property written at the wrong
-  id is one Access reads as something else; the slot tables cover 26 object
-  types and the records Access writes for a new control of each of 23. Adding a
-  control also brings the type's control-defaults object, which is what Access
-  reads a themed control against, and updates the `TypeInfo` stream, which is
-  what makes `Me.MyControl` compile and `MyControl_Click` bind.
+- **Access forms and reports are writable** (#67). They can be read, edited,
+  created and deleted. A design is a stream of property records, and a record's
+  id is the property's slot in its own type's schema - write a property at the
+  wrong id and Access reads it as a different property. The slot tables cover
+  26 object types, and the records Access writes for a new control cover 23 of
+  them. Adding a control also brings that type's control-defaults object, which
+  Access reads a themed control against, and adds the control to the `TypeInfo`
+  stream, without which `Me.MyControl` does not compile and `MyControl_Click`
+  never binds.
 
   A new form or report starts from a blank one captured from Access, with a
-  GUID of its own patched into the design and the catalog row that repeats it.
-  Verified in Access: a form XLIDE created from nothing opens, shows the
+  GUID of its own written into the design and into the catalog row that repeats
+  it. Verified in Access: a form XLIDE created from nothing opens, shows the
   caption and controls it was given, and its code reaches them through `Me`.
 
-- **Access forms and reports reach the designer.** They appear in the project
-  tree as the forms and reports they are, with a **Designer** under each, and
-  the same three surfaces a UserForm has answer for them: the markup editor,
-  the canvas and the property pane. A drag, a resize, a property set, a
-  toolbox drop and a delete are the same gestures, and each is one edit of the
-  markup, so `Ctrl+Z` undoes it. A design whose code window Access has never
-  opened has no module at all, and is listed anyway.
+- **Access forms and reports open in the designer.** They appear in the project
+  tree as forms and reports, each with a **Designer** beneath it, and the
+  markup editor, the canvas and the property pane all work on them as they do
+  on a UserForm. Every gesture the UserForm designer makes works here: drag,
+  resize, drop a control, delete one, set a property, move a control between
+  sections, bring one to the front, and rewrite a section's tab order. Each
+  lands as a single edit of the markup, so `Ctrl+Z` undoes it. A design is
+  listed even when Access has never opened its code window, which is when it
+  has no module at all.
+
+  The property pane reads the same way as every other host's. It lists the
+  control type's whole property sheet - 79 rows for a command button, 73 for a
+  text box - so two controls of the same type get the same rows in the same
+  order rather than whatever each one happens to have saved. A design stores a
+  property only where it differs from what the control would have anyway, so
+  three layers fill the values: the control's own record, the design's
+  control-defaults object for its type, and the value Access gives a control it
+  has just created, measured by `scripts/measure-access-control-defaults.py`.
+  A property none of the three has is shown empty rather than guessed at, and
+  what the Office theme decides is left to the design, where it is the theme
+  that database actually uses.
+
+  A colour is a swatch and a picker, `FontName` is the font list, a Yes/No is
+  True/False, and a property whose settings Access publishes is a dropdown of
+  them - Border Style as Transparent through Dash dot dot, Special Effect as
+  Flat through Chiseled, Text Align as General through Distribute.
+  Measurements are in points, the unit the canvas and the gestures use; Access
+  stores twips and the twentyfold never reaches the pane. A property Access
+  publishes no settings for stays a plain field rather than a dropdown that
+  could not offer every value.
+
+- **An Access database was still marked read-only in the editor.** Its modules
+  opened with the lock on, and the tree hid every menu that writes: no Add
+  Module, no rename, no delete. That was right until this release and wrong
+  the moment the writer landed, so the whole Access write surface was
+  unreachable from the UI even though the engine underneath it worked. No
+  container is read-only now, and the rule and its plumbing are gone.
+
+- **Access forms and reports can be renamed, created and deleted from the
+  tree.** A design's name lives in four places - the container's listing, the
+  catalog row, the navigation pane's row, and the module Access binds its code
+  to - and a rename moves all four. **Add Form** and **Add Report** create one
+  from the blank design Access itself writes; deleting one takes the module
+  behind it, because a project naming a `DocClass` whose design is gone is a
+  project Access reports as corrupt on the next open.
 
 - **Names and source outside the project's code page.** Everything on the
-  Access side goes through the project's declared `PROJECTCODEPAGE` rather than
-  latin-1, so a module named in Cyrillic or Japanese keeps its real name in the
-  unicode dir record while the ANSI record beside it holds the folded
-  projection, which is what the VBE writes. Access lists such a module by its
-  real name and runs its code. The em dash, the curly quotes and the euro sign
-  that live in cp1252's 0x80-0x9F round-trip exactly.
+  Access side now goes through the project's declared `PROJECTCODEPAGE` instead
+  of latin-1. A module named in Cyrillic or Japanese keeps its real name in the
+  unicode dir record, with the ANSI record beside it holding the `?`-folded
+  spelling, which is what the VBE writes; Access lists the module by its real
+  name and runs its code. The em dash, the curly quotes and the euro sign that
+  live in cp1252's 0x80-0x9F round-trip exactly.
 
 - **An Access row that outgrew its page was invisible.** When a row no longer
   fits, the engine moves it to another page and leaves a four-byte pointer in
-  its home slot. The reader skipped both the pointer and the moved copy, so the
-  row - and the stream it held - was lost from every table it read. It now
-  follows the pointer.
+  its home slot. The reader skipped the pointer and the moved copy both, losing
+  the row and whatever stream it held. It now follows the pointer.
+
+- **An Access design's name was read by pattern, not by lookup.** The container
+  lists each design against the storage folder that holds it. The reader
+  scanned that listing for runs of letters instead, so framing bytes that
+  happened to decode as a letter came back glued to the front of the name: a
+  form Access calls `Form1` was listed as `คForm1`.
 
 - **`RECORD_OFFSET_MASK` is thirteen bits, not twelve.** A deleted slot records
   the boundary the rows below it start at, and that boundary can be the page
-  end, 4096. Masking with 0x0FFF turned such a slot's offset into 0 and skipped
-  the row above it.
+  end, 4096. Masking with 0x0FFF turned such a slot's offset into 0, and the
+  row above it was skipped.
 
 ## [7.0.0] - 2026-09-05
 

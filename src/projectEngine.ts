@@ -189,7 +189,11 @@ export class ProjectEngine implements vscode.Disposable {
 			case 'applyFormMarkup':
 				return svc.applyFormMarkup(str(p, 'path'), str(p, 'module'), str(p, 'markup'));
 			case 'addForm':
-				return svc.addFormModule(str(p, 'path'), str(p, 'module'), typeof p.source === 'string' ? p.source : '');
+				return svc.addFormModule(
+					str(p, 'path'), str(p, 'module'),
+					typeof p.source === 'string' ? p.source : '',
+					p.kind === 'report' ? 'report' : p.kind === 'form' ? 'form' : undefined,
+				);
 			case 'readFormExport':
 				return svc.readFormExport(str(p, 'path'), str(p, 'module'));
 			case 'writeFormDesigner':

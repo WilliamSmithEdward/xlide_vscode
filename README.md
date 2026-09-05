@@ -19,9 +19,8 @@ workbook has your code.
 
 XLIDE reads and writes the project container itself - the compound file, the
 VBA project, the OOXML package - so nothing else has to be installed and Excel
-never has to be open. That is what makes it work on a build server, and what
-makes a module you open the module that is really in the file rather than an
-export that may have drifted from it.
+never has to be open. It runs on a build server. The module you open is the one
+in the file, not an export of it.
 
 ## Files it opens
 
@@ -32,12 +31,6 @@ export that may have drifted from it.
 | PowerPoint | `.pptm` `.potm` `.ppsm` `.ppam` `.ppt` `.ppa` |
 | Access | `.accdb` `.mdb` `.mda` |
 | Visual Basic 6 | `.vbp`, with the `.bas` `.cls` `.frm` `.ctl` `.pag` files it names |
-
-Access is not a compound file like the others: its VBA lives in rows of a
-system table inside the Jet/ACE database, and Access runs the compiled project
-rather than the source. XLIDE writes the source and marks the compiled project
-stale, which is what Access's own `/decompile` switch does, so the next open
-recompiles and the edit takes effect.
 
 ---
 
@@ -70,16 +63,21 @@ edit of the markup, so `Ctrl+Z` undoes it and nothing is written until you
 save. It reads and writes the form's binary storage directly and never needs
 Excel running. VB6 forms open in the same designer from their own `.frm` text.
 
-**Access, natively.** Its VBA is rows in `MSysAccessStorage`, not a compound
-file, so XLIDE reads and writes the Jet/ACE database itself: modules read,
-edited, added, renamed and deleted, and forms and reports read, edited, created
-and deleted, down to the B-tree keys and page maps the engine keeps. Access
-never has to be running.
+**Access databases, natively.** An Access database keeps its VBA in rows of a
+system table and runs a compiled copy of it rather than the source, so XLIDE
+writes the source and marks that copy stale. Access recompiles on the next
+open, which is what its own `/decompile` switch does. Modules can be edited,
+added, renamed and deleted, and so can forms and reports: they open in the same
+designer as a UserForm, with the same canvas, toolbox, tab order and property
+pane. Renaming one moves the design, its catalog row, the navigation pane's row
+and the module Access binds its code to, all four together. Access never has to
+be running.
 
 **Folders, from the code.** Put `'@Folder("Accounts.Ledger")` in a module and
-the **Folders** view groups the project by it - the Rubberduck convention, read
-leniently. The tree follows the editor: folders on the way to the module you
-are editing open, and the status bar names the procedure your cursor is in.
+the **Folders** view groups the project by it - the Rubberduck convention,
+accepted however it is spaced, cased or quoted. The tree follows the editor:
+folders on the way to the module you are editing open, and the status bar names
+the procedure your cursor is in.
 
 **Annotations that write the hidden attributes.** A VBA module carries
 attributes the code pane never shows and the editor gives no way to set:
@@ -107,8 +105,8 @@ files - working against the real document instead of a pasted copy.
 2. Open a folder containing a macro-enabled Office file or a `.vbp`.
 3. Expand the project in the XLIDE view, open a module, edit, and save.
 
-There is no runtime, interpreter or library to add. For a walk through the
-first hour, see
+There is no runtime or library to add. For a walk through the first hour,
+see
 [Getting started](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/getting_started.md).
 
 **Requirements:** Visual Studio Code 1.95 or newer. Running macros and tests
@@ -152,13 +150,15 @@ Open the Command Palette and type `XLIDE`.
 
 - XLIDE writes to your project file. Keep backups of anything important,
   particularly before a large import.
-- Writing to an Access database makes its next open recompile the project, so
-  the code already in it has to compile. A stale compiled cache no longer
-  hides a module that does not.
+- Access recompiles a database the first time it opens after XLIDE has
+  written to it, so all the VBA in it has to compile - including code XLIDE
+  did not touch.
 - Macros and tests need Windows and Office. Editing, analysis, import and
   export do not.
-- The UserForm designer carries through any property it does not itself name,
-  so a form it has not touched saves unchanged.
+- The UserForm designer keeps every property it does not name itself, so a
+  form you have not edited saves back unchanged. An Access design is the same:
+  the properties it shows are the ones its own type's schema names, and every
+  other record is carried through untouched.
 - A VB6 gesture rewrites the header block at the top of the `.frm` and leaves
   the code below alone. Multi-line text goes to the `.frx` as a new record on
   save; pictures and other sidecar records are read, never written. XLIDE does

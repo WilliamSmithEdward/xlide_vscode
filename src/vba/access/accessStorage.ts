@@ -14,6 +14,7 @@ import {
 	type AccessTableDefinition,
 } from './accessFormat';
 import { parseAccessDesign, type AccessDesign } from './accessDesign';
+import { dirDataEntries } from './accessVbaStreams';
 
 /**
  * `MSysAccessStorage`, the fake structured storage an Access database keeps its
@@ -255,19 +256,18 @@ function streamOf(
 }
 
 /**
- * The object's name, from the container's `\x03DirData`. It lists the names in
- * ordinal order, each UTF-16LE and framed, so the name is read out of the run
- * that follows the ordinal's own entry.
+ * The object's name, from the container's `\x03DirData`, which pairs a name
+ * with the storage folder that holds the object's streams. The folder is
+ * written as the number its one-character name counts from `0`, so a form in
+ * folder `1` is the entry that carries 1.
  */
 function designName(container: AccessStorageEntry, ordinal: string): string | undefined {
 	const dirData = container.children.find((entry) => entry.name.endsWith('DirData'))?.bytes;
 	if (!dirData) {
 		return undefined;
 	}
-	const names = [...dirData.toString('utf16le').matchAll(/[\p{L}_][\p{L}\p{N}_ ]*/gu)]
-		.map((match) => match[0].trim())
-		.filter((name) => name.length > 0);
-	return names[Number(ordinal)];
+	const folder = String(ordinal.charCodeAt(0) - '0'.charCodeAt(0));
+	return dirDataEntries(dirData).find((entry) => entry.folder === folder)?.name;
 }
 
 function findChild(roots: readonly AccessStorageEntry[], name: string): AccessStorageEntry | undefined {

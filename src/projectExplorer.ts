@@ -5,7 +5,7 @@ import { projectIdentityKey } from './xlideFileSystem';
 import { compareVbaModulesForTreeOrder, moduleThemeIconName } from './moduleDisplay';
 import { buildFolderTree, folderPathChain, type FolderTree, type FolderTreeFolder } from './folderTree';
 import type { XlideExplorerView } from './globalSettings';
-import { containerAppNameForPath, containerContextValue, isReadOnlyContainerPath, isVb6ProjectPath } from './macroContainerUi';
+import { containerAppNameForPath, containerContextValue, isVb6ProjectPath } from './macroContainerUi';
 import { findMacroContainerFiles } from './macroContainerDiscovery';
 import { hasPendingAgentReview } from './xlideAgentDiff';
 import { startPerformanceTrace } from './performanceTrace';
@@ -451,9 +451,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             case 'module':
                 item.iconPath = new vscode.ThemeIcon(moduleThemeIconName(node.moduleType));
                 item.description = node.moduleType;
-                // '-ro' keeps rename/delete menus off read-only containers.
-                item.contextValue = `module-${node.moduleType ?? 'standard'}${
-                    isReadOnlyContainerPath(node.filePath) ? '-ro' : ''}`;
+                item.contextValue = `module-${node.moduleType ?? 'standard'}`;
                 if (hasPendingAgentReview(node.filePath, node.moduleName ?? '')) {
                     // An agent wrote this module and nobody has kept or
                     // reverted it yet; the badge keeps the review reachable.

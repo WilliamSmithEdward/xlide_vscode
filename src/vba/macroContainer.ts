@@ -24,7 +24,11 @@
 import { accessVbaCfb, isAccessDatabase } from './accessDatabase';
 import { Cfb } from './cfb';
 import { pptVbaCfb, pptWriteVbaStorage } from './pptContainer';
-import { applyAccessVbaProject, readAccessDesignNames } from './access/accessVbaWriter';
+import {
+	accessDesignModuleName,
+	applyAccessVbaProject,
+	readAccessDesignNames,
+} from './access/accessVbaWriter';
 import { XlsxWorkbook } from './xlsx';
 
 export class MacroContainerError extends Error {}
@@ -161,7 +165,7 @@ function cachedDesigns(data: Buffer): () => AccessContainerDesign[] {
 	return (): AccessContainerDesign[] => {
 		value ??= readAccessDesignNames(data).map((entry) => ({
 			...entry,
-			moduleName: `${entry.kind === 'form' ? 'Form' : 'Report'}_${entry.name}`,
+			moduleName: accessDesignModuleName(entry.kind, entry.name),
 		}));
 		return value;
 	};

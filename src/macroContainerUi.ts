@@ -33,12 +33,6 @@ export function containerHostForPath(fsPath: string): VbaHostToken {
 	return hostTokenForFileName(fsPath) ?? 'excel';
 }
 
-/** Access is the one read-only host: it runs VBA from compiled p-code, so
- * source writes cannot take effect. Everything else writes. */
-export function isReadOnlyContainerPath(fsPath: string): boolean {
-	return containerHostForPath(fsPath) === 'access';
-}
-
 /** Containers the Excel-specific surfaces (launcher, VBA tests) accept. */
 export function isExcelContainerPath(fsPath: string): boolean {
 	return containerHostForPath(fsPath) === 'excel';
@@ -60,13 +54,21 @@ export function containerAppNameForPath(fsPath: string): string {
 	}
 }
 
-/** The tree item context value that gates a project node's menu surface. */
-export function containerContextValue(fsPath: string): 'xlsm' | 'macroDocument' | 'macroReadOnly' | 'vb6Project' {
+/**
+ * The tree item context value that gates a project node's menu surface.
+ *
+ * An Access database is its own value: what it creates is a form or a report,
+ * both database objects, where every other host creates a UserForm in the
+ * project.
+ */
+export function containerContextValue(
+	fsPath: string,
+): 'xlsm' | 'macroDocument' | 'accessDatabase' | 'vb6Project' {
 	if (isVb6ProjectPath(fsPath)) {
 		return 'vb6Project';
 	}
-	if (isReadOnlyContainerPath(fsPath)) {
-		return 'macroReadOnly';
+	if (containerHostForPath(fsPath) === 'access') {
+		return 'accessDatabase';
 	}
 	return isExcelContainerPath(fsPath) ? 'xlsm' : 'macroDocument';
 }

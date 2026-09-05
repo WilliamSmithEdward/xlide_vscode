@@ -11,7 +11,7 @@ import { noteModuleWrite } from './vbaRenameHistory';
 // Function-level cycle with xlideAgentDiff (it imports URI/identity helpers
 // from this module); neither side touches the other at module-eval time.
 import { trackModuleWriteForAgentReview } from './xlideAgentDiff';
-import { containerAppNameForPath, isReadOnlyContainerPath, MACRO_CONTAINER_EXTENSION_PATTERN } from './macroContainerUi';
+import { containerAppNameForPath, MACRO_CONTAINER_EXTENSION_PATTERN } from './macroContainerUi';
 import { projectIdentityKey } from './projectIdentity';
 
 export const XLIDE_SCHEME = 'xlide-vba';
@@ -208,22 +208,11 @@ export class XlideFileSystemProvider
     stat(uri: vscode.Uri): vscode.FileStat {
         const state = this.ensureStat(uri);
         this.syncWithProjectFile(state, uri);
-        let permissions: vscode.FilePermission | undefined;
-        try {
-            // Access modules open read-only: the editor shows the lock instead
-            // of letting a save fail after the fact.
-            if (isReadOnlyContainerPath(decodeModuleUri(uri).projectPath)) {
-                permissions = vscode.FilePermission.Readonly;
-            }
-        } catch {
-            // Undecodable URIs keep default permissions.
-        }
         return {
             type: vscode.FileType.File,
             ctime: state.ctime,
             mtime: state.mtime,
             size: state.size,
-            ...(permissions !== undefined ? { permissions } : {}),
         };
     }
 

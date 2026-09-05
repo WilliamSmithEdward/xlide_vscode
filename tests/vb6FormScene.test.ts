@@ -407,8 +407,12 @@ describe('listFrmProperties', () => {
 		const html = renderFormSceneHtml(sceneOfFrmHeader(header, { formName: 'Form1' }), { formName: 'Form1' });
 		expect(html).toContain('"Form.BorderStyle"');
 		expect(html).toContain('"Form.KeyPreview"');
-		// The pane's own MSForms tables never answer a VB6 row by bare name.
-		expect(html).toContain('const ENUM_FALLBACK = false;');
+		// The pane's own MSForms tables stay out of a VB6 pane altogether: the
+		// same property names hold different values there.
+		// MSForms' own tables are nowhere in it: the same property names hold
+		// different values in a VB6 project.
+		expect(html).not.toContain('DropDownCombo');
+		expect(html).not.toContain('"TextAlign":');
 		// A Line or Shape has no events; the table says so and the canvas passes it on.
 		expect(html).toContain('"Line":""');
 	});

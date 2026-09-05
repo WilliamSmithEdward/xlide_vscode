@@ -272,13 +272,22 @@ export function addToProject(text: string, name: string, kind: AccessModuleKind)
 export function removeFromProject(text: string, name: string): string {
 	return text.split(CRLF)
 		.filter((line) => line !== `Module=${name}` && line !== `Class=${name}`
+			&& !line.startsWith(`${DOC_CLASS}=${name}/`)
 			&& !line.startsWith(`${name}=`))
 		.join(CRLF);
 }
 
 /**
- * The `Module=`/`Class=` line and the `[Workspace]` line. The stream's lines
- * end CR LF, so the end anchor has to allow the CR.
+ * How `PROJECT` names the module behind a form or report: `DocClass=` and the
+ * module's name, then a slash and a flag word Access owns. A design's module
+ * is listed this way and never as `Module=` or `Class=`, and Access reads a
+ * `DocClass` naming a module the project no longer has as a corrupt project.
+ */
+const DOC_CLASS = 'DocClass';
+
+/**
+ * The `Module=`, `Class=` or `DocClass=` line and the `[Workspace]` line. The
+ * stream's lines end CR LF, so the end anchor has to allow the CR.
  */
 export function renameProject(text: string, oldName: string, newName: string): string {
 	const quoted = oldName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -288,6 +297,9 @@ export function renameProject(text: string, oldName: string, newName: string): s
 			new RegExp(`^${keyword}=${quoted}(?=\\r?$)`, 'gm'), `${keyword}=${newName}`,
 		);
 	}
+	out = out.replace(
+		new RegExp(`^${DOC_CLASS}=${quoted}(?=/)`, 'gm'), `${DOC_CLASS}=${newName}`,
+	);
 	return out.replace(new RegExp(`^${quoted}=`, 'gm'), `${newName}=`);
 }
 

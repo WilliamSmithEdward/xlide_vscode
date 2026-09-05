@@ -296,6 +296,18 @@
         "icon": "$(window)"
       },
       {
+        "command": "xlide.newAccessForm",
+        "title": "Add Form",
+        "category": "XLIDE",
+        "icon": "$(window)"
+      },
+      {
+        "command": "xlide.newAccessReport",
+        "title": "Add Report",
+        "category": "XLIDE",
+        "icon": "$(book)"
+      },
+      {
         "command": "xlide.openFormMarkup",
         "title": "Open Form Markup",
         "category": "XLIDE",
@@ -561,17 +573,17 @@
         },
         {
           "command": "xlide.findReferences",
-          "when": "view == xlide.explorer && viewItem =~ /^(sub|module-class(-ro)?(-agent-pending)?)$/",
+          "when": "view == xlide.explorer && viewItem =~ /^(sub|module-class(-agent-pending)?)$/",
           "group": "1_navigate@1"
         },
         {
           "command": "xlide.newModule",
-          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument)$/",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|accessDatabase)$/",
           "group": "1_create@1"
         },
         {
           "command": "xlide.newClassModule",
-          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument)$/",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|accessDatabase)$/",
           "group": "1_create@2"
         },
         {
@@ -580,23 +592,33 @@
           "group": "1_create@3"
         },
         {
+          "command": "xlide.newAccessForm",
+          "when": "view == xlide.explorer && viewItem == accessDatabase",
+          "group": "1_create@3"
+        },
+        {
+          "command": "xlide.newAccessReport",
+          "when": "view == xlide.explorer && viewItem == accessDatabase",
+          "group": "1_create@4"
+        },
+        {
           "command": "xlide.previewForm",
-          "when": "view == xlide.explorer && viewItem =~ /^module-userform(-agent-pending)?$/",
+          "when": "view == xlide.explorer && viewItem =~ /^module-(userform|accessform|accessreport)(-agent-pending)?$/",
           "group": "2_edit@1"
         },
         {
           "command": "xlide.openFormMarkup",
-          "when": "view == xlide.explorer && viewItem =~ /^module-userform(-agent-pending)?$/",
+          "when": "view == xlide.explorer && viewItem =~ /^module-(userform|accessform|accessreport)(-agent-pending)?$/",
           "group": "2_edit@2"
         },
         {
           "command": "xlide.renameModule",
-          "when": "view == xlide.explorer && viewItem =~ /^module-(standard|class)(-agent-pending)?$/",
+          "when": "view == xlide.explorer && viewItem =~ /^module-(standard|class|accessform|accessreport)(-agent-pending)?$/",
           "group": "2_edit@1"
         },
         {
           "command": "xlide.deleteModule",
-          "when": "view == xlide.explorer && viewItem =~ /^module-(standard|class)(-agent-pending)?$/",
+          "when": "view == xlide.explorer && viewItem =~ /^module-(standard|class|accessform|accessreport)(-agent-pending)?$/",
           "group": "2_edit@2"
         },
         {
@@ -636,27 +658,27 @@
         },
         {
           "command": "xlide.openInOfficeApp",
-          "when": "view == xlide.explorer && viewItem =~ /^(macroDocument|macroReadOnly)$/",
+          "when": "view == xlide.explorer && viewItem =~ /^(macroDocument|accessDatabase)$/",
           "group": "3_project@1"
         },
         {
           "command": "xlide.analyzeProject",
-          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|macroReadOnly|vb6Project)$/",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|accessDatabase|vb6Project)$/",
           "group": "4_analyze@1"
         },
         {
           "command": "xlide.runVbaTests",
-          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument)$/",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|accessDatabase)$/",
           "group": "4_analyze@2"
         },
         {
           "command": "xlide.exportModulesToFolder",
-          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|macroReadOnly)$/",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|accessDatabase)$/",
           "group": "5_transfer@1"
         },
         {
           "command": "xlide.importModulesFromFolder",
-          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument)$/",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|accessDatabase)$/",
           "group": "5_transfer@2"
         }
       ],
@@ -1387,6 +1409,7 @@
     "generate:reference:excel": "node scripts/generate-excel-reference-metadata.mjs",
     "generate:reference:office": "node scripts/generate-office-reference-metadata.mjs",
     "generate:reference:msforms": "node scripts/generate-msforms-reference-metadata.mjs",
+    "measure:access:defaults": "python scripts/measure-access-control-defaults.py",
     "test:oracle:vbe": "node syntax_corpus/oracle/run_excel_vbe_oracle.mjs",
     "test:oracle:twinbasic": "node syntax_corpus/oracle/twinbasic/run_twinbasic_oracle.mjs",
     "verify:excel:formats": "node scripts/verify-excel-formats.mjs",
