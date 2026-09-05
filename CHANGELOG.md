@@ -2,6 +2,16 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [8.0.3] - 2026-09-05
+
+- **The README names every host the test runner drives.** Five places said
+  tests need Excel, or stopped at PowerPoint. The runner drives the file's own
+  application, and 8.0.1 added Access, so all four are named now.
+
+- **The Hosts badge links to a heading that exists.** It pointed at a heading
+  from an older README, so clicking it did nothing. It opens Why Use XLIDE
+  now.
+
 ## [8.0.2] - 2026-09-05
 
 - **The blank Access templates ship in the package.** The `*.accdb` and

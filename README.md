@@ -5,7 +5,7 @@
 [![rating](https://vsmarketplacebadges.dev/rating-short/WilliamSmithE.xlide.svg?style=flat&color=blue)](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide&ssr=false#review-details)
 [![CI](https://img.shields.io/github/actions/workflow/status/WilliamSmithEdward/xlide_vscode/ci.yml?branch=main&label=CI)](https://github.com/WilliamSmithEdward/xlide_vscode/actions/workflows/ci.yml)
 [![license](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
-[![Hosts](https://img.shields.io/badge/Hosts-Excel%2C%20Word%2C%20PowerPoint%2C%20Access%2C%20VB6-blue)](#new-in-400-every-office-vba-host)
+[![Hosts](https://img.shields.io/badge/Hosts-Excel%2C%20Word%2C%20PowerPoint%2C%20Access%2C%20VB6-blue)](#why-use-xlide)
 
 [Install XLIDE from the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide)\
 \
@@ -43,7 +43,8 @@ seven refactorings, a UserForm designer, full static analysis, live
 diagnostics, file-level analysis reports, module-qualified IntelliSense,
 import/export diff previews, source-control friendly `.bas`/`.cls` sync,
 explicit per-file settings, performance diagnostics, and VBA unit tests that
-execute through Excel, Word, or PowerPoint when you need runtime confidence.
+execute through Excel, Word, PowerPoint, or Access when you need runtime
+confidence.
 
 For everyone, XLIDE opens a new agentic AI surface for Office VBA. Compatible
 AI assistants can inspect the real file, read and write VBA modules, analyze
@@ -131,7 +132,7 @@ reviewable, testable, and collaborative.
 13. **Run macros and VBA tests when Office is available**
    On Windows with Microsoft Office installed, XLIDE runs macros and
    `@xlide-test` unit tests through explicit automation of the file's own
-   application - Excel, Word, or PowerPoint.
+   application - Excel, Word, PowerPoint, or Access.
 
 14. **Give AI assistants real file context**
    XLIDE exposes tools for file discovery, VBA reads/writes, analysis,
@@ -229,7 +230,7 @@ Guide:
 ### Run tests
 
 Mark VBA procedures as workbook tests, then run them from XLIDE. Test execution
-requires Microsoft Excel on Windows.
+requires the file's own Office application on Windows.
 
 Guide:
 [Testing VBA workbooks](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/testing.md)
@@ -288,7 +289,7 @@ so there is no runtime, interpreter, or library to install.
 Required only for running VBA code from XLIDE:
 
 - Windows.
-- Microsoft Excel.
+- The file's own Office application: Excel, Word, PowerPoint, or Access.
 - Workbook macro settings that allow the code to run.
 
 Reading, editing, analyzing, importing, and exporting workbook VBA do not require
@@ -339,7 +340,7 @@ Open the Command Palette and type `XLIDE` to find these commands:
 
 - XLIDE reads and writes VBA modules through the workbook file. Keep normal
   backups for important workbooks, especially before large sync operations.
-- Running macros or tests uses Excel automation and is Windows-only.
+- Running macros or tests uses Office automation and is Windows-only.
 - The UserForm designer keeps every property it does not name itself, so a
   form you have not edited saves back unchanged. Access designs work the same
   way.
