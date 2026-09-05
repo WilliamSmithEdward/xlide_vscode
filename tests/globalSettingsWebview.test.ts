@@ -25,6 +25,7 @@ const validSettings = {
     'editor.continueCommentOnNewline': true,
     'editor.mirrorCommentSpacing': true,
     'explorer.autoExpandCollapse': true,
+    'explorer.view': 'tree',
     'docs.enabled': true,
     'docs.metadataGlob': '**/*.vbref.xml',
     'performance.trace': false,

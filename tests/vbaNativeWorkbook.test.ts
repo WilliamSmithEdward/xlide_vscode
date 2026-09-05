@@ -297,6 +297,43 @@ describe('lazy module sources', () => {
 			expect(byName.get(entry.name)?.documentType, entry.name).toBe(entry.documentType);
 		}
 	});
+
+	// The explorer's folder layout, issue #66.
+	it('reports the @Folder annotation from the header prefix, at no extra cost', () => {
+		const file = tempCopy();
+		svc.writeModule(file, 'Ledger', '\'@Folder("Accounts.Ledger")\r\nPublic Sub L()\r\nEnd Sub\r\n', 'standard');
+		svc.writeModule(file, 'Loose', 'Public Sub N()\r\nEnd Sub\r\n', 'standard');
+
+		const byName = new Map(svc.listModules(file).map((m) => [m.name, m]));
+		expect(byName.get('Ledger')?.folder).toBe('Accounts.Ledger');
+		expect(byName.get('Loose')?.folder).toBeUndefined();
+
+		// A full read, which inflates every source, reads the same prefix and
+		// must not answer differently: one rule, one answer, whichever call the
+		// tree or the analyzer makes.
+		for (const entry of svc.readModules(file, true)) {
+			expect(byName.get(entry.name)?.folder, entry.name).toBe(entry.folder);
+		}
+	});
+
+	// Pinned deliberately: reaching past the prefix for this would inflate
+	// every module on every listing, which doubled a cold listModules over the
+	// test corpus and changed no answer on any real module. See folderOfModule.
+	it('does not go looking past the header prefix for a late annotation', () => {
+		const file = tempCopy();
+		// Well past the 4096 bytes of source the header prefix inflates.
+		const longDeclarations = Array.from(
+			{ length: 300 },
+			(_, i) => `Public Const Constant${i} As Long = ${i}`,
+		).join('\r\n');
+		svc.writeModule(file, 'Deep', `${longDeclarations}\r\n'@Folder("Accounts.Deep")\r\nPublic Sub D()\r\nEnd Sub\r\n`, 'standard');
+
+		const deep = svc.listModules(file).find((m) => m.name === 'Deep');
+		expect(deep?.folder).toBeUndefined();
+		// The module lands where an unannotated one lands - the project root -
+		// so the fix is visible: move the annotation to the top of the module.
+		expect(svc.readModules(file, true).find((m) => m.name === 'Deep')?.folder).toBeUndefined();
+	});
 });
 
 describe('packaged assets', () => {

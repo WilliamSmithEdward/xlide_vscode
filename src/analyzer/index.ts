@@ -220,6 +220,22 @@ export {
 	resolveDiagnosticCodeActions,
 	VbaTextEdit,
 } from './codeActions/diagnosticCodeActions';
+// The refactorings beyond rename (issue #69). Pure over module source: each
+// one returns edits or refuses with a reason.
+export {
+	applyVbaTextEdits,
+	type VbaRefactorModuleEdits,
+	type VbaRefactorRefusal,
+	type VbaRefactorResult,
+	type VbaRefactorSuccess,
+} from './refactor/refactorTypes';
+export { encapsulateField, type EncapsulateFieldInput } from './refactor/encapsulateField';
+export { extractMethod, type ExtractMethodInput } from './refactor/extractMethod';
+export { extractVariable, type ExtractVariableInput } from './refactor/extractVariable';
+export { implementInterface, type ImplementInterfaceInput } from './refactor/implementInterface';
+export { inlineVariable, type InlineVariableInput } from './refactor/inlineVariable';
+export { introduceParameter, type IntroduceParameterInput } from './refactor/introduceParameter';
+export { moveToModule, type MoveToModuleInput } from './refactor/moveToModule';
 export {
 	DIAGNOSTIC_RULES,
 	STRUCTURAL_DIAGNOSTIC_RULES,

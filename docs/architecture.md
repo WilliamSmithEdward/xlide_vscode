@@ -45,7 +45,12 @@ xlide_vscode/
     projectSettings.ts Strict project settings sidecar path, schema validation, and persistence
     projectModuleSyncSettings.ts Effective project import/export sync settings and provenance
     globalSettings.ts  Machine-scoped VS Code XLIDE setting validation, normalization, and provenance
-    statusBar.ts        XlideStatusBar - status bar item showing the active project/module
+    statusBar.ts        XlideStatusBar - status bar item showing the active project, module, and procedure
+    vbaCaretProcedure.ts    VbaCaretProcedureTracker - one answer to "which procedure is the caret in", shared by the status bar and the tree
+    analyzer/refactor/  The seven refactorings beyond rename (issue #69): pure over module source, each returning edits or a refusal (no vscode dependency)
+    commands/refactorCommands.ts  The VS Code layer for those: finds the caret, fetches project text, turns a result into a workspace edit
+    folderTree.ts       Pure folder-layout arithmetic: modules plus their @Folder annotations into the explorer's nested shape (no vscode dependency)
+    vbaProcedureAtLine.ts   Pure CodeModule.ProcOfLine rule: which procedure owns a line, leading comments included (no vscode dependency)
     vbaSymbolIndex.ts   VbaSymbolIndex - project-scoped cache of VBA module sources
     vbaLanguageProviders.ts  Composition root that registers the vba language subsystems; implementations live in vbaLiveDiagnostics.ts, vbaCompletionProvider.ts, vbaHoverSignatureProvider.ts, vbaNavigationProviders.ts, vbaSemanticTokensProvider.ts, vbaCodeActions.ts, and vbaTypingAutomation.ts
     vbaSourceScan.ts    Pure shared VBA source-scan utilities - stripVba, line start offsets, logical lines, identifier search/validation (no vscode dependency)
@@ -102,6 +107,7 @@ xlide_vscode/
       accessDatabase.ts Jet/ACE (.accdb/.mdb) page reader: LVAL rows and chains reassembled into a synthetic CFB the project parser reads unchanged
       formDesigner.ts   [MS-OFORMS] designer storage reader, control tree, .frm/.frx compose and parse
       codePages.ts      MBCS code-page encode/decode for project text streams
+      folderAnnotation.ts  Rubberduck '@Folder' annotation reader: the lenient spellings, the declarations-only scan, path normalization; bounded to the header prefix so a listing never inflates a module body
       projectService.ts  The operation layer the extension calls: module CRUD, protection info, sheets, cells, atomic container writes
 
   assets/
@@ -225,6 +231,40 @@ scenarios do not need bespoke one-off test wiring.
 | 0 | `xlsm` - one per file found by `findFiles(MACRO_CONTAINER_GLOB)`, VB6 `.vbp` projects included (context value `vb6Project`) | modules |
 | 1 | `module` - name + type (standard / class / document) | subs |
 | 2 | `sub` - procedure name, kind, 1-based line number | none |
+
+The `xlide.explorer.view` setting picks the layout, and the Tree / Folders
+buttons in the view title write that setting rather than a second piece of
+state. In the `folders` layout a `folder` level sits between the project and
+its modules, built by `buildFolderTree` in `src/folderTree.ts` from each
+module's `@Folder` annotation (read in `src/vba/folderAnnotation.ts` and
+returned by `listModules` as `ModuleEntry.folder`). The layout is derived from
+the module listing and cached beside it, so `refresh()` clears both. Every
+folder in a project gets its node identity as soon as the project is expanded,
+not when its parent is: `treeView.reveal()` walks a module up through folders
+that may never have been drawn.
+
+An open editor outranks the listing. `setModuleFolder` records what a module's
+text currently says (fed by a debounced `onDidChangeTextDocument` in
+`extension.ts` and by `VbaSymbolIndex.onDidChange`, which covers saves and
+agent writes), so a module moves as its annotation is typed rather than on the
+next save. That override is held OUTSIDE `_modulesListCache` on purpose: the
+listing is re-read by every `refresh()`, and a write-through would be discarded
+by the next file-system event. `forgetModuleFolder` drops it when the editor
+closes and re-reads the listing, since the container is the truth again whether
+the edit was saved into it or thrown away.
+
+Under `xlide.explorer.autoExpandCollapse`, folders follow the editor the way
+the module accordion does: `setActiveModule` opens the chain to the module
+being edited and folds the rest, a folder opened or shut by hand outranks that
+until the chain actually changes, and `collapseAllFolders()` runs when the last
+editor closes. The same setting governs the procedure row: `VbaCaretProcedureTracker`
+fires only when the caret leaves the procedure it was in, and `extension.ts`
+selects the matching row through `getProcedureNode`, falling back to the module
+for a caret in the declarations section or a procedure the container has not got
+yet (an unsaved rename). A module's sub rows are built once and kept in
+`_subNodes` for exactly this: `treeView.reveal()` matches the element it is
+given against the ones the tree drew, so a fresh object per render would be
+unfindable.
 
 Clicking a `module` node opens the module via `xlide.openModule`. Clicking a `sub` node opens the module and moves the cursor to that line. A VB6 project's module nodes carry `moduleFilePath`, and the command opens that file itself rather than a virtual document: the file is the module. A VB6 form gets no `designer` row yet (`docs/roadmap_vb6_support.md`, Slice 5).
 
@@ -537,11 +577,21 @@ to operate on export files.
 
 ## Status bar - `statusBar.ts`
 
-`XlideStatusBar` manages two `vscode.StatusBarItem` instances:
+`XlideStatusBar` manages one `vscode.StatusBarItem`:
 
 | Item | Shown when | Text | Click action |
 |---|---|---|---|
-| Active module | Active editor is an `xlide-vba://` document | `<project> | <module>` | `xlide.refreshExplorer` |
+| Active module | Active editor is an `xlide-vba://` document | `<project> | <module> | <procedure>` | `xlide.refreshExplorer` |
+
+The procedure comes from `VbaCaretProcedureTracker`, over
+`src/vbaProcedureAtLine.ts`, which implements the VBE's `CodeModule.ProcOfLine`
+rule: a procedure owns the comment and blank
+lines above its header, the declarations section stops at the last line of code
+above that run, and everything after the last `End` belongs to the last
+procedure. It reads `(Declarations)` above the first procedure. The ranges are
+cached per document version, since the caret moves far more often than the text;
+measured at 1.1 ms for a 27,000-line module, so one rescan per edit is the
+budget this stays inside.
 
 ---
 

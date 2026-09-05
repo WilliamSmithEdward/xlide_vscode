@@ -2,7 +2,7 @@
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
   "description": "Office VBA and Visual Basic 6 in VS Code - Excel, Word, PowerPoint, Access and .vbp projects; project tree, module editing, UserForm and VB6 form designers, static analysis, unit tests, AI agent tools",
-  "version": "6.1.2",
+  "version": "6.2.0",
   "publisher": "WilliamSmithE",
   "license": "MIT",
   "icon": "assets/images/extension_logo.png",
@@ -173,6 +173,16 @@
           "scope": "machine",
           "default": true,
           "description": "Automatically reveal the active module in the XLIDE explorer and collapse the others as you switch editor tabs (a one-file, one-module accordion). Turn off to leave the tree as you arrange it - switching tabs and expanding nodes will not auto-collapse anything."
+        },
+        "xlide.explorer.view": {
+          "type": "string",
+          "enum": [
+            "tree",
+            "folders"
+          ],
+          "scope": "machine",
+          "default": "tree",
+          "description": "How the XLIDE explorer arranges a project's modules. Tree lists them flat. Folders groups them by the '@Folder(\"Name.Sub\")' comment in each module's declarations, the Rubberduck convention. The Tree and Folders buttons above the explorer switch it too."
         },
         "xlide.docs.enabled": {
           "type": "boolean",
@@ -418,6 +428,53 @@
         "command": "xlide.launchFormHost",
         "title": "Launch Project in Host Application",
         "category": "XLIDE"
+      },
+      {
+        "command": "xlide.explorer.showFolders",
+        "title": "Show Folders",
+        "category": "XLIDE",
+        "icon": "$(list-tree)"
+      },
+      {
+        "command": "xlide.explorer.showTree",
+        "title": "Show Tree",
+        "category": "XLIDE",
+        "icon": "$(list-flat)"
+      },
+      {
+        "command": "xlide.refactor.extractMethod",
+        "title": "Extract Method",
+        "category": "XLIDE"
+      },
+      {
+        "command": "xlide.refactor.extractVariable",
+        "title": "Extract Variable",
+        "category": "XLIDE"
+      },
+      {
+        "command": "xlide.refactor.inlineVariable",
+        "title": "Inline Variable",
+        "category": "XLIDE"
+      },
+      {
+        "command": "xlide.refactor.encapsulateField",
+        "title": "Encapsulate Field",
+        "category": "XLIDE"
+      },
+      {
+        "command": "xlide.refactor.implementInterface",
+        "title": "Implement Interface",
+        "category": "XLIDE"
+      },
+      {
+        "command": "xlide.refactor.moveToModule",
+        "title": "Move to Module",
+        "category": "XLIDE"
+      },
+      {
+        "command": "xlide.refactor.introduceParameter",
+        "title": "Introduce Parameter",
+        "category": "XLIDE"
       }
     ],
     "customEditors": [
@@ -475,6 +532,16 @@
     ],
     "menus": {
       "view/title": [
+        {
+          "command": "xlide.explorer.showTree",
+          "when": "view == xlide.explorer && config.xlide.explorer.view == 'folders'",
+          "group": "navigation@0"
+        },
+        {
+          "command": "xlide.explorer.showFolders",
+          "when": "view == xlide.explorer && config.xlide.explorer.view != 'folders'",
+          "group": "navigation@0"
+        },
         {
           "command": "xlide.newProject",
           "when": "view == xlide.explorer",
@@ -603,12 +670,75 @@
           "command": "xlide.exportCurrentModuleToFolder",
           "when": "resourceScheme == xlide-vba",
           "group": "xlide@2"
+        },
+        {
+          "command": "xlide.refactor.extractMethod",
+          "when": "editorLangId == vba",
+          "group": "xlide.refactor@1"
+        },
+        {
+          "command": "xlide.refactor.extractVariable",
+          "when": "editorLangId == vba",
+          "group": "xlide.refactor@2"
+        },
+        {
+          "command": "xlide.refactor.inlineVariable",
+          "when": "editorLangId == vba",
+          "group": "xlide.refactor@3"
+        },
+        {
+          "command": "xlide.refactor.encapsulateField",
+          "when": "editorLangId == vba",
+          "group": "xlide.refactor@4"
+        },
+        {
+          "command": "xlide.refactor.implementInterface",
+          "when": "editorLangId == vba",
+          "group": "xlide.refactor@5"
+        },
+        {
+          "command": "xlide.refactor.moveToModule",
+          "when": "editorLangId == vba",
+          "group": "xlide.refactor@6"
+        },
+        {
+          "command": "xlide.refactor.introduceParameter",
+          "when": "editorLangId == vba",
+          "group": "xlide.refactor@7"
         }
       ],
       "commandPalette": [
         {
           "command": "xlide.dev.smoke",
           "when": "xlide.devMode"
+        },
+        {
+          "command": "xlide.refactor.extractMethod",
+          "when": "editorLangId == vba"
+        },
+        {
+          "command": "xlide.refactor.extractVariable",
+          "when": "editorLangId == vba"
+        },
+        {
+          "command": "xlide.refactor.inlineVariable",
+          "when": "editorLangId == vba"
+        },
+        {
+          "command": "xlide.refactor.encapsulateField",
+          "when": "editorLangId == vba"
+        },
+        {
+          "command": "xlide.refactor.implementInterface",
+          "when": "editorLangId == vba"
+        },
+        {
+          "command": "xlide.refactor.moveToModule",
+          "when": "editorLangId == vba"
+        },
+        {
+          "command": "xlide.refactor.introduceParameter",
+          "when": "editorLangId == vba"
         }
       ]
     },
@@ -872,7 +1002,7 @@
       {
         "name": "xlide_listModules",
         "displayName": "List VBA Modules",
-        "modelDescription": "Lists all VBA modules in a macro-enabled Office file (Excel, Word, PowerPoint, or Access) or a Visual Basic 6 project (.vbp). Returns module names and types (standard, class, document, userform; a VB6 project may also list usercontrol, propertypage and designer). Use this before reading or editing that file's VBA; do not infer module state from exported .bas/.cls repo files, which can be stale, unless the user explicitly asks to work on those export artifacts.",
+        "modelDescription": "Lists all VBA modules in a macro-enabled Office file (Excel, Word, PowerPoint, or Access) or a Visual Basic 6 project (.vbp). Returns module names and types (standard, class, document, userform; a VB6 project may also list usercontrol, propertypage and designer), and the module's `@Folder` annotation when it carries one. Use this before reading or editing that file's VBA; do not infer module state from exported .bas/.cls repo files, which can be stale, unless the user explicitly asks to work on those export artifacts.",
         "toolReferenceName": "xlideListModules",
         "canBeReferencedInPrompt": true,
         "inputSchema": {

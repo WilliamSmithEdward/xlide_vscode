@@ -28,6 +28,7 @@ const validSettings = {
     'editor.continueCommentOnNewline': true,
     'editor.mirrorCommentSpacing': true,
     'explorer.autoExpandCollapse': true,
+    'explorer.view': 'tree',
     'docs.enabled': true,
     'docs.metadataGlob': '**/*.vbref.xml',
     'performance.trace': false,
@@ -151,6 +152,7 @@ describe('globalSettings', () => {
             'xlide.excelIntegration.reopenReadOnlyAfterSave',
             'xlide.excelIntegration.trackOpenedWorkbooks',
             'xlide.explorer.autoExpandCollapse',
+            'xlide.explorer.view',
             'xlide.formRun.injectShowMacro',
             'xlide.performance.trace',
         ]);

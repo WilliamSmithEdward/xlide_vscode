@@ -103,6 +103,11 @@ export function registerVbaLanguageProviders(
             {
                 providedCodeActionKinds: [
                     vscode.CodeActionKind.QuickFix,
+                    vscode.CodeActionKind.Refactor,
+                    vscode.CodeActionKind.RefactorExtract,
+                    vscode.CodeActionKind.RefactorInline,
+                    vscode.CodeActionKind.RefactorMove,
+                    vscode.CodeActionKind.RefactorRewrite,
                     XLIDE_ANALYZE_CURRENT_MODULE_ACTION_KIND,
                     XLIDE_EXPORT_CURRENT_MODULE_ACTION_KIND,
                 ],

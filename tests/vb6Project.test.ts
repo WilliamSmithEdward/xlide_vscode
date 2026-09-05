@@ -230,6 +230,27 @@ describe('a VB6 project through the engine', () => {
 		expect(page).toMatch(/Attribute VB_Name = "ppThing"/);
 	});
 
+	// The explorer's folder layout, issue #66. A VB6 listing reads each file to
+	// find its VB_Name, so the annotation comes off the same read.
+	it('reads the @Folder annotation out of a module file, form or not', () => {
+		const dir = tempProject({
+			'P.vbp': ['Type=Exe', 'Form=Form1.frm', 'Module=modLedger; modLedger.bas',
+				'Module=modLoose; modLoose.bas', 'Startup="Sub Main"'].join(CRLF) + CRLF,
+			'Form1.frm': ['VERSION 5.00', 'Begin VB.Form Form1 ', '   Caption = "Form1"', 'End',
+				'Attribute VB_Name = "Form1"', '\'@Folder("Accounts.Billing")', 'Option Explicit'].join(CRLF) + CRLF,
+			'modLedger.bas': ['Attribute VB_Name = "modLedger"', '\'@Folder Accounts.Ledger',
+				'Sub Main()', 'End Sub'].join(CRLF) + CRLF,
+			'modLoose.bas': ['Attribute VB_Name = "modLoose"', 'Option Explicit'].join(CRLF) + CRLF,
+		});
+		const vbp = path.join(dir, 'P.vbp');
+
+		expect(listModules(vbp).map((m) => [m.name, m.folder])).toEqual([
+			['Form1', 'Accounts.Billing'],
+			['modLedger', 'Accounts.Ledger'],
+			['modLoose', undefined],
+		]);
+	});
+
 	it('refuses a manifest that is not one', () => {
 		const dir = tempProject({ 'Bad.vbp': 'this is not a project\r\n' });
 		expect(() => listModules(path.join(dir, 'Bad.vbp'))).toThrow(/Not a Visual Basic project file/);

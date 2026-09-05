@@ -2,6 +2,88 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [6.2.0] - 2026-09-05
+
+- **Seven refactorings beyond rename** (#69). Extract Method, Extract Variable,
+  Inline Variable, Encapsulate Field, Implement Interface, Move to Module and
+  Introduce Parameter, on the lightbulb where they apply and in the command
+  palette. Each one either does the work or declines with a reason, and the
+  reasons are the point - VBA gives them teeth that other languages do not:
+
+  - **Inline Variable** refuses a compound value outright rather than
+    bracketing it to keep precedence. In VBA `Foo (x)` passes x by value where
+    `Foo x` passes it by reference, so there is no bracket that is safe to add.
+  - **Extract Method** requires `Option Explicit`. Without it an undeclared
+    name is created on first use with procedure lifetime, so moving statements
+    into a new procedure would silently give it a second, separate variable.
+    It reads its signature from the analyzer's reference kinds: what the
+    selection reads before writing becomes a parameter, what it writes and the
+    caller reads afterwards becomes the result, and what nobody reads
+    afterwards takes its `Dim` across. A `Static` local is refused, because it
+    keeps its value between calls of the procedure it is declared in.
+  - **Implement Interface** copies signatures from the interface's own text
+    rather than rebuilding them - VBA compares them letter for letter, and a
+    lost `Optional` or a `ByRef` turned `ByVal` will not compile. The stubs
+    raise rather than returning quietly.
+  - **Move to Module** repoints qualified call sites and leaves unqualified
+    ones alone, since VBA resolves a bare call project-wide. It names the
+    Private member that would be stranded rather than just declining.
+  - **Introduce Parameter** refuses an initialiser naming a local, a
+    parameter, or anything Private to the module, because the expression has
+    to mean the same thing at a call site as it did inside the procedure.
+  - **Encapsulate Field** keeps the property's name, so no call site is
+    rewritten, and writes `Property Set` for an object type.
+  - **Extract Variable** takes its declared type, and whether the assignment
+    needs `Set`, from the same resolver the declare-variable quick fix uses.
+
+- **A class member named after an Excel global keeps its own name** (#68).
+  `Rows` is an Excel global, so a class declaring
+  `Public Property Get rows() As Widget` had `rows.Where(p)` measured against
+  `Excel.Range` and reported `member-not-found` on legal code. The receiver
+  lookup found the module's own variables but never its procedures, so a
+  `Public rows As Widget` won the name while a `Property Get` or `Function` of
+  the same name lost it. Module procedures now win it too, and the receiver
+  takes their return type: `rows.Where` resolves against `Widget`. A `Sub` of
+  the name shadows the global as well - it has no value to offer, but the
+  module owns the name either way. Affects every module kind, and the names
+  that collide are the ones every workbook uses: rows, columns, cells,
+  selection, names, sheets, application.
+
+- **A folder layout for the explorer, from `@Folder` annotations** (#66). Put
+  `'@Folder("Accounts.Ledger")` in a module's declarations - the Rubberduck
+  convention - and the **Folders** button above the XLIDE explorer groups the
+  project by it. The annotation is read leniently: `'@Folder Accounts.Ledger`,
+  `'@Folder(Accounts.Ledger)` and `'@folder("accounts.ledger")` all say the
+  same thing, folder names that differ only in case are one folder, and a
+  module with no annotation sits at the project's root. Folders come first at
+  every level, sorted by name; inside one, modules keep the flat tree's order.
+  The **Tree** button switches back, and `xlide.explorer.view` is the same
+  choice in settings.
+
+  A module moves as you edit its annotation, without waiting for a save: the
+  open editor's text is what the layout reads, and the container is the truth
+  again once that editor closes. A module an agent or a command rewrites moves
+  the same way.
+
+  The folders follow the editor under the existing
+  `xlide.explorer.autoExpandCollapse` setting, the way the module accordion
+  already does: the folders on the way to the module you are editing open, the
+  rest fold when you move to a different folder, a folder you open or shut
+  yourself stays that way until you really do move, and closing the last
+  editor folds them all. With the setting off, folders do nothing on their own.
+
+- **The explorer and the status bar both say which procedure you are in.** The
+  status bar read `Book.xlsm | Module1`; it now reads
+  `Book.xlsm | Module1 | Sub Recalculate`, and `(Declarations)` above the first
+  procedure - the VBE's own wording. The tree selects that procedure's row at
+  the same time, so the explorer marks where the cursor is the way the VBE's
+  own does; it follows `xlide.explorer.autoExpandCollapse` along with
+  everything else the tree does automatically.
+
+  The rule matches `CodeModule.ProcOfLine`, including the part that trips
+  people up: the comment and blank lines above a header belong to the procedure
+  below them, not the one above.
+
 ## [6.1.2] - 2026-09-03
 
 - **The analysis worker can be told a project's `#If` constants** (#63). 6.1.0

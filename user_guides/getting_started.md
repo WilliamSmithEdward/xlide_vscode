@@ -37,6 +37,35 @@ save behavior. Access modules open read-only: Access executes compiled
 p-code, so source edits there could not take effect, and XLIDE says so
 rather than pretending to save.
 
+## Group Modules Into Folders
+
+The **Folders** button above the XLIDE tree groups a project's modules by a
+comment in each module's declarations section, the Rubberduck convention:
+
+```vba
+'@Folder("Accounts.Ledger")
+Option Explicit
+```
+
+Dots nest, so that module sits in `Ledger` inside `Accounts`. The annotation
+is read leniently - `'@Folder Accounts.Ledger`, `'@Folder(Accounts.Ledger)`
+and `'@folder("accounts.ledger")` all mean the same folder - and a module
+with no annotation stays at the project's root. **Tree** switches back to the
+flat list. The buttons and the `xlide.explorer.view` setting are the same
+choice.
+
+With **Auto Expand And Collapse Explorer Tree** on, the folders follow the
+editor: the folders on the way to the module you are editing open, the rest
+fold when you move to another folder, and a folder you open or shut yourself
+stays that way until you move to a module somewhere else. Turn the setting off
+to arrange the tree yourself.
+
+The status bar shows where the cursor is: the file, the module, and the
+procedure - `Book.xlsm | Module1 | Sub Recalculate`, or `(Declarations)` above
+the first procedure. The tree highlights that procedure's row at the same time,
+so you can see where you are in the project without leaving the editor. Both
+follow the same auto expand and collapse setting.
+
 ## Edit VBA
 
 XLIDE provides VBA syntax highlighting, canonical keyword casing, Smart Enter
@@ -47,6 +76,29 @@ members in a document, PowerPoint and Access members in theirs. `Me` in
 Word's `ThisDocument` is a `Word.Document`, `wd*` constants resolve in Word
 files and not in projects, and `ThisDocument` offers Word's `Document_*`
 event stubs.
+
+## Refactor
+
+Seven refactorings sit on the lightbulb where they apply, and in the command
+palette under **XLIDE**:
+
+| Refactoring | What it does |
+| --- | --- |
+| Extract Method | Selected statements become a Private procedure below the caller |
+| Extract Variable | A selected expression becomes a declared local |
+| Inline Variable | A local is replaced by the value it was assigned |
+| Encapsulate Field | A Public variable becomes a property pair with the same name |
+| Implement Interface | Stubs for every member an `Implements` promises |
+| Move to Module | A procedure moves to another standard module |
+| Introduce Parameter | A local becomes a parameter, and callers pass its value |
+
+Each one either does the work or tells you why it will not, and the reasons
+are worth reading: they are the cases where the rewrite would change what your
+code does. Inline Variable will not bracket a compound value, because in VBA
+`Foo (x)` passes by value where `Foo x` passes by reference. Extract Method
+needs `Option Explicit`, because without it an undeclared name would become a
+second, separate variable in the new procedure. Move to Module tells you which
+Private member would be left behind.
 
 Useful editor flows:
 

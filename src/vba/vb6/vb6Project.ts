@@ -18,6 +18,7 @@ import {
 	splitVbaSource,
 	type ProcedureEntry,
 } from '../moduleSource';
+import { readFolderAnnotation } from '../folderAnnotation';
 import { frmMembers, parseFrmHeader, type FrmHeader } from './frmHeader';
 import { parseVbpManifest, type VbpManifest, type VbpModuleKind, type VbpModuleRef } from './vbpProject';
 
@@ -46,6 +47,8 @@ export interface Vb6ModuleEntry {
 	/** The designer's own class, e.g. `VB.Form` or `VB.MDIForm`. */
 	designerClass?: string;
 	predeclaredId?: boolean;
+	/** The normalized `@Folder` annotation, read with the module's name. */
+	folder?: string;
 }
 
 export interface Vb6Project {
@@ -156,7 +159,8 @@ export function openVb6Project(vbpPath: string): Vb6Project {
 			continue;
 		}
 		const filePath = path.resolve(dir, ref.file.replace(/\\/g, path.sep));
-		modules.push({ name: moduleNameFor(ref, filePath), type, filePath, manifestKind: ref.kind });
+		const { name, folder } = moduleIdentityFor(ref, filePath);
+		modules.push({ name, type, filePath, manifestKind: ref.kind, ...(folder ? { folder } : {}) });
 	}
 	const project: Vb6Project = { vbpPath: resolved, dir, manifest, modules };
 	projectCache.set(key, { mtimeMs: stat.mtimeMs, size: stat.size, project });
@@ -167,20 +171,23 @@ export function openVb6Project(vbpPath: string): Vb6Project {
  * A module's name is the `VB_Name` attribute its file carries - that is the
  * name the compiler uses and the name code refers to. The manifest's own
  * name (`Module=Name; File`) and the file's base name are the fallbacks when
- * the file cannot be read.
+ * the file cannot be read. The `@Folder` annotation comes off the same read,
+ * so the folder layout costs no extra pass over the file.
  */
-function moduleNameFor(ref: VbpModuleRef, filePath: string): string {
+function moduleIdentityFor(ref: VbpModuleRef, filePath: string): { name: string; folder?: string } {
+	const fallbackName = ref.name ?? path.basename(filePath).replace(/\.[^.]+$/, '');
 	try {
 		const file = readTextFile(filePath);
 		const { moduleText } = splitModuleFile(ref.kind, file.text);
-		const attribute = attributeValue(moduleText, 'VB_Name');
-		if (attribute) {
-			return attribute;
-		}
+		const folder = readFolderAnnotation(moduleText).folder;
+		return {
+			name: attributeValue(moduleText, 'VB_Name') || fallbackName,
+			...(folder ? { folder } : {}),
+		};
 	} catch {
 		// Missing or unreadable: the manifest still names the module.
+		return { name: fallbackName };
 	}
-	return ref.name ?? path.basename(filePath).replace(/\.[^.]+$/, '');
 }
 
 /** The listing the tree shows: names, kinds, files; no sources read beyond the name. */

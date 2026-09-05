@@ -10,6 +10,7 @@ import { registerModuleSyncCommands } from './commands/moduleSyncCommands';
 import { registerSupportBundleCommands } from './commands/supportBundleCommands';
 import { registerVbaTestCommands } from './commands/vbaTestCommands';
 import { registerProjectCrudCommands } from './commands/projectCrudCommands';
+import { registerRefactorCommands } from './commands/refactorCommands';
 
 /**
  * Composition root for the XLIDE command palette/explorer commands.
@@ -33,5 +34,6 @@ export function registerCommands(
         ...registerSupportBundleCommands(deps),
         ...registerAnalysisCommands(deps),
         ...registerVbaTestCommands(deps),
+        ...registerRefactorCommands(deps),
     ];
 }

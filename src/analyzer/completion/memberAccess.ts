@@ -1871,7 +1871,36 @@ function findDeclaredBinding(
 			}
 		}
 	}
-	return undefined;
+	return moduleProcedureBinding(module, lower);
+}
+
+/**
+ * A module-level procedure of this name, as a receiver.
+ *
+ * The module's own members shadow the host's globals, and this is where the
+ * two used to disagree: a module VARIABLE named `rows` resolved from the
+ * declaration above, while `Public Property Get rows() As Widget` fell through
+ * to Excel's global `Rows`, so `rows.Where(p)` was measured against
+ * `Excel.Range` and reported member-not-found on legal code (issue #68). The
+ * names that collide are the ones every workbook uses - rows, columns, cells,
+ * selection, names, sheets, application.
+ *
+ * A Function or Property Get yields its return type. A Sub, or a Property with
+ * only Let/Set, yields nothing readable - but it still shadows the global, so
+ * it binds with no type rather than letting the host answer for it.
+ */
+function moduleProcedureBinding(module: ModuleNode, lower: string): DeclaredBinding | undefined {
+	let shadow: DeclaredBinding | undefined;
+	for (const mem of module.members) {
+		if (mem.kind !== 'Procedure' || mem.name.toLowerCase() !== lower) {
+			continue;
+		}
+		if (mem.procKind === 'Function' || mem.procKind === 'PropertyGet') {
+			return mem.returnType ? { asType: mem.returnType } : {};
+		}
+		shadow = {};
+	}
+	return shadow;
 }
 
 /** Searches a procedure body (recursing into block nodes) for a declaration. */

@@ -56,6 +56,7 @@ interface XlideGlobalSettingValues {
     'editor.continueCommentOnNewline': boolean;
     'editor.mirrorCommentSpacing': boolean;
     'explorer.autoExpandCollapse': boolean;
+    'explorer.view': XlideExplorerView;
     'docs.enabled': boolean;
     'docs.metadataGlob': string;
     'analysis.visibleSeverities': AnalysisSeverityFilter[];
@@ -128,6 +129,9 @@ function normalizeFormRunInjectShowMacro(value: unknown): FormRunInjectShowMacro
 }
 
 const BLOCK_LAYOUT_VALUES = ['comfy', 'compact'] as const;
+const EXPLORER_VIEW_VALUES = ['tree', 'folders'] as const;
+/** Which layout the XLIDE explorer draws a project's modules in. */
+export type XlideExplorerView = (typeof EXPLORER_VIEW_VALUES)[number];
 const RULE_SEVERITY_OVERRIDE_VALUES = ['off', 'warning'] as const;
 const DEFAULT_DOC_METADATA_GLOB = '**/*.vbref.xml';
 
@@ -292,6 +296,18 @@ const XLIDE_GLOBAL_SETTINGS: {
             label: 'Auto Expand And Collapse Explorer Tree',
             description: "Automatically reveal the active module in the XLIDE explorer and collapse the others as you switch editor tabs (a one-file, one-module accordion). Turn off to leave the tree as you arrange it - switching tabs and expanding nodes will not auto-collapse anything.",
             control: { kind: 'boolean' },
+        },
+    },
+    'explorer.view': {
+        defaultValue: () => 'tree' as XlideExplorerView,
+        normalize: (value) => (value === 'folders' ? 'folders' : 'tree'),
+        validate: (values, problems, key) => expectEnum(values, problems, key, EXPLORER_VIEW_VALUES),
+        manifest: { type: 'string', enum: EXPLORER_VIEW_VALUES },
+        webviewCard: {
+            section: 'editor',
+            label: 'Explorer Layout',
+            description: "How the XLIDE explorer arranges a project's modules. Tree lists them flat. Folders groups them by the '@Folder(\"Name.Sub\")' comment in each module's declarations, the Rubberduck convention. The Tree and Folders buttons above the explorer switch it too.",
+            control: { kind: 'enum', values: EXPLORER_VIEW_VALUES },
         },
     },
     'docs.enabled': {
@@ -464,6 +480,10 @@ function xlideEditorMirrorCommentSpacingFromConfig(config: vscode.WorkspaceConfi
 
 function xlideExplorerAutoExpandCollapseFromConfig(config: vscode.WorkspaceConfiguration) {
     return xlideGlobalSettingFromConfig(config, 'explorer.autoExpandCollapse');
+}
+
+function xlideExplorerViewFromConfig(config: vscode.WorkspaceConfiguration) {
+    return xlideGlobalSettingFromConfig(config, 'explorer.view');
 }
 
 
@@ -774,6 +794,7 @@ export {
     xlideEditorContinueCommentOnNewlineFromConfig,
     xlideEditorMirrorCommentSpacingFromConfig,
     xlideExplorerAutoExpandCollapseFromConfig,
+    xlideExplorerViewFromConfig,
     xlideGlobalSettingCards,
     xlideGlobalSettingManifest,
     xlidePerformanceTraceFromConfig,

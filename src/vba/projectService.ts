@@ -49,6 +49,7 @@ import { XlsxWorkbook, type CellValue, type NamedRange, type SheetSummary } from
 import { atomicWrite } from './atomicWrite';
 import { buildMsFormsReference, hasMsFormsReference, readProjectReferences } from './vbaProjectReferences';
 import { attributeValue, joinVbaSource, listProcedures, splitVbaSource, type ProcedureEntry } from './moduleSource';
+import { readFolderAnnotation } from './folderAnnotation';
 import {
 	isVb6ProjectPath,
 	listVb6Modules,
@@ -104,6 +105,12 @@ export interface ModuleEntry {
 	 * the attribute header was not read, never "no".
 	 */
 	predeclaredId?: boolean;
+	/**
+	 * The normalized `@Folder` annotation from the module's declarations
+	 * section, which places it in the explorer's folder layout. Absent when
+	 * the module names no folder, which puts it at the project's root.
+	 */
+	folder?: string;
 	/**
 	 * The module's own file, for the containers whose modules ARE files (a
 	 * VB6 project). Absent for a project module, which lives in a stream.
@@ -193,7 +200,31 @@ function moduleEntry(module: VbaModule): ModuleEntry {
 		const documentType = classifyDocumentType(module.name, module.sourceHeader);
 		if (documentType) { entry.documentType = documentType; }
 	}
+	const folder = folderOfModule(module);
+	if (folder) { entry.folder = folder; }
 	return entry;
+}
+
+/**
+ * The module's `@Folder` annotation, read from the header prefix and NOTHING
+ * more. `sourceHeader` is already inflated for the attribute checks above, so
+ * this costs nothing; reaching for `module.source` would break the property
+ * docs/xlide_performance_budgets.md calls out by name - "touching
+ * `module.source` in a path that only needs names or types silently doubles
+ * every read in the extension". It does: falling back to the whole source
+ * doubled a cold `listModules` over the test corpus (16 ms to 33 ms) and 7x'd
+ * one workbook, inflating 1.4 MB that a listing has no other use for, and
+ * changed not one answer.
+ *
+ * The bound is the prefix: an annotation below the first ~4 KB of a module is
+ * not found, and the module sits at the project root. `@Folder` is a
+ * top-of-module convention - Rubberduck writes it as the first line - so that
+ * is a module whose declarations run for a hundred lines BEFORE naming its
+ * folder. The failure is the same place an unannotated module lands, which
+ * makes it visible and fixable by moving the annotation up.
+ */
+function folderOfModule(module: VbaModule): string | undefined {
+	return readFolderAnnotation(module.sourceHeader, { truncated: true }).folder;
 }
 
 interface OpenContainer {
@@ -542,6 +573,7 @@ function vb6ModuleEntry(entry: Vb6ModuleEntry): ModuleEntry {
 	if (entry.implicitMembers) { out.implicitMembers = entry.implicitMembers; }
 	if (entry.designerClass !== undefined) { out.designerClass = entry.designerClass; }
 	if (entry.predeclaredId !== undefined) { out.predeclaredId = entry.predeclaredId; }
+	if (entry.folder !== undefined) { out.folder = entry.folder; }
 	return out;
 }
 

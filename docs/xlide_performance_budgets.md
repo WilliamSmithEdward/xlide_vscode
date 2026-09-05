@@ -78,7 +78,14 @@ accident:
 - **Module sources decompress lazily.** Parsing a project inflates only the
   module bodies a caller actually reads; classification reads a header prefix
   (`VbaModule.sourceHeader`). Touching `module.source` in a path that only needs
-  names or types silently doubles every read in the extension.
+  names or types silently doubles every read in the extension. Measured, not
+  asserted: the `@Folder` read added to `moduleEntry` for the explorer's folder
+  layout first fell back to `module.source` when the prefix did not settle the
+  question, which 45% of corpus modules do not. That doubled a cold
+  `listModules` over the corpus (16.3 ms to 33.0 ms), took one workbook from
+  1.6 ms to 12.1 ms, inflated 1.4 MB a listing has no other use for, and
+  changed not one answer on any module in it. The read is bounded to the prefix
+  now (`folderOfModule` in `projectService.ts`) and costs nothing measurable.
 - **Reads share one parse per project.** `projectService` caches the parsed
   package/project per path, validated against (mtimeMs, size) on every call and
   dropped by `atomicWrite`. Mutating operations must keep using the fresh-parse
