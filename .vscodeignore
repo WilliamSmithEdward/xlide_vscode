@@ -52,8 +52,10 @@ out/**/*.map
 **/*.ppt
 **/*.ppa
 **/*.accdb
+!assets/templates/blank.accdb
 **/*.accda
 **/*.mdb
+!assets/templates/blank.mdb
 **/*.mda
 **/*.laccdb
 # The twinBASIC compiler lives beside the source for local use only; it is never part of the package.
