@@ -2,6 +2,16 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [8.1.2] - 2026-09-05
+
+- **The sponsor dialog floats over the window instead of the sidebar.** A
+  modal drawn inside the sidebar webview can only be as wide as the sidebar,
+  and 8.1.1's looked cramped there. The heart-and-Support button now runs a
+  Support XLIDE command that opens VS Code's own quick pick, centered at full
+  width: the blurb, the three rows with a codicon and their details, a copy
+  button on each row, and the thanks line. Selecting a row opens its address.
+  The command is in the palette too.
+
 ## [8.1.1] - 2026-09-05
 
 - **The sponsor section is a button and a modal now.** 8.1.0 put a boxed

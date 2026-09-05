@@ -88,9 +88,22 @@ const SPONSOR_LINKS: readonly XlideSponsorLink[] = [
     },
 ];
 
-/** True only for an address in SPONSOR_LINKS: the webview may ask to open or copy nothing else. */
-function isSponsorUrl(url: unknown): url is string {
-    return typeof url === 'string' && SPONSOR_LINKS.some((link) => link.url === url);
+const SPONSOR_BLURB =
+    'VBA has always treated me well. It is how I first grew professional as a programmer, '
+    + 'and XLIDE is what I wish it had come with. If it has been useful, here is where to say so.';
+
+const SPONSOR_THANKS = 'Nothing here is ever required. Thank you for using it either way.';
+
+/**
+ * The dialog's rows as quick pick items: a codicon or emoji mark, the label,
+ * the detail beside it, and the address a selection opens.
+ */
+function sponsorQuickPickItems(): Array<{ label: string; description: string; url: string }> {
+    return SPONSOR_LINKS.map((link) => ({
+        label: `${/^[a-z0-9-]+$/.test(link.icon) ? `$(${link.icon})` : link.icon} ${link.label}`,
+        description: link.detail,
+        url: link.url,
+    }));
 }
 
 interface XlideSidebarModelInput {
@@ -169,13 +182,9 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
 
 function sponsorSection(): XlideSidebarNode {
     return section('sponsor', 'Support XLIDE', [
-        noteNode(
-            'sponsor.blurb',
-            'VBA has always treated me well. It is how I first grew professional as a programmer, '
-            + 'and XLIDE is what I wish it had come with. If it has been useful, here is where to say so.',
-        ),
+        noteNode('sponsor.blurb', SPONSOR_BLURB),
         ...SPONSOR_LINKS.map((link) => linkNode(link)),
-        noteNode('sponsor.thanks', 'Nothing here is ever required. Thank you for using it either way.'),
+        noteNode('sponsor.thanks', SPONSOR_THANKS),
     ]);
 }
 
@@ -379,8 +388,10 @@ function selectionSourceLabel(source: XlideSidebarActiveProject['selectionSource
 
 export {
     buildXlideSidebarModel,
-    isSponsorUrl,
+    SPONSOR_BLURB,
     SPONSOR_LINKS,
+    SPONSOR_THANKS,
+    sponsorQuickPickItems,
     type XlideSidebarActiveProject,
     type XlideSidebarCommand,
     type XlideSidebarModelInput,
