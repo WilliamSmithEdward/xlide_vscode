@@ -50,6 +50,8 @@ import { atomicWrite } from './atomicWrite';
 import { buildMsFormsReference, hasMsFormsReference, readProjectReferences } from './vbaProjectReferences';
 import { attributeValue, joinVbaSource, listProcedures, splitVbaSource, type ProcedureEntry } from './moduleSource';
 import { readFolderAnnotation } from './folderAnnotation';
+import { readAttributeAnnotations } from '../analyzer/annotations/attributeAnnotations';
+import { applyAttributeAnnotations } from '../analyzer/annotations/attributeRewriter';
 import {
 	isVb6ProjectPath,
 	listVb6Modules,
@@ -127,6 +129,8 @@ export interface ProtectionInfo {
 export interface WriteResult {
 	ok: true;
 	signatureDropped: boolean;
+	/** Hidden attributes an annotation in the code set, in words a notice can carry. */
+	attributeChanges?: string[];
 }
 
 const WORKBOOK_CLSID = '{00020819-0000-0000-C000-000000000046}';
@@ -1523,18 +1527,47 @@ export function writeModule(
 	const wb = openContainerForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
 	const existing = wb.project.getModule(moduleName);
+	let attributeChanges: string[] = [];
 	if (existing) {
 		const { header } = splitVbaSource(existing.source);
-		wb.project.setModuleSource(existing.name, joinVbaSource(header, body));
+		const written = withAnnotatedAttributes(joinVbaSource(header, body));
+		attributeChanges = written.changes;
+		wb.project.setModuleSource(existing.name, written.text);
 	} else {
 		assertFoldedNameDistinct(wb.project.modules, wb.project.codePage, moduleName);
 		const header = kind === 'class'
 			? synthesizeClassHeader(moduleName)
 			: synthesizeStandardHeader(moduleName);
-		wb.project.addModule(moduleName, joinVbaSource(header, body), kind === 'class' ? 'other' : 'standard');
+		const written = withAnnotatedAttributes(joinVbaSource(header, body));
+		attributeChanges = written.changes;
+		wb.project.addModule(moduleName, written.text, kind === 'class' ? 'other' : 'standard');
 	}
 	saveContainer(filePath, wb);
-	return { ok: true, signatureDropped };
+	return { ok: true, signatureDropped, ...(attributeChanges.length > 0 ? { attributeChanges } : {}) };
+}
+
+/**
+ * The hidden attributes an annotation in the code names, written into the
+ * module on its way to the container.
+ *
+ * A VBA module carries attributes the code pane never shows and the editor
+ * gives no way to set - `VB_PredeclaredId`, `VB_Description`, `VB_UserMemId`.
+ * A comment naming one, `'@PredeclaredId` or `'@Description("...")`, is
+ * reviewable in the code; this is where it becomes the attribute. Inert unless
+ * the developer writes an annotation: no annotation, no change, byte for byte.
+ */
+function withAnnotatedAttributes(source: string): { text: string; changes: string[] } {
+	const annotations = readAttributeAnnotations(source);
+	if (annotations.annotations.length === 0) {
+		return { text: source, changes: [] };
+	}
+	const applied = applyAttributeAnnotations(source, annotations);
+	return {
+		text: applied.text,
+		changes: applied.changes.map((change) => (change.from === undefined
+			? `${change.target}: ${change.attribute} = ${change.to}`
+			: `${change.target}: ${change.attribute} ${change.from} -> ${change.to}`)),
+	};
 }
 
 export function renameModule(filePath: string, moduleName: string, newName: string): WriteResult {

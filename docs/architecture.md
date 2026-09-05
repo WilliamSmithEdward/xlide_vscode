@@ -48,6 +48,7 @@ xlide_vscode/
     statusBar.ts        XlideStatusBar - status bar item showing the active project, module, and procedure
     vbaCaretProcedure.ts    VbaCaretProcedureTracker - one answer to "which procedure is the caret in", shared by the status bar and the tree
     analyzer/refactor/  The seven refactorings beyond rename (issue #69): pure over module source, each returning edits or a refusal (no vscode dependency)
+    analyzer/annotations/  '@PredeclaredId and friends: the comments that stand for a module's hidden attributes, and the rewriter that writes them in on save
     commands/refactorCommands.ts  The VS Code layer for those: finds the caret, fetches project text, turns a result into a workspace edit
     folderTree.ts       Pure folder-layout arithmetic: modules plus their @Folder annotations into the explorer's nested shape (no vscode dependency)
     vbaProcedureAtLine.ts   Pure CodeModule.ProcOfLine rule: which procedure owns a line, leading comments included (no vscode dependency)

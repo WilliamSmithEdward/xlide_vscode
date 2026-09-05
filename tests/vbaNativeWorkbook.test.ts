@@ -491,3 +491,55 @@ describe('workbook parse cache', () => {
 		expect(svc.listModules(files[0]).length).toBeGreaterThan(0);
 	});
 });
+
+// Annotations that stand for hidden attributes, written on the way into the
+// container (parity with xlide_vbide). The code pane never shows these and the
+// editor gives no way to set them; a comment in the code is where they are
+// said, and this is where they are written.
+describe('annotations write the hidden attributes on save', () => {
+	it('sets a class attribute the header carries', () => {
+		const file = tempCopy();
+		svc.writeModule(file, 'CThing', "'@PredeclaredId\r\nOption Explicit\r\n", 'class');
+		const { source } = svc.readModule(file, 'CThing', true);
+		expect(source).toContain('Attribute VB_PredeclaredId = True');
+	});
+
+	it('writes a member attribute under its own procedure', () => {
+		const file = tempCopy();
+		svc.writeModule(file, 'Helpers', [
+			'Option Explicit',
+			'',
+			"'@Description(\"Totals the rows\")",
+			'Public Function Total() As Long',
+			'End Function',
+			'',
+		].join('\r\n'));
+		const { source } = svc.readModule(file, 'Helpers', true);
+		expect(source).toContain('Attribute Total.VB_Description = "Totals the rows"');
+	});
+
+	it('reports what it set, so a save can say so', () => {
+		const file = tempCopy();
+		const result = svc.writeModule(file, 'CThing', "'@Exposed\r\nOption Explicit\r\n", 'class');
+		expect(result.attributeChanges).toEqual(['module: VB_Exposed False -> True']);
+	});
+
+	it('is inert without an annotation: the module is written byte for byte', () => {
+		const file = tempCopy();
+		const body = 'Option Explicit\r\n\r\nPublic Sub Go()\r\nEnd Sub\r\n';
+		svc.writeModule(file, 'Plain', body);
+		const first = svc.readModule(file, 'Plain', true).source;
+		svc.writeModule(file, 'Plain', body);
+		expect(svc.readModule(file, 'Plain', true).source).toBe(first);
+		expect(first).not.toContain('VB_Description');
+	});
+
+	it('survives the round trip: the annotation stays in the code it came from', () => {
+		const file = tempCopy();
+		svc.writeModule(file, 'Helpers', "'@ModuleDescription(\"Helpers\")\r\nOption Explicit\r\n");
+		const { source } = svc.readModule(file, 'Helpers', true);
+		// Both halves: the comment the developer wrote, and the attribute it set.
+		expect(source).toContain("'@ModuleDescription(\"Helpers\")");
+		expect(source).toContain('Attribute VB_Description = "Helpers"');
+	});
+});
