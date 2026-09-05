@@ -108,6 +108,7 @@ xlide_vscode/
       accessDatabase.ts Jet/ACE (.accdb/.mdb) page reader: LVAL rows and chains reassembled into a synthetic CFB the project parser reads unchanged
       access/accessFormat.ts   Jet 4 / ACE page format: table definitions, data-page rows, long values. Offsets derived from the fixtures, not from a published table (issue #65)
       access/accessStorage.ts  MSysObjects and MSysAccessStorage as rows: the VBA project found through the catalog, with each stream's page and slot
+      access/accessDesign.ts   Access form and report designs: the property-record stream under Forms/Reports, its sections and controls (issue #67)
       formDesigner.ts   [MS-OFORMS] designer storage reader, control tree, .frm/.frx compose and parse
       codePages.ts      MBCS code-page encode/decode for project text streams
       folderAnnotation.ts  Rubberduck '@Folder' annotation reader: the lenient spellings, the declarations-only scan, path normalization; bounded to the header prefix so a listing never inflates a module body

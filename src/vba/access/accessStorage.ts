@@ -13,6 +13,7 @@ import {
 	type AccessRow,
 	type AccessTableDefinition,
 } from './accessFormat';
+import { parseAccessDesign, type AccessDesign } from './accessDesign';
 
 /**
  * `MSysAccessStorage`, the fake structured storage an Access database keeps its
@@ -172,6 +173,91 @@ export function readAccessVbaStreams(data: Buffer): Map<string, Buffer> {
 
 /** A storage row's Type: 1 is a folder, 2 a stream. */
 const STREAM = 2;
+
+/** A form or a report, with the design the file describes it by. */
+export interface AccessDesignEntry {
+	name: string;
+	kind: 'form' | 'report';
+	/** The numbered folder under `Forms` or `Reports`. */
+	ordinal: string;
+	design: AccessDesign;
+	/** The design's other streams, kept so the object can be rebuilt. */
+	typeInfo?: Buffer;
+	propData?: Buffer;
+}
+
+/**
+ * Every form and report the database describes
+ * (github.com/WilliamSmithEdward/xlide_vscode/issues/67).
+ *
+ * A design sits in a `Blob` under a numbered folder under `Forms` or
+ * `Reports`, the way a module's streams sit under `Modules`. The blob parses
+ * into the objects the designer shows: the sections, then the controls.
+ */
+export function readAccessDesigns(data: Buffer): AccessDesignEntry[] {
+	const roots = readAccessStorage(data);
+	if (!roots) {
+		return [];
+	}
+	const out: AccessDesignEntry[] = [];
+	for (const [folder, kind] of [['Forms', 'form'], ['Reports', 'report']] as const) {
+		const container = findChild(roots, folder);
+		for (const ordinal of container?.children ?? []) {
+			if (!/^\d+$/.test(ordinal.name)) {
+				continue;
+			}
+			const blob = ordinal.children.find((entry) => entry.name === 'Blob')?.bytes;
+			if (!blob || blob.length === 0) {
+				continue;
+			}
+			out.push({
+				name: designName(container!, ordinal.name) ?? ordinal.name,
+				kind,
+				ordinal: ordinal.name,
+				design: parseAccessDesign(blob),
+				...streamOf(ordinal, 'TypeInfo'),
+				...streamOf(ordinal, 'PropData'),
+			});
+		}
+	}
+	return out;
+}
+
+function streamOf(
+	ordinal: AccessStorageEntry,
+	name: 'TypeInfo' | 'PropData',
+): Record<string, Buffer> {
+	const bytes = ordinal.children.find((entry) => entry.name === name)?.bytes;
+	return bytes ? { [name === 'TypeInfo' ? 'typeInfo' : 'propData']: bytes } : {};
+}
+
+/**
+ * The object's name, from the container's `\x03DirData`. It lists the names in
+ * ordinal order, each UTF-16LE and framed, so the name is read out of the run
+ * that follows the ordinal's own entry.
+ */
+function designName(container: AccessStorageEntry, ordinal: string): string | undefined {
+	const dirData = container.children.find((entry) => entry.name.endsWith('DirData'))?.bytes;
+	if (!dirData) {
+		return undefined;
+	}
+	const names = [...dirData.toString('utf16le').matchAll(/[\p{L}_][\p{L}\p{N}_ ]*/gu)]
+		.map((match) => match[0].trim())
+		.filter((name) => name.length > 0);
+	return names[Number(ordinal)];
+}
+
+function findChild(roots: readonly AccessStorageEntry[], name: string): AccessStorageEntry | undefined {
+	const stack = [...roots];
+	while (stack.length > 0) {
+		const entry = stack.pop()!;
+		if (entry.name === name) {
+			return entry;
+		}
+		stack.push(...entry.children);
+	}
+	return undefined;
+}
 
 /** The folder whose streams are the project: it is the one holding `dir`. */
 function findVbaProjectFolder(

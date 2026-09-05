@@ -65,6 +65,7 @@ reference/
 !tests/fixtures/binaries/AccessFixture.mdb
 !tests/fixtures/binaries/AccessEditedFixture.accdb
 !tests/fixtures/binaries/AccessEditedFixture.mdb
+!tests/fixtures/binaries/AccessFormFixture.accdb
 !tests/fixtures/binaries/ExcelFixture.xltm
 !tests/fixtures/binaries/ExcelFixture.xlt
 !tests/fixtures/binaries/ExcelFixture.xla

@@ -160,10 +160,23 @@ export function readTableDefinition(data: Buffer, page: number): AccessTableDefi
 	// then UTF-16LE.
 	let at = definitionsAt + numColumns * COLUMN_DEFINITION_SIZE;
 	for (const column of columns) {
+		if (at + 2 > d.length) {
+			throw new AccessFormatError(`Table definition at page ${page} ends before its column names.`);
+		}
 		const length = d.readUInt16LE(at);
 		at += 2;
 		column.name = d.subarray(at, at + length).toString('utf16le');
 		at += length;
+		// A name that is not one means the walk is reading the wrong bytes -
+		// the continuation-page join is the part no fixture exercises, and a
+		// definition assembled wrongly produces plausible-looking numbers and
+		// garbage names. Failing here lets the caller fall back to a reader
+		// that does not depend on this layout, which beats answering nonsense.
+		if (!isPlausibleColumnName(column.name)) {
+			throw new AccessFormatError(
+				`Table definition at page ${page} does not read as one: column ${column.number} has no usable name.`,
+			);
+		}
 	}
 
 	return {
@@ -174,6 +187,15 @@ export function readTableDefinition(data: Buffer, page: number): AccessTableDefi
 		numVariableColumns,
 		columns,
 	};
+}
+
+/**
+ * Whether a string reads as a column name. Access allows a great deal in one -
+ * spaces and punctuation included - so this only rules out what a misread
+ * gives: nothing at all, or control characters.
+ */
+function isPlausibleColumnName(name: string): boolean {
+	return name.length > 0 && name.length <= 64 && !/[\u0000-\u001f]/.test(name);
 }
 
 /** A value read out of a row. A long value is returned as its reference. */
