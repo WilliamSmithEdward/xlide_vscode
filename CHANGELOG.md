@@ -2,6 +2,16 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [8.1.3] - 2026-09-05
+
+- **The sponsor dialog is back in the sidebar, fitted to it.** 8.1.2 moved
+  it to a quick pick; the modal under the heart-and-Support button is the
+  right shape after all, and it now fits the column it opens in. The card
+  takes the sidebar's full width behind a slim margin instead of a fixed
+  460px, each row's detail wraps instead of being cut off with an ellipsis,
+  and Copy is an icon that turns into a check mark once pressed, so the rows
+  keep their width. The Support XLIDE palette command from 8.1.2 is gone.
+
 ## [8.1.2] - 2026-09-05
 
 - **The sponsor dialog floats over the window instead of the sidebar.** A

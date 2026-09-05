@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildXlideSidebarModel, SPONSOR_LINKS, sponsorQuickPickItems } from '../src/xlideSidebarModel';
+import { buildXlideSidebarModel, isSponsorUrl, SPONSOR_LINKS } from '../src/xlideSidebarModel';
 
 describe('xlideSidebarModel', () => {
     it('builds the sidebar sections in the product order with title-case labels', () => {
@@ -53,15 +53,14 @@ describe('xlideSidebarModel', () => {
         expect(sponsor.children?.[4]?.label).toBe('Nothing here is ever required. Thank you for using it either way.');
     });
 
-    it('lays the dialog rows out as quick pick items with a codicon or emoji mark', () => {
-        const items = sponsorQuickPickItems();
-
-        expect(items.map((item) => [item.label, item.description])).toEqual([
-            ['$(github) GitHub Sponsors', 'Recurring or one-off, through GitHub'],
-            ['$(credit-card) PayPal', 'One-off, no account needed'],
-            ['\u{1F4B5} Cash App', '$williamesmithjcil'],
-        ]);
-        expect(items.map((item) => item.url)).toEqual(SPONSOR_LINKS.map((link) => link.url));
+    it('opens or copies only the three sponsor addresses', () => {
+        for (const link of SPONSOR_LINKS) {
+            expect(isSponsorUrl(link.url)).toBe(true);
+        }
+        expect(isSponsorUrl('https://github.com/sponsors/SomeoneElse')).toBe(false);
+        expect(isSponsorUrl('https://cash.app/$williamesmithjcil/extra')).toBe(false);
+        expect(isSponsorUrl(undefined)).toBe(false);
+        expect(isSponsorUrl(42)).toBe(false);
     });
 
     it('never gates the sidebar behind a setup section', () => {

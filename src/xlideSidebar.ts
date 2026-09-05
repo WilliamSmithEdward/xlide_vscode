@@ -12,9 +12,7 @@ import { registerXlideCommand } from './xlideCommandRegistration';
 import { activeLocalVbaEditor, decodeModuleUri, sameProjectPath, XLIDE_SCHEME } from './xlideFileSystem';
 import {
     buildXlideSidebarModel,
-    SPONSOR_BLURB,
-    SPONSOR_THANKS,
-    sponsorQuickPickItems,
+    isSponsorUrl,
     type XlideSidebarActiveProject,
     type XlideSidebarCommand,
     type XlideSidebarNode,
@@ -127,9 +125,28 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
         if (!message || typeof message !== 'object') {
             return;
         }
-        const payload = message as { type?: unknown; command?: unknown; arguments?: unknown; filePath?: unknown };
+        const payload = message as {
+            type?: unknown;
+            command?: unknown;
+            arguments?: unknown;
+            filePath?: unknown;
+            url?: unknown;
+        };
         if (payload.type === 'selectProject') {
             await this._selectProject(typeof payload.filePath === 'string' ? payload.filePath : undefined);
+            return;
+        }
+        // The sponsor rows open or copy an address. The webview names it, but
+        // only an address from the model's own list is honored (xlideSidebarModel.ts).
+        if (payload.type === 'openSponsorUrl' || payload.type === 'copySponsorUrl') {
+            if (!isSponsorUrl(payload.url)) {
+                return;
+            }
+            if (payload.type === 'openSponsorUrl') {
+                await vscode.env.openExternal(vscode.Uri.parse(payload.url));
+            } else {
+                await vscode.env.clipboard.writeText(payload.url);
+            }
             return;
         }
         if (payload.type !== 'runCommand' || typeof payload.command !== 'string') {
@@ -203,7 +220,6 @@ function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRe
                 scheduleRefresh();
             }
         }),
-        registerXlideCommand('xlide.openSponsorDialog', () => openSponsorDialog()),
         registerXlideCommand('xlide.openProjectSettings', async (settingsPath?: string) => {
             if (!settingsPath) {
                 vscode.window.showWarningMessage('XLIDE: No settings file is available for this file.');
@@ -577,6 +593,148 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
             color: var(--vscode-foreground);
             background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
         }
+        /* A sidebar is narrow, so the card takes its full width behind a slim
+           margin rather than floating as a fixed-width dialog would. */
+        .sponsorBackdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 20px 8px 8px;
+            background: rgba(0, 0, 0, 0.35);
+        }
+        .sponsorBackdrop[hidden] {
+            display: none;
+        }
+        .sponsorCard {
+            width: 100%;
+            max-height: 100%;
+            overflow: auto;
+            background: var(--vscode-editorWidget-background, var(--vscode-sideBar-background));
+            border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+            border-radius: 6px;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+            padding-bottom: 4px;
+        }
+        .sponsorHead {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px 6px;
+        }
+        .sponsorTitle {
+            font-size: 15px;
+            font-weight: 600;
+        }
+        .sponsorClose {
+            width: 24px;
+            height: 24px;
+            min-height: 0;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            font-size: 16px;
+            line-height: 1;
+            opacity: 0.75;
+        }
+        .sponsorClose:hover {
+            opacity: 1;
+            background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
+        }
+        .sponsorNote {
+            margin: 0;
+            padding: 0 12px 10px;
+            color: var(--vscode-descriptionForeground);
+            line-height: 1.5;
+        }
+        .sponsorNote.thanks {
+            font-size: 12px;
+        }
+        .sponsorList {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 0 12px 10px;
+        }
+        .sponsorRow {
+            display: flex;
+            align-items: stretch;
+            gap: 6px;
+            min-width: 0;
+        }
+        /* The whole row is the target, not the label, and the arrow on the
+           right says where pressing it goes. */
+        .sponsorOpen {
+            flex: 1 1 auto;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+            padding: 7px 9px;
+            text-align: left;
+        }
+        .sponsorIcon {
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            font-size: 13px;
+            line-height: 1;
+        }
+        .sponsorIcon svg {
+            width: 16px;
+            height: 16px;
+            fill: currentColor;
+        }
+        .sponsorWords {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            flex: 1 1 auto;
+        }
+        .sponsorDetail {
+            font-size: 11px;
+            opacity: 0.7;
+            overflow-wrap: anywhere;
+        }
+        .sponsorAway {
+            flex: 0 0 auto;
+            opacity: 0.55;
+        }
+        .sponsorAway svg {
+            width: 12px;
+            height: 12px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 1.6;
+        }
+        .sponsorCopy {
+            flex: 0 0 auto;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            padding: 0;
+        }
+        .sponsorCopy svg {
+            width: 14px;
+            height: 14px;
+            fill: none;
+            stroke: currentColor;
+            stroke-width: 1.6;
+        }
+        .sponsorCopy .copied,
+        .sponsorCopy[data-copied] .copy {
+            display: none;
+        }
+        .sponsorCopy[data-copied] .copied {
+            display: inline;
+        }
     </style>
 </head>
 <body>
@@ -644,7 +802,73 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
             }
             closeSelects();
         }
+        const sponsorBackdrop = document.getElementById('sponsor-backdrop');
+        let sponsorReturnFocus = null;
+        function sponsorRing() {
+            return Array.from(sponsorBackdrop.querySelectorAll('button')).filter((one) => !one.disabled);
+        }
+        function openSponsor() {
+            if (!sponsorBackdrop) {
+                return;
+            }
+            sponsorReturnFocus = document.activeElement;
+            sponsorBackdrop.hidden = false;
+            sponsorBackdrop.querySelector('[data-sponsor-open]')?.focus();
+        }
+        function closeSponsor() {
+            if (!sponsorBackdrop || sponsorBackdrop.hidden) {
+                return;
+            }
+            sponsorBackdrop.hidden = true;
+            sponsorReturnFocus?.focus?.();
+        }
+        // Mousedown, not click: a drag that starts on the card and releases
+        // over the backdrop is a missed text selection, not a request to close.
+        sponsorBackdrop?.addEventListener('mousedown', (event) => {
+            if (event.target === sponsorBackdrop) {
+                closeSponsor();
+            }
+        });
+        document.addEventListener('keydown', (event) => {
+            if (!sponsorBackdrop || sponsorBackdrop.hidden) {
+                return;
+            }
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                closeSponsor();
+                return;
+            }
+            // The trap aria-modal claims: Tab cycles inside the card.
+            if (event.key === 'Tab') {
+                const ring = sponsorRing();
+                const first = ring[0];
+                const last = ring[ring.length - 1];
+                if (!first) {
+                    event.preventDefault();
+                    return;
+                }
+                const active = document.activeElement;
+                const inside = sponsorBackdrop.contains(active);
+                if (event.shiftKey && (!inside || active === first)) {
+                    event.preventDefault();
+                    last.focus();
+                } else if (!event.shiftKey && (!inside || active === last)) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            }
+        }, true);
         document.addEventListener('click', (event) => {
+            const sponsorToggle = event.target.closest?.('[data-sponsor-toggle]');
+            if (sponsorToggle) {
+                openSponsor();
+                return;
+            }
+            if (event.target.closest?.('[data-sponsor-close]')) {
+                closeSponsor();
+                return;
+            }
             const option = event.target.closest?.('[data-select-option]');
             if (option) {
                 selectOption(option);
@@ -664,6 +888,22 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
                     const selected = menu.querySelector('[aria-selected="true"]');
                     (selected ?? menu.querySelector('[data-select-option]'))?.focus();
                 }
+                return;
+            }
+            const sponsorOpen = event.target.closest?.('[data-sponsor-open]');
+            if (sponsorOpen) {
+                vscode.postMessage({ type: 'openSponsorUrl', url: sponsorOpen.dataset.sponsorOpen });
+                return;
+            }
+            const sponsorCopy = event.target.closest?.('[data-sponsor-copy]');
+            if (sponsorCopy) {
+                vscode.postMessage({ type: 'copySponsorUrl', url: sponsorCopy.dataset.sponsorCopy });
+                sponsorCopy.setAttribute('data-copied', '');
+                sponsorCopy.title = 'Copied';
+                window.setTimeout(() => {
+                    sponsorCopy.removeAttribute('data-copied');
+                    sponsorCopy.title = 'Copy the address';
+                }, 1200);
                 return;
             }
             const button = event.target.closest('[data-command]');
@@ -744,61 +984,81 @@ function renderSection(section: XlideSidebarNode): string {
 }
 
 /**
- * The sponsor section renders as one quiet footer button, the way the VBA
- * editor add-in's heart button sits in its toolbar. Pressing it runs the
- * Support XLIDE command, whose dialog is VS Code's own quick pick: it floats
- * over the whole window at full width, where a modal drawn in this webview
- * would be pinned to the sidebar's narrow column.
+ * The sponsor section renders as a quiet footer button that opens a modal,
+ * the way the VBA editor add-in's heart button does, so the addresses never
+ * sit above a workflow action. The modal's content is the section's nodes:
+ * the blurb, the three link rows, and the thanks line.
  */
 function renderSponsorSection(section: XlideSidebarNode): string {
-    const command: XlideSidebarCommand = { command: 'xlide.openSponsorDialog', title: section.label };
+    const children = section.children ?? [];
+    const notes = children.filter((node) => node.kind === 'note');
+    const links = children.filter((node) => node.kind === 'link');
     return `<div class="sponsorFooter">
-        <button class="sponsorToggle" type="button" data-command="${commandAttr(command)}" title="${escapeAttr(section.label)}">${HEART} Support</button>
+        <button class="sponsorToggle" type="button" data-sponsor-toggle aria-haspopup="dialog" aria-controls="sponsor-backdrop" title="${escapeAttr(section.label)}">${HEART} Support</button>
+    </div>
+    <div class="sponsorBackdrop" id="sponsor-backdrop" hidden>
+        <div class="sponsorCard" role="dialog" aria-modal="true" aria-labelledby="sponsor-title">
+            <div class="sponsorHead">
+                <div class="sponsorTitle" id="sponsor-title">${escapeHtml(section.label)}</div>
+                <button class="sponsorClose" type="button" data-sponsor-close aria-label="Close" title="Close (Esc)">&times;</button>
+            </div>
+            ${notes[0] ? renderSponsorNote(notes[0]) : ''}
+            <div class="sponsorList">${links.map((node) => renderSponsorRow(node)).join('')}</div>
+            ${notes[1] ? renderSponsorNote(notes[1]) : ''}
+        </div>
     </div>`;
 }
 
 /** The red heart, as the add-in's toolbar button draws it. */
 const HEART = '\u2764\uFE0F';
 
-interface SponsorPickItem extends vscode.QuickPickItem {
-    url?: string;
+function renderSponsorNote(node: XlideSidebarNode): string {
+    const cls = node.id === 'sponsor.thanks' ? 'sponsorNote thanks' : 'sponsorNote';
+    return `<p class="${cls}">${escapeHtml(node.label)}</p>`;
+}
+
+function renderSponsorRow(node: XlideSidebarNode): string {
+    const url = node.url ?? '';
+    return `<div class="sponsorRow">
+        <button class="sponsorOpen secondary" type="button" data-sponsor-open="${escapeAttr(url)}" title="${escapeAttr(url)}">
+            <span class="sponsorIcon" aria-hidden="true">${sponsorIconHtml(node.icon ?? '')}</span>
+            <span class="sponsorWords">
+                <span class="label">${escapeHtml(node.label)}</span>
+                <span class="sponsorDetail">${escapeHtml(node.description ?? '')}</span>
+            </span>
+            <span class="sponsorAway" aria-hidden="true">${EXTERNAL_LINK_SVG}</span>
+        </button>
+        <button class="sponsorCopy secondary" type="button" data-sponsor-copy="${escapeAttr(url)}" aria-label="Copy the address" title="Copy the address">
+            <span class="copy" aria-hidden="true">${COPY_SVG}</span>
+            <span class="copied" aria-hidden="true">${CHECK_SVG}</span>
+        </button>
+    </div>`;
 }
 
 /**
- * The sponsor dialog. Selecting a row opens its address; the copy button on a
- * row copies it instead, for a machine where the browser is slow to come up.
- * The thanks line is the last row and opens nothing.
+ * The webview's CSP allows no fonts or images, so the marks are inline SVG
+ * paths. An icon name outside the set is printed as text: the emoji case.
  */
-function openSponsorDialog(): void {
-    const copyButton: vscode.QuickInputButton = {
-        iconPath: new vscode.ThemeIcon('copy'),
-        tooltip: 'Copy the address',
-    };
-    const pick = vscode.window.createQuickPick<SponsorPickItem>();
-    pick.title = 'Support XLIDE';
-    pick.placeholder = SPONSOR_BLURB;
-    pick.matchOnDescription = true;
-    pick.items = [
-        ...sponsorQuickPickItems().map((item) => ({ ...item, buttons: [copyButton] })),
-        { label: '', kind: vscode.QuickPickItemKind.Separator },
-        { label: SPONSOR_THANKS, alwaysShow: true },
-    ];
-    pick.onDidAccept(() => {
-        const chosen = pick.selectedItems[0];
-        pick.hide();
-        if (chosen?.url) {
-            void vscode.env.openExternal(vscode.Uri.parse(chosen.url));
-        }
-    });
-    pick.onDidTriggerItemButton(async (event) => {
-        if (event.item.url) {
-            await vscode.env.clipboard.writeText(event.item.url);
-            vscode.window.setStatusBarMessage('XLIDE: Address copied to clipboard.', 2000);
-        }
-    });
-    pick.onDidHide(() => pick.dispose());
-    pick.show();
+function sponsorIconHtml(icon: string): string {
+    switch (icon) {
+        case 'github':
+            return GITHUB_SVG;
+        case 'credit-card':
+            return CREDIT_CARD_SVG;
+        default:
+            return escapeHtml(icon);
+    }
 }
+
+const GITHUB_SVG = '<svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>';
+
+const CREDIT_CARD_SVG = '<svg viewBox="0 0 16 16"><path d="M1 3.5A1.5 1.5 0 0 1 2.5 2h11A1.5 1.5 0 0 1 15 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 12.5v-9zM2.5 3a.5.5 0 0 0-.5.5V5h12V3.5a.5.5 0 0 0-.5-.5h-11zM14 7H2v5.5a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5V7zM3 9h4v1.5H3V9z"/></svg>';
+
+const COPY_SVG = '<svg viewBox="0 0 16 16"><rect x="5.5" y="5.5" width="8" height="8" rx="1.2"/><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg>';
+
+const CHECK_SVG = '<svg viewBox="0 0 16 16"><path d="M3 8.5 6.5 12 13 4.5"/></svg>';
+
+const EXTERNAL_LINK_SVG = '<svg viewBox="0 0 16 16"><path d="M9 2h5v5M14 2 7 9M12 9v4.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5H7"/></svg>';
 
 function renderSidebarNode(node: XlideSidebarNode, sectionId: string): string {
     if (node.kind === 'select') {

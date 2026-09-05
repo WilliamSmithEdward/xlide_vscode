@@ -38,13 +38,12 @@ Support XLIDE
 ```
 
 Support XLIDE is the sponsor section. It renders as one quiet heart-and-Support
-button under the last section, and that button runs the Support XLIDE command,
-which opens a quick pick with the same three addresses and wording as the VBA
-editor add-in's Support dialog. The quick pick floats over the whole window at
-full width; a modal drawn inside the sidebar webview would be pinned to the
-sidebar's own column. Selecting a row opens its address, and the copy button
-on a row copies it instead, for a machine where the browser is slow to come
-up. The command is also in the palette.
+button under the last section, and that button opens a modal with the same
+three addresses and wording as the VBA editor add-in's Support dialog. The
+modal captures Escape, traps Tab, closes on a backdrop press, and gives focus
+back to the button. The rows open through the host, which honors only the
+addresses in the model's own list, and each row also copies its address for a
+machine where the browser is slow to come up.
 
 Do not rework the sidebar layout, section order, or status/action split without
 a specific product reason. Future sidebar work should be additive and tied to
