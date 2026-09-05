@@ -2,6 +2,51 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [7.0.0] - 2026-09-05
+
+- **Annotations write a module's hidden attributes on save.** A VBA module
+  carries attributes the code pane never shows and the editor gives no way to
+  set: `VB_PredeclaredId`, `VB_Description`, `VB_UserMemId`,
+  `VB_ProcData.VB_Invoke_Func`, `VB_VarDescription`. Write the annotation in
+  the code, where it can be read and reviewed, and XLIDE writes the attribute:
+
+  ```vba
+  '@PredeclaredId
+  Option Explicit
+
+  '@Description("Totals the rows")
+  Public Function Total() As Long
+  ```
+
+  becomes `Attribute VB_PredeclaredId = True` and
+  `Attribute Total.VB_Description = "Totals the rows"`. The eight kinds are
+  `'@ModuleDescription`, `'@PredeclaredId`, `'@Exposed`, `'@Description`,
+  `'@DefaultMember`, `'@Enumerator`, `'@ExcelHotkey` and
+  `'@VariableDescription`, Rubberduck's convention throughout. Placement is
+  what binds one: a module annotation in the declarations section, a member
+  annotation in the comment run directly above a procedure. Anywhere else is
+  reported with its line rather than guessed at, and other people's
+  annotations - `'@Folder`, `'@Ignore`, `'@TestMethod` - are left alone.
+
+  It runs wherever a module is written, so an editor save, an agent write and
+  an import all get it, and it is inert without an annotation: no annotation,
+  no change, byte for byte.
+
+- **Access VBA projects are read through the catalog** (#65, first slice).
+  XLIDE found the project by scanning pages and decompressing candidates to see
+  what they turned out to be, then kept "the last match in page order" for a
+  module, because Access leaves shadow copies of edited modules behind. It now
+  reads `MSysObjects`, then the table definition, then the rows, so
+  `MSysAccessStorage` gives every stream by name with its page and slot and
+  there is nothing to guess. Verified equivalent on all five Access fixtures,
+  the edited one with its shadowed module included, and measured 4-10x faster.
+
+  Writing an Access VBA project still needs the rest of the storage engine, so
+  Access files remain read-only.
+
+- **A streamlined README**, about half its former length, with the folder
+  layout, the refactorings and the annotations in it.
+
 ## [6.2.0] - 2026-09-05
 
 - **Seven refactorings beyond rename** (#69). Extract Method, Extract Variable,
