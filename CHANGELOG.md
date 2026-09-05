@@ -2,6 +2,20 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [8.0.2] - 2026-09-05
+
+- **The blank Access templates ship in the package.** The `*.accdb` and
+  `*.mdb` rules that keep test databases out of the vsix were also catching
+  the two templates New Macro-Enabled File seeds from, so creating an Access
+  database would have failed for every user of 8.0.1. The templates are
+  listed as exceptions now.
+
+- **The README describes the current XLIDE.** It last kept pace at 4.1.7. It
+  now covers writable Access databases, the UserForm and Access designers,
+  Visual Basic 6 projects, the seven refactorings, the Folders view, the
+  attribute annotations and conditional compilation, with the analyze command
+  under its 6.0.0 name and the new limits listed.
+
 ## [8.0.1] - 2026-09-05
 
 8.0.0 made Access databases writable and left the parts of XLIDE that had
