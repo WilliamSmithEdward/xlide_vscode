@@ -575,20 +575,86 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
             padding: 10px;
             color: var(--vscode-descriptionForeground);
         }
-        .sponsorBody {
+        /* Subtle on purpose: a small quiet control under the workflow, not a card. */
+        .sponsorFooter {
             display: flex;
-            flex-direction: column;
-            gap: 6px;
-            padding: 10px;
+            justify-content: center;
+            padding: 2px 0 4px;
+        }
+        .sponsorToggle {
+            border: 0;
+            background: transparent;
+            color: var(--vscode-descriptionForeground);
+            font-size: 12px;
+            padding: 4px 10px;
+            min-height: 0;
+        }
+        .sponsorToggle:hover {
+            color: var(--vscode-foreground);
+            background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
+        }
+        .sponsorBackdrop {
+            position: fixed;
+            inset: 0;
+            z-index: 50;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+            padding: 12vh 12px 12px;
+            background: rgba(0, 0, 0, 0.35);
+        }
+        .sponsorBackdrop[hidden] {
+            display: none;
+        }
+        .sponsorCard {
+            width: 460px;
+            max-width: 100%;
+            background: var(--vscode-editorWidget-background, var(--vscode-sideBar-background));
+            border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+            border-radius: 6px;
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+            padding-bottom: 4px;
+        }
+        .sponsorHead {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px 8px;
+        }
+        .sponsorTitle {
+            font-size: 15px;
+            font-weight: 600;
+        }
+        .sponsorClose {
+            width: 24px;
+            height: 24px;
+            min-height: 0;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            color: inherit;
+            font-size: 16px;
+            line-height: 1;
+            opacity: 0.75;
+        }
+        .sponsorClose:hover {
+            opacity: 1;
+            background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
         }
         .sponsorNote {
             margin: 0;
+            padding: 0 14px 12px;
             color: var(--vscode-descriptionForeground);
             line-height: 1.5;
         }
         .sponsorNote.thanks {
-            margin-top: 4px;
             font-size: 12px;
+        }
+        .sponsorList {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 0 14px 12px;
         }
         .sponsorRow {
             display: flex;
@@ -718,7 +784,73 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
             }
             closeSelects();
         }
+        const sponsorBackdrop = document.getElementById('sponsor-backdrop');
+        let sponsorReturnFocus = null;
+        function sponsorRing() {
+            return Array.from(sponsorBackdrop.querySelectorAll('button')).filter((one) => !one.disabled);
+        }
+        function openSponsor() {
+            if (!sponsorBackdrop) {
+                return;
+            }
+            sponsorReturnFocus = document.activeElement;
+            sponsorBackdrop.hidden = false;
+            sponsorBackdrop.querySelector('[data-sponsor-open]')?.focus();
+        }
+        function closeSponsor() {
+            if (!sponsorBackdrop || sponsorBackdrop.hidden) {
+                return;
+            }
+            sponsorBackdrop.hidden = true;
+            sponsorReturnFocus?.focus?.();
+        }
+        // Mousedown, not click: a drag that starts on the card and releases
+        // over the backdrop is a missed text selection, not a request to close.
+        sponsorBackdrop?.addEventListener('mousedown', (event) => {
+            if (event.target === sponsorBackdrop) {
+                closeSponsor();
+            }
+        });
+        document.addEventListener('keydown', (event) => {
+            if (!sponsorBackdrop || sponsorBackdrop.hidden) {
+                return;
+            }
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                closeSponsor();
+                return;
+            }
+            // The trap aria-modal claims: Tab cycles inside the card.
+            if (event.key === 'Tab') {
+                const ring = sponsorRing();
+                const first = ring[0];
+                const last = ring[ring.length - 1];
+                if (!first) {
+                    event.preventDefault();
+                    return;
+                }
+                const active = document.activeElement;
+                const inside = sponsorBackdrop.contains(active);
+                if (event.shiftKey && (!inside || active === first)) {
+                    event.preventDefault();
+                    last.focus();
+                } else if (!event.shiftKey && (!inside || active === last)) {
+                    event.preventDefault();
+                    first.focus();
+                }
+            }
+        }, true);
         document.addEventListener('click', (event) => {
+            const sponsorToggle = event.target.closest?.('[data-sponsor-toggle]');
+            if (sponsorToggle) {
+                openSponsor();
+                return;
+            }
+            if (event.target.closest?.('[data-sponsor-close]')) {
+                closeSponsor();
+                return;
+            }
             const option = event.target.closest?.('[data-select-option]');
             if (option) {
                 selectOption(option);
@@ -829,15 +961,34 @@ function renderSection(section: XlideSidebarNode): string {
     </section>`;
 }
 
+/**
+ * The sponsor section renders as a quiet footer button that opens a modal,
+ * the way the VBA editor add-in's heart button does, so the addresses never
+ * sit above a workflow action. The modal's content is the section's nodes:
+ * the blurb, the three link rows, and the thanks line.
+ */
 function renderSponsorSection(section: XlideSidebarNode): string {
     const children = section.children ?? [];
-    return `<section class="section" aria-label="${escapeAttr(section.label)}">
-        <div class="sectionHeader">${escapeHtml(section.label)}</div>
-        <div class="sponsorBody">
-            ${children.map((node) => node.kind === 'link' ? renderSponsorRow(node) : renderSponsorNote(node)).join('')}
+    const notes = children.filter((node) => node.kind === 'note');
+    const links = children.filter((node) => node.kind === 'link');
+    return `<div class="sponsorFooter">
+        <button class="sponsorToggle" type="button" data-sponsor-toggle aria-haspopup="dialog" aria-controls="sponsor-backdrop" title="${escapeAttr(section.label)}">${HEART} Support</button>
+    </div>
+    <div class="sponsorBackdrop" id="sponsor-backdrop" hidden>
+        <div class="sponsorCard" role="dialog" aria-modal="true" aria-labelledby="sponsor-title">
+            <div class="sponsorHead">
+                <div class="sponsorTitle" id="sponsor-title">${escapeHtml(section.label)}</div>
+                <button class="sponsorClose" type="button" data-sponsor-close aria-label="Close" title="Close (Esc)">&times;</button>
+            </div>
+            ${notes[0] ? renderSponsorNote(notes[0]) : ''}
+            <div class="sponsorList">${links.map((node) => renderSponsorRow(node)).join('')}</div>
+            ${notes[1] ? renderSponsorNote(notes[1]) : ''}
         </div>
-    </section>`;
+    </div>`;
 }
+
+/** The red heart, as the add-in's toolbar button draws it. */
+const HEART = '\u2764\uFE0F';
 
 function renderSponsorNote(node: XlideSidebarNode): string {
     const cls = node.id === 'sponsor.thanks' ? 'sponsorNote thanks' : 'sponsorNote';

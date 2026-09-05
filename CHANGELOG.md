@@ -2,6 +2,16 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [8.1.1] - 2026-09-05
+
+- **The sponsor section is a button and a modal now.** 8.1.0 put a boxed
+  Support XLIDE section at the bottom of the sidebar. It is one quiet
+  heart-and-Support button under the last section instead, and pressing it
+  opens the same dialog the VBA editor add-in's heart button opens: the
+  blurb, the three rows with their Copy buttons, and the thanks line. Escape
+  closes it, Tab stays inside it, a press on the backdrop closes it, and
+  focus goes back to the button.
+
 ## [8.1.0] - 2026-09-05
 
 - **A Support XLIDE section at the bottom of the sidebar.** The same three

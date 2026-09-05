@@ -37,9 +37,11 @@ Support
 Support XLIDE
 ```
 
-Support XLIDE is the sponsor section, last so it never sits above a workflow
-action. It carries the same three addresses and wording as the VBA editor
-add-in's Support dialog. The rows open through the host, which honors only the
+Support XLIDE is the sponsor section. It renders as one quiet heart-and-Support
+button under the last section, and that button opens a modal with the same
+three addresses and wording as the VBA editor add-in's Support dialog. The
+modal captures Escape, traps Tab, closes on a backdrop press, and gives focus
+back to the button. The rows open through the host, which honors only the
 addresses in the model's own list, and each row also copies its address for a
 machine where the browser is slow to come up.
 
