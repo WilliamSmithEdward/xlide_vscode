@@ -24,6 +24,7 @@
 import { accessVbaCfb, isAccessDatabase } from './accessDatabase';
 import { Cfb } from './cfb';
 import { pptVbaCfb, pptWriteVbaStorage } from './pptContainer';
+import { applyAccessVbaProject } from './access/accessVbaWriter';
 import { XlsxWorkbook } from './xlsx';
 
 export class MacroContainerError extends Error {}
@@ -59,14 +60,13 @@ export function openMacroContainer(data: Buffer): MacroContainer {
 	if (isAccessDatabase(data)) {
 		return {
 			kind: 'access',
-			writable: false,
-			description: 'an Access database (read-only: Access runs VBA from its compiled p-code, so source writes would not take effect)',
+			writable: true,
+			description: 'an Access database',
 			vbaCfb: cached(() => accessVbaCfb(data)),
-			toFileBytes: (): Buffer => {
-				throw new MacroContainerError(
-					'Access databases are read-only: Access renders and runs VBA from its compiled p-code tables, not from the source cache XLIDE reads.',
-				);
-			},
+			// Access runs the compiled project, not the source, so a source
+			// write only takes effect once the compiled cache is marked stale;
+			// the writer does that, and Access recompiles on the next open.
+			toFileBytes: (cfb: Cfb): Buffer => applyAccessVbaProject(data, cfb),
 		};
 	}
 	throw new MacroContainerError(

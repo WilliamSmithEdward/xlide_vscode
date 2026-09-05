@@ -172,7 +172,30 @@ export function readAccessVbaStreams(data: Buffer): Map<string, Buffer> {
 }
 
 /** A storage row's Type: 1 is a folder, 2 a stream. */
-const STREAM = 2;
+export const ACCESS_STORAGE_FOLDER = 1;
+export const ACCESS_STORAGE_STREAM = 2;
+const STREAM = ACCESS_STORAGE_STREAM;
+
+/** Every entry of the tree, in no particular order. */
+export function flattenAccessStorage(
+	roots: readonly AccessStorageEntry[],
+): AccessStorageEntry[] {
+	const out: AccessStorageEntry[] = [];
+	const stack = [...roots];
+	while (stack.length > 0) {
+		const entry = stack.pop()!;
+		out.push(entry);
+		stack.push(...entry.children);
+	}
+	return out;
+}
+
+/** The folder whose streams are the VBA project, and the one above it. */
+export function accessVbaProjectFolder(
+	roots: readonly AccessStorageEntry[],
+): { folder: AccessStorageEntry; parent?: AccessStorageEntry } | undefined {
+	return findVbaProjectFolder(roots);
+}
 
 /** A form or a report, with the design the file describes it by. */
 export interface AccessDesignEntry {

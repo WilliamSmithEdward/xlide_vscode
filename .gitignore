@@ -51,6 +51,12 @@ reference/
 !assets/templates/blank.dotm
 !assets/templates/blank.pptm
 !assets/templates/blank.potm
+
+# The blank form and report Access itself writes, and a design holding one
+# control of each type: what a new Access design is built from, and where its
+# control defaults come from. Captured with Access 16.0 (scripts/README).
+!assets/access/
+!assets/access/*
 # Real Office-authored fixtures: the ground truth the native engine's tests
 # run against, one per container format (authored via pyVBAharness).
 !tests/fixtures/binaries/FormFixture.xlsm

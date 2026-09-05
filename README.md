@@ -30,12 +30,14 @@ export that may have drifted from it.
 | Excel | `.xlsm` `.xlsb` `.xlam` `.xltm` `.xls` `.xlt` `.xla` |
 | Word | `.docm` `.dotm` `.doc` `.dot` |
 | PowerPoint | `.pptm` `.potm` `.ppsm` `.ppam` `.ppt` `.ppa` |
-| Access | `.accdb` `.mdb` `.mda` (read-only) |
+| Access | `.accdb` `.mdb` `.mda` |
 | Visual Basic 6 | `.vbp`, with the `.bas` `.cls` `.frm` `.ctl` `.pag` files it names |
 
-Access modules open read-only on purpose: Access runs compiled p-code, so an
-edit to the source would not take effect, and XLIDE says so rather than
-pretending to save.
+Access is not a compound file like the others: its VBA lives in rows of a
+system table inside the Jet/ACE database, and Access runs the compiled project
+rather than the source. XLIDE writes the source and marks the compiled project
+stale, which is what Access's own `/decompile` switch does, so the next open
+recompiles and the edit takes effect.
 
 ---
 
@@ -67,6 +69,12 @@ handler; multi-select aligns, moves and deletes as one. Every gesture is a text
 edit of the markup, so `Ctrl+Z` undoes it and nothing is written until you
 save. It reads and writes the form's binary storage directly and never needs
 Excel running. VB6 forms open in the same designer from their own `.frm` text.
+
+**Access, natively.** Its VBA is rows in `MSysAccessStorage`, not a compound
+file, so XLIDE reads and writes the Jet/ACE database itself: modules read,
+edited, added, renamed and deleted, and forms and reports read, edited, created
+and deleted, down to the B-tree keys and page maps the engine keeps. Access
+never has to be running.
 
 **Folders, from the code.** Put `'@Folder("Accounts.Ledger")` in a module and
 the **Folders** view groups the project by it - the Rubberduck convention, read
@@ -144,7 +152,9 @@ Open the Command Palette and type `XLIDE`.
 
 - XLIDE writes to your project file. Keep backups of anything important,
   particularly before a large import.
-- Access files are read-only, for the reason above.
+- Writing to an Access database makes its next open recompile the project, so
+  the code already in it has to compile. A stale compiled cache no longer
+  hides a module that does not.
 - Macros and tests need Windows and Office. Editing, analysis, import and
   export do not.
 - The UserForm designer carries through any property it does not itself name,

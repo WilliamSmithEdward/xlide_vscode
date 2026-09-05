@@ -194,6 +194,13 @@ function defineSourceAccessors(module: VbaModule, inflate: (maxBytes: number) =>
 }
 
 export class VbaProject {
+	/**
+	 * The storage the project's streams sit in, or undefined when they sit at
+	 * the root: a bare vbaProject.bin, and the synthetic file an Access
+	 * database is read through, have no VBA storage to put them in.
+	 */
+	private streamStorage: string | undefined = 'VBA';
+
 	codePage = 1252;
 	projectCookie = 0;
 	/**
@@ -248,6 +255,8 @@ export class VbaProject {
 		} catch {
 			try {
 				dirCompressed = cfb.getStream('dir');
+				// Saving has to put the streams back where they were found.
+				project.streamStorage = undefined;
 			} catch {
 				throw new VbaProjectError("No 'dir' stream found; not a valid VBA project.");
 			}
@@ -511,25 +520,19 @@ export class VbaProject {
 	save(cfb: Cfb): void {
 		for (const [oldStream, newStream] of this.renamedStreams) {
 			if (oldStream !== newStream) {
-				cfb.renameStreamInStorage('VBA', oldStream, newStream);
+				cfb.renameStreamIn(this.streamStorage, oldStream, newStream);
 			}
 		}
 		for (const streamName of this.removedStreams) {
-			try { cfb.removeStreamInStorage('VBA', streamName); } catch { /* already gone */ }
+			try { cfb.removeStreamIn(this.streamStorage, streamName); } catch { /* already gone */ }
 		}
-		const addedNames = new Set(this.added.map((a) => a.name.toLowerCase()));
 		for (const module of this.modules) {
 			if (!this.dirtySources.has(module.name.toLowerCase())) {
 				continue;
 			}
 			const body = compress(encodeAnsi(module.source, this.codePage));
 			const stream = Buffer.concat([module.prefixBytes, body]);
-			const streamName = module.streamName || module.name;
-			if (addedNames.has(module.name.toLowerCase()) && !cfb.hasStreamInStorage('VBA', streamName)) {
-				cfb.addStreamToStorage('VBA', streamName, stream);
-			} else {
-				cfb.writeStreamInStorage('VBA', streamName, stream);
-			}
+			cfb.setStreamIn(this.streamStorage, module.streamName || module.name, stream);
 		}
 
 		// dir: reuse the project-information/references prefix verbatim.
@@ -540,7 +543,7 @@ export class VbaProject {
 			this.dirRaw.subarray(0, this.dirModulesOffset),
 			this.serializeModulesSection(),
 		]);
-		cfb.writeStreamInStorage('VBA', 'dir', compress(dir));
+		cfb.setStreamIn(this.streamStorage, 'dir', compress(dir));
 
 		if (this.projectStreamRaw && (this.renames.size > 0 || this.added.length > 0 || this.deleted.size > 0)) {
 			const updated = serializeProjectStream(this.projectStreamRaw, this.renames, {
@@ -562,12 +565,12 @@ export class VbaProject {
 			|| this.deleted.size > 0
 			|| this.renames.size > 0;
 		if (mutating) {
-			invalidateVbaProjectCache(cfb);
+			invalidateVbaProjectCache(cfb, this.streamStorage);
 		}
 		// [MS-OVBA] writers MUST NOT emit performance-cache (__SRP_*) streams.
 		// Leaving them behind hands Excel stale compiled p-code for a module set
 		// that no longer matches, which it follows into a hard crash on open.
-		cfb.dropStreamsInStorage('VBA', (name) => name.startsWith('__SRP_'));
+		cfb.dropStreamsIn(this.streamStorage, (name) => name.startsWith('__SRP_'));
 	}
 
 	private serializeModulesSection(): Buffer {
@@ -740,10 +743,13 @@ export function serializeProjectStream(
  * so Office regenerates p-code rather than trusting a stale cache after a
  * mutating save ([MS-OVBA] 2.3.4.1).
  */
-export function invalidateVbaProjectCache(cfb: Cfb): boolean {
+export function invalidateVbaProjectCache(
+	cfb: Cfb,
+	storage: string | undefined = 'VBA',
+): boolean {
 	let stream: Buffer;
 	try {
-		stream = cfb.getStreamInStorage('VBA', '_VBA_PROJECT');
+		stream = cfb.getStreamIn(storage, '_VBA_PROJECT');
 	} catch {
 		return false;
 	}
@@ -753,7 +759,7 @@ export function invalidateVbaProjectCache(cfb: Cfb): boolean {
 	if (stream.length === 5) {
 		return false;
 	}
-	cfb.writeStreamInStorage('VBA', '_VBA_PROJECT', Buffer.concat([
+	cfb.setStreamIn(storage, '_VBA_PROJECT', Buffer.concat([
 		stream.subarray(0, 5),
 		Buffer.alloc(stream.length - 5),
 	]));

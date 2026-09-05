@@ -21,6 +21,7 @@ export function setExtensionAssetRoot(rootFsPath: string): void {
     if (extensionAssetRoot !== rootFsPath) {
         extensionAssetRoot = rootFsPath;
         assetCache.clear();
+        binaryCache.clear();
     }
 }
 
@@ -40,5 +41,23 @@ export function readExtensionTextAsset(relativePath: string): string {
         .readFileSync(path.join(root, relativePath), 'utf8')
         .replace(/\r\n/g, '\n');
     assetCache.set(relativePath, content);
+    return content;
+}
+
+const binaryCache = new Map<string, Buffer>();
+
+/**
+ * Reads a binary asset by extension-root-relative path (e.g.
+ * 'assets/access/form.blob'). Unlike the text reader nothing is normalized:
+ * these are byte-exact captures, and a line ending inside one is data.
+ */
+export function readExtensionBinaryAsset(relativePath: string): Buffer {
+    const cached = binaryCache.get(relativePath);
+    if (cached !== undefined) {
+        return cached;
+    }
+    const root = extensionAssetRoot ?? path.resolve(__dirname, '..');
+    const content = fs.readFileSync(path.join(root, relativePath));
+    binaryCache.set(relativePath, content);
     return content;
 }

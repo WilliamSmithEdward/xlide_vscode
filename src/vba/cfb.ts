@@ -140,6 +140,112 @@ export class Cfb {
 			.map((i) => this.directory[i].name);
 	}
 
+	/**
+	 * The directory index a project's streams sit under: the storage of that
+	 * name wherever it is in the tree, or the root when no name is given. A
+	 * VBA project is usually in a `VBA` storage; a bare vbaProject.bin, and
+	 * the synthetic file an Access database is read through, keep their
+	 * streams at the root instead.
+	 */
+	private containerIndex(storage: string | undefined): number {
+		if (storage !== undefined) {
+			return this.findStorageIndex(storage);
+		}
+		const root = this.directory.findIndex((e) => e.objType === OBJTYPE_ROOT);
+		if (root < 0) {
+			throw new CfbError('compound file has no root entry');
+		}
+		return root;
+	}
+
+	private describeContainer(storage: string | undefined): string {
+		return storage === undefined ? 'the root' : `storage ${storage}`;
+	}
+
+	getStreamIn(storage: string | undefined, name: string): Buffer {
+		const parent = this.containerIndex(storage);
+		const idx = this.findChildStreamIndex(parent, name);
+		if (idx === undefined) {
+			throw new CfbError(`Stream ${name} not found in ${this.describeContainer(storage)}`);
+		}
+		return this.readStream(idx);
+	}
+
+	hasStreamIn(storage: string | undefined, name: string): boolean {
+		const parent = storage === undefined
+			? this.containerIndex(undefined)
+			: this.findStorageIndexOrUndefined(storage);
+		return parent !== undefined && this.findChildStreamIndex(parent, name) !== undefined;
+	}
+
+	/** Write the stream, creating it when the container does not hold one. */
+	setStreamIn(storage: string | undefined, name: string, data: Buffer): void {
+		if (!name) {
+			throw new CfbError('stream name must be non-empty');
+		}
+		const parent = this.containerIndex(storage);
+		const existing = this.findChildStreamIndex(parent, name);
+		if (existing !== undefined) {
+			this.overrides.set(existing, Buffer.from(data));
+			return;
+		}
+		const target = this.claimSlot(name, OBJTYPE_STREAM);
+		this.overrides.set(target, Buffer.from(data));
+		const siblings = this.collectSubtree(this.directory[parent].childId);
+		siblings.push(target);
+		this.directory[parent].childId = this.rebuildBalancedSubtree(siblings);
+	}
+
+	removeStreamIn(storage: string | undefined, name: string): void {
+		const parent = this.containerIndex(storage);
+		const target = this.findChildStreamIndex(parent, name);
+		if (target === undefined) {
+			throw new CfbError(`Stream ${name} not found in ${this.describeContainer(storage)}`);
+		}
+		this.unlinkAndClear(parent, target);
+	}
+
+	renameStreamIn(storage: string | undefined, oldName: string, newName: string): void {
+		if (!newName) {
+			throw new CfbError('new stream name must be non-empty');
+		}
+		const parent = this.containerIndex(storage);
+		const target = this.findChildStreamIndex(parent, oldName);
+		if (target === undefined) {
+			throw new CfbError(`Stream ${oldName} not found in ${this.describeContainer(storage)}`);
+		}
+		if (oldName.toLowerCase() === newName.toLowerCase()) {
+			this.directory[target].name = newName;
+			return;
+		}
+		if (this.findChildStreamIndex(parent, newName) !== undefined) {
+			throw new CfbError(
+				`Stream ${newName} already exists in ${this.describeContainer(storage)}`,
+			);
+		}
+		const siblings = this.collectSubtree(this.directory[parent].childId);
+		this.directory[target].name = newName;
+		this.directory[parent].childId = this.rebuildBalancedSubtree(siblings);
+	}
+
+	/** Remove every stream in the container whose name satisfies `predicate`. */
+	dropStreamsIn(storage: string | undefined, predicate: (name: string) => boolean): string[] {
+		const parent = storage === undefined
+			? this.containerIndex(undefined)
+			: this.findStorageIndexOrUndefined(storage);
+		if (parent === undefined) {
+			return [];
+		}
+		const removed = this.collectSubtree(this.directory[parent].childId)
+			.filter((i) => this.directory[i].objType === OBJTYPE_STREAM
+				&& predicate(this.directory[i].name))
+			.map((i) => this.directory[i].name);
+		for (const name of removed) {
+			this.removeStreamIn(storage, name);
+		}
+		return removed;
+	}
+
 	getStreamInStorage(storage: string, name: string): Buffer {
 		const parent = this.findStorageIndex(storage);
 		const idx = this.findChildStreamIndex(parent, name);

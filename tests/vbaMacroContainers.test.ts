@@ -241,13 +241,29 @@ describe('rename and delete on a non-Excel host', () => {
 	});
 });
 
-describe('Access stays read-only, with the reason stated', () => {
-	it.each([['AccessFixture.accdb'], ['AccessFixture.mdb']])('%s refuses writes', (file) => {
+describe('Access databases take writes through their own storage', () => {
+	it.each([['AccessFixture.accdb'], ['AccessFixture.mdb']])('%s adds a module', (file) => {
 		const target = copyOf(file);
-		expect(() => writeModule(target, 'MNew', 'Public Sub P()\r\nEnd Sub\r\n'))
-			.toThrow(/read-only: Access runs VBA from its compiled p-code/);
-		expect(fs.readFileSync(target).equals(fs.readFileSync(fixture(file)))).toBe(true);
+		writeModule(target, 'MNew', 'Public Sub P()\r\nEnd Sub\r\n');
+		expect(listModules(target).map((module) => module.name)).toContain('MNew');
+		expect(readModule(target, 'MNew', true).source).toContain('Public Sub P()');
+		expect(validateProject(target).issues).toEqual([]);
 	});
+
+	it.each([['AccessFixture.accdb'], ['AccessFixture.mdb']])(
+		'%s keeps the project it had when a module is rewritten', (file) => {
+			const target = copyOf(file);
+			const before = listModules(target).map((module) => module.name);
+			const source = readModule(target, 'Module1', true).source;
+			writeModule(target, 'Module1', source);
+			// The source route rewrites the module stream and stales the
+			// compiled cache, so the bytes move; what must not move is the
+			// project the next read sees.
+			expect(readModule(target, 'Module1', true).source).toBe(source);
+			expect(listModules(target).map((module) => module.name)).toEqual(before);
+			expect(validateProject(target).issues).toEqual([]);
+		},
+	);
 
 	it('cell writes name the actual container', () => {
 		const target = copyOf('WordFixture.docm');
@@ -571,7 +587,7 @@ const ADDED_EXTENSION_CASES: Array<{ file: string; writable: boolean }> = [
 	{ file: 'WordFixture.dot', writable: true },
 	{ file: 'PowerPointFixture.ppam', writable: true },
 	{ file: 'PowerPointFixture.ppa', writable: true },
-	{ file: 'AccessFixture.mda', writable: false },
+	{ file: 'AccessFixture.mda', writable: true },
 ];
 
 describe.each(ADDED_EXTENSION_CASES)('template/add-in container $file', ({ file, writable }) => {

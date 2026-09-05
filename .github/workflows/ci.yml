@@ -50,3 +50,30 @@ jobs:
           tests/moduleExport.test.ts
           tests/vbaCombiningMarks.test.ts
           tests/vbaNonAsciiNavigation.test.ts
+
+  # Reading and writing the VBA project of an Access database: the Jet/ACE
+  # storage engine underneath it (data pages, usage maps, long values, B-tree
+  # keys, the collation table) and the module operations on top (source,
+  # add, rename, delete), including names and source outside the project's
+  # code page. Runs on Windows too because that is where XLIDE actually runs,
+  # and the fixtures are the databases Access itself wrote.
+  access:
+    name: Access read/write (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+      - run: npm ci
+      - run: >
+          npx vitest run
+          tests/accessStorage.test.ts
+          tests/accessStorageEngine.test.ts
+          tests/accessVbaWrite.test.ts
+          tests/accessDesign.test.ts

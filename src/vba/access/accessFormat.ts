@@ -46,6 +46,8 @@ export const enum AccessColumnType {
 	Guid = 15,
 	Numeric = 16,
 	Complex = 18,
+	BigInt = 19,
+	ExtendedDateTime = 20,
 }
 
 export interface AccessColumn {
@@ -60,6 +62,28 @@ export interface AccessColumn {
 	/** Declared length in bytes. */
 	length: number;
 	fixed: boolean;
+	/** Byte 15: bit 0 fixed-length, bit 1 nullable, bit 2 AutoNumber. */
+	flags: number;
+	/** Byte 16 of the header; bit 0 asks for Unicode compression on text. */
+	miscFlags: number;
+}
+
+/** A B-tree index, which is what the columns of a key are ordered by. */
+export interface AccessRealIndex {
+	/** The columns of the key, in key order. */
+	columns: Array<{ number: number; ascending: boolean }>;
+	rootPage: number;
+	usageMapRef: number;
+	flags: number;
+	/**
+	 * Rows the index counts, which is zero on an index made before its rows.
+	 * Lives in the 12-byte header block, not the body.
+	 */
+	rowCount: number;
+	/** Distinct keys, in the same header block. */
+	entryCount: number;
+	/** Where that header block starts in the definition. */
+	headerAt: number;
 }
 
 export interface AccessTableDefinition {
@@ -70,7 +94,20 @@ export interface AccessTableDefinition {
 	tableType: number;
 	numColumns: number;
 	numVariableColumns: number;
+	/** The last AutoNumber handed out; the next row takes the one after it. */
+	nextAutoNumber: number;
+	/** The last complex-type id handed out, 0 without a complex column. */
+	lastComplexId: number;
 	columns: AccessColumn[];
+	/** The usage map naming every page the table's rows live on. */
+	ownedPagesRef: number;
+	/** The usage map naming the pages of those with room for another row. */
+	freeSpacePagesRef: number;
+	/** `{owned, free}` map references per long-value column, by column number. */
+	columnUsageMaps: Map<number, { owned: number; free: number }>;
+	realIndexes: AccessRealIndex[];
+	/** Every page the definition occupies, the first one included. */
+	pages: number[];
 }
 
 /** Whether the buffer is a Jet 4 or ACE database. */
@@ -99,13 +136,32 @@ export function pageType(data: Buffer, page: number): number {
 
 // The table-definition header, all confirmed by the column names coming out
 // right on both an .accdb and an .mdb fixture.
+const TDEF_LENGTH = 0x08;
 const TDEF_TABLE_TYPE = 0x28;
 const TDEF_NUM_VAR_COLUMNS = 0x2b;
 const TDEF_NUM_COLUMNS = 0x2d;
+const TDEF_NUM_LOGICAL_INDEXES = 0x2f;
 const TDEF_NUM_REAL_INDEXES = 0x33;
+const TDEF_OWNED_PAGES = 0x37;
+const TDEF_FREE_SPACE_PAGES = 0x3b;
 const TDEF_HEADER_SIZE = 0x3f;
 const REAL_INDEX_SIZE = 12;
 const COLUMN_DEFINITION_SIZE = 25;
+const REAL_INDEX_BODY_SIZE = 52;
+const LOGICAL_INDEX_SIZE = 28;
+const MAX_INDEX_COLUMNS = 10;
+/** The column-number word that ends the index key and the usage-map block. */
+const INDEX_COLUMN_UNUSED = 0xffff;
+
+/** Where the pages of a database come from, so a writer can share the reader. */
+export interface AccessPageSource {
+	read(page: number): Buffer;
+}
+
+/** A whole-file buffer, as a page source. */
+export function bufferPages(data: Buffer): AccessPageSource {
+	return { read: (page: number) => pageAt(data, page) };
+}
 
 /**
  * A table's definition. A definition longer than one page continues on the
@@ -113,11 +169,19 @@ const COLUMN_DEFINITION_SIZE = 25;
  * of them - a column list that spans the boundary is otherwise cut in half.
  */
 export function readTableDefinition(data: Buffer, page: number): AccessTableDefinition {
-	if (pageType(data, page) !== AccessPageType.TableDefinition) {
+	return readTableDefinitionFrom(bufferPages(data), page);
+}
+
+export function readTableDefinitionFrom(
+	pages: AccessPageSource,
+	page: number,
+): AccessTableDefinition {
+	const first = pages.read(page);
+	if (first[0] !== AccessPageType.TableDefinition) {
 		throw new AccessFormatError(`Page ${page} is not a table definition.`);
 	}
-	const first = pageAt(data, page);
 	const chunks: Buffer[] = [first];
+	const occupied = [page];
 	const seen = new Set([page]);
 	let next = first.readUInt32LE(4);
 	while (next !== 0) {
@@ -125,7 +189,8 @@ export function readTableDefinition(data: Buffer, page: number): AccessTableDefi
 			throw new AccessFormatError(`Table definition at page ${page} loops back to page ${next}.`);
 		}
 		seen.add(next);
-		const continuation = pageAt(data, next);
+		occupied.push(next);
+		const continuation = pages.read(next);
 		// A continuation page repeats the 8-byte page header before its data.
 		chunks.push(continuation.subarray(8));
 		next = continuation.readUInt32LE(4);
@@ -153,6 +218,8 @@ export function readTableDefinition(data: Buffer, page: number): AccessTableDefi
 			fixedOffset: fixed ? d.readUInt16LE(at + 21) : -1,
 			length: d.readUInt16LE(at + 23),
 			fixed,
+			flags,
+			miscFlags: d[at + 16],
 		});
 	}
 
@@ -179,14 +246,103 @@ export function readTableDefinition(data: Buffer, page: number): AccessTableDefi
 		}
 	}
 
+	// The index bodies, the logical index block and the per-column long-value
+	// maps follow the names. A writer needs the usage-map references out of
+	// them; the reader has never needed any of it, so a definition whose tail
+	// does not parse still yields its columns and reports the tail as absent.
+	const realIndexes: AccessRealIndex[] = [];
+	const columnUsageMaps = new Map<number, { owned: number; free: number }>();
+	const declaredLength = d.readUInt32LE(TDEF_LENGTH);
+	let ownedPagesRef = 0;
+	let freeSpacePagesRef = 0;
+	if (readIndexTail(d, at, numRealIndexes, realIndexes, columnUsageMaps) === declaredLength) {
+		ownedPagesRef = d.readUInt32LE(TDEF_OWNED_PAGES);
+		freeSpacePagesRef = d.readUInt32LE(TDEF_FREE_SPACE_PAGES);
+	} else {
+		realIndexes.length = 0;
+		columnUsageMaps.clear();
+	}
+
 	return {
 		page,
 		numRows: first.readUInt32LE(0x10),
 		tableType: d[TDEF_TABLE_TYPE],
 		numColumns,
 		numVariableColumns,
+		nextAutoNumber: first.readUInt32LE(0x14),
+		lastComplexId: first.readUInt32LE(0x1c),
 		columns,
+		ownedPagesRef,
+		freeSpacePagesRef,
+		columnUsageMaps,
+		realIndexes,
+		pages: occupied,
 	};
+}
+
+/**
+ * Read the index bodies and long-value maps that close a definition, and
+ * return the offset reached. The definition declares its own length at 0x08,
+ * so a walk that lands exactly there read every block correctly; one that does
+ * not read something this does not understand, and the caller drops it rather
+ * than acting on half-decoded page numbers.
+ */
+function readIndexTail(
+	d: Buffer,
+	from: number,
+	numRealIndexes: number,
+	realIndexes: AccessRealIndex[],
+	columnUsageMaps: Map<number, { owned: number; free: number }>,
+): number {
+	let at = from;
+	for (let i = 0; i < numRealIndexes; i += 1) {
+		if (at + REAL_INDEX_BODY_SIZE > d.length) {
+			return -1;
+		}
+		const body = d.subarray(at, at + REAL_INDEX_BODY_SIZE);
+		const keyColumns: Array<{ number: number; ascending: boolean }> = [];
+		for (let k = 0; k < MAX_INDEX_COLUMNS; k += 1) {
+			const number = body.readUInt16LE(4 + 3 * k);
+			if (number === INDEX_COLUMN_UNUSED) {
+				continue;
+			}
+			keyColumns.push({ number, ascending: (body[6 + 3 * k] & 0x01) !== 0 });
+		}
+		const headerAt = TDEF_HEADER_SIZE + i * REAL_INDEX_SIZE;
+		realIndexes.push({
+			columns: keyColumns,
+			usageMapRef: body.readUInt32LE(34),
+			rootPage: body.readUInt32LE(38),
+			flags: body[46],
+			rowCount: d.readUInt32LE(headerAt),
+			entryCount: d.readUInt32LE(headerAt + 4),
+			headerAt,
+		});
+		at += REAL_INDEX_BODY_SIZE;
+	}
+	const numLogical = d.readUInt32LE(TDEF_NUM_LOGICAL_INDEXES);
+	at += numLogical * LOGICAL_INDEX_SIZE;
+	for (let i = 0; i < numLogical; i += 1) {
+		if (at + 2 > d.length) {
+			return -1;
+		}
+		at += 2 + d.readUInt16LE(at);
+	}
+	for (;;) {
+		if (at + 2 > d.length) {
+			return -1;
+		}
+		const number = d.readUInt16LE(at);
+		at += 2;
+		if (number === INDEX_COLUMN_UNUSED) {
+			return at;
+		}
+		if (at + 8 > d.length) {
+			return -1;
+		}
+		columnUsageMaps.set(number, { owned: d.readUInt32LE(at), free: d.readUInt32LE(at + 4) });
+		at += 8;
+	}
 }
 
 /**
@@ -229,11 +385,13 @@ export interface AccessRow {
 const DATA_NUM_RECORDS = 0x0c;
 const DATA_RECORD_OFFSETS = 0x0e;
 /**
- * A record offset carries flags in its top bits. A 4096-byte page needs twelve
- * bits for an offset, so the mask is 0x0FFF and everything above it is a flag -
- * masking wider lets a flag bit through as part of the offset.
+ * A record offset carries flags in its top bits, and the offset itself is
+ * thirteen bits - NOT twelve. A deleted slot records the boundary the rows
+ * below it now start at, and that boundary can be the page end, 4096, which
+ * needs bit 12. Masking with 0x0FFF turns such a slot's offset into 0, and the
+ * row above it is then skipped as if its extent were empty.
  */
-const RECORD_OFFSET_MASK = 0x0fff;
+const RECORD_OFFSET_MASK = 0x1fff;
 const RECORD_DELETED = 0x8000;
 const RECORD_POINTER = 0x4000;
 
@@ -250,12 +408,14 @@ export function readDataPageRows(
 	const count = d.readUInt16LE(DATA_NUM_RECORDS);
 	const out: AccessRow[] = [];
 	for (let slot = 0; slot < count; slot += 1) {
-		const raw = d.readUInt16LE(DATA_RECORD_OFFSETS + slot * 2);
-		if ((raw & RECORD_DELETED) !== 0 || (raw & RECORD_POINTER) !== 0) {
-			// A deleted row leaves its bytes in place, and a pointer row lives
-			// somewhere else; neither is a row of this table here.
+		const flags = d.readUInt16LE(DATA_RECORD_OFFSETS + slot * 2) & ~RECORD_OFFSET_MASK;
+		if (flags !== 0 && flags !== RECORD_POINTER) {
+			// A deleted row leaves its bytes in place, a dead slot carries both
+			// bits and no row at all, and 0x8000 alone marks the copy of a row
+			// whose home slot elsewhere already reports it.
 			continue;
 		}
+		const raw = d.readUInt16LE(DATA_RECORD_OFFSETS + slot * 2);
 		const start = raw & RECORD_OFFSET_MASK;
 		const end = slot === 0
 			? ACCESS_PAGE_SIZE
@@ -263,12 +423,48 @@ export function readDataPageRows(
 		if (start >= end || end > ACCESS_PAGE_SIZE) {
 			continue;
 		}
-		const values = readRow(d.subarray(start, end), definition);
+		// A row that outgrew its page lives on another one, its home slot
+		// holding a four-byte pointer to it. The home slot is still the row's
+		// identity, so it is reported here, with the bytes read from where
+		// they went; skipping such a slot loses the row altogether.
+		const body = (raw & RECORD_POINTER) !== 0
+			? movedRowBytes(data, d.subarray(start, start + 4))
+			: d.subarray(start, end);
+		if (!body) {
+			continue;
+		}
+		const values = decodeRowValues(body, definition);
 		if (values) {
 			out.push({ page, slot, values });
 		}
 	}
 	return out;
+}
+
+/**
+ * The bytes of a row that moved, from the page its home slot points at. The
+ * moved row's own slot there carries 0x8000, which marks it as the copy rather
+ * than as deleted.
+ */
+function movedRowBytes(data: Buffer, pointer: Buffer): Buffer | undefined {
+	const row = pointer[0];
+	const page = pointer.readUIntLE(1, 3);
+	if (page === 0 || page >= pageCount(data)) {
+		return undefined;
+	}
+	const d = pageAt(data, page);
+	if (d[0] !== AccessPageType.Data || row >= d.readUInt16LE(DATA_NUM_RECORDS)) {
+		return undefined;
+	}
+	const entry = d.readUInt16LE(DATA_RECORD_OFFSETS + row * 2);
+	if ((entry & ~RECORD_OFFSET_MASK) !== RECORD_DELETED) {
+		return undefined;
+	}
+	const start = entry & RECORD_OFFSET_MASK;
+	const end = row === 0
+		? ACCESS_PAGE_SIZE
+		: (d.readUInt16LE(DATA_RECORD_OFFSETS + (row - 1) * 2) & RECORD_OFFSET_MASK);
+	return start < end && end <= ACCESS_PAGE_SIZE ? d.subarray(start, end) : undefined;
 }
 
 /**
@@ -279,7 +475,7 @@ export function readDataPageRows(
  * and that many offsets plus one for the end of the data - stored in reverse,
  * so the first variable column's offset is the last one written.
  */
-function readRow(row: Buffer, definition: AccessTableDefinition): Map<string, AccessValue> | undefined {
+export function decodeRowValues(row: Buffer, definition: AccessTableDefinition): Map<string, AccessValue> | undefined {
 	if (row.length < 2) {
 		return undefined;
 	}
@@ -421,7 +617,7 @@ function readVariable(bytes: Buffer, column: AccessColumn): AccessValue {
  * several. Treating the first marker as "single-byte from here on" reads a
  * string that switches back as mojibake from that point.
  */
-export const decodeTextForTests = (bytes: Buffer): string => decodeText(bytes);
+export const decodeAccessText = (bytes: Buffer): string => decodeText(bytes);
 
 function decodeText(bytes: Buffer): string {
 	if (bytes.length < 2 || bytes[0] !== 0xff || bytes[1] !== 0xfe) {

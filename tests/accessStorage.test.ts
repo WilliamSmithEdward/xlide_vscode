@@ -20,7 +20,7 @@ import { VbaProject } from '../src/vba/vbaProject';
 import { accessVbaCfbByScan, accessVbaCfbStructural } from '../src/vba/accessDatabase';
 import {
 	AccessColumnType,
-	decodeTextForTests,
+	decodeAccessText,
 	readTableDefinition,
 	MSYS_OBJECTS_PAGE,
 } from '../src/vba/access/accessFormat';
@@ -187,8 +187,8 @@ describe('the project streams', () => {
 		// directly.
 		const streams = readAccessVbaStreams(read('AccessFixture.accdb'));
 		expect(streams.size).toBeGreaterThan(0);
-		expect(decodeTextForTests(Buffer.from([0xff, 0xfe, 0x41, 0x42]))).toBe('AB');
-		expect(decodeTextForTests(Buffer.from([
+		expect(decodeAccessText(Buffer.from([0xff, 0xfe, 0x41, 0x42]))).toBe('AB');
+		expect(decodeAccessText(Buffer.from([
 			0xff, 0xfe, 0x41, // compressed 'A'
 			0xff, 0xfe, 0x42, 0x00, // back to UTF-16: 'B'
 			0xff, 0xfe, 0x43, // compressed again: 'C'
