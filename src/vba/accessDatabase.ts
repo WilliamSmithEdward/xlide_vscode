@@ -16,6 +16,7 @@
 import { Cfb } from './cfb';
 import { decompress } from './ovba';
 import { VbaProject } from './vbaProject';
+import { readAccessVbaStreams } from './access/accessStorage';
 
 export class AccessDatabaseError extends Error {}
 
@@ -47,6 +48,14 @@ interface LvalRow {
  * holds no locatable VBA project.
  */
 export function accessVbaCfb(data: Buffer): Cfb {
+	return accessVbaCfbStructural(data) ?? accessVbaCfbByScan(data);
+}
+
+/**
+ * The project found by scanning: kept as the fallback for a database the
+ * structural read cannot follow, and exported so the two can be compared.
+ */
+export function accessVbaCfbByScan(data: Buffer): Cfb {
 	if (!isAccessDatabase(data)) {
 		throw new AccessDatabaseError('Not an Access database (no ACE/Jet signature).');
 	}
@@ -96,6 +105,55 @@ export function accessVbaCfb(data: Buffer): Cfb {
 		if (carrier) {
 			cfb.addStream(streamName, carrier);
 		}
+	}
+	return cfb;
+}
+
+/**
+ * The project read through the catalog rather than by scanning: MSysObjects
+ * names MSysAccessStorage, whose rows are the storage tree, and the streams
+ * under `VBA/VBAProject/VBA` are the project.
+ *
+ * Preferred over the scan below because it removes a guess. The scan finds
+ * candidate blobs by decompressing them and keeps "the last match in page
+ * order" for a module, because Access leaves shadow copies of edited modules
+ * lying about; the storage row names its stream outright, so there is nothing
+ * to choose between. Returns undefined when the database has no storage table
+ * to read, which leaves the scan to try.
+ */
+export function accessVbaCfbStructural(data: Buffer): Cfb | undefined {
+	if (!isAccessDatabase(data)) {
+		throw new AccessDatabaseError('Not an Access database (no ACE/Jet signature).');
+	}
+	let streams: Map<string, Buffer>;
+	try {
+		streams = readAccessVbaStreams(data);
+	} catch {
+		// A database the structural reader cannot follow is not a failure
+		// here; the scan is the fallback and answers for the odd ones.
+		return undefined;
+	}
+	const dir = streams.get('dir');
+	if (!dir) {
+		return undefined;
+	}
+	const cfb = Cfb.createEmpty();
+	cfb.addStream('dir', dir);
+	for (const [name, bytes] of streams) {
+		if (name !== 'dir') {
+			cfb.addStream(name, bytes);
+		}
+	}
+	// The dir has to name modules this actually found, or the project parse
+	// would report streams that are not there.
+	try {
+		for (const module of VbaProject.parse(cfb).modules) {
+			if (!streams.has(module.streamName || module.name)) {
+				return undefined;
+			}
+		}
+	} catch {
+		return undefined;
 	}
 	return cfb;
 }

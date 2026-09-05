@@ -15,6 +15,9 @@ import { describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { decompress } from '../src/vba/ovba';
+import { Cfb } from '../src/vba/cfb';
+import { VbaProject } from '../src/vba/vbaProject';
+import { accessVbaCfbByScan, accessVbaCfbStructural } from '../src/vba/accessDatabase';
 import {
 	AccessColumnType,
 	decodeTextForTests,
@@ -197,5 +200,32 @@ describe('the project streams', () => {
 		const empty = Buffer.alloc(4096);
 		empty.write('\0\x01\0\0Standard ACE DB\0', 0, 'latin1');
 		expect(() => readAccessVbaStreams(empty)).toThrow();
+	});
+});
+
+describe('the structural read against the scan it replaces', () => {
+	// The scan finds a module's stream by decompressing candidates and keeping
+	// "the last match in page order", because Access leaves shadow copies of
+	// edited modules behind. The structural read has no such choice to make:
+	// the storage row names its stream. This pins the two together, so a change
+	// to either cannot quietly start answering differently.
+	const ALL = ['AccessFixture.accdb', 'AccessFixture.mdb', 'AccessFixture.mda',
+		'AccessEditedFixture.accdb', 'AccessEditedFixture.mdb'] as const;
+
+	it.each(ALL)('agrees with the scan about every module of %s', (file) => {
+		const data = read(file);
+		const structural = accessVbaCfbStructural(data);
+		expect(structural, `${file} should read structurally`).toBeDefined();
+
+		const shape = (cfb: Cfb): string[] => VbaProject.parse(cfb).modules
+			.map((module) => `${module.name}:${module.kind}:${module.source.length}`);
+		expect(shape(structural!)).toEqual(shape(accessVbaCfbByScan(data)));
+	});
+
+	it('picks the right copy where a module has a shadow, without guessing', () => {
+		// AccessEditedFixture carries a module that has been edited, so an
+		// earlier copy of its stream is still in the file.
+		const modules = VbaProject.parse(accessVbaCfbStructural(read('AccessEditedFixture.accdb'))!).modules;
+		expect(modules.map((module) => module.name)).toContain('MShadow');
 	});
 });
