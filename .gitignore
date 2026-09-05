@@ -51,6 +51,12 @@ reference/
 !assets/templates/blank.dotm
 !assets/templates/blank.pptm
 !assets/templates/blank.potm
+# The blank Access database and the blank .mdb, captured from Access 16.0 with
+# an empty VBA project: what "New Macro-Enabled File" seeds an .accdb, .accda,
+# .mdb or .mda from. The .mdb is the Access 2002 format, which is the oldest
+# one that keeps its VBA in MSysAccessStorage.
+!assets/templates/blank.accdb
+!assets/templates/blank.mdb
 
 # The blank form and report Access itself writes, and a design holding one
 # control of each type: what a new Access design is built from, and where its

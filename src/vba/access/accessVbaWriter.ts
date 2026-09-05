@@ -346,11 +346,7 @@ export class AccessVbaWriter {
 			if (!row.bytes || row.bytes.length === 0) {
 				continue;
 			}
-			if (row.name === DIR_DATA && row.parentId === ids.modules) {
-				this.writeStream(row, addToDirData(row.bytes, name, folder));
-			} else if (row.name === 'PropData' && row.parentId === ids.modules) {
-				this.writeStream(row, addToFolderList(row.bytes, folder));
-			} else if (row.name === 'PROJECTwm' && row.parentId === ids.project) {
+			if (row.name === 'PROJECTwm' && row.parentId === ids.project) {
 				this.writeStream(row, addToProjectWm(row.bytes, name, codePage));
 			} else if (row.name === 'PROJECT' && row.parentId === ids.project) {
 				this.writeStream(row, encodeCodePage(
@@ -358,12 +354,48 @@ export class AccessVbaWriter {
 				));
 			}
 		}
+		// The container's own listing, which is what Access reads to know a
+		// module is there: without it `AllModules` is empty and the navigation
+		// pane shows nothing, while the VBE still lists the module and runs
+		// it. A database whose last module was deleted has no listing left, so
+		// it is created rather than only updated.
+		this.addToContainerListing(ids.modules, name, folder, when);
 		this.writeStream(
 			this.dirRow(rows),
 			compress(addToDir(dirRaw, moduleDirBlock(name, streamName, cookie, kind, codePage))),
 		);
 		this.addCatalogRows(name, when);
 		this.invalidateCache(this.rows());
+	}
+
+	/**
+	 * Name an object in its container's `\x03DirData` and claim its folder in
+	 * the container's `PropData`, creating either stream when the container
+	 * has none yet.
+	 */
+	private addToContainerListing(
+		container: number,
+		name: string,
+		folder: string,
+		when: number,
+	): void {
+		const rows = this.rows();
+		for (const [stream, add] of [
+			[DIR_DATA, (payload: Buffer): Buffer => addToDirData(payload, name, folder)],
+			['PropData', (payload: Buffer): Buffer => addToFolderList(payload, folder)],
+		] as Array<[string, (payload: Buffer) => Buffer]>) {
+			const row = rows.find(
+				(entry) => entry.parentId === container && entry.name === stream,
+			);
+			if (row) {
+				this.writeStream(row, add(row.bytes ?? Buffer.alloc(4)));
+			} else {
+				this.storage.insertNamedRow(new Map<string, AccessScalar>([
+					['ParentId', container], ['Name', stream], ['Type', TYPE_STREAM],
+					['Lv', add(Buffer.alloc(4))], ['DateCreate', when], ['DateUpdate', when],
+				]));
+			}
+		}
 	}
 
 	/** Rename a module in all eight places its name lives. */
@@ -674,23 +706,7 @@ export class AccessVbaWriter {
 			this.storage.insertNamedRow(values);
 		}
 
-		rows = this.rows();
-		for (const [stream, add] of [
-			[DIR_DATA, (payload: Buffer): Buffer => addToDirData(payload, name, folder)],
-			['PropData', (payload: Buffer): Buffer => addToFolderList(payload, folder)],
-		] as Array<[string, (payload: Buffer) => Buffer]>) {
-			const row = rows.find(
-				(entry) => entry.parentId === folderRow.id && entry.name === stream,
-			);
-			if (row) {
-				this.writeStream(row, add(row.bytes ?? Buffer.alloc(4)));
-			} else {
-				this.storage.insertNamedRow(new Map<string, AccessScalar>([
-					['ParentId', folderRow.id], ['Name', stream], ['Type', TYPE_STREAM],
-					['Lv', add(Buffer.alloc(4))], ['DateCreate', when], ['DateUpdate', when],
-				]));
-			}
-		}
+		this.addToContainerListing(folderRow.id, name, folder, when);
 		this.addDesignCatalogRows(name, kind, when, catalogProperties);
 	}
 
@@ -900,8 +916,12 @@ export class AccessVbaWriter {
 		if (!container) {
 			throw new AccessVbaWriteError('The catalog has no Modules container.');
 		}
-		const owner = catalog.find((values) => numberOf(values.get('Type')) === OBJECT_MODULE
-			&& Buffer.isBuffer(values.get('Owner')))?.get('Owner');
+		// The security descriptor every catalog row carries. A module's own is
+		// the closest match, but a database with no modules yet has none, and
+		// a row without one is a row Access leaves out of AllModules.
+		const owner = (catalog.find((values) => numberOf(values.get('Type')) === OBJECT_MODULE
+			&& Buffer.isBuffer(values.get('Owner')))
+			?? catalog.find((values) => Buffer.isBuffer(values.get('Owner'))))?.get('Owner');
 		const negative = catalog
 			.map((values) => numberOf(values.get('Id')) ?? 0)
 			.filter((id) => id < 0);

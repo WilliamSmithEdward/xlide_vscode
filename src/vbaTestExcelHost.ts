@@ -7,7 +7,7 @@ import { psSingleQuoted } from './util/powershell';
 export const DEFAULT_VBA_TEST_TIMEOUT_MS = 30000;
 
 /** The Office applications the owned read-only test host can drive. */
-export type VbaTestHostApp = 'excel' | 'word' | 'powerpoint';
+export type VbaTestHostApp = 'excel' | 'word' | 'powerpoint' | 'access';
 
 interface VbaTestHostAppInfo {
     progId: string;
@@ -20,6 +20,7 @@ const HOST_APPS: Record<VbaTestHostApp, VbaTestHostAppInfo> = {
     excel: { progId: 'Excel.Application', processName: 'EXCEL', noun: 'Excel' },
     word: { progId: 'Word.Application', processName: 'WINWORD', noun: 'Word' },
     powerpoint: { progId: 'PowerPoint.Application', processName: 'POWERPNT', noun: 'PowerPoint' },
+    access: { progId: 'Access.Application', processName: 'MSACCESS', noun: 'Access' },
 };
 
 export interface VbaTestHostPlanItem {

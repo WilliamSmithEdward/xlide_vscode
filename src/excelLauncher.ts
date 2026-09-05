@@ -164,6 +164,51 @@ export function buildWordMacroLaunchScript(filePath: string, macroName: string):
     ].join('; ');
 }
 
+/**
+ * Run a procedure in an Access database.
+ *
+ * Access differs from Word and PowerPoint in three ways that all show up here.
+ * It holds one database at a time, so opening ours closes whatever else that
+ * instance had, and opening the one already open is an error rather than a
+ * no-op: the script asks what is open first. There is no read-only reopen to
+ * do, because a database is not a document Access holds a private copy of.
+ * And `Application.Run` takes the bare procedure name - measured on Access
+ * 16.0, where `Module1.Main` is refused with "cannot find the procedure" and
+ * `Main` returns its value.
+ *
+ * Access recompiles a database XLIDE has written on the next open, so a
+ * compile error anywhere in the project surfaces here rather than at the call.
+ */
+export function buildAccessMacroLaunchScript(filePath: string, procedureName: string): string {
+	return [
+		'$ErrorActionPreference = "Stop"',
+		COM_RETRY_HELPER,
+		'try {',
+		`$macroName = ${psSingleQuoted(procedureName)}`,
+		`$targetPath = ${psSingleQuoted(filePath)}`,
+		'$app = $null',
+		'try { $app = [Runtime.InteropServices.Marshal]::GetActiveObject("Access.Application") } catch { }',
+		'if (-not $app) { $app = New-Object -ComObject Access.Application }',
+		'$app.Visible = $true',
+		'$open = ""',
+		'try { $open = $app.CurrentProject.FullName } catch { }',
+		'if ($open -ine $targetPath) {',
+		// Access opens one database at a time; the one already there goes first.
+		'  if ($open) { try { Invoke-XlideCom { $app.CloseCurrentDatabase() } } catch { throw ("REOPEN_FAILED|XLIDE could not close the database Access already had open: " + $_.Exception.Message) } }',
+		'  try { Invoke-XlideCom { $app.OpenCurrentDatabase($targetPath) } } catch { throw ("REOPEN_FAILED|XLIDE could not open the database. If another program holds it open, close it and try again: " + $_.Exception.Message) }',
+		'}',
+		// Access resolves a bare procedure name and refuses a qualified one.
+		// F5 targets a Function as readily as a Sub here, so its return value
+		// is swallowed rather than printed over the script's own output.
+		'try { Invoke-XlideCom { $app.Run($macroName) } | Out-Null } catch { throw ("RUN_FAILED|XLIDE could not run the procedure: " + $_.Exception.Message) }',
+		'[Console]::Out.WriteLine("XLIDE_MACRO_OK")',
+		'} catch {',
+		'  [Console]::Error.WriteLine("XLIDE_MACRO_ERROR|" + ($_.Exception.Message -replace "[\\r\\n]+", " "))',
+		'  exit 1',
+		'}',
+	].join('; ');
+}
+
 export function buildPowerPointMacroLaunchScript(filePath: string, macroName: string): string {
     return [
         '$ErrorActionPreference = "Stop"',
@@ -203,16 +248,18 @@ export function buildPowerPointMacroLaunchScript(filePath: string, macroName: st
  * visible application and runs the macro; rejects with ExcelMacroError
  * carrying the same codes as the Excel path.
  */
-export async function runHostFileMacroReadOnly(
-    host: 'word' | 'powerpoint',
+export async function runHostFileMacro(
+    host: 'word' | 'powerpoint' | 'access',
     filePath: string,
     macroName: string,
     log: (message: string) => void,
 ): Promise<void> {
     const script = host === 'word'
         ? buildWordMacroLaunchScript(filePath, macroName)
-        : buildPowerPointMacroLaunchScript(filePath, macroName);
-    const appName = host === 'word' ? 'Word' : 'PowerPoint';
+        : host === 'access'
+            ? buildAccessMacroLaunchScript(filePath, macroName)
+            : buildPowerPointMacroLaunchScript(filePath, macroName);
+    const appName = host === 'word' ? 'Word' : host === 'access' ? 'Access' : 'PowerPoint';
     log(`[runMacro] Running in ${appName}: ${macroName}`);
     log(`[runMacro] Script: ${script}`);
     const result = await runExcelScript(script, 'runMacro', log);

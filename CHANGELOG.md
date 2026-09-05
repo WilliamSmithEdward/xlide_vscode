@@ -2,6 +2,45 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [8.0.1] - 2026-09-05
+
+8.0.0 made Access databases writable and left the parts of XLIDE that had
+been built around them being read-only saying so. Everything below was
+measured against Access 16.0.
+
+- **F5 runs a procedure in Access.** It used to refuse, on the ground that
+  Access files are read-only in XLIDE. They are not, and Access runs a
+  procedure exactly as Word and PowerPoint do: XLIDE saves, opens the
+  database in a visible Access, and calls it. Access takes the bare
+  procedure name and refuses a qualified one, holds one database at a time,
+  and recompiles what XLIDE wrote on the way in, so a compile error anywhere
+  in the project is reported rather than swallowed.
+
+- **VBA tests run against an Access database.** The runner stages a copy,
+  writes `XlideAssert`, the dispatcher and the generated runner into it, and
+  drives an Access instance it owns and quits. A staged run reports a pass
+  and an assertion failure with XLIDE's own message, the same events the
+  Excel, Word and PowerPoint hosts emit.
+
+- **New Macro-Enabled File creates an Access database.** `.accdb`, `.accda`,
+  `.mdb` and `.mda` seed from a blank database captured from Access with an
+  empty VBA project, the way every other format seeds from a blank file its
+  own application wrote. The `.mdb` is the Access 2002 format, the oldest one
+  that keeps its VBA in `MSysAccessStorage`.
+
+- **The first module in an empty Access project went in unlisted.** Adding a
+  module updated the container's listing where one existed and skipped it
+  where none did, which is the state a database whose last module was deleted
+  is in. Access ran the module and the VBE showed it, while `AllModules` was
+  empty and the navigation pane showed nothing. The listing is created now,
+  as it already was for a form or report, and a module's catalog row takes
+  the security descriptor from any row when no module has one to copy.
+
+- **`PROJECT` had no place to put the first module.** The module list is
+  written beside the modules already there, and a project with none has
+  nothing to write beside. It anchors on the project's own `ID` line, which
+  is where Access puts the first one.
+
 ## [8.0.0] - 2026-09-05
 
 - **Access databases are writable** (#65). They used to open read-only: Access

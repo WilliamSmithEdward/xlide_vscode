@@ -73,12 +73,6 @@ export class ProjectEngine implements vscode.Disposable {
 				-32602,
 			);
 		}
-		if (['accdb', 'accda', 'mdb', 'mda'].includes(extension)) {
-			throw new ProjectEngineError(
-				'Access databases cannot be created by XLIDE (Access files are read-only).',
-				-32602,
-			);
-		}
 		if (extension === 'ppsm') {
 			// A slideshow's package content type differs from a presentation's,
 			// and renaming a .pptm cannot change it - there is no authored
@@ -102,6 +96,13 @@ export class ProjectEngine implements vscode.Disposable {
 			dotm: 'blank.dotm',
 			pptm: 'blank.pptm',
 			potm: 'blank.potm',
+			// An Access database and an Access add-in are the same file with
+			// different extensions; the blank one Access writes has an empty
+			// VBA project, which is what a new one starts from.
+			accdb: 'blank.accdb',
+			accda: 'blank.accdb',
+			mdb: 'blank.mdb',
+			mda: 'blank.mdb',
 		};
 		const template = templates[extension] ?? 'blank.xlsm';
 		return vscode.Uri.joinPath(

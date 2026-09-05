@@ -4,12 +4,13 @@ export type ExcelComAvailabilityState = 'installed' | 'missing' | 'blocked' | 'u
 
 /** The Office applications the test host can drive; the probe checks the one
  * the file's container belongs to. */
-export type ComProbeHostApp = 'excel' | 'word' | 'powerpoint';
+export type ComProbeHostApp = 'excel' | 'word' | 'powerpoint' | 'access';
 
 const PROBE_HOSTS: Record<ComProbeHostApp, { progId: string; noun: string }> = {
     excel: { progId: 'Excel.Application', noun: 'Excel' },
     word: { progId: 'Word.Application', noun: 'Word' },
     powerpoint: { progId: 'PowerPoint.Application', noun: 'PowerPoint' },
+    access: { progId: 'Access.Application', noun: 'Access' },
 };
 
 export interface ExcelComAvailabilityStatus {

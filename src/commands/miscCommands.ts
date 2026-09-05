@@ -15,7 +15,7 @@ import { errorMessage } from '../util/errors';
 import {
     ExcelMacroError,
     openWorkbookInExcel,
-    runHostFileMacroReadOnly,
+    runHostFileMacro,
     runWorkbookMacroReadOnly,
 } from '../excelLauncher';
 import {
@@ -320,30 +320,25 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
 
                 // The run machinery below is Excel COM end to end (launcher,
                 // coordinator, reopen tracking), so gate by the file's host
-                // first. Word and PowerPoint modules save and open in their
-                // own application with run guidance; Access cannot run edits
-                // at all, for the stated engine reason.
+                // first. Word, PowerPoint and Access save and open in their
+                // own application, which is what actually runs VBA.
                 const containerHost = containerHostForPath(projectPath);
-                if (containerHost === 'access') {
-                    vscode.window.showWarningMessage(
-                        'XLIDE: Access files are read-only in XLIDE because Access runs compiled '
-                        + 'p-code, so XLIDE cannot run this macro. Open the database in Access to run it.',
-                    );
-                    return;
-                }
-                if (containerHost === 'word' || containerHost === 'powerpoint') {
+                if (containerHost === 'word' || containerHost === 'powerpoint'
+                    || containerHost === 'access') {
                     const app = containerAppNameForPath(projectPath);
                     if (editor.document.isDirty) {
                         await editor.document.save();
                     }
                     if (process.platform === 'win32') {
-                        // Full parity with the Excel path: reopen read-only in
-                        // the visible owning application and run the macro
-                        // through its COM, per the harness-measured semantics.
+                        // Full parity with the Excel path: open in the visible
+                        // owning application and run the macro through its COM,
+                        // per the harness-measured semantics. Access takes the
+                        // bare procedure name; the others take Module.Proc.
+                        const target = containerHost === 'access'
+                            ? currentProc
+                            : `${moduleName}.${currentProc}`;
                         try {
-                            await runHostFileMacroReadOnly(
-                                containerHost, projectPath, `${moduleName}.${currentProc}`, log,
-                            );
+                            await runHostFileMacro(containerHost, projectPath, target, log);
                         } catch (err) {
                             showRunMacroFailure(err, app);
                         }

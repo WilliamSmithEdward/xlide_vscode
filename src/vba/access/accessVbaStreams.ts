@@ -250,17 +250,25 @@ export function renameProjectWm(
 /**
  * Access lists a standard module as `Module=` and a class as `Class=`, both in
  * the same block, and gives each a window rectangle under `[Workspace]`.
+ *
+ * A project with no modules yet has no such line to sit beside. The block
+ * belongs between the project's `ID` and its `Name`, which is where Access
+ * writes the first one, so an empty project anchors on `ID=` instead.
  */
 export function addToProject(text: string, name: string, kind: AccessModuleKind): string {
 	const lines = text.split(CRLF);
 	let last = -1;
 	lines.forEach((line, index) => {
-		if (line.startsWith('Module=') || line.startsWith('Class=')) {
+		if (line.startsWith('Module=') || line.startsWith('Class=')
+			|| line.startsWith(`${DOC_CLASS}=`)) {
 			last = index;
 		}
 	});
 	if (last < 0) {
-		throw new AccessFormatError('PROJECT lists no modules to add beside.');
+		last = lines.findIndex((line) => line.startsWith('ID='));
+	}
+	if (last < 0) {
+		throw new AccessFormatError('PROJECT has neither a module list nor an ID to add beside.');
 	}
 	lines.splice(last + 1, 0, (kind === 'class' ? 'Class=' : 'Module=') + name);
 	if (lines.some((line) => line.trim() === '[Workspace]')) {

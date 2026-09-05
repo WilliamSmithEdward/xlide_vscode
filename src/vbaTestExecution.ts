@@ -174,12 +174,8 @@ async function runOwnedReadOnlyExcelTestHost(
 ): Promise<OwnedReadOnlyExcelHostRunResult> {
     return measurePerformance('vbaTests.ownedExcelHost', `${path.basename(filePath)} ${tests.length} tests`, async () => {
     const containerHost = containerHostForPath(filePath);
-    if (containerHost === 'access') {
-        throw new Error(
-            'VBA tests cannot run against an Access database: Access executes compiled p-code, so the test runner module XLIDE stages cannot execute there.',
-        );
-    }
     const hostApp = containerHost === 'word' || containerHost === 'powerpoint'
+        || containerHost === 'access'
         ? containerHost
         : 'excel';
     const staging = await stageOwnedReadOnlyExcelTestHost(bridge, filePath, tests, {

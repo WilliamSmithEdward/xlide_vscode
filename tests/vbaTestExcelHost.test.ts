@@ -226,6 +226,21 @@ describe('VBA test Excel host script', () => {
         expect(powerpoint).toContain('$testRunnerRef = $workbook.Name + "!" + $runnerModuleName + ".RunTest"');
         expect(powerpoint).toContain('InvokeMember("Run"');
 
+        const access = buildOwnedReadOnlyExcelTestHostScript('C:/work/Db.accdb', [], { hostApp: 'access' });
+        expect(access).toContain("$hostProgId = 'Access.Application'");
+        expect(access).toContain("$hostProcessName = 'MSACCESS'");
+        // Access: one database at a time through OpenCurrentDatabase, the bare
+        // procedure name (Module.Proc is refused with "cannot find the
+        // procedure"), Word's ByRef [ref] argument, and its own window handle.
+        // Measured live on 16.0: a staged run reported one pass and one
+        // assertion failure with XLIDE.Assert's own message.
+        expect(access).toContain('$excel.OpenCurrentDatabase($targetPath)');
+        expect(access).toContain('$workbook = $excel.CurrentProject');
+        expect(access).toContain('$testRunnerRef = "RunTest"');
+        expect(access).toContain('$excel.Run($testRunnerRef, [ref]$macroArg)');
+        expect(access).toContain('$excel.CloseCurrentDatabase()');
+        expect(access).toContain('$hostHwnd = [IntPtr]$excel.hWndAccessApp()');
+
         // The default stays Excel, unchanged.
         const excel = buildOwnedReadOnlyExcelTestHostScript('C:/work/Book.xlsm', []);
         expect(excel).toContain("$hostKind = 'excel'");

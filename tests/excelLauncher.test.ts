@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
     buildExcelLaunchScript,
+    buildAccessMacroLaunchScript,
     buildPowerPointMacroLaunchScript,
     buildWordMacroLaunchScript,
 } from '../src/excelLauncher';
@@ -112,6 +113,31 @@ describe('Word and PowerPoint F5 macro launcher scripts', () => {
         expect(pptScript).toContain('InvokeMember("Run", [Reflection.BindingFlags]::InvokeMethod, $null, $app, @($macroRef))');
         expect(pptScript).toContain('REOPEN_BLOCKED|The presentation is already open for editing in PowerPoint.');
         expect(pptScript).toContain('XLIDE_MACRO_OK');
+    });
+
+    it('drives Access by the database it holds and the bare procedure name', () => {
+        // Live-verified 2026-09-05 on Access 16.0: the script ran Main and
+        // printed XLIDE_MACRO_OK on a fresh open, on a second run with the
+        // same database still open, and after switching Access from another
+        // database; a missing procedure came back RUN_FAILED with exit 1.
+        const script = buildAccessMacroLaunchScript('C:\\work\\Orders.accdb', 'Main');
+        expect(script).toContain('GetActiveObject("Access.Application")');
+        expect(script).toContain('New-Object -ComObject Access.Application');
+        expect(script).toContain('$app.Visible = $true');
+        // One database at a time: what is open is asked for, and closed only
+        // when it is a different one.
+        expect(script).toContain('$open = $app.CurrentProject.FullName');
+        expect(script).toContain('if ($open -ine $targetPath) {');
+        expect(script).toContain('$app.CloseCurrentDatabase()');
+        expect(script).toContain('$app.OpenCurrentDatabase($targetPath)');
+        // Access refuses Module.Proc and resolves the bare name.
+        expect(script).toContain('$app.Run($macroName)');
+        expect(script).toContain("$macroName = 'Main'");
+        expect(script).not.toContain('[ref]');
+        // A database is not reopened read-only; there is no private copy.
+        expect(script).not.toContain('REOPEN_BLOCKED');
+        expect(script).toContain('XLIDE_MACRO_OK');
+        expect(script).toContain('XLIDE_MACRO_ERROR|');
     });
 
     it('escapes single quotes in interpolated host values', () => {

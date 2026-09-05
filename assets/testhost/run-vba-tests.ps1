@@ -114,6 +114,7 @@ function Set-XlideHostAlertsOff([object]$app) {
   try {
     if ($hostKind -eq "word") { $app.DisplayAlerts = 0 }
     elseif ($hostKind -eq "powerpoint") { $app.DisplayAlerts = 1 }
+    elseif ($hostKind -eq "access") { $app.SetOption("Confirm Action Queries", $false) }
     else { $app.DisplayAlerts = $false }
   } catch { }
 }
@@ -166,6 +167,7 @@ try {
     $hostHwnd = [IntPtr]::Zero
     if ($hostKind -eq "excel") { $hostHwnd = [IntPtr]$excel.Hwnd }
     elseif ($hostKind -eq "powerpoint") { $hostHwnd = [IntPtr]$excel.HWND }
+    elseif ($hostKind -eq "access") { $hostHwnd = [IntPtr]$excel.hWndAccessApp() }
     if ($hostHwnd -ne [IntPtr]::Zero) {
       $processId = [uint32]0
       [void][XlideWin32]::GetWindowThreadProcessId($hostHwnd, [ref]$processId)
@@ -219,6 +221,11 @@ try {
     if ($hostKind -eq "word") {
       # Documents.Open(FileName, ConfirmConversions, ReadOnly, AddToRecentFiles)
       $workbook = $excel.Documents.Open($targetPath, $false, $true, $false)
+    } elseif ($hostKind -eq "access") {
+      # Access holds one database at a time and hands it back as
+      # CurrentProject rather than as an open document object.
+      $excel.OpenCurrentDatabase($targetPath)
+      $workbook = $excel.CurrentProject
     } elseif ($hostKind -eq "powerpoint") {
       # Presentations.Open(FileName, ReadOnly:=msoTrue, Untitled:=msoFalse,
       # WithWindow:=msoFalse) - windowless, which is also why the visible
@@ -246,6 +253,10 @@ try {
       if ($hostKind -eq "word") {
         # Word resolves Module.Proc and rejects document-qualified names.
         $testRunnerRef = $runnerModuleName + ".RunTest"
+      } elseif ($hostKind -eq "access") {
+        # Access takes the bare procedure name: measured on 16.0, where
+        # Module1.Main is refused with "cannot find the procedure".
+        $testRunnerRef = "RunTest"
       } elseif ($hostKind -eq "powerpoint") {
         # PowerPoint takes the presentation-qualified File.pptm!Module.Proc form.
         $testRunnerRef = $workbook.Name + "!" + $runnerModuleName + ".RunTest"
@@ -253,9 +264,9 @@ try {
         $testRunnerRef = "'" + ($workbook.Name -replace "'", "''") + "'!" + $runnerModuleName + ".RunTest"
       }
       if ($modalWatcherAvailable -and $excelPid) { [XlideTestModalWatcher]::Start([uint32]$excelPid, $eventPrefix, $excelId, $macroName) }
-      if ($hostKind -eq "word") {
-        # Word declares Run's varargs ByRef, so PowerShell COM interop
-        # requires a [ref] wrapper.
+      if ($hostKind -eq "word" -or $hostKind -eq "access") {
+        # Word and Access both declare Run's varargs ByRef, so PowerShell COM
+        # interop requires a [ref] wrapper.
         $macroArg = $macroName
         $vbaRunResult = Convert-XlideVbaRunResult ([string]$excel.Run($testRunnerRef, [ref]$macroArg))
       } elseif ($hostKind -eq "powerpoint") {
@@ -313,6 +324,7 @@ try {
     $phaseSw = [Diagnostics.Stopwatch]::StartNew()
     try {
       if ($hostKind -eq "word") { $workbook.Close(0) }
+      elseif ($hostKind -eq "access") { $excel.CloseCurrentDatabase() }
       elseif ($hostKind -eq "powerpoint") { try { $workbook.Saved = -1 } catch { }; $workbook.Close() }
       else { $workbook.Close($false) }
       $phaseSw.Stop()
