@@ -2,6 +2,24 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [8.1.4] - 2026-09-06
+
+- **The Folders button no longer fails with an error about an unregistered
+  setting** (#71). Pressing Tree or Folders wrote `xlide.explorer.view` and
+  did nothing else, so when VS Code refused the write the view did not change
+  and the failure surfaced as "Error running command
+  xlide.explorer.showFolders". VS Code refuses it when the key is missing from
+  its configuration registry, which is the state a window is left in when the
+  extension updates underneath it: the new command is there to run, the old
+  contribution is gone. XLIDE ships the declaration and has since 6.2.0, so
+  only a live window ever sees this, and only until it is reloaded.
+
+  The button now switches the view first and remembers it second. A window
+  that cannot save the choice still switches, says so once with a Reload
+  Window action, and notes it in the output channel. The Tree and Folders
+  buttons also read XLIDE's own context key rather than the setting, so which
+  button shows always matches what the tree is doing.
+
 ## [8.1.3] - 2026-09-05
 
 - **The sponsor dialog is back in the sidebar, fitted to it.** 8.1.2 moved

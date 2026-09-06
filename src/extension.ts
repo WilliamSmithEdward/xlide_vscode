@@ -32,7 +32,9 @@ import {
     xlideExplorerAutoExpandCollapseFromConfig,
     xlideExplorerViewFromConfig,
     xlidePerformanceTraceFromConfig,
+    type XlideExplorerView,
 } from './globalSettings';
+import { createExplorerViewSetter } from './explorerViewToggle';
 import { registerXlideSidebar } from './xlideSidebar';
 import { AnalysisWorkerClient } from './analysisWorkerClient';
 import { setExtensionAssetRoot } from './extensionAssets';
@@ -104,10 +106,34 @@ export function activate(context: vscode.ExtensionContext): void {
 
     // The Tree / Folders buttons above the explorer are the setting, so the
     // button, the settings page, and settings.json all say the same thing.
-    const applyExplorerView = (): void => {
-        explorer.setView(xlideExplorerViewFromConfig(vscode.workspace.getConfiguration('xlide')).value);
+    // The buttons key off XLIDE's own context rather than the setting, so they
+    // still agree with the tree in a window that cannot write the setting.
+    const applyExplorerView = (view?: XlideExplorerView): void => {
+        const next = view ?? xlideExplorerViewFromConfig(vscode.workspace.getConfiguration('xlide')).value;
+        explorer.setView(next);
+        void vscode.commands.executeCommand('setContext', 'xlide.explorerView', next);
     };
     applyExplorerView();
+
+    const setExplorerView = createExplorerViewSetter({
+        applyView: applyExplorerView,
+        persist: (view) => setXlideGlobalSettingValue(
+            vscode.workspace.getConfiguration('xlide'),
+            'explorer.view',
+            view,
+        ),
+        log: (line) => out.appendLine(line),
+        warnPersistFailed: () => {
+            void vscode.window.showWarningMessage(
+                'XLIDE: the explorer view changed for this window, but could not be saved. Reloading the window restores saving.',
+                'Reload Window',
+            ).then((choice) => {
+                if (choice === 'Reload Window') {
+                    void vscode.commands.executeCommand('workbench.action.reloadWindow');
+                }
+            });
+        },
+    });
 
     /**
      * Select the row for the procedure the caret is in, the way the VBE's own
@@ -279,12 +305,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
         // The Tree / Folders buttons, which write the setting rather than a
         // second piece of state that could disagree with it.
-        registerXlideCommand('xlide.explorer.showTree', async () => {
-            await setXlideGlobalSettingValue(vscode.workspace.getConfiguration('xlide'), 'explorer.view', 'tree');
-        }),
-        registerXlideCommand('xlide.explorer.showFolders', async () => {
-            await setXlideGlobalSettingValue(vscode.workspace.getConfiguration('xlide'), 'explorer.view', 'folders');
-        }),
+        registerXlideCommand('xlide.explorer.showTree', () => setExplorerView('tree')),
+        registerXlideCommand('xlide.explorer.showFolders', () => setExplorerView('folders')),
         vscode.workspace.onDidChangeConfiguration((e) => {
             if (e.affectsConfiguration('xlide.explorer.view')) {
                 applyExplorerView();
