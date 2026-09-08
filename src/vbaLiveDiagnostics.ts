@@ -14,7 +14,13 @@ import {
     moduleIdentityKey,
     projectIdentityKey,
 } from './xlideFileSystem';
-import { analysisSourceForDocument, moduleLocationOfDocument, moduleNameFromDocument } from './vbaDocumentIdentity';
+import {
+    analysisSourceForDocument,
+    looseModuleMetadataForDocument,
+    moduleLocationOfDocument,
+    moduleNameFromDocument,
+} from './vbaDocumentIdentity';
+import { moduleKindFromType } from './vbaProjectAnalysis';
 import { onDidChangeVb6Projects } from './vb6ProjectLocator';
 import {
     diagnosticMetadataForCode,
@@ -500,11 +506,19 @@ export function registerVbaDiagnostics(
         let designerClass: string | undefined;
         let projectOptions: VbaProjectAnalysisOptions = {};
         let projectRecord: Awaited<ReturnType<VbaProjectIndexService['contextForProject']>> | undefined;
-        // A loose document (a .bas on disk no project claims) has no metadata
-        // source and keeps the historical standard-kind analysis. A project
-        // module and a VB6 project's file both have a project to ask.
+        // A loose document (a file on disk no project claims) has no project to
+        // ask, so it is read from its own extension and `Attribute VB_*`
+        // header. Analyzing every such file as a standard module reported `Me`
+        // and a document's event handlers against correct code (issue #73). A
+        // project module and a VB6 project's file both have a project to ask.
         const location = moduleLocationOfDocument(document);
         let moduleMetadataKnown = location === undefined;
+        if (!location) {
+            const loose = looseModuleMetadataForDocument(document);
+            moduleType = loose.moduleType;
+            moduleKind = moduleKindFromType(loose.moduleType);
+            documentType = loose.documentType;
+        }
         if (location) {
             try {
                 projectPath = location.projectPath;

@@ -2,6 +2,25 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [8.1.5] - 2026-09-08
+
+- **A loose `.cls` file is a class again, not a standard module** (#73). A
+  module inside a project is described by the project, which is why the same
+  file opened from the XLIDE tree was always quiet. A file no project claims
+  was analyzed as a standard module, so `Me` drew "'Me' is only valid in a
+  class, document, or UserForm module" in every class on disk, and an exported
+  `Sheet1.cls` drew that plus one finding per `Worksheet_` handler saying a
+  standard module is not where Excel wires the event.
+
+  A loose file now says what it is, out of the extension the VBE exported it
+  under and the `Attribute VB_*` header at the top of it: `.bas` standard
+  whatever it is named, `.frm` a form, `.ctl`, `.pag` and `.dsr` their own
+  designer kinds, and `.cls` a class unless its header or name makes it a
+  document module, the same upgrade the import planner already applied.
+  `Sheet1.cls` and `ThisWorkbook.cls` are read as the worksheet and workbook
+  modules they are, so their handlers are at home and `Me` is theirs to use.
+  A standard module that really does hold a `Worksheet_Change` still reports.
+
 ## [8.1.4] - 2026-09-06
 
 - **The Folders button no longer fails with an error about an unregistered

@@ -12,6 +12,7 @@ import { ProjectIndex, type ModuleSymbolKind } from './analyzer';
 import { buildLiveVbaProjectIndexAsync, moduleKindFromType } from './vbaProjectAnalysis';
 import { VbaProjectIndexService } from './vbaProjectIndexService';
 import { analysisSourceForDocument, moduleLocationOfDocument } from './vbaDocumentLocation';
+import { looseModuleMetadata, type LooseModuleMetadata } from './looseModuleMetadata';
 
 export { analysisSourceForDocument, moduleLocationOfDocument } from './vbaDocumentLocation';
 
@@ -36,14 +37,19 @@ export function moduleKindFromDocument(document: vscode.TextDocument): ModuleSym
     if (location?.moduleType) {
         return moduleKindFromType(location.moduleType);
     }
+    return moduleKindFromType(looseModuleMetadataForDocument(document).moduleType);
+}
+
+/**
+ * What a file no project claims says it is, read from its extension and its
+ * `Attribute VB_*` header. Answering 'standard' for every such file reported
+ * `Me` and a document's event handlers against correct code (issue #73).
+ */
+export function looseModuleMetadataForDocument(
+    document: vscode.TextDocument,
+): LooseModuleMetadata {
     const fileName = document.uri.path.split('/').pop() ?? '';
-    if (/\.cls$/i.test(fileName)) {
-        return 'class';
-    }
-    if (/\.frm$/i.test(fileName)) {
-        return 'userform';
-    }
-    return 'standard';
+    return looseModuleMetadata(fileName, document.getText());
 }
 
 export async function liveProjectIndexForDocument(
