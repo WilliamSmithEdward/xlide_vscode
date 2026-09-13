@@ -431,15 +431,25 @@ function optionExplicitMissingActions(source: string): VbaDiagnosticCodeAction[]
 	}
 	const insertAt = optionExplicitInsertOffset(source);
 	const eol = detectEol(source);
+	// A declarations section reads with a blank line under it, so the insert
+	// leaves one (issue #75). Not when the line it lands above is already
+	// blank, which is where an exported module's attribute header puts it, and
+	// not at the end of the source, where the blank line would just be padding.
+	const separator = beginsBlankLine(source, insertAt) ? '' : eol;
 	return [{
 		title: 'Add Option Explicit',
 		kind: 'quickfix',
 		isPreferred: true,
 		edits: [{
 			span: { start: insertAt, end: insertAt },
-			newText: `Option Explicit${eol}`,
+			newText: `Option Explicit${eol}${separator}`,
 		}],
 	}];
+}
+
+/** True when the line starting at `offset` is blank, or there is none. */
+function beginsBlankLine(source: string, offset: number): boolean {
+	return offset >= source.length || readPhysicalLine(source, offset).text.trim() === '';
 }
 
 function optionAfterDeclarationActions(

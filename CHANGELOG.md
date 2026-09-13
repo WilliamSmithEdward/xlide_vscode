@@ -2,6 +2,18 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [8.2.1] - 2026-09-14
+
+- **Add Option Explicit leaves a blank line under the statement** (#75). It
+  inserted the statement and one end-of-line, so it landed directly on top of
+  the first procedure. A declarations section reads with a gap under it, and it
+  now gets one.
+
+  The blank line is only added where one is wanted: a module whose first line is
+  already blank keeps the blank line it has, and so does an exported module,
+  whose attribute header already ends in one. The line ending is the source's
+  own, so a module saved with CRLF gets a CRLF blank line.
+
 ## [8.2.0] - 2026-09-13
 
 - **A malformed Option statement is reported** (#74). The parser kept whatever

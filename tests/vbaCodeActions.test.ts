@@ -663,7 +663,7 @@ describe('resolveDiagnosticCodeActions', () => {
 		);
 	});
 
-	it('adds Option Explicit at the top of a code module', () => {
+	it('adds Option Explicit at the top of a code module, over a blank line', () => {
 		const source = 'Sub T()\nEnd Sub\n';
 		const diag = firstDiagnostic(source, 'option-explicit-missing');
 
@@ -672,11 +672,13 @@ describe('resolveDiagnosticCodeActions', () => {
 		expect(actions).toHaveLength(1);
 		expect(actions[0].title).toBe('Add Option Explicit');
 		expect(applyEdits(source, actions[0].edits)).toBe(
-			'Option Explicit\nSub T()\nEnd Sub\n',
+			'Option Explicit\n\nSub T()\nEnd Sub\n',
 		);
 	});
 
 	it('adds Option Explicit after exported module attributes', () => {
+		// The attribute header already ends in a blank line, so the insert
+		// takes that one rather than leaving two (issue #75).
 		const source = 'Attribute VB_Name = "Module1"\n\nSub T()\nEnd Sub\n';
 		const diag = firstDiagnostic(source, 'option-explicit-missing');
 
@@ -685,6 +687,28 @@ describe('resolveDiagnosticCodeActions', () => {
 		expect(actions).toHaveLength(1);
 		expect(applyEdits(source, actions[0].edits)).toBe(
 			'Attribute VB_Name = "Module1"\nOption Explicit\n\nSub T()\nEnd Sub\n',
+		);
+	});
+
+	it('keeps a blank line the module already starts with', () => {
+		const source = '\nSub T()\nEnd Sub\n';
+		const diag = firstDiagnostic(source, 'option-explicit-missing');
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(applyEdits(source, actions[0].edits)).toBe(
+			'Option Explicit\n\nSub T()\nEnd Sub\n',
+		);
+	});
+
+	it('writes the blank line in the source\'s own line ending', () => {
+		const source = 'Sub T()\r\nEnd Sub\r\n';
+		const diag = firstDiagnostic(source, 'option-explicit-missing');
+
+		const actions = resolveDiagnosticCodeActions(source, diag);
+
+		expect(applyEdits(source, actions[0].edits)).toBe(
+			'Option Explicit\r\n\r\nSub T()\r\nEnd Sub\r\n',
 		);
 	});
 
