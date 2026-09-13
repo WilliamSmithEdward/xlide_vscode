@@ -27,6 +27,7 @@ import {
 import {
 	checkDimInitializer,
 	checkDuplicateOptions,
+	checkOptionStatementForm,
 	checkEmptyType,
 	checkFixedLengthStringBounds,
 	checkIdentifierTooLong,
@@ -263,6 +264,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'duplicateOption',
 		run: (ctx, push) => checkDuplicateOptions(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'optionStatementForm',
+		run: (ctx, push) => checkOptionStatementForm(ctx.source, ctx.mod, ctx.opts, ctx.activity, push),
 	},
 	{
 		name: 'procedureHeader',

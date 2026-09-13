@@ -2,6 +2,43 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [8.2.0] - 2026-09-13
+
+- **A malformed Option statement is reported** (#74). The parser kept whatever
+  followed `Option` without reading it, so `Option Explicit()` analyzed clean
+  while the module would not compile: an editor showing code VBA rejects, and a
+  Problems pane with nothing in it. An Option statement now has to name one of
+  the four directives VBA has, take that directive's argument, and end there.
+
+  Each case was compiled in a live VBE and the error dialog read, so the rule
+  reports exactly where VBA refuses and nothing else:
+
+  | Written | VBE says |
+  | --- | --- |
+  | `Option` | Expected: Base or Compare or Explicit or Private |
+  | `Option Nonsense` | Expected: Base or Compare or Explicit or Private |
+  | `Option Explicit()` | Expected: end of statement |
+  | `Option Explicit Foo` | Expected: end of statement |
+  | `Option Base` | Expected: 0 or 1 |
+  | `Option Base 2` | Expected: 0 or 1 |
+  | `Option Base 1 Extra` | Expected: end of statement |
+  | `Option Compare Sideways` | Expected: Text or Binary |
+  | `Option Private` | Expected: Module |
+
+  The finding sits on the offending token, so `Option Explicit()` marks the
+  parenthesis rather than the line. `Option Base 1`, `Option Compare Text` and
+  `Option Private Module` were compiled as accepted controls and stay quiet, as
+  does a trailing comment, a line continuation inside the statement, and an
+  Option in a conditional arm that is not compiled.
+
+- **`Option Compare Database` follows the host.** Access writes it into every
+  module it creates, and Excel refuses it with the same "Text or Binary" as any
+  other unknown argument. It is accepted in an Access project, reported in one
+  whose host is Excel, Word or PowerPoint, and left alone for a file no project
+  claims, which names no host. This was on the won't-implement list from before
+  Access support existed, when there was no way to tell the directive from a
+  typo.
+
 ## [8.1.5] - 2026-09-08
 
 - **A loose `.cls` file is a class again, not a standard module** (#73). A

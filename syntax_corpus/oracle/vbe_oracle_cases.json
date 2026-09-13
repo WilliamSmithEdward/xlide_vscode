@@ -4882,6 +4882,106 @@
       "source": "#Const XLIDEORACLEFLAG = 1\nOption Explicit\nPublic Sub XlideOracleEntry()\n#If XLIDEORACLEFLAG Then\n    Debug.Print \"on\"\n#End If\nEnd Sub\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "option_explicit_empty_parens_compile",
+      "description": "Option Explicit followed by an empty argument list. VBE Compile rejects it with \"Expected: end of statement\" (issue #74).",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit()\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "option_explicit_trailing_word_compile",
+      "description": "Option Explicit followed by a further word. VBE Compile rejects it with \"Expected: end of statement\".",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit Foo\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "option_unknown_directive_compile",
+      "description": "Option followed by a word that names no directive. VBE Compile rejects it with \"Expected: Base or Compare or Explicit or Private\".",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Nonsense\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "option_base_out_of_range_compile",
+      "description": "Option Base with an argument other than 0 or 1. VBE Compile rejects it with \"Expected: 0 or 1\".",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Base 2\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "option_compare_unknown_argument_compile",
+      "description": "Option Compare with an argument that is not Binary or Text. VBE Compile rejects it with \"Expected: Text or Binary\".",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Compare Sideways\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "option_private_without_module_compile",
+      "description": "Option Private without the Module keyword it requires. VBE Compile rejects it with \"Expected: Module\".",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Private\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "option_compare_database_excel_compile",
+      "description": "Option Compare Database, which Access writes into every module it creates. Excel does not define it: VBE Compile rejects it with \"Expected: Text or Binary\", which is why the rule reports it only for a non-Access host.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Compare Database\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "option_base_one_compile",
+      "description": "Control: Option Base 1 is a well-formed Option statement and compiles.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Base 1\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "option_compare_text_compile",
+      "description": "Control: Option Compare Text is a well-formed Option statement and compiles.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Compare Text\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "option_private_module_compile",
+      "description": "Control: Option Private Module is a well-formed Option statement and compiles.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Private Module\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }

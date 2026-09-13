@@ -1598,6 +1598,28 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "invalid-option-statement",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE oracle: each malformed form compiled and its dialog read (option_explicit_empty_parens_compile \"Expected: end of statement\", option_unknown_directive_compile \"Expected: Base or Compare or Explicit or Private\", option_base_out_of_range_compile \"Expected: 0 or 1\", option_compare_unknown_argument_compile \"Expected: Text or Binary\", option_private_without_module_compile \"Expected: Module\"), with Option Base 1 / Compare Text / Private Module compiled as accepted controls, plus MS-VBAL 5.2.1.",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "option_explicit_empty_parens_compile",
+        "option_explicit_trailing_word_compile",
+        "option_unknown_directive_compile",
+        "option_base_out_of_range_compile",
+        "option_compare_unknown_argument_compile",
+        "option_private_without_module_compile",
+        "option_compare_database_excel_compile",
+        "option_base_one_compile",
+        "option_compare_text_compile",
+        "option_private_module_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "An Option statement must name Base, Compare, Explicit or Private, take that directive's argument, and end there; the parser kept whatever followed Option without reading it, so Option Explicit() analyzed clean (issue #74). Option Compare Database is host-decided: Access writes it into every module it creates and Excel rejects it (option_compare_database_excel_compile), so it is reported only when the project names a host that is not Access, and never for a file no project claims. This supersedes the OPT_007 / managed-backlog note that listed Option Compare Database as won't-implement, which predates Access support.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "duplicate-option",
       "status": "vbe-oracle-verified",
       "sourceOfTruth": "Excel/VBE oracle (duplicate_option_explicit_compile: compile rejected, 'Duplicate Option statement') plus MS-VBAL 5.2.1",

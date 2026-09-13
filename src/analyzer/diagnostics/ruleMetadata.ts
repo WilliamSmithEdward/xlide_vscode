@@ -1322,6 +1322,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.3.1 (parameter passing) / VBE oracle',
 		confidence: 'high',
 	},
+	invalidOptionStatement: {
+		code: 'invalid-option-statement',
+		title: 'Malformed Option statement',
+		defaultSeverity: 'error',
+		category: 'declaration',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.2.1 (module options) / VBE oracle',
+		confidence: 'high',
+	},
 	duplicateOption: {
 		code: 'duplicate-option',
 		title: 'Duplicate Option statement',

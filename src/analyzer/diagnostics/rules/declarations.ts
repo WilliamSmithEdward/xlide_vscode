@@ -2000,6 +2000,120 @@ function optionCategory(member: { optionText: string }): string {
 	return member.optionText.trim().split(/\s+/)[0] ?? '';
 }
 
+/**
+ * Rule: an Option statement names one of the four directives VBA has, takes the
+ * argument that one takes, and ends there. The parser kept whatever followed
+ * `Option` without reading it, so `Option Explicit()` analyzed clean while the
+ * module would not compile (issue #74).
+ *
+ * Every message below is the live VBE's own wording, read off the compile
+ * dialog for each malformed form (Excel oracle probes, 2026-09-13):
+ *
+ *   Option                   Expected: Base or Compare or Explicit or Private
+ *   Option Nonsense          Expected: Base or Compare or Explicit or Private
+ *   Option Explicit()        Expected: end of statement
+ *   Option Explicit Foo      Expected: end of statement
+ *   Option Base              Expected: 0 or 1
+ *   Option Base 2            Expected: 0 or 1
+ *   Option Base 1 Extra      Expected: end of statement
+ *   Option Compare Sideways  Expected: Text or Binary
+ *   Option Private           Expected: Module
+ *
+ * `Option Compare Database` is the one the host decides. Access writes it into
+ * every module it creates, and Excel refuses it with the same "Text or Binary"
+ * as any other unknown argument, so it is reported only where the project names
+ * a host that is not Access. A file no project claims names no host and is left
+ * alone, the way issue #73 left a loose module's kind alone.
+ */
+export function checkOptionStatementForm(
+	source: string,
+	mod: ModuleNode,
+	opts: AnalyzeModuleOptions,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const host = opts.host?.toLowerCase();
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Option') {
+			continue;
+		}
+		// A trailing comment is not trailing junk, and a line continuation is
+		// trivia the lexer already attached to the token that follows it.
+		const toks = statementTokens(source, member.span)
+			.filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline');
+		const report = (index: number, message: string): void => {
+			const tok = toks[index];
+			push(
+				'invalidOptionStatement',
+				message,
+				tok ? absoluteSpan(member.span, tok) : firstTokenSpan(source, member.span),
+			);
+		};
+		/** True when the statement ends where the directive's form says it should. */
+		const endsHere = (index: number, form: string): boolean => {
+			if (toks.length > index) {
+				report(index, `'${form}' is complete here; VBA expects the statement to end.`);
+				return false;
+			}
+			return true;
+		};
+		const argument = (index: number): string | undefined => (
+			toks[index] ? tokenText(toks[index]) : undefined
+		);
+		// toks[0] is `Option` itself; the directive it names follows it.
+		const directive = argument(1);
+		if (directive === undefined) {
+			report(0, "'Option' names no directive; VBA expects Base, Compare, Explicit or Private.");
+			continue;
+		}
+		switch (directive) {
+			case 'explicit':
+				endsHere(2, 'Option Explicit');
+				break;
+			case 'base': {
+				const arg = argument(2);
+				if (arg !== '0' && arg !== '1') {
+					report(arg === undefined ? 1 : 2, "'Option Base' takes 0 or 1.");
+					break;
+				}
+				endsHere(3, 'Option Base');
+				break;
+			}
+			case 'compare': {
+				const arg = argument(2);
+				if (arg === 'database') {
+					if (host !== undefined && host !== 'access') {
+						report(2, "'Option Compare Database' is an Access directive; this project's host takes Binary or Text.");
+						break;
+					}
+				} else if (arg !== 'binary' && arg !== 'text') {
+					report(arg === undefined ? 1 : 2, "'Option Compare' takes Binary or Text.");
+					break;
+				}
+				endsHere(3, 'Option Compare');
+				break;
+			}
+			case 'private':
+				if (argument(2) !== 'module') {
+					report(
+						argument(2) === undefined ? 1 : 2,
+						"'Option Private' is written 'Option Private Module'.",
+					);
+					break;
+				}
+				endsHere(3, 'Option Private Module');
+				break;
+			default:
+				report(
+					1,
+					`'Option ${toks[1].canonicalText ?? toks[1].rawText}' is not an Option statement; `
+					+ 'VBA expects Base, Compare, Explicit or Private.',
+				);
+				break;
+		}
+	}
+}
+
 /** VBA allows at most 60 parameters on a procedure. */
 const MAX_PROCEDURE_PARAMETERS = 60;
 

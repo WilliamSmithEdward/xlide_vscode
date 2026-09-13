@@ -167,7 +167,9 @@ Added surfaces (this checklist — formerly untracked):
 
 ### Won't implement (do NOT re-open from corpus material)
 
-Designer-backed `.frm`/`.frx` members; `[A1]` Evaluate shorthand; date-literal inner grammar; legacy-codepage non-Latin identifier ranges; `Option Compare Database`. Recorded in the MS-VBAL verification-map "Won't Implement" section.
+Designer-backed `.frm`/`.frx` members; `[A1]` Evaluate shorthand; date-literal inner grammar; legacy-codepage non-Latin identifier ranges. Recorded in the MS-VBAL verification-map "Won't Implement" section.
+
+`Option Compare Database` was on this list and **shipped in 8.2.0** as part of `invalid-option-statement`. The entry predates Access support (8.0.0): with no Access host there was no way to tell the Access directive from a typo, so staying quiet was the only safe policy. XLIDE now knows which host a project belongs to, so the directive is accepted in an Access project, reported in a project whose host is Excel, Word or PowerPoint, and left alone for a file no project claims. Excel's own refusal is the oracle case `option_compare_database_excel_compile`.
 
 ## Source Digest
 
