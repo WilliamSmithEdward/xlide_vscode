@@ -184,7 +184,7 @@ from the MS-VBAL core-language grammar. Tracked rows:
 | Worksheet code-name resolution (Sheet1) | src/analyzer/completion/memberAccess.ts + src/vbaMemberCompletion.ts | tests/vbaMemberCompletion.test.ts | Workbook project structure (listModules) | Verified |
 | `Me` resolution by module kind and current source object module | src/analyzer/completion/memberAccess.ts + src/vbaMemberCompletion.ts | tests/vbaMemberCompletion.test.ts + tests/vbaHover.test.ts + tests/vbaSignatureHelp.test.ts + tests/vbaDiagnostics.test.ts | Module context | Verified |
 | Typed local/param/module variable resolution | src/analyzer/completion/memberAccess.ts | tests/vbaMemberCompletion.test.ts | 5.2.3 / 5.3 (declarations) | Verified |
-| Document-module event-handler completion | src/analyzer/completion/eventHandlers.ts + src/vbaMemberCompletion.ts | tests/vbaEventHandlerCompletion.test.ts + tests/vbaDiagnostics.test.ts | Excel event signatures + workbook/document module context | Partial: workbook and worksheet handlers plus wrong-module guidance verified; chart/UserForm designer-backed handlers pending |
+| Document-module event-handler completion | src/analyzer/completion/eventHandlers.ts + src/vbaMemberCompletion.ts | tests/vbaEventHandlerCompletion.test.ts + tests/vbaDiagnostics.test.ts + tests/vbaRuntimeCoverage.test.ts + tests/vb6ObjectModel.test.ts | Excel event signatures + workbook/document module context; a VB6 form's own class and controls from the project host model | Verified: workbook, worksheet and chart handlers, a form's six `UserForm_` events, a VB6 form's per-control handlers (a control array's taking `Index As Integer` first), and wrong-module guidance. Out: per-control stubs on an Office UserForm (`CommandButton1_Click`), which need an MSForms control-event model that is not transcribed; the VB6 path has one and the Office path does not |
 | VS Code completion provider (trigger `.`) | src/vbaMemberCompletion.ts | (manual) | n/a | Verified |
 
 Verification rule for this addendum: VBA language grammar stays verified against
@@ -427,11 +427,6 @@ These are permanently removed from the backlog. Unlike a deferral, these will
 not be revisited; the rationale is recorded here so the decision stays settled.
 Staying quiet on each is the correct permanent policy, not a coverage gap.
 
-- **UserForm designer-backed members.** Requires parsing `.frm`/`.frx`
-  designer-format files to extract control member names and event stubs. Cost is
-  high; static-analysis payoff is low compared to a full IDE. UserForm
-  event-handler completion stays out (see the Host-Context Member Completion
-  addendum), and form-control members stay quiet.
 - **`[A1]` evaluate shorthand.** `[A1]` desugars to `Application.Evaluate("A1")`
   at runtime; the bracket content is a string evaluated dynamically. Static
   analysis cannot type-check it without executing the expression.
@@ -444,3 +439,13 @@ Staying quiet on each is the correct permanent policy, not a coverage gap.
   detail of old VBE versions. The current Unicode-letter approximation covers all
   modern VBA code; full codepage fidelity has near-zero real-world payoff and no
   oracle path.
+
+**No longer on this list.** *UserForm designer-backed members* was here, on the
+grounds that reading `.frm`/`.frx` cost more than it was worth, so control
+members and form event stubs both stayed quiet. The cost argument went when the
+designer shipped in 5.0.0: XLIDE reads MS-OFORMS designer storage natively and a
+VB6 form from its own `.frm` text, so the control list was already in hand.
+Controls are members of the form they sit on, a control offers its own type's
+members, a form offers its six `UserForm_` events (issue #41), and a VB6 form
+offers per-control handlers from the project's host model. What remains out is
+narrower and stated in the addendum row below.
