@@ -634,12 +634,15 @@ export class AccessVbaWriter {
 		const children = rows.filter((row) => row.parentId === ordinal.id);
 		const blob = children.find((row) => row.name === 'Blob')!;
 		const design = edit(found.design);
-		this.writeStream(blob, buildAccessDesign(design));
 		const typeInfo = children.find((row) => row.name === 'TypeInfo');
-		if (typeInfo?.bytes?.length) {
-			this.writeStream(
-				typeInfo, updateTypeInfo(found.kind, design, typeInfo.bytes, codePage, renamed),
-			);
+		// Worked out before anything is written, so a member list that is
+		// refused leaves the design as it was.
+		const members = typeInfo?.bytes?.length
+			? updateTypeInfo(found.kind, design, typeInfo.bytes, codePage, renamed)
+			: undefined;
+		this.writeStream(blob, buildAccessDesign(design));
+		if (typeInfo && members) {
+			this.writeStream(typeInfo, members);
 		}
 	}
 

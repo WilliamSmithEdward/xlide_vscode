@@ -2,6 +2,7 @@ import { decodeCodePage, encodeCodePage } from '../codePages';
 import { AccessFormatError } from './accessFormat';
 import {
 	accessDesignObjectName,
+	accessVbaIdentifier,
 	isAccessDesignSection,
 	type AccessDesign,
 	type AccessDesignObject,
@@ -33,6 +34,18 @@ import { designObjectHolders, type AccessDesignKind } from './accessDesignEdit';
  * drops out while the others keep their ordinals, and a renamed one moves to
  * the end with its ordinal. A freed ordinal is never reused.
  *
+ * A member has two names, because a control is rarely named as VBA would name
+ * it: the form wizard names one after its field, so `Order Date` is ordinary,
+ * and VBA reaches it as `Me.Order_Date`. An entry stores the identifier, a
+ * NUL, the design's name, a NUL - and leaves the design's name empty where
+ * the two are the same, which is why `Plain` reads as `Plain\0\0`:
+ *
+ *     6d 12 00 00  01 00 00 00  "Order_Date" 00 "Order Date" 00
+ *     6d 12 00 00  05 00 00 00  "Plain" 00 00
+ *
+ * Measured on Access 16.0, for controls, sections and an ActiveX control,
+ * whose tail follows both names.
+ *
  * Ported from pyOpenVBA's `_designs.py`.
  */
 
@@ -41,8 +54,11 @@ export interface AccessTypeInfoEntry {
 	/** The member's type id: its class index over its type code. */
 	ident: number;
 	ordinal: number;
+	/** The name the design gives the object, which the designer shows. */
 	name: string;
-	/** An ActiveX control carries 36 more bytes after the name. */
+	/** The name VBA compiles against: `name` itself where that is an identifier. */
+	identifier: string;
+	/** An ActiveX control carries 36 more bytes after its names. */
 	tail: Buffer;
 }
 
@@ -62,18 +78,20 @@ export function readTypeInfo(stream: Buffer, codePage: number): AccessTypeInfoEn
 		}
 		const ident = stream.readUInt32LE(at);
 		const ordinal = stream.readUInt32LE(at + 4);
-		const end = stream.indexOf(Buffer.alloc(2), at + 8);
-		if (end < 0) {
+		const identifierEnd = stream.indexOf(0, at + 8);
+		const nameEnd = identifierEnd < 0 ? -1 : stream.indexOf(0, identifierEnd + 1);
+		if (nameEnd < 0) {
 			throw new AccessFormatError('This TypeInfo stream ends inside a name.');
 		}
-		const name = decodeCodePage(stream.subarray(at + 8, end), codePage);
-		at = end + 2;
+		const identifier = decodeCodePage(stream.subarray(at + 8, identifierEnd), codePage);
+		const shown = decodeCodePage(stream.subarray(identifierEnd + 1, nameEnd), codePage);
+		at = nameEnd + 1;
 		let tail = Buffer.alloc(0);
 		if ((ident & 0xff) === CODE_OF_ACTIVEX) {
 			tail = Buffer.from(stream.subarray(at, at + TYPE_INFO_ACTIVEX_TAIL_LENGTH));
 			at += tail.length;
 		}
-		out.push({ ident, ordinal, name, tail });
+		out.push({ ident, ordinal, name: shown || identifier, identifier, tail });
 	}
 	return out;
 }
@@ -102,11 +120,18 @@ export function buildTypeInfo(
 	head.writeUInt32LE(entries.length, 12);
 	clsid.copy(head, TYPE_INFO_CLSID_AT);
 	const parts: Buffer[] = [head];
+	const nul = Buffer.alloc(1);
 	for (const entry of entries) {
 		const framed = Buffer.alloc(8);
 		framed.writeUInt32LE(entry.ident, 0);
 		framed.writeUInt32LE(entry.ordinal, 4);
-		parts.push(framed, encodeCodePage(entry.name, codePage), Buffer.alloc(2), entry.tail);
+		parts.push(
+			framed,
+			encodeCodePage(entry.identifier, codePage), nul,
+			// The design's name is stored only where VBA knows the member by another.
+			entry.name === entry.identifier ? Buffer.alloc(0) : encodeCodePage(entry.name, codePage), nul,
+			entry.tail,
+		);
 	}
 	return Buffer.concat(parts);
 }
@@ -114,6 +139,7 @@ export function buildTypeInfo(
 /** One member the design has, before its ordinal is decided. */
 interface Member {
 	name: string;
+	identifier: string;
 	ident: number;
 	tail: Buffer;
 }
@@ -158,14 +184,48 @@ function membersOf(kind: AccessDesignKind, objects: AccessDesignObject[]): Membe
 		const tail = typeName === ACTIVEX_CONTROL
 			? Buffer.alloc(TYPE_INFO_ACTIVEX_TAIL_LENGTH)
 			: Buffer.alloc(0);
-		(isAccessDesignSection(object) ? sections : controls).push({ name, ident, tail });
+		(isAccessDesignSection(object) ? sections : controls)
+			.push({ name, identifier: accessVbaIdentifier(name), ident, tail });
 	});
 	return [...sections, ...controls];
 }
 
 /**
+ * An entry as it is carried forward. The identifier Access stored is kept as
+ * it is. One that is not an identifier at all is not Access's: this module
+ * once read an entry as a single name, and rewrote a member named `Order
+ * Date` as exactly that, which `Me.` cannot reach. That one is put right from
+ * the design's name.
+ */
+function carried(entry: AccessTypeInfoEntry): AccessTypeInfoEntry {
+	return accessVbaIdentifier(entry.identifier) === entry.identifier
+		? entry
+		: { ...entry, identifier: accessVbaIdentifier(entry.name) };
+}
+
+/**
+ * VBA knows a member by its identifier alone, so two members sharing one are
+ * a single name to the code behind the design. Access refuses the second
+ * control name ("already in use"), and so does this.
+ */
+function refuseSharedIdentifiers(entries: readonly AccessTypeInfoEntry[]): void {
+	const seen = new Map<string, string>();
+	for (const entry of entries) {
+		const key = entry.identifier.toLowerCase();
+		const other = seen.get(key);
+		if (other !== undefined) {
+			throw new AccessFormatError(
+				`${entry.name} and ${other} would both be ${entry.identifier} to VBA, which knows a `
+				+ 'member by that name alone. Access refuses the second name as already in use.',
+			);
+		}
+		seen.set(key, entry.name);
+	}
+}
+
+/**
  * The stream after the design changed, carried forward the way Access carries
- * it. `renamed` maps an old member name to its new one.
+ * it. `renamed` maps a member's old name in the design to its new one.
  */
 export function updateTypeInfo(
 	kind: AccessDesignKind,
@@ -177,12 +237,15 @@ export function updateTypeInfo(
 	const entries = readTypeInfo(existing, codePage);
 	const members = membersOf(kind, design.objects);
 	const wanted = new Set(members.map((member) => member.name));
-	const kept = entries.filter(
-		(entry) => wanted.has(entry.name) && !renamed.has(entry.name),
-	);
+	const kept = entries
+		.filter((entry) => wanted.has(entry.name) && !renamed.has(entry.name))
+		.map(carried);
 	const moved = entries
 		.filter((entry) => renamed.has(entry.name) && wanted.has(renamed.get(entry.name)!))
-		.map((entry) => ({ ...entry, name: renamed.get(entry.name)! }));
+		.map((entry) => {
+			const name = renamed.get(entry.name)!;
+			return { ...entry, name, identifier: accessVbaIdentifier(name) };
+		});
 	const present = new Set([...kept, ...moved].map((entry) => entry.name));
 	let ordinal = [...kept, ...moved]
 		.reduce((most, entry) => Math.max(most, entry.ordinal), -1) + 1;
@@ -191,9 +254,13 @@ export function updateTypeInfo(
 		if (present.has(member.name)) {
 			continue;
 		}
-		added.push({ ident: member.ident, ordinal, name: member.name, tail: member.tail });
+		added.push({
+			ident: member.ident, ordinal, name: member.name, identifier: member.identifier, tail: member.tail,
+		});
 		ordinal += 1;
 	}
+	const next = [...kept, ...moved, ...added];
+	refuseSharedIdentifiers(next);
 	const clsid = existing.subarray(TYPE_INFO_CLSID_AT, TYPE_INFO_CLSID_AT + 16);
-	return buildTypeInfo(kind, clsid, [...kept, ...moved, ...added], codePage);
+	return buildTypeInfo(kind, clsid, next, codePage);
 }

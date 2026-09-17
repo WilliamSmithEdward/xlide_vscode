@@ -18,6 +18,7 @@ import {
 	accessDesignControls,
 	accessDesignObjectName,
 	accessDesignSections,
+	accessVbaIdentifier,
 	buildAccessDesign,
 	isAccessDesignSection,
 	parseAccessDesign,
@@ -144,8 +145,8 @@ import {
 	removeDesignControl,
 	setDesignProperty,
 } from '../src/vba/access/accessDesignEdit';
-import { readTypeInfo, updateTypeInfo } from '../src/vba/access/accessTypeInfo';
-import { PROPERTY_CODES } from '../src/vba/access/accessDesignTable';
+import { buildTypeInfo, readTypeInfo, updateTypeInfo } from '../src/vba/access/accessTypeInfo';
+import { PROPERTY_CODES, TYPE_INFO_CLSID_AT } from '../src/vba/access/accessDesignTable';
 
 /** A property's record code, so a test names the property rather than a number. */
 const code = (name: string): number => PROPERTY_CODES.get(name)!;
@@ -325,6 +326,180 @@ describe('the TypeInfo stream', () => {
 		);
 		expect(after.find((entry) => entry.name === 'Renamed')?.ordinal).toBe(was.ordinal);
 		expect(after[after.length - 1].name).toBe('Renamed');
+	});
+});
+
+// A control is rarely named the way VBA would name it. The form wizard names
+// one after its field, so `Order Date` is ordinary, and VBA reaches it as
+// `Me.Order_Date`. Access keeps both names in the stream, the identifier first
+// and the design's name second, and leaves the second empty where they are
+// the same. Read as one name, `Order_Date\0Order Date\0` runs on into the next
+// entry: the reader either threw, so the form could not be edited at all, or
+// matched nothing, and the writer then listed `Order Date` itself as the
+// member, which is a name `Me.` can never reach.
+//
+// The fixture is Access's own (scripts/build-access-control-names-fixture.py):
+// five text boxes, an ActiveX control and a renamed form header on a form, and
+// a text box on a report.
+describe('a TypeInfo stream whose members are not named as identifiers', () => {
+	const NAMES = fs.readFileSync(path.join(BINARIES, 'AccessControlNamesFixture.accdb'));
+	const entryOf = (name: string): ReturnType<typeof readAccessDesigns>[number] =>
+		readAccessDesigns(NAMES).find((entry) => entry.name === name)!;
+	const pairs = (stream: Buffer): Array<[number, string, string]> =>
+		readTypeInfo(stream, 1252).map((entry) => [entry.ordinal, entry.identifier, entry.name]);
+
+	it('reads both names of every member, in the order Access wrote them', () => {
+		expect(pairs(entryOf('Names').typeInfo!)).toEqual([
+			[0, 'Detail', 'Detail'],
+			[1, 'Order_Date', 'Order Date'],
+			[2, 'Qty_1', 'Qty-1'],
+			[3, 'Ctl2ndBox', '2ndBox'],
+			[4, 'Tax__VAT_', 'Tax (VAT)'],
+			[5, 'Plain', 'Plain'],
+			[6, 'Web_View', 'Web View'],
+			[8, 'FormFooter', 'FormFooter'],
+			// Renamed in Access, which moved it to the end with its ordinal.
+			[7, 'Top_Part', 'Top Part'],
+		]);
+		expect(pairs(entryOf('Totals').typeInfo!)).toEqual([
+			[0, 'Detail', 'Detail'],
+			[1, 'PageFooterSection', 'PageFooterSection'],
+			[2, 'PageHeaderSection', 'PageHeaderSection'],
+			[3, 'Line_Total', 'Line Total'],
+		]);
+	});
+
+	it('names every member as the design does', () => {
+		for (const name of ['Names', 'Totals']) {
+			const entry = entryOf(name);
+			const designed = [...accessDesignSections(entry.design), ...accessDesignControls(entry.design)]
+				.map(accessDesignObjectName);
+			expect(readTypeInfo(entry.typeInfo!, 1252).map((member) => member.name).sort(), name)
+				.toEqual([...designed].sort());
+		}
+	});
+
+	it('finds an ActiveX control s tail after both of its names', () => {
+		const members = readTypeInfo(entryOf('Names').typeInfo!, 1252);
+		const activeX = members.find((member) => member.name === 'Web View')!;
+		expect(activeX.tail.length).toBe(36);
+		expect(members.filter((member) => member.tail.length > 0)).toEqual([activeX]);
+	});
+
+	it('rebuilds every stream Access wrote byte for byte', () => {
+		let held = 0;
+		for (const data of [FORMS, NAMES]) {
+			for (const entry of readAccessDesigns(data)) {
+				const stream = entry.typeInfo!;
+				const rebuilt = buildTypeInfo(
+					entry.kind, stream.subarray(TYPE_INFO_CLSID_AT, TYPE_INFO_CLSID_AT + 16),
+					readTypeInfo(stream, 1252), 1252,
+				);
+				expect(rebuilt.equals(stream), entry.name).toBe(true);
+				// A design nobody edited updates to the stream it already had.
+				expect(updateTypeInfo(entry.kind, entry.design, stream, 1252).equals(stream), entry.name)
+					.toBe(true);
+				held += 1;
+			}
+		}
+		expect(held).toBe(3);
+	});
+
+	it('agrees with Access on the identifier of every name it stored', () => {
+		// Every pair in a stream is Access s own answer for that name.
+		for (const data of [FORMS, NAMES]) {
+			for (const entry of readAccessDesigns(data)) {
+				for (const member of readTypeInfo(entry.typeInfo!, 1252)) {
+					expect(accessVbaIdentifier(member.name), member.name).toBe(member.identifier);
+				}
+			}
+		}
+	});
+
+	it('adds a member beside them, under the identifier VBA will use', () => {
+		const { design: before, typeInfo } = entryOf('Names');
+		const added = addDesignControl(
+			before, 'TextBox', 'Ship Via', GUID, designPrototypes(before), { left: 0, top: 0 },
+		);
+		const after = updateTypeInfo('form', added, typeInfo!, 1252);
+		expect(pairs(after)).toEqual([...pairs(typeInfo!), [9, 'Ship_Via', 'Ship Via']]);
+		// Taking it off again is the stream Access wrote.
+		expect(updateTypeInfo('form', removeDesignControl(added, 'Ship Via'), typeInfo!, 1252)
+			.equals(typeInfo!)).toBe(true);
+	});
+
+	it('moves a renamed member to the end with its ordinal and its new identifier', () => {
+		const { design: before, typeInfo } = entryOf('Names');
+		const renamed = setDesignProperty(before, 'Order Date', 'Name', 'Ship Date');
+		const after = pairs(updateTypeInfo(
+			'form', renamed, typeInfo!, 1252, new Map([['Order Date', 'Ship Date']]),
+		));
+		expect(after[after.length - 1]).toEqual([1, 'Ship_Date', 'Ship Date']);
+		expect(after.slice(0, -1)).toEqual(pairs(typeInfo!).filter(([ordinal]) => ordinal !== 1));
+	});
+
+	it('stores one name where a rename makes the two the same', () => {
+		const { design: before, typeInfo } = entryOf('Names');
+		const renamed = setDesignProperty(before, 'Qty-1', 'Name', 'Quantity');
+		const after = updateTypeInfo('form', renamed, typeInfo!, 1252, new Map([['Qty-1', 'Quantity']]));
+		expect(pairs(after).pop()).toEqual([2, 'Quantity', 'Quantity']);
+		expect(after.includes(Buffer.from('Quantity\0\0', 'latin1'))).toBe(true);
+		expect(after.includes(Buffer.from('Quantity\0Quantity', 'latin1'))).toBe(false);
+	});
+
+	it('drops a removed member and leaves the others as they were', () => {
+		const { design: before, typeInfo } = entryOf('Names');
+		const after = pairs(updateTypeInfo('form', removeDesignControl(before, 'Tax (VAT)'), typeInfo!, 1252));
+		expect(after).toEqual(pairs(typeInfo!).filter(([, , name]) => name !== 'Tax (VAT)'));
+	});
+
+	it('refuses a name VBA could not tell from another member s', () => {
+		// `Order_Date` is a different control name and the same identifier.
+		// Access refuses it too: "the control name is already in use".
+		const { design: before, typeInfo } = entryOf('Names');
+		const clash = addDesignControl(
+			before, 'TextBox', 'Order_Date', GUID, designPrototypes(before), { left: 0, top: 0 },
+		);
+		expect(() => updateTypeInfo('form', clash, typeInfo!, 1252))
+			.toThrow(/Order_Date.*Order Date|Order Date.*Order_Date/);
+	});
+
+	it('puts right a member list written back when an entry was read as one name', () => {
+		// That writer listed every member under its design name, `Order Date`
+		// and all, which no code can reach. The next edit repairs it.
+		const { design: untouched, typeInfo } = entryOf('Names');
+		const damaged = buildTypeInfo(
+			'form', typeInfo!.subarray(TYPE_INFO_CLSID_AT, TYPE_INFO_CLSID_AT + 16),
+			readTypeInfo(typeInfo!, 1252).map((entry) => ({ ...entry, identifier: entry.name })), 1252,
+		);
+		expect(damaged.includes(Buffer.from('Order Date\0\0', 'latin1'))).toBe(true);
+		expect(updateTypeInfo('form', untouched, damaged, 1252).equals(typeInfo!)).toBe(true);
+	});
+
+	it('edits such a form and such a report through the writer', () => {
+		const writer = new AccessVbaWriter(NAMES);
+		writer.editDesign('Names', (blob) => addDesignControl(
+			blob, 'TextBox', 'Ship Via', GUID, designPrototypes(blob), { left: 10, top: 20 },
+		));
+		writer.editDesign('Totals', (blob) => addDesignControl(
+			blob, 'TextBox', 'Tax Due', GUID, writer.designPrototypesFor('Totals'), { left: 10, top: 20 },
+		));
+		const written = readAccessDesigns(writer.toBuffer());
+		const form = written.find((entry) => entry.name === 'Names')!;
+		const report = written.find((entry) => entry.name === 'Totals')!;
+		expect(pairs(form.typeInfo!)).toEqual([...pairs(entryOf('Names').typeInfo!), [9, 'Ship_Via', 'Ship Via']]);
+		expect(pairs(report.typeInfo!)).toEqual([...pairs(entryOf('Totals').typeInfo!), [4, 'Tax_Due', 'Tax Due']]);
+		// The code behind the form is untouched by a design edit.
+		expect(new AccessVbaWriter(writer.toBuffer()).moduleNames()).toEqual(new AccessVbaWriter(NAMES).moduleNames());
+	});
+
+	it('leaves the writer as it was when the edit is refused', () => {
+		const writer = new AccessVbaWriter(NAMES);
+		const before = writer.toBuffer();
+		expect(() => writer.editDesign('Names', (blob) => addDesignControl(
+			blob, 'TextBox', 'Order_Date', GUID, designPrototypes(blob), { left: 0, top: 0 },
+		))).toThrow(/Order_Date/);
+		expect(writer.toBuffer().equals(before)).toBe(true);
 	});
 });
 

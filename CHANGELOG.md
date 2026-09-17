@@ -2,6 +2,41 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [8.3.2] - 2026-09-17
+
+- **Editing an Access form no longer breaks the code behind it when a control
+  is not named as VBA would name it.** The form wizard names a control after
+  its field, so `Order Date` is an ordinary name, and VBA reaches it as
+  `Me.Order_Date`. Access keeps both names in the design's member list, the
+  identifier first, and XLIDE read each entry as a single name. On some forms
+  that made every design edit fail with "This TypeInfo stream ends inside a
+  name." On others the edit went through and listed `Order Date` itself as
+  the member, a name no code can reach, so `Me.Order_Date` stopped compiling
+  after any edit XLIDE made to the form.
+
+  Both names are read and written now, for controls, sections and ActiveX
+  controls, on forms and reports. For an added control and for a renamed one,
+  the member list XLIDE writes is byte for byte the one Access 16.0 writes
+  for the same edit, and the code behind the form compiles in Access
+  afterwards. A member list that an earlier version damaged is put right by
+  the next design edit of that form.
+
+- **A control name VBA could not tell from another's is refused.**
+  `Order_Date` beside `Order Date` would give the form two members that VBA
+  knows by one name. Access refuses the second name as already in use, and
+  XLIDE now does too, before anything is written.
+
+### Internal
+
+- `tests/fixtures/binaries/AccessControlNamesFixture.accdb` is Access's own:
+  text boxes named `Order Date`, `Qty-1`, `2ndBox`, `Tax (VAT)` and `Plain`,
+  an ActiveX control, a renamed form header and a report, with code that
+  reaches each through `Me`. `scripts/build-access-control-names-fixture.py`
+  builds it. Every member list in the Access fixtures rebuilds byte for byte,
+  and `accessVbaIdentifier` is held to every pair of names Access stored.
+- A design edit works out the member list before it writes anything, so an
+  edit that is refused leaves the database as it was.
+
 ## [8.3.1] - 2026-09-16
 
 - **Saving while the file is open in its application works, in every
