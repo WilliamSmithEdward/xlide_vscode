@@ -131,7 +131,7 @@ describe('analyzeModule - general contract', () => {
 			'Sub Greet(ByVal name As String)\n' +
 			'    Dim msg As String\n' +
 			'    msg = "Hello " & name\n' +
-			'    MsgBox msg\n' +
+			'    If Len(msg) < MAX Then MsgBox msg\n' +
 			'End Sub\n';
 		expect(analyzeModule(src)).toHaveLength(0);
 	});
@@ -816,5 +816,37 @@ describe('diagnostic message wording', () => {
 		const src = 'Private WithEvents App As Application\n';
 		const hits = byCode(analyzeModule(src), 'withevents-declaration');
 		expect(hits[0].message).toBe("WithEvents variable 'App' is only valid in class, document, or UserForm modules.");
+	});
+
+	it('pins the messages for unused-variable', () => {
+		const src = 'Private m As Long\nConst C As Long = 1\nSub T()\n    Dim x As Long\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'unused-variable');
+		expect(hits.map((hit) => hit.message)).toEqual([
+			"Module-level variable 'm' is declared but never used.",
+			"Constant 'C' is declared but never used.",
+			"Local variable 'x' is declared but never used.",
+		]);
+	});
+
+	it('pins the message for variable-never-read', () => {
+		const src = 'Sub T()\n    Dim x As Long\n    x = 1\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'variable-never-read');
+		expect(hits[0].message).toBe("Variable 'x' is assigned but its value is never read.");
+	});
+
+	it('pins the messages for unused-procedure', () => {
+		const src = 'Private Sub A()\nEnd Sub\nPrivate Function B() As Long\nEnd Function\nPrivate Property Get C() As Long\nEnd Property\n';
+		const hits = byCode(analyzeModule(src), 'unused-procedure');
+		expect(hits.map((hit) => hit.message)).toEqual([
+			"Private Sub 'A' is never called.",
+			"Private Function 'B' is never called.",
+			"Private Property 'C' is never used.",
+		]);
+	});
+
+	it('pins the message for unreachable-code', () => {
+		const src = 'Sub T()\n    Exit Sub\n    x = 1\nEnd Sub\n';
+		const hits = byCode(analyzeModule(src), 'unreachable-code');
+		expect(hits[0].message).toBe("Unreachable code after 'Exit Sub'.");
 	});
 });

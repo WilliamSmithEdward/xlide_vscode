@@ -12,12 +12,7 @@
 
 import type { HostConstant, HostEnum, HostMember } from './excelObjectModel';
 import type { VbaDoc } from '../docs/docModel';
-
-/** Bare type name from a qualified one: "Excel.Range" -> "Range". */
-function bareTypeName(qualified: string): string {
-	const dot = qualified.lastIndexOf('.');
-	return dot >= 0 ? qualified.slice(dot + 1) : qualified;
-}
+import { bareTypeName } from './hostModel';
 
 /**
  * The type a member declares: stated outright for a property, read from a

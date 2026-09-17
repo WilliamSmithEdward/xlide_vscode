@@ -1,5 +1,6 @@
 import type { VbaToken } from '../lexer/tokenKinds';
 import {
+	absoluteSpan,
 	splitTopLevelTokenGroups,
 	statementTokens,
 	statementTokensCached,
@@ -11,12 +12,12 @@ import { parseModule } from '../parser/parseModule';
 import type {
 	BodyNode,
 	LeafStatementNode,
-	ModuleNode,
 	ProcedureNode,
 	Span,
 } from '../parser/nodes';
-import { isLeafStatement } from '../parser/nodes';
+import { isLeafStatement, procedureAtOffset } from '../parser/nodes';
 import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
+import { physicalLineSpanAtOffset } from '../../vbaSourceScan';
 
 export interface VbaProcedureLabel {
 	key: string;
@@ -257,15 +258,6 @@ function statementAtOffset(body: BodyNode[], offset: number): LeafStatementNode 
 	return undefined;
 }
 
-function procedureAtOffset(module: ModuleNode, offset: number): ProcedureNode | undefined {
-	return module.members.find(
-		(member): member is ProcedureNode =>
-			member.kind === 'Procedure' &&
-			offset >= member.span.start &&
-			offset <= member.span.end,
-	);
-}
-
 function statementLabelDeclaration(source: string, span: Span): VbaProcedureLabel | undefined {
 	const toks = statementTokensCached(source, span);
 	const first = toks[0];
@@ -433,24 +425,8 @@ function forEachProcedureStatement(
 	}
 }
 
-function absoluteSpan(base: Span, token: VbaToken): Span {
-	return { start: base.start + token.start, end: base.start + token.end };
-}
-
 function offsetInSpan(offset: number, span: Span): boolean {
 	return offset >= span.start && offset <= span.end;
-}
-
-function physicalLineSpanAtOffset(source: string, offset: number): Span {
-	const safe = Math.max(0, Math.min(offset, source.length));
-	const before = source.lastIndexOf('\n', Math.max(0, safe - 1));
-	const start = before < 0 ? 0 : before + 1;
-	const after = source.indexOf('\n', safe);
-	let end = after < 0 ? source.length : after;
-	if (end > start && source[end - 1] === '\r') {
-		end--;
-	}
-	return { start, end };
 }
 
 function compareLabels(a: VbaProcedureLabel, b: VbaProcedureLabel): number {

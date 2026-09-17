@@ -23,9 +23,9 @@ import { isLeafStatement } from '../parser/nodes';
 // them so the diagnostics engine keeps one implementation. `statementTokens`
 // comes from the per-pass cache in analysisContext.ts (audit #5) so every rule
 // shares one tokenization per statement.
-export { matchParenFrom, tokenWord as tokenText, tokenName } from '../lexer/tokenHelpers';
+export { absoluteSpan, matchParenFrom, tokenWord as tokenText, tokenName } from '../lexer/tokenHelpers';
 export { statementTokens } from './analysisContext';
-import { tokenWord as tokenText, tokenName } from '../lexer/tokenHelpers';
+import { tokenWord as tokenText, tokenName, absoluteSpan } from '../lexer/tokenHelpers';
 import { statementTokens } from './analysisContext';
 import { trackedLocalsNamedWhole } from './dataflow';
 
@@ -139,24 +139,6 @@ export function forEachVariableGroup(
 	}
 }
 
-/** Walks every leaf statement (Assignment/Call/Statement) in a procedure body, descending into nested blocks. */
-export function forEachBodyStatement(
-	body: BodyNode[],
-	visit: (statement: LeafStatementNode) => void,
-	activity?: ConditionalActivityTracker,
-): void {
-	for (const node of body) {
-		if (isInactiveNode(activity, node)) {
-			continue;
-		}
-		if (isLeafStatement(node)) {
-			visit(node);
-		} else if ('body' in node && Array.isArray((node as { body?: unknown }).body)) {
-			forEachBodyStatement((node as { body: BodyNode[] }).body, visit, activity);
-		}
-	}
-}
-
 export function forEachProcedureBodyLine(
 	source: string,
 	procedure: ProcedureNode,
@@ -237,10 +219,6 @@ export function stripHeaderBrackets(text: string): string {
 	return text.startsWith('[') && text.endsWith(']')
 		? text.slice(1, -1)
 		: text;
-}
-
-export function absoluteSpan(base: Span, token: VbaToken): Span {
-	return { start: base.start + token.start, end: base.start + token.end };
 }
 
 /**
@@ -387,16 +365,4 @@ export function firstTokenSpan(source: string, span: Span): Span {
 
 export function pluralizeCount(count: number, singular: string): string {
 	return `${count} ${singular}${count === 1 ? '' : 's'}`;
-}
-
-export function physicalLineSpanAtOffset(source: string, offset: number): Span {
-	const safe = Math.max(0, Math.min(offset, source.length));
-	const before = source.lastIndexOf('\n', Math.max(0, safe - 1));
-	const start = before < 0 ? 0 : before + 1;
-	const after = source.indexOf('\n', safe);
-	let end = after < 0 ? source.length : after;
-	if (end > start && source[end - 1] === '\r') {
-		end--;
-	}
-	return { start, end };
 }

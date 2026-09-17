@@ -81,7 +81,7 @@
   ],
   "assertions": {
     "projectAnalysis": {
-      "problemCount": 1,
+      "problemCount": 2,
       "problems": [
         {
           "moduleName": "stdPerformance",
@@ -94,6 +94,16 @@
           ],
           "quickFixTitles": [
             "Replace 'End Function' with 'End Property'"
+          ]
+        },
+        {
+          "moduleName": "stdConsumer",
+          "code": "variable-never-read",
+          "line": 4,
+          "severity": "information",
+          "messageContains": [
+            "value",
+            "never read"
           ]
         }
       ],
@@ -121,6 +131,13 @@
         {
           "code": "member-not-found",
           "count": 0
+        },
+        {
+          "code": "variable-never-read",
+          "count": 1,
+          "messagesContain": [
+            "value"
+          ]
         }
       ],
       "absentCodes": [

@@ -1,8 +1,9 @@
 import {
-	isModuleAnnotation,
 	spelledAnnotation,
 	type Annotation,
 	type ModuleAnnotations,
+	PROCEDURE_HEADER,
+	VARIABLE_DECLARATION,
 } from './attributeAnnotations';
 
 /**
@@ -35,10 +36,6 @@ export interface AttributeRewriteResult {
 	skipped: string[];
 }
 
-const PROCEDURE_HEADER =
-	/^\s*(?:(?:public|private|friend)\s+)?(?:static\s+)?(?:sub|function|property\s+(?:get|let|set))\s+(\p{L}[\p{L}\p{N}_]*)/iu;
-const VARIABLE_DECLARATION =
-	/^\s*(?:dim|private|public|global)\s+(?:withevents\s+)?(\p{L}[\p{L}\p{N}_]*)\b(?!\s*\()/iu;
 const OWNED_ATTRIBUTE =
 	/^\s*Attribute\s+(\p{L}[\p{L}\p{N}_]*)\.(VB_[A-Za-z_]+(?:\.VB_[A-Za-z_]+)?)\s*=/iu;
 const MODULE_ATTRIBUTE = /^\s*Attribute\s+(VB_[A-Za-z_]+)\s*=\s*(.*?)\s*$/i;

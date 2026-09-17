@@ -9,7 +9,6 @@ import type { ConditionalActivityTracker } from '../../conditional/conditionalCo
 import {
 	matchParenFrom,
 	splitTopLevelTokenGroups,
-	statementTokensCached,
 } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type {
@@ -41,8 +40,6 @@ import {
 	declaredShapeForSourceBinding,
 	declaredTypeForSourceBinding,
 	type DeclaredValueShape,
-	declaredValueTypeForQualifiedSourceBinding,
-	declaredValueTypeForSourceBinding,
 	incompatibilityReason,
 	inferArgumentType,
 	isKnownObjectAssignmentType,
@@ -52,6 +49,7 @@ import {
 	normalizeType,
 	objectAssignmentIncompatibilityReason,
 	resolveExactMemberCompletion,
+	sourceBindingTypeResolvers,
 	type SourceDeclaredShape,
 	type SourceDeclaredTypeResolver,
 	sourceIdentifierBinding,
@@ -186,19 +184,8 @@ export function checkAssignmentTypes(
 		const shapes = declarationShapeEnvironmentFor(symbols, member);
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
 		const procSym = procedureSymbolFor(symbols, member);
-		const resolveExpressionType = (name: string) => declaredValueTypeForSourceBinding(
-			symbols,
-			procSym,
-			projectVisibleSymbols,
-			name,
-		);
-		const resolveQualifiedExpressionType = (qualifier: string, name: string) =>
-			declaredValueTypeForQualifiedSourceBinding(
-				symbols,
-				projectVisibleSymbols,
-				qualifier,
-				name,
-			);
+		const { resolveExpressionType, resolveQualifiedExpressionType } =
+			sourceBindingTypeResolvers(symbols, procSym, projectVisibleSymbols);
 		forEachStatement(member.body, (stmt) => {
 			for (const span of statementAndBranchSpans(stmt)) {
 				checkAssignmentSpan(span);
@@ -692,19 +679,8 @@ export function checkSetAssignments(
 		const env = typeEnvironmentFor(symbols, member);
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
 		const procSym = procedureSymbolFor(symbols, member);
-		const resolveExpressionType = (name: string) => declaredValueTypeForSourceBinding(
-			symbols,
-			procSym,
-			projectVisibleSymbols,
-			name,
-		);
-		const resolveQualifiedExpressionType = (qualifier: string, name: string) =>
-			declaredValueTypeForQualifiedSourceBinding(
-				symbols,
-				projectVisibleSymbols,
-				qualifier,
-				name,
-			);
+		const { resolveExpressionType, resolveQualifiedExpressionType } =
+			sourceBindingTypeResolvers(symbols, procSym, projectVisibleSymbols);
 		return (stmt) => {
 			for (const span of statementAndBranchSpans(stmt)) {
 				checkSetSpan(span);

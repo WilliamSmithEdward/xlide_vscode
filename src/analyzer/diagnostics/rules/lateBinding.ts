@@ -9,7 +9,6 @@
 
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { HostObjectModel } from '../../host/excelObjectModel';
-import type { Span } from '../../parser/nodes';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaProjectClassMembers, VbaSymbol } from '../../symbols/symbolModel';
 import { isHostMemberName } from '../../host/hostModel';

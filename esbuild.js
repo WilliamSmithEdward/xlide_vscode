@@ -29,7 +29,13 @@ async function main() {
   const ctx = await esbuild.context({
     // Two bundles: the extension host, and the analysis worker thread the host
     // spawns (out/analysisWorker.js) so full analysis passes run off-thread.
-    entryPoints: ["src/extension.ts", "src/analysisWorker.ts"],
+    // A development build adds the integration suite (out/test/), which the
+    // VS Code test runner loads; a production build ships without it.
+    entryPoints: [
+      "src/extension.ts",
+      "src/analysisWorker.ts",
+      ...(production ? [] : ["src/test/integration.test.ts"]),
+    ],
     bundle: true,
     format: "cjs",
     minify: production,
@@ -37,7 +43,9 @@ async function main() {
     sourcesContent: false,
     platform: "node",
     outdir: "out",
-    external: ["vscode"],
+    // Both come from the host at run time: `vscode` from the editor, `mocha`
+    // from the integration test runner.
+    external: ["vscode", "mocha"],
     logLevel: "silent",
     plugins: [esbuildProblemMatcherPlugin],
   });

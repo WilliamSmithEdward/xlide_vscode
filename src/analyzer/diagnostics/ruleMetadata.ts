@@ -80,6 +80,12 @@ export interface DiagnosticRuleMetadata {
 	suppressionScopes?: readonly DiagnosticSuppressionScope[];
 	/** True when an error rule is allowed to be downgraded to warning by user settings. */
 	allowSeverityDowngrade?: boolean;
+	/**
+	 * `unnecessary` marks code the module does not need: the editor fades
+	 * the range instead of underlining it, the way it does for an unused
+	 * import elsewhere.
+	 */
+	tag?: 'unnecessary';
 	/** How certain the rule is that a flagged construct is genuinely wrong. */
 	confidence: 'high' | 'medium' | 'low';
 }
@@ -1432,6 +1438,55 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'docs/xlide_vba_analysis_suppression_comments.md',
 		confidence: 'high',
 	},
+	unusedVariable: {
+		code: 'unused-variable',
+		title: 'Variable or constant is never used',
+		defaultSeverity: 'information',
+		category: 'style',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'style-policy',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.2.3 / 5.4.3.1 (declaration scope) plus XLIDE dead-code policy',
+		tag: 'unnecessary',
+		confidence: 'high',
+	},
+	variableNeverRead: {
+		code: 'variable-never-read',
+		title: 'Variable is assigned but never read',
+		defaultSeverity: 'information',
+		category: 'style',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'style-policy',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.4.3 (assignment) plus XLIDE dead-code policy',
+		tag: 'unnecessary',
+		confidence: 'high',
+	},
+	unusedProcedure: {
+		code: 'unused-procedure',
+		title: 'Private procedure is never called',
+		defaultSeverity: 'information',
+		category: 'style',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'style-policy',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.3.1.1 (Private procedure visibility) plus XLIDE dead-code policy',
+		requiresWholeProject: true,
+		tag: 'unnecessary',
+		confidence: 'high',
+	},
+	unreachableCode: {
+		code: 'unreachable-code',
+		title: 'Code is never reached',
+		defaultSeverity: 'information',
+		category: 'style',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'style-policy',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.4.1.3 (Exit), 5.4.1.4 (GoTo), 5.4.4 (Resume) plus XLIDE dead-code policy',
+		tag: 'unnecessary',
+		confidence: 'high',
+	},
 } satisfies Record<string, DiagnosticRuleMetadata>;
 
 /** Structural diagnostics emitted by the dependency-free block-balance analyzer. */
@@ -1550,7 +1605,7 @@ export function isDiagnosticSeverityOverride(value: unknown): value is Diagnosti
 	return value === 'off' || value === 'information' || value === 'warning' || value === 'error';
 }
 
-function normalizeDiagnosticRuleCode(code: unknown): string | undefined {
+export function normalizeDiagnosticRuleCode(code: unknown): string | undefined {
 	return typeof code === 'string' ? code.trim().toLowerCase() || undefined : undefined;
 }
 

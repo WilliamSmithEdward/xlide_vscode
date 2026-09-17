@@ -61,12 +61,9 @@ export function frxSpans(blob: Buffer, offsets: readonly number[]): Map<number, 
  * appends and never rewrites).
  */
 export function decodeFrxLongString(bytes: Buffer, decode: (b: Buffer) => string, allowTrailing = false): string | undefined {
-	if (bytes.length < 4) {
-		return undefined;
-	}
-	const length = bytes.readUInt32LE(0);
-	const fits = allowTrailing ? length + 4 <= bytes.length : length + 4 === bytes.length;
-	return fits ? decode(bytes.subarray(4, 4 + length)) : undefined;
+	// The same 32-bit-length framing a picture record uses.
+	const payload = decodeFrxPicture(bytes, allowTrailing);
+	return payload === undefined ? undefined : decode(payload);
 }
 
 /** An 8-bit-length string, when the bytes are exactly one (or start with one, with `allowTrailing`). */

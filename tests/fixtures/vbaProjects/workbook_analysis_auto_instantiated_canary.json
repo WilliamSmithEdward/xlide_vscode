@@ -49,7 +49,7 @@
   ],
   "assertions": {
     "projectAnalysis": {
-      "problemCount": 1,
+      "problemCount": 2,
       "problems": [
         {
           "moduleName": "Builder",
@@ -58,6 +58,16 @@
           "severity": "error",
           "messageContains": [
             "made"
+          ]
+        },
+        {
+          "moduleName": "Invoice",
+          "code": "variable-never-read",
+          "line": 3,
+          "severity": "information",
+          "messageContains": [
+            "mNumber",
+            "never read"
           ]
         }
       ],
@@ -72,6 +82,13 @@
         {
           "code": "undeclared-variable",
           "count": 0
+        },
+        {
+          "code": "variable-never-read",
+          "count": 1,
+          "messagesContain": [
+            "mNumber"
+          ]
         }
       ]
     }

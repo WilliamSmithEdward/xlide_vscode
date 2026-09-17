@@ -4,11 +4,27 @@
 
 import type { VbaToken } from './tokenKinds';
 import { tokenize, tokenizeCached } from './tokenize';
+import type { Span } from '../parser/nodes';
 
 // \p{L}/\p{M}: VBA identifiers may use any locale letter, and a combining mark
 // continues a name. The ASCII-only form made `Dim g As Прибор` resolve to no
 // type at all, so that receiver offered no members - not even its ASCII ones.
 export const IDENT_RE = /^[\p{L}_][\p{L}\p{M}\p{N}_]*$/u;
+
+/** The identifier-shaped words inside arbitrary text, in order, as written. */
+export function identifiersIn(text: string): string[] {
+	return text.match(/[\p{L}_][\p{L}\p{M}\p{N}_]*/gu) ?? [];
+}
+
+/** The same words lower-cased, the way VBA compares names. */
+export function identifierWords(text: string): string[] {
+	return identifiersIn(text).map((word) => word.toLowerCase());
+}
+
+/** A token's span, relative to its statement, made absolute against `base`. */
+export function absoluteSpan(base: Span, token: VbaToken): Span {
+	return { start: base.start + token.start, end: base.start + token.end };
+}
 
 export function isIdentLike(token: VbaToken): boolean {
 	return (

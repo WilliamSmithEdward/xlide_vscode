@@ -20,6 +20,7 @@ import {
 	type ParsedRecord,
 	type ParsedString,
 	type RecordSpec,
+	readGuidAndPicture,
 } from './records';
 
 export const FORM_SPEC: RecordSpec = {
@@ -151,9 +152,9 @@ export function parseFormStream(
 	};
 
 	// FormStreamData, in mask order: MouseIcon (15), Font (20), Picture (21).
-	if (record.maskLo & (1 << 15)) { model.mouseIcon = readGuidAndBlob(r); }
+	if (record.maskLo & (1 << 15)) { model.mouseIcon = readGuidAndPicture(r); }
 	if (record.maskLo & (1 << 20)) { model.fontRaw = readGuidAndFontRaw(r); }
-	if (record.maskLo & (1 << 21)) { model.pictureRaw = readGuidAndBlob(r); }
+	if (record.maskLo & (1 << 21)) { model.pictureRaw = readGuidAndPicture(r); }
 
 	// FormSiteData. Whether the class-table count is stored depends on a flag
 	// buried in BooleanProperties, which itself may be defaulted - so, as the
@@ -179,6 +180,26 @@ interface SiteDataParse {
 	sites: SiteModel[];
 	depthsRaw: Buffer;
 	trailingRaw: Buffer;
+}
+
+/**
+ * Walks SiteDepthsAndTypes: one entry per site, or one counted entry for a
+ * run of consecutive sites sharing a depth and type. False when the entries
+ * do not add up to `countOfSites`.
+ */
+export function skipSiteDepthsAndTypes(r: { u8(): number }, countOfSites: number): boolean {
+	let accounted = 0;
+	while (accounted < countOfSites) {
+		r.u8(); // depth
+		const typeOrCount = r.u8();
+		if (typeOrCount & 0x80) {
+			accounted += typeOrCount & 0x7f;
+			r.u8(); // OptionalType
+		} else {
+			accounted += 1;
+		}
+	}
+	return accounted === countOfSites;
 }
 
 function trySiteData(
@@ -213,18 +234,7 @@ function trySiteData(
 		// SiteDepthsAndTypes: per-site entries or run-length counted ones,
 		// preserved raw with the pad that follows.
 		const depthsStart = r.pos;
-		let accounted = 0;
-		while (accounted < countOfSites) {
-			r.u8(); // depth
-			const typeOrCount = r.u8();
-			if (typeOrCount & 0x80) {
-				accounted += typeOrCount & 0x7f;
-				r.u8(); // OptionalType
-			} else {
-				accounted += 1;
-			}
-		}
-		if (accounted !== countOfSites) { return undefined; }
+		if (!skipSiteDepthsAndTypes(r, countOfSites)) { return undefined; }
 		{
 			const over = (r.pos - depthsStart) % 4;
 			if (over !== 0) { r.bytes(4 - over); }
@@ -293,17 +303,6 @@ function readSite(r: OformsReader, codec: OformsTextCodec): SiteModel {
 		throw new RangeError(`site record has ${end - r.pos} unmodelled bytes`);
 	}
 	return site;
-}
-
-function readGuidAndBlob(r: OformsReader): Buffer {
-	const start = r.pos;
-	r.bytes(16);
-	r.u32(); // preamble
-	const size = r.u32();
-	r.bytes(size);
-	const total = r.pos - start;
-	r.pos = start;
-	return r.bytes(total);
 }
 
 const STDFONT_GUID_HEAD = 0x0be35203;

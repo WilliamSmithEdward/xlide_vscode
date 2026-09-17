@@ -1,8 +1,9 @@
 import { parseModule } from '../parser/parseModule';
 import type { BodyNode, ModuleNode, ProcedureNode, Span, VariableDeclNode, VariableGroupNode } from '../parser/nodes';
 import { classifyReferenceKinds } from '../references/referenceKinds';
-import { detectEol, findIdentifierOccurrences, leadingWhitespace } from '../../vbaSourceScan';
+import { detectEol, findIdentifierOccurrences, leadingWhitespace, lineStartAt, wholeLineSpan } from '../../vbaSourceScan';
 import { refactor, refuse, type VbaRefactorResult, type VbaTextEdit } from './refactorTypes';
+import { procedureContainingSpan, walkBody } from './shared';
 
 /**
  * Extract Method: selected whole statements become a Private procedure below
@@ -61,12 +62,7 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 	}
 
 	const module: ModuleNode = parseModule(source);
-	const procedure = module.members.find(
-		(member): member is ProcedureNode =>
-			member.kind === 'Procedure'
-			&& input.span.start >= member.span.start
-			&& input.span.end <= member.span.end,
-	);
+	const procedure = procedureContainingSpan(module, input.span);
 	if (!procedure) {
 		return refuse('Select statements inside one procedure.');
 	}
@@ -75,7 +71,7 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 	if (selected.length === 0) {
 		return refuse('Select whole statements to extract.');
 	}
-	const block = { start: startOfLine(source, selected[0].span.start), end: selected[selected.length - 1].span.end };
+	const block = { start: lineStartAt(source, selected[0].span.start), end: selected[selected.length - 1].span.end };
 	// The selection has to BE those statements, give or take whitespace: half a
 	// statement cannot become a procedure body, and neither can the procedure's
 	// own header or End line. Both directions matter - a selection can fall
@@ -169,7 +165,7 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 	];
 	// A moved Dim leaves the caller with it.
 	for (const local of moved) {
-		edits.push({ span: wholeLine(source, local.declaration!.group.span), newText: '' });
+		edits.push({ span: wholeLineSpan(source, local.declaration!.group.span), newText: '' });
 	}
 
 	return refactor(`Extract '${name}'`, edits, {
@@ -181,7 +177,7 @@ export function extractMethod(input: ExtractMethodInput): VbaRefactorResult {
 /** Every local and parameter the selection touches, typed by how it is used. */
 function classifyLocals(source: string, procedure: ProcedureNode, block: Span): LocalUse[] {
 	const declarations = new Map<string, { group: VariableGroupNode; decl: VariableDeclNode }>();
-	for (const node of walk(procedure.body)) {
+	for (const node of walkBody(procedure.body)) {
 		if (node.kind === 'VariableGroup') {
 			for (const decl of node.declarations) {
 				declarations.set(decl.name.toLowerCase(), { group: node, decl });
@@ -268,24 +264,6 @@ function statementsIn(body: readonly BodyNode[], span: Span): BodyNode[] {
 	return out;
 }
 
-function* walk(body: readonly BodyNode[]): Generator<BodyNode> {
-	for (const node of body) {
-		yield node;
-		switch (node.kind) {
-			case 'IfBlock':
-			case 'ForBlock':
-			case 'DoBlock':
-			case 'WhileBlock':
-			case 'WithBlock':
-			case 'SelectBlock':
-				yield* walk(node.body);
-				break;
-			default:
-				break;
-		}
-	}
-}
-
 /** The offset just before the procedure's `End Sub` / `End Function` line. */
 function endOfProcedureBody(source: string, procedure: ProcedureNode): number {
 	const text = source.slice(procedure.span.start, procedure.span.end);
@@ -311,15 +289,4 @@ function uniqueName(base: string, module: ModuleNode): string {
 
 function within(offset: number, span: Span): boolean {
 	return offset >= span.start && offset <= span.end;
-}
-
-function startOfLine(source: string, offset: number): number {
-	const before = source.lastIndexOf('\n', Math.max(offset - 1, 0));
-	return before === -1 ? 0 : before + 1;
-}
-
-function wholeLine(source: string, span: Span): Span {
-	const start = startOfLine(source, span.start);
-	const next = source.indexOf('\n', span.end);
-	return { start, end: next === -1 ? source.length : next + 1 };
 }

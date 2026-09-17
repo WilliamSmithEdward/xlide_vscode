@@ -239,20 +239,33 @@ async function loadProjectModulesWithSources(
     };
 }
 
-async function exportProjectModule(
-    bridge: ProjectEngine,
-    params: ExportModuleParams,
-): Promise<ExportModuleResult> {
-    return measurePerformance('moduleExport.single', params.moduleName, async () => {
+/**
+ * Resolves the export folder and mode from the parameters and the project's
+ * saved settings, then runs `body` under the folder lock with the folder
+ * present.
+ */
+async function withExportTarget<T>(
+    params: { filePath: string; exportFolder?: string; exportMode?: ExportMode },
+    body: (exportFolder: string, exportMode: ExportMode) => Promise<T>,
+): Promise<T> {
     const existingSettings = await effectiveProjectModuleSyncSettings(params.filePath);
     const exportFolder = params.exportFolder ?? existingSettings.folderPath;
     if (!exportFolder) {
         throw new Error('No export folder configured. Choose a folder first or provide exportFolder.');
     }
-
     const exportMode = normalizeExportMode(params.exportMode ?? existingSettings.exportMode);
     return withExportFolderLock(exportFolder, async () => {
-    await fs.promises.mkdir(exportFolder, { recursive: true });
+        await fs.promises.mkdir(exportFolder, { recursive: true });
+        return body(exportFolder, exportMode);
+    });
+}
+
+async function exportProjectModule(
+    bridge: ProjectEngine,
+    params: ExportModuleParams,
+): Promise<ExportModuleResult> {
+    return measurePerformance('moduleExport.single', params.moduleName, async () => {
+    return withExportTarget(params, async (exportFolder, exportMode) => {
 
     const modules = await bridge.call<ModuleInfo[]>('listModules', { path: params.filePath });
     const mod = modules.find(
@@ -289,15 +302,7 @@ async function exportProjectModules(
     params: ExportModulesParams,
 ): Promise<ExportModulesResult> {
     return measurePerformance('moduleExport.project', path.basename(params.filePath), async () => {
-    const existingSettings = await effectiveProjectModuleSyncSettings(params.filePath);
-    const exportFolder = params.exportFolder ?? existingSettings.folderPath;
-    if (!exportFolder) {
-        throw new Error('No export folder configured. Choose a folder first or provide exportFolder.');
-    }
-
-    const exportMode = normalizeExportMode(params.exportMode ?? existingSettings.exportMode);
-    return withExportFolderLock(exportFolder, async () => {
-    await fs.promises.mkdir(exportFolder, { recursive: true });
+    return withExportTarget(params, async (exportFolder, exportMode) => {
 
     const { modules, sourceFor } = await loadProjectModulesWithSources(bridge, params.filePath);
     const liveRelativeNames = new Set<string>();

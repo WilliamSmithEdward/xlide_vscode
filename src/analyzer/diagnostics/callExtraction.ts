@@ -76,6 +76,33 @@ export interface InferredArgumentType {
 }
 
 /**
+ * The tokens strictly inside the parenthesis pair opening at `openIndex`, or
+ * undefined when it never closes (the parentheses rule reports that).
+ */
+function tokensInsideParens(toks: readonly VbaToken[], openIndex: number): VbaToken[] | undefined {
+	let depth = 0;
+	const inner: VbaToken[] = [];
+	for (let k = openIndex; k < toks.length; k++) {
+		const t = toks[k];
+		if (t.kind === 'punctuation' && t.rawText === '(') {
+			depth++;
+			if (depth === 1) {
+				continue; // skip the opening paren itself
+			}
+		} else if (t.kind === 'punctuation' && t.rawText === ')') {
+			depth--;
+			if (depth === 0) {
+				return inner;
+			}
+		}
+		if (depth >= 1) {
+			inner.push(t);
+		}
+	}
+	return undefined;
+}
+
+/**
  * If the statement spanning `span` is a bare call statement, returns the callee
  * and its top-level argument slots; otherwise undefined. Reuses
  * {@link callStatementTarget} for the safe call-detection gating, then peels off
@@ -104,29 +131,8 @@ export function extractCall(source: string, span: Span): CallArguments | undefin
 	let argToks: VbaToken[];
 	if (explicitCall) {
 		if (next && next.kind === 'punctuation' && next.rawText === '(') {
-			// Collect the tokens strictly inside the call's parentheses.
-			let depth = 0;
-			let closed = false;
-			const inner: VbaToken[] = [];
-			for (let k = calleeIdx + 1; k < toks.length; k++) {
-				const t = toks[k];
-				if (t.kind === 'punctuation' && t.rawText === '(') {
-					depth++;
-					if (depth === 1) {
-						continue; // skip the opening paren itself
-					}
-				} else if (t.kind === 'punctuation' && t.rawText === ')') {
-					depth--;
-					if (depth === 0) {
-						closed = true;
-						break;
-					}
-				}
-				if (depth >= 1) {
-					inner.push(t);
-				}
-			}
-			if (!closed) {
+			const inner = tokensInsideParens(toks, calleeIdx + 1);
+			if (!inner) {
 				return undefined; // unbalanced - the parentheses rule reports this
 			}
 			argToks = inner;
@@ -189,28 +195,8 @@ export function extractQualifiedCall(
 	let argToks: VbaToken[];
 	if (explicitCall) {
 		if (next && next.kind === 'punctuation' && next.rawText === '(') {
-			let depth = 0;
-			let closed = false;
-			const inner: VbaToken[] = [];
-			for (let k = qualifierIdx + 3; k < toks.length; k++) {
-				const t = toks[k];
-				if (t.kind === 'punctuation' && t.rawText === '(') {
-					depth++;
-					if (depth === 1) {
-						continue;
-					}
-				} else if (t.kind === 'punctuation' && t.rawText === ')') {
-					depth--;
-					if (depth === 0) {
-						closed = true;
-						break;
-					}
-				}
-				if (depth >= 1) {
-					inner.push(t);
-				}
-			}
-			if (!closed) {
+			const inner = tokensInsideParens(toks, qualifierIdx + 3);
+			if (!inner) {
 				return undefined;
 			}
 			argToks = inner;

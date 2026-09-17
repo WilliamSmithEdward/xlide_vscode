@@ -4,6 +4,7 @@
 // directly with vitest.
 
 import { isReservedIdentifier } from './analyzer/lexer/keywordTable';
+import type { Span } from './analyzer/parser/nodes';
 
 // VBA identifiers may use any locale letter, and a combining mark continues a
 // name (Thai and Devanagari build a letter from a base plus a mark). The
@@ -114,6 +115,62 @@ export function lineStartOffsets(source: string): number[] {
         }
     }
     return starts;
+}
+
+/** The 0-based index of the line holding `offset`, given `lineStartOffsets(source)`. */
+export function lineIndexOf(lineStarts: readonly number[], offset: number): number {
+    let low = 0;
+    let high = lineStarts.length - 1;
+    while (low < high) {
+        const mid = (low + high + 1) >> 1;
+        if (lineStarts[mid] <= offset) {
+            low = mid;
+        } else {
+            high = mid - 1;
+        }
+    }
+    return low;
+}
+
+/** Converts a 0-based character offset to a 1-based {line, column} pair. */
+export function offsetToLineColumn(
+    lineStarts: readonly number[],
+    offset: number,
+): { line: number; column: number } {
+    const line = lineIndexOf(lineStarts, offset);
+    return { line: line + 1, column: offset - lineStarts[line] + 1 };
+}
+
+/** Offset at which the line holding `offset` starts. Lines break at LF here. */
+export function lineStartAt(source: string, offset: number): number {
+    // A search from index 0 would find a leading LF and answer 1 for offset 0.
+    return offset <= 0 ? 0 : source.lastIndexOf('\n', offset - 1) + 1;
+}
+
+/** Like lineStartAt, for text whose lines may also break at a lone CR. */
+export function lineStartAtAnyBreak(source: string, offset: number): number {
+    if (offset <= 0) {
+        return 0;
+    }
+    return Math.max(source.lastIndexOf('\n', offset - 1), source.lastIndexOf('\r', offset - 1)) + 1;
+}
+
+/** `span` widened to whole lines, the last line's break included. */
+export function wholeLineSpan(source: string, span: Span): Span {
+    const next = source.indexOf('\n', span.end);
+    return { start: lineStartAt(source, span.start), end: next === -1 ? source.length : next + 1 };
+}
+
+/** The physical line around `offset`: after the previous LF up to the next, minus a trailing CR. */
+export function physicalLineSpanAtOffset(source: string, offset: number): Span {
+    const safe = Math.max(0, Math.min(offset, source.length));
+    const start = lineStartAt(source, safe);
+    const after = source.indexOf('\n', safe);
+    let end = after < 0 ? source.length : after;
+    if (end > start && source[end - 1] === '\r') {
+        end--;
+    }
+    return { start, end };
 }
 
 /** Returns the leading spaces/tabs for a source line or snippet of text. */

@@ -76,14 +76,14 @@ export interface ModuleAnnotations {
 const ANNOTATION_LINE =
 	/^\s*'\s*@([A-Za-z]+)(?=\s|\(|"|$)\s*(?:\(\s*(?:"((?:[^"]|"")*)"|([^)]*?))\s*\)|"((?:[^"]|"")*)"|(\S+))?\s*$/;
 
-const PROCEDURE_HEADER =
+export const PROCEDURE_HEADER =
 	/^\s*(?:(?:public|private|friend)\s+)?(?:static\s+)?(?:sub|function|property\s+(?:get|let|set))\s+(\p{L}[\p{L}\p{N}_]*)/iu;
 
 /**
  * A module-level variable. Const, Type, Enum, Declare, Event and Implements are
  * declarations too, but none of them carries a `VB_VarDescription`.
  */
-const VARIABLE_DECLARATION =
+export const VARIABLE_DECLARATION =
 	/^\s*(?:dim|private|public|global)\s+(?:withevents\s+)?(\p{L}[\p{L}\p{N}_]*)\b(?!\s*\()/iu;
 
 const BLANK_OR_COMMENT = /^\s*(?:'|Rem\b|$)/i;

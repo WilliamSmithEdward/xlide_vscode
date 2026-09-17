@@ -20,6 +20,7 @@ import {
     openModuleSyncPreview,
     type ModuleSyncApplyResult,
     type ModuleSyncSettings,
+    settingsFromPlan,
 } from '../moduleSyncWebview';
 import {
     effectiveProjectModuleSyncSettings,
@@ -47,6 +48,7 @@ import {
     resolveProjectPath,
     statusMessage,
     type CommandDeps,
+    outputLogger,
 } from './shared';
 
 interface ResolvedModuleSyncSettings extends ModuleSyncSettings {
@@ -59,9 +61,7 @@ interface ResolvedModuleSyncSettings extends ModuleSyncSettings {
 export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable[] {
     const { context, bridge, out } = deps;
 
-    function log(msg: string): void {
-        out.appendLine(msg);
-    }
+    const log = outputLogger(out);
 
     async function resolveModuleSyncFolder(
         filePath: string,
@@ -114,18 +114,6 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
                 : vscode.Uri.file(path.dirname(filePath)),
         });
         return selected?.[0]?.fsPath;
-    }
-
-    function syncSettingsFromPlan(plan: ModuleSyncPlan): ModuleSyncSettings {
-        return {
-            folderPath: plan.folderPath,
-            folderPathSource: plan.folderPathSource,
-            exportMode: plan.exportMode,
-            exportModeSource: plan.exportModeSource,
-            importMode: plan.importMode,
-            importModeSource: plan.importModeSource,
-            settingsPath: plan.settingsPath,
-        };
     }
 
     async function buildExportSyncPlanFromSettings(
@@ -407,7 +395,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
         }
 
         try {
-            await persistModuleSyncSettings(plan.projectPath, syncSettingsFromPlan(plan));
+            await persistModuleSyncSettings(plan.projectPath, settingsFromPlan(plan));
         } catch (err) {
             failed.push('project settings');
             recordWriteAudit({
@@ -568,7 +556,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
             refreshProjectState(deps, plan.projectPath);
         }
         try {
-            await persistModuleSyncSettings(plan.projectPath, syncSettingsFromPlan(plan));
+            await persistModuleSyncSettings(plan.projectPath, settingsFromPlan(plan));
         } catch (err) {
             failed.push('project settings');
             recordWriteAudit({

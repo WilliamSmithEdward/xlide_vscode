@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import {
+    applyVbaTextEdits,
     encapsulateField,
     extractMethod,
     extractVariable,
@@ -12,7 +13,9 @@ import {
 import { registerXlideCommand } from '../xlideCommandRegistration';
 import { moduleLocationOfDocument } from '../vbaDocumentLocation';
 import { isVbaDocument } from '../xlideFileSystem';
+import { workspaceEditFor } from '../vbaWorkspaceEdit';
 import { statusMessage, type CommandDeps } from './shared';
+import { implementsNames } from '../analyzer/refactor/implementInterface';
 
 /**
  * The seven refactorings beyond rename (issue #69), as commands.
@@ -23,16 +26,6 @@ import { statusMessage, type CommandDeps } from './shared';
  * sentence, because the refusals are the design: each one names a rule that
  * would otherwise be broken silently.
  */
-
-export const XLIDE_REFACTOR_COMMANDS = [
-    'xlide.refactor.extractMethod',
-    'xlide.refactor.extractVariable',
-    'xlide.refactor.inlineVariable',
-    'xlide.refactor.encapsulateField',
-    'xlide.refactor.implementInterface',
-    'xlide.refactor.moveToModule',
-    'xlide.refactor.introduceParameter',
-] as const;
 
 export function registerRefactorCommands(deps: CommandDeps): vscode.Disposable[] {
     return [
@@ -50,7 +43,7 @@ export function registerRefactorCommands(deps: CommandDeps): vscode.Disposable[]
         )),
         registerXlideCommand('xlide.refactor.implementInterface', () => runProjectWide(
             deps,
-            async (source, editor, project) => implementInterface({
+            async (source, _editor, project) => implementInterface({
                 source,
                 moduleSources: project.sources,
                 ...(await pickInterface(source) ?? {}),
@@ -160,18 +153,7 @@ async function applyResult(
         return;
     }
 
-    const edit = new vscode.WorkspaceEdit();
-    for (const textEdit of result.edits) {
-        edit.replace(
-            editor.document.uri,
-            new vscode.Range(
-                editor.document.positionAt(textEdit.span.start),
-                editor.document.positionAt(textEdit.span.end),
-            ),
-            textEdit.newText,
-        );
-    }
-    if (!await vscode.workspace.applyEdit(edit)) {
+    if (!await vscode.workspace.applyEdit(workspaceEditFor(editor.document, result.edits))) {
         vscode.window.showErrorMessage('XLIDE: the refactoring could not be applied.');
         return;
     }
@@ -185,7 +167,7 @@ async function applyResult(
                 const read = await deps.bridge.call<{ source: string }>(
                     'readModule', { path: projectPath, module: module.moduleName },
                 );
-                const updated = applyToText(read.source, module.edits);
+                const updated = applyVbaTextEdits(read.source, module.edits);
                 await deps.bridge.call('writeModule', {
                     path: projectPath, module: module.moduleName, source: updated,
                 });
@@ -211,15 +193,6 @@ async function applyResult(
     statusMessage(`XLIDE: ${result.title}`);
 }
 
-function applyToText(source: string, edits: readonly { span: { start: number; end: number }; newText: string }[]): string {
-    const ordered = [...edits].sort((a, b) => b.span.start - a.span.start);
-    let out = source;
-    for (const edit of ordered) {
-        out = out.slice(0, edit.span.start) + edit.newText + out.slice(edit.span.end);
-    }
-    return out;
-}
-
 function vbaEditor(): vscode.TextEditor | undefined {
     const editor = vscode.window.activeTextEditor;
     if (!editor || !isVbaDocument(editor.document)) {
@@ -242,8 +215,7 @@ function selectionSpan(editor: vscode.TextEditor): { start: number; end: number 
 
 /** Which interface, when the class implements more than one. */
 async function pickInterface(source: string): Promise<{ interfaceName: string } | undefined> {
-    const names = [...source.matchAll(/^[ \t]*Implements[ \t]+([\p{L}_][\p{L}\p{M}\p{N}_.]*)/gimu)]
-        .map((match) => match[1]);
+    const names = implementsNames(source);
     if (names.length <= 1) {
         return undefined;
     }

@@ -2,8 +2,6 @@ import type * as vscode from 'vscode';
 import {
     ANALYSIS_SEVERITIES,
     normalizeKnownAnalysisRuleCodes,
-    normalizeAnalysisRuleCodes,
-    normalizeAnalysisRuleCode,
     normalizeAnalysisRuleSeverityOverrides,
     normalizeAnalysisVisibleSeverities,
     planAnalysisRuleTrackingUpdate,
@@ -17,6 +15,7 @@ import {
     normalizeSmartBlockLayout,
     type VbaSmartBlockLayout,
 } from './vbaSmartEnter';
+import { normalizeDiagnosticRuleCode } from './analyzer/diagnostics/ruleMetadata';
 
 type XlideGlobalSettingSeverity = 'warning';
 
@@ -60,6 +59,7 @@ interface XlideGlobalSettingValues {
     'docs.enabled': boolean;
     'docs.metadataGlob': string;
     'analysis.visibleSeverities': AnalysisSeverityFilter[];
+    'analysis.ignoreFilesOutsideTree': boolean;
     'analysis.untrackedRules': string[];
     'analysis.ruleSeverityOverrides': AnalysisRuleSeverityOverrides;
     'performance.trace': boolean;
@@ -346,6 +346,18 @@ const XLIDE_GLOBAL_SETTINGS: {
             control: { kind: 'severityFilter' },
         },
     },
+    'analysis.ignoreFilesOutsideTree': {
+        defaultValue: () => true,
+        normalize: normalizeBoolean(true),
+        validate: expectBoolean,
+        manifest: { type: 'boolean' },
+        webviewCard: {
+            section: 'analysis',
+            label: 'Ignore Files Outside The XLIDE Tree',
+            description: 'Analyze only the modules the XLIDE tree lists: the ones inside a workbook, document, presentation or database, and the files a VB6 project names. A .bas, .cls or .frm on disk that no project claims, such as an exported copy, is not analyzed, so its findings do not repeat the real module\'s in the Problems panel. Completion, hover and navigation still work in those files. Turn off to analyze them as standalone modules.',
+            control: { kind: 'boolean' },
+        },
+    },
     'analysis.untrackedRules': {
         defaultValue: () => [],
         normalize: normalizeKnownAnalysisRuleCodes,
@@ -458,6 +470,10 @@ function xlideDiagnosticsEnabledFromConfig(config: vscode.WorkspaceConfiguration
     return xlideGlobalSettingFromConfig(config, 'diagnostics.enabled');
 }
 
+function xlideAnalysisIgnoreFilesOutsideTreeFromConfig(config: vscode.WorkspaceConfiguration) {
+    return xlideGlobalSettingFromConfig(config, 'analysis.ignoreFilesOutsideTree');
+}
+
 function xlideDocsEnabledFromConfig(config: vscode.WorkspaceConfiguration) {
     return xlideGlobalSettingFromConfig(config, 'docs.enabled');
 }
@@ -537,7 +553,7 @@ async function setXlideGlobalAnalysisRuleTracked(
     code: string | undefined,
     tracked: boolean,
 ): Promise<AnalysisRuleTrackingUpdate> {
-    const normalized = normalizeAnalysisRuleCode(code);
+    const normalized = normalizeDiagnosticRuleCode(code);
     const current = normalizeKnownAnalysisRuleCodes(xlideAnalysisUntrackedRulesFromConfig(config).value);
     if (!normalized || normalizeKnownAnalysisRuleCodes([normalized]).length === 0) {
         return {
@@ -559,7 +575,7 @@ async function setXlideGlobalAnalysisRuleSeverityOverride(
     code: string | undefined,
     severity: unknown,
 ): Promise<XlideGlobalSettingUpdateResult<AnalysisRuleSeverityOverrides>> {
-    const normalized = normalizeAnalysisRuleCode(code);
+    const normalized = normalizeDiagnosticRuleCode(code);
     const current = xlideAnalysisRuleSeveritiesFromConfig(config).value;
     if (!normalized) {
         return {
@@ -579,7 +595,7 @@ async function clearXlideGlobalAnalysisRuleSeverityOverride(
     config: vscode.WorkspaceConfiguration,
     code: string | undefined,
 ): Promise<XlideGlobalSettingUpdateResult<AnalysisRuleSeverityOverrides>> {
-    const normalized = normalizeAnalysisRuleCode(code);
+    const normalized = normalizeDiagnosticRuleCode(code);
     const current = xlideAnalysisRuleSeveritiesFromConfig(config).value;
     if (!normalized || !(normalized in current)) {
         return {
@@ -787,6 +803,7 @@ export {
     xlideExcelReopenAfterCloseFromConfig,
     xlideExcelReopenModeFromConfig,
     xlideExcelReopenReadOnlyAfterSaveFromConfig,
+    xlideAnalysisIgnoreFilesOutsideTreeFromConfig,
     xlideDiagnosticsEnabledFromConfig,
     xlideDocsEnabledFromConfig,
     xlideDocsMetadataGlobFromConfig,

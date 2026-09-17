@@ -16,7 +16,6 @@ import {
 	type ConditionalActivityTracker,
 } from '../../conditional/conditionalCompilation';
 import { isReservedIdentifier, OPERATOR_IDENTIFIERS } from '../../lexer/keywordTable';
-import { tokenize } from '../../lexer/tokenize';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import { parseFixedLengthStringType } from '../../parser/fixedLengthString';
 import type {
@@ -71,7 +70,7 @@ import {
 	activeModuleMembers,
 	declaredNameSpan,
 	firstTokenSpan,
-	forEachBodyStatement,
+	forEachStatement,
 	forEachVariableGroup,
 	isInactiveNode,
 	matchParenFrom,
@@ -430,7 +429,7 @@ export function checkModuleDeclarationsInProcedureBodies(
 				continue;
 			}
 			if ('body' in node && Array.isArray((node as { body?: unknown }).body)) {
-				forEachBodyStatement((node as { body: BodyNode[] }).body, inspectStatement, activity);
+				forEachStatement((node as { body: BodyNode[] }).body, inspectStatement, activity);
 			}
 		}
 	};
@@ -1941,7 +1940,6 @@ export function checkOptionPlacement(
  * Unclosed Type blocks are left to the missing-`End Type` parse diagnostic.
  */
 export function checkEmptyType(
-	source: string,
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
@@ -2148,7 +2146,6 @@ const MAX_IDENTIFIER_LENGTH = 255;
  * Pure length check over declared names; binder-independent, no false positives.
  */
 export function checkIdentifierTooLong(
-	source: string,
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,

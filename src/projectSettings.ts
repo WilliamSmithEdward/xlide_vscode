@@ -12,7 +12,8 @@ import {
 } from './analysisSettingsCore';
 import type { XlideGlobalSettingSource } from './globalSettings';
 import { projectIdentityKey } from './projectIdentity';
-import { errorMessage } from './util/errors';
+import { errorMessage, isNodeError } from './util/errors';
+import { createKeyedAsyncLock } from './util/keyedAsyncLock';
 
 type ExportMode = 'exportAll' | 'trueUp';
 type ProjectSettingSource = 'project' | XlideGlobalSettingSource;
@@ -55,7 +56,7 @@ class ProjectSettingsError extends Error {
     }
 }
 
-const projectSettingsWriteQueues = new Map<string, Promise<unknown>>();
+const projectSettingsWriteLock = createKeyedAsyncLock();
 
 function settingsPathForProject(filePath: string): string {
     return path.join(path.dirname(filePath), `${path.basename(filePath)}.xlide_settings.json`);
@@ -395,10 +396,6 @@ async function updateProjectSettings(
     });
 }
 
-function isNodeError(value: unknown): value is NodeJS.ErrnoException {
-    return value !== null && typeof value === 'object' && 'code' in value;
-}
-
 async function writeProjectSettings(
     filePath: string,
     config: ProjectSettingsConfigInput,
@@ -422,23 +419,7 @@ async function withProjectSettingsWriteLock<T>(
     filePath: string,
     action: () => Promise<T>,
 ): Promise<T> {
-    const key = projectIdentityKey(settingsPathForProject(filePath));
-    const previous = projectSettingsWriteQueues.get(key) ?? Promise.resolve();
-    let release: () => void = () => undefined;
-    const current = new Promise<void>((resolve) => {
-        release = resolve;
-    });
-    const queued = previous.catch(() => undefined).then(() => current);
-    projectSettingsWriteQueues.set(key, queued);
-    await previous.catch(() => undefined);
-    try {
-        return await action();
-    } finally {
-        release();
-        if (projectSettingsWriteQueues.get(key) === queued) {
-            projectSettingsWriteQueues.delete(key);
-        }
-    }
+    return projectSettingsWriteLock(projectIdentityKey(settingsPathForProject(filePath)), action);
 }
 
 function recoverProjectSettingsJson(raw: string): unknown | undefined {

@@ -51,33 +51,15 @@ export class VbaHoverSignatureProvider
 		if (token?.isCancellationRequested) {
 			return undefined;
 		}
-		const requestVersion = document.version;
 		const source = document.getText();
 		const offset = document.offsetAt(position);
-		const cached = this._projectContext.cachedEditorProjectContext(document);
-		const fastCtx = cached ?? this._projectContext.cheapEditorProjectContext(document);
-		if (!cached && document.uri.scheme === XLIDE_SCHEME) {
-			this._projectContext.warmEditorProjectContext(document, source);
-		}
-		let info = resolveHover(source, offset, this._hoverContext(fastCtx));
-		if (!info && !cached) {
-			info = resolveHover(source, offset, this._hoverContext(
-				this._projectContext.localEditorProjectContext(document, source),
-			));
-		}
-		if (!info && !cached && document.uri.scheme === XLIDE_SCHEME) {
-			const projectCtx = await this._projectContext.buildEditorProjectContextWithin(
-				document,
-				source,
-				HOVER_PROJECT_CONTEXT_BUDGET_MS,
-			);
-			if (token?.isCancellationRequested || document.version !== requestVersion) {
-				return undefined;
-			}
-			if (projectCtx) {
-				info = resolveHover(source, offset, this._hoverContext(projectCtx));
-			}
-		}
+		const info = await this._resolveWithProjectContext(
+			document,
+			source,
+			HOVER_PROJECT_CONTEXT_BUDGET_MS,
+			token,
+			(ctx) => resolveHover(source, offset, this._hoverContext(ctx)),
+		);
 		if (!info) {
 			return undefined;
 		}
@@ -105,35 +87,15 @@ export class VbaHoverSignatureProvider
 		if (token?.isCancellationRequested) {
 			return undefined;
 		}
-		const requestVersion = document.version;
 		const source = document.getText();
 		const offset = document.offsetAt(position);
-		const cached = this._projectContext.cachedEditorProjectContext(document);
-		const fastCtx = cached ?? this._projectContext.cheapEditorProjectContext(document);
-		if (!cached && document.uri.scheme === XLIDE_SCHEME) {
-			this._projectContext.warmEditorProjectContext(document, source);
-		}
-		let info = resolveSignatureHelp(source, offset, this._signatureHelpContext(fastCtx, source));
-		if (!info && !cached) {
-			info = resolveSignatureHelp(
-				source,
-				offset,
-				this._signatureHelpContext(this._projectContext.localEditorProjectContext(document, source), source),
-			);
-		}
-		if (!info && !cached && document.uri.scheme === XLIDE_SCHEME) {
-			const projectCtx = await this._projectContext.buildEditorProjectContextWithin(
-				document,
-				source,
-				SIGNATURE_HELP_PROJECT_CONTEXT_BUDGET_MS,
-			);
-			if (token?.isCancellationRequested || document.version !== requestVersion) {
-				return undefined;
-			}
-			if (projectCtx) {
-				info = resolveSignatureHelp(source, offset, this._signatureHelpContext(projectCtx, source));
-			}
-		}
+		const info = await this._resolveWithProjectContext(
+			document,
+			source,
+			SIGNATURE_HELP_PROJECT_CONTEXT_BUDGET_MS,
+			token,
+			(ctx) => resolveSignatureHelp(source, offset, this._signatureHelpContext(ctx, source)),
+		);
 		if (!info) {
 			return undefined;
 		}
@@ -174,6 +136,40 @@ export class VbaHoverSignatureProvider
 			document.positionAt(info.span.end),
 		);
 		return new vscode.Hover(md, range);
+	}
+
+	/**
+	 * Resolves against the cheapest project context that answers: the cached
+	 * one when there is one, else the module's own text, then a project
+	 * context built within the budget. Undefined once the request is stale.
+	 */
+	private async _resolveWithProjectContext<T>(
+		document: vscode.TextDocument,
+		source: string,
+		budgetMs: number,
+		token: vscode.CancellationToken | undefined,
+		resolve: (ctx: EditorProjectContext) => T | undefined,
+	): Promise<T | undefined> {
+		const requestVersion = document.version;
+		const cached = this._projectContext.cachedEditorProjectContext(document);
+		const fastCtx = cached ?? this._projectContext.cheapEditorProjectContext(document);
+		if (!cached && document.uri.scheme === XLIDE_SCHEME) {
+			this._projectContext.warmEditorProjectContext(document, source);
+		}
+		let info = resolve(fastCtx);
+		if (!info && !cached) {
+			info = resolve(this._projectContext.localEditorProjectContext(document, source));
+		}
+		if (!info && !cached && document.uri.scheme === XLIDE_SCHEME) {
+			const projectCtx = await this._projectContext.buildEditorProjectContextWithin(document, source, budgetMs);
+			if (token?.isCancellationRequested || document.version !== requestVersion) {
+				return undefined;
+			}
+			if (projectCtx) {
+				info = resolve(projectCtx);
+			}
+		}
+		return info;
 	}
 
 	private _hoverContext(ctx: EditorProjectContext): HoverContext {

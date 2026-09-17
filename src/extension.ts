@@ -8,8 +8,6 @@ import {
     XlideFileSystemProvider,
     XLIDE_SCHEME,
     XLIDE_VBA_LANGUAGE_ID,
-    decodeModuleUri,
-    isLocalXlideDocument,
 } from './xlideFileSystem';
 import { ProjectEngine } from './projectEngine';
 import { analysisSourceForDocument, moduleLocationOfDocument } from './vbaDocumentLocation';
@@ -35,6 +33,10 @@ import {
     type XlideExplorerView,
 } from './globalSettings';
 import { createExplorerViewSetter } from './explorerViewToggle';
+import { AgentReviewDecorationProvider } from './agentReviewDecorations';
+import { onDidChangePendingAgentReviews, pendingAgentReviewCount } from './xlideAgentDiff';
+import { GitChangeMarks, watchRepositoriesForMarks } from './gitChangeMarks';
+import { gitModuleCompareDeps } from './gitModuleCompare';
 import { registerXlideSidebar } from './xlideSidebar';
 import { AnalysisWorkerClient } from './analysisWorkerClient';
 import { setExtensionAssetRoot } from './extensionAssets';
@@ -86,7 +88,11 @@ export function activate(context: vscode.ExtensionContext): void {
     const fsProvider = new XlideFileSystemProvider(bridge);
     registerFormPreview(context, bridge);
     registerVb6FormDesigner(context, bridge);
-    const explorer = new ProjectExplorer(bridge, out);
+    // Modules that differ from the last commit, for the tree's `M`/`A` marks.
+    // Computed from git and the engine's own parse of the committed workbook,
+    // once per change, and only for the projects the tree has drawn.
+    const gitMarks = new GitChangeMarks(gitModuleCompareDeps(bridge), (line) => out.appendLine(line));
+    const explorer = new ProjectExplorer(bridge, out, gitMarks);
     // One answer to "which procedure is the caret in", shared by the status bar
     // and the tree so the two never disagree.
     const caret = new VbaCaretProcedureTracker();
@@ -103,6 +109,27 @@ export function activate(context: vscode.ExtensionContext): void {
         treeDataProvider: explorer,
         showCollapseAll: true,
     });
+
+    // Agent edits awaiting review: coloured and badged rows, and a count on
+    // the view itself, which shows on the Explorer icon while it is closed.
+    const agentReviewDecorations = new AgentReviewDecorationProvider(gitMarks);
+    const showPendingAgentReviewCount = (): void => {
+        const count = pendingAgentReviewCount();
+        treeView.badge = count === 0
+            ? undefined
+            : {
+                value: count,
+                tooltip: count === 1 ? '1 agent edit awaiting review' : `${count} agent edits awaiting review`,
+            };
+    };
+    context.subscriptions.push(
+        agentReviewDecorations,
+        vscode.window.registerFileDecorationProvider(agentReviewDecorations),
+        onDidChangePendingAgentReviews(showPendingAgentReviewCount),
+        gitMarks,
+        gitMarks.onDidChange((projectPath) => explorer.refreshGitMarks(projectPath)),
+        ...watchRepositoriesForMarks(gitMarks),
+    );
 
     // The Tree / Folders buttons above the explorer are the setting, so the
     // button, the settings page, and settings.json all say the same thing.
@@ -171,7 +198,12 @@ export function activate(context: vscode.ExtensionContext): void {
     // anonymized report) rides the same worker so a large module's analysis
     // never blocks the host mid-command.
     setProjectAnalysisWorker(analysisWorkerClient);
-    const vbaIndex = registerVbaLanguageProviders(context, bridge, analysisWorkerClient);
+    const vbaIndex = registerVbaLanguageProviders(
+        context,
+        bridge,
+        analysisWorkerClient,
+        (line: string) => out.appendLine(line),
+    );
     registerVbaEditorCommands(context);
     registerXlideVbaLanguageSync(context, out);
     void ensureXlideVbaEditorOverrides(out);
@@ -320,10 +352,14 @@ export function activate(context: vscode.ExtensionContext): void {
             const watcher = vscode.workspace.createFileSystemWatcher(MACRO_CONTAINER_GLOB);
             const createSubscription = watcher.onDidCreate(debouncedRefresh);
             const deleteSubscription = watcher.onDidDelete(debouncedRefresh);
+            // A save from Excel or another window changes what differs from
+            // HEAD; the marks follow the file, not only XLIDE's own writes.
+            const changeSubscription = watcher.onDidChange((uri) => gitMarks.invalidate(uri.fsPath));
             return new vscode.Disposable(() => {
                 debouncedRefresh.dispose();
                 createSubscription.dispose();
                 deleteSubscription.dispose();
+                changeSubscription.dispose();
                 watcher.dispose();
             });
         })(),
@@ -357,6 +393,7 @@ export function activate(context: vscode.ExtensionContext): void {
                 explorer.refresh();
                 return;
             }
+            gitMarks.invalidate(projectPath);
             explorer.refreshModuleSubs(projectPath, moduleName);
             const source = vbaIndex.peekModule(projectPath, moduleName)?.source;
             if (source !== undefined) {

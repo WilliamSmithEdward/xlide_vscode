@@ -5,6 +5,9 @@ dist/
 coverage/
 *.vsix
 
+# The VS Code build and workspace the integration tests run against
+.vscode-test/
+
 
 # VS Code
 .vscode/settings.json

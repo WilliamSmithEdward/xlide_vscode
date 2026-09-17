@@ -1,8 +1,10 @@
 import { parseModule } from '../parser/parseModule';
 import type { BodyNode, ModuleNode, ProcedureNode, Span } from '../parser/nodes';
 import { resolveExpressionType, type ExpressionTypeContext } from '../expression/resolveExpressionType';
-import { detectEol, leadingWhitespace } from '../../vbaSourceScan';
+import { detectEol, leadingWhitespace, lineStartAt } from '../../vbaSourceScan';
 import { refactor, refuse, type VbaRefactorResult } from './refactorTypes';
+import { procedureContainingSpan, blankStringLiterals } from './shared';
+import { identifiersIn } from '../lexer/tokenHelpers';
 
 /**
  * Extract Variable: a selected expression is declared and assigned above its
@@ -39,7 +41,7 @@ export function extractVariable(input: ExtractVariableInput): VbaRefactorResult 
 	}
 
 	const module: ModuleNode = parseModule(source);
-	const procedure = procedureAt(module, span);
+	const procedure = procedureContainingSpan(module, span);
 	if (!procedure) {
 		return refuse('Extract Variable works inside a procedure.');
 	}
@@ -67,7 +69,7 @@ export function extractVariable(input: ExtractVariableInput): VbaRefactorResult 
 	}
 
 	const eol = detectEol(source);
-	const lineStart = startOfLine(source, statement.span.start);
+	const lineStart = lineStartAt(source, statement.span.start);
 	const indent = leadingWhitespace(source.slice(lineStart, statement.span.start));
 	const name = input.name ?? uniqueName(nameFor(source.slice(span.start, span.end)), procedure, module, source);
 	const set = typed.isObject ? 'Set ' : '';
@@ -84,15 +86,6 @@ export function extractVariable(input: ExtractVariableInput): VbaRefactorResult 
 		// Where the caret lands afterwards: the declared name, which is the one
 		// thing here the user is likely to want to type over.
 		{ start: lineStart + indent.length + 'Dim '.length, end: lineStart + indent.length + 'Dim '.length + name.length },
-	);
-}
-
-function procedureAt(module: ModuleNode, span: Span): ProcedureNode | undefined {
-	return module.members.find(
-		(member): member is ProcedureNode =>
-			member.kind === 'Procedure'
-			&& span.start >= member.span.start
-			&& span.end <= member.span.end,
 	);
 }
 
@@ -135,11 +128,6 @@ function childrenOf(node: BodyNode): BodyNode[] | undefined {
 	}
 }
 
-function startOfLine(source: string, offset: number): number {
-	const before = source.lastIndexOf('\n', Math.max(offset - 1, 0));
-	return before === -1 ? 0 : before + 1;
-}
-
 /**
  * A name read out of the expression itself: the last identifier in it, which is
  * usually what the value IS - `Range("A1").Value` gives `value`. Falls back to
@@ -147,8 +135,7 @@ function startOfLine(source: string, offset: number): number {
  */
 function nameFor(expression: string): string {
 	// String literals are not names: `Range("A1")` is a range, not an a1.
-	const withoutStrings = expression.replace(/"(?:[^"]|"")*"?/g, '""');
-	const names = withoutStrings.match(/[\p{L}_][\p{L}\p{M}\p{N}_]*/gu) ?? [];
+	const names = identifiersIn(blankStringLiterals(expression));
 	const last = [...names].reverse().find((name) => !RESERVED.has(name.toLowerCase()));
 	if (!last) {
 		return 'value';

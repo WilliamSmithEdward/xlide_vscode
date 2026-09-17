@@ -567,6 +567,14 @@ export function isLeafStatement(node: BodyNode): node is LeafStatementNode {
 	return node.kind === 'Assignment' || node.kind === 'Call' || node.kind === 'Statement';
 }
 
+/** The procedure whose span holds `offset`, header and `End` line included. */
+export function procedureAtOffset(module: ModuleNode, offset: number): ProcedureNode | undefined {
+	return module.members.find(
+		(member): member is ProcedureNode =>
+			member.kind === 'Procedure' && offset >= member.span.start && offset <= member.span.end,
+	);
+}
+
 /** Any node that can appear at module level. */
 export type ModuleMember =
 	| AttributeNode

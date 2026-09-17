@@ -167,22 +167,28 @@ function resolveDirectiveMetadataCompletions(
     const matches = metadataCompletionTemplates(directive.kind)
         .filter((completion) => !usedKeys.has(completion.canonicalKey))
         .filter((completion) => completion.label.toLowerCase().startsWith(typedKey));
-    if (matches.length === 0) {
-        return [];
-    }
+    return completionsReplacing(matches, line, cursor, tokenStart, METADATA_KEY_SUFFIX_RE);
+}
 
+/** The templates as completions over `start` to the end of the token the cursor sits in. */
+function completionsReplacing(
+    matches: readonly Pick<VbaTestDirectiveCompletion, 'label' | 'insertText' | 'detail' | 'documentation' | 'sortText'>[],
+    line: string,
+    cursor: number,
+    start: number,
+    suffix: RegExp,
+): VbaTestDirectiveCompletion[] {
     let end = cursor;
-    while (end < line.length && METADATA_KEY_SUFFIX_RE.test(line[end])) {
+    while (end < line.length && suffix.test(line[end])) {
         end += 1;
     }
-
     return matches.map((completion) => ({
         label: completion.label,
         insertText: completion.insertText,
         detail: completion.detail,
         documentation: completion.documentation,
         sortText: completion.sortText,
-        range: { start: tokenStart, end },
+        range: { start, end },
         exclusive: true,
     }));
 }
@@ -205,24 +211,7 @@ function resolveMetadataValueCompletions(
     const typedValue = line.slice(valueStart, cursor).toLowerCase();
     const matches = valueCompletionTemplates(key, directiveKind)
         .filter((completion) => completion.label.toLowerCase().startsWith(typedValue));
-    if (matches.length === 0) {
-        return [];
-    }
-
-    let end = cursor;
-    while (end < line.length && METADATA_VALUE_SUFFIX_RE.test(line[end])) {
-        end += 1;
-    }
-
-    return matches.map((completion) => ({
-        label: completion.label,
-        insertText: completion.insertText,
-        detail: completion.detail,
-        documentation: completion.documentation,
-        sortText: completion.sortText,
-        range: { start: valueStart, end },
-        exclusive: true,
-    }));
+    return completionsReplacing(matches, line, cursor, valueStart, METADATA_VALUE_SUFFIX_RE);
 }
 
 function directiveAtCommentStart(text: string): { kind: TestDirectiveKind; end: number } | undefined {

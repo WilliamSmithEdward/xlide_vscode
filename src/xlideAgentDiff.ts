@@ -19,6 +19,7 @@
 import * as vscode from 'vscode';
 import { encodeModuleUri, moduleIdentityKey, projectIdentityKey } from './xlideFileSystem';
 import { errorMessage } from './util/errors';
+import { evictOldest } from './util/boundedMap';
 
 export const XLIDE_AGENT_BEFORE_SCHEME = 'xlide-vba-before';
 
@@ -37,6 +38,8 @@ let writeCounter = 0;
 /** Agent writes awaiting a Keep/Revert decision, keyed by module identity.
  * The XLIDE tree badges these until the user resolves them. */
 const pendingReviews = new Map<string, AgentWriteRecord>();
+/** The project and module each pending key names, so the tree can ask per project. */
+const pendingIdentities = new Map<string, { filePath: string; moduleName: string }>();
 const pendingEmitter = new vscode.EventEmitter<{ filePath: string; moduleName: string }>();
 
 /** Fires when a module gains or loses a pending agent review. */
@@ -46,12 +49,41 @@ function pendingKey(filePath: string, moduleName: string): string {
     return `${projectIdentityKey(filePath)}::${moduleIdentityKey(moduleName)}`;
 }
 
+function setPending(filePath: string, moduleName: string, record: AgentWriteRecord): void {
+    const key = pendingKey(filePath, moduleName);
+    pendingReviews.set(key, record);
+    pendingIdentities.set(key, { filePath, moduleName });
+}
+
+function deletePending(filePath: string, moduleName: string): boolean {
+    const key = pendingKey(filePath, moduleName);
+    pendingIdentities.delete(key);
+    return pendingReviews.delete(key);
+}
+
 export function hasPendingAgentReview(filePath: string, moduleName: string): boolean {
     return pendingReviews.has(pendingKey(filePath, moduleName));
 }
 
+/** The modules in one project an agent wrote and nobody has kept or reverted. */
+export function pendingAgentReviewModules(filePath: string): string[] {
+    const project = projectIdentityKey(filePath);
+    const out: string[] = [];
+    for (const identity of pendingIdentities.values()) {
+        if (projectIdentityKey(identity.filePath) === project) {
+            out.push(identity.moduleName);
+        }
+    }
+    return out;
+}
+
+/** Agent writes awaiting a Keep or Revert decision, across every project. */
+export function pendingAgentReviewCount(): number {
+    return pendingReviews.size;
+}
+
 function resolvePendingAgentReview(filePath: string, moduleName: string): void {
-    if (pendingReviews.delete(pendingKey(filePath, moduleName))) {
+    if (deletePending(filePath, moduleName)) {
         pendingEmitter.fire({ filePath, moduleName });
     }
 }
@@ -106,7 +138,7 @@ export async function presentAgentModuleWrite(
         resolvePendingAgentReview(filePath, moduleName);
         return;
     }
-    pendingReviews.set(key, merged);
+    setPending(filePath, moduleName, merged);
     pendingEmitter.fire({ filePath, moduleName });
     await openAgentReviewDiff(filePath, moduleName);
 }
@@ -161,7 +193,7 @@ export async function openAgentReviewDiff(filePath: string, moduleName: string):
         query: `v${writeCounter}`,
     });
     beforeImages.set(beforeUri.toString(), record.before);
-    pruneBeforeImages();
+    evictOldest(beforeImages, BEFORE_IMAGE_CAP);
     try {
         await vscode.commands.executeCommand(
             'vscode.diff',
@@ -227,9 +259,9 @@ export function renamePendingAgentReview(filePath: string, moduleName: string, n
     if (!record) {
         return;
     }
-    pendingReviews.delete(pendingKey(filePath, moduleName));
+    deletePending(filePath, moduleName);
     pendingEmitter.fire({ filePath, moduleName });
-    pendingReviews.set(pendingKey(filePath, newName), record);
+    setPending(filePath, newName, record);
     pendingEmitter.fire({ filePath, moduleName: newName });
 }
 
@@ -240,13 +272,3 @@ function normalizeForCompare(source: string): string {
 }
 
 const BEFORE_IMAGE_CAP = 16;
-
-function pruneBeforeImages(): void {
-    while (beforeImages.size > BEFORE_IMAGE_CAP) {
-        const oldest = beforeImages.keys().next().value;
-        if (oldest === undefined) {
-            return;
-        }
-        beforeImages.delete(oldest);
-    }
-}

@@ -90,7 +90,7 @@
           ]
         }
       ],
-      "problemCount": 4,
+      "problemCount": 5,
       "problems": [
         {
           "moduleName": "Caller",
@@ -130,6 +130,16 @@
           "messageContains": [
             "PrivateOnly.Hidden"
           ]
+        },
+        {
+          "moduleName": "PrivateOnly",
+          "code": "unused-procedure",
+          "line": 3,
+          "severity": "information",
+          "messageContains": [
+            "Hidden",
+            "never called"
+          ]
         }
       ],
       "codes": [
@@ -167,6 +177,13 @@
         {
           "code": "unknown-call",
           "count": 0
+        },
+        {
+          "code": "unused-procedure",
+          "count": 1,
+          "messagesContain": [
+            "Hidden"
+          ]
         }
       ]
     }

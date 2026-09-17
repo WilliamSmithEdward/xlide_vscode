@@ -14,6 +14,7 @@ import { tokenize } from '../lexer/tokenize';
 import { completionCursorContext } from './cursorContext';
 import { HostObjectModel } from '../host/excelObjectModel';
 import {
+	bareTypeName,
 	getHostConstants,
 	getHostGlobalMembers,
 	getHostGlobals,
@@ -554,8 +555,7 @@ function hostGlobalMemberDetail(
 		return member.signature ?? `${host} host method`;
 	}
 	if (member.returns) {
-		const dot = member.returns.lastIndexOf('.');
-		return `${dot >= 0 ? member.returns.slice(dot + 1) : member.returns} object`;
+		return `${bareTypeName(member.returns)} object`;
 	}
 	// A property that chains nowhere still declares a type worth showing.
 	return member.declaredType ? `As ${member.declaredType}` : `${host} host property`;
@@ -568,14 +568,10 @@ function hostGlobalMemberDetail(
  */
 function codeNameDisplayType(name: string, ctx: IdentifierCompletionContext): string {
 	const qualified = ctx.codeNameTypes?.[name.toLowerCase()];
-	if (!qualified) {
-		return 'Worksheet';
-	}
-	const dot = qualified.lastIndexOf('.');
-	return dot >= 0 ? qualified.slice(dot + 1) : qualified;
+	return qualified ? bareTypeName(qualified) : 'Worksheet';
 }
 
-function constantSignature(constant: { name: string; type?: string; value?: string | number }): string {
+export function constantSignature(constant: { name: string; type?: string; value?: string | number }): string {
 	const type = constant.type ? ` As ${constant.type}` : '';
 	const value = constant.value !== undefined ? ` = ${formatConstantValue(constant.value)}` : '';
 	return `Const ${constant.name}${type}${value}`;

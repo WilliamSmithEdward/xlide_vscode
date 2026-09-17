@@ -1,7 +1,8 @@
 import { parseModule } from '../parser/parseModule';
 import type { ModuleNode, ProcedureNode, Span } from '../parser/nodes';
-import { detectEol } from '../../vbaSourceScan';
+import { detectEol, lineStartAt } from '../../vbaSourceScan';
 import { refactor, refuse, type VbaRefactorResult } from './refactorTypes';
+import { escapeForRegExp, lookupModuleSource } from './shared';
 
 /**
  * Implement Interface: a stub for every member an `Implements` promises and
@@ -45,7 +46,7 @@ export function implementInterface(input: ImplementInterfaceInput): VbaRefactorR
 		return refuse(`This class does not implement '${wanted}'.`);
 	}
 
-	const interfaceSource = lookup(input.moduleSources, name);
+	const interfaceSource = lookupModuleSource(input.moduleSources, name);
 	if (interfaceSource === undefined) {
 		return refuse(`The project has no module called '${name}'.`);
 	}
@@ -153,7 +154,7 @@ function headerText(source: string, member: ProcedureNode): string {
 function headerEnd(source: string, span: Span): number {
 	let at = source.indexOf('\n', span.start);
 	if (at === -1) { return span.end; }
-	while (/_[ \t]*\r?$/.test(source.slice(source.lastIndexOf('\n', at - 1) + 1, at))) {
+	while (/_[ \t]*\r?$/.test(source.slice(lineStartAt(source, at), at))) {
 		const next = source.indexOf('\n', at + 1);
 		if (next === -1) { break; }
 		at = next;
@@ -183,20 +184,10 @@ function stubFor(interfaceName: string, member: InterfaceMember, eol: string): s
 }
 
 /** The interfaces an `Implements` line names, in source order. */
-function implementsNames(source: string): string[] {
+export function implementsNames(source: string): string[] {
 	const out: string[] = [];
 	for (const match of source.matchAll(/^[ \t]*Implements[ \t]+([\p{L}_][\p{L}\p{M}\p{N}_.]*)/gimu)) {
 		out.push(match[1]);
 	}
 	return out;
-}
-
-function lookup(sources: Readonly<Record<string, string>>, name: string): string | undefined {
-	const lower = name.toLowerCase();
-	const key = Object.keys(sources).find((k) => k.toLowerCase() === lower);
-	return key === undefined ? undefined : sources[key];
-}
-
-function escapeForRegExp(text: string): string {
-	return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

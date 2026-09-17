@@ -16,6 +16,7 @@
 // wrong knowledge paints wrong diagnostics.
 
 import { Cfb } from './cfb';
+import { skipSiteDepthsAndTypes } from './oforms/formStream';
 
 /** A control the designer declares, as the analyzer wants it. */
 export interface DesignerControl {
@@ -197,18 +198,7 @@ export function parseFormDesignerStreams(
 			// SiteDepthsAndTypes: one entry per site, or one counted entry for a
 			// run of consecutive sites with the same depth and type.
 			const depthsStart = r.pos;
-			let accounted = 0;
-			while (accounted < countOfSites) {
-				r.u8(); // depth
-				const typeOrCount = r.u8();
-				if (typeOrCount & 0x80) {
-					accounted += typeOrCount & 0x7f;
-					r.u8(); // OptionalType
-				} else {
-					accounted += 1;
-				}
-			}
-			if (accounted !== countOfSites) { return undefined; }
+			if (!skipSiteDepthsAndTypes(r, countOfSites)) { return undefined; }
 			r.align(depthsStart, 4);
 
 			const sites: SiteRecord[] = [];

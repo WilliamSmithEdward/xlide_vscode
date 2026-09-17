@@ -17,6 +17,7 @@ import {
 import { measurePerformance } from './performanceTrace';
 import { isVbaAttributeLine, normalizeEol, vbaHeaderBlockEnd } from './vbaSourceScan';
 import { fileExists } from './util/fs';
+import { classifyModuleType } from './vba/projectService';
 
 export type ModuleSyncDirection = 'export' | 'import';
 export type ImportMode = 'updateOnly' | 'trueUpStandardClass';
@@ -93,15 +94,6 @@ interface RepoModuleFile {
     source: string;
     sourcePath: string;
 }
-
-const GUID_RE = /\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}/g;
-const DOCUMENT_CLSIDS = new Set([
-    '{00020819-0000-0000-C000-000000000046}',
-    '{00020820-0000-0000-C000-000000000046}',
-    '{00020821-0000-0000-C000-000000000046}',
-]);
-const VB_BASE_RE = /^\s*Attribute\s+VB_Base\s*=\s*"([^"]*)"/im;
-const DOCUMENT_MODULE_NAME_RE = /^(Sheet|Feuil|Hoja|Tabelle|Foglio|Planilha)\d*$/i;
 
 export async function buildExportModuleSyncPlan(
     bridge: ProjectEngine,
@@ -561,41 +553,11 @@ async function readRepoModuleFile(folder: string, file: string): Promise<RepoMod
     };
 }
 
-/**
- * Infer module type from source content and name.
- *
- * Mirrors classifyModuleType in src/vba/projectService.ts - the shared classification
- * table tests on both sides pin the two implementations together.
- */
-export function classifyModuleType(name: string, source: string): 'standard' | 'document' | 'userform' {
-    const vbBaseMatch = source.match(VB_BASE_RE);
-    const vbBase = vbBaseMatch ? vbBaseMatch[1] : '';
-    if (vbBase) {
-        // UserForms always have TWO GUIDs in VB_Base (type-lib + instance).
-        // Class and document modules each have exactly one.
-        const guids = vbBase.match(GUID_RE) ?? [];
-        if (guids.length >= 2) {
-            return 'userform';
-        }
-        if (guids.some((guid) => DOCUMENT_CLSIDS.has(guid.toUpperCase()))) {
-            return 'document';
-        }
-    }
-    // VB_PredeclaredId=True is shared by Excel document modules and predeclared
-    // class modules. Treating it as document-only misclassifies singleton-style
-    // classes such as stdVBA's stdArray/stdLambda modules.
-    // Well-known document-module names across common Excel locales.
-    if (name === 'ThisWorkbook' || DOCUMENT_MODULE_NAME_RE.test(name)) {
-        return 'document';
-    }
-    return 'standard';
-}
-
 function detectClsSubtype(name: string, source: string): 'class' | 'document' | 'userform' {
     const moduleType = classifyModuleType(name, source);
-    // A .cls file is never a standard module - mirror the VBAModuleKind
-    // upgrade in vba_io._module_entries.
-    return moduleType === 'standard' ? 'class' : moduleType;
+    // A .cls file is a document module, a form, or a class - never a
+    // standard module, which is what the classifier answers for a plain class.
+    return moduleType === 'document' || moduleType === 'userform' ? moduleType : 'class';
 }
 
 function splitLines(text: string): string[] {

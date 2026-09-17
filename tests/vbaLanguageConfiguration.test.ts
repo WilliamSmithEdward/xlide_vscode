@@ -249,6 +249,7 @@ describe('VBA language configuration', () => {
 
 		expect(xlideSettings.map(([key]) => key)).toEqual([
 			'xlide.agent.showWriteDiffs',
+			'xlide.analysis.ignoreFilesOutsideTree',
 			'xlide.analysis.ruleSeverityOverrides',
 			'xlide.analysis.untrackedRules',
 			'xlide.analysis.visibleSeverities',

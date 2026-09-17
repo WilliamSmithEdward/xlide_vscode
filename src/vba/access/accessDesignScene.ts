@@ -5,11 +5,11 @@ import {
 	type AccessDesign,
 	type AccessDesignObject,
 } from './accessDesign';
-import { CONTROL_TYPES, PROPERTY_CODES, PROPERTY_SLOTS } from './accessDesignTable';
+import { CONTROL_TYPES, PROPERTY_CODES } from './accessDesignTable';
 import {
 	accessDesignEffectiveObjects,
-	designObjectHolders,
 	type AccessDesignKind,
+	designObjectChildren,
 } from './accessDesignEdit';
 import { accessPaneVocabulary } from './accessPropertyValues';
 import { cssColor, sceneControl, type FormScene, type SceneControl } from '../oforms/preview';
@@ -174,13 +174,7 @@ export function sceneOfAccessDesign(
 	// own for them, so the canvas draws what Access draws only once they are
 	// folded in.
 	const objects = accessDesignEffectiveObjects(design);
-	const holders = designObjectHolders(objects);
-	const childrenOf = new Map<number, number[]>();
-	holders.forEach((holder, index) => {
-		const list = childrenOf.get(holder) ?? [];
-		list.push(index);
-		childrenOf.set(holder, list);
-	});
+	const childrenOf = designObjectChildren(objects);
 
 	let index = 0;
 	const build = (at: number, offsetPt: number): SceneControl => {
@@ -276,13 +270,6 @@ export function sceneOfAccessDesign(
 		// values behind them, so the pane's built-in tables stay out of it.
 		paneBareEnums: false,
 	};
-}
-
-/** Whether the designer knows how to draw a control of this type. */
-export function accessCanvasKind(typeName: string): string | undefined {
-	return PROPERTY_SLOTS.has(typeName)
-		? (CANVAS_KINDS.get(typeName) ?? typeName)
-		: undefined;
 }
 
 export { accessControlTypeName };

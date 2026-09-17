@@ -192,10 +192,6 @@ export class XlsxWorkbook {
 			?? this.zip.names().find((name) => /(^|\/)vbaProject\.bin$/.test(name));
 	}
 
-	hasVbaProject(): boolean {
-		return this.vbaProjectPath() !== undefined;
-	}
-
 	readVbaProject(): Buffer {
 		const path = this.vbaProjectPath();
 		if (!path) {

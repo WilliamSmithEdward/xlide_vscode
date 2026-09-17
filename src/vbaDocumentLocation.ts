@@ -46,15 +46,6 @@ export function moduleLocationOfUri(uri: vscode.Uri): ModuleLocation | undefined
 	return { projectPath: owner.vbpPath, moduleName: owner.moduleName, moduleType: owner.moduleType, native: true };
 }
 
-/** The location, or an error for the surfaces that cannot work without one. */
-export function moduleLocationOrThrow(document: vscode.TextDocument): ModuleLocation {
-	const location = moduleLocationOfDocument(document);
-	if (!location) {
-		throw new Error('Not a project VBA module: no project or VB6 project claims this document.');
-	}
-	return location;
-}
-
 /**
  * The text the analyzer should see for a document. A project module's
  * virtual document is already the code; a file on disk may open with a

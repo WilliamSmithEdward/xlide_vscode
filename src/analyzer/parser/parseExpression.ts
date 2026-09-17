@@ -207,10 +207,6 @@ class ExpressionParser {
 		return token?.rawText ?? '';
 	}
 
-	private spanFrom(startToken: VbaToken, endToken: VbaToken): Span {
-		return { start: startToken.start, end: endToken.end };
-	}
-
 	private spanOf(expr: ExprNode): Span {
 		return expr.span;
 	}

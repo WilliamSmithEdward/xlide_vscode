@@ -19,7 +19,8 @@ import {
     resolveDiagnosticCodeActions,
     type VbaDiagnosticData,
 } from './analyzer';
-import { lineStartOffsets } from './vbaSourceScan';
+import { lineStartOffsets, offsetToLineColumn } from './vbaSourceScan';
+import { evictOldest } from './util/boundedMap';
 import { analyzeVbaModuleSource, type VbaModuleAnalysisDiagnostic } from './vbaModuleAnalysis';
 import { hostTokenForFileName } from './analyzer/host/hostRegistry';
 import {
@@ -234,20 +235,6 @@ function projectAnalysisProgress(
             }
         },
     };
-}
-
-/** Converts a 0-based character offset to a 1-based {line, column} pair. */
-function offsetToLineColumn(
-    starts: number[],
-    offset: number,
-): { line: number; column: number } {
-    let lo = 0;
-    let hi = starts.length - 1;
-    while (lo < hi) {
-        const mid = (lo + hi + 1) >> 1;
-        if (starts[mid] <= offset) { lo = mid; } else { hi = mid - 1; }
-    }
-    return { line: lo + 1, column: offset - starts[lo] + 1 };
 }
 
 function severityFromRule(s: RuleSeverity): ProjectAnalysisSeverity {
@@ -664,11 +651,7 @@ async function runProjectAnalysis(
             settingsKey,
             result: analysisResult,
         });
-        while (lastProjectAnalysisResults.size > WORKBOOK_ANALYSIS_RESULT_CACHE_MAX) {
-            const oldest = lastProjectAnalysisResults.keys().next().value;
-            if (oldest === undefined) { break; }
-            lastProjectAnalysisResults.delete(oldest);
-        }
+        evictOldest(lastProjectAnalysisResults, WORKBOOK_ANALYSIS_RESULT_CACHE_MAX);
         return analysisResult;
     } catch (err) {
         totalTrace.end(err instanceof vscode.CancellationError ? 'canceled' : 'failed');

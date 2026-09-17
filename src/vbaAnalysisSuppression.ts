@@ -1,5 +1,6 @@
 import { parseModule } from './analyzer/parser/parseModule';
 import type { BodyNode, ModuleMember, Span } from './analyzer/parser/nodes';
+import { lineIndexOf } from './vbaSourceScan';
 import type { ProjectAnalysisSuppressScope } from './projectAnalysisWebview';
 
 /**
@@ -14,7 +15,7 @@ export type AnalysisSuppressionInsertionTarget =
     | { kind: 'member'; startLine: number }
     | { kind: 'block'; startLine: number; endLine: number };
 
-type SuppressibleMember = Extract<ModuleMember, { kind: 'Procedure' | 'Type' | 'Enum' }>;
+export type SuppressibleMember = Extract<ModuleMember, { kind: 'Procedure' | 'Type' | 'Enum' }>;
 type BlockBodyNode = Extract<BodyNode, { body: BodyNode[] }>;
 
 export function suppressionTargetForProblem(
@@ -36,7 +37,7 @@ export function suppressionTargetForProblem(
     if (scope === 'member') {
         return {
             kind: 'member',
-            startLine: lineForOffset(starts, member.span.start),
+            startLine: lineIndexOf(starts, member.span.start),
         };
     }
 
@@ -50,8 +51,8 @@ export function suppressionTargetForProblem(
 
     return {
         kind: 'block',
-        startLine: lineForOffset(starts, block.span.start),
-        endLine: lineForOffset(starts, Math.max(block.span.start, block.span.end - 1)),
+        startLine: lineIndexOf(starts, block.span.start),
+        endLine: lineIndexOf(starts, Math.max(block.span.start, block.span.end - 1)),
     };
 }
 
@@ -64,7 +65,7 @@ function moduleSuppressionInsertLine(source: string): number {
     return line;
 }
 
-function containingSuppressibleMember(
+export function containingSuppressibleMember(
     members: readonly ModuleMember[],
     offset: number,
 ): SuppressibleMember | undefined {
@@ -76,7 +77,7 @@ function containingSuppressibleMember(
         .sort((left, right) => spanLength(left.span) - spanLength(right.span))[0];
 }
 
-function closestContainingBlock(nodes: readonly BodyNode[], offset: number): BlockBodyNode | undefined {
+export function closestContainingBlock(nodes: readonly BodyNode[], offset: number): BlockBodyNode | undefined {
     let best: BlockBodyNode | undefined;
     for (const node of nodes) {
         if (!isBlockBodyNode(node) || !spanContainsOffset(node.span, offset)) {
@@ -106,18 +107,4 @@ export function spanContainsOffset(span: Span, offset: number): boolean {
 
 export function spanLength(span: Span): number {
     return Math.max(1, span.end - span.start);
-}
-
-function lineForOffset(starts: readonly number[], offset: number): number {
-    let lo = 0;
-    let hi = starts.length - 1;
-    while (lo < hi) {
-        const mid = (lo + hi + 1) >> 1;
-        if (starts[mid] <= offset) {
-            lo = mid;
-        } else {
-            hi = mid - 1;
-        }
-    }
-    return lo;
 }

@@ -19,11 +19,10 @@ import {
 } from '../callExtraction';
 import {
 	callableTypeSignaturesFor,
-	declaredValueTypeForQualifiedSourceBinding,
-	declaredValueTypeForSourceBinding,
 	expressionCalls,
 	memberExpressionCalls,
 	memberStatementCalls,
+	sourceBindingTypeResolvers,
 	sourceNameScopeFor,
 	typeEnvironmentFor,
 	validateArgumentTypes,
@@ -52,19 +51,8 @@ export function checkArgumentTypes(
 		const env = typeEnvironmentFor(symbols, member);
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
 		const procSym = procedureSymbolFor(symbols, member);
-		const resolveExpressionType = (name: string) => declaredValueTypeForSourceBinding(
-			symbols,
-			procSym,
-			projectVisibleSymbols,
-			name,
-		);
-		const resolveQualifiedExpressionType = (qualifier: string, name: string) =>
-			declaredValueTypeForQualifiedSourceBinding(
-				symbols,
-				projectVisibleSymbols,
-				qualifier,
-				name,
-			);
+		const { resolveExpressionType, resolveQualifiedExpressionType } =
+			sourceBindingTypeResolvers(symbols, procSym, projectVisibleSymbols);
 		return (stmt) => {
 			for (const call of expressionCalls(source, stmt.span, moduleSignatures, sourceNames)) {
 				validateArgumentTypes(

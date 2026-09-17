@@ -386,7 +386,7 @@ describe('enumerations are part of the model', () => {
 	});
 
 	it('does not call an enum qualifier an undeclared variable', () => {
-		const src = 'Option Explicit\nSub T()\n    Dim k As Long\n    k = XlAxisType.xlCategory\nEnd Sub\n';
+		const src = 'Option Explicit\nSub T()\n    Dim k As Long\n    k = XlAxisType.xlCategory\n    Debug.Print k\nEnd Sub\n';
 		expect(analyzeModule(src, { host: 'excel', knownIdentifiers: new Set<string>() })).toEqual([]);
 	});
 

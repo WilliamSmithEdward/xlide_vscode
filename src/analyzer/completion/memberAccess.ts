@@ -41,6 +41,7 @@ import {
 	resolveHostGlobal,
 	resolveHostEnum,
 	resolveHostGlobalMember,
+	bareTypeName,
 } from '../host/hostModel';
 import { derivedConstantDoc, derivedMemberDoc } from '../host/hostMemberDocs';
 import {
@@ -615,7 +616,7 @@ function receiverTypeFromTokens(
 // default member (Item/_Default) and the creation method Add. A call to one of
 // these must not be element-indexed again, or a collection whose element is
 // itself a collection (e.g. SparklineGroups.Item(1)) over-resolves one level.
-function isExplicitElementAccessor(name: string): boolean {
+export function isExplicitElementAccessor(name: string): boolean {
 	const lower = name.toLowerCase();
 	return lower === 'item' || lower === '_default' || lower === 'add';
 }
@@ -1020,7 +1021,7 @@ function activeWithExpressionsAt(
 	ctx: MemberCompletionContext,
 ): ActiveWithExpression[] {
 	const scan = activeWithScanWindow(source, offset, ctx);
-	const index = withScanIndex(source, scan, ctx);
+	const index = withScanIndex(scan, ctx);
 	// Resume from the last complete statement before `offset` rather than from
 	// the top of the procedure, then finish the partial statement the offset
 	// sits in. Same answer, paid once per procedure instead of once per dot.
@@ -1072,7 +1073,6 @@ interface WithScanIndex {
 }
 
 function withScanIndex(
-	source: string,
 	scan: { text: string; sliceStart: number; procedureStart: number; windowEnd: number },
 	ctx: MemberCompletionContext,
 ): WithScanIndex {
@@ -1082,7 +1082,7 @@ function withScanIndex(
 	if (cached) {
 		return cached;
 	}
-	const window = withScanTokens(source, scan, Number.MAX_SAFE_INTEGER, ctx);
+	const window = withScanTokens(scan, Number.MAX_SAFE_INTEGER, ctx);
 	const boundaries: number[] = [];
 	const stacks: ActiveWithExpression[][] = [];
 	const resumeAt: number[] = [];
@@ -1144,7 +1144,6 @@ function lastBoundaryAtOrBefore(boundaries: readonly number[], offset: number): 
  * slice start the callers add is zero.
  */
 function withScanTokens(
-	source: string,
 	scan: { text: string; sliceStart: number; windowEnd: number },
 	offset: number,
 	ctx: MemberCompletionContext,
@@ -1251,7 +1250,7 @@ function memberSurfaceForType(
 			return undefined;
 		}
 		return {
-			owner: union.map(displayTypeName).join(' | '),
+			owner: union.map(bareTypeName).join(' | '),
 			members: mergeCompletionMembers(...surfaces.map((surface) => surface.members)),
 			exhaustive: surfaces.every((surface) => surface.exhaustive),
 		};
@@ -1666,11 +1665,6 @@ function typeKeyFor(types: readonly string[]): string {
 	return out.length === 1
 		? out[0]
 		: `${UNION_TYPE_PREFIX}${out.join(UNION_TYPE_SEPARATOR)}`;
-}
-
-function displayTypeName(typeName: string): string {
-	const dot = typeName.lastIndexOf('.');
-	return dot >= 0 ? typeName.slice(dot + 1) : typeName;
 }
 
 function mergeCompletionMembers(

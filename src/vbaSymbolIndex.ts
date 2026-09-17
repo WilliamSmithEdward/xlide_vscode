@@ -211,15 +211,6 @@ export class VbaSymbolIndex implements vscode.Disposable {
     }
 
     /**
-     * Refreshes a single module's source from disk.
-     * Useful immediately after a write so the cache reflects the new content.
-     */
-    async refreshModule(projectPath: string, moduleName: string): Promise<VbaModuleSymbols> {
-        this.invalidate(projectPath, moduleName);
-        return this.getModule(projectPath, moduleName);
-    }
-
-    /**
      * Updates one cached module directly from an already-known source snapshot.
      * This avoids a bridge round-trip after saving a virtual VBA editor buffer.
      */

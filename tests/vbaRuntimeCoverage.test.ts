@@ -227,11 +227,11 @@ describe('the reported false positives are gone (issue #41)', () => {
         ['Time statement', 'Option Explicit\nSub T()\n    Time = #12:00:00 PM#\nEnd Sub\n'],
         ['Unload statement', 'Option Explicit\nSub T()\n    Unload UserForm1\nEnd Sub\n'],
         ['Load statement', 'Option Explicit\nSub T()\n    Load UserForm1\nEnd Sub\n'],
-        ['Line Input', 'Option Explicit\nSub T()\n    Dim s As String\n    Line Input #1, s\nEnd Sub\n'],
-        ['FileAttr', 'Option Explicit\nSub T()\n    Dim n As Long\n    n = FileAttr(1, 1)\nEnd Sub\n'],
-        ['IMEStatus', 'Option Explicit\nSub T()\n    Dim n As Long\n    n = IMEStatus\nEnd Sub\n'],
-        ['MacID', 'Option Explicit\nSub T()\n    Dim s As String\n    s = Dir("x", MacID("TEXT"))\nEnd Sub\n'],
-        ['fmMatchEntry', 'Option Explicit\nSub T()\n    Dim x As Long\n    x = fmMatchEntryComplete\nEnd Sub\n'],
+        ['Line Input', 'Option Explicit\nSub T()\n    Dim s As String\n    Line Input #1, s\n    Debug.Print s\nEnd Sub\n'],
+        ['FileAttr', 'Option Explicit\nSub T()\n    Dim n As Long\n    n = FileAttr(1, 1)\n    Debug.Print n\nEnd Sub\n'],
+        ['IMEStatus', 'Option Explicit\nSub T()\n    Dim n As Long\n    n = IMEStatus\n    Debug.Print n\nEnd Sub\n'],
+        ['MacID', 'Option Explicit\nSub T()\n    Dim s As String\n    s = Dir("x", MacID("TEXT"))\n    Debug.Print s\nEnd Sub\n'],
+        ['fmMatchEntry', 'Option Explicit\nSub T()\n    Dim x As Long\n    x = fmMatchEntryComplete\n    Debug.Print x\nEnd Sub\n'],
     ])('%s analyzes clean', (_label, source) => {
         expect(analyze(source)).toEqual([]);
     });

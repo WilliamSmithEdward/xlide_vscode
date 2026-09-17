@@ -63,6 +63,7 @@ export type VbaProjectAnalysisOptions = Pick<
     | 'projectTypes'
     | 'projectVisibleSymbols'
     | 'projectIntegerConstants'
+    | 'projectStringLiteralWords'
     | 'implicitMembers'
     | 'implementedInterfaces'
     | 'conditionalCompilation'
@@ -221,6 +222,7 @@ export function projectAnalysisOptionsForModule(
         options.projectVisibleSymbols = project.visibleIdentifierSymbols(moduleName);
         options.projectClassMembers = project.projectMemberSurfaces(moduleName);
         options.projectIntegerConstants = project.visibleExternalIntegerConstantExpressions(moduleName);
+        options.projectStringLiteralWords = project.stringLiteralWords();
         options.implementedInterfaces = project.implementedInterfaceNames();
         // The rules must see the same constants the symbol table was built
         // with, or a branch dropped from the symbols would still be analyzed.

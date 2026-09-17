@@ -17,6 +17,15 @@ Use one of these entry points:
 - **Analyze Project** from the file tree or XLIDE Activity Bar/sidebar.
 - `xlide_analyzeProject` from an AI-agent workflow.
 
+Live diagnostics cover the modules the XLIDE tree lists: the ones inside a
+workbook, document, presentation or database, and the files a VB6 project
+names. A `.bas`, `.cls` or `.frm` on disk that no project claims is left
+alone. That is usually an exported copy of a module the tree already analyzes,
+and analyzing it too would show every finding twice in the Problems panel.
+Completion, hover and navigation still work in those files. To analyze them as
+standalone modules, turn off `xlide.analysis.ignoreFilesOutsideTree`, shown as
+**Ignore Files Outside The XLIDE Tree** in Global Settings.
+
 File analysis opens a dedicated results panel. It groups findings by module,
 shows counts, supports severity filters, can show suppressed diagnostics, and
 links each finding back to the module and source line.
@@ -37,6 +46,29 @@ Common result meanings:
   it from the active result set.
 - **Untracked** - the rule is intentionally hidden from tracking globally or for
   this file.
+
+## Dead Code
+
+Four rules point at code the module does not need. They report as
+Information, and the editor fades the range instead of underlining it.
+
+| Code | Reports | Never reports |
+|---|---|---|
+| `unused-variable` | A local, or a module-level `Private`/`Dim` variable or constant, that nothing in its scope names. | `Public` and `WithEvents` declarations, and variables with attributes. |
+| `variable-never-read` | A variable whose every mention assigns to it. | A `For` counter, an array written by element, a `ReDim Preserve`, a `Mid` target, or a variable passed to a procedure. Those count as reads. |
+| `unused-procedure` | A `Private` Sub, Function or Property that nothing in its module calls and no string in the project names. | `Public` procedures, event handlers, interface members, `Auto_Open` and friends, and procedures with attributes. |
+| `unreachable-code` | Statements after `Exit Sub`, `Exit Do`, `GoTo`, `Resume`, `End` or `Return` in the same block. | Anything after a label, a line number, a `Case` arm or a `#If`, which give control somewhere to land. |
+
+Public procedures are left alone on purpose. A button, a shape, the ribbon, a
+hotkey, `OnTime` or `Application.Run` in another file can all call one, and
+XLIDE cannot see any of them. A Private procedure can only be reached from its
+own module, or by name in a string, so every string literal in the project is
+searched before it is reported.
+
+`unused-variable` offers a quick fix that removes the declaration, and
+`unreachable-code` one that removes the lines. To silence a rule, set it to
+`off` in `xlide.analysis.ruleSeverityOverrides`, or untrack it from the
+analysis results panel.
 
 ## Filter And Track Rules
 
@@ -164,6 +196,11 @@ If a diagnostic does not disappear:
 - Check the analysis results panel for directive diagnostics.
 - Fix malformed `<file>.xlide_settings.json` files before expecting per-file
   overrides to apply.
+
+If a `.bas`, `.cls` or `.frm` file shows no diagnostics at all, check whether
+it belongs to a project in the XLIDE tree. A file no project claims is not
+analyzed while `xlide.analysis.ignoreFilesOutsideTree` is on, which is the
+default.
 
 If you are unsure whether to suppress a finding, leave it visible and use
 tracking/settings first. Source suppressions are best when the reason is stable

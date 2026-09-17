@@ -1,5 +1,5 @@
 import { encodeCodePage } from '../codePages';
-import { readDirRecords } from '../vbaProject';
+import { dirRecord, readDirRecords } from '../vbaProject';
 import { AccessFormatError } from './accessFormat';
 
 /**
@@ -88,13 +88,6 @@ export function splitModuleSource(text: string): { attributes: string[]; body: s
 	return { attributes: lines.slice(0, at), body: lines.slice(at) };
 }
 
-function record(id: number, payload: Buffer): Buffer {
-	const head = Buffer.alloc(6);
-	head.writeUInt16LE(id, 0);
-	head.writeUInt32LE(payload.length, 2);
-	return Buffer.concat([head, payload]);
-}
-
 /**
  * The eleven records a module contributes to the dir stream. A character the
  * code page cannot hold folds to `?` in the ANSI record and stays exact in the
@@ -108,17 +101,17 @@ export function moduleDirBlock(
 	codePage: number,
 ): Buffer {
 	return Buffer.concat([
-		record(REC_MODULENAME, encodeCodePage(name, codePage)),
-		record(REC_MODULENAME_UNICODE, Buffer.from(name, 'utf16le')),
-		record(REC_MODULESTREAMNAME, encodeCodePage(streamName, codePage)),
-		record(REC_MODULESTREAMNAME_UNICODE, Buffer.from(streamName, 'utf16le')),
-		record(REC_MODULEDOCSTRING, Buffer.alloc(0)),
-		record(REC_MODULEDOCSTRING_UNICODE, Buffer.alloc(0)),
-		record(REC_MODULEOFFSET, Buffer.alloc(4)),
-		record(REC_MODULEHELPCONTEXT, Buffer.alloc(4)),
-		record(REC_MODULEEND2, cookie),
-		record(kind === 'class' ? REC_MODULETYPE_CLASS : REC_MODULETYPE_PROCEDURAL, Buffer.alloc(0)),
-		record(REC_MODULEEND, Buffer.alloc(0)),
+		dirRecord(REC_MODULENAME, encodeCodePage(name, codePage)),
+		dirRecord(REC_MODULENAME_UNICODE, Buffer.from(name, 'utf16le')),
+		dirRecord(REC_MODULESTREAMNAME, encodeCodePage(streamName, codePage)),
+		dirRecord(REC_MODULESTREAMNAME_UNICODE, Buffer.from(streamName, 'utf16le')),
+		dirRecord(REC_MODULEDOCSTRING, Buffer.alloc(0)),
+		dirRecord(REC_MODULEDOCSTRING_UNICODE, Buffer.alloc(0)),
+		dirRecord(REC_MODULEOFFSET, Buffer.alloc(4)),
+		dirRecord(REC_MODULEHELPCONTEXT, Buffer.alloc(4)),
+		dirRecord(REC_MODULEEND2, cookie),
+		dirRecord(kind === 'class' ? REC_MODULETYPE_CLASS : REC_MODULETYPE_PROCEDURAL, Buffer.alloc(0)),
+		dirRecord(REC_MODULEEND, Buffer.alloc(0)),
 	]);
 }
 
@@ -179,7 +172,7 @@ export function renameInDir(dir: Buffer, oldName: string, newName: string, codeP
 		[REC_MODULENAME, (text: string) => encodeCodePage(text, codePage)],
 		[REC_MODULENAME_UNICODE, (text: string) => Buffer.from(text, 'utf16le')],
 	] as const) {
-		const header = record(id, encode(oldName));
+		const header = dirRecord(id, encode(oldName));
 		const at = out.indexOf(header);
 		if (at < 0) {
 			throw new AccessFormatError(
@@ -187,7 +180,7 @@ export function renameInDir(dir: Buffer, oldName: string, newName: string, codeP
 			);
 		}
 		out = Buffer.concat([
-			out.subarray(0, at), record(id, encode(newName)), out.subarray(at + header.length),
+			out.subarray(0, at), dirRecord(id, encode(newName)), out.subarray(at + header.length),
 		]);
 	}
 	return out;

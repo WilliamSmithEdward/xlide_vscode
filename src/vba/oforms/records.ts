@@ -442,7 +442,7 @@ export function parseRecord(
 }
 
 /** A GuidAndPicture: 16-byte CLSID, 4-byte preamble, 4-byte size, data. */
-function readGuidAndPicture(r: OformsReader): Buffer {
+export function readGuidAndPicture(r: OformsReader): Buffer {
 	const start = r.pos;
 	r.bytes(16);
 	r.u32(); // preamble
@@ -571,13 +571,6 @@ export function setRecordString(rec: ParsedRecord, name: string, text: string | 
 	const compressed = existing ? existing.compressed : [...text].every((c) => c.charCodeAt(0) <= 0xff);
 	applyMaskBit(rec, extra.bit, true);
 	rec.strings.set(name, { text, compressed, raw: Buffer.alloc(0), edited: true });
-}
-
-export function setRecordSize(rec: ParsedRecord, widthHimetric: number, heightHimetric: number): void {
-	const extra = rec.spec.extra.find((f) => f.kind === 'size8');
-	if (!extra) { throw new RangeError(`${rec.spec.type} has no Size`); }
-	applyMaskBit(rec, extra.bit, true);
-	rec.sizes.set(extra.name, { width: widthHimetric, height: heightHimetric });
 }
 
 function applyMaskBit(rec: ParsedRecord, bit: number, on: boolean): void {

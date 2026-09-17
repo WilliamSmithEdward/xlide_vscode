@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import type { ProjectEngine } from '../src/projectEngine';
+import { fakeProjectEngine } from './helpers/fakeProjectEngine';
 import {
 	exportProjectModule,
 	exportProjectModules,
@@ -12,12 +12,6 @@ import {
 	settingsPathForProject,
 	writeProjectSettings,
 } from '../src/projectSettings';
-
-interface FakeModule {
-	name: string;
-	type: string;
-	source: string;
-}
 
 const tempRoots: string[] = [];
 
@@ -36,28 +30,6 @@ function tempWorkbook(): { root: string; project: string; exportFolder: string }
 	return { root, project, exportFolder };
 }
 
-function fakeBridge(modules: readonly FakeModule[]): ProjectEngine {
-	return {
-		async call<T>(method: string, args: Record<string, unknown>): Promise<T> {
-			if (method === 'listModules') {
-				return modules.map((mod) => ({ name: mod.name, type: mod.type })) as T;
-			}
-			if (method === 'readModule') {
-				const moduleName = String(args.module ?? '').toLowerCase();
-				const mod = modules.find((candidate) => candidate.name.toLowerCase() === moduleName);
-				if (!mod) {
-					throw new Error(`Unknown module ${String(args.module)}`);
-				}
-				return { source: mod.source } as T;
-			}
-			if (method === 'readModules') {
-				return modules.map((mod) => ({ ...mod })) as T;
-			}
-			throw new Error(`Unexpected bridge call ${method}`);
-		},
-	} as ProjectEngine;
-}
-
 describe('moduleExport', () => {
 	it('exports one module and writes only project sync settings to the sidecar', async () => {
 		const { project, exportFolder } = tempWorkbook();
@@ -65,7 +37,7 @@ describe('moduleExport', () => {
 			exportFolder,
 			exportMode: 'trueUp',
 		});
-		const bridge = fakeBridge([
+		const bridge = fakeProjectEngine([
 			{ name: 'Module1', type: 'standard', source: 'Attribute VB_Name = "Module1"\nSub T()\nEnd Sub\n' },
 			{ name: 'Other', type: 'standard', source: 'Sub Other()\nEnd Sub\n' },
 		]);
@@ -100,7 +72,7 @@ describe('moduleExport', () => {
 			exportFolder,
 			exportMode: 'trueUp',
 		});
-		const bridge = fakeBridge([
+		const bridge = fakeProjectEngine([
 			{ name: 'Module1', type: 'standard', source: 'Sub T()\nEnd Sub\n' },
 			{ name: 'Person', type: 'class', source: 'VERSION 1.0 CLASS\n' },
 		]);
@@ -133,7 +105,7 @@ describe('moduleExport', () => {
 		fs.writeFileSync(path.join(exportFolder, 'nested', 'StaleClass.cls'), 'keep', 'utf8');
 		await writeProjectSettings(project, { exportFolder, exportMode: 'trueUp' });
 
-		const result = await exportProjectModules(fakeBridge([
+		const result = await exportProjectModules(fakeProjectEngine([
 			{ name: 'Module1', type: 'standard', source: 'Sub T()\nEnd Sub\n' },
 		]), { filePath: project });
 
@@ -157,7 +129,7 @@ describe('moduleExport', () => {
 			},
 		});
 
-		await exportProjectModules(fakeBridge([
+		await exportProjectModules(fakeProjectEngine([
 			{ name: 'Module1', type: 'standard', source: 'Sub T()\nEnd Sub\n' },
 		]), { filePath: project, exportMode: 'trueUp' });
 
@@ -185,7 +157,7 @@ describe('non-ASCII export bytes (issue #6, the "exporting" half)', () => {
 			exportMode: 'exportAll',
 		});
 		const source = "' Модуль: mdTest\nSub Проверка()\nEnd Sub\n";
-		const bridge = fakeBridge([
+		const bridge = fakeProjectEngine([
 			{ name: 'mdTest', type: 'standard', source },
 		]);
 

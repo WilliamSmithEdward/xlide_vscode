@@ -179,6 +179,16 @@ export interface CloseWorkbookResult {
     error?: string;
 }
 
+/** Runs one coordination script under the caller's logging and a 20 second budget. */
+function runCoordinationScript(script: string, log: (message: string) => void) {
+    return runPowerShell({
+        args: ['-Command', script],
+        timeoutMs: 20000,
+        onStdoutLine: (line) => log(`[excelCoord stdout] ${line}`),
+        onStderrLine: (line) => log(`[excelCoord stderr] ${line}`),
+    }).result;
+}
+
 /** Runs the close script. Rejects only on a PowerShell spawn failure. */
 export async function closeWorkbookInExcel(
     filePath: string,
@@ -190,13 +200,7 @@ export async function closeWorkbookInExcel(
     }
     const script = buildCloseWorkbookScript(filePath, options.force);
     log(`[excelCoord] close (force=${options.force}): ${filePath}`);
-    const run = runPowerShell({
-        args: ['-Command', script],
-        timeoutMs: 20000,
-        onStdoutLine: (line) => log(`[excelCoord stdout] ${line}`),
-        onStderrLine: (line) => log(`[excelCoord stderr] ${line}`),
-    });
-    const result = await run.result;
+    const result = await runCoordinationScript(script, log);
     if (result.spawnError) {
         return { closed: false, stillLocked: true, error: result.spawnError.message };
     }
@@ -328,13 +332,7 @@ export async function refreshReadOnlyViewAfterSave(
     const script = buildRefreshReadOnlyScript(filePath);
     log(`[excelCoord] refresh read-only view: ${filePath}`);
     try {
-        const run = runPowerShell({
-            args: ['-Command', script],
-            timeoutMs: 20000,
-            onStdoutLine: (line) => log(`[excelCoord stdout] ${line}`),
-            onStderrLine: (line) => log(`[excelCoord stderr] ${line}`),
-        });
-        const result = await run.result;
+        const result = await runCoordinationScript(script, log);
         const sentinel = result.stdoutLines.find((line) => line.startsWith(REFRESH_SENTINEL));
         if (sentinel && /refreshed=True/i.test(sentinel)) {
             markWorkbookOpenedByXlide(filePath);

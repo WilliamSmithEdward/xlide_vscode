@@ -9,7 +9,6 @@
 // share one computation without threading a context object through every
 // helper signature.
 
-import type { VbaToken } from '../lexer/tokenKinds';
 import { getHostMembers, resolveHostGlobal } from '../host/hostModel';
 import type { ModuleNode, Span } from '../parser/nodes';
 import type { buildModuleSymbols } from '../symbols/buildModuleSymbols';
@@ -86,10 +85,29 @@ export interface VbaDeclareVariableData {
 	};
 }
 
+/** The edit that removes a declaration nothing uses. */
+export interface VbaRemoveDeclarationData {
+	variableName: string;
+	edit: {
+		span: Span;
+		newText: string;
+	};
+}
+
+/** The edit that removes the statements nothing can reach. */
+export interface VbaRemoveUnreachableCodeData {
+	edit: {
+		span: Span;
+		newText: string;
+	};
+}
+
 export interface VbaDiagnosticData {
 	missingRequiredArgumentPlaceholder?: VbaMissingRequiredArgumentPlaceholderData;
 	createProcedureStub?: VbaCreateProcedureStubData;
 	declareVariable?: VbaDeclareVariableData;
+	removeDeclaration?: VbaRemoveDeclarationData;
+	removeUnreachableCode?: VbaRemoveUnreachableCodeData;
 }
 
 /** Per-rule severity overrides keyed by stable diagnostic code; `'off'` disables an allowed rule. */
@@ -166,6 +184,14 @@ export interface AnalyzeModuleOptions {
 	 * Used as a conservative base for deterministic runtime-value diagnostics.
 	 */
 	projectIntegerConstants?: ReadonlyMap<string, string | undefined>;
+	/**
+	 * Lowercased identifier-shaped words inside every string literal in the
+	 * project (from ProjectIndex.stringLiteralWords). A Private procedure
+	 * named in one may be reached through `Application.Run`, `OnTime` or a
+	 * control's `OnAction`, so the unused-procedure rule treats the name as
+	 * used. When omitted, the module's own string literals are searched.
+	 */
+	projectStringLiteralWords?: ReadonlySet<string>;
 	/** Host object model metadata. Defaults to Excel's curated non-exhaustive model. */
 	hostModel?: HostObjectModel;
 	/**

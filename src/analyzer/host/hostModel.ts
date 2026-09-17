@@ -183,6 +183,12 @@ export function getHostType(
  * and so does a model without a hostName, keeping the historical wording for
  * models that predate the field (issue #28).
  */
+/** Bare type name from a qualified one: "Excel.Range" -> "Range". */
+export function bareTypeName(qualified: string): string {
+	const dot = qualified.lastIndexOf('.');
+	return dot >= 0 ? qualified.slice(dot + 1) : qualified;
+}
+
 export function hostDisplayName(model?: HostObjectModel): string {
 	return model?.hostName ?? 'Excel';
 }

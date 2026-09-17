@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import * as vscode from 'vscode';
+import { fakeConfig } from './helpers/fakeConfig';
 
 vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 
@@ -209,25 +210,3 @@ describe('globalSettingsWebview', () => {
         registration.dispose();
     });
 });
-
-function fakeConfig(
-    values: Record<string, unknown>,
-    machineKeys = new Set<string>(),
-    updates: Array<{ key: string; value: unknown; target: unknown }> = [],
-): vscode.WorkspaceConfiguration {
-    return {
-        get: (key: string, fallback?: unknown) => key in values ? values[key] : fallback,
-        inspect: (key: string) => machineKeys.has(key) ? { globalValue: values[key] } : {},
-        update: (key: string, value: unknown, target?: unknown) => {
-            if (value === undefined) {
-                delete values[key];
-                machineKeys.delete(key);
-            } else {
-                values[key] = value;
-                machineKeys.add(key);
-            }
-            updates.push({ key, value, target });
-            return Promise.resolve();
-        },
-    } as unknown as vscode.WorkspaceConfiguration;
-}

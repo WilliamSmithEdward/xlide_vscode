@@ -4,7 +4,8 @@ import type { ModuleMember, ModuleNode, Span } from '../parser/nodes';
 import { parseModule } from '../parser/parseModule';
 import type { VbaDiagnostic } from './analyzeModule';
 import { diagnosticMetadataForCode, DIAGNOSTIC_RULES } from './ruleMetadata';
-import { lineStartOffsets } from '../../vbaSourceScan';
+import { lineIndexOf, lineStartOffsets } from '../../vbaSourceScan';
+import { tokenWord } from '../lexer/tokenHelpers';
 
 export const ANALYSIS_SUPPRESSION_DIRECTIVE_CODE = DIAGNOSTIC_RULES.analysisSuppressionDirective.code;
 
@@ -184,7 +185,7 @@ export function scanAnalysisSuppressions(
 			});
 		},
 		isDiagnosticSuppressed(code, span) {
-			const line = lineForOffset(lineStarts, span.start);
+			const line = lineIndexOf(lineStarts, span.start);
 			return diagnosticSuppressedAt(state, code, line, span);
 		},
 	};
@@ -442,7 +443,7 @@ function firstNonCommentNonAttributeLine(
 			summaries.set(token.line, summary);
 		}
 		if (!summary.hasSourceToken) {
-			summary.isAttributeLine = tokenText(token) === 'attribute';
+			summary.isAttributeLine = tokenWord(token) === 'attribute';
 		}
 		summary.hasSourceToken = true;
 	}
@@ -477,21 +478,3 @@ function nextDirectSuppressibleMember(
 	return members.find((member) => member.span.start === nextToken.start);
 }
 
-function tokenText(token: VbaToken): string {
-	return (token.canonicalText ?? token.rawText).toLowerCase();
-}
-
-
-function lineForOffset(starts: readonly number[], offset: number): number {
-	let lo = 0;
-	let hi = starts.length - 1;
-	while (lo < hi) {
-		const mid = (lo + hi + 1) >> 1;
-		if (starts[mid] <= offset) {
-			lo = mid;
-		} else {
-			hi = mid - 1;
-		}
-	}
-	return lo;
-}

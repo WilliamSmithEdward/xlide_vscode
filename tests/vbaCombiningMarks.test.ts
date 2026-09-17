@@ -26,6 +26,7 @@ function moduleUsing(name: string): string {
 		'Public Sub Probe()',
 		`    Dim ${name} As String`,
 		`    ${name} = "ok"`,
+		`    Debug.Print ${name}`,
 		'End Sub',
 		'',
 	].join('\r\n');
@@ -37,7 +38,7 @@ describe('identifiers containing combining marks', () => {
 		['Devanagari (Mc matra)', DEVANAGARI],
 		['Thai without marks', THAI_PLAIN],
 	])('lexes %s as one identifier', (_label, name) => {
-		expect(identifiersIn(moduleUsing(name))).toEqual(['Probe', name, name]);
+		expect(identifiersIn(moduleUsing(name))).toEqual(['Probe', name, name, name]);
 	});
 
 	it.each([

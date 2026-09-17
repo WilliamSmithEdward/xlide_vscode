@@ -1,5 +1,5 @@
 import type { Span } from '../parser/nodes';
-import { findIdentifierOccurrences, stripVba } from '../../vbaSourceScan';
+import { findIdentifierOccurrences, lineStartAt, stripVba } from '../../vbaSourceScan';
 
 /**
  * Where a procedure is called, and where an argument would go.
@@ -60,7 +60,7 @@ export function callSitesOf(
 
 /** The line declares the procedure rather than calling it. */
 function isDeclaration(source: string, offset: number): boolean {
-	const lineStart = source.lastIndexOf('\n', Math.max(offset - 1, 0)) + 1;
+	const lineStart = lineStartAt(source, offset);
 	const before = stripVba(source.slice(lineStart, offset));
 	return /\b(?:Sub|Function|Property\s+(?:Get|Let|Set)|Declare)\s+$/i.test(before)
 		|| /^\s*(?:Public|Private|Friend|Static)?\s*(?:Static\s+)?(?:Sub|Function|Property)\b/i.test(

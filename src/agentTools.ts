@@ -39,6 +39,7 @@ import {
 } from './vbaTestRunner';
 import { formatChangeSummary, withWriteAudit } from './xlideWriteAudit';
 import { registerXlideCommand } from './xlideCommandRegistration';
+import { gitChangesReport, gitModuleCompareDeps, type GitModuleCompareDeps } from './gitModuleCompare';
 
 // --------------------------------------------------------------------------
 // Input types matching the inputSchema in package.json
@@ -71,6 +72,7 @@ interface ReadFormulasInput { filePath: string; sheet: string; range: string; }
 interface WriteCellsInput  { filePath: string; sheet: string; startCell: string; data: unknown[][]; }
 interface ExportModulesInput { filePath: string; exportFolder?: string; exportMode?: ExportMode; }
 interface ConfigureExportModeInput { filePath: string; exportMode: ExportMode; }
+interface GitChangesInput { filePath: string; revision?: string; moduleName?: string; }
 
 function textResult(value: string): vscode.LanguageModelToolResult {
     return new vscode.LanguageModelToolResult([
@@ -104,6 +106,7 @@ export function registerAgentTools(
     explorer: ProjectExplorer,
     fsProvider: XlideFileSystemProvider,
     vbaIndex: VbaSymbolIndex,
+    gitDeps: GitModuleCompareDeps = gitModuleCompareDeps(bridge),
 ): vscode.Disposable[] {
     const ops: ProjectModuleOperationDeps = { bridge, explorer, fsProvider, vbaIndex };
     // Revert runs through the same audited write path as the tools, so the
@@ -147,10 +150,10 @@ export function registerAgentTools(
     };
     return [
         registerAgentDiffProvider(),
-        // The tree badge follows pending reviews: re-render just the module
-        // node that gained or lost one.
+        // The tree marks follow pending reviews: redraw the module that gained
+        // or lost one, and the folders it sits under.
         onDidChangePendingAgentReviews((change) => {
-            explorer.refreshModuleSubs(change.filePath, change.moduleName);
+            explorer.refreshAgentReviewMarks(change.filePath, change.moduleName);
         }),
         registerXlideCommand('xlide.reviewAgentChange', async (node?: { filePath?: string; moduleName?: string }) => {
             if (!node?.filePath || !node.moduleName) {
@@ -769,6 +772,22 @@ export function registerAgentTools(
                         ),
                     },
                 };
+            },
+        }),
+
+        // ----------------------------------------------------------------
+        // xlide_gitChanges
+        // ----------------------------------------------------------------
+        // `git diff` on a workbook says "binary files differ"; this reads the
+        // committed workbook with the engine and diffs it module by module,
+        // so an agent can review a change or write a commit message from it.
+        // Refusals (no repository, untracked) come back as a report, so the
+        // agent can read the reason instead of catching an error.
+        vscode.lm.registerTool<GitChangesInput>('xlide_gitChanges', {
+            async invoke(options, _token) {
+                const { filePath, revision, moduleName } = options.input;
+                const report = await gitChangesReport(gitDeps, filePath, revision || 'HEAD', moduleName);
+                return textResult(JSON.stringify(report, null, 2));
             },
         }),
     ];

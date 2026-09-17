@@ -8,6 +8,7 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { evictOldest } from '../util/boundedMap';
 import { Cfb } from './cfb';
 import { decodeCodePage, encodeCodePage } from './codePages';
 import { parseFormPackage, writeFormPackage, walkPackages as walkOformsPackages, controlKindOfSite as oformsControlKind } from './oforms/formPackage';
@@ -70,7 +71,7 @@ import {
 } from './vbaProject';
 import { XlsxWorkbook, type CellValue, type NamedRange, type SheetSummary } from './xlsx';
 import { atomicWrite } from './atomicWrite';
-import { buildMsFormsReference, hasMsFormsReference, readProjectReferences } from './vbaProjectReferences';
+import { buildMsFormsReference, hasMsFormsReference } from './vbaProjectReferences';
 import { attributeValue, joinVbaSource, listProcedures, splitVbaSource, type ProcedureEntry } from './moduleSource';
 import { readFolderAnnotation } from './folderAnnotation';
 import { readAttributeAnnotations } from '../analyzer/annotations/attributeAnnotations';
@@ -318,11 +319,7 @@ function cachedPackage(filePath: string): ProjectCacheEntry {
 	};
 	projectCache.delete(filePath);
 	projectCache.set(filePath, entry);
-	while (projectCache.size > WORKBOOK_CACHE_MAX) {
-		const oldest = projectCache.keys().next().value;
-		if (oldest === undefined) { break; }
-		projectCache.delete(oldest);
-	}
+	evictOldest(projectCache, WORKBOOK_CACHE_MAX);
 	return entry;
 }
 
@@ -787,7 +784,21 @@ export function readModules(filePath: string, full = false): ModuleEntry[] {
 	if (isVb6ProjectPath(filePath)) {
 		return readVb6Modules(filePath, full).map(vb6ModuleEntry);
 	}
-	const { container, cfb, project } = openContainer(filePath);
+	return readModulesFromContainer(openContainer(filePath), full);
+}
+
+/**
+ * The modules of a macro container given its bytes rather than its path: a
+ * workbook as git committed it, say. Same entries as {@link readModules}
+ * gives for the file on disk, so the two can be compared module by module.
+ */
+export function readModulesFromBuffer(data: Buffer, full = false): ModuleEntry[] {
+	const container = openMacroContainer(data);
+	const cfb = container.vbaCfb();
+	return readModulesFromContainer({ container, cfb, project: VbaProject.parse(cfb) }, full);
+}
+
+function readModulesFromContainer({ container, cfb, project }: OpenContainer, full: boolean): ModuleEntry[] {
 	const out: ModuleEntry[] = [];
 	const constants = project.conditionalConstantsRaw || undefined;
 	for (const module of project.modules) {

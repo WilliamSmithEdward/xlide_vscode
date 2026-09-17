@@ -73,6 +73,10 @@ export class MarkdownString {
 }
 
 export class ThemeIcon {
+	constructor(readonly id: string, readonly color?: ThemeColor) {}
+}
+
+export class ThemeColor {
 	constructor(readonly id: string) {}
 }
 
@@ -163,6 +167,7 @@ export function vscodeMock(overrides: Record<string, unknown> = {}): Record<stri
 		Range,
 		RelativePattern,
 		TabInputText,
+		ThemeColor,
 		ThemeIcon,
 		TreeItem,
 		FileChangeType: { Changed: 1, Created: 2, Deleted: 3 },

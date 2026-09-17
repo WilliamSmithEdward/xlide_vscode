@@ -5,7 +5,7 @@
 // Extracted verbatim from vbaLanguageProviders.ts (audit #21).
 
 import * as vscode from 'vscode';
-import { XLIDE_SCHEME, decodeModuleUri, isVbaDocument } from './xlideFileSystem';
+import { XLIDE_SCHEME, isVbaDocument } from './xlideFileSystem';
 import {
     analysisSourceForDocument,
     liveProjectIndexForDocument,

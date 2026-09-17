@@ -22,25 +22,19 @@ import type {
 	VbaProcedureSignature,
 	VbaSymbol,
 } from '../../symbols/symbolModel';
-import {
-	procedureSymbolFor,
-	type PushFn,
-} from '../analysisContext';
+import { type PushFn } from '../analysisContext';
 import {
 	type CallableTypeSignature,
 	emptyArgSplit,
 	splitArgSlots,
 } from '../callExtraction';
-import {
-	collectBodyLiteralIntegerConstants,
-	collectModuleLiteralIntegerConstants,
-} from '../constExpr';
+import { collectModuleLiteralIntegerConstants } from '../constExpr';
 import { isBareOrVbaQualifiedIntrinsicCall } from '../rules/shared';
 import {
 	callableTypeSignaturesFor,
 	namedArgumentSlot,
+	procedureIntegerConstantLookup,
 	runtimeCallableSourceShadowed,
-	scopedIntegerConstantLookup,
 	type SourceNameScope,
 	sourceNameScopeFor,
 	stringLiteralValue,
@@ -95,15 +89,8 @@ export function checkRuntimeArgumentValues(
 	return (member) => {
 		const env = typeEnvironmentFor(symbols, member);
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
-		const procedureConstants = new Map(moduleConstants);
-		collectBodyLiteralIntegerConstants(member.body, procedureConstants, activity);
-		const procSym = procedureSymbolFor(symbols, member);
-		const constants = scopedIntegerConstantLookup(
-			procedureConstants,
-			symbols,
-			procSym,
-			projectVisibleSymbols,
-			hostModel,
+		const constants = procedureIntegerConstantLookup(
+			member, moduleConstants, symbols, projectVisibleSymbols, activity, hostModel,
 		);
 		return (stmt) => {
 			for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env, constants, sourceNames)) {

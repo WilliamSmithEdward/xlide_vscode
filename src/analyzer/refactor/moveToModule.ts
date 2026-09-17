@@ -1,6 +1,7 @@
 import { parseModule } from '../parser/parseModule';
-import type { BodyNode, ModuleNode, ProcedureNode, Span } from '../parser/nodes';
-import { detectEol, stripVba } from '../../vbaSourceScan';
+import type { ModuleNode, ProcedureNode, Span } from '../parser/nodes';
+import { procedureAtOffset } from '../parser/nodes';
+import { detectEol, lineStartAt, stripVba } from '../../vbaSourceScan';
 import {
 	refactor,
 	refuse,
@@ -8,6 +9,8 @@ import {
 	type VbaRefactorResult,
 	type VbaTextEdit,
 } from './refactorTypes';
+import { escapeForRegExp, lookupModuleSource, blankStringLiterals } from './shared';
+import { identifiersIn } from '../lexer/tokenHelpers';
 
 /**
  * Move to Module: a procedure moves from one standard module to another.
@@ -38,12 +41,7 @@ export interface MoveToModuleInput {
 export function moveToModule(input: MoveToModuleInput): VbaRefactorResult {
 	const { source } = input;
 	const module: ModuleNode = parseModule(source);
-	const procedure = module.members.find(
-		(member): member is ProcedureNode =>
-			member.kind === 'Procedure'
-			&& input.offset >= member.span.start
-			&& input.offset <= member.span.end,
-	);
+	const procedure = procedureAtOffset(module, input.offset);
 	if (!procedure) {
 		return refuse('Put the caret in the procedure to move.');
 	}
@@ -51,7 +49,7 @@ export function moveToModule(input: MoveToModuleInput): VbaRefactorResult {
 		return refuse(`'${procedure.name}' is already in ${input.moduleName}.`);
 	}
 
-	const targetSource = lookup(input.otherModuleSources, input.targetModuleName);
+	const targetSource = lookupModuleSource(input.otherModuleSources, input.targetModuleName);
 	if (targetSource === undefined) {
 		return refuse(`The project has no module called '${input.targetModuleName}'.`);
 	}
@@ -166,9 +164,8 @@ function strandedNames(source: string, module: ModuleNode, procedure: ProcedureN
 	const out: string[] = [];
 	const body = source.slice(procedure.span.start, procedure.span.end);
 	for (const line of body.split(/\r\n|\r|\n/)) {
-		const code = stripVba(line).replace(/"(?:[^"]|"")*"?/g, '""');
-		for (const match of code.matchAll(/[\p{L}_][\p{L}\p{M}\p{N}_]*/gu)) {
-			const original = privates.get(match[0].toLowerCase());
+		for (const name of identifiersIn(blankStringLiterals(stripVba(line)))) {
+			const original = privates.get(name.toLowerCase());
 			if (original && !out.includes(original)) {
 				out.push(original);
 			}
@@ -179,8 +176,7 @@ function strandedNames(source: string, module: ModuleNode, procedure: ProcedureN
 
 /** The procedure plus the blank line under it, so the gap does not grow. */
 function removalSpan(source: string, span: Span): Span {
-	const before = source.lastIndexOf('\n', Math.max(span.start - 1, 0));
-	const start = before === -1 ? 0 : before + 1;
+	const start = lineStartAt(source, span.start);
 	let end = span.end;
 	const after = /^[ \t]*\r?\n(?:[ \t]*\r?\n)?/.exec(source.slice(end));
 	if (after) {
@@ -194,19 +190,9 @@ function removalSpan(source: string, span: Span): Span {
  * so a character that was there and is now a space was inside one of them.
  */
 function isInsideCommentOrString(source: string, offset: number): boolean {
-	const lineStart = source.lastIndexOf('\n', Math.max(offset - 1, 0)) + 1;
+	const lineStart = lineStartAt(source, offset);
 	const found = source.indexOf('\n', offset);
 	const line = source.slice(lineStart, found === -1 ? source.length : found);
 	const column = offset - lineStart;
 	return line[column] !== ' ' && stripVba(line)[column] === ' ';
-}
-
-function lookup(sources: Readonly<Record<string, string>>, name: string): string | undefined {
-	const lower = name.toLowerCase();
-	const key = Object.keys(sources).find((k) => k.toLowerCase() === lower);
-	return key === undefined ? undefined : sources[key];
-}
-
-function escapeForRegExp(text: string): string {
-	return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

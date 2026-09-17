@@ -397,23 +397,29 @@ function undeclaredReferenceSkipIndexes(
 	return skip;
 }
 
+/** The `Qualifier.Member` name pair starting at `index`, when both halves are names. */
+function qualifiedNamePairAt(
+	toks: readonly VbaToken[],
+	index: number,
+): { qualifier: string; member: string } | undefined {
+	if (!isPotentialVariableReferenceToken(toks[index]) || toks[index + 1]?.rawText !== '.') {
+		return undefined;
+	}
+	if (!isPotentialVariableReferenceToken(toks[index + 2])) {
+		return undefined;
+	}
+	const qualifier = tokenName(toks[index]);
+	const member = tokenName(toks[index + 2]);
+	return qualifier && member ? { qualifier, member } : undefined;
+}
+
 function isQualifiedProjectCallableQualifier(
 	toks: readonly VbaToken[],
 	index: number,
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
 ): boolean {
-	if (!isPotentialVariableReferenceToken(toks[index]) || toks[index + 1]?.rawText !== '.') {
-		return false;
-	}
-	if (!isPotentialVariableReferenceToken(toks[index + 2])) {
-		return false;
-	}
-	const qualifier = tokenName(toks[index]);
-	const member = tokenName(toks[index + 2]);
-	if (!qualifier || !member) {
-		return false;
-	}
-	return moduleSignatures.has(qualifiedProcedureKey(qualifier, member));
+	const pair = qualifiedNamePairAt(toks, index);
+	return pair !== undefined && moduleSignatures.has(qualifiedProcedureKey(pair.qualifier, pair.member));
 }
 
 function isQualifiedProjectMemberQualifier(
@@ -421,23 +427,15 @@ function isQualifiedProjectMemberQualifier(
 	index: number,
 	projectMembers: readonly VbaProjectClassMembers[] | undefined,
 ): boolean {
-	if (
-		!projectMembers ||
-		!isPotentialVariableReferenceToken(toks[index]) ||
-		toks[index + 1]?.rawText !== '.'
-	) {
+	if (!projectMembers) {
 		return false;
 	}
-	if (!isPotentialVariableReferenceToken(toks[index + 2])) {
+	const pair = qualifiedNamePairAt(toks, index);
+	if (!pair) {
 		return false;
 	}
-	const qualifier = tokenName(toks[index]);
-	const member = tokenName(toks[index + 2]);
-	if (!qualifier || !member) {
-		return false;
-	}
-	const qualifierLower = qualifier.toLowerCase();
-	const memberLower = member.toLowerCase();
+	const qualifierLower = pair.qualifier.toLowerCase();
+	const memberLower = pair.member.toLowerCase();
 	let surface: VbaProjectClassMembers | undefined;
 	for (const candidate of projectMembers) {
 		if (candidate.name.toLowerCase() !== qualifierLower) {

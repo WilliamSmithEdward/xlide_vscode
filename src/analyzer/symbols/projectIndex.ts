@@ -40,6 +40,8 @@ import {
 	type BareIdentifierResolution,
 } from './nameResolution';
 import type { Span } from '../parser/nodes';
+import { tokenizeCached } from '../lexer/tokenize';
+import { identifierWords } from '../lexer/tokenHelpers';
 import { hasAuthoritativeDesignerHeader, parseUserFormControls } from '../../vbaUserFormControls';
 
 /** Source text + project role for one module fed into the index. */
@@ -627,6 +629,29 @@ export class ProjectIndex {
 	/** All module names currently indexed (original casing). */
 	moduleNames(): string[] {
 		return [...this.modules.values()].map((m) => m.moduleName);
+	}
+
+	/**
+	 * Lowercased identifier-shaped words inside every string literal of every
+	 * indexed module. A procedure named in a string may be reached by name -
+	 * `Application.Run "Refresh"`, `Application.OnTime Now, "Poll"`, a
+	 * shape's `OnAction` - which no token-level reference scan can see.
+	 */
+	stringLiteralWords(): ReadonlySet<string> {
+		return this.cached('stringLiteralWords', () => {
+			const words = new Set<string>();
+			for (const source of this.moduleSources.values()) {
+				for (const token of tokenizeCached(source)) {
+					if (token.kind !== 'stringLiteral') {
+						continue;
+					}
+					for (const word of identifierWords(token.rawText)) {
+						words.add(word);
+					}
+				}
+			}
+			return words;
+		});
 	}
 
 	/**

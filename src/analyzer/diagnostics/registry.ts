@@ -123,6 +123,11 @@ import {
 	checkStatementContext,
 	checkUndefinedLabels,
 } from './rules/controlFlow';
+import {
+	checkUnreachableCode,
+	checkUnusedDeclarations,
+	checkUnusedPrivateProcedures,
+} from './rules/deadCode';
 
 /**
  * One registered rule: a stable name plus exactly one execution form.
@@ -185,7 +190,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'emptyType',
-		run: (ctx, push) => checkEmptyType(ctx.source, ctx.mod, ctx.activity, push),
+		run: (ctx, push) => checkEmptyType(ctx.mod, ctx.activity, push),
 	},
 	{
 		name: 'tooManyParameters',
@@ -193,7 +198,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'identifierTooLong',
-		run: (ctx, push) => checkIdentifierTooLong(ctx.source, ctx.mod, ctx.activity, push),
+		run: (ctx, push) => checkIdentifierTooLong(ctx.mod, ctx.activity, push),
 	},
 	{
 		name: 'udtParameterConstraints',
@@ -237,7 +242,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'optionExplicit',
-		run: (ctx, push) => checkOptionExplicit(ctx.source, ctx.mod, ctx.activity, push),
+		run: (ctx, push) => checkOptionExplicit(ctx.mod, ctx.activity, push),
 	},
 	{
 		name: 'undeclaredVariables',
@@ -715,5 +720,28 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 				push,
 			);
 		},
+	},
+	{
+		name: 'unusedDeclarations',
+		run: (ctx, push) => checkUnusedDeclarations(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
+	},
+	{
+		// A Private procedure is reachable from its own module only, so the
+		// module's text decides; the project's string literals are consulted
+		// for a name reached through Application.Run, OnTime and their kin.
+		name: 'unusedPrivateProcedures',
+		run: (ctx, push) => checkUnusedPrivateProcedures(
+			ctx.source,
+			ctx.mod,
+			ctx.symbols,
+			ctx.moduleKind,
+			ctx.activity,
+			ctx.opts.projectStringLiteralWords,
+			push,
+		),
+	},
+	{
+		name: 'unreachableCode',
+		run: (ctx, push) => checkUnreachableCode(ctx.source, ctx.mod, ctx.activity, push),
 	},
 ];

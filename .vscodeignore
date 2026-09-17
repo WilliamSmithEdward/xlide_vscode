@@ -1,4 +1,7 @@
 .vscode/**
+.vscode-test/**
+.vscode-test.mjs
+out/test/**
 .github/**
 .claude/**
 dist/**

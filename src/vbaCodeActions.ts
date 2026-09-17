@@ -21,6 +21,7 @@ import {
     XLIDE_DIAGNOSTIC_DATA,
     type XlideDiagnosticWithData,
 } from './xlideDiagnosticData';
+import { workspaceEditFor } from './vbaWorkspaceEdit';
 
 const XLIDE_SOURCE_ACTION_KIND = vscode.CodeActionKind.Source.append('xlide');
 export const XLIDE_ANALYZE_CURRENT_MODULE_ACTION_KIND = XLIDE_SOURCE_ACTION_KIND.append('analyzeCurrentModule');
@@ -111,18 +112,7 @@ export class VbaCodeActionProvider implements vscode.CodeActionProvider {
                 const action = new vscode.CodeAction(fix.title, vscode.CodeActionKind.QuickFix);
                 action.diagnostics = [diagnostic];
                 action.isPreferred = fix.isPreferred;
-                const edit = new vscode.WorkspaceEdit();
-                for (const textEdit of fix.edits) {
-                    edit.replace(
-                        document.uri,
-                        new vscode.Range(
-                            document.positionAt(textEdit.span.start),
-                            document.positionAt(textEdit.span.end),
-                        ),
-                        textEdit.newText,
-                    );
-                }
-                action.edit = edit;
+                action.edit = workspaceEditFor(document, fix.edits);
                 actions.push(action);
             }
         }
@@ -164,18 +154,7 @@ function refactorActions(
     for (const [result, kind] of local) {
         if (!result.ok) { continue; }
         const action = new vscode.CodeAction(result.title, kind);
-        const edit = new vscode.WorkspaceEdit();
-        for (const textEdit of result.edits) {
-            edit.replace(
-                document.uri,
-                new vscode.Range(
-                    document.positionAt(textEdit.span.start),
-                    document.positionAt(textEdit.span.end),
-                ),
-                textEdit.newText,
-            );
-        }
-        action.edit = edit;
+        action.edit = workspaceEditFor(document, result.edits);
         out.push(action);
     }
 

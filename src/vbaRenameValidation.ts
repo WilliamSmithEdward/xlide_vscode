@@ -8,15 +8,7 @@
 
 import { RESERVED_IDENTIFIERS } from './analyzer/lexer/keywordTable';
 import type { VbaSymbol } from './analyzer/symbols/symbolModel';
-
-/**
- * VBA identifiers may use any locale letter, and marks continue a name (Thai
- * and Devanagari build a letter from a base plus a combining mark). The
- * ASCII-only form of this test rejected a rename to a Cyrillic or Thai name
- * that VBA accepts - the same bug class as the encoding fix in 3.1.5 and the
- * combining-mark fix in 3.2.1.
- */
-export const VBA_RENAME_NAME_RE = /^[\p{L}_][\p{L}\p{M}\p{N}_]*$/u;
+import { VBA_IDENTIFIER_NAME_RE } from './vbaSourceScan';
 
 /** VBA caps identifiers at 255 characters. */
 const MAX_IDENTIFIER_LENGTH = 255;
@@ -39,7 +31,7 @@ export interface RenameCollision {
  * Returns undefined when the name is usable.
  */
 export function checkRenameName(newName: string): RenameNameProblem | undefined {
-	if (!VBA_RENAME_NAME_RE.test(newName)) {
+	if (!VBA_IDENTIFIER_NAME_RE.test(newName)) {
 		return {
 			reason: 'not-an-identifier',
 			message: `'${newName}' is not a valid VBA identifier.`,

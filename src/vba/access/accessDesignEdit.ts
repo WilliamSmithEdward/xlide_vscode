@@ -1,9 +1,7 @@
 import { AccessFormatError } from './accessFormat';
 import {
 	accessDesignObjectName,
-	buildAccessDesign,
 	isAccessDesignSection,
-	parseAccessDesign,
 	type AccessDesign,
 	type AccessDesignObject,
 	type AccessDesignRecord,
@@ -80,7 +78,7 @@ function nameOf(object: AccessDesignObject): string | undefined {
 }
 
 /** The schema an object's properties come from. */
-function schemaOf(object: AccessDesignObject): string | undefined {
+export function schemaOf(object: AccessDesignObject): string | undefined {
 	return object.type === undefined ? DESIGN_OBJECT : CONTROL_TYPES.get(object.type);
 }
 
@@ -478,10 +476,7 @@ export function addDesignControl(
 	const at = objects.findIndex(
 		(object) => isAccessDesignSection(object) && nameOf(object) === section,
 	);
-	let end = at + 1;
-	while (end < objects.length && !isAccessDesignSection(objects[end])) {
-		end += 1;
-	}
+	const end = sectionEnd(objects, at);
 	if (options.parent !== undefined) {
 		return { ...design, objects: nested(objects, at + 1, end, options.parent, control) };
 	}
@@ -580,10 +575,7 @@ export function removeDesignControl(design: AccessDesign, name: string): AccessD
 			at += 1;
 			continue;
 		}
-		let end = at + 1;
-		while (end < objects.length && !isAccessDesignSection(objects[end])) {
-			end += 1;
-		}
+		const end = sectionEnd(objects, at);
 		const owners = topLevel(objects, at + 1, end);
 		const hit = owners.find((owner) => nameOf(objects[owner.index]) === name);
 		if (hit) {
@@ -631,6 +623,26 @@ export function removeDesignControl(design: AccessDesign, name: string): AccessD
 	return { ...design, objects: result };
 }
 
+/** Each holder's children, by index into `objects`, in document order. */
+export function designObjectChildren(objects: AccessDesignObject[]): Map<number, number[]> {
+	const childrenOf = new Map<number, number[]>();
+	designObjectHolders(objects).forEach((holder, index) => {
+		const list = childrenOf.get(holder) ?? [];
+		list.push(index);
+		childrenOf.set(holder, list);
+	});
+	return childrenOf;
+}
+
+/** Index just past the last object of the section at `at`. */
+function sectionEnd(objects: readonly AccessDesignObject[], at: number): number {
+	let end = at + 1;
+	while (end < objects.length && !isAccessDesignSection(objects[end])) {
+		end += 1;
+	}
+	return end;
+}
+
 /**
  * What holds each control: its section, or the control it sits inside, as
  * indexes into the object list.
@@ -649,10 +661,7 @@ export function designObjectHolders(objects: AccessDesignObject[]): Map<number, 
 			at += 1;
 			continue;
 		}
-		let end = at + 1;
-		while (end < objects.length && !isAccessDesignSection(objects[end])) {
-			end += 1;
-		}
+		const end = sectionEnd(objects, at);
 		walk(at + 1, end, at);
 		at = end;
 	}
@@ -919,12 +928,4 @@ export function accessDesignEffectiveObjects(design: AccessDesign): AccessDesign
 		const extra = inherited.filter((record) => !carried.has(record.code));
 		return extra.length === 0 ? object : { ...object, records: [...object.records, ...extra] };
 	});
-}
-
-/** Parse, edit and rebuild in one step, for a caller holding only bytes. */
-export function editDesignBlob(
-	blob: Buffer,
-	edit: (design: AccessDesign) => AccessDesign,
-): Buffer {
-	return buildAccessDesign(edit(parseAccessDesign(blob)));
 }

@@ -19,7 +19,6 @@ import {
     findRenameCollision,
 } from './vbaRenameValidation';
 import {
-    ProjectIndex,
     resolveProcedureLabelDefinitionAt,
     resolveTypeReferenceAt,
     type VbaProjectClassMemberDefinition,
@@ -33,7 +32,7 @@ import {
     moduleKindFromDocument,
     moduleNameFromDocument,
 } from './vbaDocumentIdentity';
-import { moduleDocumentUri, moduleLocationOfDocument, moduleLocationOrThrow } from './vbaDocumentLocation';
+import { moduleDocumentUri, moduleLocationOfDocument } from './vbaDocumentLocation';
 import {
     createOffsetToPositionConverter,
     offsetToPosition,
@@ -333,13 +332,9 @@ export class VbaDefinitionProvider implements vscode.DefinitionProvider {
         const line = document.lineAt(position.line).text;
         const qualifier = detectQualifier(line, wordRange.start.character);
 
-        let projectPath: string;
-        let moduleName: string;
-        try {
-            ({ projectPath, moduleName } = moduleLocationOrThrow(document));
-        } catch {
-            return undefined;
-        }
+        const location = moduleLocationOfDocument(document);
+        if (!location) { return undefined; }
+        const { projectPath, moduleName } = location;
         const context = await this._projectIndexService.contextForProject(projectPath, 'live');
         if (token?.isCancellationRequested || document.version !== documentVersion) { return undefined; }
         const { modules, project, byModule } = context;
@@ -408,13 +403,9 @@ export class VbaReferenceProvider implements vscode.ReferenceProvider {
         const documentVersion = document.version;
         const wordRange = document.getWordRangeAtPosition(position, VBA_IDENTIFIER_RE);
         const source = analysisSourceForDocument(document);
-        let projectPath: string;
-        let moduleName: string;
-        try {
-            ({ projectPath, moduleName } = moduleLocationOrThrow(document));
-        } catch {
-            return undefined;
-        }
+        const location = moduleLocationOfDocument(document);
+        if (!location) { return undefined; }
+        const { projectPath, moduleName } = location;
         const navigation = await this._projectIndexService.contextForProject(projectPath, 'live');
         if (token?.isCancellationRequested || document.version !== documentVersion) { return undefined; }
         const { modules, project, byModule } = navigation;
@@ -524,13 +515,9 @@ export class VbaDocumentHighlightProvider implements vscode.DocumentHighlightPro
         if (!wordRange) { return undefined; }
         const word = document.getText(wordRange);
         const source = analysisSourceForDocument(document);
-        let projectPath: string;
-        let moduleName: string;
-        try {
-            ({ projectPath, moduleName } = moduleLocationOrThrow(document));
-        } catch {
-            return undefined;
-        }
+        const location = moduleLocationOfDocument(document);
+        if (!location) { return undefined; }
+        const { projectPath, moduleName } = location;
         const navigation = await this._projectIndexService.contextForProject(projectPath, 'live');
         if (token?.isCancellationRequested || document.version !== documentVersion) { return undefined; }
         const { modules, project, byModule } = navigation;
@@ -581,13 +568,11 @@ export class VbaRenameProvider implements vscode.RenameProvider {
         const word = document.getText(wordRange);
 
         const source = analysisSourceForDocument(document);
-        let projectPath: string;
-        let moduleName: string;
-        try {
-            ({ projectPath, moduleName } = moduleLocationOrThrow(document));
-        } catch {
+        const location = moduleLocationOfDocument(document);
+        if (!location) {
             throw new Error('XLIDE cannot rename here: this is not a project VBA module.');
         }
+        const { projectPath, moduleName } = location;
         const navigation = await this._projectIndexService.contextForProject(projectPath, 'strict');
         if (token?.isCancellationRequested || document.version !== documentVersion) {
             throw new vscode.CancellationError();
@@ -651,13 +636,11 @@ export class VbaRenameProvider implements vscode.RenameProvider {
         if (oldName === newName) { return undefined; }
 
         const source = analysisSourceForDocument(document);
-        let projectPath: string;
-        let moduleName: string;
-        try {
-            ({ projectPath, moduleName } = moduleLocationOrThrow(document));
-        } catch {
+        const location = moduleLocationOfDocument(document);
+        if (!location) {
             throw new Error('XLIDE cannot rename here: this is not a project VBA module.');
         }
+        const { projectPath, moduleName } = location;
         const navigation = await this._projectIndexService.contextForProject(projectPath, 'strict');
         if (token?.isCancellationRequested || document.version !== documentVersion) {
             return undefined;

@@ -2,7 +2,7 @@
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
   "description": "Office VBA and Visual Basic 6 in VS Code - Excel, Word, PowerPoint, Access and .vbp projects; project tree, module editing, UserForm and VB6 form designers, static analysis, unit tests, AI agent tools",
-  "version": "8.2.1",
+  "version": "8.3.0",
   "publisher": "WilliamSmithE",
   "license": "MIT",
   "icon": "assets/images/extension_logo.png",
@@ -124,6 +124,12 @@
           ],
           "description": "Global default analysis finding severities for files that do not define a file-specific value for this setting."
         },
+        "xlide.analysis.ignoreFilesOutsideTree": {
+          "type": "boolean",
+          "scope": "machine",
+          "default": true,
+          "description": "Analyze only the modules the XLIDE tree lists: the ones inside a workbook, document, presentation or database, and the files a VB6 project names. A .bas, .cls or .frm on disk that no project claims, such as an exported copy, is not analyzed, so its findings do not repeat the real module's in the Problems panel. Completion, hover and navigation still work in those files. Turn off to analyze them as standalone modules."
+        },
         "xlide.analysis.ruleSeverityOverrides": {
           "type": "object",
           "scope": "machine",
@@ -215,6 +221,18 @@
         }
       }
     },
+    "colors": [
+      {
+        "id": "xlide.agentEdit.foreground",
+        "description": "Colour of a module an AI agent edited, and of the project and folders that hold it, in the XLIDE tree until the edit is kept or reverted.",
+        "defaults": {
+          "dark": "charts.orange",
+          "light": "charts.orange",
+          "highContrast": "editorWarning.foreground",
+          "highContrastLight": "editorWarning.foreground"
+        }
+      }
+    ],
     "configurationDefaults": {
       "[xlide-vba]": {
         "editor.detectIndentation": false,
@@ -227,7 +245,8 @@
         "editor.overviewRulerLanes": 3,
         "editor.inlineSuggest.enabled": false,
         "editor.suggest.preview": false,
-        "editor.trimAutoWhitespace": false
+        "editor.trimAutoWhitespace": false,
+        "editor.formatOnPaste": true
       }
     },
     "commands": [
@@ -352,6 +371,42 @@
         "title": "Review Agent Change",
         "category": "XLIDE",
         "icon": "$(diff)"
+      },
+      {
+        "command": "xlide.compareModuleWithHead",
+        "title": "Compare Module with Git HEAD",
+        "category": "XLIDE",
+        "icon": "$(git-compare)"
+      },
+      {
+        "command": "xlide.compareModuleWithRevision",
+        "title": "Compare Module with Git Revision...",
+        "category": "XLIDE",
+        "icon": "$(git-compare)"
+      },
+      {
+        "command": "xlide.compareProjectWithHead",
+        "title": "Compare File with Git HEAD",
+        "category": "XLIDE",
+        "icon": "$(git-compare)"
+      },
+      {
+        "command": "xlide.formatAllModules",
+        "title": "Format All Modules",
+        "category": "XLIDE",
+        "icon": "$(list-flat)"
+      },
+      {
+        "command": "xlide.restoreModuleFromHead",
+        "title": "Restore Module from Git HEAD",
+        "category": "XLIDE",
+        "icon": "$(discard)"
+      },
+      {
+        "command": "xlide.moduleHistory",
+        "title": "Show Module History",
+        "category": "XLIDE",
+        "icon": "$(history)"
       },
       {
         "command": "xlide.keepAgentChange",
@@ -577,6 +632,36 @@
           "group": "1_navigate@1"
         },
         {
+          "command": "xlide.compareModuleWithHead",
+          "when": "view == xlide.explorer && viewItem =~ /^module-/",
+          "group": "1_navigate@2"
+        },
+        {
+          "command": "xlide.compareModuleWithRevision",
+          "when": "view == xlide.explorer && viewItem =~ /^module-/",
+          "group": "1_navigate@3"
+        },
+        {
+          "command": "xlide.restoreModuleFromHead",
+          "when": "view == xlide.explorer && viewItem =~ /^module-/",
+          "group": "1_navigate@4"
+        },
+        {
+          "command": "xlide.moduleHistory",
+          "when": "view == xlide.explorer && viewItem =~ /^module-/",
+          "group": "1_navigate@5"
+        },
+        {
+          "command": "xlide.compareProjectWithHead",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|accessDatabase|vb6Project)$/",
+          "group": "4_analyze@2"
+        },
+        {
+          "command": "xlide.formatAllModules",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|accessDatabase|vb6Project)$/",
+          "group": "3_format@1"
+        },
+        {
           "command": "xlide.newModule",
           "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|accessDatabase)$/",
           "group": "1_create@1"
@@ -733,6 +818,30 @@
         {
           "command": "xlide.dev.smoke",
           "when": "xlide.devMode"
+        },
+        {
+          "command": "xlide.compareModuleWithHead",
+          "when": "resourceScheme == xlide-vba"
+        },
+        {
+          "command": "xlide.compareModuleWithRevision",
+          "when": "resourceScheme == xlide-vba"
+        },
+        {
+          "command": "xlide.compareProjectWithHead",
+          "when": "resourceScheme == xlide-vba"
+        },
+        {
+          "command": "xlide.formatAllModules",
+          "when": "resourceScheme == xlide-vba"
+        },
+        {
+          "command": "xlide.restoreModuleFromHead",
+          "when": "resourceScheme == xlide-vba"
+        },
+        {
+          "command": "xlide.moduleHistory",
+          "when": "resourceScheme == xlide-vba"
         },
         {
           "command": "xlide.refactor.extractMethod",
@@ -1392,6 +1501,33 @@
           ]
         },
         "userDescription": "Search across all VBA modules in a macro-enabled file"
+      },
+      {
+        "name": "xlide_gitChanges",
+        "displayName": "VBA Changes Since a Git Revision",
+        "modelDescription": "Lists what changed inside a macro-enabled Office file (Excel, Word, PowerPoint, or Access) since a git revision, HEAD by default: one entry per module that was modified, added, or removed, each with a unified diff of the module's VBA (the committed module on the left, the file on disk on the right). Git itself can only say that the whole file changed, so use this to review a change, summarize it, or write a commit message for a workbook. Answers with tracked:false and a reason when the file is outside a repository, not tracked by git, or absent at the revision. Pass moduleName to get one module's diff, or revision (a commit hash, tag, or branch) to compare against something other than HEAD.",
+        "toolReferenceName": "xlideGitChanges",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the macro-enabled Office file (.xlsm/.xlsb/.xlam/.xls, .docm/.dotm/.doc, .pptm/.potm/.ppsm/.ppt, .accdb/.mdb)"
+            },
+            "revision": {
+              "type": "string",
+              "description": "Optional git revision to compare the file on disk with: a commit hash, tag, or branch. Default HEAD."
+            },
+            "moduleName": {
+              "type": "string",
+              "description": "Optional single module to report. Default: every module that differs."
+            }
+          },
+          "required": [
+            "filePath"
+          ]
+        }
       }
     ]
   },
@@ -1406,6 +1542,7 @@
     "check-types": "tsc --noEmit",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:integration": "npm run compile && vscode-test",
     "generate:reference:excel": "node scripts/generate-excel-reference-metadata.mjs",
     "generate:reference:office": "node scripts/generate-office-reference-metadata.mjs",
     "generate:reference:msforms": "node scripts/generate-msforms-reference-metadata.mjs",
@@ -1416,11 +1553,15 @@
     "generate:reference:hosts": "node scripts/generate-host-object-model.mjs word && node scripts/generate-host-object-model.mjs powerpoint && node scripts/generate-host-object-model.mjs access"
   },
   "devDependencies": {
+    "@types/mocha": "^10.0.10",
     "@types/node": "20.x",
     "@types/vscode": "^1.95.0",
     "@vitest/coverage-v8": "^4.1.8",
+    "@vscode/test-cli": "^0.0.15",
+    "@vscode/test-electron": "^3.1.0",
     "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.28.0",
+    "mocha": "^12.0.1",
     "npm-run-all": "^4.1.5",
     "typescript": "^5.6.3",
     "vitest": "^4.1.7"

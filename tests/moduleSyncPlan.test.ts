@@ -3,14 +3,15 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import type { ProjectEngine } from '../src/projectEngine';
+import { fakeProjectEngine } from './helpers/fakeProjectEngine';
 import { synthesizeClassHeader } from '../src/vba/vbaProject';
 import {
 	buildExportModuleSyncPlan,
 	buildImportModuleSyncPlan,
 	buildSideBySideDiff,
-	classifyModuleType,
 	editorPreviewSource,
 } from '../src/moduleSyncPlan';
+import { classifyModuleType } from '../src/vba/projectService';
 
 interface FakeModule {
 	name: string;
@@ -35,32 +36,6 @@ function tempWorkbook(): { root: string; project: string; repo: string } {
 	fs.writeFileSync(project, '', 'utf8');
 	fs.mkdirSync(repo, { recursive: true });
 	return { root, project, repo };
-}
-
-function fakeBridge(modules: readonly FakeModule[]): ProjectEngine {
-	return {
-		async call<T>(method: string, args: Record<string, unknown>): Promise<T> {
-			if (method === 'listModules') {
-				return modules.map((mod) => ({
-					name: mod.name,
-					type: mod.type,
-					documentType: mod.documentType,
-				})) as T;
-			}
-			if (method === 'readModule') {
-				const moduleName = String(args.module ?? '').toLowerCase();
-				const mod = modules.find((candidate) => candidate.name.toLowerCase() === moduleName);
-				if (!mod) {
-					throw new Error(`Unknown module ${String(args.module)}`);
-				}
-				return { source: mod.source } as T;
-			}
-			if (method === 'readModules') {
-				return modules.map((mod) => ({ ...mod })) as T;
-			}
-			throw new Error(`Unexpected bridge call ${method}`);
-		},
-	} as ProjectEngine;
 }
 
 function batchFakeBridge(modules: readonly FakeModule[], calls: string[]): ProjectEngine {
@@ -122,7 +97,7 @@ describe('module sync plan', () => {
 			'',
 		].join('\r\n'), 'utf8');
 
-		const plan = await buildImportModuleSyncPlan(fakeBridge([]), {
+		const plan = await buildImportModuleSyncPlan(fakeProjectEngine([]), {
 			projectPath: project,
 			importFolder: repo,
 		});
@@ -142,7 +117,7 @@ describe('module sync plan', () => {
 		fs.writeFileSync(path.join(repo, 'Existing.bas'), 'Sub Same()\nEnd Sub\n', 'utf8');
 		fs.writeFileSync(path.join(repo, 'Changed.bas'), 'Sub Old()\nEnd Sub\n', 'utf8');
 
-		const plan = await buildExportModuleSyncPlan(fakeBridge([
+		const plan = await buildExportModuleSyncPlan(fakeProjectEngine([
 			{ name: 'Existing', type: 'standard', source: 'Sub Same()\nEnd Sub\n' },
 			{ name: 'Changed', type: 'standard', source: 'Sub Newer()\nEnd Sub\n' },
 			{ name: 'NewModule', type: 'standard', source: 'Sub NewModule()\nEnd Sub\n' },
@@ -198,7 +173,7 @@ describe('module sync plan', () => {
 		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'Stale.bas'), 'Sub Old()\nEnd Sub\n', 'utf8');
 
-		const plan = await buildExportModuleSyncPlan(fakeBridge([
+		const plan = await buildExportModuleSyncPlan(fakeProjectEngine([
 			{ name: 'Module1', type: 'standard', source: 'Sub T()\nEnd Sub\n' },
 		]), {
 			projectPath: project,
@@ -230,7 +205,7 @@ describe('module sync plan', () => {
 		fs.mkdirSync(path.join(repo, 'nested'));
 		fs.writeFileSync(path.join(repo, 'nested', 'Stale.cls'), 'keep', 'utf8');
 
-		const plan = await buildExportModuleSyncPlan(fakeBridge([
+		const plan = await buildExportModuleSyncPlan(fakeProjectEngine([
 			{ name: 'Module1', type: 'standard', source: 'Sub T()\nEnd Sub\n' },
 		]), {
 			projectPath: project,
@@ -251,7 +226,7 @@ describe('module sync plan', () => {
 		fs.writeFileSync(path.join(repo, 'UserForm1.cls'), `${formBase}Private Sub CommandButton1_Click()\nEnd Sub\n`, 'utf8');
 		fs.writeFileSync(path.join(repo, 'UserForm2.cls'), `${formBase}Private Sub CommandButton1_Click()\nEnd Sub\n`, 'utf8');
 
-		const plan = await buildImportModuleSyncPlan(fakeBridge([
+		const plan = await buildImportModuleSyncPlan(fakeProjectEngine([
 			{
 				name: 'Sheet1',
 				type: 'document',
@@ -309,7 +284,7 @@ describe('module sync plan', () => {
 		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'Module1.bas'), 'Sub T()\nEnd Sub\n', 'utf8');
 
-		const plan = await buildImportModuleSyncPlan(fakeBridge([
+		const plan = await buildImportModuleSyncPlan(fakeProjectEngine([
 			{ name: 'Module1', type: 'standard', source: 'Sub T()\nEnd Sub\n' },
 			{ name: 'StaleStandard', type: 'standard', source: 'Sub Old()\nEnd Sub\n' },
 			{ name: 'StaleClass', type: 'class', source: 'VERSION 1.0 CLASS\n' },
@@ -350,7 +325,7 @@ describe('module sync plan', () => {
 		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'NewModule.bas'), 'Sub T()\nEnd Sub\n', 'utf8');
 
-		const plan = await buildImportModuleSyncPlan(fakeBridge([]), {
+		const plan = await buildImportModuleSyncPlan(fakeProjectEngine([]), {
 			projectPath: project,
 			importFolder: repo,
 		});
@@ -370,7 +345,7 @@ describe('module sync plan', () => {
 		fs.writeFileSync(path.join(repo, 'UserForm1.frx'), 'binary', 'utf8');
 		fs.writeFileSync(path.join(repo, 'Module1.bas'), 'Sub T()\nEnd Sub\n', 'utf8');
 
-		const plan = await buildImportModuleSyncPlan(fakeBridge([]), {
+		const plan = await buildImportModuleSyncPlan(fakeProjectEngine([]), {
 			projectPath: project,
 			importFolder: repo,
 		});
@@ -418,7 +393,7 @@ describe('module sync plan', () => {
 		].join('\n');
 		fs.writeFileSync(path.join(repo, 'Module1.bas'), source, 'utf8');
 
-		const plan = await buildImportModuleSyncPlan(fakeBridge([]), {
+		const plan = await buildImportModuleSyncPlan(fakeProjectEngine([]), {
 			projectPath: project,
 			importFolder: repo,
 		});
@@ -545,7 +520,7 @@ describe('a UserForm syncs as a .frm (#21)', () => {
 
 	it('exports a form under Name.frm, the name the VBE itself writes', async () => {
 		const { project, repo } = tempWorkbook();
-		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: FORM_SOURCE }]);
+		const bridge = fakeProjectEngine([{ name: 'EntryForm', type: 'userform', source: FORM_SOURCE }]);
 		const plan = await buildExportModuleSyncPlan(bridge, { projectPath: project, exportFolder: repo });
 		const item = plan.items.find((candidate) => candidate.moduleName === 'EntryForm');
 		expect(item?.relativeName).toBe('EntryForm.frm');
@@ -556,7 +531,7 @@ describe('a UserForm syncs as a .frm (#21)', () => {
 		// Deliberately headerless: a real Excel form's module text carries no
 		// designer block, so the extension must be enough.
 		fs.writeFileSync(path.join(repo, 'EntryForm.frm'), 'Option Explicit\r\n', 'utf8');
-		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: FORM_SOURCE }]);
+		const bridge = fakeProjectEngine([{ name: 'EntryForm', type: 'userform', source: FORM_SOURCE }]);
 		const plan = await buildImportModuleSyncPlan(bridge, { projectPath: project, importFolder: repo });
 		const item = plan.items.find((candidate) => candidate.moduleName === 'EntryForm');
 		expect(item?.moduleType).toBe('userform');
@@ -566,7 +541,7 @@ describe('a UserForm syncs as a .frm (#21)', () => {
 	it('still cannot create a form from a repo file alone', async () => {
 		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'NewForm.frm'), 'Option Explicit\r\n', 'utf8');
-		const bridge = fakeBridge([]);
+		const bridge = fakeProjectEngine([]);
 		const plan = await buildImportModuleSyncPlan(bridge, { projectPath: project, importFolder: repo });
 		const item = plan.items.find((candidate) => candidate.moduleName === 'NewForm');
 		expect(item?.status).toBe('skipping-import');
@@ -576,7 +551,7 @@ describe('a UserForm syncs as a .frm (#21)', () => {
 		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'EntryForm.frm'), 'Option Explicit\r\n', 'utf8');
 		fs.writeFileSync(path.join(repo, 'EntryForm.frx'), Buffer.from([0x01, 0x02, 0x03]));
-		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: FORM_SOURCE }]);
+		const bridge = fakeProjectEngine([{ name: 'EntryForm', type: 'userform', source: FORM_SOURCE }]);
 		const importPlan = await buildImportModuleSyncPlan(bridge, { projectPath: project, importFolder: repo });
 		expect(importPlan.items.some((item) => /\.frx$/i.test(item.relativeName))).toBe(false);
 		// A trueUp export must not list the sidecar as a stale module either -
@@ -591,7 +566,7 @@ describe('a UserForm syncs as a .frm (#21)', () => {
 		const { project, repo } = tempWorkbook();
 		// What 3.8.0 and earlier wrote: the form under a .cls name.
 		fs.writeFileSync(path.join(repo, 'EntryForm.cls'), FORM_SOURCE, 'utf8');
-		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: FORM_SOURCE }]);
+		const bridge = fakeProjectEngine([{ name: 'EntryForm', type: 'userform', source: FORM_SOURCE }]);
 		const plan = await buildExportModuleSyncPlan(bridge, {
 			projectPath: project, exportFolder: repo, exportMode: 'trueUp',
 		});
@@ -604,7 +579,7 @@ describe('a UserForm syncs as a .frm (#21)', () => {
 	it('a legacy .cls carrying a form header still classifies as a form', async () => {
 		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'OldForm.cls'), FORM_SOURCE, 'utf8');
-		const bridge = fakeBridge([{ name: 'OldForm', type: 'userform', source: FORM_SOURCE }]);
+		const bridge = fakeProjectEngine([{ name: 'OldForm', type: 'userform', source: FORM_SOURCE }]);
 		const plan = await buildImportModuleSyncPlan(bridge, { projectPath: project, importFolder: repo });
 		const item = plan.items.find((candidate) => candidate.moduleName === 'OldForm');
 		expect(item?.moduleType).toBe('userform');
@@ -645,7 +620,7 @@ describe('a form compares on the half its text can say (issue #36)', () => {
 	it('a clean round trip reads unchanged on the import plan', async () => {
 		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'EntryForm.frm'), REPO_FRM, 'utf8');
-		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: LIVE_FORM }]);
+		const bridge = fakeProjectEngine([{ name: 'EntryForm', type: 'userform', source: LIVE_FORM }]);
 		const plan = await buildImportModuleSyncPlan(bridge, { projectPath: project, importFolder: repo });
 		const item = plan.items.find((candidate) => candidate.moduleName === 'EntryForm');
 		expect(item?.status).toBe('unchanged');
@@ -656,7 +631,7 @@ describe('a form compares on the half its text can say (issue #36)', () => {
 		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'EntryForm.frm'),
 			REPO_FRM + 'Public Sub Added()\r\nEnd Sub\r\n', 'utf8');
-		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: LIVE_FORM }]);
+		const bridge = fakeProjectEngine([{ name: 'EntryForm', type: 'userform', source: LIVE_FORM }]);
 		const plan = await buildImportModuleSyncPlan(bridge, { projectPath: project, importFolder: repo });
 		expect(plan.items.find((candidate) => candidate.moduleName === 'EntryForm')?.status)
 			.toBe('will-update');
@@ -665,12 +640,12 @@ describe('a form compares on the half its text can say (issue #36)', () => {
 	it('the export plan reads the same way', async () => {
 		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'EntryForm.frm'), REPO_FRM, 'utf8');
-		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: LIVE_FORM }]);
+		const bridge = fakeProjectEngine([{ name: 'EntryForm', type: 'userform', source: LIVE_FORM }]);
 		const clean = await buildExportModuleSyncPlan(bridge, { projectPath: project, exportFolder: repo });
 		expect(clean.items.find((candidate) => candidate.moduleName === 'EntryForm')?.status)
 			.toBe('unchanged');
 
-		const edited = fakeBridge([{
+		const edited = fakeProjectEngine([{
 			name: 'EntryForm',
 			type: 'userform',
 			source: LIVE_FORM.replace('"Entry"', '"Changed"'),
@@ -686,7 +661,7 @@ describe('a form compares on the half its text can say (issue #36)', () => {
 		// forever by one phantom blank line.
 		const { project, repo } = tempWorkbook();
 		fs.writeFileSync(path.join(repo, 'EntryForm.frm'), REPO_FRM + '\r\n', 'utf8');
-		const bridge = fakeBridge([{ name: 'EntryForm', type: 'userform', source: LIVE_FORM }]);
+		const bridge = fakeProjectEngine([{ name: 'EntryForm', type: 'userform', source: LIVE_FORM }]);
 		const imported = await buildImportModuleSyncPlan(bridge, { projectPath: project, importFolder: repo });
 		expect(imported.items.find((candidate) => candidate.moduleName === 'EntryForm')?.status)
 			.toBe('unchanged');
@@ -715,7 +690,7 @@ describe('a form compares on the half its text can say (issue #36)', () => {
 			'Option Explicit',
 			'',
 		].join('\r\n'), 'utf8');
-		const bridge = fakeBridge([{ name: 'Person', type: 'class', source: liveClass }]);
+		const bridge = fakeProjectEngine([{ name: 'Person', type: 'class', source: liveClass }]);
 		const plan = await buildImportModuleSyncPlan(bridge, { projectPath: project, importFolder: repo });
 		expect(plan.items.find((candidate) => candidate.moduleName === 'Person')?.status)
 			.toBe('will-update');

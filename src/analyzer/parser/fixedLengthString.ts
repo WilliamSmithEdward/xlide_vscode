@@ -1,4 +1,5 @@
 import type { VbaToken } from '../lexer/tokenKinds';
+import { tokenWord } from '../lexer/tokenHelpers';
 
 export interface FixedLengthStringType {
 	typeStart: number;
@@ -11,7 +12,7 @@ export function parseFixedLengthStringType(
 	tokens: readonly VbaToken[],
 	typeStart: number,
 ): FixedLengthStringType | undefined {
-	if (tokenText(tokens[typeStart]) !== 'string') {
+	if (tokenWord(tokens[typeStart]) !== 'string') {
 		return undefined;
 	}
 	if (tokens[typeStart + 1]?.rawText !== '*') {
@@ -37,8 +38,4 @@ function isFixedLengthStringLengthToken(token: VbaToken | undefined): boolean {
 		token.kind === 'identifier' ||
 		token.kind === 'bracketedIdentifier'
 	);
-}
-
-function tokenText(token: VbaToken | undefined): string {
-	return (token?.canonicalText ?? token?.rawText ?? '').toLowerCase();
 }

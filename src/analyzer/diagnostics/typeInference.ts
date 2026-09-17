@@ -10,7 +10,7 @@
 
 import type { VbaToken } from '../lexer/tokenKinds';
 import type { HostObjectModel } from '../host/excelObjectModel';
-import { matchParenFrom } from '../lexer/tokenHelpers';
+import { IDENT_RE, matchParenFrom } from '../lexer/tokenHelpers';
 import {
 	parseDecimalIntegerLiteral,
 	type IntegerConstantLookup,
@@ -29,6 +29,7 @@ import {
 } from '../runtime/vbaRuntime';
 import { standaloneEmptyParenthesizedCallStatement } from '../call/callContext';
 import type { ProcedureNode, Span } from '../parser/nodes';
+import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
 import type { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import type {
 	VbaProcedureSignature,
@@ -50,6 +51,7 @@ import {
 	resolveMemberCompletionNamed,
 	type MemberCompletion,
 	type MemberCompletionContext,
+	isExplicitElementAccessor,
 } from '../completion/memberAccess';
 import { procedureSymbolFor, type PushFn } from './analysisContext';
 import {
@@ -63,6 +65,7 @@ import {
 	type InferredArgumentType,
 } from './callExtraction';
 import {
+	collectBodyLiteralIntegerConstants,
 	externalIntegerConstantValue,
 	numericExternalConstantValue,
 } from './constExpr';
@@ -468,6 +471,26 @@ export function declaredValueTypeForQualifiedSourceBinding(
 	return { resolved: true, asType: typed?.asType };
 }
 
+/**
+ * The two lookups an expression-typing pass needs, closed over one procedure's
+ * scope: a bare name's declared value type, and a `Qualifier.Name` member's.
+ */
+export function sourceBindingTypeResolvers(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	procSym: VbaSymbol | undefined,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+): {
+	resolveExpressionType: (name: string) => SourceDeclaredType;
+	resolveQualifiedExpressionType: (qualifier: string, name: string) => SourceDeclaredType;
+} {
+	return {
+		resolveExpressionType: (name) =>
+			declaredValueTypeForSourceBinding(symbols, procSym, projectVisibleSymbols, name),
+		resolveQualifiedExpressionType: (qualifier, name) =>
+			declaredValueTypeForQualifiedSourceBinding(symbols, projectVisibleSymbols, qualifier, name),
+	};
+}
+
 export function declaredShapeForSourceBinding(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	procSym: VbaSymbol | undefined,
@@ -569,6 +592,29 @@ export function sourceIdentifierBound(
 		name,
 		context,
 	).scope !== 'unresolved';
+}
+
+/**
+ * The integer-constant lookup for one procedure: its own `Const`s over the
+ * module's, resolved the way names resolve from inside that procedure.
+ */
+export function procedureIntegerConstantLookup(
+	member: ProcedureNode,
+	moduleConstants: ReadonlyMap<string, number | undefined>,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+	activity: ConditionalActivityTracker | undefined,
+	model?: HostObjectModel,
+): IntegerConstantLookup {
+	const procedureConstants = new Map(moduleConstants);
+	collectBodyLiteralIntegerConstants(member.body, procedureConstants, activity);
+	return scopedIntegerConstantLookup(
+		procedureConstants,
+		symbols,
+		procedureSymbolFor(symbols, member),
+		projectVisibleSymbols,
+		model,
+	);
 }
 
 export function scopedIntegerConstantLookup(
@@ -1727,18 +1773,6 @@ export function inferMemberExpressionType(
 	};
 }
 
-/**
- * Members whose declared return IS the already-resolved element/result: the
- * default member (`Item`/`_Default`) and the creation method `Add`. A call to one
- * of these must NOT be element-indexed again - otherwise a collection whose
- * element is itself a collection (e.g. SparklineGroups -> SparklineGroup ->
- * Sparkline) over-resolves one level too far.
- */
-export function isExplicitElementAccessor(memberName: string): boolean {
-	const lower = memberName.toLowerCase();
-	return lower === 'item' || lower === '_default' || lower === 'add';
-}
-
 export function memberExpressionReturnType(
 	member: MemberCompletion,
 	argumentTokens: readonly VbaToken[] | undefined,
@@ -2272,7 +2306,7 @@ export function resolveKnownObjectAssignmentType(
 
 export function simpleTypeNameForAssignment(type: string): string | undefined {
 	const trimmed = type.replace(/\s*\(\s*\)\s*$/, '').trim();
-	return /^[\p{L}_][\p{L}\p{M}\p{N}_]*$/u.test(trimmed) ? trimmed : undefined;
+	return IDENT_RE.test(trimmed) ? trimmed : undefined;
 }
 
 export function objectAssignmentIncompatibilityReason(

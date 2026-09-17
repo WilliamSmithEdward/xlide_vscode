@@ -263,26 +263,7 @@ export async function runHostFileMacro(
     log(`[runMacro] Running in ${appName}: ${macroName}`);
     log(`[runMacro] Script: ${script}`);
     const result = await runExcelScript(script, 'runMacro', log);
-    if (result.spawnError) {
-        log(`[runMacro] Error: ${result.spawnError.message}`);
-        throw new ExcelMacroError(result.spawnError.message, 'UNKNOWN');
-    }
-    if (result.timedOut) {
-        throw new ExcelMacroError(
-            `${appName} did not respond within the time limit. A dialog may be open in ${appName} `
-            + '(for example a MsgBox or an error dialog from the macro); close it and try again, '
-            + 'or the macro may be running too long.',
-            'RUN_FAILED',
-        );
-    }
-    if (result.code === 0) {
-        return;
-    }
-    const sentinel = result.stderrLines.find((line) => line.includes(MACRO_ERROR_SENTINEL));
-    const raw = sentinel
-        ? sentinel.slice(sentinel.indexOf(MACRO_ERROR_SENTINEL) + MACRO_ERROR_SENTINEL.length)
-        : result.stderrLines.join('\n') || `PowerShell exited with code ${result.code}`;
-    throw excelMacroErrorFromRaw(raw);
+    throwUnlessMacroSucceeded(result, appName, log);
 }
 
 // Backstop so an open/macro-run COM call cannot hang (and leak its powershell +
@@ -347,18 +328,30 @@ export async function runWorkbookMacroReadOnly(
     log(`[runMacro] Running: ${macroName}`);
     log(`[runMacro] Script: ${script}`);
     const result = await runExcelScript(script, 'runMacro', log);
+    throwUnlessMacroSucceeded(result, 'Excel', log);
+}
+
+/**
+ * Turns a finished macro run into the error it stands for, or returns when it
+ * succeeded. A spawn failure means PowerShell never ran, so XLIDE never
+ * reopened the file: it is UNKNOWN rather than RUN_FAILED, so the F5 handler
+ * does not mark the workbook as XLIDE-opened (a later closeTracked save could
+ * then close it out from under the user).
+ */
+function throwUnlessMacroSucceeded(
+    result: Awaited<ReturnType<typeof runExcelScript>>,
+    appName: string,
+    log: (message: string) => void,
+): void {
     if (result.spawnError) {
         log(`[runMacro] Error: ${result.spawnError.message}`);
-        // A spawn failure means PowerShell never ran, so XLIDE never reopened the
-        // workbook - use UNKNOWN (not RUN_FAILED) so the F5 handler does not falsely
-        // mark the workbook as XLIDE-opened (which a later closeTracked save could
-        // then close out from under the user).
         throw new ExcelMacroError(result.spawnError.message, 'UNKNOWN');
     }
     if (result.timedOut) {
         throw new ExcelMacroError(
-            'Excel did not respond within the time limit. A dialog may be open in Excel '
-            + '(for example a MsgBox from the macro); close it and try again, or the macro may be running too long.',
+            `${appName} did not respond within the time limit. A dialog may be open in ${appName} `
+            + '(for example a MsgBox or an error dialog from the macro); close it and try again, '
+            + 'or the macro may be running too long.',
             'RUN_FAILED',
         );
     }

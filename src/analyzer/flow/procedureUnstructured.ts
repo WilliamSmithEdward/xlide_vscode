@@ -3,7 +3,7 @@
 // straight-line walk for such procedures.
 
 import { statementTokensCached, tokensWithoutLeadingLineNumber, tokenWord } from '../lexer/tokenHelpers';
-import type { BodyNode, LeafStatementNode, ProcedureNode, Span } from '../parser/nodes';
+import type { BodyNode, ProcedureNode, Span } from '../parser/nodes';
 import { isLeafStatement } from '../parser/nodes';
 import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
 import {

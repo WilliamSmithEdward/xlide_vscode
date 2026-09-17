@@ -3,7 +3,6 @@ import { takeRenameForUndo } from '../vbaRenameHistory';
 import * as path from 'path';
 import {
     encodeFormMarkupUri,
-    encodeModuleUri,
     isProjectLockedError,
     reportProjectLocked,
     XLIDE_VBA_LANGUAGE_ID,
@@ -14,18 +13,13 @@ import { applyOpenDocumentSources } from '../vbaOpenDocuments';
 import { validateVbaModuleName } from '../vbaSourceScan';
 import { projectClassModuleDefinition } from '../vbaNavigation';
 import { buildVbaProjectIndexAsync } from '../vbaProjectAnalysis';
-import {
-    projectClassReferenceEdit,
-    renameProjectClassModule,
-} from '../vbaClassRename';
-import {
-    projectStandardModuleReferenceEdit,
-    renameProjectStandardModule,
-} from '../vbaStandardModuleRename';
+import { projectClassReferenceEdit } from '../vbaClassRename';
+import { projectStandardModuleReferenceEdit } from '../vbaStandardModuleRename';
 import { recordXlideWriteAuditEvent as recordWriteAudit } from '../xlideWriteAudit';
 import {
     deleteProjectModule,
     refreshProjectState,
+    renameProjectModule,
     writeProjectModule,
 } from '../projectModuleOperations';
 import { registerXlideCommand } from '../xlideCommandRegistration';
@@ -34,6 +28,8 @@ import type { XlideNode } from '../projectExplorer';
 import {
     logChangeSummary,
     type CommandDeps,
+    outputLogger,
+    openModuleDocument,
 } from './shared';
 
 /** Best-effort lowercased set of the project's existing module names. */
@@ -93,9 +89,7 @@ const DESIGNABLE_MODULE_TYPES: ReadonlySet<string> = new Set([
 export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposable[] {
     const { bridge, explorer, fsProvider, out, vbaIndex } = deps;
 
-    function log(msg: string): void {
-        out.appendLine(msg);
-    }
+    const log = outputLogger(out);
 
     /** What each designer object is called where the user can see it. */
     const DESIGNER_WORDS = {
@@ -263,9 +257,7 @@ export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposabl
                     summary: summaryText,
                 });
                 // Open the new module immediately
-                const uri = encodeModuleUri(node.filePath, name);
-                const doc = await vscode.workspace.openTextDocument(uri);
-                await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
+                const doc = await openModuleDocument(node.filePath, name);
                 await vscode.window.showTextDocument(doc, { preview: false });
             } catch (err) {
                 recordWriteAudit({
@@ -310,9 +302,7 @@ export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposabl
                     moduleName: name,
                     summary: summaryText,
                 });
-                const uri = encodeModuleUri(node.filePath, name);
-                const doc = await vscode.workspace.openTextDocument(uri);
-                await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
+                const doc = await openModuleDocument(node.filePath, name);
                 await vscode.window.showTextDocument(doc, { preview: false });
             } catch (err) {
                 recordWriteAudit({
@@ -361,13 +351,17 @@ export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposabl
 
             let moduleRenamed = false;
             try {
+                const modules = applyOpenDocumentSources(
+                    await vbaIndex.getAllModules(node.filePath),
+                    node.filePath,
+                );
+                const project = await buildVbaProjectIndexAsync(modules);
+                const byModule = new Map(modules.map((mod) => [mod.moduleName.toLowerCase(), mod]));
+                // The shared operation coordinates with Excel, carries a pending
+                // agent review to the new name and tells open editors the old
+                // module is gone; project state refreshes once, in `finally`.
+                const renameRequest = { filePath: node.filePath, moduleName: node.moduleName, newName };
                 if (node.moduleType === 'class') {
-                    const modules = applyOpenDocumentSources(
-                        await vbaIndex.getAllModules(node.filePath),
-                        node.filePath,
-                    );
-                    const project = await buildVbaProjectIndexAsync(modules);
-                    const byModule = new Map(modules.map((mod) => [mod.moduleName.toLowerCase(), mod]));
                     const definition = projectClassModuleDefinition(
                         project,
                         node.moduleName,
@@ -384,26 +378,11 @@ export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposabl
                         definition,
                         newName,
                     );
-                    await renameProjectClassModule(bridge, node.filePath, node.moduleName, newName);
+                    await renameProjectModule(deps, renameRequest, { refreshProjectState: false });
                     moduleRenamed = true;
                     vbaIndex.invalidate(node.filePath);
-                    if (references.count > 0) {
-                        for (const uri of references.uris) {
-                            const doc = await vscode.workspace.openTextDocument(uri);
-                            await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
-                        }
-                        const applied = await vscode.workspace.applyEdit(references.edit);
-                        if (!applied) {
-                            throw new Error('VS Code did not apply the class reference edits.');
-                        }
-                    }
+                    await applyReferenceEdit(references, 'class');
                 } else {
-                    const modules = applyOpenDocumentSources(
-                        await vbaIndex.getAllModules(node.filePath),
-                        node.filePath,
-                    );
-                    const project = await buildVbaProjectIndexAsync(modules);
-                    const byModule = new Map(modules.map((mod) => [mod.moduleName.toLowerCase(), mod]));
                     const references = projectStandardModuleReferenceEdit(
                         node.filePath,
                         byModule,
@@ -411,22 +390,11 @@ export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposabl
                         node.moduleName,
                         newName,
                     );
-                    await renameProjectStandardModule(bridge, node.filePath, node.moduleName, newName);
+                    await renameProjectModule(deps, renameRequest, { refreshProjectState: false });
                     moduleRenamed = true;
                     vbaIndex.invalidate(node.filePath);
-                    if (references.count > 0) {
-                        for (const uri of references.uris) {
-                            const doc = await vscode.workspace.openTextDocument(uri);
-                            await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
-                        }
-                        const applied = await vscode.workspace.applyEdit(references.edit);
-                        if (!applied) {
-                            throw new Error('VS Code did not apply the standard module reference edits.');
-                        }
-                    }
+                    await applyReferenceEdit(references, 'standard module');
                 }
-                // Tell open editors the old module is gone and refresh project stats
-                fsProvider.notifyFileChanged(encodeModuleUri(node.filePath, node.moduleName));
                 const summaryText = logChangeSummary(log, 'renameModule', {
                     operation: 'Rename module',
                     changed: [`${node.moduleName} -> ${newName}`],
@@ -512,4 +480,20 @@ export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposabl
             }
         }),
     ];
+}
+
+/** Opens every module the rename touches as VBA, so the edit lands on the right language, then applies it. */
+async function applyReferenceEdit(
+    references: { count: number; uris: readonly vscode.Uri[]; edit: vscode.WorkspaceEdit },
+    what: string,
+): Promise<void> {
+    if (references.count === 0) { return; }
+    for (const uri of references.uris) {
+        const doc = await vscode.workspace.openTextDocument(uri);
+        await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
+    }
+    const applied = await vscode.workspace.applyEdit(references.edit);
+    if (!applied) {
+        throw new Error(`VS Code did not apply the ${what} reference edits.`);
+    }
 }

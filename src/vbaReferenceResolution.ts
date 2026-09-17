@@ -29,7 +29,7 @@ import {
     type VbaSymbol as AstSymbol,
 } from './analyzer';
 import { moduleKindFromType } from './vbaProjectAnalysis';
-import { findIdentifierOccurrences, lineStartOffsets } from './vbaSourceScan';
+import { findIdentifierOccurrences, lineIndexOf, lineStartOffsets } from './vbaSourceScan';
 import type { VbaModuleSymbols } from './vbaSymbolIndex';
 
 /** An offset-based reference location within one project module. */
@@ -165,11 +165,8 @@ export function projectClassMemberAtDefinition(
 
 function offsetToLineColumn(source: string, offset: number): { line: number; column: number } {
     const starts = lineStartOffsets(source);
-    let line = 0;
-    for (let i = 0; i < starts.length; i += 1) {
-        if (starts[i] <= offset) { line = i; } else { break; }
-    }
-    return { line, column: offset - (starts[line] ?? 0) };
+    const line = lineIndexOf(starts, offset);
+    return { line, column: offset - starts[line] };
 }
 
 function memberDefinitionKey(definition: VbaProjectClassMemberDefinition): string {
@@ -243,7 +240,7 @@ function memberAccessReferences(
     const seen = new Set<string>();
     const out: ReferenceSpan[] = [];
     const push = (span: ReferenceSpan): void => {
-        const key = `${span.moduleName.toLowerCase()}:${span.line}:${span.column}`;
+        const key = referenceKey(span);
         if (!seen.has(key)) {
             seen.add(key);
             out.push(span);
@@ -357,11 +354,16 @@ function bareReferences(
     return out;
 }
 
+/** Where a reference is, the way two reports of one occurrence compare equal. */
+function referenceKey(span: ReferenceSpan): string {
+    return `${span.moduleName.toLowerCase()}:${span.line}:${span.column}`;
+}
+
 function dedupeReferences(spans: readonly ReferenceSpan[]): ReferenceSpan[] {
     const seen = new Set<string>();
     const out: ReferenceSpan[] = [];
     for (const span of spans) {
-        const key = `${span.moduleName.toLowerCase()}:${span.line}:${span.column}`;
+        const key = referenceKey(span);
         if (!seen.has(key)) {
             seen.add(key);
             out.push(span);

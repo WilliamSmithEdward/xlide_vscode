@@ -121,6 +121,49 @@ built-in defaults, or the current session.
 If the sidecar contains invalid JSON, unknown keys, or invalid sync modes, XLIDE
 reports the settings file as invalid instead of silently ignoring it.
 
+## Compare Modules With Git
+
+A workbook is one binary file to git, so the Source Control view can only say
+that it changed. XLIDE reads the committed workbook the same way it reads the
+one on disk, so you can see what changed inside it without exporting anything.
+
+Right-click a module in the XLIDE tree:
+
+- **Compare Module with Git HEAD** opens a diff of the module as last
+  committed against the module as it is now, unsaved edits included.
+- **Compare Module with Git Revision...** lists the commits that touched the
+  file and diffs the module against the one you pick.
+
+Right-click the file itself and choose **Compare File with Git HEAD** to list
+every module that was modified, added, or removed since the last commit, and
+open the diff of any of them.
+
+**Show Module History** answers a question git cannot: which commits changed
+this module? Git's log lists every commit that touched the file. XLIDE reads
+the module out of each of the last fifty of them and keeps the commits where
+its text moved, newest first, with what each did (modified, added, removed).
+Pick one and the diff shows the module before that commit against the module
+in it.
+
+**Restore Module from Git HEAD** puts one module back to its committed text
+and leaves the rest of the file alone. The committed text is applied as an
+edit in the module's editor, so Undo brings the current text back, and the
+module is saved for you unless it had unsaved edits, in which case the save is
+yours. A module the last commit does not have cannot be restored; delete it if
+you want the committed state.
+
+The same three commands are in the Command Palette while a module is open.
+They need `git` on your PATH, or the `git.path` setting VS Code's own git
+support uses, and the file has to be committed at least once. A VB6 project's
+modules are files of their own, so each one is compared with its own history.
+
+The tree shows the same comparison without asking: a module that differs from
+the last commit carries an `M` badge, one the last commit does not have an
+`A`, and the file row counts them, in the colours the Explorer uses for
+changed files. The marks are computed once per change to the file or the
+repository, so a large workbook costs one parse of its committed copy, not one
+per row.
+
 ## Safety Notes
 
 Import/export is preview-first. The project or file system is changed only

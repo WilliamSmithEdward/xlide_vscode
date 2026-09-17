@@ -14,7 +14,7 @@
 // rebuilds its Microsoft Forms block byte for byte from its own parsed
 // fields). Nothing here is guessed from prose.
 
-import { readDirRecords, REC_PROJECTMODULES } from './vbaProject';
+import { dirRecord, readDirRecords, REC_PROJECTMODULES } from './vbaProject';
 
 const REC_REFERENCE_NAME = 0x0016;
 const REC_REFERENCE_NAME_UNICODE = 0x003e;
@@ -90,13 +90,6 @@ function sizedString(body: Buffer): string {
 	return size > 0 && 4 + size <= body.length ? body.subarray(4, 4 + size).toString('latin1') : '';
 }
 
-function record(id: number, body: Buffer): Buffer {
-	const head = Buffer.alloc(6);
-	head.writeUInt16LE(id, 0);
-	head.writeUInt32LE(body.length, 2);
-	return Buffer.concat([head, body]);
-}
-
 function sized(text: string): Buffer {
 	const bytes = Buffer.from(text, 'latin1');
 	const size = Buffer.alloc(4);
@@ -107,8 +100,8 @@ function sized(text: string): Buffer {
 /** A reference's name, in both the code page and Unicode forms the format carries. */
 function nameRecords(name: string): Buffer {
 	return Buffer.concat([
-		record(REC_REFERENCE_NAME, Buffer.from(name, 'latin1')),
-		record(REC_REFERENCE_NAME_UNICODE, Buffer.from(name, 'utf16le')),
+		dirRecord(REC_REFERENCE_NAME, Buffer.from(name, 'latin1')),
+		dirRecord(REC_REFERENCE_NAME_UNICODE, Buffer.from(name, 'utf16le')),
 	]);
 }
 
@@ -160,10 +153,10 @@ export function buildControlReference(reference: ControlReference): Buffer {
 	]);
 	return Buffer.concat([
 		nameRecords(reference.name),
-		record(REC_REFERENCE_ORIGINAL, Buffer.from(reference.libidOriginal, 'latin1')),
-		record(REC_REFERENCE_CONTROL, control),
+		dirRecord(REC_REFERENCE_ORIGINAL, Buffer.from(reference.libidOriginal, 'latin1')),
+		dirRecord(REC_REFERENCE_CONTROL, control),
 		nameRecords(reference.name),
-		record(REC_REFERENCE_CONTROL_EXTENDED, extendedBody),
+		dirRecord(REC_REFERENCE_CONTROL_EXTENDED, extendedBody),
 	]);
 }
 

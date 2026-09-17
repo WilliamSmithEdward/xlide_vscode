@@ -1,6 +1,4 @@
 import * as vscode from 'vscode';
-import { ProjectEngine } from './projectEngine';
-import { notifySignatureDropped } from './xlideFileSystem';
 import {
     projectClassReferenceLocations,
     type VbaNavigationModule,
@@ -9,19 +7,6 @@ import {
     ProjectIndex,
     type VbaProjectTypeName,
 } from './analyzer';
-
-export async function renameProjectClassModule(
-    bridge: ProjectEngine,
-    projectPath: string,
-    oldName: string,
-    newName: string,
-): Promise<void> {
-    const result = await bridge.call<{ ok: boolean; signatureDropped: boolean }>(
-        'renameModule',
-        { path: projectPath, module: oldName, newName },
-    );
-    notifySignatureDropped(projectPath, result.signatureDropped);
-}
 
 export function projectClassReferenceEdit(
     projectPath: string,

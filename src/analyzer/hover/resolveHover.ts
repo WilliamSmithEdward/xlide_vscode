@@ -23,6 +23,7 @@ import {
 import { Span } from '../parser/nodes';
 import { HostConstant, HostMember, HostObjectModel } from '../host/excelObjectModel';
 import {
+	bareTypeName,
 	getHostType,
 	hostDisplayName,
 	resolveHostConstant,
@@ -38,6 +39,7 @@ import {
 	resolveMemberCompletionNamed,
 } from '../completion/memberAccess';
 import type { ProjectTypeName } from '../completion/typeCompletion';
+import { constantSignature } from '../completion/identifierCompletion';
 import {
 	resolveTypeReferenceAt,
 	type ResolvedTypeReference,
@@ -105,12 +107,6 @@ function hostConstantDocumentation(
 
 function contains(span: Span, offset: number): boolean {
 	return offset >= span.start && offset <= span.end;
-}
-
-/** Strips the host namespace prefix for display (e.g. "Excel.Range" -> "Range"). */
-function displayType(qualified: string): string {
-	const dot = qualified.lastIndexOf('.');
-	return dot >= 0 ? qualified.slice(dot + 1) : qualified;
 }
 
 /**
@@ -184,7 +180,7 @@ export function resolveHover(
 	const globalType = resolveHostGlobal(name, ctx.model);
 	if (globalType) {
 		return {
-			signature: `${name} As ${displayType(globalType)}`,
+			signature: `${name} As ${bareTypeName(globalType)}`,
 			details: [`${hostDisplayName(ctx.model)} host global`],
 			span,
 			documentation: externalDocMarkdown(ctx, name),
@@ -194,7 +190,7 @@ export function resolveHover(
 	// Worksheet/document code name (e.g. Sheet1, ThisWorkbook component).
 	const codeType = ctx.codeNames?.[name.toLowerCase()];
 	if (codeType) {
-		const friendly = displayType(codeType);
+		const friendly = bareTypeName(codeType);
 		return {
 			signature: `${name} As ${friendly}`,
 			details: [`${friendly} code name`],
@@ -206,7 +202,7 @@ export function resolveHover(
 	const runtimeObject = resolveRuntimeObject(name);
 	if (runtimeObject) {
 		return {
-			signature: `${runtimeObject.name} As ${displayType(runtimeObject.type)}`,
+			signature: `${runtimeObject.name} As ${bareTypeName(runtimeObject.type)}`,
 			details: ['VBA runtime object'],
 			span,
 			documentation: externalDocMarkdown(ctx, name),
@@ -286,7 +282,7 @@ function hostGlobalMemberSignature(member: HostMember): string {
 	// The declared type is what the reader wants to see, chainable or not:
 	// `Value As Variant` beats a bare `Value`.
 	const declared = member.declaredType ?? member.returns;
-	const ret = declared ? ` As ${displayType(declared)}` : '';
+	const ret = declared ? ` As ${bareTypeName(declared)}` : '';
 	return `${member.name}${call}${ret}`;
 }
 
@@ -313,16 +309,6 @@ function resolveImplicitMemberHover(
 		span,
 		documentation: externalDocMarkdown(ctx, name),
 	};
-}
-
-function constantSignature(constant: { name: string; type?: string; value?: string | number }): string {
-	const type = constant.type ? ` As ${constant.type}` : '';
-	const value = constant.value !== undefined ? ` = ${formatConstantValue(constant.value)}` : '';
-	return `Const ${constant.name}${type}${value}`;
-}
-
-function formatConstantValue(value: string | number): string {
-	return typeof value === 'string' ? JSON.stringify(value) : String(value);
 }
 
 function buildTypeHover(typeRef: ResolvedTypeReference, model?: HostObjectModel): HoverInfo {
@@ -371,11 +357,11 @@ function buildMemberHover(
 	ctx: HoverContext,
 	span: Span,
 ): HoverInfo {
-	const ownerName = displayType(member.owner);
+	const ownerName = bareTypeName(member.owner);
 	// The declared type is what the reader wants to see, chainable or not:
 	// `Value As Variant` beats a bare `Value`.
 	const declared = member.declaredType ?? member.returns;
-	const ret = declared ? ` As ${displayType(declared)}` : '';
+	const ret = declared ? ` As ${bareTypeName(declared)}` : '';
 	const call = member.kind === 'method' ? '()' : '';
 	const hostType = !!getHostType(member.owner, ctx.model);
 	const runtimeType = !!resolveRuntimeObject(member.owner);

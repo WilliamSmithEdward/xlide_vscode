@@ -2,7 +2,7 @@ import * as path from 'path';
 import type { ProjectEngine } from './projectEngine';
 import { parseModule } from './analyzer/parser/parseModule';
 import type { ModuleMember, ModuleNode, ProcedureNode, Span } from './analyzer/parser/nodes';
-import { lineStartOffsets } from './vbaSourceScan';
+import { lineStartOffsets, offsetToLineColumn } from './vbaSourceScan';
 import { compareVbaModulesForTreeOrder } from './moduleDisplay';
 import { measurePerformance } from './performanceTrace';
 
@@ -381,9 +381,9 @@ export function summarizeVbaTestRun(report: Pick<VbaTestRunReport, 'results'>): 
 function normalizeVbaTestSelection(selection?: VbaTestSelectionOptions): VbaTestSelectionOptions | undefined {
     const moduleName = normalizeOptionalText(selection?.moduleName);
     const procedureName = normalizeOptionalText(selection?.procedureName);
-    const testIds = normalizeTestIdList(selection?.testIds);
-    const includeTags = normalizeTagList(selection?.includeTags);
-    const excludeTags = normalizeTagList(selection?.excludeTags);
+    const testIds = normalizeStringList(selection?.testIds);
+    const includeTags = normalizeStringList(selection?.includeTags);
+    const excludeTags = normalizeStringList(selection?.excludeTags);
     if (!moduleName && !procedureName && testIds.length === 0 && includeTags.length === 0 && excludeTags.length === 0) {
         return undefined;
     }
@@ -401,13 +401,8 @@ function normalizeOptionalText(value: string | undefined): string | undefined {
     return trimmed ? trimmed : undefined;
 }
 
-function normalizeTagList(values: readonly string[] | undefined): string[] {
-    return [...new Set((values ?? [])
-        .map((value) => value.trim())
-        .filter((value) => value.length > 0))];
-}
-
-function normalizeTestIdList(values: readonly string[] | undefined): string[] {
+/** The values trimmed, with blanks and repeats dropped, in first-seen order. */
+function normalizeStringList(values: readonly string[] | undefined): string[] {
     return [...new Set((values ?? [])
         .map((value) => value.trim())
         .filter((value) => value.length > 0))];
@@ -835,17 +830,4 @@ function parseExpectedVbaErrorMetadata(value: string | undefined): number | 'any
         return 'any';
     }
     return parseExpectedVbaErrorNumber(value);
-}
-
-function offsetToLineColumn(
-    starts: readonly number[],
-    offset: number,
-): { line: number; column: number } {
-    let lo = 0;
-    let hi = starts.length - 1;
-    while (lo < hi) {
-        const mid = (lo + hi + 1) >> 1;
-        if (starts[mid] <= offset) { lo = mid; } else { hi = mid - 1; }
-    }
-    return { line: lo + 1, column: offset - starts[lo] + 1 };
 }

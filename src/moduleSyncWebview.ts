@@ -334,7 +334,7 @@ function settingsFromMessage(
     };
 }
 
-function settingsFromPlan(plan: ModuleSyncPlan): ModuleSyncSettings {
+export function settingsFromPlan(plan: ModuleSyncPlan): ModuleSyncSettings {
     return {
         folderPath: plan.folderPath,
         folderPathSource: plan.folderPathSource,

@@ -1887,6 +1887,50 @@
       "pendingLegacyCorpusFiles": [],
       "notes": "The procedure is still treated as closed (VBE-lenient); the quick-fix swaps the End keyword to match the opener. Distinct from missing-block-closer (a genuinely unclosed procedure) and unmatched-block-closer (a stray closer).",
       "diagnosticKind": "style-policy"
+    },
+    {
+      "code": "unused-variable",
+      "status": "spec-derived",
+      "diagnosticKind": "style-policy",
+      "sourceOfTruth": "MS-VBAL 5.2.3 / 5.4.3.1 declaration scope plus XLIDE dead-code policy",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Information-only: a local, or a module-private variable or constant, that no token in its scope names. Not a compile-equivalent diagnostic; VBA compiles an unused declaration. Mentions inside inactive #If arms, ByRef passes, indexing and member access all count as uses."
+    },
+    {
+      "code": "variable-never-read",
+      "status": "spec-derived",
+      "diagnosticKind": "style-policy",
+      "sourceOfTruth": "MS-VBAL 5.4.3 assignment semantics plus XLIDE dead-code policy",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Information-only: a variable whose every mention is a plain assignment to it. Read/write classification follows the reference-kind rules of textDocument/references; a For counter, ReDim Preserve, Mid statement target and ByRef pass are reads."
+    },
+    {
+      "code": "unused-procedure",
+      "status": "spec-derived",
+      "diagnosticKind": "style-policy",
+      "sourceOfTruth": "MS-VBAL 5.3.1.1 Private procedure visibility plus XLIDE dead-code policy",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Information-only, Private procedures only: a Public one may be wired to a button, shape, ribbon, hotkey, OnTime or Application.Run that XLIDE cannot see. Event handlers, interface members, Auto_ macros and attributed procedures are never reported; every string literal in the project is searched for the name."
+    },
+    {
+      "code": "unreachable-code",
+      "status": "spec-derived",
+      "diagnosticKind": "style-policy",
+      "sourceOfTruth": "MS-VBAL 5.4.1.3 Exit, 5.4.1.4 GoTo, 5.4.4 Resume, End and Return statement semantics plus XLIDE dead-code policy",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Information-only: statements after an unconditional exit in the same block, until a label, line number, Case arm or #If gives control somewhere to land. A single-line If carrying an Exit is conditional and never a terminator."
     }
   ]
 }

@@ -126,7 +126,7 @@ describe('the vb6 host model', () => {
 			'Sub T()',
 			'    Dim n As Long',
 			'    n = vbKeyReturn',
-			'    Debug.Print App.Path, Screen.Width, Printer.DeviceName',
+			'    Debug.Print n, App.Path, Screen.Width, Printer.DeviceName',
 			'    Set Me.Picture = LoadPicture(App.Path & "\\logo.bmp")',
 			'    Unload Me',
 			'End Sub',

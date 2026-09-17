@@ -22,6 +22,12 @@ import {
     xlideEditorMirrorCommentSpacingFromConfig,
 } from './globalSettings';
 
+/** The one change of an edit to a VBA document, or undefined for any other event. */
+function soleVbaChange(e: vscode.TextDocumentChangeEvent): vscode.TextDocumentContentChangeEvent | undefined {
+    if (!isVbaDocument(e.document) || e.contentChanges.length !== 1) { return undefined; }
+    return e.contentChanges[0];
+}
+
 /**
  * VBA-IDE-style smart Enter: typing a block opener and pressing Enter
  * auto-inserts the matching closer below, leaving the cursor on the indented
@@ -34,10 +40,8 @@ export function registerVbaAutoBlock(context: vscode.ExtensionContext): void {
     const sub = vscode.workspace.onDidChangeTextDocument(async (e) => {
         if (applying) { return; }
         const doc = e.document;
-        if (!isVbaDocument(doc)) { return; }
-        if (e.contentChanges.length !== 1) { return; }
-
-        const change = e.contentChanges[0];
+        const change = soleVbaChange(e);
+        if (!change) { return; }
         // React only to a plain Enter (newline plus optional auto-indent),
         // never to pastes or multi-character insertions.
         if (!/^\r?\n[ \t]*$/.test(change.text)) { return; }
@@ -181,32 +185,7 @@ async function maybeContinueCommentLine(
     const lineText = commentContinuationText(doc.getText(), previousLineIndex, mirrorSpacing);
     if (lineText === undefined) { return false; }
 
-    const editor = vscode.window.activeTextEditor;
-    if (!editor || editor.document !== doc) { return false; }
-
-    const bodyRange = new vscode.Range(
-        new vscode.Position(bodyLineIndex, 0),
-        new vscode.Position(bodyLineIndex, bodyLine.length),
-    );
-    const applied = await editor.edit(
-        (eb) => eb.replace(bodyRange, lineText),
-        { undoStopBefore: false, undoStopAfter: true },
-    );
-    if (!applied) { return false; }
-
-    const placeCaret = (): void => {
-        if (vscode.window.activeTextEditor !== editor || editor.document !== doc) {
-            return;
-        }
-        if (bodyLineIndex >= doc.lineCount || doc.lineAt(bodyLineIndex).text !== lineText) {
-            return;
-        }
-        const caret = new vscode.Position(bodyLineIndex, lineText.length);
-        editor.selection = new vscode.Selection(caret, caret);
-    };
-    placeCaret();
-    setTimeout(placeCaret, 0);
-    return true;
+    return (await replaceBodyLine(doc, bodyLineIndex, bodyLine, lineText)) !== undefined;
 }
 
 async function maybeContinueWithMemberLine(
@@ -222,8 +201,24 @@ async function maybeContinueWithMemberLine(
     const lineText = withMemberContinuationText(doc.getText(), previousLineIndex);
     if (!lineText) { return; }
 
+    const editor = await replaceBodyLine(doc, bodyLineIndex, bodyLine, lineText);
+    if (editor) {
+        suggestAfterAutoDot(editor, lineText);
+    }
+}
+
+/**
+ * Replaces the blank body line with `lineText` and parks the caret at its end,
+ * now and again once the editor settles. The editor, when the edit applied.
+ */
+async function replaceBodyLine(
+    doc: vscode.TextDocument,
+    bodyLineIndex: number,
+    bodyLine: string,
+    lineText: string,
+): Promise<vscode.TextEditor | undefined> {
     const editor = vscode.window.activeTextEditor;
-    if (!editor || editor.document !== doc) { return; }
+    if (!editor || editor.document !== doc) { return undefined; }
 
     const bodyRange = new vscode.Range(
         new vscode.Position(bodyLineIndex, 0),
@@ -233,7 +228,7 @@ async function maybeContinueWithMemberLine(
         (eb) => eb.replace(bodyRange, lineText),
         { undoStopBefore: false, undoStopAfter: true },
     );
-    if (!applied) { return; }
+    if (!applied) { return undefined; }
 
     const placeCaret = (): void => {
         if (vscode.window.activeTextEditor !== editor || editor.document !== doc) {
@@ -247,7 +242,7 @@ async function maybeContinueWithMemberLine(
     };
     placeCaret();
     setTimeout(placeCaret, 0);
-    suggestAfterAutoDot(editor, lineText);
+    return editor;
 }
 
 /**
@@ -261,10 +256,8 @@ export function registerVbaLoopIteratorSync(context: vscode.ExtensionContext): v
     const sub = vscode.workspace.onDidChangeTextDocument(async (e) => {
         if (applying) { return; }
         const doc = e.document;
-        if (!isVbaDocument(doc)) { return; }
-        if (e.contentChanges.length !== 1) { return; }
-
-        const change = e.contentChanges[0];
+        const change = soleVbaChange(e);
+        if (!change) { return; }
         if (/[\r\n]/.test(change.text)) { return; }
 
         const editor = vscode.window.activeTextEditor;

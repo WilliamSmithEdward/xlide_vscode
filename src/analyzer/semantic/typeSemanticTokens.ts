@@ -29,11 +29,9 @@ import { tokenizeCached } from '../lexer/tokenize';
 import { statementTokensCached as codeTokens, tokenName, tokenWord } from '../lexer/tokenHelpers';
 import {
 	isHostMemberNameAnywhere,
-	resolveHostAlias,
 	resolveHostConstant,
 	resolveHostGlobal,
 	resolveHostGlobalMember,
-	resolveHostMember,
 } from '../host/hostModel';
 import type { HostObjectModel } from '../host/excelObjectModel';
 import {
@@ -850,111 +848,6 @@ export function collectHostMemberMethodTokens(
 			// one - the whole point of painting it.
 			modifiers: ['defaultLibrary'],
 		});
-	}
-	return out;
-}
-
-/**
- * The qualified host type of a chain-root receiver token: `Me` when the
- * module's `Me` denotes a host document type; a declared local whose `As`
- * clause resolves to a host object type (issue #33); otherwise an unshadowed
- * host global, Global-interface member, or document code name. Undefined for
- * every other shape.
- */
-function hostReceiverType(
-	recv: VbaToken | undefined,
-	ctx: HostMemberTokenContext,
-	declared: ReadonlyMap<string, string | null>,
-	codeNames: Readonly<Record<string, string>>,
-): string | undefined {
-	if (!recv) {
-		return undefined;
-	}
-	if (tokenWord(recv) === 'me') {
-		// `Me` cannot be shadowed; a non-host meType simply resolves no member.
-		return ctx.meType;
-	}
-	if (recv.kind !== 'identifier') {
-		return undefined;
-	}
-	const lower = recv.rawText.toLowerCase();
-	const declaredType = declared.get(lower);
-	if (declaredType !== undefined) {
-		// A declared name binds first: typed by its host `As` clause, or a
-		// shadow that ends the host reading (null).
-		return declaredType ?? undefined;
-	}
-	return resolveHostGlobal(recv.rawText, ctx.model)
-		?? resolveHostGlobalMember(recv.rawText, ctx.model)?.returns
-		?? codeNames[lower];
-}
-
-/**
- * Every declared name in the module, mapped to the qualified host object type
- * its `As` clause resolves to - or null when it declares no host type at all
- * (untyped, primitive, project-shadowed, a procedure or enum name) or when
- * two declarations of the name disagree. The map is deliberately whole-module
- * rather than scope-aware: a name typed the same everywhere paints, a name
- * that means different things in different procedures stays plain (issue #33).
- */
-function collectDeclaredNameHostTypes(
-	module: ModuleNode,
-	ctx: HostMemberTokenContext,
-): Map<string, string | null> {
-	const projectNames = new Set(
-		(ctx.projectTypes ?? []).map((type) => type.name.toLowerCase()),
-	);
-	const out = new Map<string, string | null>();
-	const merge = (name: string, asType: string | undefined): void => {
-		const resolved = asType && !projectNames.has(asType.trim().toLowerCase())
-			? resolveHostAlias(asType, ctx.model) ?? null
-			: null;
-		const existing = out.get(name.toLowerCase());
-		if (existing === undefined) {
-			out.set(name.toLowerCase(), resolved);
-		} else if (existing !== resolved) {
-			out.set(name.toLowerCase(), null);
-		}
-	};
-	const addBody = (body: BodyNode[]): void => {
-		for (const node of body) {
-			if (node.kind === 'VariableGroup') {
-				for (const decl of node.declarations) {
-					merge(decl.name, decl.asType);
-				}
-			} else if ('body' in node && Array.isArray(node.body)) {
-				addBody(node.body);
-			}
-		}
-	};
-	for (const member of module.members) {
-		switch (member.kind) {
-			case 'Procedure':
-				merge(member.name, undefined);
-				for (const param of member.params) {
-					merge(param.name, param.asType);
-				}
-				addBody(member.body);
-				break;
-			case 'VariableGroup':
-				for (const decl of member.declarations) {
-					merge(decl.name, decl.asType);
-				}
-				break;
-			case 'Type':
-			case 'Enum':
-			case 'Declare':
-			case 'Event':
-				merge(member.name, undefined);
-				if (member.kind === 'Enum') {
-					for (const enumMember of member.members) {
-						merge(enumMember.name, undefined);
-					}
-				}
-				break;
-			default:
-				break;
-		}
 	}
 	return out;
 }

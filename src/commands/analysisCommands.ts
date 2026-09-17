@@ -1,10 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import {
-    encodeModuleUri,
     decodeModuleUri,
     XLIDE_SCHEME,
-    XLIDE_VBA_LANGUAGE_ID,
 } from '../xlideFileSystem';
 import { applyOpenDocumentSources } from '../vbaOpenDocuments';
 import {
@@ -39,7 +37,10 @@ import {
     showAnalysisSourceDocument,
     statusMessage,
     type CommandDeps,
+    outputLogger,
+    openModuleDocument,
 } from './shared';
+import { workspaceEditFor } from '../vbaWorkspaceEdit';
 
 function copilotAnalysisPrompt(
     filePath: string,
@@ -120,11 +121,9 @@ export async function analyzeOpenModule(
 }
 
 export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[] {
-    const { context, bridge, explorer, out, vbaIndex } = deps;
+    const { context, bridge, out, vbaIndex } = deps;
 
-    function log(msg: string): void {
-        out.appendLine(msg);
-    }
+    const log = outputLogger(out);
 
     let analysisSourceOpenQueue: Promise<void> = Promise.resolve();
     let analysisSourceOpenSequence = 0;
@@ -144,9 +143,7 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
         filePath: string,
         problem: ProjectAnalysisProblem,
     ): Promise<void> {
-        const uri = encodeModuleUri(filePath, problem.moduleName);
-        const doc = await vscode.workspace.openTextDocument(uri);
-        await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
+        const doc = await openModuleDocument(filePath, problem.moduleName);
         const editor = await showAnalysisSourceDocument(doc);
         const line = Math.max(0, problem.line - 1);
         const startColumn = Math.max(0, problem.column - 1);
@@ -174,9 +171,7 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
         scope: ProjectAnalysisSuppressScope,
         _analysisPanelColumn?: vscode.ViewColumn,
     ): Promise<void> {
-        const uri = encodeModuleUri(filePath, problem.moduleName);
-        const doc = await vscode.workspace.openTextDocument(uri);
-        await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
+        const doc = await openModuleDocument(filePath, problem.moduleName);
         if (analysisSourceDrifted(doc, problem)) {
             return;
         }
@@ -195,12 +190,12 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
         const edit = new vscode.WorkspaceEdit();
 
         if (target.kind === 'block') {
-            edit.insert(uri, new vscode.Position(target.endLine + 1, 0), `' @xlide-analysis-enable-block ${code}${eol}`);
-            edit.insert(uri, new vscode.Position(target.startLine, 0), `' @xlide-analysis-disable-block ${code}${eol}`);
+            edit.insert(doc.uri, new vscode.Position(target.endLine + 1, 0), `' @xlide-analysis-enable-block ${code}${eol}`);
+            edit.insert(doc.uri, new vscode.Position(target.startLine, 0), `' @xlide-analysis-disable-block ${code}${eol}`);
         } else if (target.kind === 'member') {
-            edit.insert(uri, new vscode.Position(target.startLine, 0), `' @xlide-analysis-disable-next-member ${code}${eol}`);
+            edit.insert(doc.uri, new vscode.Position(target.startLine, 0), `' @xlide-analysis-disable-next-member ${code}${eol}`);
         } else {
-            edit.insert(uri, new vscode.Position(target.startLine, 0), `' @xlide-analysis-disable-file ${code}${eol}`);
+            edit.insert(doc.uri, new vscode.Position(target.startLine, 0), `' @xlide-analysis-disable-file ${code}${eol}`);
         }
 
         const applied = await vscode.workspace.applyEdit(edit);
@@ -220,9 +215,7 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
         problem: ProjectAnalysisProblem,
         analysisPanelColumn?: vscode.ViewColumn,
     ): Promise<void> {
-        const uri = encodeModuleUri(filePath, problem.moduleName);
-        const doc = await vscode.workspace.openTextDocument(uri);
-        await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
+        const doc = await openModuleDocument(filePath, problem.moduleName);
         await openProjectAnalysisProblem(filePath, problem, analysisPanelColumn);
         const prompt = copilotAnalysisPrompt(filePath, problem, doc.getText());
         try {
@@ -245,9 +238,7 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
             return false;
         }
 
-        const uri = encodeModuleUri(filePath, problem.moduleName);
-        const doc = await vscode.workspace.openTextDocument(uri);
-        await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
+        const doc = await openModuleDocument(filePath, problem.moduleName);
         if (analysisSourceDrifted(doc, problem)) {
             return false;
         }
@@ -274,18 +265,7 @@ export function registerAnalysisCommands(deps: CommandDeps): vscode.Disposable[]
             return false;
         }
 
-        const edit = new vscode.WorkspaceEdit();
-        for (const textEdit of fix.edits) {
-            edit.replace(
-                uri,
-                new vscode.Range(
-                    doc.positionAt(textEdit.span.start),
-                    doc.positionAt(textEdit.span.end),
-                ),
-                textEdit.newText,
-            );
-        }
-        const applied = await vscode.workspace.applyEdit(edit);
+        const applied = await vscode.workspace.applyEdit(workspaceEditFor(doc, fix.edits));
         if (!applied) {
             return false;
         }

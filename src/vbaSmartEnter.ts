@@ -12,6 +12,7 @@
 import { lexerStrippedLine, lexerStrippedLines } from './analyzer/lexer/strippedLines';
 import {
     leadingWhitespace,
+    lineStartAt,
     lineStartOffsets,
     logicalLinesFromStripped,
     VBA_IDENTIFIER_PATTERN,
@@ -406,7 +407,7 @@ function physicalLineAtOffset(lines: PhysicalLine[], offset: number): number {
 // whole document; mirrors physicalLineAtOffset, including its fall-back to the
 // final line when the offset sits on the LF of a CRLF pair.
 function physicalLineAt(source: string, offset: number): PhysicalLine {
-    const start = offset === 0 ? 0 : source.lastIndexOf('\n', offset - 1) + 1;
+    const start = lineStartAt(source, offset);
     const nl = source.indexOf('\n', offset);
     const end = nl === -1
         ? source.length

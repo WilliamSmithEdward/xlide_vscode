@@ -269,7 +269,14 @@ function exportedProcedureDigest(
  */
 function moduleSurfaceDigest(options: VbaProjectAnalysisOptions): string {
     const fold = new SurfaceFold();
-    for (const set of [options.knownProcedures, options.knownIdentifiers, options.knownNonTypeNames]) {
+    for (const set of [
+        options.knownProcedures,
+        options.knownIdentifiers,
+        options.knownNonTypeNames,
+        // A string in another module can name one of this module's private
+        // procedures, so a new mention there has to clear the finding here.
+        options.projectStringLiteralWords,
+    ]) {
         for (const name of set ?? []) {
             fold.add(name);
         }

@@ -22,6 +22,10 @@ PowerPoint, or Access - without driving the XLIDE panels by hand.
 5. Run `xlide_runVbaTests` to execute discovered `@xlide-test` procedures
    through the production read-only test host of the file's own application
    (Excel, Word, or PowerPoint).
+6. Before a commit, call `xlide_gitChanges` to see what changed inside the
+   file since HEAD (or any revision): one unified diff per module, plus which
+   modules were added or removed. `git diff` cannot say this about a workbook,
+   so this is what an agent reviews changes or writes a commit message from.
 
 `xlide_runVbaTests` supports `moduleName`, `procedureName`, `testIds`,
 `includeTags`, `excludeTags`, and `failFast` so an agent can start narrow while

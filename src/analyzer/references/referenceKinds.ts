@@ -15,6 +15,7 @@
 
 import { tokenizeCached } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
+import { tokenWord } from '../lexer/tokenHelpers';
 
 export type ReferenceKind = 'read' | 'write' | 'readwrite';
 
@@ -24,11 +25,6 @@ const PARAM_MODIFIERS = new Set(['byval', 'byref', 'optional', 'paramarray']);
 
 function isName(t: VbaToken | undefined): boolean {
 	return !!t && (t.kind === 'identifier' || t.kind === 'bracketedIdentifier');
-}
-
-function wordOf(t: VbaToken | undefined): string {
-	if (!t) { return ''; }
-	return (t.kind === 'keyword' ? (t.canonicalText ?? t.rawText) : t.rawText).toLowerCase();
 }
 
 /** Index just past a balanced paren group starting at `open`, else open+1. */
@@ -89,7 +85,7 @@ function classifySegment(
 		if (wanted.has(t.start)) { out.set(t.start, kind); }
 	};
 	let head = 0;
-	let headWord = wordOf(seg[head]);
+	let headWord = tokenWord(seg[head]);
 
 	// Set / Let are assignment statements with a keyword prefix.
 	if (headWord === 'set' || headWord === 'let' || headWord === 'lset' || headWord === 'rset') {
@@ -99,7 +95,7 @@ function classifySegment(
 	}
 
 	if (headWord === 'for') {
-		if (wordOf(seg[1]) === 'each') {
+		if (tokenWord(seg[1]) === 'each') {
 			if (isName(seg[2])) { mark(seg[2], 'write'); }
 		} else if (isName(seg[1])) {
 			mark(seg[1], 'write');
@@ -110,7 +106,7 @@ function classifySegment(
 	if (headWord === 'redim') {
 		let i = 1;
 		let kind: ReferenceKind = 'write';
-		if (wordOf(seg[i]) === 'preserve') { kind = 'readwrite'; i++; }
+		if (tokenWord(seg[i]) === 'preserve') { kind = 'readwrite'; i++; }
 		let expectTarget = true;
 		let depth = 0;
 		for (; i < seg.length; i++) {
@@ -119,7 +115,7 @@ function classifySegment(
 			if (raw === ')') { depth--; continue; }
 			if (depth > 0) { continue; }
 			if (raw === ',') { expectTarget = true; continue; }
-			if (wordOf(seg[i]) === 'as') { expectTarget = false; continue; }
+			if (tokenWord(seg[i]) === 'as') { expectTarget = false; continue; }
 			if (expectTarget && isName(seg[i])) { mark(seg[i], kind); expectTarget = false; }
 		}
 		return;
@@ -150,7 +146,7 @@ function classifySegment(
 
 	// Input #f, a, b / Line Input #f, s / Get #f, pos, var fill their
 	// trailing variables.
-	const isLineInput = headWord === 'line' && wordOf(seg[1]) === 'input';
+	const isLineInput = headWord === 'line' && tokenWord(seg[1]) === 'input';
 	if ((headWord === 'input' || headWord === 'get' || isLineInput)
 		&& seg.some((t) => t.rawText === '#')) {
 		const commasNeeded = headWord === 'get' ? 2 : 1;
@@ -170,7 +166,7 @@ function classifySegment(
 
 	if (DECL_HEADS.has(headWord)) {
 		let i = head + 1;
-		if (wordOf(seg[i]) === 'const' || headWord === 'const') {
+		if (tokenWord(seg[i]) === 'const' || headWord === 'const') {
 			// Const A = 1, B = 2: names write, initializers read.
 			if (headWord !== 'const') { i++; }
 			let expectName = true;
@@ -185,7 +181,7 @@ function classifySegment(
 			}
 			return;
 		}
-		if (SIGNATURE_HEADS.has(wordOf(seg[i])) || SIGNATURE_HEADS.has(headWord)) {
+		if (SIGNATURE_HEADS.has(tokenWord(seg[i])) || SIGNATURE_HEADS.has(headWord)) {
 			classifySignature(seg, mark);
 			return;
 		}
@@ -193,7 +189,7 @@ function classifySegment(
 		let expectName = true;
 		let depth = 0;
 		for (; i < seg.length; i++) {
-			const w = wordOf(seg[i]);
+			const w = tokenWord(seg[i]);
 			const raw = seg[i].rawText;
 			if (raw === '(') { depth++; continue; }
 			if (raw === ')') { depth--; continue; }
@@ -221,7 +217,7 @@ function classifySegment(
 				const raw = seg[i].rawText;
 				if (raw === '(') { depth++; }
 				else if (raw === ')') { depth--; }
-				else if (depth === 0 && wordOf(seg[i]) === 'then') { return i + 1; }
+				else if (depth === 0 && tokenWord(seg[i]) === 'then') { return i + 1; }
 			}
 			return seg.length;
 		})();
@@ -229,7 +225,7 @@ function classifySegment(
 			let start = from;
 			let depth = 0;
 			for (let i = from; i <= seg.length; i++) {
-				const atElse = i < seg.length && depth === 0 && wordOf(seg[i]) === 'else';
+				const atElse = i < seg.length && depth === 0 && tokenWord(seg[i]) === 'else';
 				if (i === seg.length || atElse) {
 					if (i > start) { classifySegment(seg.slice(start, i), wanted, out); }
 					start = i + 1;
@@ -245,7 +241,7 @@ function classifySegment(
 
 	// A plain assignment starts with an expression: a name, Me, or With's
 	// leading dot. Anything keyword-led (If, While, Call, Debug...) reads.
-	const startsExpression = isName(seg[head]) || wordOf(seg[head]) === 'me' || seg[head].rawText === '.';
+	const startsExpression = isName(seg[head]) || tokenWord(seg[head]) === 'me' || seg[head].rawText === '.';
 	if (startsExpression) {
 		const eq = depthZeroIndexOf(seg, '=', head);
 		if (eq > 0 && seg[eq].kind === 'operator' && seg[eq].rawText === '=') {
@@ -273,7 +269,7 @@ function classifySignature(
 	let expectParam = true;
 	for (; i < seg.length; i++) {
 		const raw = seg[i].rawText;
-		const w = wordOf(seg[i]);
+		const w = tokenWord(seg[i]);
 		if (raw === '(') { depth++; if (depth === 1) { expectParam = true; } continue; }
 		if (raw === ')') { depth--; if (depth === 0) { break; } continue; }
 		if (depth !== 1) { continue; }

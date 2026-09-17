@@ -100,7 +100,6 @@ class OwnedExcelTestHostSession {
     private cleanupWatchdog: ReturnType<typeof setTimeout> | undefined;
     private ownedExcelPid: number | undefined;
     private ownedExcelKilled = false;
-    private sawWorkbookClosed = false;
     private sawExcelQuit = false;
     private timedOutAfter: string | undefined;
     private settled = false;
@@ -296,7 +295,6 @@ class OwnedExcelTestHostSession {
             // this watchdog; only a genuine cleanup hang lets it fire.
             this.armCleanupWatchdog('post-macro');
         } else if (event.kind === 'workbook-closed') {
-            this.sawWorkbookClosed = true;
             this.log(`[runVbaTests host] workbook-closed durationMs=${event.durationMs ?? 'unknown'}`);
             this.armCleanupWatchdog('workbook-closed');
         } else if (event.kind === 'excel-quit') {

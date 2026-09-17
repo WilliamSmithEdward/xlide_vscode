@@ -1,5 +1,4 @@
 import {
-    normalizeAnalysisRuleCode,
     normalizeAnalysisRuleCodes,
     normalizeKnownAnalysisRuleCodes,
     planAnalysisRuleTrackingUpdate,
@@ -20,6 +19,7 @@ import {
     untrackedAnalysisRulesSettingFromConfig,
     visibleAnalysisSeveritiesSettingFromConfig,
 } from './analysisOptions';
+import { normalizeDiagnosticRuleCode } from './analyzer/diagnostics/ruleMetadata';
 
 export type ProjectAnalysisSettingsSource = ProjectSettingSource;
 
@@ -96,7 +96,7 @@ export async function setProjectAnalysisRuleTracked(
     code: string | undefined,
     tracked: boolean,
 ): Promise<AnalysisRuleTrackingUpdate> {
-    const normalized = normalizeAnalysisRuleCode(code);
+    const normalized = normalizeDiagnosticRuleCode(code);
     // Mirror the global guard: refuse to persist codes that are not known
     // diagnostic rules, so a stale/renamed code cannot linger in the sidecar.
     if (!normalized || normalizeKnownAnalysisRuleCodes([normalized]).length === 0) {

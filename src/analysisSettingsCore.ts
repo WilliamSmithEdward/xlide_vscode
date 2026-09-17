@@ -3,6 +3,7 @@ import {
     diagnosticMetadataForCode,
     normalizeDiagnosticSeverityOverrides,
     type DiagnosticSeverityOverride,
+    normalizeDiagnosticRuleCode,
 } from './analyzer/diagnostics/ruleMetadata';
 
 export const ANALYSIS_SEVERITIES = ['error', 'warning', 'information'] as const;
@@ -32,12 +33,12 @@ export function setAnalysisRuleTrackedInList(
     code: string | undefined,
     tracked: boolean,
 ): string[] {
-    const normalized = normalizeAnalysisRuleCode(code);
+    const normalized = normalizeDiagnosticRuleCode(code);
     if (!normalized) {
         return normalizeAnalysisRuleCodes(untrackedRules);
     }
     return tracked
-        ? normalizeAnalysisRuleCodes(untrackedRules.filter((entry) => normalizeAnalysisRuleCode(entry) !== normalized))
+        ? normalizeAnalysisRuleCodes(untrackedRules.filter((entry) => normalizeDiagnosticRuleCode(entry) !== normalized))
         : normalizeAnalysisRuleCodes([...untrackedRules, normalized]);
 }
 
@@ -67,13 +68,13 @@ export function isAnalysisRuleTracked(
     code: string | undefined,
     untrackedRules: readonly string[] | ReadonlySet<string>,
 ): boolean {
-    const normalized = normalizeAnalysisRuleCode(code);
+    const normalized = normalizeDiagnosticRuleCode(code);
     if (!normalized) {
         return true;
     }
     const rules = new Set(
         Array.from(untrackedRules)
-            .map(normalizeAnalysisRuleCode)
+            .map(normalizeDiagnosticRuleCode)
             .filter((entry): entry is string => Boolean(entry)),
     );
     return !rules.has(normalized);
@@ -82,7 +83,7 @@ export function isAnalysisRuleTracked(
 export function normalizeAnalysisRuleCodes(value: unknown): string[] {
     const incoming = Array.isArray(value) ? value : [];
     return [...new Set(incoming
-        .map(normalizeAnalysisRuleCode)
+        .map(normalizeDiagnosticRuleCode)
         .filter((entry): entry is string => Boolean(entry)))]
         .sort();
 }
@@ -90,10 +91,6 @@ export function normalizeAnalysisRuleCodes(value: unknown): string[] {
 export function normalizeKnownAnalysisRuleCodes(value: unknown): string[] {
     return normalizeAnalysisRuleCodes(value)
         .filter((code) => diagnosticMetadataForCode(code) !== undefined);
-}
-
-export function normalizeAnalysisRuleCode(code: unknown): string | undefined {
-    return typeof code === 'string' ? code.trim().toLowerCase() || undefined : undefined;
 }
 
 export function normalizeAnalysisRuleSeverityOverrides(value: unknown): AnalysisRuleSeverityOverrides {
@@ -118,7 +115,7 @@ export function validateAnalysisRuleSeverityOverrideEntries(
 ): AnalysisRuleSeverityOverrides {
     const parsed: Record<string, AnalysisRuleSeverityOverride> = {};
     for (const [rawCode, rawSeverity] of Object.entries(value)) {
-        const code = normalizeAnalysisRuleCode(rawCode);
+        const code = normalizeDiagnosticRuleCode(rawCode);
         const allowed = allowedAnalysisRuleSeverityOverrides(code);
         if (!code || allowed.length === 0) {
             // Tolerate a well-formed but unknown/renamed rule code: every apply

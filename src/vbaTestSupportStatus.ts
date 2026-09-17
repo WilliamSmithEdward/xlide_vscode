@@ -15,18 +15,26 @@ export interface VbaTestSupportStatus {
     canRun: boolean;
 }
 
+/** The project's module named like the bundled test support module, whatever its kind. */
+export async function findVbaTestSupportModule(
+    bridge: ProjectEngine,
+    filePath: string,
+): Promise<{ name: string; type: string } | undefined> {
+    const modules = await bridge.call<Array<{ name: string; type: string }>>(
+        'listModules',
+        { path: filePath },
+    );
+    return modules.find(
+        (module) => module.name.toLowerCase() === XLIDE_ASSERT_MODULE_NAME.toLowerCase(),
+    );
+}
+
 export async function getVbaTestSupportStatus(
     bridge: ProjectEngine,
     filePath: string,
 ): Promise<VbaTestSupportStatus> {
     try {
-        const modules = await bridge.call<Array<{ name: string; type: string }>>(
-            'listModules',
-            { path: filePath },
-        );
-        const existing = modules.find(
-            (module) => module.name.toLowerCase() === XLIDE_ASSERT_MODULE_NAME.toLowerCase(),
-        );
+        const existing = await findVbaTestSupportModule(bridge, filePath);
         if (!existing) {
             return {
                 state: 'missing',

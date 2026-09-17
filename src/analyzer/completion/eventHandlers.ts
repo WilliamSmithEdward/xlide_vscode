@@ -10,6 +10,7 @@ import type { ModuleMember, ProcedureNode } from '../parser/nodes';
 import type { ModuleSymbolKind } from '../symbols/symbolModel';
 import type { HostMember, HostObjectModel } from '../host/excelObjectModel';
 import { getHostEvents, getHostType } from '../host/hostModel';
+import { lineStartAtAnyBreak } from '../../vbaSourceScan';
 
 export type EventHandlerDocumentType = 'workbook' | 'worksheet' | 'chart' | 'document' | 'userform';
 
@@ -578,7 +579,7 @@ function nextMemberStartAfter(
 
 function lineCompletionContext(source: string, offset: number): LineCompletionContext | undefined {
 	const safeOffset = Math.max(0, Math.min(offset, source.length));
-	const lineStart = currentLineStart(source, safeOffset);
+	const lineStart = lineStartAtAnyBreak(source, safeOffset);
 	const prefix = source.slice(lineStart, safeOffset);
 	const wordMatch = /[\p{L}_][\p{L}\p{M}\p{N}_]*$/u.exec(prefix);
 	const currentWord = wordMatch?.[0] ?? '';
@@ -591,12 +592,6 @@ function lineCompletionContext(source: string, offset: number): LineCompletionCo
 		return { currentWord, insertMode: 'declarationTail' };
 	}
 	return undefined;
-}
-
-function currentLineStart(source: string, offset: number): number {
-	const previousLf = source.lastIndexOf('\n', offset - 1);
-	const previousCr = source.lastIndexOf('\r', offset - 1);
-	return Math.max(previousLf, previousCr) + 1;
 }
 
 function toCompletion(

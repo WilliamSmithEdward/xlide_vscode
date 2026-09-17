@@ -48,21 +48,7 @@ export function walkStraightLineBody(
 	isInactive: (node: BodyNode) => boolean,
 	hooks: StraightLineDataflowHooks,
 ): void {
-	for (const node of body) {
-		if (isInactive(node)) {
-			continue;
-		}
-		if (isLeafStatement(node)) {
-			hooks.onStatement(node);
-			continue;
-		}
-		hooks.onBlock?.(node);
-		if ('body' in node && Array.isArray(node.body)) {
-			for (const lower of collectNestedTouches(node.body, isInactive, hooks)) {
-				hooks.demoteToUnknown(lower);
-			}
-		}
-	}
+	walkBody(body, isInactive, hooks, false);
 }
 
 /**
@@ -85,6 +71,16 @@ export function walkBranchMergedBody(
 	isInactive: (node: BodyNode) => boolean,
 	hooks: StraightLineDataflowHooks,
 ): void {
+	walkBody(body, isInactive, hooks, true);
+}
+
+/** The walk both entry points share; merging If arms is the one place they differ. */
+function walkBody(
+	body: readonly BodyNode[],
+	isInactive: (node: BodyNode) => boolean,
+	hooks: StraightLineDataflowHooks,
+	mergeIfBlocks: boolean,
+): void {
 	for (const node of body) {
 		if (isInactive(node)) {
 			continue;
@@ -95,6 +91,7 @@ export function walkBranchMergedBody(
 		}
 		hooks.onBlock?.(node);
 		if (
+			mergeIfBlocks &&
 			node.kind === 'IfBlock' &&
 			hooks.snapshotState &&
 			hooks.restoreState &&

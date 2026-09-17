@@ -7,7 +7,13 @@ import { buildFolderTree, folderPathChain, type FolderTree, type FolderTreeFolde
 import type { XlideExplorerView } from './globalSettings';
 import { containerAppNameForPath, containerContextValue, isVb6ProjectPath } from './macroContainerUi';
 import { findMacroContainerFiles } from './macroContainerDiscovery';
-import { hasPendingAgentReview } from './xlideAgentDiff';
+import { hasPendingAgentReview, pendingAgentReviewModules } from './xlideAgentDiff';
+import type { GitChangeMarksSource } from './gitChangeMarks';
+import {
+    AGENT_REVIEW_COLOR_ID,
+    moduleDecorationUri,
+    projectDecorationUri,
+} from './agentReviewDecorations';
 import { startPerformanceTrace } from './performanceTrace';
 
 export type XlideNodeKind = 'project' | 'folder' | 'module' | 'designer' | 'sub' | 'loadError';
@@ -98,6 +104,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     constructor(
         private readonly _bridge: ProjectEngine,
         private readonly _out?: vscode.OutputChannel,
+        private readonly _gitMarks?: GitChangeMarksSource,
     ) {}
 
     dispose(): void {
@@ -157,6 +164,88 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         if (node) {
             this._emitter.fire(node);
         }
+    }
+
+    /**
+     * Redraw the rows that show whether an agent edit awaits review: the
+     * module, and in the folder layout every folder it sits under. The project
+     * row needs no redraw; its decoration follows the pending set by itself.
+     *
+     * Rows are fired without a new render id, so a folder the user has open
+     * stays open.
+     */
+    refreshAgentReviewMarks(filePath: string, moduleName: string): void {
+        const module = this._findModuleNode(filePath, moduleName);
+        this.refreshModuleSubs(module?.filePath ?? filePath, module?.moduleName ?? moduleName);
+        if (this._view !== 'folders' || !module?.folder) {
+            return;
+        }
+        for (const step of folderPathChain(module.folder)) {
+            const folder = this._folderNodes.get(folderNodeKey(module.filePath, step));
+            if (folder) {
+                this._emitter.fire(folder);
+            }
+        }
+    }
+
+    /**
+     * Redraw every row of a project that carries a git mark: the modules,
+     * whose `M`/`A` badges follow the marks, and the project row's count.
+     * Fired without a new render id, so nothing the user has open closes.
+     */
+    refreshGitMarks(filePath: string): void {
+        const project = projectIdentityKey(filePath);
+        for (const node of this._moduleNodes.values()) {
+            if (projectIdentityKey(node.filePath) === project) {
+                this._emitter.fire(node);
+            }
+        }
+        const projectNode = this._projectNodes.get(filePath)
+            ?? [...this._projectNodes.values()].find((node) => projectIdentityKey(node.filePath) === project);
+        if (projectNode) {
+            this._emitter.fire(projectNode);
+        }
+    }
+
+    /**
+     * The loaded module row for a module, however the caller spelled the path
+     * or the name. An agent tool and the tree can name the same module in
+     * different cases, and the row cache is keyed on the tree's spelling.
+     */
+    private _findModuleNode(filePath: string, moduleName: string): XlideNode | undefined {
+        const exact = this._moduleNodes.get(moduleNodeKey(filePath, moduleName));
+        if (exact) {
+            return exact;
+        }
+        const project = projectIdentityKey(filePath);
+        const wanted = moduleName.toLowerCase();
+        for (const node of this._moduleNodes.values()) {
+            if (projectIdentityKey(node.filePath) === project && node.moduleName?.toLowerCase() === wanted) {
+                return node;
+            }
+        }
+        return undefined;
+    }
+
+    /** Whether any module under this folder, at any depth, awaits review. */
+    private _folderHasPendingAgentReview(folder: XlideNode): boolean {
+        if (pendingAgentReviewModules(folder.filePath).length === 0) {
+            return false;
+        }
+        const project = projectIdentityKey(folder.filePath);
+        const wanted = folderNodeKey(folder.filePath, folder.folder ?? '');
+        for (const module of this._moduleNodes.values()) {
+            if (projectIdentityKey(module.filePath) !== project || !module.folder) {
+                continue;
+            }
+            if (!hasPendingAgentReview(module.filePath, module.moduleName ?? '')) {
+                continue;
+            }
+            if (folderPathChain(module.folder).some((step) => folderNodeKey(module.filePath, step) === wanted)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** Required by treeView.reveal() - walks xlsm -> (folder) -> module -> sub. */
@@ -223,11 +312,6 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     /** Returns the cached module node, if the tree has loaded it. */
     getModuleNode(filePath: string, moduleName: string): XlideNode | undefined {
         return this._moduleNodes.get(moduleNodeKey(filePath, moduleName));
-    }
-
-    /** Returns the cached xlsm node, if the tree has loaded it. */
-    getProjectNode(filePath: string): XlideNode | undefined {
-        return this._projectNodes.get(filePath);
     }
 
     /**
@@ -415,6 +499,9 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                 // A VB6 project is a manifest over files, and its icon says so.
                 item.iconPath = new vscode.ThemeIcon(isVb6ProjectPath(node.filePath) ? 'project' : 'file-code');
                 item.tooltip = node.filePath;
+                // Always carried, so the row can light up the moment an agent
+                // edit lands in it without redrawing a tree the user has open.
+                item.resourceUri = projectDecorationUri(node.filePath);
                 item.description = path.relative(
                     vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? '',
                     path.dirname(node.filePath),
@@ -439,14 +526,24 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                 }
                 break;
 
-            case 'folder':
-                item.iconPath = new vscode.ThemeIcon('folder');
+            case 'folder': {
                 item.contextValue = 'folder';
                 // The annotation that makes the folder, so a nested one reads
                 // as the whole path rather than just its last segment.
                 item.tooltip = `@Folder("${node.folder}")`;
-                item.description = node.moduleCount === 1 ? '1 module' : `${node.moduleCount} modules`;
+                const count = node.moduleCount === 1 ? '1 module' : `${node.moduleCount} modules`;
+                // A folder row gets no decoration URI: the `folder` theme icon
+                // switches to the file-icon theme once a row has one. The
+                // pending mark goes on the icon and the description instead.
+                if (this._folderHasPendingAgentReview(node)) {
+                    item.iconPath = new vscode.ThemeIcon('folder', new vscode.ThemeColor(AGENT_REVIEW_COLOR_ID));
+                    item.description = `${count} ● agent edit`;
+                } else {
+                    item.iconPath = new vscode.ThemeIcon('folder');
+                    item.description = count;
+                }
                 break;
+            }
 
             case 'module':
                 item.iconPath = new vscode.ThemeIcon(moduleThemeIconName(node.moduleType));
@@ -454,13 +551,32 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                 item.contextValue = `module-${node.moduleType ?? 'standard'}`;
                 if (hasPendingAgentReview(node.filePath, node.moduleName ?? '')) {
                     // An agent wrote this module and nobody has kept or
-                    // reverted it yet; the badge keeps the review reachable.
+                    // reverted it yet. The decoration colours the name and
+                    // badges it; the tinted icon and the description say the
+                    // same thing to a theme that ignores decoration colours.
                     item.description = `${node.moduleType} ● agent edit`;
                     item.contextValue += '-agent-pending';
                     item.iconPath = new vscode.ThemeIcon(
                         moduleThemeIconName(node.moduleType),
-                        new vscode.ThemeColor('gitDecoration.modifiedResourceForeground'),
+                        new vscode.ThemeColor(AGENT_REVIEW_COLOR_ID),
                     );
+                    item.resourceUri = moduleDecorationUri(node.filePath, node.moduleName ?? '');
+                    // Set, because a row with a resourceUri and no tooltip
+                    // shows the URI on hover.
+                    item.tooltip = `${node.label}\n\nAn agent edited this module. `
+                        + 'Keep or revert the change with the buttons on this row.';
+                } else {
+                    // Changed since the last commit: the decoration badges the
+                    // row `M` or `A` in the Explorer's colours. Asking for the
+                    // marks is what schedules them the first time.
+                    const change = this._gitMarks?.marksFor(node.filePath)
+                        ?.byModule.get((node.moduleName ?? '').toLowerCase());
+                    if (change) {
+                        item.resourceUri = moduleDecorationUri(node.filePath, node.moduleName ?? '');
+                        item.tooltip = `${node.label}\n\n${change === 'modified'
+                            ? 'Modified since the last commit.'
+                            : 'Not in the last commit.'} Compare it with Git HEAD from this row's menu.`;
+                    }
                 }
                 item.command = {
                     command: 'xlide.openModule',

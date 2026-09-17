@@ -61,7 +61,7 @@ describe('shared Office constants reach every host model', () => {
 	});
 
 	it('keeps msoTrue out of the undeclared-variable rule in every host', () => {
-		const src = 'Option Explicit\nSub T()\n    Dim n As Long\n    n = msoTrue\nEnd Sub\n';
+		const src = 'Option Explicit\nSub T()\n    Dim n As Long\n    n = msoTrue\n    Debug.Print n\nEnd Sub\n';
 		for (const host of ['word', 'powerpoint', 'access', 'excel']) {
 			const findings = analyzeModule(src, { host, knownIdentifiers: new Set<string>() })
 				.map((d) => d.message);
@@ -163,7 +163,7 @@ describe('Word answers as Word', () => {
 	});
 
 	it('keeps a Global member out of the undeclared rule in its host only (issue #34)', () => {
-		const src = 'Option Explicit\nSub T()\n    Dim n As Single\n    n = InchesToPoints(1)\nEnd Sub\n';
+		const src = 'Option Explicit\nSub T()\n    Dim n As Single\n    n = InchesToPoints(1)\n    Debug.Print n\nEnd Sub\n';
 		const word = analyzeModule(src, { host: 'word', knownIdentifiers: new Set<string>() })
 			.map((d) => d.message);
 		expect(word).toEqual([]);

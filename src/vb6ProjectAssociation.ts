@@ -108,8 +108,3 @@ export function vb6ProjectAssociation(platform: string = process.platform): Vb6P
 	cached = { opensDirectly: false, candidates: [...new Set(candidates)], unknown: false };
 	return cached;
 }
-
-/** Forgets the reading, for a test. */
-export function resetVb6ProjectAssociationForTests(): void {
-	cached = undefined;
-}

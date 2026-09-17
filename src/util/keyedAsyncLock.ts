@@ -3,8 +3,6 @@
  * call order, while actions with different keys run concurrently. Use this to
  * make a shared resource (a file, a folder) safe against interleaved read /
  * write / delete operations from independent callers.
- *
- * Mirrors the inline queue in projectSettings.withProjectSettingsWriteLock.
  */
 export function createKeyedAsyncLock(): <T>(key: string, action: () => Promise<T>) => Promise<T> {
     const queues = new Map<string, Promise<unknown>>();

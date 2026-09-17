@@ -8,6 +8,7 @@ import {
     type VbaTestStatus,
 } from './vbaTestRunner';
 import type { VbaTestHostOracleEvent } from './vbaTestHostOracle';
+import { isNodeError } from './util/errors';
 
 export const DEFAULT_VBA_TEST_ARTIFACT_FOLDER = 'tests';
 export const DEFAULT_VBA_TEST_ARTIFACT_RETENTION = 20;
@@ -486,8 +487,4 @@ function toPosixPath(value: string): string {
 
 function jsonText(value: unknown): string {
     return `${JSON.stringify(value, null, 2)}\n`;
-}
-
-function isNodeError(value: unknown): value is NodeJS.ErrnoException {
-    return value !== null && typeof value === 'object' && 'code' in value;
 }

@@ -6,7 +6,6 @@
 // are invalid there; broad statement starts are additive.
 
 import { VbaToken } from '../lexer/tokenKinds';
-import { isIdentLike } from '../lexer/tokenHelpers';
 import { completionCursorContext } from './cursorContext';
 import {
 	openSmartBlockClosersBefore,

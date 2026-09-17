@@ -42,7 +42,6 @@ import {
 	type CallableTypeSignature,
 } from '../callExtraction';
 import {
-	collectBodyLiteralIntegerConstants,
 	collectModuleLiteralIntegerConstants,
 	foldIntegerExpressionTokens,
 } from '../constExpr';
@@ -53,9 +52,9 @@ import {
 	declaredTypeForSourceBinding,
 	isKnownScalarType,
 	normalizeType,
+	procedureIntegerConstantLookup,
 	resolveExactMemberCompletion,
 	runtimeCallableSourceShadowed,
-	scopedIntegerConstantLookup,
 	type SourceDeclaredTypeResolver,
 	type SourceNameScope,
 	sourceNameScopeFor,
@@ -512,15 +511,8 @@ export function checkDivisionByZeroExpressions(
 	const projectConstants = resolveRawIntegerConstants(projectIntegerConstants ?? new Map(), new Map());
 	const moduleConstants = collectModuleLiteralIntegerConstants(mod, activity, projectConstants);
 	return (member) => {
-		const procedureConstants = new Map(moduleConstants);
-		collectBodyLiteralIntegerConstants(member.body, procedureConstants, activity);
-		const procSym = procedureSymbolFor(symbols, member);
-		const constants = scopedIntegerConstantLookup(
-			procedureConstants,
-			symbols,
-			procSym,
-			projectVisibleSymbols,
-			hostModel,
+		const constants = procedureIntegerConstantLookup(
+			member, moduleConstants, symbols, projectVisibleSymbols, activity, hostModel,
 		);
 		return (stmt) => {
 			for (const hit of divisionByZeroDivisors(source, stmt.span, constants)) {

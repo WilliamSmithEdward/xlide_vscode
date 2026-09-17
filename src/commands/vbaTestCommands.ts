@@ -1,10 +1,8 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import {
-    encodeModuleUri,
     decodeModuleUri,
     sameProjectPath,
-    XLIDE_VBA_LANGUAGE_ID,
     activeLocalVbaEditor,
     projectIdentityKey,
 } from '../xlideFileSystem';
@@ -35,7 +33,7 @@ import {
     XLIDE_ASSERT_MODULE_NAME,
     XLIDE_ASSERT_MODULE_SOURCE,
 } from '../vbaTestSupportModule';
-import { getVbaTestSupportStatus } from '../vbaTestSupportStatus';
+import { findVbaTestSupportModule, getVbaTestSupportStatus } from '../vbaTestSupportStatus';
 import { registerXlideCommand } from '../xlideCommandRegistration';
 import { recordXlideWriteAuditEvent as recordWriteAudit } from '../xlideWriteAudit';
 import { writeProjectModule } from '../projectModuleOperations';
@@ -47,6 +45,8 @@ import {
     resolveProjectPath,
     showAnalysisSourceDocument,
     type CommandDeps,
+    outputLogger,
+    openModuleDocument,
 } from './shared';
 
 interface VbaTestLastFailedRun {
@@ -69,9 +69,7 @@ export function registerVbaTestCommands(deps: CommandDeps): vscode.Disposable[] 
     const { context, bridge, explorer, out } = deps;
     const lastFailedVbaTestRuns = new Map<string, VbaTestLastFailedRun>();
 
-    function log(msg: string): void {
-        out.appendLine(msg);
-    }
+    const log = outputLogger(out);
 
     function updateLastFailedVbaTestRun(report: VbaTestRunReport): void {
         const failed = report.results
@@ -112,9 +110,7 @@ export function registerVbaTestCommands(deps: CommandDeps): vscode.Disposable[] 
     }
 
     async function openVbaTestCase(filePath: string, test: VbaTestCase): Promise<void> {
-        const uri = encodeModuleUri(filePath, test.moduleName);
-        const doc = await vscode.workspace.openTextDocument(uri);
-        await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
+        const doc = await openModuleDocument(filePath, test.moduleName);
         const editor = await showAnalysisSourceDocument(doc);
         const line = Math.max(0, test.line - 1);
         const column = Math.max(0, test.column - 1);
@@ -350,13 +346,7 @@ export function registerVbaTestCommands(deps: CommandDeps): vscode.Disposable[] 
     }
 
     async function installVbaTestSupportModule(filePath: string): Promise<boolean> {
-        const modules = await bridge.call<Array<{ name: string; type: string }>>(
-            'listModules',
-            { path: filePath },
-        );
-        const existing = modules.find(
-            (module) => module.name.toLowerCase() === XLIDE_ASSERT_MODULE_NAME.toLowerCase(),
-        );
+        const existing = await findVbaTestSupportModule(bridge, filePath);
         if (existing && existing.type !== 'standard') {
             void vscode.window.showErrorMessage(
                 `XLIDE: "${XLIDE_ASSERT_MODULE_NAME}" already exists as a ${existing.type} module. Rename it before installing the test support module.`,

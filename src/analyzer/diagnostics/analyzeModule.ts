@@ -24,11 +24,11 @@ import { tokenizeCached } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
 import {
 	absoluteSpan,
-	physicalLineSpanAtOffset,
 	statementTokens,
 	walkProcedureStatements,
 	type ProcedureStatementVisitor,
 } from './walker';
+import { physicalLineSpanAtOffset } from '../../vbaSourceScan';
 import {
 	walkProcedureExpressions,
 	type ProcedureExpressionVisitor,

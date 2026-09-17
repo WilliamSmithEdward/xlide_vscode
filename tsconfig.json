@@ -7,7 +7,7 @@
     "strict": true,
     "skipLibCheck": true,
     "moduleResolution": "Node16",
-    "types": ["node"]
+    "types": ["node", "mocha"]
   },
   "include": ["src"],
   "exclude": ["node_modules", ".vscode-test"]

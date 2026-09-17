@@ -161,15 +161,21 @@ interface ConditionalActivityEvent {
 	branch: ConditionalArm | undefined;
 }
 
+/** The environment's `#Const` values keyed by lower-cased name, the way lookups spell them. */
+function projectConstantsOf(env: ConditionalCompilationEnvironment): Map<string, ConditionalValue> {
+	const out = new Map<string, ConditionalValue>();
+	for (const [name, value] of Object.entries(env.projectConstants ?? {})) {
+		out.set(name.toLowerCase(), value);
+	}
+	return out;
+}
+
 function collectConditionalActivityEvents(
 	module: ModuleNode,
 	effectiveEnv: ConditionalCompilationEnvironment,
 ): ConditionalActivityEvent[] {
 	const directives = collectConditionalDirectives(module);
-	const projectConstants = new Map<string, ConditionalValue>();
-	for (const [name, value] of Object.entries(effectiveEnv.projectConstants ?? {})) {
-		projectConstants.set(name.toLowerCase(), value);
-	}
+	const projectConstants = projectConstantsOf(effectiveEnv);
 	const stack: ConditionalFrame[] = [];
 	let current: ConditionalActivity = 'active';
 	let branch: ConditionalArm | undefined;
@@ -311,10 +317,7 @@ export function conditionalActivityAtOffset(
 ): ConditionalActivity {
 	const effectiveEnv = effectiveConditionalCompilationEnvironment(env);
 	const directives = collectConditionalDirectives(module);
-	const projectConstants = new Map<string, ConditionalValue>();
-	for (const [name, value] of Object.entries(effectiveEnv.projectConstants ?? {})) {
-		projectConstants.set(name.toLowerCase(), value);
-	}
+	const projectConstants = projectConstantsOf(effectiveEnv);
 	const stack: ConditionalFrame[] = [];
 	let current: ConditionalActivity = 'active';
 

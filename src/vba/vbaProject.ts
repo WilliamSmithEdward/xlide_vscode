@@ -65,6 +65,14 @@ export interface DirRecord {
 	end: number;
 }
 
+/** One dir-stream record: a 2-byte id, a 4-byte size, then the payload. */
+export function dirRecord(id: number, payload: Buffer): Buffer {
+	const head = Buffer.alloc(6);
+	head.writeUInt16LE(id, 0);
+	head.writeUInt32LE(payload.length, 2);
+	return Buffer.concat([head, payload]);
+}
+
 /** Tokenize a decompressed dir stream into flat records. */
 export function readDirRecords(raw: Buffer): DirRecord[] {
 	const out: DirRecord[] = [];
@@ -576,12 +584,7 @@ export class VbaProject {
 	private serializeModulesSection(): Buffer {
 		const cp = this.codePage;
 		const parts: Buffer[] = [];
-		const rec = (id: number, data: Buffer): Buffer => {
-			const head = Buffer.alloc(6);
-			head.writeUInt16LE(id, 0);
-			head.writeUInt32LE(data.length, 2);
-			return Buffer.concat([head, data]);
-		};
+		const rec = dirRecord;
 		const u16 = (v: number): Buffer => { const b = Buffer.alloc(2); b.writeUInt16LE(v & 0xffff, 0); return b; };
 		const u32 = (v: number): Buffer => { const b = Buffer.alloc(4); b.writeUInt32LE(v >>> 0, 0); return b; };
 

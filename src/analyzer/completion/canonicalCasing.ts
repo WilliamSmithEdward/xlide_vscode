@@ -13,6 +13,7 @@ import {
 	resolveTypeCompletions,
 	type TypeCompletionContext,
 } from './typeCompletion';
+import { lineStartAtAnyBreak } from '../../vbaSourceScan';
 
 export interface CanonicalCaseContext {
 	member?: MemberCompletionContext;
@@ -148,15 +149,11 @@ function physicalLineWindow(
 	start: number,
 	end: number,
 ): { start: number; end: number } {
-	const before = Math.max(
-		source.lastIndexOf('\n', Math.max(0, start - 1)),
-		source.lastIndexOf('\r', Math.max(0, start - 1)),
-	);
 	let windowEnd = end;
 	while (windowEnd < source.length && source[windowEnd] !== '\n' && source[windowEnd] !== '\r') {
 		windowEnd += 1;
 	}
-	return { start: before + 1, end: windowEnd };
+	return { start: lineStartAtAnyBreak(source, start), end: windowEnd };
 }
 
 function isIdentifierToken(token: VbaToken): boolean {

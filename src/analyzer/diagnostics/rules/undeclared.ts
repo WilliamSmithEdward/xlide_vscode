@@ -6,6 +6,7 @@
 
 import {
 	detectEol,
+	lineStartAt,
 	VBA_IDENTIFIER_NAME_RE,
 } from '../../../vbaSourceScan';
 import type { HostObjectModel } from '../../host/excelObjectModel';
@@ -357,7 +358,6 @@ function symbolKindLabel(sym: VbaSymbol): string {
  * skipped to avoid noise on blank document modules.
  */
 export function checkOptionExplicit(
-	source: string,
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
@@ -647,7 +647,7 @@ function declarationInsertOffset(source: string, member: ProcedureNode): number 
 		if (text === '' || text.startsWith("'")) {
 			continue;
 		}
-		if (!/^(?:Dim|Static|Const)/i.test(text)) {
+		if (!/^(?:Dim|Static|Const)\b/i.test(text)) {
 			break;
 		}
 		insertAt = lineStartAfter(source, stmt.span.end);
@@ -665,20 +665,14 @@ function lineStartAfter(source: string, offset: number): number {
 function firstBodyLineStart(source: string, member: ProcedureNode): number | undefined {
 	const first = member.body.find((stmt) => isLeafStatement(stmt));
 	if (first) {
-		return lineStartOf(source, first.span.start);
+		return lineStartAt(source, first.span.start);
 	}
 	return lineStartAfter(source, member.span.start);
 }
 
-/** Start of the line containing `offset`. */
-function lineStartOf(source: string, offset: number): number {
-	const prev = source.lastIndexOf('\n', Math.max(0, offset - 1));
-	return prev < 0 ? 0 : prev + 1;
-}
-
 /** The indentation of the line at `offset`, reused for the inserted line. */
 function leadingWhitespaceOfLineAt(source: string, offset: number): string {
-	const start = lineStartOf(source, offset);
+	const start = lineStartAt(source, offset);
 	const end = source.indexOf('\n', start);
 	const line = source.slice(start, end < 0 ? source.length : end);
 	return /^[ \t]*/.exec(line)?.[0] ?? '';

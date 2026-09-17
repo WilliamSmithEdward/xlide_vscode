@@ -115,10 +115,6 @@ export class Cfb {
 		return this.directory.filter((e) => e.objType === OBJTYPE_STREAM).map((e) => e.name);
 	}
 
-	listStorages(): string[] {
-		return this.directory.filter((e) => e.objType === OBJTYPE_STORAGE).map((e) => e.name);
-	}
-
 	hasStream(name: string): boolean {
 		return this.findStreamIndex(name) !== undefined;
 	}
@@ -133,11 +129,34 @@ export class Cfb {
 
 	/** Stream names that are children of the given storage, in directory order. */
 	listStreamsInStorage(storage: string): string[] {
-		const parent = this.findStorageIndex(storage);
+		return this.childNames(this.findStorageIndex(storage), OBJTYPE_STREAM);
+	}
+
+	/** Names of the storage's children of one object type, in directory order. */
+	private childNames(parent: number, objType: number): string[] {
 		return this.collectSubtree(this.directory[parent].childId)
-			.filter((i) => this.directory[i].objType === OBJTYPE_STREAM)
+			.filter((i) => this.directory[i].objType === objType)
 			.sort((a, b) => a - b)
 			.map((i) => this.directory[i].name);
+	}
+
+	/** Claims a slot for a new stream and links it under `parent`. */
+	private linkNewStream(parent: number, name: string, data: Buffer): void {
+		const target = this.claimSlot(name, OBJTYPE_STREAM);
+		this.overrides.set(target, Buffer.from(data));
+		const siblings = this.collectSubtree(this.directory[parent].childId);
+		siblings.push(target);
+		this.directory[parent].childId = this.rebuildBalancedSubtree(siblings);
+	}
+
+	/** Writes the stream under `parent`, creating it when there is none. */
+	private setChildStream(parent: number, name: string, data: Buffer): void {
+		const existing = this.findChildStreamIndex(parent, name);
+		if (existing !== undefined) {
+			this.overrides.set(existing, Buffer.from(data));
+			return;
+		}
+		this.linkNewStream(parent, name, data);
 	}
 
 	/**
@@ -171,29 +190,12 @@ export class Cfb {
 		return this.readStream(idx);
 	}
 
-	hasStreamIn(storage: string | undefined, name: string): boolean {
-		const parent = storage === undefined
-			? this.containerIndex(undefined)
-			: this.findStorageIndexOrUndefined(storage);
-		return parent !== undefined && this.findChildStreamIndex(parent, name) !== undefined;
-	}
-
 	/** Write the stream, creating it when the container does not hold one. */
 	setStreamIn(storage: string | undefined, name: string, data: Buffer): void {
 		if (!name) {
 			throw new CfbError('stream name must be non-empty');
 		}
-		const parent = this.containerIndex(storage);
-		const existing = this.findChildStreamIndex(parent, name);
-		if (existing !== undefined) {
-			this.overrides.set(existing, Buffer.from(data));
-			return;
-		}
-		const target = this.claimSlot(name, OBJTYPE_STREAM);
-		this.overrides.set(target, Buffer.from(data));
-		const siblings = this.collectSubtree(this.directory[parent].childId);
-		siblings.push(target);
-		this.directory[parent].childId = this.rebuildBalancedSubtree(siblings);
+		this.setChildStream(this.containerIndex(storage), name, data);
 	}
 
 	removeStreamIn(storage: string | undefined, name: string): void {
@@ -247,12 +249,7 @@ export class Cfb {
 	}
 
 	getStreamInStorage(storage: string, name: string): Buffer {
-		const parent = this.findStorageIndex(storage);
-		const idx = this.findChildStreamIndex(parent, name);
-		if (idx === undefined) {
-			throw new CfbError(`Stream ${name} not found in storage ${storage}`);
-		}
-		return this.readStream(idx);
+		return this.getStreamIn(storage, name);
 	}
 
 	hasStreamInStorage(storage: string, name: string): boolean {
@@ -306,56 +303,15 @@ export class Cfb {
 		if (this.findChildStreamIndex(parent, name) !== undefined) {
 			throw new CfbError(`Stream ${name} already exists in storage ${storage}`);
 		}
-		const target = this.claimSlot(name, OBJTYPE_STREAM);
-		this.overrides.set(target, Buffer.from(data));
-		const siblings = this.collectSubtree(this.directory[parent].childId);
-		siblings.push(target);
-		this.directory[parent].childId = this.rebuildBalancedSubtree(siblings);
-	}
-
-	/** Remove every stream child of `storage` whose name satisfies `predicate`. */
-	dropStreamsInStorage(storage: string, predicate: (name: string) => boolean): string[] {
-		const parent = this.findStorageIndexOrUndefined(storage);
-		if (parent === undefined) {
-			return [];
-		}
-		const removed = this.collectSubtree(this.directory[parent].childId)
-			.filter((i) => this.directory[i].objType === OBJTYPE_STREAM && predicate(this.directory[i].name))
-			.map((i) => this.directory[i].name);
-		for (const name of removed) {
-			this.removeStreamInStorage(storage, name);
-		}
-		return removed;
+		this.linkNewStream(parent, name, data);
 	}
 
 	removeStreamInStorage(storage: string, name: string): void {
-		const parent = this.findStorageIndex(storage);
-		const target = this.findChildStreamIndex(parent, name);
-		if (target === undefined) {
-			throw new CfbError(`Stream ${name} not found in storage ${storage}`);
-		}
-		this.unlinkAndClear(parent, target);
+		this.removeStreamIn(storage, name);
 	}
 
 	renameStreamInStorage(storage: string, oldName: string, newName: string): void {
-		if (!newName) {
-			throw new CfbError('new stream name must be non-empty');
-		}
-		const parent = this.findStorageIndex(storage);
-		const target = this.findChildStreamIndex(parent, oldName);
-		if (target === undefined) {
-			throw new CfbError(`Stream ${oldName} not found in storage ${storage}`);
-		}
-		if (oldName.toLowerCase() === newName.toLowerCase()) {
-			this.directory[target].name = newName;
-			return;
-		}
-		if (this.findChildStreamIndex(parent, newName) !== undefined) {
-			throw new CfbError(`Stream ${newName} already exists in storage ${storage}`);
-		}
-		this.directory[target].name = newName;
-		const siblings = this.collectSubtree(this.directory[parent].childId);
-		this.directory[parent].childId = this.rebuildBalancedSubtree(siblings);
+		this.renameStreamIn(storage, oldName, newName);
 	}
 
 	// ------------------------------------------------- nested storage paths
@@ -389,19 +345,11 @@ export class Cfb {
 	}
 
 	listStreamsAtPath(path: readonly string[]): string[] {
-		const parent = this.resolveStoragePath(path);
-		return this.collectSubtree(this.directory[parent].childId)
-			.filter((i) => this.directory[i].objType === OBJTYPE_STREAM)
-			.sort((a, b) => a - b)
-			.map((i) => this.directory[i].name);
+		return this.childNames(this.resolveStoragePath(path), OBJTYPE_STREAM);
 	}
 
 	listStoragesAtPath(path: readonly string[]): string[] {
-		const parent = this.resolveStoragePath(path);
-		return this.collectSubtree(this.directory[parent].childId)
-			.filter((i) => this.directory[i].objType === OBJTYPE_STORAGE)
-			.sort((a, b) => a - b)
-			.map((i) => this.directory[i].name);
+		return this.childNames(this.resolveStoragePath(path), OBJTYPE_STORAGE);
 	}
 
 	getStreamAtPath(path: readonly string[], name: string): Buffer {
@@ -420,17 +368,7 @@ export class Cfb {
 
 	/** Writes the stream, creating it when the storage does not hold one yet. */
 	setStreamAtPath(path: readonly string[], name: string, data: Buffer): void {
-		const parent = this.resolveStoragePath(path);
-		const existing = this.findChildStreamIndex(parent, name);
-		if (existing !== undefined) {
-			this.overrides.set(existing, Buffer.from(data));
-			return;
-		}
-		const target = this.claimSlot(name, OBJTYPE_STREAM);
-		this.overrides.set(target, Buffer.from(data));
-		const siblings = this.collectSubtree(this.directory[parent].childId);
-		siblings.push(target);
-		this.directory[parent].childId = this.rebuildBalancedSubtree(siblings);
+		this.setChildStream(this.resolveStoragePath(path), name, data);
 	}
 
 	addStorageAtPath(parentPath: readonly string[], name: string, clsid?: Buffer): void {

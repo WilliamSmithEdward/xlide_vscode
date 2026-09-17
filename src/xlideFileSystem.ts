@@ -472,14 +472,6 @@ export class XlideFileSystemProvider
         this.ensureStat(uri).size = size;
     }
 
-    private bumpStat(uri: vscode.Uri, size?: number): void {
-        const state = this.ensureStat(uri);
-        state.mtime = this.nextTimestamp(state.mtime);
-        if (size !== undefined) {
-            state.size = size;
-        }
-    }
-
     private markChanged(uri: vscode.Uri, size?: number): void {
         const state = this.ensureStat(uri);
         const real = this.projectFileMtime(uri);

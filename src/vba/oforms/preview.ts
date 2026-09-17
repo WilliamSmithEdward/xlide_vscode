@@ -8,7 +8,7 @@
 // shows the control's true bounds and identity rather than an approximation
 // that lies.
 
-import { himetricToPoints, formatPointsShortest as pts } from './bytes';
+import { formatPointsShortest as pts } from './bytes';
 import { recordHas, type ParsedRecord } from './records';
 import { siteName, siteId, siteIsContainer, siteCacheIndex, type SiteModel } from './formStream';
 import { controlKindOfSite, type FormPackage } from './formPackage';

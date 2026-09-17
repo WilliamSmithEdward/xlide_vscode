@@ -109,7 +109,7 @@ const TYPE_FOLDER = 1;
 const TYPE_STREAM = 2;
 const STORAGE_TABLE = 'MSysAccessStorage';
 /** The container's listing stream, whose name opens with a 0x03 byte. */
-const DIR_DATA = 'DirData';
+const DIR_DATA = '\x03DirData';
 
 /** `MSysObjects.Type` for a module, and the type a container row carries. */
 const OBJECT_MODULE = -32761;
@@ -1107,13 +1107,6 @@ export function readAccessDesignNames(
 	};
 	walk(roots);
 	return out;
-}
-
-/** Replace a module's text and give the database back. */
-export function writeAccessModuleSource(data: Buffer, name: string, text: string): Buffer {
-	const writer = new AccessVbaWriter(data);
-	writer.setModuleText(name, text);
-	return writer.toBuffer();
 }
 
 /**

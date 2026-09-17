@@ -49,6 +49,7 @@ import { startPerformanceTrace } from './performanceTrace';
 import { isProjectSettingsError, settingsPathForProject } from './projectSettings';
 import {
     validateXlideGlobalSettingsFromConfig,
+    xlideAnalysisIgnoreFilesOutsideTreeFromConfig,
     xlideDiagnosticsEnabledFromConfig,
     type XlideGlobalSettingsProblem,
 } from './globalSettings';
@@ -477,13 +478,13 @@ export function registerVbaDiagnostics(
             document,
             validateXlideGlobalSettingsFromConfig(config),
         );
-        if (!xlideDiagnosticsEnabledFromConfig(config).value) {
+        // Route through publish()/cache cleanup so the held-diagnostics cache
+        // stays in lockstep with the collection; otherwise a later cursor move
+        // or editor switch would re-publish diagnostics that should be gone.
+        const publishNothingForDocument = (): void => {
             if (!scheduler.isCurrentRun(document, key, generation, documentVersion)) {
                 return;
             }
-            // Route through publish()/cache cleanup so the held-diagnostics cache
-            // stays in lockstep with the collection; otherwise a later cursor move
-            // or editor switch would re-publish the now-disabled diagnostics.
             if (settingsDiagnostics.length > 0) {
                 publish(document.uri, documentVersion, settingsDiagnostics);
             } else {
@@ -491,6 +492,9 @@ export function registerVbaDiagnostics(
                 lastDiagnostics.delete(key);
                 lastSuppressedLine.delete(key);
             }
+        };
+        if (!xlideDiagnosticsEnabledFromConfig(config).value) {
+            publishNothingForDocument();
             return;
         }
         const text = analysisSourceForDocument(document);
@@ -512,6 +516,14 @@ export function registerVbaDiagnostics(
         // and a document's event handlers against correct code (issue #73). A
         // project module and a VB6 project's file both have a project to ask.
         const location = moduleLocationOfDocument(document);
+        // A file no project claims is outside the XLIDE tree - typically an
+        // exported copy of a module the tree already analyzes, whose findings
+        // would repeat in the Problems panel. Skipped unless the user asks for
+        // standalone analysis.
+        if (!location && xlideAnalysisIgnoreFilesOutsideTreeFromConfig(config).value) {
+            publishNothingForDocument();
+            return;
+        }
         let moduleMetadataKnown = location === undefined;
         if (!location) {
             const loose = looseModuleMetadataForDocument(document);
@@ -675,10 +687,15 @@ export function registerVbaDiagnostics(
             if (d.data) {
                 (diag as XlideDiagnosticWithData)[XLIDE_DIAGNOSTIC_DATA] = d.data;
             }
+            const meta = d.code ? diagnosticMetadataForCode(d.code) : undefined;
             // Tag syntax-category findings so they can be held on the active line
             // (e.g. an `If` with no `Then` yet) until the cursor leaves the line.
-            if (d.code && diagnosticMetadataForCode(d.code)?.category === 'syntax') {
+            if (meta?.category === 'syntax') {
                 heldWhileTyping.add(diag);
+            }
+            // Dead code fades rather than underlines.
+            if (meta?.tag === 'unnecessary') {
+                diag.tags = [vscode.DiagnosticTag.Unnecessary];
             }
             diagnostics.push(diag);
         }

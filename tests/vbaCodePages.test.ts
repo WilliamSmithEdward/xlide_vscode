@@ -203,7 +203,7 @@ describe('analyzer on non-ASCII identifiers', () => {
 		// unmatched - a false error on every Russian user's code.
 		const samples = [
 			['Option Explicit', 'Public Sub Проверка()', '    Dim счетчик As Long',
-				'    счетчик = 42', 'End Sub', ''].join('\r\n'),
+				'    счетчик = 42', '    Debug.Print счетчик', 'End Sub', ''].join('\r\n'),
 			['Option Explicit', 'Public Function Δοκιμή() As Long',
 				'    Δοκιμή = 1', 'End Function', ''].join('\r\n'),
 		];

@@ -38,6 +38,7 @@ import { DocMetadataLoader } from './vbaDocMetadata';
 import { VbaProjectIndexService } from './vbaProjectIndexService';
 import { registerVb6ProjectLocator } from './vb6ProjectLocator';
 import { analysisSourceForDocument, moduleLocationOfDocument } from './vbaDocumentLocation';
+import { VbaFormattingProvider } from './vbaFormattingProvider';
 
 const VBA_SELECTOR: vscode.DocumentSelector = [
     { scheme: XLIDE_SCHEME, language: 'vba' },
@@ -54,6 +55,7 @@ export function registerVbaLanguageProviders(
     context: vscode.ExtensionContext,
     bridge: ProjectEngine,
     workerClient?: AnalysisWorkerClient,
+    log: (line: string) => void = () => undefined,
 ): VbaSymbolIndex {
     const index = new VbaSymbolIndex(bridge);
     const projectIndexService = new VbaProjectIndexService(index);
@@ -69,10 +71,13 @@ export function registerVbaLanguageProviders(
     registerVbaMemberCompletion(context, projectIndexService, VBA_SELECTOR, docMetadata.registry);
 
     const typeSemanticTokensProvider = new VbaTypeSemanticTokensProvider(projectIndexService);
+    const formattingProvider = new VbaFormattingProvider(projectIndexService, log);
     context.subscriptions.push(
         index,
         projectIndexService,
         typeSemanticTokensProvider,
+        vscode.languages.registerDocumentFormattingEditProvider(VBA_SELECTOR, formattingProvider),
+        vscode.languages.registerDocumentRangeFormattingEditProvider(VBA_SELECTOR, formattingProvider),
         vscode.languages.registerDocumentSymbolProvider(
             VBA_SELECTOR,
             new VbaDocumentSymbolProvider(),

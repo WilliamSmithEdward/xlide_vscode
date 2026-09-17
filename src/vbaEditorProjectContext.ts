@@ -42,7 +42,6 @@ const CHART = 'Excel.Chart';
 const USERFORM = 'MSForms.UserForm';
 const WORD_DOCUMENT = 'Word.Document';
 const VB6_FORM = 'VB.Form';
-const VB6_MDI_FORM = 'VB.MDIForm';
 const EDITOR_PROJECT_CONTEXT_CACHE_TTL_MS = 10_000;
 const EDITOR_PROJECT_CONTEXT_CACHE_MAX_DOCUMENTS = 32;
 

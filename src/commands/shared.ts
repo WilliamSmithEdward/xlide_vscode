@@ -7,6 +7,8 @@ import {
     XLIDE_SCHEME,
     activeLocalVbaEditor,
     decodeModuleUri,
+    encodeModuleUri,
+    XLIDE_VBA_LANGUAGE_ID,
 } from '../xlideFileSystem';
 import {
     formatChangeSummaryDetails,
@@ -40,6 +42,18 @@ export function statusMessage(text: string): void {
     vscode.window.setStatusBarMessage(text, 6000);
 }
 
+/** Opens a project module's virtual document with the XLIDE VBA language set. */
+export async function openModuleDocument(filePath: string, moduleName: string): Promise<vscode.TextDocument> {
+    const doc = await vscode.workspace.openTextDocument(encodeModuleUri(filePath, moduleName));
+    await vscode.languages.setTextDocumentLanguage(doc, XLIDE_VBA_LANGUAGE_ID);
+    return doc;
+}
+
+/** A line logger over the XLIDE output channel, the shape the helpers here take. */
+export function outputLogger(out: vscode.OutputChannel): (msg: string) => void {
+    return (msg) => out.appendLine(msg);
+}
+
 /** Logs every detail line of a change summary and returns the headline line. */
 export function logChangeSummary(
     log: (msg: string) => void,
@@ -54,7 +68,7 @@ export function logChangeSummary(
 }
 
 /** Workbook path from an explorer node, falling back to the active XLIDE editor. */
-export function resolveProjectPath(node?: XlideNode): string | undefined {
+export function resolveProjectPath(node?: Partial<XlideNode>): string | undefined {
     let filePath = node?.filePath;
     if (!filePath) {
         const active = vscode.window.activeTextEditor;

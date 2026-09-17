@@ -304,17 +304,16 @@ export function explicitCallStatementArgumentListWithoutParens(
 	};
 }
 
-export function standaloneEmptyParenthesizedCallStatement(
-	source: string,
-	span: VbaTextSpan,
-): ParenthesizedCallStatementTarget | undefined {
-	const toks = statementTokensAfterLeadingLineNumber(source, span);
-	if (
-		toks.length < 3 ||
-		tokenWord(toks[0]) === 'call' ||
-		topLevelTokenIndex(toks, '=') >= 0
-	) {
-		return undefined;
+/**
+ * Each `name(` ... `)` of a non-`Call`, non-assignment statement whose closing
+ * parenthesis ends the statement and whose receiver chain is complete, in
+ * order of appearance.
+ */
+function* statementEndingParenthesizedCalls(
+	toks: readonly VbaToken[],
+): Generator<{ index: number; name: string; close: number }> {
+	if (tokenWord(toks[0]) === 'call' || topLevelTokenIndex(toks, '=') >= 0) {
+		return;
 	}
 	for (let i = 0; i < toks.length - 2; i += 1) {
 		const name = tokenName(toks[i]);
@@ -322,11 +321,23 @@ export function standaloneEmptyParenthesizedCallStatement(
 			continue;
 		}
 		const close = matchParenFrom(toks, i + 1);
-		if (
-			close !== i + 2 ||
-			close !== toks.length - 1 ||
-			!isCompleteStatementChainThroughEmptyCall(toks, i, close)
-		) {
+		if (close !== toks.length - 1 || !isCompleteStatementChainThroughEmptyCall(toks, i, close)) {
+			continue;
+		}
+		yield { index: i, name, close };
+	}
+}
+
+export function standaloneEmptyParenthesizedCallStatement(
+	source: string,
+	span: VbaTextSpan,
+): ParenthesizedCallStatementTarget | undefined {
+	const toks = statementTokensAfterLeadingLineNumber(source, span);
+	if (toks.length < 3) {
+		return undefined;
+	}
+	for (const { index: i, name, close } of statementEndingParenthesizedCalls(toks)) {
+		if (close !== i + 2) {
 			continue;
 		}
 		return {
@@ -360,25 +371,10 @@ export function standaloneMultiArgParenthesizedCallStatement(
 	span: VbaTextSpan,
 ): MultiArgParenthesizedCallStatementTarget | undefined {
 	const toks = statementTokensAfterLeadingLineNumber(source, span);
-	if (
-		toks.length < 4 ||
-		tokenWord(toks[0]) === 'call' ||
-		topLevelTokenIndex(toks, '=') >= 0
-	) {
+	if (toks.length < 4) {
 		return undefined;
 	}
-	for (let i = 0; i < toks.length - 2; i += 1) {
-		const name = tokenName(toks[i]);
-		if (!name || toks[i + 1]?.rawText !== '(') {
-			continue;
-		}
-		const close = matchParenFrom(toks, i + 1);
-		if (
-			close !== toks.length - 1 ||
-			!isCompleteStatementChainThroughEmptyCall(toks, i, close)
-		) {
-			continue;
-		}
+	for (const { index: i, name, close } of statementEndingParenthesizedCalls(toks)) {
 		const argumentCount = topLevelArgumentCount(toks, i + 1, close);
 		if (argumentCount < 2) {
 			continue;
@@ -532,9 +528,7 @@ function findParenCall(tokens: readonly VbaToken[]): VbaCallSite | undefined {
 	}
 	for (let i = stack.length - 1; i >= 0; i -= 1) {
 		if (stack[i].isCall) {
-			const open = stack[i].openIndex;
 			const calleeIndex = stack[i].calleeIndex!;
-			const callee = tokens[calleeIndex];
 			const isMember = calleeIndex - 1 >= 0 && tokens[calleeIndex - 1].rawText === '.';
 			return {
 				calleeName: parenthesizedCallCalleeName(tokens, calleeIndex),

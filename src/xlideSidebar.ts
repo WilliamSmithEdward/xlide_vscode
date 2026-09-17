@@ -977,7 +977,7 @@ function renderSection(section: XlideSidebarNode): string {
             ${children.length > 0
         ? children.map((node) => isActionSection && node.kind === 'action'
             ? renderActionNode(node)
-            : renderSidebarNode(node, section.id)).join('')
+            : renderSidebarNode(node)).join('')
         : '<div class="empty">No items</div>'}
         </div>
     </section>`;
@@ -1060,19 +1060,19 @@ const CHECK_SVG = '<svg viewBox="0 0 16 16"><path d="M3 8.5 6.5 12 13 4.5"/></sv
 
 const EXTERNAL_LINK_SVG = '<svg viewBox="0 0 16 16"><path d="M9 2h5v5M14 2 7 9M12 9v4.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5H7"/></svg>';
 
-function renderSidebarNode(node: XlideSidebarNode, sectionId: string): string {
+function renderSidebarNode(node: XlideSidebarNode): string {
     if (node.kind === 'select') {
-        return renderSelectNode(node, sectionId);
+        return renderSelectNode(node);
     }
     if (node.kind === 'action') {
         return renderButtonOnlyRow(node);
     }
-    return renderRowNode(node, sectionId);
+    return renderRowNode(node);
 }
 
 function renderActionNode(node: XlideSidebarNode): string {
     if (!node.command && !node.disabled) {
-        return renderRowNode(node, '');
+        return renderRowNode(node);
     }
     const command = node.command && !node.disabled
         ? ` data-command="${commandAttr(node.command)}"`
@@ -1085,7 +1085,7 @@ function renderActionNode(node: XlideSidebarNode): string {
 
 function renderButtonOnlyRow(node: XlideSidebarNode): string {
     if (!node.command && !node.disabled) {
-        return renderRowNode(node, '');
+        return renderRowNode(node);
     }
     const command = node.command && !node.disabled
         ? ` data-command="${commandAttr(node.command)}"`
@@ -1095,7 +1095,7 @@ function renderButtonOnlyRow(node: XlideSidebarNode): string {
     </div>`;
 }
 
-function renderRowNode(node: XlideSidebarNode, sectionId: string): string {
+function renderRowNode(node: XlideSidebarNode): string {
     const status = node.status ?? 'unknown';
     const showDot = false;
     const rowClass = showDot ? 'row' : 'row noDotRow';
@@ -1122,7 +1122,7 @@ function commandButtonStateAttrs(command: XlideSidebarCommand, title: string): s
     return `${base} data-ctrl-command-label="${escapeAttr(command.ctrlTitle)}" data-ctrl-command-title="${escapeAttr(ctrlTitle)}"`;
 }
 
-function renderSelectNode(node: XlideSidebarNode, sectionId: string): string {
+function renderSelectNode(node: XlideSidebarNode): string {
     const status = node.status ?? 'unknown';
     const options = node.options ?? [];
     const showDot = false;

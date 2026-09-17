@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type * as vscode from 'vscode';
+import { fakeConfig } from './helpers/fakeConfig';
 import {
     clearXlideGlobalAnalysisRuleSeverityOverride,
     resetXlideGlobalSettingValue,
@@ -136,6 +136,7 @@ describe('globalSettings', () => {
 
         expect(settings.map((setting) => setting.key)).toEqual([
             'xlide.agent.showWriteDiffs',
+            'xlide.analysis.ignoreFilesOutsideTree',
             'xlide.analysis.ruleSeverityOverrides',
             'xlide.analysis.untrackedRules',
             'xlide.analysis.visibleSeverities',
@@ -276,25 +277,3 @@ describe('globalSettings', () => {
         }]);
     });
 });
-
-function fakeConfig(
-    values: Record<string, unknown>,
-    machineKeys = new Set<string>(),
-    updates: Array<{ key: string; value: unknown; target: unknown }> = [],
-): vscode.WorkspaceConfiguration {
-    return {
-        get: (key: string, fallback?: unknown) => key in values ? values[key] : fallback,
-        inspect: (key: string) => machineKeys.has(key) ? { globalValue: values[key] } : {},
-        update: (key: string, value: unknown, target?: unknown) => {
-            if (value === undefined) {
-                delete values[key];
-                machineKeys.delete(key);
-            } else {
-                values[key] = value;
-                machineKeys.add(key);
-            }
-            updates.push({ key, value, target });
-            return Promise.resolve();
-        },
-    } as unknown as vscode.WorkspaceConfiguration;
-}

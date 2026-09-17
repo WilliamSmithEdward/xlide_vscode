@@ -85,8 +85,15 @@
   ],
   "assertions": {
     "projectAnalysis": {
-      "problemCount": 3,
+      "problemCount": 4,
       "problems": [
+        {
+          "moduleName": "ProjectConsumer",
+          "code": "variable-never-read",
+          "line": 6,
+          "severity": "information",
+          "messageContains": ["status", "never read"]
+        },
         {
           "moduleName": "ProjectConsumer",
           "code": "invalid-as-type-name",
@@ -127,6 +134,11 @@
         {
           "code": "unknown-call",
           "count": 0
+        },
+        {
+          "code": "variable-never-read",
+          "count": 1,
+          "messagesContain": ["status"]
         }
       ],
       "absentCodes": ["option-explicit-missing"]

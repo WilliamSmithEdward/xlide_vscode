@@ -222,7 +222,7 @@ describe('analyzeVbaModuleSource', () => {
 			'Sub Test_ShouldRTE()\n' +
 			'    Dim i As Integer\n' +
 			'    i = "RTE"\n' +
-			'    hiddenMissing = 1\n' +
+			'    hiddenMissing = i\n' +
 			'End Sub\n';
 
 		const result = analyzeVbaModuleSource({
@@ -243,6 +243,7 @@ describe('analyzeVbaModuleSource', () => {
 			'Sub Test_ShouldRTE()\n' +
 			'    Dim i As Integer\n' +
 			'    i = "RTE"\n' +
+			'    Debug.Print i\n' +
 			'End Sub\n';
 
 		const result = analyzeVbaModuleSource({

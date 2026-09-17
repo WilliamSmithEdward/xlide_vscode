@@ -3,7 +3,7 @@
 // folders opening on the way to the module being edited, and the row for the
 // procedure the caret is in.
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const vscodeMock = vi.hoisted(() => ({
     findFiles: vi.fn(),
@@ -28,6 +28,8 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
 }));
 
 import { ProjectExplorer, type XlideNode } from '../src/projectExplorer';
+import { AGENT_REVIEW_COLOR_ID, parseDecorationUri } from '../src/agentReviewDecorations';
+import { keepAgentChange, presentAgentModuleWrite } from '../src/xlideAgentDiff';
 
 const BOOK = 'C:\\work\\Book.xlsm';
 
@@ -504,5 +506,214 @@ describe('following the editor', () => {
         // the tree the editor is inside would be worse than doing nothing.
         explorer.setActiveModule(BOOK, 'NotListed');
         expect(expanded(explorer, 'Accounts.Billing.Reminders')).toBe(true);
+    });
+});
+
+describe('an agent edit awaiting review stands out', () => {
+    async function agentEdits(moduleName: string): Promise<void> {
+        await presentAgentModuleWrite(BOOK, moduleName, {
+            before: 'Sub Old()\r\nEnd Sub\r\n',
+            beforeExisted: true,
+            after: 'Sub New()\r\nEnd Sub\r\n',
+        });
+    }
+
+    /** A drawn folder layout, every module listed. */
+    async function drawnTree() {
+        const explorer = await foldersExplorer();
+        const [project] = await explorer.getChildren();
+        await rows(explorer, project);
+        const folder = (path: string) => explorer.getFolderNode(BOOK, path)!;
+        return { explorer, project, folder };
+    }
+
+    const colourOf = (item: { iconPath?: unknown }) =>
+        (item.iconPath as { color?: { id: string } }).color?.id;
+
+    afterEach(() => {
+        keepAgentChange(BOOK, 'Ledger');
+        keepAgentChange(BOOK, 'Loose');
+    });
+
+    it('decorates the project row, so a collapsed tree still shows it', async () => {
+        const { explorer, project } = await drawnTree();
+
+        expect(parseDecorationUri(explorer.getTreeItem(project).resourceUri!)).toEqual({
+            kind: 'project',
+            filePath: BOOK,
+        });
+        // The path stays the hover text; a decoration URI must not replace it.
+        expect(explorer.getTreeItem(project).tooltip).toBe(BOOK);
+    });
+
+    it('decorates and tints a pending module, and only while it is pending', async () => {
+        const { explorer } = await drawnTree();
+        const ledger = explorer.getModuleNode(BOOK, 'Ledger')!;
+        expect(explorer.getTreeItem(ledger).resourceUri).toBeUndefined();
+
+        await agentEdits('Ledger');
+        const item = explorer.getTreeItem(ledger);
+
+        expect(parseDecorationUri(item.resourceUri!)).toEqual({
+            kind: 'module',
+            filePath: BOOK,
+            moduleName: 'Ledger',
+        });
+        expect(colourOf(item)).toBe(AGENT_REVIEW_COLOR_ID);
+        expect(item.description).toBe('standard ● agent edit');
+        // A row with a resourceUri and no tooltip would show the URI on hover.
+        expect(String(item.tooltip)).toContain('An agent edited this module');
+
+        keepAgentChange(BOOK, 'Ledger');
+        expect(explorer.getTreeItem(ledger).resourceUri).toBeUndefined();
+    });
+
+    it('marks every folder a pending module sits under, and no other', async () => {
+        const { explorer, folder } = await drawnTree();
+        await agentEdits('Ledger');
+
+        for (const path of ['Accounts', 'Accounts.Ledger']) {
+            const item = explorer.getTreeItem(folder(path));
+            expect(item.description, path).toMatch(/● agent edit$/);
+            expect(colourOf(item), path).toBe(AGENT_REVIEW_COLOR_ID);
+        }
+        for (const path of ['Accounts.Billing', 'Shared']) {
+            const item = explorer.getTreeItem(folder(path));
+            expect(item.description, path).not.toContain('agent edit');
+            expect(colourOf(item), path).toBeUndefined();
+        }
+        // A folder row never takes a decoration URI: its icon would turn into
+        // the file-icon theme's folder.
+        expect(explorer.getTreeItem(folder('Accounts')).resourceUri).toBeUndefined();
+
+        keepAgentChange(BOOK, 'Ledger');
+        expect(explorer.getTreeItem(folder('Accounts')).description).toBe('6 modules');
+    });
+
+    it('marks no folder for a pending module at the project root', async () => {
+        const { explorer, folder } = await drawnTree();
+        await agentEdits('Loose');
+
+        expect(explorer.getTreeItem(folder('Accounts')).description).toBe('6 modules');
+        expect(explorer.getTreeItem(folder('Shared')).description).toBe('1 module');
+    });
+
+    it('redraws the module and its folders without reopening or shutting them', async () => {
+        const { explorer, folder } = await drawnTree();
+        const before = explorer.getTreeItem(folder('Accounts')).id;
+        vscodeMock.treeEvents = [];
+
+        explorer.refreshAgentReviewMarks(BOOK, 'Ledger');
+
+        const redrawn = (vscodeMock.treeEvents as XlideNode[]).map((node) => `${node.kind}:${node.kind === 'folder' ? node.folder : node.moduleName}`);
+        expect(redrawn).toEqual(expect.arrayContaining([
+            'module:Ledger',
+            'folder:Accounts',
+            'folder:Accounts.Ledger',
+        ]));
+        expect(redrawn).not.toContain('folder:Accounts.Billing');
+        // Same render id: VS Code keeps the row's expansion as the user left it.
+        expect(explorer.getTreeItem(folder('Accounts')).id).toBe(before);
+    });
+
+    it('finds the module however the agent cased its name', async () => {
+        const { explorer } = await drawnTree();
+        vscodeMock.treeEvents = [];
+
+        explorer.refreshAgentReviewMarks(BOOK, 'LEDGER');
+
+        const redrawn = (vscodeMock.treeEvents as XlideNode[]).map((node) => `${node.kind}:${node.kind === 'folder' ? node.folder : node.moduleName}`);
+        expect(redrawn).toEqual(expect.arrayContaining(['module:Ledger', 'folder:Accounts.Ledger']));
+    });
+
+    it('redraws no folder in the flat layout', async () => {
+        const explorer = new ProjectExplorer(fakeBridge());
+        const [project] = await explorer.getChildren();
+        await explorer.getChildren(project);
+        vscodeMock.treeEvents = [];
+
+        explorer.refreshAgentReviewMarks(BOOK, 'Ledger');
+
+        expect((vscodeMock.treeEvents as XlideNode[]).every((node) => node.kind !== 'folder')).toBe(true);
+    });
+});
+
+describe('a module that differs from the last commit stands out', () => {
+    const marks = new Map<string, { byModule: Map<string, 'modified' | 'added'>; removed: number; head: string }>();
+    const asked: string[] = [];
+    const source = {
+        marksFor: (filePath: string) => {
+            asked.push(filePath);
+            return marks.get(filePath);
+        },
+        onDidChange: vi.fn(),
+    };
+
+    async function drawnFlatTree() {
+        const explorer = new ProjectExplorer(fakeBridge(), undefined, source);
+        const [project] = await explorer.getChildren();
+        await explorer.getChildren(project);
+        return { explorer, project };
+    }
+
+    beforeEach(() => {
+        marks.clear();
+        asked.length = 0;
+    });
+
+    afterEach(() => {
+        keepAgentChange(BOOK, 'Ledger');
+    });
+
+    it('asks for the marks when it draws a module, so the first draw schedules them', async () => {
+        const { explorer } = await drawnFlatTree();
+        explorer.getTreeItem(explorer.getModuleNode(BOOK, 'Ledger')!);
+        expect(asked).toContain(BOOK);
+    });
+
+    it('decorates a modified module and an added one, and no other', async () => {
+        marks.set(BOOK, { byModule: new Map([['ledger', 'modified'], ['loose', 'added']]), removed: 0, head: 'abc' });
+        const { explorer } = await drawnFlatTree();
+
+        const ledger = explorer.getTreeItem(explorer.getModuleNode(BOOK, 'Ledger')!);
+        expect(parseDecorationUri(ledger.resourceUri!)).toEqual({ kind: 'module', filePath: BOOK, moduleName: 'Ledger' });
+        expect(String(ledger.tooltip)).toContain('Modified since the last commit');
+        // The marks colour the name through the decoration; the icon and the
+        // description stay what the module type says.
+        expect(ledger.description).toBe('standard');
+        expect((ledger.iconPath as { color?: unknown }).color).toBeUndefined();
+
+        const loose = explorer.getTreeItem(explorer.getModuleNode(BOOK, 'Loose')!);
+        expect(String(loose.tooltip)).toContain('Not in the last commit');
+
+        expect(explorer.getTreeItem(explorer.getModuleNode(BOOK, 'Helpers')!).resourceUri).toBeUndefined();
+    });
+
+    it('lets an agent edit awaiting review win the row', async () => {
+        marks.set(BOOK, { byModule: new Map([['ledger', 'modified']]), removed: 0, head: 'abc' });
+        const { explorer } = await drawnFlatTree();
+        await presentAgentModuleWrite(BOOK, 'Ledger', {
+            before: 'Sub Old()\r\nEnd Sub\r\n',
+            beforeExisted: true,
+            after: 'Sub New()\r\nEnd Sub\r\n',
+        });
+
+        const item = explorer.getTreeItem(explorer.getModuleNode(BOOK, 'Ledger')!);
+        expect(item.description).toBe('standard ● agent edit');
+        expect(String(item.tooltip)).toContain('An agent edited this module');
+    });
+
+    it('redraws the project row and every module row when the marks land', async () => {
+        const { explorer } = await drawnFlatTree();
+        const before = explorer.getTreeItem(explorer.getModuleNode(BOOK, 'Ledger')!).id;
+        vscodeMock.treeEvents = [];
+
+        explorer.refreshGitMarks(BOOK);
+
+        const redrawn = (vscodeMock.treeEvents as XlideNode[]).map((node) => `${node.kind}:${node.moduleName ?? ''}`);
+        expect(redrawn).toContain('module:Ledger');
+        expect(redrawn).toContain('module:Loose');
+        expect(redrawn).toContain('project:');
+        expect(explorer.getTreeItem(explorer.getModuleNode(BOOK, 'Ledger')!).id).toBe(before);
     });
 });

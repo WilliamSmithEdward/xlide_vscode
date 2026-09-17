@@ -2,6 +2,112 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [8.3.0] - 2026-09-16
+
+- **Format Document, Format Selection and Format All Modules.** Shift+Alt+F
+  re-indents a module by its block structure, gives every keyword its
+  canonical casing, cases identifiers the way they are declared, and inserts
+  the spaces the VBE inserts around `=`, after commas and around operators. It
+  never removes a space between two tokens, so aligned comments and aligned
+  `Const` blocks stay as they are, and it never touches a string, a comment or
+  an `Attribute` line. The formatter lexes its own output and refuses to
+  return it unless the tokens are the ones it was given, so it cannot change
+  what a module means.
+
+  Format Selection does the same for the selected lines. Pasted code is
+  formatted as it lands, because `editor.formatOnPaste` is now on for VBA
+  modules; turn it off for the `[xlide-vba]` language if you would rather
+  paste verbatim. **Format All Modules**, on a file in the XLIDE tree, counts
+  the modules that would change and asks before it writes. A module with
+  unsaved edits is formatted in its editor and left for you to save.
+
+- **Dead-code findings.** Four rules point at code a module does not need.
+  They report as Information, and the editor fades the range instead of
+  underlining it.
+
+  | Code | Reports |
+  | --- | --- |
+  | `unused-variable` | A local, or a module-level `Private`/`Dim` variable or constant, that nothing in its scope names. |
+  | `variable-never-read` | A variable whose every mention assigns to it. |
+  | `unused-procedure` | A `Private` Sub, Function or Property that nothing in its module calls and no string in the project names. |
+  | `unreachable-code` | Statements after `Exit Sub`, `Exit Do`, `GoTo`, `Resume`, `End` or `Return` in the same block. |
+
+  Public procedures are never reported: a button, a shape, the ribbon, a
+  hotkey, `OnTime` or `Application.Run` in another file can call one, and
+  XLIDE cannot see any of them. Event handlers, interface members, `Auto_Open`
+  and its kin, and anything carrying an attribute are left alone too, and
+  every string literal in the project is searched before a Private procedure
+  is called unused. A `For` counter, an array written by element, a `ReDim
+  Preserve`, a `Mid` target and a variable passed to a procedure count as
+  reads. Code after a label, a line number, a `Case` arm or a `#If` is
+  reachable, since control has somewhere to land. `unused-variable` has a
+  quick fix that removes the declaration and `unreachable-code` one that
+  removes the lines.
+
+- **Compare modules with git, without exporting.** A workbook is one binary
+  file to git, so Source Control can only say that it changed. XLIDE reads the
+  committed file the way it reads the one on disk:
+
+  - **Compare Module with Git HEAD** diffs a module as last committed against
+    the module as it is now, unsaved edits included, and **Compare Module with
+    Git Revision...** does it against a commit you pick.
+  - **Compare File with Git HEAD** lists every module that was modified, added
+    or removed since the last commit.
+  - **Show Module History** lists the commits that changed one module. Git's
+    log names every commit that touched the file; XLIDE reads the module out
+    of the last fifty and keeps the ones where its text moved.
+  - **Restore Module from Git HEAD** puts one module back to its committed text
+    and leaves the rest of the file alone. It is applied as an edit, so Undo
+    brings the current text back.
+
+  The tree shows the comparison without being asked: a module that differs
+  from the last commit carries an `M`, one the last commit does not have an
+  `A`, and the file row counts them, in the Explorer's own colours. Agents get
+  the same view through the new `xlide_gitChanges` tool, which returns one
+  unified diff per changed module. All of it needs `git` on the PATH, or the
+  `git.path` setting VS Code's own git support uses. A VB6 project's modules
+  are files, so each is compared with its own history.
+
+- **Files the XLIDE tree does not list are no longer analyzed.** Live
+  diagnostics cover the modules inside a workbook, document, presentation or
+  database, and the files a VB6 project names. A `.bas`, `.cls` or `.frm` on
+  disk that no project claims is usually an exported copy of a module the
+  tree already analyzes, and analyzing it too showed every finding twice in
+  the Problems panel. Completion, hover and navigation still work in those
+  files. To analyze them as standalone modules again, turn off
+  `xlide.analysis.ignoreFilesOutsideTree`, shown as **Ignore Files Outside The
+  XLIDE Tree** in Global Settings.
+
+- **An agent's unreviewed edit is easier to find in the tree.** The module an
+  agent wrote is coloured and badged, the folders above it are marked, and the
+  project row counts the modules waiting, until the edit is kept or reverted.
+  A collapsed project no longer hides that something in it is waiting. The
+  colour is `xlide.agentEdit.foreground`.
+
+- **Rename Module from the tree coordinates with Excel.** It called the engine
+  directly and skipped the coordination every other write goes through, so
+  with the workbook open in Excel it could only fail on the lock, whatever the
+  coordination setting said. It now goes through the same operation the agent
+  tool uses, which also carries a pending agent review over to the module's
+  new name.
+
+- **Importing a Word document module plans it as one.** The import planner
+  carried its own copy of the module classifier, and the copy had fallen
+  behind the engine's: a `ThisDocument.cls` exported from Word was planned as
+  a new class module. There is one classifier now.
+
+### Internal
+
+- An integration suite drives a real VS Code: `npm run test:integration`
+  loads the extension in development mode against a copy of the fixture
+  workbook and exercises formatting, the dead-code findings and the git
+  commands through the commands the editor itself calls.
+- Two passes for dead and duplicated code removed what nothing called and
+  folded the private copies of small helpers (line arithmetic, token words,
+  module lookups, cache eviction) into shared ones. One regular expression
+  held a raw backspace where `\b` was meant, left by a shell escape; sources
+  are now free of raw control characters.
+
 ## [8.2.1] - 2026-09-14
 
 - **Add Option Explicit leaves a blank line under the statement** (#75). It

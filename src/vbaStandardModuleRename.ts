@@ -6,8 +6,6 @@ import {
     type ProjectIndex,
     type Span,
 } from './analyzer';
-import { ProjectEngine } from './projectEngine';
-import { encodeModuleUri, notifySignatureDropped } from './xlideFileSystem';
 import { moduleDocumentUri } from './vbaDocumentLocation';
 import {
     offsetToPosition,
@@ -15,38 +13,13 @@ import {
     typeDefinitionsForReference,
     type VbaNavigationModule,
 } from './vbaNavigation';
+import { tokenName } from './analyzer/lexer/tokenHelpers';
 
 type StandardModuleReferenceEdit = {
     edit: vscode.WorkspaceEdit;
     uris: vscode.Uri[];
     count: number;
 };
-
-export async function renameProjectStandardModule(
-    bridge: ProjectEngine,
-    projectPath: string,
-    oldName: string,
-    newName: string,
-): Promise<void> {
-    const result = await bridge.call<{ ok: boolean; signatureDropped: boolean }>(
-        'renameModule',
-        { path: projectPath, module: oldName, newName },
-    );
-    notifySignatureDropped(projectPath, result.signatureDropped);
-}
-
-function tokenName(token: ReturnType<typeof tokenize>[number] | undefined): string | undefined {
-    if (!token) {
-        return undefined;
-    }
-    if (token.kind === 'identifier' || token.kind === 'keyword') {
-        return token.rawText;
-    }
-    if (token.kind === 'bracketedIdentifier') {
-        return token.rawText.slice(1, -1);
-    }
-    return undefined;
-}
 
 function spanLocation(
     projectPath: string,

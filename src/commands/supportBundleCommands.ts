@@ -35,6 +35,7 @@ import {
     activeLocalProjectPath,
     statusMessage,
     type CommandDeps,
+    outputLogger,
 } from './shared';
 
 interface SupportBundleOptions {
@@ -45,9 +46,7 @@ interface SupportBundleOptions {
 export function registerSupportBundleCommands(deps: CommandDeps): vscode.Disposable[] {
     const { context, bridge, out, vbaIndex } = deps;
 
-    function log(msg: string): void {
-        out.appendLine(msg);
-    }
+    const log = outputLogger(out);
 
     async function activeModuleSupportData(): Promise<{
         project: SupportBundleProjectSummary;

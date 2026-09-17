@@ -15,6 +15,7 @@
 // Pure analyzer code: no `vscode` dependency. See user_guides/vba-doc-comments.md.
 
 import { VbaDoc, VbaDocParam, VbaDocSource } from './docModel';
+import { lineStartAt } from '../../vbaSourceScan';
 
 /** Decodes the five predefined XML entities. */
 function decodeEntities(text: string): string {
@@ -297,11 +298,11 @@ export function extractLeadingDoc(
 	// once per declaration while building module symbols, so slicing and
 	// splitting the whole module prefix here (the obvious implementation) makes
 	// symbol building quadratic in module size.
-	let lineStart = source.lastIndexOf('\n', Math.max(0, declStart) - 1) + 1;
+	let lineStart = lineStartAt(source, declStart);
 	const docLines: string[] = [];
 	while (lineStart > 0) {
 		const prevEnd = lineStart - 1; // the '\n' terminating the previous line
-		const prevStart = source.lastIndexOf('\n', prevEnd - 1) + 1;
+		const prevStart = lineStartAt(source, prevEnd);
 		const line = source.slice(prevStart, prevEnd).replace(/\r$/, '');
 		const trimmed = line.trimStart();
 		if (isXlideDirectiveComment(trimmed)) {

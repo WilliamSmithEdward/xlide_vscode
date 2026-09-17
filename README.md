@@ -267,9 +267,16 @@ Guide:
 - Annotations that write hidden module attributes on save.
 - Conditional compilation arguments read from the project.
 - Smart Enter and block snippets for common VBA structures.
+- Format Document, Format Selection, and Format All Modules: indentation by
+  block, keyword casing, and the spacing the VBE applies. Pasted code is
+  formatted as it lands.
 - Live diagnostics and workbook-wide analysis.
+- Dead-code findings: unused variables, uncalled private procedures, and
+  unreachable code, faded in the editor, with quick fixes.
 - Workbook-specific analysis tracking and rule controls.
 - Previewable module import/export.
+- Compare a module, or every module in a file, with any git commit without
+  exporting. The tree marks the modules that changed since the last commit.
 - Macro and workbook-test execution on Windows with Excel.
 - Support bundle and diagnostics commands for troubleshooting.
 - Optional performance snapshot command for debugging slow workflows.
@@ -328,6 +335,12 @@ Open the Command Palette and type `XLIDE` to find these commands:
 | `XLIDE: Extract Method` | Refactor the selection. The other six refactorings sit beside it. |
 | `XLIDE: Export All Modules to Folder` | Save a file's code as reviewable source files. |
 | `XLIDE: Import Modules from Folder` | Bring reviewed module files back into the file. |
+| `XLIDE: Compare Module with Git HEAD` | See what changed in a module since the last commit. |
+| `XLIDE: Compare File with Git HEAD` | List the modules that changed since the last commit. |
+| `XLIDE: Restore Module from Git HEAD` | Put one module back to its committed text. |
+| `XLIDE: Show Module History` | List the commits that changed one module, and see what each did. |
+| `Format Document` (Shift+Alt+F) | Re-indent a module and fix keyword casing and spacing. |
+| `XLIDE: Format All Modules` | Do the same for every module in a file, after a count. |
 | `XLIDE: Unit Tests` | Run marked tests through the file's own application. |
 | `XLIDE: Open Workbook in Excel` | Open the selected workbook in Excel. |
 | `XLIDE: Copy Diagnostics` | Copy setup and environment details for support. |
@@ -378,6 +391,7 @@ Useful development commands:
 | `npm run compile` | Type-check and build the extension bundle. |
 | `npm run watch` | Rebuild while developing. |
 | `npm test` | Run the Vitest suite. |
+| `npm run test:integration` | Drive a real VS Code against a copy of the fixture workbook. The first run downloads a VS Code build into `.vscode-test/`. |
 | `npm run package` | Build a production bundle. |
 | `npm run vsix` | Create a versioned `.vsix` in `dist/`. |
 | `npm run test:oracle:vbe` | Optional Excel/VBE behavior checks. Run oracle checks sequentially. |

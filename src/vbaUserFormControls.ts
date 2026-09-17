@@ -44,13 +44,25 @@ const END_RE = /^\s*End\s*$/i;
  * `Begin` control blocks appear only in sources that spell the controls
  * out, and those are authoritative even when the list is empty.
  */
-export function hasAuthoritativeDesignerHeader(source: string): boolean {
-    const lines = source.split(/\r?\n/);
+/** Index of the `VERSION` line a designer header opens with, past any blank lines. */
+function versionLineIndex(lines: readonly string[]): number | undefined {
     let index = 0;
     while (index < lines.length && lines[index].trim() === '') {
         index += 1;
     }
-    if (index >= lines.length || !/^\s*VERSION\b/i.test(lines[index])) {
+    return index < lines.length && /^\s*VERSION\b/i.test(lines[index]) ? index : undefined;
+}
+
+/** A blank, a property assignment or a property group: all a header holds besides its blocks. */
+function isDesignerHeaderLine(line: string): boolean {
+    return line.trim() === '' || /^\s*[\w.()]+\s*=/.test(line)
+        || /^\s*(?:BeginProperty|EndProperty)\b/i.test(line);
+}
+
+export function hasAuthoritativeDesignerHeader(source: string): boolean {
+    const lines = source.split(/\r?\n/);
+    let index = versionLineIndex(lines);
+    if (index === undefined) {
         return false;
     }
     let depth = 0;
@@ -70,8 +82,7 @@ export function hasAuthoritativeDesignerHeader(source: string): boolean {
             }
             continue;
         }
-        if (line.trim() !== '' && !/^\s*[\w.()]+\s*=/.test(line)
-            && !/^\s*(?:BeginProperty|EndProperty)\b/i.test(line)) {
+        if (!isDesignerHeaderLine(line)) {
             return false;
         }
     }
@@ -84,11 +95,8 @@ export function hasAuthoritativeDesignerHeader(source: string): boolean {
  */
 export function parseUserFormControls(source: string): UserFormControl[] {
     const lines = source.split(/\r?\n/);
-    let index = 0;
-    while (index < lines.length && lines[index].trim() === '') {
-        index += 1;
-    }
-    if (index >= lines.length || !/^\s*VERSION\b/i.test(lines[index])) {
+    let index = versionLineIndex(lines);
+    if (index === undefined) {
         return [];
     }
 
@@ -117,8 +125,7 @@ export function parseUserFormControls(source: string): UserFormControl[] {
         // other things a header holds; a line that is none of them means the
         // block never closed, so stop rather than run on into the code and
         // invent controls out of it.
-        if (line.trim() !== '' && !/^\s*[\w.()]+\s*=/.test(line)
-            && !/^\s*(?:BeginProperty|EndProperty)\b/i.test(line)) {
+        if (!isDesignerHeaderLine(line)) {
             break;
         }
     }

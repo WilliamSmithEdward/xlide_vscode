@@ -27,6 +27,7 @@ import {
 	renderDocMarkdown,
 	type VbaDoc,
 } from '../docs/docModel';
+import { tokenName } from '../lexer/tokenHelpers';
 
 /** Where a candidate type name comes from (drives the UI icon/grouping). */
 export type TypeCompletionKind =
@@ -124,19 +125,6 @@ interface TypePosition {
 	memberPrefix?: string;
 }
 
-function tokenName(tok: VbaToken | undefined): string | undefined {
-	if (!tok) {
-		return undefined;
-	}
-	if (tok.kind === 'identifier' || tok.kind === 'keyword') {
-		return tok.rawText;
-	}
-	if (tok.kind === 'bracketedIdentifier') {
-		return tok.rawText.slice(1, -1);
-	}
-	return undefined;
-}
-
 function readPartialTypeName(tokens: readonly VbaToken[]): {
 	prefix: string;
 	qualifier?: string;
@@ -228,26 +216,6 @@ function hostTypeDocumentation(type: HostType): string | undefined {
 	return rendered;
 }
 
-/** Short host type names (e.g. "Workbook") derived from the host model types. */
-const HOST_TYPE_NAMES_CACHE = new WeakMap<HostObjectModel, string[]>();
-
-export function hostTypeNames(model: HostObjectModel): string[] {
-	// The host model is immutable; recomputing the short-name list on every
-	// call shows up hot when per-declaration rules resolve As-clause types.
-	const cached = HOST_TYPE_NAMES_CACHE.get(model);
-	if (cached) {
-		return cached;
-	}
-	const out: string[] = [];
-	for (const qualified of Object.keys(model.types)) {
-		const short = qualified.split('.').pop();
-		if (short) {
-			out.push(short);
-		}
-	}
-	HOST_TYPE_NAMES_CACHE.set(model, out);
-	return out;
-}
 
 const PROJECT_KIND_DETAIL: Record<VbaProjectTypeKind, string> = {
 	class: 'Class',

@@ -77,6 +77,21 @@ Word's `ThisDocument` is a `Word.Document`, `wd*` constants resolve in Word
 files and not in projects, and `ThisDocument` offers Word's `Document_*`
 event stubs.
 
+**Format Document** (Shift+Alt+F) re-indents a module by its block structure,
+gives every keyword its canonical casing, cases identifiers the way they are
+declared, and inserts the spaces the VBE inserts around `=`, after commas, and
+around operators. It never removes a space between two tokens, so aligned
+comments and aligned `Const` blocks stay as they are, and it never touches a
+string, a comment, or an `Attribute` line. **Format Selection** does the same
+for the selected lines only, and pasted code is formatted as it lands, so a
+block copied from a forum arrives indented. To format on every save, turn on
+`editor.formatOnSave` for the `[xlide-vba]` language.
+
+To bring a whole file up to date, right-click it in the XLIDE tree and choose
+**Format All Modules**. XLIDE counts the modules that would change and asks
+before it writes. A module with unsaved edits is formatted in its editor and
+left for you to save.
+
 ## Refactor
 
 Seven refactorings sit on the lightbulb where they apply, and in the command

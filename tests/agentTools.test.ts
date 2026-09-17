@@ -44,10 +44,13 @@ vi.mock('vscode', async () => {
 vi.mock('../src/projectExplorer', () => ({ ProjectExplorer: class ProjectExplorer {} }));
 vi.mock('../src/xlideFileSystem', () => ({
     XlideFileSystemProvider: class XlideFileSystemProvider {},
+    XLIDE_SCHEME: 'xlide-vba',
     encodeModuleUri: vi.fn((filePath: string, moduleName: string) => ({
         path: `/${String(filePath).split('\\').join('/')}/${moduleName}.bas`,
         toString: () => `xlide-vba:///${moduleName}.bas`,
     })),
+    decodeModuleUri: vi.fn(),
+    activeLocalVbaEditor: vi.fn(),
     notifySignatureDropped: vi.fn(),
     moduleIdentityKey: (name: string) => name.toLowerCase(),
     projectIdentityKey: (filePath: string) => filePath.toLowerCase(),
@@ -64,14 +67,14 @@ vi.mock('../src/vbaTestRunner', () => ({
 }));
 
 import { registerAgentTools } from '../src/agentTools';
-import { hasPendingAgentReview, trackModuleWriteForAgentReview } from '../src/xlideAgentDiff';
+import { hasPendingAgentReview, pendingAgentReviewModules, trackModuleWriteForAgentReview } from '../src/xlideAgentDiff';
 import { writeProjectModule } from '../src/projectModuleOperations';
 import { clearXlideWriteAudit, recentXlideWriteAudits } from '../src/xlideWriteAudit';
 
 function registerTools(bridgeCall: ReturnType<typeof vi.fn>) {
     vscodeMock.registeredTools.clear();
     vscodeMock.registeredCommands.clear();
-    const explorer = { refresh: vi.fn(), refreshModuleSubs: vi.fn() };
+    const explorer = { refresh: vi.fn(), refreshAgentReviewMarks: vi.fn() };
     registerAgentTools(
         {} as never,
         { call: bridgeCall } as never,
@@ -81,6 +84,71 @@ function registerTools(bridgeCall: ReturnType<typeof vi.fn>) {
     );
     return { explorer };
 }
+
+describe('xlide_gitChanges agent tool', () => {
+    const PROJECT = process.platform === 'win32' ? 'C:\\work\\Book.xlsm' : '/work/Book.xlsm';
+    const ROOT = process.platform === 'win32' ? 'C:/work' : '/work';
+
+    function registerWithGit(overrides: { inRepo?: boolean } = {}) {
+        vscodeMock.registeredTools.clear();
+        const gitDeps = {
+            git: {
+                run: vi.fn(async (args: readonly string[]) => ({
+                    code: args[0] === 'rev-parse' && overrides.inRepo === false ? 128 : 0,
+                    stdout: Buffer.from(args[0] === 'rev-parse' ? `${ROOT}\n` : ''),
+                    stderr: '',
+                })),
+            },
+            currentModules: vi.fn(async () => [{ name: 'Module1', source: 'Sub A()\r\n    x = 2\r\nEnd Sub\r\n' }]),
+            modulesAtRevision: vi.fn(async () => [{ name: 'Module1', source: 'Sub A()\r\n    x = 1\r\nEnd Sub\r\n' }]),
+        };
+        registerAgentTools(
+            {} as never,
+            { call: vi.fn() } as never,
+            { refresh: vi.fn(), refreshAgentReviewMarks: vi.fn() } as never,
+            { notifyFileChanged: vi.fn() } as never,
+            { invalidate: vi.fn() } as never,
+            gitDeps as never,
+        );
+        return { gitDeps, tool: vscodeMock.registeredTools.get('xlide_gitChanges')! };
+    }
+
+    async function report(tool: RegisteredTool, input: Record<string, unknown>) {
+        // The mock's LanguageModelToolResult keeps its parts under `parts`.
+        const result = await tool.invoke({ input }, undefined) as { parts: Array<{ value: string }> };
+        return JSON.parse(result.parts[0].value) as {
+            tracked: boolean;
+            reason?: string;
+            changes: Array<{ name: string; kind: string; diff: string }>;
+        };
+    }
+
+    it('hands an agent one unified diff per changed module, against HEAD by default', async () => {
+        const { gitDeps, tool } = registerWithGit();
+        const answer = await report(tool, { filePath: PROJECT });
+
+        expect(answer.tracked).toBe(true);
+        expect(answer.changes).toHaveLength(1);
+        expect(answer.changes[0]).toMatchObject({ name: 'Module1', kind: 'modified' });
+        expect(answer.changes[0].diff).toContain('--- Module1 (HEAD)');
+        expect(answer.changes[0].diff).toContain('-    x = 1');
+        expect(answer.changes[0].diff).toContain('+    x = 2');
+        expect(gitDeps.modulesAtRevision).toHaveBeenCalledWith(PROJECT, expect.objectContaining({ relativePath: 'Book.xlsm' }), 'HEAD');
+    });
+
+    it('compares against the revision it is given', async () => {
+        const { gitDeps, tool } = registerWithGit();
+        await report(tool, { filePath: PROJECT, revision: 'v1.0' });
+        expect(gitDeps.modulesAtRevision).toHaveBeenCalledWith(PROJECT, expect.anything(), 'v1.0');
+    });
+
+    it('answers with a reason, not an error, for a file outside any repository', async () => {
+        const { tool } = registerWithGit({ inRepo: false });
+        const answer = await report(tool, { filePath: PROJECT });
+        expect(answer).toMatchObject({ tracked: false, changes: [] });
+        expect(answer.reason).toContain('not inside a git repository');
+    });
+});
 
 describe('xlide_createProject agent tool', () => {
     let tempDir: string;
@@ -352,7 +420,7 @@ describe('agent write review (diff + tree badge, native surfaces only)', () => {
         const tool = writeTool(engine.call);
         const ops = {
             bridge: { call: engine.call },
-            explorer: { refresh: vi.fn(), refreshModuleSubs: vi.fn() },
+            explorer: { refresh: vi.fn(), refreshAgentReviewMarks: vi.fn() },
             fsProvider: { notifyFileChanged: vi.fn() },
             vbaIndex: { invalidate: vi.fn() },
         };
@@ -433,6 +501,28 @@ describe('agent write review (diff + tree badge, native surfaces only)', () => {
 
         expect(hasPendingAgentReview(target, 'Module1')).toBe(false);
         expect(hasPendingAgentReview(target, 'Module2')).toBe(true);
+        // The project's list, which colours and counts the project row,
+        // follows the rename too.
+        expect(pendingAgentReviewModules(target)).toEqual(['Module2']);
+    });
+
+    it('lists a project\'s pending modules, and none for another project', async () => {
+        const target = path.join(tempDir, 'Listing.xlsm');
+        const engine = fakeEngine({ Module1: 'Sub A()\r\nEnd Sub\r\n', Module2: 'Sub B()\r\nEnd Sub\r\n' });
+        const tool = writeTool(engine.call);
+
+        await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub A2()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+        await settle();
+        await tool?.invoke({ input: { filePath: target, moduleName: 'Module2', source: 'Sub B2()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+        await settle();
+
+        expect(pendingAgentReviewModules(target).sort()).toEqual(['Module1', 'Module2']);
+        expect(pendingAgentReviewModules(path.join(tempDir, 'Elsewhere.xlsm'))).toEqual([]);
+        if (process.platform === 'win32') {
+            // Windows paths match whatever their case; a tool and the tree
+            // can spell the same workbook differently.
+            expect(pendingAgentReviewModules(target.toUpperCase()).sort()).toEqual(['Module1', 'Module2']);
+        }
     });
 
     it('deleting the module discards the pending review', async () => {
@@ -446,5 +536,6 @@ describe('agent write review (diff + tree badge, native surfaces only)', () => {
         await del?.invoke({ input: { filePath: target, moduleName: 'Module1' } }, undefined);
 
         expect(hasPendingAgentReview(target, 'Module1')).toBe(false);
+        expect(pendingAgentReviewModules(target)).toEqual([]);
     });
 });

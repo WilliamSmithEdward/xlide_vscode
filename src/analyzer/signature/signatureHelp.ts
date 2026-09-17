@@ -22,7 +22,7 @@
 import { parseModule } from '../parser/parseModule';
 import { DeclareNode, ParameterNode, ProcedureNode } from '../parser/nodes';
 import { resolveMemberCompletionNamed, MemberCompletionContext } from '../completion/memberAccess';
-import { getHostType, resolveHostGlobalMember } from '../host/hostModel';
+import { bareTypeName, getHostType, resolveHostGlobalMember } from '../host/hostModel';
 import { resolveRuntimeFunction, runtimeAllowsExplicitCall } from '../runtime/vbaRuntime';
 import { vbaRuntimeDescription } from '../runtime/vbaRuntimeDocs';
 import { extractLeadingDoc } from '../docs/docComment';
@@ -39,6 +39,7 @@ import {
 	type VbaCallSite as CallSite,
 	STATEMENT_KEYWORDS,
 } from '../call/callContext';
+import { identifiersIn } from '../lexer/tokenHelpers';
 
 /** A single parameter slot within a signature label. */
 export interface SignatureParameter {
@@ -451,13 +452,8 @@ function externalDocForMember(
 	name: string,
 	owner: string,
 ): VbaDoc | undefined {
-	const qualifier = getHostType(owner, ctx.model)?.displayName ?? displayTypeName(owner);
+	const qualifier = getHostType(owner, ctx.model)?.displayName ?? bareTypeName(owner);
 	return ctx.docRegistry?.lookup(name, qualifier) ?? ctx.docRegistry?.lookup(name);
-}
-
-function displayTypeName(typeName: string): string {
-	const dot = typeName.lastIndexOf('.');
-	return dot >= 0 ? typeName.slice(dot + 1) : typeName;
 }
 
 /** Returns the `<param>` note matching a signature parameter substring, if any. */
@@ -479,12 +475,5 @@ function leadingIdentifier(paramLabel: string): string | undefined {
 	const modifiers = new Set(['optional', 'byval', 'byref', 'paramarray']);
 	// A parameter can be named in any script, so this cannot be ASCII-only:
 	// `ByVal значение As String` would otherwise yield no name at all.
-	const re = /[\p{L}_][\p{L}\p{M}\p{N}_]*/gu;
-	let m: RegExpExecArray | null;
-	while ((m = re.exec(paramLabel)) !== null) {
-		if (!modifiers.has(m[0].toLowerCase())) {
-			return m[0];
-		}
-	}
-	return undefined;
+	return identifiersIn(paramLabel).find((word) => !modifiers.has(word.toLowerCase()));
 }

@@ -17,7 +17,7 @@
 //     only-in-model removes, matched controls set what changed;
 //   - a parse error applies nothing.
 
-import { himetricToPoints, pointsToHimetric, formatPointsShortest as formatPoints, OformsReader, OformsWriter } from './bytes';
+import { pointsToHimetric, formatPointsShortest as formatPoints, OformsReader, OformsWriter } from './bytes';
 import {
 	recordHas,
 	setRecordString,
@@ -35,7 +35,7 @@ import {
 	siteIsContainer,
 	type SiteModel,
 } from './formStream';
-import { containerStorageName, controlKindOfSite, type FormPackage } from './formPackage';
+import { controlKindOfSite, type FormPackage } from './formPackage';
 import { parsePageBookkeeping, serializePageBookkeeping, emptyPageProperties } from './pageBookkeeping';
 import { PAGE_COMPOBJ, FRAME_COMPOBJ } from './newForm';
 
@@ -371,7 +371,7 @@ function printChild(pkg: FormPackage, child: PrintableChild, lines: string[], de
 			return;
 		}
 		if (kind === 'MultiPage') {
-			printMultiPage(pkg, inner, site, lines, depth);
+			printMultiPage(inner, site, lines, depth);
 			return;
 		}
 		printPackage(inner, name, lines, depth, 'Page', site);
@@ -460,7 +460,6 @@ function printChild(pkg: FormPackage, child: PrintableChild, lines: string[], de
 }
 
 function printMultiPage(
-	parent: FormPackage,
 	mp: FormPackage,
 	site: SiteModel,
 	lines: string[],

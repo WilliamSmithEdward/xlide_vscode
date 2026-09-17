@@ -1,5 +1,4 @@
 import {
-	isProcedureKind,
 	type ModuleSymbols,
 	type VbaSymbol,
 } from './symbolModel';

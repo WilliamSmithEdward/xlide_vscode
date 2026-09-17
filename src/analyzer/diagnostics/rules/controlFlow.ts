@@ -9,9 +9,7 @@ import type { ConditionalActivityTracker } from '../../conditional/conditionalCo
 import {
 	collectProcedureLabelDeclarations,
 	collectProcedureLabelReferences,
-	collectProcedureLabels,
 } from '../../flow/procedureLabels';
-import { tokenize } from '../../lexer/tokenize';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import {
 	type BodyNode,
@@ -278,7 +276,7 @@ function checkContextBody(
 				checkContextStatement(source, node, ctx, push);
 				break;
 			case 'ForBlock':
-				checkForNextControlVariable(source, node, activity, push);
+				checkForNextControlVariable(node, activity, push);
 				checkContextBody(
 					source,
 					node.body,
@@ -329,7 +327,6 @@ function checkContextBody(
 }
 
 function checkForNextControlVariable(
-	source: string,
 	node: ForBlockNode,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,

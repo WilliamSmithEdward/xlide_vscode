@@ -99,9 +99,43 @@ function ruleSpecificDiagnosticCodeActions(
 			return createProcedureStubActions(diagnostic);
 		case 'undeclared-variable':
 			return declareVariableActions(diagnostic);
+		case 'unused-variable':
+			return removeDeclarationActions(diagnostic);
+		case 'unreachable-code':
+			return removeUnreachableCodeActions(diagnostic);
 		default:
 			return [];
 	}
+}
+
+function removeDeclarationActions(
+	diagnostic: VbaDiagnosticCodeActionInput,
+): VbaDiagnosticCodeAction[] {
+	const data = diagnostic.data?.removeDeclaration;
+	if (!data) {
+		return [];
+	}
+	return [{
+		title: `Remove unused declaration of '${data.variableName}'`,
+		kind: 'quickfix',
+		isPreferred: true,
+		edits: [data.edit],
+	}];
+}
+
+function removeUnreachableCodeActions(
+	diagnostic: VbaDiagnosticCodeActionInput,
+): VbaDiagnosticCodeAction[] {
+	const data = diagnostic.data?.removeUnreachableCode;
+	if (!data) {
+		return [];
+	}
+	return [{
+		title: 'Remove unreachable code',
+		kind: 'quickfix',
+		isPreferred: false,
+		edits: [data.edit],
+	}];
 }
 
 function missingRequiredArgumentPlaceholderActions(
