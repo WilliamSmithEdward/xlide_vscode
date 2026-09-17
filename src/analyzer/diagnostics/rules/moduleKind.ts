@@ -519,7 +519,7 @@ export function checkEventHandlerModuleScope(
 				: `${moduleKind} module`;
 		push(
 			'eventHandlerWrongModule',
-			`'${event.name}' matches a ${event.owner} event handler, but this ${moduleDescription} is not where Excel wires that event. It will behave like an ordinary procedure here.`,
+			`'${event.name}' matches a ${event.owner} event handler, but this ${moduleDescription} is not where that event is wired. It will behave like an ordinary procedure here.`,
 			declaredNameSpan(source, member.span, member.name),
 		);
 	}
@@ -535,6 +535,10 @@ function describeEventDocumentType(
 			return 'worksheet';
 		case 'chart':
 			return 'chart';
+		case 'document':
+			return 'document';
+		case 'userform':
+			return 'UserForm';
 		default:
 			return 'unknown';
 	}

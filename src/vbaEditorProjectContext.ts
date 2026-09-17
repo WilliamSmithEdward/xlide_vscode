@@ -49,7 +49,11 @@ export interface ModuleEntry {
 	name: string;
 	type: string;
 	documentType?: EventHandlerDocumentType;
-	/** A VB6 designer's class (`VB.Form`, `VB.MDIForm`), which decides what `Me` is. */
+	/**
+	 * The class a designer makes the module, which decides what `Me` is: a VB6
+	 * designer's (`VB.Form`, `VB.MDIForm`) or an Access design's
+	 * (`Access.Form`, `Access.Report`). A UserForm carries none.
+	 */
 	designerClass?: string;
 }
 
@@ -104,6 +108,12 @@ function meTypeFor(entry: ModuleEntry | undefined, host?: VbaHostToken): string 
 		}
 		return VB6_FORM;
 	}
+	if (entry?.designerClass) {
+		// An Access form or report is its own library's class, so `Me.`
+		// reaches RecordSource, Requery and the rest of Access.Form rather
+		// than nothing at all. The engine names the class; this only trusts it.
+		return entry.designerClass;
+	}
 	if (entry?.type === 'userform') {
 		// A form IS an MSForms.UserForm, so `Me.` reaches Caption, Controls and
 		// the rest of that surface as well as the form's own code. Forms are
@@ -133,7 +143,7 @@ function meTypeFor(entry: ModuleEntry | undefined, host?: VbaHostToken): string 
 
 /** Maps `Me` to the source-backed current object module when applicable. */
 function meProjectTypeFor(entry: ModuleEntry | undefined): string | undefined {
-	if (!entry || !['class', 'document', 'userform'].includes(entry.type)) {
+	if (!entry || !['class', 'document', 'userform', 'accessform', 'accessreport'].includes(entry.type)) {
 		return undefined;
 	}
 	return entry.name;

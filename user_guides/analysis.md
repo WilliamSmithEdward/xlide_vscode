@@ -114,7 +114,7 @@ overrides, XLIDE reports a settings error instead of silently falling back.
 
 Use source suppressions when the code itself should carry the reason. Suppression
 comments are ordinary VBA comments. They affect XLIDE analysis only; they do not
-change how Excel or VBE compiles and runs the project.
+change how the VBE compiles or the application runs the project.
 
 Prefer suppressing one diagnostic code over suppressing `all`.
 

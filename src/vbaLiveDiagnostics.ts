@@ -611,6 +611,7 @@ export function registerVbaDiagnostics(
                     documentType: m.documentType,
                     implicitMembers: m.implicitMembers,
                     predeclaredId: m.predeclaredId,
+                    designerClass: m.designerClass,
                 })));
                 const workerResult = await workerClient.analyze({
                     docKey: key,

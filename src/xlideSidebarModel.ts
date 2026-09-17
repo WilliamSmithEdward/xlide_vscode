@@ -1,5 +1,6 @@
 import { projectIdentityKey } from './projectIdentity';
-import { containerAppNameForPath, isExcelContainerPath } from './macroContainerUi';
+import { containerAppNameForPath } from './macroContainerUi';
+import { officeHostForPath } from './officeHostApps';
 
 type XlideSidebarNodeKind = 'section' | 'status' | 'action' | 'select' | 'note' | 'link';
 type XlideSidebarStatus = 'pass' | 'warn' | 'fail' | 'unknown';
@@ -276,42 +277,36 @@ function targetProjectNode(
 }
 
 /**
- * The open-in-application actions for the selected file. Excel files keep
- * the launcher pair (normal and read-only); every other host opens through
- * its own application via the OS association, which has no read-only mode.
+ * The open-in-application actions for the selected file, named after the
+ * application that owns it. Excel, Word and PowerPoint get the pair (normal
+ * and read-only); Access has no read-only open, and a VB6 project opens
+ * through whatever the operating system has registered for it.
  */
 function openActionNodes(
     project: XlideSidebarActiveProject | undefined,
     projectArg: unknown | undefined,
 ): XlideSidebarNode[] {
-    if (project && !isExcelContainerPath(project.filePath)) {
-        const app = containerAppNameForPath(project.filePath);
-        return [
-            projectActionNode(
-                'projectActions.openWorkbook',
-                `Open in ${app}`,
-                undefined,
-                'xlide.openInOfficeApp',
-                `Open the selected target file in ${app}.`,
-                projectArg,
-            ),
-        ];
+    const app = project ? containerAppNameForPath(project.filePath) : 'Office Application';
+    const host = project ? officeHostForPath(project.filePath) : undefined;
+    const open = projectActionNode(
+        'projectActions.openInApp',
+        `Open in ${app}`,
+        undefined,
+        'xlide.openInOfficeApp',
+        `Open the selected target file in ${app}.`,
+        projectArg,
+    );
+    if (project && (host === undefined || host === 'access')) {
+        return [open];
     }
     return [
+        open,
         projectActionNode(
-            'projectActions.openWorkbook',
-            'Open Workbook in Excel',
+            'projectActions.openInAppReadOnly',
+            `Open in ${app} (Read Only)`,
             undefined,
-            'xlide.openWorkbook',
-            'Open the selected target workbook in Excel.',
-            projectArg,
-        ),
-        projectActionNode(
-            'projectActions.openWorkbookReadOnly',
-            'Open Workbook in Excel (Read Only)',
-            undefined,
-            'xlide.openWorkbookReadOnly',
-            'Open the selected target workbook in Excel as read-only.',
+            'xlide.openInOfficeAppReadOnly',
+            `Open the selected target file in ${app} as read-only.`,
             projectArg,
         ),
     ];

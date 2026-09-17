@@ -16,10 +16,10 @@
 // path is mechanically sound: OOXML packages splice the vbaProject part
 // back into the zip, legacy .doc/.xls re-serialize the compound file, and
 // .ppt rebuilds its embedded record with the persist offsets shifted.
-// Access alone stays read-only, for cause: the engine renders and runs VBA
-// from its compiled p-code tables, and the MS-OVBA source blob this reader
-// extracts is a passive cache - writing source there would silently change
-// nothing in Access itself.
+// Access is the one host that runs the compiled project rather than the
+// source, so a source write alone would change nothing: accessVbaWriter
+// also marks the compiled cache stale, and Access recompiles on the next
+// open.
 
 import { accessVbaCfb, isAccessDatabase } from './accessDatabase';
 import { Cfb } from './cfb';
@@ -29,6 +29,7 @@ import {
 	applyAccessVbaProject,
 	readAccessDesignNames,
 } from './access/accessVbaWriter';
+import { accessDesignMembers, parseAccessDesign, type AccessDesignMember } from './access/accessDesign';
 import { XlsxWorkbook } from './xlsx';
 
 export class MacroContainerError extends Error {}
@@ -37,7 +38,7 @@ export type MacroContainerKind = 'excel' | 'word' | 'powerpoint' | 'access';
 
 export interface MacroContainer {
 	kind: MacroContainerKind;
-	/** False only where writing cannot take effect (Access). */
+	/** False only where writing cannot take effect; every container today can. */
 	writable: boolean;
 	/** Noun phrase for messages: "a legacy Word document (.doc)". */
 	description: string;
@@ -63,6 +64,12 @@ export interface AccessContainerDesign {
 	kind: 'form' | 'report';
 	/** `Form_<name>` or `Report_<name>`, whether or not that module exists. */
 	moduleName: string;
+	/**
+	 * The design's named sections and controls, which are members of its
+	 * class. Parsed on the first ask; undefined when the design could not be
+	 * read, which means "not known", never "none".
+	 */
+	members(): AccessDesignMember[] | undefined;
 }
 
 const ZIP_MAGIC = Buffer.from('PK', 'latin1');
@@ -163,10 +170,31 @@ function wholeCfbContainer(outer: Cfb, kind: MacroContainerKind, description: st
 function cachedDesigns(data: Buffer): () => AccessContainerDesign[] {
 	let value: AccessContainerDesign[] | undefined;
 	return (): AccessContainerDesign[] => {
-		value ??= readAccessDesignNames(data).map((entry) => ({
-			...entry,
-			moduleName: accessDesignModuleName(entry.kind, entry.name),
+		value ??= readAccessDesignNames(data).map(({ name, kind, blob }) => ({
+			name,
+			kind,
+			moduleName: accessDesignModuleName(kind, name),
+			members: designMembers(blob, kind),
 		}));
+		return value;
+	};
+}
+
+/** A design's members, parsed once and only when asked for. */
+function designMembers(blob: Buffer | undefined, kind: 'form' | 'report'): () => AccessDesignMember[] | undefined {
+	let parsed = false;
+	let value: AccessDesignMember[] | undefined;
+	return () => {
+		if (!parsed) {
+			parsed = true;
+			try {
+				value = blob ? accessDesignMembers(parseAccessDesign(blob), kind) : undefined;
+			} catch {
+				// A design this cannot read still has a module; its members
+				// are simply not known.
+				value = undefined;
+			}
+		}
 		return value;
 	};
 }

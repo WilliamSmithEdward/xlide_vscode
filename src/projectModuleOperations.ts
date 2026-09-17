@@ -8,7 +8,7 @@ import {
     type XlideFileSystemProvider,
 } from './xlideFileSystem';
 import { invalidateVbaMemberCompletionCache } from './vbaMemberCompletion';
-import { runWriteWithExcelCoordination } from './excelWorkbookCoordinator';
+import { runWriteWithHostCoordination } from './officeWriteCoordinator';
 import { noteModuleWrite } from './vbaRenameHistory';
 import {
     discardPendingAgentReview,
@@ -80,7 +80,7 @@ export async function writeProjectModule(
     // takes the snapshot before it writes, so it is not tripped by its own
     // restores.
     noteModuleWrite(filePath, moduleName);
-    const result = await runWriteWithExcelCoordination(filePath, () =>
+    const result = await runWriteWithHostCoordination(filePath, () =>
         deps.bridge.call<ProjectModuleMutationResult>('writeModule', {
             path: filePath,
             module: moduleName,
@@ -122,7 +122,7 @@ export async function writeProjectFormDesigner(
 ): Promise<ProjectModuleMutationResult> {
     const { filePath, moduleName, frx, frmDesignerBlock } = request;
     noteModuleWrite(filePath, moduleName);
-    const result = await runWriteWithExcelCoordination(filePath, () =>
+    const result = await runWriteWithHostCoordination(filePath, () =>
         deps.bridge.call<ProjectModuleMutationResult>('writeFormDesigner', {
             path: filePath,
             module: moduleName,
@@ -147,7 +147,7 @@ export async function renameProjectModule(
     options: ProjectModuleOperationOptions = {},
 ): Promise<ProjectModuleMutationResult> {
     const { filePath, moduleName, newName } = request;
-    const result = await runWriteWithExcelCoordination(filePath, () =>
+    const result = await runWriteWithHostCoordination(filePath, () =>
         deps.bridge.call<ProjectModuleMutationResult>('renameModule', {
             path: filePath,
             module: moduleName,
@@ -171,7 +171,7 @@ export async function deleteProjectModule(
     options: ProjectModuleOperationOptions = {},
 ): Promise<ProjectModuleMutationResult> {
     const { filePath, moduleName } = request;
-    const result = await runWriteWithExcelCoordination(filePath, () =>
+    const result = await runWriteWithHostCoordination(filePath, () =>
         deps.bridge.call<ProjectModuleMutationResult>('deleteModule', {
             path: filePath,
             module: moduleName,

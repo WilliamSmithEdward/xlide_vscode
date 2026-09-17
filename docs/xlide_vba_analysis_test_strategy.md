@@ -350,7 +350,7 @@ declaration
 semantic
 project-symbol
 module-kind
-excel-host
+office-host
 style
 ```
 
@@ -370,7 +370,7 @@ export type DiagnosticCategory =
   | "semantic"
   | "project-symbol"
   | "module-kind"
-  | "excel-host"
+  | "office-host"
   | "style";
 
 export interface DiagnosticRuleMetadata {
@@ -409,7 +409,7 @@ Example XLIDE opinion warning:
 {
   "code": "VBA_EXCEL_UNQUALIFIED_RANGE",
   "severity": "warning",
-  "category": "excel-host",
+  "category": "office-host",
   "vbeCompileEquivalent": false
 }
 ```

@@ -11,8 +11,8 @@ XLIDE separates actions into four broad categories.
 | Category | Examples | User expectation |
 |---|---|---|
 | Read-only inspection | list files, list modules, read modules, read cell values, analyze code | Does not save the file. |
-| File mutation | save a module, create/rename/delete a module, import modules, write cells, create a file | Requires an explicit command, save, UI action, or approved agent tool call. Access files never mutate: Access executes compiled p-code, so source writes there could not take effect, and XLIDE opens them read-only. |
-| VBA execution | run macro at cursor, run unit tests | Requires an explicit run action and Office COM (Excel for macros; Excel, Word, or PowerPoint for tests). |
+| File mutation | save a module, create/rename/delete a module, import modules, write cells, create a file | Requires an explicit command, save, UI action, or approved agent tool call. Access runs the compiled project, so a write to a database takes effect when Access next opens it and recompiles. |
+| VBA execution | run macro at cursor, run unit tests | Requires an explicit run action and COM automation of the file's own application: Excel, Word, PowerPoint, or Access. |
 | Local support/export artifacts | export support bundle, export modules, write test artifacts | Writes files to a selected or configured local folder. |
 
 XLIDE should not infer consent from merely opening a file or viewing a
@@ -42,9 +42,8 @@ backup is still the cleanest recovery path after a bad edit.
 
 ## Macro And Test Execution
 
-Macro and test execution require Office COM and are Windows-only. Macros run
-through Excel; unit tests run through the file's own application - Excel,
-Word, or PowerPoint.
+Macro and test execution require Office COM and are Windows-only. Both run
+through the file's own application - Excel, Word, PowerPoint, or Access.
 
 Macro execution can affect the file, the file system, external data sources,
 and any systems the macro touches. Run macros only when you trust the file's
@@ -83,9 +82,14 @@ I/O and normal test execution should not require that setting.
 ## File Open State
 
 Some workflows can behave differently when the file is already open in its
-application. XLIDE has a setting, `xlide.attachToRunningExcel`, that controls
-whether Windows Excel workflows try to reuse an already-running Excel
-instance.
+application. XLIDE has a setting, `xlide.officeIntegration.attachToRunning`,
+that controls whether Windows workflows try to reuse an already-running
+instance of the file's application (PowerPoint only ever runs one). A file
+open for editing in its application is locked, so XLIDE cannot save to it;
+`xlide.officeIntegration.coordinationMode` decides whether XLIDE refuses (the
+default) or closes the file there, saves, and reopens it. The older
+`xlide.excelIntegration.*` and `xlide.attachToRunningExcel` names still work
+and are marked deprecated in the Settings editor.
 
 If a write, run, or test operation appears blocked:
 

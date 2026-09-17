@@ -1870,7 +1870,7 @@ function typeKindLabelForNew(kind: TypeCompletionKind): string {
 		case 'external':
 			return 'an external interface type';
 		case 'host':
-			return 'an Excel object-model type';
+			return 'a host object-model type';
 		case 'document':
 			return 'a document module type';
 		case 'enum':

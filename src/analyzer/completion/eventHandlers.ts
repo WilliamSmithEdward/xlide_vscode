@@ -7,7 +7,7 @@
 
 import { parseModule } from '../parser/parseModule';
 import type { ModuleMember, ProcedureNode } from '../parser/nodes';
-import type { ModuleSymbolKind } from '../symbols/symbolModel';
+import { isDataBoundDesignerClass, type ModuleSymbolKind } from '../symbols/symbolModel';
 import type { HostMember, HostObjectModel } from '../host/excelObjectModel';
 import { getHostEvents, getHostType } from '../host/hostModel';
 import { lineStartAtAnyBreak } from '../../vbaSourceScan';
@@ -23,12 +23,14 @@ export interface EventHandlerCompletionContext {
 	 * A VB6 form ('vb6') derives its stubs from these - Form_Load from the
 	 * form's class, Command1_Click from each control's class, `Index As
 	 * Integer` first for a control array - where an Office module reads a
-	 * fixed table.
+	 * fixed table. An Access form or report derives its stubs the same way;
+	 * `eventClass` names the class a member's events come from where that is
+	 * not its `type` (a report's sections).
 	 */
 	host?: string;
 	model?: HostObjectModel;
 	meType?: string;
-	implicitMembers?: readonly { name: string; type: string; array?: boolean }[];
+	implicitMembers?: readonly { name: string; type: string; array?: boolean; eventClass?: string }[];
 }
 
 export interface EventHandlerCompletion {
@@ -42,7 +44,7 @@ export interface EventHandlerCompletion {
 interface EventHandlerDefinition {
 	name: string;
 	params: string;
-	/** The Office owners are a fixed set; a VB6 form's owners are its own class and its controls' classes. */
+	/** The table owners are a fixed set; a VB6 form's and an Access design's are its own class and its controls' classes. */
 	owner: 'Workbook' | 'Worksheet' | 'Chart' | 'Document' | 'UserForm' | string;
 	description: string;
 }
@@ -378,7 +380,11 @@ export function resolveEventHandlerCompletions(
 	}
 
 	const documentType = eventHandlerDocumentTypeForContext(ctx);
-	const definitions = ctx.host === 'vb6' ? vb6EventDefinitions(ctx) : definitionsForDocumentType(documentType);
+	// An Access form raises Form_Load and AddLine_Click, not
+	// UserForm_Initialize, so it never reads the UserForm table.
+	const definitions = isDataBoundDesignerClass(ctx.meType)
+		? accessEventDefinitions(ctx)
+		: ctx.host === 'vb6' ? vb6EventDefinitions(ctx) : definitionsForDocumentType(documentType);
 	if (definitions.length === 0) {
 		return [];
 	}
@@ -506,6 +512,55 @@ function vb6Definition(prefix: string, event: HostMember, owner: string, indexed
 		owner,
 		description: event.doc?.summary ?? '',
 	};
+}
+
+/**
+ * The event stubs the code behind an Access form or report can declare: the
+ * design's own events under `Form_` or `Report_`, which Access uses whatever
+ * the design is named, then each section's and control's under its name. The
+ * engine hands each member over under the name VBA knows it by, so `Order
+ * Date` arrives as `Order_Date` and its handler is `Order_Date_Click`.
+ *
+ * Nothing comes from a table. The model's events are read from the Access
+ * type library, each with the parameter list the VBE writes - `ByVal` and all,
+ * which VBA checks: Form_MouseWheel takes `ByVal Page As Boolean` and
+ * Form_Unload a plain `Cancel As Integer`, and either declared the other way
+ * does not compile. So a type the model lacks, or an event it carries no
+ * parameter list for, offers no stub rather than a wrong one.
+ */
+function accessEventDefinitions(ctx: EventHandlerCompletionContext): EventHandlerDefinition[] {
+	const model = ctx.model;
+	if (!model || !ctx.meType) {
+		return [];
+	}
+	const out: EventHandlerDefinition[] = [];
+	const design = getHostType(ctx.meType, model)?.displayName;
+	if (design) {
+		for (const event of getHostEvents(ctx.meType, model)) {
+			pushAccessDefinition(out, design, event, design);
+		}
+	}
+	for (const member of ctx.implicitMembers ?? []) {
+		const owner = getHostType(member.type, model)?.displayName ?? member.type;
+		for (const event of getHostEvents(member.eventClass ?? member.type, model)) {
+			pushAccessDefinition(out, member.name, event, owner);
+		}
+	}
+	return out;
+}
+
+function pushAccessDefinition(out: EventHandlerDefinition[], prefix: string, event: HostMember, owner: string): void {
+	const open = event.signature?.indexOf('(') ?? -1;
+	const close = event.signature?.lastIndexOf(')') ?? -1;
+	if (!event.signature || open < 0 || close < open) {
+		return;
+	}
+	out.push({
+		name: `${prefix}_${event.name}`,
+		params: event.signature.slice(open + 1, close),
+		owner,
+		description: event.doc?.summary ?? '',
+	});
 }
 
 function documentTypeForOwner(

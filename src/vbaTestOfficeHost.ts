@@ -3,25 +3,12 @@ import { XLIDE_TEST_HOST_EVENT_PREFIX } from './vbaTestHostOracle';
 import { readExtensionTextAsset } from './extensionAssets';
 import { XLIDE_TEST_RUNNER_MODULE_NAME } from './vbaTestRunnerModuleCodegen';
 import { psSingleQuoted } from './util/powershell';
+import { OFFICE_HOST_APPS, type OfficeHostApp } from './officeHostApps';
 
 export const DEFAULT_VBA_TEST_TIMEOUT_MS = 30000;
 
 /** The Office applications the owned read-only test host can drive. */
-export type VbaTestHostApp = 'excel' | 'word' | 'powerpoint' | 'access';
-
-interface VbaTestHostAppInfo {
-    progId: string;
-    processName: string;
-    /** Display name for user-facing refusal/error text. */
-    noun: string;
-}
-
-const HOST_APPS: Record<VbaTestHostApp, VbaTestHostAppInfo> = {
-    excel: { progId: 'Excel.Application', processName: 'EXCEL', noun: 'Excel' },
-    word: { progId: 'Word.Application', processName: 'WINWORD', noun: 'Word' },
-    powerpoint: { progId: 'PowerPoint.Application', processName: 'POWERPNT', noun: 'PowerPoint' },
-    access: { progId: 'Access.Application', processName: 'MSACCESS', noun: 'Access' },
-};
+export type VbaTestHostApp = OfficeHostApp;
 
 export interface VbaTestHostPlanItem {
     qualifiedName: string;
@@ -29,7 +16,7 @@ export interface VbaTestHostPlanItem {
     expectedFailure: boolean;
 }
 
-export interface OwnedReadOnlyExcelTestHostScriptOptions {
+export interface OwnedReadOnlyTestHostScriptOptions {
     failFast?: boolean;
     runnerModuleName?: string;
     /** Which Office application hosts the run. Defaults to Excel. */
@@ -51,14 +38,14 @@ function productionModalWatcherCSharp(): string {
     return readExtensionTextAsset('assets/testhost/XlideTestModalWatcher.cs');
 }
 
-export function buildOwnedReadOnlyExcelTestHostScript(
+export function buildOwnedReadOnlyTestHostScript(
     filePath: string,
     tests: readonly VbaTestHostPlanItem[],
-    options: OwnedReadOnlyExcelTestHostScriptOptions = {},
+    options: OwnedReadOnlyTestHostScriptOptions = {},
 ): string {
     const testsJson = JSON.stringify(tests);
     const runnerModuleName = options.runnerModuleName ?? XLIDE_TEST_RUNNER_MODULE_NAME;
-    const hostApp = HOST_APPS[options.hostApp ?? 'excel'];
+    const hostApp = OFFICE_HOST_APPS[options.hostApp ?? 'excel'];
     const modalWatcherSource = productionModalWatcherCSharp();
     // Dynamic preamble + static body (assets/testhost/run-vba-tests.ps1),
     // joined with newlines so PowerShell error positions point at meaningful

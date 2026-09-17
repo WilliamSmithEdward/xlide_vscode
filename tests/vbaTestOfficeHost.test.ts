@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-    buildOwnedReadOnlyExcelTestHostScript,
+    buildOwnedReadOnlyTestHostScript,
     vbaTestHostPlanItems,
-} from '../src/vbaTestExcelHost';
+} from '../src/vbaTestOfficeHost';
 import {
     parseVbaTestHostEventLine,
     XLIDE_TEST_HOST_EVENT_PREFIX,
@@ -18,7 +18,7 @@ import type { VbaTestCase } from '../src/vbaTestRunner';
 
 describe('VBA test Excel host script', () => {
     it('builds a single owned read-only Excel host script without attaching to user Excel', () => {
-        const script = buildOwnedReadOnlyExcelTestHostScript('C:/work/Book.xlsm', [
+        const script = buildOwnedReadOnlyTestHostScript('C:/work/Book.xlsm', [
             { qualifiedName: 'Tests.Pass', timeoutMs: 5000, expectedFailure: false },
             { qualifiedName: 'Tests.KnownFailure', timeoutMs: 7000, expectedFailure: true },
         ], { failFast: true });
@@ -95,12 +95,12 @@ describe('VBA test Excel host script', () => {
         expect(script).toContain('[XlideTestModalWatcher]::Start');
         expect(script).toContain('[XlideTestModalWatcher]::Stop');
         expect(script).toContain('Emit-XlideTestHostEvent "host-phase"');
-        expect(script).toContain('Emit-XlideHostPhase "excel-create" "passed"');
-        expect(script).toContain('Emit-XlideHostPhase "workbook-open" "passed"');
-        expect(script).toContain('Emit-XlideHostPhase "workbook-open" "failed"');
+        expect(script).toContain('Emit-XlideHostPhase "host-create" "passed"');
+        expect(script).toContain('Emit-XlideHostPhase "file-open" "passed"');
+        expect(script).toContain('Emit-XlideHostPhase "file-open" "failed"');
         expect(script).toContain('OPEN_FAILED|XLIDE could not open the file read-only for tests');
-        expect(script).toContain('Emit-XlideHostPhase "workbook-close" "passed"');
-        expect(script).toContain('Emit-XlideHostPhase "excel-quit" "passed"');
+        expect(script).toContain('Emit-XlideHostPhase "file-close" "passed"');
+        expect(script).toContain('Emit-XlideHostPhase "host-quit" "passed"');
         expect(script).toContain('Emit-XlideHostPhase "com-release" "passed"');
         expect(script).toContain('durationMs = [int]$phaseSw.ElapsedMilliseconds');
         expect(script).not.toContain('SendKeys');
@@ -111,18 +111,18 @@ describe('VBA test Excel host script', () => {
         // The host quits its Excel on the way out, so attaching to a user's
         // instance would put their unsaved work in the blast radius. Snapshot
         // the running PIDs, and refuse if the new Application resolves to one.
-        const script = buildOwnedReadOnlyExcelTestHostScript('C:/work/Book.xlsm', []);
+        const script = buildOwnedReadOnlyTestHostScript('C:/work/Book.xlsm', []);
 
         expect(script).toContain('$preExistingExcelPids');
         expect(script).toContain("$hostProcessName = 'EXCEL'");
         expect(script).toContain('Get-Process -Name $hostProcessName -ErrorAction SilentlyContinue');
         expect(script).toContain('$preExistingExcelPids -contains $excelPid');
         expect(script).toContain('XLIDE refused to run tests');
-        expect(script).toContain('Emit-XlideHostPhase "excel-create" "failed"');
+        expect(script).toContain('Emit-XlideHostPhase "host-create" "failed"');
     });
 
     it('suppresses the prompts an owned instance cannot answer', () => {
-        const script = buildOwnedReadOnlyExcelTestHostScript('C:/work/Book.xlsm', []);
+        const script = buildOwnedReadOnlyTestHostScript('C:/work/Book.xlsm', []);
 
         // msoAutomationSecurityLow: the macro-security prompt is Excel-owned and
         // carries no Win32 buttons, so no watcher could dismiss it.
@@ -134,7 +134,7 @@ describe('VBA test Excel host script', () => {
     });
 
     it('ties the owned Excel lifetime to the host process', () => {
-        const script = buildOwnedReadOnlyExcelTestHostScript('C:/work/Book.xlsm', []);
+        const script = buildOwnedReadOnlyTestHostScript('C:/work/Book.xlsm', []);
 
         // A kill-on-close job means a crashed or force-killed host cannot orphan
         // a hidden EXCEL.EXE still holding the workbook open.
@@ -144,13 +144,13 @@ describe('VBA test Excel host script', () => {
     });
 
     it('watches for modals across open and teardown, not only macro execution', () => {
-        const script = buildOwnedReadOnlyExcelTestHostScript('C:/work/Book.xlsm', [
+        const script = buildOwnedReadOnlyTestHostScript('C:/work/Book.xlsm', [
             { qualifiedName: 'Tests.Pass', timeoutMs: 5000, expectedFailure: false },
         ]);
 
         // Opening a workbook and closing it can both prompt. An unwatched dialog
         // wedges the host until its timeout instead of being reported.
-        expect(script).toContain('$excelId, "workbook-open"');
+        expect(script).toContain('$excelId, "file-open"');
         expect(script).toContain('$excelId, "host-teardown"');
         // The watcher stops after COM teardown, not between tests.
         const stopIndex = script.lastIndexOf('[XlideTestModalWatcher]::Stop()');
@@ -203,7 +203,7 @@ describe('VBA test Excel host script', () => {
     });
 
     it('parameterizes the host per Office application, semantics measured live', () => {
-        const word = buildOwnedReadOnlyExcelTestHostScript('C:/work/Doc.docm', [], { hostApp: 'word' });
+        const word = buildOwnedReadOnlyTestHostScript('C:/work/Doc.docm', [], { hostApp: 'word' });
         expect(word).toContain("$hostKind = 'word'");
         expect(word).toContain("$hostProgId = 'Word.Application'");
         expect(word).toContain("$hostProcessName = 'WINWORD'");
@@ -215,7 +215,7 @@ describe('VBA test Excel host script', () => {
         expect(word).toContain('$excel.Run($testRunnerRef, [ref]$macroArg)');
         expect(word).toContain('$workbook.Close(0)');
 
-        const powerpoint = buildOwnedReadOnlyExcelTestHostScript('C:/work/Deck.pptm', [], { hostApp: 'powerpoint' });
+        const powerpoint = buildOwnedReadOnlyTestHostScript('C:/work/Deck.pptm', [], { hostApp: 'powerpoint' });
         expect(powerpoint).toContain("$hostProgId = 'PowerPoint.Application'");
         expect(powerpoint).toContain("$hostProcessName = 'POWERPNT'");
         // PowerPoint: cannot hide, opens windowless read-only, runs through
@@ -226,7 +226,7 @@ describe('VBA test Excel host script', () => {
         expect(powerpoint).toContain('$testRunnerRef = $workbook.Name + "!" + $runnerModuleName + ".RunTest"');
         expect(powerpoint).toContain('InvokeMember("Run"');
 
-        const access = buildOwnedReadOnlyExcelTestHostScript('C:/work/Db.accdb', [], { hostApp: 'access' });
+        const access = buildOwnedReadOnlyTestHostScript('C:/work/Db.accdb', [], { hostApp: 'access' });
         expect(access).toContain("$hostProgId = 'Access.Application'");
         expect(access).toContain("$hostProcessName = 'MSACCESS'");
         // Access: one database at a time through OpenCurrentDatabase, the bare
@@ -242,7 +242,7 @@ describe('VBA test Excel host script', () => {
         expect(access).toContain('$hostHwnd = [IntPtr]$excel.hWndAccessApp()');
 
         // The default stays Excel, unchanged.
-        const excel = buildOwnedReadOnlyExcelTestHostScript('C:/work/Book.xlsm', []);
+        const excel = buildOwnedReadOnlyTestHostScript('C:/work/Book.xlsm', []);
         expect(excel).toContain("$hostKind = 'excel'");
     });
 
@@ -250,7 +250,7 @@ describe('VBA test Excel host script', () => {
         expect(parseVbaTestHostEventLine('not an event')).toBeUndefined();
         expect(parseVbaTestHostEventLine(`${XLIDE_TEST_HOST_EVENT_PREFIX}${JSON.stringify({
             kind: 'macro-finished',
-            excelId: 'xlide-1',
+            hostId: 'xlide-1',
             qualifiedName: 'Tests.Pass',
             outcome: 'passed',
             durationMs: 12,
@@ -258,7 +258,7 @@ describe('VBA test Excel host script', () => {
             output: ['hello'],
         })}`)).toEqual({
             kind: 'macro-finished',
-            excelId: 'xlide-1',
+            hostId: 'xlide-1',
             qualifiedName: 'Tests.Pass',
             outcome: 'passed',
             durationMs: 12,

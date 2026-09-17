@@ -70,14 +70,24 @@ export interface VbaTestCiStatus {
     durationMs: number;
 }
 
+/** How the application that hosted the run came and went. */
+export interface VbaTestCiHostLifecycle {
+    created: number;
+    quitNormally: boolean;
+    killed: number;
+    killReasons: string[];
+}
+
 export interface VbaTestCiHostMetadata {
     eventCount: number;
-    excel: {
-        created: number;
-        quitNormally: boolean;
-        killed: number;
-        killReasons: string[];
-    };
+    /** The hosting application's lifecycle: Excel, Word, PowerPoint or Access. */
+    application: VbaTestCiHostLifecycle;
+    /**
+     * What `application` was called while only Excel hosted runs. It carries
+     * the same numbers for every host, so a CI script written against it
+     * keeps reading; new scripts should read `application`.
+     */
+    excel: VbaTestCiHostLifecycle;
     modals: {
         detected: number;
         dismissed: number;
@@ -218,7 +228,7 @@ export function sanitizeVbaTestHostTraceForArtifacts(
 export function renderVbaTestOutputLog(report: VbaTestRunReport, ciStatus: VbaTestCiStatus): string {
     const lines = [
         'XLIDE VBA Test Run',
-        `Workbook: ${report.projectName}`,
+        `File: ${report.projectName}`,
         `Started: ${report.startedAt}`,
         `Duration: ${report.durationMs} ms`,
         `Status: ${ciStatus.status} (${ciStatus.reason})`,
@@ -270,7 +280,7 @@ async function pruneOldVbaTestRunArtifacts(
     paths: VbaTestRunArtifactPaths,
     retention: number,
 ): Promise<void> {
-    const entries = await xlideRunDirectoriesForWorkbook(paths.outputFolder, paths.runId);
+    const entries = await xlideRunDirectoriesForProject(paths.outputFolder, paths.runId);
     if (entries.length <= retention) {
         return;
     }
@@ -288,7 +298,7 @@ async function pruneOldVbaTestRunArtifacts(
         .map((entry) => fs.promises.rm(entry.fullPath, { recursive: true, force: true })));
 }
 
-async function xlideRunDirectoriesForWorkbook(
+async function xlideRunDirectoriesForProject(
     outputFolder: string,
     currentRunId: string,
 ): Promise<Array<{ name: string; fullPath: string }>> {
@@ -302,9 +312,9 @@ async function xlideRunDirectoriesForWorkbook(
         throw err;
     }
 
-    const prefix = workbookRunIdPrefix(currentRunId);
+    const prefix = projectRunIdPrefix(currentRunId);
     const candidates = entries
-        .filter((entry) => entry.isDirectory() && isWorkbookRunDirectoryName(entry.name, prefix))
+        .filter((entry) => entry.isDirectory() && isProjectRunDirectoryName(entry.name, prefix))
         .map((entry) => ({
             name: entry.name,
             fullPath: path.join(outputFolder, entry.name),
@@ -318,12 +328,12 @@ async function xlideRunDirectoriesForWorkbook(
     return runDirectories.sort((left, right) => right.name.localeCompare(left.name));
 }
 
-function workbookRunIdPrefix(runId: string): string {
+function projectRunIdPrefix(runId: string): string {
     const match = /^(.+_)\d{4}-\d{2}-\d{2}_\d{6}$/.exec(runId);
     return match?.[1] ?? '';
 }
 
-function isWorkbookRunDirectoryName(name: string, prefix: string): boolean {
+function isProjectRunDirectoryName(name: string, prefix: string): boolean {
     return prefix.length > 0 &&
         name.startsWith(prefix) &&
         /^\d{4}-\d{2}-\d{2}_\d{6}$/.test(name.slice(prefix.length));
@@ -398,7 +408,7 @@ function sanitizeCiMessage(value: string | undefined): string | undefined {
 
 function summarizeHostEventsForCi(events: readonly VbaTestHostOracleEvent[]): VbaTestCiHostMetadata {
     const killReasons = events
-        .filter((event): event is Extract<VbaTestHostOracleEvent, { kind: 'excel-killed' }> => event.kind === 'excel-killed')
+        .filter((event): event is Extract<VbaTestHostOracleEvent, { kind: 'host-killed' }> => event.kind === 'host-killed')
         .map((event) => event.reason);
     const blockedDialogs = events
         .filter((event): event is Extract<VbaTestHostOracleEvent, { kind: 'modal-blocked' }> => event.kind === 'modal-blocked')
@@ -410,14 +420,16 @@ function summarizeHostEventsForCi(events: readonly VbaTestHostOracleEvent[]): Vb
             ...(event.buttonIds?.length ? { buttonIds: event.buttonIds } : {}),
             reason: sanitizeCiMessage(event.reason) ?? 'unknown',
         }));
+    const application: VbaTestCiHostLifecycle = {
+        created: events.filter((event) => event.kind === 'host-created').length,
+        quitNormally: events.some((event) => event.kind === 'host-quit'),
+        killed: killReasons.length,
+        killReasons,
+    };
     return {
         eventCount: events.length,
-        excel: {
-            created: events.filter((event) => event.kind === 'excel-created').length,
-            quitNormally: events.some((event) => event.kind === 'excel-quit'),
-            killed: killReasons.length,
-            killReasons,
-        },
+        application,
+        excel: application,
         modals: {
             detected: events.filter((event) => event.kind === 'modal-detected').length,
             dismissed: events.filter((event) => event.kind === 'modal-dismissed').length,
@@ -474,7 +486,7 @@ function formatRunTimestamp(date: Date): string {
 
 function sanitizePathPart(value: string): string {
     const sanitized = value.trim().replace(/[^A-Za-z0-9._-]+/g, '_').replace(/^_+|_+$/g, '');
-    return sanitized || 'workbook';
+    return sanitized || 'project';
 }
 
 function relativeArtifactPath(projectDirectory: string, targetPath: string): string {

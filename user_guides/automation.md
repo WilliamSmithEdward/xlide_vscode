@@ -21,10 +21,10 @@ PowerPoint, or Access - without driving the XLIDE panels by hand.
    pass.
 5. Run `xlide_runVbaTests` to execute discovered `@xlide-test` procedures
    through the production read-only test host of the file's own application
-   (Excel, Word, or PowerPoint).
+   (Excel, Word, PowerPoint, or Access).
 6. Before a commit, call `xlide_gitChanges` to see what changed inside the
    file since HEAD (or any revision): one unified diff per module, plus which
-   modules were added or removed. `git diff` cannot say this about a workbook,
+   modules were added or removed. `git diff` cannot say this about a binary file,
    so this is what an agent reviews changes or writes a commit message from.
 
 `xlide_runVbaTests` supports `moduleName`, `procedureName`, `testIds`,
@@ -37,7 +37,7 @@ Agent-driven test runs write the same artifact surface as the Tests GUI:
 
 ```text
 tests/
-  workbook_name_yyyy-mm-dd_hhmmss/
+  file_name_yyyy-mm-dd_hhmmss/
     summary.json
     host-trace.json
     output.log
@@ -50,7 +50,8 @@ Downstream CI should prefer `status_for_ci.json` for the latest run and
 `summary.json` when it needs the full result detail.
 
 If setup is incomplete, the tool returns `blocked: true` with `reason:
-"test-support"` or `reason: "excel-com"` instead of attempting to run Excel.
+"test-support"` or `reason: "office-com"` instead of attempting to start the
+file's application.
 
 ## Analysis Contract
 

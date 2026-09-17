@@ -28,7 +28,7 @@ interface ProjectSettingsConfig {
     exportMode?: ExportMode;
     importMode?: ImportMode;
     analysis?: ProjectAnalysisSettingsConfig;
-    tests?: WorkbookTestSettingsConfig;
+    tests?: ProjectTestSettingsConfig;
 }
 
 interface ProjectAnalysisSettingsConfig {
@@ -37,7 +37,7 @@ interface ProjectAnalysisSettingsConfig {
     ruleSeverityOverrides?: AnalysisRuleSeverityOverrides;
 }
 
-interface WorkbookTestSettingsConfig {
+interface ProjectTestSettingsConfig {
     artifactFolder?: string;
     artifactRetention?: number;
 }
@@ -177,7 +177,7 @@ function codecTestSettings(
     value: unknown,
     fieldPath: string,
     reject: ProjectSettingsReject,
-): WorkbookTestSettingsConfig | undefined {
+): ProjectTestSettingsConfig | undefined {
     if (value === undefined) {
         return undefined;
     }
@@ -187,7 +187,7 @@ function codecTestSettings(
     if (reject) {
         assertKnownKeys(value, fieldPath, ['artifactFolder', 'artifactRetention'], reject);
     }
-    const tests: WorkbookTestSettingsConfig = {};
+    const tests: ProjectTestSettingsConfig = {};
     const artifactFolder = codecOptionalString(value.artifactFolder, `${fieldPath}.artifactFolder`, reject);
     if (artifactFolder !== undefined) {
         tests.artifactFolder = artifactFolder;
@@ -508,7 +508,7 @@ export {
     type ProjectAnalysisSettingsConfig,
     type ProjectSettingSource,
     type ProjectSettingsConfig,
-    type WorkbookTestSettingsConfig,
+    type ProjectTestSettingsConfig,
     ProjectSettingsError,
     isProjectSettingsError,
     normalizeExportMode,

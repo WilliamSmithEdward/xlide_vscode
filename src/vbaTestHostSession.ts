@@ -1,5 +1,5 @@
 import * as cp from 'child_process';
-import { DEFAULT_VBA_TEST_TIMEOUT_MS } from './vbaTestExcelHost';
+import { DEFAULT_VBA_TEST_TIMEOUT_MS } from './vbaTestOfficeHost';
 import {
     parseVbaTestHostEventLine,
     validateVbaTestHostOracleTrace,
@@ -24,7 +24,7 @@ import {
  *    startup watchdog.
  *  - macro: one currentMacro at a time, guarded by the per-macro watchdog and
  *    interrupted when the host reports an unsafe modal dialog (modal-blocked).
- *  - cleanup: after workbook-closed / excel-quit, guarded by the cleanup
+ *  - cleanup: after file-closed / host-quit, guarded by the cleanup
  *    watchdog while the host script finishes COM release.
  *  - settled: finish() resolved the session promise (exactly once).
  *
@@ -34,14 +34,14 @@ import {
  * Excel process, optionally kills the PowerShell host, and settles.
  */
 
-export interface OwnedReadOnlyExcelHostRunResult {
+export interface OwnedReadOnlyHostRunResult {
     events: VbaTestHostOracleEvent[];
-    resultsByName: Map<string, OwnedReadOnlyExcelHostTestResult>;
+    resultsByName: Map<string, OwnedReadOnlyHostTestResult>;
     hostError?: string;
     timedOutAfter?: string;
 }
 
-export interface OwnedReadOnlyExcelHostTestResult {
+export interface OwnedReadOnlyHostTestResult {
     outcome: 'passed' | 'failed' | 'timeout' | 'modal-blocked' | 'runner-error';
     durationMs: number;
     message?: string;
@@ -50,14 +50,16 @@ export interface OwnedReadOnlyExcelHostTestResult {
     output?: string[];
 }
 
-export interface OwnedExcelTestHostSessionOptions {
+export interface OwnedTestHostSessionOptions {
     hostScriptPath: string;
+    /** The application hosting the run, for messages: "Word". */
+    hostNoun: string;
     /** Disposes the staged temp dir once the session settles. */
     disposeStaging: () => void;
     log: (message: string) => void;
 }
 
-type OwnedExcelKillReason = 'timeout' | 'hung' | 'modal-blocked' | 'runner-error' | 'cleanup-failed';
+type OwnedHostKillReason = 'timeout' | 'hung' | 'modal-blocked' | 'runner-error' | 'cleanup-failed';
 
 const DEFAULT_VBA_TEST_CLEANUP_GRACE_MS = 5000;
 
@@ -66,14 +68,14 @@ type MacroFinishedEvent = Extract<VbaTestHostOracleEvent, { kind: 'macro-finishe
 type ModalBlockedEvent = Extract<VbaTestHostOracleEvent, { kind: 'modal-blocked' }>;
 
 interface CurrentMacro {
-    excelId: string;
+    hostId: string;
     qualifiedName: string;
     timeoutMs: number;
     startedMs: number;
 }
 
 interface AbortOptions {
-    reason: OwnedExcelKillReason;
+    reason: OwnedHostKillReason;
     hostError: string;
     /** Terminal macro-finished event pushed before killing; omitted when no macro is in flight. */
     finishedEvent?: MacroFinishedEvent;
@@ -81,39 +83,41 @@ interface AbortOptions {
     killHostProcess?: boolean;
 }
 
-export function runOwnedExcelTestHostSession(
-    options: OwnedExcelTestHostSessionOptions,
-): Promise<OwnedReadOnlyExcelHostRunResult> {
-    return new Promise<OwnedReadOnlyExcelHostRunResult>((resolve) => {
+export function runOwnedTestHostSession(
+    options: OwnedTestHostSessionOptions,
+): Promise<OwnedReadOnlyHostRunResult> {
+    return new Promise<OwnedReadOnlyHostRunResult>((resolve) => {
         // The session keeps itself alive through the watchdog timers and
         // child-process callbacks it registers.
-        void new OwnedExcelTestHostSession(options, resolve);
+        void new OwnedTestHostSession(options, resolve);
     });
 }
 
-class OwnedExcelTestHostSession {
+class OwnedTestHostSession {
     private readonly events: VbaTestHostOracleEvent[] = [];
     private currentMacro: CurrentMacro | undefined;
     private currentModalBlocker: ModalBlockedEvent | undefined;
     private startupWatchdog: ReturnType<typeof setTimeout> | undefined;
     private macroWatchdog: ReturnType<typeof setTimeout> | undefined;
     private cleanupWatchdog: ReturnType<typeof setTimeout> | undefined;
-    private ownedExcelPid: number | undefined;
-    private ownedExcelKilled = false;
-    private sawExcelQuit = false;
+    private ownedHostPid: number | undefined;
+    private ownedHostKilled = false;
+    private sawHostQuit = false;
     private timedOutAfter: string | undefined;
     private settled = false;
 
     private readonly log: (message: string) => void;
     private readonly disposeStaging: () => void;
+    private readonly hostNoun: string;
     private readonly hostRun: PowerShellRun;
 
     constructor(
-        options: OwnedExcelTestHostSessionOptions,
-        private readonly resolve: (result: OwnedReadOnlyExcelHostRunResult) => void,
+        options: OwnedTestHostSessionOptions,
+        private readonly resolve: (result: OwnedReadOnlyHostRunResult) => void,
     ) {
         this.log = options.log;
         this.disposeStaging = options.disposeStaging;
+        this.hostNoun = options.hostNoun;
         this.armStartupWatchdog();
         this.hostRun = runPowerShell({
             args: ['-File', options.hostScriptPath],
@@ -136,15 +140,15 @@ class OwnedExcelTestHostSession {
                 return;
             }
             this.timedOutAfter = 'test host startup';
-            const excelId = this.events.find((event) => event.kind === 'excel-created')?.excelId ?? 'unknown';
-            const message = `Excel test host timed out before starting tests after ${DEFAULT_VBA_TEST_TIMEOUT_MS} ms.`;
+            const hostId = this.events.find((event) => event.kind === 'host-created')?.hostId ?? 'unknown';
+            const message = `${this.hostNoun} test host timed out before starting tests after ${DEFAULT_VBA_TEST_TIMEOUT_MS} ms.`;
             this.abort({
                 reason: 'timeout',
                 hostError: message,
                 killHostProcess: true,
                 finishedEvent: {
                     kind: 'macro-finished',
-                    excelId,
+                    hostId,
                     qualifiedName: 'XLIDE.TestHostStartup',
                     outcome: 'timeout',
                     durationMs: DEFAULT_VBA_TEST_TIMEOUT_MS,
@@ -163,7 +167,7 @@ class OwnedExcelTestHostSession {
         this.clearCleanupWatchdog();
         const timeoutMs = event.timeoutMs ?? DEFAULT_VBA_TEST_TIMEOUT_MS;
         this.currentMacro = {
-            excelId: event.excelId,
+            hostId: event.hostId,
             qualifiedName: event.qualifiedName,
             timeoutMs,
             startedMs: Date.now(),
@@ -185,7 +189,7 @@ class OwnedExcelTestHostSession {
                 : '';
             const outcome = modalBlocker ? 'modal-blocked' : 'timeout';
             const message = modalBlocker
-                ? `Blocked by Excel modal dialog${modalDetail ? ` (${modalDetail})` : ''}.`
+                ? `Blocked by ${this.hostNoun} modal dialog${modalDetail ? ` (${modalDetail})` : ''}.`
                 : `Timed out after ${macro.timeoutMs} ms.`;
             this.abort({
                 reason: modalBlocker ? 'modal-blocked' : 'timeout',
@@ -193,7 +197,7 @@ class OwnedExcelTestHostSession {
                 killHostProcess: true,
                 finishedEvent: {
                     kind: 'macro-finished',
-                    excelId: macro.excelId,
+                    hostId: macro.hostId,
                     qualifiedName: macro.qualifiedName,
                     outcome,
                     durationMs,
@@ -205,18 +209,18 @@ class OwnedExcelTestHostSession {
 
     // ----- phase: cleanup ---------------------------------------------------
 
-    private armCleanupWatchdog(stage: 'workbook-closed' | 'excel-quit' | 'post-macro'): void {
+    private armCleanupWatchdog(stage: 'file-closed' | 'host-quit' | 'post-macro'): void {
         this.clearCleanupWatchdog();
         this.cleanupWatchdog = setTimeout(() => {
             if (this.settled) {
                 return;
             }
             const elapsedDescription = `${DEFAULT_VBA_TEST_CLEANUP_GRACE_MS} ms`;
-            if (!this.sawExcelQuit) {
-                this.log(`[runVbaTests] Cleanup watchdog elapsed ${elapsedDescription} (${stage}); owned Excel did not finish cleanup, killing it.`);
-                this.killOwnedExcel('cleanup-failed');
+            if (!this.sawHostQuit) {
+                this.log(`[runVbaTests] Cleanup watchdog elapsed ${elapsedDescription} (${stage}); owned ${this.hostNoun} did not finish cleanup, killing it.`);
+                this.killOwnedHost('cleanup-failed');
             } else {
-                this.log(`[runVbaTests] Cleanup watchdog elapsed ${elapsedDescription} after Excel quit; stopping host script.`);
+                this.log(`[runVbaTests] Cleanup watchdog elapsed ${elapsedDescription} after ${this.hostNoun} quit; stopping host script.`);
             }
             this.hostRun.kill();
             this.finish();
@@ -246,9 +250,9 @@ class OwnedExcelTestHostSession {
 
     private handleEvent(event: VbaTestHostOracleEvent): void {
         this.events.push(event);
-        if (event.kind === 'excel-created') {
-            this.ownedExcelPid = event.pid;
-            this.log(`[runVbaTests host] excel-created pid=${this.ownedExcelPid ?? 'unknown'}`);
+        if (event.kind === 'host-created') {
+            this.ownedHostPid = event.pid;
+            this.log(`[runVbaTests host] host-created pid=${this.ownedHostPid ?? 'unknown'}`);
         } else if (event.kind === 'host-phase') {
             this.log(`[runVbaTests host] phase ${event.phase} ${event.outcome} (${event.durationMs} ms)`);
         } else if (event.kind === 'macro-started') {
@@ -261,19 +265,19 @@ class OwnedExcelTestHostSession {
             this.log(`[runVbaTests host] modal-dismissed ${event.qualifiedName} button=${event.button ?? 'unknown'} dismissed=${event.dismissed}`);
         } else if (event.kind === 'modal-blocked') {
             if (this.currentMacro &&
-                this.currentMacro.excelId === event.excelId &&
+                this.currentMacro.hostId === event.hostId &&
                 this.currentMacro.qualifiedName === event.qualifiedName) {
                 const macro = this.currentMacro;
                 this.currentModalBlocker = event;
                 const durationMs = Date.now() - macro.startedMs;
-                const message = modalBlockedMessage(event);
+                const message = modalBlockedMessage(event, this.hostNoun);
                 this.abort({
                     reason: 'modal-blocked',
                     hostError: message,
                     killHostProcess: true,
                     finishedEvent: {
                         kind: 'macro-finished',
-                        excelId: macro.excelId,
+                        hostId: macro.hostId,
                         qualifiedName: macro.qualifiedName,
                         outcome: 'modal-blocked',
                         durationMs,
@@ -287,25 +291,25 @@ class OwnedExcelTestHostSession {
             this.clearMacroWatchdog();
             this.currentMacro = undefined;
             this.currentModalBlocker = undefined;
-            // Bound the window between the last macro and workbook-closed/excel-quit:
+            // Bound the window between the last macro and file-closed/host-quit:
             // if the host wedges during COM cleanup before emitting either (a modal on
             // $workbook.Close, a stuck COM release), there would otherwise be no armed
             // timer and no process timeout, hanging the run forever. The next
             // macro-started (armMacroWatchdog) or a close/quit event clears/supersedes
             // this watchdog; only a genuine cleanup hang lets it fire.
             this.armCleanupWatchdog('post-macro');
-        } else if (event.kind === 'workbook-closed') {
-            this.log(`[runVbaTests host] workbook-closed durationMs=${event.durationMs ?? 'unknown'}`);
-            this.armCleanupWatchdog('workbook-closed');
-        } else if (event.kind === 'excel-quit') {
-            this.sawExcelQuit = true;
-            this.log(`[runVbaTests host] excel-quit durationMs=${event.durationMs ?? 'unknown'}`);
+        } else if (event.kind === 'file-closed') {
+            this.log(`[runVbaTests host] file-closed durationMs=${event.durationMs ?? 'unknown'}`);
+            this.armCleanupWatchdog('file-closed');
+        } else if (event.kind === 'host-quit') {
+            this.sawHostQuit = true;
+            this.log(`[runVbaTests host] host-quit durationMs=${event.durationMs ?? 'unknown'}`);
             // Arm unconditionally. If $workbook.Close($false) threw, the host
-            // emits no workbook-closed event but still proceeds to $excel.Quit(),
+            // emits no file-closed event but still proceeds to $excel.Quit(),
             // leaving the COM-release phase (WaitForPendingFinalizers, which can
             // hang on a stuck COM object) with NO active watchdog and the whole
             // run hanging forever. Always guarding cleanup prevents that.
-            this.armCleanupWatchdog('excel-quit');
+            this.armCleanupWatchdog('host-quit');
         }
     }
 
@@ -348,7 +352,7 @@ class OwnedExcelTestHostSession {
         if (options.finishedEvent) {
             this.events.push(options.finishedEvent);
         }
-        this.killOwnedExcel(options.reason);
+        this.killOwnedHost(options.reason);
         if (options.killHostProcess) {
             this.hostRun.kill();
         }
@@ -362,7 +366,7 @@ class OwnedExcelTestHostSession {
         this.settled = true;
         this.clearAllWatchdogs();
         this.disposeStaging();
-        const resultsByName = new Map<string, OwnedReadOnlyExcelHostTestResult>();
+        const resultsByName = new Map<string, OwnedReadOnlyHostTestResult>();
         for (const event of this.events) {
             const result = this.eventResult(event);
             if (result && event.kind === 'macro-finished') {
@@ -381,22 +385,22 @@ class OwnedExcelTestHostSession {
         });
     }
 
-    private killOwnedExcel(reason: OwnedExcelKillReason): void {
-        if (!this.ownedExcelPid || this.ownedExcelKilled) {
+    private killOwnedHost(reason: OwnedHostKillReason): void {
+        if (!this.ownedHostPid || this.ownedHostKilled) {
             return;
         }
-        this.ownedExcelKilled = true;
-        this.log(`[runVbaTests] Killing owned Excel process ${this.ownedExcelPid} after ${reason}.`);
+        this.ownedHostKilled = true;
+        this.log(`[runVbaTests] Killing owned ${this.hostNoun} process ${this.ownedHostPid} after ${reason}.`);
         // taskkill runs on the abort/cleanup recovery paths; a spawn failure
         // (EMFILE/ENOMEM under load, or a locked-down PATH) must be logged, not
         // left to surface as an uncaught child 'error' that crashes the host.
-        const killer = cp.spawn('taskkill.exe', ['/PID', String(this.ownedExcelPid), '/T', '/F'], { windowsHide: true });
+        const killer = cp.spawn('taskkill.exe', ['/PID', String(this.ownedHostPid), '/T', '/F'], { windowsHide: true });
         killer.on('error', (err) => {
-            this.log(`[runVbaTests] taskkill failed for pid ${this.ownedExcelPid}: ${errorMessage(err)}`);
+            this.log(`[runVbaTests] taskkill failed for pid ${this.ownedHostPid}: ${errorMessage(err)}`);
         });
-        const excelId = this.currentMacro?.excelId ?? this.events.find((event) => event.kind === 'excel-created')?.excelId;
-        if (excelId) {
-            this.events.push({ kind: 'excel-killed', excelId, reason });
+        const hostId = this.currentMacro?.hostId ?? this.events.find((event) => event.kind === 'host-created')?.hostId;
+        if (hostId) {
+            this.events.push({ kind: 'host-killed', hostId, reason });
         }
     }
 
@@ -413,7 +417,7 @@ class OwnedExcelTestHostSession {
         }
         return {
             kind: 'macro-finished',
-            excelId: macro.excelId,
+            hostId: macro.hostId,
             qualifiedName: macro.qualifiedName,
             outcome,
             durationMs: Date.now() - macro.startedMs,
@@ -421,7 +425,7 @@ class OwnedExcelTestHostSession {
         };
     }
 
-    private eventResult(event: VbaTestHostOracleEvent): OwnedReadOnlyExcelHostTestResult | undefined {
+    private eventResult(event: VbaTestHostOracleEvent): OwnedReadOnlyHostTestResult | undefined {
         if (event.kind !== 'macro-finished') {
             return undefined;
         }
@@ -485,7 +489,7 @@ class OwnedExcelTestHostSession {
     }
 }
 
-function modalBlockedMessage(event: ModalBlockedEvent): string {
+function modalBlockedMessage(event: ModalBlockedEvent, hostNoun: string): string {
     const modalDetail = [event.title, event.message].filter(Boolean).join(': ');
-    return `Blocked by Excel modal dialog${modalDetail ? ` (${modalDetail})` : ''}.`;
+    return `Blocked by ${hostNoun} modal dialog${modalDetail ? ` (${modalDetail})` : ''}.`;
 }

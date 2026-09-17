@@ -8,7 +8,7 @@ import {
 } from '../xlideFileSystem';
 import {
     describeVbaTestSelection,
-    discoverWorkbookVbaTests,
+    discoverProjectVbaTests,
     summarizeVbaTestTags,
     summarizeVbaTestRun,
     type VbaTestCase,
@@ -19,8 +19,8 @@ import {
 import { type VbaTestRunOptions } from '../vbaTestExecution';
 import { executeVbaTestRun } from '../vbaTestRunPipeline';
 import { openVbaTestResults, setVbaTestResultsRunning } from '../vbaTestResultsWebview';
-import { checkExcelComAvailability } from '../excelComAvailability';
-import { containerHostForPath } from '../macroContainerUi';
+import { checkOfficeComAvailability } from '../officeComAvailability';
+import { officeHostForPath } from '../officeHostApps';
 import {
     openVbaTestsPanel,
     type VbaTestsRunFilterRequest,
@@ -90,19 +90,19 @@ export function registerVbaTestCommands(deps: CommandDeps): vscode.Disposable[] 
         });
     }
 
-    function lastFailedRunForWorkbook(filePath: string): VbaTestLastFailedRun | undefined {
+    function lastFailedRunForProject(filePath: string): VbaTestLastFailedRun | undefined {
         return lastFailedVbaTestRuns.get(projectIdentityKey(filePath));
     }
 
-    async function rerunFailedVbaTestsForWorkbook(filePath: string): Promise<void> {
-        const failed = lastFailedRunForWorkbook(filePath);
+    async function rerunFailedVbaTestsForProject(filePath: string): Promise<void> {
+        const failed = lastFailedRunForProject(filePath);
         if (!failed || failed.testIds.length === 0) {
             void vscode.window.showInformationMessage(
                 `XLIDE: No failed VBA tests to rerun for "${path.basename(filePath)}".`,
             );
             return;
         }
-        await runVbaTestsForWorkbook(filePath, {
+        await runVbaTestsForProject(filePath, {
             selection: {
                 testIds: failed.testIds,
             },
@@ -119,7 +119,7 @@ export function registerVbaTestCommands(deps: CommandDeps): vscode.Disposable[] 
         editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
     }
 
-    async function runVbaTestsForWorkbook(
+    async function runVbaTestsForProject(
         filePath: string,
         options: VbaTestRunOptions = {},
     ): Promise<void> {
@@ -145,14 +145,14 @@ export function registerVbaTestCommands(deps: CommandDeps): vscode.Disposable[] 
                 },
             });
             if (result.kind === 'blocked-support') {
-                openVbaTestsForWorkbook(filePath);
+                openVbaTestsForProject(filePath);
                 void vscode.window.showWarningMessage(
                     `XLIDE: Install XlideAssert.bas from the Unit Tests GUI before running tests for "${name}".`,
                 );
                 return;
             }
             if (result.kind === 'blocked-com') {
-                openVbaTestsForWorkbook(filePath);
+                openVbaTestsForProject(filePath);
                 void vscode.window.showWarningMessage(`XLIDE: ${result.runtime.description}`);
                 return;
             }
@@ -175,7 +175,7 @@ export function registerVbaTestCommands(deps: CommandDeps): vscode.Disposable[] 
             }
             updateLastFailedVbaTestRun(report);
             openVbaTestResults(context, report, {
-                onRerunFailed: () => rerunFailedVbaTestsForWorkbook(filePath),
+                onRerunFailed: () => rerunFailedVbaTestsForProject(filePath),
                 onOpenTest: (test) => openVbaTestCase(filePath, test),
             });
             showVbaTestRunOutcome(report);
@@ -190,45 +190,41 @@ export function registerVbaTestCommands(deps: CommandDeps): vscode.Disposable[] 
         }
     }
 
-    function openVbaTestsForWorkbook(filePath: string): void {
+    function openVbaTestsForProject(filePath: string): void {
         openVbaTestsPanel(context, filePath, {
             getModel: () => vbaTestsPanelModel(filePath),
             onInstallSupport: async () => {
                 await installVbaTestSupportModule(filePath);
             },
             onRunAll: async () => {
-                await runVbaTestsForWorkbook(filePath);
+                await runVbaTestsForProject(filePath);
             },
             onRunWithFilters: async (filters) => {
-                await runVbaTestsForWorkbook(filePath, vbaTestRunOptionsFromFilters(filters));
+                await runVbaTestsForProject(filePath, vbaTestRunOptionsFromFilters(filters));
             },
             onRunSelected: async (selection) => {
-                await runSelectedVbaTestsForWorkbook(filePath, selection);
+                await runSelectedVbaTestsForProject(filePath, selection);
             },
             onRunCurrentModule: async (request) => {
-                await runCurrentModuleVbaTestsForWorkbook(filePath, request.failFast);
+                await runCurrentModuleVbaTestsForProject(filePath, request.failFast);
             },
             onRunCurrentTest: async (request) => {
-                await runCurrentTestForWorkbook(filePath, request.failFast);
+                await runCurrentTestForProject(filePath, request.failFast);
             },
             onRerunFailed: async () => {
-                await rerunFailedVbaTestsForWorkbook(filePath);
+                await rerunFailedVbaTestsForProject(filePath);
             },
             onDidChangeProjectTree: explorer.onDidChangeTreeData,
         });
     }
 
     async function vbaTestsPanelModel(filePath: string): Promise<VbaTestsPanelModel> {
-        const containerHost = containerHostForPath(filePath);
-        const probeHost = containerHost === 'word' || containerHost === 'powerpoint'
-            ? containerHost
-            : 'excel';
         const [support, runtime, discovery] = await Promise.all([
             vbaTestSupportStatus(filePath),
-            checkExcelComAvailability(process.platform, probeHost),
+            checkOfficeComAvailability(process.platform, officeHostForPath(filePath) ?? 'excel'),
             vbaTestsDiscoveryStatus(filePath),
         ]);
-        const lastFailed = lastFailedRunForWorkbook(filePath);
+        const lastFailed = lastFailedRunForProject(filePath);
         return {
             filePath,
             projectName: path.basename(filePath),
@@ -246,7 +242,7 @@ export function registerVbaTestCommands(deps: CommandDeps): vscode.Disposable[] 
 
     async function vbaTestsDiscoveryStatus(filePath: string): Promise<VbaTestsPanelModel['discovery']> {
         try {
-            const discovery = await discoverWorkbookVbaTests(bridge, filePath);
+            const discovery = await discoverProjectVbaTests(bridge, filePath);
             const tags = summarizeVbaTestTags(discovery.tests);
             const taggedTests = discovery.tests.filter((test) => test.metadata.tags.length > 0).length;
             return {
@@ -290,7 +286,7 @@ export function registerVbaTestCommands(deps: CommandDeps): vscode.Disposable[] 
         };
     }
 
-    async function runSelectedVbaTestsForWorkbook(
+    async function runSelectedVbaTestsForProject(
         filePath: string,
         request: VbaTestsRunSelectedRequest,
     ): Promise<void> {
@@ -300,7 +296,7 @@ export function registerVbaTestCommands(deps: CommandDeps): vscode.Disposable[] 
             );
             return;
         }
-        await runVbaTestsForWorkbook(filePath, {
+        await runVbaTestsForProject(filePath, {
             selection: {
                 testIds: request.testIds,
             },
@@ -401,18 +397,18 @@ export function registerVbaTestCommands(deps: CommandDeps): vscode.Disposable[] 
         return true;
     }
 
-    async function runCurrentModuleVbaTestsForWorkbook(filePath: string, failFast = false): Promise<void> {
+    async function runCurrentModuleVbaTestsForProject(filePath: string, failFast = false): Promise<void> {
         const active = await activeVbaTestEditorContext(filePath);
         if (!active) {
             return;
         }
-        await runVbaTestsForWorkbook(filePath, {
+        await runVbaTestsForProject(filePath, {
             selection: { moduleName: active.moduleName },
             failFast,
         });
     }
 
-    async function runCurrentTestForWorkbook(filePath: string, failFast = false): Promise<void> {
+    async function runCurrentTestForProject(filePath: string, failFast = false): Promise<void> {
         const active = await activeVbaTestEditorContext(filePath);
         if (!active) {
             return;
@@ -422,7 +418,7 @@ export function registerVbaTestCommands(deps: CommandDeps): vscode.Disposable[] 
             vscode.window.showWarningMessage('XLIDE: Cursor is not inside a VBA procedure.');
             return;
         }
-        await runVbaTestsForWorkbook(filePath, {
+        await runVbaTestsForProject(filePath, {
             selection: {
                 moduleName: active.moduleName,
                 procedureName,
@@ -431,7 +427,7 @@ export function registerVbaTestCommands(deps: CommandDeps): vscode.Disposable[] 
         });
     }
 
-    async function activeVbaTestEditorContext(expectedWorkbookPath?: string): Promise<{
+    async function activeVbaTestEditorContext(expectedProjectPath?: string): Promise<{
         editor: vscode.TextEditor;
         projectPath: string;
         moduleName: string;
@@ -451,9 +447,9 @@ export function registerVbaTestCommands(deps: CommandDeps): vscode.Disposable[] 
             vscode.window.showWarningMessage('XLIDE: Open a local VBA module to run module tests.');
             return undefined;
         }
-        if (expectedWorkbookPath && !sameProjectPath(projectPath, expectedWorkbookPath)) {
+        if (expectedProjectPath && !sameProjectPath(projectPath, expectedProjectPath)) {
             vscode.window.showWarningMessage(
-                `XLIDE: Open a VBA module from "${path.basename(expectedWorkbookPath)}" before running current-scope tests from this panel.`,
+                `XLIDE: Open a VBA module from "${path.basename(expectedProjectPath)}" before running current-scope tests from this panel.`,
             );
             return undefined;
         }
@@ -475,7 +471,7 @@ export function registerVbaTestCommands(deps: CommandDeps): vscode.Disposable[] 
                 vscode.window.showWarningMessage('XLIDE: No file selected to test.');
                 return;
             }
-            openVbaTestsForWorkbook(filePath);
+            openVbaTestsForProject(filePath);
         }),
     ];
 }

@@ -18,8 +18,9 @@ view and it is ready.
 
 No Office application is required for reading, editing, exporting, importing,
 or analyzing VBA modules - XLIDE parses every container natively. Office COM
-is required only for workflows that execute VBA: running a macro (Excel) or
-running unit tests (Excel, Word, or PowerPoint, chosen by the file's format).
+is required only for workflows that execute VBA: running a macro or running
+unit tests, each in the file's own application (Excel, Word, PowerPoint, or
+Access, chosen by the file's format).
 
 ## Open A File
 
@@ -75,7 +76,15 @@ the object model of the file's own host: Excel members in a workbook, Word
 members in a document, PowerPoint and Access members in theirs. `Me` in
 Word's `ThisDocument` is a `Word.Document`, `wd*` constants resolve in Word
 files and not in projects, and `ThisDocument` offers Word's `Document_*`
-event stubs.
+event stubs. In the code behind an Access form or report, `Me` is an
+`Access.Form` or `Access.Report`, and the design's sections and controls are
+members of it, so `Me.Lines.AddItem` and a bare `Requery` both resolve. A
+bound form also has a member for every field of its record source, which only
+the running database knows, so XLIDE never reports a name as undeclared there.
+At module level it offers the design's own event stubs (`Form_Load`,
+`Report_Open`), each section's (`Detail_Click`) and each control's
+(`Qty_AfterUpdate`), with the parameter lists Access writes. A control named
+`Order Date` is `Me.Order_Date` in code, as it is in the VBE.
 
 **Format Document** (Shift+Alt+F) re-indents a module by its block structure,
 gives every keyword its canonical casing, cases identifiers the way they are
@@ -151,20 +160,28 @@ untracked rules, and source suppressions.
 
 To run a macro at the editor cursor, use **Run Macro at Cursor**.
 
-Macro execution requires Microsoft Excel COM, applies to workbook formats, and
-is currently Windows-only. It can attach to a running Excel instance depending
-on `xlide.attachToRunningExcel`. Treat macro execution as a file-affecting
-action: save or back up important work before running code that mutates
-sheets, files, external systems, or the VBA project. For Word, PowerPoint, and
-Access files, **Open in Office Application** opens the file in its own
-application.
+Macro execution runs through COM in the file's own application - Excel, Word,
+PowerPoint, or Access - and is currently Windows-only. It can attach to a
+running instance of that application depending on
+`xlide.officeIntegration.attachToRunning`. Treat macro execution as a
+file-affecting action: save or back up important work before running code that
+mutates the file, other files, external systems, or the VBA project.
+**Open in Office Application** opens any of these files in its own
+application, and **Open in Office Application (Read Only)** does the same
+without locking it for editing (Access has no read-only open).
+
+If the file is open in its application when you save, XLIDE cannot write it:
+the application holds the file locked. `xlide.officeIntegration.coordinationMode`
+decides what happens then. The default refuses and tells you which application
+has it. A read-only copy XLIDE itself opened, which is how F5 leaves the file,
+is closed and reopened around the save automatically.
 
 ## Run VBA Tests
 
 Use **Unit Tests** from the selected file's actions or the file tree. Tests
 are ordinary zero-argument `Sub` procedures in standard modules marked with
-`' @xlide-test` comments, and they run in Excel, Word, or PowerPoint files
-alike. See [testing.md](testing.md) for the full test contract.
+`' @xlide-test` comments, and they run in Excel, Word, PowerPoint, and Access
+files alike. See [testing.md](testing.md) for the full test contract.
 
 Test runs execute against a temporary copy of the file in an XLIDE-owned
 read-only instance of the file's own application. The original file is not
@@ -213,5 +230,5 @@ If the file tree, tests, or Office actions are unavailable:
 - Open the XLIDE Activity Bar view and check setup health.
 - Use **Copy Diagnostics** for a quick local setup summary.
 - Use **Export XLIDE Support Bundle** when you need a redacted support snapshot.
-- See [support.md](support.md) for Trust Center, macro security, Excel COM, and
+- See [support.md](support.md) for Trust Center, macro security, Office COM, and
   recovery notes.

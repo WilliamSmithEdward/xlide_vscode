@@ -613,7 +613,7 @@ function importTrueUpCanRemove(mod: ModuleInfo): boolean {
 function moduleKindLabel(kind: string): string {
     switch (kind) {
         case 'document':
-            return 'Worksheet/ThisWorkbook';
+            return 'Document module';
         case 'userform':
             return 'UserForm';
         default:

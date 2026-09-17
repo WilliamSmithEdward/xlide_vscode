@@ -8,6 +8,7 @@ import { ProjectExplorer } from './projectExplorer';
 import { XlideFileSystemProvider } from './xlideFileSystem';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
 import { findMacroContainerFiles } from './macroContainerDiscovery';
+import { containerAppNameForPath } from './macroContainerUi';
 import {
     agentWriteDiffsEnabled,
     keepAgentChange,
@@ -536,7 +537,7 @@ export function registerAgentTools(
                     return textResult(JSON.stringify({
                         ok: false,
                         blocked: true,
-                        reason: 'excel-com',
+                        reason: 'office-com',
                         filePath,
                         runtime: result.runtime,
                     }, null, 2));
@@ -576,7 +577,7 @@ export function registerAgentTools(
                     confirmationMessages: {
                         title: 'Run XLIDE VBA Tests',
                         message: new vscode.MarkdownString(
-                            `Run **${scope}** in \`${filePath}\` through the XLIDE owned read-only Excel test host?` +
+                            `Run **${scope}** in \`${filePath}\` through the XLIDE owned read-only ${containerAppNameForPath(filePath)} test host?` +
                             `${failFast ? '\n\nFail-fast is enabled.' : ''}`,
                         ),
                     },
@@ -606,7 +607,7 @@ export function registerAgentTools(
                     }
                     if (fs.existsSync(filePath)) {
                         throw new Error(
-                            `Workbook already exists: "${filePath}". ` +
+                            `File already exists: "${filePath}". ` +
                             `xlide_createProject does not overwrite existing projects - choose a different filePath.`,
                         );
                     }
@@ -631,7 +632,7 @@ export function registerAgentTools(
                     confirmationMessages: {
                         title: 'Create New Macro-Enabled File',
                         message: new vscode.MarkdownString(
-                            `Create a new Excel workbook at \`${options.input.filePath}\`?`,
+                            `Create a new macro-enabled ${containerAppNameForPath(options.input.filePath)} file at \`${options.input.filePath}\`?`,
                         ),
                     },
                 };

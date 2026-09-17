@@ -1,7 +1,7 @@
 ﻿import { describe, expect, it } from 'vitest';
 import {
     vbaTestRunItemFromHostResult,
-    type OwnedReadOnlyExcelHostTestResult,
+    type OwnedReadOnlyHostTestResult,
 } from '../src/vbaTestExecution';
 import type { VbaTestCase } from '../src/vbaTestRunner';
 
@@ -120,7 +120,7 @@ function testCase(metadata: Partial<VbaTestCase['metadata']> = {}): VbaTestCase 
     };
 }
 
-function hostResult(input: Partial<OwnedReadOnlyExcelHostTestResult>): OwnedReadOnlyExcelHostTestResult {
+function hostResult(input: Partial<OwnedReadOnlyHostTestResult>): OwnedReadOnlyHostTestResult {
     return {
         outcome: 'passed',
         durationMs: 12,

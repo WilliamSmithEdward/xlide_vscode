@@ -2,6 +2,143 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [8.3.1] - 2026-09-16
+
+- **Saving while the file is open in its application works, in every
+  application.** XLIDE saves by renaming a temp file over the container, and
+  Windows refuses that rename with `EPERM` while Excel, Word, PowerPoint or
+  Access has the file open. XLIDE's lock detection did not recognize `EPERM`,
+  so the "appears to be open in ..." notice never showed (a raw rename error
+  did) and the coordination modes never started, for any application. It is
+  recognized now, and coordination is no longer Excel's alone: Close Tracked
+  and Close Force close the file in Word, PowerPoint or Access, retry the
+  save, and reopen the file the way it was. Measured on Office 16.0 against
+  all four.
+
+- **A save after F5 works in Word and PowerPoint under the default mode.** F5
+  leaves the file open read-only. Excel does not lock a read-only workbook,
+  but Word and PowerPoint do lock a read-only document or presentation, so
+  the next save failed until the file was closed by hand. A read-only copy
+  XLIDE itself opened holds nothing to lose, and F5 already closes and
+  reopens one on every run, so XLIDE now does the same around a save under
+  every mode. A copy open for editing is never closed under Block.
+
+- **F5 honors the coordination mode in Word, PowerPoint and Access**, tracks
+  the file it leaves open, and no longer runs the old code when the save
+  failed.
+
+- **F5 on a form shows the form in Word, PowerPoint and Access.** Word and
+  PowerPoint host UserForms exactly as Excel does, so they get the same
+  launcher macro. An Access form or report is opened by name instead, which
+  writes nothing into the database.
+
+- **F5 in Access failed whenever you had started Access yourself.** An Access
+  the user controls refuses any write to `Visible`, and the script set it.
+  And an Access that XLIDE started quit as soon as the script ended, so the
+  database did not stay open the way a workbook or document does. Both fixed.
+
+- **Open in Office Application, and a read-only variant, for every
+  application.** They replace Open Workbook in Excel and its read-only twin,
+  whose command ids stay registered so existing keybindings keep working.
+  Access has no read-only open. The sidebar names the application.
+
+- **The Excel Integration settings are Office Integration settings.**
+  `xlide.excelIntegration.*` and `xlide.attachToRunningExcel` are now
+  `xlide.officeIntegration.*` (`attachToRunning`, `coordinationMode`,
+  `trackOpenedFiles`, `reopenAfterClose`, `reopenMode`,
+  `reopenReadOnlyAfterSave`). A value stored under an old name still applies
+  until the new name is given one, and the old names stay in the Settings
+  editor marked deprecated. Attach To Running now covers Word and Access too.
+
+- **New Macro-Enabled File offers Access.** The engine has created Access
+  databases since 8.0.1; the dialog had no filter for them.
+
+- **A database is tested in Access even when Excel is not installed.** The
+  Tests panel probed Excel's COM registration for an Access file.
+
+- **The test runner names the application it is running in.** Its messages
+  said Excel for a Word, PowerPoint or Access run. The host events in
+  `host-trace.json` say `host-created`, `file-opened`, `file-closed`,
+  `host-quit` and `host-killed` (were `excel-created`, `workbook-opened` and
+  so on), and carry `hostId` (was `excelId`). `status_for_ci.json` gains
+  `host.application`; `host.excel` stays, with the same numbers, so an
+  existing CI script keeps reading. The agent tool's blocked reason is
+  `office-com` (was `excel-com`).
+
+- **Agent tool descriptions no longer say Access is read-only.** They told
+  agents that Access files cannot be written, created or tested. All three
+  have worked since 8.0.x.
+
+- **`Me` in an Access form or report is the Access form.** The code behind a
+  design got no host type at all: `Me.` offered nothing, and a bare `Requery`
+  was reported as "Sub or Function not defined". `Me` is now an `Access.Form`
+  or `Access.Report`, the design's sections and controls are members of it
+  with their own types, so `Me.Lines.AddItem` and a bare `Qty.SetFocus`
+  complete, hover and colour, and another module reaching `Form_Orders.`
+  gets Access's members rather than a UserForm's `Show` and `Hide`. A bound
+  form also has a member for every field of its record source, which only the
+  running database knows, so nothing there is ever reported as undeclared or
+  missing.
+
+- **A form's controls no longer disappear once its code is open.** Folding an
+  open editor into the shared project index passed the text alone, and the
+  index forgot what the designer declares: the controls and the
+  default-instance flag. True of a UserForm and a VB6 form as well as an
+  Access one.
+
+- **Event handler stubs in an Access form or report.** At module level the
+  code behind a design is offered its own handlers: `Form_Load`,
+  `Form_Current` and the rest under `Form_` (or `Report_`) whatever the
+  design is called, each section's (`Detail_Click`), and each control's under
+  the control's name (`AddLine_Click`, `Qty_AfterUpdate`). It used to be
+  offered a UserForm's `UserForm_Initialize`, which Access never raises. A
+  handler the module already has is not offered again.
+
+  The parameter lists are the ones Access writes, `ByVal` included, because
+  VBA compiles a handler against its event: `Form_MouseWheel(ByVal Page As
+  Boolean, ByVal Count As Long)` and `Form_Unload(Cancel As Integer)` are both
+  right, and either one declared the other way is a compile error. Access 16.0
+  was asked to write every handler of a form, a report, each kind of section
+  and 26 kinds of control, 722 in all, and every stub matches its line
+  character for character. A report's sections get `Format`, `Print` and
+  `Retreat`, which a form's do not have, and a page header has no `Retreat`.
+
+- **A control whose name is not an identifier is reached the way VBA reaches
+  it.** A control named `Order Date` is `Me.Order_Date` in code, and its
+  handler is `Order_Date_Click`. Access turns every ASCII character that is
+  not a letter, a digit or an underscore into an underscore, and puts `Ctl` in
+  front of a name that would start with a digit or an underscore (`2ndBox` is
+  `Ctl2ndBox`). Completion and the stubs use those names.
+
+- Two diagnostics named Excel in a Word or Access project ("is not where
+  Excel wires that event", "an Excel object-model type"); both are
+  host-neutral now. README, user guides and the architecture doc say "file"
+  where they said "workbook", and no longer claim macros run only in Excel.
+
+### Internal
+
+- One table describes the Office applications (`src/officeHostApps.ts`); the
+  launcher, the coordinator, the COM probe and the test host read it, where
+  three copies existed. `excelLauncher`, `excelWorkbookCoordinator`,
+  `excelComAvailability`, `vbaTestExcelHost` and `workbookTestSettings` are
+  `officeHostLauncher`, `officeWriteCoordinator`, `officeComAvailability`,
+  `vbaTestOfficeHost` and `projectTestSettings`, and about sixty identifiers
+  named for Excel or workbooks were renamed, so an Excel name left in the
+  source means the code is Excel's alone.
+- A coordinated close matches the open file by full path first, and never
+  falls back onto a different local file that shares the name.
+- A lock that clears on its own no longer causes XLIDE to open a file that
+  was not open.
+- The Access model carries each class's events, read from the type library
+  by `scripts/dump-event-sources.py`. The reference dumps say nothing about
+  `ByVal`, and had lost TextBox, CheckBox and ComboBox to a file-name clash
+  with their own interfaces. `scripts/measure-access-event-handlers.py`
+  records what Access writes, and the result is a test fixture, so CI holds
+  the model to Access without needing Access.
+- `generate-host-object-model.mjs` no longer adds a module's constants to an
+  Office host. Regenerating Access would have brought in 479 names that no
+  enumeration owns, which `tests/vbaHostConstantRoundTrip` forbids.
+
 ## [8.3.0] - 2026-09-16
 
 - **Format Document, Format Selection and Format All Modules.** Shift+Alt+F

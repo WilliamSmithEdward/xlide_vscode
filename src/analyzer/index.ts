@@ -176,6 +176,7 @@ export {
 	ModuleSymbolKind,
 	ModuleSymbols,
 	qualifiedProcedureKey,
+	isDataBoundDesignerClass,
 	SymbolVisibility,
 	VbaSymbol,
 	VbaSymbolKind,

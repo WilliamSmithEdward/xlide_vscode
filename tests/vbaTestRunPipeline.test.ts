@@ -4,17 +4,17 @@ import * as os from 'os';
 import * as path from 'path';
 
 vi.mock('../src/vbaTestSupportStatus', () => ({ getVbaTestSupportStatus: vi.fn() }));
-vi.mock('../src/excelComAvailability', () => ({ checkExcelComAvailability: vi.fn() }));
-vi.mock('../src/vbaTestExecution', () => ({ runWorkbookVbaTests: vi.fn() }));
+vi.mock('../src/officeComAvailability', () => ({ checkOfficeComAvailability: vi.fn() }));
+vi.mock('../src/vbaTestExecution', () => ({ runProjectVbaTests: vi.fn() }));
 vi.mock('../src/vbaTestArtifacts', async (importOriginal) => {
     const actual = await importOriginal<typeof import('../src/vbaTestArtifacts')>();
     return { ...actual, writeVbaTestRunArtifacts: vi.fn(actual.writeVbaTestRunArtifacts) };
 });
 
 import type { ProjectEngine } from '../src/projectEngine';
-import { checkExcelComAvailability, type ExcelComAvailabilityStatus } from '../src/excelComAvailability';
+import { checkOfficeComAvailability, type OfficeComAvailabilityStatus } from '../src/officeComAvailability';
 import { getVbaTestSupportStatus, type VbaTestSupportStatus } from '../src/vbaTestSupportStatus';
-import { runWorkbookVbaTests, type VbaTestRunExecution } from '../src/vbaTestExecution';
+import { runProjectVbaTests, type VbaTestRunExecution } from '../src/vbaTestExecution';
 import { writeVbaTestRunArtifacts } from '../src/vbaTestArtifacts';
 import { executeVbaTestRun, type VbaTestRunPipelineRunner } from '../src/vbaTestRunPipeline';
 import type { VbaTestCase, VbaTestRunReport } from '../src/vbaTestRunner';
@@ -55,7 +55,7 @@ function supportStatus(canRun: boolean): VbaTestSupportStatus {
     };
 }
 
-function comStatus(canRun: boolean): ExcelComAvailabilityStatus {
+function comStatus(canRun: boolean): OfficeComAvailabilityStatus {
     return {
         state: canRun ? 'installed' : 'missing',
         title: canRun ? 'Excel COM Ready' : 'Excel COM Not Found',
@@ -101,18 +101,18 @@ describe('executeVbaTestRun', () => {
         const result = await executeVbaTestRun(bridge(), 'C:/work/Book.xlsm');
 
         expect(result).toEqual({ kind: 'blocked-support', support: supportStatus(false) });
-        expect(checkExcelComAvailability).not.toHaveBeenCalled();
-        expect(runWorkbookVbaTests).not.toHaveBeenCalled();
+        expect(checkOfficeComAvailability).not.toHaveBeenCalled();
+        expect(runProjectVbaTests).not.toHaveBeenCalled();
     });
 
     it('blocks on unavailable Excel COM without running tests', async () => {
         vi.mocked(getVbaTestSupportStatus).mockResolvedValue(supportStatus(true));
-        vi.mocked(checkExcelComAvailability).mockResolvedValue(comStatus(false));
+        vi.mocked(checkOfficeComAvailability).mockResolvedValue(comStatus(false));
 
         const result = await executeVbaTestRun(bridge(), 'C:/work/Book.xlsm');
 
         expect(result).toEqual({ kind: 'blocked-com', runtime: comStatus(false) });
-        expect(runWorkbookVbaTests).not.toHaveBeenCalled();
+        expect(runProjectVbaTests).not.toHaveBeenCalled();
     });
 
     it('runs tests through the caller wrapper and writes artifacts once', async () => {
@@ -124,9 +124,9 @@ describe('executeVbaTestRun', () => {
             },
         });
         vi.mocked(getVbaTestSupportStatus).mockResolvedValue(supportStatus(true));
-        vi.mocked(checkExcelComAvailability).mockResolvedValue(comStatus(true));
+        vi.mocked(checkOfficeComAvailability).mockResolvedValue(comStatus(true));
         const execution = executionFor(workbook);
-        vi.mocked(runWorkbookVbaTests).mockResolvedValue(execution);
+        vi.mocked(runProjectVbaTests).mockResolvedValue(execution);
         const progress = { report: vi.fn() };
         const log = vi.fn();
         const runTests = vi.fn((run: VbaTestRunPipelineRunner) => run(progress));
@@ -139,7 +139,7 @@ describe('executeVbaTestRun', () => {
         });
 
         expect(runTests).toHaveBeenCalledTimes(1);
-        expect(runWorkbookVbaTests).toHaveBeenCalledWith(expect.anything(), workbook, {
+        expect(runProjectVbaTests).toHaveBeenCalledWith(expect.anything(), workbook, {
             selection: { moduleName: 'Tests' },
             failFast: true,
             log,
@@ -166,9 +166,9 @@ describe('executeVbaTestRun', () => {
     it('refuses a second run while one is in flight, then allows the next', async () => {
         const workbook = tempWorkbook();
         vi.mocked(getVbaTestSupportStatus).mockResolvedValue(supportStatus(true));
-        vi.mocked(checkExcelComAvailability).mockResolvedValue(comStatus(true));
+        vi.mocked(checkOfficeComAvailability).mockResolvedValue(comStatus(true));
         let releaseFirst!: (execution: VbaTestRunExecution) => void;
-        vi.mocked(runWorkbookVbaTests).mockReturnValueOnce(
+        vi.mocked(runProjectVbaTests).mockReturnValueOnce(
             new Promise<VbaTestRunExecution>((resolve) => { releaseFirst = resolve; }),
         );
 
@@ -187,7 +187,7 @@ describe('executeVbaTestRun', () => {
         const firstResult = await first;
         expect(firstResult.kind).toBe('completed');
 
-        vi.mocked(runWorkbookVbaTests).mockResolvedValue(executionFor(workbook));
+        vi.mocked(runProjectVbaTests).mockResolvedValue(executionFor(workbook));
         const third = await executeVbaTestRun(bridge(), workbook);
         expect(third.kind).toBe('completed');
     });
@@ -195,12 +195,12 @@ describe('executeVbaTestRun', () => {
     it('clears the busy guard when a run throws', async () => {
         const workbook = tempWorkbook();
         vi.mocked(getVbaTestSupportStatus).mockResolvedValue(supportStatus(true));
-        vi.mocked(checkExcelComAvailability).mockResolvedValue(comStatus(true));
-        vi.mocked(runWorkbookVbaTests).mockRejectedValueOnce(new Error('host died'));
+        vi.mocked(checkOfficeComAvailability).mockResolvedValue(comStatus(true));
+        vi.mocked(runProjectVbaTests).mockRejectedValueOnce(new Error('host died'));
 
         await expect(executeVbaTestRun(bridge(), workbook)).rejects.toThrow('host died');
 
-        vi.mocked(runWorkbookVbaTests).mockResolvedValue(executionFor(workbook));
+        vi.mocked(runProjectVbaTests).mockResolvedValue(executionFor(workbook));
         const next = await executeVbaTestRun(bridge(), workbook);
         expect(next.kind).toBe('completed');
     });
@@ -208,8 +208,8 @@ describe('executeVbaTestRun', () => {
     it('reports artifact write failures without failing the run', async () => {
         const workbook = tempWorkbook();
         vi.mocked(getVbaTestSupportStatus).mockResolvedValue(supportStatus(true));
-        vi.mocked(checkExcelComAvailability).mockResolvedValue(comStatus(true));
-        vi.mocked(runWorkbookVbaTests).mockResolvedValue(executionFor(workbook));
+        vi.mocked(checkOfficeComAvailability).mockResolvedValue(comStatus(true));
+        vi.mocked(runProjectVbaTests).mockResolvedValue(executionFor(workbook));
         vi.mocked(writeVbaTestRunArtifacts).mockRejectedValueOnce(new Error('disk full'));
 
         const result = await executeVbaTestRun(bridge(), workbook);

@@ -12,12 +12,12 @@ import {
 } from '../src/globalSettingsWebview';
 
 const validSettings = {
-    attachToRunningExcel: true,
-    'excelIntegration.coordinationMode': 'block',
-    'excelIntegration.trackOpenedWorkbooks': true,
-    'excelIntegration.reopenAfterClose': true,
-    'excelIntegration.reopenMode': 'readOnly',
-    'excelIntegration.reopenReadOnlyAfterSave': false,
+    'officeIntegration.attachToRunning': true,
+    'officeIntegration.coordinationMode': 'block',
+    'officeIntegration.trackOpenedFiles': true,
+    'officeIntegration.reopenAfterClose': true,
+    'officeIntegration.reopenMode': 'readOnly',
+    'officeIntegration.reopenReadOnlyAfterSave': false,
     'diagnostics.enabled': true,
     'analysis.ruleSeverityOverrides': {},
     'analysis.visibleSeverities': ['error', 'warning', 'information'],
@@ -72,9 +72,12 @@ describe('globalSettingsWebview', () => {
 
         expect(html).toContain('class="infoBubble"');
         // the renamed coordination-mode label and its description tooltip
-        expect(html).toContain('When a Module is Blocked From Saving by Excel');
+        expect(html).toContain('When a File is Open in Its Application');
         expect(html).toContain('Auto Expand And Collapse Explorer Tree');
-        expect(html).toContain('What XLIDE does when Excel holds the workbook open');
+        expect(html).toContain('What XLIDE does when Excel, Word, PowerPoint or Access holds the file open');
+        // The section serves every Office application, and says so.
+        expect(html).toContain('Office Integration');
+        expect(html).not.toContain('Excel Integration');
         // the reopen-as control offers the spaced "Last State" option
         expect(html).toContain('>Last State<');
     });

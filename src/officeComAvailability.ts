@@ -1,43 +1,37 @@
 import { runPowerShell } from './util/powershell';
+import { OFFICE_HOST_APPS as PROBE_HOSTS, type OfficeHostApp } from './officeHostApps';
 
-export type ExcelComAvailabilityState = 'installed' | 'missing' | 'blocked' | 'unknown';
+export type OfficeComAvailabilityState = 'installed' | 'missing' | 'blocked' | 'unknown';
 
 /** The Office applications the test host can drive; the probe checks the one
  * the file's container belongs to. */
-export type ComProbeHostApp = 'excel' | 'word' | 'powerpoint' | 'access';
+export type ComProbeHostApp = OfficeHostApp;
 
-const PROBE_HOSTS: Record<ComProbeHostApp, { progId: string; noun: string }> = {
-    excel: { progId: 'Excel.Application', noun: 'Excel' },
-    word: { progId: 'Word.Application', noun: 'Word' },
-    powerpoint: { progId: 'PowerPoint.Application', noun: 'PowerPoint' },
-    access: { progId: 'Access.Application', noun: 'Access' },
-};
-
-export interface ExcelComAvailabilityStatus {
-    state: ExcelComAvailabilityState;
+export interface OfficeComAvailabilityStatus {
+    state: OfficeComAvailabilityState;
     title: string;
     description: string;
     canRun: boolean;
 }
 
-const EXCEL_COM_PROBE_TIMEOUT_MS = 4000;
+const OFFICE_COM_PROBE_TIMEOUT_MS = 4000;
 
-export function excelComProbePowerShellScript(hostApp: ComProbeHostApp = 'excel'): string {
+export function officeComProbePowerShellScript(hostApp: ComProbeHostApp = 'excel'): string {
     return [
         '$ErrorActionPreference = "Stop"',
         `$type = [type]::GetTypeFromProgID("${PROBE_HOSTS[hostApp].progId}")`,
-        'if ($null -eq $type) { [Console]::Out.WriteLine("XLIDE_EXCEL_COM_MISSING"); exit 2 }',
-        '[Console]::Out.WriteLine("XLIDE_EXCEL_COM_OK")',
+        'if ($null -eq $type) { [Console]::Out.WriteLine("XLIDE_OFFICE_COM_MISSING"); exit 2 }',
+        '[Console]::Out.WriteLine("XLIDE_OFFICE_COM_OK")',
     ].join('; ');
 }
 
-export function excelComAvailabilityFromProbe(
+export function officeComAvailabilityFromProbe(
     platform: NodeJS.Platform,
     exitCode: number | null,
     stdout: string,
     stderr: string,
     hostApp: ComProbeHostApp = 'excel',
-): ExcelComAvailabilityStatus {
+): OfficeComAvailabilityStatus {
     const noun = PROBE_HOSTS[hostApp].noun;
     if (platform !== 'win32') {
         return {
@@ -48,7 +42,7 @@ export function excelComAvailabilityFromProbe(
         };
     }
 
-    if (exitCode === 0 && /XLIDE_EXCEL_COM_OK/.test(stdout)) {
+    if (exitCode === 0 && /XLIDE_OFFICE_COM_OK/.test(stdout)) {
         return {
             state: 'installed',
             title: `${noun} COM Ready`,
@@ -57,7 +51,7 @@ export function excelComAvailabilityFromProbe(
         };
     }
 
-    if (exitCode === 2 || /XLIDE_EXCEL_COM_MISSING/.test(stdout)) {
+    if (exitCode === 2 || /XLIDE_OFFICE_COM_MISSING/.test(stdout)) {
         return {
             state: 'missing',
             title: `${noun} COM Not Found`,
@@ -75,18 +69,18 @@ export function excelComAvailabilityFromProbe(
     };
 }
 
-export async function checkExcelComAvailability(
+export async function checkOfficeComAvailability(
     platform: NodeJS.Platform = process.platform,
     hostApp: ComProbeHostApp = 'excel',
-): Promise<ExcelComAvailabilityStatus> {
+): Promise<OfficeComAvailabilityStatus> {
     const noun = PROBE_HOSTS[hostApp].noun;
     if (platform !== 'win32') {
-        return excelComAvailabilityFromProbe(platform, null, '', '', hostApp);
+        return officeComAvailabilityFromProbe(platform, null, '', '', hostApp);
     }
 
     const probe = await runPowerShell({
-        args: ['-Command', excelComProbePowerShellScript(hostApp)],
-        timeoutMs: EXCEL_COM_PROBE_TIMEOUT_MS,
+        args: ['-Command', officeComProbePowerShellScript(hostApp)],
+        timeoutMs: OFFICE_COM_PROBE_TIMEOUT_MS,
     }).result;
     if (probe.timedOut) {
         return {
@@ -104,7 +98,7 @@ export async function checkExcelComAvailability(
             canRun: false,
         };
     }
-    return excelComAvailabilityFromProbe(
+    return officeComAvailabilityFromProbe(
         platform,
         probe.code,
         probe.stdoutLines.join('\n'),

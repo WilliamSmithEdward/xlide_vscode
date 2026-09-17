@@ -56,7 +56,7 @@ describe('analyzeModule - general contract', () => {
 			'semantic',
 			'project-symbol',
 			'module-kind',
-			'excel-host',
+			'office-host',
 			'style',
 		]);
 		const evidenceKinds = new Set([
@@ -325,7 +325,7 @@ describe('diagnostic message wording', () => {
 			analyzeModule(src, { moduleName: 'Module1', moduleKind: 'standard' }),
 			'event-handler-module-scope',
 		);
-		expect(hits[0].message).toBe("'Workbook_Open' matches a Workbook event handler, but this standard module is not where Excel wires that event. It will behave like an ordinary procedure here.");
+		expect(hits[0].message).toBe("'Workbook_Open' matches a Workbook event handler, but this standard module is not where that event is wired. It will behave like an ordinary procedure here.");
 	});
 
 	it('pins the message for fixed-array-redim', () => {

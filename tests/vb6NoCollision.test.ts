@@ -7,10 +7,10 @@ import { hostTokenForFileName, hostObjectModelForToken, EMPTY_HOST_MODEL } from 
 import {
 	containerAppNameForPath,
 	containerContextValue,
-	isExcelContainerPath,
 	isVb6ProjectPath,
 	MACRO_CONTAINER_EXTENSIONS,
 } from '../src/macroContainerUi';
+import { officeHostForPath } from '../src/officeHostApps';
 import { decodeModuleUri, encodeModuleUri } from '../src/xlideFileSystem';
 import { analysisSourceForDocument, moduleDocumentUri, moduleLocationOfDocument } from '../src/vbaDocumentLocation';
 import { listModules, readModules, resetProjectCacheForTests } from '../src/vba/projectService';
@@ -49,8 +49,11 @@ describe('the Office containers answer exactly as before VB6', () => {
 		// An Access database creates forms and reports rather than UserForms,
 		// so its menu surface is its own. It is not read-only: 8.0.0 writes it.
 		expect(containerContextValue('C:\\w\\Db.accdb')).toBe('accessDatabase');
-		expect(isExcelContainerPath('C:\\w\\Book.xlsm')).toBe(true);
-		expect(isExcelContainerPath('C:\\w\\App.vbp')).toBe(false);
+		// The COM surfaces go by the Office application that owns the file,
+		// and a VB6 project has none.
+		expect(officeHostForPath('C:\\w\\Book.xlsm')).toBe('excel');
+		expect(officeHostForPath('C:\\w\\Db.accdb')).toBe('access');
+		expect(officeHostForPath('C:\\w\\App.vbp')).toBeUndefined();
 		expect(containerAppNameForPath('C:\\w\\Book.xlsm')).toBe('Excel');
 		expect(containerAppNameForPath('C:\\w\\Doc.docm')).toBe('Word');
 		// An unrecognized extension still defaults to Excel, as it always did.

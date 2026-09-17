@@ -215,6 +215,107 @@ export function accessDesignSections(design: AccessDesign): AccessDesignObject[]
 	return design.objects.slice(1).filter(isAccessDesignSection);
 }
 
+/** The classes a form's and a report's module are, as the Access library names them. */
+export const ACCESS_DESIGN_CLASSES: Readonly<Record<'form' | 'report', string>> = {
+	form: 'Access.Form',
+	report: 'Access.Report',
+};
+
+/**
+ * The Access library's class for a control type whose class is not simply the
+ * type's own name. These are the names XLIDE's Access object model carries,
+ * which spells three of them with a lowercase `b`; a test holds this table to
+ * that model, so a type it cannot find is caught there.
+ */
+const ACCESS_CONTROL_CLASSES: Readonly<Record<string, string>> = {
+	CheckBox: 'Checkbox',
+	TextBox: 'Textbox',
+	ComboBox: 'Combobox',
+	Subform: 'SubForm',
+	Tab: 'TabControl',
+	WebBrowser: 'WebBrowserControl',
+	EdgeBrowser: 'Edge',
+};
+
+/** The library class every section is. */
+const ACCESS_SECTION_CLASS = 'Access.Section';
+const ACCESS_CONTROL_CLASS = 'Access.Control';
+
+/**
+ * The class whose EVENTS a report's section raises. A section is an
+ * Access.Section wherever it sits, and that is the class its properties come
+ * from; but the library binds a report section's handlers against a class of
+ * its own, which adds Format, Print and Retreat, and a page header's or
+ * footer's against another, which has no Retreat. Measured on Access 16.0: a
+ * form's sections, its page header and footer included, all take
+ * Access.Section's six events and refuse those three.
+ */
+const ACCESS_REPORT_SECTION_EVENTS = 'Access._SectionInReport';
+const ACCESS_REPORT_PAGE_SECTION_EVENTS = 'Access._PageHdrFtrInReport';
+const PAGE_SECTIONS = new Set(['PageHeaderSection', 'PageFooterSection']);
+
+/** One member a design gives its class. */
+export interface AccessDesignMember {
+	name: string;
+	type: string;
+	/** The class whose events the member raises, where that is not `type`. */
+	eventClass?: string;
+}
+
+/**
+ * The name VBA knows a section or control by, which is what `Me.` reaches and
+ * what a handler is named after. Access stores it beside the name it shows:
+ * every ASCII character that is not a letter, a digit or an underscore becomes
+ * an underscore, one for one, and a name that then opens with a digit or an
+ * underscore takes `Ctl` in front. `Order Date` is `Order_Date`, `Tax (VAT)`
+ * is `Tax__VAT_`, `2ndBox` is `Ctl2ndBox`. A character outside ASCII is kept
+ * whatever it is. Access refuses a control name whose identifier is taken, so
+ * two names never share one.
+ */
+export function accessVbaIdentifier(name: string): string {
+	const converted = name.replace(/[^A-Za-z0-9_-￿]/g, '_');
+	return /^[0-9_]/.test(converted) ? `Ctl${converted}` : converted;
+}
+
+/**
+ * The members VBA sees on a design's class beyond the ones its module
+ * declares: each named section and control, in design order, under the Access
+ * library's class for it. `Me.Qty` and a bare `Detail` both compile against
+ * these. It is NOT the whole surface - a bound form also has a member for
+ * every field of its record source, which only the running database knows -
+ * so a name missing here is never proof the name is undeclared.
+ */
+export function accessDesignMembers(design: AccessDesign, kind: 'form' | 'report' = 'form'): AccessDesignMember[] {
+	const out: AccessDesignMember[] = [];
+	const taken = new Set<string>();
+	for (const object of design.objects.slice(1)) {
+		const shown = accessDesignObjectName(object);
+		const name = shown ? accessVbaIdentifier(shown) : undefined;
+		if (!name || taken.has(name.toLowerCase())) {
+			continue;
+		}
+		taken.add(name.toLowerCase());
+		const typeName = accessControlTypeName(object);
+		if (isAccessDesignSection(object)) {
+			out.push(kind === 'report'
+				? {
+					name,
+					type: ACCESS_SECTION_CLASS,
+					eventClass: typeName && PAGE_SECTIONS.has(typeName)
+						? ACCESS_REPORT_PAGE_SECTION_EVENTS
+						: ACCESS_REPORT_SECTION_EVENTS,
+				}
+				: { name, type: ACCESS_SECTION_CLASS });
+			continue;
+		}
+		out.push({
+			name,
+			type: typeName ? `Access.${ACCESS_CONTROL_CLASSES[typeName] ?? typeName}` : ACCESS_CONTROL_CLASS,
+		});
+	}
+	return out;
+}
+
 /**
  * A design's text value. Jet 4 stores text as UTF-16LE, and reading it a byte
  * at a time gives a name that PRINTS correctly and compares equal to nothing:

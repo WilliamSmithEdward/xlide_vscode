@@ -5,24 +5,24 @@ import {
     decodeModuleUri,
     XLIDE_SCHEME,
 } from '../xlideFileSystem';
-import { xlideAttachToRunningExcelFromConfig } from '../globalSettings';
-import { containerAppNameForPath, containerHostForPath } from '../macroContainerUi';
+import { xlideOfficeAttachToRunningFromConfig } from '../globalSettings';
+import { containerAppNameForPath, MACRO_CONTAINER_GLOB } from '../macroContainerUi';
+import { OFFICE_HOST_APPS, officeHostForPath } from '../officeHostApps';
 import { registerXlideCommand } from '../xlideCommandRegistration';
 import type { XlideNode } from '../projectExplorer';
 import { errorMessage } from '../util/errors';
 import {
-    ExcelMacroError,
-    openWorkbookInExcel,
-    runHostFileMacro,
-    runWorkbookMacroReadOnly,
-} from '../excelLauncher';
+    HostMacroError,
+    openFileInHost,
+    runHostMacro,
+} from '../officeHostLauncher';
 import {
-    closeWorkbookInExcel,
-    markWorkbookOpenedByXlide,
-    resolveExcelCoordinationSettings,
+    closeFileInHost,
+    markFileOpenedByXlide,
+    resolveHostCoordinationSettings,
     shouldAttemptClose,
-    withWorkbookReopenSuppressed,
-} from '../excelWorkbookCoordinator';
+    withFileReopenSuppressed,
+} from '../officeWriteCoordinator';
 import {
     procedureAtCursor,
     requiredParameterNames,
@@ -37,31 +37,78 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
 
     const log = outputLogger(out);
 
-    function shouldAttachToRunningExcel(): boolean {
-        return xlideAttachToRunningExcelFromConfig(vscode.workspace.getConfiguration('xlide')).value;
+    function shouldAttachToRunningApp(): boolean {
+        return xlideOfficeAttachToRunningFromConfig(vscode.workspace.getConfiguration('xlide')).value;
     }
 
-    /** Opens the workbook in the platform's spreadsheet application, read-only when asked. */
-    function openInSpreadsheetApp(filePath: string, readOnly: boolean, tag: string): void {
+    /** Hands the file to whatever the operating system has registered for it. */
+    async function openThroughShell(filePath: string): Promise<boolean> {
+        const opened = await vscode.env.openExternal(vscode.Uri.file(filePath));
+        if (!opened) {
+            vscode.window.showErrorMessage(
+                `XLIDE: Could not open ${path.basename(filePath)} in ${containerAppNameForPath(filePath)}.`,
+            );
+        }
+        return opened;
+    }
+
+    /**
+     * Starts the file's application off Windows, where there is no COM: the
+     * application bundle on macOS, LibreOffice's matching module on Linux.
+     * Answers false when the platform has neither for this host.
+     */
+    function spawnHostApp(filePath: string, readOnly: boolean): boolean {
+        const host = officeHostForPath(filePath);
+        const info = host ? OFFICE_HOST_APPS[host] : undefined;
+        const onError = (err: Error): void => void vscode.window.showErrorMessage(
+            `XLIDE: Could not open the project: ${errorMessage(err)}`,
+        );
+        if (process.platform === 'darwin' && info?.macAppName) {
+            cp.spawn('open', ['-a', info.macAppName, filePath]).on('error', onError);
+            return true;
+        }
+        if (process.platform !== 'darwin' && info?.libreOfficeFlag) {
+            cp.spawn('libreoffice', [info.libreOfficeFlag, '--norestore', ...(readOnly ? ['--view'] : []), filePath])
+                .on('error', onError);
+            return true;
+        }
+        return false;
+    }
+
+    /** Opens the file in the application that owns it, read-only when asked. */
+    function openInHostApp(filePath: string, readOnly: boolean, tag: string): void {
+        log(`[${tag}] Requested for: ${filePath}`);
         try {
-            const attachToRunning = shouldAttachToRunningExcel();
-            log(`[${tag}] Requested for: ${filePath}`);
-            if (process.platform === 'win32') {
-                runWindowsExcel(filePath, attachToRunning, readOnly);
-            } else if (process.platform === 'darwin') {
-                cp.spawn('open', ['-a', 'Microsoft Excel', filePath])
-                    .on('error', (err) => void vscode.window.showErrorMessage(`XLIDE: Could not open the project: ${errorMessage(err)}`));
-            } else {
-                cp.spawn('libreoffice', ['--calc', '--norestore', ...(readOnly ? ['--view'] : []), filePath])
-                    .on('error', (err) => void vscode.window.showErrorMessage(`XLIDE: Could not open the project: ${errorMessage(err)}`));
+            if (process.platform === 'win32' && officeHostForPath(filePath)) {
+                // Remember XLIDE opened this file so closeTracked coordination can
+                // later close it without touching files the user opened manually.
+                markFileOpenedByXlide(filePath);
+                const app = containerAppNameForPath(filePath);
+                void openFileInHost(filePath, { attachToRunning: shouldAttachToRunningApp(), readOnly }, log)
+                    .catch((err: Error) => {
+                        void vscode.window.showErrorMessage(
+                            `XLIDE: Could not open ${path.basename(filePath)} in ${app}: ${err.message}`,
+                        );
+                    });
+                return;
+            }
+            if (process.platform === 'win32' || !spawnHostApp(filePath, readOnly)) {
+                void openThroughShell(filePath);
             }
         } catch (err) {
             vscode.window.showErrorMessage(`Failed to open project: ${err}`);
         }
     }
 
-    function showRunMacroFailure(err: unknown, appName = 'Excel'): void {
-        if (err instanceof ExcelMacroError &&
+    const openCommand = (readOnly: boolean, tag: string) => async (node: XlideNode): Promise<void> => {
+        const filePath = resolveProjectPath(node);
+        if (filePath) {
+            openInHostApp(filePath, readOnly, tag);
+        }
+    };
+
+    function showRunMacroFailure(err: unknown, appName: string): void {
+        if (err instanceof HostMacroError &&
             (err.code === 'REOPEN_BLOCKED' || err.code === 'REOPEN_FAILED')) {
             void vscode.window.showWarningMessage(`XLIDE: ${err.message}`);
             return;
@@ -78,16 +125,6 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
             return;
         }
         void vscode.window.showErrorMessage(`XLIDE: Failed to run macro: ${message}`);
-    }
-
-    // Windows COM-based Excel launch; the script lives in excelLauncher.ts.
-    function runWindowsExcel(filePath: string, attachToRunning: boolean, readOnly: boolean): void {
-        // Remember XLIDE opened this workbook so closeTracked coordination can
-        // later close it without touching projects the user opened manually.
-        markWorkbookOpenedByXlide(filePath);
-        void openWorkbookInExcel(filePath, { attachToRunning, readOnly }, log).catch((err: Error) => {
-            void vscode.window.showErrorMessage(`XLIDE: Open Workbook failed: ${err.message}`);
-        });
     }
 
     async function showClassModuleReferences(node: XlideNode): Promise<void> {
@@ -183,7 +220,7 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
         registerXlideCommand('xlide.dev.smoke', async () => {
             log('[smoke] Starting smoke test...');
 
-            const uris = (await vscode.workspace.findFiles('**/*.{xlsm,xlsb,xlam}',
+            const uris = (await vscode.workspace.findFiles(MACRO_CONTAINER_GLOB,
                 '{**/node_modules/**,**/.venv/**,**/venv/**}'))
                 .filter(u => !path.basename(u.fsPath).startsWith('~$'));
 
@@ -204,7 +241,7 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
                 projectPath = pick.fsPath;
             }
 
-            log(`[smoke] Workbook: ${projectPath}`);
+            log(`[smoke] File: ${projectPath}`);
 
             await vscode.window.withProgress(
                 { location: vscode.ProgressLocation.Notification, title: 'XLIDE: Running smoke test...', cancellable: false },
@@ -241,31 +278,15 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
             );
         }),
 
-        // Open the workbook in Excel (editable)
-        registerXlideCommand('xlide.openWorkbook', async (node: XlideNode) => {
-            const filePath = resolveProjectPath(node);
-            if (!filePath) { return; }
-            openInSpreadsheetApp(filePath, false, 'openWorkbook');
-        }),
-
-        // Open the workbook in Excel (read-only)
-        registerXlideCommand('xlide.openWorkbookReadOnly', async (node: XlideNode) => {
-            const filePath = resolveProjectPath(node);
-            if (!filePath) { return; }
-            openInSpreadsheetApp(filePath, true, 'openWorkbookReadOnly');
-        }),
-
-        // Open a non-Excel macro container in whatever application owns it
-        // (Word, PowerPoint, Access): the OS association is the router.
-        registerXlideCommand('xlide.openInOfficeApp', async (node: XlideNode) => {
-            const filePath = resolveProjectPath(node);
-            if (!filePath) { return; }
-            log(`[openInOfficeApp] Requested for: ${filePath}`);
-            const opened = await vscode.env.openExternal(vscode.Uri.file(filePath));
-            if (!opened) {
-                vscode.window.showErrorMessage(`XLIDE: Could not open ${path.basename(filePath)} in its Office application.`);
-            }
-        }),
+        // Open the file in the application that owns it: Excel, Word,
+        // PowerPoint or Access.
+        registerXlideCommand('xlide.openInOfficeApp', openCommand(false, 'openInOfficeApp')),
+        registerXlideCommand('xlide.openInOfficeAppReadOnly', openCommand(true, 'openInOfficeAppReadOnly')),
+        // The ids these two commands had while they only opened Excel. They
+        // stay registered, undeclared, so a keybinding made against them
+        // keeps working.
+        registerXlideCommand('xlide.openWorkbook', openCommand(false, 'openInOfficeApp')),
+        registerXlideCommand('xlide.openWorkbookReadOnly', openCommand(true, 'openInOfficeAppReadOnly')),
 
         // Detect the Sub/Function at the cursor and open the project, then guide to run it
         registerXlideCommand('xlide.runMacroAtCursor', async () => {
@@ -275,6 +296,8 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
                 return;
             }
 
+            // Named once the file is known, for the failure message below.
+            let appName = 'the application';
             try {
                 // Decode the URI to get filePath and moduleName
                 const { projectPath, moduleName } = decodeModuleUri(editor.document.uri);
@@ -303,111 +326,76 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
                 }
                 const currentProc = procedure.name;
 
-                // The run machinery below is Excel COM end to end (launcher,
-                // coordinator, reopen tracking), so gate by the file's host
-                // first. Word, PowerPoint and Access save and open in their
-                // own application, which is what actually runs VBA.
-                const containerHost = containerHostForPath(projectPath);
-                if (containerHost === 'word' || containerHost === 'powerpoint'
-                    || containerHost === 'access') {
-                    const app = containerAppNameForPath(projectPath);
-                    if (editor.document.isDirty) {
-                        await editor.document.save();
-                    }
-                    if (process.platform === 'win32') {
-                        // Full parity with the Excel path: open in the visible
-                        // owning application and run the macro through its COM,
-                        // per the harness-measured semantics. Access takes the
-                        // bare procedure name; the others take Module.Proc.
-                        const target = containerHost === 'access'
-                            ? currentProc
-                            : `${moduleName}.${currentProc}`;
-                        try {
-                            await runHostFileMacro(containerHost, projectPath, target, log);
-                        } catch (err) {
-                            showRunMacroFailure(err, app);
-                        }
-                        return;
-                    }
-                    // No COM off Windows: open in the owning application with
-                    // guidance naming the exact macro.
-                    const opened = await vscode.env.openExternal(vscode.Uri.file(projectPath));
-                    if (!opened) {
-                        vscode.window.showErrorMessage(
-                            `XLIDE: Could not open ${path.basename(projectPath)} in ${app}.`,
-                        );
-                        return;
-                    }
-                    vscode.window.showInformationMessage(
-                        `XLIDE: Opened in ${app}. Run "${moduleName}.${currentProc}" with Alt+F8 or from the VBE.`,
-                    );
-                    return;
-                }
+                const app = containerAppNameForPath(projectPath);
+                appName = app;
+                const macro = { moduleName, procedureName: currentProc };
 
-                // Suppress XLIDE's own post-save reopen for THIS workbook across the
-                // whole run: F5 saves the dirty module and then reopens it read-only
+                // Suppress XLIDE's own post-save reopen for THIS file across the
+                // whole run: F5 saves the dirty module and then reopens the file
                 // itself to run the macro. Holding suppression over the save AND the
-                // macro run keeps any refresh (this save's, or a concurrent save of
-                // another module in the same workbook) from racing that reopen.
-                await withWorkbookReopenSuppressed(projectPath, async () => {
+                // macro run keeps any reopen (this save's, or a concurrent save of
+                // another module in the same file) from racing that one.
+                await withFileReopenSuppressed(projectPath, async () => {
                     // Persist in-editor changes first so the macro reflects the
-                    // current source rather than the last-saved version.
-                    if (editor.document.isDirty) {
-                        await editor.document.save();
+                    // current source rather than the last-saved version. A save
+                    // that failed has already said why, and running on would run
+                    // the stale code.
+                    if (editor.document.isDirty && !(await editor.document.save())) {
+                        log('[runMacro] the module could not be saved; not running');
+                        return;
                     }
 
-                    // Open the project read-only
-                    if (process.platform === 'win32') {
-                        const attachToRunning = shouldAttachToRunningExcel();
-                        const macroRef = `${moduleName}.${currentProc}`;
-                        log(`[runMacro] attachToRunningExcel=${attachToRunning}`);
+                    if (process.platform === 'win32' && officeHostForPath(projectPath)) {
+                        // Open in the visible owning application and run the macro
+                        // through its COM, per the harness-measured semantics of
+                        // each host (officeHostLauncher.ts).
+                        const attachToRunning = shouldAttachToRunningApp();
+                        log(`[runMacro] attachToRunning=${attachToRunning}`);
                         try {
-                            await runWorkbookMacroReadOnly(projectPath, macroRef, { attachToRunning }, log);
+                            await runHostMacro(projectPath, macro, { attachToRunning }, log);
                         } catch (err) {
-                            // The workbook is open for editing in Excel (locked). Honor
-                            // the coordination policy: close it and retry (the macro
-                            // script then reopens read-only to run) instead of asking
+                            // The file is open for editing in its application (locked).
+                            // Honor the coordination policy: close it and retry (the
+                            // macro script then reopens it to run) instead of asking
                             // the user to close it by hand. block mode still rethrows.
-                            const settings = resolveExcelCoordinationSettings();
-                            if (err instanceof ExcelMacroError && err.code === 'REOPEN_BLOCKED'
+                            const settings = resolveHostCoordinationSettings();
+                            if (err instanceof HostMacroError && err.code === 'REOPEN_BLOCKED'
                                 && settings.mode !== 'block' && shouldAttemptClose(settings, projectPath)) {
-                                log(`[runMacro] reopen blocked; coordinationMode=${settings.mode}, closing workbook`);
-                                await closeWorkbookInExcel(projectPath, { force: settings.mode === 'closeForce' }, log);
-                                // The macro host is about to reopen the workbook read-only on
-                                // retry; record it now so it stays tracked even if the macro
+                                log(`[runMacro] reopen blocked; coordinationMode=${settings.mode}, closing in ${app}`);
+                                await closeFileInHost(projectPath, { force: settings.mode === 'closeForce' }, log);
+                                // The macro host is about to reopen the file on retry;
+                                // record it now so it stays tracked even if the macro
                                 // itself then errors (RUN_FAILED) before we mark below.
-                                markWorkbookOpenedByXlide(projectPath);
-                                await runWorkbookMacroReadOnly(projectPath, macroRef, { attachToRunning }, log);
+                                markFileOpenedByXlide(projectPath);
+                                await runHostMacro(projectPath, macro, { attachToRunning }, log);
                             } else {
                                 // RUN_FAILED means the macro host already reopened the
-                                // project read-only before the macro raised, so record it
+                                // project before the macro raised, so record it
                                 // (mirroring the post-success mark below) so a later
-                                // closeTracked save still frees the lock. Then rethrow.
-                                if (err instanceof ExcelMacroError && err.code === 'RUN_FAILED') {
-                                    markWorkbookOpenedByXlide(projectPath);
+                                // save can still free the lock. Then rethrow.
+                                if (err instanceof HostMacroError && err.code === 'RUN_FAILED') {
+                                    markFileOpenedByXlide(projectPath);
                                 }
                                 throw err;
                             }
                         }
-                        // The macro host reopened the workbook read-only; record it so
-                        // a later closeTracked save can free the lock automatically.
-                        markWorkbookOpenedByXlide(projectPath);
-                    } else if (process.platform === 'darwin') {
-                        cp.spawn('open', ['-a', 'Microsoft Excel', projectPath])
-                            .on('error', (err) => void vscode.window.showErrorMessage(`XLIDE: Could not open the project: ${errorMessage(err)}`));
-                        vscode.window.showInformationMessage(
-                            `Workbook opened. Run macro: ${moduleName}.${currentProc}`,
-                        );
-                    } else {
-                        cp.spawn('libreoffice', ['--calc', '--norestore', '--view', projectPath])
-                            .on('error', (err) => void vscode.window.showErrorMessage(`XLIDE: Could not open the project: ${errorMessage(err)}`));
-                        vscode.window.showInformationMessage(
-                            `Workbook opened. Run macro manually: ${moduleName}.${currentProc}`,
-                        );
+                        // The macro host left the file open; record it so a later
+                        // save can free the lock automatically.
+                        markFileOpenedByXlide(projectPath);
+                        return;
                     }
+
+                    // No COM off Windows: open in the owning application, read-only
+                    // where the platform can, with guidance naming the exact macro.
+                    if (!spawnHostApp(projectPath, true) && !(await openThroughShell(projectPath))) {
+                        return;
+                    }
+                    vscode.window.showInformationMessage(
+                        `XLIDE: Opened ${path.basename(projectPath)}. Run "${moduleName}.${currentProc}" from the application's macro dialog.`,
+                    );
                 });
             } catch (err) {
-                showRunMacroFailure(err);
+                showRunMacroFailure(err, appName);
             }
         }),
     ];

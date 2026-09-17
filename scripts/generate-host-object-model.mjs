@@ -82,6 +82,35 @@ const namespaces = new Map(
 );
 const curator = createCurator({ dumps, prefix, foreignClasses, namespaces });
 
+// The events each class raises, read from the type library itself by
+// scripts/dump-event-sources.py. A host has this file when the dumps cannot
+// say what a handler needs: how a parameter is PASSED (VBA refuses a handler
+// whose ByVal does not match the event's), and the events of a class whose
+// dump was lost (Access's TextBox, CheckBox and ComboBox). Keyed by class name
+// in lower case, because the library says TextBox where the dumps say Textbox.
+const eventSourcesPath = path.join(root, 'reference', host, 'eventSources.json');
+const eventSources = new Map();
+if (fs.existsSync(eventSourcesPath)) {
+    const parsed = JSON.parse(fs.readFileSync(eventSourcesPath, 'utf8'));
+    for (const [className, interfaceName] of Object.entries(parsed.classes ?? {})) {
+        eventSources.set(className.toLowerCase(), parsed.interfaces?.[interfaceName] ?? []);
+    }
+}
+
+// An event as a member: its signature is the parameter list exactly as the
+// VBE writes it into a handler, and its prose is the dump's when the dump
+// describes an event of that name. Nothing is described that the dump is not.
+function eventMemberOf(dump, event) {
+    const params = event.params
+        .map((param) => `${param.byVal ? 'ByVal ' : ''}${param.name} As ${param.type}`)
+        .join(', ');
+    const member = { name: event.name, kind: 'event', signature: `${event.name}(${params})` };
+    const described = (dump.events ?? []).find((raw) => raw.name === event.name);
+    const doc = described ? memberDoc(described, 300, prefix, descriptions) : undefined;
+    if (doc) { member.doc = doc; }
+    return member;
+}
+
 function memberOf(ownerName, raw, kind) {
     const member = { name: raw.name, kind };
     const { returns, returnsAnyOf } = curator.resolveReturn(ownerName, raw, kind);
@@ -113,6 +142,7 @@ const aliases = {};
 const constants = {};
 const enums = {};
 let memberCount = 0;
+let eventCount = 0;
 let constantCount = 0;
 let documented = 0;
 let repaired = 0;
@@ -126,11 +156,12 @@ for (const [name, dump] of dumps) {
     }
     if (CLASS_KINDS.has(dump.kind)) {
         const members = [];
-        // Office hosts keep their events out of the object surfaces (the
-        // analyzer's event-handler tables carry them); VB6's form and control
-        // events are carried here, kind 'event', because the handler stubs a
-        // VB6 form offers (Form_Load, Command1_Click ...) are derived from
-        // them, and member completion filters events out by kind.
+        // Excel, Word and PowerPoint keep their events out of the object
+        // surfaces (the analyzer's event-handler tables carry them); VB6's form
+        // and control events are carried here, kind 'event', because the
+        // handler stubs a VB6 form offers (Form_Load, Command1_Click ...) are
+        // derived from them, and member completion filters events out by kind.
+        // Access's are carried the same way, from the type library (below).
         const lists = [[dump.properties ?? [], 'property'], [dump.methods ?? [], 'method']];
         if (host === 'vb6') { lists.push([dump.events ?? [], 'event']); }
         for (const [list, kind] of lists) {
@@ -143,7 +174,17 @@ for (const [name, dump] of dumps) {
                 members.push(member);
             }
         }
+        // A class with no property and no method is not a type here, and its
+        // events do not make it one: they describe a type, never create it.
+        // (Access's `Class` is only Initialize and Terminate, which a class
+        // module's own tables already carry.)
         if (members.length === 0) { continue; }
+        for (const event of eventSources.get(name.toLowerCase()) ?? []) {
+            const member = eventMemberOf(dump, event);
+            if (member.doc?.summary) { documented += 1; }
+            members.push(member);
+            eventCount += 1;
+        }
         members.sort((a, b) => a.name.localeCompare(b.name));
         memberCount += members.length;
         const qualified = `${libraryPrefix}.${name}`;
@@ -153,9 +194,13 @@ for (const [name, dump] of dumps) {
         if (doc) { type.doc = doc; }
         types[qualified] = type;
         aliases[name.toLowerCase()] = qualified;
-    } else if (dump.kind === 'Module') {
+    } else if (dump.kind === 'Module' && host === 'vb6') {
         // A module's constants are plain names with no enum to belong to
         // (VBRUN's RecordsetTypeConstants); its functions are not modelled.
+        // VB6 only: an Office host's constants are its enumerations' and the
+        // shared Office table's, which tests/vbaHostConstantRoundTrip holds
+        // every regeneration to - Access's Constants and OldConstants modules
+        // would add 479 names no enumeration owns.
         for (const c of dump.constants ?? []) {
             if (String(c.name ?? '').startsWith('_') || constants[c.name]) { continue; }
             const summary = collapseWhitespace(c.description);
@@ -252,7 +297,8 @@ lines.push('');
 fs.writeFileSync(outputPath, lines.join('\n'), 'utf8');
 console.log(
     `Wrote ${path.relative(root, outputPath)}: ${Object.keys(types).length} types, ${memberCount} members `
-    + `(${documented} documented, ${repaired} generic returns repaired), `
+    + `(${documented} documented, ${repaired} generic returns repaired`
+    + (eventCount ? `, ${eventCount} events from the type library), ` : '), ')
     + `${constantCount} constants in ${Object.keys(enums).length} enumerations`
     + (evidenceOnly ? `; ${evidenceOnly} evidence-only dumps left out.` : '.'),
 );

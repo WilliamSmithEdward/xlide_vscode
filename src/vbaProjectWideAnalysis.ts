@@ -211,8 +211,8 @@ function projectSeedFingerprint(
     return hash >>> 0;
 }
 
-const WORKBOOK_ANALYSIS_PROGRESS_MIN_INTERVAL_MS = 100;
-const WORKBOOK_MODULE_ANALYSIS_CONCURRENCY = 4;
+const PROJECT_ANALYSIS_PROGRESS_MIN_INTERVAL_MS = 100;
+const PROJECT_MODULE_ANALYSIS_CONCURRENCY = 4;
 
 interface ProjectAnalysisProgress {
     report(message: string, options?: { force?: boolean }): void;
@@ -229,7 +229,7 @@ function projectAnalysisProgress(
                 return;
             }
             const now = Date.now();
-            if (options.force || now - lastReportAt >= WORKBOOK_ANALYSIS_PROGRESS_MIN_INTERVAL_MS) {
+            if (options.force || now - lastReportAt >= PROJECT_ANALYSIS_PROGRESS_MIN_INTERVAL_MS) {
                 lastReportAt = now;
                 progress(message);
             }
@@ -406,7 +406,7 @@ interface CachedProjectAnalysis {
     settingsKey: string;
     result: ProjectAnalysisResult;
 }
-const WORKBOOK_ANALYSIS_RESULT_CACHE_MAX = 8;
+const PROJECT_ANALYSIS_RESULT_CACHE_MAX = 8;
 const lastProjectAnalysisResults = new Map<string, CachedProjectAnalysis>();
 
 // Single-flight: concurrent analyses of the SAME project share one run, so a
@@ -475,6 +475,7 @@ async function runProjectAnalysis(
                     type: mod.type,
                     documentType: mod.documentType,
                     implicitMembers: mod.implicitMembers,
+                    designerClass: mod.designerClass,
                 })), undefined, {
                     cancelIfRequested: () => throwIfAnalysisCancelled(options.token),
                 }),
@@ -517,6 +518,7 @@ async function runProjectAnalysis(
                 type: mod.type,
                 documentType: mod.documentType,
                 implicitMembers: mod.implicitMembers,
+                designerClass: mod.designerClass,
             })));
         }
 
@@ -536,7 +538,7 @@ async function runProjectAnalysis(
         };
         const analysisResults = await mapWithConcurrency(
             modules,
-            WORKBOOK_MODULE_ANALYSIS_CONCURRENCY,
+            PROJECT_MODULE_ANALYSIS_CONCURRENCY,
             async (mod, index) => {
                 throwIfAnalysisCancelled(options.token);
                 progress.report(`Analyzing ${mod.name} (${index + 1}/${modules.length})...`);
@@ -651,7 +653,7 @@ async function runProjectAnalysis(
             settingsKey,
             result: analysisResult,
         });
-        evictOldest(lastProjectAnalysisResults, WORKBOOK_ANALYSIS_RESULT_CACHE_MAX);
+        evictOldest(lastProjectAnalysisResults, PROJECT_ANALYSIS_RESULT_CACHE_MAX);
         return analysisResult;
     } catch (err) {
         totalTrace.end(err instanceof vscode.CancellationError ? 'canceled' : 'failed');

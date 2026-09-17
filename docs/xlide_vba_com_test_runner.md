@@ -243,7 +243,7 @@ The default host also accounts for Excel automation rough edges that can
 otherwise hang the window or the extension:
 
 - every test macro carries a positive timeout
-- startup, workbook-open, macro-run, and cleanup stages are watchdog-bounded
+- startup, file-open, macro-run, and cleanup stages are watchdog-bounded
 - link updates are disabled when opening the workbook
 - read-only recommendation prompts are bypassed
 - Excel alerts that can block automation are suppressed
@@ -264,7 +264,7 @@ finish as a bounded host failure with diagnostic metadata rather than waiting
 forever.
 
 `src/vbaTestHostOracle.ts` is the unit-test oracle surface for this contract,
-and `src/vbaTestExcelHost.ts` owns the current PowerShell host script builder
+and `src/vbaTestOfficeHost.ts` owns the current PowerShell host script builder
 and event parser. Together they validate simple lifecycle traces so COM-host
 changes can prove the expected behavior without needing live Excel in routine
 unit tests.
@@ -279,7 +279,7 @@ optional smoke tests for environment-specific behavior, not the default oracle.
 The completion plan:
 
 1. Freeze the trace schema. Every important stage should have an inspectable
-   event: host start, Excel creation with owned PID, workbook-open start/result,
+   event: host start, Excel creation with owned PID, file-open start/result,
    macro start/result, modal/blocker detection, timeout/watchdog decisions,
    cleanup start/result, workbook close, Excel quit, and owned-process kill.
    Events should carry deterministic metadata only; no workbook source text,
@@ -292,7 +292,7 @@ The completion plan:
    depend on `SendKeys`/focus-driven keystroke automation.
 3. Build a popup/blocker fixture matrix. Each blocker needs one synthetic trace
    that proves the expected classification: prevented, handled by low-level
-   hook, timeout, or `host-error`. Include workbook-open prompts, link/update
+   hook, timeout, or `host-error`. Include file-open prompts, link/update
    prompts, read-only-recommended prompts, password/protected-view/security
    prompts, Trust Center/trust-access failures, compile/runtime/modal VBA
    dialogs, add-in prompts, repair/recovery prompts, automation-busy states,

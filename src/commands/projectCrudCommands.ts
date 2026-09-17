@@ -23,7 +23,7 @@ import {
     writeProjectModule,
 } from '../projectModuleOperations';
 import { registerXlideCommand } from '../xlideCommandRegistration';
-import { runWriteWithExcelCoordination } from '../excelWorkbookCoordinator';
+import { runWriteWithHostCoordination } from '../officeWriteCoordinator';
 import type { XlideNode } from '../projectExplorer';
 import {
     logChangeSummary,
@@ -116,7 +116,7 @@ export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposabl
         });
         if (!name) { return; }
         try {
-            const created = await runWriteWithExcelCoordination(node.filePath, () =>
+            const created = await runWriteWithHostCoordination(node.filePath, () =>
                 bridge.call('addForm', {
                     path: node.filePath,
                     module: name,
@@ -213,6 +213,10 @@ export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposabl
                     'Word Macro-Enabled Template': ['dotm'],
                     'PowerPoint Macro-Enabled Presentation': ['pptm'],
                     'PowerPoint Macro-Enabled Template': ['potm'],
+                    'Access Database': ['accdb'],
+                    'Access Add-In': ['accda'],
+                    'Access 2002-2003 Database': ['mdb'],
+                    'Access 2002-2003 Add-In': ['mda'],
                 },
             });
             if (!target) { return; }

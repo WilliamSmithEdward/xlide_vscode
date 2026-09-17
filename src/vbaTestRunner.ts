@@ -217,12 +217,12 @@ async function listProjectModulesForDiscovery(
     return modules.filter((module) => typeof module.source === 'string');
 }
 
-export async function discoverWorkbookVbaTests(
+export async function discoverProjectVbaTests(
     bridge: ProjectEngine,
     filePath: string,
     selection?: VbaTestSelectionOptions,
 ): Promise<VbaTestDiscoveryResult> {
-    return measurePerformance('vbaTests.discoverWorkbook', path.basename(filePath), async () => {
+    return measurePerformance('vbaTests.discover', path.basename(filePath), async () => {
     const normalizedSelection = normalizeVbaTestSelection(selection);
     const modules = await listProjectModulesForDiscovery(bridge, filePath);
     const orderedModules = [...modules].sort(compareVbaModulesForTreeOrder);

@@ -1,11 +1,9 @@
 # Testing VBA Projects
 
 XLIDE can discover and run VBA tests that you write in normal modules.
-Tests run through COM in the file's own application - Excel for workbook
-formats, Word for documents, PowerPoint for presentations - so they exercise
-the same runtime your file uses. Access files cannot run tests: Access
-executes compiled p-code, so the staged runner module cannot execute there,
-and XLIDE says so instead of failing obscurely.
+Tests run through COM in the file's own application - Excel for workbooks,
+Word for documents, PowerPoint for presentations, Access for databases - so
+they exercise the same runtime your file uses.
 
 ## Write Tests
 
@@ -33,7 +31,7 @@ Rules:
 Supported markers:
 
 - `@xlide-test`
-- `@xlide-test-skip reason="Requires external workbook"`
+- `@xlide-test-skip reason="Requires an external file"`
 - `@xlide-test-xfail reason="Known issue pending fix"`
 
 Supported metadata:
@@ -159,8 +157,8 @@ The GUI also checks for Office COM registration before enabling runs. That
 check does not launch any Office application.
 
 Runs execute against a temporary copy of the file in an XLIDE-owned instance
-of the file's own application: Excel for workbook formats, Word for
-documents, PowerPoint for presentations. XLIDE injects a transient test
+of the file's own application: Excel for workbooks, Word for documents,
+PowerPoint for presentations, Access for databases. XLIDE injects a transient test
 dispatcher into that copy so ordinary VBA runtime errors are reported as
 failed tests without requiring "Trust access to the VBA project object model"
 through COM - including in Word, which surfaces a run target's unhandled
@@ -256,8 +254,7 @@ the latest CI status payload.
 
 ## Current Limitations
 
-Office COM execution is Windows-only. Access files cannot host test runs
-(compiled p-code, stated above). The public test contract currently runs
+Office COM execution is Windows-only. The public test contract currently runs
 explicitly marked zero-argument `Sub` procedures in standard modules.
 Hook-style setup/teardown directives, deterministic compile-error preflight,
 and richer suite-level lifecycle controls remain planned hardening work.

@@ -70,7 +70,7 @@ describe('VBA test directive completion', () => {
         const test = resolveVbaTestDirectiveCompletions(testLine, testLine.length);
 
         expect(skip.map((item) => item.label)).toEqual(['reason=', 'requirement=']);
-        expect(skip[0].insertText).toBe('reason="${1:Requires external workbook}"');
+        expect(skip[0].insertText).toBe('reason="${1:Requires an external file}"');
         expect(test.map((item) => item.label)).toEqual(['requirement=']);
     });
 

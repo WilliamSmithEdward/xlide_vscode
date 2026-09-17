@@ -6,7 +6,7 @@ import {
     describeVbaTestSelection,
     VBA_TEST_DIRECTIVE_DIAGNOSTIC_CODE,
     discoverVbaTestsFromModule,
-    discoverWorkbookVbaTests,
+    discoverProjectVbaTests,
     summarizeVbaTestTags,
     summarizeVbaTestRun,
     validateVbaTestDirectivesFromModule,
@@ -124,7 +124,7 @@ describe('VBA test runner discovery', () => {
             },
         ]);
 
-        const result = await discoverWorkbookVbaTests(bridge, 'C:/work/Book.xlsm');
+        const result = await discoverProjectVbaTests(bridge, 'C:/work/Book.xlsm');
 
         expect(result.modulesScanned).toBe(1);
         expect(result.modulesIgnored).toBe(2);
@@ -148,7 +148,7 @@ describe('VBA test runner discovery', () => {
             },
         } as unknown as ProjectEngine;
 
-        const result = await discoverWorkbookVbaTests(bridge, 'C:/work/Book.xlsm');
+        const result = await discoverProjectVbaTests(bridge, 'C:/work/Book.xlsm');
 
         expect(result.tests.map((test) => test.qualifiedName)).toEqual(['Tests.Runs']);
         expect(calls).toEqual(['readModules']);
@@ -180,7 +180,7 @@ describe('VBA test runner discovery', () => {
             },
         ]);
 
-        const moduleResult = await discoverWorkbookVbaTests(bridge, 'C:/work/Book.xlsm', {
+        const moduleResult = await discoverProjectVbaTests(bridge, 'C:/work/Book.xlsm', {
             moduleName: 'alphatests',
             includeTags: ['SMOKE'],
             excludeTags: ['slow'],
@@ -194,14 +194,14 @@ describe('VBA test runner discovery', () => {
         });
         expect(moduleResult.tests.map((test) => test.qualifiedName)).toEqual(['AlphaTests.FastSmoke']);
 
-        const procedureResult = await discoverWorkbookVbaTests(bridge, 'C:/work/Book.xlsm', {
+        const procedureResult = await discoverProjectVbaTests(bridge, 'C:/work/Book.xlsm', {
             moduleName: 'BetaTests',
             procedureName: 'betasmoke',
         });
         expect(procedureResult.unfilteredTestCount).toBe(1);
         expect(procedureResult.tests.map((test) => test.qualifiedName)).toEqual(['BetaTests.BetaSmoke']);
 
-        const idResult = await discoverWorkbookVbaTests(bridge, 'C:/work/Book.xlsm', {
+        const idResult = await discoverProjectVbaTests(bridge, 'C:/work/Book.xlsm', {
             testIds: ['betatests.betasmoke', 'AlphaTests.FastSmoke'],
         });
         expect(idResult.selection).toEqual({

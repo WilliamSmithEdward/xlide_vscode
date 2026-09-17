@@ -66,6 +66,12 @@ describe('XLIDE command log', () => {
 		expect(errorCategoryForSupportLog(new Error('[Errno 13] EACCES: permission'))).toBe(
 			'project-locked',
 		);
+		// What a save actually meets: XLIDE renames a temp file over the
+		// container, and Windows refuses with EPERM while the file is open.
+		// Measured against Excel, Word, PowerPoint and Access on Office 16.0.
+		expect(errorCategoryForSupportLog(new Error(
+			"EPERM: operation not permitted, rename 'C:\\work\\.xlide-30332-1789619210070.tmp' -> 'C:\\work\\Book.xlsm'",
+		))).toBe('project-locked');
 		expect(errorCategoryForSupportLog(new Error('ENOENT: no such file or directory'))).toBe(
 			'project-missing',
 		);

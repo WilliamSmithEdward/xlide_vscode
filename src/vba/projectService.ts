@@ -38,7 +38,7 @@ import {
 	parseFormDesignerStreams,
 	parseFormFrx,
 } from './formDesigner';
-import { openMacroContainer, type MacroContainer } from './macroContainer';
+import { openMacroContainer, type AccessContainerDesign, type MacroContainer } from './macroContainer';
 import {
 	AccessVbaWriter,
 	accessDesignModuleName,
@@ -60,7 +60,7 @@ import {
 	setDesignTabOrder,
 	setDesignZOrder,
 } from './access/accessDesignEdit';
-import { accessDesignObjectName, type AccessDesign } from './access/accessDesign';
+import { ACCESS_DESIGN_CLASSES, accessDesignObjectName, type AccessDesign } from './access/accessDesign';
 import { randomBytes } from 'crypto';
 import {
 	detectSignature,
@@ -113,14 +113,17 @@ export interface ModuleEntry {
 	source?: string;
 	/**
 	 * A form's designer-declared controls, read natively from the designer
-	 * storage inside vbaProject.bin. Present only for userform modules whose
-	 * designer parsed cleanly; absent means "not known", never "none".
+	 * storage inside vbaProject.bin, or an Access design's named sections and
+	 * controls. Present only where the designer parsed cleanly; absent means
+	 * "not known", never "none". `eventClass` is the class a member's events
+	 * come from where that is not its `type` (an Access report's sections).
 	 */
-	implicitMembers?: { name: string; type: string; array?: boolean }[];
+	implicitMembers?: { name: string; type: string; array?: boolean; eventClass?: string }[];
 	/**
-	 * A VB6 designer's own class (`VB.Form`, `VB.MDIForm`, `VB.UserControl`),
-	 * which decides what `Me` is and what its event handlers are called.
-	 * Office forms carry none: a UserForm is always an MSForms.UserForm.
+	 * The class a designer makes the module, where that is not an
+	 * MSForms.UserForm: a VB6 designer's own (`VB.Form`, `VB.MDIForm`,
+	 * `VB.UserControl`) or an Access design's (`Access.Form`,
+	 * `Access.Report`). It decides what `Me` is. A UserForm carries none.
 	 */
 	designerClass?: string;
 	/**
@@ -293,7 +296,7 @@ interface ProjectCacheEntry {
  * sources (a few MB for a large project), and a session's hot set is the
  * handful of projects whose trees or editors are open.
  */
-const WORKBOOK_CACHE_MAX = 4;
+const PROJECT_CACHE_MAX = 4;
 const projectCache = new Map<string, ProjectCacheEntry>();
 let cacheHits = 0;
 let cacheMisses = 0;
@@ -319,7 +322,7 @@ function cachedPackage(filePath: string): ProjectCacheEntry {
 	};
 	projectCache.delete(filePath);
 	projectCache.set(filePath, entry);
-	evictOldest(projectCache, WORKBOOK_CACHE_MAX);
+	evictOldest(projectCache, PROJECT_CACHE_MAX);
 	return entry;
 }
 
@@ -836,7 +839,7 @@ function withHostDesigns(
 	const byModule = new Map(designs.map((design) => [design.moduleName.toLowerCase(), design]));
 	const out = entries.map((entry) => {
 		const design = byModule.get(entry.name.toLowerCase());
-		return design ? { ...entry, type: designModuleType(design.kind) } : entry;
+		return design ? { ...entry, type: designModuleType(design.kind), ...designFacts(design) } : entry;
 	});
 	const covered = new Set(out.map((entry) => entry.name.toLowerCase()));
 	for (const design of designs) {
@@ -848,11 +851,25 @@ function withHostDesigns(
 		const entry: ModuleEntry = {
 			name: design.moduleName,
 			type: designModuleType(design.kind),
+			...designFacts(design),
 		};
 		if (constants) { entry.projectConditionalConstants = constants; }
 		out.push(entry);
 	}
 	return out;
+}
+
+/**
+ * What the design says about the module behind it that the module's text
+ * never does: the class it is, which is what `Me` means there, and the
+ * sections and controls that are members of that class.
+ */
+function designFacts(design: AccessContainerDesign): Pick<ModuleEntry, 'designerClass' | 'implicitMembers'> {
+	const members = design.members();
+	return {
+		designerClass: ACCESS_DESIGN_CLASSES[design.kind],
+		...(members ? { implicitMembers: members } : {}),
+	};
 }
 
 function designModuleType(kind: 'form' | 'report'): ModuleType {
@@ -1789,7 +1806,7 @@ function assertFoldedNameDistinct(
 		if (foldedModuleName(other.name, codePage).toLowerCase() === folded) {
 			throw new Error(
 				`Module name "${name}" cannot coexist with "${other.name}": this project's code page ` +
-				`(${codePage}) stores both as "${foldedModuleName(name, codePage)}", and Excel treats the ` +
+				`(${codePage}) stores both as "${foldedModuleName(name, codePage)}", and Office treats the ` +
 				'duplicate PROJECT declarations as corruption. Choose a name with a distinct stored form.',
 			);
 		}

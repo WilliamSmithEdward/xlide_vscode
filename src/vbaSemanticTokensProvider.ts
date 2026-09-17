@@ -17,6 +17,7 @@ import {
     collectHostGlobalTokens,
     collectHostMemberMethodTokens,
     collectImplicitMemberMethodTokens,
+    isDataBoundDesignerClass,
     resolveTypeSemanticTokens,
     TypeSemanticTokenType,
 } from './analyzer';
@@ -66,6 +67,8 @@ interface CachedTypeSemanticProjectTypes {
     codeNames?: Record<string, string>;
     /** Host type `Me` denotes in a document module, so `Me.Calculate` paints (issue #31). */
     meHostType?: string;
+    /** The module's name when it is an Access design, whose controls are host-typed members of `Me`. */
+    meProjectType?: string;
 }
 
 interface CachedTypeSemanticTokens {
@@ -143,6 +146,7 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
                     codeNames: projectContext?.codeNames,
                     implicitMembers: projectContext?.implicitMembers,
                     meType: projectContext?.meHostType,
+                    meProjectType: projectContext?.meProjectType,
                     projectTypes,
                 }),
             ];
@@ -272,16 +276,21 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
             );
             const options = projectAnalysisOptionsForModule(project, moduleName);
             const codeNames = await this._codeNamesForDocument(document);
+            const accessDesignClass = await this._accessDesignClass(document, moduleName);
             const entry: CachedTypeSemanticProjectTypes = {
                 at: Date.now(),
                 projectTypes: options.projectTypes ?? [],
                 implicitMembers: options.implicitMembers,
-                meType: await this._userFormMeType(document, moduleName),
+                // An Access form is an Access.Form, not a UserForm: saying so
+                // keeps the forms collector from painting `Me.Show` there.
+                meType: accessDesignClass ?? await this._userFormMeType(document, moduleName),
                 hostModel: hostModelForDocument(document),
                 codeNames,
-                // A document module's own code name IS what `Me` denotes there;
-                // any other module kind has no entry and `Me.` stays unpainted.
-                meHostType: codeNames?.[moduleName.toLowerCase()],
+                // A document module's own code name IS what `Me` denotes there,
+                // and an Access form or report is its designer's class; any
+                // other module kind has no entry and `Me.` stays unpainted.
+                meHostType: codeNames?.[moduleName.toLowerCase()] ?? accessDesignClass,
+                meProjectType: accessDesignClass ? moduleName : undefined,
             };
             this._projectTypesCache.set(key, entry);
             return entry;
@@ -321,6 +330,28 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
 
     /** `MSForms.UserForm` when the document is a form's code-behind. */
     // (see hostModelForDocument below for the host side)
+    /** `Access.Form` or `Access.Report` when the module is an Access design's. */
+    private async _accessDesignClass(
+        document: vscode.TextDocument,
+        moduleName: string,
+    ): Promise<string | undefined> {
+        const location = moduleLocationOfDocument(document);
+        if (!location) {
+            return undefined;
+        }
+        try {
+            // The same cached project context the project build above used.
+            const context = await this._projectIndexService.contextForProject(
+                location.projectPath,
+                'live',
+            );
+            const designerClass = context.moduleMetadata.get(moduleIdentityKey(moduleName))?.designerClass;
+            return isDataBoundDesignerClass(designerClass) ? designerClass : undefined;
+        } catch {
+            return undefined;
+        }
+    }
+
     private async _userFormMeType(
         document: vscode.TextDocument,
         moduleName: string,

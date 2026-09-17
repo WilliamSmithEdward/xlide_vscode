@@ -14,21 +14,24 @@ import * as crypto from 'crypto';
 import type { ProjectEngine } from './projectEngine';
 import { decodeModuleUri, encodeFormMarkupUri, encodeModuleUri, XLIDE_SCHEME } from './xlideFileSystem';
 import {
-	closeWorkbookInExcel,
-	markWorkbookOpenedByXlide,
-	resolveExcelCoordinationSettings,
-	runWriteWithExcelCoordination,
+	closeFileInHost,
+	markFileOpenedByXlide,
+	resolveHostCoordinationSettings,
+	runWriteWithHostCoordination,
 	shouldAttemptClose,
-	withWorkbookReopenSuppressed,
-} from './excelWorkbookCoordinator';
-import { ExcelMacroError, runWorkbookMacroReadOnly } from './excelLauncher';
+	withFileReopenSuppressed,
+} from './officeWriteCoordinator';
+import { HostMacroError, runHostMacro, showAccessDesign } from './officeHostLauncher';
+import { officeHostForPath } from './officeHostApps';
+import { containerAppNameForPath } from './macroContainerUi';
+import { accessDesignOfModuleName } from './vba/access/accessVbaWriter';
 import {
 	composeLauncherSource,
 	launcherSubExists,
 	launcherSubName,
 	LAUNCHER_MODULE,
 } from './vbaFormLauncher';
-import { xlideAttachToRunningExcelFromConfig } from './globalSettings';
+import { xlideOfficeAttachToRunningFromConfig } from './globalSettings';
 import { errorMessage } from './util/errors';
 import { isVb6ProjectPath } from './vba/vb6/vb6Project';
 import { VB6_FORM_DESIGNER_VIEW_TYPE } from './vb6FormDesigner';
@@ -528,17 +531,20 @@ export function registerFormPreview(
 				return;
 			}
 			const wbPath = filePath;
-			const excel = /\.(xlsm|xlsb|xlam|xls)$/i.test(wbPath);
+			const host = officeHostForPath(wbPath);
+			const appName = containerAppNameForPath(wbPath);
+			// Excel, Word and PowerPoint host UserForms, which only a macro can
+			// show. COM is what runs one, so the path is Windows' alone.
+			const showsUserForms = process.platform === 'win32'
+				&& (host === 'excel' || host === 'word' || host === 'powerpoint');
 
 			// F5 runs WHAT YOU SEE. The designer holds its gestures and markup
-			// edits as pending document changes, so without this Excel would
-			// faithfully show the LAST SAVED form and the change would look
+			// edits as pending document changes, so without this the application
+			// would faithfully show the LAST SAVED form and the change would look
 			// like it had failed. (The Run-Macro command persists a dirty code
 			// module for the same reason.) Suppressed, because the save's own
 			// reopen would otherwise race the macro host's.
-			const saved = excel
-				? await withWorkbookReopenSuppressed(wbPath, () => savePendingLaunchEdits(wbPath, formModule))
-				: await savePendingLaunchEdits(wbPath, formModule);
+			const saved = await withFileReopenSuppressed(wbPath, () => savePendingLaunchEdits(wbPath, formModule));
 			if (!saved) {
 				// The provider already surfaced WHY (a markup parse error names
 				// its line); running on regardless would show a stale form.
@@ -548,17 +554,42 @@ export function registerFormPreview(
 				return;
 			}
 
-			// The VBE's F5 SHOWS the form. Excel can only run a macro, so
-			// with consent XLIDE injects a launcher and runs it; the choice
-			// persists in xlide.formRun.injectShowMacro.
+			// An Access form or report is a database object, and Access opens one
+			// by name: nothing goes into the database, so nothing needs consent.
+			const accessDesign = process.platform === 'win32' && host === 'access' && formModule
+				? accessDesignOfModuleName(formModule)
+				: undefined;
+			if (accessDesign) {
+				const attachToRunning = xlideOfficeAttachToRunningFromConfig(
+					vscode.workspace.getConfiguration('xlide'),
+				).value;
+				const quiet = (): void => { /* the launcher logs on its own channel */ };
+				vscode.window.setStatusBarMessage(`XLIDE: showing ${accessDesign.name} in ${appName}...`, 8000);
+				try {
+					await withFileReopenSuppressed(wbPath, async () => {
+						await showAccessDesign(wbPath, accessDesign, { attachToRunning }, quiet);
+						// The database is open in Access now; record it so a later
+						// closeTracked save can free the lock automatically.
+						markFileOpenedByXlide(wbPath);
+					});
+				} catch (err) {
+					void vscode.window.showErrorMessage(`XLIDE: could not show the ${accessDesign.kind}: ${errorMessage(err)}`);
+				}
+				return;
+			}
+
+			// The VBE's F5 SHOWS the form. From outside, an Office application
+			// can only be asked to run a macro, so with consent XLIDE injects a
+			// launcher and runs it; the choice persists in
+			// xlide.formRun.injectShowMacro.
 			//
 			// ONE SUB PER FORM, all in module XlideRun: F5 on a second form
 			// ADDS its sub beside the first rather than rewriting it, so the
 			// launchers accumulate and each form keeps its own entry point.
-			if (excel && formModule) {
+			if (showsUserForms && formModule) {
 				const config = vscode.workspace.getConfiguration('xlide');
 				const subName = launcherSubName(formModule);
-				const macro = `${LAUNCHER_MODULE}.${subName}`;
+				const macro = { moduleName: LAUNCHER_MODULE, procedureName: subName };
 				// What the project already carries decides whether anything
 				// is being injected at all.
 				let launcherSource: string | undefined;
@@ -597,46 +628,47 @@ export function registerFormPreview(
 					}
 				}
 				if (mode === 'always' || mode === 'once') {
-					const attachToRunning = xlideAttachToRunningExcelFromConfig(config).value;
+					const attachToRunning = xlideOfficeAttachToRunningFromConfig(config).value;
 					const quiet = (): void => { /* the launcher logs on its own channel */ };
 					const source = composeLauncherSource(launcherSource, formModule);
 					try {
 						// Suppression spans the write AND the run, as the Run-Macro
 						// command does: the write's own background read-only refresh
-						// would otherwise open the workbook in one Excel while the
-						// macro host spawns another - two Excels for one F5.
-						await withWorkbookReopenSuppressed(wbPath, async () => {
+						// would otherwise open the file in one instance while the
+						// macro host spawns another - two instances for one F5.
+						await withFileReopenSuppressed(wbPath, async () => {
 							// An installed launcher is run as it stands: no write, so
-							// a repeat F5 never touches the workbook at all (and any
+							// a repeat F5 never touches the file at all (and any
 							// hand edit to the sub is honored rather than clobbered).
 							if (!subExists) {
-								await runWriteWithExcelCoordination(wbPath, () =>
+								await runWriteWithHostCoordination(wbPath, () =>
 									bridge.call('writeModule', { path: wbPath, module: LAUNCHER_MODULE, source }));
 							}
-							vscode.window.setStatusBarMessage(`XLIDE: showing ${formModule} in Excel...`, 8000);
+							vscode.window.setStatusBarMessage(`XLIDE: showing ${formModule} in ${appName}...`, 8000);
 							try {
-								await runWorkbookMacroReadOnly(wbPath, macro, { attachToRunning }, quiet);
+								await runHostMacro(wbPath, macro, { attachToRunning }, quiet);
 							} catch (err) {
-								// Open for editing in Excel: honor the coordination
-								// policy - close and retry - rather than asking the
-								// user to close it by hand. block mode still rethrows.
-								const settings = resolveExcelCoordinationSettings();
-								if (err instanceof ExcelMacroError && err.code === 'REOPEN_BLOCKED'
+								// Open for editing in its application: honor the
+								// coordination policy - close and retry - rather than
+								// asking the user to close it by hand. block mode still
+								// rethrows.
+								const settings = resolveHostCoordinationSettings();
+								if (err instanceof HostMacroError && err.code === 'REOPEN_BLOCKED'
 									&& settings.mode !== 'block' && shouldAttemptClose(settings, wbPath)) {
-									await closeWorkbookInExcel(wbPath, { force: settings.mode === 'closeForce' }, quiet);
-									markWorkbookOpenedByXlide(wbPath);
-									await runWorkbookMacroReadOnly(wbPath, macro, { attachToRunning }, quiet);
+									await closeFileInHost(wbPath, { force: settings.mode === 'closeForce' }, quiet);
+									markFileOpenedByXlide(wbPath);
+									await runHostMacro(wbPath, macro, { attachToRunning }, quiet);
 								} else {
 									// RUN_FAILED means the host already reopened the
 									// project before the macro raised; keep it tracked
 									// so a later closeTracked save frees the lock.
-									if (err instanceof ExcelMacroError && err.code === 'RUN_FAILED') {
-										markWorkbookOpenedByXlide(wbPath);
+									if (err instanceof HostMacroError && err.code === 'RUN_FAILED') {
+										markFileOpenedByXlide(wbPath);
 									}
 									throw err;
 								}
 							}
-							markWorkbookOpenedByXlide(wbPath);
+							markFileOpenedByXlide(wbPath);
 						});
 					} catch (err) {
 						void vscode.window.showErrorMessage(`XLIDE: could not show the form: ${errorMessage(err)}`);
@@ -671,7 +703,7 @@ export function registerFormPreview(
 				5000,
 			);
 			await vscode.commands.executeCommand(
-				excel ? 'xlide.openWorkbook' : 'xlide.openInOfficeApp',
+				'xlide.openInOfficeApp',
 				{ kind: 'project', label: path.basename(wbPath), filePath: wbPath },
 			);
 		}

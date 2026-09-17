@@ -18,6 +18,7 @@ import {
 } from '../projectAnalysisWebview';
 import { analyzeVbaModuleSource } from '../vbaModuleAnalysis';
 import { hostTokenForFileName } from '../analyzer/host/hostRegistry';
+import { containerAppNameForPath } from '../macroContainerUi';
 import { effectiveProjectAnalysisSettings } from '../projectAnalysisSettings';
 import { lineStartOffsets } from '../vbaSourceScan';
 import type { VbaSymbolIndex } from '../vbaSymbolIndex';
@@ -59,9 +60,9 @@ function copilotAnalysisPrompt(
         ? `${problem.code}${problem.ruleTitle ? ` (${problem.ruleTitle})` : ''}`
         : problem.ruleTitle ?? 'unknown rule';
     return [
-        'Please help me understand and fix this Excel VBA analysis finding from XLIDE.',
+        `Please help me understand and fix this ${containerAppNameForPath(filePath)} VBA analysis finding from XLIDE.`,
         '',
-        `Workbook: ${path.basename(filePath)}`,
+        `File: ${path.basename(filePath)}`,
         `Module: ${problem.moduleName} (${problem.moduleType})`,
         `Location: ${problem.line}:${problem.column}`,
         `Severity: ${problem.severity}`,

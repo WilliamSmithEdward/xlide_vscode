@@ -1,10 +1,10 @@
 export type VbaTestHostOracleIssueCode =
     | 'empty-trace'
-    | 'single-owned-excel-instance'
-    | 'attached-excel-instance'
-    | 'workbook-open-count'
-    | 'workbook-open-instance'
-    | 'read-only-workbook'
+    | 'single-owned-host-instance'
+    | 'attached-host-instance'
+    | 'file-open-count'
+    | 'file-open-instance'
+    | 'read-only-file'
     | 'suppress-link-update'
     | 'suppress-alerts'
     | 'ignore-read-only-recommended'
@@ -26,36 +26,36 @@ export interface VbaTestHostOracleIssue {
 
 export type VbaTestMacroOutcome = 'passed' | 'failed' | 'timeout' | 'hung' | 'modal-blocked' | 'runner-error';
 export type VbaTestHostPhase =
-    | 'excel-create'
-    | 'workbook-open'
-    | 'workbook-close'
-    | 'excel-quit'
+    | 'host-create'
+    | 'file-open'
+    | 'file-close'
+    | 'host-quit'
     | 'com-release';
 
 export type VbaTestHostOracleEvent =
-    | { kind: 'excel-created'; excelId: string; owned: boolean; pid?: number; visible?: boolean }
-    | { kind: 'excel-attached'; excelId: string }
+    | { kind: 'host-created'; hostId: string; owned: boolean; pid?: number; visible?: boolean }
+    | { kind: 'host-attached'; hostId: string }
     | {
         kind: 'host-phase';
-        excelId: string;
+        hostId: string;
         phase: VbaTestHostPhase;
         outcome: 'passed' | 'failed';
         durationMs: number;
         message?: string;
     }
     | {
-        kind: 'workbook-opened';
-        excelId: string;
+        kind: 'file-opened';
+        hostId: string;
         filePath: string;
         readOnly: boolean;
         updateLinks?: number | boolean;
         displayAlerts?: boolean;
         ignoreReadOnlyRecommended?: boolean;
     }
-    | { kind: 'macro-started'; excelId: string; qualifiedName: string; timeoutMs?: number }
+    | { kind: 'macro-started'; hostId: string; qualifiedName: string; timeoutMs?: number }
     | {
         kind: 'modal-detected';
-        excelId: string;
+        hostId: string;
         qualifiedName: string;
         title?: string;
         className?: string;
@@ -68,7 +68,7 @@ export type VbaTestHostOracleEvent =
     }
     | {
         kind: 'modal-dismissed';
-        excelId: string;
+        hostId: string;
         qualifiedName: string;
         title?: string;
         message?: string;
@@ -78,7 +78,7 @@ export type VbaTestHostOracleEvent =
     }
     | {
         kind: 'modal-blocked';
-        excelId: string;
+        hostId: string;
         qualifiedName: string;
         title?: string;
         message?: string;
@@ -88,7 +88,7 @@ export type VbaTestHostOracleEvent =
     }
     | {
         kind: 'macro-finished';
-        excelId: string;
+        hostId: string;
         qualifiedName: string;
         outcome: VbaTestMacroOutcome;
         durationMs?: number;
@@ -97,9 +97,9 @@ export type VbaTestHostOracleEvent =
         errorSource?: string;
         output?: string[];
     }
-    | { kind: 'workbook-closed'; excelId: string; filePath?: string; saveChanges: boolean; durationMs?: number }
-    | { kind: 'excel-quit'; excelId: string; durationMs?: number }
-    | { kind: 'excel-killed'; excelId: string; reason: 'timeout' | 'hung' | 'modal-blocked' | 'runner-error' | 'cleanup-failed' };
+    | { kind: 'file-closed'; hostId: string; filePath?: string; saveChanges: boolean; durationMs?: number }
+    | { kind: 'host-quit'; hostId: string; durationMs?: number }
+    | { kind: 'host-killed'; hostId: string; reason: 'timeout' | 'hung' | 'modal-blocked' | 'runner-error' | 'cleanup-failed' };
 
 /** Prefix marking machine-readable oracle events on the PowerShell host's stdout. */
 export const XLIDE_TEST_HOST_EVENT_PREFIX = 'XLIDE_TEST_HOST_EVENT|';
@@ -127,25 +127,25 @@ export function validateVbaTestHostOracleTrace(
     if (events.length === 0) {
         return [{
             code: 'empty-trace',
-            message: 'The test-host oracle trace must include the Excel lifecycle for a run.',
+            message: 'The test-host oracle trace must include the host application\'s lifecycle for a run.',
         }];
     }
 
-    const created = indexed(events, 'excel-created');
-    const attached = indexed(events, 'excel-attached');
-    const opened = indexed(events, 'workbook-opened');
+    const created = indexed(events, 'host-created');
+    const attached = indexed(events, 'host-attached');
+    const opened = indexed(events, 'file-opened');
     const macroStarted = indexed(events, 'macro-started');
     const macroFinished = indexed(events, 'macro-finished');
     const modalBlocked = indexed(events, 'modal-blocked');
-    const closed = indexed(events, 'workbook-closed');
-    const quit = indexed(events, 'excel-quit');
-    const killed = indexed(events, 'excel-killed');
+    const closed = indexed(events, 'file-closed');
+    const quit = indexed(events, 'host-quit');
+    const killed = indexed(events, 'host-killed');
 
     if (attached.length > 0) {
         for (const entry of attached) {
             issues.push({
-                code: 'attached-excel-instance',
-                message: 'The default VBA test host must not attach to a user Excel instance.',
+                code: 'attached-host-instance',
+                message: 'The default VBA test host must not attach to an application instance the user is running.',
                 eventIndex: entry.index,
             });
         }
@@ -153,32 +153,32 @@ export function validateVbaTestHostOracleTrace(
 
     if (created.length !== 1 || !created[0]?.event.owned) {
         issues.push({
-            code: 'single-owned-excel-instance',
-            message: 'The default VBA test host must create exactly one XLIDE-owned Excel instance per run.',
+            code: 'single-owned-host-instance',
+            message: 'The default VBA test host must create exactly one XLIDE-owned application instance per run.',
             eventIndex: created[0]?.index,
         });
     }
-    const excelId = created[0]?.event.excelId;
+    const hostId = created[0]?.event.hostId;
 
     if (opened.length !== 1) {
         issues.push({
-            code: 'workbook-open-count',
-            message: 'The default VBA test host must open exactly one workbook for the run.',
+            code: 'file-open-count',
+            message: 'The default VBA test host must open exactly one file for the run.',
             eventIndex: opened[0]?.index,
         });
     }
     const openEntry = opened[0];
-    if (openEntry && excelId && openEntry.event.excelId !== excelId) {
+    if (openEntry && hostId && openEntry.event.hostId !== hostId) {
         issues.push({
-            code: 'workbook-open-instance',
-            message: 'The workbook must open inside the single XLIDE-owned Excel instance.',
+            code: 'file-open-instance',
+            message: 'The file must open inside the single XLIDE-owned application instance.',
             eventIndex: openEntry.index,
         });
     }
     if (openEntry) {
         if (!openEntry.event.readOnly) {
             issues.push({
-                code: 'read-only-workbook',
+                code: 'read-only-file',
                 message: 'The default VBA test host must open the file read-only.',
                 eventIndex: openEntry.index,
             });
@@ -186,14 +186,14 @@ export function validateVbaTestHostOracleTrace(
         if (openEntry.event.updateLinks !== 0 && openEntry.event.updateLinks !== false) {
             issues.push({
                 code: 'suppress-link-update',
-                message: 'The default VBA test host must disable link updates when opening the workbook.',
+                message: 'The default VBA test host must disable link updates when opening the file.',
                 eventIndex: openEntry.index,
             });
         }
         if (openEntry.event.displayAlerts !== false) {
             issues.push({
                 code: 'suppress-alerts',
-                message: 'The default VBA test host must suppress Excel alerts that can block automation.',
+                message: 'The default VBA test host must suppress application alerts that can block automation.',
                 eventIndex: openEntry.index,
             });
         }
@@ -207,19 +207,19 @@ export function validateVbaTestHostOracleTrace(
     }
 
     const openIndex = openEntry?.index ?? -1;
-    const firstCloseOrKillIndex = firstIndexAfter(events, openIndex, ['workbook-closed', 'excel-killed']);
+    const firstCloseOrKillIndex = firstIndexAfter(events, openIndex, ['file-closed', 'host-killed']);
     for (const entry of macroStarted) {
-        if (excelId && entry.event.excelId !== excelId) {
+        if (hostId && entry.event.hostId !== hostId) {
             issues.push({
                 code: 'macro-instance',
-                message: 'Every VBA test macro must run in the single XLIDE-owned Excel instance.',
+                message: 'Every VBA test macro must run in the single XLIDE-owned application instance.',
                 eventIndex: entry.index,
             });
         }
         if (entry.index <= openIndex || (firstCloseOrKillIndex >= 0 && entry.index > firstCloseOrKillIndex)) {
             issues.push({
                 code: 'macro-order',
-                message: 'VBA test macros must run after workbook open and before close or kill cleanup.',
+                message: 'VBA test macros must run after the file opens and before close or kill cleanup.',
                 eventIndex: entry.index,
             });
         }
@@ -233,10 +233,10 @@ export function validateVbaTestHostOracleTrace(
         }
     }
     for (const entry of macroFinished) {
-        if (excelId && entry.event.excelId !== excelId) {
+        if (hostId && entry.event.hostId !== hostId) {
             issues.push({
                 code: 'macro-instance',
-                message: 'Every VBA test macro result must come from the single XLIDE-owned Excel instance.',
+                message: 'Every VBA test macro result must come from the single XLIDE-owned application instance.',
                 eventIndex: entry.index,
             });
         }
@@ -244,25 +244,25 @@ export function validateVbaTestHostOracleTrace(
     for (const entry of modalBlocked) {
         const resultAfterModal = macroFinished.find((finished) =>
             finished.index > entry.index &&
-            finished.event.excelId === entry.event.excelId &&
+            finished.event.hostId === entry.event.hostId &&
             finished.event.qualifiedName === entry.event.qualifiedName &&
             finished.event.outcome === 'modal-blocked',
         );
         if (!resultAfterModal) {
             issues.push({
                 code: 'modal-result',
-                message: 'A blocked Excel modal must be reflected as a modal-blocked macro result.',
+                message: 'A blocked modal dialog must be reflected as a modal-blocked macro result.',
                 eventIndex: entry.index,
             });
             continue;
         }
         const killAfterModal = killed.find((kill) =>
-            kill.index > resultAfterModal.index && kill.event.excelId === entry.event.excelId,
+            kill.index > resultAfterModal.index && kill.event.hostId === entry.event.hostId,
         );
         if (!killAfterModal) {
             issues.push({
                 code: 'modal-cleanup',
-                message: 'A blocked Excel modal must clean up the XLIDE-owned Excel instance.',
+                message: 'A blocked modal dialog must clean up the XLIDE-owned application instance.',
                 eventIndex: resultAfterModal.index,
             });
         }
@@ -273,12 +273,12 @@ export function validateVbaTestHostOracleTrace(
     );
     if (firstHang) {
         const killAfterHang = killed.find((entry) =>
-            entry.event.excelId === firstHang.event.excelId && entry.index > firstHang.index,
+            entry.event.hostId === firstHang.event.hostId && entry.index > firstHang.index,
         );
         if (!killAfterHang) {
             issues.push({
                 code: 'hang-cleanup',
-                message: 'A timeout or hang must clean up the XLIDE-owned Excel instance.',
+                message: 'A timeout or hang must clean up the XLIDE-owned application instance.',
                 eventIndex: firstHang.index,
             });
         }
@@ -288,7 +288,7 @@ export function validateVbaTestHostOracleTrace(
         if (macroAfterKill) {
             issues.push({
                 code: 'no-macros-after-kill',
-                message: 'No further VBA test macros may run after the owned Excel instance is killed.',
+                message: 'No further VBA test macros may run after the owned application instance is killed.',
                 eventIndex: macroAfterKill.index,
             });
         }
@@ -296,20 +296,20 @@ export function validateVbaTestHostOracleTrace(
     }
 
     const closeEntry = closed[0];
-    if (!closeEntry || closeEntry.event.excelId !== excelId || closeEntry.event.saveChanges) {
+    if (!closeEntry || closeEntry.event.hostId !== hostId || closeEntry.event.saveChanges) {
         issues.push({
             code: 'close-without-saving',
-            message: 'Normal VBA test runs must close the workbook without saving changes.',
+            message: 'Normal VBA test runs must close the file without saving changes.',
             eventIndex: closeEntry?.index,
         });
     }
     const quitAfterClose = closeEntry
-        ? quit.find((entry) => entry.event.excelId === closeEntry.event.excelId && entry.index > closeEntry.index)
+        ? quit.find((entry) => entry.event.hostId === closeEntry.event.hostId && entry.index > closeEntry.index)
         : undefined;
     if (!quitAfterClose) {
         issues.push({
             code: 'normal-cleanup',
-            message: 'Normal VBA test runs must quit the XLIDE-owned Excel instance after closing the workbook.',
+            message: 'Normal VBA test runs must quit the XLIDE-owned application instance after closing the file.',
             eventIndex: closeEntry?.index,
         });
     }

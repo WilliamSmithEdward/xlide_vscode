@@ -33,11 +33,6 @@ export function containerHostForPath(fsPath: string): VbaHostToken {
 	return hostTokenForFileName(fsPath) ?? 'excel';
 }
 
-/** Containers the Excel-specific surfaces (launcher, VBA tests) accept. */
-export function isExcelContainerPath(fsPath: string): boolean {
-	return containerHostForPath(fsPath) === 'excel';
-}
-
 /** A VB6 project: modules are the files on disk, not streams in a container. */
 export function isVb6ProjectPath(fsPath: string): boolean {
 	return containerHostForPath(fsPath) === 'vb6';
@@ -70,5 +65,5 @@ export function containerContextValue(
 	if (containerHostForPath(fsPath) === 'access') {
 		return 'accessDatabase';
 	}
-	return isExcelContainerPath(fsPath) ? 'xlsm' : 'macroDocument';
+	return containerHostForPath(fsPath) === 'excel' ? 'xlsm' : 'macroDocument';
 }

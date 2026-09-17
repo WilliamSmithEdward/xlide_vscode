@@ -757,6 +757,13 @@ export interface HostMemberTokenContext {
 	 */
 	meType?: string;
 	/**
+	 * The module's own name, when its designer's controls are host-typed
+	 * members of it - an Access form's - so `Me.Lines.AddItem` resolves
+	 * through the control the way a bare `Lines.AddItem` does. Absent
+	 * leaves `Me.` to its host type alone.
+	 */
+	meProjectType?: string;
+	/**
 	 * Project type names visible to the module. A project class named like a
 	 * host type wins the `As` clause, so a local declared with that name must
 	 * not resolve as the host type (issue #33). The kind matters as well as the
@@ -808,6 +815,7 @@ export function collectHostMemberMethodTokens(
 		codeNames: ctx.codeNames,
 		implicitMembers: ctx.implicitMembers as MemberCompletionContext['implicitMembers'],
 		meType: ctx.meType,
+		meProjectType: ctx.meProjectType,
 		// The project's own type names bind before the library's, so a class the
 		// developer named Range must not paint as Excel's (issue #33). Only the
 		// names are known here; empty member lists are enough to claim the name.

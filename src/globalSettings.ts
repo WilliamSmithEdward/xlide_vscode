@@ -42,12 +42,12 @@ interface XlideGlobalSettingUpdateResult<T = unknown> {
 type XlideGlobalSettingsSnapshot = Record<string, unknown>;
 
 interface XlideGlobalSettingValues {
-    'attachToRunningExcel': boolean;
-    'excelIntegration.coordinationMode': ExcelCoordinationMode;
-    'excelIntegration.trackOpenedWorkbooks': boolean;
-    'excelIntegration.reopenAfterClose': boolean;
-    'excelIntegration.reopenMode': ExcelReopenMode;
-    'excelIntegration.reopenReadOnlyAfterSave': boolean;
+    'officeIntegration.attachToRunning': boolean;
+    'officeIntegration.coordinationMode': OfficeCoordinationMode;
+    'officeIntegration.trackOpenedFiles': boolean;
+    'officeIntegration.reopenAfterClose': boolean;
+    'officeIntegration.reopenMode': OfficeReopenMode;
+    'officeIntegration.reopenReadOnlyAfterSave': boolean;
     'formRun.injectShowMacro': FormRunInjectShowMacro;
     'agent.showWriteDiffs': boolean;
     'diagnostics.enabled': boolean;
@@ -66,7 +66,7 @@ interface XlideGlobalSettingValues {
 }
 
 type XlideGlobalSettingKey = keyof XlideGlobalSettingValues;
-type XlideGlobalSettingSection = 'excel' | 'editor' | 'docs' | 'analysis';
+type XlideGlobalSettingSection = 'office' | 'editor' | 'docs' | 'analysis';
 
 type XlideGlobalSettingControl =
     | { kind: 'text' }
@@ -99,22 +99,29 @@ interface XlideGlobalSettingSchema<T> {
     /** contributes.configuration fragment minus scope, default, and description. */
     manifest: Record<string, unknown>;
     webviewCard?: XlideGlobalSettingWebviewCard;
+    /**
+     * The name this setting had before it was renamed. A value still stored
+     * under it is honored until the setting is given one under its new name,
+     * and the old name stays contributed, marked deprecated, so VS Code does
+     * not flag a user's existing entry as unknown.
+     */
+    legacyKey?: string;
 }
 
-const EXCEL_COORDINATION_MODE_VALUES = ['block', 'closeTracked', 'closeForce'] as const;
-const EXCEL_REOPEN_MODE_VALUES = ['lastState', 'readOnly', 'readWrite'] as const;
-export type ExcelCoordinationMode = (typeof EXCEL_COORDINATION_MODE_VALUES)[number];
-export type ExcelReopenMode = (typeof EXCEL_REOPEN_MODE_VALUES)[number];
+const OFFICE_COORDINATION_MODE_VALUES = ['block', 'closeTracked', 'closeForce'] as const;
+const OFFICE_REOPEN_MODE_VALUES = ['lastState', 'readOnly', 'readWrite'] as const;
+export type OfficeCoordinationMode = (typeof OFFICE_COORDINATION_MODE_VALUES)[number];
+export type OfficeReopenMode = (typeof OFFICE_REOPEN_MODE_VALUES)[number];
 
-function normalizeExcelCoordinationMode(value: unknown): ExcelCoordinationMode {
-    return (EXCEL_COORDINATION_MODE_VALUES as readonly string[]).includes(value as string)
-        ? (value as ExcelCoordinationMode)
+function normalizeOfficeCoordinationMode(value: unknown): OfficeCoordinationMode {
+    return (OFFICE_COORDINATION_MODE_VALUES as readonly string[]).includes(value as string)
+        ? (value as OfficeCoordinationMode)
         : 'block';
 }
 
-function normalizeExcelReopenMode(value: unknown): ExcelReopenMode {
-    return (EXCEL_REOPEN_MODE_VALUES as readonly string[]).includes(value as string)
-        ? (value as ExcelReopenMode)
+function normalizeOfficeReopenMode(value: unknown): OfficeReopenMode {
+    return (OFFICE_REOPEN_MODE_VALUES as readonly string[]).includes(value as string)
+        ? (value as OfficeReopenMode)
         : 'lastState';
 }
 
@@ -142,63 +149,68 @@ const DEFAULT_DOC_METADATA_GLOB = '**/*.vbref.xml';
 const XLIDE_GLOBAL_SETTINGS: {
     [K in XlideGlobalSettingKey]: XlideGlobalSettingSchema<XlideGlobalSettingValues[K]>;
 } = {
-    'excelIntegration.coordinationMode': {
-        defaultValue: (): ExcelCoordinationMode => 'block',
-        normalize: normalizeExcelCoordinationMode,
-        validate: (values, problems, key) => expectEnum(values, problems, key, EXCEL_COORDINATION_MODE_VALUES),
-        manifest: { type: 'string', enum: EXCEL_COORDINATION_MODE_VALUES },
+    'officeIntegration.coordinationMode': {
+        defaultValue: (): OfficeCoordinationMode => 'block',
+        normalize: normalizeOfficeCoordinationMode,
+        validate: (values, problems, key) => expectEnum(values, problems, key, OFFICE_COORDINATION_MODE_VALUES),
+        manifest: { type: 'string', enum: OFFICE_COORDINATION_MODE_VALUES },
+        legacyKey: 'excelIntegration.coordinationMode',
         webviewCard: {
-            section: 'excel',
-            label: 'When a Module is Blocked From Saving by Excel',
-            description: 'What XLIDE does when Excel holds the workbook open for editing, which locks the file so a save, add, rename, delete, or F5 cannot write it. Block (default, safest): refuse and ask you to close it in Excel. Close Tracked: gracefully close a workbook XLIDE opened, then proceed. Close Force: close it in any Excel, force-quitting Excel if needed (unsafe; can lose unsaved work in other workbooks).',
-            control: { kind: 'enum', values: EXCEL_COORDINATION_MODE_VALUES },
+            section: 'office',
+            label: 'When a File is Open in Its Application',
+            description: 'What XLIDE does when Excel, Word, PowerPoint or Access holds the file open for editing, which locks it so a save, add, rename, delete, or F5 cannot write it. Block (default, safest): refuse and ask you to close it in its application. Close Tracked: gracefully close a file XLIDE opened, then proceed. Close Force: close it in any running instance, force-quitting the application if needed (unsafe; can lose unsaved work in its other open files). Under every mode XLIDE closes and reopens a read-only copy it opened itself, which holds nothing to lose.',
+            control: { kind: 'enum', values: OFFICE_COORDINATION_MODE_VALUES },
         },
     },
-    'excelIntegration.trackOpenedWorkbooks': {
+    'officeIntegration.trackOpenedFiles': {
         defaultValue: () => true,
         normalize: normalizeBoolean(true),
         validate: expectBoolean,
         manifest: { type: 'boolean' },
+        legacyKey: 'excelIntegration.trackOpenedWorkbooks',
         webviewCard: {
-            section: 'excel',
-            label: 'Close Only Workbooks XLIDE Opened',
-            description: 'When the mode is "Close Tracked", only close workbooks XLIDE itself opened in Excel. Turn off to close a matching workbook in any running Excel, including ones you opened by hand. Ignored for Block and Close Force.',
+            section: 'office',
+            label: 'Close Only Files XLIDE Opened',
+            description: 'When the mode is "Close Tracked", only close files XLIDE itself opened in their application. Turn off to close a matching file in any running instance, including ones you opened by hand. Ignored for Block and Close Force.',
             control: { kind: 'boolean' },
         },
     },
-    'excelIntegration.reopenAfterClose': {
+    'officeIntegration.reopenAfterClose': {
         defaultValue: () => true,
         normalize: normalizeBoolean(true),
         validate: expectBoolean,
         manifest: { type: 'boolean' },
+        legacyKey: 'excelIntegration.reopenAfterClose',
         webviewCard: {
-            section: 'excel',
+            section: 'office',
             label: 'Reopen After Close',
-            description: 'After XLIDE closes a workbook in Excel to write to it (a save, add, rename, or delete under a close mode), reopen it afterward so your Excel view is restored. Turn off to leave it closed until you reopen it yourself.',
+            description: 'After XLIDE closes a file in its application to write to it (a save, add, rename, or delete), reopen it afterward so your view is restored. Turn off to leave it closed until you reopen it yourself.',
             control: { kind: 'boolean' },
         },
     },
-    'excelIntegration.reopenMode': {
-        defaultValue: (): ExcelReopenMode => 'lastState',
-        normalize: normalizeExcelReopenMode,
-        validate: (values, problems, key) => expectEnum(values, problems, key, EXCEL_REOPEN_MODE_VALUES),
-        manifest: { type: 'string', enum: EXCEL_REOPEN_MODE_VALUES },
+    'officeIntegration.reopenMode': {
+        defaultValue: (): OfficeReopenMode => 'lastState',
+        normalize: normalizeOfficeReopenMode,
+        validate: (values, problems, key) => expectEnum(values, problems, key, OFFICE_REOPEN_MODE_VALUES),
+        manifest: { type: 'string', enum: OFFICE_REOPEN_MODE_VALUES },
+        legacyKey: 'excelIntegration.reopenMode',
         webviewCard: {
-            section: 'excel',
+            section: 'office',
             label: 'Reopen As',
-            description: 'How XLIDE reopens a workbook it closed (when "Reopen After Close" is on). Last State (default): put it back the way it was, so read-only stays read-only and editable stays editable. Read-Only: always reopen read-only (keeps the file unlocked for your next save). Read-Write: reopen for editing in Excel (re-locks the file, so the next save closes it again).',
-            control: { kind: 'enum', values: EXCEL_REOPEN_MODE_VALUES },
+            description: 'How XLIDE reopens a file it closed (when "Reopen After Close" is on). Last State (default): put it back the way it was, so read-only stays read-only and editable stays editable. Read-Only: always reopen read-only. Read-Write: reopen for editing, which locks the file again, so the next save closes it again. Access has no read-only open, so a database always reopens for editing.',
+            control: { kind: 'enum', values: OFFICE_REOPEN_MODE_VALUES },
         },
     },
-    'excelIntegration.reopenReadOnlyAfterSave': {
+    'officeIntegration.reopenReadOnlyAfterSave': {
         defaultValue: () => false,
         normalize: normalizeBoolean(false),
         validate: expectBoolean,
         manifest: { type: 'boolean' },
+        legacyKey: 'excelIntegration.reopenReadOnlyAfterSave',
         webviewCard: {
-            section: 'excel',
-            label: 'Reopen Read-Only Workbook After Module Save',
-            description: 'A workbook open read-only in Excel does not lock the file, so XLIDE\'s save succeeds, but Excel keeps showing its older copy. Turn this on to silently close and reopen the read-only workbook after each save so Excel matches the saved file. Only acts when the workbook is actually open read-only; never reopens one you closed or one open for editing.',
+            section: 'office',
+            label: 'Refresh a Read-Only Copy After Module Save',
+            description: 'A workbook open read-only in Excel does not lock the file, so XLIDE\'s save succeeds, but Excel keeps showing its older copy. Turn this on to silently close and reopen the read-only copy after each save so the application matches the saved file. Only acts when the file is actually open read-only; never reopens one you closed or one open for editing. Word and PowerPoint lock the file even when it is read-only, so there XLIDE closes and reopens its own read-only copy around every save regardless of this setting.',
             control: { kind: 'boolean' },
         },
     },
@@ -208,21 +220,22 @@ const XLIDE_GLOBAL_SETTINGS: {
         validate: (values, problems, key) => expectEnum(values, problems, key, FORM_RUN_INJECT_SHOW_MACRO_VALUES),
         manifest: { type: 'string', enum: FORM_RUN_INJECT_SHOW_MACRO_VALUES },
         webviewCard: {
-            section: 'excel',
+            section: 'office',
             label: 'Run Form (F5) Show Macro',
-            description: 'When F5 launches a form workbook, XLIDE can add a small launcher macro to it - one sub per form, all in module XlideRun - and run it so the form opens immediately, the way F5 in the VBE does. Ask (default): confirm the first time a form needs its launcher; once that sub exists F5 just runs it, with no prompt. Always: add and show without asking. Never: F5 just opens the workbook. The subs stay in the workbook and are safe to delete.',
+            description: 'When F5 launches a UserForm in an Excel, Word or PowerPoint file, XLIDE can add a small launcher macro to the file - one sub per form, all in module XlideRun - and run it so the form opens immediately, the way F5 in the VBE does. Ask (default): confirm the first time a form needs its launcher; once that sub exists F5 just runs it, with no prompt. Always: add and show without asking. Never: F5 just opens the file. The subs stay in the file and are safe to delete. An Access form or report needs no launcher: Access opens it by name, so nothing is added to the database.',
             control: { kind: 'enum', values: FORM_RUN_INJECT_SHOW_MACRO_VALUES },
         },
     },
-    'attachToRunningExcel': {
+    'officeIntegration.attachToRunning': {
         defaultValue: () => true,
         normalize: normalizeBoolean(true),
         validate: expectBoolean,
         manifest: { type: 'boolean' },
+        legacyKey: 'attachToRunningExcel',
         webviewCard: {
-            section: 'excel',
-            label: 'Attach To Running Excel',
-            description: 'When opening a workbook or running a macro, reuse a running Excel instance and an already-open copy of the workbook before launching a fresh one. Most users keep this on.',
+            section: 'office',
+            label: 'Attach To Running Application',
+            description: 'When opening a file or running a macro, reuse a running instance of the file\'s application (Excel, Word or Access) and an already-open copy of the file before launching a fresh one. PowerPoint only ever runs one instance. Most users keep this on: turned off, every open and F5 starts another instance, and in Word and Access each one keeps the file locked until you close it.',
             control: { kind: 'boolean' },
         },
     },
@@ -412,8 +425,27 @@ function xlideGlobalSettingManifest(): Record<string, Record<string, unknown>> {
             scope: 'machine',
             default: schema.defaultValue(),
         };
+        if (schema.legacyKey) {
+            manifest[`xlide.${schema.legacyKey}`] = {
+                ...schema.manifest,
+                scope: 'machine',
+                default: schema.defaultValue(),
+                deprecationMessage: legacySettingDeprecationMessage(key),
+            };
+        }
     }
     return manifest;
+}
+
+/** What VS Code shows beside a setting still stored under its old name. */
+function legacySettingDeprecationMessage(key: XlideGlobalSettingKey): string {
+    return `Renamed to xlide.${key}. The value here still applies until that setting is given one.`;
+}
+
+/** The value a user explicitly stored for a key, at any scope. */
+function explicitSettingValue(config: vscode.WorkspaceConfiguration, key: string): unknown {
+    const inspected = typeof config.inspect === 'function' ? config.inspect<unknown>(key) : undefined;
+    return inspected?.globalValue ?? inspected?.workspaceValue ?? inspected?.workspaceFolderValue;
 }
 
 function xlideGlobalSettingFromConfig<K extends XlideGlobalSettingKey>(
@@ -421,6 +453,14 @@ function xlideGlobalSettingFromConfig<K extends XlideGlobalSettingKey>(
     key: K,
 ): ResolvedXlideGlobalSetting<XlideGlobalSettingValues[K]> {
     const schema = XLIDE_GLOBAL_SETTINGS[key];
+    // A renamed setting keeps answering from its old name until the new one
+    // is given a value, so an upgrade never silently drops a user's choice.
+    const legacyValue = schema.legacyKey !== undefined && explicitSettingValue(config, key) === undefined
+        ? explicitSettingValue(config, schema.legacyKey)
+        : undefined;
+    if (legacyValue !== undefined) {
+        return { key: `xlide.${key}`, value: schema.normalize(legacyValue), source: 'machine' };
+    }
     return {
         key: `xlide.${key}`,
         value: schema.normalize(config.get<unknown>(key, schema.defaultValue())),
@@ -442,28 +482,28 @@ function xlideAnalysisRuleSeveritiesFromConfig(config: vscode.WorkspaceConfigura
     return xlideGlobalSettingFromConfig(config, 'analysis.ruleSeverityOverrides');
 }
 
-function xlideAttachToRunningExcelFromConfig(config: vscode.WorkspaceConfiguration) {
-    return xlideGlobalSettingFromConfig(config, 'attachToRunningExcel');
+function xlideOfficeAttachToRunningFromConfig(config: vscode.WorkspaceConfiguration) {
+    return xlideGlobalSettingFromConfig(config, 'officeIntegration.attachToRunning');
 }
 
-function xlideExcelCoordinationModeFromConfig(config: vscode.WorkspaceConfiguration) {
-    return xlideGlobalSettingFromConfig(config, 'excelIntegration.coordinationMode');
+function xlideOfficeCoordinationModeFromConfig(config: vscode.WorkspaceConfiguration) {
+    return xlideGlobalSettingFromConfig(config, 'officeIntegration.coordinationMode');
 }
 
-function xlideExcelTrackOpenedWorkbooksFromConfig(config: vscode.WorkspaceConfiguration) {
-    return xlideGlobalSettingFromConfig(config, 'excelIntegration.trackOpenedWorkbooks');
+function xlideOfficeTrackOpenedFilesFromConfig(config: vscode.WorkspaceConfiguration) {
+    return xlideGlobalSettingFromConfig(config, 'officeIntegration.trackOpenedFiles');
 }
 
-function xlideExcelReopenAfterCloseFromConfig(config: vscode.WorkspaceConfiguration) {
-    return xlideGlobalSettingFromConfig(config, 'excelIntegration.reopenAfterClose');
+function xlideOfficeReopenAfterCloseFromConfig(config: vscode.WorkspaceConfiguration) {
+    return xlideGlobalSettingFromConfig(config, 'officeIntegration.reopenAfterClose');
 }
 
-function xlideExcelReopenModeFromConfig(config: vscode.WorkspaceConfiguration) {
-    return xlideGlobalSettingFromConfig(config, 'excelIntegration.reopenMode');
+function xlideOfficeReopenModeFromConfig(config: vscode.WorkspaceConfiguration) {
+    return xlideGlobalSettingFromConfig(config, 'officeIntegration.reopenMode');
 }
 
-function xlideExcelReopenReadOnlyAfterSaveFromConfig(config: vscode.WorkspaceConfiguration) {
-    return xlideGlobalSettingFromConfig(config, 'excelIntegration.reopenReadOnlyAfterSave');
+function xlideOfficeReopenReadOnlyAfterSaveFromConfig(config: vscode.WorkspaceConfiguration) {
+    return xlideGlobalSettingFromConfig(config, 'officeIntegration.reopenReadOnlyAfterSave');
 }
 
 function xlideDiagnosticsEnabledFromConfig(config: vscode.WorkspaceConfiguration) {
@@ -626,9 +666,15 @@ async function resetXlideGlobalSettingValue(
     key: XlideGlobalSettingKey,
 ): Promise<XlideGlobalSettingUpdateResult> {
     const inspect = typeof config.inspect === 'function' ? config.inspect(key) : undefined;
-    const changed = inspect?.globalValue !== undefined;
+    let changed = inspect?.globalValue !== undefined;
     if (changed) {
         await config.update(key, undefined, true);
+    }
+    // A value left under the setting's old name would show through the reset.
+    const legacyKey = XLIDE_GLOBAL_SETTINGS[key].legacyKey;
+    if (legacyKey !== undefined && explicitSettingValue(config, legacyKey) !== undefined) {
+        await config.update(legacyKey, undefined, true);
+        changed = true;
     }
     return {
         key: `xlide.${key}`,
@@ -797,12 +843,12 @@ export {
     xlideAnalysisRuleSeveritiesFromConfig,
     xlideAnalysisUntrackedRulesFromConfig,
     xlideAnalysisVisibleSeveritiesFromConfig,
-    xlideAttachToRunningExcelFromConfig,
-    xlideExcelCoordinationModeFromConfig,
-    xlideExcelTrackOpenedWorkbooksFromConfig,
-    xlideExcelReopenAfterCloseFromConfig,
-    xlideExcelReopenModeFromConfig,
-    xlideExcelReopenReadOnlyAfterSaveFromConfig,
+    xlideOfficeAttachToRunningFromConfig,
+    xlideOfficeCoordinationModeFromConfig,
+    xlideOfficeTrackOpenedFilesFromConfig,
+    xlideOfficeReopenAfterCloseFromConfig,
+    xlideOfficeReopenModeFromConfig,
+    xlideOfficeReopenReadOnlyAfterSaveFromConfig,
     xlideAnalysisIgnoreFilesOutsideTreeFromConfig,
     xlideDiagnosticsEnabledFromConfig,
     xlideDocsEnabledFromConfig,

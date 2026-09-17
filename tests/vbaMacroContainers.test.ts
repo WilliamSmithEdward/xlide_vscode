@@ -344,7 +344,7 @@ describe('the module sync plans cover the non-Excel containers', () => {
 // the Run VBA Tests command performs, against a real Word fixture.
 
 import { discoverVbaTestsFromModule } from '../src/vbaTestRunner';
-import { stageOwnedReadOnlyExcelTestHost } from '../src/vbaTestHostStaging';
+import { stageOwnedReadOnlyTestHost } from '../src/vbaTestHostStaging';
 
 describe('test staging covers Word containers', () => {
 	it('stages assert, runner and dispatcher modules into a .docm copy', async () => {
@@ -367,14 +367,14 @@ describe('test staging covers Word containers', () => {
 		});
 		expect(tests.map((test) => test.qualifiedName)).toEqual(['ZzTests.ChecksArithmetic']);
 
-		const staging = await stageOwnedReadOnlyExcelTestHost(
+		const staging = await stageOwnedReadOnlyTestHost(
 			realServiceBridge(), target, tests, { hostApp: 'word', log: () => undefined },
 		);
 		try {
-			const staged = svc.listModules(staging.tempWorkbookPath).map((module) => module.name);
+			const staged = svc.listModules(staging.tempFilePath).map((module) => module.name);
 			expect(staged).toEqual(expect.arrayContaining(['XlideAssert', 'ZzTests', 'XlideTestDispatch']));
 			expect(staged.some((name) => name.startsWith('XlideRun'))).toBe(true);
-			const dispatcher = svc.readModule(staging.tempWorkbookPath, 'XlideTestDispatch', true).source;
+			const dispatcher = svc.readModule(staging.tempFilePath, 'XlideTestDispatch', true).source;
 			expect(dispatcher).toContain('ZzTests.HelperTarget');
 			expect(dispatcher).toContain('XlideAssert.RecordTargetOutcome');
 			const script = fs.readFileSync(staging.hostScriptPath, 'utf8');
@@ -383,7 +383,7 @@ describe('test staging covers Word containers', () => {
 			expect(script.charCodeAt(0)).toBe(0xfeff);
 			expect(script).toContain("$hostKind = 'word'");
 			expect(script).toContain('$excel.Documents.Open($targetPath, $false, $true, $false)');
-			expect(validateProject(staging.tempWorkbookPath).issues).toEqual([]);
+			expect(validateProject(staging.tempFilePath).issues).toEqual([]);
 		} finally {
 			staging.dispose();
 		}

@@ -135,14 +135,14 @@ export function openModuleSyncPreview(
                 return;
             }
             await measurePerformance('moduleSync.refreshProjectSettings', currentPlan.direction, async () => {
-                await panel.webview.postMessage({ type: 'refreshing', message: 'Workbook settings changed. Refreshing preview...' });
+                await panel.webview.postMessage({ type: 'refreshing', message: 'File settings changed. Refreshing preview...' });
                 const nextPlan = await reload();
                 if (nextPlan) {
                     updateCurrentPlan(nextPlan);
                     await panel.webview.postMessage({
                         type: 'plan',
                         plan: currentPlan,
-                        message: 'Workbook settings changed. Preview refreshed.',
+                        message: 'File settings changed. Preview refreshed.',
                     });
                 } else {
                     await panel.webview.postMessage({ type: 'ready' });

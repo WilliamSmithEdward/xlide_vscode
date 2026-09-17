@@ -14,12 +14,12 @@ import {
 } from '../src/globalSettings';
 
 const validSettings = {
-    attachToRunningExcel: true,
-    'excelIntegration.coordinationMode': 'block',
-    'excelIntegration.trackOpenedWorkbooks': true,
-    'excelIntegration.reopenAfterClose': true,
-    'excelIntegration.reopenMode': 'readOnly',
-    'excelIntegration.reopenReadOnlyAfterSave': false,
+    'officeIntegration.attachToRunning': true,
+    'officeIntegration.coordinationMode': 'block',
+    'officeIntegration.trackOpenedFiles': true,
+    'officeIntegration.reopenAfterClose': true,
+    'officeIntegration.reopenMode': 'readOnly',
+    'officeIntegration.reopenReadOnlyAfterSave': false,
     'diagnostics.enabled': true,
     'analysis.ruleSeverityOverrides': {},
     'analysis.visibleSeverities': ['error', 'warning', 'information'],
@@ -87,11 +87,11 @@ describe('globalSettings', () => {
     it('reports malformed non-analysis settings through the same contract', () => {
         expect(validateXlideGlobalSettingsValues({
             ...validSettings,
-            attachToRunningExcel: 'yes',
+            'officeIntegration.attachToRunning': 'yes',
             'editor.blockLayout': 'spacious',
         }).map((problem) => problem.key)).toEqual([
-            'xlide.attachToRunningExcel',
             'xlide.editor.blockLayout',
+            'xlide.officeIntegration.attachToRunning',
         ]);
     });
 
@@ -140,21 +140,21 @@ describe('globalSettings', () => {
             'xlide.analysis.ruleSeverityOverrides',
             'xlide.analysis.untrackedRules',
             'xlide.analysis.visibleSeverities',
-            'xlide.attachToRunningExcel',
             'xlide.diagnostics.enabled',
             'xlide.docs.enabled',
             'xlide.docs.metadataGlob',
             'xlide.editor.blockLayout',
             'xlide.editor.continueCommentOnNewline',
             'xlide.editor.mirrorCommentSpacing',
-            'xlide.excelIntegration.coordinationMode',
-            'xlide.excelIntegration.reopenAfterClose',
-            'xlide.excelIntegration.reopenMode',
-            'xlide.excelIntegration.reopenReadOnlyAfterSave',
-            'xlide.excelIntegration.trackOpenedWorkbooks',
             'xlide.explorer.autoExpandCollapse',
             'xlide.explorer.view',
             'xlide.formRun.injectShowMacro',
+            'xlide.officeIntegration.attachToRunning',
+            'xlide.officeIntegration.coordinationMode',
+            'xlide.officeIntegration.reopenAfterClose',
+            'xlide.officeIntegration.reopenMode',
+            'xlide.officeIntegration.reopenReadOnlyAfterSave',
+            'xlide.officeIntegration.trackOpenedFiles',
             'xlide.performance.trace',
         ]);
         expect(settings.find((setting) => setting.key === 'xlide.docs.metadataGlob')).toMatchObject({
@@ -275,5 +275,56 @@ describe('globalSettings', () => {
             value: undefined,
             target: true,
         }]);
+    });
+
+    // The Office integration settings were xlide.excelIntegration.* (and
+    // xlide.attachToRunningExcel) while they only served Excel.
+    describe('a setting that was renamed', () => {
+        const coordinationMode = (config: ReturnType<typeof fakeConfig>) =>
+            resolvedXlideGlobalSettingsFromConfig(config)
+                .find((setting) => setting.key === 'xlide.officeIntegration.coordinationMode');
+
+        it('still answers from its old name until the new one is given a value', () => {
+            const config = fakeConfig(
+                { 'excelIntegration.coordinationMode': 'closeTracked' },
+                new Set(['excelIntegration.coordinationMode']),
+            );
+            expect(coordinationMode(config)).toMatchObject({ value: 'closeTracked', source: 'machine' });
+        });
+
+        it('prefers the new name once it has a value', () => {
+            const config = fakeConfig(
+                {
+                    'excelIntegration.coordinationMode': 'closeTracked',
+                    'officeIntegration.coordinationMode': 'closeForce',
+                },
+                new Set(['excelIntegration.coordinationMode', 'officeIntegration.coordinationMode']),
+            );
+            expect(coordinationMode(config)).toMatchObject({ value: 'closeForce', source: 'machine' });
+        });
+
+        it('normalizes a malformed old value to the safe default', () => {
+            const config = fakeConfig(
+                { 'excelIntegration.coordinationMode': 'closeEverything' },
+                new Set(['excelIntegration.coordinationMode']),
+            );
+            expect(coordinationMode(config)).toMatchObject({ value: 'block' });
+        });
+
+        it('clears the old name on reset, or its value would show through again', async () => {
+            const updates: Array<{ key: string; value: unknown; target: unknown }> = [];
+            const config = fakeConfig(
+                { attachToRunningExcel: false },
+                new Set(['attachToRunningExcel']),
+                updates,
+            );
+
+            await expect(resetXlideGlobalSettingValue(config, 'officeIntegration.attachToRunning')).resolves.toEqual({
+                key: 'xlide.officeIntegration.attachToRunning',
+                value: true,
+                changed: true,
+            });
+            expect(updates).toEqual([{ key: 'attachToRunningExcel', value: undefined, target: true }]);
+        });
     });
 });

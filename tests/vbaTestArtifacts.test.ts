@@ -100,6 +100,14 @@ describe('VBA test artifacts', () => {
         expect(status.failedTests[0]).not.toHaveProperty('column');
         expect(status.host).toEqual({
             eventCount: 0,
+            application: {
+                created: 0,
+                quitNormally: false,
+                killed: 0,
+                killReasons: [],
+            },
+            // The name `application` had while only Excel hosted runs, kept
+            // with the same numbers so an existing CI script keeps reading.
             excel: {
                 created: 0,
                 quitNormally: false,
@@ -142,11 +150,11 @@ describe('VBA test artifacts', () => {
         const status = createVbaTestCiStatus(report, paths, {
             generatedAt: new Date('2026-06-03T21:23:00.000Z'),
             hostEvents: [
-                { kind: 'excel-created', excelId: 'xlide-1', owned: true, pid: 123 },
-                { kind: 'macro-started', excelId: 'xlide-1', qualifiedName: 'Tests.DecisionDialog', timeoutMs: 5000 },
+                { kind: 'host-created', hostId: 'xlide-1', owned: true, pid: 123 },
+                { kind: 'macro-started', hostId: 'xlide-1', qualifiedName: 'Tests.DecisionDialog', timeoutMs: 5000 },
                 {
                     kind: 'modal-blocked',
-                    excelId: 'xlide-1',
+                    hostId: 'xlide-1',
                     qualifiedName: 'Tests.DecisionDialog',
                     title: 'Question',
                     message: 'Continue?',
@@ -154,8 +162,8 @@ describe('VBA test artifacts', () => {
                     buttonIds: [6, 7, 2],
                     reason: 'decision-or-unknown-dialog',
                 },
-                { kind: 'macro-finished', excelId: 'xlide-1', qualifiedName: 'Tests.DecisionDialog', outcome: 'modal-blocked' },
-                { kind: 'excel-killed', excelId: 'xlide-1', reason: 'modal-blocked' },
+                { kind: 'macro-finished', hostId: 'xlide-1', qualifiedName: 'Tests.DecisionDialog', outcome: 'modal-blocked' },
+                { kind: 'host-killed', hostId: 'xlide-1', reason: 'modal-blocked' },
             ],
         });
 
@@ -163,6 +171,12 @@ describe('VBA test artifacts', () => {
             status: 'error',
             reason: 'host-errors',
             host: {
+                application: {
+                    created: 1,
+                    quitNormally: false,
+                    killed: 1,
+                    killReasons: ['modal-blocked'],
+                },
                 excel: {
                     created: 1,
                     quitNormally: false,
@@ -192,22 +206,22 @@ describe('VBA test artifacts', () => {
             result('Tests.Passes', 'passed', 10, undefined, ['created invoice', 'checked total']),
         ]);
         const hostEvents: VbaTestHostOracleEvent[] = [
-            { kind: 'host-phase', excelId: 'xlide-1', phase: 'excel-create', outcome: 'passed', durationMs: 120 },
-            { kind: 'excel-created', excelId: 'xlide-1', owned: true, pid: 123 },
-            { kind: 'host-phase', excelId: 'xlide-1', phase: 'workbook-open', outcome: 'passed', durationMs: 80 },
+            { kind: 'host-phase', hostId: 'xlide-1', phase: 'host-create', outcome: 'passed', durationMs: 120 },
+            { kind: 'host-created', hostId: 'xlide-1', owned: true, pid: 123 },
+            { kind: 'host-phase', hostId: 'xlide-1', phase: 'file-open', outcome: 'passed', durationMs: 80 },
             {
-                kind: 'workbook-opened',
-                excelId: 'xlide-1',
+                kind: 'file-opened',
+                hostId: 'xlide-1',
                 filePath: workbook,
                 readOnly: true,
                 updateLinks: 0,
                 displayAlerts: false,
                 ignoreReadOnlyRecommended: true,
             },
-            { kind: 'macro-started', excelId: 'xlide-1', qualifiedName: 'Tests.Passes', timeoutMs: 30000 },
+            { kind: 'macro-started', hostId: 'xlide-1', qualifiedName: 'Tests.Passes', timeoutMs: 30000 },
             {
                 kind: 'modal-detected',
-                excelId: 'xlide-1',
+                hostId: 'xlide-1',
                 qualifiedName: 'Tests.Passes',
                 title: 'Smoke',
                 message: 'hello',
@@ -216,18 +230,18 @@ describe('VBA test artifacts', () => {
             },
             {
                 kind: 'modal-dismissed',
-                excelId: 'xlide-1',
+                hostId: 'xlide-1',
                 qualifiedName: 'Tests.Passes',
                 title: 'Smoke',
                 button: 'OK',
                 dismissed: true,
             },
-            { kind: 'macro-finished', excelId: 'xlide-1', qualifiedName: 'Tests.Passes', outcome: 'passed', durationMs: 10 },
-            { kind: 'workbook-closed', excelId: 'xlide-1', filePath: workbook, saveChanges: false, durationMs: 30 },
-            { kind: 'host-phase', excelId: 'xlide-1', phase: 'workbook-close', outcome: 'passed', durationMs: 30 },
-            { kind: 'excel-quit', excelId: 'xlide-1', durationMs: 15 },
-            { kind: 'host-phase', excelId: 'xlide-1', phase: 'excel-quit', outcome: 'passed', durationMs: 15 },
-            { kind: 'host-phase', excelId: 'xlide-1', phase: 'com-release', outcome: 'passed', durationMs: 20 },
+            { kind: 'macro-finished', hostId: 'xlide-1', qualifiedName: 'Tests.Passes', outcome: 'passed', durationMs: 10 },
+            { kind: 'file-closed', hostId: 'xlide-1', filePath: workbook, saveChanges: false, durationMs: 30 },
+            { kind: 'host-phase', hostId: 'xlide-1', phase: 'file-close', outcome: 'passed', durationMs: 30 },
+            { kind: 'host-quit', hostId: 'xlide-1', durationMs: 15 },
+            { kind: 'host-phase', hostId: 'xlide-1', phase: 'host-quit', outcome: 'passed', durationMs: 15 },
+            { kind: 'host-phase', hostId: 'xlide-1', phase: 'com-release', outcome: 'passed', durationMs: 20 },
         ];
 
         const written = await writeVbaTestRunArtifacts(report, hostEvents, {
@@ -245,9 +259,9 @@ describe('VBA test artifacts', () => {
         });
         const hostTrace = JSON.parse(fs.readFileSync(written.hostTracePath, 'utf8'));
         expect(hostTrace.schemaVersion).toBe(1);
-        expect(hostTrace.events[1]).toMatchObject({ kind: 'excel-created' });
-        expect(hostTrace.events[3]).toMatchObject({ kind: 'workbook-opened', filePath: 'Live Test.xlsm' });
-        expect(hostTrace.events[8]).toMatchObject({ kind: 'workbook-closed', filePath: 'Live Test.xlsm' });
+        expect(hostTrace.events[1]).toMatchObject({ kind: 'host-created' });
+        expect(hostTrace.events[3]).toMatchObject({ kind: 'file-opened', filePath: 'Live Test.xlsm' });
+        expect(hostTrace.events[8]).toMatchObject({ kind: 'file-closed', filePath: 'Live Test.xlsm' });
         expect(fs.readFileSync(written.outputLogPath, 'utf8')).toContain('Status: pass (passed)');
         expect(fs.readFileSync(written.outputLogPath, 'utf8')).toContain('output: created invoice');
         expect(fs.readFileSync(written.outputLogPath, 'utf8')).toContain('output: checked total');
@@ -259,7 +273,7 @@ describe('VBA test artifacts', () => {
             },
             host: {
                 eventCount: 13,
-                excel: {
+                application: {
                     created: 1,
                     quitNormally: true,
                     killed: 0,
@@ -273,10 +287,10 @@ describe('VBA test artifacts', () => {
                 },
                 phases: [
                     { phase: 'com-release', count: 1, failed: 0, totalDurationMs: 20, maxDurationMs: 20 },
-                    { phase: 'excel-create', count: 1, failed: 0, totalDurationMs: 120, maxDurationMs: 120 },
-                    { phase: 'excel-quit', count: 1, failed: 0, totalDurationMs: 15, maxDurationMs: 15 },
-                    { phase: 'workbook-close', count: 1, failed: 0, totalDurationMs: 30, maxDurationMs: 30 },
-                    { phase: 'workbook-open', count: 1, failed: 0, totalDurationMs: 80, maxDurationMs: 80 },
+                    { phase: 'file-close', count: 1, failed: 0, totalDurationMs: 30, maxDurationMs: 30 },
+                    { phase: 'file-open', count: 1, failed: 0, totalDurationMs: 80, maxDurationMs: 80 },
+                    { phase: 'host-create', count: 1, failed: 0, totalDurationMs: 120, maxDurationMs: 120 },
+                    { phase: 'host-quit', count: 1, failed: 0, totalDurationMs: 15, maxDurationMs: 15 },
                 ],
             },
 		});
@@ -328,14 +342,14 @@ describe('VBA test artifacts', () => {
         const workbook = tempWorkbook('Book.xlsm');
         const events: VbaTestHostOracleEvent[] = [
             {
-                kind: 'workbook-opened',
-                excelId: 'xlide-1',
+                kind: 'file-opened',
+                hostId: 'xlide-1',
                 filePath: workbook,
                 readOnly: true,
             },
             {
-                kind: 'workbook-closed',
-                excelId: 'xlide-1',
+                kind: 'file-closed',
+                hostId: 'xlide-1',
                 filePath: path.join(path.dirname(workbook), 'Other.xlsm'),
                 saveChanges: false,
             },

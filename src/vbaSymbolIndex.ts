@@ -68,7 +68,7 @@ interface VbaModuleSourceEntry extends VbaModuleEntry {
 }
 
 const MODULE_LIST_CACHE_TTL_MS = 5_000;
-const WORKBOOK_INDEX_YIELD_EVERY_MODULES = 8;
+const PROJECT_INDEX_YIELD_EVERY_MODULES = 8;
 
 /**
  * Workbook-scoped VBA module source cache. Lazily loads modules on first
@@ -297,7 +297,7 @@ export class VbaSymbolIndex implements vscode.Disposable {
                 existing.designerClass = entry.designerClass;
                 existing.filePath = entry.filePath;
                 out.push(existing);
-                if ((index + 1) % WORKBOOK_INDEX_YIELD_EVERY_MODULES === 0) {
+                if ((index + 1) % PROJECT_INDEX_YIELD_EVERY_MODULES === 0) {
                     await yieldToExtensionHost();
                 }
                 continue;
@@ -314,7 +314,7 @@ export class VbaSymbolIndex implements vscode.Disposable {
             };
             wb.modules.set(moduleKey, mod);
             out.push(mod);
-            if ((index + 1) % WORKBOOK_INDEX_YIELD_EVERY_MODULES === 0) {
+            if ((index + 1) % PROJECT_INDEX_YIELD_EVERY_MODULES === 0) {
                 await yieldToExtensionHost();
             }
         }

@@ -2,7 +2,7 @@
 
 ## Overview
 
-XLIDE is a VS Code extension that turns macro-enabled Office files into first-class editable documents: Excel workbooks and add-ins (`.xlsm`, `.xlsb`, `.xlam`, `.xls`), Word documents and templates (`.docm`, `.dotm`, `.doc`), PowerPoint presentations (`.pptm`, `.potm`, `.ppsm`, `.ppt`), and read-only Access databases (`.accdb`, `.mdb`). VBA modules open in the editor like normal source files, Ctrl+S writes them back into the file, and 18 VS Code language model tools expose file-aware operations to Copilot and compatible agents.
+XLIDE is a VS Code extension that turns macro-enabled Office files into first-class editable documents: Excel workbooks and add-ins (`.xlsm`, `.xlsb`, `.xlam`, `.xls`), Word documents and templates (`.docm`, `.dotm`, `.doc`), PowerPoint presentations (`.pptm`, `.potm`, `.ppsm`, `.ppt`), and Access databases (`.accdb`, `.mdb`). VBA modules open in the editor like normal source files, Ctrl+S writes them back into the file, and 18 VS Code language model tools expose file-aware operations to Copilot and compatible agents.
 
 Everything runs in the extension host. There is no backend process, no interpreter, and no third-party library between XLIDE and the file:
 
@@ -96,7 +96,8 @@ xlide_vscode/
 
     webview/            Shared webview scaffold: templates.ts (assets/webview loader), html.ts, page.ts, refresh.ts, panelRegistry.ts, styles.ts
 
-    macroContainerUi.ts UI-side container facts by extension: discovery glob, host token, read-only status, context values, app display names
+    macroContainerUi.ts UI-side container facts by extension: discovery glob, host token, context values, app display names
+    officeHostApps.ts   The Office applications XLIDE drives, described once: ProgID, process name, display name, file noun
     vba/
       macroContainer.ts [MS-CFB]/[MS-OVBA] container seam: content-sniffed format detection, per-container VBA CFB access, per-container write-back
       cfb.ts            [MS-CFB] compound file binary reader/writer (canonical rebuild on save)
@@ -347,6 +348,23 @@ the form's event-handler stubs (`Form_Load`, `Command1_Click(Index As
 Integer)`) come from the model's events. The model offers and describes and
 never produces a red on its own.
 
+An Access form or report works the same way. The engine names the design's
+class on the module entry (`Access.Form`, `Access.Report`) and lists its
+sections and controls as members, each under the identifier VBA knows it by
+(`accessVbaIdentifier`: `Order Date` is `Order_Date`), and the stubs come from
+the model's events. Those events are read from the Access type library
+(`scripts/dump-event-sources.py`), because the reference dumps cannot supply
+them: they record no `ByVal`, which VBA checks when it compiles a handler, and
+they lost TextBox, CheckBox and ComboBox to a file-name clash. A class's events
+are its DEFAULT source interface's, so a form's are `_FormEvents2`. A report
+section keeps the type `Access.Section` and carries `eventClass`, because the
+library binds its handlers against `_SectionInReport` (or `_PageHdrFtrInReport`),
+which add `Format`, `Print` and `Retreat`. The type-library file is part of the
+uncommitted reference corpus; what holds the committed model to Access is
+`tests/fixtures/access/eventHandlerOracle.json`, the 722 handlers Access 16.0
+wrote through `Module.CreateEventProc`
+(`scripts/measure-access-event-handlers.py`).
+
 A VB6 form's designer is the MSForms designer's canvas over the form's own
 file (`src/vb6FormDesigner.ts`, view type `xlideVb6FormDesigner`: an Open
 With option on `.frm`/`.ctl`/`.pag`, and the explorer's Designer row). The
@@ -402,9 +420,10 @@ stream lookups are storage-agnostic (a storage named `VBA` is found wherever
 it sits, with a flat-root fallback), so the same parser reads a
 `vbaProject.bin`, a `.doc`, an `.xls`, and the Access synthetic CFB unchanged.
 
-Access is read-only for cause, not convenience: Access executes compiled
-p-code, and the MS-OVBA source blob this reader extracts is a passive cache,
-so writing source there would silently change nothing. `.ppt` writes rebuild
+Access executes compiled p-code, and the MS-OVBA source blob this reader
+extracts is a passive cache, so writing source alone would silently change
+nothing. The Access writer therefore marks the compiled cache stale as well,
+and Access recompiles on the next open. `.ppt` writes rebuild
 the embedded record in place and shift every absolute offset carrier - the
 persist directories, the user-edit chain, and the `Current User` stream's
 `CurrentUserAtom` - by the size delta; nothing else in the format addresses by
@@ -416,8 +435,8 @@ Excel only; other containers refuse those methods with the container named in
 the error.
 
 `src/macroContainerUi.ts` is the UI-side mirror: the discovery glob, the host
-token per extension, read-only status, tree context values
-(`xlsm`/`macroDocument`/`macroReadOnly`), and application display names for
+token per extension, tree context values
+(`xlsm`/`macroDocument`/`accessDatabase`/`vb6Project`), and application display names for
 messages, for the surfaces that must answer synchronously before a file is
 opened.
 
@@ -425,13 +444,21 @@ opened.
 
 ## Windows Office COM behavior
 
-The commands `xlide.openWorkbook` and `xlide.runMacroAtCursor` use PowerShell COM automation on Windows and remain Excel surfaces; non-Excel containers get `xlide.openInOfficeApp`, which opens the file in its default application without COM. The VBA test host (see `docs/xlide_vba_com_test_runner.md`) automates Excel, Word, or PowerPoint, chosen by the file's container.
+Every COM surface serves the application that owns the file - Excel, Word, PowerPoint, or Access - chosen by `officeHostForPath` (`src/officeHostApps.ts`, the one table of ProgIDs, process names and display names). A VB6 project has no Office host and opens through the OS association.
 
-Setting:
+- `src/officeHostLauncher.ts` builds the PowerShell COM scripts: `xlide.openInOfficeApp` / `xlide.openInOfficeAppReadOnly` (open or re-foreground the file), `xlide.runMacroAtCursor` (reopen read-only where the application has such a thing, then `Run`), and the form F5 (a launcher macro for a UserForm in Excel, Word or PowerPoint; `DoCmd.OpenForm` / `OpenReport` by name for an Access design, which writes nothing). `xlide.openWorkbook` and `xlide.openWorkbookReadOnly` are the two Open commands' former ids, still registered so existing keybindings work.
+- `src/officeWriteCoordinator.ts` wraps every container write. XLIDE saves by renaming a temp file over the container, and Windows refuses that rename with `EPERM` while the application holds the file. `xlide.officeIntegration.coordinationMode` then decides: `block` (default) rethrows so the locked-file notice shows, `closeTracked` closes a file XLIDE opened, `closeForce` closes it anywhere and kills the application's processes as a last resort. After the retry the file is reopened the way it was. Under every mode a READ-ONLY copy XLIDE itself opened may be closed and reopened, because it holds nothing to lose and F5 already does exactly that.
+- The VBA test host (see `docs/xlide_vba_com_test_runner.md`) automates an instance it owns, of the same four applications.
 
-- `xlide.attachToRunningExcel` (default `true`)
-  - `true`: tries to attach to a running `Excel.Application` and reuse an already-open workbook (matched by full path or workbook name) before opening.
-  - `false`: always opens through a new COM-created Excel application path.
+Measured host differences the scripts encode (Office 16.0): a workbook open read-only in Excel does not lock the file, while a read-only document in Word or presentation in PowerPoint does, and Access has no read-only open; PowerPoint runs a single instance; Access holds one database per instance, quits as the script releases it unless `UserControl` is set, and refuses any write to `Visible` once the user controls it.
+
+Settings:
+
+- `xlide.officeIntegration.attachToRunning` (default `true`)
+  - `true`: tries to attach to a running instance of the file's application and reuse an already-open copy (matched by full path or file name) before opening.
+  - `false`: always starts a new instance (PowerPoint only ever has one).
+- `xlide.officeIntegration.coordinationMode`, `.trackOpenedFiles`, `.reopenAfterClose`, `.reopenMode`, `.reopenReadOnlyAfterSave`.
+- The settings' former names, `xlide.excelIntegration.*` and `xlide.attachToRunningExcel`, stay contributed with a `deprecationMessage`; a value stored under one is honored until its new name is given a value (`legacyKey` in `src/globalSettings.ts`).
 
 ---
 
@@ -461,10 +488,11 @@ Every method takes any macro container. The sheet/cell methods (`listSheets`,
 `readCells`, `readFormulas`, `writeCells`) require the OOXML Excel container
 and refuse others with the container named; `getProjectInfo` answers modules
 and protection for every container and empty sheet/name lists where no sheet
-surface exists. The write methods refuse Access with the p-code reason.
-`createProject` seeds `.xlsm`/`.xlsb`/`.xlam`/`.docm`/`.dotm`/`.pptm`/`.potm`
-from application-authored templates and refuses legacy formats, `.ppsm`, and
-non-macro formats with the reason. `readFormExport`/`writeFormDesigner`
+surface exists. The write methods serve every container, Access included.
+`createProject` seeds `.xlsm`/`.xlsb`/`.xlam`/`.xltm`/`.docm`/`.dotm`/`.pptm`/
+`.potm`/`.accdb`/`.accda`/`.mdb`/`.mda` from application-authored templates
+and refuses legacy formats, `.ppsm`, `.ppam`, and non-macro formats with the
+reason. `readFormExport`/`writeFormDesigner`
 compose and apply a form's `.frm`/`.frx` pair in any writable container.
 
 ---
@@ -1163,7 +1191,7 @@ Diagnostic severity policy:
 | Deterministic VBE compile failure | Error / red squiggly | `vbeCompileEquivalent: true` with a spec reference or oracle-verified behavior |
 | Deterministic runtime failure | Error / red squiggly | `vbeCompileEquivalent: false`, `diagnosticKind: "deterministic-runtime-error"`, and focused runtime-oracle evidence or equivalent deterministic proof |
 | Runtime risk or XLIDE-invalid guidance | Warning / yellow squiggly | `vbeCompileEquivalent: false`, explicit `category`, and tests that prove the analyzer has enough information |
-| XLIDE-only guidance or style | Warning / yellow squiggly or lower | `vbeCompileEquivalent: false` and non-compile category such as `style`, `excel-host`, or `project-symbol` |
+| XLIDE-only guidance or style | Warning / yellow squiggly or lower | `vbeCompileEquivalent: false` and non-compile category such as `style`, `office-host`, or `project-symbol` |
 | Uncertain, incomplete while typing, host-dependent, or heuristic-only behavior | No diagnostic | No active rule until the behavior is spec-backed or oracle-verified; if the final syntax is oracle-verified invalid but useful while typing, live diagnostics may suppress the diagnostic only for the active edit line |
 
 - `src/analyzer/diagnostics/analyzeModule.ts` exposes

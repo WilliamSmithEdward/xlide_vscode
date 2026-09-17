@@ -1,12 +1,12 @@
 # XLIDE owned read-only Office test host (static body).
-# buildOwnedReadOnlyExcelTestHostScript (src/vbaTestExcelHost.ts) prepends the
+# buildOwnedReadOnlyTestHostScript (src/vbaTestOfficeHost.ts) prepends the
 # dynamic preamble before this body: $ErrorActionPreference,
 # $ProgressPreference, $targetPath, $testsJson, $runnerModuleName, $failFast,
 # $eventPrefix, $hostKind/$hostProgId/$hostProcessName/$hostNoun (which Office
-# application hosts the run: excel, word, or powerpoint), and
+# application hosts the run: excel, word, powerpoint, or access), and
 # $modalWatcherSource (assets/testhost/XlideTestModalWatcher.cs).
-# Event names keep their excel-flavored identifiers for every host: they are
-# wire-protocol ids consumed by vbaTestHostOracle, not display text.
+# Event names say "host" and "file" for every application: they reach the
+# user in host-trace.json and the run log, so they name no one application.
 # Emit UTF-8 so non-ASCII host/COM error text is decoded correctly by the Node side.
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $excelId = "xlide-" + [Guid]::NewGuid().ToString("N")
@@ -66,7 +66,7 @@ function Emit-XlideTestHostEvent([string]$kind, [hashtable]$payload) {
   [Console]::Out.Flush()
 }
 function Emit-XlideHostPhase([string]$phase, [string]$outcome, [int]$durationMs, [string]$message = $null) {
-  $payload = @{ excelId = $excelId; phase = $phase; outcome = $outcome; durationMs = $durationMs }
+  $payload = @{ hostId = $excelId; phase = $phase; outcome = $outcome; durationMs = $durationMs }
   if ($message) { $payload["message"] = $message }
   Emit-XlideTestHostEvent "host-phase" $payload
 }
@@ -186,7 +186,7 @@ try {
     $excel = $null
     $phaseSw.Stop()
     $ownershipMessage = "XLIDE refused to run tests: the new " + $hostNoun + " Application resolved to already-running process " + $excelPid + ". The test host must own its " + $hostNoun + " instance because it quits that process when the run ends. Close the running " + $hostNoun + " and try again."
-    Emit-XlideHostPhase "excel-create" "failed" ([int]$phaseSw.ElapsedMilliseconds) $ownershipMessage
+    Emit-XlideHostPhase "host-create" "failed" ([int]$phaseSw.ElapsedMilliseconds) $ownershipMessage
     throw $ownershipMessage
   }
   # Owned and proven: configure the instance for silent automation.
@@ -208,13 +208,13 @@ try {
     } catch { $jobActive = $false }
   }
   $phaseSw.Stop()
-  Emit-XlideHostPhase "excel-create" "passed" ([int]$phaseSw.ElapsedMilliseconds)
-  Emit-XlideTestHostEvent "excel-created" @{ excelId = $excelId; owned = $true; pid = $excelPid; visible = $false; killOnClose = $jobActive }
+  Emit-XlideHostPhase "host-create" "passed" ([int]$phaseSw.ElapsedMilliseconds)
+  Emit-XlideTestHostEvent "host-created" @{ hostId = $excelId; owned = $true; pid = $excelPid; visible = $false; killOnClose = $jobActive }
   # Watch for modals from here on, not just around macro execution: opening a
   # workbook and closing it can both raise dialogs, and an unwatched dialog
   # wedges the host until its timeout instead of being reported and dismissed.
   if ($modalWatcherAvailable -and $excelPid) {
-    try { [XlideTestModalWatcher]::Start([uint32]$excelPid, $eventPrefix, $excelId, "workbook-open") } catch { }
+    try { [XlideTestModalWatcher]::Start([uint32]$excelPid, $eventPrefix, $excelId, "file-open") } catch { }
   }
   $phaseSw = [Diagnostics.Stopwatch]::StartNew()
   try {
@@ -237,17 +237,17 @@ try {
   } catch {
     $phaseSw.Stop()
     $openMessage = "OPEN_FAILED|XLIDE could not open the file read-only for tests: " + $_.Exception.Message
-    Emit-XlideHostPhase "workbook-open" "failed" ([int]$phaseSw.ElapsedMilliseconds) $openMessage
+    Emit-XlideHostPhase "file-open" "failed" ([int]$phaseSw.ElapsedMilliseconds) $openMessage
     throw $openMessage
   }
   $phaseSw.Stop()
-  Emit-XlideHostPhase "workbook-open" "passed" ([int]$phaseSw.ElapsedMilliseconds)
-  Emit-XlideTestHostEvent "workbook-opened" @{ excelId = $excelId; filePath = $targetPath; readOnly = $true; updateLinks = 0; displayAlerts = $false; ignoreReadOnlyRecommended = $true }
+  Emit-XlideHostPhase "file-open" "passed" ([int]$phaseSw.ElapsedMilliseconds)
+  Emit-XlideTestHostEvent "file-opened" @{ hostId = $excelId; filePath = $targetPath; readOnly = $true; updateLinks = 0; displayAlerts = $false; ignoreReadOnlyRecommended = $true }
   foreach ($test in @($tests)) {
     $macroName = [string]$test.qualifiedName
     $timeoutMs = [int]$test.timeoutMs
     $expectedFailure = [bool]$test.expectedFailure
-    Emit-XlideTestHostEvent "macro-started" @{ excelId = $excelId; qualifiedName = $macroName; timeoutMs = $timeoutMs }
+    Emit-XlideTestHostEvent "macro-started" @{ hostId = $excelId; qualifiedName = $macroName; timeoutMs = $timeoutMs }
     $sw = [Diagnostics.Stopwatch]::StartNew()
     try {
       if ($hostKind -eq "word") {
@@ -280,13 +280,13 @@ try {
       $testOutput = Convert-XlideOutputLines $vbaRunResult.output
       $sw.Stop()
       if ([string]$vbaRunResult.outcome -eq "passed") {
-        $payload = @{ excelId = $excelId; qualifiedName = $macroName; outcome = "passed"; durationMs = [int]$sw.ElapsedMilliseconds }
+        $payload = @{ hostId = $excelId; qualifiedName = $macroName; outcome = "passed"; durationMs = [int]$sw.ElapsedMilliseconds }
         if ($testOutput.Count -gt 0) { $payload["output"] = @($testOutput) }
         Emit-XlideTestHostEvent "macro-finished" $payload
         if ($failFast -and $expectedFailure) { break }
       } else {
         $message = "RUN_FAILED|" + (Format-XlideVbaRunResult $vbaRunResult)
-        $payload = @{ excelId = $excelId; qualifiedName = $macroName; outcome = "failed"; durationMs = [int]$sw.ElapsedMilliseconds; message = $message }
+        $payload = @{ hostId = $excelId; qualifiedName = $macroName; outcome = "failed"; durationMs = [int]$sw.ElapsedMilliseconds; message = $message }
         $errorNumber = Convert-XlideNullableInt $vbaRunResult.number
         if ($null -ne $errorNumber) { $payload["errorNumber"] = $errorNumber }
         $errorSource = [string]$vbaRunResult.source
@@ -298,7 +298,7 @@ try {
     } catch {
       $sw.Stop()
       $message = "RUN_FAILED|" + (Format-XlideRunException $_)
-      Emit-XlideTestHostEvent "macro-finished" @{ excelId = $excelId; qualifiedName = $macroName; outcome = "runner-error"; durationMs = [int]$sw.ElapsedMilliseconds; message = $message }
+      Emit-XlideTestHostEvent "macro-finished" @{ hostId = $excelId; qualifiedName = $macroName; outcome = "runner-error"; durationMs = [int]$sw.ElapsedMilliseconds; message = $message }
       # Only abort the whole run on a per-test error when fail-fast is on. Otherwise
       # continue so each remaining test gets its own macro-finished event instead of
       # being reported as a spurious host-error for "no result emitted".
@@ -328,11 +328,11 @@ try {
       elseif ($hostKind -eq "powerpoint") { try { $workbook.Saved = -1 } catch { }; $workbook.Close() }
       else { $workbook.Close($false) }
       $phaseSw.Stop()
-      Emit-XlideTestHostEvent "workbook-closed" @{ excelId = $excelId; filePath = $targetPath; saveChanges = $false; durationMs = [int]$phaseSw.ElapsedMilliseconds }
-      Emit-XlideHostPhase "workbook-close" "passed" ([int]$phaseSw.ElapsedMilliseconds)
+      Emit-XlideTestHostEvent "file-closed" @{ hostId = $excelId; filePath = $targetPath; saveChanges = $false; durationMs = [int]$phaseSw.ElapsedMilliseconds }
+      Emit-XlideHostPhase "file-close" "passed" ([int]$phaseSw.ElapsedMilliseconds)
     } catch {
       $phaseSw.Stop()
-      Emit-XlideHostPhase "workbook-close" "failed" ([int]$phaseSw.ElapsedMilliseconds) $_.Exception.Message
+      Emit-XlideHostPhase "file-close" "failed" ([int]$phaseSw.ElapsedMilliseconds) $_.Exception.Message
     }
   }
   if ($excel) {
@@ -341,11 +341,11 @@ try {
     try {
       $excel.Quit()
       $phaseSw.Stop()
-      Emit-XlideTestHostEvent "excel-quit" @{ excelId = $excelId; durationMs = [int]$phaseSw.ElapsedMilliseconds }
-      Emit-XlideHostPhase "excel-quit" "passed" ([int]$phaseSw.ElapsedMilliseconds)
+      Emit-XlideTestHostEvent "host-quit" @{ hostId = $excelId; durationMs = [int]$phaseSw.ElapsedMilliseconds }
+      Emit-XlideHostPhase "host-quit" "passed" ([int]$phaseSw.ElapsedMilliseconds)
     } catch {
       $phaseSw.Stop()
-      Emit-XlideHostPhase "excel-quit" "failed" ([int]$phaseSw.ElapsedMilliseconds) $_.Exception.Message
+      Emit-XlideHostPhase "host-quit" "failed" ([int]$phaseSw.ElapsedMilliseconds) $_.Exception.Message
     }
   }
   if ($modalWatcherAvailable) { try { [XlideTestModalWatcher]::Stop() } catch { } }

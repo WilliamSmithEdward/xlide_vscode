@@ -38,11 +38,12 @@ import {
 } from '../../runtime/vbaRuntime';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { BareIdentifierContext } from '../../symbols/nameResolution';
-import type {
-	ModuleSymbolKind,
-	VbaProcedureSignature,
-	VbaProjectClassMembers,
-	VbaSymbol,
+import {
+	isDataBoundDesignerClass,
+	type ModuleSymbolKind,
+	type VbaProcedureSignature,
+	type VbaProjectClassMembers,
+	type VbaSymbol,
 } from '../../symbols/symbolModel';
 import {
 	applicationMemberNames,
@@ -428,6 +429,13 @@ export function checkUndeclaredVariables(
 	// still reports: that is the case worth keeping, and the member rule draws the
 	// same line (issue #48).
 	if (moduleKind === 'userform' && implicitMembers === undefined) {
+		return;
+	}
+	// An Access form or report answers with a list too, but never the whole
+	// one: every field of its record source is a member as well, and only the
+	// running database knows them. A bare `CustomerID` there is a field, so
+	// the list cannot call it undeclared.
+	if (isDataBoundDesignerClass(designerClass)) {
 		return;
 	}
 	const implicitMemberNames = new Set(

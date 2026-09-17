@@ -51,7 +51,10 @@ export interface VbaProjectModuleMetadata {
     moduleType?: string;
     moduleKind: ModuleSymbolKind;
     documentType?: EventHandlerDocumentType;
-    /** A VB6 designer's class (`VB.Form`, `VB.MDIForm`), absent for Office forms. */
+    /**
+     * The class a designer makes the module: a VB6 designer's (`VB.Form`,
+     * `VB.MDIForm`) or an Access design's (`Access.Form`). Absent for a UserForm.
+     */
     designerClass?: string;
 }
 
@@ -100,10 +103,23 @@ class ProjectRecord implements VbaProjectContext {
     applyModule(
         moduleName: string,
         source: string,
-        metadata: { moduleType?: string; documentType?: EventHandlerDocumentType; designerClass?: string },
+        metadata: {
+            moduleType?: string;
+            documentType?: EventHandlerDocumentType;
+            designerClass?: string;
+            implicitMembers?: VbaModuleSymbols['implicitMembers'];
+            predeclaredId?: boolean;
+        },
     ): void {
         const moduleKey = moduleIdentityKey(moduleName);
         const previous = this.moduleMetadata.get(moduleKey);
+        // What the host read BESIDE the text - a form's controls, the
+        // default-instance attribute - is not in the text, so new text alone
+        // says nothing about it. Folding in an open editor used to forget
+        // both: the form's controls left `Me.` the moment its code was open.
+        const known = this.byModule.get(moduleKey);
+        const implicitMembers = metadata.implicitMembers ?? known?.implicitMembers;
+        const predeclaredId = metadata.predeclaredId ?? known?.predeclaredId;
         const moduleType = metadata.moduleType ?? previous?.moduleType;
         const meta: VbaProjectModuleMetadata = {
             moduleName,
@@ -119,6 +135,9 @@ class ProjectRecord implements VbaProjectContext {
                 moduleName,
                 moduleKind: meta.moduleKind,
                 source,
+                implicitMembers,
+                predeclaredId,
+                designerClass: meta.designerClass,
             });
         } catch (err) {
             // Keep the previous indexed version while the latest source is
@@ -134,6 +153,10 @@ class ProjectRecord implements VbaProjectContext {
             source,
             type: meta.moduleType,
             documentType: meta.documentType,
+            implicitMembers,
+            predeclaredId,
+            designerClass: meta.designerClass,
+            filePath: known?.filePath,
         });
         this.markChanged();
     }
@@ -269,6 +292,7 @@ export class VbaProjectIndexService implements vscode.Disposable {
                 source: mod.source,
                 implicitMembers: mod.implicitMembers,
                 predeclaredId: mod.predeclaredId,
+                designerClass: mod.designerClass,
             })),
             undefined,
             {
@@ -304,6 +328,7 @@ export class VbaProjectIndexService implements vscode.Disposable {
                 documentType: mod.documentType,
                 implicitMembers: mod.implicitMembers,
                 predeclaredId: mod.predeclaredId,
+                designerClass: mod.designerClass,
                 filePath: mod.filePath,
             });
         }
@@ -351,6 +376,8 @@ export class VbaProjectIndexService implements vscode.Disposable {
             moduleType: mod.type,
             documentType: mod.documentType,
             designerClass: mod.designerClass,
+            implicitMembers: mod.implicitMembers,
+            predeclaredId: mod.predeclaredId,
         });
         return true;
     }

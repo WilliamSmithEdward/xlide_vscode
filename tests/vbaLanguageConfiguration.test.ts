@@ -253,6 +253,9 @@ describe('VBA language configuration', () => {
 			'xlide.analysis.ruleSeverityOverrides',
 			'xlide.analysis.untrackedRules',
 			'xlide.analysis.visibleSeverities',
+			// The names the Office integration settings had while they only
+			// served Excel: still contributed, marked deprecated, so a value a
+			// user already stored keeps working and is not flagged as unknown.
 			'xlide.attachToRunningExcel',
 			'xlide.diagnostics.enabled',
 			'xlide.docs.enabled',
@@ -268,8 +271,27 @@ describe('VBA language configuration', () => {
 			'xlide.explorer.autoExpandCollapse',
 			'xlide.explorer.view',
 			'xlide.formRun.injectShowMacro',
+			'xlide.officeIntegration.attachToRunning',
+			'xlide.officeIntegration.coordinationMode',
+			'xlide.officeIntegration.reopenAfterClose',
+			'xlide.officeIntegration.reopenMode',
+			'xlide.officeIntegration.reopenReadOnlyAfterSave',
+			'xlide.officeIntegration.trackOpenedFiles',
 			'xlide.performance.trace',
 		]);
+
+		const deprecated = xlideSettings.filter(([, setting]) => setting.deprecationMessage !== undefined);
+		expect(deprecated.map(([key]) => key)).toEqual([
+			'xlide.attachToRunningExcel',
+			'xlide.excelIntegration.coordinationMode',
+			'xlide.excelIntegration.reopenAfterClose',
+			'xlide.excelIntegration.reopenMode',
+			'xlide.excelIntegration.reopenReadOnlyAfterSave',
+			'xlide.excelIntegration.trackOpenedWorkbooks',
+		]);
+		for (const [key, setting] of deprecated) {
+			expect(setting.deprecationMessage, key).toMatch(/^Renamed to xlide\.officeIntegration\./);
+		}
 
 		for (const [key, setting] of xlideSettings) {
 			expect(setting.scope, key).toBe('machine');

@@ -10,7 +10,7 @@ the project, its forms, and their `.frx` sidecars on its own.
 ## Opening a project
 
 Put a folder containing a `.vbp` in your workspace. XLIDE finds it the same way
-it finds a workbook, and shows it in the XLIDE tree with a project icon.
+it finds an Office file, and shows it in the XLIDE tree with a project icon.
 
 Expand it and you get the modules the manifest names, each with the kind the
 manifest gives it: standard modules, class modules, forms, MDI forms,

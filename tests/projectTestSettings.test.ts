@@ -3,9 +3,9 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
 import {
-	effectiveWorkbookTestSettings,
-	effectiveWorkbookTestSettingsFromConfig,
-} from '../src/workbookTestSettings';
+	effectiveProjectTestSettings,
+	effectiveProjectTestSettingsFromConfig,
+} from '../src/projectTestSettings';
 
 const tempRoots: string[] = [];
 
@@ -27,7 +27,7 @@ describe('project test settings', () => {
 	it('uses default artifact settings until project overrides exist', async () => {
 		const { project } = tempWorkbook();
 
-		await expect(effectiveWorkbookTestSettings(project)).resolves.toMatchObject({
+		await expect(effectiveProjectTestSettings(project)).resolves.toMatchObject({
 			artifactFolder: 'tests',
 			artifactFolderSource: 'default',
 			artifactRetention: 20,
@@ -36,7 +36,7 @@ describe('project test settings', () => {
 	});
 
 	it('resolves artifact settings from already-loaded project config', () => {
-		expect(effectiveWorkbookTestSettingsFromConfig('Book.xlsm', {
+		expect(effectiveProjectTestSettingsFromConfig('Book.xlsm', {
 			tests: {
 				artifactFolder: 'ci-artifacts',
 				artifactRetention: 5,

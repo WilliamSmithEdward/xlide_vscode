@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
-    buildExcelLaunchScript,
     buildAccessMacroLaunchScript,
+    buildAccessShowDesignScript,
+    buildExcelLaunchScript,
+    buildHostOpenScript,
     buildPowerPointMacroLaunchScript,
     buildWordMacroLaunchScript,
-} from '../src/excelLauncher';
+    hostMacroReference,
+} from '../src/officeHostLauncher';
 
 describe('Excel launcher script', () => {
     const openScript = buildExcelLaunchScript({
@@ -136,6 +139,14 @@ describe('Word and PowerPoint F5 macro launcher scripts', () => {
         expect(script).not.toContain('[ref]');
         // A database is not reopened read-only; there is no private copy.
         expect(script).not.toContain('REOPEN_BLOCKED');
+        // Measured 2026-09-16 on Access 16.0. An Access the user started
+        // refuses any write to Visible ("invalid reference to the property
+        // Visible"), which failed every F5 against it, so the write is
+        // best-effort. And an Access the script started quits as the script
+        // ends unless it is handed to the user, which is what keeps the
+        // database open afterward the way the other applications keep a file.
+        expect(script).toContain('try { $app.Visible = $true } catch { }');
+        expect(script).toContain('try { $app.UserControl = $true } catch { }');
         expect(script).toContain('XLIDE_MACRO_OK');
         expect(script).toContain('XLIDE_MACRO_ERROR|');
     });
@@ -144,5 +155,102 @@ describe('Word and PowerPoint F5 macro launcher scripts', () => {
         const script = buildWordMacroLaunchScript("C:\\work\\Bob's Report.docm", 'Module1.Main');
         expect(script).toContain("$targetPath = 'C:\\work\\Bob''s Report.docm'");
         expect(script).toContain("$targetName = 'Bob''s Report.docm'");
+    });
+
+    it('lets Word and Access start their own instance when attaching is turned off', () => {
+        // The attach is the same measured line, now behind the setting Excel
+        // already honored. PowerPoint only ever runs one instance.
+        expect(wordScript).toContain('$attachToRunning = $true');
+        expect(wordScript).toContain('if ($attachToRunning) { try { $app = [Runtime.InteropServices.Marshal]::GetActiveObject("Word.Application") } catch { } }');
+        expect(buildWordMacroLaunchScript('C:\\work\\Report.docm', 'Module1.Main', false))
+            .toContain('$attachToRunning = $false');
+        expect(buildAccessMacroLaunchScript('C:\\work\\Orders.accdb', 'Main', false))
+            .toContain('$attachToRunning = $false');
+    });
+
+    it('names a procedure the way each application resolves it', () => {
+        expect(hostMacroReference('excel', 'Module1', 'Main')).toBe('Module1.Main');
+        expect(hostMacroReference('word', 'Module1', 'Main')).toBe('Module1.Main');
+        expect(hostMacroReference('powerpoint', 'Module1', 'Main')).toBe('Module1.Main');
+        // Access refuses a qualified name.
+        expect(hostMacroReference('access', 'Module1', 'Main')).toBe('Main');
+    });
+});
+
+describe('open-in-application scripts', () => {
+    // Live-verified 2026-09-16 on Office 16.0 against scratch copies of the
+    // fixtures: each script opened its file in the visible application, for
+    // editing and read-only, and the application's own ReadOnly property
+    // agreed with what was asked for.
+    const open = (filePath: string, readOnly: boolean, attachToRunning = true): string => {
+        const host = /\.docm$/.test(filePath) ? 'word' : /\.pptm$/.test(filePath) ? 'powerpoint'
+            : /\.accdb$/.test(filePath) ? 'access' : 'excel';
+        return buildHostOpenScript({ host, filePath, attachToRunning, readOnly });
+    };
+
+    it('opens an Excel workbook with the launcher script Excel always had', () => {
+        expect(open('C:\\work\\Book.xlsm', true)).toBe(buildExcelLaunchScript({
+            filePath: 'C:\\work\\Book.xlsm',
+            attachToRunning: true,
+            mode: { kind: 'open', readOnly: true },
+        }));
+    });
+
+    it('opens a Word document editable or read-only, reusing an open copy', () => {
+        const editable = open('C:\\work\\Report.docm', false);
+        expect(editable).toContain('GetActiveObject("Word.Application")');
+        expect(editable).toContain('New-Object -ComObject Word.Application');
+        expect(editable).toContain('foreach ($d in @($app.Documents))');
+        // Documents.Open(FileName, ConfirmConversions, ReadOnly, AddToRecentFiles)
+        expect(editable).toContain('if (-not $file) { $file = Invoke-XlideCom { $app.Documents.Open($targetPath, $false, $false, $false) } }');
+        expect(open('C:\\work\\Report.docm', true)).toContain('$app.Documents.Open($targetPath, $false, $true, $false)');
+        expect(editable).toContain('SetForegroundWindow([IntPtr]$app.ActiveWindow.Hwnd)');
+    });
+
+    it('opens a PowerPoint presentation through its single instance', () => {
+        const editable = open('C:\\work\\Deck.pptm', false);
+        expect(editable).toContain('$app = New-Object -ComObject PowerPoint.Application');
+        expect(editable).not.toContain('GetActiveObject');
+        // Presentations.Open(FileName, ReadOnly, Untitled, WithWindow): MsoTriState.
+        expect(editable).toContain('$app.Presentations.Open($targetPath, 0, 0, -1)');
+        expect(open('C:\\work\\Deck.pptm', true)).toContain('$app.Presentations.Open($targetPath, -1, 0, -1)');
+        expect(editable).toContain('SetForegroundWindow([IntPtr]$app.HWND)');
+    });
+
+    it('opens an Access database without taking over an instance that holds another one', () => {
+        const script = open('C:\\work\\Orders.accdb', true);
+        expect(script).toContain('GetActiveObject("Access.Application")');
+        // One instance holds one database: a running Access that has another
+        // one open keeps it, and ours gets its own instance.
+        expect(script).toContain('if ($app -and $open -and ($open -ine $targetPath)) { $app = $null; $open = "" }');
+        expect(script).not.toContain('CloseCurrentDatabase');
+        expect(script).toContain('if ($open -ine $targetPath) { Invoke-XlideCom { $app.OpenCurrentDatabase($targetPath) } }');
+        // Without this the database would close again as the script ended.
+        expect(script).toContain('try { $app.UserControl = $true } catch { }');
+        expect(script).toContain('SetForegroundWindow([IntPtr]$app.hWndAccessApp())');
+    });
+
+    it('honors the attach setting where the application can run more than one instance', () => {
+        expect(open('C:\\work\\Report.docm', false, false)).toContain('$attachToRunning = $false');
+        expect(open('C:\\work\\Orders.accdb', false, false)).toContain('$attachToRunning = $false');
+    });
+});
+
+describe('Access form and report F5 script', () => {
+    it('opens a form by name, in the database, with nothing written into it', () => {
+        const script = buildAccessShowDesignScript('C:\\work\\Orders.accdb', { kind: 'form', name: "Bob's Orders" });
+        expect(script).toContain("$designName = 'Bob''s Orders'");
+        expect(script).toContain('$app.OpenCurrentDatabase($targetPath)');
+        expect(script).toContain('Invoke-XlideCom { $app.DoCmd.OpenForm($designName) }');
+        expect(script).toContain('RUN_FAILED|XLIDE could not open the form: ');
+        expect(script).toContain('XLIDE_MACRO_OK');
+        expect(script).not.toContain('$app.Run(');
+    });
+
+    it('opens a report in print preview, the view that prints nothing', () => {
+        const script = buildAccessShowDesignScript('C:\\work\\Orders.accdb', { kind: 'report', name: 'Monthly' });
+        // acViewPreview = 2
+        expect(script).toContain('Invoke-XlideCom { $app.DoCmd.OpenReport($designName, 2) }');
+        expect(script).toContain('RUN_FAILED|XLIDE could not open the report: ');
     });
 });

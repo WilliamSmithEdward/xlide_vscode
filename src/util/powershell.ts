@@ -9,7 +9,7 @@ export function psSingleQuoted(value: string): string {
  * Kill the spawned powershell.exe and, on Windows, its whole process tree.
  * Node's ChildProcess.kill() TerminateProcess-es only powershell.exe itself, not
  * processes it spawned, so use `taskkill /PID <pid> /T /F` to tear down the tree
- * (mirrors killOwnedExcel in vbaTestHostSession). Falls back to a bare kill().
+ * (mirrors killOwnedHost in vbaTestHostSession). Falls back to a bare kill().
  */
 function killProcessTree(child: cp.ChildProcess): void {
     if (process.platform === 'win32' && child.pid !== undefined) {

@@ -1065,14 +1065,25 @@ export function accessDesignModuleName(kind: AccessDesignKind, name: string): st
 	return `${kind === 'form' ? 'Form' : 'Report'}_${name}`;
 }
 
+/** The design a module holds the code of: accessDesignModuleName, read backwards. */
+export function accessDesignOfModuleName(
+	moduleName: string,
+): { kind: AccessDesignKind; name: string } | undefined {
+	const match = /^(Form|Report)_(.+)$/i.exec(moduleName);
+	return match
+		? { kind: match[1].toLowerCase() === 'form' ? 'form' : 'report', name: match[2] }
+		: undefined;
+}
+
 /**
  * The forms and reports a database holds, by name and kind. Cheaper than
  * `AccessVbaWriter.designs()`, which parses every design blob; a listing only
- * needs what the containers' own listings say is there.
+ * needs what the containers' own listings say is there. Each entry keeps its
+ * design's bytes, unparsed, for a caller that goes on to ask what is on it.
  */
 export function readAccessDesignNames(
 	data: Buffer,
-): Array<{ name: string; kind: AccessDesignKind }> {
+): Array<{ name: string; kind: AccessDesignKind; blob?: Buffer }> {
 	let roots;
 	try {
 		roots = readAccessStorage(data);
@@ -1082,7 +1093,7 @@ export function readAccessDesignNames(
 	if (!roots) {
 		return [];
 	}
-	const out: Array<{ name: string; kind: AccessDesignKind }> = [];
+	const out: Array<{ name: string; kind: AccessDesignKind; blob?: Buffer }> = [];
 	const walk = (nodes: readonly AccessStorageEntry[]): void => {
 		for (const node of nodes) {
 			const kind = node.name === 'Forms' ? 'form' : node.name === 'Reports' ? 'report' : undefined;
@@ -1090,14 +1101,16 @@ export function readAccessDesignNames(
 				const listing = node.children.find(
 					(child) => child.name.endsWith(DIR_DATA) && child.bytes,
 				);
-				const ordinals = new Set(node.children
+				const folders = new Map(node.children
 					.filter((child) => /^\d+$/.test(child.name))
-					.map((child) => child.name));
+					.map((child) => [child.name, child]));
 				for (const entry of listing ? dirDataEntries(listing.bytes!) : []) {
 					// A listing can outlive the folder it names; the folder is
 					// what actually holds the design.
-					if (ordinals.has(entry.folder)) {
-						out.push({ name: entry.name, kind });
+					const folder = folders.get(entry.folder);
+					if (folder) {
+						const blob = folder.children.find((child) => child.name === 'Blob')?.bytes;
+						out.push({ name: entry.name, kind, ...(blob?.length ? { blob } : {}) });
 					}
 				}
 				continue;

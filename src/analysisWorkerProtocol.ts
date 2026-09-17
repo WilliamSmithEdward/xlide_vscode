@@ -31,6 +31,12 @@ export interface WorkerSeedModule {
 	 * the attribute header was not read, never "no".
 	 */
 	predeclaredId?: boolean;
+	/**
+	 * The host class the module's designer makes it, where that is not an
+	 * MSForms.UserForm (an Access form's `Access.Form`), so another module's
+	 * reference to the form reaches that class's members.
+	 */
+	designerClass?: string;
 }
 
 export type AnalysisWorkerRequest =

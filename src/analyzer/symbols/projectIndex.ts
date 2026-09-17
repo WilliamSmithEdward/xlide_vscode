@@ -17,6 +17,7 @@ import {
 } from '../constants/integerConstantExpression';
 import {
 	isBareCallableKind,
+	isDataBoundDesignerClass,
 	isProcedureKind,
 	qualifiedProcedureKey,
 	type ModuleSymbolKind,
@@ -66,6 +67,12 @@ export interface ModuleInput {
 	 * {@link ProjectIndex.modulePredeclaredId}.
 	 */
 	predeclaredId?: boolean;
+	/**
+	 * The host class the module's designer makes it, from a host that can
+	 * read the designer: an Access form's `Access.Form`. Absent for a
+	 * UserForm, which is always an MSForms.UserForm.
+	 */
+	designerClass?: string;
 }
 
 /** Project-wide symbol graph options shared by every indexed module. */
@@ -448,6 +455,8 @@ export class ProjectIndex {
 	private readonly moduleImplicitMembersByName = new Map<string, readonly { name: string; type: string }[]>();
 	/** Host-supplied default-instance answers, keyed by lowercased module name. */
 	private readonly modulePredeclaredIdByName = new Map<string, boolean>();
+	/** Host-supplied designer classes, keyed by lowercased module name. */
+	private readonly moduleDesignerClassByName = new Map<string, string>();
 	/** Lazily resolved per-module integer constants, dropped on module change. */
 	private readonly moduleResolvedConstants = new Map<string, Map<string, number | undefined>>();
 	/** Lazily scanned per-module Implements lists, dropped on module change. */
@@ -481,6 +490,11 @@ export class ProjectIndex {
 		} else {
 			this.modulePredeclaredIdByName.delete(key);
 		}
+		if (input.designerClass !== undefined) {
+			this.moduleDesignerClassByName.set(key, input.designerClass);
+		} else {
+			this.moduleDesignerClassByName.delete(key);
+		}
 		this.invalidate(key);
 	}
 
@@ -491,6 +505,7 @@ export class ProjectIndex {
 		this.moduleSources.delete(key);
 		this.moduleImplicitMembersByName.delete(key);
 		this.modulePredeclaredIdByName.delete(key);
+		this.moduleDesignerClassByName.delete(key);
 		this.invalidate(key);
 	}
 
@@ -981,6 +996,7 @@ export class ProjectIndex {
 						});
 					}
 				}
+				const designerClass = this.moduleDesignerClassByName.get(mod.moduleName.toLowerCase());
 				out.push({
 					name: mod.moduleName,
 					kind,
@@ -993,9 +1009,13 @@ export class ProjectIndex {
 					// merged at resolution, the surface proves absence the
 					// same way the VBE's compiler does. Document modules stay
 					// non-exhaustive: their host base carries more than any
-					// list here.
+					// list here. So does an Access form or report, whose
+					// record-source fields are members no list here can name.
 					exhaustive: kind === 'class'
-						|| (kind === 'userform' && this.moduleImplicitMembersKnown(mod.moduleName)),
+						|| (kind === 'userform'
+							&& this.moduleImplicitMembersKnown(mod.moduleName)
+							&& !isDataBoundDesignerClass(designerClass)),
+					...(designerClass !== undefined ? { designerClass } : {}),
 					// Documents and forms always have one; only a class module
 					// has to be asked (issue #47).
 					predeclaredId: kind === 'class'

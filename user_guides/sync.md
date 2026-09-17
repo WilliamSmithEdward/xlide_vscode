@@ -123,8 +123,8 @@ reports the settings file as invalid instead of silently ignoring it.
 
 ## Compare Modules With Git
 
-A workbook is one binary file to git, so the Source Control view can only say
-that it changed. XLIDE reads the committed workbook the same way it reads the
+An Office file is one binary file to git, so the Source Control view can only
+say that it changed. XLIDE reads the committed file the same way it reads the
 one on disk, so you can see what changed inside it without exporting anything.
 
 Right-click a module in the XLIDE tree:
@@ -161,7 +161,7 @@ The tree shows the same comparison without asking: a module that differs from
 the last commit carries an `M` badge, one the last commit does not have an
 `A`, and the file row counts them, in the colours the Explorer uses for
 changed files. The marks are computed once per change to the file or the
-repository, so a large workbook costs one parse of its committed copy, not one
+repository, so a large file costs one parse of its committed copy, not one
 per row.
 
 ## Safety Notes

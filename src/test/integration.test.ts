@@ -7,3 +7,4 @@
 import './formatting.test';
 import './deadCode.test';
 import './gitCompare.test';
+import './officeIntegration.test';

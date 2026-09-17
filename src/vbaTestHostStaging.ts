@@ -3,10 +3,10 @@ import * as path from 'path';
 import type { ProjectEngine } from './projectEngine';
 import type { VbaTestCase } from './vbaTestRunner';
 import {
-    buildOwnedReadOnlyExcelTestHostScript,
+    buildOwnedReadOnlyTestHostScript,
     vbaTestHostPlanItems,
     type VbaTestHostApp,
-} from './vbaTestExcelHost';
+} from './vbaTestOfficeHost';
 import {
     buildVbaTestDirectRunnerModule,
     buildVbaTestDispatchModule,
@@ -27,7 +27,7 @@ export interface VbaTestHostStagingOptions {
 }
 
 export interface VbaTestHostStaging {
-    tempWorkbookPath: string;
+    tempFilePath: string;
     hostScriptPath: string;
     /** Best-effort async removal of the staging dir; idempotent, retries once. */
     dispose(): void;
@@ -40,26 +40,26 @@ export interface VbaTestHostStaging {
  * generated run-vba-tests.ps1 host script. On staging failure the temp dir is
  * removed before the error propagates.
  */
-export async function stageOwnedReadOnlyExcelTestHost(
+export async function stageOwnedReadOnlyTestHost(
     bridge: ProjectEngine,
     filePath: string,
     tests: readonly VbaTestCase[],
     options: VbaTestHostStagingOptions,
 ): Promise<VbaTestHostStaging> {
     const hostScriptDir = await createVbaTestHostTempDir();
-    const tempWorkbookPath = path.join(hostScriptDir, path.basename(filePath));
+    const tempFilePath = path.join(hostScriptDir, path.basename(filePath));
     const hostScriptPath = path.join(hostScriptDir, 'run-vba-tests.ps1');
     const runnerModuleName = `XlideRun${Date.now().toString(36).slice(-8)}`;
     try {
-        await fs.promises.copyFile(filePath, tempWorkbookPath);
+        await fs.promises.copyFile(filePath, tempFilePath);
         await bridge.call<{ ok?: boolean; signatureDropped?: boolean }>('writeModule', {
-            path: tempWorkbookPath,
+            path: tempFilePath,
             module: XLIDE_ASSERT_MODULE_NAME,
             source: XLIDE_ASSERT_MODULE_SOURCE,
             kind: 'standard',
         });
         await bridge.call<{ ok?: boolean; signatureDropped?: boolean }>('writeModule', {
-            path: tempWorkbookPath,
+            path: tempFilePath,
             module: runnerModuleName,
             source: buildVbaTestDirectRunnerModule(tests, runnerModuleName),
             kind: 'standard',
@@ -69,16 +69,16 @@ export async function stageOwnedReadOnlyExcelTestHost(
         // host (Word never propagates a Run-target's error to the caller).
         const stagedModules = await bridge.call<Array<{ name: string; type?: string; source?: string }>>(
             'readModules',
-            { path: tempWorkbookPath, full: true },
+            { path: tempFilePath, full: true },
         );
         await bridge.call<{ ok?: boolean; signatureDropped?: boolean }>('writeModule', {
-            path: tempWorkbookPath,
+            path: tempFilePath,
             module: XLIDE_TEST_DISPATCH_MODULE_NAME,
             source: buildVbaTestDispatchModule(stagedModules),
             kind: 'standard',
         });
-        const script = buildOwnedReadOnlyExcelTestHostScript(
-            tempWorkbookPath,
+        const script = buildOwnedReadOnlyTestHostScript(
+            tempFilePath,
             vbaTestHostPlanItems(tests),
             { failFast: options.failFast, runnerModuleName, hostApp: options.hostApp },
         );
@@ -113,5 +113,5 @@ export async function stageOwnedReadOnlyExcelTestHost(
         });
     };
 
-    return { tempWorkbookPath, hostScriptPath, dispose };
+    return { tempFilePath, hostScriptPath, dispose };
 }

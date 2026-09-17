@@ -300,7 +300,27 @@ export interface VbaProjectClassMembers {
 	 * cannot see it would otherwise turn every predeclared class red.
 	 */
 	predeclaredId?: boolean;
+	/**
+	 * The host class the module's designer makes it, where that is not an
+	 * MSForms.UserForm: an Access form is an `Access.Form`. It is the base a
+	 * reference to the type reaches beyond the module's own members. Absent
+	 * for a UserForm, whose base is the forms library's.
+	 */
+	designerClass?: string;
 	members: VbaProjectClassMember[];
+}
+
+/**
+ * Whether a designer's class is one whose module has members no design lists.
+ * An Access form or report is: beside its sections and controls, Access gives
+ * it a member for every field of its record source, and only the running
+ * database knows those. So where a UserForm's control list proves a name
+ * absent, an Access design's never does - a bare `CustomerID` in a bound
+ * form is a field, not a missing declaration.
+ */
+export function isDataBoundDesignerClass(designerClass: string | undefined): boolean {
+	const lower = designerClass?.toLowerCase();
+	return lower === 'access.form' || lower === 'access.report';
 }
 
 /** Lowercased key used for module-qualified procedure lookups. */

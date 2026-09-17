@@ -25,8 +25,8 @@ describe('xlideSidebarModel', () => {
             'Analyze Project',
             'Export Modules',
             'Import Modules',
-            'Open Workbook in Excel',
-            'Open Workbook in Excel (Read Only)',
+            'Open in Office Application',
+            'Open in Office Application (Read Only)',
             'Unit Tests',
         ]);
         expect(model[2].children?.map((node) => [node.label, node.description])).toEqual([
@@ -96,45 +96,40 @@ describe('xlideSidebarModel', () => {
         ]);
     });
 
-    it('offers the Excel launcher pair only for Excel files', () => {
+    const openActions = (fileName: string) => {
         const model = buildXlideSidebarModel({
-            projectChoices: [
-                { label: 'Report.docm', filePath: 'C:\\work\\Report.docm' },
-            ],
+            projectChoices: [{ label: fileName, filePath: `C:\\work\\${fileName}` }],
             activeProject: {
-                label: 'Report.docm',
-                filePath: 'C:\\work\\Report.docm',
-                settingsPath: 'C:\\work\\Report.docm.xlide_settings.json',
+                label: fileName,
+                filePath: `C:\\work\\${fileName}`,
+                settingsPath: `C:\\work\\${fileName}.xlide_settings.json`,
                 selectionSource: 'sidebarSelection',
                 settingsState: 'valid',
             },
         });
+        return (model[1].children ?? [])
+            .filter((node) => node.id.startsWith('projectActions.openInApp'))
+            .map((node) => [node.label, node.command?.command]);
+    };
 
-        const labels = model[1].children?.map((node) => node.label);
-        expect(labels).toContain('Open in Word');
-        expect(labels).not.toContain('Open Workbook in Excel');
-        expect(labels).not.toContain('Open Workbook in Excel (Read Only)');
-        const open = model[1].children?.find((node) => node.label === 'Open in Word');
-        expect(open?.command?.command).toBe('xlide.openInOfficeApp');
+    it('offers the same open pair for every application that can open read-only', () => {
+        for (const [fileName, app] of [
+            ['Book.xlsm', 'Excel'],
+            ['Report.docm', 'Word'],
+            ['Deck.pptm', 'PowerPoint'],
+        ] as const) {
+            expect(openActions(fileName), fileName).toEqual([
+                [`Open in ${app}`, 'xlide.openInOfficeApp'],
+                [`Open in ${app} (Read Only)`, 'xlide.openInOfficeAppReadOnly'],
+            ]);
+        }
     });
 
-    it('names the owning application for PowerPoint and Access files', () => {
-        for (const [fileName, app] of [
-            ['Deck.pptm', 'PowerPoint'],
-            ['Data.accdb', 'Access'],
-        ] as const) {
-            const model = buildXlideSidebarModel({
-                projectChoices: [{ label: fileName, filePath: `C:\\work\\${fileName}` }],
-                activeProject: {
-                    label: fileName,
-                    filePath: `C:\\work\\${fileName}`,
-                    settingsPath: `C:\\work\\${fileName}.xlide_settings.json`,
-                    selectionSource: 'sidebarSelection',
-                    settingsState: 'valid',
-                },
-            });
-            expect(model[1].children?.map((node) => node.label)).toContain(`Open in ${app}`);
-        }
+    it('offers no read-only open where there is none to offer', () => {
+        // Access has no read-only open, and a VB6 project opens through
+        // whatever the operating system has registered for it.
+        expect(openActions('Data.accdb')).toEqual([['Open in Access', 'xlide.openInOfficeApp']]);
+        expect(openActions('App.vbp')).toEqual([['Open in Visual Basic 6', 'xlide.openInOfficeApp']]);
     });
 
     it('keeps Workbook Settings JSON out of the permanent sidebar actions', () => {
@@ -176,8 +171,8 @@ describe('xlideSidebarModel', () => {
             'projectActions.runVbaTests',
             'projectActions.importModules',
             'projectActions.exportModules',
-            'projectActions.openWorkbook',
-            'projectActions.openWorkbookReadOnly',
+            'projectActions.openInApp',
+            'projectActions.openInAppReadOnly',
         ]) {
             expect(model[1].children?.find((node) => node.id === id)?.command?.arguments).toEqual([{
                 kind: 'project',

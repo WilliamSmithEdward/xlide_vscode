@@ -97,7 +97,7 @@ export interface SupportBundle {
     setup: {
         diagnosticsEnabled: boolean | undefined;
         docsEnabled: boolean | undefined;
-        excelComStatus: 'available-on-windows-not-checked' | 'not-supported-on-platform';
+        officeComStatus: 'available-on-windows-not-checked' | 'not-supported-on-platform';
     };
     project: SupportBundleProjectSummary;
     analysis: SupportBundleAnalysisSummary;
@@ -143,7 +143,7 @@ export function buildSupportBundle(input: SupportBundleInput): SupportBundle {
         setup: {
             diagnosticsEnabled: booleanSetting(settings, 'xlide.diagnostics.enabled'),
             docsEnabled: booleanSetting(settings, 'xlide.docs.enabled'),
-            excelComStatus: input.runtime.platform === 'win32'
+            officeComStatus: input.runtime.platform === 'win32'
                 ? 'available-on-windows-not-checked'
                 : 'not-supported-on-platform',
         },
@@ -269,7 +269,7 @@ export function supportBundleDisclosureText(bundle: SupportBundle): string {
         'Included:',
         '- Extension, VS Code, platform, Node, and workspace folder count.',
         '- XLIDE settings with path-like values redacted.',
-        '- Setup states that can be determined without probing Excel.',
+        '- Setup states that can be determined without starting an Office application.',
         '- Active project/module metadata and active-module analysis counts when available.',
         '- Recent XLIDE command ids, outcomes, durations, and error categories.',
         '- Recent XLIDE write-audit entries with paths redacted.',
@@ -303,9 +303,9 @@ export function supportDiagnosticsText(bundle: SupportBundle): string {
         'Setup',
         `Diagnostics enabled: ${formatDiagnosticValue(bundle.setup.diagnosticsEnabled)}`,
         `Docs enabled: ${formatDiagnosticValue(bundle.setup.docsEnabled)}`,
-        `Excel COM status: ${bundle.setup.excelComStatus}`,
+        `Office COM status: ${bundle.setup.officeComStatus}`,
         '',
-        'Active Workbook',
+        'Active File',
         projectLine(bundle),
         '',
         'Active Module Analysis',
@@ -322,14 +322,14 @@ export function supportDiagnosticsText(bundle: SupportBundle): string {
         'Recent Write Audit',
         ...writeAuditLines(bundle),
         '',
-        'Anonymized Workbook Analysis Report',
+        'Anonymized Project Analysis Report',
         anonymizedAnalysisReportLine(bundle.anonymizedReports.projectAnalysis),
         '',
         'Selected Logs',
         ...selectedLogLines(bundle),
         '',
         'Privacy',
-        `Workbook source included: ${bundle.privacy.projectSourceIncluded}`,
+        `Project source included: ${bundle.privacy.projectSourceIncluded}`,
         `Paths redacted: ${bundle.privacy.pathsRedacted}`,
         `Command arguments included: ${bundle.privacy.commandArgumentsIncluded}`,
         `Write audit included: ${bundle.privacy.writeAuditIncluded}`,

@@ -5,6 +5,7 @@ import {
     XLIDE_ASSERT_MODULE_SOURCE,
 } from './vbaTestSupportModule';
 import { errorMessage } from './util/errors';
+import { containerAppNameForPath } from './macroContainerUi';
 
 export interface VbaTestSupportStatus {
     state: 'missing' | 'blocked' | 'installed' | 'outdated' | 'unknown';
@@ -39,7 +40,7 @@ export async function getVbaTestSupportStatus(
             return {
                 state: 'missing',
                 title: 'XlideAssert.bas Not Installed',
-                description: 'The bundled test support module must be installed before XLIDE can run workbook tests.',
+                description: 'The bundled test support module must be installed before XLIDE can run tests in this file.',
                 actionLabel: 'Install',
                 canInstall: true,
                 canRun: false,
@@ -66,7 +67,7 @@ export async function getVbaTestSupportStatus(
             return {
                 state: 'installed',
                 title: 'XlideAssert.bas Installed',
-                description: 'Workbook tests can run through the XLIDE-owned read-only Excel test host.',
+                description: `Tests can run through the XLIDE-owned read-only ${containerAppNameForPath(filePath)} test host.`,
                 actionLabel: 'Installed',
                 canInstall: false,
                 canRun: true,
@@ -75,7 +76,7 @@ export async function getVbaTestSupportStatus(
         return {
             state: 'outdated',
             title: 'XlideAssert.bas Needs Update',
-            description: 'The workbook has an XlideAssert standard module, but it does not match the bundled XLIDE test support module.',
+            description: 'The file has an XlideAssert standard module, but it does not match the bundled XLIDE test support module.',
             actionLabel: 'Update',
             canInstall: true,
             canRun: false,
@@ -85,7 +86,7 @@ export async function getVbaTestSupportStatus(
         return {
             state: 'unknown',
             title: 'Test Support Unknown',
-            description: `XLIDE could not inspect the workbook test support module: ${message}`,
+            description: `XLIDE could not inspect the test support module: ${message}`,
             actionLabel: 'Refresh',
             canInstall: false,
             canRun: false,

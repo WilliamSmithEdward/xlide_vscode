@@ -1,10 +1,10 @@
 import * as path from 'path';
 import type { ProjectEngine } from './projectEngine';
-import { checkExcelComAvailability, type ExcelComAvailabilityStatus } from './excelComAvailability';
-import { containerHostForPath } from './macroContainerUi';
+import { checkOfficeComAvailability, type OfficeComAvailabilityStatus } from './officeComAvailability';
+import { officeHostForPath } from './officeHostApps';
 import { getVbaTestSupportStatus, type VbaTestSupportStatus } from './vbaTestSupportStatus';
 import {
-    runWorkbookVbaTests,
+    runProjectVbaTests,
     type VbaTestProgressReporter,
     type VbaTestRunExecution,
     type VbaTestRunOptions,
@@ -14,18 +14,18 @@ import {
     type VbaTestRunArtifactWriteResult,
 } from './vbaTestArtifacts';
 import {
-    effectiveWorkbookTestSettings,
-    type EffectiveWorkbookTestSettings,
-} from './workbookTestSettings';
+    effectiveProjectTestSettings,
+    type EffectiveProjectTestSettings,
+} from './projectTestSettings';
 import { errorMessage } from './util/errors';
 
 export type VbaTestRunPipelineArtifacts =
-    | { ok: true; artifacts: VbaTestRunArtifactWriteResult; settings: EffectiveWorkbookTestSettings }
+    | { ok: true; artifacts: VbaTestRunArtifactWriteResult; settings: EffectiveProjectTestSettings }
     | { ok: false; error: string };
 
 export type VbaTestRunPipelineResult =
     | { kind: 'blocked-support'; support: VbaTestSupportStatus }
-    | { kind: 'blocked-com'; runtime: ExcelComAvailabilityStatus }
+    | { kind: 'blocked-com'; runtime: OfficeComAvailabilityStatus }
     | { kind: 'blocked-busy'; activeRunDescription: string }
     | { kind: 'completed'; execution: VbaTestRunExecution; artifacts: VbaTestRunPipelineArtifacts };
 
@@ -64,16 +64,14 @@ export async function executeVbaTestRun(
         if (!support.canRun) {
             return { kind: 'blocked-support', support };
         }
-        const containerHost = containerHostForPath(filePath);
-        const probeHost = containerHost === 'word' || containerHost === 'powerpoint'
-            ? containerHost
-            : 'excel';
-        const runtime = await checkExcelComAvailability(process.platform, probeHost);
+        // The application that will host the run is the one that must answer
+        // COM: a database is tested in Access, whether or not Excel is installed.
+        const runtime = await checkOfficeComAvailability(process.platform, officeHostForPath(filePath) ?? 'excel');
         if (!runtime.canRun) {
             return { kind: 'blocked-com', runtime };
         }
         const runTests = options.runTests ?? ((run) => run());
-        const execution = await runTests((progress) => runWorkbookVbaTests(bridge, filePath, {
+        const execution = await runTests((progress) => runProjectVbaTests(bridge, filePath, {
             selection: options.selection,
             failFast: options.failFast,
             log: options.log,
@@ -90,7 +88,7 @@ export async function writeVbaTestRunPipelineArtifacts(
     execution: VbaTestRunExecution,
 ): Promise<VbaTestRunPipelineArtifacts> {
     try {
-        const settings = await effectiveWorkbookTestSettings(execution.report.filePath);
+        const settings = await effectiveProjectTestSettings(execution.report.filePath);
         const artifacts = await writeVbaTestRunArtifacts(execution.report, execution.hostEvents, {
             outputFolder: settings.artifactFolder,
             retention: settings.artifactRetention,

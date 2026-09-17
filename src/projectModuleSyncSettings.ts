@@ -10,8 +10,8 @@ import {
     type ProjectSettingsConfig,
 } from './projectSettings';
 
-export const DEFAULT_WORKBOOK_EXPORT_MODE: ExportMode = 'exportAll';
-export const DEFAULT_WORKBOOK_IMPORT_MODE: ImportMode = 'updateOnly';
+export const DEFAULT_PROJECT_EXPORT_MODE: ExportMode = 'exportAll';
+export const DEFAULT_PROJECT_IMPORT_MODE: ImportMode = 'updateOnly';
 
 export type ProjectModuleSyncFolderSource = 'project' | 'session' | 'missing';
 export type ProjectModuleSyncModeSource = ModuleSyncModeSource;
@@ -46,11 +46,11 @@ export function effectiveProjectModuleSyncSettingsFromConfig(
     config: ProjectSettingsConfig,
 ): EffectiveProjectModuleSyncSettings {
     const exportMode = resolveProjectSetting(config.exportMode, {
-        value: DEFAULT_WORKBOOK_EXPORT_MODE,
+        value: DEFAULT_PROJECT_EXPORT_MODE,
         source: 'default',
     });
     const importMode = resolveProjectSetting(config.importMode, {
-        value: DEFAULT_WORKBOOK_IMPORT_MODE,
+        value: DEFAULT_PROJECT_IMPORT_MODE,
         source: 'default',
     });
     const exportFolder = config.exportFolder && config.exportFolder.trim() !== ''

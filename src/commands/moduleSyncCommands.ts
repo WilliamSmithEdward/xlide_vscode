@@ -219,7 +219,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
             return;
         }
 
-        log(`[exportCurrentModule] Workbook: ${projectPath}`);
+        log(`[exportCurrentModule] File: ${projectPath}`);
         log(`[exportCurrentModule] Module: ${moduleName}`);
         log(`[exportCurrentModule] Target folder: ${target.folderPath}`);
         log(`[exportCurrentModule] Mode: ${target.exportMode}`);
@@ -255,7 +255,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
             return;
         }
 
-        log(`[exportModules] Workbook: ${filePath}`);
+        log(`[exportModules] File: ${filePath}`);
         log(`[exportModules] Target folder: ${target.folderPath}`);
         log(`[exportModules] Mode: ${target.exportMode}`);
 
@@ -300,7 +300,7 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
             return;
         }
 
-        log(`[importModules] Workbook: ${filePath}`);
+        log(`[importModules] File: ${filePath}`);
         log(`[importModules] Source folder: ${target.folderPath}`);
         log(`[importModules] Mode: ${target.importMode}`);
 

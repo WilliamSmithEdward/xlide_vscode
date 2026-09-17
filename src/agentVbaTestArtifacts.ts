@@ -3,13 +3,13 @@ import {
     type VbaTestRunArtifactWriteResult,
 } from './vbaTestArtifacts';
 import type { VbaTestRunPipelineArtifacts } from './vbaTestRunPipeline';
-import type { EffectiveWorkbookTestSettings } from './workbookTestSettings';
+import type { EffectiveProjectTestSettings } from './projectTestSettings';
 
 export interface AgentVbaTestArtifactSettingsPayload {
     artifactFolder: string;
-    artifactFolderSource: EffectiveWorkbookTestSettings['artifactFolderSource'];
+    artifactFolderSource: EffectiveProjectTestSettings['artifactFolderSource'];
     artifactRetention: number;
-    artifactRetentionSource: EffectiveWorkbookTestSettings['artifactRetentionSource'];
+    artifactRetentionSource: EffectiveProjectTestSettings['artifactRetentionSource'];
     settingsPath: string;
 }
 
@@ -50,7 +50,7 @@ export function agentVbaTestArtifactPayloadFromPipeline(
 
 export function agentVbaTestArtifactPayload(
     artifacts: VbaTestRunArtifactWriteResult,
-    settings: EffectiveWorkbookTestSettings,
+    settings: EffectiveProjectTestSettings,
 ): AgentVbaTestArtifactSuccessPayload {
     return {
         ok: true,

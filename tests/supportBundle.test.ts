@@ -69,7 +69,7 @@ describe('support bundle', () => {
 		expect(bundle.setup).toMatchObject({
 			diagnosticsEnabled: true,
 			docsEnabled: false,
-			excelComStatus: 'available-on-windows-not-checked',
+			officeComStatus: 'available-on-windows-not-checked',
 		});
 		expect(bundle.settings.map((setting) => setting.key)).toEqual([
 			'xlide.diagnostics.enabled',
@@ -152,7 +152,7 @@ describe('support bundle', () => {
 		expect(text).toContain('xlide.openModule | failed');
 		expect(text).toContain('errorCategory=project-missing');
 		expect(text).toContain('xlide.docs.metadataGlob (machine): <redacted>.xml');
-		expect(text).toContain('Workbook source included: false');
+		expect(text).toContain('Project source included: false');
 		expect(text).not.toContain('C:\\Users\\William');
 	});
 

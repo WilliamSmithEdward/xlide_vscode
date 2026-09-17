@@ -50,10 +50,11 @@ import {
 } from '../runtime/vbaRuntime';
 import { hasDocContent, renderDocMarkdown } from '../docs/docModel';
 import type { VbaDoc } from '../docs/docModel';
-import type {
-	VbaProjectClassMemberDefinition,
-	VbaProjectClassMembers,
-	VbaSymbolAttribute,
+import {
+	isDataBoundDesignerClass,
+	type VbaProjectClassMemberDefinition,
+	type VbaProjectClassMembers,
+	type VbaSymbolAttribute,
 } from '../symbols/symbolModel';
 
 /** Project/module facts the resolver needs that come from outside the source. */
@@ -1310,6 +1311,21 @@ function memberSurfaceForType(
 			return controls.length > 0
 				? { owner: ctx.meProjectType ?? projectKey, members: controls, exhaustive: false }
 				: undefined;
+		}
+		if (projectType.kind === 'userform' && isDataBoundDesignerClass(projectType.designerClass)) {
+			// An Access form or report is its own library's class, not a
+			// UserForm: `Form_Orders.Requery` reaches Access.Form's members,
+			// and Show and Hide are not among them. Never exhaustive - its
+			// record-source fields are members no list here can name.
+			return {
+				owner: projectType.name,
+				members: mergeCompletionMembers(
+					projectType.members,
+					controls,
+					getHostMembers(projectType.designerClass as string, ctx.model),
+				),
+				exhaustive: false,
+			};
 		}
 		if (projectType.kind === 'userform') {
 			// A form IS an MSForms.UserForm wherever it is reached from, so a

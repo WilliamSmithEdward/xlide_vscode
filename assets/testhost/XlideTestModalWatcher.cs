@@ -83,11 +83,11 @@ public static class XlideTestModalWatcher
     {
         public bool SafeToDismiss;
         public ButtonInfo Button;
-        public string Classification = "excel-modal";
+        public string Classification = "host-modal";
         public string Reason = "unsafe-or-unknown-dialog";
     }
 
-    public static void Start(uint processId, string eventPrefix, string excelId, string qualifiedName)
+    public static void Start(uint processId, string eventPrefix, string hostId, string qualifiedName)
     {
         Stop();
         if (processId == 0)
@@ -99,7 +99,7 @@ public static class XlideTestModalWatcher
         {
             ExcelPid = processId;
             EventPrefix = eventPrefix ?? "";
-            ExcelId = excelId ?? "";
+            ExcelId = hostId ?? "";
             QualifiedName = qualifiedName ?? "";
             Seen = new HashSet<string>(StringComparer.Ordinal);
             WatcherTimer = new Timer(_ => Scan(), null, 200, 250);
@@ -295,7 +295,7 @@ public static class XlideTestModalWatcher
         {
             return "vba-modal";
         }
-        return "excel-modal";
+        return "host-modal";
     }
 
     private static bool HasOnlyInformationalButtons(DialogInfo info)
@@ -502,12 +502,12 @@ public static class XlideTestModalWatcher
     private static StringBuilder BaseEvent(string kind)
     {
         string prefix;
-        string excelId;
+        string hostId;
         string qualifiedName;
         lock (Gate)
         {
             prefix = EventPrefix;
-            excelId = ExcelId;
+            hostId = ExcelId;
             qualifiedName = QualifiedName;
         }
 
@@ -515,7 +515,7 @@ public static class XlideTestModalWatcher
         json.Append(prefix);
         json.Append("{");
         AddString(json, "kind", kind);
-        AddString(json, "excelId", excelId);
+        AddString(json, "hostId", hostId);
         AddString(json, "qualifiedName", qualifiedName);
         return json;
     }

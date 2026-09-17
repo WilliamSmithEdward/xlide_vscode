@@ -23,7 +23,7 @@ import { registerXlideDirtyModuleBackups } from './xlideDirtyModuleBackups';
 import { registerVbaEditorCommands } from './vbaEditorCommands';
 import { registerXlideCommand } from './xlideCommandRegistration';
 import { createRecordedOutputChannel } from './xlideOutputLog';
-import { setExcelCoordinationLog } from './excelWorkbookCoordinator';
+import { setHostCoordinationLog } from './officeWriteCoordinator';
 import { registerXlideGlobalSettingsWebview } from './globalSettingsWebview';
 import {
     setXlideGlobalSettingValue,
@@ -60,7 +60,7 @@ export function activate(context: vscode.ExtensionContext): void {
     );
     // Route Excel-coordination traces (file-system save path, shared module
     // operations) to the XLIDE output channel.
-    setExcelCoordinationLog((line) => out.appendLine(line));
+    setHostCoordinationLog((line) => out.appendLine(line));
     out.appendLine('XLIDE activating...');
 
     // Dev-only commands stay out of the command palette unless the extension

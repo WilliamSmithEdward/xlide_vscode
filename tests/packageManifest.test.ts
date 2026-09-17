@@ -54,6 +54,10 @@ const declaredTools = new Set(manifest.contributes.languageModelTools.map((t) =>
  * commands attached directly to tree items, none of which render in menus
  * or the palette. Adding a command here is a deliberate decision. */
 const INTERNAL_COMMANDS = new Set([
+    // The ids the two Open commands had while they only opened Excel; kept
+    // registered so a keybinding made against them still works.
+    'xlide.openWorkbook',
+    'xlide.openWorkbookReadOnly',
     'xlide.retryExplorerLoad',
     'xlide.vba.smartBackspace',
     'xlide.vba.smartTab',

@@ -283,7 +283,7 @@ function metadataCompletionTemplates(kind: TestDirectiveKind): TestDirectiveMeta
     }
 
     const reasonPlaceholder = kind === 'skip'
-        ? 'Requires external workbook'
+        ? 'Requires an external file'
         : 'Known issue pending fix';
     return [
         {
@@ -311,7 +311,7 @@ function valueCompletionTemplates(
             ];
         case 'reason': {
             const placeholder = directiveKind === 'skip'
-                ? 'Requires external workbook'
+                ? 'Requires an external file'
                 : 'Known issue pending fix';
             return [
                 valueCompletion(

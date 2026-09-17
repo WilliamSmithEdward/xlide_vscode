@@ -129,9 +129,9 @@ const LAUNCH_SOURCE = readFileSync(path.join(__dirname, '..', 'src', 'vbaFormPre
 
 describe('the F5 form launch', () => {
 	it('suppresses the reopen across BOTH the write and the macro run', () => {
-		const suppress = LAUNCH_SOURCE.indexOf('withWorkbookReopenSuppressed(');
-		const write = LAUNCH_SOURCE.indexOf('runWriteWithExcelCoordination(');
-		const run = LAUNCH_SOURCE.indexOf('runWorkbookMacroReadOnly(');
+		const suppress = LAUNCH_SOURCE.indexOf('withFileReopenSuppressed(');
+		const write = LAUNCH_SOURCE.indexOf('runWriteWithHostCoordination(');
+		const run = LAUNCH_SOURCE.indexOf('runHostMacro(');
 		expect(suppress).toBeGreaterThan(-1);
 		expect(write).toBeGreaterThan(suppress);
 		expect(run).toBeGreaterThan(suppress);
@@ -141,11 +141,11 @@ describe('the F5 form launch', () => {
 		// F5 runs what you see: without this the macro shows the last saved
 		// form. The save sits inside the reopen suppression, or its own
 		// post-save reopen races the macro host.
-		const suppress = LAUNCH_SOURCE.indexOf('withWorkbookReopenSuppressed(wbPath, () => savePendingLaunchEdits(');
+		const suppress = LAUNCH_SOURCE.indexOf('withFileReopenSuppressed(wbPath, () => savePendingLaunchEdits(');
 		expect(suppress).toBeGreaterThan(-1);
 		expect(LAUNCH_SOURCE).toContain('if (!saved) {');
-		expect(LAUNCH_SOURCE.indexOf('const saved = excel'))
-			.toBeLessThan(LAUNCH_SOURCE.indexOf('runWorkbookMacroReadOnly('));
+		expect(LAUNCH_SOURCE.indexOf('const saved = await'))
+			.toBeLessThan(LAUNCH_SOURCE.indexOf('runHostMacro('));
 		// The designer's own document is saved even with no active editor,
 		// which is exactly the F5-from-the-canvas case.
 		expect(LAUNCH_SOURCE).toContain('encodeFormMarkupUri(filePath, formModule).toString()');
@@ -161,8 +161,29 @@ describe('the F5 form launch', () => {
 		expect(LAUNCH_SOURCE).toContain('launchInFlight = false;');
 	});
 
-	it('tracks the workbook the macro host reopened, so a later save can free it', () => {
-		expect(LAUNCH_SOURCE).toContain('markWorkbookOpenedByXlide(wbPath)');
+	it('tracks the file the macro host reopened, so a later save can free it', () => {
+		expect(LAUNCH_SOURCE).toContain('markFileOpenedByXlide(wbPath)');
+	});
+
+	it('shows a UserForm through the launcher in every application that has them', () => {
+		// Word and PowerPoint host UserForms exactly as Excel does, and the
+		// launcher is plain VBA, so the path is not Excel's alone. COM runs
+		// the macro, so it is Windows' alone.
+		expect(LAUNCH_SOURCE).toContain("(host === 'excel' || host === 'word' || host === 'powerpoint')");
+		expect(LAUNCH_SOURCE).toContain("const showsUserForms = process.platform === 'win32'");
+		expect(LAUNCH_SOURCE).toContain('if (showsUserForms && formModule) {');
+		expect(LAUNCH_SOURCE).toContain('in ${appName}...');
+		expect(LAUNCH_SOURCE).not.toContain('in Excel...');
+	});
+
+	it('opens an Access form or report by name, writing nothing into the database', () => {
+		const access = LAUNCH_SOURCE.indexOf('if (accessDesign) {');
+		const launcher = LAUNCH_SOURCE.indexOf('if (showsUserForms && formModule) {');
+		expect(access).toBeGreaterThan(-1);
+		// Decided before the launcher path, which would ask to inject a macro.
+		expect(access).toBeLessThan(launcher);
+		expect(LAUNCH_SOURCE).toContain('accessDesignOfModuleName(formModule)');
+		expect(LAUNCH_SOURCE).toContain('showAccessDesign(wbPath, accessDesign, { attachToRunning }, quiet)');
 	});
 });
 
@@ -196,7 +217,7 @@ describe('F5 on a VB6 form', () => {
 
 	it('gives the designer on screen the launch, whatever the text editors say', () => {
 		// `activeTextEditor` keeps naming the last text editor even while a
-		// canvas has focus, so an Excel module open in another tab would
+		// canvas has focus, so an Office module open in another tab would
 		// otherwise take F5 away from the VB6 form being looked at.
 		expect(LAUNCH_SOURCE).toContain('const onScreen = activeFormLaunchTarget();');
 		expect(LAUNCH_SOURCE.indexOf('const onScreen = activeFormLaunchTarget();'))
@@ -219,9 +240,10 @@ describe('F5 on a VB6 form', () => {
 
 	it('opens the project rather than building it, and names no build tool', () => {
 		expect(LAUNCH_SOURCE).toContain('in Visual Basic...');
-		// The launcher-macro path is Excel's alone: a .vbp never reaches it.
-		expect(LAUNCH_SOURCE).toContain("const excel = /\\.(xlsm|xlsb|xlam|xls)$/i.test(wbPath)");
-		expect(LAUNCH_SOURCE).toContain('excel && formModule');
+		// The launcher-macro path belongs to the Office applications that
+		// host UserForms: a .vbp has no Office host, so it never reaches it.
+		expect(LAUNCH_SOURCE).toContain('const host = officeHostForPath(wbPath);');
+		expect(LAUNCH_SOURCE).toContain('if (showsUserForms && formModule) {');
 		expect(LAUNCH_SOURCE.toLowerCase()).not.toContain('twinbasic');
 		expect(DESIGNER_SOURCE.toLowerCase()).not.toContain('twinbasic');
 	});

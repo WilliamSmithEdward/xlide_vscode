@@ -2,11 +2,11 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { ProjectEngine } from './projectEngine';
-import { errorCategoryForSupportLog, WORKBOOK_LOCKED_ERROR_RE } from './xlideCommandLog';
+import { errorCategoryForSupportLog, PROJECT_LOCKED_ERROR_RE } from './xlideCommandLog';
 import { formatChangeSummary, recordXlideWriteAudit } from './xlideWriteAudit';
 import { startPerformanceTrace } from './performanceTrace';
 import { errorMessage } from './util/errors';
-import { runWriteWithExcelCoordination } from './excelWorkbookCoordinator';
+import { runWriteWithHostCoordination } from './officeWriteCoordinator';
 import { noteModuleWrite } from './vbaRenameHistory';
 // Function-level cycle with xlideAgentDiff (it imports URI/identity helpers
 // from this module); neither side touches the other at module-eval time.
@@ -71,11 +71,11 @@ export function notifySignatureDropped(filePath: string, signatureDropped: boole
 }
 
 /**
- * Heuristic: does this error string look like a Windows file-sharing violation
- * caused by Excel having the workbook open?
+ * Heuristic: does this error string look like the file's application (Excel,
+ * Word, PowerPoint or Access) holding it open?
  */
 export function isProjectLockedError(message: string): boolean {
-    return WORKBOOK_LOCKED_ERROR_RE.test(message);
+    return PROJECT_LOCKED_ERROR_RE.test(message);
 }
 
 // Collapse rapid repeat lock notices for the same project into a single popup
@@ -284,7 +284,7 @@ export class XlideFileSystemProvider
     ): Promise<void> {
         const trace = startPerformanceTrace('filesystem.applyFormMarkup', moduleName);
         try {
-            const result = await runWriteWithExcelCoordination(projectPath, () =>
+            const result = await runWriteWithHostCoordination(projectPath, () =>
                 this._bridge.call<{ ok: boolean; signatureDropped: boolean; applied: string[] }>(
                     'applyFormMarkup',
                     { path: projectPath, module: moduleName, markup },
@@ -340,7 +340,7 @@ export class XlideFileSystemProvider
         noteModuleWrite(projectPath, moduleName);
         const trace = startPerformanceTrace('filesystem.writeFile', moduleName);
         try {
-            const result = await runWriteWithExcelCoordination(projectPath, () =>
+            const result = await runWriteWithHostCoordination(projectPath, () =>
                 this._bridge.call<{ ok: boolean; signatureDropped: boolean }>(
                     'writeModule',
                     {

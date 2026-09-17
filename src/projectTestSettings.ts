@@ -10,29 +10,29 @@ import {
     type ProjectSettingsConfig,
 } from './projectSettings';
 
-export type WorkbookTestSettingsSource = ProjectSettingSource;
+export type ProjectTestSettingsSource = ProjectSettingSource;
 
-export interface EffectiveWorkbookTestSettings {
+export interface EffectiveProjectTestSettings {
     artifactFolder: string;
-    artifactFolderSource: WorkbookTestSettingsSource;
+    artifactFolderSource: ProjectTestSettingsSource;
     artifactRetention: number;
-    artifactRetentionSource: WorkbookTestSettingsSource;
+    artifactRetentionSource: ProjectTestSettingsSource;
     settingsPath: string;
 }
 
-export async function effectiveWorkbookTestSettings(
+export async function effectiveProjectTestSettings(
     projectPath: string,
-): Promise<EffectiveWorkbookTestSettings> {
-    return effectiveWorkbookTestSettingsFromConfig(
+): Promise<EffectiveProjectTestSettings> {
+    return effectiveProjectTestSettingsFromConfig(
         projectPath,
         await readProjectSettings(projectPath, { lenient: true }),
     );
 }
 
-export function effectiveWorkbookTestSettingsFromConfig(
+export function effectiveProjectTestSettingsFromConfig(
     projectPath: string,
     config: ProjectSettingsConfig,
-): EffectiveWorkbookTestSettings {
+): EffectiveProjectTestSettings {
     const artifactFolder = resolveProjectSetting(config.tests?.artifactFolder, {
         value: DEFAULT_VBA_TEST_ARTIFACT_FOLDER,
         source: 'default',

@@ -26,16 +26,20 @@ export function clearXlideCommandLog(): void {
 }
 
 /**
- * Error signatures indicating Excel holds the workbook open (Windows file
- * sharing violation).  Shared by support-log categorization here and the
- * user-facing project-locked warning in xlideFileSystem.
+ * Error signatures indicating the file's application holds it open. XLIDE
+ * saves by renaming a temp file over the container, and Windows refuses that
+ * rename with EPERM ("operation not permitted") while Excel, Word, PowerPoint
+ * or Access has the file open - measured against all four. The other
+ * signatures cover reads and older error shapes. Shared by support-log
+ * categorization here and the user-facing project-locked warning in
+ * xlideFileSystem.
  */
-export const WORKBOOK_LOCKED_ERROR_RE =
-    /WinError\s*3[23]\b|WinError\s*5\b|being used by another process|sharing violation|access is denied|permission denied|permissionerror|\bEACCES\b|\bEBUSY\b/i;
+export const PROJECT_LOCKED_ERROR_RE =
+    /WinError\s*3[23]\b|WinError\s*5\b|being used by another process|sharing violation|access is denied|permission denied|operation not permitted|permissionerror|\bEACCES\b|\bEBUSY\b|\bEPERM\b/i;
 
 export function errorCategoryForSupportLog(error: unknown): string {
     const message = errorMessage(error);
-    if (WORKBOOK_LOCKED_ERROR_RE.test(message)) {
+    if (PROJECT_LOCKED_ERROR_RE.test(message)) {
         return 'project-locked';
     }
     if (/\bENOENT\b|no such file|cannot find|not found/i.test(message)) {

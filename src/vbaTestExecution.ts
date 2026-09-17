@@ -1,17 +1,18 @@
 import * as path from 'path';
-import { containerHostForPath } from './macroContainerUi';
+import { containerAppNameForPath } from './macroContainerUi';
+import { OFFICE_HOST_APPS, officeHostForPath } from './officeHostApps';
 import type { ProjectEngine } from './projectEngine';
 import type { VbaTestHostOracleEvent } from './vbaTestHostOracle';
 import {
-    runOwnedExcelTestHostSession,
-    type OwnedReadOnlyExcelHostRunResult,
-    type OwnedReadOnlyExcelHostTestResult,
+    runOwnedTestHostSession,
+    type OwnedReadOnlyHostRunResult,
+    type OwnedReadOnlyHostTestResult,
 } from './vbaTestHostSession';
-import { stageOwnedReadOnlyExcelTestHost } from './vbaTestHostStaging';
+import { stageOwnedReadOnlyTestHost } from './vbaTestHostStaging';
 import {
     createVbaTestRunReport,
     describeVbaTestSelection,
-    discoverWorkbookVbaTests,
+    discoverProjectVbaTests,
     type VbaTestCase,
     type VbaTestRunItem,
     type VbaTestRunReport,
@@ -20,7 +21,7 @@ import {
 import { vbaTestFailureMessage } from './vbaTestFailureMessages';
 import { measurePerformance } from './performanceTrace';
 
-export type { OwnedReadOnlyExcelHostTestResult } from './vbaTestHostSession';
+export type { OwnedReadOnlyHostTestResult } from './vbaTestHostSession';
 
 export interface VbaTestRunOptions {
     selection?: VbaTestSelectionOptions;
@@ -31,7 +32,7 @@ export interface VbaTestProgressReporter {
     report(value: { message?: string; increment?: number }): void;
 }
 
-export interface RunWorkbookVbaTestsOptions extends VbaTestRunOptions {
+export interface RunProjectVbaTestsOptions extends VbaTestRunOptions {
     progress?: VbaTestProgressReporter;
     log?: (message: string) => void;
 }
@@ -41,12 +42,12 @@ export interface VbaTestRunExecution {
     hostEvents: VbaTestHostOracleEvent[];
 }
 
-export async function runWorkbookVbaTests(
+export async function runProjectVbaTests(
     bridge: ProjectEngine,
     filePath: string,
-    options: RunWorkbookVbaTestsOptions = {},
+    options: RunProjectVbaTestsOptions = {},
 ): Promise<VbaTestRunExecution> {
-    return measurePerformance('vbaTests.runWorkbook', path.basename(filePath), async () => {
+    return measurePerformance('vbaTests.run', path.basename(filePath), async () => {
     const log = options.log ?? (() => { /* optional caller logging */ });
     const startedAt = new Date();
     const startedMs = Date.now();
@@ -55,7 +56,7 @@ export async function runWorkbookVbaTests(
         failFast: options.failFast,
     };
     options.progress?.report({ message: 'Discovering tests...' });
-    const discovery = await discoverWorkbookVbaTests(bridge, filePath, runOptions.selection);
+    const discovery = await discoverProjectVbaTests(bridge, filePath, runOptions.selection);
     const results: VbaTestRunItem[] = [];
 
     if (discovery.tests.length === 0) {
@@ -72,7 +73,7 @@ export async function runWorkbookVbaTests(
     }
 
     if (process.platform !== 'win32') {
-        const message = 'VBA test execution currently requires Excel COM on Windows.';
+        const message = `VBA tests run through ${containerAppNameForPath(filePath)} COM automation, which needs Windows.`;
         for (const test of discovery.tests) {
             results.push({
                 test,
@@ -93,15 +94,15 @@ export async function runWorkbookVbaTests(
         };
     }
 
-    log('[runVbaTests] attachToRunningExcel=false (owned read-only test host)');
+    log('[runVbaTests] attachToRunning=false (owned read-only test host)');
     log(`[runVbaTests] selection=${describeVbaTestSelection(runOptions.selection) || 'all tests'} failFast=${Boolean(runOptions.failFast)}`);
     const executableTests = discovery.tests.filter((test) => !test.metadata.skipReason);
-    options.progress?.report({ message: `Running ${executableTests.length} test(s) in owned Excel...` });
-    const hostRun: OwnedReadOnlyExcelHostRunResult = executableTests.length > 0
-        ? await runOwnedReadOnlyExcelTestHost(bridge, filePath, executableTests, runOptions, log)
+    options.progress?.report({ message: `Running ${executableTests.length} test(s) in owned ${containerAppNameForPath(filePath)}...` });
+    const hostRun: OwnedReadOnlyHostRunResult = executableTests.length > 0
+        ? await runOwnedReadOnlyTestHost(bridge, filePath, executableTests, runOptions, log)
         : {
             events: [],
-            resultsByName: new Map<string, OwnedReadOnlyExcelHostTestResult>(),
+            resultsByName: new Map<string, OwnedReadOnlyHostTestResult>(),
         };
     let stoppedAfter: string | undefined;
 
@@ -142,7 +143,7 @@ export async function runWorkbookVbaTests(
                 test,
                 status: 'host-error',
                 durationMs: 0,
-                error: 'The Excel test host did not emit a result for this test.',
+                error: 'The test host did not emit a result for this test.',
             };
         }
         results.push(result);
@@ -165,29 +166,26 @@ export async function runWorkbookVbaTests(
     });
 }
 
-async function runOwnedReadOnlyExcelTestHost(
+async function runOwnedReadOnlyTestHost(
     bridge: ProjectEngine,
     filePath: string,
     tests: readonly VbaTestCase[],
     options: VbaTestRunOptions,
     log: (message: string) => void,
-): Promise<OwnedReadOnlyExcelHostRunResult> {
-    return measurePerformance('vbaTests.ownedExcelHost', `${path.basename(filePath)} ${tests.length} tests`, async () => {
-    const containerHost = containerHostForPath(filePath);
-    const hostApp = containerHost === 'word' || containerHost === 'powerpoint'
-        || containerHost === 'access'
-        ? containerHost
-        : 'excel';
-    const staging = await stageOwnedReadOnlyExcelTestHost(bridge, filePath, tests, {
+): Promise<OwnedReadOnlyHostRunResult> {
+    return measurePerformance('vbaTests.ownedHost', `${path.basename(filePath)} ${tests.length} tests`, async () => {
+    const hostApp = officeHostForPath(filePath) ?? 'excel';
+    const staging = await stageOwnedReadOnlyTestHost(bridge, filePath, tests, {
         failFast: options.failFast,
         hostApp,
         log,
     });
     log(`[runVbaTests] Running owned read-only ${hostApp} host for ${tests.length} test(s).`);
-    log(`[runVbaTests] Temporary workbook path: ${staging.tempWorkbookPath}`);
+    log(`[runVbaTests] Temporary file path: ${staging.tempFilePath}`);
     log(`[runVbaTests] Host script path: ${staging.hostScriptPath}`);
-    return runOwnedExcelTestHostSession({
+    return runOwnedTestHostSession({
         hostScriptPath: staging.hostScriptPath,
+        hostNoun: OFFICE_HOST_APPS[hostApp].noun,
         disposeStaging: staging.dispose,
         log,
     });
@@ -196,7 +194,7 @@ async function runOwnedReadOnlyExcelTestHost(
 
 export function vbaTestRunItemFromHostResult(
     test: VbaTestCase,
-    hostResult: OwnedReadOnlyExcelHostTestResult,
+    hostResult: OwnedReadOnlyHostTestResult,
 ): VbaTestRunItem {
     const message = hostResult.message ? vbaTestFailureMessage(hostResult.message) : undefined;
     const expectedError = test.metadata.expectedError;
@@ -223,7 +221,7 @@ export function vbaTestRunItemFromHostResult(
             test,
             status: 'host-error',
             durationMs: hostResult.durationMs,
-            error: message ?? 'Blocked by an Excel modal dialog.',
+            error: message ?? 'Blocked by a modal dialog in the host application.',
             ...(hostResult.output?.length ? { output: hostResult.output } : {}),
         };
     }
@@ -231,14 +229,14 @@ export function vbaTestRunItemFromHostResult(
         test,
         status: 'host-error',
         durationMs: hostResult.durationMs,
-        error: message ?? 'The Excel test host failed while running this test.',
+        error: message ?? 'The test host failed while running this test.',
         ...(hostResult.output?.length ? { output: hostResult.output } : {}),
     };
 }
 
 function vbaTestRunItemFromExpectedError(
     test: VbaTestCase,
-    hostResult: OwnedReadOnlyExcelHostTestResult,
+    hostResult: OwnedReadOnlyHostTestResult,
     expectedError: number | 'any',
     failureMessage: string | undefined,
 ): VbaTestRunItem {

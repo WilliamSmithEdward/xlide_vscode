@@ -64,6 +64,7 @@ export class AnalysisWorkerState {
 					// own code-behind (#22).
 					implicitMembers: m.implicitMembers,
 					predeclaredId: m.predeclaredId,
+					designerClass: m.designerClass,
 				})), undefined, {
 					// Both halves must be built under the same constants: giving
 					// them to the rules alone would leave a branch dropped from

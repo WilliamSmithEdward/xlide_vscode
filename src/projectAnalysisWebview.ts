@@ -84,8 +84,8 @@ interface OpenProjectAnalysisResultsPanelEntry {
     showErrorPage: (error: string) => void;
 }
 
-const WORKBOOK_ANALYSIS_REFRESH_DELAY_MS = 350;
-const WORKBOOK_ANALYSIS_TEXT_CHANGE_REFRESH_DELAY_MS = 1200;
+const PROJECT_ANALYSIS_REFRESH_DELAY_MS = 350;
+const PROJECT_ANALYSIS_TEXT_CHANGE_REFRESH_DELAY_MS = 1200;
 
 const openProjectAnalysisResultsPanels = createWebviewPanelRegistry<OpenProjectAnalysisResultsPanelEntry>();
 
@@ -186,7 +186,7 @@ export function openProjectAnalysisResults(
             const error = errorMessage(err);
             void panel.webview.postMessage({ type: 'error', error });
         },
-        defaultDelayMs: WORKBOOK_ANALYSIS_REFRESH_DELAY_MS,
+        defaultDelayMs: PROJECT_ANALYSIS_REFRESH_DELAY_MS,
     });
 
     const scheduleRefresh = (delayMs?: number): void => refresher.schedule(delayMs);
@@ -370,7 +370,7 @@ export function openProjectAnalysisResults(
     });
     const textChangeSub = vscode.workspace.onDidChangeTextDocument((e) => {
         if (isProjectDocument(e.document, currentResult.filePath)) {
-            scheduleRefresh(WORKBOOK_ANALYSIS_TEXT_CHANGE_REFRESH_DELAY_MS);
+            scheduleRefresh(PROJECT_ANALYSIS_TEXT_CHANGE_REFRESH_DELAY_MS);
         }
     });
     const saveSub = vscode.workspace.onDidSaveTextDocument((document) => {

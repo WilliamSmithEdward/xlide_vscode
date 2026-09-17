@@ -27,6 +27,12 @@ export interface VbaProjectModuleInput {
      * the attribute header was not read, never "no".
      */
     predeclaredId?: boolean;
+    /**
+     * The host class the module's designer makes it, where that is not an
+     * MSForms.UserForm: an Access form's `Access.Form`. The index hands it to
+     * the form's type, so a reference from another module reaches that base.
+     */
+    designerClass?: string;
 }
 
 export interface VbaProjectLiveOverride {
@@ -135,6 +141,7 @@ function applyProjectModule(
         source: isOverride ? liveOverride.source : mod.source,
         implicitMembers: mod.implicitMembers,
         predeclaredId: mod.predeclaredId,
+        designerClass: mod.designerClass,
     });
     return !!isOverride && applied;
 }

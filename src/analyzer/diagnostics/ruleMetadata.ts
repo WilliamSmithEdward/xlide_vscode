@@ -46,7 +46,7 @@ export type DiagnosticCategory =
 	| 'semantic'
 	| 'project-symbol'
 	| 'module-kind'
-	| 'excel-host'
+	| 'office-host'
 	| 'style';
 
 /** Why a rule is surfaced at its default severity. */
@@ -874,7 +874,7 @@ export const DIAGNOSTIC_RULES = {
 		vbeCompileEquivalent: false,
 		diagnosticKind: 'style-policy',
 		source: 'XLIDE',
-		specReference: 'Excel document-module event binding',
+		specReference: 'Office document-module event binding',
 		confidence: 'high',
 	},
 	invalidAsTypeName: {
