@@ -284,13 +284,22 @@ export function accessVbaIdentifier(name: string): string {
  * these. It is NOT the whole surface - a bound form also has a member for
  * every field of its record source, which only the running database knows -
  * so a name missing here is never proof the name is undeclared.
+ *
+ * `listed` is the design's names its TypeInfo stream lists, where that is
+ * known. Access leaves out a control whose name the stream's code page cannot
+ * hold - one named in Cyrillic on a cp1252 machine - and code cannot reach
+ * that control through `Me`, so it is left out here as well.
  */
-export function accessDesignMembers(design: AccessDesign, kind: 'form' | 'report' = 'form'): AccessDesignMember[] {
+export function accessDesignMembers(
+	design: AccessDesign,
+	kind: 'form' | 'report' = 'form',
+	listed?: ReadonlySet<string>,
+): AccessDesignMember[] {
 	const out: AccessDesignMember[] = [];
 	const taken = new Set<string>();
 	for (const object of design.objects.slice(1)) {
 		const shown = accessDesignObjectName(object);
-		const name = shown ? accessVbaIdentifier(shown) : undefined;
+		const name = shown && (listed?.has(shown) ?? true) ? accessVbaIdentifier(shown) : undefined;
 		if (!name || taken.has(name.toLowerCase())) {
 			continue;
 		}

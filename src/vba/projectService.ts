@@ -780,7 +780,7 @@ export function listModules(filePath: string): ModuleEntry[] {
 	}
 	const { container, cfb, project } = openContainer(filePath);
 	const entries = project.modules.map((module) => moduleEntryWithDesigner(cfb, project, module));
-	return withHostDesigns(container, entries);
+	return withHostDesigns(container, entries, project.codePage);
 }
 
 export function readModules(filePath: string, full = false): ModuleEntry[] {
@@ -815,7 +815,7 @@ function readModulesFromContainer({ container, cfb, project }: OpenContainer, fu
 			continue;
 		}
 	}
-	return withHostDesigns(container, out, constants);
+	return withHostDesigns(container, out, project.codePage, constants);
 }
 
 /**
@@ -830,6 +830,7 @@ function readModulesFromContainer({ container, cfb, project }: OpenContainer, fu
 function withHostDesigns(
 	container: MacroContainer,
 	entries: ModuleEntry[],
+	projectCodePage: number,
 	constants?: string,
 ): ModuleEntry[] {
 	const designs = container.designs?.() ?? [];
@@ -839,7 +840,9 @@ function withHostDesigns(
 	const byModule = new Map(designs.map((design) => [design.moduleName.toLowerCase(), design]));
 	const out = entries.map((entry) => {
 		const design = byModule.get(entry.name.toLowerCase());
-		return design ? { ...entry, type: designModuleType(design.kind), ...designFacts(design) } : entry;
+		return design
+			? { ...entry, type: designModuleType(design.kind), ...designFacts(design, projectCodePage) }
+			: entry;
 	});
 	const covered = new Set(out.map((entry) => entry.name.toLowerCase()));
 	for (const design of designs) {
@@ -851,7 +854,7 @@ function withHostDesigns(
 		const entry: ModuleEntry = {
 			name: design.moduleName,
 			type: designModuleType(design.kind),
-			...designFacts(design),
+			...designFacts(design, projectCodePage),
 		};
 		if (constants) { entry.projectConditionalConstants = constants; }
 		out.push(entry);
@@ -864,8 +867,11 @@ function withHostDesigns(
  * never does: the class it is, which is what `Me` means there, and the
  * sections and controls that are members of that class.
  */
-function designFacts(design: AccessContainerDesign): Pick<ModuleEntry, 'designerClass' | 'implicitMembers'> {
-	const members = design.members();
+function designFacts(
+	design: AccessContainerDesign,
+	projectCodePage: number,
+): Pick<ModuleEntry, 'designerClass' | 'implicitMembers'> {
+	const members = design.members(projectCodePage);
 	return {
 		designerClass: ACCESS_DESIGN_CLASSES[design.kind],
 		...(members ? { implicitMembers: members } : {}),

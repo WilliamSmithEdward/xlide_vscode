@@ -16,6 +16,7 @@ import {
 	ACCESS_FORM_TYPE,
 	accessControlTypeName,
 	accessDesignControls,
+	accessDesignMembers,
 	accessDesignObjectName,
 	accessDesignSections,
 	accessVbaIdentifier,
@@ -145,8 +146,15 @@ import {
 	removeDesignControl,
 	setDesignProperty,
 } from '../src/vba/access/accessDesignEdit';
-import { buildTypeInfo, readTypeInfo, updateTypeInfo } from '../src/vba/access/accessTypeInfo';
+import {
+	buildTypeInfo,
+	readTypeInfo,
+	typeInfoCodePage,
+	typeInfoListedNames,
+	updateTypeInfo,
+} from '../src/vba/access/accessTypeInfo';
 import { PROPERTY_CODES, TYPE_INFO_CLSID_AT } from '../src/vba/access/accessDesignTable';
+import { codePageHolds } from '../src/vba/codePages';
 
 /** A property's record code, so a test names the property rather than a number. */
 const code = (name: string): number => PROPERTY_CODES.get(name)!;
@@ -503,6 +511,174 @@ describe('a TypeInfo stream whose members are not named as identifiers', () => {
 	});
 });
 
+// The names in a TypeInfo stream are bytes in a code page, and VBA can only
+// reach a control whose name that page holds. Measured on Access 16.0, on a
+// machine whose ANSI page is 1252 (scripts/build-access-code-page-fixture.py):
+// `Caf<e-acute>` is stored with E9 and the euro sign as 80, and a control named
+// in Cyrillic gets NO entry, with no ordinal spent on it, while its design
+// keeps the name in UTF-16. No best fit is tried. The page is the machine s:
+// a database created with the Cyrillic collation wrote the same bytes, and so
+// did one whose PROJECTCODEPAGE had been patched to 1251, which VBA went on
+// reading as cp1252 and Access set back to 1252 on its next save. What another
+// machine s page gives could not be measured, so nothing here assumes 1252:
+// the project s page is the one to try first, since it is the page the machine
+// that last saved the project wrote it in, and the stream s own bytes decide.
+describe('the code page of a TypeInfo stream', () => {
+	const PAGES = fs.readFileSync(path.join(BINARIES, 'AccessCodePageFixture.accdb'));
+	const CYRILLIC = 'Имя';
+	const E_ACUTE = 'Café';
+	const entryOf = (): ReturnType<typeof readAccessDesigns>[number] =>
+		readAccessDesigns(PAGES).find((entry) => entry.name === 'Names')!;
+	const listed = (stream: Buffer, codePage = 1252): Array<[number, string, string]> =>
+		readTypeInfo(stream, codePage).map((entry) => [entry.ordinal, entry.identifier, entry.name]);
+	const clsidOf = (stream: Buffer): Buffer => stream.subarray(TYPE_INFO_CLSID_AT, TYPE_INFO_CLSID_AT + 16);
+
+	/** A design holding a Detail section and one text box per name. */
+	function designOf(...names: string[]): ReturnType<typeof parseAccessDesign> {
+		const named = (name: string): ReturnType<typeof parseAccessDesign>['objects'][number]['records'] => [
+			{ id: 1, code: 20, valueType: 0, width: 0, value: Buffer.from(name, 'utf16le') },
+		];
+		return {
+			header: Buffer.alloc(10),
+			trailer: Buffer.alloc(4),
+			objects: [
+				{ records: named('Design') },
+				{ marker: 0xff, type: 152, records: named('Detail') },
+				...names.map((name) => ({ marker: 0xff, type: 109, records: named(name) })),
+			],
+		};
+	}
+
+	it('lists every name cp1252 holds, in its bytes, and leaves out the one it cannot', () => {
+		const { design, typeInfo } = entryOf();
+		expect(accessDesignControls(design).map(accessDesignObjectName)).toContain(CYRILLIC);
+		expect(listed(typeInfo!)).toEqual([
+			[0, 'Detail', 'Detail'],
+			[1, E_ACUTE, E_ACUTE],
+			[2, 'Em—Dash', 'Em—Dash'],
+			[3, '€uro', '€uro'],
+			[4, 'Naïve_—_x', 'Naïve — x'],
+			[5, 'Plain', 'Plain'],
+		]);
+		expect(typeInfo!.includes(Buffer.from([0x43, 0x61, 0x66, 0xe9, 0, 0]))).toBe(true);
+		expect(typeInfo!.includes(Buffer.from([0x80, 0x75, 0x72, 0x6f, 0, 0]))).toBe(true);
+	});
+
+	it('updates an untouched design to the stream Access wrote, with no entry for that name', () => {
+		const { design, typeInfo } = entryOf();
+		expect(updateTypeInfo('form', design, typeInfo!, 1252).equals(typeInfo!)).toBe(true);
+	});
+
+	it('gives an added control the page cannot name no entry, and spends no ordinal on it', () => {
+		const { design: before, typeInfo } = entryOf();
+		const first = addDesignControl(
+			before, 'TextBox', 'Два', GUID, designPrototypes(before), { left: 0, top: 0 },
+		);
+		const both = addDesignControl(first, 'TextBox', 'Olé', GUID, designPrototypes(first), { left: 0, top: 0 });
+		const after = updateTypeInfo('form', both, typeInfo!, 1252);
+		expect(listed(after)).toEqual([...listed(typeInfo!), [6, 'Olé', 'Olé']]);
+		expect(after.includes(Buffer.from([0x4f, 0x6c, 0xe9, 0, 0]))).toBe(true);
+	});
+
+	it('drops a control renamed out of the page, and lists one renamed into it', () => {
+		// Access did the same to the same two renames: the entry of the one went,
+		// and the other took the ordinal above the highest left.
+		const { design: before, typeInfo } = entryOf();
+		const renamed = setDesignProperty(
+			setDesignProperty(before, 'Plain', 'Name', 'Два'), CYRILLIC, 'Name', 'WasCyrillic',
+		);
+		const after = listed(updateTypeInfo('form', renamed, typeInfo!, 1252, new Map([
+			['Plain', 'Два'], [CYRILLIC, 'WasCyrillic'],
+		])));
+		expect(after).toEqual([
+			...listed(typeInfo!).filter(([, , name]) => name !== 'Plain'),
+			[5, 'WasCyrillic', 'WasCyrillic'],
+		]);
+	});
+
+	it('reads the stream in its own page where the project names another', () => {
+		// A project last saved on a machine with another page, around a form
+		// that machine never saved: PROJECTCODEPAGE says 1251, the names are
+		// cp1252. Read as 1251, E9 is a Cyrillic letter and the euro is not the
+		// euro, so three members matched nothing and were written again as `?`.
+		const { design: before, typeInfo } = entryOf();
+		expect(typeInfoCodePage(typeInfo!, [E_ACUTE, '€uro'], 1251)).toBe(1252);
+		expect(updateTypeInfo('form', before, typeInfo!, 1251).equals(typeInfo!)).toBe(true);
+		const added = addDesignControl(before, 'TextBox', 'Olé', GUID, designPrototypes(before), { left: 0, top: 0 });
+		const after = updateTypeInfo('form', added, typeInfo!, 1251);
+		// One stream, one page: the new name goes in as cp1252 too.
+		expect(listed(after)).toEqual([...listed(typeInfo!), [6, 'Olé', 'Olé']]);
+	});
+
+	it('keeps to the project s page where the stream agrees with it', () => {
+		// What a cp1251 machine would write: the Cyrillic name held, the accent not.
+		const field = 'Поле1';
+		const button = 'Кнопка2';
+		const stream = buildTypeInfo('form', clsidOf(entryOf().typeInfo!), [
+			{ ident: 6296, ordinal: 0, name: 'Detail', identifier: 'Detail', tail: Buffer.alloc(0) },
+			{ ident: 4717, ordinal: 1, name: field, identifier: field, tail: Buffer.alloc(0) },
+		], 1251);
+		expect(stream.includes(Buffer.from([0xcf, 0xee, 0xeb, 0xe5, 0x31, 0, 0]))).toBe(true);
+		expect(typeInfoCodePage(stream, [field], 1251)).toBe(1251);
+		expect(updateTypeInfo('form', designOf(field), stream, 1251).equals(stream)).toBe(true);
+		const after = updateTypeInfo('form', designOf(field, E_ACUTE, button), stream, 1251);
+		expect(listed(after, 1251)).toEqual([[0, 'Detail', 'Detail'], [1, field, field], [2, button, button]]);
+		expect(after.includes(Buffer.from([0xca, 0xed, 0xee, 0xef, 0xea, 0xe0, 0x32, 0, 0]))).toBe(true);
+	});
+
+	it('writes back the bytes it read, where a page spells one character two ways', () => {
+		// cp932 has U+2252 at 81 E0 and again at 87 90. Encoding the text again
+		// would pick the first; what Access wrote is carried instead.
+		const name = 'A≒';
+		const plain = buildTypeInfo('form', clsidOf(entryOf().typeInfo!), [
+			{ ident: 6296, ordinal: 0, name: 'Detail', identifier: 'Detail', tail: Buffer.alloc(0) },
+			{ ident: 4717, ordinal: 1, name, identifier: name, tail: Buffer.alloc(0) },
+		], 932);
+		const at = plain.indexOf(Buffer.from([0x41, 0x81, 0xe0]));
+		expect(at).toBeGreaterThan(0);
+		const other = Buffer.from(plain);
+		other.set([0x87, 0x90], at + 1);
+		expect(readTypeInfo(other, 932).map((entry) => entry.name)).toEqual(['Detail', name]);
+		expect(updateTypeInfo('form', designOf(name), other, 932).equals(other)).toBe(true);
+	});
+
+	it('says which names a page holds exactly', () => {
+		expect(codePageHolds('Plain name', 1252)).toBe(true);
+		expect(codePageHolds('Naïve — €?', 1252)).toBe(true);
+		expect(codePageHolds(CYRILLIC, 1252)).toBe(false);
+		expect(codePageHolds(`${E_ACUTE}И`, 1252)).toBe(false);
+		// No best fit: A-macron, fullwidth A, dotless i and omega are not A, A, i and O.
+		for (const near of ['Ābc', 'Ａbc', 'ıx', 'Ωhm']) {
+			expect(codePageHolds(near, 1252), near).toBe(false);
+		}
+		expect(codePageHolds(CYRILLIC, 1251)).toBe(true);
+		expect(codePageHolds(E_ACUTE, 1251)).toBe(false);
+		expect(codePageHolds('テキスト0', 932)).toBe(true);
+	});
+
+	it('offers Me the members Access listed, and not the control it left out', () => {
+		const { design, typeInfo } = entryOf();
+		const names = typeInfoListedNames(typeInfo!, design, 1252);
+		expect([...names].sort()).toEqual(['Detail', E_ACUTE, 'Em—Dash', '€uro', 'Naïve — x', 'Plain'].sort());
+		expect(accessDesignMembers(design, 'form').map((member) => member.name)).toContain(CYRILLIC);
+		expect(accessDesignMembers(design, 'form', names).map((member) => member.name)).toEqual([
+			'Detail', E_ACUTE, 'Em—Dash', '€uro', 'Naïve_—_x', 'Plain',
+		]);
+		// And from the file, which is what the editor reads.
+		const form = readModulesFromBuffer(PAGES).find((entry) => entry.name === 'Form_Names')!;
+		expect(form.implicitMembers?.map((member) => member.name)).toEqual([
+			'Detail', E_ACUTE, 'Em—Dash', '€uro', 'Naïve_—_x', 'Plain',
+		]);
+	});
+
+	it('edits the form through the writer and leaves the unlisted control unlisted', () => {
+		const writer = new AccessVbaWriter(PAGES);
+		writer.editDesign('Names', (blob) => setDesignProperty(blob, 'Plain', 'Width', 2000));
+		const written = readAccessDesigns(writer.toBuffer()).find((entry) => entry.name === 'Names')!;
+		expect(written.typeInfo!.equals(entryOf().typeInfo!)).toBe(true);
+	});
+});
+
 describe('writing a design back into the database', () => {
 	it('lists the database designs with their storage folders', () => {
 		const designs = new AccessVbaWriter(FORMS).designs();
@@ -637,6 +813,7 @@ import {
 	listModules,
 	readFormMarkup,
 	readFormPreview,
+	readModulesFromBuffer,
 	renameModule,
 } from '../src/vba/projectService';
 import { sceneOfAccessDesign } from '../src/vba/access/accessDesignScene';

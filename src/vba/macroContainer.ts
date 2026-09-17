@@ -29,7 +29,13 @@ import {
 	applyAccessVbaProject,
 	readAccessDesignNames,
 } from './access/accessVbaWriter';
-import { accessDesignMembers, parseAccessDesign, type AccessDesignMember } from './access/accessDesign';
+import {
+	accessDesignMembers,
+	parseAccessDesign,
+	type AccessDesign,
+	type AccessDesignMember,
+} from './access/accessDesign';
+import { typeInfoListedNames } from './access/accessTypeInfo';
 import { XlsxWorkbook } from './xlsx';
 
 export class MacroContainerError extends Error {}
@@ -67,9 +73,11 @@ export interface AccessContainerDesign {
 	/**
 	 * The design's named sections and controls, which are members of its
 	 * class. Parsed on the first ask; undefined when the design could not be
-	 * read, which means "not known", never "none".
+	 * read, which means "not known", never "none". Given the project's code
+	 * page, a control Access left out of the design's member list - one whose
+	 * name that list's page cannot hold - is left out here too.
 	 */
-	members(): AccessDesignMember[] | undefined;
+	members(projectCodePage?: number): AccessDesignMember[] | undefined;
 }
 
 const ZIP_MAGIC = Buffer.from('PK', 'latin1');
@@ -170,33 +178,55 @@ function wholeCfbContainer(outer: Cfb, kind: MacroContainerKind, description: st
 function cachedDesigns(data: Buffer): () => AccessContainerDesign[] {
 	let value: AccessContainerDesign[] | undefined;
 	return (): AccessContainerDesign[] => {
-		value ??= readAccessDesignNames(data).map(({ name, kind, blob }) => ({
+		value ??= readAccessDesignNames(data).map(({ name, kind, blob, typeInfo }) => ({
 			name,
 			kind,
 			moduleName: accessDesignModuleName(kind, name),
-			members: designMembers(blob, kind),
+			members: designMembers(blob, kind, typeInfo),
 		}));
 		return value;
 	};
 }
 
-/** A design's members, parsed once and only when asked for. */
-function designMembers(blob: Buffer | undefined, kind: 'form' | 'report'): () => AccessDesignMember[] | undefined {
-	let parsed = false;
-	let value: AccessDesignMember[] | undefined;
-	return () => {
-		if (!parsed) {
-			parsed = true;
+/** A design's members, parsed once for a code page and only when asked for. */
+function designMembers(
+	blob: Buffer | undefined,
+	kind: 'form' | 'report',
+	typeInfo: Buffer | undefined,
+): (projectCodePage?: number) => AccessDesignMember[] | undefined {
+	const parsed = new Map<number | undefined, AccessDesignMember[] | undefined>();
+	return (projectCodePage) => {
+		if (!parsed.has(projectCodePage)) {
+			let value: AccessDesignMember[] | undefined;
 			try {
-				value = blob ? accessDesignMembers(parseAccessDesign(blob), kind) : undefined;
+				const design = blob ? parseAccessDesign(blob) : undefined;
+				value = design && accessDesignMembers(design, kind, listedNames(design, typeInfo, projectCodePage));
 			} catch {
 				// A design this cannot read still has a module; its members
 				// are simply not known.
 				value = undefined;
 			}
+			parsed.set(projectCodePage, value);
 		}
-		return value;
+		return parsed.get(projectCodePage);
 	};
+}
+
+/** The names a design's member list holds, or undefined where it cannot say. */
+function listedNames(
+	design: AccessDesign,
+	typeInfo: Buffer | undefined,
+	projectCodePage: number | undefined,
+): Set<string> | undefined {
+	if (!typeInfo || projectCodePage === undefined) {
+		return undefined;
+	}
+	try {
+		return typeInfoListedNames(typeInfo, design, projectCodePage);
+	} catch {
+		// A member list this cannot read says nothing about what it holds.
+		return undefined;
+	}
 }
 
 function cached(build: () => Cfb): () => Cfb {

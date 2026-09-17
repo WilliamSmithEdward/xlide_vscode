@@ -618,7 +618,8 @@ export class AccessVbaWriter {
 		renamed: ReadonlyMap<string, string> = new Map(),
 	): void {
 		const rows = this.rows();
-		// A design's text is in the project's code page, as everything else is.
+		// The page the machine that last saved the project wrote it in, which
+		// is where the member names are looked for first (see accessTypeInfo).
 		const { codePage } = this.dir(rows);
 		const found = this.designs().find(
 			(entry) => entry.name.toLowerCase() === name.toLowerCase(),
@@ -1082,11 +1083,12 @@ export function accessDesignOfModuleName(
  * The forms and reports a database holds, by name and kind. Cheaper than
  * `AccessVbaWriter.designs()`, which parses every design blob; a listing only
  * needs what the containers' own listings say is there. Each entry keeps its
- * design's bytes, unparsed, for a caller that goes on to ask what is on it.
+ * design's bytes and its member list's, unparsed, for a caller that goes on to
+ * ask what is on it.
  */
 export function readAccessDesignNames(
 	data: Buffer,
-): Array<{ name: string; kind: AccessDesignKind; blob?: Buffer }> {
+): Array<{ name: string; kind: AccessDesignKind; blob?: Buffer; typeInfo?: Buffer }> {
 	let roots;
 	try {
 		roots = readAccessStorage(data);
@@ -1096,7 +1098,7 @@ export function readAccessDesignNames(
 	if (!roots) {
 		return [];
 	}
-	const out: Array<{ name: string; kind: AccessDesignKind; blob?: Buffer }> = [];
+	const out: Array<{ name: string; kind: AccessDesignKind; blob?: Buffer; typeInfo?: Buffer }> = [];
 	const walk = (nodes: readonly AccessStorageEntry[]): void => {
 		for (const node of nodes) {
 			const kind = node.name === 'Forms' ? 'form' : node.name === 'Reports' ? 'report' : undefined;
@@ -1113,7 +1115,13 @@ export function readAccessDesignNames(
 					const folder = folders.get(entry.folder);
 					if (folder) {
 						const blob = folder.children.find((child) => child.name === 'Blob')?.bytes;
-						out.push({ name: entry.name, kind, ...(blob?.length ? { blob } : {}) });
+						const typeInfo = folder.children.find((child) => child.name === 'TypeInfo')?.bytes;
+						out.push({
+							name: entry.name,
+							kind,
+							...(blob?.length ? { blob } : {}),
+							...(typeInfo?.length ? { typeInfo } : {}),
+						});
 					}
 				}
 				continue;

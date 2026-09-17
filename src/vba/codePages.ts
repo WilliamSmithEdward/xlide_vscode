@@ -205,6 +205,20 @@ export function encodeCodePage(text: string, codePage: number): Buffer {
 	return Buffer.from(out);
 }
 
+/**
+ * Whether the page holds every character of `text` exactly. `encodeCodePage`
+ * puts a '?' where it cannot, which is right for a module's source and wrong
+ * wherever the text is a NAME: a name with a '?' in it names something else.
+ * No best fit is accepted, which is how Access decides it: measured on a
+ * cp1252 machine, a control named with an A-macron, a fullwidth A or a Greek
+ * omega is left out of its form's member list rather than listed as `A` or `O`.
+ */
+export function codePageHolds(text: string, codePage: number): boolean {
+	if (ASCII_ONLY.test(text)) { return true; }
+	// cp1258 stores a toned vowel as two bytes that decode to base and mark.
+	return decodeCodePage(encodeCodePage(text, codePage), codePage).normalize('NFC') === text.normalize('NFC');
+}
+
 function encodeCp1252(text: string): Buffer {
 	const out = Buffer.alloc(text.length);
 	for (let i = 0; i < text.length; i++) {

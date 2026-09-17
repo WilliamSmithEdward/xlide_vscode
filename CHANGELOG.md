@@ -2,6 +2,44 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [8.3.3] - 2026-09-17
+
+- **A design edit no longer adds a member named `???` to an Access form.** A
+  form's member list is written in a code page, and VBA can only reach a
+  control whose name that page holds. Access leaves a control out of the list
+  when it cannot: one named in Cyrillic on a machine whose page is 1252, for
+  one. XLIDE listed it anyway, with a `?` for each character, so any edit to
+  such a form, even a width change, put a member `???` on the form's class.
+  XLIDE now leaves the name out as Access does, and spends no ordinal on it.
+  No best fit is accepted, because Access accepts none: a name with an
+  A-macron is left out, not listed as `A`. Renaming a control out of the page
+  drops it from the list, and renaming one into the page adds it. For each of
+  those, the list XLIDE writes is byte for byte the one Access 16.0 writes,
+  and the code behind the form compiles in Access afterwards.
+
+- **`Me.` no longer offers a control Access left out of the member list.**
+  Code cannot reach that control through `Me`, so completion does not suggest
+  it.
+
+- **Member names are read in the page they were written in.** The project's
+  code page is tried first, as before. Where the list's own bytes fit cp1252
+  better, which a project last saved on a machine with another page can
+  cause, they are read and written as cp1252, and those members are no longer
+  dropped and written again with `?` in them. A member that is kept is
+  written back byte for byte.
+
+### Internal
+
+- Measured on Access 16.0, on a machine whose ANSI page is 1252: the names
+  are single bytes in that page, and neither the database's collation nor
+  PROJECTCODEPAGE changes it. With PROJECTCODEPAGE patched to 1251, VBA went
+  on reading the project as cp1252 and Access wrote 1252 back on its next
+  save. What a machine with another page writes could not be measured here;
+  that it writes its own page is inferred, and nothing assumes 1252.
+- `tests/fixtures/binaries/AccessCodePageFixture.accdb` is Access's own,
+  built by `scripts/build-access-code-page-fixture.py`. `codePageHolds` in
+  `src/vba/codePages.ts` says whether a page holds a name exactly.
+
 ## [8.3.2] - 2026-09-17
 
 - **Editing an Access form no longer breaks the code behind it when a control

@@ -1,4 +1,4 @@
-import { decodeCodePage, encodeCodePage } from '../codePages';
+import { codePageHolds, decodeCodePage, encodeCodePage } from '../codePages';
 import { AccessFormatError } from './accessFormat';
 import {
 	accessDesignObjectName,
@@ -32,7 +32,8 @@ import { designObjectHolders, type AccessDesignKind } from './accessDesignEdit';
  * alone reproduces one Access wrote. The edits are reproduced instead: a new
  * member is appended with the ordinal above the highest present, a removed one
  * drops out while the others keep their ordinals, and a renamed one moves to
- * the end with its ordinal. A freed ordinal is never reused.
+ * the end with its ordinal. A freed ordinal below the highest is never
+ * reused; the highest, once freed, is the next one given out.
  *
  * A member has two names, because a control is rarely named as VBA would name
  * it: the form wizard names one after its field, so `Order Date` is ordinary,
@@ -45,6 +46,25 @@ import { designObjectHolders, type AccessDesignKind } from './accessDesignEdit';
  *
  * Measured on Access 16.0, for controls, sections and an ActiveX control,
  * whose tail follows both names.
+ *
+ * The names are bytes in a code page, and only a name the page holds is a
+ * member at all. Measured on a machine whose ANSI page is 1252: an e-acute is
+ * E9 and the euro sign 80, and a control named in Cyrillic gets NO entry and
+ * no ordinal, though its design keeps the name in UTF-16. No best fit is
+ * tried, and one character out of the page loses the whole name. Renaming a
+ * listed control out of the page drops its entry, and renaming one into the
+ * page appends it.
+ *
+ * Which page is the machine's, not the file's. A database created with the
+ * Cyrillic collation wrote the same cp1252 bytes. So did one whose
+ * PROJECTCODEPAGE had been patched to 1251: VBA went on reading that project
+ * as cp1252, and Access wrote 1252 back over the patch on its next save. What
+ * a machine with another page writes could not be measured. That it writes
+ * its own page is inferred, from the above and from localized Access naming
+ * controls in its own script for code to reach through `Me`, which a stream
+ * fixed at cp1252 would leave out. PROJECTCODEPAGE is therefore the page to
+ * try first, being the page of the machine that last saved the project; the
+ * stream's own bytes overrule it where they say otherwise (`typeInfoCodePage`).
  *
  * Ported from pyOpenVBA's `_designs.py`.
  */
@@ -62,7 +82,17 @@ export interface AccessTypeInfoEntry {
 	tail: Buffer;
 }
 
+/**
+ * Both names of an entry as the stream held them, NULs included. An entry
+ * carried forward writes these back, so what Access wrote never goes through
+ * a code page twice. Kept by the entry's identity and not on it, so a copy
+ * with another name - a rename, a repair - has none and is encoded afresh.
+ */
+const STORED_NAMES = new WeakMap<AccessTypeInfoEntry, Buffer>();
+
 const PAGE = 'Page';
+/** The page a stream is tried in when the project's own does not fit it. */
+const FALLBACK_CODE_PAGE = 1252;
 
 /** The members a `TypeInfo` stream lists, in the order it lists them. */
 export function readTypeInfo(stream: Buffer, codePage: number): AccessTypeInfoEntry[] {
@@ -85,15 +115,58 @@ export function readTypeInfo(stream: Buffer, codePage: number): AccessTypeInfoEn
 		}
 		const identifier = decodeCodePage(stream.subarray(at + 8, identifierEnd), codePage);
 		const shown = decodeCodePage(stream.subarray(identifierEnd + 1, nameEnd), codePage);
+		const stored = Buffer.from(stream.subarray(at + 8, nameEnd + 1));
 		at = nameEnd + 1;
 		let tail = Buffer.alloc(0);
 		if ((ident & 0xff) === CODE_OF_ACTIVEX) {
 			tail = Buffer.from(stream.subarray(at, at + TYPE_INFO_ACTIVEX_TAIL_LENGTH));
 			at += tail.length;
 		}
-		out.push({ ident, ordinal, name: shown || identifier, identifier, tail });
+		const entry = { ident, ordinal, name: shown || identifier, identifier, tail };
+		STORED_NAMES.set(entry, stored);
+		out.push(entry);
 	}
 	return out;
+}
+
+/**
+ * The page a stream's names are in, given the names its design has: the
+ * project's, unless the stream's own bytes fit the fallback better. Only an
+ * entry with a byte outside ASCII says anything, and a stream with none is
+ * the project's page, which is then the page a new name is written in.
+ */
+export function typeInfoCodePage(
+	stream: Buffer,
+	designNames: Iterable<string>,
+	projectCodePage: number,
+): number {
+	if (projectCodePage === FALLBACK_CODE_PAGE) {
+		return projectCodePage;
+	}
+	const names = new Set(designNames);
+	const fits = (codePage: number): number => readTypeInfo(stream, codePage)
+		.filter((entry) => STORED_NAMES.get(entry)!.some((byte) => byte >= 0x80) && names.has(entry.name))
+		.length;
+	return fits(FALLBACK_CODE_PAGE) > fits(projectCodePage) ? FALLBACK_CODE_PAGE : projectCodePage;
+}
+
+/**
+ * The names of the design that the stream lists, which are the ones `Me.` can
+ * reach. A control whose name the page cannot hold is in the design and not
+ * here.
+ */
+export function typeInfoListedNames(
+	stream: Buffer,
+	design: AccessDesign,
+	projectCodePage: number,
+): Set<string> {
+	const names = design.objects.slice(1)
+		.map(accessDesignObjectName)
+		.filter((name): name is string => name !== undefined);
+	const listed = new Set(
+		readTypeInfo(stream, typeInfoCodePage(stream, names, projectCodePage)).map((entry) => entry.name),
+	);
+	return new Set(names.filter((name) => listed.has(name)));
 }
 
 const CODE_OF_ACTIVEX = [...CONTROL_TYPES]
@@ -125,6 +198,11 @@ export function buildTypeInfo(
 		const framed = Buffer.alloc(8);
 		framed.writeUInt32LE(entry.ident, 0);
 		framed.writeUInt32LE(entry.ordinal, 4);
+		const stored = STORED_NAMES.get(entry);
+		if (stored) {
+			parts.push(framed, stored, entry.tail);
+			continue;
+		}
 		parts.push(
 			framed,
 			encodeCodePage(entry.identifier, codePage), nul,
@@ -225,18 +303,22 @@ function refuseSharedIdentifiers(entries: readonly AccessTypeInfoEntry[]): void 
 
 /**
  * The stream after the design changed, carried forward the way Access carries
- * it. `renamed` maps a member's old name in the design to its new one.
+ * it. `renamed` maps a member's old name in the design to its new one, and
+ * `projectCodePage` is the page to try the stream in first. A member whose
+ * name the stream's page cannot hold is left out, as Access leaves it out,
+ * and takes no ordinal.
  */
 export function updateTypeInfo(
 	kind: AccessDesignKind,
 	design: AccessDesign,
 	existing: Buffer,
-	codePage: number,
+	projectCodePage: number,
 	renamed: ReadonlyMap<string, string> = new Map(),
 ): Buffer {
-	const entries = readTypeInfo(existing, codePage);
 	const members = membersOf(kind, design.objects);
 	const wanted = new Set(members.map((member) => member.name));
+	const codePage = typeInfoCodePage(existing, [...wanted, ...renamed.keys()], projectCodePage);
+	const entries = readTypeInfo(existing, codePage);
 	const kept = entries
 		.filter((entry) => wanted.has(entry.name) && !renamed.has(entry.name))
 		.map(carried);
@@ -245,13 +327,14 @@ export function updateTypeInfo(
 		.map((entry) => {
 			const name = renamed.get(entry.name)!;
 			return { ...entry, name, identifier: accessVbaIdentifier(name) };
-		});
+		})
+		.filter((entry) => codePageHolds(entry.name, codePage));
 	const present = new Set([...kept, ...moved].map((entry) => entry.name));
 	let ordinal = [...kept, ...moved]
 		.reduce((most, entry) => Math.max(most, entry.ordinal), -1) + 1;
 	const added: AccessTypeInfoEntry[] = [];
 	for (const member of members) {
-		if (present.has(member.name)) {
+		if (present.has(member.name) || !codePageHolds(member.name, codePage)) {
 			continue;
 		}
 		added.push({
