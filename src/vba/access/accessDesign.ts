@@ -273,7 +273,7 @@ export interface AccessDesignMember {
  * two names never share one.
  */
 export function accessVbaIdentifier(name: string): string {
-	const converted = name.replace(/[^A-Za-z0-9_-￿]/g, '_');
+	const converted = name.replace(/[^A-Za-z0-9_\u0080-\uffff]/g, '_');
 	return /^[0-9_]/.test(converted) ? `Ctl${converted}` : converted;
 }
 

@@ -49,18 +49,18 @@ AC_DETAIL = 0
 AC_CMD_COMPILE_AND_SAVE_ALL_MODULES = 126
 TEXT_BOX = 109
 TEXT_BOXES = [
-    'Café',
-    'Em—Dash',
-    '€uro',
-    'Naïve — x',
-    'Имя',
+    'Caf\u00e9',
+    'Em\u2014Dash',
+    '\u20acuro',
+    'Na\u00efve \u2014 x',
+    '\u0418\u043c\u044f',
     'Plain',
 ]
 # Only the controls named in letters are reached through Me: a compile error
 # in Access is a dialog, and nothing here may need one dismissed.
 FORM_CODE = (
     'Public Sub Touch()\r\n'
-    '    Me.Café = 1\r\n'
+    '    Me.Caf\u00e9 = 1\r\n'
     '    Me.Plain = 2\r\n'
     'End Sub\r\n'
 )

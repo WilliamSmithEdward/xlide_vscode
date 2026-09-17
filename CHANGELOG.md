@@ -2,6 +2,22 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [8.3.4] - 2026-09-17
+
+- **No change in behaviour.** Two patterns held raw characters where escapes
+  were meant, and the packaged extension carried them as raw bytes: the one
+  that turns an Access control's name into its VBA identifier (U+0080 and
+  U+FFFF, since 8.3.1), and the one Format Document trims trailing space
+  with (U+3000, the ideographic space, since 8.3.0). Each matched the same
+  characters as its escape does, so nothing ran differently. They are
+  escapes now.
+
+### Internal
+
+- Two test files and `scripts/build-access-code-page-fixture.py` held literal
+  accented and Cyrillic characters where escapes were meant. They are
+  escapes now, and the names they spell are the same.
+
 ## [8.3.3] - 2026-09-17
 
 - **A design edit no longer adds a member named `???` to an Access form.** A

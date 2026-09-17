@@ -525,8 +525,8 @@ describe('a TypeInfo stream whose members are not named as identifiers', () => {
 // that last saved the project wrote it in, and the stream s own bytes decide.
 describe('the code page of a TypeInfo stream', () => {
 	const PAGES = fs.readFileSync(path.join(BINARIES, 'AccessCodePageFixture.accdb'));
-	const CYRILLIC = 'Имя';
-	const E_ACUTE = 'Café';
+	const CYRILLIC = '\u0418\u043c\u044f';
+	const E_ACUTE = 'Caf\u00e9';
 	const entryOf = (): ReturnType<typeof readAccessDesigns>[number] =>
 		readAccessDesigns(PAGES).find((entry) => entry.name === 'Names')!;
 	const listed = (stream: Buffer, codePage = 1252): Array<[number, string, string]> =>
@@ -555,9 +555,9 @@ describe('the code page of a TypeInfo stream', () => {
 		expect(listed(typeInfo!)).toEqual([
 			[0, 'Detail', 'Detail'],
 			[1, E_ACUTE, E_ACUTE],
-			[2, 'Em—Dash', 'Em—Dash'],
-			[3, '€uro', '€uro'],
-			[4, 'Naïve_—_x', 'Naïve — x'],
+			[2, 'Em\u2014Dash', 'Em\u2014Dash'],
+			[3, '\u20acuro', '\u20acuro'],
+			[4, 'Na\u00efve_\u2014_x', 'Na\u00efve \u2014 x'],
 			[5, 'Plain', 'Plain'],
 		]);
 		expect(typeInfo!.includes(Buffer.from([0x43, 0x61, 0x66, 0xe9, 0, 0]))).toBe(true);
@@ -572,11 +572,11 @@ describe('the code page of a TypeInfo stream', () => {
 	it('gives an added control the page cannot name no entry, and spends no ordinal on it', () => {
 		const { design: before, typeInfo } = entryOf();
 		const first = addDesignControl(
-			before, 'TextBox', 'Два', GUID, designPrototypes(before), { left: 0, top: 0 },
+			before, 'TextBox', '\u0414\u0432\u0430', GUID, designPrototypes(before), { left: 0, top: 0 },
 		);
-		const both = addDesignControl(first, 'TextBox', 'Olé', GUID, designPrototypes(first), { left: 0, top: 0 });
+		const both = addDesignControl(first, 'TextBox', 'Ol\u00e9', GUID, designPrototypes(first), { left: 0, top: 0 });
 		const after = updateTypeInfo('form', both, typeInfo!, 1252);
-		expect(listed(after)).toEqual([...listed(typeInfo!), [6, 'Olé', 'Olé']]);
+		expect(listed(after)).toEqual([...listed(typeInfo!), [6, 'Ol\u00e9', 'Ol\u00e9']]);
 		expect(after.includes(Buffer.from([0x4f, 0x6c, 0xe9, 0, 0]))).toBe(true);
 	});
 
@@ -585,10 +585,10 @@ describe('the code page of a TypeInfo stream', () => {
 		// and the other took the ordinal above the highest left.
 		const { design: before, typeInfo } = entryOf();
 		const renamed = setDesignProperty(
-			setDesignProperty(before, 'Plain', 'Name', 'Два'), CYRILLIC, 'Name', 'WasCyrillic',
+			setDesignProperty(before, 'Plain', 'Name', '\u0414\u0432\u0430'), CYRILLIC, 'Name', 'WasCyrillic',
 		);
 		const after = listed(updateTypeInfo('form', renamed, typeInfo!, 1252, new Map([
-			['Plain', 'Два'], [CYRILLIC, 'WasCyrillic'],
+			['Plain', '\u0414\u0432\u0430'], [CYRILLIC, 'WasCyrillic'],
 		])));
 		expect(after).toEqual([
 			...listed(typeInfo!).filter(([, , name]) => name !== 'Plain'),
@@ -602,18 +602,18 @@ describe('the code page of a TypeInfo stream', () => {
 		// cp1252. Read as 1251, E9 is a Cyrillic letter and the euro is not the
 		// euro, so three members matched nothing and were written again as `?`.
 		const { design: before, typeInfo } = entryOf();
-		expect(typeInfoCodePage(typeInfo!, [E_ACUTE, '€uro'], 1251)).toBe(1252);
+		expect(typeInfoCodePage(typeInfo!, [E_ACUTE, '\u20acuro'], 1251)).toBe(1252);
 		expect(updateTypeInfo('form', before, typeInfo!, 1251).equals(typeInfo!)).toBe(true);
-		const added = addDesignControl(before, 'TextBox', 'Olé', GUID, designPrototypes(before), { left: 0, top: 0 });
+		const added = addDesignControl(before, 'TextBox', 'Ol\u00e9', GUID, designPrototypes(before), { left: 0, top: 0 });
 		const after = updateTypeInfo('form', added, typeInfo!, 1251);
 		// One stream, one page: the new name goes in as cp1252 too.
-		expect(listed(after)).toEqual([...listed(typeInfo!), [6, 'Olé', 'Olé']]);
+		expect(listed(after)).toEqual([...listed(typeInfo!), [6, 'Ol\u00e9', 'Ol\u00e9']]);
 	});
 
 	it('keeps to the project s page where the stream agrees with it', () => {
 		// What a cp1251 machine would write: the Cyrillic name held, the accent not.
-		const field = 'Поле1';
-		const button = 'Кнопка2';
+		const field = '\u041f\u043e\u043b\u04351';
+		const button = '\u041a\u043d\u043e\u043f\u043a\u04302';
 		const stream = buildTypeInfo('form', clsidOf(entryOf().typeInfo!), [
 			{ ident: 6296, ordinal: 0, name: 'Detail', identifier: 'Detail', tail: Buffer.alloc(0) },
 			{ ident: 4717, ordinal: 1, name: field, identifier: field, tail: Buffer.alloc(0) },
@@ -629,7 +629,7 @@ describe('the code page of a TypeInfo stream', () => {
 	it('writes back the bytes it read, where a page spells one character two ways', () => {
 		// cp932 has U+2252 at 81 E0 and again at 87 90. Encoding the text again
 		// would pick the first; what Access wrote is carried instead.
-		const name = 'A≒';
+		const name = 'A\u2252';
 		const plain = buildTypeInfo('form', clsidOf(entryOf().typeInfo!), [
 			{ ident: 6296, ordinal: 0, name: 'Detail', identifier: 'Detail', tail: Buffer.alloc(0) },
 			{ ident: 4717, ordinal: 1, name, identifier: name, tail: Buffer.alloc(0) },
@@ -644,30 +644,30 @@ describe('the code page of a TypeInfo stream', () => {
 
 	it('says which names a page holds exactly', () => {
 		expect(codePageHolds('Plain name', 1252)).toBe(true);
-		expect(codePageHolds('Naïve — €?', 1252)).toBe(true);
+		expect(codePageHolds('Na\u00efve \u2014 \u20ac?', 1252)).toBe(true);
 		expect(codePageHolds(CYRILLIC, 1252)).toBe(false);
-		expect(codePageHolds(`${E_ACUTE}И`, 1252)).toBe(false);
+		expect(codePageHolds(`${E_ACUTE}\u0418`, 1252)).toBe(false);
 		// No best fit: A-macron, fullwidth A, dotless i and omega are not A, A, i and O.
-		for (const near of ['Ābc', 'Ａbc', 'ıx', 'Ωhm']) {
+		for (const near of ['\u0100bc', '\uff21bc', '\u0131x', '\u03a9hm']) {
 			expect(codePageHolds(near, 1252), near).toBe(false);
 		}
 		expect(codePageHolds(CYRILLIC, 1251)).toBe(true);
 		expect(codePageHolds(E_ACUTE, 1251)).toBe(false);
-		expect(codePageHolds('テキスト0', 932)).toBe(true);
+		expect(codePageHolds('\u30c6\u30ad\u30b9\u30c80', 932)).toBe(true);
 	});
 
 	it('offers Me the members Access listed, and not the control it left out', () => {
 		const { design, typeInfo } = entryOf();
 		const names = typeInfoListedNames(typeInfo!, design, 1252);
-		expect([...names].sort()).toEqual(['Detail', E_ACUTE, 'Em—Dash', '€uro', 'Naïve — x', 'Plain'].sort());
+		expect([...names].sort()).toEqual(['Detail', E_ACUTE, 'Em\u2014Dash', '\u20acuro', 'Na\u00efve \u2014 x', 'Plain'].sort());
 		expect(accessDesignMembers(design, 'form').map((member) => member.name)).toContain(CYRILLIC);
 		expect(accessDesignMembers(design, 'form', names).map((member) => member.name)).toEqual([
-			'Detail', E_ACUTE, 'Em—Dash', '€uro', 'Naïve_—_x', 'Plain',
+			'Detail', E_ACUTE, 'Em\u2014Dash', '\u20acuro', 'Na\u00efve_\u2014_x', 'Plain',
 		]);
 		// And from the file, which is what the editor reads.
 		const form = readModulesFromBuffer(PAGES).find((entry) => entry.name === 'Form_Names')!;
 		expect(form.implicitMembers?.map((member) => member.name)).toEqual([
-			'Detail', E_ACUTE, 'Em—Dash', '€uro', 'Naïve_—_x', 'Plain',
+			'Detail', E_ACUTE, 'Em\u2014Dash', '\u20acuro', 'Na\u00efve_\u2014_x', 'Plain',
 		]);
 	});
 

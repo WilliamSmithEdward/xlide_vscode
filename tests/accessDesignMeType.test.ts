@@ -617,12 +617,12 @@ describe('the name VBA knows a control by', () => {
 			['Under_score', 'Under_score'],
 			// A reserved word is left alone, and so is anything outside ASCII.
 			['Me', 'Me'],
-			['café', 'café'],
-			['x²', 'x²'],
-			['€uro', '€uro'],
-			['a–b', 'a–b'],
-			['½x', '½x'],
-			['naïve one', 'naïve_one'],
+			['caf\u00e9', 'caf\u00e9'],
+			['x\u00b2', 'x\u00b2'],
+			['\u20acuro', '\u20acuro'],
+			['a\u2013b', 'a\u2013b'],
+			['\u00bdx', '\u00bdx'],
+			['na\u00efve one', 'na\u00efve_one'],
 		]) {
 			expect(accessVbaIdentifier(shown), JSON.stringify(shown)).toBe(identifier);
 		}

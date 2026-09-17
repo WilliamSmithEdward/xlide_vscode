@@ -503,7 +503,7 @@ function rewriteLine(
 
 /** The text after the last token: nothing, or the ` _` of a continuation. */
 function trailing(line: string, from: number): string {
-	const rest = line.slice(from).replace(/[ \t　]+$/, '');
+	const rest = line.slice(from).replace(/[ \t\u3000]+$/, '');
 	if (rest.endsWith('_')) {
 		return from === 0 ? '_' : rest;
 	}
