@@ -101,6 +101,20 @@ describe('CFB container', () => {
 		reloaded.removeStreamInStorage('VBA', 'ZZRenamed');
 		expect(Cfb.fromBytes(reloaded.toBytes()).hasStreamInStorage('VBA', 'ZZRenamed')).toBe(false);
 	});
+
+	it('renames a storage with everything in it, and refuses a name taken', () => {
+		const cfb = Cfb.fromBytes(XlsxWorkbook.fromBuffer(fs.readFileSync(TEMPLATE)).readVbaProject());
+		cfb.addStorageAtPath([], 'ZZForm');
+		cfb.setStreamAtPath(['ZZForm'], 'f', Buffer.from('frame'));
+		cfb.renameStorageAtPath(['ZZForm'], 'AFormRenamed');
+		const reloaded = Cfb.fromBytes(cfb.toBytes());
+		expect(reloaded.hasStoragePath(['ZZForm'])).toBe(false);
+		expect(reloaded.getStreamAtPath(['AFormRenamed'], 'f').toString()).toBe('frame');
+		// Every sibling is still found after the tree is rebuilt.
+		expect(reloaded.listStoragesAtPath([]).sort()).toEqual(['AFormRenamed', 'VBA']);
+		expect(reloaded.listStreamsInStorage('VBA').length).toBeGreaterThan(0);
+		expect(() => reloaded.renameStorageAtPath(['AFormRenamed'], 'vba')).toThrow(/already exists/);
+	});
 });
 
 describe('VBA project', () => {
@@ -164,6 +178,62 @@ describe('native workbook service', () => {
 			expect(after.find((m) => m.name === module.name)?.source, module.name).toBe(module.source);
 		}
 		expect(svc.validateProject(target).issues).toEqual([]);
+	});
+
+	it('refuses a module name the VBE would refuse, from any caller, and leaves the file alone', () => {
+		// The tree's prompt checked these; an agent's tool call reached the
+		// engine without it and wrote `Bad Name`, `Sub` and `1Leading`.
+		const target = tempCopy();
+		svc.writeModule(target, 'Renamable', 'Public Sub A()\r\nEnd Sub\r\n');
+		const before = fs.readFileSync(target);
+		expect(() => svc.writeModule(target, 'Bad Name', 'Public Sub A()\r\nEnd Sub\r\n')).toThrow(/^"Bad Name" is not a valid module name\. /);
+		expect(() => svc.writeModule(target, '1Leading', 'Public Sub A()\r\nEnd Sub\r\n')).toThrow(/not a valid module name/);
+		expect(() => svc.renameModule(target, 'Renamable', 'Sub')).toThrow(/not a valid module name.*reserved/);
+		expect(() => svc.addFormModule(target, 'Form One')).toThrow(/not a valid module name/);
+		expect(fs.readFileSync(target).equals(before)).toBe(true);
+		// A module that already has a name keeps being written by it.
+		svc.writeModule(target, 'Renamable', 'Public Sub B()\r\nEnd Sub\r\n');
+		expect(svc.readModule(target, 'Renamable', false).source).toContain('Public Sub B()');
+	});
+
+	it('lists a predeclared, exposed class as a class, and renames and deletes it', () => {
+		// Classified by the two attributes alone, it read as a document module:
+		// listed as one, and refused a rename or a delete.
+		const target = tempCopy();
+		svc.writeModule(target, 'Factory', "'@PredeclaredId\r\n'@Exposed\r\nPublic Function Create() As Factory\r\nEnd Function\r\n", 'class');
+		expect(svc.readModule(target, 'Factory', true).source).toMatch(/VB_PredeclaredId = True[\s\S]*VB_Exposed = True/);
+		expect(svc.listModules(target).find((m) => m.name === 'Factory')?.type).toBe('class');
+		svc.renameModule(target, 'Factory', 'Factory2');
+		svc.deleteModule(target, 'Factory2');
+		expect(svc.listModules(target).map((m) => m.name)).not.toContain('Factory2');
+	});
+
+	it('renames a module to a change of case, and still refuses a name another module has', () => {
+		// The module found itself under its new name and reported it taken.
+		const target = tempCopy();
+		svc.writeModule(target, 'Casey', 'Public Sub Hi()\r\nEnd Sub\r\n');
+		svc.renameModule(target, 'Casey', 'CASEY');
+		const names = svc.listModules(target).map((m) => m.name);
+		expect(names).toContain('CASEY');
+		expect(names).not.toContain('Casey');
+		expect(svc.readModule(target, 'CASEY', true).source).toContain('Attribute VB_Name = "CASEY"');
+		expect(svc.validateProject(target).issues).toEqual([]);
+		svc.writeModule(target, 'Other', 'Public Sub Bye()\r\nEnd Sub\r\n');
+		expect(() => svc.renameModule(target, 'CASEY', 'other')).toThrow(/already exists/);
+	});
+
+	it('refuses to rename or delete a document module, and leaves the file alone', () => {
+		// Its name is the code name the workbook keeps. Measured in Excel: a
+		// renamed Sheet1 kept its code in a module no sheet owned, and the sheet
+		// got an empty Sheet1; a deleted one came back empty.
+		const target = tempCopy();
+		const before = fs.readFileSync(target);
+		expect(svc.listModules(target).filter((m) => m.type === 'document').map((m) => m.name))
+			.toEqual(expect.arrayContaining(['ThisWorkbook', 'Sheet1']));
+		expect(() => svc.renameModule(target, 'Sheet1', 'DataSheet')).toThrow(/^Sheet1 is a document module: /);
+		expect(() => svc.renameModule(target, 'thisworkbook', 'Book')).toThrow(/^ThisWorkbook is a document module: /);
+		expect(() => svc.deleteModule(target, 'Sheet1')).toThrow(/^Sheet1 is a document module: /);
+		expect(fs.readFileSync(target).equals(before)).toBe(true);
 	});
 
 	it('creates class modules with a class header', () => {

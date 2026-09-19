@@ -10,6 +10,7 @@ import {
 } from './projectSettings';
 import { registerXlideCommand } from './xlideCommandRegistration';
 import { activeLocalVbaEditor, decodeModuleUri, sameProjectPath, XLIDE_SCHEME } from './xlideFileSystem';
+import { AGENT_INSTRUCTIONS, AGENT_INSTRUCTIONS_STEPS } from './agentInstructions';
 import {
     buildXlideSidebarModel,
     isSponsorUrl,
@@ -147,6 +148,17 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
             } else {
                 await vscode.env.clipboard.writeText(payload.url);
             }
+            return;
+        }
+        // The dialog shows the same text, but what is copied is the host's own.
+        if (payload.type === 'copyAgentInstructions') {
+            let copied = true;
+            try {
+                await vscode.env.clipboard.writeText(AGENT_INSTRUCTIONS);
+            } catch {
+                copied = false;
+            }
+            await this._view?.webview.postMessage({ type: copied ? 'agentInstructionsCopied' : 'agentInstructionsCopyFailed' });
             return;
         }
         if (payload.type !== 'runCommand' || typeof payload.command !== 'string') {
@@ -595,7 +607,7 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
         }
         /* A sidebar is narrow, so the card takes its full width behind a slim
            margin rather than floating as a fixed-width dialog would. */
-        .sponsorBackdrop {
+        .dialogBackdrop {
             position: fixed;
             inset: 0;
             z-index: 50;
@@ -605,10 +617,10 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
             padding: 20px 8px 8px;
             background: rgba(0, 0, 0, 0.35);
         }
-        .sponsorBackdrop[hidden] {
+        .dialogBackdrop[hidden] {
             display: none;
         }
-        .sponsorCard {
+        .dialogCard {
             width: 100%;
             max-height: 100%;
             overflow: auto;
@@ -618,17 +630,17 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
             box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
             padding-bottom: 4px;
         }
-        .sponsorHead {
+        .dialogHead {
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 10px 12px 6px;
         }
-        .sponsorTitle {
+        .dialogTitle {
             font-size: 15px;
             font-weight: 600;
         }
-        .sponsorClose {
+        .dialogClose {
             width: 24px;
             height: 24px;
             min-height: 0;
@@ -640,9 +652,65 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
             line-height: 1;
             opacity: 0.75;
         }
-        .sponsorClose:hover {
+        .dialogClose:hover {
             opacity: 1;
             background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
+        }
+        /* The agent instructions: steps for the person, then the text for the
+           agent in a box that can be selected and scrolled but not edited. */
+        .agentCard {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding-bottom: 12px;
+        }
+        .agentSteps {
+            margin: 0;
+            padding: 0 12px 0 30px;
+            line-height: 1.5;
+        }
+        .agentSteps li + li {
+            margin-top: 4px;
+        }
+        .agentSteps code {
+            font-family: var(--vscode-editor-font-family, monospace);
+            font-size: 0.95em;
+        }
+        .agentTextLabel {
+            padding: 0 12px;
+            font-weight: 600;
+        }
+        .agentText {
+            display: block;
+            width: calc(100% - 24px);
+            margin: -6px 12px 0;
+            min-height: 180px;
+            height: 45vh;
+            resize: vertical;
+            padding: 6px 8px;
+            border: 1px solid var(--vscode-input-border, var(--vscode-panel-border));
+            border-radius: 4px;
+            color: var(--vscode-input-foreground);
+            background: var(--vscode-input-background);
+            font-family: var(--vscode-editor-font-family, monospace);
+            font-size: 12px;
+            line-height: 1.45;
+        }
+        .agentText:focus {
+            outline: 1px solid var(--vscode-focusBorder);
+            outline-offset: -1px;
+        }
+        .agentActions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 12px;
+        }
+        .agentActions button {
+            min-width: 72px;
+        }
+        .agentStatus {
+            color: var(--vscode-descriptionForeground);
         }
         .sponsorNote {
             margin: 0;
@@ -802,46 +870,54 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
             }
             closeSelects();
         }
-        const sponsorBackdrop = document.getElementById('sponsor-backdrop');
-        let sponsorReturnFocus = null;
-        function sponsorRing() {
-            return Array.from(sponsorBackdrop.querySelectorAll('button')).filter((one) => !one.disabled);
+        // The dialogs: the sponsor card and the agent instructions. One is
+        // open at a time, and it takes the focus until it closes.
+        let openDialog = null;
+        let dialogReturnFocus = null;
+        function dialogRing() {
+            return Array.from(openDialog.querySelectorAll('button, textarea')).filter((one) => !one.disabled);
         }
-        function openSponsor() {
-            if (!sponsorBackdrop) {
+        function showDialog(id) {
+            const dialog = document.getElementById(id);
+            if (!dialog) {
                 return;
             }
-            sponsorReturnFocus = document.activeElement;
-            sponsorBackdrop.hidden = false;
-            sponsorBackdrop.querySelector('[data-sponsor-open]')?.focus();
+            closeDialog();
+            dialogReturnFocus = document.activeElement;
+            openDialog = dialog;
+            dialog.hidden = false;
+            (dialog.querySelector('[data-dialog-focus]') ?? dialogRing()[0])?.focus();
         }
-        function closeSponsor() {
-            if (!sponsorBackdrop || sponsorBackdrop.hidden) {
+        function closeDialog() {
+            if (!openDialog) {
                 return;
             }
-            sponsorBackdrop.hidden = true;
-            sponsorReturnFocus?.focus?.();
+            openDialog.hidden = true;
+            openDialog = null;
+            dialogReturnFocus?.focus?.();
         }
         // Mousedown, not click: a drag that starts on the card and releases
         // over the backdrop is a missed text selection, not a request to close.
-        sponsorBackdrop?.addEventListener('mousedown', (event) => {
-            if (event.target === sponsorBackdrop) {
-                closeSponsor();
-            }
+        document.querySelectorAll('[data-dialog]').forEach((dialog) => {
+            dialog.addEventListener('mousedown', (event) => {
+                if (event.target === dialog) {
+                    closeDialog();
+                }
+            });
         });
         document.addEventListener('keydown', (event) => {
-            if (!sponsorBackdrop || sponsorBackdrop.hidden) {
+            if (!openDialog) {
                 return;
             }
             if (event.key === 'Escape') {
                 event.preventDefault();
                 event.stopPropagation();
-                closeSponsor();
+                closeDialog();
                 return;
             }
             // The trap aria-modal claims: Tab cycles inside the card.
             if (event.key === 'Tab') {
-                const ring = sponsorRing();
+                const ring = dialogRing();
                 const first = ring[0];
                 const last = ring[ring.length - 1];
                 if (!first) {
@@ -849,7 +925,7 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
                     return;
                 }
                 const active = document.activeElement;
-                const inside = sponsorBackdrop.contains(active);
+                const inside = openDialog.contains(active);
                 if (event.shiftKey && (!inside || active === first)) {
                     event.preventDefault();
                     last.focus();
@@ -859,14 +935,38 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
                 }
             }
         }, true);
-        document.addEventListener('click', (event) => {
-            const sponsorToggle = event.target.closest?.('[data-sponsor-toggle]');
-            if (sponsorToggle) {
-                openSponsor();
+        // The host copies its own text and says whether the clipboard took it.
+        const agentCopy = document.querySelector('[data-agent-copy]');
+        const agentStatus = document.getElementById('agent-instructions-status');
+        let agentCopyTimer = undefined;
+        window.addEventListener('message', (event) => {
+            const type = event.data?.type;
+            if (!agentCopy || (type !== 'agentInstructionsCopied' && type !== 'agentInstructionsCopyFailed')) {
                 return;
             }
-            if (event.target.closest?.('[data-sponsor-close]')) {
-                closeSponsor();
+            const copied = type === 'agentInstructionsCopied';
+            agentCopy.textContent = copied ? 'Copied' : 'Copy';
+            agentStatus.textContent = copied
+                ? 'Copied to the clipboard.'
+                : 'Could not copy. Select the text, then press Ctrl+C.';
+            window.clearTimeout(agentCopyTimer);
+            agentCopyTimer = window.setTimeout(() => {
+                agentCopy.textContent = 'Copy';
+                agentStatus.textContent = '';
+            }, copied ? 2000 : 6000);
+        });
+        document.addEventListener('click', (event) => {
+            const dialogOpen = event.target.closest?.('[data-dialog-open]');
+            if (dialogOpen) {
+                showDialog(dialogOpen.dataset.dialogOpen);
+                return;
+            }
+            if (event.target.closest?.('[data-dialog-close]')) {
+                closeDialog();
+                return;
+            }
+            if (event.target.closest?.('[data-agent-copy]')) {
+                vscode.postMessage({ type: 'copyAgentInstructions' });
                 return;
             }
             const option = event.target.closest?.('[data-select-option]');
@@ -967,10 +1067,13 @@ function renderSection(section: XlideSidebarNode): string {
         return renderSponsorSection(section);
     }
     const children = section.children ?? [];
-    const isActionSection = section.id === 'projectActions' ||
+    const isActionSection = section.id === 'agenticAi' ||
+        section.id === 'projectActions' ||
         section.id === 'settings' ||
         section.id === 'support';
     const sectionClass = children.some((child) => child.kind === 'select') ? 'section hasCustomSelect' : 'section';
+    // A dialog sits beside its section, not inside it, so nothing clips it.
+    const dialogs = children.some((node) => node.dialog === 'agentInstructions') ? renderAgentInstructionsDialog() : '';
     return `<section class="${sectionClass}" aria-label="${escapeAttr(section.label)}">
         <div class="sectionHeader">${escapeHtml(section.label)}</div>
         <div class="${isActionSection ? 'actionGrid' : 'sectionBody'}">
@@ -980,7 +1083,34 @@ function renderSection(section: XlideSidebarNode): string {
             : renderSidebarNode(node)).join('')
         : '<div class="empty">No items</div>'}
         </div>
-    </section>`;
+    </section>${dialogs}`;
+}
+
+/**
+ * The agent instructions dialog: what to do with them, then the text itself,
+ * selectable but not editable, and a Copy button. The host copies its own
+ * copy of the text; the webview only asks.
+ */
+function renderAgentInstructionsDialog(): string {
+    const steps = AGENT_INSTRUCTIONS_STEPS
+        .map((step) => `<li>${escapeHtml(step).replace(/`([^`]+)`/g, '<code>$1</code>')}</li>`)
+        .join('');
+    return `<div class="dialogBackdrop" id="agent-instructions-dialog" data-dialog hidden>
+        <div class="dialogCard agentCard" role="dialog" aria-modal="true" aria-labelledby="agent-instructions-title" aria-describedby="agent-instructions-steps">
+            <div class="dialogHead">
+                <div class="dialogTitle" id="agent-instructions-title">Agent Instructions</div>
+                <button class="dialogClose" type="button" data-dialog-close aria-label="Close" title="Close (Esc)">&times;</button>
+            </div>
+            <ol class="agentSteps" id="agent-instructions-steps">${steps}</ol>
+            <label class="agentTextLabel" for="agent-instructions-text">Instructions for your agent</label>
+            <textarea class="agentText" id="agent-instructions-text" readonly spellcheck="false">${escapeHtml(AGENT_INSTRUCTIONS)}</textarea>
+            <div class="agentActions">
+                <button type="button" data-agent-copy data-dialog-focus>Copy</button>
+                <button class="secondary" type="button" data-dialog-close>Close</button>
+                <span class="agentStatus" id="agent-instructions-status" role="status"></span>
+            </div>
+        </div>
+    </div>`;
 }
 
 /**
@@ -994,16 +1124,16 @@ function renderSponsorSection(section: XlideSidebarNode): string {
     const notes = children.filter((node) => node.kind === 'note');
     const links = children.filter((node) => node.kind === 'link');
     return `<div class="sponsorFooter">
-        <button class="sponsorToggle" type="button" data-sponsor-toggle aria-haspopup="dialog" aria-controls="sponsor-backdrop" title="${escapeAttr(section.label)}">${HEART} Support</button>
+        <button class="sponsorToggle" type="button" data-dialog-open="sponsor-dialog" aria-haspopup="dialog" aria-controls="sponsor-dialog" title="${escapeAttr(section.label)}">${HEART} Support</button>
     </div>
-    <div class="sponsorBackdrop" id="sponsor-backdrop" hidden>
-        <div class="sponsorCard" role="dialog" aria-modal="true" aria-labelledby="sponsor-title">
-            <div class="sponsorHead">
-                <div class="sponsorTitle" id="sponsor-title">${escapeHtml(section.label)}</div>
-                <button class="sponsorClose" type="button" data-sponsor-close aria-label="Close" title="Close (Esc)">&times;</button>
+    <div class="dialogBackdrop" id="sponsor-dialog" data-dialog hidden>
+        <div class="dialogCard" role="dialog" aria-modal="true" aria-labelledby="sponsor-title">
+            <div class="dialogHead">
+                <div class="dialogTitle" id="sponsor-title">${escapeHtml(section.label)}</div>
+                <button class="dialogClose" type="button" data-dialog-close aria-label="Close" title="Close (Esc)">&times;</button>
             </div>
             ${notes[0] ? renderSponsorNote(notes[0]) : ''}
-            <div class="sponsorList">${links.map((node) => renderSponsorRow(node)).join('')}</div>
+            <div class="sponsorList">${links.map((node, index) => renderSponsorRow(node, index === 0)).join('')}</div>
             ${notes[1] ? renderSponsorNote(notes[1]) : ''}
         </div>
     </div>`;
@@ -1017,10 +1147,10 @@ function renderSponsorNote(node: XlideSidebarNode): string {
     return `<p class="${cls}">${escapeHtml(node.label)}</p>`;
 }
 
-function renderSponsorRow(node: XlideSidebarNode): string {
+function renderSponsorRow(node: XlideSidebarNode, focusFirst: boolean): string {
     const url = node.url ?? '';
     return `<div class="sponsorRow">
-        <button class="sponsorOpen secondary" type="button" data-sponsor-open="${escapeAttr(url)}" title="${escapeAttr(url)}">
+        <button class="sponsorOpen secondary" type="button" data-sponsor-open="${escapeAttr(url)}"${focusFirst ? ' data-dialog-focus' : ''} title="${escapeAttr(url)}">
             <span class="sponsorIcon" aria-hidden="true">${sponsorIconHtml(node.icon ?? '')}</span>
             <span class="sponsorWords">
                 <span class="label">${escapeHtml(node.label)}</span>
@@ -1071,6 +1201,11 @@ function renderSidebarNode(node: XlideSidebarNode): string {
 }
 
 function renderActionNode(node: XlideSidebarNode): string {
+    if (node.dialog) {
+        return `<button class="actionCard secondary" type="button" data-dialog-open="${escapeAttr(dialogId(node.dialog))}" aria-haspopup="dialog" title="${escapeAttr(node.tooltip ?? node.label)}">
+        <div class="label">${escapeHtml(node.label)}</div>
+    </button>`;
+    }
     if (!node.command && !node.disabled) {
         return renderRowNode(node);
     }
@@ -1081,6 +1216,13 @@ function renderActionNode(node: XlideSidebarNode): string {
         <div class="label">${escapeHtml(node.label)}</div>
         ${node.description ? `<div class="description">${escapeHtml(node.description)}</div>` : ''}
     </button>`;
+}
+
+function dialogId(dialog: NonNullable<XlideSidebarNode['dialog']>): string {
+    switch (dialog) {
+        case 'agentInstructions':
+            return 'agent-instructions-dialog';
+    }
 }
 
 function renderButtonOnlyRow(node: XlideSidebarNode): string {

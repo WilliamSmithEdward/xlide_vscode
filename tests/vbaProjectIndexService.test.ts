@@ -8,7 +8,7 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
 
 import * as vscode from 'vscode';
 import { VbaSymbolIndex } from '../src/vbaSymbolIndex';
-import { VbaProjectIndexService } from '../src/vbaProjectIndexService';
+import { VbaProjectIndexService, type VbaProjectContext } from '../src/vbaProjectIndexService';
 import { fakeProjectEngine, type FakeBridgeModule } from './helpers/fakeProjectEngine';
 import { ownersFromListings, setVb6ModuleOwnersForTests } from '../src/vb6ProjectLocator';
 
@@ -164,6 +164,20 @@ describe('VbaProjectIndexService', () => {
 		expect(second.project.visibleProcedureNames('Module1').has('edited')).toBe(true);
 	});
 
+	it('leaves out an editor still open on a module the project no longer has', async () => {
+		// Renamed by an agent or the tree, or deleted: the editor on the old
+		// name kept the module in the project, so calls to it still resolved.
+		const { projectIndexService } = service([
+			{ name: 'Renamed', type: 'standard', source: 'Public Sub Proc()\nEnd Sub\n' },
+		]);
+		(vscode.workspace.textDocuments as unknown[]).push(openXlideDocument('OldName', 'Public Sub Proc()\nEnd Sub\n'));
+
+		const context = await projectIndexService.contextForProject(BOOK);
+
+		expect(context.byModule.has('oldname')).toBe(false);
+		expect(context.modules.map((mod) => mod.moduleName)).toEqual(['Renamed']);
+	});
+
 	it('serves last-good content in live mode and rethrows in strict mode', async () => {
 		// A non-string source is the one input that makes the module build
 		// throw (the VBA parser itself recovers from any malformed text), so
@@ -197,5 +211,66 @@ describe('VbaProjectIndexService', () => {
 		const next = await projectIndexService.contextForProject(BOOK);
 
 		expect(next.projectProcedures).toBeUndefined();
+	});
+
+	it('moves a module s cross-module generation for another module s change, never its own', async () => {
+		const { index, projectIndexService } = service([
+			{ name: 'Module1', type: 'standard', source: 'Public Sub Alpha()\nEnd Sub\n' },
+			{ name: 'Module2', type: 'standard', source: 'Public Sub Beta()\nEnd Sub\n' },
+		]);
+		const context = await projectIndexService.contextForProject(BOOK);
+		const own = context.crossModuleGeneration('Module1');
+
+		index.updateModuleSource(BOOK, 'Module1', 'Public Sub Gamma()\nEnd Sub\n');
+		expect(context.crossModuleGeneration('Module1')).toBe(own);
+		index.updateModuleSource(BOOK, 'Module2', 'Public Sub Delta()\nEnd Sub\n');
+		expect(context.crossModuleGeneration('Module1')).toBe(own + 1);
+	});
+
+	it('never repeats a cross-module generation once the project is rebuilt', async () => {
+		// The analysis worker takes a new copy of the project only when this
+		// number moves. A rebuilt record counted from zero again, so after a
+		// write that invalidated the project the worker went on analyzing
+		// against the modules as they had been: a module an agent had just
+		// created stayed "not defined" in the module that calls it.
+		const modules: FakeBridgeModule[] = [
+			{ name: 'Caller', type: 'standard', source: 'Public Sub Run()\nEnd Sub\n' },
+		];
+		const { index, projectIndexService } = service(modules);
+		const before = (await projectIndexService.contextForProject(BOOK)).crossModuleGeneration('Caller');
+
+		modules.push({ name: 'Helper', type: 'standard', source: 'Public Sub Greet()\nEnd Sub\n' });
+		index.invalidate(BOOK);
+		const rebuilt = await projectIndexService.contextForProject(BOOK);
+
+		expect(rebuilt.byModule.has('helper')).toBe(true);
+		expect(rebuilt.crossModuleGeneration('Caller')).toBeGreaterThan(before);
+	});
+
+	it('says which project changed, once its own view has taken the change in', async () => {
+		const { index, projectIndexService } = service([
+			{ name: 'Module1', type: 'standard', source: 'Public Sub Alpha()\nEnd Sub\n' },
+			{ name: 'Module2', type: 'standard', source: 'Public Sub Beta()\nEnd Sub\n' },
+		]);
+		await projectIndexService.contextForProject(BOOK);
+		const changes: Array<{ projectPath: string; moduleName?: string }> = [];
+		const views: Array<Promise<VbaProjectContext>> = [];
+		projectIndexService.onDidChangeProject((change) => {
+			changes.push(change);
+			views.push(projectIndexService.contextForProject(BOOK));
+		});
+
+		index.updateModuleSource(BOOK, 'Module1', 'Public Sub Gamma()\nEnd Sub\n');
+		index.invalidate(BOOK);
+		index.invalidateAll();
+
+		expect(changes).toEqual([
+			{ projectPath: BOOK, moduleName: 'Module1' },
+			{ projectPath: BOOK, moduleName: undefined },
+			{ projectPath: '', moduleName: undefined },
+		]);
+		// A listener that asks at once already sees the new content.
+		expect((await views[0]).project.visibleProcedureNames('Module2').has('gamma')).toBe(true);
+		await Promise.all(views);
 	});
 });

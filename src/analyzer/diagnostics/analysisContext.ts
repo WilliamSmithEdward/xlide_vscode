@@ -102,12 +102,23 @@ export interface VbaRemoveUnreachableCodeData {
 	};
 }
 
+/** One way to bring a doc comment in line with its declaration. */
+export interface VbaDocCommentFix {
+	title: string;
+	isPreferred?: boolean;
+	edits: {
+		span: Span;
+		newText: string;
+	}[];
+}
+
 export interface VbaDiagnosticData {
 	missingRequiredArgumentPlaceholder?: VbaMissingRequiredArgumentPlaceholderData;
 	createProcedureStub?: VbaCreateProcedureStubData;
 	declareVariable?: VbaDeclareVariableData;
 	removeDeclaration?: VbaRemoveDeclarationData;
 	removeUnreachableCode?: VbaRemoveUnreachableCodeData;
+	docCommentFixes?: VbaDocCommentFix[];
 }
 
 /** Per-rule severity overrides keyed by stable diagnostic code; `'off'` disables an allowed rule. */

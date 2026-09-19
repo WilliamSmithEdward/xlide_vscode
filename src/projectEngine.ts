@@ -10,6 +10,7 @@ import * as vscode from 'vscode';
 import { ProjectEngineError } from './projectEngineErrors';
 import * as svc from './vba/projectService';
 import type { CellValue } from './vba/xlsx';
+import type { ShapeEdit } from './vba/xlsxShapes';
 
 type Params = Record<string, unknown>;
 
@@ -41,6 +42,29 @@ function grid(params: Params, key: string): CellValue[][] {
 		throw new ProjectEngineError(`Missing required '${key}' parameter.`, -32602);
 	}
 	return value.map((row) => (Array.isArray(row) ? row : [row]) as CellValue[]);
+}
+
+/** An optional text parameter; an empty string is kept, since it clears a value. */
+function optionalText(params: Params, key: string): string | undefined {
+	const value = params[key];
+	if (value === undefined || value === null) { return undefined; }
+	if (typeof value !== 'string') {
+		throw new ProjectEngineError(`The '${key}' parameter must be text.`, -32602);
+	}
+	return value;
+}
+
+function shapeEdit(params: Params): ShapeEdit {
+	const action = str(params, 'action');
+	if (action !== 'add' && action !== 'update' && action !== 'delete') {
+		throw new ProjectEngineError(`The 'action' parameter must be add, update or delete, not '${action}'.`, -32602);
+	}
+	const edit: ShapeEdit = { action };
+	for (const key of ['name', 'type', 'range', 'text', 'macro', 'linkedCell', 'inputRange', 'altText', 'newName'] as const) {
+		const value = optionalText(params, key);
+		if (value !== undefined) { (edit as unknown as Record<string, string>)[key] = value; }
+	}
+	return edit;
 }
 
 export class ProjectEngine implements vscode.Disposable {
@@ -228,6 +252,12 @@ export class ProjectEngine implements vscode.Disposable {
 				return svc.readFormulas(str(p, 'path'), str(p, 'sheet'), str(p, 'range'));
 			case 'writeCells':
 				return svc.writeCells(str(p, 'path'), str(p, 'sheet'), str(p, 'startCell'), grid(p, 'data'));
+
+			// --- shapes ---
+			case 'listShapes':
+				return svc.listShapes(str(p, 'path'), optionalText(p, 'sheet') || undefined);
+			case 'editShape':
+				return svc.editShape(str(p, 'path'), str(p, 'sheet'), shapeEdit(p));
 
 			default:
 				throw new ProjectEngineError(`Method not found: ${method}`, -32601);

@@ -53,6 +53,8 @@ interface XlideSidebarNode {
     url?: string;
     /** A link node's mark: an inline icon name, or an emoji when there is no icon for it. */
     icon?: string;
+    /** The dialog an action node opens in the sidebar itself, in place of a command. */
+    dialog?: 'agentInstructions';
 }
 
 interface XlideSponsorLink {
@@ -103,6 +105,7 @@ function buildXlideSidebarModel(input: XlideSidebarModelInput): XlideSidebarNode
     const projectArg = input.activeProject ? projectCommandArg(input.activeProject) : undefined;
     return [
         welcomeSection(),
+        agenticAiSection(),
         section('projectActions', 'Project Actions', [
             targetProjectNode(input.projectChoices ?? [], input.activeProject),
             projectActionNode(
@@ -205,6 +208,18 @@ function welcomeSection(): XlideSidebarNode {
             'unknown',
             'The XLIDE file tree stays in the VS Code Explorer so file navigation and sidebar actions remain separate.',
         ),
+    ]);
+}
+
+function agenticAiSection(): XlideSidebarNode {
+    return section('agenticAi', 'Agentic AI', [
+        {
+            id: 'agenticAi.instructions',
+            kind: 'action',
+            label: 'Agent Instructions',
+            tooltip: 'Show the instructions to give an AI agent so it works with XLIDE, ready to copy.',
+            dialog: 'agentInstructions',
+        },
     ]);
 }
 

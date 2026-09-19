@@ -6,6 +6,7 @@ import type { VbaDiagnostic } from './analyzeModule';
 import { diagnosticMetadataForCode, DIAGNOSTIC_RULES } from './ruleMetadata';
 import { lineIndexOf, lineStartOffsets } from '../../vbaSourceScan';
 import { tokenWord } from '../lexer/tokenHelpers';
+import { leadingDocLines } from '../docs/docComment';
 
 export const ANALYSIS_SUPPRESSION_DIRECTIVE_CODE = DIAGNOSTIC_RULES.analysisSuppressionDirective.code;
 
@@ -71,10 +72,12 @@ interface LineTokenSummary {
 
 /**
  * Parses XLIDE analysis suppression directives:
- * apostrophe comments only, no doc comments, no Rem comments, and physical-line
- * line directives. Member and block directives are lexical source ranges. The
- * resulting predicate is intentionally shared by live diagnostics, project
- * analysis, and tests so suppression semantics cannot drift by surface.
+ * apostrophe comments only, no doc comments, no Rem comments, and line
+ * directives that cover a statement's continued lines together. Member and
+ * block directives are lexical source ranges, and a member's range takes in
+ * its `'''` doc comment. The resulting predicate is intentionally shared by
+ * live diagnostics, project analysis, and tests so suppression semantics
+ * cannot drift by surface.
  */
 export function scanAnalysisSuppressions(
 	source: string,
@@ -85,6 +88,7 @@ export function scanAnalysisSuppressions(
 	const firstSourceLine = firstNonCommentNonAttributeLine(tokens);
 	const members = suppressibleMembers(context.parsedModule ?? parseModule(source));
 	const openBlocks: OpenBlockSuppression[] = [];
+	let continued: ReadonlySet<number> | undefined;
 	const state: MutableSuppressions = {
 		linesAll: new Set<number>(),
 		linesByCode: new Map<number, Set<string>>(),
@@ -125,7 +129,13 @@ export function scanAnalysisSuppressions(
 				));
 				continue;
 			}
-			state.members.push({ span: member.span, target: parsed.directive.target });
+			// The member's `'''` doc comment is part of it: findings about the
+			// comment point into it, above the declaration.
+			const doc = leadingDocLines(source, member.span.start);
+			state.members.push({
+				span: { start: doc[0]?.start ?? member.span.start, end: member.span.end },
+				target: parsed.directive.target,
+			});
 			continue;
 		}
 		if (parsed.directive.action === 'disable-block') {
@@ -159,10 +169,24 @@ export function scanAnalysisSuppressions(
 			});
 			continue;
 		}
-		const targetLine = parsed.directive.action === 'disable-line'
-			? token.line
-			: token.line + 1;
-		addLineSuppression(state, targetLine, parsed.directive.target);
+		// A line directive covers a whole statement, every physical line of it
+		// joined by ` _`: VBA rejects a comment line between them, so no
+		// directive can sit closer to a finding on a continued line.
+		continued ??= continuedLines(tokens, lineStarts);
+		let first = token.line + 1;
+		let last = first;
+		if (parsed.directive.action === 'disable-line') {
+			first = last = token.line;
+			while (first > 0 && continued.has(first - 1)) {
+				first -= 1;
+			}
+		}
+		while (continued.has(last)) {
+			last += 1;
+		}
+		for (let line = first; line <= last; line += 1) {
+			addLineSuppression(state, line, parsed.directive.target);
+		}
 	}
 
 	for (const open of openBlocks) {
@@ -452,6 +476,34 @@ function firstNonCommentNonAttributeLine(
 		.sort((a, b) => a.line - b.line)
 		.find((line) => line.hasSourceToken && !line.isAttributeLine)
 		?.line;
+}
+
+/** The zero-based physical lines that end in ` _` and so continue into the next. */
+function continuedLines(tokens: readonly VbaToken[], lineStarts: readonly number[]): Set<number> {
+	const lines = new Set<number>();
+	for (const token of tokens) {
+		for (const trivia of token.leadingTrivia ?? []) {
+			if (trivia.kind === 'lineContinuation') {
+				lines.add(lineIndexOf(lineStarts, trivia.start));
+			}
+		}
+	}
+	return lines;
+}
+
+/**
+ * Where the statement holding `offset` starts: the start of its first
+ * physical line, before any lines it continues from with ` _`. A line
+ * directive goes above it.
+ */
+export function statementLineStart(source: string, offset: number): number {
+	const lineStarts = lineStartOffsets(source);
+	const continued = continuedLines(tokenizeCached(source), lineStarts);
+	let line = lineIndexOf(lineStarts, offset);
+	while (line > 0 && continued.has(line - 1)) {
+		line -= 1;
+	}
+	return lineStarts[line];
 }
 
 function suppressibleMembers(module: ModuleNode): Array<Extract<ModuleMember, { kind: 'Procedure' | 'Type' | 'Enum' }>> {

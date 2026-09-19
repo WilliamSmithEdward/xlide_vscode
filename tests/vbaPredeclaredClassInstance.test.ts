@@ -138,15 +138,36 @@ describe('a class name used as an instance (issue #47)', () => {
 });
 
 describe('the attribute header itself', () => {
-    it('still classifies a predeclaredId+exposed module as a document', () => {
+    it('still classifies a predeclaredId+exposed module with a base as a document', () => {
         // Guards the reader this bit shares: booleans are written UNQUOTED, and
         // reading only the quoted form made every one of them answer "".
         const header = [
-            'Attribute VB_Name = "Sheet1"',
+            'Attribute VB_Name = "ThisDocument"',
+            'Attribute VB_Base = "1Normal.ThisDocument"',
             'Attribute VB_PredeclaredId = True',
             'Attribute VB_Exposed = True',
         ].join('\r\n');
         expect(classifyModuleType('Anything', header)).toBe('document');
+    });
+
+    it('does not mistake a predeclared, exposed class for a document', () => {
+        // A factory class in an add-in, or one with '@PredeclaredId and
+        // '@Exposed written through XLIDE: listed as a document, it was
+        // refused a rename or a delete.
+        const annotated = [
+            'Attribute VB_Name = "Factory"',
+            'Attribute VB_PredeclaredId = True',
+            'Attribute VB_Exposed = True',
+        ].join('\r\n');
+        expect(classifyModuleType('Factory', annotated)).toBe('standard');
+        // As the VBE stores one it made: the class base names it a class.
+        const vbeAuthored = [
+            'Attribute VB_Name = "Factory"',
+            'Attribute VB_Base = "0{FCFB3D2A-A0FA-1068-A738-08002B3371B5}"',
+            'Attribute VB_PredeclaredId = True',
+            'Attribute VB_Exposed = True',
+        ].join('\r\n');
+        expect(classifyModuleType('Factory', vbeAuthored)).toBe('standard');
     });
 
     it('does not mistake a plain class for a document', () => {

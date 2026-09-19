@@ -91,6 +91,17 @@ reference/
 !tests/fixtures/binaries/PowerPointFixture.ppa
 !tests/fixtures/binaries/PowerPointFormFixture.pptm
 !tests/fixtures/binaries/AccessFixture.mda
+# Workbooks Excel saved for the cell writer's tests: formats, shared and array
+# formulas, a calc chain, spills with their metadata, a table, 1904 dates.
+!tests/fixtures/binaries/CellWriterFixture.xlsm
+!tests/fixtures/binaries/CellStylesFixture.xlsm
+!tests/fixtures/binaries/FormulaTableFixture.xlsm
+!tests/fixtures/binaries/DynamicArrayFixture.xlsm
+!tests/fixtures/binaries/Date1904Fixture.xlsm
+# Workbooks Excel saved for the shape tools' tests: AutoShapes, a text box, a
+# line, a group, form controls, a picture and a chart, macros assigned.
+!tests/fixtures/binaries/ShapesFixture.xlsm
+!tests/fixtures/binaries/ShapesPictureChartFixture.xlsm
 excel_test_workbook/
 .claude/
 

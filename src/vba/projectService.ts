@@ -70,12 +70,15 @@ import {
 	type VbaModule,
 } from './vbaProject';
 import { XlsxWorkbook, type CellValue, type NamedRange, type SheetSummary } from './xlsx';
+import type { ShapeEdit, ShapeInfo } from './xlsxShapes';
 import { atomicWrite } from './atomicWrite';
 import { buildMsFormsReference, hasMsFormsReference } from './vbaProjectReferences';
 import { attributeValue, joinVbaSource, listProcedures, splitVbaSource, type ProcedureEntry } from './moduleSource';
 import { readFolderAnnotation } from './folderAnnotation';
+import { validateVbaModuleName } from '../vbaSourceScan';
 import { readAttributeAnnotations } from '../analyzer/annotations/attributeAnnotations';
 import { applyAttributeAnnotations } from '../analyzer/annotations/attributeRewriter';
+import { parseModule } from '../analyzer/parser/parseModule';
 import {
 	isVb6ProjectPath,
 	listVb6Modules,
@@ -168,6 +171,8 @@ const WORKBOOK_CLSID = '{00020819-0000-0000-C000-000000000046}';
 const WORKSHEET_CLSID = '{00020820-0000-0000-C000-000000000046}';
 const CHART_CLSID = '{00020821-0000-0000-C000-000000000046}';
 const WORD_DOCUMENT_CLSID = '{00020906-0000-0000-C000-000000000046}';
+/** The base the VBE writes on every class module it creates. */
+const CLASS_CLSID = '{FCFB3D2A-A0FA-1068-A738-08002B3371B5}';
 const GUID_RE = /\{[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}\}/g;
 const DOCUMENT_NAME_RE = /^(Sheet|Feuil|Hoja|Tabelle|Foglio|Planilha)\d*$/i;
 // The module text helpers live in moduleSource.ts, shared with the VB6
@@ -186,13 +191,19 @@ export function classifyModuleType(name: string, source: string): ModuleType {
 			|| upper.includes(WORD_DOCUMENT_CLSID)) {
 			return 'document';
 		}
+		// The VBE's own class: whatever its attributes, it is no document.
+		if (upper.includes(CLASS_CLSID)) { return 'standard'; }
 	}
 	// Host code-behind that names no CLSID: Word's ThisDocument declares
 	// VB_Base = "1Normal.ThisDocument" (measured against a live-authored
-	// .docm). Office marks every document module PredeclaredId + Exposed and
-	// nothing else it authors gets both, so the pair is the host-generic
-	// document signature (forms are Exposed = False and caught above).
-	if (/^True$/i.test(attributeValue(source, 'VB_PredeclaredId'))
+	// .docm). Office marks every document module PredeclaredId + Exposed, so
+	// with a base named the pair is the host-generic document signature (forms
+	// are Exposed = False and caught above). Without a base it is not: a class
+	// can have both - a factory in an add-in, or `'@PredeclaredId` and
+	// `'@Exposed` written through XLIDE - and was taken for a document, listed
+	// as one and refused a rename or a delete.
+	if (vbBase
+		&& /^True$/i.test(attributeValue(source, 'VB_PredeclaredId'))
 		&& /^True$/i.test(attributeValue(source, 'VB_Exposed'))) {
 		return 'document';
 	}
@@ -887,6 +898,24 @@ function designModuleType(kind: 'form' | 'report'): ModuleType {
  * The storage is named after the module and its `f` stream is the MS-OFORMS
  * FormControl; the module's own text never mentions the controls at all.
  */
+/**
+ * Where a form's designer storage sits: beside the project's VBA storage.
+ * That is the root of a vbaProject.bin, but a legacy file holds the project a
+ * level down - in `_VBA_PROJECT_CUR` in an .xls, in `Macros` in a .doc - and
+ * a designer created at the file's root instead belonged to no project: Excel
+ * opened such an .xls without the form or any other code module (measured
+ * 2026-09-19).
+ */
+function designerPath(cfb: Cfb, moduleName: string): string[] {
+	if (!cfb.hasStoragePath(['VBA'])) {
+		const holder = cfb.listStoragesAtPath([]).find((name) => cfb.hasStoragePath([name, 'VBA']));
+		if (holder) {
+			return [holder, moduleName];
+		}
+	}
+	return [moduleName];
+}
+
 function moduleEntryWithDesigner(cfb: Cfb, project: VbaProject, module: VbaModule): ModuleEntry {
 	const entry = moduleEntry(module);
 	if (entry.type !== 'userform') {
@@ -898,7 +927,7 @@ function moduleEntryWithDesigner(cfb: Cfb, project: VbaProject, module: VbaModul
 	// read this replaced under-reported: nested controls were missing, and a
 	// code-behind touching one was called undeclared.
 	try {
-		const pkg = parseFormPackage(cfb, [module.name], oformsCodec(project.codePage));
+		const pkg = parseFormPackage(cfb, designerPath(cfb, module.name), oformsCodec(project.codePage));
 		const controls: { name: string; type: string }[] = [];
 		// One entry per control: MSForms names are unique across the whole
 		// form, so a name already taken is the SAME control reached twice -
@@ -1017,8 +1046,9 @@ export function writeFormDesigner(
 	// pair alone silently dropped every container's contents (hunt eight).
 	if (streams.tree) {
 		const tree = streams.tree;
-		for (const child of wb.cfb.listChildrenAtPath([module.name])) {
-			if (child.kind === 'storage') { wb.cfb.removeStorageAtPath([module.name, child.name]); }
+		const designer = designerPath(wb.cfb, module.name);
+		for (const child of wb.cfb.listChildrenAtPath(designer)) {
+			if (child.kind === 'storage') { wb.cfb.removeStorageAtPath([...designer, child.name]); }
 		}
 		const plant = (srcPath: string[], dstPath: string[]): void => {
 			for (const child of tree.listChildrenAtPath(srcPath)) {
@@ -1031,7 +1061,7 @@ export function writeFormDesigner(
 				}
 			}
 		};
-		plant([], [module.name]);
+		plant([], designer);
 	}
 	if (frmDesignerBlock) {
 		const merged = mergeVbFrameFromFrm(frmDesignerBlock, existing.vbFrame);
@@ -1069,10 +1099,10 @@ export function readFormMarkup(filePath: string, moduleName: string): { markup: 
 	if (!module) {
 		throw new Error(`Module not found: ${moduleName}`);
 	}
-	if (!cfb.hasStoragePath([module.name])) {
+	if (!cfb.hasStoragePath(designerPath(cfb, module.name))) {
 		throw new Error(`Module has no designer storage: ${moduleName}`);
 	}
-	const pkg = parseFormPackage(cfb, [module.name], oformsCodec(project.codePage));
+	const pkg = parseFormPackage(cfb, designerPath(cfb, module.name), oformsCodec(project.codePage));
 	const frame = decodeCodePage(cfb.getStreamInStorage(module.name, VBFRAME_STREAM), project.codePage);
 	const captionFallback = /^\s*Caption\s*=\s*"([^"]*)"/m.exec(frame)?.[1];
 	return { markup: printOformsMarkup(pkg, module.name, { captionFallback, vbFrame: vbFramePropsOf(frame) }) };
@@ -1129,10 +1159,10 @@ export function readFormPreview(
 	if (!module) {
 		throw new Error(`Module not found: ${moduleName}`);
 	}
-	if (!cfb.hasStoragePath([module.name])) {
+	if (!cfb.hasStoragePath(designerPath(cfb, module.name))) {
 		throw new Error(`Module has no designer storage: ${moduleName}`);
 	}
-	const pkg = parseFormPackage(cfb, [module.name], oformsCodec(project.codePage));
+	const pkg = parseFormPackage(cfb, designerPath(cfb, module.name), oformsCodec(project.codePage));
 	const frame = decodeCodePage(cfb.getStreamInStorage(module.name, VBFRAME_STREAM), project.codePage);
 	const caption = /^\s*Caption\s*=\s*"([^"]*)"/m.exec(frame)?.[1];
 	const properties = designerListFormProperties(pkg, module.name, caption, vbFramePropsOf(frame));
@@ -1305,11 +1335,11 @@ export function applyFormMarkup(
 	if (!module) {
 		throw new Error(`Module not found: ${moduleName}`);
 	}
-	if (!wb.cfb.hasStoragePath([module.name])) {
+	if (!wb.cfb.hasStoragePath(designerPath(wb.cfb, module.name))) {
 		throw new Error(`Module has no designer storage: ${moduleName}`);
 	}
 	const codec = oformsCodec(wb.project.codePage);
-	const pkg = parseFormPackage(wb.cfb, [module.name], codec);
+	const pkg = parseFormPackage(wb.cfb, designerPath(wb.cfb, module.name), codec);
 	// Renames and reparents pair IN PLACE before the name-keyed diff, so a
 	// renamed control keeps what the dialect cannot spell - its picture, its
 	// icon, an ActiveX payload - instead of dying as remove-plus-add.
@@ -1374,7 +1404,7 @@ export function applyFormMarkup(
 	if (outcome.applied.length === 0) {
 		return { ok: true, signatureDropped: false, applied: [] };
 	}
-	writeFormPackage(wb.cfb, [module.name], pkg, codec);
+	writeFormPackage(wb.cfb, designerPath(wb.cfb, module.name), pkg, codec);
 	if (vbFrameChanged) {
 		wb.cfb.writeStreamInStorage(module.name, VBFRAME_STREAM, encodeCodePage(vbFrameUpdated, wb.project.codePage));
 	}
@@ -1415,11 +1445,11 @@ export function applyFormDesignerOp(
 	if (!module) {
 		throw new Error(`Module not found: ${moduleName}`);
 	}
-	if (!wb.cfb.hasStoragePath([module.name])) {
+	if (!wb.cfb.hasStoragePath(designerPath(wb.cfb, module.name))) {
 		throw new Error(`Module has no designer storage: ${moduleName}`);
 	}
 	const codec = oformsCodec(wb.project.codePage);
-	const pkg = parseFormPackage(wb.cfb, [module.name], codec);
+	const pkg = parseFormPackage(wb.cfb, designerPath(wb.cfb, module.name), codec);
 	let newName: string | undefined;
 	if (op.kind === 'geometry') {
 		const applied = designerSetControlGeometry(pkg, op.name, op);
@@ -1507,7 +1537,7 @@ export function applyFormDesignerOp(
 			.replace(/^(\s*ClientHeight\s*=\s*)\d+/m, `$1${Math.round(op.height * 20)}`);
 		wb.cfb.writeStreamInStorage(module.name, VBFRAME_STREAM, encodeCodePage(updated, wb.project.codePage));
 	}
-	writeFormPackage(wb.cfb, [module.name], pkg, codec);
+	writeFormPackage(wb.cfb, designerPath(wb.cfb, module.name), pkg, codec);
 	saveContainer(filePath, wb);
 	return { ok: true, signatureDropped, newName };
 }
@@ -1528,12 +1558,13 @@ export function readFormDesignerSnapshot(
 	if (!module) {
 		throw new Error(`Module not found: ${moduleName}`);
 	}
-	if (!cfb.hasStoragePath([module.name])) {
+	const designer = designerPath(cfb, module.name);
+	if (!cfb.hasStoragePath(designer)) {
 		throw new Error(`Module has no designer storage: ${moduleName}`);
 	}
 	const streams: Record<string, string> = {};
 	const walk = (rel: string[]): void => {
-		const at = [module.name, ...rel];
+		const at = [...designer, ...rel];
 		for (const name of cfb.listStreamsAtPath(at)) {
 			streams[[...rel, name].join('/')] = cfb.getStreamAtPath(at, name).toString('base64');
 		}
@@ -1557,10 +1588,11 @@ export function restoreFormDesignerSnapshot(
 	if (!module) {
 		throw new Error(`Module not found: ${moduleName}`);
 	}
-	if (wb.cfb.hasStoragePath([module.name])) {
-		wb.cfb.removeStorageAtPath([module.name]);
+	const designer = designerPath(wb.cfb, module.name);
+	if (wb.cfb.hasStoragePath(designer)) {
+		wb.cfb.removeStorageAtPath(designer);
 	}
-	wb.cfb.addStorageAtPath([], module.name);
+	wb.cfb.addStorageAtPath(designer.slice(0, -1), module.name);
 	const ensured = new Set<string>(['']);
 	for (const key of Object.keys(streams).sort()) {
 		const parts = key.split('/');
@@ -1569,12 +1601,12 @@ export function restoreFormDesignerSnapshot(
 		for (const part of parts) {
 			const pathKey = [...parent, part].join('/');
 			if (!ensured.has(pathKey)) {
-				wb.cfb.addStorageAtPath([module.name, ...parent], part);
+				wb.cfb.addStorageAtPath([...designer, ...parent], part);
 				ensured.add(pathKey);
 			}
 			parent = [...parent, part];
 		}
-		wb.cfb.setStreamAtPath([module.name, ...parts], streamName, Buffer.from(streams[key], 'base64'));
+		wb.cfb.setStreamAtPath([...designer, ...parts], streamName, Buffer.from(streams[key], 'base64'));
 	}
 	saveContainer(filePath, wb);
 	return { ok: true, signatureDropped };
@@ -1608,9 +1640,14 @@ export function addFormModule(
 	if (wb.project.getModule(moduleName)) {
 		throw new Error(`Module already exists: ${moduleName}`);
 	}
+	assertValidModuleName(wb.container, moduleName);
 	assertFoldedNameDistinct(wb.project.modules, wb.project.codePage, moduleName);
-	if (wb.cfb.hasStoragePath([moduleName])) {
-		throw new Error(`A designer storage named ${moduleName} already exists.`);
+	// No module has the name, so a designer storage that does is an orphan:
+	// earlier versions of XLIDE left one behind when they deleted or renamed a
+	// form. Nothing reads it, and refusing the name over it left no way forward.
+	const designer = designerPath(wb.cfb, moduleName);
+	if (wb.cfb.hasStoragePath(designer)) {
+		wb.cfb.removeStorageAtPath(designer);
 	}
 	// A project holding a form must reference the Microsoft Forms library, or
 	// its host cannot instantiate the form and nothing in the project compiles,
@@ -1628,11 +1665,11 @@ export function addFormModule(
 		'other',
 		{ projectKeyword: 'BaseClass' },
 	);
-	wb.cfb.addStorageAtPath([], moduleName);
-	wb.cfb.setStreamAtPath([moduleName], 'f', streams.f);
-	wb.cfb.setStreamAtPath([moduleName], 'o', streams.o);
-	wb.cfb.setStreamAtPath([moduleName], VBFRAME_STREAM, encodeCodePage(streams.vbFrame, wb.project.codePage));
-	wb.cfb.setStreamAtPath([moduleName], '\x01CompObj', streams.compObj);
+	wb.cfb.addStorageAtPath(designer.slice(0, -1), moduleName);
+	wb.cfb.setStreamAtPath(designer, 'f', streams.f);
+	wb.cfb.setStreamAtPath(designer, 'o', streams.o);
+	wb.cfb.setStreamAtPath(designer, VBFRAME_STREAM, encodeCodePage(streams.vbFrame, wb.project.codePage));
+	wb.cfb.setStreamAtPath(designer, '\x01CompObj', streams.compObj);
 	saveContainer(filePath, wb);
 	return { ok: true, signatureDropped, moduleName };
 }
@@ -1786,6 +1823,24 @@ function foldedModuleName(name: string, codePage: number): string {
 }
 
 /**
+ * A name the VBE would give a module: an identifier, not a reserved word, at
+ * most 31 characters. The tree's prompts ask the same; an agent's tool call
+ * and a folder import reach the engine without them, and wrote `Bad Name`,
+ * `Sub` and `1Leading` into projects - which Excel opens, but no code can
+ * name such a module and the VBE never makes one. Access is left as it was:
+ * a module there is a database object, named by Access's rules.
+ */
+function assertValidModuleName(container: MacroContainer, name: string): void {
+	if (container.kind === 'access') {
+		return;
+	}
+	const problem = validateVbaModuleName(name);
+	if (problem) {
+		throw new Error(`"${name}" is not a valid module name. ${problem}.`);
+	}
+}
+
+/**
  * A module name beyond the project's ANSI code page is legal: the unicode
  * dir records and the CFB stream name carry the real name, and the ANSI
  * records plus the PROJECT stream hold its '?'-folded projection - the same
@@ -1842,6 +1897,7 @@ export function writeModule(
 		attributeChanges = written.changes;
 		wb.project.setModuleSource(existing.name, written.text);
 	} else {
+		assertValidModuleName(wb.container, moduleName);
 		assertFoldedNameDistinct(wb.project.modules, wb.project.codePage, moduleName);
 		const header = kind === 'class'
 			? synthesizeClassHeader(moduleName)
@@ -1878,7 +1934,16 @@ function withAnnotatedAttributes(source: string): { text: string; changes: strin
 	};
 }
 
-export function renameModule(filePath: string, moduleName: string, newName: string): WriteResult {
+/**
+ * Renames a module. The result names the module it became: an Access form or
+ * report's module takes its `Form_` or `Report_` prefix whether the new name
+ * carries it or not, so `Customers` makes `Form_Customers`.
+ */
+export function renameModule(
+	filePath: string,
+	moduleName: string,
+	newName: string,
+): WriteResult & { moduleName: string } {
 	if (isVb6ProjectPath(filePath)) {
 		throw new Error(`Renaming a module of a VB6 project is not supported yet; rename ${moduleName} in the .vbp and its file.`);
 	}
@@ -1891,14 +1956,57 @@ export function renameModule(filePath: string, moduleName: string, newName: stri
 		const writer = new AccessVbaWriter(fs.readFileSync(filePath));
 		writer.renameDesign(design.entry.name, renamed.design);
 		atomicContainerWrite(filePath, writer.toBuffer());
-		return { ok: true, signatureDropped: false };
+		return { ok: true, signatureDropped: false, moduleName: renamed.module };
 	}
 	const wb = openContainerForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
+	assertNotDocumentModule(wb.project, moduleName,
+		'its name is also the code name its document keeps, which XLIDE does not change, '
+		+ 'so the code would come loose from its document. Rename it in the VBE, in the Properties window');
+	assertValidModuleName(wb.container, newName);
 	assertFoldedNameDistinct(wb.project.modules, wb.project.codePage, newName, moduleName);
+	const oldName = wb.project.getModule(moduleName)?.name;
+	const designer = oldName === undefined ? undefined : designerPath(wb.cfb, oldName);
 	wb.project.renameModule(moduleName, newName);
+	if (designer && wb.cfb.hasStoragePath(designer)) {
+		renameDesignerStorage(wb.cfb, designer, newName, wb.project.codePage);
+	}
 	saveContainer(filePath, wb);
-	return { ok: true, signatureDropped };
+	return { ok: true, signatureDropped, moduleName: newName };
+}
+
+/**
+ * A document module - a sheet's, a workbook's, a document's code - is not
+ * the project's to rename or delete. Its name is the code name the document
+ * itself stores, and measured in Excel (2026-09-19): renamed here, the code
+ * stayed in a module no sheet owned while the sheet got an empty one; deleted,
+ * the sheet got an empty one back. The VBE refuses both as well.
+ */
+function assertNotDocumentModule(project: VbaProject, moduleName: string, reason: string): void {
+	const module = project.getModule(moduleName);
+	if (module && moduleEntry(module).type === 'document') {
+		throw new Error(`${module.name} is a document module: ${reason}.`);
+	}
+}
+
+/**
+ * A form's designer is a storage named after the form, and its VBFrame names
+ * the form again on its `Begin` line; the VBE renames both with the form
+ * (measured in Excel, 2026-09-19). Left under the old name, the designer
+ * belonged to no module, and Office opened the project without the form or
+ * any other code module.
+ */
+function renameDesignerStorage(cfb: Cfb, designer: readonly string[], newName: string, codePage: number): void {
+	cfb.renameStorageAtPath(designer, newName);
+	const renamedPath = [...designer.slice(0, -1), newName];
+	if (!cfb.hasStreamAtPath(renamedPath, VBFRAME_STREAM)) {
+		return;
+	}
+	const frame = decodeCodePage(cfb.getStreamAtPath(renamedPath, VBFRAME_STREAM), codePage);
+	const renamed = frame.replace(/^(\s*Begin\s+\{[^}]*\}\s+)\S+/m, (_, head: string) => head + newName);
+	if (renamed !== frame) {
+		cfb.setStreamAtPath(renamedPath, VBFRAME_STREAM, encodeCodePage(renamed, codePage));
+	}
 }
 
 export function deleteModule(filePath: string, moduleName: string): WriteResult {
@@ -1914,22 +2022,27 @@ export function deleteModule(filePath: string, moduleName: string): WriteResult 
 	}
 	const wb = openContainerForWrite(filePath);
 	const signatureDropped = detectSignature(wb.cfb).present;
+	assertNotDocumentModule(wb.project, moduleName,
+		'it belongs to its document, which Office gives an empty one again. To remove its code, '
+		+ 'write the module without it');
+	const name = wb.project.getModule(moduleName)?.name;
+	const designer = name === undefined ? undefined : designerPath(wb.cfb, name);
 	wb.project.deleteModule(moduleName);
+	// A form's designer storage goes with it, as the VBE removes it; left
+	// behind, it stopped a new form taking the name.
+	if (designer && wb.cfb.hasStoragePath(designer)) {
+		wb.cfb.removeStorageAtPath(designer);
+	}
 	saveContainer(filePath, wb);
 	return { ok: true, signatureDropped };
 }
 
-export function writeCells(
-	filePath: string,
-	sheet: string,
-	startCell: string,
-	data: CellValue[][],
-): { ok: true } {
-	// Mutates the package, so never the cached instance readers share.
+/** A fresh copy of the workbook's package to change: never the cached instance readers share. */
+function writableSheetSurface(filePath: string, what: string): XlsxWorkbook {
 	const container = openMacroContainer(fs.readFileSync(filePath));
 	if (container.kind !== 'excel' || !container.xlsx) {
 		throw new Error(
-			`${path.basename(filePath)} is ${container.description}; cell writes need an OOXML Excel workbook.`,
+			`${path.basename(filePath)} is ${container.description}; ${what} need an OOXML Excel workbook.`,
 		);
 	}
 	if (!container.xlsx.hasSheetSurface()) {
@@ -1939,9 +2052,84 @@ export function writeCells(
 			+ 'workbook as .xlsm to use the sheet and cell tools.',
 		);
 	}
-	container.xlsx.writeCells(sheet, startCell, data);
-	atomicContainerWrite(filePath, container.xlsx.toBytes());
+	return container.xlsx;
+}
+
+export function writeCells(
+	filePath: string,
+	sheet: string,
+	startCell: string,
+	data: CellValue[][],
+): { ok: true } {
+	const xlsx = writableSheetSurface(filePath, 'cell writes');
+	xlsx.writeCells(sheet, startCell, data);
+	atomicContainerWrite(filePath, xlsx.toBytes());
 	return { ok: true };
+}
+
+export function listShapes(filePath: string, sheet?: string): { sheets: Array<{ sheet: string; shapes: ShapeInfo[] }> } {
+	return { sheets: sheetSurface(filePath).shapes(sheet) };
+}
+
+/**
+ * Add, change or remove one shape. A macro must name what Excel's Assign
+ * Macro offers - a Public Sub with no required parameters, in a standard
+ * module or, qualified, in a sheet's or the workbook's module - since Excel
+ * finds a missing one only when someone clicks the shape.
+ */
+export function editShape(filePath: string, sheet: string, edit: ShapeEdit): { ok: true; name: string } {
+	const xlsx = writableSheetSurface(filePath, 'shape edits');
+	const checked = edit.macro ? { ...edit, macro: checkedMacro(filePath, edit.macro) } : edit;
+	const name = xlsx.editShape(sheet, checked);
+	atomicContainerWrite(filePath, xlsx.toBytes());
+	return { ok: true, name };
+}
+
+/** A shape's macro, as Proc or Module.Proc, checked against the project. */
+function checkedMacro(filePath: string, macro: string): string {
+	// Excel writes this workbook as [0]! or by its file name; both mean the same.
+	const m = /^(?:\[0\]!|'([^']*)'!|([^'!\s]+)!)?(?:([\p{L}_][\p{L}\p{N}_]*)\.)?([\p{L}_][\p{L}\p{N}_]*)$/u.exec(macro.trim());
+	if (!m) {
+		throw new Error(`'${macro}' is not a macro Excel can run from a shape; give a Sub as Name or Module.Name.`);
+	}
+	const [, quotedBook, book, moduleName, procName] = m;
+	const workbook = quotedBook ?? book;
+	if (workbook !== undefined && workbook.toLowerCase() !== path.basename(filePath).toLowerCase()) {
+		throw new Error(`'${macro}' runs a macro in ${workbook}; XLIDE links shapes only to Subs in this workbook.`);
+	}
+	const modules = listModules(filePath).filter((module) => (moduleName
+		? module.name.toLowerCase() === moduleName.toLowerCase()
+		: module.type === 'standard'));
+	if (moduleName && modules.length === 0) {
+		throw new Error(`The project has no module named ${moduleName}.`);
+	}
+	const found: Array<{ module: string; proc: string }> = [];
+	const problems: string[] = [];
+	for (const module of modules) {
+		if (module.type === 'class' || module.type === 'userform') {
+			throw new Error(`${module.name} is a ${module.type === 'class' ? 'class' : 'UserForm'} module; a shape runs a Sub in a standard module, or in a sheet's or the workbook's module.`);
+		}
+		const { source } = readModule(filePath, module.name, false);
+		for (const member of parseModule(source).members) {
+			if (member.kind !== 'Procedure' || member.name.toLowerCase() !== procName.toLowerCase()) { continue; }
+			if (member.procKind !== 'Sub') {
+				problems.push(`${module.name}.${member.name} is a ${member.procKind === 'Function' ? 'Function' : 'Property'}; a shape runs a Sub.`);
+			} else if (member.modifiers.some((modifier) => modifier.toLowerCase() === 'private')) {
+				problems.push(`${module.name}.${member.name} is Private; Excel's Assign Macro offers only Public Subs.`);
+			} else if (member.params.some((param) => !param.optional && !param.paramArray)) {
+				problems.push(`${module.name}.${member.name} takes parameters; a click passes none.`);
+			} else {
+				found.push({ module: module.name, proc: member.name });
+			}
+		}
+	}
+	if (found.length > 1) {
+		throw new Error(`${procName} is a Public Sub in ${found.map((f) => f.module).join(' and ')}; say which, as Module.${procName}.`);
+	}
+	if (found.length === 0) {
+		throw new Error(problems[0] ?? `The project has no Public Sub named ${procName}${moduleName ? ` in ${moduleName}` : ' in a standard module'}.`);
+	}
+	return moduleName ? `${found[0].module}.${found[0].proc}` : found[0].proc;
 }
 
 /**

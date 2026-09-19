@@ -11,12 +11,17 @@ PowerPoint, or Access - without driving the XLIDE panels by hand.
    container and every VB6 `.vbp` project) or confirm structure with
    `xlide_getProjectInfo`.
 2. Read the file's VBA with `xlide_readModule`.
-3. Write changes with `xlide_writeModule` or the other module tools. Access
-   files refuse writes with the reason (compiled p-code). Each chat-driven
-   write opens a before/after diff for the user, and the XLIDE tree badges
-   the module (` ● agent edit`) with inline Keep and Revert actions until
-   they decide - no notifications, and reverting a module the write created
-   removes it. `xlide.agent.showWriteDiffs` turns the review off.
+3. Write changes with `xlide_writeModule` or the other module tools. A write
+   to an Access file takes effect when Access next opens the database and
+   recompiles. Each chat-driven write opens a before/after diff for the user,
+   and the XLIDE tree badges the module (` ● agent edit`) with inline Review,
+   Keep and Revert actions until they decide - no notifications, and reverting
+   a module the write created removes it. The diff closes by itself once the
+   change it shows is gone: the agent deletes a scratch module it created,
+   puts a module back as it was, or the user reverts it. Only writes through
+   XLIDE's tools are reviewed this way; XLIDE cannot tell an agent's edit
+   typed into an open editor from the user's own. `xlide.agent.showWriteDiffs`
+   turns the review off.
 4. Run `xlide_analyzeProject` and treat an empty `problems` array as analysis
    pass.
 5. Run `xlide_runVbaTests` to execute discovered `@xlide-test` procedures

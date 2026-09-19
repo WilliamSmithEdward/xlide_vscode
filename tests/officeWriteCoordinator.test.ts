@@ -8,7 +8,11 @@ vi.mock('../src/util/powershell', async (original) => ({
 }));
 vi.mock('../src/officeHostLauncher', () => ({ openFileInHost: vi.fn(async () => undefined) }));
 
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
 import { fakeConfig } from './helpers/fakeConfig';
+import { checkProjectFile } from '../src/projectFileChanges';
 import { runPowerShell } from '../src/util/powershell';
 import { openFileInHost } from '../src/officeHostLauncher';
 import {
@@ -434,6 +438,24 @@ describe('officeWriteCoordinator', () => {
 
             expect(write).toHaveBeenCalledTimes(1);
             expect(scripts).toEqual([]);
+        });
+
+        it('counts its write as XLIDE own, so the new file is not taken for a change made elsewhere', async () => {
+            useSettings({ 'officeIntegration.reopenReadOnlyAfterSave': false });
+            const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-coordinated-'));
+            const book = path.join(dir, 'Book.xlsm');
+            try {
+                fs.writeFileSync(book, 'before');
+                checkProjectFile(book);
+
+                await runWriteWithHostCoordination(book, async () => fs.writeFileSync(book, 'after the write'));
+
+                expect(checkProjectFile(book)).toBe(false);
+                fs.writeFileSync(book, 'saved by the VBE afterwards');
+                expect(checkProjectFile(book)).toBe(true);
+            } finally {
+                fs.rmSync(dir, { recursive: true, force: true });
+            }
         });
 
         it('writes a VB6 project straight through: no application holds its files', async () => {

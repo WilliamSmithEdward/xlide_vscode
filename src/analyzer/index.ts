@@ -168,7 +168,7 @@ export {
 	VbaDocParam,
 	VbaDocSource,
 } from './docs/docModel';
-export { extractLeadingDoc, extractModuleHeaderDoc, parseDocBody } from './docs/docComment';
+export { docParamNameSpans, extractLeadingDoc, extractModuleHeaderDoc, parseDocBody } from './docs/docComment';
 export { ExternalDocEntry, parseMetadataFile } from './docs/externalDoc';
 export { DocRegistry } from './docs/docRegistry';
 export {

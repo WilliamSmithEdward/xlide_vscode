@@ -156,6 +156,45 @@ describe('ProjectExplorer', () => {
         expect(module2Unchanged.collapsibleState).toBe(1);
     });
 
+    it('opens a clicked module row, the active one folded by hand included', async () => {
+        const explorer = new ProjectExplorer(fakeBridge([
+            { name: 'Module1', type: 'standard' },
+            { name: 'Module2', type: 'standard' },
+        ]));
+        const reveal = vi.fn(async () => undefined);
+        explorer.attachTreeView({ reveal } as never);
+        const [project] = await explorer.getChildren();
+        const [module1, module2] = await explorer.getChildren(project);
+        explorer.setActiveModule(project.filePath, 'Module1');
+
+        // Module1 is already in the editor, so clicking its folded row changes
+        // no editor: the click has to open the row itself.
+        await explorer.expandModuleRow(module1);
+        expect(reveal).toHaveBeenLastCalledWith(module1, { select: true, focus: false, expand: true });
+
+        // A click on another module moves the accordion to it.
+        await explorer.expandModuleRow(module2);
+        expect(reveal).toHaveBeenLastCalledWith(module2, { select: true, focus: false, expand: true });
+        expect(explorer.getTreeItem(module2).collapsibleState).toBe(2);
+        expect(explorer.getTreeItem(module1).collapsibleState).toBe(1);
+    });
+
+    it('leaves the rows under a module to the editor', async () => {
+        const explorer = new ProjectExplorer(fakeBridge(
+            [{ name: 'Module1', type: 'standard' }],
+            [{ name: 'Main', kind: 'Sub', line: 3 }],
+        ));
+        const reveal = vi.fn(async () => undefined);
+        explorer.attachTreeView({ reveal } as never);
+        const [project] = await explorer.getChildren();
+        const [module1] = await explorer.getChildren(project);
+        const [procedure] = await explorer.getChildren(module1);
+
+        await explorer.expandModuleRow(procedure);
+
+        expect(reveal).not.toHaveBeenCalled();
+    });
+
     it('collapses loaded non-active project roots when the active module changes', async () => {
         vscodeMock.findFiles.mockResolvedValue([
             { scheme: 'file', fsPath: 'C:\\work\\Book1.xlsm' },

@@ -2,6 +2,414 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [9.0.0] - 2026-09-19
+
+- **Formulas work as typed in Excel 365.** `=XLOOKUP(...)`, and every other
+  function added since Excel 2007, showed #NAME?, because the file needs a
+  prefix the formula bar hides. `=SEQUENCE(3)` and `=A2:A10*2` did not spill:
+  Excel read them as `=@SEQUENCE(3)` and showed one value. Formulas are now
+  stored as Excel stores one you type, with the spill (`A1#`) and trim-range
+  (`A1:.A10`) operators, eta lambdas such as `GROUPBY(..., SUM)`, and table
+  references such as `Table1[@Price]`. `xlide_readFormulas` returns them in
+  the same form.
+
+- **Writing cells no longer leaves a workbook Excel will not open.**
+  `xlide_writeCells` reported success for writes that made the file
+  unreadable: a cell written after a formatted empty cell repeated the cell
+  beside it; overwriting a formula cell left Excel's calculation chain naming
+  it; overwriting the first cell of a filled-down formula left the rest of the
+  column pointing at nothing; and a formula Excel's parser rejects was written
+  as given - a missing parenthesis, `SUM()`, a `;` between arguments,
+  `=LET(x,2,x*3)`, or a function Excel does not have, such as Google Sheets'
+  `SPLIT`. Each is fixed. A formula Excel would reject now stops the write,
+  and the error names the cell and what Excel objects to.
+
+- **Agents can see and change a sheet's shapes, and link them to macros.**
+  `xlide_listShapes` lists the shapes on a sheet: AutoShapes, text boxes,
+  lines, pictures, charts, groups, form controls and ActiveX controls, with
+  the cells each covers, the macro a click runs, its text, and a form
+  control's cell link and input range. `xlide_editShape` adds a rectangle,
+  rounded rectangle, oval, text box or form-control button. It moves,
+  resizes, relabels and renames any shape, sets or removes the macro it
+  runs, a form control's cell link and a drop-down's input range, and
+  deletes shapes, taking a picture's image and a chart's parts with it. A
+  macro must be a Public Sub with no required parameters that the project
+  has, which is what Excel's Assign Macro offers; Excel itself reports a
+  missing one only when someone clicks. ActiveX controls are listed but not
+  changed, since their code is event procedures in the sheet's module. Every
+  kind of edit was checked by having Excel open the file.
+
+- **The sidebar has an Agentic AI section.** Its Agent Instructions button
+  opens the instructions an AI agent needs to work with XLIDE, with a Copy
+  button and steps for where to paste them: `.github/copilot-instructions.md`
+  for GitHub Copilot, `CLAUDE.md` for Claude Code, `AGENTS.md` for ChatGPT
+  (Codex) and most other agents. They cover each way an agent reaches a
+  file's VBA. Copilot calls XLIDE's tools. For any other agent the
+  instructions recommend Python with pyOpenVBA, pyvbaanalysis and
+  pyvbaharness, which read, check and run the VBA in the file itself, and
+  describe how to use each; the agent is told to ask you before it installs
+  anything. Failing that it edits the module documents in the editor, or
+  asks you to export and import. A module has no path on disk, so the
+  instructions say that before an agent tries the path, and forbid it
+  reporting a module as changed because it wrote an exported copy.
+
+- **Renaming a UserForm no longer breaks the workbook.** Rename Module
+  renamed the form's code but left its designer under the old name. XLIDE
+  could not read the form afterwards, and Excel opened the workbook without
+  the form or any other code module, so saving it there lost them. The
+  designer is now renamed with the form, as the VBE renames it: its storage,
+  and the name on its `Begin` line. Checked in Excel: the renamed form keeps
+  every control, and the rest of the project loads.
+
+- **Adding a UserForm to an .xls or .doc no longer loses the project's
+  code.** New UserForm created the form's designer at the top of the file
+  instead of beside the project. Excel then opened the workbook without the
+  form or any other code module, and Word could not open the document's
+  macros at all. The designer now goes where the project is, so the form
+  opens in both, and its markup and designer open in XLIDE, which before
+  reported "Module has no designer storage" for any form in these files.
+
+- **An agent can no longer rename or delete a sheet's or a workbook's
+  module.** `xlide_renameModule` renamed `Sheet1` in the project only; Excel
+  then kept the sheet's code in a module no sheet owned and gave the sheet an
+  empty one, so its event handlers stopped running. `xlide_deleteModule`
+  emptied it. Both are refused now, as the tree and the VBE refuse them.
+
+- **A predeclared, exposed class is a class.** XLIDE took any module with
+  both `VB_PredeclaredId` and `VB_Exposed` set for a sheet's or workbook's
+  module: a factory class in a library, or one given `'@PredeclaredId` and
+  `'@Exposed` in XLIDE itself. It was listed as a document module, the tree
+  would not delete it, and it could not be renamed. stdVBA's `stdCOM` and
+  `stdWebSocket` were two, and their own `Set Create = New stdCOM` was
+  reported as an error, since New cannot make a document module. Such a
+  class is now listed, analyzed and handled as a class; the sheet and
+  workbook modules are unchanged.
+
+- **Renaming an Access form without its prefix follows it.** Renaming
+  `Form_Orders` to `Customers` makes `Form_Customers`, but the editors on
+  the form and a pending agent review went to a `Customers` that does not
+  exist, and `xlide_renameModule` reported that name. They follow the module
+  the rename made now.
+
+- **Module names are checked however they arrive.** The tree asks for a name
+  the VBE would accept, but an agent's `xlide_writeModule` or
+  `xlide_renameModule` and a folder import did not, and could write a module
+  named `Bad Name`, `Sub` or `1Leading`, which no code can call. They are
+  refused now with the same explanation. Access databases keep their own
+  naming rules.
+
+- **Renaming a module to a change of case works.** `Module1` to `MODULE1`
+  failed with "Module already exists".
+
+- **A new form can take a name an earlier version left behind.** A form
+  deleted by an earlier version left its designer in the file, and New
+  UserForm then refused the name.
+
+- **Delete Module works on a UserForm, and removes its designer.** The tree
+  offered no Delete for a form, and a delete elsewhere left the form's
+  designer in the file, so a new form could not take the name ("A designer
+  storage named ... already exists"). The tree offers it now, and the
+  designer goes with the form, as do the editors on its markup and designer.
+
+- **Rename Module works on a UserForm.** The tree offered no Rename for a
+  form. It does now, and like a class rename it updates the code that uses
+  the form: `Dim f As UserForm1`, `New UserForm1`, `TypeOf x Is UserForm1`,
+  and every use of its default instance - `UserForm1.Show`,
+  `Unload UserForm1`, `With UserForm1`, `Set UserForm1 = Nothing`, in any
+  module and in the form's own code. A member of something else
+  (`x.UserForm1`), a named argument, and a name a local declaration shadows
+  are left alone. The updated modules are left unsaved for review, as with a
+  class rename.
+
+- **A form's markup and designer follow it.** Renaming a form moved only its
+  code editor; the markup and the designer stayed on a form that no longer
+  existed. They now move to the new name, and deleting a form closes them.
+
+- **Open Form Markup shows XML.** XLIDE switched every document of a project
+  to VBA the moment it showed, the markup included, so it lost its XML
+  highlighting and VBA completion and formatting ran on it.
+
+- **A module stops reporting "not defined" as soon as an agent creates what
+  it calls.** When an agent wrote a module calling `HelperMod.Greet` and then
+  created HelperMod, or added the procedure to another module, the first
+  module kept its "Variable not defined" or "Sub or Function not defined"
+  until something touched its own editor. Two things kept it stale. A module
+  was analyzed again only when its own text changed or its editor took focus,
+  never when another module was written. And the analysis worker keeps its
+  own copy of the project, which it refreshes only when a counter moves; a
+  rebuild of the project started that counter from zero again, so the worker
+  could go on analyzing against the modules as they were before the write.
+  Now every other open module of the project is analyzed again 300 ms after a
+  module is written, created, renamed, removed or saved, and the worker
+  always takes the new copy. In a real VS Code, driving the agent's own write
+  tool, the error clears about 0.4 s after the second write; before, it was
+  still there after 8 s.
+
+- **An agent's write to a module you have open no longer leaves it dirty.**
+  VS Code reloads the open document from the workbook, and XLIDE's canonical
+  casing took the reload for typing: 200 ms later it recased the reloaded
+  lines, so the agent's `debug.print 1` became `Debug.Print 1` in the editor
+  only, and the module showed unsaved changes nobody made. A reload leaves the
+  document matching its file, and XLIDE now recases only lines of a document
+  that differs from its file. The same went for a restore from git or a revert
+  of an open module. Recasing the text you type is unchanged.
+
+- **Casing goes into the save.** Saving within a moment of typing - a quick
+  Ctrl+S, or auto-save with a short delay - saved the line uncased, and XLIDE
+  then recased the saved module, leaving it dirty again. The casing is now
+  written with the save.
+
+- **Closing an editor while a recase is pending no longer logs an error.** The
+  recase ran from a timer against the editor it started with, and editing a
+  closed editor failed with an unhandled "TextEditor#edit not possible on
+  closed editors". It now uses any editor still showing the document, or does
+  nothing; a failure for any other reason is still reported.
+
+- **An agent's review diff closes once the change it shows is gone.** An agent
+  often tests with throwaway work: a scratch module it creates and deletes, a
+  temporary edit it undoes. Each write opened a review diff, and the diff
+  stayed open afterwards, titled for a module that no longer existed or
+  showing no difference at all. It now closes when the module is deleted,
+  when the module's text is back to what it was, or when you revert. Keep
+  leaves it open, since the change still stands, and a diff you have typed
+  into is left alone.
+
+- **Agents are told to write VBA through `xlide_writeModule`, even into a module
+  you have open.** An edit an agent makes to an open `xlide-vba://` document is
+  saved into the file like any other, and nothing in VS Code tells XLIDE it
+  was the agent's rather than your own typing, so it got no diff and no tree
+  badge. The tool's description offered that as an equal path; it now says
+  why not to take it, and to edit such a document directly only when you ask.
+
+- **Open modules follow changes saved outside XLIDE.** When the VBE saved the
+  workbook, or a git checkout replaced it, an open module went on showing the
+  old code, and analysis went on using it: a call into a procedure the VBE had
+  just added stayed "Method or data member not found" until the window was
+  reloaded. XLIDE now watches the file of every project with a module open.
+  A module the change reached reloads, and the modules calling into it are
+  analyzed again; in a real VS Code, 0.4 s after the change. Saving unsaved
+  edits over a change to the same module stops at VS Code's "file is newer"
+  prompt. Unsaved edits to a module the change did not reach save as usual.
+  Before, they failed with the same prompt, since every open module of the
+  file was taken for changed. A save that changes no VBA - Excel saving
+  cells, AutoSave, Access writing a database it has open - refreshes nothing.
+
+- **Saving no longer overwrites an agent's change without asking.** When an
+  agent wrote a module you had open with unsaved edits, saving the editor
+  replaced the agent's change, with no prompt. XLIDE moved the module's
+  timestamp but not its size, and VS Code raises its "file is newer" prompt
+  only when both differ. The same went for a refactoring or a sync import
+  that wrote an open module. Now such a save stops at the prompt.
+
+- **A module deleted outside XLIDE no longer comes back on save.** If you
+  deleted a module in the VBE while it was open in XLIDE with unsaved edits,
+  saving the editor wrote it back into the workbook without a prompt. A
+  change that kept the module's length, such as renaming `i` to `j`, was
+  missed the same way. Both now stop at the prompt.
+
+- **An open module follows its rename.** Renaming a module that was open -
+  from the tree or by an agent - left its editor on the old name, showing a
+  module that no longer existed. Its text also kept the old module alive for
+  analysis, so a call still made to the old name was not reported. The
+  editor now moves to the new name, and so does an open review diff. An
+  editor with unsaved edits stays put, and its save stops at the "file is
+  newer" prompt. Analysis also leaves out any editor on a module the project
+  no longer has, so an editor still open on a deleted module no longer hides
+  calls to it either.
+
+- **VBA's own enums and modules work as qualifiers.** `VbMsgBoxResult.vbYes`,
+  `ColorConstants.vbRed` and `Strings.Left(...)` are ordinary VBA, and Option
+  Explicit reported each qualifier as "Variable not defined", where host
+  enums such as `XlAxisType.xlCategory` already worked. They now read as the
+  VBE reads them: the constants are offered after the dot, and a member the
+  enum does not have is reported. `Constants.vbCrLf` in an Excel project is
+  VBA's module, as in the VBE, not Excel's Constants enum.
+
+- **The VBA constants match VBA's type library.** `vbFormMDIForm`, `vb3DFace`,
+  `vb3DShadow`, `vbMsgBox` and `vbMsgBoxText` were missing, and reported as
+  undeclared; `vbModal` and `vbModeless` are now `FormShowConstants`.
+  `vbUseCompareOption`, which Microsoft's reference lists but VBA does not
+  define, is now reported under Option Explicit, as the VBE does.
+
+- **Doc comments are checked against the procedure they document.** Once a
+  Sub, Function, Property, Declare or Event has a `'''` doc comment written in
+  XML, XLIDE reports a parameter with no `<param>`, a `<param>` naming a
+  parameter the procedure does not have, a Function with no `<returns>`, a
+  `<returns>` on something that returns nothing, a tag given twice, and a tag
+  left open. Each is a warning with its own code, from `doc-param-missing` to
+  `doc-tag-unclosed`, and most have a quick fix: add the missing tags, rename
+  a stale `<param>` to the parameter nothing describes, or remove what does
+  not belong. A property's summary describes its value, so a Property Get
+  needs no `<returns>`, and a Property Let or Set needs no `<param>` for the
+  value it receives. A plain-text `'''` note is not XML and is not checked.
+  `@xlide-analysis-disable-next-member` now covers the member's doc comment.
+
+- **Renaming a parameter renames it in the doc comment too.** Rename Symbol
+  (F2) left `<param name="item">` behind, so the comment went on describing a
+  parameter the procedure no longer had.
+
+- **Move to Module takes a procedure's doc comment with it.** The `'''` block
+  and XLIDE's directive lines above the procedure stayed in the module it
+  left, where they documented whichever procedure came next.
+
+- **Encapsulate Field puts the doc comment on the property.** It stayed above
+  the declaration, which became the Private backing field, and the property
+  callers read lost its description.
+
+- **Removing an unused module variable removes its doc comment.** The quick
+  fix deleted the declaration and left its `'''` block to document the next
+  declaration.
+
+- **Suppressing a finding on a continued line no longer breaks the
+  statement.** For a finding on the second line of a statement continued with
+  ` _`, the "Suppress on next line" fix wrote its comment between the two
+  lines, which VBA rejects. The directive now goes above the statement, and
+  `disable-next-line` and `disable-line` cover every line of it. Before, they
+  missed a finding on any other line of such a statement.
+
+- **Importing a form's designer reaches its open markup document.** An import
+  from a folder announced the form's code document, which a designer write
+  does not change, and not the markup document it does change. An open markup
+  document kept the old designer and could write it back on save.
+
+- **An XLIDE write no longer hides a change saved just before it.** If the VBE
+  saved the workbook and an agent then wrote a module before XLIDE looked,
+  the write's own timestamp was taken as the only change, and a later save of
+  the module the VBE had changed could overwrite that change without a
+  prompt. Each XLIDE write now records the file as it was before the write,
+  and a change it did not make is still reported.
+
+- **Writing cells respects the Office coordination setting.** An agent's
+  `xlide_writeCells` went to the file directly, so with the workbook open in
+  Excel it failed on the lock whatever
+  `xlide.officeIntegration.coordinationMode` said. It now closes and reopens
+  the workbook the way a module write does.
+
+- **Refactorings that change other modules write them the way everything else
+  does.** Move to Module and Introduce Parameter wrote the other modules
+  straight to the file: no Office coordination, and an open copy of those
+  modules, the symbol index and the tree kept the old text. They now take the
+  shared write path, and the project is refreshed once at the end.
+
+- **Commands that need a tree row are gone from the Command Palette.** Open
+  Module, Find References, New Module, New Class Module, the three new
+  designer commands, Open Form Markup, Delete Module, Rename Module, and
+  Review, Keep and Revert Agent Change did nothing when picked there. Open in
+  Office Application (both), Export Modules to Folder and Import Modules from
+  Folder use the open module, and now show only while one is open.
+
+- **A module row in the tree no longer has an Open Module button.** Clicking
+  the row opens the module, so the button did the same thing.
+
+- **Clicking a module row opens the row, whatever is in the editor.** The tree
+  opened a module's row when the editor moved to that module, so clicking a
+  module already in front changed nothing: a row you had folded by hand stayed
+  folded. The click now opens the row itself, under the same
+  `xlide.explorer.autoExpandCollapse` setting.
+
+- **A row with an agent change has a Review button.** Hovering it shows
+  Review, Keep and Revert; Review opens the before/after diff, which before
+  was only in the row's right-click menu.
+
+- The automation guide no longer says Access files refuse writes. They have
+  been writable since 8.0.
+
+- **`xlide_writeModule` makes a class module when asked.** Its description
+  offered `kind: 'class'`, but the tool took no such input and made a
+  standard module whatever an agent passed. It takes `kind` now, and refuses
+  one that contradicts a module that already exists.
+
+- **Formulas that depend on written cells show their new results.** Excel
+  trusts the results a file keeps, so after a write a total over the written
+  cells showed the old total until a full recalculation. A write now asks
+  Excel to recalculate the workbook when it next opens it.
+
+- **Written cells keep their formatting.** A value written over a date,
+  currency or filled cell lost the format, and a new cell ignored its row's
+  and column's, so 12.5 in a currency column showed as 12.5. Both now behave
+  as typing in Excel does.
+
+- **Arrays and spills behave as in Excel.** Writing one cell of an array
+  formula left Excel showing the written value as the array's result, and
+  writing its first cell made the file unreadable; such a write is now
+  refused, as Excel refuses it. A value written into a spill range now blocks
+  the spill (#SPILL!), and a value written over the formula that spills
+  clears the spill instead of leaving its old values behind as constants.
+
+- **Cell references past XFD1048576 are refused.** `A0`, `XFE1` and a block
+  running past the last row were written into the file anyway.
+
+- **Filled-down formulas read back correctly.** `xlide_readFormulas` rebuilt
+  each cell of a filled-down formula from its first, and turned `LOG10(` into
+  `LOG11(` a row down and `DEC2BIN(` into `DEC3BIN(`, since they look like
+  cell references. It also left whole-row and whole-column references where
+  they were, so `SUM(3:3)` read the same all the way down the column.
+
+- **Dates in 1904 workbooks read correctly.** In a workbook using the 1904
+  date system, as older Mac workbooks do, dates read four years and a day
+  early.
+
+- **A module deleted or renamed away reads as a missing file.** VS Code keeps a
+  document for a while after its tab closes, and reads it again when the
+  module changes. XLIDE answered with the engine's own "Module not found",
+  which VS Code logged as the extension failing, with a stack trace. It now
+  answers that the file is gone, which VS Code expects.
+
+- **Reading a huge range no longer runs out of memory.** `A1:XFD1048576` built
+  a grid of 17 billion cells before reading any; it is now cut to the cells
+  the sheet has.
+
+### Internal
+
+- `VbaProjectIndexService.onDidChangeProject` fires once the service serves
+  a project's new content, and `crossModuleGeneration` never repeats across
+  a rebuild of the same project.
+- An integration suite, `src/test/crossModuleDiagnostics.test.ts`, writes
+  through `xlide_writeModule` and watches the calling module's diagnostics.
+  `src/test/canonicalCasing.test.ts` holds an agent's write to an open module,
+  and an open module moved through, to their exact text and a clean state.
+- The two unhandled rejections the integration log printed came from the
+  git-compare suite, not from the suite that showed them: VS Code reports an
+  unhandled rejection only if the host is still running a second later, and a
+  longer run kept it alive.
+- `src/projectFileChanges.ts` tells a change XLIDE made from one it did not:
+  `runWriteWithHostCoordination` records the file's stamp around every write,
+  and `onDidChangeProjectFile` fires for any other stamp.
+  `XlideFileSystemProvider.stat` is now async and settles such a change first.
+- `src/test/outsideChanges.test.ts` writes to the workbook behind the
+  extension's back and checks the reload, the re-analysis, and which saves
+  conflict. The "File Modified Since" line every integration run printed from
+  the formatting suite is gone; it was this bug.
+- `.github/copilot-instructions.md` lists all 22 agent tools, and a test keeps
+  it that way.
+- The file system provider's sweep of closed documents leaves alone an entry
+  made or read in the last second: VS Code lists a document as open only
+  after reading it, and the sweep could drop the record of a module being
+  opened, so a change elsewhere in the file stopped its save at a conflict.
+  The outside-changes suite caught it, 2 ms apart.
+- `src/agentInstructions.ts` holds the Agent Instructions text. A test keeps
+  it naming every tool in `package.json`, and no tool, chat reference,
+  command or button that does not exist. The sponsor card and the new dialog
+  share one dialog mechanism in the sidebar webview.
+- `src/vba/xlsxShapes.ts` reads and edits a sheet's drawing layer. Two
+  workbooks Excel saved, `ShapesFixture.xlsm` and
+  `ShapesPictureChartFixture.xlsm`, joined `tests/fixtures/binaries` for its
+  tests. No ActiveX control could be made for a fixture, so its test sheet
+  follows the documented layout.
+- `src/vba/xlsxFormula.ts` parses a formula as Excel's parser does and
+  translates between the typed and stored forms; `src/vba/xlsxFunctionNames.ts`
+  holds its tables. Every table came from Excel 16 itself: the names it stores
+  with a prefix, the argument counts and reference-only arguments of 533
+  functions, the 526 it takes as eta lambdas, the 13 whose result can end a
+  range, and the names it will not call, found by calling every function name
+  in EXCEL.EXE.
+- `tests/fixtures/excelFormulaVerdicts.json` holds 1,462 formulas with
+  Excel's accept or reject, and a test keeps XLIDE from accepting any Excel
+  rejected. `excelStoredFormulas.json` holds 757 formulas with the text Excel
+  stored and the text it showed. Five workbooks Excel saved joined
+  `tests/fixtures/binaries` for the cell writer's tests.
+- `ZipArchive.delete` removes a part.
+
 ## [8.3.4] - 2026-09-17
 
 - **No change in behaviour.** Two patterns held raw characters where escapes

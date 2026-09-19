@@ -6,6 +6,18 @@
 // conditional formatting, charts, pivot caches and every other part survive
 // byte-for-byte.
 
+import {
+	FormulaError,
+	MAX_COLUMN,
+	MAX_ROW,
+	columnToIndex,
+	formulaForDisplay,
+	formulaForFile,
+	indexToColumn,
+	shiftFormula,
+	type FormulaContext,
+} from './xlsxFormula';
+import { editSheetShape, listSheetShapes, type ShapeEdit, type ShapeInfo } from './xlsxShapes';
 import { ZipArchive } from './zip';
 
 export class XlsxError extends Error {}
@@ -102,31 +114,14 @@ function encodeXmlAttr(text: string): string {
 
 // ------------------------------------------------------------ A1 conversions
 
-export function columnToIndex(letters: string): number {
-	let n = 0;
-	for (const ch of letters.toUpperCase()) {
-		n = n * 26 + (ch.charCodeAt(0) - 64);
-	}
-	return n;
-}
-
-export function indexToColumn(index: number): string {
-	let n = index;
-	let out = '';
-	while (n > 0) {
-		const rem = (n - 1) % 26;
-		out = String.fromCharCode(65 + rem) + out;
-		n = Math.floor((n - 1) / 26);
-	}
-	return out;
-}
-
 export function parseCellRef(ref: string): { row: number; col: number } {
-	const m = /^\$?([A-Za-z]+)\$?(\d+)$/.exec(ref.trim());
-	if (!m) {
-		throw new XlsxError(`Invalid cell reference '${ref}': expected A1 notation such as 'B3'.`);
+	const m = /^\$?([A-Za-z]{1,3})\$?(\d{1,7})$/.exec(ref.trim());
+	const row = m ? Number(m[2]) : 0;
+	const col = m ? columnToIndex(m[1]) : 0;
+	if (row < 1 || row > MAX_ROW || col > MAX_COLUMN) {
+		throw new XlsxError(`Invalid cell reference '${ref}': expected A1 notation within A1:XFD1048576, such as 'B3'.`);
 	}
-	return { row: Number(m[2]), col: columnToIndex(m[1]) };
+	return { row, col };
 }
 
 function parseRangeRef(ref: string): { r1: number; c1: number; r2: number; c2: number } {
@@ -145,6 +140,135 @@ function parseRangeRef(ref: string): { r1: number; c1: number; r2: number; c2: n
 /** The three places Office hosts keep the VBA project inside an OOXML zip. */
 const VBA_PROJECT_PARTS = ['xl/vbaProject.bin', 'word/vbaProject.bin', 'ppt/vbaProject.bin'];
 
+const WORKBOOK_RELS = 'xl/_rels/workbook.xml.rels';
+const CONTENT_TYPES = '[Content_Types].xml';
+
+/** A read larger than this is cut to the cells a sheet has. */
+const MAX_READ_CELLS = 1_000_000;
+
+/** Days from Excel's 1900 date origin to its 1904 one. */
+const DATE_1904_OFFSET = 1462;
+
+/** A workbook relationship target, relative to xl/ unless absolute. */
+function workbookPartPath(target: string): string {
+	return target.startsWith('/') ? target.slice(1) : `xl/${target.replace(/^\.\//, '')}`;
+}
+
+function escapeRegExp(text: string): string {
+	return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// ------------------------------------------------------ dynamic array metadata
+//
+// A formula that can spill is marked by its cell's `cm` attribute, a 1-based
+// index into the cellMetadata of xl/metadata.xml. The entry there points at an
+// XLDAPR metadata type and a futureMetadata block with fDynamic="1". The XML
+// below is what Excel 16 writes.
+
+const SHEET_METADATA_TYPE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/sheetMetadata';
+const SHEET_METADATA_CONTENT_TYPE = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheetMetadata+xml';
+const DYNAMIC_ARRAY_NAMESPACE = 'http://schemas.microsoft.com/office/spreadsheetml/2017/dynamicarray';
+const EMPTY_METADATA = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n'
+	+ '<metadata xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"></metadata>';
+const DYNAMIC_ARRAY_TYPE = '<metadataType name="XLDAPR" minSupportedVersion="120000" copy="1" pasteAll="1" '
+	+ 'pasteValues="1" merge="1" splitFirst="1" rowColShift="1" clearFormats="1" clearComments="1" assign="1" '
+	+ 'coerce="1" cellMeta="1"/>';
+const DYNAMIC_ARRAY_BLOCK = '<bk><extLst><ext uri="{bdbb8cdc-fa1e-496e-a857-3c3f30c029c3}">'
+	+ '<xda:dynamicArrayProperties fDynamic="1" fCollapsed="0"/></ext></extLst></bk>';
+
+function blocks(xml: string): string[] {
+	return [...xml.matchAll(/<bk\b[^>]*>([\s\S]*?)<\/bk>/g)].map((m) => m[1]);
+}
+
+function metadataTypeIndex(xml: string): number {
+	return [...xml.matchAll(/<metadataType\b[^>]*?\bname="([^"]*)"/g)].map((m) => m[1]).indexOf('XLDAPR') + 1;
+}
+
+function dynamicArrayFuture(xml: string): RegExpExecArray | null {
+	return /<futureMetadata\b[^>]*\bname="XLDAPR"[^>]*>([\s\S]*?)<\/futureMetadata>/.exec(xml);
+}
+
+/** The 1-based cellMetadata indexes that mark a dynamic array formula. */
+function dynamicArrayIndexes(xml: string): Set<number> {
+	const type = metadataTypeIndex(xml);
+	const dynamic = blocks(dynamicArrayFuture(xml)?.[1] ?? '').map((bk) => /\bfDynamic="(?:1|true)"/.test(bk));
+	const cells = /<cellMetadata\b[^>]*>([\s\S]*?)<\/cellMetadata>/.exec(xml)?.[1] ?? '';
+	const out = new Set<number>();
+	blocks(cells).forEach((bk, i) => {
+		const t = Number(/\bt="(\d+)"/.exec(bk)?.[1]);
+		const v = Number(/\bv="(\d+)"/.exec(bk)?.[1]);
+		if (type > 0 && t === type && dynamic[v]) {
+			out.add(i + 1);
+		}
+	});
+	return out;
+}
+
+function withCount(xml: string, element: string, count: number): string {
+	return xml.replace(new RegExp(`<${element}\\b[^>]*>`), (tag) => (/\bcount="\d*"/.test(tag)
+		? tag.replace(/\bcount="\d*"/, `count="${count}"`)
+		: tag.replace(new RegExp(`^<${element}\\b`), `<${element} count="${count}"`)));
+}
+
+/**
+ * Insert `text` after the last of the root's children named in `elements`;
+ * the children's order is fixed by the schema.
+ */
+function insertAfter(xml: string, elements: string[], text: string): string {
+	const at = Math.max(...elements.map((name) => {
+		const close = xml.lastIndexOf(`</${name}>`);
+		return close < 0 ? -1 : close + name.length + 3;
+	}));
+	return at < 0 ? xml : `${xml.slice(0, at)}${text}${xml.slice(at)}`;
+}
+
+/**
+ * Metadata XML with an entry marking dynamic array formulas, and the
+ * cellMetadata index of that entry. Existing entries are reused.
+ */
+function withDynamicArrayMetadata(original: string): { xml: string; index: number } {
+	const existing = [...dynamicArrayIndexes(original)];
+	if (existing.length > 0) {
+		return { xml: original, index: Math.min(...existing) };
+	}
+	let xml = original.includes(DYNAMIC_ARRAY_NAMESPACE)
+		? original
+		: original.replace(/<metadata\b/, `<metadata xmlns:xda="${DYNAMIC_ARRAY_NAMESPACE}"`);
+
+	let type = metadataTypeIndex(xml);
+	if (type === 0) {
+		if (!/<metadataTypes\b/.test(xml)) {
+			xml = xml.replace(/(<metadata\b[^>]*>)/, '$1<metadataTypes count="0"></metadataTypes>');
+		}
+		type = [...xml.matchAll(/<metadataType\b/g)].length + 1;
+		xml = withCount(xml.replace(/<\/metadataTypes>/, `${DYNAMIC_ARRAY_TYPE}</metadataTypes>`), 'metadataTypes', type);
+	}
+
+	let future = dynamicArrayFuture(xml);
+	if (!future) {
+		xml = insertAfter(xml, ['metadataTypes', 'metadataStrings', 'mdxMetadata', 'futureMetadata'],
+			'<futureMetadata name="XLDAPR" count="0"></futureMetadata>');
+		future = dynamicArrayFuture(xml)!;
+	}
+	let value = blocks(future[1]).findIndex((bk) => /\bfDynamic="(?:1|true)"/.test(bk));
+	if (value < 0) {
+		value = blocks(future[1]).length;
+		const replaced = future[0].replace(/<\/futureMetadata>$/, `${DYNAMIC_ARRAY_BLOCK}</futureMetadata>`)
+			.replace(/\bcount="\d*"/, `count="${value + 1}"`);
+		xml = xml.replace(future[0], replaced);
+	}
+
+	const entry = `<bk><rc t="${type}" v="${value}"/></bk>`;
+	if (!/<cellMetadata\b/.test(xml)) {
+		xml = insertAfter(xml, ['metadataTypes', 'metadataStrings', 'mdxMetadata', 'futureMetadata'],
+			'<cellMetadata count="0"></cellMetadata>');
+	}
+	const cells = /<cellMetadata\b[^>]*>([\s\S]*?)<\/cellMetadata>/.exec(xml)!;
+	const index = blocks(cells[1]).length + 1;
+	xml = withCount(xml.replace(/<\/cellMetadata>/, `${entry}</cellMetadata>`), 'cellMetadata', index);
+	return { xml, index };
+}
+
 interface SheetRef {
 	name: string;
 	path: string;
@@ -153,6 +277,7 @@ interface SheetRef {
 export class XlsxWorkbook {
 	private sharedStrings: string[] | undefined;
 	private dateStyles: Set<number> | undefined;
+	private date1904: boolean | undefined;
 
 	private constructor(private readonly zip: ZipArchive) {}
 
@@ -209,7 +334,7 @@ export class XlsxWorkbook {
 	/** Worksheets in workbook order (chartsheets and dialog sheets excluded). */
 	sheets(): SheetRef[] {
 		const workbookXml = this.zip.read('xl/workbook.xml').toString('utf8');
-		const rels = this.readRelationships('xl/_rels/workbook.xml.rels');
+		const rels = this.readRelationships(WORKBOOK_RELS);
 		const out: SheetRef[] = [];
 		let pos = 0;
 		for (;;) {
@@ -220,9 +345,7 @@ export class XlsxWorkbook {
 			const rid = tag.attrs['r:id'] ?? tag.attrs['id'];
 			const target = rid ? rels.get(rid) : undefined;
 			if (!target) { continue; }
-			const path = target.startsWith('/')
-				? target.slice(1)
-				: `xl/${target.replace(/^\.\//, '')}`;
+			const path = workbookPartPath(target);
 			if (!path.includes('/worksheets/')) { continue; }
 			out.push({ name: tag.attrs['name'] ?? '', path });
 		}
@@ -260,7 +383,27 @@ export class XlsxWorkbook {
 		if (!/<row\b/.test(xml)) {
 			return [];
 		}
-		const { r1, c1, r2, c2 } = parseRangeRef(range);
+		const bounds = parseRangeRef(range);
+		const { r1, c1 } = bounds;
+		let { r2, c2 } = bounds;
+		// An oversized range such as A1:XFD1048576 is cut to the cells the
+		// sheet has, rather than building billions of empty ones.
+		if ((r2 - r1 + 1) * (c2 - c1 + 1) > MAX_READ_CELLS) {
+			let lastRow = 0;
+			let lastCol = 0;
+			for (const cell of iterateCells(xml)) {
+				lastRow = Math.max(lastRow, cell.row);
+				lastCol = Math.max(lastCol, cell.col);
+			}
+			r2 = Math.min(r2, lastRow);
+			c2 = Math.min(c2, lastCol);
+			if (r2 < r1 || c2 < c1) {
+				return [];
+			}
+			if ((r2 - r1 + 1) * (c2 - c1 + 1) > MAX_READ_CELLS) {
+				throw new XlsxError(`${range} holds more than ${MAX_READ_CELLS} cells of data; read it in smaller ranges.`);
+			}
+		}
 		const grid: CellValue[][] = [];
 		for (let r = r1; r <= r2; r++) {
 			grid.push(new Array<CellValue>(c2 - c1 + 1).fill(null));
@@ -278,29 +421,56 @@ export class XlsxWorkbook {
 		return grid;
 	}
 
+	/**
+	 * Write values from `startCell`, a row of `data` per sheet row. A string
+	 * starting with = is a formula as typed into Excel; anything Excel would
+	 * refuse is refused here, since Excel will not open a file holding it.
+	 */
 	writeCells(sheetName: string, startCell: string, data: CellValue[][]): void {
 		const sheet = this.requireSheet(sheetName);
-		const original = this.zip.read(sheet.path).toString('utf8');
 		const start = parseCellRef(startCell);
-
-		// Collect the target values by row.
-		const updates = new Map<number, Map<number, CellValue>>();
-		let maxRow = start.row;
-		let maxCol = start.col;
-		data.forEach((row, rOffset) => {
-			const rowNum = start.row + rOffset;
-			const byCol = updates.get(rowNum) ?? new Map<number, CellValue>();
-			row.forEach((value, cOffset) => {
-				const col = start.col + cOffset;
-				byCol.set(col, value);
-				maxCol = Math.max(maxCol, col);
-			});
-			updates.set(rowNum, byCol);
-			maxRow = Math.max(maxRow, rowNum);
+		const width = data.reduce((most, row) => Math.max(most, row.length), 0);
+		if (start.row + data.length - 1 > MAX_ROW || start.col + width - 1 > MAX_COLUMN) {
+			throw new XlsxError(
+				`${data.length} row(s) of ${width} value(s) from ${startCell} run past XFD1048576, the last cell of a worksheet.`,
+			);
+		}
+		const writes = new Map<number, Map<number, CellValue>>();
+		data.forEach((row, r) => {
+			writes.set(start.row + r, new Map(row.map((value, c) => [start.col + c, value])));
 		});
 
-		const updated = spliceRows(original, updates);
-		this.zip.write(sheet.path, Buffer.from(expandDimension(updated, maxRow, maxCol), 'utf8'));
+		let context: FormulaContext | undefined;
+		const result = rewriteSheetCells(this.zip.read(sheet.path).toString('utf8'), writes, {
+			dynamicArrays: this.dynamicArrayCellMetadata(),
+			formula: (text, ref) => {
+				try {
+					return formulaForFile(text, context ??= this.formulaContext());
+				} catch (e) {
+					if (e instanceof FormulaError) {
+						throw new XlsxError(`Nothing was written: the formula for ${ref} is not one Excel accepts - ${e.message}`);
+					}
+					throw e;
+				}
+			},
+			cellMetadata: () => this.ensureDynamicArrayCellMetadata(),
+		});
+		this.zip.write(sheet.path, Buffer.from(result.xml, 'utf8'));
+		if (result.formulasChanged) {
+			this.dropCalcChain();
+		}
+		this.requestFullCalculation();
+	}
+
+	/** The shapes on each worksheet, or on the one named. */
+	shapes(sheetName?: string): Array<{ sheet: string; shapes: ShapeInfo[] }> {
+		const sheets = sheetName === undefined ? this.sheets() : [this.requireSheet(sheetName)];
+		return sheets.map((sheet) => ({ sheet: sheet.name, shapes: listSheetShapes(this.zip, sheet) }));
+	}
+
+	/** Add, change or remove one shape on a worksheet; gives the shape's name after the edit. */
+	editShape(sheetName: string, edit: ShapeEdit): string {
+		return editSheetShape(this.zip, this.requireSheet(sheetName), edit, this.sheets().map((sheet) => sheet.name));
 	}
 
 	// ------------------------------------------------------------- internals
@@ -328,6 +498,122 @@ export class XlsxWorkbook {
 			}
 		}
 		return out;
+	}
+
+	/** The part the workbook relates to by a relationship type ending in `typeSuffix`. */
+	private workbookPart(typeSuffix: string): string | undefined {
+		if (!this.zip.has(WORKBOOK_RELS)) { return undefined; }
+		const xml = this.zip.read(WORKBOOK_RELS).toString('utf8');
+		for (let tag = nextTag(xml, 0); tag; tag = nextTag(xml, tag.end)) {
+			if (tag.name === 'Relationship' && tag.attrs['Target'] && (tag.attrs['Type'] ?? '').endsWith(typeSuffix)) {
+				return workbookPartPath(tag.attrs['Target']);
+			}
+		}
+		return undefined;
+	}
+
+	private editPart(path: string, edit: (xml: string) => string): void {
+		if (!this.zip.has(path)) { return; }
+		const xml = this.zip.read(path).toString('utf8');
+		const edited = edit(xml);
+		if (edited !== xml) {
+			this.zip.write(path, Buffer.from(edited, 'utf8'));
+		}
+	}
+
+	/**
+	 * Remove the calc chain. It names every formula cell, and one naming a
+	 * cell that no longer holds a formula makes Excel refuse the whole file;
+	 * Excel builds a new chain when it loads the workbook.
+	 */
+	private dropCalcChain(): void {
+		const path = this.workbookPart('/calcChain') ?? 'xl/calcChain.xml';
+		this.zip.delete(path);
+		this.editPart(WORKBOOK_RELS, (xml) => xml.replace(/<Relationship\b[^>]*\/calcChain"[^>]*\/>/g, ''));
+		this.editPart(CONTENT_TYPES, (xml) => xml.replace(
+			new RegExp(`<Override\\b[^>]*PartName="/${escapeRegExp(path)}"[^>]*/>`, 'g'),
+			'',
+		));
+	}
+
+	/**
+	 * Ask Excel to recalculate every formula when it next opens the file. A
+	 * file keeps each formula's last result, so after a write the formulas that
+	 * depend on a changed cell would show stale values; Excel clears the flag
+	 * when it saves.
+	 */
+	private requestFullCalculation(): void {
+		this.editPart('xl/workbook.xml', (xml) => {
+			const calcPr = /<calcPr\b[^>]*>/.exec(xml);
+			if (calcPr) {
+				const tag = calcPr[0];
+				return xml.replace(tag, /\bfullCalcOnLoad\s*=/.test(tag)
+					? tag.replace(/\bfullCalcOnLoad\s*=\s*"[^"]*"/, 'fullCalcOnLoad="1"')
+					: tag.replace(/^<calcPr\b/, '<calcPr fullCalcOnLoad="1"'));
+			}
+			// calcPr goes after definedNames and before these, in schema order.
+			const next = /<(?:oleSize|customWorkbookViews|pivotCaches|smartTagPr|smartTagTypes|webPublishing|fileRecoveryPr|webPublishObjects|extLst)\b|<\/workbook>/
+				.exec(xml);
+			return next ? `${xml.slice(0, next.index)}<calcPr fullCalcOnLoad="1"/>${xml.slice(next.index)}` : xml;
+		});
+	}
+
+	/** The `cm` values that mark a cell's formula as a dynamic array. */
+	private dynamicArrayCellMetadata(): Set<number> {
+		const path = this.workbookPart('/sheetMetadata');
+		return path && this.zip.has(path) ? dynamicArrayIndexes(this.zip.read(path).toString('utf8')) : new Set();
+	}
+
+	/**
+	 * The `cm` value for a new dynamic array formula, adding the workbook's
+	 * metadata part, or the entries in it, when they are missing.
+	 */
+	private ensureDynamicArrayCellMetadata(): number {
+		let path = this.workbookPart('/sheetMetadata');
+		if (!path) {
+			path = 'xl/metadata.xml';
+			this.editPart(WORKBOOK_RELS, (xml) => {
+				const ids = [...xml.matchAll(/\bId="rId(\d+)"/g)].map((m) => Number(m[1]));
+				const id = `rId${Math.max(0, ...ids) + 1}`;
+				return xml.replace(/<\/Relationships>/, `<Relationship Id="${id}" Type="${SHEET_METADATA_TYPE}" Target="metadata.xml"/></Relationships>`);
+			});
+			this.editPart(CONTENT_TYPES, (xml) => xml.includes('PartName="/xl/metadata.xml"')
+				? xml
+				: xml.replace(/<\/Types>/, `<Override PartName="/xl/metadata.xml" ContentType="${SHEET_METADATA_CONTENT_TYPE}"/></Types>`));
+		}
+		const current = this.zip.has(path) ? this.zip.read(path).toString('utf8') : EMPTY_METADATA;
+		const { xml, index } = withDynamicArrayMetadata(current);
+		if (xml !== current || !this.zip.has(path)) {
+			this.zip.write(path, Buffer.from(xml, 'utf8'));
+		}
+		return index;
+	}
+
+	/** What a formula written into this workbook may refer to. */
+	private formulaContext(): FormulaContext {
+		const workbookXml = this.zip.read('xl/workbook.xml').toString('utf8');
+		const sheets = new Set<string>();
+		for (let tag = nextTag(workbookXml, 0); tag; tag = nextTag(workbookXml, tag.end)) {
+			if (tag.name === 'sheet' && tag.attrs['name']) {
+				sheets.add(tag.attrs['name'].toUpperCase());
+			}
+		}
+		const names = new Set(this.definedNames().map((n) => n.name.toUpperCase()));
+		const tables = new Map<string, Set<string>>();
+		for (const part of this.zip.names().filter((name) => /^xl\/tables\/[^/]+\.xml$/.test(name))) {
+			const xml = this.zip.read(part).toString('utf8');
+			const table = /<table\b[^>]*>/.exec(xml)?.[0] ?? '';
+			const columns = new Set([...xml.matchAll(/<tableColumn\b[^>]*?\bname="([^"]*)"/g)]
+				.map((m) => decodeXmlText(m[1]).toUpperCase()));
+			for (const attr of [/\bname="([^"]*)"/, /\bdisplayName="([^"]*)"/]) {
+				const value = attr.exec(table)?.[1];
+				if (value) {
+					names.add(decodeXmlText(value).toUpperCase());
+					tables.set(decodeXmlText(value).toUpperCase(), columns);
+				}
+			}
+		}
+		return { sheets, names, tables };
 	}
 
 	private sheetDimensions(path: string): string {
@@ -415,9 +701,16 @@ export class XlsxWorkbook {
 		return out;
 	}
 
+	/** Whether serial dates count from 1904, as workbooks from older Macs do. */
+	private usesDate1904(): boolean {
+		this.date1904 ??= /<workbookPr\b[^>]*\bdate1904\s*=\s*"(?:1|true)"/
+			.test(this.zip.read('xl/workbook.xml').toString('utf8'));
+		return this.date1904;
+	}
+
 	private cellValue(cell: RawCell, dataOnly: boolean): CellValue {
 		if (!dataOnly && cell.formula !== undefined) {
-			return `=${cell.formula}`;
+			return `=${formulaForDisplay(cell.formula)}`;
 		}
 		const type = cell.type ?? 'n';
 		if (cell.inlineText !== undefined) { return cell.inlineText; }
@@ -434,7 +727,7 @@ export class XlsxWorkbook {
 				const num = Number(cell.value);
 				if (!Number.isFinite(num)) { return null; }
 				if (cell.style !== undefined && this.dateStyleIndices().has(cell.style)) {
-					return excelSerialToIso(num);
+					return excelSerialToIso(this.usesDate1904() ? num + DATE_1904_OFFSET : num);
 				}
 				return num;
 			}
@@ -448,10 +741,19 @@ interface RawCell {
 	ref: string;
 	row: number;
 	col: number;
+	/** The cell element exactly as the sheet has it. */
+	xml: string;
 	type?: string;
 	style?: number;
 	value?: string;
+	/** Whether the cell has an <f> element, even one naming only a shared group. */
+	hasFormula: boolean;
 	formula?: string;
+	/** The <f> element's kind (shared, array, dataTable) and the range it covers. */
+	formulaType?: string;
+	formulaRef?: string;
+	/** The cell metadata index (`cm`) that marks a dynamic array formula. */
+	cellMetadata?: number;
 	inlineText?: string;
 	/** Group id of a shared formula (`<f t="shared" si="N"/>`). */
 	sharedIndex?: number;
@@ -474,56 +776,10 @@ function collectSharedFormulas(xml: string): Map<number, SharedFormula> {
 	return out;
 }
 
-/**
- * Re-target a shared formula from its master cell to `cell`, shifting relative
- * references by the row/column delta and leaving $-anchored parts fixed.
- */
+/** A shared formula's text for one of the group's cells, from the master's. */
 function translateSharedFormula(shared: Map<number, SharedFormula>, cell: RawCell): string | undefined {
 	const master = cell.sharedIndex === undefined ? undefined : shared.get(cell.sharedIndex);
-	if (!master) { return undefined; }
-	const rowDelta = cell.row - master.row;
-	const colDelta = cell.col - master.col;
-	if (rowDelta === 0 && colDelta === 0) { return master.formula; }
-
-	const formula = master.formula;
-	let out = '';
-	let i = 0;
-	while (i < formula.length) {
-		const ch = formula[i];
-		if (ch === '"') {
-			// Copy string literals verbatim ("" escapes an inner quote).
-			const start = i++;
-			while (i < formula.length) {
-				if (formula[i] === '"') {
-					if (formula[i + 1] === '"') { i += 2; continue; }
-					i++;
-					break;
-				}
-				i++;
-			}
-			out += formula.slice(start, i);
-			continue;
-		}
-		const ref = /^(\$?)([A-Za-z]{1,3})(\$?)(\d{1,7})/.exec(formula.slice(i));
-		// A reference must not continue an identifier (e.g. the "G10" in LOG10).
-		const prev = out.length > 0 ? out[out.length - 1] : '';
-		if (ref && !/[A-Za-z0-9_]/.test(prev)) {
-			const [, colAbs, colLetters, rowAbs, rowDigits] = ref;
-			const col = colAbs ? columnToIndex(colLetters) : columnToIndex(colLetters) + colDelta;
-			const row = rowAbs ? Number(rowDigits) : Number(rowDigits) + rowDelta;
-			if (col >= 1 && col <= 16384 && row >= 1 && row <= 1048576) {
-				out += `${colAbs}${indexToColumn(col)}${rowAbs}${row}`;
-				i += ref[0].length;
-				continue;
-			}
-			out += '#REF!';
-			i += ref[0].length;
-			continue;
-		}
-		out += ch;
-		i++;
-	}
-	return out;
+	return master && shiftFormula(master.formula, cell.row - master.row, cell.col - master.col);
 }
 
 function* iterateCells(xml: string): Generator<RawCell> {
@@ -543,6 +799,7 @@ function* iterateCells(xml: string): Generator<RawCell> {
 		const formulaText = fTag?.[3];
 		const formula = formulaText === undefined || formulaText === '' ? undefined : formulaText;
 		const sharedRaw = fTag ? /\bsi\s*=\s*"(\d+)"/.exec(fTag[1])?.[1] : undefined;
+		const cellMetadataRaw = /\bcm\s*=\s*"(\d+)"/.exec(attrText)?.[1];
 		const inline = /<is\b[^>]*>([\s\S]*?)<\/is>/.exec(body)?.[1];
 		let inlineText: string | undefined;
 		if (inline !== undefined) {
@@ -557,10 +814,15 @@ function* iterateCells(xml: string): Generator<RawCell> {
 			ref,
 			row: pos.row,
 			col: pos.col,
+			xml: m[0],
 			type,
 			style: styleRaw === undefined ? undefined : Number(styleRaw),
 			value,
+			hasFormula: fTag !== null,
 			formula: formula === undefined ? undefined : decodeXmlText(formula),
+			formulaType: fTag ? /\bt\s*=\s*"([^"]*)"/.exec(fTag[1])?.[1] : undefined,
+			formulaRef: fTag ? /\bref\s*=\s*"([^"]*)"/.exec(fTag[1])?.[1] : undefined,
+			cellMetadata: cellMetadataRaw === undefined ? undefined : Number(cellMetadataRaw),
 			inlineText,
 			sharedIndex: sharedRaw === undefined ? undefined : Number(sharedRaw),
 		};
@@ -568,27 +830,115 @@ function* iterateCells(xml: string): Generator<RawCell> {
 }
 
 // ------------------------------------------------------------- write splice
+//
+// A write re-serializes only the rows it touches, and around the written cells
+// keeps the sheet as Excel would: a cell keeps its format, an array formula is
+// replaced whole or not at all, a spill is cleared or blocked, and when the
+// first cell of a shared formula is overwritten every other cell of the group
+// is given the formula as its own.
 
-function serializeCell(ref: string, value: CellValue): string {
-	if (value === null || value === undefined) {
-		return `<c r="${ref}"/>`;
-	}
-	if (typeof value === 'number') {
-		return Number.isFinite(value) ? `<c r="${ref}"><v>${value}</v></c>` : `<c r="${ref}"/>`;
-	}
-	if (typeof value === 'boolean') {
-		return `<c r="${ref}" t="b"><v>${value ? 1 : 0}</v></c>`;
-	}
-	const text = String(value);
-	if (text.startsWith('=')) {
-		return `<c r="${ref}"><f>${encodeXmlText(text.slice(1))}</f></c>`;
-	}
-	// Inline strings avoid mutating the shared-string table (and its refcounts).
-	return `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${encodeXmlText(text)}</t></is></c>`;
+interface SheetWriteOptions {
+	/** The `cm` values that mark a dynamic array formula. */
+	dynamicArrays: ReadonlySet<number>;
+	/** A typed formula (without the =) as the file stores it; throws for one Excel would refuse. */
+	formula(text: string, ref: string): string;
+	/** The `cm` value for a new dynamic array formula. */
+	cellMetadata(): number;
 }
 
-/** Rewrite only the rows named in `updates`, preserving all other XML. */
-function spliceRows(xml: string, updates: Map<number, Map<number, CellValue>>): string {
+interface RowBlock {
+	/** The row element's attributes, spans dropped: Excel recomputes them and a stale value hides cells. */
+	attrs: string;
+	text: string;
+	body: string;
+	cells?: Map<number, RawCell>;
+}
+
+interface ColumnStyle {
+	min: number;
+	max: number;
+	style: number;
+}
+
+function readRows(body: string): Map<number, RowBlock> {
+	const rows = new Map<number, RowBlock>();
+	const rowRe = /<row\b([^>]*?)(\/>|>([\s\S]*?)<\/row>)/g;
+	let row = 0;
+	let m: RegExpExecArray | null;
+	while ((m = rowRe.exec(body)) !== null) {
+		// A row without r follows the one before it.
+		const r = /\br\s*=\s*"(\d+)"/.exec(m[1])?.[1];
+		row = r === undefined ? row + 1 : Number(r);
+		rows.set(row, { attrs: m[1].replace(/\s+spans\s*=\s*"[^"]*"/, ''), text: m[0], body: m[3] ?? '' });
+	}
+	return rows;
+}
+
+function rowCells(block: RowBlock): Map<number, RawCell> {
+	block.cells ??= new Map([...iterateCells(block.body)].map((cell) => [cell.col, cell]));
+	return block.cells;
+}
+
+/** The format a new cell takes, as Excel gives it one: its row's when the row is formatted, else its column's. */
+function newCellStyle(block: RowBlock | undefined, col: number, columns: ColumnStyle[]): number | undefined {
+	if (block && /\bcustomFormat\s*=\s*"(?:1|true)"/.test(block.attrs)) {
+		const style = /\bs\s*=\s*"(\d+)"/.exec(block.attrs)?.[1];
+		if (style !== undefined) { return Number(style); }
+	}
+	return columns.find((c) => col >= c.min && col <= c.max)?.style;
+}
+
+function serializeCell(
+	ref: string,
+	value: CellValue,
+	style: number | undefined,
+	formula?: { text: string; cellMetadata: number },
+): string | null {
+	const s = style ? ` s="${style}"` : '';
+	if (formula) {
+		// A formula is stored as Excel 365 stores one typed into a cell: a
+		// dynamic array formula, which spills when its result is an array.
+		return `<c r="${ref}"${s} cm="${formula.cellMetadata}"><f t="array" ref="${ref}">${encodeXmlText(formula.text)}</f></c>`;
+	}
+	if (value === null || value === undefined || (typeof value === 'number' && !Number.isFinite(value))) {
+		return s ? `<c r="${ref}"${s}/>` : null;
+	}
+	if (typeof value === 'number') {
+		return `<c r="${ref}"${s}><v>${value}</v></c>`;
+	}
+	if (typeof value === 'boolean') {
+		return `<c r="${ref}"${s} t="b"><v>${value ? 1 : 0}</v></c>`;
+	}
+	// Inline strings avoid mutating the shared-string table (and its refcounts).
+	return `<c r="${ref}"${s} t="inlineStr"><is><t xml:space="preserve">${encodeXmlText(String(value))}</t></is></c>`;
+}
+
+/** A cell emptied but for its format, or gone when it has none. */
+function clearedCell(cell: RawCell): string | null {
+	return cell.style ? `<c r="${cell.ref}" s="${cell.style}"/>` : null;
+}
+
+/**
+ * A spill anchor with something now in its way: its range shrinks to itself,
+ * and Excel's recalculation on open shows #SPILL! until the range is clear.
+ * The cached result stays; Excel will not open a #SPILL! written without the
+ * rich-value metadata it keeps for one.
+ */
+function blockedSpill(cell: RawCell): string {
+	return cell.xml.replace(/(<f\b[^>]*?)\bref\s*=\s*"[^"]*"/, `$1ref="${cell.ref}"`);
+}
+
+/** A shared group's cell with the group's formula as its own. */
+function standaloneFormula(cell: RawCell, formula: string): string {
+	return cell.xml.replace(/<f\b([^>]*?)(?:\/>|>[\s\S]*?<\/f>)/, (_whole, attrs: string) =>
+		`<f${attrs.replace(/\s+(?:t|ref|si)\s*=\s*"[^"]*"/g, '')}>${encodeXmlText(formula)}</f>`);
+}
+
+function rewriteSheetCells(
+	xml: string,
+	writes: Map<number, Map<number, CellValue>>,
+	options: SheetWriteOptions,
+): { xml: string; formulasChanged: boolean } {
 	const sheetDataOpen = /<sheetData\b[^>]*?(\/>|>)/.exec(xml);
 	if (!sheetDataOpen) {
 		throw new XlsxError('Worksheet XML has no <sheetData> element.');
@@ -603,59 +953,142 @@ function spliceRows(xml: string, updates: Map<number, Map<number, CellValue>>): 
 	const dataStart = openMatch.index + openMatch[0].length;
 	const dataEnd = working.indexOf('</sheetData>', dataStart);
 	const body = working.slice(dataStart, dataEnd);
+	const rows = readRows(body);
 
-	interface RowBlock { row: number; text: string }
-	const blocks: RowBlock[] = [];
-	const rowRe = /<row\b([^>]*?)(\/>|>([\s\S]*?)<\/row>)/g;
-	let m: RegExpExecArray | null;
-	while ((m = rowRe.exec(body)) !== null) {
-		const rowNum = Number(/\br\s*=\s*"(\d+)"/.exec(m[1])?.[1] ?? '0');
-		blocks.push({ row: rowNum, text: m[0] });
+	const isWritten = (row: number, col: number): boolean => writes.get(row)?.has(col) === true;
+	const edits = new Map<number, Map<number, string | null>>();
+	const edit = (row: number, col: number, cellXml: string | null): void => {
+		const byCol = edits.get(row) ?? new Map<number, string | null>();
+		byCol.set(col, cellXml);
+		edits.set(row, byCol);
+	};
+	// Whether a formula cell was overwritten or re-stored, which leaves the
+	// calc chain naming formulas that are gone.
+	let formulasChanged = false;
+
+	// Formula groups reach past the written cells; only a sheet that has one
+	// pays for reading every cell to find them.
+	const grouped = /\bt\s*=\s*"(?:array|dataTable|shared)"/.test(body)
+		? [...rows.values()].flatMap((block) => [...rowCells(block).values()]).filter((cell) => cell.formulaType !== undefined)
+		: [];
+	for (const cell of grouped) {
+		if ((cell.formulaType !== 'array' && cell.formulaType !== 'dataTable') || !cell.formulaRef) { continue; }
+		let range: { r1: number; c1: number; r2: number; c2: number };
+		try { range = parseRangeRef(cell.formulaRef); } catch { continue; }
+		const inside = (row: number, col: number): boolean =>
+			row >= range.r1 && row <= range.r2 && col >= range.c1 && col <= range.c2;
+		let hits = 0;
+		for (const [row, cols] of writes) {
+			for (const col of cols.keys()) {
+				if (inside(row, col)) { hits++; }
+			}
+		}
+		const area = (range.r2 - range.r1 + 1) * (range.c2 - range.c1 + 1);
+		if (hits === 0 || hits === area) { continue; }
+		const dynamic = cell.formulaType === 'array' && cell.cellMetadata !== undefined
+			&& options.dynamicArrays.has(cell.cellMetadata);
+		if (!dynamic) {
+			const what = cell.formulaType === 'dataTable' ? 'a data table' : 'an array formula';
+			throw new XlsxError(
+				`${cell.formulaRef} holds ${what}, and Excel does not change part of one. Write all of ${cell.formulaRef}, or leave it.`,
+			);
+		}
+		// A spill: a value in its anchor replaces the formula and the spill
+		// goes; a value anywhere else in its range blocks it, as #SPILL!.
+		for (const [row, block] of rows) {
+			if (row < range.r1 || row > range.r2) { continue; }
+			for (const [col, member] of rowCells(block)) {
+				if (member !== cell && inside(row, col) && !isWritten(row, col)) { edit(row, col, clearedCell(member)); }
+			}
+		}
+		if (!isWritten(cell.row, cell.col)) { edit(cell.row, cell.col, blockedSpill(cell)); }
+		formulasChanged = true;
 	}
 
-	const byRow = new Map(blocks.map((b) => [b.row, b]));
-	for (const [rowNum, cells] of updates) {
-		const existing = byRow.get(rowNum);
-		byRow.set(rowNum, { row: rowNum, text: rewriteRow(existing?.text, rowNum, cells) });
+	// A shared formula is stored on the group's first cell. When a write
+	// replaces that cell, each other cell of the group takes its own copy.
+	const masters = new Map<number, RawCell>();
+	for (const cell of grouped) {
+		if (cell.formulaType === 'shared' && cell.formula !== undefined && cell.sharedIndex !== undefined
+			&& isWritten(cell.row, cell.col) && !masters.has(cell.sharedIndex)) {
+			masters.set(cell.sharedIndex, cell);
+		}
 	}
-	const ordered = [...byRow.values()].sort((a, b) => a.row - b.row);
-	return `${working.slice(0, dataStart)}${ordered.map((b) => b.text).join('')}${working.slice(dataEnd)}`;
-}
+	for (const cell of grouped) {
+		const master = cell.sharedIndex === undefined ? undefined : masters.get(cell.sharedIndex);
+		if (master?.formula !== undefined && cell !== master && !isWritten(cell.row, cell.col)) {
+			edit(cell.row, cell.col, standaloneFormula(cell, shiftFormula(master.formula, cell.row - master.row, cell.col - master.col)));
+			formulasChanged = true;
+		}
+	}
 
-function rewriteRow(existing: string | undefined, rowNum: number, cells: Map<number, CellValue>): string {
-	let attrs = ` r="${rowNum}"`;
-	const kept: Array<{ col: number; text: string }> = [];
-	if (existing) {
-		const m = /<row\b([^>]*?)(\/>|>([\s\S]*?)<\/row>)/.exec(existing);
-		if (m) {
-			// Drop stale spans; Excel recomputes them and a wrong value hides cells.
-			attrs = m[1].replace(/\s+spans\s*=\s*"[^"]*"/, '');
-			for (const cell of iterateCells(m[3] ?? '')) {
-				if (!cells.has(cell.col)) {
-					const cellRe = new RegExp(`<c\\b[^>]*\\br\\s*=\\s*"${cell.ref}"[^>]*(?:/>|>[\\s\\S]*?</c>)`);
-					const raw = cellRe.exec(m[3] ?? '')?.[0];
-					if (raw) { kept.push({ col: cell.col, text: raw }); }
-				}
+	// Every written formula is checked before anything is serialized, so a
+	// bad one leaves the workbook as it was.
+	const formulas = new Map<string, string>();
+	for (const [row, cols] of writes) {
+		for (const [col, value] of cols) {
+			if (typeof value === 'string' && value.startsWith('=')) {
+				const ref = `${indexToColumn(col)}${row}`;
+				formulas.set(ref, options.formula(value.slice(1), ref));
 			}
 		}
 	}
-	for (const [col, value] of cells) {
-		kept.push({ col, text: serializeCell(`${indexToColumn(col)}${rowNum}`, value) });
+	const cellMetadata = formulas.size > 0 ? options.cellMetadata() : 0;
+	const columns: ColumnStyle[] = [...working.matchAll(/<col\b[^>]*>/g)].flatMap((m) => {
+		const attr = (name: string): string | undefined => new RegExp(`\\b${name}\\s*=\\s*"(\\d+)"`).exec(m[0])?.[1];
+		const style = attr('style');
+		return style === undefined ? [] : [{ min: Number(attr('min')), max: Number(attr('max')), style: Number(style) }];
+	});
+	for (const [row, cols] of writes) {
+		const block = rows.get(row);
+		for (const [col, value] of cols) {
+			const ref = `${indexToColumn(col)}${row}`;
+			const existing = block ? rowCells(block).get(col) : undefined;
+			formulasChanged ||= existing?.hasFormula === true;
+			const text = formulas.get(ref);
+			const style = existing ? existing.style : newCellStyle(block, col, columns);
+			edit(row, col, serializeCell(ref, value, style, text === undefined ? undefined : { text, cellMetadata }));
+		}
 	}
-	kept.sort((a, b) => a.col - b.col);
-	return `<row${attrs}>${kept.map((k) => k.text).join('')}</row>`;
+
+	const rebuilt = new Map<number, string>();
+	for (const [row, byCol] of edits) {
+		const block = rows.get(row);
+		const cells = block
+			? [...rowCells(block).values()].filter((cell) => !byCol.has(cell.col)).map((cell) => ({ col: cell.col, xml: cell.xml }))
+			: [];
+		for (const [col, cellXml] of byCol) {
+			if (cellXml !== null) { cells.push({ col, xml: cellXml }); }
+		}
+		if (!block && cells.length === 0) { continue; }
+		cells.sort((a, b) => a.col - b.col);
+		const attrs = block ? block.attrs : ` r="${row}"`;
+		rebuilt.set(row, cells.length > 0 ? `<row${attrs}>${cells.map((c) => c.xml).join('')}</row>` : `<row${attrs}/>`);
+	}
+	const order = [...new Set([...rows.keys(), ...rebuilt.keys()])].sort((a, b) => a - b);
+	const sheetData = order.map((row) => rebuilt.get(row) ?? rows.get(row)!.text).join('');
+	return {
+		xml: expandDimension(`${working.slice(0, dataStart)}${sheetData}${working.slice(dataEnd)}`, writes),
+		formulasChanged,
+	};
 }
 
-function expandDimension(xml: string, maxRow: number, maxCol: number): string {
+/** Widen the sheet's dimension hint to cover the written cells. */
+function expandDimension(xml: string, writes: Map<number, Map<number, CellValue>>): string {
 	const m = /<dimension\b[^>]*\bref\s*=\s*"([^"]*)"[^>]*\/>/.exec(xml);
 	if (!m) { return xml; }
-	let r1 = 1, c1 = 1, r2 = maxRow, c2 = maxCol;
+	let r1 = Infinity, c1 = Infinity, r2 = 0, c2 = 0;
+	for (const [row, cols] of writes) {
+		for (const col of cols.keys()) {
+			r1 = Math.min(r1, row); r2 = Math.max(r2, row);
+			c1 = Math.min(c1, col); c2 = Math.max(c2, col);
+		}
+	}
+	if (r2 === 0) { return xml; }
 	try {
 		const cur = parseRangeRef(m[1]);
-		r1 = cur.r1;
-		c1 = cur.c1;
-		r2 = Math.max(cur.r2, maxRow);
-		c2 = Math.max(cur.c2, maxCol);
+		r1 = Math.min(r1, cur.r1); c1 = Math.min(c1, cur.c1);
+		r2 = Math.max(r2, cur.r2); c2 = Math.max(c2, cur.c2);
 	} catch { /* malformed dimension: fall back to the written extent */ }
 	const ref = `${indexToColumn(c1)}${r1}:${indexToColumn(c2)}${r2}`;
 	return xml.replace(m[0], `<dimension ref="${encodeXmlAttr(ref)}"/>`);

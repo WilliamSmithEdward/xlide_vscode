@@ -4,11 +4,14 @@ import * as path from 'path';
 import * as os from 'os';
 import { parseFormDesignerStreams, parseFormFrx, splitFrmSource, type DesignerControl } from '../src/vba/formDesigner';
 import {
+	addFormModule,
+	deleteModule,
 	listModules,
 	readFormExport,
 	readFormMarkup,
 	readFormPreview,
 	readModule,
+	renameModule,
 	resetProjectCacheForTests,
 	writeFormDesigner,
 	writeModule,
@@ -342,5 +345,98 @@ describe('the .frx carries containers whole', () => {
 		const { html } = readFormPreview(dst, 'EntryForm');
 		resetProjectCacheForTests();
 		expect(html).toMatch(/data-name="Badge"[^>]*data:image/);
+	});
+});
+
+describe('renaming or deleting a form takes its designer along', () => {
+	// Measured in Excel, 2026-09-19. The VBE renames a form's designer storage
+	// with it and rewrites the name on the VBFrame's Begin line, and removing a
+	// form removes the storage. XLIDE renamed only the module: the designer was
+	// left under the old name, XLIDE itself could no longer read the form, and
+	// Excel opened the project with neither the form nor the other code module.
+	function tempCopy(): string {
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-form-rename-'));
+		tempDirs.push(dir);
+		const copy = path.join(dir, 'FormFixture.xlsm');
+		fs.copyFileSync(FIXTURE, copy);
+		return copy;
+	}
+	const vbaCfb = (file: string): Cfb => Cfb.fromBytes(XlsxWorkbook.fromBuffer(fs.readFileSync(file)).readVbaProject());
+
+	it('renames the designer storage and the VBFrame name, leaving the design as it was', () => {
+		const copy = tempCopy();
+		const before = vbaCfb(copy);
+		const markup = readFormMarkup(copy, 'FrmPicker').markup;
+
+		renameModule(copy, 'FrmPicker', 'RenamedForm');
+
+		const after = vbaCfb(copy);
+		expect(after.listStoragesAtPath([]).sort()).toEqual(['RenamedForm', 'VBA']);
+		for (const stream of ['f', 'o', '\x01CompObj']) {
+			expect(after.getStreamAtPath(['RenamedForm'], stream).equals(before.getStreamAtPath(['FrmPicker'], stream)), stream)
+				.toBe(true);
+		}
+		expect(ascii(after.getStreamAtPath(['RenamedForm'], '\x03VBFrame')))
+			.toBe(ascii(before.getStreamAtPath(['FrmPicker'], '\x03VBFrame')).replace('} FrmPicker ', '} RenamedForm '));
+		expect(readFormMarkup(copy, 'RenamedForm').markup).toBe(markup.replace(/FrmPicker/g, 'RenamedForm'));
+		// The old name is free again.
+		expect(addFormModule(copy, 'FrmPicker').moduleName).toBe('FrmPicker');
+	});
+
+	it.each([
+		['XlsFixture.xls', '_VBA_PROJECT_CUR'],
+		['WordFixture.doc', 'Macros'],
+	])('keeps a form in %s beside the project, through add, rename and delete', (fixture, projectStorage) => {
+		// Created at the file's root, the designer belonged to no project:
+		// Excel opened the .xls without the form or any other code module, and
+		// Word could not open the .doc's macro storage at all (measured
+		// 2026-09-19).
+		const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-legacy-form-'));
+		tempDirs.push(dir);
+		const copy = path.join(dir, fixture);
+		fs.copyFileSync(path.join(__dirname, 'fixtures', 'binaries', fixture), copy);
+		const storages = (): string[] => {
+			const cfb = Cfb.fromBytes(fs.readFileSync(copy));
+			return cfb.listStoragesAtPath([]).flatMap((s) => [s, ...cfb.listStoragesAtPath([s]).map((c) => `${s}/${c}`)]).sort();
+		};
+
+		addFormModule(copy, 'LegacyForm');
+		expect(storages()).toEqual([projectStorage, `${projectStorage}/LegacyForm`, `${projectStorage}/VBA`]);
+		expect(readFormMarkup(copy, 'LegacyForm').markup).toContain('LegacyForm');
+
+		renameModule(copy, 'LegacyForm', 'LegacyRenamed');
+		expect(storages()).toEqual([projectStorage, `${projectStorage}/LegacyRenamed`, `${projectStorage}/VBA`]);
+		expect(readFormMarkup(copy, 'LegacyRenamed').markup).toContain('LegacyRenamed');
+
+		deleteModule(copy, 'LegacyRenamed');
+		expect(storages()).toEqual([projectStorage, `${projectStorage}/VBA`]);
+	});
+
+	it('lets a new form take the name of a designer storage an earlier version orphaned', () => {
+		const copy = tempCopy();
+		const workbook = XlsxWorkbook.fromBuffer(fs.readFileSync(copy));
+		const cfb = Cfb.fromBytes(workbook.readVbaProject());
+		cfb.addStorageAtPath([], 'Stale');
+		cfb.setStreamAtPath(['Stale'], 'f', Buffer.from('left behind'));
+		workbook.writeVbaProject(cfb.toBytes());
+		fs.writeFileSync(copy, workbook.toBytes());
+		resetProjectCacheForTests();
+
+		expect(addFormModule(copy, 'Stale').moduleName).toBe('Stale');
+
+		const frame = ascii(vbaCfb(copy).getStreamAtPath(['Stale'], '\x03VBFrame'));
+		expect(frame).toMatch(/^Begin \{[^}]+\} Stale /m);
+		expect(vbaCfb(copy).getStreamAtPath(['Stale'], 'f').toString()).not.toBe('left behind');
+		expect(listModules(copy).find((module) => module.name === 'Stale')?.type).toBe('userform');
+	});
+
+	it('removes the designer storage with the form, so a new form can take the name', () => {
+		const copy = tempCopy();
+
+		deleteModule(copy, 'FrmPicker');
+
+		expect(vbaCfb(copy).listStoragesAtPath([])).toEqual(['VBA']);
+		expect(addFormModule(copy, 'FrmPicker').moduleName).toBe('FrmPicker');
+		expect(listModules(copy).find((module) => module.name === 'FrmPicker')?.type).toBe('userform');
 	});
 });

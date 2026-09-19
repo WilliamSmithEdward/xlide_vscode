@@ -2,7 +2,7 @@
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
   "description": "Office VBA and Visual Basic 6 in VS Code - Excel, Word, PowerPoint, Access and .vbp projects; project tree, module editing, UserForm and VB6 form designers, static analysis, unit tests, AI agent tools",
-  "version": "8.3.4",
+  "version": "9.0.0",
   "publisher": "WilliamSmithE",
   "license": "MIT",
   "icon": "assets/images/extension_logo.png",
@@ -668,11 +668,6 @@
       ],
       "view/item/context": [
         {
-          "command": "xlide.openModule",
-          "when": "view == xlide.explorer && viewItem =~ /^module-/",
-          "group": "inline@1"
-        },
-        {
           "command": "xlide.findReferences",
           "when": "view == xlide.explorer && viewItem =~ /^(sub|module-class(-agent-pending)?)$/",
           "group": "1_navigate@1"
@@ -744,12 +739,12 @@
         },
         {
           "command": "xlide.renameModule",
-          "when": "view == xlide.explorer && viewItem =~ /^module-(standard|class|accessform|accessreport)(-agent-pending)?$/",
+          "when": "view == xlide.explorer && viewItem =~ /^module-(standard|class|userform|accessform|accessreport)(-agent-pending)?$/",
           "group": "2_edit@1"
         },
         {
           "command": "xlide.deleteModule",
-          "when": "view == xlide.explorer && viewItem =~ /^module-(standard|class|accessform|accessreport)(-agent-pending)?$/",
+          "when": "view == xlide.explorer && viewItem =~ /^module-(standard|class|userform|accessform|accessreport)(-agent-pending)?$/",
           "group": "2_edit@2"
         },
         {
@@ -766,6 +761,11 @@
           "command": "xlide.revertAgentChange",
           "when": "view == xlide.explorer && viewItem =~ /-agent-pending$/",
           "group": "2_edit@5"
+        },
+        {
+          "command": "xlide.reviewAgentChange",
+          "when": "view == xlide.explorer && viewItem =~ /-agent-pending$/",
+          "group": "inline@1"
         },
         {
           "command": "xlide.keepAgentChange",
@@ -911,6 +911,74 @@
         {
           "command": "xlide.refactor.introduceParameter",
           "when": "editorLangId == vba"
+        },
+        {
+          "command": "xlide.openModule",
+          "when": "false"
+        },
+        {
+          "command": "xlide.findReferences",
+          "when": "false"
+        },
+        {
+          "command": "xlide.newModule",
+          "when": "false"
+        },
+        {
+          "command": "xlide.newClassModule",
+          "when": "false"
+        },
+        {
+          "command": "xlide.newUserForm",
+          "when": "false"
+        },
+        {
+          "command": "xlide.newAccessForm",
+          "when": "false"
+        },
+        {
+          "command": "xlide.newAccessReport",
+          "when": "false"
+        },
+        {
+          "command": "xlide.openFormMarkup",
+          "when": "false"
+        },
+        {
+          "command": "xlide.deleteModule",
+          "when": "false"
+        },
+        {
+          "command": "xlide.renameModule",
+          "when": "false"
+        },
+        {
+          "command": "xlide.reviewAgentChange",
+          "when": "false"
+        },
+        {
+          "command": "xlide.keepAgentChange",
+          "when": "false"
+        },
+        {
+          "command": "xlide.revertAgentChange",
+          "when": "false"
+        },
+        {
+          "command": "xlide.openInOfficeApp",
+          "when": "resourceScheme == xlide-vba"
+        },
+        {
+          "command": "xlide.openInOfficeAppReadOnly",
+          "when": "resourceScheme == xlide-vba"
+        },
+        {
+          "command": "xlide.exportModulesToFolder",
+          "when": "resourceScheme == xlide-vba"
+        },
+        {
+          "command": "xlide.importModulesFromFolder",
+          "when": "resourceScheme == xlide-vba"
         }
       ]
     },
@@ -1249,7 +1317,7 @@
       {
         "name": "xlide_writeModule",
         "displayName": "Write VBA Module",
-        "modelDescription": "Canonical way to edit VBA. Writes VBA source directly into the macro-enabled Office file (Excel, Word, PowerPoint, or Access; Access runs the compiled project, so a write there takes effect when Access next opens the database and recompiles) and saves automatically. These files are binary containers, so VBA changes persist only through this tool or through the XLIDE virtual file system: modules opened from the XLIDE tree are live module documents at xlide-vba:// URIs, and saving one writes into the file. Never edit the container file with generic file/text tools, and do not write exported .bas/.cls/.frm files in the project as a way of changing VBA - those are one-way artifacts that no host reads back, so editing one changes nothing. Touch them only when the user explicitly asks. Creates the module if it does not exist (optionally pass kind='class'; default is standard). IMPORTANT: Use only ASCII characters to avoid character mangling - no Unicode, emoji, or accented characters. Pass expectedContentToken from the read you based this edit on: without it, a change made by the host application or a user after your read is overwritten silently. After a chat-driven write, XLIDE shows the user a before/after diff and badges the module in its tree with Keep/Revert actions until they decide (xlide.agent.showWriteDiffs). A revert restores the pre-write source, or removes a module this write created, so if the user mentions reverting, re-read the module before editing further.",
+        "modelDescription": "Canonical way to edit VBA. Writes VBA source directly into the macro-enabled Office file (Excel, Word, PowerPoint, or Access; Access runs the compiled project, so a write there takes effect when Access next opens the database and recompiles) and saves automatically. These files are binary containers, so VBA changes persist only through XLIDE. Make every change with this tool, even to a module the user has open: modules opened from the XLIDE tree are live xlide-vba:// documents, and an edit made to one with a generic file-edit tool is saved into the file without XLIDE's review - the user gets no before/after diff and no tree badge for it. Edit such a document directly only when the user asks you to. Never edit the container file with generic file/text tools, and do not write exported .bas/.cls/.frm files in the project as a way of changing VBA - those are one-way artifacts that no host reads back, so editing one changes nothing. Touch them only when the user explicitly asks. Creates the module if it does not exist (optionally pass kind='class'; default is standard). IMPORTANT: Use only ASCII characters to avoid character mangling - no Unicode, emoji, or accented characters. Pass expectedContentToken from the read you based this edit on: without it, a change made by the host application or a user after your read is overwritten silently. After a chat-driven write, XLIDE shows the user a before/after diff and badges the module in its tree with Keep/Revert actions until they decide (xlide.agent.showWriteDiffs). A revert restores the pre-write source, or removes a module this write created, so if the user mentions reverting, re-read the module before editing further.",
         "toolReferenceName": "xlideWriteModule",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -1270,6 +1338,14 @@
             "expectedContentToken": {
               "type": "string",
               "description": "Optional contentToken from the xlide_readModule that this edit is based on. When supplied, the write is refused if the module changed since that read, instead of silently discarding the change."
+            },
+            "kind": {
+              "type": "string",
+              "enum": [
+                "standard",
+                "class"
+              ],
+              "description": "What a module this call creates is: 'class' for a class module, 'standard' (the default) for a standard module. A module that already exists keeps its kind; passing the other kind for one is refused."
             }
           },
           "required": [
@@ -1282,7 +1358,7 @@
       {
         "name": "xlide_renameModule",
         "displayName": "Rename VBA Module",
-        "modelDescription": "Renames a VBA module in a macro-enabled Office file (Excel, Word, PowerPoint, or Access) and saves it. Operates on the live XLIDE module - do not rename the container file or its exported .bas/.cls files to rename a module. Use this to change a module's name. After renaming, any references to the old name in other modules must be updated manually with xlide_writeModule.",
+        "modelDescription": "Renames a VBA module in a macro-enabled Office file (Excel, Word, PowerPoint, or Access) and saves it. Operates on the live XLIDE module - do not rename the container file or its exported .bas/.cls files to rename a module. Use this to change a module's name. After renaming, any references to the old name in other modules must be updated manually with xlide_writeModule. A document module (ThisWorkbook, a sheet module, ThisDocument) cannot be renamed: its name is also the code name its document keeps.",
         "toolReferenceName": "xlideRenameModule",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -1311,7 +1387,7 @@
       {
         "name": "xlide_deleteModule",
         "displayName": "Delete VBA Module",
-        "modelDescription": "Permanently deletes a VBA module from a macro-enabled Office file (Excel, Word, PowerPoint, or Access) and saves it. Operates on the live XLIDE module - do not delete the container file or its exported .bas/.cls files to remove a module. This cannot be undone. Only delete standard or class modules; avoid deleting document modules (such as ThisWorkbook, a sheet module, or ThisDocument).",
+        "modelDescription": "Permanently deletes a VBA module from a macro-enabled Office file (Excel, Word, PowerPoint, or Access) and saves it. Operates on the live XLIDE module - do not delete the container file or its exported .bas/.cls files to remove a module. This cannot be undone. Only delete standard or class modules; document modules (such as ThisWorkbook, a sheet module, or ThisDocument) cannot be deleted.",
         "toolReferenceName": "xlideDeleteModule",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -1335,7 +1411,7 @@
       {
         "name": "xlide_listSheets",
         "displayName": "List Excel Sheets",
-        "modelDescription": "Lists all worksheet names and their used cell ranges (dimensions) in an Excel file. Call this first whenever the sheet name is unknown before using xlide_readCells, xlide_readFormulas, or xlide_writeCells. Returns an array of {name, dimensions} objects where dimensions is in A1 notation (e.g. 'A1:D20') or empty for a blank sheet.",
+        "modelDescription": "Lists all worksheet names and their used cell ranges (dimensions) in an Excel file. Call this first whenever the sheet name is unknown before using xlide_readCells, xlide_readFormulas, xlide_writeCells, or xlide_editShape. Returns an array of {name, dimensions} objects where dimensions is in A1 notation (e.g. 'A1:D20') or empty for a blank sheet.",
         "toolReferenceName": "xlideListSheets",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -1354,7 +1430,7 @@
       {
         "name": "xlide_readCells",
         "displayName": "Read Excel Cells",
-        "modelDescription": "Reads computed cell values (not formulas) from a worksheet in an Excel file. Returns a 2D array of values (rows x columns). If the sheet name is unknown, call xlide_listSheets first. To read raw formulas instead, use xlide_readFormulas.",
+        "modelDescription": "Reads computed cell values (not formulas) from a worksheet in an Excel file. Returns a 2D array of values (rows x columns). If the sheet name is unknown, call xlide_listSheets first. To read raw formulas instead, use xlide_readFormulas. Formula results are the ones Excel last calculated: after xlide_writeCells, the written formulas read as null and the formulas that depend on changed cells keep their old results until the workbook is next opened in Excel, which recalculates it.",
         "toolReferenceName": "xlideReadCells",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -1383,7 +1459,7 @@
       {
         "name": "xlide_readFormulas",
         "displayName": "Read Excel Formulas",
-        "modelDescription": "Reads raw cell content including formula strings (e.g. '=SUM(A1:A10)') from a worksheet. Use this instead of xlide_readCells when you need to understand or reproduce spreadsheet logic. Returns a 2D array; formula cells contain the formula string, non-formula cells contain their value.",
+        "modelDescription": "Reads raw cell content including formula strings (e.g. '=SUM(A1:A10)') from a worksheet. Use this instead of xlide_readCells when you need to understand or reproduce spreadsheet logic. Returns a 2D array; formula cells contain the formula string, non-formula cells contain their value. Formulas read as Excel shows them: =XLOOKUP(...) rather than the file's _xlfn.XLOOKUP(...), F2# for a spill range, and each cell of a shared formula with its own references. The cells a dynamic array spills into, and the cells of an array formula after its first, hold values.",
         "toolReferenceName": "xlideReadFormulas",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -1412,7 +1488,7 @@
       {
         "name": "xlide_writeCells",
         "displayName": "Write Excel Cells",
-        "modelDescription": "Writes values to a range of cells in a worksheet in an Excel file. The file is saved automatically. If the sheet name is unknown, call xlide_listSheets first. IMPORTANT: Use only ASCII characters (a-z, A-Z, 0-9, and standard ASCII punctuation) to avoid character mangling. Avoid Unicode, emoji, accented characters, and special symbols.",
+        "modelDescription": "Writes values to a range of cells in a worksheet in an Excel file. The file is saved automatically. If the sheet name is unknown, call xlide_listSheets first. A string starting with = is a formula, written as you would type it into Excel 365: =XLOOKUP(...), =FILTER(...) and =SEQUENCE(...) work without prefixes, and a formula whose result is an array spills. Each formula is checked as Excel checks a typed one (argument counts, references, sheet and table names), and if Excel would reject any of them nothing is written and the error names the cell and the problem. Written cells keep their formatting, and new cells take their row's or column's. Writing part of an array formula is refused; a value inside a spill range blocks the spill (#SPILL!), as in Excel. Excel recalculates the workbook the next time it opens it. IMPORTANT: Use only ASCII characters (a-z, A-Z, 0-9, and standard ASCII punctuation) to avoid character mangling. Avoid Unicode, emoji, accented characters, and special symbols.",
         "toolReferenceName": "xlideWriteCells",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -1444,6 +1520,106 @@
             "sheet",
             "startCell",
             "data"
+          ]
+        }
+      },
+      {
+        "name": "xlide_listShapes",
+        "displayName": "List Worksheet Shapes",
+        "modelDescription": "Lists the shapes on the worksheets of an Excel file: AutoShapes, text boxes, pictures, charts, groups, form controls (buttons, check boxes, drop-downs, ...) and ActiveX controls. For each shape it returns its name, kind, the cells it covers (range), and when set its macro (the Sub a click runs, as Proc or Module.Proc), text or caption, linked cell, input range, alt text, and whether it is hidden; a group lists its members in shapes. Omit sheet to list every worksheet. Call this before xlide_editShape to learn shape names, and to find which Subs the workbook's buttons run. ActiveX controls run event procedures in the sheet's module (such as CommandButton1_Click), not a macro.",
+        "toolReferenceName": "xlideListShapes",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the .xlsm file"
+            },
+            "sheet": {
+              "type": "string",
+              "description": "Name of the worksheet; omit to list the shapes on every worksheet"
+            }
+          },
+          "required": [
+            "filePath"
+          ]
+        }
+      },
+      {
+        "name": "xlide_editShape",
+        "displayName": "Edit Worksheet Shape",
+        "modelDescription": "Adds, changes or deletes one shape on a worksheet in an Excel file, and links shapes to macros. The file is saved automatically. action add needs type (rectangle, roundedRectangle, oval, textBox, or button for a form-control button) and range, the cells the shape covers such as B2:D3; name, text, macro and altText are optional, and the result gives the name Excel's naming picked when name is left out. action update changes the named shape: range moves or resizes it, text sets its text or caption, macro sets the Sub a click runs, linkedCell sets a form control's cell link, inputRange sets the cells a drop-down or list box lists, altText sets its alt text, newName renames it; properties left out stay as they are, and an empty string removes a macro, cell link, input range or alt text. action delete removes the named shape. A macro is a Public Sub with no required parameters, given as Proc or Module.Proc; it must exist in the VBA project, so write the Sub first with xlide_writeModule. Call xlide_listShapes first for shape names. ActiveX controls are listed but not edited, and a shape inside a group is moved or deleted with its group. IMPORTANT: Use only ASCII characters (a-z, A-Z, 0-9, and standard ASCII punctuation) to avoid character mangling. Avoid Unicode, emoji, accented characters, and special symbols.",
+        "toolReferenceName": "xlideEditShape",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the .xlsm file"
+            },
+            "sheet": {
+              "type": "string",
+              "description": "Name of the worksheet"
+            },
+            "action": {
+              "type": "string",
+              "enum": [
+                "add",
+                "update",
+                "delete"
+              ],
+              "description": "add a new shape, update the named shape, or delete it"
+            },
+            "name": {
+              "type": "string",
+              "description": "The shape to update or delete, or the new shape's name (optional for add)"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "rectangle",
+                "roundedRectangle",
+                "oval",
+                "textBox",
+                "button"
+              ],
+              "description": "What to add; button is a form-control button"
+            },
+            "range": {
+              "type": "string",
+              "description": "The cells the shape covers, e.g. 'B2:D3'"
+            },
+            "text": {
+              "type": "string",
+              "description": "The shape's text or the control's caption; \\n starts a new line"
+            },
+            "macro": {
+              "type": "string",
+              "description": "The Public Sub a click runs, as Proc or Module.Proc; an empty string removes it"
+            },
+            "linkedCell": {
+              "type": "string",
+              "description": "A form control's cell link, e.g. '$H$10' or 'Sheet2!$H$10'; an empty string removes it"
+            },
+            "inputRange": {
+              "type": "string",
+              "description": "The cells a drop-down or list box lists, e.g. '$J$1:$J$5'; an empty string removes them"
+            },
+            "altText": {
+              "type": "string",
+              "description": "Alt text; an empty string removes it"
+            },
+            "newName": {
+              "type": "string",
+              "description": "A new name for the shape"
+            }
+          },
+          "required": [
+            "filePath",
+            "sheet",
+            "action"
           ]
         }
       },

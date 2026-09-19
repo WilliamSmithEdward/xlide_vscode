@@ -29,7 +29,8 @@ interface PackageConfiguration {
 		menus?: {
 			'view/item/context'?: PackageMenuContribution[];
 			'editor/context'?: PackageMenuContribution[];
-		};
+			commandPalette?: PackageMenuContribution[];
+		} & Record<string, PackageMenuContribution[] | undefined>;
 	};
 }
 
@@ -380,5 +381,82 @@ describe('VBA language configuration', () => {
 		expect(projectTreeCommands).toContain('xlide.analyzeProject');
 		expect(projectTreeCommands).toContain('xlide.runVbaTests');
 		expect(projectTreeCommands).not.toContain('xlide.validateProject');
+	});
+
+	it('gives a module row no Open Module button, since clicking the row opens it', () => {
+		const moduleRowButtons = loadPackage()
+			.contributes
+			?.menus
+			?.['view/item/context']
+			?.filter((entry) => entry.group?.startsWith('inline') && entry.when?.includes('viewItem =~ /^module-/'))
+			.map((entry) => entry.command) ?? [];
+
+		expect(moduleRowButtons).not.toContain('xlide.openModule');
+	});
+
+	it('offers Rename and Delete on a form row, and never on a document module', () => {
+		// A form's designer now follows a rename and goes with a delete, and a
+		// rename updates the code that uses the form. A document module's name
+		// is its document's, and the engine refuses both.
+		const offeredOn = (command: string, contextValue: string): boolean => (loadPackage()
+			.contributes
+			?.menus
+			?.['view/item/context'] ?? [])
+			.filter((entry) => entry.command === command)
+			.some((entry) => {
+				const pattern = /viewItem =~ \/(.+)\/$/.exec(entry.when ?? '')?.[1];
+				return pattern !== undefined && new RegExp(pattern).test(contextValue);
+			});
+		for (const command of ['xlide.renameModule', 'xlide.deleteModule']) {
+			for (const row of ['module-userform', 'module-userform-agent-pending', 'module-standard', 'module-class']) {
+				expect(offeredOn(command, row), `${command} on ${row}`).toBe(true);
+			}
+			expect(offeredOn(command, 'module-document'), `${command} on module-document`).toBe(false);
+		}
+	});
+
+	it('puts Review, Keep and Revert on the hover bar of a row an agent changed', () => {
+		const pendingRowButtons = loadPackage()
+			.contributes
+			?.menus
+			?.['view/item/context']
+			?.filter((entry) => entry.group?.startsWith('inline') && entry.when?.includes('-agent-pending$/'))
+			.sort((a, b) => (a.group ?? '').localeCompare(b.group ?? ''))
+			.map((entry) => entry.command) ?? [];
+
+		expect(pendingRowButtons).toEqual(['xlide.reviewAgentChange', 'xlide.keepAgentChange', 'xlide.revertAgentChange']);
+	});
+
+	it('keeps commands that need a tree row out of the Command Palette', () => {
+		// Picked from the palette with no row, these returned at once and did
+		// nothing. A row-only command added later has to decide the same way.
+		const manifest = loadPackage().contributes;
+		const menus = manifest?.menus ?? {};
+		const palette = new Map((menus.commandPalette ?? []).map((entry) => [entry.command, entry.when]));
+		const elsewhere = new Set(Object.entries(menus)
+			.filter(([menu]) => menu !== 'view/item/context' && menu !== 'commandPalette')
+			.flatMap(([, entries]) => (entries ?? []).map((entry) => entry.command)));
+		const rowOnly = [...new Set((menus['view/item/context'] ?? []).map((entry) => entry.command))]
+			.filter((command) => command !== undefined && !elsewhere.has(command));
+		// These answer a palette pick themselves: the open form or project, or
+		// a message saying what to select.
+		const answersThePalette = new Set(['xlide.previewForm', 'xlide.analyzeProject', 'xlide.runVbaTests']);
+
+		expect(rowOnly.filter((command) => !palette.has(command!) && !answersThePalette.has(command!))).toEqual([]);
+		for (const command of [
+			'xlide.openModule', 'xlide.findReferences', 'xlide.newModule', 'xlide.newClassModule',
+			'xlide.newUserForm', 'xlide.newAccessForm', 'xlide.newAccessReport', 'xlide.openFormMarkup',
+			'xlide.deleteModule', 'xlide.renameModule',
+			'xlide.reviewAgentChange', 'xlide.keepAgentChange', 'xlide.revertAgentChange',
+		]) {
+			expect(palette.get(command), command).toBe('false');
+		}
+		// These fall back to the open module, so they show while one is open.
+		for (const command of [
+			'xlide.openInOfficeApp', 'xlide.openInOfficeAppReadOnly',
+			'xlide.exportModulesToFolder', 'xlide.importModulesFromFolder',
+		]) {
+			expect(palette.get(command), command).toBe('resourceScheme == xlide-vba');
+		}
 	});
 });

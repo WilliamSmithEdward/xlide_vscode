@@ -70,6 +70,15 @@ searched before it is reported.
 `off` in `xlide.analysis.ruleSeverityOverrides`, or untrack it from the
 analysis results panel.
 
+## Doc Comments
+
+When a procedure's `'''` doc comment is written in XML, six rules check it
+against the declaration. Every parameter needs a `<param>`, a Function needs
+a `<returns>`, and no tag may describe something the declaration does not
+have, repeat, or be left open. They report as warnings, and most come with a
+quick fix. The codes and what each accepts are in
+[vba-doc-comments.md](vba-doc-comments.md#what-xlide-checks).
+
 ## Filter And Track Rules
 
 The analysis results panel is the safest place to change analysis
@@ -130,6 +139,9 @@ Suppress the current physical line:
 ```vba
 total = "100" ' @xlide-analysis-disable-line assignment-type-mismatch
 ```
+
+A statement continued with ` _` counts as one line for both directives, so
+put `disable-next-line` above its first line.
 
 Suppress the next member:
 

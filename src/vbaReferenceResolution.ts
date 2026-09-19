@@ -15,6 +15,7 @@
 
 import {
     classifyReferenceKinds,
+    docParamNameSpans,
     EventHandlerDocumentType,
     eventHandlerDocumentTypeForContext,
     precededByMemberAccessDot,
@@ -455,4 +456,28 @@ export function collectSymbolReferences(
     }
 
     return { references, hasSymbol: true, ambiguous: dedupeReferences(ambiguous) };
+}
+
+/**
+ * Where the procedure's doc comment names the parameter `word` resolves to at
+ * `positionOffset`: the `name` of each `<param>` for it. A rename of the
+ * parameter renames these too; left alone, the comment described a parameter
+ * the procedure no longer had. Empty for anything but a parameter.
+ */
+export function parameterDocNameSpans(
+    project: ProjectIndex,
+    source: string,
+    moduleName: string,
+    word: string,
+    positionOffset: number,
+): { start: number; end: number }[] {
+    const scope = project.referenceScope(moduleName, word, positionOffset);
+    if (
+        scope.kind !== 'local'
+        || !scope.procedureSpan
+        || !scope.definitions.some((definition) => definition.kind === 'parameter')
+    ) {
+        return [];
+    }
+    return docParamNameSpans(source, scope.procedureSpan.start, word);
 }

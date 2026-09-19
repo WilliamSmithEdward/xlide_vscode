@@ -100,8 +100,24 @@ export class RelativePattern {
 	) {}
 }
 
+export class TextEdit {
+	constructor(readonly range: unknown, readonly newText: string) {}
+
+	static replace(range: unknown, newText: string): TextEdit {
+		return new TextEdit(range, newText);
+	}
+}
+
 export class TabInputText {
 	constructor(readonly uri: unknown) {}
+}
+
+export class TabInputTextDiff {
+	constructor(readonly original: unknown, readonly modified: unknown) {}
+}
+
+export class TabInputCustom {
+	constructor(readonly uri: unknown, readonly viewType: string) {}
 }
 
 export class LanguageModelTextPart {
@@ -121,6 +137,9 @@ export function vscodeMock(overrides: Record<string, unknown> = {}): Record<stri
 		},
 		env: {
 			clipboard: { writeText: vi.fn() },
+		},
+		languages: {
+			setTextDocumentLanguage: vi.fn(async (document: unknown) => document),
 		},
 		lm: {
 			registerTool: vi.fn(() => new Disposable()),
@@ -166,7 +185,10 @@ export function vscodeMock(overrides: Record<string, unknown> = {}): Record<stri
 		Position,
 		Range,
 		RelativePattern,
+		TabInputCustom,
 		TabInputText,
+		TabInputTextDiff,
+		TextEdit,
 		ThemeColor,
 		ThemeIcon,
 		TreeItem,

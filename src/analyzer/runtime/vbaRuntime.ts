@@ -47,6 +47,8 @@ export interface VbaRuntimeConstant {
 	type?: string;
 	value?: string | number;
 	source: 'verified';
+	/** The VBA module of constants that holds it, as in `ColorConstants.vbRed`. */
+	module?: string;
 }
 
 export interface VbaRuntimeObjectMember {
@@ -88,6 +90,11 @@ function stmt(
 
 function c(name: string, type?: string, value?: string | number): VbaRuntimeConstant {
 	return { name, type, value, source: 'verified' };
+}
+
+/** Constants a VBA module of constants holds; the module names them as a qualifier. */
+function inModule(module: string, constants: readonly VbaRuntimeConstant[]): VbaRuntimeConstant[] {
+	return constants.map((constant) => ({ ...constant, module }));
 }
 
 function prop(
@@ -378,28 +385,26 @@ export const VBA_RUNTIME_CONSTANTS: VbaRuntimeConstant[] = [
 	// Documented in the VBA constants reference (learn.microsoft.com/en-us/
 	// office/vba/language/reference/constants-visual-basic-for-applications)
 	// but absent until issue #41: every one of these read as an undeclared
-	// variable under Option Explicit. Values are the type library's where it
-	// declares an enumeration, and the reference tables' where it does not.
-	// CallType constants (VbCallType)
-	c('vbGet', 'VbCallType', 2),
-	c('vbLet', 'VbCallType', 4),
-	c('vbMethod', 'VbCallType', 1),
-	c('vbSet', 'VbCallType', 8),
-
-	// Comparison constants (VbCompareMethod)
-	c('vbUseCompareOption', 'VbCompareMethod', -1),
+	// variable under Option Explicit. Names, values and groups are the type
+	// library's (VBE7.DLL, pinned in tests/fixtures/vbaTypeLibrary.json).
+	//
+	// The reference also lists vbUseCompareOption (-1), which the type library
+	// does not have: VBA itself reads it as an undeclared name, Empty without
+	// Option Explicit and "Variable not defined" with it (measured 2026-09-18).
 
 	// QueryClose constants (VbQueryClose)
 	c('vbAppTaskManager', 'VbQueryClose', 3),
 	c('vbAppWindows', 'VbQueryClose', 2),
 	c('vbFormCode', 'VbQueryClose', 1),
 	c('vbFormControlMenu', 'VbQueryClose', 0),
+	c('vbFormMDIForm', 'VbQueryClose', 4),
 
 	// Form constants
-	c('vbModal', undefined, 1),
-	c('vbModeless', undefined, 0),
+	c('vbModal', 'FormShowConstants', 1),
+	c('vbModeless', 'FormShowConstants', 0),
 
 	// Colour constants
+	...inModule('ColorConstants', [
 	c('vbBlack', undefined, 0),
 	c('vbBlue', undefined, 16711680),
 	c('vbCyan', undefined, 16776960),
@@ -408,11 +413,15 @@ export const VBA_RUNTIME_CONSTANTS: VbaRuntimeConstant[] = [
 	c('vbRed', undefined, 255),
 	c('vbWhite', undefined, 16777215),
 	c('vbYellow', undefined, 65535),
+	]),
 
 	// System colour constants
+	...inModule('SystemColorConstants', [
 	c('vb3DDKShadow', undefined, -2147483627),
+	c('vb3DFace', undefined, -2147483633),
 	c('vb3DHighlight', undefined, -2147483628),
 	c('vb3DLight', undefined, -2147483626),
+	c('vb3DShadow', undefined, -2147483632),
 	c('vbActiveBorder', undefined, -2147483638),
 	c('vbActiveTitleBar', undefined, -2147483646),
 	c('vbApplicationWorkspace', undefined, -2147483636),
@@ -430,13 +439,17 @@ export const VBA_RUNTIME_CONSTANTS: VbaRuntimeConstant[] = [
 	c('vbInfoText', undefined, -2147483625),
 	c('vbMenuBar', undefined, -2147483644),
 	c('vbMenuText', undefined, -2147483641),
+	c('vbMsgBox', undefined, -2147483625),
+	c('vbMsgBoxText', undefined, -2147483624),
 	c('vbScrollBars', undefined, -2147483648),
 	c('vbTitleBarText', undefined, -2147483639),
 	c('vbWindowBackground', undefined, -2147483643),
 	c('vbWindowFrame', undefined, -2147483642),
 	c('vbWindowText', undefined, -2147483640),
+	]),
 
 	// Keycode constants - no enumeration is documented for these
+	...inModule('KeyCodeConstants', [
 	c('vbKey0', undefined, 48),
 	c('vbKey1', undefined, 49),
 	c('vbKey2', undefined, 50),
@@ -536,7 +549,9 @@ export const VBA_RUNTIME_CONSTANTS: VbaRuntimeConstant[] = [
 	c('vbKeyX', undefined, 88),
 	c('vbKeyY', undefined, 89),
 	c('vbKeyZ', undefined, 90),
+	]),
 
+	...inModule('Constants', [
 	c('vbObjectError', 'Long', -2147221504),
 	c('vbNullString', 'String'),
 	c('vbNullChar', 'String'),
@@ -548,6 +563,7 @@ export const VBA_RUNTIME_CONSTANTS: VbaRuntimeConstant[] = [
 	c('vbFormFeed', 'String'),
 	c('vbTab', 'String'),
 	c('vbVerticalTab', 'String'),
+	]),
 
 	c('vbOKOnly', 'VbMsgBoxStyle', 0),
 	c('vbOKCancel', 'VbMsgBoxStyle', 1),
@@ -581,9 +597,12 @@ export const VBA_RUNTIME_CONSTANTS: VbaRuntimeConstant[] = [
 	c('vbBinaryCompare', 'VbCompareMethod', 0),
 	c('vbTextCompare', 'VbCompareMethod', 1),
 	c('vbDatabaseCompare', 'VbCompareMethod', 2),
-	c('BinaryCompare', 'VbCompareMethod', 0),
-	c('TextCompare', 'VbCompareMethod', 1),
-	c('DatabaseCompare', 'VbCompareMethod', 2),
+	// Not VBA's: the Scripting Runtime's CompareMethod, for Dictionary's
+	// CompareMode. Offered in every project because references are not
+	// modeled, and a project that uses them references scrrun.dll.
+	c('BinaryCompare', 'CompareMethod', 0),
+	c('TextCompare', 'CompareMethod', 1),
+	c('DatabaseCompare', 'CompareMethod', 2),
 
 	c('vbUseDefault', 'VbTriState', -2),
 	c('vbTrue', 'VbTriState', -1),
@@ -745,6 +764,49 @@ export function resolveRuntimeConstant(
 	name: string,
 ): VbaRuntimeConstant | undefined {
 	return CONSTANTS_BY_LOWER.get(name.toLowerCase());
+}
+
+/** The enumerations of the VBA library, as its type library names them. */
+const VBA_LIBRARY_ENUMS = [
+	'VbVarType', 'VbMsgBoxStyle', 'VbMsgBoxResult', 'VbFileAttribute', 'VbStrConv', 'VbDayOfWeek',
+	'VbFirstWeekOfYear', 'VbIMEStatus', 'VbAppWinStyle', 'VbCompareMethod', 'VbCalendar',
+	'VbDateTimeFormat', 'VbTriState', 'VbCallType', 'VbQueryClose', 'FormShowConstants',
+];
+
+/** The VBA library's modules of constants, and those of functions. */
+const VBA_LIBRARY_CONSTANT_MODULES = ['Constants', 'KeyCodeConstants', 'ColorConstants', 'SystemColorConstants'];
+const VBA_LIBRARY_FUNCTION_MODULES = [
+	'Strings', 'Conversion', 'FileSystem', 'DateTime', 'Information', 'Interaction', 'Math', 'Financial',
+];
+
+/** What a VBA library name qualifies: an enum's or a module's constants, or a module of functions. */
+export interface VbaLibraryQualifier {
+	name: string;
+	/** The constants it holds; undefined for a module of functions. */
+	constants?: readonly VbaRuntimeConstant[];
+}
+
+const LIBRARY_QUALIFIERS_BY_LOWER = new Map<string, VbaLibraryQualifier>([
+	...VBA_LIBRARY_ENUMS.map((name): [string, VbaLibraryQualifier] => [
+		name.toLowerCase(),
+		{ name, constants: [...CONSTANTS_BY_LOWER.values()].filter((constant) => constant.type === name) },
+	]),
+	...VBA_LIBRARY_CONSTANT_MODULES.map((name): [string, VbaLibraryQualifier] => [
+		name.toLowerCase(),
+		{ name, constants: [...CONSTANTS_BY_LOWER.values()].filter((constant) => constant.module === name) },
+	]),
+	...VBA_LIBRARY_FUNCTION_MODULES.map((name): [string, VbaLibraryQualifier] => [name.toLowerCase(), { name }]),
+]);
+
+/**
+ * Resolves a name the VBA library defines that qualifies a member: an enum
+ * (`VbMsgBoxResult.vbYes`), a module of constants (`ColorConstants.vbRed`), or
+ * a module of functions (`Strings.Left`). VBA reads all of these, and is first
+ * in every project's references, so it has the name when a host library has
+ * one too - Excel's Constants enum among them.
+ */
+export function resolveVbaLibraryQualifier(name: string): VbaLibraryQualifier | undefined {
+	return LIBRARY_QUALIFIERS_BY_LOWER.get(name.toLowerCase());
 }
 
 /** Resolves a built-in VBA runtime global object by name, such as `Err`. */

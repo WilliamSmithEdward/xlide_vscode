@@ -1,8 +1,10 @@
 # XLIDE Agent Instructions
 
-XLIDE is a VS Code extension for editing Excel VBA and workbook data. The agent
-surface has 18 tools for discovering projects, reading/writing VBA, analyzing
-projects, running tests, syncing modules, and inspecting worksheet data.
+XLIDE is a VS Code extension for VBA in macro-enabled Office files (Excel,
+Word, PowerPoint, Access) and Visual Basic 6 projects. The agent surface has
+tools for discovering projects, reading, searching and writing VBA, analyzing
+projects, running tests, syncing modules, reviewing git changes, and
+inspecting worksheet data.
 
 ---
 
@@ -18,7 +20,10 @@ Reach VBA one of two ways, both of which read and write the project itself:
   `xlide_writeModule`.
 - **The XLIDE virtual file system** - modules opened from the XLIDE tree live at
   `xlide-vba://` URIs. Editing and saving one of those documents writes straight
-  back into the project, so ordinary editor edits are project edits.
+  back into the project, so ordinary editor edits are project edits. Make your
+  own changes with `xlide_writeModule` all the same: XLIDE cannot tell an
+  agent's edit to such a document from the user's typing, so it gets no
+  before/after diff and no tree badge, where a write through the tool does.
 
 Both paths go through XLIDE's in-process project engine, which parses and
 rewrites the OLE compound file, the VBA project streams, and the OOXML package
@@ -76,14 +81,15 @@ The full standard lives in `docs/vba-doc-comments.md`.
 ### Step 1 - Discover Workbooks
 
 If the user has not specified a file path, call `xlide_listProjects` first to
-find available `.xlsm`, `.xlsb`, and `.xlam` files.
+find the macro-enabled Office files and VB6 projects in the workspace.
 
 ### Step 2 - Understand the Project
 
-Call `xlide_getProjectInfo` once per workbook. It returns sheets, VBA modules,
-and named ranges in a single round-trip. Do not call `xlide_listModules` and
-`xlide_listSheets` separately when `xlide_getProjectInfo` covers both. Do not
-infer module state from local export files.
+Call `xlide_getProjectInfo` once per file. It returns VBA modules, and for an
+Excel workbook its sheets and named ranges, in a single round-trip. Do not call
+`xlide_listModules` and `xlide_listSheets` separately when
+`xlide_getProjectInfo` covers both. Do not infer module state from local
+export files.
 
 ### Step 3 - Operate
 
@@ -92,8 +98,9 @@ Use the targeted tool for the task.
 ### Step 4 - Verify VBA Edits
 
 After writing or editing any VBA, call `xlide_analyzeProject` and resolve any
-reported problems before finishing. If workbook tests exist and Excel COM is
-available, run `xlide_runVbaTests` when the task affects tested behavior.
+reported problems before finishing. If the file has tests and its Office
+application is available through COM, run `xlide_runVbaTests` when the task
+affects tested behavior.
 
 ---
 
@@ -109,10 +116,13 @@ available, run `xlide_runVbaTests` when the task affects tested behavior.
 | `xlide_listModules` | Need only the VBA module list. |
 | `xlide_listSubs` | Need procedures in a specific module. |
 | `xlide_readModule` | Read canonical VBA source from the project. |
+| `xlide_searchModules` | Find where a name is declared or used, across every module. |
+| `xlide_gitChanges` | Review what changed in each module since a git revision (HEAD by default). |
 | `xlide_analyzeProject` | Verify VBA syntax/analysis across the whole project. |
 | `xlide_listSheets` | Need only sheet names and dimensions. |
 | `xlide_readCells` | Read cached/computed cell values. |
 | `xlide_readFormulas` | Read raw formula strings, such as `=SUM(A1:A10)`. |
+| `xlide_listShapes` | List a sheet's shapes and form controls, with the macro each one runs. |
 
 ### Write / Mutate
 
@@ -125,12 +135,14 @@ These tools require user confirmation.
 | `xlide_deleteModule` | Delete a VBA module. Warn before destructive edits. |
 | `xlide_createProject` | Create a new macro-enabled file. |
 | `xlide_writeCells` | Write values to a cell range. |
+| `xlide_editShape` | Add, move, relabel or delete a shape or button, or link it to a Sub. |
 | `xlide_exportModules` | Export/sync project modules to files on disk when explicitly requested. |
 | `xlide_configureExportMode` | Set the persistent export mode for a project. |
 
 ### Execute / Test
 
-These tools require user confirmation and may require Windows Excel COM.
+These tools require user confirmation and may require the file's Office
+application through COM on Windows.
 
 | Tool | When to use |
 |---|---|
@@ -143,11 +155,18 @@ These tools require user confirmation and may require Windows Excel COM.
 - Keep cell values and VBA source ASCII-only unless the user explicitly asks
   otherwise; non-ASCII may not round-trip safely through every project path.
 - `xlide_readCells` returns cached/computed values. Use `xlide_readFormulas` to
-  see formula strings.
-- `xlide_writeModule` creates the module if it does not exist. Use the source
-  header only when creating class-like modules; standard modules need no special
-  header.
+  see formula strings. After `xlide_writeCells`, formula results stay as Excel
+  last calculated them until the workbook is next opened in Excel.
+- Write formulas with `xlide_writeCells` as you would type them into Excel 365,
+  with no `_xlfn.` prefixes. A formula Excel would reject stops the whole write
+  with the reason, so fix it and write again.
+- A shape's macro must be a Public Sub with no required parameters that is
+  already in the project, so write the Sub before linking a shape to it. Name
+  it as `Proc`, or `Module.Proc` when two modules have one.
+- `xlide_writeModule` creates the module if it does not exist: a standard
+  module, or a class module when you pass `kind: 'class'`. A header in the
+  source is replaced by the module's own, so it does not make a class.
 - Document modules such as `Sheet1`, `Sheet2`, and `ThisWorkbook` cannot be
-  deleted. They can only be written.
+  deleted or renamed. They can only be written.
 - Project write tools save the project after the call. Sync tools write files
   and project settings. Test tools write test artifacts.

@@ -51,6 +51,10 @@ export class VbaCanonicalCaseController {
 	private _lastCanonicalCandidate = canonicalCandidateFromEditor(vscode.window.activeTextEditor);
 	private readonly _canonicalLineTimers = new Map<string, ReturnType<typeof setTimeout>>();
 	private readonly _userTouchedCanonicalLines = new Set<string>();
+	// Touched lines whose change came while the document matched its file:
+	// typing, or a reload. The document turning dirty says typing; a reload
+	// never turns it dirty.
+	private readonly _unconfirmedCanonicalLines = new Set<string>();
 
 	constructor(
 		private readonly _projectContext: VbaEditorProjectContextService,
@@ -110,19 +114,18 @@ export class VbaCanonicalCaseController {
 		}
 		this._applyingCanonicalCase = true;
 		try {
-			const editor = editorHint?.document === document
+			// A pass that runs from a timer holds the editor it started with,
+			// which may have closed since: then any editor still showing the
+			// document takes the edit, and with none there is nothing to do.
+			const visible = vscode.window.visibleTextEditors;
+			const editor = editorHint?.document === document && visible.includes(editorHint)
 				? editorHint
-				: vscode.window.visibleTextEditors.find((candidate) => candidate.document === document);
-			if (!editor || editor.document !== document) {
+				: visible.find((candidate) => candidate.document === document);
+			if (!editor) {
 				return;
 			}
 			const source = document.getText();
-			const projectCtx = this._projectContext.cachedEditorProjectContext(document) ?? {};
-			const edits = resolveEdits(source, {
-				member: toMemberCompletionContext(projectCtx),
-				identifier: toIdentifierCompletionContext(projectCtx),
-				type: toTypeCompletionContext(projectCtx),
-			}).filter((edit) => {
+			const edits = resolveEdits(source, this._canonicalCaseContext(document)).filter((edit) => {
 				const range = new vscode.Range(
 					document.positionAt(edit.start),
 					document.positionAt(edit.end),
@@ -132,20 +135,29 @@ export class VbaCanonicalCaseController {
 			if (edits.length === 0) {
 				return;
 			}
-			await editor.edit((builder) => {
-				for (const edit of edits) {
-					builder.replace(
-						new vscode.Range(
-							document.positionAt(edit.start),
-							document.positionAt(edit.end),
-						),
-						edit.text,
-					);
+			try {
+				await editor.edit((builder) => {
+					for (const edit of edits) {
+						builder.replace(
+							new vscode.Range(
+								document.positionAt(edit.start),
+								document.positionAt(edit.end),
+							),
+							edit.text,
+						);
+					}
+				}, {
+					undoStopBefore: false,
+					undoStopAfter: false,
+				});
+			} catch (err) {
+				// The editor can still close between the check above and the
+				// edit reaching it. That leaves nothing to recase; any other
+				// failure is a real one.
+				if (vscode.window.visibleTextEditors.includes(editor)) {
+					throw err;
 				}
-			}, {
-				undoStopBefore: false,
-				undoStopAfter: false,
-			});
+			}
 		} finally {
 			this._applyingCanonicalCase = false;
 			const next = this._pendingCanonicalCaseRequests.shift();
@@ -153,6 +165,59 @@ export class VbaCanonicalCaseController {
 				void this._applyCanonicalCaseEdits(next.document, next.editorHint, next.resolveEdits);
 			}
 		}
+	}
+
+	private _canonicalCaseContext(document: vscode.TextDocument): CanonicalCaseContext {
+		const projectCtx = this._projectContext.cachedEditorProjectContext(document) ?? {};
+		return {
+			member: toMemberCompletionContext(projectCtx),
+			identifier: toIdentifierCompletionContext(projectCtx),
+			type: toTypeCompletionContext(projectCtx),
+		};
+	}
+
+	/**
+	 * The casing still owed to lines the user typed, as edits for the save
+	 * about to write the document. A save that comes before the pause - an
+	 * auto-save with a short delay, a quick Ctrl+S - wrote the text uncased,
+	 * and the pause then found a document matching its file and left it; now
+	 * the save writes the recased text, and no recase is left to make the
+	 * document dirty again.
+	 */
+	pendingEditsForSave(document: vscode.TextDocument): vscode.TextEdit[] {
+		const prefix = `${document.uri.toString()}\n`;
+		const lines: number[] = [];
+		for (const key of [...this._userTouchedCanonicalLines]) {
+			if (!key.startsWith(prefix)) {
+				continue;
+			}
+			this._userTouchedCanonicalLines.delete(key);
+			const timer = this._canonicalLineTimers.get(key);
+			if (timer) {
+				clearTimeout(timer);
+				this._canonicalLineTimers.delete(key);
+			}
+			if (!this._unconfirmedCanonicalLines.delete(key)) {
+				lines.push(Number(key.slice(prefix.length)));
+			}
+		}
+		const source = document.getText();
+		const ctx = this._canonicalCaseContext(document);
+		const edits: vscode.TextEdit[] = [];
+		for (const lineNumber of lines) {
+			if (lineNumber >= document.lineCount) {
+				continue;
+			}
+			const line = document.lineAt(lineNumber);
+			const span = { start: document.offsetAt(line.range.start), end: document.offsetAt(line.range.end) };
+			for (const edit of resolveCanonicalCaseEdits(source, span, ctx)) {
+				const range = new vscode.Range(document.positionAt(edit.start), document.positionAt(edit.end));
+				if (document.getText(range) !== edit.text) {
+					edits.push(vscode.TextEdit.replace(range, edit.text));
+				}
+			}
+		}
+		return edits;
 	}
 
 	private _enqueueCanonicalCaseRequest(request: CanonicalCaseRequest): void {
@@ -171,14 +236,32 @@ export class VbaCanonicalCaseController {
 		if (!isVbaDocument(event.document)) {
 			return;
 		}
+		// A reload - an agent's write to an open module, a restore from git, a
+		// revert - arrives as a content change too, and leaves the document
+		// matching its file, which typing never does. VS Code reports the
+		// document still clean at a keystroke's change and turns it dirty just
+		// after, in an event of its own; so a change made while it is clean is
+		// held until that confirms it as typing.
+		if (event.document.isDirty) {
+			this._confirmTypedLines(event.document);
+		} else if (event.contentChanges.length === 0) {
+			// Saved or reverted: it matches its file again, and nothing typed
+			// before is left to recase - a save took its casing with it.
+			this._forgetTouchedLines(event.document);
+		}
 		const editorHint = this._editorHintFor(event.document);
 		const touchedLines = new Set<number>();
 		const immediateLines = new Set<number>();
+		const reloadPossible = !event.document.isDirty;
 		for (const change of event.contentChanges) {
 			const lineNumber = Math.min(change.range.start.line, Math.max(0, event.document.lineCount - 1));
 			touchedLines.add(lineNumber);
-			this._userTouchedCanonicalLines.add(this._canonicalLineKey(event.document, lineNumber));
-			if (!change.range.isEmpty) {
+			const key = this._canonicalLineKey(event.document, lineNumber);
+			this._userTouchedCanonicalLines.add(key);
+			if (reloadPossible) {
+				this._unconfirmedCanonicalLines.add(key);
+			}
+			if (!change.range.isEmpty || reloadPossible) {
 				continue;
 			}
 			// Token-boundary characters (space, '(', '=', ...) no longer
@@ -250,11 +333,42 @@ export class VbaCanonicalCaseController {
 			clearTimeout(timer);
 			this._canonicalLineTimers.delete(key);
 		}
+		this._forgetTouchedLines(document);
+	}
+
+	private _forgetTouchedLines(document: vscode.TextDocument): void {
+		const prefix = `${document.uri.toString()}\n`;
 		for (const key of [...this._userTouchedCanonicalLines]) {
 			if (key.startsWith(prefix)) {
 				this._userTouchedCanonicalLines.delete(key);
+				this._unconfirmedCanonicalLines.delete(key);
 			}
 		}
+	}
+
+	/** The document turned dirty: the changes it had while clean were typing. */
+	private _confirmTypedLines(document: vscode.TextDocument): void {
+		const prefix = `${document.uri.toString()}\n`;
+		for (const key of [...this._unconfirmedCanonicalLines]) {
+			if (key.startsWith(prefix)) {
+				this._unconfirmedCanonicalLines.delete(key);
+			}
+		}
+	}
+
+	/**
+	 * Whether a reload is all that touched the line: a change while the
+	 * document matched its file that never turned it dirty. The line is
+	 * forgotten, so recasing it cannot make the document dirty with edits
+	 * nobody made.
+	 */
+	private _onlyReloaded(document: vscode.TextDocument, lineNumber: number): boolean {
+		const key = this._canonicalLineKey(document, lineNumber);
+		if (!this._unconfirmedCanonicalLines.delete(key)) {
+			return false;
+		}
+		this._userTouchedCanonicalLines.delete(key);
+		return true;
 	}
 
 	private _editorHintFor(document: vscode.TextDocument): vscode.TextEditor | undefined {
@@ -276,7 +390,7 @@ export class VbaCanonicalCaseController {
 		editorHint?: vscode.TextEditor,
 		options: CanonicalLineOptions = {},
 	): void {
-		if (!this._canonicalLineWasTouched(document, lineNumber)) {
+		if (!this._canonicalLineWasTouched(document, lineNumber) || this._onlyReloaded(document, lineNumber)) {
 			return;
 		}
 		void this.applyCanonicalCaseForLine(document, lineNumber, editorHint, options);
@@ -287,7 +401,7 @@ export class VbaCanonicalCaseController {
 		position: vscode.Position,
 		editorHint?: vscode.TextEditor,
 	): void {
-		if (!this._canonicalLineWasTouched(document, position.line)) {
+		if (!this._canonicalLineWasTouched(document, position.line) || this._onlyReloaded(document, position.line)) {
 			return;
 		}
 		void this.applyCanonicalCase(document, position, editorHint);

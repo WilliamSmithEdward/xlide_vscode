@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collectSymbolReferences } from '../src/vbaReferenceResolution';
+import { collectSymbolReferences, parameterDocNameSpans } from '../src/vbaReferenceResolution';
 import { buildVbaProjectIndex } from '../src/vbaProjectAnalysis';
 import { lineStartOffsets } from '../src/vbaSourceScan';
 
@@ -417,5 +417,45 @@ describe('collectSymbolReferences - what it declines to touch (issue #9 rule 9)'
             'A', 'Shared', A.indexOf('Shared'),
         );
         expect(result.ambiguous).toEqual([]);
+    });
+});
+
+describe('parameterDocNameSpans - renaming a parameter reaches its doc comment', () => {
+    // A rename left `<param name="item">` behind, and the doc comment check
+    // then reported a stale <param> and an undescribed parameter after every
+    // parameter rename.
+    const SOURCE =
+        "''' <summary>Adds an item.</summary>\n" +
+        "''' <param name=\"item\">The item.</param>\n" +
+        "''' <param name=\"qty\">How many.</param>\n" +
+        'Public Sub AddItem(ByVal item As String, ByVal qty As Long)\n' +
+        '    Debug.Print item, qty\n' +
+        'End Sub\n' +
+        "''' <summary>Removes an item.</summary>\n" +
+        "''' <param name=\"Item\">The item.</param>\n" +
+        'Public Sub RemoveItem(ByVal item As String)\n' +
+        'End Sub\n';
+    const spans = (word: string, at: number): number[] => {
+        const { project } = setup([{ moduleName: 'M', source: SOURCE }]);
+        return parameterDocNameSpans(project, SOURCE, 'M', word, at).map((span) => {
+            expect(SOURCE.slice(span.start, span.end).toLowerCase()).toBe(word.toLowerCase());
+            return span.start;
+        });
+    };
+    const addItemTag = SOURCE.indexOf('"item"') + 1;
+    const removeItemTag = SOURCE.indexOf('"Item"') + 1;
+
+    it('finds the <param> for the parameter, from its declaration or from a use', () => {
+        expect(spans('item', SOURCE.indexOf('item As String'))).toEqual([addItemTag]);
+        expect(spans('item', SOURCE.indexOf('item, qty'))).toEqual([addItemTag]);
+    });
+
+    it("finds only its own procedure's <param>, in any case", () => {
+        const at = SOURCE.indexOf('item As String', SOURCE.indexOf('Sub RemoveItem'));
+        expect(spans('item', at)).toEqual([removeItemTag]);
+    });
+
+    it('finds nothing for a symbol that is not a parameter', () => {
+        expect(spans('AddItem', SOURCE.indexOf('AddItem('))).toEqual([]);
     });
 });

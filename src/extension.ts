@@ -5,6 +5,7 @@ import { errorMessage } from './util/errors';
 import { debounce } from './util/debounce';
 import { ProjectExplorer } from './projectExplorer';
 import {
+    isVbaDocument,
     XlideFileSystemProvider,
     XLIDE_SCHEME,
     XLIDE_VBA_LANGUAGE_ID,
@@ -35,6 +36,7 @@ import {
 import { createExplorerViewSetter } from './explorerViewToggle';
 import { AgentReviewDecorationProvider } from './agentReviewDecorations';
 import { onDidChangePendingAgentReviews, pendingAgentReviewCount } from './xlideAgentDiff';
+import { refreshProjectStateOnOutsideChange } from './projectModuleOperations';
 import { GitChangeMarks, watchRepositoriesForMarks } from './gitChangeMarks';
 import { gitModuleCompareDeps } from './gitModuleCompare';
 import { registerXlideSidebar } from './xlideSidebar';
@@ -109,6 +111,7 @@ export function activate(context: vscode.ExtensionContext): void {
         treeDataProvider: explorer,
         showCollapseAll: true,
     });
+    explorer.attachTreeView(treeView);
 
     // Agent edits awaiting review: coloured and badged rows, and a count on
     // the view itself, which shows on the Explorer icon while it is closed.
@@ -401,6 +404,11 @@ export function activate(context: vscode.ExtensionContext): void {
             }
         }),
 
+        // The VBE saved the workbook, or git replaced it: when its VBA changed,
+        // what XLIDE read from it is read again, as after its own writes. Open
+        // module documents follow through the file system provider.
+        refreshProjectStateOnOutsideChange({ bridge, explorer, vbaIndex }),
+
         // The folder layout follows the open editor, not the file on disk: an
         // annotation edited in a module moves it while you type. Debounced,
         // since this reads the module text and a keystroke is not a folder.
@@ -512,7 +520,10 @@ async function ensureXlideVbaEditorOverrides(out: vscode.OutputChannel): Promise
 
 function registerXlideVbaLanguageSync(context: vscode.ExtensionContext, out: vscode.OutputChannel): void {
     const syncDocument = (document: vscode.TextDocument): void => {
-        if (document.uri.scheme !== XLIDE_SCHEME || document.languageId === XLIDE_VBA_LANGUAGE_ID) {
+        // A form's markup is XML, which Open Form Markup sets; forcing it to
+        // VBA the moment its editor showed undid that.
+        if (document.uri.scheme !== XLIDE_SCHEME || !isVbaDocument(document)
+            || document.languageId === XLIDE_VBA_LANGUAGE_ID) {
             return;
         }
         void Promise.resolve(vscode.languages.setTextDocumentLanguage(document, XLIDE_VBA_LANGUAGE_ID))

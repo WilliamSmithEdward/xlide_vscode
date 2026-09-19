@@ -192,6 +192,17 @@ export class ZipArchive {
 		}
 	}
 
+	/** Remove an entry; one that is not there is not an error. */
+	delete(name: string): void {
+		const idx = this.byName.get(name);
+		if (idx === undefined) {
+			return;
+		}
+		this.entries.splice(idx, 1);
+		this.byName.clear();
+		this.entries.forEach((entry, i) => this.byName.set(entry.name, i));
+	}
+
 	toBytes(): Buffer {
 		const localParts: Buffer[] = [];
 		const centralParts: Buffer[] = [];

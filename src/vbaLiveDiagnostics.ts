@@ -1,5 +1,6 @@
-// Live VBA diagnostics engine: runs the analyzer's module analysis on open
-// and (debounced) on every edit. Local/full pass scheduling and generation
+// Live VBA diagnostics engine: runs the analyzer's module analysis on open,
+// (debounced) on every edit, and when another module of the project changes.
+// Local/full pass scheduling and generation
 // tracking live in DiagnosticScheduler; the engine adds a TTL'd
 // analysis-settings cache and per-project settings-sidecar
 // FileSystemWatcher lifecycle.
@@ -68,6 +69,10 @@ const DIAGNOSTIC_OPEN_LOCAL_DELAY_MS = 25;
 const DIAGNOSTIC_OPEN_FULL_DELAY_MS = 150;
 const DIAGNOSTIC_EDIT_LOCAL_DELAY_MS = 90;
 const DIAGNOSTIC_EDIT_FULL_DELAY_MS = 450;
+// After another module of the project changed. Long enough that a burst of
+// writes - an agent writing several modules, a sync import - is analyzed once,
+// short enough to read as immediate.
+const DIAGNOSTIC_PROJECT_CHANGE_DELAY_MS = 300;
 // Above this size the edit-time full pass backs off proportionally (see
 // editScheduleDelaysFor), capped so diagnostics never lag more than 2s. Only
 // applies when analysis runs in-host: the worker path has no thread contention
@@ -286,7 +291,9 @@ class ProjectSettingsWatcherRegistry implements vscode.Disposable {
  * high-confidence semantic rules (analyzeModule) - unterminated strings,
  * duplicate procedures/declarations, assignment to a constant, and a
  * configurable Option Explicit reminder. Runs on open and (debounced) on every
- * edit so problems surface while typing, the way a real IDE does. No save and
+ * edit so problems surface while typing, the way a real IDE does, and again
+ * when another module of the project changes, since its calls resolve against
+ * the others. No save and
  * no project round-trip required - everything is computed from the editor text.
  */
 export function registerVbaDiagnostics(
@@ -720,18 +727,38 @@ export function registerVbaDiagnostics(
         publish(document.uri, documentVersion, diagnostics);
     };
 
-    const rerunProjectDocuments = (projectPath: string): void => {
-        const key = projectKey(projectPath);
-        for (const document of vscode.workspace.textDocuments) {
+    /** The open modules of a project - of every project for an empty path - but `except`. */
+    const openProjectDocuments = (projectPath: string, except?: string): vscode.TextDocument[] => {
+        const key = projectPath ? projectKey(projectPath) : undefined;
+        const exceptKey = except === undefined ? undefined : moduleIdentityKey(except);
+        return vscode.workspace.textDocuments.filter((document) => {
             const location = moduleLocationOfDocument(document);
-            if (location && projectKey(location.projectPath) === key) {
-                run(document);
-            }
-        }
+            return location !== undefined
+                && (key === undefined || projectKey(location.projectPath) === key)
+                && moduleIdentityKey(location.moduleName) !== exceptKey;
+        });
+    };
+
+    const rerunProjectDocuments = (projectPath: string): void => {
+        openProjectDocuments(projectPath).forEach((document) => run(document));
     };
 
     context.subscriptions.push(
         collection,
+        // Another module was written, created, renamed or removed, or saved
+        // from its editor. What it defines is what the other modules' calls
+        // resolve against, so they are analyzed again: a module an agent just
+        // created used to stay "not defined" in the module calling it until
+        // that module's own editor was touched. Only the full pass - their
+        // own text did not change - but a VB6 project's file has none, and its
+        // local pass is its analysis.
+        projectIndexService.onDidChangeProject(({ projectPath, moduleName }) => {
+            for (const document of openProjectDocuments(projectPath, moduleName)) {
+                scheduler.schedule(document, document.uri.scheme === XLIDE_SCHEME
+                    ? { fullDelayMs: DIAGNOSTIC_PROJECT_CHANGE_DELAY_MS }
+                    : { localDelayMs: DIAGNOSTIC_PROJECT_CHANGE_DELAY_MS });
+            }
+        }),
         // A VB6 project map that just loaded or changed can move a file from
         // "loose module" to "member of a project", which changes its
         // analysis: rerun every open file on disk.

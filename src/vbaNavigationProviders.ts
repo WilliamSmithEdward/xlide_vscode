@@ -43,6 +43,7 @@ import {
 import { buildLiveVbaProjectIndexAsync } from './vbaProjectAnalysis';
 import {
     collectSymbolReferences,
+    parameterDocNameSpans,
     projectClassMemberAtDefinition,
     sourceMemberDefinitionsAt,
     type ReferenceSpan,
@@ -731,6 +732,14 @@ export class VbaRenameProvider implements vscode.RenameProvider {
         const edit = new vscode.WorkspaceEdit();
         for (const loc of referenceSpansToLocations(projectPath, byModule, result.references)) {
             edit.replace(loc.uri, loc.range, newName);
+        }
+        // A parameter's `<param>` in the procedure's doc comment names it too.
+        for (const span of parameterDocNameSpans(project, source, moduleName, oldName, document.offsetAt(position))) {
+            edit.replace(
+                document.uri,
+                new vscode.Range(document.positionAt(span.start), document.positionAt(span.end)),
+                newName,
+            );
         }
         const touched = renamedModuleNames(result.references).length;
         if (touched > 1) {

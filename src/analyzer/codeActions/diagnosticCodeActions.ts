@@ -6,7 +6,7 @@ import {
 	standaloneEmptyParenthesizedCallStatement,
 } from '../call/callContext';
 import { detectEol, leadingWhitespace } from '../../vbaSourceScan';
-import { ANALYSIS_SUPPRESSION_DIRECTIVE_CODE } from '../diagnostics/analysisSuppressions';
+import { ANALYSIS_SUPPRESSION_DIRECTIVE_CODE, statementLineStart } from '../diagnostics/analysisSuppressions';
 import { diagnosticSuppressionScopesForCode } from '../diagnostics/ruleMetadata';
 import type { VbaDiagnosticData } from '../diagnostics/analyzeModule';
 
@@ -103,9 +103,27 @@ function ruleSpecificDiagnosticCodeActions(
 			return removeDeclarationActions(diagnostic);
 		case 'unreachable-code':
 			return removeUnreachableCodeActions(diagnostic);
+		case 'doc-param-missing':
+		case 'doc-param-unknown':
+		case 'doc-returns-missing':
+		case 'doc-returns-unexpected':
+		case 'doc-tag-duplicate':
+			return docCommentFixActions(diagnostic);
 		default:
 			return [];
 	}
+}
+
+/** The analyzer works out a doc comment's fixes; each one is an action. */
+function docCommentFixActions(
+	diagnostic: VbaDiagnosticCodeActionInput,
+): VbaDiagnosticCodeAction[] {
+	return (diagnostic.data?.docCommentFixes ?? []).map((fix) => ({
+		title: fix.title,
+		kind: 'quickfix',
+		isPreferred: fix.isPreferred ?? false,
+		edits: fix.edits,
+	}));
 }
 
 function removeDeclarationActions(
@@ -245,7 +263,9 @@ function suppressNextLineAction(
 	if (!diagnostic.code) {
 		return undefined;
 	}
-	const line = physicalLineSpan(source, diagnostic.span.start);
+	// Above the statement, not the finding's own line: a finding on a line
+	// continued with ` _` would put the comment inside the statement.
+	const line = physicalLineSpan(source, statementLineStart(source, diagnostic.span.start));
 	const indent = leadingWhitespace(source.slice(line.start, line.end));
 	const eol = detectEol(source);
 	return {

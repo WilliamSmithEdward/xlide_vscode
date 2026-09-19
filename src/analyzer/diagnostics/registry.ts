@@ -128,6 +128,7 @@ import {
 	checkUnusedDeclarations,
 	checkUnusedPrivateProcedures,
 } from './rules/deadCode';
+import { checkDocComments } from './rules/docComments';
 
 /**
  * One registered rule: a stable name plus exactly one execution form.
@@ -743,5 +744,9 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'unreachableCode',
 		run: (ctx, push) => checkUnreachableCode(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'docComments',
+		run: (ctx, push) => checkDocComments(ctx.source, ctx.mod, ctx.activity, push),
 	},
 ];

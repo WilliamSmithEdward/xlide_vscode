@@ -16,6 +16,7 @@ import { isVbaDocument } from '../xlideFileSystem';
 import { workspaceEditFor } from '../vbaWorkspaceEdit';
 import { statusMessage, type CommandDeps } from './shared';
 import { implementsNames } from '../analyzer/refactor/implementInterface';
+import { refreshProjectState, writeProjectModule } from '../projectModuleOperations';
 
 /**
  * The seven refactorings beyond rename (issue #69), as commands.
@@ -161,24 +162,31 @@ async function applyResult(
     if (result.otherModules?.length && deps && projectPath) {
         // All or nothing: a signature changed in one module and not repointed
         // in another leaves the project not compiling, so a failure here is
-        // reported rather than swallowed.
-        for (const module of result.otherModules) {
-            try {
-                const read = await deps.bridge.call<{ source: string }>(
-                    'readModule', { path: projectPath, module: module.moduleName },
-                );
-                const updated = applyVbaTextEdits(read.source, module.edits);
-                await deps.bridge.call('writeModule', {
-                    path: projectPath, module: module.moduleName, source: updated,
-                });
-            } catch (err) {
-                vscode.window.showErrorMessage(
-                    `XLIDE: '${module.moduleName}' was not updated: `
-                    + `${err instanceof Error ? err.message : String(err)}. `
-                    + 'The other edits were applied; check the project before running it.',
-                );
-                return;
+        // reported rather than swallowed. Each write takes the shared path, so
+        // Office coordination applies and an open copy of the module reloads.
+        try {
+            for (const module of result.otherModules) {
+                try {
+                    const read = await deps.bridge.call<{ source: string }>(
+                        'readModule', { path: projectPath, module: module.moduleName },
+                    );
+                    const updated = applyVbaTextEdits(read.source, module.edits);
+                    await writeProjectModule(
+                        deps,
+                        { filePath: projectPath, moduleName: module.moduleName, source: updated },
+                        { refreshProjectState: false },
+                    );
+                } catch (err) {
+                    vscode.window.showErrorMessage(
+                        `XLIDE: '${module.moduleName}' was not updated: `
+                        + `${err instanceof Error ? err.message : String(err)}. `
+                        + 'The other edits were applied; check the project before running it.',
+                    );
+                    return;
+                }
             }
+        } finally {
+            refreshProjectState(deps, projectPath);
         }
     }
 

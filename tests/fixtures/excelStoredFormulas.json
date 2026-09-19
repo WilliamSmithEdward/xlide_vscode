@@ -1,0 +1,3859 @@
+[
+{
+"context": {
+"sheets": [
+"SHEET1"
+],
+"names": [],
+"tables": {}
+},
+"entries": [
+{
+"typed": "ACOT(1)",
+"stored": "_xlfn.ACOT(1)",
+"shown": "ACOT(1)"
+},
+{
+"typed": "ACOTH(1)",
+"stored": "_xlfn.ACOTH(1)",
+"shown": "ACOTH(1)"
+},
+{
+"typed": "AGGREGATE(1,1,1)",
+"stored": "_xlfn.AGGREGATE(1,1,1)",
+"shown": "AGGREGATE(1,1,1)"
+},
+{
+"typed": "ARABIC(1)",
+"stored": "_xlfn.ARABIC(1)",
+"shown": "ARABIC(1)"
+},
+{
+"typed": "ARRAYTOTEXT(1)",
+"stored": "_xlfn.ARRAYTOTEXT(1)",
+"shown": "ARRAYTOTEXT(1)"
+},
+{
+"typed": "BASE(1,1)",
+"stored": "_xlfn.BASE(1,1)",
+"shown": "BASE(1,1)"
+},
+{
+"typed": "BETA.DIST(1,1,1,1)",
+"stored": "_xlfn.BETA.DIST(1,1,1,1)",
+"shown": "BETA.DIST(1,1,1,1)"
+},
+{
+"typed": "BETA.INV(1,1,1)",
+"stored": "_xlfn.BETA.INV(1,1,1)",
+"shown": "BETA.INV(1,1,1)"
+},
+{
+"typed": "BINOM.DIST(1,1,1,1)",
+"stored": "_xlfn.BINOM.DIST(1,1,1,1)",
+"shown": "BINOM.DIST(1,1,1,1)"
+},
+{
+"typed": "BINOM.DIST.RANGE(1,1,1)",
+"stored": "_xlfn.BINOM.DIST.RANGE(1,1,1)",
+"shown": "BINOM.DIST.RANGE(1,1,1)"
+},
+{
+"typed": "BINOM.INV(1,1,1)",
+"stored": "_xlfn.BINOM.INV(1,1,1)",
+"shown": "BINOM.INV(1,1,1)"
+},
+{
+"typed": "BITAND(1,1)",
+"stored": "_xlfn.BITAND(1,1)",
+"shown": "BITAND(1,1)"
+},
+{
+"typed": "BITLSHIFT(1,1)",
+"stored": "_xlfn.BITLSHIFT(1,1)",
+"shown": "BITLSHIFT(1,1)"
+},
+{
+"typed": "BITOR(1,1)",
+"stored": "_xlfn.BITOR(1,1)",
+"shown": "BITOR(1,1)"
+},
+{
+"typed": "BITRSHIFT(1,1)",
+"stored": "_xlfn.BITRSHIFT(1,1)",
+"shown": "BITRSHIFT(1,1)"
+},
+{
+"typed": "BITXOR(1,1)",
+"stored": "_xlfn.BITXOR(1,1)",
+"shown": "BITXOR(1,1)"
+},
+{
+"typed": "CEILING.MATH(1)",
+"stored": "_xlfn.CEILING.MATH(1)",
+"shown": "CEILING.MATH(1)"
+},
+{
+"typed": "CEILING.PRECISE(1)",
+"stored": "_xlfn.CEILING.PRECISE(1)",
+"shown": "CEILING.PRECISE(1)"
+},
+{
+"typed": "CHISQ.DIST(1,1,1)",
+"stored": "_xlfn.CHISQ.DIST(1,1,1)",
+"shown": "CHISQ.DIST(1,1,1)"
+},
+{
+"typed": "CHISQ.DIST.RT(1,1)",
+"stored": "_xlfn.CHISQ.DIST.RT(1,1)",
+"shown": "CHISQ.DIST.RT(1,1)"
+},
+{
+"typed": "CHISQ.INV(1,1)",
+"stored": "_xlfn.CHISQ.INV(1,1)",
+"shown": "CHISQ.INV(1,1)"
+},
+{
+"typed": "CHISQ.INV.RT(1,1)",
+"stored": "_xlfn.CHISQ.INV.RT(1,1)",
+"shown": "CHISQ.INV.RT(1,1)"
+},
+{
+"typed": "CHISQ.TEST(1,1)",
+"stored": "_xlfn.CHISQ.TEST(1,1)",
+"shown": "CHISQ.TEST(1,1)"
+},
+{
+"typed": "CHOOSECOLS(1,1)",
+"stored": "_xlfn.CHOOSECOLS(1,1)",
+"shown": "CHOOSECOLS(1,1)"
+},
+{
+"typed": "CHOOSEROWS(1,1)",
+"stored": "_xlfn.CHOOSEROWS(1,1)",
+"shown": "CHOOSEROWS(1,1)"
+},
+{
+"typed": "COMBINA(1,1)",
+"stored": "_xlfn.COMBINA(1,1)",
+"shown": "COMBINA(1,1)"
+},
+{
+"typed": "CONCAT(1)",
+"stored": "_xlfn.CONCAT(1)",
+"shown": "CONCAT(1)"
+},
+{
+"typed": "CONFIDENCE.NORM(1,1,1)",
+"stored": "_xlfn.CONFIDENCE.NORM(1,1,1)",
+"shown": "CONFIDENCE.NORM(1,1,1)"
+},
+{
+"typed": "CONFIDENCE.T(1,1,1)",
+"stored": "_xlfn.CONFIDENCE.T(1,1,1)",
+"shown": "CONFIDENCE.T(1,1,1)"
+},
+{
+"typed": "COT(1)",
+"stored": "_xlfn.COT(1)",
+"shown": "COT(1)"
+},
+{
+"typed": "COTH(1)",
+"stored": "_xlfn.COTH(1)",
+"shown": "COTH(1)"
+},
+{
+"typed": "COVARIANCE.P(1,1)",
+"stored": "_xlfn.COVARIANCE.P(1,1)",
+"shown": "COVARIANCE.P(1,1)"
+},
+{
+"typed": "COVARIANCE.S(1,1)",
+"stored": "_xlfn.COVARIANCE.S(1,1)",
+"shown": "COVARIANCE.S(1,1)"
+},
+{
+"typed": "CSC(1)",
+"stored": "_xlfn.CSC(1)",
+"shown": "CSC(1)"
+},
+{
+"typed": "CSCH(1)",
+"stored": "_xlfn.CSCH(1)",
+"shown": "CSCH(1)"
+},
+{
+"typed": "DAYS(1,1)",
+"stored": "_xlfn.DAYS(1,1)",
+"shown": "DAYS(1,1)"
+},
+{
+"typed": "DECIMAL(1,1)",
+"stored": "_xlfn.DECIMAL(1,1)",
+"shown": "DECIMAL(1,1)"
+},
+{
+"typed": "DROP(1,1)",
+"stored": "_xlfn.DROP(1,1)",
+"shown": "DROP(1,1)"
+},
+{
+"typed": "ECMA.CEILING(1,1)",
+"stored": "ECMA.CEILING(1,1)",
+"shown": "ECMA.CEILING(1,1)"
+},
+{
+"typed": "ENCODEURL(1)",
+"stored": "_xlfn.ENCODEURL(1)",
+"shown": "ENCODEURL(1)"
+},
+{
+"typed": "ERF.PRECISE(1)",
+"stored": "_xlfn.ERF.PRECISE(1)",
+"shown": "ERF.PRECISE(1)"
+},
+{
+"typed": "ERFC.PRECISE(1)",
+"stored": "_xlfn.ERFC.PRECISE(1)",
+"shown": "ERFC.PRECISE(1)"
+},
+{
+"typed": "EXPAND(1,1)",
+"stored": "_xlfn.EXPAND(1,1)",
+"shown": "EXPAND(1,1)"
+},
+{
+"typed": "EXPON.DIST(1,1,1)",
+"stored": "_xlfn.EXPON.DIST(1,1,1)",
+"shown": "EXPON.DIST(1,1,1)"
+},
+{
+"typed": "F.DIST(1,1,1,1)",
+"stored": "_xlfn.F.DIST(1,1,1,1)",
+"shown": "F.DIST(1,1,1,1)"
+},
+{
+"typed": "F.DIST.RT(1,1,1)",
+"stored": "_xlfn.F.DIST.RT(1,1,1)",
+"shown": "F.DIST.RT(1,1,1)"
+},
+{
+"typed": "F.INV(1,1,1)",
+"stored": "_xlfn.F.INV(1,1,1)",
+"shown": "F.INV(1,1,1)"
+},
+{
+"typed": "F.INV.RT(1,1,1)",
+"stored": "_xlfn.F.INV.RT(1,1,1)",
+"shown": "F.INV.RT(1,1,1)"
+},
+{
+"typed": "F.TEST(1,1)",
+"stored": "_xlfn.F.TEST(1,1)",
+"shown": "F.TEST(1,1)"
+},
+{
+"typed": "FIELDVALUE(1,1)",
+"stored": "_xlfn.FIELDVALUE(1,1)",
+"shown": "FIELDVALUE(1,1)"
+},
+{
+"typed": "FILTER(1,1)",
+"stored": "_xlfn._xlws.FILTER(1,1)",
+"shown": "FILTER(1,1)"
+},
+{
+"typed": "FILTERXML(1,1)",
+"stored": "_xlfn.FILTERXML(1,1)",
+"shown": "FILTERXML(1,1)"
+},
+{
+"typed": "FLOOR.MATH(1)",
+"stored": "_xlfn.FLOOR.MATH(1)",
+"shown": "FLOOR.MATH(1)"
+},
+{
+"typed": "FLOOR.PRECISE(1)",
+"stored": "_xlfn.FLOOR.PRECISE(1)",
+"shown": "FLOOR.PRECISE(1)"
+},
+{
+"typed": "FORECAST.ETS(1,1,1)",
+"stored": "_xlfn.FORECAST.ETS(1,1,1)",
+"shown": "FORECAST.ETS(1,1,1)"
+},
+{
+"typed": "FORECAST.ETS.CONFINT(1,1,1)",
+"stored": "_xlfn.FORECAST.ETS.CONFINT(1,1,1)",
+"shown": "FORECAST.ETS.CONFINT(1,1,1)"
+},
+{
+"typed": "FORECAST.ETS.SEASONALITY(1,1)",
+"stored": "_xlfn.FORECAST.ETS.SEASONALITY(1,1)",
+"shown": "FORECAST.ETS.SEASONALITY(1,1)"
+},
+{
+"typed": "FORECAST.ETS.STAT(1,1,1)",
+"stored": "_xlfn.FORECAST.ETS.STAT(1,1,1)",
+"shown": "FORECAST.ETS.STAT(1,1,1)"
+},
+{
+"typed": "FORECAST.LINEAR(1,1,1)",
+"stored": "_xlfn.FORECAST.LINEAR(1,1,1)",
+"shown": "FORECAST.LINEAR(1,1,1)"
+},
+{
+"typed": "GAMMA(1)",
+"stored": "_xlfn.GAMMA(1)",
+"shown": "GAMMA(1)"
+},
+{
+"typed": "GAMMA.DIST(1,1,1,1)",
+"stored": "_xlfn.GAMMA.DIST(1,1,1,1)",
+"shown": "GAMMA.DIST(1,1,1,1)"
+},
+{
+"typed": "GAMMA.INV(1,1,1)",
+"stored": "_xlfn.GAMMA.INV(1,1,1)",
+"shown": "GAMMA.INV(1,1,1)"
+},
+{
+"typed": "GAMMALN.PRECISE(1)",
+"stored": "_xlfn.GAMMALN.PRECISE(1)",
+"shown": "GAMMALN.PRECISE(1)"
+},
+{
+"typed": "GAUSS(1)",
+"stored": "_xlfn.GAUSS(1)",
+"shown": "GAUSS(1)"
+},
+{
+"typed": "HSTACK(1)",
+"stored": "_xlfn.HSTACK(1)",
+"shown": "HSTACK(1)"
+},
+{
+"typed": "HYPGEOM.DIST(1,1,1,1,1)",
+"stored": "_xlfn.HYPGEOM.DIST(1,1,1,1,1)",
+"shown": "HYPGEOM.DIST(1,1,1,1,1)"
+},
+{
+"typed": "IFNA(1,1)",
+"stored": "_xlfn.IFNA(1,1)",
+"shown": "IFNA(1,1)"
+},
+{
+"typed": "IFS(1,1)",
+"stored": "_xlfn.IFS(1,1)",
+"shown": "IFS(1,1)"
+},
+{
+"typed": "IMAGE(1)",
+"stored": "_xlfn.IMAGE(1)",
+"shown": "IMAGE(1)"
+},
+{
+"typed": "IMCOSH(1)",
+"stored": "_xlfn.IMCOSH(1)",
+"shown": "IMCOSH(1)"
+},
+{
+"typed": "IMCOT(1)",
+"stored": "_xlfn.IMCOT(1)",
+"shown": "IMCOT(1)"
+},
+{
+"typed": "IMCSC(1)",
+"stored": "_xlfn.IMCSC(1)",
+"shown": "IMCSC(1)"
+},
+{
+"typed": "IMCSCH(1)",
+"stored": "_xlfn.IMCSCH(1)",
+"shown": "IMCSCH(1)"
+},
+{
+"typed": "IMSEC(1)",
+"stored": "_xlfn.IMSEC(1)",
+"shown": "IMSEC(1)"
+},
+{
+"typed": "IMSECH(1)",
+"stored": "_xlfn.IMSECH(1)",
+"shown": "IMSECH(1)"
+},
+{
+"typed": "IMSINH(1)",
+"stored": "_xlfn.IMSINH(1)",
+"shown": "IMSINH(1)"
+},
+{
+"typed": "IMTAN(1)",
+"stored": "_xlfn.IMTAN(1)",
+"shown": "IMTAN(1)"
+},
+{
+"typed": "ISO.CEILING(1)",
+"stored": "ISO.CEILING(1)",
+"shown": "ISO.CEILING(1)"
+},
+{
+"typed": "ISOWEEKNUM(1)",
+"stored": "_xlfn.ISOWEEKNUM(1)",
+"shown": "ISOWEEKNUM(1)"
+},
+{
+"typed": "LOGNORM.DIST(1,1,1,1)",
+"stored": "_xlfn.LOGNORM.DIST(1,1,1,1)",
+"shown": "LOGNORM.DIST(1,1,1,1)"
+},
+{
+"typed": "LOGNORM.INV(1,1,1)",
+"stored": "_xlfn.LOGNORM.INV(1,1,1)",
+"shown": "LOGNORM.INV(1,1,1)"
+},
+{
+"typed": "MODE.MULT(1)",
+"stored": "_xlfn.MODE.MULT(1)",
+"shown": "MODE.MULT(1)"
+},
+{
+"typed": "MODE.SNGL(1)",
+"stored": "_xlfn.MODE.SNGL(1)",
+"shown": "MODE.SNGL(1)"
+},
+{
+"typed": "MUNIT(1)",
+"stored": "_xlfn.MUNIT(1)",
+"shown": "MUNIT(1)"
+},
+{
+"typed": "NEGBINOM.DIST(1,1,1,1)",
+"stored": "_xlfn.NEGBINOM.DIST(1,1,1,1)",
+"shown": "NEGBINOM.DIST(1,1,1,1)"
+},
+{
+"typed": "NETWORKDAYS.INTL(1,1)",
+"stored": "NETWORKDAYS.INTL(1,1)",
+"shown": "NETWORKDAYS.INTL(1,1)"
+},
+{
+"typed": "NORM.DIST(1,1,1,1)",
+"stored": "_xlfn.NORM.DIST(1,1,1,1)",
+"shown": "NORM.DIST(1,1,1,1)"
+},
+{
+"typed": "NORM.INV(1,1,1)",
+"stored": "_xlfn.NORM.INV(1,1,1)",
+"shown": "NORM.INV(1,1,1)"
+},
+{
+"typed": "NORM.S.DIST(1,1)",
+"stored": "_xlfn.NORM.S.DIST(1,1)",
+"shown": "NORM.S.DIST(1,1)"
+},
+{
+"typed": "NORM.S.INV(1)",
+"stored": "_xlfn.NORM.S.INV(1)",
+"shown": "NORM.S.INV(1)"
+},
+{
+"typed": "NUMBERVALUE(1)",
+"stored": "_xlfn.NUMBERVALUE(1)",
+"shown": "NUMBERVALUE(1)"
+},
+{
+"typed": "PDURATION(1,1,1)",
+"stored": "_xlfn.PDURATION(1,1,1)",
+"shown": "PDURATION(1,1,1)"
+},
+{
+"typed": "PERCENTILE.EXC(1,1)",
+"stored": "_xlfn.PERCENTILE.EXC(1,1)",
+"shown": "PERCENTILE.EXC(1,1)"
+},
+{
+"typed": "PERCENTILE.INC(1,1)",
+"stored": "_xlfn.PERCENTILE.INC(1,1)",
+"shown": "PERCENTILE.INC(1,1)"
+},
+{
+"typed": "PERCENTOF(1,1)",
+"stored": "_xlfn.PERCENTOF(1,1)",
+"shown": "PERCENTOF(1,1)"
+},
+{
+"typed": "PERCENTRANK.EXC(1,1)",
+"stored": "_xlfn.PERCENTRANK.EXC(1,1)",
+"shown": "PERCENTRANK.EXC(1,1)"
+},
+{
+"typed": "PERCENTRANK.INC(1,1)",
+"stored": "_xlfn.PERCENTRANK.INC(1,1)",
+"shown": "PERCENTRANK.INC(1,1)"
+},
+{
+"typed": "PERMUTATIONA(1,1)",
+"stored": "_xlfn.PERMUTATIONA(1,1)",
+"shown": "PERMUTATIONA(1,1)"
+},
+{
+"typed": "PHI(1)",
+"stored": "_xlfn.PHI(1)",
+"shown": "PHI(1)"
+},
+{
+"typed": "POISSON.DIST(1,1,1)",
+"stored": "_xlfn.POISSON.DIST(1,1,1)",
+"shown": "POISSON.DIST(1,1,1)"
+},
+{
+"typed": "QUARTILE.EXC(1,1)",
+"stored": "_xlfn.QUARTILE.EXC(1,1)",
+"shown": "QUARTILE.EXC(1,1)"
+},
+{
+"typed": "QUARTILE.INC(1,1)",
+"stored": "_xlfn.QUARTILE.INC(1,1)",
+"shown": "QUARTILE.INC(1,1)"
+},
+{
+"typed": "RANDARRAY()",
+"stored": "_xlfn.RANDARRAY()",
+"shown": "RANDARRAY()"
+},
+{
+"typed": "REGEXEXTRACT(1,1)",
+"stored": "_xlfn.REGEXEXTRACT(1,1)",
+"shown": "REGEXEXTRACT(1,1)"
+},
+{
+"typed": "REGEXREPLACE(1,1,1)",
+"stored": "_xlfn.REGEXREPLACE(1,1,1)",
+"shown": "REGEXREPLACE(1,1,1)"
+},
+{
+"typed": "REGEXTEST(1,1)",
+"stored": "_xlfn.REGEXTEST(1,1)",
+"shown": "REGEXTEST(1,1)"
+},
+{
+"typed": "RRI(1,1,1)",
+"stored": "_xlfn.RRI(1,1,1)",
+"shown": "RRI(1,1,1)"
+},
+{
+"typed": "SEC(1)",
+"stored": "_xlfn.SEC(1)",
+"shown": "SEC(1)"
+},
+{
+"typed": "SECH(1)",
+"stored": "_xlfn.SECH(1)",
+"shown": "SECH(1)"
+},
+{
+"typed": "SEQUENCE(1)",
+"stored": "_xlfn.SEQUENCE(1)",
+"shown": "SEQUENCE(1)"
+},
+{
+"typed": "SHEET()",
+"stored": "_xlfn.SHEET()",
+"shown": "SHEET()"
+},
+{
+"typed": "SHEETS()",
+"stored": "_xlfn.SHEETS()",
+"shown": "SHEETS()"
+},
+{
+"typed": "SKEW.P(1)",
+"stored": "_xlfn.SKEW.P(1)",
+"shown": "SKEW.P(1)"
+},
+{
+"typed": "SORT(1)",
+"stored": "_xlfn._xlws.SORT(1)",
+"shown": "SORT(1)"
+},
+{
+"typed": "SORTBY(1,1)",
+"stored": "_xlfn.SORTBY(1,1)",
+"shown": "SORTBY(1,1)"
+},
+{
+"typed": "STDEV.P(1)",
+"stored": "_xlfn.STDEV.P(1)",
+"shown": "STDEV.P(1)"
+},
+{
+"typed": "STDEV.S(1)",
+"stored": "_xlfn.STDEV.S(1)",
+"shown": "STDEV.S(1)"
+},
+{
+"typed": "SWITCH(1,1,1)",
+"stored": "_xlfn.SWITCH(1,1,1)",
+"shown": "SWITCH(1,1,1)"
+},
+{
+"typed": "T.DIST(1,1,1)",
+"stored": "_xlfn.T.DIST(1,1,1)",
+"shown": "T.DIST(1,1,1)"
+},
+{
+"typed": "T.DIST.2T(1,1)",
+"stored": "_xlfn.T.DIST.2T(1,1)",
+"shown": "T.DIST.2T(1,1)"
+},
+{
+"typed": "T.DIST.RT(1,1)",
+"stored": "_xlfn.T.DIST.RT(1,1)",
+"shown": "T.DIST.RT(1,1)"
+},
+{
+"typed": "T.INV(1,1)",
+"stored": "_xlfn.T.INV(1,1)",
+"shown": "T.INV(1,1)"
+},
+{
+"typed": "T.INV.2T(1,1)",
+"stored": "_xlfn.T.INV.2T(1,1)",
+"shown": "T.INV.2T(1,1)"
+},
+{
+"typed": "T.TEST(1,1,1,1)",
+"stored": "_xlfn.T.TEST(1,1,1,1)",
+"shown": "T.TEST(1,1,1,1)"
+},
+{
+"typed": "TAKE(1,1)",
+"stored": "_xlfn.TAKE(1,1)",
+"shown": "TAKE(1,1)"
+},
+{
+"typed": "TEXTAFTER(1,1)",
+"stored": "_xlfn.TEXTAFTER(1,1)",
+"shown": "TEXTAFTER(1,1)"
+},
+{
+"typed": "TEXTBEFORE(1,1)",
+"stored": "_xlfn.TEXTBEFORE(1,1)",
+"shown": "TEXTBEFORE(1,1)"
+},
+{
+"typed": "TEXTJOIN(1,1,1)",
+"stored": "_xlfn.TEXTJOIN(1,1,1)",
+"shown": "TEXTJOIN(1,1,1)"
+},
+{
+"typed": "TEXTSPLIT(1,1)",
+"stored": "_xlfn.TEXTSPLIT(1,1)",
+"shown": "TEXTSPLIT(1,1)"
+},
+{
+"typed": "TOCOL(1)",
+"stored": "_xlfn.TOCOL(1)",
+"shown": "TOCOL(1)"
+},
+{
+"typed": "TOROW(1)",
+"stored": "_xlfn.TOROW(1)",
+"shown": "TOROW(1)"
+},
+{
+"typed": "TRIMRANGE(1)",
+"stored": "_xlfn.TRIMRANGE(1)",
+"shown": "TRIMRANGE(1)"
+},
+{
+"typed": "UNICHAR(1)",
+"stored": "_xlfn.UNICHAR(1)",
+"shown": "UNICHAR(1)"
+},
+{
+"typed": "UNICODE(1)",
+"stored": "_xlfn.UNICODE(1)",
+"shown": "UNICODE(1)"
+},
+{
+"typed": "UNIQUE(1)",
+"stored": "_xlfn.UNIQUE(1)",
+"shown": "UNIQUE(1)"
+},
+{
+"typed": "VALUETOTEXT(1)",
+"stored": "_xlfn.VALUETOTEXT(1)",
+"shown": "VALUETOTEXT(1)"
+},
+{
+"typed": "VAR.P(1)",
+"stored": "_xlfn.VAR.P(1)",
+"shown": "VAR.P(1)"
+},
+{
+"typed": "VAR.S(1)",
+"stored": "_xlfn.VAR.S(1)",
+"shown": "VAR.S(1)"
+},
+{
+"typed": "VSTACK(1)",
+"stored": "_xlfn.VSTACK(1)",
+"shown": "VSTACK(1)"
+},
+{
+"typed": "WEBSERVICE(1)",
+"stored": "_xlfn.WEBSERVICE(1)",
+"shown": "WEBSERVICE(1)"
+},
+{
+"typed": "WEIBULL.DIST(1,1,1,1)",
+"stored": "_xlfn.WEIBULL.DIST(1,1,1,1)",
+"shown": "WEIBULL.DIST(1,1,1,1)"
+},
+{
+"typed": "WORKDAY.INTL(1,1)",
+"stored": "WORKDAY.INTL(1,1)",
+"shown": "WORKDAY.INTL(1,1)"
+},
+{
+"typed": "WRAPCOLS(1,1)",
+"stored": "_xlfn.WRAPCOLS(1,1)",
+"shown": "WRAPCOLS(1,1)"
+},
+{
+"typed": "WRAPROWS(1,1)",
+"stored": "_xlfn.WRAPROWS(1,1)",
+"shown": "WRAPROWS(1,1)"
+},
+{
+"typed": "XLOOKUP(1,1,1)",
+"stored": "_xlfn.XLOOKUP(1,1,1)",
+"shown": "XLOOKUP(1,1,1)"
+},
+{
+"typed": "XMATCH(1,1)",
+"stored": "_xlfn.XMATCH(1,1)",
+"shown": "XMATCH(1,1)"
+},
+{
+"typed": "XOR(1)",
+"stored": "_xlfn.XOR(1)",
+"shown": "XOR(1)"
+},
+{
+"typed": "Z.TEST(1,1)",
+"stored": "_xlfn.Z.TEST(1,1)",
+"shown": "Z.TEST(1,1)"
+},
+{
+"typed": "SUM(1)",
+"stored": "SUM(1)",
+"shown": "SUM(1)"
+},
+{
+"typed": "IFERROR(1,1)",
+"stored": "IFERROR(1,1)",
+"shown": "IFERROR(1,1)"
+},
+{
+"typed": "VLOOKUP(1,1,1)",
+"stored": "VLOOKUP(1,1,1)",
+"shown": "VLOOKUP(1,1,1)"
+},
+{
+"typed": "NOSUCHFUNC()",
+"stored": "NOSUCHFUNC()",
+"shown": "NOSUCHFUNC()"
+},
+{
+"typed": "LET(x,2,x*3)",
+"stored": "_xlfn.LET(_xlpm.x,2,_xlpm.x*3)",
+"shown": "LET(x,2,x*3)"
+},
+{
+"typed": "LAMBDA(x,x+1)(2)",
+"stored": "_xlfn.LAMBDA(_xlpm.x,_xlpm.x+1)(2)",
+"shown": "LAMBDA(x,x+1)(2)"
+},
+{
+"typed": "MAP(A2:A4,LAMBDA(v,v*2))",
+"stored": "_xlfn.MAP(A2:A4,_xlfn.LAMBDA(_xlpm.v,_xlpm.v*2))",
+"shown": "MAP(A2:A4,LAMBDA(v,v*2))"
+},
+{
+"typed": "REDUCE(0,A2:A4,LAMBDA(a,v,a+v))",
+"stored": "_xlfn.REDUCE(0,A2:A4,_xlfn.LAMBDA(_xlpm.a,_xlpm.v,_xlpm.a+_xlpm.v))",
+"shown": "REDUCE(0,A2:A4,LAMBDA(a,v,a+v))"
+},
+{
+"typed": "SCAN(0,A2:A4,LAMBDA(a,v,a+v))",
+"stored": "_xlfn.SCAN(0,A2:A4,_xlfn.LAMBDA(_xlpm.a,_xlpm.v,_xlpm.a+_xlpm.v))",
+"shown": "SCAN(0,A2:A4,LAMBDA(a,v,a+v))"
+},
+{
+"typed": "MAKEARRAY(2,2,LAMBDA(r,c,r*c))",
+"stored": "_xlfn.MAKEARRAY(2,2,_xlfn.LAMBDA(_xlpm.r,_xlpm.c,_xlpm.r*_xlpm.c))",
+"shown": "MAKEARRAY(2,2,LAMBDA(r,c,r*c))"
+},
+{
+"typed": "BYROW(A2:A4,LAMBDA(r,SUM(r)))",
+"stored": "_xlfn.BYROW(A2:A4,_xlfn.LAMBDA(_xlpm.r,SUM(_xlpm.r)))",
+"shown": "BYROW(A2:A4,LAMBDA(r,SUM(r)))"
+},
+{
+"typed": "BYCOL(A2:A4,LAMBDA(c,SUM(c)))",
+"stored": "_xlfn.BYCOL(A2:A4,_xlfn.LAMBDA(_xlpm.c,SUM(_xlpm.c)))",
+"shown": "BYCOL(A2:A4,LAMBDA(c,SUM(c)))"
+},
+{
+"typed": "LAMBDA(x,ISOMITTED(x))(1)",
+"stored": "_xlfn.LAMBDA(_xlpm.x,_xlfn.ISOMITTED(_xlpm.x))(1)",
+"shown": "LAMBDA(x,ISOMITTED(x))(1)"
+},
+{
+"typed": "GROUPBY(A2:A4,A2:A4,SUM)",
+"stored": "_xlfn.GROUPBY(A2:A4,A2:A4,_xleta.SUM)",
+"shown": "GROUPBY(A2:A4,A2:A4,SUM)"
+},
+{
+"typed": "PIVOTBY(A2:A4,A2:A4,A2:A4,SUM)",
+"stored": "_xlfn.PIVOTBY(A2:A4,A2:A4,A2:A4,_xleta.SUM)",
+"shown": "PIVOTBY(A2:A4,A2:A4,A2:A4,SUM)"
+},
+{
+"typed": "SUM(F2#)",
+"stored": "SUM(_xlfn.ANCHORARRAY(F2))",
+"shown": "SUM(F2#)"
+},
+{
+"typed": "@UPPER(A2:A4)",
+"stored": "_xlfn.SINGLE(UPPER(A2:A4))",
+"shown": "@UPPER(A2:A4)"
+}
+]
+},
+{
+"context": {
+"sheets": [
+"SHEET1"
+],
+"names": [],
+"tables": {}
+},
+"entries": [
+{
+"typed": "STOCKHISTORY(\"MSFT\",1)",
+"stored": "_xlfn.STOCKHISTORY(\"MSFT\",1)",
+"shown": "STOCKHISTORY(\"MSFT\",1)"
+},
+{
+"typed": "TRANSLATE(\"hello\",\"en\",\"fr\")",
+"stored": "_xlfn.TRANSLATE(\"hello\",\"en\",\"fr\")",
+"shown": "TRANSLATE(\"hello\",\"en\",\"fr\")"
+},
+{
+"typed": "DETECTLANGUAGE(\"hello\")",
+"stored": "_xlfn.DETECTLANGUAGE(\"hello\")",
+"shown": "DETECTLANGUAGE(\"hello\")"
+},
+{
+"typed": "FORMULATEXT(A2)",
+"stored": "_xlfn.FORMULATEXT(A2)",
+"shown": "FORMULATEXT(A2)"
+},
+{
+"typed": "ISFORMULA(A2)",
+"stored": "_xlfn.ISFORMULA(A2)",
+"shown": "ISFORMULA(A2)"
+},
+{
+"typed": "MAXIFS(A2:A4,A2:A4,\">0\")",
+"stored": "_xlfn.MAXIFS(A2:A4,A2:A4,\">0\")",
+"shown": "MAXIFS(A2:A4,A2:A4,\">0\")"
+},
+{
+"typed": "MINIFS(A2:A4,A2:A4,\">0\")",
+"stored": "_xlfn.MINIFS(A2:A4,A2:A4,\">0\")",
+"shown": "MINIFS(A2:A4,A2:A4,\">0\")"
+},
+{
+"typed": "RANK.AVG(1,A2:A4)",
+"stored": "_xlfn.RANK.AVG(1,A2:A4)",
+"shown": "RANK.AVG(1,A2:A4)"
+},
+{
+"typed": "RANK.EQ(1,A2:A4)",
+"stored": "_xlfn.RANK.EQ(1,A2:A4)",
+"shown": "RANK.EQ(1,A2:A4)"
+},
+{
+"typed": "SUMIFS(A2:A4,A2:A4,\">0\")",
+"stored": "SUMIFS(A2:A4,A2:A4,\">0\")",
+"shown": "SUMIFS(A2:A4,A2:A4,\">0\")"
+},
+{
+"typed": "TRANSPOSE(A2:A4)",
+"stored": "TRANSPOSE(A2:A4)",
+"shown": "TRANSPOSE(A2:A4)"
+},
+{
+"typed": "MMULT(A2:A4,1)",
+"stored": "MMULT(A2:A4,1)",
+"shown": "MMULT(A2:A4,1)"
+},
+{
+"typed": "FREQUENCY(A2:A4,A2:A4)",
+"stored": "FREQUENCY(A2:A4,A2:A4)",
+"shown": "FREQUENCY(A2:A4,A2:A4)"
+},
+{
+"typed": "INDEX(A2:A4,1)",
+"stored": "INDEX(A2:A4,1)",
+"shown": "INDEX(A2:A4,1)"
+},
+{
+"typed": "ROWS(A2:A4)",
+"stored": "ROWS(A2:A4)",
+"shown": "ROWS(A2:A4)"
+},
+{
+"typed": "SUMPRODUCT(A2:A4*2)",
+"stored": "SUMPRODUCT(A2:A4*2)",
+"shown": "SUMPRODUCT(A2:A4*2)"
+},
+{
+"typed": "SUM(A2:A4*2)",
+"stored": "SUM(A2:A4*2)",
+"shown": "SUM(A2:A4*2)"
+},
+{
+"typed": "IF(A2:A4>1,1,0)",
+"stored": "IF(A2:A4>1,1,0)",
+"shown": "IF(A2:A4>1,1,0)"
+},
+{
+"typed": "MyUdf(A2)",
+"stored": "MyUdf(A2)",
+"shown": "MyUdf(A2)"
+},
+{
+"typed": "BYROW(A2:A4,NotAFunction)",
+"stored": "_xlfn.BYROW(A2:A4,NotAFunction)",
+"shown": "BYROW(A2:A4,NotAFunction)"
+},
+{
+"typed": "@(A2:A4)",
+"stored": "_xlfn.SINGLE((A2:A4))",
+"shown": "@(A2:A4)"
+},
+{
+"typed": "SUM(Sheet1!F2#)",
+"stored": "SUM(_xlfn.ANCHORARRAY(Sheet1!F2))",
+"shown": "SUM(Sheet1!F2#)"
+},
+{
+"typed": "BYROW(A2:A4,ABS)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ABS)",
+"shown": "BYROW(A2:A4,ABS)"
+},
+{
+"typed": "BYROW(A2:A4,ACCRINT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ACCRINT)",
+"shown": "BYROW(A2:A4,ACCRINT)"
+},
+{
+"typed": "BYROW(A2:A4,ACCRINTM)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ACCRINTM)",
+"shown": "BYROW(A2:A4,ACCRINTM)"
+},
+{
+"typed": "BYROW(A2:A4,ACOS)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ACOS)",
+"shown": "BYROW(A2:A4,ACOS)"
+},
+{
+"typed": "BYROW(A2:A4,ACOSH)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ACOSH)",
+"shown": "BYROW(A2:A4,ACOSH)"
+},
+{
+"typed": "BYROW(A2:A4,ACOT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ACOT)",
+"shown": "BYROW(A2:A4,ACOT)"
+},
+{
+"typed": "BYROW(A2:A4,ACOTH)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ACOTH)",
+"shown": "BYROW(A2:A4,ACOTH)"
+},
+{
+"typed": "BYROW(A2:A4,ADDRESS)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ADDRESS)",
+"shown": "BYROW(A2:A4,ADDRESS)"
+},
+{
+"typed": "BYROW(A2:A4,AGGREGATE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.AGGREGATE)",
+"shown": "BYROW(A2:A4,AGGREGATE)"
+},
+{
+"typed": "BYROW(A2:A4,AMORDEGRC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.AMORDEGRC)",
+"shown": "BYROW(A2:A4,AMORDEGRC)"
+},
+{
+"typed": "BYROW(A2:A4,AMORLINC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.AMORLINC)",
+"shown": "BYROW(A2:A4,AMORLINC)"
+},
+{
+"typed": "BYROW(A2:A4,ANCHORARRAY)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ANCHORARRAY)",
+"shown": "BYROW(A2:A4,ANCHORARRAY)"
+},
+{
+"typed": "BYROW(A2:A4,AND)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.AND)",
+"shown": "BYROW(A2:A4,AND)"
+},
+{
+"typed": "BYROW(A2:A4,ARABIC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ARABIC)",
+"shown": "BYROW(A2:A4,ARABIC)"
+},
+{
+"typed": "BYROW(A2:A4,AREAS)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.AREAS)",
+"shown": "BYROW(A2:A4,AREAS)"
+},
+{
+"typed": "BYROW(A2:A4,ARRAYTOTEXT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ARRAYTOTEXT)",
+"shown": "BYROW(A2:A4,ARRAYTOTEXT)"
+},
+{
+"typed": "BYROW(A2:A4,ASC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ASC)",
+"shown": "BYROW(A2:A4,ASC)"
+},
+{
+"typed": "BYROW(A2:A4,ASIN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ASIN)",
+"shown": "BYROW(A2:A4,ASIN)"
+},
+{
+"typed": "BYROW(A2:A4,ASINH)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ASINH)",
+"shown": "BYROW(A2:A4,ASINH)"
+},
+{
+"typed": "BYROW(A2:A4,ATAN2)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ATAN2)",
+"shown": "BYROW(A2:A4,ATAN2)"
+},
+{
+"typed": "BYROW(A2:A4,ATANH)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ATANH)",
+"shown": "BYROW(A2:A4,ATANH)"
+},
+{
+"typed": "BYROW(A2:A4,AVEDEV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.AVEDEV)",
+"shown": "BYROW(A2:A4,AVEDEV)"
+},
+{
+"typed": "BYROW(A2:A4,AVERAGE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.AVERAGE)",
+"shown": "BYROW(A2:A4,AVERAGE)"
+},
+{
+"typed": "BYROW(A2:A4,AVERAGEIF)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.AVERAGEIF)",
+"shown": "BYROW(A2:A4,AVERAGEIF)"
+},
+{
+"typed": "BYROW(A2:A4,AVERAGEIFS)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.AVERAGEIFS)",
+"shown": "BYROW(A2:A4,AVERAGEIFS)"
+},
+{
+"typed": "BYROW(A2:A4,BAHTTEXT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.BAHTTEXT)",
+"shown": "BYROW(A2:A4,BAHTTEXT)"
+},
+{
+"typed": "BYROW(A2:A4,BASE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.BASE)",
+"shown": "BYROW(A2:A4,BASE)"
+},
+{
+"typed": "BYROW(A2:A4,BESSELI)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.BESSELI)",
+"shown": "BYROW(A2:A4,BESSELI)"
+},
+{
+"typed": "BYROW(A2:A4,BESSELJ)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.BESSELJ)",
+"shown": "BYROW(A2:A4,BESSELJ)"
+},
+{
+"typed": "BYROW(A2:A4,BESSELK)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.BESSELK)",
+"shown": "BYROW(A2:A4,BESSELK)"
+},
+{
+"typed": "BYROW(A2:A4,BESSELY)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.BESSELY)",
+"shown": "BYROW(A2:A4,BESSELY)"
+},
+{
+"typed": "BYROW(A2:A4,BETA.DIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.BETA.DIST)",
+"shown": "BYROW(A2:A4,BETA.DIST)"
+},
+{
+"typed": "BYROW(A2:A4,BETA.INV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.BETA.INV)",
+"shown": "BYROW(A2:A4,BETA.INV)"
+},
+{
+"typed": "BYROW(A2:A4,BETADIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.BETADIST)",
+"shown": "BYROW(A2:A4,BETADIST)"
+},
+{
+"typed": "BYROW(A2:A4,BETAINV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.BETAINV)",
+"shown": "BYROW(A2:A4,BETAINV)"
+},
+{
+"typed": "BYROW(A2:A4,BIN2DEC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.BIN2DEC)",
+"shown": "BYROW(A2:A4,BIN2DEC)"
+},
+{
+"typed": "BYROW(A2:A4,BIN2HEX)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.BIN2HEX)",
+"shown": "BYROW(A2:A4,BIN2HEX)"
+},
+{
+"typed": "BYROW(A2:A4,BIN2OCT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.BIN2OCT)",
+"shown": "BYROW(A2:A4,BIN2OCT)"
+},
+{
+"typed": "BYROW(A2:A4,BINOM.DIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.BINOM.DIST)",
+"shown": "BYROW(A2:A4,BINOM.DIST)"
+},
+{
+"typed": "BYROW(A2:A4,BINOM.DIST.RANGE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.BINOM.DIST.RANGE)",
+"shown": "BYROW(A2:A4,BINOM.DIST.RANGE)"
+},
+{
+"typed": "BYROW(A2:A4,BINOM.INV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.BINOM.INV)",
+"shown": "BYROW(A2:A4,BINOM.INV)"
+},
+{
+"typed": "BYROW(A2:A4,BINOMDIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.BINOMDIST)",
+"shown": "BYROW(A2:A4,BINOMDIST)"
+},
+{
+"typed": "BYROW(A2:A4,BITAND)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.BITAND)",
+"shown": "BYROW(A2:A4,BITAND)"
+},
+{
+"typed": "BYROW(A2:A4,BITLSHIFT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.BITLSHIFT)",
+"shown": "BYROW(A2:A4,BITLSHIFT)"
+},
+{
+"typed": "BYROW(A2:A4,BITOR)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.BITOR)",
+"shown": "BYROW(A2:A4,BITOR)"
+},
+{
+"typed": "BYROW(A2:A4,BITRSHIFT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.BITRSHIFT)",
+"shown": "BYROW(A2:A4,BITRSHIFT)"
+},
+{
+"typed": "BYROW(A2:A4,BITXOR)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.BITXOR)",
+"shown": "BYROW(A2:A4,BITXOR)"
+},
+{
+"typed": "BYROW(A2:A4,CALL)",
+"stored": "_xlfn.BYROW(A2:A4,CALL)",
+"shown": "BYROW(A2:A4,CALL)"
+},
+{
+"typed": "BYROW(A2:A4,CEILING)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CEILING)",
+"shown": "BYROW(A2:A4,CEILING)"
+},
+{
+"typed": "BYROW(A2:A4,CEILING.MATH)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CEILING.MATH)",
+"shown": "BYROW(A2:A4,CEILING.MATH)"
+},
+{
+"typed": "BYROW(A2:A4,CEILING.PRECISE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CEILING.PRECISE)",
+"shown": "BYROW(A2:A4,CEILING.PRECISE)"
+},
+{
+"typed": "BYROW(A2:A4,CELL)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CELL)",
+"shown": "BYROW(A2:A4,CELL)"
+},
+{
+"typed": "BYROW(A2:A4,CHIDIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CHIDIST)",
+"shown": "BYROW(A2:A4,CHIDIST)"
+},
+{
+"typed": "BYROW(A2:A4,CHIINV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CHIINV)",
+"shown": "BYROW(A2:A4,CHIINV)"
+},
+{
+"typed": "BYROW(A2:A4,CHISQ.DIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CHISQ.DIST)",
+"shown": "BYROW(A2:A4,CHISQ.DIST)"
+},
+{
+"typed": "BYROW(A2:A4,CHISQ.DIST.RT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CHISQ.DIST.RT)",
+"shown": "BYROW(A2:A4,CHISQ.DIST.RT)"
+},
+{
+"typed": "BYROW(A2:A4,CHISQ.INV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CHISQ.INV)",
+"shown": "BYROW(A2:A4,CHISQ.INV)"
+},
+{
+"typed": "BYROW(A2:A4,CHISQ.INV.RT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CHISQ.INV.RT)",
+"shown": "BYROW(A2:A4,CHISQ.INV.RT)"
+},
+{
+"typed": "BYROW(A2:A4,CHISQ.TEST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CHISQ.TEST)",
+"shown": "BYROW(A2:A4,CHISQ.TEST)"
+},
+{
+"typed": "BYROW(A2:A4,CHITEST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CHITEST)",
+"shown": "BYROW(A2:A4,CHITEST)"
+},
+{
+"typed": "BYROW(A2:A4,CHOOSE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CHOOSE)",
+"shown": "BYROW(A2:A4,CHOOSE)"
+},
+{
+"typed": "BYROW(A2:A4,CLEAN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CLEAN)",
+"shown": "BYROW(A2:A4,CLEAN)"
+},
+{
+"typed": "BYROW(A2:A4,CODE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CODE)",
+"shown": "BYROW(A2:A4,CODE)"
+},
+{
+"typed": "BYROW(A2:A4,COLUMN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.COLUMN)",
+"shown": "BYROW(A2:A4,COLUMN)"
+},
+{
+"typed": "BYROW(A2:A4,COLUMNS)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.COLUMNS)",
+"shown": "BYROW(A2:A4,COLUMNS)"
+},
+{
+"typed": "BYROW(A2:A4,COMBIN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.COMBIN)",
+"shown": "BYROW(A2:A4,COMBIN)"
+},
+{
+"typed": "BYROW(A2:A4,COMBINA)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.COMBINA)",
+"shown": "BYROW(A2:A4,COMBINA)"
+},
+{
+"typed": "BYROW(A2:A4,COMPLEX)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.COMPLEX)",
+"shown": "BYROW(A2:A4,COMPLEX)"
+},
+{
+"typed": "BYROW(A2:A4,CONCAT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CONCAT)",
+"shown": "BYROW(A2:A4,CONCAT)"
+},
+{
+"typed": "BYROW(A2:A4,CONCATENATE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CONCATENATE)",
+"shown": "BYROW(A2:A4,CONCATENATE)"
+},
+{
+"typed": "BYROW(A2:A4,CONFIDENCE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CONFIDENCE)",
+"shown": "BYROW(A2:A4,CONFIDENCE)"
+},
+{
+"typed": "BYROW(A2:A4,CONFIDENCE.NORM)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CONFIDENCE.NORM)",
+"shown": "BYROW(A2:A4,CONFIDENCE.NORM)"
+},
+{
+"typed": "BYROW(A2:A4,CONFIDENCE.T)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CONFIDENCE.T)",
+"shown": "BYROW(A2:A4,CONFIDENCE.T)"
+},
+{
+"typed": "BYROW(A2:A4,CONVERT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CONVERT)",
+"shown": "BYROW(A2:A4,CONVERT)"
+},
+{
+"typed": "BYROW(A2:A4,COPILOT)",
+"stored": "_xlfn.BYROW(A2:A4,COPILOT)",
+"shown": "BYROW(A2:A4,COPILOT)"
+},
+{
+"typed": "BYROW(A2:A4,CORREL)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CORREL)",
+"shown": "BYROW(A2:A4,CORREL)"
+},
+{
+"typed": "BYROW(A2:A4,COSH)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.COSH)",
+"shown": "BYROW(A2:A4,COSH)"
+},
+{
+"typed": "BYROW(A2:A4,COT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.COT)",
+"shown": "BYROW(A2:A4,COT)"
+},
+{
+"typed": "BYROW(A2:A4,COTH)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.COTH)",
+"shown": "BYROW(A2:A4,COTH)"
+},
+{
+"typed": "BYROW(A2:A4,COUNT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.COUNT)",
+"shown": "BYROW(A2:A4,COUNT)"
+},
+{
+"typed": "BYROW(A2:A4,COUNTA)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.COUNTA)",
+"shown": "BYROW(A2:A4,COUNTA)"
+},
+{
+"typed": "BYROW(A2:A4,COUNTBLANK)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.COUNTBLANK)",
+"shown": "BYROW(A2:A4,COUNTBLANK)"
+},
+{
+"typed": "BYROW(A2:A4,COUNTIF)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.COUNTIF)",
+"shown": "BYROW(A2:A4,COUNTIF)"
+},
+{
+"typed": "BYROW(A2:A4,COUNTIFS)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.COUNTIFS)",
+"shown": "BYROW(A2:A4,COUNTIFS)"
+},
+{
+"typed": "BYROW(A2:A4,COUPDAYBS)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.COUPDAYBS)",
+"shown": "BYROW(A2:A4,COUPDAYBS)"
+},
+{
+"typed": "BYROW(A2:A4,COUPDAYS)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.COUPDAYS)",
+"shown": "BYROW(A2:A4,COUPDAYS)"
+},
+{
+"typed": "BYROW(A2:A4,COUPDAYSNC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.COUPDAYSNC)",
+"shown": "BYROW(A2:A4,COUPDAYSNC)"
+},
+{
+"typed": "BYROW(A2:A4,COUPNCD)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.COUPNCD)",
+"shown": "BYROW(A2:A4,COUPNCD)"
+},
+{
+"typed": "BYROW(A2:A4,COUPNUM)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.COUPNUM)",
+"shown": "BYROW(A2:A4,COUPNUM)"
+},
+{
+"typed": "BYROW(A2:A4,COUPPCD)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.COUPPCD)",
+"shown": "BYROW(A2:A4,COUPPCD)"
+},
+{
+"typed": "BYROW(A2:A4,COVAR)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.COVAR)",
+"shown": "BYROW(A2:A4,COVAR)"
+},
+{
+"typed": "BYROW(A2:A4,COVARIANCE.P)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.COVARIANCE.P)",
+"shown": "BYROW(A2:A4,COVARIANCE.P)"
+},
+{
+"typed": "BYROW(A2:A4,COVARIANCE.S)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.COVARIANCE.S)",
+"shown": "BYROW(A2:A4,COVARIANCE.S)"
+},
+{
+"typed": "BYROW(A2:A4,CRITBINOM)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CRITBINOM)",
+"shown": "BYROW(A2:A4,CRITBINOM)"
+},
+{
+"typed": "BYROW(A2:A4,CSC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CSC)",
+"shown": "BYROW(A2:A4,CSC)"
+},
+{
+"typed": "BYROW(A2:A4,CSCH)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CSCH)",
+"shown": "BYROW(A2:A4,CSCH)"
+},
+{
+"typed": "BYROW(A2:A4,CUBEMEMBER)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CUBEMEMBER)",
+"shown": "BYROW(A2:A4,CUBEMEMBER)"
+},
+{
+"typed": "BYROW(A2:A4,CUBEVALUE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CUBEVALUE)",
+"shown": "BYROW(A2:A4,CUBEVALUE)"
+},
+{
+"typed": "BYROW(A2:A4,CUMIPMT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CUMIPMT)",
+"shown": "BYROW(A2:A4,CUMIPMT)"
+},
+{
+"typed": "BYROW(A2:A4,CUMPRINC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CUMPRINC)",
+"shown": "BYROW(A2:A4,CUMPRINC)"
+},
+{
+"typed": "BYROW(A2:A4,DATE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DATE)",
+"shown": "BYROW(A2:A4,DATE)"
+},
+{
+"typed": "BYROW(A2:A4,DATEDIF)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DATEDIF)",
+"shown": "BYROW(A2:A4,DATEDIF)"
+},
+{
+"typed": "BYROW(A2:A4,DATEVALUE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DATEVALUE)",
+"shown": "BYROW(A2:A4,DATEVALUE)"
+},
+{
+"typed": "BYROW(A2:A4,DAVERAGE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DAVERAGE)",
+"shown": "BYROW(A2:A4,DAVERAGE)"
+},
+{
+"typed": "BYROW(A2:A4,DAY)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DAY)",
+"shown": "BYROW(A2:A4,DAY)"
+},
+{
+"typed": "BYROW(A2:A4,DAYS)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DAYS)",
+"shown": "BYROW(A2:A4,DAYS)"
+},
+{
+"typed": "BYROW(A2:A4,DAYS360)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DAYS360)",
+"shown": "BYROW(A2:A4,DAYS360)"
+},
+{
+"typed": "BYROW(A2:A4,DB)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DB)",
+"shown": "BYROW(A2:A4,DB)"
+},
+{
+"typed": "BYROW(A2:A4,DBCS)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DBCS)",
+"shown": "BYROW(A2:A4,DBCS)"
+},
+{
+"typed": "BYROW(A2:A4,DCOUNT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DCOUNT)",
+"shown": "BYROW(A2:A4,DCOUNT)"
+},
+{
+"typed": "BYROW(A2:A4,DCOUNTA)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DCOUNTA)",
+"shown": "BYROW(A2:A4,DCOUNTA)"
+},
+{
+"typed": "BYROW(A2:A4,DDB)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DDB)",
+"shown": "BYROW(A2:A4,DDB)"
+},
+{
+"typed": "BYROW(A2:A4,DEC2BIN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DEC2BIN)",
+"shown": "BYROW(A2:A4,DEC2BIN)"
+},
+{
+"typed": "BYROW(A2:A4,DEC2HEX)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DEC2HEX)",
+"shown": "BYROW(A2:A4,DEC2HEX)"
+},
+{
+"typed": "BYROW(A2:A4,DEC2OCT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DEC2OCT)",
+"shown": "BYROW(A2:A4,DEC2OCT)"
+},
+{
+"typed": "BYROW(A2:A4,DECIMAL)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DECIMAL)",
+"shown": "BYROW(A2:A4,DECIMAL)"
+},
+{
+"typed": "BYROW(A2:A4,DEGREES)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DEGREES)",
+"shown": "BYROW(A2:A4,DEGREES)"
+},
+{
+"typed": "BYROW(A2:A4,DELTA)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DELTA)",
+"shown": "BYROW(A2:A4,DELTA)"
+},
+{
+"typed": "BYROW(A2:A4,DETECTLANGUAGE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DETECTLANGUAGE)",
+"shown": "BYROW(A2:A4,DETECTLANGUAGE)"
+},
+{
+"typed": "BYROW(A2:A4,DEVSQ)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DEVSQ)",
+"shown": "BYROW(A2:A4,DEVSQ)"
+},
+{
+"typed": "BYROW(A2:A4,DGET)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DGET)",
+"shown": "BYROW(A2:A4,DGET)"
+},
+{
+"typed": "BYROW(A2:A4,DISC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DISC)",
+"shown": "BYROW(A2:A4,DISC)"
+},
+{
+"typed": "BYROW(A2:A4,DMAX)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DMAX)",
+"shown": "BYROW(A2:A4,DMAX)"
+},
+{
+"typed": "BYROW(A2:A4,DMIN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DMIN)",
+"shown": "BYROW(A2:A4,DMIN)"
+},
+{
+"typed": "BYROW(A2:A4,DOLLAR)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DOLLAR)",
+"shown": "BYROW(A2:A4,DOLLAR)"
+},
+{
+"typed": "BYROW(A2:A4,DOLLARDE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DOLLARDE)",
+"shown": "BYROW(A2:A4,DOLLARDE)"
+},
+{
+"typed": "BYROW(A2:A4,DOLLARFR)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DOLLARFR)",
+"shown": "BYROW(A2:A4,DOLLARFR)"
+},
+{
+"typed": "BYROW(A2:A4,DPRODUCT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DPRODUCT)",
+"shown": "BYROW(A2:A4,DPRODUCT)"
+},
+{
+"typed": "BYROW(A2:A4,DSTDEV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DSTDEV)",
+"shown": "BYROW(A2:A4,DSTDEV)"
+},
+{
+"typed": "BYROW(A2:A4,DSTDEVP)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DSTDEVP)",
+"shown": "BYROW(A2:A4,DSTDEVP)"
+},
+{
+"typed": "BYROW(A2:A4,DSUM)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DSUM)",
+"shown": "BYROW(A2:A4,DSUM)"
+},
+{
+"typed": "BYROW(A2:A4,DURATION)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DURATION)",
+"shown": "BYROW(A2:A4,DURATION)"
+},
+{
+"typed": "BYROW(A2:A4,DVAR)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DVAR)",
+"shown": "BYROW(A2:A4,DVAR)"
+},
+{
+"typed": "BYROW(A2:A4,DVARP)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DVARP)",
+"shown": "BYROW(A2:A4,DVARP)"
+},
+{
+"typed": "BYROW(A2:A4,ECMA.CEILING)",
+"stored": "_xlfn.BYROW(A2:A4,ECMA.CEILING)",
+"shown": "BYROW(A2:A4,ECMA.CEILING)"
+},
+{
+"typed": "BYROW(A2:A4,EDATE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.EDATE)",
+"shown": "BYROW(A2:A4,EDATE)"
+},
+{
+"typed": "BYROW(A2:A4,EFFECT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.EFFECT)",
+"shown": "BYROW(A2:A4,EFFECT)"
+},
+{
+"typed": "BYROW(A2:A4,ENCODEURL)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ENCODEURL)",
+"shown": "BYROW(A2:A4,ENCODEURL)"
+},
+{
+"typed": "BYROW(A2:A4,EOMONTH)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.EOMONTH)",
+"shown": "BYROW(A2:A4,EOMONTH)"
+},
+{
+"typed": "BYROW(A2:A4,ERF)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ERF)",
+"shown": "BYROW(A2:A4,ERF)"
+},
+{
+"typed": "BYROW(A2:A4,ERF.PRECISE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ERF.PRECISE)",
+"shown": "BYROW(A2:A4,ERF.PRECISE)"
+},
+{
+"typed": "BYROW(A2:A4,ERFC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ERFC)",
+"shown": "BYROW(A2:A4,ERFC)"
+},
+{
+"typed": "BYROW(A2:A4,ERFC.PRECISE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ERFC.PRECISE)",
+"shown": "BYROW(A2:A4,ERFC.PRECISE)"
+},
+{
+"typed": "BYROW(A2:A4,ERROR.TYPE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ERROR.TYPE)",
+"shown": "BYROW(A2:A4,ERROR.TYPE)"
+},
+{
+"typed": "BYROW(A2:A4,EUROCONVERT)",
+"stored": "_xlfn.BYROW(A2:A4,EUROCONVERT)",
+"shown": "BYROW(A2:A4,EUROCONVERT)"
+},
+{
+"typed": "BYROW(A2:A4,EVEN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.EVEN)",
+"shown": "BYROW(A2:A4,EVEN)"
+},
+{
+"typed": "BYROW(A2:A4,EXACT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.EXACT)",
+"shown": "BYROW(A2:A4,EXACT)"
+},
+{
+"typed": "BYROW(A2:A4,EXP)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.EXP)",
+"shown": "BYROW(A2:A4,EXP)"
+},
+{
+"typed": "BYROW(A2:A4,EXPON.DIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.EXPON.DIST)",
+"shown": "BYROW(A2:A4,EXPON.DIST)"
+},
+{
+"typed": "BYROW(A2:A4,EXPONDIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.EXPONDIST)",
+"shown": "BYROW(A2:A4,EXPONDIST)"
+},
+{
+"typed": "BYROW(A2:A4,F.DIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.F.DIST)",
+"shown": "BYROW(A2:A4,F.DIST)"
+},
+{
+"typed": "BYROW(A2:A4,F.DIST.RT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.F.DIST.RT)",
+"shown": "BYROW(A2:A4,F.DIST.RT)"
+},
+{
+"typed": "BYROW(A2:A4,F.INV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.F.INV)",
+"shown": "BYROW(A2:A4,F.INV)"
+},
+{
+"typed": "BYROW(A2:A4,F.INV.RT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.F.INV.RT)",
+"shown": "BYROW(A2:A4,F.INV.RT)"
+},
+{
+"typed": "BYROW(A2:A4,F.TEST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.F.TEST)",
+"shown": "BYROW(A2:A4,F.TEST)"
+},
+{
+"typed": "BYROW(A2:A4,FACT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FACT)",
+"shown": "BYROW(A2:A4,FACT)"
+},
+{
+"typed": "BYROW(A2:A4,FACTDOUBLE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FACTDOUBLE)",
+"shown": "BYROW(A2:A4,FACTDOUBLE)"
+},
+{
+"typed": "BYROW(A2:A4,FALSE)",
+"stored": "_xlfn.BYROW(A2:A4,FALSE)",
+"shown": "BYROW(A2:A4,FALSE)"
+},
+{
+"typed": "BYROW(A2:A4,FDIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FDIST)",
+"shown": "BYROW(A2:A4,FDIST)"
+},
+{
+"typed": "BYROW(A2:A4,FIELDVALUE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FIELDVALUE)",
+"shown": "BYROW(A2:A4,FIELDVALUE)"
+},
+{
+"typed": "BYROW(A2:A4,FILTER)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FILTER)",
+"shown": "BYROW(A2:A4,FILTER)"
+},
+{
+"typed": "BYROW(A2:A4,FILTERXML)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FILTERXML)",
+"shown": "BYROW(A2:A4,FILTERXML)"
+},
+{
+"typed": "BYROW(A2:A4,FIND)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FIND)",
+"shown": "BYROW(A2:A4,FIND)"
+},
+{
+"typed": "BYROW(A2:A4,FINDB)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FINDB)",
+"shown": "BYROW(A2:A4,FINDB)"
+},
+{
+"typed": "BYROW(A2:A4,FINV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FINV)",
+"shown": "BYROW(A2:A4,FINV)"
+},
+{
+"typed": "BYROW(A2:A4,FISHER)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FISHER)",
+"shown": "BYROW(A2:A4,FISHER)"
+},
+{
+"typed": "BYROW(A2:A4,FISHERINV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FISHERINV)",
+"shown": "BYROW(A2:A4,FISHERINV)"
+},
+{
+"typed": "BYROW(A2:A4,FIXED)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FIXED)",
+"shown": "BYROW(A2:A4,FIXED)"
+},
+{
+"typed": "BYROW(A2:A4,FLOOR)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FLOOR)",
+"shown": "BYROW(A2:A4,FLOOR)"
+},
+{
+"typed": "BYROW(A2:A4,FLOOR.MATH)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FLOOR.MATH)",
+"shown": "BYROW(A2:A4,FLOOR.MATH)"
+},
+{
+"typed": "BYROW(A2:A4,FLOOR.PRECISE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FLOOR.PRECISE)",
+"shown": "BYROW(A2:A4,FLOOR.PRECISE)"
+},
+{
+"typed": "BYROW(A2:A4,FORECAST.ETS)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FORECAST.ETS)",
+"shown": "BYROW(A2:A4,FORECAST.ETS)"
+},
+{
+"typed": "BYROW(A2:A4,FORECAST.ETS.CONFINT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FORECAST.ETS.CONFINT)",
+"shown": "BYROW(A2:A4,FORECAST.ETS.CONFINT)"
+},
+{
+"typed": "BYROW(A2:A4,FORECAST.ETS.SEASONALITY)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FORECAST.ETS.SEASONALITY)",
+"shown": "BYROW(A2:A4,FORECAST.ETS.SEASONALITY)"
+},
+{
+"typed": "BYROW(A2:A4,FORECAST.ETS.STAT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FORECAST.ETS.STAT)",
+"shown": "BYROW(A2:A4,FORECAST.ETS.STAT)"
+},
+{
+"typed": "BYROW(A2:A4,FORECAST.LINEAR)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FORECAST.LINEAR)",
+"shown": "BYROW(A2:A4,FORECAST.LINEAR)"
+},
+{
+"typed": "BYROW(A2:A4,FORMULATEXT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FORMULATEXT)",
+"shown": "BYROW(A2:A4,FORMULATEXT)"
+},
+{
+"typed": "BYROW(A2:A4,FREQUENCY)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FREQUENCY)",
+"shown": "BYROW(A2:A4,FREQUENCY)"
+},
+{
+"typed": "BYROW(A2:A4,FTEST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FTEST)",
+"shown": "BYROW(A2:A4,FTEST)"
+},
+{
+"typed": "BYROW(A2:A4,FV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FV)",
+"shown": "BYROW(A2:A4,FV)"
+},
+{
+"typed": "BYROW(A2:A4,FVSCHEDULE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FVSCHEDULE)",
+"shown": "BYROW(A2:A4,FVSCHEDULE)"
+},
+{
+"typed": "BYROW(A2:A4,GAMMA)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.GAMMA)",
+"shown": "BYROW(A2:A4,GAMMA)"
+},
+{
+"typed": "BYROW(A2:A4,GAMMA.DIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.GAMMA.DIST)",
+"shown": "BYROW(A2:A4,GAMMA.DIST)"
+},
+{
+"typed": "BYROW(A2:A4,GAMMA.INV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.GAMMA.INV)",
+"shown": "BYROW(A2:A4,GAMMA.INV)"
+},
+{
+"typed": "BYROW(A2:A4,GAMMADIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.GAMMADIST)",
+"shown": "BYROW(A2:A4,GAMMADIST)"
+},
+{
+"typed": "BYROW(A2:A4,GAMMAINV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.GAMMAINV)",
+"shown": "BYROW(A2:A4,GAMMAINV)"
+},
+{
+"typed": "BYROW(A2:A4,GAMMALN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.GAMMALN)",
+"shown": "BYROW(A2:A4,GAMMALN)"
+},
+{
+"typed": "BYROW(A2:A4,GAMMALN.PRECISE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.GAMMALN.PRECISE)",
+"shown": "BYROW(A2:A4,GAMMALN.PRECISE)"
+},
+{
+"typed": "BYROW(A2:A4,GAUSS)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.GAUSS)",
+"shown": "BYROW(A2:A4,GAUSS)"
+},
+{
+"typed": "BYROW(A2:A4,GCD)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.GCD)",
+"shown": "BYROW(A2:A4,GCD)"
+},
+{
+"typed": "BYROW(A2:A4,GEOMEAN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.GEOMEAN)",
+"shown": "BYROW(A2:A4,GEOMEAN)"
+},
+{
+"typed": "BYROW(A2:A4,GESTEP)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.GESTEP)",
+"shown": "BYROW(A2:A4,GESTEP)"
+},
+{
+"typed": "BYROW(A2:A4,GETPIVOTDATA)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.GETPIVOTDATA)",
+"shown": "BYROW(A2:A4,GETPIVOTDATA)"
+},
+{
+"typed": "BYROW(A2:A4,GROUPBY)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.GROUPBY)",
+"shown": "BYROW(A2:A4,GROUPBY)"
+},
+{
+"typed": "BYROW(A2:A4,GROWTH)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.GROWTH)",
+"shown": "BYROW(A2:A4,GROWTH)"
+},
+{
+"typed": "BYROW(A2:A4,HARMEAN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.HARMEAN)",
+"shown": "BYROW(A2:A4,HARMEAN)"
+},
+{
+"typed": "BYROW(A2:A4,HEX2BIN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.HEX2BIN)",
+"shown": "BYROW(A2:A4,HEX2BIN)"
+},
+{
+"typed": "BYROW(A2:A4,HEX2OCT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.HEX2OCT)",
+"shown": "BYROW(A2:A4,HEX2OCT)"
+},
+{
+"typed": "BYROW(A2:A4,HLOOKUP)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.HLOOKUP)",
+"shown": "BYROW(A2:A4,HLOOKUP)"
+},
+{
+"typed": "BYROW(A2:A4,HOUR)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.HOUR)",
+"shown": "BYROW(A2:A4,HOUR)"
+},
+{
+"typed": "BYROW(A2:A4,HYPERLINK)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.HYPERLINK)",
+"shown": "BYROW(A2:A4,HYPERLINK)"
+},
+{
+"typed": "BYROW(A2:A4,HYPGEOM.DIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.HYPGEOM.DIST)",
+"shown": "BYROW(A2:A4,HYPGEOM.DIST)"
+},
+{
+"typed": "BYROW(A2:A4,HYPGEOMDIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.HYPGEOMDIST)",
+"shown": "BYROW(A2:A4,HYPGEOMDIST)"
+},
+{
+"typed": "BYROW(A2:A4,IF)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IF)",
+"shown": "BYROW(A2:A4,IF)"
+},
+{
+"typed": "BYROW(A2:A4,IFERROR)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IFERROR)",
+"shown": "BYROW(A2:A4,IFERROR)"
+},
+{
+"typed": "BYROW(A2:A4,IFNA)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IFNA)",
+"shown": "BYROW(A2:A4,IFNA)"
+},
+{
+"typed": "BYROW(A2:A4,IMABS)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMABS)",
+"shown": "BYROW(A2:A4,IMABS)"
+},
+{
+"typed": "BYROW(A2:A4,IMAGINARY)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMAGINARY)",
+"shown": "BYROW(A2:A4,IMAGINARY)"
+},
+{
+"typed": "BYROW(A2:A4,IMARGUMENT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMARGUMENT)",
+"shown": "BYROW(A2:A4,IMARGUMENT)"
+},
+{
+"typed": "BYROW(A2:A4,IMCONJUGATE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMCONJUGATE)",
+"shown": "BYROW(A2:A4,IMCONJUGATE)"
+},
+{
+"typed": "BYROW(A2:A4,IMCOS)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMCOS)",
+"shown": "BYROW(A2:A4,IMCOS)"
+},
+{
+"typed": "BYROW(A2:A4,IMCOSH)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMCOSH)",
+"shown": "BYROW(A2:A4,IMCOSH)"
+},
+{
+"typed": "BYROW(A2:A4,IMCOT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMCOT)",
+"shown": "BYROW(A2:A4,IMCOT)"
+},
+{
+"typed": "BYROW(A2:A4,IMCSC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMCSC)",
+"shown": "BYROW(A2:A4,IMCSC)"
+},
+{
+"typed": "BYROW(A2:A4,IMCSCH)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMCSCH)",
+"shown": "BYROW(A2:A4,IMCSCH)"
+},
+{
+"typed": "BYROW(A2:A4,IMDIV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMDIV)",
+"shown": "BYROW(A2:A4,IMDIV)"
+},
+{
+"typed": "BYROW(A2:A4,IMEXP)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMEXP)",
+"shown": "BYROW(A2:A4,IMEXP)"
+},
+{
+"typed": "BYROW(A2:A4,IMLN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMLN)",
+"shown": "BYROW(A2:A4,IMLN)"
+},
+{
+"typed": "BYROW(A2:A4,IMLOG10)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMLOG10)",
+"shown": "BYROW(A2:A4,IMLOG10)"
+},
+{
+"typed": "BYROW(A2:A4,IMLOG2)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMLOG2)",
+"shown": "BYROW(A2:A4,IMLOG2)"
+},
+{
+"typed": "BYROW(A2:A4,IMPOWER)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMPOWER)",
+"shown": "BYROW(A2:A4,IMPOWER)"
+},
+{
+"typed": "BYROW(A2:A4,IMPRODUCT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMPRODUCT)",
+"shown": "BYROW(A2:A4,IMPRODUCT)"
+},
+{
+"typed": "BYROW(A2:A4,IMREAL)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMREAL)",
+"shown": "BYROW(A2:A4,IMREAL)"
+},
+{
+"typed": "BYROW(A2:A4,IMSEC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMSEC)",
+"shown": "BYROW(A2:A4,IMSEC)"
+},
+{
+"typed": "BYROW(A2:A4,IMSECH)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMSECH)",
+"shown": "BYROW(A2:A4,IMSECH)"
+},
+{
+"typed": "BYROW(A2:A4,IMSIN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMSIN)",
+"shown": "BYROW(A2:A4,IMSIN)"
+},
+{
+"typed": "BYROW(A2:A4,IMSINH)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMSINH)",
+"shown": "BYROW(A2:A4,IMSINH)"
+},
+{
+"typed": "BYROW(A2:A4,IMSQRT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMSQRT)",
+"shown": "BYROW(A2:A4,IMSQRT)"
+},
+{
+"typed": "BYROW(A2:A4,IMSUB)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMSUB)",
+"shown": "BYROW(A2:A4,IMSUB)"
+},
+{
+"typed": "BYROW(A2:A4,IMSUM)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMSUM)",
+"shown": "BYROW(A2:A4,IMSUM)"
+},
+{
+"typed": "BYROW(A2:A4,IMTAN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMTAN)",
+"shown": "BYROW(A2:A4,IMTAN)"
+},
+{
+"typed": "BYROW(A2:A4,INDEX)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.INDEX)",
+"shown": "BYROW(A2:A4,INDEX)"
+},
+{
+"typed": "BYROW(A2:A4,INDIRECT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.INDIRECT)",
+"shown": "BYROW(A2:A4,INDIRECT)"
+},
+{
+"typed": "BYROW(A2:A4,INFO)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.INFO)",
+"shown": "BYROW(A2:A4,INFO)"
+},
+{
+"typed": "BYROW(A2:A4,INT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.INT)",
+"shown": "BYROW(A2:A4,INT)"
+},
+{
+"typed": "BYROW(A2:A4,INTERCEPT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.INTERCEPT)",
+"shown": "BYROW(A2:A4,INTERCEPT)"
+},
+{
+"typed": "BYROW(A2:A4,INTRATE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.INTRATE)",
+"shown": "BYROW(A2:A4,INTRATE)"
+},
+{
+"typed": "BYROW(A2:A4,IPMT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IPMT)",
+"shown": "BYROW(A2:A4,IPMT)"
+},
+{
+"typed": "BYROW(A2:A4,IRR)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IRR)",
+"shown": "BYROW(A2:A4,IRR)"
+},
+{
+"typed": "BYROW(A2:A4,ISBLANK)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ISBLANK)",
+"shown": "BYROW(A2:A4,ISBLANK)"
+},
+{
+"typed": "BYROW(A2:A4,ISERR)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ISERR)",
+"shown": "BYROW(A2:A4,ISERR)"
+},
+{
+"typed": "BYROW(A2:A4,ISERROR)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ISERROR)",
+"shown": "BYROW(A2:A4,ISERROR)"
+},
+{
+"typed": "BYROW(A2:A4,ISEVEN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ISEVEN)",
+"shown": "BYROW(A2:A4,ISEVEN)"
+},
+{
+"typed": "BYROW(A2:A4,ISFORMULA)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ISFORMULA)",
+"shown": "BYROW(A2:A4,ISFORMULA)"
+},
+{
+"typed": "BYROW(A2:A4,ISLOGICAL)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ISLOGICAL)",
+"shown": "BYROW(A2:A4,ISLOGICAL)"
+},
+{
+"typed": "BYROW(A2:A4,ISNA)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ISNA)",
+"shown": "BYROW(A2:A4,ISNA)"
+},
+{
+"typed": "BYROW(A2:A4,ISNONTEXT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ISNONTEXT)",
+"shown": "BYROW(A2:A4,ISNONTEXT)"
+},
+{
+"typed": "BYROW(A2:A4,ISNUMBER)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ISNUMBER)",
+"shown": "BYROW(A2:A4,ISNUMBER)"
+},
+{
+"typed": "BYROW(A2:A4,ISO.CEILING)",
+"stored": "_xlfn.BYROW(A2:A4,ISO.CEILING)",
+"shown": "BYROW(A2:A4,ISO.CEILING)"
+},
+{
+"typed": "BYROW(A2:A4,ISODD)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ISODD)",
+"shown": "BYROW(A2:A4,ISODD)"
+},
+{
+"typed": "BYROW(A2:A4,ISOMITTED)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ISOMITTED)",
+"shown": "BYROW(A2:A4,ISOMITTED)"
+},
+{
+"typed": "BYROW(A2:A4,ISOWEEKNUM)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ISOWEEKNUM)",
+"shown": "BYROW(A2:A4,ISOWEEKNUM)"
+},
+{
+"typed": "BYROW(A2:A4,ISPMT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ISPMT)",
+"shown": "BYROW(A2:A4,ISPMT)"
+},
+{
+"typed": "BYROW(A2:A4,ISREF)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ISREF)",
+"shown": "BYROW(A2:A4,ISREF)"
+},
+{
+"typed": "BYROW(A2:A4,ISTEXT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ISTEXT)",
+"shown": "BYROW(A2:A4,ISTEXT)"
+},
+{
+"typed": "BYROW(A2:A4,JIS)",
+"stored": "_xlfn.BYROW(A2:A4,JIS)",
+"shown": "BYROW(A2:A4,JIS)"
+},
+{
+"typed": "BYROW(A2:A4,KURT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.KURT)",
+"shown": "BYROW(A2:A4,KURT)"
+},
+{
+"typed": "BYROW(A2:A4,LAMBDA)",
+"stored": "_xlfn.BYROW(A2:A4,LAMBDA)",
+"shown": "BYROW(A2:A4,LAMBDA)"
+},
+{
+"typed": "BYROW(A2:A4,LARGE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.LARGE)",
+"shown": "BYROW(A2:A4,LARGE)"
+},
+{
+"typed": "BYROW(A2:A4,LCM)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.LCM)",
+"shown": "BYROW(A2:A4,LCM)"
+},
+{
+"typed": "BYROW(A2:A4,LEFT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.LEFT)",
+"shown": "BYROW(A2:A4,LEFT)"
+},
+{
+"typed": "BYROW(A2:A4,LEFTB)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.LEFTB)",
+"shown": "BYROW(A2:A4,LEFTB)"
+},
+{
+"typed": "BYROW(A2:A4,LEN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.LEN)",
+"shown": "BYROW(A2:A4,LEN)"
+},
+{
+"typed": "BYROW(A2:A4,LENB)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.LENB)",
+"shown": "BYROW(A2:A4,LENB)"
+},
+{
+"typed": "BYROW(A2:A4,LET)",
+"stored": "_xlfn.BYROW(A2:A4,LET)",
+"shown": "BYROW(A2:A4,LET)"
+},
+{
+"typed": "BYROW(A2:A4,LINEST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.LINEST)",
+"shown": "BYROW(A2:A4,LINEST)"
+},
+{
+"typed": "BYROW(A2:A4,LN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.LN)",
+"shown": "BYROW(A2:A4,LN)"
+},
+{
+"typed": "BYROW(A2:A4,LOG)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.LOG)",
+"shown": "BYROW(A2:A4,LOG)"
+},
+{
+"typed": "BYROW(A2:A4,LOG10)",
+"stored": "_xlfn.BYROW(A2:A4,LOG10)",
+"shown": "BYROW(A2:A4,LOG10)"
+},
+{
+"typed": "BYROW(A2:A4,LOGEST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.LOGEST)",
+"shown": "BYROW(A2:A4,LOGEST)"
+},
+{
+"typed": "BYROW(A2:A4,LOGINV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.LOGINV)",
+"shown": "BYROW(A2:A4,LOGINV)"
+},
+{
+"typed": "BYROW(A2:A4,LOGNORM.DIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.LOGNORM.DIST)",
+"shown": "BYROW(A2:A4,LOGNORM.DIST)"
+},
+{
+"typed": "BYROW(A2:A4,LOGNORM.INV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.LOGNORM.INV)",
+"shown": "BYROW(A2:A4,LOGNORM.INV)"
+},
+{
+"typed": "BYROW(A2:A4,LOGNORMDIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.LOGNORMDIST)",
+"shown": "BYROW(A2:A4,LOGNORMDIST)"
+},
+{
+"typed": "BYROW(A2:A4,LOOKUP)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.LOOKUP)",
+"shown": "BYROW(A2:A4,LOOKUP)"
+},
+{
+"typed": "BYROW(A2:A4,LOWER)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.LOWER)",
+"shown": "BYROW(A2:A4,LOWER)"
+},
+{
+"typed": "BYROW(A2:A4,MATCH)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MATCH)",
+"shown": "BYROW(A2:A4,MATCH)"
+},
+{
+"typed": "BYROW(A2:A4,MAX)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MAX)",
+"shown": "BYROW(A2:A4,MAX)"
+},
+{
+"typed": "BYROW(A2:A4,MAXIFS)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MAXIFS)",
+"shown": "BYROW(A2:A4,MAXIFS)"
+},
+{
+"typed": "BYROW(A2:A4,MDETERM)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MDETERM)",
+"shown": "BYROW(A2:A4,MDETERM)"
+},
+{
+"typed": "BYROW(A2:A4,MDURATION)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MDURATION)",
+"shown": "BYROW(A2:A4,MDURATION)"
+},
+{
+"typed": "BYROW(A2:A4,MEDIAN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MEDIAN)",
+"shown": "BYROW(A2:A4,MEDIAN)"
+},
+{
+"typed": "BYROW(A2:A4,MID)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MID)",
+"shown": "BYROW(A2:A4,MID)"
+},
+{
+"typed": "BYROW(A2:A4,MIDB)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MIDB)",
+"shown": "BYROW(A2:A4,MIDB)"
+},
+{
+"typed": "BYROW(A2:A4,MIN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MIN)",
+"shown": "BYROW(A2:A4,MIN)"
+},
+{
+"typed": "BYROW(A2:A4,MINIFS)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MINIFS)",
+"shown": "BYROW(A2:A4,MINIFS)"
+},
+{
+"typed": "BYROW(A2:A4,MINUTE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MINUTE)",
+"shown": "BYROW(A2:A4,MINUTE)"
+},
+{
+"typed": "BYROW(A2:A4,MINVERSE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MINVERSE)",
+"shown": "BYROW(A2:A4,MINVERSE)"
+},
+{
+"typed": "BYROW(A2:A4,MIRR)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MIRR)",
+"shown": "BYROW(A2:A4,MIRR)"
+},
+{
+"typed": "BYROW(A2:A4,MMULT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MMULT)",
+"shown": "BYROW(A2:A4,MMULT)"
+},
+{
+"typed": "BYROW(A2:A4,MOD)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MOD)",
+"shown": "BYROW(A2:A4,MOD)"
+},
+{
+"typed": "BYROW(A2:A4,MODE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MODE)",
+"shown": "BYROW(A2:A4,MODE)"
+},
+{
+"typed": "BYROW(A2:A4,MODE.MULT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MODE.MULT)",
+"shown": "BYROW(A2:A4,MODE.MULT)"
+},
+{
+"typed": "BYROW(A2:A4,MODE.SNGL)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MODE.SNGL)",
+"shown": "BYROW(A2:A4,MODE.SNGL)"
+},
+{
+"typed": "BYROW(A2:A4,MONTH)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MONTH)",
+"shown": "BYROW(A2:A4,MONTH)"
+},
+{
+"typed": "BYROW(A2:A4,MROUND)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MROUND)",
+"shown": "BYROW(A2:A4,MROUND)"
+},
+{
+"typed": "BYROW(A2:A4,MULTINOMIAL)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MULTINOMIAL)",
+"shown": "BYROW(A2:A4,MULTINOMIAL)"
+},
+{
+"typed": "BYROW(A2:A4,MUNIT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MUNIT)",
+"shown": "BYROW(A2:A4,MUNIT)"
+},
+{
+"typed": "BYROW(A2:A4,N)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.N)",
+"shown": "BYROW(A2:A4,N)"
+},
+{
+"typed": "BYROW(A2:A4,NA)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.NA)",
+"shown": "BYROW(A2:A4,NA)"
+},
+{
+"typed": "BYROW(A2:A4,NEGBINOM.DIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.NEGBINOM.DIST)",
+"shown": "BYROW(A2:A4,NEGBINOM.DIST)"
+},
+{
+"typed": "BYROW(A2:A4,NEGBINOMDIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.NEGBINOMDIST)",
+"shown": "BYROW(A2:A4,NEGBINOMDIST)"
+},
+{
+"typed": "BYROW(A2:A4,NETWORKDAYS)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.NETWORKDAYS)",
+"shown": "BYROW(A2:A4,NETWORKDAYS)"
+},
+{
+"typed": "BYROW(A2:A4,NETWORKDAYS.INTL)",
+"stored": "_xlfn.BYROW(A2:A4,NETWORKDAYS.INTL)",
+"shown": "BYROW(A2:A4,NETWORKDAYS.INTL)"
+},
+{
+"typed": "BYROW(A2:A4,NOMINAL)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.NOMINAL)",
+"shown": "BYROW(A2:A4,NOMINAL)"
+},
+{
+"typed": "BYROW(A2:A4,NORM.DIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.NORM.DIST)",
+"shown": "BYROW(A2:A4,NORM.DIST)"
+},
+{
+"typed": "BYROW(A2:A4,NORM.INV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.NORM.INV)",
+"shown": "BYROW(A2:A4,NORM.INV)"
+},
+{
+"typed": "BYROW(A2:A4,NORM.S.DIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.NORM.S.DIST)",
+"shown": "BYROW(A2:A4,NORM.S.DIST)"
+},
+{
+"typed": "BYROW(A2:A4,NORM.S.INV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.NORM.S.INV)",
+"shown": "BYROW(A2:A4,NORM.S.INV)"
+},
+{
+"typed": "BYROW(A2:A4,NORMDIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.NORMDIST)",
+"shown": "BYROW(A2:A4,NORMDIST)"
+},
+{
+"typed": "BYROW(A2:A4,NORMINV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.NORMINV)",
+"shown": "BYROW(A2:A4,NORMINV)"
+},
+{
+"typed": "BYROW(A2:A4,NORMSDIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.NORMSDIST)",
+"shown": "BYROW(A2:A4,NORMSDIST)"
+},
+{
+"typed": "BYROW(A2:A4,NORMSINV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.NORMSINV)",
+"shown": "BYROW(A2:A4,NORMSINV)"
+},
+{
+"typed": "BYROW(A2:A4,NOT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.NOT)",
+"shown": "BYROW(A2:A4,NOT)"
+},
+{
+"typed": "BYROW(A2:A4,NOW)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.NOW)",
+"shown": "BYROW(A2:A4,NOW)"
+},
+{
+"typed": "BYROW(A2:A4,NPER)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.NPER)",
+"shown": "BYROW(A2:A4,NPER)"
+},
+{
+"typed": "BYROW(A2:A4,NPV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.NPV)",
+"shown": "BYROW(A2:A4,NPV)"
+},
+{
+"typed": "BYROW(A2:A4,NUMBERVALUE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.NUMBERVALUE)",
+"shown": "BYROW(A2:A4,NUMBERVALUE)"
+},
+{
+"typed": "BYROW(A2:A4,OCT2BIN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.OCT2BIN)",
+"shown": "BYROW(A2:A4,OCT2BIN)"
+},
+{
+"typed": "BYROW(A2:A4,OCT2DEC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.OCT2DEC)",
+"shown": "BYROW(A2:A4,OCT2DEC)"
+},
+{
+"typed": "BYROW(A2:A4,OCT2HEX)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.OCT2HEX)",
+"shown": "BYROW(A2:A4,OCT2HEX)"
+},
+{
+"typed": "BYROW(A2:A4,ODD)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ODD)",
+"shown": "BYROW(A2:A4,ODD)"
+},
+{
+"typed": "BYROW(A2:A4,ODDFPRICE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ODDFPRICE)",
+"shown": "BYROW(A2:A4,ODDFPRICE)"
+},
+{
+"typed": "BYROW(A2:A4,ODDFYIELD)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ODDFYIELD)",
+"shown": "BYROW(A2:A4,ODDFYIELD)"
+},
+{
+"typed": "BYROW(A2:A4,ODDLPRICE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ODDLPRICE)",
+"shown": "BYROW(A2:A4,ODDLPRICE)"
+},
+{
+"typed": "BYROW(A2:A4,ODDLYIELD)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ODDLYIELD)",
+"shown": "BYROW(A2:A4,ODDLYIELD)"
+},
+{
+"typed": "BYROW(A2:A4,OFFSET)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.OFFSET)",
+"shown": "BYROW(A2:A4,OFFSET)"
+},
+{
+"typed": "BYROW(A2:A4,OR)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.OR)",
+"shown": "BYROW(A2:A4,OR)"
+},
+{
+"typed": "BYROW(A2:A4,PDURATION)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PDURATION)",
+"shown": "BYROW(A2:A4,PDURATION)"
+},
+{
+"typed": "BYROW(A2:A4,PEARSON)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PEARSON)",
+"shown": "BYROW(A2:A4,PEARSON)"
+},
+{
+"typed": "BYROW(A2:A4,PERCENTILE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PERCENTILE)",
+"shown": "BYROW(A2:A4,PERCENTILE)"
+},
+{
+"typed": "BYROW(A2:A4,PERCENTILE.EXC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PERCENTILE.EXC)",
+"shown": "BYROW(A2:A4,PERCENTILE.EXC)"
+},
+{
+"typed": "BYROW(A2:A4,PERCENTILE.INC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PERCENTILE.INC)",
+"shown": "BYROW(A2:A4,PERCENTILE.INC)"
+},
+{
+"typed": "BYROW(A2:A4,PERCENTOF)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PERCENTOF)",
+"shown": "BYROW(A2:A4,PERCENTOF)"
+},
+{
+"typed": "BYROW(A2:A4,PERCENTRANK)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PERCENTRANK)",
+"shown": "BYROW(A2:A4,PERCENTRANK)"
+},
+{
+"typed": "BYROW(A2:A4,PERCENTRANK.EXC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PERCENTRANK.EXC)",
+"shown": "BYROW(A2:A4,PERCENTRANK.EXC)"
+},
+{
+"typed": "BYROW(A2:A4,PERCENTRANK.INC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PERCENTRANK.INC)",
+"shown": "BYROW(A2:A4,PERCENTRANK.INC)"
+},
+{
+"typed": "BYROW(A2:A4,PERMUT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PERMUT)",
+"shown": "BYROW(A2:A4,PERMUT)"
+},
+{
+"typed": "BYROW(A2:A4,PERMUTATIONA)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PERMUTATIONA)",
+"shown": "BYROW(A2:A4,PERMUTATIONA)"
+},
+{
+"typed": "BYROW(A2:A4,PHI)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PHI)",
+"shown": "BYROW(A2:A4,PHI)"
+},
+{
+"typed": "BYROW(A2:A4,PHONETIC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PHONETIC)",
+"shown": "BYROW(A2:A4,PHONETIC)"
+},
+{
+"typed": "BYROW(A2:A4,PI)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PI)",
+"shown": "BYROW(A2:A4,PI)"
+},
+{
+"typed": "BYROW(A2:A4,PMT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PMT)",
+"shown": "BYROW(A2:A4,PMT)"
+},
+{
+"typed": "BYROW(A2:A4,POISSON)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.POISSON)",
+"shown": "BYROW(A2:A4,POISSON)"
+},
+{
+"typed": "BYROW(A2:A4,POISSON.DIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.POISSON.DIST)",
+"shown": "BYROW(A2:A4,POISSON.DIST)"
+},
+{
+"typed": "BYROW(A2:A4,POWER)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.POWER)",
+"shown": "BYROW(A2:A4,POWER)"
+},
+{
+"typed": "BYROW(A2:A4,PPMT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PPMT)",
+"shown": "BYROW(A2:A4,PPMT)"
+},
+{
+"typed": "BYROW(A2:A4,PRICE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PRICE)",
+"shown": "BYROW(A2:A4,PRICE)"
+},
+{
+"typed": "BYROW(A2:A4,PRICEDISC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PRICEDISC)",
+"shown": "BYROW(A2:A4,PRICEDISC)"
+},
+{
+"typed": "BYROW(A2:A4,PRICEMAT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PRICEMAT)",
+"shown": "BYROW(A2:A4,PRICEMAT)"
+},
+{
+"typed": "BYROW(A2:A4,PROB)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PROB)",
+"shown": "BYROW(A2:A4,PROB)"
+},
+{
+"typed": "BYROW(A2:A4,PRODUCT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PRODUCT)",
+"shown": "BYROW(A2:A4,PRODUCT)"
+},
+{
+"typed": "BYROW(A2:A4,PROPER)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PROPER)",
+"shown": "BYROW(A2:A4,PROPER)"
+},
+{
+"typed": "BYROW(A2:A4,PV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PV)",
+"shown": "BYROW(A2:A4,PV)"
+},
+{
+"typed": "BYROW(A2:A4,PY)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.PY)",
+"shown": "BYROW(A2:A4,PY)"
+},
+{
+"typed": "BYROW(A2:A4,QUARTILE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.QUARTILE)",
+"shown": "BYROW(A2:A4,QUARTILE)"
+},
+{
+"typed": "BYROW(A2:A4,QUARTILE.EXC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.QUARTILE.EXC)",
+"shown": "BYROW(A2:A4,QUARTILE.EXC)"
+},
+{
+"typed": "BYROW(A2:A4,QUARTILE.INC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.QUARTILE.INC)",
+"shown": "BYROW(A2:A4,QUARTILE.INC)"
+},
+{
+"typed": "BYROW(A2:A4,QUOTIENT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.QUOTIENT)",
+"shown": "BYROW(A2:A4,QUOTIENT)"
+},
+{
+"typed": "BYROW(A2:A4,RADIANS)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.RADIANS)",
+"shown": "BYROW(A2:A4,RADIANS)"
+},
+{
+"typed": "BYROW(A2:A4,RAND)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.RAND)",
+"shown": "BYROW(A2:A4,RAND)"
+},
+{
+"typed": "BYROW(A2:A4,RANDARRAY)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.RANDARRAY)",
+"shown": "BYROW(A2:A4,RANDARRAY)"
+},
+{
+"typed": "BYROW(A2:A4,RANDBETWEEN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.RANDBETWEEN)",
+"shown": "BYROW(A2:A4,RANDBETWEEN)"
+},
+{
+"typed": "BYROW(A2:A4,RANK)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.RANK)",
+"shown": "BYROW(A2:A4,RANK)"
+},
+{
+"typed": "BYROW(A2:A4,RANK.AVG)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.RANK.AVG)",
+"shown": "BYROW(A2:A4,RANK.AVG)"
+},
+{
+"typed": "BYROW(A2:A4,RANK.EQ)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.RANK.EQ)",
+"shown": "BYROW(A2:A4,RANK.EQ)"
+},
+{
+"typed": "BYROW(A2:A4,RATE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.RATE)",
+"shown": "BYROW(A2:A4,RATE)"
+},
+{
+"typed": "BYROW(A2:A4,RECEIVED)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.RECEIVED)",
+"shown": "BYROW(A2:A4,RECEIVED)"
+},
+{
+"typed": "BYROW(A2:A4,REGISTER.ID)",
+"stored": "_xlfn.BYROW(A2:A4,REGISTER.ID)",
+"shown": "BYROW(A2:A4,REGISTER.ID)"
+},
+{
+"typed": "BYROW(A2:A4,REPLACE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.REPLACE)",
+"shown": "BYROW(A2:A4,REPLACE)"
+},
+{
+"typed": "BYROW(A2:A4,REPLACEB)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.REPLACEB)",
+"shown": "BYROW(A2:A4,REPLACEB)"
+},
+{
+"typed": "BYROW(A2:A4,REPT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.REPT)",
+"shown": "BYROW(A2:A4,REPT)"
+},
+{
+"typed": "BYROW(A2:A4,RIGHT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.RIGHT)",
+"shown": "BYROW(A2:A4,RIGHT)"
+},
+{
+"typed": "BYROW(A2:A4,RIGHTB)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.RIGHTB)",
+"shown": "BYROW(A2:A4,RIGHTB)"
+},
+{
+"typed": "BYROW(A2:A4,ROMAN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ROMAN)",
+"shown": "BYROW(A2:A4,ROMAN)"
+},
+{
+"typed": "BYROW(A2:A4,ROUND)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ROUND)",
+"shown": "BYROW(A2:A4,ROUND)"
+},
+{
+"typed": "BYROW(A2:A4,ROUNDDOWN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ROUNDDOWN)",
+"shown": "BYROW(A2:A4,ROUNDDOWN)"
+},
+{
+"typed": "BYROW(A2:A4,ROUNDUP)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ROUNDUP)",
+"shown": "BYROW(A2:A4,ROUNDUP)"
+},
+{
+"typed": "BYROW(A2:A4,ROW)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ROW)",
+"shown": "BYROW(A2:A4,ROW)"
+},
+{
+"typed": "BYROW(A2:A4,ROWS)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ROWS)",
+"shown": "BYROW(A2:A4,ROWS)"
+},
+{
+"typed": "BYROW(A2:A4,RRI)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.RRI)",
+"shown": "BYROW(A2:A4,RRI)"
+},
+{
+"typed": "BYROW(A2:A4,RSQ)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.RSQ)",
+"shown": "BYROW(A2:A4,RSQ)"
+},
+{
+"typed": "BYROW(A2:A4,RTD)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.RTD)",
+"shown": "BYROW(A2:A4,RTD)"
+},
+{
+"typed": "BYROW(A2:A4,SEARCH)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SEARCH)",
+"shown": "BYROW(A2:A4,SEARCH)"
+},
+{
+"typed": "BYROW(A2:A4,SEARCHB)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SEARCHB)",
+"shown": "BYROW(A2:A4,SEARCHB)"
+},
+{
+"typed": "BYROW(A2:A4,SEC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SEC)",
+"shown": "BYROW(A2:A4,SEC)"
+},
+{
+"typed": "BYROW(A2:A4,SECH)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SECH)",
+"shown": "BYROW(A2:A4,SECH)"
+},
+{
+"typed": "BYROW(A2:A4,SECOND)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SECOND)",
+"shown": "BYROW(A2:A4,SECOND)"
+},
+{
+"typed": "BYROW(A2:A4,SEQUENCE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SEQUENCE)",
+"shown": "BYROW(A2:A4,SEQUENCE)"
+},
+{
+"typed": "BYROW(A2:A4,SERIESSUM)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SERIESSUM)",
+"shown": "BYROW(A2:A4,SERIESSUM)"
+},
+{
+"typed": "BYROW(A2:A4,SHEET)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SHEET)",
+"shown": "BYROW(A2:A4,SHEET)"
+},
+{
+"typed": "BYROW(A2:A4,SIGN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SIGN)",
+"shown": "BYROW(A2:A4,SIGN)"
+},
+{
+"typed": "BYROW(A2:A4,SINGLE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SINGLE)",
+"shown": "BYROW(A2:A4,SINGLE)"
+},
+{
+"typed": "BYROW(A2:A4,SINH)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SINH)",
+"shown": "BYROW(A2:A4,SINH)"
+},
+{
+"typed": "BYROW(A2:A4,SKEW)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SKEW)",
+"shown": "BYROW(A2:A4,SKEW)"
+},
+{
+"typed": "BYROW(A2:A4,SKEW.P)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SKEW.P)",
+"shown": "BYROW(A2:A4,SKEW.P)"
+},
+{
+"typed": "BYROW(A2:A4,SLN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SLN)",
+"shown": "BYROW(A2:A4,SLN)"
+},
+{
+"typed": "BYROW(A2:A4,SLOPE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SLOPE)",
+"shown": "BYROW(A2:A4,SLOPE)"
+},
+{
+"typed": "BYROW(A2:A4,SMALL)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SMALL)",
+"shown": "BYROW(A2:A4,SMALL)"
+},
+{
+"typed": "BYROW(A2:A4,SORT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SORT)",
+"shown": "BYROW(A2:A4,SORT)"
+},
+{
+"typed": "BYROW(A2:A4,SORTBY)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SORTBY)",
+"shown": "BYROW(A2:A4,SORTBY)"
+},
+{
+"typed": "BYROW(A2:A4,SQRT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SQRT)",
+"shown": "BYROW(A2:A4,SQRT)"
+},
+{
+"typed": "BYROW(A2:A4,SQRTPI)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SQRTPI)",
+"shown": "BYROW(A2:A4,SQRTPI)"
+},
+{
+"typed": "BYROW(A2:A4,STANDARDIZE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.STANDARDIZE)",
+"shown": "BYROW(A2:A4,STANDARDIZE)"
+},
+{
+"typed": "BYROW(A2:A4,STDEV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.STDEV)",
+"shown": "BYROW(A2:A4,STDEV)"
+},
+{
+"typed": "BYROW(A2:A4,STDEV.P)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.STDEV.P)",
+"shown": "BYROW(A2:A4,STDEV.P)"
+},
+{
+"typed": "BYROW(A2:A4,STDEV.S)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.STDEV.S)",
+"shown": "BYROW(A2:A4,STDEV.S)"
+},
+{
+"typed": "BYROW(A2:A4,STDEVP)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.STDEVP)",
+"shown": "BYROW(A2:A4,STDEVP)"
+},
+{
+"typed": "BYROW(A2:A4,STEYX)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.STEYX)",
+"shown": "BYROW(A2:A4,STEYX)"
+},
+{
+"typed": "BYROW(A2:A4,STOCKHISTORY)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.STOCKHISTORY)",
+"shown": "BYROW(A2:A4,STOCKHISTORY)"
+},
+{
+"typed": "BYROW(A2:A4,SUBSTITUTE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SUBSTITUTE)",
+"shown": "BYROW(A2:A4,SUBSTITUTE)"
+},
+{
+"typed": "BYROW(A2:A4,SUBTOTAL)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SUBTOTAL)",
+"shown": "BYROW(A2:A4,SUBTOTAL)"
+},
+{
+"typed": "BYROW(A2:A4,SUM)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SUM)",
+"shown": "BYROW(A2:A4,SUM)"
+},
+{
+"typed": "BYROW(A2:A4,SUMIF)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SUMIF)",
+"shown": "BYROW(A2:A4,SUMIF)"
+},
+{
+"typed": "BYROW(A2:A4,SUMIFS)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SUMIFS)",
+"shown": "BYROW(A2:A4,SUMIFS)"
+},
+{
+"typed": "BYROW(A2:A4,SUMPRODUCT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SUMPRODUCT)",
+"shown": "BYROW(A2:A4,SUMPRODUCT)"
+},
+{
+"typed": "BYROW(A2:A4,SUMSQ)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SUMSQ)",
+"shown": "BYROW(A2:A4,SUMSQ)"
+},
+{
+"typed": "BYROW(A2:A4,SUMX2MY2)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SUMX2MY2)",
+"shown": "BYROW(A2:A4,SUMX2MY2)"
+},
+{
+"typed": "BYROW(A2:A4,SUMX2PY2)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SUMX2PY2)",
+"shown": "BYROW(A2:A4,SUMX2PY2)"
+},
+{
+"typed": "BYROW(A2:A4,SUMXMY2)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SUMXMY2)",
+"shown": "BYROW(A2:A4,SUMXMY2)"
+},
+{
+"typed": "BYROW(A2:A4,SYD)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SYD)",
+"shown": "BYROW(A2:A4,SYD)"
+},
+{
+"typed": "BYROW(A2:A4,T)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.T)",
+"shown": "BYROW(A2:A4,T)"
+},
+{
+"typed": "BYROW(A2:A4,T.DIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.T.DIST)",
+"shown": "BYROW(A2:A4,T.DIST)"
+},
+{
+"typed": "BYROW(A2:A4,T.DIST.2T)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.T.DIST.2T)",
+"shown": "BYROW(A2:A4,T.DIST.2T)"
+},
+{
+"typed": "BYROW(A2:A4,T.DIST.RT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.T.DIST.RT)",
+"shown": "BYROW(A2:A4,T.DIST.RT)"
+},
+{
+"typed": "BYROW(A2:A4,T.INV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.T.INV)",
+"shown": "BYROW(A2:A4,T.INV)"
+},
+{
+"typed": "BYROW(A2:A4,T.INV.2T)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.T.INV.2T)",
+"shown": "BYROW(A2:A4,T.INV.2T)"
+},
+{
+"typed": "BYROW(A2:A4,T.TEST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.T.TEST)",
+"shown": "BYROW(A2:A4,T.TEST)"
+},
+{
+"typed": "BYROW(A2:A4,TANH)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.TANH)",
+"shown": "BYROW(A2:A4,TANH)"
+},
+{
+"typed": "BYROW(A2:A4,TBILLEQ)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.TBILLEQ)",
+"shown": "BYROW(A2:A4,TBILLEQ)"
+},
+{
+"typed": "BYROW(A2:A4,TBILLPRICE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.TBILLPRICE)",
+"shown": "BYROW(A2:A4,TBILLPRICE)"
+},
+{
+"typed": "BYROW(A2:A4,TBILLYIELD)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.TBILLYIELD)",
+"shown": "BYROW(A2:A4,TBILLYIELD)"
+},
+{
+"typed": "BYROW(A2:A4,TDIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.TDIST)",
+"shown": "BYROW(A2:A4,TDIST)"
+},
+{
+"typed": "BYROW(A2:A4,TEXT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.TEXT)",
+"shown": "BYROW(A2:A4,TEXT)"
+},
+{
+"typed": "BYROW(A2:A4,TEXTJOIN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.TEXTJOIN)",
+"shown": "BYROW(A2:A4,TEXTJOIN)"
+},
+{
+"typed": "BYROW(A2:A4,TIME)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.TIME)",
+"shown": "BYROW(A2:A4,TIME)"
+},
+{
+"typed": "BYROW(A2:A4,TIMEVALUE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.TIMEVALUE)",
+"shown": "BYROW(A2:A4,TIMEVALUE)"
+},
+{
+"typed": "BYROW(A2:A4,TINV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.TINV)",
+"shown": "BYROW(A2:A4,TINV)"
+},
+{
+"typed": "BYROW(A2:A4,TODAY)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.TODAY)",
+"shown": "BYROW(A2:A4,TODAY)"
+},
+{
+"typed": "BYROW(A2:A4,TRANSLATE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.TRANSLATE)",
+"shown": "BYROW(A2:A4,TRANSLATE)"
+},
+{
+"typed": "BYROW(A2:A4,TRANSPOSE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.TRANSPOSE)",
+"shown": "BYROW(A2:A4,TRANSPOSE)"
+},
+{
+"typed": "BYROW(A2:A4,TREND)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.TREND)",
+"shown": "BYROW(A2:A4,TREND)"
+},
+{
+"typed": "BYROW(A2:A4,TRIM)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.TRIM)",
+"shown": "BYROW(A2:A4,TRIM)"
+},
+{
+"typed": "BYROW(A2:A4,TRIMMEAN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.TRIMMEAN)",
+"shown": "BYROW(A2:A4,TRIMMEAN)"
+},
+{
+"typed": "BYROW(A2:A4,TRIMRANGE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.TRIMRANGE)",
+"shown": "BYROW(A2:A4,TRIMRANGE)"
+},
+{
+"typed": "BYROW(A2:A4,TRUE)",
+"stored": "_xlfn.BYROW(A2:A4,TRUE)",
+"shown": "BYROW(A2:A4,TRUE)"
+},
+{
+"typed": "BYROW(A2:A4,TRUNC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.TRUNC)",
+"shown": "BYROW(A2:A4,TRUNC)"
+},
+{
+"typed": "BYROW(A2:A4,TTEST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.TTEST)",
+"shown": "BYROW(A2:A4,TTEST)"
+},
+{
+"typed": "BYROW(A2:A4,TYPE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.TYPE)",
+"shown": "BYROW(A2:A4,TYPE)"
+},
+{
+"typed": "BYROW(A2:A4,UNICHAR)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.UNICHAR)",
+"shown": "BYROW(A2:A4,UNICHAR)"
+},
+{
+"typed": "BYROW(A2:A4,UNICODE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.UNICODE)",
+"shown": "BYROW(A2:A4,UNICODE)"
+},
+{
+"typed": "BYROW(A2:A4,UNIQUE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.UNIQUE)",
+"shown": "BYROW(A2:A4,UNIQUE)"
+},
+{
+"typed": "BYROW(A2:A4,UPPER)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.UPPER)",
+"shown": "BYROW(A2:A4,UPPER)"
+},
+{
+"typed": "BYROW(A2:A4,USDOLLAR)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.USDOLLAR)",
+"shown": "BYROW(A2:A4,USDOLLAR)"
+},
+{
+"typed": "BYROW(A2:A4,VALUE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.VALUE)",
+"shown": "BYROW(A2:A4,VALUE)"
+},
+{
+"typed": "BYROW(A2:A4,VALUETOTEXT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.VALUETOTEXT)",
+"shown": "BYROW(A2:A4,VALUETOTEXT)"
+},
+{
+"typed": "BYROW(A2:A4,VAR)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.VAR)",
+"shown": "BYROW(A2:A4,VAR)"
+},
+{
+"typed": "BYROW(A2:A4,VAR.P)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.VAR.P)",
+"shown": "BYROW(A2:A4,VAR.P)"
+},
+{
+"typed": "BYROW(A2:A4,VAR.S)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.VAR.S)",
+"shown": "BYROW(A2:A4,VAR.S)"
+},
+{
+"typed": "BYROW(A2:A4,VARP)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.VARP)",
+"shown": "BYROW(A2:A4,VARP)"
+},
+{
+"typed": "BYROW(A2:A4,VDB)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.VDB)",
+"shown": "BYROW(A2:A4,VDB)"
+},
+{
+"typed": "BYROW(A2:A4,VLOOKUP)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.VLOOKUP)",
+"shown": "BYROW(A2:A4,VLOOKUP)"
+},
+{
+"typed": "BYROW(A2:A4,WEBSERVICE)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.WEBSERVICE)",
+"shown": "BYROW(A2:A4,WEBSERVICE)"
+},
+{
+"typed": "BYROW(A2:A4,WEEKDAY)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.WEEKDAY)",
+"shown": "BYROW(A2:A4,WEEKDAY)"
+},
+{
+"typed": "BYROW(A2:A4,WEEKNUM)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.WEEKNUM)",
+"shown": "BYROW(A2:A4,WEEKNUM)"
+},
+{
+"typed": "BYROW(A2:A4,WEIBULL)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.WEIBULL)",
+"shown": "BYROW(A2:A4,WEIBULL)"
+},
+{
+"typed": "BYROW(A2:A4,WEIBULL.DIST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.WEIBULL.DIST)",
+"shown": "BYROW(A2:A4,WEIBULL.DIST)"
+},
+{
+"typed": "BYROW(A2:A4,WORKDAY)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.WORKDAY)",
+"shown": "BYROW(A2:A4,WORKDAY)"
+},
+{
+"typed": "BYROW(A2:A4,WORKDAY.INTL)",
+"stored": "_xlfn.BYROW(A2:A4,WORKDAY.INTL)",
+"shown": "BYROW(A2:A4,WORKDAY.INTL)"
+},
+{
+"typed": "BYROW(A2:A4,XIRR)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.XIRR)",
+"shown": "BYROW(A2:A4,XIRR)"
+},
+{
+"typed": "BYROW(A2:A4,XLOOKUP)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.XLOOKUP)",
+"shown": "BYROW(A2:A4,XLOOKUP)"
+},
+{
+"typed": "BYROW(A2:A4,XMATCH)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.XMATCH)",
+"shown": "BYROW(A2:A4,XMATCH)"
+},
+{
+"typed": "BYROW(A2:A4,XNPV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.XNPV)",
+"shown": "BYROW(A2:A4,XNPV)"
+},
+{
+"typed": "BYROW(A2:A4,XOR)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.XOR)",
+"shown": "BYROW(A2:A4,XOR)"
+},
+{
+"typed": "BYROW(A2:A4,YEAR)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.YEAR)",
+"shown": "BYROW(A2:A4,YEAR)"
+},
+{
+"typed": "BYROW(A2:A4,YEARFRAC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.YEARFRAC)",
+"shown": "BYROW(A2:A4,YEARFRAC)"
+},
+{
+"typed": "BYROW(A2:A4,YIELDDISC)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.YIELDDISC)",
+"shown": "BYROW(A2:A4,YIELDDISC)"
+},
+{
+"typed": "BYROW(A2:A4,YIELDMAT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.YIELDMAT)",
+"shown": "BYROW(A2:A4,YIELDMAT)"
+},
+{
+"typed": "BYROW(A2:A4,Z.TEST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.Z.TEST)",
+"shown": "BYROW(A2:A4,Z.TEST)"
+},
+{
+"typed": "BYROW(A2:A4,ZTEST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ZTEST)",
+"shown": "BYROW(A2:A4,ZTEST)"
+}
+]
+},
+{
+"context": {
+"sheets": [
+"SHEET1",
+"DATA"
+],
+"names": [],
+"tables": {}
+},
+"entries": [
+{
+"typed": "SUM(A2:.A4)",
+"stored": "SUM(_xlfn._TRO_TRAILING(A2:A4))",
+"shown": "SUM(A2:.A4)"
+},
+{
+"typed": "SUM(A2.:A4)",
+"stored": "SUM(_xlfn._TRO_LEADING(A2:A4))",
+"shown": "SUM(A2.:A4)"
+},
+{
+"typed": "SUM(A2.:.A4)",
+"stored": "SUM(_xlfn._TRO_ALL(A2:A4))",
+"shown": "SUM(A2.:.A4)"
+},
+{
+"typed": "A2,A4",
+"stored": "A2,A4",
+"shown": "A2,A4"
+},
+{
+"typed": "A2(1)",
+"stored": "A2(1)",
+"shown": "A2(1)"
+},
+{
+"typed": "(A2)(1)",
+"stored": "(A2)(1)",
+"shown": "(A2)(1)"
+},
+{
+"typed": "@1",
+"stored": "_xlfn.SINGLE(1)",
+"shown": "@1"
+},
+{
+"typed": "@@1",
+"stored": "_xlfn.SINGLE(_xlfn.SINGLE(1))",
+"shown": "@@1"
+},
+{
+"typed": "SUM(F2#:A4)",
+"stored": "SUM(_xlfn.ANCHORARRAY(F2):A4)",
+"shown": "SUM(F2#:A4)"
+},
+{
+"typed": "INDEX(A2:A4,1)#",
+"stored": "_xlfn.ANCHORARRAY(INDEX(A2:A4,1))",
+"shown": "INDEX(A2:A4,1)#"
+},
+{
+"typed": "LAMBDA(x,x)(1)(2)",
+"stored": "_xlfn.LAMBDA(_xlpm.x,_xlpm.x)(1)(2)",
+"shown": "LAMBDA(x,x)(1)(2)"
+},
+{
+"typed": "Sheet1:Data!A2",
+"stored": "Sheet1:Data!A2",
+"shown": "Sheet1:Data!A2"
+},
+{
+"typed": "A2 A3",
+"stored": "A2 A3",
+"shown": "A2 A3"
+},
+{
+"typed": "MyUdf(1)#",
+"stored": "_xlfn.ANCHORARRAY(MyUdf(1))",
+"shown": "MyUdf(1)#"
+},
+{
+"typed": "BYROW(A2:A4,SUM)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SUM)",
+"shown": "BYROW(A2:A4,SUM)"
+},
+{
+"typed": "-@A2",
+"stored": "-_xlfn.SINGLE(A2)",
+"shown": "-@A2"
+},
+{
+"typed": "IF(1,N,2)",
+"stored": "IF(1,_xleta.N,2)",
+"shown": "IF(1,N,2)"
+}
+]
+},
+{
+"context": {
+"sheets": [
+"SHEET1",
+"DATA"
+],
+"names": [
+"TBL"
+],
+"tables": {
+"TBL": [
+"Q1",
+"VAL"
+]
+}
+},
+"entries": [
+{
+"typed": "Tbl[@Val]",
+"stored": "Tbl[[#This Row],[Val]]",
+"shown": "Tbl[@Val]"
+},
+{
+"typed": "Tbl[[#This Row],[Val]]",
+"stored": "Tbl[[#This Row],[Val]]",
+"shown": "Tbl[@Val]"
+},
+{
+"typed": "@A2,A4",
+"stored": "_xlfn.SINGLE(A2),A4",
+"shown": "@A2,A4"
+},
+{
+"typed": "@(A2,A4)",
+"stored": "_xlfn.SINGLE((A2,A4))",
+"shown": "@(A2,A4)"
+},
+{
+"typed": "SUM(@A2,A4)",
+"stored": "SUM(_xlfn.SINGLE(A2),A4)",
+"shown": "SUM(@A2,A4)"
+},
+{
+"typed": "A2 : A4",
+"stored": "A2:A4",
+"shown": "A2:A4"
+},
+{
+"typed": "LET(sum,1,sum)",
+"stored": "_xlfn.LET(_xlpm.sum,1,_xlpm.sum)",
+"shown": "LET(sum,1,sum)"
+},
+{
+"typed": "SUM(Tbl[[Q1]:[Val]])",
+"stored": "SUM(Tbl[[Q1]:[Val]])",
+"shown": "SUM(Tbl[[Q1]:[Val]])"
+},
+{
+"typed": "Tbl[#Headers]",
+"stored": "Tbl[#Headers]",
+"shown": "Tbl[#Headers]"
+}
+]
+},
+{
+"context": {
+"sheets": [
+"SHEET1",
+"DATA"
+],
+"names": [
+"TBL"
+],
+"tables": {
+"TBL": [
+"Q1",
+"VAL"
+]
+}
+},
+"entries": [
+{
+"typed": "ATAN(A2)",
+"stored": "ATAN(A2)",
+"shown": "ATAN(A2)"
+},
+{
+"typed": "AVERAGEA(A2)",
+"stored": "AVERAGEA(A2)",
+"shown": "AVERAGEA(A2)"
+},
+{
+"typed": "COS(A2)",
+"stored": "COS(A2)",
+"shown": "COS(A2)"
+},
+{
+"typed": "CUBEKPIMEMBER(A2,A2,A2)",
+"stored": "CUBEKPIMEMBER(A2,A2,A2)",
+"shown": "CUBEKPIMEMBER(A2,A2,A2)"
+},
+{
+"typed": "CUBEMEMBERPROPERTY(A2,A2,A2)",
+"stored": "CUBEMEMBERPROPERTY(A2,A2,A2)",
+"shown": "CUBEMEMBERPROPERTY(A2,A2,A2)"
+},
+{
+"typed": "CUBERANKEDMEMBER(A2,A2,A2)",
+"stored": "CUBERANKEDMEMBER(A2,A2,A2)",
+"shown": "CUBERANKEDMEMBER(A2,A2,A2)"
+},
+{
+"typed": "CUBESET(A2,A2)",
+"stored": "CUBESET(A2,A2)",
+"shown": "CUBESET(A2,A2)"
+},
+{
+"typed": "CUBESETCOUNT(A2)",
+"stored": "CUBESETCOUNT(A2)",
+"shown": "CUBESETCOUNT(A2)"
+},
+{
+"typed": "DATESTRING(A2)",
+"stored": "DATESTRING(A2)",
+"shown": "DATESTRING(A2)"
+},
+{
+"typed": "FORECAST(A2,A2,A2)",
+"stored": "FORECAST(A2,A2,A2)",
+"shown": "FORECAST(A2,A2,A2)"
+},
+{
+"typed": "IMPORTCSV(A2)",
+"stored": "_xlfn.IMPORTCSV(A2)",
+"shown": "IMPORTCSV(A2)"
+},
+{
+"typed": "IMPORTTEXT(A2)",
+"stored": "_xlfn.IMPORTTEXT(A2)",
+"shown": "IMPORTTEXT(A2)"
+},
+{
+"typed": "ISTHAIDIGIT(A2)",
+"stored": "ISTHAIDIGIT(A2)",
+"shown": "ISTHAIDIGIT(A2)"
+},
+{
+"typed": "MAXA(A2)",
+"stored": "MAXA(A2)",
+"shown": "MAXA(A2)"
+},
+{
+"typed": "MINA(A2)",
+"stored": "MINA(A2)",
+"shown": "MINA(A2)"
+},
+{
+"typed": "NUMBERSTRING(A2,A2)",
+"stored": "NUMBERSTRING(A2,A2)",
+"shown": "NUMBERSTRING(A2,A2)"
+},
+{
+"typed": "ROUNDBAHTDOWN(A2)",
+"stored": "ROUNDBAHTDOWN(A2)",
+"shown": "ROUNDBAHTDOWN(A2)"
+},
+{
+"typed": "ROUNDBAHTUP(A2)",
+"stored": "ROUNDBAHTUP(A2)",
+"shown": "ROUNDBAHTUP(A2)"
+},
+{
+"typed": "SIN(A2)",
+"stored": "SIN(A2)",
+"shown": "SIN(A2)"
+},
+{
+"typed": "STDEVA(A2)",
+"stored": "STDEVA(A2)",
+"shown": "STDEVA(A2)"
+},
+{
+"typed": "STDEVPA(A2)",
+"stored": "STDEVPA(A2)",
+"shown": "STDEVPA(A2)"
+},
+{
+"typed": "TAN(A2)",
+"stored": "TAN(A2)",
+"shown": "TAN(A2)"
+},
+{
+"typed": "THAIDAYOFWEEK(A2)",
+"stored": "THAIDAYOFWEEK(A2)",
+"shown": "THAIDAYOFWEEK(A2)"
+},
+{
+"typed": "THAIDIGIT(A2)",
+"stored": "THAIDIGIT(A2)",
+"shown": "THAIDIGIT(A2)"
+},
+{
+"typed": "THAIMONTHOFYEAR(A2)",
+"stored": "THAIMONTHOFYEAR(A2)",
+"shown": "THAIMONTHOFYEAR(A2)"
+},
+{
+"typed": "THAINUMSOUND(A2)",
+"stored": "THAINUMSOUND(A2)",
+"shown": "THAINUMSOUND(A2)"
+},
+{
+"typed": "THAINUMSTRING(A2)",
+"stored": "THAINUMSTRING(A2)",
+"shown": "THAINUMSTRING(A2)"
+},
+{
+"typed": "THAISTRINGLENGTH(A2)",
+"stored": "THAISTRINGLENGTH(A2)",
+"shown": "THAISTRINGLENGTH(A2)"
+},
+{
+"typed": "THAIYEAR(A2)",
+"stored": "THAIYEAR(A2)",
+"shown": "THAIYEAR(A2)"
+},
+{
+"typed": "VARA(A2)",
+"stored": "VARA(A2)",
+"shown": "VARA(A2)"
+},
+{
+"typed": "VARPA(A2)",
+"stored": "VARPA(A2)",
+"shown": "VARPA(A2)"
+},
+{
+"typed": "YIELD(A2,A2,A2,A2,A2,A2)",
+"stored": "YIELD(A2,A2,A2,A2,A2,A2)",
+"shown": "YIELD(A2,A2,A2,A2,A2,A2)"
+},
+{
+"typed": "BYROW(A2:A4,ATAN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ATAN)",
+"shown": "BYROW(A2:A4,ATAN)"
+},
+{
+"typed": "BYROW(A2:A4,AVERAGEA)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.AVERAGEA)",
+"shown": "BYROW(A2:A4,AVERAGEA)"
+},
+{
+"typed": "BYROW(A2:A4,COS)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.COS)",
+"shown": "BYROW(A2:A4,COS)"
+},
+{
+"typed": "BYROW(A2:A4,CUBEKPIMEMBER)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CUBEKPIMEMBER)",
+"shown": "BYROW(A2:A4,CUBEKPIMEMBER)"
+},
+{
+"typed": "BYROW(A2:A4,CUBEMEMBERPROPERTY)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CUBEMEMBERPROPERTY)",
+"shown": "BYROW(A2:A4,CUBEMEMBERPROPERTY)"
+},
+{
+"typed": "BYROW(A2:A4,CUBERANKEDMEMBER)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CUBERANKEDMEMBER)",
+"shown": "BYROW(A2:A4,CUBERANKEDMEMBER)"
+},
+{
+"typed": "BYROW(A2:A4,CUBESET)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CUBESET)",
+"shown": "BYROW(A2:A4,CUBESET)"
+},
+{
+"typed": "BYROW(A2:A4,CUBESETCOUNT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.CUBESETCOUNT)",
+"shown": "BYROW(A2:A4,CUBESETCOUNT)"
+},
+{
+"typed": "BYROW(A2:A4,DATESTRING)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.DATESTRING)",
+"shown": "BYROW(A2:A4,DATESTRING)"
+},
+{
+"typed": "BYROW(A2:A4,FORECAST)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.FORECAST)",
+"shown": "BYROW(A2:A4,FORECAST)"
+},
+{
+"typed": "BYROW(A2:A4,IMPORTCSV)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMPORTCSV)",
+"shown": "BYROW(A2:A4,IMPORTCSV)"
+},
+{
+"typed": "BYROW(A2:A4,IMPORTTEXT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.IMPORTTEXT)",
+"shown": "BYROW(A2:A4,IMPORTTEXT)"
+},
+{
+"typed": "BYROW(A2:A4,ISTHAIDIGIT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ISTHAIDIGIT)",
+"shown": "BYROW(A2:A4,ISTHAIDIGIT)"
+},
+{
+"typed": "BYROW(A2:A4,MAXA)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MAXA)",
+"shown": "BYROW(A2:A4,MAXA)"
+},
+{
+"typed": "BYROW(A2:A4,MINA)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.MINA)",
+"shown": "BYROW(A2:A4,MINA)"
+},
+{
+"typed": "BYROW(A2:A4,NUMBERSTRING)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.NUMBERSTRING)",
+"shown": "BYROW(A2:A4,NUMBERSTRING)"
+},
+{
+"typed": "BYROW(A2:A4,ROUNDBAHTDOWN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ROUNDBAHTDOWN)",
+"shown": "BYROW(A2:A4,ROUNDBAHTDOWN)"
+},
+{
+"typed": "BYROW(A2:A4,ROUNDBAHTUP)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.ROUNDBAHTUP)",
+"shown": "BYROW(A2:A4,ROUNDBAHTUP)"
+},
+{
+"typed": "BYROW(A2:A4,SIN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.SIN)",
+"shown": "BYROW(A2:A4,SIN)"
+},
+{
+"typed": "BYROW(A2:A4,STDEVA)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.STDEVA)",
+"shown": "BYROW(A2:A4,STDEVA)"
+},
+{
+"typed": "BYROW(A2:A4,STDEVPA)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.STDEVPA)",
+"shown": "BYROW(A2:A4,STDEVPA)"
+},
+{
+"typed": "BYROW(A2:A4,TAN)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.TAN)",
+"shown": "BYROW(A2:A4,TAN)"
+},
+{
+"typed": "BYROW(A2:A4,THAIDAYOFWEEK)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.THAIDAYOFWEEK)",
+"shown": "BYROW(A2:A4,THAIDAYOFWEEK)"
+},
+{
+"typed": "BYROW(A2:A4,THAIDIGIT)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.THAIDIGIT)",
+"shown": "BYROW(A2:A4,THAIDIGIT)"
+},
+{
+"typed": "BYROW(A2:A4,THAIMONTHOFYEAR)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.THAIMONTHOFYEAR)",
+"shown": "BYROW(A2:A4,THAIMONTHOFYEAR)"
+},
+{
+"typed": "BYROW(A2:A4,THAINUMSOUND)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.THAINUMSOUND)",
+"shown": "BYROW(A2:A4,THAINUMSOUND)"
+},
+{
+"typed": "BYROW(A2:A4,THAINUMSTRING)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.THAINUMSTRING)",
+"shown": "BYROW(A2:A4,THAINUMSTRING)"
+},
+{
+"typed": "BYROW(A2:A4,THAISTRINGLENGTH)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.THAISTRINGLENGTH)",
+"shown": "BYROW(A2:A4,THAISTRINGLENGTH)"
+},
+{
+"typed": "BYROW(A2:A4,THAIYEAR)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.THAIYEAR)",
+"shown": "BYROW(A2:A4,THAIYEAR)"
+},
+{
+"typed": "BYROW(A2:A4,VARA)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.VARA)",
+"shown": "BYROW(A2:A4,VARA)"
+},
+{
+"typed": "BYROW(A2:A4,VARPA)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.VARPA)",
+"shown": "BYROW(A2:A4,VARPA)"
+},
+{
+"typed": "BYROW(A2:A4,YIELD)",
+"stored": "_xlfn.BYROW(A2:A4,_xleta.YIELD)",
+"shown": "BYROW(A2:A4,YIELD)"
+}
+]
+}
+]

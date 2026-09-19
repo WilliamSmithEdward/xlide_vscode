@@ -50,6 +50,7 @@ import {
 	tokenText,
 } from '../walker';
 import { wholeLineSpan } from '../../../vbaSourceScan';
+import { attachedCommentsStart } from '../../docs/docComment';
 
 interface TrackedDeclaration {
 	name: string;
@@ -308,7 +309,10 @@ function removeDeclarationData(
 		if (source.slice(group.span.start, group.span.end).includes('\n')) {
 			return undefined;
 		}
-		return { variableName: decl.name, edit: { span: { start: lineStart, end: lineEnd }, newText: '' } };
+		// A module variable's doc comment goes with it; left behind, it would
+		// document the declaration that came next.
+		const start = decl.scope === 'module' ? attachedCommentsStart(source, group.span.start) : lineStart;
+		return { variableName: decl.name, edit: { span: { start, end: lineEnd }, newText: '' } };
 	}
 	const index = group.declarations.findIndex((d) => d.nameSpan?.start === decl.nameSpan.start);
 	if (index < 0) {

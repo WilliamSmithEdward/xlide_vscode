@@ -101,6 +101,10 @@ The directive applies to the next top-level member block:
 - `Type ... End Type`
 - `Enum ... End Enum`
 
+The member's `'''` doc comment is part of it, so findings about the comment
+are covered too, whether the directive sits above the comment or between the
+comment and the declaration.
+
 It does not apply to an arbitrary statement inside a procedure. Use a block
 suppression for that.
 
@@ -121,10 +125,12 @@ total = "100" ' @xlide-analysis-disable-line assignment-type-mismatch
 
 Rules:
 
-- `disable-next-line` applies only to the next physical source line.
-- `disable-line` applies only to the physical line containing the directive.
-- Line directives do not extend over continued logical lines unless explicitly
-  implemented and tested later.
+- `disable-next-line` applies only to the next source line.
+- `disable-line` applies only to the line containing the directive.
+- A statement continued over several physical lines with ` _` counts as one
+  line for both: VBA rejects a comment line inside a statement, so a directive
+  cannot sit next to a finding on a continued line. The suppression quick fix
+  puts `disable-next-line` above the statement's first line.
 
 ## Arbitrary Block Suppression
 

@@ -39,6 +39,7 @@ import {
     type VbaTestSelectionOptions,
 } from './vbaTestRunner';
 import { formatChangeSummary, withWriteAudit } from './xlideWriteAudit';
+import { runWriteWithHostCoordination } from './officeWriteCoordinator';
 import { registerXlideCommand } from './xlideCommandRegistration';
 import { gitChangesReport, gitModuleCompareDeps, type GitModuleCompareDeps } from './gitModuleCompare';
 
@@ -50,7 +51,7 @@ interface ListModulesInput { filePath: string; }
 interface ListSubsInput    { filePath: string; moduleName: string; }
 interface SearchModulesInput { filePath: string; query: string; isRegex?: boolean; matchCase?: boolean; maxResults?: number; }
 interface ReadModuleInput  { filePath: string; moduleName: string; startLine?: number; endLine?: number; }
-interface WriteModuleInput { filePath: string; moduleName: string; source: string; expectedContentToken?: string; }
+interface WriteModuleInput { filePath: string; moduleName: string; source: string; expectedContentToken?: string; kind?: string; }
 interface RenameModuleInput { filePath: string; moduleName: string; newName: string; }
 interface DeleteModuleInput { filePath: string; moduleName: string; }
 interface ListSheetsInput  { filePath: string; }
@@ -71,9 +72,28 @@ interface CreateProjectInput { filePath: string; }
 interface ReadCellsInput   { filePath: string; sheet: string; range: string; }
 interface ReadFormulasInput { filePath: string; sheet: string; range: string; }
 interface WriteCellsInput  { filePath: string; sheet: string; startCell: string; data: unknown[][]; }
+interface ListShapesInput  { filePath: string; sheet?: string; }
+interface EditShapeInput {
+    filePath: string;
+    sheet: string;
+    action: 'add' | 'update' | 'delete';
+    name?: string;
+    type?: string;
+    range?: string;
+    text?: string;
+    macro?: string;
+    linkedCell?: string;
+    inputRange?: string;
+    altText?: string;
+    newName?: string;
+}
 interface ExportModulesInput { filePath: string; exportFolder?: string; exportMode?: ExportMode; }
 interface ConfigureExportModeInput { filePath: string; exportMode: ExportMode; }
 interface GitChangesInput { filePath: string; revision?: string; moduleName?: string; }
+
+function shapeActionTitle(action: string): string {
+    return action === 'add' ? 'Add shape' : action === 'delete' ? 'Delete shape' : 'Change shape';
+}
 
 function textResult(value: string): vscode.LanguageModelToolResult {
     return new vscode.LanguageModelToolResult([
@@ -290,6 +310,26 @@ export function registerAgentTools(
         vscode.lm.registerTool<WriteModuleInput>('xlide_writeModule', {
             async invoke(options, _token) {
                 const { filePath, moduleName, source, expectedContentToken } = options.input;
+                // What a create makes. The description offered kind='class'
+                // and the tool never read it, so every new module was standard.
+                const kind = options.input.kind?.toLowerCase();
+                if (kind !== undefined && kind !== 'standard' && kind !== 'class') {
+                    return textResult(`kind must be 'standard' or 'class', not '${options.input.kind}'.`);
+                }
+                if (kind !== undefined) {
+                    // Given for a module of the other kind, the code went into that
+                    // module as it was: class code in a standard module, where `Me`
+                    // does not compile.
+                    const existing = (await bridge.call<Array<{ name: string; type: string }>>(
+                        'listModules', { path: filePath },
+                    )).find((module) => module.name.toLowerCase() === moduleName.toLowerCase());
+                    if (existing && (existing.type === 'standard') !== (kind === 'standard')) {
+                        return textResult(
+                            `"${existing.name}" is already a ${existing.type} module, and kind only chooses what a new `
+                            + 'module is. Write it without kind, or use a name no module has.',
+                        );
+                    }
+                }
                 // Only chat-driven invocations carry a toolInvocationToken;
                 // programmatic calls get no review surface.
                 const wantsReview = options.toolInvocationToken !== undefined
@@ -327,7 +367,7 @@ export function registerAgentTools(
                     // tracked like any other out-of-band write.
                     const result = await writeProjectModule(
                         ops,
-                        { filePath, moduleName, source },
+                        { filePath, moduleName, source, ...(kind !== undefined ? { kind } : {}) },
                         { agentReviewHandled: wantsReview },
                     );
                     return {
@@ -375,6 +415,7 @@ export function registerAgentTools(
         vscode.lm.registerTool<RenameModuleInput>('xlide_renameModule', {
             async invoke(options, _token) {
                 const { filePath, moduleName, newName } = options.input;
+                let renamedTo = newName;
                 const { summary } = await withWriteAudit({
                     command: 'xlide_renameModule',
                     operation: 'rename-module',
@@ -383,16 +424,18 @@ export function registerAgentTools(
                     failedSummary: 'Rename module: 0 changed, 1 failed',
                 }, async () => {
                     const result = await renameProjectModule(ops, { filePath, moduleName, newName });
+                    // An Access form's module keeps its prefix: `Form_Customers`.
+                    renamedTo = result.moduleName ?? newName;
                     return {
                         result,
-                        moduleName: newName,
+                        moduleName: renamedTo,
                         summary: formatChangeSummary({
                             operation: 'Rename module',
-                            changed: [`${moduleName} -> ${newName}`],
+                            changed: [`${moduleName} -> ${renamedTo}`],
                         }),
                     };
                 });
-                return textResult(`${summary}\nModule "${moduleName}" renamed to "${newName}".`);
+                return textResult(`${summary}\nModule "${moduleName}" renamed to "${renamedTo}".`);
             },
             async prepareInvocation(options, _token) {
                 const { filePath, moduleName, newName } = options.input;
@@ -681,12 +724,14 @@ export function registerAgentTools(
                     projectPath: filePath,
                     failedSummary: 'Write cells: 0 changed, 1 failed',
                 }, async () => {
-                    const result = await bridge.call('writeCells', {
+                    // Coordinated like a module write: with the workbook open in
+                    // Excel, the lock is handled the way the user's setting says.
+                    const result = await runWriteWithHostCoordination(filePath, () => bridge.call('writeCells', {
                         path: filePath,
                         sheet,
                         startCell,
                         data,
-                    });
+                    }));
                     return {
                         result,
                         summary: formatChangeSummary({
@@ -705,6 +750,66 @@ export function registerAgentTools(
                         title: 'Write Excel Cells',
                         message: new vscode.MarkdownString(
                             `Write data to sheet **${sheet}** starting at \`${startCell}\` in \`${filePath}\`?`,
+                        ),
+                    },
+                };
+            },
+        }),
+
+        // ----------------------------------------------------------------
+        // xlide_listShapes
+        // ----------------------------------------------------------------
+        vscode.lm.registerTool<ListShapesInput>('xlide_listShapes', {
+            async invoke(options, token) {
+                const { filePath, sheet } = options.input;
+                const result = await bridge.call<{ sheets: unknown[] }>(
+                    'listShapes',
+                    { path: filePath, ...(sheet ? { sheet } : {}) },
+                    token,
+                );
+                return textResult(JSON.stringify(result.sheets, null, 2));
+            },
+        }),
+
+        // ----------------------------------------------------------------
+        // xlide_editShape  (requires user confirmation)
+        // ----------------------------------------------------------------
+        vscode.lm.registerTool<EditShapeInput>('xlide_editShape', {
+            async invoke(options, _token) {
+                const { filePath, sheet, ...edit } = options.input;
+                const { result, summary } = await withWriteAudit({
+                    command: 'xlide_editShape',
+                    operation: 'edit-shape',
+                    projectPath: filePath,
+                    failedSummary: `${shapeActionTitle(edit.action)}: 0 changed, 1 failed`,
+                }, async () => {
+                    const result = await runWriteWithHostCoordination(filePath, () => bridge.call<{ ok: true; name: string }>('editShape', {
+                        path: filePath,
+                        sheet,
+                        ...edit,
+                    }));
+                    const shape = `${sheet}!${result.name}`;
+                    return {
+                        result,
+                        summary: formatChangeSummary({
+                            operation: shapeActionTitle(edit.action),
+                            ...(edit.action === 'delete' ? { removed: [shape] } : { changed: [shape] }),
+                        }),
+                    };
+                });
+                const done = edit.action === 'add' ? 'added' : edit.action === 'delete' ? 'deleted' : 'changed';
+                return textResult(`${summary}\nShape "${result.name}" ${done} on sheet "${sheet}".`);
+            },
+            async prepareInvocation(options, _token) {
+                const { filePath, sheet, action, name, type, range, macro } = options.input;
+                const what = action === 'add' ? `a ${type ?? 'shape'}${name ? ` named **${name}**` : ''} at \`${range ?? '?'}\`` : `**${name ?? '?'}**`;
+                const link = macro === undefined ? '' : macro ? `, running \`${macro}\` on a click` : ', with no macro';
+                return {
+                    invocationMessage: `${shapeActionTitle(action)} on "${sheet}" in "${filePath}"`,
+                    confirmationMessages: {
+                        title: shapeActionTitle(action),
+                        message: new vscode.MarkdownString(
+                            `${action === 'add' ? 'Add' : action === 'update' ? 'Change' : 'Delete'} ${what}${link} on sheet **${sheet}** in \`${filePath}\`?`,
                         ),
                     },
                 };

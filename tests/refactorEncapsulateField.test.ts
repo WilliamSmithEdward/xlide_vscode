@@ -6,6 +6,7 @@
 import { describe, expect, it } from 'vitest';
 import { encapsulateField } from '../src/analyzer/refactor/encapsulateField';
 import { applyVbaTextEdits } from '../src/analyzer/refactor/refactorTypes';
+import { extractLeadingDoc } from '../src/analyzer';
 
 /** Encapsulate the field the given name declares, and return the new module. */
 function run(source: string, name: string, projectClassNames?: readonly string[]) {
@@ -42,6 +43,36 @@ describe('what it writes', () => {
 			'End Property',
 			'',
 		].join('\r\n'));
+	});
+
+	it('moves the doc comment to the property, where callers read it', () => {
+		// It stayed above the declaration, which became the Private field, and
+		// the property callers use lost its description.
+		const source = [
+			'Option Explicit',
+			"''' <summary>The running total.</summary>",
+			"' @xlide-analysis-disable-next-line all",
+			'Public Total As Long',
+			'',
+		].join('\r\n');
+		const out = applied(source, 'Public Total');
+		expect(out).toBe([
+			'Option Explicit',
+			"' @xlide-analysis-disable-next-line all",
+			'Private m_Total As Long',
+			'',
+			"''' <summary>The running total.</summary>",
+			'Public Property Get Total() As Long',
+			'    Total = m_Total',
+			'End Property',
+			'',
+			'Public Property Let Total(ByVal RHS As Long)',
+			'    m_Total = RHS',
+			'End Property',
+			'',
+		].join('\r\n'));
+		expect(extractLeadingDoc(out, out.indexOf('Public Property Get'))?.summary).toBe('The running total.');
+		expect(extractLeadingDoc(out, out.indexOf('Private m_Total'))).toBeUndefined();
 	});
 
 	it('uses Property Set, and Set on both assignments, for an object type', () => {

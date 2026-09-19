@@ -111,7 +111,11 @@ const documents = (): vscodeTypes.TextDocument[] =>
 
 async function openAndAnalyze(document: vscodeTypes.TextDocument): Promise<void> {
     documents().push(document);
-    registerVbaDiagnostics({ subscriptions: [] } as unknown as vscodeTypes.ExtensionContext, {} as never);
+    // No project here, so the project index only has to be subscribable.
+    registerVbaDiagnostics(
+        { subscriptions: [] } as unknown as vscodeTypes.ExtensionContext,
+        { onDidChangeProject: () => ({ dispose: () => undefined }) } as never,
+    );
     await vi.advanceTimersByTimeAsync(10_000);
 }
 

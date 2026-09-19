@@ -101,6 +101,9 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     // the listing until that editor closes. Survives refresh() on purpose.
     private _editorFolders = new Map<string, string | undefined>();
 
+    // The view drawing this tree, for the reveal a row click asks for.
+    private _treeView: vscode.TreeView<XlideNode> | undefined;
+
     constructor(
         private readonly _bridge: ProjectEngine,
         private readonly _out?: vscode.OutputChannel,
@@ -325,6 +328,29 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         return this._subNodes
             .get(moduleNodeKey(filePath, moduleName))
             ?.find((node) => node.kind === 'sub' && node.label.toLowerCase() === wanted);
+    }
+
+    /** The view that draws this tree; set once, right after it is created. */
+    attachTreeView(treeView: vscode.TreeView<XlideNode>): void {
+        this._treeView = treeView;
+    }
+
+    /**
+     * A module row was clicked: it becomes the module the tree keeps open, and
+     * opens if it was folded. Following the editor does this for any other
+     * module, but a click on the module already in front changes no editor,
+     * so a row folded by hand stayed folded.
+     */
+    async expandModuleRow(node: XlideNode): Promise<void> {
+        if (node.kind !== 'module' || !node.moduleName || !this._treeView) {
+            return;
+        }
+        this.setActiveModule(node.filePath, node.moduleName);
+        try {
+            await this._treeView.reveal(node, { select: true, focus: false, expand: true });
+        } catch {
+            // The row went with a refresh; the next render draws it open.
+        }
     }
 
     /**
@@ -564,7 +590,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                     // Set, because a row with a resourceUri and no tooltip
                     // shows the URI on hover.
                     item.tooltip = `${node.label}\n\nAn agent edited this module. `
-                        + 'Keep or revert the change with the buttons on this row.';
+                        + 'Review, keep or revert the change with the buttons on this row.';
                 } else {
                     // Changed since the last commit: the decoration badges the
                     // row `M` or `A` in the Explorer's colours. Asking for the

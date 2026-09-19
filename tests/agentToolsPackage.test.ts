@@ -36,6 +36,30 @@ describe('XLIDE agent tool manifest', () => {
         expect(tool?.inputSchema?.required).toContain('filePath');
     });
 
+    it('steers agents to write VBA through the tool, which is what gets the user s review', () => {
+        // An edit an agent makes to an open xlide-vba:// document is saved into
+        // the file like any other, and XLIDE cannot tell it from the user's own
+        // typing, so it gets no diff and no tree badge. The description used to
+        // offer that as an equal path.
+        const tool = languageModelTools().find((entry) => entry.name === 'xlide_writeModule');
+
+        expect(tool?.modelDescription).toContain('Make every change with this tool, even to a module the user has open');
+        expect(tool?.modelDescription).toContain('no before/after diff and no tree badge');
+        expect(tool?.modelDescription).not.toContain('persist only through this tool or through the XLIDE virtual file system');
+    });
+
+    it('names every tool in the repository agent instructions', () => {
+        // The instructions still said 18 tools after the 19th and 20th
+        // shipped, and neither had a row in their tables.
+        const instructions = readFileSync('.github/copilot-instructions.md', 'utf8');
+        const missing = languageModelTools()
+            .map((tool) => tool.name)
+            .filter((name) => !instructions.includes(`\`${name}\``));
+
+        expect(missing).toEqual([]);
+        expect(instructions).not.toMatch(/\b\d+ tools\b/);
+    });
+
     it('exposes VBA test execution to AI agents', () => {
         const tool = languageModelTools().find((entry) => entry.name === 'xlide_runVbaTests');
 

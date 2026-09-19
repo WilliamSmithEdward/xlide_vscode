@@ -5,7 +5,7 @@ import {
     decodeModuleUri,
     XLIDE_SCHEME,
 } from '../xlideFileSystem';
-import { xlideOfficeAttachToRunningFromConfig } from '../globalSettings';
+import { xlideExplorerAutoExpandCollapseFromConfig, xlideOfficeAttachToRunningFromConfig } from '../globalSettings';
 import { containerAppNameForPath, MACRO_CONTAINER_GLOB } from '../macroContainerUi';
 import { OFFICE_HOST_APPS, officeHostForPath } from '../officeHostApps';
 import { registerXlideCommand } from '../xlideCommandRegistration';
@@ -165,6 +165,12 @@ export function registerMiscCommands(deps: CommandDeps): vscode.Disposable[] {
         // Open a module (or navigate to a sub's line inside one)
         registerXlideCommand('xlide.openModule', async (node: XlideNode) => {
             if (!node?.moduleName) { return; }
+            // A module row's own click opens the row too, under the setting that
+            // has the tree follow the editor.
+            if (node.kind === 'module'
+                && xlideExplorerAutoExpandCollapseFromConfig(vscode.workspace.getConfiguration('xlide')).value) {
+                void explorer.expandModuleRow(node);
+            }
             const editor = await showModuleEditor(node);
 
             // If a specific line was requested (sub navigation), move cursor there

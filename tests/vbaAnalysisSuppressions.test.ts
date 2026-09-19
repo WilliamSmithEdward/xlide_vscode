@@ -19,7 +19,7 @@ function diagnosticsByCode(diags: readonly VbaDiagnostic[], code: string): VbaDi
 }
 
 describe('XLIDE analysis suppression directives', () => {
-	it('suppresses only the next physical line for a matching diagnostic code', () => {
+	it('suppresses only the next line for a matching diagnostic code', () => {
 		const source =
 			'Option Explicit\n' +
 			'Sub T()\n' +
@@ -33,6 +33,53 @@ describe('XLIDE analysis suppression directives', () => {
 		expect(result.suppressedCount).toBe(1);
 		expect(diagnosticsByCode(result.diagnostics, 'undeclared-variable')).toHaveLength(1);
 		expect(result.directiveDiagnostics).toHaveLength(0);
+	});
+
+	it('covers every line of the next statement when it is continued with _', () => {
+		const source =
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			"    ' @xlide-analysis-disable-next-line undeclared-variable\n" +
+			'    total = 1 + _\n' +
+			'        notDeclared\n' +
+			'    stillMissing = 2\n' +
+			'End Sub\n';
+
+		const result = filterDiagnosticsWithSuppressions(source, semanticDiagnostics(source));
+
+		expect(result.suppressedCount).toBe(2);
+		expect(diagnosticsByCode(result.diagnostics, 'undeclared-variable')
+			.map((diag) => source.slice(diag.span.start, diag.span.end))).toEqual(['stillMissing']);
+	});
+
+	it('covers the lines continued into a disable-line', () => {
+		const source =
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			'    total = 1 + _\n' +
+			"        notDeclared ' @xlide-analysis-disable-line undeclared-variable\n" +
+			'End Sub\n';
+
+		const result = filterDiagnosticsWithSuppressions(source, semanticDiagnostics(source));
+
+		expect(result.suppressedCount).toBe(2);
+		expect(diagnosticsByCode(result.diagnostics, 'undeclared-variable')).toHaveLength(0);
+	});
+
+	it('does not take a comment ending in _ for a continued line', () => {
+		const source =
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			"    ' @xlide-analysis-disable-next-line undeclared-variable\n" +
+			"    notDeclared = 1 ' a note _\n" +
+			'    stillMissing = 2\n' +
+			'End Sub\n';
+
+		const result = filterDiagnosticsWithSuppressions(source, semanticDiagnostics(source));
+
+		expect(result.suppressedCount).toBe(1);
+		expect(diagnosticsByCode(result.diagnostics, 'undeclared-variable')
+			.map((diag) => source.slice(diag.span.start, diag.span.end))).toEqual(['stillMissing']);
 	});
 
 	it('suppresses diagnostics on the same physical line with disable-line', () => {

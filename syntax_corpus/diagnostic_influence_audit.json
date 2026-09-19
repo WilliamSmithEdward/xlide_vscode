@@ -1931,6 +1931,72 @@
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "notes": "Information-only: statements after an unconditional exit in the same block, until a label, line number, Case arm or #If gives control somewhere to land. A single-line If carrying an Exit is conditional and never a terminator."
+    },
+    {
+      "code": "doc-param-missing",
+      "status": "spec-derived",
+      "diagnosticKind": "style-policy",
+      "sourceOfTruth": "user_guides/vba-doc-comments.md doc comment vocabulary plus XLIDE documentation policy",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Warning, style only: a Sub, Function, Property, Declare or Event whose XML doc comment has no <param> for one of its parameters, or an empty one. A Property Let or Set value parameter is described by the summary and needs none. Plain-text notes are not XML and are not checked."
+    },
+    {
+      "code": "doc-param-unknown",
+      "status": "spec-derived",
+      "diagnosticKind": "style-policy",
+      "sourceOfTruth": "user_guides/vba-doc-comments.md doc comment vocabulary plus XLIDE documentation policy",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Warning, style only: a <param> in an XML doc comment that names no parameter of its declaration, or has no name attribute. Names match case-insensitively, as the call tip matches them."
+    },
+    {
+      "code": "doc-returns-missing",
+      "status": "spec-derived",
+      "diagnosticKind": "style-policy",
+      "sourceOfTruth": "user_guides/vba-doc-comments.md doc comment vocabulary plus XLIDE documentation policy",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Warning, style only: a Function or Declare Function whose XML doc comment has no <returns>, or an empty one. A Property Get is described by its summary and needs none."
+    },
+    {
+      "code": "doc-returns-unexpected",
+      "status": "spec-derived",
+      "diagnosticKind": "style-policy",
+      "sourceOfTruth": "user_guides/vba-doc-comments.md doc comment vocabulary plus XLIDE documentation policy",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Warning, style only: a <returns> in the XML doc comment of a Sub, Property Let, Property Set, Declare Sub or Event, none of which returns a value."
+    },
+    {
+      "code": "doc-tag-duplicate",
+      "status": "spec-derived",
+      "diagnosticKind": "style-policy",
+      "sourceOfTruth": "user_guides/vba-doc-comments.md doc comment vocabulary plus XLIDE documentation policy",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Warning, style only: a second <param> for the same parameter, or a second <summary>, <returns>, <remarks>, <example> or <signature>; the parser reads the first."
+    },
+    {
+      "code": "doc-tag-unclosed",
+      "status": "spec-derived",
+      "diagnosticKind": "style-policy",
+      "sourceOfTruth": "user_guides/vba-doc-comments.md doc comment vocabulary plus XLIDE documentation policy",
+      "corpusInfluence": "none",
+      "assertedOracleCases": [],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Warning, style only: a vocabulary tag with no closing tag before the next tag of the same name, which the parser drops or runs into the next one."
     }
   ]
 }

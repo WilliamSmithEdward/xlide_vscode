@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { buildXlideSidebarModel, isSponsorUrl, SPONSOR_LINKS } from '../src/xlideSidebarModel';
+import { buildXlideSidebarModel, isSponsorUrl, SPONSOR_LINKS, type XlideSidebarNode } from '../src/xlideSidebarModel';
+
+/** A section by its id, so a new section does not shift every lookup. */
+function sectionOf(model: readonly XlideSidebarNode[], id: string): XlideSidebarNode {
+    const found = model.find((section) => section.id === id);
+    expect(found, id).toBeDefined();
+    return found!;
+}
 
 describe('xlideSidebarModel', () => {
     it('builds the sidebar sections in the product order with title-case labels', () => {
@@ -12,6 +19,7 @@ describe('xlideSidebarModel', () => {
 
         expect(model.map((section) => section.label)).toEqual([
             'Welcome',
+            'Agentic AI',
             'Project Actions',
             'Settings',
             'Support',
@@ -20,7 +28,7 @@ describe('xlideSidebarModel', () => {
         expect(model[0].children?.map((node) => [node.label, node.description, node.kind])).toEqual([
             ['File Tree', 'Find file and module navigation in Explorer > XLIDE.', 'status'],
         ]);
-        expect(model[1].children?.map((node) => node.label)).toEqual([
+        expect(sectionOf(model, 'projectActions').children?.map((node) => node.label)).toEqual([
             'Target File',
             'Analyze Project',
             'Export Modules',
@@ -29,14 +37,27 @@ describe('xlideSidebarModel', () => {
             'Open in Office Application (Read Only)',
             'Unit Tests',
         ]);
-        expect(model[2].children?.map((node) => [node.label, node.description])).toEqual([
+        expect(sectionOf(model, 'settings').children?.map((node) => [node.label, node.description])).toEqual([
             ['Global Settings', 'VS Code / Machine'],
         ]);
-        expect(model[2].children?.[0]?.command?.command).toBe('xlide.openGlobalSettings');
-        expect(model[3].children?.map((node) => node.label)).toEqual([
+        expect(sectionOf(model, 'settings').children?.[0]?.command?.command).toBe('xlide.openGlobalSettings');
+        expect(sectionOf(model, 'support').children?.map((node) => node.label)).toEqual([
             'Copy Diagnostics',
             'Export Support Bundle',
         ]);
+    });
+
+    it('offers the agent instructions between Welcome and Project Actions, as a dialog rather than a command', () => {
+        const agentic = sectionOf(buildXlideSidebarModel({}), 'agenticAi');
+
+        expect(agentic.label).toBe('Agentic AI');
+        expect(agentic.children).toEqual([expect.objectContaining({
+            id: 'agenticAi.instructions',
+            kind: 'action',
+            label: 'Agent Instructions',
+            dialog: 'agentInstructions',
+        })]);
+        expect(agentic.children?.[0]?.command).toBeUndefined();
     });
 
     it('ends with the sponsor section: a blurb, the three addresses, and the thanks line', () => {
@@ -86,7 +107,7 @@ describe('xlideSidebarModel', () => {
                 settingsState: 'valid',
             },
         });
-        const selector = model[1].children?.find((node) => node.id === 'project.targetProject');
+        const selector = sectionOf(model, 'projectActions').children?.find((node) => node.id === 'project.targetProject');
 
         expect(selector?.kind).toBe('select');
         expect(selector?.label).toBe('Target File');
@@ -107,7 +128,7 @@ describe('xlideSidebarModel', () => {
                 settingsState: 'valid',
             },
         });
-        return (model[1].children ?? [])
+        return (sectionOf(model, 'projectActions').children ?? [])
             .filter((node) => node.id.startsWith('projectActions.openInApp'))
             .map((node) => [node.label, node.command?.command]);
     };
@@ -146,9 +167,9 @@ describe('xlideSidebarModel', () => {
             },
         });
 
-        expect(model[1].children?.map((node) => node.id)).not.toContain('projectActions.settingsJson');
-        expect(model[1].children?.map((node) => node.label)).not.toContain('Workbook Settings JSON');
-        expect(model[2].children?.map((node) => node.label)).not.toContain('Workbook Settings JSON');
+        expect(sectionOf(model, 'projectActions').children?.map((node) => node.id)).not.toContain('projectActions.settingsJson');
+        expect(sectionOf(model, 'projectActions').children?.map((node) => node.label)).not.toContain('Workbook Settings JSON');
+        expect(sectionOf(model, 'settings').children?.map((node) => node.label)).not.toContain('Workbook Settings JSON');
     });
 
     it('passes the selected file to every file-scoped action', () => {
@@ -174,12 +195,12 @@ describe('xlideSidebarModel', () => {
             'projectActions.openInApp',
             'projectActions.openInAppReadOnly',
         ]) {
-            expect(model[1].children?.find((node) => node.id === id)?.command?.arguments).toEqual([{
+            expect(sectionOf(model, 'projectActions').children?.find((node) => node.id === id)?.command?.arguments).toEqual([{
                 kind: 'project',
                 label: 'Second.xlsm',
                 filePath: 'C:\\work\\Second.xlsm',
             }]);
         }
-        expect(model[1].children?.map((node) => node.id)).not.toContain('projectActions.validateProject');
+        expect(sectionOf(model, 'projectActions').children?.map((node) => node.id)).not.toContain('projectActions.validateProject');
     });
 });

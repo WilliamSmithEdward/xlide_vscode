@@ -17,7 +17,7 @@
 // it refuse.
 
 import * as vscode from 'vscode';
-import { encodeModuleUri, moduleIdentityKey, projectIdentityKey } from './xlideFileSystem';
+import { decodeModuleUri, encodeModuleUri, moduleIdentityKey, projectIdentityKey } from './xlideFileSystem';
 import { errorMessage } from './util/errors';
 import { evictOldest } from './util/boundedMap';
 
@@ -88,6 +88,42 @@ function resolvePendingAgentReview(filePath: string, moduleName: string): void {
     }
 }
 
+/**
+ * Closes the review diffs XLIDE opened for a module, once the change they show
+ * is gone: the module was deleted, or its text is back to what it was before
+ * the agent wrote. That is how an agent's throwaway work ends - a scratch
+ * module it creates and deletes, a temporary edit it undoes - and the diff
+ * stayed open after, titled for a module that no longer existed or showing no
+ * difference at all. A diff with unsaved edits in it is left alone. True when
+ * there was a diff to close.
+ */
+function closeAgentReviewDiffs(filePath: string, moduleName: string): boolean {
+    const project = projectIdentityKey(filePath);
+    const module = moduleIdentityKey(moduleName);
+    const shows = (uri: vscode.Uri): boolean => {
+        try {
+            const decoded = decodeModuleUri(uri);
+            return projectIdentityKey(decoded.projectPath) === project
+                && moduleIdentityKey(decoded.moduleName) === module;
+        } catch {
+            return false;
+        }
+    };
+    const tabs = vscode.window.tabGroups.all
+        .flatMap((group) => group.tabs)
+        .filter((tab) => tab.input instanceof vscode.TabInputTextDiff
+            && tab.input.original.scheme === XLIDE_AGENT_BEFORE_SCHEME
+            && !tab.isDirty
+            && shows(tab.input.modified));
+    if (tabs.length === 0) {
+        return false;
+    }
+    // Best-effort, as opening it was: a tab that does not close stays as it
+    // always did.
+    void Promise.resolve(vscode.window.tabGroups.close(tabs, true)).catch(() => undefined);
+    return true;
+}
+
 /** Serves the frozen before-images the diff view's left side reads. */
 export function registerAgentDiffProvider(): vscode.Disposable {
     return vscode.workspace.registerTextDocumentContentProvider(XLIDE_AGENT_BEFORE_SCHEME, {
@@ -136,6 +172,7 @@ export async function presentAgentModuleWrite(
         // itself, or rewrote identical content. Nothing is left to review, and
         // a no-op diff would only mislead.
         resolvePendingAgentReview(filePath, moduleName);
+        closeAgentReviewDiffs(filePath, moduleName);
         return;
     }
     setPending(filePath, moduleName, merged);
@@ -166,6 +203,7 @@ export function trackModuleWriteForAgentReview(
         normalizeForCompare(newSource) === normalizeForCompare(record.before)
     ) {
         resolvePendingAgentReview(filePath, moduleName);
+        closeAgentReviewDiffs(filePath, moduleName);
         return;
     }
     pendingReviews.set(key, { ...record, after: newSource });
@@ -241,6 +279,7 @@ export async function revertAgentChange(
             await deps.deleteModule(filePath, moduleName);
         }
         resolvePendingAgentReview(filePath, moduleName);
+        closeAgentReviewDiffs(filePath, moduleName);
     } catch (err) {
         void vscode.window.showErrorMessage(
             `XLIDE: Could not revert "${moduleName}": ${errorMessage(err)}`,
@@ -248,9 +287,10 @@ export async function revertAgentChange(
     }
 }
 
-/** A deleted module has nothing left to review. */
+/** A deleted module has nothing left to review, and nothing a review diff can show. */
 export function discardPendingAgentReview(filePath: string, moduleName: string): void {
     resolvePendingAgentReview(filePath, moduleName);
+    closeAgentReviewDiffs(filePath, moduleName);
 }
 
 /** A renamed module carries its unreviewed agent change with it. */
@@ -263,6 +303,11 @@ export function renamePendingAgentReview(filePath: string, moduleName: string, n
     pendingEmitter.fire({ filePath, moduleName });
     setPending(filePath, newName, record);
     pendingEmitter.fire({ filePath, moduleName: newName });
+    // A diff open on the old name shows a module that no longer exists; the
+    // review goes on under the new one.
+    if (closeAgentReviewDiffs(filePath, moduleName)) {
+        void openAgentReviewDiff(filePath, newName);
+    }
 }
 
 /** The engine hides attribute headers from the editor surface; compare the

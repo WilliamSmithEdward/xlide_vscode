@@ -11,6 +11,7 @@ import {
 } from './refactorTypes';
 import { escapeForRegExp, lookupModuleSource, blankStringLiterals } from './shared';
 import { identifiersIn } from '../lexer/tokenHelpers';
+import { attachedCommentsStart } from '../docs/docComment';
 
 /**
  * Move to Module: a procedure moves from one standard module to another.
@@ -70,8 +71,11 @@ export function moveToModule(input: MoveToModuleInput): VbaRefactorResult {
 	}
 
 	const eol = detectEol(source);
-	const moved = source.slice(procedure.span.start, procedure.span.end).replace(/\s+$/, '');
-	const edits: VbaTextEdit[] = [{ span: removalSpan(source, procedure.span), newText: '' }];
+	// Its doc comment and directives go with it: left behind, they would
+	// document the procedure that came next.
+	const start = attachedCommentsStart(source, procedure.span.start);
+	const moved = source.slice(start, procedure.span.end).replace(/\s+$/, '');
+	const edits: VbaTextEdit[] = [{ span: removalSpan(source, { start, end: procedure.span.end }), newText: '' }];
 
 	const otherModules: VbaRefactorModuleEdits[] = [{
 		moduleName: input.targetModuleName,

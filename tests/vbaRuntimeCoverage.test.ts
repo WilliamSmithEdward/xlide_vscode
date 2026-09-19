@@ -113,7 +113,7 @@ describe('VBA language reference coverage', () => {
         const sample = [
             'vbKeyA', 'vbKeyF12', 'vbKeyNumpad0', 'vbKeyEscape', 'vbBlack', 'vbRed',
             'vbButtonFace', 'vb3DLight', 'vbModal', 'vbModeless', 'vbGet', 'vbSet',
-            'vbUseCompareOption', 'vbFormControlMenu', 'vbAppTaskManager',
+            'vbFormControlMenu', 'vbAppTaskManager', 'vbFormMDIForm', 'vb3DFace', 'vbMsgBoxText',
         ];
         const model = getExcelObjectModel();
         const unknown = sample.filter(

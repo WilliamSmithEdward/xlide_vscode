@@ -113,7 +113,7 @@ palette under **XLIDE**:
 | Inline Variable | A local is replaced by the value it was assigned |
 | Encapsulate Field | A Public variable becomes a property pair with the same name |
 | Implement Interface | Stubs for every member an `Implements` promises |
-| Move to Module | A procedure moves to another standard module |
+| Move to Module | A procedure moves to another standard module, its doc comment with it |
 | Introduce Parameter | A local becomes a parameter, and callers pass its value |
 
 Each one either does the work or tells you why it will not, and the reasons
@@ -175,6 +175,12 @@ the application holds the file locked. `xlide.officeIntegration.coordinationMode
 decides what happens then. The default refuses and tells you which application
 has it. A read-only copy XLIDE itself opened, which is how F5 leaves the file,
 is closed and reopened around the save automatically.
+
+A change saved to the file outside XLIDE, from the VBE or by a git checkout,
+reaches the modules you have open. A module with no unsaved edits reloads, and
+problems in the modules that call into it update. Saving unsaved edits over a
+change to the same module stops at VS Code's usual prompt, where you compare
+or overwrite.
 
 ## Run VBA Tests
 

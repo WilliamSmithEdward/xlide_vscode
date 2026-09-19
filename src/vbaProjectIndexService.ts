@@ -74,10 +74,21 @@ export interface VbaProjectContext {
      * excluding changes to `moduleName` itself. Consumers analyzing one module
      * use it to detect when any OTHER module's content moved (cross-module
      * context changed) - e.g. to invalidate incremental analysis state or
-     * reseed an analysis worker.
+     * reseed an analysis worker. A record rebuilt for the same project starts
+     * above every value an earlier one gave, so a rebuild moves it too.
      */
     crossModuleGeneration(moduleName: string): number;
 }
+
+/**
+ * Advances with every change any record takes in, and each new record starts
+ * above it. A rebuilt record used to count from zero again, so it could hand
+ * out a generation the one it replaced had already given: the analysis
+ * worker, which reseeds only when the generation moves, then went on
+ * analyzing against the modules as they were before the rebuild - a module an
+ * agent had just created stayed "not defined" in the module that calls it.
+ */
+let generationClock = 0;
 
 class ProjectRecord implements VbaProjectContext {
     readonly byModule = new Map<string, VbaModuleSymbols>();
@@ -87,6 +98,7 @@ class ProjectRecord implements VbaProjectContext {
     readonly appliedDocumentVersions = new Map<string, number>();
     projectProcedures?: ReturnType<typeof projectProcedureSignatures>;
     loadedAt = Date.now();
+    private readonly _generationBase = ++generationClock;
     private _changeCounter = 0;
     private readonly _changesByModule = new Map<string, number>();
 
@@ -167,10 +179,12 @@ class ProjectRecord implements VbaProjectContext {
     }
 
     crossModuleGeneration(moduleName: string): number {
-        return this._changeCounter - (this._changesByModule.get(moduleIdentityKey(moduleName)) ?? 0);
+        return this._generationBase + this._changeCounter
+            - (this._changesByModule.get(moduleIdentityKey(moduleName)) ?? 0);
     }
 
     private _recordChange(moduleName: string): void {
+        generationClock += 1;
         this._changeCounter += 1;
         const key = moduleIdentityKey(moduleName);
         this._changesByModule.set(key, (this._changesByModule.get(key) ?? 0) + 1);
@@ -202,14 +216,24 @@ export class VbaProjectIndexService implements vscode.Disposable {
     private readonly _records = new Map<string, ProjectRecord>();
     private readonly _loads = new Map<string, Promise<ProjectRecord>>();
     private readonly _subscriptions: vscode.Disposable[];
+    private readonly _onDidChangeProject = new vscode.EventEmitter<{ projectPath: string; moduleName?: string }>();
+
+    /**
+     * Fires once a project's modules changed - one module when it is named,
+     * else the whole project; every project when the path is empty - and the
+     * service already serves the new content. A module that calls into the
+     * changed one is analyzed against it, so its findings are stale until
+     * it is analyzed again.
+     */
+    readonly onDidChangeProject = this._onDidChangeProject.event;
 
     constructor(private readonly _index: VbaSymbolIndex) {
         this._subscriptions = [
             _index.onDidChange(({ projectPath, moduleName }) => {
-                if (projectPath && moduleName && this._applyIndexModule(projectPath, moduleName)) {
-                    return;
+                if (!(projectPath && moduleName && this._applyIndexModule(projectPath, moduleName))) {
+                    this.invalidate(projectPath || undefined);
                 }
-                this.invalidate(projectPath || undefined);
+                this._onDidChangeProject.fire({ projectPath, moduleName });
             }),
             vscode.workspace.onDidCloseTextDocument((document) => {
                 // A closed editor reverts to the indexed module content, so the
@@ -251,6 +275,7 @@ export class VbaProjectIndexService implements vscode.Disposable {
         for (const subscription of this._subscriptions) {
             subscription.dispose();
         }
+        this._onDidChangeProject.dispose();
         this._records.clear();
         this._loads.clear();
     }
@@ -344,6 +369,13 @@ export class VbaProjectIndexService implements vscode.Disposable {
         for (const openDocument of vscode.workspace.textDocuments) {
             const location = moduleLocationOfDocument(openDocument);
             if (!location || projectKey(location.projectPath) !== key) {
+                continue;
+            }
+            // An editor left open on a module the project no longer has -
+            // renamed or deleted, by an agent, the tree or the VBE - is no
+            // part of it. Folding it in kept the module alive for analysis, so
+            // a call to it still resolved.
+            if (!record.byModule.has(moduleIdentityKey(location.moduleName))) {
                 continue;
             }
             const documentKey = openDocument.uri.toString();

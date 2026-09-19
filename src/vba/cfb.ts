@@ -393,6 +393,28 @@ export class Cfb {
 		this.directory[parent].childId = this.rebuildBalancedSubtree(siblings);
 	}
 
+	/** Renames the storage at `path`, keeping everything in it. */
+	renameStorageAtPath(path: readonly string[], newName: string): void {
+		if (path.length === 0) {
+			throw new CfbError('cannot rename the root');
+		}
+		if (!newName) {
+			throw new CfbError('new storage name must be non-empty');
+		}
+		const parentPath = path.slice(0, -1);
+		const parent = this.resolveStoragePath(parentPath);
+		const target = this.resolveStoragePath(path);
+		const siblings = this.collectSubtree(this.directory[parent].childId);
+		const clash = siblings.some((i) => i !== target
+			&& this.directory[i].name.toLowerCase() === newName.toLowerCase());
+		if (clash) {
+			throw new CfbError(`${newName} already exists in ${parentPath.join('/') || 'root'}`);
+		}
+		// Siblings are ordered by name, so the tree is rebuilt around the new one.
+		this.directory[target].name = newName;
+		this.directory[parent].childId = this.rebuildBalancedSubtree(siblings);
+	}
+
 	/** Direct children of the storage at `path`, in directory order. */
 	listChildrenAtPath(path: readonly string[]): Array<{ name: string; kind: 'stream' | 'storage' }> {
 		const parent = this.resolveStoragePath(path);

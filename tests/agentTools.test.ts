@@ -41,21 +41,44 @@ vi.mock('vscode', async () => {
     });
 });
 
+// The module each encoded URI names, so decoding one gives it back.
+const encodedModules = vi.hoisted(() => new Map<unknown, { projectPath: string; moduleName: string }>());
+
 vi.mock('../src/projectExplorer', () => ({ ProjectExplorer: class ProjectExplorer {} }));
 vi.mock('../src/xlideFileSystem', () => ({
     XlideFileSystemProvider: class XlideFileSystemProvider {},
     XLIDE_SCHEME: 'xlide-vba',
-    encodeModuleUri: vi.fn((filePath: string, moduleName: string) => ({
-        path: `/${String(filePath).split('\\').join('/')}/${moduleName}.bas`,
-        toString: () => `xlide-vba:///${moduleName}.bas`,
+    encodeModuleUri: vi.fn((filePath: string, moduleName: string) => {
+        const uri = {
+            path: `/${String(filePath).split('\\').join('/')}/${moduleName}.bas`,
+            toString: () => `xlide-vba:///${moduleName}.bas`,
+        };
+        encodedModules.set(uri, { projectPath: filePath, moduleName });
+        return uri;
+    }),
+    decodeModuleUri: vi.fn((uri: unknown) => {
+        const decoded = encodedModules.get(uri);
+        if (!decoded) {
+            throw new Error('not a module URI');
+        }
+        return decoded;
+    }),
+    encodeFormMarkupUri: vi.fn((filePath: string, moduleName: string) => ({
+        path: `/${String(filePath).split('\\').join('/')}/${moduleName}.form`,
+        toString: () => `xlide-vba:///${moduleName}.form`,
     })),
-    decodeModuleUri: vi.fn(),
     activeLocalVbaEditor: vi.fn(),
     notifySignatureDropped: vi.fn(),
     moduleIdentityKey: (name: string) => name.toLowerCase(),
     projectIdentityKey: (filePath: string) => filePath.toLowerCase(),
 }));
 vi.mock('../src/vbaMemberCompletion', () => ({ invalidateVbaMemberCompletionCache: vi.fn() }));
+// Each write passes straight through: the real coordinator talks to whatever
+// Office application is running.
+vi.mock('../src/officeWriteCoordinator', async (original) => ({
+    ...(await original<typeof import('../src/officeWriteCoordinator')>()),
+    runWriteWithHostCoordination: vi.fn((_filePath: string, write: () => Promise<unknown>) => write()),
+}));
 vi.mock('../src/moduleExport', () => ({ exportProjectModules: vi.fn() }));
 vi.mock('../src/projectModuleSyncSettings', () => ({ setProjectModuleSyncExportMode: vi.fn() }));
 vi.mock('../src/vbaProjectWideAnalysis', () => ({ analyzeProject: vi.fn() }));
@@ -66,10 +89,12 @@ vi.mock('../src/vbaTestRunner', () => ({
     summarizeVbaTestRun: vi.fn(),
 }));
 
+import * as vscode from 'vscode';
 import { registerAgentTools } from '../src/agentTools';
 import { hasPendingAgentReview, pendingAgentReviewModules, trackModuleWriteForAgentReview } from '../src/xlideAgentDiff';
 import { writeProjectModule } from '../src/projectModuleOperations';
 import { clearXlideWriteAudit, recentXlideWriteAudits } from '../src/xlideWriteAudit';
+import { runWriteWithHostCoordination } from '../src/officeWriteCoordinator';
 
 function registerTools(bridgeCall: ReturnType<typeof vi.fn>) {
     vscodeMock.registeredTools.clear();
@@ -222,6 +247,74 @@ describe('xlide_createProject agent tool', () => {
     });
 });
 
+describe('xlide_writeCells agent tool', () => {
+    it('writes only inside the Office coordination a module write gets', async () => {
+        // With the workbook open in Excel, the file is locked: the coordinator
+        // is what closes and reopens it as the user's setting says. The cell
+        // write used to go to the engine directly and fail on the lock.
+        const book = 'C:\\work\\Book.xlsm';
+        const bridgeCall = vi.fn(async () => ({ ok: true }));
+        registerTools(bridgeCall);
+        const tool = vscodeMock.registeredTools.get('xlide_writeCells')!;
+        vi.mocked(runWriteWithHostCoordination).mockClear();
+        vi.mocked(runWriteWithHostCoordination).mockImplementationOnce(async () => 'held back');
+
+        await tool.invoke({ input: { filePath: book, sheet: 'Sheet1', startCell: 'A1', data: [['x']] } }, undefined);
+
+        expect(runWriteWithHostCoordination).toHaveBeenCalledWith(book, expect.any(Function));
+        expect(bridgeCall).not.toHaveBeenCalledWith('writeCells', expect.anything());
+
+        await tool.invoke({ input: { filePath: book, sheet: 'Sheet1', startCell: 'A1', data: [['x']] } }, undefined);
+
+        expect(bridgeCall).toHaveBeenCalledWith('writeCells', { path: book, sheet: 'Sheet1', startCell: 'A1', data: [['x']] });
+    });
+});
+
+describe('shape agent tools', () => {
+    const book = 'C:\\work\\Book.xlsm';
+
+    it('lists shapes for one sheet or all, as JSON', async () => {
+        const sheets = [{ sheet: 'Sheet1', shapes: [{ name: 'Go', kind: 'button', macro: 'DoIt' }] }];
+        const bridgeCall = vi.fn(async () => ({ sheets }));
+        registerTools(bridgeCall);
+        const tool = vscodeMock.registeredTools.get('xlide_listShapes')!;
+
+        const result = await tool.invoke({ input: { filePath: book, sheet: 'Sheet1' } }, undefined) as { parts: Array<{ value: string }> };
+        await tool.invoke({ input: { filePath: book } }, undefined);
+
+        expect(bridgeCall).toHaveBeenNthCalledWith(1, 'listShapes', { path: book, sheet: 'Sheet1' }, undefined);
+        expect(bridgeCall).toHaveBeenNthCalledWith(2, 'listShapes', { path: book }, undefined);
+        expect(JSON.parse(result.parts[0].value)).toEqual(sheets);
+    });
+
+    it('edits a shape only inside the Office coordination, and says what changed', async () => {
+        const bridgeCall = vi.fn(async () => ({ ok: true, name: 'Go' }));
+        registerTools(bridgeCall);
+        const tool = vscodeMock.registeredTools.get('xlide_editShape')!;
+        vi.mocked(runWriteWithHostCoordination).mockClear();
+        vi.mocked(runWriteWithHostCoordination).mockImplementationOnce(async () => 'held back');
+        const input = { filePath: book, sheet: 'Sheet1', action: 'update', name: 'Go', macro: 'Macros.Run' };
+
+        await tool.invoke({ input }, undefined);
+        expect(runWriteWithHostCoordination).toHaveBeenCalledWith(book, expect.any(Function));
+        expect(bridgeCall).not.toHaveBeenCalled();
+
+        const result = await tool.invoke({ input }, undefined) as { parts: Array<{ value: string }> };
+        expect(bridgeCall).toHaveBeenCalledWith('editShape', { path: book, sheet: 'Sheet1', action: 'update', name: 'Go', macro: 'Macros.Run' });
+        expect(result.parts[0].value).toBe('Change shape: 1 changed\nShape "Go" changed on sheet "Sheet1".');
+    });
+
+    it('names the shape an add created, since Excel-style names are chosen by the engine', async () => {
+        const bridgeCall = vi.fn(async () => ({ ok: true, name: 'Button 4' }));
+        registerTools(bridgeCall);
+        const tool = vscodeMock.registeredTools.get('xlide_editShape')!;
+
+        const result = await tool.invoke({ input: { filePath: book, sheet: 'Sheet1', action: 'add', type: 'button', range: 'B2:C3' } }, undefined) as { parts: Array<{ value: string }> };
+
+        expect(result.parts[0].value).toBe('Add shape: 1 changed\nShape "Button 4" added on sheet "Sheet1".');
+    });
+});
+
 describe('agent write review (diff + tree badge, native surfaces only)', () => {
     let tempDir: string;
 
@@ -245,6 +338,7 @@ describe('agent write review (diff + tree badge, native surfaces only)', () => {
         const store = new Map<string, string>(
             Object.entries(initialByModule).map(([name, source]) => [name.toLowerCase(), source]),
         );
+        const classes = new Set<string>();
         const calls: Array<{ method: string; args: Record<string, unknown> }> = [];
         const call = vi.fn(async (method: string, args: Record<string, unknown>) => {
             calls.push({ method, args });
@@ -258,8 +352,13 @@ describe('agent write review (diff + tree badge, native surfaces only)', () => {
                     return { source };
                 }
                 case 'writeModule':
+                    if (!store.has(key) && args.kind === 'class') {
+                        classes.add(key);
+                    }
                     store.set(key, String(args.source));
                     return { ok: true, signatureDropped: false };
+                case 'listModules':
+                    return [...store.keys()].map((name) => ({ name, type: classes.has(name) ? 'class' : 'standard' }));
                 case 'renameModule': {
                     const source = store.get(key);
                     if (source === undefined) {
@@ -309,6 +408,25 @@ describe('agent write review (diff + tree badge, native surfaces only)', () => {
         // Native surfaces only: no notification prompt, badge until decided.
         expect(vscodeMock.showInformationMessage).not.toHaveBeenCalled();
         expect(hasPendingAgentReview(target, 'Module1')).toBe(true);
+    });
+
+    it("creates a class module when asked with kind='class', as the description says", async () => {
+        // The description offered kind='class' and the tool never read it:
+        // every module an agent created was a standard module.
+        const target = path.join(tempDir, 'Kinds.xlsm');
+        const engine = fakeEngine({ Helper: 'Sub A()\r\nEnd Sub\r\n' });
+        const tool = writeTool(engine.call);
+
+        await tool?.invoke({ input: { filePath: target, moduleName: 'Person', source: 'Public Name As String\r\n', kind: 'class' } }, undefined);
+        const write = engine.calls.find((entry) => entry.method === 'writeModule');
+        expect(write?.args.kind).toBe('class');
+
+        const refused = await tool?.invoke({ input: { filePath: target, moduleName: 'helper', source: 'Private m As Long\r\n', kind: 'class' } }, undefined);
+        expect(JSON.stringify(refused)).toContain('is already a standard module');
+        expect(engine.store.get('helper')).toBe('Sub A()\r\nEnd Sub\r\n');
+
+        const bad = await tool?.invoke({ input: { filePath: target, moduleName: 'Other', source: '', kind: 'form' } }, undefined);
+        expect(JSON.stringify(bad)).toContain("kind must be 'standard' or 'class'");
     });
 
     it('a write without a chat token gets no review and skips the pre-read', async () => {
@@ -537,5 +655,128 @@ describe('agent write review (diff + tree badge, native surfaces only)', () => {
 
         expect(hasPendingAgentReview(target, 'Module1')).toBe(false);
         expect(pendingAgentReviewModules(target)).toEqual([]);
+    });
+
+    // An agent often tests with throwaway work: a scratch module it creates
+    // and deletes, a temporary edit it undoes. Each write opened a review
+    // diff, and the diff stayed open after the change was gone - titled for a
+    // module that no longer existed, or showing no difference at all. A review
+    // diff now closes once what it shows is gone. Keep leaves it: the change
+    // is still there.
+    describe('review diffs of changes that are gone', () => {
+        interface FakeTab { input: unknown; isDirty: boolean }
+        let tabs: FakeTab[];
+
+        beforeEach(() => {
+            tabs = [];
+            const tabGroups = vscode.window.tabGroups as unknown as {
+                all: Array<{ tabs: FakeTab[] }>;
+                close: ReturnType<typeof vi.fn>;
+            };
+            tabGroups.all = [{ tabs }];
+            tabGroups.close = vi.fn(async (closing: FakeTab | FakeTab[]) => {
+                for (const tab of Array.isArray(closing) ? closing : [closing]) {
+                    tabs.splice(tabs.indexOf(tab), 1);
+                }
+                return true;
+            });
+            // VS Code opens a diff tab for every `vscode.diff`.
+            vscodeMock.executeCommand.mockImplementation(async (command: string, original: unknown, modified: unknown) => {
+                if (command === 'vscode.diff') {
+                    tabs.push({ input: new vscode.TabInputTextDiff(original as never, modified as never), isDirty: false });
+                }
+            });
+        });
+
+        afterEach(() => {
+            vscodeMock.executeCommand.mockReset();
+        });
+
+        const reviewDiffsOf = (moduleName: string): FakeTab[] =>
+            tabs.filter((tab) => String((tab.input as { modified: unknown }).modified) === `xlide-vba:///${moduleName}.bas`);
+
+        it('close once the agent deletes the scratch module it created', async () => {
+            const target = path.join(tempDir, 'Scratch.xlsm');
+            const engine = fakeEngine();
+            const tool = writeTool(engine.call);
+
+            await tool?.invoke({ input: { filePath: target, moduleName: 'TmpCheck', source: 'Sub Probe()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+            await settle();
+            expect(reviewDiffsOf('TmpCheck')).toHaveLength(1);
+
+            await vscodeMock.registeredTools.get('xlide_deleteModule')
+                ?.invoke({ input: { filePath: target, moduleName: 'TmpCheck' } }, undefined);
+            await settle();
+
+            expect(reviewDiffsOf('TmpCheck')).toEqual([]);
+            expect(hasPendingAgentReview(target, 'TmpCheck')).toBe(false);
+        });
+
+        it('close once the agent puts the module back as it was', async () => {
+            const original = 'Sub Original()\r\nEnd Sub\r\n';
+            const target = path.join(tempDir, 'Undone.xlsm');
+            const engine = fakeEngine({ Module1: original });
+            const tool = writeTool(engine.call);
+
+            await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub Original()\r\n    Debug.Print 1\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+            await settle();
+            expect(reviewDiffsOf('Module1')).toHaveLength(1);
+            await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: original }, ...CHAT }, undefined);
+            await settle();
+
+            expect(reviewDiffsOf('Module1')).toEqual([]);
+        });
+
+        it('close once a save puts the module back as it was', async () => {
+            const original = 'Sub Original()\r\nEnd Sub\r\n';
+            const target = path.join(tempDir, 'SavedBack.xlsm');
+            const engine = fakeEngine({ Module1: original });
+            const tool = writeTool(engine.call);
+
+            await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub First()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+            await settle();
+            engine.store.set('module1', original);
+            trackModuleWriteForAgentReview(target, 'Module1', original);
+            await settle();
+
+            expect(reviewDiffsOf('Module1')).toEqual([]);
+        });
+
+        it('close once the change is reverted, and stay open once it is kept', async () => {
+            const target = path.join(tempDir, 'Decided.xlsm');
+            const engine = fakeEngine({ Module1: 'Sub A()\r\nEnd Sub\r\n', Module2: 'Sub B()\r\nEnd Sub\r\n' });
+            const tool = writeTool(engine.call);
+            await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub A2()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+            await settle();
+            await tool?.invoke({ input: { filePath: target, moduleName: 'Module2', source: 'Sub B2()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+            await settle();
+
+            await runCommand('xlide.revertAgentChange', { filePath: target, moduleName: 'Module1' });
+            await runCommand('xlide.keepAgentChange', { filePath: target, moduleName: 'Module2' });
+            await settle();
+
+            expect(reviewDiffsOf('Module1')).toEqual([]);
+            expect(reviewDiffsOf('Module2')).toHaveLength(1);
+        });
+
+        it('leave another module s diff, and a diff with unsaved edits, open', async () => {
+            const target = path.join(tempDir, 'Others.xlsm');
+            const engine = fakeEngine();
+            const tool = writeTool(engine.call);
+            await tool?.invoke({ input: { filePath: target, moduleName: 'TmpOne', source: 'Sub One()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+            await settle();
+            await tool?.invoke({ input: { filePath: target, moduleName: 'TmpTwo', source: 'Sub Two()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+            await settle();
+            // The user typed into the live side of TmpTwo's diff.
+            reviewDiffsOf('TmpTwo')[0].isDirty = true;
+
+            const del = vscodeMock.registeredTools.get('xlide_deleteModule');
+            await del?.invoke({ input: { filePath: target, moduleName: 'TmpOne' } }, undefined);
+            await del?.invoke({ input: { filePath: target, moduleName: 'TmpTwo' } }, undefined);
+            await settle();
+
+            expect(reviewDiffsOf('TmpOne')).toEqual([]);
+            expect(reviewDiffsOf('TmpTwo')).toHaveLength(1);
+        });
     });
 });

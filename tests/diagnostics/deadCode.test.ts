@@ -52,6 +52,27 @@ describe('analyzeModule - unused-variable', () => {
 		expect(last.slice(lastEdit!.span.start, lastEdit!.span.end)).toBe(', b As Long');
 	});
 
+	it("removes a module variable's doc comment with it, and leaves a local's comment alone", () => {
+		// Left behind, the comment documented the declaration that came next -
+		// here a Sub, whose parameter the doc comment check then reported.
+		const src = [
+			'Option Explicit',
+			"''' <summary>Rows read so far.</summary>",
+			'Private m_rows As Collection',
+			'Public Sub Go(ByVal sheet As Object)',
+			"    ''' kept",
+			'    Dim unused As Long',
+			'    Debug.Print sheet.Name',
+			'End Sub',
+			'',
+		].join('\n');
+		const [moduleLevel, local] = hits(src, 'unused-variable');
+		const edit = (found: typeof moduleLevel) => found.data!.removeDeclaration!.edit;
+		expect(src.slice(edit(moduleLevel).span.start, edit(moduleLevel).span.end))
+			.toBe("''' <summary>Rows read so far.</summary>\nPrivate m_rows As Collection\n");
+		expect(src.slice(edit(local).span.start, edit(local).span.end)).toBe('    Dim unused As Long\n');
+	});
+
 	it('offers no removal when the declaration shares its line with a statement', () => {
 		const src = wrap('Dim x As Long: Debug.Print 1');
 		const [found] = hits(src, 'unused-variable');

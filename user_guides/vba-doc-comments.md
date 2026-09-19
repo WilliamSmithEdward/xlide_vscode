@@ -114,6 +114,38 @@ Notes:
   enrich hovers/call tips and help external metadata describe APIs XLIDE cannot
   parse directly.
 
+### What XLIDE checks
+
+Once a `Sub`, `Function`, `Property`, `Declare` or `Event` has a doc comment
+written in XML, XLIDE checks it against the declaration and reports each
+mismatch as a warning:
+
+| Code | Reports |
+| --- | --- |
+| `doc-param-missing` | A parameter with no `<param>`, or with an empty one. |
+| `doc-param-unknown` | A `<param>` naming no parameter the declaration has, or naming none at all. |
+| `doc-returns-missing` | A `Function` with no `<returns>`, or with an empty one. |
+| `doc-returns-unexpected` | A `<returns>` on a `Sub`, `Property Let`, `Property Set` or `Event`, none of which returns a value. |
+| `doc-tag-duplicate` | A second `<param>` for the same parameter, or a second `<summary>`, `<returns>`, `<remarks>` or `<example>`. |
+| `doc-tag-unclosed` | A tag with no closing tag. |
+
+- A property is described by its `<summary>`. A `Property Get` needs no
+  `<returns>`, and the last parameter of a `Property Let` or `Property Set`,
+  which receives the value, needs no `<param>`. Either may still have one.
+- A `type`, `unit` or `value` attribute counts as a description, so
+  `<param name="Rows" type="Long"/>` describes `Rows`.
+- A plain-text note such as `''' Adds an item to the cart.` is not XML and is
+  not checked. Neither is a row of apostrophes drawn above a procedure.
+- Rename Symbol (F2) on a parameter renames its `<param>` too.
+- Quick fixes add a missing `<param>` (or all of them at once) or `<returns>`,
+  rename a `<param>` to a parameter nothing describes, and remove a repeated
+  tag or a `<returns>` that does not belong. An added tag is empty, and is
+  reported as empty until you write its text.
+- To turn a check off, set its code to `off` in
+  `xlide.analysis.ruleSeverityOverrides`. To silence it in one place, use a
+  suppression comment (see [analysis.md](analysis.md)).
+  `@xlide-analysis-disable-next-member` covers the member's doc comment too.
+
 ---
 
 ## 3. External metadata files
@@ -208,8 +240,9 @@ wins over an external entry for the same symbol.
 | External metadata-file parser | `src/analyzer/docs/externalDoc.ts` |
 | Lookup registry (precedence) | `src/analyzer/docs/docRegistry.ts` |
 | Inline doc attached to symbols | `src/analyzer/symbols/buildModuleSymbols.ts` |
+| Doc comment checks and quick fixes | `src/analyzer/diagnostics/rules/docComments.ts` |
 | Hover integration | `src/analyzer/hover/resolveHover.ts` |
 | Call-tip integration | `src/analyzer/signature/signatureHelp.ts` |
 | Workspace file loader + watcher | `src/vbaDocMetadata.ts` |
 | Provider wiring | `src/vbaMemberCompletion.ts`, `src/vbaLanguageProviders.ts` |
-| Tests | `tests/vbaDocComments.test.ts` |
+| Tests | `tests/vbaDocComments.test.ts`, `tests/diagnostics/docComments.test.ts` |

@@ -5,6 +5,7 @@ import { OFFICE_HOST_APPS, officeHostForPath, type OfficeHostApp } from './offic
 import { openFileInHost } from './officeHostLauncher';
 import { PROJECT_LOCKED_ERROR_RE } from './xlideCommandLog';
 import { errorMessage } from './util/errors';
+import { recordProjectWrite } from './projectFileChanges';
 import {
     xlideOfficeCoordinationModeFromConfig,
     xlideOfficeReopenAfterCloseFromConfig,
@@ -495,6 +496,9 @@ export async function refreshReadOnlyViewAfterSave(
  * On a write that SUCCEEDS while the file is open read-only (no lock error, so
  * coordination never fires), the reopenReadOnlyAfterSave setting refreshes the
  * application's stale view in the background.
+ *
+ * Each attempt is recorded as XLIDE's own write, so the file's new stamp is
+ * not taken for a change made outside XLIDE.
  */
 export async function runWriteWithHostCoordination<T>(
     filePath: string,
@@ -505,8 +509,9 @@ export async function runWriteWithHostCoordination<T>(
         // A VB6 project's modules are plain files no application holds open.
         return write();
     }
+    const attempt = (): Promise<T> => recordProjectWrite(filePath, write);
     try {
-        const result = await write();
+        const result = await attempt();
         if (process.platform === 'win32'
             && !isFileReopenSuppressed(filePath)
             && resolveHostCoordinationSettings().reopenReadOnlyAfterSave) {
@@ -535,7 +540,7 @@ export async function runWriteWithHostCoordination<T>(
         // and the caller surfaces the locked-file guidance.
         let result: T;
         try {
-            result = await write();
+            result = await attempt();
         } catch (retryErr) {
             // The retried write failed too. If the close actually freed the lock
             // the file is no longer open in its application, so drop the

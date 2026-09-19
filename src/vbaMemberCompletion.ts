@@ -8,6 +8,7 @@
 
 import * as vscode from 'vscode';
 import { moduleLocationOfDocument } from './vbaDocumentLocation';
+import { isVbaDocument } from './xlideFileSystem';
 import { DocRegistry } from './analyzer';
 import { VbaProjectIndexService } from './vbaProjectIndexService';
 import { VbaCanonicalCaseController } from './vbaCanonicalCaseController';
@@ -94,6 +95,12 @@ export function registerVbaMemberCompletion(
 			const location = moduleLocationOfDocument(doc);
 			if (location) {
 				provider.invalidate(location.projectPath);
+			}
+		}),
+		// A save before the pause writes the casing the pause would have applied.
+		vscode.workspace.onWillSaveTextDocument((event) => {
+			if (isVbaDocument(event.document)) {
+				event.waitUntil(Promise.resolve(canonicalCase.pendingEditsForSave(event.document)));
 			}
 		}),
 		vscode.workspace.onDidCloseTextDocument((doc) => { keywordSnippets.handleDocumentClose(doc); canonicalCase.handleDocumentClose(doc); }),

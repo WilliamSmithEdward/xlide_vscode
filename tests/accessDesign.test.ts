@@ -1144,8 +1144,12 @@ describe('renaming an Access design', () => {
 
 	it('takes the design name with or without the module prefix', () => {
 		const target = scratchCopy(FIXTURE);
-		renameModule(target, DESIGN_MODULE, 'Invoice');
+		// The result names the module made, which the caller's editors and a
+		// pending review follow: before, they followed to `Invoice`, which
+		// does not exist.
+		expect(renameModule(target, DESIGN_MODULE, 'Invoice').moduleName).toBe('Form_Invoice');
 		expect(listModules(target).map((module) => module.name)).toContain('Form_Invoice');
+		expect(renameModule(target, 'Form_Invoice', 'Form_Bill').moduleName).toBe('Form_Bill');
 	});
 
 	it('refuses a name another design already has', () => {

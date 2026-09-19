@@ -40,6 +40,7 @@ xlide_vscode/
     commands.ts         Thin command composition root; handlers live in the per-domain modules under src/commands/
     commands/           Per-domain command modules: analysisCommands.ts, moduleSyncCommands.ts, vbaTestCommands.ts, projectCrudCommands.ts, supportBundleCommands.ts, miscCommands.ts, shared.ts (CommandDeps + cross-domain helpers)
     agentTools.ts       LanguageModelTool registrations for AI agent use
+    agentInstructions.ts The instructions for AI agents the sidebar's Agent Instructions dialog shows and copies
     projectModuleOperations.ts  Shared project module write/rename/delete service used by both UI commands and agent tools
     moduleExport.ts     Shared module export logic for UI commands and AI tools
     projectSettings.ts Strict project settings sidecar path, schema validation, and persistence
@@ -105,6 +106,9 @@ xlide_vscode/
       vbaProject.ts     vbaProject.bin: dir stream parse/serialize, module add/rename/delete, PROJECT stream, signature detection
       zip.ts            ZIP reader/writer preserving untouched entries' original compressed bytes
       xlsx.ts           OOXML package: sheet enumeration, cell/formula read, cell write, shared strings, vbaProject part discovery per host
+      xlsxFormula.ts    Worksheet formula text: the typed form and the stored form (_xlfn., _xlpm., _xleta., ANCHORARRAY, SINGLE), shared-formula shifting, and the check Excel applies to a typed formula
+      xlsxFunctionNames.ts  Function tables for xlsxFormula, each found by having Excel 16 store or accept formulas: prefixed names, eta names, argument counts, reference-only arguments, reserved names
+      xlsxShapes.ts     Worksheet shapes: the drawing part's shapes and the form controls kept across VML, <controls>, ctrlProp and a hidden DrawingML twin; list, add, update, delete, and the macro each runs
       pptContainer.ts   [MS-PPT] binary .ppt: persist-chain walk, embedded VBA storage extract (zlib), in-place record rewrite with offset fixing
       accessDatabase.ts Jet/ACE (.accdb/.mdb) page reader: LVAL rows and chains reassembled into a synthetic CFB the project parser reads unchanged
       access/accessFormat.ts   Jet 4 / ACE page format: table definitions, data-page rows, long values. Offsets derived from the fixtures, not from a published table (issue #65)
@@ -169,10 +173,39 @@ xlide-vba:///C:/path/to/workbook.xlsm/Module1.bas
 |---|---|
 | `readFile(uri)` | Calls `readModule` on the project engine; returns UTF-8 bytes |
 | `writeFile(uri, content)` | Calls `writeModule`; saves the .xlsm in place |
-| `stat()` | Returns a `FileStat` whose `mtime` derives from the real workbook file mtime; when the workbook file changes out-of-band (for example a concurrent Excel VBE edit), module mtimes move forward so VS Code's save-conflict detection triggers instead of silently overwriting the newer workbook copy |
+| `stat()` | Returns a `FileStat` whose `mtime` derives from the real workbook file mtime. It first settles any change XLIDE did not make (below), so the modules that change reached answer with a newer `mtime` and a size their documents were not given, and VS Code's save-conflict check stops a save over them |
 | All others | Throw `FileSystemError.NoPermissions` |
 
 VS Code treats the file as fully editable - Ctrl+S triggers `writeFile` with no extra command needed.
+
+**Changes made outside XLIDE.** The VBE saving the workbook, a git checkout,
+another window: `src/projectFileChanges.ts` notices them. Every XLIDE write
+runs through `runWriteWithHostCoordination`, which records the file's stamp
+(mtime and size) before and after, so the stamp an XLIDE write leaves is
+XLIDE's own; a stamp that had already moved before the write stays
+unaccounted, so the change it came from is not hidden behind the write. Any
+other stamp fires `onDidChangeProjectFile`, found by a watcher on the file
+while one of its modules is open, or by the check `stat()` makes. Two things
+follow. When the project's VBA changed with the file, its cached state is
+dropped as after an XLIDE write (`refreshProjectStateOnOutsideChange`), so
+analysis, completion and the tree read the modules again; Excel saving cells,
+AutoSave, and Access writing a database it merely has open (on open, about
+30 s later, on close) change the file without touching a module, and refresh
+nothing. And the provider compares every open module document of the project
+with what the engine now reads, by the content token of what the document
+last loaded or what its own save left in the module - read back, since the
+engine drops blank lines above a module's code and rewrites a designer's
+markup in its own layout. A module the change reached gets a newer `mtime`, a new size and a
+change event, so VS Code reloads it, or, with unsaved edits, reports
+"File Modified Since" on save. VS Code raises that only when the size differs
+as well as the `mtime`, so the size never equals the one the document was
+given: it is the new content's size, or one byte more when the length did not
+change or the module cannot be read (deleted in the VBE, say). XLIDE's own
+writes to a module (`notifyFileChanged`) move its stat the same way, so an
+editor with unsaved edits cannot save over an agent's write unasked. A module
+the change did not reach keeps its stat, and its unsaved edits save without a
+conflict. The provider's per-document entries outlive a close by a second,
+because setting a document's language closes it and opens it again.
 
 `src/xlideDirtyModuleBackups.ts` adds an XLIDE-owned safety layer for dirty
 module editors. Because VS Code Hot Exit is not reliable enough for virtual
@@ -212,7 +245,7 @@ That helper scans open `xlide-vba://` documents, decodes the project/module
 identity through the same URI helpers, and replaces cached module source only
 when the open editor belongs to the requested project. Completion, hover,
 signature help, live diagnostics, semantic tokens, definition/reference/rename,
-current-module analysis, and tree-level class rename all use that overlay path
+current-module analysis, and tree-level class and form rename all use that overlay path
 instead of carrying local workspace-document scans.
 `tests/vbaMultiProjectIsolation.test.ts` locks the shared overlay and
 project-analysis inputs with two same-named open projects so provider surfaces
@@ -481,11 +514,33 @@ Settings:
 | `readCells` | `path`, `sheet`, `range` | - | `{data: [[...]]}` |
 | `readFormulas` | `path`, `sheet`, `range` | - | `{data: [[...]]}` (raw formula strings) |
 | `writeCells` | `path`, `sheet`, `startCell`, `data` | - | `{ok}` |
+| `listShapes` | `path` | `sheet` | `{sheets: [{sheet, shapes: [{name, kind, range?, macro?, text?, ...}]}]}` |
+| `editShape` | `path`, `sheet`, `action` | `name`, `type`, `range`, `text`, `macro`, `linkedCell`, `inputRange`, `altText`, `newName` | `{ok, name}` (the shape's name after the edit) |
 
 Failures reject with a `BridgeError` whose `code` follows the JSON-RPC convention (`-32601`, `-32602`, `-32000`).
 
+`writeCells` re-serializes only the rows it touches and keeps the sheet as
+Excel would: a cell keeps its format and a new one takes its row's or
+column's, an array formula is replaced whole or not at all, a value in a
+spill range blocks the spill, and a shared formula whose first cell is
+overwritten is given to each other cell of its group. A formula is stored as
+Excel 365 stores a typed one (a dynamic array formula, with the workbook's
+cell metadata added when missing), after the check Excel applies at entry,
+because Excel will not open a file holding a formula its parser rejects. A
+write drops the calc chain when a formula cell changed and sets
+`fullCalcOnLoad`, since formulas that depend on a written cell keep their old
+results until Excel recalculates.
+
+`editShape` adds rectangles, rounded rectangles, ovals, text boxes and
+form-control buttons, and updates or deletes any shape except ActiveX
+controls. A form control is kept in four places that have to agree, and an
+edit changes all four; a deleted shape's picture or chart parts go with it
+unless something else still uses them. A macro is checked against the project
+first, as the Sub a click could run, because Excel reports a missing one only
+when someone clicks.
+
 Every method takes any macro container. The sheet/cell methods (`listSheets`,
-`readCells`, `readFormulas`, `writeCells`) require the OOXML Excel container
+`readCells`, `readFormulas`, `writeCells`, `listShapes`, `editShape`) require the OOXML Excel container
 and refuse others with the container named; `getProjectInfo` answers modules
 and protection for every container and empty sheet/name lists where no sheet
 surface exists. The write methods serve every container, Access included.
@@ -494,6 +549,10 @@ surface exists. The write methods serve every container, Access included.
 and refuses legacy formats, `.ppsm`, `.ppam`, and non-macro formats with the
 reason. `readFormExport`/`writeFormDesigner`
 compose and apply a form's `.frm`/`.frx` pair in any writable container.
+A form's designer storage sits beside the project's `VBA` storage: at the
+root of a `vbaProject.bin`, in `_VBA_PROJECT_CUR` in an `.xls`, in `Macros` in
+a `.doc`. Renaming or deleting a form renames or removes it too, and renaming
+or deleting a document module is refused, since the document keeps its name.
 
 ---
 
@@ -600,6 +659,10 @@ to operate on export files.
 | `xlide_readCells` | `#xlideReadCells` | none | No |
 | `xlide_readFormulas` | `#xlideReadFormulas` | none | No |
 | `xlide_writeCells` | `#xlideWriteCells` | saves .xlsm | Yes |
+| `xlide_listShapes` | `#xlideListShapes` | none | No |
+| `xlide_editShape` | `#xlideEditShape` | saves .xlsm | Yes |
+| `xlide_searchModules` | `#xlideSearchModules` | none | No |
+| `xlide_gitChanges` | `#xlideGitChanges` | none | No |
 | `xlide_exportModules` | `#xlideExportModules` | writes export files + updates project JSON config | Yes |
 | `xlide_configureExportMode` | `#xlideConfigureExportMode` | updates project JSON config | Yes |
 
@@ -646,6 +709,25 @@ module target is explicit. It refreshes on `xlide.*` configuration changes,
 workspace-folder changes, active-editor changes, project file create/delete
 events, and `.xlide_settings.json` sidecar changes, and does not require Excel
 COM to render.
+
+Between the welcome note and Project Actions sits the Agentic AI section. Its
+Agent Instructions button opens a dialog inside the webview: steps for the
+person, then the text of `src/agentInstructions.ts` in a read-only box, and a
+Copy button. The text covers each way an agent reaches a file's VBA: the
+language model tools, which GitHub Copilot calls; for any other agent, the
+recommended route of Python plus pyOpenVBA, pyvbaanalysis and pyvbaharness,
+each described with its install command and its use, and never installed
+without the user's word; the `xlide-vba:` documents, which an agent reaches
+only if its edits go through VS Code's editor APIs; and an export, for an
+agent that works on files by path. A module has no path on disk, measured in
+VS Code as ENOENT for its `fsPath` and no document matching `Uri.file` of it,
+which is how the Claude Code extension's IDE calls address a file, so the text
+says so before an agent tries the path or mistakes an exported copy for the
+module. The host copies its own copy of the text, so the webview only asks, as
+with the sponsor addresses. A test keeps the text naming every tool in
+`package.json` and no tool, chat reference, command or button that does not
+exist. The sponsor card and this dialog share one dialog mechanism: one open
+at a time, focus held inside, Escape to close.
 
 There is no Setup section: the project engine runs in-process, so nothing has
 to be installed, detected, or repaired before the tree and the actions work. The
@@ -1057,7 +1139,16 @@ into a pure analyzer layer and a thin VS Code provider:
   leaving the editor applies all safe VBE-style canonical casing edits on the
   line just left. Both paths use the same analyzer resolver for keywords, type
   names, runtime functions, project identifiers, and resolved host/source
-  members.
+  members. Only lines the user typed are recased: a reload (an agent's write to
+  an open module, a restore from git, a revert) arrives as a content change but
+  leaves the document clean, and recasing it made the document dirty with edits
+  nobody made. VS Code reports a keystroke's change with the document still
+  clean and turns it dirty in an event just after, so a change on a clean
+  document waits for that event before it counts as typing, and is recased by
+  the idle pass, never the immediate one. Casing still owed when a save starts
+  goes into the save (`onWillSaveTextDocument`): an auto-save with a short delay
+  or a quick Ctrl+S comes before the pause, and a document saved and then
+  recased would be dirty again at once.
 - The same `src/vbaMemberCompletion.ts` class also registers a VS Code
   `HoverProvider`. It delegates to `src/analyzer/hover/resolveHover.ts`
   (`resolveHover`), a pure resolver that describes the identifier under the
@@ -1468,6 +1559,14 @@ context, then passes its visibility-filtered procedures, visible bare
 identifiers, visible project type names, non-type-name exclusions,
 cross-module standard-module signatures, and source-backed project member
 surfaces into `analyzeVbaModuleSource`.
+Those findings depend on the other modules, so when the project index reports
+that one was written, created, renamed, removed or saved
+(`VbaProjectIndexService.onDidChangeProject`), every other open module of the
+project gets a full pass again, 300 ms after the last such change. A rebuilt
+project record starts its `crossModuleGeneration` above every value the record
+it replaced gave: the analysis worker reseeds only when that number moves, and
+a record that counted from zero again left it analyzing against the modules as
+they were before the rebuild.
 Live editor diagnostics also pass the active cursor offset into
 `incompleteExpressionEditSpan`, which scopes to the active colon-separated
 statement and suppresses overlapping hard syntax diagnostics for incomplete
@@ -1605,7 +1704,7 @@ TypeScript dev: `typescript`, `esbuild`, `vitest`, `@types/vscode`, `@types/node
 |---|---|
 | New engine method | `src/vba/projectService.ts` (implementation), `src/projectEngine.ts` (dispatch), `tests/vbaNativeProject.test.ts`, `src/agentTools.ts` + `package.json` if exposed as LM tool, `docs/architecture.md` |
 | New VS Code command | the matching per-domain module under `src/commands/` (wired through `src/commands.ts`), `package.json` (`contributes.commands`, `menus`), `docs/architecture.md` |
-| New AI agent (LM) tool | `package.json` (`contributes.languageModelTools`), `src/agentTools.ts` (registration), `.github/copilot-instructions.md` (tool reference + workflow), `docs/architecture.md` |
+| New AI agent (LM) tool | `package.json` (`contributes.languageModelTools`), `src/agentTools.ts` (registration), `.github/copilot-instructions.md` (tool reference + workflow), `src/agentInstructions.ts` (the sidebar's Agent Instructions), `docs/architecture.md` |
 | New project-wide analysis behavior | `src/vbaModuleAnalysis.ts` (shared module analysis core), `src/vbaProjectWideAnalysis.ts` (project analysis core), `src/projectAnalysisResultsModel.ts` (results view model/copy report), `src/projectAnalysisWebview.ts` (analysis results GUI), `src/commands/analysisCommands.ts` (command wiring + location navigation), `src/agentTools.ts` (`xlide_analyzeProject`), `package.json` (command/menu/LM tool), `.github/copilot-instructions.md`, `docs/architecture.md` |
 | Dependency added/removed | `package.json`, `README.md`, `docs/architecture.md` |
 | New VBA language feature | `src/vbaSymbolIndex.ts` (parsing/index), `src/vbaStructuralDiagnostics.ts` (structural analysis), the matching provider subsystem module registered in `src/vbaLanguageProviders.ts`, `syntaxes/vba.tmLanguage.json` (coloring), `language-configuration/vba-language-configuration.json` (brackets/indent/folding), `docs/architecture.md` |

@@ -66,13 +66,13 @@ function addLocation(
 // Scopes in which a declaration shadows the module name: within them,
 // `OldName.Member` refers to the shadowing variable or parameter, not the
 // module, so the rename must leave those occurrences alone.
-interface ModuleNameShadowScopes {
+export interface ModuleNameShadowScopes {
     /** A module-level declaration shadows the name for the whole module. */
     moduleLevel: boolean;
     procedures: { start: number; end: number; shadows: boolean }[];
 }
 
-function shadowScopesFor(source: string, lowerOld: string): ModuleNameShadowScopes {
+export function shadowScopesFor(source: string, lowerOld: string): ModuleNameShadowScopes {
     const parsed = parseModule(source);
     type BodyLike = { kind?: string; declarations?: { name: string }[]; body?: unknown };
     const bodyDeclares = (body: readonly unknown[]): boolean => {

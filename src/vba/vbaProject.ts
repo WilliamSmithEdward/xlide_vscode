@@ -495,7 +495,9 @@ export class VbaProject {
 		if (!module) {
 			throw new VbaProjectError(`Module not found: ${oldName}`);
 		}
-		if (this.getModule(newName)) {
+		// Only another module clashes: a change of case finds the module itself.
+		const existing = this.getModule(newName);
+		if (existing && existing !== module) {
 			throw new VbaProjectError(`Module already exists: ${newName}`);
 		}
 		const oldStream = module.streamName || module.name;

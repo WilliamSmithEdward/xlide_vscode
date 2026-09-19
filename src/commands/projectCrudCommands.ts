@@ -15,6 +15,7 @@ import { projectClassModuleDefinition } from '../vbaNavigation';
 import { buildVbaProjectIndexAsync } from '../vbaProjectAnalysis';
 import { projectClassReferenceEdit } from '../vbaClassRename';
 import { projectStandardModuleReferenceEdit } from '../vbaStandardModuleRename';
+import { projectUserFormReferenceEdit } from '../vbaUserFormRename';
 import { recordXlideWriteAuditEvent as recordWriteAudit } from '../xlideWriteAudit';
 import {
     deleteProjectModule,
@@ -354,6 +355,7 @@ export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposabl
             if (!newName || newName === node.moduleName) { return; }
 
             let moduleRenamed = false;
+            let renamedTo = newName;
             try {
                 const modules = applyOpenDocumentSources(
                     await vbaIndex.getAllModules(node.filePath),
@@ -365,6 +367,13 @@ export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposabl
                 // agent review to the new name and tells open editors the old
                 // module is gone; project state refreshes once, in `finally`.
                 const renameRequest = { filePath: node.filePath, moduleName: node.moduleName, newName };
+                const rename = async (): Promise<void> => {
+                    const result = await renameProjectModule(deps, renameRequest, { refreshProjectState: false });
+                    // An Access form's module keeps its prefix: `Form_Customers`.
+                    renamedTo = result.moduleName ?? newName;
+                    moduleRenamed = true;
+                    vbaIndex.invalidate(node.filePath);
+                };
                 if (node.moduleType === 'class') {
                     const definition = projectClassModuleDefinition(
                         project,
@@ -382,10 +391,20 @@ export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposabl
                         definition,
                         newName,
                     );
-                    await renameProjectModule(deps, renameRequest, { refreshProjectState: false });
-                    moduleRenamed = true;
-                    vbaIndex.invalidate(node.filePath);
+                    await rename();
                     await applyReferenceEdit(references, 'class');
+                } else if (node.moduleType === 'userform') {
+                    // A form's name is a type and its default instance:
+                    // `Dim f As UserForm1` and `UserForm1.Show` both follow.
+                    const references = projectUserFormReferenceEdit(
+                        node.filePath,
+                        byModule,
+                        project,
+                        node.moduleName,
+                        newName,
+                    );
+                    await rename();
+                    await applyReferenceEdit(references, 'form');
                 } else {
                     const references = projectStandardModuleReferenceEdit(
                         node.filePath,
@@ -394,21 +413,19 @@ export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposabl
                         node.moduleName,
                         newName,
                     );
-                    await renameProjectModule(deps, renameRequest, { refreshProjectState: false });
-                    moduleRenamed = true;
-                    vbaIndex.invalidate(node.filePath);
+                    await rename();
                     await applyReferenceEdit(references, 'standard module');
                 }
                 const summaryText = logChangeSummary(log, 'renameModule', {
                     operation: 'Rename module',
-                    changed: [`${node.moduleName} -> ${newName}`],
+                    changed: [`${node.moduleName} -> ${renamedTo}`],
                 });
                 recordWriteAudit({
                     command: 'xlide.renameModule',
                     operation: 'rename-module',
                     outcome: 'succeeded',
                     projectPath: node.filePath,
-                    moduleName: newName,
+                    moduleName: renamedTo,
                     summary: summaryText,
                 });
             } catch (err) {
@@ -420,7 +437,7 @@ export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposabl
                     operation: 'rename-module',
                     outcome: 'failed',
                     projectPath: node.filePath,
-                    moduleName: moduleRenamed ? newName : node.moduleName,
+                    moduleName: moduleRenamed ? renamedTo : node.moduleName,
                     summary: moduleRenamed
                         ? 'Rename module: 1 changed, 1 failed'
                         : 'Rename module: 0 changed, 1 failed',

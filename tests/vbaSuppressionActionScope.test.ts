@@ -95,6 +95,33 @@ describe('a module-scoped rule gets the file directive', () => {
 	});
 });
 
+describe('a finding on a line continued with _', () => {
+	// The fix wrote its directive right above the finding's own line, which
+	// here is the middle of a statement: VBA reads a comment line between
+	// `total = 1 + _` and the rest as a syntax error. It goes above the
+	// statement now, and the directive covers every line of it.
+	const SOURCE = [
+		'Option Explicit',
+		'Public Sub P()',
+		'    Dim total As Long',
+		'    total = 1 + _',
+		'        nope',
+		'    Debug.Print total',
+		'End Sub',
+		'',
+	].join(NL);
+
+	it('puts the directive above the statement, not inside it', () => {
+		const { text } = suppress(SOURCE, 'undeclared-variable');
+		expect(text.split(NL).slice(3, 6)).toEqual([
+			"    ' @xlide-analysis-disable-next-line undeclared-variable",
+			'    total = 1 + _',
+			'        nope',
+		]);
+		expect(counts(text, 'undeclared-variable')).toEqual({ live: 0, suppressed: 1 });
+	});
+});
+
 describe('a positional rule keeps the next-line directive', () => {
 	it('suppresses a finding on its own line', () => {
 		const source = ['Option Explicit', 'Public Sub P()', '    nope = 1', 'End Sub', ''].join(NL);

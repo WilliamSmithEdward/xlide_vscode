@@ -35,6 +35,7 @@ import {
 	resolveRuntimeConstant,
 	resolveRuntimeFunction,
 	resolveRuntimeObject,
+	resolveVbaLibraryQualifier,
 } from '../../runtime/vbaRuntime';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { BareIdentifierContext } from '../../symbols/nameResolution';
@@ -473,7 +474,10 @@ export function checkUndeclaredVariables(
 			resolveHostEnum(name, hostModel) !== undefined ||
 			resolveRuntimeConstant(name) !== undefined ||
 			resolveRuntimeObject(name) !== undefined ||
-			resolveRuntimeFunction(name) !== undefined
+			resolveRuntimeFunction(name) !== undefined ||
+			// VBA's own enums and modules qualify their members the same way:
+			// `VbMsgBoxResult.vbYes`, `ColorConstants.vbRed`, `Strings.Left`.
+			resolveVbaLibraryQualifier(name) !== undefined
 		);
 	};
 

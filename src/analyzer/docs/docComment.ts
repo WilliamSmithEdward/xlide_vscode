@@ -15,6 +15,7 @@
 // Pure analyzer code: no `vscode` dependency. See user_guides/vba-doc-comments.md.
 
 import { VbaDoc, VbaDocParam, VbaDocSource } from './docModel';
+import type { Span } from '../parser/nodes';
 import { lineStartAt } from '../../vbaSourceScan';
 
 /** Decodes the five predefined XML entities. */
@@ -57,9 +58,11 @@ function firstTagMatch(body: string, tag: string): { attrs: string; body: string
 	return { attrs, body: m[2] ?? '' };
 }
 
+const ATTRIBUTE_RE = /([A-Za-z_][A-Za-z0-9_-]*)\s*=\s*"([^"]*)"/;
+
 function attrsOf(raw: string): Map<string, string> {
 	const out = new Map<string, string>();
-	const re = /([A-Za-z_][A-Za-z0-9_-]*)\s*=\s*"([^"]*)"/g;
+	const re = new RegExp(ATTRIBUTE_RE.source, 'g');
 	let m: RegExpExecArray | null;
 	while ((m = re.exec(raw)) !== null) {
 		out.set(m[1].toLowerCase(), decodeEntities(m[2]).trim());
@@ -281,6 +284,90 @@ export function extractModuleHeaderDoc(
 	return docFromLines(docLines);
 }
 
+/** One `'''` line of the block above a declaration. */
+export interface DocBlockLine {
+	/** Offset of the line's first character. */
+	start: number;
+	/**
+	 * Offset of the first of the directive lines directly above it, or `start`
+	 * when there are none. A line put before this one goes here, so it does
+	 * not come between a directive and the line the directive is about.
+	 */
+	directivesStart: number;
+	/** Offset of the text after `'''` and the one space the parser drops. */
+	textStart: number;
+	/** That text, to the end of the line. */
+	text: string;
+}
+
+/**
+ * The `'''` lines directly above a declaration, top to bottom. xlide's own
+ * directive lines between them are passed over and left out.
+ *
+ * @param source Full module source text.
+ * @param declStart Offset of the first character of the declaration (its full
+ *   span start, e.g. the `Public`/`Sub` keyword).
+ */
+export function leadingDocLines(
+	source: string,
+	declStart: number,
+): DocBlockLine[] {
+	// Walk physical lines backward from the declaration's own line. This runs
+	// once per declaration while building module symbols, so slicing and
+	// splitting the whole module prefix here (the obvious implementation) makes
+	// symbol building quadratic in module size.
+	let lineStart = lineStartAt(source, declStart);
+	const lines: DocBlockLine[] = [];
+	while (lineStart > 0) {
+		const prevEnd = lineStart - 1; // the '\n' terminating the previous line
+		const prevStart = lineStartAt(source, prevEnd);
+		const line = source.slice(prevStart, prevEnd).replace(/\r$/, '');
+		const trimmed = line.trimStart();
+		if (isXlideDirectiveComment(trimmed)) {
+			// Suppression and test directives are the product's own grammar;
+			// the block attaches through them in any stacking order.
+			const below = lines[lines.length - 1];
+			if (below) {
+				below.directivesStart = prevStart;
+			}
+			lineStart = prevStart;
+			continue;
+		}
+		if (!trimmed.startsWith("'''")) {
+			break;
+		}
+		const text = stripDocPrefix(trimmed);
+		lines.push({
+			start: prevStart,
+			directivesStart: prevStart,
+			textStart: prevStart + line.length - text.length,
+			text,
+		});
+		lineStart = prevStart;
+	}
+	return lines.reverse();
+}
+
+/**
+ * Where the lines XLIDE reads as part of a declaration start: its `'''` doc
+ * comment and xlide's directive lines, directly above it in any order. The
+ * declaration's own line start when it has none. Code that moves or deletes
+ * the declaration takes these with it; left behind, they would belong to
+ * whatever declaration came next.
+ */
+export function attachedCommentsStart(source: string, declStart: number): number {
+	let lineStart = lineStartAt(source, declStart);
+	while (lineStart > 0) {
+		const prevStart = lineStartAt(source, lineStart - 1);
+		const trimmed = source.slice(prevStart, lineStart - 1).replace(/\r$/, '').trimStart();
+		if (!trimmed.startsWith("'''") && !isXlideDirectiveComment(trimmed)) {
+			break;
+		}
+		lineStart = prevStart;
+	}
+	return lineStart;
+}
+
 /**
  * Scans upward from the start of a declaration to collect a contiguous run of
  * `'''` documentation-comment lines, and parses them into a {@link VbaDoc}.
@@ -294,29 +381,113 @@ export function extractLeadingDoc(
 	source: string,
 	declStart: number,
 ): VbaDoc | undefined {
-	// Walk physical lines backward from the declaration's own line. This runs
-	// once per declaration while building module symbols, so slicing and
-	// splitting the whole module prefix here (the obvious implementation) makes
-	// symbol building quadratic in module size.
-	let lineStart = lineStartAt(source, declStart);
-	const docLines: string[] = [];
-	while (lineStart > 0) {
-		const prevEnd = lineStart - 1; // the '\n' terminating the previous line
-		const prevStart = lineStartAt(source, prevEnd);
-		const line = source.slice(prevStart, prevEnd).replace(/\r$/, '');
-		const trimmed = line.trimStart();
-		if (isXlideDirectiveComment(trimmed)) {
-			// Suppression and test directives are the product's own grammar;
-			// the block attaches through them in any stacking order.
-			lineStart = prevStart;
-			continue;
+	return docFromLines(leadingDocLines(source, declStart).map((line) => line.text));
+}
+
+/** Where the `<param>` tags above a declaration name `paramName`: their `name` values. */
+export function docParamNameSpans(
+	source: string,
+	declStart: number,
+	paramName: string,
+): Span[] {
+	const lower = paramName.toLowerCase();
+	const spans: Span[] = [];
+	for (const tag of scanDocTags(leadingDocLines(source, declStart)) ?? []) {
+		if (tag.tag === 'param' && tag.nameSpan && tag.name?.toLowerCase() === lower) {
+			spans.push(tag.nameSpan);
 		}
-		if (!trimmed.startsWith("'''")) {
-			break;
-		}
-		docLines.push(stripDocPrefix(trimmed));
-		lineStart = prevStart;
 	}
-	docLines.reverse();
-	return docFromLines(docLines);
+	return spans;
+}
+
+/** A vocabulary tag in a `'''` block, and where it sits in the module. */
+export interface DocTagOccurrence {
+	/** The tag in lower case: summary, param, returns, remarks, example or signature. */
+	tag: string;
+	/** From the `<` to the `>` of the opening tag. */
+	open: Span;
+	/** The `name` attribute, decoded and trimmed, when the tag has a non-empty one. */
+	name?: string;
+	/** The text between the quotes of that `name` attribute. */
+	nameSpan?: Span;
+	/** True when a `type`, `unit` or `value` attribute says something. */
+	hasHints: boolean;
+	/** The tag's text as a hover shows it; undefined when the tag is never closed. */
+	text?: string;
+	/** Offset just past the closing tag, or the `/>`; undefined when never closed. */
+	end?: number;
+}
+
+const OPENING_TAG_RE = /<(summary|param|returns|remarks|example|signature)\b([^>]*?)(\/?)>/;
+
+/**
+ * The vocabulary tags of a `'''` block in document order, or undefined when
+ * it has none: a block of plain text is a note, which the parser reads as a
+ * summary. A tag counts as closed the way the parser reads it, by its own
+ * closing tag before the next tag of the same name opens.
+ */
+export function scanDocTags(lines: readonly DocBlockLine[]): DocTagOccurrence[] | undefined {
+	const body = lines.map((line) => line.text).join('\n');
+	if (!HAS_TAG_RE.test(body)) {
+		return undefined;
+	}
+	const bodyStarts: number[] = [];
+	let at = 0;
+	for (const line of lines) {
+		bodyStarts.push(at);
+		at += line.text.length + 1;
+	}
+	const toSource = (offset: number): number => {
+		let i = bodyStarts.length - 1;
+		while (i > 0 && bodyStarts[i] > offset) {
+			i -= 1;
+		}
+		return lines[i].textStart + (offset - bodyStarts[i]);
+	};
+	const lower = body.toLowerCase();
+	const tags: DocTagOccurrence[] = [];
+	const opening = new RegExp(OPENING_TAG_RE.source, 'gi');
+	let m: RegExpExecArray | null;
+	while ((m = opening.exec(body)) !== null) {
+		const tag = m[1].toLowerCase();
+		const openEnd = m.index + m[0].length;
+		const occurrence: DocTagOccurrence = {
+			tag,
+			open: { start: toSource(m.index), end: toSource(openEnd) },
+			hasHints: false,
+		};
+		// Read the attributes as attrsOf does: the last of a repeated name wins.
+		const attrs = new Map<string, { value: string; start: number; length: number }>();
+		const attrsStart = m.index + 1 + tag.length;
+		const attrRe = new RegExp(ATTRIBUTE_RE.source, 'g');
+		let attr: RegExpExecArray | null;
+		while ((attr = attrRe.exec(m[2])) !== null) {
+			attrs.set(attr[1].toLowerCase(), {
+				value: decodeEntities(attr[2]).trim(),
+				start: attrsStart + attr.index + attr[0].indexOf('"') + 1,
+				length: attr[2].length,
+			});
+		}
+		const name = attrs.get('name');
+		if (name?.value) {
+			occurrence.name = name.value;
+			occurrence.nameSpan = { start: toSource(name.start), end: toSource(name.start + name.length) };
+		}
+		occurrence.hasHints = ['type', 'unit', 'value'].some((key) => !!attrs.get(key)?.value);
+		if (m[3] === '/') {
+			occurrence.text = '';
+			occurrence.end = occurrence.open.end;
+		} else {
+			const close = lower.indexOf(`</${tag}>`, openEnd);
+			const reopen = new RegExp(`<${tag}\\b`, 'g');
+			reopen.lastIndex = openEnd;
+			const next = reopen.exec(lower);
+			if (close >= 0 && (!next || close < next.index)) {
+				occurrence.text = collapse(body.slice(openEnd, close));
+				occurrence.end = toSource(close + tag.length + 3);
+			}
+		}
+		tags.push(occurrence);
+	}
+	return tags;
 }

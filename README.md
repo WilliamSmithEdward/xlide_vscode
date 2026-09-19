@@ -137,8 +137,9 @@ reviewable, testable, and collaborative.
 
 14. **Give AI assistants real file context**
    XLIDE exposes tools for file discovery, VBA reads/writes, analysis,
-   tests, sheet/cell access, formulas, and module sync so agents can work from
-   the actual Office file instead of stale exported copies.
+   tests, sheet/cell access, formulas, worksheet shapes and the macros they
+   run, and module sync so agents can work from the actual Office file
+   instead of stale exported copies.
 
 ---
 
@@ -238,8 +239,8 @@ Guide:
 ### Use AI assistants safely
 
 XLIDE gives compatible VS Code AI agents tools to inspect and edit a file's VBA,
-run analysis, export modules, and read worksheet data with explicit file
-context.
+run analysis, export modules, and read and change worksheet cells and shapes
+with explicit file context.
 
 Guide:
 [Automation and CI](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/user_guides/automation.md)

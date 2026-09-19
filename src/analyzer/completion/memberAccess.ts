@@ -47,6 +47,7 @@ import { derivedConstantDoc, derivedMemberDoc } from '../host/hostMemberDocs';
 import {
 	resolveRuntimeObject,
 	resolveRuntimeObjectType,
+	resolveVbaLibraryQualifier,
 } from '../runtime/vbaRuntime';
 import { hasDocContent, renderDocMarkdown } from '../docs/docModel';
 import type { VbaDoc } from '../docs/docModel';
@@ -151,6 +152,7 @@ export interface ResolvedMemberSurface {
 const PROJECT_TYPE_PREFIX = 'project:';
 /** Receiver key for a host enumeration used as a qualifier: `XlAxisType.xlCategory`. */
 const HOST_ENUM_PREFIX = 'hostEnum:';
+const VBA_LIBRARY_PREFIX = 'vbaLibrary:';
 const COMBINED_TYPE_PREFIX = 'combined:';
 const COMBINED_TYPE_SEPARATOR = '|';
 const UNION_TYPE_PREFIX = 'union:';
@@ -953,6 +955,14 @@ function resolveRoot(
 	if (asGlobalMember) {
 		return projectKey ? combinedTypeKey(projectKey, asGlobalMember) : asGlobalMember;
 	}
+	// VBA's own enums and modules of constants reach their constants too:
+	// `VbMsgBoxResult.vbYes`, `ColorConstants.vbRed`. VBA is first in every
+	// project's references, so it has a name a host shares - `Constants.vbCrLf`
+	// in Excel is VBA's module, not Excel's Constants enum.
+	const asVbaLibrary = !projectKey ? resolveVbaLibraryQualifier(root) : undefined;
+	if (asVbaLibrary?.constants) {
+		return `${VBA_LIBRARY_PREFIX}${asVbaLibrary.name}`;
+	}
 	// An enum name reaches its own constants: `XlAxisType.xlCategory` is ordinary
 	// VBA and is how a reader tells one library's xlNone from another's.
 	const asEnum = !projectKey ? resolveHostEnum(root, model) : undefined;
@@ -1254,6 +1264,23 @@ function memberSurfaceForType(
 			owner: union.map(bareTypeName).join(' | '),
 			members: mergeCompletionMembers(...surfaces.map((surface) => surface.members)),
 			exhaustive: surfaces.every((surface) => surface.exhaustive),
+		};
+	}
+	if (typeName.startsWith(VBA_LIBRARY_PREFIX)) {
+		const qualifier = resolveVbaLibraryQualifier(typeName.slice(VBA_LIBRARY_PREFIX.length));
+		if (!qualifier?.constants) {
+			return undefined;
+		}
+		return {
+			owner: qualifier.name,
+			members: qualifier.constants.map((constant) => ({
+				name: constant.name,
+				kind: 'property' as const,
+				declaredType: constant.type ?? qualifier.name,
+				access: 'read-only' as const,
+			})),
+			// Its members are exactly the type library's, so one can be proved absent.
+			exhaustive: true,
 		};
 	}
 	if (typeName.startsWith(HOST_ENUM_PREFIX)) {

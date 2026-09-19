@@ -1,6 +1,7 @@
 import { parseModule } from '../parser/parseModule';
-import type { ModuleNode, VariableDeclNode, VariableGroupNode } from '../parser/nodes';
-import { detectEol } from '../../vbaSourceScan';
+import type { ModuleNode, Span, VariableDeclNode, VariableGroupNode } from '../parser/nodes';
+import { detectEol, wholeLineSpan } from '../../vbaSourceScan';
+import { leadingDocLines } from '../docs/docComment';
 import { refactor, refuse, type VbaRefactorResult } from './refactorTypes';
 
 /**
@@ -84,11 +85,16 @@ export function encapsulateField(input: EncapsulateFieldInput): VbaRefactorResul
 	const declaredType = typeOf(decl);
 	const isObject = isObjectType(declaredType, input.projectClassNames);
 	const set = isObject ? 'Set ' : '';
+	// The variable's doc comment describes what callers read, and that is now
+	// the property: it moves above the Get, off the private field.
+	const doc = leadingDocLines(input.source, group.span.start);
+	const docEdits = doc.map((line) => ({ span: wholeLineSpan(input.source, at(line.start)), newText: '' }));
 	// `RHS` is the VBE's own name for a property's value parameter, which is
 	// what a reader of generated VBA expects to see.
 	const lines = [
 		`Private ${backing}${asClause(decl)}`,
 		'',
+		...doc.map((line) => input.source.slice(line.start, line.textStart + line.text.length)),
 		`Public Property Get ${propertyName}()${returnClause(declaredType)}`,
 		`    ${set}${propertyName} = ${backing}`,
 		'End Property',
@@ -100,8 +106,12 @@ export function encapsulateField(input: EncapsulateFieldInput): VbaRefactorResul
 
 	return refactor(
 		`Encapsulate '${decl.name}' behind a property`,
-		[{ span: group.span, newText: lines.join(eol) }],
+		[...docEdits, { span: group.span, newText: lines.join(eol) }],
 	);
+}
+
+function at(offset: number): Span {
+	return { start: offset, end: offset };
 }
 
 function fieldAt(

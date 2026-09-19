@@ -62,6 +62,47 @@ describe('what it writes', () => {
 		].join('\r\n'));
 	});
 
+	it('takes the doc comment and directives above it along', () => {
+		// Left behind, Build's doc comment documented Other, and the doc
+		// comment check reported Build's <param> as one Other does not have.
+		const source = [
+			'Option Explicit',
+			'',
+			"''' <summary>Builds the report.</summary>",
+			"' @xlide-analysis-disable-next-member unused-procedure",
+			"''' <param name=\"copies\">How many.</param>",
+			'Public Sub Build(ByVal copies As Long)',
+			'    Debug.Print copies',
+			'End Sub',
+			'Public Sub Other()',
+			'End Sub',
+			'',
+		].join('\r\n');
+		const helpers = 'Option Explicit\r\n';
+		const result = run(source, 'Public Sub Build', { Helpers: helpers });
+		if (!result.ok) { throw new Error(result.reason); }
+		expect(applyVbaTextEdits(source, result.edits)).toBe('Option Explicit\r\n\r\nPublic Sub Other()\r\nEnd Sub\r\n');
+		const target = result.otherModules!.find((m) => m.moduleName === 'Helpers')!;
+		expect(applyVbaTextEdits(helpers, target.edits)).toBe([
+			'Option Explicit',
+			'',
+			"''' <summary>Builds the report.</summary>",
+			"' @xlide-analysis-disable-next-member unused-procedure",
+			"''' <param name=\"copies\">How many.</param>",
+			'Public Sub Build(ByVal copies As Long)',
+			'    Debug.Print copies',
+			'End Sub',
+			'',
+		].join('\r\n'));
+	});
+
+	it('leaves an ordinary comment above it where it is', () => {
+		const source = 'Option Explicit\r\n\r\n\' Reports\r\nPublic Sub Build()\r\nEnd Sub\r\n';
+		const result = run(source, 'Public Sub Build', { Helpers: '' });
+		if (!result.ok) { throw new Error(result.reason); }
+		expect(applyVbaTextEdits(source, result.edits)).toBe('Option Explicit\r\n\r\n\' Reports\r\n');
+	});
+
 	it('repoints a qualified call in another module', () => {
 		const caller = 'Public Sub Go()\r\n    Reports.Build\r\nEnd Sub\r\n';
 		const result = run(SOURCE, 'Public Sub Build', { Helpers: '', Caller: caller });
