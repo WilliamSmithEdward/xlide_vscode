@@ -162,7 +162,7 @@ export function decodeModuleUri(uri: vscode.Uri): { projectPath: string; moduleN
     const face = match[3]?.toLowerCase() === 'form' ? 'form' as const : 'code' as const;
 
     // On Windows, the leading slash before the drive letter is artificial
-    if (osPlatform === 'win32' && /^\/[A-Za-z]:/.test(rawPath)) {
+    if (osPlatform() === 'win32' && /^\/[A-Za-z]:/.test(rawPath)) {
         rawPath = rawPath.slice(1);
     }
     const projectPath = rawPath.replace(/\//g, path.sep);

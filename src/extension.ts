@@ -241,7 +241,7 @@ export function activate(context: vscode.ExtensionContext): void {
     try {
         context.subscriptions.push(
             vscode.workspace.registerFileSystemProvider(XLIDE_SCHEME, fsProvider, {
-                isCaseSensitive: osPlatform !== 'win32',
+                isCaseSensitive: osPlatform() !== 'win32',
                 isReadonly: false,
             }),
         );

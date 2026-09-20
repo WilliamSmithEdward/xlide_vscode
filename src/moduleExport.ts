@@ -18,7 +18,7 @@ const exportFolderLock = createKeyedAsyncLock();
 
 function exportFolderKey(folder: string): string {
     const resolved = path.resolve(folder);
-    return osPlatform === 'win32' ? resolved.toLowerCase() : resolved;
+    return osPlatform() === 'win32' ? resolved.toLowerCase() : resolved;
 }
 
 // Windows and (default) macOS filesystems are case-insensitive, so a live module
@@ -26,7 +26,7 @@ function exportFolderKey(folder: string): string {
 // export filenames case-insensitively on those platforms; otherwise trueUp would
 // classify the just-written export as "stale" and delete it (data loss).
 function caseNormalizedRelName(name: string): string {
-    return osPlatform === 'win32' || osPlatform === 'darwin'
+    return osPlatform() === 'win32' || osPlatform() === 'darwin'
         ? name.toLowerCase()
         : name;
 }

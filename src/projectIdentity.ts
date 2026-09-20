@@ -3,7 +3,7 @@ import * as path from 'path';
 
 export function projectIdentityKey(
     projectPath: string,
-    platform: OsPlatform = osPlatform,
+    platform: OsPlatform = osPlatform(),
 ): string {
     if (platform === 'win32') {
         return path.win32.normalize(projectPath).toLowerCase();
@@ -28,7 +28,7 @@ export function projectIdentityKey(
 export function sameProjectPath(
     a: string,
     b: string,
-    platform: OsPlatform = osPlatform,
+    platform: OsPlatform = osPlatform(),
 ): boolean {
     return projectIdentityKey(a, platform) === projectIdentityKey(b, platform);
 }

@@ -7,4 +7,6 @@
 
 import type { OsPlatform } from './osPlatform';
 
-export const osPlatform: OsPlatform = 'web';
+export function osPlatform(): OsPlatform {
+    return 'web';
+}
