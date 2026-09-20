@@ -65,6 +65,16 @@ function shapeEdit(params: Params): ShapeEdit {
 		const value = optionalText(params, key);
 		if (value !== undefined) { (edit as unknown as Record<string, string>)[key] = value; }
 	}
+	// Where a slide or a document puts a shape: points, not cells.
+	for (const key of ['left', 'top', 'width', 'height'] as const) {
+		const value = params[key];
+		if (value === undefined || value === null) { continue; }
+		const points = typeof value === 'number' ? value : Number(value);
+		if (!Number.isFinite(points)) {
+			throw new ProjectEngineError(`The '${key}' parameter must be a number of points, not '${String(value)}'.`, -32602);
+		}
+		edit[key] = points;
+	}
 	return edit;
 }
 
@@ -277,10 +287,15 @@ export class ProjectEngine implements vscode.Disposable {
 				return svc.writeCells(str(p, 'path'), str(p, 'sheet'), str(p, 'startCell'), grid(p, 'data'));
 
 			// --- shapes ---
+			// `sheet` is the old name for `surface`, still accepted.
 			case 'listShapes':
-				return svc.listShapes(str(p, 'path'), optionalText(p, 'sheet') || undefined);
+				return svc.listShapes(str(p, 'path'), optionalText(p, 'surface') || optionalText(p, 'sheet') || undefined);
 			case 'editShape':
-				return svc.editShape(str(p, 'path'), str(p, 'sheet'), shapeEdit(p));
+				return svc.editShape(
+					str(p, 'path'),
+					optionalText(p, 'surface') || optionalText(p, 'sheet') || '',
+					shapeEdit(p),
+				);
 
 			default:
 				throw new ProjectEngineError(`Method not found: ${method}`, -32601);

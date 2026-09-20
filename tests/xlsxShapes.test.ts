@@ -34,7 +34,7 @@ describe('listing shapes', () => {
 			{ name: 'Rectangle: Rounded Corners 2', kind: 'shape', geometry: 'roundRect', range: 'E3:G5', macro: 'Macros.Other' },
 			{ name: 'Oval 3', kind: 'shape', geometry: 'ellipse', range: 'G3:H5', altText: 'an oval' },
 			{ name: 'TextBox 4', kind: 'textBox', range: 'B7:E9', text: 'A note' },
-			{ name: 'Straight Connector 5', kind: 'connector', range: 'B11:F11' },
+			{ name: 'Straight Connector 5', kind: 'line', range: 'B11:F11' },
 			{
 				name: 'Pair', kind: 'group', range: 'G9:I10', shapes: [
 					{ name: 'Rectangle 6', kind: 'shape', geometry: 'rect' },
@@ -132,7 +132,7 @@ describe('changing a shape', () => {
 		const refusals: Array<[Parameters<XlsxWorkbook['editShape']>[1], RegExp]> = [
 			[{ action: 'update', name: 'Missing' }, /No shape named 'Missing' on sheet 'Sheet1'/],
 			[{ action: 'update' }, /give its name; xlide_listShapes lists them/],
-			[{ action: 'update', name: 'Straight Connector 5', text: 'x' }, /is a connector, which holds no text/],
+			[{ action: 'update', name: 'Straight Connector 5', text: 'x' }, /is a line, which holds no text/],
 			[{ action: 'update', name: 'Pair', macro: 'DoIt' }, /is a group, which Excel runs no macro for/],
 			[{ action: 'update', name: 'Rectangle 6', range: 'A1:B2' }, /is in a group; move the group instead/],
 			[{ action: 'delete', name: 'Oval 7' }, /is in a group; delete the group/],
@@ -149,7 +149,7 @@ describe('changing a shape', () => {
 			[{ action: 'update', name: 'RunButton', newName: 'oval 3' }, /already has a shape named 'oval 3'/],
 			[{ action: 'add', range: 'A1:B2' }, /needs its type/],
 			[{ action: 'add', type: 'oval' }, /needs the cells it covers/],
-			[{ action: 'add', type: 'star' as never, range: 'A1' }, /'star' is not a shape XLIDE adds/],
+			[{ action: 'add', type: 'heart' as never, range: 'A1' }, /'heart' is not a shape XLIDE adds/],
 			[{ action: 'add', type: 'toString' as never, range: 'A1' }, /'toString' is not a shape XLIDE adds/],
 			[{ action: 'add', type: 'button', range: 'A1', name: 'go', newName: 'x' }, /takes its name from name/],
 			[{ action: 'add', type: 'oval', range: 'A1', name: 'button 1' }, /already has a shape named 'button 1'/],
@@ -344,7 +344,7 @@ describe('linking shapes to macros through the project', () => {
 	});
 
 	const macroOf = (name: string): string | undefined =>
-		listShapes(book, 'Sheet1').sheets[0].shapes.find((s) => s.name === name)?.macro;
+		listShapes(book, 'Sheet1').surfaces[0].shapes.find((s) => s.name === name)?.macro;
 
 	it('links a Public Sub, spelled as the project spells it', () => {
 		editShape(book, 'Sheet1', { action: 'update', name: 'RunButton', macro: 'other' });
@@ -398,7 +398,7 @@ describe('linking shapes to macros through the project', () => {
 	it('adds a button that runs a Sub, saved to the file, and names what it made', () => {
 		expect(editShape(book, 'Sheet1', { action: 'add', type: 'button', range: 'K2:L3', text: 'Start', macro: 'macros.other' }))
 			.toEqual({ ok: true, name: 'Button 4' });
-		expect(listShapes(book).sheets[0].shapes.find((s) => s.name === 'Button 4')).toEqual({
+		expect(listShapes(book).surfaces[0].shapes.find((s) => s.name === 'Button 4')).toEqual({
 			name: 'Button 4', kind: 'button', range: 'K2:L3', macro: 'Macros.Other', text: 'Start',
 		});
 		expect(editShape(book, 'Sheet1', { action: 'update', name: 'button 4', newName: 'Start' })).toEqual({ ok: true, name: 'Start' });

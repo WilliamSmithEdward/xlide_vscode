@@ -14,57 +14,32 @@
 
 import { ZipArchive } from './zip';
 import { columnToIndex, indexToColumn } from './xlsxFormula';
+import {
+	Package,
+	attr,
+	children,
+	decodeXml,
+	encodeXml,
+	findElement,
+	splice,
+	withAttr,
+	type Relationship,
+	type Span,
+} from './ooxml';
+import {
+	PRESET_GEOMETRY,
+	PRESET_LABELS,
+	ShapeError,
+	drawingTextOf,
+	withDrawingText as withDrawingTextBody,
+	type ShapeEdit,
+	type ShapeInfo,
+	type ShapeKind,
+	type PresetShapeType,
+} from './shapes';
 
-export class ShapeError extends Error {}
-
-export type ShapeKind =
-	| 'shape' | 'textBox' | 'connector' | 'picture' | 'chart' | 'group'
-	| 'button' | 'checkBox' | 'optionButton' | 'dropDown' | 'listBox' | 'scrollBar' | 'spinner'
-	| 'label' | 'groupBox' | 'editBox' | 'formControl' | 'activeX' | 'other';
-
-export interface ShapeInfo {
-	name: string;
-	kind: ShapeKind;
-	/** An AutoShape's DrawingML preset geometry, such as rect or ellipse. */
-	geometry?: string;
-	/** The cells the shape covers, from its top-left to its bottom-right cell. */
-	range?: string;
-	/** The macro a click runs, as Excel shows it: Proc or Module.Proc. */
-	macro?: string;
-	text?: string;
-	/** A form control's cell link. */
-	linkedCell?: string;
-	/** A drop-down or list box's items. */
-	inputRange?: string;
-	altText?: string;
-	hidden?: boolean;
-	/** The shapes inside a group. */
-	shapes?: ShapeInfo[];
-}
-
-export type NewShapeType = 'rectangle' | 'roundedRectangle' | 'oval' | 'textBox' | 'button';
-
-/** One change to one shape. Properties left out are left as they are. */
-export interface ShapeEdit {
-	action: 'add' | 'update' | 'delete';
-	/** The shape to update or delete, or the new shape's name. */
-	name?: string;
-	/** What to add. */
-	type?: NewShapeType;
-	/** The cells the shape covers, such as B2:D4. */
-	range?: string;
-	text?: string;
-	/** The macro to run on a click; an empty string removes it. */
-	macro?: string;
-	/** A form control's cell link; an empty string removes it. */
-	linkedCell?: string;
-	/** The cells a drop-down or list box lists; an empty string removes them. */
-	inputRange?: string;
-	altText?: string;
-	newName?: string;
-}
-
-// ------------------------------------------------------------------ package
+export { ShapeError } from './shapes';
+export type { NewShapeType, ShapeEdit, ShapeInfo, ShapeKind } from './shapes';
 
 const REL = {
 	drawing: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing',
@@ -83,213 +58,6 @@ const NS = {
 	mc: 'http://schemas.openxmlformats.org/markup-compatibility/2006',
 	x14: 'http://schemas.microsoft.com/office/spreadsheetml/2009/9/main',
 };
-const CONTENT_TYPES = '[Content_Types].xml';
-
-interface Relationship {
-	id: string;
-	type: string;
-	target: string;
-	/** The target as a package path. */
-	path: string;
-}
-
-function relsPathOf(part: string): string {
-	const slash = part.lastIndexOf('/');
-	return `${part.slice(0, slash + 1)}_rels/${part.slice(slash + 1)}.rels`;
-}
-
-/** A relationship target resolved against the folder of the part that holds it. */
-function resolveTarget(part: string, target: string): string {
-	if (target.startsWith('/')) { return target.slice(1); }
-	const segments = part.split('/').slice(0, -1);
-	for (const segment of target.split('/')) {
-		if (segment === '..') { segments.pop(); } else if (segment !== '.') { segments.push(segment); }
-	}
-	return segments.join('/');
-}
-
-/** A package path as a target relative to the folder of `part`. */
-function relativeTarget(part: string, path: string): string {
-	const from = part.split('/').slice(0, -1);
-	const to = path.split('/');
-	let common = 0;
-	while (common < from.length && common < to.length - 1 && from[common] === to[common]) { common++; }
-	return [...from.slice(common).map(() => '..'), ...to.slice(common)].join('/');
-}
-
-function decodeXml(text: string): string {
-	return text.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
-		.replace(/&#x([0-9a-fA-F]+);/g, (_s, h: string) => String.fromCodePoint(parseInt(h, 16)))
-		.replace(/&#(\d+);/g, (_s, d: string) => String.fromCodePoint(Number(d)))
-		.replace(/&amp;/g, '&');
-}
-
-function encodeXml(text: string): string {
-	return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-/** An attribute of a start tag, decoded. */
-function attr(tag: string, name: string): string | undefined {
-	const m = new RegExp(`\\s${name.replace(/[.:]/g, '\\$&')}\\s*=\\s*"([^"]*)"`).exec(tag);
-	return m ? decodeXml(m[1]) : undefined;
-}
-
-/**
- * A start tag with an attribute set where it stands, added last when the tag
- * has none, or removed when `value` is undefined.
- */
-function withAttr(tag: string, name: string, value: string | undefined): string {
-	const re = new RegExp(`\\s${name.replace(/[.:]/g, '\\$&')}\\s*=\\s*"[^"]*"`);
-	if (value === undefined) { return tag.replace(re, ''); }
-	const set = ` ${name}="${encodeXml(value)}"`;
-	if (re.test(tag)) { return tag.replace(re, () => set); }
-	const close = tag.endsWith('/>') ? tag.length - 2 : tag.length - 1;
-	return tag.slice(0, close) + set + tag.slice(close);
-}
-
-interface Span {
-	start: number;
-	/** Just past the start tag. */
-	openEnd: number;
-	end: number;
-}
-
-/** The element `name` starting at or after `from`, counting nested elements of the same name. */
-function findElement(xml: string, name: string, from = 0, until = xml.length): Span | undefined {
-	const open = new RegExp(`<${name}(?=[\\s/>])`, 'g');
-	open.lastIndex = from;
-	const first = open.exec(xml);
-	if (!first || first.index >= until) { return undefined; }
-	const openEnd = xml.indexOf('>', first.index) + 1;
-	if (xml[openEnd - 2] === '/') { return { start: first.index, openEnd, end: openEnd }; }
-	const tag = new RegExp(`<${name}(?=[\\s/>])[^>]*?(/?)>|</${name}>`, 'g');
-	tag.lastIndex = openEnd;
-	let depth = 1;
-	for (let m = tag.exec(xml); m; m = tag.exec(xml)) {
-		if (m[0].startsWith('</')) {
-			if (--depth === 0) { return { start: first.index, openEnd, end: m.index + m[0].length }; }
-		} else if (m[1] !== '/') {
-			depth++;
-		}
-	}
-	return undefined;
-}
-
-/** The child elements of the element spanning [openEnd, close), in order. */
-function children(xml: string, openEnd: number, close: number): Array<Span & { name: string }> {
-	const out: Array<Span & { name: string }> = [];
-	let at = openEnd;
-	for (;;) {
-		const lt = xml.indexOf('<', at);
-		if (lt < 0 || lt >= close || xml.startsWith('</', lt)) { return out; }
-		if (xml.startsWith('<!--', lt) || xml.startsWith('<?', lt)) {
-			at = xml.indexOf('>', lt) + 1;
-			continue;
-		}
-		const name = /^<([\w:.-]+)/.exec(xml.slice(lt))![1];
-		const span = findElement(xml, name, lt, close);
-		if (!span) { return out; }
-		out.push({ ...span, name });
-		at = span.end;
-	}
-}
-
-class Package {
-	constructor(private readonly zip: ZipArchive) {}
-
-	has(path: string): boolean {
-		return this.zip.has(path);
-	}
-
-	read(path: string): string {
-		return this.zip.read(path).toString('utf8');
-	}
-
-	write(path: string, text: string): void {
-		this.zip.write(path, Buffer.from(text, 'utf8'));
-	}
-
-	relationships(part: string): Relationship[] {
-		const rels = relsPathOf(part);
-		if (!this.zip.has(rels)) { return []; }
-		return [...this.read(rels).matchAll(/<Relationship\b[^>]*>/g)].map(([tag]) => ({
-			id: attr(tag, 'Id') ?? '',
-			type: attr(tag, 'Type') ?? '',
-			target: attr(tag, 'Target') ?? '',
-			path: resolveTarget(part, attr(tag, 'Target') ?? ''),
-		}));
-	}
-
-	addRelationship(part: string, type: string, path: string): string {
-		const rels = relsPathOf(part);
-		const xml = this.zip.has(rels)
-			? this.read(rels)
-			: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\r\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
-		const ids = [...xml.matchAll(/\bId="rId(\d+)"/g)].map((m) => Number(m[1]));
-		const id = `rId${Math.max(0, ...ids) + 1}`;
-		this.write(rels, xml.replace(/<\/Relationships>/,
-			`<Relationship Id="${id}" Type="${type}" Target="${encodeXml(relativeTarget(part, path))}"/></Relationships>`));
-		return id;
-	}
-
-	removeRelationship(part: string, id: string): void {
-		const rels = relsPathOf(part);
-		if (!this.zip.has(rels)) { return; }
-		const xml = this.read(rels).replace(new RegExp(`<Relationship\\b[^>]*\\bId="${id}"[^>]*/>`), '');
-		if (/<Relationship\b/.test(xml)) {
-			this.write(rels, xml);
-		} else {
-			this.zip.delete(rels);
-		}
-	}
-
-	addOverride(path: string, contentType: string): void {
-		const xml = this.read(CONTENT_TYPES);
-		if (!xml.includes(`PartName="/${path}"`)) {
-			this.write(CONTENT_TYPES, xml.replace(/<\/Types>/, `<Override PartName="/${path}" ContentType="${contentType}"/></Types>`));
-		}
-	}
-
-	ensureDefault(extension: string, contentType: string): void {
-		const xml = this.read(CONTENT_TYPES);
-		if (!new RegExp(`<Default\\b[^>]*Extension="${extension}"`, 'i').test(xml)) {
-			this.write(CONTENT_TYPES, xml.replace(/(<Types\b[^>]*>)/, `$1<Default Extension="${extension}" ContentType="${contentType}"/>`));
-		}
-	}
-
-	/** Remove a part, its relationships, and every part only it referred to. */
-	removePart(path: string): void {
-		const targets = this.relationships(path).map((rel) => rel.path);
-		this.zip.delete(path);
-		this.zip.delete(relsPathOf(path));
-		const types = this.read(CONTENT_TYPES).replace(new RegExp(`<Override\\b[^>]*PartName="/${path.replace(/[.[\]]/g, '\\$&')}"[^>]*/>`), '');
-		this.write(CONTENT_TYPES, types);
-		for (const target of targets) {
-			if (this.zip.has(target) && !this.referenced(target)) {
-				this.removePart(target);
-			}
-		}
-	}
-
-	/** A path free to take, as `xl/drawings/drawing3.xml` for base `xl/drawings/drawing` and `.xml`. */
-	freePath(base: string, extension: string): string {
-		for (let n = 1; ; n++) {
-			if (!this.zip.has(`${base}${n}${extension}`)) { return `${base}${n}${extension}`; }
-		}
-	}
-
-	private referenced(path: string): boolean {
-		return this.zip.names().filter((name) => name.endsWith('.rels')).some((rels) => {
-			const part = rels.replace(/_rels\/([^/]+)\.rels$/, '$1');
-			return this.relationships(part).some((rel) => rel.path === path);
-		});
-	}
-
-	names(): string[] {
-		return this.zip.names();
-	}
-}
-
 // ------------------------------------------------------------------- anchors
 
 interface Marker {
@@ -441,22 +209,12 @@ const CONTROL_KINDS: Record<string, ShapeKind> = {
 function shapeKind(element: string, xml: string, span: Span): ShapeKind {
 	switch (element) {
 		case 'xdr:sp': return /<xdr:cNvSpPr\b[^>]*\btxBox="1"/.test(xml.slice(span.start, span.end)) ? 'textBox' : 'shape';
-		case 'xdr:cxnSp': return 'connector';
+		case 'xdr:cxnSp': return 'line';
 		case 'xdr:pic': return 'picture';
 		case 'xdr:grpSp': return 'group';
 		case 'xdr:graphicFrame': return /drawingml\/2006\/chart"/.test(xml.slice(span.start, span.end)) ? 'chart' : 'other';
 		default: return 'other';
 	}
-}
-
-/** The text of a DrawingML txBody: one line per paragraph. */
-function drawingText(xml: string, element: Span): string | undefined {
-	const body = findElement(xml, 'xdr:txBody', element.openEnd, element.end);
-	if (!body) { return undefined; }
-	const paragraphs = [...xml.slice(body.openEnd, body.end).matchAll(/<a:p>([\s\S]*?)<\/a:p>|<a:p\/>/g)];
-	return paragraphs
-		.map((p) => [...(p[1] ?? '').matchAll(/<a:t>([\s\S]*?)<\/a:t>|<a:t\/>/g)].map((t) => decodeXml(t[1] ?? '')).join(''))
-		.join('\n');
 }
 
 /** A macro as Excel shows it: [0]! names this workbook, which it leaves out. */
@@ -512,7 +270,7 @@ function readShapeElement(
 	if (range) { info.range = range; }
 	const macro = displayMacro(attr(startTag, 'macro'));
 	if (macro) { info.macro = macro; }
-	const text = kind === 'shape' || kind === 'textBox' ? drawingText(xml, element) : undefined;
+	const text = kind === 'shape' || kind === 'textBox' ? drawingTextOf(xml, element, 'xdr:txBody') : undefined;
 	if (text) { info.text = text; }
 	const descr = attr(cNvPr, 'descr');
 	if (descr) { info.altText = descr; }
@@ -722,23 +480,6 @@ function assertNameFree(shapes: SheetShapes, name: string, sheet: string): void 
 	}
 }
 
-function splice(xml: string, span: { start: number; end: number }, text: string): string {
-	return xml.slice(0, span.start) + text + xml.slice(span.end);
-}
-
-/** A DrawingML txBody's paragraphs replaced with `text`, keeping the first run's format. */
-function withDrawingText(body: string, text: string): string {
-	const rPr = /<a:rPr\b[^>]*\/>|<a:rPr\b[^>]*>[\s\S]*?<\/a:rPr>/.exec(body)?.[0] ?? '<a:rPr lang="en-US" sz="1100"/>';
-	const pPr = /<a:pPr\b[^>]*\/>|<a:pPr\b[^>]*>[\s\S]*?<\/a:pPr>/.exec(body)?.[0] ?? '';
-	const endRPr = rPr.replace(/^<a:rPr\b/, '<a:endParaRPr').replace(/<\/a:rPr>$/, '</a:endParaRPr>');
-	const paragraphs = text.split(/\r?\n/).map((line) => (line
-		? `<a:p>${pPr}<a:r>${rPr}<a:t>${encodeXml(line)}</a:t></a:r></a:p>`
-		: `<a:p>${pPr}${endRPr}</a:p>`)).join('');
-	const lstStyle = /<a:lstStyle\/>|<a:lstStyle>[\s\S]*?<\/a:lstStyle>/.exec(body);
-	const keepUntil = lstStyle ? lstStyle.index + lstStyle[0].length : body.indexOf('>') + 1;
-	return `${body.slice(0, keepUntil)}${paragraphs}</xdr:txBody>`;
-}
-
 function updateDrawingShape(pkg: Package, parts: SheetParts, shapes: SheetShapes, shape: DrawingShape, edit: ShapeEdit): void {
 	const path = parts.drawingPath!;
 	const xml = pkg.read(path);
@@ -749,7 +490,7 @@ function updateDrawingShape(pkg: Package, parts: SheetParts, shapes: SheetShapes
 		if (!body || (shape.info.kind !== 'shape' && shape.info.kind !== 'textBox')) {
 			throw new ShapeError(`'${shape.info.name}' is a ${shape.info.kind}, which holds no text.`);
 		}
-		elementXml = elementXml.replace(body[0], () => withDrawingText(body[0], edit.text!));
+		elementXml = elementXml.replace(body[0], () => withDrawingTextBody(body[0], edit.text!, 'xdr:txBody'));
 	}
 	if (edit.macro !== undefined) {
 		if (shape.info.kind === 'group') {
@@ -938,7 +679,7 @@ function updateControl(pkg: Package, parts: SheetParts, shapes: SheetShapes, con
 		entry = entry.replace(cNvPr, () => updated);
 		if (edit.text !== undefined) {
 			const body = /<xdr:txBody>[\s\S]*<\/xdr:txBody>/.exec(entry);
-			if (body) { entry = entry.replace(body[0], () => withDrawingText(body[0], edit.text!)); }
+			if (body) { entry = entry.replace(body[0], () => withDrawingTextBody(body[0], edit.text!, 'xdr:txBody')); }
 		}
 		if (box) {
 			entry = entry.replace(/<xdr:from>[\s\S]*?<\/xdr:to>/, anchorMarkers(box, 'xdr:'));
@@ -1023,12 +764,6 @@ function nextDrawingId(xml: string, taken: ReadonlySet<number>): number {
 	return id;
 }
 
-const PRESETS: Record<Exclude<NewShapeType, 'textBox' | 'button'>, { prst: string; label: string }> = {
-	rectangle: { prst: 'rect', label: 'Rectangle' },
-	roundedRectangle: { prst: 'roundRect', label: 'Rectangle: Rounded Corners' },
-	oval: { prst: 'ellipse', label: 'Oval' },
-};
-
 /** The style Excel 16 gives a new AutoShape: the theme's first accent, white text. */
 const AUTOSHAPE_STYLE = '<xdr:style><a:lnRef idx="2"><a:schemeClr val="accent1"><a:shade val="15000"/></a:schemeClr></a:lnRef>'
 	+ '<a:fillRef idx="1"><a:schemeClr val="accent1"/></a:fillRef><a:effectRef idx="0"><a:schemeClr val="accent1"/></a:effectRef>'
@@ -1047,13 +782,17 @@ function addDrawingShape(pkg: Package, parts: SheetParts, shapes: SheetShapes, e
 	const taken = new Set(shapes.controls.map((c) => c.shapeId));
 	const id = nextDrawingId(xml, taken);
 	const textBox = edit.type === 'textBox';
-	const preset = textBox ? { prst: 'rect', label: 'TextBox' } : PRESETS[edit.type as keyof typeof PRESETS];
+	const type = edit.type as PresetShapeType;
+	const preset = textBox
+		? { prst: 'rect', label: 'TextBox' }
+		: { prst: PRESET_GEOMETRY[type], label: PRESET_LABELS[type] };
 	const name = edit.name ?? `${preset.label} ${id - 1}`;
 	assertNameFree(shapes, name, parts.name);
 	const descr = edit.altText ? ` descr="${encodeXml(edit.altText)}"` : '';
-	const body = withDrawingText(
+	const body = withDrawingTextBody(
 		`<xdr:txBody><a:bodyPr vertOverflow="clip" horzOverflow="clip"${textBox ? ' vert="horz"' : ''} rtlCol="0" anchor="t"/><a:lstStyle/></xdr:txBody>`,
 		edit.text ?? '',
+		'xdr:txBody',
 	);
 	const shape = `<xdr:twoCellAnchor>${anchorMarkers(box, 'xdr:')}`
 		+ `<xdr:sp macro="${encodeXml(edit.macro ?? '')}" textlink=""><xdr:nvSpPr><xdr:cNvPr id="${id}" name="${encodeXml(name)}"${descr}/>`
@@ -1149,7 +888,7 @@ function addButton(pkg: Package, parts: SheetParts, shapes: SheetShapes, edit: S
 	const drawingPath = ensureDrawing(pkg, parts);
 	const drawing = pkg.read(drawingPath);
 	const descr = edit.altText ? ` descr="${encodeXml(edit.altText)}"` : '';
-	const twinText = withDrawingText('<xdr:txBody><a:bodyPr vertOverflow="clip" wrap="square" lIns="36576" tIns="36576" rIns="36576" bIns="36576" anchor="ctr" upright="1"/><a:lstStyle/></xdr:txBody>', edit.text ?? name)
+	const twinText = withDrawingTextBody('<xdr:txBody><a:bodyPr vertOverflow="clip" wrap="square" lIns="36576" tIns="36576" rIns="36576" bIns="36576" anchor="ctr" upright="1"/><a:lstStyle/></xdr:txBody>', edit.text ?? name, 'xdr:txBody')
 		.replace(/<a:p>/g, '<a:p><a:pPr algn="ctr" rtl="0"><a:defRPr sz="1000"/></a:pPr>')
 		.replace(/<a:rPr lang="en-US" sz="1100"\/>/g, '<a:rPr lang="en-US" sz="1100" b="0" i="0" u="none" strike="noStrike" baseline="0"><a:solidFill><a:srgbClr val="000000"/></a:solidFill><a:latin typeface="Calibri"/></a:rPr>');
 	const twin = `<mc:AlternateContent xmlns:mc="${NS.mc}"><mc:Choice xmlns:a14="${NS.a14}" Requires="a14"><xdr:twoCellAnchor>${anchorMarkers(box, 'xdr:')}`
@@ -1200,7 +939,7 @@ export function editSheetShape(
 		if (edit.type === 'button') {
 			return addButton(pkg, parts, shapes, edit, box);
 		}
-		if (edit.type === 'textBox' || Object.hasOwn(PRESETS, edit.type)) {
+		if (edit.type === 'textBox' || Object.hasOwn(PRESET_GEOMETRY, edit.type)) {
 			return addDrawingShape(pkg, parts, shapes, edit, box);
 		}
 		throw new ShapeError(`'${edit.type}' is not a shape XLIDE adds: use rectangle, roundedRectangle, oval, textBox or button.`);

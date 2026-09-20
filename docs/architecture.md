@@ -108,7 +108,11 @@ xlide_vscode/
       xlsx.ts           OOXML package: sheet enumeration, cell/formula read, cell write, shared strings, vbaProject part discovery per host
       xlsxFormula.ts    Worksheet formula text: the typed form and the stored form (_xlfn., _xlpm., _xleta., ANCHORARRAY, SINGLE), shared-formula shifting, and the check Excel applies to a typed formula
       xlsxFunctionNames.ts  Function tables for xlsxFormula, each found by having Excel 16 store or accept formulas: prefixed names, eta names, argument counts, reference-only arguments, reserved names
+      shapes.ts         What a shape is in the words all three hosts share: kinds, the edit record, the preset geometries and labels, and the DrawingML text Excel and PowerPoint both use
+      ooxml.ts          Reading and rewriting OOXML parts in place: element walk, attribute edit, relationships, content types, EMU/point conversion. Splice-based, so untouched bytes come back identical
       xlsxShapes.ts     Worksheet shapes: the drawing part's shapes and the form controls kept across VML, <controls>, ctrlProp and a hidden DrawingML twin; list, add, update, delete, and the macro each runs
+      pptShapes.ts      Slide shapes: the p:spTree of each slide, addressed in p:sldIdLst order rather than by file numbering; list, add, update, delete, and the macro a click runs through a:hlinkClick
+      docShapes.ts      Document shapes, per STORY - the body, each header, each footer - found through the section references, since header1.xml is the even-page one. Keeps the DrawingML shape and its VML twin in step. Word shapes cannot run macros
       pptContainer.ts   [MS-PPT] binary .ppt: persist-chain walk, embedded VBA storage extract (zlib), in-place record rewrite with offset fixing
       accessDatabase.ts Jet/ACE (.accdb/.mdb) page reader: LVAL rows and chains reassembled into a synthetic CFB the project parser reads unchanged
       access/accessFormat.ts   Jet 4 / ACE page format: table definitions, data-page rows, long values. Offsets derived from the fixtures, not from a published table (issue #65)
@@ -514,8 +518,8 @@ Settings:
 | `readCells` | `path`, `sheet`, `range` | - | `{data: [[...]]}` |
 | `readFormulas` | `path`, `sheet`, `range` | - | `{data: [[...]]}` (raw formula strings) |
 | `writeCells` | `path`, `sheet`, `startCell`, `data` | - | `{ok}` |
-| `listShapes` | `path` | `sheet` | `{sheets: [{sheet, shapes: [{name, kind, range?, macro?, text?, ...}]}]}` |
-| `editShape` | `path`, `sheet`, `action` | `name`, `type`, `range`, `text`, `macro`, `linkedCell`, `inputRange`, `altText`, `newName` | `{ok, name}` (the shape's name after the edit) |
+| `listShapes` | `path` | `surface` (or `sheet`) | `{surfaces: [{surface, shapes: [{name, kind, range?, left?, top?, width?, height?, macro?, text?, ...}]}]}` |
+| `editShape` | `path`, `action` | `surface` (or `sheet`), `name`, `type`, `range`, `left`, `top`, `width`, `height`, `text`, `macro`, `linkedCell`, `inputRange`, `altText`, `newName` | `{ok, name}` (the shape's name after the edit) |
 
 Failures reject with a `BridgeError` whose `code` follows the JSON-RPC convention (`-32601`, `-32602`, `-32000`).
 
@@ -531,17 +535,38 @@ write drops the calc chain when a formula cell changed and sets
 `fullCalcOnLoad`, since formulas that depend on a written cell keep their old
 results until Excel recalculates.
 
-`editShape` adds rectangles, rounded rectangles, ovals, text boxes and
-form-control buttons, and updates or deletes any shape except ActiveX
-controls. A form control is kept in four places that have to agree, and an
-edit changes all four; a deleted shape's picture or chart parts go with it
-unless something else still uses them. A macro is checked against the project
-first, as the Sub a click could run, because Excel reports a missing one only
-when someone clicks.
+A SURFACE is whatever the host puts shapes on: a worksheet in Excel, a slide
+in PowerPoint, and a story in Word - its body, each header, each footer.
+`listShapes` and `editShape` take one name for all three, and route on the
+container's host. Excel places a shape by the cells it covers (`range`); Word
+and PowerPoint use `left`, `top`, `width` and `height` in points, which is
+what their object models use, and Word also reports whether a shape is inline
+with the text or anchored.
+
+`editShape` adds twenty-one AutoShapes, text boxes and, in
+Excel, form-control buttons, and updates or deletes any shape except ActiveX
+controls. Pictures and charts are listed and edited but not added, since that
+needs bytes a shape tool cannot supply. Each AutoShape's preset geometry and
+the name a host gives a new one were read from a file holding one of each
+that Excel, Word and PowerPoint saved; neither is derivable from the
+`MsoAutoShapeType` constant (`msoShapeCross` writes `plus`), and for eight of
+the twenty-one Excel and PowerPoint report a legacy `Shape.Name` that is not
+what they write, so both tables are measured from the file. A PowerPoint placeholder carries no transform
+of its own, and its box is read from the slide layout and then the master,
+which is the chain PowerPoint reports through. An Excel form control is kept in four
+places that have to agree, and an edit changes all four; a deleted shape's
+picture or chart parts go with it unless something else still uses them. A
+Word shape is written twice, as DrawingML and as a VML twin, and an edit
+changes both. A macro is checked against the project first, as the Sub a
+click could run, because Excel and PowerPoint each report a missing one only
+when someone clicks; Word is refused outright, since a Word shape has no
+OnAction and no ActionSettings and the format keeps no macro link.
 
 Every method takes any macro container. The sheet/cell methods (`listSheets`,
-`readCells`, `readFormulas`, `writeCells`, `listShapes`, `editShape`) require the OOXML Excel container
-and refuse others with the container named; `getProjectInfo` answers modules
+`readCells`, `readFormulas`, `writeCells`) require the OOXML Excel container
+and refuse others with the container named; the shape methods (`listShapes`,
+`editShape`) take any OOXML container and refuse Access and the legacy binary
+formats the same way; `getProjectInfo` answers modules
 and protection for every container and empty sheet/name lists where no sheet
 surface exists. The write methods serve every container, Access included.
 `createProject` seeds `.xlsm`/`.xlsb`/`.xlam`/`.xltm`/`.docm`/`.dotm`/`.pptm`/
@@ -660,7 +685,7 @@ to operate on export files.
 | `xlide_readFormulas` | `#xlideReadFormulas` | none | No |
 | `xlide_writeCells` | `#xlideWriteCells` | saves .xlsm | Yes |
 | `xlide_listShapes` | `#xlideListShapes` | none | No |
-| `xlide_editShape` | `#xlideEditShape` | saves .xlsm | Yes |
+| `xlide_editShape` | `#xlideEditShape` | saves the Office file | Yes |
 | `xlide_searchModules` | `#xlideSearchModules` | none | No |
 | `xlide_gitChanges` | `#xlideGitChanges` | none | No |
 | `xlide_exportModules` | `#xlideExportModules` | writes export files + updates project JSON config | Yes |
@@ -715,9 +740,11 @@ Agent Instructions button opens a dialog inside the webview: steps for the
 person, then the text of `src/agentInstructions.ts` in a read-only box, and a
 Copy button. The text covers each way an agent reaches a file's VBA: the
 language model tools, which GitHub Copilot calls; for any other agent, the
-recommended route of Python plus pyOpenVBA, pyvbaanalysis and pyvbaharness,
-each described with its install command and its use, and never installed
-without the user's word; the `xlide-vba:` documents, which an agent reaches
+recommended route of the `xlide-mcp` MCP server, led by the `uvx`
+configuration that installs nothing, with `pip` as the alternative, the
+`--root` boundary and the tools it offers, and never added without the
+user's word; the `xlide-vba:`
+documents, which an agent reaches
 only if its edits go through VS Code's editor APIs; and an export, for an
 agent that works on files by path. A module has no path on disk, measured in
 VS Code as ENOENT for its `fsPath` and no document matching `Uri.file` of it,

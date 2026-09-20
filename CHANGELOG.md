@@ -2,6 +2,83 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.1.0] - 2026-09-20
+
+- **Shapes are no longer an Excel-only feature.** `xlide_listShapes` and
+  `xlide_editShape` now read and write shapes on a PowerPoint slide and on a
+  Word surface as well as on a worksheet, and link a slide shape to the Sub
+  a click runs. The `sheet` parameter is now `surface` - a worksheet name, a
+  slide (`Slide 2`, or its name), or a Word story (`Document`, `Header`,
+  `First Page Footer`) - and `sheet` is still accepted. Excel keeps placing
+  a shape by the cells it covers; Word and PowerPoint use `left`, `top`,
+  `width` and `height` in points, which is what their object models use.
+
+- **PowerPoint shapes.** Add, move, resize, rename, retype, describe and
+  delete AutoShapes and text boxes on any slide, and set or clear the macro
+  a click runs. Slides are addressed in presentation order rather than by
+  their part numbering, which does not renumber when slides are reordered.
+  A macro is checked against the project before it is written, because
+  PowerPoint itself finds a missing one only when someone clicks the shape.
+
+- **Word shapes, on every surface a document has.** The body, each header
+  and each footer are listed and edited separately, found through the
+  section references rather than the file names - Word writes the even-page
+  header as `header1.xml` and the one every other page uses as
+  `header2.xml`, so a tool that guessed would edit the wrong one. A shape
+  written twice, as modern DrawingML and as a VML twin for Word 2007, is
+  kept consistent in both copies when it is renamed, moved, resized or
+  retyped. Drawing canvases and the groups inside them are listed with their
+  members.
+
+- **Word shapes cannot run macros, and the tool says so.** A Word `Shape`
+  has neither `OnAction` nor `ActionSettings` - read from the live type
+  library, hidden members included - and the file format has nowhere to keep
+  a macro link. Asking for one is refused with that explanation and a
+  pointer to `FormField.EntryMacro`, rather than silently writing an
+  attribute no host would read.
+
+- **A slide placeholder now reports where it sits.** A title or body
+  placeholder almost never carries a transform of its own: PowerPoint
+  reports the box it inherits from the slide layout, and behind that the
+  master. XLIDE read only the slide part and so reported no position at all
+  for the title of every deck that is not blank-layout. Measured against
+  PowerPoint on a two-layout deck, every number now matches.
+
+- **Eighteen more AutoShapes can be added**, bringing the set to
+  twenty-one: parallelogram, trapezoid, diamond, octagon, triangle, right
+  triangle, hexagon, cross, pentagon, cylinder, cube, bevel, folded corner,
+  smiley face, donut, the "not allowed" symbol, block arc and a five-point
+  star alongside the rectangle, rounded rectangle and oval. Each one's
+  geometry and the name the host gives it were read from a file holding one
+  of each that Excel, Word and PowerPoint saved, because neither is
+  derivable: `msoShapeCross` writes `plus`, `msoShapeRegularPentagon` writes
+  `pentagon`, and `cross` and `star5` are real preset names belonging to
+  other shapes.
+
+- **A new shape is named as the file names it, not as the object model does.**
+  All three hosts write the same labels, but Excel's and PowerPoint's
+  `Shape.Name` reports a legacy name for eight of the twenty-one: it says
+  "Rounded Rectangle", "Can", "Donut" and "5-Point Star" where the file it
+  saves says "Rectangle: Rounded Corners", "Cylinder", "Circle: Hollow" and
+  "Star: 5 Points". Word's object model reports the written names. XLIDE
+  writes the file, so a shape it adds is named the way the host would have
+  named it.
+
+- **A connector is now reported as `line`**, the word the object model uses
+  (`msoLine`), where the shape tools previously answered `connector`. This
+  is the only renamed value; a shape's own name, such as `Straight Connector
+  5`, is unchanged.
+
+- **The agent instructions recommend the xlide-mcp MCP server.** An agent
+  that cannot call XLIDE's tools was pointed at three Python libraries; the
+  copied text now names one MCP server instead, and leads with the `uvx`
+  configuration that installs nothing at all - uv fetches the server on its
+  first run and brings its own Python, so a machine with neither can still
+  run it. `pip install` stays as the alternative. The text also gives what
+  `--root` refuses, to call `xlide_doctor` first, and the tools it offers
+  for VBA, UserForms, Power Query, sheets and shapes. Nothing is added
+  without the user's word, as before.
+
 ## [10.0.0] - 2026-09-19
 
 - **XLIDE runs in the browser.** Press `.` on a GitHub repository that holds

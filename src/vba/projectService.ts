@@ -39,6 +39,7 @@ import {
 	parseFormFrx,
 } from './formDesigner';
 import { openMacroContainer, type AccessContainerDesign, type MacroContainer } from './macroContainer';
+import { ZipArchive } from './zip';
 import {
 	AccessVbaWriter,
 	accessDesignModuleName,
@@ -69,7 +70,16 @@ import {
 	type VbaModule,
 } from './vbaProject';
 import { XlsxWorkbook, type CellValue, type NamedRange, type SheetSummary } from './xlsx';
-import type { ShapeEdit, ShapeInfo } from './xlsxShapes';
+import type { ShapeEdit, ShapeInfo } from './shapes';
+import { editSlideShape, listSlideShapes, presentationSlides, requireSlide } from './pptShapes';
+import {
+	WORD_SHAPE_MACRO_REFUSAL,
+	defaultStory,
+	documentStories,
+	editStoryShape,
+	listStoryShapes,
+	requireStory,
+} from './docShapes';
 import { atomicWrite } from './atomicWrite';
 import { buildMsFormsReference, hasMsFormsReference } from './vbaProjectReferences';
 import { attributeValue, joinVbaSource, listProcedures, splitVbaSource, type ProcedureEntry } from './moduleSource';
@@ -2036,6 +2046,35 @@ export function deleteModule(filePath: string, moduleName: string): WriteResult 
 	return { ok: true, signatureDropped };
 }
 
+/**
+ * The drawing surfaces of a container, whichever host owns it.
+ *
+ * All three OOXML hosts keep shapes in the same package, so one reader
+ * opens it and the host decides which module reads the parts. The package
+ * is a fresh copy, never the cached instance readers share, because the
+ * caller is about to change it.
+ */
+function shapeSurfaces(
+	container: MacroContainer,
+	filePath: string,
+	what: string,
+): { host: 'excel' | 'word' | 'powerpoint'; xlsx: XlsxWorkbook; zip: ZipArchive } {
+	if (!container.xlsx || container.kind === 'access') {
+		throw new Error(
+			`${path.basename(filePath)} is ${container.description}; ${what} need an OOXML Excel workbook, `
+			+ 'Word document or PowerPoint presentation.',
+		);
+	}
+	if (container.kind === 'excel' && !container.xlsx.hasSheetSurface()) {
+		throw new Error(
+			`${path.basename(filePath)} is a binary Excel workbook (.xlsb); its worksheet data is `
+			+ 'stored in a binary format XLIDE does not write. VBA editing is unaffected - save the '
+			+ 'workbook as .xlsm to use the sheet and shape tools.',
+		);
+	}
+	return { host: container.kind, xlsx: container.xlsx, zip: container.xlsx.zipArchive() };
+}
+
 /** A fresh copy of the workbook's package to change: never the cached instance readers share. */
 function writableSheetSurface(filePath: string, what: string): XlsxWorkbook {
 	const container = openMacroContainer(hostPlatform().readFile(filePath));
@@ -2066,8 +2105,35 @@ export function writeCells(
 	return { ok: true };
 }
 
-export function listShapes(filePath: string, sheet?: string): { sheets: Array<{ sheet: string; shapes: ShapeInfo[] }> } {
-	return { sheets: sheetSurface(filePath).shapes(sheet) };
+/** One surface of a file, and the shapes on it. */
+export interface ShapeSurface {
+	/** The worksheet, slide or Word story the shapes are on. */
+	surface: string;
+	shapes: ShapeInfo[];
+}
+
+/**
+ * The shapes on every surface of a file, or on the one named. A surface is
+ * a worksheet in Excel, a slide in PowerPoint, and a story in Word - its
+ * body, a header, a footer - since that is what each host puts shapes on.
+ */
+export function listShapes(filePath: string, surface?: string): { surfaces: ShapeSurface[] } {
+	const container = openMacroContainer(hostPlatform().readFile(filePath));
+	const drawing = shapeSurfaces(container, filePath, 'listing shapes');
+	if (drawing.host === 'excel') {
+		const sheets = drawing.xlsx.shapes(surface);
+		return { surfaces: sheets.map((s) => ({ surface: s.sheet, shapes: s.shapes })) };
+	}
+	if (drawing.host === 'powerpoint') {
+		const zip = drawing.zip;
+		const slides = presentationSlides(zip);
+		const wanted = surface === undefined ? slides : [requireSlide(slides, surface)];
+		return { surfaces: wanted.map((slide) => ({ surface: slide.name, shapes: listSlideShapes(zip, slide) })) };
+	}
+	const zip = drawing.zip;
+	const stories = documentStories(zip);
+	const wanted = surface === undefined ? stories : [requireStory(stories, surface)];
+	return { surfaces: wanted.map((story) => ({ surface: story.name, shapes: listStoryShapes(zip, story) })) };
 }
 
 /**
@@ -2076,25 +2142,77 @@ export function listShapes(filePath: string, sheet?: string): { sheets: Array<{ 
  * module or, qualified, in a sheet's or the workbook's module - since Excel
  * finds a missing one only when someone clicks the shape.
  */
-export function editShape(filePath: string, sheet: string, edit: ShapeEdit): { ok: true; name: string } {
-	const xlsx = writableSheetSurface(filePath, 'shape edits');
-	const checked = edit.macro ? { ...edit, macro: checkedMacro(filePath, edit.macro) } : edit;
-	const name = xlsx.editShape(sheet, checked);
-	atomicContainerWrite(filePath, xlsx.toBytes());
+export function editShape(filePath: string, surface: string, edit: ShapeEdit): { ok: true; name: string } {
+	const container = openMacroContainer(hostPlatform().readFile(filePath));
+	const drawing = shapeSurfaces(container, filePath, 'shape edits');
+	if (drawing.host === 'word' && edit.macro !== undefined) {
+		// Ahead of the macro check below, which would otherwise refuse a Word
+		// macro for the wrong reason: that no such Sub exists.
+		throw new Error(WORD_SHAPE_MACRO_REFUSAL);
+	}
+	if (!surface && drawing.host !== 'word') {
+		// Only Word has one obvious surface; the others need to be told which.
+		const noun = drawing.host === 'excel' ? 'worksheet' : 'slide';
+		throw new Error(`Editing a shape needs the ${noun} it is on; call the list tool for the ${noun}s in this file.`);
+	}
+	const checked = edit.macro ? { ...edit, macro: checkedMacro(filePath, edit.macro, drawing.host) } : edit;
+	if (drawing.host === 'excel') {
+		const name = drawing.xlsx.editShape(surface, checked);
+		atomicContainerWrite(filePath, drawing.xlsx.toBytes());
+		return { ok: true, name };
+	}
+	if (drawing.host === 'powerpoint') {
+		const name = editSlideShape(drawing.zip, requireSlide(presentationSlides(drawing.zip), surface), checked);
+		atomicContainerWrite(filePath, drawing.xlsx.toBytes());
+		return { ok: true, name };
+	}
+	const stories = documentStories(drawing.zip);
+	const story = surface ? requireStory(stories, surface) : defaultStory(stories);
+	const name = editStoryShape(drawing.zip, story, checked);
+	atomicContainerWrite(filePath, drawing.xlsx.toBytes());
 	return { ok: true, name };
 }
 
-/** A shape's macro, as Proc or Module.Proc, checked against the project. */
-function checkedMacro(filePath: string, macro: string): string {
-	// Excel writes this workbook as [0]! or by its file name; both mean the same.
+/** What each host calls the file a shape's macro has to live in. */
+const SHAPE_MACRO_HOST: Record<'excel' | 'powerpoint', { noun: string; fileNoun: string; assign: string; scope: string }> = {
+	excel: {
+		noun: 'Excel',
+		fileNoun: 'workbook',
+		assign: "Excel's Assign Macro",
+		scope: "a standard module, or in a sheet's or the workbook's module",
+	},
+	powerpoint: {
+		noun: 'PowerPoint',
+		fileNoun: 'presentation',
+		assign: "PowerPoint's Action Settings",
+		scope: 'a standard module',
+	},
+};
+
+/**
+ * A shape's macro, as Proc or Module.Proc, checked against the project.
+ *
+ * Both hosts that can run one find a missing macro only when someone clicks
+ * the shape, so the check happens here instead: the Sub has to exist, be
+ * Public, and take no required parameter, which is what each host's own
+ * dialog offers.
+ */
+function checkedMacro(filePath: string, macro: string, host: 'excel' | 'word' | 'powerpoint'): string {
+	if (host === 'word') {
+		// Unreachable through editShape, which refuses a Word macro earlier
+		// with the format explanation; kept so the type stays total.
+		throw new Error('A Word shape cannot run a macro.');
+	}
+	const words = SHAPE_MACRO_HOST[host];
+	// Excel writes this file as [0]! or by its name; both mean the same.
 	const m = /^(?:\[0\]!|'([^']*)'!|([^'!\s]+)!)?(?:([\p{L}_][\p{L}\p{N}_]*)\.)?([\p{L}_][\p{L}\p{N}_]*)$/u.exec(macro.trim());
 	if (!m) {
-		throw new Error(`'${macro}' is not a macro Excel can run from a shape; give a Sub as Name or Module.Name.`);
+		throw new Error(`'${macro}' is not a macro ${words.noun} can run from a shape; give a Sub as Name or Module.Name.`);
 	}
 	const [, quotedBook, book, moduleName, procName] = m;
-	const workbook = quotedBook ?? book;
-	if (workbook !== undefined && workbook.toLowerCase() !== path.basename(filePath).toLowerCase()) {
-		throw new Error(`'${macro}' runs a macro in ${workbook}; XLIDE links shapes only to Subs in this workbook.`);
+	const container = quotedBook ?? book;
+	if (container !== undefined && container.toLowerCase() !== path.basename(filePath).toLowerCase()) {
+		throw new Error(`'${macro}' runs a macro in ${container}; XLIDE links shapes only to Subs in this ${words.fileNoun}.`);
 	}
 	const modules = listModules(filePath).filter((module) => (moduleName
 		? module.name.toLowerCase() === moduleName.toLowerCase()
@@ -2106,7 +2224,7 @@ function checkedMacro(filePath: string, macro: string): string {
 	const problems: string[] = [];
 	for (const module of modules) {
 		if (module.type === 'class' || module.type === 'userform') {
-			throw new Error(`${module.name} is a ${module.type === 'class' ? 'class' : 'UserForm'} module; a shape runs a Sub in a standard module, or in a sheet's or the workbook's module.`);
+			throw new Error(`${module.name} is a ${module.type === 'class' ? 'class' : 'UserForm'} module; a shape runs a Sub in ${words.scope}.`);
 		}
 		const { source } = readModule(filePath, module.name, false);
 		for (const member of parseModule(source).members) {
@@ -2114,7 +2232,7 @@ function checkedMacro(filePath: string, macro: string): string {
 			if (member.procKind !== 'Sub') {
 				problems.push(`${module.name}.${member.name} is a ${member.procKind === 'Function' ? 'Function' : 'Property'}; a shape runs a Sub.`);
 			} else if (member.modifiers.some((modifier) => modifier.toLowerCase() === 'private')) {
-				problems.push(`${module.name}.${member.name} is Private; Excel's Assign Macro offers only Public Subs.`);
+				problems.push(`${module.name}.${member.name} is Private; ${words.assign} offers only Public Subs.`);
 			} else if (member.params.some((param) => !param.optional && !param.paramArray)) {
 				problems.push(`${module.name}.${member.name} takes parameters; a click passes none.`);
 			} else {

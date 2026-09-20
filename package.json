@@ -2,7 +2,7 @@
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
   "description": "Office VBA and Visual Basic 6 in VS Code - Excel, Word, PowerPoint, Access and .vbp projects; project tree, module editing, UserForm and VB6 form designers, static analysis, unit tests, AI agent tools",
-  "version": "10.0.0",
+  "version": "10.1.0",
   "publisher": "WilliamSmithE",
   "license": "MIT",
   "icon": "assets/images/extension_logo.png",
@@ -1532,8 +1532,8 @@
       },
       {
         "name": "xlide_listShapes",
-        "displayName": "List Worksheet Shapes",
-        "modelDescription": "Lists the shapes on the worksheets of an Excel file: AutoShapes, text boxes, pictures, charts, groups, form controls (buttons, check boxes, drop-downs, ...) and ActiveX controls. For each shape it returns its name, kind, the cells it covers (range), and when set its macro (the Sub a click runs, as Proc or Module.Proc), text or caption, linked cell, input range, alt text, and whether it is hidden; a group lists its members in shapes. Omit sheet to list every worksheet. Call this before xlide_editShape to learn shape names, and to find which Subs the workbook's buttons run. ActiveX controls run event procedures in the sheet's module (such as CommandButton1_Click), not a macro.",
+        "displayName": "List Shapes",
+        "modelDescription": "Lists the shapes on the surfaces of a macro-enabled Office file: a worksheet in Excel, a slide in PowerPoint, or a story in Word (the body, each header and each footer). Covers AutoShapes, text boxes, pictures, charts, groups, PowerPoint placeholders, Word drawing canvases, and Excel form controls (buttons, check boxes, drop-downs, ...) and ActiveX controls. For each shape it returns its name, kind, and when set its geometry, its macro (the Sub a click runs, as Proc or Module.Proc), text, alt text and whether it is hidden; a group or canvas lists its members in shapes. Excel reports the cells a shape covers as range; Word and PowerPoint report left, top, width and height in points, and Word also reports placement (inline with the text, or anchored). Omit surface to list every surface. Call this before xlide_editShape to learn shape and surface names, and to find which Subs a file wires to its shapes. Word shapes cannot run macros at all, and Excel ActiveX controls run event procedures in the sheet module (such as CommandButton1_Click) rather than a macro.",
         "toolReferenceName": "xlideListShapes",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -1541,11 +1541,11 @@
           "properties": {
             "filePath": {
               "type": "string",
-              "description": "Absolute path to the .xlsm file"
+              "description": "Absolute path to the macro-enabled file: an Excel workbook (.xlsm/.xlam/...), a Word document (.docm/.dotm) or a PowerPoint presentation (.pptm/.potm/.ppsm)"
             },
-            "sheet": {
+            "surface": {
               "type": "string",
-              "description": "Name of the worksheet; omit to list the shapes on every worksheet"
+              "description": "The surface to list: a worksheet name in Excel, a slide in PowerPoint (its name, or its position as 'Slide 2'), or a story in Word ('Document', 'Header', 'Footer', 'First Page Header', ...). Omit to list every surface."
             }
           },
           "required": [
@@ -1555,8 +1555,8 @@
       },
       {
         "name": "xlide_editShape",
-        "displayName": "Edit Worksheet Shape",
-        "modelDescription": "Adds, changes or deletes one shape on a worksheet in an Excel file, and links shapes to macros. The file is saved automatically. action add needs type (rectangle, roundedRectangle, oval, textBox, or button for a form-control button) and range, the cells the shape covers such as B2:D3; name, text, macro and altText are optional, and the result gives the name Excel's naming picked when name is left out. action update changes the named shape: range moves or resizes it, text sets its text or caption, macro sets the Sub a click runs, linkedCell sets a form control's cell link, inputRange sets the cells a drop-down or list box lists, altText sets its alt text, newName renames it; properties left out stay as they are, and an empty string removes a macro, cell link, input range or alt text. action delete removes the named shape. A macro is a Public Sub with no required parameters, given as Proc or Module.Proc; it must exist in the VBA project, so write the Sub first with xlide_writeModule. Call xlide_listShapes first for shape names. ActiveX controls are listed but not edited, and a shape inside a group is moved or deleted with its group. IMPORTANT: Use only ASCII characters (a-z, A-Z, 0-9, and standard ASCII punctuation) to avoid character mangling. Avoid Unicode, emoji, accented characters, and special symbols.",
+        "displayName": "Edit Shape",
+        "modelDescription": "Adds, changes or deletes one shape on a surface of a macro-enabled Office file, and links shapes to macros. The file is saved automatically. Works on an Excel worksheet, a PowerPoint slide, and a Word story (the body, a header or a footer). action add needs type (rectangle, roundedRectangle, oval, textBox, or button for an Excel form-control button) and a position: in Excel, range, the cells the shape covers such as 'B2:D3'; in PowerPoint, left and top in points (width and height default to 120 by 60); in Word, left and top make it a floating shape, and omitting both makes it inline with the text. name, text, macro and altText are optional, and the result gives the name the host would have picked when name is left out. action update changes the named shape: range (Excel) or left, top, width and height (Word and PowerPoint) move or resize it, text sets its text, macro sets the Sub a click runs, linkedCell and inputRange set an Excel form control's cell link and list, altText sets its alt text, newName renames it; properties left out stay as they are, and an empty string removes a macro, cell link, list or alt text. action delete removes the named shape. A macro is a Public Sub with no required parameters, given as Proc or Module.Proc, and it must already exist in the VBA project, so write the Sub first with xlide_writeModule. WORD CANNOT RUN A MACRO FROM A SHAPE - its shapes have no OnAction and no ActionSettings, and the file format has nowhere to keep one - so use macro only on Excel and PowerPoint. Pictures and charts are listed, moved, renamed and deleted but cannot be added, since that needs image or data bytes. Call xlide_listShapes first for shape and surface names. Excel ActiveX controls are listed but not edited, and a shape inside a group or a Word drawing canvas is moved or deleted with its container. IMPORTANT: Use only ASCII characters (a-z, A-Z, 0-9, and standard ASCII punctuation) to avoid character mangling. Avoid Unicode, emoji, accented characters, and special symbols.",
         "toolReferenceName": "xlideEditShape",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -1564,11 +1564,11 @@
           "properties": {
             "filePath": {
               "type": "string",
-              "description": "Absolute path to the .xlsm file"
+              "description": "Absolute path to the macro-enabled file: an Excel workbook (.xlsm/.xlam/...), a Word document (.docm/.dotm) or a PowerPoint presentation (.pptm/.potm/.ppsm)"
             },
-            "sheet": {
+            "surface": {
               "type": "string",
-              "description": "Name of the worksheet"
+              "description": "The surface the shape is on: a worksheet name in Excel, a slide in PowerPoint (its name, or its position as 'Slide 2'), or a story in Word ('Document', 'Header', 'Footer', ...). Required for Excel and PowerPoint; in Word it defaults to 'Document'."
             },
             "action": {
               "type": "string",
@@ -1587,16 +1587,50 @@
               "type": "string",
               "enum": [
                 "rectangle",
+                "parallelogram",
+                "trapezoid",
+                "diamond",
                 "roundedRectangle",
+                "octagon",
+                "triangle",
+                "rightTriangle",
                 "oval",
+                "hexagon",
+                "cross",
+                "pentagon",
+                "cylinder",
+                "cube",
+                "bevel",
+                "foldedCorner",
+                "smileyFace",
+                "donut",
+                "noEntry",
+                "blockArc",
+                "star",
                 "textBox",
                 "button"
               ],
-              "description": "What to add; button is a form-control button"
+              "description": "What to add; button is an Excel form-control button"
             },
             "range": {
               "type": "string",
-              "description": "The cells the shape covers, e.g. 'B2:D3'"
+              "description": "Excel only: the cells the shape covers, e.g. 'B2:D3'"
+            },
+            "left": {
+              "type": "number",
+              "description": "Points from the left edge, for a Word or PowerPoint shape"
+            },
+            "top": {
+              "type": "number",
+              "description": "Points from the top edge, for a Word or PowerPoint shape"
+            },
+            "width": {
+              "type": "number",
+              "description": "Width in points, for a Word or PowerPoint shape"
+            },
+            "height": {
+              "type": "number",
+              "description": "Height in points, for a Word or PowerPoint shape"
             },
             "text": {
               "type": "string",
@@ -1604,15 +1638,15 @@
             },
             "macro": {
               "type": "string",
-              "description": "The Public Sub a click runs, as Proc or Module.Proc; an empty string removes it"
+              "description": "The Public Sub a click runs, as Proc or Module.Proc; an empty string removes it. Excel and PowerPoint only - a Word shape cannot run a macro"
             },
             "linkedCell": {
               "type": "string",
-              "description": "A form control's cell link, e.g. '$H$10' or 'Sheet2!$H$10'; an empty string removes it"
+              "description": "Excel form control only: its cell link, e.g. '$H$10' or 'Sheet2!$H$10'; an empty string removes it"
             },
             "inputRange": {
               "type": "string",
-              "description": "The cells a drop-down or list box lists, e.g. '$J$1:$J$5'; an empty string removes them"
+              "description": "Excel drop-down or list box only: the cells it lists, e.g. '$J$1:$J$5'; an empty string removes them"
             },
             "altText": {
               "type": "string",
@@ -1625,7 +1659,6 @@
           },
           "required": [
             "filePath",
-            "sheet",
             "action"
           ]
         }

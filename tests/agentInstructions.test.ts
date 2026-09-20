@@ -35,7 +35,10 @@ describe('the agent instructions text', () => {
 
     it('names no tool, chat reference or command that does not exist', () => {
         // An agent told to call a tool that is not there loses a turn finding out.
-        const named = [...AGENT_INSTRUCTIONS.matchAll(/(?<![.\w])xlide_[A-Za-z]+\b/g)].map((m) => m[0]);
+        // The MCP server section is cut out first: its tools are its own
+        // namespace, named in snake_case, and are checked separately.
+        const extensionTools = AGENT_INSTRUCTIONS.slice(0, AGENT_INSTRUCTIONS.indexOf('## The XLIDE MCP server'));
+        const named = [...extensionTools.matchAll(/(?<![.\w])xlide_[A-Za-z]+\b/g)].map((m) => m[0]);
         const referenced = [...AGENT_INSTRUCTIONS.matchAll(/#(xlide[A-Za-z]+)/g)].map((m) => m[1]);
         const commands = [...AGENT_INSTRUCTIONS.matchAll(/"XLIDE: ([^"]+)"/g)].map((m) => m[1]);
 
@@ -67,21 +70,50 @@ describe('the agent instructions text', () => {
         }
     });
 
-    it('recommends the author\'s Python libraries to an agent without the tools, and holds it to asking before installing', () => {
-        const libraries = AGENT_INSTRUCTIONS.slice(AGENT_INSTRUCTIONS.indexOf('## The Python libraries'));
+    it('recommends the author\'s MCP server to an agent without the tools, and holds it to asking first', () => {
+        const server = AGENT_INSTRUCTIONS.slice(AGENT_INSTRUCTIONS.indexOf('## The XLIDE MCP server'));
 
-        expect(AGENT_INSTRUCTIONS).toContain('the author of XLIDE recommends installing Python');
-        expect(AGENT_INSTRUCTIONS).toContain('Install nothing without asking');
-        expect(libraries).toContain('Install nothing before the user agrees');
-        for (const [install, use] of [
-            ['pip install pyOpenVBA', 'from pyopenvba import ExcelFile'],
-            ['pip install pyvbaanalysis', 'from pyvbaanalysis import analyze_office_file'],
-            ['pip install pyvbaharness', 'from pyvbaharness import ExcelSession'],
-        ]) {
-            expect(libraries, install).toContain(install);
-            expect(libraries, use).toContain(use);
+        expect(AGENT_INSTRUCTIONS).toContain('the author of XLIDE recommends xlide-mcp');
+        expect(AGENT_INSTRUCTIONS).toContain('Install or add nothing without asking');
+        expect(server).toContain('Add nothing before the user agrees');
+        expect(server).toContain('--root is the security boundary');
+        expect(AGENT_INSTRUCTIONS_STEPS.join(' ')).toContain('XLIDE\'s author recommends his xlide-mcp MCP server');
+    });
+
+    it('leads with the uvx route, which installs nothing, and keeps pip as the alternative', () => {
+        // uv brings its own Python, so this is the one configuration that
+        // works on a machine with neither it nor the package. An agent told
+        // only about pip asks the user to install something they need not.
+        const server = AGENT_INSTRUCTIONS.slice(AGENT_INSTRUCTIONS.indexOf('## The XLIDE MCP server'));
+
+        expect(server).toContain('"command": "uvx"');
+        expect(server).toContain('"--from", "xlide-mcp[live]"');
+        expect(server).toContain('pip install xlide-mcp');
+        expect(server.indexOf('"command": "uvx"')).toBeLessThan(server.indexOf('pip install xlide-mcp'));
+        expect(AGENT_INSTRUCTIONS_STEPS.join(' ')).toContain('Nothing has to be installed');
+    });
+
+    it('names no library the author has replaced with the MCP server', () => {
+        // The three Python libraries were the recommended route before
+        // xlide-mcp; a leftover mention sends an agent to install the wrong
+        // thing.
+        for (const gone of ['pyOpenVBA', 'pyopenvba', 'pyvbaanalysis', 'pyvbaharness']) {
+            expect(AGENT_INSTRUCTIONS, gone).not.toContain(gone);
+            expect(AGENT_INSTRUCTIONS_STEPS.join(' '), gone).not.toContain(gone);
         }
-        expect(AGENT_INSTRUCTIONS_STEPS.join(' ')).toContain('XLIDE\'s author recommends installing Python');
+    });
+
+    it("names the MCP server's tools in its own snake_case namespace", () => {
+        // They are a different namespace from the extension's camelCase
+        // tools, and the test above deliberately does not check them against
+        // package.json. Here they only have to be self-consistent.
+        const server = AGENT_INSTRUCTIONS.slice(AGENT_INSTRUCTIONS.indexOf('## The XLIDE MCP server'));
+        const named = [...server.matchAll(/\bxlide_[a-z_]+\b/g)].map((m) => m[0]);
+
+        expect(named).toContain('xlide_read_module');
+        expect(named).toContain('xlide_write_module');
+        expect(named).toContain('xlide_run_tests');
+        expect(named.filter((name) => /[A-Z]/.test(name))).toEqual([]);
     });
 
     it('says a module has no path on disk before it offers either way in', () => {

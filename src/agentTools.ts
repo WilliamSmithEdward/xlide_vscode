@@ -72,14 +72,20 @@ interface CreateProjectInput { filePath: string; }
 interface ReadCellsInput   { filePath: string; sheet: string; range: string; }
 interface ReadFormulasInput { filePath: string; sheet: string; range: string; }
 interface WriteCellsInput  { filePath: string; sheet: string; startCell: string; data: unknown[][]; }
-interface ListShapesInput  { filePath: string; sheet?: string; }
+/** `sheet` is the old name for `surface`, still accepted. */
+interface ListShapesInput  { filePath: string; surface?: string; sheet?: string; }
 interface EditShapeInput {
     filePath: string;
-    sheet: string;
+    surface?: string;
+    sheet?: string;
     action: 'add' | 'update' | 'delete';
     name?: string;
     type?: string;
     range?: string;
+    left?: number;
+    top?: number;
+    width?: number;
+    height?: number;
     text?: string;
     macro?: string;
     linkedCell?: string;
@@ -761,13 +767,14 @@ export function registerAgentTools(
         // ----------------------------------------------------------------
         vscode.lm.registerTool<ListShapesInput>('xlide_listShapes', {
             async invoke(options, token) {
-                const { filePath, sheet } = options.input;
-                const result = await bridge.call<{ sheets: unknown[] }>(
+                const { filePath } = options.input;
+                const surface = options.input.surface ?? options.input.sheet;
+                const result = await bridge.call<{ surfaces: unknown[] }>(
                     'listShapes',
-                    { path: filePath, ...(sheet ? { sheet } : {}) },
+                    { path: filePath, ...(surface ? { surface } : {}) },
                     token,
                 );
-                return textResult(JSON.stringify(result.sheets, null, 2));
+                return textResult(JSON.stringify(result.surfaces, null, 2));
             },
         }),
 
@@ -776,7 +783,9 @@ export function registerAgentTools(
         // ----------------------------------------------------------------
         vscode.lm.registerTool<EditShapeInput>('xlide_editShape', {
             async invoke(options, _token) {
-                const { filePath, sheet, ...edit } = options.input;
+                const { filePath, surface: named, sheet, ...edit } = options.input;
+                // Word's body is the surface a caller who names none means.
+                const surface = named ?? sheet ?? '';
                 const { result, summary } = await withWriteAudit({
                     command: 'xlide_editShape',
                     operation: 'edit-shape',
@@ -785,10 +794,10 @@ export function registerAgentTools(
                 }, async () => {
                     const result = await runWriteWithHostCoordination(filePath, () => bridge.call<{ ok: true; name: string }>('editShape', {
                         path: filePath,
-                        sheet,
+                        surface,
                         ...edit,
                     }));
-                    const shape = `${sheet}!${result.name}`;
+                    const shape = surface ? `${surface}!${result.name}` : result.name;
                     return {
                         result,
                         summary: formatChangeSummary({
@@ -798,18 +807,24 @@ export function registerAgentTools(
                     };
                 });
                 const done = edit.action === 'add' ? 'added' : edit.action === 'delete' ? 'deleted' : 'changed';
-                return textResult(`${summary}\nShape "${result.name}" ${done} on sheet "${sheet}".`);
+                const where = surface ? ` on "${surface}"` : '';
+                return textResult(`${summary}\nShape "${result.name}" ${done}${where} in "${filePath}".`);
             },
             async prepareInvocation(options, _token) {
-                const { filePath, sheet, action, name, type, range, macro } = options.input;
-                const what = action === 'add' ? `a ${type ?? 'shape'}${name ? ` named **${name}**` : ''} at \`${range ?? '?'}\`` : `**${name ?? '?'}**`;
+                const { filePath, action, name, type, range, macro, left, top } = options.input;
+                const surface = options.input.surface ?? options.input.sheet;
+                const at = range ? `at \`${range}\`` : left !== undefined || top !== undefined ? `at ${left ?? 0}, ${top ?? 0}` : '';
+                const what = action === 'add'
+                    ? `a ${type ?? 'shape'}${name ? ` named **${name}**` : ''}${at ? ` ${at}` : ''}`
+                    : `**${name ?? '?'}**`;
                 const link = macro === undefined ? '' : macro ? `, running \`${macro}\` on a click` : ', with no macro';
+                const where = surface ? ` on **${surface}**` : '';
                 return {
-                    invocationMessage: `${shapeActionTitle(action)} on "${sheet}" in "${filePath}"`,
+                    invocationMessage: `${shapeActionTitle(action)}${surface ? ` on "${surface}"` : ''} in "${filePath}"`,
                     confirmationMessages: {
                         title: shapeActionTitle(action),
                         message: new vscode.MarkdownString(
-                            `${action === 'add' ? 'Add' : action === 'update' ? 'Change' : 'Delete'} ${what}${link} on sheet **${sheet}** in \`${filePath}\`?`,
+                            `${action === 'add' ? 'Add' : action === 'update' ? 'Change' : 'Delete'} ${what}${link}${where} in \`${filePath}\`?`,
                         ),
                     },
                 };

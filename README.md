@@ -137,9 +137,10 @@ reviewable, testable, and collaborative.
 
 14. **Give AI assistants real file context**
    XLIDE exposes tools for file discovery, VBA reads/writes, analysis,
-   tests, sheet/cell access, formulas, worksheet shapes and the macros they
-   run, and module sync so agents can work from the actual Office file
-   instead of stale exported copies.
+   tests, sheet/cell access, formulas, shapes on any Office surface - a
+   worksheet, a slide, a document body, a header - and the macros they run,
+   and module sync so agents can work from the actual Office file instead of
+   stale exported copies.
 
 ---
 

@@ -272,19 +272,31 @@ describe('xlide_writeCells agent tool', () => {
 
 describe('shape agent tools', () => {
     const book = 'C:\\work\\Book.xlsm';
+    const deck = 'C:\\work\\Deck.pptm';
+    const doc = 'C:\\work\\Report.docm';
 
-    it('lists shapes for one sheet or all, as JSON', async () => {
-        const sheets = [{ sheet: 'Sheet1', shapes: [{ name: 'Go', kind: 'button', macro: 'DoIt' }] }];
-        const bridgeCall = vi.fn(async () => ({ sheets }));
+    it('lists shapes for one surface or all, as JSON', async () => {
+        const surfaces = [{ surface: 'Sheet1', shapes: [{ name: 'Go', kind: 'button', macro: 'DoIt' }] }];
+        const bridgeCall = vi.fn(async () => ({ surfaces }));
         registerTools(bridgeCall);
         const tool = vscodeMock.registeredTools.get('xlide_listShapes')!;
 
-        const result = await tool.invoke({ input: { filePath: book, sheet: 'Sheet1' } }, undefined) as { parts: Array<{ value: string }> };
+        const result = await tool.invoke({ input: { filePath: book, surface: 'Sheet1' } }, undefined) as { parts: Array<{ value: string }> };
         await tool.invoke({ input: { filePath: book } }, undefined);
 
-        expect(bridgeCall).toHaveBeenNthCalledWith(1, 'listShapes', { path: book, sheet: 'Sheet1' }, undefined);
+        expect(bridgeCall).toHaveBeenNthCalledWith(1, 'listShapes', { path: book, surface: 'Sheet1' }, undefined);
         expect(bridgeCall).toHaveBeenNthCalledWith(2, 'listShapes', { path: book }, undefined);
-        expect(JSON.parse(result.parts[0].value)).toEqual(sheets);
+        expect(JSON.parse(result.parts[0].value)).toEqual(surfaces);
+    });
+
+    it('still takes sheet, the name the parameter had before the other hosts', async () => {
+        const bridgeCall = vi.fn(async () => ({ surfaces: [] }));
+        registerTools(bridgeCall);
+        const tool = vscodeMock.registeredTools.get('xlide_listShapes')!;
+
+        await tool.invoke({ input: { filePath: book, sheet: 'Sheet1' } }, undefined);
+
+        expect(bridgeCall).toHaveBeenCalledWith('listShapes', { path: book, surface: 'Sheet1' }, undefined);
     });
 
     it('edits a shape only inside the Office coordination, and says what changed', async () => {
@@ -293,25 +305,52 @@ describe('shape agent tools', () => {
         const tool = vscodeMock.registeredTools.get('xlide_editShape')!;
         vi.mocked(runWriteWithHostCoordination).mockClear();
         vi.mocked(runWriteWithHostCoordination).mockImplementationOnce(async () => 'held back');
-        const input = { filePath: book, sheet: 'Sheet1', action: 'update', name: 'Go', macro: 'Macros.Run' };
+        const input = { filePath: book, surface: 'Sheet1', action: 'update', name: 'Go', macro: 'Macros.Run' };
 
         await tool.invoke({ input }, undefined);
         expect(runWriteWithHostCoordination).toHaveBeenCalledWith(book, expect.any(Function));
         expect(bridgeCall).not.toHaveBeenCalled();
 
         const result = await tool.invoke({ input }, undefined) as { parts: Array<{ value: string }> };
-        expect(bridgeCall).toHaveBeenCalledWith('editShape', { path: book, sheet: 'Sheet1', action: 'update', name: 'Go', macro: 'Macros.Run' });
-        expect(result.parts[0].value).toBe('Change shape: 1 changed\nShape "Go" changed on sheet "Sheet1".');
+        expect(bridgeCall).toHaveBeenCalledWith('editShape', { path: book, surface: 'Sheet1', action: 'update', name: 'Go', macro: 'Macros.Run' });
+        expect(result.parts[0].value).toBe('Change shape: 1 changed\nShape "Go" changed on "Sheet1" in "C:\\work\\Book.xlsm".');
     });
 
-    it('names the shape an add created, since Excel-style names are chosen by the engine', async () => {
+    it('passes a slide and the points that place a shape on it', async () => {
+        const bridgeCall = vi.fn(async () => ({ ok: true, name: 'Badge' }));
+        registerTools(bridgeCall);
+        const tool = vscodeMock.registeredTools.get('xlide_editShape')!;
+
+        await tool.invoke({
+            input: { filePath: deck, surface: 'Slide 2', action: 'add', type: 'oval', left: 40, top: 50, macro: 'SayHello' },
+        }, undefined);
+
+        expect(bridgeCall).toHaveBeenCalledWith('editShape', {
+            path: deck, surface: 'Slide 2', action: 'add', type: 'oval', left: 40, top: 50, macro: 'SayHello',
+        });
+    });
+
+    it("leaves Word's surface empty when none is named, and says so without a sheet", async () => {
+        const bridgeCall = vi.fn(async () => ({ ok: true, name: 'Stamp' }));
+        registerTools(bridgeCall);
+        const tool = vscodeMock.registeredTools.get('xlide_editShape')!;
+
+        const result = await tool.invoke({
+            input: { filePath: doc, action: 'add', type: 'rectangle', name: 'Stamp' },
+        }, undefined) as { parts: Array<{ value: string }> };
+
+        expect(bridgeCall).toHaveBeenCalledWith('editShape', { path: doc, surface: '', action: 'add', type: 'rectangle', name: 'Stamp' });
+        expect(result.parts[0].value).toBe('Add shape: 1 changed\nShape "Stamp" added in "C:\\work\\Report.docm".');
+    });
+
+    it('names the shape an add created, since the host chooses the name', async () => {
         const bridgeCall = vi.fn(async () => ({ ok: true, name: 'Button 4' }));
         registerTools(bridgeCall);
         const tool = vscodeMock.registeredTools.get('xlide_editShape')!;
 
-        const result = await tool.invoke({ input: { filePath: book, sheet: 'Sheet1', action: 'add', type: 'button', range: 'B2:C3' } }, undefined) as { parts: Array<{ value: string }> };
+        const result = await tool.invoke({ input: { filePath: book, surface: 'Sheet1', action: 'add', type: 'button', range: 'B2:C3' } }, undefined) as { parts: Array<{ value: string }> };
 
-        expect(result.parts[0].value).toBe('Add shape: 1 changed\nShape "Button 4" added on sheet "Sheet1".');
+        expect(result.parts[0].value).toBe('Add shape: 1 changed\nShape "Button 4" added on "Sheet1" in "C:\\work\\Book.xlsm".');
     });
 });
 

@@ -290,6 +290,15 @@ export class XlsxWorkbook {
 	}
 
 	/**
+	 * The package's archive, for the readers that work on parts this class
+	 * knows nothing about - a slide's drawing tree, a Word story. Edits to it
+	 * are edits to this package, and `toBytes` picks them up.
+	 */
+	zipArchive(): ZipArchive {
+		return this.zip;
+	}
+
+	/**
 	 * The Office host this OOXML package belongs to, decided by which root
 	 * document part it carries - content, not the file extension. Undefined
 	 * for a zip that is none of the three.
