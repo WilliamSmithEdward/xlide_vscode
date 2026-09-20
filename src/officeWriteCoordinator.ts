@@ -85,16 +85,19 @@ const readOnlyRefreshInFlight = new Set<string>();
 const xlideOpenedFiles = new Set<string>();
 
 /**
- * These sets track files an Office application is holding, which only
- * happens on Windows - but the key is taken through projectIdentityKey
- * rather than path.win32 directly. Reaching for win32 here was safe only
- * because every caller sits behind an `osPlatform() === 'win32'` test that
- * short-circuits first, and in a browser path.win32 throws outright: one
- * reordered condition and a save would fail with "no Windows path support".
- * On Windows this is the same normalize-and-lowercase as before.
+ * These sets track a file an Office application is holding, which is a
+ * Windows lock - so the key uses Windows rules whatever the host is, and
+ * names the platform rather than letting the ambient one decide. Leaving it
+ * implicit made the key case-sensitive everywhere but Windows, which is how
+ * `C:\track\Book.xlsm` stopped matching `c:\TRACK\book.xlsm` on a Linux
+ * runner while still passing on a Windows developer machine.
+ *
+ * Nothing reaches this in a browser: every caller sits behind an
+ * `osPlatform() === 'win32'` test, and there is no Office there holding
+ * anything open.
  */
 function projectKey(filePath: string): string {
-    return projectIdentityKey(filePath);
+    return projectIdentityKey(filePath, 'win32');
 }
 
 export function markFileOpenedByXlide(filePath: string): void {
