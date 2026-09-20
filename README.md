@@ -287,6 +287,20 @@ Guide:
 
 ---
 
+## Outside VS Code
+
+XLIDE puts this surface in an editor. If you want an agent working the
+same way without one, [xlide-mcp](https://github.com/WilliamSmithEdward/xlide_mcp)
+is an MCP server over the same ground: the VBA, the UserForms and the
+Power Query inside Excel, Word, PowerPoint and Access files, reachable
+by anything that speaks the Model Context Protocol. It carries the
+content-token guard and the analysis build gate this extension uses, so
+an agent editing a workbook is held to the same rules you are.
+
+```bash
+uvx --from "xlide-mcp[live]" xlide-mcp --root /path/to/your/files
+```
+
 ## Requirements
 
 Required for normal browsing, editing, analysis, import, and export:
