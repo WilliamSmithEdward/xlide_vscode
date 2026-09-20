@@ -5,7 +5,7 @@
 // is a parse of the manifest plus the member files, and writing an existing
 // module is a rewrite of its own file with its header kept.
 
-import * as fs from 'fs';
+import { hostPlatform } from '../hostPlatform';
 import * as path from 'path';
 import { decodeCodePage, encodeCodePage } from '../codePages';
 import { splitFrmSource } from '../formDesigner';
@@ -86,7 +86,7 @@ interface DecodedFile {
 }
 
 function readTextFile(filePath: string): DecodedFile {
-	const bytes = fs.readFileSync(filePath);
+	const bytes = hostPlatform().readFile(filePath);
 	const bom = bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
 	const text = bom ? bytes.subarray(3).toString('utf8') : decodeCodePage(bytes, VB6_CODE_PAGE);
 	return { text, bom, eol: text.includes('\r\n') ? '\r\n' : '\n' };
@@ -133,9 +133,9 @@ function projectCacheKey(vbpPath: string): string {
  */
 export function openVb6Project(vbpPath: string): Vb6Project {
 	const resolved = path.resolve(vbpPath);
-	let stat: fs.Stats;
+	let stat;
 	try {
-		stat = fs.statSync(resolved);
+		stat = hostPlatform().stat(resolved);
 	} catch (err) {
 		throw new Vb6ProjectError(`Project file not found: ${resolved} (${err instanceof Error ? err.message : String(err)})`);
 	}
@@ -344,7 +344,7 @@ export function validateVb6Project(vbpPath: string): { issues: string[] } {
 			issues.push(`Duplicate module name: ${entry.name}`);
 		}
 		seen.add(key);
-		if (!fs.existsSync(entry.filePath)) {
+		if (!hostPlatform().exists(entry.filePath)) {
 			issues.push(`Missing module file: ${path.relative(project.dir, entry.filePath)} (${entry.name})`);
 		}
 	}

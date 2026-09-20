@@ -1,3 +1,4 @@
+import { osPlatform } from './util/osPlatform';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { psSingleQuoted, runPowerShell } from './util/powershell';
@@ -6,6 +7,7 @@ import { openFileInHost } from './officeHostLauncher';
 import { PROJECT_LOCKED_ERROR_RE } from './xlideCommandLog';
 import { errorMessage } from './util/errors';
 import { recordProjectWrite } from './projectFileChanges';
+import { projectIdentityKey } from './projectIdentity';
 import {
     xlideOfficeCoordinationModeFromConfig,
     xlideOfficeReopenAfterCloseFromConfig,
@@ -82,8 +84,17 @@ const readOnlyRefreshInFlight = new Set<string>();
 // so closeTracked only ever closes files the user opened through XLIDE.
 const xlideOpenedFiles = new Set<string>();
 
+/**
+ * These sets track files an Office application is holding, which only
+ * happens on Windows - but the key is taken through projectIdentityKey
+ * rather than path.win32 directly. Reaching for win32 here was safe only
+ * because every caller sits behind an `osPlatform === 'win32'` test that
+ * short-circuits first, and in a browser path.win32 throws outright: one
+ * reordered condition and a save would fail with "no Windows path support".
+ * On Windows this is the same normalize-and-lowercase as before.
+ */
 function projectKey(filePath: string): string {
-    return path.win32.normalize(filePath).toLowerCase();
+    return projectIdentityKey(filePath);
 }
 
 export function markFileOpenedByXlide(filePath: string): void {
@@ -320,7 +331,7 @@ export async function closeFileInHost(
     options: CloseFileScriptOptions,
     log: (message: string) => void = sharedLog,
 ): Promise<CloseFileResult> {
-    if (process.platform !== 'win32' || !officeHostForPath(filePath)) {
+    if (osPlatform !== 'win32' || !officeHostForPath(filePath)) {
         return { closed: false, forced: false, stillLocked: true, error: 'not-supported' };
     }
     const script = buildCloseFileScript(filePath, options);
@@ -366,7 +377,7 @@ export async function tryCoordinatedClose(
     log: (message: string) => void = sharedLog,
     settings: HostCoordinationSettings = resolveHostCoordinationSettings(),
 ): Promise<CoordinatedCloseOutcome> {
-    const scope = process.platform === 'win32' ? closeScopeForWrite(settings, filePath) : undefined;
+    const scope = osPlatform === 'win32' ? closeScopeForWrite(settings, filePath) : undefined;
     if (!scope) {
         return { attempted: false, freed: false, viewLost: false };
     }
@@ -462,7 +473,7 @@ export async function refreshReadOnlyViewAfterSave(
     filePath: string,
     log: (message: string) => void = sharedLog,
 ): Promise<void> {
-    if (process.platform !== 'win32') {
+    if (osPlatform !== 'win32') {
         return;
     }
     const script = buildRefreshReadOnlyScript(filePath);
@@ -512,7 +523,7 @@ export async function runWriteWithHostCoordination<T>(
     const attempt = (): Promise<T> => recordProjectWrite(filePath, write);
     try {
         const result = await attempt();
-        if (process.platform === 'win32'
+        if (osPlatform === 'win32'
             && !isFileReopenSuppressed(filePath)
             && resolveHostCoordinationSettings().reopenReadOnlyAfterSave) {
             // Fire-and-forget: refresh the stale read-only view without
@@ -523,7 +534,7 @@ export async function runWriteWithHostCoordination<T>(
         }
         return result;
     } catch (err) {
-        if (process.platform !== 'win32' || !PROJECT_LOCKED_ERROR_RE.test(errorMessage(err))) {
+        if (osPlatform !== 'win32' || !PROJECT_LOCKED_ERROR_RE.test(errorMessage(err))) {
             throw err;
         }
         const settings = resolveHostCoordinationSettings();

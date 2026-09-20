@@ -1,4 +1,4 @@
-import * as fs from 'fs';
+import { workspaceFiles } from './util/workspaceFiles';
 import * as path from 'path';
 import type { ImportMode } from './moduleSyncPlan';
 import {
@@ -12,7 +12,7 @@ import {
 } from './analysisSettingsCore';
 import type { XlideGlobalSettingSource } from './globalSettings';
 import { projectIdentityKey } from './projectIdentity';
-import { errorMessage, isNodeError } from './util/errors';
+import { errorMessage } from './util/errors';
 import { createKeyedAsyncLock } from './util/keyedAsyncLock';
 
 type ExportMode = 'exportAll' | 'trueUp';
@@ -338,11 +338,12 @@ async function readProjectSettings(
     const configPath = settingsPathForProject(filePath);
     let raw: string;
     try {
-        raw = await fs.promises.readFile(configPath, 'utf8');
-    } catch (err) {
-        if (isNodeError(err) && err.code === 'ENOENT') {
+        const text = await workspaceFiles.readTextIfPresent(configPath);
+        if (text === undefined) {
             return {};
         }
+        raw = text;
+    } catch (err) {
         // The lenient (apply) read powers per-keystroke diagnostics, so it must
         // never throw on a stale/unreadable sidecar - otherwise a single bad file
         // blasts an error across every module. Fall back to no project settings.
@@ -408,10 +409,9 @@ async function writeProjectSettingsUnlocked(
     config: ProjectSettingsConfigInput,
 ): Promise<void> {
     const configPath = settingsPathForProject(filePath);
-    await fs.promises.writeFile(
+    await workspaceFiles.writeText(
         configPath,
         `${JSON.stringify(normalizeProjectSettingsConfig(config), null, 2)}\n`,
-        'utf8',
     );
 }
 

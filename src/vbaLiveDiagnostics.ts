@@ -38,7 +38,7 @@ import {
     type VbaProjectAnalysisOptions,
 } from './vbaProjectAnalysis';
 import { VbaProjectIndexService } from './vbaProjectIndexService';
-import type { AnalysisWorkerClient } from './analysisWorkerClient';
+import type { AnalysisWorker } from './vbaProjectWideAnalysis';
 import {
     isAnalysisRuleTracked,
 } from './analysisSettingsCore';
@@ -299,7 +299,7 @@ class ProjectSettingsWatcherRegistry implements vscode.Disposable {
 export function registerVbaDiagnostics(
     context: vscode.ExtensionContext,
     projectIndexService: VbaProjectIndexService,
-    workerClient?: AnalysisWorkerClient,
+    workerClient?: AnalysisWorker,
 ): void {
     const collection = vscode.languages.createDiagnosticCollection('vba');
     const scheduler = new DiagnosticScheduler(

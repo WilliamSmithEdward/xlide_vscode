@@ -19,6 +19,10 @@ export const MACRO_CONTAINER_FIND_EXCLUDES = '{**/node_modules/**,**/.venv/**,**
 export async function findMacroContainerFiles(): Promise<vscode.Uri[]> {
     const uris = await vscode.workspace.findFiles(MACRO_CONTAINER_GLOB, MACRO_CONTAINER_FIND_EXCLUDES);
     return uris
-        .filter((uri) => uri.scheme === 'file' && !path.basename(uri.fsPath).startsWith('~$'))
+        // No scheme test: findFiles only searches the workspace folders, so
+        // everything it returns is already in scope. Testing for `file:` was a
+        // no-op on a desktop and hid every workbook in a browser, where a
+        // virtual workspace is vscode-vfs://github or similar.
+        .filter((uri) => !path.basename(uri.fsPath).startsWith('~$'))
         .sort((left, right) => left.fsPath.localeCompare(right.fsPath));
 }

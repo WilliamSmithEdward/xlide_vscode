@@ -5,21 +5,12 @@
 // with their ORIGINAL compressed bytes, so an edit to one part cannot perturb
 // any other part (and saving stays fast on large projects).
 
-import * as zlib from 'zlib';
+import { containerCodec } from './containerCodec';
 
 const SIG_LOCAL = 0x04034b50;
 const SIG_CENTRAL = 0x02014b50;
 const SIG_EOCD = 0x06054b50;
 const SIG_ZIP64_EOCD = 0x06064b50;
-
-/**
- * Deflate level for rewritten entries. The dominant cost of saving a project
- * is re-deflating vbaProject.bin, and on a large project level 6 spends about
- * 18 ms to level 4's 10 ms while producing an entry only ~2.5% smaller - well
- * under a percent of the finished project. Ctrl+S happens far more often than
- * anyone counts those bytes, so buy the latency.
- */
-const DEFLATE_LEVEL = 4;
 
 export class ZipError extends Error {}
 
@@ -160,19 +151,21 @@ export class ZipArchive {
 			return entry.compressed.subarray(0, entry.uncompressedSize);
 		}
 		if (entry.method === 8) {
-			return zlib.inflateRawSync(entry.compressed);
+			return containerCodec().inflateRaw(entry.compressed, {
+				expectedSize: entry.uncompressedSize,
+			});
 		}
 		throw new ZipError(`Unsupported compression method ${entry.method} for ${name}.`);
 	}
 
 	/** Replace or create an entry. Untouched entries keep their original bytes. */
 	write(name: string, data: Buffer): void {
-		const compressed = zlib.deflateRawSync(data, { level: DEFLATE_LEVEL });
+		const payload = containerCodec().compressForZip(data);
 		const idx = this.byName.get(name);
 		const next: ZipEntry = {
 			name,
-			compressed,
-			method: 8,
+			compressed: payload.bytes,
+			method: payload.method,
 			crc32: crc32(data),
 			uncompressedSize: data.length,
 			flags: 0,

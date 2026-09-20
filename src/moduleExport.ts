@@ -1,4 +1,5 @@
-import * as fs from 'fs';
+import { osPlatform } from './util/osPlatform';
+import { workspaceFiles, type DirectoryEntry } from './util/workspaceFiles';
 import * as path from 'path';
 import { ProjectEngine } from './projectEngine';
 import {
@@ -17,7 +18,7 @@ const exportFolderLock = createKeyedAsyncLock();
 
 function exportFolderKey(folder: string): string {
     const resolved = path.resolve(folder);
-    return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+    return osPlatform === 'win32' ? resolved.toLowerCase() : resolved;
 }
 
 // Windows and (default) macOS filesystems are case-insensitive, so a live module
@@ -25,7 +26,7 @@ function exportFolderKey(folder: string): string {
 // export filenames case-insensitively on those platforms; otherwise trueUp would
 // classify the just-written export as "stale" and delete it (data loss).
 function caseNormalizedRelName(name: string): string {
-    return process.platform === 'win32' || process.platform === 'darwin'
+    return osPlatform === 'win32' || osPlatform === 'darwin'
         ? name.toLowerCase()
         : name;
 }
@@ -105,14 +106,14 @@ function isRootVbaModuleFileName(value: string): boolean {
 }
 
 async function listRootVbaModuleFiles(folder: string): Promise<string[]> {
-    let entries: fs.Dirent[];
+    let entries: DirectoryEntry[];
     try {
-        entries = await fs.promises.readdir(folder, { withFileTypes: true });
+        entries = await workspaceFiles.listDirectory(folder);
     } catch {
         return [];
     }
     return entries
-        .filter((entry) => entry.isFile() && isRootVbaModuleFileName(entry.name))
+        .filter((entry) => !entry.isDirectory && isRootVbaModuleFileName(entry.name))
         .map((entry) => entry.name)
         .sort((left, right) => left.localeCompare(right));
 }
@@ -168,8 +169,8 @@ async function exportModuleFile(
                 ? pair.frx
                 : Buffer.from((pair.frx as { data?: number[] }).data ?? []);
             const sidecarRelativeName = relativeName.replace(/\.frm$/i, '.frx');
-            await fs.promises.writeFile(outPath, pair.frm, 'utf8');
-            await fs.promises.writeFile(path.join(exportFolder, sidecarRelativeName), frxBytes);
+            await workspaceFiles.writeText(outPath, pair.frm);
+            await workspaceFiles.writeBytes(path.join(exportFolder, sidecarRelativeName), frxBytes);
             return { relativeName, sidecarRelativeName, written: true };
         } catch {
             // Fall through to the plain module text.
@@ -177,7 +178,7 @@ async function exportModuleFile(
     }
 
     const moduleSource = source ?? await readFullModuleSource(bridge, filePath, mod.name);
-    await fs.promises.writeFile(outPath, moduleSource, 'utf8');
+    await workspaceFiles.writeText(outPath, moduleSource);
     return { relativeName, written: true };
 }
 
@@ -255,7 +256,7 @@ async function withExportTarget<T>(
     }
     const exportMode = normalizeExportMode(params.exportMode ?? existingSettings.exportMode);
     return withExportFolderLock(exportFolder, async () => {
-        await fs.promises.mkdir(exportFolder, { recursive: true });
+        await workspaceFiles.makeDirectory(exportFolder);
         return body(exportFolder, exportMode);
     });
 }
@@ -326,7 +327,7 @@ async function exportProjectModules(
 
     if (exportMode === 'trueUp') {
         for (const relPath of await computeStaleExportFiles(exportFolder, liveRelativeNames)) {
-            await fs.promises.unlink(path.join(exportFolder, relPath));
+            await workspaceFiles.remove(path.join(exportFolder, relPath));
             removedFiles.push(relPath);
         }
     }

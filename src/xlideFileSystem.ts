@@ -1,5 +1,6 @@
+import { osPlatform } from './util/osPlatform';
 import * as vscode from 'vscode';
-import * as fs from 'fs';
+import { hostPlatform } from './vba/hostPlatform';
 import * as path from 'path';
 import { ProjectEngine } from './projectEngine';
 import { errorCategoryForSupportLog, PROJECT_LOCKED_ERROR_RE } from './xlideCommandLog';
@@ -161,7 +162,7 @@ export function decodeModuleUri(uri: vscode.Uri): { projectPath: string; moduleN
     const face = match[3]?.toLowerCase() === 'form' ? 'form' as const : 'code' as const;
 
     // On Windows, the leading slash before the drive letter is artificial
-    if (process.platform === 'win32' && /^\/[A-Za-z]:/.test(rawPath)) {
+    if (osPlatform === 'win32' && /^\/[A-Za-z]:/.test(rawPath)) {
         rawPath = rawPath.slice(1);
     }
     const projectPath = rawPath.replace(/\//g, path.sep);
@@ -574,7 +575,7 @@ export class XlideFileSystemProvider
             return {
                 projectPath,
                 projectKey: projectIdentityKey(projectPath),
-                mtime: Math.floor(fs.statSync(projectPath).mtimeMs),
+                mtime: Math.floor(hostPlatform().stat(projectPath).mtimeMs),
             };
         } catch {
             return undefined;
@@ -610,7 +611,7 @@ export class XlideFileSystemProvider
     private async reconcileDocuments(projectPath: string, documents: readonly vscode.TextDocument[]): Promise<void> {
         let fileMtime = 0;
         try {
-            fileMtime = Math.floor(fs.statSync(projectPath).mtimeMs);
+            fileMtime = Math.floor(hostPlatform().stat(projectPath).mtimeMs);
         } catch {
             // Gone for the moment; the mtimes still move forward below.
         }

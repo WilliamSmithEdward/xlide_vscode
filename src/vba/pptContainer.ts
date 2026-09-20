@@ -15,7 +15,7 @@
 // CurrentUserAtom - is shifted by the size delta; nothing else in the file
 // addresses by offset (that is what the persist model is for).
 
-import * as zlib from 'zlib';
+import { containerCodec } from './containerCodec';
 import { Cfb } from './cfb';
 
 export class PptContainerError extends Error {}
@@ -194,9 +194,10 @@ function decodeStorageRecord(doc: Buffer, record: RecordHeader): Buffer | undefi
 	}
 	try {
 		// PowerPoint truncates the deflate stream without a proper stream
-		// end; the sync-flush finish accepts exactly the declared bytes.
-		const inflated = zlib.inflateSync(body.subarray(4), {
-			finishFlush: zlib.constants.Z_SYNC_FLUSH,
+		// end; allowTruncated accepts exactly the declared bytes.
+		const inflated = containerCodec().inflate(body.subarray(4), {
+			allowTruncated: true,
+			expectedSize: body.readUInt32LE(0),
 		});
 		return inflated.subarray(0, 8).equals(CFB_MAGIC) ? inflated : undefined;
 	} catch {
@@ -307,7 +308,7 @@ export function pptWriteVbaStorage(cfb: Cfb, storage: Buffer): Cfb {
 		);
 	}
 
-	const deflated = zlib.deflateSync(storage, { level: 6 });
+	const deflated = containerCodec().deflate(storage);
 	const body = Buffer.alloc(4 + deflated.length);
 	body.writeUInt32LE(storage.length, 0);
 	deflated.copy(body, 4);

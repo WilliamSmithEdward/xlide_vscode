@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { ProjectEngine } from './projectEngine';
-import { projectIdentityKey } from './xlideFileSystem';
+import { moduleIdentityKey, projectIdentityKey } from './xlideFileSystem';
 import { compareVbaModulesForTreeOrder, moduleThemeIconName } from './moduleDisplay';
 import { buildFolderTree, folderPathChain, type FolderTree, type FolderTreeFolder } from './folderTree';
 import type { XlideExplorerView } from './globalSettings';
@@ -60,8 +60,12 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
 
 
     // Stable node references required by treeView.reveal()
-    private _projectNodes = new Map<string, XlideNode>(); // key: filePath
-    private _moduleNodes = new Map<string, XlideNode>(); // key: filePath + '::' + moduleName
+    // Every cache below is keyed by identity, never by a raw path: one file
+    // reaches these under more than one spelling (uri.fsPath vs a decoded
+    // xlide-vba:// path), and keying raw meant the same workbook landed in
+    // two entries.
+    private _projectNodes = new Map<string, XlideNode>(); // key: projectNodeKey
+    private _moduleNodes = new Map<string, XlideNode>(); // key: moduleNodeKey
     private _projectRenderVersions = new Map<string, number>();
     private _moduleRenderVersions = new Map<string, number>();
     private _projectFilesCache: XlideNode[] | undefined;
@@ -78,7 +82,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     private _subsListLoads = new Map<string, Promise<Array<{ name: string; kind: string; line: number }>>>();
     // The drawn sub/designer rows of a module, kept so reveal() can name one.
     private _subNodes = new Map<string, XlideNode[]>();
-    // Protection-state cache: {isPasswordProtected, isSigned} per project path.
+    // Protection-state cache: {isPasswordProtected, isSigned} per projectNodeKey.
     // Loaded lazily after tree expansion has gone idle; cleared on refresh().
     private _protectionCache = new Map<string, { isPasswordProtected: boolean; isSigned: boolean }>();
     private _protectionLoads = new Map<string, Promise<void>>();
@@ -89,7 +93,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     // Folder layout. The tree is derived from the module list, so it is cached
     // beside it and thrown away by the same refresh().
     private _view: XlideExplorerView = 'tree';
-    private _folderNodes = new Map<string, XlideNode>(); // key: filePath + '::' + folder
+    private _folderNodes = new Map<string, XlideNode>(); // key: folderNodeKey
     private _folderRenderVersions = new Map<string, number>();
     private _folderTrees = new Map<string, FolderTree<XlideNode>>();
     // Folders the editor's own module opened, and the ones the user opened or
@@ -203,8 +207,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                 this._emitter.fire(node);
             }
         }
-        const projectNode = this._projectNodes.get(filePath)
-            ?? [...this._projectNodes.values()].find((node) => projectIdentityKey(node.filePath) === project);
+        const projectNode = this._projectNodes.get(project);
         if (projectNode) {
             this._emitter.fire(projectNode);
         }
@@ -257,13 +260,13 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             const parent = parentFolderPath(node.folder ?? '');
             return parent
                 ? this._folderNodes.get(folderNodeKey(node.filePath, parent))
-                : this._projectNodes.get(node.filePath);
+                : this._projectNodes.get(projectNodeKey(node.filePath));
         }
         if (node.kind === 'module') {
             if (this._view === 'folders' && node.folder) {
                 return this._folderNodes.get(folderNodeKey(node.filePath, node.folder));
             }
-            return this._projectNodes.get(node.filePath);
+            return this._projectNodes.get(projectNodeKey(node.filePath));
         }
         if (node.kind === 'sub') {
             return this._moduleNodes.get(moduleNodeKey(node.filePath, node.moduleName ?? ''));
@@ -271,7 +274,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         if (node.kind === 'loadError') {
             return node.moduleName
                 ? this._moduleNodes.get(moduleNodeKey(node.filePath, node.moduleName))
-                : this._projectNodes.get(node.filePath);
+                : this._projectNodes.get(projectNodeKey(node.filePath));
         }
         return undefined;
     }
@@ -294,7 +297,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         const key = projectNodeKey(node.filePath);
         this._modulesListCache.delete(key);
         this._modulesListLoads.delete(key);
-        const project = this._projectNodes.get(node.filePath);
+        const project = this._projectNodes.get(projectNodeKey(node.filePath));
         if (project) {
             this._emitter.fire(project);
         } else {
@@ -823,10 +826,11 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         const uris = await findMacroContainerFiles();
         return uris
             .map((uri) => {
-                let node = this._projectNodes.get(uri.fsPath);
+                const projectKey = projectNodeKey(uri.fsPath);
+                let node = this._projectNodes.get(projectKey);
                 if (!node) {
                     node = { kind: 'project', label: fileNameForDisplay(uri.fsPath), filePath: uri.fsPath };
-                    this._projectNodes.set(uri.fsPath, node);
+                    this._projectNodes.set(projectKey, node);
                 }
                 return node;
             });
@@ -920,8 +924,9 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
      * shows the locked/signed badge. Best-effort: failures are ignored.
      */
     private async _loadProtection(filePath: string): Promise<void> {
-        if (this._protectionCache.has(filePath)) { return; }
-        const existing = this._protectionLoads.get(filePath);
+        const key = projectNodeKey(filePath);
+        if (this._protectionCache.has(key)) { return; }
+        const existing = this._protectionLoads.get(key);
         if (existing) {
             await existing;
             return;
@@ -932,8 +937,8 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                     'getProtectionInfo',
                     { path: filePath },
                 );
-                this._protectionCache.set(filePath, info);
-                const node = this._projectNodes.get(filePath);
+                this._protectionCache.set(key, info);
+                const node = this._projectNodes.get(key);
                 if (node) {
                     node.isPasswordProtected = info.isPasswordProtected;
                     node.isSigned = info.isSigned;
@@ -943,10 +948,10 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                 // Badge is best-effort; log the probe failure without surfacing it.
                 this._out?.appendLine(`[projectExplorer] Protection probe failed for "${fileNameForDisplay(filePath)}": ${err}`);
             } finally {
-                this._protectionLoads.delete(filePath);
+                this._protectionLoads.delete(key);
             }
         })();
-        this._protectionLoads.set(filePath, load);
+        this._protectionLoads.set(key, load);
         await load;
     }
 
@@ -1047,27 +1052,29 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     }
 
     private _scheduleProtectionLoad(filePath: string): void {
-        if (this._protectionCache.has(filePath) || this._protectionLoads.has(filePath)) {
+        const key = projectNodeKey(filePath);
+        if (this._protectionCache.has(key) || this._protectionLoads.has(key)) {
             return;
         }
-        if (this._protectionTimers.has(filePath)) {
+        if (this._protectionTimers.has(key)) {
             return;
         }
         const timer = setTimeout(() => {
-            this._protectionTimers.delete(filePath);
+            this._protectionTimers.delete(key);
             void this._loadProtection(filePath);
         }, PROTECTION_PROBE_IDLE_DELAY_MS);
         (timer as unknown as { unref?: () => void }).unref?.();
-        this._protectionTimers.set(filePath, timer);
+        this._protectionTimers.set(key, timer);
     }
 
     private _cancelProtectionTimer(filePath: string): void {
-        const timer = this._protectionTimers.get(filePath);
+        const key = projectNodeKey(filePath);
+        const timer = this._protectionTimers.get(key);
         if (!timer) {
             return;
         }
         clearTimeout(timer);
-        this._protectionTimers.delete(filePath);
+        this._protectionTimers.delete(key);
     }
 
     private _clearProtectionTimers(): void {
@@ -1093,8 +1100,20 @@ function fileNameForDisplay(filePath: string): string {
     return filePath.split(/[\\/]/).filter(Boolean).pop() ?? filePath;
 }
 
+/**
+ * Every node key goes through the identity helpers, the way folderNodeKey
+ * does. Using the raw path and name meant two strings naming one module
+ * produced two keys: in a browser the tree's path comes from uri.fsPath
+ * ('\Book.xlsm') while the active module's comes from decoding its
+ * xlide-vba:// URI ('/Book.xlsm'), so the row never matched
+ * _activeModuleKey and rendered collapsed. The raw name was a latent bug of
+ * the same shape, since VBA module names are case-insensitive.
+ *
+ * Only ever used as a map key and as part of a TreeItem id, never parsed
+ * back or shown.
+ */
 function moduleNodeKey(filePath: string, moduleName: string): string {
-    return `${filePath}::${moduleName}`;
+    return `${projectNodeKey(filePath)}::${moduleIdentityKey(moduleName)}`;
 }
 
 function projectNodeKey(filePath: string): string {

@@ -1,3 +1,4 @@
+import { osPlatform } from './util/osPlatform';
 import * as vscode from 'vscode';
 import { MACRO_CONTAINER_GLOB } from './macroContainerUi';
 import * as path from 'path';
@@ -13,9 +14,7 @@ import {
 import { ProjectEngine } from './projectEngine';
 import { analysisSourceForDocument, moduleLocationOfDocument } from './vbaDocumentLocation';
 import { readFolderAnnotation } from './vba/folderAnnotation';
-import { registerFormPreview } from './vbaFormPreview';
-import { registerVb6FormDesigner } from './vb6FormDesigner';
-import { registerAgentTools } from './agentTools';
+import { platformFeatures } from './platformFeatures';
 import { registerCommands } from './commands';
 import { registerVbaLanguageProviders } from './vbaLanguageProviders';
 import { XlideStatusBar } from './statusBar';
@@ -37,12 +36,8 @@ import { createExplorerViewSetter } from './explorerViewToggle';
 import { AgentReviewDecorationProvider } from './agentReviewDecorations';
 import { onDidChangePendingAgentReviews, pendingAgentReviewCount } from './xlideAgentDiff';
 import { refreshProjectStateOnOutsideChange } from './projectModuleOperations';
-import { GitChangeMarks, watchRepositoriesForMarks } from './gitChangeMarks';
-import { gitModuleCompareDeps } from './gitModuleCompare';
 import { registerXlideSidebar } from './xlideSidebar';
-import { AnalysisWorkerClient } from './analysisWorkerClient';
 import { setExtensionAssetRoot } from './extensionAssets';
-import { cleanupStaleVbaTestHostTempDirsAsync } from './vbaTestTempFiles';
 import { setPerformanceTraceLogger } from './performanceTrace';
 import { setProjectAnalysisWorker } from './vbaProjectWideAnalysis';
 import { XLIDE_VBA_EDITOR_OVERRIDES } from './xlideVbaEditorOverrides';
@@ -73,9 +68,15 @@ export function activate(context: vscode.ExtensionContext): void {
         context.extensionMode === vscode.ExtensionMode.Development,
     );
 
-    void cleanupStaleVbaTestHostTempDirsAsync()
+    // Commands that need a shell, a local Office install or a git binary are
+    // not registered in the browser (see platformFeatures.ts), so they are
+    // kept out of the palette too rather than appearing and failing.
+    void vscode.commands.executeCommand('setContext', 'xlide.isWeb', platformFeatures.name === 'web');
+    out.appendLine(`XLIDE platform: ${platformFeatures.name}`);
+
+    void platformFeatures.cleanupStaleTempDirs()
         .then((cleanup) => {
-            if (cleanup.deleted > 0 || cleanup.failed > 0) {
+            if (cleanup && (cleanup.deleted > 0 || cleanup.failed > 0)) {
                 out.appendLine(
                     `VBA test temp cleanup: scanned=${cleanup.scanned} deleted=${cleanup.deleted} failed=${cleanup.failed}`,
                 );
@@ -88,12 +89,12 @@ export function activate(context: vscode.ExtensionContext): void {
 
     const bridge = new ProjectEngine(context, out);
     const fsProvider = new XlideFileSystemProvider(bridge);
-    registerFormPreview(context, bridge);
-    registerVb6FormDesigner(context, bridge);
+    platformFeatures.registerDesigners(context, bridge);
     // Modules that differ from the last commit, for the tree's `M`/`A` marks.
     // Computed from git and the engine's own parse of the committed workbook,
-    // once per change, and only for the projects the tree has drawn.
-    const gitMarks = new GitChangeMarks(gitModuleCompareDeps(bridge), (line) => out.appendLine(line));
+    // once per change, and only for the projects the tree has drawn. A
+    // workspace with no git to ask gets marks that are always absent.
+    const gitMarks = platformFeatures.createChangeMarks(bridge, (line) => out.appendLine(line));
     const explorer = new ProjectExplorer(bridge, out, gitMarks);
     // One answer to "which procedure is the caret in", shared by the status bar
     // and the tree so the two never disagree.
@@ -131,7 +132,7 @@ export function activate(context: vscode.ExtensionContext): void {
         onDidChangePendingAgentReviews(showPendingAgentReviewCount),
         gitMarks,
         gitMarks.onDidChange((projectPath) => explorer.refreshGitMarks(projectPath)),
-        ...watchRepositoriesForMarks(gitMarks),
+        ...platformFeatures.watchRepositories(gitMarks),
     );
 
     // The Tree / Folders buttons above the explorer are the setting, so the
@@ -192,11 +193,13 @@ export function activate(context: vscode.ExtensionContext): void {
     // VBA language services: syntax-aware symbol index + providers. The
     // analysis worker keeps full diagnostic passes off the extension-host
     // thread; if it cannot start, diagnostics fall back to in-host analysis.
-    const analysisWorkerClient = new AnalysisWorkerClient(
+    const analysisWorkerClient = platformFeatures.createAnalysisWorker(
         path.join(context.extensionPath, 'out', 'analysisWorker.js'),
         (line: string) => out.appendLine(line),
     );
-    context.subscriptions.push(new vscode.Disposable(() => analysisWorkerClient.dispose()));
+    if (analysisWorkerClient) {
+        context.subscriptions.push(new vscode.Disposable(() => analysisWorkerClient.dispose()));
+    }
     // Analyze Workbook (the command, the agent tool, and the support bundle's
     // anonymized report) rides the same worker so a large module's analysis
     // never blocks the host mid-command.
@@ -238,7 +241,7 @@ export function activate(context: vscode.ExtensionContext): void {
     try {
         context.subscriptions.push(
             vscode.workspace.registerFileSystemProvider(XLIDE_SCHEME, fsProvider, {
-                isCaseSensitive: process.platform !== 'win32',
+                isCaseSensitive: osPlatform !== 'win32',
                 isReadonly: false,
             }),
         );
@@ -380,7 +383,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
         ...sidebar.disposables,
         registerXlideGlobalSettingsWebview(out),
-        ...registerAgentTools(context, bridge, explorer, fsProvider, vbaIndex),
+        ...platformFeatures.registerAgentTools(context, bridge, explorer, fsProvider, vbaIndex),
 
         statusBar,
         bridge,

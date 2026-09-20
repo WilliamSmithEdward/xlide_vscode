@@ -10,7 +10,8 @@
 // modules is open, or by the check the file system provider makes whenever
 // VS Code asks it about a module, before a read or a save.
 
-import * as fs from 'fs';
+import { hostPlatform } from './vba/hostPlatform';
+import { workspaceUriFor } from './util/workspaceUris';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { projectIdentityKey, sameProjectPath } from './projectIdentity';
@@ -21,7 +22,7 @@ const WATCH_SETTLE_MS = 200;
 /** Modification time and size: what changes when anything rewrites the file. */
 function stampOf(projectPath: string): string | undefined {
     try {
-        const stat = fs.statSync(projectPath);
+        const stat = hostPlatform().stat(projectPath);
         return `${stat.mtimeMs}:${stat.size}`;
     } catch {
         return undefined;
@@ -107,7 +108,7 @@ export function watchProjectFile(projectPath: string): vscode.Disposable {
         // The folder rather than the file: a file name can hold glob syntax
         // (`Book [1].xlsm`), and a pattern made from it would not match it.
         const watcher = vscode.workspace.createFileSystemWatcher(
-            new vscode.RelativePattern(vscode.Uri.file(path.dirname(projectPath)), '*'),
+            new vscode.RelativePattern(workspaceUriFor(path.dirname(projectPath)), '*'),
         );
         // A save that replaces the file through a rename reports a create.
         watch.subscriptions = vscode.Disposable.from(watcher.onDidChange(settle), watcher.onDidCreate(settle), watcher);

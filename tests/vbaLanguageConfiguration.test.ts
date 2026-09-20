@@ -451,12 +451,38 @@ describe('VBA language configuration', () => {
 		]) {
 			expect(palette.get(command), command).toBe('false');
 		}
-		// These fall back to the open module, so they show while one is open.
+		// These fall back to the open module, so they show while one is open -
+		// and only on a desktop, since the browser build does not register
+		// them at all (see src/platformFeatures.ts).
 		for (const command of [
 			'xlide.openInOfficeApp', 'xlide.openInOfficeAppReadOnly',
 			'xlide.exportModulesToFolder', 'xlide.importModulesFromFolder',
 		]) {
-			expect(palette.get(command), command).toBe('resourceScheme == xlide-vba');
+			expect(palette.get(command), command).toBe('resourceScheme == xlide-vba && !xlide.isWeb');
+		}
+	});
+
+	it('keeps every command the browser build cannot register out of its palette', () => {
+		const menus = loadPackage().contributes?.menus ?? {};
+		const palette = new Map((menus.commandPalette ?? []).map((entry) => [entry.command, entry.when]));
+
+		// Registered by platformFeaturesNode and not by platformFeaturesWeb,
+		// so in a browser the palette would otherwise offer a command that is
+		// not there. A `when` of 'false' already hides it everywhere.
+		for (const command of [
+			'xlide.openInOfficeApp', 'xlide.openInOfficeAppReadOnly',
+			'xlide.runMacroAtCursor', 'xlide.runVbaTests',
+			'xlide.exportModulesToFolder', 'xlide.importModulesFromFolder',
+			'xlide.exportCurrentModuleToFolder', 'xlide.exportSupportBundle',
+			'xlide.compareModuleWithHead', 'xlide.compareModuleWithRevision',
+			'xlide.compareProjectWithHead', 'xlide.restoreModuleFromHead',
+			'xlide.moduleHistory', 'xlide.launchFormHost',
+		]) {
+			const when = palette.get(command);
+			if (when === undefined) {
+				continue; // not offered in the palette at all
+			}
+			expect(when === 'false' || when.includes('!xlide.isWeb'), `${command}: ${when}`).toBe(true);
 		}
 	});
 });

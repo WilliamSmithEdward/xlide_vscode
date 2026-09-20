@@ -5,6 +5,8 @@
     "lib": ["ES2022"],
     "noEmit": true,
     "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "skipLibCheck": true,
     "moduleResolution": "Node16",
     "types": ["node", "mocha"]

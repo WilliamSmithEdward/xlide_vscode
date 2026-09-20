@@ -6,18 +6,19 @@ import { VbaSymbolIndex } from './vbaSymbolIndex';
 import { type CommandDeps } from './commands/shared';
 import { registerAnalysisCommands } from './commands/analysisCommands';
 import { registerMiscCommands } from './commands/miscCommands';
-import { registerModuleSyncCommands } from './commands/moduleSyncCommands';
-import { registerSupportBundleCommands } from './commands/supportBundleCommands';
-import { registerVbaTestCommands } from './commands/vbaTestCommands';
 import { registerProjectCrudCommands } from './commands/projectCrudCommands';
 import { registerRefactorCommands } from './commands/refactorCommands';
 import { registerFormatCommands } from './commands/formatCommands';
-import { registerGitCompareCommands } from './gitModuleCompare';
+import { platformFeatures } from './platformFeatures';
 
 /**
  * Composition root for the XLIDE command palette/explorer commands.
  * Each domain registers its own commands against the shared CommandDeps;
  * see src/commands/ for the per-domain modules.
+ *
+ * The groups that need a shell, a local Office install, a git binary or a
+ * real filesystem come from platformFeatures, so the browser build never
+ * imports them (see src/platformFeatures.ts).
  */
 export function registerCommands(
     context: vscode.ExtensionContext,
@@ -32,12 +33,9 @@ export function registerCommands(
     return [
         ...registerMiscCommands(deps),
         ...registerProjectCrudCommands(deps),
-        ...registerModuleSyncCommands(deps),
-        ...registerSupportBundleCommands(deps),
         ...registerAnalysisCommands(deps),
-        ...registerVbaTestCommands(deps),
         ...registerRefactorCommands(deps),
         ...registerFormatCommands(deps),
-        ...registerGitCompareCommands(bridge),
+        ...platformFeatures.registerPlatformCommands(deps),
     ];
 }

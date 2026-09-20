@@ -2,7 +2,7 @@
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
   "description": "Office VBA and Visual Basic 6 in VS Code - Excel, Word, PowerPoint, Access and .vbp projects; project tree, module editing, UserForm and VB6 form designers, static analysis, unit tests, AI agent tools",
-  "version": "9.0.0",
+  "version": "10.0.0",
   "publisher": "WilliamSmithE",
   "license": "MIT",
   "icon": "assets/images/extension_logo.png",
@@ -35,6 +35,13 @@
     "onFileSystem:xlide-vba"
   ],
   "main": "./out/extension.js",
+  "browser": "./out/web/extension.js",
+  "capabilities": {
+    "virtualWorkspaces": {
+      "supported": "limited",
+      "description": "Editing, analysis and refactoring work on a workbook in a virtual workspace. Running VBA unit tests, opening the file in Excel, Word, PowerPoint or Access, and the git change marks all need a local file and a desktop editor."
+    }
+  },
   "contributes": {
     "viewsContainers": {
       "activitybar": [
@@ -674,27 +681,27 @@
         },
         {
           "command": "xlide.compareModuleWithHead",
-          "when": "view == xlide.explorer && viewItem =~ /^module-/",
+          "when": "view == xlide.explorer && viewItem =~ /^module-/ && !xlide.isWeb",
           "group": "1_navigate@2"
         },
         {
           "command": "xlide.compareModuleWithRevision",
-          "when": "view == xlide.explorer && viewItem =~ /^module-/",
+          "when": "view == xlide.explorer && viewItem =~ /^module-/ && !xlide.isWeb",
           "group": "1_navigate@3"
         },
         {
           "command": "xlide.restoreModuleFromHead",
-          "when": "view == xlide.explorer && viewItem =~ /^module-/",
+          "when": "view == xlide.explorer && viewItem =~ /^module-/ && !xlide.isWeb",
           "group": "1_navigate@4"
         },
         {
           "command": "xlide.moduleHistory",
-          "when": "view == xlide.explorer && viewItem =~ /^module-/",
+          "when": "view == xlide.explorer && viewItem =~ /^module-/ && !xlide.isWeb",
           "group": "1_navigate@5"
         },
         {
           "command": "xlide.compareProjectWithHead",
-          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|accessDatabase|vb6Project)$/",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|accessDatabase|vb6Project)$/ && !xlide.isWeb",
           "group": "4_analyze@2"
         },
         {
@@ -729,12 +736,12 @@
         },
         {
           "command": "xlide.previewForm",
-          "when": "view == xlide.explorer && viewItem =~ /^module-(userform|accessform|accessreport)(-agent-pending)?$/",
+          "when": "view == xlide.explorer && viewItem =~ /^module-(userform|accessform|accessreport)(-agent-pending)?$/ && !xlide.isWeb",
           "group": "2_edit@1"
         },
         {
           "command": "xlide.openFormMarkup",
-          "when": "view == xlide.explorer && viewItem =~ /^module-(userform|accessform|accessreport)(-agent-pending)?$/",
+          "when": "view == xlide.explorer && viewItem =~ /^module-(userform|accessform|accessreport)(-agent-pending)?$/ && !xlide.isWeb",
           "group": "2_edit@2"
         },
         {
@@ -779,12 +786,12 @@
         },
         {
           "command": "xlide.openInOfficeApp",
-          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|accessDatabase)$/",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|accessDatabase)$/ && !xlide.isWeb",
           "group": "3_project@1"
         },
         {
           "command": "xlide.openInOfficeAppReadOnly",
-          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument)$/",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument)$/ && !xlide.isWeb",
           "group": "3_project@2"
         },
         {
@@ -794,17 +801,17 @@
         },
         {
           "command": "xlide.runVbaTests",
-          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|accessDatabase)$/",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|accessDatabase)$/ && !xlide.isWeb",
           "group": "4_analyze@2"
         },
         {
           "command": "xlide.exportModulesToFolder",
-          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|accessDatabase)$/",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|accessDatabase)$/ && !xlide.isWeb",
           "group": "5_transfer@1"
         },
         {
           "command": "xlide.importModulesFromFolder",
-          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|accessDatabase)$/",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|accessDatabase)$/ && !xlide.isWeb",
           "group": "5_transfer@2"
         }
       ],
@@ -816,7 +823,7 @@
         },
         {
           "command": "xlide.exportCurrentModuleToFolder",
-          "when": "resourceScheme == xlide-vba",
+          "when": "resourceScheme == xlide-vba && !xlide.isWeb",
           "group": "xlide@2"
         },
         {
@@ -858,19 +865,19 @@
       "commandPalette": [
         {
           "command": "xlide.dev.smoke",
-          "when": "xlide.devMode"
+          "when": "xlide.devMode && !xlide.isWeb"
         },
         {
           "command": "xlide.compareModuleWithHead",
-          "when": "resourceScheme == xlide-vba"
+          "when": "resourceScheme == xlide-vba && !xlide.isWeb"
         },
         {
           "command": "xlide.compareModuleWithRevision",
-          "when": "resourceScheme == xlide-vba"
+          "when": "resourceScheme == xlide-vba && !xlide.isWeb"
         },
         {
           "command": "xlide.compareProjectWithHead",
-          "when": "resourceScheme == xlide-vba"
+          "when": "resourceScheme == xlide-vba && !xlide.isWeb"
         },
         {
           "command": "xlide.formatAllModules",
@@ -878,11 +885,11 @@
         },
         {
           "command": "xlide.restoreModuleFromHead",
-          "when": "resourceScheme == xlide-vba"
+          "when": "resourceScheme == xlide-vba && !xlide.isWeb"
         },
         {
           "command": "xlide.moduleHistory",
-          "when": "resourceScheme == xlide-vba"
+          "when": "resourceScheme == xlide-vba && !xlide.isWeb"
         },
         {
           "command": "xlide.refactor.extractMethod",
@@ -966,19 +973,19 @@
         },
         {
           "command": "xlide.openInOfficeApp",
-          "when": "resourceScheme == xlide-vba"
+          "when": "resourceScheme == xlide-vba && !xlide.isWeb"
         },
         {
           "command": "xlide.openInOfficeAppReadOnly",
-          "when": "resourceScheme == xlide-vba"
+          "when": "resourceScheme == xlide-vba && !xlide.isWeb"
         },
         {
           "command": "xlide.exportModulesToFolder",
-          "when": "resourceScheme == xlide-vba"
+          "when": "resourceScheme == xlide-vba && !xlide.isWeb"
         },
         {
           "command": "xlide.importModulesFromFolder",
-          "when": "resourceScheme == xlide-vba"
+          "when": "resourceScheme == xlide-vba && !xlide.isWeb"
         }
       ]
     },

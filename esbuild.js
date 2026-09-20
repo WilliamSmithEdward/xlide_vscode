@@ -1,4 +1,5 @@
 const esbuild = require("esbuild");
+const { webLeafSwap, webInject } = require("./webBuild.js");
 
 const production = process.argv.includes("--production");
 const watch = process.argv.includes("--watch");
@@ -50,11 +51,32 @@ async function main() {
     plugins: [esbuildProblemMatcherPlugin],
   });
 
+  // The same src/extension.ts, built for the web extension host: no Node, so
+  // the leaf modules webBuild.js names are swapped for their web twins and
+  // `Buffer` is injected. There is deliberately no second entry point - one
+  // activate() means the two platforms cannot drift apart. The analysis
+  // worker has no counterpart here (a browser has no worker_threads; see
+  // platformFeaturesWeb.ts), so only the extension itself is built.
+  const webCtx = await esbuild.context({
+    entryPoints: ["src/extension.ts"],
+    bundle: true,
+    format: "cjs",
+    minify: production,
+    sourcemap: !production,
+    sourcesContent: false,
+    platform: "browser",
+    outfile: "out/web/extension.js",
+    external: ["vscode"],
+    inject: webInject(),
+    plugins: [webLeafSwap(), esbuildProblemMatcherPlugin],
+    logLevel: "silent",
+  });
+
   if (watch) {
-    await ctx.watch();
+    await Promise.all([ctx.watch(), webCtx.watch()]);
   } else {
-    await ctx.rebuild();
-    await ctx.dispose();
+    await Promise.all([ctx.rebuild(), webCtx.rebuild()]);
+    await Promise.all([ctx.dispose(), webCtx.dispose()]);
   }
 }
 

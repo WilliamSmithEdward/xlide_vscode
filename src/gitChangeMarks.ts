@@ -211,11 +211,6 @@ function sameMarks(a: GitProjectMarks | undefined, b: GitProjectMarks | undefine
 	return true;
 }
 
-/** A count badge holds two characters. */
-export function changedCountBadge(count: number): string {
-	return count > 99 ? '99' : String(count);
-}
-
 /**
  * Drops every project's marks when the repository behind the workspace
  * changes: a commit, a checkout, a reset. HEAD and the index move on all of

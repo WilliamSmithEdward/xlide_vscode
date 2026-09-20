@@ -9,7 +9,11 @@
 // ICU); encoding uses reverse tables built lazily from the decoder itself, so
 // the two directions can never disagree.
 
-import { TextDecoder } from 'util';
+// TextDecoder is used unimported: it is a global in Node (since v11) and in
+// the browser, and importing it from node:util would drag that module into
+// the web extension bundle for nothing. Only the constructor is in scope as a
+// value, so the instance type is named here rather than written bare.
+type TextDecoderInstance = InstanceType<typeof TextDecoder>;
 
 /** Windows code page -> WHATWG encoding label. */
 const CODE_PAGE_LABELS: Record<number, string> = {
@@ -58,9 +62,9 @@ const CP1252_HIGH = [
 	0x02dc, 0x2122, 0x0161, 0x203a, 0x0153, 0x009d, 0x017e, 0x0178,
 ];
 
-const decoders = new Map<number, TextDecoder | null>();
+const decoders = new Map<number, TextDecoderInstance | null>();
 
-function decoderFor(codePage: number): TextDecoder | null {
+function decoderFor(codePage: number): TextDecoderInstance | null {
 	let cached = decoders.get(codePage);
 	if (cached !== undefined) { return cached; }
 	const label = CODE_PAGE_LABELS[codePage];
@@ -111,7 +115,7 @@ const reverseTables = new Map<number, ReverseTable>();
  * than transcribed, so encode(decode(x)) is x by construction. Lazy: only a
  * write of non-ASCII text on a non-1252 page pays for it, and only once.
  */
-function reverseTableFor(codePage: number, decoder: TextDecoder): ReverseTable {
+function reverseTableFor(codePage: number, decoder: TextDecoderInstance): ReverseTable {
 	let table = reverseTables.get(codePage);
 	if (table) { return table; }
 	const single = new Map<string, number>();

@@ -2,6 +2,73 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.0.0] - 2026-09-19
+
+- **XLIDE runs in the browser.** Press `.` on a GitHub repository that holds
+  an `.xlsm`, `.docm`, `.pptm` or `.accdb` and its VBA opens in github.dev
+  with nothing installed: the project tree, the module editor with syntax
+  highlighting and live diagnostics, analysis and the refactorings. Nothing
+  about the desktop build changes. The whole container engine already needed
+  no Office and no COM, so what stood in the way was Node itself - the
+  compression, the filesystem, `Buffer`, `path` and `crypto`. Each now sits
+  behind one module with a desktop half and a browser half, and the browser
+  half is written out rather than depended on: XLIDE still ships with no
+  runtime dependencies. Every one of those is held byte-identical to Node's
+  own answer by its tests.
+
+- **What the browser cannot do, it says so.** Running VBA unit tests,
+  opening the file in Excel, Word, PowerPoint or Access, the git change
+  marks, creating a new macro-enabled file, and VB6 projects all need a
+  desktop, and none of them are offered in a browser rather than failing
+  when used. Saving a PowerPoint presentation and creating an Access form or
+  report refuse with a message naming the desktop editor. The marketplace
+  listing declares the same limits.
+
+- **The tree no longer collapses the workbook you are working in.** Opening
+  a module, clicking its editor tab from a non-XLIDE tab, or switching
+  between the Tree and Folders layouts each collapsed the workbook row, and
+  the module row with it. The tree identified a project by a path string
+  compared as text, so one workbook reached it under two spellings and it
+  could not recognize its own active project. Every row, cache and timer in
+  the tree now keys on the project's identity instead.
+
+- **Reading an Access database in a browser no longer fails.** The numeric
+  accessors an `.accdb` needs - doubles, floats, variable-width and 64-bit
+  integers - were missing from the browser's `Buffer`, so opening one landed
+  on "undefined is not a function". The shim now carries every accessor the
+  engine uses, and a test reads that list out of the source so one added
+  later cannot go missing.
+
+- **Changes made outside XLIDE are seen again in a virtual workspace, and
+  the sidebar's file settings open there.** Both built a `file:` path for a
+  workspace that has none, so the watcher watched nothing and the settings
+  file would not open.
+
+- The unused-code checks are on. `noUnusedLocals` and `noUnusedParameters`
+  now run with every type-check, which is what catches an import left behind
+  by a refactor - including one that would have pulled `child_process` into
+  the browser build.
+
+### Internal
+
+- One `activate()` serves both builds. Everything that differs - the change
+  marks, the analysis worker, the designers, the language model tools, the
+  commands that launch Office, the temp-directory sweep - is reached through
+  `src/platformFeatures.ts`, whose browser half declines. There is no second
+  entry point, so the two platforms cannot drift.
+- `src/util/webBuffer.ts`, `webPath.ts`, `webCrypto.ts` and
+  `src/vba/inflate.ts` replace `Buffer`, `path`, `crypto` and zlib's inflate
+  for the browser. Node is the oracle for all four, and two of them also
+  assert they implement every member the codebase calls.
+- `tests/webBundle.test.ts` bundles the extension for a browser, runs it
+  with `Buffer`, `process`, `require`, `__dirname` and `__filename`
+  unavailable, and reads and writes a real workbook through a stand-in
+  `workspace.fs`.
+- `commands/miscCommands.ts` keeps the commands every build has; the ones
+  that launch an Office application moved to `commands/officeAppCommands.ts`.
+  `util/powershell.ts` keeps quoting and the option types; the spawner moved
+  to `util/powershellNode.ts`.
+
 ## [9.0.0] - 2026-09-19
 
 - **Formulas work as typed in Excel 365.** `=XLOOKUP(...)`, and every other

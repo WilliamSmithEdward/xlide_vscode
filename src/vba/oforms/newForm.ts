@@ -7,7 +7,7 @@
 // its twips client box; the constant Forms 2.0 CompObj; and the exported
 // header whose VB_Base carries two fresh GUIDs.
 
-import { randomBytes } from 'crypto';
+import { hostPlatform } from '../hostPlatform';
 import { OformsWriter, pointsToHimetric } from './bytes';
 
 /** The Forms 2.0 CompObj stream for a top-level form, as Excel writes it. */
@@ -46,7 +46,7 @@ export const FRAME_COMPOBJ: Buffer = Buffer.from(
 const USERFORM_CLSID = '{C62A69F0-16DC-11CE-9E98-00AA00574A4F}';
 
 function newGuid(): string {
-	const b = randomBytes(16);
+	const b = hostPlatform().randomBytes(16);
 	b[6] = (b[6] & 0x0f) | 0x40;
 	b[8] = (b[8] & 0x3f) | 0x80;
 	const hex = b.toString('hex').toUpperCase();

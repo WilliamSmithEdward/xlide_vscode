@@ -235,6 +235,44 @@ describe('ProjectExplorer', () => {
         expect(book2AfterSwitch.collapsibleState).toBe(2);
     });
 
+    it('marks the active module however its name is cased', async () => {
+        // Node keys go through the identity helpers, so one module cannot
+        // produce two keys. Using the raw name left the row unable to match
+        // _activeModuleKey, and it rendered collapsed - the same shape as the
+        // path mismatch that collapsed the workbook.
+        vscodeMock.findFiles.mockResolvedValue([
+            { scheme: 'file', fsPath: 'C:\\work\\Book1.xlsm' },
+        ]);
+        const explorer = new ProjectExplorer(fakeBridge([{ name: 'Macros', type: 'standard' }]));
+
+        const [book] = await explorer.getChildren();
+        const [macros] = await explorer.getChildren(book);
+
+        // VBA module names are case-insensitive, so this is the same module.
+        explorer.setActiveModule(book.filePath, 'MACROS');
+
+        expect(explorer.getTreeItem(macros).collapsibleState, 'module row collapsed').toBe(2);
+    });
+
+    it('keeps the active workbook expanded across a view-mode switch', async () => {
+        // Reported: switching Tree <-> Folders collapses the workbook. The
+        // view toggle refreshes from the root, and the rebuilt project row has
+        // to come back Expanded.
+        vscodeMock.findFiles.mockResolvedValue([
+            { scheme: 'file', fsPath: 'C:\\work\\Book1.xlsm' },
+        ]);
+        const explorer = new ProjectExplorer(fakeBridge([{ name: 'Module1', type: 'standard' }]));
+
+        const [book] = await explorer.getChildren();
+        await explorer.getChildren(book);
+        explorer.setActiveModule(book.filePath, 'Module1');
+        expect(explorer.getTreeItem(book).collapsibleState).toBe(2);
+
+        explorer.setView('folders');
+        const [bookAfter] = await explorer.getChildren();
+        expect(explorer.getTreeItem(bookAfter).collapsibleState, 'after Tree -> Folders').toBe(2);
+    });
+
     it('re-expands a project when focus returns to it (A -> B -> A)', async () => {
         vscodeMock.findFiles.mockResolvedValue([
             { scheme: 'file', fsPath: 'C:\\work\\Book1.xlsm' },

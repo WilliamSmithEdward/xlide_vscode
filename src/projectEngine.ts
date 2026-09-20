@@ -7,6 +7,7 @@
 // unchanged.
 
 import * as vscode from 'vscode';
+import { enginePriming } from './enginePriming';
 import { ProjectEngineError } from './projectEngineErrors';
 import * as svc from './vba/projectService';
 import type { CellValue } from './vba/xlsx';
@@ -143,9 +144,18 @@ export class ProjectEngine implements vscode.Disposable {
 			throw new vscode.CancellationError();
 		}
 		const p = (params ?? {}) as Params;
+		// The engine is synchronous and, in a browser, cannot reach a file on
+		// its own: the container is loaded before dispatch and whatever the
+		// call wrote is sent back after. Both are no-ops on a desktop, where
+		// the engine uses node:fs directly. See src/enginePriming.ts.
+		await enginePriming.prime(ProjectEngine.enginePathsOf(p));
+		let result: T;
 		try {
-			return this.dispatch(method, p) as T;
+			result = this.dispatch(method, p) as T;
 		} catch (err) {
+			// A failed call leaves no finished container behind, so its
+			// writes go no further.
+			enginePriming.discard();
 			if (err instanceof ProjectEngineError || err instanceof vscode.CancellationError) {
 				throw err;
 			}
@@ -153,6 +163,19 @@ export class ProjectEngine implements vscode.Disposable {
 			this._out?.appendLine(`[project] ${method} failed: ${message}`);
 			throw new ProjectEngineError(message, -32000);
 		}
+		await enginePriming.flush();
+		return result;
+	}
+
+	/**
+	 * The files a call will read. Every engine method names its container in
+	 * `path`; nothing else in the parameter set is a file path, so this is the
+	 * whole list. A method that later reaches a second file - a VB6 project's
+	 * referenced modules, say - has to name it here, or the browser build
+	 * fails loudly on the un-primed path rather than reading it as empty.
+	 */
+	private static enginePathsOf(p: Params): string[] {
+		return typeof p.path === 'string' && p.path.length > 0 ? [p.path] : [];
 	}
 
 	private dispatch(method: string, p: Params): unknown {

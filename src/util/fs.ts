@@ -1,13 +1,16 @@
-import * as fs from 'fs';
 import * as path from 'path';
+import { fileExists as platformFileExists } from './fsNode';
 
+/**
+ * Whether a path exists.
+ *
+ * The answer comes from a leaf the browser build swaps (see webBuild.js):
+ * github.dev has no node:fs, and its files live behind a virtual filesystem
+ * only the editor can see. Kept behind this module so the four callers, and
+ * the tests that exercise them, stay unchanged.
+ */
 export async function fileExists(filePath: string): Promise<boolean> {
-    try {
-        await fs.promises.access(filePath, fs.constants.F_OK);
-        return true;
-    } catch {
-        return false;
-    }
+    return platformFileExists(filePath);
 }
 
 export function isPathInside(baseDir: string, targetPath: string): boolean {

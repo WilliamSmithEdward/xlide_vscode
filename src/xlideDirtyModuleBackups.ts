@@ -1,5 +1,5 @@
 import * as crypto from 'crypto';
-import * as fs from 'fs';
+import { workspaceFiles } from './util/workspaceFiles';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { decodeModuleUri, isLocalXlideDocument } from './xlideFileSystem';
@@ -46,7 +46,7 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
         private readonly _out: vscode.OutputChannel,
     ) {
         this._dir = path.join(context.globalStorageUri.fsPath, 'dirty-vba-modules');
-        this._dirReady = fs.promises.mkdir(this._dir, { recursive: true }).then(
+        this._dirReady = workspaceFiles.makeDirectory(this._dir).then(
             () => undefined,
             (err) => {
                 const message = errorMessage(err);
@@ -83,13 +83,13 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
         // The async path is dir-guarded by _dirReady; mirror that here or the
         // writeFileSync below would throw ENOENT on a fresh (not-yet-created) dir.
         if (this._pendingWrites.size > 0) {
-            try { fs.mkdirSync(this._dir, { recursive: true }); } catch { /* best effort */ }
+            try { workspaceFiles.makeDirectoryDuringShutdown(this._dir); } catch { /* best effort */ }
         }
         for (const pending of this._pendingWrites.values()) {
             clearTimeout(pending.timer);
             try {
                 const record = this.backupRecordFor(pending.document);
-                fs.writeFileSync(this.backupPath(pending.document.uri), `${JSON.stringify(record)}\n`, 'utf8');
+                workspaceFiles.writeTextDuringShutdown(this.backupPath(pending.document.uri), `${JSON.stringify(record)}\n`);
             } catch (err) {
                 this._out.appendLine(`XLIDE: Failed to flush dirty backup on shutdown: ${errorMessage(err)}`);
             }
@@ -234,7 +234,7 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
                 return;
             }
             try {
-                await fs.promises.writeFile(this.backupPath(uri), `${JSON.stringify(record)}\n`, 'utf8');
+                await workspaceFiles.writeText(this.backupPath(uri), `${JSON.stringify(record)}\n`);
             } catch (err) {
                 const message = errorMessage(err);
                 this._out.appendLine(`XLIDE: Failed to write dirty backup for ${uri.toString()}: ${message}`);
@@ -244,7 +244,10 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
 
     private async readBackup(uri: vscode.Uri): Promise<DirtyModuleBackup | undefined> {
         try {
-            const raw = await fs.promises.readFile(this.backupPath(uri), 'utf8');
+            const raw = await workspaceFiles.readTextIfPresent(this.backupPath(uri));
+            if (raw === undefined) {
+                return undefined;
+            }
             const parsed = JSON.parse(raw) as Partial<DirtyModuleBackup>;
             if (
                 typeof parsed.uri !== 'string' ||
@@ -268,7 +271,7 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
         this._announced.delete(key);
         await this.enqueueFileOperation(key, async () => {
             try {
-                await fs.promises.rm(this.backupPath(uri), { force: true });
+                await workspaceFiles.remove(this.backupPath(uri));
             } catch {
                 /* best effort cleanup */
             }
@@ -279,7 +282,7 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
         await this._dirReady;
         let entries: string[];
         try {
-            entries = await fs.promises.readdir(this._dir);
+            entries = (await workspaceFiles.listDirectory(this._dir)).map((entry) => entry.name);
         } catch {
             return;
         }
@@ -292,7 +295,10 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
             }
             const fullPath = path.join(this._dir, entry);
             try {
-                const raw = await fs.promises.readFile(fullPath, 'utf8');
+                const raw = await workspaceFiles.readTextIfPresent(fullPath);
+                if (raw === undefined) {
+                    continue;
+                }
                 let updatedAt: unknown;
                 try {
                     updatedAt = (JSON.parse(raw) as Partial<DirtyModuleBackup>).updatedAt;
@@ -311,7 +317,7 @@ export class XlideDirtyModuleBackups implements vscode.Disposable {
                 if (this._isBackupInUse(entry)) {
                     continue;
                 }
-                await fs.promises.rm(fullPath, { force: true });
+                await workspaceFiles.remove(fullPath);
             } catch {
                 /* best effort cleanup */
             }

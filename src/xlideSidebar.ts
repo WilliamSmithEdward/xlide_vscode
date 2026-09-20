@@ -1,4 +1,5 @@
-import * as fs from 'fs';
+import { workspaceFiles } from './util/workspaceFiles';
+import { workspaceUriFor } from './util/workspaceUris';
 import { findMacroContainerFiles } from './macroContainerDiscovery';
 import { MACRO_CONTAINER_GLOB } from './macroContainerUi';
 import * as path from 'path';
@@ -239,15 +240,11 @@ function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRe
             }
             try {
                 if (!(await fileExists(settingsPath))) {
-                    try {
-                        await fs.promises.writeFile(settingsPath, '{}\n', { encoding: 'utf8', flag: 'wx' });
-                    } catch (err) {
-                        if (!isFileAlreadyExistsError(err)) {
-                            throw err;
-                        }
-                    }
+                    // Another window may have created it in between; the
+                    // loser of that race writes nothing and opens what won.
+                    await workspaceFiles.createTextIfAbsent(settingsPath, '{}\n');
                 }
-                const document = await vscode.workspace.openTextDocument(vscode.Uri.file(settingsPath));
+                const document = await vscode.workspace.openTextDocument(workspaceUriFor(settingsPath));
                 await vscode.window.showTextDocument(document, { preview: false });
             } catch (err) {
                 const message = errorMessage(err);
@@ -344,13 +341,6 @@ async function sidebarProjectForPath(
     }
 }
 
-
-function isFileAlreadyExistsError(err: unknown): boolean {
-    return typeof err === 'object' &&
-        err !== null &&
-        'code' in err &&
-        (err as { code?: unknown }).code === 'EEXIST';
-}
 
 function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
     const nonce = randomNonce();

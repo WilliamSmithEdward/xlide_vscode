@@ -6,7 +6,7 @@
 // renamed over the original, so a failure part-way through never leaves a
 // truncated project.
 
-import * as fs from 'fs';
+import { hostPlatform } from './hostPlatform';
 import * as path from 'path';
 import { evictOldest } from '../util/boundedMap';
 import { Cfb } from './cfb';
@@ -61,7 +61,6 @@ import {
 	setDesignZOrder,
 } from './access/accessDesignEdit';
 import { ACCESS_DESIGN_CLASSES, accessDesignObjectName, type AccessDesign } from './access/accessDesign';
-import { randomBytes } from 'crypto';
 import {
 	detectSignature,
 	synthesizeClassHeader,
@@ -316,7 +315,7 @@ function cachedPackage(filePath: string): ProjectCacheEntry {
 	// Stat BEFORE reading: if a writer swaps the file between the stat and the
 	// read, this entry holds the new bytes under the old mtime, so the next
 	// call mismatches and rebuilds - a stale parse can never survive.
-	const stat = fs.statSync(filePath);
+	const stat = hostPlatform().stat(filePath);
 	const hit = projectCache.get(filePath);
 	if (hit && hit.mtimeMs === stat.mtimeMs && hit.size === stat.size) {
 		cacheHits++;
@@ -329,7 +328,7 @@ function cachedPackage(filePath: string): ProjectCacheEntry {
 	const entry: ProjectCacheEntry = {
 		mtimeMs: stat.mtimeMs,
 		size: stat.size,
-		container: openMacroContainer(fs.readFileSync(filePath)),
+		container: openMacroContainer(hostPlatform().readFile(filePath)),
 	};
 	projectCache.delete(filePath);
 	projectCache.set(filePath, entry);
@@ -353,7 +352,7 @@ function openContainerForWrite(filePath: string): OpenContainer {
 	if (isVb6ProjectPath(filePath)) {
 		throw vb6ProjectRefusal(filePath);
 	}
-	const container = openMacroContainer(fs.readFileSync(filePath));
+	const container = openMacroContainer(hostPlatform().readFile(filePath));
 	if (!container.writable) {
 		throw new Error(`${path.basename(filePath)} is ${container.description}.`);
 	}
@@ -401,7 +400,7 @@ function accessDesignFor(
 	if (!design) {
 		return undefined;
 	}
-	const found = new AccessVbaWriter(fs.readFileSync(filePath)).designs().find(
+	const found = new AccessVbaWriter(hostPlatform().readFile(filePath)).designs().find(
 		(entry) => entry.name === design.name && entry.kind === design.kind,
 	);
 	return found ? { entry: found } : undefined;
@@ -430,14 +429,14 @@ function applyAccessMarkup(
 	designName: string,
 	root: MarkupElement,
 ): WriteResult & { applied: string[] } {
-	const writer = new AccessVbaWriter(fs.readFileSync(filePath));
+	const writer = new AccessVbaWriter(hostPlatform().readFile(filePath));
 	let applied: string[] = [];
 	writer.editDesign(designName, (design) => {
 		const outcome = applyAccessDesignMarkup(
 			design,
 			root,
 			writer.designPrototypesFor(designName),
-			() => randomBytes(16),
+			() => hostPlatform().randomBytes(16),
 		);
 		applied = outcome.applied;
 		return outcome.design;
@@ -460,7 +459,7 @@ function applyAccessDesignerOp(
 	designName: string,
 	op: FormDesignerOp,
 ): WriteResult & { newName?: string } {
-	const writer = new AccessVbaWriter(fs.readFileSync(filePath));
+	const writer = new AccessVbaWriter(hostPlatform().readFile(filePath));
 	let newName: string | undefined;
 	writer.editDesign(designName, (design) => {
 		switch (op.kind) {
@@ -494,7 +493,7 @@ function applyAccessDesignerOp(
 			case 'add': {
 				newName = nextAccessControlName(design, op.controlKind);
 				return addDesignControl(
-					design, op.controlKind, newName, randomBytes(16),
+					design, op.controlKind, newName, hostPlatform().randomBytes(16),
 					writer.designPrototypesFor(designName),
 					{ left: twips(op.left), top: twips(op.top) },
 				);
@@ -612,11 +611,8 @@ export function vb6SidecarFileFor(modulePath: string, header: FrmHeader | undefi
 /** The sidecar's bytes, or none when the file does not exist yet; any other failure is the caller's to see, never an empty file. */
 function readVb6Sidecar(frxPath: string): Buffer {
 	try {
-		return fs.readFileSync(frxPath);
+		return hostPlatform().readFileIfPresent(frxPath) ?? Buffer.alloc(0);
 	} catch (err) {
-		if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
-			return Buffer.alloc(0);
-		}
 		throw new Error(`Cannot read the form's sidecar ${path.basename(frxPath)}: ${err instanceof Error ? err.message : String(err)}`);
 	}
 }
@@ -626,10 +622,13 @@ const sidecarCache = new Map<string, { mtimeMs: number; size: number; blob: Buff
 
 /** The sidecar's bytes for a render, cached by the file's stamp; undefined when there is no file to read. */
 function readVb6SidecarForRender(frxPath: string): Buffer | undefined {
-	let stat: fs.Stats;
+	let stat;
 	try {
-		stat = fs.statSync(frxPath);
+		stat = hostPlatform().statIfPresent(frxPath);
 	} catch {
+		return undefined;
+	}
+	if (!stat) {
 		return undefined;
 	}
 	const cached = sidecarCache.get(frxPath);
@@ -637,7 +636,7 @@ function readVb6SidecarForRender(frxPath: string): Buffer | undefined {
 		return cached.blob;
 	}
 	try {
-		const blob = fs.readFileSync(frxPath);
+		const blob = hostPlatform().readFile(frxPath);
 		sidecarCache.set(frxPath, { mtimeMs: stat.mtimeMs, size: stat.size, blob });
 		return blob;
 	} catch {
@@ -1630,7 +1629,7 @@ export function addFormModule(
 	// the caller has to open it by.
 	if (!isVb6ProjectPath(filePath) && openContainer(filePath).container.kind === 'access') {
 		const named = accessDesignRename(kind, moduleName);
-		const writer = new AccessVbaWriter(fs.readFileSync(filePath));
+		const writer = new AccessVbaWriter(hostPlatform().readFile(filePath));
 		writer.addDesign(named.design, kind);
 		atomicContainerWrite(filePath, writer.toBuffer());
 		return { ok: true, signatureDropped: false, moduleName: named.module };
@@ -1953,7 +1952,7 @@ export function renameModule(
 	const design = accessDesignFor(filePath, moduleName);
 	if (design) {
 		const renamed = accessDesignRename(design.entry.kind, newName);
-		const writer = new AccessVbaWriter(fs.readFileSync(filePath));
+		const writer = new AccessVbaWriter(hostPlatform().readFile(filePath));
 		writer.renameDesign(design.entry.name, renamed.design);
 		atomicContainerWrite(filePath, writer.toBuffer());
 		return { ok: true, signatureDropped: false, moduleName: renamed.module };
@@ -2015,7 +2014,7 @@ export function deleteModule(filePath: string, moduleName: string): WriteResult 
 	}
 	const design = accessDesignFor(filePath, moduleName);
 	if (design) {
-		const writer = new AccessVbaWriter(fs.readFileSync(filePath));
+		const writer = new AccessVbaWriter(hostPlatform().readFile(filePath));
 		writer.deleteDesign(design.entry.name);
 		atomicContainerWrite(filePath, writer.toBuffer());
 		return { ok: true, signatureDropped: false };
@@ -2039,7 +2038,7 @@ export function deleteModule(filePath: string, moduleName: string): WriteResult 
 
 /** A fresh copy of the workbook's package to change: never the cached instance readers share. */
 function writableSheetSurface(filePath: string, what: string): XlsxWorkbook {
-	const container = openMacroContainer(fs.readFileSync(filePath));
+	const container = openMacroContainer(hostPlatform().readFile(filePath));
 	if (container.kind !== 'excel' || !container.xlsx) {
 		throw new Error(
 			`${path.basename(filePath)} is ${container.description}; ${what} need an OOXML Excel workbook.`,
@@ -2139,7 +2138,7 @@ function checkedMacro(filePath: string, macro: string): string {
  * natively, and the agent tool refuses existing paths outright.
  */
 export function createProject(filePath: string, templatePath: string): { ok: true; path: string } {
-	const template = fs.readFileSync(templatePath);
+	const template = hostPlatform().readFile(templatePath);
 	atomicContainerWrite(filePath, template);
 	return { ok: true, path: filePath };
 }

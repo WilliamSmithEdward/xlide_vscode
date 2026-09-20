@@ -17,7 +17,7 @@ import {
     onDidChangePendingAgentReviews,
     pendingAgentReviewModules,
 } from './xlideAgentDiff';
-import { changedCountBadge, type GitChangeMarksSource } from './gitChangeMarks';
+import type { GitChangeMarksSource } from './gitChangeMarks';
 
 export const AGENT_REVIEW_DECORATION_SCHEME = 'xlide-agent-review';
 
@@ -83,6 +83,11 @@ export function parseDecorationUri(uri: vscode.Uri): DecorationTarget | undefine
 /** A decoration badge holds at most two characters. */
 export function pendingCountBadge(count: number): string {
     return count > 9 ? '9+' : String(count);
+}
+
+/** A count badge holds two characters. */
+export function changedCountBadge(count: number): string {
+    return count > 99 ? '99' : String(count);
 }
 
 export class AgentReviewDecorationProvider implements vscode.FileDecorationProvider, vscode.Disposable {

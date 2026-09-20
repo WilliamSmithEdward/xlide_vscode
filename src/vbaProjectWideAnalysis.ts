@@ -10,6 +10,7 @@
 
 import * as vscode from 'vscode';
 import type { ProjectEngine } from './projectEngine';
+import type { WorkerAnalyzeRequest, WorkerAnalyzeResult } from './analysisWorkerClient';
 import {
     diagnosticMetadataForCode,
     DiagnosticCategory,
@@ -165,6 +166,25 @@ export interface ProjectAnalysisWorker {
         diagnostics: VbaModuleAnalysisDiagnostic[];
         suppressedDiagnostics: VbaModuleAnalysisDiagnostic[];
     }>;
+}
+
+/**
+ * The worker as the language providers hold it: project analysis, plus the
+ * cache control and lifetime only the owner needs. Named as an interface
+ * rather than the concrete client so a build with no worker_threads can
+ * decline to supply one (see src/platformFeatures.ts).
+ */
+export interface AnalysisWorker extends ProjectAnalysisWorker {
+    /**
+     * The full request the live-diagnostics path sends, which carries more
+     * than a project-wide pass needs. Imported as a type only, so naming it
+     * here does not pull worker_threads into a build that has none -
+     * tests/webBundle.test.ts holds that.
+     */
+    analyze(request: WorkerAnalyzeRequest): Promise<WorkerAnalyzeResult>;
+    /** Drops a document's cached analysis when its editor closes. */
+    forget(docKey: string): void;
+    dispose(): void;
 }
 
 let projectAnalysisWorker: ProjectAnalysisWorker | undefined;
