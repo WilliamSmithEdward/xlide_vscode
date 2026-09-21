@@ -393,6 +393,15 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         }
     }
 
+    /** Collapse a module whose last editor tab closed, without folding its project. */
+    clearActiveModule(filePath: string, moduleName: string): void {
+        const key = moduleNodeKey(filePath, moduleName);
+        if (this._activeModuleKey !== key) { return; }
+        this._activeModuleKey = undefined;
+        this._refreshModuleExpansion(key);
+        this.collapseAllFolders();
+    }
+
     /**
      * Open the folders on the way to the module being edited and fold the
      * project's others. A folder the user opened or shut by hand outranks this

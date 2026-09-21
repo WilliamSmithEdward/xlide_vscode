@@ -2,6 +2,16 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.4.1] - 2026-09-21
+
+- **A module folds back up when its last editor tab closes.** The tree
+  followed the editor into a module and expanded it, but only focus moving
+  elsewhere took it back - and focus moves to the Output panel, a terminal or
+  a webview while the module is still open, so that could not be the signal.
+  Tab closure is now its own: the module collapses, the folders go back to
+  their resting shape, and a module still open in another tab group is left
+  alone.
+
 ## [10.4.0] - 2026-09-20
 
 - **A reference can be taken away again.** **Remove Project Reference** on a

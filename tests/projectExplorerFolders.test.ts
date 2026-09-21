@@ -492,7 +492,7 @@ describe('following the editor', () => {
     it('folds them all when the last editor closes', async () => {
         const { explorer } = await drawn();
         explorer.setActiveModule(BOOK, 'Bare');
-        explorer.collapseAllFolders();
+        explorer.clearActiveModule(BOOK, 'Bare');
         expect(expanded(explorer, 'Accounts')).toBe(false);
         expect(expanded(explorer, 'Accounts.Billing.Reminders')).toBe(false);
     });

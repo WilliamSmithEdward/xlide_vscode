@@ -156,6 +156,42 @@ describe('ProjectExplorer', () => {
         expect(module2Unchanged.collapsibleState).toBe(1);
     });
 
+    it('collapses the last closed module and allows the same module to expand again', async () => {
+        const explorer = new ProjectExplorer(fakeBridge([{ name: 'Module1', type: 'standard' }]));
+        const [project] = await explorer.getChildren();
+        const [module] = await explorer.getChildren(project);
+        explorer.setActiveModule(project.filePath, 'Module1');
+        const expandedId = explorer.getTreeItem(module).id;
+        vscodeMock.treeEvents = [];
+
+        explorer.clearActiveModule(project.filePath, 'Module1');
+
+        expect(explorer.getTreeItem(module).collapsibleState).toBe(1);
+        expect(explorer.getTreeItem(module).id).not.toBe(expandedId);
+        expect(vscodeMock.treeEvents).toContain(module);
+        expect(explorer.getTreeItem(project).collapsibleState).toBe(2);
+        explorer.setActiveModule(project.filePath, 'Module1');
+        expect(explorer.getTreeItem(module).collapsibleState).toBe(2);
+    });
+
+    it('keeps the current module expanded when a different module tab closes', async () => {
+        const explorer = new ProjectExplorer(fakeBridge([
+            { name: 'Module1', type: 'standard' },
+            { name: 'Module2', type: 'standard' },
+        ]));
+        const [project] = await explorer.getChildren();
+        const [module] = await explorer.getChildren(project);
+        explorer.setActiveModule(project.filePath, 'Module1');
+        const id = explorer.getTreeItem(module).id;
+        vscodeMock.treeEvents = [];
+
+        explorer.clearActiveModule(project.filePath, 'Module2');
+
+        expect(explorer.getTreeItem(module).collapsibleState).toBe(2);
+        expect(explorer.getTreeItem(module).id).toBe(id);
+        expect(vscodeMock.treeEvents).toEqual([]);
+    });
+
     it('opens a clicked module row, the active one folded by hand included', async () => {
         const explorer = new ProjectExplorer(fakeBridge([
             { name: 'Module1', type: 'standard' },
