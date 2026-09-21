@@ -34,16 +34,11 @@ Setup
 Project Actions
 Settings
 Support
-Support XLIDE
 ```
 
-Support XLIDE is the sponsor section. It renders as one quiet heart-and-Support
-button under the last section, and that button opens a modal with the same
-three addresses and wording as the VBA editor add-in's Support dialog. The
-modal captures Escape, traps Tab, closes on a backdrop press, and gives focus
-back to the button. The rows open through the host, which honors only the
-addresses in the model's own list, and each row also copies its address for a
-machine where the browser is slow to come up.
+Support is the troubleshooting section: the diagnostics snapshot and the
+support bundle. Nothing sits under it, and the panel asks the user for
+nothing.
 
 Do not rework the sidebar layout, section order, or status/action split without
 a specific product reason. Future sidebar work should be additive and tied to
