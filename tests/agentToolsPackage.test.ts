@@ -62,6 +62,19 @@ describe('XLIDE agent tool manifest', () => {
         expect(tool?.modelDescription).toContain('Late binding');
     });
 
+    it('tells an agent that removing a reference breaks the code that names it', () => {
+        const tool = languageModelTools().find((entry) => entry.name === 'xlide_removeReference');
+
+        expect(tool).toEqual(expect.objectContaining({
+            toolReferenceName: 'xlideRemoveReference',
+        }));
+        expect(tool?.inputSchema?.required).toEqual(['filePath', 'library']);
+        // Not an enum like the add tool's: a project's references are not only
+        // the four applications XLIDE can add one for.
+        expect((tool?.inputSchema?.properties?.library as { enum?: string[] })?.enum).toBeUndefined();
+        expect(tool?.modelDescription).toContain('stops compiling');
+    });
+
     it('names every tool in the repository agent instructions', () => {
         // The instructions still said 18 tools after the 19th and 20th
         // shipped, and neither had a row in their tables.

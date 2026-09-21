@@ -86,7 +86,9 @@ import {
 	buildMsFormsReference,
 	buildRegisteredReference,
 	hasMsFormsReference,
+	MSFORMS_REFERENCE_NAME,
 	readProjectReferences,
+	removeReferenceRecords,
 	type VbaProjectReference,
 } from './vbaProjectReferences';
 import { attributeValue, joinVbaSource, listProcedures, splitVbaSource, type ProcedureEntry } from './moduleSource';
@@ -869,6 +871,60 @@ export function addReference(filePath: string, library: string): { ok: true; add
 	wb.project.addReferenceRecords(buildRegisteredReference(known));
 	saveContainer(filePath, wb);
 	return { ok: true, added: true, name: known.name };
+}
+
+/**
+ * Take a reference away again, as unchecking it in `Tools > References` does.
+ *
+ * The library is named as the project knows it (`Excel`, `Office`, `stdole`)
+ * or as a host token (`excel`), which are the same word for the four Office
+ * applications. Removing one the project does not have is a no-op rather than
+ * an error, the way adding one it already has is.
+ *
+ * Code that still names the library stops compiling, which is the VBE's
+ * behaviour too and what `missing-library-reference` then reports. The one
+ * refusal is Microsoft Forms while the project still has a UserForm: that
+ * reference is what makes a form instantiable, and without it nothing in the
+ * project compiles - so XLIDE, which adds it with the first form, will not
+ * take it away underneath one.
+ *
+ * Measured against both hosts over COM: a workbook XLIDE added a reference to
+ * and then removed opens in Excel with its four modules and its original
+ * reference list, and a document XLIDE cut Excel out of opens in Word with
+ * Normal - a project-kind reference sitting right beside the one that went -
+ * and every other reference intact. Both hosts also list `VBA` and their own
+ * application library, neither of which is in the dir stream: those are
+ * implicit, which is why {@link addReference} refuses to write one.
+ */
+export function removeReference(filePath: string, library: string): { ok: true; removed: boolean; name: string } {
+	if (isVb6ProjectPath(filePath)) {
+		throw new Error('A VB6 project keeps its references in the .vbp manifest, which XLIDE does not write.');
+	}
+	const wb = openContainerForWrite(filePath);
+	const wanted = library.trim().toLowerCase();
+	const guid = HOST_LIBRARIES[wanted]?.guid.toLowerCase();
+	const matches = (reference: VbaProjectReference): boolean =>
+		reference.name.toLowerCase() === wanted
+		|| (guid !== undefined && reference.libid.toLowerCase().includes(guid));
+	const present = readProjectReferences(wb.project.dirStream).filter(matches);
+	if (present.length === 0) {
+		return { ok: true, removed: false, name: HOST_LIBRARIES[wanted]?.name ?? library };
+	}
+	if (present.some((reference) => reference.name.toLowerCase() === MSFORMS_REFERENCE_NAME.toLowerCase())) {
+		const forms = wb.project.modules
+			.filter((module) => moduleEntry(module).type === 'userform')
+			.map((module) => module.name);
+		if (forms.length > 0) {
+			throw new Error(
+				`${forms.length === 1 ? `Form ${forms[0]} needs` : `Forms ${forms.join(', ')} need`} `
+				+ 'the Microsoft Forms library. Removing the reference would leave a form the host '
+				+ 'cannot instantiate, and nothing in the project would compile.',
+			);
+		}
+	}
+	wb.project.replaceReferenceSection(removeReferenceRecords(wb.project.dirStream, matches));
+	saveContainer(filePath, wb);
+	return { ok: true, removed: true, name: present[0].name };
 }
 
 export function readModules(filePath: string, full = false): ModuleEntry[] {

@@ -72,6 +72,20 @@ function qualifiedNamesIn(source: string): Array<{ library: string; span: Span }
 }
 
 /**
+ * The libraries the module names early bound, lowercased. Removing a
+ * reference is the other half of this rule: a project can be told which of
+ * its modules would stop compiling before the reference goes, which is what
+ * the VBE's own Tools > References dialog never says.
+ */
+export function librariesNamedIn(source: string): Set<string> {
+	const out = new Set<string>();
+	for (const found of qualifiedNamesIn(source)) {
+		out.add(found.library.toLowerCase());
+	}
+	return out;
+}
+
+/**
  * Module rule: a type or constant qualified with an Office library the
  * project does not reference.
  *

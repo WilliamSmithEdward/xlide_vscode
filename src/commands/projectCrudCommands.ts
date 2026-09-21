@@ -24,7 +24,8 @@ import {
     writeProjectModule,
 } from '../projectModuleOperations';
 import { registerXlideCommand } from '../xlideCommandRegistration';
-import { HOST_LIBRARIES } from '../vba/vbaProjectReferences';
+import { HOST_LIBRARIES, type VbaProjectReference } from '../vba/vbaProjectReferences';
+import { librariesNamedIn } from '../analyzer/diagnostics/rules/missingReference';
 import { hostTokenForFileName } from '../analyzer/host/hostRegistry';
 import { runWriteWithHostCoordination } from '../officeWriteCoordinator';
 import type { XlideNode } from '../projectExplorer';
@@ -559,7 +560,127 @@ export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposabl
                 surfaceProjectWriteError(filePath, err, 'XLIDE: Failed to add the reference');
             }
         }),
+
+        // Take a reference away again, as unchecking it in Tools > References
+        // does. Asked for by name, because a project's references are not only
+        // the four applications XLIDE can add.
+        registerXlideCommand('xlide.removeProjectReference', async (
+            target?: XlideNode | string,
+            library?: string,
+        ) => {
+            const filePath = typeof target === 'string'
+                ? target
+                : target?.kind === 'project' ? target.filePath : undefined;
+            if (!filePath) { return; }
+            const chosen = library ?? await pickDeclaredReference(bridge, filePath);
+            if (!chosen) { return; }
+            // The VBE takes a reference away without a word about the code
+            // that needs it. XLIDE knows which modules name it, so it says so
+            // while the project still compiles.
+            if (!await confirmReferenceRemoval(bridge, filePath, chosen)) { return; }
+            try {
+                const result = await runWriteWithHostCoordination(filePath, () =>
+                    bridge.call<{ removed: boolean; name: string }>('removeReference', {
+                        path: filePath,
+                        library: chosen,
+                    }));
+                if (!result.removed) {
+                    void vscode.window.showInformationMessage(
+                        `XLIDE: this project does not reference ${result.name}.`,
+                    );
+                    return;
+                }
+                refreshProjectState({ explorer, vbaIndex }, filePath);
+                const summaryText = logChangeSummary(log, 'removeProjectReference', {
+                    operation: 'Remove reference',
+                    changed: [result.name],
+                });
+                recordWriteAudit({
+                    command: 'xlide.removeProjectReference',
+                    operation: 'remove-reference',
+                    outcome: 'succeeded',
+                    projectPath: filePath,
+                    summary: summaryText,
+                });
+                void vscode.window.showInformationMessage(
+                    `XLIDE: removed the reference to ${result.name}.`,
+                );
+            } catch (err) {
+                recordWriteAudit({
+                    command: 'xlide.removeProjectReference',
+                    operation: 'remove-reference',
+                    outcome: 'failed',
+                    projectPath: filePath,
+                    summary: 'Remove reference: 0 changed, 1 failed',
+                    error: err,
+                });
+                surfaceProjectWriteError(filePath, err, 'XLIDE: Failed to remove the reference');
+            }
+        }),
     ];
+}
+
+/** Asks which of the project's own references to take away. */
+async function pickDeclaredReference(
+    bridge: ProjectEngine,
+    filePath: string,
+): Promise<string | undefined> {
+    const { references } = await bridge.call<{ references: VbaProjectReference[] }>(
+        'listReferences', { path: filePath },
+    );
+    if (references.length === 0) {
+        void vscode.window.showInformationMessage('XLIDE: this project declares no references.');
+        return undefined;
+    }
+    const picked = await vscode.window.showQuickPick(
+        references.map((reference) => ({
+            label: reference.name,
+            // The description half of the libid is the library's own name for
+            // itself, which is what Tools > References lists.
+            description: reference.libid.split('#')[4] ?? reference.kind,
+            name: reference.name,
+        })),
+        { title: 'XLIDE: Remove Project Reference', placeHolder: 'Which reference?' },
+    );
+    return picked?.name;
+}
+
+/**
+ * Warns when modules name the library, since they stop compiling the moment
+ * the reference goes. Answers true when there is nothing to warn about, so
+ * the caller asks nothing in the ordinary case.
+ */
+async function confirmReferenceRemoval(
+    bridge: ProjectEngine,
+    filePath: string,
+    library: string,
+): Promise<boolean> {
+    let naming: string[] = [];
+    try {
+        const modules = await bridge.call<Array<{ name: string; source?: string }>>(
+            'readModules', { path: filePath, full: true },
+        );
+        naming = modules
+            .filter((module) => module.source !== undefined
+                && librariesNamedIn(module.source).has(library.toLowerCase()))
+            .map((module) => module.name);
+    } catch {
+        // Unreadable for the moment: the removal itself will surface that.
+        return true;
+    }
+    if (naming.length === 0) {
+        return true;
+    }
+    const listed = naming.length > 3
+        ? `${naming.slice(0, 3).join(', ')} and ${naming.length - 3} more`
+        : naming.join(', ');
+    const choice = await vscode.window.showWarningMessage(
+        `${listed} ${naming.length === 1 ? 'names' : 'name'} ${library} early bound. `
+        + 'Without the reference those modules stop compiling, and the whole project with them.',
+        { modal: true },
+        'Remove Anyway',
+    );
+    return choice === 'Remove Anyway';
 }
 
 /**

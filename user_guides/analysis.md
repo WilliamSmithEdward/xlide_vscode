@@ -59,7 +59,10 @@ Without the reference the VBE refuses the declaration - "User-defined type not
 defined" - and the project stops compiling. XLIDE reports that as
 `missing-library-reference`, once per library per module, with a quick fix that
 writes the reference into the project. **Add Project Reference** on a project
-in the XLIDE tree does the same without waiting for an error.
+in the XLIDE tree does the same without waiting for an error, and **Remove
+Project Reference** takes one away again. Removing a library your code still
+names early bound stops the project compiling, so XLIDE names the modules that
+would break before it does it.
 
 Late binding needs no reference, and is never reported:
 

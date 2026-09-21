@@ -12,7 +12,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { encodeModuleUri } from '../xlideFileSystem';
-import { listReferences, writeModule } from '../vba/projectService';
+import { addReference, listReferences, writeModule } from '../vba/projectService';
 import { activate, closeAllEditors, open, until, workbookPath, workspaceRoot } from './support';
 
 const MODULE = 'InteropProbe';
@@ -73,6 +73,24 @@ suite('Project references', () => {
 			() => vscode.languages.getDiagnostics(document.uri)
 				.every((one) => one.code !== 'missing-library-reference') || undefined,
 			'the finding should clear once the project references Word',
+		);
+	});
+
+	test('removes a reference again, through the command the tree calls', async () => {
+		// PowerPoint, which nothing in the probe names: the command warns
+		// before it takes a library the code still uses, and a modal has
+		// nobody to answer it here.
+		addReference(probe, 'powerpoint');
+		assert.ok(
+			listReferences(probe).some((one) => one.name === 'PowerPoint'),
+			'the reference should be there to remove',
+		);
+
+		await vscode.commands.executeCommand('xlide.removeProjectReference', probe, 'PowerPoint');
+
+		assert.ok(
+			!listReferences(probe).some((one) => one.name === 'PowerPoint'),
+			'the command should have taken it away',
 		);
 	});
 });

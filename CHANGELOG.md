@@ -2,6 +2,29 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.4.0] - 2026-09-20
+
+- **A reference can be taken away again.** **Remove Project Reference** on a
+  project in the tree lists what the project declares and cuts the one you
+  pick, the way unchecking it in `Tools > References` does. A reference is a
+  run of records rather than one - the name in two encodings, the libid, and
+  for a control reference four more - and the whole run goes, leaving every
+  other byte of the project as it was.
+
+- **It says what will break first.** Removing a library your code still names
+  early bound stops the whole project compiling. XLIDE names the modules that
+  would break and asks before it does it, which the VBE's own dialog never
+  does. Microsoft Forms is refused outright while the project still has a
+  UserForm, since that reference is what makes a form instantiable.
+
+- **`xlide_removeReference`** does the same for an agent, after the usual
+  confirmation. Removing one the project does not have changes nothing.
+
+- The round trip was measured against both hosts: a workbook XLIDE added a
+  reference to and then removed opens in Excel with its modules and its
+  original reference list, and a document XLIDE cut Excel out of opens in
+  Word with the project-kind reference beside it intact.
+
 ## [10.3.0] - 2026-09-20
 
 - **Naming an application the project does not reference is now an error, with

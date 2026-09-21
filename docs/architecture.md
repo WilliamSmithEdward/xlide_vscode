@@ -688,6 +688,7 @@ to operate on export files.
 | `xlide_editShape` | `#xlideEditShape` | saves the Office file | Yes |
 | `xlide_listReferences` | `#xlideListReferences` | none | No |
 | `xlide_addReference` | `#xlideAddReference` | saves the Office file | Yes |
+| `xlide_removeReference` | `#xlideRemoveReference` | saves the Office file | Yes |
 | `xlide_searchModules` | `#xlideSearchModules` | none | No |
 | `xlide_gitChanges` | `#xlideGitChanges` | none | No |
 | `xlide_exportModules` | `#xlideExportModules` | writes export files + updates project JSON config | Yes |
@@ -752,11 +753,11 @@ agent that works on files by path. A module has no path on disk, measured in
 VS Code as ENOENT for its `fsPath` and no document matching `Uri.file` of it,
 which is how the Claude Code extension's IDE calls address a file, so the text
 says so before an agent tries the path or mistakes an exported copy for the
-module. The host copies its own copy of the text, so the webview only asks, as
-with the sponsor addresses. A test keeps the text naming every tool in
+module. The host copies its own copy of the text, so the webview only asks
+rather than holding it. A test keeps the text naming every tool in
 `package.json` and no tool, chat reference, command or button that does not
-exist. The sponsor card and this dialog share one dialog mechanism: one open
-at a time, focus held inside, Escape to close.
+exist. The dialog takes the focus until it closes: held inside, Escape to
+close, and given back to the button that opened it.
 
 There is no Setup section: the project engine runs in-process, so nothing has
 to be installed, detected, or repaired before the tree and the actions work. The
@@ -1103,6 +1104,23 @@ into a pure analyzer layer and a thin VS Code provider:
   a reference counts as a mutating save: Office runs the compiled project
   rather than the records, so a reference written beside an untouched
   `_VBA_PROJECT` is invisible to the host.
+- Taking one away is the same surgery in reverse. A reference is a run of
+  records, not one - the name in both encodings, the record carrying the
+  libid, and for a control reference the original libid, the control record,
+  the name again and the extended record - so `readProjectReferenceSpans`
+  groups them and `removeReferenceRecords` cuts the whole span, leaving every
+  other byte as it was. `xlide.removeProjectReference` (also on a project's
+  context menu, and `xlide_removeReference` for agents) names the reference
+  as the project knows it or as a host token, and warns first when a module
+  still names the library, which is something the VBE's own dialog never
+  says. Microsoft Forms is refused while the project still has a UserForm:
+  that reference is what makes a form instantiable. Measured over COM: a
+  workbook XLIDE added a reference to and then removed opens in Excel with
+  its modules and its original reference list, and a document XLIDE cut
+  Excel out of opens in Word with the project-kind reference beside it
+  intact. Both hosts also list `VBA` and their own application library,
+  neither of which is in the dir stream - those are implicit, which is why
+  adding one is refused.
 - `src/analyzer/completion/memberAccess.ts` tokenizes the source up to the
   cursor, detects a member-access dot, walks the receiver chain (handling call
   parentheses and collection-default `Item` paths for chains like

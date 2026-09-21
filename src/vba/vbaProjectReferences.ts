@@ -47,32 +47,116 @@ export interface VbaProjectReference {
 	libid: string;
 }
 
-/** Every reference the dir stream declares, in order. */
-export function readProjectReferences(dir: Buffer): VbaProjectReference[] {
-	const out: VbaProjectReference[] = [];
+/** A reference with the byte span its records occupy in the dir stream. */
+export interface VbaProjectReferenceSpan {
+	reference: VbaProjectReference;
+	/** First byte of the reference's records, its name records included. */
+	start: number;
+	/** One past the last byte of them. */
+	end: number;
+}
+
+/**
+ * Every reference with the span its records occupy, which is what removing
+ * one needs: a reference is not one record but a run of them - the name in
+ * both encodings, then the record carrying the libid, and for a control
+ * reference the original libid, the control record, the name again and the
+ * extended record ([MS-OVBA] 2.3.4.2.2.3).
+ *
+ * The name records are optional in the format, so a span starts at the run of
+ * names in front of the body record where there is one, and at the body
+ * record itself where there is not. Scanning stops at the module section,
+ * which is where the reference section ends.
+ */
+export function readProjectReferenceSpans(dir: Buffer): VbaProjectReferenceSpan[] {
+	const out: VbaProjectReferenceSpan[] = [];
 	let name = '';
+	let namesStart: number | undefined;
+	// A control reference spans several records, so its entry is pushed at
+	// the first and its end moved along as the rest arrive.
+	let control: number | undefined;
 	for (const record of readDirRecords(dir)) {
 		const body = dir.subarray(record.dataStart, record.dataEnd);
+		if (record.id === REC_PROJECTMODULES) {
+			break;
+		}
 		switch (record.id) {
 			case REC_REFERENCE_NAME:
 				name = body.toString('latin1');
-				break;
+				namesStart ??= record.start;
+				continue;
+			case REC_REFERENCE_NAME_UNICODE:
+				namesStart ??= record.start;
+				continue;
 			case REC_REFERENCE_REGISTERED:
 				// SizeOfLibid then the libid; the trailing reserved fields are ignored.
-				out.push({ name, kind: 'registered', libid: sizedString(body) });
+				out.push({
+					reference: { name, kind: 'registered', libid: sizedString(body) },
+					start: namesStart ?? record.start,
+					end: record.end,
+				});
 				break;
 			case REC_REFERENCE_PROJECT:
-				out.push({ name, kind: 'project', libid: sizedString(body) });
+				out.push({
+					reference: { name, kind: 'project', libid: sizedString(body) },
+					start: namesStart ?? record.start,
+					end: record.end,
+				});
 				break;
 			case REC_REFERENCE_ORIGINAL:
 				// The record's own size IS the libid's, so the body is the libid.
-				out.push({ name, kind: 'control', libid: body.toString('latin1') });
+				control = out.length;
+				out.push({
+					reference: { name, kind: 'control', libid: body.toString('latin1') },
+					start: namesStart ?? record.start,
+					end: record.end,
+				});
+				break;
+			case REC_REFERENCE_CONTROL:
+				if (control !== undefined) { out[control].end = record.end; }
+				break;
+			case REC_REFERENCE_CONTROL_EXTENDED:
+				if (control !== undefined) { out[control].end = record.end; }
+				control = undefined;
 				break;
 			default:
 				break;
 		}
+		namesStart = undefined;
 	}
 	return out;
+}
+
+/**
+ * Every reference the dir stream declares, in order. The spans carry the same
+ * list, so this is what a caller that only wants the list gets.
+ */
+export function readProjectReferences(dir: Buffer): VbaProjectReference[] {
+	return readProjectReferenceSpans(dir).map((span) => span.reference);
+}
+
+/**
+ * Cuts a reference's records out of a dir stream, leaving every other byte as
+ * it was. Returns the stream unchanged when nothing matches.
+ */
+export function removeReferenceRecords(
+	dir: Buffer,
+	matches: (reference: VbaProjectReference) => boolean,
+): Buffer {
+	const cuts = readProjectReferenceSpans(dir)
+		.filter((span) => matches(span.reference))
+		.sort((a, b) => a.start - b.start);
+	if (cuts.length === 0) {
+		return dir;
+	}
+	const parts: Buffer[] = [];
+	let kept = 0;
+	for (const span of cuts) {
+		parts.push(dir.subarray(kept, span.start));
+		kept = span.end;
+	}
+	parts.push(dir.subarray(kept));
+	return Buffer.concat(parts);
 }
 
 /** Whether the project already declares the Microsoft Forms library. */

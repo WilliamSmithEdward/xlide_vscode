@@ -75,6 +75,7 @@ interface WriteCellsInput  { filePath: string; sheet: string; startCell: string;
 /** `sheet` is the old name for `surface`, still accepted. */
 interface ListReferencesInput { filePath: string; }
 interface AddReferenceInput { filePath: string; library: string; }
+interface RemoveReferenceInput { filePath: string; library: string; }
 interface ListShapesInput  { filePath: string; surface?: string; sheet?: string; }
 interface EditShapeInput {
     filePath: string;
@@ -817,6 +818,50 @@ export function registerAgentTools(
                         title: 'Add Project Reference',
                         message: new vscode.MarkdownString(
                             `Add a reference to the **${library}** object library to \`${filePath}\`?`,
+                        ),
+                    },
+                };
+            },
+        }),
+
+        // ----------------------------------------------------------------
+        // xlide_removeReference  (requires user confirmation)
+        // ----------------------------------------------------------------
+        vscode.lm.registerTool<RemoveReferenceInput>('xlide_removeReference', {
+            async invoke(options, _token) {
+                const { filePath, library } = options.input;
+                const { result, summary } = await withWriteAudit({
+                    command: 'xlide_removeReference',
+                    operation: 'remove-reference',
+                    projectPath: filePath,
+                    failedSummary: 'Remove reference: 0 changed, 1 failed',
+                }, async () => {
+                    const gone = await runWriteWithHostCoordination(filePath, () =>
+                        bridge.call<{ removed: boolean; name: string }>('removeReference', {
+                            path: filePath,
+                            library,
+                        }));
+                    return {
+                        result: gone,
+                        summary: formatChangeSummary({
+                            operation: 'Remove reference',
+                            changed: gone.removed ? [gone.name] : [],
+                        }),
+                    };
+                });
+                return textResult(result.removed
+                    ? `${summary}\nThe project no longer references ${result.name}. Code that named ${result.name} types early bound no longer compiles.`
+                    : `The project does not reference ${result.name}; nothing was changed.`);
+            },
+            async prepareInvocation(options, _token) {
+                const { filePath, library } = options.input;
+                return {
+                    invocationMessage: `Removing the ${library} reference from "${filePath}"`,
+                    confirmationMessages: {
+                        title: 'Remove Project Reference',
+                        message: new vscode.MarkdownString(
+                            `Remove the reference to **${library}** from \`${filePath}\`? `
+                            + 'Code that names it early bound will stop compiling.',
                         ),
                     },
                 };

@@ -2,7 +2,22 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { addReference, listReferences, readModules, readModulesFromBuffer } from '../src/vba/projectService';
+import {
+	addReference,
+	deleteModule,
+	listReferences,
+	readModules,
+	readModulesFromBuffer,
+	removeReference,
+} from '../src/vba/projectService';
+import {
+	buildRegisteredReference,
+	HOST_LIBRARIES,
+	insertReferenceRecords,
+	removeReferenceRecords,
+} from '../src/vba/vbaProjectReferences';
+import { decompress } from '../src/vba/ovba';
+import { librariesNamedIn } from '../src/analyzer/diagnostics/rules/missingReference';
 import { openMacroContainer } from '../src/vba/macroContainer';
 import { analyzeModule } from '../src/analyzer/diagnostics/analyzeModule';
 import { resolveMemberCompletions } from '../src/analyzer/completion/memberAccess';
@@ -403,6 +418,149 @@ describe('analyzing with the references rather than a resolved model', () => {
 		// arrives, and it has always meant Excel.
 		expect(codes({})).toEqual([]);
 		expect(codes({ referencedHosts: [] })).toEqual([]);
+	});
+});
+
+describe('taking a reference away again', () => {
+	let dir: string;
+	const copy = (fixture: string): string => {
+		const target = path.join(dir, fixture);
+		fs.copyFileSync(path.join(__dirname, 'fixtures', 'binaries', fixture), target);
+		return target;
+	};
+	/** The reference records themselves, as the host reads them. */
+	const dirStream = (file: string): Buffer => decompress(
+		openMacroContainer(fs.readFileSync(file)).vbaCfb().getStreamInStorage('VBA', 'dir'),
+		'VBA/dir',
+	);
+
+	beforeEach(() => {
+		dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-remove-reference-'));
+	});
+	afterEach(() => {
+		fs.rmSync(dir, { recursive: true, force: true });
+	});
+
+	it('cuts exactly the records an addition wrote, and nothing either side', () => {
+		// A reference is a run of records, not one: the name in two encodings
+		// and then the record carrying the libid. On the buffer itself, with
+		// no writer in the way, putting a block in and taking it out again has
+		// to give the original bytes back.
+		const dir = dirStream(copy('ShapesFixture.xlsm'));
+		const block = buildRegisteredReference(HOST_LIBRARIES.word);
+
+		const grown = insertReferenceRecords(dir, block);
+		expect(grown.length).toBe(dir.length + block.length);
+
+		expect(removeReferenceRecords(grown, (one) => one.name === 'Word')).toEqual(dir);
+	});
+
+	it('leaves the project the way an untouched save would, through the engine', () => {
+		// Not compared against the file Excel wrote: XLIDE's writer normalizes
+		// the dir stream's terminator on its first save, so both sides of the
+		// comparison are streams it has written.
+		const file = copy('ShapesFixture.xlsm');
+		addReference(file, 'word');
+		const withWord = dirStream(file);
+
+		expect(removeReference(file, 'Word')).toEqual({ ok: true, removed: true, name: 'Word' });
+		const withoutWord = dirStream(file);
+		expect(withoutWord.length).toBeLessThan(withWord.length);
+
+		// Adding it back lands on the same bytes, which it could not do if the
+		// removal had taken a byte too many or left one behind.
+		addReference(file, 'word');
+		expect(dirStream(file)).toEqual(withWord);
+	});
+
+	it('takes the one asked for and leaves the others as they were', () => {
+		const file = copy('WordExcelInteropFixture.docm');
+
+		expect(removeReference(file, 'Excel').removed).toBe(true);
+
+		expect(listReferences(file).map((one) => one.name)).toEqual(['stdole', 'Normal', 'Office']);
+	});
+
+	it('answers to the host token as well as to the name', () => {
+		const file = copy('WordExcelInteropFixture.docm');
+
+		expect(removeReference(file, 'excel')).toEqual({ ok: true, removed: true, name: 'Excel' });
+		expect(listReferences(file).map((one) => one.name)).not.toContain('Excel');
+	});
+
+	it('cuts a control reference whole, which spans seven records', () => {
+		// stdole and Office are plain registered references; MSForms is a
+		// control reference carrying the original libid, the control record,
+		// its name a second time and the extended record.
+		const file = copy('FormFixtureVbide.xlsm');
+		const before = listReferences(file).map((one) => one.name);
+		expect(before).toContain('MSForms');
+
+		// The forms are what hold the reference in place, so they go first.
+		for (const form of readModules(file).filter((one) => one.type === 'userform')) {
+			deleteModule(file, form.name);
+		}
+		expect(removeReference(file, 'MSForms').removed).toBe(true);
+
+		expect(listReferences(file).map((one) => one.name))
+			.toEqual(before.filter((name) => name !== 'MSForms'));
+		// The project still reads, so nothing either side of the span went.
+		expect(readModules(file).length).toBeGreaterThan(0);
+	});
+
+	it('refuses to leave a UserForm without the library it needs', () => {
+		const file = copy('FormFixtureVbide.xlsm');
+
+		expect(() => removeReference(file, 'MSForms')).toThrow(/needs?\b.*Microsoft Forms/);
+		expect(listReferences(file).map((one) => one.name)).toContain('MSForms');
+	});
+
+	it('changes nothing for a reference the project does not have', () => {
+		const file = copy('ShapesFixture.xlsm');
+		const before = dirStream(file);
+
+		expect(removeReference(file, 'powerpoint')).toEqual({ ok: true, removed: false, name: 'PowerPoint' });
+		expect(dirStream(file)).toEqual(before);
+	});
+
+	it('marks the compiled project stale, as adding one does', () => {
+		const file = copy('WordExcelInteropFixture.docm');
+		const cache = (): Buffer => openMacroContainer(fs.readFileSync(file))
+			.vbaCfb().getStreamInStorage('VBA', '_VBA_PROJECT');
+		expect(cache().subarray(5).some((byte) => byte !== 0)).toBe(true);
+
+		removeReference(file, 'Excel');
+
+		expect(cache().subarray(5).every((byte) => byte === 0)).toBe(true);
+	});
+
+	it('leaves the modules exactly as they were', () => {
+		const file = copy('WordExcelInteropFixture.docm');
+		const before = readModules(file, true).map((one) => `${one.name}:${one.source}`);
+
+		removeReference(file, 'Excel');
+
+		expect(readModules(file, true).map((one) => `${one.name}:${one.source}`)).toEqual(before);
+	});
+});
+
+describe('which libraries a module names', () => {
+	// What the removal warns from: the same scan the missing-reference rule
+	// runs, so the two can never disagree about what counts as naming one.
+	it('finds an early-bound name wherever the compiler has to resolve it', () => {
+		expect([...librariesNamedIn('Dim xl As Excel.Application')]).toEqual(['excel']);
+		expect([...librariesNamedIn('Set o = New Word.Document')]).toEqual(['word']);
+		expect([...librariesNamedIn('n = Word.wdFormatPDF')]).toEqual(['word']);
+	});
+
+	it('says nothing about late binding, which needs no reference', () => {
+		expect([...librariesNamedIn('Set xl = CreateObject("Excel.Application")')]).toEqual([]);
+	});
+
+	it('reports each library once, however often the module names it', () => {
+		const source = ['Dim a As Excel.Range', 'Dim b As Excel.Worksheet', 'Dim c As Word.Range'].join('\r\n');
+
+		expect([...librariesNamedIn(source)].sort()).toEqual(['excel', 'word']);
 	});
 });
 

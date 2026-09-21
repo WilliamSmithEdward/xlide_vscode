@@ -226,8 +226,8 @@ export class VbaProject {
 	private readonly renames = new Map<string, string>();
 	private readonly added: Array<{ name: string; kind: VbaModuleKind; projectKeyword?: string }> = [];
 	private readonly deleted = new Set<string>();
-	/** Whether a reference was added, which the compiled cache has to be told about. */
-	private referencesAdded = false;
+	/** Whether a reference was added or removed, which the compiled cache has to be told about. */
+	private referencesChanged = false;
 	private readonly removedStreams: string[] = [];
 	private readonly renamedStreams: Array<[string, string]> = [];
 
@@ -259,8 +259,27 @@ export class VbaProject {
 		// and the host trusts it over the dir stream: measured in Word, a
 		// reference added on its own is not listed at all until something
 		// else makes the save mutating, while the same reference added
-		// beside a module write appears. Adding one IS a mutating change.
-		this.referencesAdded = true;
+		// beside a module write appears. Changing one IS a mutating change.
+		this.referencesChanged = true;
+	}
+
+	/**
+	 * Takes a dir stream a caller cut reference records out of - the surgery
+	 * itself belongs to vbaProjectReferences, which reads the record shapes -
+	 * and re-finds the module section in it, since every reference sits in
+	 * front of that section and cutting one moves it.
+	 *
+	 * Removing a reference is as mutating as adding one: the host runs the
+	 * compiled project, which lists the references it was built with.
+	 */
+	replaceReferenceSection(dir: Buffer): void {
+		const modules = readDirRecords(dir).find((record) => record.id === REC_PROJECTMODULES);
+		if (!modules) {
+			throw new VbaProjectError('dir stream has no PROJECTMODULES section; refusing to write it.');
+		}
+		this.dirRaw = dir;
+		this.dirModulesOffset = modules.start;
+		this.referencesChanged = true;
 	}
 
 	static parse(cfb: Cfb): VbaProject {
@@ -582,7 +601,7 @@ export class VbaProject {
 			|| this.added.length > 0
 			|| this.deleted.size > 0
 			|| this.renames.size > 0
-			|| this.referencesAdded;
+			|| this.referencesChanged;
 		if (mutating) {
 			invalidateVbaProjectCache(cfb, this.streamStorage);
 		}

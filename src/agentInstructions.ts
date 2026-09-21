@@ -91,6 +91,7 @@ export const AGENT_INSTRUCTIONS: string = [
     '- xlide_writeCells: write values and formulas into cells.',
     '- xlide_editShape: add, move, relabel or delete a shape or button, or link it to a Sub.',
     '- xlide_addReference: reference another Office application\'s object library, so the project can name its types early bound.',
+    '- xlide_removeReference: take a reference away again. Code that names it early bound stops compiling.',
     '- xlide_runVbaTests: run the tests in the file\'s Office application. Results go to tests/ beside the file by default.',
     '- xlide_exportModules: export modules to a folder. Only when the user asks.',
     '- xlide_configureExportMode: set how exports treat stale files. Only when the user asks.',

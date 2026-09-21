@@ -138,6 +138,7 @@ These tools require user confirmation.
 | `xlide_writeCells` | Write values to a cell range. |
 | `xlide_editShape` | Add, move, relabel or delete a shape or button, or link it to a Sub. |
 | `xlide_addReference` | Reference another application's object library, so the project's VBA can name its types early bound. |
+| `xlide_removeReference` | Take a reference away again. Code that names it early bound stops compiling. |
 | `xlide_exportModules` | Export/sync project modules to files on disk when explicitly requested. |
 | `xlide_configureExportMode` | Set the persistent export mode for a project. |
 

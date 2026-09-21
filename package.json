@@ -2,7 +2,7 @@
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
   "description": "Office VBA and Visual Basic 6 in VS Code - Excel, Word, PowerPoint, Access and .vbp projects; project tree, module editing, UserForm and VB6 form designers, static analysis, unit tests, AI agent tools",
-  "version": "10.3.0",
+  "version": "10.4.0",
   "publisher": "WilliamSmithE",
   "license": "MIT",
   "icon": "assets/images/extension_logo.png",
@@ -392,6 +392,12 @@
         "icon": "$(references)"
       },
       {
+        "command": "xlide.removeProjectReference",
+        "title": "Remove Project Reference",
+        "category": "XLIDE",
+        "icon": "$(trash)"
+      },
+      {
         "command": "xlide.openFormMarkup",
         "title": "Open Form Markup",
         "category": "XLIDE",
@@ -746,6 +752,11 @@
           "group": "1_create@5"
         },
         {
+          "command": "xlide.removeProjectReference",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|accessDatabase)$/",
+          "group": "1_create@6"
+        },
+        {
           "command": "xlide.previewForm",
           "when": "view == xlide.explorer && viewItem =~ /^module-(userform|accessform|accessreport)(-agent-pending)?$/ && !xlide.isWeb",
           "group": "2_edit@1"
@@ -960,6 +971,10 @@
         },
         {
           "command": "xlide.addProjectReference",
+          "when": "false"
+        },
+        {
+          "command": "xlide.removeProjectReference",
           "when": "false"
         },
         {
@@ -1586,6 +1601,30 @@
                 "access"
               ],
               "description": "The application whose object library to reference"
+            }
+          },
+          "required": [
+            "filePath",
+            "library"
+          ]
+        }
+      },
+      {
+        "name": "xlide_removeReference",
+        "displayName": "Remove Project Reference",
+        "modelDescription": "Removes a type-library reference from a VBA project, as unchecking it in the VBE Tools > References dialog does. Name the library as xlide_listReferences reports it (Excel, Word, PowerPoint, Access, Office, stdole, MSForms, or another project). Code that still names the library early bound stops compiling the moment the reference goes - the VBE reports \"User-defined type not defined\" and the whole project stops compiling - so read the modules first and rewrite them to late binding, or leave the reference alone. Removing one the project does not have changes nothing. Microsoft Forms is refused while the project still has a UserForm, which cannot be instantiated without it. A VB6 project keeps its references in the .vbp manifest, which XLIDE does not write.",
+        "toolReferenceName": "xlideRemoveReference",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the macro-enabled Office file"
+            },
+            "library": {
+              "type": "string",
+              "description": "The reference to remove, named as xlide_listReferences reports it"
             }
           },
           "required": [

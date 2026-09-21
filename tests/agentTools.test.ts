@@ -301,6 +301,37 @@ describe('xlide_addReference agent tool', () => {
     });
 });
 
+describe('xlide_removeReference agent tool', () => {
+    const book = 'C:\\work\\Book.xlsm';
+
+    it('writes inside the Office coordination, and says what stops compiling', async () => {
+        const bridgeCall = vi.fn(async () => ({ ok: true, removed: true, name: 'Word' }));
+        registerTools(bridgeCall);
+        const tool = vscodeMock.registeredTools.get('xlide_removeReference')!;
+        vi.mocked(runWriteWithHostCoordination).mockClear();
+
+        const result = await tool.invoke(
+            { input: { filePath: book, library: 'Word' } }, undefined,
+        ) as { parts: Array<{ value: string }> };
+
+        expect(runWriteWithHostCoordination).toHaveBeenCalledWith(book, expect.any(Function));
+        expect(bridgeCall).toHaveBeenCalledWith('removeReference', { path: book, library: 'Word' });
+        expect(result.parts[0].value).toContain('no longer compiles');
+    });
+
+    it('says so rather than claiming a change when the project never had it', async () => {
+        const bridgeCall = vi.fn(async () => ({ ok: true, removed: false, name: 'Word' }));
+        registerTools(bridgeCall);
+        const tool = vscodeMock.registeredTools.get('xlide_removeReference')!;
+
+        const result = await tool.invoke(
+            { input: { filePath: book, library: 'Word' } }, undefined,
+        ) as { parts: Array<{ value: string }> };
+
+        expect(result.parts[0].value).toContain('does not reference Word');
+    });
+});
+
 describe('shape agent tools', () => {
     const book = 'C:\\work\\Book.xlsm';
     const deck = 'C:\\work\\Deck.pptm';
