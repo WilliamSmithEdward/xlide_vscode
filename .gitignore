@@ -107,6 +107,9 @@ reference/
 # line, a group, form controls, a picture and a chart, macros assigned.
 !tests/fixtures/binaries/ShapesFixture.xlsm
 !tests/fixtures/binaries/ShapesPictureChartFixture.xlsm
+# A workbook holding one of every form control Excel offers, each with a
+# linked cell, for the tests that pin what a shape edit must leave alone.
+!tests/fixtures/binaries/ControlsFixture.xlsm
 excel_test_workbook/
 .claude/
 

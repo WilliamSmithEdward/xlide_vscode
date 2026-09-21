@@ -686,6 +686,8 @@ to operate on export files.
 | `xlide_writeCells` | `#xlideWriteCells` | saves .xlsm | Yes |
 | `xlide_listShapes` | `#xlideListShapes` | none | No |
 | `xlide_editShape` | `#xlideEditShape` | saves the Office file | Yes |
+| `xlide_listReferences` | `#xlideListReferences` | none | No |
+| `xlide_addReference` | `#xlideAddReference` | saves the Office file | Yes |
 | `xlide_searchModules` | `#xlideSearchModules` | none | No |
 | `xlide_gitChanges` | `#xlideGitChanges` | none | No |
 | `xlide_exportModules` | `#xlideExportModules` | writes export files + updates project JSON config | Yes |
@@ -1075,7 +1077,32 @@ into a pure analyzer layer and a thin VS Code provider:
   project's conditional-compilation arguments do: the engine attaches it to
   every entry, `VbaSymbolIndex` keeps it on the project record, and
   `VbaProjectContext.references` hands it to the editor, analysis and
-  formatting paths.
+  formatting paths. Live diagnostics pass tokens rather than a model - `host`
+  plus `referencedHosts`, resolved once in `withResolvedHostModel` - because a
+  model does not cross the analysis worker's thread boundary; the tokens are
+  part of the incremental fingerprint, so gaining a reference re-analyzes the
+  module. A local pass has no project record, so it reuses the tokens the last
+  full pass found for that project rather than analyzing as if the project
+  referenced nothing.
+- `src/analyzer/diagnostics/rules/missingReference.ts` reports the other side:
+  a type, `New` or constant qualified with an application the project does not
+  reference. The VBE refuses that declaration with "User-defined type not
+  defined" and stops compiling the project, measured through the VBE oracle
+  (`cross_application_early_binding_without_reference_compile`), while the same
+  code late bound through `CreateObject` compiles, which is why the rule fires
+  only on the qualified spelling and never on a string. It scans the whole
+  module rather than each procedure's statements, because the commonest early
+  binding is a declaration, and reports once per library per module. Only
+  Excel, Word, PowerPoint and Access are reported, so the finding always
+  carries the quick fix that adds the reference: `vbaCodeActions.ts` offers it
+  as a command rather than an edit, because a reference is a record in the
+  project, not text in the module. `xlide.addProjectReference` (also on a
+  project's context menu, and `xlide_addReference` for agents) writes it
+  through `addReference` in `projectService.ts`, which appends a
+  REFERENCEREGISTERED record built from the measured GUID and version. Adding
+  a reference counts as a mutating save: Office runs the compiled project
+  rather than the records, so a reference written beside an untouched
+  `_VBA_PROJECT` is invisible to the host.
 - `src/analyzer/completion/memberAccess.ts` tokenizes the source up to the
   cursor, detects a member-access dot, walks the receiver chain (handling call
   parentheses and collection-default `Item` paths for chains like

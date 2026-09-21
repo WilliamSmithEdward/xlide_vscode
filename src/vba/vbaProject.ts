@@ -226,6 +226,8 @@ export class VbaProject {
 	private readonly renames = new Map<string, string>();
 	private readonly added: Array<{ name: string; kind: VbaModuleKind; projectKeyword?: string }> = [];
 	private readonly deleted = new Set<string>();
+	/** Whether a reference was added, which the compiled cache has to be told about. */
+	private referencesAdded = false;
 	private readonly removedStreams: string[] = [];
 	private readonly renamedStreams: Array<[string, string]> = [];
 
@@ -253,6 +255,12 @@ export class VbaProject {
 			this.dirRaw.subarray(this.dirModulesOffset),
 		]);
 		this.dirModulesOffset += records.length;
+		// The compiled cache lists the references the project was built with,
+		// and the host trusts it over the dir stream: measured in Word, a
+		// reference added on its own is not listed at all until something
+		// else makes the save mutating, while the same reference added
+		// beside a module write appears. Adding one IS a mutating change.
+		this.referencesAdded = true;
 	}
 
 	static parse(cfb: Cfb): VbaProject {
@@ -573,7 +581,8 @@ export class VbaProject {
 		const mutating = this.dirtySources.size > 0
 			|| this.added.length > 0
 			|| this.deleted.size > 0
-			|| this.renames.size > 0;
+			|| this.renames.size > 0
+			|| this.referencesAdded;
 		if (mutating) {
 			invalidateVbaProjectCache(cfb, this.streamStorage);
 		}

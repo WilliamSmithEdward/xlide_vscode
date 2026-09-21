@@ -94,6 +94,8 @@ import {
 	checkFixedArraySubscriptBounds,
 } from './rules/arrays';
 import { checkLateBoundFriendMember } from './rules/lateBinding';
+import { checkMissingLibraryReference } from './rules/missingReference';
+import { getExcelObjectModel } from '../host/excelObjectModel';
 import {
 	checkDeclarePtrSafeForWin64,
 	checkEventDeclarationModuleKind,
@@ -562,6 +564,15 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.memberCtx,
 			ctx.activity,
 			push,
+		),
+	},
+	{
+		name: 'missingLibraryReference',
+		// The resolved model, not opts.hostModel: a bare Excel project
+		// passes undefined so the downstream default rides, and the rule
+		// would then know of no library at all and stay silent.
+		run: (ctx, push) => checkMissingLibraryReference(
+			ctx.source, ctx.opts.hostModel ?? getExcelObjectModel(), push,
 		),
 	},
 	{

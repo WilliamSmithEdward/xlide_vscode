@@ -32,6 +32,7 @@ import {
 } from './analyzer';
 import { analyzeVbaModuleSource } from './vbaModuleAnalysis';
 import { hostTokenForFileName } from './analyzer/host/hostRegistry';
+import { referencedHostTokens } from './analyzer/host/hostLibraries';
 import {
     projectAnalysisOptionsForModule,
     projectProcedureSignatures,
@@ -316,6 +317,12 @@ export function registerVbaDiagnostics(
         documentType?: EventHandlerDocumentType;
         designerClass?: string;
     }>();
+    // The applications each project references, learned from the passes that
+    // read the project. A reference decides which object models the module is
+    // analyzed against, so a local pass - which has no project record - reuses
+    // what the last full pass found rather than analyzing as if the project
+    // referenced nothing and reporting every cross-application line.
+    const referencedHostsByProject = new Map<string, readonly string[]>();
     const fullPassMetadataRetries = new Map<string, number>();
     const settingsWatchers = new ProjectSettingsWatcherRegistry((projectPath) => {
         invalidateAnalysisSettingsForProject(projectPath);
@@ -545,6 +552,13 @@ export function registerVbaDiagnostics(
                 if (pass === 'full' || workerClient?.available === true) {
                     const diagnosticProject = await projectIndexService.contextForProject(projectPath);
                     projectRecord = diagnosticProject;
+                    referencedHostsByProject.set(
+                        projectKey(projectPath),
+                        referencedHostTokens(
+                            hostTokenForFileName(projectPath),
+                            diagnosticProject.references,
+                        ),
+                    );
                     const current = diagnosticProject.moduleMetadata.get(moduleIdentityKey(moduleName));
                     if (current) {
                         moduleMetadataKnown = true;
@@ -632,6 +646,7 @@ export function registerVbaDiagnostics(
                     severityOverrides: analysisSettings.ruleSeverityOverrides,
                     activeIncompleteExpressionOffset,
                     host: projectPath ? hostTokenForFileName(projectPath) : undefined,
+                    referencedHosts: referencedHostsByProject.get(wbKey),
                     designerClass,
                 });
                 const diagnostics = diagnosticsFromModuleAnalysis(
@@ -658,6 +673,9 @@ export function registerVbaDiagnostics(
             ...projectOptions,
             activeIncompleteExpressionOffset,
             host: projectPath ? hostTokenForFileName(projectPath) : undefined,
+            referencedHosts: projectPath
+                ? referencedHostsByProject.get(projectKey(projectPath))
+                : undefined,
             designerClass,
         });
         const diagnostics = diagnosticsFromModuleAnalysis(

@@ -270,6 +270,37 @@ describe('xlide_writeCells agent tool', () => {
     });
 });
 
+describe('xlide_addReference agent tool', () => {
+    const book = 'C:\\work\\Book.xlsm';
+
+    it('writes inside the Office coordination, like every other project write', async () => {
+        const bridgeCall = vi.fn(async () => ({ ok: true, added: true, name: 'Word' }));
+        registerTools(bridgeCall);
+        const tool = vscodeMock.registeredTools.get('xlide_addReference')!;
+        vi.mocked(runWriteWithHostCoordination).mockClear();
+
+        const result = await tool.invoke(
+            { input: { filePath: book, library: 'word' } }, undefined,
+        ) as { parts: Array<{ value: string }> };
+
+        expect(runWriteWithHostCoordination).toHaveBeenCalledWith(book, expect.any(Function));
+        expect(bridgeCall).toHaveBeenCalledWith('addReference', { path: book, library: 'word' });
+        expect(result.parts[0].value).toContain('Word');
+    });
+
+    it('says so rather than claiming a change when the project already has it', async () => {
+        const bridgeCall = vi.fn(async () => ({ ok: true, added: false, name: 'Word' }));
+        registerTools(bridgeCall);
+        const tool = vscodeMock.registeredTools.get('xlide_addReference')!;
+
+        const result = await tool.invoke(
+            { input: { filePath: book, library: 'word' } }, undefined,
+        ) as { parts: Array<{ value: string }> };
+
+        expect(result.parts[0].value).toContain('already references Word');
+    });
+});
+
 describe('shape agent tools', () => {
     const book = 'C:\\work\\Book.xlsm';
     const deck = 'C:\\work\\Deck.pptm';

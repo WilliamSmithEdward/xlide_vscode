@@ -2,7 +2,7 @@
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
   "description": "Office VBA and Visual Basic 6 in VS Code - Excel, Word, PowerPoint, Access and .vbp projects; project tree, module editing, UserForm and VB6 form designers, static analysis, unit tests, AI agent tools",
-  "version": "10.2.0",
+  "version": "10.3.0",
   "publisher": "WilliamSmithE",
   "license": "MIT",
   "icon": "assets/images/extension_logo.png",
@@ -386,6 +386,12 @@
         "icon": "$(book)"
       },
       {
+        "command": "xlide.addProjectReference",
+        "title": "Add Project Reference",
+        "category": "XLIDE",
+        "icon": "$(references)"
+      },
+      {
         "command": "xlide.openFormMarkup",
         "title": "Open Form Markup",
         "category": "XLIDE",
@@ -735,6 +741,11 @@
           "group": "1_create@4"
         },
         {
+          "command": "xlide.addProjectReference",
+          "when": "view == xlide.explorer && viewItem =~ /^(xlsm|macroDocument|accessDatabase)$/",
+          "group": "1_create@5"
+        },
+        {
           "command": "xlide.previewForm",
           "when": "view == xlide.explorer && viewItem =~ /^module-(userform|accessform|accessreport)(-agent-pending)?$/ && !xlide.isWeb",
           "group": "2_edit@1"
@@ -945,6 +956,10 @@
         },
         {
           "command": "xlide.newAccessReport",
+          "when": "false"
+        },
+        {
+          "command": "xlide.addProjectReference",
           "when": "false"
         },
         {
@@ -1546,6 +1561,36 @@
           },
           "required": [
             "filePath"
+          ]
+        }
+      },
+      {
+        "name": "xlide_addReference",
+        "displayName": "Add Project Reference",
+        "modelDescription": "Adds a reference to another Office application's type library to a VBA project, the way the VBE Tools > References dialog does. A project needs one to name that application's types early bound: without it, Dim xl As Excel.Application in a Word document does not compile (\"User-defined type not defined\") and the whole project stops compiling, which is what XLIDE reports as missing-library-reference. Use it when code names a library the project does not reference; call xlide_listReferences first to see what it already has. Late binding - Dim x As Object with CreateObject(\"Excel.Application\") - needs no reference at all, so prefer that where the code should run without one. The libraries that can be added are excel, word, powerpoint and access. Adding one the project already has changes nothing. A VB6 project keeps its references in the .vbp manifest, which XLIDE does not write.",
+        "toolReferenceName": "xlideAddReference",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the macro-enabled Office file"
+            },
+            "library": {
+              "type": "string",
+              "enum": [
+                "excel",
+                "word",
+                "powerpoint",
+                "access"
+              ],
+              "description": "The application whose object library to reference"
+            }
+          },
+          "required": [
+            "filePath",
+            "library"
           ]
         }
       },

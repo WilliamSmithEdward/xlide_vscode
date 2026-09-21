@@ -82,7 +82,9 @@ import {
 } from './docShapes';
 import { atomicWrite } from './atomicWrite';
 import {
+	HOST_LIBRARIES,
 	buildMsFormsReference,
+	buildRegisteredReference,
 	hasMsFormsReference,
 	readProjectReferences,
 	type VbaProjectReference,
@@ -93,6 +95,7 @@ import { validateVbaModuleName } from '../vbaSourceScan';
 import { readAttributeAnnotations } from '../analyzer/annotations/attributeAnnotations';
 import { applyAttributeAnnotations } from '../analyzer/annotations/attributeRewriter';
 import { parseModule } from '../analyzer/parser/parseModule';
+import { hostTokenForFileName } from '../analyzer/host/hostRegistry';
 import {
 	isVb6ProjectPath,
 	listVb6Modules,
@@ -831,6 +834,41 @@ export function listReferences(filePath: string): VbaProjectReference[] {
 		return [];
 	}
 	return readProjectReferences(openContainer(filePath).project.dirStream);
+}
+
+/**
+ * Give a project a reference to another Office application's type library,
+ * so its VBA can name that application's types early-bound.
+ *
+ * Late binding needs no reference at all - `CreateObject("Excel.Application")`
+ * into an `Object` works from any project - so this is for code that names
+ * the library, which is what the VBE's Tools > References dialog is for.
+ * Adding one the project already has is a no-op rather than a duplicate.
+ */
+export function addReference(filePath: string, library: string): { ok: true; added: boolean; name: string } {
+	const known = HOST_LIBRARIES[library.toLowerCase()];
+	if (!known) {
+		throw new Error(
+			`'${library}' is not a library XLIDE can add; it knows ${Object.values(HOST_LIBRARIES).map((one) => one.name).join(', ')}.`,
+		);
+	}
+	if (isVb6ProjectPath(filePath)) {
+		throw new Error('A VB6 project keeps its references in the .vbp manifest, which XLIDE does not write.');
+	}
+	// A container's own host library is implicit: neither Excel nor Word
+	// declares it in the project's records, and Tools > References shows it
+	// checked and greyed. Writing one would be a second, redundant copy.
+	if (hostTokenForFileName(filePath) === library.toLowerCase()) {
+		throw new Error(`A ${known.name} file already has the ${known.name} object library; it is implicit in the project.`);
+	}
+	const wb = openContainerForWrite(filePath);
+	const guid = known.guid.toLowerCase();
+	if (readProjectReferences(wb.project.dirStream).some((one) => one.libid.toLowerCase().includes(guid))) {
+		return { ok: true, added: false, name: known.name };
+	}
+	wb.project.addReferenceRecords(buildRegisteredReference(known));
+	saveContainer(filePath, wb);
+	return { ok: true, added: true, name: known.name };
 }
 
 export function readModules(filePath: string, full = false): ModuleEntry[] {

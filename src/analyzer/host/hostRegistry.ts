@@ -106,7 +106,7 @@ const MERGED_BY_KEY = new Map<string, HostObjectModel>();
  * default.
  */
 export function hostObjectModelForTokens(
-	tokens: readonly VbaHostToken[],
+	tokens: readonly string[],
 ): HostObjectModel | undefined {
 	const known = tokens.filter((token) => MODELS_BY_TOKEN.has(token));
 	if (known.length <= 1) {

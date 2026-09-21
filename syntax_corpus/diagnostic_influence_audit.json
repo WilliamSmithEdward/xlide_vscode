@@ -1997,6 +1997,20 @@
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "notes": "Warning, style only: a vocabulary tag with no closing tag before the next tag of the same name, which the parser drops or runs into the next one."
+    },
+    {
+      "code": "missing-library-reference",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE compile oracle: a type named from an unreferenced library",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "cross_application_early_binding_without_reference_compile",
+        "cross_application_late_binding_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "diagnosticKind": "compile-error",
+      "notes": "The VBE refuses `Dim doc As Word.Document` in a workbook that does not reference the Word library with \"User-defined type not defined\", and the whole project stops compiling. The same code late bound through CreateObject compiles, because it names nothing from the library, so the rule fires only on the qualified spelling in an As clause, after New, or on a qualified constant. Only libraries XLIDE can add a reference to are reported, so the finding always carries a fix."
     }
   ]
 }

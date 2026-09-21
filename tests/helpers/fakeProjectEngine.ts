@@ -8,6 +8,11 @@ export interface FakeBridgeModule {
 	source: string;
 	/** A VB6 project's module: the file it is. */
 	filePath?: string;
+	/**
+	 * The project's type-library references, which the engine attaches to
+	 * every entry. Analysis resolves another application's types through it.
+	 */
+	projectReferences?: Array<{ name: string; libid: string; kind?: string }>;
 }
 
 /** Single-project module list (any path) or per-project-path module lists. */
@@ -30,7 +35,7 @@ export function fakeProjectEngine(
 				if (!modules) {
 					throw new Error(`Unknown workbook ${payload.path}`);
 				}
-				return modules.map(({ name, type, documentType, source, filePath }) => ({ name, type, documentType, source, filePath }));
+				return modules.map(({ name, type, documentType, source, filePath, projectReferences }) => ({ name, type, documentType, source, filePath, projectReferences }));
 			}
 			if (method === 'listModules') {
 				if (!modules) {

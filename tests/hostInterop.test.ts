@@ -1,7 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
-import { listReferences, readModulesFromBuffer } from '../src/vba/projectService';
+import { addReference, listReferences, readModules, readModulesFromBuffer } from '../src/vba/projectService';
+import { openMacroContainer } from '../src/vba/macroContainer';
 import { analyzeModule } from '../src/analyzer/diagnostics/analyzeModule';
 import { resolveMemberCompletions } from '../src/analyzer/completion/memberAccess';
 import {
@@ -150,8 +152,9 @@ describe('a real document that references another application', () => {
 
 		// Real cross-application code, so nothing should be reported for it.
 		expect(withReference.map((d) => `${d.code}: ${d.message}`)).toEqual([]);
-		// And Word alone simply has no opinion, which is why it is silent too.
-		expect(wordAlone).toEqual([]);
+		// Without the reference the same module does not compile in the VBE
+		// either, and that is the one thing said about it.
+		expect(wordAlone.map((d) => d.code)).toEqual(['missing-library-reference']);
 	});
 
 	it('catches a typo in the referenced library, which Word alone cannot', () => {
@@ -161,8 +164,10 @@ describe('a real document that references another application', () => {
 
 		expect(analyzeModule(typo, { ...options, hostModel: hostObjectModelForTokens(tokens) })
 			.map((d) => d.code)).toContain('member-not-found');
-		expect(analyzeModule(typo, { ...options, hostModel: hostObjectModelForTokens(['word']) }))
-			.toEqual([]);
+		// Word alone cannot see the typo; it reports the missing reference
+		// instead, which is the thing actually wrong with the project.
+		expect(analyzeModule(typo, { ...options, hostModel: hostObjectModelForTokens(['word']) })
+			.map((d) => d.code)).toEqual(['missing-library-reference']);
 	});
 });
 
@@ -182,6 +187,222 @@ describe('listing a project references', () => {
 		const plain = path.join(__dirname, 'fixtures', 'binaries', 'ShapesFixture.xlsm');
 
 		expect(listReferences(plain).map((one) => one.name)).toEqual(['stdole', 'Office']);
+	});
+});
+
+describe('naming a library the project does not reference', () => {
+	const analyze = (body: string, tokens: Parameters<typeof hostObjectModelForTokens>[0]) =>
+		analyzeModule(
+			['Option Explicit', '', 'Public Sub Bridge()', `    ${body}`, 'End Sub'].join('\r\n'),
+			{ moduleName: 'M', moduleKind: 'standard', hostModel: hostObjectModelForTokens(tokens) },
+		);
+	const codes = (body: string, tokens: Parameters<typeof hostObjectModelForTokens>[0]) =>
+		analyze(body, tokens).map((d) => d.code);
+
+	it('reports an early-bound type from an unreferenced library', () => {
+		const found = analyze('Dim xl As Excel.Application', ['word']);
+
+		expect(found.map((d) => d.code)).toContain('missing-library-reference');
+		expect(found[0].message).toContain("'Excel' is not referenced by this project");
+		expect(found[0].message).toContain('late binding');
+	});
+
+	it('says nothing once the project references it', () => {
+		expect(codes('Dim xl As Excel.Application', ['word', 'excel']))
+			.not.toContain('missing-library-reference');
+	});
+
+	it('stays silent on late binding, which needs no reference', () => {
+		// The whole point of CreateObject: no name from the library appears.
+		expect(codes('Dim xl As Object\r\n    Set xl = CreateObject("Excel.Application")', ['word']))
+			.not.toContain('missing-library-reference');
+		expect(codes('Dim xl As Object\r\n    Set xl = GetObject(, "Excel.Application")', ['word']))
+			.not.toContain('missing-library-reference');
+	});
+
+	it('reports New and a qualified constant too, which also need the library', () => {
+		expect(codes('Dim xl As Object\r\n    Set xl = New Word.Application', ['excel']))
+			.toContain('missing-library-reference');
+		expect(codes('Dim n As Long\r\n    n = Word.wdFormatPDF', ['excel']))
+			.toContain('missing-library-reference');
+	});
+
+	it('leaves a member access on a value alone', () => {
+		// `wb.Excel.Thing` is not a library qualifier, and neither is a
+		// project name that happens to match further along a chain.
+		expect(codes('Dim wb As Object\r\n    wb.Excel.Thing = 1', ['word']))
+			.not.toContain('missing-library-reference');
+	});
+
+	it('says nothing about a library XLIDE cannot add', () => {
+		expect(codes('Dim o As Outlook.Application', ['word']))
+			.not.toContain('missing-library-reference');
+		expect(codes('Dim s As Scripting.Dictionary', ['word']))
+			.not.toContain('missing-library-reference');
+	});
+
+	it('carries the library for the quick fix that adds it', () => {
+		const found = analyze('Dim xl As Excel.Application', ['word']);
+		const missing = found.find((d) => d.code === 'missing-library-reference')!;
+
+		expect(missing.data?.addLibraryReference).toEqual({ library: 'excel' });
+	});
+});
+
+describe('adding a reference the project is missing', () => {
+	// The other half of the diagnostic: the code names Excel, the project does
+	// not reference it, and the fix writes the reference rather than sending
+	// the user to the VBE's Tools > References dialog.
+	let dir: string;
+	const copy = (fixture: string): string => {
+		const target = path.join(dir, fixture);
+		fs.copyFileSync(path.join(__dirname, 'fixtures', 'binaries', fixture), target);
+		return target;
+	};
+	/** The compiled cache Office keeps beside the source. */
+	const compiledCache = (file: string): Buffer => openMacroContainer(fs.readFileSync(file))
+		.vbaCfb().getStreamInStorage('VBA', '_VBA_PROJECT');
+
+	beforeEach(() => {
+		dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-add-reference-'));
+	});
+	afterEach(() => {
+		fs.rmSync(dir, { recursive: true, force: true });
+	});
+
+	it('writes it so the project reports it, as Tools > References would', () => {
+		const file = copy('ShapesFixture.xlsm');
+
+		expect(addReference(file, 'word')).toEqual({ ok: true, added: true, name: 'Word' });
+		const written = listReferences(file).find((one) => one.name === 'Word')!;
+		expect(written.kind).toBe('registered');
+		expect(written.libid).toContain('{00020905-0000-0000-C000-000000000046}');
+		expect(hostTokenForLibid(written.libid)).toBe('word');
+	});
+
+	it('leaves the references the project already had', () => {
+		const file = copy('ShapesFixture.xlsm');
+		addReference(file, 'word');
+
+		expect(listReferences(file).map((one) => one.name)).toEqual(['stdole', 'Office', 'Word']);
+	});
+
+	it('is what clears the diagnostic, end to end', () => {
+		const file = copy('ShapesFixture.xlsm');
+		const analyze = () => {
+			const module = readModules(file, true).find((one) => one.source)!;
+			return analyzeModule(
+				['Option Explicit', '', 'Public Sub Bridge()', '    Dim doc As Word.Document',
+					'End Sub'].join('\r\n'),
+				{
+					moduleName: 'M',
+					moduleKind: 'standard',
+					hostModel: hostObjectModelForTokens(
+						hostTokensForProject('excel', module.projectReferences ?? []),
+					),
+				},
+			).map((d) => d.code);
+		};
+
+		expect(analyze()).toContain('missing-library-reference');
+		addReference(file, 'word');
+		expect(analyze()).not.toContain('missing-library-reference');
+	});
+
+	it('adds nothing the second time', () => {
+		const file = copy('ShapesFixture.xlsm');
+		addReference(file, 'word');
+
+		expect(addReference(file, 'word')).toEqual({ ok: true, added: false, name: 'Word' });
+		expect(listReferences(file).filter((one) => one.name === 'Word')).toHaveLength(1);
+	});
+
+	it('refuses a library it has no reference to write', () => {
+		const file = copy('ShapesFixture.xlsm');
+
+		expect(() => addReference(file, 'outlook')).toThrow(/not a library XLIDE can add/);
+		expect(listReferences(file).map((one) => one.name)).toEqual(['stdole', 'Office']);
+	});
+
+	it('marks the compiled project stale, or the host goes on ignoring it', () => {
+		// Measured against Word 16: a reference written into the dir stream
+		// beside an untouched _VBA_PROJECT is invisible to the host, because
+		// it runs the compiled project rather than reading the records. A
+		// reference is a mutating change, so the cache body goes.
+		const file = copy('ShapesFixture.xlsm');
+		expect(compiledCache(file).subarray(5).some((byte) => byte !== 0)).toBe(true);
+
+		addReference(file, 'word');
+
+		const after = compiledCache(file);
+		expect(after.subarray(0, 5)).toEqual(Buffer.from([0xcc, 0x61, after[2], after[3], 0x00]));
+		expect(after.subarray(5).every((byte) => byte === 0)).toBe(true);
+	});
+
+	it('knows every application it diagnoses, so each fix can be carried out', () => {
+		for (const token of ['word', 'powerpoint', 'access'] as const) {
+			const file = copy('ShapesFixture.xlsm');
+			addReference(file, token);
+			const written = listReferences(file).at(-1)!;
+
+			expect(hostTokenForLibid(written.libid)).toBe(token);
+			expect(hostTokensForProject('excel', listReferences(file))).toContain(token);
+			fs.rmSync(file);
+		}
+		// The fourth, from the other side: a document gaining Excel.
+		const doc = path.join(dir, 'WordExcelInteropFixture.docm');
+		fs.copyFileSync(path.join(__dirname, 'fixtures', 'binaries', 'WordExcelInteropFixture.docm'), doc);
+		expect(hostTokensForProject('word', listReferences(doc))).toContain('excel');
+	});
+
+	it('refuses the file own host, which the project carries implicitly', () => {
+		// Neither Excel nor Word declares its own library in the project's
+		// records - Tools > References shows it checked and greyed - so a
+		// written one would be a second, redundant copy of it.
+		const file = copy('ShapesFixture.xlsm');
+
+		expect(() => addReference(file, 'excel')).toThrow(/already has the Excel object library/);
+		expect(listReferences(file).map((one) => one.name)).toEqual(['stdole', 'Office']);
+	});
+});
+
+describe('analyzing with the references rather than a resolved model', () => {
+	// How the editor reaches the analyzer: live diagnostics know the project's
+	// host and which libraries it references, and hand over both as tokens
+	// rather than building a model. The worker thread has the same pair, since
+	// a model does not cross a thread boundary.
+	// A parameter rather than a local, so nothing but the type resolution
+	// is under test: an unassigned local of a class type is a finding of
+	// its own, whichever library the type comes from.
+	const source = ['Option Explicit', '', 'Public Sub Bridge(wb As Excel.Workbook)',
+		'    Debug.Print wb.Name', 'End Sub'].join('\r\n');
+	const codes = (options: Parameters<typeof analyzeModule>[1]) =>
+		analyzeModule(source, { moduleName: 'M', moduleKind: 'standard', ...options })
+			.map((d) => d.code);
+
+	it('resolves the referenced library beside the host', () => {
+		expect(codes({ host: 'word' })).toEqual(['missing-library-reference']);
+		expect(codes({ host: 'word', referencedHosts: ['excel'] })).toEqual([]);
+	});
+
+	it('leaves the host as the one the module belongs to', () => {
+		// `Me` in a document module is the host's document, whatever the
+		// project also references: the referenced library adds names, it does
+		// not change which application the module runs in.
+		const document = ['Option Explicit', '', 'Public Sub P()', '    Debug.Print Me.Name', 'End Sub']
+			.join('\r\n');
+		const options = { moduleName: 'ThisDocument', moduleKind: 'document' as const, host: 'word' };
+
+		expect(analyzeModule(document, options).map((d) => d.code)).toEqual([]);
+		expect(analyzeModule(document, { ...options, referencedHosts: ['excel'] })
+			.map((d) => d.code)).toEqual([]);
+	});
+
+	it('keeps the Excel defaults for a project that references nothing', () => {
+		// No host and no references is how every caller that knows neither
+		// arrives, and it has always meant Excel.
+		expect(codes({})).toEqual([]);
+		expect(codes({ referencedHosts: [] })).toEqual([]);
 	});
 });
 
@@ -256,7 +477,9 @@ describe('analyzing cross-application code', () => {
 		const body = 'Dim xl As Excel.Application\r\n    xl.Calculate';
 
 		expect(codes(body, ['word', 'excel'])).toContain('object-variable-not-set');
-		expect(codes(body, ['word'])).toEqual([]);
+		// Word alone knows no Excel.Application to apply the object rules to,
+		// and says only that the library is not referenced.
+		expect(codes(body, ['word'])).toEqual(['missing-library-reference']);
 	});
 
 	it('resolves a referenced library constant', () => {
@@ -265,9 +488,11 @@ describe('analyzing cross-application code', () => {
 		expect(codes(body, ['word', 'excel'])).toEqual([]);
 	});
 
-	it('leaves a project that references nothing exactly as it was', () => {
+	it('reports the missing reference rather than the member it cannot check', () => {
+		// The member is unknowable without the library, so the one useful
+		// thing to say is that the library is not referenced.
 		const body = 'Dim xl As Excel.Application\r\n    xl.NoSuchMemberAtAll';
 
-		expect(codes(body, ['word'])).toEqual([]);
+		expect(codes(body, ['word'])).toEqual(['missing-library-reference']);
 	});
 });

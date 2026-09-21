@@ -48,6 +48,20 @@ describe('XLIDE agent tool manifest', () => {
         expect(tool?.modelDescription).not.toContain('persist only through this tool or through the XLIDE virtual file system');
     });
 
+    it('offers the libraries a project can be given a reference to, and only those', () => {
+        const tool = languageModelTools().find((entry) => entry.name === 'xlide_addReference');
+
+        expect(tool).toEqual(expect.objectContaining({
+            toolReferenceName: 'xlideAddReference',
+        }));
+        expect(tool?.inputSchema?.required).toEqual(['filePath', 'library']);
+        expect((tool?.inputSchema?.properties?.library as { enum?: string[] })?.enum)
+            .toEqual(['excel', 'word', 'powerpoint', 'access']);
+        // Late binding needs no reference, and an agent that adds one for code
+        // that would run without it has changed the project for nothing.
+        expect(tool?.modelDescription).toContain('Late binding');
+    });
+
     it('names every tool in the repository agent instructions', () => {
         // The instructions still said 18 tools after the 19th and 20th
         // shipped, and neither had a row in their tables.

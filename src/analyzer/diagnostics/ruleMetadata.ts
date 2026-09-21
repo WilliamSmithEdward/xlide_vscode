@@ -532,6 +532,18 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.2.3.4 (Enum member value is a constant-expression)',
 		confidence: 'high',
 	},
+	missingLibraryReference: {
+		code: 'missing-library-reference',
+		title: 'Type library not referenced',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'VBE oracle: User-defined type not defined',
+		allowSeverityDowngrade: true,
+		confidence: 'high',
+	},
 	memberNotFound: {
 		code: 'member-not-found',
 		title: 'Object member not found',

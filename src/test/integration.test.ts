@@ -16,3 +16,4 @@ import './saveConflicts.test';
 import './renameModule.test';
 import './deleteModule.test';
 import './docComments.test';
+import './projectReferences.test';

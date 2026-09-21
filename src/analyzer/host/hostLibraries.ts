@@ -86,3 +86,16 @@ export function hostTokensForProject(
 	}
 	return out;
 }
+
+/**
+ * The same list without the project's own host: the libraries its code can
+ * name because the project references them. The analyzer takes the host and
+ * these separately, because the host also decides what `Me` is and which
+ * host-specific rules apply, which a referenced library never does.
+ */
+export function referencedHostTokens(
+	host: VbaHostToken | undefined,
+	references: readonly DeclaredReference[],
+): VbaHostToken[] {
+	return hostTokensForProject(host, references).filter((token) => token !== host);
+}

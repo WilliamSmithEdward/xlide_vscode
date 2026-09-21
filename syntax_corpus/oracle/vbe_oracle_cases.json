@@ -4982,6 +4982,26 @@
       "source": "Option Private Module\nPublic Sub XlideOracleEntry()\nEnd Sub\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "cross_application_early_binding_without_reference_compile",
+      "description": "A workbook names another application's type without a reference to that application's type library.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim doc As Word.Document\n    Set doc = Nothing\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "cross_application_late_binding_compile",
+      "description": "The same cross-application code late bound, which names nothing from the other application's library.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim app As Object\n    Set app = CreateObject(\"Word.Application\")\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }

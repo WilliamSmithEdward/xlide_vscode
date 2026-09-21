@@ -87,13 +87,18 @@ describe('project type semantic tokens', () => {
 		]);
 	});
 
-	it('marks project classes in Implements statements', () => {
+	it('marks project classes in Implements statements, and library-qualified ones', () => {
+		// `Excel.Worksheet` used to be invisible here, because a type-library
+		// qualifier resolved to nothing at all. It is a real type, and an
+		// unqualified `Dim ws As Worksheet` has always been painted `class`,
+		// so the qualified spelling is painted the same.
 		const source = 'Implements Person\nImplements Excel.Worksheet\n';
 		const projectTypes: VbaProjectTypeName[] = [
 			{ name: 'Person', kind: 'class', moduleName: 'Person' },
 		];
 		expect(tokenTexts(source, { projectTypes })).toEqual([
 			{ text: 'Person', type: 'class' },
+			{ text: 'Worksheet', type: 'class' },
 		]);
 	});
 

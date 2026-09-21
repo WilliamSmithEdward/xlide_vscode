@@ -137,6 +137,7 @@ These tools require user confirmation.
 | `xlide_createProject` | Create a new macro-enabled file. |
 | `xlide_writeCells` | Write values to a cell range. |
 | `xlide_editShape` | Add, move, relabel or delete a shape or button, or link it to a Sub. |
+| `xlide_addReference` | Reference another application's object library, so the project's VBA can name its types early bound. |
 | `xlide_exportModules` | Export/sync project modules to files on disk when explicitly requested. |
 | `xlide_configureExportMode` | Set the persistent export mode for a project. |
 

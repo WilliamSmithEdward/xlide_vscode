@@ -80,6 +80,12 @@ export type AnalysisWorkerRequest =
 		 */
 		host?: string;
 		/**
+		 * The applications the project references, as host tokens. Their
+		 * models are resolved beside the host's, so a module that names one
+		 * early-bound is analyzed against it.
+		 */
+		referencedHosts?: readonly string[];
+		/**
 		 * Designer-declared members of the analyzed module, overriding whatever
 		 * the seed carried. A host whose designer state changes between seeds
 		 * (and a host that analyzes without seeding a project at all) sends

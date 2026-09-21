@@ -167,6 +167,62 @@ describe('analyzeProject metadata summary', () => {
 	});
 });
 
+describe('analyzeProject and the applications a project references', () => {
+	afterEach(() => {
+		resetProjectAnalysisResultCacheForTests();
+	});
+
+	const EXCEL_LIBID = '*\\G{00020813-0000-0000-C000-000000000046}#1.9#0#C:\\PROGRA~1\\'
+		+ 'MICROS~1\\Office16\\EXCEL.EXE#Microsoft Excel 16.0 Object Library';
+	const SOURCE = 'Option Explicit\nPublic Sub Bridge(wb As Excel.Workbook)\n\tDebug.Print wb.Name\nEnd Sub\n';
+
+	it('reports the missing reference when the project declares none', async () => {
+		const bridge = fakeProjectEngine([{ name: 'Bridge', type: 'standard', source: SOURCE }]);
+
+		const result = await analyzeProject(bridge, 'Report.docm');
+
+		expect(result.problems.map((problem) => problem.code)).toEqual(['missing-library-reference']);
+	});
+
+	it('resolves the referenced library, so the same module is clean', async () => {
+		// Analyze Project used to pass the host alone, so a module the editor
+		// called clean was reported here, and the other way round.
+		const bridge = fakeProjectEngine([{
+			name: 'Bridge',
+			type: 'standard',
+			source: SOURCE,
+			projectReferences: [{ name: 'Excel', libid: EXCEL_LIBID, kind: 'registered' }],
+		}]);
+
+		const result = await analyzeProject(bridge, 'Report.docm');
+
+		expect(result.problems.map((problem) => problem.code)).toEqual([]);
+	});
+
+	it('hands the worker the same reference list', async () => {
+		const seen: Array<readonly string[] | undefined> = [];
+		setProjectAnalysisWorker({
+			available: true,
+			ensureSeeded() { /* no seed needed for one module */ },
+			analyze(request) {
+				seen.push(request.referencedHosts);
+				return Promise.resolve({ diagnostics: [], suppressedDiagnostics: [] });
+			},
+		});
+		const bridge = fakeProjectEngine([{
+			name: 'Bridge',
+			type: 'standard',
+			source: SOURCE,
+			projectReferences: [{ name: 'Excel', libid: EXCEL_LIBID, kind: 'registered' }],
+		}]);
+
+		await analyzeProject(bridge, 'Report.docm');
+		setProjectAnalysisWorker(undefined);
+
+		expect(seen).toEqual([['excel']]);
+	});
+});
+
 describe('analyzeProject worker routing', () => {
 	afterEach(() => {
 		setProjectAnalysisWorker(undefined);

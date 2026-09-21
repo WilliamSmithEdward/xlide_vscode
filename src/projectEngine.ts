@@ -288,6 +288,8 @@ export class ProjectEngine implements vscode.Disposable {
 
 			case 'listReferences':
 				return { references: svc.listReferences(str(p, 'path')) };
+			case 'addReference':
+				return svc.addReference(str(p, 'path'), str(p, 'library'));
 
 			// --- shapes ---
 			// `sheet` is the old name for `surface`, still accepted.

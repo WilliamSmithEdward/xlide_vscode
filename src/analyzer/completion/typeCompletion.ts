@@ -383,6 +383,68 @@ function externalTypeCandidatesInModule(moduleName: string): readonly TypeComple
 	return OLE_AUTOMATION_TYPES;
 }
 
+/**
+ * The libraries a model can answer for, as they spell themselves: the
+ * qualifier half of its own type keys, so `Excel.Range` contributes `Excel`.
+ * A model merged from a project's references carries one per library, which
+ * is what makes `Dim xl As Excel.` completable inside a Word document.
+ */
+function hostLibraryNames(model: HostObjectModel): string[] {
+	const seen = new Map<string, string>();
+	for (const qualified of Object.keys(model.types)) {
+		const dot = qualified.indexOf('.');
+		if (dot <= 0) { continue; }
+		const name = qualified.slice(0, dot);
+		const key = name.toLowerCase();
+		if (!seen.has(key)) { seen.set(key, name); }
+	}
+	return [...seen.values()];
+}
+
+/**
+ * A library's own types, for a qualified type position. VBA writes the
+ * library name before the type whenever two references share one - and a
+ * reader writes it for clarity even when they do not - so `Excel.` has to
+ * offer Excel's types the way a module qualifier offers a module's.
+ *
+ * Enumerations are left out: the model keys them by their own name rather
+ * than by library, so which one an enum belongs to is not known here. They
+ * are offered unqualified, where `Dim k As XlAxisType` already works.
+ */
+function hostLibraryTypeCandidatesIn(
+	model: HostObjectModel,
+	qualifier: string,
+): TypeCompletion[] {
+	const prefix = `${qualifier.toLowerCase()}.`;
+	const library = hostLibraryNames(model)
+		.find((name) => name.toLowerCase() === qualifier.toLowerCase());
+	if (library === undefined) {
+		return [];
+	}
+	const detail = `${library} type`;
+	const seen = new Set<string>();
+	const out: TypeCompletion[] = [];
+	for (const [qualified, type] of Object.entries(model.types)) {
+		if (!qualified.toLowerCase().startsWith(prefix)) { continue; }
+		const short = qualified.slice(prefix.length);
+		const key = short.toLowerCase();
+		if (short.length === 0 || short.includes('.') || seen.has(key)) { continue; }
+		seen.add(key);
+		out.push({ name: short, kind: 'host', detail, documentation: hostTypeDocumentation(type) });
+	}
+	return out;
+}
+
+/** Each library as a qualifier, so `Dim x As Exc` can reach `Excel.`. */
+function hostLibraryQualifierCandidates(model: HostObjectModel): TypeCompletion[] {
+	return hostLibraryNames(model).map((name) => ({
+		name,
+		kind: 'module' as const,
+		detail: 'Type-library qualifier',
+		moduleName: name,
+	}));
+}
+
 function externalModuleQualifierCandidates(): TypeCompletion[] {
 	return [{
 		name: 'stdole',
@@ -424,6 +486,7 @@ export function resolveTypeName(
 		return [
 			...projectTypeCandidatesInModule(qualified.qualifier, ctx.projectTypes),
 			...externalTypeCandidatesInModule(qualified.qualifier),
+			...hostLibraryTypeCandidatesIn(ctx.model ?? getExcelObjectModel(), qualified.qualifier),
 		].find(
 			(candidate) => candidate.name.toLowerCase() === qualified.member.toLowerCase(),
 		);
@@ -482,8 +545,11 @@ export function resolveTypeCompletions(
 	if (pos.qualifier !== undefined) {
 		const memberPrefix = (pos.memberPrefix ?? '').toLowerCase();
 		return [
+			// A project module shadows a library of the same name, as it does
+			// everywhere else a name is resolved.
 			...projectTypeCandidatesInModule(pos.qualifier, ctx.projectTypes),
 			...externalTypeCandidatesInModule(pos.qualifier),
+			...hostLibraryTypeCandidatesIn(model, pos.qualifier),
 		]
 			.filter((candidate) => isAllowedForTypePosition(candidate, pos.mode))
 			.filter((candidate) => !memberPrefix || candidate.name.toLowerCase().startsWith(memberPrefix));
@@ -500,6 +566,8 @@ export function resolveTypeCompletions(
 		...projectModuleQualifierCandidates(ctx.projectTypes)
 			.filter((candidate) => !prefix || candidate.name.toLowerCase().startsWith(prefix)),
 		...externalModuleQualifierCandidates()
+			.filter((candidate) => !prefix || candidate.name.toLowerCase().startsWith(prefix)),
+		...hostLibraryQualifierCandidates(model)
 			.filter((candidate) => !prefix || candidate.name.toLowerCase().startsWith(prefix)),
 	];
 }

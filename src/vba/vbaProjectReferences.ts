@@ -165,6 +165,77 @@ export function libid(guid: string, version: string, path: string, description: 
 	return `*\\G${guid}#${version}#0#${path}#${description}`;
 }
 
+/**
+ * The Office application type libraries a project can be given a reference
+ * to, so its VBA can name another application's types early-bound.
+ *
+ * Every field was read from the registered type library: the GUID, the
+ * version its own `GetLibAttr` declares, the path the registry resolves it
+ * at, and the library's own description. The Excel entry is cross-checked
+ * against the reference Word itself wrote into WordExcelInteropFixture.docm,
+ * which matches field for field.
+ *
+ * Probing `LoadRegTypeLib` upwards from 0.0 is NOT how to get the version:
+ * it answers with the first that loads, which is 1.0 for Excel where the
+ * library declares, and Office writes, 1.9.
+ */
+export interface HostLibrary {
+	/** The name the project knows it by, and the qualifier VBA writes. */
+	name: string;
+	guid: string;
+	version: string;
+	path: string;
+	description: string;
+}
+
+export const HOST_LIBRARIES: Readonly<Record<string, HostLibrary>> = Object.freeze({
+	excel: {
+		name: 'Excel',
+		guid: '{00020813-0000-0000-C000-000000000046}',
+		version: '1.9',
+		path: 'C:\\Program Files\\Microsoft Office\\root\\Office16\\EXCEL.EXE',
+		description: 'Microsoft Excel 16.0 Object Library',
+	},
+	word: {
+		name: 'Word',
+		guid: '{00020905-0000-0000-C000-000000000046}',
+		version: '8.7',
+		path: 'C:\\Program Files\\Microsoft Office\\root\\Office16\\MSWORD.OLB',
+		description: 'Microsoft Word 16.0 Object Library',
+	},
+	powerpoint: {
+		name: 'PowerPoint',
+		guid: '{91493440-5A91-11CF-8700-00AA0060263B}',
+		version: '2.12',
+		path: 'C:\\Program Files\\Microsoft Office\\root\\Office16\\MSPPT.OLB',
+		description: 'Microsoft PowerPoint 16.0 Object Library',
+	},
+	access: {
+		name: 'Access',
+		guid: '{4AFFC9A0-5F99-101B-AF4E-00AA003F0F07}',
+		version: '9.0',
+		path: 'C:\\Program Files\\Microsoft Office\\root\\Office16\\MSACC.OLB',
+		description: 'Microsoft Access 16.0 Object Library',
+	},
+});
+
+/**
+ * The records a REGISTERED reference occupies: its name, then the libid with
+ * the two reserved fields [MS-OVBA 2.3.4.2.2.5]. Simpler than a control
+ * reference, which carries a twiddled libid and the library's GUID as well.
+ */
+export function buildRegisteredReference(library: HostLibrary): Buffer {
+	const text = libid(library.guid, library.version, library.path, library.description);
+	return Buffer.concat([
+		nameRecords(library.name),
+		dirRecord(REC_REFERENCE_REGISTERED, Buffer.concat([
+			sized(text),
+			// Reserved1 (4 bytes) and Reserved2 (2 bytes), both zero.
+			Buffer.alloc(6),
+		])),
+	]);
+}
+
 /** The Microsoft Forms reference records, pointing at `fm20Path` for the library. */
 export function buildMsFormsReference(fm20Path = MSFORMS_DEFAULT_PATH): Buffer {
 	return buildControlReference({

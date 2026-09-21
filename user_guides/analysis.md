@@ -47,6 +47,29 @@ Common result meanings:
 - **Untracked** - the rule is intentionally hidden from tracking globally or for
   this file.
 
+## Another Application's Library
+
+A project that references another Office application can name its types. In a
+Word document that references Excel, `Dim xl As Excel.Application` compiles,
+and XLIDE checks `xl.Workbooks.Add` against Excel's object model, completes
+Excel's members after `xl.`, and knows Excel's spellings. Excel, Word,
+PowerPoint and Access are covered in every combination.
+
+Without the reference the VBE refuses the declaration - "User-defined type not
+defined" - and the project stops compiling. XLIDE reports that as
+`missing-library-reference`, once per library per module, with a quick fix that
+writes the reference into the project. **Add Project Reference** on a project
+in the XLIDE tree does the same without waiting for an error.
+
+Late binding needs no reference, and is never reported:
+
+```vba
+Dim xl As Object
+Set xl = CreateObject("Excel.Application")
+```
+
+It names nothing from the library, which is the whole point of it.
+
 ## Dead Code
 
 Four rules point at code the module does not need. They report as

@@ -170,8 +170,10 @@ export class AnalysisWorkerState {
 			request.moduleType ?? '',
 			request.moduleKind ?? '',
 			request.documentType ?? '',
-			// A host change re-types every host lookup in the module.
+			// A host change re-types every host lookup in the module, and so
+			// does a reference, which brings another application's types in.
 			request.host ?? '',
+			(request.referencedHosts ?? []).join('+'),
 			// Editing the designer changes diagnostics without changing a line
 			// of code, so incremental reuse has to see the control list.
 			JSON.stringify(implicitMembers ?? null),
@@ -184,6 +186,7 @@ export class AnalysisWorkerState {
 			moduleName: request.moduleName,
 			moduleType: request.moduleType,
 			host: request.host,
+			referencedHosts: request.referencedHosts,
 			designerClass: request.designerClass,
 			moduleKind: request.moduleKind as ModuleSymbolKind | undefined,
 			documentType: request.documentType as EventHandlerDocumentType | undefined,

@@ -119,6 +119,14 @@ export interface VbaDiagnosticData {
 	removeDeclaration?: VbaRemoveDeclarationData;
 	removeUnreachableCode?: VbaRemoveUnreachableCodeData;
 	docCommentFixes?: VbaDocCommentFix[];
+	/** The Office library a missing-reference diagnostic would have the user add. */
+	addLibraryReference?: VbaAddLibraryReferenceData;
+}
+
+/** Which library to add, for the quick fix on a missing reference. */
+export interface VbaAddLibraryReferenceData {
+	/** The host token the engine adds a reference for: excel, word, ... */
+	library: string;
 }
 
 /** Per-rule severity overrides keyed by stable diagnostic code; `'off'` disables an allowed rule. */
@@ -213,6 +221,13 @@ export interface AnalyzeModuleOptions {
 	 * Excel's (issue #24).
 	 */
 	host?: string;
+	/**
+	 * The other applications whose type libraries the project references, as
+	 * host tokens. A Word document that references Excel compiles `Dim xl As
+	 * Excel.Application`, so the rules run against both models, the project's
+	 * own host winning any name the two share.
+	 */
+	referencedHosts?: readonly string[];
 	/**
 	 * Conditional-compilation constants for deterministic branch filtering. Branches
 	 * that remain unknown are still analyzed; only proven-inactive code is skipped.

@@ -24,6 +24,8 @@ import {
     writeProjectModule,
 } from '../projectModuleOperations';
 import { registerXlideCommand } from '../xlideCommandRegistration';
+import { HOST_LIBRARIES } from '../vba/vbaProjectReferences';
+import { hostTokenForFileName } from '../analyzer/host/hostRegistry';
 import { runWriteWithHostCoordination } from '../officeWriteCoordinator';
 import type { XlideNode } from '../projectExplorer';
 import {
@@ -500,7 +502,84 @@ export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposabl
                 surfaceProjectWriteError(node.filePath, err, 'XLIDE: Delete failed');
             }
         }),
+
+        // Give the project a reference to another application's type library,
+        // so its VBA can name that application's types early bound. The quick
+        // fix on a missing reference calls this with both arguments; the
+        // project node's menu calls it with neither and asks.
+        registerXlideCommand('xlide.addProjectReference', async (
+            target?: XlideNode | string,
+            library?: string,
+        ) => {
+            const filePath = typeof target === 'string'
+                ? target
+                : target?.kind === 'project' ? target.filePath : undefined;
+            if (!filePath) { return; }
+            const chosen = library ?? await pickLibrary(filePath);
+            if (!chosen) { return; }
+            try {
+                const result = await runWriteWithHostCoordination(filePath, () =>
+                    bridge.call<{ added: boolean; name: string }>('addReference', {
+                        path: filePath,
+                        library: chosen,
+                    }));
+                if (!result.added) {
+                    void vscode.window.showInformationMessage(
+                        `XLIDE: this project already references ${result.name}.`,
+                    );
+                    return;
+                }
+                // The references decide which object models the analyzer and
+                // completion answer from, so the project's cached context has
+                // to go before the new one can be seen.
+                refreshProjectState({ explorer, vbaIndex }, filePath);
+                const summaryText = logChangeSummary(log, 'addProjectReference', {
+                    operation: 'Add reference',
+                    changed: [result.name],
+                });
+                recordWriteAudit({
+                    command: 'xlide.addProjectReference',
+                    operation: 'add-reference',
+                    outcome: 'succeeded',
+                    projectPath: filePath,
+                    summary: summaryText,
+                });
+                void vscode.window.showInformationMessage(
+                    `XLIDE: added a reference to ${result.name}.`,
+                );
+            } catch (err) {
+                recordWriteAudit({
+                    command: 'xlide.addProjectReference',
+                    operation: 'add-reference',
+                    outcome: 'failed',
+                    projectPath: filePath,
+                    summary: 'Add reference: 0 changed, 1 failed',
+                    error: err,
+                });
+                surfaceProjectWriteError(filePath, err, 'XLIDE: Failed to add the reference');
+            }
+        }),
     ];
+}
+
+/**
+ * Asks which object library to reference, when the caller did not say. The
+ * file's own host is left out: that library is implicit in the project, which
+ * is why the VBE shows it checked and greyed.
+ */
+async function pickLibrary(filePath: string): Promise<string | undefined> {
+    const own = hostTokenForFileName(filePath);
+    const picked = await vscode.window.showQuickPick(
+        Object.entries(HOST_LIBRARIES)
+            .filter(([token]) => token !== own)
+            .map(([token, library]) => ({
+                label: library.name,
+                description: library.description,
+                token,
+            })),
+        { title: 'XLIDE: Add Project Reference', placeHolder: 'Which object library?' },
+    );
+    return picked?.token;
 }
 
 /** Opens every module the rename touches as VBA, so the edit lands on the right language, then applies it. */

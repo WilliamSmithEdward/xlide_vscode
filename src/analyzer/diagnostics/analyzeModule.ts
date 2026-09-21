@@ -38,7 +38,7 @@ import type {
 	ProcedureNode,
 	Span,
 } from '../parser/nodes';
-import { hostObjectModelForToken } from '../host/hostRegistry';
+import { hostObjectModelForToken, hostObjectModelForTokens } from '../host/hostRegistry';
 import { parseModule } from '../parser/parseModule';
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import { createConditionalActivityTracker } from '../conditional/conditionalCompilation';
@@ -108,10 +108,18 @@ export function analyzeModule(
  * hostModel wins; absent both, the Excel defaults ride as they always have.
  */
 export function withResolvedHostModel(opts: AnalyzeModuleOptions): AnalyzeModuleOptions {
-	if (opts.hostModel !== undefined || opts.host === undefined) {
+	if (opts.hostModel !== undefined) {
 		return opts;
 	}
-	const resolved = hostObjectModelForToken(opts.host);
+	const referenced = opts.referencedHosts ?? [];
+	if (opts.host === undefined && referenced.length === 0) {
+		return opts;
+	}
+	// A referenced library is resolved alongside the host, in declaration
+	// order, which is the order VBA itself resolves an ambiguous name in.
+	const resolved = referenced.length === 0
+		? hostObjectModelForToken(opts.host)
+		: hostObjectModelForTokens([...(opts.host === undefined ? [] : [opts.host]), ...referenced]);
 	return resolved === undefined ? opts : { ...opts, hostModel: resolved };
 }
 

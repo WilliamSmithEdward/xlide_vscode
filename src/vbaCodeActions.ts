@@ -22,6 +22,14 @@ import {
     type XlideDiagnosticWithData,
 } from './xlideDiagnosticData';
 import { workspaceEditFor } from './vbaWorkspaceEdit';
+import { moduleLocationOfDocument } from './vbaDocumentLocation';
+import { HOST_LIBRARY_NAMES } from './analyzer/host/hostLibraries';
+import type { VbaHostToken } from './analyzer/host/hostRegistry';
+
+/** The library's own name, for the fix's title. */
+function libraryDisplayName(library: string): string {
+    return HOST_LIBRARY_NAMES[library as VbaHostToken] || library;
+}
 
 const XLIDE_SOURCE_ACTION_KIND = vscode.CodeActionKind.Source.append('xlide');
 export const XLIDE_ANALYZE_CURRENT_MODULE_ACTION_KIND = XLIDE_SOURCE_ACTION_KIND.append('analyzeCurrentModule');
@@ -113,6 +121,26 @@ export class VbaCodeActionProvider implements vscode.CodeActionProvider {
                 action.diagnostics = [diagnostic];
                 action.isPreferred = fix.isPreferred;
                 action.edit = workspaceEditFor(document, fix.edits);
+                actions.push(action);
+            }
+            // Adding a type-library reference is not a text edit: it writes a
+            // record into the project. So it is a command rather than an edit,
+            // and it is offered here where the engine is reachable.
+            const missing = (diagnostic as XlideDiagnosticWithData)[XLIDE_DIAGNOSTIC_DATA]
+                ?.addLibraryReference;
+            const location = missing ? moduleLocationOfDocument(document) : undefined;
+            if (missing && location) {
+                const action = new vscode.CodeAction(
+                    `Add a reference to the ${libraryDisplayName(missing.library)} object library`,
+                    vscode.CodeActionKind.QuickFix,
+                );
+                action.diagnostics = [diagnostic];
+                action.isPreferred = true;
+                action.command = {
+                    command: 'xlide.addProjectReference',
+                    title: 'Add project reference',
+                    arguments: [location.projectPath, missing.library],
+                };
                 actions.push(action);
             }
         }

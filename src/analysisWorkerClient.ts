@@ -26,6 +26,8 @@ export interface WorkerAnalyzeRequest {
 	activeIncompleteExpressionOffset?: number;
 	/** Office host token for the module's container. Absent means Excel. */
 	host?: string;
+	/** Host tokens for the libraries the project references, if any. */
+	referencedHosts?: readonly string[];
 	/** Designer-declared members of this module, when the caller knows them. */
 	implicitMembers?: WorkerImplicitMember[];
 	/** The host type the module's designer makes it, when the caller knows it. */

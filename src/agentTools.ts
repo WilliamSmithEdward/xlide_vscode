@@ -74,6 +74,7 @@ interface ReadFormulasInput { filePath: string; sheet: string; range: string; }
 interface WriteCellsInput  { filePath: string; sheet: string; startCell: string; data: unknown[][]; }
 /** `sheet` is the old name for `surface`, still accepted. */
 interface ListReferencesInput { filePath: string; }
+interface AddReferenceInput { filePath: string; library: string; }
 interface ListShapesInput  { filePath: string; surface?: string; sheet?: string; }
 interface EditShapeInput {
     filePath: string;
@@ -774,6 +775,51 @@ export function registerAgentTools(
                     token,
                 );
                 return textResult(JSON.stringify(result.references, null, 2));
+            },
+        }),
+
+        // ----------------------------------------------------------------
+        // xlide_addReference  (requires user confirmation)
+        // ----------------------------------------------------------------
+        vscode.lm.registerTool<AddReferenceInput>('xlide_addReference', {
+            async invoke(options, _token) {
+                const { filePath, library } = options.input;
+                const { result, summary } = await withWriteAudit({
+                    command: 'xlide_addReference',
+                    operation: 'add-reference',
+                    projectPath: filePath,
+                    failedSummary: 'Add reference: 0 changed, 1 failed',
+                }, async () => {
+                    // Writing the project, so it is coordinated with the host
+                    // the same way a module write is.
+                    const added = await runWriteWithHostCoordination(filePath, () =>
+                        bridge.call<{ added: boolean; name: string }>('addReference', {
+                            path: filePath,
+                            library,
+                        }));
+                    return {
+                        result: added,
+                        summary: formatChangeSummary({
+                            operation: 'Add reference',
+                            changed: added.added ? [added.name] : [],
+                        }),
+                    };
+                });
+                return textResult(result.added
+                    ? `${summary}\nThe project now references ${result.name}, so its VBA can name ${result.name} types early bound.`
+                    : `The project already references ${result.name}; nothing was changed.`);
+            },
+            async prepareInvocation(options, _token) {
+                const { filePath, library } = options.input;
+                return {
+                    invocationMessage: `Adding a ${library} reference to "${filePath}"`,
+                    confirmationMessages: {
+                        title: 'Add Project Reference',
+                        message: new vscode.MarkdownString(
+                            `Add a reference to the **${library}** object library to \`${filePath}\`?`,
+                        ),
+                    },
+                };
             },
         }),
 

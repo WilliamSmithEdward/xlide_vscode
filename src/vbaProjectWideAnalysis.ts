@@ -24,6 +24,8 @@ import { lineStartOffsets, offsetToLineColumn } from './vbaSourceScan';
 import { evictOldest } from './util/boundedMap';
 import { analyzeVbaModuleSource, type VbaModuleAnalysisDiagnostic } from './vbaModuleAnalysis';
 import { hostTokenForFileName } from './analyzer/host/hostRegistry';
+import { referencedHostTokens } from './analyzer/host/hostLibraries';
+import type { VbaProjectReference } from './vba/vbaProjectReferences';
 import {
     buildVbaProjectIndexAsync,
     moduleKindFromType,
@@ -160,6 +162,8 @@ export interface ProjectAnalysisWorker {
         severityOverrides?: Record<string, string>;
         /** Office host token for the container. Absent means Excel. */
         host?: string;
+        /** Host tokens for the libraries the project references, if any. */
+        referencedHosts?: readonly string[];
         /** The host type the module's designer makes it, when the engine read one. */
         designerClass?: string;
     }): Promise<{
@@ -382,29 +386,35 @@ async function loadProjectModules(
     filePath: string,
     progress: ProjectAnalysisProgress,
     options: AnalyzeProjectOptions = {},
-): Promise<RawModule[]> {
+): Promise<{ modules: RawModule[]; references: readonly VbaProjectReference[] }> {
     progress.report('Reading VBA modules...', { force: true });
     const modules = await measurePerformance(
         'analyzeProject.readModules',
         undefined,
-        () => bridge.call<RawModule[]>(
+        () => bridge.call<Array<RawModule & { projectReferences?: VbaProjectReference[] }>>(
             'readModules',
             { path: filePath },
             options.token,
         ),
     );
     throwIfAnalysisCancelled(options.token);
-    return modules
-        .filter((mod) => typeof mod.source === 'string')
-        .map((mod) => ({
-            name: mod.name,
-            type: mod.type,
-            documentType: mod.documentType,
-            source: mod.source,
-            implicitMembers: mod.implicitMembers,
-            predeclaredId: mod.predeclaredId,
-            designerClass: mod.designerClass,
-        }));
+    return {
+        // The engine attaches the project's reference list to every entry, so
+        // any one of them carries it; a project with no modules references
+        // nothing this analysis can use either.
+        references: modules[0]?.projectReferences ?? [],
+        modules: modules
+            .filter((mod) => typeof mod.source === 'string')
+            .map((mod) => ({
+                name: mod.name,
+                type: mod.type,
+                documentType: mod.documentType,
+                source: mod.source,
+                implicitMembers: mod.implicitMembers,
+                predeclaredId: mod.predeclaredId,
+                designerClass: mod.designerClass,
+            })),
+    };
 }
 
 function throwIfAnalysisCancelled(token: vscode.CancellationToken | undefined): void {
@@ -470,7 +480,10 @@ async function runProjectAnalysis(
     const totalTrace = startPerformanceTrace('analyzeProject.total');
     const progress = projectAnalysisProgress(options.progress);
     try {
-        const modules = await loadProjectModules(bridge, filePath, progress, options);
+        const { modules, references } = await loadProjectModules(bridge, filePath, progress, options);
+        // A project that references another application is analyzed against
+        // both object models, exactly as the editor's own diagnostics are.
+        const referencedHosts = referencedHostTokens(hostTokenForFileName(filePath), references);
         const openSources = openModuleSourceMapForProject(filePath);
         for (const mod of modules) {
             mod.source = openSources.get(mod.name.toLowerCase()) ?? mod.source;
@@ -584,6 +597,7 @@ async function runProjectAnalysis(
                                 severityOverrides: analysisSettings.ruleSeverityOverrides,
                                 designerClass: mod.designerClass,
                                 host: hostTokenForFileName(filePath),
+                                referencedHosts,
                             }),
                         );
                         throwIfAnalysisCancelled(options.token);
@@ -626,6 +640,7 @@ async function runProjectAnalysis(
                         designerClass: mod.designerClass,
                         ...projectOptions,
                         host: hostTokenForFileName(filePath),
+                        referencedHosts,
                     }),
                 );
                 reportModuleDone(mod.name);

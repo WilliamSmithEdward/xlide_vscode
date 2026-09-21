@@ -2,6 +2,40 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.3.0] - 2026-09-20
+
+- **Naming an application the project does not reference is now an error, with
+  the fix attached.** `Dim doc As Word.Document` in a workbook with no
+  reference to Word does not compile - the VBE says "User-defined type not
+  defined" and stops compiling the whole project - and XLIDE reports it as
+  `missing-library-reference`, once per library per module. The quick fix
+  writes the reference into the project, and **Add Project Reference** on a
+  project in the tree does the same without waiting for an error. Excel, Word,
+  PowerPoint and Access can be added.
+
+- **Late binding is left alone.** `Dim xl As Object` with
+  `CreateObject("Excel.Application")` names nothing from the library and needs
+  no reference, so it is never reported. Both halves were measured against the
+  VBE: the early-bound declaration is rejected, the late-bound one compiles.
+
+- **Live diagnostics and Analyze Project read the project's references.**
+  10.2.0 taught the analyzer to resolve another application's types, but only
+  completion, hover, formatting and Analyze Current Module were given the
+  reference list. The editor's squiggles and the project-wide pass still
+  analyzed against the host alone, so cross-application code was underlined in
+  one place and clean in another. Both now carry the list, through the
+  analysis worker as well.
+
+- **`xlide_addReference`** lets an agent add a reference it has diagnosed,
+  after the usual confirmation. Adding one the project already has changes
+  nothing.
+
+- **A reference now counts as a change to the project.** Office runs the
+  compiled project rather than the reference records, so a reference written
+  beside an untouched compiled cache was invisible to the host: Word ignored
+  one added on its own, and noticed the same one only when a module happened
+  to be written with it.
+
 ## [10.2.0] - 2026-09-20
 
 - **Cross-application VBA is understood.** A project that references another
