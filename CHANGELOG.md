@@ -2,6 +2,22 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.4.3] - 2026-09-21
+
+- **A class name two applications share now reads as the right one.** `Range`
+  is Word's and Excel's both. Hovering `Dim rng As Word.Range` in a workbook
+  that references Word said "Excel host type" over Word's own description of
+  the type: the label came from the bare name's alias, which the host wins,
+  rather than from the qualifier written in the source.
+
+- **The bare name is offered as the host's type.** A merged model lists the
+  referenced library's types first, so `Range` in the declared-type list was
+  the referenced application's while the analyzer resolved the same word to
+  the host's - pick it from the list and what you wrote was then checked
+  against the other application. Both now follow VBA's own rule: the
+  reference list with the host at the top, and `Excel.Range` to reach the
+  other one.
+
 ## [10.4.2] - 2026-09-21
 
 - **`Application.Match` is no longer reported as a missing member.** It is a

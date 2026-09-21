@@ -307,7 +307,14 @@ export function typeCompletionCandidates(
 	// carrying the reference's own description of the type: before this,
 	// `Dim s As InlineShape` hovered with a bare name and no prose, even though
 	// the corpus had described the type all along.
-	for (const [qualified, type] of Object.entries(model.types)) {
+	// The host's own types first: `Range` is in both Word and Excel, and the
+	// bare name belongs to whichever library the project's host is - which is
+	// how the analyzer resolves it, and how VBA does, by the reference list
+	// with the host at the top. A merged model lists the referenced library's
+	// keys first, so iterating it as it comes handed `Range` to the wrong
+	// application and the one a developer picked was not the one that was
+	// then checked. The other stays reachable as `Excel.Range`.
+	for (const [qualified, type] of hostTypesOwnHostFirst(model)) {
 		const short = qualified.split('.').pop();
 		if (short) {
 			// Labelled with the type's own library rather than the project's
@@ -440,6 +447,20 @@ function hostLibraryTypeCandidatesIn(
 		out.push({ name: short, kind: 'host', detail, documentation: hostTypeDocumentation(type) });
 	}
 	return out;
+}
+
+/**
+ * The model's types with the project's own host's first, so a name two
+ * libraries share is offered as the host's. Order within each library is the
+ * model's own.
+ */
+function hostTypesOwnHostFirst(model: HostObjectModel): Array<[string, HostType]> {
+	const host = `${hostDisplayName(model)}.`.toLowerCase();
+	const entries = Object.entries(model.types);
+	return [
+		...entries.filter(([qualified]) => qualified.toLowerCase().startsWith(host)),
+		...entries.filter(([qualified]) => !qualified.toLowerCase().startsWith(host)),
+	];
 }
 
 /** Each library as a qualifier, so `Dim x As Exc` can reach `Excel.`. */

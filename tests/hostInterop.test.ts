@@ -613,6 +613,64 @@ describe('which application a label names', () => {
 	});
 });
 
+describe('a class name two applications share', () => {
+	// Range is Word's and Excel's both. VBA resolves the bare name by the
+	// reference list with the host at the top, so it is the project's own
+	// host's, and the other is reached by qualifying it. Everything a
+	// developer reads has to agree with that: offering Word's Range to an
+	// Excel project and then checking what they wrote against Excel's is
+	// worse than either answer on its own.
+	const wordProject = hostObjectModelForTokens(['word', 'excel']);
+	const excelProject = hostObjectModelForTokens(['excel', 'word']);
+	const wrap = (...lines: string[]) =>
+		['Option Explicit', '', 'Public Sub P()', ...lines.map((one) => `    ${one}`), 'End Sub']
+			.join('\r\n');
+	const memberDetail = (model: typeof wordProject, declared: string, member: string) => {
+		const source = wrap(`Dim r As ${declared}`, `r.${member} = 1`);
+		return resolveHover(source, source.indexOf(`${member} = 1`) + 2, { model })?.details?.[0];
+	};
+	const typeDetail = (model: typeof wordProject, declared: string) => {
+		const source = wrap(`Dim r As ${declared}`, 'r.Select');
+		const bare = declared.split('.').pop()!;
+		return resolveHover(source, source.indexOf(`As ${declared}`) + 3 + (declared.length - bare.length) + 1,
+			{ model })?.details?.[0];
+	};
+
+	it("resolves the bare name to the project's own host, either way round", () => {
+		// Bold is Word's, Value2 is Excel's.
+		expect(memberDetail(wordProject, 'Range', 'Bold')).toBe('Word host property (read/write)');
+		expect(memberDetail(wordProject, 'Range', 'Value2')).toBeUndefined();
+		expect(memberDetail(excelProject, 'Range', 'Value2')).toBe('Excel host property (read/write)');
+		expect(memberDetail(excelProject, 'Range', 'Bold')).toBeUndefined();
+	});
+
+	it('resolves a qualified name to the library that qualifies it', () => {
+		expect(memberDetail(excelProject, 'Word.Range', 'Bold')).toBe('Word host property (read/write)');
+		expect(memberDetail(wordProject, 'Excel.Range', 'Value2')).toBe('Excel host property (read/write)');
+		// And does not quietly fall through to the other one.
+		expect(memberDetail(excelProject, 'Word.Range', 'Value2')).toBeUndefined();
+		expect(memberDetail(wordProject, 'Excel.Range', 'Bold')).toBeUndefined();
+	});
+
+	it('names the qualifier on a qualified type, not the host', () => {
+		// The report: `Dim rng As Word.Range` in a workbook hovered as an
+		// Excel type, over Word's own description of it.
+		expect(typeDetail(excelProject, 'Word.Range')).toBe('Word host type');
+		expect(typeDetail(excelProject, 'Excel.Range')).toBe('Excel host type');
+		expect(typeDetail(wordProject, 'Excel.Range')).toBe('Excel host type');
+	});
+
+	it("offers the bare name as the host's type, which is what it resolves to", () => {
+		const offered = (model: typeof wordProject) =>
+			resolveTypeCompletions('Dim x As \r\n', 9, { model })
+				.filter((one) => one.name === 'Range')
+				.map((one) => one.detail);
+
+		expect(offered(wordProject)).toEqual(['Word type']);
+		expect(offered(excelProject)).toEqual(['Excel type']);
+	});
+});
+
 describe('completing on a referenced library', () => {
 	// The other half of what a reference buys: the editor offering the right
 	// members. It reads the same hostModel the diagnostics do.

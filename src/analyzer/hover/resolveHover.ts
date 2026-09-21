@@ -346,9 +346,12 @@ function typeDetail(typeRef: ResolvedTypeReference, model?: HostObjectModel): st
 			return 'VBA primitive type';
 		case 'host':
 			// The type's own library, not the project's host: `Word.Document`
-			// in an Excel workbook is a Word type (issue #77). The completion
-			// carries the bare name, so the model's alias gives the key.
-			return `${hostLibraryDisplayName(resolveHostAlias(typeRef.name, model), model)} host type`;
+			// in an Excel workbook is a Word type (issue #77). The source's
+			// own qualifier is the answer where it has one - `Word.Range`
+			// says Word whatever the bare name resolves to - and the model's
+			// alias answers for a bare name.
+			return `${typeRef.qualifier
+				?? hostLibraryDisplayName(resolveHostAlias(typeRef.name, model), model)} host type`;
 		case 'external':
 			return 'OLE Automation type';
 		default:
