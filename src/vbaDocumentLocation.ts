@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { XLIDE_SCHEME, decodeModuleUri, encodeModuleUri } from './xlideFileSystem';
 import { vb6ModuleOwnerOf } from './vb6ProjectLocator';
 import { blankDesignerHeader } from './vba/moduleSource';
+import { moduleIdentityKey, projectIdentityKey } from './projectIdentity';
 
 export interface ModuleLocation {
 	/** The container: a project path, or a VB6 project's `.vbp`. */
@@ -72,4 +73,49 @@ export function moduleDocumentUri(
 	module: { moduleName: string; filePath?: string },
 ): vscode.Uri {
 	return module.filePath ? vscode.Uri.file(module.filePath) : encodeModuleUri(projectPath, module.moduleName);
+}
+
+/**
+ * The document addresses a tab shows: its own for a text or custom editor,
+ * and both sides for a diff, since a module is just as open in the left half
+ * of a comparison as in an editor of its own.
+ */
+export function tabUris(tab: vscode.Tab): vscode.Uri[] {
+	const input = tab.input;
+	if (input instanceof vscode.TabInputText || input instanceof vscode.TabInputCustom) {
+		return [input.uri];
+	}
+	if (input instanceof vscode.TabInputTextDiff) {
+		return [input.original, input.modified];
+	}
+	return [];
+}
+
+/**
+ * The modules the closing tabs were the last view of, each once.
+ *
+ * `open` is every tab left after the change, so a module still shown in
+ * another tab group - or in one side of a diff - is not in the answer: it is
+ * still being edited, whatever just closed. A tab that shows no module at all
+ * is skipped, which is most of them.
+ */
+export function modulesWithNoTabLeft(
+	closed: readonly vscode.Tab[],
+	open: readonly vscode.Tab[],
+): ModuleLocation[] {
+	const stillOpen = new Set(open.flatMap(tabUris).map((uri) => uri.toString()));
+	const out: ModuleLocation[] = [];
+	const seen = new Set<string>();
+	for (const uri of closed.flatMap(tabUris)) {
+		if (stillOpen.has(uri.toString())) { continue; }
+		const location = moduleLocationOfUri(uri);
+		if (!location) { continue; }
+		// A form closes its code, its markup and its designer at once, and
+		// they are one module between them.
+		const key = `${projectIdentityKey(location.projectPath)}::${moduleIdentityKey(location.moduleName)}`;
+		if (seen.has(key)) { continue; }
+		seen.add(key);
+		out.push(location);
+	}
+	return out;
 }

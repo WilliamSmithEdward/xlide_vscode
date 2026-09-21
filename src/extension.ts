@@ -12,7 +12,11 @@ import {
     XLIDE_VBA_LANGUAGE_ID,
 } from './xlideFileSystem';
 import { ProjectEngine } from './projectEngine';
-import { analysisSourceForDocument, moduleLocationOfDocument, moduleLocationOfUri } from './vbaDocumentLocation';
+import {
+    analysisSourceForDocument,
+    moduleLocationOfDocument,
+    modulesWithNoTabLeft,
+} from './vbaDocumentLocation';
 import { readFolderAnnotation } from './vba/folderAnnotation';
 import { platformFeatures } from './platformFeatures';
 import { registerCommands } from './commands';
@@ -313,26 +317,12 @@ export function activate(context: vscode.ExtensionContext): void {
             });
             // Tab closure is separate from focus loss: the Output panel or a
             // webview can take focus while the module's editor is still open.
-            const tabUris = (tab: vscode.Tab): vscode.Uri[] => {
-                const input = tab.input;
-                if (input instanceof vscode.TabInputText || input instanceof vscode.TabInputCustom) {
-                    return [input.uri];
-                }
-                if (input instanceof vscode.TabInputTextDiff) {
-                    return [input.original, input.modified];
-                }
-                return [];
-            };
             const tabsClosed = vscode.window.tabGroups.onDidChangeTabs((event) => {
                 if (!xlideExplorerAutoExpandCollapseFromConfig(vscode.workspace.getConfiguration('xlide')).value) {
                     return;
                 }
-                const openUris = new Set(vscode.window.tabGroups.all.flatMap(group =>
-                    group.tabs.flatMap(tabUris).map(uri => uri.toString())));
-                for (const uri of event.closed.flatMap(tabUris)) {
-                    if (openUris.has(uri.toString())) { continue; }
-                    const location = moduleLocationOfUri(uri);
-                    if (!location) { continue; }
+                const open = vscode.window.tabGroups.all.flatMap((group) => group.tabs);
+                for (const location of modulesWithNoTabLeft(event.closed, open)) {
                     if (pending?.projectPath === location.projectPath && pending.moduleName === location.moduleName) {
                         pending = undefined;
                         apply.cancel();
