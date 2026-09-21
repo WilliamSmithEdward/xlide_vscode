@@ -11,7 +11,7 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock());
 
 import * as vscode from 'vscode';
-import { modulesWithNoTabLeft, tabUris } from '../src/vbaDocumentLocation';
+import { moduleLocationOfUri, modulesWithNoTabLeft, tabUris } from '../src/vbaDocumentLocation';
 import { encodeFormMarkupUri, encodeModuleUri } from '../src/xlideFileSystem';
 
 const BOOK = 'C:\\work\\Book.xlsm';
@@ -48,12 +48,15 @@ describe('the documents a tab shows', () => {
 
 describe('the modules a closure leaves with nothing open', () => {
     it('names the module whose last tab closed', () => {
-        const closed = [textTab(encodeModuleUri(BOOK, 'Module1'))];
+        const uri = encodeModuleUri(BOOK, 'Module1');
 
-        const [location] = modulesWithNoTabLeft(closed, []);
+        const [location] = modulesWithNoTabLeft([textTab(uri)], []);
 
         expect(location.moduleName).toBe('Module1');
-        expect(location.projectPath).toBe(BOOK);
+        // The project is whatever the locator reads out of that same address.
+        // Its spelling is the URI's own, which is not the literal above on
+        // every platform, so the locator is the reference rather than BOOK.
+        expect(location).toEqual(moduleLocationOfUri(uri));
     });
 
     it('leaves alone a module still open in another tab group', () => {
@@ -103,8 +106,11 @@ describe('the modules a closure leaves with nothing open', () => {
 
         const found = modulesWithNoTabLeft(closed, []);
 
-        expect(found.map((one) => [one.projectPath, one.moduleName]))
-            .toEqual([[BOOK, 'Module1'], [OTHER, 'Module1'], [BOOK, 'Module2']]);
+        expect(named(found)).toEqual(['Module1', 'Module1', 'Module2']);
+        // The two Module1 rows are different modules because their projects
+        // are, which is the part a shared name could hide.
+        expect(found[0].projectPath).not.toBe(found[1].projectPath);
+        expect(found[0].projectPath).toBe(found[2].projectPath);
     });
 
     it('keys a module by identity, so its name spelled two ways is one module', () => {
