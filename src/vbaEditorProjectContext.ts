@@ -28,9 +28,11 @@ import {
 } from './vbaProjectAnalysis';
 import {
 	hostObjectModelForToken,
+	hostObjectModelForTokens,
 	hostTokenForFileName,
 	type VbaHostToken,
 } from './analyzer/host/hostRegistry';
+import { hostTokensForProject } from './analyzer/host/hostLibraries';
 import type { HostObjectModel } from './analyzer/host/excelObjectModel';
 import { VbaProjectIndexService } from './vbaProjectIndexService';
 import { moduleLocationOfDocument, moduleLocationOfUri } from './vbaDocumentLocation';
@@ -425,7 +427,11 @@ export class VbaEditorProjectContextService {
 				moduleName: decoded.moduleName,
 				moduleKind,
 				host,
-				hostModel: hostObjectModelForToken(host),
+				// The project's references decide which object models answer
+				// here: a document that references Excel can name its types.
+				hostModel: hostObjectModelForTokens(
+					hostTokensForProject(host, projectContext.references),
+				),
 				documentType: documentTypeFor(current),
 				codeNameMap: codeNameHostTypesForModules(allEntries, host),
 				codeNameList: codeNameListFor(allEntries),

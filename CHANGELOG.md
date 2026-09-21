@@ -2,6 +2,36 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.2.0] - 2026-09-20
+
+- **Cross-application VBA is understood.** A project that references another
+  Office application's type library can name its types, and XLIDE now reads
+  that reference and analyzes the module against both object models. In a
+  Word document that references Excel, `Dim xl As Excel.Application` resolves,
+  `xl.Workbooks.Add` is checked against Excel's model, `xlOpenXMLWorkbook`
+  is a known constant, completion after `xl.` offers Excel's members, and
+  canonical casing knows Excel's spellings. A typo like `wb.SaveAsx` is now
+  caught; before, nothing in the module was checked at all. Excel, Word,
+  PowerPoint and Access are covered in every combination, including one
+  application driving another instance of itself.
+
+- **A reference XLIDE has no model for stays silent.** stdole, the shared
+  Office library and any third-party DLL resolve to no host, and silence is
+  the answer for them rather than a guess - the same rule the analyzer
+  already applied to an unmodelled host. A project that references nothing
+  is analyzed exactly as it was.
+
+- **The project's own host wins an ambiguous name**, which is how VBA
+  resolves one: by the order of the reference list, with the host at the top.
+  In a Word document that references Excel, `Dim r As Range` is still Word's
+  Range.
+
+- **`xlide_listReferences`** reports the type libraries a project declares,
+  as `Tools > References` lists them: the name, whether it is a registered
+  library, another VBA project or a control, and the libid carrying the
+  library's GUID and version. It says which applications a project drives
+  before an agent reads code that names one.
+
 ## [10.1.0] - 2026-09-20
 
 - **Shapes are no longer an Excel-only feature.** `xlide_listShapes` and

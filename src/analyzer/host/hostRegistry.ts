@@ -80,6 +80,62 @@ export function hostObjectModelForToken(host: string | undefined): HostObjectMod
 	return MODELS_BY_TOKEN.get(token)?.() ?? EMPTY_HOST_MODEL;
 }
 
+/** Merged models, keyed by the token list that produced them. */
+const MERGED_BY_KEY = new Map<string, HostObjectModel>();
+
+/**
+ * One model answering for a project's own host and every library it
+ * references, in the order VBA resolves them.
+ *
+ * A project that references another application's library can name its types
+ * and call its members, so a Word document with a reference to Excel has to
+ * be analyzed against both. The FIRST token wins every shared name, which is
+ * how VBA resolves an ambiguous one: by the reference list's order, the
+ * project's own host at the top. That is the same rule each host model
+ * already applies to the shared Office library it folds in.
+ *
+ * Every library's globals are merged, because a library marks its global
+ * object APPOBJECT in its type library and VBA binds that object's members
+ * bare for anyone who references it - Excel, Word and PowerPoint through a
+ * hidden `Global`, Access through `Application`. The host's own still wins a
+ * collision.
+ *
+ * Returns undefined when the list adds nothing to what a single token would
+ * have given, so every existing caller keeps the model it had - including the
+ * bare `excel` that rides as the downstream `?? getExcelObjectModel()`
+ * default.
+ */
+export function hostObjectModelForTokens(
+	tokens: readonly VbaHostToken[],
+): HostObjectModel | undefined {
+	const known = tokens.filter((token) => MODELS_BY_TOKEN.has(token));
+	if (known.length <= 1) {
+		return hostObjectModelForToken(known[0] ?? tokens[0]);
+	}
+	const key = known.join('+');
+	const cached = MERGED_BY_KEY.get(key);
+	if (cached) {
+		return cached;
+	}
+	// Later models are spread first so the earlier ones overwrite them: the
+	// project's own host wins every name it shares with a referenced library.
+	const models = known.map((token) => MODELS_BY_TOKEN.get(token)!());
+	const layered = [...models].reverse();
+	const merged: HostObjectModel = {
+		source: models.map((one) => one.source).join(' + '),
+		hostName: models[0].hostName,
+		globalType: models[0].globalType,
+		types: Object.assign({}, ...layered.map((one) => one.types)),
+		aliases: Object.assign({}, ...layered.map((one) => one.aliases)),
+		globals: Object.assign({}, ...layered.map((one) => one.globals)),
+		constants: Object.assign({}, ...layered.map((one) => one.constants ?? {})),
+		enums: Object.assign({}, ...layered.map((one) => one.enums ?? {})),
+		memberSignatures: Object.assign({}, ...layered.map((one) => one.memberSignatures ?? {})),
+	};
+	MERGED_BY_KEY.set(key, merged);
+	return merged;
+}
+
 /**
  * The host a macro container implies, from its file name. XLIDE's own file
  * surfaces are the caller here, so the analyzer knows what kind of file a

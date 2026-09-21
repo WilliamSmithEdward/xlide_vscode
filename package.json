@@ -2,7 +2,7 @@
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
   "description": "Office VBA and Visual Basic 6 in VS Code - Excel, Word, PowerPoint, Access and .vbp projects; project tree, module editing, UserForm and VB6 form designers, static analysis, unit tests, AI agent tools",
-  "version": "10.1.0",
+  "version": "10.2.0",
   "publisher": "WilliamSmithE",
   "license": "MIT",
   "icon": "assets/images/extension_logo.png",
@@ -1527,6 +1527,25 @@
             "sheet",
             "startCell",
             "data"
+          ]
+        }
+      },
+      {
+        "name": "xlide_listReferences",
+        "displayName": "List Project References",
+        "modelDescription": "Lists the type libraries a VBA project references, as the VBE Tools > References dialog shows them: the name the project knows each by, whether it is a registered library, another VBA project or a control, and the libid, which carries the library GUID, its version and the path it was registered at. A project that references another Office application can name that application types, so this is what says whether Excel.Application means anything in a Word document; XLIDE analyzes such a module against both object models. Call this to find out which applications a project drives, before reading code that names one. A VB6 project keeps its references in the .vbp manifest and answers with an empty list.",
+        "toolReferenceName": "xlideListReferences",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the macro-enabled Office file"
+            }
+          },
+          "required": [
+            "filePath"
           ]
         }
       },

@@ -1052,6 +1052,30 @@ into a pure analyzer layer and a thin VS Code provider:
 - `src/analyzer/host/hostModel.ts` exposes pure resolver functions over that
   metadata (`resolveHostGlobal`, `resolveHostAlias`, `getHostMembers`,
   `resolveMemberReturnType`).
+- `src/analyzer/host/hostLibraries.ts` maps the GUID inside a reference's
+  libid to the host whose model answers for it, for the four Office
+  applications. The GUID is the identity - the path in a libid is a hint the
+  host resolves through the registry - so nothing reads the path or the
+  description. A library with no model (stdole, the shared Office library, a
+  third-party DLL) resolves to no host, and silence is the answer for it.
+  `hostTokensForProject` puts the project's own host first and then each
+  reference in declared order, which is the order VBA resolves an ambiguous
+  name by.
+- `hostObjectModelForTokens` in `hostRegistry.ts` merges those models into
+  one, first token winning every shared name, and memoizes the result per
+  combination so the resolver's per-model index is built once. A project that
+  references another application's library is analyzed against both: `Dim xl
+  As Excel.Application` in a Word document resolves, and its members are
+  checked, completed and cased against Excel's model. Each library's globals
+  merge too, because a library marks its global object `APPOBJECT` in its
+  type library and VBA binds that object's members bare for anyone
+  referencing it - a hidden `Global` in Excel, Word and PowerPoint, and
+  `Application` in Access, all read from the registered type libraries.
+  The reference list reaches the analyzer with the module read, the way the
+  project's conditional-compilation arguments do: the engine attaches it to
+  every entry, `VbaSymbolIndex` keeps it on the project record, and
+  `VbaProjectContext.references` hands it to the editor, analysis and
+  formatting paths.
 - `src/analyzer/completion/memberAccess.ts` tokenizes the source up to the
   cursor, detects a member-access dot, walks the receiver chain (handling call
   parentheses and collection-default `Item` paths for chains like

@@ -17,7 +17,8 @@ import {
     type ProjectAnalysisSuppressScope,
 } from '../projectAnalysisWebview';
 import { analyzeVbaModuleSource } from '../vbaModuleAnalysis';
-import { hostTokenForFileName } from '../analyzer/host/hostRegistry';
+import { hostObjectModelForTokens, hostTokenForFileName } from '../analyzer/host/hostRegistry';
+import { hostTokensForProject } from '../analyzer/host/hostLibraries';
 import { containerAppNameForPath } from '../macroContainerUi';
 import { effectiveProjectAnalysisSettings } from '../projectAnalysisSettings';
 import { lineStartOffsets } from '../vbaSourceScan';
@@ -117,6 +118,13 @@ export async function analyzeOpenModule(
         severityOverrides: analysisSettings.ruleSeverityOverrides,
         ...projectOptions,
         host: hostTokenForFileName(projectPath),
+        // getAllModules above has already fetched the reference list, so a
+        // project that references another application is analyzed against
+        // both object models.
+        hostModel: hostObjectModelForTokens(hostTokensForProject(
+            hostTokenForFileName(projectPath),
+            vbaIndex.projectReferences(projectPath),
+        )),
     });
     return { modules, current, moduleType, result };
 }

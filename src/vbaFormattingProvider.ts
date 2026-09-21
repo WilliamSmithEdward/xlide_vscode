@@ -20,7 +20,9 @@ import {
     type VbaSymbol,
 } from './analyzer';
 import { formatVbaModule } from './analyzer/format/formatModule';
-import { hostObjectModelForToken, hostTokenForFileName } from './analyzer/host/hostRegistry';
+import { hostObjectModelForTokens, hostTokenForFileName } from './analyzer/host/hostRegistry';
+import { hostTokensForProject } from './analyzer/host/hostLibraries';
+import type { VbaProjectReference } from './vba/vbaProjectReferences';
 import { analysisSourceForDocument, moduleLocationOfDocument } from './vbaDocumentLocation';
 import { moduleKindFromDocument, moduleNameFromDocument } from './vbaDocumentIdentity';
 import { designerHeaderEnd } from './vba/moduleSource';
@@ -136,16 +138,21 @@ export class VbaFormattingProvider implements
             }
 
             const projectLevel = new Map<string, string>();
+            let references: readonly VbaProjectReference[] = [];
             if (location && document.uri.scheme === XLIDE_SCHEME) {
                 const context = await this._projects.contextForProject(location.projectPath);
+                references = context.references;
                 for (const symbol of context.project.visibleIdentifierSymbols(moduleName)) {
                     addName(projectLevel, symbol.name);
                 }
             }
 
-            const hostModel = hostObjectModelForToken(
+            // A project that references another application's library writes
+            // that library's names too, so canonical casing has to know them.
+            const hostModel = hostObjectModelForTokens(hostTokensForProject(
                 location ? hostTokenForFileName(location.projectPath) : undefined,
-            );
+                references,
+            ));
 
             return (name, offset) => {
                 const lower = name.toLowerCase();

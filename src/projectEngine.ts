@@ -286,6 +286,9 @@ export class ProjectEngine implements vscode.Disposable {
 			case 'writeCells':
 				return svc.writeCells(str(p, 'path'), str(p, 'sheet'), str(p, 'startCell'), grid(p, 'data'));
 
+			case 'listReferences':
+				return { references: svc.listReferences(str(p, 'path')) };
+
 			// --- shapes ---
 			// `sheet` is the old name for `surface`, still accepted.
 			case 'listShapes':

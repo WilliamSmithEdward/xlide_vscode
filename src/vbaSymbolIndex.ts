@@ -4,6 +4,7 @@ import type { EventHandlerDocumentType } from './analyzer/completion/eventHandle
 import { moduleIdentityKey, projectIdentityKey } from './xlideFileSystem';
 import { startPerformanceTrace } from './performanceTrace';
 import { yieldToExtensionHost } from './util/async';
+import type { VbaProjectReference } from './vba/vbaProjectReferences';
 
 export interface VbaModuleSymbols {
     moduleName: string;
@@ -23,6 +24,8 @@ export interface VbaModuleSymbols {
     predeclaredId?: boolean;
     /** The project's conditional compilation arguments; same on every entry. */
     projectConditionalConstants?: string;
+    /** The type libraries the project references; same on every entry. */
+    projectReferences?: VbaProjectReference[];
     /** A VB6 designer's class (`VB.Form`, `VB.MDIForm`), absent for Office forms. */
     designerClass?: string;
     /** The module's own file when the container's modules are files (VB6). */
@@ -41,6 +44,12 @@ interface CachedProject {
      * has the dir stream open at that point.
      */
     conditionalConstants?: string;
+    /**
+     * The type libraries the project references, which decide whether a name
+     * from another application's object model means anything here. Arrives
+     * with the module read for the same reason.
+     */
+    references?: VbaProjectReference[];
 }
 
 interface VbaModuleEntry {
@@ -57,6 +66,8 @@ interface VbaModuleEntry {
     predeclaredId?: boolean;
     /** The project's conditional compilation arguments; same on every entry. */
     projectConditionalConstants?: string;
+    /** The type libraries the project references; same on every entry. */
+    projectReferences?: VbaProjectReference[];
     /** A VB6 designer's class (`VB.Form`, `VB.MDIForm`), absent for Office forms. */
     designerClass?: string;
     /** The module's own file when the container's modules are files (VB6). */
@@ -156,7 +167,6 @@ export class VbaSymbolIndex implements vscode.Disposable {
         return promise;
     }
 
-    /** Returns the cached source for every module in the project. */
     /**
      * The project's conditional compilation arguments, if a module read has
      * already fetched them. Empty until then, which leaves a custom `#If`
@@ -166,6 +176,16 @@ export class VbaSymbolIndex implements vscode.Disposable {
         return this.cachedProject(projectIdentityKey(projectPath)).conditionalConstants;
     }
 
+    /**
+     * The type libraries the project references, if a module read has already
+     * fetched them. Empty until then, which leaves a cross-application name
+     * unresolved rather than guessing that the reference is there.
+     */
+    projectReferences(projectPath: string): VbaProjectReference[] {
+        return this.cachedProject(projectIdentityKey(projectPath)).references ?? [];
+    }
+
+    /** Returns the cached source for every module in the project. */
     async getAllModules(projectPath: string): Promise<VbaModuleSymbols[]> {
         const key = projectIdentityKey(projectPath);
         const existingRead = this._allModuleReads.get(key);
@@ -284,6 +304,7 @@ export class VbaSymbolIndex implements vscode.Disposable {
         wb.moduleListLoadedAt = Date.now();
         wb.conditionalConstants = entries.find((e) => e.projectConditionalConstants)
             ?.projectConditionalConstants;
+        wb.references = entries.find((e) => e.projectReferences)?.projectReferences;
         const out: VbaModuleSymbols[] = [];
         for (const [index, entry] of entries.entries()) {
             const moduleKey = moduleIdentityKey(entry.name);

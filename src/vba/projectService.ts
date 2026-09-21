@@ -81,7 +81,12 @@ import {
 	requireStory,
 } from './docShapes';
 import { atomicWrite } from './atomicWrite';
-import { buildMsFormsReference, hasMsFormsReference } from './vbaProjectReferences';
+import {
+	buildMsFormsReference,
+	hasMsFormsReference,
+	readProjectReferences,
+	type VbaProjectReference,
+} from './vbaProjectReferences';
 import { attributeValue, joinVbaSource, listProcedures, splitVbaSource, type ProcedureEntry } from './moduleSource';
 import { readFolderAnnotation } from './folderAnnotation';
 import { validateVbaModuleName } from '../vbaSourceScan';
@@ -144,6 +149,14 @@ export interface ModuleEntry {
 	 * the module list still gets them. Absent when the project declares none.
 	 */
 	projectConditionalConstants?: string;
+	/**
+	 * The type libraries the PROJECT references, repeated on every entry of
+	 * one read the way the conditional constants are. A project that
+	 * references another application's library can name its types, so the
+	 * analyzer needs the list to know that `Excel.Application` means anything
+	 * in a Word document. Absent when the read did not reach them.
+	 */
+	projectReferences?: VbaProjectReference[];
 	/**
 	 * True when the module carries `Attribute VB_PredeclaredId = True`, giving
 	 * it a default instance so its own name is usable as a value. Absent means
@@ -803,6 +816,23 @@ export function listModules(filePath: string): ModuleEntry[] {
 	return withHostDesigns(container, entries, project.codePage);
 }
 
+/**
+ * The type libraries a project references, as `Tools > References` lists
+ * them. A project that references another application's library can name its
+ * types, so this is what says whether `Excel.Application` means anything in a
+ * Word document.
+ *
+ * A VB6 project keeps its references in the .vbp manifest rather than a dir
+ * stream, and none is read here yet, so it answers with an empty list rather
+ * than a wrong one.
+ */
+export function listReferences(filePath: string): VbaProjectReference[] {
+	if (isVb6ProjectPath(filePath)) {
+		return [];
+	}
+	return readProjectReferences(openContainer(filePath).project.dirStream);
+}
+
 export function readModules(filePath: string, full = false): ModuleEntry[] {
 	if (isVb6ProjectPath(filePath)) {
 		return readVb6Modules(filePath, full).map(vb6ModuleEntry);
@@ -824,11 +854,14 @@ export function readModulesFromBuffer(data: Buffer, full = false): ModuleEntry[]
 function readModulesFromContainer({ container, cfb, project }: OpenContainer, full: boolean): ModuleEntry[] {
 	const out: ModuleEntry[] = [];
 	const constants = project.conditionalConstantsRaw || undefined;
+	// Read once and shared by every entry, the way the constants are.
+	const references = readProjectReferences(project.dirStream);
 	for (const module of project.modules) {
 		try {
 			const entry = moduleEntryWithDesigner(cfb, project, module);
 			entry.source = full ? module.source : splitVbaSource(module.source).body;
 			entry.projectConditionalConstants = constants;
+			if (references.length > 0) { entry.projectReferences = references; }
 			out.push(entry);
 		} catch {
 			// Keep project-wide reads best-effort at the module boundary.

@@ -73,6 +73,7 @@ interface ReadCellsInput   { filePath: string; sheet: string; range: string; }
 interface ReadFormulasInput { filePath: string; sheet: string; range: string; }
 interface WriteCellsInput  { filePath: string; sheet: string; startCell: string; data: unknown[][]; }
 /** `sheet` is the old name for `surface`, still accepted. */
+interface ListReferencesInput { filePath: string; }
 interface ListShapesInput  { filePath: string; surface?: string; sheet?: string; }
 interface EditShapeInput {
     filePath: string;
@@ -759,6 +760,20 @@ export function registerAgentTools(
                         ),
                     },
                 };
+            },
+        }),
+
+        // ----------------------------------------------------------------
+        // xlide_listReferences
+        // ----------------------------------------------------------------
+        vscode.lm.registerTool<ListReferencesInput>('xlide_listReferences', {
+            async invoke(options, token) {
+                const result = await bridge.call<{ references: unknown[] }>(
+                    'listReferences',
+                    { path: options.input.filePath },
+                    token,
+                );
+                return textResult(JSON.stringify(result.references, null, 2));
             },
         }),
 

@@ -28,6 +28,7 @@ import {
 } from './xlideFileSystem';
 import { VbaSymbolIndex, type VbaModuleSymbols } from './vbaSymbolIndex';
 import { parseProjectConditionalConstants } from './analyzer';
+import type { VbaProjectReference } from './vba/vbaProjectReferences';
 import { analysisSourceForDocument, moduleLocationOfDocument } from './vbaDocumentLocation';
 import type {
     EventHandlerDocumentType,
@@ -61,6 +62,12 @@ export interface VbaProjectModuleMetadata {
 export interface VbaProjectContext {
     readonly projectPath: string;
     readonly project: ProjectIndex;
+    /**
+     * The type libraries the project references. A project that references
+     * another application's library can name its types, so this decides
+     * which object models the module is analyzed against.
+     */
+    readonly references: readonly VbaProjectReference[];
     /** Module views whose source is the text the project index last parsed. */
     readonly modules: VbaModuleSymbols[];
     readonly byModule: Map<string, VbaModuleSymbols>;
@@ -91,6 +98,7 @@ export interface VbaProjectContext {
 let generationClock = 0;
 
 class ProjectRecord implements VbaProjectContext {
+    references: readonly VbaProjectReference[] = [];
     readonly byModule = new Map<string, VbaModuleSymbols>();
     readonly moduleMetadata = new Map<string, VbaProjectModuleMetadata>();
     /** moduleKey -> error from the most recent failed module apply. */
@@ -333,6 +341,7 @@ export class VbaProjectIndexService implements vscode.Disposable {
             },
         );
         const record = new ProjectRecord(projectPath, project);
+        record.references = this._index.projectReferences(projectPath);
         for (const mod of modules) {
             const moduleKey = moduleIdentityKey(mod.moduleName);
             record.moduleMetadata.set(moduleKey, {

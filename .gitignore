@@ -80,6 +80,7 @@ reference/
 !tests/fixtures/binaries/PowerPointShapesFixture.pptm
 !tests/fixtures/binaries/PowerPointPlaceholderFixture.pptm
 !tests/fixtures/binaries/WordShapesFixture.docm
+!tests/fixtures/binaries/WordExcelInteropFixture.docm
 !tests/fixtures/binaries/AccessFixture.accdb
 !tests/fixtures/binaries/AccessFixture.mdb
 !tests/fixtures/binaries/AccessEditedFixture.accdb

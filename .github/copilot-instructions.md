@@ -122,7 +122,8 @@ affects tested behavior.
 | `xlide_listSheets` | Need only sheet names and dimensions. |
 | `xlide_readCells` | Read cached/computed cell values. |
 | `xlide_readFormulas` | Read raw formula strings, such as `=SUM(A1:A10)`. |
-| `xlide_listShapes` | List a sheet's shapes and form controls, with the macro each one runs. |
+| `xlide_listShapes` | List the shapes on a worksheet, slide or Word surface, with the macro each one runs. |
+| `xlide_listReferences` | List the type libraries the project references, which say what other applications its code can name. |
 
 ### Write / Mutate
 
