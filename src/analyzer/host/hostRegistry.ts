@@ -121,6 +121,16 @@ export function hostObjectModelForTokens(
 	// project's own host wins every name it shares with a referenced library.
 	const models = known.map((token) => MODELS_BY_TOKEN.get(token)!());
 	const layered = [...models].reverse();
+	// A merged model has one hostName - the project's own host, by
+	// construction - and every label built from it named that host, so a Word
+	// member in an Excel workbook read as Excel's (issue #77). A type key
+	// already names its library; an enum key does not, so each referenced
+	// library's enums carry theirs from here on.
+	const labelled = layered.map((model) => (model === models[0]
+		? model.enums ?? {}
+		: Object.fromEntries(Object.entries(model.enums ?? {}).map(
+			([name, entry]) => [name, { ...entry, library: model.hostName }],
+		))));
 	const merged: HostObjectModel = {
 		source: models.map((one) => one.source).join(' + '),
 		hostName: models[0].hostName,
@@ -129,7 +139,7 @@ export function hostObjectModelForTokens(
 		aliases: Object.assign({}, ...layered.map((one) => one.aliases)),
 		globals: Object.assign({}, ...layered.map((one) => one.globals)),
 		constants: Object.assign({}, ...layered.map((one) => one.constants ?? {})),
-		enums: Object.assign({}, ...layered.map((one) => one.enums ?? {})),
+		enums: Object.assign({}, ...labelled),
 		memberSignatures: Object.assign({}, ...layered.map((one) => one.memberSignatures ?? {})),
 	};
 	MERGED_BY_KEY.set(key, merged);

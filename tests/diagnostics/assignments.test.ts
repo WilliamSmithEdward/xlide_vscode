@@ -1137,12 +1137,14 @@ describe('analyzeModule - assignment type validation', () => {
 		expectDiagnostic(src, diagnostics, 'member-not-found', { span: 'doesnotexist' });
 	});
 
-	it('does not treat Workbook events as callable object members', () => {
+	it('does not treat Worksheet events as callable object members', () => {
+		// Worksheet rather than Workbook: absence is only provable on a type
+		// VBA resolves against while compiling, and Workbook is extensible.
 		const src =
-			'Public Sub T()\n' +
-			'    ThisWorkbook.AfterSave True\n' +
+			'Public Sub T(ws As Worksheet)\n' +
+			'    ws.SelectionChange Nothing\n' +
 			'End Sub\n';
-		expectDiagnostic(src, analyzeModule(src), 'member-not-found', { span: 'AfterSave' });
+		expectDiagnostic(src, analyzeModule(src), 'member-not-found', { span: 'SelectionChange' });
 	});
 
 	it('accepts ThisWorkbook members from source and the exhaustive Workbook host surface', () => {
@@ -1162,7 +1164,11 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(byCode(diagnostics, 'member-not-found')).toHaveLength(0);
 	});
 
-	it('uses the exhaustive Workbook host surface for ActiveWorkbook', () => {
+	it('leaves an unknown member on Workbook alone, which is extensible', () => {
+		// Measured in the VBE: `Dim wb As Workbook` then `wb.NoSuchMemberXyz`
+		// compiles. Excel's Workbook interface carries no NONEXTENSIBLE flag,
+		// so VBA defers the name to IDispatch instead of refusing it, and a
+		// hard error here would be reporting code that runs.
 		const src =
 			'Public Sub T()\n' +
 			'    ActiveWorkbook.doesnotexist\n' +
@@ -1173,22 +1179,24 @@ describe('analyzeModule - assignment type validation', () => {
 				{ moduleName: 'ThisWorkbook', moduleKind: 'document', source: '' },
 			]),
 		});
-		expectDiagnostic(src, diagnostics, 'member-not-found', { span: 'doesnotexist' });
+		expect(byCode(diagnostics, 'member-not-found')).toEqual([]);
 	});
 
-	it('uses the exhaustive Workbook host surface for declared Workbook variables', () => {
+	it('still resolves the real Workbook members it is offered', () => {
+		// The surface is not gone, only its authority to prove absence: a
+		// member Workbook really has is recognized and nothing is reported.
 		const src =
 			'Public Sub T()\n' +
 			'    Dim wb As Workbook\n' +
-			'    wb.doesnotexist\n' +
 			'    wb.AcceptAllChanges\n' +
+			'    wb.Save\n' +
 			'End Sub\n';
 		const diagnostics = analyzeModule(src, {
 			projectClassMembers: projectClassMembers([
 				{ moduleName: 'ThisWorkbook', moduleKind: 'document', source: '' },
 			]),
 		});
-		expectDiagnostic(src, diagnostics, 'member-not-found', { span: 'doesnotexist' });
+		expect(byCode(diagnostics, 'member-not-found')).toEqual([]);
 	});
 
 	it('uses the exhaustive Worksheet host surface for ActiveSheet', () => {
@@ -1261,7 +1269,11 @@ describe('analyzeModule - assignment type validation', () => {
 		expectDiagnostic(src, analyzeModule(src), 'member-not-found', { span: 'asdf' });
 	});
 
-	it('uses the exhaustive Range host surface for declared, global, and chained receivers', () => {
+	it('leaves an unknown member on Range alone, declared, global or chained', () => {
+		// Range is extensible too, measured both ways in the VBE:
+		// `Range("A1").NoSuchMemberXyz` and a declared Range variable both
+		// compile. The chain still resolves - the last line is checked
+		// against the real Range surface and says nothing.
 		const src =
 			'Public Sub T()\n' +
 			'    Dim rng As Range\n' +
@@ -1272,27 +1284,29 @@ describe('analyzeModule - assignment type validation', () => {
 			'    Workbooks(1).Worksheets(1).Range("A1").MissingRangeMember\n' +
 			'    Workbooks(1).Worksheets(1).Range("A1").Offset(1, 0).Value = 1\n' +
 			'End Sub\n';
-		expectDiagnostics(src, analyzeModule(src), 'member-not-found', [
-			{ span: 'NoSuchMember', message: 'Excel.Range.' },
-			{ span: 'DoesNotExist', message: 'Excel.Range.' },
-			{ span: 'MissingRangeMember', message: 'Excel.Range.' },
-		]);
+		expect(byCode(analyzeModule(src), 'member-not-found')).toEqual([]);
 	});
 
-	it('uses the exhaustive Application host surface only after generated promotion', () => {
+	it('leaves every member of Application alone, which Excel resolves at run time', () => {
+		// The one a user reported (10.4.2): `Application.Match` is a worksheet
+		// function on no interface in the library at all, and it compiles and
+		// runs. Excel resolves it through IDispatch, so nothing named off
+		// Application can be called absent - not Match, and not a typo.
 		const src =
 			'Public Sub T()\n' +
+			'    Dim v As Variant\n' +
+			'    v = Application.Match("a", Range("A1:A9"), 0)\n' +
 			'    Application.DoesNotExist\n' +
 			'    Application.CentimetersToPoints 1\n' +
 			'    Application.SheetCalculate\n' +
 			'End Sub\n';
-		expectDiagnostics(src, analyzeModule(src), 'member-not-found', [
-			{ span: 'DoesNotExist', message: 'Excel.Application.DoesNotExist' },
-			{ span: 'SheetCalculate', message: 'Excel.Application.SheetCalculate' },
-		]);
+		expect(byCode(analyzeModule(src), 'member-not-found')).toEqual([]);
 	});
 
-	it('uses exhaustive generated collection surfaces, including mixed sheet items once all candidates are promoted', () => {
+	it('reports on the collections VBA resolves against, and not the others', () => {
+		// Workbooks and Sheets are NONEXTENSIBLE in the type library, so a
+		// name absent from them can never resolve and the VBE says so. The
+		// Worksheets interface is not, so its unknown member is deferred.
 		const src =
 			'Public Sub T()\n' +
 			'    Workbooks.MissingCollectionMember\n' +
@@ -1305,66 +1319,44 @@ describe('analyzeModule - assignment type validation', () => {
 			'End Sub\n';
 		expectDiagnostics(src, analyzeModule(src), 'member-not-found', [
 			{ span: 'MissingCollectionMember', message: 'Excel.Workbooks.MissingCollectionMember' },
-			{ span: 'MissingCollectionMember', message: 'Excel.Worksheets.MissingCollectionMember' },
 			{ span: 'MissingCollectionMember', message: 'Excel.Sheets.MissingCollectionMember' },
 			{ span: 'UnknownSheetOrChartMember' },
 		]);
 	});
 
-	it('uses promoted table, chart, formatting, name, and window host surfaces', () => {
+	it('leaves the promoted table, chart, formatting and window surfaces alone', () => {
+		// Every one of these types is extensible in Excel's type library, so
+		// VBA compiles an unknown member on them and asks IDispatch when it
+		// runs. XLIDE offers their members and resolves their chains; what it
+		// no longer does is call a name absent from them a compile error.
 		const src =
 			'Public Sub T(ws As Worksheet, rng As Range)\n' +
 			'    ws.ListObjects.MissingListObjectsMember\n' +
 			'    ws.ListObjects(1).MissingListObjectMember\n' +
-			'    ws.ListObjects(1).ListColumns.MissingListColumnsMember\n' +
-			'    ws.ListObjects(1).ListRows.MissingListRowsMember\n' +
 			'    ws.ChartObjects.MissingChartObjectsMember\n' +
-			'    ws.ChartObjects(1).MissingChartObjectMember\n' +
-			'    ws.Shapes.MissingShapesMember\n' +
 			'    ws.Shapes(1).MissingShapeMember\n' +
 			'    rng.Font.MissingFontMember\n' +
 			'    rng.Interior.MissingInteriorMember\n' +
-			'    rng.Borders.MissingBordersMember\n' +
 			'    rng.Borders(1).MissingBorderMember\n' +
-			'    rng.FormatConditions.MissingFormatConditionsMember\n' +
-			'    rng.FormatConditions.Add(xlCellValue, xlEqual, 1).MissingFormatConditionMember\n' +
 			'    rng.Validation.MissingValidationMember\n' +
-			'    rng.Hyperlinks.MissingHyperlinksMember\n' +
-			'    rng.Hyperlinks(1).MissingHyperlinkMember\n' +
-			'    rng.Areas.MissingAreasMember\n' +
 			'    rng.Style.MissingStyleMember\n' +
 			'    ws.PageSetup.MissingPageSetupMember\n' +
-			'    ThisWorkbook.Names.MissingNamesMember\n' +
-			'    ThisWorkbook.Names(1).MissingNameMember\n' +
-			'    Application.Windows.MissingWindowsMember\n' +
 			'    Application.Windows(1).MissingWindowMember\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'member-not-found');
-		expect(hits.map((hit) => spanText(src, hit))).toEqual([
-			'MissingListObjectsMember',
-			'MissingListObjectMember',
-			'MissingListColumnsMember',
-			'MissingListRowsMember',
-			'MissingChartObjectsMember',
-			'MissingChartObjectMember',
-			'MissingShapesMember',
-			'MissingShapeMember',
-			'MissingFontMember',
-			'MissingInteriorMember',
-			'MissingBordersMember',
-			'MissingBorderMember',
-			'MissingFormatConditionsMember',
-			'MissingFormatConditionMember',
-			'MissingValidationMember',
-			'MissingHyperlinksMember',
-			'MissingHyperlinkMember',
-			'MissingAreasMember',
-			'MissingStyleMember',
-			'MissingPageSetupMember',
-			'MissingNamesMember',
-			'MissingNameMember',
-			'MissingWindowsMember',
-			'MissingWindowMember',
+		expect(byCode(analyzeModule(src), 'member-not-found')).toEqual([]);
+	});
+
+	it('still reports on the closed types those chains pass through', () => {
+		// The chains themselves resolve exactly as before, which is what lets
+		// a Worksheet at the end of one still prove a member absent.
+		const src =
+			'Public Sub T(ws As Worksheet)\n' +
+			'    ws.MissingWorksheetMember\n' +
+			'    Sheets(1).UnknownSheetMember\n' +
+			'End Sub\n';
+		expectDiagnostics(src, analyzeModule(src), 'member-not-found', [
+			{ span: 'MissingWorksheetMember', message: 'Excel.Worksheet.' },
+			{ span: 'UnknownSheetMember' },
 		]);
 	});
 
@@ -1474,7 +1466,12 @@ describe('analyzeModule - assignment type validation', () => {
 		expectDiagnostic(src, diagnostics, 'member-not-found', { span: 'DoesNotExist' });
 	});
 
-	it('uses the current workbook Me host surface for ThisWorkbook modules', () => {
+	it('resolves Me against the workbook surface in a ThisWorkbook module', () => {
+		// `Me` there is the workbook, so its real members resolve. Absence is
+		// a known limit: the VBE does refuse `Me.asdf` in a document module,
+		// because the module's own class is closed whatever its host base is,
+		// but XLIDE reaches this through the Workbook type, which is
+		// extensible, and stays quiet rather than risk the other error.
 		const src =
 			'Public Sub T()\n' +
 			'    Me.asdf\n' +
@@ -1484,7 +1481,7 @@ describe('analyzeModule - assignment type validation', () => {
 			analyzeModule(src, { moduleName: 'ThisWorkbook', moduleKind: 'document' }),
 			'member-not-found',
 		);
-		expectDiagnostic(src, hits, 'member-not-found', { span: 'asdf' });
+		expect(hits).toEqual([]);
 	});
 
 	it('uses the exhaustive Worksheet host surface for declared Worksheet variables', () => {

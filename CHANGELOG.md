@@ -2,6 +2,35 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.4.2] - 2026-09-21
+
+- **`Application.Match` is no longer reported as a missing member.** It is a
+  worksheet function called straight off `Application`, it sits on no
+  interface in Excel's type library at all, and it compiles and runs - Excel
+  resolves it when the code runs. XLIDE underlined it in red. So did every
+  other one: `VLookup`, `Sum`, `CountA`, `Index`, `Transpose`.
+
+- **The rule now follows the type library, not just the member list.** A COM
+  interface marked NONEXTENSIBLE can gain no members at run time, so the VBE
+  refuses a name that is not on it; without that flag VBA compiles the call
+  and asks for the name when it runs. Only four of the 35 Excel types XLIDE
+  had complete member lists for are closed - `Worksheet`, `Chart`, `Sheets`
+  and `Workbooks` - and those still report. `Application`, `Range`,
+  `Workbook`, `Font` and the rest no longer do. Measured with the type
+  library's own flags and confirmed against the VBE on seven receivers, which
+  agreed every time.
+
+- The cost, stated plainly: a typo on an extensible type is now caught when
+  the code runs rather than while it is written. `Me.asdf` in a ThisWorkbook
+  module goes with it, since the analyzer reaches it through `Workbook`.
+  Underlining code that works was the worse of the two.
+
+- **A referenced application's members are labelled with their own
+  application.** In a workbook that references Word, hovering `wd.Visible`
+  said "Excel host property" because a merged model carries one host name -
+  the project's own. It now says Word, and completion offers a Word type as a
+  "Word type" rather than an "Excel type" (#77).
+
 ## [10.4.1] - 2026-09-21
 
 - **A module folds back up when its last editor tab closes.** The tree

@@ -44,6 +44,7 @@ import {
 	bareTypeName,
 } from '../host/hostModel';
 import { derivedConstantDoc, derivedMemberDoc } from '../host/hostMemberDocs';
+import { hostTypeResolvesWhenCompiling } from '../host/typeExtensibility';
 import {
 	resolveRuntimeObject,
 	resolveRuntimeObjectType,
@@ -1402,7 +1403,12 @@ function memberSurfaceForType(
 	return {
 		owner: typeName,
 		members: getHostMembers(typeName, ctx.model),
-		exhaustive: hostType?.exhaustive === true,
+		// A complete member list proves absence only where the type library
+		// says VBA resolves against the interface while compiling. Most of
+		// Excel's object model is extensible, so `Application.Match` - a
+		// worksheet function on no interface at all - is ordinary VBA, and
+		// calling it absent reported working code as an error.
+		exhaustive: hostType?.exhaustive === true && hostTypeResolvesWhenCompiling(typeName),
 	};
 }
 

@@ -427,12 +427,14 @@ describe('diagnostic message wording', () => {
 	});
 
 	it('pins the message for member-not-found', () => {
+		// A Worksheet receiver: absence is only provable on a type VBA
+		// resolves against while compiling, and Workbook is extensible.
 		const src =
-			'Public Sub T()\n' +
-			'    ThisWorkbook.AfterSave True\n' +
+			'Public Sub T(ws As Worksheet)\n' +
+			'    ws.SelectionChange Nothing\n' +
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'member-not-found');
-		expect(hits[0].message).toBe("Method or data member not found: 'Excel.Workbook.AfterSave'.");
+		expect(hits[0].message).toBe("Method or data member not found: 'Excel.Worksheet.SelectionChange'.");
 	});
 
 	it('pins the message for missing-return-assignment', () => {

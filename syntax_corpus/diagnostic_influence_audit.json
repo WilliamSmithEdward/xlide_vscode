@@ -506,11 +506,22 @@
         "class_public_field_assignment_compile",
         "workbook_event_member_call_compile",
         "late_bound_object_unknown_member_compile",
-        "late_bound_variant_unknown_member_compile"
+        "late_bound_variant_unknown_member_compile",
+        "worksheet_unknown_member_compile",
+        "chart_unknown_member_compile",
+        "worksheets_unknown_member_compile",
+        "workbook_unknown_member_compile",
+        "application_worksheet_function_member_compile",
+        "application_unknown_member_compile",
+        "application_unknown_member_assignment_compile",
+        "range_unknown_member_compile",
+        "range_typed_unknown_member_compile",
+        "workbook_typed_unknown_member_compile",
+        "font_unknown_member_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is a VBE compile-equivalent error for workbook class receivers whose source-backed member surface is known and unambiguous. Public fields are valid members. Deterministic parenthesized receivers and leading-dot receivers inside simple or nested With stacks use the same resolver as ordinary member chains. Source declarations resolve before runtime objects, host globals, workbook code names, or standard-module qualifier fallbacks, so typed or untyped local declarations named like Excel globals use the source binding. Host/object-model and ambiguous receiver cases remain silent unless the receiver surface is exhaustive. Host events are not callable object members, so event names are excluded from object-member surfaces and can be reported absent when the receiver surface is exhaustive. Object and Variant receivers remain silent even when completion can refine them from simple Set assignments because VBE leaves those calls late-bound.",
+      "notes": "This is a VBE compile-equivalent error for workbook class receivers whose source-backed member surface is known and unambiguous, and for HOST types only where the type library marks the interface NONEXTENSIBLE. A complete member list is not enough on its own: most of Excel's object model is extensible, so VBA compiles a name that is on no interface and asks IDispatch for it at run time. Application.Match is the case that showed it - a worksheet function on no interface at all, which compiles and runs, and which XLIDE reported as absent until 10.4.2. Of the 35 Excel types the reference dump covers exhaustively, four are closed: Worksheet, Chart, Sheets and Workbooks. The VBE agreed with the flag on every receiver tried, Application, Range (called for and declared), Workbook (declared) and Font accepted, Worksheet, Chart and a bare Worksheets (a Sheets) refused. Public fields are valid members.",
       "diagnosticKind": "compile-error"
     },
     {

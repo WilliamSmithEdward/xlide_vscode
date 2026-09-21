@@ -20,7 +20,7 @@ import {
 	type HostObjectModel,
 	type HostType,
 } from '../host/excelObjectModel';
-import { getHostEnums, hostDisplayName } from '../host/hostModel';
+import { getHostEnums, hostDisplayName, hostLibraryDisplayName } from '../host/hostModel';
 import type { VbaProjectTypeKind } from '../symbols/symbolModel';
 import {
 	hasDocContent,
@@ -307,22 +307,29 @@ export function typeCompletionCandidates(
 	// carrying the reference's own description of the type: before this,
 	// `Dim s As InlineShape` hovered with a bare name and no prose, even though
 	// the corpus had described the type all along.
-	const hostTypeDetail = `${hostDisplayName(model)} type`;
 	for (const [qualified, type] of Object.entries(model.types)) {
 		const short = qualified.split('.').pop();
 		if (short) {
-			add(short, 'host', hostTypeDetail, undefined, hostTypeDocumentation(type));
+			// Labelled with the type's own library rather than the project's
+			// host, so a referenced application's type does not read as the
+			// host's (issue #77).
+			add(
+				short,
+				'host',
+				`${hostLibraryDisplayName(qualified, model)} type`,
+				undefined,
+				hostTypeDocumentation(type),
+			);
 		}
 	}
 	// 5. Host enumerations. `Dim k As XlAxisType` is ordinary VBA and the name
 	// resolved to nothing at all: no completion, no hover, no coloring, across
 	// 899 enumerations. They come last so an object type of the same name wins.
-	const hostEnumDetail = `${hostDisplayName(model)} enum`;
 	for (const entry of getHostEnums(model)) {
 		add(
 			entry.displayName,
 			'enum',
-			hostEnumDetail,
+			`${entry.library ?? hostDisplayName(model)} enum`,
 			undefined,
 			hasDocContent(entry.doc) ? renderDocMarkdown(entry.doc) : undefined,
 		);

@@ -102,6 +102,12 @@ export interface HostEnum {
 	displayName: string;
 	/** The reference's description of the enumeration. */
 	doc?: VbaDoc;
+	/**
+	 * The library it came from, stamped when models are merged so a label can
+	 * name it. Absent in a single host's own model, where the model's host is
+	 * the answer - an enum key carries no library the way a type key does.
+	 */
+	library?: string;
 }
 
 export interface HostType {
@@ -506,6 +512,17 @@ function promotedExcelReferenceProvenance(displayName: string): string {
 	return EXCEL_REFERENCE_PROVENANCE[displayName] ?? `reference/excel/json/${displayName}.json`;
 }
 
+/**
+ * Whether the reference dump carried this type's whole member list, so a
+ * surface built from it is complete.
+ *
+ * Complete is not the same as closed. Most of Excel's object model is
+ * extensible, and a name absent from an extensible type is deferred to
+ * IDispatch rather than refused, so proving absence needs this AND
+ * {@link excelTypeResolvesWhenCompiling}. The member-not-found gate asks for
+ * both; a document module's own class asks only for this one, because the
+ * class is closed whatever its host base is.
+ */
 function promotedExcelReferenceExhaustive(displayName: string): boolean | undefined {
 	return (EXCEL_REFERENCE_HARD_DIAGNOSTIC_TYPES as readonly string[]).includes(displayName)
 		? true

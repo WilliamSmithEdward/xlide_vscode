@@ -26,6 +26,8 @@ import {
 	bareTypeName,
 	getHostType,
 	hostDisplayName,
+	hostLibraryDisplayName,
+	resolveHostAlias,
 	resolveHostConstant,
 	resolveHostEnum,
 	resolveHostGlobal,
@@ -343,7 +345,10 @@ function typeDetail(typeRef: ResolvedTypeReference, model?: HostObjectModel): st
 		case 'primitive':
 			return 'VBA primitive type';
 		case 'host':
-			return `${hostDisplayName(model)} host type`;
+			// The type's own library, not the project's host: `Word.Document`
+			// in an Excel workbook is a Word type (issue #77). The completion
+			// carries the bare name, so the model's alias gives the key.
+			return `${hostLibraryDisplayName(resolveHostAlias(typeRef.name, model), model)} host type`;
 		case 'external':
 			return 'OLE Automation type';
 		default:
@@ -388,7 +393,7 @@ function buildMemberHover(
 	const origin = runtimeType
 		? `VBA runtime ${member.kind}`
 		: hostType
-			? `${hostDisplayName(ctx.model)} host ${member.kind}`
+			? `${hostLibraryDisplayName(member.owner, ctx.model)} host ${member.kind}`
 			: `${ownerName} ${member.kind}`;
 	const details = [member.access ? `${origin} (${member.access})` : origin];
 	// A composed description must never read as a transcribed one.

@@ -1055,6 +1055,25 @@ into a pure analyzer layer and a thin VS Code provider:
 - `src/analyzer/host/hostModel.ts` exposes pure resolver functions over that
   metadata (`resolveHostGlobal`, `resolveHostAlias`, `getHostMembers`,
   `resolveMemberReturnType`).
+- `src/analyzer/host/typeExtensibility.ts` says which Excel types VBA resolves
+  a member against while compiling. A COM interface marked NONEXTENSIBLE can
+  gain no members at run time, so the VBE refuses a name that is not on it;
+  without the flag the object is extensible and the name goes to IDispatch
+  when the code runs. Only 27 of Excel's 747 interfaces are closed, and of the
+  35 types the reference dump covers exhaustively just four are - Worksheet,
+  Chart, Sheets and Workbooks. So a complete member list is not enough to
+  report an absent member, and `member-not-found` asks for both: the list from
+  the reference dump, the flag from the type library. Before 10.4.2 it asked
+  only for the list, and `Application.Match` - a worksheet function on no
+  interface in the library at all, which Excel resolves dynamically - was
+  reported as absent on code that compiles and runs. The flag was measured
+  with `LoadRegTypeLib` and confirmed against the VBE on seven receivers,
+  agreeing every time. The gate sits on the plain host-type surface in
+  `memberAccess.ts`, not on `HostType.exhaustive`, because a document module's
+  own class is closed whatever its host base is and keeps the stricter rule.
+  A known limit follows: `Me.asdf` in a ThisWorkbook module, which the VBE
+  does refuse, reaches the analyzer through the extensible Workbook type and
+  is left alone.
 - `src/analyzer/host/hostLibraries.ts` maps the GUID inside a reference's
   libid to the host whose model answers for it, for the four Office
   applications. The GUID is the identity - the path in a libid is a hint the

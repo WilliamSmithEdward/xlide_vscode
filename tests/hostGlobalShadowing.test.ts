@@ -102,12 +102,15 @@ describe('a module member named after a host global', () => {
 
 describe('what the shadowing must not swallow', () => {
 	it("binds the procedure's own return type, rather than merely going quiet", () => {
-		// The shadowed name answers as a Workbook now, so a member Workbook has
-		// not got is still reported, and reported against Workbook. Silence
-		// here would mean the fix had only suppressed the check.
+		// The shadowed name answers as a Worksheet now, so a member Worksheet
+		// has not got is still reported, and reported against Worksheet.
+		// Silence here would mean the fix had only suppressed the check.
+		//
+		// Worksheet rather than Workbook because absence is only provable on a
+		// type VBA resolves while compiling, and Workbook is extensible.
 		const source = [
 			'Option Explicit',
-			'Public Property Get rows() As Workbook',
+			'Public Property Get rows() As Worksheet',
 			'End Property',
 			'',
 			'Public Sub Use()',
@@ -115,21 +118,22 @@ describe('what the shadowing must not swallow', () => {
 			'End Sub',
 		].join('\r\n');
 		expect(memberNotFound(source)).toEqual([
-			"Method or data member not found: 'Excel.Workbook.NotAMember'.",
+			"Method or data member not found: 'Excel.Worksheet.NotAMember'.",
 		]);
 	});
 
 	it('leaves an unshadowed host global to the host', () => {
-		// Nothing here declares `Rows`, so Excel still answers for it - and
-		// still reports a member Range has not got.
+		// Nothing here declares `ActiveSheet`, so Excel still answers for it -
+		// and still reports a member Worksheet has not got. `Rows` would be a
+		// Range, which is extensible, so absence there proves nothing.
 		const source = [
 			'Option Explicit',
 			'Public Sub Use()',
-			'    Rows.NotAMember',
+			'    ActiveSheet.NotAMember',
 			'End Sub',
 		].join('\r\n');
 		expect(memberNotFound(source)).toEqual([
-			"Method or data member not found: 'Excel.Range.NotAMember'.",
+			"Method or data member not found: 'Excel.Worksheet.NotAMember'.",
 		]);
 	});
 
@@ -140,12 +144,12 @@ describe('what the shadowing must not swallow', () => {
 			'End Property',
 			'',
 			'Public Sub Use()',
-			'    Dim rows As Excel.Range',
+			'    Dim rows As Excel.Worksheet',
 			'    rows.NotAMember',
 			'End Sub',
 		].join('\r\n');
 		expect(memberNotFound(source)).toEqual([
-			"Method or data member not found: 'Excel.Range.NotAMember'.",
+			"Method or data member not found: 'Excel.Worksheet.NotAMember'.",
 		]);
 	});
 });

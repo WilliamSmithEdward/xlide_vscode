@@ -21,6 +21,8 @@ import { librariesNamedIn } from '../src/analyzer/diagnostics/rules/missingRefer
 import { openMacroContainer } from '../src/vba/macroContainer';
 import { analyzeModule } from '../src/analyzer/diagnostics/analyzeModule';
 import { resolveMemberCompletions } from '../src/analyzer/completion/memberAccess';
+import { resolveTypeCompletions } from '../src/analyzer/completion/typeCompletion';
+import { resolveHover } from '../src/analyzer/hover/resolveHover';
 import {
 	hostTokenForLibid,
 	hostTokensForProject,
@@ -173,7 +175,11 @@ describe('a real document that references another application', () => {
 	});
 
 	it('catches a typo in the referenced library, which Word alone cannot', () => {
-		const typo = bridge.source!.replace('wb.SaveAs', 'wb.SaveAsx');
+		// A Worksheet member: Workbook and Application are extensible, so a
+		// name absent from them is deferred to run time rather than refused,
+		// and XLIDE reports nothing for it either.
+		const typo = `${bridge.source!}\r\nPublic Sub Typo(ws As Excel.Worksheet)\r\n`
+			+ '    ws.CalculateXyz\r\nEnd Sub\r\n';
 		const tokens = hostTokensForProject('word', bridge.projectReferences ?? []);
 		const options = { moduleName: 'Bridge', moduleKind: 'standard' as const };
 
@@ -564,6 +570,49 @@ describe('which libraries a module names', () => {
 	});
 });
 
+describe('which application a label names', () => {
+	// Issue #77: a merged model has one hostName - the project's own, by
+	// construction - and every label was built from it, so a Word member in
+	// an Excel workbook read as Excel's. Resolution was right all along; the
+	// one line a developer reads to find out where a member comes from was
+	// not.
+	const model = hostObjectModelForTokens(['excel', 'word']);
+	const hoverDetails = (source: string, needle: string): string[] | undefined =>
+		resolveHover(source, source.indexOf(needle) + 2, { model })?.details;
+	const wrap = (...lines: string[]) =>
+		['Option Explicit', '', 'Public Sub P()', ...lines.map((one) => `    ${one}`), 'End Sub']
+			.join('\r\n');
+
+	it("names the referenced application on its own member, not the project's host", () => {
+		const source = wrap('Dim wd As Word.Application', 'wd.Visible = True');
+
+		expect(hoverDetails(source, 'Visible = True')).toEqual(['Word host property (read/write)']);
+	});
+
+	it("still names the project's own host on its own members", () => {
+		const source = wrap('Dim rng As Range', 'rng.Value = 1');
+
+		expect(hoverDetails(source, 'Value = 1')).toEqual(['Excel host property (read/write)']);
+	});
+
+	it('labels each library\'s types and enums with that library', () => {
+		const offered = resolveTypeCompletions('Dim x As \r\n', 9, { model });
+		const detailOf = (name: string) => offered.find((one) => one.name === name)?.detail;
+
+		expect(detailOf('Document')).toBe('Word type');
+		expect(detailOf('Worksheet')).toBe('Excel type');
+		expect(detailOf('WdSaveFormat')).toBe('Word enum');
+		expect(detailOf('XlAxisType')).toBe('Excel enum');
+	});
+
+	it('leaves a single host model labelling everything as that host', () => {
+		const excelOnly = resolveTypeCompletions('Dim x As \r\n', 9, {});
+
+		expect(excelOnly.find((one) => one.name === 'Worksheet')?.detail).toBe('Excel type');
+		expect(excelOnly.find((one) => one.name === 'XlAxisType')?.detail).toBe('Excel enum');
+	});
+});
+
 describe('completing on a referenced library', () => {
 	// The other half of what a reference buys: the editor offering the right
 	// members. It reads the same hostModel the diagnostics do.
@@ -614,7 +663,7 @@ describe('analyzing cross-application code', () => {
 		}).map((d) => d.code);
 
 	it('checks a referenced library members, which a lone host cannot', () => {
-		const body = 'Dim xl As Excel.Application\r\n    xl.NoSuchMemberAtAll';
+		const body = 'Dim ws As Excel.Worksheet\r\n    ws.NoSuchMemberAtAll';
 
 		// Word alone has never heard of Excel.Application, so it says nothing.
 		expect(codes(body, ['word'])).not.toContain('member-not-found');

@@ -47,6 +47,20 @@ Common result meanings:
 - **Untracked** - the rule is intentionally hidden from tracking globally or for
   this file.
 
+## What A Missing Member Means
+
+`member-not-found` is red, so it only fires where the VBE would refuse the
+code. That depends on the type, not just the name: Excel's `Worksheet`,
+`Chart`, `Sheets` and `Workbooks` are closed, so a name they do not have can
+never resolve and a typo is a compile error. Most of the rest of the object
+model - `Application`, `Range`, `Workbook`, `Font` - is extensible, and Excel
+resolves an unknown name when the code runs. `Application.Match` is the clear
+case: it is a worksheet function that sits on no interface at all, and it
+compiles and runs, so nothing named off `Application` is reported.
+
+The cost is that a typo on one of those types is not caught until it runs.
+The alternative was underlining code that works.
+
 ## Another Application's Library
 
 A project that references another Office application can name its types. In a

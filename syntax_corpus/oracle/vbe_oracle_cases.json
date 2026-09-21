@@ -5002,6 +5002,116 @@
       "source": "Public Sub XlideOracleEntry()\n    Dim app As Object\n    Set app = CreateObject(\"Word.Application\")\nEnd Sub\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "application_worksheet_function_member_compile",
+      "description": "A worksheet function called straight off Application, which the type library puts on WorksheetFunction rather than on Application's own interface.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim v As Variant\n    v = Application.Match(\"a\", Range(\"A1:A9\"), 0)\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "application_unknown_member_compile",
+      "description": "A name that is on no Excel interface at all, called off Application: the control for whether VBA resolves members against Application or defers them to run time.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Application.NoSuchMemberXyz\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "application_unknown_member_assignment_compile",
+      "description": "The same unknown name assigned to, rather than called.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Application.NoSuchPropertyXyz = 1\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "worksheet_unknown_member_compile",
+      "description": "An unknown member on Worksheet, whose interface is not Application's: the comparison that says whether any deferral is peculiar to Application.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim ws As Worksheet\n    Set ws = ActiveSheet\n    ws.NoSuchMemberXyz\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "range_unknown_member_compile",
+      "description": "An unknown member on Range, whose interface carries no NONEXTENSIBLE flag.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Range(\"A1\").NoSuchMemberXyz\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "workbook_unknown_member_compile",
+      "description": "An unknown member on Workbook, whose interface carries no NONEXTENSIBLE flag.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    ThisWorkbook.NoSuchMemberXyz\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "font_unknown_member_compile",
+      "description": "An unknown member on Font, one of the types XLIDE reports hard errors for.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim f As Font\n    Set f = Range(\"A1\").Font\n    f.NoSuchMemberXyz\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "chart_unknown_member_compile",
+      "description": "An unknown member on Chart, whose interface IS marked NONEXTENSIBLE.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim c As Chart\n    Set c = Charts(1)\n    c.NoSuchMemberXyz\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "workbook_typed_unknown_member_compile",
+      "description": "An unknown member on a variable declared As Workbook. ThisWorkbook is the project's own document class, which is closed whatever the library says, so the library type has to be reached through a declaration.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim wb As Workbook\n    Set wb = ActiveWorkbook\n    wb.NoSuchMemberXyz\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "range_typed_unknown_member_compile",
+      "description": "The same for Range, reached through a declaration rather than a call.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Dim r As Range\n    Set r = Range(\"A1\")\n    r.NoSuchMemberXyz\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "worksheets_unknown_member_compile",
+      "description": "An unknown member on the Worksheets collection, which is open in the library.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Sub XlideOracleEntry()\n    Worksheets.NoSuchMemberXyz\nEnd Sub\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

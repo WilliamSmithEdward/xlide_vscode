@@ -194,6 +194,24 @@ export function hostDisplayName(model?: HostObjectModel): string {
 }
 
 /**
+ * The library to put on a label for something the model keys by a qualified
+ * name: `Word.Application` is Word's, whichever host the project is.
+ *
+ * A merged model carries one hostName - the project's own - so labelling
+ * every member with it told the reader that a referenced application's
+ * member belonged to their host (issue #77). Anything the model does not
+ * qualify falls back to that host, which is right for a single-host model
+ * and the best available answer otherwise.
+ */
+export function hostLibraryDisplayName(
+	qualified: string | undefined,
+	model?: HostObjectModel,
+): string {
+	const dot = qualified?.indexOf('.') ?? -1;
+	return dot > 0 ? qualified!.slice(0, dot) : hostDisplayName(model);
+}
+
+/**
  * Resolves an object-access member (a property or method, never an event) of
  * a qualified host type by name. Case-insensitive. Undefined when the type or
  * the member is unknown to the model.

@@ -505,21 +505,26 @@ describe('member completion - host globals', () => {
 		const got = resolveMemberCompletions(src, dotOffset(src, 'ThisWorkbook.Accept'));
 		const accept = got.find((member) => member.name === 'AcceptAllChanges');
 		expect(accept?.owner).toBe('Excel.Workbook');
-		expect(accept?.surfaceExhaustive).toBe(true);
+		// Offered, but not proof of absence: Workbook is extensible in the
+		// type library, so a name it does not carry may still resolve.
+		expect(accept?.surfaceExhaustive).toBe(false);
 	});
 
 	it('includes generated members on promoted host surfaces with per-type exhaustiveness', () => {
+		// Exhaustiveness is per type, and it now follows the type library:
+		// Application and Range are extensible, Worksheet is not. All three
+		// offer their generated members either way.
 		const appSrc = 'Sub Test()\n    Application.Centi\nEnd Sub\n';
 		const app = resolveMemberCompletions(appSrc, dotOffset(appSrc, 'Application.Centi'));
 		const centimetersToPoints = app.find((member) => member.name === 'CentimetersToPoints');
 		expect(centimetersToPoints?.owner).toBe('Excel.Application');
-		expect(centimetersToPoints?.surfaceExhaustive).toBe(true);
+		expect(centimetersToPoints?.surfaceExhaustive).toBe(false);
 
 		const rangeSrc = 'Sub Test(rng As Range)\n    rng.Spilling\nEnd Sub\n';
 		const range = resolveMemberCompletions(rangeSrc, dotOffset(rangeSrc, 'rng.Spilling'));
 		const spillingToRange = range.find((member) => member.name === 'SpillingToRange');
 		expect(spillingToRange?.owner).toBe('Excel.Range');
-		expect(spillingToRange?.surfaceExhaustive).toBe(true);
+		expect(spillingToRange?.surfaceExhaustive).toBe(false);
 
 		const sheetSrc = 'Sub Test(ws As Worksheet)\n    ws.Named\nEnd Sub\n';
 		const sheet = resolveMemberCompletions(sheetSrc, dotOffset(sheetSrc, 'ws.Named'));
@@ -548,7 +553,7 @@ describe('member completion - host globals', () => {
 		);
 		expect(
 			active.find((member) => member.name === 'AcceptAllChanges')?.surfaceExhaustive,
-		).toBe(true);
+		).toBe(false);
 
 		const variableSrc =
 			'Sub Test()\n' +
@@ -561,7 +566,7 @@ describe('member completion - host globals', () => {
 		);
 		expect(
 			variable.find((member) => member.name === 'AcceptAllChanges')?.surfaceExhaustive,
-		).toBe(true);
+		).toBe(false);
 	});
 });
 
@@ -1441,12 +1446,14 @@ describe('member completion - negative cases', () => {
 		}
 	});
 
-	it('marks generated promoted Excel host member surfaces as exhaustive', () => {
+	it('promotes the generated Excel host member surfaces, exhaustive or not', () => {
 		const src = 'Sub Test()\n    Application.Work\nEnd Sub\n';
 		const got = resolveMemberCompletions(src, dotOffset(src, 'Application.Work'));
 		const projects = got.find((member) => member.name === 'Workbooks');
 		expect(projects?.owner).toBe('Excel.Application');
-		expect(projects?.surfaceExhaustive).toBe(true);
+		// Application is extensible, so its surface offers members without
+		// being able to prove one absent.
+		expect(projects?.surfaceExhaustive).toBe(false);
 		expect(getHostType('Excel.Application')?.provenance).toContain('reference/excel/json/Application.json');
 		for (const typeName of [
 			'Excel.Workbooks',
@@ -1696,20 +1703,20 @@ describe('member completion - negative cases', () => {
 		expect(namedSheetViews?.surfaceExhaustive).toBe(true);
 	});
 
-	it('marks generated Range host member surfaces as exhaustive', () => {
+	it('offers the generated Range host members, which cannot prove absence', () => {
 		const src = 'Sub Test()\n    ActiveCell.Val\nEnd Sub\n';
 		const got = resolveMemberCompletions(src, dotOffset(src, 'ActiveCell.Val'));
 		const value2 = got.find((member) => member.name === 'Value2');
 		expect(value2?.owner).toBe('Excel.Range');
-		expect(value2?.surfaceExhaustive).toBe(true);
+		expect(value2?.surfaceExhaustive).toBe(false);
 	});
 
-	it('marks dump-backed Workbook host member surfaces as exhaustive', () => {
+	it('offers the dump-backed Workbook host members, which cannot prove absence', () => {
 		const src = 'Sub Test()\n    ThisWorkbook.Sav\nEnd Sub\n';
 		const got = resolveMemberCompletions(src, dotOffset(src, 'ThisWorkbook.Sav'));
 		const save = got.find((member) => member.name === 'Save');
 		expect(save?.owner).toBe('Excel.Workbook');
-		expect(save?.surfaceExhaustive).toBe(true);
+		expect(save?.surfaceExhaustive).toBe(false);
 	});
 
 	it('can mark a verified exhaustive host member surface', () => {
