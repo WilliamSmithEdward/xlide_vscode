@@ -326,6 +326,16 @@ export class XlsxWorkbook {
 			?? this.zip.names().find((name) => /(^|\/)vbaProject\.bin$/.test(name));
 	}
 
+	/**
+	 * Whether the package carries a VBA project at all. A macro-enabled
+	 * format does not imply one: a workbook saved as .xlsm before any macro
+	 * is written gets no vbaProject.bin part, which is "no code yet" rather
+	 * than a package that could not be read.
+	 */
+	hasVbaProject(): boolean {
+		return this.vbaProjectPath() !== undefined;
+	}
+
 	readVbaProject(): Buffer {
 		const path = this.vbaProjectPath();
 		if (!path) {

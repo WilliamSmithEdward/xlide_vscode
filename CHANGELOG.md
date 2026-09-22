@@ -2,6 +2,49 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.5.0] - 2026-09-22
+
+- **A file with no VBA in it is no longer a load failure.** A workbook saved
+  as .xlsm before the first macro is written carries no VBA project at all -
+  Excel writes no `vbaProject.bin` part into it - and XLIDE showed
+  "Load failed - click to retry" over a file it had read perfectly well. The
+  tree now says "No VBA in this file yet", with no warning and nothing to
+  retry, and the same for a .docm, a .doc, an .xls and a .ppt that have never
+  held a macro.
+
+- **Listing what such a file holds answers "nothing", and succeeds.** Modules,
+  references, protection, project info and Validate Project all report the
+  empty truth instead of raising. Its sheets, cells and shapes were always
+  readable and writable, and still are. Asking for a module by name, or
+  writing one, still refuses - XLIDE cannot put the first macro into a file
+  that has none - but it now names the file, says what it is, and says to
+  write one macro in the host application and save.
+
+- **The agent tools say which state a file is in.** An empty `[]` could not be
+  told from a read that went wrong, so `xlide_listModules` and
+  `xlide_getProjectInfo` now add one line when they find no code: whether the
+  project exists and will take a new module, or whether the file holds no
+  project at all. A new `hasVbaProject` engine call answers the same question
+  directly.
+
+- **The tree follows a change made outside XLIDE with nothing of the file
+  open.** Renaming a module in the VBE and saving, or writing one through the
+  MCP server in its own process, left the tree listing what the file held when
+  it was last read. XLIDE armed a file watch only for projects with a module
+  document open, which is not the state of a project you are only looking at.
+  A save that replaces the file through a rename reports a change rather than
+  a create - measured in VS Code 1.138 on Windows - and nothing was listening
+  for it.
+
+- **A module's own `Private Type` no longer reads as an ambiguous name.** Two
+  libraries in one workbook can each define a type of the same name, one of
+  them privately: ROneCOne keeps `JsonTextBuilder` private to a class while
+  ModernJsonInVBA exports one. VBA compiles that and the private type wins
+  inside the class; XLIDE called the name ambiguous in the module that had
+  settled it. A name two *other* modules both export is still reported, which
+  is the "Ambiguous name detected" the VBE gives. Both measured against the
+  VBE.
+
 ## [10.4.3] - 2026-09-21
 
 - **A class name two applications share now reads as the right one.** `Range`

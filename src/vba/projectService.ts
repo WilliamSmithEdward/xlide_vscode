@@ -38,7 +38,7 @@ import {
 	parseFormDesignerStreams,
 	parseFormFrx,
 } from './formDesigner';
-import { openMacroContainer, type AccessContainerDesign, type MacroContainer } from './macroContainer';
+import { NoVbaProjectError, openMacroContainer, type AccessContainerDesign, type MacroContainer } from './macroContainer';
 import { ZipArchive } from './zip';
 import {
 	AccessVbaWriter,
@@ -375,6 +375,91 @@ function openContainer(filePath: string): OpenContainer {
 	return { container: entry.container, cfb: entry.cfb, project: entry.project };
 }
 
+/**
+ * The same read, for callers that list what a project holds: a container with
+ * no VBA project in it yet answers `undefined` rather than throwing.
+ *
+ * Having no code is an ordinary state of a macro-enabled file, not a failure
+ * to read one - Excel writes no vbaProject.bin part at all into a workbook
+ * saved as .xlsm before the first macro exists. Listing surfaces say "nothing
+ * yet"; surfaces asked for a NAMED module or a write still refuse, through
+ * {@link noVbaProjectRefusal}, so the reason reaches the user as itself.
+ */
+function openContainerIfAnyVba(filePath: string): OpenContainer | undefined {
+	try {
+		return openContainer(filePath);
+	} catch (err) {
+		if (err instanceof NoVbaProjectError) {
+			return undefined;
+		}
+		throw err;
+	}
+}
+
+/**
+ * The container alone, for callers that ask about the FILE rather than the
+ * code in it - which host it is, what designs it carries. A file with no VBA
+ * project in it still answers every one of those.
+ */
+function containerOf(filePath: string): MacroContainer {
+	if (isVb6ProjectPath(filePath)) {
+		throw vb6ProjectRefusal(filePath);
+	}
+	return cachedPackage(filePath).container;
+}
+
+/**
+ * Whether the file holds a VBA project at all, which is a different question
+ * from whether that project holds any modules: a blank Access database has an
+ * empty project, and a freshly saved .xlsm has none. Only the first can take
+ * a new module, so callers that offer to write one ask this.
+ */
+export function hasVbaProject(filePath: string): boolean {
+	if (isVb6ProjectPath(filePath)) {
+		return true;
+	}
+	return openContainerIfAnyVba(filePath) !== undefined;
+}
+
+/**
+ * The refusal a named read or a write gets from a file with no VBA in it.
+ * XLIDE cannot start a project in a container that has none - what makes one
+ * is a vbaProject.bin whose document modules match the file's own sheets or
+ * stories - so the message says what to do instead rather than implying the
+ * operation might work on a retry.
+ */
+function noVbaProjectRefusal(filePath: string, err: NoVbaProjectError, hostApp: string): Error {
+	return new Error(
+		`${path.basename(filePath)} has no VBA in it yet: it is ${err.containerDescription} that has `
+		+ 'never held any code, so there is nothing to read and nowhere to write. XLIDE cannot put the '
+		+ `first macro into a file that has none - write one in ${hostApp} and save, and the project is `
+		+ "XLIDE's from there.",
+	);
+}
+
+/** The application a container belongs to, for the refusal above. */
+function containerAppName(container: MacroContainer): string {
+	return { excel: 'Excel', word: 'Word', powerpoint: 'PowerPoint', access: 'Access' }[container.kind];
+}
+
+/**
+ * A read of something NAMED inside the project. Turns the container seam's
+ * "no VBA project" state into a refusal that names the file and says what to
+ * do, so nothing downstream sees the raw internal message.
+ */
+function requireVbaProject(filePath: string): OpenContainer {
+	try {
+		return openContainer(filePath);
+	} catch (err) {
+		if (err instanceof NoVbaProjectError) {
+			// The container itself parsed - it is only the project inside it
+			// that is absent - so this is a cache hit, not a second read.
+			throw noVbaProjectRefusal(filePath, err, containerAppName(containerOf(filePath)));
+		}
+		throw err;
+	}
+}
+
 /** Fresh parse for mutating operations; never aliases the shared cache. */
 function openContainerForWrite(filePath: string): OpenContainer {
 	if (isVb6ProjectPath(filePath)) {
@@ -384,7 +469,15 @@ function openContainerForWrite(filePath: string): OpenContainer {
 	if (!container.writable) {
 		throw new Error(`${path.basename(filePath)} is ${container.description}.`);
 	}
-	const cfb = container.vbaCfb();
+	let cfb: Cfb;
+	try {
+		cfb = container.vbaCfb();
+	} catch (err) {
+		if (err instanceof NoVbaProjectError) {
+			throw noVbaProjectRefusal(filePath, err, containerAppName(container));
+		}
+		throw err;
+	}
 	return { container, cfb, project: VbaProject.parse(cfb) };
 }
 
@@ -421,8 +514,7 @@ function accessDesignFor(
 	if (isVb6ProjectPath(filePath)) {
 		return undefined;
 	}
-	const { container } = openContainer(filePath);
-	const design = container.designs?.().find(
+	const design = containerOf(filePath).designs?.().find(
 		(entry) => entry.moduleName.toLowerCase() === moduleName.toLowerCase(),
 	);
 	if (!design) {
@@ -816,7 +908,13 @@ export function listModules(filePath: string): ModuleEntry[] {
 	if (isVb6ProjectPath(filePath)) {
 		return listVb6Modules(filePath).map(vb6ModuleEntry);
 	}
-	const { container, cfb, project } = openContainer(filePath);
+	// A file with no VBA in it lists no modules, which is the truth about it;
+	// it is not a file that failed to load. See openContainerIfAnyVba.
+	const open = openContainerIfAnyVba(filePath);
+	if (!open) {
+		return [];
+	}
+	const { container, cfb, project } = open;
 	const entries = project.modules.map((module) => moduleEntryWithDesigner(cfb, project, module));
 	return withHostDesigns(container, entries, project.codePage);
 }
@@ -835,7 +933,8 @@ export function listReferences(filePath: string): VbaProjectReference[] {
 	if (isVb6ProjectPath(filePath)) {
 		return [];
 	}
-	return readProjectReferences(openContainer(filePath).project.dirStream);
+	const open = openContainerIfAnyVba(filePath);
+	return open ? readProjectReferences(open.project.dirStream) : [];
 }
 
 /**
@@ -931,7 +1030,8 @@ export function readModules(filePath: string, full = false): ModuleEntry[] {
 	if (isVb6ProjectPath(filePath)) {
 		return readVb6Modules(filePath, full).map(vb6ModuleEntry);
 	}
-	return readModulesFromContainer(openContainer(filePath), full);
+	const open = openContainerIfAnyVba(filePath);
+	return open ? readModulesFromContainer(open, full) : [];
 }
 
 /**
@@ -1120,7 +1220,7 @@ export function readModule(filePath: string, moduleName: string, full = false): 
 	if (isVb6ProjectPath(filePath)) {
 		return { source: readVb6Module(filePath, moduleName, full).source ?? '' };
 	}
-	const { project } = openContainer(filePath);
+	const { project } = requireVbaProject(filePath);
 	const module = project.getModule(moduleName);
 	if (!module) {
 		throw new Error(`Module not found: ${moduleName}`);
@@ -1135,7 +1235,7 @@ export function readModule(filePath: string, moduleName: string, full = false): 
  * the designer storage's binary streams.
  */
 export function readFormExport(filePath: string, moduleName: string): { frm: string; frx: Buffer } {
-	const { cfb, project } = openContainer(filePath);
+	const { cfb, project } = requireVbaProject(filePath);
 	const module = project.getModule(moduleName);
 	if (!module) {
 		throw new Error(`Module not found: ${moduleName}`);
@@ -1230,7 +1330,7 @@ export function readFormMarkup(filePath: string, moduleName: string): { markup: 
 			markup: printAccessDesignMarkup(design.entry.design, design.entry.name, design.entry.kind),
 		};
 	}
-	const { cfb, project } = openContainer(filePath);
+	const { cfb, project } = requireVbaProject(filePath);
 	const module = project.getModule(moduleName);
 	if (!module) {
 		throw new Error(`Module not found: ${moduleName}`);
@@ -1290,7 +1390,7 @@ export function readFormPreview(
 		}
 		return { html: renderFormSceneHtml(sceneOfAccessDesign(parsed, name, kind), options) };
 	}
-	const { cfb, project } = openContainer(filePath);
+	const { cfb, project } = requireVbaProject(filePath);
 	const module = project.getModule(moduleName);
 	if (!module) {
 		throw new Error(`Module not found: ${moduleName}`);
@@ -1689,7 +1789,7 @@ export function readFormDesignerSnapshot(
 	filePath: string,
 	moduleName: string,
 ): { streams: Record<string, string> } {
-	const { cfb, project } = openContainer(filePath);
+	const { cfb, project } = requireVbaProject(filePath);
 	const module = project.getModule(moduleName);
 	if (!module) {
 		throw new Error(`Module not found: ${moduleName}`);
@@ -1764,7 +1864,7 @@ export function addFormModule(
 	// new one is a design rather than a module with a designer storage. The
 	// tree lists it as the module Access binds its code to, which is the name
 	// the caller has to open it by.
-	if (!isVb6ProjectPath(filePath) && openContainer(filePath).container.kind === 'access') {
+	if (!isVb6ProjectPath(filePath) && containerOf(filePath).kind === 'access') {
 		const named = accessDesignRename(kind, moduleName);
 		const writer = new AccessVbaWriter(hostPlatform().readFile(filePath));
 		writer.addDesign(named.design, kind);
@@ -1842,19 +1942,26 @@ export function getProtectionInfo(filePath: string): ProtectionInfo {
 		// Files on disk: nothing to lock and nothing to sign.
 		return { isPasswordProtected: false, isSigned: false };
 	}
-	const { cfb, project } = openContainer(filePath);
-	return { isPasswordProtected: project.hasPassword, isSigned: detectSignature(cfb).present };
+	const open = openContainerIfAnyVba(filePath);
+	// No project is nothing to lock and nothing to sign either.
+	if (!open) {
+		return { isPasswordProtected: false, isSigned: false };
+	}
+	return { isPasswordProtected: open.project.hasPassword, isSigned: detectSignature(open.cfb).present };
 }
 
 export function getModulesAndProtectionInfo(filePath: string): ProtectionInfo & { modules: ModuleEntry[] } {
 	if (isVb6ProjectPath(filePath)) {
 		return { modules: listModules(filePath), isPasswordProtected: false, isSigned: false };
 	}
-	const { cfb, project } = openContainer(filePath);
+	const open = openContainerIfAnyVba(filePath);
+	if (!open) {
+		return { modules: [], isPasswordProtected: false, isSigned: false };
+	}
 	return {
-		modules: project.modules.map(moduleEntry),
-		isPasswordProtected: project.hasPassword,
-		isSigned: detectSignature(cfb).present,
+		modules: open.project.modules.map(moduleEntry),
+		isPasswordProtected: open.project.hasPassword,
+		isSigned: detectSignature(open.cfb).present,
 	};
 }
 
@@ -1872,7 +1979,10 @@ export function getProjectInfo(filePath: string): {
 	if (isVb6ProjectPath(filePath)) {
 		return { sheets: [], namedRanges: [], modules: listModules(filePath), isPasswordProtected: false, isSigned: false };
 	}
-	const { container, cfb, project } = openContainer(filePath);
+	// The sheet surface of a workbook with no VBA in it reads perfectly well,
+	// so it is answered whether or not there is a project behind it.
+	const container = containerOf(filePath);
+	const open = openContainerIfAnyVba(filePath);
 	// Only the OOXML Excel container has a READABLE sheet surface (.xlsb
 	// keeps a binary project part); for every other shape the modules and
 	// protection facts still answer.
@@ -1882,9 +1992,9 @@ export function getProjectInfo(filePath: string): {
 	return {
 		sheets: xlsx ? xlsx.sheetSummaries() : [],
 		namedRanges: xlsx ? xlsx.definedNames() : [],
-		modules: project.modules.map(moduleEntry),
-		isPasswordProtected: project.hasPassword,
-		isSigned: detectSignature(cfb).present,
+		modules: open ? open.project.modules.map(moduleEntry) : [],
+		isPasswordProtected: open?.project.hasPassword ?? false,
+		isSigned: open ? detectSignature(open.cfb).present : false,
 	};
 }
 
@@ -1906,11 +2016,16 @@ export function validateProject(filePath: string): { issues: string[] } {
 		return validateVb6Project(filePath);
 	}
 	const issues: string[] = [];
-	let wb: OpenContainer;
+	let wb: OpenContainer | undefined;
 	try {
-		wb = openContainer(filePath);
+		wb = openContainerIfAnyVba(filePath);
 	} catch (err) {
 		return { issues: [`VBA project could not be parsed: ${err instanceof Error ? err.message : String(err)}`] };
+	}
+	// Nothing to check and nothing wrong: a file with no VBA in it has no
+	// structural problems, and reporting one would read as damage.
+	if (!wb) {
+		return { issues: [] };
 	}
 	const seen = new Set<string>();
 	for (const module of wb.project.modules) {

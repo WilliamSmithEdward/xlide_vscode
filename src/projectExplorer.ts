@@ -16,7 +16,7 @@ import {
 } from './agentReviewDecorations';
 import { startPerformanceTrace } from './performanceTrace';
 
-export type XlideNodeKind = 'project' | 'folder' | 'module' | 'designer' | 'sub' | 'loadError';
+export type XlideNodeKind = 'project' | 'folder' | 'module' | 'designer' | 'sub' | 'loadError' | 'empty';
 
 export type { XlideExplorerView } from './globalSettings';
 
@@ -50,6 +50,12 @@ export interface XlideNode {
     isPasswordProtected?: boolean;
     /** loadError only: the failure message shown in the tooltip. */
     errorMessage?: string;
+    /**
+     * empty only: whether the file holds a VBA project with nothing in it, as
+     * opposed to holding none at all. Both list no modules; only the first can
+     * take a new one, so the row says which it is.
+     */
+    hasVbaProject?: boolean;
     /** Workbook only: VBA project carries a digital signature. */
     isSigned?: boolean;
 }
@@ -271,7 +277,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         if (node.kind === 'sub') {
             return this._moduleNodes.get(moduleNodeKey(node.filePath, node.moduleName ?? ''));
         }
-        if (node.kind === 'loadError') {
+        if (node.kind === 'loadError' || node.kind === 'empty') {
             return node.moduleName
                 ? this._moduleNodes.get(moduleNodeKey(node.filePath, node.moduleName))
                 : this._projectNodes.get(projectNodeKey(node.filePath));
@@ -312,6 +318,21 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             filePath,
             moduleName,
             errorMessage: String(err),
+        };
+    }
+
+    /**
+     * The row a project with no code gets. It is NOT a load failure: a
+     * workbook saved as .xlsm before the first macro is written carries no
+     * VBA project at all, and XLIDE read it perfectly well. Offering "click
+     * to retry" there sent people looking for a problem that was not there.
+     */
+    private _emptyNode(filePath: string, hasVbaProject: boolean): XlideNode {
+        return {
+            kind: 'empty',
+            label: hasVbaProject ? 'No modules yet' : 'No VBA in this file yet',
+            filePath,
+            hasVbaProject,
         };
     }
 
@@ -507,7 +528,8 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         const isOpenFolder = node.kind === 'folder' && this._folderIsOpen(node);
         const item = new vscode.TreeItem(
             node.label,
-            node.kind === 'sub' || node.kind === 'designer' || node.kind === 'loadError'
+            node.kind === 'sub' || node.kind === 'designer'
+                || node.kind === 'loadError' || node.kind === 'empty'
                 ? vscode.TreeItemCollapsibleState.None
                 : isActiveModule || isActiveProject || isOpenFolder
                     ? vscode.TreeItemCollapsibleState.Expanded
@@ -656,6 +678,22 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                     arguments: [node],
                 };
                 break;
+
+            case 'empty':
+                // Nothing went wrong here, so nothing warns and nothing
+                // offers a retry: the icon and the wording say the file is
+                // empty, which is a state it is allowed to be in.
+                item.iconPath = new vscode.ThemeIcon('info');
+                item.contextValue = node.hasVbaProject ? 'emptyProject' : 'noVbaProject';
+                item.tooltip = node.hasVbaProject
+                    ? 'XLIDE read this file without trouble. Its VBA project has no modules in it'
+                        + " yet; add one from the file's row above."
+                    : `XLIDE read this file without trouble. It has no VBA project in it at all,`
+                        + ` which is how ${containerAppNameForPath(node.filePath)} saves a`
+                        + ' macro-enabled file that has never held a macro. Write one macro in'
+                        + ` ${containerAppNameForPath(node.filePath)} and save: the project appears here,`
+                        + ' and everything after that is XLIDE\'s.';
+                break;
         }
 
         return item;
@@ -679,6 +717,9 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         }
         if (node.kind === 'project') {
             const modules = await this._getModules(node.filePath);
+            if (modules.length === 0) {
+                return [this._emptyNode(node.filePath, await this._hasVbaProject(node.filePath))];
+            }
             if (this._view !== 'folders' || modules.some((m) => m.kind === 'loadError')) {
                 return modules;
             }
@@ -843,6 +884,27 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                 }
                 return node;
             });
+    }
+
+    /**
+     * Whether the file holds a VBA project at all, asked only when it listed
+     * no modules - so it decides the wording of one row and nothing else.
+     * Cheap: the container is already parsed and cached by the listing that
+     * just ran, and this reads one part name out of it.
+     *
+     * A listing that succeeded makes this succeed too; if it somehow does
+     * not, the row says the neutral thing rather than claiming the file is
+     * empty of VBA.
+     */
+    private async _hasVbaProject(filePath: string): Promise<boolean> {
+        try {
+            const info = await this._bridge.call<{ hasVbaProject: boolean }>(
+                'hasVbaProject', { path: filePath },
+            );
+            return info.hasVbaProject;
+        } catch {
+            return true;
+        }
     }
 
     private async _getModules(filePath: string): Promise<XlideNode[]> {

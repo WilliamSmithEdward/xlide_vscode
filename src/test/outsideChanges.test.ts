@@ -5,6 +5,8 @@
 // it, until the window was reloaded.
 
 import * as assert from 'node:assert/strict';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { readModules } from '../vba/projectService';
 import { activate, closeAllEditors, moduleUri, open, until, workbookPath, writeModule as writeOutsideXlide } from './support';
@@ -77,6 +79,37 @@ suite('Changes made outside XLIDE', () => {
 		assert.equal(await document.save(), true, 'a change to another module is no conflict');
 		assert.equal(moduleSource('OutsideEdited'), "Option Explicit\r\n\r\nSub Keep()\r\nEnd Sub\r\n' edited\r\n");
 		assert.equal(moduleSource('OutsideOther'), 'Option Explicit\r\n\r\nSub Elsewhere()\r\nEnd Sub\r\n');
+	});
+
+	test('a save that replaces the file reports a change, which is what the tree follows', async () => {
+		// The load-bearing fact behind watchWorkspaceProjectFiles: XLIDE, the
+		// Office applications and the MCP server all write by renaming a
+		// sibling temp file over the target, and a tree refresh hung on
+		// onDidCreate alone never saw one. Measured here rather than assumed,
+		// because the whole "the tree does not follow a rename made in the
+		// VBE" report turns on which event that write raises.
+		const probe = path.join(path.dirname(workbookPath()), 'RenameProbe.xlsm');
+		fs.writeFileSync(probe, 'first');
+		const watcher = vscode.workspace.createFileSystemWatcher(
+			new vscode.RelativePattern(vscode.Uri.file(path.dirname(probe)), 'RenameProbe.xlsm'),
+		);
+		const events: string[] = [];
+		watcher.onDidChange(() => events.push('change'));
+		watcher.onDidCreate(() => events.push('create'));
+		try {
+			// Long enough for the watcher to be listening and for the create
+			// above to have been reported and drained.
+			await new Promise((resolve) => setTimeout(resolve, 2000));
+			events.length = 0;
+			const tmp = path.join(path.dirname(probe), '.rename-probe.tmp');
+			fs.writeFileSync(tmp, 'second, a different length');
+			fs.renameSync(tmp, probe);
+			await until(() => (events.length > 0 ? true : undefined), 'the replaced file should be reported', 10000);
+			assert.deepEqual([...new Set(events)], ['change']);
+		} finally {
+			watcher.dispose();
+			fs.rmSync(probe, { force: true });
+		}
 	});
 
 	test('refuse to save unsaved edits over a change that reached their module', async () => {

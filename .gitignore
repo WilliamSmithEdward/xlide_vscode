@@ -110,6 +110,14 @@ reference/
 # A workbook holding one of every form control Excel offers, each with a
 # linked cell, for the tests that pin what a shape edit must leave alone.
 !tests/fixtures/binaries/ControlsFixture.xlsm
+# One file per container shape, saved by the live application in a
+# macro-capable format and never given any VBA: what a workbook saved as
+# .xlsm before the first macro looks like on disk. Ground truth for telling
+# "this file holds no code" apart from "this file could not be read".
+!tests/fixtures/binaries/NoVbaFixture.xlsm
+!tests/fixtures/binaries/NoVbaFixture.docm
+!tests/fixtures/binaries/NoVbaFixture.xls
+!tests/fixtures/binaries/NoVbaFixture.ppt
 excel_test_workbook/
 .claude/
 

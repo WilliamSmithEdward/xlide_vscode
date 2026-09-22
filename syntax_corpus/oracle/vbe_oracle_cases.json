@@ -5112,6 +5112,62 @@
       "source": "Public Sub XlideOracleEntry()\n    Worksheets.NoSuchMemberXyz\nEnd Sub\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "private_type_shadows_public_type_compile",
+      "description": "A class module declares Private Type JsonTextBuilder while a standard module exports Public Type JsonTextBuilder. Does the class's own private type shadow the exported one, or is the name ambiguous?",
+      "expected": "accepted",
+      "mode": "compile",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "SharedJsonTypes",
+          "type": "standard",
+          "source": "Public Type JsonTextBuilder\r\n    Buffer As String\r\n    Length As Long\r\nEnd Type\r\n"
+        },
+        {
+          "name": "JsonWriter",
+          "type": "class",
+          "source": "Private Type JsonTextBuilder\r\n    Parts() As String\r\n    Count As Long\r\nEnd Type\r\n\r\nPrivate mBuilder As JsonTextBuilder\r\n\r\nPublic Sub Append(ByVal Text As String)\r\n    mBuilder.Count = mBuilder.Count + 1\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\r\n    Dim writer As JsonWriter\r\n    Set writer = New JsonWriter\r\n    writer.Append \"x\"\r\nEnd Sub\r\n"
+        }
+      ],
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "two_public_types_same_name_third_module_compile",
+      "description": "Two standard modules each export Public Type JsonTextBuilder and a third module names it unqualified. Is that the ambiguous-name error?",
+      "expected": "rejected",
+      "mode": "compile",
+      "entryPoint": "XlideOracleEntry",
+      "modules": [
+        {
+          "name": "JsonTypesOne",
+          "type": "standard",
+          "source": "Public Type JsonTextBuilder\r\n    Buffer As String\r\nEnd Type\r\n"
+        },
+        {
+          "name": "JsonTypesTwo",
+          "type": "standard",
+          "source": "Public Type JsonTextBuilder\r\n    Parts() As String\r\nEnd Type\r\n"
+        },
+        {
+          "name": "XlideOracleModule",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Sub XlideOracleEntry()\r\n    Dim b As JsonTextBuilder\r\n    b.Buffer = \"x\"\r\nEnd Sub\r\n"
+        }
+      ],
+      "provenance": "vbe-oracle-verified",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

@@ -191,6 +191,43 @@ function isTypeExported(symbol: VbaSymbol): boolean {
 	return symbol.visibility !== 'Private';
 }
 
+/**
+ * VBA's shadowing rule between modules: a type name the asking module declares
+ * itself hides every declaration of that name elsewhere in the project,
+ * whatever either one's visibility is.
+ *
+ * Measured in the VBE (oracle case `private_type_shadows_public_type_compile`):
+ * a class with `Private Type JsonTextBuilder` compiles beside a standard
+ * module exporting `Public Type JsonTextBuilder`, and inside the class the
+ * name means the private one. Two libraries that each define a type of the
+ * same name - one privately - are an ordinary way to end up here, and XLIDE
+ * called it ambiguous in the module that had settled it.
+ *
+ * Only names the asking module declares are narrowed. A name that two OTHER
+ * modules both export stays duplicated, because that one IS the compile error:
+ * oracle case `two_public_types_same_name_third_module_compile` measures the
+ * VBE refusing it with "Ambiguous name detected".
+ */
+function shadowedByOwnModule(
+	visible: readonly VbaProjectTypeName[],
+	currentModuleLower: string,
+): VbaProjectTypeName[] {
+	const own = new Set<string>();
+	for (const typeName of visible) {
+		if (typeName.moduleName?.toLowerCase() === currentModuleLower) {
+			own.add(typeName.name.toLowerCase());
+		}
+	}
+	if (own.size === 0) {
+		return visible.slice();
+	}
+	return visible.filter(
+		(typeName) =>
+			!own.has(typeName.name.toLowerCase())
+			|| typeName.moduleName?.toLowerCase() === currentModuleLower,
+	);
+}
+
 function isEnumMemberExported(
 	enumSymbol: VbaSymbol,
 	moduleKind?: ModuleSymbolKind,
@@ -905,7 +942,9 @@ export class ProjectIndex {
 	 *
 	 * Duplicates are preserved deliberately so the shared type resolver and
 	 * diagnostics can report ambiguity instead of silently picking whichever
-	 * module happened to be read first.
+	 * module happened to be read first - except where the asking module
+	 * declares the name itself, which shadows the rest. See
+	 * {@link shadowedByOwnModule}.
 	 */
 	visibleTypeNames(moduleName: string): VbaProjectTypeName[] {
 		const currentLower = moduleName.toLowerCase();
@@ -944,7 +983,7 @@ export class ProjectIndex {
 					});
 				}
 			}
-			return out;
+			return shadowedByOwnModule(out, currentLower);
 		}).slice();
 	}
 

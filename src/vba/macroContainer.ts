@@ -36,9 +36,14 @@ import {
 	type AccessDesignMember,
 } from './access/accessDesign';
 import { typeInfoListedNames } from './access/accessTypeInfo';
+import { NoVbaProjectError } from './noVbaProject';
 import { XlsxWorkbook } from './xlsx';
 
 export class MacroContainerError extends Error {}
+
+// Re-exported so the seam that hands out containers is also the one import
+// site for the state a container can be in.
+export { NoVbaProjectError } from './noVbaProject';
 
 export type MacroContainerKind = 'excel' | 'word' | 'powerpoint' | 'access';
 
@@ -50,8 +55,8 @@ export interface MacroContainer {
 	description: string;
 	/** The OOXML package, when the container is one (any host). */
 	xlsx?: XlsxWorkbook;
-	/** The CFB holding the VBA project; parsed once and cached. Throws when
-	 * the file has no VBA project. */
+	/** The CFB holding the VBA project; parsed once and cached. Raises
+	 * {@link NoVbaProjectError} when the file has no VBA project in it yet. */
 	vbaCfb(): Cfb;
 	/** The whole container file's bytes with the (mutated) VBA project CFB
 	 * spliced back in. Throws for read-only containers. */
@@ -121,7 +126,12 @@ function openOoxmlContainer(data: Buffer): MacroContainer {
 		writable: true,
 		description: descriptions[host],
 		xlsx,
-		vbaCfb: cached(() => Cfb.fromBytes(xlsx.readVbaProject())),
+		vbaCfb: cached(() => {
+			if (!xlsx.hasVbaProject()) {
+				throw new NoVbaProjectError(descriptions[host]);
+			}
+			return Cfb.fromBytes(xlsx.readVbaProject());
+		}),
 		toFileBytes: (cfb: Cfb): Buffer => {
 			xlsx.writeVbaProject(cfb.toBytes());
 			return xlsx.toBytes();
@@ -146,7 +156,7 @@ function openLegacyCfbContainer(data: Buffer): MacroContainer {
 			toFileBytes: (cfb: Cfb): Buffer => pptWriteVbaStorage(outer, cfb.toBytes()).toBytes(),
 		};
 	}
-	if (outer.hasStreamInStorage('VBA', 'dir') || outer.hasStream('dir')) {
+	if (hasVbaDirStream(outer)) {
 		// A bare VBA project: a legacy PowerPoint add-in (.ppa) saves as
 		// exactly this shape - a VBA storage and PROJECT at the root with no
 		// document stream at all - and a stray vbaProject.bin is the same.
@@ -159,13 +169,31 @@ function openLegacyCfbContainer(data: Buffer): MacroContainer {
 	);
 }
 
+/**
+ * Where a project's streams live in a compound file: under a `VBA` storage
+ * (.doc and .xls keep that storage inside Macros / _VBA_PROJECT_CUR, which
+ * the storage-agnostic lookup finds) or at the root, which is the shape of a
+ * bare vbaProject.bin. Neither means the file has never had any code.
+ */
+function hasVbaDirStream(cfb: Cfb): boolean {
+	return cfb.hasStreamInStorage('VBA', 'dir') || cfb.hasStream('dir');
+}
+
 /** .doc / .xls: the file IS the CFB, so writing is re-serializing it. */
 function wholeCfbContainer(outer: Cfb, kind: MacroContainerKind, description: string): MacroContainer {
 	return {
 		kind,
 		writable: true,
 		description,
-		vbaCfb: (): Cfb => outer,
+		vbaCfb: (): Cfb => {
+			// A legacy document with no macros carries no VBA storage at all;
+			// parsing it would answer "not a valid VBA project", which reads
+			// as damage rather than as the empty file it is.
+			if (!hasVbaDirStream(outer)) {
+				throw new NoVbaProjectError(description);
+			}
+			return outer;
+		},
 		toFileBytes: (cfb: Cfb): Buffer => cfb.toBytes(),
 	};
 }

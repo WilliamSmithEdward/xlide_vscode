@@ -269,6 +269,11 @@ export class ProjectEngine implements vscode.Disposable {
 				return svc.getModulesAndProtectionInfo(str(p, 'path'));
 			case 'getProjectInfo':
 				return svc.getProjectInfo(str(p, 'path'));
+			// Whether the file holds a VBA project at all, as opposed to
+			// holding one with nothing in it. Both list no modules, and only
+			// the second can take a new one.
+			case 'hasVbaProject':
+				return { hasVbaProject: svc.hasVbaProject(str(p, 'path')) };
 			case 'validateProject':
 				return svc.validateProject(str(p, 'path'));
 			case 'createProject': {

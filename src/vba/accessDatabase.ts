@@ -66,6 +66,12 @@ export function accessVbaCfbByScan(data: Buffer): Cfb {
 	const blobs = [...candidateBlobs(data, rows)];
 	const catalog = findCatalogBlob(blobs);
 	if (!catalog) {
+		// Deliberately NOT NoVbaProjectError. Access makes the project before
+		// the first module: measured on the bundled blank.accdb and blank.mdb,
+		// both carry dir, PROJECT, PROJECTwm and _VBA_PROJECT with zero
+		// modules in them. A database with no code therefore reaches the
+		// readers as an EMPTY project, not a missing one - so no catalog here
+		// means the scan could not find one, which is a read failure.
 		throw new AccessDatabaseError(
 			'No VBA project catalog found in the database; it may contain no VBA.',
 		);

@@ -17,6 +17,7 @@
 
 import { containerCodec } from './containerCodec';
 import { Cfb } from './cfb';
+import { NoVbaProjectError } from './noVbaProject';
 
 export class PptContainerError extends Error {}
 
@@ -267,9 +268,9 @@ function locateVbaStorage(cfb: Cfb): VbaStorageLocation | undefined {
 export function pptVbaCfb(cfb: Cfb): Cfb {
 	const location = locateVbaStorage(cfb);
 	if (!location) {
-		throw new PptContainerError(
-			'Presentation contains no VBA project (no ExOleObjStg record holding one).',
-		);
+		// No ExOleObjStg record holding one: a presentation that has never
+		// had a macro in it, not a presentation that failed to read.
+		throw new NoVbaProjectError('a legacy PowerPoint presentation (.ppt)');
 	}
 	return Cfb.fromBytes(location.storage);
 }

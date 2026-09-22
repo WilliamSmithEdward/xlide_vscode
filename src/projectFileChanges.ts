@@ -1,19 +1,26 @@
 // Notices a project file changing when XLIDE did not write it: the VBE saving
-// the workbook, a git checkout or pull, a copy dropped over the file. XLIDE
-// keeps what it read - open module documents, the symbol index - and nothing
+// the workbook, a git checkout or pull, the MCP server writing in its own
+// process, a copy dropped over the file. XLIDE keeps what it read - open
+// module documents, the tree's listing, the symbol index - and nothing
 // followed such a change, so an open module went on showing the old code and
 // analysis went on using it until the window was reloaded.
 //
 // Every XLIDE write records the file's stamp before and after it, so the stamp
 // an XLIDE write leaves is XLIDE's own. Any other stamp fires
-// onDidChangeProjectFile, found by a watcher on the file while one of its
-// modules is open, or by the check the file system provider makes whenever
-// VS Code asks it about a module, before a read or a save.
+// onDidChangeProjectFile, found three ways:
+//
+//   - a watcher over every macro container in the workspace, which is what
+//     the tree lists and so the case that has to work with nothing open;
+//   - a watcher on one file, held while a module of it is open, which also
+//     covers a project outside the workspace;
+//   - the check the file system provider makes whenever VS Code asks it
+//     about a module, before a read or a save.
 
 import { hostPlatform } from './vba/hostPlatform';
 import { workspaceUriFor } from './util/workspaceUris';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { MACRO_CONTAINER_GLOB } from './macroContainerUi';
 import { projectIdentityKey, sameProjectPath } from './projectIdentity';
 
 /** Long enough for an application's save, which can touch the file more than once. */
@@ -31,6 +38,8 @@ function stampOf(projectPath: string): string | undefined {
 
 /** The last stamp XLIDE accounted for, per project identity. */
 const accounted = new Map<string, string>();
+/** Checks waiting for a file to stop changing, per project identity. */
+const settling = new Map<string, ReturnType<typeof setTimeout>>();
 const changeEmitter = new vscode.EventEmitter<string>();
 
 /** Fires with a project's path when its file changed and XLIDE did not write it. */
@@ -59,6 +68,22 @@ export function checkProjectFile(projectPath: string): boolean {
 }
 
 /**
+ * Checks the file once it has stopped changing, so one save is one check.
+ * Shared by both watchers, so a file they both cover is checked once.
+ */
+export function scheduleProjectFileCheck(projectPath: string): void {
+    const key = projectIdentityKey(projectPath);
+    const pending = settling.get(key);
+    if (pending) {
+        clearTimeout(pending);
+    }
+    settling.set(key, setTimeout(() => {
+        settling.delete(key);
+        checkProjectFile(projectPath);
+    }, WATCH_SETTLE_MS));
+}
+
+/**
  * Runs one XLIDE write to a project file and takes the stamp it leaves as
  * XLIDE's own. A file that had already changed under XLIDE before the write is
  * left for the next check to report: taking the stamp then would hide that
@@ -76,9 +101,32 @@ export async function recordProjectWrite<T>(projectPath: string, write: () => Pr
     return result;
 }
 
+/**
+ * Checks every macro container in the workspace whenever one changes on disk,
+ * for the life of the returned disposable. Held once, for the session.
+ *
+ * This is the case the per-file watch below cannot cover, and the ordinary
+ * one: a project the user is only looking at in the tree has no module
+ * document open, so nothing armed a watch for it and nothing asked the file
+ * system provider about it. A module renamed in the VBE and saved, or written
+ * by the MCP server in its own process, reached nothing at all, and the tree
+ * went on listing what the file held when it was last read.
+ *
+ * Both events lead to the same check because a save that replaces the file
+ * through a rename can report either. Measured in a real VS Code (1.138,
+ * Windows): writing a sibling temp file and renaming it over the target -
+ * which is how XLIDE, Office and the MCP server all write - reports `change`,
+ * so `onDidCreate` alone (which already refreshes the tree, for a file
+ * arriving in the workspace) never saw a save.
+ */
+export function watchWorkspaceProjectFiles(): vscode.Disposable {
+    const watcher = vscode.workspace.createFileSystemWatcher(MACRO_CONTAINER_GLOB);
+    const check = (uri: vscode.Uri): void => scheduleProjectFileCheck(uri.fsPath);
+    return vscode.Disposable.from(watcher.onDidChange(check), watcher.onDidCreate(check), watcher);
+}
+
 interface ProjectFileWatch {
     holders: number;
-    timer?: ReturnType<typeof setTimeout>;
     subscriptions?: vscode.Disposable;
 }
 
@@ -87,6 +135,11 @@ const watches = new Map<string, ProjectFileWatch>();
 /**
  * Checks a project file whenever it changes on disk, for as long as the
  * returned disposable is held. Holders of one project share a watcher.
+ *
+ * This covers a project OUTSIDE the workspace, which the workspace-wide
+ * watch cannot see: a module document can be opened for any file the tree
+ * reached, and the settle in {@link scheduleProjectFileCheck} keeps the two
+ * watches from checking the same save twice.
  */
 export function watchProjectFile(projectPath: string): vscode.Disposable {
     const key = projectIdentityKey(projectPath);
@@ -94,16 +147,9 @@ export function watchProjectFile(projectPath: string): vscode.Disposable {
     if (!held) {
         const watch: ProjectFileWatch = { holders: 0 };
         const settle = (uri: vscode.Uri): void => {
-            if (!sameProjectPath(uri.fsPath, projectPath)) {
-                return;
+            if (sameProjectPath(uri.fsPath, projectPath)) {
+                scheduleProjectFileCheck(projectPath);
             }
-            if (watch.timer) {
-                clearTimeout(watch.timer);
-            }
-            watch.timer = setTimeout(() => {
-                watch.timer = undefined;
-                checkProjectFile(projectPath);
-            }, WATCH_SETTLE_MS);
         };
         // The folder rather than the file: a file name can hold glob syntax
         // (`Book [1].xlsm`), and a pattern made from it would not match it.
@@ -125,9 +171,6 @@ export function watchProjectFile(projectPath: string): vscode.Disposable {
         released = true;
         mine.holders -= 1;
         if (mine.holders === 0) {
-            if (mine.timer) {
-                clearTimeout(mine.timer);
-            }
             mine.subscriptions?.dispose();
             if (watches.get(key) === mine) {
                 watches.delete(key);

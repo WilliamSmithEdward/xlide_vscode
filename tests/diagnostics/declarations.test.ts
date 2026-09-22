@@ -554,6 +554,51 @@ describe('analyzeModule - As type name validation', () => {
 		).toHaveLength(0);
 	});
 
+	it("a module's own Private Type shadows another module's public one of the same name", () => {
+		// Two libraries in one workbook, each with its own JsonTextBuilder:
+		// ROneCOne keeps one private to a class, zz_ModernJsonInVBA exports
+		// one. The VBE compiles this and the private type wins inside the
+		// class - measured in oracle case
+		// `private_type_shadows_public_type_compile` - and XLIDE called the
+		// name ambiguous in the module that had settled it.
+		const src =
+			'Private Type JsonTextBuilder\n' +
+			'    Parts() As String\n' +
+			'End Type\n' +
+			'\n' +
+			'Private mBuilder As JsonTextBuilder\n' +
+			'\n' +
+			'Public Sub Append()\n' +
+			'    Dim local As JsonTextBuilder\n' +
+			'End Sub\n';
+		const modules = [
+			{
+				moduleName: 'zz_ModernJsonInVBA',
+				source: 'Public Type JsonTextBuilder\n    Buffer As String\nEnd Type\n',
+			},
+		];
+
+		expect(
+			byCode(analyzeProjectModule(src, modules, 'ROneCOne'), 'invalid-as-type-name'),
+		).toHaveLength(0);
+	});
+
+	it('still reports a name two other modules both export as ambiguous', () => {
+		// The case the VBE does refuse, with "Ambiguous name detected" -
+		// oracle case `two_public_types_same_name_third_module_compile`. The
+		// shadowing rule above narrows only names the asking module declares,
+		// so this one has to keep firing.
+		const src = 'Public Sub Use()\n    Dim b As JsonTextBuilder\nEnd Sub\n';
+		const modules = [
+			{ moduleName: 'JsonTypesOne', source: 'Public Type JsonTextBuilder\n    Buffer As String\nEnd Type\n' },
+			{ moduleName: 'JsonTypesTwo', source: 'Public Type JsonTextBuilder\n    Parts() As String\nEnd Type\n' },
+		];
+
+		const hits = byCode(analyzeProjectModule(src, modules, 'Consumer'), 'invalid-as-type-name');
+		expect(hits).toHaveLength(1);
+		expect(spanText(src, hits[0])).toBe('JsonTextBuilder');
+	});
+
 	it('accepts OLE Automation interfaces even when project enum members share the name', () => {
 		const src =
 			'Public Enum EKnownIID\n' +

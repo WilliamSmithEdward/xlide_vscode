@@ -602,6 +602,83 @@ describe('ProjectExplorer transient load failures', () => {
     });
 });
 
+describe('ProjectExplorer files that hold no code', () => {
+    beforeEach(() => {
+        vscodeMock.findFiles.mockReset();
+        vscodeMock.showErrorMessage.mockReset();
+        vscodeMock.treeEvents = [];
+        vscodeMock.findFiles.mockResolvedValue([
+            { scheme: 'file', fsPath: 'C:\\work\\Book.xlsm' },
+        ]);
+    });
+
+    const emptyBridge = (hasVbaProject: boolean) => ({
+        call: vi.fn((method: string) => {
+            if (method === 'listModules') {
+                return Promise.resolve([]);
+            }
+            if (method === 'hasVbaProject') {
+                return Promise.resolve({ hasVbaProject });
+            }
+            return Promise.resolve({ isPasswordProtected: false, isSigned: false });
+        }),
+    } as unknown as ConstructorParameters<typeof ProjectExplorer>[0]);
+
+    it('a file with no VBA project gets an informational row, not a load failure', async () => {
+        // A workbook saved as .xlsm before the first macro exists carries no
+        // VBA project at all, and XLIDE read it perfectly well. Offering
+        // "click to retry" there sent people looking for a problem that was
+        // not there.
+        const explorer = new ProjectExplorer(emptyBridge(false));
+        const [project] = await explorer.getChildren();
+        const [row] = await explorer.getChildren(project);
+
+        expect(row).toMatchObject({ kind: 'empty', label: 'No VBA in this file yet', hasVbaProject: false });
+        const item = explorer.getTreeItem(row);
+        expect(item.contextValue).toBe('noVbaProject');
+        // No retry, and nothing that reads as a warning.
+        expect(item.command).toBeUndefined();
+        expect((item.iconPath as { id: string }).id).toBe('info');
+        expect(String(item.tooltip)).toContain('without trouble');
+        expect(String(item.tooltip)).toContain('Excel');
+    });
+
+    it('a project with no modules in it says so, and is a different row', async () => {
+        // A blank Access database is this: the project exists and will take a
+        // new module, which the other row cannot promise.
+        const explorer = new ProjectExplorer(emptyBridge(true));
+        const [project] = await explorer.getChildren();
+        const [row] = await explorer.getChildren(project);
+
+        expect(row).toMatchObject({ kind: 'empty', label: 'No modules yet', hasVbaProject: true });
+        expect(explorer.getTreeItem(row).contextValue).toBe('emptyProject');
+        expect(explorer.getTreeItem(row).command).toBeUndefined();
+    });
+
+    it('the row is a child of the file, so the tree can reveal it', async () => {
+        const explorer = new ProjectExplorer(emptyBridge(false));
+        const [project] = await explorer.getChildren();
+        const [row] = await explorer.getChildren(project);
+        expect(explorer.getParent(row)).toBe(project);
+    });
+
+    it('asks what state it is in only when there is nothing to list', async () => {
+        const bridge = {
+            call: vi.fn((method: string) => {
+                if (method === 'listModules') {
+                    return Promise.resolve([{ name: 'Module1', type: 'standard' }]);
+                }
+                return Promise.resolve({ isPasswordProtected: false, isSigned: false });
+            }),
+        } as unknown as ConstructorParameters<typeof ProjectExplorer>[0];
+        const explorer = new ProjectExplorer(bridge);
+        const [project] = await explorer.getChildren();
+        await explorer.getChildren(project);
+        expect(vi.mocked(bridge.call).mock.calls.filter(([method]) => method === 'hasVbaProject'))
+            .toHaveLength(0);
+    });
+});
+
 function fakeBridge(
     modules: Array<{ name: string; type: string; filePath?: string }> = [],
     subs: Array<{ name: string; kind: string; line: number }> = [],

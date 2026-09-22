@@ -40,6 +40,7 @@ import { createExplorerViewSetter } from './explorerViewToggle';
 import { AgentReviewDecorationProvider } from './agentReviewDecorations';
 import { onDidChangePendingAgentReviews, pendingAgentReviewCount } from './xlideAgentDiff';
 import { refreshProjectStateOnOutsideChange } from './projectModuleOperations';
+import { watchWorkspaceProjectFiles } from './projectFileChanges';
 import { registerXlideSidebar } from './xlideSidebar';
 import { setExtensionAssetRoot } from './extensionAssets';
 import { setPerformanceTraceLogger } from './performanceTrace';
@@ -431,6 +432,10 @@ export function activate(context: vscode.ExtensionContext): void {
         // what XLIDE read from it is read again, as after its own writes. Open
         // module documents follow through the file system provider.
         refreshProjectStateOnOutsideChange({ bridge, explorer, vbaIndex }),
+
+        // What notices such a save for a project with nothing of it open,
+        // which is every project the user is only looking at in the tree.
+        watchWorkspaceProjectFiles(),
 
         // The folder layout follows the open editor, not the file on disk: an
         // annotation edited in a module moves it while you type. Debounced,

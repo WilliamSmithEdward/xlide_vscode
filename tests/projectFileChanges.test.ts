@@ -32,6 +32,7 @@ import {
     onDidChangeProjectFile,
     recordProjectWrite,
     watchProjectFile,
+    watchWorkspaceProjectFiles,
 } from '../src/projectFileChanges';
 
 describe('project file changes made outside XLIDE', () => {
@@ -132,6 +133,47 @@ describe('project file changes made outside XLIDE', () => {
 
         watch.dispose();
         expect(watchers[0].disposed).toBe(true);
+    });
+
+    it('checks a workspace container with nothing of it open', () => {
+        // The case the per-file watch above cannot cover, and the ordinary
+        // one: a project the user is only looking at in the tree has no
+        // module document open, so nothing armed a watch for it and nothing
+        // asked the file system provider about it. A module renamed in the
+        // VBE and saved, or written by the MCP server in its own process,
+        // reached nothing at all and the tree kept its old listing.
+        vi.useFakeTimers();
+        checkProjectFile(projectPath);
+        const watch = watchWorkspaceProjectFiles();
+        expect(watchers).toHaveLength(1);
+
+        saveOutsideXlide('saved in the VBE', Date.parse('2024-01-02T00:00:00Z'));
+        // A save that renames a temp file over the target reports a change,
+        // measured in a real VS Code; a create is accepted too, since a file
+        // that was briefly gone reports one.
+        watchers[0].change?.({ fsPath: projectPath });
+        vi.advanceTimersByTime(1000);
+        expect(seen).toEqual([projectPath]);
+
+        watch.dispose();
+        expect(watchers[0].disposed).toBe(true);
+    });
+
+    it('checks one save once when both watches cover the file', () => {
+        vi.useFakeTimers();
+        checkProjectFile(projectPath);
+        const workspaceWatch = watchWorkspaceProjectFiles();
+        const fileWatch = watchProjectFile(projectPath);
+
+        saveOutsideXlide('saved in the VBE', Date.parse('2024-01-02T00:00:00Z'));
+        for (const watcher of watchers) {
+            watcher.change?.({ fsPath: projectPath });
+        }
+        vi.advanceTimersByTime(1000);
+        expect(seen).toEqual([projectPath]);
+
+        fileWatch.dispose();
+        workspaceWatch.dispose();
     });
 
     it('shares one watcher between holders and keeps it until the last lets go', () => {

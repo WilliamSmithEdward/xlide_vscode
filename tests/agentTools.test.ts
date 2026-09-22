@@ -270,6 +270,54 @@ describe('xlide_writeCells agent tool', () => {
     });
 });
 
+describe('a listing tool over a file that holds no code', () => {
+    const book = 'C:\\work\\Book.xlsm';
+
+    const bridgeFor = (hasVbaProject: boolean) => vi.fn(async (method: string) => {
+        if (method === 'listModules') { return []; }
+        if (method === 'hasVbaProject') { return { hasVbaProject }; }
+        return { modules: [], sheets: [{ name: 'Sheet1', dimensions: 'A1:A1' }], namedRanges: [] };
+    });
+
+    const listing = async (tool: string, bridgeCall: ReturnType<typeof vi.fn>): Promise<string> => {
+        registerTools(bridgeCall);
+        const result = await vscodeMock.registeredTools.get(tool)!
+            .invoke({ input: { filePath: book } }, undefined) as { parts: Array<{ value: string }> };
+        return result.parts[0].value;
+    };
+
+    it('tells an agent that an empty answer is the state of the file, not a failure', async () => {
+        // A bare `[]` cannot be told from a read that went wrong, and an
+        // agent that reads it as one retries or gives up.
+        const answer = await listing('xlide_listModules', bridgeFor(false));
+        expect(JSON.parse(answer.split('\n\n')[0])).toEqual([]);
+        expect(answer).toContain('no VBA project in it at all');
+        expect(answer).toContain('This is not an error');
+        expect(answer).toContain('Excel');
+    });
+
+    it('distinguishes a project with nothing in it, which will take a module', async () => {
+        const answer = await listing('xlide_listModules', bridgeFor(true));
+        expect(answer).toContain('no modules in it yet');
+        expect(answer).toContain('xlide_writeModule adds the first one');
+    });
+
+    it('says the same on xlide_getProjectInfo, whose sheets still answer', async () => {
+        const answer = await listing('xlide_getProjectInfo', bridgeFor(false));
+        expect(answer).toContain('Sheet1');
+        expect(answer).toContain('no VBA project in it at all');
+    });
+
+    it('says nothing extra when the project has modules', async () => {
+        const bridgeCall = vi.fn(async (method: string) => (
+            method === 'listModules' ? [{ name: 'Module1', type: 'standard' }] : {}
+        ));
+        const answer = await listing('xlide_listModules', bridgeCall);
+        expect(answer).toBe(JSON.stringify([{ name: 'Module1', type: 'standard' }], null, 2));
+        expect(bridgeCall.mock.calls.filter(([method]) => method === 'hasVbaProject')).toHaveLength(0);
+    });
+});
+
 describe('xlide_addReference agent tool', () => {
     const book = 'C:\\work\\Book.xlsm';
 

@@ -110,6 +110,38 @@ function textResult(value: string): vscode.LanguageModelToolResult {
     ]);
 }
 
+/**
+ * The line a listing tool adds when it found no code, said plainly enough
+ * that an agent does not read it as a failure.
+ *
+ * A bare `[]` is ambiguous in a way that matters: a project with nothing in
+ * it will take a new module, and a file with no project at all will not.
+ * Neither is an error - a workbook saved as .xlsm before the first macro is
+ * written has no VBA project in it, and XLIDE reads it perfectly well - so
+ * the answer says which state it is rather than leaving an agent to find out
+ * by having a write refused.
+ */
+async function noCodeNote(bridge: ProjectEngine, filePath: string): Promise<string> {
+    const name = path.basename(filePath);
+    const app = containerAppNameForPath(filePath);
+    let hasVbaProject: boolean;
+    try {
+        ({ hasVbaProject } = await bridge.call<{ hasVbaProject: boolean }>(
+            'hasVbaProject', { path: filePath },
+        ));
+    } catch {
+        return '';
+    }
+    return hasVbaProject
+        ? `\n\n${name} has a VBA project with no modules in it yet. This is not an error; `
+            + 'xlide_writeModule adds the first one.'
+        : `\n\n${name} has no VBA project in it at all, which is how ${app} saves a macro-enabled `
+            + 'file that has never held a macro. This is not an error and there is nothing to '
+            + `retry: XLIDE read the file fine. XLIDE cannot put the first macro in - that has to `
+            + `be written in ${app} once and saved - but everything else about the file `
+            + '(sheets, cells, shapes) is readable and writable now.';
+}
+
 function vbaTestSelectionFromInput(input: RunVbaTestsInput): VbaTestSelectionOptions | undefined {
     const selection: VbaTestSelectionOptions = {
         moduleName: input.moduleName,
@@ -224,7 +256,8 @@ export function registerAgentTools(
                     { path: options.input.filePath },
                     token,
                 );
-                return textResult(JSON.stringify(modules, null, 2));
+                const note = modules.length === 0 ? await noCodeNote(bridge, options.input.filePath) : '';
+                return textResult(`${JSON.stringify(modules, null, 2)}${note}`);
             },
         }),
 
@@ -523,7 +556,10 @@ export function registerAgentTools(
                     sheets: Array<{ name: string; dimensions: string }>;
                     namedRanges: Array<{ name: string; ref: string }>;
                 }>('getProjectInfo', { path: options.input.filePath }, token);
-                return textResult(JSON.stringify(result, null, 2));
+                const note = result.modules.length === 0
+                    ? await noCodeNote(bridge, options.input.filePath)
+                    : '';
+                return textResult(`${JSON.stringify(result, null, 2)}${note}`);
             },
         }),
 
