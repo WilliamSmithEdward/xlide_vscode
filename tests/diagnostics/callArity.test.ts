@@ -6,6 +6,7 @@ import { analyzeModule } from '../../src/analyzer';
 
 import { byCode, expectDiagnostic, expectDiagnostics, spanText } from '../helpers/diagnostics';
 import { analyzeProjectModule, projectClassMembers, projectProcedures } from './helpers';
+import { parseRuntimeDisplaySignature } from '../../src/analyzer/diagnostics/typeInference';
 
 describe('analyzeModule - argument count', () => {
 	it('flags too few arguments to a same-module Sub', () => {
@@ -777,5 +778,81 @@ describe('analyzeModule - argument count', () => {
 			'argument-count',
 		);
 		expectDiagnostic(src, hits, 'argument-count', { span: 'Save' });
+	});
+
+	describe('a member that takes nothing and returns an array', () => {
+		// Found in vbaSQLBridge's tests, which run: `Bridge.EmptyBytes()` against
+		// `Public Function EmptyBytes() As Byte()` reported "expected 1
+		// argument". The parameter list was read to the LAST `)` of the display
+		// signature, which for `EmptyBytes() As Byte()` is the return type's, so
+		// the list came out as `) As Byte(` - one required parameter named `As`.
+		const thing =
+			'Public Function Values() As Long()\n' +
+			'End Function\n' +
+			'Public Function Pair(ByVal a As Long) As Long()\n' +
+			'End Function\n';
+		const arityHits = (body: string) => {
+			const src =
+				'Private Function Getter() As Thing\n' +
+				'    Set Getter = New Thing\n' +
+				'End Function\n' +
+				`Public Sub T()\n    Dim t As New Thing\n    Dim x() As Long\n    Dim n As Long\n    ${body}\nEnd Sub\n`;
+			return {
+				src,
+				hits: byCode(
+					analyzeModule(src, {
+						projectClassMembers: projectClassMembers([
+							{ moduleName: 'Thing', moduleKind: 'class', source: thing },
+						]),
+					}),
+					'argument-count',
+				),
+			};
+		};
+
+		it.each([
+			['through a variable', 'x = t.Values()'],
+			['then indexed', 'n = t.Values()(0)'],
+			['on a returned object', 'x = Getter().Values()'],
+			['on an implicitly called one, as in the report', 'x = Getter.Values()'],
+		])('takes its empty parentheses for the argument list %s', (_label, body) => {
+			expect(arityHits(body).hits).toHaveLength(0);
+		});
+
+		it('still reports a missing argument to one that takes some', () => {
+			const { src, hits } = arityHits('x = t.Pair()');
+			expectDiagnostic(src, hits, 'argument-count', { span: 'Pair' });
+			expect(hits[0].message).toContain('expected 1 argument, but got 0');
+		});
+
+		it('reads a display signature\'s parameter list to its own closing parenthesis', () => {
+			const params = (signature: string) => parseRuntimeDisplaySignature('F', signature).params.map((p) => p.name);
+			expect(params('Values() As Long()')).toEqual([]);
+			expect(params('Pair(ByVal a As Long) As Long()')).toEqual(['a']);
+			// Parentheses inside the list, and quoted text that holds them.
+			expect(params('F(ByRef a() As Byte, [s As String = ")"]) As String()')).toEqual(['a', 's']);
+			expect(params('F([s As String = "(,)"], [n As Long])')).toEqual(['s', 'n']);
+			expect(params('Unclosed(a As Long')).toEqual([]);
+		});
+
+		it('counts both optional parameters when a default holds a parenthesis', () => {
+			// Rendered as `F([s As String = ")"], [n As Long]) As Long()`. The quoted
+			// `)` unbalanced the comma split, the two parameters read as one, and
+			// passing both was "expected between 0 and 1 arguments".
+			const withDefault =
+				'Public Function F(Optional ByVal s As String = ")", Optional n As Long) As Long()\n' +
+				'End Function\n';
+			const call = (args: string) => {
+				const src = `Public Sub T()\n    Dim t As New Thing\n    Dim x() As Long\n    x = t.F(${args})\nEnd Sub\n`;
+				return byCode(analyzeModule(src, {
+					projectClassMembers: projectClassMembers([
+						{ moduleName: 'Thing', moduleKind: 'class', source: withDefault },
+					]),
+				}), 'argument-count');
+			};
+			expect(call('')).toHaveLength(0);
+			expect(call('"a", 1')).toHaveLength(0);
+			expect(call('"a", 1, 2')[0]?.message).toContain('expected between 0 and 2 arguments, but got 3');
+		});
 	});
 });

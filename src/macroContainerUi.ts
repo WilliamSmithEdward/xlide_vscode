@@ -50,6 +50,17 @@ export function containerAppNameForPath(fsPath: string): string {
 }
 
 /**
+ * Whether XLIDE can put a VBA project into a file of this kind that has none:
+ * the Office Open XML macro-enabled formats, the binary workbook among them,
+ * whose project is a part of their package. A legacy file (.xls, .doc, .ppt
+ * and their kin) keeps its project in records XLIDE does not write, and an
+ * Access database always has one.
+ */
+export function canAddVbaProjectTo(fsPath: string): boolean {
+	return /\.(xlsm|xlsb|xltm|xlam|docm|dotm|pptm|potm|ppsm|ppam)$/i.test(fsPath);
+}
+
+/**
  * The tree item context value that gates a project node's menu surface.
  *
  * An Access database is its own value: what it creates is a form or a report,

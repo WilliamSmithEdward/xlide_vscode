@@ -22,7 +22,7 @@ export function officeComProbePowerShellScript(hostApp: ComProbeHostApp = 'excel
         `$type = [type]::GetTypeFromProgID("${PROBE_HOSTS[hostApp].progId}")`,
         'if ($null -eq $type) { [Console]::Out.WriteLine("XLIDE_OFFICE_COM_MISSING"); exit 2 }',
         '[Console]::Out.WriteLine("XLIDE_OFFICE_COM_OK")',
-    ].join('; ');
+    ].join('\n');
 }
 
 export function officeComAvailabilityFromProbe(
@@ -79,7 +79,7 @@ export async function checkOfficeComAvailability(
     }
 
     const probe = await runPowerShell({
-        args: ['-Command', officeComProbePowerShellScript(hostApp)],
+        script: officeComProbePowerShellScript(hostApp),
         timeoutMs: OFFICE_COM_PROBE_TIMEOUT_MS,
     }).result;
     if (probe.timedOut) {

@@ -34,6 +34,7 @@ xlide_vscode/
     extension.ts        Activation entry point - registers all providers and commands
     projectEngine.ts   ProjectEngine class - in-process dispatcher for every project operation
     projectExplorer.ts     ProjectExplorer - TreeDataProvider for the XLIDE project tree in VS Code Explorer
+    explorerFollow.ts   ExplorerFollow - the tree following the editor: one pass at a time, the latest wins, and a pass again when redrawn rows undo a reveal
     xlideSidebar.ts     Polished XLIDE Activity Bar/sidebar WebviewView
     xlideSidebarModel.ts Pure model for sidebar status/action/configuration sections
     xlideFileSystem.ts  XlideFileSystemProvider - virtual xlide-vba:// filesystem
@@ -97,9 +98,14 @@ xlide_vscode/
 
     webview/            Shared webview scaffold: templates.ts (assets/webview loader), html.ts, page.ts, refresh.ts, panelRegistry.ts, styles.ts
 
-    macroContainerUi.ts UI-side container facts by extension: discovery glob, host token, context values, app display names
+    macroContainerUi.ts UI-side container facts by extension: discovery glob, host token, context values, app display names, which files can take a new VBA project
     officeHostApps.ts   The Office applications XLIDE drives, described once: ProgID, process name, display name, file noun
+    officeViewPlace.ts  PowerShell that reads where the reader is in an Office copy before XLIDE closes it, and puts it back in the copy opened in its place
+    fileLockHolders.ts  Restart Manager lookup naming the processes that hold a file open, for the locked-file notices and the lock errors agents see
+    projectTarget.ts    The ladder deciding which project a command with no argument acts on
+    openTargetStatusBar.ts  OpenTargetStatusBar - status bar item naming the file Ctrl+Alt+O opens, or "ambiguous"
     vba/
+      addVbaProject.ts  A VBA project for an Office Open XML file that has none: modules and code names as the application makes them, .xlsb records included
       macroContainer.ts [MS-CFB]/[MS-OVBA] container seam: content-sniffed format detection, per-container VBA CFB access, per-container write-back
       cfb.ts            [MS-CFB] compound file binary reader/writer (canonical rebuild on save)
       ovba.ts           [MS-OVBA] run-length compression/decompression, byte-identical to the spec's reference decoder
@@ -126,7 +132,10 @@ xlide_vscode/
   assets/
     webview/            Externalized webview template assets (HTML/CSS/JS) for projectAnalysis, moduleSync, vbaTests, vbaTestResults, and globalSettings panels
     testhost/           Externalized VBA test host sources loaded at runtime: XlideTestModalWatcher.cs, run-vba-tests.ps1 (parameterized per Office host)
-    templates/          Office-authored blanks for New Macro-Enabled File: blank.xlsm/.xlsb/.xlam/.docm/.dotm/.pptm/.potm
+    templates/          Office-authored blanks for New Macro-Enabled File, and the projects Add VBA Project starts from: blank.xlsm/.xlsb/.xlam/.docm/.dotm/.pptm/.potm
+
+  tests/
+    office/             npm run test:office: the checks only real Office answers - every generated script through PowerShell's parser, Restart Manager, read-only copies, the live preview, Add VBA Project - on scratch copies, never attaching to an application someone has open (vitest.office.config.ts)
 
   docs/
     architecture.md     This file
@@ -211,6 +220,17 @@ the change did not reach keeps its stat, and its unsaved edits save without a
 conflict. The provider's per-document entries outlive a close by a second,
 because setting a document's language closes it and opens it again.
 
+A module renamed outside XLIDE takes its editors with it. The file only shows
+one module gone and another there, so `refreshProjectStateOnOutsideChange`
+keeps a roster of module names for each project with an editor open (taken
+when its first module opens, and again after every change, XLIDE's own
+included) and calls it a rename when exactly one module vanished, exactly one
+appeared, and the one that appeared holds the code - or for a form the markup -
+a clean editor on the vanished one shows. Those editors then move the way
+XLIDE's own rename moves them (`followRenamedModuleEditors`), and a pending
+agent review follows. A delete, two changes at once, different code, or an
+editor with unsaved edits moves nothing.
+
 `src/xlideDirtyModuleBackups.ts` adds an XLIDE-owned safety layer for dirty
 module editors. Because VS Code Hot Exit is not reliable enough for virtual
 project modules, every dirty local `xlide-vba://` document is synchronously
@@ -274,6 +294,13 @@ scenarios do not need bespoke one-off test wiring.
 | 1 | `module` - name + type (standard / class / document) | subs |
 | 2 | `sub` - procedure name, kind, 1-based line number | none |
 
+A file with no modules gets one informational row instead: "No modules yet"
+(`emptyProject`) when its project is empty, or "No VBA in this file yet" when
+it has no project at all. On the desktop that second row offers
+`xlide.addVbaProject` - as its click and its inline button (`noVbaProject`) -
+where `canAddVbaProjectTo` says the format can take one, and only explains
+itself for a legacy file (`noVbaProjectFixed`).
+
 The `xlide.explorer.view` setting picks the layout, and the Tree / Folders
 buttons in the view title write that setting rather than a second piece of
 state. In the `folders` layout a `folder` level sits between the project and
@@ -299,14 +326,44 @@ Under `xlide.explorer.autoExpandCollapse`, folders follow the editor the way
 the module accordion does: `setActiveModule` opens the chain to the module
 being edited and folds the rest, a folder opened or shut by hand outranks that
 until the chain actually changes, and `collapseAllFolders()` runs when the last
-editor closes. The same setting governs the procedure row: `VbaCaretProcedureTracker`
-fires only when the caret leaves the procedure it was in, and `extension.ts`
-selects the matching row through `getProcedureNode`, falling back to the module
-for a caret in the declarations section or a procedure the container has not got
-yet (an unsaved rename). A module's sub rows are built once and kept in
-`_subNodes` for exactly this: `treeView.reveal()` matches the element it is
-given against the ones the tree drew, so a fresh object per render would be
-unfindable.
+editor closes. A module whose `@Folder` changes while it is the one being
+edited takes the open chain with it.
+
+The same setting governs the procedure row, and `ExplorerFollow`
+(`src/explorerFollow.ts`) drives all of it. Every input only asks for a pass:
+an editor switch, `VbaCaretProcedureTracker` reporting the caret in another
+procedure, a tab closing, the view shown again. Passes run one at a time after
+a 60 ms quiet period, and a newer request stops a running pass at its next
+await, so rapid switching reveals only the last editor. A pass reads the caret
+when it runs and loads the rows it needs through `resolveModuleNode` and
+`resolveProcedureNode`, since a project nobody expanded has none. It then makes
+the module active and reveals the procedure's row. It reveals the module
+instead for a caret in the declarations section, or in a procedure the
+container has not got yet (an unsaved rename). VS Code reports a reveal's
+expansions exactly as it reports clicks, and a click on a module moves the
+accordion. So the rows a pass opens count as its own until
+`REVEAL_EVENT_GRACE_MS` after the reveal settles.
+
+Redrawn rows can undo a reveal. A refresh, a module's procedures listed again
+or a module moved by its `@Folder` fires `onDidReplaceRows`, which asks for a
+pass while the last reveal has not been seen to land. Once it has, the caret's
+row losing its selection asks for one. Neither applies after the user has moved
+the tree (a module opened by hand, another row selected) until the editor moves.
+
+Render ids survive `refresh()`. VS Code keeps the state of a row whose id it
+already holds and applies the item's own state only to an id it has not seen.
+`refresh()` used to reset the ids to 0, and a project row could come back
+under an id VS Code still held folded. A procedure row's id is its label and
+its occurrence among rows with that label, not its line, which every edit above
+it moves. A module's sub rows are built once and kept in `_subNodes`:
+`treeView.reveal()` matches the element it is given against the ones the tree
+drew, so a fresh object per render would be unfindable.
+
+VS Code has no call that lists the expanded rows. A full redraw re-reads the
+children of the expanded rows and no others, which `probeViewState` uses: the
+dev command `xlide.dev.explorerViewState`, registered outside production only,
+returns the expanded rows, the selection and the active module for
+`src/test/treeFollow.test.ts`.
 
 Clicking a `module` node opens the module via `xlide.openModule`. Clicking a `sub` node opens the module and moves the cursor to that line. A VB6 project's module nodes carry `moduleFilePath`, and the command opens that file itself rather than a virtual document: the file is the module. A VB6 form gets no `designer` row yet (`docs/roadmap_vb6_support.md`, Slice 5).
 
@@ -483,11 +540,16 @@ opened.
 
 Every COM surface serves the application that owns the file - Excel, Word, PowerPoint, or Access - chosen by `officeHostForPath` (`src/officeHostApps.ts`, the one table of ProgIDs, process names and display names). A VB6 project has no Office host and opens through the OS association.
 
-- `src/officeHostLauncher.ts` builds the PowerShell COM scripts: `xlide.openInOfficeApp` / `xlide.openInOfficeAppReadOnly` (open or re-foreground the file), `xlide.runMacroAtCursor` (reopen read-only where the application has such a thing, then `Run`), and the form F5 (a launcher macro for a UserForm in Excel, Word or PowerPoint; `DoCmd.OpenForm` / `OpenReport` by name for an Access design, which writes nothing). `xlide.openWorkbook` and `xlide.openWorkbookReadOnly` are the two Open commands' former ids, still registered so existing keybindings work.
-- `src/officeWriteCoordinator.ts` wraps every container write. XLIDE saves by renaming a temp file over the container, and Windows refuses that rename with `EPERM` while the application holds the file. `xlide.officeIntegration.coordinationMode` then decides: `block` (default) rethrows so the locked-file notice shows, `closeTracked` closes a file XLIDE opened, `closeForce` closes it anywhere and kills the application's processes as a last resort. After the retry the file is reopened the way it was. Under every mode a READ-ONLY copy XLIDE itself opened may be closed and reopened, because it holds nothing to lose and F5 already does exactly that.
+- `src/officeHostLauncher.ts` builds the PowerShell COM scripts: `xlide.openInOfficeApp` / `xlide.openInOfficeAppReadOnly` (open or re-foreground the file; asked for read-only while a copy is open for editing, it closes that copy and reopens it read-only unless it holds unsaved changes, and reports what it could not do), `xlide.runMacroAtCursor` (reopen read-only where the application has such a thing, then `Run`), and the form F5 (a launcher macro for a UserForm in Excel, Word or PowerPoint; `DoCmd.OpenForm` / `OpenReport` by name for an Access design, which writes nothing). `xlide.openWorkbook` and `xlide.openWorkbookReadOnly` are the two Open commands' former ids, still registered so existing keybindings work.
+- `src/officeWriteCoordinator.ts` wraps every container write. XLIDE saves by renaming a temp file over the container, and Windows refuses that rename with `EPERM` while the application holds the file. `xlide.officeIntegration.coordinationMode` then decides: `block` (default) rethrows so the locked-file notice shows, `closeTracked` closes a file XLIDE opened, `closeForce` closes it anywhere and kills the application's processes as a last resort. After the retry the file is reopened the way it was, behind the editor rather than brought to the front, and where the reader was in it. Under every mode a READ-ONLY copy may be closed and reopened, whoever opened it, where a read-only open locks the file (`OfficeHostAppInfo.readOnlyOpenLocks`: Word and PowerPoint). Where it does not lock (Excel), a save goes through and `reopenReadOnlyAfterSave` (on by default) refreshes the read-only copy in the background, with the workbook's events off so its `Workbook_Open` does not run again; a save that lands while a refresh runs gets one more refresh after it, never a pile of them.
+- `src/officeViewPlace.ts` reads where the reader is in a copy about to be closed and puts it back into the copy opened in its place: in Excel the sheet, selection, active cell and scroll; in Word the selection and how far down the window is scrolled; in PowerPoint the slide in view. The application's other file that was in front goes back in front too. The close script prints the place (`XLIDE_PLACE|`) for the reopen; the Excel refresh keeps it inside its one script.
+- `src/fileLockHolders.ts` asks Windows' Restart Manager (`RmStartSession`, `RmRegisterResources`, `RmGetList`, declared as `RestartManager.h` has them) which processes hold a file, with no COM. A lock error leaving the coordinator carries their names in its message (`annotateLockError`), which is what an agent tool passes on, and the locked-file notices say "is open in Microsoft Word (WINWORD.EXE, process 4242)" or "OneDrive (OneDrive.exe, ...)" instead of guessing the application from the file type. Where the lookup cannot answer, the notice names the file's application as before.
+- `src/officeFileState.ts` holds the two probes every script shares: whether anything holds the file against writes, and whether an open copy holds unsaved work. Nothing is ever closed with unsaved work in it, read-only or not, outside `closeForce` - not by a write, the read-only refresh, F5's reopen, or "Open Read Only". A read-only copy takes edits (only Save As keeps them), so read-only is no guarantee there is nothing to lose. Excel and Word answer through `Saved`, PowerPoint through `Saved` as an MsoTriState, and Access, which has no document-level flag, through the dirty bit `SysCmd(acSysCmdGetObjectState)` reports for each loaded object. Anything the probe cannot determine counts as unsaved.
 - The VBA test host (see `docs/xlide_vba_com_test_runner.md`) automates an instance it owns, of the same four applications.
 
-Measured host differences the scripts encode (Office 16.0): a workbook open read-only in Excel does not lock the file, while a read-only document in Word or presentation in PowerPoint does, and Access has no read-only open; PowerPoint runs a single instance; Access holds one database per instance, quits as the script releases it unless `UserControl` is set, and refuses any write to `Visible` once the user controls it.
+Measured host differences the scripts encode (Office 16.0, build 20326): a workbook open read-only in Excel does not lock the file, while a read-only document in Word or presentation in PowerPoint does (PowerPoint only with a window), and Access has no read-only open; a lock refuses a rename over the file, an open for writing and an overwrite in place alike, so the way XLIDE writes makes no difference to it; PowerPoint runs a single instance; Access holds one database per instance, quits as the script releases it unless `UserControl` is set, and refuses any write to `Visible` once the user controls it.
+
+Every script is built one statement per line and handed to `runPowerShell` as `script`, which passes it as `-EncodedCommand` (base64 UTF-16LE). PowerShell parses it whole, the way it parses a script file, so an `else`, `catch` or `finally` may start its own line. The scripts used to travel as one `-Command` string with their lines joined by `; `, which made such a clause a command of its own that stopped the script before its sentinel printed. `npm run test:office` parses every generated script with PowerShell's own parser.
 
 Settings:
 
@@ -515,6 +577,7 @@ Settings:
 | `getProtectionInfo` | `path` | - | `{isPasswordProtected, isSigned}` |
 | `validateProject` | `path` | - | `{issues: [string]}` |
 | `createProject` | `path` | - | `{ok, path}` |
+| `addVbaProject` | `path` | - | `{ok, modules}` |
 | `readCells` | `path`, `sheet`, `range` | - | `{data: [[...]]}` |
 | `readFormulas` | `path`, `sheet`, `range` | - | `{data: [[...]]}` (raw formula strings) |
 | `writeCells` | `path`, `sheet`, `startCell`, `data` | - | `{ok}` |
@@ -572,7 +635,18 @@ surface exists. The write methods serve every container, Access included.
 `createProject` seeds `.xlsm`/`.xlsb`/`.xlam`/`.xltm`/`.docm`/`.dotm`/`.pptm`/
 `.potm`/`.accdb`/`.accda`/`.mdb`/`.mda` from application-authored templates
 and refuses legacy formats, `.ppsm`, `.ppam`, and non-macro formats with the
-reason. `readFormExport`/`writeFormDesigner`
+reason. `addVbaProject` (`src/vba/addVbaProject.ts`) puts a project into a
+macro-enabled Office Open XML file that has none, `.xlsb` included, the way
+its application would: the project comes from the blank template of the
+file's format with the starter module taken out, Excel gets a document module
+for the workbook and each worksheet and chart sheet with the code names
+written into the package (XML attributes, or the property records of a binary
+workbook, whose binary index offsets move with them), Word gets
+ThisDocument, and PowerPoint an empty project. What it writes was measured
+against what Excel, Word and PowerPoint wrote when each added VBA to the same
+files; the binary workbook's records match Excel's byte for byte. A legacy
+file, whose project lives in records XLIDE does not write, is refused.
+`readFormExport`/`writeFormDesigner`
 compose and apply a form's `.frm`/`.frx` pair in any writable container.
 A form's designer storage sits beside the project's `VBA` storage: at the
 root of a `vbaProject.bin`, in `_VBA_PROJECT_CUR` in an `.xls`, in `Macros` in
@@ -700,11 +774,17 @@ to operate on export files.
 
 ## Status bar - `statusBar.ts`
 
-`XlideStatusBar` manages one `vscode.StatusBarItem`:
+`XlideStatusBar` manages one `vscode.StatusBarItem`, and `OpenTargetStatusBar`
+(`src/openTargetStatusBar.ts`, desktop only) another:
 
 | Item | Shown when | Text | Click action |
 |---|---|---|---|
 | Active module | Active editor is an `xlide-vba://` document | `<project> | <module> | <procedure>` | `xlide.refreshExplorer` |
+| Open target | The window has a file to open | The file Ctrl+Alt+O opens, or `ambiguous`; the tooltip says why | `xlide.openInOfficeApp`, or `xlide.sidebar.focus` when ambiguous |
+
+The open target follows every input of the ladder in `src/projectTarget.ts`:
+the sidebar's pick and the project last worked in (`onDidChangeProjectTargetInputs`),
+the active editor, and the workspace's files.
 
 The procedure comes from `VbaCaretProcedureTracker`, over
 `src/vbaProcedureAtLine.ts`, which implements the VBE's `CodeModule.ProcOfLine`
@@ -1061,8 +1141,12 @@ into a pure analyzer layer and a thin VS Code provider:
   without the flag the object is extensible and the name goes to IDispatch
   when the code runs. Only 27 of Excel's 747 interfaces are closed, and of the
   35 types the reference dump covers exhaustively just four are - Worksheet,
-  Chart, Sheets and Workbooks. So a complete member list is not enough to
-  report an absent member, and `member-not-found` asks for both: the list from
+  Chart, Sheets and Workbooks. The model's Worksheets answers as Sheets: the
+  library returns Sheets from every Worksheets property and its own open
+  Worksheets interface lists the same members, while the model keeps
+  Worksheets so `Worksheets(1)` stays a Worksheet (issue #79). So a complete
+  member list is not enough to report an absent member, and `member-not-found`
+  asks for both: the list from
   the reference dump, the flag from the type library. Before 10.4.2 it asked
   only for the list, and `Application.Match` - a worksheet function on no
   interface in the library at all, which Excel resolves dynamically - was
@@ -1093,6 +1177,15 @@ into a pure analyzer layer and a thin VS Code provider:
   type library and VBA binds that object's members bare for anyone
   referencing it - a hidden `Global` in Excel, Word and PowerPoint, and
   `Application` in Access, all read from the registered type libraries.
+  The models also carry what a type library marks hidden - `Workbook.Title`,
+  Word's bare `Assistant` - which the documentation-sourced dumps leave out
+  entirely: `scripts/dump-hidden-members.py` reads them into
+  `reference/<host>/hidden.json`, and every generator adds them through
+  `readLibraryHidden` in `scripts/reference-curation.mjs`, marked hidden, so
+  they resolve and hover but are never offered. Where a `Global` answers for
+  bare names, Application's hidden members stay out of the bare scope:
+  Excel's `Save` is hidden on `_Application` and absent from `_Global`, so a
+  bare `Save` does not compile.
   The reference list reaches the analyzer with the module read, the way the
   project's conditional-compilation arguments do: the engine attaches it to
   every entry, `VbaSymbolIndex` keeps it on the project record, and

@@ -22,6 +22,15 @@ export interface OfficeHostAppInfo {
 	macAppName?: string;
 	/** The LibreOffice module that opens this host's files on Linux. */
 	libreOfficeFlag?: string;
+	/**
+	 * Whether a READ-ONLY open still locks the file against every write.
+	 * Measured on build 16.0.20326 from a second process trying a rename over
+	 * the file, an open for writing and an overwrite in place: Excel refuses
+	 * none of them, Word refuses all three, and PowerPoint refuses all three
+	 * once the presentation has a window (a windowless open does not lock,
+	 * but that is not an open anyone looks at). Access has no read-only open.
+	 */
+	readOnlyOpenLocks: boolean;
 }
 
 export const OFFICE_HOST_APPS: Record<OfficeHostApp, OfficeHostAppInfo> = {
@@ -32,6 +41,7 @@ export const OFFICE_HOST_APPS: Record<OfficeHostApp, OfficeHostAppInfo> = {
 		fileNoun: 'workbook',
 		macAppName: 'Microsoft Excel',
 		libreOfficeFlag: '--calc',
+		readOnlyOpenLocks: false,
 	},
 	word: {
 		progId: 'Word.Application',
@@ -40,6 +50,7 @@ export const OFFICE_HOST_APPS: Record<OfficeHostApp, OfficeHostAppInfo> = {
 		fileNoun: 'document',
 		macAppName: 'Microsoft Word',
 		libreOfficeFlag: '--writer',
+		readOnlyOpenLocks: true,
 	},
 	powerpoint: {
 		progId: 'PowerPoint.Application',
@@ -48,12 +59,14 @@ export const OFFICE_HOST_APPS: Record<OfficeHostApp, OfficeHostAppInfo> = {
 		fileNoun: 'presentation',
 		macAppName: 'Microsoft PowerPoint',
 		libreOfficeFlag: '--impress',
+		readOnlyOpenLocks: true,
 	},
 	access: {
 		progId: 'Access.Application',
 		processName: 'MSACCESS',
 		noun: 'Access',
 		fileNoun: 'database',
+		readOnlyOpenLocks: false,
 	},
 };
 

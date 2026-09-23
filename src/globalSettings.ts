@@ -158,7 +158,7 @@ const XLIDE_GLOBAL_SETTINGS: {
         webviewCard: {
             section: 'office',
             label: 'When a File is Open in Its Application',
-            description: 'What XLIDE does when Excel, Word, PowerPoint or Access holds the file open for editing, which locks it so a save, add, rename, delete, or F5 cannot write it. Block (default, safest): refuse and ask you to close it in its application. Close Tracked: gracefully close a file XLIDE opened, then proceed. Close Force: close it in any running instance, force-quitting the application if needed (unsafe; can lose unsaved work in its other open files). Under every mode XLIDE closes and reopens a read-only copy it opened itself, which holds nothing to lose.',
+            description: 'What XLIDE does when Excel, Word, PowerPoint or Access holds the file open for editing, which locks it so a save, add, rename, delete, or F5 cannot write it. Block (default, safest): refuse and ask you to close it in its application. Close Tracked: gracefully close a file XLIDE opened, then proceed. Close Force: close it in any running instance, force-quitting the application if needed (unsafe; can lose unsaved work in its other open files). Under every mode XLIDE also closes and reopens a read-only copy, whoever opened it, and never closes one holding unsaved changes outside Close Force.',
             control: { kind: 'enum', values: OFFICE_COORDINATION_MODE_VALUES },
         },
     },
@@ -202,15 +202,15 @@ const XLIDE_GLOBAL_SETTINGS: {
         },
     },
     'officeIntegration.reopenReadOnlyAfterSave': {
-        defaultValue: () => false,
-        normalize: normalizeBoolean(false),
+        defaultValue: () => true,
+        normalize: normalizeBoolean(true),
         validate: expectBoolean,
         manifest: { type: 'boolean' },
         legacyKey: 'excelIntegration.reopenReadOnlyAfterSave',
         webviewCard: {
             section: 'office',
             label: 'Refresh a Read-Only Copy After Module Save',
-            description: 'A workbook open read-only in Excel does not lock the file, so XLIDE\'s save succeeds, but Excel keeps showing its older copy. Turn this on to silently close and reopen the read-only copy after each save so the application matches the saved file. Only acts when the file is actually open read-only; never reopens one you closed or one open for editing. Word and PowerPoint lock the file even when it is read-only, so there XLIDE closes and reopens its own read-only copy around every save regardless of this setting.',
+            description: 'A workbook open read-only in Excel does not lock the file, so XLIDE\'s save succeeds, but Excel keeps showing its older copy. On (default): XLIDE closes and reopens the read-only copy after each save, in the background, keeping the sheet, selection and scroll you had and without running Workbook_Open again, so Excel follows your edits as you work. Only acts when the file is actually open read-only; never reopens one you closed or one open for editing, and never closes a copy you have typed into. Word and PowerPoint lock the file even when it is read-only, so there XLIDE closes and reopens the read-only copy around every save regardless of this setting, keeping your place there too.',
             control: { kind: 'boolean' },
         },
     },

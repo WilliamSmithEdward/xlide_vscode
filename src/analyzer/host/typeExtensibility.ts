@@ -60,6 +60,22 @@ const EXCEL_CLOSED_TYPES: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Model types that stand where the library returns a closed type. The
+ * Worksheets property of Application, Global and Workbook returns `Sheets`
+ * in the type library, and Sheets is closed, so the VBE refuses
+ * `Worksheets.Whatever`. The model returns `Worksheets` there instead, which
+ * keeps `Worksheets(1)` a Worksheet where Sheets would give a Worksheet or a
+ * Chart. The library's Worksheets interface is open but lists the same 29
+ * members as Sheets (both read from the registered library), so the model's
+ * Worksheets is closed exactly as far as Sheets is. A variable declared
+ * `As Worksheets` gets the same answer; the VBE has not been asked about that
+ * form, and the collection it holds lacks the name either way.
+ */
+const EXCEL_TYPES_STANDING_FOR: ReadonlyMap<string, string> = new Map([
+	['Worksheets', 'Sheets'],
+]);
+
+/**
  * Whether VBA resolves a member against this Excel type while compiling, so
  * a name the model does not carry is genuinely absent rather than deferred.
  *
@@ -75,7 +91,10 @@ export function hostTypeResolvesWhenCompiling(qualifiedName: string): boolean {
 	// types keep the answer they had, which is what they have always been
 	// analyzed under - and Word and PowerPoint are closed almost throughout,
 	// so the flag would change little there anyway.
-	return library === 'excel' ? EXCEL_CLOSED_TYPES.has(displayName) : true;
+	if (library !== 'excel') {
+		return true;
+	}
+	return EXCEL_CLOSED_TYPES.has(EXCEL_TYPES_STANDING_FOR.get(displayName) ?? displayName);
 }
 
 /** The closed type names, for the test that holds them to the type library. */

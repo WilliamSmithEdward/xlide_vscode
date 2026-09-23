@@ -1324,13 +1324,41 @@ export function parseRuntimeDisplaySignature(
 	return { name, params, returnType };
 }
 
+/**
+ * The text of a display signature's parameter list: from its first `(` to the
+ * `)` that closes it.
+ *
+ * Not to the LAST `)`. A signature can go on past its parameter list with a
+ * return type that has parentheses of its own - `Values() As Long()`, a
+ * Function returning an array - and reading to the last one took `) As Long(`
+ * for the parameters: one required parameter named `As`. Every call to such a
+ * member with its empty argument list then reported "expected 1 argument",
+ * `Bridge.EmptyBytes()` in vbaSQLBridge among them, in code that compiles.
+ * A `)` inside a quoted default value closes nothing.
+ */
 export function runtimeSignatureParameterText(signature: string): string | undefined {
 	const open = signature.indexOf('(');
-	const close = signature.lastIndexOf(')');
-	if (open < 0 || close < open) {
+	if (open < 0) {
 		return undefined;
 	}
-	return signature.slice(open + 1, close);
+	let depth = 0;
+	let quoted = false;
+	for (let i = open; i < signature.length; i++) {
+		const ch = signature[i];
+		if (ch === '"') {
+			quoted = !quoted;
+		} else if (quoted) {
+			continue;
+		} else if (ch === '(') {
+			depth++;
+		} else if (ch === ')') {
+			depth--;
+			if (depth === 0) {
+				return signature.slice(open + 1, i);
+			}
+		}
+	}
+	return undefined;
 }
 
 export function parseRuntimeParamType(raw: string): CallableParamType | undefined {
@@ -1357,13 +1385,26 @@ export function parseRuntimeParamType(raw: string): CallableParamType | undefine
 	};
 }
 
+/**
+ * A parameter list split at its top-level commas. Quoted text is opaque, the
+ * way runtimeSignatureParameterText treats it: a default of `")"` read as a
+ * bracket used to leave the depth unbalanced, and every comma after it was
+ * taken for the inside of a parameter - `F([s As String = ")"], [n As Long])`
+ * came out as one parameter, and a call passing both was reported as passing
+ * too many.
+ */
 export function splitSignatureTopLevel(text: string): string[] {
 	const out: string[] = [];
 	let depth = 0;
 	let start = 0;
+	let quoted = false;
 	for (let i = 0; i < text.length; i++) {
 		const c = text[i];
-		if (c === '(' || c === '[') {
+		if (c === '"') {
+			quoted = !quoted;
+		} else if (quoted) {
+			continue;
+		} else if (c === '(' || c === '[') {
 			depth++;
 		} else if (c === ')' || c === ']') {
 			depth--;

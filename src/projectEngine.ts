@@ -93,6 +93,26 @@ export class ProjectEngine implements vscode.Disposable {
 	 * renaming cannot change. Anything unrecognized seeds .xlsm, the default;
 	 * formats XLIDE cannot author refuse with the reason.
 	 */
+	/**
+	 * The template whose VBA project a file with none starts from: the blank
+	 * file of its own format. A slideshow or an add-in has no blank file of
+	 * its own, and takes a presentation's project, which is the same project;
+	 * its package stays its own. A legacy file cannot take one at all.
+	 */
+	private addVbaTemplatePathFor(targetPath: string): string {
+		const extension = /\.([a-z0-9]+)$/i.exec(targetPath)?.[1]?.toLowerCase() ?? '';
+		const modern: Record<string, string> = { xls: 'xlsm', xlt: 'xltm', xla: 'xlam', doc: 'docm', dot: 'dotm', ppt: 'pptm', ppa: 'ppam' };
+		if (modern[extension]) {
+			throw new ProjectEngineError(
+				`XLIDE adds a VBA project only to the macro-enabled Office Open XML formats, and a .${extension} file is the older binary format. `
+				+ `Save it as .${modern[extension]} first, or write the first macro in the application.`,
+				-32602,
+			);
+		}
+		const sameProjectAs = extension === 'ppsm' || extension === 'ppam' ? targetPath.replace(/\.[^.]+$/, '.pptm') : targetPath;
+		return this.templatePathFor(sameProjectAs);
+	}
+
 	private templatePathFor(targetPath: string): string {
 		const lower = targetPath.toLowerCase();
 		const extension = /\.([a-z0-9]+)$/.exec(lower)?.[1] ?? '';
@@ -279,6 +299,10 @@ export class ProjectEngine implements vscode.Disposable {
 			case 'createProject': {
 				const target = str(p, 'path');
 				return svc.createProject(target, this.templatePathFor(target));
+			}
+			case 'addVbaProject': {
+				const target = str(p, 'path');
+				return svc.addVbaProject(target, this.addVbaTemplatePathFor(target));
 			}
 
 			// --- sheets and cells ---

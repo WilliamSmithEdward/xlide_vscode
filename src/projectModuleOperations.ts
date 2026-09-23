@@ -4,11 +4,14 @@ import type { ProjectEngine } from './projectEngine';
 import type { ProjectExplorer } from './projectExplorer';
 import type { VbaSymbolIndex } from './vbaSymbolIndex';
 import {
+    decodeModuleUri,
     encodeFormMarkupUri,
     encodeModuleUri,
     notifySignatureDropped,
+    XLIDE_SCHEME,
     type XlideFileSystemProvider,
 } from './xlideFileSystem';
+import { moduleContentToken } from './moduleContentToken';
 import { invalidateVbaMemberCompletionCache } from './vbaMemberCompletion';
 import { runWriteWithHostCoordination } from './officeWriteCoordinator';
 import { onDidChangeProjectFile } from './projectFileChanges';
@@ -79,7 +82,8 @@ export function refreshProjectState(
  * without touching a module, and refreshing the tree and analyzing every open
  * module again for each was churn that could also fold rows the user had
  * opened. Open module documents follow on their own, in the file system
- * provider.
+ * provider - except across a rename, which {@link followOutsideRename} takes
+ * them through.
  */
 export function refreshProjectStateOnOutsideChange(
     deps: Pick<ProjectModuleOperationDeps, 'bridge' | 'explorer' | 'vbaIndex'>,
@@ -88,16 +92,37 @@ export function refreshProjectStateOnOutsideChange(
     // makes clears it, so an outside change is never compared with VBA that
     // XLIDE has replaced since.
     const lastSeen = new Map<string, string>();
+    // The modules of each project an editor has open, by lowercased name,
+    // as they stood before the next outside change: what that change is
+    // compared with to tell a rename. Taken when a module of the project is
+    // first opened, and again after every change XLIDE or anyone else makes.
+    const rosters = new Map<string, { projectPath: string; names: Map<string, string> }>();
     const queues = new Map<string, Promise<void>>();
+    /** Runs one step for a project after the ones already queued for it. */
+    const enqueue = (projectPath: string, step: () => Promise<void>): void => {
+        const key = projectIdentityKey(projectPath);
+        const run = (queues.get(key) ?? Promise.resolve()).then(step).catch(() => undefined);
+        queues.set(key, run);
+    };
+    const takeRoster = async (projectPath: string): Promise<void> => {
+        const modules = await deps.bridge.call<Array<{ name: string }>>('listModules', { path: projectPath });
+        rosters.set(projectIdentityKey(projectPath), { projectPath, names: rosterOf(modules) });
+    };
     const look = async (projectPath: string): Promise<void> => {
+        const key = projectIdentityKey(projectPath);
         let seen: string | undefined;
+        let modules: OutsideModuleEntry[] | undefined;
         try {
-            const modules = await deps.bridge.call<unknown>('readModules', { path: projectPath });
+            modules = await deps.bridge.call<OutsideModuleEntry[]>('readModules', { path: projectPath });
             seen = createHash('sha256').update(JSON.stringify(modules)).digest('hex');
         } catch {
             // Unreadable for the moment: refresh, and compare from scratch next time.
         }
-        const key = projectIdentityKey(projectPath);
+        const before = rosters.get(key)?.names;
+        if (before && modules) {
+            rosters.set(key, { projectPath, names: rosterOf(modules) });
+            await followOutsideRename(deps, projectPath, before, modules);
+        }
         if (seen !== undefined && lastSeen.get(key) === seen) {
             return;
         }
@@ -108,20 +133,117 @@ export function refreshProjectStateOnOutsideChange(
             lastSeen.set(key, seen);
         }
     };
+    const noteOpened = (document: vscode.TextDocument): void => {
+        const projectPath = document.uri.scheme === XLIDE_SCHEME ? projectPathOf(document.uri) : undefined;
+        if (projectPath && !rosters.has(projectIdentityKey(projectPath))) {
+            enqueue(projectPath, () => takeRoster(projectPath));
+        }
+    };
+    vscode.workspace.textDocuments.forEach(noteOpened);
     return vscode.Disposable.from(
-        onDidChangeProjectFile((projectPath) => {
-            const key = projectIdentityKey(projectPath);
-            const run = (queues.get(key) ?? Promise.resolve()).then(() => look(projectPath)).catch(() => undefined);
-            queues.set(key, run);
-        }),
+        onDidChangeProjectFile((projectPath) => enqueue(projectPath, () => look(projectPath))),
+        vscode.workspace.onDidOpenTextDocument(noteOpened),
         deps.vbaIndex.onDidChange(({ projectPath }) => {
             if (projectPath) {
                 lastSeen.delete(projectIdentityKey(projectPath));
             } else {
                 lastSeen.clear();
             }
+            // XLIDE's own add, rename or delete is no outside change to
+            // compare with; the roster moves past it.
+            const changed = projectPath ? projectIdentityKey(projectPath) : undefined;
+            for (const [key, roster] of rosters) {
+                if (changed === undefined || changed === key) {
+                    enqueue(roster.projectPath, () => takeRoster(roster.projectPath));
+                }
+            }
         }),
     );
+}
+
+/** A module as `readModules` lists it: its name, and its code without the attribute header. */
+interface OutsideModuleEntry {
+    name: string;
+    source?: string;
+}
+
+/** Module names by their lowercased form, which is how VBA compares them. */
+function rosterOf(modules: ReadonlyArray<{ name: string }>): Map<string, string> {
+    return new Map(modules.map((module) => [module.name.toLowerCase(), module.name]));
+}
+
+/** The project a module document belongs to, or undefined for any other address. */
+function projectPathOf(uri: vscode.Uri): string | undefined {
+    try {
+        return decodeModuleUri(uri).projectPath;
+    } catch {
+        return undefined;
+    }
+}
+
+/**
+ * A module renamed outside XLIDE - in the VBE, and saved - takes its editors
+ * to the new name, the way XLIDE's own rename does. Before this the tree
+ * showed the new name and the editor stayed on the old one, showing a module
+ * the project no longer had.
+ *
+ * The file only tells that one module is gone and another is there, so a
+ * rename is recognized by exactly that and by the code: one module vanished,
+ * one appeared, and the one that appeared holds the code the editor on the
+ * vanished one shows. An editor with unsaved edits stays where it is, as it
+ * does for XLIDE's own rename. Anything else - a delete, two changes at once,
+ * code that differs - moves nothing.
+ */
+async function followOutsideRename(
+    deps: Pick<ProjectModuleOperationDeps, 'bridge'>,
+    projectPath: string,
+    before: ReadonlyMap<string, string>,
+    after: readonly OutsideModuleEntry[],
+): Promise<void> {
+    const afterKeys = new Set(after.map((module) => module.name.toLowerCase()));
+    const vanished = [...before].filter(([key]) => !afterKeys.has(key)).map(([, name]) => name);
+    const appeared = after.filter((module) => !before.has(module.name.toLowerCase()));
+    if (vanished.length !== 1 || appeared.length !== 1) {
+        return;
+    }
+    const [oldName] = vanished;
+    const renamed = appeared[0];
+    if (!(await showsSameModule(deps, projectPath, oldName, renamed))) {
+        return;
+    }
+    renamePendingAgentReview(projectPath, oldName, renamed.name);
+    await followRenamedModuleEditors(projectPath, oldName, renamed.name);
+}
+
+/**
+ * Whether a clean editor on the vanished module shows what the new one holds:
+ * its code, or for a form its markup. Without such an editor there is nothing
+ * to follow, and nothing to compare with.
+ */
+async function showsSameModule(
+    deps: Pick<ProjectModuleOperationDeps, 'bridge'>,
+    projectPath: string,
+    oldName: string,
+    renamed: OutsideModuleEntry,
+): Promise<boolean> {
+    const [codeUri, markupUri] = moduleFaceUris(projectPath, oldName);
+    const shown = (uri: vscode.Uri): vscode.TextDocument | undefined => vscode.workspace.textDocuments
+        .find((document) => !document.isClosed && !document.isDirty && document.uri.toString() === uri.toString());
+    const code = shown(codeUri);
+    if (code) {
+        return renamed.source !== undefined && moduleContentToken(code.getText()) === moduleContentToken(renamed.source);
+    }
+    const markup = shown(markupUri);
+    if (markup) {
+        try {
+            const current = await deps.bridge.call<{ markup: string }>('readFormMarkup', { path: projectPath, module: renamed.name });
+            return moduleContentToken(markup.getText()) === moduleContentToken(current.markup);
+        } catch {
+            // Not a form after all, or unreadable: not the same module.
+            return false;
+        }
+    }
+    return false;
 }
 
 export async function writeProjectModule(

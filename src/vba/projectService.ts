@@ -81,6 +81,7 @@ import {
 	requireStory,
 } from './docShapes';
 import { atomicWrite } from './atomicWrite';
+import { addVbaProjectToPackage } from './addVbaProject';
 import {
 	HOST_LIBRARIES,
 	buildMsFormsReference,
@@ -2501,4 +2502,24 @@ export function createProject(filePath: string, templatePath: string): { ok: tru
 	const template = hostPlatform().readFile(templatePath);
 	atomicContainerWrite(filePath, template);
 	return { ok: true, path: filePath };
+}
+
+/**
+ * Adds a VBA project to a macro-enabled file that has none, starting from
+ * the project in the blank template of its format (addVbaProject.ts says
+ * what goes in). Office Open XML files only: a legacy file keeps its project
+ * inside records XLIDE does not write, and an Access database always has one.
+ */
+export function addVbaProject(filePath: string, templatePath: string): { ok: true; modules: string[] } {
+	const data = hostPlatform().readFile(filePath);
+	if (!data.subarray(0, 2).equals(Buffer.from('PK', 'latin1'))) {
+		throw new Error(
+			`${path.basename(filePath)} is not an Office Open XML file, and XLIDE adds a VBA project only to those `
+			+ '(.xlsm, .docm, .pptm and their templates and add-ins).',
+		);
+	}
+	const extension = path.extname(filePath).slice(1).toLowerCase();
+	const added = addVbaProjectToPackage(data, extension, hostPlatform().readFile(templatePath));
+	atomicContainerWrite(filePath, added.bytes);
+	return { ok: true, modules: added.modules };
 }

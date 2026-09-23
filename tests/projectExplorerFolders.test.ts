@@ -497,6 +497,29 @@ describe('following the editor', () => {
         expect(expanded(explorer, 'Accounts.Billing.Reminders')).toBe(false);
     });
 
+    it('takes the open folders along when the module being edited moves', async () => {
+        const { explorer, project } = await drawn();
+        explorer.setActiveModule(BOOK, 'Helpers');
+        explorer.setModuleFolder(BOOK, 'Helpers', 'Accounts.Ledger');
+        await rows(explorer, project);
+        expect(expanded(explorer, 'Accounts')).toBe(true);
+        expect(expanded(explorer, 'Accounts.Ledger')).toBe(true);
+        expect(vscodeMock.treeEvents).toContainEqual({ filePath: BOOK, moduleName: 'Helpers' });
+
+        // And they are the ones folded when the editor moves on.
+        explorer.setActiveModule(BOOK, 'Loose');
+        expect(expanded(explorer, 'Accounts')).toBe(false);
+        expect(expanded(explorer, 'Accounts.Ledger')).toBe(false);
+    });
+
+    it('opens nothing when a module nobody is editing moves', async () => {
+        const { explorer, project } = await drawn();
+        explorer.setActiveModule(BOOK, 'Loose');
+        explorer.setModuleFolder(BOOK, 'Helpers', 'Accounts.Ledger');
+        await rows(explorer, project);
+        expect(expanded(explorer, 'Accounts.Ledger')).toBe(false);
+    });
+
     it('leaves the folders alone for a module the tree has not drawn yet', async () => {
         const explorer = await foldersExplorer();
         const [project] = await explorer.getChildren();

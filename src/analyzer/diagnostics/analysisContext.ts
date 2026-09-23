@@ -20,7 +20,7 @@ import type {
 } from '../symbols/symbolModel';
 import { isProcedureKind } from '../symbols/symbolModel';
 import type { ProcedureNode } from '../parser/nodes';
-import type { HostObjectModel } from '../host/excelObjectModel';
+import { getExcelObjectModel, type HostObjectModel } from '../host/excelObjectModel';
 import type {
 	ConditionalActivityTracker,
 	ConditionalCompilationEnvironment,
@@ -301,10 +301,25 @@ export function applicationMemberNames(model?: HostObjectModel): ReadonlySet<str
 	return names;
 }
 
+/**
+ * Where the host has a Global interface - Excel, Word, PowerPoint - that is
+ * what VBA really calls bare, and resolveHostGlobalMember answers for it,
+ * hidden members and all. Application's documented members stand in for it
+ * here because they match it closely; its hidden ones do not, so they stay
+ * out. `Save` is a hidden method of Excel's `_Application` and no member of
+ * `_Global` (measured on EXCEL.EXE), so a bare `Save` is "Sub or Function not
+ * defined", and letting the model's hidden members in would have accepted it.
+ *
+ * Access has no Global: its type library makes Application itself the object
+ * VBA binds bare, so there every member of it, hidden or not, is in scope.
+ */
 function computeApplicationMemberNames(model: HostObjectModel | undefined): ReadonlySet<string> {
 	const appType = resolveHostGlobal('Application', model);
+	const globalAnswers = (model ?? getExcelObjectModel()).globalType !== undefined;
 	return new Set(
-		(appType ? getHostMembers(appType, model) : []).map((member) => member.name.toLowerCase()),
+		(appType ? getHostMembers(appType, model) : [])
+			.filter((member) => !(globalAnswers && member.hidden))
+			.map((member) => member.name.toLowerCase()),
 	);
 }
 

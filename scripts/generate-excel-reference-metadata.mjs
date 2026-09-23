@@ -9,6 +9,7 @@ import {
 	memberAccess,
 	localizeHostName,
 	memberSignature,
+	readLibraryHidden,
 	typeDoc,
 } from './reference-curation.mjs';
 import {
@@ -387,54 +388,17 @@ function memberDoc(raw) {
 }
 
 /**
- * The hidden/restricted attribute, straight from the type library
- * (reference/excel/hidden.json, written by scripts/dump-hidden-members.py).
- * The library records it on the INTERFACE - `_Application`, `_Worksheet` -
- * while the model names the coclass, so both spellings are consulted.
- *
- * Missing data means no flags rather than an error: the file needs Windows,
- * Office and pywin32 to regenerate, and the generator must still run without
- * them (issue #56).
+ * The library's hidden and restricted members (reference/excel/hidden.json,
+ * written by scripts/dump-hidden-members.py), through the reader every model
+ * generator shares: flagged where the dump lists them, added where it leaves
+ * them out. Measured on EXCEL.EXE (2026-09-22): the dumps lacked 28 hidden
+ * Workbook members, 10 Worksheet and 52 Chart, and no visible member anywhere.
  */
-const hiddenByType = (() => {
-	const file = path.join(root, 'reference', 'excel', 'hidden.json');
-	if (!fs.existsSync(file)) {
-		console.warn('reference/excel/hidden.json is absent: members will carry no hidden flag.');
-		return new Map();
-	}
-	const parsed = JSON.parse(fs.readFileSync(file, 'utf8'));
-	const out = new Map();
-	for (const [typeName, members] of Object.entries(parsed.members ?? {})) {
-		const flagged = Object.entries(members)
-			.filter(([name, flags]) => {
-				// The library's own hidden/restricted attribute, always.
-				if (flags.includes('hidden') || flags.includes('restricted')) { return true; }
-				// FNONBROWSABLE alone is NOT enough: Range.Rows, Range.Columns,
-				// Range.EntireRow and Application.AddIns all carry it, and
-				// hiding those would gut completion. It counts only for a name
-				// VBA could never write - an identifier must begin with a
-				// letter, so `_Default`, `_NewEnum` and `_CodeName` are a
-				// syntax error at any call site, not a style choice (measured
-				// against the library, 2026-08-30).
-				return flags.includes('nonbrowsable') && !/^[A-Za-z]/.test(name);
-			})
-			.map(([name]) => name.toLowerCase());
-		if (flagged.length > 0) {
-			out.set(typeName.toLowerCase(), new Set(flagged));
-		}
-	}
-	return out;
-})();
-
-function isHiddenInLibrary(ownerName, memberName) {
-	if (!memberName) {
-		return false;
-	}
-	const lower = String(memberName).toLowerCase();
-	const owner = String(ownerName ?? '').toLowerCase();
-	return (hiddenByType.get(owner)?.has(lower) ?? false)
-		|| (hiddenByType.get(`_${owner}`)?.has(lower) ?? false);
+const libraryHiddenFile = path.join(root, 'reference', 'excel', 'hidden.json');
+if (!fs.existsSync(libraryHiddenFile)) {
+	console.warn('reference/excel/hidden.json is absent: members will carry no hidden flag.');
 }
+const libraryHidden = readLibraryHidden(libraryHiddenFile);
 
 function memberFrom(ownerName, raw, kind) {
 	const { returns, returnsAnyOf } = kind === 'event'
@@ -451,7 +415,7 @@ function memberFrom(ownerName, raw, kind) {
 		...(returnsAnyOf ? { returnsAnyOf } : {}),
 		...(declared ? { declaredType: declared } : {}),
 		...(access ? { access } : {}),
-		...(isHiddenInLibrary(ownerName, raw.name) ? { hidden: true } : {}),
+		...(libraryHidden.isHidden(ownerName, raw.name) ? { hidden: true } : {}),
 		...(signature ? { signature } : {}),
 		...(doc ? { doc } : {}),
 	};
@@ -483,6 +447,11 @@ function collectMembers(ownerName, typeDump, options = {}) {
 		for (const item of typeDump.events ?? []) {
 			add(item, 'event');
 		}
+	}
+	// Only where the dump has no entry: a documented member keeps its
+	// documentation, and a hidden one it lists is already flagged by memberFrom.
+	for (const item of libraryHidden.missingMembers(ownerName, new Set(byName.keys()))) {
+		add(item, item.kind);
 	}
 	return {
 		members: [...byName.values()].sort((a, b) => a.name.localeCompare(b.name, 'en')),

@@ -118,6 +118,19 @@ reference/
 !tests/fixtures/binaries/NoVbaFixture.docm
 !tests/fixtures/binaries/NoVbaFixture.xls
 !tests/fixtures/binaries/NoVbaFixture.ppt
+!tests/fixtures/binaries/NoVbaFixture.pptm
+# Saved by Excel with no VBA: a chart sheet in front of three worksheets,
+# renamed and reordered (NoVbaSheetsFixture), and a worksheet beside a
+# dialog sheet and an Excel 4 macro sheet (NoVbaOtherSheetsFixture). What
+# "Add VBA Project" is measured against: Excel names and makes modules for
+# these exactly as the add-VBA tests expect.
+!tests/fixtures/binaries/NoVbaSheetsFixture.xlsm
+!tests/fixtures/binaries/NoVbaOtherSheetsFixture.xlsm
+# The first workbook saved as .xlsb, and Excel's own copy of it once VBA was
+# added: the records XLIDE writes into a binary workbook are compared with
+# Excel's, byte for byte.
+!tests/fixtures/binaries/NoVbaSheetsFixture.xlsb
+!tests/fixtures/binaries/VbaAddedByExcelFixture.xlsb
 excel_test_workbook/
 .claude/
 

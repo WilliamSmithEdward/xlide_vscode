@@ -118,6 +118,23 @@ describe('analyzeModule - module declarations inside procedures', () => {
 		expect(hits.every((hit) => hit.severity === 'error')).toBe(true);
 	});
 
+	it('places a declaration after a procedure closed with the wrong End keyword outside it', () => {
+		// Issue #81: the VBE takes End Function as the closer of a Property Get,
+		// so the line after it is at module level. It is still misplaced - after
+		// a procedure - but not inside one.
+		const src =
+			'Option Explicit\n' +
+			'Public Property Get P() As Long\n' +
+			'    P = 1\n' +
+			'End Function\n' +
+			'Private m As Long\n';
+		const diagnostics = analyzeModule(src);
+
+		expect(byCode(diagnostics, 'module-declaration-in-procedure')).toHaveLength(0);
+		expectDiagnostic(src, byCode(diagnostics, 'module-declaration-after-procedure'),
+			'module-declaration-after-procedure', { span: 'Private' });
+	});
+
 	it('flags unindented member Attribute lines when the module is not exported metadata source', () => {
 		const src =
 			'Option Explicit\n' +

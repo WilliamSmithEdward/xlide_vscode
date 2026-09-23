@@ -2,7 +2,7 @@
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
   "description": "Office VBA and Visual Basic 6 in VS Code - Excel, Word, PowerPoint, Access and .vbp projects; project tree, module editing, UserForm and VB6 form designers, static analysis, unit tests, AI agent tools",
-  "version": "10.5.0",
+  "version": "10.6.0",
   "publisher": "WilliamSmithE",
   "license": "MIT",
   "icon": "assets/images/extension_logo.png",
@@ -77,7 +77,7 @@
             "closeForce"
           ],
           "default": "block",
-          "description": "Windows only: what XLIDE does when a file is open for editing in its application - Excel, Word, PowerPoint or Access - which locks it, during a module save, add, rename or delete, or F5 Run Macro at Cursor. 'block' (default, safest): refuse and ask you to close it in its application. 'closeTracked': gracefully close the file (without saving the application's stale copy) in instances XLIDE opened, then proceed. 'closeForce': close the file in any running instance, force-quitting the application if it will not close (unsafe; can lose unsaved work in its other open files). Under every mode XLIDE closes and reopens a READ-ONLY copy it opened itself, which holds nothing to lose: Word and PowerPoint lock a file even when it is open read-only, so a save after F5 depends on it."
+          "description": "Windows only: what XLIDE does when a file is open for editing in its application - Excel, Word, PowerPoint or Access - which locks it, during a module save, add, rename or delete, or F5 Run Macro at Cursor. 'block' (default, safest): refuse and ask you to close it in its application. 'closeTracked': gracefully close the file (without saving the application's stale copy) in instances XLIDE opened, then proceed. 'closeForce': close the file in any running instance, force-quitting the application if it will not close (unsafe; can lose unsaved work in its other open files). Under every mode XLIDE also closes and reopens a READ-ONLY copy, whoever opened it: Word and PowerPoint lock a file even when it is open read-only, so a save while you look at it there depends on it. XLIDE never closes a copy holding unsaved changes, read-only or not, except under 'closeForce': a read-only copy takes edits too, which only Save As can keep."
         },
         "xlide.excelIntegration.coordinationMode": {
           "type": "string",
@@ -130,13 +130,13 @@
         "xlide.officeIntegration.reopenReadOnlyAfterSave": {
           "type": "boolean",
           "scope": "machine",
-          "default": false,
-          "description": "Windows only: when a workbook is open READ-ONLY in Excel, a module save still writes the file (a read-only open in Excel does not lock it), but Excel keeps showing its older copy. Turn this on to have XLIDE silently close and reopen the read-only copy after each save so the view matches the saved file. Only acts when the file is actually open read-only; never reopens a file you closed, and never affects a file open for editing. Word and PowerPoint lock the file even when it is read-only, so there XLIDE closes and reopens its own read-only copy around every save regardless of this setting."
+          "default": true,
+          "description": "Windows only: when a workbook is open READ-ONLY in Excel, a module save still writes the file (a read-only open in Excel does not lock it), but Excel keeps showing its older copy. On (default), XLIDE closes and reopens the read-only copy after each save, in the background, keeping the sheet, selection and scroll you had and without running Workbook_Open again, so Excel follows your edits as you work. Only acts when the file is actually open read-only; never reopens a file you closed, and never affects a file open for editing. Word and PowerPoint lock the file even when it is read-only, so there XLIDE closes and reopens the read-only copy around every save regardless of this setting, keeping your place there too. A read-only copy you have typed into is never closed, here or anywhere."
         },
         "xlide.excelIntegration.reopenReadOnlyAfterSave": {
           "type": "boolean",
           "scope": "machine",
-          "default": false,
+          "default": true,
           "description": "Renamed to xlide.officeIntegration.reopenReadOnlyAfterSave.",
           "deprecationMessage": "Renamed to xlide.officeIntegration.reopenReadOnlyAfterSave. The value here still applies until that setting is given one."
         },
@@ -358,6 +358,12 @@
       {
         "command": "xlide.newModule",
         "title": "Add Standard Module",
+        "category": "XLIDE",
+        "icon": "$(add)"
+      },
+      {
+        "command": "xlide.addVbaProject",
+        "title": "Add VBA Project",
         "category": "XLIDE",
         "icon": "$(add)"
       },
@@ -792,6 +798,16 @@
           "group": "2_edit@5"
         },
         {
+          "command": "xlide.addVbaProject",
+          "when": "view == xlide.explorer && viewItem == noVbaProject && !xlide.isWeb",
+          "group": "inline@1"
+        },
+        {
+          "command": "xlide.addVbaProject",
+          "when": "view == xlide.explorer && viewItem == noVbaProject && !xlide.isWeb",
+          "group": "1_create@1"
+        },
+        {
           "command": "xlide.reviewAgentChange",
           "when": "view == xlide.explorer && viewItem =~ /-agent-pending$/",
           "group": "inline@1"
@@ -954,6 +970,10 @@
           "when": "false"
         },
         {
+          "command": "xlide.addVbaProject",
+          "when": "false"
+        },
+        {
           "command": "xlide.newClassModule",
           "when": "false"
         },
@@ -1020,6 +1040,18 @@
       ]
     },
     "keybindings": [
+      {
+        "command": "xlide.openInOfficeApp",
+        "key": "ctrl+alt+o",
+        "mac": "cmd+alt+o",
+        "when": "!xlide.isWeb"
+      },
+      {
+        "command": "xlide.openInOfficeAppReadOnly",
+        "key": "ctrl+alt+shift+o",
+        "mac": "cmd+alt+shift+o",
+        "when": "!xlide.isWeb"
+      },
       {
         "command": "xlide.runMacroAtCursor",
         "key": "F5",
@@ -1903,6 +1935,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "test:integration": "npm run compile && vscode-test",
+    "test:office": "vitest run --config vitest.office.config.ts",
     "generate:reference:excel": "node scripts/generate-excel-reference-metadata.mjs",
     "generate:reference:office": "node scripts/generate-office-reference-metadata.mjs",
     "generate:reference:msforms": "node scripts/generate-msforms-reference-metadata.mjs",

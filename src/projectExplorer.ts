@@ -5,7 +5,7 @@ import { moduleIdentityKey, projectIdentityKey } from './xlideFileSystem';
 import { compareVbaModulesForTreeOrder, moduleThemeIconName } from './moduleDisplay';
 import { buildFolderTree, folderPathChain, type FolderTree, type FolderTreeFolder } from './folderTree';
 import type { XlideExplorerView } from './globalSettings';
-import { containerAppNameForPath, containerContextValue, isVb6ProjectPath } from './macroContainerUi';
+import { canAddVbaProjectTo, containerAppNameForPath, containerContextValue, isVb6ProjectPath } from './macroContainerUi';
 import { findMacroContainerFiles } from './macroContainerDiscovery';
 import { hasPendingAgentReview, pendingAgentReviewModules } from './xlideAgentDiff';
 import type { GitChangeMarksSource } from './gitChangeMarks';
@@ -15,6 +15,7 @@ import {
     projectDecorationUri,
 } from './agentReviewDecorations';
 import { startPerformanceTrace } from './performanceTrace';
+import { osPlatform } from './util/osPlatform';
 
 export type XlideNodeKind = 'project' | 'folder' | 'module' | 'designer' | 'sub' | 'loadError' | 'empty';
 
@@ -38,6 +39,11 @@ export interface XlideNode {
     moduleFilePath?: string;
     /** 1-based line number of the procedure (for 'sub' nodes). */
     line?: number;
+    /**
+     * sub only: which of the module's rows with this label it is, from 0.
+     * Two share a label only while a duplicate procedure is being edited.
+     */
+    occurrence?: number;
     /**
      * The module's `@Folder` annotation, normalized; absent puts the module at
      * the project's root. Read on 'module' nodes, and the whole dotted path on
@@ -63,6 +69,13 @@ export interface XlideNode {
 export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.Disposable {
     private _emitter = new vscode.EventEmitter<XlideNode | undefined | null | void>();
     readonly onDidChangeTreeData = this._emitter.event;
+    private readonly _rowsReplaced = new vscode.EventEmitter<{ filePath: string; moduleName: string } | undefined>();
+    /**
+     * Rows were drawn again from scratch, so a selection or a reveal made on
+     * the old ones may be gone: one module's rows below it, or (undefined)
+     * the whole tree's.
+     */
+    readonly onDidReplaceRows = this._rowsReplaced.event;
 
 
     // Stable node references required by treeView.reveal()
@@ -113,6 +126,8 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
 
     // The view drawing this tree, for the reveal a row click asks for.
     private _treeView: vscode.TreeView<XlideNode> | undefined;
+    // While a probe runs: the rows whose children VS Code asked for.
+    private _childrenProbe: string[] | undefined;
 
     constructor(
         private readonly _bridge: ProjectEngine,
@@ -123,6 +138,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     dispose(): void {
         this._clearProtectionTimers();
         this._emitter.dispose();
+        this._rowsReplaced.dispose();
     }
 
     /** The layout the tree draws: the flat module list, or the folder layout. */
@@ -141,15 +157,19 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         this.refresh();
     }
 
+    /**
+     * Read everything again. The render ids are kept: VS Code keeps the state
+     * of a row whose id it already holds and applies the item's own state only
+     * to an id it has not seen. Resetting them to 0 handed rows ids VS Code
+     * could still hold from before, in whatever state they had then, so a
+     * project the editor had just moved into came back folded.
+     */
     refresh(): void {
         this._generation++;
         this._projectNodes.clear();
         this._moduleNodes.clear();
         this._folderNodes.clear();
         this._folderTrees.clear();
-        this._projectRenderVersions.clear();
-        this._moduleRenderVersions.clear();
-        this._folderRenderVersions.clear();
         this._projectFilesCache = undefined;
         this._projectFilesLoad = undefined;
         this._modulesListCache.clear();
@@ -161,6 +181,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         this._protectionLoads.clear();
         this._clearProtectionTimers();
         this._emitter.fire();
+        this._rowsReplaced.fire(undefined);
     }
 
     /**
@@ -176,6 +197,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         const node = this._moduleNodes.get(key);
         if (node) {
             this._emitter.fire(node);
+            this._rowsReplaced.fire({ filePath, moduleName });
         }
     }
 
@@ -342,6 +364,56 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     }
 
     /**
+     * A module's row, loading what the tree has not drawn yet to reach it:
+     * the list of projects, and the project's modules and, in the folder
+     * layout, its folders. reveal() can only walk up through rows that exist,
+     * and a project nobody expanded has none. Undefined when no project in
+     * the workspace holds the module.
+     */
+    async resolveModuleNode(filePath: string, moduleName: string): Promise<XlideNode | undefined> {
+        const cached = this.getModuleNode(filePath, moduleName);
+        if (cached) {
+            return cached;
+        }
+        const project = (await this._getProjectFiles())
+            .find((node) => projectNodeKey(node.filePath) === projectNodeKey(filePath));
+        if (!project) {
+            return undefined;
+        }
+        await this._getChildren(project);
+        return this.getModuleNode(filePath, moduleName);
+    }
+
+    /** A procedure's row, listing the module's procedures if the tree has not. */
+    async resolveProcedureNode(filePath: string, moduleName: string, label: string): Promise<XlideNode | undefined> {
+        const module = await this.resolveModuleNode(filePath, moduleName);
+        if (!module) {
+            return undefined;
+        }
+        if (!this._subNodes.has(moduleNodeKey(filePath, moduleName))) {
+            await this._getChildren(module);
+        }
+        return this.getProcedureNode(filePath, moduleName, label);
+    }
+
+    /**
+     * A row's identity: the same for every node object that draws it, and
+     * unlike its TreeItem id, the same across the re-renders that fold it.
+     */
+    rowIdentity(node: XlideNode): string {
+        switch (node.kind) {
+            case 'project':
+                return `project::${projectNodeKey(node.filePath)}`;
+            case 'folder':
+                return `folder::${folderNodeKey(node.filePath, node.folder ?? '')}`;
+            case 'module':
+                return `module::${moduleNodeKey(node.filePath, node.moduleName ?? '')}`;
+            default:
+                return `${node.kind}::${moduleNodeKey(node.filePath, node.moduleName ?? '')}::${node.label}`;
+        }
+    }
+
+    /**
      * The row for one procedure, named the way the tree labels it ("Sub Post",
      * "Property Get Name"). Undefined until the module's procedures have been
      * listed, and while an unsaved rename has the editor and the container
@@ -357,6 +429,34 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     /** The view that draws this tree; set once, right after it is created. */
     attachTreeView(treeView: vscode.TreeView<XlideNode>): void {
         this._treeView = treeView;
+    }
+
+    /**
+     * For tests and development only: what the view shows. VS Code has no
+     * call that says which rows are expanded, but a full redraw re-reads the
+     * children of the expanded rows and no others, so this redraws and notes
+     * whose children are asked for, until the asking stops.
+     */
+    async probeViewState(): Promise<{ expanded: string[]; selected: string[]; activeModule: string | undefined }> {
+        const asked: string[] = [];
+        this._childrenProbe = asked;
+        this._emitter.fire();
+        try {
+            let seen = -1;
+            for (let quiet = 0; quiet < 4;) {
+                await new Promise((resolve) => setTimeout(resolve, 100));
+                quiet = asked.length === seen ? quiet + 1 : 0;
+                seen = asked.length;
+            }
+        } finally {
+            this._childrenProbe = undefined;
+        }
+        const active = this._activeModuleKey === undefined ? undefined : this._moduleNodes.get(this._activeModuleKey);
+        return {
+            expanded: [...new Set(asked)].sort(),
+            selected: (this._treeView?.selection ?? []).map(describeNode),
+            activeModule: active ? describeNode(active) : undefined,
+        };
     }
 
     /**
@@ -541,7 +641,10 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             const version = this._moduleRenderVersions.get(key) ?? 0;
             item.id = `m::${key}::${version}`;
         } else if (node.kind === 'sub') {
-            item.id = `s::${node.filePath}::${node.moduleName}::${node.label}::${node.line ?? 0}`;
+            // Not the line, which every edit above the procedure moves: a new
+            // id is a new row to VS Code, and the selection on the old one,
+            // the caret's procedure, went with it on each save.
+            item.id = `s::${node.filePath}::${node.moduleName}::${node.label}::${node.occurrence ?? 0}`;
         } else if (node.kind === 'designer') {
             item.id = `d::${node.filePath}::${node.moduleName}`;
         } else if (node.kind === 'project') {
@@ -684,15 +787,29 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                 // offers a retry: the icon and the wording say the file is
                 // empty, which is a state it is allowed to be in.
                 item.iconPath = new vscode.ThemeIcon('info');
-                item.contextValue = node.hasVbaProject ? 'emptyProject' : 'noVbaProject';
-                item.tooltip = node.hasVbaProject
-                    ? 'XLIDE read this file without trouble. Its VBA project has no modules in it'
-                        + " yet; add one from the file's row above."
-                    : `XLIDE read this file without trouble. It has no VBA project in it at all,`
+                item.contextValue = node.hasVbaProject ? 'emptyProject'
+                    : canAddVbaProjectTo(node.filePath) ? 'noVbaProject' : 'noVbaProjectFixed';
+                if (node.hasVbaProject) {
+                    item.tooltip = 'XLIDE read this file without trouble. Its VBA project has no modules in it'
+                        + " yet; add one from the file's row above.";
+                } else if (osPlatform() === 'web' || !canAddVbaProjectTo(node.filePath)) {
+                    // The browser cannot read the templates a project starts
+                    // from, and a legacy file takes none from XLIDE.
+                    item.tooltip = `XLIDE read this file without trouble. It has no VBA project in it at all,`
                         + ` which is how ${containerAppNameForPath(node.filePath)} saves a`
                         + ' macro-enabled file that has never held a macro. Write one macro in'
                         + ` ${containerAppNameForPath(node.filePath)} and save: the project appears here,`
                         + ' and everything after that is XLIDE\'s.';
+                } else {
+                    item.tooltip = `XLIDE read this file without trouble. It has no VBA project in it at all,`
+                        + ` which is how ${containerAppNameForPath(node.filePath)} saves a`
+                        + ' macro-enabled file that has never held a macro. Click to add one.';
+                    item.command = {
+                        command: 'xlide.addVbaProject',
+                        title: 'Add VBA Project',
+                        arguments: [node],
+                    };
+                }
                 break;
         }
 
@@ -700,6 +817,9 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     }
 
     async getChildren(node?: XlideNode): Promise<XlideNode[]> {
+        if (node && this._childrenProbe) {
+            this._childrenProbe.push(describeNode(node));
+        }
         const trace = startPerformanceTrace('tree.getChildren', node?.kind ?? 'root');
         try {
             const result = await this._getChildren(node);
@@ -811,7 +931,13 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         // rather than patched.
         this._folderTrees.delete(projectNodeKey(filePath));
         if (this._view === 'folders') {
+            // The module being edited takes the open folders with it, or its
+            // row would sit in a folder nobody opened.
+            if (key === this._activeModuleKey) {
+                this._followFoldersTo(filePath, moduleName);
+            }
             this._emitter.fire();
+            this._rowsReplaced.fire({ filePath, moduleName });
         }
     }
 
@@ -1089,13 +1215,13 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         moduleName: string,
         moduleType: string | undefined,
     ): XlideNode[] {
-        const nodes: XlideNode[] = subs.map((s) => ({
-            kind: 'sub' as const,
-            label: `${s.kind} ${s.name}`,
-            filePath,
-            moduleName,
-            line: s.line,
-        }));
+        const seen = new Map<string, number>();
+        const nodes: XlideNode[] = subs.map((s) => {
+            const label = `${s.kind} ${s.name}`;
+            const occurrence = seen.get(label) ?? 0;
+            seen.set(label, occurrence + 1);
+            return { kind: 'sub' as const, label, filePath, moduleName, line: s.line, occurrence };
+        });
         // A VB6 form, UserControl, or PropertyPage opens in the designer too,
         // drawn from its own header (roadmap_vb6_support.md, Slice 5).
         const vb6Designer = isVb6ProjectPath(filePath)
@@ -1165,6 +1291,15 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             this._emitter.fire(node);
         }
     }
+}
+
+/** A row as a probe reports it: its kind, and the name it shows. */
+function describeNode(node: XlideNode): string {
+    const name = node.kind === 'project' ? fileNameForDisplay(node.filePath)
+        : node.kind === 'folder' ? node.folder ?? node.label
+            : node.kind === 'module' ? node.moduleName ?? node.label
+                : node.label;
+    return `${node.kind}:${name}`;
 }
 
 function fileNameForDisplay(filePath: string): string {

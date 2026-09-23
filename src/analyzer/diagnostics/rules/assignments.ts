@@ -44,6 +44,7 @@ import {
 	inferArgumentType,
 	isKnownObjectAssignmentType,
 	isKnownScalarType,
+	isMemberStatementChainThrough,
 	namedArgumentSlot,
 	nonnumericStringArithmeticOperand,
 	normalizeType,
@@ -147,6 +148,15 @@ function memberAssignmentTarget(
 	}
 	const memberTok = lhs[lhs.length - 1];
 	if (!tokenName(memberTok) || lhs[lhs.length - 2]?.rawText !== '.') {
+		return undefined;
+	}
+	// A target is one receiver chain ending in the member. Anything else
+	// before the `=` is another statement comparing the member: an ElseIf or
+	// Case header, a single-line If's condition, a call given the comparison
+	// (`Debug.Print w.Part = "a"`). ReDim's `ElseIf ReDimUI.SenderPart =
+	// "plus" Then` compiles, and was reported as assigning to 'ElseIf
+	// ReDimUI.SenderPart'.
+	if (!isMemberStatementChainThrough(lhs, 0, lhs.length - 1)) {
 		return undefined;
 	}
 	if (lhs.some((tok) => tok.kind === 'operator' && tok.rawText === '=')) {
@@ -560,8 +570,8 @@ function checkMemberAssignmentTypes(
 	if (!memberCtx.projectClassMembers || memberCtx.projectClassMembers.length === 0) {
 		return;
 	}
-	forEachStatement(member.body, (stmt) => {
-		const assignment = memberAssignmentTarget(source, stmt.span);
+	const checkStatement = (span: Span): void => {
+		const assignment = memberAssignmentTarget(source, span);
 		if (!assignment) {
 			return;
 		}
@@ -594,7 +604,7 @@ function checkMemberAssignmentTypes(
 			}
 			const actual = inferArgumentType(
 				assignment.valueTokens,
-				stmt.span.start,
+				span.start,
 				env,
 				moduleSignatures,
 				sourceNames,
@@ -631,7 +641,7 @@ function checkMemberAssignmentTypes(
 		const stringArithmetic = nonnumericStringArithmeticOperand(
 			expected,
 			assignment.valueTokens,
-			stmt.span.start,
+			span.start,
 		);
 		if (stringArithmetic) {
 			push(
@@ -643,7 +653,7 @@ function checkMemberAssignmentTypes(
 		}
 		const actual = inferArgumentType(
 			assignment.valueTokens,
-			stmt.span.start,
+			span.start,
 			env,
 			moduleSignatures,
 			sourceNames,
@@ -664,6 +674,16 @@ function checkMemberAssignmentTypes(
 			`Assignment to '${assignment.label}' expects ${expected}, but got ${actual.label}. ${reason}`,
 			actual.span,
 		);
+	};
+	// This rule reads a statement structurally - what precedes its first `=`
+	// is the target - so it takes a single-line If's branches as statements of
+	// their own. Read whole, `If ok Then w.Part = 1` had the target
+	// `If ok Then w.Part`, and `If w.Part = 1 Then Exit Sub`, which assigns
+	// nothing, had `If w.Part`.
+	forEachStatement(member.body, (stmt) => {
+		for (const span of statementAndBranchSpans(stmt)) {
+			checkStatement(span);
+		}
 	}, activity);
 }
 

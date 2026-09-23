@@ -143,6 +143,18 @@ describe('generic Object returns are repaired', () => {
 		// anything it omits has to be justified in the set above.
 		const { readDumps } = await import('../scripts/reference-curation.mjs');
 		const dumps = readDumps(CORPUS) as Map<string, Record<string, Array<{ name: string }>>>;
+		// The dumps come from the documentation, which leaves out the members
+		// the library marks hidden - `Workbook.Title`, `Worksheet.OnEntry` -
+		// though they compile and run. scripts/dump-hidden-members.py reads them
+		// from the library itself, so a member found there under the same
+		// interface is carried by the library, not invented.
+		const hiddenFile = path.join(CORPUS, '..', 'hidden.json');
+		const libraryHidden = fs.existsSync(hiddenFile)
+			? (JSON.parse(fs.readFileSync(hiddenFile, 'utf8')) as { members: Record<string, Record<string, string[]>> }).members
+			: {};
+		const hiddenInLibrary = (typeName: string, member: string): boolean =>
+			[typeName, `_${typeName}`].some((name) => Object.keys(libraryHidden[name] ?? {})
+				.some((flagged) => flagged.toLowerCase() === member.toLowerCase()));
 		const model = getExcelObjectModel();
 		const invented: string[] = [];
 		for (const [qualified, type] of Object.entries(model.types)) {
@@ -159,7 +171,9 @@ describe('generic Object returns are repaired', () => {
 			);
 			for (const member of type.members) {
 				const qualifiedMember = `${qualified}.${member.name}`;
-				if (!known.has(member.name.toLowerCase()) && !HIDDEN_INTERFACE_MEMBERS.has(qualifiedMember)) {
+				if (!known.has(member.name.toLowerCase())
+					&& !HIDDEN_INTERFACE_MEMBERS.has(qualifiedMember)
+					&& !hiddenInLibrary(qualified.slice('Excel.'.length), member.name)) {
 					invented.push(qualifiedMember);
 				}
 			}

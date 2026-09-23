@@ -12,7 +12,8 @@ import { noteModuleWrite } from './vbaRenameHistory';
 // Function-level cycle with xlideAgentDiff (it imports URI/identity helpers
 // from this module); neither side touches the other at module-eval time.
 import { trackModuleWriteForAgentReview } from './xlideAgentDiff';
-import { containerAppNameForPath, MACRO_CONTAINER_EXTENSION_PATTERN } from './macroContainerUi';
+import { MACRO_CONTAINER_EXTENSION_PATTERN } from './macroContainerUi';
+import { lockedFileHolderText } from './fileLockHolders';
 import { projectIdentityKey } from './projectIdentity';
 import { checkProjectFile, onDidChangeProjectFile, watchProjectFile } from './projectFileChanges';
 import { moduleContentToken } from './moduleContentToken';
@@ -86,7 +87,11 @@ export function isProjectLockedError(message: string): boolean {
 const LOCKED_NOTICE_THROTTLE_MS = 2000;
 const recentLockedNotices = new Map<string, number>();
 
-export function reportProjectLocked(projectPath: string, op: 'read' | 'write'): void {
+/**
+ * Warns that the file is locked, naming what holds it: the processes found
+ * for `err` when the write coordinator already looked, else a fresh lookup.
+ */
+export function reportProjectLocked(projectPath: string, op: 'read' | 'write', err?: unknown): void {
     const noticeKey = projectIdentityKey(projectPath);
     const now = Date.now();
     const last = recentLockedNotices.get(noticeKey);
@@ -100,10 +105,10 @@ export function reportProjectLocked(projectPath: string, op: 'read' | 'write'): 
     // failed write it would revert whatever editor happens to be active,
     // discarding unrelated dirty edits instead of retrying anything.
     const actions = op === 'read' ? ['Retry', 'Reveal File'] : ['Reveal File'];
-    void vscode.window.showWarningMessage(
-        `XLIDE: Cannot ${verb} "${name}" - it appears to be open in ${containerAppNameForPath(projectPath)}. Close the file and try again.`,
+    void lockedFileHolderText(projectPath, err).then((holder) => vscode.window.showWarningMessage(
+        `XLIDE: Cannot ${verb} "${name}" - it ${holder.known ? 'is' : 'appears to be'} open in ${holder.text}. Close the file and try again.`,
         ...actions,
-    ).then((choice) => {
+    )).then((choice) => {
         if (choice === 'Retry') {
             void vscode.commands.executeCommand('workbench.action.files.revert');
         } else if (choice === 'Reveal File') {
@@ -304,8 +309,9 @@ export class XlideFileSystemProvider
                 // when this FileSystemError is thrown, so we do NOT also raise our
                 // own warning here, which would double the popup. The thrown message
                 // carries the friendly, XLIDE-prefixed guidance.
+                const holder = await lockedFileHolderText(projectPath, err);
                 throw vscode.FileSystemError.Unavailable(
-                    `XLIDE: "${path.basename(projectPath)}" is open in ${containerAppNameForPath(projectPath)}. Close it and click Retry.`,
+                    `XLIDE: "${path.basename(projectPath)}" is open in ${holder.text}. Close it and click Retry.`,
                 );
             }
             // A module the project no longer has: VS Code keeps a document a
@@ -434,8 +440,9 @@ export class XlideFileSystemProvider
                 // when this FileSystemError is thrown, so we do NOT also raise our
                 // own warning here, which would double the popup. The thrown message
                 // carries the friendly, XLIDE-prefixed guidance.
+                const holder = await lockedFileHolderText(projectPath, err);
                 throw vscode.FileSystemError.Unavailable(
-                    `XLIDE: "${path.basename(projectPath)}" is open in ${containerAppNameForPath(projectPath)}. Close it and save again.`,
+                    `XLIDE: "${path.basename(projectPath)}" is open in ${holder.text}. Close it and save again.`,
                 );
             }
             throw err;

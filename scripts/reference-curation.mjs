@@ -469,3 +469,86 @@ export function memberAccess(raw, kind) {
 		? access
 		: undefined;
 }
+
+/** What an added hidden member's hover says in place of documentation. */
+const HIDDEN_MEMBER_DESCRIPTION =
+	'Hidden in the type library, so the reference documentation does not list it. It compiles and runs.';
+
+/**
+ * A host library's hidden and restricted members, read from the
+ * reference/<host>/hidden.json that scripts/dump-hidden-members.py writes.
+ * Every model generator reads them through here, so Excel, Word and
+ * PowerPoint follow one rule.
+ *
+ * The library records a flag on the INTERFACE - `_Application`, `_Document` -
+ * while a model names the coclass, so both spellings are consulted.
+ *
+ * - `isHidden(owner, member)`: whether a member is marked hidden. The model
+ *   still carries it, so it resolves and hovers, but completion never offers
+ *   it (issue #56).
+ * - `missingMembers(owner, present)`: the members the library hides and the
+ *   dump leaves out entirely, as dump-shaped entries a generator feeds through
+ *   its usual member building. Hidden is not absent: `Workbook.Title`, Word's
+ *   bare `Assistant` compile and run, and a model without them reported them
+ *   missing. Restricted members stay out - VBA cannot call those - and so do
+ *   names that do not begin with a letter, which VBA cannot write.
+ *
+ * A missing file means no flags and nothing added: it needs Windows, Office
+ * and pywin32 to write, and a generator must still run without them.
+ */
+export function readLibraryHidden(file) {
+	const parsed = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : {};
+	const flagsByType = new Map();
+	for (const [typeName, members] of Object.entries(parsed.members ?? {})) {
+		const flagged = new Map(Object.entries(members).map(([name, flags]) => [name.toLowerCase(), flags]));
+		flagsByType.set(typeName.toLowerCase(), flagged);
+	}
+	const flagsOf = (owner, member) => {
+		const lower = String(owner ?? '').toLowerCase();
+		const name = String(member ?? '').toLowerCase();
+		return flagsByType.get(lower)?.get(name) ?? flagsByType.get(`_${lower}`)?.get(name) ?? [];
+	};
+	const isHidden = (owner, member) => {
+		if (!member) {
+			return false;
+		}
+		const flags = flagsOf(owner, member);
+		// The library's own hidden/restricted attribute, always. FNONBROWSABLE
+		// alone is NOT enough: Range.Rows, Range.Columns, Range.EntireRow and
+		// Application.AddIns all carry it, and hiding those would gut
+		// completion. It counts only for a name VBA could never write -
+		// `_Default`, `_NewEnum`, `_CodeName` (measured, 2026-08-30).
+		return flags.includes('hidden') || flags.includes('restricted')
+			|| (flags.includes('nonbrowsable') && !/^[A-Za-z]/.test(String(member)));
+	};
+	const missingMembers = (owner, present) => {
+		const lower = String(owner ?? '').toLowerCase();
+		const out = [];
+		for (const typeName of [lower, `_${lower}`]) {
+			const described = Object.entries(parsed.details ?? {})
+				.find(([name]) => name.toLowerCase() === typeName)?.[1] ?? {};
+			for (const [name, info] of Object.entries(described)) {
+				const flags = flagsOf(owner, name);
+				if (!flags.includes('hidden') || flags.includes('restricted')
+					|| !/^[A-Za-z][A-Za-z0-9_]*$/.test(name) || present.has(name.toLowerCase())) {
+					continue;
+				}
+				present.add(name.toLowerCase());
+				out.push(info.kind === 'method'
+					? {
+						name,
+						kind: 'method',
+						signature: `${name}(${(info.parameters ?? [])
+							.map((p) => (p.optional ? `[${p.name} As ${p.type}]` : `${p.name} As ${p.type}`))
+							.join(', ')})${info.returns && info.returns !== 'void' ? ` As ${info.returns}` : ''}`,
+						returns: info.returns ?? 'void',
+						parameters: (info.parameters ?? []).map((p) => ({ name: p.name, type: p.type, optional: p.optional })),
+						description: HIDDEN_MEMBER_DESCRIPTION,
+					}
+					: { name, kind: 'property', type: info.type, access: info.access, description: HIDDEN_MEMBER_DESCRIPTION });
+			}
+		}
+		return out;
+	};
+	return { isHidden, missingMembers };
+}

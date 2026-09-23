@@ -85,6 +85,21 @@ describe('an unknown member on a closed type', () => {
 	it('leaves the real members of those types alone', () => {
 		expect(found('ws.Calculate\nSheets.Add\nWorkbooks.Open "Book.xlsx"')).toEqual([]);
 	});
+
+	it('is reported on Worksheets, which the type library returns as Sheets', () => {
+		// Issue #79: the VBE refuses this (oracle case
+		// worksheets_unknown_member_compile), whichever way it is reached.
+		for (const receiver of ['Worksheets', 'Application.Worksheets', 'wb.Worksheets']) {
+			expect(found(`${receiver}.NoSuchMemberXyz`), receiver)
+				.toEqual(["Method or data member not found: 'Excel.Worksheets.NoSuchMemberXyz'."]);
+		}
+	});
+
+	it('keeps Worksheets(1) a Worksheet, and the collection\'s own members alone', () => {
+		expect(found('Worksheets(1).NoSuchMemberXyz'))
+			.toEqual(["Method or data member not found: 'Excel.Worksheet.NoSuchMemberXyz'."]);
+		expect(found('Worksheets.Add\nWorksheets(1).Calculate\nDebug.Print Worksheets.Count')).toEqual([]);
+	});
 });
 
 describe('the flag itself', () => {
@@ -93,6 +108,13 @@ describe('the flag itself', () => {
 		expect(hostTypeResolvesWhenCompiling('Worksheet')).toBe(true);
 		expect(hostTypeResolvesWhenCompiling('Excel.Range')).toBe(false);
 		expect(hostTypeResolvesWhenCompiling('Range')).toBe(false);
+	});
+
+	it('answers for the model\'s Worksheets as for the Sheets the library returns', () => {
+		expect(hostTypeResolvesWhenCompiling('Excel.Worksheets')).toBe(true);
+		expect(hostTypeResolvesWhenCompiling('Worksheets')).toBe(true);
+		// The list itself stays the library's own flags.
+		expect(EXCEL_CLOSED_TYPE_NAMES).not.toContain('Worksheets');
 	});
 
 	it('leaves another host to the answer it had, none having been measured', () => {

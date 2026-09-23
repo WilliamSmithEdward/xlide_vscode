@@ -76,6 +76,11 @@ describe('classifyReferenceKinds', () => {
 		expect(kindOf('ReDim Preserve a(1 To n)', 'a')).toBe('readwrite');
 		expect(kindOf('Erase a, b', 'b')).toBe('write');
 		expect(kindOf('Mid(s, 2, 3) = "ab"', 's')).toBe('readwrite');
+		// Issue #80: the lexer gives the type character a token of its own.
+		expect(kindOf('Mid$(s, 2, 3) = "ab"', 's')).toBe('readwrite');
+		expect(kindOf('MidB(s, 2, 3) = "ab"', 's')).toBe('readwrite');
+		expect(kindOf('MidB$(s, 2, 3) = "ab"', 's')).toBe('readwrite');
+		expect(kindOf('x = Mid$(s, 2, 3)', 's')).toBe('read');
 		expect(kindOf('LSet rec = other', 'rec')).toBe('write');
 		expect(kindOf('Line Input #1, textLine', 'textLine')).toBe('write');
 		expect(kindOf('Input #1, a, b', 'b')).toBe('write');

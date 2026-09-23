@@ -28,6 +28,7 @@ import { HOST_LIBRARIES, type VbaProjectReference } from '../vba/vbaProjectRefer
 import { librariesNamedIn } from '../analyzer/diagnostics/rules/missingReference';
 import { hostTokenForFileName } from '../analyzer/host/hostRegistry';
 import { runWriteWithHostCoordination } from '../officeWriteCoordinator';
+import { containerAppNameForPath } from '../macroContainerUi';
 import type { XlideNode } from '../projectExplorer';
 import {
     logChangeSummary,
@@ -76,7 +77,7 @@ async function promptForNewModuleName(
 /** Surfaces a project write failure, preferring the friendly "open in Excel" notice. */
 function surfaceProjectWriteError(filePath: string, err: unknown, fallbackPrefix: string): void {
     if (isProjectLockedError(errorMessage(err))) {
-        reportProjectLocked(filePath, 'write');
+        reportProjectLocked(filePath, 'write', err);
     } else {
         void vscode.window.showErrorMessage(`${fallbackPrefix}: ${err}`);
     }
@@ -236,6 +237,56 @@ export function registerProjectCrudCommands(deps: CommandDeps): vscode.Disposabl
                 },
             );
         }, { errorPrefix: 'Failed to create file', logTag: 'newProject', log }),
+
+        // A macro-enabled file saved before its first macro has no VBA
+        // project; its tree row offers this. The project starts the way the
+        // application starts one: document modules for the workbook and its
+        // sheets, or ThisDocument, or nothing for a presentation.
+        registerXlideCommand('xlide.addVbaProject', async (node?: XlideNode) => {
+            const filePath = node?.filePath;
+            if (!filePath) { return; }
+            const name = path.basename(filePath);
+            const app = containerAppNameForPath(filePath);
+            const starts: Record<string, string> = {
+                Excel: 'It starts with ThisWorkbook and a module for each worksheet and chart sheet, the way Excel starts one. '
+                    + 'Excel keeps a project only while it holds code: saved in Excel before you write any, the workbook loses it again.',
+                Word: 'It starts with ThisDocument, the way Word starts one.',
+                PowerPoint: 'It starts empty, the way PowerPoint starts one; add modules to it from the tree.',
+            };
+            const choice = await vscode.window.showInformationMessage(
+                `Add a VBA project to ${name}?`,
+                { modal: true, detail: starts[app] ?? '' },
+                'Add VBA Project',
+            );
+            if (choice !== 'Add VBA Project') { return; }
+            try {
+                const result = await runWriteWithHostCoordination(filePath, () =>
+                    bridge.call<{ ok: boolean; modules: string[] }>('addVbaProject', { path: filePath }));
+                const summaryText = logChangeSummary(log, 'addVbaProject', {
+                    operation: 'Add VBA project',
+                    changed: result.modules,
+                });
+                recordWriteAudit({
+                    command: 'xlide.addVbaProject',
+                    operation: 'add-vba-project',
+                    outcome: 'succeeded',
+                    projectPath: filePath,
+                    summary: summaryText,
+                });
+                refreshProjectState(deps, filePath);
+                vscode.window.setStatusBarMessage(`XLIDE: added a VBA project to ${name}`, 5000);
+            } catch (err) {
+                recordWriteAudit({
+                    command: 'xlide.addVbaProject',
+                    operation: 'add-vba-project',
+                    outcome: 'failed',
+                    projectPath: filePath,
+                    summary: 'Add VBA project: failed',
+                    error: err,
+                });
+                surfaceProjectWriteError(filePath, err, 'XLIDE: Could not add a VBA project');
+            }
+        }),
 
         registerXlideCommand('xlide.newModule', async (node: XlideNode) => {
             if (node?.kind !== 'project') { return; }

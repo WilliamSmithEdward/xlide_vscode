@@ -749,7 +749,11 @@ export function serializeProjectStream(
 			const headerIdx = outLines.findIndex((l) => l.trim().startsWith('[') && l.trim().endsWith(']'));
 			insertAt = headerIdx >= 0 ? headerIdx : outLines.length;
 		}
-		const newDecls = freshAdds.map(([name, declKey]) => `${declKey}=${name}`);
+		// A document module is declared with its cookie, which Excel and
+		// Word write as &H00000000 for every module they add.
+		const newDecls = freshAdds.map(([name, declKey]) => (declKey === 'Document'
+			? `Document=${name}/&H00000000`
+			: `${declKey}=${name}`));
 		outLines.splice(insertAt, 0, ...newDecls);
 		for (const [name] of freshAdds) { seenDecls.add(fold(name).toLowerCase()); }
 		if (workspaceIdx >= insertAt) { workspaceIdx += newDecls.length; }

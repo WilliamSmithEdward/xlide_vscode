@@ -29,6 +29,7 @@ import {
     memberDoc,
     memberSignature,
     readDumps,
+    readLibraryHidden,
     typeDoc,
 } from './reference-curation.mjs';
 
@@ -81,6 +82,17 @@ const namespaces = new Map(
         .map((dump) => [dump.name, prefixOf(dump)]),
 );
 const curator = createCurator({ dumps, prefix, foreignClasses, namespaces });
+
+// The library's hidden members (reference/<host>/hidden.json, written by
+// scripts/dump-hidden-members.py), read the way the Excel generator reads
+// Excel's. The dumps list none of them: measured against MSWORD.OLB and
+// MSPPT.OLB (2026-09-22), Word's model lacked 332 and PowerPoint's 200, and
+// not one visible member. The models are never exhaustive, so a member they
+// lack cannot be reported missing - but a GLOBAL one is a bare name, and Word's
+// `Assistant.Visible = False` read as "Variable not defined". A host with no
+// such file (Access, VB6) gets no flags and nothing added.
+const libraryHidden = readLibraryHidden(path.join(root, 'reference', host, 'hidden.json'));
+let hiddenAdded = 0;
 
 // The events each class raises, read from the type library itself by
 // scripts/dump-event-sources.py. A host has this file when the dumps cannot
@@ -177,8 +189,19 @@ for (const [name, dump] of dumps) {
         // A class with no property and no method is not a type here, and its
         // events do not make it one: they describe a type, never create it.
         // (Access's `Class` is only Initialize and Terminate, which a class
-        // module's own tables already carry.)
+        // module's own tables already carry.) Hidden library members do not
+        // make one either: they join a type the dump already has.
         if (members.length === 0) { continue; }
+        for (const member of members) {
+            if (libraryHidden.isHidden(name, member.name)) { member.hidden = true; }
+        }
+        const present = new Set(members.map((member) => member.name.toLowerCase()));
+        for (const raw of libraryHidden.missingMembers(name, present)) {
+            const member = memberOf(name, raw, raw.kind);
+            member.hidden = true;
+            members.push(member);
+            hiddenAdded += 1;
+        }
         for (const event of eventSources.get(name.toLowerCase()) ?? []) {
             const member = eventMemberOf(dump, event);
             if (member.doc?.summary) { documented += 1; }
@@ -298,7 +321,8 @@ fs.writeFileSync(outputPath, lines.join('\n'), 'utf8');
 console.log(
     `Wrote ${path.relative(root, outputPath)}: ${Object.keys(types).length} types, ${memberCount} members `
     + `(${documented} documented, ${repaired} generic returns repaired`
-    + (eventCount ? `, ${eventCount} events from the type library), ` : '), ')
+    + (eventCount ? `, ${eventCount} events from the type library` : '')
+    + (hiddenAdded ? `, ${hiddenAdded} hidden members from the type library), ` : '), ')
     + `${constantCount} constants in ${Object.keys(enums).length} enumerations`
     + (evidenceOnly ? `; ${evidenceOnly} evidence-only dumps left out.` : '.'),
 );

@@ -6,7 +6,10 @@ vi.mock('../src/util/powershell', async (original) => ({
     ...(await original<typeof import('../src/util/powershell')>()),
     runPowerShell: vi.fn(),
 }));
-vi.mock('../src/officeHostLauncher', () => ({ openFileInHost: vi.fn(async () => undefined) }));
+vi.mock('../src/officeHostLauncher', async (original) => ({
+    ...(await original<typeof import('../src/officeHostLauncher')>()),
+    openFileInHost: vi.fn(async () => ({})),
+}));
 
 import * as fs from 'fs';
 import * as os from 'os';
@@ -131,7 +134,56 @@ describe('officeWriteCoordinator', () => {
             expect(script).toContain('$onlyReadOnlyCopy = $false');
             const guarded = buildCloseFileScript('C:\\work\\Report.docm', { force: false, onlyReadOnlyCopy: true });
             expect(guarded).toContain('$onlyReadOnlyCopy = $true');
-            expect(guarded).toContain('if ($wasReadOnly -or -not $onlyReadOnlyCopy) {');
+            expect(guarded).toContain('if (($wasReadOnly -or -not $onlyReadOnlyCopy) -and ($force -or -not $unsaved)) {');
+        });
+
+        it('never closes a copy holding unsaved work, read-only or not, outside force', () => {
+            // Measured on build 16.0.20326: Excel, Word and PowerPoint all take
+            // an edit in a copy opened read-only, which only Save As can keep,
+            // and this close discards. It used to close such a copy anyway on
+            // the grounds that a read-only copy holds nothing to lose.
+            for (const file of ['C:\\work\\Book.xlsm', 'C:\\work\\Report.docm', 'C:\\work\\Deck.pptm', 'C:\\work\\Orders.accdb']) {
+                const close = buildCloseFileScript(file, { force: false, onlyReadOnlyCopy: true });
+                expect(close).toContain('function Test-XlideUnsavedWork($copy)');
+                expect(close).toContain('$unsaved = Test-XlideUnsavedWork $file');
+                expect(close).toContain('($force -or -not $unsaved)');
+                expect(close).toContain('|unsaved=');
+            }
+        });
+
+        it('asks each application for unsaved work in its own terms', () => {
+            expect(buildCloseFileScript('C:\\work\\Book.xlsm', { force: false })).toContain('return (-not [bool]$copy.Saved)');
+            expect(buildCloseFileScript('C:\\work\\Report.docm', { force: false })).toContain('return (-not [bool]$copy.Saved)');
+            // MsoTriState: only msoTrue (-1) means saved.
+            expect(buildCloseFileScript('C:\\work\\Deck.pptm', { force: false })).toContain('return ($copy.Saved -ne -1)');
+            // Access has no document flag; each loaded object carries a dirty
+            // bit, which is 2 in Access's own type library.
+            const access = buildCloseFileScript('C:\\work\\Orders.accdb', { force: false });
+            expect(access).toContain('$app.SysCmd(10, $type, $object.Name) -band 2');
+            expect(access).toContain('2 = $app.CurrentProject.AllForms');
+        });
+
+        it('keeps its statements on lines of their own, for every application and scope', () => {
+            // See the launcher's test of the same: the scripts used to be
+            // joined with "; ", which ran a clause after it as a command.
+            const detached = /\}\s*;\s*(else|elseif|catch|finally)\b/i;
+            for (const file of ['C:\\w\\Book.xlsm', 'C:\\w\\Report.docm', 'C:\\w\\Deck.pptm', 'C:\\w\\Orders.accdb']) {
+                for (const force of [false, true]) {
+                    for (const onlyReadOnlyCopy of [false, true]) {
+                        const script = buildCloseFileScript(file, { force, onlyReadOnlyCopy });
+                        expect(script.split('\n').length).toBeGreaterThan(10);
+                        expect(script).not.toMatch(detached);
+                    }
+                }
+                expect(buildRefreshReadOnlyScript(file) ?? '').not.toMatch(detached);
+            }
+        });
+
+        it('treats anything it cannot determine as unsaved', () => {
+            // The two ways to be wrong: a save that asks you to close the file
+            // yourself, or somebody's work. Only one of them is acceptable.
+            expect(buildCloseFileScript('C:\\work\\Book.xlsm', { force: false }))
+                .toMatch(/function Test-XlideUnsavedWork\(\$copy\) \{ try \{ .* \} catch \{ return \$true \} \}/);
         });
 
         it('waits briefly for the application to let go of the file it closed', () => {
@@ -182,15 +234,24 @@ describe('officeWriteCoordinator', () => {
         const doc = 'C:\\scope\\Report.docm';
         beforeEach(() => forgetFileOpenedByXlide(doc));
 
-        it('closes nothing for a file XLIDE did not open, under block', () => {
-            expect(closeScopeForWrite(settings({ mode: 'block' }), doc)).toBeUndefined();
-        });
-
-        it('closes only a read-only copy of a file XLIDE opened, under block', () => {
-            // Word and PowerPoint lock a file even when it is open read-only,
-            // which is how F5 leaves it, so a save after F5 depends on this.
+        it('closes a read-only copy under block, whoever opened it', () => {
+            // Word and PowerPoint lock a file even when it is open read-only.
+            // It used to take XLIDE having opened the copy, so a document you
+            // opened read-only to look at blocked every save until you closed
+            // it by hand. The script still checks it IS read-only and holds
+            // no unsaved work before it closes anything.
+            expect(closeScopeForWrite(settings({ mode: 'block' }), doc)).toBe('readOnlyCopy');
+            expect(closeScopeForWrite(settings({ mode: 'block' }), 'C:\\scope\\Deck.pptm')).toBe('readOnlyCopy');
             markFileOpenedByXlide(doc);
             expect(closeScopeForWrite(settings({ mode: 'block' }), doc)).toBe('readOnlyCopy');
+        });
+
+        it('closes nothing under block where a read-only open never locks', () => {
+            // A read-only workbook leaves the file writable, so a lock in Excel
+            // is a copy open for editing: running the close would only delay
+            // the refusal. Access has no read-only open at all.
+            expect(closeScopeForWrite(settings({ mode: 'block' }), 'C:\\scope\\Book.xlsm')).toBeUndefined();
+            expect(closeScopeForWrite(settings({ mode: 'block' }), 'C:\\scope\\Orders.accdb')).toBeUndefined();
         });
 
         it('closes any open copy where the mode itself allows a close', () => {
@@ -200,15 +261,18 @@ describe('officeWriteCoordinator', () => {
         });
 
         it('falls back to the read-only rule when closeTracked may not close the file', () => {
-            expect(closeScopeForWrite(settings({ mode: 'closeTracked' }), doc)).toBeUndefined();
+            expect(closeScopeForWrite(settings({ mode: 'closeTracked' }), doc)).toBe('readOnlyCopy');
+            expect(closeScopeForWrite(settings({ mode: 'closeTracked' }), 'C:\\scope\\Book.xlsm')).toBeUndefined();
         });
     });
 
     describe('buildRefreshReadOnlyScript', () => {
         const script = buildRefreshReadOnlyScript('C:\\ro\\Book.xlsm');
 
-        it('only refreshes a file that is actually open read-only', () => {
-            expect(script).toContain('if ($file -and [bool]$file.ReadOnly) {');
+        it('only refreshes a file that is actually open read-only, with nothing unsaved in it', () => {
+            // A read-only copy takes edits; this closes it without saving.
+            expect(script).toContain('if ($file -and [bool]$file.ReadOnly -and -not (Test-XlideUnsavedWork $file)) {');
+            expect(script).toContain('function Test-XlideUnsavedWork($copy)');
             // close + reopen read-only ($true) so a closed file is never opened
             expect(script).toContain('$file.Close($false)');
             expect(script).toContain('$app.Workbooks.Open($targetPath, 0, $true)');
@@ -229,6 +293,44 @@ describe('officeWriteCoordinator', () => {
 
         it('has nothing to refresh in Access, which has no read-only open', () => {
             expect(buildRefreshReadOnlyScript('C:\\ro\\Orders.accdb')).toBeUndefined();
+        });
+
+        it('keeps the reader\'s place: sheet, selection, active cell and scroll', () => {
+            const at = (text: string): number => script!.indexOf(text);
+            for (const read of [
+                '$place.sheet = [string]$window.ActiveSheet.Name',
+                '$place.selection = [string]$window.RangeSelection.Address()',
+                '$place.activeCell = [string]$window.ActiveCell.Address()',
+                '$place.scrollRow = [int]$window.ScrollRow',
+            ]) {
+                expect(at(read), read).toBeGreaterThan(-1);
+                expect(at(read), `${read} comes before the close`).toBeLessThan(at('try { $file.Close($false) } catch { }'));
+            }
+            // Put back into the copy just opened, sheet first, scroll last.
+            const reopened = at('$file = $app.Workbooks.Open($targetPath, 0, $true)');
+            expect(reopened).toBeGreaterThan(-1);
+            expect(at('$file.Sheets.Item($place.sheet).Activate()')).toBeGreaterThan(reopened);
+            expect(at('$file.ActiveSheet.Range($place.selection).Select()')).toBeGreaterThan(at('$file.Sheets.Item($place.sheet).Activate()'));
+            expect(at('$window.ScrollRow = $place.scrollRow')).toBeGreaterThan(at('$file.ActiveSheet.Range($place.activeCell).Activate()'));
+            // And the workbook you had in front stays in front.
+            expect(script).toContain('$place.otherActive = [string]$active.FullName');
+            expect(script).toContain('if ($other.FullName -ieq $place.otherActive) { $other.Activate(); break }');
+        });
+
+        it('does not run Workbook_Open again on every save', () => {
+            // Events go off for the reopen and come back whatever happens.
+            expect(script).toContain([
+                '    $eventsWere = $app.EnableEvents',
+                '    try {',
+                '      $app.EnableEvents = $false',
+            ].join('\n'));
+            expect(script).toContain([
+                '    finally {',
+                '      $app.EnableEvents = $eventsWere',
+                '    }',
+            ].join('\n'));
+            // Word and PowerPoint have no such switch.
+            expect(buildRefreshReadOnlyScript('C:\\ro\\Report.docm')).not.toContain('EnableEvents');
         });
     });
 
@@ -284,7 +386,7 @@ describe('officeWriteCoordinator', () => {
                 trackOpenedFiles: true,
                 reopenAfterClose: true,
                 reopenMode: 'lastState',
-                reopenReadOnlyAfterSave: false,
+                reopenReadOnlyAfterSave: true,
             });
         });
 
@@ -312,7 +414,10 @@ describe('officeWriteCoordinator', () => {
         };
         const closeReports = (sentinel: string): void => {
             vi.mocked(runPowerShell).mockImplementation((options) => {
-                scripts.push(options.args[1]);
+                // Every coordination script goes over whole, as the script
+                // itself, never as a -Command argument.
+                expect(options.args).toBeUndefined();
+                scripts.push(options.script ?? '');
                 return {
                     kill: () => undefined,
                     result: Promise.resolve({
@@ -358,15 +463,15 @@ describe('officeWriteCoordinator', () => {
             expect(scripts[0]).toContain('GetActiveObject("Word.Application")');
             expect(scripts[0]).toContain('$onlyReadOnlyCopy = $false');
             // lastState: it was open for editing, so it goes back that way.
-            expect(openFileInHost).toHaveBeenCalledWith(doc, { attachToRunning: true, readOnly: false }, expect.any(Function));
+            expect(openFileInHost).toHaveBeenCalledWith(doc, { attachToRunning: true, readOnly: false, background: true }, expect.any(Function));
             forgetFileOpenedByXlide(doc);
         });
 
-        it('under block, closes only the read-only copy XLIDE opened and reopens it read-only', async () => {
+        it('under block, closes a read-only copy and reopens it read-only', async () => {
             const deck = 'C:\\flow\\Deck.pptm';
             markFileOpenedByXlide(deck);
             useSettings({});
-            closeReports('XLIDE_CLOSE|closed=True|locked=False|found=True|wasReadOnly=True|forced=False');
+            closeReports('XLIDE_CLOSE|closed=True|locked=False|found=True|wasReadOnly=True|forced=False|unsaved=False');
             const write = lockedWrite(deck, 1);
 
             await expect(runWriteWithHostCoordination(deck, write)).resolves.toBe('written');
@@ -374,11 +479,99 @@ describe('officeWriteCoordinator', () => {
             expect(scripts[0]).toContain('GetActiveObject("PowerPoint.Application")');
             expect(scripts[0]).toContain('$onlyReadOnlyCopy = $true');
             expect(scripts[0]).toContain('$force = $false');
-            expect(openFileInHost).toHaveBeenCalledWith(deck, { attachToRunning: true, readOnly: true }, expect.any(Function));
+            expect(openFileInHost).toHaveBeenCalledWith(deck, { attachToRunning: true, readOnly: true, background: true }, expect.any(Function));
             forgetFileOpenedByXlide(deck);
         });
 
-        it('under block, leaves a file XLIDE did not open alone and surfaces the lock', async () => {
+        it('under block, frees a document you opened read-only yourself', async () => {
+            // The reported case: a Word document open read-only to look at,
+            // which XLIDE did not open, used to block every save until it was
+            // closed by hand.
+            const doc = 'C:\\flow\\Mine.docm';
+            forgetFileOpenedByXlide(doc);
+            useSettings({});
+            closeReports('XLIDE_CLOSE|closed=True|locked=False|found=True|wasReadOnly=True|forced=False|unsaved=False');
+            const write = lockedWrite(doc, 1);
+
+            await expect(runWriteWithHostCoordination(doc, write)).resolves.toBe('written');
+
+            expect(write).toHaveBeenCalledTimes(2);
+            expect(scripts[0]).toContain('$onlyReadOnlyCopy = $true');
+            expect(openFileInHost).toHaveBeenCalledWith(doc, { attachToRunning: true, readOnly: true, background: true }, expect.any(Function));
+            forgetFileOpenedByXlide(doc);
+        });
+
+        it('puts the reader back where they were in the copy it closed', async () => {
+            const doc = 'C:\\flow\\Place.docm';
+            useSettings({});
+            vi.mocked(runPowerShell).mockImplementation((options) => {
+                scripts.push(options.script ?? '');
+                return {
+                    kill: () => undefined,
+                    result: Promise.resolve({
+                        code: 0, signal: null, timedOut: false, stderrLines: [], stdoutLines: [
+                            'XLIDE_PLACE|{"start":120,"end":131,"scrolled":42}',
+                            'XLIDE_CLOSE|closed=True|locked=False|found=True|wasReadOnly=True|forced=False|unsaved=False',
+                        ],
+                    }),
+                };
+            });
+
+            await expect(runWriteWithHostCoordination(doc, lockedWrite(doc, 1))).resolves.toBe('written');
+
+            // Read before the close, in the close script.
+            expect(scripts[0].indexOf('$place.start = [int]$window.Selection.Start'))
+                .toBeLessThan(scripts[0].indexOf('try { $file.Close(0); $closed = $true } catch { }'));
+            expect(openFileInHost).toHaveBeenCalledWith(doc, {
+                attachToRunning: true, readOnly: true, background: true, place: { start: 120, end: 131, scrolled: 42 },
+            }, expect.any(Function));
+            forgetFileOpenedByXlide(doc);
+        });
+
+        it('refreshes once more for a save that arrives while a refresh runs, never piling them up', async () => {
+            const book = 'C:\\flow\\Live.xlsm';
+            useSettings({ 'officeIntegration.reopenReadOnlyAfterSave': true });
+            const finish: Array<() => void> = [];
+            vi.mocked(runPowerShell).mockImplementation((options) => {
+                scripts.push(options.script ?? '');
+                return {
+                    kill: () => undefined,
+                    result: new Promise((resolve) => finish.push(() => resolve({
+                        code: 0, signal: null, timedOut: false, stderrLines: [], stdoutLines: ['XLIDE_REFRESH|refreshed=True'],
+                    }))),
+                };
+            });
+            const save = vi.fn(async () => 'saved');
+
+            await runWriteWithHostCoordination(book, save);
+            await runWriteWithHostCoordination(book, save);
+            await runWriteWithHostCoordination(book, save);
+            await vi.waitFor(() => expect(finish).toHaveLength(1));
+            finish[0]();
+            // The two saves during the first refresh make one more, not two.
+            await vi.waitFor(() => expect(finish).toHaveLength(2));
+            finish[1]();
+            await new Promise((resolve) => setTimeout(resolve, 20));
+            expect(scripts.filter((script) => script.includes('XLIDE_REFRESH|'))).toHaveLength(2);
+            forgetFileOpenedByXlide(book);
+        });
+
+        it('leaves a read-only copy with unsaved work open, and the save fails', async () => {
+            const doc = 'C:\\flow\\Typed.docm';
+            useSettings({});
+            closeReports('XLIDE_CLOSE|closed=False|locked=True|found=True|wasReadOnly=True|forced=False|unsaved=True');
+            const write = lockedWrite(doc, 2);
+            const log = vi.fn();
+
+            await expect(runWriteWithHostCoordination(doc, write, log)).rejects.toThrow(/EPERM/);
+
+            // Nothing was closed, so nothing is reopened over the top of it.
+            expect(openFileInHost).not.toHaveBeenCalled();
+            expect(log).toHaveBeenCalledWith(expect.stringContaining('holds unsaved work'));
+        });
+
+        it('under block, runs no close at all where a read-only open never locks', async () => {
+            // A lock on an Access database is always an open for editing.
             const db = 'C:\\flow\\Orders.accdb';
             useSettings({});
             const write = lockedWrite(db, 1);

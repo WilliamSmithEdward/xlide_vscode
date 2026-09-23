@@ -31,11 +31,15 @@
 //       #If/#ElseIf/#Else/#End If balance; the parser treats directives as
 //       opaque ConditionalDirective nodes and never reports them.
 //
-//   procedure-closer-repair    (legacy richer) For a procedure closed by the
-//       WRONG procedure closer (Property Get ... End Function), the legacy
-//       engine emits ONE missing-block-closer carrying expectedCloseReplacement
-//       fix-it metadata; the parser emits an extra "Unexpected 'End X'"
-//       diagnostic for the same line and carries no fix-it metadata.
+//   procedure-closer-repair    (RESOLVED) A procedure closed by the WRONG
+//       procedure closer (Property Get ... End Function), which the VBE
+//       compiles. The parser used to wait for the exact closer, reporting the
+//       procedure missing and the closer unexpected, and read every
+//       module-level line after it as body (issue #81). It now closes on any
+//       procedure closer, so both engines agree the block is closed. The
+//       legacy engine's mismatched-end-keyword warning, with its fix-it, is a
+//       style rule like module-declaration-in-procedure and out of scope here;
+//       a convergence repro guards against regression.
 //
 //   next-multi-close           (legacy correct) `Next j, i` closes two For
 //       blocks in the VBE (MS-VBAL 5.4.2.5 allows a Next variable list); the
@@ -105,16 +109,14 @@ interface BlockBalanceRecord {
 function legacyRecords(source: string): BlockBalanceRecord[] {
     const records: BlockBalanceRecord[] = [];
     for (const problem of analyzeVbaStructure(source)) {
-        if (problem.code === 'missing-block-closer' || problem.code === 'mismatched-end-keyword') {
-            // A mismatched-end-keyword warning is the structural engine's
-            // procedure-closer-repair signal (a wrong closer on an open procedure),
-            // anchored at the opener like missing-block-closer.
+        if (problem.code === 'missing-block-closer') {
             records.push({ kind: 'missing', line: problem.line, closer: problem.expectedClose });
         } else if (problem.code === 'unmatched-block-closer') {
             records.push({ kind: 'unmatched', line: problem.line });
         }
-        // 'module-declaration-in-procedure' is a separate legacy-only rule, not
-        // a block-balance signal; it is out of scope for this comparison.
+        // 'module-declaration-in-procedure' and 'mismatched-end-keyword' are
+        // separate legacy-only rules, not block-balance signals: the second
+        // warns about a procedure it treats as closed. Both are out of scope.
     }
     return records;
 }
@@ -188,7 +190,6 @@ function subtractRecords(
 
 type DivergenceClass =
     | 'preprocessor-balance'
-    | 'procedure-closer-repair'
     | 'next-multi-close'
     | 'nested-procedure-header'
     | 'module-level-block-fragment'
@@ -211,22 +212,13 @@ const PROC_CLOSER_PHRASE_RE = /^End (?:Sub|Function|Property)$/;
 interface ClassificationContext {
     rawLines: string[];
     strippedLines: string[];
-    /** Legacy diagnostics carrying the fix-it metadata, for repair detection. */
-    legacyReplacementLines: ReadonlySet<number>;
 }
 
 function classificationContext(source: string): ClassificationContext {
     const rawLines = source.split(/\r\n|\r|\n/);
-    const legacyReplacementLines = new Set<number>();
-    for (const problem of analyzeVbaStructure(source)) {
-        if (problem.expectedCloseReplacement) {
-            legacyReplacementLines.add(problem.expectedCloseReplacement.line);
-        }
-    }
     return {
         rawLines,
         strippedLines: rawLines.map(stripVba),
-        legacyReplacementLines,
     };
 }
 
@@ -302,13 +294,6 @@ function classifyRecord(
     }
 
     // side === 'parser'
-    if (
-        record.kind === 'unmatched' &&
-        PROC_CLOSER_RE.test(stripped) &&
-        ctx.legacyReplacementLines.has(record.line)
-    ) {
-        return 'procedure-closer-repair';
-    }
     if (record.kind === 'missing' && record.closer === 'Next' &&
         ctx.strippedLines.some((line, i) => i >= record.line && MULTI_NEXT_RE.test(line))
     ) {
@@ -413,23 +398,22 @@ describe('structural engine divergence repros (audit #74)', () => {
         expect(parserRecords(src)).toEqual([]);
     });
 
-    it('procedure-closer-repair: legacy folds a wrong procedure closer into one repairable diagnostic', () => {
+    it('procedure-closer-repair: RESOLVED - both engines close a procedure on the wrong procedure closer', () => {
+        // The VBE compiles this. The parser waited for End Property, called the
+        // procedure missing it and the End Function unexpected, and read the
+        // declaration after it as part of the procedure (issue #81).
         const src =
             'Public Property Get Measurement() As Double\n' +
             '    Measurement = 1\n' +
-            'End Function\n';
-        expect(sortedRecords(legacyRecords(src))).toEqual([
-            { kind: 'missing', line: 0, closer: 'End Property' },
-        ]);
-        // The fix-it metadata the parser route does not carry today:
-        expect(analyzeVbaStructure(src)[0].expectedCloseReplacement).toMatchObject({
-            line: 2,
-            text: 'End Property',
+            'End Function\n' +
+            'Private m As Long\n';
+        expect(legacyRecords(src)).toEqual([]);
+        expect(parserRecords(src)).toEqual([]);
+        // The legacy engine's style warning keeps its fix-it:
+        expect(analyzeVbaStructure(src)[0]).toMatchObject({
+            code: 'mismatched-end-keyword',
+            expectedCloseReplacement: { line: 2, text: 'End Property' },
         });
-        expect(sortedRecords(parserRecords(src))).toEqual([
-            { kind: 'missing', line: 0, closer: 'End Property' },
-            { kind: 'unmatched', line: 2 },
-        ]);
     });
 
     it('next-multi-close: the parser does not honor a Next variable list', () => {

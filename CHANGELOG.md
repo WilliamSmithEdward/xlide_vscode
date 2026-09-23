@@ -2,6 +2,130 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.6.0] - 2026-09-22
+
+- **A macro-enabled file with no VBA in it can be given a project.** 10.5.0
+  stopped calling such a file a load failure. Its "No VBA in this file yet"
+  row now offers Add VBA Project, as its click and as an inline button, and
+  the command palette has it too. XLIDE writes the project the way the
+  application would, with a document module for the workbook and for each
+  sheet under the code name Excel would give it. The applications checked the
+  result themselves: Excel opened .xlsm and .xlsb files, one with a chart
+  sheet and one with a dialog sheet and a macro sheet, with nothing to repair,
+  ran code added to the new project and saved them. Word did the same with a
+  .docm and PowerPoint with a .pptm. It works on the macro-enabled Office Open
+  XML formats: .xlsm, .xlsb, .docm, .pptm and their templates and add-ins. A
+  legacy .xls, .doc or .ppt still gets its first macro in its application.
+  Excel keeps a project only while it holds code, so a workbook saved in Excel
+  before any is written loses it again. An agent that cannot write the first
+  module is told to ask for the project to be added.
+
+- **A save refused because the file is held names what holds it.** XLIDE
+  saves by renaming a temp file over the container, and Windows refuses that
+  while anything has the file open. The message named the file's application,
+  a guess that was wrong for Word holding a read-only copy, a second Excel,
+  OneDrive syncing or a backup agent. XLIDE now asks Windows' Restart Manager,
+  the API behind Explorer's "the file is open in ...", and names the processes
+  that hold the file: "Microsoft Word (WINWORD.EXE, process 4242)". The lookup
+  lists processes and asks nothing of them, takes about 300 ms, and falls back
+  to the application's name where it cannot answer. The agent tools pass the
+  message on.
+
+- **The read-only copy XLIDE reopens after a save comes back where you were,
+  and Excel's is on by default.** A workbook open read-only in Excel does not
+  lock the file, so a save goes through and Excel keeps showing the old copy.
+  `xlide.officeIntegration.reopenReadOnlyAfterSave`, now on by default,
+  reopens it after each save, in the background, with the sheet, selection
+  and scroll you had and without running Workbook_Open again, so a read-only
+  window follows your edits. Word and PowerPoint lock the file even when it is
+  open read-only, so XLIDE closes and reopens the copy there around every
+  save. That now includes a copy you opened yourself, and it comes back with
+  your selection in Word and on your slide in PowerPoint. A read-only copy you
+  have typed into is never closed.
+
+- **An editor follows a module renamed in the VBE.** Renaming a module there
+  and saving, with its editor open in XLIDE, refreshed the tree and left the
+  editor on the old name, marked deleted, showing a module the project no
+  longer had. The editor now moves to the new name at the same place. One with
+  unsaved edits stays where it is, as it does for XLIDE's own rename, and a
+  deleted module is never taken for another that holds the same code.
+
+- **Ctrl+Alt+O opens the file in its application, and the status bar says
+  which file.** Ctrl+Alt+Shift+O opens it read-only. With no tree row to go
+  on, the key works out the file you mean: the one picked in the XLIDE
+  sidebar, the one whose module is in front, the one you last had a module
+  open from, or the only one in the workspace. With several files and none of
+  those, it does nothing rather than guess, and the status bar says
+  "ambiguous".
+
+- **The tree keeps up when the editor moves quickly.** Switching tabs faster
+  than the tree could reveal left it on the wrong module. Each switch started
+  its own reveal, a late one expanded a module the editor had already left,
+  and VS Code reports that expansion exactly as it reports a click, so the
+  tree then followed the stale module. Switching now settles into one reveal
+  of the last module. The tree also catches up when it is shown again after
+  the editor moved behind it, and reveals a module of a project it has not
+  loaded yet. It keeps the project open and the caret's procedure marked
+  across a refresh or a save: a refresh used to hand rows ids VS Code still
+  held folded, and a save moved every procedure's row. A module whose
+  `@Folder` changes while you edit it takes its open folders along.
+
+- **A comparison with a read-only property is not an assignment to it**
+  (#78). An `ElseIf` header, a single-line `If`'s condition, a `Case` header
+  or a call given a comparison, such as `Debug.Print w.Part = "a"`, was
+  reported as assigning to the property. Found in ReDim's ReDimUI, which
+  compiles and runs. A target is now one receiver chain ending in the member.
+  A real assignment, in a `With` block, after `Let` or in a single-line
+  `If`'s branch, is still reported.
+
+- **`Worksheets.NoSuchMember` is reported** (#79). The VBE refuses it: the
+  type library returns `Sheets`, which is closed, from every `Worksheets`
+  property, while XLIDE took the library's open `Worksheets` interface and
+  let any name through. The two list the same members, so XLIDE treats
+  `Worksheets` as closed too, and `Worksheets(1)` stays a Worksheet.
+
+- **A `Mid$` or `MidB$` statement modifies its target** (#80). The lexer
+  gives the type character a token of its own, so the target of
+  `Mid$(s, 1, 1) = "x"` read as only read. Extract Method, the refactorings
+  and the reference highlights saw `s` as never modified.
+
+- **A procedure closed with the wrong End keyword ends there** (#81). The VBE
+  accepts `End Function` as the closer of a `Property Get`, and XLIDE warns
+  about the mismatch. The analyzer's parser waited for `End Property` and read
+  every module-level line after it as part of the procedure, so a declaration
+  there was reported as inside a procedure. It is now reported for coming
+  after one.
+
+- **Members the type library hides are known.** The models came from the
+  reference documentation, which leaves out what the library marks hidden, so
+  a closed type refused them: `ThisWorkbook.Title` in ReDim's HostProbe was
+  "member not found" in code that compiles. Read from the libraries
+  themselves, Excel's Workbook lacked 28, Worksheet 10 and Chart 52, Word
+  lacked 332 and PowerPoint 200, and no visible member was missing. They now
+  resolve and hover, marked hidden, and are never offered. A hidden global
+  called bare, such as Word's Office Assistant, no longer reads as "Variable
+  not defined". A bare `Save` in Excel, hidden on Application and absent from
+  Global, is still not accepted.
+
+- **A call to a function that returns an array counts its arguments
+  right.** `Bridge.EmptyBytes()`, against a function declared
+  `EmptyBytes() As Byte()`, was reported as "expected 1 argument" in
+  vbaSQLBridge's tests, which run. The parameter list was read to the last
+  `)` of the signature, which belongs to the return type. A `)` inside a
+  quoted default value no longer unbalances the list either.
+
+- **PowerShell that XLIDE runs for Office arrives as it was written.** Scripts
+  went to PowerShell joined onto one line with "; ", which turns a `}` before
+  an `else` into `}; else`: it parses, then fails when it runs. They now go as
+  -EncodedCommand with their own line breaks and are parsed whole, like a
+  script file.
+
+- **For contributors: `npm run test:office`** runs the checks only real
+  Office can answer, against Excel, Word, PowerPoint and Access on Windows,
+  on scratch copies of the fixtures. Excel runs in instances the suite starts.
+  Word, PowerPoint and Access are skipped while you have them open, and
+  nothing already running is attached to.
+
 ## [10.5.0] - 2026-09-22
 
 - **A file with no VBA in it is no longer a load failure.** A workbook saved

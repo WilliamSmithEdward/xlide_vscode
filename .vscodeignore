@@ -22,6 +22,7 @@ excel_test_workbook/**
 esbuild.js
 webBuild.js
 vitest.config.ts
+vitest.office.config.ts
 tsconfig.json
 .gitignore
 **/*.map

@@ -10,7 +10,8 @@ import {
     settingsPathForProject,
 } from './projectSettings';
 import { registerXlideCommand } from './xlideCommandRegistration';
-import { activeLocalVbaEditor, decodeModuleUri, sameProjectPath, XLIDE_SCHEME } from './xlideFileSystem';
+import { sameProjectPath, XLIDE_SCHEME } from './xlideFileSystem';
+import { resolveProjectTarget, SELECTED_PROJECT_STATE_KEY, storeSelectedProject } from './projectTarget';
 import { AGENT_INSTRUCTIONS, AGENT_INSTRUCTIONS_STEPS } from './agentInstructions';
 import {
     buildXlideSidebarModel,
@@ -188,11 +189,13 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
 
     private async _setSelectedProjectPath(filePath: string | undefined): Promise<void> {
         this._selectedProjectPath = filePath;
-        await this._options.workspaceState?.update(SELECTED_WORKBOOK_KEY, filePath);
+        await storeSelectedProject(this._options.workspaceState, filePath);
     }
 }
 
-const SELECTED_WORKBOOK_KEY = 'xlide.sidebar.selectedProjectPath';
+// The key itself lives with the ladder that reads it, so a keybinding
+// resolving the target sees the same pick this sidebar wrote.
+const SELECTED_WORKBOOK_KEY = SELECTED_PROJECT_STATE_KEY;
 
 function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRegistration {
     const provider = new XlideSidebarProvider(options);
@@ -264,21 +267,17 @@ async function projectFiles(): Promise<vscode.Uri[]> {
     return measurePerformance('sidebar.projectFiles', undefined, () => findMacroContainerFiles());
 }
 
+/**
+ * The file the sidebar shows and its buttons act on. Resolved through the
+ * shared ladder so a keybinding, which has no sidebar and no row to go on,
+ * always lands on the same file as the Open button the user can see.
+ */
 async function activeProjectContext(
     projects: readonly vscode.Uri[],
     selectedProjectPath?: string,
 ): Promise<XlideSidebarActiveProject | undefined> {
-    if (selectedProjectPath && findProject(projects, selectedProjectPath)) {
-        return sidebarProjectForPath(selectedProjectPath, 'sidebarSelection');
-    }
-    const activeFromEditor = activeProjectPathFromEditor();
-    if (activeFromEditor) {
-        return sidebarProjectForPath(activeFromEditor, 'activeEditor');
-    }
-    if (projects.length === 1) {
-        return sidebarProjectForPath(projects[0].fsPath, 'singleProject');
-    }
-    return undefined;
+    const target = await resolveProjectTarget({ projects, selectedProjectPath });
+    return target ? sidebarProjectForPath(target.filePath, target.source) : undefined;
 }
 
 function projectChoices(projects: readonly vscode.Uri[]): XlideSidebarProjectChoice[] {
@@ -291,11 +290,6 @@ function projectChoices(projects: readonly vscode.Uri[]): XlideSidebarProjectCho
 
 function findProject(projects: readonly vscode.Uri[], filePath: string): vscode.Uri | undefined {
     return projects.find((uri) => sameProjectPath(uri.fsPath, filePath));
-}
-
-function activeProjectPathFromEditor(): string | undefined {
-    const editor = activeLocalVbaEditor();
-    return editor ? decodeModuleUri(editor.document.uri).projectPath : undefined;
 }
 
 async function sidebarProjectForPath(

@@ -38,18 +38,20 @@ function killProcessTree(child: cp.ChildProcess): void {
  * buffer stdout/stderr into trimmed non-empty lines split on \r?\n (flushed
  * on close), and optionally kill on timeout.
  */
-// Windows PowerShell 5.1 writes redirected stdout/stderr using the OEM/ANSI code
-// page, so non-ASCII text (localized Excel COM error messages) would mojibake when
-// Node decodes the bytes as UTF-8. Force UTF-8 output for -Command scripts so the
-// two ends agree; the -File host (run-vba-tests.ps1) sets it itself.
-function withUtf8OutputEncoding(args: readonly string[]): string[] {
-    const i = args.indexOf('-Command');
-    if (i >= 0 && typeof args[i + 1] === 'string') {
-        const next = [...args];
-        next[i + 1] = '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; ' + next[i + 1];
-        return next;
-    }
-    return [...args];
+/**
+ * The arguments that run `script`: -EncodedCommand with the script as
+ * base64 UTF-16LE, which is what PowerShell decodes it from. The script
+ * arrives with its own line breaks and is parsed whole.
+ *
+ * Windows PowerShell 5.1 writes redirected stdout/stderr in the OEM/ANSI code
+ * page, so non-ASCII text (a localized COM error message) would mojibake when
+ * Node decodes the bytes as UTF-8. The script's first line switches output to
+ * UTF-8 so the two ends agree; the -File host (run-vba-tests.ps1) sets it
+ * itself.
+ */
+export function encodedCommandArgs(script: string): string[] {
+    const withUtf8Output = `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8\n${script}`;
+    return ['-EncodedCommand', Buffer.from(withUtf8Output, 'utf16le').toString('base64')];
 }
 
 export function runPowerShell(options: RunPowerShellOptions): PowerShellRun {
@@ -57,7 +59,7 @@ export function runPowerShell(options: RunPowerShellOptions): PowerShellRun {
         '-NoProfile',
         '-ExecutionPolicy',
         'Bypass',
-        ...withUtf8OutputEncoding(options.args),
+        ...(options.script !== undefined ? encodedCommandArgs(options.script) : options.args ?? []),
     ], { windowsHide: options.windowsHide ?? true });
 
     const stdoutLines: string[] = [];

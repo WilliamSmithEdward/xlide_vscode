@@ -4,6 +4,15 @@ import * as vscode from 'vscode';
 import { psSingleQuoted, runPowerShell } from './util/powershell';
 import { OFFICE_HOST_APPS, officeHostForPath, type OfficeHostApp } from './officeHostApps';
 import { openFileInHost } from './officeHostLauncher';
+import { LOCK_TEST_FUNCTION, unsavedWorkFunction } from './officeFileState';
+import { annotateLockError } from './fileLockHolders';
+import {
+    capturePlaceLines,
+    parsePlace,
+    PLACE_REPORT_LINE,
+    restorePlaceLines,
+    type OfficeViewPlace,
+} from './officeViewPlace';
 import { PROJECT_LOCKED_ERROR_RE } from './xlideCommandLog';
 import { errorMessage } from './util/errors';
 import { recordProjectWrite } from './projectFileChanges';
@@ -30,7 +39,10 @@ import {
  * The applications differ in one way that matters here, measured on Office
  * 16.0: a workbook open READ-ONLY in Excel does not hold the lock, while a
  * read-only document in Word or presentation in PowerPoint does, and Access
- * has no read-only open at all.
+ * has no read-only open at all (OfficeHostAppInfo.readOnlyOpenLocks).
+ *
+ * Nothing is ever closed with unsaved work in it, read-only or not, whatever
+ * the mode except closeForce - see officeFileState.ts.
  *
  * Windows + COM only; every entry point no-ops on other platforms so the
  * caller falls back to its existing block-and-warn path.
@@ -159,12 +171,17 @@ export type CoordinatedCloseScope = 'any' | 'readOnlyCopy';
 /**
  * What a blocked write may close, or undefined when it may close nothing.
  *
- * Beyond the mode's own answer, a READ-ONLY copy XLIDE itself opened is
- * XLIDE's to close under every mode: it holds no edits that can be saved, and
- * F5 already closes and reopens one on every run. Word and PowerPoint keep the
- * file locked even for a read-only open, so without this a save after F5 would
- * fail until the user closed the file by hand. The script confirms the
- * read-only state itself, so a copy switched to editing is left alone.
+ * Beyond the mode's own answer, a READ-ONLY copy with no unsaved work is
+ * closed under every mode, whoever opened it: it can be put back exactly as it
+ * was, read-only and showing the file XLIDE just wrote. Word and PowerPoint
+ * keep the file locked even for a read-only open, so without this a save
+ * while you look at the file there fails until you close it by hand. The
+ * script confirms both conditions itself, so a copy switched to editing, or
+ * one somebody typed into, is left alone.
+ *
+ * Excel never needs it: a read-only workbook does not lock the file, so a
+ * write meeting a lock there has met a copy open for editing, and running the
+ * close script would only delay the refusal.
  */
 export function closeScopeForWrite(
     settings: HostCoordinationSettings,
@@ -173,7 +190,8 @@ export function closeScopeForWrite(
     if (shouldAttemptClose(settings, filePath)) {
         return 'any';
     }
-    return wasFileOpenedByXlide(filePath) ? 'readOnlyCopy' : undefined;
+    const host = officeHostForPath(filePath);
+    return host && OFFICE_HOST_APPS[host].readOnlyOpenLocks ? 'readOnlyCopy' : undefined;
 }
 
 /**
@@ -187,7 +205,7 @@ interface HostOpenFileDialect {
     readOnly: string;
     /** Statement closing `$file` WITHOUT saving, so XLIDE's write wins. */
     close: string;
-    /** Statement reopening the file read-only; absent where no such open exists. */
+    /** Expression opening the file read-only; absent where no such open exists. */
     reopenReadOnly?: string;
 }
 
@@ -213,7 +231,7 @@ const HOST_OPEN_FILE_DIALECTS: Record<OfficeHostApp, HostOpenFileDialect> = {
         find: collectionFind('Workbooks'),
         readOnly: '[bool]$file.ReadOnly',
         close: '$file.Close($false)',
-        reopenReadOnly: '$app.Workbooks.Open($targetPath, 0, $true) | Out-Null',
+        reopenReadOnly: '$app.Workbooks.Open($targetPath, 0, $true)',
     },
     word: {
         find: collectionFind('Documents'),
@@ -221,7 +239,7 @@ const HOST_OPEN_FILE_DIALECTS: Record<OfficeHostApp, HostOpenFileDialect> = {
         // wdDoNotSaveChanges
         close: '$file.Close(0)',
         // Documents.Open(FileName, ConfirmConversions, ReadOnly, AddToRecentFiles)
-        reopenReadOnly: '$app.Documents.Open($targetPath, $false, $true, $false) | Out-Null',
+        reopenReadOnly: '$app.Documents.Open($targetPath, $false, $true, $false)',
     },
     powerpoint: {
         find: collectionFind('Presentations'),
@@ -230,7 +248,7 @@ const HOST_OPEN_FILE_DIALECTS: Record<OfficeHostApp, HostOpenFileDialect> = {
         // Presentation.Close never prompts under automation, edited or not.
         close: '$file.Close()',
         // Presentations.Open(FileName, ReadOnly, Untitled, WithWindow)
-        reopenReadOnly: '$app.Presentations.Open($targetPath, -1, 0, -1) | Out-Null',
+        reopenReadOnly: '$app.Presentations.Open($targetPath, -1, 0, -1)',
     },
     access: {
         // One instance holds one database, and there is no read-only open.
@@ -272,27 +290,41 @@ export interface CloseFileScriptOptions {
  * application's stale copy), then checks whether the file lock is gone. For
  * force mode, if the file is still locked it kills every process of that
  * application and re-checks. Exported for unit testing.
+ *
+ * A copy holding unsaved work is left open, and reported, unless the mode is
+ * force - whose whole contract is closing regardless, and which would kill
+ * the application over it anyway.
  */
 export function buildCloseFileScript(filePath: string, options: CloseFileScriptOptions): string {
     const host = officeHostForPath(filePath) ?? 'excel';
     const dialect = HOST_OPEN_FILE_DIALECTS[host];
     return [
         ...targetLines(filePath, host),
+        unsavedWorkFunction(host),
         `$force = ${options.force ? '$true' : '$false'}`,
         `$onlyReadOnlyCopy = ${options.onlyReadOnlyCopy ? '$true' : '$false'}`,
         '$closed = $false',
         '$found = $false',
         '$forced = $false',
         '$wasReadOnly = $false',
+        '$unsaved = $false',
+        '$place = $null',
         'if ($app) {',
         ...dialect.find.map((line) => `  ${line}`),
         '  if ($file) {',
         '    $found = $true',
         `    $wasReadOnly = ${dialect.readOnly}`,
-        `    if ($wasReadOnly -or -not $onlyReadOnlyCopy) { try { ${dialect.close}; $closed = $true } catch { } }`,
+        '    $unsaved = Test-XlideUnsavedWork $file',
+        '    if (($wasReadOnly -or -not $onlyReadOnlyCopy) -and ($force -or -not $unsaved)) {',
+        // Read before the close, for the reopen to put back.
+        ...capturePlaceLines(host).map((line) => `      ${line}`),
+        `      try { ${dialect.close}; $closed = $true } catch { }`,
+        '    }',
         '  }',
         '}',
-        'function Test-XlideLocked { try { $fs = [System.IO.File]::Open($targetPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None); $fs.Close(); return $false } catch { return $true } }',
+        'if (-not $closed) { $place = $null }',
+        PLACE_REPORT_LINE,
+        LOCK_TEST_FUNCTION,
         '$locked = Test-XlideLocked',
         // The application can hold its handle a moment after Close returns.
         'for ($__i = 0; $locked -and $closed -and $__i -lt 5; $__i++) { Start-Sleep -Milliseconds 200; $locked = Test-XlideLocked }',
@@ -302,8 +334,8 @@ export function buildCloseFileScript(filePath: string, options: CloseFileScriptO
         '  Start-Sleep -Milliseconds 600',
         '  $locked = Test-XlideLocked',
         '}',
-        '[Console]::Out.WriteLine("XLIDE_CLOSE|closed=" + $closed + "|locked=" + $locked + "|found=" + $found + "|wasReadOnly=" + $wasReadOnly + "|forced=" + $forced)',
-    ].join('; ');
+        '[Console]::Out.WriteLine("XLIDE_CLOSE|closed=" + $closed + "|locked=" + $locked + "|found=" + $found + "|wasReadOnly=" + $wasReadOnly + "|forced=" + $forced + "|unsaved=" + $unsaved)',
+    ].join('\n');
 }
 
 export interface CloseFileResult {
@@ -315,13 +347,17 @@ export interface CloseFileResult {
     /** Whether the file was open read-only before closing; undefined if it
      *  was not found in the reachable instance of its application. */
     wasReadOnly?: boolean;
+    /** The open copy held unsaved work, so it was left open (outside force). */
+    unsaved?: boolean;
+    /** Where the user was in the copy that was closed, for the reopen to put back. */
+    place?: OfficeViewPlace;
     error?: string;
 }
 
 /** Runs one coordination script under the caller's logging and a 20 second budget. */
 function runCoordinationScript(script: string, log: (message: string) => void) {
     return runPowerShell({
-        args: ['-Command', script],
+        script,
         timeoutMs: 20000,
         onStdoutLine: (line) => log(`[hostCoord stdout] ${line}`),
         onStderrLine: (line) => log(`[hostCoord stderr] ${line}`),
@@ -346,11 +382,14 @@ export async function closeFileInHost(
     const sentinel = result.stdoutLines.find((line) => line.startsWith(CLOSE_SENTINEL));
     if (sentinel) {
         const found = /found=True/i.test(sentinel);
+        const place = parsePlace(result.stdoutLines);
         return {
             closed: /closed=True/i.test(sentinel),
             forced: /forced=True/i.test(sentinel),
             stillLocked: /locked=True/i.test(sentinel),
             wasReadOnly: found ? /wasReadOnly=True/i.test(sentinel) : undefined,
+            unsaved: found ? /unsaved=True/i.test(sentinel) : undefined,
+            ...(place ? { place } : {}),
         };
     }
     const errLine = result.stderrLines.find((line) => line.includes(CLOSE_ERROR_SENTINEL));
@@ -368,6 +407,10 @@ export interface CoordinatedCloseOutcome {
     /** Something the user was looking at went away: a close, or a forced kill. */
     viewLost: boolean;
     wasReadOnly?: boolean;
+    /** The copy was left open because it held unsaved work. */
+    unsaved?: boolean;
+    /** Where the user was in the copy that was closed. */
+    place?: OfficeViewPlace;
 }
 
 /**
@@ -397,6 +440,8 @@ export async function tryCoordinatedClose(
         freed: !result.stillLocked,
         viewLost: result.closed || result.forced,
         wasReadOnly: result.wasReadOnly,
+        unsaved: result.unsaved === true && !result.closed,
+        ...(result.place ? { place: result.place } : {}),
     };
 }
 
@@ -416,15 +461,22 @@ export function resolveReopenReadOnly(mode: OfficeReopenMode, wasReadOnly: boole
     }
 }
 
+/**
+ * Puts back the copy a write closed, where the user was in it, and behind
+ * whatever they are working in: the save that led here came from the editor,
+ * and bringing the application forward on every save would take the focus
+ * away from it.
+ */
 async function reopenFileAfterClose(
     filePath: string,
     readOnly: boolean,
+    place: OfficeViewPlace | undefined,
     log: (message: string) => void = sharedLog,
 ): Promise<void> {
     try {
         await openFileInHost(
             filePath,
-            { attachToRunning: true, readOnly },
+            { attachToRunning: true, readOnly, background: true, ...(place ? { place } : {}) },
             log,
         );
         markFileOpenedByXlide(filePath);
@@ -441,8 +493,15 @@ const REFRESH_SENTINEL = 'XLIDE_REFRESH|';
  * save succeeds but the application keeps its older in-memory copy. This
  * closes and reopens the file READ-ONLY only when it is actually open
  * read-only in the running application. It never opens a file that is closed,
- * and never touches one open for editing. Undefined for an application with no
- * read-only open (Access). Exported for unit testing.
+ * never touches one open for editing, and never one holding unsaved work - a
+ * read-only copy takes edits, which only Save As can keep. Undefined for an
+ * application with no read-only open (Access). Exported for unit testing.
+ *
+ * The copy comes back where the user was in it (officeViewPlace.ts). In
+ * Excel its events are off for the reopen, so Workbook_Open, which ran when
+ * the workbook was first opened, does not run again on every save - a
+ * workbook that shows a form when it opens would otherwise put one up each
+ * time, and hold this script until it was closed.
  */
 export function buildRefreshReadOnlyScript(filePath: string): string | undefined {
     const host = officeHostForPath(filePath) ?? 'excel';
@@ -450,27 +509,54 @@ export function buildRefreshReadOnlyScript(filePath: string): string | undefined
     if (!dialect.reopenReadOnly) {
         return undefined;
     }
+    const reopenLines = [
+        `try { ${dialect.close} } catch { }`,
+        'for ($__i = 0; $__i -lt 5; $__i++) {',
+        `  try { $file = ${dialect.reopenReadOnly}; $refreshed = $true; break } catch { Start-Sleep -Milliseconds 200 }`,
+        '}',
+        'if ($refreshed) {',
+        ...restorePlaceLines(host).map((line) => `  ${line}`),
+        '}',
+    ];
     return [
         ...targetLines(filePath, host),
+        unsavedWorkFunction(host),
         '$refreshed = $false',
+        '$place = $null',
         'if ($app) {',
         ...dialect.find.map((line) => `  ${line}`),
-        `  if ($file -and ${dialect.readOnly}) {`,
-        `    try { ${dialect.close} } catch { }`,
-        '    for ($__i = 0; $__i -lt 5; $__i++) {',
-        `      try { ${dialect.reopenReadOnly}; $refreshed = $true; break } catch { Start-Sleep -Milliseconds 200 }`,
-        '    }',
+        `  if ($file -and ${dialect.readOnly} -and -not (Test-XlideUnsavedWork $file)) {`,
+        ...capturePlaceLines(host).map((line) => `    ${line}`),
+        ...(host === 'excel'
+            ? [
+                '    $eventsWere = $app.EnableEvents',
+                '    try {',
+                '      $app.EnableEvents = $false',
+                ...reopenLines.map((line) => `      ${line}`),
+                '    }',
+                '    finally {',
+                '      $app.EnableEvents = $eventsWere',
+                '    }',
+            ]
+            : reopenLines.map((line) => `    ${line}`)),
         '  }',
         '}',
         '[Console]::Out.WriteLine("XLIDE_REFRESH|refreshed=" + $refreshed)',
-    ].join('; ');
+    ].join('\n');
 }
+
+/** Files a save asked to refresh while their refresh was already running. */
+const readOnlyRefreshPending = new Set<string>();
 
 /**
  * After a save that succeeded while the file was open read-only in its
  * application, reopen it read-only so the application's view matches the saved
  * file. Best-effort and silent (it does not steal focus or block the save);
  * rejects nothing.
+ *
+ * Saves can come faster than a refresh finishes. One arriving mid-refresh is
+ * not dropped: the refresh runs once more when the current one ends, so the
+ * copy always ends up showing the last save.
  */
 export async function refreshReadOnlyViewAfterSave(
     filePath: string,
@@ -481,19 +567,28 @@ export async function refreshReadOnlyViewAfterSave(
     }
     const script = buildRefreshReadOnlyScript(filePath);
     const key = projectKey(filePath);
-    if (!script || readOnlyRefreshInFlight.has(key)) {
+    if (!script) {
+        return;
+    }
+    if (readOnlyRefreshInFlight.has(key)) {
+        readOnlyRefreshPending.add(key);
         return;
     }
     readOnlyRefreshInFlight.add(key);
-    log(`[hostCoord] refresh read-only view: ${filePath}`);
     try {
-        const result = await runCoordinationScript(script, log);
-        const sentinel = result.stdoutLines.find((line) => line.startsWith(REFRESH_SENTINEL));
-        if (sentinel && /refreshed=True/i.test(sentinel)) {
-            markFileOpenedByXlide(filePath);
-        }
-    } catch (err) {
-        log(`[hostCoord] refresh read-only view failed: ${errorMessage(err)}`);
+        do {
+            readOnlyRefreshPending.delete(key);
+            log(`[hostCoord] refresh read-only view: ${filePath}`);
+            try {
+                const result = await runCoordinationScript(script, log);
+                const sentinel = result.stdoutLines.find((line) => line.startsWith(REFRESH_SENTINEL));
+                if (sentinel && /refreshed=True/i.test(sentinel)) {
+                    markFileOpenedByXlide(filePath);
+                }
+            } catch (err) {
+                log(`[hostCoord] refresh read-only view failed: ${errorMessage(err)}`);
+            }
+        } while (readOnlyRefreshPending.has(key));
     } finally {
         readOnlyRefreshInFlight.delete(key);
     }
@@ -542,11 +637,14 @@ export async function runWriteWithHostCoordination<T>(
         }
         const settings = resolveHostCoordinationSettings();
         if (!closeScopeForWrite(settings, filePath)) {
-            throw err;
+            throw await annotateLockError(err, filePath, log);
         }
         const appName = OFFICE_HOST_APPS[officeHostForPath(filePath) ?? 'excel'].noun;
         log(`[hostCoord] write locked; coordinationMode=${settings.mode}, closing in ${appName}`);
-        const { freed, viewLost, wasReadOnly } = await tryCoordinatedClose(filePath, log, settings);
+        const { freed, viewLost, wasReadOnly, unsaved, place } = await tryCoordinatedClose(filePath, log, settings);
+        if (unsaved) {
+            log(`[hostCoord] left it open: the copy in ${appName} holds unsaved work, and closing it would lose that`);
+        }
         if (!freed) {
             log('[hostCoord] close did not confirm the lock was freed; retrying the write anyway');
         }
@@ -563,7 +661,7 @@ export async function runWriteWithHostCoordination<T>(
             if (freed) {
                 forgetFileOpenedByXlide(filePath);
             }
-            throw retryErr;
+            throw await annotateLockError(retryErr, filePath, log);
         }
         if (!viewLost) {
             // Nothing was closed (the lock was someone else's and cleared on its
@@ -577,7 +675,7 @@ export async function runWriteWithHostCoordination<T>(
             // later closeTracked save can still free the lock. We must NOT forget
             // here; doing so before/around a failed reopen would strand tracking.
             const readOnly = resolveReopenReadOnly(settings.reopenMode, wasReadOnly);
-            await reopenFileAfterClose(filePath, readOnly, log);
+            await reopenFileAfterClose(filePath, readOnly, place, log);
         } else {
             // Intentionally left closed: the file is no longer open in its application.
             forgetFileOpenedByXlide(filePath);

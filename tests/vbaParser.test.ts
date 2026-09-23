@@ -578,6 +578,27 @@ describe('parseModule - error recovery (Phase 3 acceptance)', () => {
 		expect(m.diagnostics.some((d) => /missing End If/i.test(d.message))).toBe(true);
 	});
 
+	it('closes a procedure on any procedure closer, as the VBE does', () => {
+		// Issue #81. The VBE compiles a Property Get closed with End Function;
+		// waiting for End Property read the declaration after it as body.
+		const src = 'Public Property Get P() As Long\n    P = 1\nEnd Function\nPrivate m As Long\n';
+		const m = parseModule(src);
+		const proc = m.members[0] as ProcedureNode;
+
+		expect(proc.closed).toBe(true);
+		expect(src.slice(proc.span.start, proc.span.end)).toMatch(/End Function$/);
+		expect(m.members.map((member) => member.kind)).toEqual(['Procedure', 'VariableGroup']);
+		expect(m.diagnostics).toEqual([]);
+	});
+
+	it('closes the procedure when the wrong closer ends a block left open inside it', () => {
+		const m = parseModule('Sub F()\n    If x Then\nEnd Function\nSub G()\nEnd Sub\n');
+		const procs = m.members.filter((member): member is ProcedureNode => member.kind === 'Procedure');
+
+		expect(procs.map((proc) => [proc.name, proc.closed])).toEqual([['F', true], ['G', true]]);
+		expect(m.diagnostics.map((d) => d.message)).toEqual(['Block is missing End If.']);
+	});
+
 	it('keeps a procedure closed after invalid nested Type and Enum blocks', () => {
 		const src =
 			'Sub F()\n' +

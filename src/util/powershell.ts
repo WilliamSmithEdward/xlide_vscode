@@ -10,8 +10,18 @@ export function psSingleQuoted(value: string): string {
 }
 
 export interface RunPowerShellOptions {
-    /** Arguments appended after the standard -NoProfile -ExecutionPolicy Bypass prefix. */
-    args: string[];
+    /**
+     * A script to run, one statement per line. It travels as -EncodedCommand,
+     * so PowerShell parses it whole, the way it parses a script file: an
+     * `else` or `catch` may start its own line, which it could not while
+     * scripts were joined onto one line with "; ".
+     */
+    script?: string;
+    /**
+     * Arguments after the standard -NoProfile -ExecutionPolicy Bypass prefix,
+     * for running a script file (`-File`). Ignored when `script` is given.
+     */
+    args?: string[];
     /** When set (> 0), the process is killed and the result resolves with timedOut. */
     timeoutMs?: number;
     /** Hide the console window; defaults to true. */

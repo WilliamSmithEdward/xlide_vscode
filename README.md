@@ -281,7 +281,13 @@ Guide:
   exporting. The tree marks the modules that changed since the last commit.
 - Macro and unit-test execution on Windows, in the file's own application.
 - Saves that work while the file is open in its application: XLIDE can close
-  it there, save, and reopen it.
+  it there, save, and reopen it where you were.
+- A read-only workbook in Excel that follows your saves, keeping its sheet,
+  selection and scroll.
+- A save refused because the file is held names what holds it: Excel, Word,
+  OneDrive, a backup agent.
+- A VBA project added to a macro-enabled file that has none yet, the way its
+  application would add one.
 - Support bundle and diagnostics commands for troubleshooting.
 - Optional performance snapshot command for debugging slow workflows.
 
@@ -360,7 +366,8 @@ Open the Command Palette and type `XLIDE` to find these commands:
 | `Format Document` (Shift+Alt+F) | Re-indent a module and fix keyword casing and spacing. |
 | `XLIDE: Format All Modules` | Do the same for every module in a file, after a count. |
 | `XLIDE: Unit Tests` | Run marked tests through the file's own application. |
-| `XLIDE: Open in Office Application` | Open the selected file in its own application. A read-only variant sits beside it. |
+| `XLIDE: Open in Office Application` (Ctrl+Alt+O) | Open the selected file in its own application. Ctrl+Alt+Shift+O opens it read-only. |
+| `XLIDE: Add VBA Project` | Give a macro-enabled file with no VBA in it yet its first project. The file's row in the tree offers it. |
 | `XLIDE: Copy Diagnostics` | Copy setup and environment details for support. |
 | `XLIDE: Export Support Bundle` | Create a troubleshooting bundle. |
 | `XLIDE: Copy Performance Snapshot` | Copy recent timing data when something feels slow. |
@@ -372,6 +379,17 @@ Open the Command Palette and type `XLIDE` to find these commands:
 - XLIDE reads and writes VBA modules through the Office file itself. Keep
   normal backups for important files, especially before large sync operations.
 - Running macros or tests uses Office automation and is Windows-only.
+- Ctrl+Alt+O has no tree row to go on, so it works out which file you mean:
+  the one picked in the XLIDE sidebar, or the one whose module is in front,
+  or the one you last had a module open from, or the only one in the
+  workspace. With several files and none of those, it does nothing rather
+  than guess. The status bar names the file it will open, or says
+  "ambiguous". Rebind it under File > Preferences > Keyboard Shortcuts.
+- Add VBA Project works on the macro-enabled Office Open XML formats
+  (.xlsm, .xlsb, .docm, .pptm and their templates and add-ins). A legacy
+  .xls, .doc or .ppt file gets its first macro in its application. Excel
+  keeps a project only while it holds code, so a workbook saved in Excel
+  before any is written loses it again.
 - The UserForm designer keeps every property it does not name itself, so a
   form you have not edited saves back unchanged. Access designs work the same
   way.
@@ -410,6 +428,7 @@ Useful development commands:
 | `npm run watch` | Rebuild while developing. |
 | `npm test` | Run the Vitest suite. |
 | `npm run test:integration` | Drive a real VS Code against a copy of the fixture workbook. The first run downloads a VS Code build into `.vscode-test/`. |
+| `npm run test:office` | Optional checks against real Excel, Word, PowerPoint and Access on Windows, on scratch copies of the fixtures. Excel runs in instances the suite starts; Word, PowerPoint and Access are skipped while you have them open. Nothing you have running is attached to. |
 | `npm run package` | Build a production bundle. |
 | `npm run vsix` | Create a versioned `.vsix` in `dist/`. |
 | `npm run test:oracle:vbe` | Optional Excel/VBE behavior checks. Run oracle checks sequentially. |

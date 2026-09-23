@@ -441,6 +441,66 @@ describe('ProjectExplorer', () => {
         expect(vi.mocked(bridge.call).mock.calls.filter(([method]) => method === 'listSubs')).toHaveLength(2);
     });
 
+    it('keeps the render ids across a refresh, so VS Code keeps the state it holds for them', async () => {
+        // An id VS Code already holds keeps the state VS Code gave it; only a
+        // new one takes the item's own. Resetting the ids on refresh handed
+        // rows ids VS Code could still hold folded.
+        vscodeMock.findFiles.mockResolvedValue([
+            { scheme: 'file', fsPath: 'C:\\work\\Book1.xlsm' },
+            { scheme: 'file', fsPath: 'C:\\work\\Book2.xlsm' },
+        ]);
+        const explorer = new ProjectExplorer(fakeBridge([
+            { name: 'Module1', type: 'standard' },
+            { name: 'Module2', type: 'standard' },
+        ]));
+        const ids = async (): Promise<Array<string | undefined>> => {
+            const books = await explorer.getChildren();
+            const modules = (await Promise.all(books.map((book) => explorer.getChildren(book)))).flat();
+            return [...books, ...modules].map((node) => explorer.getTreeItem(node).id);
+        };
+        await ids();
+        explorer.setActiveModule('C:\\work\\Book1.xlsm', 'Module1');
+        explorer.setActiveModule('C:\\work\\Book2.xlsm', 'Module2');
+        const before = await ids();
+
+        explorer.refresh();
+
+        expect(await ids()).toEqual(before);
+    });
+
+    it('names a procedure row by its label, not its line, which an edit above it moves', async () => {
+        let subs = [{ name: 'Post', kind: 'Sub', line: 3 }, { name: 'Total', kind: 'Function', line: 9 }];
+        const call = vi.fn((method: string) => Promise.resolve(
+            method === 'listModules' ? [{ name: 'Module1', type: 'standard' }]
+                : method === 'listSubs' ? subs
+                    : { isPasswordProtected: false, isSigned: false },
+        ));
+        const explorer = new ProjectExplorer({ call } as unknown as ConstructorParameters<typeof ProjectExplorer>[0]);
+        const [project] = await explorer.getChildren();
+        const [module] = await explorer.getChildren(project);
+        const before = (await explorer.getChildren(module)).map((row) => explorer.getTreeItem(row).id);
+
+        subs = [{ name: 'Post', kind: 'Sub', line: 4 }, { name: 'Total', kind: 'Function', line: 10 }];
+        vscodeMock.treeEvents = [];
+        explorer.refreshModuleSubs(project.filePath, 'Module1');
+        const after = (await explorer.getChildren(module)).map((row) => explorer.getTreeItem(row).id);
+
+        expect(after).toEqual(before);
+        expect(vscodeMock.treeEvents).toContainEqual({ filePath: project.filePath, moduleName: 'Module1' });
+    });
+
+    it('keeps two procedures of one label apart while a duplicate is being edited', async () => {
+        const explorer = new ProjectExplorer(fakeBridge(
+            [{ name: 'Module1', type: 'standard' }],
+            [{ name: 'Post', kind: 'Sub', line: 3 }, { name: 'Post', kind: 'Sub', line: 9 }],
+        ));
+        const [project] = await explorer.getChildren();
+        const [module] = await explorer.getChildren(project);
+        const ids = (await explorer.getChildren(module)).map((row) => explorer.getTreeItem(row).id);
+
+        expect(new Set(ids).size).toBe(2);
+    });
+
     it('surfaces procedure-list failures like module-list failures', async () => {
         const call = vi.fn((method: string) => {
             if (method === 'listModules') {
@@ -636,11 +696,22 @@ describe('ProjectExplorer files that hold no code', () => {
         expect(row).toMatchObject({ kind: 'empty', label: 'No VBA in this file yet', hasVbaProject: false });
         const item = explorer.getTreeItem(row);
         expect(item.contextValue).toBe('noVbaProject');
-        // No retry, and nothing that reads as a warning.
-        expect(item.command).toBeUndefined();
+        // No retry, and nothing that reads as a warning: the one thing to do
+        // is add a project, which the row offers.
+        expect(item.command).toMatchObject({ command: 'xlide.addVbaProject', arguments: [row] });
         expect((item.iconPath as { id: string }).id).toBe('info');
         expect(String(item.tooltip)).toContain('without trouble');
         expect(String(item.tooltip)).toContain('Excel');
+        expect(String(item.tooltip)).toContain('Click to add one.');
+    });
+
+    it('offers no project where XLIDE cannot put one: a legacy file', async () => {
+        const explorer = new ProjectExplorer(emptyBridge(false));
+        const legacy = { kind: 'empty' as const, label: 'No VBA in this file yet', filePath: 'C:\\work\\Old.xls', hasVbaProject: false };
+        const item = explorer.getTreeItem(legacy as never);
+        expect(item.contextValue).toBe('noVbaProjectFixed');
+        expect(item.command).toBeUndefined();
+        expect(String(item.tooltip)).toContain('Write one macro in Excel and save');
     });
 
     it('a project with no modules in it says so, and is a different row', async () => {

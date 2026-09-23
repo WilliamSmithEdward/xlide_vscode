@@ -14,6 +14,8 @@ import './agentReview.test';
 import './outsideChanges.test';
 import './saveConflicts.test';
 import './renameModule.test';
+import './vbeRename.test';
+import './treeFollow.test';
 import './deleteModule.test';
 import './docComments.test';
 import './projectReferences.test';

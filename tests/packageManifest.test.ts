@@ -14,6 +14,7 @@ interface Manifest {
         menus: Record<string, Array<{ command?: string }>>;
         languageModelTools: Array<{ name: string }>;
         viewsWelcome?: Array<{ contents: string }>;
+        keybindings?: Array<{ command: string; key: string; mac?: string; when?: string }>;
     };
 }
 
@@ -62,6 +63,9 @@ const INTERNAL_COMMANDS = new Set([
     'xlide.vba.smartBackspace',
     'xlide.vba.smartTab',
     'xlide.vba.leaveSnippetAndCursorMove',
+    // What the explorer view shows, for the integration tests; registered
+    // only outside a production install.
+    'xlide.dev.explorerViewState',
 ]);
 
 describe('package manifest consistency', () => {
@@ -104,5 +108,33 @@ describe('package manifest consistency', () => {
     it('declared language-model tools and registrations match exactly', () => {
         expect([...declaredTools].filter((t) => !registeredTools.has(t))).toEqual([]);
         expect([...registeredTools].filter((t) => !declaredTools.has(t))).toEqual([]);
+    });
+
+    it('every keybinding names a command that exists', () => {
+        const bindings = manifest.contributes.keybindings ?? [];
+        expect(bindings.length).toBeGreaterThan(0);
+        const dead = bindings
+            .map((binding) => binding.command)
+            .filter((command) => !registeredCommands.has(command));
+        expect(dead).toEqual([]);
+    });
+
+    it('opening the file in its application is bound, and read-only with shift', () => {
+        const bindings = manifest.contributes.keybindings ?? [];
+        const bindingFor = (command: string): { key: string; mac?: string; when?: string } | undefined =>
+            bindings.find((binding) => binding.command === command);
+
+        const open = bindingFor('xlide.openInOfficeApp');
+        const readOnly = bindingFor('xlide.openInOfficeAppReadOnly');
+        expect(open).toMatchObject({ key: 'ctrl+alt+o', mac: 'cmd+alt+o' });
+        // The read-only pair is the same chord with shift, which is the whole
+        // reason it is guessable without looking it up.
+        expect(readOnly).toMatchObject({ key: 'ctrl+alt+shift+o', mac: 'cmd+alt+shift+o' });
+
+        // There is no Office to launch in a browser, and the commands are not
+        // even registered there, so the keys stay free in a web window.
+        for (const binding of [open, readOnly]) {
+            expect(binding?.when).toBe('!xlide.isWeb');
+        }
     });
 });

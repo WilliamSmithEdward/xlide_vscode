@@ -7,7 +7,9 @@ import {
     buildPowerPointMacroLaunchScript,
     buildWordMacroLaunchScript,
     hostMacroReference,
+    hostOpenOutcome,
 } from '../src/officeHostLauncher';
+import { encodedCommandArgs } from '../src/util/powershellNode';
 
 describe('Excel launcher script', () => {
     const openScript = buildExcelLaunchScript({
@@ -233,6 +235,188 @@ describe('open-in-application scripts', () => {
     it('honors the attach setting where the application can run more than one instance', () => {
         expect(open('C:\\work\\Report.docm', false, false)).toContain('$attachToRunning = $false');
         expect(open('C:\\work\\Orders.accdb', false, false)).toContain('$attachToRunning = $false');
+    });
+
+    it('turns a copy already open for editing read-only when asked, never one with unsaved work', () => {
+        // The reported case: "Open Read Only" on a file already open for
+        // editing brought the editing copy forward and changed nothing, so
+        // the window was editable, the file stayed locked, and every XLIDE
+        // save failed.
+        const cases: Array<[string, string, string]> = [
+            ['C:\\work\\Book.xlsm', '[bool]$workbook.ReadOnly', 'Invoke-XlideCom { $workbook.Close($false) }; $workbook = $null'],
+            ['C:\\work\\Report.docm', '[bool]$file.ReadOnly', 'Invoke-XlideCom { $file.Close(0) }; $file = $null'],
+            ['C:\\work\\Deck.pptm', '$file.ReadOnly -ne 0', 'Invoke-XlideCom { $file.Close() }; $file = $null'],
+        ];
+        for (const [file, isReadOnly, close] of cases) {
+            const readOnly = open(file, true);
+            const copy = isReadOnly.includes('$workbook') ? '$workbook' : '$file';
+            expect(readOnly).toContain([
+                `if (${copy} -and -not (${isReadOnly})) {`,
+                `  if (Test-XlideUnsavedWork ${copy}) {`,
+                '    $openState = "keptUnsaved"',
+                '  }',
+                '  else {',
+                `    try { ${close} } catch { $openState = "keptEditing" }`,
+                '  }',
+                '}',
+            ].join('\n'));
+            // The close comes before the open, so the open below replaces it.
+            expect(readOnly.indexOf(close)).toBeLessThan(readOnly.indexOf(`if (-not ${copy}) {`));
+            expect(readOnly).toContain('XLIDE_OPEN|');
+
+            // Asking to edit changes nothing about a copy already open.
+            expect(open(file, false)).not.toContain('Test-XlideUnsavedWork $');
+        }
+    });
+
+    it('checks, for Excel only, that nothing else still holds the file after a read-only open', () => {
+        // A read-only workbook does not lock the file, so a lock that remains
+        // is a copy open for editing that this script cannot reach - another
+        // Excel instance. Word and PowerPoint lock the file themselves when
+        // read-only, so there the check would always fire.
+        const excel = open('C:\\work\\Book.xlsm', true);
+        expect(excel).toContain('function Test-XlideLocked');
+        expect(excel).toContain('if ($locked) { $openState = "lockedElsewhere" }');
+        expect(open('C:\\work\\Book.xlsm', false)).not.toContain('lockedElsewhere');
+        expect(open('C:\\work\\Report.docm', true)).not.toContain('lockedElsewhere');
+        expect(open('C:\\work\\Deck.pptm', true)).not.toContain('lockedElsewhere');
+    });
+});
+
+describe('every generated script', () => {
+    // The scripts used to be one line, joined with "; ", and an `else`,
+    // `elseif`, `catch` or `finally` after that separator ran as a command of
+    // its own and stopped the script - silently, since the sentinel that
+    // would have reported the outcome never printed. Only a real Word caught
+    // it. Each script is now one statement per line, sent whole as
+    // -EncodedCommand, and PowerShell parses it the way it parses a file;
+    // `npm run test:office` runs PowerShell's own parser over all of them.
+    const hosts = ['excel', 'word', 'powerpoint', 'access'] as const;
+    const files = { excel: 'C:\\w\\Book.xlsm', word: 'C:\\w\\Report.docm', powerpoint: 'C:\\w\\Deck.pptm', access: 'C:\\w\\Orders.accdb' };
+    const scripts: Array<[string, string]> = [
+        ...hosts.flatMap((host) => [false, true].flatMap((readOnly) => [false, true].map((attachToRunning): [string, string] => [
+            `open ${host} readOnly=${readOnly} attach=${attachToRunning}`,
+            buildHostOpenScript({ host, filePath: files[host], attachToRunning, readOnly }),
+        ]))),
+        ['F5 excel', buildExcelLaunchScript({ filePath: files.excel, attachToRunning: true, mode: { kind: 'macroReadOnly', macroName: 'M.Go' } })],
+        ['F5 word', buildWordMacroLaunchScript(files.word, 'M.Go')],
+        ['F5 powerpoint', buildPowerPointMacroLaunchScript(files.powerpoint, 'M.Go')],
+        ['F5 access', buildAccessMacroLaunchScript(files.access, 'Go')],
+        ['F5 access report', buildAccessShowDesignScript(files.access, { kind: 'report', name: 'Sales' })],
+    ];
+
+    it('keeps its statements on lines of their own', () => {
+        for (const [name, script] of scripts) {
+            expect(script.split('\n').length, name).toBeGreaterThan(10);
+            expect(script, name).not.toMatch(/\}\s*;\s*(else|elseif|catch|finally)\b/i);
+        }
+    });
+
+    it('fits on a Windows command line once encoded', () => {
+        // CreateProcess takes 32,767 characters, and -EncodedCommand spends
+        // about 2.7 of them per script character.
+        for (const [name, script] of scripts) {
+            expect(encodedCommandArgs(script)[1].length, name).toBeLessThan(30_000);
+        }
+    });
+});
+
+describe('putting back a copy a save closed', () => {
+    const files = { excel: 'C:\\w\\Book.xlsm', word: 'C:\\w\\Report.docm', powerpoint: 'C:\\w\\Deck.pptm', access: 'C:\\w\\Orders.accdb' };
+
+    it('opens it behind whatever is in front', () => {
+        // The save came from the editor; the application coming forward on
+        // every save would take the focus away from it.
+        for (const host of ['excel', 'word', 'powerpoint', 'access'] as const) {
+            const front = buildHostOpenScript({ host, filePath: files[host], attachToRunning: true, readOnly: true });
+            const behind = buildHostOpenScript({ host, filePath: files[host], attachToRunning: true, readOnly: true, background: true });
+            expect(front, host).toContain('SetForegroundWindow');
+            expect(behind, host).not.toContain('SetForegroundWindow');
+            expect(behind, host).toContain('XLIDE_OPEN|');
+        }
+    });
+
+    it('puts the reader back where they were', () => {
+        const word = buildHostOpenScript({
+            host: 'word', filePath: files.word, attachToRunning: true, readOnly: true, background: true,
+            place: { start: 120, end: 131, scrolled: 42, otherActive: "C:\\w\\Bob's Notes.docx" },
+        });
+        const opened = word.indexOf('$file = Invoke-XlideCom { $app.Documents.Open(');
+        const assigned = word.indexOf("$place = @{ start = 120; end = 131; scrolled = 42; otherActive = 'C:\\w\\Bob''s Notes.docx' }");
+        expect(opened).toBeGreaterThan(-1);
+        expect(assigned).toBeGreaterThan(opened);
+        expect(word.indexOf('$window.Selection.SetRange($place.start, $place.end)')).toBeGreaterThan(assigned);
+
+        const excel = buildHostOpenScript({
+            host: 'excel', filePath: files.excel, attachToRunning: true, readOnly: false, background: true,
+            place: { sheet: 'Data', selection: '$B$2:$C$4', activeCell: '$C$3', scrollRow: 40, scrollColumn: 2 },
+        });
+        // The Excel launcher names its copy $workbook; the restore reads $file.
+        expect(excel).toContain('$app = $excel\n$file = $workbook\n');
+        expect(excel).toContain("$place = @{ scrollRow = 40; scrollColumn = 2; sheet = 'Data'; selection = '$B$2:$C$4'; activeCell = '$C$3' }");
+        expect(excel).toContain('$file.Sheets.Item($place.sheet).Activate()');
+
+        const deck = buildHostOpenScript({
+            host: 'powerpoint', filePath: files.powerpoint, attachToRunning: true, readOnly: true, place: { slide: 7 },
+        });
+        expect(deck).toContain('$place = @{ slide = 7 }');
+        expect(deck).toContain('$file.Windows.Item(1).View.GotoSlide($place.slide)');
+    });
+
+    it('has no place to put back without one', () => {
+        expect(buildHostOpenScript({ host: 'word', filePath: files.word, attachToRunning: true, readOnly: true }))
+            .not.toContain('$place');
+    });
+});
+
+describe('what a read-only open reports back', () => {
+    it('reads each state the open script can end in', () => {
+        expect(hostOpenOutcome('excel', true, ['XLIDE_OPEN|opened'])).toEqual({});
+        expect(hostOpenOutcome('word', true, ['XLIDE_OPEN|keptUnsaved'])).toEqual({ keptEditing: 'unsaved' });
+        expect(hostOpenOutcome('powerpoint', true, ['XLIDE_OPEN|keptEditing'])).toEqual({ keptEditing: 'couldNotClose' });
+        expect(hostOpenOutcome('excel', true, ['noise', 'XLIDE_OPEN|lockedElsewhere'])).toEqual({ lockedElsewhere: true });
+    });
+
+    it('has nothing to report for an open that was not asked to be read-only', () => {
+        expect(hostOpenOutcome('excel', false, ['XLIDE_OPEN|lockedElsewhere'])).toEqual({});
+    });
+
+    it('says so when Access, which has no read-only open, was asked for one', () => {
+        expect(hostOpenOutcome('access', true, ['XLIDE_OPEN|opened'])).toEqual({ noReadOnlyOpen: true });
+    });
+
+    it('reports nothing it cannot read', () => {
+        expect(hostOpenOutcome('excel', true, [])).toEqual({});
+    });
+});
+
+describe('F5 never reopens a read-only copy holding unsaved work', () => {
+    // Measured on build 16.0.20326: a copy opened read-only takes edits,
+    // which only Save As can keep. F5 closes that copy without saving to
+    // reopen the file for the run, so it refuses instead.
+    it('refuses in Excel, Word and PowerPoint before the close', () => {
+        const scripts: Array<[string, string, string]> = [
+            [buildExcelLaunchScript({ filePath: 'C:\\w\\Book.xlsm', attachToRunning: true, mode: { kind: 'macroReadOnly', macroName: 'M.Go' } }), '$workbook', 'Invoke-XlideCom { $workbook.Close($false) }'],
+            [buildWordMacroLaunchScript('C:\\w\\Report.docm', 'M.Go'), '$doc', 'Invoke-XlideCom { $doc.Close(0) }'],
+            [buildPowerPointMacroLaunchScript('C:\\w\\Deck.pptm', 'M.Go'), '$pres', 'Invoke-XlideCom { $pres.Close() }'],
+        ];
+        for (const [script, copy, close] of scripts) {
+            const guard = `if (Test-XlideUnsavedWork ${copy}) {`;
+            expect(script).toContain('function Test-XlideUnsavedWork($copy)');
+            expect(script).toContain(guard);
+            expect(script.indexOf(guard)).toBeLessThan(script.indexOf(close));
+            expect(script).toContain('with changes that were never saved');
+        }
+    });
+
+    it('will not close another Access database that holds unsaved work', () => {
+        const script = buildAccessMacroLaunchScript('C:\\w\\Orders.accdb', 'Main');
+        const guard = 'if ($open -and (Test-XlideUnsavedWork $app))';
+        expect(script).toContain(guard);
+        expect(script.indexOf(guard)).toBeLessThan(script.indexOf('$app.CloseCurrentDatabase()'));
+        // The same guard reaches the form and report F5, which opens the
+        // database the same way.
+        expect(buildAccessShowDesignScript('C:\\w\\Orders.accdb', { kind: 'form', name: 'Orders' })).toContain(guard);
     });
 });
 

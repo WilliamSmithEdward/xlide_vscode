@@ -82,9 +82,13 @@ describe('the tree over a VB6 project on disk', () => {
 		// Expanded - which is how clicking a module in the tree reveals its
 		// procedures. That tracking read the module out of an `xlide-vba:`
 		// URI, so a VB6 module, whose document is its own file, was never the
-		// active one and its row never opened.
+		// active one and its row never opened. The tree follows the caret
+		// tracker now, which reads the module the same way for both.
+		const tracker = readFileSync(path.join(__dirname, '..', 'src', 'vbaCaretProcedure.ts'), 'utf8');
+		expect(tracker).toContain('moduleLocationOfDocument(editor.document)');
+		const follow = readFileSync(path.join(__dirname, '..', 'src', 'explorerFollow.ts'), 'utf8');
+		expect(follow).toContain('caret.current');
 		const activation = readFileSync(path.join(__dirname, '..', 'src', 'extension.ts'), 'utf8');
-		expect(activation).toContain('moduleLocationOfDocument(editor.document)');
 		expect(activation).not.toContain('pending = decodeModuleUri(editor.document.uri);');
 
 		const explorer = new ProjectExplorer(engineBridge());

@@ -15,6 +15,8 @@ import {
 import { xlideOfficeAttachToRunningFromConfig } from '../globalSettings';
 import { containerAppNameForPath } from '../macroContainerUi';
 import { OFFICE_HOST_APPS, officeHostForPath } from '../officeHostApps';
+import { resolveProjectTarget } from '../projectTarget';
+import { describeLockHolders, findFileLockHolders } from '../fileLockHolders';
 import { registerXlideCommand } from '../xlideCommandRegistration';
 import type { XlideNode } from '../projectExplorer';
 import { errorMessage } from '../util/errors';
@@ -22,6 +24,7 @@ import {
     HostMacroError,
     openFileInHost,
     runHostMacro,
+    type HostOpenOutcome,
 } from '../officeHostLauncher';
 import {
     closeFileInHost,
@@ -54,12 +57,24 @@ export function registerOfficeAppCommands(deps: CommandDeps): vscode.Disposable[
         return opened;
     }
 
-    /** Opens the file in the application that owns it, read-only when asked. */
-    const openCommand = (readOnly: boolean, tag: string) => async (node: XlideNode): Promise<void> => {
-        const filePath = resolveProjectPath(node);
+    /**
+     * Opens the file in the application that owns it, read-only when asked.
+     *
+     * A tree row names its own file. A keybinding names nothing, so the file
+     * comes from the shared ladder - which is the same one the sidebar's Open
+     * button resolves, so the two never disagree. A window that does not say
+     * which project is meant opens nothing: several files and no signal is
+     * ambiguous, and opening the wrong workbook in Excel is worse than
+     * opening none.
+     */
+    const openCommand = (readOnly: boolean, tag: string) => async (node?: XlideNode): Promise<void> => {
+        const filePath = resolveProjectPath(node)
+            ?? (await resolveProjectTarget({ workspaceState: deps.context.workspaceState }))?.filePath;
         if (filePath) {
             openInHostApp(filePath, readOnly, tag);
+            return;
         }
+        log(`[${tag}] No project to open: nothing in this window says which one is meant.`);
     };
 
     function shouldAttachToRunningApp(): boolean {
@@ -98,6 +113,7 @@ export function registerOfficeAppCommands(deps: CommandDeps): vscode.Disposable[
                 markFileOpenedByXlide(filePath);
                 const app = containerAppNameForPath(filePath);
                 void openFileInHost(filePath, { attachToRunning: shouldAttachToRunningApp(), readOnly }, log)
+                    .then((outcome) => reportReadOnlyOpen(filePath, app, outcome))
                     .catch((err: Error) => {
                         void vscode.window.showErrorMessage(
                             `XLIDE: Could not open ${path.basename(filePath)} in ${app}: ${err.message}`,
@@ -110,6 +126,41 @@ export function registerOfficeAppCommands(deps: CommandDeps): vscode.Disposable[
             }
         } catch (err) {
             vscode.window.showErrorMessage(`Failed to open project: ${err}`);
+        }
+    }
+
+    /**
+     * Says so when a read-only open could not deliver what it is for: a file
+     * XLIDE can save to while you look at it. Silence was the old behaviour,
+     * and the window said Read-Only while every save failed.
+     */
+    async function reportReadOnlyOpen(filePath: string, app: string, outcome: HostOpenOutcome): Promise<void> {
+        const name = path.basename(filePath);
+        if (outcome.keptEditing === 'unsaved') {
+            void vscode.window.showWarningMessage(
+                `XLIDE: ${name} is already open for editing in ${app} with unsaved changes, so XLIDE left it as it is. `
+                + `XLIDE cannot save to the file while it is open for editing: save or close it in ${app} first.`,
+            );
+        } else if (outcome.keptEditing === 'couldNotClose') {
+            void vscode.window.showWarningMessage(
+                `XLIDE: ${name} is already open for editing in ${app}, and XLIDE could not reopen it read-only. `
+                + `XLIDE cannot save to the file until it is closed there.`,
+            );
+        } else if (outcome.lockedElsewhere) {
+            // A read-only workbook holds no lock, so whatever Restart Manager
+            // finds holding the file is the copy in the way.
+            const holders = await findFileLockHolders(filePath, log);
+            const holder = holders && holders.length > 0
+                ? describeLockHolders(holders)
+                : `another ${app} window`;
+            void vscode.window.showWarningMessage(
+                `XLIDE: ${name} is open read-only, but ${holder} still has it open for editing, `
+                + 'so XLIDE cannot save to it. Close that copy to let XLIDE save.',
+            );
+        } else if (outcome.noReadOnlyOpen) {
+            void vscode.window.showInformationMessage(
+                `XLIDE: ${app} has no read-only open, so ${name} opened for editing. XLIDE cannot save to it while it is open.`,
+            );
         }
     }
 

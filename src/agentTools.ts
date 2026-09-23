@@ -8,7 +8,7 @@ import { ProjectExplorer } from './projectExplorer';
 import { XlideFileSystemProvider } from './xlideFileSystem';
 import { VbaSymbolIndex } from './vbaSymbolIndex';
 import { findMacroContainerFiles } from './macroContainerDiscovery';
-import { containerAppNameForPath } from './macroContainerUi';
+import { canAddVbaProjectTo, containerAppNameForPath } from './macroContainerUi';
 import {
     agentWriteDiffsEnabled,
     keepAgentChange,
@@ -137,9 +137,12 @@ async function noCodeNote(bridge: ProjectEngine, filePath: string): Promise<stri
             + 'xlide_writeModule adds the first one.'
         : `\n\n${name} has no VBA project in it at all, which is how ${app} saves a macro-enabled `
             + 'file that has never held a macro. This is not an error and there is nothing to '
-            + `retry: XLIDE read the file fine. XLIDE cannot put the first macro in - that has to `
-            + `be written in ${app} once and saved - but everything else about the file `
-            + '(sheets, cells, shapes) is readable and writable now.';
+            + 'retry: XLIDE read the file fine. xlide_writeModule cannot put the first module in. '
+            + (canAddVbaProjectTo(filePath)
+                ? "Ask the user to add a project: the file's \"No VBA in this file yet\" row in the XLIDE tree "
+                    + 'offers Add VBA Project. '
+                : `This is a legacy file, so the first macro has to be written in ${app} and saved. `)
+            + 'Everything else about the file (sheets, cells, shapes) is readable and writable now.';
 }
 
 function vbaTestSelectionFromInput(input: RunVbaTestsInput): VbaTestSelectionOptions | undefined {

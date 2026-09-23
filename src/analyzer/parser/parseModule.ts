@@ -124,6 +124,15 @@ const CLOSER_LABELS: Readonly<Record<string, string>> = {
 	endenum: 'End Enum',
 };
 
+/**
+ * The closers that end a procedure, whichever kind it is. The VBE takes End
+ * Sub, End Function and End Property for one another (oracle case
+ * property_get_closed_with_end_function_compile), and vbaStructuralDiagnostics
+ * warns about the mismatch as mismatched-end-keyword. Waiting for the exact
+ * closer read every module-level line after it as part of the procedure.
+ */
+const PROCEDURE_CLOSERS: ReadonlySet<string> = new Set(['endsub', 'endfunction', 'endproperty']);
+
 // Editor surfaces (completion, hover, signature help, references) re-parse
 // the same module text many times within one request, so a value-keyed memo
 // collapses those parses to one. The AST is treated as immutable by all
@@ -804,7 +813,7 @@ class Parser {
 		while (!this.cursor.atEnd()) {
 			const stmt = this.cursor.peek()!;
 			const ck = this.closerKind(stmt);
-			if (ck === expected) {
+			if (ck !== undefined && PROCEDURE_CLOSERS.has(ck)) {
 				endStmt = this.cursor.next();
 				closed = true;
 				break;
@@ -1003,7 +1012,9 @@ class Parser {
 	private parseBodyItem(stmt: LogicalStatement): BodyNode | undefined {
 		const ck = this.closerKind(stmt);
 		if (ck) {
-			if (this.openStack.includes(ck)) {
+			const closesOpenProcedure = PROCEDURE_CLOSERS.has(ck)
+				&& this.openStack.some((open) => PROCEDURE_CLOSERS.has(open));
+			if (this.openStack.includes(ck) || closesOpenProcedure) {
 				// Belongs to an ancestor block; stop and let it close.
 				return undefined;
 			}

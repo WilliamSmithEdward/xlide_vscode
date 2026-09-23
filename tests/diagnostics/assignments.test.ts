@@ -963,6 +963,60 @@ describe('analyzeModule - assignment type validation', () => {
 		expectDiagnostic(src, hits, 'readonly-member-assignment', { span: 'Age' });
 	});
 
+	describe('a comparison against a read-only class property is not an assignment', () => {
+		// Found in ReDim's ReDimUI, which compiles and runs:
+		//     ElseIf ReDimUI.SenderPart = "plus" Then
+		// was reported as assigning to 'ElseIf ReDimUI.SenderPart' (#78). The rule
+		// took every statement with a top-level `=` for an assignment, so an
+		// ElseIf or Case header, a single-line If's condition and a call given a
+		// comparison all read as one. A target is one receiver chain.
+		const person =
+			'Private mAge As Integer\n' +
+			'Public Property Get Age() As Integer\n' +
+			'    Age = mAge\n' +
+			'End Property\n';
+		const readOnlyHits = (body: string) => {
+			const src = `Public Sub T()\n    Dim p As New Person\n${body}End Sub\n`;
+			return {
+				src,
+				hits: byCode(
+					analyzeModule(src, {
+						projectClassMembers: projectClassMembers([
+							{ moduleName: 'Person', moduleKind: 'class', source: person },
+						]),
+					}),
+					'readonly-member-assignment',
+				),
+			};
+		};
+
+		it.each([
+			['an ElseIf condition', '    If False Then\n    ElseIf p.Age = 2 Then\n    End If\n'],
+			['a single-line If condition', '    If p.Age = 2 Then Exit Sub\n'],
+			['a Case expression', '    Select Case True\n    Case p.Age = 2\n    End Select\n'],
+			['a block If condition', '    If p.Age = 2 Then\n    End If\n'],
+			['a Do While condition', '    Do While p.Age = 2\n    Loop\n'],
+			['a call given the comparison', '    Debug.Print p.Age = 2\n'],
+			['a procedure called with the comparison', '    MsgBox p.Age = 2\n'],
+		])('is silent on %s', (_label, body) => {
+			expect(readOnlyHits(body).hits).toHaveLength(0);
+		});
+
+		it('still reports a real assignment a single-line If carries, named by itself', () => {
+			// Read whole, the target was 'If True Then p.Age'. The If's branches are
+			// statements of their own, the way the rest of the assignment rules
+			// already read them.
+			const { src, hits } = readOnlyHits('    If True Then p.Age = 2\n');
+			expectDiagnostic(src, hits, 'readonly-member-assignment', { span: 'Age' });
+			expect(hits[0].message).toBe("Cannot assign to read-only property 'p.Age'.");
+		});
+
+		it('still reports a real assignment in a With block and after Let', () => {
+			expect(readOnlyHits('    With p\n        .Age = 2\n    End With\n').hits).toHaveLength(1);
+			expect(readOnlyHits('    Let p.Age = 2\n').hits).toHaveLength(1);
+		});
+	});
+
 	it('errors when a known class receiver uses an unknown member in assignment', () => {
 		const person =
 			'Private mAge As Integer\n' +
@@ -1305,8 +1359,10 @@ describe('analyzeModule - assignment type validation', () => {
 
 	it('reports on the collections VBA resolves against, and not the others', () => {
 		// Workbooks and Sheets are NONEXTENSIBLE in the type library, so a
-		// name absent from them can never resolve and the VBE says so. The
-		// Worksheets interface is not, so its unknown member is deferred.
+		// name absent from them can never resolve and the VBE says so. So is
+		// Worksheets: the library returns Sheets from it, and the VBE refuses
+		// Worksheets.NoSuchMemberXyz (oracle case
+		// worksheets_unknown_member_compile, issue #79).
 		const src =
 			'Public Sub T()\n' +
 			'    Workbooks.MissingCollectionMember\n' +
@@ -1319,6 +1375,7 @@ describe('analyzeModule - assignment type validation', () => {
 			'End Sub\n';
 		expectDiagnostics(src, analyzeModule(src), 'member-not-found', [
 			{ span: 'MissingCollectionMember', message: 'Excel.Workbooks.MissingCollectionMember' },
+			{ span: 'MissingCollectionMember', message: 'Excel.Worksheets.MissingCollectionMember' },
 			{ span: 'MissingCollectionMember', message: 'Excel.Sheets.MissingCollectionMember' },
 			{ span: 'UnknownSheetOrChartMember' },
 		]);

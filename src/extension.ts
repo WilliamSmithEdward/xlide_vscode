@@ -22,7 +22,9 @@ import { platformFeatures } from './platformFeatures';
 import { registerCommands } from './commands';
 import { registerVbaLanguageProviders } from './vbaLanguageProviders';
 import { XlideStatusBar } from './statusBar';
+import { OpenTargetStatusBar } from './openTargetStatusBar';
 import { VbaCaretProcedureTracker } from './vbaCaretProcedure';
+import { ExplorerFollow } from './explorerFollow';
 import { registerXlideDirtyModuleBackups } from './xlideDirtyModuleBackups';
 import { registerVbaEditorCommands } from './vbaEditorCommands';
 import { registerXlideCommand } from './xlideCommandRegistration';
@@ -41,6 +43,7 @@ import { AgentReviewDecorationProvider } from './agentReviewDecorations';
 import { onDidChangePendingAgentReviews, pendingAgentReviewCount } from './xlideAgentDiff';
 import { refreshProjectStateOnOutsideChange } from './projectModuleOperations';
 import { watchWorkspaceProjectFiles } from './projectFileChanges';
+import { watchOpenedProjects } from './projectTarget';
 import { registerXlideSidebar } from './xlideSidebar';
 import { setExtensionAssetRoot } from './extensionAssets';
 import { setPerformanceTraceLogger } from './performanceTrace';
@@ -105,6 +108,11 @@ export function activate(context: vscode.ExtensionContext): void {
     // and the tree so the two never disagree.
     const caret = new VbaCaretProcedureTracker();
     const statusBar = new XlideStatusBar(caret);
+    // Where the Open in Office Application keys go; there is no Office to
+    // open in a browser, so no keys and no item there.
+    const openTargetStatusBar = platformFeatures.name === 'web'
+        ? undefined
+        : new OpenTargetStatusBar(context.workspaceState);
     // The project engine runs in-process: there is no backend to install,
     // start, probe, or recover, so nothing gates the tree or the sidebar.
     const sidebar = registerXlideSidebar({
@@ -118,6 +126,13 @@ export function activate(context: vscode.ExtensionContext): void {
         showCollapseAll: true,
     });
     explorer.attachTreeView(treeView);
+    // What the tree shows, for the integration suite: nothing in the API says
+    // which rows are expanded. Never registered in an installed extension.
+    if (context.extensionMode !== vscode.ExtensionMode.Production) {
+        context.subscriptions.push(
+            vscode.commands.registerCommand('xlide.dev.explorerViewState', () => explorer.probeViewState()),
+        );
+    }
 
     // Agent edits awaiting review: coloured and badged rows, and a count on
     // the view itself, which shows on the Explorer icon while it is closed.
@@ -170,30 +185,6 @@ export function activate(context: vscode.ExtensionContext): void {
             });
         },
     });
-
-    /**
-     * Select the row for the procedure the caret is in, the way the VBE's own
-     * explorer marks it. Falls back to the module for a caret in the
-     * declarations section, and for a procedure the tree cannot name yet -
-     * an unsaved rename leaves the container calling it something else.
-     */
-    const revealCaretProcedure = (): void => {
-        const position = caret.current;
-        if (!position || !treeView.visible) { return; }
-        if (!xlideExplorerAutoExpandCollapseFromConfig(vscode.workspace.getConfiguration('xlide')).value) {
-            return;
-        }
-        const node = (position.procedure
-            && explorer.getProcedureNode(position.projectPath, position.moduleName, position.label))
-            ?? explorer.getModuleNode(position.projectPath, position.moduleName);
-        if (node) {
-            // reveal() rejects when the tree cannot place the element - a row
-            // the last refresh dropped, say. Marking the caret is cosmetic, so
-            // the rejection is swallowed rather than left unhandled.
-            void treeView.reveal(node, { select: true, focus: false })
-                .then(undefined, () => { /* the row is gone; nothing to mark */ });
-        }
-    };
 
     // VBA language services: syntax-aware symbol index + providers. The
     // analysis worker keeps full diagnostic passes off the extension-host
@@ -265,101 +256,19 @@ export function activate(context: vscode.ExtensionContext): void {
         treeView,
         explorer,
 
-        // Item 6: Reveal active module in the XLIDE Explorer tree.
-        // Also drives accordion collapse: only the active module stays expanded.
-        // Debounced so rapid tab switches (e.g. Ctrl+W spam) coalesce into a
-        // single setActiveModule + reveal, avoiding overlapping async reveal
-        // calls that could leave stale modules expanded.
-        (() => {
-            let pending: { projectPath: string; moduleName: string } | undefined;
-            const apply = debounce(() => {
-                if (!pending) { return; }
-                const { projectPath, moduleName } = pending;
-                pending = undefined;
-                // Honor the user's auto-expand/collapse preference: when off, the
-                // tree never follows the active tab or accordion-collapses.
-                if (!xlideExplorerAutoExpandCollapseFromConfig(vscode.workspace.getConfiguration('xlide')).value) {
-                    return;
-                }
-                explorer.setActiveModule(projectPath, moduleName);
-                const node = explorer.getModuleNode(projectPath, moduleName);
-                if (node && treeView.visible) {
-                    // Expanding the module is what lists its procedures, so the
-                    // caret's own row only exists once this has landed.
-                    void treeView.reveal(node, { select: true, focus: false, expand: true })
-                        .then(() => revealCaretProcedure(), () => { /* reveal is best-effort */ });
-                }
-            }, 60);
-            const subscription = vscode.window.onDidChangeActiveTextEditor((editor) => {
-                // Focus moved off any text editor (the Output panel, terminal, the
-                // tree, a webview, or the last tab closed). Leave the tree as-is: a
-                // project only collapses when focus moves to a module in a DIFFERENT
-                // project, never on transient focus loss.
-                if (!editor) {
-                    pending = undefined;
-                    apply.cancel();
-                    // Nothing open at all is the last editor closing, not a
-                    // transient loss of focus: no module is being edited, so
-                    // the folder layout goes back to its resting shape.
-                    if (vscode.window.visibleTextEditors.length === 0
-                        && xlideExplorerAutoExpandCollapseFromConfig(vscode.workspace.getConfiguration('xlide')).value) {
-                        explorer.collapseAllFolders();
-                    }
-                    return;
-                }
-                // A project module's virtual document and a VB6 module's own
-                // file are both modules of a project; the locator answers for
-                // both, so the tree follows a `.frm` the way it follows a
-                // `.bas` in a workbook.
-                const location = moduleLocationOfDocument(editor.document);
-                if (!location) { return; }
-                pending = { projectPath: location.projectPath, moduleName: location.moduleName };
-                apply();
-            });
-            // Tab closure is separate from focus loss: the Output panel or a
-            // webview can take focus while the module's editor is still open.
-            const tabsClosed = vscode.window.tabGroups.onDidChangeTabs((event) => {
-                if (!xlideExplorerAutoExpandCollapseFromConfig(vscode.workspace.getConfiguration('xlide')).value) {
-                    return;
-                }
-                const open = vscode.window.tabGroups.all.flatMap((group) => group.tabs);
-                for (const location of modulesWithNoTabLeft(event.closed, open)) {
-                    if (pending?.projectPath === location.projectPath && pending.moduleName === location.moduleName) {
-                        pending = undefined;
-                        apply.cancel();
-                    }
-                    explorer.clearActiveModule(location.projectPath, location.moduleName);
-                }
-            });
-            return new vscode.Disposable(() => {
-                apply.dispose();
-                subscription.dispose();
-                tabsClosed.dispose();
-            });
-        })(),
-
-        // Accordion: if the user manually clicks the expand arrow on a module node,
-        // collapse all sibling modules under the same project. A folder opened
-        // by hand keeps that until the editor moves to a different folder.
-        treeView.onDidExpandElement((e) => {
-            if (!xlideExplorerAutoExpandCollapseFromConfig(vscode.workspace.getConfiguration('xlide')).value) { return; }
-            if (e.element.kind === 'module' && e.element.filePath && e.element.moduleName) {
-                explorer.setActiveModule(e.element.filePath, e.element.moduleName);
-            }
-            explorer.notifyFolderExpansion(e.element, true);
-        }),
-
-        // When the user manually collapses the active project, stop forcing it
-        // Expanded so it stays collapsed - otherwise the next refresh re-stamps it
-        // Expanded against the still-set active-project key and springs it open.
-        // A folder shut by hand is remembered the same way one opened by hand is.
-        treeView.onDidCollapseElement((e) => {
-            if (e.element.kind === 'project' && e.element.filePath) {
-                explorer.notifyProjectCollapsed(e.element.filePath);
-            }
-            if (xlideExplorerAutoExpandCollapseFromConfig(vscode.workspace.getConfiguration('xlide')).value) {
-                explorer.notifyFolderExpansion(e.element, false);
-            }
+        // The tree follows the editor: the module being edited open, the
+        // others folded, and the caret's procedure selected. Every input
+        // only asks for a pass, and a newer request overtakes an older one
+        // (see explorerFollow.ts).
+        new ExplorerFollow({
+            explorer,
+            treeView,
+            caret,
+            enabled: () => xlideExplorerAutoExpandCollapseFromConfig(vscode.workspace.getConfiguration('xlide')).value,
+            modulesClosedBy: (event) => modulesWithNoTabLeft(
+                event.closed,
+                vscode.window.tabGroups.all.flatMap((group) => group.tabs),
+            ),
         }),
 
         // The Tree / Folders buttons, which write the setting rather than a
@@ -396,10 +305,6 @@ export function activate(context: vscode.ExtensionContext): void {
             out.show(true);
         }),
 
-        // The caret moving to another procedure moves the tree's selection with
-        // it. The tracker only fires when the procedure actually changes, so
-        // typing inside one does not touch the tree.
-        caret.onDidChange(() => revealCaretProcedure()),
         caret,
 
         ...sidebar.disposables,
@@ -407,6 +312,7 @@ export function activate(context: vscode.ExtensionContext): void {
         ...platformFeatures.registerAgentTools(context, bridge, explorer, fsProvider, vbaIndex),
 
         statusBar,
+        ...(openTargetStatusBar ? [openTargetStatusBar] : []),
         bridge,
     );
 
@@ -436,6 +342,10 @@ export function activate(context: vscode.ExtensionContext): void {
         // What notices such a save for a project with nothing of it open,
         // which is every project the user is only looking at in the tree.
         watchWorkspaceProjectFiles(),
+
+        // Remembers which project was last worked in, so a keybinding pressed
+        // with the focus somewhere else still knows what "the project" means.
+        watchOpenedProjects(),
 
         // The folder layout follows the open editor, not the file on disk: an
         // annotation edited in a module moves it while you type. Debounced,

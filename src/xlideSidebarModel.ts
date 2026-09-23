@@ -1,6 +1,7 @@
 import { projectIdentityKey } from './projectIdentity';
 import { containerAppNameForPath } from './macroContainerUi';
 import { officeHostForPath } from './officeHostApps';
+import type { ProjectTargetSource } from './projectTarget';
 
 type XlideSidebarNodeKind = 'section' | 'status' | 'action' | 'select';
 type XlideSidebarStatus = 'pass' | 'warn' | 'fail' | 'unknown';
@@ -9,7 +10,7 @@ interface XlideSidebarActiveProject {
     label: string;
     filePath: string;
     settingsPath: string;
-    selectionSource: 'activeEditor' | 'singleProject' | 'sidebarSelection';
+    selectionSource: ProjectTargetSource;
     settingsState: 'missing' | 'valid' | 'invalid';
     settingsMessage?: string;
 }
@@ -310,6 +311,8 @@ function selectionSourceLabel(source: XlideSidebarActiveProject['selectionSource
             return 'the only macro-enabled file in the workspace';
         case 'sidebarSelection':
             return 'the sidebar file picker';
+        case 'lastOpened':
+            return 'the file you last had a module open from';
         default:
             return 'the current context';
     }

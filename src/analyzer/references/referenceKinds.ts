@@ -132,16 +132,19 @@ function classifySegment(
 		return;
 	}
 
-	// Mid/MidB statements modify their first argument in place.
-	if ((headWord === 'mid' || headWord === 'mid$' || headWord === 'midb' || headWord === 'midb$')
-		&& seg[1]?.rawText === '(') {
-		const close = pastParens(seg, 1);
-		if (seg[close]?.rawText === '=') {
-			for (let i = 2; i < close; i++) {
-				if (isName(seg[i])) { mark(seg[i], 'readwrite'); break; }
+	// Mid/MidB statements modify their first argument in place. The lexer
+	// gives a type character a token of its own, so `Mid$(` is `Mid`, `$`, `(`.
+	if (headWord === 'mid' || headWord === 'midb') {
+		const open = seg[1]?.rawText === '$' && seg[1].start === seg[0].end ? 2 : 1;
+		if (seg[open]?.rawText === '(') {
+			const close = pastParens(seg, open);
+			if (seg[close]?.rawText === '=') {
+				for (let i = open + 1; i < close; i++) {
+					if (isName(seg[i])) { mark(seg[i], 'readwrite'); break; }
+				}
 			}
+			return;
 		}
-		return;
 	}
 
 	// Input #f, a, b / Line Input #f, s / Get #f, pos, var fill their

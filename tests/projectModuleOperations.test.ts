@@ -219,6 +219,114 @@ describe('refreshProjectStateOnOutsideChange', () => {
     });
 });
 
+describe('a module renamed outside XLIDE', () => {
+    // The VBE renames a module and saves; XLIDE only sees the file change.
+    // One module gone and another there, holding the code the editor on the
+    // gone one shows, is a rename, and the editor follows it.
+    const code = 'Option Explicit\r\n\r\nSub Keep()\r\nEnd Sub\r\n';
+
+    async function outsideChange(scenario: {
+        before: Array<{ name: string; source: string }>;
+        after: Array<{ name: string; source: string }>;
+        editorText?: string;
+        editorDirty?: boolean;
+    }): Promise<{ showTextDocument: ReturnType<typeof vi.fn>; close: ReturnType<typeof vi.fn> }> {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'xlide-outside-rename-'));
+        const book = path.join(dir, 'Book.xlsm');
+        const oldUri = encodeModuleUri(book, scenario.before[0].name);
+        let modules = scenario.before;
+        const workspace = vscode.workspace as unknown as { textDocuments: unknown[] };
+        const window = vscode.window as unknown as {
+            tabGroups: { all: unknown[]; close: ReturnType<typeof vi.fn> };
+            showTextDocument: ReturnType<typeof vi.fn>;
+            visibleTextEditors: unknown[];
+        };
+        const tab = { input: new vscode.TabInputText(oldUri), isDirty: Boolean(scenario.editorDirty), isPreview: false, group: { viewColumn: 1 } };
+        workspace.textDocuments = scenario.editorText === undefined ? [] : [{
+            uri: oldUri,
+            isClosed: false,
+            isDirty: Boolean(scenario.editorDirty),
+            getText: () => scenario.editorText,
+            languageId: 'xlide-vba',
+        }];
+        window.tabGroups.all = [{ tabs: [tab] }];
+        window.tabGroups.close = vi.fn(async () => true);
+        window.showTextDocument = vi.fn(async () => undefined);
+        window.visibleTextEditors = [];
+        const deps = {
+            bridge: { call: vi.fn(async () => modules) },
+            explorer: { refresh: vi.fn() },
+            vbaIndex: { onDidChange: new vscode.EventEmitter<{ projectPath: string }>().event, invalidate: vi.fn() },
+        };
+        fs.writeFileSync(book, 'before');
+        checkProjectFile(book);
+        const subscription = refreshProjectStateOnOutsideChange(deps as never);
+        try {
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            modules = scenario.after;
+            fs.writeFileSync(book, 'after, renamed');
+            checkProjectFile(book);
+            await vi.waitFor(() => expect(deps.explorer.refresh).toHaveBeenCalled());
+            return { showTextDocument: window.showTextDocument, close: window.tabGroups.close };
+        } finally {
+            subscription.dispose();
+            workspace.textDocuments = [];
+            window.tabGroups.all = [];
+            fs.rmSync(dir, { recursive: true, force: true });
+        }
+    }
+
+    it('takes a clean editor on it to the new name', async () => {
+        const { showTextDocument, close } = await outsideChange({
+            before: [{ name: 'OldName', source: code }, { name: 'Other', source: '' }],
+            after: [{ name: 'Other', source: '' }, { name: 'NewName', source: code }],
+            editorText: code,
+        });
+        expect(showTextDocument).toHaveBeenCalledTimes(1);
+        expect((showTextDocument.mock.calls[0] as [{ path: string }])[0].path).toMatch(/\/NewName\.bas$/);
+        expect(close).toHaveBeenCalledTimes(1);
+    });
+
+    it('moves nothing for a delete, even when another module holds the same code', async () => {
+        const { showTextDocument, close } = await outsideChange({
+            before: [{ name: 'OldName', source: code }, { name: 'Twin', source: code }],
+            after: [{ name: 'Twin', source: code }],
+            editorText: code,
+        });
+        expect(showTextDocument).not.toHaveBeenCalled();
+        expect(close).not.toHaveBeenCalled();
+    });
+
+    it('moves nothing when the module that appeared holds other code', async () => {
+        const { showTextDocument } = await outsideChange({
+            before: [{ name: 'OldName', source: code }],
+            after: [{ name: 'NewName', source: 'Option Explicit\r\n\r\nSub Different()\r\nEnd Sub\r\n' }],
+            editorText: code,
+        });
+        expect(showTextDocument).not.toHaveBeenCalled();
+    });
+
+    it('moves nothing when two modules changed at once', async () => {
+        const { showTextDocument } = await outsideChange({
+            before: [{ name: 'OldName', source: code }, { name: 'Gone', source: '' }],
+            after: [{ name: 'NewName', source: code }, { name: 'Added', source: '' }],
+            editorText: code,
+        });
+        expect(showTextDocument).not.toHaveBeenCalled();
+    });
+
+    it('leaves an editor with unsaved edits where it is', async () => {
+        const { showTextDocument, close } = await outsideChange({
+            before: [{ name: 'OldName', source: code }],
+            after: [{ name: 'NewName', source: code }],
+            editorText: `${code}' mine\r\n`,
+            editorDirty: true,
+        });
+        expect(showTextDocument).not.toHaveBeenCalled();
+        expect(close).not.toHaveBeenCalled();
+    });
+});
+
 describe('writeProjectFormDesigner', () => {
     it('announces the write to the form markup document, which is what shows the designer', async () => {
         // It announced the code document instead, which a designer write does

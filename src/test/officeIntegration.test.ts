@@ -45,7 +45,10 @@ suite('Office integration', () => {
 		assert.equal(config.inspect('officeIntegration.trackOpenedFiles')?.defaultValue, true);
 		assert.equal(config.inspect('officeIntegration.reopenAfterClose')?.defaultValue, true);
 		assert.equal(config.inspect('officeIntegration.reopenMode')?.defaultValue, 'lastState');
-		assert.equal(config.inspect('officeIntegration.reopenReadOnlyAfterSave')?.defaultValue, false);
+		// On since the refresh leaves any copy with unsaved work alone, keeps
+		// the reader's place, stays behind the editor and runs no
+		// Workbook_Open: a read-only Excel window follows each save.
+		assert.equal(config.inspect('officeIntegration.reopenReadOnlyAfterSave')?.defaultValue, true);
 		assert.equal(config.inspect('officeIntegration.attachToRunning')?.defaultValue, true);
 	});
 
