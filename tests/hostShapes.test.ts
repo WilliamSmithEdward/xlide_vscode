@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
-import { editShape, listShapes } from '../src/vba/projectService';
+import { editShape, listShapes, shapeMacros } from '../src/vba/projectService';
 import { PRESET_GEOMETRY, PRESET_LABELS } from '../src/vba/shapes';
 
 /** The shape types the agent tool's schema offers. */
@@ -68,6 +68,19 @@ describe('listing shapes, whichever host owns the file', () => {
 	it('refuses a container with no drawing surface, and says what it is', () => {
 		expect(() => listShapes(copy('AccessFixture.accdb')))
 			.toThrow(/is an Access database; listing shapes need an OOXML/);
+	});
+});
+
+describe('the Subs a shape can run, whichever host owns the file', () => {
+	it('offers a slide shape the Subs in standard modules', () => {
+		expect(shapeMacros(copy('PowerPointShapesFixture.pptm')).macros).toEqual([
+			{ macro: 'SayHello', module: 'Macros', proc: 'SayHello' },
+			{ macro: 'Unlinked', module: 'Macros', proc: 'Unlinked' },
+		]);
+	});
+
+	it('offers a Word shape none, since Word runs no macro from one', () => {
+		expect(shapeMacros(copy('WordShapesFixture.docm')).macros).toEqual([]);
 	});
 });
 

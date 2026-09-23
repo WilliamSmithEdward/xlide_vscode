@@ -12,8 +12,17 @@
 // distinguishable to a caller.
 
 import { decodeXml, encodeXml, findElement, type Span } from './ooxml';
+import type { FillEdit, FontEdit, LineEdit, ShapeFill, ShapeFont, ShapeLine } from './shapeFormat';
+
+export type { FillEdit, FontEdit, LineEdit, ShapeDash, ShapeFill, ShapeFont, ShapeLine } from './shapeFormat';
 
 export class ShapeError extends Error {}
+
+/**
+ * The applications' four Arrange commands. Each moves one shape among the
+ * top-level shapes of its surface; a shape inside a group stacks with it.
+ */
+export type ZOrderCommand = 'front' | 'back' | 'forward' | 'backward';
 
 export type ShapeKind =
 	| 'shape' | 'textBox' | 'line' | 'picture' | 'chart' | 'group'
@@ -51,6 +60,17 @@ export interface ShapeInfo {
 	inputRange?: string;
 	altText?: string;
 	hidden?: boolean;
+	/** Degrees clockwise. */
+	rotation?: number;
+	fill?: ShapeFill;
+	line?: ShapeLine;
+	/** The font of the shape's text, or of an Excel button's caption. */
+	font?: ShapeFont;
+	/**
+	 * Where the shape stacks among its surface's top-level shapes: 1 is at
+	 * the back. A Word shape inline with the text does not stack.
+	 */
+	zOrder?: number;
 	/** The shapes inside a group. */
 	shapes?: ShapeInfo[];
 }
@@ -91,6 +111,46 @@ export interface ShapeEdit {
 	inputRange?: string;
 	altText?: string;
 	newName?: string;
+	hidden?: boolean;
+	/** Degrees clockwise; 0 takes the rotation off. */
+	rotation?: number;
+	fill?: FillEdit;
+	line?: LineEdit;
+	font?: FontEdit;
+	zOrder?: ZOrderCommand;
+}
+
+export const Z_ORDER_COMMANDS: readonly ZOrderCommand[] = ['front', 'back', 'forward', 'backward'];
+
+/**
+ * Where a z-order command moves the item at `index` in a list of `count`,
+ * 0-based, the way the applications' Arrange commands move a shape among
+ * the shapes on its surface.
+ */
+export function restackedIndex(index: number, count: number, command: ZOrderCommand): number {
+	switch (command) {
+		case 'front': return count - 1;
+		case 'back': return 0;
+		case 'forward': return Math.min(count - 1, index + 1);
+		default: return Math.max(0, index - 1);
+	}
+}
+
+/**
+ * The part of an add that is applied to the shape once it exists - its
+ * look, visibility and stacking - or undefined when the add has none. Each
+ * host adds a shape in its default look, then sets these the way it sets
+ * them on any shape.
+ */
+export function lookOf(edit: ShapeEdit): Partial<ShapeEdit> | undefined {
+	const look: Partial<ShapeEdit> = {};
+	if (edit.fill !== undefined) { look.fill = edit.fill; }
+	if (edit.line !== undefined) { look.line = edit.line; }
+	if (edit.font !== undefined) { look.font = edit.font; }
+	if (edit.rotation !== undefined) { look.rotation = edit.rotation; }
+	if (edit.hidden !== undefined) { look.hidden = edit.hidden; }
+	if (edit.zOrder !== undefined) { look.zOrder = edit.zOrder; }
+	return Object.keys(look).length > 0 ? look : undefined;
 }
 
 /** An addable AutoShape's DrawingML preset geometry. */
@@ -185,11 +245,18 @@ export function drawingTextOf(xml: string, element: Span, bodyName: string): str
 /**
  * A DrawingML text body with its paragraphs replaced by `text`, keeping the
  * first run's character and paragraph formatting so re-typing a caption does
- * not restyle it. An empty line becomes an empty paragraph carrying the same
- * formatting, which is what Office writes for one.
+ * not restyle it. Text typed into an empty shape takes the format of its
+ * paragraph mark, as it does in the application, and failing that
+ * `defaultRun`: Excel writes the 11-point size into every run, while a
+ * PowerPoint run leaves its size to the slide. An empty line becomes an
+ * empty paragraph carrying the same formatting, which is what Office writes
+ * for one.
  */
-export function withDrawingText(body: string, text: string, bodyName: string): string {
-	const rPr = /<a:rPr\b[^>]*\/>|<a:rPr\b[^>]*>[\s\S]*?<\/a:rPr>/.exec(body)?.[0] ?? '<a:rPr lang="en-US" sz="1100"/>';
+export function withDrawingText(body: string, text: string, bodyName: string, defaultRun = '<a:rPr lang="en-US" sz="1100"/>'): string {
+	const mark = /<a:endParaRPr\b[^>]*\/>|<a:endParaRPr\b[^>]*>[\s\S]*?<\/a:endParaRPr>/.exec(body)?.[0];
+	const rPr = /<a:rPr\b[^>]*\/>|<a:rPr\b[^>]*>[\s\S]*?<\/a:rPr>/.exec(body)?.[0]
+		?? mark?.replace(/^<a:endParaRPr\b/, '<a:rPr').replace(/<\/a:endParaRPr>$/, '</a:rPr>')
+		?? defaultRun;
 	const pPr = /<a:pPr\b[^>]*\/>|<a:pPr\b[^>]*>[\s\S]*?<\/a:pPr>/.exec(body)?.[0] ?? '';
 	const endRPr = rPr.replace(/^<a:rPr\b/, '<a:endParaRPr').replace(/<\/a:rPr>$/, '</a:endParaRPr>');
 	const paragraphs = text.split(/\r?\n/).map((line) => (line

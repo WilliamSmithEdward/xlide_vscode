@@ -96,46 +96,53 @@ reviewable, testable, and collaborative.
    it and nothing is written until you save. The designer reads and writes the
    form's binary storage itself, so no Office application needs to be running.
 
-7. **Edit Access databases, forms, and reports**
+7. **Work with shapes and the macros they run**
+   A worksheet's shapes sit under its module in the tree, a document's under
+   ThisDocument, and a presentation's under Slides. Click one to change it in
+   one form: position, text, font, fill, outline, rotation, stacking, and the
+   Sub a click runs. XLIDE writes the file itself, so no Office application
+   needs to be running.
+
+8. **Edit Access databases, forms, and reports**
    Access modules can be edited, added, renamed, and deleted. Forms and reports
    open in the same designer as a UserForm, and in the code behind one `Me` is
    the Access form, with its controls as members. XLIDE writes the source and
    marks the compiled copy stale, so Access recompiles on the next open, the
    same thing its `/decompile` switch does.
 
-8. **Open Visual Basic 6 projects**
+9. **Open Visual Basic 6 projects**
    A `.vbp` shows in the tree like any other project, its modules get the same
    language services, and its forms open in the designer from their own `.frm`
    text. XLIDE does not build or run VB6 projects.
 
-9. **Keep the project organized from the code**
+10. **Keep the project organized from the code**
    Put `'@Folder("Accounts.Ledger")` in a module and the **Folders** view
    groups the project by it, the Rubberduck convention. Annotations such as
    `'@PredeclaredId` and `'@Description("...")` write the hidden module
    attributes on save. The tree follows the editor, and the status bar names
    the procedure your cursor is in.
 
-10. **Keep VBA code reviewable**
+11. **Keep VBA code reviewable**
    Export modules to `.bas` and `.cls` files, preview exactly what will change,
    and use source control workflows without guessing what is inside a binary
    file.
 
-11. **Import and export safely**
+12. **Import and export safely**
    XLIDE previews create, update, overwrite, and delete actions before applying
    them. Per-file settings live beside the file so each project can keep its
    own sync rules.
 
-12. **Analyze the whole file**
+13. **Analyze the whole file**
    Run file-wide analysis over any container - workbook, document,
    presentation, or database - and review findings in a dedicated report
    instead of hunting through modules one by one.
 
-13. **Run macros and VBA tests when Office is available**
+14. **Run macros and VBA tests when Office is available**
    On Windows with Microsoft Office installed, XLIDE runs macros and
    `@xlide-test` unit tests through explicit automation of the file's own
    application - Excel, Word, PowerPoint, or Access.
 
-14. **Give AI assistants real file context**
+15. **Give AI assistants real file context**
    XLIDE exposes tools for file discovery, VBA reads/writes, analysis,
    tests, sheet/cell access, formulas, shapes on any Office surface - a
    worksheet, a slide, a document body, a header - and the macros they run,
@@ -212,6 +219,15 @@ refactoring from the Command Palette.
 Open a UserForm, an Access form or report, or a VB6 `.frm` from the tree and
 it opens in the designer. Save writes the form back to the file.
 
+### Work with shapes
+
+Open a worksheet's module in the tree and its shapes are in a Shapes folder
+above its procedures. A Word document's are under ThisDocument, by story, and
+a presentation's are under Slides. Click a shape to open it in the shape
+editor. Its menu links it to a Sub, unlinks it, opens the Sub, or deletes
+the shape. A Shapes folder, a slide, or a story adds one. Word cannot run a
+macro from a shape, so its shapes offer no link.
+
 ### Open a VB6 project
 
 Add a `.vbp` to the folder and it appears in the tree. Its modules get the
@@ -263,6 +279,8 @@ Guide:
 - A UserForm designer with a canvas, toolbox, properties pane, tab order, and
   the form's markup in one editor.
 - Writable Access modules, and Access forms and reports in the same designer.
+- Shapes in the tree for worksheets, slides, and documents, and a shape
+  editor for every property and the Sub a click runs.
 - Visual Basic 6 projects in the tree, with their forms in the designer.
 - A Folders view driven by `'@Folder` annotations, and a status bar that
   names the current procedure.
@@ -393,6 +411,12 @@ Open the Command Palette and type `XLIDE` to find these commands:
 - The UserForm designer keeps every property it does not name itself, so a
   form you have not edited saves back unchanged. Access designs work the same
   way.
+- Excel gives a worksheet its module only once its VBA editor is opened
+  after the sheet was added, so the tree lists a sheet with no module under
+  Sheets With No Module. ActiveX controls are listed but not edited, and
+  pictures and charts can be changed but not added. The shape tools need the
+  Office Open XML formats; a binary .xlsb, .xls, .doc, or .ppt file shows no
+  shapes.
 - After XLIDE writes to an Access database, Access recompiles it on the next
   open, so all the VBA in it has to compile, including code XLIDE did not
   touch.

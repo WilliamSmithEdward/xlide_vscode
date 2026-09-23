@@ -9,7 +9,7 @@ import {
 	listStoryShapes,
 	requireStory,
 } from '../src/vba/docShapes';
-import type { ShapeInfo } from '../src/vba/shapes';
+import type { ShapeEdit, ShapeInfo } from '../src/vba/shapes';
 
 // Word 16 saved the fixture. The body has InlineOval (inline with the text),
 // AnchoredBox (floating, with text and alt text) and Board, a drawing canvas
@@ -20,14 +20,29 @@ import type { ShapeInfo } from '../src/vba/shapes';
 const FIXTURES = path.join(__dirname, 'fixtures', 'binaries');
 const FIXTURE = 'WordShapesFixture.docm';
 
-const open = (): ZipArchive => ZipArchive.read(fs.readFileSync(path.join(FIXTURES, FIXTURE)));
+const open = (name = FIXTURE): ZipArchive => ZipArchive.read(fs.readFileSync(path.join(FIXTURES, name)));
 const reopen = (zip: ZipArchive): ZipArchive => ZipArchive.read(zip.toBytes());
 const body = (zip: ZipArchive) => defaultStory(documentStories(zip));
 const story = (zip: ZipArchive, surface: string) => requireStory(documentStories(zip), surface);
-const shapesOn = (zip: ZipArchive, surface?: string): ShapeInfo[] =>
+/**
+ * A shape as most of these tests describe it: what it is, where, and what
+ * it says. Its look and stacking have tests of their own below.
+ */
+function essentials(shape: ShapeInfo): ShapeInfo {
+	const { fill: _fill, line: _line, font: _font, rotation: _rotation, zOrder: _zOrder, ...rest } = shape;
+	return rest.shapes ? { ...rest, shapes: rest.shapes.map(essentials) } : rest;
+}
+/** Every shape on a surface, with its look, for the formatting tests. */
+const looksOn = (zip: ZipArchive, surface?: string): ShapeInfo[] =>
 	listStoryShapes(zip, surface === undefined ? body(zip) : story(zip, surface));
+const shapesOn = (zip: ZipArchive, surface?: string): ShapeInfo[] => looksOn(zip, surface).map(essentials);
 const named = (zip: ZipArchive, name: string, surface?: string): ShapeInfo | undefined =>
 	shapesOn(zip, surface).find((s) => s.name === name);
+/** A shape with its look, members of a canvas included. */
+const looked = (zip: ZipArchive, name: string): ShapeInfo | undefined => {
+	const all = (shapes: ShapeInfo[]): ShapeInfo[] => shapes.flatMap((s) => [s, ...all(s.shapes ?? [])]);
+	return all(looksOn(zip)).find((s) => s.name === name);
+};
 const part = (zip: ZipArchive, name: string): string => zip.read(name).toString('utf8');
 
 describe('finding surfaces', () => {
@@ -229,6 +244,213 @@ describe('adding a document shape', () => {
 		});
 
 		expect(named(reopen(zip), name)?.text).toBe('a < b & "c" > d');
+	});
+});
+
+describe('formatting a document shape', () => {
+	// ShapesFormattedFixture is WordShapesFixture after Word, driven through
+	// its object model, made exactly these changes and saved. AnchoredBox was
+	// already the back of the floating shapes, so sending it back moved
+	// nothing.
+	const WORDS_EDITS: ShapeEdit[] = [
+		{
+			action: 'update', name: 'AnchoredBox', rotation: 30, zOrder: 'back',
+			fill: { type: 'solid', color: '#FF0000', transparency: 25 },
+			line: { type: 'solid', color: '#008000', weight: 2.5, dash: 'dash' },
+			font: { name: 'Arial', size: 14, bold: true, italic: true, underline: true, color: '#0000FF' },
+		},
+		{ action: 'update', name: 'Board', hidden: true },
+	];
+	// ShapesArrangedFixture is WordShapesFixture after Word made these.
+	const WORDS_ARRANGEMENT: ShapeEdit[] = [
+		{ action: 'update', name: 'AnchoredBox', rotation: 90, zOrder: 'front' },
+		{ action: 'update', name: 'GroupedRect', hidden: true },
+		{ action: 'update', name: 'GroupedOval', fill: { type: 'solid', color: '#FFFF00' }, line: { type: 'none' }, rotation: 20 },
+	];
+
+	const documentOf = (zip: ZipArchive): string => part(zip, 'word/document.xml');
+	/** The mc:AlternateContent holding a top-level shape. */
+	const entryOf = (zip: ZipArchive, name: string): string => {
+		const xml = documentOf(zip);
+		const at = xml.indexOf(`name="${name}"`);
+		const start = xml.lastIndexOf('<mc:AlternateContent>', at);
+		return xml.slice(start, xml.indexOf('</mc:AlternateContent>', at) + '</mc:AlternateContent>'.length);
+	};
+	/** The first element of `name` in a string, whole. */
+	const elementIn = (xml: string, name: string): string =>
+		xml.slice(xml.indexOf(`<${name}`), xml.indexOf(`</${name}>`) + `</${name}>`.length);
+	/** A VML element's start tag, found by its id, without the preview image Word caches in it. */
+	const vmlTag = (zip: ZipArchive, id: string): string => {
+		const xml = documentOf(zip);
+		const at = xml.indexOf(`id="${id}"`);
+		return xml.slice(xml.lastIndexOf('<v:', at), xml.indexOf('>', at) + 1).replace(/ o:gfxdata="[^"]*"/, '');
+	};
+	/** A floating shape's wp:anchor relativeHeight. */
+	const heightOf = (zip: ZipArchive, name: string): number =>
+		Number(/relativeHeight="(\d+)"/.exec(entryOf(zip, name))![1]);
+	/** A top-level shape's wp:effectExtent, l t r b in EMU. */
+	const effectOf = (zip: ZipArchive, name: string): number[] => {
+		const tag = /<wp:effectExtent\b[^>]*>/.exec(entryOf(zip, name))![0];
+		return ['l', 't', 'r', 'b'].map((side) => Number(new RegExp(`\\b${side}="(\\d+)"`).exec(tag)![1]));
+	};
+	/** Word's revision marks and paragraph ids, which say who typed the text and not how it looks. */
+	const withoutRevisions = (xml: string): string => xml.replace(/ w(?:14)?:(?:rsid\w*|paraId|textId)="[^"]*"/g, '');
+	/** Each shape's box, look and stacking, canvas members included, for comparing two files. */
+	const looks = (zip: ZipArchive): unknown[] => {
+		const all = (shapes: ShapeInfo[]): ShapeInfo[] => shapes.flatMap((s) => [s, ...all(s.shapes ?? [])]);
+		return all(looksOn(zip)).map(({ name, zOrder, hidden, rotation, fill, line, font, left, top, width, height }) =>
+			({ name, zOrder, hidden, rotation, fill, line, font, left, top, width, height }));
+	};
+
+	it('reads what Word wrote for each property', () => {
+		const zip = open('ShapesFormattedFixture.docm');
+		expect(looked(zip, 'AnchoredBox')).toMatchObject({
+			rotation: 30, zOrder: 1,
+			fill: { type: 'solid', color: '#FF0000', transparency: 25 },
+			line: { type: 'solid', color: '#008000', weight: 2.5, dash: 'dash' },
+			font: { name: 'Arial', size: 14, bold: true, italic: true, underline: true, color: '#0000FF' },
+		});
+		expect(looked(zip, 'Board')).toMatchObject({ hidden: true, zOrder: 2 });
+		// An inline shape is part of the text and stacks with nothing.
+		expect(looked(zip, 'InlineOval')?.zOrder).toBeUndefined();
+	});
+
+	it('reports the font Word shows where the text sets none itself', () => {
+		// Word reported Aptos at 12 points from the document defaults, and
+		// drew the text white: its color is automatic, which in a shape is
+		// the style's lt1. A Normal style that sets a color would win.
+		expect(looked(open(), 'AnchoredBox')).toMatchObject({
+			fill: { type: 'solid', color: '#156082', themeColor: 'accent1', automatic: true },
+			line: { type: 'solid', themeColor: 'accent1', weight: 1.5, automatic: true },
+			font: { name: 'Aptos', size: 12, color: '#FFFFFF' },
+		});
+	});
+
+	it('writes each property the way Word does, in both copies of the shape', () => {
+		const zip = open();
+		for (const edit of WORDS_EDITS) {
+			editStoryShape(zip, body(zip), edit);
+		}
+		const words = open('ShapesFormattedFixture.docm');
+		expect(looks(reopen(zip))).toEqual(looks(words));
+
+		const ours = entryOf(zip, 'AnchoredBox');
+		const theirs = entryOf(words, 'AnchoredBox');
+		expect(elementIn(ours, 'wps:spPr')).toBe(elementIn(theirs, 'wps:spPr'));
+		const boxes = (entry: string): string[] => [...entry.matchAll(/<w:txbxContent>[\s\S]*?<\/w:txbxContent>/g)]
+			.map((m) => withoutRevisions(m[0]));
+		expect(boxes(ours)).toEqual(boxes(theirs));
+		expect(boxes(ours)).toHaveLength(2);
+
+		// The VML twin carries the same look. Word names a pure color where
+		// VML has a name for it ("red"); the hex is the same color.
+		const twin = vmlTag(zip, 'AnchoredBox');
+		expect(twin).toContain('fillcolor="#FF0000"');
+		expect(twin).toContain('strokecolor="#008000"');
+		expect(twin).toContain('strokeweight="2.5pt"');
+		expect(twin).toMatch(/style="[^"]*rotation:30[;"]/);
+		expect(ours).toContain('<v:fill opacity="49087f"/><v:stroke dashstyle="dash"/><v:textbox>');
+		// A hidden canvas hides its background shape with it.
+		const style = (tag: string): string => /style="([^"]*)"/.exec(tag)![1];
+		expect(style(vmlTag(zip, 'Board'))).toBe(style(vmlTag(words, 'Board')));
+		expect(style(vmlTag(zip, '_x0000_s1027'))).toBe(style(vmlTag(words, '_x0000_s1027')));
+	});
+
+	it('turns, restacks and restyles shapes in a canvas as Word does', () => {
+		const zip = open();
+		for (const edit of WORDS_ARRANGEMENT) {
+			editStoryShape(zip, body(zip), edit);
+		}
+		const words = open('ShapesArrangedFixture.docm');
+		expect(looks(reopen(zip))).toEqual(looks(words));
+		// To the front is one step of 1024 above the highest; nothing else moves.
+		expect(heightOf(zip, 'AnchoredBox')).toBe(heightOf(words, 'AnchoredBox'));
+		expect(heightOf(zip, 'Board')).toBe(heightOf(words, 'Board'));
+		expect(vmlTag(zip, 'AnchoredBox')).toContain(`z-index:${heightOf(words, 'AnchoredBox')};`);
+		// Turned a quarter, the shape's ink is measured from the turned box:
+		// only the outline shows past it, as Word wrote within a point.
+		const effect = effectOf(zip, 'AnchoredBox');
+		effectOf(words, 'AnchoredBox').forEach((value, side) => expect(Math.abs(effect[side] - value), `side ${side}`).toBeLessThanOrEqual(12700));
+		// Word left the VML of the shapes in the canvas as it was.
+		for (const id of ['GroupedRect', 'GroupedOval']) {
+			expect(vmlTag(zip, id), id).toBe(vmlTag(open(), id));
+		}
+	});
+
+	it('makes room for the corners of a shape turned less than a quarter', () => {
+		const zip = open();
+		editStoryShape(zip, body(zip), WORDS_EDITS[0]);
+		// Word's top and bottom: the turned corners and half the outline,
+		// within a point and a half. Its left and right come from its
+		// renderer and are not symmetric; these are the geometry.
+		const [left, top, right, bottom] = effectOf(zip, 'AnchoredBox');
+		const [, wordsTop, , wordsBottom] = effectOf(open('ShapesFormattedFixture.docm'), 'AnchoredBox');
+		expect(Math.abs(top - wordsTop)).toBeLessThanOrEqual(19050);
+		expect(Math.abs(bottom - wordsBottom)).toBeLessThanOrEqual(19050);
+		expect(left).toBe(right);
+		expect(left).toBeGreaterThan(0);
+	});
+
+	it('trades places with the shape above or below it', () => {
+		const zip = open();
+		editStoryShape(zip, body(zip), { action: 'update', name: 'Board', zOrder: 'backward' });
+		const again = reopen(zip);
+		expect(looked(again, 'Board')?.zOrder).toBe(1);
+		expect(looked(again, 'AnchoredBox')?.zOrder).toBe(2);
+		expect([heightOf(again, 'Board'), heightOf(again, 'AnchoredBox')]).toEqual([251659264, 251660288]);
+	});
+
+	it('shows a hidden shape again, and a font color goes back to the style\'s', () => {
+		const zip = open('ShapesFormattedFixture.docm');
+		editStoryShape(zip, body(zip), { action: 'update', name: 'Board', hidden: false });
+		editStoryShape(zip, body(zip), { action: 'update', name: 'AnchoredBox', font: { color: '' }, rotation: 0 });
+		const again = reopen(zip);
+		expect(looked(again, 'Board')?.hidden).toBeUndefined();
+		expect(vmlTag(again, 'Board')).toContain('visibility:visible');
+		expect(vmlTag(again, '_x0000_s1027')).toContain('visibility:visible');
+		expect(looked(again, 'AnchoredBox')?.rotation).toBeUndefined();
+		expect(looked(again, 'AnchoredBox')?.font?.color).toBe('#FFFFFF');
+		expect(vmlTag(again, 'AnchoredBox')).not.toContain('rotation:');
+	});
+
+	it('gives text to a shape that has none, in both copies', () => {
+		const zip = open();
+		editStoryShape(zip, body(zip), { action: 'update', name: 'InlineOval', text: 'Hi' });
+		const entry = entryOf(zip, 'InlineOval');
+		expect(named(reopen(zip), 'InlineOval')?.text).toBe('Hi');
+		expect(looked(reopen(zip), 'InlineOval')?.font).toEqual({ name: 'Aptos', size: 12, color: '#FFFFFF' });
+		expect(entry.indexOf('<wps:txbx>')).toBeLessThan(entry.indexOf('<wps:bodyPr'));
+		expect(entry).toMatch(/<v:oval\b[^>]*>[\s\S]*<v:textbox><w:txbxContent><w:p><w:pPr><w:jc w:val="center"\/><\/w:pPr><w:r><w:t xml:space="preserve">Hi<\/w:t>/);
+		expect([...entry.matchAll(/>Hi</g)]).toHaveLength(2);
+	});
+
+	it('adds a shape with its look in one edit, on top of the others', () => {
+		const zip = open();
+		const name = editStoryShape(zip, body(zip), {
+			action: 'add', type: 'oval', left: 10, top: 10, width: 50, height: 40, text: 'Hi', rotation: 45,
+			fill: { type: 'solid', color: '#00FF00' }, line: { type: 'none' }, font: { bold: true, color: '#000000' },
+		});
+		expect(looked(reopen(zip), name)).toMatchObject({
+			left: 10, top: 10, width: 50, height: 40, rotation: 45, text: 'Hi', zOrder: 3,
+			fill: { type: 'solid', color: '#00FF00' }, line: { type: 'none' },
+			font: { bold: true, color: '#000000', size: 12, name: 'Aptos' },
+		});
+	});
+
+	it('refuses what a kind of shape does not have, and a value that is not one', () => {
+		const zip = open();
+		const refusals: Array<[ShapeEdit, RegExp]> = [
+			[{ action: 'update', name: 'Board', fill: { type: 'none' } }, /'Board' is a canvas, which has no fill/],
+			[{ action: 'update', name: 'Board', rotation: 10 }, /'Board' is a canvas, which has no rotation/],
+			[{ action: 'update', name: 'InlineOval', zOrder: 'front' }, /inline with the text, which does not stack/],
+			[{ action: 'update', name: 'GroupedRect', zOrder: 'front' }, /'GroupedRect' is inside 'Board' and stacks with it/],
+			[{ action: 'update', name: 'InlineOval', font: { bold: true } }, /has no text yet; give it text, and the font with it/],
+			[{ action: 'update', name: 'AnchoredBox', fill: { type: 'solid', color: 'red' } }, /'red' is not a fill color/],
+			[{ action: 'update', name: 'AnchoredBox', font: { size: 500 } }, /A font size is in points, from 1 to 409/],
+		];
+		for (const [edit, message] of refusals) {
+			expect(() => editStoryShape(zip, body(zip), edit), JSON.stringify(edit)).toThrow(message);
+		}
 	});
 });
 

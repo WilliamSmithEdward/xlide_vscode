@@ -16,8 +16,13 @@ import {
 } from './agentReviewDecorations';
 import { startPerformanceTrace } from './performanceTrace';
 import { osPlatform } from './util/osPlatform';
+import { ShapeRows, type ShapeRowContext } from './shapeRows';
+import type { ShapeInfo } from './vba/shapes';
 
-export type XlideNodeKind = 'project' | 'folder' | 'module' | 'designer' | 'sub' | 'loadError' | 'empty';
+export type XlideNodeKind = 'project' | 'folder' | 'module' | 'designer' | 'sub' | 'loadError' | 'empty'
+    // The shape rows, drawn by ShapeRows (shapeRows.ts): a Shapes or Slides
+    // folder, a slide or story, a shape, and the row an empty one shows.
+    | 'shapes' | 'surface' | 'shape' | 'noShapes';
 
 export type { XlideExplorerView } from './globalSettings';
 
@@ -64,6 +69,18 @@ export interface XlideNode {
     hasVbaProject?: boolean;
     /** Workbook only: VBA project carries a digital signature. */
     isSigned?: boolean;
+    /** module only: what a document module stands for (worksheet, workbook, chart, document). */
+    documentType?: string;
+    /** shapes only: a module's Shapes folder, a presentation's Slides, or a workbook's sheets with no module. */
+    shapeFolder?: 'module' | 'slides' | 'sheets';
+    /** surface and shape only: the sheet, slide or Word story, as the shape tools name it. */
+    surface?: string;
+    /** shape only: the shape as the file lists it. */
+    shape?: ShapeInfo;
+    /** shape only: its name, after the names of the groups it is in. */
+    shapePath?: string[];
+    /** surface and the sheets folder: how many rows are under it. */
+    itemCount?: number;
 }
 
 export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vscode.Disposable {
@@ -91,8 +108,8 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     private _projectFilesLoad: Promise<XlideNode[]> | undefined;
     // listModules cache: avoids repeated bridge round-trips while the tree is
     // expanded.  Cleared on refresh() so edits always re-fetch.
-    private _modulesListCache = new Map<string, Array<{ name: string; type: string; filePath?: string; folder?: string }>>();
-    private _modulesListLoads = new Map<string, Promise<Array<{ name: string; type: string; filePath?: string; folder?: string }>>>();
+    private _modulesListCache = new Map<string, ModuleListing[]>();
+    private _modulesListLoads = new Map<string, Promise<ModuleListing[]>>();
     // Bumped on every refresh(). An in-flight load captured before a refresh must
     // not write its now-stale result into the freshly-cleared cache (which would
     // leave a just-added module invisible until the next refresh).
@@ -128,12 +145,16 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     private _treeView: vscode.TreeView<XlideNode> | undefined;
     // While a probe runs: the rows whose children VS Code asked for.
     private _childrenProbe: string[] | undefined;
+    // The shape rows under worksheet and document modules and presentations.
+    private readonly _shapes: ShapeRows;
 
     constructor(
         private readonly _bridge: ProjectEngine,
         private readonly _out?: vscode.OutputChannel,
         private readonly _gitMarks?: GitChangeMarksSource,
-    ) {}
+    ) {
+        this._shapes = new ShapeRows(_bridge, (node) => this._emitter.fire(node), _out);
+    }
 
     dispose(): void {
         this._clearProtectionTimers();
@@ -180,8 +201,31 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         this._protectionCache.clear();
         this._protectionLoads.clear();
         this._clearProtectionTimers();
+        this._shapes.clear();
         this._emitter.fire();
         this._rowsReplaced.fire(undefined);
+    }
+
+    /**
+     * A file changed, by a shape edit or a save from outside: its shapes are
+     * read again when next shown, and the shape rows someone opened are
+     * redrawn. Nothing else in the tree moves.
+     */
+    refreshShapes(filePath: string): void {
+        this._shapes.refresh(filePath);
+    }
+
+    /** The surface and shape a shape row, surface row or Shapes folder stands for. */
+    shapeContextOf(node: XlideNode): ShapeRowContext | undefined {
+        return this._shapes.contextOf(node);
+    }
+
+    /**
+     * The surface a Shapes folder or surface row adds a shape to, reading the
+     * file when the folder has never been opened.
+     */
+    shapeSurfaceOf(node: XlideNode): Promise<ShapeRowContext | undefined> {
+        return this._shapes.surfaceOf(node);
     }
 
     /**
@@ -304,6 +348,9 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                 ? this._moduleNodes.get(moduleNodeKey(node.filePath, node.moduleName))
                 : this._projectNodes.get(projectNodeKey(node.filePath));
         }
+        if (isShapeRow(node)) {
+            return this._shapes.parentOf(node);
+        }
         return undefined;
     }
 
@@ -408,6 +455,13 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                 return `folder::${folderNodeKey(node.filePath, node.folder ?? '')}`;
             case 'module':
                 return `module::${moduleNodeKey(node.filePath, node.moduleName ?? '')}`;
+            case 'shapes':
+            case 'surface':
+            case 'shape':
+            case 'noShapes':
+                // Its tree item id, which names the file, the surface and the
+                // shape's place among groups.
+                return `${node.kind}::${this._shapes.treeItem(node).id}`;
             default:
                 return `${node.kind}::${moduleNodeKey(node.filePath, node.moduleName ?? '')}::${node.label}`;
         }
@@ -619,6 +673,9 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     }
 
     getTreeItem(node: XlideNode): vscode.TreeItem {
+        if (isShapeRow(node)) {
+            return this._shapes.treeItem(node);
+        }
         const isActiveModule =
             node.kind === 'module' &&
             moduleNodeKey(node.filePath, node.moduleName ?? '') === this._activeModuleKey;
@@ -837,14 +894,18 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         }
         if (node.kind === 'project') {
             const modules = await this._getModules(node.filePath);
+            const failed = modules.some((m) => m.kind === 'loadError');
+            // A presentation's slides, and a workbook's sheets with no module,
+            // lead the project's rows; a listing that failed shows only that.
+            const shapeFolders = failed ? [] : this._shapes.projectFolders(node, modules.map((m) => m.moduleName ?? ''));
             if (modules.length === 0) {
-                return [this._emptyNode(node.filePath, await this._hasVbaProject(node.filePath))];
+                return [...shapeFolders, this._emptyNode(node.filePath, await this._hasVbaProject(node.filePath))];
             }
-            if (this._view !== 'folders' || modules.some((m) => m.kind === 'loadError')) {
-                return modules;
+            if (this._view !== 'folders' || failed) {
+                return [...shapeFolders, ...modules];
             }
             const tree = this._folderTreeOf(node.filePath, modules);
-            return [...this._folderNodesOf(node.filePath, tree.folders), ...tree.modules];
+            return [...shapeFolders, ...this._folderNodesOf(node.filePath, tree.folders), ...tree.modules];
         }
         if (node.kind === 'folder') {
             const folder = this._folderIn(node.filePath, node.folder ?? '');
@@ -854,7 +915,16 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             return [...this._folderNodesOf(node.filePath, folder.folders), ...folder.modules];
         }
         if (node.kind === 'module') {
-            return this._getSubs(node.filePath, node.moduleName!, node.moduleType);
+            const subs = await this._getSubs(node.filePath, node.moduleName!, node.moduleType);
+            // A worksheet's or Word document's shapes, above its procedures,
+            // where a form's Designer row sits.
+            const shapes = this._shapes.moduleFolder(node);
+            return shapes ? [shapes, ...subs] : subs;
+        }
+        if (isShapeRow(node)) {
+            return this._shapes.children(node, async () => (await this._getModules(node.filePath))
+                .filter((m) => m.kind === 'module')
+                .map((m) => m.moduleName ?? ''));
         }
         return [];
     }
@@ -1042,7 +1112,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             if (!modules) {
                 let load = this._modulesListLoads.get(cacheKey);
                 if (!load) {
-                    load = this._bridge.call<Array<{ name: string; type: string; filePath?: string; folder?: string }>>(
+                    load = this._bridge.call<ModuleListing[]>(
                         'listModules',
                         { path: filePath },
                     );
@@ -1093,6 +1163,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                             filePath,
                             moduleName: m.name,
                             moduleType: m.type,
+                            ...(m.documentType ? { documentType: m.documentType } : {}),
                             ...(m.filePath ? { moduleFilePath: m.filePath } : {}),
                             ...(folder ? { folder } : {}),
                         };
@@ -1291,6 +1362,20 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             this._emitter.fire(node);
         }
     }
+}
+
+/** What listModules gives the tree for each module. */
+interface ModuleListing {
+    name: string;
+    type: string;
+    documentType?: string;
+    filePath?: string;
+    folder?: string;
+}
+
+/** Whether ShapeRows draws the row. */
+function isShapeRow(node: XlideNode): boolean {
+    return node.kind === 'shapes' || node.kind === 'surface' || node.kind === 'shape' || node.kind === 'noShapes';
 }
 
 /** A row as a probe reports it: its kind, and the name it shows. */

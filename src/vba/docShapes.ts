@@ -57,13 +57,54 @@ import {
 	PRESET_GEOMETRY,
 	PRESET_LABELS,
 	ShapeError,
+	lookOf,
+	restackedIndex,
 	type ShapeEdit,
 	type ShapeInfo,
 	type ShapeKind,
 	type PresetShapeType,
+	type ZOrderCommand,
 } from './shapes';
+import {
+	checkedRotation,
+	isQuarterTurned,
+	readFill,
+	readLine,
+	readRotation,
+	readTheme,
+	readWordFont,
+	readWordStyles,
+	withFill,
+	withLine,
+	withRotation,
+	withVmlFill,
+	withVmlLine,
+	withVmlStyle,
+	withWordFont,
+	type ShapeTheme,
+	type WordTextStyles,
+} from './shapeFormat';
+import { STORY_FORMATTABLE } from './shapeCapabilities';
 
 const DOCUMENT = 'word/document.xml';
+const THEME_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme';
+const STYLES_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles';
+
+/** What a document's shapes are styled from: its theme, and its text styles. */
+interface WordLook {
+	theme: ShapeTheme;
+	styles: WordTextStyles;
+}
+
+/** The document's theme and styles; a header or footer uses the same ones. */
+function documentLook(pkg: Package): WordLook {
+	const rels = pkg.has(DOCUMENT) ? pkg.relationships(DOCUMENT) : [];
+	const partOf = (type: string): string | undefined => {
+		const path = rels.find((rel) => rel.type === type)?.path;
+		return path && pkg.has(path) ? pkg.read(path) : undefined;
+	};
+	return { theme: readTheme(partOf(THEME_REL)), styles: readWordStyles(partOf(STYLES_REL)) };
+}
 
 /**
  * Why a Word shape takes no macro. One copy, because the caller layer has to
@@ -172,6 +213,54 @@ interface DocShape {
 	element: Span & { name: string };
 	id: number;
 	inGroup: boolean;
+	/**
+	 * How a floating shape stacks: behind the text or in front of it, and
+	 * its wp:anchor relativeHeight, the higher on top. A shape inline with
+	 * the text does not stack.
+	 */
+	stack?: { behind: boolean; height: number };
+}
+
+/** What a kind of Word shape can be given: which of fill, line, font and rotation apply. */
+const FORMATTABLE = STORY_FORMATTABLE;
+
+/** The element holding a shape's fill, outline and transform. */
+const PROPS_OF: Record<string, string> = { 'wps:wsp': 'wps:spPr', 'pic:pic': 'pic:spPr', 'wpg:wgp': 'wpg:grpSpPr' };
+
+/** A shape's fill, outline, font and rotation, as far as its kind has them. */
+function formatOf(xml: string, element: Span & { name: string }, kind: ShapeKind, look: WordLook): Partial<ShapeInfo> {
+	const out: Partial<ShapeInfo> = {};
+	const propsName = PROPS_OF[element.name];
+	if (!propsName) { return out; }
+	const direct = children(xml, element.openEnd, element.end);
+	const props = direct.find((child) => child.name === propsName);
+	const style = direct.find((child) => child.name === 'wps:style');
+	if (FORMATTABLE.rotation.includes(kind) && props) {
+		const xfrm = findElement(xml, 'a:xfrm', props.openEnd, props.end);
+		const rotation = readRotation(xfrm ? xml.slice(xfrm.start, xfrm.openEnd) : undefined);
+		if (rotation) { out.rotation = rotation; }
+	}
+	if (FORMATTABLE.fill.includes(kind)) {
+		const fill = readFill(xml, props, style, look.theme);
+		if (fill) { out.fill = fill; }
+	}
+	if (FORMATTABLE.line.includes(kind)) {
+		const line = readLine(xml, props, style, look.theme);
+		if (line) { out.line = line; }
+	}
+	if (FORMATTABLE.font.includes(kind)) {
+		const box = direct.find((child) => child.name === 'wps:txbx');
+		const content = box ? findElement(xml, 'w:txbxContent', box.openEnd, box.end) : undefined;
+		const font = readWordFont(xml, content, look.theme, style, look.styles);
+		if (font) { out.font = font; }
+	}
+	return out;
+}
+
+/** Floating shapes from the back up: behind the text first, then by height, then in document order. */
+function stackOrder(shapes: readonly DocShape[]): DocShape[] {
+	return shapes.filter((s) => s.stack)
+		.sort((a, b) => Number(!a.stack!.behind) - Number(!b.stack!.behind) || a.stack!.height - b.stack!.height);
 }
 
 /** The element naming each kind of nested member. */
@@ -239,7 +328,7 @@ function memberBox(xml: string, element: Span & { name: string }): Partial<Shape
 }
 
 /** The members of a canvas or group: its direct children, and all descendants. */
-function readMembers(xml: string, container: Span, entry: Span): { direct: DocShape[]; all: DocShape[] } {
+function readMembers(xml: string, container: Span, entry: Span, look: WordLook): { direct: DocShape[]; all: DocShape[] } {
 	const direct: DocShape[] = [];
 	const all: DocShape[] = [];
 	for (const child of children(xml, container.openEnd, container.end)) {
@@ -262,11 +351,13 @@ function readMembers(xml: string, container: Span, entry: Span): { direct: DocSh
 		}
 		const descr = attr(tag, 'descr');
 		if (descr) { info.altText = descr; }
+		if (attr(tag, 'hidden') === '1') { info.hidden = true; }
+		Object.assign(info, formatOf(xml, child, kind, look));
 		const found: DocShape = { info, entry, element: child, id: Number(attr(tag, 'id') ?? 0), inGroup: true };
 		direct.push(found);
 		all.push(found);
 		if (child.name === 'wpg:wgp') {
-			const nested = readMembers(xml, child, entry);
+			const nested = readMembers(xml, child, entry, look);
 			info.shapes = nested.direct.map((member) => member.info);
 			all.push(...nested.all);
 		}
@@ -274,7 +365,7 @@ function readMembers(xml: string, container: Span, entry: Span): { direct: DocSh
 	return { direct, all };
 }
 
-function readTopLevel(xml: string, entry: Span, anchor: Span & { name: string }): DocShape[] {
+function readTopLevel(xml: string, entry: Span, anchor: Span & { name: string }, look: WordLook): DocShape[] {
 	const docPr = findElement(xml, 'wp:docPr', anchor.openEnd, anchor.end);
 	if (!docPr) { return []; }
 	const tag = xml.slice(docPr.start, docPr.openEnd);
@@ -295,10 +386,15 @@ function readTopLevel(xml: string, entry: Span, anchor: Span & { name: string })
 	if (descr) { info.altText = descr; }
 	if (attr(tag, 'hidden') === '1') { info.hidden = true; }
 	const element = body ?? { ...anchor, name: anchor.name };
+	Object.assign(info, formatOf(xml, element, kind, look));
 	const found: DocShape = { info, entry, element, id: Number(attr(tag, 'id') ?? 0), inGroup: false };
+	if (anchor.name === 'wp:anchor') {
+		const anchorTag = xml.slice(anchor.start, anchor.openEnd);
+		found.stack = { behind: attr(anchorTag, 'behindDoc') === '1', height: Number(attr(anchorTag, 'relativeHeight') ?? 0) };
+	}
 	const out = [found];
 	if (kind === 'canvas' || kind === 'group') {
-		const members = readMembers(xml, element, entry);
+		const members = readMembers(xml, element, entry, look);
 		info.shapes = members.direct.map((member) => member.info);
 		out.push(...members.all);
 	}
@@ -315,9 +411,15 @@ function enclosingAlternateContent(xml: string, span: Span): Span | undefined {
 	}
 }
 
-/** Every drawing in a story, with the VML twins inside mc:Fallback skipped. */
+/**
+ * Every drawing in a story, with the VML twins inside mc:Fallback skipped.
+ * A floating shape's zOrder counts the story's floating shapes from the
+ * back; Word's own ZOrderPosition counts an inline shape as well, which
+ * never overlaps anything.
+ */
 function readStory(pkg: Package, story: StoryRef): { xml: string; shapes: DocShape[] } {
 	const xml = pkg.read(story.path);
+	const look = documentLook(pkg);
 	const fallbacks: Span[] = [];
 	for (let at = 0; ;) {
 		const span = findElement(xml, 'mc:Fallback', at);
@@ -336,8 +438,9 @@ function readStory(pkg: Package, story: StoryRef): { xml: string; shapes: DocSha
 		if (!anchor) { continue; }
 		// The entry is the AlternateContent when there is one, so a delete
 		// takes the VML twin with it and an edit can reach both copies.
-		shapes.push(...readTopLevel(xml, enclosingAlternateContent(xml, drawing) ?? drawing, anchor));
+		shapes.push(...readTopLevel(xml, enclosingAlternateContent(xml, drawing) ?? drawing, anchor, look));
 	}
+	stackOrder(shapes).forEach((shape, index) => { shape.info.zOrder = index + 1; });
 	return { xml, shapes };
 }
 
@@ -434,16 +537,40 @@ function withStyleProperty(style: string, name: string, value: string): string {
 	return re.test(style) ? style.replace(re, `$1${name}:${value}`) : `${style};${name}:${value}`;
 }
 
-/** The VML twin's geometry brought in line with the DrawingML one. */
-function movedVml(xml: string, box: { left?: number; top?: number; width: number; height: number }): string {
-	const shapes = /(<v:(?:rect|oval|roundrect|shape|group)\b[^>]*\bstyle=")([^"]*)(")/g;
-	return xml.replace(shapes, (_m, head: string, style: string, tail: string) => {
+/** The VML twin of a top-level shape: the shape element in its entry's mc:Fallback. */
+function vmlTwin(entryXml: string): (Span & { name: string }) | undefined {
+	const fallback = findElement(entryXml, 'mc:Fallback');
+	const pict = fallback ? findElement(entryXml, 'w:pict', fallback.openEnd, fallback.end) : undefined;
+	return pict
+		? children(entryXml, pict.openEnd, pict.end).find((child) => child.name.startsWith('v:') && child.name !== 'v:shapetype')
+		: undefined;
+}
+
+/** An entry with its VML twin rewritten by `change`; an entry with no twin is left as it is. */
+function withTwin(entryXml: string, change: (twinXml: string) => string): string {
+	const twin = vmlTwin(entryXml);
+	return twin ? splice(entryXml, twin, change(entryXml.slice(twin.start, twin.end))) : entryXml;
+}
+
+/** A VML element with its style attribute rewritten by `change`. */
+function withVmlElementStyle(elementXml: string, change: (style: string) => string): string {
+	const openEnd = elementXml.indexOf('>') + 1;
+	const tag = elementXml.slice(0, openEnd);
+	return withAttr(tag, 'style', change(attr(tag, 'style') ?? '')) + elementXml.slice(openEnd);
+}
+
+/**
+ * The VML twin's geometry brought in line with the DrawingML one. Only the
+ * twin itself: a canvas's members keep their own coordinates inside it.
+ */
+function movedVml(entryXml: string, box: { left?: number; top?: number; width: number; height: number }): string {
+	return withTwin(entryXml, (twin) => withVmlElementStyle(twin, (style) => {
 		let next = withStyleProperty(style, 'width', `${box.width}pt`);
 		next = withStyleProperty(next, 'height', `${box.height}pt`);
 		if (box.left !== undefined) { next = withStyleProperty(next, 'margin-left', `${box.left}pt`); }
 		if (box.top !== undefined) { next = withStyleProperty(next, 'margin-top', `${box.top}pt`); }
-		return head + next + tail;
-	});
+		return next;
+	}));
 }
 
 function withPosOffset(xml: string, which: string, points: number): string {
@@ -492,25 +619,253 @@ function renamedVml(xml: string, from: string, to: string): string {
 		(match, head: string, id: string, tail: string) => (id === from ? head + encodeXml(to) + tail : match));
 }
 
+/** A top-level shape's own element (wps:wsp, pic:pic, wpg:wgp, wpc:wpc) inside its entry. */
+function drawingElement(entryXml: string): (Span & { name: string }) | undefined {
+	const data = findElement(entryXml, 'a:graphicData');
+	return data ? children(entryXml, data.openEnd, data.end)[0] : undefined;
+}
+
+/** Every w:txbxContent in `xml` rewritten by `change`. */
+function withAllTextBoxes(xml: string, change: (boxXml: string) => string): string {
+	let out = xml;
+	for (let at = 0; ;) {
+		const box = findElement(out, 'w:txbxContent', at);
+		if (!box) { return out; }
+		const replaced = change(out.slice(box.start, box.end));
+		out = splice(out, box, replaced);
+		at = box.start + replaced.length;
+	}
+}
+
+/** A VML element with `child` added last, ahead of any w10 wrap settings. */
+function withVmlChild(elementXml: string, child: string): string {
+	const openEnd = elementXml.indexOf('>') + 1;
+	if (openEnd === elementXml.length && elementXml.endsWith('/>')) {
+		const name = /^<([\w:]+)/.exec(elementXml)![1];
+		return `${elementXml.slice(0, -2)}>${child}</${name}>`;
+	}
+	const wrap = children(elementXml, openEnd, elementXml.length).find((c) => c.name.startsWith('w10:'));
+	const at = wrap ? wrap.start : elementXml.lastIndexOf('</');
+	return elementXml.slice(0, at) + child + elementXml.slice(at);
+}
+
+/**
+ * The paragraph an AutoShape's text goes in: centered, as in the shapes
+ * Word drew for the fixtures. A text box's text is left-aligned.
+ */
+const SHAPE_TEXT = '<w:txbxContent><w:p><w:pPr><w:jc w:val="center"/></w:pPr></w:p></w:txbxContent>';
+
+/**
+ * An entry with `text` set on its shape. A shape with no text yet is given
+ * a text box in each copy it has, the wps:txbx before its wps:bodyPr as the
+ * schema orders them and a v:textbox in the VML twin.
+ */
+function withShapeText(entryXml: string, shape: DocShape, text: string): string {
+	const within = shape.inGroup ? locate(entryXml, shape).element : { start: 0, openEnd: 0, end: entryXml.length };
+	const result = setAllText(entryXml, within, text);
+	if (result.found) { return result.xml; }
+	const element = shape.inGroup ? locate(entryXml, shape).element : drawingElement(entryXml);
+	if (!element || shape.element.name !== 'wps:wsp') {
+		throw new ShapeError(`'${shape.info.name}' has no text box; give it text in Word first.`);
+	}
+	const content = withWordText(SHAPE_TEXT, text);
+	const bodyPr = findElement(entryXml, 'wps:bodyPr', element.openEnd, element.end);
+	const at = bodyPr ? bodyPr.start : element.end - '</wps:wsp>'.length;
+	const out = `${entryXml.slice(0, at)}<wps:txbx>${content}</wps:txbx>${entryXml.slice(at)}`;
+	return shape.inGroup ? out : withTwin(out, (twin) => withVmlChild(twin, `<v:textbox>${content}</v:textbox>`));
+}
+
+/** The refusal for a property a kind of shape does not have. */
+function notFor(shape: ShapeInfo, what: string): ShapeError {
+	return new ShapeError(`'${shape.name}' is a ${shape.kind}, which has no ${what} XLIDE sets.`);
+}
+
+/** A shape element with its properties element rewritten by `change`. */
+function withProperties(elementXml: string, propsName: string, change: (propsXml: string) => string): string {
+	const props = children(elementXml, elementXml.indexOf('>') + 1, elementXml.length).find((child) => child.name === propsName);
+	if (!props) {
+		throw new ShapeError(`The shape has no ${propsName}; the part is not one Word wrote.`);
+	}
+	return splice(elementXml, props, change(elementXml.slice(props.start, props.end)));
+}
+
+/** Degrees as VML writes them in a style: a whole number when it is one. */
+const vmlDegrees = (degrees: number): string => String(Math.round(degrees * 100) / 100);
+
+/**
+ * The room a shape's ink takes past its box, as wp:effectExtent: the turned
+ * shape with half its outline on every side, measured from the box Word
+ * wraps text around. Word measured that box from the shape's own box, and
+ * from the box turned a quarter for a shape turned 45 to 135 degrees (or
+ * 225 to 315): at 90 degrees Word wrote only the outline's width, at 30 the
+ * turned corners. Word's own figures come from its renderer and are not
+ * symmetric; this is the geometry they approximate.
+ */
+function effectExtentXml(width: number, height: number, degrees: number, outline: number): string {
+	const turn = (checkedRotation(degrees) * Math.PI) / 180;
+	const cos = Math.abs(Math.cos(turn));
+	const sin = Math.abs(Math.sin(turn));
+	const w = width + outline;
+	const h = height + outline;
+	const [boxWidth, boxHeight] = isQuarterTurned(degrees) ? [height, width] : [width, height];
+	const x = pointsToEmu(Math.max(0, (w * cos + h * sin - boxWidth) / 2));
+	const y = pointsToEmu(Math.max(0, (w * sin + h * cos - boxHeight) / 2));
+	return `<wp:effectExtent l="${x}" t="${y}" r="${x}" b="${y}"/>`;
+}
+
+/** A top-level entry's wp:effectExtent recomputed for the shape's rotation and outline after `edit`. */
+function withEffectExtent(entryXml: string, shape: DocShape, edit: ShapeEdit): string {
+	const extent = /<wp:extent\b[^>]*>/.exec(entryXml)?.[0];
+	if (!extent) { return entryXml; }
+	const width = emuToPoints(Number(attr(extent, 'cx') ?? 0));
+	const height = emuToPoints(Number(attr(extent, 'cy') ?? 0));
+	const degrees = edit.rotation ?? shape.info.rotation ?? 0;
+	const before = shape.info.line?.type === 'solid' ? shape.info.line.weight ?? 0 : 0;
+	const outline = edit.line === undefined ? before
+		: edit.line.type === 'none' ? 0
+			: edit.line.weight ?? before;
+	return entryXml.replace(/<wp:effectExtent\b[^>]*\/>/, () => effectExtentXml(width, height, degrees, outline));
+}
+
+/** An entry with its shape's fill, outline, font and rotation set, in each copy Word keeps in step. */
+function formattedEntry(entryXml: string, shape: DocShape, edit: ShapeEdit): string {
+	const { info } = shape;
+	if (edit.fill === undefined && edit.line === undefined && edit.font === undefined && edit.rotation === undefined) {
+		return entryXml;
+	}
+	if (edit.fill !== undefined && !FORMATTABLE.fill.includes(info.kind)) { throw notFor(info, 'fill'); }
+	if (edit.line !== undefined && !FORMATTABLE.line.includes(info.kind)) { throw notFor(info, 'outline'); }
+	if (edit.font !== undefined && !FORMATTABLE.font.includes(info.kind)) { throw notFor(info, 'text to give a font'); }
+	if (edit.rotation !== undefined && !FORMATTABLE.rotation.includes(info.kind)) { throw notFor(info, 'rotation'); }
+	const span = shape.inGroup ? locate(entryXml, shape).element : drawingElement(entryXml);
+	const propsName = PROPS_OF[shape.element.name];
+	if (!span || !propsName) {
+		throw new ShapeError(`'${info.name}' has no drawing properties; the part is not one Word wrote.`);
+	}
+	let element = entryXml.slice(span.start, span.end);
+	if (edit.fill !== undefined) { element = withProperties(element, propsName, (props) => withFill(props, propsName, edit.fill!)); }
+	if (edit.line !== undefined) { element = withProperties(element, propsName, (props) => withLine(props, propsName, edit.line!)); }
+	if (edit.rotation !== undefined) {
+		element = withProperties(element, propsName, (props) => {
+			const xfrm = findElement(props, 'a:xfrm');
+			if (!xfrm) {
+				throw new ShapeError(`'${info.name}' has no a:xfrm to carry a rotation; the part is not one Word wrote.`);
+			}
+			return props.slice(0, xfrm.start) + withRotation(props.slice(xfrm.start, xfrm.openEnd), edit.rotation!) + props.slice(xfrm.openEnd);
+		});
+	}
+	if (edit.font !== undefined) {
+		if (!/<w:txbxContent\b/.test(element)) {
+			throw new ShapeError(`'${info.name}' has no text yet; give it text, and the font with it.`);
+		}
+		element = withAllTextBoxes(element, (box) => withWordFont(box, edit.font!));
+	}
+	let out = splice(entryXml, span, element);
+	if (shape.inGroup) {
+		// Word changed only the DrawingML of a shape in a canvas, and left
+		// its VML twin as it was; so does this.
+		return out;
+	}
+	out = withTwin(out, (twin) => {
+		let next = twin;
+		// Outline before fill: Word writes the v:fill ahead of the v:stroke.
+		if (edit.line !== undefined) { next = withVmlLine(next, edit.line); }
+		if (edit.fill !== undefined) { next = withVmlFill(next, edit.fill); }
+		if (edit.rotation !== undefined) {
+			const degrees = checkedRotation(edit.rotation);
+			next = withVmlElementStyle(next, (style) => (degrees
+				? withStyleProperty(style, 'rotation', vmlDegrees(degrees))
+				: withVmlStyle(style, 'rotation', undefined)));
+		}
+		if (edit.font !== undefined) { next = withAllTextBoxes(next, (box) => withWordFont(box, edit.font!)); }
+		return next;
+	});
+	return edit.rotation !== undefined || edit.line !== undefined ? withEffectExtent(out, shape, edit) : out;
+}
+
+/**
+ * A VML twin shown or hidden, as Word writes it: visibility in its style,
+ * and in a canvas's own background shape too. The named shapes in a canvas
+ * keep their own visibility.
+ */
+function withVmlVisibility(twinXml: string, hidden: boolean): string {
+	const set = (style: string): string => {
+		if (hidden) { return withStyleProperty(style, 'visibility', 'hidden'); }
+		return /(?:^|;)\s*visibility\s*:/.test(style) ? withStyleProperty(style, 'visibility', 'visible') : style;
+	};
+	let out = withVmlElementStyle(twinXml, set);
+	if (!/^<v:group\b[^>]*\beditas="canvas"/.test(out)) { return out; }
+	for (const child of children(out, out.indexOf('>') + 1, out.length).reverse()) {
+		if (child.name === 'v:shape' && /^_x0000_/.test(attr(out.slice(child.start, child.openEnd), 'id') ?? '')) {
+			out = splice(out, child, withVmlElementStyle(out.slice(child.start, child.end), set));
+		}
+	}
+	return out;
+}
+
+/**
+ * A floating shape's entry at a new stacking height: its wp:anchor
+ * relativeHeight, and the z-index of its VML twin, which Word keeps equal
+ * to it (negative for a shape behind the text, whose sign is kept).
+ */
+function withStackHeight(entryXml: string, height: number): string {
+	const out = entryXml.replace(/(<wp:anchor\b[^>]*\brelativeHeight=")\d+(")/, `$1${height}$2`);
+	return withTwin(out, (twin) => withVmlElementStyle(twin, (style) => {
+		const current = /(?:^|;)\s*z-index\s*:\s*(-?)\d+/.exec(style);
+		return current ? withStyleProperty(style, 'z-index', `${current[1]}${height}`) : style;
+	}));
+}
+
+/**
+ * The stacking heights a z-order command gives, as [shape, height] pairs;
+ * a shape stacks among the story's floating shapes on its side of the text.
+ * Word brought a shape to the front by giving it its layer's highest
+ * height plus 1024, its own step between new shapes, and changed no other
+ * shape. Back is the same at the bottom, and forward and backward trade
+ * heights with the neighbor; when there is no room, the layer is numbered
+ * afresh in its new order.
+ */
+function restackHeights(shapes: readonly DocShape[], shape: DocShape, command: ZOrderCommand): Array<[DocShape, number]> {
+	const layer = stackOrder(shapes).filter((s) => s.stack!.behind === shape.stack!.behind);
+	const index = layer.indexOf(shape);
+	const target = restackedIndex(index, layer.length, command);
+	if (target === index) { return []; }
+	const heights = layer.map((s) => s.stack!.height);
+	if (command === 'front') { return [[shape, Math.max(...heights) + 1024]]; }
+	if (command === 'back' && Math.min(...heights) >= 1024) { return [[shape, Math.min(...heights) - 1024]]; }
+	const neighbor = layer[target];
+	if ((command === 'forward' || command === 'backward') && neighbor.stack!.height !== shape.stack!.height) {
+		return [[shape, neighbor.stack!.height], [neighbor, shape.stack!.height]];
+	}
+	const order = layer.filter((s) => s !== shape);
+	order.splice(target, 0, shape);
+	const base = Math.min(...heights);
+	return order.map((s, i): [DocShape, number] => [s, base + i * 1024]).filter(([s, height]) => s.stack!.height !== height);
+}
+
 function updateShape(pkg: Package, story: StoryRef, read: { xml: string; shapes: DocShape[] }, shape: DocShape, edit: ShapeEdit): string {
+	const { info } = shape;
 	let entryXml = read.xml.slice(shape.entry.start, shape.entry.end);
 	if (edit.left !== undefined || edit.top !== undefined || edit.width !== undefined || edit.height !== undefined) {
 		entryXml = movedShape(entryXml, shape, edit);
 	}
 	if (edit.text !== undefined) {
-		if (shape.info.kind !== 'shape' && shape.info.kind !== 'textBox') {
-			throw new ShapeError(`'${shape.info.name}' is a ${shape.info.kind}, which holds no text.`);
+		if (info.kind !== 'shape' && info.kind !== 'textBox') {
+			throw new ShapeError(`'${info.name}' is a ${info.kind}, which holds no text.`);
 		}
-		const within = shape.inGroup
-			? locate(entryXml, shape).element
-			: { start: 0, openEnd: 0, end: entryXml.length };
-		const result = setAllText(entryXml, within, edit.text);
-		if (!result.found) {
-			throw new ShapeError(`'${shape.info.name}' has no text box; give it text in Word first.`);
-		}
-		entryXml = result.xml;
+		entryXml = withShapeText(entryXml, shape, edit.text);
 	}
-	if (edit.altText !== undefined || edit.newName !== undefined) {
+	entryXml = formattedEntry(entryXml, shape, edit);
+	if (edit.zOrder !== undefined) {
+		if (shape.inGroup) {
+			const container = read.shapes.find((s) => !s.inGroup && s.entry.start === shape.entry.start);
+			throw new ShapeError(`'${info.name}' is inside '${container?.info.name ?? 'a canvas'}' and stacks with it; restack '${container?.info.name ?? 'the canvas'}' instead.`);
+		}
+		if (!shape.stack) {
+			throw new ShapeError(`'${info.name}' is inline with the text, which does not stack; make it a floating shape in Word first.`);
+		}
+	}
+	if (edit.altText !== undefined || edit.newName !== undefined || edit.hidden !== undefined) {
 		const { nameElement } = locate(entryXml, shape);
 		let startTag = entryXml.slice(nameElement.start, nameElement.openEnd);
 		if (edit.altText !== undefined) {
@@ -520,13 +875,33 @@ function updateShape(pkg: Package, story: StoryRef, read: { xml: string; shapes:
 			assertNameFree(read.shapes.filter((s) => s !== shape), edit.newName, story.name);
 			startTag = withAttr(startTag, 'name', edit.newName);
 		}
+		if (edit.hidden !== undefined) {
+			startTag = withAttr(startTag, 'hidden', edit.hidden ? '1' : undefined);
+		}
 		entryXml = entryXml.slice(0, nameElement.start) + startTag + entryXml.slice(nameElement.openEnd);
 		if (edit.newName !== undefined && !shape.inGroup) {
-			entryXml = renamedVml(entryXml, shape.info.name, edit.newName);
+			entryXml = renamedVml(entryXml, info.name, edit.newName);
+		}
+		if (edit.hidden !== undefined && !shape.inGroup) {
+			entryXml = withTwin(entryXml, (twin) => withVmlVisibility(twin, edit.hidden!));
 		}
 	}
-	pkg.write(story.path, splice(read.xml, shape.entry, entryXml));
-	return edit.newName ?? shape.info.name;
+	// A restack can move a neighbor too; each entry is written back from the
+	// last to the first, so the offsets read before stay good.
+	const writes: Array<{ span: Span; xml: string }> = [{ span: shape.entry, xml: entryXml }];
+	for (const [moved, height] of edit.zOrder !== undefined ? restackHeights(read.shapes, shape, edit.zOrder) : []) {
+		if (moved === shape) {
+			writes[0].xml = withStackHeight(writes[0].xml, height);
+		} else {
+			writes.push({ span: moved.entry, xml: withStackHeight(read.xml.slice(moved.entry.start, moved.entry.end), height) });
+		}
+	}
+	let written = read.xml;
+	for (const write of writes.sort((a, b) => b.span.start - a.span.start)) {
+		written = splice(written, write.span, write.xml);
+	}
+	pkg.write(story.path, written);
+	return edit.newName ?? info.name;
 }
 
 function enclosingRun(xml: string, span: Span): Span | undefined {
@@ -601,7 +976,7 @@ function addShape(pkg: Package, story: StoryRef, read: { xml: string; shapes: Do
 	const descr = edit.altText ? ` descr="${encodeXml(edit.altText)}"` : '';
 	const floating = edit.left !== undefined || edit.top !== undefined;
 	const text = edit.text ?? '';
-	const txbx = textBox || text ? `<wps:txbx>${withWordText('<w:txbxContent>', text)}</wps:txbx>` : '';
+	const txbx = textBox || text ? `<wps:txbx>${withWordText(textBox ? '<w:txbxContent>' : SHAPE_TEXT, text)}</wps:txbx>` : '';
 	const outline = textBox
 		? '<a:noFill/><a:ln><a:solidFill><a:schemeClr val="tx1"/></a:solidFill></a:ln>'
 		: '';
@@ -612,12 +987,16 @@ function addShape(pkg: Package, story: StoryRef, read: { xml: string; shapes: Do
 	const graphic = '<a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">'
 		+ `<a:graphicData uri="${GRAPHIC.shape}">${wsp}</a:graphicData></a:graphic>`;
 	const docPr = `<wp:docPr id="${id}" name="${encodeXml(name)}"${descr}/><wp:cNvGraphicFramePr/>`;
+	// On top of the story's other floating shapes, a step of 1024 above the
+	// highest, as Word stacked the fixture's shapes it drew one after another.
+	const heights = read.shapes.filter((s) => s.stack && !s.stack.behind).map((s) => s.stack!.height);
+	const stackHeight = heights.length > 0 ? Math.max(...heights) + 1024 : 251659264;
 	// A bare w:drawing, with no mc:AlternateContent: the VML fallback exists
 	// only for Word 2007, and a twin this writer could not keep truthful is
 	// worse than none. Word 2010 and later read the drawing itself.
 	const drawing = floating
 		? '<w:drawing><wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0"'
-			+ ' relativeHeight="251659264" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1">'
+			+ ` relativeHeight="${stackHeight}" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1">`
 			+ '<wp:simplePos x="0" y="0"/>'
 			+ `<wp:positionH relativeFrom="column"><wp:posOffset>${pointsToEmu(edit.left ?? 0)}</wp:posOffset></wp:positionH>`
 			+ `<wp:positionV relativeFrom="paragraph"><wp:posOffset>${pointsToEmu(edit.top ?? 0)}</wp:posOffset></wp:positionV>`
@@ -678,7 +1057,11 @@ export function editStoryShape(zip: ZipArchive, story: StoryRef, edit: ShapeEdit
 		throw new ShapeError('linkedCell and inputRange are Excel form-control properties; a document has neither.');
 	}
 	if (edit.action === 'add') {
-		return addShape(pkg, story, read, edit);
+		const added = addShape(pkg, story, read, edit);
+		// How the new shape looks is set on it once it is there, the same way
+		// as on any other shape.
+		const look = lookOf(edit);
+		return look ? editStoryShape(zip, story, { action: 'update', name: added, ...look }) : added;
 	}
 	if (!edit.name) {
 		throw new ShapeError(`A shape to ${edit.action} needs a name; call the list tool for the names on ${story.name}.`);

@@ -9,6 +9,7 @@ import { registerMiscCommands } from './commands/miscCommands';
 import { registerProjectCrudCommands } from './commands/projectCrudCommands';
 import { registerRefactorCommands } from './commands/refactorCommands';
 import { registerFormatCommands } from './commands/formatCommands';
+import { registerShapeCommands } from './commands/shapeCommands';
 import { platformFeatures } from './platformFeatures';
 
 /**
@@ -36,6 +37,7 @@ export function registerCommands(
         ...registerAnalysisCommands(deps),
         ...registerRefactorCommands(deps),
         ...registerFormatCommands(deps),
+        ...registerShapeCommands(deps),
         ...platformFeatures.registerPlatformCommands(deps),
     ];
 }

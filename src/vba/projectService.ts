@@ -2352,6 +2352,8 @@ export function writeCells(
 export interface ShapeSurface {
 	/** The worksheet, slide or Word story the shapes are on. */
 	surface: string;
+	/** Excel: the worksheet's code name, which is the name of its module in the VBA project. */
+	codeName?: string;
 	shapes: ShapeInfo[];
 }
 
@@ -2365,7 +2367,9 @@ export function listShapes(filePath: string, surface?: string): { surfaces: Shap
 	const drawing = shapeSurfaces(container, filePath, 'listing shapes');
 	if (drawing.host === 'excel') {
 		const sheets = drawing.xlsx.shapes(surface);
-		return { surfaces: sheets.map((s) => ({ surface: s.sheet, shapes: s.shapes })) };
+		return {
+			surfaces: sheets.map((s) => ({ surface: s.sheet, ...(s.codeName ? { codeName: s.codeName } : {}), shapes: s.shapes })),
+		};
 	}
 	if (drawing.host === 'powerpoint') {
 		const zip = drawing.zip;
@@ -2432,6 +2436,70 @@ const SHAPE_MACRO_HOST: Record<'excel' | 'powerpoint', { noun: string; fileNoun:
 	},
 };
 
+type ParsedProcedure = Extract<ReturnType<typeof parseModule>['members'][number], { kind: 'Procedure' }>;
+
+/**
+ * Why a procedure cannot run from a shape, or undefined when it can: it has
+ * to be a Sub, Public, and take no required parameter, which is what each
+ * host's own dialog offers.
+ */
+function shapeMacroProblem(moduleName: string, member: ParsedProcedure, assign: string): string | undefined {
+	if (member.procKind !== 'Sub') {
+		return `${moduleName}.${member.name} is a ${member.procKind === 'Function' ? 'Function' : 'Property'}; a shape runs a Sub.`;
+	}
+	if (member.modifiers.some((modifier) => modifier.toLowerCase() === 'private')) {
+		return `${moduleName}.${member.name} is Private; ${assign} offers only Public Subs.`;
+	}
+	if (member.params.some((param) => !param.optional && !param.paramArray)) {
+		return `${moduleName}.${member.name} takes parameters; a click passes none.`;
+	}
+	return undefined;
+}
+
+/** A Sub a shape can run, and how a shape names it. */
+export interface ShapeMacro {
+	/** What a shape's macro is set to: Proc, or Module.Proc. */
+	macro: string;
+	module: string;
+	proc: string;
+}
+
+/**
+ * Every Sub a shape in this file can run: what the shape editor offers to
+ * link, under the same rules editShape checks a macro by. A Sub in a
+ * standard module is named alone unless another standard module has a
+ * Public Sub of the same name; one in an Excel sheet's or the workbook's
+ * module is always qualified, as Excel's Assign Macro lists it. A Word
+ * shape runs no macro, so a Word file lists none.
+ */
+export function shapeMacros(filePath: string): { macros: ShapeMacro[] } {
+	const container = openMacroContainer(hostPlatform().readFile(filePath));
+	const drawing = shapeSurfaces(container, filePath, 'shape macros');
+	if (drawing.host === 'word') { return { macros: [] }; }
+	const words = SHAPE_MACRO_HOST[drawing.host];
+	const found: Array<{ module: string; proc: string; standard: boolean }> = [];
+	for (const module of listModules(filePath)) {
+		const standard = module.type === 'standard';
+		if (!standard && !(drawing.host === 'excel' && module.type === 'document')) { continue; }
+		const { source } = readModule(filePath, module.name, false);
+		for (const member of parseModule(source).members) {
+			if (member.kind !== 'Procedure' || shapeMacroProblem(module.name, member, words.assign)) { continue; }
+			found.push({ module: module.name, proc: member.name, standard });
+		}
+	}
+	const inStandard = new Map<string, number>();
+	for (const f of found.filter((f) => f.standard)) {
+		inStandard.set(f.proc.toLowerCase(), (inStandard.get(f.proc.toLowerCase()) ?? 0) + 1);
+	}
+	return {
+		macros: found.map(({ module, proc, standard }) => ({
+			macro: standard && inStandard.get(proc.toLowerCase()) === 1 ? proc : `${module}.${proc}`,
+			module,
+			proc,
+		})),
+	};
+}
+
 /**
  * A shape's macro, as Proc or Module.Proc, checked against the project.
  *
@@ -2472,12 +2540,9 @@ function checkedMacro(filePath: string, macro: string, host: 'excel' | 'word' | 
 		const { source } = readModule(filePath, module.name, false);
 		for (const member of parseModule(source).members) {
 			if (member.kind !== 'Procedure' || member.name.toLowerCase() !== procName.toLowerCase()) { continue; }
-			if (member.procKind !== 'Sub') {
-				problems.push(`${module.name}.${member.name} is a ${member.procKind === 'Function' ? 'Function' : 'Property'}; a shape runs a Sub.`);
-			} else if (member.modifiers.some((modifier) => modifier.toLowerCase() === 'private')) {
-				problems.push(`${module.name}.${member.name} is Private; ${words.assign} offers only Public Subs.`);
-			} else if (member.params.some((param) => !param.optional && !param.paramArray)) {
-				problems.push(`${module.name}.${member.name} takes parameters; a click passes none.`);
+			const problem = shapeMacroProblem(module.name, member, words.assign);
+			if (problem) {
+				problems.push(problem);
 			} else {
 				found.push({ module: module.name, proc: member.name });
 			}

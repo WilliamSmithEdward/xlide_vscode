@@ -110,6 +110,15 @@ reference/
 # A workbook holding one of every form control Excel offers, each with a
 # linked cell, for the tests that pin what a shape edit must leave alone.
 !tests/fixtures/binaries/ControlsFixture.xlsm
+# The shape fixtures after each application set a fill, an outline, a font,
+# a rotation, hidden and a new stacking order on them and saved: the markup
+# the shape formatting reader and writer are held to.
+!tests/fixtures/binaries/ShapesFormattedFixture.xlsm
+!tests/fixtures/binaries/ShapesFormattedFixture.pptm
+!tests/fixtures/binaries/ShapesFormattedFixture.docm
+# WordShapesFixture after Word turned AnchoredBox 90 degrees, brought it to
+# the front, hid one shape in the canvas and restyled the other.
+!tests/fixtures/binaries/ShapesArrangedFixture.docm
 # One file per container shape, saved by the live application in a
 # macro-capable format and never given any VBA: what a workbook saved as
 # .xlsm before the first macro looks like on disk. Ground truth for telling

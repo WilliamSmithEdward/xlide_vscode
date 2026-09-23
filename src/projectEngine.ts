@@ -11,7 +11,16 @@ import { enginePriming } from './enginePriming';
 import { ProjectEngineError } from './projectEngineErrors';
 import * as svc from './vba/projectService';
 import type { CellValue } from './vba/xlsx';
-import type { ShapeEdit } from './vba/xlsxShapes';
+import { SHAPE_DASHES } from './vba/shapeFormat';
+import {
+	Z_ORDER_COMMANDS,
+	type FillEdit,
+	type FontEdit,
+	type LineEdit,
+	type ShapeDash,
+	type ShapeEdit,
+	type ZOrderCommand,
+} from './vba/shapes';
 
 type Params = Record<string, unknown>;
 
@@ -55,6 +64,87 @@ function optionalText(params: Params, key: string): string | undefined {
 	return value;
 }
 
+/** An optional number, given as one or as its text; `what` says what it counts. */
+function optionalNumber(params: Params, key: string, what: string): number | undefined {
+	const value = params[key];
+	if (value === undefined || value === null) { return undefined; }
+	const n = typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : NaN;
+	if (!Number.isFinite(n)) {
+		throw new ProjectEngineError(`The '${key}' parameter must be ${what}, not '${String(value)}'.`, -32602);
+	}
+	return n;
+}
+
+function optionalBoolean(params: Params, key: string): boolean | undefined {
+	const value = params[key];
+	if (value === undefined || value === null) { return undefined; }
+	if (typeof value !== 'boolean') {
+		throw new ProjectEngineError(`The '${key}' parameter must be true or false, not '${String(value)}'.`, -32602);
+	}
+	return value;
+}
+
+/** An object parameter, such as a shape's fill. */
+function objectParam(params: Params, key: string): Params | undefined {
+	const value = params[key];
+	if (value === undefined || value === null) { return undefined; }
+	if (typeof value !== 'object' || Array.isArray(value)) {
+		throw new ProjectEngineError(`The '${key}' parameter must be an object, such as {"type":"solid","color":"#FF0000"}.`, -32602);
+	}
+	return value as Params;
+}
+
+/** The type of a fill or an outline: none, or solid. */
+function lookType(look: Params, key: string): 'none' | 'solid' {
+	if (look.type !== 'none' && look.type !== 'solid') {
+		throw new ProjectEngineError(`A ${key}'s type must be none or solid, not '${String(look.type)}'.`, -32602);
+	}
+	return look.type;
+}
+
+function fillEdit(fill: Params): FillEdit {
+	if (lookType(fill, 'fill') === 'none') { return { type: 'none' }; }
+	const color = optionalText(fill, 'color');
+	if (!color) {
+		throw new ProjectEngineError('A solid fill needs a color, as #RRGGBB.', -32602);
+	}
+	const transparency = optionalNumber(fill, 'transparency', 'a percentage from 0 to 100');
+	return { type: 'solid', color, ...(transparency !== undefined ? { transparency } : {}) };
+}
+
+function lineEdit(line: Params): LineEdit {
+	if (lookType(line, 'line') === 'none') { return { type: 'none' }; }
+	const out: LineEdit = { type: 'solid' };
+	const color = optionalText(line, 'color');
+	if (color) { out.color = color; }
+	const weight = optionalNumber(line, 'weight', 'a number of points');
+	if (weight !== undefined) { out.weight = weight; }
+	const dash = optionalText(line, 'dash');
+	if (dash !== undefined) {
+		if (!(SHAPE_DASHES as readonly string[]).includes(dash)) {
+			throw new ProjectEngineError(`'${dash}' is not a dash style; use one of ${SHAPE_DASHES.join(', ')}.`, -32602);
+		}
+		out.dash = dash as ShapeDash;
+	}
+	return out;
+}
+
+function fontEdit(font: Params): FontEdit {
+	const out: FontEdit = {};
+	const name = optionalText(font, 'name');
+	if (name !== undefined) { out.name = name; }
+	const size = optionalNumber(font, 'size', 'a number of points');
+	if (size !== undefined) { out.size = size; }
+	for (const key of ['bold', 'italic', 'underline'] as const) {
+		const value = optionalBoolean(font, key);
+		if (value !== undefined) { out[key] = value; }
+	}
+	// An empty color is kept: it takes the shape's text back to its style's.
+	const color = optionalText(font, 'color');
+	if (color !== undefined) { out.color = color; }
+	return out;
+}
+
 function shapeEdit(params: Params): ShapeEdit {
 	const action = str(params, 'action');
 	if (action !== 'add' && action !== 'update' && action !== 'delete') {
@@ -67,14 +157,26 @@ function shapeEdit(params: Params): ShapeEdit {
 	}
 	// Where a slide or a document puts a shape: points, not cells.
 	for (const key of ['left', 'top', 'width', 'height'] as const) {
-		const value = params[key];
-		if (value === undefined || value === null) { continue; }
-		const points = typeof value === 'number' ? value : Number(value);
-		if (!Number.isFinite(points)) {
-			throw new ProjectEngineError(`The '${key}' parameter must be a number of points, not '${String(value)}'.`, -32602);
-		}
-		edit[key] = points;
+		const points = optionalNumber(params, key, 'a number of points');
+		if (points !== undefined) { edit[key] = points; }
 	}
+	const hidden = optionalBoolean(params, 'hidden');
+	if (hidden !== undefined) { edit.hidden = hidden; }
+	const rotation = optionalNumber(params, 'rotation', 'a number of degrees');
+	if (rotation !== undefined) { edit.rotation = rotation; }
+	const zOrder = optionalText(params, 'zOrder');
+	if (zOrder !== undefined) {
+		if (!(Z_ORDER_COMMANDS as readonly string[]).includes(zOrder)) {
+			throw new ProjectEngineError(`The 'zOrder' parameter must be front, back, forward or backward, not '${zOrder}'.`, -32602);
+		}
+		edit.zOrder = zOrder as ZOrderCommand;
+	}
+	const fill = objectParam(params, 'fill');
+	if (fill) { edit.fill = fillEdit(fill); }
+	const line = objectParam(params, 'line');
+	if (line) { edit.line = lineEdit(line); }
+	const font = objectParam(params, 'font');
+	if (font) { edit.font = fontEdit(font); }
 	return edit;
 }
 
@@ -332,6 +434,8 @@ export class ProjectEngine implements vscode.Disposable {
 					optionalText(p, 'surface') || optionalText(p, 'sheet') || '',
 					shapeEdit(p),
 				);
+			case 'shapeMacros':
+				return svc.shapeMacros(str(p, 'path'));
 
 			default:
 				throw new ProjectEngineError(`Method not found: ${method}`, -32601);

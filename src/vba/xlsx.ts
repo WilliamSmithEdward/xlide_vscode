@@ -482,9 +482,24 @@ export class XlsxWorkbook {
 	}
 
 	/** The shapes on each worksheet, or on the one named. */
-	shapes(sheetName?: string): Array<{ sheet: string; shapes: ShapeInfo[] }> {
+	shapes(sheetName?: string): Array<{ sheet: string; codeName?: string; shapes: ShapeInfo[] }> {
 		const sheets = sheetName === undefined ? this.sheets() : [this.requireSheet(sheetName)];
-		return sheets.map((sheet) => ({ sheet: sheet.name, shapes: listSheetShapes(this.zip, sheet) }));
+		return sheets.map((sheet) => {
+			const codeName = this.sheetCodeName(sheet.path);
+			return { sheet: sheet.name, ...(codeName ? { codeName } : {}), shapes: listSheetShapes(this.zip, sheet) };
+		});
+	}
+
+	/**
+	 * A worksheet's code name, the name of its module in the VBA project, from
+	 * its sheetPr. Excel writes one once the sheet has its module, which it
+	 * makes when the VBA editor is opened after the sheet is added; a sheet
+	 * saved before then has none, as Sheet2 of ShapesFixture shows.
+	 */
+	private sheetCodeName(path: string): string | undefined {
+		const xml = this.zip.read(path).toString('utf8');
+		const sheetPr = /<sheetPr\b[^>]*>/.exec(xml)?.[0];
+		return sheetPr ? /\bcodeName="([^"]*)"/.exec(sheetPr)?.[1] || undefined : undefined;
 	}
 
 	/** Add, change or remove one shape on a worksheet; gives the shape's name after the edit. */

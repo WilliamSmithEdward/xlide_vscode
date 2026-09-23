@@ -968,7 +968,11 @@ describe('the one-document undo model', () => {
 				expect(readFormMarkup(fresh, 'EntryForm').markup, `${target || 'form'} ${row.prop}=${value} reprint`).toBe(doc);
 			}
 		}
-	});
+		// Each row is two container writes and three reads, the round trip
+		// itself: 56 rows take 1.1 s alone. Under the full suite's parallel
+		// load it measured 3.6 to 6.8 s, across the 5 s default, so it has
+		// room of its own.
+	}, 30000);
 
 	it('speaks the form extras, the StdFont, and the VBFrame trio in the document', () => {
 		const wb = project();

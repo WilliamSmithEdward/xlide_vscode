@@ -31,12 +31,45 @@ import {
 	PRESET_LABELS,
 	ShapeError,
 	drawingTextOf,
+	lookOf,
+	restackedIndex,
 	withDrawingText as withDrawingTextBody,
 	type ShapeEdit,
 	type ShapeInfo,
 	type ShapeKind,
 	type PresetShapeType,
+	type ZOrderCommand,
 } from './shapes';
+import {
+	checkedRotation,
+	isQuarterTurned,
+	normalizeColor,
+	readDrawingFont,
+	readFill,
+	readLine,
+	readRotation,
+	readTheme,
+	vmlColorOf,
+	withDrawingFont,
+	withFill,
+	withLine,
+	withRotation,
+	withVmlFill,
+	withVmlLine,
+	withVmlStyle,
+	type FontEdit,
+	type ShapeFont,
+	type ShapeLine,
+	type ShapeTheme,
+} from './shapeFormat';
+import { sheetGrid, type GridMarker } from './xlsxGrid';
+import {
+	SHEET_CAPTIONED,
+	SHEET_CONTROL_FORMAT,
+	SHEET_FORMATTABLE,
+	SHEET_LINKED,
+	SHEET_LISTED,
+} from './shapeCapabilities';
 
 export { ShapeError } from './shapes';
 export type { NewShapeType, ShapeEdit, ShapeInfo, ShapeKind } from './shapes';
@@ -45,7 +78,16 @@ const REL = {
 	drawing: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing',
 	vmlDrawing: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/vmlDrawing',
 	ctrlProp: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/ctrlProp',
+	theme: 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme',
 };
+
+/** The workbook's theme, which a shape's style colors and fonts come from. */
+function workbookTheme(pkg: Package): ShapeTheme {
+	const rel = pkg.has('xl/workbook.xml')
+		? pkg.relationships('xl/workbook.xml').find((r) => r.type === REL.theme)
+		: undefined;
+	return readTheme(rel && pkg.has(rel.path) ? pkg.read(rel.path) : undefined);
+}
 const CONTENT_TYPE = {
 	drawing: 'application/vnd.openxmlformats-officedocument.drawing+xml',
 	vml: 'application/vnd.openxmlformats-officedocument.vmlDrawing',
@@ -79,9 +121,9 @@ function markerCell(marker: Marker): string {
 	return `${indexToColumn(marker.col + 1)}${marker.row + 1}`;
 }
 
-function markerXml(name: string, prefix: string, col: number, row: number): string {
-	return `<${prefix}${name}><xdr:col>${col}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${row}</xdr:row>`
-		+ `<xdr:rowOff>0</xdr:rowOff></${prefix}${name}>`;
+function markerXml(name: string, prefix: string, col: number, row: number, colOff = 0, rowOff = 0): string {
+	return `<${prefix}${name}><xdr:col>${col}</xdr:col><xdr:colOff>${colOff}</xdr:colOff><xdr:row>${row}</xdr:row>`
+		+ `<xdr:rowOff>${rowOff}</xdr:rowOff></${prefix}${name}>`;
 }
 
 /** Cells as 0-based first and last column and row. */
@@ -185,6 +227,8 @@ interface DrawingShape {
 	id: number;
 	/** Inside a group, not at the top level. */
 	inGroup: boolean;
+	/** The entry's place among the drawing's anchors, which is how they stack: 0 is at the back. */
+	index: number;
 }
 
 /** A form control, from its VML shape and <controls> entry. */
@@ -223,11 +267,19 @@ function displayMacro(stored: string | undefined): string | undefined {
 	return stored.replace(/^\[0\]!/, '');
 }
 
-function readDrawing(pkg: Package, drawingPath: string, controlIds: ReadonlySet<number>): DrawingShape[] {
-	const xml = pkg.read(drawingPath);
+/** A drawing's top-level entries that hold a shape, in the order they stack. */
+interface DrawingEntry {
+	entry: Span;
+	anchor: Span;
+	element: Span & { name: string };
+}
+
+const SHAPE_ELEMENTS = ['xdr:sp', 'xdr:grpSp', 'xdr:graphicFrame', 'xdr:cxnSp', 'xdr:pic', 'xdr:contentPart'];
+
+function drawingEntries(xml: string): DrawingEntry[] {
 	const root = findElement(xml, 'xdr:wsDr');
 	if (!root) { return []; }
-	const out: DrawingShape[] = [];
+	const out: DrawingEntry[] = [];
 	for (const entry of children(xml, root.openEnd, root.end - '</xdr:wsDr>'.length)) {
 		let anchor: Span | undefined = entry;
 		if (entry.name === 'mc:AlternateContent') {
@@ -239,14 +291,42 @@ function readDrawing(pkg: Package, drawingPath: string, controlIds: ReadonlySet<
 			anchor = undefined;
 		}
 		if (!anchor) { continue; }
-		const element = children(xml, anchor.openEnd, anchor.end)
-			.find((c) => ['xdr:sp', 'xdr:grpSp', 'xdr:graphicFrame', 'xdr:cxnSp', 'xdr:pic', 'xdr:contentPart'].includes(c.name));
-		if (!element) { continue; }
-		const anchorXml = xml.slice(anchor.start, anchor.end);
-		const range = rangeOf(readMarker(anchorXml, 'from', 'xdr:'), readMarker(anchorXml, 'to', 'xdr:'));
-		out.push(...readShapeElement(xml, entry, anchor, element, range, controlIds, false));
+		const element = children(xml, anchor.openEnd, anchor.end).find((c) => SHAPE_ELEMENTS.includes(c.name));
+		if (element) { out.push({ entry, anchor, element }); }
 	}
 	return out;
+}
+
+interface DrawingRead {
+	shapes: DrawingShape[];
+	/** Where each form control's DrawingML twin stacks, by shape id. */
+	twinIndex: Map<number, number>;
+}
+
+function readDrawing(pkg: Package, drawingPath: string, controlIds: ReadonlySet<number>, theme: ShapeTheme): DrawingRead {
+	const xml = pkg.read(drawingPath);
+	const shapes: DrawingShape[] = [];
+	const twinIndex = new Map<number, number>();
+	for (const [index, { entry, anchor, element }] of drawingEntries(xml).entries()) {
+		const id = Number(attr(/<xdr:cNvPr\b[^>]*>/.exec(xml.slice(element.start, element.end))?.[0] ?? '', 'id') ?? 0);
+		// A form control's hidden DrawingML twin is listed as the control.
+		if (controlIds.has(id)) {
+			twinIndex.set(id, index);
+			continue;
+		}
+		const anchorXml = xml.slice(anchor.start, anchor.end);
+		const range = rangeOf(readMarker(anchorXml, 'from', 'xdr:'), readMarker(anchorXml, 'to', 'xdr:'));
+		const read = readShapeElement(xml, entry, anchor, element, range, false, index, theme);
+		if (read[0]) { read[0].info.zOrder = index + 1; }
+		shapes.push(...read);
+	}
+	return { shapes, twinIndex };
+}
+
+/** Which properties element a drawing shape keeps its fill, line and transform in. */
+function propertiesOf(xml: string, element: Span & { name: string }): (Span & { name: string }) | undefined {
+	const wanted = element.name === 'xdr:grpSp' ? 'xdr:grpSpPr' : 'xdr:spPr';
+	return children(xml, element.openEnd, element.end).find((child) => child.name === wanted);
 }
 
 function readShapeElement(
@@ -255,13 +335,12 @@ function readShapeElement(
 	anchor: Span,
 	element: Span & { name: string },
 	range: string | undefined,
-	controlIds: ReadonlySet<number>,
 	inGroup: boolean,
+	index: number,
+	theme: ShapeTheme,
 ): DrawingShape[] {
 	const cNvPr = /<xdr:cNvPr\b[^>]*>/.exec(xml.slice(element.start, element.end))?.[0] ?? '';
 	const id = Number(attr(cNvPr, 'id') ?? 0);
-	// A form control's hidden DrawingML twin is listed as the control.
-	if (controlIds.has(id)) { return []; }
 	const kind = shapeKind(element.name, xml, element);
 	const startTag = xml.slice(element.start, element.openEnd);
 	const info: ShapeInfo = { name: attr(cNvPr, 'name') ?? '', kind };
@@ -275,16 +354,46 @@ function readShapeElement(
 	const descr = attr(cNvPr, 'descr');
 	if (descr) { info.altText = descr; }
 	if (attr(cNvPr, 'hidden') === '1') { info.hidden = true; }
-	const found: DrawingShape = { info, entry, anchor, element, id, inGroup };
+	Object.assign(info, drawingFormatOf(xml, element, kind, theme));
+	const found: DrawingShape = { info, entry, anchor, element, id, inGroup, index };
 	const out = [found];
 	if (element.name === 'xdr:grpSp') {
 		info.shapes = [];
 		for (const child of children(xml, element.openEnd, element.end)) {
 			if (!['xdr:sp', 'xdr:grpSp', 'xdr:graphicFrame', 'xdr:cxnSp', 'xdr:pic'].includes(child.name)) { continue; }
-			const members = readShapeElement(xml, entry, anchor, child, undefined, controlIds, true);
+			const members = readShapeElement(xml, entry, anchor, child, undefined, true, index, theme);
 			if (members[0]) { info.shapes.push(members[0].info); }
 			out.push(...members);
 		}
+	}
+	return out;
+}
+
+/** What a kind of drawing shape can be given: which of fill, line, font and rotation apply. */
+const FORMATTABLE = SHEET_FORMATTABLE;
+
+/** A drawing shape's fill, outline, font and rotation, as far as its kind has them. */
+function drawingFormatOf(xml: string, element: Span & { name: string }, kind: ShapeKind, theme: ShapeTheme): Partial<ShapeInfo> {
+	const out: Partial<ShapeInfo> = {};
+	const props = propertiesOf(xml, element);
+	const style = children(xml, element.openEnd, element.end).find((child) => child.name === 'xdr:style');
+	if (FORMATTABLE.rotation.includes(kind) && props) {
+		const xfrm = findElement(xml, 'a:xfrm', props.openEnd, props.end);
+		const rotation = readRotation(xfrm ? xml.slice(xfrm.start, xfrm.openEnd) : undefined);
+		if (rotation) { out.rotation = rotation; }
+	}
+	if (FORMATTABLE.fill.includes(kind)) {
+		const fill = readFill(xml, props, style, theme);
+		if (fill) { out.fill = fill; }
+	}
+	if (FORMATTABLE.line.includes(kind)) {
+		const line = readLine(xml, props, style, theme);
+		if (line) { out.line = line; }
+	}
+	if (FORMATTABLE.font.includes(kind)) {
+		const body = children(xml, element.openEnd, element.end).find((child) => child.name === 'xdr:txBody');
+		const font = readDrawingFont(xml, body, style, theme);
+		if (font) { out.font = font; }
 	}
 	return out;
 }
@@ -413,10 +522,75 @@ function readControls(pkg: Package, parts: SheetParts): FormControl[] {
 			const text = vmlText(inner);
 			if (text && !['dropDown', 'listBox', 'scrollBar', 'spinner'].includes(info.kind)) { info.text = text; }
 			if (/visibility:\s*hidden/.test(inner.slice(0, inner.indexOf('>')))) { info.hidden = true; }
+			Object.assign(info, controlFormatOf(inner, info.kind));
 			controls.set(shapeId, control);
 		}
 	}
 	return [...controls.values()];
+}
+
+/**
+ * What a form control's Format Control dialog offers, measured by having
+ * Excel set each and save: a button's caption font, and a check box's or
+ * option button's fill and line. All of it lives in the VML shape.
+ */
+const CONTROL_FORMAT = SHEET_CONTROL_FORMAT;
+
+/** Windows system colors as VML names them for a form control, at their default values. */
+const SYSTEM_COLORS: Record<string, string> = {
+	window: '#FFFFFF', windowtext: '#000000', buttonface: '#F0F0F0', buttontext: '#000000',
+};
+
+function vmlShapeColor(value: string | undefined): string | undefined {
+	return vmlColorOf(value) ?? (value ? SYSTEM_COLORS[value.trim().split(/\s/)[0].toLowerCase()] : undefined);
+}
+
+/** A VML length in points, from the pt, px, mm or in it is written in. */
+function vmlPoints(value: string | undefined): number | undefined {
+	const m = /^\s*(-?[\d.]+(?:e-?\d+)?)\s*(pt|px|mm|in|cm)?\s*$/i.exec(value ?? '');
+	if (!m) { return undefined; }
+	const n = Number(m[1]);
+	const unit = (m[2] ?? 'pt').toLowerCase();
+	const points = unit === 'px' ? n * 0.75 : unit === 'mm' ? n * 72 / 25.4 : unit === 'cm' ? n * 72 / 2.54 : unit === 'in' ? n * 72 : n;
+	return Math.round(points * 100) / 100;
+}
+
+function controlFormatOf(inner: string, kind: ShapeKind): Partial<ShapeInfo> {
+	const out: Partial<ShapeInfo> = {};
+	const tag = inner.slice(0, inner.indexOf('>') + 1);
+	if (CONTROL_FORMAT.font.includes(kind)) {
+		const font = vmlFontOf(inner);
+		if (font) { out.font = font; }
+	}
+	if (CONTROL_FORMAT.fill.includes(kind)) {
+		const fillColor = vmlShapeColor(attr(tag, 'fillcolor'));
+		out.fill = attr(tag, 'filled') === 'f' ? { type: 'none' } : { type: 'solid', ...(fillColor ? { color: fillColor } : {}) };
+		const lineColor = vmlShapeColor(attr(tag, 'strokecolor'));
+		const weight = vmlPoints(attr(tag, 'strokeweight'));
+		const line: ShapeLine = attr(tag, 'stroked') === 'f'
+			? { type: 'none' }
+			: { type: 'solid', ...(lineColor ? { color: lineColor } : {}), ...(weight && weight >= 0.25 ? { weight } : {}) };
+		out.line = line;
+	}
+	return out;
+}
+
+/** A button caption's font: the VML <font> element, with <b>, <i> and <u> around the caption. */
+function vmlFontOf(inner: string): ShapeFont | undefined {
+	const font = /<font\b([^>]*)>([\s\S]*?)<\/font>/.exec(inner);
+	if (!font) { return undefined; }
+	const tag = `<font ${font[1].replace(/\s+/g, ' ')}>`;
+	const out: ShapeFont = {};
+	const face = attr(tag, 'face');
+	if (face) { out.name = face; }
+	const size = Number(attr(tag, 'size') ?? 0);
+	if (size) { out.size = size / 20; }
+	const color = normalizeColor(attr(tag, 'color'));
+	if (color) { out.color = color; }
+	out.bold = /<b>/i.test(font[2]);
+	out.italic = /<i>/i.test(font[2]);
+	out.underline = /<u\b/i.test(font[2]);
+	return out;
 }
 
 /** The mc:AlternateContent directly around an element, when there is one. */
@@ -436,14 +610,22 @@ interface SheetShapes {
 	parts: SheetParts;
 	drawing: DrawingShape[];
 	controls: FormControl[];
+	/** Where each form control's DrawingML twin stacks, by shape id. */
+	twinIndex: Map<number, number>;
 }
 
 function readSheet(pkg: Package, sheet: { name: string; path: string }): SheetShapes {
 	const parts = sheetParts(pkg, sheet);
 	const controls = readControls(pkg, parts);
 	const ids = new Set(controls.map((c) => c.shapeId));
-	const drawing = parts.drawingPath && pkg.has(parts.drawingPath) ? readDrawing(pkg, parts.drawingPath, ids) : [];
-	return { parts, drawing, controls };
+	const read = parts.drawingPath && pkg.has(parts.drawingPath)
+		? readDrawing(pkg, parts.drawingPath, ids, workbookTheme(pkg))
+		: { shapes: [], twinIndex: new Map<number, number>() };
+	for (const control of controls) {
+		const index = read.twinIndex.get(control.shapeId);
+		if (index !== undefined) { control.info.zOrder = index + 1; }
+	}
+	return { parts, drawing: read.shapes, controls, twinIndex: read.twinIndex };
 }
 
 /** Every shape on a sheet, top level only; a group lists its members. */
@@ -480,11 +662,115 @@ function assertNameFree(shapes: SheetShapes, name: string, sheet: string): void 
 	}
 }
 
+/** The refusal for a property a kind of shape does not have. */
+function notFor(shape: ShapeInfo, what: string): ShapeError {
+	return new ShapeError(`'${shape.name}' is a ${shape.kind}, which has no ${what} XLIDE sets.`);
+}
+
+/** A shape element with its properties element rewritten by `change`. */
+function withProperties(elementXml: string, name: string, change: (propsXml: string, propsName: string) => string): string {
+	const openEnd = elementXml.indexOf('>') + 1;
+	const wanted = name === 'xdr:grpSp' ? 'xdr:grpSpPr' : 'xdr:spPr';
+	const props = children(elementXml, openEnd, elementXml.length).find((child) => child.name === wanted);
+	if (!props) {
+		throw new ShapeError(`The shape has no ${wanted}; the drawing part is not one Excel wrote.`);
+	}
+	return splice(elementXml, props, change(elementXml.slice(props.start, props.end), wanted));
+}
+
+/** The format edits a drawing shape's own element takes: fill, line, font and rotation. */
+function formattedElement(elementXml: string, shape: DrawingShape, edit: ShapeEdit): string {
+	const { info } = shape;
+	let out = elementXml;
+	if (edit.fill !== undefined) {
+		if (!FORMATTABLE.fill.includes(info.kind)) { throw notFor(info, 'fill'); }
+		out = withProperties(out, shape.element.name, (props, name) => withFill(props, name, edit.fill!));
+	}
+	if (edit.line !== undefined) {
+		if (!FORMATTABLE.line.includes(info.kind)) { throw notFor(info, 'outline'); }
+		out = withProperties(out, shape.element.name, (props, name) => withLine(props, name, edit.line!));
+	}
+	if (edit.font !== undefined) {
+		const body = /<xdr:txBody>[\s\S]*<\/xdr:txBody>/.exec(out);
+		if (!FORMATTABLE.font.includes(info.kind) || !body) { throw notFor(info, 'text to give a font'); }
+		out = out.replace(body[0], () => withDrawingFont(body[0], edit.font!));
+	}
+	if (edit.rotation !== undefined) {
+		if (!FORMATTABLE.rotation.includes(info.kind)) { throw notFor(info, 'rotation'); }
+		out = withProperties(out, shape.element.name, (props) => {
+			const xfrm = findElement(props, 'a:xfrm');
+			if (!xfrm) {
+				throw new ShapeError(`'${info.name}' has no a:xfrm to rotate; the drawing part is not one Excel wrote.`);
+			}
+			const tag = props.slice(xfrm.start, xfrm.openEnd);
+			return props.slice(0, xfrm.start) + withRotation(tag, edit.rotation!) + props.slice(xfrm.openEnd);
+		});
+	}
+	return out;
+}
+
+/**
+ * An anchor turned a quarter about its center: what Excel stores for a
+ * shape whose rotation crosses 45 or 135 degrees, since it keeps the box of
+ * a shape turned between 45 and 135 (or 225 and 315) as that box turned 90.
+ */
+function quarterTurnedAnchor(anchorXml: string, sheetXml: string): string {
+	const grid = sheetGrid(sheetXml);
+	const swapped = (x: number, y: number, cx: number, cy: number): { from: GridMarker; to: GridMarker; cx: number; cy: number } => {
+		const centerX = x + cx / 2;
+		const centerY = y + cy / 2;
+		const left = centerX - cy / 2;
+		const top = centerY - cx / 2;
+		return { from: grid.marker(left, top), to: grid.marker(left + cy, top + cx), cx: cy, cy: cx };
+	};
+	const markerAt = (name: 'from' | 'to', m: GridMarker): string => markerXml(name, 'xdr:', m.col, m.row, m.colOff, m.rowOff);
+	if (anchorXml.startsWith('<xdr:twoCellAnchor')) {
+		const from = readMarker(anchorXml, 'from', 'xdr:');
+		const to = readMarker(anchorXml, 'to', 'xdr:');
+		if (!from || !to) { return anchorXml; }
+		const a = grid.position(from);
+		const b = grid.position(to);
+		const box = swapped(a.x, a.y, b.x - a.x, b.y - a.y);
+		return anchorXml.replace(/<xdr:from>[\s\S]*?<\/xdr:to>/, markerAt('from', box.from) + markerAt('to', box.to));
+	}
+	const ext = /<xdr:ext\b[^>]*>/.exec(anchorXml)?.[0];
+	if (!ext) { return anchorXml; }
+	const cx = Number(attr(ext, 'cx') ?? 0);
+	const cy = Number(attr(ext, 'cy') ?? 0);
+	const newExt = `<xdr:ext cx="${cy}" cy="${cx}"/>`;
+	if (anchorXml.startsWith('<xdr:oneCellAnchor')) {
+		const from = readMarker(anchorXml, 'from', 'xdr:');
+		if (!from) { return anchorXml; }
+		const a = grid.position(from);
+		const box = swapped(a.x, a.y, cx, cy);
+		return anchorXml.replace(/<xdr:from>[\s\S]*?<\/xdr:from>/, markerAt('from', box.from)).replace(ext, newExt);
+	}
+	const pos = /<xdr:pos\b[^>]*>/.exec(anchorXml)?.[0];
+	if (!pos) { return anchorXml; }
+	const x = Number(attr(pos, 'x') ?? 0);
+	const y = Number(attr(pos, 'y') ?? 0);
+	const newPos = `<xdr:pos x="${Math.round(x + cx / 2 - cy / 2)}" y="${Math.round(y + cy / 2 - cx / 2)}"/>`;
+	return anchorXml.replace(pos, newPos).replace(ext, newExt);
+}
+
+/** A drawing part with one of its entries moved by a z-order command. */
+function restacked(xml: string, index: number, command: ZOrderCommand): string {
+	const entries = drawingEntries(xml);
+	const target = restackedIndex(index, entries.length, command);
+	if (target === index) { return xml; }
+	const moving = entries[index].entry;
+	const entryXml = xml.slice(moving.start, moving.end);
+	const without = splice(xml, moving, '');
+	const rest = drawingEntries(without);
+	const at = target < rest.length ? rest[target].entry.start : without.lastIndexOf('</xdr:wsDr>');
+	return without.slice(0, at) + entryXml + without.slice(at);
+}
+
 function updateDrawingShape(pkg: Package, parts: SheetParts, shapes: SheetShapes, shape: DrawingShape, edit: ShapeEdit): void {
 	const path = parts.drawingPath!;
 	const xml = pkg.read(path);
 	const { element, anchor } = shape;
-	let elementXml = xml.slice(element.start, element.end);
+	let elementXml = formattedElement(xml.slice(element.start, element.end), shape, edit);
 	if (edit.text !== undefined) {
 		const body = /<xdr:txBody>[\s\S]*<\/xdr:txBody>/.exec(elementXml);
 		if (!body || (shape.info.kind !== 'shape' && shape.info.kind !== 'textBox')) {
@@ -499,7 +785,7 @@ function updateDrawingShape(pkg: Package, parts: SheetParts, shapes: SheetShapes
 		const startTag = elementXml.slice(0, elementXml.indexOf('>') + 1);
 		elementXml = withAttr(startTag, 'macro', edit.macro || '') + elementXml.slice(startTag.length);
 	}
-	if (edit.newName !== undefined || edit.altText !== undefined) {
+	if (edit.newName !== undefined || edit.altText !== undefined || edit.hidden !== undefined) {
 		const cNvPr = /<xdr:cNvPr\b[^>]*>/.exec(elementXml)![0];
 		let updated = cNvPr;
 		if (edit.newName !== undefined) {
@@ -507,6 +793,7 @@ function updateDrawingShape(pkg: Package, parts: SheetParts, shapes: SheetShapes
 			updated = withAttr(updated, 'name', edit.newName);
 		}
 		if (edit.altText !== undefined) { updated = withAttr(updated, 'descr', edit.altText || undefined); }
+		if (edit.hidden !== undefined) { updated = withAttr(updated, 'hidden', edit.hidden ? '1' : undefined); }
 		elementXml = elementXml.replace(cNvPr, () => updated);
 	}
 	if (edit.linkedCell !== undefined || edit.inputRange !== undefined) {
@@ -524,8 +811,19 @@ function updateDrawingShape(pkg: Package, parts: SheetParts, shapes: SheetShapes
 			throw new ShapeError(`'${shape.info.name}' is anchored to one cell or to a position, and XLIDE moves only shapes anchored to cells at both corners.`);
 		}
 		anchorXml = anchorXml.replace(/<xdr:from>[\s\S]*?<\/xdr:to>/, anchorMarkers(parseRange(edit.range), 'xdr:'));
+	} else if (edit.rotation !== undefined && !shape.inGroup
+		&& isQuarterTurned(shape.info.rotation) !== isQuarterTurned(checkedRotation(edit.rotation))) {
+		// Cells given with the rotation are taken as the anchor already.
+		anchorXml = quarterTurnedAnchor(anchorXml, pkg.read(parts.path));
 	}
-	pkg.write(path, splice(xml, anchor, anchorXml));
+	let written = splice(xml, anchor, anchorXml);
+	if (edit.zOrder !== undefined) {
+		if (shape.inGroup) {
+			throw new ShapeError(`'${shape.info.name}' is in a group; it stacks with the group, so restack the group.`);
+		}
+		written = restacked(written, shape.index, edit.zOrder);
+	}
+	pkg.write(path, written);
 }
 
 function deleteDrawingShape(pkg: Package, parts: SheetParts, shape: DrawingShape): void {
@@ -576,6 +874,35 @@ function vmlAnchor(box: CellBox): string {
 	return `\n    ${box.c1}, 0, ${box.r1}, 0, ${box.c2 + 1}, 0, ${box.r2 + 1}, 0`;
 }
 
+/** A caption wrapped the way Excel marks it bold, italic or underlined inside the VML font. */
+function wrappedCaption(caption: string, font: ShapeFont | undefined): string {
+	let out = caption;
+	if (font?.underline) { out = `<u>${out}</u>`; }
+	if (font?.italic) { out = `<i>${out}</i>`; }
+	if (font?.bold) { out = `<b>${out}</b>`; }
+	return out;
+}
+
+/** A VML shape with its caption's font changed: the <font> element and the wrapping inside it. */
+function withVmlFont(shapeXml: string, font: FontEdit): string {
+	return shapeXml.replace(/<font\b([^>]*)>([\s\S]*?)<\/font>/, (whole, attrs: string, content: string) => {
+		const next: ShapeFont = { ...vmlFontOf(whole), ...font };
+		let tag = `<font${attrs.replace(/\s+/g, ' ')}>`;
+		if (font.name !== undefined) { tag = withAttr(tag, 'face', font.name.trim()); }
+		if (font.size !== undefined) { tag = withAttr(tag, 'size', String(Math.round(font.size * 20))); }
+		// A caption with no color of its own is black, which is what Excel
+		// writes for one.
+		if (font.color !== undefined) { tag = withAttr(tag, 'color', normalizeColor(font.color) ?? '#000000'); }
+		return `${tag}${wrappedCaption(content.replace(/<\/?(?:b|i|u)\b[^>]*>/gi, ''), next)}</font>`;
+	});
+}
+
+/** A VML shape's own style attribute, which Excel quotes with apostrophes, with one property set. */
+function withVmlShapeStyle(shapeXml: string, name: string, value: string | undefined): string {
+	return shapeXml.replace(/\bstyle=(['"])([\s\S]*?)\1/, (_m, quote: string, style: string) =>
+		`style=${quote}${withVmlStyle(style.replace(/\s*\n\s*/g, ' '), name, value)}${quote}`);
+}
+
 /** The DrawingML twin of a form control in the drawing part, found by id. */
 function controlTwin(pkg: Package, parts: SheetParts, shapeId: number): { entry: Span; anchor: Span; xml: string } | undefined {
 	if (!parts.drawingPath || !pkg.has(parts.drawingPath)) { return undefined; }
@@ -597,16 +924,32 @@ function updateControl(pkg: Package, parts: SheetParts, shapes: SheetShapes, con
 	if (info.kind === 'activeX') {
 		throw new ShapeError(`'${info.name}' is an ActiveX control, which XLIDE does not edit; its code is event procedures in the sheet's module, such as ${info.name}_Click.`);
 	}
-	const captioned = ['button', 'checkBox', 'optionButton', 'label', 'groupBox'].includes(info.kind);
-	const linked = ['checkBox', 'optionButton', 'dropDown', 'listBox', 'scrollBar', 'spinner'].includes(info.kind);
+	const captioned = SHEET_CAPTIONED.includes(info.kind);
+	const linked = SHEET_LINKED.includes(info.kind);
 	if (edit.text !== undefined && !captioned) {
 		throw new ShapeError(`'${info.name}' is a ${info.kind}, which has no caption.`);
 	}
 	if (edit.linkedCell !== undefined && !linked) {
 		throw new ShapeError(`'${info.name}' is a ${info.kind}, which has no cell link.`);
 	}
-	if (edit.inputRange !== undefined && info.kind !== 'dropDown' && info.kind !== 'listBox') {
+	if (edit.inputRange !== undefined && !SHEET_LISTED.includes(info.kind)) {
 		throw new ShapeError(`'${info.name}' is a ${info.kind}; only a drop-down or list box has an input range.`);
+	}
+	if (edit.rotation !== undefined) {
+		throw new ShapeError(`'${info.name}' is a form control, which Excel does not rotate.`);
+	}
+	if (edit.font !== undefined && !CONTROL_FORMAT.font.includes(info.kind)) {
+		throw new ShapeError(`'${info.name}' is a ${info.kind}; of the form controls only a button's caption takes a font in Excel.`);
+	}
+	if ((edit.fill !== undefined || edit.line !== undefined) && !CONTROL_FORMAT.fill.includes(info.kind)) {
+		throw new ShapeError(`'${info.name}' is a ${info.kind}; of the form controls only a check box and an option button take a fill and a line in Excel.`);
+	}
+	if ((edit.font !== undefined || edit.fill !== undefined || edit.line !== undefined || edit.hidden !== undefined) && !control.vml) {
+		throw new ShapeError(`'${info.name}' has no VML shape, where Excel keeps a form control's look; change it in Excel.`);
+	}
+	const twinIndex = shapes.twinIndex.get(control.shapeId);
+	if (edit.zOrder !== undefined && twinIndex === undefined) {
+		throw new ShapeError(`'${info.name}' has no drawing twin to stack by, as in a file Excel 2007 wrote; restack it in Excel.`);
 	}
 	if (edit.newName !== undefined) { assertNameFree(shapes, edit.newName, parts.name); }
 	const box = edit.range !== undefined ? parseRange(edit.range) : undefined;
@@ -615,6 +958,11 @@ function updateControl(pkg: Package, parts: SheetParts, shapes: SheetShapes, con
 	if (control.vml && parts.vmlPath) {
 		const vml = pkg.read(parts.vmlPath);
 		let shape = vml.slice(control.vml.start, control.vml.end);
+		if (edit.hidden !== undefined) {
+			shape = withVmlShapeStyle(shape, 'visibility', edit.hidden ? 'hidden' : undefined);
+		}
+		if (edit.fill !== undefined) { shape = withVmlFill(shape, edit.fill); }
+		if (edit.line !== undefined) { shape = withVmlLine(shape, edit.line); }
 		if (edit.macro !== undefined) {
 			shape = setClientData(shape, 'FmlaMacro', edit.macro || undefined, ['TextHAlign', 'TextVAlign', 'LockText', 'FmlaLink', 'Val']);
 		}
@@ -630,10 +978,12 @@ function updateControl(pkg: Package, parts: SheetParts, shapes: SheetShapes, con
 		if (edit.text !== undefined) {
 			shape = shape.replace(/(<v:textbox\b[^>]*>\s*<div\b[^>]*>)[\s\S]*?(<\/div>\s*<\/v:textbox>)/, (_m, open: string, close: string) => {
 				const font = /<font\b[^>]*>/.exec(shape)?.[0];
-				const lines = edit.text!.split(/\r?\n/).map(encodeXml).join('<br>');
+				// A bold or italic caption stays so when its words change.
+				const lines = wrappedCaption(edit.text!.split(/\r?\n/).map(encodeXml).join('<br>'), vmlFontOf(shape));
 				return `${open}${font ? `${font}${lines}</font>` : lines}${close}`;
 			});
 		}
+		if (edit.font !== undefined) { shape = withVmlFont(shape, edit.font); }
 		pkg.write(parts.vmlPath, splice(vml, control.vml, shape));
 	}
 
@@ -681,10 +1031,17 @@ function updateControl(pkg: Package, parts: SheetParts, shapes: SheetShapes, con
 			const body = /<xdr:txBody>[\s\S]*<\/xdr:txBody>/.exec(entry);
 			if (body) { entry = entry.replace(body[0], () => withDrawingTextBody(body[0], edit.text!, 'xdr:txBody')); }
 		}
+		if (edit.font !== undefined) {
+			// Excel keeps the twin's run properties in step with the VML font.
+			const body = /<xdr:txBody>[\s\S]*<\/xdr:txBody>/.exec(entry);
+			if (body) { entry = entry.replace(body[0], () => withDrawingFont(body[0], edit.font!)); }
+		}
 		if (box) {
 			entry = entry.replace(/<xdr:from>[\s\S]*?<\/xdr:to>/, anchorMarkers(box, 'xdr:'));
 		}
-		pkg.write(parts.drawingPath!, splice(twin.xml, twin.entry, entry));
+		let drawing = splice(twin.xml, twin.entry, entry);
+		if (edit.zOrder !== undefined) { drawing = restacked(drawing, twinIndex!, edit.zOrder); }
+		pkg.write(parts.drawingPath!, drawing);
 	}
 }
 
@@ -936,13 +1293,21 @@ export function editSheetShape(
 			throw new ShapeError('A new shape takes its name from name, and a button has no cell link or input range.');
 		}
 		const box = parseRange(edit.range);
+		let added: string;
 		if (edit.type === 'button') {
-			return addButton(pkg, parts, shapes, edit, box);
+			added = addButton(pkg, parts, shapes, edit, box);
+		} else if (edit.type === 'textBox' || Object.hasOwn(PRESET_GEOMETRY, edit.type)) {
+			added = addDrawingShape(pkg, parts, shapes, edit, box);
+		} else {
+			throw new ShapeError(`'${edit.type}' is not a shape XLIDE adds: use rectangle, roundedRectangle, oval, textBox or button.`);
 		}
-		if (edit.type === 'textBox' || Object.hasOwn(PRESET_GEOMETRY, edit.type)) {
-			return addDrawingShape(pkg, parts, shapes, edit, box);
-		}
-		throw new ShapeError(`'${edit.type}' is not a shape XLIDE adds: use rectangle, roundedRectangle, oval, textBox or button.`);
+		// How the new shape looks is set on it once it is there, the same way
+		// as on any other shape. The cells it was given stay its anchor, which
+		// for a shape turned a quarter is where it sits on the sheet.
+		const look = lookOf(edit);
+		return look
+			? editSheetShape(zip, sheet, { action: 'update', name: added, ...look, ...(look.rotation !== undefined ? { range: edit.range } : {}) }, workbookSheets)
+			: added;
 	}
 	if (!edit.name) {
 		throw new ShapeError(`To ${edit.action} a shape, give its name; xlide_listShapes lists them.`);

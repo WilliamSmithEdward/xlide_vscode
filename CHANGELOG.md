@@ -2,6 +2,74 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.7.0] - 2026-09-23
+
+- **Shapes are in the tree.** A worksheet's shapes sit in a Shapes folder
+  under its module, above its procedures. A Word document's are under
+  ThisDocument, with a row for the body and for each header or footer that
+  holds one, and a presentation's slides are a folder under the project, each
+  slide with its shapes under it. Excel gives a sheet its module only once the
+  VBA editor is opened after the sheet was added, so a workbook can carry
+  sheets with no module; those have a folder of their own, Sheets With No
+  Module. A save from the application refreshes the rows, and a file whose
+  shapes are not on screen is not read again for them.
+
+- **Every property of a shape in one editor.** Clicking a shape opens it in
+  an editor tab: its name, alt text and visibility, where it sits and how big
+  it is, its rotation, text and font, its fill and outline, where it stacks,
+  the Sub a click runs, and a form control's cell link and input range. Save
+  writes only what you changed, as one edit that goes through the same
+  coordination with Office as a module save, and closes the tab. A change
+  XLIDE cannot make keeps the tab open with the reason. Each shape shows only
+  what its kind takes in its application, from the same table the writer
+  checks. Add Shape, on a Shapes folder, a slide or a story, opens the same
+  form for a new one, and a shape's menu deletes it.
+
+- **Link a shape to a Sub, unlink it, or go to it.** Link to Sub offers the
+  Subs a click can run, under the rule the applications use: Public, with no
+  required parameter, named with its module when two standard modules share
+  the name or the Sub lives in a sheet's module. The editor lists the same
+  Subs. Word runs no macro from a shape, so a Word shape offers no link and
+  the editor says why.
+
+- **Shape looks are read and written in all three applications.** Fill,
+  outline, rotation, font, visibility and stacking order, in Excel, Word and
+  PowerPoint. A look a shape takes from its style and the theme is read too,
+  so the editor shows the color the application shows. Text that sets no font
+  of its own is followed the way each application does it, measured by having
+  the application report files whose layers disagreed: PowerPoint takes the
+  presentation's default text style (a placeholder, its layout and master),
+  and Word the paragraph's style and the document's defaults before the
+  shape's white theme text. The writes were compared with files each
+  application saved after making the same changes, and Excel, Word and
+  PowerPoint each opened files XLIDE had formatted, with nothing to repair,
+  and reported every look as written. Excel's turned cell anchor for a shape
+  rotated 45 to 135 degrees, Word's VML copy of a top-level shape and Word's
+  stacking heights are kept as each application keeps them.
+
+- **The agent tools take the same properties.** `xlide_editShape` sets
+  `hidden`, `rotation`, `zOrder`, `fill`, `line` and `font`, on an add as well
+  as a change, and `xlide_listShapes` reports them, with each worksheet's code
+  name.
+
+- **Text given to a new slide shape is the slide's size.** It came out at 11
+  points, Excel's default, where PowerPoint's own new shapes show 18, and it
+  sat left in an AutoShape that PowerPoint centers. Text typed into an empty
+  slide shape takes the format of its paragraph mark, as it does in
+  PowerPoint.
+
+- **A shape added to a Word document lands on top.** It was given the same
+  stacking height every time, so it could sit under shapes already there. It
+  now takes the highest height plus 1024, the step Word itself uses.
+
+- **Moving a Word drawing canvas keeps the shapes inside it.** The move
+  rewrote the fallback (VML) copy of every shape in the canvas to the
+  canvas's own size and position. Only the canvas's own copy moves now.
+
+- **For contributors:** `npm run test:office` has the shape look checks, and
+  a form designer test that timed out under the full suite's load has room of
+  its own.
+
 ## [10.6.0] - 2026-09-22
 
 - **A macro-enabled file with no VBA in it can be given a project.** 10.5.0

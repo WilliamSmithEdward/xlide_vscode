@@ -4,8 +4,8 @@ import * as os from 'os';
 import * as path from 'path';
 import { XlsxWorkbook } from '../src/vba/xlsx';
 import { ZipArchive } from '../src/vba/zip';
-import { editShape, listShapes, writeModule } from '../src/vba/projectService';
-import type { ShapeInfo } from '../src/vba/xlsxShapes';
+import { editShape, listShapes, shapeMacros, writeModule } from '../src/vba/projectService';
+import type { ShapeEdit, ShapeInfo } from '../src/vba/xlsxShapes';
 
 // Excel 16 saved both fixtures. ShapesFixture has, on Sheet1, a rectangle
 // running DoIt, a rounded rectangle running Macros.Other, an oval with alt
@@ -21,9 +21,22 @@ const open = (name: string): XlsxWorkbook => XlsxWorkbook.fromBuffer(fs.readFile
 const reopen = (book: XlsxWorkbook): XlsxWorkbook => XlsxWorkbook.fromBuffer(book.toBytes());
 const part = (book: XlsxWorkbook, name: string): string => ZipArchive.read(book.toBytes()).read(name).toString('utf8');
 const hasPart = (book: XlsxWorkbook, name: string): boolean => ZipArchive.read(book.toBytes()).has(name);
-const shapesOn = (book: XlsxWorkbook, sheet: string): ShapeInfo[] => book.shapes(sheet)[0].shapes;
+
+/**
+ * A shape as most of these tests describe it: what it is, where, and what
+ * it runs. Its look and stacking have tests of their own below.
+ */
+function essentials(shape: ShapeInfo): ShapeInfo {
+	const { fill: _fill, line: _line, font: _font, rotation: _rotation, zOrder: _zOrder, ...rest } = shape;
+	return rest.shapes ? { ...rest, shapes: rest.shapes.map(essentials) } : rest;
+}
+
+const shapesOn = (book: XlsxWorkbook, sheet: string): ShapeInfo[] => book.shapes(sheet)[0].shapes.map(essentials);
 const shape = (book: XlsxWorkbook, sheet: string, name: string): ShapeInfo | undefined =>
 	shapesOn(book, sheet).find((s) => s.name === name);
+/** A shape with its look, for the formatting tests. */
+const looked = (book: XlsxWorkbook, sheet: string, name: string): ShapeInfo | undefined =>
+	book.shapes(sheet)[0].shapes.find((s) => s.name === name);
 
 describe('listing shapes', () => {
 	it('reports each shape as Excel does: kind, cells, macro, text and links', () => {
@@ -57,7 +70,7 @@ describe('listing shapes', () => {
 	});
 
 	it('lists nothing on a sheet without shapes, and refuses a sheet that is not there', () => {
-		expect(XlsxWorkbook.fromBuffer(fs.readFileSync(BLANK)).shapes()).toEqual([{ sheet: 'Sheet1', shapes: [] }]);
+		expect(XlsxWorkbook.fromBuffer(fs.readFileSync(BLANK)).shapes()).toEqual([{ sheet: 'Sheet1', codeName: 'Sheet1', shapes: [] }]);
 		expect(() => open('ShapesFixture.xlsm').shapes('Nope')).toThrow(/Worksheet not found: Nope/);
 	});
 });
@@ -357,6 +370,35 @@ describe('linking shapes to macros through the project', () => {
 		expect(macroOf('Button 1')).toBe('DoIt');
 	});
 
+	it('offers every Sub a click can run, each named the way a link has to name it', () => {
+		writeModule(book, 'Helpers', [
+			'Private Sub Hidden()', 'End Sub',
+			'Public Function Answer()', 'End Function',
+			'Public Sub NeedsArg(ByVal x As Long)', 'End Sub',
+			'Public Sub OptionalArg(Optional ByVal x As Long)', 'End Sub',
+			'Public Sub DoIt()', 'End Sub',
+		].join('\r\n') + '\r\n', 'standard');
+		writeModule(book, 'Sheet1', 'Public Sub OnSheet()\r\nEnd Sub\r\n', 'standard');
+		writeModule(book, 'Thing', 'Public Sub Poke()\r\nEnd Sub\r\n', 'class');
+
+		// DoIt is in two standard modules, so each is qualified; a sheet's
+		// Sub always is, as Excel's Assign Macro lists it.
+		const offered = shapeMacros(book).macros.map((m) => m.macro);
+		expect(offered).toEqual(['Sheet1.OnSheet', 'Macros.DoIt', 'Other', 'OptionalArg', 'Helpers.DoIt']);
+		for (const macro of offered) {
+			editShape(book, 'Sheet1', { action: 'update', name: 'RunButton', macro });
+			expect(macroOf('RunButton'), macro).toBe(macro);
+		}
+	});
+
+	it('names the module behind each worksheet, where the workbook gives one', () => {
+		// Sheet2 was added without a module, so the file names none for it.
+		expect(listShapes(book).surfaces.map((s) => [s.surface, s.codeName])).toEqual([['Sheet1', 'Sheet1'], ['Sheet2', undefined]]);
+		const controls = path.join(dir, 'Controls.xlsm');
+		fs.copyFileSync(path.join(FIXTURES, 'ControlsFixture.xlsm'), controls);
+		expect(listShapes(controls).surfaces.map((s) => [s.surface, s.codeName])).toEqual([['Controls', 'Sheet1']]);
+	});
+
 	it('links a Sub in a sheet\'s module when it is named with the module', () => {
 		writeModule(book, 'Sheet1', 'Public Sub OnSheet()\r\nEnd Sub\r\n', 'standard');
 		editShape(book, 'Sheet1', { action: 'update', name: 'RunButton', macro: 'Sheet1.OnSheet' });
@@ -398,10 +440,137 @@ describe('linking shapes to macros through the project', () => {
 	it('adds a button that runs a Sub, saved to the file, and names what it made', () => {
 		expect(editShape(book, 'Sheet1', { action: 'add', type: 'button', range: 'K2:L3', text: 'Start', macro: 'macros.other' }))
 			.toEqual({ ok: true, name: 'Button 4' });
-		expect(listShapes(book).surfaces[0].shapes.find((s) => s.name === 'Button 4')).toEqual({
+		expect(essentials(listShapes(book).surfaces[0].shapes.find((s) => s.name === 'Button 4')!)).toEqual({
 			name: 'Button 4', kind: 'button', range: 'K2:L3', macro: 'Macros.Other', text: 'Start',
 		});
 		expect(editShape(book, 'Sheet1', { action: 'update', name: 'button 4', newName: 'Start' })).toEqual({ ok: true, name: 'Start' });
 		expect(editShape(book, 'Sheet1', { action: 'delete', name: 'START' })).toEqual({ ok: true, name: 'Start' });
+	});
+});
+
+describe('formatting a shape', () => {
+	// ShapesFormattedFixture is ShapesFixture after Excel, driven through its
+	// object model, made exactly these changes and saved.
+	const EXCELS_EDITS: ShapeEdit[] = [
+		{
+			action: 'update', name: 'RunButton', rotation: 30,
+			fill: { type: 'solid', color: '#FF0000', transparency: 25 },
+			line: { type: 'solid', color: '#008000', weight: 2.5, dash: 'dash' },
+			font: { name: 'Arial', size: 14, bold: true, italic: true, underline: true, color: '#0000FF' },
+		},
+		{ action: 'update', name: 'Oval 3', fill: { type: 'none' }, line: { type: 'none' } },
+		{ action: 'update', name: 'TextBox 4', hidden: true },
+		{ action: 'update', name: 'Rectangle: Rounded Corners 2', zOrder: 'front' },
+		{ action: 'update', name: 'Pair', rotation: 45 },
+		{ action: 'update', name: 'Straight Connector 5', line: { type: 'solid', color: '#800000', weight: 4 } },
+		{ action: 'update', name: 'Button 1', font: { bold: true, size: 14 } },
+		{ action: 'update', name: 'Check Box 2', fill: { type: 'solid', color: '#FFFF00' }, line: { type: 'solid', color: '#0000FF' } },
+		{ action: 'update', name: 'Drop Down 3', hidden: true },
+	];
+
+	/** Each shape's look and stacking, for comparing two files. */
+	const looks = (book: XlsxWorkbook): unknown[] => book.shapes('Sheet1')[0].shapes
+		.map(({ name, kind, zOrder, hidden, rotation, fill, line, font }) => ({ name, kind, zOrder, hidden, rotation, fill, line, font }));
+
+	it('reads what Excel wrote for each property', () => {
+		const book = open('ShapesFormattedFixture.xlsm');
+		expect(looked(book, 'Sheet1', 'RunButton')).toMatchObject({
+			rotation: 30,
+			fill: { type: 'solid', color: '#FF0000', transparency: 25 },
+			line: { type: 'solid', color: '#008000', weight: 2.5, dash: 'dash' },
+			font: { name: 'Arial', size: 14, bold: true, italic: true, underline: true, color: '#0000FF' },
+		});
+		expect(looked(book, 'Sheet1', 'Oval 3')).toMatchObject({ fill: { type: 'none' }, line: { type: 'none' } });
+		expect(looked(book, 'Sheet1', 'TextBox 4')?.hidden).toBe(true);
+		expect(looked(book, 'Sheet1', 'Rectangle: Rounded Corners 2')?.zOrder).toBe(9);
+		expect(looked(book, 'Sheet1', 'Pair')?.rotation).toBe(45);
+		expect(looked(book, 'Sheet1', 'Button 1')?.font).toMatchObject({ size: 14, bold: true });
+		expect(looked(book, 'Sheet1', 'Check Box 2')).toMatchObject({ fill: { color: '#FFFF00' }, line: { color: '#0000FF' } });
+		expect(looked(book, 'Sheet1', 'Drop Down 3')?.hidden).toBe(true);
+	});
+
+	it('reports the look a shape takes from its style and the theme', () => {
+		// A new AutoShape is "Accent 1": the fill, a darker shade of it for
+		// the outline at the theme's second width, and white minor-font text.
+		expect(looked(open('ShapesFixture.xlsm'), 'Sheet1', 'RunButton')).toMatchObject({
+			fill: { type: 'solid', color: '#156082', themeColor: 'accent1', automatic: true },
+			line: { type: 'solid', themeColor: 'accent1', weight: 1.5, automatic: true },
+			font: { size: 11, name: 'Aptos Narrow', color: '#FFFFFF' },
+		});
+	});
+
+	it('writes each property the way Excel does', () => {
+		const book = open('ShapesFixture.xlsm');
+		for (const edit of EXCELS_EDITS) {
+			book.editShape('Sheet1', edit);
+		}
+		const excels = open('ShapesFormattedFixture.xlsm');
+		expect(looks(reopen(book))).toEqual(looks(excels));
+		// A group turned to 45 degrees has its anchor turned a quarter about
+		// its center: the same cells as Excel's, within a fiftieth of a point.
+		const anchorOf = (b: XlsxWorkbook): number[] => {
+			const xml = part(b, 'xl/drawings/drawing1.xml');
+			const at = xml.lastIndexOf('<xdr:twoCellAnchor', xml.indexOf('name="Pair"'));
+			return [...xml.slice(at, xml.indexOf('</xdr:to>', at)).matchAll(/<xdr:(?:col|colOff|row|rowOff)>(\d+)</g)].map((m) => Number(m[1]));
+		};
+		const ours = anchorOf(book);
+		const theirs = anchorOf(excels);
+		expect([ours[0], ours[2], ours[4], ours[6]]).toEqual([theirs[0], theirs[2], theirs[4], theirs[6]]);
+		ours.forEach((value, i) => expect(Math.abs(value - theirs[i]), `anchor value ${i}`).toBeLessThanOrEqual(1000));
+	});
+
+	it('restacks a shape among the sheet\'s others, and a form control by its drawing twin', () => {
+		const book = open('ShapesFixture.xlsm');
+		book.editShape('Sheet1', { action: 'update', name: 'Button 1', zOrder: 'back' });
+		book.editShape('Sheet1', { action: 'update', name: 'TextBox 4', zOrder: 'forward' });
+		const order = reopen(book).shapes('Sheet1')[0].shapes
+			.sort((a, b) => a.zOrder! - b.zOrder!)
+			.map((s) => s.name);
+		expect(order).toEqual([
+			'Button 1', 'RunButton', 'Rectangle: Rounded Corners 2', 'Oval 3', 'Straight Connector 5',
+			'TextBox 4', 'Pair', 'Check Box 2', 'Drop Down 3',
+		]);
+	});
+
+	it('shows a hidden shape again, and a fill or font color goes back to the style\'s', () => {
+		const book = open('ShapesFormattedFixture.xlsm');
+		book.editShape('Sheet1', { action: 'update', name: 'TextBox 4', hidden: false });
+		book.editShape('Sheet1', { action: 'update', name: 'Drop Down 3', hidden: false });
+		book.editShape('Sheet1', { action: 'update', name: 'RunButton', font: { color: '' }, rotation: 0 });
+		const again = reopen(book);
+		expect(looked(again, 'Sheet1', 'TextBox 4')?.hidden).toBeUndefined();
+		expect(looked(again, 'Sheet1', 'Drop Down 3')?.hidden).toBeUndefined();
+		expect(looked(again, 'Sheet1', 'RunButton')?.rotation).toBeUndefined();
+		expect(looked(again, 'Sheet1', 'RunButton')?.font?.color).toBe('#FFFFFF');
+	});
+
+	it('adds a shape with its look in one edit, keeping the cells it was given', () => {
+		const book = open('ShapesFixture.xlsm');
+		const name = book.editShape('Sheet1', {
+			action: 'add', type: 'oval', range: 'K2:L4', text: 'Hi', rotation: 90,
+			fill: { type: 'solid', color: '#00FF00' }, line: { type: 'none' }, font: { bold: true, color: '#000000' },
+		});
+		expect(looked(reopen(book), 'Sheet1', name)).toMatchObject({
+			range: 'K2:L4', rotation: 90, text: 'Hi',
+			fill: { type: 'solid', color: '#00FF00' }, line: { type: 'none' }, font: { bold: true, color: '#000000' },
+		});
+	});
+
+	it('refuses what a kind of shape does not have, and a value that is not one', () => {
+		const book = open('ShapesFixture.xlsm');
+		const refusals: Array<[ShapeEdit, RegExp]> = [
+			[{ action: 'update', name: 'Straight Connector 5', fill: { type: 'none' } }, /is a line, which has no fill/],
+			[{ action: 'update', name: 'Pair', font: { bold: true } }, /is a group, which has no text to give a font/],
+			[{ action: 'update', name: 'Button 1', rotation: 10 }, /form control, which Excel does not rotate/],
+			[{ action: 'update', name: 'Check Box 2', font: { bold: true } }, /only a button's caption takes a font/],
+			[{ action: 'update', name: 'Button 1', fill: { type: 'none' } }, /only a check box and an option button take a fill/],
+			[{ action: 'update', name: 'Rectangle 6', zOrder: 'front' }, /stacks with the group/],
+			[{ action: 'update', name: 'RunButton', fill: { type: 'solid', color: 'red' } }, /'red' is not a fill color; give one as #RRGGBB/],
+			[{ action: 'update', name: 'RunButton', line: { type: 'solid', weight: 0 } }, /An outline weight is in points/],
+			[{ action: 'update', name: 'RunButton', font: { size: 0.5 } }, /A font size is in points, from 1 to 409/],
+		];
+		for (const [edit, message] of refusals) {
+			expect(() => book.editShape('Sheet1', edit), JSON.stringify(edit)).toThrow(message);
+		}
 	});
 });

@@ -163,3 +163,76 @@ export async function foreground(): Promise<{ hwnd: string; process: string }> {
     return { hwnd, process };
 }
 
+/**
+ * Records every dialog a process raises, and closes it, until the process
+ * ends: a repair prompt is one of these. Run in its own PowerShell beside the
+ * application, since an open that raises one does not return until it closes.
+ */
+export const WATCHER = [
+    'param([int]$TargetPid, [string]$LogPath, [int]$Seconds = 180)',
+    "Add-Type -TypeDefinition @'",
+    'using System;',
+    'using System.Collections.Generic;',
+    'using System.Runtime.InteropServices;',
+    'using System.Text;',
+    'public static class XlideDialogs {',
+    '    public delegate bool EnumProc(IntPtr hWnd, IntPtr lParam);',
+    '    [DllImport("user32.dll")] public static extern bool EnumWindows(EnumProc callback, IntPtr lParam);',
+    '    [DllImport("user32.dll")] public static extern bool EnumChildWindows(IntPtr parent, EnumProc callback, IntPtr lParam);',
+    '    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);',
+    '    [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);',
+    '    [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetClassName(IntPtr hWnd, StringBuilder text, int max);',
+    '    [DllImport("user32.dll", CharSet = CharSet.Unicode)] public static extern int GetWindowText(IntPtr hWnd, StringBuilder text, int max);',
+    '    [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr w, IntPtr l);',
+    '    static string Text(IntPtr hWnd) { var b = new StringBuilder(1024); GetWindowText(hWnd, b, 1024); return b.ToString(); }',
+    '    static string Class(IntPtr hWnd) { var b = new StringBuilder(256); GetClassName(hWnd, b, 256); return b.ToString(); }',
+    '    public static List<string> Dialogs(uint pid) {',
+    '        var found = new List<string>();',
+    '        EnumWindows((hWnd, l) => {',
+    '            uint owner; GetWindowThreadProcessId(hWnd, out owner);',
+    '            if (owner != pid || !IsWindowVisible(hWnd)) { return true; }',
+    '            string cls = Class(hWnd);',
+    '            if (cls != "#32770" && cls != "NUIDialog") { return true; }',
+    '            var parts = new List<string>();',
+    '            EnumChildWindows(hWnd, (child, l2) => { string t = Text(child); if (t.Length > 0) { parts.Add(t); } return true; }, IntPtr.Zero);',
+    '            found.Add(cls + " | " + Text(hWnd) + " | " + string.Join(" / ", parts));',
+    '            PostMessage(hWnd, 0x0010, IntPtr.Zero, IntPtr.Zero);',
+    '            return true;',
+    '        }, IntPtr.Zero);',
+    '        return found;',
+    '    }',
+    '}',
+    "'@",
+    '$until = (Get-Date).AddSeconds($Seconds)',
+    'while ((Get-Date) -lt $until -and (Get-Process -Id $TargetPid -ErrorAction SilentlyContinue)) {',
+    '    foreach ($line in [XlideDialogs]::Dialogs([uint32]$TargetPid)) { Add-Content -Path $LogPath -Value $line }',
+    '    Start-Sleep -Milliseconds 250',
+    '}',
+].join('\r\n');
+
+/** PowerShell starting the watcher on the process that owns window `hwnd`. */
+export function watchLines(hwndExpression: string, log: string): string[] {
+    const watcher = path.join(SCRATCH, 'dialog-watcher.ps1');
+    fs.mkdirSync(SCRATCH, { recursive: true });
+    fs.writeFileSync(watcher, WATCHER);
+    return [
+        'Add-Type -MemberDefinition \'[DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);\' -Name Owner -Namespace XlideLive',
+        '$owner = 0',
+        `[void][XlideLive.Owner]::GetWindowThreadProcessId([IntPtr]${hwndExpression}, [ref]$owner)`,
+        `Start-Process powershell.exe -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ${q(watcher)}, '-TargetPid', $owner, '-LogPath', ${q(log)}) -WindowStyle Hidden | Out-Null`,
+        'Start-Sleep -Milliseconds 1500',
+    ];
+}
+
+/** `name=value` lines, as a record. */
+export function fields(lines: readonly string[]): Record<string, string> {
+    return Object.fromEntries(lines.filter((line) => line.includes('=')).map((line) => {
+        const at = line.indexOf('=');
+        return [line.slice(0, at), line.slice(at + 1)];
+    }));
+}
+
+/** The dialogs the watcher saw, one per line. */
+export function dialogsSeen(log: string): string[] {
+    return fs.existsSync(log) ? fs.readFileSync(log, 'utf8').split(/\r?\n/).filter(Boolean) : [];
+}

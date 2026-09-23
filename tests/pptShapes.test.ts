@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { ZipArchive } from '../src/vba/zip';
 import { editSlideShape, listSlideShapes, presentationSlides, requireSlide } from '../src/vba/pptShapes';
-import type { ShapeInfo } from '../src/vba/shapes';
+import type { ShapeEdit, ShapeInfo } from '../src/vba/shapes';
 
 // PowerPoint 16 saved the fixture. Slide 1 has ClickMe, a rectangle running
 // Macros.SayHello; Caption, a text box; and Badge, an oval. Slide 2 has one
@@ -16,7 +16,19 @@ const FIXTURE = 'PowerPointShapesFixture.pptm';
 const open = (name = FIXTURE): ZipArchive => ZipArchive.read(fs.readFileSync(path.join(FIXTURES, name)));
 const reopen = (zip: ZipArchive): ZipArchive => ZipArchive.read(zip.toBytes());
 const slide = (zip: ZipArchive, surface: string) => requireSlide(presentationSlides(zip), surface);
-const shapesOn = (zip: ZipArchive, surface: string): ShapeInfo[] => listSlideShapes(zip, slide(zip, surface));
+/**
+ * A shape as most of these tests describe it: what it is, where, and what
+ * it runs. Its look and stacking have tests of their own below.
+ */
+function essentials(shape: ShapeInfo): ShapeInfo {
+	const { fill: _fill, line: _line, font: _font, rotation: _rotation, zOrder: _zOrder, ...rest } = shape;
+	return rest.shapes ? { ...rest, shapes: rest.shapes.map(essentials) } : rest;
+}
+
+const shapesOn = (zip: ZipArchive, surface: string): ShapeInfo[] => listSlideShapes(zip, slide(zip, surface)).map(essentials);
+/** A shape with its look, for the formatting tests. */
+const looked = (zip: ZipArchive, surface: string, name: string): ShapeInfo | undefined =>
+	listSlideShapes(zip, slide(zip, surface)).find((s) => s.name === name);
 const named = (zip: ZipArchive, surface: string, name: string): ShapeInfo | undefined =>
 	shapesOn(zip, surface).find((s) => s.name === name);
 const part = (zip: ZipArchive, name: string): string => zip.read(name).toString('utf8');
@@ -232,6 +244,22 @@ describe('adding a slide shape', () => {
 			.toThrow(/width and a height above zero/);
 	});
 
+	it('writes an empty AutoShape\'s text as PowerPoint does, and text typed into one at the slide\'s size', () => {
+		const zip = open();
+		const bodyOf = (name: string): string => {
+			const xml = part(zip, 'ppt/slides/slide1.xml');
+			const at = xml.indexOf(`name="${name}"`);
+			return xml.slice(xml.indexOf('<p:txBody>', at), xml.indexOf('</p:txBody>', at) + '</p:txBody>'.length);
+		};
+		const name = editSlideShape(zip, slide(zip, 'Slide 1'), { action: 'add', type: 'oval', left: 0, top: 0 });
+		// Badge is an oval PowerPoint added and saved with no text.
+		expect(bodyOf(name)).toBe(bodyOf('Badge'));
+
+		editSlideShape(zip, slide(zip, 'Slide 1'), { action: 'update', name: 'Badge', text: 'Typed' });
+		expect(bodyOf('Badge')).toContain('<a:p><a:pPr algn="ctr"/><a:r><a:rPr lang="en-US"/><a:t>Typed</a:t></a:r></a:p>');
+		expect(looked(reopen(zip), 'Slide 1', 'Badge')?.font?.size).toBe(18);
+	});
+
 	it('keeps text with markup characters as typed', () => {
 		const zip = open();
 		const name = editSlideShape(zip, slide(zip, 'Slide 1'), {
@@ -239,6 +267,142 @@ describe('adding a slide shape', () => {
 		});
 
 		expect(named(reopen(zip), 'Slide 1', name)?.text).toBe('a < b & "c" > d');
+	});
+});
+
+describe('formatting a slide shape', () => {
+	// ShapesFormattedFixture is PowerPointShapesFixture after PowerPoint,
+	// driven through its object model, made exactly these changes and saved.
+	const POWERPOINTS_EDITS: ShapeEdit[] = [
+		{
+			action: 'update', name: 'ClickMe', rotation: 30,
+			fill: { type: 'solid', color: '#FF0000', transparency: 25 },
+			line: { type: 'solid', color: '#008000', weight: 2.5, dash: 'dash' },
+			font: { name: 'Arial', size: 14, bold: true, italic: true, underline: true, color: '#0000FF' },
+		},
+		{ action: 'update', name: 'Badge', fill: { type: 'none' }, line: { type: 'none' }, rotation: 90, zOrder: 'back' },
+		{ action: 'update', name: 'Caption', hidden: true },
+	];
+
+	/** Each shape's box, look and stacking, for comparing two files. */
+	const looks = (zip: ZipArchive): unknown[] => listSlideShapes(zip, slide(zip, 'Slide 1'))
+		.map(({ name, zOrder, hidden, rotation, fill, line, font, left, top, width, height }) =>
+			({ name, zOrder, hidden, rotation, fill, line, font, left, top, width, height }));
+	/** A shape's p:spPr, as the part holds it. */
+	const spPrOf = (zip: ZipArchive, name: string): string => {
+		const xml = part(zip, 'ppt/slides/slide1.xml');
+		const at = xml.indexOf(`name="${name}"`);
+		return xml.slice(xml.indexOf('<p:spPr>', at), xml.indexOf('</p:spPr>', at) + '</p:spPr>'.length);
+	};
+
+	it('reads what PowerPoint wrote for each property', () => {
+		const zip = open('ShapesFormattedFixture.pptm');
+		expect(looked(zip, 'Slide 1', 'ClickMe')).toMatchObject({
+			rotation: 30,
+			fill: { type: 'solid', color: '#FF0000', transparency: 25 },
+			line: { type: 'solid', color: '#008000', weight: 2.5, dash: 'dash' },
+			font: { name: 'Arial', size: 14, bold: true, italic: true, underline: true, color: '#0000FF' },
+		});
+		expect(looked(zip, 'Slide 1', 'Badge')).toMatchObject({
+			rotation: 90, zOrder: 1, fill: { type: 'none' }, line: { type: 'none' },
+		});
+		expect(looked(zip, 'Slide 1', 'Caption')?.hidden).toBe(true);
+	});
+
+	it('reports the font PowerPoint shows where the text sets none itself', () => {
+		// Every value below is what PowerPoint answered for these files. An
+		// AutoShape's style gives its text the theme's minor font in white;
+		// a text box has no style and starts from the presentation's default
+		// text style; a placeholder from its layout and master.
+		const shapes = open();
+		expect(looked(shapes, 'Slide 1', 'ClickMe')).toMatchObject({
+			fill: { type: 'solid', color: '#156082', themeColor: 'accent1', automatic: true },
+			line: { type: 'solid', themeColor: 'accent1', weight: 1.5, automatic: true },
+			font: { name: 'Aptos', size: 18, color: '#FFFFFF' },
+		});
+		expect(looked(shapes, 'Slide 1', 'Caption')?.font).toEqual({ name: 'Aptos', size: 18, color: '#000000' });
+
+		const placeholders = open('PowerPointPlaceholderFixture.pptm');
+		const fontOf = (surface: string, name: string) => looked(placeholders, surface, name)?.font;
+		expect(fontOf('Slide 1', 'Title 1')).toEqual({ name: 'Aptos Display', size: 60, color: '#000000' });
+		expect(fontOf('Slide 1', 'Subtitle 2')).toEqual({ name: 'Aptos', size: 24, color: '#000000' });
+		expect(fontOf('Slide 2', 'Title 1')).toEqual({ name: 'Aptos Display', size: 44, color: '#000000' });
+		expect(fontOf('Slide 2', 'Text Placeholder 2')).toEqual({ name: 'Aptos', size: 28, color: '#000000' });
+	});
+
+	it('writes each property the way PowerPoint does', () => {
+		const zip = open();
+		for (const edit of POWERPOINTS_EDITS) {
+			editSlideShape(zip, slide(zip, 'Slide 1'), edit);
+		}
+		const powerpoints = open('ShapesFormattedFixture.pptm');
+		expect(looks(reopen(zip))).toEqual(looks(powerpoints));
+		// PowerPoint turns a shape about its center and leaves its box as it
+		// was, and the fill and outline markup is the same to the byte.
+		expect(spPrOf(zip, 'ClickMe')).toBe(spPrOf(powerpoints, 'ClickMe'));
+	});
+
+	it('restacks a shape among the slide\'s others', () => {
+		const zip = open();
+		editSlideShape(zip, slide(zip, 'Slide 1'), { action: 'update', name: 'ClickMe', zOrder: 'forward' });
+		expect(shapesOn(reopen(zip), 'Slide 1').map((s) => s.name)).toEqual(['Caption', 'ClickMe', 'Badge']);
+		editSlideShape(zip, slide(zip, 'Slide 1'), { action: 'update', name: 'Badge', zOrder: 'back' });
+		editSlideShape(zip, slide(zip, 'Slide 1'), { action: 'update', name: 'Caption', zOrder: 'front' });
+		const order = listSlideShapes(reopen(zip), slide(zip, 'Slide 1')).map((s) => `${s.zOrder} ${s.name}`);
+		expect(order).toEqual(['1 Badge', '2 ClickMe', '3 Caption']);
+	});
+
+	it('shows a hidden shape again, and a font color goes back to the style\'s', () => {
+		const zip = open('ShapesFormattedFixture.pptm');
+		editSlideShape(zip, slide(zip, 'Slide 1'), { action: 'update', name: 'Caption', hidden: false });
+		editSlideShape(zip, slide(zip, 'Slide 1'), { action: 'update', name: 'ClickMe', font: { color: '' }, rotation: 0 });
+		const again = reopen(zip);
+		expect(looked(again, 'Slide 1', 'Caption')?.hidden).toBeUndefined();
+		expect(looked(again, 'Slide 1', 'ClickMe')?.rotation).toBeUndefined();
+		expect(looked(again, 'Slide 1', 'ClickMe')?.font?.color).toBe('#FFFFFF');
+	});
+
+	it('rotates a placeholder that inherits its box, keeping the box it shows', () => {
+		const zip = open('PowerPointPlaceholderFixture.pptm');
+		editSlideShape(zip, slide(zip, 'Slide 2'), { action: 'update', name: 'Title 1', rotation: 15 });
+		expect(looked(reopen(zip), 'Slide 2', 'Title 1')).toMatchObject({
+			rotation: 15, left: 66, top: 28.75, width: 828, height: 104.38,
+		});
+	});
+
+	it('rotates a group, and restacks it as one', () => {
+		const zip = open();
+		editSlideShape(zip, slide(zip, 'Slide 2'), { action: 'update', name: 'Pair', rotation: 45, zOrder: 'back' });
+		const shapes = listSlideShapes(reopen(zip), slide(zip, 'Slide 2'));
+		expect(shapes.map((s) => s.name)).toEqual(['Pair', 'SecondSlideShape']);
+		expect(shapes[0]).toMatchObject({ rotation: 45, left: 300, top: 200, width: 230, height: 140 });
+	});
+
+	it('adds a shape with its look in one edit', () => {
+		const zip = open();
+		const name = editSlideShape(zip, slide(zip, 'Slide 1'), {
+			action: 'add', type: 'oval', left: 10, top: 20, width: 50, height: 40, text: 'Hi', rotation: 90,
+			fill: { type: 'solid', color: '#00FF00' }, line: { type: 'none' }, font: { bold: true, color: '#000000' },
+		});
+		expect(looked(reopen(zip), 'Slide 1', name)).toMatchObject({
+			left: 10, top: 20, width: 50, height: 40, rotation: 90, text: 'Hi', zOrder: 4,
+			fill: { type: 'solid', color: '#00FF00' }, line: { type: 'none' }, font: { bold: true, color: '#000000', size: 18 },
+		});
+	});
+
+	it('refuses what a kind of shape does not have, and a value that is not one', () => {
+		const zip = open();
+		const refusals: Array<[string, ShapeEdit, RegExp]> = [
+			['Slide 2', { action: 'update', name: 'Pair', fill: { type: 'none' } }, /is a group, which has no fill/],
+			['Slide 2', { action: 'update', name: 'Pair', font: { bold: true } }, /is a group, which has no text to give a font/],
+			['Slide 2', { action: 'update', name: 'GroupedRect', zOrder: 'front' }, /stacks with the group/],
+			['Slide 1', { action: 'update', name: 'ClickMe', fill: { type: 'solid', color: 'red' } }, /'red' is not a fill color; give one as #RRGGBB/],
+			['Slide 1', { action: 'update', name: 'ClickMe', line: { type: 'solid', weight: 0 } }, /An outline weight is in points/],
+			['Slide 1', { action: 'update', name: 'ClickMe', font: { size: 0.5 } }, /A font size is in points, from 1 to 409/],
+		];
+		for (const [surface, edit, message] of refusals) {
+			expect(() => editSlideShape(zip, slide(zip, surface), edit), JSON.stringify(edit)).toThrow(message);
+		}
 	});
 });
 

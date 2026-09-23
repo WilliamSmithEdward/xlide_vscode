@@ -36,16 +36,41 @@ import {
 	PRESET_LABELS,
 	ShapeError,
 	drawingTextOf,
+	lookOf,
+	restackedIndex,
 	withDrawingText,
 	type ShapeEdit,
 	type ShapeInfo,
 	type ShapeKind,
 	type PresetShapeType,
 } from './shapes';
+import {
+	readDrawingFont,
+	readFill,
+	readLine,
+	readRotation,
+	readTheme,
+	withDrawingFont,
+	withFill,
+	withLine,
+	withRotation,
+	type ShapeTheme,
+	type TextStyleSource,
+} from './shapeFormat';
+import { SLIDE_FORMATTABLE } from './shapeCapabilities';
 
 const SLIDE_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide';
 const LAYOUT_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout';
 const MASTER_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster';
+const THEME_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme';
+
+/** The theme a slide's shapes are styled from: its layout's master's. */
+function slideTheme(pkg: Package, slidePath: string): ShapeTheme {
+	const layout = pkg.relationships(slidePath).find((rel) => rel.type === LAYOUT_REL)?.path;
+	const master = layout && pkg.has(layout) ? pkg.relationships(layout).find((rel) => rel.type === MASTER_REL)?.path : undefined;
+	const theme = master && pkg.has(master) ? pkg.relationships(master).find((rel) => rel.type === THEME_REL)?.path : undefined;
+	return readTheme(theme && pkg.has(theme) ? pkg.read(theme) : undefined);
+}
 const PRESENTATION = 'ppt/presentation.xml';
 
 /** The URI scheme PowerPoint runs a macro through. */
@@ -117,6 +142,43 @@ interface SlideShape {
 	element: Span & { name: string };
 	id: number;
 	inGroup: boolean;
+	/** Its place among the tree's top-level shapes, which is how they stack: 0 is at the back. */
+	index: number;
+}
+
+/** What a kind of slide shape can be given: which of fill, line, font and rotation apply. */
+const FORMATTABLE = SLIDE_FORMATTABLE;
+
+/** A slide shape's fill, outline, font and rotation, as far as its kind has them. */
+function formatOf(
+	xml: string,
+	element: Span & { name: string },
+	kind: ShapeKind,
+	theme: ShapeTheme | undefined,
+	textStyles: readonly TextStyleSource[],
+): Partial<ShapeInfo> {
+	const out: Partial<ShapeInfo> = {};
+	const direct = children(xml, element.openEnd, element.end);
+	const props = direct.find((child) => child.name === (element.name === 'p:grpSp' ? 'p:grpSpPr' : 'p:spPr'));
+	const style = direct.find((child) => child.name === 'p:style');
+	if (FORMATTABLE.rotation.includes(kind) && props) {
+		const xfrm = findElement(xml, 'a:xfrm', props.openEnd, props.end);
+		const rotation = readRotation(xfrm ? xml.slice(xfrm.start, xfrm.openEnd) : undefined);
+		if (rotation) { out.rotation = rotation; }
+	}
+	if (FORMATTABLE.fill.includes(kind)) {
+		const fill = readFill(xml, props, style, theme);
+		if (fill) { out.fill = fill; }
+	}
+	if (FORMATTABLE.line.includes(kind)) {
+		const line = readLine(xml, props, style, theme);
+		if (line) { out.line = line; }
+	}
+	if (FORMATTABLE.font.includes(kind)) {
+		const font = readDrawingFont(xml, direct.find((child) => child.name === 'p:txBody'), style, theme, textStyles);
+		if (font) { out.font = font; }
+	}
+	return out;
 }
 
 const SHAPE_ELEMENTS = ['p:sp', 'p:grpSp', 'p:graphicFrame', 'p:cxnSp', 'p:pic'];
@@ -148,7 +210,9 @@ function readShape(
 	xml: string,
 	element: Span & { name: string },
 	inGroup: boolean,
-	inherited?: ReadonlyMap<string, Partial<ShapeInfo>>,
+	index: number,
+	theme: ShapeTheme | undefined,
+	inherited: SlideInheritance,
 ): SlideShape[] {
 	const inner = xml.slice(element.start, element.end);
 	const cNvPr = findElement(xml, 'p:cNvPr', element.openEnd, element.end);
@@ -159,11 +223,11 @@ function readShape(
 	const geometry = /<a:prstGeom\b[^>]*\bprst="([^"]*)"/.exec(inner)?.[1];
 	if (geometry && (kind === 'shape' || kind === 'placeholder' || kind === 'line')) { info.geometry = geometry; }
 	const box = boxOf(xml, element);
+	const key = kind === 'placeholder' ? placeholderKey(inner) : undefined;
 	if (kind === 'placeholder' && box.width === undefined) {
 		// PowerPoint reports the box this placeholder inherits, so a reader
 		// that stopped at the slide would report none at all.
-		const key = placeholderKey(inner);
-		Object.assign(info, (key !== undefined && inherited?.get(key)) || box);
+		Object.assign(info, (key !== undefined && inherited.boxes.get(key)) || box);
 	} else {
 		Object.assign(info, box);
 	}
@@ -176,12 +240,14 @@ function readShape(
 	const descr = attr(cNvPrTag, 'descr');
 	if (descr) { info.altText = descr; }
 	if (attr(cNvPrTag, 'hidden') === '1') { info.hidden = true; }
-	const out: SlideShape[] = [{ info, element, id: Number(attr(cNvPrTag, 'id') ?? 0), inGroup }];
+	Object.assign(info, formatOf(xml, element, kind, theme, inherited.textStyles(key)));
+	if (!inGroup) { info.zOrder = index + 1; }
+	const out: SlideShape[] = [{ info, element, id: Number(attr(cNvPrTag, 'id') ?? 0), inGroup, index }];
 	if (element.name === 'p:grpSp') {
 		info.shapes = [];
 		for (const child of children(xml, element.openEnd, element.end)) {
 			if (!SHAPE_ELEMENTS.includes(child.name)) { continue; }
-			const members = readShape(xml, child, true);
+			const members = readShape(xml, child, true, index, theme, inherited);
 			if (members[0]) { info.shapes.push(members[0].info); }
 			out.push(...members);
 		}
@@ -225,23 +291,61 @@ function placeholderKey(markup: string): string | undefined {
 	return `${attr(tag, 'type') ?? 'body'}:${attr(tag, 'idx') ?? ''}`;
 }
 
+/** What a slide's shapes take from its layout, its master and the presentation. */
+interface SlideInheritance {
+	/** The box each placeholder inherits, by placeholderKey. */
+	boxes: Map<string, Partial<ShapeInfo>>;
+	/**
+	 * The list styles a shape's text takes its font from, nearest first,
+	 * for a placeholder by its placeholderKey and for any other shape
+	 * (undefined).
+	 */
+	textStyles(placeholder: string | undefined): TextStyleSource[];
+}
+
 /**
- * Where a slide's layout, and behind it the master, put each placeholder.
+ * The placeholder of the master a layout's placeholder of this type
+ * inherits from: a centered title is a title, and every other text holder
+ * but the date, footer and slide number is the master's body.
+ */
+function masterPlaceholderType(type: string): string {
+	if (type === 'title' || type === 'ctrTitle') { return 'title'; }
+	return ['dt', 'ftr', 'sldNum', 'hdr'].includes(type) ? type : 'body';
+}
+
+/** The master text style (in p:txStyles) a master placeholder type starts from. */
+const MASTER_TEXT_STYLE: Record<string, string> = { title: 'p:titleStyle', body: 'p:bodyStyle' };
+
+/**
+ * What a slide inherits.
  *
  * A placeholder on a slide usually carries no a:xfrm of its own, and
  * PowerPoint reports the box it inherits. Reading only the slide reports no
  * position at all for the title of every deck that is not blank-layout.
  * The master is read first and the layout written over it, which is the
  * order the inheritance runs in.
+ *
+ * Text is the same: a run that sets no size takes one from its placeholder
+ * on the layout, then the master's placeholder, then the master's title or
+ * body style - 60 points for a title slide's title, 44 for a title, 28 for
+ * body text, as PowerPoint reported for PowerPointPlaceholderFixture. Text
+ * in any other shape starts from the presentation's p:defaultTextStyle, not
+ * the master's p:otherStyle: PowerPoint was given a file where the two
+ * disagreed, and reported the default text style's size, font and color.
  */
-function inheritedBoxes(pkg: Package, slidePath: string): Map<string, Partial<ShapeInfo>> {
-	const out = new Map<string, Partial<ShapeInfo>>();
+function slideInheritance(pkg: Package, slidePath: string): SlideInheritance {
+	const boxes = new Map<string, Partial<ShapeInfo>>();
+	const layoutText = new Map<string, TextStyleSource>();
+	const masterText = new Map<string, TextStyleSource>();
+	const presentation = pkg.has(PRESENTATION) ? pkg.read(PRESENTATION) : undefined;
+	const defaults = presentation ? findElement(presentation, 'p:defaultTextStyle') : undefined;
 	const layout = pkg.relationships(slidePath).find((rel) => rel.type === LAYOUT_REL)?.path;
-	if (!layout || !pkg.has(layout)) { return out; }
-	const master = pkg.relationships(layout).find((rel) => rel.type === MASTER_REL)?.path;
+	const master = layout && pkg.has(layout) ? pkg.relationships(layout).find((rel) => rel.type === MASTER_REL)?.path : undefined;
+	let masterXml: string | undefined;
 	for (const part of [master, layout]) {
 		if (!part || !pkg.has(part)) { continue; }
 		const xml = pkg.read(part);
+		if (part === master) { masterXml = xml; }
 		const tree = findElement(xml, 'p:spTree');
 		if (!tree) { continue; }
 		for (const child of children(xml, tree.openEnd, tree.end)) {
@@ -249,10 +353,33 @@ function inheritedBoxes(pkg: Package, slidePath: string): Map<string, Partial<Sh
 			const key = placeholderKey(xml.slice(child.start, child.end));
 			if (key === undefined) { continue; }
 			const box = boxOf(xml, child);
-			if (box.width || box.height) { out.set(key, box); }
+			if (box.width || box.height) { boxes.set(key, box); }
+			const body = findElement(xml, 'p:txBody', child.openEnd, child.end);
+			const list = body ? findElement(xml, 'a:lstStyle', body.openEnd, body.end) : undefined;
+			if (!list) { continue; }
+			if (part === master) {
+				masterText.set(masterPlaceholderType(key.split(':')[0]), { xml, element: list });
+			} else {
+				layoutText.set(key, { xml, element: list });
+			}
 		}
 	}
-	return out;
+	return {
+		boxes,
+		textStyles(placeholder) {
+			if (placeholder === undefined) {
+				return presentation && defaults ? [{ xml: presentation, element: defaults }] : [];
+			}
+			const type = masterPlaceholderType(placeholder.split(':')[0]);
+			const styles = [layoutText.get(placeholder), masterText.get(type)];
+			const txStyles = masterXml ? findElement(masterXml, 'p:txStyles') : undefined;
+			const masterStyle = masterXml && txStyles
+				? findElement(masterXml, MASTER_TEXT_STYLE[type] ?? 'p:otherStyle', txStyles.openEnd, txStyles.end)
+				: undefined;
+			if (masterXml && masterStyle) { styles.push({ xml: masterXml, element: masterStyle }); }
+			return styles.filter((style): style is TextStyleSource => style !== undefined);
+		},
+	};
 }
 
 function readSlide(pkg: Package, slide: SlideRef): { xml: string; tree: Span; shapes: SlideShape[] } {
@@ -261,11 +388,12 @@ function readSlide(pkg: Package, slide: SlideRef): { xml: string; tree: Span; sh
 	if (!tree) {
 		throw new ShapeError(`${slide.name} has no shape tree; the slide part is not one PowerPoint wrote.`);
 	}
-	const inherited = inheritedBoxes(pkg, slide.path);
+	const inherited = slideInheritance(pkg, slide.path);
+	const theme = slideTheme(pkg, slide.path);
 	const shapes: SlideShape[] = [];
-	for (const child of children(xml, tree.openEnd, tree.end)) {
-		if (!SHAPE_ELEMENTS.includes(child.name)) { continue; }
-		shapes.push(...readShape(xml, child, false, inherited));
+	const top = children(xml, tree.openEnd, tree.end).filter((child) => SHAPE_ELEMENTS.includes(child.name));
+	for (const [index, child] of top.entries()) {
+		shapes.push(...readShape(xml, child, false, index, theme, inherited));
 	}
 	return { xml, tree, shapes };
 }
@@ -374,6 +502,71 @@ function movedShape(elementXml: string, shape: SlideShape, edit: ShapeEdit): str
 	return elementXml.slice(0, at) + xfrmXml(left, top, width, height) + elementXml.slice(at);
 }
 
+/** The refusal for a property a kind of shape does not have. */
+function notFor(shape: ShapeInfo, what: string): ShapeError {
+	return new ShapeError(`'${shape.name}' is a ${shape.kind}, which has no ${what} XLIDE sets.`);
+}
+
+/** A shape element with its properties element rewritten by `change`. */
+function withProperties(elementXml: string, element: string, change: (propsXml: string, propsName: string) => string): string {
+	const propsName = element === 'p:grpSp' ? 'p:grpSpPr' : 'p:spPr';
+	const props = children(elementXml, elementXml.indexOf('>') + 1, elementXml.length).find((child) => child.name === propsName);
+	if (!props) {
+		throw new ShapeError(`The shape has no ${propsName}; the slide part is not one PowerPoint wrote.`);
+	}
+	return splice(elementXml, props, change(elementXml.slice(props.start, props.end), propsName));
+}
+
+/** The format edits a slide shape's own element takes: fill, line, font and rotation. */
+function formattedShape(elementXml: string, shape: SlideShape, edit: ShapeEdit): string {
+	const { info } = shape;
+	let out = elementXml;
+	if (edit.fill !== undefined) {
+		if (!FORMATTABLE.fill.includes(info.kind)) { throw notFor(info, 'fill'); }
+		out = withProperties(out, shape.element.name, (props, name) => withFill(props, name, edit.fill!));
+	}
+	if (edit.line !== undefined) {
+		if (!FORMATTABLE.line.includes(info.kind)) { throw notFor(info, 'outline'); }
+		out = withProperties(out, shape.element.name, (props, name) => withLine(props, name, edit.line!));
+	}
+	if (edit.font !== undefined) {
+		const body = findElement(out, 'p:txBody');
+		if (!FORMATTABLE.font.includes(info.kind) || !body) { throw notFor(info, 'text to give a font'); }
+		out = splice(out, body, withDrawingFont(out.slice(body.start, body.end), edit.font));
+	}
+	if (edit.rotation !== undefined) {
+		if (!FORMATTABLE.rotation.includes(info.kind)) { throw notFor(info, 'rotation'); }
+		const propsName = shape.element.name === 'p:grpSp' ? 'p:grpSpPr' : 'p:spPr';
+		const props = children(out, out.indexOf('>') + 1, out.length).find((child) => child.name === propsName);
+		if (!props || !findElement(out, 'a:xfrm', props.start, props.end)) {
+			// A placeholder that inherits its box from the layout gets one of
+			// its own to carry the rotation, at the box it shows.
+			out = movedShape(out, shape, { action: 'update' });
+		}
+		out = withProperties(out, shape.element.name, (propsXml) => {
+			const xfrm = findElement(propsXml, 'a:xfrm')!;
+			return propsXml.slice(0, xfrm.start) + withRotation(propsXml.slice(xfrm.start, xfrm.openEnd), edit.rotation!) + propsXml.slice(xfrm.openEnd);
+		});
+	}
+	return out;
+}
+
+/** A slide part with one of its tree's top-level shapes moved by a z-order command. */
+function restackedTree(xml: string, index: number, command: NonNullable<ShapeEdit['zOrder']>): string {
+	const tree = findElement(xml, 'p:spTree')!;
+	const top = children(xml, tree.openEnd, tree.end).filter((child) => SHAPE_ELEMENTS.includes(child.name));
+	const target = restackedIndex(index, top.length, command);
+	if (target === index) { return xml; }
+	const moving = top[index];
+	const movingXml = xml.slice(moving.start, moving.end);
+	const without = splice(xml, moving, '');
+	const restTree = findElement(without, 'p:spTree')!;
+	const rest = children(without, restTree.openEnd, restTree.end).filter((child) => SHAPE_ELEMENTS.includes(child.name));
+	// Last in the tree is topmost.
+	const at = target < rest.length ? rest[target].start : without.lastIndexOf('</p:spTree>', restTree.end);
+	return without.slice(0, at) + movingXml + without.slice(at);
+}
+
 function updateShape(pkg: Package, slide: SlideRef, read: ReturnType<typeof readSlide>, shape: SlideShape, edit: ShapeEdit): string {
 	let elementXml = read.xml.slice(shape.element.start, shape.element.end);
 	if (edit.text !== undefined) {
@@ -382,10 +575,14 @@ function updateShape(pkg: Package, slide: SlideRef, read: ReturnType<typeof read
 			throw new ShapeError(`'${shape.info.name}' is a ${shape.info.kind}, which holds no text.`);
 		}
 		const old = elementXml.slice(body.start, body.end);
-		elementXml = splice(elementXml, body, withDrawingText(old, edit.text, 'p:txBody'));
+		elementXml = splice(elementXml, body, withDrawingText(old, edit.text, 'p:txBody', SLIDE_RUN));
 	}
 	if (edit.left !== undefined || edit.top !== undefined || edit.width !== undefined || edit.height !== undefined) {
 		elementXml = movedShape(elementXml, shape, edit);
+	}
+	elementXml = formattedShape(elementXml, shape, edit);
+	if (edit.zOrder !== undefined && shape.inGroup) {
+		throw new ShapeError(`'${shape.info.name}' is in a group; it stacks with the group, so restack the group.`);
 	}
 	// The cNvPr edits come last: the splices above move its offsets.
 	const cNvPr = findElement(elementXml, 'p:cNvPr');
@@ -401,7 +598,7 @@ function updateShape(pkg: Package, slide: SlideRef, read: ReturnType<typeof read
 			? `<a:hlinkClick r:id="" action="${encodeXml(MACRO_ACTION + encodeURIComponent(edit.macro))}"/>`
 			: undefined);
 	}
-	if (edit.altText !== undefined || edit.newName !== undefined) {
+	if (edit.altText !== undefined || edit.newName !== undefined || edit.hidden !== undefined) {
 		const openEnd = cNvPrXml.indexOf('>') + 1;
 		let startTag = cNvPrXml.slice(0, openEnd);
 		if (edit.altText !== undefined) {
@@ -411,12 +608,25 @@ function updateShape(pkg: Package, slide: SlideRef, read: ReturnType<typeof read
 			assertNameFree(read.shapes.filter((s) => s !== shape), edit.newName, slide.name);
 			startTag = withAttr(startTag, 'name', edit.newName);
 		}
+		if (edit.hidden !== undefined) {
+			startTag = withAttr(startTag, 'hidden', edit.hidden ? '1' : undefined);
+		}
 		cNvPrXml = startTag + cNvPrXml.slice(openEnd);
 	}
 	elementXml = splice(elementXml, cNvPr, cNvPrXml);
-	pkg.write(slide.path, splice(read.xml, shape.element, elementXml));
+	let written = splice(read.xml, shape.element, elementXml);
+	if (edit.zOrder !== undefined) { written = restackedTree(written, shape.index, edit.zOrder); }
+	pkg.write(slide.path, written);
 	return edit.newName ?? shape.info.name;
 }
+
+/**
+ * What PowerPoint 16 writes for a run of text typed into a new shape, and
+ * for its paragraph mark: the language and nothing more, so the size, font
+ * and color come from the shape's style and the slide.
+ */
+const SLIDE_RUN = '<a:rPr lang="en-US"/>';
+const SLIDE_MARK = '<a:endParaRPr lang="en-US"/>';
 
 /** The style PowerPoint 16 gives a new AutoShape: the theme's first accent. */
 const AUTOSHAPE_STYLE = '<p:style><a:lnRef idx="2"><a:schemeClr val="accent1"><a:shade val="15000"/></a:schemeClr></a:lnRef>'
@@ -452,12 +662,15 @@ function addShape(pkg: Package, slide: SlideRef, read: ReturnType<typeof readSli
 	const cNvPr = link
 		? `<p:cNvPr id="${id}" name="${encodeXml(name)}"${descr}>${link}</p:cNvPr>`
 		: `<p:cNvPr id="${id}" name="${encodeXml(name)}"${descr}/>`;
+	// An AutoShape's text is centered: PowerPoint writes that paragraph into
+	// every new one, as Badge in the fixture shows.
 	const body = withDrawingText(
 		textBox
 			? '<p:txBody><a:bodyPr wrap="none" rtlCol="0"><a:spAutoFit/></a:bodyPr><a:lstStyle/></p:txBody>'
-			: '<p:txBody><a:bodyPr rtlCol="0" anchor="ctr"/><a:lstStyle/></p:txBody>',
+			: `<p:txBody><a:bodyPr rtlCol="0" anchor="ctr"/><a:lstStyle/><a:p><a:pPr algn="ctr"/>${SLIDE_MARK}</a:p></p:txBody>`,
 		edit.text ?? '',
 		'p:txBody',
+		SLIDE_RUN,
 	);
 	const shape = `<p:sp><p:nvSpPr>${cNvPr}<p:cNvSpPr${textBox ? ' txBox="1"' : ''}/><p:nvPr/></p:nvSpPr>`
 		+ `<p:spPr>${xfrmXml(edit.left, edit.top, width, height)}`
@@ -486,7 +699,11 @@ export function editSlideShape(zip: ZipArchive, slide: SlideRef, edit: ShapeEdit
 	const pkg = new Package(zip);
 	const read = readSlide(pkg, slide);
 	if (edit.action === 'add') {
-		return addShape(pkg, slide, read, edit);
+		const added = addShape(pkg, slide, read, edit);
+		// How the new shape looks is set on it once it is there, the same way
+		// as on any other shape.
+		const look = lookOf(edit);
+		return look ? editSlideShape(zip, slide, { action: 'update', name: added, ...look }) : added;
 	}
 	if (!edit.name) {
 		throw new ShapeError(`A shape to ${edit.action} needs a name; call the list tool for the names on ${slide.name}.`);

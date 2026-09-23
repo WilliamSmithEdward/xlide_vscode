@@ -95,6 +95,12 @@ interface EditShapeInput {
     inputRange?: string;
     altText?: string;
     newName?: string;
+    hidden?: boolean;
+    rotation?: number;
+    zOrder?: string;
+    fill?: Record<string, unknown>;
+    line?: Record<string, unknown>;
+    font?: Record<string, unknown>;
 }
 interface ExportModulesInput { filePath: string; exportFolder?: string; exportMode?: ExportMode; }
 interface ConfigureExportModeInput { filePath: string; exportMode: ExportMode; }
@@ -963,13 +969,21 @@ export function registerAgentTools(
                     ? `a ${type ?? 'shape'}${name ? ` named **${name}**` : ''}${at ? ` ${at}` : ''}`
                     : `**${name ?? '?'}**`;
                 const link = macro === undefined ? '' : macro ? `, running \`${macro}\` on a click` : ', with no macro';
+                const { hidden, rotation, zOrder, fill, line, font } = options.input;
+                const look = [
+                    hidden === undefined ? '' : hidden ? 'hidden' : 'shown',
+                    fill || line || font ? 'restyled' : '',
+                    rotation === undefined ? '' : `turned to ${rotation} degrees`,
+                    zOrder ? `moved ${zOrder === 'front' || zOrder === 'back' ? `to the ${zOrder}` : zOrder}` : '',
+                ].filter(Boolean);
+                const styled = look.length > 0 ? `, ${look.join(', ')}` : '';
                 const where = surface ? ` on **${surface}**` : '';
                 return {
                     invocationMessage: `${shapeActionTitle(action)}${surface ? ` on "${surface}"` : ''} in "${filePath}"`,
                     confirmationMessages: {
                         title: shapeActionTitle(action),
                         message: new vscode.MarkdownString(
-                            `${action === 'add' ? 'Add' : action === 'update' ? 'Change' : 'Delete'} ${what}${link}${where} in \`${filePath}\`?`,
+                            `${action === 'add' ? 'Add' : action === 'update' ? 'Change' : 'Delete'} ${what}${link}${styled}${where} in \`${filePath}\`?`,
                         ),
                     },
                 };

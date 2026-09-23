@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {{head}}
+    <style nonce="{{nonce}}">
+{{css}}
+    </style>
+</head>
+<body>
+    <main class="shell">
+        <header class="pageHeader">
+            <h1 id="title"></h1>
+            <p class="sub" id="subtitle"></p>
+        </header>
+        <div class="errorSummary" id="errorSummary" role="alert" tabindex="-1" hidden>
+            <p id="errorSummaryText"></p>
+            <ul id="errorList"></ul>
+        </div>
+        <form id="form" novalidate>
+            <section class="card" id="generalSection" aria-labelledby="generalHeading">
+                <h2 id="generalHeading">Shape</h2>
+                <div class="field" id="typeField">
+                    <label for="type">Type</label>
+                    <select id="type" name="type"></select>
+                </div>
+                <div class="field" id="surfaceField">
+                    <label for="surface">Where</label>
+                    <select id="surface" name="surface"></select>
+                </div>
+                <div class="field">
+                    <label for="name">Name</label>
+                    <input id="name" name="name" type="text" autocomplete="off" spellcheck="false">
+                    <p class="hint" id="nameHint"></p>
+                </div>
+                <div class="field">
+                    <label for="altText">Alt text</label>
+                    <input id="altText" name="altText" type="text" autocomplete="off">
+                </div>
+                <div class="check">
+                    <input id="hidden" name="hidden" type="checkbox">
+                    <label for="hidden">Hidden</label>
+                </div>
+            </section>
+
+            <section class="card" id="positionSection" aria-labelledby="positionHeading">
+                <h2 id="positionHeading">Position and size</h2>
+                <div class="field" id="rangeField">
+                    <label for="range">Cells it covers</label>
+                    <input id="range" name="range" type="text" autocomplete="off" spellcheck="false" placeholder="B2:D4">
+                </div>
+                <div class="grid" id="boxFields">
+                    <div class="field" id="leftField">
+                        <label for="left">Left (pt)</label>
+                        <input id="left" name="left" type="text" inputmode="decimal" autocomplete="off">
+                    </div>
+                    <div class="field" id="topField">
+                        <label for="top">Top (pt)</label>
+                        <input id="top" name="top" type="text" inputmode="decimal" autocomplete="off">
+                    </div>
+                    <div class="field" id="widthField">
+                        <label for="width">Width (pt)</label>
+                        <input id="width" name="width" type="text" inputmode="decimal" autocomplete="off">
+                    </div>
+                    <div class="field" id="heightField">
+                        <label for="height">Height (pt)</label>
+                        <input id="height" name="height" type="text" inputmode="decimal" autocomplete="off">
+                    </div>
+                </div>
+                <div class="field" id="rotationField">
+                    <label for="rotation">Rotation (degrees clockwise)</label>
+                    <input id="rotation" name="rotation" type="text" inputmode="decimal" autocomplete="off">
+                </div>
+                <p class="hint" id="positionNote"></p>
+            </section>
+
+            <section class="card" id="textSection" aria-labelledby="textHeading">
+                <h2 id="textHeading">Text</h2>
+                <div class="field">
+                    <label for="text" id="textLabel">Text</label>
+                    <textarea id="text" name="text" rows="3"></textarea>
+                </div>
+            </section>
+
+            <section class="card" id="fontSection" aria-labelledby="fontHeading">
+                <h2 id="fontHeading">Font</h2>
+                <div class="grid">
+                    <div class="field">
+                        <label for="fontName">Font</label>
+                        <input id="fontName" name="fontName" type="text" list="fontNames" autocomplete="off" spellcheck="false">
+                        <datalist id="fontNames"></datalist>
+                    </div>
+                    <div class="field">
+                        <label for="fontSize">Size (pt)</label>
+                        <input id="fontSize" name="fontSize" type="text" inputmode="decimal" autocomplete="off">
+                    </div>
+                </div>
+                <div class="checks">
+                    <div class="check"><input id="fontBold" name="fontBold" type="checkbox"><label for="fontBold">Bold</label></div>
+                    <div class="check"><input id="fontItalic" name="fontItalic" type="checkbox"><label for="fontItalic">Italic</label></div>
+                    <div class="check"><input id="fontUnderline" name="fontUnderline" type="checkbox"><label for="fontUnderline">Underline</label></div>
+                </div>
+                <div class="colorRow">
+                    <div class="field">
+                        <label for="fontColor">Color</label>
+                        <input id="fontColor" name="fontColor" type="color">
+                    </div>
+                    <div class="check">
+                        <input id="fontColorFromStyle" name="fontColorFromStyle" type="checkbox">
+                        <label for="fontColorFromStyle">Use the color the shape's style gives</label>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card" id="fillSection" aria-labelledby="fillHeading">
+                <h2 id="fillHeading">Fill</h2>
+                <fieldset>
+                    <legend class="visuallyHidden">Fill</legend>
+                    <div class="radios" id="fillTypes"></div>
+                </fieldset>
+                <div class="colorRow">
+                    <div class="field">
+                        <label for="fillColor">Color</label>
+                        <input id="fillColor" name="fillColor" type="color">
+                    </div>
+                    <div class="field">
+                        <label for="fillTransparency">Transparency (%)</label>
+                        <input id="fillTransparency" name="fillTransparency" type="text" inputmode="decimal" autocomplete="off">
+                    </div>
+                </div>
+            </section>
+
+            <section class="card" id="lineSection" aria-labelledby="lineHeading">
+                <h2 id="lineHeading">Outline</h2>
+                <fieldset>
+                    <legend class="visuallyHidden">Outline</legend>
+                    <div class="radios" id="lineTypes"></div>
+                </fieldset>
+                <div class="colorRow">
+                    <div class="field">
+                        <label for="lineColor">Color</label>
+                        <input id="lineColor" name="lineColor" type="color">
+                    </div>
+                    <div class="field">
+                        <label for="lineWeight">Weight (pt)</label>
+                        <input id="lineWeight" name="lineWeight" type="text" inputmode="decimal" autocomplete="off">
+                    </div>
+                    <div class="field">
+                        <label for="lineDash">Dash</label>
+                        <select id="lineDash" name="lineDash"></select>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card" id="arrangeSection" aria-labelledby="arrangeHeading">
+                <h2 id="arrangeHeading">Arrange</h2>
+                <div class="field">
+                    <label for="zOrder">Stacking</label>
+                    <select id="zOrder" name="zOrder">
+                        <option value="">Leave where it is</option>
+                        <option value="front">Bring to front</option>
+                        <option value="forward">Bring forward</option>
+                        <option value="backward">Send backward</option>
+                        <option value="back">Send to back</option>
+                    </select>
+                    <p class="hint" id="stackInfo"></p>
+                </div>
+            </section>
+
+            <section class="card" id="macroSection" aria-labelledby="macroHeading">
+                <h2 id="macroHeading">Macro</h2>
+                <div class="field" id="macroField">
+                    <label for="macro">Runs on a click</label>
+                    <div class="inline">
+                        <select id="macro" name="macro"></select>
+                        <button type="button" class="secondary" id="goToMacro">Go to Sub</button>
+                    </div>
+                    <p class="hint" id="macroHint"></p>
+                </div>
+                <p class="hint" id="macroNote"></p>
+            </section>
+
+            <section class="card" id="controlSection" aria-labelledby="controlHeading">
+                <h2 id="controlHeading">Form control</h2>
+                <div class="field" id="linkedCellField">
+                    <label for="linkedCell">Cell link</label>
+                    <input id="linkedCell" name="linkedCell" type="text" autocomplete="off" spellcheck="false" placeholder="$H$10">
+                </div>
+                <div class="field" id="inputRangeField">
+                    <label for="inputRange">Input range</label>
+                    <input id="inputRange" name="inputRange" type="text" autocomplete="off" spellcheck="false" placeholder="$J$1:$J$5">
+                </div>
+            </section>
+        </form>
+        <footer class="actions">
+            <button type="button" class="secondary danger" id="delete">Delete Shape</button>
+            <span class="spacer"></span>
+            <button type="button" class="secondary" id="cancel">Cancel</button>
+            <button type="submit" form="form" id="save">Save</button>
+        </footer>
+        <div class="status" id="status" role="status" aria-live="polite"></div>
+    </main>
+    <script nonce="{{nonce}}">
+{{js}}
+    </script>
+</body>
+</html>

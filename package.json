@@ -2,7 +2,7 @@
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
   "description": "Office VBA and Visual Basic 6 in VS Code - Excel, Word, PowerPoint, Access and .vbp projects; project tree, module editing, UserForm and VB6 form designers, static analysis, unit tests, AI agent tools",
-  "version": "10.6.0",
+  "version": "10.7.0",
   "publisher": "WilliamSmithE",
   "license": "MIT",
   "icon": "assets/images/extension_logo.png",
@@ -613,6 +613,41 @@
         "command": "xlide.refactor.introduceParameter",
         "title": "Introduce Parameter",
         "category": "XLIDE"
+      },
+      {
+        "command": "xlide.editShape",
+        "title": "Edit Shape",
+        "category": "XLIDE",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "xlide.addShape",
+        "title": "Add Shape...",
+        "category": "XLIDE",
+        "icon": "$(add)"
+      },
+      {
+        "command": "xlide.deleteShape",
+        "title": "Delete Shape",
+        "category": "XLIDE",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "xlide.linkShapeMacro",
+        "title": "Link to Sub...",
+        "category": "XLIDE",
+        "icon": "$(link)"
+      },
+      {
+        "command": "xlide.unlinkShapeMacro",
+        "title": "Unlink Sub",
+        "category": "XLIDE"
+      },
+      {
+        "command": "xlide.goToShapeMacro",
+        "title": "Go to Sub",
+        "category": "XLIDE",
+        "icon": "$(go-to-file)"
       }
     ],
     "customEditors": [
@@ -692,6 +727,46 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "xlide.addShape",
+          "when": "view == xlide.explorer && viewItem =~ /^shape(Folder|Surface)-add$/",
+          "group": "inline@1"
+        },
+        {
+          "command": "xlide.addShape",
+          "when": "view == xlide.explorer && viewItem =~ /^shape(Folder|Surface)-add$/",
+          "group": "1_create@1"
+        },
+        {
+          "command": "xlide.goToShapeMacro",
+          "when": "view == xlide.explorer && viewItem =~ /^shape-.*\\bmacro\\b/",
+          "group": "inline@1"
+        },
+        {
+          "command": "xlide.editShape",
+          "when": "view == xlide.explorer && viewItem =~ /^shape-.*\\bedit\\b/",
+          "group": "1_shape@1"
+        },
+        {
+          "command": "xlide.goToShapeMacro",
+          "when": "view == xlide.explorer && viewItem =~ /^shape-.*\\bmacro\\b/",
+          "group": "1_shape@2"
+        },
+        {
+          "command": "xlide.linkShapeMacro",
+          "when": "view == xlide.explorer && viewItem =~ /^shape-.*\\blink\\b/",
+          "group": "2_macro@1"
+        },
+        {
+          "command": "xlide.unlinkShapeMacro",
+          "when": "view == xlide.explorer && viewItem =~ /^shape-.*\\bmacro\\b/",
+          "group": "2_macro@2"
+        },
+        {
+          "command": "xlide.deleteShape",
+          "when": "view == xlide.explorer && viewItem =~ /^shape-.*\\bdelete\\b/",
+          "group": "3_delete@1"
+        },
         {
           "command": "xlide.findReferences",
           "when": "view == xlide.explorer && viewItem =~ /^(sub|module-class(-agent-pending)?)$/",
@@ -1019,6 +1094,30 @@
         },
         {
           "command": "xlide.revertAgentChange",
+          "when": "false"
+        },
+        {
+          "command": "xlide.editShape",
+          "when": "false"
+        },
+        {
+          "command": "xlide.addShape",
+          "when": "false"
+        },
+        {
+          "command": "xlide.deleteShape",
+          "when": "false"
+        },
+        {
+          "command": "xlide.linkShapeMacro",
+          "when": "false"
+        },
+        {
+          "command": "xlide.unlinkShapeMacro",
+          "when": "false"
+        },
+        {
+          "command": "xlide.goToShapeMacro",
           "when": "false"
         },
         {
@@ -1668,7 +1767,7 @@
       {
         "name": "xlide_listShapes",
         "displayName": "List Shapes",
-        "modelDescription": "Lists the shapes on the surfaces of a macro-enabled Office file: a worksheet in Excel, a slide in PowerPoint, or a story in Word (the body, each header and each footer). Covers AutoShapes, text boxes, pictures, charts, groups, PowerPoint placeholders, Word drawing canvases, and Excel form controls (buttons, check boxes, drop-downs, ...) and ActiveX controls. For each shape it returns its name, kind, and when set its geometry, its macro (the Sub a click runs, as Proc or Module.Proc), text, alt text and whether it is hidden; a group or canvas lists its members in shapes. Excel reports the cells a shape covers as range; Word and PowerPoint report left, top, width and height in points, and Word also reports placement (inline with the text, or anchored). Omit surface to list every surface. Call this before xlide_editShape to learn shape and surface names, and to find which Subs a file wires to its shapes. Word shapes cannot run macros at all, and Excel ActiveX controls run event procedures in the sheet module (such as CommandButton1_Click) rather than a macro.",
+        "modelDescription": "Lists the shapes on the surfaces of a macro-enabled Office file: a worksheet in Excel, a slide in PowerPoint, or a story in Word (the body, each header and each footer). Covers AutoShapes, text boxes, pictures, charts, groups, PowerPoint placeholders, Word drawing canvases, and Excel form controls (buttons, check boxes, drop-downs, ...) and ActiveX controls. For each shape it returns its name, kind, and when set its geometry, its macro (the Sub a click runs, as Proc or Module.Proc), text, alt text and whether it is hidden; a group or canvas lists its members in shapes. Where its kind has them it also returns how the shape looks: rotation in degrees; fill and line, each of type none, solid or other, with color as #RRGGBB, transparency in percent, weight in points and dash, where automatic means the look comes from the shape's style and the theme; font, the font of its text; and zOrder, its place in the stacking of the surface's top-level shapes, 1 at the back. In Excel each surface also gives codeName, the name of the sheet's module in the VBA project. Excel reports the cells a shape covers as range; Word and PowerPoint report left, top, width and height in points, and Word also reports placement (inline with the text, or anchored). Omit surface to list every surface. Call this before xlide_editShape to learn shape and surface names, and to find which Subs a file wires to its shapes. Word shapes cannot run macros at all, and Excel ActiveX controls run event procedures in the sheet module (such as CommandButton1_Click) rather than a macro.",
         "toolReferenceName": "xlideListShapes",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -1691,7 +1790,7 @@
       {
         "name": "xlide_editShape",
         "displayName": "Edit Shape",
-        "modelDescription": "Adds, changes or deletes one shape on a surface of a macro-enabled Office file, and links shapes to macros. The file is saved automatically. Works on an Excel worksheet, a PowerPoint slide, and a Word story (the body, a header or a footer). action add needs type (rectangle, roundedRectangle, oval, textBox, or button for an Excel form-control button) and a position: in Excel, range, the cells the shape covers such as 'B2:D3'; in PowerPoint, left and top in points (width and height default to 120 by 60); in Word, left and top make it a floating shape, and omitting both makes it inline with the text. name, text, macro and altText are optional, and the result gives the name the host would have picked when name is left out. action update changes the named shape: range (Excel) or left, top, width and height (Word and PowerPoint) move or resize it, text sets its text, macro sets the Sub a click runs, linkedCell and inputRange set an Excel form control's cell link and list, altText sets its alt text, newName renames it; properties left out stay as they are, and an empty string removes a macro, cell link, list or alt text. action delete removes the named shape. A macro is a Public Sub with no required parameters, given as Proc or Module.Proc, and it must already exist in the VBA project, so write the Sub first with xlide_writeModule. WORD CANNOT RUN A MACRO FROM A SHAPE - its shapes have no OnAction and no ActionSettings, and the file format has nowhere to keep one - so use macro only on Excel and PowerPoint. Pictures and charts are listed, moved, renamed and deleted but cannot be added, since that needs image or data bytes. Call xlide_listShapes first for shape and surface names. Excel ActiveX controls are listed but not edited, and a shape inside a group or a Word drawing canvas is moved or deleted with its container. IMPORTANT: Use only ASCII characters (a-z, A-Z, 0-9, and standard ASCII punctuation) to avoid character mangling. Avoid Unicode, emoji, accented characters, and special symbols.",
+        "modelDescription": "Adds, changes or deletes one shape on a surface of a macro-enabled Office file, and links shapes to macros. The file is saved automatically. Works on an Excel worksheet, a PowerPoint slide, and a Word story (the body, a header or a footer). action add needs type (rectangle, roundedRectangle, oval, textBox, or button for an Excel form-control button) and a position: in Excel, range, the cells the shape covers such as 'B2:D3'; in PowerPoint, left and top in points (width and height default to 120 by 60); in Word, left and top make it a floating shape, and omitting both makes it inline with the text. name, text, macro and altText are optional, and the result gives the name the host would have picked when name is left out. action update changes the named shape: range (Excel) or left, top, width and height (Word and PowerPoint) move or resize it, text sets its text, macro sets the Sub a click runs, linkedCell and inputRange set an Excel form control's cell link and list, altText sets its alt text, newName renames it, hidden hides or shows it, rotation turns it, zOrder restacks it, and fill, line and font restyle it; add takes these too; properties left out stay as they are, and an empty string removes a macro, cell link, list or alt text. action delete removes the named shape. A macro is a Public Sub with no required parameters, given as Proc or Module.Proc, and it must already exist in the VBA project, so write the Sub first with xlide_writeModule. WORD CANNOT RUN A MACRO FROM A SHAPE - its shapes have no OnAction and no ActionSettings, and the file format has nowhere to keep one - so use macro only on Excel and PowerPoint. Pictures and charts are listed, moved, renamed and deleted but cannot be added, since that needs image or data bytes. Call xlide_listShapes first for shape and surface names. Excel ActiveX controls are listed but not edited, and a shape inside a group or a Word drawing canvas is moved or deleted with its container. IMPORTANT: Use only ASCII characters (a-z, A-Z, 0-9, and standard ASCII punctuation) to avoid character mangling. Avoid Unicode, emoji, accented characters, and special symbols.",
         "toolReferenceName": "xlideEditShape",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -1790,6 +1889,114 @@
             "newName": {
               "type": "string",
               "description": "A new name for the shape"
+            },
+            "hidden": {
+              "type": "boolean",
+              "description": "true hides the shape, false shows it again"
+            },
+            "rotation": {
+              "type": "number",
+              "description": "Degrees clockwise; 0 takes the rotation off. Not for an Excel form control or a Word canvas"
+            },
+            "zOrder": {
+              "type": "string",
+              "enum": [
+                "front",
+                "back",
+                "forward",
+                "backward"
+              ],
+              "description": "Restack the shape among the top-level shapes of its surface, as the Arrange commands do. A shape in a group or canvas stacks with it, and a Word shape inline with the text does not stack"
+            },
+            "fill": {
+              "type": "object",
+              "description": "The fill of an AutoShape or text box (or an Excel check box or option button): {\"type\":\"none\"}, or {\"type\":\"solid\",\"color\":\"#RRGGBB\",\"transparency\":0-100}",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "solid"
+                  ]
+                },
+                "color": {
+                  "type": "string",
+                  "description": "#RRGGBB"
+                },
+                "transparency": {
+                  "type": "number",
+                  "description": "Percent, 0 to 100"
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            "line": {
+              "type": "object",
+              "description": "The outline: {\"type\":\"none\"}, or {\"type\":\"solid\"} with any of color (#RRGGBB), weight (points) and dash",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "none",
+                    "solid"
+                  ]
+                },
+                "color": {
+                  "type": "string",
+                  "description": "#RRGGBB"
+                },
+                "weight": {
+                  "type": "number",
+                  "description": "Points"
+                },
+                "dash": {
+                  "type": "string",
+                  "enum": [
+                    "solid",
+                    "dot",
+                    "dash",
+                    "lgDash",
+                    "dashDot",
+                    "lgDashDot",
+                    "lgDashDotDot",
+                    "sysDash",
+                    "sysDot",
+                    "sysDashDot",
+                    "sysDashDotDot"
+                  ]
+                }
+              },
+              "required": [
+                "type"
+              ]
+            },
+            "font": {
+              "type": "object",
+              "description": "The font of the shape's text (or an Excel button's caption); what is given is set on all of its text, and a color of \"\" goes back to the shape style's",
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "size": {
+                  "type": "number",
+                  "description": "Points, 1 to 409"
+                },
+                "bold": {
+                  "type": "boolean"
+                },
+                "italic": {
+                  "type": "boolean"
+                },
+                "underline": {
+                  "type": "boolean"
+                },
+                "color": {
+                  "type": "string",
+                  "description": "#RRGGBB, or an empty string for the style's color"
+                }
+              }
             }
           },
           "required": [

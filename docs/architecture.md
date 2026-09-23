@@ -34,12 +34,15 @@ xlide_vscode/
     extension.ts        Activation entry point - registers all providers and commands
     projectEngine.ts   ProjectEngine class - in-process dispatcher for every project operation
     projectExplorer.ts     ProjectExplorer - TreeDataProvider for the XLIDE project tree in VS Code Explorer
+    shapeRows.ts        ShapeRows - the tree's shape rows: a worksheet's Shapes folder under its module, Word's under ThisDocument by story, a presentation's Slides, and the sheets Excel has given no module; one listing per file, kept on screen until a fresh one lands
+    shapeEditor.ts      The shape editor tab: opens on the file as it is now, sends a Save as one coordinated edit, refreshes the rows
+    shapeEditorModel.ts Pure form model for the shape editor: the fields a shape has, the values they start from, and the edit a Save makes from what changed (no vscode dependency)
     explorerFollow.ts   ExplorerFollow - the tree following the editor: one pass at a time, the latest wins, and a pass again when redrawn rows undo a reveal
     xlideSidebar.ts     Polished XLIDE Activity Bar/sidebar WebviewView
     xlideSidebarModel.ts Pure model for sidebar status/action/configuration sections
     xlideFileSystem.ts  XlideFileSystemProvider - virtual xlide-vba:// filesystem
     commands.ts         Thin command composition root; handlers live in the per-domain modules under src/commands/
-    commands/           Per-domain command modules: analysisCommands.ts, moduleSyncCommands.ts, vbaTestCommands.ts, projectCrudCommands.ts, supportBundleCommands.ts, miscCommands.ts, shared.ts (CommandDeps + cross-domain helpers)
+    commands/           Per-domain command modules: analysisCommands.ts, moduleSyncCommands.ts, vbaTestCommands.ts, projectCrudCommands.ts, shapeCommands.ts, supportBundleCommands.ts, miscCommands.ts, shared.ts (CommandDeps + cross-domain helpers)
     agentTools.ts       LanguageModelTool registrations for AI agent use
     agentInstructions.ts The instructions for AI agents the sidebar's Agent Instructions dialog shows and copies
     projectModuleOperations.ts  Shared project module write/rename/delete service used by both UI commands and agent tools
@@ -115,6 +118,9 @@ xlide_vscode/
       xlsxFormula.ts    Worksheet formula text: the typed form and the stored form (_xlfn., _xlpm., _xleta., ANCHORARRAY, SINGLE), shared-formula shifting, and the check Excel applies to a typed formula
       xlsxFunctionNames.ts  Function tables for xlsxFormula, each found by having Excel 16 store or accept formulas: prefixed names, eta names, argument counts, reference-only arguments, reserved names
       shapes.ts         What a shape is in the words all three hosts share: kinds, the edit record, the preset geometries and labels, and the DrawingML text Excel and PowerPoint both use
+      shapeFormat.ts    How a shape looks, for all three hosts: fill, outline, rotation and font read through the shape's style and theme (and, for text, PowerPoint's and Word's style chains), and written as each application writes them, VML twins included
+      shapeCapabilities.ts  Which look properties each kind of shape takes in each host: one table per host, read by the writers and by the shape editor alike
+      xlsxGrid.ts       A worksheet's column and row edges in EMU, for turning a shape's cell anchor a quarter as Excel stores a shape rotated 45 to 135 degrees
       ooxml.ts          Reading and rewriting OOXML parts in place: element walk, attribute edit, relationships, content types, EMU/point conversion. Splice-based, so untouched bytes come back identical
       xlsxShapes.ts     Worksheet shapes: the drawing part's shapes and the form controls kept across VML, <controls>, ctrlProp and a hidden DrawingML twin; list, add, update, delete, and the macro each runs
       pptShapes.ts      Slide shapes: the p:spTree of each slide, addressed in p:sldIdLst order rather than by file numbering; list, add, update, delete, and the macro a click runs through a:hlinkClick
@@ -130,7 +136,7 @@ xlide_vscode/
       projectService.ts  The operation layer the extension calls: module CRUD, protection info, sheets, cells, atomic container writes
 
   assets/
-    webview/            Externalized webview template assets (HTML/CSS/JS) for projectAnalysis, moduleSync, vbaTests, vbaTestResults, and globalSettings panels
+    webview/            Externalized webview template assets (HTML/CSS/JS) for projectAnalysis, moduleSync, vbaTests, vbaTestResults, globalSettings, and shapeEditor panels
     testhost/           Externalized VBA test host sources loaded at runtime: XlideTestModalWatcher.cs, run-vba-tests.ps1 (parameterized per Office host)
     templates/          Office-authored blanks for New Macro-Enabled File, and the projects Add VBA Project starts from: blank.xlsm/.xlsb/.xlam/.docm/.dotm/.pptm/.potm
 
@@ -581,8 +587,9 @@ Settings:
 | `readCells` | `path`, `sheet`, `range` | - | `{data: [[...]]}` |
 | `readFormulas` | `path`, `sheet`, `range` | - | `{data: [[...]]}` (raw formula strings) |
 | `writeCells` | `path`, `sheet`, `startCell`, `data` | - | `{ok}` |
-| `listShapes` | `path` | `surface` (or `sheet`) | `{surfaces: [{surface, shapes: [{name, kind, range?, left?, top?, width?, height?, macro?, text?, ...}]}]}` |
-| `editShape` | `path`, `action` | `surface` (or `sheet`), `name`, `type`, `range`, `left`, `top`, `width`, `height`, `text`, `macro`, `linkedCell`, `inputRange`, `altText`, `newName` | `{ok, name}` (the shape's name after the edit) |
+| `listShapes` | `path` | `surface` (or `sheet`) | `{surfaces: [{surface, codeName?, shapes: [{name, kind, range?, left?, top?, width?, height?, macro?, text?, rotation?, fill?, line?, font?, zOrder?, ...}]}]}` |
+| `editShape` | `path`, `action` | `surface` (or `sheet`), `name`, `type`, `range`, `left`, `top`, `width`, `height`, `text`, `macro`, `linkedCell`, `inputRange`, `altText`, `newName`, `hidden`, `rotation`, `zOrder`, `fill`, `line`, `font` | `{ok, name}` (the shape's name after the edit) |
+| `shapeMacros` | `path` | - | `{macros: [{macro, module, proc}]}` (the Subs a shape can run, named as a link names them) |
 
 Failures reject with a `BridgeError` whose `code` follows the JSON-RPC convention (`-32601`, `-32602`, `-32000`).
 
@@ -624,6 +631,37 @@ changes both. A macro is checked against the project first, as the Sub a
 click could run, because Excel and PowerPoint each report a missing one only
 when someone clicks; Word is refused outright, since a Word shape has no
 OnAction and no ActionSettings and the format keeps no macro link.
+
+A shape's look is its fill, outline, rotation, font, visibility and place in
+the stacking order, read and written by `src/vba/shapeFormat.ts` for all
+three hosts, since all three write it in the same DrawingML. What a shape
+does not set comes from its style and the theme, and the listing reports
+that too, marked `automatic`, so the editor shows the color the application
+shows. Text that sets no font inherits one: in PowerPoint from the
+presentation's default text style, or for a placeholder from its layout and
+master; in Word from the paragraph and character styles and the document
+defaults, the shape style's white text last. Each order was measured by
+having the application report a file whose layers disagreed. Every write was
+compared with the file the application saved after making the same change,
+byte for byte where the markup allows it. Excel stores a shape turned 45 to
+135 degrees (or 225 to 315) with its cell anchor turned a quarter, which is
+why `src/vba/xlsxGrid.ts` knows the sheet's column and row edges; Word keeps
+the VML twin of a top-level shape in step and, as Word does, leaves the twins
+of the shapes in a canvas alone; stacking is the drawing's element order in
+Excel and PowerPoint and `relativeHeight` in Word, where a shape brought to
+the front takes the highest height plus 1024 and no other shape moves.
+Which properties a kind of shape takes in each host is one table per host
+(`src/vba/shapeCapabilities.ts`), read by the writers and by the shape
+editor, so the editor offers nothing the writer refuses.
+
+In the tree, a worksheet's shapes are a Shapes folder under its module, a
+Word document's are under ThisDocument by story, and a presentation's slides
+are a folder under the project (`src/shapeRows.ts`). A sheet Excel has given
+no module yet (it names one only once the VBA editor is opened after the
+sheet is added) is listed in a folder of its own. The shape editor
+(`src/shapeEditor.ts`, `src/shapeEditorModel.ts`) opens on the file as it is
+now, and a Save sends only the fields that changed as one edit through the
+Office write coordination.
 
 Every method takes any macro container. The sheet/cell methods (`listSheets`,
 `readCells`, `readFormulas`, `writeCells`) require the OOXML Excel container

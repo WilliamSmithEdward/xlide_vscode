@@ -289,8 +289,12 @@ export function activate(context: vscode.ExtensionContext): void {
             const createSubscription = watcher.onDidCreate(debouncedRefresh);
             const deleteSubscription = watcher.onDidDelete(debouncedRefresh);
             // A save from Excel or another window changes what differs from
-            // HEAD; the marks follow the file, not only XLIDE's own writes.
-            const changeSubscription = watcher.onDidChange((uri) => gitMarks.invalidate(uri.fsPath));
+            // HEAD, and can move its shapes; the marks and the shape rows
+            // follow the file, not only XLIDE's own writes.
+            const changeSubscription = watcher.onDidChange((uri) => {
+                gitMarks.invalidate(uri.fsPath);
+                explorer.refreshShapes(uri.fsPath);
+            });
             return new vscode.Disposable(() => {
                 debouncedRefresh.dispose();
                 createSubscription.dispose();
