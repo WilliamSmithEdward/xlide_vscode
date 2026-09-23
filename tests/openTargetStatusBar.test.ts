@@ -1,3 +1,4 @@
+import * as path from 'path';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
@@ -49,8 +50,11 @@ import {
     storeSelectedProject,
 } from '../src/projectTarget';
 
-const BOOK = 'C:\\work\\Book.xlsm';
-const DECK = 'C:\\work\\Deck.pptm';
+// Paths the machine running the tests would have: the hint reads a file name
+// by that machine's rules, and CI runs on Linux, where a backslash separates
+// nothing.
+const BOOK = path.join(path.resolve('work'), 'Book.xlsm');
+const DECK = path.join(path.resolve('work'), 'Deck.pptm');
 
 /** Workspace state that remembers what it is given. */
 function memento(): { get: (key: string) => unknown; update: (key: string, value: unknown) => Promise<void> } {

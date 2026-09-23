@@ -16,6 +16,7 @@ vi.mock('../src/util/powershell', async (importOriginal) => ({
     }),
 }));
 
+import * as path from 'path';
 import * as vscode from 'vscode';
 import { annotateLockError } from '../src/fileLockHolders';
 import { isProjectLockedError, reportProjectLocked } from '../src/xlideFileSystem';
@@ -90,7 +91,10 @@ describe('reportProjectLocked throttling', () => {
     it('names the process Restart Manager finds holding the file', async () => {
         onWindows();
         lookup.stdout = ['XLIDE_LOCK_HOLDERS|[{"pid":4242,"appName":"Microsoft Word","image":"WINWORD.EXE"}]'];
-        reportProjectLocked('C:\\held\\Report.docm', 'write');
+        // A path native to the machine running the tests: the notice names the
+        // file by that machine's rules, which the platform stand-in above does
+        // not change, and CI runs on Linux.
+        reportProjectLocked(path.join(path.resolve('held'), 'Report.docm'), 'write');
         await settled();
         expect(vi.mocked(vscode.window.showWarningMessage).mock.calls[0][0])
             .toBe('XLIDE: Cannot save "Report.docm" - it is open in Microsoft Word (WINWORD.EXE, process 4242). Close the file and try again.');
