@@ -876,6 +876,36 @@ describe('analyzeModule - invalid expression syntax', () => {
 		expect(spanText(src, hits[0])).toBe('***');
 	});
 
+	it('accepts the literal and operator spellings the VBE reads (issue #87)', () => {
+		// Measured in Excel 16.0: each line compiles, and the VBE stores it as
+		// `1#`, `&O17`, `>=`, `<=`, `<>`. MS-VBAL 5.6.9.5 writes each relational
+		// operator as two tokens, so a space between them is allowed too.
+		const src =
+			'Option Explicit\n' +
+			'Sub A()\n' +
+			'    Dim a As Double, b As Double\n' +
+			'    a = 1.\n' +
+			'    a = &17\n' +
+			'    a = Array(1., &17&)(0)\n' +
+			'    If a => b Then a = 1\n' +
+			'    If a =< b Then a = 1\n' +
+			'    If a >< b Then a = 1\n' +
+			'    If a = > b Then a = 1\n' +
+			'    If a < > b Then a = 1\n' +
+			'    If a > = b Then a = 1\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'invalid-expression-syntax')).toEqual([]);
+	});
+
+	it('flags an octal literal after a complete expression, which the VBE refuses (issue #87)', () => {
+		// The VBE reads `&1` as a literal even there, so the line does not
+		// parse; `&9` has no octal digit and is a concatenation.
+		const bad = 'Sub T()\n    s = "a" &1\nEnd Sub\n';
+		expectDiagnostic(bad, analyzeModule(bad), 'invalid-expression-syntax', { span: '&1' });
+		const good = 'Sub T()\n    s = "a" &9\nEnd Sub\n';
+		expect(byCode(analyzeModule(good), 'invalid-expression-syntax')).toHaveLength(0);
+	});
+
 	it('flags unsupported C-style ternary syntax', () => {
 		const src = 'Sub T()\n    value = flag ? 1 : 2\nEnd Sub\n';
 		expectDiagnostic(src, analyzeModule(src), 'invalid-expression-syntax', { span: '?' });

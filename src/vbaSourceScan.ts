@@ -57,8 +57,38 @@ export interface LogicalLine {
  * keeping every column aligned with the original line.
  */
 export function stripVba(line: string): string {
+    return stripVbaLine(line).text;
+}
+
+/** A comment ending in ` _` runs on through the next line (MS-VBAL 3.3.1). */
+const COMMENT_CONTINUES_RE = /\s_[ \t]*$/;
+
+/**
+ * Every line stripped as {@link stripVba} strips one, and the lines a comment
+ * runs on to through ` _` blanked whole: they are comment text, however much
+ * they look like code.
+ */
+export function stripVbaLines(lines: readonly string[]): string[] {
+    const out: string[] = [];
+    let inComment = false;
+    for (const line of lines) {
+        if (inComment) {
+            out.push(' '.repeat(line.length));
+            inComment = COMMENT_CONTINUES_RE.test(line);
+            continue;
+        }
+        const { text, commentStart } = stripVbaLine(line);
+        out.push(text);
+        inComment = commentStart >= 0 && COMMENT_CONTINUES_RE.test(line.slice(commentStart));
+    }
+    return out;
+}
+
+/** {@link stripVba}, and where the line's comment starts (-1 when it has none). */
+function stripVbaLine(line: string): { text: string; commentStart: number } {
     const chars = line.split('');
     let inString = false;
+    let commentStart = -1;
     for (let i = 0; i < chars.length; i++) {
         const c = chars[i];
         if (inString) {
@@ -78,6 +108,7 @@ export function stripVba(line: string): string {
             chars[i] = ' ';
             inString = true;
         } else if (c === "'") {
+            commentStart = i;
             for (let j = i; j < chars.length; j++) { chars[j] = ' '; }
             break;
         }
@@ -92,8 +123,9 @@ export function stripVba(line: string): string {
     if (rem) {
         const remKeywordStart = rem.index + rem[1].length + rem[2].length;
         out = out.slice(0, remKeywordStart) + ' '.repeat(out.length - remKeywordStart);
+        commentStart = commentStart < 0 ? remKeywordStart : Math.min(commentStart, remKeywordStart);
     }
-    return out;
+    return { text: out, commentStart };
 }
 
 /**
@@ -255,12 +287,12 @@ export function findIdentifierOccurrences(
     source: string,
     name: string,
 ): VbaIdentifierOccurrence[] {
-    const lines = source.split(/\r\n|\r|\n/);
+    const lines = stripVbaLines(source.split(/\r\n|\r|\n/));
     const starts = lineStartOffsets(source);
     const lower = name.toLowerCase();
     const out: VbaIdentifierOccurrence[] = [];
     for (let i = 0; i < lines.length; i++) {
-        const stripped = stripVba(lines[i]);
+        const stripped = lines[i];
         VBA_IDENTIFIER_WORD_RE.lastIndex = 0;
         let m: RegExpExecArray | null;
         while ((m = VBA_IDENTIFIER_WORD_RE.exec(stripped)) !== null) {
@@ -279,7 +311,7 @@ export function findIdentifierOccurrences(
 
 /** Splits source, strips each line, and joins `_` line continuations. */
 export function toLogicalLines(source: string): { stripped: string[]; logical: LogicalLine[] } {
-    const stripped = source.split(/\r\n|\r|\n/).map(stripVba);
+    const stripped = stripVbaLines(source.split(/\r\n|\r|\n/));
     return { stripped, logical: logicalLinesFromStripped(stripped) };
 }
 

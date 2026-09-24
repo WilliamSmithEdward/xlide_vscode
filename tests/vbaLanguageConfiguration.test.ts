@@ -166,6 +166,21 @@ describe('VBA language configuration', () => {
 		}
 	});
 
+	it('indents after a continuation underscore, whitespace after it included (issue #83)', () => {
+		const config = loadConfig();
+		expect(enterRuleMatches(config, '    total = a + _')).toBe(true);
+		expect(enterRuleMatches(config, '    total = a + _  ')).toBe(true);
+		expect(enterRuleMatches(config, '    total = a_')).toBe(false);
+	});
+
+	it('outdents the one-word EndIf like End If (issue #88)', () => {
+		const decrease = new RegExp(loadConfig().indentationRules?.decreaseIndentPattern ?? '');
+		for (const line of ['    EndIf', '    endif', '    End If']) {
+			expect(decrease.test(line), line).toBe(true);
+		}
+		expect(decrease.test('    EndIfDone = 1')).toBe(false);
+	});
+
 	it('contributes the shared Smart Enter/snippet block layout setting', () => {
 		const setting = loadPackage()
 			.contributes

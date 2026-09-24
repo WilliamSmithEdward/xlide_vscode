@@ -73,6 +73,7 @@ xlide_vscode/
     analyzer/
       lexer/
         keywordTable.ts MS-VBAL 3.3.5.2 reserved-identifier + contextual keyword tables with canonical casing
+        contextualKeywords.ts Turns a contextual keyword outside its statement (a variable called text or output) back into an identifier token
         tokenKinds.ts   TokenKind/Trivia/VbaToken types and WSC helpers (MS-VBAL 3.3)
         trivia.ts       Leading whitespace / line-continuation scanner (MS-VBAL 3.2.2)
         tokenize.ts     Loss-aware, round-trippable VBA tokenizer (MS-VBAL 3.3.1-3.3.5, 3.4)

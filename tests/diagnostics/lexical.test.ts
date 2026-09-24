@@ -83,6 +83,21 @@ describe('analyzeModule - invalid line continuation', () => {
 		expect(byCode(analyzeModule(src), 'invalid-line-continuation')).toHaveLength(0);
 	});
 
+	it('reads an underscore with whitespace after it as a continuation, as the VBE does (issue #83)', () => {
+		const src =
+			'Option Explicit\n' +
+			'Sub T()\n' +
+			'    Dim a As Boolean, _ \n' +
+			'        b As Boolean\n' +
+			'    If a And _  \n' +
+			'       b Then\n' +
+			'        Debug.Print "both"\n' +
+			'    End If\n' +
+			'End Sub\n';
+
+		expect(analyzeModule(src).map((d) => d.code)).toEqual([]);
+	});
+
 	it('ignores underscores in identifiers, strings, and comments', () => {
 		const src =
 			'Sub T()\n' +

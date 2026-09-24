@@ -2,6 +2,57 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.7.1] - 2026-09-23
+
+- **What a one-line If runs after a colon belongs to the If.** In
+  `If conn Is Nothing Then ACCT = CVErr(xlErrNA): Exit Function`, the
+  `Exit Function` runs only when `conn` is Nothing. XLIDE split the line at
+  the colon, reported the next line as unreachable and offered to delete it.
+  Every statement to the end of the line is now part of the If's Then or
+  Else. A `Set x = Nothing` or an `Erase` there no longer makes the next line
+  report an unset object or an unallocated array, and a `Set` inside a
+  one-line If no longer leaves the object reported as Nothing after it.
+
+- **A comment ending in ` _` runs on to the next line** (#82). The VBE takes
+  that line as comment text, so an `End Sub` or `Debug.Print` on it no longer
+  reports as code, Format Document leaves it exactly as written, and it is
+  colored as a comment. The same holds for `Rem` and for a comment on an
+  `#If` line.
+
+- **A line continuation with spaces after the `_` is a continuation** (#83).
+  The VBE reads it as one and drops the spaces, and so does Format Document.
+  The next line no longer reports a missing `Then` or a call to a variable.
+
+- **`If x Then:` is a one-line If** (#84). Format Document no longer indents
+  the lines after it as its body.
+
+- **`Needs, 2` is a call** (#85). A comma right after the name opens the
+  argument list with or without a space, so a missing required argument is
+  reported there too.
+
+- **Variables named `text`, `binary` or `output` keep their spelling** (#86).
+  `Text`, `Binary`, `Output`, `Step`, `Error`, `Lib` and the other words that
+  are keywords only inside their own statement are now keywords only there.
+  `Option Compare Text` is still capitalized, and a variable called `text` is
+  not. A member written `.text` is left as written, as `.value` is.
+
+- **`1.`, `&17`, `=>`, `=<` and `><` are read as the VBE reads them** (#87):
+  as `1#`, `&O17`, `>=`, `<=` and `<>`, and `a < > b` with a space inside as
+  `<>`. Checked against Excel, the VBE also reads `&1` after a value as an
+  octal number, so `s = "a" &1` does not compile and is now reported, while
+  `s = "a" &9` is still a concatenation.
+
+- **A block If closed with the one-word `EndIf` is closed** (#88). The lines
+  after it no longer report as unreachable, and Format Document, Smart Enter
+  and the editor's outdent all take `EndIf` as `End If`.
+
+- **`Err.LastDllError` is spelled the way the VBE writes it** (#89).
+
+- **`Shape.Duplicate` returns a Shape and `SparklineGroup.SeriesColor` a
+  FormatColor** (#90), as Excel's type library declares them. A `Charts` or
+  `Worksheets` collection can be assigned to a `Sheets` variable, which is
+  what those properties return.
+
 ## [10.7.0] - 2026-09-23
 
 - **Shapes are in the tree.** A worksheet's shapes sit in a Shapes folder

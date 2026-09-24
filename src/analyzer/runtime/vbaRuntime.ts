@@ -726,7 +726,7 @@ export const VBA_RUNTIME_OBJECTS: VbaRuntimeObject[] = [
 			prop('Description', 'String'),
 			prop('HelpContext', 'Long'),
 			prop('HelpFile', 'String'),
-			prop('LastDLLError', 'Long', { writable: false }),
+			prop('LastDllError', 'Long', { writable: false }),
 			prop('Number', 'Long'),
 			method('Raise', 'Raise(Number As Long, [Source], [Description], [HelpFile], [HelpContext])'),
 			prop('Source', 'String'),

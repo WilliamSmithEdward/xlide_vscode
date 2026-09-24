@@ -147,6 +147,20 @@ describe('parseExpression - operator precedence (MS-VBAL 5.6.6)', () => {
 	it('is left-associative for same-precedence operators', () => {
 		expect(shape(parseOk('1 - 2 - 3'))).toBe('[- [- 1 2] 3]');
 	});
+
+	it('reads each relational operator in either order and split by a space (MS-VBAL 5.6.9.5, issue #87)', () => {
+		const cases: Array<[string, string]> = [
+			['a => b', '[>= a b]'],
+			['a =< b', '[<= a b]'],
+			['a >< b', '[<> a b]'],
+			['a = > b', '[>= a b]'],
+			['a < > b', '[<> a b]'],
+			['a < = b And c > = d', '[And [<= a b] [>= c d]]'],
+		];
+		for (const [src, tree] of cases) {
+			expect(shape(parseOk(src)), src).toBe(tree);
+		}
+	});
 });
 
 describe('parseExpression - unary and exponent (MS-VBAL 5.6.6)', () => {

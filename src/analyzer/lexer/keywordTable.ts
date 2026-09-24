@@ -103,7 +103,8 @@ export const RESERVED_FOR_IMPLEMENTATION_USE: readonly string[] = [
 //    3.3.5.2, but capitalized by the VBE in their statement context. Casing
 //    follows VBE convention (source-of-truth hierarchy level 2), not the
 //    closed reserved-identifier grammar. Grouped by the statement they appear
-//    in for traceability.
+//    in for traceability. Outside that statement most of them are names, and
+//    contextualKeywords.ts turns those tokens back into identifiers.
 // ---------------------------------------------------------------------------
 export const CONTEXTUAL_KEYWORDS: readonly string[] = [
 	// Option statements: Option Explicit / Base / Compare Binary / Compare Text.

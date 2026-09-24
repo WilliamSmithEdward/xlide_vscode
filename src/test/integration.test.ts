@@ -20,3 +20,4 @@ import './deleteModule.test';
 import './docComments.test';
 import './projectReferences.test';
 import './shapes.test';
+import './grammar.test';

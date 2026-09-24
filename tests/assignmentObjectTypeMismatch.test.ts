@@ -89,3 +89,27 @@ describe('collection-of-collections accessors are not over-resolved', () => {
 		expect(codes(src)).not.toContain('member-not-found');
 	});
 });
+
+describe('members typed as the type library types them (issue #90)', () => {
+	// Excel's type library declares Shape.Duplicate As Shape and
+	// SparklineGroup.SeriesColor As FormatColor. The Charts and Worksheets
+	// properties of Application and Workbook are Sheets there; the model keeps
+	// its own Charts and Worksheets for completion, and their values are Sheets.
+	const CASES: ReadonlyArray<readonly [string, string]> = [
+		['Dim someShape As Shape\n    Dim copied As Shape', 'Set copied = someShape.Duplicate'],
+		['Dim sparkGroup As SparklineGroup\n    Dim tint As FormatColor', 'Set tint = sparkGroup.SeriesColor'],
+		['Dim tabs As Sheets', 'Set tabs = Application.Charts'],
+		['Dim tabs As Sheets', 'Set tabs = Application.Worksheets'],
+		['Dim book As Workbook\n    Dim tabs As Sheets', 'Set tabs = book.Charts'],
+		['Dim book As Workbook\n    Dim tabs As Sheets', 'Set tabs = book.Worksheets'],
+	];
+	it.each(CASES)('does not flag mismatch: %s ... %s', (decls, stmt) => {
+		const src = `Sub S()\n    ${decls}\n    ${stmt}\nEnd Sub\n`;
+		expect(codes(src)).not.toContain(MISMATCH);
+	});
+
+	it('keeps ShapeRange.Duplicate a ShapeRange', () => {
+		const src = 'Sub S()\n    Dim picked As ShapeRange\n    Dim copied As Shape\n    Set copied = picked.Duplicate\nEnd Sub\n';
+		expect(codes(src)).toContain(MISMATCH);
+	});
+});

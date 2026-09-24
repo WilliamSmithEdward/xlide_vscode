@@ -13,6 +13,7 @@
 // statement separators"), so working at this granularity makes the parser
 // inherently error-tolerant.
 
+import { tokenWord } from '../lexer/tokenHelpers';
 import { VbaToken } from '../lexer/tokenKinds';
 
 /** A logical statement: the significant tokens between two separators. */
@@ -25,6 +26,13 @@ export interface LogicalStatement {
 	end: number;
 	/** Zero-based line of the first token. */
 	line: number;
+	/** True when a ':' separator, not the end of the line, closed the statement. */
+	endedByColon?: boolean;
+	/**
+	 * True when a single-line If earlier on the same line runs this statement
+	 * after a colon, as `b` in `If x Then a: b` (MS-VBAL 5.4.2.9).
+	 */
+	singleLineIfTail?: boolean;
 }
 
 /**
@@ -35,31 +43,53 @@ export interface LogicalStatement {
 export function splitLogicalStatements(tokens: readonly VbaToken[]): LogicalStatement[] {
 	const statements: LogicalStatement[] = [];
 	let current: VbaToken[] = [];
+	// A single-line If earlier on this line runs every statement after it to
+	// the end of the line: `b` and `c` in `If x Then a: b: c`, and `c` in
+	// `If x Then a Else b: c`, all sit in its Then or Else list (MS-VBAL
+	// 5.4.2.9). `If x Then:` opens such a list too.
+	let inSingleLineIf = false;
 
-	const flush = () => {
+	const flush = (endedByColon: boolean) => {
 		if (current.length === 0) {
 			return;
 		}
 		const first = current[0];
 		const last = current[current.length - 1];
-		statements.push({
+		const statement: LogicalStatement = {
 			tokens: current,
 			start: first.start,
 			end: last.end,
 			line: first.line,
-		});
+			...(endedByColon ? { endedByColon } : {}),
+			...(inSingleLineIf ? { singleLineIfTail: true } : {}),
+		};
+		statements.push(statement);
+		inSingleLineIf = inSingleLineIf || (endedByColon && isSingleLineIf(statement));
 		current = [];
 	};
 
 	for (const token of tokens) {
 		if (token.kind === 'newline' || token.kind === 'colon') {
-			flush();
+			flush(token.kind === 'colon');
+			if (token.kind === 'newline') {
+				inSingleLineIf = false;
+			}
 			continue;
 		}
 		current.push(token);
 	}
-	flush();
+	flush(false);
 	return statements;
+}
+
+/** An If statement that is not a block If header, whose Then ends its line. */
+function isSingleLineIf(statement: LogicalStatement): boolean {
+	const tokens = codeTokens(statement);
+	const head = tokens[0]?.kind === 'integerLiteral' && /^\d+$/.test(tokens[0].rawText) ? 1 : 0;
+	if (tokenWord(tokens[head]) !== 'if') {
+		return false;
+	}
+	return tokenWord(tokens[tokens.length - 1]) !== 'then' || statement.endedByColon === true;
 }
 
 /**

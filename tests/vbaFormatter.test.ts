@@ -91,9 +91,21 @@ describe('formatVbaModule - indentation', () => {
 		));
 	});
 
+	it('does not open a block for If x Then: with nothing after the colon (issue #84)', () => {
+		// The line after it runs unconditionally, and an End If after it does
+		// not compile.
+		const src = lines('Sub T()', 'If x Then:', 'x = False', 'Debug.Print x', 'End Sub');
+		expect(format(src)).toBe(lines('Sub T()', '    If x Then:', '    x = False', '    Debug.Print x', 'End Sub'));
+	});
+
 	it('keeps a block If whose header ends in a comment', () => {
 		const src = lines('Sub T()', "If a Then ' why", 'b = 1', 'End If', 'End Sub');
 		expect(format(src)).toBe(lines('Sub T()', "    If a Then ' why", '        b = 1', '    End If', 'End Sub'));
+	});
+
+	it('closes a block If at the one-word EndIf, which the VBE reads as End If (issue #88)', () => {
+		const src = lines('Sub T()', 'If a Then', 'Exit Sub', 'EndIf', 'x = 2', 'End Sub');
+		expect(format(src)).toBe(lines('Sub T()', '    If a Then', '        Exit Sub', '    EndIf', '    x = 2', 'End Sub'));
 	});
 
 	it('closes one loop per name in Next i, j', () => {
@@ -300,6 +312,35 @@ describe('formatVbaModule - casing', () => {
 			.toBe(lines('Option Explicit', 'Sub t()', '    Dim x As Long', '    If x Then Exit Sub', 'End Sub'));
 	});
 
+	it('cases a contextual keyword only inside its statement (issue #86)', () => {
+		// The VBE writes `Option Compare Text` and keeps a variable called
+		// text, binary or output as it was declared.
+		const src = lines(
+			'option compare text',
+			'function describe(byval text as string, byval binary as long) as string',
+			'dim output as string',
+			'output = text & cstr(binary)',
+			'open output for output as #1',
+			'end function',
+		);
+		expect(format(src)).toBe(lines(
+			'Option Compare Text',
+			'Function describe(ByVal text As String, ByVal binary As Long) As String',
+			'    Dim output As String',
+			'    output = text & CStr(binary)',
+			'    Open output For Output As #1',
+			'End Function',
+		));
+	});
+
+	it('leaves the lines a comment runs on to through _ exactly as written (issue #82)', () => {
+		// The VBE reads `End Sub` and `this is not code` as comment text.
+		const hidden = lines('Sub Test()', "' disabled: _", '  End Sub', 'Debug.Print 1', 'End Sub');
+		expect(format(hidden)).toBe(lines('Sub Test()', "    ' disabled: _", '  End Sub', '    Debug.Print 1', 'End Sub'));
+		const trailing = lines('Sub T()', "n = 1 ' note _", '    this is not code', 'n = 2', 'End Sub');
+		expect(format(trailing)).toBe(lines('Sub T()', "    n = 1 ' note _", '    this is not code', '    n = 2', 'End Sub'));
+	});
+
 	it('leaves strings and comments alone', () => {
 		const src = lines('Sub T()', 'x = "end sub if then"', "' if then else", 'Rem dim x', 'End Sub');
 		expect(format(src)).toBe(lines('Sub T()', '    x = "end sub if then"', "    ' if then else", '    Rem dim x', 'End Sub'));
@@ -328,6 +369,12 @@ describe('formatVbaModule - spacing', () => {
 		expect(body('x=1')).toBe('x = 1');
 		expect(body('If a=b Then c=d')).toBe('If a = b Then c = d');
 		expect(body('If a<>b And c<=d And e>=f And g<h Then')).toBe('If a <> b And c <= d And e >= f And g < h Then');
+	});
+
+	it('keeps a relational operator written the other way round whole, and spaces it (issue #87)', () => {
+		expect(body('If a=>b And c=<d And e><f Then')).toBe('If a => b And c =< d And e >< f Then');
+		expect(body('x = 1.')).toBe('x = 1.');
+		expect(body('x=&17')).toBe('x = &17');
 	});
 
 	it('spaces after commas, semicolons and statement separators', () => {
@@ -383,11 +430,18 @@ describe('formatVbaModule - spacing', () => {
 		expect(format(src)).toBe(lines('Sub T()', '    x = 1', '    y = a + _', '        b', 'End Sub'));
 	});
 
-	it('leaves the whitespace after a stray underscore, which is not a continuation', () => {
-		// `_` followed by spaces does not continue the line (MS-VBAL 3.2.2);
-		// dropping the spaces would turn it into one and join the next line.
+	it('continues a line whose underscore has spaces after it, and drops the spaces (issue #83)', () => {
+		// The VBE reads `_   ` as a line continuation and drops the spaces
+		// when it stores the line.
 		const src = lines('Sub T()', 'y = a + _   ', 'b', 'End Sub');
-		expect(format(src)).toBe(lines('Sub T()', '    y = a + _   ', '    b', 'End Sub'));
+		expect(format(src)).toBe(lines('Sub T()', '    y = a + _', '        b', 'End Sub'));
+	});
+
+	it('keeps an underscore with no space before it off the next line', () => {
+		// `&_` is no continuation (MS-VBAL 3.2.2 wants whitespace before the
+		// underscore), so the next line stays a statement of its own.
+		const src = lines('Sub T()', 'y = a &_  ', 'b', 'End Sub');
+		expect(format(src)).toBe(lines('Sub T()', '    y = a &_', '    b', 'End Sub'));
 	});
 
 	it('spaces a #Const value', () => {

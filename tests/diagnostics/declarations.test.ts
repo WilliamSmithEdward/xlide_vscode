@@ -437,6 +437,18 @@ describe('analyzeModule - module-level statements outside procedures', () => {
 		expect(byCode(diagnostics, 'module-declaration-in-procedure')).toHaveLength(0);
 		expect(byCode(diagnostics, 'module-declaration-after-procedure')).toHaveLength(0);
 	});
+
+	it('reads the line after a comment ending in _ as comment text, as the VBE does (issue #82)', () => {
+		const cases = [
+			"Option Explicit\nSub Test()\n    ' disabled: _\n    End Sub\n    Debug.Print 1\nEnd Sub\n",
+			'Option Explicit\nSub Test()\n    Rem disabled: _\n    End Sub\n    Debug.Print 1\nEnd Sub\n',
+			"Option Explicit\nSub Test()\n    Debug.Print 0 ' disabled: _\n    End Sub\n    Debug.Print 1\nEnd Sub\n",
+			"Option Explicit\nSub Test()\n#If True Then ' note _\n    End Sub\n#End If\n    Debug.Print 1\nEnd Sub\n",
+		];
+		for (const src of cases) {
+			expect(analyzeModule(src).map((d) => d.code), src).toEqual([]);
+		}
+	});
 });
 
 describe('analyzeModule - reserved declaration names', () => {

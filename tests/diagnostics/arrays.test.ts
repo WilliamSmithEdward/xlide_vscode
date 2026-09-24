@@ -590,6 +590,29 @@ describe('analyzeModule - unallocated dynamic array access', () => {
 		expect(hits).toHaveLength(3);
 	});
 
+	it('reads an Erase or ReDim a single-line If runs after a colon as conditional (MS-VBAL 5.4.2.9)', () => {
+		// Like a block If without Else: after the line the array may or may
+		// not be allocated.
+		const erased =
+			'Public Sub T(ByVal ready As Boolean)\n' +
+			'    Dim values() As Long\n' +
+			'    Dim n As Long\n' +
+			'    ReDim values(0 To 1)\n' +
+			'    If ready Then n = 1: Erase values\n' +
+			'    Debug.Print values(0)\n' +
+			'End Sub\n';
+		const redimmed =
+			'Public Sub T(ByVal ready As Boolean)\n' +
+			'    Dim values() As Long\n' +
+			'    Dim n As Long\n' +
+			'    If ready Then n = 1: ReDim values(0 To 1)\n' +
+			'    Debug.Print values(0)\n' +
+			'End Sub\n';
+		for (const src of [erased, redimmed]) {
+			expect(byCode(analyzeModule(src), 'unallocated-dynamic-array-access'), src).toHaveLength(0);
+		}
+	});
+
 	it('stays quiet after nested block allocation makes straight-line state unknown', () => {
 		const src =
 			'Public Sub T(ByVal ready As Boolean)\n' +

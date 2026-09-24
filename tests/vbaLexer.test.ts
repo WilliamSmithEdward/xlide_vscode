@@ -79,6 +79,25 @@ describe('tokenize - keywords and identifiers', () => {
 		expect(names.every((token) => token.canonicalText === undefined)).toBe(true);
 	});
 
+	it('keeps a contextual keyword a keyword only inside its statement (issue #86)', () => {
+		const words = (src: string) => tokenize(src)
+			.filter((t) => t.kind === 'keyword' || t.kind === 'identifier')
+			.map((t) => `${t.rawText}:${t.kind === 'keyword' ? 'k' : 'i'}`);
+		expect(words('Option Compare Text')).toEqual(['Option:k', 'Compare:k', 'Text:k']);
+		expect(words('Option Explicit: Option Base 1')).toEqual(['Option:k', 'Explicit:k', 'Option:k', 'Base:k']);
+		expect(words('Declare PtrSafe Function F Lib "k" Alias "G" (ByVal text As Long)'))
+			.toEqual(['Declare:k', 'PtrSafe:k', 'Function:k', 'F:i', 'Lib:k', 'Alias:k', 'ByVal:k', 'text:i', 'As:k', 'Long:k']);
+		expect(words('For i = step To 10 Step step')).toEqual(['For:k', 'i:i', 'step:i', 'To:k', 'Step:k', 'step:i']);
+		expect(words('On Error Resume Next: Error 5: x = Error(5)'))
+			.toEqual(['On:k', 'Error:k', 'Resume:k', 'Next:k', 'Error:k', 'x:i', 'Error:i']);
+		expect(words('Open output For Output Access Read As #1'))
+			.toEqual(['Open:k', 'output:i', 'For:k', 'Output:k', 'Access:i', 'Read:k', 'As:k']);
+		expect(words('x = r.Text & text & binary & read & append & random & base & compare & explicit & lib & alias'))
+			.toEqual(['x:i', 'r:i', 'Text:i', 'text:i', 'binary:i', 'read:i', 'append:i', 'random:i', 'base:i', 'compare:i', 'explicit:i', 'lib:i', 'alias:i']);
+		const text = tokenize('Dim text As String')[1];
+		expect([text.kind, text.canonicalText]).toEqual(['identifier', undefined]);
+	});
+
 	it('does not keyword-case reserved-for-implementation-use attribute names', () => {
 		const t = tokenize('Attribute VB_Name = "Module1"');
 
@@ -118,6 +137,32 @@ describe('tokenize - comments', () => {
 		const t = tokenize('Remark = 1');
 		expect(t[0].kind).toBe('identifier');
 		expect(t[0].rawText).toBe('Remark');
+	});
+
+	it('runs a comment ending in _ on through the next line (MS-VBAL 3.3.1, issue #82)', () => {
+		// The VBE returns 1 from a function whose `n = 2` follows `' comment _`.
+		const src = "n = 1\r\n' comment _\r\nn = 2\r\nR = n";
+		const t = tokenize(src);
+		const comment = t.find((x) => x.kind === 'comment');
+		expect(comment?.rawText).toBe("' comment _\r\nn = 2");
+		expect(raws(t.filter((x) => x.kind !== 'newline'))).toEqual(['n', '=', '1', "' comment _\r\nn = 2", 'R', '=', 'n']);
+		const after = t.find((x) => x.rawText === 'R');
+		expect([after?.line, after?.character]).toEqual([3, 0]);
+		expect(roundTrip(t)).toBe(src);
+	});
+
+	it('continues a trailing comment, a Rem comment, and one with spaces after the _', () => {
+		expect(tokenize("n = 1 ' note _\n    this is not code\nn = 2")[3].rawText).toBe("' note _\n    this is not code");
+		expect(tokenize('Rem note _\nEnd Sub\nx = 1')[0].rawText).toBe('Rem note _\nEnd Sub');
+		expect(tokenize("' a _  \nb _\nc\nd")[0].rawText).toBe("' a _  \nb _\nc");
+		const next = tokenize("x = 1 ' a _\n  b\n  y = 2").find((token) => token.rawText === 'y');
+		expect([next?.line, next?.character]).toEqual([2, 2]);
+	});
+
+	it('ends a comment at the line when its _ is not a continuation', () => {
+		expect(tokenize("' a_\nb")[0].rawText).toBe("' a_");
+		expect(tokenize("'_\nb")[0].rawText).toBe("'_");
+		expect(tokenize("' a _b\nc")[0].rawText).toBe("' a _b");
 	});
 });
 
@@ -171,6 +216,27 @@ describe('tokenize - numbers (MS-VBAL 3.3.2)', () => {
 	it('does not eat a member-access dot as a decimal point', () => {
 		const t = tokenize('a.b');
 		expect(kinds(t)).toEqual(['identifier', 'punctuation', 'identifier']);
+	});
+
+	it('lexes a float with its fractional digits left out (MS-VBAL 3.3.2, issue #87)', () => {
+		// The VBE stores `1.` as `1#`, `1.#` as `1#` and `1.e5` as `100000#`.
+		for (const src of ['1.', '1.#', '1.e5']) {
+			expect(tokenize(src).map((t) => [t.kind, t.rawText]), src).toEqual([['floatLiteral', src]]);
+		}
+		expect(raws(tokenize('x = Array(1., 2)'))).toEqual(['x', '=', 'Array', '(', '1.', ',', '2', ')']);
+		// A letter that starts no exponent leaves the dot a member access.
+		expect(kinds(tokenize('1.Value'))).toEqual(['integerLiteral', 'punctuation', 'identifier']);
+	});
+
+	it('lexes an octal literal with its O left out, wherever it stands (issue #87)', () => {
+		// The VBE stores `x = &17` as `x = &O17`, and refuses `x = "a" &1`:
+		// the & and the digits are one literal there too.
+		expect(tokenize('&17').map((t) => [t.kind, t.rawText])).toEqual([['integerLiteral', '&17']]);
+		expect(raws(tokenize('x = &17&'))).toEqual(['x', '=', '&17&']);
+		expect(raws(tokenize('x = "a" &1'))).toEqual(['x', '=', '"a"', '&1']);
+		expect(raws(tokenize('x = &18'))).toEqual(['x', '=', '&1', '8']);
+		// 8 and 9 are no octal digits, so `"a" &9` is a concatenation.
+		expect(kinds(tokenize('"a" &9'))).toEqual(['stringLiteral', 'operator', 'integerLiteral']);
 	});
 });
 
@@ -232,6 +298,16 @@ describe('tokenize - operators and separators (MS-VBAL 3.3.1)', () => {
 		expect(tokenize('Foo x:=1')[2].rawText).toBe(':=');
 	});
 
+	it('lexes a relational operator written the other way round as one, with its standard spelling (issue #87)', () => {
+		// MS-VBAL 5.6.9.5 takes either order, and the VBE stores `=>` as `>=`.
+		const cases: Array<[string, string]> = [['=>', '>='], ['=<', '<='], ['><', '<>']];
+		for (const [written, standard] of cases) {
+			const operator = tokenize(`a ${written} b`)[1];
+			expect([operator.kind, operator.rawText, operator.canonicalText]).toEqual(['operator', written, standard]);
+		}
+		expect(tokenize('a >= b')[1].canonicalText).toBeUndefined();
+	});
+
 	it('treats a bare colon as a statement separator and resets statement start', () => {
 		const t = tokenize('x = 1 : Rem hi');
 		const colon = t.find((x) => x.kind === 'colon');
@@ -263,6 +339,25 @@ describe('tokenize - line continuation (MS-VBAL 3.2.2)', () => {
 		const t = tokenize('Dim x _\r\n    As Long');
 		// no newline token appears because the only line break is a continuation
 		expect(t.some((x) => x.kind === 'newline')).toBe(false);
+	});
+
+	it('continues a line whose underscore has whitespace after it (issue #83)', () => {
+		// The VBE returns 3 from `R = 1 + _   ` / `2`, and drops the spaces.
+		const src = 'R = 1 + _ \t \r\n    2';
+		const t = tokenize(src);
+		expect(kinds(t)).toEqual(['identifier', 'operator', 'integerLiteral', 'operator', 'integerLiteral']);
+		expect(t[4].leadingTrivia).toEqual([
+			{ kind: 'lineContinuation', text: ' _ \t \r\n', start: 7, end: 14 },
+			{ kind: 'whitespace', text: '    ', start: 14, end: 18 },
+		]);
+		expect(t[4].line).toBe(1);
+		expect(t[4].character).toBe(4);
+		expect(roundTrip(t)).toBe(src);
+	});
+
+	it('leaves an underscore followed by more text, or by the end of the file, a token', () => {
+		expect(raws(tokenize('a _ b'))).toEqual(['a', '_', 'b']);
+		expect(raws(tokenize('a _  '))).toEqual(['a', '_']);
 	});
 });
 

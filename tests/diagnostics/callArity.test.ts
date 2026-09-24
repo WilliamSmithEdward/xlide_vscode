@@ -374,6 +374,27 @@ describe('analyzeModule - argument count', () => {
 		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
 	});
 
+	it('reads a call statement whose comma touches the callee as a call (issue #85)', () => {
+		// The VBE reads `Needs, 2` as `Needs , 2` and refuses both with
+		// "Argument not optional".
+		const src =
+			'Sub Main()\n' +
+			'    Needs , 2\n' +
+			'    Needs, 2\n' +
+			'End Sub\n' +
+			'Sub Needs(ByVal x As Long, ByVal y As Long)\nEnd Sub\n';
+		expectDiagnostics(src, analyzeModule(src), 'argument-count', [
+			{ span: ',', message: "'x' is required" },
+			{ span: ',', message: "'x' is required" },
+		]);
+		const optional =
+			'Sub Main()\n' +
+			'    Two, 2\n' +
+			'End Sub\n' +
+			'Sub Two(Optional ByVal x As Long, Optional ByVal y As Long)\nEnd Sub\n';
+		expect(byCode(analyzeModule(optional), 'argument-count')).toHaveLength(0);
+	});
+
 	it('accepts a valid named argument', () => {
 		const src =
 			'Sub Main()\n' +

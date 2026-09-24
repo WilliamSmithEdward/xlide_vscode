@@ -594,6 +594,15 @@ describe('member completion - runtime objects', () => {
 		expect(raise?.surfaceExhaustive).toBe(true);
 	});
 
+	it('spells LastDllError the way the VBE writes it (issue #89)', () => {
+		// The VBE rewrites `err.lastdllerror` as `Err.LastDllError`, so a
+		// completion spelled LastDLLError was rewritten as soon as the VBE saw it.
+		const src = 'Sub Test()\n    Err.\nEnd Sub\n';
+		const got = resolveMemberCompletions(src, dotOffset(src, 'Err.')).map((member) => member.name);
+		expect(got).toContain('LastDllError');
+		expect(got).not.toContain('LastDLLError');
+	});
+
 	it('does not treat scalar Err object properties as chainable objects', () => {
 		const src = 'Sub Test()\n    Err.Number.\nEnd Sub\n';
 		expect(resolveMemberCompletions(src, dotOffset(src, 'Err.Number.'))).toEqual([]);

@@ -405,4 +405,35 @@ describe('analyzeModule - unreachable-code', () => {
 		const src = wrap('If x Then', '    Exit Sub', 'End If', 'Debug.Print 1', 'Exit Sub');
 		expect(hits(src, 'unreachable-code')).toHaveLength(0);
 	});
+
+	it('reads what a single-line If runs after a colon as conditional (MS-VBAL 5.4.2.9)', () => {
+		// Every statement to the end of the line is in the If's Then or Else
+		// list, so the Exit runs only with that branch.
+		const cases = [
+			wrap('If x Then y = 1: Exit Sub', 'Debug.Print 1'),
+			wrap('If x Then: Exit Sub', 'Debug.Print 1'),
+			wrap('If x Then y = 1 Else y = 2: Exit Sub', 'Debug.Print 1'),
+			wrap('If x Then y = 1: Exit Sub Else y = 3', 'Debug.Print 1'),
+			wrap('If x Then y = 1: GoTo Done', 'Debug.Print 1', 'Done:'),
+			// As a user reported it.
+			'Public Function ACCT(ByVal conn As Object) As Variant\n' +
+			'    If conn Is Nothing Then ACCT = CVErr(xlErrNA): Exit Function\n' +
+			'    ACCT = conn.Execute("select 1").Fields(0).Value\n' +
+			'End Function\n',
+		];
+		for (const src of cases) {
+			expect(hits(src, 'unreachable-code'), src).toHaveLength(0);
+		}
+	});
+
+	it('still flags code after an Exit Sub on the line below If x Then:', () => {
+		// `If x Then:` is a whole single-line If, so the Exit Sub under it runs every time.
+		const src = wrap('If x Then:', 'Exit Sub', 'Debug.Print 1');
+		expectDiagnostic(src, analyzeModule(src), 'unreachable-code', { span: 'Debug.Print 1' });
+	});
+
+	it('closes the block If at a one-word EndIf, which the VBE reads as End If (issue #88)', () => {
+		const src = wrap('Dim x As Long', 'If x = 1 Then', '    Exit Sub', 'EndIf', 'x = 2');
+		expect(hits(src, 'unreachable-code')).toHaveLength(0);
+	});
 });

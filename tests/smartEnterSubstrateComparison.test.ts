@@ -43,7 +43,7 @@ import { describe, expect, it } from 'vitest';
 import { lexerStrippedLine, lexerStrippedLines } from '../src/analyzer/lexer/strippedLines';
 import { tokenize } from '../src/analyzer/lexer/tokenize';
 import { openSmartBlockClosersBefore } from '../src/vbaSmartEnter';
-import { stripVba } from '../src/vbaSourceScan';
+import { stripVba, stripVbaLines } from '../src/vbaSourceScan';
 import { allStructuralComparisonSamples } from './helpers/structuralCorpus';
 
 describe('smart-enter substrate regression gate (audit #74)', () => {
@@ -54,7 +54,7 @@ describe('smart-enter substrate regression gate (audit #74)', () => {
 
         for (const sample of samples) {
             const rawLines = sample.source.split(/\r\n|\r|\n/);
-            const legacyLines = rawLines.map(stripVba);
+            const legacyLines = stripVbaLines(rawLines);
             const lexerLines = lexerStrippedLines(sample.source);
             expect(lexerLines).toHaveLength(legacyLines.length);
 
@@ -107,6 +107,13 @@ describe('smart-enter substrate regression gate (audit #74)', () => {
         // closed the open If block.
         const src = 'Sub T()\n    If ready Then\n        Debug.Print 1: Rem hidden: End If\n        \n';
         expect(openSmartBlockClosersBefore(src, src.length)).toEqual(['End Sub', 'End If']);
+    });
+
+    it('comment-continuation: both substrates blank the lines a comment runs on to through _ (issue #82)', () => {
+        const lines = ['    x = 1 \' note _', '    End If', '    y = 2'];
+        const blanked = [`    x = 1${' '.repeat(9)}`, ' '.repeat(10), '    y = 2'];
+        expect(stripVbaLines(lines)).toEqual(blanked);
+        expect(lexerStrippedLines(lines.join('\n'))).toEqual(blanked);
     });
 
     it('file-number-date-literal: the lexer lexes a Write # file number as an operator, not a date-literal opener', () => {

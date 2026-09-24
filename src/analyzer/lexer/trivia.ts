@@ -22,7 +22,9 @@ export interface TriviaScan {
  * line-continuation = 1*WSC underscore line-terminator (MS-VBAL 3.2.2): a run of
  * whitespace, an underscore, and the line terminator are merged into a single
  * lineContinuation trivia so that the logical line is preserved while the raw
- * text round-trips.
+ * text round-trips. The VBE also continues a line whose underscore has
+ * whitespace after it, and drops that whitespace when it stores the line, so
+ * the trivia takes it in too (issue #83).
  */
 export function scanLeadingTrivia(
 	src: string,
@@ -44,9 +46,9 @@ export function scanLeadingTrivia(
 			character++;
 		}
 		// A line-continuation is whitespace + '_' + line terminator.
-		if (pos < len && src[pos] === '_' && pos + 1 < len && isLineTerminator(src[pos + 1])) {
-			pos++; // consume '_'
-			character++;
+		const terminator = continuationTerminator(src, pos);
+		if (terminator >= 0) {
+			pos = terminator; // consume '_' and any whitespace after it
 			// consume the line terminator (CRLF, CR, or LF)
 			if (src[pos] === '\r' && pos + 1 < len && src[pos + 1] === '\n') {
 				pos += 2;
@@ -63,4 +65,19 @@ export function scanLeadingTrivia(
 		}
 	}
 	return { trivia, pos, line, character };
+}
+
+/**
+ * Where the line terminator starts when `pos` holds the underscore of a line
+ * continuation, whitespace after the underscore allowed; otherwise -1.
+ */
+export function continuationTerminator(src: string, pos: number): number {
+	if (src[pos] !== '_') {
+		return -1;
+	}
+	let at = pos + 1;
+	while (at < src.length && isWsc(src[at])) {
+		at++;
+	}
+	return at < src.length && isLineTerminator(src[at]) ? at : -1;
 }

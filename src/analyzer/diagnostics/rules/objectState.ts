@@ -35,6 +35,7 @@ import {
 	isInactiveNode,
 	localsNamedWhole,
 	setAssignmentTarget,
+	statementAndBranchSpans,
 	statementTokens,
 	statementTokensAfterLeadingLabel,
 	tokenName,
@@ -163,9 +164,12 @@ export function checkObjectVariableNotSet(
 				const touched = new Set(
 					localsNamedWhole(source, stmt.span, locals, OBJECT_READ_ONLY_INTRINSICS).keys(),
 				);
-				const lower = setAssignmentTarget(source, stmt.span)?.name.toLowerCase();
-				if (lower && locals.has(lower)) {
-					touched.add(lower);
+				// A single-line If's branches Set too.
+				for (const span of statementAndBranchSpans(stmt)) {
+					const lower = setAssignmentTarget(source, span)?.name.toLowerCase();
+					if (lower && locals.has(lower)) {
+						touched.add(lower);
+					}
 				}
 				return touched;
 			},
@@ -220,6 +224,15 @@ function checkObjectVariableNotSetStatement(
 	}
 	for (const lower of passedWhole.keys()) {
 		if (state.get(lower) === 'unset') {
+			state.set(lower, 'unknown');
+		}
+	}
+	// A Set in a single-line If's branch runs on one path only, so it moves an
+	// unset object to 'unknown' the way a block If without Else does, not to
+	// 'set' - as unallocated-dynamic-array-access reads a conditional ReDim.
+	for (const branch of statementAndBranchSpans(stmt).slice(1)) {
+		const lower = setAssignmentTarget(source, branch)?.name.toLowerCase();
+		if (lower && locals.has(lower) && state.get(lower) === 'unset') {
 			state.set(lower, 'unknown');
 		}
 	}

@@ -41,11 +41,25 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
   than the exact legacy-codepage ranges. Focused lexer fixtures cover the
   current Unicode-letter approximation; the exact legacy-codepage ranges are
   **won't-implement** - see Won't Implement below.
-- **Apostrophe comments:** stop at the physical line terminator (VBE behavior);
-  the spec `comment-body` grammar permits embedded line-continuations, which the
-  VBE does not honor.
-- **Bare `&` octal:** only `&O`/`&o` (and `&H`/`&h`) begin a number; a bare `&`
-  followed by digits is lexed as the concatenation operator, matching VBE usage.
+- **Comments run through line-continuations:** an apostrophe or `Rem` comment
+  ending in ` _` takes the next physical line with it, as the spec
+  `comment-body` grammar says and the VBE does (measured in Excel 16.0, issue
+  #82). A comment token's text can therefore span physical lines.
+- **Line continuation with trailing whitespace:** the VBE also continues a line
+  whose `_` has spaces or tabs after it, and drops them when it stores the line
+  (issue #83). Section 3.2.2 has no whitespace after the underscore; the lexer
+  follows the VBE.
+- **Bare `&` octal:** the `O` of an octal literal is optional, so `&` followed
+  by an octal digit begins a number wherever it stands. The VBE agrees: it
+  stores `x = &17` as `x = &O17` and refuses `x = "a" &1`, while `x = "a" &9`
+  is a concatenation (issue #87).
+- **Floats without fractional digits:** `1.` is a float literal (the VBE stores
+  it as `1#`); a letter after the dot that starts no exponent leaves the dot a
+  member access (issue #87).
+- **Relational operators:** section 5.6.9.5 writes `<>`, `<=` and `>=` as two
+  special tokens in either order. The lexer joins `=>`, `=<` and `><` when they
+  touch, with the standard spelling as their canonical text, and the parser
+  also reads a pair split by whitespace (`a < > b`), as the VBE does.
 
 ## Phase 2 - Canonical Keyword Table
 
@@ -70,10 +84,13 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
   (`true` / `false` / `nothing` / `empty` / `null`); the table renders them
   capitalized (`True` / `False` / `Nothing` / `Empty` / `Null`) to match the VBE.
 - **Contextual keywords:** `Explicit`, `Base`, `Compare`, `Binary`, `Text`,
-  `Lib`, `Alias`, `Property`, `Step`, `Error`, `Output`, `Append`, `Random`,
-  `Read`, `Object` are NOT reserved identifiers per section 3.3.5.2 but are
-  capitalized by the VBE in their statement context. They are tracked separately
-  and excluded from `isReservedIdentifier`.
+  `Lib`, `Alias`, `PtrSafe`, `Property`, `Step`, `Error`, `Output`, `Append`,
+  `Random`, `Read`, `Object` are NOT reserved identifiers per section 3.3.5.2
+  but are capitalized by the VBE in their statement context. They are tracked
+  separately and excluded from `isReservedIdentifier`. All but `Property` and
+  `Object` are keyword tokens only inside the statement that makes them so
+  (src/analyzer/lexer/contextualKeywords.ts): elsewhere they are identifiers,
+  and a variable called `text` keeps its declared spelling (issue #86).
 - **reserved-for-implementation-use:** the attribute names (`Attribute`,
   `VB_Name`, ...) are reserved for declaration validation but intentionally
   excluded from keyword casing so exported Attribute-line metadata remains a raw
@@ -99,8 +116,8 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
 | Property Get / Let / Set | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.3.2 | Verified |
 | Parameter lists | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.3.1.x | Verified |
 | Function/Property return type | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.3.1 | Verified |
-| If ... End If block | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.4.2.1 | Verified |
-| Single-line If (not a block) | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.4.2.1 | Verified |
+| If ... End If block, closed by `End If` or `EndIf` | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.4.2.8 | Verified |
+| Single-line If (not a block), `If x Then:` included | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.4.2.9 | Verified |
 | Select Case ... End Select | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.4.2.4 | Verified |
 | For / For Each ... Next | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.4.2.5 | Verified |
 | Do ... Loop | src/analyzer/parser/parseModule.ts | tests/vbaParser.test.ts | 5.4.2 | Verified |

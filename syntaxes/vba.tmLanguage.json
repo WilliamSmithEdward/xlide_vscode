@@ -23,19 +23,27 @@
   "repository": {
     "line-continuation": {
       "name": "punctuation.separator.continuation.vba",
-      "match": "\\s+_$"
+      "match": "\\s+_[ \\t]*$"
     },
     "comments": {
       "patterns": [
         {
           "name": "comment.line.apostrophe.vba",
-          "match": "'.*$"
+          "begin": "'",
+          "end": "(?=\\n)",
+          "patterns": [{ "include": "#comment-continuation" }]
         },
         {
           "name": "comment.line.rem.vba",
-          "match": "(?i)^\\s*\\bRem\\b.*$"
+          "begin": "(?i)^\\s*\\bRem\\b",
+          "end": "(?=\\n)",
+          "patterns": [{ "include": "#comment-continuation" }]
         }
       ]
+    },
+    "comment-continuation": {
+      "comment": "A comment ending in ` _` runs on through the next line (MS-VBAL 3.3.1 comment-body)",
+      "match": "[ \\t]_[ \\t]*\\n"
     },
     "attributes": {
       "comment": "Module header Attribute lines (VB_Name, VB_Exposed, etc.)",
@@ -49,12 +57,17 @@
     "directives": {
       "patterns": [
         {
-          "comment": "Conditional compilation directives: #If #ElseIf #Else #End If #Const",
+          "comment": "Conditional compilation directives: #If #ElseIf #Else #End If #Const, with any comment after them",
           "name": "meta.preprocessor.vba",
-          "match": "(?i)^\\s*(#\\s*(?:If|ElseIf|Else|End\\s+If|EndIf|Const))\\b.*$",
-          "captures": {
+          "begin": "(?i)^\\s*(#\\s*(?:If|ElseIf|Else|End\\s+If|EndIf|Const))\\b",
+          "beginCaptures": {
             "1": { "name": "keyword.control.preprocessor.vba" }
-          }
+          },
+          "end": "(?=\\n)",
+          "patterns": [
+            { "include": "#strings" },
+            { "include": "#comments" }
+          ]
         },
         {
           "comment": "Option Explicit / Base / Compare / Private Module",

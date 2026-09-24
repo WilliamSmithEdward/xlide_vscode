@@ -204,6 +204,33 @@ describe('canonical casing edits', () => {
 			['msgbox', 'MsgBox'],
 		]);
 	});
+
+	it('keeps a name that is a contextual keyword elsewhere as written (issue #86)', () => {
+		const src =
+			'Sub T(ByVal text As String)\n' +
+			'    dim output as string\n' +
+			'    output = text\n' +
+			'End Sub\n';
+		expect(editsOnLine(src, 1).map((edit) => [src.slice(edit.start, edit.end), edit.text])).toEqual([
+			['dim', 'Dim'],
+			['as', 'As'],
+			['string', 'String'],
+		]);
+		expect(editsOnLine(src, 2)).toEqual([]);
+		expect(editsOnLine('option compare text\n', 0).map((edit) => edit.text)).toEqual(['Option', 'Compare', 'Text']);
+	});
+
+	it('leaves a line alone that a comment ending in _ runs on to (issue #82)', () => {
+		const src =
+			'Sub T()\n' +
+			"    n = 1 ' note _\n" +
+			'    this is not code\n' +
+			'    dim x\n' +
+			'End Sub\n';
+		expect(editsOnLine(src, 2)).toEqual([]);
+		expect(editAtMarker(src.replace('this is', 'this is|'))).toBeUndefined();
+		expect(editsOnLine(src, 3).map((edit) => edit.text)).toEqual(['Dim']);
+	});
 });
 
 describe('canonical casing boundary policy', () => {

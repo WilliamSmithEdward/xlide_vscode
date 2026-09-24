@@ -26,7 +26,7 @@
 //     back to raw for named/omitted arguments or bang access.
 
 import { VbaToken } from '../lexer/tokenKinds';
-import { isIdentLike, tokenName, tokenWord } from '../lexer/tokenHelpers';
+import { isIdentLike, relationalOperatorAt, tokenName, tokenWord } from '../lexer/tokenHelpers';
 import {
 	AddressOfExpr,
 	Argument,
@@ -261,15 +261,16 @@ class ExpressionParser {
 		}
 		for (;;) {
 			const opToken = this.peek();
-			const op = this.binaryOperator(opToken);
-			if (!op) {
+			const found = this.binaryOperator();
+			if (!found) {
 				break;
 			}
+			const op = found.operator;
 			const prec = BINARY_PRECEDENCE[op];
 			if (prec === undefined || prec < minPrec) {
 				break;
 			}
-			this.next(); // consume operator
+			this.index += found.length; // consume operator
 			// Left-associative: the right side binds operators strictly tighter.
 			const right = this.parseBinary(prec + 1);
 			if (!right) {
@@ -288,19 +289,27 @@ class ExpressionParser {
 		return left;
 	}
 
-	/** Canonical binary operator for a token, or null when it is not one. */
-	private binaryOperator(token: VbaToken | undefined): BinaryOperator | null {
+	/**
+	 * The canonical binary operator at the cursor and the tokens it takes: a
+	 * relational operator can be two (`a < > b`), or null when none starts here.
+	 */
+	private binaryOperator(): { operator: BinaryOperator; length: number } | null {
+		const token = this.peek();
 		if (!token) {
 			return null;
 		}
 		if (token.kind === 'keyword') {
-			const word = tokenWord(token);
-			return WORD_BINARY_OPS[word] ?? null;
+			const operator = WORD_BINARY_OPS[tokenWord(token)];
+			return operator ? { operator, length: 1 } : null;
 		}
 		if (token.kind === 'operator') {
+			const relational = relationalOperatorAt(this.tokens, this.index, this.to);
+			if (relational) {
+				return relational;
+			}
 			const raw = token.rawText;
 			if (raw in BINARY_PRECEDENCE) {
-				return raw as BinaryOperator;
+				return { operator: raw as BinaryOperator, length: 1 };
 			}
 		}
 		return null;

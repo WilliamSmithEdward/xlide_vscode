@@ -81,8 +81,18 @@ function walkBody(
 	hooks: StraightLineDataflowHooks,
 	mergeIfBlocks: boolean,
 ): void {
-	for (const node of body) {
+	for (let i = 0; i < body.length; i++) {
+		const node = body[i];
 		if (isInactive(node)) {
+			continue;
+		}
+		if (isSingleLineIfTail(node)) {
+			const tail: LeafStatementNode[] = [];
+			for (; i < body.length && isSingleLineIfTail(body[i]); i++) {
+				tail.push(body[i] as LeafStatementNode);
+			}
+			i--;
+			walkSingleLineIfTail(tail, hooks);
 			continue;
 		}
 		if (isLeafStatement(node)) {
@@ -105,6 +115,34 @@ function walkBody(
 			for (const lower of collectNestedTouches(node.body, isInactive, hooks)) {
 				hooks.demoteToUnknown(lower);
 			}
+		}
+	}
+}
+
+function isSingleLineIfTail(node: BodyNode): node is LeafStatementNode {
+	return isLeafStatement(node) && node.singleLineIfTail === true;
+}
+
+/**
+ * The statements a single-line If runs after a colon, `b` in `If x Then a: b`,
+ * run only with its branch (MS-VBAL 5.4.2.9). They are checked on that path,
+ * and afterwards the state is what a block If without Else leaves: as it was
+ * before them, with every name they touch made unknown.
+ */
+function walkSingleLineIfTail(
+	tail: readonly LeafStatementNode[],
+	hooks: StraightLineDataflowHooks,
+): void {
+	const entry = hooks.snapshotState?.();
+	if (entry && hooks.restoreState) {
+		for (const stmt of tail) {
+			hooks.onStatement(stmt);
+		}
+		hooks.restoreState(entry);
+	}
+	for (const stmt of tail) {
+		for (const lower of hooks.touchesInStatement(stmt)) {
+			hooks.demoteToUnknown(lower);
 		}
 	}
 }

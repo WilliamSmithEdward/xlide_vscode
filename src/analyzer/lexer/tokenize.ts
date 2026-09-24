@@ -11,11 +11,13 @@
 //
 // The lexer is loss-aware and round-trippable: re-joining every token's leading
 // trivia + rawText (+ any trailing trivia on the final token) reproduces the
-// source exactly. Reserved/contextual keywords carry canonical capitalization.
+// source exactly. Reserved keywords carry canonical capitalization, and so do
+// contextual keywords inside the statement that makes them keywords.
 
+import { settleContextualKeywords } from './contextualKeywords';
 import { canonicalKeyword } from './keywordTable';
 import { isLineTerminator, isWsc, TokenKind, Trivia, VbaToken } from './tokenKinds';
-import { scanLeadingTrivia } from './trivia';
+import { continuationTerminator, scanLeadingTrivia } from './trivia';
 
 const SPECIAL_DECISION = {
 	/** Type-suffix chars that make an integer literal (MS-VBAL 3.3.2). */
@@ -144,13 +146,8 @@ export function tokenize(src: string): VbaToken[] {
 			isNewline = true;
 			atStatementStart = true;
 		} else if (ch === "'") {
-			// Apostrophe comment to end of physical line (MS-VBAL 3.3.1). The VBE
-			// does not continue comments across line-continuations, so we stop at
-			// the line terminator.
-			pos++;
-			while (pos < len && !isLineTerminator(src[pos])) {
-				pos++;
-			}
+			// Apostrophe comment to the end of the logical line (MS-VBAL 3.3.1).
+			pos = commentEnd(src, pos + 1);
 			kind = 'comment';
 		} else if (isIdentStart(ch)) {
 			pos++;
@@ -160,9 +157,7 @@ export function tokenize(src: string): VbaToken[] {
 			const word = src.slice(startPos, pos);
 			if (word.toLowerCase() === 'rem' && atStatementStart) {
 				// Rem comment (MS-VBAL 3.3.5.2 rem-keyword): rest of line is comment.
-				while (pos < len && !isLineTerminator(src[pos])) {
-					pos++;
-				}
+				pos = commentEnd(src, pos);
 				kind = 'comment';
 			} else {
 				canonical = canonicalKeyword(word);
@@ -174,8 +169,12 @@ export function tokenize(src: string): VbaToken[] {
 			(ch === '.' && pos + 1 < len && isDigit(src[pos + 1])) ||
 			(ch === '&' &&
 				pos + 1 < len &&
-				(src[pos + 1] === 'h' || src[pos + 1] === 'H' || src[pos + 1] === 'o' || src[pos + 1] === 'O'))
+				(src[pos + 1] === 'h' || src[pos + 1] === 'H' || src[pos + 1] === 'o' || src[pos + 1] === 'O' ||
+					isOctalDigit(src[pos + 1])))
 		) {
+			// The O of an octal literal is optional (MS-VBAL 3.3.2), and the VBE
+			// takes `&17` as one wherever it stands: `x = "a" &1` does not compile,
+			// while `x = "a" &9` is a concatenation (issue #87).
 			kind = lexNumber(src, () => pos, (p) => (pos = p));
 			atStatementStart = false;
 		} else if (ch === '"') {
@@ -239,6 +238,7 @@ export function tokenize(src: string): VbaToken[] {
 			}
 		} else {
 			kind = lexSymbol(src, ch, () => pos, (p) => (pos = p));
+			canonical = REVERSED_RELATIONAL_OPERATORS[src.slice(startPos, pos)];
 			atStatementStart = kind === 'colon';
 		}
 
@@ -262,12 +262,51 @@ export function tokenize(src: string): VbaToken[] {
 		if (isNewline) {
 			line++;
 			character = 0;
+		} else if (kind === 'comment') {
+			// A comment may run on through line continuations.
+			const lastBreak = Math.max(rawText.lastIndexOf('\n'), rawText.lastIndexOf('\r'));
+			if (lastBreak < 0) {
+				character += pos - startPos;
+			} else {
+				line += lineBreakCount(rawText);
+				character = rawText.length - lastBreak - 1;
+			}
 		} else {
 			character += pos - startPos;
 		}
 	}
 
+	settleContextualKeywords(tokens);
 	return tokens;
+}
+
+/**
+ * Where a comment whose body starts at `from` ends. A comment-body runs
+ * through line-continuations to LINE-END (MS-VBAL 3.3.1), so the VBE takes a
+ * comment ending in ` _` on through the next line (issue #82).
+ */
+function commentEnd(src: string, from: number): number {
+	let pos = from;
+	while (pos < src.length && !isLineTerminator(src[pos])) {
+		const terminator = src[pos] === '_' && isWsc(src[pos - 1]) ? continuationTerminator(src, pos) : -1;
+		if (terminator >= 0) {
+			pos = terminator + (src[terminator] === '\r' && src[terminator + 1] === '\n' ? 2 : 1);
+			continue;
+		}
+		pos++;
+	}
+	return pos;
+}
+
+/** Line breaks in `text`, a CRLF counting once. */
+function lineBreakCount(text: string): number {
+	let count = 0;
+	for (let i = 0; i < text.length; i++) {
+		if (text[i] === '\n' || (text[i] === '\r' && text[i + 1] !== '\n')) {
+			count++;
+		}
+	}
+	return count;
 }
 
 /**
@@ -281,9 +320,9 @@ function lexNumber(src: string, getPos: () => number, setPos: (p: number) => voi
 	const ch = src[p];
 
 	if (ch === '&') {
-		// Hex (&H) or octal (&O) integer literal.
+		// Hex (&H) or octal (&O, or & with the O left out) integer literal.
 		const radixCh = src[p + 1];
-		p += 2; // consume '&' and the radix letter
+		p += isOctalDigit(radixCh) ? 1 : 2; // consume '&' and any radix letter
 		if (radixCh === 'h' || radixCh === 'H') {
 			while (p < len && isHexDigit(src[p])) {
 				p++;
@@ -306,12 +345,12 @@ function lexNumber(src: string, getPos: () => number, setPos: (p: number) => voi
 	while (p < len && isDigit(src[p])) {
 		p++;
 	}
-	// Optional decimal point. Only consume '.' as part of the number when it is
-	// followed by a digit or an exponent letter; otherwise leave it as a member-
-	// access dot (a numeric literal cannot have a member, MS-VBAL 3.3.2).
+	// Optional decimal point, with the fractional digits optional too (MS-VBAL
+	// 3.3.2): the VBE reads `1.` as `1#` (issue #87). A letter after the dot
+	// that does not start an exponent leaves it a member-access dot.
 	if (p < len && src[p] === '.') {
 		const after = p + 1 < len ? src[p + 1] : '';
-		if (isDigit(after) || (isExponentLetter(after) && hasExponentTail(src, p + 1))) {
+		if (isDigit(after) || (isExponentLetter(after) && hasExponentTail(src, p + 1)) || after === '' || !isIdentStart(after)) {
 			isFloat = true;
 			p++; // consume '.'
 			while (p < len && isDigit(src[p])) {
@@ -543,9 +582,20 @@ function skipWsc(s: string, pos: number): number {
 }
 
 /**
+ * The standard spelling of a relational operator written the other way round.
+ * MS-VBAL 5.6.9.5 writes `<>`, `<=` and `>=` as two special tokens in either
+ * order, and the VBE stores `=>` as `>=` (issue #87).
+ */
+const REVERSED_RELATIONAL_OPERATORS: Readonly<Record<string, string>> = {
+	'=>': '>=',
+	'=<': '<=',
+	'><': '<>',
+};
+
+/**
  * Lex an operator, punctuation, or colon token starting at the current position.
  * MS-VBAL 3.3.1 special-token. Handles the multi-character operators :=, <=, >=,
- * and <>.
+ * and <>, and the reversed =>, =< and ><.
  */
 function lexSymbol(
 	src: string,
@@ -558,7 +608,12 @@ function lexSymbol(
 	const next = p + 1 < len ? src[p + 1] : '';
 
 	// Multi-character operators.
-	if ((ch === ':' && next === '=') || (ch === '<' && (next === '=' || next === '>')) || (ch === '>' && next === '=')) {
+	if (
+		(ch === ':' && next === '=') ||
+		(ch === '<' && (next === '=' || next === '>')) ||
+		(ch === '>' && next === '=') ||
+		REVERSED_RELATIONAL_OPERATORS[ch + next] !== undefined
+	) {
 		setPos(p + 2);
 		return 'operator';
 	}

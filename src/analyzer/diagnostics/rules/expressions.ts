@@ -18,6 +18,7 @@ import {
 	resolveRawIntegerConstants,
 } from '../../constants/integerConstantExpression';
 import { tokenizeCached } from '../../lexer/tokenize';
+import { relationalOperatorAt } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type {
 	ModuleNode,
@@ -339,11 +340,14 @@ function invalidOperatorSequence(
 		if (!isNonUnaryBinaryOperator(toks[i])) {
 			continue;
 		}
-		let end = i;
+		// `a < > b` is one relational operator written as two tokens (MS-VBAL
+		// 5.6.9.5), and the VBE reads it as `a <> b` (issue #87).
+		const operatorEnd = i + (relationalOperatorAt(toks, i)?.length ?? 1) - 1;
+		let end = operatorEnd;
 		while (isNonUnaryBinaryOperator(toks[end + 1])) {
 			end++;
 		}
-		if (end > i) {
+		if (end > operatorEnd || operatorEnd === toks.length - 1) {
 			const first = toks[i];
 			const last = toks[end];
 			return {
@@ -351,12 +355,7 @@ function invalidOperatorSequence(
 				span: { start: span.start + first.start, end: span.start + last.end },
 			};
 		}
-		if (i === toks.length - 1) {
-			return {
-				text: toks[i].rawText,
-				span: absoluteSpan(span, toks[i]),
-			};
-		}
+		i = operatorEnd;
 	}
 	return undefined;
 }

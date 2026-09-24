@@ -475,6 +475,14 @@ export function checkUnreachableCode(
 				flush();
 				continue;
 			}
+			if (isLeafStatement(node) && node.singleLineIfTail) {
+				// It runs only with its single-line If's branch (MS-VBAL 5.4.2.9):
+				// an Exit there ends nothing, and it is dead when its If is.
+				if (terminator) {
+					dead = dead ? { start: dead.start, end: node.span.end } : { start: node.span.start, end: node.span.end };
+				}
+				continue;
+			}
 			if (isLeafStatement(node)) {
 				const toks = statementTokens(source, node.span);
 				if (isLandingPoint(source, node, toks)) {

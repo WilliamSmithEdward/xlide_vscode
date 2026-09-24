@@ -424,11 +424,23 @@ export type ExprNode =
 // Structured statement nodes (MS-VBAL §5.4)
 // ---------------------------------------------------------------------------
 
+/** What the three leaf statements below share. */
+interface LeafStatementBase extends NodeBase {
+	/**
+	 * True for a statement a single-line If runs after a colon: `b` in
+	 * `If x Then a: b`, or `c` in `If x Then a Else b: c`. MS-VBAL 5.4.2.9 puts
+	 * every statement to the end of the logical line in the If's statement
+	 * list, so it runs only when that branch does, though it has a node of its
+	 * own.
+	 */
+	singleLineIfTail?: boolean;
+}
+
 /**
  * `[Let] lhs = rhs` or `Set lhs = rhs` - MS-VBAL §5.4.3.
  * `isSet` distinguishes object-reference assignment from value assignment.
  */
-export interface AssignmentNode extends NodeBase {
+export interface AssignmentNode extends LeafStatementBase {
 	kind: 'Assignment';
 	isSet: boolean;
 	isLet: boolean;
@@ -440,7 +452,7 @@ export interface AssignmentNode extends NodeBase {
  * `[Call] callee [(args)]` or implicit call `callee arg, ...` - MS-VBAL §5.4.2.
  * When `hasCallKeyword` is true the argument list must be parenthesised.
  */
-export interface CallNode extends NodeBase {
+export interface CallNode extends LeafStatementBase {
 	kind: 'Call';
 	hasCallKeyword: boolean;
 	callee: ExprNode;
@@ -449,7 +461,7 @@ export interface CallNode extends NodeBase {
 
 /** Generic catch-all statement (Exit, GoTo, label, Return, and anything not yet
  *  parsed into a structured node). */
-export interface StatementNode extends NodeBase {
+export interface StatementNode extends LeafStatementBase {
 	kind: 'Statement';
 	/** Raw source text of the statement (without separators). */
 	raw: string;

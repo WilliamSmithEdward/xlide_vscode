@@ -253,6 +253,31 @@ describe('analyzeModule - object variable not set', () => {
 		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(0);
 	});
 
+	it('reads a Set inside a single-line If, or after its colon, as conditional (MS-VBAL 5.4.2.9)', () => {
+		// Like the block If above: the Set runs on one path only, so after the
+		// line the object may or may not be Nothing.
+		const cases = [
+			'Public Sub T()\n    Dim obj As Object\n    If Ready Then Set obj = New Collection\n    obj.ToString\nEnd Sub\n',
+			'Public Sub T()\n    Dim obj As Object\n    If Ready Then n = 1: Set obj = New Collection\n    obj.ToString\nEnd Sub\n',
+			'Public Sub T()\n    Dim obj As Object\n    Set obj = New Collection\n    If Ready Then n = 1: Set obj = Nothing\n    obj.ToString\nEnd Sub\n',
+		];
+		for (const src of cases) {
+			expect(byCode(analyzeModule(src), 'object-variable-not-set'), src).toHaveLength(0);
+		}
+	});
+
+	it('checks what a single-line If runs after its colon on the path that runs it', () => {
+		const neverSet = 'Public Sub T()\n    Dim obj As Object\n    If Ready Then n = 1: obj.ToString\nEnd Sub\n';
+		expectDiagnostic(neverSet, analyzeModule(neverSet), 'object-variable-not-set', { span: 'obj' });
+		const setFirst = [
+			'Public Sub T()\n    Dim obj As Object\n    If Ready Then n = 1: Set obj = New Collection: obj.ToString\nEnd Sub\n',
+			'Public Sub T()\n    Dim obj As Object\n    If Ready Then Set obj = New Collection: obj.ToString\nEnd Sub\n',
+		];
+		for (const src of setFirst) {
+			expect(byCode(analyzeModule(src), 'object-variable-not-set'), src).toHaveLength(0);
+		}
+	});
+
 	it('flags Nothing member access inside a balanced If arm (branch-merge coverage)', () => {
 		const src =
 			'Public Sub T()\n' +

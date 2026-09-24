@@ -132,9 +132,10 @@ function canonicalTextForWord(
 
 /**
  * Finds the token covering exactly [start, end) by tokenizing only the
- * physical line(s) of the span. VBA comments and string literals never span
- * physical lines, so the line-local classification matches the whole-module
- * tokenization without rescanning the entire document per keystroke.
+ * logical line of the span. A string literal never spans physical lines, and
+ * a comment spans them only through ` _`, which the window follows back, so
+ * the line-local classification matches the whole-module tokenization without
+ * rescanning the entire document per keystroke.
  */
 function tokenAtSpan(source: string, start: number, end: number): VbaToken | undefined {
 	const window = physicalLineWindow(source, start, end);
@@ -143,7 +144,12 @@ function tokenAtSpan(source: string, start: number, end: number): VbaToken | und
 	);
 }
 
-/** Expands [start, end] to the enclosing physical line boundaries. */
+/**
+ * Expands [start, end] to the enclosing physical line boundaries, and back
+ * through the lines before that end in ` _`: a comment ending that way runs on
+ * through the next line (MS-VBAL 3.3.1), so `this is not code` after
+ * `' note _` is comment text and takes no casing (issue #82).
+ */
 function physicalLineWindow(
 	source: string,
 	start: number,
@@ -153,7 +159,18 @@ function physicalLineWindow(
 	while (windowEnd < source.length && source[windowEnd] !== '\n' && source[windowEnd] !== '\r') {
 		windowEnd += 1;
 	}
-	return { start: lineStartAtAnyBreak(source, start), end: windowEnd };
+	let windowStart = lineStartAtAnyBreak(source, start);
+	while (windowStart > 0) {
+		const lineEnd = source[windowStart - 1] === '\n' && source[windowStart - 2] === '\r'
+			? windowStart - 2
+			: windowStart - 1;
+		const previousStart = lineStartAtAnyBreak(source, lineEnd);
+		if (!/\s_[ \t]*$/.test(source.slice(previousStart, lineEnd))) {
+			break;
+		}
+		windowStart = previousStart;
+	}
+	return { start: windowStart, end: windowEnd };
 }
 
 function isIdentifierToken(token: VbaToken): boolean {

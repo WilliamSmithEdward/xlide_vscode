@@ -423,6 +423,49 @@ describe('parseModule - block statements (MS-VBAL 5.4)', () => {
 		expect(proc.body.every((n) => n.kind !== 'IfBlock')).toBe(true);
 	});
 
+	it('treats If x Then: as single-line, its colon opening the statement list (MS-VBAL 5.4.2.9, issue #84)', () => {
+		const m = parseModule('Sub F()\n    If x Then:\n    y = 1\nEnd Sub\n');
+		expect(m.diagnostics).toHaveLength(0);
+		const proc = m.members[0] as ProcedureNode;
+		expect(proc.body.every((n) => n.kind !== 'IfBlock')).toBe(true);
+		// The VBE refuses an End If after it: "End If without block If".
+		const closed = parseModule('Sub F()\n    If x Then:\n    y = 1\n    End If\nEnd Sub\n');
+		expect(closed.diagnostics.map((d) => d.message)).toEqual(["Unexpected 'End If' without a matching opening block."]);
+	});
+
+	it('marks what a single-line If runs after a colon, to the end of its line (MS-VBAL 5.4.2.9)', () => {
+		const src =
+			'Sub F()\n' +
+			'    If x Then y = 1: z = 2: Exit Sub\n' +
+			'    If x Then:\n' +
+			'    w = 3\n' +
+			'    a = 1: If x Then b = 2 Else c = 3: d = 4\n' +
+			'End Sub\n';
+		const proc = parseModule(src).members[0] as ProcedureNode;
+		expect(proc.body.map((node) => [
+			src.slice(node.span.start, node.span.end),
+			(node as { singleLineIfTail?: boolean }).singleLineIfTail === true,
+		])).toEqual([
+			['If x Then y = 1', false],
+			['z = 2', true],
+			['Exit Sub', true],
+			['If x Then', false],
+			['w = 3', false],
+			['a = 1', false],
+			['If x Then b = 2 Else c = 3', false],
+			['d = 4', true],
+		]);
+	});
+
+	it('closes a block If at the one-word EndIf (MS-VBAL 5.4.2.8, issue #88)', () => {
+		const m = parseModule('Sub F()\n    If x Then\n        Exit Sub\n    EndIf\n    y = 2\nEnd Sub\n');
+		expect(m.diagnostics).toHaveLength(0);
+		const proc = m.members[0] as ProcedureNode;
+		const block = proc.body.find((n): n is IfBlockNode => n.kind === 'IfBlock');
+		expect(block?.closed).toBe(true);
+		expect(proc.body.map((n) => n.kind)).toEqual(['IfBlock', 'Assignment']);
+	});
+
 	it('recognizes block statements after numeric line labels', () => {
 		const src =
 			'Sub F()\n' +

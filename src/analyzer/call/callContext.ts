@@ -164,7 +164,10 @@ export function bareCallStatementTarget(
 		if (!afterClose || afterClose.rawText === '.' || afterClose.rawText === '(') {
 			return undefined;
 		}
-	} else if (!explicitCall) {
+	} else if (!explicitCall && r !== ',') {
+		// A comma cannot continue the callee, so it opens the argument list
+		// with or without a space: the VBE reads `Needs, 2` as `Needs , 2`, a
+		// missing first argument and 2 (issue #85).
 		const gap = source.slice(span.start + callee.end, span.start + next.start);
 		if (!/\s/.test(gap)) {
 			return undefined;

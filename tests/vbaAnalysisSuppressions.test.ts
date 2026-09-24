@@ -66,12 +66,15 @@ describe('XLIDE analysis suppression directives', () => {
 		expect(diagnosticsByCode(result.diagnostics, 'undeclared-variable')).toHaveLength(0);
 	});
 
-	it('does not take a comment ending in _ for a continued line', () => {
+	it('does not reach past a comment ending in _ to the statement after it', () => {
+		// The comment runs on through the next line, as the VBE reads it
+		// (issue #82), and the directive covers only the statement it names.
 		const source =
 			'Option Explicit\n' +
 			'Sub T()\n' +
 			"    ' @xlide-analysis-disable-next-line undeclared-variable\n" +
 			"    notDeclared = 1 ' a note _\n" +
+			'        still the note\n' +
 			'    stillMissing = 2\n' +
 			'End Sub\n';
 

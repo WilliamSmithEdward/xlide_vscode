@@ -536,6 +536,10 @@ function closerRegex(endKeyword: string): RegExp {
     if (/^Next\b/i.test(endKeyword)) {
         return /^Next\b/i;
     }
+    if (/^End\s+If$/i.test(endKeyword)) {
+        // MS-VBAL 5.4.2.8 accepts the one word `EndIf` as the closer too.
+        return /^End\s*If\b/i;
+    }
     const escaped = endKeyword
         .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
         .replace(/\s+/g, '\\s+');

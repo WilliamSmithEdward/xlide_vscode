@@ -1,6 +1,6 @@
 import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
-import { tokenWord } from '../lexer/tokenHelpers';
+import { relationalOperatorAt, tokenWord } from '../lexer/tokenHelpers';
 import type {
 	BodyNode,
 	ConditionalDirectiveNode,
@@ -555,14 +555,16 @@ class ConditionalExpressionParser {
 
 	private parseComparison(): ConditionalValue | undefined {
 		const left = this.parseUnary();
-		const op = this.peek()?.rawText;
 		// Relational operators (<, >, <=, >=) join the existing equality (=, <>)
-		// handling so `#If Win64 >= 1 Then` and friends evaluate. Anything else
-		// (Like, etc.) is left to the caller as an unmodeled remainder.
-		if (op !== '=' && op !== '<>' && op !== '<' && op !== '>' && op !== '<=' && op !== '>=') {
+		// handling so `#If Win64 >= 1 Then` and friends evaluate, in any of the
+		// spellings MS-VBAL 5.6.9.5 allows (`=>`, `< >`). Anything else (Like,
+		// etc.) is left to the caller as an unmodeled remainder.
+		const relational = relationalOperatorAt(this.tokens, this.index);
+		if (!relational) {
 			return left;
 		}
-		this.index++;
+		const op = relational.operator;
+		this.index += relational.length;
 		const right = this.parseUnary();
 		if (left === undefined || right === undefined) {
 			return undefined;

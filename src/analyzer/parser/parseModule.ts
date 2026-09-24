@@ -1046,6 +1046,9 @@ class Parser {
 		const structured = this.parseAssignmentOrCall(stmt, tokens);
 		if (structured) {
 			this.cursor.next();
+			if (stmt.singleLineIfTail) {
+				structured.singleLineIfTail = true;
+			}
 			return structured;
 		}
 		this.cursor.next();
@@ -1468,10 +1471,12 @@ class Parser {
 		const w0 = tokenWord(tokens[0]);
 		switch (w0) {
 			case 'if': {
-				// Multi-line If only when "Then" is the final code token; a
-				// single-line "If x Then stmt" is not a block (MS-VBAL 5.4.2.1).
+				// Multi-line If only when "Then" ends the line (MS-VBAL 5.4.2.8).
+				// A single-line "If x Then stmt" is not a block, and neither is
+				// "If x Then:", whose colon opens its statement list (MS-VBAL
+				// 5.4.2.9, issue #84).
 				const last = tokens[tokens.length - 1];
-				return tokenWord(last) === 'then' ? 'if' : undefined;
+				return tokenWord(last) === 'then' && !stmt.endedByColon ? 'if' : undefined;
 			}
 			case 'for':
 				return tokenWord(tokens[1]) === 'each' ? 'foreach' : 'for';
@@ -1500,6 +1505,11 @@ class Parser {
 		}
 		if (w0 === 'wend') {
 			return 'wend';
+		}
+		if (w0 === 'endif') {
+			// MS-VBAL 5.4.2.8 closes a block If with `End If` or the one word
+			// `EndIf`, which the VBE stores as `End If` (issue #88).
+			return 'endif';
 		}
 		if (w0 === 'end') {
 			// "End" alone (MS-VBAL 5.4.7) is a statement, not a block closer.
@@ -1754,6 +1764,7 @@ class Parser {
 			raw: this.source.slice(stmt.start, stmt.end),
 			span: { start: stmt.start, end: stmt.end },
 			...(branches.length > 0 ? { singleLineIfBranches: branches } : {}),
+			...(stmt.singleLineIfTail ? { singleLineIfTail: true } : {}),
 		};
 	}
 

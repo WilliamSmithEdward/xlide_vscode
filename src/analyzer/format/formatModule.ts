@@ -143,6 +143,9 @@ export function formatVbaModule(source: string, options: VbaFormatOptions): VbaF
 	const tokensByLine: VbaToken[][] = lines.map(() => []);
 	// A physical line that continues the one above it (that line ended in ` _`).
 	const continuation: boolean[] = lines.map(() => false);
+	// A physical line a comment ran on to through ` _` (MS-VBAL 3.3.1): all
+	// comment text, kept exactly as written.
+	const commentText: boolean[] = lines.map(() => false);
 	const markContinuation = (trivia: { kind: string; start: number }): void => {
 		if (trivia.kind !== 'lineContinuation') {
 			return;
@@ -161,6 +164,13 @@ export function formatVbaModule(source: string, options: VbaFormatOptions): VbaF
 		}
 		if (token.kind !== 'newline' && token.line < lines.length) {
 			tokensByLine[token.line].push(token);
+		}
+		if (token.kind === 'comment') {
+			const lastLine = Math.min(lineIndexOf(lineStarts, token.end), lines.length - 1);
+			for (let line = token.line + 1; line <= lastLine; line++) {
+				continuation[line] = true;
+				commentText[line] = true;
+			}
 		}
 	}
 
@@ -215,6 +225,9 @@ export function formatVbaModule(source: string, options: VbaFormatOptions): VbaF
 		const firstWidth = lineIndent * tabSize;
 		const originalFirstWidth = indentWidth(lines[first], tabSize);
 		for (let i = first; i <= last; i++) {
+			if (commentText[i]) {
+				continue;
+			}
 			let width = firstWidth;
 			if (i > first) {
 				const delta = indentWidth(lines[i], tabSize) - originalFirstWidth;
@@ -359,6 +372,10 @@ function classify(
 		const kind = END_CLOSERS[tokenWord(tokens[1])];
 		return kind ? { type: 'closer', kind, count: 1 } : { type: 'plain' };
 	}
+	if (first === 'endif') {
+		// The one-word closer MS-VBAL 5.4.2.8 allows for `End If`.
+		return { type: 'closer', kind: 'If', count: 1 };
+	}
 	if (first === 'loop') {
 		return { type: 'closer', kind: 'Do', count: 1 };
 	}
@@ -385,9 +402,11 @@ function classify(
 		return { type: 'opener', kind: 'Select' };
 	}
 	if (first === 'if') {
-		// A block If ends its logical line with Then; a single-line If carries
-		// its statements after Then, or after a `:` (MS-VBAL 5.4.2.1).
-		return isLast && tokenWord(tokens[tokens.length - 1]) === 'then' && tokens.length > 1
+		// A block If ends its logical line with Then (MS-VBAL 5.4.2.8); a
+		// single-line If carries its statements after Then, or after a `:`,
+		// and `If x Then:` with nothing after the colon is one too (MS-VBAL
+		// 5.4.2.9, issue #84).
+		return isLast && !statement.endedByColon && tokenWord(tokens[tokens.length - 1]) === 'then' && tokens.length > 1
 			? { type: 'opener', kind: 'If' }
 			: { type: 'plain' };
 	}
@@ -462,11 +481,15 @@ function rewriteLine(
 	for (let i = 0; i < lineTokens.length; i++) {
 		const token = lineTokens[i];
 		let gap = line.slice(prevEndCol, token.character);
-		prevEndCol = token.character + token.rawText.length;
 		if (token.kind === 'comment') {
-			out += gap + token.rawText;
+			// Only this line's part: a comment continued with ` _` keeps its
+			// later lines as they are.
+			const text = token.rawText.split(/\r\n|\r|\n/)[0];
+			prevEndCol = token.character + text.length;
+			out += gap + text;
 			continue;
 		}
+		prevEndCol = token.character + token.rawText.length;
 		const spacing = classifySpacing(prev, token, prevBinary, prevSuffix, prevAfterDot, statementHead);
 		if (gap === '' && spacing.spaceBefore) {
 			gap = ' ';
@@ -492,11 +515,6 @@ function rewriteLine(
 		prevBinary = spacing.binary;
 		prevSuffix = spacing.suffix;
 		prevAfterDot = afterDot;
-	}
-	if (prev && prev.kind === 'unknown' && prev.rawText === '_') {
-		// A stray `_` with whitespace after it is not a continuation; dropping
-		// that whitespace would make it one and join the next line.
-		return out + line.slice(prevEndCol);
 	}
 	return out + trailing(line, prevEndCol);
 }
@@ -572,10 +590,11 @@ function classifySpacing(
 		// `Step-1`, `Print#1`, `Case-1`: a word and what follows it.
 		return { spaceBefore: true, binary: false, suffix: false };
 	}
-	if (cur.kind === 'operator' && COMPARISON_OR_ASSIGN.has(curRaw)) {
+	// `=>` is `>=` written the other way round, and spaced like it.
+	if (cur.kind === 'operator' && COMPARISON_OR_ASSIGN.has(cur.canonicalText ?? curRaw)) {
 		return { spaceBefore: true, binary: false, suffix: false };
 	}
-	if (prev.kind === 'operator' && COMPARISON_OR_ASSIGN.has(prev.rawText)) {
+	if (prev.kind === 'operator' && COMPARISON_OR_ASSIGN.has(prev.canonicalText ?? prev.rawText)) {
 		return { spaceBefore: true, binary: false, suffix: false };
 	}
 	const isBinaryOperator = (cur.kind === 'operator' && BINARY_OPERATOR_SYMBOLS.has(curRaw))

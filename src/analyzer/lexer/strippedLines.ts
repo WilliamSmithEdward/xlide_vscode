@@ -18,9 +18,9 @@ import { tokenizeCached } from './tokenize';
 
 /**
  * Every physical line of `source` with string-literal and comment token spans
- * blanked to spaces, preserving length and column alignment. Comments and
- * string literals never span physical lines (MS-VBAL 3.3.1 / 3.3.4), so
- * blanking on the token's start line covers the whole token.
+ * blanked to spaces, preserving length and column alignment. A string literal
+ * never spans physical lines (MS-VBAL 3.3.4); a comment does when it runs on
+ * through ` _` (MS-VBAL 3.3.1), and every line it covers is blanked.
  */
 export function lexerStrippedLines(source: string): string[] {
 	const chars = source.split(/\r\n|\r|\n/).map((line) => line.split(''));
@@ -28,14 +28,17 @@ export function lexerStrippedLines(source: string): string[] {
 		if (token.kind !== 'comment' && token.kind !== 'stringLiteral') {
 			continue;
 		}
-		const lineChars = chars[token.line];
-		if (!lineChars) {
-			continue;
-		}
-		const end = Math.min(token.character + token.rawText.length, lineChars.length);
-		for (let col = token.character; col < end; col++) {
-			lineChars[col] = ' ';
-		}
+		token.rawText.split(/\r\n|\r|\n/).forEach((segment, index) => {
+			const lineChars = chars[token.line + index];
+			if (!lineChars) {
+				return;
+			}
+			const from = index === 0 ? token.character : 0;
+			const end = Math.min(from + segment.length, lineChars.length);
+			for (let col = from; col < end; col++) {
+				lineChars[col] = ' ';
+			}
+		});
 	}
 	return chars.map((lineChars) => lineChars.join(''));
 }

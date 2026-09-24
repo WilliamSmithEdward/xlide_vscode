@@ -135,6 +135,8 @@ export function matchCloser(t: string): BlockKind | undefined {
         if (w === 'type') { return 'Type'; }
         return 'Enum';
     }
+    // MS-VBAL 5.4.2.8 closes a block If with `End If` or the one word `EndIf`.
+    if (/^EndIf\b/i.test(t)) { return 'If'; }
     if (/^Loop\b/i.test(t)) { return 'Do'; }
     if (/^Wend\b/i.test(t)) { return 'While'; }
     return undefined;
@@ -239,7 +241,7 @@ function blockCloserColumnSpan(raw: string, kind: BlockKind): ColumnSpan | undef
         case 'Property':
             return capturedColumnSpan(stripped, /^(\s*)(End\s+Property)\b/i);
         case 'If':
-            return capturedColumnSpan(stripped, /^(\s*)(End\s+If)\b/i);
+            return capturedColumnSpan(stripped, /^(\s*)(End\s+If|EndIf)\b/i);
         case 'With':
             return capturedColumnSpan(stripped, /^(\s*)(End\s+With)\b/i);
         case 'Select':

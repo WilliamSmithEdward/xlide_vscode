@@ -172,6 +172,46 @@ export function tokenName(token: VbaToken | undefined): string | undefined {
 	return undefined;
 }
 
+/** A relational operator (MS-VBAL 5.6.9.5) in its standard spelling. */
+export type RelationalOperator = '=' | '<>' | '<' | '>' | '<=' | '>=';
+
+const RELATIONAL_OPERATORS: ReadonlySet<string> = new Set(['=', '<>', '<', '>', '<=', '>=']);
+
+/** Two single-character relational tokens that make one operator, in either order. */
+const RELATIONAL_PAIRS: Readonly<Record<string, RelationalOperator>> = {
+	'<>': '<>',
+	'><': '<>',
+	'<=': '<=',
+	'=<': '<=',
+	'>=': '>=',
+	'=>': '>=',
+};
+
+/**
+ * The relational operator `tokens[index]` starts, and how many tokens it
+ * takes. MS-VBAL 5.6.9.5 writes `<>`, `<=` and `>=` as two special tokens in
+ * either order, so whitespace may stand between them: the VBE reads `a < > b`
+ * as `a <> b` and `a = > b` as `a >= b`. The lexer joins the two when they
+ * touch. Tokens at or past `end` are out of reach.
+ */
+export function relationalOperatorAt(
+	tokens: readonly VbaToken[],
+	index: number,
+	end = tokens.length,
+): { operator: RelationalOperator; length: 1 | 2 } | undefined {
+	const token = index < end ? tokens[index] : undefined;
+	if (token?.kind !== 'operator') {
+		return undefined;
+	}
+	const text = token.canonicalText ?? token.rawText;
+	if (!RELATIONAL_OPERATORS.has(text)) {
+		return undefined;
+	}
+	const next = index + 1 < end ? tokens[index + 1] : undefined;
+	const pair = next?.kind === 'operator' ? RELATIONAL_PAIRS[token.rawText + next.rawText] : undefined;
+	return pair ? { operator: pair, length: 2 } : { operator: text as RelationalOperator, length: 1 };
+}
+
 /**
  * Canonical (case-folded) text of a token used for keyword matching. For
  * keyword tokens the lexer already provides canonicalText; otherwise we lower

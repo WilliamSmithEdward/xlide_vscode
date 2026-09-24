@@ -13,7 +13,8 @@ export type TokenKind =
 	// End of a logical line - the line-terminator (MS-VBAL 3.2.2 / 3.3.1 EOL).
 	| 'newline'
 	// Apostrophe comment or Rem comment (MS-VBAL 3.3.1 comment-body / 3.3.5.2
-	// rem-keyword). Non-syntactic but preserved.
+	// rem-keyword). Non-syntactic but preserved. It runs on through any line
+	// continuations, so its rawText can span physical lines.
 	| 'comment'
 	// A reserved identifier or contextual keyword (MS-VBAL 3.3.5.2). canonicalText
 	// holds the canonical capitalization.
@@ -48,7 +49,8 @@ export type TokenKind =
 export type TriviaKind =
 	// One or more WSC characters (MS-VBAL 3.2.2 WSC): tab, space, etc.
 	| 'whitespace'
-	// A line-continuation: 1*WSC underscore line-terminator (MS-VBAL 3.2.2).
+	// A line-continuation: 1*WSC underscore line-terminator (MS-VBAL 3.2.2),
+	// with any whitespace the VBE also accepts after the underscore.
 	| 'lineContinuation';
 
 /** Insignificant text (whitespace or line continuation) attached to a token. */
@@ -67,8 +69,10 @@ export interface VbaToken {
 	/** The exact source text of the token. */
 	rawText: string;
 	/**
-	 * Canonical capitalization for keyword tokens (MS-VBAL 3.3.5.2). Undefined
-	 * for all non-keyword tokens. Never set for text inside comments or strings.
+	 * Canonical capitalization for keyword tokens (MS-VBAL 3.3.5.2), and the
+	 * standard spelling of a relational operator written the other way round
+	 * (`=>` is `>=`). Undefined for every other token. Never set for text inside
+	 * comments or strings.
 	 */
 	canonicalText?: string;
 	/** Absolute UTF-16 offset of the first character of rawText. */

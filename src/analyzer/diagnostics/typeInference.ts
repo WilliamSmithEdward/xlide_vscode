@@ -2350,6 +2350,19 @@ export function simpleTypeNameForAssignment(type: string): string | undefined {
 	return IDENT_RE.test(trimmed) ? trimmed : undefined;
 }
 
+/**
+ * Host types the model returns where the type library returns another, so a
+ * value of the model's type is also a value of the library's. Excel's library
+ * types the Charts and Worksheets properties of Application and Workbook as
+ * Sheets, and a Sheets object is what they return at run time. The model
+ * returns its own Charts and Worksheets there, whose members completion offers
+ * (issue #90).
+ */
+const HOST_VALUES_ALSO_OF_TYPE: ReadonlyMap<string, string> = new Map([
+	['excel.charts', 'excel.sheets'],
+	['excel.worksheets', 'excel.sheets'],
+]);
+
 export function objectAssignmentIncompatibilityReason(
 	expectedRaw: string | undefined,
 	actual: InferredArgumentType | undefined,
@@ -2377,6 +2390,9 @@ export function objectAssignmentIncompatibilityReason(
 		return undefined;
 	}
 	if (expected.key === actualObject.key) {
+		return undefined;
+	}
+	if (actualObject.kind === 'host' && HOST_VALUES_ALSO_OF_TYPE.get(actualObject.key) === expected.key) {
 		return undefined;
 	}
 	if (actualObject.kind === 'project' && implementsObjectType(actualObject, expected)) {

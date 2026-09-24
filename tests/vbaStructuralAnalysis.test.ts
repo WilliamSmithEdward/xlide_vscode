@@ -4,6 +4,7 @@ import {
     leadingWhitespace,
     lineStartOffsets,
     stripVba,
+    stripVbaLines,
     validateVbaModuleName,
 } from '../src/vbaSourceScan';
 import { analyzeVbaStructure } from '../src/vbaStructuralDiagnostics';
@@ -134,6 +135,26 @@ describe('analyzeVbaStructure', () => {
     it('accepts a balanced multiline If', () => {
         const src = 'Sub Foo()\n    If x Then\n        y = 1\n    End If\nEnd Sub\n';
         expect(analyzeVbaStructure(src)).toEqual([]);
+    });
+
+    it('reads the lines a comment runs on to through _ as comment text (issue #82)', () => {
+        const cases = [
+            "Sub Test()\n    ' disabled: _\n    End Sub\n    Debug.Print 1\nEnd Sub\n",
+            'Sub Test()\n    Rem disabled: _\n    End Sub\nEnd Sub\n',
+            "Sub Test()\n    n = 1 ' note _\n    End If\n    n = 2\nEnd Sub\n",
+            "Sub Test()\r\n    ' one _  \r\n    two _\r\n    End Sub\r\nEnd Sub\r\n",
+        ];
+        for (const src of cases) {
+            expect(analyzeVbaStructure(src), src).toEqual([]);
+        }
+        expect(stripVbaLines(["x = 1 ' a _", 'End Sub', 'y = 2'])).toEqual(['x = 1      ', '       ', 'y = 2']);
+        expect(findIdentifierOccurrences("x = 1 ' a _\n  x = 2\nx = 3\n", 'x').map((hit) => hit.line)).toEqual([0, 2]);
+    });
+
+    it('closes a block If at the one-word EndIf, which the VBE reads as End If (issue #88)', () => {
+        const src = 'Sub Foo()\n    If x Then\n        Exit Sub\n    EndIf\n    y = 2\nEnd Sub\n';
+        expect(analyzeVbaStructure(src)).toEqual([]);
+        expect(isSmartBlockClosedAhead(['If x Then', '    Exit Sub', 'EndIf'], 0, { endKeyword: 'End If' })).toBe(true);
     });
 
     it('does not treat a single-line If as a block', () => {

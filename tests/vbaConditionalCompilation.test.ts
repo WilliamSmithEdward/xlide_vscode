@@ -57,6 +57,14 @@ describe('conditional compilation expression evaluation', () => {
 		expect(evaluateConditionalExpression('Win64 = True', { compilerConstants })).toBe(true);
 	});
 
+	it('evaluates a relational operator in either order and split by a space (issue #87)', () => {
+		expect(evaluateConditionalExpression('2 => 1')).toBe(true);
+		expect(evaluateConditionalExpression('2 =< 1')).toBe(false);
+		expect(evaluateConditionalExpression('2 >< 1')).toBe(true);
+		expect(evaluateConditionalExpression('2 < > 2')).toBe(false);
+		expect(evaluateConditionalExpression('1 > = 1')).toBe(true);
+	});
+
 	it('allows callers to override Win32 without deriving it from Win64', () => {
 		expect(
 			evaluateConditionalExpression('Win32 And Win64', {
