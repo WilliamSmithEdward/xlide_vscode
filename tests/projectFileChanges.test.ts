@@ -31,6 +31,7 @@ import {
     checkProjectFile,
     onDidChangeProjectFile,
     recordProjectWrite,
+    takeReportedProjectFileChange,
     watchProjectFile,
     watchWorkspaceProjectFiles,
 } from '../src/projectFileChanges';
@@ -101,6 +102,32 @@ describe('project file changes made outside XLIDE', () => {
 
         expect(checkProjectFile(projectPath)).toBe(true);
         expect(seen).toEqual([projectPath]);
+    });
+
+    it('takes a change another process reports on the first look, which a check only records', () => {
+        // The MCP server's first write to a project the tree merely lists:
+        // nothing had looked at the file, so a check would record it silently.
+        saveOutsideXlide('written by the MCP server', Date.parse('2024-01-02T00:00:00Z'));
+
+        expect(takeReportedProjectFileChange(projectPath)).toBe(true);
+        expect(seen).toEqual([projectPath]);
+    });
+
+    it('takes the reported stamp as known, so the watchers\' look at the same save finds nothing new', () => {
+        checkProjectFile(projectPath);
+        saveOutsideXlide('written by the MCP server', Date.parse('2024-01-02T00:00:00Z'));
+
+        takeReportedProjectFileChange(projectPath);
+
+        expect(checkProjectFile(projectPath)).toBe(false);
+        expect(seen).toEqual([projectPath]);
+    });
+
+    it('takes no report for a file it cannot stat', () => {
+        fs.rmSync(projectPath);
+
+        expect(takeReportedProjectFileChange(projectPath)).toBe(false);
+        expect(seen).toEqual([]);
     });
 
     it('waits out a moment with no file, and reports the file that comes back', () => {

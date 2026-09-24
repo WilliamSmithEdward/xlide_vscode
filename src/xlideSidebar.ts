@@ -12,7 +12,13 @@ import {
 import { registerXlideCommand } from './xlideCommandRegistration';
 import { sameProjectPath, XLIDE_SCHEME } from './xlideFileSystem';
 import { resolveProjectTarget, SELECTED_PROJECT_STATE_KEY, storeSelectedProject } from './projectTarget';
-import { AGENT_INSTRUCTIONS, AGENT_INSTRUCTIONS_STEPS } from './agentInstructions';
+import {
+    AGENT_INSTRUCTIONS,
+    AGENT_INSTRUCTIONS_STEPS,
+    MCP_EDIT_MIRROR_HINT,
+    MCP_EDIT_MIRROR_LABEL,
+} from './agentInstructions';
+import { setXlideGlobalSettingValue, xlideAgentMirrorMcpEditsFromConfig } from './globalSettings';
 import {
     buildXlideSidebarModel,
     type XlideSidebarActiveProject,
@@ -32,6 +38,16 @@ interface XlideSidebarOptions {
     workspaceState?: vscode.Memento;
     /** Fired whenever the sidebar view is (re)shown, e.g. to lazy-start the backend. */
     onDidBecomeVisible?: () => void;
+    /**
+     * Whether this build mirrors the MCP server's edits, so the Agent
+     * Instructions dialog offers the toggle. A browser has no port to listen on.
+     */
+    offersMcpEditMirror?: boolean;
+}
+
+/** What the page draws for the toggle: its state, or nothing where it is not offered. */
+interface XlideSidebarPageOptions {
+    mcpEditMirror?: boolean;
 }
 
 interface XlideSidebarRegistration {
@@ -115,12 +131,32 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
                 return;
             }
             this._lastRenderedModelJson = modelJson;
-            this._view.webview.html = renderXlideSidebarHtml(model);
+            // The toggle's state is not part of the model: a model that changes
+            // redraws the whole page, which would close the dialog under the
+            // click that turned it. It is posted to the page instead.
+            this._view.webview.html = renderXlideSidebarHtml(model, { mcpEditMirror: this._mcpEditMirror() });
             trace.end('ok', `${model.length} nodes`);
         } catch (err) {
             trace.end('failed');
             throw err;
         }
+    }
+
+    /** The mirroring setting, or undefined where this build does not offer it. */
+    private _mcpEditMirror(): boolean | undefined {
+        if (!this._options.offersMcpEditMirror) {
+            return undefined;
+        }
+        return xlideAgentMirrorMcpEditsFromConfig(vscode.workspace.getConfiguration('xlide')).value;
+    }
+
+    /** Tells the page what the mirroring setting is now, and whether a change to it failed. */
+    async postMcpEditMirror(failed = false): Promise<void> {
+        const enabled = this._mcpEditMirror();
+        if (enabled === undefined) {
+            return;
+        }
+        await this._view?.webview.postMessage({ type: 'mcpEditMirror', enabled, failed });
     }
 
     private async _handleMessage(message: unknown): Promise<void> {
@@ -133,9 +169,23 @@ class XlideSidebarProvider implements vscode.WebviewViewProvider {
             arguments?: unknown;
             filePath?: unknown;
             url?: unknown;
+            enabled?: unknown;
         };
         if (payload.type === 'selectProject') {
             await this._selectProject(typeof payload.filePath === 'string' ? payload.filePath : undefined);
+            return;
+        }
+        // The same setting the settings page shows; the page hears back
+        // through the configuration change, or here when the write failed.
+        if (payload.type === 'setMcpEditMirror') {
+            if (typeof payload.enabled !== 'boolean' || this._mcpEditMirror() === undefined) {
+                return;
+            }
+            try {
+                await setXlideGlobalSettingValue(vscode.workspace.getConfiguration('xlide'), 'agent.mirrorMcpEdits', payload.enabled);
+            } catch {
+                await this.postMcpEditMirror(true);
+            }
             return;
         }
         // The dialog shows the same text, but what is copied is the host's own.
@@ -214,6 +264,9 @@ function registerXlideSidebar(options: XlideSidebarOptions = {}): XlideSidebarRe
         vscode.workspace.onDidChangeConfiguration((event) => {
             if (event.affectsConfiguration('xlide')) {
                 scheduleRefresh();
+            }
+            if (event.affectsConfiguration('xlide.agent.mirrorMcpEdits')) {
+                void provider.postMcpEditMirror();
             }
         }),
         vscode.workspace.onDidChangeWorkspaceFolders(projectFilesChanged),
@@ -322,7 +375,7 @@ async function sidebarProjectForPath(
 }
 
 
-function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
+function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[], page: XlideSidebarPageOptions = {}): string {
     const nonce = randomNonce();
     return `<!DOCTYPE html>
 <html lang="en">
@@ -664,11 +717,39 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
         .agentStatus {
             color: var(--vscode-descriptionForeground);
         }
+        /* The mirroring toggle, set apart from the steps above it. */
+        .agentMirror {
+            margin: 0 12px;
+            padding: 8px 10px;
+            border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border));
+            border-radius: 4px;
+        }
+        .agentMirrorToggle {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .agentMirrorToggle input {
+            margin: 0;
+            width: 16px;
+            height: 16px;
+        }
+        .agentMirrorHint {
+            margin: 4px 0 0 24px;
+            line-height: 1.45;
+            color: var(--vscode-descriptionForeground);
+        }
+        .agentMirror .agentStatus:not(:empty) {
+            display: block;
+            margin: 4px 0 0 24px;
+        }
     </style>
 </head>
 <body>
     <main class="shell">
-        ${sections.map((section) => renderSection(section)).join('')}
+        ${sections.map((section) => renderSection(section, page)).join('')}
     </main>
     <script nonce="${nonce}">
         const vscode = acquireVsCodeApi();
@@ -735,7 +816,7 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
         let openDialog = null;
         let dialogReturnFocus = null;
         function dialogRing() {
-            return Array.from(openDialog.querySelectorAll('button, textarea')).filter((one) => !one.disabled);
+            return Array.from(openDialog.querySelectorAll('button, input, textarea')).filter((one) => !one.disabled);
         }
         function showDialog(id) {
             const dialog = document.getElementById(id);
@@ -814,6 +895,21 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
                 agentCopy.textContent = 'Copy';
                 agentStatus.textContent = '';
             }, copied ? 2000 : 6000);
+        });
+        // The mirroring toggle writes the setting through the host, and shows
+        // the setting as the host reports it, wherever it was changed.
+        const mcpMirror = document.querySelector('[data-mcp-mirror]');
+        const mcpMirrorStatus = document.getElementById('agent-mcp-mirror-status');
+        mcpMirror?.addEventListener('change', () => {
+            mcpMirrorStatus.textContent = '';
+            vscode.postMessage({ type: 'setMcpEditMirror', enabled: mcpMirror.checked });
+        });
+        window.addEventListener('message', (event) => {
+            if (!mcpMirror || event.data?.type !== 'mcpEditMirror') {
+                return;
+            }
+            mcpMirror.checked = event.data.enabled === true;
+            mcpMirrorStatus.textContent = event.data.failed ? 'Could not change the setting.' : '';
         });
         document.addEventListener('click', (event) => {
             const dialogOpen = event.target.closest?.('[data-dialog-open]');
@@ -906,7 +1002,7 @@ function renderXlideSidebarHtml(sections: readonly XlideSidebarNode[]): string {
 </html>`;
 }
 
-function renderSection(section: XlideSidebarNode): string {
+function renderSection(section: XlideSidebarNode, page: XlideSidebarPageOptions): string {
     const children = section.children ?? [];
     const isActionSection = section.id === 'agenticAi' ||
         section.id === 'projectActions' ||
@@ -914,7 +1010,9 @@ function renderSection(section: XlideSidebarNode): string {
         section.id === 'support';
     const sectionClass = children.some((child) => child.kind === 'select') ? 'section hasCustomSelect' : 'section';
     // A dialog sits beside its section, not inside it, so nothing clips it.
-    const dialogs = children.some((node) => node.dialog === 'agentInstructions') ? renderAgentInstructionsDialog() : '';
+    const dialogs = children.some((node) => node.dialog === 'agentInstructions')
+        ? renderAgentInstructionsDialog(page.mcpEditMirror)
+        : '';
     return `<section class="${sectionClass}" aria-label="${escapeAttr(section.label)}">
         <div class="sectionHeader">${escapeHtml(section.label)}</div>
         <div class="${isActionSection ? 'actionGrid' : 'sectionBody'}">
@@ -931,18 +1029,30 @@ function renderSection(section: XlideSidebarNode): string {
  * The agent instructions dialog: what to do with them, then the text itself,
  * selectable but not editable, and a Copy button. The host copies its own
  * copy of the text; the webview only asks.
+ *
+ * Below the steps, where the MCP server is named, the toggle for mirroring
+ * its edits into the tree, when this build offers it.
  */
-function renderAgentInstructionsDialog(): string {
+function renderAgentInstructionsDialog(mcpEditMirror: boolean | undefined): string {
     const steps = AGENT_INSTRUCTIONS_STEPS
         .map((step) => `<li>${escapeHtml(step).replace(/`([^`]+)`/g, '<code>$1</code>')}</li>`)
         .join('');
+    const mirror = mcpEditMirror === undefined ? '' : `
+            <div class="agentMirror">
+                <label class="agentMirrorToggle">
+                    <input type="checkbox" data-mcp-mirror aria-describedby="agent-mcp-mirror-hint"${mcpEditMirror ? ' checked' : ''}>
+                    <span>${escapeHtml(MCP_EDIT_MIRROR_LABEL)}</span>
+                </label>
+                <p class="agentMirrorHint" id="agent-mcp-mirror-hint">${escapeHtml(MCP_EDIT_MIRROR_HINT)}</p>
+                <span class="agentStatus" id="agent-mcp-mirror-status" role="status"></span>
+            </div>`;
     return `<div class="dialogBackdrop" id="agent-instructions-dialog" data-dialog hidden>
         <div class="dialogCard agentCard" role="dialog" aria-modal="true" aria-labelledby="agent-instructions-title" aria-describedby="agent-instructions-steps">
             <div class="dialogHead">
                 <div class="dialogTitle" id="agent-instructions-title">Agent Instructions</div>
                 <button class="dialogClose" type="button" data-dialog-close aria-label="Close" title="Close (Esc)">&times;</button>
             </div>
-            <ol class="agentSteps" id="agent-instructions-steps">${steps}</ol>
+            <ol class="agentSteps" id="agent-instructions-steps">${steps}</ol>${mirror}
             <label class="agentTextLabel" for="agent-instructions-text">Instructions for your agent</label>
             <textarea class="agentText" id="agent-instructions-text" readonly spellcheck="false">${escapeHtml(AGENT_INSTRUCTIONS)}</textarea>
             <div class="agentActions">

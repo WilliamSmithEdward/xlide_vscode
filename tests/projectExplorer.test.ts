@@ -174,6 +174,29 @@ describe('ProjectExplorer', () => {
         expect(explorer.getTreeItem(module).collapsibleState).toBe(2);
     });
 
+    it('folds a module a late reveal opened, and never the one the accordion keeps open', async () => {
+        const explorer = new ProjectExplorer(fakeBridge([
+            { name: 'Module1', type: 'standard' },
+            { name: 'Module2', type: 'standard' },
+        ]));
+        const [project] = await explorer.getChildren();
+        const [module1, module2] = await explorer.getChildren(project);
+        explorer.setActiveModule(project.filePath, 'Module1');
+        const activeId = explorer.getTreeItem(module1).id;
+        const strayId = explorer.getTreeItem(module2).id;
+        vscodeMock.treeEvents = [];
+
+        explorer.foldModuleUnlessActive(project.filePath, 'Module2');
+        explorer.foldModuleUnlessActive(project.filePath, 'Module1');
+
+        // A new id is what makes VS Code draw the row folded again.
+        expect(explorer.getTreeItem(module2).id).not.toBe(strayId);
+        expect(explorer.getTreeItem(module2).collapsibleState).toBe(1);
+        expect(explorer.getTreeItem(module1).id).toBe(activeId);
+        expect(explorer.getTreeItem(module1).collapsibleState).toBe(2);
+        expect(vscodeMock.treeEvents).toEqual([module2]);
+    });
+
     it('keeps the current module expanded when a different module tab closes', async () => {
         const explorer = new ProjectExplorer(fakeBridge([
             { name: 'Module1', type: 'standard' },

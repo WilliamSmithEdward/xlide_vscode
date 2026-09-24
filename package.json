@@ -2,7 +2,7 @@
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
   "description": "Office VBA and Visual Basic 6 in VS Code - Excel, Word, PowerPoint, Access and .vbp projects; project tree, module editing, UserForm and VB6 form designers, static analysis, unit tests, AI agent tools",
-  "version": "10.7.1",
+  "version": "10.7.2",
   "publisher": "WilliamSmithE",
   "license": "MIT",
   "icon": "assets/images/extension_logo.png",
@@ -158,6 +158,12 @@
           "scope": "machine",
           "default": true,
           "description": "When an AI agent writes a VBA module through the XLIDE tools, open a before/after diff of the change and badge the module in the XLIDE tree with Keep / Revert actions. Agent tool writes never pass through the editor, so without this no diff appears anywhere."
+        },
+        "xlide.agent.mirrorMcpEdits": {
+          "type": "boolean",
+          "scope": "machine",
+          "default": true,
+          "description": "Show the edits the xlide-mcp server makes to a file this window shows the way XLIDE shows its own agent tools' writes: the modules reload, and with xlide.agent.showWriteDiffs on, each module the server wrote gets a before/after diff and Keep / Revert in the XLIDE tree. The server writes in its own process, so without this its edits show no diff and no Revert. The window listens on 127.0.0.1 behind a random token kept in a file only you can read. Turn off to close the port."
         },
         "xlide.diagnostics.enabled": {
           "type": "boolean",

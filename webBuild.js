@@ -133,6 +133,7 @@ const FORBIDDEN_BUILTINS = [
   "path",
   "os",
   "net",
+  "http",
   "child_process",
   "worker_threads",
   "crypto",

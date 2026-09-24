@@ -15,6 +15,7 @@ import { registerVbaTestCommands } from './commands/vbaTestCommands';
 import type { CommandDeps } from './commands/shared';
 import { GitChangeMarks, watchRepositoriesForMarks } from './gitChangeMarks';
 import { gitModuleCompareDeps, registerGitCompareCommands } from './gitModuleCompare';
+import { mirrorMcpEdits } from './mcpEditMirror';
 import type { ProjectEngine } from './projectEngine';
 import type { ProjectExplorer } from './projectExplorer';
 import { registerFormPreview } from './vbaFormPreview';
@@ -52,6 +53,20 @@ export const platformFeatures: PlatformFeatures = {
 		vbaIndex: VbaSymbolIndex,
 	): vscode.Disposable[] {
 		return registerAgentTools(context, bridge, explorer, fsProvider, vbaIndex);
+	},
+
+	mirrorMcpEdits(
+		context: vscode.ExtensionContext,
+		bridge: ProjectEngine,
+		explorer: ProjectExplorer,
+		log: (line: string) => void,
+	): vscode.Disposable[] {
+		return [mirrorMcpEdits({
+			bridge,
+			treeListsProject: (filePath) => explorer.listsProject(filePath),
+			log,
+			version: String(context.extension.packageJSON.version),
+		})];
 	},
 
 	registerPlatformCommands(deps: CommandDeps): vscode.Disposable[] {

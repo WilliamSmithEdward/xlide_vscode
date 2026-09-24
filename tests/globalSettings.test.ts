@@ -135,6 +135,7 @@ describe('globalSettings', () => {
         }, new Set(['docs.metadataGlob'])));
 
         expect(settings.map((setting) => setting.key)).toEqual([
+            'xlide.agent.mirrorMcpEdits',
             'xlide.agent.showWriteDiffs',
             'xlide.analysis.ignoreFilesOutsideTree',
             'xlide.analysis.ruleSeverityOverrides',

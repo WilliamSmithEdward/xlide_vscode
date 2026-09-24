@@ -45,6 +45,7 @@ function world(options: { enabled?: () => boolean } = {}) {
         resolveProcedureNode: vi.fn(async (_path: string, _name: string, label: string) => procedures.get(label)),
         setActiveModule: vi.fn(),
         clearActiveModule: vi.fn(),
+        foldModuleUnlessActive: vi.fn(),
         collapseAllFolders: vi.fn(),
         notifyFolderExpansion: vi.fn(),
         notifyProjectCollapsed: vi.fn(),
@@ -196,6 +197,30 @@ describe('the explorer following the editor', () => {
         await vi.advanceTimersByTimeAsync(REVEAL_EVENT_GRACE_MS + 1);
         expand(modules.get('A')!);
         expect(explorer.setActiveModule).toHaveBeenLastCalledWith(PROJECT, 'A');
+    });
+
+    it('folds a module its reveal opened after the editor had left it', async () => {
+        // The module's tab closed while the reveal was under way: the
+        // accordion folded the module, and the reveal then opened it again.
+        // Taken as the reveal's own, the expansion stayed, with no tab.
+        const { caret, explorer, expand, modules, treeView } = make();
+        let release: () => void = () => undefined;
+        treeView.reveal.mockImplementationOnce(async (node: XlideNode) => {
+            await new Promise<void>((resolve) => { release = resolve; });
+            treeView.select([node]);
+        });
+        caret.moveTo('A', 'First');
+        await settle();
+        caret.current = undefined;
+        host.tabsChanged?.({ closed: [], opened: [], changed: [] });
+        release();
+        await settle();
+
+        expand(modules.get('A')!);
+
+        expect(explorer.clearActiveModule).toHaveBeenCalledWith(PROJECT, 'A');
+        expect(explorer.foldModuleUnlessActive).toHaveBeenCalledWith(PROJECT, 'A');
+        expect(explorer.setActiveModule.mock.calls).toEqual([[PROJECT, 'A']]);
     });
 
     it('claims the rows it opens before the reveal, so a pass overtaken in between leaves no clicks behind', async () => {

@@ -15,6 +15,9 @@
 //     covers a project outside the workspace;
 //   - the check the file system provider makes whenever VS Code asks it
 //     about a module, before a read or a save.
+//
+// The MCP server can also say it changed a file (mcpEditMirror.ts), which
+// fires the event at once instead of waiting for one of those to look.
 
 import { hostPlatform } from './vba/hostPlatform';
 import { workspaceUriFor } from './util/workspaceUris';
@@ -63,6 +66,25 @@ export function checkProjectFile(projectPath: string): boolean {
     if (known === undefined || known === stamp) {
         return false;
     }
+    changeEmitter.fire(projectPath);
+    return true;
+}
+
+/**
+ * Takes a change another process says it made as the file's new state: the
+ * stamp is recorded, so a watcher's look at the same save finds nothing new,
+ * and the event fires now. It fires on the first look at a project too, where
+ * {@link checkProjectFile} only records one. A project the tree merely lists
+ * has no stamp until something looks at it, so the first write to it after VS
+ * Code started was recorded and never reported. A file that cannot be statted
+ * fires nothing, as there. True when the event fired.
+ */
+export function takeReportedProjectFileChange(projectPath: string): boolean {
+    const stamp = stampOf(projectPath);
+    if (stamp === undefined) {
+        return false;
+    }
+    accounted.set(projectIdentityKey(projectPath), stamp);
     changeEmitter.fire(projectPath);
     return true;
 }

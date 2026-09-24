@@ -50,6 +50,7 @@ interface XlideGlobalSettingValues {
     'officeIntegration.reopenReadOnlyAfterSave': boolean;
     'formRun.injectShowMacro': FormRunInjectShowMacro;
     'agent.showWriteDiffs': boolean;
+    'agent.mirrorMcpEdits': boolean;
     'diagnostics.enabled': boolean;
     'editor.blockLayout': VbaSmartBlockLayout;
     'editor.continueCommentOnNewline': boolean;
@@ -248,6 +249,18 @@ const XLIDE_GLOBAL_SETTINGS: {
             section: 'editor',
             label: 'Review Agent Writes',
             description: 'When an AI agent writes a VBA module through the XLIDE tools, open a before/after diff and badge the module in the XLIDE tree with Keep / Revert actions. Agent tool writes never pass through the editor, so without this no diff appears anywhere.',
+            control: { kind: 'boolean' },
+        },
+    },
+    'agent.mirrorMcpEdits': {
+        defaultValue: () => true,
+        normalize: normalizeBoolean(true),
+        validate: expectBoolean,
+        manifest: { type: 'boolean' },
+        webviewCard: {
+            section: 'editor',
+            label: 'Mirror MCP Server Edits',
+            description: 'Show the edits the xlide-mcp server makes to a file this window shows the way XLIDE shows its own agent tools\' writes: the modules reload, and with Review Agent Writes on, each module the server wrote gets a before/after diff and Keep / Revert in the XLIDE tree. The server writes in its own process, so without this its edits show no diff and no Revert. The window listens on a local port, behind a random token kept in a file only you can read. Turn off to close the port.',
             control: { kind: 'boolean' },
         },
     },
@@ -548,6 +561,10 @@ function xlidePerformanceTraceFromConfig(config: vscode.WorkspaceConfiguration) 
     return xlideGlobalSettingFromConfig(config, 'performance.trace');
 }
 
+function xlideAgentMirrorMcpEditsFromConfig(config: vscode.WorkspaceConfiguration) {
+    return xlideGlobalSettingFromConfig(config, 'agent.mirrorMcpEdits');
+}
+
 function resolvedXlideGlobalSettingsFromConfig(
     config: vscode.WorkspaceConfiguration,
 ): ResolvedXlideGlobalSetting<unknown>[] {
@@ -840,6 +857,7 @@ export {
     setXlideGlobalSettingValue,
     validateXlideGlobalSettingsFromConfig,
     validateXlideGlobalSettingsValues,
+    xlideAgentMirrorMcpEditsFromConfig,
     xlideAnalysisRuleSeveritiesFromConfig,
     xlideAnalysisUntrackedRulesFromConfig,
     xlideAnalysisVisibleSeveritiesFromConfig,

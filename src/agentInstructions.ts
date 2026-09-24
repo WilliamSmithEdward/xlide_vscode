@@ -16,6 +16,10 @@
 // (xlide_read_module), where the extension's are camelCase
 // (xlide_readModule). The test that checks every named tool exists runs over
 // the document with the MCP section cut out, for that reason.
+//
+// The dialog also holds the toggle that mirrors the MCP server's edits into
+// the tree (mcpEditMirror.ts). The MCP section names it, so an agent whose
+// edits no XLIDE window took can tell the user where to turn it on.
 
 /** What the user does with the instructions, one step each. Backticks mark file names. */
 export const AGENT_INSTRUCTIONS_STEPS: readonly string[] = [
@@ -26,6 +30,12 @@ export const AGENT_INSTRUCTIONS_STEPS: readonly string[] = [
     'Agents that work on files on disk, such as Claude and ChatGPT, cannot reach a module on their own. XLIDE\'s author recommends his xlide-mcp MCP server, which gives any MCP client its own tools for the VBA, forms and queries inside the file and for the document surface around them: sheets, cells, formulas and shapes. Nothing has to be installed: it is a few lines in your client\'s MCP configuration. The agent asks you before adding it, and without it falls back to export and import.',
     'A VB6 project\'s modules are ordinary files, so any agent edits those directly.',
 ];
+
+/** The dialog's toggle for mirroring the MCP server's edits, which the instructions name. */
+export const MCP_EDIT_MIRROR_LABEL = 'Mirror MCP server edits';
+
+/** What the toggle does, under it in the dialog. */
+export const MCP_EDIT_MIRROR_HINT = 'Shows the edits the xlide-mcp server makes in the XLIDE tree, with a before/after diff and Keep / Revert, like edits made through XLIDE\'s own tools. Applies to every VS Code window on this machine.';
 
 /** The instructions, as Markdown. */
 export const AGENT_INSTRUCTIONS: string = [
@@ -191,6 +201,8 @@ export const AGENT_INSTRUCTIONS: string = [
     '- A cell value is what Excel last calculated, so do not report a result of a formula you just wrote.',
     '- Anything destructive is the user\'s decision, not yours: deleting a module, overwriting cells that hold data, or writing to a signed or password-protected project.',
     '- Do not write while the file is open in its Office application. XLIDE notices your write and reloads any module the user has open.',
+    `- In VS Code, XLIDE shows each of your module writes in its tree with a before/after diff and Keep / Revert, as it does for its own tools, while the user has "${MCP_EDIT_MIRROR_LABEL}" turned on. That toggle is in the XLIDE sidebar's Agent Instructions dialog and in XLIDE's settings, from XLIDE 10.7.2.`,
+    '- A write\'s result carries an xlide_vscode field. If notified is false, no XLIDE window took the report: when the user works in VS Code with XLIDE, tell them your edits will not show in the XLIDE tree until they turn that toggle on. If shown is false, no window has the file in its tree or open. If review is "pending", the module waits in the XLIDE tree: tell the user to look there and choose Keep or Revert, and read the module again before your next edit if they revert.',
     '',
     '## UserForms',
     '',

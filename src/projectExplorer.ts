@@ -405,6 +405,15 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         };
     }
 
+    /**
+     * Whether the tree lists the file as a project, from the listing it draws.
+     * That listing is kept until the next refresh, so asking is cheap.
+     */
+    async listsProject(filePath: string): Promise<boolean> {
+        const key = projectNodeKey(filePath);
+        return (await this._getProjectFiles()).some((node) => projectNodeKey(node.filePath) === key);
+    }
+
     /** Returns the cached module node, if the tree has loaded it. */
     getModuleNode(filePath: string, moduleName: string): XlideNode | undefined {
         return this._moduleNodes.get(moduleNodeKey(filePath, moduleName));
@@ -565,6 +574,18 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         }
         if (refreshFromRoot) {
             this._emitter.fire();
+        }
+    }
+
+    /**
+     * Folds a module unless it is the one the accordion keeps open. A reveal
+     * still under way when the editor left the module opens it after the
+     * accordion has moved on, and nothing else would fold it again.
+     */
+    foldModuleUnlessActive(filePath: string, moduleName: string): void {
+        const key = moduleNodeKey(filePath, moduleName);
+        if (key !== this._activeModuleKey) {
+            this._refreshModuleExpansion(key);
         }
     }
 

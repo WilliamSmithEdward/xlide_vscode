@@ -2,6 +2,40 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.7.2] - 2026-09-24
+
+- **The xlide-mcp server's edits show in the XLIDE tree** (#91). The MCP
+  server writes the file in its own process, so XLIDE saw its edits only as a
+  file that changed on disk: no diff, no Revert. From xlide_mcp 1.1.0 the
+  server tells XLIDE what each tool call changed. Each module it writes gets
+  the before/after diff and the Review, Keep and Revert actions in the tree,
+  as a write through XLIDE's own tools does. Open modules reload at once. A
+  rename carries the review to the module's new name, and a delete ends it.
+  The server's first write to a file the tree only lists now refreshes the
+  tree as well; that write used to go unnoticed. A window acts only for a
+  file it shows, in its tree or with a module of it open, so a window on
+  another folder opens no diff.
+
+- **Mirror MCP server edits**, a toggle in the Agent Instructions dialog, and
+  the setting `xlide.agent.mirrorMcpEdits`, on by default. While it is on,
+  the window listens on 127.0.0.1 behind a random token, recorded in a file
+  only you can read, and turning it off closes the port. The diff and the
+  Keep and Revert actions also follow `xlide.agent.showWriteDiffs`. Desktop
+  only: a browser has no port to listen on.
+
+- **The agent instructions cover mirroring.** The text the Agent Instructions
+  dialog copies tells an agent on the MCP server what the toggle does, and
+  how to read the `xlide_vscode` field of the server's results. An agent
+  whose edits reached no XLIDE window can then tell you to turn the toggle
+  on.
+
+- **A module the tree opened after you left it folds again.** With auto
+  expand and collapse on, a module whose tab closed while the tree was still
+  revealing it stayed open with no tab, beside the module being edited. A
+  quick switch away could leave one open the same way. The module in front
+  keeps its row open and its procedure marked through the reloads a mirrored
+  edit causes.
+
 ## [10.7.1] - 2026-09-23
 
 - **What a one-line If runs after a colon belongs to the If.** In

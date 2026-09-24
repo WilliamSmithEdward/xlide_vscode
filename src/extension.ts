@@ -117,6 +117,7 @@ export function activate(context: vscode.ExtensionContext): void {
     // start, probe, or recover, so nothing gates the tree or the sidebar.
     const sidebar = registerXlideSidebar({
         workspaceState: context.workspaceState,
+        offersMcpEditMirror: platformFeatures.name === 'desktop',
     });
     sidebar.refresh();
 
@@ -314,6 +315,9 @@ export function activate(context: vscode.ExtensionContext): void {
         ...sidebar.disposables,
         registerXlideGlobalSettingsWebview(out),
         ...platformFeatures.registerAgentTools(context, bridge, explorer, fsProvider, vbaIndex),
+        // The MCP server's edits, reported to a loopback port, shown the way
+        // the tools' own writes are (see mcpEditMirror.ts).
+        ...platformFeatures.mirrorMcpEdits(context, bridge, explorer, (line) => out.appendLine(line)),
 
         statusBar,
         ...(openTargetStatusBar ? [openTargetStatusBar] : []),

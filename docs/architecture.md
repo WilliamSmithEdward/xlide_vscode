@@ -45,6 +45,8 @@ xlide_vscode/
     commands/           Per-domain command modules: analysisCommands.ts, moduleSyncCommands.ts, vbaTestCommands.ts, projectCrudCommands.ts, shapeCommands.ts, supportBundleCommands.ts, miscCommands.ts, shared.ts (CommandDeps + cross-domain helpers)
     agentTools.ts       LanguageModelTool registrations for AI agent use
     agentInstructions.ts The instructions for AI agents the sidebar's Agent Instructions dialog shows and copies
+    mcpEditMirror.ts    What a report from the xlide-mcp server does to the window: the edit mirrored into the tree with a diff and Keep / Revert, served while xlide.agent.mirrorMcpEdits is on (desktop only)
+    xlideApiServer.ts   The loopback API the MCP server reports to: a token-guarded 127.0.0.1 server and the xlide-api-{pid}.json record that says where it listens (Node only)
     projectModuleOperations.ts  Shared project module write/rename/delete service used by both UI commands and agent tools
     moduleExport.ts     Shared module export logic for UI commands and AI tools
     projectSettings.ts Strict project settings sidecar path, schema validation, and persistence
@@ -205,8 +207,11 @@ runs through `runWriteWithHostCoordination`, which records the file's stamp
 XLIDE's own; a stamp that had already moved before the write stays
 unaccounted, so the change it came from is not hidden behind the write. Any
 other stamp fires `onDidChangeProjectFile`, found by a watcher on the file
-while one of its modules is open, or by the check `stat()` makes. Two things
-follow. When the project's VBA changed with the file, its cached state is
+while one of its modules is open, or by the check `stat()` makes. The MCP
+server can also report a write it made (`mcpEditMirror.ts`), which
+`takeReportedProjectFileChange` fires at once. That also covers the first
+write to a project the tree merely lists, which a check only records, having
+nothing to compare it with. Two things follow. When the project's VBA changed with the file, its cached state is
 dropped as after an XLIDE write (`refreshProjectStateOnOutsideChange`), so
 analysis, completion and the tree read the modules again; Excel saving cells,
 AutoSave, and Access writing a database it merely has open (on open, about
@@ -349,7 +354,11 @@ instead for a caret in the declarations section, or in a procedure the
 container has not got yet (an unsaved rename). VS Code reports a reveal's
 expansions exactly as it reports clicks, and a click on a module moves the
 accordion. So the rows a pass opens count as its own until
-`REVEAL_EVENT_GRACE_MS` after the reveal settles.
+`REVEAL_EVENT_GRACE_MS` after the reveal settles. A reveal still under way
+when the editor leaves its module (the tab closes, another takes the front)
+opens the module after the accordion has moved on, so a module a pass opened
+is folded again unless it is the active one (`foldModuleUnlessActive`).
+Before that, it stayed open with no tab, beside the module being edited.
 
 Redrawn rows can undo a reveal. A refresh, a module's procedures listed again
 or a module moved by its `@Folder` fires `onDidReplaceRows`, which asks for a
@@ -807,6 +816,61 @@ to operate on export files.
 | `xlide_exportModules` | `#xlideExportModules` | writes export files + updates project JSON config | Yes |
 | `xlide_configureExportMode` | `#xlideConfigureExportMode` | updates project JSON config | Yes |
 
+### The MCP server's edits - `mcpEditMirror.ts`
+
+An agent that is not Copilot edits through the `xlide-mcp` server, which
+writes the file in its own process. That reached XLIDE only as a file that
+changed on disk: no before, so no diff and no Revert. From xlide_mcp 1.1.0 the
+server reports each write to a loopback API the window serves
+(`xlideApiServer.ts`); the protocol is `docs/xlide-vscode-bridge.md` in
+xlide_mcp (issue #91 here).
+
+The window listens on 127.0.0.1 at a port the system picks. Every path starts
+with a random 32-byte token, compared in constant time; a wrong token and an
+unknown endpoint both answer 404. It says where it listens in
+`xlide-api-{pid}.json`, in `%LOCALAPPDATA%\xlide_vscode` on Windows and
+`$XDG_STATE_HOME/xlide_vscode` elsewhere (`~/.local/state` when that is unset,
+empty or relative), written through a temp file with mode 0600 in a 0700
+folder. The record holds pid, port, token, product, version, protocol and the
+workspace folders. It is rewritten when the folders change and deleted when
+the window closes. A window starting up deletes the records of processes
+that are gone, which signal 0 tells without sending anything. `GET hello`
+answers `{"product": "xlide_vscode", "protocol": 1}`, and the server believes
+no record until it does.
+
+Three reports, each answered with `{"shown": bool, "review": "pending" |
+"none"}`, one at a time per file:
+
+- `agent-edit` (file, module, before, beforeExisted, after, afterExists,
+  kind) takes the file's new state, then presents the write the way
+  `xlide_writeModule` does: `presentAgentModuleWrite`, gated on
+  `xlide.agent.showWriteDiffs`. The after is XLIDE's own `readModule`, since
+  Revert compares the module with it. The server's before goes through
+  `splitVbaSource`, as the engine reads a body, because the server's
+  header-stripped body can keep blank lines above the code. A delete
+  (afterExists false) ends the module's review. A module that existed must
+  come with a before, since Revert writes it back.
+- `module-renamed` (file, from, to) takes the new state and carries a review
+  to the new name.
+- `file-changed` (file, what) only takes the new state.
+
+"Takes the new state" is `takeReportedProjectFileChange`: the stamp is
+recorded and `onDidChangeProjectFile` fires, which reloads open modules,
+refreshes the tree when the VBA changed and follows a rename. A window acts
+only for a file it shows, in its tree (`ProjectExplorer.listsProject`) or with
+a module of it open: the server reports to every window, and one showing
+another folder must not open a diff for a file it does not list. A review the
+window already holds follows the module either way.
+
+`xlide.agent.mirrorMcpEdits` (machine scope, on by default) starts and stops
+the server as it changes. The Agent Instructions dialog carries a toggle for
+the same setting, updated by message rather than a redraw, since a redraw
+would close the dialog under the click. The pasted instructions name the
+toggle and tell an agent to read the `xlide_vscode` field of the server's tool
+results, so it can say when its edits reach no XLIDE window. A browser has no
+port to listen on, so the web build neither serves it nor offers the toggle,
+and `http` is among the builtins its bundle must not contain.
+
 ---
 
 ---
@@ -876,7 +940,9 @@ module. The host copies its own copy of the text, so the webview only asks
 rather than holding it. A test keeps the text naming every tool in
 `package.json` and no tool, chat reference, command or button that does not
 exist. The dialog takes the focus until it closes: held inside, Escape to
-close, and given back to the button that opened it.
+close, and given back to the button that opened it. Below the steps, the
+desktop build shows the Mirror MCP server edits toggle (see "The MCP server's
+edits" under AI agent tools).
 
 There is no Setup section: the project engine runs in-process, so nothing has
 to be installed, detected, or repaired before the tree and the actions work. The

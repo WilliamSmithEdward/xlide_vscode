@@ -44,6 +44,7 @@ export interface FollowedExplorer {
     resolveProcedureNode(filePath: string, moduleName: string, label: string): Promise<XlideNode | undefined>;
     setActiveModule(filePath: string, moduleName: string): void;
     clearActiveModule(filePath: string, moduleName: string): void;
+    foldModuleUnlessActive(filePath: string, moduleName: string): void;
     collapseAllFolders(): void;
     notifyFolderExpansion(node: XlideNode, expanded: boolean): void;
     notifyProjectCollapsed(filePath: string): void;
@@ -114,7 +115,18 @@ export class ExplorerFollow implements vscode.Disposable {
             // editor moves to another folder. A row our own reveal expanded
             // is neither.
             treeView.onDidExpandElement((event) => {
-                if (!_deps.enabled() || this._isOurs(event.element)) {
+                if (!_deps.enabled()) {
+                    return;
+                }
+                if (this._isOurs(event.element)) {
+                    // A reveal still under way when the editor left its
+                    // module - its tab closed, another took the front - opens
+                    // the module after the accordion moved on. Left open, it
+                    // stayed that way with no tab, beside the module being
+                    // edited.
+                    if (event.element.kind === 'module' && event.element.moduleName) {
+                        explorer.foldModuleUnlessActive(event.element.filePath, event.element.moduleName);
+                    }
                     return;
                 }
                 if (event.element.kind === 'module' && event.element.moduleName) {

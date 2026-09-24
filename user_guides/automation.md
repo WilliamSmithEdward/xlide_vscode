@@ -32,6 +32,24 @@ PowerPoint, or Access - without driving the XLIDE panels by hand.
    modules were added or removed. `git diff` cannot say this about a binary file,
    so this is what an agent reviews changes or writes a commit message from.
 
+## Agents On The MCP Server
+
+An agent that is not Copilot can edit through the
+[xlide-mcp](https://github.com/WilliamSmithEdward/xlide_mcp) server instead.
+From xlide_mcp 1.1.0 the server tells XLIDE what each write changed, and
+XLIDE shows it the way it shows its own tools' writes: open modules reload,
+and each module the server wrote gets the before/after diff and the Review,
+Keep and Revert actions in the tree. A module the server renames keeps its
+review under the new name, and one it deletes ends it. This applies to a file
+the window shows, in its tree or with a module of it open.
+
+The toggle is **Mirror MCP server edits**, in the Agent Instructions dialog
+of the XLIDE sidebar, and the setting is `xlide.agent.mirrorMcpEdits`. It is
+on by default. While it is on, the window listens on a local port
+(127.0.0.1) behind a random token, which it keeps in a file only you can
+read. Turning it off closes the port. The diff and the Keep and Revert
+actions also follow `xlide.agent.showWriteDiffs`.
+
 `xlide_runVbaTests` supports `moduleName`, `procedureName`, `testIds`,
 `includeTags`, `excludeTags`, and `failFast` so an agent can start narrow while
 editing and finish with a full run.

@@ -12,6 +12,7 @@ import './crossModuleDiagnostics.test';
 import './canonicalCasing.test';
 import './agentReview.test';
 import './outsideChanges.test';
+import './mcpEditMirror.test';
 import './saveConflicts.test';
 import './renameModule.test';
 import './vbeRename.test';

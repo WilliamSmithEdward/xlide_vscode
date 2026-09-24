@@ -8,6 +8,7 @@
 //   - the off-thread analysis worker
 //   - the form designers, which read sidecar files from disk
 //   - the language model tools
+//   - mirroring the MCP server's edits, which listens on a local port
 //   - commands that launch Office or shell out
 //   - cleaning up temp directories a previous test-host run left behind
 //
@@ -74,6 +75,18 @@ export interface PlatformFeatures {
 		explorer: ProjectExplorer,
 		fsProvider: XlideFileSystemProvider,
 		vbaIndex: VbaSymbolIndex,
+	): vscode.Disposable[];
+
+	/**
+	 * Shows the edits the MCP server makes, which it reports to a loopback
+	 * port, in the tree with a diff and Keep / Revert. A browser has no port
+	 * to listen on.
+	 */
+	mirrorMcpEdits(
+		context: vscode.ExtensionContext,
+		bridge: ProjectEngine,
+		explorer: ProjectExplorer,
+		log: (line: string) => void,
 	): vscode.Disposable[];
 
 	/**

@@ -65,6 +65,11 @@ export const platformFeatures: PlatformFeatures = {
 		return [];
 	},
 
+	mirrorMcpEdits(): vscode.Disposable[] {
+		// No port to listen on, and no MCP server beside a browser to report.
+		return [];
+	},
+
 	registerPlatformCommands(_deps: CommandDeps): vscode.Disposable[] {
 		return [];
 	},

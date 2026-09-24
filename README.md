@@ -319,7 +319,9 @@ is an MCP server over the same ground: the VBA, the UserForms and the
 Power Query inside Excel, Word, PowerPoint and Access files, reachable
 by anything that speaks the Model Context Protocol. It carries the
 content-token guard and the analysis build gate this extension uses, so
-an agent editing a workbook is held to the same rules you are.
+an agent editing a workbook is held to the same rules you are. Run it
+beside XLIDE and its edits show in the XLIDE tree with a before/after
+diff and Keep / Revert, like the edits of XLIDE's own agent tools.
 
 ```bash
 uvx --from "xlide-mcp[live]" xlide-mcp --root /path/to/your/files
