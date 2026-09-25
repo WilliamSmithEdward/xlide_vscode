@@ -2,6 +2,65 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.8.0] - 2026-09-25
+
+- **Parts of a module, read and edited in one call** (#95). `xlide_readModule`
+  takes `ranges` (line ranges) and `procedures` (names) and returns each part
+  under a line naming its lines. The new `xlide_editModule` replaces line
+  ranges, replaces whole procedures by name and inserts after a line, any
+  number of edits in one call, each numbered as the read showed the module. It
+  requires that read's contentToken and refuses edits that touch the same
+  lines. The result names the lines each edit now occupies and the module's
+  new token. A chat-driven edit gets the same before/after diff and Keep /
+  Revert as a write. A procedure's lines are its comment lines, header and
+  End line; the blank lines between procedures are left alone.
+
+- **`xlide_importModules`** (#92). Agents can apply a folder of `.bas`, `.cls`
+  and `.frm` files to a file, as Import Modules from Folder does: standard
+  and class modules updated or created, document and form modules updated
+  when the file has them, the rest skipped and said so. The confirmation
+  says what the folder would update, create, delete and skip. `modules`
+  limits the import to named files, and the folder defaults to the one the
+  last export recorded. A chat-driven import shows a diff and Keep / Revert
+  for each module it wrote.
+
+- **Keep All and Revert All** (#94), above the XLIDE tree while any agent
+  edit awaits a decision. Revert All asks first and leaves alone a module
+  changed again since the agent wrote it.
+
+- **The agent instructions name `.mcp.json`** (#93). In VS Code the MCP
+  server's block goes in `.mcp.json` at the top of the workspace folder,
+  which VS Code reads natively (so GitHub Copilot in Agent mode gets the
+  server's tools) and Claude Code reads for the project. The instructions
+  also name `.vscode/mcp.json`, the new tools and the tree's Keep All and
+  Revert All, and no longer say Access databases cannot be imported: a
+  module written into an Access database takes effect when Access next
+  opens it.
+
+- The Import Modules from Folder preview and the new tool apply an import
+  through one path, so an agent's import leaves the same audit entries and
+  reloads the same editors as yours.
+
+- **A workbook's sheets are a Sheets folder in the tree**, in tab order. A
+  sheet's module is named the way the VBA editor names it, `Sheet1 (Budget)`.
+  A sheet with shapes and no module is a row of its own, and the sheets with
+  neither sit last in Sheets With No Modules or Shapes. A sheet's Shapes
+  folder appears only when it has one or more shapes. The sheet list comes
+  from the workbook itself, for `.xls`, `.xlt`, `.xla` and `.xlsb` too, which
+  keep it in binary records XLIDE now reads: those formats list their sheets
+  and modules the same way, and only their shapes stay unread. Chart sheets
+  are listed. The old Sheets With No Module folder depended on the shapes
+  listing, so it came late, only for the OOXML formats, and not at all when
+  a drawing could not be parsed. A shape added or removed through XLIDE
+  moves its sheet between the folder's rows at once; one added in Excel
+  shows there on the next refresh.
+
+- **A folder the tree had let go of folds again.** Switching tabs leaves no
+  editor active for a moment, which folds every folder in the folder layout;
+  a reveal still under way then opened the previous module's folders again,
+  and the tree, believing nothing open, left them so on the next move. The
+  tree now folds from what VS Code reports open.
+
 ## [10.7.2] - 2026-09-24
 
 - **The xlide-mcp server's edits show in the XLIDE tree** (#91). The MCP

@@ -55,6 +55,8 @@ export interface MacroContainer {
 	description: string;
 	/** The OOXML package, when the container is one (any host). */
 	xlsx?: XlsxWorkbook;
+	/** The compound file itself, when the document is one (.xls, .doc): its own streams, VBA or not. */
+	cfb?: Cfb;
 	/** The CFB holding the VBA project; parsed once and cached. Raises
 	 * {@link NoVbaProjectError} when the file has no VBA project in it yet. */
 	vbaCfb(): Cfb;
@@ -185,6 +187,7 @@ function wholeCfbContainer(outer: Cfb, kind: MacroContainerKind, description: st
 		kind,
 		writable: true,
 		description,
+		cfb: outer,
 		vbaCfb: (): Cfb => {
 			// A legacy document with no macros carries no VBA storage at all;
 			// parsing it would answer "not a valid VBA project", which reads

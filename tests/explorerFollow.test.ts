@@ -48,6 +48,7 @@ function world(options: { enabled?: () => boolean } = {}) {
         foldModuleUnlessActive: vi.fn(),
         collapseAllFolders: vi.fn(),
         notifyFolderExpansion: vi.fn(),
+        noteFolderExpanded: vi.fn(),
         notifyProjectCollapsed: vi.fn(),
         getParent: (node: XlideNode): XlideNode | undefined =>
             node.kind === 'sub' ? modules.get(node.moduleName ?? '') : node.kind === 'module' ? project : undefined,
@@ -343,15 +344,19 @@ describe('the explorer following the editor', () => {
         expect(revealed()).toEqual(['Sub AFirst', 'Sub BFirst']);
     });
 
-    it('does nothing while the setting is off', async () => {
-        const { caret, explorer, revealed, rowsReplaced } = make({ enabled: () => false });
+    it('does nothing while the setting is off, except note what the user opens', async () => {
+        const { caret, explorer, expand, modules, revealed, rowsReplaced } = make({ enabled: () => false });
         caret.moveTo('A', 'First');
         rowsReplaced.fire(undefined);
+        expand(modules.get('B')!);
         await settle();
 
         expect(explorer.resolveModuleNode).not.toHaveBeenCalled();
         expect(explorer.setActiveModule).not.toHaveBeenCalled();
         expect(revealed()).toEqual([]);
+        // So that the fold which runs once the setting is turned on knows.
+        expect(explorer.noteFolderExpanded).toHaveBeenCalledWith(modules.get('B'), true);
+        expect(explorer.notifyFolderExpansion).not.toHaveBeenCalled();
     });
 
     it('leaves the tree as it is when no module is in front', async () => {

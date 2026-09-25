@@ -13,6 +13,7 @@ import './canonicalCasing.test';
 import './agentReview.test';
 import './outsideChanges.test';
 import './mcpEditMirror.test';
+import './agentEdits.test';
 import './saveConflicts.test';
 import './renameModule.test';
 import './vbeRename.test';

@@ -410,6 +410,8 @@ export class ProjectEngine implements vscode.Disposable {
 			// --- sheets and cells ---
 			case 'listSheets':
 				return svc.listSheets(str(p, 'path'));
+			case 'listWorkbookSheets':
+				return svc.listWorkbookSheets(str(p, 'path'));
 			case 'readCells':
 				return svc.readCells(str(p, 'path'), str(p, 'sheet'), str(p, 'range'));
 			case 'readFormulas':

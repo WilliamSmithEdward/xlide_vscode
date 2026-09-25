@@ -39,6 +39,7 @@ import {
 	parseFormFrx,
 } from './formDesigner';
 import { NoVbaProjectError, openMacroContainer, type AccessContainerDesign, type MacroContainer } from './macroContainer';
+import { sheetsOfBiff, type WorkbookSheet } from './workbookSheets';
 import { ZipArchive } from './zip';
 import {
 	AccessVbaWriter,
@@ -1968,6 +1969,30 @@ export function getModulesAndProtectionInfo(filePath: string): ProtectionInfo & 
 
 export function listSheets(filePath: string): { sheets: SheetSummary[] } {
 	return { sheets: sheetSurface(filePath).sheetSummaries() };
+}
+
+/**
+ * Every sheet of a workbook in tab order, with its code name: the module the
+ * VBA project has for it, once Excel has given it one. Read from the OOXML
+ * parts, the binary parts of an .xlsb, or the BIFF8 records of an .xls, so
+ * every Excel format the tree lists answers; a file with no VBA project
+ * answers too.
+ */
+export function listWorkbookSheets(filePath: string): { sheets: WorkbookSheet[] } {
+	if (isVb6ProjectPath(filePath)) {
+		throw new Error(`${path.basename(filePath)} is a VB6 project; it has no sheets.`);
+	}
+	const { container } = cachedPackage(filePath);
+	if (container.kind !== 'excel') {
+		throw new Error(`${path.basename(filePath)} is ${container.description}; it has no sheets.`);
+	}
+	if (container.xlsx) {
+		return { sheets: container.xlsx.sheetCatalog() };
+	}
+	if (container.cfb) {
+		return { sheets: sheetsOfBiff(container.cfb) };
+	}
+	throw new Error(`${path.basename(filePath)} is ${container.description}; its sheets cannot be read.`);
 }
 
 export function getProjectInfo(filePath: string): {

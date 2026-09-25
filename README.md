@@ -413,12 +413,14 @@ Open the Command Palette and type `XLIDE` to find these commands:
 - The UserForm designer keeps every property it does not name itself, so a
   form you have not edited saves back unchanged. Access designs work the same
   way.
-- Excel gives a worksheet its module only once its VBA editor is opened
-  after the sheet was added, so the tree lists a sheet with no module under
-  Sheets With No Module. ActiveX controls are listed but not edited, and
+- The tree lists a workbook's sheets in a Sheets folder, in tab order, with
+  each module named the way the VBA editor names it: Sheet1 (Budget). Excel
+  gives a worksheet its module only once its VBA editor is opened after the
+  sheet was added; a sheet with no module and no shapes sits in Sheets With
+  No Modules or Shapes. ActiveX controls are listed but not edited, and
   pictures and charts can be changed but not added. The shape tools need the
-  Office Open XML formats; a binary .xlsb, .xls, .doc, or .ppt file shows no
-  shapes.
+  Office Open XML formats; a binary .xlsb, .xls, .doc, or .ppt file lists
+  its sheets but shows no shapes.
 - After XLIDE writes to an Access database, Access recompiles it on the next
   open, so all the VBA in it has to compile, including code XLIDE did not
   touch.

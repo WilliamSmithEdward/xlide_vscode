@@ -2,10 +2,10 @@
 
 XLIDE can synchronize a file's VBA modules with ordinary `.bas` and `.cls`
 files. Use this when you want Git history, code review, backups, or external
-tooling over module text. Every macro container exports - projects,
-documents, presentations, and Access databases alike; import applies to the
-writable containers (Access is export-only, because Access executes compiled
-p-code and source writes there could not take effect).
+tooling over module text. Every macro container exports and imports:
+projects, documents, presentations, and Access databases alike. A module
+written into an Access database takes effect when Access next opens it and
+recompiles.
 
 For normal editing, the file and `xlide-vba` editor documents remain the
 source of truth. Open modules from the XLIDE tree, edit in VS Code, and
@@ -192,10 +192,12 @@ the task is specifically to create or refresh exported files.
 The v2 agent tools include:
 
 - `xlide_exportModules` for exporting all project modules to a folder
+- `xlide_importModules` for applying a folder's `.bas`, `.cls` and `.frm`
+  files to the project, under the same rules as the preview: standard and
+  class modules are updated or created, document and form modules are updated
+  when the project has them, and the confirmation says what would change
+  before anything is written
 - `xlide_configureExportMode` for setting the project-specific export mode
-
-There is no v2 import agent tool. Import remains a user-previewed workflow so a
-developer can inspect the project mutation before applying it.
 
 After a meaningful import, run project analysis and any available project tests
 before treating the project as release-ready.

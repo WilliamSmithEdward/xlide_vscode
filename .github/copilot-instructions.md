@@ -16,14 +16,16 @@ not.**
 Reach VBA one of two ways, both of which read and write the project itself:
 
 - **XLIDE tools** - discover with `xlide_getProjectInfo` or
-  `xlide_listModules`, read with `xlide_readModule`, write with
-  `xlide_writeModule`.
+  `xlide_listModules`, read with `xlide_readModule` (the whole module, or the
+  line ranges and procedures you name), write with `xlide_writeModule`, and
+  change parts of a module with `xlide_editModule`.
 - **The XLIDE virtual file system** - modules opened from the XLIDE tree live at
   `xlide-vba://` URIs. Editing and saving one of those documents writes straight
   back into the project, so ordinary editor edits are project edits. Make your
-  own changes with `xlide_writeModule` all the same: XLIDE cannot tell an
-  agent's edit to such a document from the user's typing, so it gets no
-  before/after diff and no tree badge, where a write through the tool does.
+  own changes with `xlide_writeModule` or `xlide_editModule` all the same:
+  XLIDE cannot tell an agent's edit to such a document from the user's typing,
+  so it gets no before/after diff and no tree badge, where a write through the
+  tool does.
 
 Both paths go through XLIDE's in-process project engine, which parses and
 rewrites the OLE compound file, the VBA project streams, and the OOXML package
@@ -37,8 +39,10 @@ material only when the user explicitly asks you to work on the export
 artifacts, the repository sync files, or an import from disk.
 
 Use `xlide_exportModules` only when the user wants to export/sync project
-modules to disk. After direct project edits, verify with
-`xlide_analyzeProject`; export to repo files is optional and user-directed.
+modules to disk, and `xlide_importModules` only when the user wants a folder
+of module files applied to the project. After direct project edits, verify
+with `xlide_analyzeProject`; export to repo files is optional and
+user-directed.
 
 ---
 
@@ -115,7 +119,7 @@ affects tested behavior.
 | `xlide_validateProject` | Check protection/signature/project issues before risky work. |
 | `xlide_listModules` | Need only the VBA module list. |
 | `xlide_listSubs` | Need procedures in a specific module. |
-| `xlide_readModule` | Read canonical VBA source from the project. |
+| `xlide_readModule` | Read canonical VBA source from the project: the whole module, or the line ranges and procedures you name, in one call. |
 | `xlide_searchModules` | Find where a name is declared or used, across every module. |
 | `xlide_gitChanges` | Review what changed in each module since a git revision (HEAD by default). |
 | `xlide_analyzeProject` | Verify VBA syntax/analysis across the whole project. |
@@ -132,6 +136,7 @@ These tools require user confirmation.
 | Tool | When to use |
 |---|---|
 | `xlide_writeModule` | Write or create canonical project VBA source. |
+| `xlide_editModule` | Change parts of a module in one call: line ranges, whole procedures, insertions. Needs the contentToken of the read the edits are based on. |
 | `xlide_renameModule` | Rename a VBA module. |
 | `xlide_deleteModule` | Delete a VBA module. Warn before destructive edits. |
 | `xlide_createProject` | Create a new macro-enabled file. |
@@ -140,6 +145,7 @@ These tools require user confirmation.
 | `xlide_addReference` | Reference another application's object library, so the project's VBA can name its types early bound. |
 | `xlide_removeReference` | Take a reference away again. Code that names it early bound stops compiling. |
 | `xlide_exportModules` | Export/sync project modules to files on disk when explicitly requested. |
+| `xlide_importModules` | Apply a folder's `.bas`, `.cls` and `.frm` files to the project when explicitly requested; the confirmation says what would change. |
 | `xlide_configureExportMode` | Set the persistent export mode for a project. |
 
 ### Execute / Test
@@ -169,6 +175,10 @@ application through COM on Windows.
 - `xlide_writeModule` creates the module if it does not exist: a standard
   module, or a class module when you pass `kind: 'class'`. A header in the
   source is replaced by the module's own, so it does not make a class.
+- `xlide_editModule` numbers lines as the read it is based on showed them and
+  refuses a stale `expectedContentToken`, so read, then edit, then read again
+  before the next edit. A procedure edit's text carries the header and the
+  End line; the blank lines between procedures stay as they are.
 - Document modules such as `Sheet1`, `Sheet2`, and `ThisWorkbook` cannot be
   deleted or renamed. They can only be written.
 - Project write tools save the project after the call. Sync tools write files

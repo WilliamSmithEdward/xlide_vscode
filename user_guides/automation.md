@@ -10,8 +10,13 @@ PowerPoint, or Access - without driving the XLIDE panels by hand.
 1. Discover the target file with `xlide_listProjects` (it lists every macro
    container and every VB6 `.vbp` project) or confirm structure with
    `xlide_getProjectInfo`.
-2. Read the file's VBA with `xlide_readModule`.
-3. Write changes with `xlide_writeModule` or the other module tools. A write
+2. Read the file's VBA with `xlide_readModule`: the whole module, or for a
+   large one the line ranges and procedures the task needs, in one call.
+3. Write changes with `xlide_writeModule`, or change parts of a module with
+   `xlide_editModule`, which replaces line ranges and whole procedures and
+   inserts after a line, several edits in one call against the read's
+   contentToken. To apply a folder of exported files instead, use
+   `xlide_importModules` when the user asks for that. A write
    to an Access file takes effect when Access next opens the database and
    recompiles. Each chat-driven write opens a before/after diff for the user,
    and the XLIDE tree badges the module (` ● agent edit`) with inline Review,

@@ -146,7 +146,11 @@ export function activate(context: vscode.ExtensionContext): void {
                 value: count,
                 tooltip: count === 1 ? '1 agent edit awaiting review' : `${count} agent edits awaiting review`,
             };
+        // The Keep All and Revert All buttons above the tree show while there
+        // is something to decide.
+        void vscode.commands.executeCommand('setContext', 'xlide.agentReviewsPending', count > 0);
     };
+    showPendingAgentReviewCount();
     context.subscriptions.push(
         agentReviewDecorations,
         vscode.window.registerFileDecorationProvider(agentReviewDecorations),

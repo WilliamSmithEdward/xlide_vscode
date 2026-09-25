@@ -48,6 +48,30 @@ describe('XLIDE agent tool manifest', () => {
         expect(tool?.modelDescription).not.toContain('persist only through this tool or through the XLIDE virtual file system');
     });
 
+    it('reads parts of a module in one call, and requires the read s token to edit them', () => {
+        const read = languageModelTools().find((entry) => entry.name === 'xlide_readModule');
+        expect(Object.keys(read?.inputSchema?.properties ?? {})).toEqual(expect.arrayContaining(['ranges', 'procedures']));
+
+        const edit = languageModelTools().find((entry) => entry.name === 'xlide_editModule');
+        expect(edit).toEqual(expect.objectContaining({ toolReferenceName: 'xlideEditModule' }));
+        // Line numbers mean one read; without its token an edit lands on
+        // whatever the module holds now.
+        expect(edit?.inputSchema?.required).toEqual(['filePath', 'moduleName', 'expectedContentToken', 'edits']);
+        expect(edit?.modelDescription).toContain('as xlide_readModule last showed it');
+        expect(edit?.modelDescription).toContain('Keep/Revert');
+    });
+
+    it('imports a folder of module files on request, and says that is not the way to edit VBA', () => {
+        const tool = languageModelTools().find((entry) => entry.name === 'xlide_importModules');
+
+        expect(tool).toEqual(expect.objectContaining({ toolReferenceName: 'xlideImportModules' }));
+        expect(tool?.inputSchema?.required).toEqual(['filePath']);
+        expect((tool?.inputSchema?.properties?.importMode as { enum?: string[] })?.enum)
+            .toEqual(['updateOnly', 'trueUpStandardClass']);
+        expect(tool?.modelDescription).toContain('not the way to edit VBA');
+        expect(tool?.modelDescription).toContain('confirmation');
+    });
+
     it('offers the libraries a project can be given a reference to, and only those', () => {
         const tool = languageModelTools().find((entry) => entry.name === 'xlide_addReference');
 

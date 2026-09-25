@@ -2,7 +2,7 @@
   "name": "xlide",
   "displayName": "XLIDE: VBA for VS Code",
   "description": "Office VBA and Visual Basic 6 in VS Code - Excel, Word, PowerPoint, Access and .vbp projects; project tree, module editing, UserForm and VB6 form designers, static analysis, unit tests, AI agent tools",
-  "version": "10.7.2",
+  "version": "10.8.0",
   "publisher": "WilliamSmithE",
   "license": "MIT",
   "icon": "assets/images/extension_logo.png",
@@ -498,6 +498,18 @@
         "icon": "$(discard)"
       },
       {
+        "command": "xlide.keepAllAgentChanges",
+        "title": "Keep All Agent Changes",
+        "category": "XLIDE",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "xlide.revertAllAgentChanges",
+        "title": "Revert All Agent Changes",
+        "category": "XLIDE",
+        "icon": "$(discard)"
+      },
+      {
         "command": "xlide.exportModulesToFolder",
         "title": "Export All Modules to Folder",
         "category": "XLIDE",
@@ -730,6 +742,16 @@
           "command": "xlide.refreshExplorer",
           "when": "view == xlide.explorer",
           "group": "navigation@2"
+        },
+        {
+          "command": "xlide.keepAllAgentChanges",
+          "when": "view == xlide.explorer && xlide.agentReviewsPending",
+          "group": "navigation@3"
+        },
+        {
+          "command": "xlide.revertAllAgentChanges",
+          "when": "view == xlide.explorer && xlide.agentReviewsPending",
+          "group": "navigation@4"
         }
       ],
       "view/item/context": [
@@ -1103,6 +1125,14 @@
           "when": "false"
         },
         {
+          "command": "xlide.keepAllAgentChanges",
+          "when": "xlide.agentReviewsPending"
+        },
+        {
+          "command": "xlide.revertAllAgentChanges",
+          "when": "xlide.agentReviewsPending"
+        },
+        {
           "command": "xlide.editShape",
           "when": "false"
         },
@@ -1459,7 +1489,7 @@
       {
         "name": "xlide_readModule",
         "displayName": "Read VBA Module",
-        "modelDescription": "Canonical way to read VBA source. Reads the full source of a module from the macro-enabled Office file (Excel, Word, PowerPoint, or Access) and returns raw VBA text including Attribute declarations. These files are binary containers, not text - always read VBA through this tool or through the XLIDE virtual file system (modules opened from the XLIDE tree are live module documents at xlide-vba:// URIs), never by opening the container file directly. Do not read exported .bas/.cls/.frm files in the project as a substitute, even when they look current: they are one-way artifacts and can be stale. Read those only when the user explicitly asks about the export artifacts themselves. Returns a contentToken on the first line: pass it back as expectedContentToken when writing so the write is refused if the module changed in the meantime. Use startLine/endLine to read part of a very large module.",
+        "modelDescription": "Canonical way to read VBA source. Reads the full source of a module from the macro-enabled Office file (Excel, Word, PowerPoint, or Access) and returns raw VBA text including Attribute declarations. These files are binary containers, not text - always read VBA through this tool or through the XLIDE virtual file system (modules opened from the XLIDE tree are live module documents at xlide-vba:// URIs), never by opening the container file directly. Do not read exported .bas/.cls/.frm files in the project as a substitute, even when they look current: they are one-way artifacts and can be stale. Read those only when the user explicitly asks about the export artifacts themselves. Returns a contentToken on the first line: pass it back as expectedContentToken when writing so the write is refused if the module changed in the meantime. For a large module, pass ranges (line ranges) or procedures (names) to read only the parts you need, several in one call: each comes under a line naming its lines, ready to name back to xlide_editModule. startLine/endLine read one window.",
         "toolReferenceName": "xlideReadModule",
         "canBeReferencedInPrompt": true,
         "inputSchema": {
@@ -1480,6 +1510,32 @@
             "endLine": {
               "type": "number",
               "description": "Optional 1-based last line to return, inclusive."
+            },
+            "ranges": {
+              "type": "array",
+              "description": "Optional line ranges to return, each 1-based and inclusive, in one call. A range past the end of the module is refused rather than cut short.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "startLine": {
+                    "type": "number"
+                  },
+                  "endLine": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "startLine",
+                  "endLine"
+                ]
+              }
+            },
+            "procedures": {
+              "type": "array",
+              "description": "Optional procedure names to return, in one call. A procedure's lines are the comment lines directly above its header, the header, through its End line. Where a name is shared by a Property Get and Let, give the kind too: 'Property Let Value'.",
+              "items": {
+                "type": "string"
+              }
             }
           },
           "required": [
@@ -1526,6 +1582,68 @@
             "filePath",
             "moduleName",
             "source"
+          ]
+        }
+      },
+      {
+        "name": "xlide_editModule",
+        "displayName": "Edit VBA Module",
+        "modelDescription": "Changes parts of a VBA module in one call and saves the macro-enabled Office file: replaces line ranges, replaces whole procedures by name, and inserts after a line, any number of edits together. Use this for a change to part of a large module; use xlide_writeModule to create a module or rewrite all of it. Every line number means the module as xlide_readModule last showed it, whatever the edits above it add or remove, so read first and pass that read's contentToken as expectedContentToken (required): the call is refused if the module changed since. A procedure's lines are the comment lines directly above its header, the header, through its End line, so text for a procedure edit includes its header and End line; the blank lines between procedures are left alone. Two edits that touch the same lines are refused. The result names the lines each edit now occupies and the module's new contentToken. Like xlide_writeModule, a chat-driven call shows the user a before/after diff and badges the module in the XLIDE tree with Keep/Revert. IMPORTANT: Use only ASCII characters in the text.",
+        "toolReferenceName": "xlideEditModule",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the macro-enabled Office file"
+            },
+            "moduleName": {
+              "type": "string",
+              "description": "Name of the VBA module to edit; it must exist"
+            },
+            "expectedContentToken": {
+              "type": "string",
+              "description": "The contentToken from the xlide_readModule call the edits are based on. Required: the line numbers mean that read."
+            },
+            "edits": {
+              "type": "array",
+              "description": "The edits, each one of: {startLine, endLine, text} replaces those lines (1-based, inclusive; empty text deletes them); {insertAfterLine, text} inserts after that line (0 inserts at the top); {procedure, text} replaces the named procedure, header through End line.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "startLine": {
+                    "type": "number",
+                    "description": "First line to replace, 1-based"
+                  },
+                  "endLine": {
+                    "type": "number",
+                    "description": "Last line to replace, inclusive"
+                  },
+                  "insertAfterLine": {
+                    "type": "number",
+                    "description": "Insert the text after this line; 0 inserts at the top of the module"
+                  },
+                  "procedure": {
+                    "type": "string",
+                    "description": "Replace this procedure: its name, or 'Property Let Value' where the name is shared"
+                  },
+                  "text": {
+                    "type": "string",
+                    "description": "The lines to put there; empty deletes the range"
+                  }
+                },
+                "required": [
+                  "text"
+                ]
+              }
+            }
+          },
+          "required": [
+            "filePath",
+            "moduleName",
+            "expectedContentToken",
+            "edits"
           ]
         }
       },
@@ -2035,6 +2153,44 @@
                 "trueUp"
               ],
               "description": "Optional mode override for this run"
+            }
+          },
+          "required": [
+            "filePath"
+          ]
+        }
+      },
+      {
+        "name": "xlide_importModules",
+        "displayName": "Import VBA Modules from Folder",
+        "modelDescription": "Applies the .bas, .cls and .frm module files in a folder to a macro-enabled Office file (Excel, Word, PowerPoint, or Access), as the Import Modules from Folder command does, and saves the file. Standard and class modules are updated or created from their files; a document module (a sheet, ThisWorkbook, ThisDocument) or a UserForm is updated when the file already has it and skipped otherwise; a file whose code matches the module is skipped as unchanged. This is a sync operation for files the user keeps on disk, not the way to edit VBA: read and write module code through xlide_readModule, xlide_writeModule and xlide_editModule unless the user explicitly asks to import exported files. importFolder defaults to the folder the file's <file>.xlide_settings.json records from its last export. importMode updateOnly (default) updates and creates; trueUpStandardClass also deletes the file's standard and class modules that have no file in the folder. Pass modules to import only those. The confirmation shown to the user says what would be updated, created, deleted and skipped. A chat-driven import shows the user a before/after diff of each module it wrote and badges it in the XLIDE tree with Keep/Revert.",
+        "toolReferenceName": "xlideImportModules",
+        "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "Absolute path to the macro-enabled Office file (.xlsm/.xlsb/.xlam/.xls, .docm/.dotm/.doc, .pptm/.potm/.ppsm/.ppt, .accdb/.mdb)"
+            },
+            "importFolder": {
+              "type": "string",
+              "description": "Optional absolute folder path holding the module files. If omitted, uses the folder from <file>.xlide_settings.json"
+            },
+            "importMode": {
+              "type": "string",
+              "enum": [
+                "updateOnly",
+                "trueUpStandardClass"
+              ],
+              "description": "Optional mode override for this run"
+            },
+            "modules": {
+              "type": "array",
+              "description": "Optional module names to import, and no others. A name with no file in the folder is refused.",
+              "items": {
+                "type": "string"
+              }
             }
           },
           "required": [

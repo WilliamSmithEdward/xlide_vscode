@@ -82,6 +82,11 @@ export function pendingAgentReviewCount(): number {
     return pendingReviews.size;
 }
 
+/** Every module awaiting a decision, across every project, for Keep All and Revert All. */
+export function pendingAgentReviews(): Array<{ filePath: string; moduleName: string }> {
+    return [...pendingIdentities.values()].map((identity) => ({ ...identity }));
+}
+
 function resolvePendingAgentReview(filePath: string, moduleName: string): void {
     if (deletePending(filePath, moduleName)) {
         pendingEmitter.fire({ filePath, moduleName });

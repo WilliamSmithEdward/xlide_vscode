@@ -70,6 +70,9 @@ reference/
 # Real Office-authored fixtures: the ground truth the native engine's tests
 # run against, one per container format (authored via pyVBAharness).
 !tests/fixtures/binaries/FormFixture.xlsm
+!tests/fixtures/binaries/SheetsFixture.xlsm
+!tests/fixtures/binaries/SheetsFixture.xlsb
+!tests/fixtures/binaries/SheetsFixture.xls
 !tests/fixtures/binaries/WordFixture.docm
 !tests/fixtures/binaries/WordFixture.doc
 !tests/fixtures/binaries/WordFormFixture.docm

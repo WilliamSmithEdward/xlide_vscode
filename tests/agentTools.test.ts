@@ -79,8 +79,15 @@ vi.mock('../src/officeWriteCoordinator', async (original) => ({
     ...(await original<typeof import('../src/officeWriteCoordinator')>()),
     runWriteWithHostCoordination: vi.fn((_filePath: string, write: () => Promise<unknown>) => write()),
 }));
-vi.mock('../src/moduleExport', () => ({ exportProjectModules: vi.fn() }));
-vi.mock('../src/projectModuleSyncSettings', () => ({ setProjectModuleSyncExportMode: vi.fn() }));
+// The export itself is not under test; what the import shares with it is.
+vi.mock('../src/moduleExport', async (original) => ({
+    ...(await original<typeof import('../src/moduleExport')>()),
+    exportProjectModules: vi.fn(),
+}));
+vi.mock('../src/projectModuleSyncSettings', async (original) => ({
+    ...(await original<typeof import('../src/projectModuleSyncSettings')>()),
+    setProjectModuleSyncExportMode: vi.fn(),
+}));
 vi.mock('../src/vbaProjectWideAnalysis', () => ({ analyzeProject: vi.fn() }));
 vi.mock('../src/vbaTestRunPipeline', () => ({ executeVbaTestRun: vi.fn() }));
 vi.mock('../src/agentVbaTestArtifacts', () => ({ agentVbaTestArtifactPayloadFromPipeline: vi.fn() }));
@@ -95,11 +102,17 @@ import { hasPendingAgentReview, pendingAgentReviewModules, trackModuleWriteForAg
 import { writeProjectModule } from '../src/projectModuleOperations';
 import { clearXlideWriteAudit, recentXlideWriteAudits } from '../src/xlideWriteAudit';
 import { runWriteWithHostCoordination } from '../src/officeWriteCoordinator';
+import { moduleContentToken } from '../src/moduleContentToken';
+
+/** The text a tool answered with. */
+function textOf(result: unknown): string {
+    return (result as { parts: Array<{ value: string }> }).parts.map((part) => part.value).join('');
+}
 
 function registerTools(bridgeCall: ReturnType<typeof vi.fn>) {
     vscodeMock.registeredTools.clear();
     vscodeMock.registeredCommands.clear();
-    const explorer = { refresh: vi.fn(), refreshAgentReviewMarks: vi.fn() };
+    const explorer = { refresh: vi.fn(), refreshAgentReviewMarks: vi.fn(), refreshShapes: vi.fn() };
     registerAgentTools(
         {} as never,
         { call: bridgeCall } as never,
@@ -508,6 +521,8 @@ describe('agent write review (diff + tree badge, native surfaces only)', () => {
                     return { ok: true, signatureDropped: false };
                 case 'listModules':
                     return [...store.keys()].map((name) => ({ name, type: classes.has(name) ? 'class' : 'standard' }));
+                case 'readModules':
+                    return [...store.entries()].map(([name, source]) => ({ name, type: classes.has(name) ? 'class' : 'standard', source }));
                 case 'renameModule': {
                     const source = store.get(key);
                     if (source === undefined) {
@@ -812,6 +827,257 @@ describe('agent write review (diff + tree badge, native surfaces only)', () => {
     // module that no longer existed, or showing no difference at all. A review
     // diff now closes once what it shows is gone. Keep leaves it: the change
     // is still there.
+    describe('xlide_editModule', () => {
+        const MODULE = [
+            'Option Explicit',
+            '',
+            "' Adds one",
+            'Public Function Inc(n As Long) As Long',
+            '    Inc = n + 1',
+            'End Function',
+            '',
+            'Public Sub Tail()',
+            'End Sub',
+            '',
+        ].join('\r\n');
+        const EDITED = [
+            'Option Explicit',
+            'Private m As Long',
+            '',
+            "' Adds two",
+            'Public Function Inc(n As Long) As Long',
+            '    Inc = n + 2',
+            'End Function',
+            '',
+            'Public Sub Tail()',
+            'End Sub',
+            '',
+        ].join('\r\n');
+        const EDITS = [
+            { procedure: 'Inc', text: "' Adds two\r\nPublic Function Inc(n As Long) As Long\r\n    Inc = n + 2\r\nEnd Function" },
+            { insertAfterLine: 1, text: 'Private m As Long' },
+        ];
+
+        function editTools(engine: ReturnType<typeof fakeEngine>) {
+            registerTools(engine.call);
+            return {
+                read: vscodeMock.registeredTools.get('xlide_readModule')!,
+                edit: vscodeMock.registeredTools.get('xlide_editModule')!,
+            };
+        }
+
+        it('applies the edits against the read s token, and reports where they landed with the new token', async () => {
+            const target = path.join(tempDir, 'Edit.xlsm');
+            const engine = fakeEngine({ Parts: MODULE });
+            const { read, edit } = editTools(engine);
+
+            const shown = textOf(await read.invoke({ input: { filePath: target, moduleName: 'Parts', procedures: ['Inc'], ranges: [{ startLine: 1, endLine: 1 }] } }, undefined));
+            const token = /contentToken: (\S+) \(9 lines\)/.exec(shown);
+            expect(token, shown).toBeTruthy();
+            expect(shown).toContain('--- lines 1-1\nOption Explicit');
+            expect(shown).toContain("--- Function Inc (lines 3-6)\n' Adds one\nPublic Function Inc(n As Long) As Long\n    Inc = n + 1\nEnd Function");
+
+            const result = textOf(await edit.invoke({ input: { filePath: target, moduleName: 'Parts', expectedContentToken: token![1], edits: EDITS } }, undefined));
+
+            expect(engine.store.get('parts')).toBe(EDITED);
+            expect(result).toContain('Edit module: 1 changed');
+            expect(result).toContain(`contentToken: ${moduleContentToken(EDITED)} (10 lines)`);
+            expect(result).toContain('- Function Inc: now lines 4-7');
+            expect(result).toContain('- after line 1: now lines 2-2');
+            expect(hasPendingAgentReview(target, 'Parts')).toBe(false);
+            expect(recentXlideWriteAudits(1)).toMatchObject([{
+                command: 'xlide_editModule',
+                operation: 'write-module',
+                outcome: 'succeeded',
+                moduleName: 'Parts',
+                summary: 'Edit module: 1 changed',
+            }]);
+        });
+
+        it('refuses to edit without the read s token, with a stale one, or where edits collide, and changes nothing', async () => {
+            const target = path.join(tempDir, 'Refuse.xlsm');
+            const engine = fakeEngine({ Parts: MODULE });
+            const { edit } = editTools(engine);
+            const token = moduleContentToken(MODULE);
+
+            const noToken = textOf(await edit.invoke({ input: { filePath: target, moduleName: 'Parts', edits: EDITS } }, undefined));
+            const stale = textOf(await edit.invoke({ input: { filePath: target, moduleName: 'Parts', expectedContentToken: 'xlide1:stale', edits: EDITS } }, undefined));
+            const collide = textOf(await edit.invoke({ input: { filePath: target, moduleName: 'Parts', expectedContentToken: token, edits: [
+                { startLine: 4, endLine: 6, text: 'x' },
+                { procedure: 'Inc', text: 'y' },
+            ] } }, undefined));
+            const missing = textOf(await edit.invoke({ input: { filePath: target, moduleName: 'Nope', expectedContentToken: token, edits: EDITS } }, undefined));
+            const none = textOf(await edit.invoke({ input: { filePath: target, moduleName: 'Parts', expectedContentToken: token, edits: [] } }, undefined));
+
+            expect(noToken).toContain('expectedContentToken is required');
+            expect(stale).toContain('changed since it was read');
+            expect(collide).toContain('touch the same lines');
+            expect(missing).toContain('could not be read');
+            expect(missing).toContain('xlide_writeModule creates one');
+            expect(none).toContain('at least one edit');
+            expect(engine.store.get('parts')).toBe(MODULE);
+            expect(engine.calls.some((entry) => entry.method === 'writeModule')).toBe(false);
+        });
+
+        it('a chat-driven edit opens the review, and Revert puts the module back as it was read', async () => {
+            const target = path.join(tempDir, 'EditReview.xlsm');
+            const engine = fakeEngine({ Parts: MODULE });
+            const { edit } = editTools(engine);
+
+            await edit.invoke({ input: { filePath: target, moduleName: 'Parts', expectedContentToken: moduleContentToken(MODULE), edits: EDITS }, ...CHAT }, undefined);
+            await settle();
+
+            expect(vscodeMock.executeCommand.mock.calls.some((call: unknown[]) => call[0] === 'vscode.diff')).toBe(true);
+            expect(hasPendingAgentReview(target, 'Parts')).toBe(true);
+            await runCommand('xlide.revertAgentChange', { filePath: target, moduleName: 'Parts' });
+            expect(engine.store.get('parts')).toBe(MODULE);
+            expect(hasPendingAgentReview(target, 'Parts')).toBe(false);
+        });
+    });
+
+    describe('xlide_importModules', () => {
+        function folderWith(files: Record<string, string>): string {
+            const folder = path.join(tempDir, 'repo');
+            fs.mkdirSync(folder, { recursive: true });
+            for (const [name, content] of Object.entries(files)) {
+                fs.writeFileSync(path.join(folder, name), content);
+            }
+            return folder;
+        }
+
+        function importTool(engine: ReturnType<typeof fakeEngine>) {
+            registerTools(engine.call);
+            return vscodeMock.registeredTools.get('xlide_importModules')!;
+        }
+
+        it('updates, creates and skips as the folder says, and records the folder in the project s settings', async () => {
+            const target = path.join(tempDir, 'Book.xlsm');
+            const engine = fakeEngine({ Old: 'Sub Old()\r\nEnd Sub\r\n', Same: 'Sub Same()\r\nEnd Sub\r\n' });
+            const tool = importTool(engine);
+            const folder = folderWith({
+                'Old.bas': 'Sub Old()\r\n    x = 1\r\nEnd Sub\r\n',
+                'Same.bas': 'Sub Same()\r\nEnd Sub\r\n',
+                'Fresh.bas': 'Sub Fresh()\r\nEnd Sub\r\n',
+            });
+
+            const report = JSON.parse(textOf(await tool.invoke({ input: { filePath: target, importFolder: folder } }, undefined)));
+
+            expect(report).toMatchObject({
+                importFolder: folder,
+                importMode: 'updateOnly',
+                updated: ['Old'],
+                created: ['Fresh'],
+                skipped: [{ module: 'Same', file: 'Same.bas', reason: 'unchanged' }],
+                failed: [],
+                changeSummary: expect.stringContaining('Import modules: 2 changed'),
+            });
+            expect(engine.store.get('old')).toBe('Sub Old()\r\n    x = 1\r\nEnd Sub\r\n');
+            expect(engine.store.get('fresh')).toBe('Sub Fresh()\r\nEnd Sub\r\n');
+            expect(JSON.parse(fs.readFileSync(`${target}.xlide_settings.json`, 'utf8'))).toMatchObject({ exportFolder: folder });
+            expect(recentXlideWriteAudits(10).filter((entry) => entry.command === 'xlide_importModules')).toMatchObject([
+                { operation: 'import-module', outcome: 'succeeded', moduleName: 'Fresh' },
+                { operation: 'import-module', outcome: 'succeeded', moduleName: 'Old' },
+            ]);
+            expect(hasPendingAgentReview(target, 'Old')).toBe(false);
+        });
+
+        it('imports only the modules named, and refuses a name the folder has no file for', async () => {
+            const target = path.join(tempDir, 'Named.xlsm');
+            const engine = fakeEngine({ Old: 'Sub Old()\r\nEnd Sub\r\n' });
+            const tool = importTool(engine);
+            const folder = folderWith({ 'Old.bas': 'Sub Old()\r\n    x = 1\r\nEnd Sub\r\n', 'Fresh.bas': 'Sub Fresh()\r\nEnd Sub\r\n' });
+
+            const report = JSON.parse(textOf(await tool.invoke({ input: { filePath: target, importFolder: folder, modules: ['fresh'] } }, undefined)));
+            const refused = textOf(await tool.invoke({ input: { filePath: target, importFolder: folder, modules: ['Nope'] } }, undefined));
+
+            expect(report).toMatchObject({ updated: [], created: ['Fresh'] });
+            expect(engine.store.get('old')).toBe('Sub Old()\r\nEnd Sub\r\n');
+            expect(refused).toBe(`No file in ${folder} is for "Nope". The folder has: Fresh.bas, Old.bas.`);
+        });
+
+        it('refuses without a folder to import from, and a folder that is not one', async () => {
+            const target = path.join(tempDir, 'NoFolder.xlsm');
+            const tool = importTool(fakeEngine());
+
+            // A name where a list belongs is refused, not iterated by character.
+            expect(textOf(await tool.invoke({ input: { filePath: target, importFolder: tempDir, modules: 'Old' } }, undefined))).toContain('modules must be a list');
+            const read = vscodeMock.registeredTools.get('xlide_readModule')!;
+            expect(textOf(await read.invoke({ input: { filePath: target, moduleName: 'Old', procedures: 'Inc' } }, undefined))).toContain('procedures must be a list');
+
+            expect(textOf(await tool.invoke({ input: { filePath: target } }, undefined))).toContain('No folder to import from');
+            expect(textOf(await tool.invoke({ input: { filePath: target, importFolder: path.join(tempDir, 'missing') } }, undefined))).toContain('is not a folder');
+            expect(textOf(await tool.invoke({ input: { filePath: target, importFolder: tempDir, importMode: 'everything' } }, undefined))).toContain("importMode must be 'updateOnly' or 'trueUpStandardClass'");
+        });
+
+        it('a chat-driven import presents each module it wrote for review, and Revert undoes each', async () => {
+            const target = path.join(tempDir, 'ImportReview.xlsm');
+            const engine = fakeEngine({ Old: 'Sub Old()\r\nEnd Sub\r\n', Same: 'Sub Same()\r\nEnd Sub\r\n' });
+            const tool = importTool(engine);
+            const folder = folderWith({
+                'Old.bas': 'Sub Old()\r\n    x = 1\r\nEnd Sub\r\n',
+                'Same.bas': 'Sub Same()\r\nEnd Sub\r\n',
+                'Fresh.bas': 'Sub Fresh()\r\nEnd Sub\r\n',
+            });
+
+            await tool.invoke({ input: { filePath: target, importFolder: folder }, ...CHAT }, undefined);
+            await settle();
+
+            expect(hasPendingAgentReview(target, 'Old')).toBe(true);
+            expect(hasPendingAgentReview(target, 'Fresh')).toBe(true);
+            expect(hasPendingAgentReview(target, 'Same')).toBe(false);
+            await runCommand('xlide.revertAgentChange', { filePath: target, moduleName: 'Old' });
+            await runCommand('xlide.revertAgentChange', { filePath: target, moduleName: 'Fresh' });
+            expect(engine.store.get('old')).toBe('Sub Old()\r\nEnd Sub\r\n');
+            expect(engine.store.has('fresh')).toBe(false);
+        });
+    });
+
+    describe('Keep All and Revert All', () => {
+        async function twoPendingWrites(): Promise<{ book: string; other: string; engine: ReturnType<typeof fakeEngine> }> {
+            const book = path.join(tempDir, 'Book.xlsm');
+            const other = path.join(tempDir, 'Other.xlsm');
+            const engine = fakeEngine({ Module1: 'Sub Old()\r\nEnd Sub\r\n', Module2: 'Sub Older()\r\nEnd Sub\r\n' });
+            const tool = writeTool(engine.call);
+            await tool?.invoke({ input: { filePath: book, moduleName: 'Module1', source: 'Sub New()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+            await tool?.invoke({ input: { filePath: other, moduleName: 'Module2', source: 'Sub Newer()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+            await settle();
+            expect(hasPendingAgentReview(book, 'Module1')).toBe(true);
+            expect(hasPendingAgentReview(other, 'Module2')).toBe(true);
+            return { book, other, engine };
+        }
+
+        it('Keep All resolves every pending review, in every project', async () => {
+            const { book, other, engine } = await twoPendingWrites();
+
+            await runCommand('xlide.keepAllAgentChanges', undefined as never);
+
+            expect(hasPendingAgentReview(book, 'Module1')).toBe(false);
+            expect(hasPendingAgentReview(other, 'Module2')).toBe(false);
+            expect(engine.store.get('module1')).toContain('Sub New()');
+            expect(vscodeMock.showWarningMessage).not.toHaveBeenCalled();
+        });
+
+        it('Revert All asks first, then reverts each module through the audited path', async () => {
+            const { book, other, engine } = await twoPendingWrites();
+            vscodeMock.showWarningMessage.mockResolvedValueOnce(undefined);
+
+            await runCommand('xlide.revertAllAgentChanges', undefined as never);
+
+            expect(vscodeMock.showWarningMessage).toHaveBeenCalledWith('Revert 2 agent changes?', expect.objectContaining({ modal: true }), 'Revert All');
+            expect(hasPendingAgentReview(book, 'Module1')).toBe(true);
+            expect(engine.store.get('module1')).toContain('Sub New()');
+
+            vscodeMock.showWarningMessage.mockResolvedValueOnce('Revert All');
+            await runCommand('xlide.revertAllAgentChanges', undefined as never);
+
+            expect(hasPendingAgentReview(book, 'Module1')).toBe(false);
+            expect(hasPendingAgentReview(other, 'Module2')).toBe(false);
+            expect(engine.store.get('module1')).toBe('Sub Old()\r\nEnd Sub\r\n');
+            expect(engine.store.get('module2')).toBe('Sub Older()\r\nEnd Sub\r\n');
+            expect(recentXlideWriteAudits(2).map((entry) => entry.command)).toEqual(['xlide.revertAgentChange', 'xlide.revertAgentChange']);
+        });
+    });
+
     describe('review diffs of changes that are gone', () => {
         interface FakeTab { input: unknown; isDirty: boolean }
         let tabs: FakeTab[];

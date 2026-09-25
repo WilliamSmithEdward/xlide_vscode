@@ -18,6 +18,7 @@ import {
 	type FormulaContext,
 } from './xlsxFormula';
 import { editSheetShape, listSheetShapes, type ShapeEdit, type ShapeInfo } from './xlsxShapes';
+import { sheetsOfOoxml, sheetsOfXlsb, type WorkbookSheet } from './workbookSheets';
 import { ZipArchive } from './zip';
 
 export class XlsxError extends Error {}
@@ -278,6 +279,7 @@ export class XlsxWorkbook {
 	private sharedStrings: string[] | undefined;
 	private dateStyles: Set<number> | undefined;
 	private date1904: boolean | undefined;
+	private catalog: WorkbookSheet[] | undefined;
 
 	private constructor(private readonly zip: ZipArchive) {}
 
@@ -296,6 +298,17 @@ export class XlsxWorkbook {
 	 */
 	zipArchive(): ZipArchive {
 		return this.zip;
+	}
+
+	/**
+	 * Every sheet of the workbook in tab order, with the code name Excel gave
+	 * it: what the tree lists, and what a document module is matched to. Read
+	 * from the XML parts, or from the binary parts of an .xlsb, whose cells
+	 * this class does not read. Once per package.
+	 */
+	sheetCatalog(): WorkbookSheet[] {
+		this.catalog ??= this.zip.has('xl/workbook.bin') ? sheetsOfXlsb(this.zip) : sheetsOfOoxml(this.zip);
+		return this.catalog;
 	}
 
 	/**

@@ -3,6 +3,11 @@ import { checkModuleContentToken, moduleContentToken } from './moduleContentToke
 import type { ProjectAnalysisResult } from './vbaProjectWideAnalysis';
 import * as fs from 'fs';
 import * as path from 'path';
+import { applyModuleEdits, modulePartHeading, readModuleParts, splitModuleLines, type ModuleEdit, type ModuleLineRange } from './moduleParts';
+import { applyImportModuleSyncPlan, selectedModuleSyncItems } from './moduleImport';
+import { buildImportModuleSyncPlan, type ImportMode, type ModuleSyncPlan } from './moduleSyncPlan';
+import { effectiveProjectModuleSyncSettings } from './projectModuleSyncSettings';
+import { errorMessage } from './util/errors';
 import { ProjectEngine } from './projectEngine';
 import { ProjectExplorer } from './projectExplorer';
 import { XlideFileSystemProvider } from './xlideFileSystem';
@@ -14,6 +19,7 @@ import {
     keepAgentChange,
     onDidChangePendingAgentReviews,
     openAgentReviewDiff,
+    pendingAgentReviews,
     presentAgentModuleWrite,
     registerAgentDiffProvider,
     revertAgentChange,
@@ -50,8 +56,9 @@ import { gitChangesReport, gitModuleCompareDeps, type GitModuleCompareDeps } fro
 interface ListModulesInput { filePath: string; }
 interface ListSubsInput    { filePath: string; moduleName: string; }
 interface SearchModulesInput { filePath: string; query: string; isRegex?: boolean; matchCase?: boolean; maxResults?: number; }
-interface ReadModuleInput  { filePath: string; moduleName: string; startLine?: number; endLine?: number; }
+interface ReadModuleInput  { filePath: string; moduleName: string; startLine?: number; endLine?: number; ranges?: ModuleLineRange[]; procedures?: string[]; }
 interface WriteModuleInput { filePath: string; moduleName: string; source: string; expectedContentToken?: string; kind?: string; }
+interface EditModuleInput  { filePath: string; moduleName: string; expectedContentToken?: string; edits?: ModuleEdit[]; }
 interface RenameModuleInput { filePath: string; moduleName: string; newName: string; }
 interface DeleteModuleInput { filePath: string; moduleName: string; }
 interface ListSheetsInput  { filePath: string; }
@@ -103,6 +110,7 @@ interface EditShapeInput {
     font?: Record<string, unknown>;
 }
 interface ExportModulesInput { filePath: string; exportFolder?: string; exportMode?: ExportMode; }
+interface ImportModulesInput { filePath: string; importFolder?: string; importMode?: ImportMode; modules?: string[]; }
 interface ConfigureExportModeInput { filePath: string; exportMode: ExportMode; }
 interface GitChangesInput { filePath: string; revision?: string; moduleName?: string; }
 
@@ -219,6 +227,125 @@ export function registerAgentTools(
             }));
         },
     };
+    /**
+     * Writes a module the way the write tools do, and presents the write for
+     * review when the call is chat-driven: the before-image the caller read,
+     * against what the module holds now. The summary line for the result.
+     */
+    async function writeModuleForAgent(request: {
+        command: 'xlide_writeModule' | 'xlide_editModule';
+        operationLabel: string;
+        filePath: string;
+        moduleName: string;
+        source: string;
+        kind?: string;
+        wantsReview: boolean;
+        before: { source: string; existed: boolean };
+    }): Promise<string> {
+        const { filePath, moduleName, kind } = request;
+        const { summary } = await withWriteAudit({
+            command: request.command,
+            operation: 'write-module',
+            projectPath: filePath,
+            moduleName,
+            failedSummary: `${request.operationLabel}: 0 changed, 1 failed`,
+        }, async () => {
+            // agentReviewHandled only when a review will actually be
+            // presented below; a token-less programmatic write is tracked
+            // like any other out-of-band write.
+            const result = await writeProjectModule(
+                ops,
+                { filePath, moduleName, source: request.source, ...(kind !== undefined ? { kind } : {}) },
+                { agentReviewHandled: request.wantsReview },
+            );
+            return {
+                result,
+                summary: formatChangeSummary({ operation: request.operationLabel, changed: [moduleName] }),
+            };
+        });
+        if (request.wantsReview) {
+            let afterSource = request.source;
+            try {
+                afterSource = await agentDiffDeps.readModuleSource(filePath, moduleName);
+            } catch {
+                // The write succeeded; the review still opens with the
+                // requested source as the after-image.
+            }
+            void presentAgentModuleWrite(filePath, moduleName, {
+                before: request.before.source,
+                beforeExisted: request.before.existed,
+                after: afterSource,
+            });
+        }
+        return summary;
+    }
+
+    /**
+     * The plan an import call describes and the items it applies: what the
+     * confirmation shows, and what invoke runs. The folder is the call's, or
+     * the one the project's settings record from its last export.
+     */
+    async function planImport(
+        input: ImportModulesInput,
+    ): Promise<{ plan: ModuleSyncPlan; selectedIds: string[] } | { refused: string }> {
+        const { filePath, importMode, modules } = input;
+        if (importMode !== undefined && importMode !== 'updateOnly' && importMode !== 'trueUpStandardClass') {
+            return { refused: `importMode must be 'updateOnly' or 'trueUpStandardClass', not '${String(importMode)}'.` };
+        }
+        if (modules !== undefined && (!Array.isArray(modules) || modules.some((name) => typeof name !== 'string'))) {
+            return { refused: 'modules must be a list of module names.' };
+        }
+        const settings = await effectiveProjectModuleSyncSettings(filePath);
+        const folder = input.importFolder ?? settings.folderPath;
+        if (!folder) {
+            return {
+                refused: 'No folder to import from: pass importFolder, or export first, which records the folder in '
+                    + `${path.basename(settings.settingsPath)}.`,
+            };
+        }
+        if (!path.isAbsolute(folder)) {
+            return { refused: 'importFolder must be an absolute path.' };
+        }
+        let isFolder = false;
+        try {
+            isFolder = (await fs.promises.stat(folder)).isDirectory();
+        } catch {
+            // Not there: refused below.
+        }
+        if (!isFolder) {
+            return { refused: `"${folder}" is not a folder.` };
+        }
+        const plan = await buildImportModuleSyncPlan(bridge, {
+            projectPath: filePath,
+            importFolder: folder,
+            importMode: importMode ?? settings.importMode,
+            folderPathSource: input.importFolder ? 'session' : settings.folderPathSource,
+            importModeSource: importMode ? 'session' : settings.importModeSource,
+            settingsPath: settings.settingsPath,
+            // The confirmation counts the items and the apply writes them;
+            // nobody looks at a diff.
+            withDiffs: false,
+        });
+        // What the preview would check, plus the files it would list as
+        // unchanged or skipped, so the result says what became of every file.
+        let items = plan.items.filter((item) =>
+            item.checked || item.status === 'unchanged' || item.status === 'skipping-import');
+        if (modules?.length) {
+            const wanted = new Set(modules.map((name) => name.toLowerCase()));
+            const known = new Set(plan.items.map((item) => item.moduleName.toLowerCase()));
+            const missing = modules.filter((name) => !known.has(name.toLowerCase()));
+            if (missing.length > 0) {
+                const files = plan.items.map((item) => item.relativeName).sort().join(', ') || 'no module files';
+                return {
+                    refused: `No file in ${folder} is for ${missing.map((name) => `"${name}"`).join(', ')}. `
+                        + `The folder has: ${files}.`,
+                };
+            }
+            items = plan.items.filter((item) => wanted.has(item.moduleName.toLowerCase()));
+        }
+        return { plan, selectedIds: items.map((item) => item.id) };
+    }
+
     return [
         registerAgentDiffProvider(),
         // The tree marks follow pending reviews: redraw the module that gained
@@ -243,6 +370,34 @@ export function registerAgentTools(
                 return;
             }
             await revertAgentChange(agentDiffDeps, node.filePath, node.moduleName);
+        }),
+        // The buttons above the tree (issue #94): every pending review at
+        // once. Revert asks first, since it writes every module back.
+        registerXlideCommand('xlide.keepAllAgentChanges', () => {
+            for (const { filePath, moduleName } of pendingAgentReviews()) {
+                keepAgentChange(filePath, moduleName);
+            }
+        }),
+        registerXlideCommand('xlide.revertAllAgentChanges', async () => {
+            const pending = pendingAgentReviews();
+            if (pending.length === 0) {
+                return;
+            }
+            const choice = await vscode.window.showWarningMessage(
+                `Revert ${pending.length === 1 ? '1 agent change' : `${pending.length} agent changes`}?`,
+                {
+                    modal: true,
+                    detail: 'Each module goes back to what it held before the agent wrote it, and a module the agent '
+                        + 'created is removed. A module changed again since the agent wrote it is left as it is.',
+                },
+                'Revert All',
+            );
+            if (choice !== 'Revert All') {
+                return;
+            }
+            for (const { filePath, moduleName } of pending) {
+                await revertAgentChange(agentDiffDeps, filePath, moduleName);
+            }
         }),
         // ----------------------------------------------------------------
         // xlide_listProjects
@@ -334,24 +489,43 @@ export function registerAgentTools(
         // ----------------------------------------------------------------
         vscode.lm.registerTool<ReadModuleInput>('xlide_readModule', {
             async invoke(options, token) {
-                const { filePath, moduleName, startLine, endLine } = options.input;
+                const { filePath, moduleName, startLine, endLine, ranges, procedures } = options.input;
+                if (ranges !== undefined && !Array.isArray(ranges)) {
+                    return textResult('ranges must be a list of {startLine, endLine}.');
+                }
+                if (procedures !== undefined && !Array.isArray(procedures)) {
+                    return textResult('procedures must be a list of procedure names.');
+                }
                 const result = await bridge.call<{ source: string }>(
                     'readModule',
                     { path: filePath, module: moduleName },
                     token,
                 );
                 const contentToken = moduleContentToken(result.source);
-                const lines = result.source.split(/\r?\n/);
-                // A window is over the WHOLE module, so the token still
-                // describes what a later conditional write is checked against.
+                const lines = splitModuleLines(result.source);
+                // A window or a part is over the WHOLE module, so the token
+                // still describes what a later conditional write is checked
+                // against.
+                if (ranges?.length || procedures?.length) {
+                    // Several parts in one call, each under a line that says
+                    // which lines it is, so an edit can name them back.
+                    const parts = readModuleParts(result.source, { ranges, procedures });
+                    if (!parts.ok) {
+                        return textResult(parts.message);
+                    }
+                    return textResult([
+                        `contentToken: ${contentToken} (${lines.length} lines)`,
+                        ...parts.parts.map((part) => `${modulePartHeading(part)}\n${part.text}`),
+                    ].join('\n'));
+                }
+                if (startLine === undefined && endLine === undefined) {
+                    return textResult(`contentToken: ${contentToken} (${lines.length} lines)\n${result.source}`);
+                }
                 const from = Math.max(1, startLine ?? 1);
                 const to = Math.min(lines.length, endLine ?? lines.length);
-                const windowed = startLine === undefined && endLine === undefined;
-                const body = windowed ? result.source : lines.slice(from - 1, to).join('\n');
-                const header = windowed
-                    ? `contentToken: ${contentToken} (${lines.length} lines)`
-                    : `contentToken: ${contentToken} (lines ${from}-${to} of ${lines.length})`;
-                return textResult(`${header}\n${body}`);
+                return textResult(
+                    `contentToken: ${contentToken} (lines ${from}-${to} of ${lines.length})\n${lines.slice(from - 1, to).join('\n')}`,
+                );
             },
         }),
 
@@ -406,43 +580,16 @@ export function registerAgentTools(
                         return textResult(stale.message);
                     }
                 }
-                const { summary } = await withWriteAudit({
+                const summary = await writeModuleForAgent({
                     command: 'xlide_writeModule',
-                    operation: 'write-module',
-                    projectPath: filePath,
+                    operationLabel: 'Write module',
+                    filePath,
                     moduleName,
-                    failedSummary: 'Write module: 0 changed, 1 failed',
-                }, async () => {
-                    // agentReviewHandled only when a review will actually be
-                    // presented below; a token-less programmatic write is
-                    // tracked like any other out-of-band write.
-                    const result = await writeProjectModule(
-                        ops,
-                        { filePath, moduleName, source, ...(kind !== undefined ? { kind } : {}) },
-                        { agentReviewHandled: wantsReview },
-                    );
-                    return {
-                        result,
-                        summary: formatChangeSummary({
-                            operation: 'Write module',
-                            changed: [moduleName],
-                        }),
-                    };
+                    source,
+                    kind,
+                    wantsReview,
+                    before: { source: beforeSource, existed: beforeExisted },
                 });
-                if (wantsReview) {
-                    let afterSource = source;
-                    try {
-                        afterSource = (await agentDiffDeps.readModuleSource(filePath, moduleName));
-                    } catch {
-                        // The write succeeded; the review still opens with the
-                        // requested source as the after-image.
-                    }
-                    void presentAgentModuleWrite(filePath, moduleName, {
-                        before: beforeSource,
-                        beforeExisted,
-                        after: afterSource,
-                    });
-                }
                 return textResult(`${summary}\nModule "${moduleName}" written successfully.`);
             },
             async prepareInvocation(options, _token) {
@@ -454,6 +601,85 @@ export function registerAgentTools(
                         message: new vscode.MarkdownString(
                             `Write changes to **${moduleName}** in \`${filePath}\`?\n\n` +
                             `This will overwrite the module source and save the project.`,
+                        ),
+                    },
+                };
+            },
+        }),
+
+        // ----------------------------------------------------------------
+        // xlide_editModule  (requires user confirmation)
+        // ----------------------------------------------------------------
+        // Parts of a module changed in one call (issue #95): line ranges and
+        // procedures, named as the read showed them. The edits only mean
+        // anything against that read, so the token is required here where
+        // the whole-module write leaves it optional.
+        vscode.lm.registerTool<EditModuleInput>('xlide_editModule', {
+            async invoke(options, _token) {
+                const { filePath, moduleName, expectedContentToken, edits } = options.input;
+                if (!expectedContentToken) {
+                    return textResult(
+                        'expectedContentToken is required: the edits name lines of the module as xlide_readModule '
+                        + 'last showed it. Read the module and pass the contentToken from that read.',
+                    );
+                }
+                if (!Array.isArray(edits) || edits.length === 0) {
+                    return textResult('edits must list at least one edit.');
+                }
+                let before: string;
+                try {
+                    before = (await bridge.call<{ source: string }>('readModule', { path: filePath, module: moduleName })).source;
+                } catch (err) {
+                    return textResult(
+                        `Module "${moduleName}" could not be read: ${errorMessage(err)}. `
+                        + 'xlide_editModule changes a module the file has; xlide_writeModule creates one.',
+                    );
+                }
+                const stale = checkModuleContentToken(before, expectedContentToken, moduleName);
+                if (stale) {
+                    return textResult(stale.message);
+                }
+                const edited = applyModuleEdits(before, edits);
+                if (!edited.ok) {
+                    return textResult(edited.message);
+                }
+                const wantsReview = options.toolInvocationToken !== undefined && agentWriteDiffsEnabled();
+                const summary = await writeModuleForAgent({
+                    command: 'xlide_editModule',
+                    operationLabel: 'Edit module',
+                    filePath,
+                    moduleName,
+                    source: edited.source,
+                    wantsReview,
+                    before: { source: before, existed: true },
+                });
+                const now = await agentDiffDeps.readModuleSource(filePath, moduleName).catch(() => edited.source);
+                const lines = [
+                    summary,
+                    `Module "${moduleName}" edited. contentToken: ${moduleContentToken(now)} (${splitModuleLines(now).length} lines)`,
+                ];
+                // The engine stores a module as it keeps one: blank lines
+                // above its code are dropped. Where that moved the lines, the
+                // arithmetic below would name the wrong ones.
+                if (now.replace(/\r\n?/g, '\n') === edited.source.replace(/\r\n?/g, '\n')) {
+                    lines.push(...edited.applied.map((edit) => edit.newStartLine === undefined
+                        ? `- ${edit.label}: removed`
+                        : `- ${edit.label}: now lines ${edit.newStartLine}-${edit.newEndLine}`));
+                } else {
+                    lines.push('The module was stored in a different layout than the edits made (blank lines above its code are dropped); read it again for line numbers.');
+                }
+                return textResult(lines.join('\n'));
+            },
+            async prepareInvocation(options, _token) {
+                const { filePath, moduleName, edits } = options.input;
+                const count = Array.isArray(edits) ? edits.length : 0;
+                return {
+                    invocationMessage: `Editing VBA module "${moduleName}"`,
+                    confirmationMessages: {
+                        title: 'Edit VBA Module',
+                        message: new vscode.MarkdownString(
+                            `Apply ${count === 1 ? '1 edit' : `${count} edits`} to **${moduleName}** in \`${filePath}\`?\n\n` +
+                            'This changes the named lines of the module and saves the project.',
                         ),
                     },
                 };
@@ -957,6 +1183,9 @@ export function registerAgentTools(
                         }),
                     };
                 });
+                // The tree's own edit path says the same; the watcher alone
+                // would not move a sheet that has its first shape now.
+                explorer.refreshShapes(filePath, { shapesChanged: true });
                 const done = edit.action === 'add' ? 'added' : edit.action === 'delete' ? 'deleted' : 'changed';
                 const where = surface ? ` on "${surface}"` : '';
                 return textResult(`${summary}\nShape "${result.name}" ${done}${where} in "${filePath}".`);
@@ -1026,6 +1255,80 @@ export function registerAgentTools(
                             `${exportFolder ? ` to folder \`${exportFolder}\`` : ' using configured folder'}` +
                             `?\n\nThis writes files and updates <project>.xlide_settings.json.`,
                         ),
+                    },
+                };
+            },
+        }),
+
+        // ----------------------------------------------------------------
+        // xlide_importModules  (requires user confirmation)
+        // ----------------------------------------------------------------
+        // The Import Modules from Folder command, without its preview: the
+        // confirmation says what the folder would change, and the apply is
+        // the command's own (issue #92).
+        vscode.lm.registerTool<ImportModulesInput>('xlide_importModules', {
+            async invoke(options, _token) {
+                const { filePath } = options.input;
+                const planned = await planImport(options.input);
+                if ('refused' in planned) {
+                    return textResult(planned.refused);
+                }
+                const { plan, selectedIds } = planned;
+                const wantsReview = options.toolInvocationToken !== undefined && agentWriteDiffsEnabled();
+                const result = await applyImportModuleSyncPlan(ops, plan, selectedIds, {
+                    command: 'xlide_importModules',
+                    log: () => undefined,
+                    agentReviewHandled: wantsReview,
+                });
+                if (wantsReview) {
+                    // Each module the import wrote is an agent write: the
+                    // same diff and Keep / Revert as xlide_writeModule gives.
+                    for (const module of result.written) {
+                        try {
+                            const after = await agentDiffDeps.readModuleSource(filePath, module.moduleName);
+                            void presentAgentModuleWrite(filePath, module.moduleName, {
+                                before: module.before,
+                                beforeExisted: module.beforeExisted,
+                                after,
+                            });
+                        } catch {
+                            // Written, but not readable back: nothing to show.
+                        }
+                    }
+                }
+                return textResult(JSON.stringify({
+                    filePath,
+                    importFolder: plan.folderPath,
+                    importMode: plan.importMode,
+                    updated: result.written.filter((module) => module.beforeExisted).map((module) => module.moduleName),
+                    created: result.written.filter((module) => !module.beforeExisted).map((module) => module.moduleName),
+                    removed: result.removed,
+                    skipped: result.skipped.map((skip) => ({ module: skip.moduleName, file: skip.relativeName, reason: skip.reason })),
+                    failed: result.failed,
+                    changeSummary: result.summary,
+                }, null, 2));
+            },
+            async prepareInvocation(options, _token) {
+                const { filePath } = options.input;
+                let detail = 'This writes modules into the file and updates <project>.xlide_settings.json.';
+                try {
+                    const planned = await planImport(options.input);
+                    if ('plan' in planned) {
+                        const chosen = selectedModuleSyncItems(planned.plan, planned.selectedIds);
+                        const count = (status: string): number => chosen.filter((item) => item.status === status).length;
+                        const acted = count('will-update') + count('will-create') + count('will-remove');
+                        detail = `From \`${planned.plan.folderPath}\` (${planned.plan.importMode}): `
+                            + `${count('will-update')} to update, ${count('will-create')} to create, `
+                            + `${count('will-remove')} to delete, ${chosen.length - acted} skipped.\n\n${detail}`;
+                    }
+                } catch {
+                    // The confirmation says what it can; invoke reports the failure.
+                }
+                return {
+                    invocationMessage: `Importing VBA modules into "${filePath}"`,
+                    confirmationMessages: {
+                        title: 'Import VBA Modules',
+                        message: new vscode.MarkdownString(`Import modules into \`${filePath}\`?\n\n${detail}`),
                     },
                 };
             },

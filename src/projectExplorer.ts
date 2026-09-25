@@ -71,8 +71,14 @@ export interface XlideNode {
     isSigned?: boolean;
     /** module only: what a document module stands for (worksheet, workbook, chart, document). */
     documentType?: string;
-    /** shapes only: a module's Shapes folder, a presentation's Slides, or a workbook's sheets with no module. */
-    shapeFolder?: 'module' | 'slides' | 'sheets';
+    /** module only: the sheet the module stands for, when the workbook lists it; the row is named for it. */
+    sheetName?: string;
+    /**
+     * shapes only: a module's Shapes folder, a sheet row's Shapes folder
+     * (surface), a presentation's Slides, a workbook's Sheets, or the folder
+     * of its sheets with no module and no shapes (bareSheets).
+     */
+    shapeFolder?: 'module' | 'surface' | 'slides' | 'sheets' | 'bareSheets';
     /** surface and shape only: the sheet, slide or Word story, as the shape tools name it. */
     surface?: string;
     /** shape only: the shape as the file lists it. */
@@ -136,6 +142,11 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     // shut by hand, which outrank it until the attention genuinely moves.
     private _openFolderKeys = new Set<string>();
     private _manualFolderStates = new Map<string, boolean>();
+    // The folders VS Code shows open, by whatever hand: a reveal's, the
+    // user's, the editor's. A fold has to reach every one of them, not only
+    // the ones the two sets above remember, or a folder a reveal opened after
+    // they let go of it keeps its state through every redraw.
+    private _expandedFolderKeys = new Set<string>();
     private _activeFolderChain: string[] = [];
     // What an open editor says a module's @Folder annotation is, which outranks
     // the listing until that editor closes. Survives refresh() on purpose.
@@ -209,10 +220,13 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     /**
      * A file changed, by a shape edit or a save from outside: its shapes are
      * read again when next shown, and the shape rows someone opened are
-     * redrawn. Nothing else in the tree moves.
+     * redrawn. A workbook's Sheets folder is redrawn when its sheets changed,
+     * and after XLIDE's own shape edit (shapesChanged), since a sheet with
+     * its first shape, or without its last, moves within it. Nothing else in
+     * the tree moves.
      */
-    refreshShapes(filePath: string): void {
-        this._shapes.refresh(filePath);
+    refreshShapes(filePath: string, options: { shapesChanged?: boolean } = {}): void {
+        this._shapes.refresh(filePath, options);
     }
 
     /** The surface and shape a shape row, surface row or Shapes folder stands for. */
@@ -335,6 +349,12 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                 : this._projectNodes.get(projectNodeKey(node.filePath));
         }
         if (node.kind === 'module') {
+            // A sheet's module sits under the workbook's Sheets folder,
+            // whatever layout the other modules are in.
+            const sheets = this._shapes.parentOf(node);
+            if (sheets) {
+                return sheets;
+            }
             if (this._view === 'folders' && node.folder) {
                 return this._folderNodes.get(folderNodeKey(node.filePath, node.folder));
             }
@@ -621,6 +641,7 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         const touched = new Set([
             ...this._openFolderKeys,
             ...this._manualFolderStates.keys(),
+            ...this._expandedFolderKeys,
             ...chain,
         ]);
         this._activeFolderChain = chain;
@@ -650,12 +671,28 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
     }
 
     /**
+     * What VS Code reports for a folder row, whoever opened or shut it. A
+     * reveal under way when the tree let go of its folders (a tab switch
+     * leaves no editor active for a moment, which folds everything) opens
+     * them again in the view alone; noted here, the next move folds them.
+     */
+    noteFolderExpanded(node: XlideNode, expanded: boolean): void {
+        if (node.kind !== 'folder') { return; }
+        const key = folderNodeKey(node.filePath, node.folder ?? '');
+        if (expanded) {
+            this._expandedFolderKeys.add(key);
+        } else {
+            this._expandedFolderKeys.delete(key);
+        }
+    }
+
+    /**
      * Fold every folder, in every project. The last editor closing leaves no
      * module for the tree to follow, so it goes back to its resting shape.
      */
     collapseAllFolders(): void {
-        if (this._openFolderKeys.size === 0 && this._manualFolderStates.size === 0) { return; }
-        const touched = new Set([...this._openFolderKeys, ...this._manualFolderStates.keys()]);
+        if (this._openFolderKeys.size === 0 && this._manualFolderStates.size === 0 && this._expandedFolderKeys.size === 0) { return; }
+        const touched = new Set([...this._openFolderKeys, ...this._manualFolderStates.keys(), ...this._expandedFolderKeys]);
         this._activeFolderChain = [];
         this._openFolderKeys.clear();
         this._manualFolderStates.clear();
@@ -916,17 +953,18 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
         if (node.kind === 'project') {
             const modules = await this._getModules(node.filePath);
             const failed = modules.some((m) => m.kind === 'loadError');
-            // A presentation's slides, and a workbook's sheets with no module,
-            // lead the project's rows; a listing that failed shows only that.
-            const shapeFolders = failed ? [] : this._shapes.projectFolders(node, modules.map((m) => m.moduleName ?? ''));
+            // A presentation's slides, and a workbook's sheets, lead the
+            // project's rows, and a sheet's module is drawn under Sheets; a
+            // listing that failed shows only that.
+            const rows = failed ? { folders: [], modules } : await this._shapes.projectRows(node, modules);
             if (modules.length === 0) {
-                return [...shapeFolders, this._emptyNode(node.filePath, await this._hasVbaProject(node.filePath))];
+                return [...rows.folders, this._emptyNode(node.filePath, await this._hasVbaProject(node.filePath))];
             }
             if (this._view !== 'folders' || failed) {
-                return [...shapeFolders, ...modules];
+                return [...rows.folders, ...rows.modules];
             }
-            const tree = this._folderTreeOf(node.filePath, modules);
-            return [...shapeFolders, ...this._folderNodesOf(node.filePath, tree.folders), ...tree.modules];
+            const tree = this._folderTreeOf(node.filePath, rows.modules);
+            return [...rows.folders, ...this._folderNodesOf(node.filePath, tree.folders), ...tree.modules];
         }
         if (node.kind === 'folder') {
             const folder = this._folderIn(node.filePath, node.folder ?? '');
@@ -939,13 +977,12 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
             const subs = await this._getSubs(node.filePath, node.moduleName!, node.moduleType);
             // A worksheet's or Word document's shapes, above its procedures,
             // where a form's Designer row sits.
-            const shapes = this._shapes.moduleFolder(node);
+            const shapes = await this._shapes.moduleFolder(node);
             return shapes ? [shapes, ...subs] : subs;
         }
         if (isShapeRow(node)) {
             return this._shapes.children(node, async () => (await this._getModules(node.filePath))
-                .filter((m) => m.kind === 'module')
-                .map((m) => m.moduleName ?? ''));
+                .filter((m) => m.kind === 'module'));
         }
         return [];
     }

@@ -219,10 +219,19 @@ export async function buildImportModuleSyncPlan(
         folderPathSource?: ModuleSyncFolderSource;
         importModeSource?: ModuleSyncModeSource;
         settingsPath?: string;
+        /**
+         * False for a caller that applies the plan without showing it, such
+         * as the agent tool: the side-by-side diffs are the preview's, and an
+         * LCS over a large module is the cost of the whole build.
+         */
+        withDiffs?: boolean;
     },
 ): Promise<ModuleSyncPlan> {
     return measurePerformance('moduleSync.buildImportPlan', path.basename(params.projectPath), async () => {
     const importMode = normalizeImportMode(params.importMode);
+    const diffOf = params.withDiffs === false
+        ? (): ModuleSyncDiffLine[] => []
+        : buildSideBySideDiff;
     const { modules: liveModules, sourceFor } = await loadProjectModulesWithSources(bridge, params.projectPath);
     const liveByName = new Map(liveModules.map((mod) => [mod.name.toLowerCase(), mod]));
     const entries = (await fs.promises.readdir(params.importFolder, { withFileTypes: true }))
@@ -281,8 +290,8 @@ export async function buildImportModuleSyncPlan(
             rightCode: projectDisplaySource,
             leftRawCode: repo.source,
             rightRawCode: projectSource,
-            diff: buildSideBySideDiff(repoDisplaySource, projectDisplaySource, writeDiffTones()),
-            diffWithHeaders: buildSideBySideDiff(repo.source, projectSource, writeDiffTones()),
+            diff: diffOf(repoDisplaySource, projectDisplaySource, writeDiffTones()),
+            diffWithHeaders: diffOf(repo.source, projectSource, writeDiffTones()),
         };
     }));
     const projectOnlyItems: ModuleSyncPlanItem[] = [];
@@ -315,8 +324,8 @@ export async function buildImportModuleSyncPlan(
                 rightCode: projectDisplaySource,
                 leftRawCode: '',
                 rightRawCode: projectSource,
-                diff: buildSideBySideDiff('', projectDisplaySource, deleteDiffTones()),
-                diffWithHeaders: buildSideBySideDiff('', projectSource, deleteDiffTones()),
+                diff: diffOf('', projectDisplaySource, deleteDiffTones()),
+                diffWithHeaders: diffOf('', projectSource, deleteDiffTones()),
             });
         }
     }

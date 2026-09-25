@@ -461,6 +461,26 @@ describe('following the editor', () => {
         expect(expanded(explorer, 'Accounts.Billing.Reminders')).toBe(false);
     });
 
+    it('folds a folder a reveal opened again after the tree had let go of it', async () => {
+        const { explorer } = await drawn();
+        explorer.setActiveModule(BOOK, 'Bare');
+        // A tab switch leaves no editor active for a moment, which folds
+        // everything; the reveal under way then opens the chain again, in
+        // the view alone, and VS Code reports each expansion.
+        explorer.collapseAllFolders();
+        for (const folder of ['Accounts', 'Accounts.Billing', 'Accounts.Billing.Reminders']) {
+            explorer.noteFolderExpanded(explorer.getFolderNode(BOOK, folder)!, true);
+        }
+        const before = explorer.getTreeItem(explorer.getFolderNode(BOOK, 'Accounts')!).id;
+
+        explorer.setActiveModule(BOOK, 'Helpers');
+
+        // A new id is what makes VS Code draw the row folded again.
+        expect(explorer.getTreeItem(explorer.getFolderNode(BOOK, 'Accounts')!).id).not.toBe(before);
+        expect(expanded(explorer, 'Accounts')).toBe(false);
+        expect(expanded(explorer, 'Shared')).toBe(true);
+    });
+
     it('leaves the tree alone while the editor stays inside one folder', async () => {
         const { explorer } = await drawn();
         explorer.setActiveModule(BOOK, 'Ledger');

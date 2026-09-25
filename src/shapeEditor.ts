@@ -87,7 +87,7 @@ export async function writeShapeEdit(
 		return result.name;
 	} finally {
 		// Whatever happened, the rows show the file as it is now.
-		deps.explorer.refreshShapes(filePath);
+		deps.explorer.refreshShapes(filePath, { shapesChanged: true });
 	}
 }
 

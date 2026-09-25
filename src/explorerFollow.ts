@@ -47,6 +47,8 @@ export interface FollowedExplorer {
     foldModuleUnlessActive(filePath: string, moduleName: string): void;
     collapseAllFolders(): void;
     notifyFolderExpansion(node: XlideNode, expanded: boolean): void;
+    /** Every folder expansion VS Code reports, a reveal's own included. */
+    noteFolderExpanded(node: XlideNode, expanded: boolean): void;
     notifyProjectCollapsed(filePath: string): void;
     getParent(node: XlideNode): XlideNode | undefined;
     /** A row's identity, the same for every node object that draws it. */
@@ -115,6 +117,10 @@ export class ExplorerFollow implements vscode.Disposable {
             // editor moves to another folder. A row our own reveal expanded
             // is neither.
             treeView.onDidExpandElement((event) => {
+                // Noted whoever opened it, setting or no setting: the fold
+                // that runs when the setting is turned on has to know what
+                // the user opened while it was off.
+                explorer.noteFolderExpanded(event.element, true);
                 if (!_deps.enabled()) {
                     return;
                 }
@@ -136,6 +142,7 @@ export class ExplorerFollow implements vscode.Disposable {
                 explorer.notifyFolderExpansion(event.element, true);
             }),
             treeView.onDidCollapseElement((event) => {
+                explorer.noteFolderExpanded(event.element, false);
                 // A project folded by hand stays folded: a refresh must not
                 // spring it open again because it holds the active module.
                 if (event.element.kind === 'project') {

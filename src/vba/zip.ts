@@ -158,6 +158,33 @@ export class ZipArchive {
 		throw new ZipError(`Unsupported compression method ${entry.method} for ${name}.`);
 	}
 
+	/**
+	 * The head of an entry: what its first `compressedBytes` bytes of input
+	 * decode to, which for text is several times as much. A reader that
+	 * wants only a part's opening - a worksheet's properties, which come
+	 * before its rows - need not inflate a sheet of a million cells for it.
+	 * The whole entry when it is no longer than that.
+	 */
+	readPrefix(name: string, compressedBytes: number): Buffer {
+		const idx = this.byName.get(name);
+		if (idx === undefined) {
+			throw new ZipError(`Entry not found: ${name}`);
+		}
+		const entry = this.entries[idx];
+		if (entry.compressed.length <= compressedBytes) {
+			return this.read(name);
+		}
+		if (entry.method === 0) {
+			return entry.compressed.subarray(0, Math.min(entry.uncompressedSize, compressedBytes));
+		}
+		if (entry.method === 8) {
+			return containerCodec().inflateRaw(entry.compressed.subarray(0, compressedBytes), {
+				allowTruncated: true,
+			});
+		}
+		throw new ZipError(`Unsupported compression method ${entry.method} for ${name}.`);
+	}
+
 	/** Replace or create an entry. Untouched entries keep their original bytes. */
 	write(name: string, data: Buffer): void {
 		const payload = containerCodec().compressForZip(data);

@@ -137,6 +137,27 @@ describe('the agent instructions text', () => {
         expect(steps).toMatch(/such as Claude and ChatGPT, cannot reach a module/);
     });
 
+    it('names .mcp.json as the file VS Code and Claude Code both read for the server', () => {
+        // VS Code's documentation calls a root .mcp.json with mcpServers the
+        // portable format it reads, and Claude Code's calls it the project
+        // scope; the example block already has that shape.
+        const server = AGENT_INSTRUCTIONS.slice(AGENT_INSTRUCTIONS.indexOf('## The XLIDE MCP server'));
+
+        expect(server).toContain('.mcp.json at the top of the workspace folder');
+        expect(server).toContain('VS Code reads that file natively');
+        expect(server).toContain('Claude Code reads it for the project too');
+        expect(server).toContain('.vscode/mcp.json');
+        expect(server).toContain('Ask before adding either file');
+        expect(AGENT_INSTRUCTIONS_STEPS.join(' ')).toContain('`.mcp.json` file at the top of the workspace folder');
+    });
+
+    it('names the tools for parts of a module and for a folder of module files', () => {
+        expect(AGENT_INSTRUCTIONS).toContain('pass ranges (line ranges) or procedures (names)');
+        expect(AGENT_INSTRUCTIONS).toContain('xlide_editModule: change parts of a module');
+        expect(AGENT_INSTRUCTIONS).toContain('xlide_importModules: apply a folder');
+        expect(AGENT_INSTRUCTIONS).toContain('Keep All and Revert All');
+    });
+
     it('tells an agent on the MCP server what mirroring shows, so it can tell the user to turn it on', () => {
         // The server's tool results say whether an XLIDE window took each
         // edit. Without this an agent whose edits reach no tree has nothing

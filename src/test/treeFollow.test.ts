@@ -223,6 +223,24 @@ suite('The explorer following the editor', () => {
 		}
 	});
 
+	test('reveals a sheet module under the workbook s Sheets folder', async () => {
+		// The module row sits under Sheets, not the project, so the reveal
+		// has to walk up through that folder.
+		await agentWrite(workbookPath(), 'Sheet1', twoProcedures('SheetOne'));
+		await showInSecond(moduleUri('Sheet1'));
+		await settle();
+		const state = await viewState();
+		assert.ok(state.expanded.includes('shapes:Sheets'), JSON.stringify(state));
+		assert.deepEqual(modules(state), ['module:Sheet1'], JSON.stringify(state));
+		assert.deepEqual(state.selected, ['sub:Sub SheetOneSecond'], JSON.stringify(state));
+
+		// And the accordion folds it like any other when the editor moves on.
+		await showInSecond(moduleUri('FollowA'));
+		await settle();
+		const after = await viewState();
+		assert.deepEqual(modules(after), ['module:FollowA'], JSON.stringify(after));
+	});
+
 	test('follows the editor that is left after tabs close in a burst', async () => {
 		for (const name of MODULES) {
 			await showInSecond(moduleUri(name));

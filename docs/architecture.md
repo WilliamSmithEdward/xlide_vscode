@@ -34,7 +34,8 @@ xlide_vscode/
     extension.ts        Activation entry point - registers all providers and commands
     projectEngine.ts   ProjectEngine class - in-process dispatcher for every project operation
     projectExplorer.ts     ProjectExplorer - TreeDataProvider for the XLIDE project tree in VS Code Explorer
-    shapeRows.ts        ShapeRows - the tree's shape rows: a worksheet's Shapes folder under its module, Word's under ThisDocument by story, a presentation's Slides, and the sheets Excel has given no module; one listing per file, kept on screen until a fresh one lands
+    shapeRows.ts        ShapeRows - the tree's sheet and shape rows: a workbook's Sheets folder (its modules named for their sheets, a sheet with shapes and no module as its own row, the rest in a folder at the end), a Shapes folder under a sheet that has shapes, Word's under ThisDocument by story, and a presentation's Slides; one listing per file, kept on screen until a fresh one lands
+    vba/workbookSheets.ts  The sheets of a workbook with their code names, from the OOXML parts, the .xlsb binary parts or the BIFF8 records of an .xls
     shapeEditor.ts      The shape editor tab: opens on the file as it is now, sends a Save as one coordinated edit, refreshes the rows
     shapeEditorModel.ts Pure form model for the shape editor: the fields a shape has, the values they start from, and the edit a Save makes from what changed (no vscode dependency)
     explorerFollow.ts   ExplorerFollow - the tree following the editor: one pass at a time, the latest wins, and a pass again when redrawn rows undo a reveal
@@ -49,6 +50,8 @@ xlide_vscode/
     xlideApiServer.ts   The loopback API the MCP server reports to: a token-guarded 127.0.0.1 server and the xlide-api-{pid}.json record that says where it listens (Node only)
     projectModuleOperations.ts  Shared project module write/rename/delete service used by both UI commands and agent tools
     moduleExport.ts     Shared module export logic for UI commands and AI tools
+    moduleImport.ts     Applying an import plan, for the preview's Apply and the xlide_importModules tool alike
+    moduleParts.ts      Parts of a module for the agent tools: ranges and procedures read in one call, edits to several applied in one write (no vscode dependency)
     projectSettings.ts Strict project settings sidecar path, schema validation, and persistence
     projectModuleSyncSettings.ts Effective project import/export sync settings and provenance
     globalSettings.ts  Machine-scoped VS Code XLIDE setting validation, normalization, and provenance
@@ -589,6 +592,7 @@ Settings:
 | `renameModule` | `path`, `module`, `newName` | - | `{ok, signatureDropped}` |
 | `deleteModule` | `path`, `module` | - | `{ok, signatureDropped}` |
 | `listSheets` | `path` | - | `{sheets: [{name, dimensions}]}` |
+| `listWorkbookSheets` | `path` | - | `{sheets: [{name, codeName?, kind, state?}]}` - every sheet in tab order, chart sheets included, from any Excel format; `codeName` is the module the VBA project has for it |
 | `getProjectInfo` | `path` | - | `{modules, sheets, namedRanges, isPasswordProtected, isSigned}` |
 | `getProtectionInfo` | `path` | - | `{isPasswordProtected, isSigned}` |
 | `validateProject` | `path` | - | `{issues: [string]}` |
@@ -664,11 +668,26 @@ Which properties a kind of shape takes in each host is one table per host
 (`src/vba/shapeCapabilities.ts`), read by the writers and by the shape
 editor, so the editor offers nothing the writer refuses.
 
-In the tree, a worksheet's shapes are a Shapes folder under its module, a
-Word document's are under ThisDocument by story, and a presentation's slides
-are a folder under the project (`src/shapeRows.ts`). A sheet Excel has given
-no module yet (it names one only once the VBA editor is opened after the
-sheet is added) is listed in a folder of its own. The shape editor
+In the tree, a workbook's sheets are a Sheets folder under the project, in
+tab order (`src/shapeRows.ts`): a sheet with a module is its module row,
+named the way the VBE names it (`Sheet1 (Budget)`); a sheet with shapes and
+no module is a row of its own; and the sheets with neither sit last in
+Sheets With No Modules or Shapes. A sheet's shapes are a Shapes folder under
+its row, drawn only when it has one or more. The sheet list comes from the
+workbook itself (`src/vba/workbookSheets.ts`, the engine's
+`listWorkbookSheets`): the OOXML parts, read by their heads so a sheet of a
+million cells is not inflated for its `sheetPr`; the `.xlsb` binary parts
+(`BrtBundleSh`, then `BrtWsProp` or `BrtCsProp` for the code name); or the
+BIFF8 records of an `.xls` (`BOUNDSHEET`, then each substream's `CODENAME`).
+The layouts were pinned against SheetsFixture, one workbook Excel 16.0 saved
+three ways, and Excel's own report of each sheet's code name. Excel gives a
+worksheet its module only once the VBA editor is opened after the sheet is
+added, so a sheet added through automation has no code name. A change to
+the file re-reads the sheet list, which is cheap, and redraws the Sheets
+folder only when a sheet was added, removed, renamed or given a module; the
+shapes, which take a drawing parse, are read only when a Shapes folder or a
+sheet row is drawn. A Word document's shapes are under ThisDocument by
+story, and a presentation's slides are a folder under the project. The shape editor
 (`src/shapeEditor.ts`, `src/shapeEditorModel.ts`) opens on the file as it is
 now, and a Save sends only the fields that changed as one edit through the
 Office write coordination.
@@ -730,7 +749,7 @@ Both lanes call into these shared owners:
 
 - UI commands (`xlide.exportModulesToFolder`, `xlide.importModulesFromFolder`,
   and tree/menu routes that open the same preview GUI)
-- AI tools (`xlide_exportModules`, `xlide_configureExportMode`)
+- AI tools (`xlide_exportModules`, `xlide_importModules`, `xlide_configureExportMode`)
 
 **Export** reads all VBA modules live from Excel macro workbooks (`.xlsm`, `.xlsb`, `.xlam`) over JSON-RPC (`listModules` then `readModule` per module) and writes module files to a folder. The UI bulk export command opens a webview diff preview where the user can change the export folder, switch export mode, autosave settings after a short debounce, click each module, compare workbook-vs-repo text, check/uncheck modules, and apply only the selected changes. In `trueUp` mode, stale `.bas`/`.cls` repo module files appear as removable diff rows instead of being removed invisibly.
 
@@ -739,7 +758,9 @@ Both lanes call into these shared owners:
   - `exportAll` (default): export every project module; create missing files and update changed files; do not delete stale files
   - `trueUp`: `exportAll` plus remove stale `.bas`/`.cls` module files that no longer exist in the project
 
-**Import** (`xlide.importModulesFromFolder`) reads `.bas`/`.cls` files from the configured (or user-chosen) folder and opens the same webview diff preview. Existing modules can be updated through `writeModule`. Standard and class modules can be created from imported files. Document modules and UserForm `.cls` code-behind modules can be updated when the project already has a same-named module, but they cannot be created directly from import; missing document/UserForm-code-behind rows show `Skipping import`, remain visible in the preview, and are skipped on apply with an audit entry rather than failing the whole import. `.frm` designer files are ignored by import/export sync. Import mode defaults to `updateOnly` (`Import/Update (No Deletes)`). `trueUpStandardClass` (`Import/Update + Delete Missing`) performs the same create/update pass, then previews project-only standard/class modules as removable rows; document modules and UserForm code-behind modules are excluded from true-up removals.
+**Import** (`xlide.importModulesFromFolder`) reads `.bas`/`.cls` files from the configured (or user-chosen) folder and opens the same webview diff preview. Existing modules can be updated through `writeModule`. Standard and class modules can be created from imported files. Document modules and UserForm `.cls` code-behind modules can be updated when the project already has a same-named module, but they cannot be created directly from import; missing document/UserForm-code-behind rows show `Skipping import`, remain visible in the preview, and are skipped on apply with an audit entry rather than failing the whole import. A `.frm` file updates its form's code, and its designer too when the sibling `.frx` is there. Import mode defaults to `updateOnly` (`Import/Update (No Deletes)`). `trueUpStandardClass` (`Import/Update + Delete Missing`) performs the same create/update pass, then previews project-only standard/class modules as removable rows; document modules and UserForm code-behind modules are excluded from true-up removals.
+
+`moduleImport.ts` applies an import plan for both lanes: the preview's Apply, and the `xlide_importModules` tool (issue #92), whose confirmation says what the folder would update, create, delete and skip in place of the preview. A chat-driven import presents each module it wrote for review, as a write through `xlide_writeModule` does.
 
 Import/export settings live in the preview GUI so folder and mode edits use the
 same resolver, planner, and persistence path as apply. The preview shows quiet
@@ -795,6 +816,7 @@ to operate on export files.
 | `xlide_listSubs` | `#xlideListSubs` | none | No |
 | `xlide_readModule` | `#xlideReadModule` | none | No |
 | `xlide_writeModule` | `#xlideWriteModule` | saves .xlsm | Yes |
+| `xlide_editModule` | `#xlideEditModule` | saves the Office file | Yes |
 | `xlide_renameModule` | `#xlideRenameModule` | saves .xlsm | Yes |
 | `xlide_deleteModule` | `#xlideDeleteModule` | saves .xlsm | Yes |
 | `xlide_listSheets` | `#xlideListSheets` | none | No |
@@ -814,7 +836,34 @@ to operate on export files.
 | `xlide_searchModules` | `#xlideSearchModules` | none | No |
 | `xlide_gitChanges` | `#xlideGitChanges` | none | No |
 | `xlide_exportModules` | `#xlideExportModules` | writes export files + updates project JSON config | Yes |
+| `xlide_importModules` | `#xlideImportModules` | saves the Office file + updates project JSON config | Yes |
 | `xlide_configureExportMode` | `#xlideConfigureExportMode` | updates project JSON config | Yes |
+
+### Parts of a module - `moduleParts.ts`
+
+`xlide_readModule` reads the whole module, one window, or the parts an agent
+names: `ranges` of lines and `procedures` by name, several in one call, each
+under a line that says which lines it is (issue #95). `xlide_editModule`
+changes parts in one call: it replaces line ranges, replaces whole procedures
+and inserts after a line. Every line number means the module as the read
+showed it, so the edits are applied from the bottom up, and the read's
+contentToken is required where the whole-module write leaves it optional. A
+procedure's lines are the ones the VBE's ProcOfLine gives it without the
+blank lines on either side: the comment lines directly above its header, the
+header, through its End line, so a replacement carries its comments and
+leaves the separators alone. Two edits touching the same lines are refused.
+The write goes through the same path as `xlide_writeModule`, review included,
+and the result names the lines each edit now occupies and the new token; when
+the engine stored the module in another layout (it drops blank lines above
+the code), the result says to read again rather than name lines.
+
+### Keep All and Revert All
+
+Two buttons above the tree, shown while any agent write awaits a decision
+(`xlide.agentReviewsPending`, set from the pending count): Keep All resolves
+every review, and Revert All asks first, then reverts each module through the
+same audited path as the row's own Revert, leaving alone a module changed
+again since the agent wrote it (issue #94).
 
 ### The MCP server's edits - `mcpEditMirror.ts`
 

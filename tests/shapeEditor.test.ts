@@ -112,7 +112,7 @@ describe('the shape editor tab', () => {
         await panel.send({ type: 'save', values: { ...values, name: 'Go', fillType: 'solid', fillColor: '#00ff00', macro: 'Unlinked' } });
 
         expect(shape('Slide 1', 'Go')).toMatchObject({ macro: 'Unlinked', fill: { type: 'solid', color: '#00FF00' } });
-        expect(deps.explorer.refreshShapes).toHaveBeenCalledWith(deck);
+        expect(deps.explorer.refreshShapes).toHaveBeenCalledWith(deck, { shapesChanged: true });
         expect(panel.dispose).toHaveBeenCalled();
     });
 

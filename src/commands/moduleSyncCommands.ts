@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { splitFrmSource } from '../vba/formDesigner';
 import {
     activeLocalVbaEditor,
     decodeModuleUri,
@@ -11,10 +10,13 @@ import {
     withExportFolderLock,
 } from '../moduleExport';
 import {
+    applyImportModuleSyncPlan as applyImportPlan,
+    selectedModuleSyncItems,
+} from '../moduleImport';
+import {
     buildExportModuleSyncPlan,
     buildImportModuleSyncPlan,
     type ModuleSyncPlan,
-    type ModuleSyncPlanItem,
 } from '../moduleSyncPlan';
 import {
     openModuleSyncPreview,
@@ -32,12 +34,6 @@ import {
     recordXlideWriteAuditEvent as recordWriteAudit,
     type XlideChangeSummary,
 } from '../xlideWriteAudit';
-import {
-    deleteProjectModule,
-    refreshProjectState,
-    writeProjectFormDesigner,
-    writeProjectModule,
-} from '../projectModuleOperations';
 import { registerXlideCommand } from '../xlideCommandRegistration';
 import type { XlideNode } from '../projectExplorer';
 import { errorMessage } from '../util/errors';
@@ -437,160 +433,17 @@ export function registerModuleSyncCommands(deps: CommandDeps): vscode.Disposable
         plan: ModuleSyncPlan,
         selectedIds: readonly string[],
     ): Promise<ModuleSyncApplyResult> {
-        const selected = selectedModuleSyncItems(plan, selectedIds);
-        const changed: string[] = [];
-        const skipped: string[] = [];
-        const removed: string[] = [];
-        const failed: string[] = [];
-
-        for (const item of selected) {
-            if (item.status === 'unchanged') {
-                skipped.push(`${item.relativeName} (unchanged)`);
-                continue;
-            }
-            if (item.status === 'will-remove') {
-                try {
-                    log(`[importModules] Deleting project module ${item.moduleName} during import true-up`);
-                    await deleteProjectModule(deps, {
-                        filePath: plan.projectPath,
-                        moduleName: item.moduleName,
-                    }, { refreshProjectState: false });
-                    removed.push(item.relativeName);
-                    recordWriteAudit({
-                        command: 'xlide.importModulesFromFolder',
-                        operation: 'delete-module',
-                        outcome: 'succeeded',
-                        projectPath: plan.projectPath,
-                        moduleName: item.moduleName,
-                        summary: 'Import true-up: 1 removed',
-                    });
-                } catch (err) {
-                    failed.push(item.relativeName);
-                    recordWriteAudit({
-                        command: 'xlide.importModulesFromFolder',
-                        operation: 'delete-module',
-                        outcome: 'failed',
-                        projectPath: plan.projectPath,
-                        moduleName: item.moduleName,
-                        summary: 'Import true-up: 0 removed, 1 failed',
-                        error: err,
-                    });
-                    log(`[importModules] Error deleting ${item.moduleName}: ${errorMessage(err)}`);
-                }
-                continue;
-            }
-            if (item.status === 'skipping-import' || (item.unsupportedDirectCreation && !item.existsInProject)) {
-                skipped.push(`${item.relativeName} (${item.moduleType} cannot be created directly)`);
-                recordWriteAudit({
-                    command: 'xlide.importModulesFromFolder',
-                    operation: 'import-module',
-                    outcome: 'skipped',
-                    projectPath: plan.projectPath,
-                    moduleName: item.moduleName,
-                    sourcePath: item.sourcePath,
-                    summary: 'Import module: 0 changed, 1 skipped',
-                });
-                continue;
-            }
-
-            try {
-                if (!item.sourcePath) {
-                    throw new Error(`Missing source path for ${item.moduleName}.`);
-                }
-                const sourcePath = item.sourcePath;
-                // Read under the folder lock so a concurrent export cannot have a
-                // half-written file in flight when we read it.
-                const source = await withExportFolderLock(plan.folderPath, () =>
-                    fs.promises.readFile(sourcePath, 'utf8'));
-                log(`[importModules] Importing ${item.moduleName} from ${item.relativeName}`);
-                await writeProjectModule(deps, {
-                    filePath: plan.projectPath,
-                    moduleName: item.moduleName,
-                    source,
-                    kind: item.moduleType,
-                }, { refreshProjectState: false });
-                // A .frm carries the form's designer in a sibling .frx; when the
-                // pair is present and the form exists, the designer travels too.
-                if (/\.frm$/i.test(item.relativeName) && item.existsInProject) {
-                    const frxPath = sourcePath.replace(/\.frm$/i, '.frx');
-                    const frx = await withExportFolderLock(plan.folderPath, () =>
-                        fs.promises.readFile(frxPath).catch(() => undefined));
-                    const designerBlock = splitFrmSource(source)?.designerBlock;
-                    if (frx) {
-                        log(`[importModules] Importing designer for ${item.moduleName} from ${path.basename(frxPath)}`);
-                        await writeProjectFormDesigner(deps, {
-                            filePath: plan.projectPath,
-                            moduleName: item.moduleName,
-                            frx,
-                            frmDesignerBlock: designerBlock,
-                        }, { refreshProjectState: false });
-                    }
-                }
-                changed.push(item.relativeName);
-                recordWriteAudit({
-                    command: 'xlide.importModulesFromFolder',
-                    operation: 'import-module',
-                    outcome: 'succeeded',
-                    projectPath: plan.projectPath,
-                    moduleName: item.moduleName,
-                    sourcePath: item.sourcePath,
-                    summary: 'Import module: 1 changed',
-                });
-            } catch (err) {
-                failed.push(item.relativeName);
-                recordWriteAudit({
-                    command: 'xlide.importModulesFromFolder',
-                    operation: 'import-module',
-                    outcome: 'failed',
-                    projectPath: plan.projectPath,
-                    moduleName: item.moduleName,
-                    sourcePath: item.sourcePath,
-                    summary: 'Import module: 0 changed, 1 failed',
-                    error: err,
-                });
-                log(`[importModules] Error importing ${item.moduleName}: ${errorMessage(err)}`);
-            }
-        }
-
-        if (changed.length > 0 || removed.length > 0) {
-            refreshProjectState(deps, plan.projectPath);
-        }
-        try {
-            await persistModuleSyncSettings(plan.projectPath, settingsFromPlan(plan));
-        } catch (err) {
-            failed.push('project settings');
-            recordWriteAudit({
-                command: 'xlide.importModulesFromFolder',
-                operation: 'configure-module-sync',
-                outcome: 'failed',
-                projectPath: plan.projectPath,
-                targetPath: plan.folderPath,
-                summary: 'Sync settings: 0 changed, 1 failed',
-                error: err,
-            });
-        }
-        const summaryText = logChangeSummary(log, 'importModules', {
-            operation: 'Import modules',
-            changed,
-            skipped,
-            removed,
-            failed,
+        const result = await applyImportPlan(deps, plan, selectedIds, {
+            command: 'xlide.importModulesFromFolder',
+            log,
         });
         return {
-            summary: summaryText,
-            changed: changed.length,
-            skipped: skipped.length,
-            removed: removed.length,
-            failed: failed.length,
+            summary: result.summary,
+            changed: result.written.length,
+            skipped: result.skipped.length,
+            removed: result.removed.length,
+            failed: result.failed.length,
         };
-    }
-
-    function selectedModuleSyncItems(
-        plan: ModuleSyncPlan,
-        selectedIds: readonly string[],
-    ): ModuleSyncPlanItem[] {
-        const selected = new Set(selectedIds);
-        return plan.items.filter((item) => selected.has(item.id));
     }
 
     return [

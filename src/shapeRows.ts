@@ -1,28 +1,38 @@
-// Shapes in the explorer, where each host keeps them.
+// Sheets and shapes in the explorer, where each host keeps them.
 //
-// An Excel worksheet is a module in the VBA project, so a sheet's shapes are
-// a Shapes folder under its module. Word's shapes belong to the document, so
-// they are a Shapes folder under ThisDocument, one row per story (the body,
-// a header, a footer). A PowerPoint slide is no module at all, so the slides
-// are a folder of their own under the project.
+// An Excel workbook's sheets are a Sheets folder under the project, in tab
+// order. A sheet with a module is its module row, named the way the VBE
+// names it: `Sheet1 (Budget)`. A sheet with shapes and no module is a row of
+// its own. The sheets with neither sit last, in a folder of their own,
+// Sheets With No Modules or Shapes. A sheet's shapes are a Shapes folder
+// under its row, drawn only when it has one or more. Word's shapes belong to
+// the document, so they are a Shapes folder under ThisDocument, one row per
+// story (the body, a header, a footer). A PowerPoint slide is no module at
+// all, so the slides are a folder of their own under the project.
 //
+// The sheets come from the workbook's own sheet list (vba/workbookSheets.ts),
+// which every Excel format answers, and the shapes from a listing read when
+// a sheet row or a Shapes folder is drawn, which the OOXML formats answer.
 // Excel gives a worksheet its module only once the workbook's VBA editor has
 // been opened after the sheet was added, and a workbook saved before then
-// carries sheets with no module - ShapesFixture has one. Those sheets have no
-// module row to hang under, so they are a folder at the project level.
+// carries sheets with no module - SheetsFixture has three.
 //
-// The shapes are read from the file when a folder is opened, and the listing
-// is kept per project until the file changes or the tree refreshes. After a
-// change the old listing stays on screen until the new one lands, so a save
-// does not make a folder blink out and back.
+// Both are kept per project until the file changes or the tree refreshes.
+// After a change the sheet list, which is cheap, is read again, and the
+// Sheets folder is drawn again only when a sheet was added, removed, renamed
+// or given a module; the shapes are read again only for a row someone has
+// open. A file that changes on every keystroke's auto-save thus costs the
+// tree no drawing parse while nobody is looking at shapes.
 
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { containerHostForPath } from './macroContainerUi';
 import type { ProjectEngine } from './projectEngine';
 import type { XlideNode } from './projectExplorer';
 import type { ShapeInfo, ShapeKind } from './vba/shapes';
 import type { ShapeSurface } from './vba/projectService';
 import { canRunMacro, type ShapeHost } from './vba/shapeCapabilities';
+import type { WorkbookSheet } from './vba/workbookSheets';
 import { projectIdentityKey } from './xlideFileSystem';
 
 /**
@@ -76,24 +86,48 @@ export interface ShapeRowContext {
 	inGroup?: boolean;
 }
 
+/** The label of the folder that leads a workbook's rows, and of the one that ends its sheets. */
+export const SHEETS_FOLDER_LABEL = 'Sheets';
+export const BARE_SHEETS_FOLDER_LABEL = 'Sheets With No Modules or Shapes';
+
+type ShapeFolderKind = NonNullable<XlideNode['shapeFolder']>;
+
+/** What a sheet row calls each kind, Excel's way. */
+const SHEET_KIND_LABELS: Record<WorkbookSheet['kind'], string> = {
+	worksheet: 'worksheet',
+	chartsheet: 'chart sheet',
+	dialogsheet: 'dialog sheet',
+	macrosheet: 'macro sheet',
+};
+
 /**
- * The shape rows of the explorer. The explorer owns the tree and asks this
- * for the rows under its module and project rows and under the rows made
- * here; `fire` redraws a row the way the explorer's own emitter does.
+ * The sheet and shape rows of the explorer. The explorer owns the tree and
+ * asks this for the rows under a project, a module or one of the rows made
+ * here, and for their tree items.
  */
 export class ShapeRows {
 	private readonly listings = new Map<string, ShapeSurface[]>();
 	private readonly stale = new Set<string>();
 	private readonly loads = new Map<string, Promise<ShapeSurface[]>>();
 	private readonly failures = new Map<string, string>();
-	/** Folder rows by key, so each folder is one row for as long as the tree lasts. */
+	/** Each workbook's sheets, by project, while the tree shows them. */
+	private readonly catalogs = new Map<string, WorkbookSheet[]>();
+	private readonly catalogLoads = new Map<string, Promise<WorkbookSheet[] | undefined>>();
+	private readonly catalogFailures = new Set<string>();
+	/** The reason last given for each project whose sheets could not be listed. */
+	private readonly catalogFailureSaid = new Map<string, string>();
+	/** The sheet list each Sheets folder was last drawn from, as one comparable value. */
+	private readonly sheetsDrawn = new Map<string, string>();
+	/** One node per folder and per surface, so a redraw finds the row VS Code has. */
 	private readonly folders = new Map<string, XlideNode>();
-	/** The folder and surface rows whose shapes were asked for: the ones a change redraws. */
+	/** The rows whose shapes were drawn, and so are drawn again when the file changes. */
 	private readonly opened = new Set<XlideNode>();
-	/** Each workbook's sheets with no module, as last drawn, by project. */
-	private readonly orphansDrawn = new Map<string, string>();
 	private readonly parents = new WeakMap<XlideNode, XlideNode>();
 	private readonly contexts = new WeakMap<XlideNode, ShapeRowContext>();
+	/** The workbook sheet a sheet row stands for. */
+	private readonly sheetOfRow = new WeakMap<XlideNode, WorkbookSheet>();
+	/** The sheets a Sheets With No Modules or Shapes folder holds, decided when its parent was drawn. */
+	private readonly bareSheets = new WeakMap<XlideNode, WorkbookSheet[]>();
 	private generation = 0;
 
 	constructor(
@@ -109,26 +143,49 @@ export class ShapeRows {
 		this.stale.clear();
 		this.loads.clear();
 		this.failures.clear();
+		this.catalogs.clear();
+		this.catalogLoads.clear();
+		this.catalogFailures.clear();
+		this.sheetsDrawn.clear();
 		this.folders.clear();
 		this.opened.clear();
-		this.orphansDrawn.clear();
 	}
 
 	/**
 	 * A file changed, by a shape edit or a save from outside: its listing is
 	 * read again when next asked for, and the shape rows someone opened are
-	 * redrawn, which asks. Nothing is read here, since a file that changes on
-	 * every keystroke's auto-save should cost the tree nothing while its
-	 * shapes are not on screen.
+	 * redrawn, which asks. The sheet list, which is cheap, is read again
+	 * now, and the Sheets folder redrawn when it differs from what the
+	 * folder shows: a sheet added, removed, renamed or given a module.
+	 * Nothing else is read, since a file that changes on every keystroke's
+	 * auto-save should cost the tree nothing while its shapes are not on
+	 * screen.
 	 */
-	refresh(filePath: string): void {
+	refresh(filePath: string, options: { shapesChanged?: boolean } = {}): void {
 		const project = projectIdentityKey(filePath);
 		this.failures.delete(project);
 		this.loads.delete(project);
 		if (this.listings.has(project)) { this.stale.add(project); }
+		this.catalogs.delete(project);
+		this.catalogLoads.delete(project);
+		this.catalogFailures.delete(project);
 		for (const node of this.opened) {
 			if (projectIdentityKey(node.filePath) === project) { this.fire(node); }
 		}
+		const sheets = this.folders.get(folderKey(filePath, 'sheets', undefined));
+		const drawn = this.sheetsDrawn.get(project);
+		if (!sheets || drawn === undefined) {
+			return;
+		}
+		if (options.shapesChanged) {
+			// XLIDE's own shape edit: a sheet may have its first shape now, or
+			// its last one gone, which moves it between the folder's rows.
+			this.fire(sheets);
+			return;
+		}
+		void this.catalog(filePath).then((catalog) => {
+			if (catalog && catalogSignature(catalog) !== drawn) { this.fire(sheets); }
+		});
 	}
 
 	/** The surface and shape a row stands for, for the commands on it. */
@@ -136,62 +193,91 @@ export class ShapeRows {
 		return this.contexts.get(node);
 	}
 
-	/** The row a shape row, surface row or folder row sits under. */
+	/** The row a row made here sits under, and the Sheets folder a sheet's module row sits under. */
 	parentOf(node: XlideNode): XlideNode | undefined {
 		return this.parents.get(node);
 	}
 
-	/** The Shapes folder that goes first under a module row, when its module has shapes to show. */
-	moduleFolder(module: XlideNode): XlideNode | undefined {
+	/**
+	 * The Shapes folder that goes first under a module row: a worksheet's,
+	 * when the sheet has one or more shapes to show; a Word document's
+	 * always, since that is where a shape is added.
+	 */
+	async moduleFolder(module: XlideNode): Promise<XlideNode | undefined> {
 		const host = shapeHostForPath(module.filePath);
-		const kind = module.documentType;
-		if (!module.moduleName || !((host === 'excel' && kind === 'worksheet') || (host === 'word' && kind === 'document'))) {
+		if (!module.moduleName || !host) {
 			return undefined;
 		}
-		const folder = this.folder(module.filePath, 'module', module.moduleName, 'Shapes');
+		if (host === 'word') {
+			if (module.documentType !== 'document') {
+				return undefined;
+			}
+			const folder = this.folder(module.filePath, 'module', 'Shapes', { moduleName: module.moduleName });
+			this.parents.set(folder, module);
+			return folder;
+		}
+		if (host !== 'excel' || module.sheetName === undefined) {
+			return undefined;
+		}
+		const sheet = sheetOfModule(await this.surfacesIfAny(module.filePath), module.moduleName);
+		if (!sheet || sheet.shapes.length === 0) {
+			return undefined;
+		}
+		const folder = this.folder(module.filePath, 'module', 'Shapes', { moduleName: module.moduleName });
 		this.parents.set(folder, module);
 		return folder;
 	}
 
 	/**
-	 * The folders that go first under a project row: a presentation's slides,
-	 * and a workbook's sheets that have no module. The workbook's are known
-	 * only once its shapes are read, so the first drawing starts the read and
-	 * the row is drawn again when it lands.
+	 * The rows that lead a project's: a presentation's Slides folder, or a
+	 * workbook's Sheets folder; and the module rows left for the project
+	 * itself, since a sheet's module row is drawn under Sheets, named for
+	 * its sheet. A workbook whose sheets cannot be listed keeps every module
+	 * at the project, as before there was a Sheets folder.
 	 */
-	projectFolders(project: XlideNode, moduleNames: readonly string[]): XlideNode[] {
-		const host = shapeHostForPath(project.filePath);
-		if (host === 'powerpoint') {
-			const slides = this.folder(project.filePath, 'slides', undefined, 'Slides');
+	async projectRows(
+		project: XlideNode,
+		modules: readonly XlideNode[],
+	): Promise<{ folders: XlideNode[]; modules: XlideNode[] }> {
+		if (shapeHostForPath(project.filePath) === 'powerpoint') {
+			const slides = this.folder(project.filePath, 'slides', 'Slides');
 			this.parents.set(slides, project);
-			return [slides];
+			return { folders: [slides], modules: [...modules] };
 		}
-		if (host !== 'excel') { return []; }
-		const key = projectIdentityKey(project.filePath);
-		const listing = this.listings.get(key);
-		if (!listing || this.stale.has(key)) {
-			// Read in the background; the row is drawn again only when the
-			// sheets it shows have changed.
-			void this.surfaces(project.filePath).then(
-				(surfaces) => {
-					if (sheetNames(orphanSheets(surfaces, moduleNames)) !== (this.orphansDrawn.get(key) ?? '')) {
-						this.fire(project);
-					}
-				},
-				() => undefined,
-			);
+		const catalog = await this.catalog(project.filePath);
+		if (!catalog) {
+			return { folders: [], modules: [...modules] };
 		}
-		const orphans = listing ? orphanSheets(listing, moduleNames) : [];
-		this.orphansDrawn.set(key, sheetNames(orphans));
-		if (orphans.length === 0) { return []; }
-		const sheets = this.folder(project.filePath, 'sheets', undefined, 'Sheets With No Module');
-		sheets.itemCount = orphans.length;
+		const sheets = this.folder(project.filePath, 'sheets', SHEETS_FOLDER_LABEL);
+		sheets.itemCount = catalog.length;
 		this.parents.set(sheets, project);
-		return [sheets];
+		const byCodeName = new Map<string, WorkbookSheet>();
+		for (const sheet of catalog) {
+			if (sheet.codeName) { byCodeName.set(sheet.codeName.toLowerCase(), sheet); }
+		}
+		const rest: XlideNode[] = [];
+		for (const module of modules) {
+			const sheet = module.kind === 'module' && module.moduleName
+				? byCodeName.get(module.moduleName.toLowerCase())
+				: undefined;
+			if (sheet) {
+				this.placeModuleRow(module, sheet, sheets);
+			} else {
+				rest.push(module);
+			}
+		}
+		return { folders: [sheets], modules: rest };
+	}
+
+	/** A sheet's module row: under the Sheets folder, named the way the VBE names it. */
+	private placeModuleRow(module: XlideNode, sheet: WorkbookSheet, sheets: XlideNode): void {
+		module.sheetName = sheet.name;
+		module.label = `${module.moduleName} (${sheet.name})`;
+		this.parents.set(module, sheets);
 	}
 
 	/** The rows under a row made here. */
-	async children(node: XlideNode, moduleNames: () => Promise<readonly string[]>): Promise<XlideNode[]> {
+	async children(node: XlideNode, modulesOf: () => Promise<readonly XlideNode[]>): Promise<XlideNode[]> {
 		if (node.kind === 'shape') {
 			const context = this.contexts.get(node);
 			return context
@@ -199,6 +285,12 @@ export class ShapeRows {
 				: [];
 		}
 		if (node.kind !== 'shapes' && node.kind !== 'surface') { return []; }
+		if (node.shapeFolder === 'sheets') {
+			return this.sheetRows(node, await modulesOf());
+		}
+		if (node.shapeFolder === 'bareSheets') {
+			return (this.bareSheets.get(node) ?? []).map((sheet) => this.sheetRow(node, sheet, undefined));
+		}
 		const host = shapeHostForPath(node.filePath);
 		if (!host) { return []; }
 		this.opened.add(node);
@@ -209,7 +301,16 @@ export class ShapeRows {
 			return [this.infoRow(node, 'Shapes could not be read', err instanceof Error ? err.message : String(err))];
 		}
 		if (node.kind === 'surface') {
-			return this.shapeRowsOf(node, host, surfaces.find((s) => s.surface === node.surface));
+			const surface = surfaces.find((s) => s.surface === node.surface);
+			if (host !== 'excel') {
+				return this.shapeRowsOf(node, host, surface);
+			}
+			// A sheet's shapes sit in a Shapes folder under it, as a module's do.
+			if (!surface || surface.shapes.length === 0) { return []; }
+			const folder = this.folder(node.filePath, 'surface', 'Shapes', { surface: surface.surface });
+			this.parents.set(folder, node);
+			this.contexts.set(folder, { host, surface: surface.surface });
+			return [folder];
 		}
 		switch (node.shapeFolder) {
 			case 'module': {
@@ -225,10 +326,10 @@ export class ShapeRows {
 					.filter((s, index) => index === 0 || s.shapes.length > 0)
 					.map((s) => this.surfaceRow(node, host, s));
 			}
+			case 'surface':
+				return this.shapeRowsOf(node, host, surfaces.find((s) => s.surface === node.surface));
 			case 'slides':
 				return surfaces.map((s) => this.surfaceRow(node, host, s));
-			case 'sheets':
-				return orphanSheets(surfaces, await moduleNames()).map((s) => this.surfaceRow(node, host, s));
 			default:
 				return [];
 		}
@@ -256,25 +357,37 @@ export class ShapeRows {
 		switch (node.kind) {
 			case 'shapes': {
 				const item = new vscode.TreeItem(node.label, vscode.TreeItemCollapsibleState.Collapsed);
-				item.id = `sf::${folderKey(node.filePath, node.shapeFolder ?? '', node.moduleName)}`;
-				item.iconPath = new vscode.ThemeIcon('layers');
+				item.id = `sf::${folderKey(node.filePath, node.shapeFolder ?? '', node.moduleName ?? node.surface)}`;
+				item.iconPath = new vscode.ThemeIcon(node.shapeFolder === 'sheets' ? 'table' : 'layers');
 				if (node.shapeFolder === 'slides') {
 					item.contextValue = 'shapeFolder';
 					item.tooltip = 'The slides of this presentation, and the shapes on each.';
 				} else if (node.shapeFolder === 'sheets') {
+					item.contextValue = 'sheetsFolder';
+					item.description = node.itemCount === 1 ? '1 sheet' : `${node.itemCount ?? 0} sheets`;
+					item.tooltip = 'The worksheets and chart sheets of this workbook, in tab order. A sheet with a module'
+						+ ' is its module, named the way the VBA editor names it; a sheet with shapes lists them under'
+						+ ' Shapes; the sheets with neither are in a folder at the end.';
+				} else if (node.shapeFolder === 'bareSheets') {
 					item.contextValue = 'shapeFolder';
 					item.description = node.itemCount === 1 ? '1 sheet' : `${node.itemCount ?? 0} sheets`;
-					item.tooltip = 'Worksheets with no module in the VBA project. Excel gives a sheet its module once'
-						+ ' the VBA editor is opened after the sheet was added; until then its shapes are listed here.';
+					item.tooltip = 'Sheets with no module in the VBA project and no shapes. Excel gives a sheet its'
+						+ ' module once the VBA editor is opened after the sheet was added.';
 				} else {
 					item.contextValue = 'shapeFolder-add';
 					item.tooltip = shapeHostForPath(node.filePath) === 'word'
 						? 'The shapes of this document, by story. Word cannot run a macro from a shape.'
-						: `The shapes on the worksheet whose module is ${node.moduleName}.`;
+						: node.shapeFolder === 'surface'
+							? `The shapes on ${node.surface}.`
+							: `The shapes on the worksheet whose module is ${node.moduleName}.`;
 				}
 				return item;
 			}
 			case 'surface': {
+				const sheet = this.sheetOfRow.get(node);
+				if (sheet) {
+					return this.sheetItem(node, sheet, context);
+				}
 				const item = new vscode.TreeItem(node.label, vscode.TreeItemCollapsibleState.Collapsed);
 				item.id = `su::${projectIdentityKey(node.filePath)}::${node.surface}`;
 				const host = context?.host;
@@ -332,11 +445,123 @@ export class ShapeRows {
 		return load;
 	}
 
-	private folder(filePath: string, kind: 'module' | 'slides' | 'sheets', moduleName: string | undefined, label: string): XlideNode {
-		const key = folderKey(filePath, kind, moduleName);
+	/**
+	 * The workbook's sheets in tab order, read once per project; undefined
+	 * for a file that is not a workbook, or whose sheets could not be read,
+	 * which is said once in the output channel.
+	 */
+	catalog(filePath: string): Promise<WorkbookSheet[] | undefined> {
+		if (containerHostForPath(filePath) !== 'excel') { return Promise.resolve(undefined); }
+		const project = projectIdentityKey(filePath);
+		const cached = this.catalogs.get(project);
+		if (cached) { return Promise.resolve(cached); }
+		if (this.catalogFailures.has(project)) { return Promise.resolve(undefined); }
+		let load = this.catalogLoads.get(project);
+		if (!load) {
+			const generation = this.generation;
+			const started: Promise<WorkbookSheet[] | undefined> = this.bridge
+				.call<{ sheets?: WorkbookSheet[] }>('listWorkbookSheets', { path: filePath })
+				.then((result) => {
+					if (!Array.isArray(result?.sheets)) {
+						throw new Error('The sheet list did not come back as one.');
+					}
+					if (this.generation === generation && this.catalogLoads.get(project) === started) {
+						this.catalogs.set(project, result.sheets);
+					}
+					return result.sheets;
+				})
+				.catch((err: unknown) => {
+					// An answer that is not a sheet list fails the same way as
+					// no answer: the workbook keeps its flat listing. Said once
+					// per reason, not on every save of a file that never reads.
+					const message = err instanceof Error ? err.message : String(err);
+					if (this.catalogFailureSaid.get(project) !== message) {
+						this.catalogFailureSaid.set(project, message);
+						this.out?.appendLine(`[projectExplorer] The sheets of "${path.basename(filePath)}" could not be listed: ${message}`);
+					}
+					if (this.generation === generation && this.catalogLoads.get(project) === started) {
+						this.catalogFailures.add(project);
+					}
+					return undefined;
+				});
+			load = started;
+			const settled = (): void => { if (this.catalogLoads.get(project) === started) { this.catalogLoads.delete(project); } };
+			started.then(settled, settled);
+			this.catalogLoads.set(project, started);
+		}
+		return load;
+	}
+
+	/** The shapes listing, or none: for a format the shape tools do not read, and for a listing that failed. */
+	private async surfacesIfAny(filePath: string): Promise<ShapeSurface[]> {
+		if (!shapeHostForPath(filePath)) { return []; }
+		try {
+			return await this.surfaces(filePath);
+		} catch {
+			return [];
+		}
+	}
+
+	/**
+	 * The rows of the Sheets folder, in tab order: a sheet's module row, or
+	 * the sheet itself when it has shapes and no module; and, last, the
+	 * folder of sheets with neither. What the shapes listing cannot say - a
+	 * format it does not read, a drawing that would not parse - counts as no
+	 * shapes, so the sheet is still listed, in that folder.
+	 */
+	private async sheetRows(folder: XlideNode, modules: readonly XlideNode[]): Promise<XlideNode[]> {
+		const catalog = (await this.catalog(folder.filePath)) ?? [];
+		this.sheetsDrawn.set(projectIdentityKey(folder.filePath), catalogSignature(catalog));
+		const surfaces = await this.surfacesIfAny(folder.filePath);
+		const byName = new Map<string, XlideNode>();
+		for (const module of modules) {
+			if (module.kind === 'module' && module.moduleName) { byName.set(module.moduleName.toLowerCase(), module); }
+		}
+		const rows: XlideNode[] = [];
+		const bare: WorkbookSheet[] = [];
+		for (const sheet of catalog) {
+			const module = sheet.codeName ? byName.get(sheet.codeName.toLowerCase()) : undefined;
+			if (module) {
+				// Named here as well: a Sheets folder drawn again on its own,
+				// after a sheet was renamed, shows the new name.
+				this.placeModuleRow(module, sheet, folder);
+				rows.push(module);
+				continue;
+			}
+			const surface = surfaces.find((s) => s.surface === sheet.name);
+			if (surface && surface.shapes.length > 0) {
+				rows.push(this.sheetRow(folder, sheet, surface));
+			} else {
+				bare.push(sheet);
+			}
+		}
+		if (bare.length > 0) {
+			const none = this.folder(folder.filePath, 'bareSheets', BARE_SHEETS_FOLDER_LABEL);
+			none.itemCount = bare.length;
+			this.parents.set(none, folder);
+			this.bareSheets.set(none, bare);
+			rows.push(none);
+		}
+		return rows;
+	}
+
+	private folder(
+		filePath: string,
+		kind: ShapeFolderKind,
+		label: string,
+		owner: { moduleName?: string; surface?: string } = {},
+	): XlideNode {
+		const key = folderKey(filePath, kind, owner.moduleName ?? owner.surface);
 		let node = this.folders.get(key);
 		if (!node) {
-			node = { kind: 'shapes', label, filePath, shapeFolder: kind, ...(moduleName ? { moduleName } : {}) };
+			node = {
+				kind: 'shapes',
+				label,
+				filePath,
+				shapeFolder: kind,
+				...(owner.moduleName ? { moduleName: owner.moduleName } : {}),
+				...(owner.surface ? { surface: owner.surface } : {}),
+			};
 			this.folders.set(key, node);
 		}
 		return node;
@@ -344,15 +569,39 @@ export class ShapeRows {
 
 	/** A slide's or story's row: one object per surface, so a redraw finds the row VS Code has. */
 	private surfaceRow(parent: XlideNode, host: ShapeHost, surface: ShapeSurface): XlideNode {
-		const key = `${projectIdentityKey(parent.filePath)}::surface::${surface.surface.toLowerCase()}`;
-		let node = this.folders.get(key);
-		if (!node) {
-			node = { kind: 'surface', label: surface.surface, filePath: parent.filePath, surface: surface.surface };
-			this.folders.set(key, node);
-		}
+		const node = this.surfaceNode(parent.filePath, surface.surface);
 		node.itemCount = surface.shapes.length;
 		this.parents.set(node, parent);
 		this.contexts.set(node, { host, surface: surface.surface });
+		return node;
+	}
+
+	/**
+	 * A sheet's own row, for a sheet with no module: with its shapes, under
+	 * Sheets; with none, under Sheets With No Modules or Shapes. A worksheet
+	 * the shape tools can write takes a new shape from its row.
+	 */
+	private sheetRow(parent: XlideNode, sheet: WorkbookSheet, surface: ShapeSurface | undefined): XlideNode {
+		const node = this.surfaceNode(parent.filePath, sheet.name);
+		node.itemCount = surface?.shapes.length ?? 0;
+		this.parents.set(node, parent);
+		this.sheetOfRow.set(node, sheet);
+		const host = shapeHostForPath(parent.filePath);
+		if (host === 'excel' && sheet.kind === 'worksheet') {
+			this.contexts.set(node, { host, surface: sheet.name });
+		} else {
+			this.contexts.delete(node);
+		}
+		return node;
+	}
+
+	private surfaceNode(filePath: string, surface: string): XlideNode {
+		const key = `${projectIdentityKey(filePath)}::surface::${surface.toLowerCase()}`;
+		let node = this.folders.get(key);
+		if (!node) {
+			node = { kind: 'surface', label: surface, filePath, surface };
+			this.folders.set(key, node);
+		}
 		return node;
 	}
 
@@ -388,6 +637,27 @@ export class ShapeRows {
 		};
 		this.parents.set(node, parent);
 		return node;
+	}
+
+	/** The row of a sheet with no module: its name, its kind, whether it is hidden, and what it holds. */
+	private sheetItem(node: XlideNode, sheet: WorkbookSheet, context: ShapeRowContext | undefined): vscode.TreeItem {
+		const shapes = node.itemCount ?? 0;
+		const item = new vscode.TreeItem(
+			node.label,
+			shapes > 0 ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None,
+		);
+		item.id = `su::${projectIdentityKey(node.filePath)}::${node.surface}`;
+		item.iconPath = new vscode.ThemeIcon(sheet.kind === 'chartsheet' ? 'graph' : 'table');
+		const kind = SHEET_KIND_LABELS[sheet.kind];
+		const notes = [
+			sheet.kind === 'worksheet' ? '' : kind,
+			sheet.state === 'hidden' ? 'hidden' : sheet.state === 'veryHidden' ? 'very hidden' : '',
+		].filter(Boolean);
+		if (notes.length > 0) { item.description = notes.join(', '); }
+		item.contextValue = context ? 'shapeSurface-add' : 'shapeSurface';
+		item.tooltip = `${sheet.name}: a ${kind} with no module in the VBA project`
+			+ (shapes > 0 ? `, with ${shapes === 1 ? '1 shape' : `${shapes} shapes`}.` : '.');
+		return item;
 	}
 
 	private shapeItem(node: XlideNode, context: ShapeRowContext | undefined): vscode.TreeItem {
@@ -436,17 +706,12 @@ function sheetOfModule(surfaces: readonly ShapeSurface[], moduleName: string): S
 	return surfaces.find((s) => s.codeName?.toLowerCase() === wanted);
 }
 
-/** A set of sheets as one comparable value. */
-function sheetNames(sheets: readonly ShapeSurface[]): string {
-	return sheets.map((sheet) => sheet.surface).join('\n');
+/** A sheet list as one comparable value: what a redraw of the Sheets folder would change. */
+function catalogSignature(catalog: readonly WorkbookSheet[]): string {
+	return catalog.map((sheet) => `${sheet.name}|${sheet.codeName ?? ''}|${sheet.kind}|${sheet.state ?? ''}`).join('\n');
 }
 
-/** The worksheets of a listing that no module in the project stands for. */
-function orphanSheets(surfaces: readonly ShapeSurface[], moduleNames: readonly string[]): ShapeSurface[] {
-	const modules = new Set(moduleNames.map((name) => name.toLowerCase()));
-	return surfaces.filter((s) => !s.codeName || !modules.has(s.codeName.toLowerCase()));
-}
-
-function folderKey(filePath: string, kind: string, moduleName: string | undefined): string {
-	return `${projectIdentityKey(filePath)}::${kind}::${(moduleName ?? '').toLowerCase()}`;
+/** A folder's key in the row map, apart from the surface rows' keys, which a sheet's own row uses. */
+function folderKey(filePath: string, kind: string, owner: string | undefined): string {
+	return `${projectIdentityKey(filePath)}::folder::${kind}::${(owner ?? '').toLowerCase()}`;
 }
