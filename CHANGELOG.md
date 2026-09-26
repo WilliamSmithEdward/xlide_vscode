@@ -2,6 +2,20 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.11.0] - 2026-09-26
+
+Two compound-file writer fixes carried over from pyOpenVBA issue #31.
+
+- **Containers past 7 MB** (#136). The writer used to stop at the 109 FAT
+  sectors the header names and refuse anything larger. It now continues the
+  DIFAT in sectors of 127 entries, as [MS-CFB] 2.5 describes, so a
+  vbaProject.bin or .frx of any size the reader accepts can be written back.
+  A 9 MB container round-trips byte for byte.
+- **Timestamps on new storages** (#137). A storage the engine creates (a new
+  form's storage, for one) carried all-zero creation and modification
+  FILETIMEs; Word needs them set. Both are now stamped with the current
+  time. Streams keep zero, which the specification allows and Office writes.
+
 ## [10.10.0] - 2026-09-26
 
 Eight more analyzer issues (#128 to #135), each re-measured in Excel 16.0

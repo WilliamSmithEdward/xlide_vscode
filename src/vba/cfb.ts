@@ -17,6 +17,11 @@ const MAGIC = Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
 export const FREESECT = 0xffffffff;
 export const ENDOFCHAIN = 0xfffffffe;
 const FATSECT = 0xfffffffd;
+const DIFSECT = 0xfffffffc;
+/** FAT sector numbers the header itself holds ([MS-CFB] 2.2). */
+const DIFAT_HEADER_ENTRIES = 109;
+/** FAT sector numbers per DIFAT sector; the last slot links to the next one ([MS-CFB] 2.5). */
+const DIFAT_ENTRIES_PER_SECTOR = 127;
 const NOSTREAM = 0xffffffff;
 
 const OBJTYPE_EMPTY = 0;
@@ -807,18 +812,25 @@ export class Cfb {
 			}
 		}
 
-		// 4. Size the FAT (fixed point: FAT sectors are themselves in the FAT).
+		// 4. Size the FAT (fixed point: FAT sectors and DIFAT sectors are
+		// themselves in the FAT). The header names 109 FAT sectors; past that
+		// the DIFAT continues in sectors of 127 entries plus a link to the next
+		// ([MS-CFB] 2.5), which is what lets a container past about 7 MB be
+		// written (issue #136).
 		const nData = sectors.length;
 		let nFat = 1;
+		let nDifat = 0;
 		for (;;) {
-			const needed = Math.ceil((nData + nFat) / ENTRIES_PER_SECTOR);
-			if (needed <= nFat) { break; }
-			nFat = needed;
-		}
-		if (nFat > 109) {
-			throw new CfbError('CFB writer requires DIFAT chain support for files this large.');
+			const neededDifat = nFat > DIFAT_HEADER_ENTRIES
+				? Math.ceil((nFat - DIFAT_HEADER_ENTRIES) / DIFAT_ENTRIES_PER_SECTOR)
+				: 0;
+			const neededFat = Math.ceil((nData + nFat + neededDifat) / ENTRIES_PER_SECTOR);
+			if (neededFat <= nFat && neededDifat === nDifat) { break; }
+			nFat = Math.max(nFat, neededFat);
+			nDifat = neededDifat;
 		}
 		const fatFirst = nData;
+		const difatFirst = fatFirst + nFat;
 
 		// 5. Build the FAT.
 		const fat = new Array<number>(nFat * ENTRIES_PER_SECTOR).fill(FREESECT);
@@ -838,9 +850,21 @@ export class Cfb {
 		chain(dirFirst, nDirSectors);
 		if (nMinifatSectors > 0) { chain(minifatFirst, nMinifatSectors); }
 		for (let k = 0; k < nFat; k++) { fat[fatFirst + k] = FATSECT; }
+		for (let k = 0; k < nDifat; k++) { fat[difatFirst + k] = DIFSECT; }
 		const fatBytes = writeUint32Array(fat);
 		for (let k = 0; k < nFat; k++) {
 			sectors.push(fatBytes.subarray(k * SECTOR, (k + 1) * SECTOR));
+		}
+		// The DIFAT sectors: FAT sector numbers 109 onward, 127 per sector,
+		// each ending with the next DIFAT sector or ENDOFCHAIN.
+		for (let k = 0; k < nDifat; k++) {
+			const entries = new Array<number>(ENTRIES_PER_SECTOR).fill(FREESECT);
+			for (let j = 0; j < DIFAT_ENTRIES_PER_SECTOR; j++) {
+				const fatIndex = DIFAT_HEADER_ENTRIES + k * DIFAT_ENTRIES_PER_SECTOR + j;
+				if (fatIndex < nFat) { entries[j] = fatFirst + fatIndex; }
+			}
+			entries[DIFAT_ENTRIES_PER_SECTOR] = k + 1 < nDifat ? difatFirst + k + 1 : ENDOFCHAIN;
+			sectors.push(writeUint32Array(entries));
 		}
 
 		// 6. Header.
@@ -858,9 +882,9 @@ export class Cfb {
 		header.writeUInt32LE(CUTOFF, 56);
 		header.writeUInt32LE(minifatFirst, 60);
 		header.writeUInt32LE(nMinifatSectors, 64);
-		header.writeUInt32LE(ENDOFCHAIN, 68); // first DIFAT sector
-		header.writeUInt32LE(0, 72);          // num DIFAT sectors
-		for (let i = 0; i < 109; i++) {
+		header.writeUInt32LE(nDifat > 0 ? difatFirst : ENDOFCHAIN, 68); // first DIFAT sector
+		header.writeUInt32LE(nDifat, 72);                                // num DIFAT sectors
+		for (let i = 0; i < DIFAT_HEADER_ENTRIES; i++) {
 			header.writeUInt32LE(i < nFat ? fatFirst + i : FREESECT, 76 + i * 4);
 		}
 
@@ -905,6 +929,15 @@ export class Cfb {
 			: Buffer.alloc(DIR_ENTRY_SIZE);
 		if (entry.raw.length !== DIR_ENTRY_SIZE) {
 			buf.writeUInt8(0, 67); // colour: red
+			// A storage the engine creates is stamped now, both times: Word
+			// needs non-zero FILETIMEs on the form storages it opens (issue
+			// #137, carried over from pyOpenVBA #31). A stream keeps zero, as
+			// [MS-CFB] 2.6.1 allows, the way Office writes its own.
+			if (entry.objType === OBJTYPE_STORAGE) {
+				const now = fileTimeNow();
+				now.copy(buf, 100);
+				now.copy(buf, 108);
+			}
 		}
 		const nameUtf16 = Buffer.concat([Buffer.from(entry.name, 'utf16le'), Buffer.alloc(2)]);
 		if (nameUtf16.length > 64) {
@@ -939,6 +972,14 @@ function parseDirEntry(raw: Buffer, index: number): DirEntry {
 		size: entryRaw.readUInt32LE(120),
 		raw: entryRaw,
 	};
+}
+
+/** The current time as a FILETIME: 100-nanosecond ticks since 1601-01-01 UTC, little-endian. */
+function fileTimeNow(): Buffer {
+	const ticks = (BigInt(Date.now()) + 11644473600000n) * 10000n;
+	const out = Buffer.alloc(8);
+	out.writeBigUInt64LE(ticks);
+	return out;
 }
 
 function emptyDirEntryBytes(): Buffer {
