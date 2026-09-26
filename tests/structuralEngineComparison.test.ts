@@ -464,7 +464,7 @@ describe('structural engine divergence repros (audit #74)', () => {
         expect(parserRecords(src)).toEqual([]);
     });
 
-    it('line-numbered-statement: the legacy engine misses openers behind line numbers', () => {
+    it('line-numbered-statement: both engines see an opener behind a line number (converged, issue #131)', () => {
         const src =
             'Sub S()\n' +
             '10 Select Case x\n' +
@@ -472,9 +472,7 @@ describe('structural engine divergence repros (audit #74)', () => {
             '        y = 1\n' +
             'End Select\n' +
             'End Sub\n';
-        expect(sortedRecords(legacyRecords(src))).toEqual([
-            { kind: 'unmatched', line: 4 },
-        ]);
+        expect(sortedRecords(legacyRecords(src))).toEqual([]);
         expect(parserRecords(src)).toEqual([]);
     });
 

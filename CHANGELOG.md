@@ -2,6 +2,42 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.10.0] - 2026-09-26
+
+Eight more analyzer issues (#128 to #135), each re-measured in Excel 16.0
+(build 20326) through pyVBAharness before the change.
+
+- **A block inside a one-line If** (#128). `If a Then With c: .Add 1: End
+  With`, and the same with For, Do, While, Select Case or an Else tail,
+  opens and closes on that line in both the parser and the structural pass,
+  so no unmatched-closer, member-access-outside-with or case-outside-select
+  report.
+- **`Else:`** (#129) is the Else of its If, not a label, so two of them in one
+  procedure no longer report duplicate-label.
+- **A block opener or closer written in both arms of an `#If`** (#130) is
+  counted once, in the parser and in the structural pass: `End If`, `End
+  With` or a `Select Case` header restated in the `#Else` arm no longer
+  closes or opens a second block. A `#Const` defined twice reports "Duplicate
+  definition", and code after the colon on a directive line is reported.
+- **Line numbers ahead of statements** (#131) no longer hide a block keyword
+  from the structural pass, and a numbered one-line If with an `=`
+  condition is no longer read as an assignment.
+- **Characters VBA does not use** (#132): a trailing `;`, a backtick, braces,
+  a lone `@`, `~` or `|`, and a non-breaking space pasted from a web page
+  are reported as the Syntax error they are. A run of them is one finding,
+  and a type-declaration character on a name is left alone.
+- **Refused literals** (#133): `2147483648&` where the `&` cannot be
+  concatenation, `&H10000%`, `&H100000000&`, `3.5E+38!`,
+  `922337203685477.5808@`, `9223372036854775808^`, `1E3%`, `&H` with no
+  digits, and date literals with a year past 9999, an impossible day or
+  hour, or nothing between the hashes. A physical line of 1024 characters
+  is reported; 1023 compile.
+- **Long With blocks and member chains** (#134, #135) are no longer
+  quadratic: the diagnostics pass keeps the With-scan index and the
+  receiver-chain results for the pass. A 2,000-line With block went from
+  1,779 ms to 347 ms and a 4,000-member chain from 2,386 ms to 505 ms on the
+  same machine, with identical findings.
+
 ## [10.9.0] - 2026-09-26
 
 Thirty-two analyzer issues (#96 to #127), every one re-measured in Excel,

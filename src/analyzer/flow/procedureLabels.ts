@@ -1,4 +1,5 @@
 import type { VbaToken } from '../lexer/tokenKinds';
+import { isReservedIdentifier } from '../lexer/keywordTable';
 import {
 	absoluteSpan,
 	splitTopLevelTokenGroups,
@@ -376,6 +377,12 @@ function labelReferenceGroup(
 
 function labelFromToken(tok: VbaToken, base: Span): VbaProcedureLabel | undefined {
 	const name = tokenName(tok);
+	// A reserved word is never a label: `Else:` is the Else of its If with a
+	// colon after it (issue #129, measured in Excel 16.0: two of them in one
+	// procedure compile), the way `Next:` and `End If:` already read.
+	if (name && isReservedIdentifier(name)) {
+		return undefined;
+	}
 	if (name) {
 		return {
 			key: `name:${name.toLowerCase()}`,

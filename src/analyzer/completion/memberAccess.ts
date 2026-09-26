@@ -110,6 +110,14 @@ export interface MemberCompletionContext {
 	 * leading-dot member. Must be discarded whenever `source` changes.
 	 */
 	withScanCache?: Map<number, WithScanIndex>;
+	/**
+	 * Receiver-chain prefix results for one analysis pass, keyed by the chain's
+	 * root token offset and the number of segments resolved (issue #135). The
+	 * caller owns its lifetime: one source, one pass.
+	 */
+	receiverTypeCache?: Map<string, string | undefined>;
+	/** Receiver chains already collected, keyed by the dot token's offset (issue #135). */
+	receiverChainCache?: Map<number, ReceiverChain>;
 }
 
 /** A single member-completion result. */
@@ -186,7 +194,7 @@ interface ReceiverChainSegment {
 	hasArguments: boolean;
 }
 
-interface ReceiverChain {
+export interface ReceiverChain {
 	segments: ReceiverChainSegment[];
 	startIndex: number;
 }
@@ -597,8 +605,17 @@ function receiverTypeFromTokens(
 	offset: number,
 	ctx: MemberCompletionContext,
 ): string | undefined {
-	const chain = collectReceiverChain(tokens, dotIndex - 1);
-	const explicitReceiver = receiverTypeFromChain(chain, source, offset, ctx);
+	// A dot whose chain is the previous dot's plus one member takes that dot's
+	// chain and adds the member, instead of walking the whole chain back again
+	// (issue #135: a 4,000-member chain took 2.4 s, each dot re-walking it).
+	const chain = chainExtendedFromPreviousDot(tokens, dotIndex, ctx) ?? collectReceiverChainWithStart(tokens, dotIndex - 1);
+	if (chain && ctx.receiverChainCache) {
+		ctx.receiverChainCache.set(tokens[dotIndex].start, chain);
+	}
+	// The chain's root resolves the same at every dot of one statement, so the
+	// type walk resumes from the longest prefix already resolved.
+	const cacheBase = chain && ctx.receiverTypeCache ? tokens[chain.startIndex]?.start : undefined;
+	const explicitReceiver = receiverTypeFromChain(chain?.segments ?? [], source, offset, ctx, cacheBase);
 	if (explicitReceiver) {
 		return explicitReceiver;
 	}
@@ -716,20 +733,44 @@ function receiverTypeFromChain(
 	source: string,
 	offset: number,
 	ctx: MemberCompletionContext,
+	cacheBase?: number,
 ): string | undefined {
 	if (chain.length === 0) {
 		return undefined;
 	}
-	const root = chain[0];
-	const rootType = resolveRoot(root.name, source, offset, ctx);
-	if (!rootType) {
-		return undefined;
+	// Prefix results of this chain, keyed by the root token's offset and the
+	// number of segments resolved: the longest cached prefix is where the walk
+	// resumes, and every prefix reached is stored for the next dot.
+	const cache = cacheBase === undefined ? undefined : ctx.receiverTypeCache;
+	const keyFor = (segments: number): string => `${cacheBase}:${segments}`;
+	let resumeAt = 0;
+	let currentType: string | undefined;
+	if (cache) {
+		for (let s = chain.length; s >= 1; s -= 1) {
+			const key = keyFor(s);
+			if (cache.has(key)) {
+				currentType = cache.get(key);
+				resumeAt = s;
+				break;
+			}
+		}
 	}
-	let currentType = applyDefaultMemberReturnType(rootType, root.hasArguments, ctx);
-	for (let s = 1; s < chain.length && currentType; s += 1) {
+	if (resumeAt === 0) {
+		const root = chain[0];
+		const rootType = resolveRoot(root.name, source, offset, ctx);
+		if (!rootType) {
+			cache?.set(keyFor(1), undefined);
+			return undefined;
+		}
+		currentType = applyDefaultMemberReturnType(rootType, root.hasArguments, ctx);
+		cache?.set(keyFor(1), currentType);
+		resumeAt = 1;
+	}
+	for (let s = resumeAt; s < chain.length && currentType; s += 1) {
 		const segment = chain[s];
 		const resolved = resolveAnyMemberReturnType(currentType, segment.name, ctx);
 		if (!resolved) {
+			cache?.set(keyFor(s + 1), undefined);
 			return undefined;
 		}
 		// A member called with arguments indexes into its return type; when that
@@ -743,21 +784,36 @@ function receiverTypeFromChain(
 			segment.hasArguments && !isExplicitElementAccessor(segment.name),
 			ctx,
 		);
+		cache?.set(keyFor(s + 1), currentType);
 	}
 	return currentType;
 }
 
 /**
- * Walks left from `endIndex` collecting a dotted receiver chain of identifiers,
- * skipping balanced call/index parentheses. Returns segments left-to-right,
- * e.g. ws, Range(args), Offset(args) for `ws.Range("A1").Offset(1, 0)`. Returns
- * an empty array if the expression is not a simple member-access chain.
+ * The chain for the dot at `dotIndex` when the token before it is a plain
+ * member name that follows an already-resolved dot: that dot's cached chain
+ * plus this member. Any other shape (arguments, a root, a boundary) is
+ * collected the long way.
  */
-function collectReceiverChain(
+function chainExtendedFromPreviousDot(
 	tokens: VbaToken[],
-	endIndex: number,
-): ReceiverChainSegment[] {
-	return collectReceiverChainWithStart(tokens, endIndex)?.segments ?? [];
+	dotIndex: number,
+	ctx: MemberCompletionContext,
+): ReceiverChain | undefined {
+	const cache = ctx.receiverChainCache;
+	const member = tokens[dotIndex - 1];
+	const previousDot = tokens[dotIndex - 2];
+	if (!cache || !member || !isIdentLike(member) || previousDot?.rawText !== '.') {
+		return undefined;
+	}
+	const previous = cache.get(previousDot.start);
+	if (!previous) {
+		return undefined;
+	}
+	return {
+		segments: [...previous.segments, { name: word(member), hasArguments: false }],
+		startIndex: previous.startIndex,
+	};
 }
 
 function collectReceiverChainWithStart(

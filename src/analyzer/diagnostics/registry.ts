@@ -106,6 +106,8 @@ import { checkDeclarationForms } from './rules/declarationForms';
 import { checkLineContinuationLimits } from './rules/lineContinuations';
 import { checkImplementsMembers } from './rules/implementsMembers';
 import { checkStatementForms } from './rules/statementForms';
+import { checkStrayCharacters } from './rules/strayTokens';
+import { checkDirectiveForms } from './rules/directiveForms';
 import { checkMissingLibraryReference } from './rules/missingReference';
 import { getExcelObjectModel } from '../host/excelObjectModel';
 import {
@@ -330,6 +332,14 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'statementForms',
 		run: (ctx, push) => checkStatementForms(ctx.source, ctx.mod, ctx.symbols, ctx.opts.projectProcedures, ctx.activity, push),
+	},
+	{
+		name: 'strayCharacters',
+		run: (ctx, push) => checkStrayCharacters(ctx.source, ctx.activity, push),
+	},
+	{
+		name: 'directiveForms',
+		run: (ctx, push) => checkDirectiveForms(ctx.source, ctx.mod, push),
 	},
 	{
 		name: 'optionPlacement',

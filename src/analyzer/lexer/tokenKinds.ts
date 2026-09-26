@@ -102,8 +102,11 @@ export function isWsc(ch: string): boolean {
 		case '\u3000': // %x3000 DBCS-whitespace
 			return true;
 		default:
-			// most-Unicode-class-Zs: other Unicode space separators.
-			return /\s/.test(ch) && ch !== '\n' && ch !== '\r' && ch !== '\v' && ch !== '\f';
+			// most-Unicode-class-Zs: other Unicode space separators. U+00A0 is
+			// not one to the VBE: pasted from a web page it is a Syntax error
+			// between tokens and part of a name at the start of a line (issue
+			// #132, measured in Excel 16.0), so it lexes as a stray character.
+			return /\s/.test(ch) && ch !== '\n' && ch !== '\r' && ch !== '\v' && ch !== '\f' && ch !== '\u00A0';
 	}
 }
 

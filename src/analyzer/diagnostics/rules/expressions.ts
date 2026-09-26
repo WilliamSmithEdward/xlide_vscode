@@ -443,7 +443,7 @@ function juxtaposedRhsValues(
 	span: Span,
 ): { text: string; span: Span } | undefined {
 	const toks = statementTokens(source, span);
-	if (toks.length === 0 || isNonAssignmentStatementLeader(tokenText(toks[0]))) {
+	if (toks.length === 0 || isNonAssignmentStatementLeader(tokenText(toks[firstExecutableTokenIndex(toks)]))) {
 		return undefined;
 	}
 	const eq = topLevelOperatorIndex(toks, '=');
@@ -1086,7 +1086,7 @@ function parenlessExpressionCall(
 	sourceNames?: SourceNameScope,
 ): { name: string; span: Span } | undefined {
 	const toks = statementTokens(source, span);
-	if (toks.length === 0 || isNonAssignmentStatementLeader(tokenText(toks[0]))) {
+	if (toks.length === 0 || isNonAssignmentStatementLeader(tokenText(toks[firstExecutableTokenIndex(toks)]))) {
 		return undefined;
 	}
 	const eq = topLevelOperatorIndex(toks, '=');

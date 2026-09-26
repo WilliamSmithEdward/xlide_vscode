@@ -174,6 +174,13 @@ class Parser {
 	private readonly openStack: string[] = [];
 	/** Names a `Next i, j` left for the loops outside the one that consumed it. */
 	private pendingNext: { names: { name: string; span: Span }[]; stmt: LogicalStatement } | undefined;
+	/**
+	 * Open `#If` chains, innermost last. Only one arm of a chain is compiled,
+	 * so a block opener or closer an arm restates from arm 0 is not a second
+	 * one (issue #130): `End If` written in both arms closes one block, and
+	 * `If ... Then` written in both arms opens one.
+	 */
+	private directiveChains: { depthAtIf: number; arm: number; endHeight0: number }[] = [];
 
 	constructor(
 		private readonly source: string,
@@ -404,6 +411,55 @@ class Parser {
 	}
 
 	private parseConditionalDirective(
+		stmt: LogicalStatement,
+		tokens: VbaToken[],
+	): ConditionalDirectiveNode {
+		const node = this.parseConditionalDirectiveNode(stmt, tokens);
+		this.trackDirective(node.directiveKind);
+		return node;
+	}
+
+	private trackDirective(kind: ConditionalDirectiveNode['directiveKind']): void {
+		const depth = this.openStack.length;
+		const top = this.directiveChains[this.directiveChains.length - 1];
+		switch (kind) {
+			case 'If':
+				this.directiveChains.push({ depthAtIf: depth, arm: 0, endHeight0: depth });
+				break;
+			case 'ElseIf':
+			case 'Else':
+				if (top) {
+					if (top.arm === 0) {
+						top.endHeight0 = depth;
+					}
+					top.arm += 1;
+				}
+				break;
+			case 'EndIf':
+				this.directiveChains.pop();
+				break;
+			default:
+				break;
+		}
+	}
+
+	/** A closer in a later arm that would take the stack below where arm 0 ended restates arm 0's closer. */
+	private restatesArmZeroCloser(): boolean {
+		const top = this.directiveChains[this.directiveChains.length - 1];
+		return top !== undefined && top.arm > 0 && this.openStack.length - 1 < top.endHeight0;
+	}
+
+	/** An opener in a later arm, at the height arm 0 ended on and of the kind arm 0 left open, restates it. */
+	private restatesArmZeroOpener(opener: 'if' | 'for' | 'foreach' | 'do' | 'while' | 'with' | 'select'): boolean {
+		const top = this.directiveChains[this.directiveChains.length - 1];
+		if (!top || top.arm === 0 || top.endHeight0 <= top.depthAtIf) {
+			return false;
+		}
+		const height = this.openStack.length;
+		return height === top.endHeight0 && this.openStack[height - 1] === this.blockCloser(opener);
+	}
+
+	private parseConditionalDirectiveNode(
 		stmt: LogicalStatement,
 		tokens: VbaToken[],
 	): ConditionalDirectiveNode {
@@ -1020,6 +1076,12 @@ class Parser {
 	/** Parse one statement inside a procedure/block body. */
 	private parseBodyItem(stmt: LogicalStatement): BodyNode | undefined {
 		const ck = this.closerKind(stmt);
+		if (ck && this.restatesArmZeroCloser()) {
+			// The closer arm 0 of the enclosing #If chain already used, written
+			// again in this arm (issue #130): not a stray closer.
+			this.cursor.next();
+			return this.makeStatement(stmt);
+		}
 		if (ck) {
 			const closesOpenProcedure = PROCEDURE_CLOSERS.has(ck)
 				&& this.openStack.some((open) => PROCEDURE_CLOSERS.has(open));
@@ -1038,6 +1100,13 @@ class Parser {
 			return this.makeStatement(stmt);
 		}
 		const opener = this.openerKind(stmt);
+		if (opener && this.restatesArmZeroOpener(opener)) {
+			// `If n = 2 Then` in the #Else arm of a chain whose #If arm opened
+			// this block (issue #130): the same header, restated; the body that
+			// follows belongs to the block arm 0 opened.
+			this.cursor.next();
+			return this.makeStatement(stmt);
+		}
 		if (opener) {
 			return this.parseBlock(opener);
 		}
@@ -1229,6 +1298,15 @@ class Parser {
 			}
 			const stmt = this.cursor.peek()!;
 			const ck = this.closerKind(stmt);
+			if (ck === expected && this.restatesArmZeroCloser()) {
+				// `End If` in the #Else arm of a chain whose #If arm already
+				// closed this block (issue #130): the same closer, restated.
+				this.cursor.next();
+				const restated = this.makeStatement(stmt);
+				body.push(restated);
+				branches?.[branches.length - 1].body.push(restated);
+				continue;
+			}
 			if (ck === expected) {
 				endStmt = this.cursor.next();
 				closed = true;

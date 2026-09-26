@@ -142,6 +142,22 @@ export function matchCloser(t: string): BlockKind | undefined {
     return undefined;
 }
 
+/**
+ * The block a one-line If opens in its Then or Else tail: the segment after
+ * the last top-level `Then`/`Else` of `If ... Then With c` or
+ * `If ... Then x = 1 Else For i = 1 To 2` (MS-VBAL 5.4.2.9; issue #128). Only
+ * the loop, With and Select openers count: a nested `If ... Then` in a tail
+ * is itself a one-line If.
+ */
+function singleLineIfTailOpener(t: string): OpenBlock | undefined {
+    if (!/^(?:If|Else)\b/i.test(t) || /\bThen\s*$/i.test(t)) { return undefined; }
+    const parts = t.split(/\b(?:Then|Else)\b/i);
+    const tail = parts[parts.length - 1].trim();
+    if (!tail || /^If\b/i.test(tail)) { return undefined; }
+    const opener = matchOpener(tail);
+    return opener && !isProcedureBlockKind(opener.kind) && opener.kind !== 'If' && opener.kind !== 'PreprocessorIf' ? opener : undefined;
+}
+
 /** Detects a block opener on a stripped, trimmed logical line. */
 export function matchOpener(t: string): OpenBlock | undefined {
     let m: RegExpExecArray | null;
@@ -382,7 +398,9 @@ export function analyzeVbaStructure(
     const { logical } = toLogicalLines(source);
     const stack: OpenBlock[] = [];
     // One entry per open `#If`, carrying which arm of it we are currently in.
-    const preprocessorStack: Array<{ line: number; chain: number; arm: number }> = [];
+    // endHeight0: the block-stack height when arm 0 ended; a closer in a later arm
+    // that would go below it restates arm 0's closer (issue #130).
+    const preprocessorStack: Array<{ line: number; chain: number; arm: number; endHeight0: number }> = [];
     let conditionalChains = 0;
     const currentBranch = (): ConditionalArm[] =>
         preprocessorStack.map((frame) => ({ chain: frame.chain, arm: frame.arm }));
@@ -452,14 +470,16 @@ export function analyzeVbaStructure(
     };
 
     for (const ll of logical) {
-        const t = ll.text.trim();
+        // A line number ahead of the statement (`10  For i = 1 To 3`, as MZ-Tools
+        // writes for Erl) is a label, not part of the block keyword (issue #131).
+        const t = ll.text.trim().replace(/^\d+(?:\s+|$)/, '');
         if (!t) { continue; }
         if (options.isInactiveLine?.(ll.line) && !isPreprocessorLine(t)) {
             continue;
         }
 
         if (/^#\s*If\b/i.test(t)) {
-            preprocessorStack.push({ line: ll.line, chain: conditionalChains++, arm: 0 });
+            preprocessorStack.push({ line: ll.line, chain: conditionalChains++, arm: 0, endHeight0: stack.length });
             continue;
         }
 
@@ -474,7 +494,11 @@ export function analyzeVbaStructure(
                     preprocessorBranchColumnSpan(physical[ll.line] ?? ''),
                 ));
             } else {
-                preprocessorStack[preprocessorStack.length - 1].arm += 1;
+                const frame = preprocessorStack[preprocessorStack.length - 1];
+
+                if (frame.arm === 0) { frame.endHeight0 = stack.length; }
+
+                frame.arm += 1;
             }
             continue;
         }
@@ -494,10 +518,18 @@ export function analyzeVbaStructure(
             continue;
         }
 
+        // Only one arm of a chain is compiled: a closer in a later arm that
+        // would take the stack below where arm 0 left it is the same closer
+        // restated (issue #130: `End If` written in both arms).
+        const restated = (): boolean => {
+            const frame = preprocessorStack[preprocessorStack.length - 1];
+            return frame !== undefined && frame.arm > 0 && stack.length - 1 < frame.endHeight0;
+        };
+
         if (/^Next\b/i.test(t)) {
             const rest = t.replace(/^Next\b/i, '').trim();
             const count = rest === '' ? 1 : rest.split(',').length;
-            for (let n = 0; n < count; n++) { closeOne('For', ll.line, 'Next'); }
+            for (let n = 0; n < count; n++) { if (!restated()) { closeOne('For', ll.line, 'Next'); } }
             continue;
         }
 
@@ -508,11 +540,15 @@ export function analyzeVbaStructure(
                 : /^End\b/i.test(t)
                     ? `End ${closer === 'Select' ? 'Select' : closer}`
                     : t.split(/\s+/)[0];
-            closeOne(closer, ll.line, word);
+            if (!restated()) { closeOne(closer, ll.line, word); }
             continue;
         }
 
-        const opener = matchOpener(t);
+        // A one-line If can hold a whole block after Then or Else, joined by
+        // colons: `If a Then With c: .Add 1: End With` (issue #128, measured in
+        // Excel 16.0). The closers arrive as their own colon segments, so the
+        // opener in the tail must open a block here too.
+        const opener = matchOpener(t) ?? singleLineIfTailOpener(t);
         const branch = currentBranch();
         const isConditionalAlternativeHeader = !!opener &&
             isConditionalAlternativeOpener(stack, branch);

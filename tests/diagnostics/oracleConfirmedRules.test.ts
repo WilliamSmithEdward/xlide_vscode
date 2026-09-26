@@ -390,15 +390,16 @@ describe('analyzeModule - suffixed-literal-overflow (suffix_*_compile)', () => {
 		expect(hits[0].message).toContain('Integer');
 	});
 
-	it("does NOT flag the Long & suffix - & is ambiguous with concatenation (no-FP)", () => {
+	it("flags the Long & suffix only where & cannot be concatenation", () => {
 		// VBE oracle suffix_long_amp_glued_concat_accepted: `s = 3000000000&"x"` is
 		// ACCEPTED (& read as concat, since 3000000000 overflows Long). The lexer
-		// glues `3000000000&` into one token, so flagging & overflow would
-		// false-positive on that valid concat. & overflow is deliberately deferred.
+		// glues `3000000000&` into one token, so the suffix is judged only when
+		// nothing that could start an operand follows it: `x = 2147483648&` alone
+		// on its line is refused (issue #133, measured in Excel 16.0).
 		const fp = 'Sub T()\n    Dim s As String\n    s = 3000000000&"x"\nEnd Sub\n';
 		expect(byCode(analyzeModule(fp), CODE)).toHaveLength(0);
 		const standalone = 'Sub T()\n    Dim x As Double\n    x = 3000000000&\nEnd Sub\n';
-		expect(byCode(analyzeModule(standalone), CODE)).toHaveLength(0);
+		expect(byCode(analyzeModule(standalone), CODE)).toHaveLength(1);
 	});
 
 	it("flags 32768% and a negated -32768% (the token is invalid regardless of sign)", () => {

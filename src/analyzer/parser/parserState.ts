@@ -70,6 +70,7 @@ export function splitLogicalStatements(tokens: readonly VbaToken[]): LogicalStat
 
 	for (const token of tokens) {
 		if (token.kind === 'newline' || token.kind === 'colon') {
+			splitTailBlockOpener();
 			flush(token.kind === 'colon');
 			if (token.kind === 'newline') {
 				inSingleLineIf = false;
@@ -78,8 +79,63 @@ export function splitLogicalStatements(tokens: readonly VbaToken[]): LogicalStat
 		}
 		current.push(token);
 	}
+	splitTailBlockOpener();
 	flush(false);
 	return statements;
+
+	// `If a Then With c: .Add 1: End With` (MS-VBAL 5.4.2.9; issue #128): the
+	// block opener in a one-line If's Then or Else tail becomes its own
+	// statement, so the block parser opens it and the closers on the same line
+	// find it. The If header keeps `endedByColon`, which stops it reading as
+	// a block If, and the opener statement is a tail of it.
+	function splitTailBlockOpener(): void {
+		const split = singleLineIfTailOpenerIndex(current);
+		if (split < 0) {
+			return;
+		}
+		const header = current.slice(0, split);
+		const tail = current.slice(split);
+		current = header;
+		flush(true);
+		inSingleLineIf = true;
+		current = tail;
+	}
+}
+
+const TAIL_BLOCK_OPENERS: ReadonlySet<string> = new Set(['with', 'for', 'do', 'while', 'select']);
+
+/** Index of the block opener a one-line If's Then/Else tail starts with, or -1. */
+function singleLineIfTailOpenerIndex(tokens: readonly VbaToken[]): number {
+	const head = tokens[0]?.kind === 'integerLiteral' && /^\d+$/.test(tokens[0].rawText) ? 1 : 0;
+	if (tokenWord(tokens[head]) !== 'if') {
+		return -1;
+	}
+	let depth = 0;
+	let last = -1;
+	for (let i = head + 1; i < tokens.length; i++) {
+		const raw = tokens[i].rawText;
+		if (raw === '(') {
+			depth++;
+		} else if (raw === ')') {
+			depth--;
+		} else if (depth === 0) {
+			const word = tokenWord(tokens[i]);
+			if (word === 'then' || word === 'else') {
+				last = i;
+			}
+		}
+	}
+	if (last < 0 || last === tokens.length - 1) {
+		return -1;
+	}
+	const opener = tokenWord(tokens[last + 1]);
+	if (!opener || !TAIL_BLOCK_OPENERS.has(opener)) {
+		return -1;
+	}
+	if (opener === 'select' && tokenWord(tokens[last + 2]) !== 'case') {
+		return -1;
+	}
+	return last + 1;
 }
 
 /** An If statement that is not a block If header, whose Then ends its line. */
