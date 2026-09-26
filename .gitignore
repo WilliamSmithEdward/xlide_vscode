@@ -148,3 +148,6 @@ excel_test_workbook/
 
 # Twin Basic
 /twinBASIC*/
+
+# Local archive of superseded material (see .vscodeignore)
+archive/
