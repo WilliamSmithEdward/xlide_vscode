@@ -2,6 +2,38 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.12.0] - 2026-09-26
+
+The forms engine now authors controls the way the MSForms designer does
+(#138, carried over from pyOpenVBA issue #31). Every point was measured
+first: a form was authored through Word's VBE designer with each property
+set, saved, and read back with the engine.
+
+- **A new control takes the font of the surface it lands on**, the Frame's
+  when it has one and the form's otherwise, with the size in twips. It used
+  to get Tahoma 8.25 whatever the form said.
+- **New-control defaults**: a Label site is written without TabStop (0x32),
+  a new Frame carries the etched border (SpecialEffect 3), and a new page
+  sits 1.5pt in and below the tab strip, sized to its MultiPage, when no
+  page exists to copy.
+- **Two properties the dialect could not spell**: `TakeFocusOnClick="False"`
+  on a CommandButton (PropMask bit 9, no data) and `TripleState="True"` on
+  a CheckBox, OptionButton or ToggleButton (stored in the MultiSelect
+  field). A form's `ScrollBars` is now spelled as VBA does, 0 to 3, with
+  `KeepScrollBarsVisible` beside it (the stored byte is bars plus keep
+  times four); a value above 3 still reads as the stored byte.
+- **What the designer writes alongside a property**: `Enabled="False"` sets
+  the font's disabled and auto-colour bits (not on a ListBox) and zeroes a
+  ScrollBar's or SpinButton's arrow enables; any font style sets auto
+  colour; a `BorderStyle` clears `SpecialEffect` and a `SpecialEffect`
+  clears `BorderStyle` on TextBox, ComboBox, ListBox and Image; and a `Min`
+  above `Position` pulls `Position` up.
+
+Two of pyOpenVBA's observations did not hold in this measurement: Word
+clears BorderStyle and SpecialEffect against each other on an Image in both
+orders, and a Form or Frame font size set through the designer comes back on
+0.75-point steps (10.125 reads 10.5, 7.875 reads 8.25), not 0.375.
+
 ## [10.11.0] - 2026-09-26
 
 Two compound-file writer fixes carried over from pyOpenVBA issue #31.

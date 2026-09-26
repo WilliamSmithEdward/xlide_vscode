@@ -17,7 +17,7 @@
 //     only-in-model removes, matched controls set what changed;
 //   - a parse error applies nothing.
 
-import { pointsToHimetric, formatPointsShortest as formatPoints, OformsReader, OformsWriter } from './bytes';
+import { pointsToHimetric, himetricToPoints, formatPointsShortest as formatPoints, OformsReader, OformsWriter } from './bytes';
 import {
 	recordHas,
 	setRecordString,
@@ -306,9 +306,17 @@ function printPackage(
 		// the document must carry EVERYTHING a save is expected to keep.
 		for (const field of FORM_EXTRA_FIELDS) {
 			const v = record.values.get(field);
-			if (v !== undefined && recordHas(record, field)) {
-				attrs.push(`${field}="${v}"`);
+			if (v === undefined || !recordHas(record, field)) { continue; }
+			if (field === 'ScrollBars') {
+				// The byte is bars | KeepScrollBarsVisible << 2, default 12
+				// (both kept, no bars); measured in Word 16.0 (issue #138).
+				const bars = v & 3;
+				const keep = v >> 2;
+				if (bars !== 0) { attrs.push(`ScrollBars="${bars}"`); }
+				if (keep !== 3) { attrs.push(`KeepScrollBarsVisible="${keep}"`); }
+				continue;
 			}
+			attrs.push(`${field}="${v}"`);
 		}
 		const font = pkg.form.fontRaw ? parseStdFont(pkg.form.fontRaw) : undefined;
 		if (font) {
@@ -413,6 +421,15 @@ function printChild(pkg: FormPackage, child: PrintableChild, lines: string[], de
 			&& record.values.get('DisplayStyle') === 7) {
 			// fmDisplayStyleDropList - VBA spells it Style 2 (fmStyleDropDownList).
 			attrs.push('Style="2"');
+		}
+		if (kind === 'CommandButton' && (record.maskLo & TAKE_FOCUS_OFF_BIT) !== 0) {
+			// PropMask bit 9 with no data (measured in Word 16.0; issue #138).
+			attrs.push('TakeFocusOnClick="False"');
+		}
+		if (TRIPLE_STATE_KINDS.has(kind) && recordHas(record, 'MultiSelect')
+			&& record.values.get('MultiSelect') === 1) {
+			// TripleState lives in the MultiSelect field (measured; issue #138).
+			attrs.push('TripleState="True"');
 		}
 		const effectiveVpb = effectiveVariousPropertyBits(record, kind);
 		if (effectiveVpb !== undefined && ALIGNMENT_KINDS.has(kind) && (effectiveVpb & ALIGNMENT_BIT) !== 0) {
@@ -780,13 +797,28 @@ function applyToPackage(
 	for (const field of numericFields) {
 		const text = element.attrs.get(field);
 		if (text === undefined || !record.spec.data.some((f) => f.name === field)) { continue; }
-		const value = Number(text);
+		let value = Number(text);
 		if (!Number.isFinite(value)) {
 			throw new FormMarkupError(element.line, `${field}="${text}" is not a number`);
+		}
+		if (field === 'ScrollBars' && value <= 3) {
+			// Spelled as VBA does: ScrollBars 0..3 plus KeepScrollBarsVisible
+			// 0..3, stored as bars | keep << 2 (issue #138). A value above 3
+			// is the stored byte itself, as older documents spelled it.
+			value = value | (keepScrollBarsVisible(element, record) << 2);
 		}
 		if (record.values.get(field) !== value || !recordHas(record, field)) {
 			setRecordValue(record, field, value >>> 0);
 			outcome.applied.push(`${field} of ${owner}`);
+		}
+	}
+	if (isForm && element.attrs.has('KeepScrollBarsVisible') && !element.attrs.has('ScrollBars')) {
+		const keep = keepScrollBarsVisible(element, record);
+		const current = recordHas(record, 'ScrollBars') ? (record.values.get('ScrollBars') ?? 12) : 12;
+		const value = ((current & 3) | (keep << 2)) >>> 0;
+		if (value !== current || !recordHas(record, 'ScrollBars')) {
+			setRecordValue(record, 'ScrollBars', value);
+			outcome.applied.push(`KeepScrollBarsVisible of ${owner}`);
 		}
 	}
 	if (isForm) { applyFormFontAttrs(pkg, element, outcome); }
@@ -1116,6 +1148,29 @@ function reorderPages(
 }
 
 /** Adds one page: a fresh site, an empty storage package, arrays, x row. */
+/**
+ * Where a new page sits inside its MultiPage and how big it is, from the
+ * MultiPage's own size and the tab strip's font (see addPage).
+ */
+function defaultPageGeometry(
+	mp: FormPackage,
+	tabStrip: ParsedRecord | undefined,
+): { position: { left: number; top: number }; size: { width: number; height: number } } {
+	const twips = tabStrip?.textProps && recordHas(tabStrip.textProps, 'FontHeight')
+		? (tabStrip.textProps.values.get('FontHeight') ?? 165)
+		: 165;
+	const fontPt = twips / 20;
+	const topPt = 1.5 * fontPt + 3;
+	const outer = mp.form.record.sizes.get('DisplayedSize') ?? { width: pointsToHimetric(144), height: pointsToHimetric(108) };
+	return {
+		position: { left: pointsToHimetric(1.5), top: pointsToHimetric(topPt) },
+		size: {
+			width: Math.max(pointsToHimetric(1), outer.width - pointsToHimetric(3)),
+			height: Math.max(pointsToHimetric(1), outer.height - pointsToHimetric(topPt + 1.5)),
+		},
+	};
+}
+
 function addPage(
 	mp: FormPackage,
 	element: MarkupElement,
@@ -1145,7 +1200,18 @@ function addPage(
 	site.values.set('BitFlags', 0x00040021);
 	site.values.set('TabIndex', mp.form.sites.filter((s) => siteCacheIndex(s) === 7).length + 1);
 	site.values.set('ClsidCacheIndex', 7);
-	site.position = reference?.position ? { ...reference.position } : { left: 0, top: 0 };
+	// A page sits 1.5pt in from the left and below the tab strip, whose
+	// height follows its font: 1.5 * size + 3 pt (measured in Word 16.0 with
+	// an 8.25pt font, pages at (53, 542) HIMETRIC, and a 10.5pt font, pages
+	// at (53, 661); issue #138). An existing page is the better witness.
+	const geometry = defaultPageGeometry(mp, tabStrip);
+	site.position = reference?.position ? { ...reference.position } : geometry.position;
+	if (!element.attrs.has('Width') && !element.attrs.has('Height')) {
+		const referenceSize = reference ? mp.containers.get(siteId(reference))?.form.record.sizes.get('DisplayedSize') : undefined;
+		const size = referenceSize ?? geometry.size;
+		element.attrs.set('Width', String(himetricToPoints(size.width)));
+		element.attrs.set('Height', String(himetricToPoints(size.height)));
+	}
 
 	// Page sites sit after the TabStrip site, in page order.
 	const pageSites = mp.form.sites.filter((s) => siteCacheIndex(s) === 7);
@@ -1392,6 +1458,7 @@ export function applyRecordAttrs(
 		}
 	}
 	applyFontAttrs(record, element, outcome, name, total);
+	applyDesignerCouplings(record, element, kind, outcome, name, total);
 	for (const [attr, field] of [['PasswordChar', 'PasswordChar'], ['Accelerator', 'Accelerator']] as const) {
 		const explicit = element.attrs.get(attr);
 		const canCarry = record.spec.data.some((f) => f.name === field);
@@ -1455,6 +1522,139 @@ function applyFormFontAttrs(
  * Font.* edits land on the control's TextProps: name as its string, size in
  * twips, bold and italic as FontEffects bits with the weight kept in step.
  */
+/** The KeepScrollBarsVisible a form element asks for, else what it stores, else the default 3 (both). */
+function keepScrollBarsVisible(element: MarkupElement, record: ParsedRecord): number {
+	const text = element.attrs.get('KeepScrollBarsVisible');
+	if (text !== undefined) {
+		if (!/^[0-3]$/.test(text)) {
+			throw new FormMarkupError(element.line, `KeepScrollBarsVisible="${text}" is not 0, 1, 2 or 3`);
+		}
+		return Number(text);
+	}
+	const stored = recordHas(record, 'ScrollBars') ? record.values.get('ScrollBars') : undefined;
+	return stored === undefined ? 3 : stored >> 2;
+}
+
+/** TextProps FontEffects bits ([MS-OFORMS] 2.5.90): the designer sets these alongside other properties. */
+const FONT_EFFECT_DISABLED = 0x2000;
+const FONT_EFFECT_AUTOCOLOR = 0x40000000;
+/** Kinds whose BorderStyle and SpecialEffect clear each other when one is set. */
+const BORDER_CLEARING_KINDS: ReadonlySet<string> = new Set(['TextBox', 'ComboBox', 'ListBox', 'Image']);
+/** The file-format defaults the clearing reads an absent field as. */
+const BORDER_DEFAULTS: Readonly<Record<string, { BorderStyle: number; SpecialEffect: number }>> = {
+	TextBox: { BorderStyle: 0, SpecialEffect: 2 },
+	ComboBox: { BorderStyle: 0, SpecialEffect: 2 },
+	ListBox: { BorderStyle: 0, SpecialEffect: 2 },
+	Image: { BorderStyle: 1, SpecialEffect: 0 },
+};
+/** Kinds whose TripleState the file keeps in the MultiSelect field. */
+export const TRIPLE_STATE_KINDS: ReadonlySet<string> = new Set(['CheckBox', 'OptionButton', 'ToggleButton']);
+/** CommandButton PropMask bit 9: set, with no data, when TakeFocusOnClick is False. */
+const TAKE_FOCUS_OFF_BIT = 1 << 9;
+
+/**
+ * What the designer writes ALONGSIDE a property it is asked to set, measured
+ * in Word 16.0 (build 20326) on 2026-09-26 by setting each property through
+ * the VBE designer, saving and reading the bytes (issue #138, carried over
+ * from pyOpenVBA #31):
+ *
+ *  - TakeFocusOnClick=False is CommandButton PropMask bit 9 with no data.
+ *  - TripleState is stored in MultiSelect (a CheckBox set TripleState=True
+ *    carries MultiSelect 1).
+ *  - Enabled=False sets FontEffects fDisabled (0x2000) and fAutoColor
+ *    (0x40000000) on every kind with text but ListBox, whose TextProps stay.
+ *  - A ScrollBar or SpinButton disabled carries PrevEnabled 0, NextEnabled 0.
+ *  - BorderStyle=1 clears SpecialEffect to 0 and a SpecialEffect clears
+ *    BorderStyle to 0, on TextBox, ComboBox, ListBox and Image alike (both
+ *    orders measured on TextBox and Image).
+ *  - Min above Position pulls Position up to Min (Value 5 then Min 10 reads
+ *    back 10).
+ */
+function applyDesignerCouplings(
+	record: ParsedRecord,
+	element: MarkupElement,
+	kind: string,
+	outcome: ApplyOutcome,
+	name: string,
+	total = false,
+): void {
+	if (kind === 'CommandButton') {
+		const attr = element.attrs.get('TakeFocusOnClick') ?? (total ? 'True' : undefined);
+		if (attr !== undefined) {
+			if (!/^(true|false)$/i.test(attr)) {
+				throw new FormMarkupError(element.line, `TakeFocusOnClick="${attr}" is not True or False`);
+			}
+			const off = /^false$/i.test(attr);
+			const has = (record.maskLo & TAKE_FOCUS_OFF_BIT) !== 0;
+			if (off !== has) {
+				record.maskLo = (off ? (record.maskLo | TAKE_FOCUS_OFF_BIT) : (record.maskLo & ~TAKE_FOCUS_OFF_BIT)) >>> 0;
+				outcome.applied.push(`TakeFocusOnClick of ${name}`);
+			}
+		}
+	}
+	const triple = element.attrs.get('TripleState') ?? (total && TRIPLE_STATE_KINDS.has(kind) ? 'False' : undefined);
+	if (triple !== undefined) {
+		if (!TRIPLE_STATE_KINDS.has(kind)) {
+			throw new FormMarkupError(element.line, `a ${kind} has no TripleState`);
+		}
+		if (!/^(true|false)$/i.test(triple)) {
+			throw new FormMarkupError(element.line, `TripleState="${triple}" is not True or False`);
+		}
+		const value = /^true$/i.test(triple) ? 1 : 0;
+		const current = recordHas(record, 'MultiSelect') ? (record.values.get('MultiSelect') ?? 0) : 0;
+		if (current !== value) {
+			setRecordValue(record, 'MultiSelect', value);
+			outcome.applied.push(`TripleState of ${name}`);
+		}
+	}
+	const enabled = element.attrs.get('Enabled');
+	if (enabled !== undefined && /^(true|false)$/i.test(enabled)) {
+		const disabled = /^false$/i.test(enabled);
+		const tp = record.textProps;
+		if (tp && kind !== 'ListBox') {
+			const current = recordHas(tp, 'FontEffects') ? (tp.values.get('FontEffects') ?? 0) : 0;
+			const next = (disabled
+				? (current | FONT_EFFECT_DISABLED | FONT_EFFECT_AUTOCOLOR)
+				: (current & ~FONT_EFFECT_DISABLED)) >>> 0;
+			if (next !== current) {
+				setRecordValue(tp, 'FontEffects', next);
+				outcome.applied.push(`font effects of ${name}`);
+			}
+		}
+		if (disabled && (kind === 'ScrollBar' || kind === 'SpinButton')) {
+			for (const field of ['PrevEnabled', 'NextEnabled']) {
+				if (record.spec.data.some((f) => f.name === field)
+					&& (!recordHas(record, field) || record.values.get(field) !== 0)) {
+					setRecordValue(record, field, 0);
+					outcome.applied.push(`${field} of ${name}`);
+				}
+			}
+		}
+	}
+	if (BORDER_CLEARING_KINDS.has(kind)) {
+		const defaults = BORDER_DEFAULTS[kind];
+		const borderAttr = element.attrs.get('BorderStyle');
+		const effectAttr = element.attrs.get('SpecialEffect');
+		const stored = (field: 'BorderStyle' | 'SpecialEffect'): number =>
+			recordHas(record, field) ? (record.values.get(field) ?? defaults[field]) : defaults[field];
+		if (borderAttr !== undefined && effectAttr === undefined && Number(borderAttr) !== 0 && stored('SpecialEffect') !== 0) {
+			setRecordValue(record, 'SpecialEffect', 0);
+			outcome.applied.push(`SpecialEffect of ${name}`);
+		} else if (effectAttr !== undefined && borderAttr === undefined && Number(effectAttr) !== 0 && stored('BorderStyle') !== 0) {
+			setRecordValue(record, 'BorderStyle', 0);
+			outcome.applied.push(`BorderStyle of ${name}`);
+		}
+	}
+	if (kind === 'SpinButton' || kind === 'ScrollBar') {
+		const min = record.values.get('Min');
+		const position = record.values.get('Position');
+		if (min !== undefined && position !== undefined && recordHas(record, 'Min') && recordHas(record, 'Position') && position < min) {
+			setRecordValue(record, 'Position', min);
+			outcome.applied.push(`Position of ${name}`);
+		}
+	}
+}
+
 function applyFontAttrs(
 	record: ParsedRecord,
 	element: MarkupElement,
@@ -1505,7 +1705,10 @@ function applyFontAttrs(
 		const anyExplicit = boldAttr !== undefined || italicAttr !== undefined
 			|| underlineAttr !== undefined || strikeAttr !== undefined;
 		if (next !== current || (!recordHas(tp, 'FontEffects') && anyExplicit)) {
-			setRecordValue(tp, 'FontEffects', next >>> 0);
+			// Any font effect the designer sets carries fAutoColor with it
+			// (measured: Bold stores FontEffects 0x40000001; issue #138).
+			const stored = (next & 0xf) !== 0 ? (next | FONT_EFFECT_AUTOCOLOR) : next;
+			setRecordValue(tp, 'FontEffects', stored >>> 0);
 			setRecordValue(tp, 'FontWeight', bold ? 700 : 400);
 			outcome.applied.push(`Font style of ${name}`);
 		}
@@ -1738,6 +1941,11 @@ function addControl(
 	setSite(5, 'ObjectStreamSize', 0);
 	setSite(6, 'TabIndex', nextTabIndex(pkg));
 	setSite(7, 'ClsidCacheIndex', cacheIndex);
+	if (kind === 'Label') {
+		// The designer writes a Label's site without TabStop (0x32): TabStop
+		// is no Label property (measured in Word 16.0, 2026-09-26; issue #138).
+		setSite(4, 'BitFlags', 0x32);
+	}
 	site.mask = (site.mask | (1 << 8)) >>> 0;
 	site.position = {
 		left: pointsToHimetric(Number(element.attrs.get('Left') ?? '0')),
@@ -1760,7 +1968,7 @@ function addControl(
 		return;
 	}
 
-	const record = newRecordForKind(kind);
+	const record = newRecordForKind(kind, inheritedFont(pkg, root));
 	record.sizes.set('Size', {
 		width: pointsToHimetric(Number(element.attrs.get('Width') ?? '72')),
 		height: pointsToHimetric(Number(element.attrs.get('Height') ?? '18')),
@@ -1800,7 +2008,38 @@ export function nextTabIndex(pkg: FormPackage): number {
  * at top level but silently breaks the binding of a MultiPage page that
  * carries it.
  */
-function newRecordForKind(kind: string): ParsedRecord {
+/** The font a new control takes: face, height in twips and charset. */
+interface InheritedFont {
+	face: string;
+	twips: number;
+	charset: number;
+}
+
+/**
+ * The designer gives a new control the font of the surface it lands on - the
+ * Frame's when it has one, else the form's - with the size truncated to
+ * twips (measured in Word 16.0, 2026-09-26: a form set to Aptos 10.5 gave
+ * its buttons and labels Aptos at 210 twips, a Frame at Tahoma 8.25 gave
+ * its button 165; issue #138). A surface with no font of its own means
+ * Tahoma 8.25, the MSForms default.
+ */
+function inheritedFont(pkg: FormPackage, root: FormPackage): InheritedFont {
+	const raw = pkg.form.fontRaw ?? root.form.fontRaw;
+	if (!raw) {
+		return { face: 'Tahoma', twips: 165, charset: 0 };
+	}
+	const font = parseStdFont(raw);
+	if (!font) {
+		return { face: 'Tahoma', twips: 165, charset: 0 };
+	}
+	return {
+		face: font.face || 'Tahoma',
+		twips: Math.max(1, Math.trunc(font.heightTenThousandthsPt / 500)),
+		charset: font.charset,
+	};
+}
+
+function newRecordForKind(kind: string, font: InheritedFont = { face: 'Tahoma', twips: 165, charset: 0 }): ParsedRecord {
 	const cacheIndex = KIND_TO_CACHE_INDEX[kind];
 	const specIndex = cacheIndex === 14 || cacheIndex === 57 ? undefined : cacheIndex;
 	const spec = specIndex !== undefined
@@ -1865,9 +2104,9 @@ function newRecordForKind(kind: string): ParsedRecord {
 			values: new Map(), strings: new Map(), sizes: new Map(), arrays: new Map(),
 			pads: new Map(), streamData: new Map(),
 		};
-		setRecordString(textProps, 'FontName', 'Tahoma');
-		setRecordValue(textProps, 'FontHeight', 165);
-		setRecordValue(textProps, 'FontCharSet', 0);
+		setRecordString(textProps, 'FontName', font.face);
+		setRecordValue(textProps, 'FontHeight', font.twips);
+		setRecordValue(textProps, 'FontCharSet', font.charset);
 		setRecordValue(textProps, 'FontPitchAndFamily', 2);
 		if (kind === 'CommandButton' || kind === 'ToggleButton') {
 			setRecordValue(textProps, 'ParagraphAlign', 3);
@@ -1909,6 +2148,11 @@ function newEmptyContainerPackage(
 	setBit(11); record.sizes.set('LogicalSize', { width: 0, height: 0 });
 	setBit(27); record.values.set('DrawBuffer', 32000);
 	if (kind === 'Frame') {
+		// A new Frame carries SpecialEffect 3, fmSpecialEffectEtched (measured
+		// in Word 16.0, 2026-09-26; issue #138), the border the designer draws.
+		if (!element.attrs.has('SpecialEffect')) {
+			setBit(17); record.values.set('SpecialEffect', 3);
+		}
 		const caption = element.attrs.get('Caption');
 		if (caption !== undefined) {
 			setBit(19);

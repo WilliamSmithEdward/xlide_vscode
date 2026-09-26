@@ -465,7 +465,15 @@ function formRows(
 	for (const field of FORM_NUMERIC_PROPS) {
 		if (!record.spec.data.some((f) => f.name === field)) { continue; }
 		const v = record.values.get(field);
-		rows.push({ prop: field, value: v !== undefined && recordHas(record, field) ? String(v) : '' });
+		const stored = v !== undefined && recordHas(record, field) ? v : undefined;
+		if (field === 'ScrollBars') {
+			// The byte is bars | KeepScrollBarsVisible << 2 (issue #138); the
+			// pane speaks the two VBA properties the dialect prints.
+			rows.push({ prop: 'ScrollBars', value: stored !== undefined && (stored & 3) !== 0 ? String(stored & 3) : '' });
+			rows.push({ prop: 'KeepScrollBarsVisible', value: stored !== undefined && (stored >> 2) !== 3 ? String(stored >> 2) : '' });
+			continue;
+		}
+		rows.push({ prop: field, value: stored !== undefined ? String(stored) : '' });
 	}
 	// The form's font is a StdFont blob, not TextProps. Its fBold flag MUST
 	// stay zero per the spec, so bold reads from the weight.
@@ -565,6 +573,22 @@ export function setControlProperty(
 		const applied: string[] = [];
 		if ((COLOR_PROPS as readonly string[]).includes(prop) && record.spec.data.some((f) => f.name === prop)) {
 			setColorValue(record, prop, value, applied, 'the form');
+			return { applied };
+		}
+		if ((prop === 'ScrollBars' || prop === 'KeepScrollBarsVisible')
+			&& record.spec.data.some((f) => f.name === 'ScrollBars')) {
+			// One stored byte, two VBA properties: bars | KeepScrollBarsVisible << 2 (issue #138).
+			if (!/^[0-3]$/.test(value)) {
+				throw new FormMarkupError(0, `${prop}="${value}" is not 0, 1, 2 or 3`);
+			}
+			const current = recordHas(record, 'ScrollBars') ? (record.values.get('ScrollBars') ?? 12) : 12;
+			const next = prop === 'ScrollBars'
+				? ((current & ~3) | Number(value))
+				: ((current & 3) | (Number(value) << 2));
+			if (next !== current || !recordHas(record, 'ScrollBars')) {
+				setRecordValue(record, 'ScrollBars', next >>> 0);
+				applied.push(`${prop} of the form`);
+			}
 			return { applied };
 		}
 		if ((prop === 'SpecialEffect' || (FORM_NUMERIC_PROPS as readonly string[]).includes(prop))
