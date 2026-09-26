@@ -33,6 +33,12 @@ export interface CallArguments {
 	/** True for the explicit `Call name...` form. */
 	explicitCall?: boolean;
 	/**
+	 * True for `Take (i)` as a statement: the space makes the parentheses part
+	 * of the one argument, which is then passed as a copy, so ByRef exactness
+	 * does not apply to it (issue #111).
+	 */
+	argumentsParenthesized?: boolean;
+	/**
 	 * Top-level, comma-separated argument groups. An empty list means no
 	 * arguments were supplied; an empty inner array is an omitted positional
 	 * argument (`Foo 1, , 3`).
@@ -52,6 +58,8 @@ export interface CallableParamType {
 	/** True when the parameter is declared as an array (`value() As T`). */
 	isArray?: boolean;
 	byRef?: boolean;
+	/** A Variant parameter the function refuses Null for (error 94). */
+	nullRaises?: boolean;
 }
 
 export interface CallableTypeSignature {

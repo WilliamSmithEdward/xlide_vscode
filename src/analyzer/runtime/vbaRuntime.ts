@@ -39,6 +39,13 @@ export interface VbaRuntimeParam {
 	type?: string;
 	optional?: boolean;
 	paramArray?: boolean;
+	/**
+	 * The function raises error 94 (Invalid use of Null) for a Null argument
+	 * although the parameter is a Variant: CStr(Null), Chr(Null), Asc(Null).
+	 * Measured in Excel 16.0 (build 20326), issue #104. Absent means Null
+	 * passes through, which is what Left, Trim, Len and UCase do.
+	 */
+	nullRaises?: boolean;
 }
 
 /** A built-in VBA runtime constant or enum member. */
@@ -115,12 +122,22 @@ function method(name: string, signature: string): VbaRuntimeObjectMember {
 	return { name, kind: 'method', signature };
 }
 
+// The `$` forms take a String and raise error 94 for Null; the Variant forms
+// take a Variant and hand Null back (issue #104, measured in Excel 16.0).
 const LEFT_PARAMS = [
 	{ name: 'String', type: 'String' },
 	{ name: 'Length', type: 'Long' },
 ] as const;
+const LEFT_VARIANT_PARAMS = [
+	{ name: 'String', type: 'Variant' },
+	{ name: 'Length', type: 'Long' },
+] as const;
 const RIGHT_PARAMS = [
 	{ name: 'String', type: 'String' },
+	{ name: 'Length', type: 'Long' },
+] as const;
+const RIGHT_VARIANT_PARAMS = [
+	{ name: 'String', type: 'Variant' },
 	{ name: 'Length', type: 'Long' },
 ] as const;
 const MID_PARAMS = [
@@ -128,6 +145,13 @@ const MID_PARAMS = [
 	{ name: 'Start', type: 'Long' },
 	{ name: 'Length', type: 'Long', optional: true },
 ] as const;
+const MID_VARIANT_PARAMS = [
+	{ name: 'String', type: 'Variant' },
+	{ name: 'Start', type: 'Long' },
+	{ name: 'Length', type: 'Long', optional: true },
+] as const;
+/** A single Variant parameter that a Null argument makes raise error 94. */
+const NULL_RAISES_PARAM = (name: string) => [{ name, type: 'Variant', nullRaises: true }] as const;
 const SPACE_PARAMS = [
 	{ name: 'Number', type: 'Long' },
 ] as const;
@@ -181,22 +205,34 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 
 	// -- String functions ---------------------------------------------------
 	fn('Len', 'Len(Expression) As Long', 'Long'),
-	fn('Left', 'Left(String, Length) As String', 'String', LEFT_PARAMS),
+	fn('Left', 'Left(String, Length) As String', 'String', LEFT_VARIANT_PARAMS),
 	fn('Left$', 'Left$(String, Length) As String', 'String', LEFT_PARAMS),
-	fn('Right', 'Right(String, Length) As String', 'String', RIGHT_PARAMS),
+	fn('Right', 'Right(String, Length) As String', 'String', RIGHT_VARIANT_PARAMS),
 	fn('Right$', 'Right$(String, Length) As String', 'String', RIGHT_PARAMS),
-	fn('Mid', 'Mid(String, Start, [Length]) As String', 'String', MID_PARAMS),
+	fn('Mid', 'Mid(String, Start, [Length]) As String', 'String', MID_VARIANT_PARAMS),
 	fn('Mid$', 'Mid$(String, Start, [Length]) As String', 'String', MID_PARAMS),
+	// The `$` forms of the string functions raise error 94 for Null where the
+	// Variant forms hand Null back (issue #104; each measured in Excel 16.0).
 	fn('Trim', 'Trim(String) As String', 'String'),
+	fn('Trim$', 'Trim$(String) As String', 'String', NULL_RAISES_PARAM('String')),
 	fn('LTrim', 'LTrim(String) As String', 'String'),
+	fn('LTrim$', 'LTrim$(String) As String', 'String', NULL_RAISES_PARAM('String')),
 	fn('RTrim', 'RTrim(String) As String', 'String'),
+	fn('RTrim$', 'RTrim$(String) As String', 'String', NULL_RAISES_PARAM('String')),
 	fn('UCase', 'UCase(String) As String', 'String'),
+	fn('UCase$', 'UCase$(String) As String', 'String', NULL_RAISES_PARAM('String')),
 	fn('LCase', 'LCase(String) As String', 'String'),
+	fn('LCase$', 'LCase$(String) As String', 'String', NULL_RAISES_PARAM('String')),
 	fn('Replace', 'Replace(Expression, Find, Replace, [Start = 1], [Count = -1], [Compare As VbCompareMethod = vbBinaryCompare]) As String', 'String', REPLACE_PARAMS),
 	fn('Replace$', 'Replace$(Expression, Find, Replace, [Start = 1], [Count = -1], [Compare As VbCompareMethod = vbBinaryCompare]) As String', 'String', REPLACE_PARAMS),
 	fn('InStr', 'InStr([Start], String1, String2, [Compare As VbCompareMethod]) As Long', 'Long'),
 	fn('InStrRev', 'InStrRev(StringCheck, StringMatch, [Start = -1], [Compare As VbCompareMethod = vbBinaryCompare]) As Long', 'Long'),
-	fn('Split', 'Split(Expression, [Delimiter], [Limit = -1], [Compare As VbCompareMethod = vbBinaryCompare]) As String()', 'String()'),
+	fn('Split', 'Split(Expression, [Delimiter], [Limit = -1], [Compare As VbCompareMethod = vbBinaryCompare]) As String()', 'String()', [
+		{ name: 'Expression', type: 'Variant', nullRaises: true },
+		{ name: 'Delimiter', type: 'Variant', optional: true },
+		{ name: 'Limit', type: 'Long', optional: true },
+		{ name: 'Compare', type: 'VbCompareMethod', optional: true },
+	]),
 	fn('Join', 'Join(SourceArray, [Delimiter]) As String', 'String'),
 	fn('StrComp', 'StrComp(String1, String2, [Compare As VbCompareMethod]) As Integer', 'Integer'),
 	fn('StrConv', 'StrConv(String, Conversion As VbStrConv, [LCID]) As String', 'String'),
@@ -204,9 +240,9 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('Space', 'Space(Number) As String', 'String', SPACE_PARAMS),
 	fn('Space$', 'Space$(Number) As String', 'String', SPACE_PARAMS),
 	fn('Format', 'Format(Expression, [Format], [FirstDayOfWeek As VbDayOfWeek], [FirstWeekOfYear As VbFirstWeekOfYear]) As String', 'String'),
-	fn('Chr', 'Chr(CharCode) As String', 'String'),
-	fn('ChrW', 'ChrW(CharCode) As String', 'String'),
-	fn('Asc', 'Asc(String) As Integer', 'Integer'),
+	fn('Chr', 'Chr(CharCode) As String', 'String', NULL_RAISES_PARAM('CharCode')),
+	fn('ChrW', 'ChrW(CharCode) As String', 'String', NULL_RAISES_PARAM('CharCode')),
+	fn('Asc', 'Asc(String) As Integer', 'Integer', NULL_RAISES_PARAM('String')),
 	fn('AscW', 'AscW(String) As Integer', 'Integer'),
 
 	// -- Byte-string functions (the ...B variants operate on byte positions) --
@@ -238,11 +274,12 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('CLng', 'CLng(Expression) As Long', 'Long'),
 	fn('CLngLng', 'CLngLng(Expression) As LongLong', 'LongLong'),
 	fn('CSng', 'CSng(Expression) As Single', 'Single'),
-	fn('CStr', 'CStr(Expression) As String', 'String'),
+	fn('CStr', 'CStr(Expression) As String', 'String', NULL_RAISES_PARAM('Expression')),
 	fn('CVar', 'CVar(Expression) As Variant', 'Variant'),
-	fn('Val', 'Val(String) As Double', 'Double'),
+	fn('Val', 'Val(String) As Double', 'Double', NULL_RAISES_PARAM('String')),
 	fn('Hex', 'Hex(Number) As String', 'String'),
-	fn('Oct', 'Oct(Number) As String', 'String'),
+	fn('Hex$', 'Hex$(Number) As String', 'String', NULL_RAISES_PARAM('Number')),
+	fn('Oct', 'Oct(Number) As String', 'String', NULL_RAISES_PARAM('Number')),
 
 	// CVDate is the legacy conversion function the type-conversion reference
 	// still documents beside CDate.
@@ -307,8 +344,15 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('RGB', 'RGB(Red, Green, Blue) As Long', 'Long'),
 	fn('QBColor', 'QBColor(Color) As Long', 'Long'),
 	fn('IIf', 'IIf(Expression, TruePart, FalsePart) As Variant', 'Variant'),
-	fn('Choose', 'Choose(Index, ArgList) As Variant', 'Variant'),
-	fn('Switch', 'Switch(ArgList) As Variant', 'Variant'),
+	// Both take a ParamArray (issue #96): any number of choices, any number
+	// of expression/value pairs.
+	fn('Choose', 'Choose(Index, ParamArray Choice()) As Variant', 'Variant', [
+		{ name: 'Index', type: 'Variant' },
+		{ name: 'Choice', type: 'Variant', optional: true, paramArray: true },
+	]),
+	fn('Switch', 'Switch(ParamArray VarExpr()) As Variant', 'Variant', [
+		{ name: 'VarExpr', type: 'Variant', optional: true, paramArray: true },
+	]),
 	fn('IsMissing', 'IsMissing(ArgName) As Boolean', 'Boolean'),
 	fn('CallByName', 'CallByName(Object, ProcName As String, CallType As VbCallType, [Args]) As Variant', 'Variant', [
 		{ name: 'Object', type: 'Object' },
@@ -318,8 +362,9 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	]),
 
 	// -- Additional string functions ---------------------------------------
-	fn('StrReverse', 'StrReverse(Expression) As String', 'String'),
-	fn('Str', 'Str(Number) As String', 'String'),
+	fn('StrReverse', 'StrReverse(Expression) As String', 'String', NULL_RAISES_PARAM('Expression')),
+	fn('Str', 'Str(Number) As String', 'String', NULL_RAISES_PARAM('Number')),
+	fn('Str$', 'Str$(Number) As String', 'String', NULL_RAISES_PARAM('Number')),
 	fn('Filter', 'Filter(SourceArray, Match, [Include As Boolean = True], [Compare As VbCompareMethod = vbBinaryCompare]) As String()', 'String()'),
 	fn('FormatCurrency', 'FormatCurrency(Expression, [NumDigitsAfterDecimal = -1], [IncludeLeadingDigit As VbTriState = vbUseDefault], [UseParensForNegativeNumbers As VbTriState = vbUseDefault], [GroupDigits As VbTriState = vbUseDefault]) As String', 'String'),
 	fn('FormatNumber', 'FormatNumber(Expression, [NumDigitsAfterDecimal = -1], [IncludeLeadingDigit As VbTriState = vbUseDefault], [UseParensForNegativeNumbers As VbTriState = vbUseDefault], [GroupDigits As VbTriState = vbUseDefault]) As String', 'String'),

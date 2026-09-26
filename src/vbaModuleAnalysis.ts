@@ -15,7 +15,7 @@ import {
     type DiagnosticSeverity as RuleSeverity,
     type VbaDiagnosticData,
 } from './analyzer';
-import type { ModuleNode, ProcedureNode, Span } from './analyzer/parser/nodes';
+import type { BodyNode, ModuleNode, ProcedureNode, Span } from './analyzer/parser/nodes';
 import { lineStartOffsets } from './vbaSourceScan';
 import {
     analyzeVbaStructure,
@@ -91,12 +91,15 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
     const activeIncompleteExpressionSpan = activeIncompleteExpressionOffset === undefined
         ? undefined
         : incompleteExpressionEditSpan(source, activeIncompleteExpressionOffset);
-    const expectedErrorRuntimeSuppressions = expectedErrorRuntimeSuppressionRanges(
-        source,
-        module,
-        analyzeOptions.moduleName ?? 'Module',
-        moduleType ?? analyzeOptions.moduleKind ?? 'standard',
-    );
+    const expectedErrorRuntimeSuppressions = [
+        ...expectedErrorRuntimeSuppressionRanges(
+            source,
+            module,
+            analyzeOptions.moduleName ?? 'Module',
+            moduleType ?? analyzeOptions.moduleKind ?? 'standard',
+        ),
+        ...onErrorResumeNextSuppressionRanges(module),
+    ];
 
     try {
         const meta = DIAGNOSTIC_RULES.vbaTestDirective;
@@ -312,6 +315,54 @@ function expectedErrorRuntimeSuppressionRanges(
             const expectedError = byProcedureName.get(member.name.toLowerCase());
             return expectedError ? [{ span: member.span, expectedError }] : [];
         });
+}
+
+/**
+ * The stretches of each procedure under an active `On Error Resume Next`:
+ * from that statement to the next `On Error` statement or the procedure's
+ * end. A deterministic runtime error there is raised and handled, which is
+ * usually the point of the code - `n = UBound(a)` under Resume Next is the
+ * common test for an allocated array (issue #106) - so "This will raise" is
+ * not the right report inside them. Branches are not modelled: a Resume Next
+ * inside an If arm covers what follows it in source order, the way the VBE's
+ * own handler state does once the arm runs.
+ */
+function onErrorResumeNextSuppressionRanges(
+    module: ModuleNode,
+): ExpectedErrorRuntimeSuppression[] {
+    const out: ExpectedErrorRuntimeSuppression[] = [];
+    for (const member of module.members) {
+        if (member.kind !== 'Procedure') {
+            continue;
+        }
+        const handlers: Array<{ start: number; end: number; resumeNext: boolean }> = [];
+        const visit = (body: readonly BodyNode[]): void => {
+            for (const node of body) {
+                if (node.kind === 'Statement') {
+                    const match = /^\s*On\s+(?:Local\s+)?Error\s+(Resume\s+Next|GoTo\b)/i.exec(node.raw);
+                    if (match) {
+                        handlers.push({
+                            start: node.span.start,
+                            end: node.span.end,
+                            resumeNext: /^resume/i.test(match[1]),
+                        });
+                    }
+                } else if ('body' in node && Array.isArray(node.body)) {
+                    visit(node.body as BodyNode[]);
+                }
+            }
+        };
+        visit(member.body);
+        handlers.sort((a, b) => a.start - b.start);
+        for (let i = 0; i < handlers.length; i++) {
+            if (!handlers[i].resumeNext) {
+                continue;
+            }
+            const until = handlers[i + 1]?.start ?? member.span.end;
+            out.push({ span: { start: handlers[i].end, end: until }, expectedError: 'any' });
+        }
+    }
+    return out;
 }
 
 function isExpectedErrorRuntimeDiagnosticSuppressed(

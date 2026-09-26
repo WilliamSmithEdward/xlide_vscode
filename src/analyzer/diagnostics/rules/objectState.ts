@@ -7,6 +7,8 @@ import type { MemberCompletionContext } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type {
+	BodyNode,
+	ForBlockNode,
 	ModuleNode,
 	ProcedureNode,
 	Span,
@@ -32,6 +34,8 @@ import {
 import {
 	activeModuleMembers,
 	blockHeaderLineSpan,
+	bareAssignmentTarget,
+	forEachStatement,
 	isInactiveNode,
 	localsNamedWhole,
 	setAssignmentTarget,
@@ -141,13 +145,48 @@ export function checkObjectVariableNotSet(
 		for (const key of locals.keys()) {
 			state.set(key, 'unset');
 		}
+		// The locals some statement anywhere in the procedure Sets: a `GoSub`
+		// may run any of those statements before control comes back (issue
+		// #108), so after it none of them is provably still Nothing.
+		const setAnywhere = new Set<string>();
+		forEachStatement(member.body, (stmt) => {
+			for (const span of statementAndBranchSpans(stmt)) {
+				const lower = setAssignmentTarget(source, span)?.name.toLowerCase();
+				if (lower && locals.has(lower)) {
+					setAnywhere.add(lower);
+				}
+			}
+		}, activity);
 		const walk = procedureHasUnstructuredFlow(source, member, activity)
 			? walkStraightLineBody
 			: walkBranchMergedBody;
 		walk(member.body, (node) => isInactiveNode(activity, node), {
 			onStatement: (stmt) =>
-				checkObjectVariableNotSetStatement(source, stmt, locals, state, memberCtx, push),
+				checkObjectVariableNotSetStatement(source, stmt, locals, state, setAnywhere, memberCtx, push),
 			onBlock: (node) => {
+				// A For Each that runs to its end leaves the control variable
+				// Nothing, so an access after the loop is right to report. One
+				// the body can leave early - Exit For, or a GoTo out of it -
+				// leaves it on the current element, so nothing is proven
+				// (issue #108: `Exit For` on the first sheet, then `ws.Name`).
+				if (node.kind === 'ForBlock') {
+					// `For Each x In c` with c still Nothing raises 424, not 91:
+					// the loop asks the collection for its enumerator (issue #121).
+					const over = node.each ? node.sourceExpression?.trim().toLowerCase() : undefined;
+					if (over && locals.has(over) && state.get(over) === 'unset' && node.sourceExpressionSpan) {
+						push(
+							'objectVariableNotSet',
+							`Object variable '${locals.get(over)!.name}' is Nothing when For Each asks it for its elements. This will raise Run-time error '424': Object required.`,
+							node.sourceExpressionSpan,
+						);
+					}
+					const lower = node.controlVariable?.toLowerCase();
+					if (node.each && lower && locals.has(lower) && state.get(lower) === 'unset'
+						&& bodyCanLeaveLoop(source, node, activity)) {
+						state.set(lower, 'unknown');
+					}
+					return;
+				}
 				if (node.kind !== 'WithBlock') {
 					return;
 				}
@@ -191,14 +230,118 @@ export function checkObjectVariableNotSet(
 	}
 }
 
+/**
+ * Whether the loop body can leave the loop before it ends: an `Exit For` at
+ * its own depth (one inside a nested For leaves that one), or any `GoTo`.
+ */
+function bodyCanLeaveLoop(
+	source: string,
+	loop: ForBlockNode,
+	activity: ConditionalActivityTracker | undefined,
+): boolean {
+	const visit = (body: readonly BodyNode[]): boolean => {
+		for (const node of body) {
+			if (isInactiveNode(activity, node)) {
+				continue;
+			}
+			if (node.kind === 'ForBlock') {
+				continue; // its Exit For is its own
+			}
+			if ('body' in node && Array.isArray(node.body)) {
+				if (visit(node.body as BodyNode[])) {
+					return true;
+				}
+				continue;
+			}
+			for (const span of statementAndBranchSpans(node as LeafStatementNode)) {
+				const toks = statementTokensAfterLeadingLabel(source, span);
+				const head = tokenText(toks[0]);
+				if ((head === 'exit' && tokenText(toks[1]) === 'for') || head === 'goto') {
+					return true;
+				}
+			}
+		}
+		return false;
+	};
+	return visit(loop.body);
+}
+
+/**
+ * The tracked names a single-line If's condition guards: `Not d Is Nothing`
+ * guards the Then arm, `d Is Nothing` the Else arm (issue #108: the block
+ * form already read the guard, the one-line form did not).
+ */
+function nothingGuardNames(condition: readonly VbaToken[]): { thenArm: Set<string>; elseArm: Set<string> } {
+	const thenArm = new Set<string>();
+	const elseArm = new Set<string>();
+	for (let i = 0; i + 2 < condition.length; i++) {
+		if (tokenText(condition[i + 1]) !== 'is' || tokenText(condition[i + 2]) !== 'nothing') {
+			continue;
+		}
+		const name = tokenName(condition[i])?.toLowerCase();
+		if (!name) {
+			continue;
+		}
+		if (tokenText(condition[i - 1]) === 'not') {
+			thenArm.add(name);
+		} else {
+			elseArm.add(name);
+		}
+	}
+	return { thenArm, elseArm };
+}
+
 function checkObjectVariableNotSetStatement(
 	source: string,
 	stmt: LeafStatementNode,
 	locals: ReadonlyMap<string, LocalObjectVariable>,
 	state: Map<string, ObjectVariableState>,
+	setAnywhere: ReadonlySet<string>,
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
+	const toks = statementTokensAfterLeadingLabel(source, stmt.span);
+	const head = tokenText(toks[0]);
+	// `GoSub Label` runs the subroutine, which may Set any of the locals,
+	// before the statement after it (issue #108).
+	if (head === 'gosub' || (head === 'on' && toks.some((tok) => tokenText(tok) === 'gosub'))) {
+		for (const lower of setAnywhere) {
+			if (state.get(lower) === 'unset') {
+				state.set(lower, 'unknown');
+			}
+		}
+		return;
+	}
+	// The arms of a single-line If and what its condition proves about them.
+	const branches = statementAndBranchSpans(stmt);
+	let guards = { thenArm: new Set<string>(), elseArm: new Set<string>() };
+	if (head === 'if' && branches.length > 1) {
+		const thenIndex = toks.findIndex((tok, index) => index > 0 && tokenText(tok) === 'then');
+		if (thenIndex > 0) {
+			guards = nothingGuardNames(toks.slice(1, thenIndex));
+		}
+	}
+	const guardedAt = (name: string, offset: number): boolean => {
+		const within = (span: Span | undefined): boolean =>
+			span !== undefined && offset >= span.start && offset < span.end;
+		return (guards.thenArm.has(name) && within(branches[1]))
+			|| (guards.elseArm.has(name) && within(branches[2]));
+	};
+	// A bare `obj = value` is a Let through the object's default member
+	// (issue #107), which needs an object to reach: on a variable still
+	// Nothing it raises 91, the same as a member access would.
+	for (const span of branches) {
+		const let_ = bareAssignmentTarget(source, span);
+		const lower = let_?.name.toLowerCase();
+		if (let_ && lower && locals.has(lower) && state.get(lower) === 'unset'
+			&& !guardedAt(lower, let_.span.start)) {
+			push(
+				'objectVariableNotSet',
+				`Object variable '${let_.name}' is Nothing before the default-member assignment. This will raise Run-time error '91': Object variable or With block variable not set.`,
+				let_.span,
+			);
+		}
+	}
 	const passedWhole = localsNamedWhole(source, stmt.span, locals, OBJECT_READ_ONLY_INTRINSICS);
 	for (const hit of unsetObjectMemberAccesses(source, stmt.span, locals, state, memberCtx)) {
 		// An access after a whole pass in the same statement, as in
@@ -206,6 +349,9 @@ function checkObjectVariableNotSetStatement(
 		// to Set it. One before the pass, as in `Load(obj.Name)`, does not.
 		const passAt = passedWhole.get(hit.name.toLowerCase());
 		if (passAt !== undefined && hit.span.start > passAt) {
+			continue;
+		}
+		if (guardedAt(hit.name.toLowerCase(), hit.span.start)) {
 			continue;
 		}
 		push(

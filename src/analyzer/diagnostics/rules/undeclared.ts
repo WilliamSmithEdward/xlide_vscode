@@ -10,6 +10,8 @@ import {
 	VBA_IDENTIFIER_NAME_RE,
 } from '../../../vbaSourceScan';
 import type { HostObjectModel } from '../../host/excelObjectModel';
+import { HOST_LIBRARY_NAMES } from '../../host/hostLibraries';
+import type { VbaHostToken } from '../../host/hostRegistry';
 import { bareCallStatementTarget as callStatementTarget } from '../../call/callContext';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
@@ -22,6 +24,7 @@ import {
 import { isReservedIdentifier } from '../../lexer/keywordTable';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type {
+	BodyNode,
 	ModuleNode,
 	ProcedureNode,
 	Span,
@@ -73,10 +76,13 @@ import {
 import {
 	activeModuleMembers,
 	bareAssignmentTarget,
+	firstExecutableTokenIndex,
 	matchParenFrom,
 	setAssignmentTarget,
+	statementAndBranchSpans,
 	statementTokens,
 	tokenName,
+	tokenText,
 	type ProcedureStatementVisitor,
 } from '../walker';
 
@@ -165,6 +171,7 @@ export function checkUnknownCallStatement(
 	hostModel: HostObjectModel | undefined,
 	designerClass: string | undefined,
 	push: PushFn,
+	projectTypes?: readonly VbaProjectClassMembers[],
 ): ProcedureStatementVisitor {
 	// The host injects Application's members into the global scope, so a bare
 	// call may legitimately bind to one of them (Calculate, Volatile, ...).
@@ -195,9 +202,17 @@ export function checkUnknownCallStatement(
 			const hit = callStatementTarget(source, stmt.span);
 			if (hit && !isKnown(hit.name, procSym)) {
 				const call = extractCall(source, stmt.span);
+				// A module's name alone is not a call: `Foo` with a module named
+				// Foo is "Expected variable or procedure, not module" (issue
+				// #125, measured in Excel 16.0).
+				const namesModule = (projectTypes ?? []).some(
+					(type) => type.kind === 'standardModule' && type.name.toLowerCase() === hit.name.toLowerCase(),
+				);
 				push(
 					'unknownCallStatement',
-					`Sub or Function not defined: '${hit.name}'.`,
+					namesModule
+						? `'${hit.name}' is a module, not a procedure: name the procedure to call, as in '${hit.name}.Bar'. This is a VBE compile error: Expected variable or procedure, not module.`
+						: `Sub or Function not defined: '${hit.name}'.`,
 					hit.span,
 					call && call.nameSpan.start === hit.span.start && call.nameSpan.end === hit.span.end
 						? createProcedureStubData(source, call)
@@ -416,11 +431,19 @@ export function checkUndeclaredVariables(
 	moduleKind: ModuleSymbolKind | undefined,
 	hostModel: HostObjectModel | undefined,
 	designerClass: string | undefined,
+	referencedHosts: readonly string[] | undefined,
 	push: PushFn,
 ): void {
 	if (!hasOptionExplicit(mod, activity) || !knownIdentifiers) {
 		return;
 	}
+	// A library name or the project name qualifies a global in an expression
+	// as it does in an As clause: `Set app = Excel.Application`,
+	// `Word.Application`, `VBAProject.Module2.Twice(4)` (issue #101; each
+	// runs in its host). The libraries are the host's own, those merged into
+	// its model (Office, MSForms), the ones the project references, and VBA,
+	// which isKnown already accepts.
+	const libraryQualifiers = libraryQualifierNames(hostModel, referencedHosts);
 	// A form's controls are declared by its DESIGNER, not its text, and the seed
 	// has three states, not two: a list, a vouched-for-empty list, and no answer
 	// at all. Reading no answer as an empty one claimed every control the form's
@@ -449,6 +472,10 @@ export function checkUndeclaredVariables(
 	// The designer's class contributes members the text never declares, and a
 	// bare reference to one - `Caption = "x"` in a form - is correct code.
 	const designerMembers = designerClassMemberNames(designerClass, hostModel);
+	// `ReDim items(2) As Long` at procedure level DECLARES `items` when nothing
+	// else does (MS-VBAL 5.4.3.3), and Option Explicit accepts it (issue #99,
+	// runs in Excel 16.0). Per procedure, below.
+	let redimDeclared: ReadonlySet<string> = new Set();
 	const isKnown = (
 		name: string,
 		procSym: VbaSymbol | undefined,
@@ -457,6 +484,8 @@ export function checkUndeclaredVariables(
 		const lower = name.toLowerCase();
 		return (
 			lower === 'vba' ||
+			libraryQualifiers.has(lower) ||
+			redimDeclared.has(lower) ||
 			// A UserForm's controls are members the designer declared, not the
 			// module's text; referring to one is correct VBA.
 			implicitMemberNames.has(lower) ||
@@ -493,6 +522,7 @@ export function checkUndeclaredVariables(
 			continue;
 		}
 		const procSym = procedureSymbolFor(symbols, member);
+		redimDeclared = redimTargetNamesIn(source, member.body, activity);
 		forEachUndeclaredReferenceSpan(source, member.body, (span) => {
 			const reported = new Set<string>();
 			const report = (
@@ -566,6 +596,88 @@ export function checkUndeclaredVariables(
  */
 function hostEvaluatesBracketedNames(hostModel: HostObjectModel | undefined): boolean {
 	return hostModel?.hostName === undefined || hostModel.hostName === 'Excel';
+}
+
+/**
+ * Lower-cased names a procedure's ReDim statements size: `ReDim name(...)`,
+ * `ReDim Preserve name(...)`, and each further `, name(...)`. A ReDim of an
+ * undeclared name declares it, so these count as declared for the procedure.
+ */
+function redimTargetNamesIn(
+	source: string,
+	body: readonly BodyNode[],
+	activity: ConditionalActivityTracker | undefined,
+): Set<string> {
+	const out = new Set<string>();
+	const visit = (nodes: readonly BodyNode[]): void => {
+		for (const node of nodes) {
+			if (activity?.isInactive(node.span)) {
+				continue;
+			}
+			if (isLeafStatement(node)) {
+				for (const span of statementAndBranchSpans(node)) {
+					const toks = statementTokens(source, span);
+					let i = firstExecutableTokenIndex(toks);
+					if (tokenText(toks[i]) !== 'redim') {
+						continue;
+					}
+					i++;
+					if (tokenText(toks[i]) === 'preserve') {
+						i++;
+					}
+					let depth = 0;
+					for (let k = i; k < toks.length; k++) {
+						const raw = toks[k].rawText;
+						if (raw === '(') {
+							depth++;
+						} else if (raw === ')') {
+							depth--;
+						} else if (depth === 0 && (k === i || toks[k - 1].rawText === ',')) {
+							const name = tokenName(toks[k]);
+							if (name && toks[k + 1]?.rawText === '(') {
+								out.add(name.toLowerCase());
+							}
+						}
+					}
+				}
+				continue;
+			}
+			if ('body' in node && Array.isArray(node.body)) {
+				visit(node.body as BodyNode[]);
+			}
+		}
+	};
+	visit(body);
+	return out;
+}
+
+/**
+ * Lower-cased names that may qualify a global in an expression: the libraries
+ * whose types the host model carries (its own and the shared ones merged into
+ * it), the libraries the project references, and the project itself, which is
+ * `VBAProject` unless renamed. An absent model is Excel's by default.
+ */
+function libraryQualifierNames(
+	hostModel: HostObjectModel | undefined,
+	referencedHosts: readonly string[] | undefined,
+): Set<string> {
+	const out = new Set<string>(['vbaproject']);
+	if (hostModel === undefined) {
+		out.add('excel');
+	}
+	for (const qualified of Object.keys(hostModel?.types ?? {})) {
+		const dot = qualified.indexOf('.');
+		if (dot > 0) {
+			out.add(qualified.slice(0, dot).toLowerCase());
+		}
+	}
+	for (const token of referencedHosts ?? []) {
+		const name = HOST_LIBRARY_NAMES[token as VbaHostToken];
+		if (name) {
+			out.add(name.toLowerCase());
+		}
+	}
+	return out;
 }
 
 function undeclaredReadReferences(

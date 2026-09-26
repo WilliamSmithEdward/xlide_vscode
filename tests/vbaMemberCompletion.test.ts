@@ -33,7 +33,8 @@ describe('host model resolution', () => {
 		expect(resolveHostGlobal('ThisWorkbook')).toBe('Excel.Workbook');
 		expect(resolveHostGlobal('thisworkbook')).toBe('Excel.Workbook');
 		expect(resolveHostGlobal('Application')).toBe('Excel.Application');
-		expect(resolveHostGlobal('ActiveSheet')).toBe('Excel.Worksheet');
+		// A Worksheet or a Chart (issue #114), spelled as a union receiver.
+		expect(resolveHostGlobal('ActiveSheet')).toBe('union:Excel.Worksheet|Excel.Chart');
 		expect(resolveHostGlobal('ActiveWorkbook')).toBe('Excel.Workbook');
 		expect(resolveHostGlobal('NotAGlobal')).toBeUndefined();
 	});
@@ -1705,11 +1706,21 @@ describe('member completion - negative cases', () => {
 	});
 
 	it('marks generated Worksheet host member surfaces as exhaustive', () => {
-		const src = 'Sub Test()\n    ActiveSheet.Named\nEnd Sub\n';
-		const got = resolveMemberCompletions(src, dotOffset(src, 'ActiveSheet.Named'));
+		// Through a Worksheet variable: ActiveSheet itself is a Worksheet OR a
+		// Chart (issue #114), whose union surface is never exhaustive.
+		const src = 'Sub Test(ws As Worksheet)\n    ws.Named\nEnd Sub\n';
+		const got = resolveMemberCompletions(src, dotOffset(src, 'ws.Named'));
 		const namedSheetViews = got.find((member) => member.name === 'NamedSheetViews');
 		expect(namedSheetViews?.owner).toBe('Excel.Worksheet');
 		expect(namedSheetViews?.surfaceExhaustive).toBe(true);
+	});
+
+	it('offers both a Worksheet and a Chart member surface on ActiveSheet, never exhaustive', () => {
+		const src = 'Sub Test()\n    ActiveSheet.\nEnd Sub\n';
+		const got = resolveMemberCompletions(src, dotOffset(src, 'ActiveSheet.'));
+		expect(got.some((member) => member.name === 'NamedSheetViews')).toBe(true);
+		expect(got.some((member) => member.name === 'ChartType')).toBe(true);
+		expect(got.every((member) => member.surfaceExhaustive !== true)).toBe(true);
 	});
 
 	it('offers the generated Range host members, which cannot prove absence', () => {

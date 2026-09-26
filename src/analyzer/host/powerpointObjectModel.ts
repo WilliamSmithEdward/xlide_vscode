@@ -2,8 +2,8 @@
 // host's injected globals. PowerPoint has no document modules - its VBA lives
 // in standard modules, classes and forms - so unlike Word there is no
 // ThisDocument-style name to type; the globals are the application surface.
-// Everything remains NON-exhaustive: offers and describes, never proves
-// absence.
+// PowerPoint-library types are exhaustive once the hidden members are merged
+// (issue #127) and prove a member absent where the interface is closed.
 
 import type { HostObjectModel } from './excelObjectModel';
 import { hostBoundOfficeTypes, mergeHostConstants } from './excelObjectModel';

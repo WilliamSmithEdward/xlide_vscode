@@ -91,7 +91,15 @@ const curator = createCurator({ dumps, prefix, foreignClasses, namespaces });
 // lack cannot be reported missing - but a GLOBAL one is a bare name, and Word's
 // `Assistant.Visible = False` read as "Variable not defined". A host with no
 // such file (Access, VB6) gets no flags and nothing added.
-const libraryHidden = readLibraryHidden(path.join(root, 'reference', host, 'hidden.json'));
+const libraryHiddenFile = path.join(root, 'reference', host, 'hidden.json');
+const libraryHidden = readLibraryHidden(libraryHiddenFile);
+// With the library's hidden members merged, a host-library type carries every
+// name VBA can write (only underscore members are left out, and VBA cannot
+// write those unbracketed; held to the type libraries by the issue #127 sweep,
+// 2026-09-26). Such a type may prove a member absent where typeExtensibility
+// says the interface is closed. The shared Office library's types have no
+// hidden dump and stay non-exhaustive.
+const hostTypesExhaustive = host !== 'vb6' && fs.existsSync(libraryHiddenFile);
 let hiddenAdded = 0;
 
 // The events each class raises, read from the type library itself by
@@ -212,6 +220,7 @@ for (const [name, dump] of dumps) {
         memberCount += members.length;
         const qualified = `${libraryPrefix}.${name}`;
         const type = { displayName: name, members };
+        if (hostTypesExhaustive && libraryPrefix === prefix) { type.exhaustive = true; }
         if (typeof dump.source === 'string' && dump.source) { type.provenance = dump.source; }
         const doc = typeDoc(dump, 300, prefix, descriptions);
         if (doc) { type.doc = doc; }
@@ -274,8 +283,10 @@ if (host === 'vb6') {
 } else {
     lines.push(`// Types, aliases and enum constants of the ${prefix} type`);
     lines.push('// library, introspected via pyVBAReference and enriched from Microsoft');
-    lines.push('// Learn. Every type is deliberately NON-exhaustive: this metadata offers');
-    lines.push('// and describes, and must never prove a member absent.');
+    lines.push('// Learn. A host-library type marked exhaustive carries every writable');
+    lines.push('// member (hidden ones merged from reference/<host>/hidden.json) and may prove');
+    lines.push('// one absent where typeExtensibility says its interface is closed; shared');
+    lines.push('// Office types stay NON-exhaustive and never prove a member absent.');
 }
 lines.push('');
 lines.push("import type { HostConstant, HostEnum, HostType } from './excelObjectModel';");

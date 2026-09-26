@@ -185,7 +185,9 @@ describe('identifier completion - runtime built-ins', () => {
 		expect(left?.detail).toBe('Left(String, Length) As String');
 		expect(left?.documentation).toContain('**VBA runtime function**');
 		expect(left?.documentation).toContain('```vba\nLeft(String, Length) As String\n```');
-		expect(left?.documentation).toContain('`String` As `String`');
+		// The Variant form takes a Variant and hands Null back; only Left$
+		// takes a String (issue #104).
+		expect(left?.documentation).toContain('`String` As `Variant`');
 		expect(left?.documentation).toContain('`Length` As `Long`');
 		expect(leftString?.detail).toBe('Left$(String, Length) As String');
 

@@ -22,6 +22,7 @@ import { getPowerPointObjectModel } from '../src/analyzer/host/powerpointObjectM
 import { getAccessObjectModel } from '../src/analyzer/host/accessObjectModel';
 import { getExcelObjectModel, type HostObjectModel } from '../src/analyzer/host/excelObjectModel';
 import { OFFICE_REFERENCE_ENUM_CONSTANTS } from '../src/analyzer/host/officeReferenceConstants';
+import { DAO_REFERENCE_ENUM_CONSTANTS } from '../src/analyzer/host/daoReferenceConstants';
 import { MSFORMS_REFERENCE_ENUM_CONSTANTS } from '../src/analyzer/host/msformsReferenceMembers';
 import { getHostConstants, resolveHostConstant } from '../src/analyzer/host/hostModel';
 
@@ -120,17 +121,23 @@ describe.each(HOSTS)('%s constants round-trip from the reference dumps', (host, 
 		expect(wrong.slice(0, 10), `wrong (${wrong.length})`).toEqual([]);
 	});
 
-	it.runIf(corpus)('carries nothing beyond the host dumps, Office and MSForms tables', () => {
+	it.runIf(corpus)('carries nothing beyond the host dumps, Office, MSForms and (for Access) DAO tables', () => {
 		const dumped = dumpedConstants(host);
 		const model = getModel();
 		// The forms library joined the models in issue #41: fm* names are legal
-		// wherever a project carries a UserForm, which is every host.
+		// wherever a project carries a UserForm, which is every host. DAO
+		// joined Access's in issue #103: every new database references it.
 		const msforms = new Set(
 			Object.values(MSFORMS_REFERENCE_ENUM_CONSTANTS).map((c) => c.name.toLowerCase()),
 		);
+		const dao = new Set(
+			host === 'access'
+				? Object.values(DAO_REFERENCE_ENUM_CONSTANTS).map((c) => c.name.toLowerCase())
+				: [],
+		);
 		const invented = getHostConstants(model)
 			.map((constant) => constant.name.toLowerCase())
-			.filter((lower) => !dumped.has(lower) && !officeLowerNames().has(lower) && !msforms.has(lower));
+			.filter((lower) => !dumped.has(lower) && !officeLowerNames().has(lower) && !msforms.has(lower) && !dao.has(lower));
 		expect(invented.slice(0, 10), `invented (${invented.length})`).toEqual([]);
 	});
 });

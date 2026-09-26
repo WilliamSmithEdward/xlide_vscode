@@ -246,6 +246,16 @@ describe('analyzeModule - malformed declarations/statements (parser error-emissi
 	it('flags an Open statement missing For, but not a valid Open', () => {
 		expect(byCode(analyzeModule('Sub T()\n    Open "C:\\f.txt" Output #1\nEnd Sub\n'), 'open-missing-for')).toHaveLength(1);
 		expect(byCode(analyzeModule('Sub T()\n    Open "C:\\f.txt" For Output As #1\nEnd Sub\n'), 'open-missing-for')).toHaveLength(0);
+		// `For mode` is optional (issue #97): both of these open the file for
+		// Random access and run in Excel 16.0.
+		expect(byCode(analyzeModule('Sub T()\n    Open "C:\\f.bin" As #1 Len = 4\nEnd Sub\n'), 'open-missing-for')).toHaveLength(0);
+		expect(byCode(analyzeModule('Sub T()\n    Open "C:\\f.bin" Access Read As #1\nEnd Sub\n'), 'open-missing-for')).toHaveLength(0);
+		expect(byCode(analyzeModule('Sub T()\n    Open "C:\\f.bin" Shared As #1\nEnd Sub\n'), 'open-missing-for')).toHaveLength(0);
+		// No `As` clause at all is a Syntax error (measured 2026-09-26).
+		expect(byCode(analyzeModule('Sub T()\n    Open "C:\\f.bin"\nEnd Sub\n'), 'open-missing-for')).toHaveLength(1);
+		expect(byCode(analyzeModule('Sub T()\n    Open "C:\\f.bin" Len = 4\nEnd Sub\n'), 'open-missing-for')).toHaveLength(1);
+		// A variable that spells a mode word is not a mode.
+		expect(byCode(analyzeModule('Sub T()\n    Dim output As String\n    Open output For Input As #1\nEnd Sub\n'), 'open-missing-for')).toHaveLength(0);
 	});
 
 	it('flags TypeOf with no operand, but not a valid TypeOf or an inactive branch', () => {

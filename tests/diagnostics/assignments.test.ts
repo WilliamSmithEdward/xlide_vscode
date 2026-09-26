@@ -544,19 +544,47 @@ describe('analyzeModule - assignment type validation', () => {
 		const src =
 			'Public Sub T()\n' +
 			'    Dim ws As Worksheet\n' +
+			'    Set ws = Worksheets(1)\n' +
 			'    ws = ActiveSheet\n' +
 			'End Sub\n';
-		expectDiagnostic(src, analyzeModule(src), 'set-required', { span: 'ws' });
+		expectDiagnostic(src, analyzeModule(src), 'set-required', { span: 'ws', message: "438" });
 	});
 
-	it('reports missing Set for Object variables without treating it as scalar coercion', () => {
+	// A bare `=` to an object variable is a Let through its default member
+	// (issue #107, measured in Excel 16.0): `r = 5` on a Range writes the cell,
+	// so nothing is reported for a type with a default member, and the generic
+	// Object looks its default member up when it runs. A target still Nothing
+	// raises 91 first, which the object-state rule says.
+	it('reports a Let on a Nothing object as error 91, not as a missing Set', () => {
 		const src =
 			'Public Sub T()\n' +
 			'    Dim item As Object\n' +
 			'    item = "blah"\n' +
 			'End Sub\n';
-		expect(byCode(analyzeModule(src), 'set-required')).toHaveLength(1);
+		expect(byCode(analyzeModule(src), 'set-required')).toHaveLength(0);
 		expect(byCode(analyzeModule(src), 'assignment-type-mismatch')).toHaveLength(0);
+		expectDiagnostic(src, analyzeModule(src), 'object-variable-not-set', { span: 'item', message: '91' });
+	});
+
+	it('lets a Range take a value through its default member', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim r As Range\n' +
+			'    Set r = Worksheets(1).Range("A1")\n' +
+			'    r = 5\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'set-required')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(0);
+	});
+
+	it('reports a Let on a Collection as the compile error its indexed default member makes it', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim c As Collection\n' +
+			'    Set c = New Collection\n' +
+			'    c = 5\n' +
+			'End Sub\n';
+		expectDiagnostic(src, analyzeModule(src), 'set-required', { span: 'c', message: 'Argument not optional' });
 	});
 
 	it('checks scalar Function return assignment types', () => {
@@ -1253,12 +1281,28 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(byCode(diagnostics, 'member-not-found')).toEqual([]);
 	});
 
-	it('uses the exhaustive Worksheet host surface for ActiveSheet', () => {
+	// The library declares ActiveSheet as Object, because a chart sheet can
+	// be active: `ActiveSheet.asdf` compiles and fails only when it runs, and
+	// `ActiveSheet.ChartType` is ordinary code on a chart sheet (issue #114,
+	// both measured in Excel 16.0). The closed Worksheet surface still holds
+	// once the value is in a Worksheet variable.
+	it('leaves ActiveSheet late bound: a Worksheet or a Chart', () => {
 		const src =
 			'Public Sub T()\n' +
 			'    ActiveSheet.asdf\n' +
+			'    ActiveSheet.ChartType = 4\n' +
 			'    ActiveSheet.Range("A1")\n' +
-			'    ActiveSheet.Buttons\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'member-not-found')).toHaveLength(0);
+	});
+
+	it('uses the exhaustive Worksheet host surface for a Worksheet variable set from ActiveSheet', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim ws As Worksheet\n' +
+			'    Set ws = ActiveSheet\n' +
+			'    ws.asdf\n' +
+			'    ws.Range("A1")\n' +
 			'End Sub\n';
 		expectDiagnostic(src, analyzeModule(src), 'member-not-found', { span: 'asdf' });
 	});
@@ -1313,14 +1357,17 @@ describe('analyzeModule - assignment type validation', () => {
 		expectDiagnostic(src, hits, 'member-not-found', { span: 'Range' });
 	});
 
-	it('uses the exhaustive Worksheet host surface through workbook worksheet chains', () => {
+	it('leaves a worksheet reached through collection items late bound', () => {
+		// Every collection item is declared `As Object` by the library, so
+		// `Workbooks(1).Worksheets(1).asdf` compiles in Excel 16.0 (measured
+		// 2026-09-26, issue #114); the chain still resolves for completion.
 		const src =
 			'Public Sub T()\n' +
 			'    Workbooks(1).Worksheets(1).asdf\n' +
 			'    Workbooks(1).Worksheets(1).Range("A1")\n' +
 			'    Workbooks(1).Worksheets(1).Buttons\n' +
 			'End Sub\n';
-		expectDiagnostic(src, analyzeModule(src), 'member-not-found', { span: 'asdf' });
+		expect(byCode(analyzeModule(src), 'member-not-found')).toHaveLength(0);
 	});
 
 	it('leaves an unknown member on Range alone, declared, global or chained', () => {
@@ -1371,13 +1418,15 @@ describe('analyzeModule - assignment type validation', () => {
 			'    Worksheets.Add\n' +
 			'    Sheets.MissingCollectionMember\n' +
 			'    Sheets.Add\n' +
+			// A Sheets item is a Worksheet or a Chart, which the library
+			// declares Object: VBA binds its members when it runs, so a name
+			// on neither is not a compile error (issue #114).
 			'    Sheets(1).UnknownSheetOrChartMember\n' +
 			'End Sub\n';
 		expectDiagnostics(src, analyzeModule(src), 'member-not-found', [
 			{ span: 'MissingCollectionMember', message: 'Excel.Workbooks.MissingCollectionMember' },
 			{ span: 'MissingCollectionMember', message: 'Excel.Worksheets.MissingCollectionMember' },
 			{ span: 'MissingCollectionMember', message: 'Excel.Sheets.MissingCollectionMember' },
-			{ span: 'UnknownSheetOrChartMember' },
 		]);
 	});
 
@@ -1410,10 +1459,16 @@ describe('analyzeModule - assignment type validation', () => {
 			'Public Sub T(ws As Worksheet)\n' +
 			'    ws.MissingWorksheetMember\n' +
 			'    Sheets(1).UnknownSheetMember\n' +
+			'    Worksheets(1).UnknownWorksheetMember\n' +
+			'    Workbooks(1).UnknownWorkbookMember\n' +
+			'    ThisWorkbook.Worksheets(1).UnknownMember\n' +
 			'End Sub\n';
+		// A collection item is declared `As Object` by the library, so its
+		// unknown member is late bound: every one of these compiles in Excel
+		// 16.0 (measured 2026-09-26, issue #114). Only a variable declared
+		// As Worksheet binds while compiling.
 		expectDiagnostics(src, analyzeModule(src), 'member-not-found', [
 			{ span: 'MissingWorksheetMember', message: 'Excel.Worksheet.' },
-			{ span: 'UnknownSheetMember' },
 		]);
 	});
 
@@ -2079,7 +2134,11 @@ describe('analyzeModule - Set assignment validation', () => {
 		expectDiagnostic(caller, hits, 'set-requires-object', { span: 'SharedText' });
 	});
 
-	it('requires Set for visible exported object globals assigned with plain assignment', () => {
+	it('lets an exported Object global take a plain assignment', () => {
+		// `SharedObject = New Collection` compiles (issue #107, measured in
+		// Excel 16.0): a Let through whatever default member the Object holds
+		// when it runs. Its state across modules is not tracked, so nothing is
+		// provable here.
 		const caller =
 			'Public Sub T()\n' +
 			'    SharedObject = New Collection\n' +
@@ -2091,7 +2150,7 @@ describe('analyzeModule - Set assignment validation', () => {
 			'set-required',
 		);
 
-		expectDiagnostic(caller, hits, 'set-required', { span: 'SharedObject' });
+		expect(hits).toHaveLength(0);
 	});
 
 	it('uses visible exported scalar globals as bare Set RHS value types', () => {

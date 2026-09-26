@@ -191,9 +191,13 @@ describe('the directives and events surfaces (issue #41)', () => {
         expect(analyzeModule(source, {})).toEqual([]);
     });
 
-    it('still reports an Option after a real declaration', () => {
-        const source = 'Option Explicit\nDim x As Long\nOption Base 1\nSub T()\nEnd Sub\n';
+    it('still reports an Option after a procedure', () => {
+        // After a declaration the VBE accepts it (issue #113, measured in
+        // Excel 16.0); only a procedure above it is the compile error.
+        const source = 'Option Explicit\nSub T()\nEnd Sub\nOption Base 1\n';
         expect(analyzeModule(source, {}).map((d) => d.code)).toContain('option-after-declaration');
+        const afterDim = 'Option Explicit\nDim x As Long\nOption Base 1\nSub T()\nEnd Sub\n';
+        expect(analyzeModule(afterDim, {}).map((d) => d.code)).not.toContain('option-after-declaration');
     });
 
     it('offers a form its own events, the way a sheet module gets its own', () => {

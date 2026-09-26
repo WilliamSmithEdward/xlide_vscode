@@ -428,6 +428,25 @@ function checkForEachControlVariableType(
 	if (!shape) {
 		return;
 	}
+	// Over an array the VBE accepts only a Variant control variable: `For Each
+	// o In arr` with o As Object is "For Each control variable on arrays must
+	// be Variant" (issue #125, measured in Excel 16.0), and so is a String.
+	const sourceName = node.sourceExpression ? simpleForEachSourceName(node.sourceExpression) : undefined;
+	const resolvedSource = sourceName ? resolveShape?.(sourceName, 'expression') : undefined;
+	const sourceShape = resolvedSource?.resolved
+		? resolvedSource.shape
+		: sourceName ? shapes.get(sourceName.toLowerCase()) : undefined;
+	if (sourceShape?.isArray && !shape.isArray) {
+		const normalized = normalizeType(shape.asType);
+		if (shape.asType && normalized !== 'variant') {
+			push(
+				'forEachControlVariableType',
+				`For Each control variable '${node.controlVariable}' must be Variant when the source is an array, but it is declared As ${shape.asType}.`,
+				node.controlVariableSpan,
+			);
+			return;
+		}
+	}
 	const problem = forEachControlVariableTypeProblem(shape, opts);
 	if (!problem) {
 		return;
@@ -794,9 +813,9 @@ export function checkElseWithoutIf(
  *    (e.g. `1 = x`) - you cannot assign to a literal ("Syntax error";
  *    `corpus_bad_005_compile`). A line number is never directly followed by `=`,
  *    so this does not collide with line-numbered statements.
- *  - `open-missing-for`: an `Open` statement with no `For <mode>` clause
- *    ("Expected: For"; `corpus_edges_005_malformed_open_compile`). `For mode` is
- *    mandatory in the Open grammar, so a missing `For` is always invalid.
+ *  - `open-missing-for`: an `Open` statement whose mode word stands without
+ *    `For` ("Expected: For"; `corpus_edges_005_malformed_open_compile`) or that
+ *    has no `As` clause. `For mode` itself is optional (issue #97).
  */
 export function checkMalformedStatements(
 	source: string,
@@ -829,17 +848,55 @@ export function checkMalformedStatements(
 						absoluteSpan(stmt.span, first),
 					);
 				}
-				if (tokenText(first) === 'open' && !toks.some((tok) => tokenText(tok) === 'for')) {
-					push(
-						'openMissingForMode',
-						"An 'Open' statement requires a 'For <mode>' clause.",
-						absoluteSpan(stmt.span, first),
-					);
+				if (tokenText(first) === 'open') {
+					const problem = malformedOpenStatement(toks);
+					if (problem) {
+						push('openMissingForMode', problem, absoluteSpan(stmt.span, first));
+					}
 				}
 			},
 			activity,
 		);
 	}
+}
+
+/** The words the mode clause of an Open statement is made of. */
+const OPEN_MODE_WORDS: ReadonlySet<string> = new Set(['input', 'output', 'append', 'binary', 'random']);
+
+/**
+ * Why an `Open` statement will not compile, or undefined when it will.
+ *
+ * `For mode` is OPTIONAL: `Open path As #f` opens the file for Random access,
+ * and `Open path Access Read As #f` compiles too (issue #97; both run in
+ * Excel 16.0). What the VBE refuses is a mode word standing without its `For`
+ * ("Expected: For", oracle case corpus_edges_005_malformed_open_compile) and a
+ * statement with no `As` clause at all ("Syntax error": `Open path` and
+ * `Open path Len = 4`, measured 2026-09-26).
+ */
+function malformedOpenStatement(toks: readonly VbaToken[]): string | undefined {
+	let sawAs = false;
+	for (let i = 1; i < toks.length; i++) {
+		const word = tokenText(toks[i]);
+		if (word === 'as') {
+			sawAs = true;
+			continue;
+		}
+		if (OPEN_MODE_WORDS.has(word) && tokenText(toks[i - 1]) !== 'for') {
+			// Output, Append, Random and Binary are contextual words a variable
+			// may be named, so a mode word is one only where the grammar puts
+			// it: after the path expression and before what follows the mode
+			// (`Open path Output #1`, `Open path Output As #1`).
+			const prev = toks[i - 1];
+			const next = tokenText(toks[i + 1]);
+			const endsOperand = prev.kind !== 'operator' && prev.rawText !== '(' && prev.rawText !== ',';
+			const startsClause = next === '' || next === 'as' || next === 'access' || next === 'lock'
+				|| next === 'shared' || next === '#';
+			if (endsOperand && startsClause) {
+				return `An 'Open' statement's mode '${toks[i].rawText}' must follow 'For'.`;
+			}
+		}
+	}
+	return sawAs ? undefined : "An 'Open' statement requires an 'As #filenumber' clause.";
 }
 
 // Reserved keywords that can never appear inside a value expression, so finding

@@ -2,6 +2,94 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.9.0] - 2026-09-26
+
+Thirty-two analyzer issues (#96 to #127), every one re-measured in Excel,
+Word and PowerPoint 16.0 (build 20326) through pyVBAharness, with Access
+read from its type libraries, before anything was changed. Twenty false
+positives on code the VBE accepts are gone, and twelve kinds of error the
+VBE raises or refuses are now reported.
+
+**False positives removed (#96 to #115)**
+
+- `Choose` and `Switch` take any number of arguments (#96), `Open path` and
+  `Open path Len = 4` are reported for the missing `As`, not the missing
+  `For` (#97), `On Local Error` is grammar and `Local` is reserved (#98), a
+  ReDim declares its array (#99), `total&+1` is a suffix and `a &b` a
+  concatenation (#100), a library qualifier such as `Excel.` or `VBAProject.`
+  is not an undeclared variable (#101), a `#Const` never defined reads as 0
+  and an inactive branch's parentheses are not counted (#102), DAO's
+  constants are known in Access (#103), `Left`/`Right`/`Mid` take a Variant
+  and the `$` forms refuse Null (#104), a Byte array target skips the string
+  checks (#105), a division the code guards or that `On Error Resume Next`
+  covers is not reported and `0 / d` is an Overflow (#106), the Let and Set
+  accessor pairings of a property are checked the way the VBE checks them
+  (#107), a GoSub or an early-exit For Each stops the Nothing tracking
+  (#108), two project types that can share an instance are compatible
+  (#109), a Public Enum in a class is visible bare (#110), a Variant passed
+  ByRef to a typed parameter is the mismatch the VBE reports, not the reverse
+  (#111), `Len`, `Abs`, `CInt` and the other folded intrinsics are constant
+  in Enum and Optional defaults (#112), an Option statement is refused only
+  after a procedure or, for Option Base, after an array (#113), `ActiveSheet`
+  and a `Worksheets(1)` item are late bound (#114), and a For counter or a
+  ReDim target assigns the function's return (#115).
+
+**New reports (#116 to #127)**
+
+- **Overflow** (#116). Integer arithmetic on two Integer literals
+  (`60 * 60 * 24`), a Const or Enum member the type cannot hold, an Optional
+  default past its parameter's range, a For counter whose last increment
+  passes its type, an assignment that rounds past the target's range, and
+  `CInt`, `CByte`, `CLng`, `CSng`, `Hex`, `Abs` and unary minus on a value
+  outside the result's range.
+- **Handler flow** (#117): a procedure that falls into its error handler, a
+  `Resume` with no error, a `Return` with no GoSub, a property that calls
+  itself.
+- **Runtime argument values** (#118): `Asc("")`, `Sqr(-1)`, `Log(0)`,
+  `MonthName(13)`, `Round(1, -1)`, `DateSerial` past its range, `Split` with
+  a limit of 0, `InStrRev` with a start of 0, `DateAdd` with an unknown
+  interval, an invalid `Like` pattern, `Err.Raise 0`, a `Mid` statement past
+  a known length, and the conversions that cannot produce a number, Boolean
+  or Date.
+- **String arithmetic** (#119): `"abc" + 1`, `"abc" * 2`, `-"abc"` and the
+  other operators that coerce a string the runtime cannot read as a number.
+- **Array bounds** (#120): an index outside an array whose bounds the code
+  makes plain, from `Dim`, `Array(...)`, `Split` on literals, a Range
+  literal's `Value` or the last pass of a For, and `ReDim a(-1)` under
+  Option Base 0.
+- **Collection and Variant misuse** (#121): an index or key no element has,
+  a key added twice, a Variant holding a number or string used as an object
+  or an array, an array Variant beside a scalar operator, `For Each` over an
+  unset collection (424), and a member neither `Application` nor its
+  worksheet functions have, or a `New Collection` behind an Object variable
+  has not got (438).
+- **Host arguments** (#122): index 0 into any 1-based Office collection in
+  Excel, Word or PowerPoint, `Cells(0, 1)`, `Range("A0")`, an `Offset` or
+  `Resize` off the sheet, a sheet name Excel refuses, a multi-cell address
+  literal read as a scalar, `Document.Range(-1, 0)` and `Slides.Add 0`.
+- **File statements** (#123): file number 0, a number used after `Close`, a
+  read on a file opened For Output or a write on one opened For Input, a
+  number opened twice, and record 0.
+- **Declaration errors** (#124): a Property Let whose value type differs from
+  the Get, a local named after its Function, a variable sharing a procedure's
+  name, WithEvents on Object or Collection, Option Private Module in a class,
+  a ByVal or Optional array parameter, a second Deftype for a letter, and a
+  bracketed variable name.
+- **Statement errors** (#125): `Next i, j` against the wrong loops, a
+  non-Variant control variable over an array, an Implements member left out
+  or implemented with another signature, a Collection beside an operator, a
+  Sub read as a value, a module name called as a procedure, `Set v = 5`,
+  `1.5%`, `1E400` and `Rem` after `Then`.
+- **Line continuations** (#126): the 25th in one line, one followed by an
+  empty line, any inside an Enum body, and one between a Declare's Lib string
+  and its parameter list.
+- **Closed interfaces in every host** (#127): Word, PowerPoint and Access
+  types now carry their hidden members and prove a member absent where the
+  registered type library marks the interface NONEXTENSIBLE, so
+  `r.SomeCustomMacro` on a Word Range is the compile error the VBE gives,
+  while Document, Form, Report and Control stay open. The shared Office
+  types never prove absence.
+
 ## [10.8.0] - 2026-09-25
 
 - **Parts of a module, read and edited in one call** (#95). `xlide_readModule`

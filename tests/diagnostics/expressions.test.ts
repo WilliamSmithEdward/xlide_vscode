@@ -388,16 +388,26 @@ describe('analyzeModule - division by zero', () => {
 		expect(spanText(src, hits[0])).toBe('Zero + 0');
 	});
 
-	it('does not flag nonzero literals, variables, or nonzero parenthesized expressions', () => {
+	it('does not flag nonzero literals, assigned variables, or nonzero parenthesized expressions', () => {
 		const src =
 			'Public Sub T()\n' +
 			'    Dim a As Double\n' +
 			'    Dim denominator As Double\n' +
+			'    denominator = 2\n' +
 			'    a = 1 / 2\n' +
 			'    a = 1 / denominator\n' +
 			'    a = 1 / (0 + 1)\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'division-by-zero')).toHaveLength(0);
+		// A Double the procedure never assigns is 0, and dividing by it raises
+		// 11 (issue #119, measured in Excel 16.0).
+		const neverAssigned =
+			'Public Sub T()\n' +
+			'    Dim a As Double\n' +
+			'    Dim denominator As Double\n' +
+			'    a = 1 / denominator\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(neverAssigned), 'division-by-zero')).toHaveLength(1);
 	});
 
 	it('ignores literal zero divisors in inactive conditional-compilation branches', () => {

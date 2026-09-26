@@ -425,13 +425,29 @@ describe('analyzeModule - argument type validation', () => {
 			'    Dim obj As Object\n' +
 			'    ReadValue amount\n' +
 			'    ReadString obj\n' +
-			'    NeedsString flexible\n' +
 			'    Mutate 1\n' +
 			'    Mutate (longAmount)\n' +
 			'    Mutate longAmount + 1\n' +
 			'    Mutate Range("A1").Value\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'byref-argument-type-mismatch')).toHaveLength(0);
+		// A Variant VARIABLE passed ByRef to a typed parameter is the compile
+		// error itself, for String, Long and Object alike (issue #111,
+		// measured in Excel 16.0); `flexible` is not a temporary.
+		const variantVariable =
+			'Public Sub NeedsString(ByRef value As String)\n' +
+			'End Sub\n' +
+			'Public Sub T()\n' +
+			'    Dim flexible As Variant\n' +
+			'    Dim untyped\n' +
+			'    NeedsString flexible\n' +
+			'    NeedsString untyped\n' +
+			'    NeedsString (flexible)\n' +
+			'End Sub\n';
+		expectDiagnostics(variantVariable, analyzeModule(variantVariable), 'byref-argument-type-mismatch', [
+			{ span: 'flexible', message: 'declared as Variant' },
+			{ span: 'untyped', message: 'declared as Variant' },
+		]);
 	});
 
 	it('uses module #Const activity when checking ByRef exactness in conditional branches', () => {
@@ -514,16 +530,19 @@ describe('analyzeModule - argument type validation', () => {
 		});
 	});
 
-	it('keeps local shadows and ambiguous exported variables quiet for ByRef exactness', () => {
+	it('reads local shadows and keeps ambiguous exported variables quiet for ByRef exactness', () => {
+		// The local Variant shadows the Integer global, and a Variant variable
+		// ByRef to a Long is the compile error (issue #111): the report names
+		// the local's type, not the global's.
 		const shadowCaller =
 			'Public Sub T()\n' +
 			'    Dim SharedAmount As Variant\n' +
 			'    Mutate SharedAmount\n' +
 			'End Sub\n';
-		expect(byCode(analyzeProjectModule(shadowCaller, [
+		expectDiagnostic(shadowCaller, analyzeProjectModule(shadowCaller, [
 			{ moduleName: 'Helpers', source: 'Public Sub Mutate(ByRef value As Long)\nEnd Sub\n' },
 			{ moduleName: 'Globals', source: 'Public SharedAmount As Integer\n' },
-		], 'Caller'), 'byref-argument-type-mismatch')).toHaveLength(0);
+		], 'Caller'), 'byref-argument-type-mismatch', { span: 'SharedAmount', message: 'declared as Variant' });
 
 		const ambiguousCaller =
 			'Public Sub T()\n' +
@@ -910,14 +929,26 @@ describe('analyzeModule - argument type validation', () => {
 			'    g = Space$(0)\n' +
 			'    h = Space(count)\n' +
 			'    i = Mid$("abcdef", 1, 0)\n' +
-			'    j = Mid("abcdef", count, count)\n' +
+			'    j = Mid("abcdef", 1, count)\n' +
 			'    k = Replace("abcdef", "a", "z", 1)\n' +
 			'    l = Replace("aaaa", "a", "z", 1, -1)\n' +
 			'    m = Replace("aaaa", "a", "z", 1, 0)\n' +
-			'    n = Replace("aaaa", "a", "z", count, count)\n' +
+			'    n = Replace("aaaa", "a", "z", 1, count)\n' +
 			'    o = Replace$("aaaa", "a", "z", 0)\n' +
 			'End Sub\n';
 		expect(byCode(analyzeModule(src), 'runtime-argument-value')).toHaveLength(0);
+		// A Long the procedure never assigns is 0 (issue #118), and 0 is below
+		// the Start bound of Mid and Replace.
+		const zeroStart =
+			'Sub T()\n' +
+			'    Dim count As Long\n' +
+			'    j = Mid("abcdef", count, 1)\n' +
+			'    n = Replace("aaaa", "a", "z", count)\n' +
+			'End Sub\n';
+		expectDiagnostics(zeroStart, analyzeModule(zeroStart), 'runtime-argument-value', [
+			{ span: 'count', message: ['Mid', 'Start', 'is 0'] },
+			{ span: 'count', message: ['Replace', 'Start', 'is 0'] },
+		]);
 	});
 
 	it('does not treat shadowed Left calls as native runtime argument-value checks', () => {
@@ -958,10 +989,13 @@ describe('analyzeModule - argument type validation', () => {
 			'    Value = CDate("Mar 1")\n' +
 			'    Value = CDate("März")\n' +
 			'    Value = CDate(text)\n' +
-			'    Value = DateValue("not a date")\n' +
 			'End Sub\n';
 
 		expect(byCode(analyzeModule(src), 'runtime-conversion-value')).toHaveLength(0);
+		// DateValue reads its string the way CDate does, and letters that name
+		// no month raise 13 there too (issue #118, measured in Excel 16.0).
+		const dateValue = 'Sub T()\n    Dim Value As Date\n    Value = DateValue("not a date")\nEnd Sub\n';
+		expectDiagnostic(dateValue, analyzeModule(dateValue), 'runtime-conversion-value', { span: '"not a date"', message: 'DateValue' });
 	});
 
 	it('does not treat shadowed CDate calls as native conversion checks', () => {

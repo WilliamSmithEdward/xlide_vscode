@@ -25,6 +25,7 @@ import {
 	isObjectModuleKind,
 	type PushFn,
 } from '../analysisContext';
+import { isKnownScalarType, normalizeType } from '../typeInference';
 import {
 	absoluteSpan,
 	activeModuleMembers,
@@ -197,6 +198,23 @@ export function checkWithEventsDeclarations(
 			if (decl.isArray) {
 				report(
 					`WithEvents variable '${decl.name}' cannot be an array.`,
+					nameSpan,
+				);
+			}
+			// The type must be a class that sources events. `As Object` is
+			// refused outright ("Expected: identifier") and `As Collection`,
+			// which has no events, with "Object does not source automation
+			// events" (issue #124, measured in Excel 16.0). An intrinsic type
+			// is no object at all. A host or project class is not judged here.
+			const normalized = normalizeType(decl.asType);
+			if (normalized === 'object' || normalized === 'variant' || normalized === undefined) {
+				report(
+					`WithEvents variable '${decl.name}' must be declared As a specific class that raises events; ${decl.asType ? `'${decl.asType}'` : 'no type'} names none.`,
+					nameSpan,
+				);
+			} else if (normalized === 'collection' || isKnownScalarType(normalized)) {
+				report(
+					`WithEvents variable '${decl.name}' is declared As ${decl.asType}, which does not source automation events.`,
 					nameSpan,
 				);
 			}

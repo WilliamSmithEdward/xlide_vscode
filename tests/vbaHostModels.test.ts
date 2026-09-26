@@ -83,10 +83,13 @@ describe.each(MODELS)('the %s object model', (_host, getModel) => {
 		}
 	});
 
-	it('proves nothing absent: no type claims exhaustiveness', () => {
+	it('claims exhaustiveness for its own library types only, never for shared Office types', () => {
+		// With the library's hidden members merged (issue #127) a host-library
+		// type carries every writable member; the shared Office types have no
+		// hidden dump and must never prove a member absent.
 		const model = getModel();
 		for (const [qualified, type] of Object.entries(model.types)) {
-			expect(type.exhaustive ?? false, qualified).toBe(false);
+			expect(type.exhaustive ?? false, qualified).toBe(!qualified.startsWith('Office.'));
 		}
 	});
 

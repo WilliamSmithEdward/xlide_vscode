@@ -12,6 +12,7 @@ import {
 } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type {
+	BodyNode,
 	ModuleNode,
 	ProcedureNode,
 	Span,
@@ -41,6 +42,7 @@ import {
 	declaredTypeForSourceBinding,
 	type DeclaredValueShape,
 	incompatibilityReason,
+	objectLetAssignmentVerdict,
 	inferArgumentType,
 	isKnownObjectAssignmentType,
 	isKnownScalarType,
@@ -81,6 +83,15 @@ import {
  * left-hand side must be a bare identifier (no member access, no index) that
  * resolves to a Const declared at module level or in the enclosing procedure.
  */
+/** A literal that can never be an object reference: a number, string, date, True or False. */
+function isScalarLiteralToken(tok: VbaToken): boolean {
+	if (tok.kind === 'integerLiteral' || tok.kind === 'floatLiteral' || tok.kind === 'stringLiteral' || tok.kind === 'dateLiteral') {
+		return true;
+	}
+	const word = tokenText(tok);
+	return word === 'true' || word === 'false';
+}
+
 export function checkConstAssignment(
 	source: string,
 	symbols: ReturnType<typeof buildModuleSymbols>,
@@ -221,11 +232,24 @@ export function checkAssignmentTypes(
 				return;
 			}
 			if (isKnownObjectAssignmentType(expected, memberCtx)) {
-				push(
-					'setRequired',
-					`Object assignment to '${assignment.name}' requires Set because it is declared as ${expected}.`,
-					assignment.span,
-				);
+				// The VBE compiles a bare `=` to an object variable as a Let
+				// through the type's default member (issue #107): `r = 5`
+				// writes the Range's Value. What is reported is what the
+				// default member makes of it.
+				const verdict = objectLetAssignmentVerdict(expected, memberCtx);
+				if (verdict === 'argument') {
+					push(
+						'setRequired',
+						`Assignment to '${assignment.name}' requires Set: the default member of ${expected} takes an argument, so a Let cannot reach it. This is a VBE compile error: Argument not optional.`,
+						assignment.span,
+					);
+				} else if (verdict === 'noDefault') {
+					push(
+						'setRequired',
+						`Assignment to '${assignment.name}' requires Set: ${expected} has no default member for a Let to reach. This will raise Run-time error '438': Object doesn't support this property or method.`,
+						assignment.span,
+					);
+				}
 				return;
 			}
 			const arraySource = arrayAssignmentToScalarSource(
@@ -254,6 +278,23 @@ export function checkAssignmentTypes(
 					`Array variable '${arraySource.name}' cannot be assigned to scalar '${assignment.name}'. Assign an array element or use a Variant/array target.`,
 					arraySource.span,
 				);
+				return;
+			}
+			// A dynamic Byte array takes a String whole - `b = "abc"` copies the
+			// string's bytes, and a String takes the array back (issue #105,
+			// measured in Excel 16.0). The element type is not what the value
+			// is checked against there.
+			const resolvedTargetShape = declaredShapeForSourceBinding(
+				symbols,
+				procSym,
+				projectVisibleSymbols,
+				assignment.name,
+				'assignmentTarget',
+			);
+			const targetShape = resolvedTargetShape.resolved
+				? resolvedTargetShape.shape
+				: shapes.get(assignment.name.toLowerCase());
+			if (targetShape?.isArray && normalizeType(targetShape.asType) === 'byte') {
 				return;
 			}
 			const stringArithmetic = nonnumericStringArithmeticOperand(
@@ -439,6 +480,9 @@ function procedureHasReturnAssignment(
 		if (set?.name.toLowerCase() === lower) {
 			return true;
 		}
+		if (returnAssignedByStatementForm(source, span, lower)) {
+			return true;
+		}
 		const call = extractCall(source, span);
 		const qualifiedCall = call
 			? undefined
@@ -461,7 +505,75 @@ function procedureHasReturnAssignment(
 			}
 		}
 	}, activity);
-	return found;
+	// `For Count3 = 1 To 3` assigns the return variable as its counter (issue
+	// #115): the loop is a block, not a statement the walk above visits.
+	return found || forLoopAssigns(proc.body, lower, activity);
+}
+
+function forLoopAssigns(
+	body: readonly BodyNode[],
+	lower: string,
+	activity: ConditionalActivityTracker | undefined,
+): boolean {
+	for (const node of body) {
+		if (activity?.isInactive(node.span)) {
+			continue;
+		}
+		if (node.kind === 'ForBlock' && node.controlVariable?.toLowerCase() === lower) {
+			return true;
+		}
+		if ('body' in node && Array.isArray(node.body) && forLoopAssigns(node.body, lower, activity)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
+ * The statement forms besides `Name = value` that assign a Function's return
+ * variable (issue #115, each measured in Excel 16.0): `For Name = 1 To 3`
+ * leaves the counter's final value, `ReDim Name(2)` sizes an array return,
+ * `Line Input #f, Name`, `Input #f, Name` and `Get #f, 1, Name` read into it,
+ * and `Name$ = "hi"` names it with its type-declaration character.
+ */
+function returnAssignedByStatementForm(source: string, span: Span, lower: string): boolean {
+	const toks = statementTokens(source, span);
+	const i = firstExecutableTokenIndex(toks);
+	const head = tokenText(toks[i]);
+	const isName = (tok: VbaToken | undefined): boolean => tokenName(tok)?.toLowerCase() === lower;
+	if (head === 'for') {
+		return tokenText(toks[i + 1]) === 'each' ? isName(toks[i + 2]) : isName(toks[i + 1]);
+	}
+	if (head === 'redim') {
+		let k = i + 1;
+		if (tokenText(toks[k]) === 'preserve') {
+			k++;
+		}
+		let depth = 0;
+		for (; k < toks.length; k++) {
+			const raw = toks[k].rawText;
+			if (raw === '(') {
+				depth++;
+			} else if (raw === ')') {
+				depth--;
+			} else if (depth === 0 && isName(toks[k]) && (k === i + 1 || tokenText(toks[k - 1]) === 'preserve' || toks[k - 1].rawText === ',')) {
+				return true;
+			}
+		}
+		return false;
+	}
+	if (head === 'line' || head === 'input' || head === 'get') {
+		// Everything after the file number is a target (Line Input / Input) or
+		// the third slot is (Get #f, rec, var); a plain name in one of them
+		// is the assignment.
+		return toks.slice(i + 1).some((tok, index, rest) => isName(tok) && (rest[index - 1]?.rawText === ',' ));
+	}
+	// `Name$ = value`: the suffix is glued to the name and the `=` follows.
+	if (isName(toks[i]) && toks[i + 1] && toks[i + 1].start === toks[i].end
+		&& /^[$%&!#@]$/.test(toks[i + 1].rawText) && toks[i + 2]?.rawText === '=') {
+		return true;
+	}
+	return false;
 }
 
 /**
@@ -602,6 +714,16 @@ function checkMemberAssignmentTypes(
 				);
 				return;
 			}
+			// `Set h.Item = x` needs a Property Set; with only a Property Let
+			// the VBE refuses it, "Invalid use of property" (issue #107).
+			if (target.letAccessor && !target.setAccessor) {
+				push(
+					'setRequiresObject',
+					`Set assignment to '${assignment.label}' needs a Property Set, but the property declares only a Property Let. This is a VBE compile error: Invalid use of property.`,
+					assignment.memberSpan,
+				);
+				return;
+			}
 			const actual = inferArgumentType(
 				assignment.valueTokens,
 				span.start,
@@ -627,7 +749,19 @@ function checkMemberAssignmentTypes(
 			}
 			return;
 		}
-		if (isKnownObjectAssignmentType(expected, memberCtx)) {
+		// A bare `=` to a project property calls its Property Let, whatever the
+		// value's type: `h.Item = New Collection` compiles with `Property Let
+		// Item(ByVal v As Object)` (issue #107). Only a property with a Set
+		// and no Let refuses it: "Invalid use of property".
+		if (target.setAccessor && !target.letAccessor) {
+			push(
+				'setRequired',
+				`Assignment to '${assignment.label}' requires Set: the property declares a Property Set and no Property Let. This is a VBE compile error: Invalid use of property.`,
+				assignment.memberSpan,
+			);
+			return;
+		}
+		if (!target.letAccessor && isKnownObjectAssignmentType(expected, memberCtx)) {
 			push(
 				'setRequired',
 				`Object assignment to '${assignment.label}' requires Set because it expects ${expected}.`,
@@ -635,8 +769,8 @@ function checkMemberAssignmentTypes(
 			);
 			return;
 		}
-		if (!expected || normalizeType(expected) === 'object') {
-			return;
+		if (!expected || !isKnownScalarType(normalizeType(expected) ?? '')) {
+			return; // a Let of an object or unknown type: nothing provable about the value
 		}
 		const stringArithmetic = nonnumericStringArithmeticOperand(
 			expected,
@@ -723,6 +857,17 @@ export function checkSetAssignments(
 				? targetDeclaredType.asType
 				: env.get(target.name.toLowerCase());
 			const targetType = normalizeType(expected);
+			// `Set v = 5` is refused whatever v is: a literal is never an object
+			// reference ("Object required", issue #125, measured in Excel 16.0).
+			const literal = target.valueTokens.filter((tok) => tok.kind !== 'comment');
+			if ((!targetType || targetType === 'variant') && literal.length === 1 && isScalarLiteralToken(literal[0])) {
+				push(
+					'setRequiresObject',
+					`Set assigns an object reference, but ${literal[0].rawText} is a literal value. This is a VBE compile error: Object required.`,
+					{ start: span.start + literal[0].start, end: span.start + literal[0].end },
+				);
+				return;
+			}
 			if (!targetType || !isKnownScalarType(targetType)) {
 				if (!isKnownObjectAssignmentType(expected, memberCtx)) {
 					return;

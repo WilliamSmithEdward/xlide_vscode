@@ -306,6 +306,7 @@ export function evaluateConditionalExpression(
 	const parser = new ConditionalExpressionParser(
 		tokenize(expression).filter((t) => t.kind !== 'comment' && t.kind !== 'newline'),
 		conditionalCompilerConstants(env),
+		env.projectConstants !== undefined,
 	);
 	return parser.parse();
 }
@@ -487,10 +488,21 @@ function evaluateWithProjectConstants(
 	env: ConditionalCompilationEnvironment,
 	projectConstants: ReadonlyMap<string, ConditionalValue>,
 ): ConditionalValue | undefined {
-	return evaluateConditionalExpression(expression, {
-		compilerConstants: env.compilerConstants,
-		projectConstants: Object.fromEntries(projectConstants),
-	});
+	if (!expression?.trim()) {
+		return undefined;
+	}
+	// The module's own `#Const` values ride in `projectConstants` whether or
+	// not the caller supplied the project's; only the caller's presence says
+	// an absent name is provably undefined (issue #102).
+	const constants = conditionalCompilerConstants({ compilerConstants: env.compilerConstants });
+	for (const [name, value] of projectConstants) {
+		constants.set(name, value);
+	}
+	return new ConditionalExpressionParser(
+		tokenize(expression).filter((t) => t.kind !== 'comment' && t.kind !== 'newline'),
+		constants,
+		env.projectConstants !== undefined,
+	).parse();
 }
 
 function combineActivity(
@@ -522,6 +534,15 @@ class ConditionalExpressionParser {
 	constructor(
 		private readonly tokens: readonly VbaToken[],
 		private readonly constants: ReadonlyMap<string, ConditionalValue>,
+		/**
+		 * Whether a name no constant defines evaluates as the VBE evaluates
+		 * it, to Empty (0 here, since Empty compares as 0 and is False). True
+		 * only when the caller supplied the project's own conditional
+		 * constants, so an absent name is provably undefined rather than
+		 * unknown (issue #102); a module's `#Const` lines are folded into the
+		 * same table before any `#If` reads them.
+		 */
+		private readonly undefinedIsEmpty: boolean,
 	) {}
 
 	parse(): ConditionalValue | undefined {
@@ -643,7 +664,11 @@ class ConditionalExpressionParser {
 		if (word === 'false') {
 			return false;
 		}
-		return this.constants.get(word);
+		const value = this.constants.get(word);
+		if (value === undefined && this.undefinedIsEmpty && token.kind === 'identifier') {
+			return 0;
+		}
+		return value;
 	}
 
 	private matchWord(word: string): boolean {

@@ -23,6 +23,7 @@ import {
 	checkAmbiguousBareProcedureCalls,
 	checkDuplicateProcedures,
 	checkDuplicateTypeFields,
+	checkVariableProcedureNameClash,
 } from './rules/duplicates';
 import {
 	checkDimInitializer,
@@ -94,6 +95,17 @@ import {
 	checkFixedArraySubscriptBounds,
 } from './rules/arrays';
 import { checkLateBoundFriendMember } from './rules/lateBinding';
+import { checkHandlerFlow } from './rules/handlerFlow';
+import { checkFileStatements } from './rules/fileStatements';
+import { checkOverflow } from './rules/overflow';
+import { checkHostArguments } from './rules/hostArguments';
+import { checkCollectionState } from './rules/collectionState';
+import { checkVariantValueMisuse } from './rules/variantValues';
+import { checkRuntimeMemberNotFound } from './rules/lateBoundMembers';
+import { checkDeclarationForms } from './rules/declarationForms';
+import { checkLineContinuationLimits } from './rules/lineContinuations';
+import { checkImplementsMembers } from './rules/implementsMembers';
+import { checkStatementForms } from './rules/statementForms';
 import { checkMissingLibraryReference } from './rules/missingReference';
 import { getExcelObjectModel } from '../host/excelObjectModel';
 import {
@@ -112,6 +124,7 @@ import {
 	checkDivisionByZeroExpressions,
 	checkExpressionCallParens,
 	checkInvalidExpressionSyntax,
+	checkStringArithmeticOperands,
 	checkUnbalancedParens,
 } from './rules/expressions';
 import {
@@ -178,6 +191,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'duplicateDeclarations',
 		run: (ctx, push) => checkDuplicateDeclarations(ctx.symbols.root.children ?? [], ctx.activity, push),
+	},
+	{
+		name: 'variableProcedureNameClash',
+		run: (ctx, push) => checkVariableProcedureNameClash(ctx.symbols.root.children ?? [], ctx.activity, push),
 	},
 	{
 		name: 'duplicateModuleMembers',
@@ -262,8 +279,57 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.opts.moduleKind,
 			ctx.opts.hostModel,
 			ctx.opts.designerClass,
+			ctx.opts.referencedHosts,
 			push,
 		),
+	},
+	{
+		name: 'handlerFlow',
+		run: (ctx, push) => checkHandlerFlow(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'fileStatements',
+		run: (ctx, push) => checkFileStatements(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'overflow',
+		run: (ctx, push) => checkOverflow(
+			ctx.source, ctx.mod, ctx.symbols, ctx.opts.projectVisibleSymbols, ctx.opts.hostModel, ctx.activity, push,
+		),
+	},
+	{
+		name: 'hostArguments',
+		procedureStatements: (ctx, push) => checkHostArguments(ctx.source, ctx.symbols, ctx.memberCtx, push),
+	},
+	{
+		name: 'collectionState',
+		run: (ctx, push) => checkCollectionState(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'variantValueMisuse',
+		run: (ctx, push) => checkVariantValueMisuse(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
+	},
+	{
+		name: 'runtimeMemberNotFound',
+		run: (ctx, push) => checkRuntimeMemberNotFound(ctx.source, ctx.mod, ctx.symbols, ctx.memberCtx, ctx.activity, push),
+	},
+	{
+		name: 'declarationForms',
+		run: (ctx, push) => checkDeclarationForms(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'lineContinuationLimits',
+		run: (ctx, push) => checkLineContinuationLimits(ctx.source, ctx.mod, push),
+	},
+	{
+		name: 'implementsMembers',
+		run: (ctx, push) => checkImplementsMembers(
+			ctx.source, ctx.mod, ctx.symbols, ctx.moduleKind, ctx.opts.projectClassMembers, ctx.activity, push,
+		),
+	},
+	{
+		name: 'statementForms',
+		run: (ctx, push) => checkStatementForms(ctx.source, ctx.mod, ctx.symbols, ctx.opts.projectProcedures, ctx.activity, push),
 	},
 	{
 		name: 'optionPlacement',
@@ -303,7 +369,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'propertySetterValueParameters',
-		run: (ctx, push) => checkPropertySetterValueParameters(ctx.source, ctx.mod, ctx.activity, ctx.opts, push),
+		run: (ctx, push) => checkPropertySetterValueParameters(ctx.source, ctx.mod, ctx.activity, push),
 	},
 	{
 		name: 'propertyAccessorSignatures',
@@ -331,7 +397,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'unbalancedParens',
-		run: (ctx, push) => checkUnbalancedParens(ctx.source, push),
+		run: (ctx, push) => checkUnbalancedParens(ctx.source, push, ctx.activity),
 	},
 	{
 		name: 'invalidExpressionSyntax',
@@ -339,6 +405,15 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.source,
 			ctx.symbols,
 			ctx.opts.projectVisibleSymbols,
+			push,
+		),
+	},
+	{
+		name: 'stringArithmeticOperands',
+		procedureStatements: (ctx, push) => checkStringArithmeticOperands(
+			ctx.source,
+			ctx.symbols,
+			ctx.activity,
 			push,
 		),
 	},
@@ -388,7 +463,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'arraySubscriptOutOfBounds',
-		run: (ctx, push) => checkFixedArraySubscriptBounds(ctx.source, ctx.mod, ctx.activity, push),
+		run: (ctx, push) => checkFixedArraySubscriptBounds(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
 	},
 	{
 		name: 'midStatementLiteralTarget',
@@ -711,6 +786,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 				ctx.opts.hostModel,
 				ctx.opts.designerClass,
 				push,
+				ctx.opts.projectClassMembers,
 			);
 		},
 	},

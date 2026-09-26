@@ -1334,34 +1334,24 @@ describe('analyzeModule - property setter shape', () => {
 		expectDiagnostic(src, hits, 'property-set-scalar-value', { severity: 'error', span: 'value' });
 	});
 
-	it('flags Property Let declarations with Object value parameters', () => {
+	// A Property Let's value parameter may be an object type: `As Object`,
+	// `As Worksheet` and `As <project class>` all compile, and a bare `=`
+	// calls the Let with the object (issue #107, measured in Excel 16.0).
+	it('accepts Property Let declarations with Object, host and project object value parameters', () => {
 		const src =
-			'Public Property Let NegProp06_LetObjectValue(ByVal Value As Object)\n' +
-			'End Property\n';
-		const hits = byCode(analyzeModule(src), 'property-let-object-value');
-
-		expectDiagnostic(src, hits, 'property-let-object-value', { severity: 'error', span: 'Value' });
-	});
-
-	it('flags Property Let declarations with known host and project object value parameters', () => {
-		const src =
+			'Public Property Let Item(ByVal Value As Object)\n' +
+			'End Property\n' +
 			'Public Property Let Sheet(ByVal value As Worksheet)\n' +
 			'End Property\n' +
 			'Public Property Let Customer(ByVal assigned As Person)\n' +
 			'End Property\n';
-		const hits = byCode(
-			analyzeModule(src, {
-				projectClassMembers: [
-					{ name: 'Person', kind: 'class', moduleName: 'Person', members: [] },
-				],
-			}),
-			'property-let-object-value',
-		);
-
-		expectDiagnostics(src, hits, 'property-let-object-value', [
-			{ span: 'value', message: 'Worksheet' },
-			{ span: 'assigned', message: 'Person' },
-		]);
+		const diagnostics = analyzeModule(src, {
+			projectClassMembers: [
+				{ name: 'Person', kind: 'class', moduleName: 'Person', members: [] },
+			],
+		});
+		expect(byCode(diagnostics, 'property-let-object-value')).toHaveLength(0);
+		expect(byCode(diagnostics, 'property-setter-missing-value')).toHaveLength(0);
 	});
 
 	it('flags Property Let and Set declarations with return types', () => {
@@ -1520,17 +1510,31 @@ describe('analyzeModule - parameter default values', () => {
 });
 
 describe('analyzeModule - Option placement', () => {
-	it('flags an Option after a declaration', () => {
-		const src = 'Private m_Count As Long\nOption Explicit\n';
+	it('flags an Option after a procedure', () => {
+		const src = 'Sub T()\nEnd Sub\nOption Base 1\n';
 		const hits = byCode(analyzeModule(src), 'option-after-declaration');
 		expect(hits).toHaveLength(1);
 		expect(hits[0].severity).toBe('error');
 		expect(spanText(src, hits[0])).toBe('Option');
 	});
 
-	it('flags an Option after a procedure', () => {
-		const src = 'Sub T()\nEnd Sub\nOption Base 1\n';
-		expect(byCode(analyzeModule(src), 'option-after-declaration')).toHaveLength(1);
+	// Measured in Excel 16.0 (build 20326, 2026-09-26): every Option kind
+	// compiles after a Const, a variable, a Type, an Enum, a Declare and a
+	// Deftype statement. Only a procedure closes the window (issue #113).
+	it('accepts an Option after a module variable, Const, Type, Enum, Declare or Deftype', () => {
+		for (const declaration of [
+			'Private m_Count As Long',
+			'Private Const K = 1',
+			'Private Type T\n    a As Long\nEnd Type',
+			'Private Enum E\n    eA = 1\nEnd Enum',
+			'Private Declare PtrSafe Function GetTickCount Lib "kernel32" () As Long',
+			'DefLng A-Z',
+		]) {
+			for (const option of ['Option Explicit', 'Option Base 1', 'Option Compare Text', 'Option Private Module']) {
+				const src = `${declaration}\n${option}\nSub T()\nEnd Sub\n`;
+				expect(byCode(analyzeModule(src), 'option-after-declaration'), src).toHaveLength(0);
+			}
+		}
 	});
 
 	it('accepts Options at the top of the module', () => {

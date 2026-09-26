@@ -37,9 +37,10 @@ import {
 	type TypeNameReferenceKind,
 	typeReferenceLookupName,
 } from '../../semantic/typeSemanticTokens';
-import type {
-	AnalyzeModuleOptions,
-	PushFn,
+import {
+	type AnalyzeModuleOptions,
+	isObjectModuleKind,
+	type PushFn,
 } from '../analysisContext';
 import type { InferredArgumentType } from '../callExtraction';
 import {
@@ -726,14 +727,13 @@ export function checkReservedDeclarationNames(
 /**
  * Rule: Property Let/Set setters receive the assigned value through the final
  * parameter. A setter with no parameters has no value slot, setters have no
- * return type, Property Let value parameters must not be object references,
- * and Property Set value parameters must be object references.
+ * return type, and Property Set value parameters must be object references.
+ * A Property Let's value parameter may be of any type (issue #107).
  */
 export function checkPropertySetterValueParameters(
 	source: string,
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
-	opts: AnalyzeModuleOptions,
 	push: PushFn,
 ): void {
 	for (const member of activeModuleMembers(mod, activity)) {
@@ -762,19 +762,12 @@ export function checkPropertySetterValueParameters(
 						declaredNameSpan(source, valueParam.span, valueParam.name),
 					);
 				}
-			} else {
-				const objectType = resolveKnownObjectAssignmentType(valueParam.asType, {
-					projectClassMembers: opts.projectClassMembers,
-					model: opts.hostModel,
-				});
-				if (objectType) {
-					push(
-						'propertyLetObjectValue',
-						`Property Let '${member.name}' final value parameter '${valueParam.name}' must not be an object reference; use Property Set because it is declared As ${objectType.display}.`,
-						declaredNameSpan(source, valueParam.span, valueParam.name),
-					);
-				}
 			}
+			// A Property Let's value parameter may be any type, object types
+			// included: `Property Let Item(ByVal v As Object)`, `As Worksheet` and
+			// `As <project class>` all compile, and `h.Item = New Collection`
+			// calls the Let (issue #107, measured in Excel 16.0). The old
+			// property-let-object-value report was wrong and is retired.
 			continue;
 		}
 		const label = member.procKind === 'PropertyLet' ? 'Property Let' : 'Property Set';
@@ -883,14 +876,28 @@ export function checkPropertyAccessorSignatures(
 				getter.params,
 				setter.params.slice(0, -1),
 			);
-			if (!reason) {
+			if (reason) {
+				push(
+					'propertyAccessorSignatureMismatch',
+					`${propertyProcedureLabel(setter.procKind)} '${setter.name}' argument list must match Property Get '${getter.name}' before the final value parameter. ${reason}`,
+					declaredNameSpan(source, setter.span, setter.name),
+				);
 				continue;
 			}
-			push(
-				'propertyAccessorSignatureMismatch',
-				`${propertyProcedureLabel(setter.procKind)} '${setter.name}' argument list must match Property Get '${getter.name}' before the final value parameter. ${reason}`,
-				declaredNameSpan(source, setter.span, setter.name),
-			);
+			// The value parameter must have the Get's type: `Get Size() As Long`
+			// with `Let Size(ByVal v As Integer)` is "Definitions of property
+			// procedures for the same property are inconsistent" (issue #124,
+			// measured in Excel 16.0). Either side without a type is Variant.
+			const valueParam = setter.params[setter.params.length - 1];
+			const getType = normalizeType(getter.returnType) ?? (getter.typeSuffix ? undefined : 'variant');
+			const valueType = normalizeType(valueParam.asType) ?? (valueParam.typeSuffix ? undefined : 'variant');
+			if (getType !== undefined && valueType !== undefined && getType !== valueType && !valueParam.isArray) {
+				push(
+					'propertyAccessorSignatureMismatch',
+					`${propertyProcedureLabel(setter.procKind)} '${setter.name}' takes its value As ${valueParam.asType ?? 'Variant'}, but Property Get '${getter.name}' returns ${getter.returnType ?? 'Variant'}; the definitions of a property's procedures must agree.`,
+					declaredNameSpan(source, valueParam.span, valueParam.name),
+				);
+			}
 		}
 	}
 }
@@ -1653,7 +1660,7 @@ export function checkNonConstantParameterDefaults(
 			if (!defaultTokens) {
 				continue;
 			}
-			const nonConstant = nonConstantDefaultElement(defaultTokens.tokens, param.span.start);
+			const nonConstant = nonConstantDefaultElement(defaultTokens.tokens, param.span.start, 'enumOrOptional');
 			if (!nonConstant) {
 				continue;
 			}
@@ -1694,7 +1701,7 @@ export function checkNonConstantConstValues(
 			if (!valueTokens) {
 				continue;
 			}
-			const nonConstant = nonConstantDefaultElement(valueTokens.tokens, decl.span.start);
+			const nonConstant = nonConstantDefaultElement(valueTokens.tokens, decl.span.start, 'const');
 			if (!nonConstant) {
 				continue;
 			}
@@ -1745,7 +1752,7 @@ export function checkNonConstantEnumMemberValues(
 			if (!valueTokens) {
 				continue;
 			}
-			const nonConstant = nonConstantDefaultElement(valueTokens.tokens, enumMember.span.start);
+			const nonConstant = nonConstantDefaultElement(valueTokens.tokens, enumMember.span.start, 'enumOrOptional');
 			if (!nonConstant) {
 				continue;
 			}
@@ -1767,9 +1774,24 @@ export function checkNonConstantEnumMemberValues(
  */
 const OPERATOR_KEYWORD_WORDS = new Set(OPERATOR_IDENTIFIERS.map((word) => word.toLowerCase()));
 
+/**
+ * The intrinsic functions the VBE folds inside an Enum member value and an
+ * Optional parameter default, where it refuses every call in a Const. Measured
+ * one by one in Excel 16.0 (build 20326, 2026-09-26; issue #112): these
+ * sixteen compile in both positions, while Asc, AscW, Chr, Val, Sqr, RGB,
+ * Round, IIf, Hex, Oct, InStr, StrComp, CDec, DateSerial, Choose, Mid, Left,
+ * UCase, Str, Trim, Format, Replace, String, Space, Now, Timer, Rnd and Array
+ * are "Constant expression required" there too.
+ */
+const CONSTANT_FOLDED_INTRINSICS: ReadonlySet<string> = new Set([
+	'len', 'lenb', 'abs', 'int', 'fix', 'sgn',
+	'cint', 'clng', 'clnglng', 'cbyte', 'cbool', 'cdbl', 'csng', 'ccur', 'cvar', 'cdate',
+]);
+
 function nonConstantDefaultElement(
 	tokens: VbaToken[],
 	baseOffset: number,
+	position: 'const' | 'enumOrOptional',
 ): { label: string; span: Span } | undefined {
 	for (let i = 0; i < tokens.length; i++) {
 		const tok = tokens[i];
@@ -1783,6 +1805,13 @@ function nonConstantDefaultElement(
 		const isName =
 			tok.kind === 'identifier' || tok.kind === 'keyword' || tok.kind === 'bracketedIdentifier';
 		const isOperatorKeyword = tok.kind === 'keyword' && OPERATOR_KEYWORD_WORDS.has(word);
+		if (
+			position === 'enumOrOptional'
+			&& CONSTANT_FOLDED_INTRINSICS.has(word)
+			&& tokens[i - 1]?.rawText !== '.'
+		) {
+			continue;
+		}
 		if (isName && !isOperatorKeyword && tokens[i + 1]?.rawText === '(') {
 			const closeIndex = matchParenFrom(tokens, i + 1);
 			const endTok = closeIndex >= 0 ? tokens[closeIndex] : tokens[i + 1];
@@ -1888,9 +1917,15 @@ function typeKindLabelForNew(kind: TypeCompletionKind): string {
 }
 
 /**
- * Rule: `Option` statements must precede every declaration and procedure (only
- * `Attribute` lines may come before them in an exported module). Once a real
- * declaration has appeared, any later `Option` is misplaced.
+ * Rule: an `Option` statement may not follow a procedure.
+ *
+ * Only a procedure closes the window. Measured in Excel 16.0 (build 20326,
+ * 2026-09-26): each of Option Explicit, Base, Compare and Private Module
+ * compiles after a Const, a module variable, a Type, an Enum, a Declare and a
+ * Deftype statement (issue #113 opened with `DefLng A-Z` above
+ * `Option Explicit`), and is refused only after `End Sub` / `End Function`
+ * with "Only comments may appear after End Sub, End Function, or End
+ * Property". The rule used to treat every declaration as closing the window.
  */
 export function checkOptionPlacement(
 	source: string,
@@ -1898,36 +1933,37 @@ export function checkOptionPlacement(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	// Declarations that precede the Option under test AND could be compiled
-	// beside it: a declaration in the other arm of a chain closes no window,
+	// Procedures that precede the Option under test AND could be compiled
+	// beside it: a procedure in the other arm of a chain closes no window,
 	// because only one arm is ever built (issues/58).
-	const declarationsAbove: Span[] = [];
+	const proceduresAbove: Span[] = [];
+	// `Option Base` alone has a second closer: a module-level array already
+	// dimensioned above it ("Array already dimensioned", measured 2026-09-26).
+	const arraysAbove: Span[] = [];
+	const compiledWith = (priors: readonly Span[], member: Span): boolean =>
+		priors.some((prior) => !activity?.mutuallyExclusive(prior, member));
 	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind === 'Attribute') {
-			continue;
-		}
-		// A conditional-compilation directive is not a declaration, so it does
-		// not close the window for Option statements. The live VBE compiles
-		// `#Const FLAG = 1` above `Option Explicit` (oracle case
-		// const_directive_before_option_explicit_compile), which the rule used
-		// to report as a misplaced Option (issue #41).
-		if (member.kind === 'ConditionalDirective') {
-			continue;
-		}
 		if (member.kind === 'Option') {
-			const compiledTogether = declarationsAbove.some(
-				(prior) => !activity?.mutuallyExclusive(prior, member.span),
-			);
-			if (compiledTogether) {
+			if (compiledWith(proceduresAbove, member.span)) {
 				push(
 					'optionAfterDeclaration',
-					'Option statements must appear before any declaration or procedure.',
+					'Option statements must appear before the first procedure; only comments may follow End Sub, End Function, or End Property.',
+					firstTokenSpan(source, member.span),
+				);
+			} else if (/^base\b/i.test(member.optionText.trim()) && compiledWith(arraysAbove, member.span)) {
+				push(
+					'optionAfterDeclaration',
+					"'Option Base' must come before any array declaration: an array above it is already dimensioned.",
 					firstTokenSpan(source, member.span),
 				);
 			}
 			continue;
 		}
-		declarationsAbove.push(member.span);
+		if (member.kind === 'Procedure') {
+			proceduresAbove.push(member.span);
+		} else if (member.kind === 'VariableGroup' && member.declarations.some((decl) => decl.isArray)) {
+			arraysAbove.push(member.span);
+		}
 	}
 }
 
@@ -2092,6 +2128,12 @@ export function checkOptionStatementForm(
 				break;
 			}
 			case 'private':
+				if (argument(2) === 'module' && isObjectModuleKind(opts.moduleKind)) {
+					// Measured in Excel 16.0 (issue #124): "Option Private Module
+					// not permitted in an object module".
+					report(2, "'Option Private Module' is not permitted in a class, document or UserForm module.");
+					break;
+				}
 				if (argument(2) !== 'module') {
 					report(
 						argument(2) === undefined ? 1 : 2,

@@ -268,6 +268,13 @@ export interface VbaProjectClassMember {
 	definitions?: VbaProjectClassMemberDefinition[];
 	/** True when exported source marks this member as the VBA default member. */
 	defaultMember?: boolean;
+	/**
+	 * Which setters the property declares. `h.Item = x` compiles only with a
+	 * Property Let and `Set h.Item = x` only with a Property Set (issue #107,
+	 * measured in Excel 16.0: the other pairing is "Invalid use of property").
+	 */
+	letAccessor?: boolean;
+	setAccessor?: boolean;
 	/** Exported attribute lines attached to the member declaration. */
 	attributes?: VbaSymbolAttribute[];
 }

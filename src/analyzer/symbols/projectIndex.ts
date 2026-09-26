@@ -232,7 +232,9 @@ function isEnumMemberExported(
 	enumSymbol: VbaSymbol,
 	moduleKind?: ModuleSymbolKind,
 ): boolean {
-	return moduleKind === 'standard' && isTypeExported(enumSymbol);
+	// A Public Enum in an object module is project-visible too (issue #110).
+	return (moduleKind === 'standard' && isTypeExported(enumSymbol))
+		|| enumSymbol.visibility === 'Public';
 }
 
 function moduleRawIntegerConstantExpressions(mod: ModuleSymbols): Map<string, string | undefined> {
@@ -1388,8 +1390,12 @@ export class ProjectIndex {
 		if (sameModule) {
 			return true;
 		}
+		// A Public Enum in a class module is visible across the project by its
+		// bare member names, as it is from a standard module (issue #110,
+		// measured in Excel 16.0). A class's other declarations stay behind the
+		// instance.
 		if (mod.moduleKind !== 'standard') {
-			return false;
+			return symbol.kind === 'enum' && symbol.visibility === 'Public';
 		}
 		if (symbol.kind === 'enum' || symbol.kind === 'type') {
 			return isTypeExported(symbol);
@@ -1498,6 +1504,11 @@ export class ProjectIndex {
 				if (isDefaultProjectObjectMember(symbol)) {
 					existing.defaultMember = true;
 				}
+				if (symbol.kind === 'propertyLet') {
+					existing.letAccessor = true;
+				} else if (symbol.kind === 'propertySet') {
+					existing.setAccessor = true;
+				}
 				existing.attributes = mergeMemberAttributes(existing.attributes, symbol.attributes);
 				existing.definitions = [
 					...(existing.definitions ?? []),
@@ -1517,6 +1528,8 @@ export class ProjectIndex {
 				doc: symbol.doc,
 				definitions: [projectObjectMemberDefinition(symbol)],
 				defaultMember: isDefaultProjectObjectMember(symbol) || undefined,
+				...(symbol.kind === 'propertyLet' ? { letAccessor: true } : {}),
+				...(symbol.kind === 'propertySet' ? { setAccessor: true } : {}),
 				attributes: mergeMemberAttributes(undefined, symbol.attributes),
 			});
 		}

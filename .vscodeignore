@@ -65,3 +65,6 @@ out/**/*.map
 **/*.laccdb
 # The twinBASIC compiler lives beside the source for local use only; it is never part of the package.
 twinBASIC*/**
+
+# Local archive of superseded material (not shipped, not tracked)
+archive/**

@@ -10,6 +10,7 @@ import type { VbaToken } from '../../lexer/tokenKinds';
 import type {
 	BodyNode,
 	ModuleNode,
+	ProcedureNode,
 	Span,
 	LeafStatementNode,
 	VariableDeclNode,
@@ -506,6 +507,7 @@ export function checkRedimImpossibleBounds(
 	push: PushFn,
 ): ProcedureStatementVisitor {
 	const moduleDeclarations = redimBlockedDeclarationsForModule(mod, activity);
+	const optionBase = moduleOptionBase(mod, activity);
 	return (member) => {
 		const localDeclarations = redimBlockedDeclarationsForBody(member.body, activity);
 		const localNames = declarationNamesForBody(member.body, activity);
@@ -518,16 +520,20 @@ export function checkRedimImpossibleBounds(
 					continue;
 				}
 				target.dimensions.forEach((dimension, index) => {
-					if (
-						dimension.lowerValue === undefined ||
-						dimension.upperValue === undefined ||
-						dimension.lowerValue <= dimension.upperValue
-					) {
+					if (dimension.upperValue === undefined) {
 						return;
 					}
+					// `ReDim a(-1)`: the lower bound is Option Base, 0 by default,
+					// and an upper bound below it is the same impossibility as
+					// `ReDim a(5 To 1)` (issue #120, measured in Excel 16.0).
+					const lower = dimension.lowerValue ?? (dimension.lowerKey === undefined ? optionBase : undefined);
+					if (lower === undefined || lower <= dimension.upperValue) {
+						return;
+					}
+					const lowerText = dimension.lowerValue === undefined ? `${lower} (Option Base ${lower})` : String(lower);
 					push(
 						'redimImpossibleBounds',
-						`ReDim lower bound ${dimension.lowerValue} is greater than upper bound ${dimension.upperValue} for dimension ${index + 1} of '${target.name}'; this will raise Run-time error '9': Subscript out of range.`,
+						`ReDim lower bound ${lowerText} is greater than upper bound ${dimension.upperValue} for dimension ${index + 1} of '${target.name}'; this will raise Run-time error '9': Subscript out of range.`,
 						dimension.span,
 					);
 				});
@@ -1154,11 +1160,20 @@ function splitTopLevelTokenGroups(
 	return groups;
 }
 
-interface FixedArrayBound {
+/** One dimension of an array whose bounds the code fixes. */
+export interface ArrayDimensionBound {
+	lower: number;
+	upper: number;
+	/** False when the lower bound came from Option Base rather than the text. */
+	explicitLower: boolean;
+}
+
+/** An array whose every dimension's bounds are known from the text. */
+export interface FixedArrayBound {
 	name: string;
-	lowerValue?: number;
-	upperValue: number;
-	hasExplicitLower: boolean;
+	dims: ArrayDimensionBound[];
+	/** Where the bounds came from, for the message: 'Dim', 'Array(...)', 'Split(...)', 'Range(...).Value'. */
+	origin: string;
 }
 
 /**
@@ -1168,10 +1183,18 @@ interface FixedArrayBound {
  * reported only for an explicit literal `lower To upper` form; a single-bound
  * `Dim a(n)` leaves the lower bound Option-Base-dependent (0 or 1).
  */
+/**
+ * Parses the literal bounds of a fixed-size array declaration, one entry per
+ * dimension. Undefined unless every dimension's upper bound (and any explicit
+ * lower bound) folds to a literal integer. A dimension with no `To` takes
+ * Option Base as its lower bound (issue #120: `Option Base 1` then `Dim a(3)`
+ * refuses `a(0)`).
+ */
 function parseFixedArrayBoundsForDecl(
 	source: string,
 	decl: VariableDeclNode,
-): { lowerValue?: number; upperValue: number; hasExplicitLower: boolean } | undefined {
+	optionBase: number,
+): ArrayDimensionBound[] | undefined {
 	const toks = statementTokens(source, decl.span);
 	const open = toks.findIndex((tok) => tok.rawText === '(');
 	if (open < 0) {
@@ -1184,25 +1207,34 @@ function parseFixedArrayBoundsForDecl(
 	const dims = splitTopLevelTokenGroups(toks.slice(open + 1, close), ',')
 		.map((part) => part.filter((tok) => tok.kind !== 'comment'))
 		.filter((dimTokens) => dimTokens.length > 0);
-	if (dims.length !== 1) {
-		return undefined; // multi-dimension subscript matching is out of scope (v1)
+	if (dims.length === 0) {
+		return undefined;
 	}
-	const bound = comparableArrayBoundKey(dims[0]);
-	if (bound.upperValue === undefined) {
-		return undefined; // non-literal upper bound (e.g. a Const) is not statically known
+	const out: ArrayDimensionBound[] = [];
+	for (const dim of dims) {
+		const bound = comparableArrayBoundKey(dim);
+		if (bound.upperValue === undefined) {
+			return undefined; // a Const or variable bound is not statically known
+		}
+		const hasTo = dim.some((tok) => tokenText(tok) === 'to');
+		if (hasTo && bound.lowerValue === undefined) {
+			return undefined;
+		}
+		out.push({
+			lower: bound.lowerValue ?? optionBase,
+			upper: bound.upperValue,
+			explicitLower: bound.lowerValue !== undefined,
+		});
 	}
-	return {
-		lowerValue: bound.lowerValue,
-		upperValue: bound.upperValue,
-		hasExplicitLower: bound.lowerValue !== undefined,
-	};
+	return out;
 }
 
-/** Local, single-dimension, statically-bounded fixed arrays in a procedure body. */
+/** Local, statically-bounded fixed arrays in a procedure body. */
 function localFixedArrayDeclarationsForBody(
 	source: string,
 	body: readonly BodyNode[],
 	activity: ConditionalActivityTracker | undefined,
+	optionBase: number,
 ): Map<string, FixedArrayBound> {
 	const out = new Map<string, FixedArrayBound>();
 	forEachVariableGroup(body as BodyNode[], (group) => {
@@ -1211,19 +1243,203 @@ function localFixedArrayDeclarationsForBody(
 		}
 		for (const decl of group.declarations) {
 			if (!decl.isArray || !decl.arrayBounds) {
-				continue; // dynamic arrays (no static bounds) are out of scope
+				continue; // dynamic arrays take their bounds from ReDim or a value
 			}
 			const lower = decl.name.toLowerCase();
 			if (out.has(lower)) {
 				continue;
 			}
-			const bounds = parseFixedArrayBoundsForDecl(source, decl);
-			if (bounds) {
-				out.set(lower, { name: decl.name, ...bounds });
+			const dims = parseFixedArrayBoundsForDecl(source, decl, optionBase);
+			if (dims) {
+				out.set(lower, { name: decl.name, dims, origin: 'Dim' });
 			}
 		}
 	}, activity);
 	return out;
+}
+
+/** The module's `Option Base`, 0 when absent. */
+export function moduleOptionBase(mod: ModuleNode, activity: ConditionalActivityTracker | undefined): number {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Option') {
+			const match = /^base\s+([01])\b/i.exec(member.optionText.trim());
+			if (match) {
+				return Number(match[1]);
+			}
+		}
+	}
+	return 0;
+}
+
+/**
+ * Dynamic-array and Variant locals whose bounds a value fixes (issue #120):
+ * the local's ONLY assignment is `Array(...)`, `VBA.Array(...)`,
+ * `Split(literal, literal[, limit])` or `Range("A1:B2").Value`, and nothing
+ * else touches it (no ReDim, Erase, whole pass to a call, or Set).
+ *
+ *  - `Array(a, b)` is based at Option Base; `VBA.Array` ignores Option Base and
+ *    is based at 0 (both measured in Excel 16.0).
+ *  - `Array()` has UBound -1: every index is out of range.
+ *  - `Split` is always 0-based and yields one part per delimiter plus one;
+ *    Split("abc", ",") is one element, Split("a,b", ",") two.
+ *  - A Range's `.Value` over a multi-cell address literal is a 1-based
+ *    two-dimensional array of the address's rows and columns.
+ */
+export function knownArrayShapes(
+	source: string,
+	body: readonly BodyNode[],
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	proc: ProcedureNode,
+	activity: ConditionalActivityTracker | undefined,
+	optionBase: number,
+): Map<string, FixedArrayBound> {
+	const procSym = procedureSymbolFor(symbols, proc);
+	const candidates = new Set<string>();
+	for (const child of procSym?.children ?? []) {
+		if (child.kind !== 'localVariable' || child.visibility === 'Static') {
+			continue;
+		}
+		const type = normalizeType(child.asType);
+		if (child.isArray ? child.arrayBounds === undefined : (type === undefined || type === 'variant')) {
+			candidates.add(child.name.toLowerCase());
+		}
+	}
+	if (candidates.size === 0) {
+		return new Map();
+	}
+	const assignments = new Map<string, FixedArrayBound[]>();
+	const spoiled = new Set<string>();
+	const spoil = (lower: string | undefined): void => {
+		if (lower && candidates.has(lower)) {
+			spoiled.add(lower);
+		}
+	};
+	forEachStatement(body as BodyNode[], (stmt) => {
+		for (const span of statementAndBranchSpansOf(stmt)) {
+			const toks = statementTokensAfterLeadingLabel(source, span);
+			const head = tokenText(toks[0]);
+			const bare = bareAssignmentTarget(source, span);
+			if (bare) {
+				const lower = bare.name.toLowerCase();
+				if (!candidates.has(lower)) {
+					continue;
+				}
+				const shape = arrayValueShape(bare.valueTokens, bare.name, optionBase);
+				if (!shape) {
+					spoil(lower);
+				} else {
+					const list = assignments.get(lower) ?? [];
+					list.push(shape);
+					assignments.set(lower, list);
+				}
+				continue;
+			}
+			if (head === 'redim' || head === 'erase' || head === 'set' || head === 'input' || head === 'get' || head === 'line') {
+				for (const tok of toks) {
+					spoil(tokenName(tok)?.toLowerCase());
+				}
+				continue;
+			}
+			// Passed whole to a call: `Fill v`, `Fill(v)`, `x = Fill(v)`.
+			for (let i = 0; i < toks.length; i++) {
+				const name = tokenName(toks[i])?.toLowerCase();
+				if (!name || !candidates.has(name)) {
+					continue;
+				}
+				const prev = toks[i - 1];
+				const next = toks[i + 1];
+				if (next?.rawText === '(') {
+					continue; // an index, not a whole pass
+				}
+				const opensSlot = prev === undefined || prev.rawText === '(' || prev.rawText === ',' || prev.kind === 'identifier' || prev.kind === 'keyword';
+				const closesSlot = next === undefined || next.rawText === ')' || next.rawText === ',' || next.rawText === ':' || next.kind === 'comment';
+				if (opensSlot && closesSlot && prev?.kind !== 'operator' && next?.kind !== 'operator' && tokenText(prev) !== 'in') {
+					spoil(name);
+				}
+			}
+		}
+	}, activity);
+	const out = new Map<string, FixedArrayBound>();
+	for (const [lower, shapes] of assignments) {
+		if (!spoiled.has(lower) && shapes.length === 1) {
+			out.set(lower, shapes[0]);
+		}
+	}
+	return out;
+}
+
+function statementAndBranchSpansOf(stmt: LeafStatementNode): Span[] {
+	const branches = stmt.kind === 'Statement' ? stmt.singleLineIfBranches : undefined;
+	return branches ? [stmt.span, ...branches] : [stmt.span];
+}
+
+/** The bounds of the array `Array(...)`, `Split(...)` or `Range(...).Value` builds, or undefined. */
+function arrayValueShape(valueTokens: readonly VbaToken[], name: string, optionBase: number): FixedArrayBound | undefined {
+	const toks = valueTokens.filter((tok) => tok.kind !== 'comment');
+	if (toks.length === 0) {
+		return undefined;
+	}
+	let index = 0;
+	let vbaQualified = false;
+	if (tokenText(toks[0]) === 'vba' && toks[1]?.rawText === '.') {
+		vbaQualified = true;
+		index = 2;
+	}
+	const callee = tokenText(toks[index]);
+	if ((callee === 'array' || callee === 'split') && toks[index + 1]?.rawText === '(') {
+		const close = matchParenFrom(toks, index + 1);
+		if (close !== toks.length - 1) {
+			return undefined;
+		}
+		const inner = toks.slice(index + 2, close);
+		if (callee === 'array') {
+			const count = inner.length === 0 ? 0 : splitTopLevelTokenGroups(inner, ',').length;
+			const lower = vbaQualified ? 0 : optionBase;
+			return { name, dims: [{ lower, upper: lower + count - 1, explicitLower: true }], origin: vbaQualified ? 'VBA.Array(...)' : 'Array(...)' };
+		}
+		const args = splitTopLevelTokenGroups(inner, ',');
+		if (args.length < 1 || args.length > 2 || args[0].length !== 1 || args[0][0].kind !== 'stringLiteral') {
+			return undefined;
+		}
+		if (args.length === 2 && (args[1].length !== 1 || args[1][0].kind !== 'stringLiteral')) {
+			return undefined;
+		}
+		const text = args[0][0].rawText.slice(1, -1).replace(/""/g, '"');
+		const delimiter = args.length === 2 ? args[1][0].rawText.slice(1, -1).replace(/""/g, '"') : ' ';
+		if (delimiter.length === 0) {
+			return undefined;
+		}
+		const parts = text.length === 0 ? 1 : text.split(delimiter).length;
+		return { name, dims: [{ lower: 0, upper: parts - 1, explicitLower: true }], origin: 'Split(...)' };
+	}
+	// `Range("A1:B2").Value` and `Worksheets(1).Range("A1:B2").Value`.
+	if (tokenText(toks[toks.length - 1]) === 'value' && toks[toks.length - 2]?.rawText === '.' && toks[toks.length - 3]?.rawText === ')') {
+		const close = toks.length - 3;
+		const open = toks.findIndex((tok, i) => tok.rawText === '(' && matchParenFrom(toks, i) === close);
+		if (open > 0 && tokenText(toks[open - 1]) === 'range' && close === open + 2 && toks[open + 1].kind === 'stringLiteral') {
+			const address = /^([A-Za-z]{1,3})(\d+):([A-Za-z]{1,3})(\d+)$/.exec(toks[open + 1].rawText.slice(1, -1));
+			if (address) {
+				const rows = Math.abs(Number(address[4]) - Number(address[2])) + 1;
+				const cols = Math.abs(columnNumber(address[3]) - columnNumber(address[1])) + 1;
+				if (rows > 1 || cols > 1) {
+					return {
+						name,
+						dims: [{ lower: 1, upper: rows, explicitLower: true }, { lower: 1, upper: cols, explicitLower: true }],
+						origin: 'Range(...).Value',
+					};
+				}
+			}
+		}
+	}
+	return undefined;
+}
+
+function columnNumber(letters: string): number {
+	let n = 0;
+	for (const ch of letters.toUpperCase()) {
+		n = n * 26 + (ch.charCodeAt(0) - 64);
+	}
+	return n;
 }
 
 /** Names that are ReDim targets anywhere in the body (defensive exclusion). */
@@ -1241,12 +1457,30 @@ function redimTargetNamesInBody(
 	return out;
 }
 
-/** Literal-subscript accesses of a tracked fixed array that fall outside its bounds. */
+/** Whether `value` is outside `dim`, with the words for the message when it is. */
+function subscriptDetail(value: number, dim: ArrayDimensionBound, index: number, dims: number): string | undefined {
+	if (value >= dim.lower && value <= dim.upper) {
+		return undefined;
+	}
+	const which = dims > 1 ? ` in dimension ${index + 1}` : '';
+	if (dim.upper < dim.lower) {
+		return `has no element to reach${which}: the array is empty (UBound ${dim.upper})`;
+	}
+	if (value > dim.upper) {
+		return `is above the upper bound ${dim.upper}${which}`;
+	}
+	return dim.explicitLower
+		? `is below the lower bound ${dim.lower}${which}`
+		: `is below the lower bound ${dim.lower}${which} (Option Base ${dim.lower})`;
+}
+
+/** Literal-subscript accesses of a tracked array that fall outside its bounds. */
 function fixedArraySubscriptViolations(
 	source: string,
 	span: Span,
 	fixed: ReadonlyMap<string, FixedArrayBound>,
 	excluded: ReadonlySet<string>,
+	counters: ReadonlyMap<string, { last: number; span: Span }> = new Map(),
 ): Array<{ span: Span; message: string }> {
 	const toks = statementTokensAfterLeadingLabel(source, span);
 	const out: Array<{ span: Span; message: string }> = [];
@@ -1269,33 +1503,201 @@ function fixedArraySubscriptViolations(
 		}
 		const argToks = toks.slice(i + 2, close).filter((tok) => tok.kind !== 'comment');
 		const slots = splitTopLevelTokenGroups(argToks, ',');
-		if (slots.length !== 1 || slots[0].length === 0) {
-			continue; // not a single-subscript index access (multi-dim/empty) -> skip
-		}
-		const value = comparableArrayBoundExpressionValue(slots[0]);
-		if (value === undefined) {
-			continue; // non-literal subscript (variable / Const / member chain) -> not provable
-		}
 		const decl = fixed.get(lower)!;
-		const lowGate = decl.hasExplicitLower ? decl.lowerValue! : 0;
-		if (value <= decl.upperValue && value >= lowGate) {
-			continue; // in bounds (lower of single-bound dims is Option-Base-dependent -> only < 0 flagged)
+		if (slots.length !== decl.dims.length || slots.some((slot) => slot.length === 0)) {
+			continue; // the dimension count is the compiler's business, not this rule's
 		}
-		const slot = slots[0];
-		const detail =
-			value > decl.upperValue
-				? `is above the array's declared upper bound ${decl.upperValue}`
-				: decl.hasExplicitLower
-					? `is below the array's declared lower bound ${decl.lowerValue}`
-					: 'is negative and out of range';
-		out.push({
-			span: { start: span.start + slot[0].start, end: span.start + slot[slot.length - 1].end },
-			message:
-				`Subscript ${value} for array '${decl.name}' ${detail}. ` +
-				`This will raise Run-time error '9': Subscript out of range.`,
+		// One report per access: the first dimension that is out of range.
+		let reported = false;
+		slots.forEach((slot, index) => {
+			if (reported) {
+				return;
+			}
+			const dim = decl.dims[index];
+			let value = comparableArrayBoundExpressionValue(slot);
+			let viaCounter: { last: number; span: Span } | undefined;
+			if (value === undefined && slot.length === 1) {
+				// `a(i)` inside `For i = 0 To 3`: the counter's last pass.
+				viaCounter = counters.get(tokenName(slot[0])?.toLowerCase() ?? '');
+				value = viaCounter?.last;
+			}
+			if (value === undefined) {
+				return; // a variable, Const or member chain: not provable
+			}
+			const detail = subscriptDetail(value, dim, index, decl.dims.length);
+			if (!detail) {
+				return;
+			}
+			const from = decl.origin === 'Dim' ? '' : ` (${decl.origin})`;
+			const reached = viaCounter ? `Counter '${slot[0].rawText}' reaches ${value} on its last pass, which` : `Subscript ${value}`;
+			out.push({
+				span: { start: span.start + slot[0].start, end: span.start + slot[slot.length - 1].end },
+				message:
+					`${reached} for array '${decl.name}'${from} ${detail}. ` +
+					`This will raise Run-time error '9': Subscript out of range.`,
+			});
+			reported = true;
 		});
 	}
 	return out;
+}
+
+/**
+ * `UBound(a, 2)` / `LBound(a, 2)` on an array with fewer dimensions raises 9
+ * (issue #120, measured in Excel 16.0).
+ */
+function boundIntrinsicDimensionViolations(
+	source: string,
+	span: Span,
+	fixed: ReadonlyMap<string, FixedArrayBound>,
+	excluded: ReadonlySet<string>,
+): Array<{ span: Span; message: string }> {
+	const toks = statementTokensAfterLeadingLabel(source, span);
+	const out: Array<{ span: Span; message: string }> = [];
+	for (let i = 0; i + 1 < toks.length; i++) {
+		const callee = tokenText(toks[i]);
+		if ((callee !== 'ubound' && callee !== 'lbound') || toks[i + 1].rawText !== '(' || !isBareOrVbaQualifiedIntrinsicCall(toks, i)) {
+			continue;
+		}
+		const close = matchParenFrom(toks, i + 1);
+		if (close < 0) {
+			continue;
+		}
+		const args = splitTopLevelTokenGroups(toks.slice(i + 2, close).filter((tok) => tok.kind !== 'comment'), ',');
+		if (args.length !== 2 || args[0].length !== 1) {
+			continue;
+		}
+		const lower = tokenName(args[0][0])?.toLowerCase();
+		const decl = lower ? fixed.get(lower) : undefined;
+		if (!decl || !lower || excluded.has(lower)) {
+			continue;
+		}
+		const dimension = comparableArrayBoundExpressionValue(args[1]);
+		if (dimension === undefined || (dimension >= 1 && dimension <= decl.dims.length)) {
+			continue;
+		}
+		out.push({
+			span: { start: span.start + args[1][0].start, end: span.start + args[1][args[1].length - 1].end },
+			message: `${toks[i].rawText} asks for dimension ${dimension} of '${decl.name}', which has ${pluralizeCount(decl.dims.length, 'dimension')}. This will raise Run-time error '9': Subscript out of range.`,
+		});
+	}
+	return out;
+}
+
+/**
+ * `Split("abc", ",")(1)`: indexing the result of Split on literals, whose one
+ * element sits at 0 (issue #120).
+ */
+function inlineSplitIndexViolations(source: string, span: Span): Array<{ span: Span; message: string }> {
+	const toks = statementTokensAfterLeadingLabel(source, span);
+	const out: Array<{ span: Span; message: string }> = [];
+	for (let i = 0; i + 1 < toks.length; i++) {
+		if (tokenText(toks[i]) !== 'split' || toks[i + 1].rawText !== '(' || !isBareOrVbaQualifiedIntrinsicCall(toks, i)) {
+			continue;
+		}
+		const close = matchParenFrom(toks, i + 1);
+		if (close < 0 || toks[close + 1]?.rawText !== '(') {
+			continue;
+		}
+		const indexClose = matchParenFrom(toks, close + 1);
+		if (indexClose < 0) {
+			continue;
+		}
+		const shape = arrayValueShape(toks.slice(i, close + 1), 'Split(...)', 0);
+		const indexToks = toks.slice(close + 2, indexClose).filter((tok) => tok.kind !== 'comment');
+		const value = comparableArrayBoundExpressionValue(indexToks);
+		if (!shape || value === undefined) {
+			continue;
+		}
+		const detail = subscriptDetail(value, shape.dims[0], 0, 1);
+		if (detail) {
+			out.push({
+				span: { start: span.start + indexToks[0].start, end: span.start + indexToks[indexToks.length - 1].end },
+				message: `Subscript ${value} for the array Split returns here ${detail}. This will raise Run-time error '9': Subscript out of range.`,
+			});
+		}
+	}
+	return out;
+}
+
+/**
+ * The For counters in force at each statement, with the last value each
+ * reaches: `For i = 0 To 3` (no Step, or a positive literal Step) ends its last
+ * pass at 3, so `a(i)` inside it indexes 3 on that pass (issue #120).
+ */
+function forCounterLastValues(
+	source: string,
+	body: readonly BodyNode[],
+	activity: ConditionalActivityTracker | undefined,
+): Map<LeafStatementNode, Map<string, { last: number; span: Span }>> {
+	const out = new Map<LeafStatementNode, Map<string, { last: number; span: Span }>>();
+	const visit = (nodes: readonly BodyNode[], counters: Map<string, { last: number; span: Span }>): void => {
+		for (const node of nodes) {
+			if (isInactiveNode(activity, node)) {
+				continue;
+			}
+			if (node.kind === 'ForBlock') {
+				const inner = new Map(counters);
+				const header = forHeaderLiteralRange(source, node);
+				if (header) {
+					inner.set(header.name, { last: header.last, span: header.span });
+				} else if (node.controlVariable) {
+					inner.delete(node.controlVariable.toLowerCase());
+				}
+				visit(node.body, inner);
+				continue;
+			}
+			if ('body' in node && Array.isArray(node.body)) {
+				visit(node.body as BodyNode[], counters);
+				continue;
+			}
+			if (isLeafStatementNode(node) && counters.size > 0) {
+				out.set(node, counters);
+			}
+		}
+	};
+	visit(body, new Map());
+	return out;
+}
+
+function isLeafStatementNode(node: BodyNode): node is LeafStatementNode {
+	return node.kind === 'Statement' || node.kind === 'Assignment' || node.kind === 'Call';
+}
+
+/** `For i = <literal> To <literal> [Step <positive literal>]`: the counter and the value its last pass has. */
+function forHeaderLiteralRange(source: string, node: ForBlockNodeLike): { name: string; last: number; span: Span } | undefined {
+	if (node.each || !node.controlVariable) {
+		return undefined;
+	}
+	const headerEnd = source.indexOf('\n', node.span.start);
+	const header = { start: node.span.start, end: headerEnd < 0 ? node.span.end : Math.min(headerEnd, node.span.end) };
+	const toks = statementTokensAfterLeadingLabel(source, header);
+	const eq = toks.findIndex((tok) => tok.rawText === '=');
+	const to = toks.findIndex((tok) => tokenText(tok) === 'to');
+	if (eq < 0 || to < eq) {
+		return undefined;
+	}
+	const step = toks.findIndex((tok) => tokenText(tok) === 'step');
+	const from = comparableArrayBoundExpressionValue(toks.slice(eq + 1, to));
+	const upTo = comparableArrayBoundExpressionValue(toks.slice(to + 1, step > 0 ? step : toks.length));
+	const stepValue = step > 0 ? comparableArrayBoundExpressionValue(toks.slice(step + 1)) : 1;
+	if (from === undefined || upTo === undefined || stepValue === undefined || stepValue <= 0 || upTo < from) {
+		return undefined;
+	}
+	// The last pass runs at the highest from + k*step not above upTo.
+	const last = from + Math.floor((upTo - from) / stepValue) * stepValue;
+	return {
+		name: node.controlVariable.toLowerCase(),
+		last,
+		span: node.controlVariableSpan ?? header,
+	};
+}
+
+interface ForBlockNodeLike {
+	each: boolean;
+	controlVariable?: string;
+	controlVariableSpan?: Span;
+	span: Span;
 }
 
 /**
@@ -1311,20 +1713,34 @@ function fixedArraySubscriptViolations(
 export function checkFixedArraySubscriptBounds(
 	source: string,
 	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
+	const optionBase = moduleOptionBase(mod, activity);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		const fixed = localFixedArrayDeclarationsForBody(source, member.body, activity);
-		if (fixed.size === 0) {
-			continue;
+		const fixed = localFixedArrayDeclarationsForBody(source, member.body, activity, optionBase);
+		for (const [lower, shape] of knownArrayShapes(source, member.body, symbols, member, activity, optionBase)) {
+			if (!fixed.has(lower)) {
+				fixed.set(lower, shape);
+			}
 		}
 		const excluded = redimTargetNamesInBody(source, member.body, activity);
+		const counters = forCounterLastValues(source, member.body, activity);
 		forEachStatement(member.body, (stmt) => {
-			for (const hit of fixedArraySubscriptViolations(source, stmt.span, fixed, excluded)) {
+			for (const hit of inlineSplitIndexViolations(source, stmt.span)) {
+				push('arraySubscriptOutOfBounds', hit.message, hit.span);
+			}
+			if (fixed.size === 0) {
+				return;
+			}
+			for (const hit of fixedArraySubscriptViolations(source, stmt.span, fixed, excluded, counters.get(stmt))) {
+				push('arraySubscriptOutOfBounds', hit.message, hit.span);
+			}
+			for (const hit of boundIntrinsicDimensionViolations(source, stmt.span, fixed, excluded)) {
 				push('arraySubscriptOutOfBounds', hit.message, hit.span);
 			}
 		}, activity);

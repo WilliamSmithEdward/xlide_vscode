@@ -123,8 +123,8 @@ describe('the same rules still catch the real fault', () => {
 		], 'module-declaration-after-procedure')).toBe(1);
 	});
 
-	it('reports an Option that really follows a declaration', () => {
-		expect(count(['Public X As Long', 'Option Explicit'], 'option-after-declaration')).toBe(1);
+	it('reports an Option that really follows a procedure', () => {
+		expect(count(['Public Sub T()', 'End Sub', 'Option Explicit'], 'option-after-declaration')).toBe(1);
 	});
 
 	it('reports a Next that really names the wrong variable', () => {

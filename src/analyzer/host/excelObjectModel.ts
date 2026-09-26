@@ -396,6 +396,21 @@ function p(name: string, returns?: string): HostMember {
 function pAny(name: string, returnsAnyOf: readonly string[]): HostMember {
 	return { name, kind: 'property', returnsAnyOf };
 }
+/**
+ * What ActiveSheet can be: the type library declares it Object because a
+ * chart sheet can be active too (issue #114). A single Worksheet turned
+ * `Set ch = ActiveSheet` and `ActiveSheet.ChartType` into false errors.
+ */
+const ACTIVE_SHEET_TYPES: readonly string[] = ['Excel.Worksheet', 'Excel.Chart'];
+/**
+ * A global that is one of several types, spelled the way member access spells
+ * a union receiver (`union:A|B`, see memberAccess.ts UNION_TYPE_PREFIX). The
+ * prefix is repeated here rather than imported because memberAccess imports
+ * this model at load time.
+ */
+function unionTypeKey(types: readonly string[]): string {
+	return `union:${types.join('|')}`;
+}
 function m(name: string, returns?: string): HostMember {
 	return { name, kind: 'method', returns };
 }
@@ -624,9 +639,13 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 	globals: {
 		ThisWorkbook: WORKBOOK,
 		ActiveWorkbook: WORKBOOK,
-		ActiveSheet: WORKSHEET,
+		ActiveSheet: unionTypeKey(ACTIVE_SHEET_TYPES),
 		ActiveCell: RANGE,
-		Selection: RANGE,
+		// The library declares Selection Object: it is whatever is selected, a
+		// Range, a Shape, a ChartArea (issue #114). Typing it Range made
+		// `Set ca = Selection` a false mismatch; as Object it is a name to
+		// complete and a value any object variable can take.
+		Selection: 'Object',
 		Application: APPLICATION,
 		Cells: RANGE,
 		Range: RANGE,
@@ -655,7 +674,7 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 			members: mergeHostMembers([
 				p('ActiveCell', RANGE),
 				p('ActiveChart', CHART),
-				p('ActiveSheet', WORKSHEET),
+				pAny('ActiveSheet', ACTIVE_SHEET_TYPES),
 				p('ActiveWindow', WINDOW),
 				p('ActiveWorkbook', WORKBOOK),
 				p('AddIns'),
@@ -720,7 +739,7 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 			exhaustive: promotedExcelReferenceExhaustive('Workbook'),
 			members: mergeHostMembers([
 				p('ActiveChart', CHART),
-				p('ActiveSheet', WORKSHEET),
+				pAny('ActiveSheet', ACTIVE_SHEET_TYPES),
 				p('Application', APPLICATION),
 				p('Charts', CHARTS),
 				p('CodeName'),
@@ -781,11 +800,11 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 				p('ListObjects', LISTOBJECTS),
 				p('Name'),
 				p('Names', NAMES),
-				p('Next', WORKSHEET),
+				pAny('Next', ACTIVE_SHEET_TYPES),
 				p('Outline'),
 				p('PageSetup', PAGESETUP),
 				p('Parent', WORKBOOK),
-				p('Previous', WORKSHEET),
+				pAny('Previous', ACTIVE_SHEET_TYPES),
 				p('Protection'),
 				p('QueryTables', QUERYTABLES),
 				p('Range', RANGE),
@@ -988,7 +1007,7 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 				p('ActiveCell', RANGE),
 				p('ActiveChart', CHART),
 				p('ActivePane'),
-				p('ActiveSheet', WORKSHEET),
+				pAny('ActiveSheet', ACTIVE_SHEET_TYPES),
 				p('Application', APPLICATION),
 				p('Caption'),
 				p('DisplayGridlines'),
@@ -2649,7 +2668,9 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 		[FORMATCONDITIONS]: promotedExcelHostType('FormatConditions', [
 				p('Application', APPLICATION),
 				p('Count'),
-				p('Item', FORMATCONDITION),
+				// One of seven condition types (issue #114): the library says
+				// Object, and `Set db = FormatConditions(1)` is ordinary code.
+				pAny('Item', [FORMATCONDITION, DATABAR, COLORSCALE, ICONSETCONDITION, TOP10, ABOVEAVERAGE, UNIQUEVALUES]),
 				p('Parent'),
 				m('Add', FORMATCONDITION),
 				m('AddAboveAverage', ABOVEAVERAGE),

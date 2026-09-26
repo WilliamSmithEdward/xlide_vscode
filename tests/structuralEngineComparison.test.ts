@@ -416,7 +416,7 @@ describe('structural engine divergence repros (audit #74)', () => {
         });
     });
 
-    it('next-multi-close: the parser does not honor a Next variable list', () => {
+    it('next-multi-close: the parser honors a Next variable list (converged, issue #125)', () => {
         const src =
             'Sub S()\n' +
             '    For i = 1 To 2\n' +
@@ -425,9 +425,7 @@ describe('structural engine divergence repros (audit #74)', () => {
             '    Next j, i\n' +
             'End Sub\n';
         expect(legacyRecords(src)).toEqual([]);
-        expect(sortedRecords(parserRecords(src))).toEqual([
-            { kind: 'missing', line: 1, closer: 'Next' },
-        ]);
+        expect(sortedRecords(parserRecords(src))).toEqual([]);
     });
 
     it('nested-procedure-header: the parser ends the outer procedure at the inner header', () => {

@@ -50,9 +50,21 @@ const ELEMENT_ACCESSORS = new Set(['item', '_default', 'add', 'add2']);
  */
 export const CURATED_RETURNS = {
 	Excel: {
-		'Application.ActiveSheet': 'Worksheet',
-		'Window.ActiveSheet': 'Worksheet',
-		'Global.ActiveSheet': 'Worksheet',
+		// The library says Object for these because each can be several types
+		// (issue #114): the active sheet is a Worksheet OR a Chart, and so is
+		// what Next/Previous hand back. A single type here turned
+		// `Set ch = ActiveSheet` into a false mismatch on a chart sheet.
+		'Application.ActiveSheet': ['Worksheet', 'Chart'],
+		'Window.ActiveSheet': ['Worksheet', 'Chart'],
+		'Global.ActiveSheet': ['Worksheet', 'Chart'],
+		'Workbook.ActiveSheet': ['Worksheet', 'Chart'],
+		'Worksheet.Next': ['Worksheet', 'Chart'],
+		'Worksheet.Previous': ['Worksheet', 'Chart'],
+		'Chart.Next': ['Worksheet', 'Chart'],
+		'Chart.Previous': ['Worksheet', 'Chart'],
+		// A conditional format is one of seven types (excel.formatconditions.item).
+		'FormatConditions.Item': ['FormatCondition', 'Databar', 'ColorScale', 'IconSetCondition', 'Top10', 'AboveAverage', 'UniqueValues'],
+		'FormatConditions._Default': ['FormatCondition', 'Databar', 'ColorScale', 'IconSetCondition', 'Top10', 'AboveAverage', 'UniqueValues'],
 		'Range.Parent': 'Worksheet',
 		'Worksheet.Parent': 'Workbook',
 		'Worksheets.Parent': 'Workbook',

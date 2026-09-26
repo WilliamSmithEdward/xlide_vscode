@@ -143,9 +143,18 @@ const KEYWORD_CASING_LISTS: readonly (readonly string[])[] = [
 	FUTURE_RESERVED,
 ];
 
+/**
+ * Reserved in the live VBE though absent from MS-VBAL 3.3.5.2. `Local` is the
+ * `On Local Error` keyword: `Dim Local As Long` is a Syntax error and
+ * `Function Local()` is "Expected: identifier" (Excel 16.0 build 20326,
+ * 2026-09-26, issue #98), so it can never be a name.
+ */
+export const MEASURED_RESERVED: readonly string[] = ['Local'];
+
 const RESERVED_IDENTIFIER_LISTS: readonly (readonly string[])[] = [
 	...KEYWORD_CASING_LISTS,
 	RESERVED_FOR_IMPLEMENTATION_USE,
+	MEASURED_RESERVED,
 ];
 
 /**

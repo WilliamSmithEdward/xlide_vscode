@@ -123,17 +123,19 @@ describe('what the shadowing must not swallow', () => {
 	});
 
 	it('leaves an unshadowed host global to the host', () => {
-		// Nothing here declares `ActiveSheet`, so Excel still answers for it -
-		// and still reports a member Worksheet has not got. `Rows` would be a
-		// Range, which is extensible, so absence there proves nothing.
+		// Nothing here declares `Worksheets`, so Excel still answers for it -
+		// and still reports a member the closed Worksheets collection has not
+		// got. `ActiveSheet` would be a Worksheet OR a Chart, declared Object,
+		// so absence there proves nothing (issue #114); `Rows` would be a
+		// Range, which is extensible, and the same holds.
 		const source = [
 			'Option Explicit',
 			'Public Sub Use()',
-			'    ActiveSheet.NotAMember',
+			'    Worksheets.NotAMember',
 			'End Sub',
 		].join('\r\n');
 		expect(memberNotFound(source)).toEqual([
-			"Method or data member not found: 'Excel.Worksheet.NotAMember'.",
+			"Method or data member not found: 'Excel.Worksheets.NotAMember'.",
 		]);
 	});
 

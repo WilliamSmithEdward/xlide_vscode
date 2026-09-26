@@ -123,11 +123,16 @@ export function statementLabelReferences(
 	source: string,
 	span: Span,
 ): VbaProcedureLabelReference[] {
-	const toks = tokensWithoutLeadingLineNumber(statementTokensCached(source, span));
+	let toks = tokensWithoutLeadingLineNumber(statementTokensCached(source, span));
 	if (toks.length === 0) {
 		return [];
 	}
 	if (tokenWord(toks[0]) === 'on') {
+		// `On Local Error GoTo 0` is `On Error GoTo 0` (issue #98): drop the
+		// Local so the target reads the same way.
+		if (tokenWord(toks[1]) === 'local' && tokenWord(toks[2]) === 'error') {
+			toks = [toks[0], ...toks.slice(2)];
+		}
 		return onStatementLabelReferences(toks, span);
 	}
 	const refs: VbaProcedureLabelReference[] = [];
@@ -258,7 +263,7 @@ function statementAtOffset(body: BodyNode[], offset: number): LeafStatementNode 
 	return undefined;
 }
 
-function statementLabelDeclaration(source: string, span: Span): VbaProcedureLabel | undefined {
+export function statementLabelDeclaration(source: string, span: Span): VbaProcedureLabel | undefined {
 	const toks = statementTokensCached(source, span);
 	const first = toks[0];
 	if (!first) {

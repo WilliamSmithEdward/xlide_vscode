@@ -24,6 +24,12 @@
 // model carries a type for. The rest of the object model is open, which is
 // why `Range("A1").Whatever` compiles and only fails when it runs.
 
+import {
+	ACCESS_CLOSED_TYPE_NAMES,
+	POWERPOINT_CLOSED_TYPE_NAMES,
+	WORD_CLOSED_TYPE_NAMES,
+} from './closedTypeNames';
+
 /**
  * Excel types whose interface is NONEXTENSIBLE, so the VBE refuses a member
  * that is not on it. `Worksheet` and `Chart` are the two a user meets: a typo
@@ -87,15 +93,39 @@ export function hostTypeResolvesWhenCompiling(qualifiedName: string): boolean {
 	const dot = qualifiedName.indexOf('.');
 	const library = dot > 0 ? qualifiedName.slice(0, dot).toLowerCase() : 'excel';
 	const displayName = dot > 0 ? qualifiedName.slice(dot + 1) : qualifiedName;
-	// Only Excel has been measured against its type library. Another host's
-	// types keep the answer they had, which is what they have always been
-	// analyzed under - and Word and PowerPoint are closed almost throughout,
-	// so the flag would change little there anyway.
-	if (library !== 'excel') {
-		return true;
+	switch (library) {
+		case 'excel':
+			return EXCEL_CLOSED_TYPES.has(EXCEL_TYPES_STANDING_FOR.get(displayName) ?? displayName);
+		case 'word':
+			return WORD_CLOSED_TYPES.has(displayName.toLowerCase());
+		case 'powerpoint':
+			return POWERPOINT_CLOSED_TYPES.has(displayName.toLowerCase());
+		case 'access':
+			return ACCESS_CLOSED_TYPES.has(displayName.toLowerCase());
+		case 'office':
+			// The shared Office library (CommandBar and friends): its model
+			// carries no hidden members, so absence is never proved there
+			// whatever the flag says.
+			return false;
+		default:
+			// A library nobody has measured keeps the answer it had: closed,
+			// which its (never exhaustive) model cannot act on anyway.
+			return true;
 	}
-	return EXCEL_CLOSED_TYPES.has(EXCEL_TYPES_STANDING_FOR.get(displayName) ?? displayName);
 }
+
+/**
+ * The other hosts, read the same way from their registered libraries (Word
+ * 8.7, PowerPoint 2.12, Access 9.0) by the issue #127 sweep on 2026-09-26,
+ * and held there by tests/hostTypeExtensibility.test.ts. Word Range,
+ * Selection, Paragraph and Table are closed and Document is open; PowerPoint
+ * Slide, Shape and TextRange are closed; Access's controls (TextBox,
+ * ComboBox, ...) are closed while Form, Report, Control and the project
+ * objects are open, which is what lets `f.CustomerID` compile.
+ */
+const WORD_CLOSED_TYPES: ReadonlySet<string> = new Set(WORD_CLOSED_TYPE_NAMES.map((name) => name.toLowerCase()));
+const POWERPOINT_CLOSED_TYPES: ReadonlySet<string> = new Set(POWERPOINT_CLOSED_TYPE_NAMES.map((name) => name.toLowerCase()));
+const ACCESS_CLOSED_TYPES: ReadonlySet<string> = new Set(ACCESS_CLOSED_TYPE_NAMES.map((name) => name.toLowerCase()));
 
 /** The closed type names, for the test that holds them to the type library. */
 export const EXCEL_CLOSED_TYPE_NAMES: readonly string[] = [...EXCEL_CLOSED_TYPES];

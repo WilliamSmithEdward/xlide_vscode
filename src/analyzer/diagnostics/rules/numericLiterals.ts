@@ -48,7 +48,36 @@ export function checkSuffixedLiteralOverflow(
 	if (!bounds) {
 		return;
 	}
-	for (const tok of tokenizeCached(source)) {
+	const tokens = tokenizeCached(source);
+	for (let index = 0; index < tokens.length; index++) {
+		const tok = tokens[index];
+		if (tok.kind === 'floatLiteral') {
+			const span = { start: tok.start, end: tok.end };
+			if (activity?.isInactive(span)) {
+				continue;
+			}
+			// `1E400` is past the Double range and `1.5%` puts the Integer
+			// suffix on a fractional literal: both are compile-time "Syntax
+			// error" (issue #125, measured in Excel 16.0).
+			const value = Number(tok.rawText.replace(/[dD]/g, 'E').replace(/[!#@]$/, ''));
+			if (!Number.isFinite(value)) {
+				push(
+					'floatLiteralOverflow',
+					`The literal '${tok.rawText}' is outside the Double range (about 1.8E+308). VBE rejects this at compile time as a Syntax error.`,
+					span,
+				);
+				continue;
+			}
+			const next = tokens[index + 1];
+			if (next && next.kind === 'unknown' && next.rawText === '%' && next.start === tok.end) {
+				push(
+					'suffixedLiteralOverflow',
+					`The literal '${tok.rawText}%' puts the '%' Integer type suffix on a fractional number, which has no Integer form. VBE rejects this at compile time as a Syntax error.`,
+					{ start: tok.start, end: next.end },
+				);
+			}
+			continue;
+		}
 		if (tok.kind !== 'integerLiteral') {
 			continue;
 		}

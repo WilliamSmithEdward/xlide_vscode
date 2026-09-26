@@ -172,6 +172,8 @@ class Parser {
 	private readonly diagnostics: ParseDiagnostic[] = [];
 	/** Expected closers of the currently open blocks (innermost last). */
 	private readonly openStack: string[] = [];
+	/** Names a `Next i, j` left for the loops outside the one that consumed it. */
+	private pendingNext: { names: { name: string; span: Span }[]; stmt: LogicalStatement } | undefined;
 
 	constructor(
 		private readonly source: string,
@@ -237,8 +239,15 @@ class Parser {
 				return this.parseEnumBlock(modIndex);
 			case 'sub':
 			case 'function':
-			case 'property':
 				return this.parseProcedure();
+			case 'property':
+				// `Property` is not reserved: `Property = 1` assigns a variable
+				// of that name, and only `Property Get|Let|Set` opens a
+				// procedure (issue #98).
+				if (isPropertyHeader(tokens, modIndex)) {
+					return this.parseProcedure();
+				}
+				return this.makeStatement(this.cursor.next()!);
 			case 'const':
 				return this.parseVariableGroup(this.cursor.next()!, tokens, modIndex, true);
 			case 'dim':
@@ -1198,12 +1207,38 @@ class Parser {
 			opener === 'if' ? [this.startIfBranch('if', head)] : null;
 		let closed = false;
 		let endStmt: LogicalStatement | undefined;
-		while (!this.cursor.atEnd()) {
+		// `Next i, j` closes two loops at once (MS-VBAL 5.4.2.3): the inner
+		// block consumed the statement and left the outer names here, so this
+		// block is closed by the same statement and takes the next name.
+		let nextOverride: { name: string; span: Span } | undefined;
+		while (true) {
+			if (expected === 'next' && this.pendingNext) {
+				nextOverride = this.pendingNext.names.shift();
+				endStmt = this.pendingNext.stmt;
+				if (this.pendingNext.names.length === 0) {
+					this.pendingNext = undefined;
+				}
+				closed = true;
+				break;
+			}
+			// Only the loop directly outside takes a leftover name; any other
+			// parent drops it, so a stray `Next i, j` closes nothing later.
+			this.pendingNext = undefined;
+			if (this.cursor.atEnd()) {
+				break;
+			}
 			const stmt = this.cursor.peek()!;
 			const ck = this.closerKind(stmt);
 			if (ck === expected) {
 				endStmt = this.cursor.next();
 				closed = true;
+				if (expected === 'next') {
+					const names = this.nextControlVariables(endStmt);
+					nextOverride = names[0];
+					if (names.length > 1) {
+						this.pendingNext = { names: names.slice(1), stmt: endStmt! };
+					}
+				}
 				break;
 			}
 			const nestedModuleBlock = this.nestedTypeOrEnumBlockKind(stmt);
@@ -1245,7 +1280,7 @@ class Parser {
 		if (opener === 'if') {
 			return this.finishIfBlock(branches ?? [this.startIfBranch('if', head)], body, closed, span);
 		}
-		return this.makeBlockNode(opener, body, closed, span, head, endStmt);
+		return this.makeBlockNode(opener, body, closed, span, head, endStmt, nextOverride);
 	}
 
 	private makeBlockNode(
@@ -1255,13 +1290,14 @@ class Parser {
 		span: Span,
 		head: LogicalStatement,
 		endStmt: LogicalStatement | undefined,
+		nextOverride?: { name: string; span: Span },
 	): BodyNode {
 		switch (opener) {
 			case 'for':
 			case 'foreach': {
 				const control = this.forControlVariable(opener, head);
 				const source = opener === 'foreach' ? this.forEachSourceExpression(head) : undefined;
-				const next = this.nextControlVariable(endStmt);
+				const next = nextOverride ?? this.nextControlVariable(endStmt);
 				return {
 					kind: 'ForBlock',
 					each: opener === 'foreach',
@@ -1415,6 +1451,26 @@ class Parser {
 		};
 	}
 
+	/** Every name a `Next a, b` lists, innermost loop first; empty for a bare `Next`. */
+	private nextControlVariables(stmt: LogicalStatement | undefined): { name: string; span: Span }[] {
+		if (!stmt) {
+			return [];
+		}
+		const tokens = codeTokensAfterLineNumber(stmt);
+		if (tokenWord(tokens[0]) !== 'next') {
+			return [];
+		}
+		const out: { name: string; span: Span }[] = [];
+		for (let i = 1; i < tokens.length; i += 2) {
+			const name = this.simpleNameFromToken(tokens[i]);
+			if (!name || (tokens[i + 1] && tokens[i + 1].rawText !== ',')) {
+				return [];
+			}
+			out.push({ name, span: { start: tokens[i].start, end: tokens[i].end } });
+		}
+		return out;
+	}
+
 	private nextControlVariable(
 		stmt: LogicalStatement | undefined,
 	): { name: string; span: Span } | undefined {
@@ -1553,11 +1609,14 @@ class Parser {
 		switch (head) {
 			case 'sub':
 			case 'function':
-			case 'property':
 			case 'type':
 			case 'enum':
 			case 'declare':
 				return true;
+			case 'property':
+				// `Property = 1` inside a procedure assigns a variable named
+				// Property; only `Property Get|Let|Set` starts a header (issue #98).
+				return isPropertyHeader(tokens, modIndex);
 			default:
 				return tokenWord(tokens[0]) === 'attribute';
 		}
@@ -1820,6 +1879,17 @@ class Parser {
 			specRef,
 		});
 	}
+}
+
+/**
+ * Whether `Property` at `index` opens a property procedure: only when Get, Let
+ * or Set follows it. `Property` is a contextual word, not a reserved one, so
+ * `Dim Property As Long` and `Property = 1` compile (issue #98, measured in
+ * Excel 16.0), and a header is the only place the accessor word follows it.
+ */
+function isPropertyHeader(tokens: readonly VbaToken[], index: number): boolean {
+	const accessor = tokenWord(tokens[index + 1]);
+	return accessor === 'get' || accessor === 'let' || accessor === 'set';
 }
 
 function codeTokensAfterLineNumber(statement: LogicalStatement): VbaToken[] {

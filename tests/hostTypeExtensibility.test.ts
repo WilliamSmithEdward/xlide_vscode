@@ -95,9 +95,11 @@ describe('an unknown member on a closed type', () => {
 		}
 	});
 
-	it('keeps Worksheets(1) a Worksheet, and the collection\'s own members alone', () => {
-		expect(found('Worksheets(1).NoSuchMemberXyz'))
-			.toEqual(["Method or data member not found: 'Excel.Worksheet.NoSuchMemberXyz'."]);
+	it('leaves a Worksheets item late bound, and the collection\'s own members alone', () => {
+		// The item accessor is declared `As Object` by the library, so
+		// `Worksheets(1).NoSuchMemberXyz` compiles in Excel 16.0 (measured
+		// 2026-09-26, issue #114); the collection itself is closed.
+		expect(found('Worksheets(1).NoSuchMemberXyz')).toEqual([]);
 		expect(found('Worksheets.Add\nWorksheets(1).Calculate\nDebug.Print Worksheets.Count')).toEqual([]);
 	});
 });

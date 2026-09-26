@@ -454,7 +454,7 @@ async function main(argv) {
 		return 2;
 	}
 	const version = twinBasicVersion(dir);
-	const document = JSON.parse(fs.readFileSync(args.cases, 'utf8').replace(/^﻿/, ''));
+	const document = JSON.parse(fs.readFileSync(args.cases, 'utf8').replace(/^\uFEFF/, ''));
 	let cases = document.cases;
 	if (!Array.isArray(cases)) { console.error(`${args.cases} has no cases array`); return 2; }
 	if (args.caseIds.length) {

@@ -156,10 +156,52 @@ export function checkDuplicateDeclarations(
 			),
 	};
 	for (const proc of members) {
-		if (isProcedureKind(proc.kind)) {
-			reportRepeatedNames(proc.children ?? [], activity, rule);
+		if (!isProcedureKind(proc.kind)) {
+			continue;
+		}
+		reportRepeatedNames(proc.children ?? [], activity, rule);
+		// A Function's or Property Get's own name is its return variable, so a
+		// local of that name is the same "Duplicate declaration in current
+		// scope" (issue #124: `Dim Main As Long` inside `Function Main`,
+		// measured in Excel 16.0).
+		if (proc.kind !== 'function' && proc.kind !== 'propertyGet') {
+			continue;
+		}
+		for (const child of proc.children ?? []) {
+			if (
+				(child.kind === 'localVariable' || child.kind === 'constant')
+				&& child.name.toLowerCase() === proc.name.toLowerCase()
+				&& !activity?.isInactive(child.nameSpan)
+			) {
+				rule.report(child);
+			}
 		}
 	}
+}
+
+/**
+ * Rule: a module-level variable or constant may not share its name with a
+ * procedure of the same module: `Private Helper As Long` beside
+ * `Private Sub Helper()` is "Ambiguous name detected: Helper" (issue #124,
+ * measured in Excel 16.0).
+ */
+export function checkVariableProcedureNameClash(
+	members: VbaSymbol[],
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	reportRepeatedNames(members, activity, {
+		declares: (sym) => sym.kind === 'moduleVariable' || sym.kind === 'constant' || isProcedureKind(sym.kind),
+		// Only a variable-against-procedure pair is this rule's; repeats within
+		// one kind belong to the duplicate rules above.
+		collides: (a, b) => isProcedureKind(a.kind) !== isProcedureKind(b.kind),
+		report: (repeat) =>
+			push(
+				'duplicateProcedure',
+				`Ambiguous name detected: '${repeat.name}' names both a variable and a procedure in this module.`,
+				repeat.nameSpan,
+			),
+	});
 }
 
 /** Rule: a module-level variable or constant declared more than once. */

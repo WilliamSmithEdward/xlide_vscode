@@ -5,8 +5,9 @@
 // Word's injected globals are the members of the hidden `Global` interface
 // (Word.Global in the library); the short list here is the everyday core,
 // curated the way Excel's globals are, and each maps to a type the generated
-// metadata actually carries (pinned by test). Everything remains
-// NON-exhaustive: this model offers and describes, never proves absence.
+// metadata actually carries (pinned by test). Word-library types are exhaustive
+// once the hidden members are merged (issue #127) and prove a member absent
+// where typeExtensibility says the interface is closed; Office types never do.
 
 import type { HostObjectModel } from './excelObjectModel';
 import { hostBoundOfficeTypes, mergeHostConstants } from './excelObjectModel';

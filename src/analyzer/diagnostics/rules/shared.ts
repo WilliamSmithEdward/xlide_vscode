@@ -506,6 +506,14 @@ function isContextualGrammarWord(
 	if (word === 'error' && (prev === 'on' || index === firstExecutable || STATEMENT_OPENERS.has(prev))) {
 		return true;
 	}
+	// `On Local Error ...` is a form of On Error (issue #98): Local is grammar
+	// there, and the Error after it is too.
+	if (word === 'local' && prev === 'on' && tokenText(toks[index + 1]) === 'error') {
+		return true;
+	}
+	if (word === 'error' && prev === 'local' && tokenText(toks[index - 2]) === 'on') {
+		return true;
+	}
 	// `Open path For Binary|Output|Append|Random [Access Read] [Lock Read] As #n`.
 	// The mode word follows the clause keyword that introduces it; the same
 	// words elsewhere in the statement stay readable.

@@ -140,6 +140,9 @@ export interface MemberCompletion {
 	definitions?: readonly VbaProjectClassMemberDefinition[];
 	/** True when exported source marks this member as the VBA default member. */
 	defaultMember?: boolean;
+	/** The setters a project property declares (issue #107); absent for host members. */
+	letAccessor?: boolean;
+	setAccessor?: boolean;
 	/** Exported attribute lines attached to this member. */
 	attributes?: readonly VbaSymbolAttribute[];
 }
@@ -167,6 +170,8 @@ type CompletionMemberSource = Pick<
 	writeType?: string;
 	definitions?: readonly VbaProjectClassMemberDefinition[];
 	defaultMember?: boolean;
+	letAccessor?: boolean;
+	setAccessor?: boolean;
 	attributes?: readonly VbaSymbolAttribute[];
 };
 
@@ -501,6 +506,8 @@ function completionFromSurfaceMember(
 		doc,
 		definitions: mem.definitions,
 		defaultMember: mem.defaultMember,
+		letAccessor: mem.letAccessor,
+		setAccessor: mem.setAccessor,
 		attributes: mem.attributes,
 	};
 }
@@ -1264,7 +1271,11 @@ function memberSurfaceForType(
 		return {
 			owner: union.map(bareTypeName).join(' | '),
 			members: mergeCompletionMembers(...surfaces.map((surface) => surface.members)),
-			exhaustive: surfaces.every((surface) => surface.exhaustive),
+			// A union is what the library declares Object - ActiveSheet, a
+			// Sheets item - so VBA binds its members when it runs and a name on
+			// none of the parts is not a compile error (issue #114:
+			// `ActiveSheet.asdf` compiles). Never exhaustive.
+			exhaustive: false,
 		};
 	}
 	if (typeName.startsWith(VBA_LIBRARY_PREFIX)) {
@@ -1580,11 +1591,26 @@ function hostMemberReturn(
 	memberName: string,
 	model: HostObjectModel | undefined,
 ): ResolvedMemberReturn | undefined {
-	const member = getHostMembers(ownerType, model).find(
+	const members = getHostMembers(ownerType, model);
+	const member = members.find(
 		(m) => m.name.toLowerCase() === memberName.toLowerCase(),
 	);
 	if (member?.returns) {
-		return { type: member.returns, kind: member.kind };
+		// An accessor the library declares `As Object` is late bound however
+		// well the model knows its element: `Worksheets(1).NoSuchMember`
+		// compiles (issue #114). A one-part union keeps the element for
+		// completion and chaining without closing its surface. The
+		// hand-written collections carry the repaired type on Item, so the
+		// library's word is read off `_Default` as well.
+		const defaultMember = memberName.toLowerCase() === 'item'
+			? members.find((m) => m.name === '_Default')
+			: undefined;
+		const declaredObject = [member, defaultMember].some((m) =>
+			m?.declaredType === 'Object' || /\bAs Object\s*$/i.test(m?.signature ?? ''));
+		return {
+			type: declaredObject ? `${UNION_TYPE_PREFIX}${member.returns}` : member.returns,
+			kind: member.kind,
+		};
 	}
 	if (member?.returnsAnyOf?.length) {
 		return { type: typeKeyFor(member.returnsAnyOf), kind: member.kind };
@@ -1701,8 +1727,13 @@ function parseUnionTypeKey(typeName: string): string[] | undefined {
 function typeKeyFor(types: readonly string[]): string {
 	const out: string[] = [];
 	const seen = new Set<string>();
+	let lateBound = false;
 	for (const type of types) {
-		for (const item of parseUnionTypeKey(type) ?? [type]) {
+		const parts = parseUnionTypeKey(type);
+		if (parts) {
+			lateBound = true;
+		}
+		for (const item of parts ?? [type]) {
 			const key = item.toLowerCase();
 			if (seen.has(key)) {
 				continue;
@@ -1711,7 +1742,9 @@ function typeKeyFor(types: readonly string[]): string {
 			out.push(item);
 		}
 	}
-	return out.length === 1
+	// A one-part union stays a union: it marks a value the library declares
+	// Object, whose members bind when it runs (issue #114).
+	return out.length === 1 && !lateBound
 		? out[0]
 		: `${UNION_TYPE_PREFIX}${out.join(UNION_TYPE_SEPARATOR)}`;
 }

@@ -598,14 +598,6 @@ describe('diagnostic message wording', () => {
 		expect(hits[0].message).toBe("Property Let 'Item' argument list must match Property Get 'Item' before the final value parameter. Expected 1 index parameter, but found 0.");
 	});
 
-	it('pins the message for property-let-object-value', () => {
-		const src =
-			'Public Property Let NegProp06_LetObjectValue(ByVal Value As Object)\n' +
-			'End Property\n';
-		const hits = byCode(analyzeModule(src), 'property-let-object-value');
-		expect(hits[0].message).toBe("Property Let 'NegProp06_LetObjectValue' final value parameter 'Value' must not be an object reference; use Property Set because it is declared As Object.");
-	});
-
 	it('pins the message for property-set-scalar-value', () => {
 		const src =
 			'Public Property Set Number(ByVal value As Long)\n' +
@@ -715,13 +707,17 @@ describe('diagnostic message wording', () => {
 	});
 
 	it('pins the message for set-required', () => {
+		// A Let to a Worksheet variable compiles and raises 438 when it runs;
+		// the variable is Set first so the 91 of a Nothing target does not
+		// come before it (issue #107).
 		const src =
 			'Public Sub T()\n' +
 			'    Dim ws As Worksheet\n' +
+			'    Set ws = Worksheets(1)\n' +
 			'    ws = ActiveSheet\n' +
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'set-required');
-		expect(hits[0].message).toBe("Object assignment to 'ws' requires Set because it is declared as Worksheet.");
+		expect(hits[0].message).toBe("Assignment to 'ws' requires Set: Worksheet has no default member for a Let to reach. This will raise Run-time error '438': Object doesn't support this property or method.");
 	});
 
 	it('pins the message for set-requires-object', () => {

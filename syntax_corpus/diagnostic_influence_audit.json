@@ -2022,6 +2022,427 @@
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error",
       "notes": "The VBE refuses `Dim doc As Word.Document` in a workbook that does not reference the Word library with \"User-defined type not defined\", and the whole project stops compiling. The same code late bound through CreateObject compiles, because it names nothing from the library, so the rule fires only on the qualified spelling in an As clause, after New, or on a qualified constant. Only libraries XLIDE can add a reference to are reported, so the finding always carries a fix."
+    },
+    {
+      "code": "file-number-zero",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #123): 2 asserted cases from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue123_a_runtime",
+        "issue123_b_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "File number 0. VBE runtime error 52: Bad file name or number (issue #123, Excel 16.0).",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "file-used-after-close",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #123): 1 asserted case from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue123_c_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "File statement on a closed file number. VBE runtime error 52: Bad file name or number (issue #123, Excel 16.0).",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "file-mode-mismatch",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #123): 2 asserted cases from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue123_d_runtime",
+        "issue123_e_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "File statement the open mode forbids. VBE runtime error 54: Bad file mode (issue #123, Excel 16.0).",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "file-already-open",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #123): 1 asserted case from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue123_f_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "File number opened twice. VBE runtime error 55: File already open (issue #123, Excel 16.0).",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "arithmetic-overflow",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #116): 23 asserted cases from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue116_a_runtime",
+        "issue116_c_runtime",
+        "issue116_d_runtime",
+        "issue116_e_runtime",
+        "issue116_f_runtime",
+        "issue116_g_runtime",
+        "issue116_h_runtime",
+        "issue116_i_runtime",
+        "issue116_j_runtime",
+        "issue116_k_runtime",
+        "issue116_o_runtime",
+        "issue116_p_runtime",
+        "issue116_q_runtime",
+        "issue116_r_runtime",
+        "issue116_s_runtime",
+        "issue116_t_runtime",
+        "issue116_u_runtime",
+        "issue116_v_runtime",
+        "issue116_w_runtime",
+        "issue116_x_runtime",
+        "issue116_y_runtime",
+        "issue116_z_runtime",
+        "issue116_za_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Arithmetic overflow. MS-VBAL 5.6.9.3 operator result types; VBE runtime error 6: Overflow (issue #116, Excel 16.0).",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "const-overflow",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #116): 2 asserted cases from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue116_b_compile",
+        "issue124_i_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Const value overflows. MS-VBAL 5.6.9.3; VBE compile error: Overflow (issue #116, Excel 16.0).",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "for-counter-overflow",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #116): 3 asserted cases from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue116_l_runtime",
+        "issue116_m_runtime",
+        "issue116_n_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "For counter overflows after its last pass. MS-VBAL 5.4.2.3; VBE runtime error 6: Overflow (issue #116, Excel 16.0).",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "array-parameter-form",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #124): 2 asserted cases from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue124_j_compile",
+        "issue124_k_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Array parameter cannot be ByVal or Optional. MS-VBAL 5.3.1.5; VBE \"Array argument must be ByRef\" / \"Optional argument must be Variant or intrinsic type with a default value\" (issue #124, Excel 16.0).",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "duplicate-deftype",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #124): 1 asserted case from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue124_l_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Duplicate Deftype statement. MS-VBAL 5.2.3.1.3; VBE \"Duplicate Deftype statement\" (issue #124, Excel 16.0).",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "bracketed-variable-name",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #124): 1 asserted case from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue124_m_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Bracketed name in a variable declaration. MS-VBAL 3.3.5.3 foreign-name; VBE \"Syntax error\" on Dim [name] (issue #124, Excel 16.0).",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "implements-member-missing",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #125): 1 asserted case from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue125_c_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Interface member not implemented. MS-VBAL 5.2.4.1; VBE \"Object module needs to implement ... for interface ...\" (issue #125, Excel 16.0).",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "implements-member-signature",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #125): 1 asserted case from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue125_d_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Interface member implemented with another signature. MS-VBAL 5.2.4.1; VBE \"Procedure declaration does not match description of event or procedure having the same name\" (issue #125, Excel 16.0).",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "collection-operand",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #125): 1 asserted case from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue125_e_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Collection used as an operand. VBE \"Argument not optional\" on a Collection whose default member Item takes an index (issue #125, Excel 16.0).",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "sub-used-as-value",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #125): 1 asserted case from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue125_f_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Sub used as a value. VBE \"Expected Function or variable\" (issue #125, Excel 16.0).",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "rem-after-then",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #125): 1 asserted case from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue125_k_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Rem after Then. MS-VBAL 3.3.1 comment / 5.4.2.9 single-line If; VBE \"Syntax error\" (issue #125, Excel 16.0).",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "float-literal-overflow",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #125): 1 asserted case from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue125_j_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Floating-point literal overflows. MS-VBAL 3.3.2 FLOAT; VBE \"Syntax error\" on 1E400 (issue #125, Excel 16.0).",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "host-argument-out-of-range",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #122): 7 asserted cases from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue122_a_runtime",
+        "issue122_b_runtime",
+        "issue122_c_runtime",
+        "issue122_d_runtime",
+        "issue122_e_runtime",
+        "issue122_f_runtime",
+        "issue122_g_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Host argument out of range. Office object model: 1-based collections, cell rows and columns from 1 (issue #122, Excel/Word/PowerPoint 16.0).",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "sheet-name-invalid",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #122): 2 asserted cases from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue122_h_runtime",
+        "issue122_i_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Sheet name Excel refuses. Excel runtime error 1004: invalid name for a sheet or chart (issue #122, Excel 16.0).",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "multi-cell-range-as-scalar",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #122): 2 asserted cases from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue122_j_runtime",
+        "issue122_k_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Multi-cell range read as a scalar. VBE runtime error 13: Type mismatch on a Range value that is an array (issue #122, Excel 16.0).",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "collection-index-out-of-range",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #121): 4 asserted cases from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue121_a_runtime",
+        "issue121_b_runtime",
+        "issue121_c_runtime",
+        "issue121_d_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Collection index out of range. VBE runtime errors 5 and 9 on VBA.Collection (issue #121, Excel 16.0).",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "collection-key-not-found",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #121): 1 asserted case from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue121_f_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Collection key not found. VBE runtime error 5 on VBA.Collection (issue #121, Excel 16.0).",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "collection-key-in-use",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #121): 1 asserted case from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue121_e_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Collection key already in use. VBE runtime error 457 on VBA.Collection (issue #121, Excel 16.0).",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "variant-value-misuse",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #121): 3 asserted cases from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue121_g_runtime",
+        "issue121_h_runtime",
+        "issue121_i_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Variant value used as another kind. VBE runtime errors 424 and 13 on a Variant holding a scalar or an array (issue #121, Excel 16.0).",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "runtime-member-not-found",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #121): 2 asserted cases from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue121_k_runtime",
+        "issue121_l_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Member not found at run time. VBE runtime error 438: Object doesn't support this property or method (issue #121, Excel 16.0).",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "file-record-zero",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #123): 2 asserted cases from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue123_g_runtime",
+        "issue123_h_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Record number 0. VBE runtime error 63: Bad record number (issue #123, Excel 16.0).",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "handler-fall-through",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #117): 1 asserted case from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue117_a_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Execution falls into an error handler that re-raises. VBE runtime error 5 from Err.Raise Err.Number with Err.Number 0 (issue #117, Excel 16.0).",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "resume-without-error",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #117): 1 asserted case from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue117_b_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Resume with no error handler installed. VBE runtime error 20: Resume without error (issue #117, Excel 16.0).",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "return-without-gosub",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #117): 1 asserted case from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue117_c_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Execution falls into a GoSub target. VBE runtime error 3: Return without GoSub (issue #117, Excel 16.0).",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "recursive-property-accessor",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #117): 2 asserted cases from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue117_d_runtime",
+        "issue117_e_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Property procedure calls itself. VBE runtime error 28: Out of stack space (issue #117, Excel 16.0).",
+      "diagnosticKind": "deterministic-runtime-error"
     }
   ]
 }

@@ -21,6 +21,8 @@ import { tokenizeCached } from '../../lexer/tokenize';
 import { relationalOperatorAt } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type {
+	BodyNode,
+	IfBranchNode,
 	ModuleNode,
 	Span,
 } from '../../parser/nodes';
@@ -52,9 +54,13 @@ import {
 	callableTypeSignaturesFor,
 	declaredTypeForSourceBinding,
 	isKnownScalarType,
+	isNumericType,
+	isProvablyNonNumericString,
+	knownLocalLiteralValues,
 	normalizeType,
 	procedureIntegerConstantLookup,
 	resolveExactMemberCompletion,
+	stringLiteralValue,
 	runtimeCallableSourceShadowed,
 	type SourceDeclaredTypeResolver,
 	type SourceNameScope,
@@ -63,6 +69,7 @@ import {
 } from '../typeInference';
 import {
 	absoluteSpan,
+	bareAssignmentTarget,
 	firstExecutableTokenIndex,
 	matchParenFrom,
 	statementTokens,
@@ -86,8 +93,16 @@ import {
  * are distinct token kinds, so they can never create a false positive. At most
  * one diagnostic is reported per statement.
  */
-export function checkUnbalancedParens(source: string, push: PushFn): void {
-	const toks = tokenizeCached(source);
+export function checkUnbalancedParens(
+	source: string,
+	push: PushFn,
+	activity?: ConditionalActivityTracker,
+): void {
+	// Text under an inactive `#If` arm is never compiled, and `#If False Then`
+	// is a common place to park notes (issue #102).
+	const toks = activity
+		? tokenizeCached(source).filter((tok) => !activity.isInactive({ start: tok.start, end: tok.end }))
+		: tokenizeCached(source);
 	let depth = 0;
 	const openOffsets: number[] = [];
 	let flagged = false;
@@ -323,6 +338,19 @@ const NON_UNARY_BINARY_OPERATORS = new Set([
 	'mod',
 ]);
 
+/**
+ * Whether the `&` at `index` is glued to a name before it, which makes it the
+ * name's Long type-declaration character (`total&`) rather than the
+ * concatenation operator. `s$`, `n%`, `x!`, `d#` and `c@` lex the same way;
+ * only `&` doubles as an operator, so only it needs asking.
+ */
+export function isGluedTypeSuffixAmpersand(toks: readonly VbaToken[], index: number): boolean {
+	const tok = toks[index];
+	const prev = toks[index - 1];
+	return tok?.kind === 'operator' && tok.rawText === '&' && prev !== undefined
+		&& prev.end === tok.start && tokenName(prev) !== undefined;
+}
+
 function invalidOperatorSequence(
 	source: string,
 	span: Span,
@@ -338,6 +366,13 @@ function invalidOperatorSequence(
 	}
 	for (let i = 0; i < toks.length; i++) {
 		if (!isNonUnaryBinaryOperator(toks[i])) {
+			continue;
+		}
+		// `total& = 3`: an `&` glued to the name before it is the Long
+		// type-declaration character, not concatenation. The VBE reads it that
+		// way whatever follows - `a& b` is a syntax error there, `a &b` is a
+		// concatenation (issue #100, measured in Excel 16.0).
+		if (isGluedTypeSuffixAmpersand(toks, i)) {
 			continue;
 		}
 		// `a < > b` is one relational operator written as two tokens (MS-VBAL
@@ -513,36 +548,330 @@ export function checkDivisionByZeroExpressions(
 		const constants = procedureIntegerConstantLookup(
 			member, moduleConstants, symbols, projectVisibleSymbols, activity, hostModel,
 		);
+		// A local the procedure never assigns is 0, and one whose every
+		// assignment is `d = 0` is 0 too (issue #119): `10 / d` raises 11.
+		const known = knownLocalLiteralValues(source, member, symbols, activity);
+		const lookup: IntegerConstantLookup = {
+			get: (name) => {
+				const constant = constants.get(name);
+				if (constant !== undefined) {
+					return constant;
+				}
+				const local = known.get(name.toLowerCase());
+				return local?.kind === 'number' && Number.isInteger(local.value) ? (local.value as number) : undefined;
+			},
+		};
+		const guards = divisionGuardRanges(member.body, activity);
 		return (stmt) => {
-			for (const hit of divisionByZeroDivisors(source, stmt.span, constants)) {
-				push(
-					'divisionByZero',
-					`Expression uses '${hit.operator}' with a zero divisor. This will raise Run-time error '11': Division by zero.`,
-					hit.span,
-				);
+			for (const hit of divisionByZeroDivisors(source, stmt.span, lookup, guards)) {
+				push('divisionByZero', hit.message, hit.span);
 			}
 		};
 	};
+}
+
+/**
+ * Rule: an arithmetic operator raises error 13 for a nonnumeric string operand
+ * whatever the result goes into (issue #119; each measured in Excel 16.0):
+ * `v = "abc" + 1` into a Variant, `Main = "abc" + 1` as a function result,
+ * `Not "abc"`, `-"abc"`, `If "abc" = 1 Then`, and `s * 2` with s holding
+ * "abc". The assignment and argument rules only saw the numeric-target case.
+ * `+` and the comparisons need a NUMBER on the other side, because two strings
+ * concatenate and compare as text; `- * / \ ^ Mod` and the unary forms
+ * always coerce.
+ */
+export function checkStringArithmeticOperands(
+	source: string,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): ProcedureStatementVisitor {
+	return (member) => {
+		const env = typeEnvironmentFor(symbols, member);
+		const known = knownLocalLiteralValues(source, member, symbols, activity);
+		const nonnumericString = (tok: VbaToken | undefined): string | undefined => {
+			if (!tok) {
+				return undefined;
+			}
+			if (tok.kind === 'stringLiteral') {
+				const value = stringLiteralValue(tok.rawText);
+				return isProvablyNonNumericString(value) ? `string literal ${tok.rawText}` : undefined;
+			}
+			const name = tokenName(tok)?.toLowerCase();
+			const local = name ? known.get(name) : undefined;
+			if (local?.kind === 'string' && !local.contentMutated && isProvablyNonNumericString(local.value as string)) {
+				return `'${tok.rawText}', which holds ${JSON.stringify(local.value)}`;
+			}
+			return undefined;
+		};
+		const numeric = (tok: VbaToken | undefined): boolean => {
+			if (!tok) {
+				return false;
+			}
+			if (tok.kind === 'integerLiteral' || tok.kind === 'floatLiteral') {
+				return true;
+			}
+			const name = tokenName(tok)?.toLowerCase();
+			if (!name) {
+				return false;
+			}
+			if (known.get(name)?.kind === 'number') {
+				return true;
+			}
+			const type = normalizeType(env.get(name));
+			return type !== undefined && isNumericType(type);
+		};
+		return (stmt) => {
+			const toks = statementTokens(source, stmt.span);
+			if (tokenText(toks[firstExecutableTokenIndex(toks)]) === 'const') {
+				return;
+			}
+			// An assignment to a numeric variable is the assignment rule's:
+			// it already names the target, and one report per line is enough.
+			const bare = bareAssignmentTarget(source, stmt.span);
+			if (bare) {
+				const targetType = normalizeType(env.get(bare.name.toLowerCase()));
+				if (targetType && isNumericType(targetType)) {
+					return;
+				}
+			}
+			for (let i = 0; i < toks.length; i++) {
+				const tok = toks[i];
+				const word = tokenText(tok);
+				const left = toks[i - 1];
+				const right = toks[i + 1];
+				const report = (span: Span, what: string): void => {
+					push(
+						'stringArithmeticCoercion',
+						`Operator '${tok.rawText}' coerces ${what} to a number. This will raise Run-time error '13': Type mismatch.`,
+						span,
+					);
+				};
+				const isBinary = tok.kind === 'operator'
+					? ['+', '-', '*', '/', '\\', '^', '=', '<', '>', '<=', '>=', '<>'].includes(tok.rawText)
+					: word === 'mod';
+				const leftEndsOperand = left !== undefined && (left.kind === 'identifier' || left.kind === 'keyword'
+					|| left.kind === 'integerLiteral' || left.kind === 'floatLiteral' || left.kind === 'stringLiteral'
+					|| left.kind === 'dateLiteral' || left.rawText === ')');
+				if (word === 'not' && !leftEndsOperand) {
+					const what = nonnumericString(right);
+					if (what) {
+						report(absoluteSpan(stmt.span, right!), what);
+					}
+					continue;
+				}
+				if (!isBinary) {
+					continue;
+				}
+				if (!leftEndsOperand) {
+					// Unary `-"abc"` (a leading `+` too).
+					if ((tok.rawText === '-' || tok.rawText === '+')) {
+						const what = nonnumericString(right);
+						if (what) {
+							report(absoluteSpan(stmt.span, right!), what);
+						}
+					}
+					continue;
+				}
+				const alwaysCoerces = ['-', '*', '/', '\\', '^'].includes(tok.rawText) || word === 'mod';
+				const leftString = nonnumericString(left);
+				const rightString = nonnumericString(right);
+				if (alwaysCoerces) {
+					if (leftString) {
+						report(absoluteSpan(stmt.span, left), leftString);
+					} else if (rightString) {
+						report(absoluteSpan(stmt.span, right!), rightString);
+					}
+					continue;
+				}
+				// `+` and comparisons: a string against a NUMBER.
+				if (leftString && numeric(right)) {
+					report(absoluteSpan(stmt.span, left), leftString);
+				} else if (rightString && numeric(left)) {
+					report(absoluteSpan(stmt.span, right!), rightString);
+				}
+			}
+		};
+	};
+}
+
+/** A name a branch has tested non-zero, and the span the test covers. */
+interface DivisionGuard {
+	name: string;
+	start: number;
+	end: number;
+}
+
+/**
+ * Which names an If condition proves non-zero on its Then arm (`SCALE_BY <> 0`,
+ * `n > 0`, `Not n = 0`, a bare `n`) and which it proves zero (`n = 0`, so the
+ * Else arm has the non-zero case). A constant that fails the test never
+ * reaches the division: `If SCALE_BY <> 0 Then x = 10 / SCALE_BY` with
+ * SCALE_BY = 0 runs clean (issue #106, measured in Excel 16.0).
+ */
+function divisionGuardNames(condition: readonly VbaToken[]): { nonZero: Set<string>; zero: Set<string> } {
+	const nonZero = new Set<string>();
+	const zero = new Set<string>();
+	const words = condition.map((tok) => tokenText(tok));
+	const nameAt = (index: number): string | undefined => tokenName(condition[index])?.toLowerCase();
+	const isZero = (index: number): boolean => condition[index]?.kind === 'integerLiteral' && /^0+$/.test(condition[index].rawText);
+	// Conjuncts each hold on the Then arm; a disjunction proves nothing.
+	if (words.includes('or')) {
+		return { nonZero, zero };
+	}
+	let start = 0;
+	for (let i = 0; i <= words.length; i++) {
+		if (i < words.length && words[i] !== 'and') {
+			continue;
+		}
+		const w = words.slice(start, i);
+		const n = (k: number): string | undefined => nameAt(start + k);
+		const z = (k: number): boolean => isZero(start + k);
+		if (w.length === 1 && n(0)) {
+			nonZero.add(n(0)!);
+		} else if (w.length === 3 && n(0) && z(2) && (w[1] === '<>' || w[1] === '>' || w[1] === '<')) {
+			nonZero.add(n(0)!);
+		} else if (w.length === 3 && n(2) && z(0) && (w[1] === '<>' || w[1] === '>' || w[1] === '<')) {
+			nonZero.add(n(2)!);
+		} else if (w.length === 3 && n(0) && z(2) && w[1] === '=') {
+			zero.add(n(0)!);
+		} else if (w.length === 4 && w[0] === 'not' && n(1) && w[2] === '=' && z(3)) {
+			nonZero.add(n(1)!);
+		} else if (w.length === 6 && w[0] === 'not' && w[1] === '(' && n(2) && w[3] === '=' && z(4) && w[5] === ')') {
+			nonZero.add(n(2)!);
+		} else if (w.length === 2 && w[0] === 'not' && n(1)) {
+			zero.add(n(1)!);
+		}
+		start = i + 1;
+	}
+	return { nonZero, zero };
+}
+
+/** The guards every block If in the body establishes for its arms. */
+function divisionGuardRanges(
+	body: readonly BodyNode[],
+	activity: ConditionalActivityTracker | undefined,
+): DivisionGuard[] {
+	const out: DivisionGuard[] = [];
+	const visit = (nodes: readonly BodyNode[]): void => {
+		for (const node of nodes) {
+			if (activity?.isInactive(node.span)) {
+				continue;
+			}
+			if (node.kind === 'IfBlock') {
+				node.branches.forEach((branch: IfBranchNode, index: number) => {
+					if (!branch.conditionRaw) {
+						return;
+					}
+					const condition = statementTokens(branch.conditionRaw, { start: 0, end: branch.conditionRaw.length });
+					const names = divisionGuardNames(condition);
+					for (const name of names.nonZero) {
+						out.push({ name, start: branch.span.start, end: branch.span.end });
+					}
+					const next = node.branches[index + 1];
+					if (next?.branchKind === 'else') {
+						for (const name of names.zero) {
+							out.push({ name, start: next.span.start, end: next.span.end });
+						}
+					}
+				});
+			}
+			if ('body' in node && Array.isArray(node.body)) {
+				visit(node.body as BodyNode[]);
+			}
+		}
+	};
+	visit(body);
+	return out;
 }
 
 function divisionByZeroDivisors(
 	source: string,
 	span: Span,
 	constants: IntegerConstantLookup,
-): Array<{ operator: string; span: Span }> {
+	guards: readonly DivisionGuard[],
+): Array<{ operator: string; span: Span; message: string }> {
 	const toks = statementTokens(source, span);
-	const hits: Array<{ operator: string; span: Span }> = [];
+	const hits: Array<{ operator: string; span: Span; message: string }> = [];
+	// A single-line If guards its own arms.
+	const first = firstExecutableTokenIndex(toks);
+	let thenIndex = -1;
+	let elseIndex = -1;
+	let local = { nonZero: new Set<string>(), zero: new Set<string>() };
+	if (tokenText(toks[first]) === 'if') {
+		thenIndex = toks.findIndex((tok, index) => index > first && tokenText(tok) === 'then');
+		if (thenIndex > 0) {
+			local = divisionGuardNames(toks.slice(first + 1, thenIndex));
+			elseIndex = toks.findIndex((tok, index) => index > thenIndex && tokenText(tok) === 'else');
+		}
+	}
 	for (let i = 0; i < toks.length; i++) {
 		const operator = divisionByZeroOperatorLabel(toks[i]);
 		if (!operator) {
 			continue;
 		}
-		const divisor = zeroDivisorToken(source, span, toks, i + 1, constants);
-		if (divisor) {
-			hits.push({ operator, span: absoluteTokenGroupSpan(span, divisor) });
+		const divisor = zeroDivisorToken(source, span, toks, i + 1, constants)
+			?? fractionalDivisorRoundingToZero(toks, i + 1, operator);
+		if (!divisor) {
+			continue;
 		}
+		const divisorName = divisor.length === 1 ? tokenName(divisor[0])?.toLowerCase() : undefined;
+		if (divisorName) {
+			const inElse = elseIndex >= 0 && i > elseIndex;
+			const inThen = thenIndex >= 0 && i > thenIndex && !inElse;
+			if ((inThen && local.nonZero.has(divisorName)) || (inElse && local.zero.has(divisorName))) {
+				continue;
+			}
+			const at = span.start + toks[i].start;
+			if (guards.some((guard) => guard.name === divisorName && at >= guard.start && at < guard.end)) {
+				continue;
+			}
+		}
+		// `0 / 0` raises 6 (Overflow), not 11; `\` and `Mod` raise 11 for it
+		// (issue #106, measured in Excel 16.0).
+		const dividend = toks[i - 1];
+		const dividendZero = dividend !== undefined && (
+			(dividend.kind === 'integerLiteral' && /^0+[%&^]?$/.test(dividend.rawText))
+			|| (dividend.kind === 'floatLiteral' && Number(dividend.rawText.replace(/[!#@]$/, '')) === 0)
+			|| (tokenName(dividend) !== undefined && constants.get(tokenName(dividend)!.toLowerCase()) === 0)
+		);
+		const message = operator === '/' && dividendZero
+			? "Expression divides zero by zero with '/'. This will raise Run-time error '6': Overflow."
+			: `Expression uses '${operator}' with a zero divisor. This will raise Run-time error '11': Division by zero.`;
+		hits.push({ operator, span: absoluteTokenGroupSpan(span, divisor), message });
 	}
 	return hits;
+}
+
+/**
+ * `\` and `Mod` round their operands to whole numbers first, with banker's
+ * rounding, so a literal divisor below 0.5 - or exactly 0.5 - is zero to them:
+ * `5 \ 0.4` and `5 Mod 0.5` raise 11 (issue #119, measured in Excel 16.0).
+ */
+function fractionalDivisorRoundingToZero(
+	toks: readonly VbaToken[],
+	start: number,
+	operator: string,
+): VbaToken[] | undefined {
+	if (operator === '/') {
+		return undefined;
+	}
+	let index = start;
+	const group: VbaToken[] = [];
+	if (toks[index]?.kind === 'operator' && (toks[index].rawText === '-' || toks[index].rawText === '+')) {
+		group.push(toks[index]);
+		index++;
+	}
+	const literal = toks[index];
+	if (literal?.kind !== 'floatLiteral' || !isDivisorAtomBoundary(toks[index + 1])) {
+		return undefined;
+	}
+	const value = Math.abs(Number(literal.rawText.replace(/[!#@]$/, '').replace(/[dD]/g, 'E')));
+	if (!Number.isFinite(value) || value > 0.5) {
+		return undefined;
+	}
+	group.push(literal);
+	return group;
 }
 
 function divisionByZeroOperatorLabel(tok: VbaToken | undefined): string | undefined {

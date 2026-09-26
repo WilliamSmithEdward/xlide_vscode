@@ -13,14 +13,17 @@ import type { HostObjectModel } from '../host/excelObjectModel';
 import { IDENT_RE, matchParenFrom } from '../lexer/tokenHelpers';
 import {
 	parseDecimalIntegerLiteral,
+	parseVbaIntegerLiteral,
 	type IntegerConstantLookup,
 } from '../constants/integerConstantExpression';
 import {
 	getHostMembers,
+	getHostType,
 	resolveHostAlias,
 	resolveHostConstant,
 	resolveHostGlobal,
 } from '../host/hostModel';
+import { hostTypeResolvesWhenCompiling } from '../host/typeExtensibility';
 import {
 	resolveRuntimeConstant,
 	resolveRuntimeFunction,
@@ -28,7 +31,8 @@ import {
 	type VbaRuntimeFunction,
 } from '../runtime/vbaRuntime';
 import { standaloneEmptyParenthesizedCallStatement } from '../call/callContext';
-import type { ProcedureNode, Span } from '../parser/nodes';
+import type { BodyNode, ProcedureNode, Span } from '../parser/nodes';
+import { isLeafStatement } from '../parser/nodes';
 import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
 import type { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import type {
@@ -70,6 +74,9 @@ import {
 	numericExternalConstantValue,
 } from './constExpr';
 import {
+	bareAssignmentTarget,
+	firstExecutableTokenIndex,
+	statementAndBranchSpans,
 	statementTokens,
 	statementTokensAfterLeadingLabel,
 	stripHeaderBrackets,
@@ -385,6 +392,8 @@ export function isValueDeclarationSymbol(sym: VbaSymbol): boolean {
 export interface SourceDeclaredType {
 	resolved: boolean;
 	asType?: string;
+	/** What the resolved binding is: a variable, a constant, a parameter, a procedure. */
+	kind?: VbaSymbol['kind'];
 }
 
 export type SourceDeclaredTypeResolver = (name: string) => SourceDeclaredType;
@@ -437,7 +446,7 @@ export function declaredValueTypeForSourceBinding(
 		return { resolved: false };
 	}
 	const typed = valueDefinitions.find((definition) => definition.asType);
-	return { resolved: true, asType: typed?.asType };
+	return { resolved: true, asType: typed?.asType, kind: (typed ?? valueDefinitions[0]).kind };
 }
 
 export function declaredValueTypeForQualifiedSourceBinding(
@@ -786,12 +795,25 @@ export function expressionCalls(
 ): CallArguments[] {
 	const toks = statementTokens(source, span);
 	const out: CallArguments[] = [];
+	const firstExecutable = firstExecutableTokenIndex(toks);
+	const statementHead = tokenText(toks[firstExecutable]);
 	for (let i = 0; i < toks.length - 1; i++) {
 		const callName = parenthesizedCallNameAt(toks, i);
 		if (!callName) {
 			continue;
 		}
 		const { name, parenIndex, nameEndIndex } = callName;
+		// `Take (i)` as a statement passes `(i)` as its one argument: the space
+		// makes the parentheses part of the argument, which is then a copy
+		// (issue #111). `Take(i)` glued, and `x = Take (i)` inside an
+		// expression, are calls with a list.
+		const argumentsParenthesized = i === firstExecutable
+			&& toks[parenIndex].start > toks[nameEndIndex].end;
+		// `ReDim Three(2)` inside Function Three sizes the return array, and a
+		// ReDim target anywhere is a variable, never a call (issue #115).
+		if (statementHead === 'redim' && isRedimTargetAt(toks, i, firstExecutable)) {
+			continue;
+		}
 		const qualifier =
 			i >= 2 && toks[i - 1].rawText === '.'
 				? tokenName(toks[i - 2])
@@ -824,9 +846,31 @@ export function expressionCalls(
 			slots: split.slots,
 			slotSpans: split.spans,
 			sliceStart: span.start,
+			...(argumentsParenthesized ? { argumentsParenthesized: true } : {}),
 		});
 	}
 	return out;
+}
+
+/**
+ * Whether the name at `index` is a target of the ReDim statement the tokens
+ * spell: at depth 0, right after `ReDim`, `Preserve`, or a separating comma.
+ */
+function isRedimTargetAt(toks: readonly VbaToken[], index: number, firstExecutable: number): boolean {
+	let depth = 0;
+	for (let k = firstExecutable + 1; k < index; k++) {
+		const raw = toks[k].rawText;
+		if (raw === '(') {
+			depth++;
+		} else if (raw === ')') {
+			depth--;
+		}
+	}
+	if (depth !== 0) {
+		return false;
+	}
+	const prev = tokenText(toks[index - 1]);
+	return prev === 'redim' || prev === 'preserve' || prev === ',';
 }
 
 export interface ParenthesizedCallName {
@@ -1121,14 +1165,16 @@ export function validateArgumentTypesForSignature(
 		if (!expected) {
 			continue;
 		}
-		const byRefMismatch = byRefVariableTypeMismatch(
-			param,
-			valueSlot,
-			call.sliceStart,
-			env,
-			resolveExpressionType,
-			resolveQualifiedExpressionType,
-		);
+		const byRefMismatch = call.argumentsParenthesized
+			? undefined
+			: byRefVariableTypeMismatch(
+				param,
+				valueSlot,
+				call.sliceStart,
+				env,
+				resolveExpressionType,
+				resolveQualifiedExpressionType,
+			);
 		if (byRefMismatch) {
 			push(
 				'byRefArgumentTypeMismatch',
@@ -1162,6 +1208,17 @@ export function validateArgumentTypesForSignature(
 			resolveQualifiedExpressionType,
 		);
 		if (!actual) {
+			continue;
+		}
+		// A Variant parameter the function still refuses Null for: CStr(Null),
+		// Chr(Null), Asc(Null) raise 94 where Left(Null, 1) hands Null back
+		// (issue #104).
+		if (param.nullRaises && normalizeType(actual.type) === 'null') {
+			push(
+				'argumentTypeMismatch',
+				`Argument '${param.name}' of '${sig.name}' cannot be Null. This will raise Run-time error '94': Invalid use of Null.`,
+				actual.span,
+			);
 			continue;
 		}
 		const reason = incompatibilityReason(expected, actual);
@@ -1216,10 +1273,28 @@ export function byRefVariableTypeMismatch(
 			return undefined;
 		}
 		const declaredType = resolveExpressionType?.(name);
+		// A Const is passed as a temporary copy, so its type never has to
+		// match (issue #111: `Take(K)` with K an Integer Const compiles).
+		if (declaredType?.resolved && declaredType.kind === 'constant') {
+			return undefined;
+		}
 		actualRaw = declaredType?.resolved
 			? declaredType.asType
 			: env.get(name.toLowerCase());
 		span = { start: sliceStart + toks[0].start, end: sliceStart + toks[0].end };
+		// A VARIABLE declared Variant (or with no type) passed ByRef to a typed
+		// parameter is the compile error itself (issue #111): the VBE refuses
+		// `Take v` with `Dim v As Variant` for `x As Long`, `x As String` and
+		// `x As Object` alike (measured 2026-09-26). Only a variable or
+		// parameter: a parameterless Function's name here is a call result,
+		// which passes as a copy.
+		const variantVariable = !param.isArray
+			&& declaredType?.resolved
+			&& (declaredType.kind === 'localVariable' || declaredType.kind === 'moduleVariable' || declaredType.kind === 'parameter')
+			&& (normalizeType(declaredType.asType) ?? 'variant') === 'variant';
+		if (variantVariable) {
+			return { name, actual: declaredType?.asType ?? 'Variant', span };
+		}
 	} else if (toks.length === 3 && toks[1].rawText === '.') {
 		const qualifier = tokenName(toks[0]);
 		const member = tokenName(toks[2]);
@@ -1295,6 +1370,7 @@ export function runtimeTypeSignature(runtime: VbaRuntimeFunction): CallableTypeS
 				type: p.type,
 				optional: p.optional ?? false,
 				paramArray: p.paramArray ?? false,
+				...(p.nullRaises ? { nullRaises: true } : {}),
 			})),
 			returnType: runtime.returns,
 		};
@@ -1844,11 +1920,21 @@ export function defaultHostItemReturnType(
 	typeName: string,
 	memberCtx: MemberCompletionContext,
 ): string | undefined {
-	const item = getHostMembers(typeName, memberCtx.model).find(
-		(member) => member.name.toLowerCase() === 'item',
-	);
+	const members = getHostMembers(typeName, memberCtx.model);
+	const item = members.find((member) => member.name.toLowerCase() === 'item');
 	if (item?.returns) {
-		return item.returns;
+		// The library declares most Item accessors `As Object` and the model
+		// repairs the type from the reference prose, which is right for
+		// completion and chaining. It is not a compile-time binding: the VBE
+		// compiles `Worksheets(1).NoSuchMember` and `Workbooks(1).NoSuchMember`
+		// (measured in Excel 16.0, issue #114), so the item's members are late
+		// bound. A one-part union carries the type without closing it. The
+		// hand-written collections carry the repaired type on Item, so the
+		// library's word is read off `_Default` too.
+		const defaultMember = members.find((member) => member.name === '_Default');
+		const declaredObject = [item, defaultMember].some((member) =>
+			member?.declaredType === 'Object' || /\bAs Object\s*$/i.test(member?.signature ?? ''));
+		return declaredObject ? `union:${item.returns}` : item.returns;
 	}
 	// A mixed-element collection - e.g. Sheets, whose Item is a Worksheet OR a
 	// Chart - carries `returnsAnyOf` instead of a single `returns`. Its indexed
@@ -2345,6 +2431,244 @@ export function resolveKnownObjectAssignmentType(
 	};
 }
 
+/**
+ * What a bare `name = value` does to a variable of a known object type
+ * (issue #107, each case measured in Excel 16.0). The VBE compiles it as a
+ * Let through the type's default member, so it is never "Set required" at
+ * compile time:
+ *
+ *  - `lets`: the type has a parameterless default member (Range's `_Default`
+ *    is Value; a project class marks one with VB_UserMemId = 0), or is the
+ *    generic Object, whose default member is looked up when it runs. `r = 5`
+ *    writes A1. Nothing to report.
+ *  - `argument`: the default member takes an argument, so the VBE refuses the
+ *    statement: `c = 5` on a Collection is "Argument not optional".
+ *  - `noDefault`: the type is fully known and has no default member, so the
+ *    statement compiles and raises error 438 when it runs (`ws = 9`).
+ *  - `unknown`: the model cannot say. Nothing is reported.
+ */
+export function objectLetAssignmentVerdict(
+	expectedRaw: string | undefined,
+	memberCtx: MemberCompletionContext,
+): 'lets' | 'argument' | 'noDefault' | 'unknown' {
+	const expected = resolveKnownObjectAssignmentType(expectedRaw, memberCtx);
+	if (!expected) {
+		return 'unknown';
+	}
+	if (expected.kind === 'generic') {
+		return expected.key === 'collection' ? 'argument' : 'lets';
+	}
+	if (expected.kind === 'project') {
+		const projectType = (memberCtx.projectClassMembers ?? []).find(
+			(candidate) => candidate.name.toLowerCase() === expected.key,
+		);
+		if (!projectType || projectType.exhaustive !== true) {
+			return 'unknown';
+		}
+		const defaultMember = projectType.members.find((member) => member.defaultMember);
+		if (!defaultMember) {
+			return 'noDefault';
+		}
+		return defaultMember.signature && /\([^)]/.test(defaultMember.signature) ? 'argument' : 'lets';
+	}
+	const members = getHostMembers(expectedRaw ?? '', memberCtx.model);
+	const defaultMember = members.find((member) => member.name === '_Default');
+	if (defaultMember) {
+		return defaultMember.kind === 'method' || /\([^)]/.test(defaultMember.signature ?? '') ? 'argument' : 'lets';
+	}
+	return hostTypeIsClosed(expectedRaw ?? '', memberCtx) ? 'noDefault' : 'unknown';
+}
+
+/**
+ * Whether the host model's member list for the type proves a member absent:
+ * the list is complete AND the type library resolves members while compiling
+ * (the same two facts member-not-found needs).
+ */
+function hostTypeIsClosed(typeName: string, memberCtx: MemberCompletionContext): boolean {
+	const resolved = resolveHostAlias(typeName, memberCtx.model) ?? typeName;
+	return getHostType(resolved, memberCtx.model)?.exhaustive === true
+		&& hostTypeResolvesWhenCompiling(resolved);
+}
+
+/** A local whose value the procedure's text fixes: its default, or one literal. */
+export interface KnownLocalValue {
+	kind: 'number' | 'string';
+	value: number | string;
+	/** 'default' when nothing ever assigns it, 'literal' when every assignment is the same literal. */
+	origin: 'default' | 'literal';
+	/**
+	 * A `Mid(x, ...) = ` statement rewrites characters of the value without
+	 * changing its length, so the length is still known and the characters are
+	 * not.
+	 */
+	contentMutated?: boolean;
+}
+
+/**
+ * The locals of a procedure whose value is plain from the text (issues #118
+ * and #119): a variable nothing ever assigns holds its default - 0 for a
+ * number, "" for a String - and one whose every assignment is the same
+ * literal holds that literal. Anything that could change it another way -
+ * passing it whole to a call (ByRef), a For counter, `Input #`/`Get #`/
+ * `Line Input #`, `Mid(x, ...) =`, ReDim, `Set` - drops it from the map, as
+ * does any assignment whose value is not a plain literal. Variant and object
+ * locals are left out: Empty and Nothing are not the values these rules ask
+ * about.
+ */
+export function knownLocalLiteralValues(
+	source: string,
+	proc: ProcedureNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
+): Map<string, KnownLocalValue> {
+	const procSym = procedureSymbolFor(symbols, proc);
+	// A Variant (or untyped) local has no kind until a literal gives it one;
+	// literals of two kinds, or none, leave it unknown (issue #121: `v = 5`
+	// then `v.Foo`).
+	const candidates = new Map<string, { kind: 'number' | 'string' | undefined; literals: Set<string>; mutated: boolean; contentMutated: boolean }>();
+	for (const child of procSym?.children ?? []) {
+		if (child.kind !== 'localVariable' || child.isArray || child.visibility === 'Static') {
+			continue;
+		}
+		const type = normalizeType(child.asType);
+		const kind = type === undefined || type === 'variant' ? undefined : isNumericType(type) ? 'number' : type === 'string' ? 'string' : 'other';
+		if (kind === 'other' || child.fixedLength !== undefined) {
+			continue;
+		}
+		candidates.set(child.name.toLowerCase(), { kind, literals: new Set(), mutated: false, contentMutated: false });
+	}
+	if (candidates.size === 0) {
+		return new Map();
+	}
+	const mutate = (lower: string | undefined): void => {
+		const entry = lower ? candidates.get(lower) : undefined;
+		if (entry) {
+			entry.mutated = true;
+		}
+	};
+	const visit = (body: readonly BodyNode[]): void => {
+		for (const node of body) {
+			if (activity?.isInactive(node.span)) {
+				continue;
+			}
+			if (node.kind === 'ForBlock') {
+				mutate(node.controlVariable?.toLowerCase());
+			}
+			if ('body' in node && Array.isArray(node.body)) {
+				visit(node.body as BodyNode[]);
+				continue;
+			}
+			if (!isLeafStatement(node)) {
+				continue;
+			}
+			for (const span of statementAndBranchSpans(node)) {
+				const toks = statementTokens(source, span);
+				const first = firstExecutableTokenIndex(toks);
+				const head = tokenText(toks[first]);
+				const bare = bareAssignmentTarget(source, span);
+				if (bare) {
+					const entry = candidates.get(bare.name.toLowerCase());
+					if (entry) {
+						const value = toks.slice(first + 2).filter((tok) => tok.kind !== 'comment');
+						const kind = entry.kind ?? (unwrapOuterParens(value)[0]?.kind === 'stringLiteral' ? 'string' : 'number');
+						const literal = plainLiteralText(value, kind);
+						if (literal === undefined || (entry.kind !== undefined && entry.kind !== kind)) {
+							entry.mutated = true;
+						} else {
+							entry.kind = kind;
+							entry.literals.add(literal);
+						}
+					}
+					continue;
+				}
+				if (head === 'set' || head === 'redim' || head === 'input' || head === 'get' || head === 'line' || head === 'erase') {
+					for (const tok of toks) {
+						mutate(tokenName(tok)?.toLowerCase());
+					}
+					continue;
+				}
+				if ((head === 'mid' || head === 'mid$') && toks[first + 1]?.rawText === '(') {
+					// `Mid(x, start, len) = value` rewrites characters of x and
+					// keeps its length; anything else named in it is read.
+					const target = candidates.get(tokenName(toks[first + 2])?.toLowerCase() ?? '');
+					if (target) {
+						target.contentMutated = true;
+					}
+					continue;
+				}
+				if (head === 'lset' || head === 'rset') {
+					for (const tok of toks) {
+						mutate(tokenName(tok)?.toLowerCase());
+					}
+					continue;
+				}
+				// A whole name passed to any call may be ByRef: `Take d`, `Take(d)`,
+				// `Call Take(d)`, `x = Take(d)`. Only a name standing alone in an
+				// argument slot counts; `Take(d + 1)` copies.
+				for (let i = 0; i < toks.length; i++) {
+					const name = tokenName(toks[i])?.toLowerCase();
+					if (!name || !candidates.has(name)) {
+						continue;
+					}
+					const prev = toks[i - 1];
+					const next = toks[i + 1];
+					const opensSlot = prev === undefined || prev.rawText === '(' || prev.rawText === ',' || prev.kind === 'identifier' || prev.kind === 'keyword';
+					const closesSlot = next === undefined || next.rawText === ')' || next.rawText === ',' || next.rawText === ':' || next.kind === 'comment';
+					if (opensSlot && closesSlot && !(prev?.kind === 'operator') && !(next?.kind === 'operator')) {
+						mutate(name);
+					}
+				}
+			}
+		}
+	};
+	visit(proc.body);
+	const out = new Map<string, KnownLocalValue>();
+	for (const [lower, entry] of candidates) {
+		if (entry.mutated || entry.kind === undefined) {
+			continue; // a Variant nothing assigned is Empty, not a known literal
+		}
+		const contentMutated = entry.contentMutated ? { contentMutated: true } : {};
+		if (entry.literals.size === 0) {
+			out.set(lower, { kind: entry.kind, value: entry.kind === 'number' ? 0 : '', origin: 'default', ...contentMutated });
+		} else if (entry.literals.size === 1) {
+			const [text] = entry.literals;
+			out.set(lower, {
+				kind: entry.kind,
+				value: entry.kind === 'number' ? Number(text) : text,
+				origin: 'literal',
+				...contentMutated,
+			});
+		}
+	}
+	return out;
+}
+
+/** The literal a plain `x = literal` assigns, as text, or undefined for any other value. */
+function plainLiteralText(value: VbaToken[], kind: 'number' | 'string'): string | undefined {
+	const toks = unwrapOuterParens(value);
+	if (kind === 'string') {
+		return toks.length === 1 && toks[0].kind === 'stringLiteral' ? stringLiteralValue(toks[0].rawText) : undefined;
+	}
+	let sign = 1;
+	let rest = toks;
+	if (rest[0]?.rawText === '-' || rest[0]?.rawText === '+') {
+		sign = rest[0].rawText === '-' ? -1 : 1;
+		rest = rest.slice(1);
+	}
+	if (rest.length !== 1) {
+		return undefined;
+	}
+	if (rest[0].kind === 'integerLiteral') {
+		const parsed = parseVbaIntegerLiteral(rest[0].rawText);
+		return parsed === undefined ? undefined : String(sign * parsed);
+	}
+	if (rest[0].kind === 'floatLiteral') {
+		const parsed = Number(rest[0].rawText.replace(/[!#@]$/, ''));
+		return Number.isFinite(parsed) ? String(sign * parsed) : undefined;
+	}
+	return undefined;
+}
+
 export function simpleTypeNameForAssignment(type: string): string | undefined {
 	const trimmed = type.replace(/\s*\(\s*\)\s*$/, '').trim();
 	return IDENT_RE.test(trimmed) ? trimmed : undefined;
@@ -2398,7 +2722,40 @@ export function objectAssignmentIncompatibilityReason(
 	if (actualObject.kind === 'project' && implementsObjectType(actualObject, expected)) {
 		return undefined;
 	}
+	// A Set between two class types is checked when it runs, by QueryInterface,
+	// so it compiles whenever the object could support the target (issue #109).
+	// The class an interface is implemented by can hold the interface's value
+	// (`Set c = o`, casting back), and two interfaces one class implements can
+	// hold each other's (`Set b = o`). Only project interfaces are known here.
+	if (expected.kind === 'project' && actualObject.kind === 'project'
+		&& projectTypesCanShareInstance(expected, actualObject, memberCtx)) {
+		return undefined;
+	}
 	return `This object type is not compatible with ${expected.display}.`;
+}
+
+/**
+ * Whether one project class can carry a value declared as the other: the
+ * expected class implements the actual type (a cast from an interface back to
+ * the class), or some project class implements both (a cast between two
+ * interfaces of one object).
+ */
+function projectTypesCanShareInstance(
+	expected: Extract<KnownObjectAssignmentType, { kind: 'project' }>,
+	actual: Extract<KnownObjectAssignmentType, { kind: 'project' }>,
+	memberCtx: MemberCompletionContext,
+): boolean {
+	if (implementsObjectType(expected, actual)) {
+		return true;
+	}
+	const wanted = new Set([expected.key, actual.key]);
+	for (const projectType of memberCtx.projectClassMembers ?? []) {
+		const implemented = new Set((projectType.implements ?? []).map((name) => name.toLowerCase()));
+		if ([...wanted].every((name) => implemented.has(name))) {
+			return true;
+		}
+	}
+	return false;
 }
 
 export function implementsObjectType(
