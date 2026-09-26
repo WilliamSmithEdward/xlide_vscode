@@ -43,6 +43,7 @@ import {
 	activeModuleMembers,
 	forEachStatement,
 	isInactiveNode,
+	rawExpressionTokens,
 	statementTokens,
 	statementTokensAfterLeadingLabel,
 	tokenName,
@@ -554,7 +555,7 @@ function forEachSourceTypeProblem(
 }
 
 function simpleForEachSourceName(sourceExpression: string): string | undefined {
-	const toks = statementTokens(sourceExpression, { start: 0, end: sourceExpression.length });
+	const toks = rawExpressionTokens(sourceExpression);
 	return toks.length === 1 ? tokenName(toks[0]) : undefined;
 }
 

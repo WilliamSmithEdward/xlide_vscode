@@ -486,6 +486,20 @@ function userTypeFieldSignature(symbol: VbaSymbol): string {
 	return `${symbol.name}${as}`;
 }
 
+/** The identifier-shaped words inside one module's string literals. */
+function stringLiteralWordsIn(source: string): ReadonlySet<string> {
+	const words = new Set<string>();
+	for (const token of tokenizeCached(source)) {
+		if (token.kind !== 'stringLiteral') {
+			continue;
+		}
+		for (const word of identifierWords(token.rawText)) {
+			words.add(word);
+		}
+	}
+	return words;
+}
+
 /** A project-wide symbol index built from a set of module sources. */
 export class ProjectIndex {
 	private readonly modules = new Map<string, ModuleSymbols>();
@@ -500,6 +514,13 @@ export class ProjectIndex {
 	private readonly moduleResolvedConstants = new Map<string, Map<string, number | undefined>>();
 	/** Lazily scanned per-module Implements lists, dropped on module change. */
 	private readonly moduleImplementsLists = new Map<string, string[]>();
+	/**
+	 * Identifier-shaped words inside each module's string literals, taken
+	 * from the token stream while it is still hot from the module's own
+	 * parse. The whole-project set unions these; re-tokenizing every module
+	 * for it was one full lex per module per project build (issue #139).
+	 */
+	private readonly moduleStringLiteralWords = new Map<string, ReadonlySet<string>>();
 	/** Whole-project query memo for the current index revision. */
 	private readonly queryCache = new Map<string, unknown>();
 
@@ -519,6 +540,7 @@ export class ProjectIndex {
 		const key = input.moduleName.toLowerCase();
 		this.modules.set(key, symbols);
 		this.moduleSources.set(key, input.source);
+		this.moduleStringLiteralWords.set(key, stringLiteralWordsIn(input.source));
 		if (input.implicitMembers !== undefined) {
 			this.moduleImplicitMembersByName.set(key, input.implicitMembers);
 		} else {
@@ -542,6 +564,7 @@ export class ProjectIndex {
 		const key = moduleName.toLowerCase();
 		this.modules.delete(key);
 		this.moduleSources.delete(key);
+		this.moduleStringLiteralWords.delete(key);
 		this.moduleImplicitMembersByName.delete(key);
 		this.modulePredeclaredIdByName.delete(key);
 		this.moduleDesignerClassByName.delete(key);
@@ -694,14 +717,9 @@ export class ProjectIndex {
 	stringLiteralWords(): ReadonlySet<string> {
 		return this.cached('stringLiteralWords', () => {
 			const words = new Set<string>();
-			for (const source of this.moduleSources.values()) {
-				for (const token of tokenizeCached(source)) {
-					if (token.kind !== 'stringLiteral') {
-						continue;
-					}
-					for (const word of identifierWords(token.rawText)) {
-						words.add(word);
-					}
+			for (const moduleWords of this.moduleStringLiteralWords.values()) {
+				for (const word of moduleWords) {
+					words.add(word);
 				}
 			}
 			return words;

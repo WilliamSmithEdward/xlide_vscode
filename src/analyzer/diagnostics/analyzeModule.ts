@@ -267,6 +267,7 @@ function diagnosticMemberCompletionContext(
 		withScanCache: new Map(),
 		receiverTypeCache: new Map(),
 		receiverChainCache: new Map(),
+		memberSurfaceCache: new Map(),
 	};
 	const meProjectType = meProjectTypeFor(opts.moduleName, opts.moduleKind);
 	if (meProjectType) {

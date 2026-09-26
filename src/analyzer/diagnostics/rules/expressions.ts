@@ -72,6 +72,7 @@ import {
 	bareAssignmentTarget,
 	firstExecutableTokenIndex,
 	matchParenFrom,
+	rawExpressionTokens,
 	statementTokens,
 	tokenName,
 	tokenText,
@@ -763,7 +764,7 @@ function divisionGuardRanges(
 					if (!branch.conditionRaw) {
 						return;
 					}
-					const condition = statementTokens(branch.conditionRaw, { start: 0, end: branch.conditionRaw.length });
+					const condition = rawExpressionTokens(branch.conditionRaw);
 					const names = divisionGuardNames(condition);
 					for (const name of names.nonZero) {
 						out.push({ name, start: branch.span.start, end: branch.span.end });

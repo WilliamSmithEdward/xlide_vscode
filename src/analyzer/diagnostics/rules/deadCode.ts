@@ -36,12 +36,11 @@ import type {
 import { isLeafStatement } from '../../parser/nodes';
 import { classifyReferenceKinds } from '../../references/referenceKinds';
 import type { ModuleSymbolKind } from '../../symbols/symbolModel';
-import { isProcedureKind } from '../../symbols/symbolModel';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { eventHandlerProcedureForName } from '../../completion/eventHandlers';
 import type { PushFn } from '../analysisContext';
-import { statementTokens } from '../analysisContext';
+import { procedureSymbolFor, statementTokens } from '../analysisContext';
 import {
 	activeModuleMembers,
 	declaredNameSpan,
@@ -407,7 +406,7 @@ function hasMemberAttribute(
 	if (proc.attributes && proc.attributes.length > 0) {
 		return true;
 	}
-	const symbol = symbols.all.find((s) => isProcedureKind(s.kind) && s.fullSpan.start === proc.span.start);
+	const symbol = procedureSymbolFor(symbols, proc);
 	if (symbol?.attributes && symbol.attributes.length > 0) {
 		return true;
 	}

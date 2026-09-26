@@ -459,12 +459,7 @@ function hasDefiniteMissingMember(
 	memberCtx: MemberCompletionContext,
 ): boolean {
 	const surface = resolveExhaustiveMemberSurface(source, dotEndOffset, memberCtx);
-	return (
-		surface !== undefined &&
-		!surface.members.some(
-			(candidate) => candidate.name.toLowerCase() === memberName.toLowerCase(),
-		)
-	);
+	return surface !== undefined && !surface.hasMember(memberName);
 }
 
 function unsetWithObjectReceiver(

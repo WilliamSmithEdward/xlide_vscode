@@ -27,6 +27,7 @@ import {
 	declaredNameSpan,
 	forEachVariableGroup,
 	isInactiveNode,
+	rawExpressionTokens,
 	statementTokensAfterLeadingLabel,
 	tokenName,
 	tokenText,
@@ -64,7 +65,7 @@ export function checkDeclarationForms(
 					if (item.valueRaw === undefined || isInactiveNode(activity, item)) {
 						continue;
 					}
-					const value = literalNumber(statementTokensAfterLeadingLabel(item.valueRaw, { start: 0, end: item.valueRaw.length }));
+					const value = literalNumber(rawExpressionTokens(item.valueRaw));
 					if (value !== undefined && (value < LONG_RANGE.min || value > LONG_RANGE.max)) {
 						push(
 							'constOverflow',
@@ -99,7 +100,7 @@ function checkParameter(source: string, param: ParameterNode, push: PushFn): voi
 	if (!bounds) {
 		return;
 	}
-	const value = literalNumber(statementTokensAfterLeadingLabel(param.defaultRaw, { start: 0, end: param.defaultRaw.length }));
+	const value = literalNumber(rawExpressionTokens(param.defaultRaw));
 	if (value === undefined) {
 		return;
 	}

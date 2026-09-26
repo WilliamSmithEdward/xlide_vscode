@@ -379,6 +379,12 @@ export function checkRaiseEventTargets(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
+	// The scan below lexes every physical line of every procedure, which is
+	// wasted on the great majority of modules that never raise an event
+	// (issue #139). A hit in a comment or string only means the scan runs.
+	if (!/raiseevent/i.test(source)) {
+		return;
+	}
 	const events = new Set<string>();
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'Event' && member.name) {

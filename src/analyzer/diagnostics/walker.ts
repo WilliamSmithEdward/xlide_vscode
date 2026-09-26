@@ -25,7 +25,7 @@ import { isLeafStatement } from '../parser/nodes';
 // shares one tokenization per statement.
 export { absoluteSpan, matchParenFrom, tokenWord as tokenText, tokenName } from '../lexer/tokenHelpers';
 export { statementTokens } from './analysisContext';
-import { tokenWord as tokenText, tokenName, absoluteSpan } from '../lexer/tokenHelpers';
+import { tokenWord as tokenText, tokenName, absoluteSpan, statementTokens as lexStatementTokens } from '../lexer/tokenHelpers';
 import { statementTokens } from './analysisContext';
 import { trackedLocalsNamedWhole } from './dataflow';
 
@@ -178,6 +178,19 @@ export function firstLineBreakAtOrAfter(source: string, start: number): number {
 		}
 	}
 	return -1;
+}
+
+/**
+ * Significant tokens of an expression the parser carried as its own string
+ * (an If condition, a For Each source, an Enum member value, a parameter
+ * default, a Const value). That text is not the module source, so it must
+ * not go through `statementTokens`: the statement cache is keyed by source
+ * string and holds two of them, and each distinct raw string sent there
+ * evicted the module, so the next ordinary statement re-lexed the whole
+ * module (issue #139, a 17x slowdown on real projects).
+ */
+export function rawExpressionTokens(text: string): VbaToken[] {
+	return lexStatementTokens(text, { start: 0, end: text.length });
 }
 
 export function statementTokensAfterLeadingLabel(source: string, span: Span): VbaToken[] {

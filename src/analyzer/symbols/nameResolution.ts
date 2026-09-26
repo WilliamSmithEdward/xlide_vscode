@@ -59,9 +59,8 @@ export function resolveBareIdentifierBinding(
 	}
 
 	const currentLower = input.currentModule.moduleName.toLowerCase();
-	const project = (input.projectVisibleSymbols ?? [])
+	const project = (projectSymbolsNamed(input.projectVisibleSymbols, lowerName))
 		.filter((symbol) => symbol.moduleName.toLowerCase() !== currentLower)
-		.filter((symbol) => symbol.name.toLowerCase() === lowerName)
 		.filter((symbol) => symbolAllowedInContext(symbol, input.context));
 	if (project.length > 0) {
 		return resolution(input, lowerName, ambiguousScope(project, 'project'), project);
@@ -95,6 +94,36 @@ export function localIdentifierMatches(
 		.filter((symbol) => isLocalIdentifierSymbol(symbol))
 		.filter((symbol) => symbol.name.toLowerCase() === lowerName));
 	return out;
+}
+
+// Per-pass index of the project-visible symbols by lowercased name. The
+// array is one immutable value per project revision, and every bare
+// reference in every module used to filter the whole of it (issue #139:
+// 7% of a large project's analysis in this one function).
+const PROJECT_MATCH_INDEXES = new WeakMap<readonly VbaSymbol[], Map<string, VbaSymbol[]>>();
+
+function projectSymbolsNamed(
+	symbols: readonly VbaSymbol[] | undefined,
+	lowerName: string,
+): readonly VbaSymbol[] {
+	if (!symbols || symbols.length === 0) {
+		return [];
+	}
+	let index = PROJECT_MATCH_INDEXES.get(symbols);
+	if (!index) {
+		index = new Map();
+		for (const symbol of symbols) {
+			const key = symbol.name.toLowerCase();
+			const bucket = index.get(key);
+			if (bucket) {
+				bucket.push(symbol);
+			} else {
+				index.set(key, [symbol]);
+			}
+		}
+		PROJECT_MATCH_INDEXES.set(symbols, index);
+	}
+	return index.get(lowerName) ?? [];
 }
 
 // Per-module index of module-level symbols (and enum members) by lowercased

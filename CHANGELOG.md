@@ -2,6 +2,39 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.13.0] - 2026-09-26
+
+Analysis of real projects is about 40 times faster than 10.12.0 and about
+twice as fast as 10.7.1 (#139). Measured on the pyVBAanalysis differential
+corpus: a 3 MB, 41-module set went from 99 s to 2.4 s, with identical
+findings on all 20 parts of the corpus, module by module.
+
+- **The regression** (#139). Five rules sent an expression string the
+  parser had carried on its own (an If condition, a For Each source, an
+  Enum member value, a parameter default, a Const value) through the
+  cached statement lexer. That cache is keyed by source string and holds
+  two, so each such string evicted the module and the next ordinary
+  statement re-lexed the whole module: once per procedure, quadratic in
+  module size. Those strings are lexed uncached now, and a test fails if
+  one analysis pass ever lexes a module twice.
+- **Extra full lexes removed**: the parser now takes the module's cached
+  token stream instead of lexing it again, the missing-library-reference
+  rule reads that stream instead of lexing the module a third time, and
+  the project index collects string-literal words per module at index
+  time instead of re-tokenizing every module of the project.
+- **Per-lookup scans indexed**: bare-identifier resolution over the
+  project-visible symbols, the module's procedure bindings for
+  receiver-chain roots, the unused-procedure rule's symbol lookup, and the
+  overflow rule's constant table, which folded every project and module
+  Const again for every procedure and now folds that layer once.
+- **Member surfaces**: a type's merged member list is built once per pass
+  and indexed by name, and the two member-not-found rules test the one
+  name they need instead of building a completion row for every member of
+  the type.
+- **Cheap guards**: the Call-statement helper checks the cached stream
+  before its raw lex, and the RaiseEvent rule skips modules whose text
+  never mentions RaiseEvent.
+
 ## [10.12.0] - 2026-09-26
 
 The forms engine now authors controls the way the MSForms designer does

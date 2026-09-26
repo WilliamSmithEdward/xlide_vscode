@@ -73,6 +73,21 @@ function isIdentPart(ch: string): boolean {
 const TOKENIZE_CACHE_MAX = 8;
 const tokenizeCache: { src: string; tokens: VbaToken[] }[] = [];
 
+// Test hook (issue #139): the lengths of the sources one pass lexed from
+// scratch. A module that shows up more than once was evicted mid-pass, which
+// is what a raw expression string sent to the cached statement lexer does.
+let tokenizeMissLog: number[] | undefined;
+
+export function startTokenizeMissLogForTests(): void {
+	tokenizeMissLog = [];
+}
+
+export function stopTokenizeMissLogForTests(): number[] {
+	const log = tokenizeMissLog ?? [];
+	tokenizeMissLog = undefined;
+	return log;
+}
+
 /** Cached variant of {@link tokenize} for read-only consumers on hot paths. */
 export function tokenizeCached(src: string): VbaToken[] {
 	for (let i = 0; i < tokenizeCache.length; i += 1) {
@@ -88,6 +103,7 @@ export function tokenizeCached(src: string): VbaToken[] {
 			return hit.tokens;
 		}
 	}
+	tokenizeMissLog?.push(src.length);
 	const tokens = tokenize(src);
 	tokenizeCache.unshift({ src, tokens });
 	if (tokenizeCache.length > TOKENIZE_CACHE_MAX) {

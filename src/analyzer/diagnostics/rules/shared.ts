@@ -8,9 +8,9 @@
 
 import { bareCallStatementTarget as callStatementTarget } from '../../call/callContext';
 import {
-	type MemberCompletion,
+	type ExhaustiveMemberSurface,
 	type MemberCompletionContext,
-	resolveMemberSurfaceAt,
+	resolveExhaustiveMemberSurfaceAt,
 } from '../../completion/memberAccess';
 import {
 	collectConditionalDirectives,
@@ -46,12 +46,8 @@ export function resolveExhaustiveMemberSurface(
 	source: string,
 	dotEndOffset: number,
 	memberCtx: MemberCompletionContext,
-): { owner: string; members: MemberCompletion[] } | undefined {
-	const surface = resolveMemberSurfaceAt(source, dotEndOffset, memberCtx);
-	if (!surface?.exhaustive) {
-		return undefined;
-	}
-	return { owner: surface.owner, members: surface.members };
+): ExhaustiveMemberSurface | undefined {
+	return resolveExhaustiveMemberSurfaceAt(source, dotEndOffset, memberCtx);
 }
 
 const PROCEDURE_BODY_MODULE_DECLARATION_MODIFIERS = new Set(['public', 'private', 'friend', 'global']);

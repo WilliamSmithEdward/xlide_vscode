@@ -30,7 +30,7 @@
 //     a later phase.
 
 import { VbaToken } from '../lexer/tokenKinds';
-import { tokenize } from '../lexer/tokenize';
+import { tokenizeCached } from '../lexer/tokenize';
 import {
 	matchParenFrom,
 	splitTopLevelTokenGroups,
@@ -159,7 +159,7 @@ export function parseModule(source: string): ModuleNode {
 			return hit.module;
 		}
 	}
-	const module = new Parser(source, tokenize(source)).parse();
+	const module = new Parser(source, tokenizeCached(source)).parse();
 	parseCache.unshift({ source, module });
 	if (parseCache.length > PARSE_CACHE_MAX) {
 		parseCache.pop();

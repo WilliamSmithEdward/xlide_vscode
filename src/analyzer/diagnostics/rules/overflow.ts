@@ -45,6 +45,7 @@ import {
 	forEachVariableGroup,
 	matchParenFrom,
 	statementAndBranchSpans,
+	rawExpressionTokens,
 	statementTokens,
 	statementTokensAfterLeadingLabel,
 	tokenName,
@@ -454,51 +455,65 @@ function numericTypeOf(asType: string | undefined): NumericType | undefined {
  * type: `Private Const HOURS As Integer = 24` is an Integer 24, and
  * `Const K = 40000` a Long. A Const the folder cannot fold is left out.
  */
+/**
+ * Folded values of the Consts in `candidates`, layered over `base`: a name
+ * declared in both takes the candidate's value (a procedure's own Const wins
+ * over the module's), and a candidate's value may refer to a base constant.
+ * The module and project layer is folded once per pass and each procedure
+ * adds only its own Consts on top; folding the whole project's constants
+ * again for every procedure was 15% of a large module's analysis (issue #139).
+ */
 function constantLookup(
-	symbols: ReturnType<typeof buildModuleSymbols>,
-	proc: ProcedureNode | undefined,
-	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
-): Map<string, Typed> {
-	const out = new Map<string, Typed>();
-	const candidates: VbaSymbol[] = [
-		...(projectVisibleSymbols ?? []),
-		...(symbols.root.children ?? []),
-		...(proc ? procedureSymbolFor(symbols, proc)?.children ?? [] : []),
-	];
-	// Later entries shadow earlier ones: the procedure's own Consts win.
+	base: ReadonlyMap<string, Typed>,
+	candidates: readonly VbaSymbol[],
+): ReadonlyMap<string, Typed> {
 	const pending = new Map<string, VbaSymbol>();
 	for (const symbol of candidates) {
 		if (symbol.kind === 'constant' && symbol.defaultRaw !== undefined) {
 			pending.set(symbol.name.toLowerCase(), symbol);
 		}
 	}
+	if (pending.size === 0) {
+		return base;
+	}
+	const folded = new Map<string, Typed>();
 	const resolving = new Set<string>();
 	const resolve = (lower: string): Typed | undefined => {
-		if (out.has(lower)) {
-			return out.get(lower);
-		}
 		const symbol = pending.get(lower);
-		if (!symbol || resolving.has(lower)) {
+		if (!symbol) {
+			return base.get(lower);
+		}
+		if (folded.has(lower)) {
+			return folded.get(lower);
+		}
+		if (resolving.has(lower)) {
 			return undefined;
 		}
 		resolving.add(lower);
-		const toks = statementTokens(symbol.defaultRaw!, { start: 0, end: symbol.defaultRaw!.length })
+		const toks = rawExpressionTokens(symbol.defaultRaw!)
 			.filter((tok) => tok.kind !== 'comment');
-		const folded = new TypedFolder(toks, 0, resolve).fold();
+		const value = new TypedFolder(toks, 0, resolve).fold();
 		resolving.delete(lower);
-		if (folded === undefined || isOverflow(folded)) {
+		if (value === undefined || isOverflow(value)) {
 			return undefined;
 		}
 		const declared = numericTypeOf(symbol.asType);
-		const typed: Typed = declared ? { value: folded.value, type: declared } : folded;
-		if (declared && !inRange(bankersRound(folded.value), declared)) {
+		const typed: Typed = declared ? { value: value.value, type: declared } : value;
+		if (declared && !inRange(bankersRound(value.value), declared)) {
 			return undefined;
 		}
-		out.set(lower, typed);
+		folded.set(lower, typed);
 		return typed;
 	};
+	const out = new Map<string, Typed>(base);
 	for (const lower of pending.keys()) {
-		resolve(lower);
+		const typed = resolve(lower);
+		// A candidate that did not fold still shadows the base name.
+		if (typed) {
+			out.set(lower, typed);
+		} else {
+			out.delete(lower);
+		}
 	}
 	return out;
 }
@@ -528,14 +543,17 @@ export function checkOverflow(
 	push: PushFn,
 ): void {
 	// Module-level Consts: a folded overflow is the compile error.
-	const moduleConstants = constantLookup(symbols, undefined, projectVisibleSymbols);
+	const moduleConstants = constantLookup(
+		new Map(),
+		[...(projectVisibleSymbols ?? []), ...(symbols.root.children ?? [])],
+	);
 	checkConstDeclarations(source, mod.members.filter((m): m is VariableGroupNode => m.kind === 'VariableGroup'), moduleConstants, activity, push);
 	const hostValues = hostConstantValues(hostModel);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		const constants = constantLookup(symbols, member, projectVisibleSymbols);
+		const constants = constantLookup(moduleConstants, procedureSymbolFor(symbols, member)?.children ?? []);
 		const env = typeEnvironmentFor(symbols, member);
 		const known = knownLocalLiteralValues(source, member, symbols, activity);
 		// Values a straight run of top-level statements has just stored:

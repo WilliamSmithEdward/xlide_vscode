@@ -261,6 +261,12 @@ export function explicitCallStatementArgumentListWithoutParens(
 	source: string,
 	span: VbaTextSpan,
 ): ExplicitCallStatementArgumentList | undefined {
+	// Only a `Call` statement is worth the raw lex below; the cached stream
+	// answers that for the other statements (issue #139).
+	const cachedToks = statementTokensCached(source, span);
+	if (tokenWord(cachedToks[leadingLineNumberTokenCount(cachedToks)]) !== 'call') {
+		return undefined;
+	}
 	// Raw on purpose: the trailing-comment scan below needs the comment
 	// tokens the cached statement stream strips.
 	const rawToks = tokenize(source.slice(span.start, span.end)).filter(

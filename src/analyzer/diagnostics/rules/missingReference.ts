@@ -23,7 +23,8 @@
 
 import type { HostObjectModel } from '../../host/excelObjectModel';
 import { HOST_LIBRARY_NAMES } from '../../host/hostLibraries';
-import { statementTokens, tokenName } from '../../lexer/tokenHelpers';
+import { tokenName } from '../../lexer/tokenHelpers';
+import { tokenizeCached } from '../../lexer/tokenize';
 import type { Span } from '../../parser/nodes';
 import type { PushFn } from '../analysisContext';
 
@@ -56,7 +57,9 @@ function librariesInModel(model: HostObjectModel | undefined): Set<string> {
  * not a match: late binding names nothing the compiler has to resolve.
  */
 function qualifiedNamesIn(source: string): Array<{ library: string; span: Span }> {
-	const toks = statementTokens(source, { start: 0, end: source.length });
+	// The pass has the module's token stream already; a second full lex of
+	// the module here was 2% of a large project's analysis (issue #139).
+	const toks = tokenizeCached(source).filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
 	const out: Array<{ library: string; span: Span }> = [];
 	for (let i = 0; i < toks.length - 2; i++) {
 		const library = tokenName(toks[i]);

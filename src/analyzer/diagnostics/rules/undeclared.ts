@@ -99,15 +99,7 @@ export function checkMemberNotFound(
 				ref.dotEndOffset,
 				memberCtx,
 			);
-			if (!surface) {
-				continue;
-			}
-			if (
-				surface.members.some(
-					(candidate) =>
-						candidate.name.toLowerCase() === ref.member.toLowerCase(),
-				)
-			) {
+			if (!surface || surface.hasMember(ref.member)) {
 				continue;
 			}
 			push(

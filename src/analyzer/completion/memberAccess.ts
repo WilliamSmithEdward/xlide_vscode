@@ -118,6 +118,14 @@ export interface MemberCompletionContext {
 	receiverTypeCache?: Map<string, string | undefined>;
 	/** Receiver chains already collected, keyed by the dot token's offset (issue #135). */
 	receiverChainCache?: Map<number, ReceiverChain>;
+	/**
+	 * Member surfaces already built for one analysis pass, keyed by type name
+	 * (issue #139). A surface merges the host, project and control member
+	 * lists of its type, and a large module asks for the same few types
+	 * thousands of times. Valid for as long as the model and project members
+	 * on this context are: one source, one pass.
+	 */
+	memberSurfaceCache?: Map<string, MemberSurface | undefined>;
 }
 
 /** A single member-completion result. */
@@ -254,8 +262,7 @@ export function resolveMemberCompletionNamed(
 	if (!hit) {
 		return undefined;
 	}
-	const lowerName = memberName.toLowerCase();
-	const mem = hit.surface.members.find((m) => m.name.toLowerCase() === lowerName);
+	const mem = surfaceMemberNamed(hit.surface, memberName);
 	return mem
 		? completionFromSurfaceMember(hit.currentType, hit.surface, mem, ctx)
 		: undefined;
@@ -482,6 +489,57 @@ export function resolveMemberSurfaceAt(
 			completionFromSurfaceMember(currentType, surface, mem, ctx),
 		),
 	};
+}
+
+/** An exhaustive surface reduced to what a member-existence check needs. */
+export interface ExhaustiveMemberSurface {
+	owner: string;
+	hasMember: (memberName: string) => boolean;
+}
+
+/**
+ * The member surface of the receiver ending at `offset` when the surface can
+ * prove a member absent, without building a completion row for every member
+ * (issue #139). The member-not-found rules ask this for every dot in a
+ * module and only ever test one name against it.
+ */
+export function resolveExhaustiveMemberSurfaceAt(
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext = {},
+): ExhaustiveMemberSurface | undefined {
+	const currentType = resolveReceiverTypeAt(source, offset, ctx);
+	if (!currentType) {
+		return undefined;
+	}
+	const surface = memberSurfaceForType(currentType, ctx);
+	if (!surface?.exhaustive) {
+		return undefined;
+	}
+	return {
+		owner: surface.owner,
+		hasMember: (memberName) => surfaceMemberNamed(surface, memberName) !== undefined,
+	};
+}
+
+// A surface's members are looked up by name once per reference, and a host
+// type has hundreds of them; index each surface the first time it is asked.
+const SURFACE_MEMBERS_BY_NAME = new WeakMap<MemberSurface, Map<string, CompletionMemberSource>>();
+
+function surfaceMemberNamed(surface: MemberSurface, memberName: string): CompletionMemberSource | undefined {
+	let byName = SURFACE_MEMBERS_BY_NAME.get(surface);
+	if (!byName) {
+		byName = new Map();
+		// First occurrence wins, as the linear `find` it replaces did.
+		for (const member of surface.members) {
+			const key = member.name.toLowerCase();
+			if (!byName.has(key)) {
+				byName.set(key, member);
+			}
+		}
+		SURFACE_MEMBERS_BY_NAME.set(surface, byName);
+	}
+	return byName.get(memberName.toLowerCase());
 }
 
 function completionFromSurfaceMember(
@@ -1316,6 +1374,22 @@ function memberSurfaceForType(
 	typeName: string,
 	ctx: MemberCompletionContext,
 ): MemberSurface | undefined {
+	const cache = ctx.memberSurfaceCache;
+	if (!cache) {
+		return computeMemberSurfaceForType(typeName, ctx);
+	}
+	if (cache.has(typeName)) {
+		return cache.get(typeName);
+	}
+	const surface = computeMemberSurfaceForType(typeName, ctx);
+	cache.set(typeName, surface);
+	return surface;
+}
+
+function computeMemberSurfaceForType(
+	typeName: string,
+	ctx: MemberCompletionContext,
+): MemberSurface | undefined {
 	const union = parseUnionTypeKey(typeName);
 	if (union) {
 		const surfaces = union
@@ -2021,18 +2095,36 @@ function findDeclaredBinding(
  * only Let/Set, yields nothing readable - but it still shadows the global, so
  * it binds with no type rather than letting the host answer for it.
  */
+// Every receiver-chain root asks for a procedure by name, and a large module
+// has hundreds of them; index each module once (issue #139). The AST is
+// immutable, so the index lives as long as the module node does.
+const MODULE_PROCEDURE_BINDINGS = new WeakMap<ModuleNode, Map<string, DeclaredBinding>>();
+
 function moduleProcedureBinding(module: ModuleNode, lower: string): DeclaredBinding | undefined {
-	let shadow: DeclaredBinding | undefined;
-	for (const mem of module.members) {
-		if (mem.kind !== 'Procedure' || mem.name.toLowerCase() !== lower) {
-			continue;
+	let index = MODULE_PROCEDURE_BINDINGS.get(module);
+	if (!index) {
+		index = new Map();
+		// The first Function or Property Get of a name decides its binding; a
+		// Sub or Let/Set only marks the name as a procedure.
+		const decided = new Set<string>();
+		for (const mem of module.members) {
+			if (mem.kind !== 'Procedure') {
+				continue;
+			}
+			const key = mem.name.toLowerCase();
+			if (decided.has(key)) {
+				continue;
+			}
+			if (mem.procKind === 'Function' || mem.procKind === 'PropertyGet') {
+				index.set(key, mem.returnType ? { asType: mem.returnType } : {});
+				decided.add(key);
+			} else if (!index.has(key)) {
+				index.set(key, {});
+			}
 		}
-		if (mem.procKind === 'Function' || mem.procKind === 'PropertyGet') {
-			return mem.returnType ? { asType: mem.returnType } : {};
-		}
-		shadow = {};
+		MODULE_PROCEDURE_BINDINGS.set(module, index);
 	}
-	return shadow;
+	return index.get(lower);
 }
 
 /** Searches a procedure body (recursing into block nodes) for a declaration. */
