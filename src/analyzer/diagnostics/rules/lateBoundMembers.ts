@@ -55,13 +55,15 @@ export function checkRuntimeMemberNotFound(
 			continue;
 		}
 		const env = typeEnvironmentFor(symbols, member);
-		const lateBound = new Set<string>();
-		for (const [lower, type] of env) {
-			const normalized = normalizeType(type);
-			if (normalized === 'object' || normalized === 'variant' || normalized === undefined) {
-				lateBound.add(lower);
+		// Asked only for the target of a Set: walking the whole environment
+		// for every procedure was 5% of a large module's pass (issue #139).
+		const isLateBound = (lower: string): boolean => {
+			if (!env.has(lower)) {
+				return false;
 			}
-		}
+			const normalized = normalizeType(env.get(lower));
+			return normalized === 'object' || normalized === 'variant' || normalized === undefined;
+		};
 		const held = new Map<string, KnownClass>();
 		for (const node of member.body) {
 			if (activity?.isInactive(node.span)) {
@@ -84,7 +86,7 @@ export function checkRuntimeMemberNotFound(
 			}
 			checkStatement(source, node.span.start, toks, held, applicationSurface, memberCtx, push);
 			const set = setAssignmentTarget(source, node.span);
-			if (set && lateBound.has(set.name.toLowerCase())) {
+			if (set && isLateBound(set.name.toLowerCase())) {
 				const lower = set.name.toLowerCase();
 				const value = toks.slice(toks.findIndex((tok) => tok.rawText === '=') + 1);
 				const known = value.length === 2 && tokenText(value[0]) === 'new' ? knownClassNamed(tokenName(value[1]), memberCtx) : undefined;

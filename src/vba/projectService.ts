@@ -136,6 +136,13 @@ export interface ModuleEntry {
 	documentType?: DocumentType;
 	source?: string;
 	/**
+	 * Document modules only: whether the module body holds anything beyond
+	 * its attribute header and blank lines. Every sheet of a workbook has a
+	 * module once the VBA project exists, most of them empty, and the tree
+	 * files an empty one with the sheets that have no module at all.
+	 */
+	hasCode?: boolean;
+	/**
 	 * A form's designer-declared controls, read natively from the designer
 	 * storage inside vbaProject.bin, or an Access design's named sections and
 	 * controls. Present only where the designer parsed cleanly; absent means
@@ -274,6 +281,9 @@ function moduleEntry(module: VbaModule): ModuleEntry {
 	if (type === 'document') {
 		const documentType = classifyDocumentType(module.name, module.sourceHeader);
 		if (documentType) { entry.documentType = documentType; }
+		// Sheet modules are small, so reading the body here is cheap; it is
+		// what lets the tree tell an empty sheet module from one with code.
+		entry.hasCode = splitVbaSource(module.source).body.trim().length > 0;
 	}
 	const folder = folderOfModule(module);
 	if (folder) { entry.folder = folder; }

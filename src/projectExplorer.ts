@@ -73,6 +73,8 @@ export interface XlideNode {
     documentType?: string;
     /** module only: the sheet the module stands for, when the workbook lists it; the row is named for it. */
     sheetName?: string;
+    /** document module only: false when the module holds nothing beyond its header, which files its sheet with the bare ones. */
+    hasCode?: boolean;
     /**
      * shapes only: a module's Shapes folder, a sheet row's Shapes folder
      * (surface), a presentation's Slides, a workbook's Sheets, or the folder
@@ -1224,12 +1226,14 @@ export class ProjectExplorer implements vscode.TreeDataProvider<XlideNode>, vsco
                             ...(m.documentType ? { documentType: m.documentType } : {}),
                             ...(m.filePath ? { moduleFilePath: m.filePath } : {}),
                             ...(folder ? { folder } : {}),
+                            ...(m.hasCode !== undefined ? { hasCode: m.hasCode } : {}),
                         };
                         if (populateNodeMap) {
                             this._moduleNodes.set(key, node);
                         }
                     } else {
                         node.folder = folder;
+                        node.hasCode = m.hasCode;
                     }
                     return node;
                 });
@@ -1429,6 +1433,7 @@ interface ModuleListing {
     documentType?: string;
     filePath?: string;
     folder?: string;
+    hasCode?: boolean;
 }
 
 /** Whether ShapeRows draws the row. */

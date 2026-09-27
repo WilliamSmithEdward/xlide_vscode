@@ -24,7 +24,7 @@ vi.mock('vscode', async () => (await import('./helpers/vscodeMock')).vscodeMock(
 
 import { ProjectExplorer, type XlideNode } from '../src/projectExplorer';
 import { ProjectEngine } from '../src/projectEngine';
-import { editShape, listShapes } from '../src/vba/projectService';
+import { editShape, listShapes, writeModule } from '../src/vba/projectService';
 
 // The sheet and shape rows, drawn from files the applications saved and read
 // by the real engine: where each host's sheets and shapes hang, what each
@@ -52,6 +52,20 @@ afterEach(() => {
 async function projectOf(fixture: string, as = fixture): Promise<XlideNode> {
     const file = path.join(dir, as);
     fs.copyFileSync(path.join(FIXTURES, fixture), file);
+    vscodeMock.findFiles.mockResolvedValue([{ scheme: 'file', fsPath: file }]);
+    const [project] = await explorer.getChildren();
+    return project;
+}
+
+/**
+ * The project row of a copy of a fixture whose Sheet1 module has code. The
+ * fixtures' sheet modules are empty, as Excel leaves them, and an empty one
+ * is filed with the bare sheets; these tests are about a sheet WITH code.
+ */
+async function projectWithCode(fixture: string): Promise<XlideNode> {
+    const file = path.join(dir, fixture);
+    fs.copyFileSync(path.join(FIXTURES, fixture), file);
+    writeModule(file, 'Sheet1', 'Sub Ping()\nEnd Sub\n');
     vscodeMock.findFiles.mockResolvedValue([{ scheme: 'file', fsPath: file }]);
     const [project] = await explorer.getChildren();
     return project;
@@ -86,13 +100,13 @@ describe('a workbook\'s sheets in the explorer', () => {
     });
 
     it('list every sheet in tab order: the module for one that has it, named for its sheet, the sheet itself for one with shapes, and the rest in a folder at the end', async () => {
-        const project = await projectOf('SheetsFixture.xlsm');
+        const project = await projectWithCode('SheetsFixture.xlsm');
         const { sheets, rows } = await sheetsOf(project);
 
         expect(rows.map(say)).toEqual([
             'Sheet1 (Budget) | document | module-document',
             'Drawn | shapeSurface-add',
-            'Sheets With No Modules or Shapes | 3 sheets | shapeFolder',
+            'Sheets With No Code or Shapes | 3 sheets | shapeFolder',
         ]);
         const [budget, drawn, bare] = rows;
         expect(budget).toMatchObject({ kind: 'module', moduleName: 'Sheet1', sheetName: 'Budget' });
@@ -108,7 +122,7 @@ describe('a workbook\'s sheets in the explorer', () => {
     });
 
     it('draw a Shapes folder under a sheet only when it has shapes', async () => {
-        const project = await projectOf('SheetsFixture.xlsm');
+        const project = await projectWithCode('SheetsFixture.xlsm');
         const { rows: [budget, drawn] } = await sheetsOf(project);
 
         // Budget has a module and no shapes: its procedures, and no folder.
@@ -127,14 +141,13 @@ describe('a workbook\'s sheets in the explorer', () => {
         const project = await projectOf(`SheetsFixture.${extension}`);
         const { rows } = await sheetsOf(project);
 
-        expect(rows.map(say)).toEqual([
-            'Sheet1 (Budget) | document | module-document',
-            'Sheets With No Modules or Shapes | 4 sheets | shapeFolder',
-        ]);
-        const rest = await explorer.getChildren(rows[1]);
+        // Budget's module is empty in the fixture, so it is filed with the
+        // bare sheets, first in tab order and still a module row.
+        expect(rows.map(say)).toEqual(['Sheets With No Code or Shapes | 5 sheets | shapeFolder']);
+        const rest = await explorer.getChildren(rows[0]);
         // No shape tools for the format: nothing to add from a row.
-        expect(rest.map(say)).toEqual(['Drawn | shapeSurface', 'Trend | chart sheet | shapeSurface', 'Later | shapeSurface', 'Hidden | hidden | shapeSurface']);
-        expect((await explorer.getChildren(rows[0])).some((row) => row.kind === 'shapes')).toBe(false);
+        expect(rest.map(say)).toEqual(['Sheet1 (Budget) | document | module-document', 'Drawn | shapeSurface', 'Trend | chart sheet | shapeSurface', 'Later | shapeSurface', 'Hidden | hidden | shapeSurface']);
+        expect((await explorer.getChildren(rest[0])).some((row) => row.kind === 'shapes')).toBe(false);
     });
 
     it('hang a worksheet\'s shapes under its module, above its procedures', async () => {
@@ -198,7 +211,7 @@ describe('a workbook\'s sheets in the explorer', () => {
 
     it('draw the Sheets folder again after XLIDE\'s own shape edit, which can move a sheet between its rows', async () => {
         const file = path.join(dir, 'SheetsFixture.xlsm');
-        const project = await projectOf('SheetsFixture.xlsm');
+        const project = await projectWithCode('SheetsFixture.xlsm');
         const { sheets, rows } = await sheetsOf(project);
         const bare = rows[2];
         expect((await explorer.getChildren(bare)).map((row) => row.label)).toEqual(['Trend', 'Later', 'Hidden']);
@@ -209,7 +222,7 @@ describe('a workbook\'s sheets in the explorer', () => {
 
         expect(vscodeMock.fired).toContain(sheets);
         const again = await explorer.getChildren(sheets);
-        expect(again.map((row) => row.label)).toEqual(['Sheet1 (Budget)', 'Drawn', 'Later', 'Sheets With No Modules or Shapes']);
+        expect(again.map((row) => row.label)).toEqual(['Sheet1 (Budget)', 'Drawn', 'Later', 'Sheets With No Code or Shapes']);
         expect((await explorer.getChildren(again[3])).map((row) => row.label)).toEqual(['Trend', 'Hidden']);
     });
 
@@ -290,5 +303,35 @@ describe('shapes in the explorer', () => {
         const [folder] = await explorer.getChildren(sheet2);
         const listed = listShapes(path.join(dir, 'ShapesFixture.xlsm'), 'Sheet2').surfaces[0].shapes.map((s) => s.name);
         expect((await explorer.getChildren(folder)).map((s) => s.label)).toEqual(listed);
+    });
+});
+
+describe('a sheet whose module holds no code', () => {
+    // Every sheet has a module once the VBA project exists, and nearly all of
+    // them are empty; the folder at the end is for those too, and the row
+    // there is still the module, so it opens.
+    it('sits in the folder at the end as its module row, unless it has shapes', async () => {
+        const file = path.join(dir, 'Blank.xlsm');
+        fs.copyFileSync(path.join(FIXTURES, 'SheetsFixture.xlsm'), file);
+        writeModule(file, 'Sheet1', '');
+        vscodeMock.findFiles.mockResolvedValue([{ scheme: 'file', fsPath: file }]);
+        const [project] = await explorer.getChildren();
+        const { sheets, rows } = await sheetsOf(project);
+
+        expect(rows.map(say)).toEqual([
+            'Drawn | shapeSurface-add',
+            'Sheets With No Code or Shapes | 4 sheets | shapeFolder',
+        ]);
+        const bare = rows[1];
+        const rest = await explorer.getChildren(bare);
+        expect(rest.map(say)).toEqual([
+            'Sheet1 (Budget) | document | module-document',
+            'Trend | chart sheet | shapeSurface',
+            'Later | shapeSurface-add',
+            'Hidden | hidden | shapeSurface-add',
+        ]);
+        expect(rest[0]).toMatchObject({ kind: 'module', moduleName: 'Sheet1', sheetName: 'Budget', hasCode: false });
+        expect(explorer.getParent(rest[0])).toBe(bare);
+        expect(explorer.getParent(bare)).toBe(sheets);
     });
 });

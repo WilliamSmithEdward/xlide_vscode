@@ -4,7 +4,7 @@
 // order. A sheet with a module is its module row, named the way the VBE
 // names it: `Sheet1 (Budget)`. A sheet with shapes and no module is a row of
 // its own. The sheets with neither sit last, in a folder of their own,
-// Sheets With No Modules or Shapes. A sheet's shapes are a Shapes folder
+// Sheets With No Code or Shapes. A sheet's shapes are a Shapes folder
 // under its row, drawn only when it has one or more. Word's shapes belong to
 // the document, so they are a Shapes folder under ThisDocument, one row per
 // story (the body, a header, a footer). A PowerPoint slide is no module at
@@ -88,7 +88,7 @@ export interface ShapeRowContext {
 
 /** The label of the folder that leads a workbook's rows, and of the one that ends its sheets. */
 export const SHEETS_FOLDER_LABEL = 'Sheets';
-export const BARE_SHEETS_FOLDER_LABEL = 'Sheets With No Modules or Shapes';
+export const BARE_SHEETS_FOLDER_LABEL = 'Sheets With No Code or Shapes';
 
 type ShapeFolderKind = NonNullable<XlideNode['shapeFolder']>;
 
@@ -126,8 +126,8 @@ export class ShapeRows {
 	private readonly contexts = new WeakMap<XlideNode, ShapeRowContext>();
 	/** The workbook sheet a sheet row stands for. */
 	private readonly sheetOfRow = new WeakMap<XlideNode, WorkbookSheet>();
-	/** The sheets a Sheets With No Modules or Shapes folder holds, decided when its parent was drawn. */
-	private readonly bareSheets = new WeakMap<XlideNode, WorkbookSheet[]>();
+	/** The rows under a workbook's folder of bare sheets: module rows for empty sheet modules, sheet rows for sheets with none. */
+	private readonly bareRows = new WeakMap<XlideNode, XlideNode[]>();
 	private generation = 0;
 
 	constructor(
@@ -289,7 +289,7 @@ export class ShapeRows {
 			return this.sheetRows(node, await modulesOf());
 		}
 		if (node.shapeFolder === 'bareSheets') {
-			return (this.bareSheets.get(node) ?? []).map((sheet) => this.sheetRow(node, sheet, undefined));
+			return this.bareRows.get(node) ?? [];
 		}
 		const host = shapeHostForPath(node.filePath);
 		if (!host) { return []; }
@@ -371,8 +371,9 @@ export class ShapeRows {
 				} else if (node.shapeFolder === 'bareSheets') {
 					item.contextValue = 'shapeFolder';
 					item.description = node.itemCount === 1 ? '1 sheet' : `${node.itemCount ?? 0} sheets`;
-					item.tooltip = 'Sheets with no module in the VBA project and no shapes. Excel gives a sheet its'
-						+ ' module once the VBA editor is opened after the sheet was added.';
+					item.tooltip = 'Sheets with no code and no shapes: a sheet whose module is empty, and a sheet'
+						+ ' with no module yet. Excel gives a sheet its module once the VBA editor is opened'
+						+ ' after the sheet was added.';
 				} else {
 					item.contextValue = 'shapeFolder-add';
 					item.tooltip = shapeHostForPath(node.filePath) === 'word'
@@ -518,28 +519,39 @@ export class ShapeRows {
 			if (module.kind === 'module' && module.moduleName) { byName.set(module.moduleName.toLowerCase(), module); }
 		}
 		const rows: XlideNode[] = [];
-		const bare: WorkbookSheet[] = [];
+		// Filled as the sheets are met, in tab order, and drawn under the
+		// folder at the end. Every sheet has a module once the VBA project
+		// exists, nearly all of them empty, so an empty module goes here with
+		// the sheets that have none: its row still opens the module.
+		const bare: Array<{ sheet: WorkbookSheet; module?: XlideNode }> = [];
 		for (const sheet of catalog) {
 			const module = sheet.codeName ? byName.get(sheet.codeName.toLowerCase()) : undefined;
-			if (module) {
+			const surface = surfaces.find((s) => s.surface === sheet.name);
+			const hasShapes = surface !== undefined && surface.shapes.length > 0;
+			if (module && (module.hasCode !== false || hasShapes)) {
 				// Named here as well: a Sheets folder drawn again on its own,
 				// after a sheet was renamed, shows the new name.
 				this.placeModuleRow(module, sheet, folder);
 				rows.push(module);
 				continue;
 			}
-			const surface = surfaces.find((s) => s.surface === sheet.name);
-			if (surface && surface.shapes.length > 0) {
+			if (!module && hasShapes) {
 				rows.push(this.sheetRow(folder, sheet, surface));
 			} else {
-				bare.push(sheet);
+				bare.push({ sheet, module });
 			}
 		}
 		if (bare.length > 0) {
 			const none = this.folder(folder.filePath, 'bareSheets', BARE_SHEETS_FOLDER_LABEL);
 			none.itemCount = bare.length;
 			this.parents.set(none, folder);
-			this.bareSheets.set(none, bare);
+			this.bareRows.set(none, bare.map(({ sheet, module }) => {
+				if (module) {
+					this.placeModuleRow(module, sheet, none);
+					return module;
+				}
+				return this.sheetRow(none, sheet, undefined);
+			}));
 			rows.push(none);
 		}
 		return rows;
@@ -578,7 +590,7 @@ export class ShapeRows {
 
 	/**
 	 * A sheet's own row, for a sheet with no module: with its shapes, under
-	 * Sheets; with none, under Sheets With No Modules or Shapes. A worksheet
+	 * Sheets; with none, under Sheets With No Code or Shapes. A worksheet
 	 * the shape tools can write takes a new shape from its row.
 	 */
 	private sheetRow(parent: XlideNode, sheet: WorkbookSheet, surface: ShapeSurface | undefined): XlideNode {

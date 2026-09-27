@@ -2,6 +2,56 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.14.0] - 2026-09-27
+
+Nine analyzer issues (#140 to #148), each re-measured in Excel 16.0 (build
+20326) through pyVBAharness before the change; the project tree's Sheets
+folder; and a third round of analysis speed.
+
+- **A variable named `constructor`** (#148) no longer throws in the parser.
+  The keyword table was a plain object, so the lookup found
+  Object.prototype.constructor; it has no prototype now.
+- **Collection state follows `Set o = c`** (#147): the two names share one
+  collection, so an Add through either is seen by both, and a key added
+  twice through the two names reports 457. A Set into a holder the rule does
+  not track ends tracking of the value.
+- **File statements** (#146): Reset and a bare Close mark every open file
+  closed, so a Print after either reports 52; a label or a call to a
+  procedure clears what is known, an error handler's Print included; hex and
+  octal file numbers key by value, so `#&H1` is `#1`.
+- **Overflow folding** (#145) uses VBA's operator precedence, highest first:
+  `^`, unary minus, `*` and `/`, `\`, `Mod`, `+` and `-`. So
+  `32000 \ 2 * 4` folds as `32000 \ 8` and `1 Mod 200 * 200` is reported. A
+  For whose body can leave through Exit For, Exit Sub, GoTo or End is not
+  reported as a counter overflow.
+- **Implements** (#144): a string default such as `", "` or `")"` is one
+  parameter in the interface member's signature, and a read-write interface
+  property (a Public variable, or a Get with a Let or Set) needs both
+  accessors, as Excel demands.
+- **Print lists after Then, Else or a line number** (#143) are no longer
+  reported as stray semicolons.
+- **Err.Raise takes any negative Long** (#142): `vbObjectError + 513`,
+  `-1000` and an HRESULT Const run; 0 and 65536 still report. The Error
+  statement keeps 1 to 65535. `On Error GoTo -1` installs no handler, so the
+  Resume Next after it reports 20.
+- **Hex literals are signed by their width** (#141): `&H8000` is -32768 and
+  `&H80000000` is -2147483648 at the one shared reader, so Win32 flag Enums
+  and hex Optional defaults no longer report Overflow.
+- **One-line If tails** (#140): `If c Is Nothing Then Set c = New Collection`
+  and `If r Is Nothing Then Set r = ws.Range("A1:P36")` are judged as a
+  condition plus a branch statement, `Set cols(1) = c` is an assignment, and
+  a name after AddressOf is not a value.
+- **Sheets With No Code or Shapes**: the folder at the end of a workbook's
+  Sheets now takes a sheet whose module is empty as well as one with no
+  module. Every sheet has a module once the VBA project exists, nearly all
+  of them empty, so the folder never appeared; the row there is still the
+  module, and opens it.
+- **Speed**: a procedure's type environment, declaration shapes, constant
+  table and name scope are layered over the module's instead of copied for
+  every procedure, and the late-bound member rule asks about a Set target
+  instead of walking the whole environment. The 41-module benchmark set
+  went from 2.4 s to 2.1 s with identical findings.
+
 ## [10.13.0] - 2026-09-26
 
 Analysis of real projects is about 40 times faster than 10.12.0 and about

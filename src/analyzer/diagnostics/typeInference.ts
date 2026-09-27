@@ -242,11 +242,11 @@ export function isByRefProcedureParam(param: { byRef?: boolean; byVal?: boolean;
 // used to rebuild these for each procedure it visited.
 const TYPE_ENVIRONMENTS = new WeakMap<
 	ReturnType<typeof buildModuleSymbols>,
-	WeakMap<ProcedureNode, Map<string, string>>
+	WeakMap<ProcedureNode, ReadonlyMap<string, string>>
 >();
 const DECLARATION_SHAPE_ENVIRONMENTS = new WeakMap<
 	ReturnType<typeof buildModuleSymbols>,
-	WeakMap<ProcedureNode, Map<string, DeclaredValueShape>>
+	WeakMap<ProcedureNode, ReadonlyMap<string, DeclaredValueShape>>
 >();
 const SOURCE_NAME_SCOPES = new WeakMap<
 	ReturnType<typeof buildModuleSymbols>,
@@ -266,6 +266,121 @@ function perProcedureCache<V>(
 		store.set(symbols, byProc);
 	}
 	return byProc;
+}
+
+/**
+ * A procedure's view of a module-level table: the procedure's own entries
+ * over the module's, read through without copying. The per-procedure
+ * environments used to copy the whole module table for every procedure,
+ * which on a module with a thousand procedures and hundreds of module-level
+ * names was 6% of the analysis pass in four places (issue #139). Iteration
+ * yields the module entries the overlay does not shadow, then the overlay.
+ */
+class LayeredMap<V> implements ReadonlyMap<string, V> {
+	constructor(
+		private readonly base: ReadonlyMap<string, V>,
+		private readonly overlay: ReadonlyMap<string, V>,
+	) {}
+
+	get(key: string): V | undefined {
+		return this.overlay.has(key) ? this.overlay.get(key) : this.base.get(key);
+	}
+
+	has(key: string): boolean {
+		return this.overlay.has(key) || this.base.has(key);
+	}
+
+	get size(): number {
+		let shadowed = 0;
+		for (const key of this.overlay.keys()) {
+			if (this.base.has(key)) {
+				shadowed++;
+			}
+		}
+		return this.base.size + this.overlay.size - shadowed;
+	}
+
+	*entries(): MapIterator<[string, V]> {
+		for (const entry of this.base.entries()) {
+			if (!this.overlay.has(entry[0])) {
+				yield entry;
+			}
+		}
+		yield* this.overlay.entries();
+	}
+
+	*keys(): MapIterator<string> {
+		for (const [key] of this.entries()) {
+			yield key;
+		}
+	}
+
+	*values(): MapIterator<V> {
+		for (const [, value] of this.entries()) {
+			yield value;
+		}
+	}
+
+	forEach(callback: (value: V, key: string, map: ReadonlyMap<string, V>) => void, thisArg?: unknown): void {
+		for (const [key, value] of this.entries()) {
+			callback.call(thisArg, value, key, this);
+		}
+	}
+
+	[Symbol.iterator](): MapIterator<[string, V]> {
+		return this.entries();
+	}
+}
+
+/** The set counterpart of {@link LayeredMap}: a procedure's names over the module's. */
+class LayeredSet implements ReadonlySet<string> {
+	constructor(
+		private readonly base: ReadonlySet<string> | ReadonlyMap<string, unknown>,
+		private readonly overlay: ReadonlySet<string>,
+	) {}
+
+	has(key: string): boolean {
+		return this.overlay.has(key) || this.base.has(key);
+	}
+
+	get size(): number {
+		let shadowed = 0;
+		for (const key of this.overlay) {
+			if (this.base.has(key)) {
+				shadowed++;
+			}
+		}
+		return this.base.size + this.overlay.size - shadowed;
+	}
+
+	*keys(): SetIterator<string> {
+		for (const key of this.base.keys()) {
+			if (!this.overlay.has(key)) {
+				yield key;
+			}
+		}
+		yield* this.overlay;
+	}
+
+	values(): SetIterator<string> {
+		return this.keys();
+	}
+
+	*entries(): SetIterator<[string, string]> {
+		for (const key of this.keys()) {
+			yield [key, key];
+		}
+	}
+
+	forEach(callback: (value: string, key: string, set: ReadonlySet<string>) => void, thisArg?: unknown): void {
+		for (const key of this.keys()) {
+			callback.call(thisArg, key, key, this);
+		}
+	}
+
+	[Symbol.iterator](): SetIterator<string> {
+		return this.keys();
+	}
 }
 
 // Module-level portion of the type environment, cached per symbols instance:
@@ -293,23 +408,24 @@ function typeEnvModuleBase(symbols: ReturnType<typeof buildModuleSymbols>): Map<
 export function typeEnvironmentFor(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	proc: ProcedureNode,
-): Map<string, string> {
+): ReadonlyMap<string, string> {
 	const cache = perProcedureCache(TYPE_ENVIRONMENTS, symbols);
 	const cached = cache.get(proc);
 	if (cached) {
 		return cached;
 	}
-	const out = new Map(typeEnvModuleBase(symbols));
+	const own = new Map<string, string>();
 	const procSym = procedureSymbolFor(symbols, proc);
 	const returnType = returnAssignmentTypeFor(proc);
 	if (returnType) {
-		out.set(proc.name.toLowerCase(), returnType);
+		own.set(proc.name.toLowerCase(), returnType);
 	}
 	for (const child of procSym?.children ?? []) {
 		if (child.asType) {
-			out.set(child.name.toLowerCase(), child.asType);
+			own.set(child.name.toLowerCase(), child.asType);
 		}
 	}
+	const out = new LayeredMap(typeEnvModuleBase(symbols), own);
 	cache.set(proc, out);
 	return out;
 }
@@ -351,17 +467,17 @@ function declarationShapeModuleBase(
 export function declarationShapeEnvironmentFor(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	proc: ProcedureNode,
-): Map<string, DeclaredValueShape> {
+): ReadonlyMap<string, DeclaredValueShape> {
 	const cache = perProcedureCache(DECLARATION_SHAPE_ENVIRONMENTS, symbols);
 	const cached = cache.get(proc);
 	if (cached) {
 		return cached;
 	}
-	const out = new Map(declarationShapeModuleBase(symbols));
+	const own = new Map<string, DeclaredValueShape>();
 	const procSym = procedureSymbolFor(symbols, proc);
 	const returnType = returnAssignmentTypeFor(proc);
 	if (returnType) {
-		out.set(proc.name.toLowerCase(), {
+		own.set(proc.name.toLowerCase(), {
 			asType: returnType,
 			isArray: returnAssignmentIsArray(proc),
 			isFixedArray: false,
@@ -369,13 +485,14 @@ export function declarationShapeEnvironmentFor(
 	}
 	for (const child of procSym?.children ?? []) {
 		if (isValueDeclarationSymbol(child)) {
-			out.set(child.name.toLowerCase(), {
+			own.set(child.name.toLowerCase(), {
 				asType: child.asType,
 				isArray: child.isArray === true,
 				isFixedArray: child.arrayBounds !== undefined,
 			});
 		}
 	}
+	const out = new LayeredMap(declarationShapeModuleBase(symbols), own);
 	cache.set(proc, out);
 	return out;
 }
@@ -553,7 +670,7 @@ export function sourceNameScopeFor(
 	if (cached && cached.projectVisibleSymbols === projectVisibleSymbols) {
 		return cached.result;
 	}
-	const callableShadows = new Set(moduleNonCallableSymbols(symbols).keys());
+	const own = new Set<string>();
 	const procSym = procedureSymbolFor(symbols, proc);
 	const runtimeShadows = sourceIdentifierNames({
 		currentModule: symbols,
@@ -563,9 +680,10 @@ export function sourceNameScopeFor(
 	for (const child of procSym?.children ?? []) {
 		const lower = child.name.toLowerCase();
 		if (isNonCallableSymbol(child)) {
-			callableShadows.add(lower);
+			own.add(lower);
 		}
 	}
+	const callableShadows = new LayeredSet(moduleNonCallableSymbols(symbols), own);
 	const result: SourceNameScope = { callableShadows, runtimeShadows };
 	cache.set(proc, { projectVisibleSymbols, result });
 	return result;
@@ -615,10 +733,10 @@ export function procedureIntegerConstantLookup(
 	activity: ConditionalActivityTracker | undefined,
 	model?: HostObjectModel,
 ): IntegerConstantLookup {
-	const procedureConstants = new Map(moduleConstants);
-	collectBodyLiteralIntegerConstants(member.body, procedureConstants, activity);
+	const own = new Map<string, number | undefined>();
+	collectBodyLiteralIntegerConstants(member.body, own, activity);
 	return scopedIntegerConstantLookup(
-		procedureConstants,
+		own.size === 0 ? moduleConstants : new LayeredMap(moduleConstants, own),
 		symbols,
 		procedureSymbolFor(symbols, member),
 		projectVisibleSymbols,

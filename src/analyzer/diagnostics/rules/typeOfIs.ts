@@ -87,7 +87,7 @@ export function checkTypeOfIsCompatibility(
 
 function checkTypeOfIs(
 	expr: TypeOfIsExpr,
-	env: Map<string, string>,
+	env: ReadonlyMap<string, string>,
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
@@ -193,7 +193,7 @@ export function checkIsOperatorOperands(
 /** Describes a provably non-object (scalar) operand of `Is`, or undefined. */
 function nonObjectOperand(
 	expr: ExprNode,
-	env: Map<string, string>,
+	env: ReadonlyMap<string, string>,
 ): { span: Span; detail: string } | undefined {
 	if (expr.exprKind === 'LiteralExpr') {
 		const k = expr.literalKind;
