@@ -78,3 +78,31 @@ describe('Set with a literal, Rem after Then and literal forms (issue #125)', ()
 		expectDiagnostic(src, diags, 'unknown-call', { span: 'Foo', message: 'not module' });
 	});
 });
+
+describe('one-line If tails, indexed Set targets and AddressOf (issue #140)', () => {
+	// Measured in Excel 16.0 (build 20326, 2026-09-26): the module compiles
+	// and Main returns 577.
+	it('stays quiet on the lazy-initialization idiom and Set into an array element', () => {
+		const src =
+			'Option Explicit\nPrivate mItems As Collection\n\n' +
+			'Public Sub TimerProc()\nEnd Sub\n\n' +
+			'Private Function Pointer(ByVal p As LongPtr) As LongPtr\n    Pointer = p\nEnd Function\n\n' +
+			'Function Main() As Long\n' +
+			'    Dim cols(1 To 2) As Collection, c As Collection, d As Collection, p As LongPtr\n' +
+			'    If mItems Is Nothing Then Set mItems = New Collection\n' +
+			'    Set d = New Collection\n    d.Add 5\n' +
+			'    If d.Count > 5 Then Set c = New Collection Else Set c = d\n' +
+			'    Set cols(1) = c\n' +
+			'    p = Pointer(AddressOf TimerProc)\n' +
+			'    Main = mItems.Count + cols(1).Count\n' +
+			'End Function\n';
+		const diags = analyzeModule(src);
+		expect(byCode(diags, 'collection-operand')).toHaveLength(0);
+		expect(byCode(diags, 'sub-used-as-value')).toHaveLength(0);
+	});
+
+	it('still judges the condition of a one-line If', () => {
+		const src = wrap('Dim c As New Collection', 'If c = 1 Then Main = 2');
+		expectDiagnostic(src, analyzeModule(src), 'collection-operand', { span: 'c' });
+	});
+});

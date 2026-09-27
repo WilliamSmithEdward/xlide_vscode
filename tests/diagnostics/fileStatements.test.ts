@@ -138,3 +138,41 @@ describe('file-record-zero (issue #123)', () => {
 		]);
 	});
 });
+
+describe('Reset, procedure calls, error handlers and hex numbers (issue #146)', () => {
+	// Measured in Excel 16.0 (build 20326, 2026-09-26): the whole module runs
+	// and returns 2; the two short forms raise 52 every time.
+	it('stays quiet on a module that reopens after Reset, a closing helper and a handler', () => {
+		const src =
+			'Option Explicit\n' +
+			'Private Sub CloseAll()\n    Close\nEnd Sub\n\n' +
+			'Function Main() As Long\n' +
+			'    Dim p As String\n' +
+			'    p = Environ$("TEMP") & "\\xlide_files.txt"\n' +
+			'    Open p For Output As #1\n    Reset\n' +
+			'    Open p For Output As #1\n    CloseAll\n' +
+			'    Open p For Output As #1\n    Close #1\n' +
+			'    Open p For Output As #&H1\n    Open p & "2" For Output As #&H2\n    Close #&H1, #&H2\n' +
+			'    Main = Logged(p)\nEnd Function\n\n' +
+			'Private Function Logged(ByVal p As String) As Long\n' +
+			'    On Error GoTo Failed\n' +
+			'    Open p For Output As #1\n    Print #1, "start"\n' +
+			'    Err.Raise 1000, "Logged", "stop"\n    Close #1\n    Logged = 1\n    Exit Function\n' +
+			'Failed:\n    Print #1, "failed: " & Err.Description\n    Close #1\n    Logged = 2\nEnd Function\n';
+		const diags = analyzeModule(src);
+		expect(byCode(diags, 'file-already-open')).toHaveLength(0);
+		expect(byCode(diags, 'file-used-after-close')).toHaveLength(0);
+	});
+
+	it('reports a Print after Reset and after a hex Close (error 52)', () => {
+		const reset = wrap('Open "x.txt" For Output As #1', 'Reset', 'Print #1, "x"');
+		expectDiagnostic(reset, analyzeModule(reset), 'file-used-after-close', { severity: 'error', span: '1', message: '#1' });
+		const hex = wrap('Open "x.txt" For Output As #3', 'Close #&H3', 'Print #3, "x"');
+		expectDiagnostic(hex, analyzeModule(hex), 'file-used-after-close', { severity: 'error', span: '3', message: '#3' });
+	});
+
+	it('keys a hex file number as its value', () => {
+		const src = wrap('Open "x.txt" For Output As #&H1', 'Open "y.txt" For Output As #1');
+		expectDiagnostic(src, analyzeModule(src), 'file-already-open', { message: '#1 is still open' });
+	});
+});

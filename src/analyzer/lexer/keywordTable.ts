@@ -166,7 +166,12 @@ export const RESERVED_IDENTIFIERS: ReadonlySet<string> = new Set(
 );
 
 function buildKeywordMap(): Record<string, string> {
-	const map: Record<string, string> = {};
+	// No prototype: the table is indexed by whatever lower-cased word the
+	// source contains, and on a plain object `constructor` found
+	// Object.prototype.constructor, so `Dim constructor As Long` handed the
+	// lexer a function as the token's canonical text and the parser threw
+	// (issue #148).
+	const map: Record<string, string> = Object.create(null);
 	const add = (word: string): void => {
 		const key = word.toLowerCase();
 		// Reserved-identifier casing wins over contextual casing on conflict, but

@@ -94,3 +94,24 @@ describe('duplicate-deftype and bracketed-variable-name (issue #124)', () => {
 		expect(byCode(analyzeModule(quiet), 'bracketed-variable-name')).toHaveLength(0);
 	});
 });
+
+describe('hex literals are signed by their width (issue #141)', () => {
+	// Measured in Excel 16.0 (build 20326, 2026-09-26): the module compiles
+	// and Main returns "-1073741824 -1 -32769"; &H10000 as an Integer default
+	// is a compile error, Overflow.
+	it('stays quiet on Win32 flag Enums and hex Optional defaults', () => {
+		const src =
+			'Option Explicit\n' +
+			'Private Enum FileAccessFlags\n    GENERIC_READ = &H80000000\n    GENERIC_WRITE = &H40000000\n    ALL_BITS = &HFFFFFFFF\nEnd Enum\n' +
+			'Private Function Mask(Optional ByVal m As Long = &HFFFFFFFF, Optional ByVal i As Integer = &H8000) As Double\n    Mask = CDbl(m) + i\nEnd Function\n' +
+			'Function Main() As String\n    Main = (GENERIC_READ Or GENERIC_WRITE) & " " & ALL_BITS & " " & Mask()\nEnd Function\n';
+		const diags = analyzeModule(src);
+		expect(byCode(diags, 'const-overflow')).toHaveLength(0);
+		expect(byCode(diags, 'parameter-default-type-mismatch')).toHaveLength(0);
+	});
+
+	it('still reports a five-digit hex default on an Integer', () => {
+		const src = 'Option Explicit\nPrivate Function Mask(Optional ByVal i As Integer = &H10000) As Long\n    Mask = i\nEnd Function\n' + MAIN;
+		expectDiagnostic(src, analyzeModule(src), 'parameter-default-type-mismatch', { span: '&H10000', message: 'Overflow' });
+	});
+});

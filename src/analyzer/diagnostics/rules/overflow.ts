@@ -133,23 +133,9 @@ function literalTyped(tok: VbaToken): Typed | undefined {
 		if (suffix === '^') {
 			return undefined; // LongLong is not modelled here
 		}
-		if (/^&[hHoO]/.test(raw)) {
-			// A hex or octal literal of four hex digits (or fewer) is an Integer
-			// with 16-bit wraparound: &H8000 is -32768, &HFFFF is -1.
-			const digits = raw.replace(/^&[hHoO]/, '').replace(/[%&^]$/, '');
-			const isHex = /^&[hH]/.test(raw);
-			const fits16 = isHex ? digits.length <= 4 : value <= 0xFFFF;
-			if (fits16 && value > 32767) {
-				return { value: value - 65536, type: 'integer' };
-			}
-			if (fits16) {
-				return { value, type: 'integer' };
-			}
-			if (value > 2147483647 && value <= 0xFFFFFFFF) {
-				return { value: value - 4294967296, type: 'long' };
-			}
-			return { value, type: 'long' };
-		}
+		// A hex or octal literal arrives already signed by its width
+		// (parseVbaIntegerLiteral, issue #141): &H8000 is -32768 and an
+		// Integer, &H80000000 is -2147483648 and a Long.
 		if (inRange(value, 'integer')) {
 			return { value, type: 'integer' };
 		}
@@ -220,23 +206,47 @@ class TypedFolder {
 		return left;
 	}
 
-	private multiplicative(): Folded {
+	// MS-VBAL 5.6.9 arithmetic precedence, highest first: ^, unary minus,
+	// * and /, \, Mod, + and -. Folding *, /, \, Mod and ^ at one level read
+	// `32000 \ 2 * 4` as 16000 * 4 and reported an overflow on code that
+	// runs, and missed `1 Mod 200 * 200`, which does overflow (issue #145).
+	private leftAssociative(operators: readonly string[], left: () => Folded, right: () => Folded = left): Folded {
 		const start = this.index;
-		let left = this.unary();
-		while (left !== undefined && !isOverflow(left)) {
+		let value = left();
+		while (value !== undefined && !isOverflow(value)) {
 			const op = this.toks[this.index];
-			const word = op ? tokenText(op) : '';
-			if (!op || !(op.rawText === '*' || op.rawText === '/' || op.rawText === '\\' || word === 'mod' || op.rawText === '^')) {
+			if (!op) {
+				break;
+			}
+			const word = op.kind === 'operator' ? op.rawText : tokenText(op);
+			if (!operators.includes(word)) {
 				break;
 			}
 			this.index++;
-			const right = this.unary();
-			if (right === undefined || isOverflow(right)) {
-				return right;
+			const operand = right();
+			if (operand === undefined || isOverflow(operand)) {
+				return operand;
 			}
-			left = this.combine(left, right, op.rawText === '^' ? '^' : word === 'mod' ? 'mod' : op.rawText, start, this.index - 1);
+			value = this.combine(value, operand, word, start, this.index - 1);
 		}
-		return left;
+		return value;
+	}
+
+	private multiplicative(): Folded {
+		return this.leftAssociative(['mod'], () => this.integerDivision());
+	}
+
+	private integerDivision(): Folded {
+		return this.leftAssociative(['\\'], () => this.product());
+	}
+
+	private product(): Folded {
+		return this.leftAssociative(['*', '/'], () => this.unary());
+	}
+
+	/** `a ^ b` binds above unary minus (`-2 ^ 2` is -4); the exponent may carry its own sign. */
+	private power(): Folded {
+		return this.leftAssociative(['^'], () => this.primary(), () => this.unary());
 	}
 
 	private unary(): Folded {
@@ -257,7 +267,7 @@ class TypedFolder {
 			}
 			return { value, type: operand.type };
 		}
-		return this.primary();
+		return this.power();
 	}
 
 	private primary(): Folded {
@@ -737,6 +747,41 @@ function checkStatement(
  * last value before the exit test, and the increment overflows (measured:
  * `To 32767` raises, `To 32766` runs; `For b = 0 To 255` raises for a Byte).
  */
+/**
+ * True when a statement in the loop's body can leave the loop before the
+ * counter passes its type: `Exit For` (not one belonging to a nested For),
+ * `Exit Sub`/`Function`/`Property`, `GoTo`, or `End` (issue #145). Such a
+ * loop's overflow is not proved, so it is not reported.
+ */
+function bodyMayLeaveLoop(source: string, body: readonly BodyNode[]): boolean {
+	const LEAVES = new Set(['for', 'sub', 'function', 'property']);
+	const visit = (nodes: readonly BodyNode[], insideNestedFor: boolean): boolean => {
+		for (const node of nodes) {
+			if (isLeafStatement(node)) {
+				const toks = statementTokensAfterLeadingLabel(source, node.span);
+				for (let i = 0; i < toks.length; i++) {
+					const word = tokenText(toks[i]);
+					if (word === 'goto' || (word === 'end' && toks.length === 1)) {
+						return true;
+					}
+					if (word === 'exit') {
+						const target = tokenText(toks[i + 1]);
+						if (LEAVES.has(target) && (target !== 'for' || !insideNestedFor)) {
+							return true;
+						}
+					}
+				}
+			} else if ('body' in node && Array.isArray(node.body)) {
+				if (visit(node.body as BodyNode[], insideNestedFor || node.kind === 'ForBlock')) {
+					return true;
+				}
+			}
+		}
+		return false;
+	};
+	return visit(body, false);
+}
+
 function checkForCounter(
 	source: string,
 	node: ForBlockNode,
@@ -784,7 +829,7 @@ function checkForCounter(
 	}
 	const range = RANGES[type];
 	const overflows = stepValue.value > 0 ? last + stepValue.value > range.max : last + stepValue.value < range.min;
-	if (!overflows) {
+	if (!overflows || bodyMayLeaveLoop(source, node.body)) {
 		return;
 	}
 	push(

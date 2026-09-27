@@ -201,9 +201,17 @@ function runtimeStatementValueHits(
 	if (numberIndex > 0) {
 		const group = numberArgumentGroup(toks, numberIndex);
 		const value = group ? integerGroupValue(source, span, group, constants) : undefined;
-		if (value !== undefined && (value < 1 || value > 65535)) {
+		// Err.Raise takes 1 to 65535 or any negative Long: `vbObjectError +
+		// 513` and an HRESULT such as &H80004002 are how a class raises its
+		// own errors (issue #142, measured). The Error statement takes only
+		// 1 to 65535.
+		const invalid = form === 'Err.Raise'
+			? value !== undefined && (value === 0 || value > 65535 || value < -2147483648)
+			: value !== undefined && (value < 1 || value > 65535);
+		if (invalid) {
+			const valid = form === 'Err.Raise' ? '1 to 65535, or a negative Long such as vbObjectError + n' : '1 to 65535';
 			out.push({
-				message: `${form} ${value} is not an error number: valid numbers are 1 to 65535. This will raise Run-time error '5': Invalid procedure call or argument.`,
+				message: `${form} ${value} is not an error number: valid numbers are ${valid}. This will raise Run-time error '5': Invalid procedure call or argument.`,
 				span: { start: span.start + group![0].start, end: span.start + group![group!.length - 1].end },
 			});
 		}

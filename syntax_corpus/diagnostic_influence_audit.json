@@ -667,7 +667,10 @@
         "runtime_arg_module_qualified_enum_zero_mid_start_runtime",
         "runtime_arg_module_qualified_enum_one_mid_start_runtime",
         "runtime_arg_cross_module_const_private_helper_negative_left_length_runtime",
-        "runtime_arg_cross_module_const_private_helper_zero_left_length_runtime"
+        "runtime_arg_cross_module_const_private_helper_zero_left_length_runtime",
+        "issue142_c_runtime",
+        "issue142_d_runtime",
+        "issue142_f_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -1399,7 +1402,8 @@
         "optional_long_nonnumeric_string_default_compile",
         "optional_string_string_default_compile",
         "optional_boolean_true_default_compile",
-        "optional_boolean_nonnumeric_string_default_compile"
+        "optional_boolean_nonnumeric_string_default_compile",
+        "issue141_b_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
@@ -2043,7 +2047,9 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #123): 1 asserted case from the issue's measured corpus",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "issue123_c_runtime"
+        "issue123_c_runtime",
+        "issue146_b_runtime",
+        "issue146_c_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2105,7 +2111,8 @@
         "issue116_x_runtime",
         "issue116_y_runtime",
         "issue116_z_runtime",
-        "issue116_za_runtime"
+        "issue116_za_runtime",
+        "issue145_b_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2134,7 +2141,8 @@
       "assertedOracleCases": [
         "issue116_l_runtime",
         "issue116_m_runtime",
-        "issue116_n_runtime"
+        "issue116_n_runtime",
+        "issue145_c_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2187,7 +2195,8 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #125): 1 asserted case from the issue's measured corpus",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "issue125_c_compile"
+        "issue125_c_compile",
+        "issue144_b_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2341,7 +2350,8 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #121): 1 asserted case from the issue's measured corpus",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "issue121_e_runtime"
+        "issue121_e_runtime",
+        "issue147_b_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2410,7 +2420,8 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #117): 1 asserted case from the issue's measured corpus",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "issue117_b_runtime"
+        "issue117_b_runtime",
+        "issue142_b_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

@@ -93,3 +93,43 @@ describe('collection-key-not-found and collection-key-in-use (issue #121)', () =
 		expect(byCode(analyzeModule(src), DUP)).toHaveLength(0);
 	});
 });
+
+describe('collection state follows Set o = c (issue #147)', () => {
+	// Measured in Excel 16.0 (build 20326, 2026-09-26): Main returns 3.
+	it('sees an Add through the alias on the original', () => {
+		const src = wrap(
+			'Dim c As Collection, o As Collection',
+			'Set c = New Collection',
+			'Set o = c',
+			'o.Add 1, "k"',
+			'o.Add 2',
+			'Main = c("k") + c(2)',
+		);
+		const diags = analyzeModule(src);
+		expect(byCode(diags, KEY)).toHaveLength(0);
+		expect(byCode(diags, INDEX)).toHaveLength(0);
+	});
+
+	it('reports a key added twice through the two names (error 457)', () => {
+		const src = wrap(
+			'Dim c As Collection, o As Collection',
+			'Set c = New Collection',
+			'Set o = c',
+			'o.Add 1, "k"',
+			'c.Add 2, "k"',
+			'Main = c.Count',
+		);
+		expectDiagnostic(src, analyzeModule(src), DUP, { severity: 'error', span: '"k"', message: "'457'" });
+	});
+
+	it('stops following a collection handed to an untracked holder', () => {
+		const src = wrap(
+			'Dim c As Collection, v As Object',
+			'Set c = New Collection',
+			'Set v = c',
+			'v.Add 1',
+			'Main = c(1)',
+		);
+		expect(byCode(analyzeModule(src), INDEX)).toHaveLength(0);
+	});
+});

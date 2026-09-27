@@ -146,3 +146,61 @@ describe('arithmetic-overflow - assignments and conversions (issue #116)', () =>
 		expectDiagnostic(src, analyzeModule(src), ARITHMETIC, { span: 'CInt(40000)' });
 	});
 });
+
+describe('operator precedence and Exit For (issue #145)', () => {
+	// Measured in Excel 16.0 (build 20326, 2026-09-26): the module returns
+	// 88030; `1 Mod 200 * 200` raises 6 because the product comes first.
+	it('folds \\, Mod and ^ at their own levels', () => {
+		const src =
+			'Option Explicit\n' +
+			'Private Const K1 As Long = 32000 \\ 2 * 4\n' +
+			'Private Const K2 As Double = 200 * 200 ^ 1\n\n' +
+			'Function Main() As Double\n' +
+			'    Dim n As Long, d As Double\n' +
+			'    n = 32000 \\ 2 * 4\n' +
+			'    d = 200 * 200 ^ 1\n' +
+			'    Main = K1 + K2 + n + d\n' +
+			'End Function\n';
+		const diags = analyzeModule(src);
+		expect(byCode(diags, CONST)).toHaveLength(0);
+		expect(byCode(diags, ARITHMETIC)).toHaveLength(0);
+	});
+
+	it('reports the product inside a Mod', () => {
+		const src = wrap('Dim n As Long', 'n = 1 Mod 200 * 200', 'Main = n');
+		expectDiagnostic(src, analyzeModule(src), ARITHMETIC, { message: '200 (Integer) * 200 (Integer) is 40000' });
+	});
+
+	it('binds ^ above unary minus', () => {
+		// -2 ^ 2 is -4: no negation overflow story, and the Double result is in range.
+		const src = wrap('Dim d As Double', 'd = -2 ^ 2', 'Main = d');
+		expect(byCode(analyzeModule(src), ARITHMETIC)).toHaveLength(0);
+	});
+
+	it('does not report a counter whose loop leaves through Exit For', () => {
+		const src = wrap(
+			'Dim b As Byte, i As Integer',
+			'For b = 0 To 255',
+			'    If b = 10 Then Exit For',
+			'Next b',
+			'For i = 1 To 32767',
+			'    If i = 20 Then Exit For',
+			'Next i',
+			'Main = b + i',
+		);
+		expect(byCode(analyzeModule(src), COUNTER)).toHaveLength(0);
+	});
+
+	it('still reports the counter when only a nested loop exits', () => {
+		const src = wrap(
+			'Dim b As Byte, j As Long',
+			'For b = 0 To 255',
+			'    For j = 1 To 3',
+			'        Exit For',
+			'    Next j',
+			'Next b',
+			'Main = b',
+		);
+		expectDiagnostic(src, analyzeModule(src), COUNTER, { span: '255' });
+	});
+});

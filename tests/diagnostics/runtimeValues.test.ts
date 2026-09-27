@@ -116,3 +116,29 @@ describe('runtime-conversion-value - error 13 conversions (issue #118)', () => {
 		expect(byCode(analyzeModule(src), CONV)).toHaveLength(0);
 	});
 });
+
+describe('Err.Raise takes negative numbers, Error does not (issue #142)', () => {
+	// Measured in Excel 16.0 (build 20326, 2026-09-26): Err.Raise raises
+	// -2147220991, -1000 and the &H80004002 HRESULT (Excel maps it to 430);
+	// 0 and 65536 raise 5. Error -1 raises 5, Error 65535 raises 65535.
+	it('stays quiet on vbObjectError + n, a negative literal and a hex HRESULT Const', () => {
+		const src =
+			'Option Explicit\nPrivate Const E_NOINTERFACE As Long = &H80004002\n' +
+			'Sub Main()\n' +
+			'    Err.Raise vbObjectError + 513, "Raised", "custom"\n' +
+			'    Err.Raise -1000, "Raised", "negative"\n' +
+			'    Err.Raise E_NOINTERFACE\n' +
+			'    Err.Raise -2147483648#\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), ARG)).toHaveLength(0);
+	});
+
+	it('reports 0 and 65536 for Err.Raise and -1 for Error', () => {
+		for (const [line, span] of [['Err.Raise 0', '0'], ['Err.Raise 65536', '65536'], ['Error -1', '-1']]) {
+			const src = `Option Explicit\nSub Main()\n    ${line}\nEnd Sub\n`;
+			expectDiagnostic(src, analyzeModule(src), ARG, { severity: 'error', span, message: "'5'" });
+		}
+		const quiet = 'Option Explicit\nSub Main()\n    Error 65535\nEnd Sub\n';
+		expect(byCode(analyzeModule(quiet), ARG)).toHaveLength(0);
+	});
+});

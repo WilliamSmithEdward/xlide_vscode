@@ -44,9 +44,20 @@ export function checkStrayCharacters(
 		const prior = previous;
 		previous = tok;
 		if (!statementHead) {
+			// A line number is not the statement: `10 Debug.Print "a"; "b"`
+			// (issue #143). The next token is the head.
+			if (tok.kind === 'integerLiteral' && prior === undefined && /^\d+$/.test(tok.rawText)) {
+				previous = undefined;
+				continue;
+			}
 			statementHead = tok;
 			// `#Const`, `#If` lines are directives; `Print #1, x` names a file.
 			afterHash = tok.kind === 'directive';
+		} else if (tok.kind === 'keyword' && (tokenText(tok) === 'then' || tokenText(tok) === 'else')) {
+			// A one-line If runs a statement after Then and another after Else:
+			// `If x Then Debug.Print a; b` is a Print list (issue #143).
+			statementHead = undefined;
+			continue;
 		}
 		const span = { start: tok.start, end: tok.end };
 		if (tok.kind === 'unknown') {

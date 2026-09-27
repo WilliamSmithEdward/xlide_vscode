@@ -31,16 +31,31 @@ export function parseDecimalIntegerLiteral(raw: string): number | undefined {
 
 /** Parses a VBA integer literal (decimal, &H, &O; optional %/&/^ suffix). */
 export function parseVbaIntegerLiteral(raw: string): number | undefined {
-	const text = raw.trim().replace(/[%&^]$/, '');
+	const trimmed = raw.trim();
+	const suffix = /[%&^]$/.exec(trimmed)?.[0];
+	const text = suffix ? trimmed.slice(0, -1) : trimmed;
 	const hex = /^&[hH]([0-9A-Fa-f]+)$/.exec(text);
-	if (hex) {
-		const value = Number.parseInt(hex[1], 16);
-		return Number.isSafeInteger(value) ? value : undefined;
-	}
-	const octal = /^&[oO]([0-7]+)$/.exec(text);
-	if (octal) {
-		const value = Number.parseInt(octal[1], 8);
-		return Number.isSafeInteger(value) ? value : undefined;
+	const octal = hex ? undefined : /^&[oO]([0-7]+)$/.exec(text);
+	if (hex || octal) {
+		const digits = (hex ?? octal)![1];
+		const value = Number.parseInt(digits, hex ? 16 : 8);
+		if (!Number.isSafeInteger(value)) {
+			return undefined;
+		}
+		// A hex or octal literal is the signed value of its bits (MS-VBAL
+		// 3.3.2, measured in Excel 16.0, issue #141): up to four hex digits it
+		// is an Integer, so &H8000 is -32768 and &HFFFF is -1; up to eight it
+		// is a Long, so &H80000000 is -2147483648. An `&` suffix makes a short
+		// literal a Long (&HFFFF& is 65535) but still wraps at 32 bits; a `^`
+		// suffix (LongLong) does not wrap here.
+		const fits16 = hex ? digits.length <= 4 : value <= 0xFFFF;
+		if (suffix !== '&' && suffix !== '^' && fits16 && value > 0x7FFF) {
+			return value - 0x10000;
+		}
+		if (suffix !== '^' && value > 0x7FFFFFFF && value <= 0xFFFFFFFF) {
+			return value - 0x100000000;
+		}
+		return value;
 	}
 	return parseDecimalIntegerLiteral(text);
 }

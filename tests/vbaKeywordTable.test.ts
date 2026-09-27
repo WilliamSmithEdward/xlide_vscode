@@ -15,6 +15,18 @@ import {
 	VBA_KEYWORDS,
 } from '../src/analyzer/lexer/keywordTable';
 
+describe('keyword table - names that are also Object.prototype properties (issue #148)', () => {
+	it('does not answer for constructor or any other prototype property', () => {
+		// `Dim constructor As Long` compiles in Excel 16.0 and runs; on a plain
+		// object the lookup found Object.prototype.constructor and the parser
+		// threw on it. Only lower-case words are ever looked up.
+		for (const word of ['constructor', 'tostring', 'valueof', 'hasownproperty', '__proto__', 'isprototypeof']) {
+			expect(VBA_KEYWORDS[word]).toBeUndefined();
+			expect(canonicalKeyword(word)).toBeUndefined();
+		}
+	});
+});
+
 describe('keyword table - canonical casing (MS-VBAL 3.3.5.2)', () => {
 	it('maps lowercase keywords to canonical capitalization', () => {
 		expect(VBA_KEYWORDS['option']).toBe('Option');

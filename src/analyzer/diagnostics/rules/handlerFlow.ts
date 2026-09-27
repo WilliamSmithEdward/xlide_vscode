@@ -203,9 +203,12 @@ function checkResumeWithoutError(
 				const toks = statementTokensAfterLeadingLabel(source, span);
 				const head = tokenText(toks[0]);
 				if (head === 'on' && toks.some((tok) => tokenText(tok) === 'error') && toks.some((tok) => tokenText(tok) === 'goto')) {
-					// `On Error GoTo 0` installs nothing; a label does.
+					// `On Error GoTo 0` and `On Error GoTo -1` install nothing; a
+					// label does. The lexer gives `-1` as two tokens (issue #142).
 					const target = toks[toks.length - 1];
-					if (!(target.kind === 'integerLiteral' && /^0+$/.test(target.rawText)) && tokenText(target) !== '-1') {
+					const zero = target.kind === 'integerLiteral' && /^0+$/.test(target.rawText);
+					const minusOne = target.kind === 'integerLiteral' && /^0*1$/.test(target.rawText) && toks[toks.length - 2]?.rawText === '-';
+					if (!zero && !minusOne) {
 						installsHandler = true;
 					}
 				}

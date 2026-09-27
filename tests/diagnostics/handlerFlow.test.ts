@@ -125,3 +125,12 @@ describe('recursive-property-accessor (issue #117)', () => {
 		expect(byCode(analyzeModule(src, { moduleKind: 'class' }), CODE)).toHaveLength(0);
 	});
 });
+
+describe('On Error GoTo -1 installs no handler (issue #142)', () => {
+	// Measured in Excel 16.0 (build 20326, 2026-09-26): raises 20, Resume
+	// without error.
+	it('reports the Resume Next that follows On Error GoTo -1', () => {
+		const src = 'Option Explicit\nSub Main()\n    On Error GoTo -1\n    Resume Next\nEnd Sub\n';
+		expectDiagnostic(src, analyzeModule(src), 'resume-without-error', { severity: 'error', span: 'Resume', message: "'20'" });
+	});
+});

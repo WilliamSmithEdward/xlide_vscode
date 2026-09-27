@@ -80,6 +80,20 @@ export function checkImplementsMembers(
 				);
 				continue;
 			}
+			// A readable and writable property (a Public variable of the
+			// interface, or a Get with a Let or Set) needs both accessors; Excel
+			// refuses the project with the Get alone (issue #144, measured).
+			if (required.kind === 'property' && required.writable && required.returns) {
+				const hasGet = implementations.some((impl) => impl.kind === 'propertyGet');
+				const hasSetter = implementations.some((impl) => impl.kind === 'propertyLet' || impl.kind === 'propertySet');
+				if (!hasGet || !hasSetter) {
+					push(
+						'implementsMemberMissing',
+						`Object module needs to implement '${required.name}' for interface '${contract.name}': add a Property ${hasGet ? 'Let or Set' : 'Get'} '${contract.name}_${required.name}' beside the Property ${hasGet ? 'Get' : 'Let'}.`,
+						absoluteSpan(member.span, nameToken),
+					);
+				}
+			}
 			for (const implementation of implementations) {
 				const problem = signatureMismatch(required, implementation);
 				if (problem) {
@@ -116,24 +130,42 @@ function parseSignature(signature: string | undefined): { params: ParsedParam[];
 	if (open < 0) {
 		return undefined;
 	}
+	// Parentheses and commas inside a string default are text: `Optional sep
+	// As String = ", "` is one parameter and `= ")"` does not end the list
+	// (issue #144).
 	let depth = 0;
 	let close = -1;
+	let inString = false;
+	const parts: string[] = [];
+	let partStart = open + 1;
 	for (let i = open; i < signature.length; i++) {
-		if (signature[i] === '(') {
+		const ch = signature[i];
+		if (ch === '"') {
+			inString = !inString;
+			continue;
+		}
+		if (inString) {
+			continue;
+		}
+		if (ch === '(') {
 			depth++;
-		} else if (signature[i] === ')') {
+		} else if (ch === ')') {
 			depth--;
 			if (depth === 0) {
 				close = i;
 				break;
 			}
+		} else if (ch === ',' && depth === 1) {
+			parts.push(signature.slice(partStart, i));
+			partStart = i + 1;
 		}
 	}
 	if (close < 0) {
 		return undefined;
 	}
+	parts.push(signature.slice(partStart, close));
 	const inner = signature.slice(open + 1, close).trim();
-	const params = inner.length === 0 ? [] : inner.split(',').map((part) => {
+	const params = inner.length === 0 ? [] : parts.map((part) => {
 		const text = part.trim().replace(/^(Optional|ByVal|ByRef|ParamArray)\s+/gi, '').replace(/\s*=.*$/, '');
 		const asMatch = /\sAs\s+(.+)$/i.exec(text);
 		return {

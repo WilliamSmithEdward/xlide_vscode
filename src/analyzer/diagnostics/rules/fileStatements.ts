@@ -20,7 +20,10 @@
 // statements that could touch the number ends what is known about it, and a
 // number named inside a block is never followed.
 
+import { bareCallStatementTarget } from '../../call/callContext';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
+import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpression';
+import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { BodyNode, ModuleNode, Span } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
@@ -87,6 +90,16 @@ export function checkFileStatements(
 				}
 				continue;
 			}
+			// A label may be reached from anywhere, an error handler's included,
+			// so nothing is known there; and a call to a procedure may open or
+			// close any file (issue #146).
+			if (statementLabelDeclaration(source, node.span) || tokenText(toks[0]) === 'gosub') {
+				states.clear();
+			}
+			if (!isFileStatementHead(tokenText(toks[0])) && bareCallStatementTarget(source, node.span)) {
+				states.clear();
+				continue;
+			}
 			// `f = FreeFile` again names a new file: what was known about f ends.
 			// The value may still name a file number: `Main = LOF(0)`.
 			const assigned = bareAssignmentTarget(source, node.span);
@@ -129,10 +142,16 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: FileState
 		states.set(opened.key, { mode: opened.mode, span: base });
 		return;
 	}
-	if (head === 'close') {
-		const keys = fileNumberKeysIn(toks.slice(1));
+	if (head === 'close' || head === 'reset') {
+		const keys = head === 'reset' ? [] : fileNumberKeysIn(toks.slice(1));
 		if (keys.length === 0) {
-			states.clear();
+			// `Close` with no number, and `Reset`, close every open file: a
+			// later `Print #1` raises 52 in Excel (issue #146).
+			for (const [key, state] of states) {
+				if (state !== 'closed') {
+					states.set(key, 'closed');
+				}
+			}
 			return;
 		}
 		for (const key of keys) {
@@ -221,10 +240,17 @@ function parseOpen(toks: readonly VbaToken[]): { mode: FileMode; key: string | u
 /** The key a file number token identifies: its literal value, or the variable's name. */
 function fileNumberKey(tok: VbaToken): string | undefined {
 	if (tok.kind === 'integerLiteral') {
-		return `#${Number.parseInt(tok.rawText.replace(/[%&^]$/, ''), 10)}`;
+		// `#&H1` is file 1, not #NaN (issue #146).
+		const value = parseVbaIntegerLiteral(tok.rawText);
+		return value === undefined ? undefined : `#${value}`;
 	}
 	const name = tokenName(tok);
 	return name ? name.toLowerCase() : undefined;
+}
+
+/** True for the statement words this rule follows: Open, Close, Reset and the file I/O statements. */
+function isFileStatementHead(head: string): boolean {
+	return head === 'open' || head === 'close' || head === 'reset' || FILE_STATEMENTS.has(head);
 }
 
 function describeKey(key: string): string {
@@ -285,7 +311,10 @@ function fileNumbersNamedInBlocks(
 			}
 			const toks = statementTokensAfterLeadingLabel(source, node.span);
 			const head = tokenText(toks[0]);
-			if (head === 'open' || head === 'close' || FILE_STATEMENTS.has(head)) {
+			if (!isFileStatementHead(head) && bareCallStatementTarget(source, node.span)) {
+				out.add('*'); // a procedure called inside the block may close anything
+			}
+			if (isFileStatementHead(head)) {
 				for (const key of fileNumberKeysIn(toks)) {
 					out.add(key);
 				}
@@ -293,7 +322,7 @@ function fileNumbersNamedInBlocks(
 				if (opened?.key) {
 					out.add(opened.key);
 				}
-				if (head === 'close' && fileNumberKeysIn(toks.slice(1)).length === 0) {
+				if (head === 'reset' || (head === 'close' && fileNumberKeysIn(toks.slice(1)).length === 0)) {
 					out.add('*');
 				}
 			}

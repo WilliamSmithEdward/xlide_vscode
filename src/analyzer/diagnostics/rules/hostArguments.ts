@@ -411,6 +411,13 @@ function checkMultiCellAsScalar(
 		if (head !== 'if' && head !== 'elseif' && head !== 'while' && head !== 'until' && head !== 'do' && head !== 'loop' && head !== 'select' && head !== 'case') {
 			return;
 		}
+		// Only the condition of a one-line If is judged here: a range after
+		// Then or Else belongs to that branch's own statement, `If r Is
+		// Nothing Then Set r = ws.Range("A1:P36")` (issue #140).
+		const then = head === 'if' ? toks.findIndex((tok) => tokenText(tok) === 'then') : -1;
+		if (then > 0 && start > then) {
+			return;
+		}
 	}
 	// The operator on either side, never the assignment's own `=`.
 	const eqIndex = bare ? toks.findIndex((tok) => tok.rawText === '=') : -1;

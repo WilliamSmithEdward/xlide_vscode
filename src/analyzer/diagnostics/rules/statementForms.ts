@@ -18,8 +18,8 @@ import { normalizeType, typeEnvironmentFor } from '../typeInference';
 import {
 	activeModuleMembers,
 	bareAssignmentTarget,
+	firstExecutableTokenIndex,
 	forEachStatement,
-	setAssignmentTarget,
 	statementAndBranchSpans,
 	statementTokens,
 	tokenName,
@@ -74,12 +74,26 @@ export function checkStatementForms(
 					}
 				}
 				const target = bareAssignmentTarget(source, span);
-				// A Set's `=` is the assignment too: `Set c = New Collection` is no operand.
-				const assigns = target !== undefined || setAssignmentTarget(source, span) !== undefined;
+				// A Set's `=` is the assignment too: `Set c = New Collection` is no
+				// operand, and neither is `Set cols(1) = c`, whose target is
+				// indexed (issue #140).
+				const first = firstExecutableTokenIndex(toks);
+				const assigns = target !== undefined || tokenText(toks[first]) === 'set';
 				const eq = assigns ? toks.findIndex((tok) => tok.rawText === '=') : -1;
-				for (let i = 0; i < toks.length; i++) {
+				// A one-line If is judged as its condition here; each branch is its
+				// own span with its own assignment (issue #140: `If c Is Nothing
+				// Then Set c = New Collection`).
+				const then = tokenText(toks[first]) === 'if' && stmt.kind === 'Statement' && stmt.singleLineIfBranches
+					? toks.findIndex((tok) => tokenText(tok) === 'then')
+					: -1;
+				const limit = then > 0 ? then : toks.length;
+				for (let i = 0; i < limit; i++) {
 					const name = tokenName(toks[i]);
 					if (!name || toks[i - 1]?.rawText === '.' || toks[i + 1]?.rawText === ':=' || i === eq - 1) {
+						continue;
+					}
+					// `AddressOf TimerProc` takes the procedure's address, not its value.
+					if (tokenText(toks[i - 1]) === 'addressof') {
 						continue;
 					}
 					const lower = name.toLowerCase();

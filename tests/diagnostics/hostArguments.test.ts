@@ -176,3 +176,18 @@ describe('multi-cell-range-as-scalar (issue #122)', () => {
 		expect(byCode(analyzeModule(src), SCALAR)).toHaveLength(0);
 	});
 });
+
+describe('a range in a one-line If branch (issue #140)', () => {
+	// Measured in Excel 16.0 (build 20326, 2026-09-26): `If r Is Nothing Then
+	// Set r = ws.Range("A1:P36")` runs; the range is the Set's value, not a
+	// scalar operand of the condition.
+	it('does not judge a Set after Then as a comparison', () => {
+		const src = wrap('Dim ws As Worksheet, r As Range', 'Set ws = ActiveSheet', 'If r Is Nothing Then Set r = ws.Range("A1:P36")', 'Main = r.Cells.Count');
+		expect(byCode(analyzeModule(src), SCALAR)).toHaveLength(0);
+	});
+
+	it('still judges a range compared in the condition itself', () => {
+		const src = wrap('Dim ws As Worksheet', 'Set ws = ActiveSheet', 'If ws.Range("A1:B2") = 1 Then Main = 2');
+		expectDiagnostic(src, analyzeModule(src), SCALAR, { message: 'Range("A1:B2")' });
+	});
+});

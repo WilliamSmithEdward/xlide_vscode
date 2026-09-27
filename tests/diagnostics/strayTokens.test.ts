@@ -46,3 +46,28 @@ describe('line-too-long (issue #133)', () => {
 		expectDiagnostic(long, analyzeModule(long), 'line-too-long', { message: ['1024 characters', '1023'] });
 	});
 });
+
+describe('Print lists after Then, Else or a line number (issue #143)', () => {
+	// Measured in Excel 16.0 (build 20326, 2026-09-26): every line compiles
+	// and Main returns 3.
+	it('stays quiet on a Print list in a one-line If branch or on a numbered line', () => {
+		const src = wrap(
+			'Dim a As Long, b As Long',
+			'a = 1: b = 2',
+			'Open "x.txt" For Output As #1',
+			'If a = 1 Then Debug.Print a; b',
+			'If a = 2 Then Debug.Print a Else Debug.Print b;',
+			'If a = 1 Then Print #1, a; b',
+			'If a = 1 Then Write #1, a; b',
+			'Close #1',
+			'10  Debug.Print "a"; "b"',
+			'n = a + b',
+		);
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+	});
+
+	it('still reports a semicolon after Then on a statement that takes none', () => {
+		const src = wrap('If n = 1 Then n = 2;');
+		expectDiagnostic(src, analyzeModule(src), CODE, { span: ';' });
+	});
+});

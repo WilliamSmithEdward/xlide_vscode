@@ -83,16 +83,30 @@ export function checkCollectionState(
 			if (statementLabelDeclaration(source, node.span) || tokenText(toks[0]) === 'gosub') {
 				states.clear();
 			}
-			// `Set c = New Collection` starts an empty collection; any other Set ends tracking.
+			// `Set c = New Collection` starts an empty collection. `Set o = c`
+			// makes o and c one collection, so they share one state and an Add
+			// through either is seen by both (issue #147). Any other Set ends
+			// tracking of its target, and of every tracked collection its value
+			// names, since the value's new holder can change it unseen.
 			const set = setAssignmentTarget(source, node.span);
 			if (set) {
 				const lower = set.name.toLowerCase();
-				if (autoInstanced.plainLocals.has(lower) || autoInstanced.newLocals.has(lower)) {
-					const value = toks.slice(toks.findIndex((tok) => tok.rawText === '=') + 1);
-					if (value.length === 2 && tokenText(value[0]) === 'new' && tokenText(value[1]) === 'collection') {
-						states.set(lower, { items: [], keysKnown: true });
-					} else {
-						states.delete(lower);
+				const value = toks.slice(toks.findIndex((tok) => tok.rawText === '=') + 1);
+				const isCollectionLocal = autoInstanced.plainLocals.has(lower) || autoInstanced.newLocals.has(lower);
+				const aliased = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
+				if (isCollectionLocal && value.length === 2 && tokenText(value[0]) === 'new' && tokenText(value[1]) === 'collection') {
+					states.set(lower, { items: [], keysKnown: true });
+					continue;
+				}
+				if (isCollectionLocal && aliased !== undefined && states.has(aliased)) {
+					states.set(lower, states.get(aliased)!);
+					continue;
+				}
+				states.delete(lower);
+				for (const tok of value) {
+					const mentioned = tokenName(tok)?.toLowerCase();
+					if (mentioned && states.has(mentioned)) {
+						states.delete(mentioned);
 					}
 				}
 				continue;
