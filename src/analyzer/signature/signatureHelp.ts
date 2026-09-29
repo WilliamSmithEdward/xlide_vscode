@@ -39,6 +39,7 @@ import {
 	type VbaCallSite as CallSite,
 	STATEMENT_KEYWORDS,
 } from '../call/callContext';
+import { runtimeSignatureParameterText, splitSignatureTopLevel } from '../diagnostics/typeInference';
 import { identifiersIn } from '../lexer/tokenHelpers';
 
 /** A single parameter slot within a signature label. */
@@ -162,60 +163,17 @@ function findUserDeclare(source: string, name: string): DeclareNode | undefined 
 	return undefined;
 }
 
-/** Splits a parameter list on top-level commas, respecting (), [] and strings. */
-function splitTopLevel(text: string): string[] {
-	const out: string[] = [];
-	let depth = 0;
-	let inStr = false;
-	let startPos = 0;
-	for (let i = 0; i < text.length; i += 1) {
-		const c = text[i];
-		if (inStr) {
-			if (c === '"') {
-				inStr = false;
-			}
-			continue;
-		}
-		if (c === '"') {
-			inStr = true;
-		} else if (c === '(' || c === '[') {
-			depth += 1;
-		} else if (c === ')' || c === ']') {
-			depth -= 1;
-		} else if (c === ',' && depth === 0) {
-			out.push(text.slice(startPos, i));
-			startPos = i + 1;
-		}
-	}
-	out.push(text.slice(startPos));
-	return out;
-}
-
-/** Parses a signature string into its label and ordered parameter substrings. */
+/**
+ * Parses a signature string into its label and ordered parameter substrings,
+ * with the analyzer's own reading of a parameter list: a `)` or `,` inside a
+ * quoted default value ends nothing.
+ */
 function parseSignature(sig: string): { label: string; params: string[] } {
-	const open = sig.indexOf('(');
-	if (open < 0) {
+	const inner = runtimeSignatureParameterText(sig);
+	if (inner === undefined) {
 		return { label: sig, params: [] };
 	}
-	let depth = 0;
-	let close = -1;
-	for (let i = open; i < sig.length; i += 1) {
-		const c = sig[i];
-		if (c === '(') {
-			depth += 1;
-		} else if (c === ')') {
-			depth -= 1;
-			if (depth === 0) {
-				close = i;
-				break;
-			}
-		}
-	}
-	if (close < 0) {
-		return { label: sig, params: [] };
-	}
-	const inner = sig.slice(open + 1, close);
-	const params = splitTopLevel(inner)
+	const params = splitSignatureTopLevel(inner)
 		.map((s) => s.trim())
 		.filter((s) => s.length > 0);
 	return { label: sig, params };

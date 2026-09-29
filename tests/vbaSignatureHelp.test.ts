@@ -165,6 +165,25 @@ describe('signature help - user procedures', () => {
 		expect(info?.activeParameter).toBe(1);
 	});
 
+	it('keeps every parameter when a default value holds a closing parenthesis', () => {
+		// A ")" inside a quoted default closes nothing. Read as the end of the
+		// list, it dropped every parameter after it.
+		const wrap = [
+			'Function Wrap(ByVal s As String, Optional ByVal closer As String = ")", Optional ByVal n As Long = 1) As String',
+			'End Function',
+			'Sub C()',
+			'x = Wrap("a", ")", |',
+			'End Sub',
+		].join('\n');
+		const info = help(wrap);
+		expect(info?.parameters.map((p) => p.label)).toEqual([
+			's As String',
+			'[closer As String = ")"]',
+			'[n As Long = 1]',
+		]);
+		expect(info?.activeParameter).toBe(2);
+	});
+
 	it('renders a Function return type', () => {
 		const fn = [
 			'Function Add(A As Long, B As Long) As Long',
