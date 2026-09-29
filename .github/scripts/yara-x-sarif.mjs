@@ -49,22 +49,32 @@ function ruleFiles(target) {
 		.filter((file) => /\.(yar|yara)$/.test(file) && fs.statSync(file).isFile());
 }
 
-const samePath = (a, b) => a.replace(/^\.\//, '') === b.replace(/^\.\//, '');
+/**
+ * A scanned file's path relative to the workspace, as the scan list named it:
+ * yr prints the absolute path of each file it reads from a list.
+ */
+export function workspacePath(file, root) {
+	const posix = file.replace(/\\/g, '/');
+	const relative = posix.startsWith('/') ? path.posix.relative(root.replace(/\\/g, '/'), posix) : posix;
+	return relative.replace(/^\.\//, '');
+}
 
 /** The findings to gate on, and every reason the scan cannot be trusted. */
-export function judgeYaraX({ matches, scanLog, rulesLoaded, rulesInSource, canary }) {
+export function judgeYaraX({ matches, scanLog, rulesLoaded, rulesInSource, canary, root }) {
 	const problems = scanErrors(scanLog);
 	if (rulesLoaded < rulesInSource * MIN_RULES_LOADED) {
 		problems.push(`YARA-X loaded ${rulesLoaded} of ${rulesInSource} rules, fewer than ${MIN_RULES_LOADED * 100}%`);
 	}
-	if (!matches.some((match) => match.rule === CANARY_RULE && samePath(match.file, canary))) {
+	const located = matches.map((match) => ({ ...match, file: workspacePath(match.file, root) }));
+	const isCanary = (match) => match.file === workspacePath(canary, root);
+	if (!located.some((match) => match.rule === CANARY_RULE && isCanary(match))) {
 		problems.push(`YARA-X did not match the canary, ${canary}`);
 	}
-	const findings = matches
-		.filter((match) => !samePath(match.file, canary))
+	const findings = located
+		.filter((match) => !isCanary(match))
 		.map((match) => ({
 			ruleId: match.rule,
-			uri: match.file.replace(/^\.\//, ''),
+			uri: match.file,
 			message: match.description ? `${match.rule}: ${match.description}` : match.rule,
 		}));
 	return { findings, problems };
@@ -87,6 +97,7 @@ if (isMain(import.meta)) {
 		rulesLoaded,
 		rulesInSource,
 		canary: values.canary,
+		root: process.cwd(),
 	});
 	const properties = {
 		engine: report.version,

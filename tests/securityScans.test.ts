@@ -182,9 +182,33 @@ describe('the YARA-X converter', () => {
 			rulesLoaded: 950,
 			rulesInSource: 1000,
 			canary: CANARY,
+			root: '/home/runner/work/xlide_vscode/xlide_vscode',
 		});
 		expect(verdict).toEqual({
 			findings: [{ ruleId: 'Real', uri: 'src/a.ts', message: 'Real: Bad' }],
+			problems: [],
+		});
+	});
+
+	// The first run on GitHub: yr prints the absolute path of every file it
+	// reads from a list, so the canary went unrecognised and was reported
+	// twice, by the canary rule and by YARA Forge's own EICAR rule.
+	it('finds the canary and the findings by workspace path, as yr prints them absolute', () => {
+		const root = '/home/runner/work/xlide_vscode/xlide_vscode';
+		const verdict = judgeYaraX({
+			matches: [
+				{ rule: 'TRELLIX_ARC_Malw_Eicar', file: `${root}/${CANARY}`, description: 'Rule to detect the EICAR pattern' },
+				{ rule: CANARY_RULE, file: `${root}/${CANARY}` },
+				{ rule: 'Real', file: `${root}/node_modules/pkg/index.js` },
+			],
+			scanLog: '',
+			rulesLoaded: 5106,
+			rulesInSource: 5111,
+			canary: CANARY,
+			root,
+		});
+		expect(verdict).toEqual({
+			findings: [{ ruleId: 'Real', uri: 'node_modules/pkg/index.js', message: 'Real' }],
 			problems: [],
 		});
 	});
@@ -196,6 +220,7 @@ describe('the YARA-X converter', () => {
 			rulesLoaded: 899,
 			rulesInSource: 1000,
 			canary: CANARY,
+			root: '/home/runner/work/xlide_vscode/xlide_vscode',
 		});
 		expect(verdict.problems).toEqual([
 			'error: scanning "a": broken',
