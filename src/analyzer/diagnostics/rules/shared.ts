@@ -10,6 +10,7 @@ import { bareCallStatementTarget as callStatementTarget } from '../../call/callC
 import {
 	type ExhaustiveMemberSurface,
 	type MemberCompletionContext,
+	projectClassMembersIndex,
 	resolveExhaustiveMemberSurfaceAt,
 } from '../../completion/memberAccess';
 import {
@@ -441,18 +442,9 @@ function isQualifiedProjectMemberQualifier(
 	if (!pair) {
 		return false;
 	}
-	const qualifierLower = pair.qualifier.toLowerCase();
 	const memberLower = pair.member.toLowerCase();
-	let surface: VbaProjectClassMembers | undefined;
-	for (const candidate of projectMembers) {
-		if (candidate.name.toLowerCase() !== qualifierLower) {
-			continue;
-		}
-		if (surface) {
-			return false;
-		}
-		surface = candidate;
-	}
+	// An ambiguous qualifier is absent from the index, so it is not skipped.
+	const surface = projectClassMembersIndex(projectMembers).get(pair.qualifier.toLowerCase());
 	if (!surface) {
 		return false;
 	}

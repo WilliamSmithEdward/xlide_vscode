@@ -1977,9 +1977,32 @@ function projectSourceSurfaceCompleteWhenMergedWithHost(
 function projectClassMembersByName(
 	ctx: MemberCompletionContext,
 ): ReadonlyMap<string, VbaProjectClassMembers> {
+	return projectClassMembersIndex(ctx.projectClassMembers ?? NO_PROJECT_CLASS_MEMBERS);
+}
+
+const NO_PROJECT_CLASS_MEMBERS: readonly VbaProjectClassMembers[] = [];
+
+// Every project-qualified member access looks its receiver up by name, and a
+// module makes thousands of them; index each project's surfaces once.
+const PROJECT_CLASS_MEMBERS_BY_NAME = new WeakMap<
+	readonly VbaProjectClassMembers[],
+	ReadonlyMap<string, VbaProjectClassMembers>
+>();
+
+/**
+ * The project's surfaces by lower-cased name. A name two surfaces share is
+ * left out, so an ambiguous receiver resolves to nothing.
+ */
+export function projectClassMembersIndex(
+	projectClassMembers: readonly VbaProjectClassMembers[],
+): ReadonlyMap<string, VbaProjectClassMembers> {
+	const cached = PROJECT_CLASS_MEMBERS_BY_NAME.get(projectClassMembers);
+	if (cached) {
+		return cached;
+	}
 	const out = new Map<string, VbaProjectClassMembers>();
 	const ambiguous = new Set<string>();
-	for (const type of ctx.projectClassMembers ?? []) {
+	for (const type of projectClassMembers) {
 		const key = type.name.toLowerCase();
 		if (ambiguous.has(key)) {
 			continue;
@@ -1991,6 +2014,7 @@ function projectClassMembersByName(
 		}
 		out.set(key, type);
 	}
+	PROJECT_CLASS_MEMBERS_BY_NAME.set(projectClassMembers, out);
 	return out;
 }
 
