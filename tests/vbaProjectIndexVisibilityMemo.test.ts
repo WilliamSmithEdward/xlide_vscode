@@ -119,4 +119,22 @@ describe('ProjectIndex per-module visibility memo', () => {
 		});
 		expect(index.visibleExternalIntegerConstantExpressions('Beta').get('shared')).toBe('7');
 	});
+
+	// Each answer is built from the memoized parts on every call. What a
+	// caller does to the answer it got must reach neither the parts nor any
+	// later answer, for its own module or another's.
+	it('gives every caller an answer of its own to change', () => {
+		const index = project();
+		const before = { alpha: view(index, 'Alpha'), beta: view(index, 'Beta') };
+
+		index.visibleProcedureNames('Beta').clear();
+		index.visibleProcedureSignatures('Beta').length = 0;
+		index.visibleIdentifierNames('Beta').add('injected');
+		index.visibleIdentifierSymbols('Beta').length = 0;
+		index.visibleNonTypeNames('Beta').clear();
+		index.visibleTypeNames('Beta').length = 0;
+		index.visibleExternalIntegerConstantExpressions('Beta').clear();
+
+		expect({ alpha: view(index, 'Alpha'), beta: view(index, 'Beta') }).toEqual(before);
+	});
 });
