@@ -268,7 +268,7 @@ describe('the scan SARIF, through the existing gate and report', () => {
 		expect(gate(dir, { reviewed: [] }).status).toBe(0);
 	});
 
-	it('puts the scanners, what they scanned and their findings in the release report', () => {
+	it('puts the scanners, what they scanned and their detections in the release report', () => {
 		const reports = tempDir();
 		writeSarif(path.join(reports, 'clamav'), 'clamav.sarif', { name: 'ClamAV', version: '1.5.4' }, [], {
 			engine: '1.5.4',
@@ -289,14 +289,15 @@ describe('the scan SARIF, through the existing gate and report', () => {
 		});
 		fs.mkdirSync(path.join(reports, 'package-sha256'));
 		fs.writeFileSync(path.join(reports, 'package-sha256', 'package-sha256.txt'), `${'ab'.repeat(32)}  package/xlide-10.14.4.vsix\n`);
-		const out = path.join(reports, 'security-report.md');
-		const run = spawnSync(process.execPath, ['.github/scripts/security-report.mjs', reports, out], {
+		const out = path.join(reports, 'malware-scan-report.md');
+		const run = spawnSync(process.execPath, ['.github/scripts/malware-scan-report.mjs', reports, out], {
 			cwd: repoRoot,
 			encoding: 'utf8',
 			env: { ...process.env, TAG: 'v10.14.4', CLAMAV_RESULT: 'success', YARA_X_RESULT: 'failure', PACKAGE_RESULT: 'success' },
 		});
 		expect(run.status).toBe(0);
 		const report = fs.readFileSync(out, 'utf8');
+		expect(report).toContain('# Malware scan report for v10.14.4');
 		expect(report).toContain('| ClamAV | passed | 0 |');
 		expect(report).toContain('| YARA-X (YARA Forge core 20260927) | did not pass (failure) | 1 |');
 		expect(report).toContain(`\`xlide-10.14.4.vsix\`, the file attached to this release (SHA-256 \`${'ab'.repeat(32)}\`)`);
@@ -304,5 +305,17 @@ describe('the scan SARIF, through the existing gate and report', () => {
 		expect(report).toContain('- ClamAV 1.5.4 with daily signatures 27791 (Sun Sep 28 07:35:12 2026), 8,712,345 signatures in all.');
 		expect(report).toContain('- YARA-X 1.20.0 with YARA Forge core 20260927: 1,234 of 1,300 rules loaded.');
 		expect(report).toContain('## YARA-X\n\n- `SUSP_Generic` at node_modules/pkg/index.js\n');
+		expect(report).toContain('## ClamAV\n\nNo detections.\n');
+	});
+});
+
+describe('the pinned YARA Forge release', () => {
+	// The YARA Forge update workflow rewrites this file in each pull request
+	// it opens; the Malware scan workflow reads the three fields back.
+	it('names a release, its core package and that package s SHA-256', () => {
+		const pin = JSON.parse(fs.readFileSync(path.join(repoRoot, '.github/scans/yara-forge.json'), 'utf8'));
+		expect(pin.release).toMatch(/^\d{8}$/);
+		expect(pin.asset).toBe('yara-forge-rules-core.zip');
+		expect(pin.sha256).toMatch(/^[0-9a-f]{64}$/);
 	});
 });

@@ -5,6 +5,7 @@
 [![rating](https://vsmarketplacebadges.dev/rating-short/WilliamSmithE.xlide.svg?style=flat&color=blue)](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide&ssr=false#review-details)
 [![CI](https://img.shields.io/github/actions/workflow/status/WilliamSmithEdward/xlide_vscode/ci.yml?branch=main&label=CI)](https://github.com/WilliamSmithEdward/xlide_vscode/actions/workflows/ci.yml)
 [![Security](https://img.shields.io/github/actions/workflow/status/WilliamSmithEdward/xlide_vscode/security.yml?branch=main&label=security)](SECURITY.md)
+[![Malware scan](https://img.shields.io/github/actions/workflow/status/WilliamSmithEdward/xlide_vscode/malware-scan.yml?branch=main&label=malware%20scan)](SECURITY.md)
 [![license](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
 [![Hosts](https://img.shields.io/badge/Hosts-Excel%2C%20Word%2C%20PowerPoint%2C%20Access%2C%20VB6-blue)](#why-use-xlide)
 
@@ -473,9 +474,10 @@ Architecture reference:
 Report a vulnerability privately through
 [GitHub's private reporting](https://github.com/WilliamSmithEdward/xlide_vscode/security/advisories/new),
 not in a public issue. [SECURITY.md](SECURITY.md) says what XLIDE touches
-and how the code is checked: CodeQL, Semgrep, `npm audit`, ClamAV and YARA-X
-on every change, each failing on any finding. Every GitHub release carries
-the vsix published to the Marketplace and a security report for it.
+and how the code is checked: CodeQL, Semgrep and `npm audit` on every change,
+and ClamAV and YARA-X on every change and every day, each failing on any
+finding. Every GitHub release carries the vsix published to the Marketplace
+and the reports for it.
 
 ## Support Open Source
 
