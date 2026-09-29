@@ -588,6 +588,24 @@ export class ProjectIndex {
 		return value;
 	}
 
+	/**
+	 * Memoizes one module's part of a per-module visibility query until the
+	 * indexed modules change. A module contributes one of two answers - to
+	 * its own queries, or to every other module's - so asking a query for
+	 * each of N modules no longer walks every module's symbols N times.
+	 * Callers keep their loop over modules, so answers and their order are
+	 * unchanged.
+	 */
+	private contribution<T>(
+		query: string,
+		mod: ModuleSymbols,
+		sameModule: boolean,
+		compute: () => T,
+	): T {
+		const side = sameModule ? 'own' : 'other';
+		return this.cached(`contribution:${query}:${side}:${mod.moduleName.toLowerCase()}`, compute);
+	}
+
 	/** Resolved integer constant values of one module, computed at most once. */
 	private moduleIntegerConstants(mod: ModuleSymbols): ReadonlyMap<string, number | undefined> {
 		const key = mod.moduleName.toLowerCase();
@@ -739,16 +757,23 @@ export class ProjectIndex {
 			const names = new Set<string>();
 			for (const mod of this.modules.values()) {
 				const sameModule = mod.moduleName.toLowerCase() === currentLower;
-				for (const symbol of mod.root.children ?? []) {
-					if (!isBareCallableKind(symbol.kind)) {
-						continue;
+				const part = this.contribution('procedureNames', mod, sameModule, () => {
+					const out: string[] = [];
+					for (const symbol of mod.root.children ?? []) {
+						if (!isBareCallableKind(symbol.kind)) {
+							continue;
+						}
+						if (
+							sameModule ||
+							(mod.moduleKind === 'standard' && isExported(symbol, mod.moduleKind))
+						) {
+							out.push(symbol.name.toLowerCase());
+						}
 					}
-					if (
-						sameModule ||
-						(mod.moduleKind === 'standard' && isExported(symbol, mod.moduleKind))
-					) {
-						names.add(symbol.name.toLowerCase());
-					}
+					return out;
+				});
+				for (const name of part) {
+					names.add(name);
 				}
 			}
 			return names;
@@ -767,21 +792,25 @@ export class ProjectIndex {
 			const out: VbaProcedureSignature[] = [];
 			for (const mod of this.modules.values()) {
 				const sameModule = mod.moduleName.toLowerCase() === currentLower;
-				for (const symbol of mod.root.children ?? []) {
-					if (!isBareCallableKind(symbol.kind)) {
-						continue;
+				out.push(...this.contribution('procedureSignatures', mod, sameModule, () => {
+					const part: VbaProcedureSignature[] = [];
+					for (const symbol of mod.root.children ?? []) {
+						if (!isBareCallableKind(symbol.kind)) {
+							continue;
+						}
+						if (
+							!sameModule &&
+							(mod.moduleKind !== 'standard' || !isExported(symbol, mod.moduleKind))
+						) {
+							continue;
+						}
+						const signature = procedureSignatureFromSymbol(symbol);
+						if (signature) {
+							part.push(signature);
+						}
 					}
-					if (
-						!sameModule &&
-						(mod.moduleKind !== 'standard' || !isExported(symbol, mod.moduleKind))
-					) {
-						continue;
-					}
-					const signature = procedureSignatureFromSymbol(symbol);
-					if (signature) {
-						out.push(signature);
-					}
-				}
+					return part;
+				}));
 			}
 			return out;
 		}).slice();
@@ -800,17 +829,24 @@ export class ProjectIndex {
 			const names = new Set<string>();
 			for (const mod of this.modules.values()) {
 				const sameModule = mod.moduleName.toLowerCase() === currentLower;
-				if (mod.moduleKind === 'document' || mod.moduleKind === 'userform') {
-					names.add(mod.moduleName.toLowerCase());
-				}
-				// A class with `VB_PredeclaredId = True` has a default instance,
-				// so its bare name is a value exactly as a document module's is.
-				// A plain class name is a TYPE, and stays out (issue #47).
-				if (mod.moduleKind === 'class' && this.modulePredeclaredId(mod.moduleName) === true) {
-					names.add(mod.moduleName.toLowerCase());
-				}
-				for (const symbol of this.visibleModuleLevelIdentifierSymbols(mod, sameModule)) {
-					names.add(symbol.name.toLowerCase());
+				const part = this.contribution('identifierNames', mod, sameModule, () => {
+					const out: string[] = [];
+					if (mod.moduleKind === 'document' || mod.moduleKind === 'userform') {
+						out.push(mod.moduleName.toLowerCase());
+					}
+					// A class with `VB_PredeclaredId = True` has a default instance,
+					// so its bare name is a value exactly as a document module's is.
+					// A plain class name is a TYPE, and stays out (issue #47).
+					if (mod.moduleKind === 'class' && this.modulePredeclaredId(mod.moduleName) === true) {
+						out.push(mod.moduleName.toLowerCase());
+					}
+					for (const symbol of this.visibleModuleLevelIdentifierSymbols(mod, sameModule)) {
+						out.push(symbol.name.toLowerCase());
+					}
+					return out;
+				});
+				for (const name of part) {
+					names.add(name);
 				}
 			}
 			return names;
@@ -869,24 +905,30 @@ export class ProjectIndex {
 				if (mod.moduleName.toLowerCase() === currentLower || mod.moduleKind !== 'standard') {
 					continue;
 				}
-				const moduleResolved = this.moduleIntegerConstants(mod);
-				for (const symbol of mod.root.children ?? []) {
-					if (symbol.kind === 'constant' && isExported(symbol, mod.moduleKind)) {
-						const raw = resolvedRaw(moduleResolved, symbol.name, symbol.defaultRaw);
-						add(symbol.name, raw);
-						addQualified(mod, symbol.name, raw);
-						continue;
-					}
-					if (symbol.kind === 'enum' && isEnumMemberExported(symbol, mod.moduleKind)) {
-						let previousName: string | undefined;
-						for (const member of symbol.children ?? []) {
-							const fallback = enumMemberRawExpression(member.defaultRaw, previousName);
-							const raw = resolvedRaw(moduleResolved, member.name, fallback);
-							add(member.name, raw);
-							addQualified(mod, member.name, raw);
-							previousName = member.name;
+				const part = this.contribution('integerConstants', mod, false, () => {
+					const exported: { name: string; raw: string | undefined }[] = [];
+					const moduleResolved = this.moduleIntegerConstants(mod);
+					for (const symbol of mod.root.children ?? []) {
+						if (symbol.kind === 'constant' && isExported(symbol, mod.moduleKind)) {
+							const raw = resolvedRaw(moduleResolved, symbol.name, symbol.defaultRaw);
+							exported.push({ name: symbol.name, raw });
+							continue;
+						}
+						if (symbol.kind === 'enum' && isEnumMemberExported(symbol, mod.moduleKind)) {
+							let previousName: string | undefined;
+							for (const member of symbol.children ?? []) {
+								const fallback = enumMemberRawExpression(member.defaultRaw, previousName);
+								const raw = resolvedRaw(moduleResolved, member.name, fallback);
+								exported.push({ name: member.name, raw });
+								previousName = member.name;
+							}
 						}
 					}
+					return exported;
+				});
+				for (const { name, raw } of part) {
+					add(name, raw);
+					addQualified(mod, name, raw);
 				}
 			}
 			return out;
@@ -904,11 +946,12 @@ export class ProjectIndex {
 			const names = new Set<string>();
 			for (const mod of this.modules.values()) {
 				const sameModule = mod.moduleName.toLowerCase() === currentLower;
-				for (const symbol of this.visibleModuleLevelIdentifierSymbols(mod, sameModule)) {
-					if (projectTypeKind(symbol)) {
-						continue;
-					}
-					names.add(symbol.name.toLowerCase());
+				const part = this.contribution('nonTypeNames', mod, sameModule, () =>
+					this.visibleModuleLevelIdentifierSymbols(mod, sameModule)
+						.filter((symbol) => !projectTypeKind(symbol))
+						.map((symbol) => symbol.name.toLowerCase()));
+				for (const name of part) {
+					names.add(name);
 				}
 			}
 			return names;
@@ -972,39 +1015,46 @@ export class ProjectIndex {
 			const out: VbaProjectTypeName[] = [];
 			for (const mod of this.modules.values()) {
 				const sameModule = mod.moduleName.toLowerCase() === currentLower;
-				const moduleTypeKind = moduleKindAsTypeName(mod.moduleKind);
-				if (moduleTypeKind) {
-					out.push({
-						name: mod.moduleName,
-						kind: moduleTypeKind,
-						moduleName: mod.moduleName,
-						nameSpan: mod.root.nameSpan,
-						fullSpan: mod.root.fullSpan,
-						doc: mod.root.doc,
-					});
-				}
-
-				for (const symbol of mod.root.children ?? []) {
-					const kind = projectTypeKind(symbol);
-					if (!kind) {
-						continue;
-					}
-					if (!sameModule && !isTypeExported(symbol)) {
-						continue;
-					}
-					out.push({
-						name: symbol.name,
-						kind,
-						moduleName: mod.moduleName,
-						nameSpan: symbol.nameSpan,
-						fullSpan: symbol.fullSpan,
-						visibility: symbol.visibility,
-						doc: symbol.doc,
-					});
-				}
+				out.push(...this.contribution('typeNames', mod, sameModule, () =>
+					this.moduleTypeNames(mod, sameModule)));
 			}
 			return shadowedByOwnModule(out, currentLower);
 		}).slice();
+	}
+
+	/** One module's part of {@link visibleTypeNames}. */
+	private moduleTypeNames(mod: ModuleSymbols, sameModule: boolean): VbaProjectTypeName[] {
+		const out: VbaProjectTypeName[] = [];
+		const moduleTypeKind = moduleKindAsTypeName(mod.moduleKind);
+		if (moduleTypeKind) {
+			out.push({
+				name: mod.moduleName,
+				kind: moduleTypeKind,
+				moduleName: mod.moduleName,
+				nameSpan: mod.root.nameSpan,
+				fullSpan: mod.root.fullSpan,
+				doc: mod.root.doc,
+			});
+		}
+		for (const symbol of mod.root.children ?? []) {
+			const kind = projectTypeKind(symbol);
+			if (!kind) {
+				continue;
+			}
+			if (!sameModule && !isTypeExported(symbol)) {
+				continue;
+			}
+			out.push({
+				name: symbol.name,
+				kind,
+				moduleName: mod.moduleName,
+				nameSpan: symbol.nameSpan,
+				fullSpan: symbol.fullSpan,
+				visibility: symbol.visibility,
+				doc: symbol.doc,
+			});
+		}
+		return out;
 	}
 
 	/**
@@ -1100,14 +1150,14 @@ export class ProjectIndex {
 				continue;
 			}
 			const sameModule = mod.moduleName.toLowerCase() === currentLower;
-			out.push({
+			out.push(this.contribution('standardModuleMembers', mod, sameModule, () => ({
 				name: mod.moduleName,
 				kind: 'standardModule',
 				moduleName: mod.moduleName,
 				doc: mod.root.doc,
 				exhaustive: true,
 				members: this.visibleStandardModuleMembers(mod, sameModule),
-			});
+			})));
 		}
 		return out;
 	}
@@ -1424,6 +1474,14 @@ export class ProjectIndex {
 	private visibleModuleLevelIdentifierSymbols(
 		mod: ModuleSymbols,
 		sameModule: boolean,
+	): readonly VbaSymbol[] {
+		return this.contribution('identifierSymbols', mod, sameModule, () =>
+			this.computeVisibleModuleLevelIdentifierSymbols(mod, sameModule));
+	}
+
+	private computeVisibleModuleLevelIdentifierSymbols(
+		mod: ModuleSymbols,
+		sameModule: boolean,
 	): VbaSymbol[] {
 		const out: VbaSymbol[] = [];
 		for (const symbol of mod.root.children ?? []) {
@@ -1559,22 +1617,26 @@ export class ProjectIndex {
 		const out: VbaProjectClassMembers[] = [];
 		for (const mod of this.modules.values()) {
 			const sameModule = mod.moduleName.toLowerCase() === currentLower;
-			for (const symbol of mod.root.children ?? []) {
-				if (symbol.kind !== 'type') {
-					continue;
+			out.push(...this.contribution('userTypeMembers', mod, sameModule, () => {
+				const part: VbaProjectClassMembers[] = [];
+				for (const symbol of mod.root.children ?? []) {
+					if (symbol.kind !== 'type') {
+						continue;
+					}
+					if (!sameModule && !isTypeExported(symbol)) {
+						continue;
+					}
+					part.push({
+						name: symbol.name,
+						kind: 'userType',
+						moduleName: mod.moduleName,
+						doc: symbol.doc,
+						exhaustive: true,
+						members: this.userTypeFieldMembers(symbol),
+					});
 				}
-				if (!sameModule && !isTypeExported(symbol)) {
-					continue;
-				}
-				out.push({
-					name: symbol.name,
-					kind: 'userType',
-					moduleName: mod.moduleName,
-					doc: symbol.doc,
-					exhaustive: true,
-					members: this.userTypeFieldMembers(symbol),
-				});
-			}
+				return part;
+			}));
 		}
 		return out;
 	}
@@ -1589,22 +1651,26 @@ export class ProjectIndex {
 		const out: VbaProjectClassMembers[] = [];
 		for (const mod of this.modules.values()) {
 			const sameModule = mod.moduleName.toLowerCase() === currentLower;
-			for (const symbol of mod.root.children ?? []) {
-				if (symbol.kind !== 'enum') {
-					continue;
+			out.push(...this.contribution('enumMembers', mod, sameModule, () => {
+				const part: VbaProjectClassMembers[] = [];
+				for (const symbol of mod.root.children ?? []) {
+					if (symbol.kind !== 'enum') {
+						continue;
+					}
+					if (!sameModule && !isTypeExported(symbol)) {
+						continue;
+					}
+					part.push({
+						name: symbol.name,
+						kind: 'enum',
+						moduleName: mod.moduleName,
+						doc: symbol.doc,
+						exhaustive: true,
+						members: this.enumConstantMembers(symbol),
+					});
 				}
-				if (!sameModule && !isTypeExported(symbol)) {
-					continue;
-				}
-				out.push({
-					name: symbol.name,
-					kind: 'enum',
-					moduleName: mod.moduleName,
-					doc: symbol.doc,
-					exhaustive: true,
-					members: this.enumConstantMembers(symbol),
-				});
-			}
+				return part;
+			}));
 		}
 		return out;
 	}
