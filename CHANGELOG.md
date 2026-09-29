@@ -2,6 +2,42 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.14.3] - 2026-09-29
+
+An agent writing in two files no longer sends the editor back and forth
+between them, and analysis of a large project holds far less memory.
+
+- **Agent review diffs during a burst of writes** (#172). Each review that
+  opened took the active editor, so an agent writing modules in two files
+  at once sent the editor, the status bar and the tree back and forth
+  between them, once per write. The first write of a burst now opens its
+  review at once, and the latest write opens its review when the writes
+  pause for 750 ms. Every write stays badged in the tree for Keep or
+  Revert. A module the agent renames during the burst keeps its review
+  under the new name, and one it deletes opens nothing. Measured in VS
+  Code: ten writes alternating between two workbooks moved the editor ten
+  times before, and move it twice now.
+- **Visibility queries** (#173, contributed in #174). Each module's part of
+  a project visibility query is worked out once per edit, not once for
+  every module that asks. In the issue's benchmark, the queries for all 200
+  modules after an edit took 2.2 s in 10.14.2 and take 0.55 s now.
+- **The memory those queries held.** They also kept each module's whole
+  answer, every name the project exports, once per module: 425 MB for 200
+  modules of 100 procedures, growing with the square of the module count.
+  An answer is now built from the kept parts on each call, which costs what
+  copying a kept answer out did. The queries now hold 18 MB for the same
+  project, and 37 MB at 400 modules. Findings are unchanged on all 21
+  differential corpus sets.
+- **Implements with an Optional parameter** (#171). An implementing member
+  with an Optional parameter was reported as a signature mismatch, `Date`
+  against `date]`: the check took the bracket that marks the parameter
+  optional as part of its type.
+- **Signature help with a `)` in a default value.** A procedure with a
+  default such as `Optional closer As String = ")"` showed only the
+  parameters before it, and the highlight stopped there. Signature help now
+  reads a parameter list as the analyzer does, where a `)` inside quotes
+  closes nothing.
+
 ## [10.14.2] - 2026-09-29
 
 Security checks on every change and every release. No change to how XLIDE
