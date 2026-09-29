@@ -68,7 +68,7 @@ pass. A detection found harmless is recorded with its reason in
 
 The YARA Forge release is pinned with the SHA-256 of its rules in
 [`.github/scans/yara-forge.json`](.github/scans/yara-forge.json). Each week
-[an update workflow](.github/workflows/yara-forge-update.yml) proposes the
+[an update workflow](.github/workflows/update-yara-rules.yml) proposes the
 newest release in a pull request, and both workflows scan the pull request
 before it is merged.
 

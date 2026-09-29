@@ -88,15 +88,18 @@ jobs:
 
   # The one check branch protection requires: it passes only when every job
   # above did, so jobs can be added or renamed without touching the rules.
-  passed:
+  ci-passed:
     name: CI passed
     if: always()
     needs: [typescript, languages, access]
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
-      - name: Check every job passed
+      - name: Check every CI job passed
         env:
-          NEEDS: ${{ toJSON(needs) }}
+          RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
-          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
-          echo "$NEEDS" | jq -e 'all(.[]; .result == "success")' > /dev/null
+          echo "Results: $RESULTS"
+          for result in $RESULTS; do
+            [ "$result" = success ] || exit 1
+          done

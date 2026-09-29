@@ -63,6 +63,9 @@ jobs:
   semgrep:
     name: Semgrep
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build the scanner
@@ -83,14 +86,20 @@ jobs:
           --exclude-rule javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
           --exclude-rule javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
           src scripts .github
+      - name: Upload to GitHub code scanning
+        if: ${{ !cancelled() && hashFiles('semgrep.sarif') != '' }}
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
+        with:
+          sarif_file: semgrep.sarif
+          category: semgrep
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: semgrep
           path: semgrep.sarif
 
-  audit:
-    name: npm audit
+  dependencies:
+    name: Dependency audit
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -112,23 +121,26 @@ jobs:
   # The one check branch protection requires: it passes only when every
   # check above did, so checks can be added or renamed without touching the
   # rules. The release report is not among them.
-  passed:
+  security-passed:
     name: Security passed
     if: always()
-    needs: [codeql, semgrep, audit]
+    needs: [codeql, semgrep, dependencies]
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     steps:
-      - name: Check every job passed
+      - name: Check every security job passed
         env:
-          NEEDS: ${{ toJSON(needs) }}
+          RESULTS: ${{ join(needs.*.result, ' ') }}
         run: |
-          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
-          echo "$NEEDS" | jq -e 'all(.[]; .result == "success")' > /dev/null
+          echo "Results: $RESULTS"
+          for result in $RESULTS; do
+            [ "$result" = success ] || exit 1
+          done
 
   report:
     name: Attach security report to the release
     if: always() && github.event_name == 'release'
-    needs: [codeql, semgrep, audit]
+    needs: [codeql, semgrep, dependencies]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -141,7 +153,7 @@ jobs:
         env:
           CODEQL_RESULT: ${{ needs.codeql.result }}
           SEMGREP_RESULT: ${{ needs.semgrep.result }}
-          AUDIT_RESULT: ${{ needs.audit.result }}
+          AUDIT_RESULT: ${{ needs.dependencies.result }}
           TAG: ${{ github.event.release.tag_name }}
         run: node .github/scripts/security-report.mjs reports security-report.md
       - name: Attach to the release
@@ -152,5 +164,5 @@ jobs:
           (cd reports && zip -qr ../security-sarif.zip .)
           gh release upload "$TAG" security-report.md security-sarif.zip --clobber
       - name: Fail when a gate failed
-        if: needs.codeql.result != 'success' || needs.semgrep.result != 'success' || needs.audit.result != 'success'
+        if: needs.codeql.result != 'success' || needs.semgrep.result != 'success' || needs.dependencies.result != 'success'
         run: exit 1

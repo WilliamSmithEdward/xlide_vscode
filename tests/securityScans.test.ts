@@ -310,7 +310,7 @@ describe('the scan SARIF, through the existing gate and report', () => {
 });
 
 describe('the pinned YARA Forge release', () => {
-	// The YARA Forge update workflow rewrites this file in each pull request
+	// The Update YARA rules workflow rewrites this file in each pull request
 	// it opens; the Malware scan workflow reads the three fields back.
 	it('names a release, its core package and that package s SHA-256', () => {
 		const pin = JSON.parse(fs.readFileSync(path.join(repoRoot, '.github/scans/yara-forge.json'), 'utf8'));

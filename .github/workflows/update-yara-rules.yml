@@ -1,4 +1,4 @@
-name: YARA Forge update
+name: Update YARA rules
 
 # Once a week, proposes the newest YARA Forge rule release in a pull request:
 # the release and the SHA-256 of its core package, pinned in
@@ -28,7 +28,7 @@ concurrency:
 
 jobs:
   propose:
-    name: Propose the newest rules
+    name: Propose a YARA rule update
     runs-on: ubuntu-24.04
     permissions:
       contents: write
