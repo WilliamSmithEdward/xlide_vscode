@@ -1,0 +1,138 @@
+name: Security
+
+# CodeQL, Semgrep and npm audit on every push and pull request to main, once a
+# week, and on every release. Each gate fails on any finding: a new result is
+# either fixed or recorded below with the reason it is not a vulnerability.
+# On a release the three reports are attached to it as security-report.md
+# with the raw SARIF beside it (see SECURITY.md).
+
+"on":
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '17 6 * * 1'
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  codeql:
+    name: CodeQL (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [javascript-typescript, actions]
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
+        with:
+          languages: ${{ matrix.language }}
+          queries: security-extended
+          config: |
+            paths-ignore:
+              - tests
+              - syntax_corpus
+              - reference
+              - out
+              - dist
+      - uses: github/codeql-action/analyze@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
+        with:
+          category: /language:${{ matrix.language }}
+          output: sarif
+      - name: Fail on any CodeQL result
+        run: node .github/scripts/sarif-gate.mjs "CodeQL ${{ matrix.language }}" sarif
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: codeql-${{ matrix.language }}
+          path: sarif
+
+  semgrep:
+    name: Semgrep
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.12'
+      - run: python -m pip install semgrep==1.178.0
+      # Two rules are excluded because they fire on how the engine is built,
+      # reviewed finding by finding on 2026-09-29:
+      # - detect-non-literal-regexp: patterns are built from VBA identifiers
+      #   the code has already parsed, and xlide_searchModules' regex mode is
+      #   the tool's documented feature, as in VS Code's own search.
+      # - path-join-resolve-traversal: paths are joined inside the user's own
+      #   workspace, Office files and XLIDE's own state directory; the local
+      #   API server never joins a request value into a path.
+      - name: Scan
+        run: >-
+          semgrep scan --metrics off --error --sarif --output semgrep.sarif
+          --config p/default --config p/typescript --config p/github-actions
+          --exclude-rule javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
+          --exclude-rule javascript.lang.security.audit.path-traversal.path-join-resolve-traversal.path-join-resolve-traversal
+          src scripts .github
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: semgrep
+          path: semgrep.sarif
+
+  audit:
+    name: npm audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '20'
+      # Production and development dependencies both: the build and test
+      # toolchain runs on the maintainer's machine and in CI.
+      - name: Audit
+        run: |
+          npm audit --json > npm-audit.json || true
+          node -e "const a=require('./npm-audit.json').metadata.vulnerabilities; console.log(a); if (a.total) { console.error('npm audit reports ' + a.total + ' vulnerabilities'); process.exit(1); }"
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: npm-audit
+          path: npm-audit.json
+
+  report:
+    name: Attach security report to the release
+    if: always() && github.event_name == 'release'
+    needs: [codeql, semgrep, audit]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+        with:
+          path: reports
+      - name: Write the report
+        env:
+          CODEQL_RESULT: ${{ needs.codeql.result }}
+          SEMGREP_RESULT: ${{ needs.semgrep.result }}
+          AUDIT_RESULT: ${{ needs.audit.result }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: node .github/scripts/security-report.mjs reports security-report.md
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          (cd reports && zip -qr ../security-sarif.zip .)
+          gh release upload "$TAG" security-report.md security-sarif.zip --clobber
+      - name: Fail when a gate failed
+        if: needs.codeql.result != 'success' || needs.semgrep.result != 'success' || needs.audit.result != 'success'
+        run: exit 1

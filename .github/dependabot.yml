@@ -1,0 +1,36 @@
+# Version updates once a week; security updates arrive as soon as an advisory
+# is published, whatever this schedule says. Patch and minor bumps come as
+# one pull request per ecosystem, so a week's routine updates are one review.
+# The GitHub Actions entry keeps the commit SHAs the workflows pin current.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 10
+    # A version published less than a week ago is not proposed: a
+    # compromised release is usually caught and pulled within days. Security
+    # updates are not held back by this.
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: chore(deps)
+      prefix-development: chore(deps-dev)
+    groups:
+      npm-minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: chore(ci)
+    groups:
+      actions:
+        patterns: ['*']
