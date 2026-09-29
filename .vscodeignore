@@ -25,6 +25,7 @@ vitest.config.ts
 vitest.office.config.ts
 tsconfig.json
 .gitignore
+.npmrc
 **/*.map
 out/**/*.map
 **/*.xlsx

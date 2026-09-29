@@ -63,7 +63,12 @@ Every GitHub release carries the vsix published to the Marketplace,
 `security-report.md`, the verdicts and every finding for that commit with
 the vsix's SHA-256, and `security-sarif.zip`, the raw results.
 
+Everything the checks and the build run on is pinned: workflow actions to
+commit SHAs, the Semgrep and ClamAV images to digests, YARA-X to a version
+and its SHA-256, runners to an OS release, Node to a version, and npm
+packages to exact versions in `package.json` and the lockfile alike. The
+signatures and rules the scanners detect with are the exception: they stay
+current, and the release report records which ones each scan used.
 Dependabot opens a pull request as soon as an advisory affects a
-dependency, and groups routine updates weekly. Workflow actions are pinned
-to commit SHAs, the ClamAV engine to an image digest, and YARA-X to a
-version and its SHA-256.
+dependency, and proposes routine updates weekly, once a version is a week
+old.

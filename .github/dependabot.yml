@@ -2,7 +2,8 @@
 # is published, whatever this schedule says. Patch and minor bumps come as
 # one pull request per ecosystem, so a week's routine updates are one review.
 # The GitHub Actions entry keeps the commit SHAs the workflows pin current,
-# and the Docker entry the ClamAV engine the Security workflow scans with.
+# and the Docker entry the Semgrep and ClamAV images the Security workflow
+# scans with.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -49,7 +50,7 @@ updates:
         patterns: ['*']
 
   - package-ecosystem: docker
-    directory: /.github/clamav
+    directories: [/.github/clamav, /.github/semgrep]
     schedule:
       interval: weekly
       day: monday

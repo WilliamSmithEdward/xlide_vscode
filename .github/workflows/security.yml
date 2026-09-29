@@ -25,7 +25,7 @@ permissions:
 jobs:
   codeql:
     name: CodeQL (${{ matrix.language }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       security-events: write
@@ -63,13 +63,11 @@ jobs:
 
   semgrep:
     name: Semgrep
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
-        with:
-          python-version: '3.12'
-      - run: python -m pip install semgrep==1.178.0
+      - name: Build the scanner
+        run: docker build --quiet --tag semgrep-scan .github/semgrep
       # Two rules are excluded because they fire on how the engine is built,
       # reviewed finding by finding on 2026-09-29:
       # - detect-non-literal-regexp: patterns are built from VBA identifiers
@@ -80,6 +78,7 @@ jobs:
       #   API server never joins a request value into a path.
       - name: Scan
         run: >-
+          docker run --rm --volume "$PWD:/src" --workdir /src semgrep-scan
           semgrep scan --metrics off --error --sarif --output semgrep.sarif
           --config p/default --config p/typescript --config p/github-actions
           --exclude-rule javascript.lang.security.audit.detect-non-literal-regexp.detect-non-literal-regexp
@@ -93,12 +92,12 @@ jobs:
 
   audit:
     name: npm audit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '20'
+          node-version: '20.20.2'
       # Production and development dependencies both: the build and test
       # toolchain runs on the maintainer's machine and in CI.
       - name: Audit
@@ -116,12 +115,12 @@ jobs:
   # other run packages this commit.
   package:
     name: Package
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '20'
+          node-version: '20.20.2'
           cache: npm
       - name: Take the vsix attached to the release
         if: github.event_name == 'release'
@@ -162,7 +161,7 @@ jobs:
   clamav:
     name: ClamAV
     needs: package
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -229,7 +228,7 @@ jobs:
   yara-x:
     name: YARA-X
     needs: package
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
       # Pinned by hand, as Dependabot cannot follow a release download. Move
@@ -288,7 +287,7 @@ jobs:
     name: Attach security report to the release
     if: always() && github.event_name == 'release'
     needs: [codeql, semgrep, audit, package, clamav, yara-x]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
