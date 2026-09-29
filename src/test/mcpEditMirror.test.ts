@@ -12,6 +12,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 import { deleteModule, readModules, renameModule, writeModule as engineWrite } from '../vba/projectService';
+import { AGENT_REVIEW_SETTLE_MS } from '../xlideAgentDiff';
 import { xlideApiRecordName, xlideApiStateDir } from '../xlideApiServer';
 import { activate, closeAllEditors, moduleUri, until, workbookPath } from './support';
 
@@ -250,5 +251,56 @@ suite('The MCP server\'s edits, mirrored', () => {
 			assert.deepEqual(modules(state), [`module:${inFront}`], JSON.stringify({ front, state }));
 			await vscode.commands.executeCommand('xlide.keepAgentChange', { filePath: workbookPath(), moduleName: 'MirrorElsewhere' });
 		});
+	});
+
+	// Issue #172: an agent writing in two files at once. Each review that
+	// opened took the active editor, so the editor, the status bar and the
+	// tree went back and forth between the files once per write.
+	test('a burst of writes across two files moves the editor twice, not once per write', async () => {
+		const first = workbookPath();
+		const second = path.join(path.dirname(first), 'MirrorSecond.xlsm');
+		fs.copyFileSync(first, second);
+		// The window reviews only files it shows, and an earlier test's writes
+		// must not still count as a burst under way.
+		await vscode.commands.executeCommand('xlide.refreshExplorer');
+		await sleep(AGENT_REVIEW_SETTLE_MS + 250);
+		const fronts: string[] = [];
+		const watching = vscode.window.onDidChangeActiveTextEditor((editor) => {
+			if (editor?.document.uri.scheme === 'xlide-vba') {
+				fronts.push(path.basename(path.dirname(editor.document.uri.fsPath)));
+			}
+		});
+		const writeIn = async (file: string, n: number): Promise<void> => {
+			const before = readModules(file).find((module) => module.name === 'MirrorBurst')?.source;
+			const code = procedures('MirrorBurst', ` + ${n}`);
+			engineWrite(file, 'MirrorBurst', code, 'standard');
+			const answer = await report('agent-edit', {
+				file,
+				module: 'MirrorBurst',
+				before: before ?? null,
+				beforeExisted: before !== undefined,
+				after: code,
+				afterExists: true,
+				kind: 'write',
+			});
+			assert.equal(answer.json.shown, true, `the window should show ${path.basename(file)}`);
+		};
+		try {
+			for (let n = 0; n < 10; n++) {
+				await writeIn(n % 2 === 0 ? first : second, n);
+				await sleep(200);
+			}
+			await until(() => (fronts.at(-1) === 'MirrorSecond.xlsm' ? true : undefined),
+				'the latest write s review should open once the writes pause');
+			await sleep(1000);
+			assert.deepEqual(fronts, ['FormFixture.xlsm', 'MirrorSecond.xlsm']);
+		} finally {
+			watching.dispose();
+			for (const file of [first, second]) {
+				await vscode.commands.executeCommand('xlide.keepAgentChange', { filePath: file, moduleName: 'MirrorBurst' });
+			}
+			await closeAllEditors();
+			fs.rmSync(second, { force: true });
+		}
 	});
 });

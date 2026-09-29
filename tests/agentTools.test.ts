@@ -98,7 +98,13 @@ vi.mock('../src/vbaTestRunner', () => ({
 
 import * as vscode from 'vscode';
 import { registerAgentTools } from '../src/agentTools';
-import { hasPendingAgentReview, pendingAgentReviewModules, trackModuleWriteForAgentReview } from '../src/xlideAgentDiff';
+import {
+    AGENT_REVIEW_SETTLE_MS,
+    hasPendingAgentReview,
+    pendingAgentReviewModules,
+    resetAgentReviewPresenterForTests,
+    trackModuleWriteForAgentReview,
+} from '../src/xlideAgentDiff';
 import { writeProjectModule } from '../src/projectModuleOperations';
 import { clearXlideWriteAudit, recentXlideWriteAudits } from '../src/xlideWriteAudit';
 import { runWriteWithHostCoordination } from '../src/officeWriteCoordinator';
@@ -490,6 +496,7 @@ describe('agent write review (diff + tree badge, native surfaces only)', () => {
 
     afterEach(() => {
         fs.rmSync(tempDir, { recursive: true, force: true });
+        resetAgentReviewPresenterForTests();
     });
 
     /** Marks an invocation as chat-driven; only those get the review. */
@@ -555,6 +562,11 @@ describe('agent write review (diff + tree badge, native surfaces only)', () => {
 
     async function settle() {
         await new Promise((resolve) => setTimeout(resolve, 10));
+    }
+
+    /** Long enough for a burst of writes to end and its latest review to open. */
+    async function burstEnds() {
+        await new Promise((resolve) => setTimeout(resolve, AGENT_REVIEW_SETTLE_MS + 50));
     }
 
     it('a chat-driven write opens a diff quietly and badges the module', async () => {
@@ -1078,6 +1090,94 @@ describe('agent write review (diff + tree badge, native surfaces only)', () => {
         });
     });
 
+    describe('a burst of agent writes (issue #172)', () => {
+        // Each review that opens takes the active editor. An agent writing
+        // modules in two files at once sent the editor, the status bar and
+        // the tree back and forth between them, once per write.
+        const reviewsOpened = (): string[] => vscodeMock.executeCommand.mock.calls
+            .filter((call: unknown[]) => call[0] === 'vscode.diff')
+            .map((call: unknown[]) => String(call[3]));
+        const write = async (tool: ReturnType<typeof writeTool>, filePath: string, moduleName: string) =>
+            tool?.invoke({ input: { filePath, moduleName, source: `Sub ${moduleName}Body()\r\nEnd Sub\r\n` }, ...CHAT }, undefined);
+
+        it('opens the first write s review at once and the latest one s when the writes pause', async () => {
+            const book = path.join(tempDir, 'Book.xlsm');
+            const other = path.join(tempDir, 'Other.xlsm');
+            const tool = writeTool(fakeEngine().call);
+            for (let i = 0; i < 6; i++) {
+                await write(tool, i % 2 === 0 ? book : other, `Burst${i}`);
+            }
+            await settle();
+            expect(reviewsOpened()).toEqual([expect.stringContaining('Burst0')]);
+
+            await burstEnds();
+            expect(reviewsOpened()).toEqual([expect.stringContaining('Burst0'), expect.stringContaining('Burst5')]);
+            // Every write is still waiting for Keep or Revert in the tree.
+            for (let i = 0; i < 6; i++) {
+                expect(hasPendingAgentReview(i % 2 === 0 ? book : other, `Burst${i}`)).toBe(true);
+            }
+        });
+
+        it('opens a write that comes after a pause at once', async () => {
+            const book = path.join(tempDir, 'Paused.xlsm');
+            const tool = writeTool(fakeEngine().call);
+            await write(tool, book, 'First');
+            await burstEnds();
+            await write(tool, book, 'Second');
+            await settle();
+            expect(reviewsOpened()).toEqual([expect.stringContaining('First'), expect.stringContaining('Second')]);
+        });
+
+        it('opens nothing more when the burst ends on the review already showing', async () => {
+            const book = path.join(tempDir, 'Same.xlsm');
+            const tool = writeTool(fakeEngine().call);
+            await write(tool, book, 'Kept');
+            await write(tool, book, 'Passing');
+            await write(tool, book, 'Kept');
+            await burstEnds();
+            expect(reviewsOpened()).toEqual([expect.stringContaining('Kept')]);
+        });
+
+        it('opens a held write under the name its module was renamed to', async () => {
+            const book = path.join(tempDir, 'Renamed.xlsm');
+            const tool = writeTool(fakeEngine().call);
+            await write(tool, book, 'Shown');
+            await write(tool, book, 'Held');
+            await vscodeMock.registeredTools.get('xlide_renameModule')
+                ?.invoke({ input: { filePath: book, moduleName: 'Held', newName: 'Moved' } }, undefined);
+            await burstEnds();
+            expect(reviewsOpened()).toEqual([expect.stringContaining('Shown'), expect.stringContaining('Moved')]);
+        });
+
+        it('opens nothing for a held write whose module the agent deleted', async () => {
+            const book = path.join(tempDir, 'Deleted.xlsm');
+            const tool = writeTool(fakeEngine().call);
+            await write(tool, book, 'Shown');
+            await write(tool, book, 'Scratch');
+            await vscodeMock.registeredTools.get('xlide_deleteModule')
+                ?.invoke({ input: { filePath: book, moduleName: 'Scratch' } }, undefined);
+            await burstEnds();
+            expect(reviewsOpened()).toEqual([expect.stringContaining('Shown')]);
+            // Nothing opened, so the next write starts no burst of its own.
+            await write(tool, book, 'After');
+            await settle();
+            expect(reviewsOpened()).toEqual([expect.stringContaining('Shown'), expect.stringContaining('After')]);
+        });
+
+        it('opens a module s review again when the module comes back after its review ended', async () => {
+            // A scratch module created, deleted and created again: the delete
+            // closed the first review's diff.
+            const book = path.join(tempDir, 'Again.xlsm');
+            const tool = writeTool(fakeEngine().call);
+            await write(tool, book, 'Scratch');
+            await vscodeMock.registeredTools.get('xlide_deleteModule')
+                ?.invoke({ input: { filePath: book, moduleName: 'Scratch' } }, undefined);
+            await write(tool, book, 'Scratch');
+            await burstEnds();
+            expect(reviewsOpened()).toEqual([expect.stringContaining('Scratch'), expect.stringContaining('Scratch')]);
+        });
+    });
+
     describe('review diffs of changes that are gone', () => {
         interface FakeTab { input: unknown; isDirty: boolean }
         let tabs: FakeTab[];
@@ -1164,7 +1264,8 @@ describe('agent write review (diff + tree badge, native surfaces only)', () => {
             await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub A2()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
             await settle();
             await tool?.invoke({ input: { filePath: target, moduleName: 'Module2', source: 'Sub B2()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
-            await settle();
+            // Written straight after Module1: its review opens once the writes pause.
+            await burstEnds();
 
             await runCommand('xlide.revertAgentChange', { filePath: target, moduleName: 'Module1' });
             await runCommand('xlide.keepAgentChange', { filePath: target, moduleName: 'Module2' });
@@ -1181,7 +1282,8 @@ describe('agent write review (diff + tree badge, native surfaces only)', () => {
             await tool?.invoke({ input: { filePath: target, moduleName: 'TmpOne', source: 'Sub One()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
             await settle();
             await tool?.invoke({ input: { filePath: target, moduleName: 'TmpTwo', source: 'Sub Two()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
-            await settle();
+            // Written straight after TmpOne: its review opens once the writes pause.
+            await burstEnds();
             // The user typed into the live side of TmpTwo's diff.
             reviewDiffsOf('TmpTwo')[0].isDirty = true;
 
@@ -1192,6 +1294,20 @@ describe('agent write review (diff + tree badge, native surfaces only)', () => {
 
             expect(reviewDiffsOf('TmpOne')).toEqual([]);
             expect(reviewDiffsOf('TmpTwo')).toHaveLength(1);
+        });
+
+        it('follow a module renamed during a burst, opening its diff once', async () => {
+            const target = path.join(tempDir, 'Moved.xlsm');
+            const tool = writeTool(fakeEngine().call);
+            await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub A()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+            await settle();
+            await tool?.invoke({ input: { filePath: target, moduleName: 'Module1', source: 'Sub A2()\r\nEnd Sub\r\n' }, ...CHAT }, undefined);
+            await vscodeMock.registeredTools.get('xlide_renameModule')
+                ?.invoke({ input: { filePath: target, moduleName: 'Module1', newName: 'Module2' } }, undefined);
+            await burstEnds();
+
+            expect(reviewDiffsOf('Module1')).toEqual([]);
+            expect(reviewDiffsOf('Module2')).toHaveLength(1);
         });
     });
 });

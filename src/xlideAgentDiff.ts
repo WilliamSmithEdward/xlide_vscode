@@ -91,6 +91,11 @@ function resolvePendingAgentReview(filePath: string, moduleName: string): void {
     if (deletePending(filePath, moduleName)) {
         pendingEmitter.fire({ filePath, moduleName });
     }
+    // A write after this starts a new review, which the diff on screen, if
+    // one is left, does not show.
+    if (presentedReview === pendingKey(filePath, moduleName)) {
+        presentedReview = undefined;
+    }
 }
 
 /**
@@ -182,7 +187,65 @@ export async function presentAgentModuleWrite(
     }
     setPending(filePath, moduleName, merged);
     pendingEmitter.fire({ filePath, moduleName });
-    await openAgentReviewDiff(filePath, moduleName);
+    await presentReview(filePath, moduleName);
+}
+
+/**
+ * How long agent writes must pause before the next review opens. A burst of
+ * writes - one tool call writing several modules, or calls made in parallel
+ * across files - opens the first write's review at once and the latest one's
+ * when the writes stop, not one per write. Each opening takes the active
+ * editor, so one per write sent the editor, the status bar and the tree back
+ * and forth between the files being written for as long as the agent kept
+ * writing (issue #172). The diff opens as a preview, which keeps only the last
+ * one anyway, so a burst still ends on the same review; every write in it
+ * stays badged in the tree.
+ */
+export const AGENT_REVIEW_SETTLE_MS = 750;
+
+let presenterTimer: ReturnType<typeof setTimeout> | undefined;
+/** The review this presenter last opened, as its pending key. */
+let presentedReview: string | undefined;
+/** The latest write held back while a burst is under way. */
+let heldReview: { filePath: string; moduleName: string } | undefined;
+
+function presentReview(filePath: string, moduleName: string): Promise<void> {
+    if (presenterTimer === undefined) {
+        presentedReview = pendingKey(filePath, moduleName);
+        presenterTimer = setTimeout(openHeldReview, AGENT_REVIEW_SETTLE_MS);
+        return openAgentReviewDiff(filePath, moduleName);
+    }
+    heldReview = { filePath, moduleName };
+    clearTimeout(presenterTimer);
+    presenterTimer = setTimeout(openHeldReview, AGENT_REVIEW_SETTLE_MS);
+    return Promise.resolve();
+}
+
+function openHeldReview(): void {
+    presenterTimer = undefined;
+    const held = heldReview;
+    heldReview = undefined;
+    // The review already showing needs no second opening: its live side has
+    // followed every write since. A module kept, reverted or deleted since its
+    // write has no review left to open.
+    if (!held
+        || pendingKey(held.filePath, held.moduleName) === presentedReview
+        || !hasPendingAgentReview(held.filePath, held.moduleName)) {
+        return;
+    }
+    presentedReview = pendingKey(held.filePath, held.moduleName);
+    presenterTimer = setTimeout(openHeldReview, AGENT_REVIEW_SETTLE_MS);
+    void openAgentReviewDiff(held.filePath, held.moduleName);
+}
+
+/** Forgets any burst under way, so one test's writes cannot hold back the next's. */
+export function resetAgentReviewPresenterForTests(): void {
+    if (presenterTimer !== undefined) {
+        clearTimeout(presenterTimer);
+    }
+    presenterTimer = undefined;
+    presentedReview = undefined;
+    heldReview = undefined;
 }
 
 /**
@@ -308,6 +371,15 @@ export function renamePendingAgentReview(filePath: string, moduleName: string, n
     pendingEmitter.fire({ filePath, moduleName });
     setPending(filePath, newName, record);
     pendingEmitter.fire({ filePath, moduleName: newName });
+    // A write held back in a burst, and the review a burst showed, follow
+    // the module to its new name.
+    const from = pendingKey(filePath, moduleName);
+    if (heldReview && pendingKey(heldReview.filePath, heldReview.moduleName) === from) {
+        heldReview = { filePath: heldReview.filePath, moduleName: newName };
+    }
+    if (presentedReview === from) {
+        presentedReview = pendingKey(filePath, newName);
+    }
     // A diff open on the old name shows a module that no longer exists; the
     // review goes on under the new one.
     if (closeAgentReviewDiffs(filePath, moduleName)) {
