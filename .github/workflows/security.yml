@@ -41,6 +41,7 @@ jobs:
           config: |
             paths-ignore:
               - tests
+              - src/test
               - syntax_corpus
               - reference
               - out
@@ -49,8 +50,9 @@ jobs:
         with:
           category: /language:${{ matrix.language }}
           output: sarif
-      - name: Fail on any CodeQL result
-        run: node .github/scripts/sarif-gate.mjs "CodeQL ${{ matrix.language }}" sarif
+      # Fails on any result not reviewed in .github/codeql/reviewed.json.
+      - name: Fail on any unreviewed CodeQL result
+        run: node .github/scripts/sarif-gate.mjs "CodeQL ${{ matrix.language }}" sarif .github/codeql/reviewed.json
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
         if: always()
         with:

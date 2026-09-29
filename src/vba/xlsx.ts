@@ -17,6 +17,7 @@ import {
 	shiftFormula,
 	type FormulaContext,
 } from './xlsxFormula';
+import { escapeRegExp } from './ooxml';
 import { editSheetShape, listSheetShapes, type ShapeEdit, type ShapeInfo } from './xlsxShapes';
 import { sheetsOfOoxml, sheetsOfXlsb, type WorkbookSheet } from './workbookSheets';
 import { ZipArchive } from './zip';
@@ -153,10 +154,6 @@ const DATE_1904_OFFSET = 1462;
 /** A workbook relationship target, relative to xl/ unless absolute. */
 function workbookPartPath(target: string): string {
 	return target.startsWith('/') ? target.slice(1) : `xl/${target.replace(/^\.\//, '')}`;
-}
-
-function escapeRegExp(text: string): string {
-	return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 // ------------------------------------------------------ dynamic array metadata

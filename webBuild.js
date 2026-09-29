@@ -31,11 +31,14 @@ function collectBundledAssets() {
     if (!fs.existsSync(absolute)) {
       continue;
     }
-    for (const name of fs.readdirSync(absolute)) {
-      const file = path.join(absolute, name);
-      if (!fs.statSync(file).isFile()) {
+    // The directory listing says which entries are files, so nothing is
+    // checked and then read as a separate step.
+    for (const entry of fs.readdirSync(absolute, { withFileTypes: true })) {
+      if (!entry.isFile()) {
         continue;
       }
+      const name = entry.name;
+      const file = path.join(absolute, name);
       // Line endings normalized to LF, exactly as readExtensionTextAsset does,
       // so a webview renders the same however the repo was checked out.
       assets[`${dir}/${name}`] = fs.readFileSync(file, "utf8").replace(/\r\n/g, "\n");

@@ -28,9 +28,14 @@ export function encodeXml(text: string): string {
 	return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+/** `text` as a literal inside a regular expression: every special character escaped. */
+export function escapeRegExp(text: string): string {
+	return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 /** An attribute of a start tag, decoded. */
 export function attr(tag: string, name: string): string | undefined {
-	const m = new RegExp(`\\s${name.replace(/[.:]/g, '\\$&')}\\s*=\\s*"([^"]*)"`).exec(tag);
+	const m = new RegExp(`\\s${escapeRegExp(name)}\\s*=\\s*"([^"]*)"`).exec(tag);
 	return m ? decodeXml(m[1]) : undefined;
 }
 
@@ -39,7 +44,7 @@ export function attr(tag: string, name: string): string | undefined {
  * has none, or removed when `value` is undefined.
  */
 export function withAttr(tag: string, name: string, value: string | undefined): string {
-	const re = new RegExp(`\\s${name.replace(/[.:]/g, '\\$&')}\\s*=\\s*"[^"]*"`);
+	const re = new RegExp(`\\s${escapeRegExp(name)}\\s*=\\s*"[^"]*"`);
 	if (value === undefined) { return tag.replace(re, ''); }
 	const set = ` ${name}="${encodeXml(value)}"`;
 	if (re.test(tag)) { return tag.replace(re, () => set); }
@@ -224,7 +229,7 @@ export class Package {
 		const targets = this.relationships(path).map((rel) => rel.path);
 		this.zip.delete(path);
 		this.zip.delete(relsPathOf(path));
-		const types = this.read(CONTENT_TYPES).replace(new RegExp(`<Override\\b[^>]*PartName="/${path.replace(/[.[\]]/g, '\\$&')}"[^>]*/>`), '');
+		const types = this.read(CONTENT_TYPES).replace(new RegExp(`<Override\\b[^>]*PartName="/${escapeRegExp(path)}"[^>]*/>`), '');
 		this.write(CONTENT_TYPES, types);
 		for (const target of targets) {
 			if (this.zip.has(target) && !this.referenced(target)) {

@@ -1,0 +1,35 @@
+{
+  "about": "CodeQL results reviewed and found not to be vulnerabilities, by rule and file. The Security workflow fails on any result not listed here. A new result in a listed file under a listed rule still passes, so keep each entry's reason specific and re-review the file when it changes materially.",
+  "reviewed": [
+    {
+      "rule": "js/insufficient-password-hash",
+      "file": "src/moduleContentToken.ts",
+      "reason": "SHA-256 of a module's source, used as a content token to detect a concurrent edit. No password is involved."
+    },
+    {
+      "rule": "js/insufficient-password-hash",
+      "file": "src/projectModuleOperations.ts",
+      "reason": "SHA-256 of the module listing, used to notice that a project changed on disk. No password is involved."
+    },
+    {
+      "rule": "js/incomplete-sanitization",
+      "file": "src/vba/ooxml.ts",
+      "reason": "encodeXml escapes the five characters XML gives meaning; a backslash has none in XML."
+    },
+    {
+      "rule": "js/incomplete-multi-character-sanitization",
+      "file": "src/vba/xlsxShapes.ts",
+      "reason": "Tags are stripped to produce a shape caption as plain text, and written back into VML the file keeps. No webview inserts HTML: every innerHTML use only clears a node, and captions are set as text."
+    },
+    {
+      "rule": "js/incomplete-url-substring-sanitization",
+      "file": "src/vba/xlsx.ts",
+      "reason": "Tests whether the metadata part already declares the dynamic-array XML namespace. Nothing is fetched or trusted by URL."
+    },
+    {
+      "rule": "js/missing-origin-check",
+      "file": "assets/webview/*.js",
+      "reason": "Every webview page sets the CSP default-src 'none' with nonce-only scripts, so no frame can exist inside it. The only window that can post to it is VS Code's own webview host."
+    }
+  ]
+}

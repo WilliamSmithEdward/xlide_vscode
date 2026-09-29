@@ -17,6 +17,14 @@ function files(root, suffix) {
 		.filter((name) => name.endsWith(suffix));
 }
 
+/** Results reviewed as not vulnerabilities (.github/codeql/reviewed.json), by rule and file. */
+const reviewed = fs.existsSync('.github/codeql/reviewed.json')
+	? JSON.parse(fs.readFileSync('.github/codeql/reviewed.json', 'utf8')).reviewed.map((entry) => ({
+		rule: entry.rule,
+		matches: new RegExp(`^${entry.file.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*')}$`),
+	}))
+	: [];
+
 function sarifFindings(root) {
 	const found = [];
 	let tools = new Set();
@@ -29,7 +37,9 @@ function sarifFindings(root) {
 			}
 			for (const result of run.results ?? []) {
 				const where = result.locations?.[0]?.physicalLocation;
-				found.push(`- \`${result.ruleId}\` at ${where?.artifactLocation?.uri ?? '?'}:${where?.region?.startLine ?? '?'}`);
+				const uri = where?.artifactLocation?.uri ?? '?';
+				const known = reviewed.some((entry) => entry.rule === result.ruleId && entry.matches.test(uri));
+				found.push(`- \`${result.ruleId}\` at ${uri}:${where?.region?.startLine ?? '?'}${known ? ' (reviewed, see .github/codeql/reviewed.json)' : ''}`);
 			}
 		}
 	}

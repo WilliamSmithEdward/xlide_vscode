@@ -18,12 +18,7 @@ export function scriptJson(value: unknown): string {
     return JSON.stringify(value).replace(/</g, '\\u003c');
 }
 
+/** 128 random bits as hex: every value equally likely, unlike a byte taken modulo an alphabet. */
 export function randomNonce(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    const bytes = crypto.randomBytes(32);
-    let nonce = '';
-    for (let i = 0; i < bytes.length; i++) {
-        nonce += chars.charAt(bytes[i] % chars.length);
-    }
-    return nonce;
+    return crypto.randomBytes(16).toString('hex');
 }

@@ -1,5 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import fs from 'node:fs';
+
+// These walk every host object model in full. Alone the slowest takes about
+// half a second, but beside the rest of the suite on a busy machine they
+// took 5 to 10 seconds and failed on the 5-second default.
+vi.setConfig({ testTimeout: 30_000 });
 import path from 'node:path';
 import { getExcelObjectModel, type HostObjectModel } from '../src/analyzer/host/excelObjectModel';
 import { getWordObjectModel } from '../src/analyzer/host/wordObjectModel';
