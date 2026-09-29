@@ -2,6 +2,30 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.14.4] - 2026-09-29
+
+Malware scans on every change and every release, and everything the build
+runs on pinned. No change to how XLIDE behaves.
+
+- **ClamAV and YARA-X** join the Security workflow. Both scan every file in
+  the repository, every dependency as npm installs it with no install
+  script run, and the extension package, as the vsix and unpacked. ClamAV
+  scans with the current signatures, and YARA-X with the current YARA Forge
+  core rules. Each fails on any detection not reviewed in
+  `.github/scans/reviewed.json`.
+- **Every release carries its vsix**, the file published to the
+  Marketplace. The release's scans cover that exact file, and its security
+  report gives the file's SHA-256.
+- **A scan has to show it worked.** Each run writes the EICAR test file,
+  and a scan that does not detect it fails, as does a YARA-X run that loads
+  fewer than 90% of its rules.
+- **Pinned:** npm packages to exact versions in `package.json`, as the
+  lockfile has them; Semgrep to an image digest, in place of a pip install
+  whose dependencies floated; runners to ubuntu-24.04 and windows-2025; and
+  Node to 20.20.2. `@types/vscode` is now 1.95.0, the oldest VS Code XLIDE
+  supports, and the extension type-checks against it, so it uses no API
+  that version lacks.
+
 ## [10.14.3] - 2026-09-29
 
 An agent writing in two files no longer sends the editor back and forth
