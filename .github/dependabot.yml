@@ -21,6 +21,18 @@ updates:
     groups:
       npm-minor-and-patch:
         update-types: [minor, patch]
+    # Both track the oldest VS Code XLIDE supports (engines.vscode, ^1.95.0,
+    # which runs on Node 20), not the newest: newer types would let the code
+    # use APIs that version does not have. Move them with engines.vscode.
+    ignore:
+      - dependency-name: '@types/node'
+        update-types: [version-update:semver-major]
+      - dependency-name: '@types/vscode'
+      # vitest 5 requires @types/node 22 or later, so it waits with the above.
+      - dependency-name: 'vitest'
+        update-types: [version-update:semver-major]
+      - dependency-name: '@vitest/*'
+        update-types: [version-update:semver-major]
 
   - package-ecosystem: github-actions
     directory: /
