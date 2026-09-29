@@ -23,11 +23,11 @@ import {
 } from './accessDesignTemplates';
 import type { AccessDesignPrototypes } from './accessDesignEdit';
 import { designPrototypes, type AccessDesignKind } from './accessDesignEdit';
+import { readAccessDesignTheme, type AccessTheme } from './accessThemes';
 import {
 	PROP_DATA,
 	addToDir,
 	addToDirData,
-	addToFolderList,
 	addToProject,
 	addToProjectWm,
 	attributeLines,
@@ -38,6 +38,7 @@ import {
 	nextFolderName,
 	removeFromDir,
 	removeFromDirData,
+	refileInFolderList,
 	removeFromFolderList,
 	removeFromProject,
 	removeFromProjectWm,
@@ -126,19 +127,16 @@ const NAV_DESIGN_TYPES: Readonly<Record<AccessDesignKind, number>> = {
 const DESIGN_CONTAINERS: Readonly<Record<AccessDesignKind, string>> = {
 	form: 'Forms', report: 'Reports',
 };
-/**
- * A design's ids step by one, where a module's step by four: the object ids
- * Access hands out are per kind, and a design takes the next one down.
- */
-const DESIGN_ID_STEP = 1;
 /** The navigation pane's own type for a module, and the group it files under. */
 const NAV_MODULE_TYPE = 32775;
 const NAV_MODULE_GROUP = 8;
 /**
- * Access hands out object ids four at a time. Taking max + 1 lands inside the
- * range another object holds, and `AllModules(i).Name` then fails.
+ * A new object, module or design, takes the highest negative id in the
+ * catalog plus one, and a freed id is never reused (issue #150, measured
+ * against Access 16.0 over COM: a form added after modules takes the next id
+ * after theirs, and a module added after a delete skips the freed one).
  */
-const OBJECT_ID_STEP = 4;
+const OBJECT_ID_STEP = 1;
 const MAX_MODULE_NAME = 64;
 
 /** One form or report, with the design it is described by. */
@@ -171,10 +169,15 @@ export class AccessVbaWriter {
 	private readonly random: () => number;
 	private readonly now: () => number;
 
+	/** The database as it was opened, which is where its theme is read from. */
+	private readonly opened: Buffer;
+	private theme: AccessTheme | undefined;
+
 	constructor(data: Buffer, options: AccessVbaWriterOptions = {}) {
 		if (!isAccessFile(data)) {
 			throw new AccessVbaWriteError('Not a Jet 4 or ACE database.');
 		}
+		this.opened = data;
 		this.store = new AccessPageStore(data);
 		this.random = options.random ?? Math.random;
 		this.now = options.now ?? accessNow;
@@ -316,7 +319,7 @@ export class AccessVbaWriter {
 		const cookie = Buffer.from([
 			Math.floor(this.random() * 256), Math.floor(this.random() * 256),
 		]);
-		const folder = nextFolderName('Modules', new Set(
+		const folder = nextFolderName(new Set(
 			rows.filter((row) => row.parentId === ids.modules && row.type === TYPE_FOLDER)
 				.map((row) => row.name),
 		));
@@ -369,9 +372,10 @@ export class AccessVbaWriter {
 	}
 
 	/**
-	 * Name an object in its container's `\x03DirData` and claim its folder in
-	 * the container's `PropData`, creating either stream when the container
-	 * has none yet.
+	 * Name an object in its container's `\x03DirData`, creating the stream
+	 * when the container has none yet. The container's `PropData` folder list
+	 * is not written: Access adds an object's line there the next time it
+	 * opens the database, not when it makes the object (issue #150, measured).
 	 */
 	private addToContainerListing(
 		container: number,
@@ -380,21 +384,16 @@ export class AccessVbaWriter {
 		when: number,
 	): void {
 		const rows = this.rows();
-		for (const [stream, add] of [
-			[DIR_DATA, (payload: Buffer): Buffer => addToDirData(payload, name, folder)],
-			['PropData', (payload: Buffer): Buffer => addToFolderList(payload, folder)],
-		] as Array<[string, (payload: Buffer) => Buffer]>) {
-			const row = rows.find(
-				(entry) => entry.parentId === container && entry.name === stream,
-			);
-			if (row) {
-				this.writeStream(row, add(row.bytes ?? Buffer.alloc(4)));
-			} else {
-				this.storage.insertNamedRow(new Map<string, AccessScalar>([
-					['ParentId', container], ['Name', stream], ['Type', TYPE_STREAM],
-					['Lv', add(Buffer.alloc(4))], ['DateCreate', when], ['DateUpdate', when],
-				]));
-			}
+		const row = rows.find(
+			(entry) => entry.parentId === container && entry.name === DIR_DATA,
+		);
+		if (row) {
+			this.writeStream(row, addToDirData(row.bytes ?? Buffer.alloc(4), name, folder));
+		} else {
+			this.storage.insertNamedRow(new Map<string, AccessScalar>([
+				['ParentId', container], ['Name', DIR_DATA], ['Type', TYPE_STREAM],
+				['Lv', addToDirData(Buffer.alloc(4), name, folder)], ['DateCreate', when], ['DateUpdate', when],
+			]));
 		}
 	}
 
@@ -564,6 +563,16 @@ export class AccessVbaWriter {
 		return this.store.toBuffer();
 	}
 
+	/**
+	 * The theme a new form, report or control is drawn in: the database's own,
+	 * as Access draws one (issue #151). Nothing here writes the theme, so it
+	 * is read once from the database as opened.
+	 */
+	private designTheme(): AccessTheme {
+		this.theme ??= readAccessDesignTheme(this.opened);
+		return this.theme;
+	}
+
 	// -- forms and reports -----------------------------------------------------
 
 	/**
@@ -658,7 +667,7 @@ export class AccessVbaWriter {
 		if (!found) {
 			throw new AccessVbaWriteError(`This database has no form or report named ${name}.`);
 		}
-		return availablePrototypes(found.kind, designPrototypes(found.design));
+		return availablePrototypes(found.kind, designPrototypes(found.design), this.designTheme());
 	}
 
 	/**
@@ -679,7 +688,7 @@ export class AccessVbaWriter {
 		if (!folderRow) {
 			throw new AccessVbaWriteError(`${STORAGE_TABLE} has no ${container} folder.`);
 		}
-		const folder = nextFolderName(container, new Set(
+		const folder = nextFolderName(new Set(
 			rows.filter((row) => row.parentId === folderRow.id && row.type === TYPE_FOLDER)
 				.map((row) => row.name),
 		));
@@ -688,7 +697,7 @@ export class AccessVbaWriter {
 			Array.from({ length: 16 }, () => Math.floor(this.random() * 256)),
 		);
 		const template = accessDesignTemplate(kind);
-		const { blob, catalogProperties } = withDesignGuid(kind, guid);
+		const { blob, catalogProperties } = withDesignGuid(kind, guid, this.designTheme());
 
 		const ordinal = this.storage.insertNamedRow(new Map<string, AccessScalar>([
 			['ParentId', folderRow.id], ['Name', folder], ['Type', TYPE_FOLDER],
@@ -747,6 +756,14 @@ export class AccessVbaWriter {
 		);
 		if (listing) {
 			this.writeStream(listing, renameDirData(listing.bytes!, found.name, newName));
+		}
+		// Only DoCmd.Rename renames a form or report, and it erases and
+		// inserts the design's PropData line, which moves it (issue #150).
+		const folderList = rows.find(
+			(row) => row.parentId === folderRow.id && row.name === 'PropData' && row.bytes?.length,
+		);
+		if (folderList) {
+			this.writeStream(folderList, refileInFolderList(folderList.bytes!, found.ordinal));
 		}
 		this.renameDesignCatalogRows(found.name, newName, found.kind);
 		this.invalidateCache(this.rows());
@@ -816,7 +833,7 @@ export class AccessVbaWriter {
 		const negative = catalog
 			.map((values) => numberOf(values.get('Id')) ?? 0)
 			.filter((id) => id < 0);
-		const objectId = (negative.length > 0 ? Math.max(...negative) : -(2 ** 31)) + DESIGN_ID_STEP;
+		const objectId = (negative.length > 0 ? Math.max(...negative) : -(2 ** 31)) + OBJECT_ID_STEP;
 		objects.insertNamedRow(new Map<string, AccessScalar>([
 			['Id', objectId], ['ParentId', numberOf(container.get('Id'))!], ['Name', name],
 			['Type', OBJECT_TYPES[kind]], ['Flags', 0],

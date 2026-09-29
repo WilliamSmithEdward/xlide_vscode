@@ -6961,6 +6961,359 @@
       "source": "Option Explicit\nFunction Main() As Long\n    Dim b As Byte, i As Integer\n    For b = 0 To 255\n    Next b\n    For i = 1 To 32767\n        i = i\n    Next i\n    Main = 65535\nEnd Function\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue152_a_compile",
+      "description": "Issue #152 case a, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    Dim p As ItemProbe\n    Set p = New ItemProbe\nEnd Sub\n"
+        },
+        {
+          "name": "ItemProbe",
+          "type": "class",
+          "source": "Option Explicit\nPrivate mValue As Variant\nPublic Property Get Item(ByVal Index As Variant) As Variant\nEnd Property\nPublic Property Set Item(ByVal Index As Variant, ByVal Value As Object)\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue152_b_compile",
+      "description": "Issue #152 case b, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    Dim p As ItemProbe\n    Set p = New ItemProbe\nEnd Sub\n"
+        },
+        {
+          "name": "ItemProbe",
+          "type": "class",
+          "source": "Option Explicit\nPrivate mValue As Variant\nPublic Property Get Item(ByVal Index As Variant) As Variant\nEnd Property\nPublic Property Set Item(ByVal Index As Variant, ByVal Value As Collection)\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue152_c_compile",
+      "description": "Issue #152 case c, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    Dim p As ItemProbe\n    Set p = New ItemProbe\nEnd Sub\n"
+        },
+        {
+          "name": "ItemProbe",
+          "type": "class",
+          "source": "Option Explicit\nPrivate mValue As Variant\nPublic Property Get Item(ByVal Index As Variant) As Object\nEnd Property\nPublic Property Set Item(ByVal Index As Variant, ByVal Value As Collection)\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue152_d_compile",
+      "description": "Issue #152 case d, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    Dim p As ItemProbe\n    Set p = New ItemProbe\nEnd Sub\n"
+        },
+        {
+          "name": "ItemProbe",
+          "type": "class",
+          "source": "Option Explicit\nPrivate mValue As Variant\nPublic Property Get Item(ByVal Index As Variant) As Collection\nEnd Property\nPublic Property Set Item(ByVal Index As Variant, ByVal Value As Object)\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue152_e_compile",
+      "description": "Issue #152 case e, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    Dim p As ItemProbe\n    Set p = New ItemProbe\nEnd Sub\n"
+        },
+        {
+          "name": "ItemProbe",
+          "type": "class",
+          "source": "Option Explicit\nPrivate mValue As Variant\nPublic Property Get Item(ByVal Index As Variant) As Collection\nEnd Property\nPublic Property Set Item(ByVal Index As Variant, ByVal Value As Collection)\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue152_f_compile",
+      "description": "Issue #152 case f, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    Dim p As ItemProbe\n    Set p = New ItemProbe\nEnd Sub\n"
+        },
+        {
+          "name": "ItemProbe",
+          "type": "class",
+          "source": "Option Explicit\nPrivate mValue As Variant\nPublic Property Get Item(ByVal Index As Variant) As Object\nEnd Property\nPublic Property Set Item(ByVal Index As Variant, ByVal Value As Variant)\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue152_g_compile",
+      "description": "Issue #152 case g, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    Dim p As ItemProbe\n    Set p = New ItemProbe\nEnd Sub\n"
+        },
+        {
+          "name": "ItemProbe",
+          "type": "class",
+          "source": "Option Explicit\nPrivate mValue As Variant\nPublic Property Get Item(ByVal Index As Variant) As Variant\nEnd Property\nPublic Property Let Item(ByVal Index As Variant, ByVal Value As Long)\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue152_h_compile",
+      "description": "Issue #152 case h, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    Dim p As ItemProbe\n    Set p = New ItemProbe\nEnd Sub\n"
+        },
+        {
+          "name": "ItemProbe",
+          "type": "class",
+          "source": "Option Explicit\nPrivate mValue As Variant\nPublic Property Get Item(ByVal Index As Variant) As Long\nEnd Property\nPublic Property Let Item(ByVal Index As Variant, ByVal Value As Variant)\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue152_i_compile",
+      "description": "Issue #152 case i, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    Dim p As ItemProbe\n    Set p = New ItemProbe\nEnd Sub\n"
+        },
+        {
+          "name": "ItemProbe",
+          "type": "class",
+          "source": "Option Explicit\nPrivate mValue As Variant\nPublic Property Get Item(ByVal Index As Variant) As Long\nEnd Property\nPublic Property Set Item(ByVal Index As Variant, ByVal Value As Object)\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue152_j_compile",
+      "description": "Issue #152 case j, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    Dim p As ItemProbe\n    Set p = New ItemProbe\nEnd Sub\n"
+        },
+        {
+          "name": "ItemProbe",
+          "type": "class",
+          "source": "Option Explicit\nPrivate mValue As Variant\nPublic Property Get Item(ByVal Index As Variant) As Variant\nEnd Property\nPublic Property Set Item(ByVal Index As Variant, ByVal Value As Variant)\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue152_k_compile",
+      "description": "Issue #152 case k, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    Dim p As ItemProbe\n    Set p = New ItemProbe\nEnd Sub\n"
+        },
+        {
+          "name": "ItemProbe",
+          "type": "class",
+          "source": "Option Explicit\nPrivate mValue As Variant\nPublic Property Get Item(ByVal Index As Variant) As Object\nEnd Property\nPublic Property Set Item(ByVal Index As Variant, ByVal Value As Object)\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue152_l_compile",
+      "description": "Issue #152 case l, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    Dim p As ItemProbe\n    Set p = New ItemProbe\nEnd Sub\n"
+        },
+        {
+          "name": "ItemProbe",
+          "type": "class",
+          "source": "Option Explicit\nPrivate mValue As Variant\nPublic Property Get Item(ByVal Index As Variant) As Collection\nEnd Property\nPublic Property Set Item(ByVal Index As Variant, ByVal Value As Variant)\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue152_m_compile",
+      "description": "Issue #152 case m, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    Dim p As ItemProbe\n    Set p = New ItemProbe\nEnd Sub\n"
+        },
+        {
+          "name": "ItemProbe",
+          "type": "class",
+          "source": "Option Explicit\nPrivate mValue As Variant\nPublic Property Get Item(ByVal Index As Variant) As Variant\nEnd Property\nPublic Property Let Item(ByVal Index As Variant, ByVal Value As Variant)\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue152_n_compile",
+      "description": "Issue #152 case n, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    Dim p As ItemProbe\n    Set p = New ItemProbe\nEnd Sub\n"
+        },
+        {
+          "name": "ItemProbe",
+          "type": "class",
+          "source": "Option Explicit\nPrivate mValue As Variant\nPublic Property Get Item(ByVal Index As Variant) As Object\nEnd Property\nPublic Property Let Item(ByVal Index As Variant, ByVal Value As Object)\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue152_o_compile",
+      "description": "Issue #152 case o, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    Dim p As ItemProbe\n    Set p = New ItemProbe\nEnd Sub\n"
+        },
+        {
+          "name": "ItemProbe",
+          "type": "class",
+          "source": "Option Explicit\nPrivate mValue As Variant\nPublic Property Get Item(ByVal Index As Variant) As Long\nEnd Property\nPublic Property Let Item(ByVal Index As Variant, ByVal Value As Integer)\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue152_z_runtime",
+      "description": "Issue #152 case z, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 5|Collection.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim probe As ItemProbe\n    Set probe = New ItemProbe\n    probe.Item(0) = 5\n    Main = CStr(probe.Item(0))\n    Set probe.Item(0) = New Collection\n    Main = Main & \"|\" & TypeName(probe.Item(0))\nEnd Function\n"
+        },
+        {
+          "name": "ItemProbe",
+          "type": "class",
+          "source": "Option Explicit\nPrivate mValue As Variant\nPublic Property Get Item(ByVal Index As Variant) As Variant\n    If IsObject(mValue) Then\n        Set Item = mValue\n    Else\n        Item = mValue\n    End If\nEnd Property\nPublic Property Let Item(ByVal Index As Variant, ByVal Value As Variant)\n    mValue = Value\nEnd Property\nPublic Property Set Item(ByVal Index As Variant, ByVal Value As Object)\n    Set mValue = Value\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

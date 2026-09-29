@@ -52,21 +52,13 @@ const CLASS_ATTRIBUTES: ReadonlyArray<[string, string]> = [
 
 /** Every object's storage folder holds this, unchanging, 13 bytes. */
 export const PROP_DATA = Buffer.from('00000000020000000000000000', 'hex');
-/** One folder's line in `Modules/PropData`, before its name. */
-const FOLDER_ENTRY = Buffer.from('050902', 'hex');
-const FOLDER_SUFFIX = Buffer.from('CB0', 'utf16le');
+/** A folder's line in a container's `PropData` opens with this tag. */
+const FOLDER_TAG = 0x05;
+/** Both container lists open with four bytes before their first entry. */
+const LIST_HEADER = 4;
 /** One entry in a `\x03DirData` payload: the tag, then the payload length. */
 const ENTRY_TAG = 4;
 const ENTRY_TRAILER = 4;
-/**
- * The character a container's folder names start from, measured per container.
- * `Modules` carries four streams of its own - `PropData`, `PropDataCopy`,
- * `\x03DirData` and `\x03DirDataCopy` - and its folders start at `4`; `Forms`,
- * `Reports` and `Scripts` start at `0`.
- */
-const FOLDER_BASE: Readonly<Record<string, number>> = {
-	Modules: 4, Forms: 0, Reports: 0, Scripts: 0,
-};
 const STREAM_NAME_LENGTH = 28;
 
 /** The attributes a module's source opens with; a class carries seven more. */
@@ -304,26 +296,172 @@ export function renameProject(text: string, oldName: string, newName: string): s
 	return out.replace(new RegExp(`^${quoted}=`, 'gm'), `${newName}=`);
 }
 
-// --- the container's `\x03DirData` and folder list ---------------------------
-//
+// --- the order Access keeps a container's lists in ---------------------------
+// Access loads a container's `\x03DirData` into an MSVC std::unordered_map
+// keyed by object name, and its `PropData` folder list into another keyed by
+// folder name, and writes each back in the map's own order whenever it
+// changes (issue #150, from pyOpenVBA 6.3.0, which read the hash and the map
+// out of MSACCESS.EXE 16.0). Checked here against Access 16.0 driven over
+// COM: a blank database given Module1 and then Macro1 to Macro11, one
+// deleted, one added, one renamed, lists every step exactly as replayed.
+
+/** ASCII the name hash skips: controls other than tab, both quotes, `~` and DEL. */
+function hashSkips(code: number): boolean {
+	return (code < 0x20 && code !== 0x09) || code === 0x22 || code === 0x27 || code === 0x7e || code === 0x7f;
+}
+
+/** cp1252 small letters whose capitals differ in more than the case bit. */
+const CP1252_CAPITALS: Readonly<Record<number, number>> = { 0x9a: 0x8a, 0x9c: 0x8c, 0x9e: 0x8e };
+
+/**
+ * The 16-bit hash Access files a name under in a container's lists. Each
+ * character that counts adds its low five bits: `h = (h << 5) + (h >> 13) +
+ * 1 + bits` in 16 bits, so case never matters. A leading `.` is skipped; a
+ * space or tab counts as 0. From the first character past ASCII, the rest of
+ * the name is taken a byte at a time in the ANSI code page (cp1252 on Western
+ * Windows), upper-cased, every byte above 1 counting.
+ */
+export function accessNameHash(name: string): number {
+	const text = name.startsWith('.') ? name.slice(1) : name;
+	const values: number[] = [];
+	for (let at = 0; at < text.length; at += 1) {
+		const code = text.charCodeAt(at);
+		if (code >= 0x80) {
+			for (const byte of encodeCodePage(text.slice(at), 1252)) {
+				if (byte > 1) {
+					values.push((CP1252_CAPITALS[byte] ?? byte) & 0x1f);
+				}
+			}
+			break;
+		}
+		if (!hashSkips(code)) {
+			values.push(code === 0x20 || code === 0x09 ? 0 : code & 0x1f);
+		}
+	}
+	let hashed = 0;
+	for (const value of values) {
+		hashed = (((hashed << 5) & 0xffff) + (hashed >> 13) + 1 + value) & 0xffff;
+	}
+	return hashed;
+}
+
+/** A new map's bucket count; below 512 buckets the map grows eightfold. */
+const FIRST_BUCKETS = 8;
+const EIGHTFOLD_BELOW = 512;
+
+/**
+ * Access's map of a container list's keys, in the order it keeps them. One
+ * list holds every key with each bucket's keys together. A new key goes in
+ * front of the first key of its bucket, or at the end when the bucket is
+ * empty. An insert that would leave more keys than buckets first grows the
+ * map to a power of two, eightfold while under 512 buckets, and the rehash
+ * walks the list moving each key to the front of its new bucket, the buckets
+ * in the order the walk first meets them.
+ */
+class ContainerMap {
+	keys: string[] = [];
+	private buckets = FIRST_BUCKETS;
+
+	constructor(stored: readonly string[]) {
+		for (const key of stored) {
+			this.insert(key);
+		}
+	}
+
+	private bucket(key: string): number {
+		return accessNameHash(key) & (this.buckets - 1);
+	}
+
+	insert(key: string): void {
+		if (this.keys.length + 1 > this.buckets) {
+			let wanted = this.keys.length + 1;
+			if (this.buckets < EIGHTFOLD_BELOW) {
+				wanted = Math.max(wanted, this.buckets * 8);
+			}
+			let size = 1;
+			while (size < wanted) { size *= 2; }
+			this.buckets = size;
+			const chains = new Map<number, string[]>();
+			for (const moved of this.keys) {
+				const chain = chains.get(this.bucket(moved));
+				if (chain) { chain.unshift(moved); } else { chains.set(this.bucket(moved), [moved]); }
+			}
+			this.keys = [...chains.values()].flat();
+		}
+		const bucket = this.bucket(key);
+		const first = this.keys.findIndex((other) => this.bucket(other) === bucket);
+		if (first < 0) {
+			this.keys.push(key);
+		} else {
+			this.keys.splice(first, 0, key);
+		}
+	}
+}
+
+/**
+ * The keys of a container list after Access loads it as `stored`, erases
+ * `remove` and inserts `add`, in the order it writes them. Loading inserts the
+ * stored keys in stored order, so an erase can move keys it never named. A
+ * rename is an erase and an insert.
+ */
+export function accessListOrder(
+	stored: readonly string[],
+	remove: readonly string[] = [],
+	add: readonly string[] = [],
+): string[] {
+	const map = new ContainerMap(stored);
+	for (const key of remove) {
+		const at = map.keys.indexOf(key);
+		if (at >= 0) { map.keys.splice(at, 1); }
+	}
+	for (const key of add) {
+		map.insert(key);
+	}
+	return map.keys;
+}
+
+// --- the container's `\x03DirData` -------------------------------------------
 // `<u32 0>` and then one entry each:
 //
 //     04 <u8 payload length> <name UTF-16> <u32 folder>
 //
 // where the payload length counts the name's bytes plus the four of the folder
 // number. The trailing four bytes name the object's storage folder, not a
-// terminator: a five-module project whose folders are 0, 4, 5, 6, 7 carries
-// exactly those, and a module that reused a freed folder carries the reused
-// name.
+// terminator: a module that reused a freed folder carries the reused name.
 
 function dirDataPrefix(name: string): Buffer {
 	const text = Buffer.from(name, 'utf16le');
 	return Buffer.concat([Buffer.from([ENTRY_TAG, text.length + ENTRY_TRAILER]), text]);
 }
 
+function dirDataEntry(name: string, folder: string): Buffer {
+	const trailer = Buffer.alloc(ENTRY_TRAILER);
+	trailer.writeUInt32LE(Number(folder), 0);
+	return Buffer.concat([dirDataPrefix(name), trailer]);
+}
+
+/** The names in stored order, each name's whole entry, and whatever follows the last. */
+function dirDataParts(payload: Buffer): { names: string[]; entries: Map<string, Buffer>; tail: Buffer } {
+	const names: string[] = [];
+	const entries = new Map<string, Buffer>();
+	let at = LIST_HEADER;
+	while (at + 2 <= payload.length && payload[at] === ENTRY_TAG) {
+		const end = at + 2 + payload[at + 1];
+		const name = payload.subarray(at + 2, end - ENTRY_TRAILER).toString('utf16le');
+		names.push(name);
+		entries.set(name, payload.subarray(at, end));
+		at = end;
+	}
+	return { names, entries, tail: payload.subarray(at) };
+}
+
+function dirDataIn(payload: Buffer, order: readonly string[], entries: ReadonlyMap<string, Buffer>, tail: Buffer): Buffer {
+	return Buffer.concat([payload.subarray(0, LIST_HEADER), ...order.map((name) => entries.get(name)!), tail]);
+}
+
 export function dirDataEntries(payload: Buffer): Array<{ name: string; folder: string }> {
 	const out: Array<{ name: string; folder: string }> = [];
-	let at = 4;
+	let at = LIST_HEADER;
 	while (at + 2 <= payload.length && payload[at] === ENTRY_TAG) {
 		const size = payload[at + 1];
 		const body = payload.subarray(at + 2, at + 2 + size);
@@ -337,60 +475,94 @@ export function dirDataEntries(payload: Buffer): Array<{ name: string; folder: s
 	return out;
 }
 
+/** List a new object where Access puts it (see `accessListOrder`). */
 export function addToDirData(payload: Buffer, name: string, folder: string): Buffer {
-	const trailer = Buffer.alloc(ENTRY_TRAILER);
-	trailer.writeUInt32LE(Number(folder), 0);
-	return Buffer.concat([payload, dirDataPrefix(name), trailer]);
+	const { names, entries, tail } = dirDataParts(payload);
+	entries.set(name, dirDataEntry(name, folder));
+	return dirDataIn(payload, accessListOrder(names, [], [name]), entries, tail);
 }
 
-/** Drop an entry, the four bytes that belong to it included. */
+/** Drop an entry, its four folder bytes included, leaving the rest as Access orders them. */
 export function removeFromDirData(payload: Buffer, name: string): Buffer {
-	const prefix = dirDataPrefix(name);
-	const at = payload.indexOf(prefix);
-	if (at < 0) {
+	const { names, entries, tail } = dirDataParts(payload);
+	if (!entries.has(name)) {
 		throw new AccessFormatError(`DirData holds no entry for ${name}.`);
 	}
-	return Buffer.concat([
-		payload.subarray(0, at), payload.subarray(at + prefix.length + ENTRY_TRAILER),
-	]);
+	return dirDataIn(payload, accessListOrder(names, [name]), entries, tail);
 }
 
-/** Rewrite an entry's name, leaving the folder it names alone. */
+/** Rename an entry, keeping its folder. Access erases and inserts, so the entry moves. */
 export function renameDirData(payload: Buffer, oldName: string, newName: string): Buffer {
-	const prefix = dirDataPrefix(oldName);
-	const at = payload.indexOf(prefix);
-	if (at < 0) {
+	const { names, entries, tail } = dirDataParts(payload);
+	const old = entries.get(oldName);
+	if (!old) {
 		throw new AccessFormatError(`DirData holds no entry for ${oldName}.`);
 	}
-	return Buffer.concat([
-		payload.subarray(0, at), dirDataPrefix(newName), payload.subarray(at + prefix.length),
-	]);
+	entries.set(newName, Buffer.concat([dirDataPrefix(newName), old.subarray(old.length - ENTRY_TRAILER)]));
+	return dirDataIn(payload, accessListOrder(names, [oldName], [newName]), entries, tail);
 }
 
-export function addToFolderList(payload: Buffer, folder: string): Buffer {
-	return Buffer.concat([payload, FOLDER_ENTRY, Buffer.from(folder, 'utf16le'), FOLDER_SUFFIX]);
-}
+// --- the container's `PropData` folder list ------------------------------------
+// Access adds an object's line here the next time it opens the database, not
+// when the object is made (measured: a module added in one session appears
+// in the list only after the next open), so adding writes none. A line is
+//
+//     05 <1 + 2n + 6> <2n> <folder name UTF-16> "CB0" UTF-16
+//
+// with 2n the name's size in bytes: `05 09 02` for folder `4`, `05 0b 04` for
+// folder `10`.
 
-export function removeFromFolderList(payload: Buffer, folder: string): Buffer {
-	const entry = Buffer.concat([FOLDER_ENTRY, Buffer.from(folder, 'utf16le'), FOLDER_SUFFIX]);
-	const at = payload.indexOf(entry);
-	return at < 0
-		? Buffer.from(payload)
-		: Buffer.concat([payload.subarray(0, at), payload.subarray(at + entry.length)]);
+/** The folders in stored order, each folder's whole line, and whatever follows the last. */
+function folderListParts(payload: Buffer): { folders: string[]; lines: Map<string, Buffer>; tail: Buffer } {
+	const folders: string[] = [];
+	const lines = new Map<string, Buffer>();
+	let at = LIST_HEADER;
+	while (at + 3 <= payload.length && payload[at] === FOLDER_TAG) {
+		const end = at + 2 + payload[at + 1];
+		const folder = payload.subarray(at + 3, at + 3 + payload[at + 2]).toString('utf16le');
+		folders.push(folder);
+		lines.set(folder, payload.subarray(at, end));
+		at = end;
+	}
+	return { folders, lines, tail: payload.subarray(at) };
 }
 
 /**
- * The name Access gives a new object's storage folder. It is computed, not
- * chosen, and Access will not find an object in a folder by any other name:
- * `AllModules(i).Name` fails on a module in the wrong one while the VBE still
- * lists and runs it. Names are allocated lowest-free from the container's base.
+ * The list with `folder`'s line erased, and inserted again when `again`, in
+ * the order Access writes it after. A list without the line is left alone,
+ * as Access leaves it.
  */
-export function nextFolderName(container: string, taken: ReadonlySet<string>): string {
-	let code = '0'.charCodeAt(0) + (FOLDER_BASE[container] ?? 0);
-	while (taken.has(String.fromCharCode(code))) {
-		code += 1;
+function inFolderList(payload: Buffer, folder: string, again: boolean): Buffer {
+	const { folders, lines, tail } = folderListParts(payload);
+	if (!lines.has(folder)) {
+		return Buffer.from(payload);
 	}
-	return String.fromCharCode(code);
+	const order = accessListOrder(folders, [folder], again ? [folder] : []);
+	return Buffer.concat([payload.subarray(0, LIST_HEADER), ...order.map((name) => lines.get(name)!), tail]);
+}
+
+export function removeFromFolderList(payload: Buffer, folder: string): Buffer {
+	return inFolderList(payload, folder, false);
+}
+
+/** A renamed design's line: `DoCmd.Rename` erases and inserts it, so it moves. */
+export function refileInFolderList(payload: Buffer, folder: string): Buffer {
+	return inFolderList(payload, folder, true);
+}
+
+/**
+ * The name Access gives a new object's storage folder: the lowest free
+ * decimal number from 0, in every container (measured against Access 16.0
+ * over COM, issue #150). Access will not find an object in a folder by any
+ * other name: `AllModules(i).Name` fails on a module in the wrong one while
+ * the VBE still lists and runs it.
+ */
+export function nextFolderName(taken: ReadonlySet<string>): string {
+	let number = 0;
+	while (taken.has(String(number))) {
+		number += 1;
+	}
+	return String(number);
 }
 
 /** A module's storage row name: 28 random capitals, unused. */

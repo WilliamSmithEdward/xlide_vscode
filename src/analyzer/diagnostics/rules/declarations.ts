@@ -884,10 +884,16 @@ export function checkPropertyAccessorSignatures(
 				);
 				continue;
 			}
-			// The value parameter must have the Get's type: `Get Size() As Long`
-			// with `Let Size(ByVal v As Integer)` is "Definitions of property
-			// procedures for the same property are inconsistent" (issue #124,
-			// measured in Excel 16.0). Either side without a type is Variant.
+			// A Let's value parameter must have the Get's type: `Get Size() As
+			// Long` with `Let Size(ByVal v As Integer)` is "Definitions of
+			// property procedures for the same property are inconsistent"
+			// (issue #124, measured in Excel 16.0). Either side without a type
+			// is Variant. A Set's value is never compared: Variant, Object,
+			// Collection and even Long Gets beside an Object or Collection Set
+			// all compile (issue #152, measured).
+			if (setter.procKind !== 'PropertyLet') {
+				continue;
+			}
 			const valueParam = setter.params[setter.params.length - 1];
 			const getType = normalizeType(getter.returnType) ?? (getter.typeSuffix ? undefined : 'variant');
 			const valueType = normalizeType(valueParam.asType) ?? (valueParam.typeSuffix ? undefined : 'variant');

@@ -2,6 +2,49 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.14.1] - 2026-09-28
+
+Four issues, each re-measured before the change: #152 in Excel 16.0, and
+#149, #150 and #151 against Office's own output and Access 16.0 driven over
+COM.
+
+- **A Variant Property Get beside an Object Property Set** (#152) is no
+  longer reported as property-accessor-signature-mismatch. Measured in
+  Excel: a Set's value type is never compared with the Get's return type,
+  so Variant, Object, Collection and even Long Gets beside an Object or
+  Collection Set all compile. A Let must still match its Get exactly, as
+  #124 found. ROneCOne's Item property had this shape.
+- **Compression writes Office's bytes** (#149). The compressor now picks
+  its matches as Office does, the LZNT1 engine in ntdll: two remembered
+  positions per three-byte bucket, only where a token starts, and an empty
+  flag byte after a chunk's full last group. All 160 dir and module streams
+  Office wrote in this repository's fixtures, from Excel, Word and
+  PowerPoint, .xls, .xlsb, .doc and .ppt included, compress back byte for
+  byte, where the previous search matched 22.
+- **Access containers** (#150). A module's storage folder is the lowest free
+  decimal number from 0, so the folder after `9` is `10`, not `:` (which
+  was written as folder 0). A new object takes the highest catalog id plus
+  one, never a freed one. The container's `\x03DirData` is kept in the
+  order Access keeps it, its hash map's, on add, delete and rename, and a
+  new module writes no PropData line, which Access adds itself the next
+  time it opens the database. Measured in Access 16.0 over COM: a delete,
+  an add and a rename applied to Access's own twelve-module database give
+  its folders, ids and list exactly, and Access lists every module the
+  writer added, the ones in folders 12 and 13 included.
+- **New forms, reports and controls in the database's theme** (#151). A
+  new design and its control defaults are drawn in the theme the database
+  keeps in MSysResources: fonts from each record's theme font, colours
+  worked out again from the slot, tint and shade beside them, and the
+  design's own face, family byte and Background 2. The colour arithmetic
+  reproduces all 4,848 colours Access answered for both Office themes at
+  every whole tint and shade. The issue's premise did not hold here:
+  XLIDE's templates were captured on Office's 2023 theme, not 2007, and a
+  new form in a database with no theme already matched the one Access
+  makes. So this changes only a database on another theme; on the 2023
+  theme the templates come back byte for byte. Aptos and Aptos Display
+  now carry their family byte of 0, as Access writes it, wherever a font
+  is set.
+
 ## [10.14.0] - 2026-09-27
 
 Nine analyzer issues (#140 to #148), each re-measured in Excel 16.0 (build

@@ -18,6 +18,30 @@ describe('property-accessor-signature-mismatch - value type (issue #124)', () =>
 		const src = 'Option Explicit\nPublic Property Get Size() As Long\nEnd Property\nPublic Property Let Size(ByVal v As Long)\nEnd Property\nPublic Property Get Any()\nEnd Property\nPublic Property Let Any(v)\nEnd Property\n';
 		expect(byCode(analyzeModule(src, { moduleKind: 'class' }), 'property-accessor-signature-mismatch')).toHaveLength(0);
 	});
+
+	it('flags a Variant Let beside a Long Get and a Long Let beside a Variant Get', () => {
+		// Both refused in Excel 16.0 (issue #152, measured): a Let must match exactly.
+		for (const [getType, letType] of [['Long', 'Variant'], ['Variant', 'Long']]) {
+			const src = `Option Explicit\nPublic Property Get Item(ByVal i As Variant) As ${getType}\nEnd Property\nPublic Property Let Item(ByVal i As Variant, ByVal v As ${letType})\nEnd Property\n`;
+			expectDiagnostic(src, analyzeModule(src, { moduleKind: 'class' }), 'property-accessor-signature-mismatch', { span: 'v', message: `As ${letType}` });
+		}
+	});
+
+	it('never compares a Set value with the Get return type (issue #152)', () => {
+		// Measured in Excel 16.0: every pair below compiles, a Long Get beside
+		// an Object Set included, and the ROneCOne-shaped Item runs.
+		const pairs = [['Variant', 'Object'], ['Variant', 'Collection'], ['Object', 'Collection'], ['Collection', 'Object'], ['Object', 'Variant'], ['Long', 'Object']];
+		for (const [getType, setType] of pairs) {
+			const src = `Option Explicit\nPublic Property Get Item(ByVal i As Variant) As ${getType}\nEnd Property\nPublic Property Set Item(ByVal i As Variant, ByVal v As ${setType})\nEnd Property\n`;
+			expect(byCode(analyzeModule(src, { moduleKind: 'class' }), 'property-accessor-signature-mismatch')).toHaveLength(0);
+		}
+		const item =
+			'Option Explicit\nPrivate mValue As Variant\n' +
+			'Public Property Get Item(ByVal Index As Variant) As Variant\n    If IsObject(mValue) Then\n        Set Item = mValue\n    Else\n        Item = mValue\n    End If\nEnd Property\n' +
+			'Public Property Let Item(ByVal Index As Variant, ByVal Value As Variant)\n    mValue = Value\nEnd Property\n' +
+			'Public Property Set Item(ByVal Index As Variant, ByVal Value As Object)\n    Set mValue = Value\nEnd Property\n';
+		expect(byCode(analyzeModule(item, { moduleKind: 'class' }), 'property-accessor-signature-mismatch')).toHaveLength(0);
+	});
 });
 
 describe('duplicate-declaration and duplicate-procedure (issue #124)', () => {

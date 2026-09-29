@@ -1730,8 +1730,15 @@ export const COMPANIONS: ReadonlyMap<string, ReadonlyArray<readonly [string, num
 		['PressedForeColor', [['PressedForeThemeColorIndex', -1]]],
 	]);
 
-/** The `TextFontFamily` byte for a font whose pitch and family are not the default. */
+/**
+ * The `TextFontFamily` byte for a font whose pitch and family are not the
+ * default. Aptos and Aptos Display take 0 and it is written: Access's own
+ * designs on the 2023 theme carry it (issue #151). A face missing here, such
+ * as Calibri, Segoe UI or Arial, gets no family byte at all.
+ */
 export const FONT_FAMILIES: ReadonlyMap<string, number> = new Map([
+	['Aptos', 0],
+	['Aptos Display', 0],
 	['Book Antiqua', 18],
 	['Cambria', 18],
 	['Comic Sans MS', 66],

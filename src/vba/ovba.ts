@@ -176,91 +176,86 @@ export function compress(data: Buffer): Buffer {
 }
 
 /**
- * Greedy LZ encoder for a single chunk.
+ * LZ encoder for a single chunk, choosing its copy tokens as Office does
+ * (issue #149, from pyOpenVBA 6.3.0): Office's picks are those of the LZNT1
+ * standard engine in ntdll (RtlCompressBuffer), so its output is byte for
+ * byte what Office writes. Measured on the 160 dir and module streams in
+ * this repository's fixtures, from Excel, Word and PowerPoint, .xls, .xlsb
+ * and .doc included: all 160 compress back unchanged. The longest-match
+ * search this replaced reproduced 22 of them.
  *
- * Match search uses a 3-byte-prefix hash chain instead of scanning the whole
- * window at every position (which is what a direct transcription of the
- * reference implementation does, and is quadratic on large modules). Output is
- * byte-identical to the window scan: any match of the minimum length 3 shares
- * its first three bytes, so the chain sees every candidate that could win, and
- * ties are resolved to the *farthest* candidate exactly as a low-to-high window
- * scan with a strictly-greater comparison would.
+ * - Only a position where a token starts is remembered, in one of 4096
+ *   buckets chosen from the three bytes that start there. A bucket holds two
+ *   positions, the newest and the one before it. A lookup reads both, then
+ *   makes the current position the newest.
+ * - Each candidate is measured up to the longest match a token here can
+ *   hold, capped at the chunk's end. The longer wins and the newer wins a
+ *   tie; under three bytes is a literal. A position with fewer than three
+ *   bytes left is a literal and is not remembered.
+ * - When the chunk's last token fills its flag byte, one more flag byte,
+ *   empty, follows. ntdll does not write it; Office does.
  */
 function encodeLz(chunk: Buffer): Buffer {
 	const chunkLen = chunk.length;
-	const parts: Buffer[] = [];
-
-	// Hash chain: head[h] = most recent position with prefix hash h,
-	// prev[p] = previous position sharing that hash.
-	const HASH_BITS = 13;
-	const HASH_SIZE = 1 << HASH_BITS;
-	const head = new Int32Array(HASH_SIZE).fill(-1);
-	const prev = new Int32Array(Math.max(1, chunkLen)).fill(-1);
-	const hashAt = (i: number): number =>
-		(((chunk[i] << 10) ^ (chunk[i + 1] << 5) ^ chunk[i + 2]) & (HASH_SIZE - 1)) >>> 0;
-	const insert = (i: number): void => {
-		if (i + 2 >= chunkLen) { return; }
-		const h = hashAt(i);
-		prev[i] = head[h];
-		head[h] = i;
-	};
+	// A flag byte per eight tokens, a token at most two bytes per input byte
+	// when every one is a literal, and the trailing empty flag byte.
+	const out = new Uint8Array(chunkLen + Math.ceil(chunkLen / 8) + 2);
+	let length = 0;
+	const newest = new Int32Array(4096).fill(-1);
+	const older = new Int32Array(4096).fill(-1);
 
 	let pos = 0;
+	let lastGroupFull = false;
 	while (pos < chunkLen) {
+		const flagAt = length++;
 		let flagBits = 0;
-		const tokens: Buffer[] = [];
-
-		for (let bit = 0; bit < 8; bit++) {
-			if (pos >= chunkLen) { break; }
-			const { lengthMask, offsetMask, bitCount } = copyTokenHelp(pos, 0);
-			const maxLength = lengthMask + 3;
-			const maxOffset = (offsetMask >>> (16 - bitCount)) + 1;
-			const start = Math.max(0, pos - maxOffset);
+		let bit = 0;
+		for (; bit < 8 && pos < chunkLen; bit++) {
+			const { lengthMask, bitCount } = copyTokenHelp(pos, 0);
+			const maxLength = Math.min(lengthMask + 3, chunkLen - pos);
 
 			let bestLen = 0;
 			let bestOffset = 0;
-			if (pos + 2 < chunkLen) {
-				for (let cand = head[hashAt(pos)]; cand >= start && cand >= 0; cand = prev[cand]) {
+			if (chunkLen - pos >= 3) {
+				// 40543 * a 16-bit value passes 2^31 but stays under 2^32, so
+				// `>>>` reads it as the unsigned product it is.
+				const key = (chunk[pos] << 8) ^ (chunk[pos + 1] << 4) ^ chunk[pos + 2];
+				const bucket = ((40543 * key) >>> 4) & 0xfff;
+				const first = newest[bucket];
+				const second = older[bucket];
+				older[bucket] = first;
+				newest[bucket] = pos;
+				for (const cand of [first, second]) {
+					if (cand < 0) { continue; }
 					let matchLen = 0;
-					while (
-						pos + matchLen < chunkLen &&
-						matchLen < maxLength &&
-						chunk[cand + matchLen] === chunk[pos + matchLen]
-					) {
+					while (matchLen < maxLength && chunk[cand + matchLen] === chunk[pos + matchLen]) {
 						matchLen++;
 					}
-					const offset = pos - cand;
-					// Farthest candidate wins ties. A low-to-high window scan
-					// keeps the first match of a given length, and it walks
-					// oldest-to-newest, so the farthest match wins - including
-					// among several that reach maxLength. The chain is walked
-					// newest-first, so ties must be taken on the larger offset
-					// and the walk must not stop early at maxLength.
-					if (matchLen > bestLen || (matchLen === bestLen && matchLen > 0 && offset > bestOffset)) {
+					// The newer candidate is measured first, so only a
+					// strictly longer older one displaces it.
+					if (matchLen > bestLen) {
 						bestLen = matchLen;
-						bestOffset = offset;
+						bestOffset = pos - cand;
 					}
 				}
 			}
 
 			if (bestLen >= 3) {
 				flagBits |= 1 << bit;
-				const offsetBits = ((bestOffset - 1) << (16 - bitCount)) & offsetMask;
-				const lengthBits = (bestLen - 3) & lengthMask;
-				const tok = Buffer.alloc(2);
-				tok.writeUInt16LE((offsetBits | lengthBits) & 0xffff, 0);
-				tokens.push(tok);
-				for (let k = 0; k < bestLen; k++) { insert(pos + k); }
+				const token = (((bestOffset - 1) << (16 - bitCount)) | (bestLen - 3)) & 0xffff;
+				out[length++] = token & 0xff;
+				out[length++] = token >>> 8;
 				pos += bestLen;
 			} else {
-				tokens.push(Buffer.from([chunk[pos]]));
-				insert(pos);
+				out[length++] = chunk[pos];
 				pos += 1;
 			}
 		}
-
-		parts.push(Buffer.from([flagBits]), ...tokens);
+		out[flagAt] = flagBits;
+		lastGroupFull = bit === 8;
 	}
-
-	return Buffer.concat(parts);
+	if (lastGroupFull) {
+		out[length++] = 0;
+	}
+	return Buffer.from(out.subarray(0, length));
 }

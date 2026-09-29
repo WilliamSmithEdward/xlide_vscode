@@ -1382,7 +1382,11 @@
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.3.1.4 paired Property Get/Let/Set procedure signature consistency",
       "corpusInfluence": "none",
-      "assertedOracleCases": [],
+      "assertedOracleCases": [
+        "issue152_g_compile",
+        "issue152_h_compile",
+        "issue152_o_compile"
+      ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_final_hardening_cases.md",
