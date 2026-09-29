@@ -109,6 +109,22 @@ jobs:
           name: npm-audit
           path: npm-audit.json
 
+  # The one check branch protection requires: it passes only when every
+  # check above did, so checks can be added or renamed without touching the
+  # rules. The release report is not among them.
+  passed:
+    name: Security passed
+    if: always()
+    needs: [codeql, semgrep, audit]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check every job passed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$NEEDS" | jq -e 'all(.[]; .result == "success")' > /dev/null
+
   report:
     name: Attach security report to the release
     if: always() && github.event_name == 'release'

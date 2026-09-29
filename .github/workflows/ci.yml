@@ -85,3 +85,18 @@ jobs:
           tests/accessStorageEngine.test.ts
           tests/accessVbaWrite.test.ts
           tests/accessDesign.test.ts
+
+  # The one check branch protection requires: it passes only when every job
+  # above did, so jobs can be added or renamed without touching the rules.
+  passed:
+    name: CI passed
+    if: always()
+    needs: [typescript, languages, access]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check every job passed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$NEEDS" | jq -e 'all(.[]; .result == "success")' > /dev/null

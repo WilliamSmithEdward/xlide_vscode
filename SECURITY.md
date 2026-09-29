@@ -78,6 +78,13 @@ findings and raw results; and `malware-scan-report.md` and
 `malware-scan-results.zip`, the scans' verdicts, detections and signature
 versions, with the vsix's SHA-256.
 
+Each workflow ends in one gate, `CI passed`, `Security passed` and
+`Malware scan passed`, which passes only when every check before it did.
+The ruleset in [`.github/rulesets/main.json`](.github/rulesets/main.json)
+requires the three gates before a pull request merges into `main`, and
+refuses force-pushes and deleting the branch. The repository also requires
+every action a workflow uses to be pinned to a full commit SHA.
+
 Everything the checks and the build run on is pinned: workflow actions to
 commit SHAs, the Semgrep and ClamAV images to digests, YARA-X to a version
 and its SHA-256, the YARA Forge rules to a release and its SHA-256, runners
