@@ -2,6 +2,30 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.14.2] - 2026-09-29
+
+Security checks on every change and every release. No change to how XLIDE
+behaves.
+
+- **A Security workflow** runs CodeQL (security-extended), Semgrep and
+  `npm audit` on every push and pull request to `main`, weekly, and on each
+  release, and fails on any finding not reviewed. Every GitHub release from
+  this one on carries `security-report.md` and the raw SARIF.
+- **Fixed from the first scan**: the webview nonce took a random byte modulo
+  an alphabet, which biases it (now 128 random bits); two OOXML helpers
+  escaped only some regular-expression characters in a name or part path
+  (now one complete escape); and the web build checked a file and then read
+  it. The other results were reviewed as not vulnerabilities and are
+  recorded with their reasons in `.github/codeql/reviewed.json`.
+- **Dependencies**: every open Dependabot alert is cleared, and `npm audit`
+  reports nothing, production or development. TypeScript 7 and vsce 4 build
+  and package the extension; the vsix is unchanged. Workflow actions are
+  pinned to commit SHAs, and Dependabot proposes grouped weekly updates
+  after a 7-day cooldown.
+- **SECURITY.md** gives the private reporting route and says what XLIDE
+  touches and how it is checked. The README has a security badge and
+  section.
+
 ## [10.14.1] - 2026-09-28
 
 Four issues, each re-measured before the change: #152 in Excel 16.0, and
