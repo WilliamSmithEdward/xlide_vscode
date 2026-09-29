@@ -1,10 +1,12 @@
 name: Security
 
-# CodeQL, Semgrep and npm audit on every push and pull request to main, once a
-# week, and on every release. Each gate fails on any finding: a new result is
-# either fixed or recorded below with the reason it is not a vulnerability.
-# On a release the three reports are attached to it as security-report.md
-# with the raw SARIF beside it (see SECURITY.md).
+# CodeQL, Semgrep, npm audit, ClamAV and YARA-X on every push and pull
+# request to main, once a week, and on every release. Each gate fails on any
+# finding: a new result is either fixed or recorded with the reason it is not
+# a vulnerability (.github/codeql/reviewed.json for the code checks,
+# .github/scans/reviewed.json for the malware scans). On a release the
+# reports are attached to it as security-report.md, with the raw results
+# beside it in security-sarif.zip (see SECURITY.md).
 
 "on":
   push:
@@ -109,10 +111,183 @@ jobs:
           name: npm-audit
           path: npm-audit.json
 
+  # The extension package the malware scans cover. A release is scanned as
+  # published: the vsix attached to it is the file on the Marketplace. Any
+  # other run packages this commit.
+  package:
+    name: Package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '20'
+          cache: npm
+      - name: Take the vsix attached to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          gh release download "$TAG" --pattern '*.vsix' --dir package
+          shopt -s nullglob
+          set -- package/*.vsix
+          if [ "$#" -ne 1 ]; then
+            echo "::error::$TAG carries $# vsix files; it should carry one, the file published to the Marketplace."
+            exit 1
+          fi
+          version=$(unzip -p "$1" extension/package.json | jq -r .version)
+          if [ "v$version" != "$TAG" ]; then
+            echo "::error::The vsix attached to $TAG is version $version."
+            exit 1
+          fi
+      - name: Package this commit
+        if: github.event_name != 'release'
+        run: |
+          npm ci
+          mkdir -p package
+          npx @vscode/vsce package --out package/xlide.vsix
+      - name: Record the package's digest
+        run: sha256sum package/*.vsix | tee package-sha256.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: package
+          path: package/*.vsix
+          if-no-files-found: error
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: package-sha256
+          path: package-sha256.txt
+
+  clamav:
+    name: ClamAV
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/scan-targets
+      - name: Build the scanner
+        run: docker build --quiet --tag clamav-scan .github/clamav
+      - name: Read the date
+        id: today
+        run: echo "day=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+      # The signatures are cached a day at a time, and freshclam fetches only
+      # what changed since then: ClamAV asks CI not to download the whole set
+      # on every run.
+      - name: Restore the signatures
+        id: signatures
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: clamav-db
+          key: clamav-db-${{ steps.today.outputs.day }}
+          restore-keys: clamav-db-
+      - name: Update the signatures
+        run: |
+          mkdir -p clamav-db
+          if ! docker run --rm --user "$(id -u):$(id -g)" \
+              --volume "$PWD/clamav-db:/var/lib/clamav" \
+              --volume "$PWD/.github/clamav/freshclam.conf:/etc/clamav-ci/freshclam.conf:ro" \
+              --entrypoint freshclam clamav-scan --config-file=/etc/clamav-ci/freshclam.conf --stdout; then
+            # A failed update passes on cached signatures up to two days old.
+            if [ -z "$(find clamav-db -maxdepth 1 -name 'daily.c[lv]d' -mmin -2880)" ]; then
+              echo "::error::freshclam failed, and there are no signatures from the last two days to scan with."
+              exit 1
+            fi
+            echo "::warning::freshclam failed; scanning with the cached signatures."
+          fi
+      - name: Save the signatures
+        if: steps.signatures.outputs.cache-hit != 'true'
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: clamav-db
+          key: clamav-db-${{ steps.today.outputs.day }}
+      - name: Scan
+        run: |
+          mkdir -p clamav
+          clamscan() {
+            docker run --rm --user "$(id -u):$(id -g)" --volume "$PWD:/scan:ro" --workdir /scan \
+              --entrypoint clamscan clamav-scan --database=/scan/clamav-db "$@"
+          }
+          clamscan --version > clamav/version.txt
+          set +e
+          clamscan --file-list=scan-list.txt --infected > clamav/clamscan.txt 2>&1
+          code=$?
+          set -e
+          cat clamav/version.txt clamav/clamscan.txt
+          node .github/scripts/clamav-sarif.mjs --output clamav/clamscan.txt --exit-code "$code" \
+            --version clamav/version.txt --list scan-list.txt --canary scan-canary/eicar.com \
+            --sarif clamav/clamav.sarif
+      - name: Fail on any unreviewed detection
+        run: node .github/scripts/sarif-gate.mjs ClamAV clamav .github/scans/reviewed.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: clamav
+          path: clamav
+
+  yara-x:
+    name: YARA-X
+    needs: package
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Pinned by hand, as Dependabot cannot follow a release download. Move
+      # the version and the SHA-256 together, to a release a week old or more.
+      YARA_X_VERSION: '1.20.0'
+      YARA_X_SHA256: cabb8df46492fff59c51261302c71ed9cb2cef393d3f0ca560801a34a8e24cbe
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/scan-targets
+      - name: Install YARA-X
+        run: |
+          curl --fail --silent --show-error --location --output yara-x.tar.gz \
+            "https://github.com/VirusTotal/yara-x/releases/download/v${YARA_X_VERSION}/yara-x-v${YARA_X_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+          echo "${YARA_X_SHA256}  yara-x.tar.gz" | sha256sum --check --strict
+          tar -xzf yara-x.tar.gz yr
+          ./yr --version
+      # The newest YARA Forge core rules, checked against the digest GitHub
+      # records for the file. The rules move with each weekly release, as
+      # ClamAV's signatures move with freshclam.
+      - name: Take the YARA Forge core rules
+        id: rules
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release view --repo YARAHQ/yara-forge --json tagName --jq .tagName)
+          digest=$(gh api "repos/YARAHQ/yara-forge/releases/tags/$tag" \
+            --jq '.assets[] | select(.name == "yara-forge-rules-core.zip") | .digest')
+          gh release download "$tag" --repo YARAHQ/yara-forge --pattern yara-forge-rules-core.zip
+          echo "${digest#sha256:}  yara-forge-rules-core.zip" | sha256sum --check --strict
+          unzip -q yara-forge-rules-core.zip -d yara-rules
+          echo "name=YARA Forge core $tag" >> "$GITHUB_OUTPUT"
+      - name: Scan
+        env:
+          RULES_NAME: ${{ steps.rules.outputs.name }}
+        run: |
+          mkdir -p yara-x
+          touch empty
+          rules=(yara-rules .github/scans/canary.yar)
+          options=(--relaxed-re-syntax --ignore-invalid-rules --disable-warnings --disable-console-logs --output-format json)
+          # The rules that loaded: every one an empty file does not match.
+          ./yr scan "${options[@]}" --negate "${rules[@]}" empty > yara-x/loaded.json 2> yara-x/compile.txt
+          ./yr scan "${options[@]}" --print-meta --scan-list "${rules[@]}" scan-list.txt \
+            > yara-x/matches.json 2> yara-x/scan.txt
+          node .github/scripts/yara-x-sarif.mjs --matches yara-x/matches.json --scan-log yara-x/scan.txt \
+            --loaded yara-x/loaded.json --compile-log yara-x/compile.txt --rules-name "$RULES_NAME" \
+            --list scan-list.txt --canary scan-canary/eicar.com --sarif yara-x/yara-x.sarif "${rules[@]}"
+      - name: Fail on any unreviewed match
+        run: node .github/scripts/sarif-gate.mjs YARA-X yara-x .github/scans/reviewed.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: yara-x
+          path: yara-x
+
   report:
     name: Attach security report to the release
     if: always() && github.event_name == 'release'
-    needs: [codeql, semgrep, audit]
+    needs: [codeql, semgrep, audit, package, clamav, yara-x]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -126,6 +301,9 @@ jobs:
           CODEQL_RESULT: ${{ needs.codeql.result }}
           SEMGREP_RESULT: ${{ needs.semgrep.result }}
           AUDIT_RESULT: ${{ needs.audit.result }}
+          PACKAGE_RESULT: ${{ needs.package.result }}
+          CLAMAV_RESULT: ${{ needs.clamav.result }}
+          YARA_X_RESULT: ${{ needs.yara-x.result }}
           TAG: ${{ github.event.release.tag_name }}
         run: node .github/scripts/security-report.mjs reports security-report.md
       - name: Attach to the release
@@ -133,8 +311,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name }}
         run: |
+          # The vsix is on the release already.
+          rm -rf reports/package
           (cd reports && zip -qr ../security-sarif.zip .)
           gh release upload "$TAG" security-report.md security-sarif.zip --clobber
       - name: Fail when a gate failed
-        if: needs.codeql.result != 'success' || needs.semgrep.result != 'success' || needs.audit.result != 'success'
+        if: >-
+          needs.codeql.result != 'success' || needs.semgrep.result != 'success'
+          || needs.audit.result != 'success' || needs.package.result != 'success'
+          || needs.clamav.result != 'success' || needs.yara-x.result != 'success'
         run: exit 1

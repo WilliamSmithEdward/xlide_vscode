@@ -33,7 +33,7 @@ extensions automatically, so that is the version nearly every user runs.
 ## How the code is checked
 
 Every push and pull request to `main`, a weekly schedule, and every release
-run three checks in [the Security workflow](.github/workflows/security.yml).
+run five checks in [the Security workflow](.github/workflows/security.yml).
 Each fails on any finding.
 
 | Check | Covers |
@@ -41,6 +41,8 @@ Each fails on any finding.
 | CodeQL, `security-extended` | The extension's TypeScript and the GitHub Actions workflows |
 | Semgrep, `p/default`, `p/typescript` and `p/github-actions` | The same, with a second engine |
 | `npm audit` | Every dependency, production and development |
+| ClamAV, with the current signatures | Every file in the repository, every installed dependency, and the extension package |
+| YARA-X, with the current [YARA Forge](https://yarahq.github.io/) core rules | The same files |
 
 Two Semgrep rules are excluded, each reviewed finding by finding. Regular
 expressions built from a variable are built from VBA identifiers the code
@@ -49,9 +51,19 @@ joined from a variable stay inside your workspace, your Office files and
 XLIDE's own state directory. The workflow file records the reasons beside
 the exclusions.
 
-Every GitHub release carries `security-report.md`, the three verdicts and
-every finding for that commit, and `security-sarif.zip`, the raw results.
+ClamAV and YARA-X see the dependencies as npm installs them with no install
+script run, and the package both as the vsix and unpacked. On a release they
+scan the vsix attached to it, the file published to the Marketplace; on any
+other run, a package built from that commit. Each scan must also detect the
+EICAR test file written for the run, so a scan that read nothing cannot
+pass. A detection found harmless is recorded with its reason in
+[`.github/scans/reviewed.json`](.github/scans/reviewed.json).
+
+Every GitHub release carries the vsix published to the Marketplace,
+`security-report.md`, the verdicts and every finding for that commit with
+the vsix's SHA-256, and `security-sarif.zip`, the raw results.
 
 Dependabot opens a pull request as soon as an advisory affects a
 dependency, and groups routine updates weekly. Workflow actions are pinned
-to commit SHAs.
+to commit SHAs, the ClamAV engine to an image digest, and YARA-X to a
+version and its SHA-256.

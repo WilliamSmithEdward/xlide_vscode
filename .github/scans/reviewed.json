@@ -1,0 +1,4 @@
+{
+  "about": "ClamAV detections and YARA-X matches reviewed and found not to be malicious, by signature or rule name and file. The Security workflow fails on any detection not listed here. In a file, `*` matches within one path segment. Keep each reason specific: say what the file is and why the signature fires on it, and re-review the entry when the file changes.",
+  "reviewed": []
+}

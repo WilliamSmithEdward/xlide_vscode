@@ -473,8 +473,9 @@ Architecture reference:
 Report a vulnerability privately through
 [GitHub's private reporting](https://github.com/WilliamSmithEdward/xlide_vscode/security/advisories/new),
 not in a public issue. [SECURITY.md](SECURITY.md) says what XLIDE touches
-and how the code is checked: CodeQL, Semgrep and `npm audit` on every change,
-each failing on any finding. Every GitHub release carries a security report.
+and how the code is checked: CodeQL, Semgrep, `npm audit`, ClamAV and YARA-X
+on every change, each failing on any finding. Every GitHub release carries
+the vsix published to the Marketplace and a security report for it.
 
 ## Support Open Source
 

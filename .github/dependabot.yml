@@ -1,7 +1,8 @@
 # Version updates once a week; security updates arrive as soon as an advisory
 # is published, whatever this schedule says. Patch and minor bumps come as
 # one pull request per ecosystem, so a week's routine updates are one review.
-# The GitHub Actions entry keeps the commit SHAs the workflows pin current.
+# The GitHub Actions entry keeps the commit SHAs the workflows pin current,
+# and the Docker entry the ClamAV engine the Security workflow scans with.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -46,3 +47,13 @@ updates:
     groups:
       actions:
         patterns: ['*']
+
+  - package-ecosystem: docker
+    directory: /.github/clamav
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: chore(ci)
