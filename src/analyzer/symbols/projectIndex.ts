@@ -1246,7 +1246,7 @@ export class ProjectIndex {
 			context,
 			enclosingProcedure: this.enclosingProcedure(home, offset),
 			offset,
-			projectVisibleSymbols: this.visibleIdentifierSymbols(moduleName),
+			projectVisibleSymbols: this.bareResolutionSymbols(moduleName),
 		});
 		// Document/UserForm code names (Sheet1, UserForm1) are object-module
 		// globals that visibleIdentifierNames reports as declared but
@@ -1383,6 +1383,30 @@ export class ProjectIndex {
 			}
 		}
 		return dupes;
+	}
+
+	/**
+	 * The visible identifier symbols {@link resolveBareIdentifier} searches,
+	 * kept for the last module asked until the indexed modules change.
+	 *
+	 * The resolver indexes this array by name, keyed on the array itself, so a
+	 * fresh array per call rebuilt that index for every reference: Find
+	 * References made the whole project's list once per occurrence. Hover and
+	 * Find References ask from one module at a time, so one kept list serves
+	 * them, and memory stays at one module's list rather than one per module.
+	 * The list never leaves the index: resolution filters it into new arrays.
+	 */
+	private bareResolutionSymbols(moduleName: string): readonly VbaSymbol[] {
+		const currentLower = moduleName.toLowerCase();
+		const kept = this.queryCache.get('bareResolutionSymbols') as
+			| { moduleLower: string; symbols: readonly VbaSymbol[] }
+			| undefined;
+		if (kept?.moduleLower === currentLower) {
+			return kept.symbols;
+		}
+		const symbols = this.visibleIdentifierSymbols(moduleName);
+		this.queryCache.set('bareResolutionSymbols', { moduleLower: currentLower, symbols });
+		return symbols;
 	}
 
 	/** Finds the procedure symbol whose full span contains `offset`. */
