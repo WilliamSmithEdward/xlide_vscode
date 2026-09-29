@@ -47,29 +47,35 @@ suite('Canonical casing', () => {
 		assert.equal(document.isDirty, false, 'the module should still match the workbook');
 	});
 
-	test('recases what the user types under a short auto-save delay', async () => {
-		// The save came before the pause, the pause found the module matching
-		// its file, and `dim x as long` was left as `Dim x As long`.
-		const files = vscode.workspace.getConfiguration('files');
-		await files.update('autoSave', 'afterDelay', vscode.ConfigurationTarget.Workspace);
-		await files.update('autoSaveDelay', 100, vscode.ConfigurationTarget.Workspace);
-		try {
-			await agentWrite('CaseAutoSave', 'Option Explicit\r\n\r\nSub T()\r\n\r\nEnd Sub\r\n');
-			const document = await open(moduleUri('CaseAutoSave'));
-			vscode.window.activeTextEditor!.selection = new vscode.Selection(3, 0, 3, 0);
-			for (const ch of 'dim x as long') {
-				await vscode.commands.executeCommand('type', { text: ch });
-				await new Promise((resolve) => setTimeout(resolve, 30));
-			}
-			await until(
-				() => (document.lineAt(3).text === 'Dim x As Long' && !document.isDirty ? true : undefined),
-				'the typed line should be recased and saved',
-				5000,
-			);
-		} finally {
-			await files.update('autoSave', undefined, vscode.ConfigurationTarget.Workspace);
-			await files.update('autoSaveDelay', undefined, vscode.ConfigurationTarget.Workspace);
+	test('recases what the user types when a save comes before the pause', async () => {
+		// An auto-save with a short delay saved before the pause, the pause
+		// found the module matching its file, and `dim x as long` was left as
+		// `Dim x As long`. The save is made here straight after the last
+		// keystroke, as a quick Ctrl+S is, so it always comes first: an
+		// auto-save only sometimes beat the pause, and a slow one let the test
+		// pass with the bug back.
+		await agentWrite('CaseEarlySave', 'Option Explicit\r\n\r\nSub T()\r\n\r\nEnd Sub\r\n');
+		const document = await open(moduleUri('CaseEarlySave'));
+		const editor = vscode.window.activeTextEditor!;
+		editor.selection = new vscode.Selection(3, 0, 3, 0);
+		// Each character goes in as a keystroke's does: one insertion at the
+		// caret, which then moves past it. The `type` command reaches only an
+		// editor with keyboard focus, which a test window started behind another
+		// has none of: the characters were dropped, and the test failed on a line
+		// nobody had typed into.
+		let column = 0;
+		for (const ch of 'dim x as long') {
+			await editor.edit((edit) => edit.insert(new vscode.Position(3, column), ch),
+				{ undoStopBefore: false, undoStopAfter: false });
+			column += ch.length;
+			editor.selection = new vscode.Selection(3, column, 3, column);
+			await new Promise((resolve) => setTimeout(resolve, 30));
 		}
+		await document.save();
+		await pastTheIdlePause();
+
+		assert.equal(document.lineAt(3).text, 'Dim x As Long', 'the save should write the typed line recased');
+		assert.equal(document.isDirty, false, 'the module should still match the workbook');
 	});
 
 	test('changes nothing when a module is only opened and moved through', async () => {
