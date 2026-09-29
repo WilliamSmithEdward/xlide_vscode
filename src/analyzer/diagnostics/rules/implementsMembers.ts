@@ -166,7 +166,11 @@ function parseSignature(signature: string | undefined): { params: ParsedParam[];
 	parts.push(signature.slice(partStart, close));
 	const inner = signature.slice(open + 1, close).trim();
 	const params = inner.length === 0 ? [] : parts.map((part) => {
-		const text = part.trim().replace(/^(Optional|ByVal|ByRef|ParamArray)\s+/gi, '').replace(/\s*=.*$/, '');
+		// Project signature labels wrap optional parameters in brackets. Those delimiters
+		// are presentation, not part of the type (otherwise Date becomes "Date]").
+		const label = part.trim();
+		const parameter = label.startsWith('[') && label.endsWith(']') ? label.slice(1, -1) : label;
+		const text = parameter.replace(/^(?:(?:Optional|ByVal|ByRef|ParamArray)\s+)+/i, '').replace(/\s*=.*$/, '');
 		const asMatch = /\sAs\s+(.+)$/i.exec(text);
 		return {
 			type: normalizeType(asMatch ? asMatch[1].trim() : undefined) ?? 'variant',

@@ -48,6 +48,18 @@ describe('implements-member-missing and implements-member-signature (issue #125)
 });
 
 describe('string defaults and read-write properties (issue #144)', () => {
+	it('reads bracketed optional parameters from project signature labels', () => {
+		const contract: VbaProjectClassMembers = {
+			name: 'IStore', kind: 'class', moduleName: 'IStore', exhaustive: true,
+			members: [{ name: 'Total', kind: 'method', moduleName: 'IStore', returns: 'Currency',
+				signature: 'Total(ByVal rate As Double, [ByVal since As Date]) As Currency' }],
+		};
+		const source = 'Option Explicit\nImplements IStore\nPrivate Function IStore_Total(ByVal rate As Double, Optional ByVal since As Date) As Currency\nEnd Function\n';
+		const run = (text: string) => analyzeModule(text, { moduleName: 'Store', moduleKind: 'class', projectClassMembers: [contract] });
+		expect(byCode(run(source), 'implements-member-signature')).toHaveLength(0);
+		expect(byCode(run(source.replace('since As Date', 'since As String')), 'implements-member-signature')).toHaveLength(1);
+	});
+
 	// Measured in Excel 16.0 (build 20326, 2026-09-26): the project with the
 	// ", " default compiles and returns "a, b"; the Get-only implementation
 	// of a Public variable is refused with "Object module needs to implement
