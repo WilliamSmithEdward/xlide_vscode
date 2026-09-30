@@ -37,7 +37,7 @@ jobs:
           NAMES: ${{ steps.meta.outputs.dependency-names }}
           UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
         run: |
-          own="pyopenvba pyofficeeditor pyprettyvba pyvbareference pyvbaanalysis pyvbaharness xlide-mcp"
+          own="pyopenvba pyofficeeditor pyprettyvba vba-reference pyvbaanalysis pyvbaharness xlide-mcp"
           all_own=true
           for name in $(echo "$NAMES" | tr ',' ' ' | tr '[:upper:]_' '[:lower:]-'); do
             if ! echo "$own" | tr ' ' '\n' | grep -qxF "$name"; then all_own=false; fi
