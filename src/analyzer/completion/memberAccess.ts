@@ -552,6 +552,21 @@ export function privateMemberOwnerAt(
 	return surface && surfaceMemberNamed(surface, memberName) ? undefined : projectType.name;
 }
 
+/** The project type (class, form, document) a receiver resolves to, if any. */
+export function projectTypeAt(
+	source: string,
+	offset: number,
+	ctx: MemberCompletionContext = {},
+): VbaProjectClassMembers | undefined {
+	const currentType = resolveReceiverTypeAt(source, offset, ctx);
+	if (!currentType) {
+		return undefined;
+	}
+	const projectKey = parseCombinedTypeKey(currentType)?.projectKey
+		?? (currentType.startsWith(PROJECT_TYPE_PREFIX) ? currentType.slice(PROJECT_TYPE_PREFIX.length) : undefined);
+	return projectKey ? projectClassMembersByName(ctx).get(projectKey) : undefined;
+}
+
 /** The member of a project class module a reference reaches, if the receiver is one. */
 export function projectClassMemberAt(
 	source: string,
@@ -559,13 +574,7 @@ export function projectClassMemberAt(
 	memberName: string,
 	ctx: MemberCompletionContext = {},
 ): VbaProjectClassMember | undefined {
-	const currentType = resolveReceiverTypeAt(source, offset, ctx);
-	if (!currentType) {
-		return undefined;
-	}
-	const projectKey = parseCombinedTypeKey(currentType)?.projectKey
-		?? (currentType.startsWith(PROJECT_TYPE_PREFIX) ? currentType.slice(PROJECT_TYPE_PREFIX.length) : undefined);
-	const projectType = projectKey ? projectClassMembersByName(ctx).get(projectKey) : undefined;
+	const projectType = projectTypeAt(source, offset, ctx);
 	if (projectType?.kind !== 'class') {
 		return undefined;
 	}
