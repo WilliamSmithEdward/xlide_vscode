@@ -48,6 +48,7 @@ import {
 import {
 	activeModuleMembers,
 	bareAssignmentTarget,
+	blockHeaderStatements,
 	firstExecutableTokenIndex,
 	forEachVariableGroup,
 	matchParenFrom,
@@ -868,9 +869,18 @@ function checkProcedureBody(
 			if ('body' in node && Array.isArray(node.body)) {
 				// A block may run any number of times: nothing stored before it
 				// is known after it, and nothing inside it is straight-line.
+				// Its header line is evaluated as it is entered: `For i = 1 To
+				// CInt(40000)`, `Select Case CInt(40000)` (issue #233).
+				const { before, after } = blockHeaderStatements(source, node);
+				if (before) {
+					checkStatement(source, before.span, env, names, push);
+				}
 				justAssigned.clear();
 				visit(node.body as BodyNode[], false);
 				justAssigned.clear();
+				if (after) {
+					checkStatement(source, after.span, env, names, push);
+				}
 				continue;
 			}
 			if (!isLeafStatement(node)) {

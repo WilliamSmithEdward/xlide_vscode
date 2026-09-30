@@ -38,6 +38,7 @@ import {
 import {
 	activeModuleMembers,
 	blockHeaderLineSpan,
+	blockHeaderStatements,
 	bareAssignmentTarget,
 	forEachStatement,
 	isInactiveNode,
@@ -237,6 +238,14 @@ function walkObjectState(
 		onStatement: (stmt) =>
 			checkObjectVariableNotSetStatement(source, stmt, locals, state, setAnywhere, memberCtx, push, lets),
 		onBlock: (node) => {
+			// The header runs as the block is entered, with the state as it
+			// stands: `For i = 1 To c.Count`, `Select Case c.Count` (issue #233).
+			if (node.kind === 'SelectBlock' || node.kind === 'DoBlock' || node.kind === 'WhileBlock' || (node.kind === 'ForBlock' && !node.each)) {
+				const { before } = blockHeaderStatements(source, node);
+				if (before) {
+					checkObjectVariableNotSetStatement(source, before, locals, state, setAnywhere, memberCtx, push, lets);
+				}
+			}
 			// A For Each that runs to its end leaves the control variable
 			// Nothing, so an access after the loop is right to report. One
 			// the body can leave early - Exit For, or a GoTo out of it -

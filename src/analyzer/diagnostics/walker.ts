@@ -9,13 +9,16 @@ import type { VbaToken } from '../lexer/tokenKinds';
 import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
 import type {
 	BodyNode,
+	DoBlockNode,
 	LeafStatementNode,
 	ModuleMember,
 	ModuleNode,
 	ProcedureNode,
 	Span,
+	StatementNode,
 	VariableGroupNode,
 } from '../parser/nodes';
+import { tokenizeCached } from '../lexer/tokenize';
 import { isLeafStatement } from '../parser/nodes';
 
 // `tokenText`, `tokenName`, and `matchParenFrom` are byte-identical to the
@@ -65,6 +68,37 @@ export function forEachStatement(
 }
 
 /**
+ * {@link forEachStatement}, with each block's header line visited as a
+ * statement of its own before the body, and a Do's `Loop While` line after
+ * it ({@link blockHeaderStatements}, issue #233). For a rule that judges an
+ * expression wherever it stands.
+ */
+export function forEachStatementWithHeaders(
+	source: string,
+	body: BodyNode[],
+	visit: (stmt: LeafStatementNode) => void,
+	activity?: ConditionalActivityTracker,
+): void {
+	for (const node of body) {
+		if (isInactiveNode(activity, node)) {
+			continue;
+		}
+		if (isLeafStatement(node)) {
+			visit(node);
+		} else if ('body' in node && Array.isArray(node.body)) {
+			const { before, after } = blockHeaderStatements(source, node);
+			if (before) {
+				visit(before);
+			}
+			forEachStatementWithHeaders(source, node.body, visit, activity);
+			if (after) {
+				visit(after);
+			}
+		}
+	}
+}
+
+/**
  * One per-procedure visitor of the shared statement walk (audit #0): given a
  * procedure, returns the per-statement callback to run inside it, or
  * undefined to skip the procedure entirely.
@@ -89,12 +123,80 @@ export interface ProcedureWalkHooks {
 	skipBody?: (member: ProcedureNode) => boolean;
 }
 
+/**
+ * The block kinds whose own line evaluates an expression: a For's bounds and
+ * step, a Select Case subject, a Do or While condition, a With subject.
+ */
+const HEADER_BLOCKS: ReadonlySet<string> = new Set(['ForBlock', 'SelectBlock', 'DoBlock', 'WhileBlock', 'WithBlock']);
+
+/**
+ * A block's header line as a statement of its own, and a Do's `Loop While`
+ * or `Loop Until` line (issue #233). The header ends at the end of its
+ * logical line or at a colon, so `If a Then With c: .Add 1: End With` gives
+ * `With c` alone, and a string holding a colon stays whole.
+ */
+export function blockHeaderStatements(source: string, node: BodyNode): { before?: StatementNode; after?: StatementNode } {
+	if (!HEADER_BLOCKS.has(node.kind)) {
+		return {};
+	}
+	const toks = tokenizeCached(source);
+	const statement = (from: number, to: number): StatementNode => {
+		const span = { start: toks[from].start, end: toks[to].end };
+		return { kind: 'Statement', span, raw: source.slice(span.start, span.end) };
+	};
+	const separator = (tok: VbaToken): boolean => tok.kind === 'newline' || tok.kind === 'colon';
+	// The first token at or after the block's start.
+	let lo = 0;
+	let hi = toks.length;
+	while (lo < hi) {
+		const mid = (lo + hi) >> 1;
+		if (toks[mid].start < node.span.start) {
+			lo = mid + 1;
+		} else {
+			hi = mid;
+		}
+	}
+	const out: { before?: StatementNode; after?: StatementNode } = {};
+	let end = lo;
+	while (end + 1 < toks.length && !separator(toks[end + 1]) && toks[end + 1].kind !== 'comment') {
+		end++;
+	}
+	if (lo < toks.length && !separator(toks[lo])) {
+		out.before = statement(lo, end);
+	}
+	if (node.kind === 'DoBlock' && (node as DoBlockNode).closed) {
+		// The last token of the block, and back to the start of its statement.
+		let last = hi;
+		while (last < toks.length && toks[last].end <= node.span.end) {
+			last++;
+		}
+		last--;
+		while (last > end && toks[last].kind === 'comment') {
+			last--;
+		}
+		let first = last;
+		while (first - 1 > end && !separator(toks[first - 1])) {
+			first--;
+		}
+		if (first > end && tokenText(toks[first]) === 'loop' && first < last) {
+			out.after = statement(first, last);
+		}
+	}
+	return out;
+}
+
 export function walkProcedureStatements(
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
 	visitors: readonly ProcedureStatementVisitor[],
 	hooks?: ProcedureWalkHooks,
+	/**
+	 * The module's text, and for each visitor whether it also takes block
+	 * headers ({@link blockHeaderStatements}). Without it no visitor does.
+	 */
+	headers?: { source: string; takes: readonly boolean[] },
 ): void {
+	const takesHeaders = headers?.takes ?? [];
 	if (visitors.length === 0) {
 		return;
 	}
@@ -112,20 +214,44 @@ export function walkProcedureStatements(
 			continue;
 		}
 		const callbacks: Array<(stmt: LeafStatementNode) => void> = [];
-		for (const visitor of visitors) {
+		const headerCallbacks: Array<(stmt: LeafStatementNode) => void> = [];
+		visitors.forEach((visitor, k) => {
 			const callback = visitor(member);
 			if (callback) {
 				callbacks.push(callback);
+				if (takesHeaders[k]) {
+					headerCallbacks.push(callback);
+				}
 			}
-		}
+		});
 		if (callbacks.length === 0) {
 			continue;
 		}
-		forEachStatement(member.body, (stmt) => {
-			for (const callback of callbacks) {
-				callback(stmt);
+		const header = (stmt: StatementNode | undefined): void => {
+			if (stmt) {
+				for (const callback of headerCallbacks) {
+					callback(stmt);
+				}
 			}
-		}, activity);
+		};
+		const visit = (body: readonly BodyNode[]): void => {
+			for (const node of body) {
+				if (isInactiveNode(activity, node)) {
+					continue;
+				}
+				if (isLeafStatement(node)) {
+					for (const callback of callbacks) {
+						callback(node);
+					}
+				} else if ('body' in node && Array.isArray(node.body)) {
+					const { before, after } = headers && headerCallbacks.length > 0 ? blockHeaderStatements(headers.source, node) : {};
+					header(before);
+					visit(node.body);
+					header(after);
+				}
+			}
+		};
+		visit(member.body);
 	}
 }
 

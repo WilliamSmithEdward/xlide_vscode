@@ -319,6 +319,7 @@ function runRules(
 	// registry order keeps the historical rule-major diagnostic order.
 	const buffers: VbaDiagnostic[][] = [];
 	const statementVisitors: ProcedureStatementVisitor[] = [];
+	const takesHeaders: boolean[] = [];
 	const expressionVisitors: ProcedureExpressionVisitor[] = [];
 	for (const rule of DIAGNOSTIC_RULE_REGISTRY) {
 		const buffer: VbaDiagnostic[] = [];
@@ -332,6 +333,7 @@ function runRules(
 			}
 			if (rule.procedureStatements) {
 				statementVisitors.push(guardStatementVisitor(rule.procedureStatements(ctx, push), rule.name, report));
+				takesHeaders.push(rule.blockHeaders === true);
 			}
 			if (rule.procedureExpressions) {
 				expressionVisitors.push(guardExpressionVisitor(rule.procedureExpressions(ctx, push), rule.name, report));
@@ -355,7 +357,7 @@ function runRules(
 	// Each rule's visitor is guarded on its own; what these catch is the walk
 	// itself failing, which ends it for every rule from there on.
 	try {
-		walkProcedureStatements(ctx.mod, ctx.activity, statementVisitors, walkHooks);
+		walkProcedureStatements(ctx.mod, ctx.activity, statementVisitors, walkHooks, { source: ctx.source, takes: takesHeaders });
 	} catch (err) {
 		report(err, { stage: 'statement-walk' });
 	}
