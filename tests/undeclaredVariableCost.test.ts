@@ -79,4 +79,11 @@ describe('analysis cost stays linear in module size', () => {
 		expect(hits[0].data?.declareVariable?.variableName).toBe('missing');
 		expect(hits[0].data?.declareVariable?.declaredType).toBeTruthy();
 	});
+
+	it('declares a name with letters outside ASCII, which VBA accepts (issue #207)', () => {
+		const source = 'Option Explicit\r\nSub T()\r\n    \u00c9tat = 1\r\nEnd Sub\r\n';
+		const hits = analyzeProjectModule(source, [{ moduleName: 'M', source }], 'M')
+			.filter((d) => d.code === 'undeclared-variable');
+		expect(hits[0].data?.declareVariable?.edit.newText).toBe('    Dim \u00c9tat As Long\r\n');
+	});
 });

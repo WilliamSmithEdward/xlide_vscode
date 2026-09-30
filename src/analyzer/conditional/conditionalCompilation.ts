@@ -266,7 +266,9 @@ export function collectConditionalDirectives(
  * 0 for False. A value that is not an integer is kept as its raw text, so a
  * comparison against a string constant still works and an unreadable entry
  * cannot silently become a number. An entry with no `=` names nothing and is
- * skipped rather than guessed at.
+ * skipped rather than guessed at. A name is a VBA identifier, whose letters
+ * are any the project's code page holds, so a name opening with an E acute
+ * is one (issue #207).
  */
 export function parseProjectConditionalConstants(
 	raw: string | undefined,
@@ -279,7 +281,7 @@ export function parseProjectConditionalConstants(
 		}
 		const name = entry.slice(0, eq).trim();
 		const valueText = entry.slice(eq + 1).trim();
-		if (!name || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+		if (!/^\p{L}[\p{L}\p{N}_]*$/u.test(name)) {
 			continue;
 		}
 		constants[name] = /^[+-]?\d+$/.test(valueText) ? Number(valueText) : valueText;

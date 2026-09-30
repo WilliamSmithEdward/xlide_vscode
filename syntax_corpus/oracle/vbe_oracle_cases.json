@@ -15816,6 +15816,39 @@
       "source": "Option Explicit\nFunction Main()\n    Columns(1).ColumnWidth = -0.5\n    Main = \"ran\"\nEnd Function\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue207_01_runtime",
+      "description": "Issue #207 case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> debug.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\n#Const \u00C9tat = 1\nFunction Main() As Variant\n#If \u00C9tat Then\n    Main = \"debug\"\n#Else\n    Main = ReleaseOnlyName\n#End If\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue207_02_runtime",
+      "description": "Issue #207 case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> lower.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\n#Const \u00C9tat = 1\nFunction Main() As Variant\n#If \u00E9tat = 1 Then\n    Main = \"lower\"\n#Else\n    Main = ReleaseOnlyName\n#End If\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue207_03_runtime",
+      "description": "Issue #207 case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> zero.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\n#Const \u00DCnit2 = 0\nFunction Main() As Variant\n#If \u00DCnit2 Then\n    Main = ReleaseOnlyName\n#Else\n    Main = \"zero\"\n#End If\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

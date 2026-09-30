@@ -725,7 +725,8 @@ function declareVariableData(
 	name: string,
 	declaredType: string | undefined,
 ): VbaDiagnosticData | undefined {
-	if (!declaredType || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) {
+	// Any letter the code page holds starts an identifier (issue #207).
+	if (!declaredType || !/^\p{L}[\p{L}\p{N}_]*$/u.test(name)) {
 		return undefined;
 	}
 	const insertAt = declarationInsertOffset(source, member);

@@ -41,6 +41,11 @@ describe('parsing the project property', () => {
 		expect(parseProjectConditionalConstants(undefined)).toEqual({});
 		expect(parseProjectConditionalConstants('Bad')).toEqual({});
 		expect(parseProjectConditionalConstants('9Bad = 1')).toEqual({});
+		expect(parseProjectConditionalConstants('_Bad = 1')).toEqual({});
+	});
+
+	it('reads a name with letters outside ASCII, as the VBE does (issue #207)', () => {
+		expect(parseProjectConditionalConstants('\u00c9tat = 1 : \u00dcnit2 = 0')).toEqual({ \u00c9tat: 1, \u00dcnit2: 0 });
 	});
 
 	it('keeps a non-integer value as its text instead of coercing it', () => {
@@ -107,6 +112,22 @@ describe('supplying the arguments decides a branch', () => {
 		// `Unwanted` sits in the arm that loses, so it is no longer declared at
 		// all and using it is the error the VBE would raise.
 		expect(undeclared(SRC.replace('Wanted = 1', 'Unwanted = 1'), 'stdFullIntegration = 1')).toBe(1);
+	});
+
+	it('decides an #If on a constant whose name has letters outside ASCII (issue #207)', () => {
+		const source = [
+			'Option Explicit',
+			'Function Main() As String',
+			'#If \u00c9tat Then',
+			'    Main = "debug"',
+			'#Else',
+			'    Main = ReleaseOnlyName',
+			'#End If',
+			'End Function',
+		].join('\r\n') + '\r\n';
+		expect(undeclared(source, '\u00c9tat = 1')).toBe(0);
+		expect(undeclared(source.replace('#If \u00c9tat', '#If \u00e9tat'), '\u00c9tat = 1')).toBe(0);
+		expect(undeclared(source, '\u00c9tat = 0')).toBe(1);
 	});
 });
 
