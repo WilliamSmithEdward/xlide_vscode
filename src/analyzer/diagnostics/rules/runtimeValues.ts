@@ -31,6 +31,7 @@ import {
 } from '../callExtraction';
 import { collectModuleLiteralIntegerConstants } from '../constExpr';
 import { checkEachCounterPass, loopCountersAt } from '../loopCounters';
+import { foldKnownStringCalls, moduleCompare, type KnownStringCallContext } from '../knownStringCalls';
 import { bankersRound, isBareOrVbaQualifiedIntrinsicCall } from '../rules/shared';
 import { isInvalidBooleanString, isInvalidDateString, isInvalidNumericString } from '../stringConversion';
 import {
@@ -108,6 +109,7 @@ export function checkRuntimeArgumentValues(
 	const projectConstants = resolveRawIntegerConstants(projectIntegerConstants ?? new Map(), new Map());
 	const moduleConstants = collectModuleLiteralIntegerConstants(mod, activity, projectConstants);
 	const host = hostModel?.hostName?.toLowerCase();
+	const compare = moduleCompare(source);
 	return (member) => {
 		const env = typeEnvironmentFor(symbols, member);
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
@@ -164,7 +166,13 @@ export function checkRuntimeArgumentValues(
 				atom.kind === 'len' ? stringsAt(valuesAt(counter.loopNode)).lengths.get(atom.name) : undefined;
 			checkEachCounterPass(source, stmt.span, counters.get(stmt), atomValue, (values, report) => {
 				counterValues = values;
-				for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env, lookup, knownStrings, sourceNames, host)) {
+				const stringCalls: KnownStringCallContext = {
+					knownStrings,
+					integerValue: (text) => evaluateIntegerConstantExpression(text, lookup),
+					shadowed: (name) => runtimeCallableSourceShadowed(name, sourceNames),
+					compare,
+				};
+				for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env, lookup, stringCalls, sourceNames, host)) {
 					report(
 						'runtimeArgumentValue',
 						`Argument '${hit.parameterName}' of '${hit.displayName}' is ${hit.value}; this will raise Run-time error '5': Invalid procedure call or argument.`,
@@ -491,7 +499,7 @@ function runtimeArgumentValueHits(
 	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
 	env: ReadonlyMap<string, string>,
 	constants: IntegerConstantLookup,
-	knownStrings: ReadonlyMap<string, string>,
+	stringCalls: KnownStringCallContext,
 	sourceNames: SourceNameScope,
 	host: string | undefined,
 ): RuntimeArgumentValueHit[] {
@@ -508,7 +516,7 @@ function runtimeArgumentValueHits(
 		for (const spec of call.specs) {
 			const slot = runtimeArgumentValueSlot(call.slots, spec);
 			const literal = slot
-				? integerArgumentOutsideBounds(source, slot, span.start, spec, constants, knownStrings)
+				? integerArgumentOutsideBounds(source, slot, span.start, spec, constants, stringCalls)
 				: undefined;
 			if (!literal) {
 				continue;
@@ -862,8 +870,9 @@ function integerArgumentOutsideBounds(
 	sliceStart: number,
 	spec: RuntimeArgumentValueSpec,
 	constants: IntegerConstantLookup,
-	knownStrings: ReadonlyMap<string, string>,
+	stringCalls: KnownStringCallContext,
 ): { value: number | string; span: Span } | undefined {
+	const { knownStrings } = stringCalls;
 	const toks = unwrapOuterParens(
 		slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline'),
 	);
@@ -927,8 +936,10 @@ function integerArgumentOutsideBounds(
 		};
 	}
 
+	// `InStr(s, " ") - 1` with s known is `0 - 1` (issue #201).
 	const expressionValue = evaluateIntegerConstantExpression(
-		source.slice(sliceStart + toks[0].start, sliceStart + toks[toks.length - 1].end),
+		foldKnownStringCalls(toks, stringCalls)
+			?? source.slice(sliceStart + toks[0].start, sliceStart + toks[toks.length - 1].end),
 		constants,
 	);
 	if (expressionValue === undefined || integerArgumentValueInBounds(expressionValue, spec)) {
