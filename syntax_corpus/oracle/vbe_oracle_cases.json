@@ -29624,7 +29624,7 @@
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "compile",
-      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    v = 1 \uD83D\uDE00\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    v = 1 \u1F600\r\n    Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
     },
@@ -30182,6 +30182,346 @@
       "expected": "rejected",
       "mode": "compile",
       "source": "Option Explicit\r\nPrivate Const C = 2 * (1 \\ 0)\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue236_01_compile",
+      "description": "Issue #236 parentheses, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    Set d = (New Collection)\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue236_02_compile",
+      "description": "Issue #236 parentheses, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    Set d = (c)\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue236_03_compile",
+      "description": "Issue #236 parentheses, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    c.Add (c)\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue236_04_compile",
+      "description": "Issue #236 parentheses, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    With (New Collection)\r\n        End With\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue236_05_compile",
+      "description": "Issue #236 parentheses, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    Call Take((c))\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue236_06_compile",
+      "description": "Issue #236 parentheses, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    Take (c)\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue236_07_compile",
+      "description": "Issue #236 parentheses, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    Set d = c\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue236_08_compile",
+      "description": "Issue #236 parentheses, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    c.Add c\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue236_09_compile",
+      "description": "Issue #236 parentheses, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    v = (n)\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue236_10_compile",
+      "description": "Issue #236 parentheses, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    v = (Range(\"A1\")).Address\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue236_11_compile",
+      "description": "Issue #236 parentheses, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    v = (Application).Name\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue236_12_compile",
+      "description": "Issue #236 parentheses, case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    Debug.Print (Range(\"A1\")).Address\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue236_13_compile",
+      "description": "Issue #236 parentheses, case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    If (Application).Visible Then v = 1\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue236_14_compile",
+      "description": "Issue #236 parentheses, case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    v = Range(\"A1\").Address\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue236_15_compile",
+      "description": "Issue #236 parentheses, case 15, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    v = Array(1, 2)(0)\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue236_16_compile",
+      "description": "Issue #236 parentheses, case 16, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    v = CStr(1)\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue236_17_compile",
+      "description": "Issue #236 parentheses, case 17, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    v = ()\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue236_18_compile",
+      "description": "Issue #236 parentheses, case 18, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    v = UBound((a))\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue236_19_compile",
+      "description": "Issue #236 parentheses, case 19, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    v = LBound((a), 1)\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue236_20_compile",
+      "description": "Issue #236 parentheses, case 20, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    v = G((b:=1), a:=2)\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue236_21_compile",
+      "description": "Issue #236 parentheses, case 21, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    Mid((s), 1, 1) = \"x\"\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue236_22_compile",
+      "description": "Issue #236 parentheses, case 22, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    (n) = 1\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue236_23_compile",
+      "description": "Issue #236 parentheses, case 23, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    (Range(\"A1\")).Value = 1\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue236_24_compile",
+      "description": "Issue #236 parentheses, case 24, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    Dim x As (Long)\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue236_25_compile",
+      "description": "Issue #236 parentheses, case 25, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    v = UBound(a)\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue236_26_compile",
+      "description": "Issue #236 parentheses, case 26, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    v = G(b:=(1), a:=2)\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue236_27_compile",
+      "description": "Issue #236 parentheses, case 27, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    Mid(s, 1, 1) = \"x\"\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue236_28_compile",
+      "description": "Issue #236 parentheses, case 28, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    Take c\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue236_29_compile",
+      "description": "Issue #236 parentheses, case 29, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    Call Take(c)\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue236_30_compile",
+      "description": "Issue #236 parentheses, case 30, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    With c\r\n        End With\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue236_31_compile",
+      "description": "Issue #236 parentheses, case 31, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    v = -(1 + 2) * Not (n)\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Take(ByVal x As Variant)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue236_32_compile",
+      "description": "Issue #236 parentheses, case 32, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    v = Not (Application).Visible\r\n    Main = 1\r\nEnd Function\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue236_33_compile",
+      "description": "Issue #236 parentheses, case 33, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    v = (G(b:=1))\r\n    Main = 1\r\nEnd Function\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue236_34_compile",
+      "description": "Issue #236 parentheses, case 34, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, d As Collection, n As Long, s As String, a(1) As Long, v As Variant\r\n    v = UBound((a) + 0)\r\n    Main = 1\r\nEnd Function\r\nPrivate Function G(Optional ByVal a As Variant, Optional ByVal b As Variant) As Variant\r\n    G = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
     }

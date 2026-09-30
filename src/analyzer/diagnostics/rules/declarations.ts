@@ -1314,8 +1314,9 @@ function declarationJunk(
 	}
 	if (tokenText(next) === 'as') {
 		const type = toks[tokenText(toks[i + 1]) === 'new' ? i + 2 : i + 1];
+		// `As (Long)` is "Syntax error" (issue #236).
 		return type && !isDeclarationTypeNameToken(type)
-			? { text: type.rawText, span: absoluteSpan(span, type), why: 'As needs a type name', error: 'Expected: New or type name' }
+			? { text: type.rawText, span: absoluteSpan(span, type), why: 'As needs a type name', error: type.rawText === '(' ? 'Syntax error' : 'Expected: New or type name' }
 			: undefined;
 	}
 	if (next.rawText === '=') {
