@@ -91,8 +91,15 @@ export function checkEventHandlerSignatures(
 			sources.set(prefix.toLowerCase(), known);
 		}
 	};
-	if (moduleKind === 'document' && opts.documentType && DOCUMENT_OBJECTS[opts.documentType]) {
-		add(...DOCUMENT_OBJECTS[opts.documentType]);
+	// A document module's own object. Its handlers are checked even when
+	// empty, unlike a WithEvents variable's, a project class's or a form's
+	// (issue #228, measured in Excel 16.0).
+	const documentPrefixes = new Set<string>();
+	const documentType = opts.documentType
+		?? (opts.moduleName?.toLowerCase() === 'thisworkbook' ? 'workbook' : opts.moduleName?.toLowerCase() === 'thisdocument' ? 'document' : undefined);
+	if (moduleKind === 'document' && documentType && DOCUMENT_OBJECTS[documentType]) {
+		add(...DOCUMENT_OBJECTS[documentType]);
+		documentPrefixes.add(DOCUMENT_OBJECTS[documentType][0].toLowerCase());
 	}
 	if (moduleKind === 'userform' && isAccessDesignerClass(opts.designerClass)) {
 		// An Access form or report, and its controls, raise Access's events:
@@ -134,15 +141,16 @@ export function checkEventHandlerSignatures(
 	}
 	const projectEnums = new Set((memberCtx.projectClassMembers ?? []).filter((type) => type.kind === 'enum').map((type) => type.name.toLowerCase()));
 	for (const proc of procedures) {
-		// The VBE checks a handler only when its body holds a statement.
-		if (proc.body.length === 0) {
-			continue;
-		}
 		const underscore = proc.name.lastIndexOf('_');
 		if (underscore <= 0) {
 			continue;
 		}
 		const prefix = proc.name.slice(0, underscore).toLowerCase();
+		// The VBE checks a handler only when its body holds a statement, a
+		// document's own handlers excepted.
+		if (proc.body.length === 0 && !documentPrefixes.has(prefix)) {
+			continue;
+		}
 		const eventName = proc.name.slice(underscore + 1).toLowerCase();
 		const projectSource = projectSources.get(prefix);
 		const projectEvent = projectSource?.events.get(eventName);

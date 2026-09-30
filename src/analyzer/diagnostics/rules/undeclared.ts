@@ -296,6 +296,7 @@ export function checkUnknownCallStatement(
 	designerClass: string | undefined,
 	push: PushFn,
 	projectTypes?: readonly VbaProjectClassMembers[],
+	ownMembers: ReadonlySet<string> = new Set(),
 ): ProcedureStatementVisitor {
 	// The host injects Application's members into the global scope, so a bare
 	// call may legitimately bind to one of them (Calculate, Volatile, ...).
@@ -311,6 +312,7 @@ export function checkUnknownCallStatement(
 			sourceIdentifierBound(symbols, procSym, projectVisibleSymbols, name, 'call') ||
 			appMembers.has(lower) ||
 			designerMembers.has(lower) ||
+			ownMembers.has(lower) ||
 			resolveHostGlobal(name, hostModel) !== undefined ||
 			// The host's hidden Global interface is bare-callable too (issue #34).
 			resolveHostGlobalMember(name, hostModel) !== undefined ||
@@ -557,6 +559,7 @@ export function checkUndeclaredVariables(
 	designerClass: string | undefined,
 	referencedHosts: readonly string[] | undefined,
 	push: PushFn,
+	ownMembers: ReadonlySet<string> = new Set(),
 ): void {
 	if (!hasOptionExplicit(mod, activity) || !knownIdentifiers) {
 		return;
@@ -609,6 +612,9 @@ export function checkUndeclaredVariables(
 			// module's text; referring to one is correct VBA.
 			implicitMemberNames.has(lower) ||
 			designerMembers.has(lower) ||
+			// The module's own object: UsedRange in a sheet, Tag in a form
+			// (issue #228).
+			ownMembers.has(lower) ||
 			sourceIdentifierBound(symbols, procSym, projectVisibleSymbols, name, context) ||
 			knownIdentifiers.has(lower) ||
 			appMembers.has(lower) ||

@@ -321,6 +321,15 @@ export function checkAssignmentTypes(
 			// `Sheet1 = 5` compiles as a Let through the document's default
 			// member, and a Worksheet or Workbook has none (issue #225).
 			if (!expected && !targetType.resolved && isDocumentModuleName(assignment.name, memberCtx)) {
+				// Word refuses `ThisDocument = 5` while compiling (issue #228).
+				if (memberCtx.model?.hostName === 'Word') {
+					push(
+						'setRequiresObject',
+						`'${assignment.name}' names the document module itself, which no assignment can replace. This is a VBE compile error: Invalid use of property.`,
+						assignment.span,
+					);
+					return;
+				}
 				push(
 					'setRequired',
 					`'${assignment.name}' names the document module itself: a Let reaches it through its default member, which a document does not have, and a Set cannot replace it either. This will raise Run-time error '438': Object doesn't support this property or method.`,
