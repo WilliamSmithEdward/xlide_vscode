@@ -179,6 +179,8 @@ interface RedimTarget {
 	span: Span;
 	preserve: boolean;
 	dimensions: RedimDimension[];
+	/** The element type an `As` after the bounds names, with its token. */
+	asType?: { name: string; span: Span };
 }
 
 /**
@@ -395,8 +397,16 @@ function redimTargetFromGroup(
 		return undefined;
 	}
 	const dimensions: RedimDimension[] = [];
+	let asType: RedimTarget['asType'];
 	if (content[1]?.rawText === '(') {
 		const close = matchParenFrom(content, 1);
+		const typeTokens = close > 1 && tokenText(content[close + 1]) === 'as' ? content.slice(close + 2) : [];
+		if (typeTokens.length > 0 && typeTokens.every((tok) => tokenName(tok) || tok.rawText === '.')) {
+			asType = {
+				name: typeTokens.map((tok) => tok.rawText).join(''),
+				span: tokenGroupSpan(base, typeTokens),
+			};
+		}
 		if (close > 1) {
 			for (const part of splitTopLevelTokenGroups(content.slice(2, close), ',')) {
 				const dimTokens = part.filter((tok) => tok.kind !== 'comment');
@@ -419,6 +429,81 @@ function redimTargetFromGroup(
 		span: absoluteSpan(base, nameTok),
 		preserve,
 		dimensions,
+		...(asType ? { asType } : {}),
+	};
+}
+
+/** The type a suffix character gives a name: `x$` is a String. */
+const SUFFIX_TYPES: Readonly<Record<string, string>> = {
+	'%': 'integer', '&': 'long', '^': 'longlong', '@': 'currency', '!': 'single', '#': 'double', '$': 'string',
+};
+
+/**
+ * The element type a dynamic array was declared with, lowercased: `Dim x() As
+ * String` is string and `Dim v()` Variant. Undefined for anything that is not
+ * a dynamic array, and for a fixed-length string, whose ReDim is not judged.
+ */
+function dynamicArrayElementType(decl: VariableDeclNode): string | undefined {
+	if (!decl.isArray || (decl.arrayBounds ?? '').trim() !== '' || decl.fixedLength !== undefined) {
+		return undefined;
+	}
+	if (decl.asType) {
+		return decl.asType.replace(/\s+/g, '').toLowerCase();
+	}
+	return decl.typeSuffix ? SUFFIX_TYPES[decl.typeSuffix] : 'variant';
+}
+
+/**
+ * Rule: a ReDim may not give a dynamic array another element type. `Dim x()
+ * As String` then `ReDim x(1) As Long` is "Can't change data types of array
+ * elements" in the VBE, and so is `Dim v()` then `ReDim v(1) As Long`, with
+ * Preserve or without; a Variant that is not an array takes any ReDim
+ * (issue #212, measured in Excel 16.0).
+ */
+export function checkRedimTypeChange(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): ProcedureStatementVisitor {
+	const moduleArrays = new Map<string, string | undefined>();
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'VariableGroup' && !member.isConst) {
+			for (const decl of member.declarations) {
+				const key = decl.name.toLowerCase();
+				moduleArrays.set(key, moduleArrays.has(key) ? undefined : dynamicArrayElementType(decl));
+			}
+		}
+	}
+	return (member) => {
+		const localArrays = new Map<string, string | undefined>();
+		forEachVariableGroup(member.body, (group) => {
+			for (const decl of group.declarations) {
+				const key = decl.name.toLowerCase();
+				localArrays.set(key, localArrays.has(key) ? undefined : dynamicArrayElementType(decl));
+			}
+		}, activity);
+		const params = new Set(member.params.map((param) => param.name.toLowerCase()));
+		return (stmt) => {
+			for (const target of redimStatementTargets(source, stmt.span)) {
+				if (!target.asType || /\*/.test(target.asType.name)) {
+					continue;
+				}
+				const key = target.name.toLowerCase();
+				if (params.has(key)) {
+					continue;
+				}
+				const declared = localArrays.has(key) ? localArrays.get(key) : moduleArrays.get(key);
+				if (declared === undefined || declared === target.asType.name.toLowerCase()) {
+					continue;
+				}
+				push(
+					'redimTypeChange',
+					`'${target.name}' was declared with elements of another type, and a ReDim cannot change it to ${target.asType.name}. This is a VBE compile error: Can't change data types of array elements.`,
+					target.asType.span,
+				);
+			}
+		};
 	};
 }
 

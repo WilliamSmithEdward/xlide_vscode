@@ -59,15 +59,30 @@ export function checkObjectModulePublicMembers(
 		return;
 	}
 
-	const report = (kind: string, span: Span): void => {
+	const report = (kind: string, span: Span, what = `Public ${kind}`): void => {
 		push(
 			'objectModulePublicMember',
-			`Public ${kind} are not allowed as Public members of object modules; VBE Compile rejects this declaration.`,
+			`${what} are not allowed as Public members of object modules; VBE Compile rejects this declaration.`,
 			span,
 		);
 	};
 
+	// A Public variable of the module's own Private Type is refused the same
+	// way, and so is any Global (issue #212, measured in a class module).
+	const privateTypes = new Set<string>();
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Type' && member.visibility?.toLowerCase() === 'private') {
+			privateTypes.add(member.name.toLowerCase());
+		}
+	}
+
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'VariableGroup' && member.modifier.toLowerCase() === 'global') {
+			for (const decl of member.declarations) {
+				report('variables', declaredNameSpan(source, decl.span, decl.name), 'Global variables');
+			}
+			continue;
+		}
 		if (member.kind === 'VariableGroup' && isPublicModifier(member.modifier)) {
 			for (const decl of member.declarations) {
 				const span = declaredNameSpan(source, decl.span, decl.name);
@@ -77,6 +92,8 @@ export function checkObjectModulePublicMembers(
 					report('arrays', span);
 				} else if (decl.fixedLength !== undefined) {
 					report('fixed-length strings', span);
+				} else if (decl.asType !== undefined && privateTypes.has(decl.asType.trim().toLowerCase())) {
+					report('user-defined types', span);
 				}
 			}
 			continue;

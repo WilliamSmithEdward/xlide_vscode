@@ -90,6 +90,7 @@ import {
 	checkEraseTargets,
 	checkInvalidRedimTargets,
 	checkRedimImpossibleBounds,
+	checkRedimTypeChange,
 	checkRedimPreserveDimensions,
 	checkUnallocatedDynamicArrayAccess,
 	checkFixedArraySubscriptBounds,
@@ -144,6 +145,7 @@ import {
 	checkUndefinedLabels,
 } from './rules/controlFlow';
 import { checkDeclarationOrder } from './rules/declarationOrder';
+import { checkRefusedDeclarations } from './rules/refusedDeclarations';
 import {
 	checkUnreachableCode,
 	checkUnusedDeclarations,
@@ -217,6 +219,14 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'emptyType',
 		run: (ctx, push) => checkEmptyType(ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'refusedDeclarations',
+		run: (ctx, push) => checkRefusedDeclarations(ctx.source, ctx.mod, ctx.moduleKind, ctx.activity, push),
+	},
+	{
+		name: 'redimTypeChange',
+		procedureStatements: (ctx, push) => checkRedimTypeChange(ctx.source, ctx.mod, ctx.activity, push),
 	},
 	{
 		name: 'tooManyParameters',

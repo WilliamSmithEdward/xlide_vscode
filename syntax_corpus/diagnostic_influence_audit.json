@@ -1182,11 +1182,13 @@
         "class_public_array_declaration_compile",
         "class_public_fixed_string_declaration_compile",
         "class_public_type_declaration_compile",
-        "class_public_declare_declaration_compile"
+        "class_public_declare_declaration_compile",
+        "issue212_17_compile",
+        "issue212_18_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "The active rule is module-kind-sensitive and only fires for explicit Public constants, arrays, fixed-length strings, user-defined Types, and Declare statements in object modules. Standard modules and non-public declarations remain outside this rule.",
+      "notes": "The active rule is module-kind-sensitive and only fires for explicit Public constants, arrays, fixed-length strings, user-defined Types, and Declare statements in object modules. Standard modules and non-public declarations remain outside this rule. Also a Global variable, and a Public variable of the module's own Private Type (issue #212, measured in a class module).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -1293,7 +1295,8 @@
       "sourceOfTruth": "Excel/VBE compile oracle plus MS-VBAL reserved-name/type-identifier distinction",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "runtime_function_as_type_name_int"
+        "runtime_function_as_type_name_int",
+        "issue212_62_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -1941,6 +1944,144 @@
         "excel_vba_analysis_final_hardening_cases.md"
       ],
       "notes": "Active coverage uses parser-backed ForBlock source-expression metadata and shared expression resolver-backed shape lookup before falling back to procedure declaration-shape environments. The rule reports simple source names declared as known intrinsic scalars, including visible exported standard-module bindings. Arrays, Variant, Object, object-looking or unresolved sources, local shadows, ambiguous exported globals, member chains, and inactive branches stay silent until deeper enumerable inference is proven.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "private-type-in-public-signature",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #212)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue212_01_compile",
+        "issue212_02_compile",
+        "issue212_03_compile",
+        "issue212_04_compile",
+        "issue212_05_compile",
+        "issue212_10_compile",
+        "issue212_11_compile",
+        "issue212_13_compile",
+        "issue212_14_compile",
+        "issue212_16_compile",
+        "issue212_21_compile",
+        "issue212_22_compile",
+        "issue212_23_compile",
+        "issue212_25_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "A standard module's Private Enum in a Public or unmarked Sub, Function or Property, a Public or Global variable, or a Public Declare; a class module's Private Enum or Type in a Public procedure or Event, and its Private Enum as a Public variable. A Private Type is fine in a standard module's public signatures, a Public Type field may be a Private Enum, and Friend and Private members may use either.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "optional-property-value",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #212)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue212_26_compile",
+        "issue212_27_compile",
+        "issue212_29_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "A Property Let or Set whose value parameter is Optional: \"Syntax error\". An Optional index before the value compiles.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "event-parameter-form",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #212)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue212_30_compile",
+        "issue212_31_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "An Event parameter that is Optional or a ParamArray: \"Syntax error\". ByVal compiles.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "const-invalid-type",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #212)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "const_object_type_compile",
+        "issue212_33_compile",
+        "issue212_34_compile",
+        "issue212_36_compile",
+        "issue212_51_compile",
+        "issue212_52_compile",
+        "issue212_53_compile",
+        "issue212_54_compile",
+        "issue212_58_compile",
+        "issue212_59_compile",
+        "issue212_60_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "A Const declared As a type other than VBA's own: As Object is \"Invalid data type for constant\", As a class, host class, Enum, Type or qualified name \"Expected: type name\". Decimal is left to invalid-as-type-name.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "empty-enum",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #212)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "empty_enum_block_compile",
+        "issue212_43_compile",
+        "issue212_44_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "An Enum with no members: \"Enum without members not allowed\".",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "type-member-without-type",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #212)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue212_45_compile",
+        "issue212_46_compile",
+        "issue212_47_compile",
+        "issue212_63_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "A Type member with no As clause, a type suffix or a line number included: \"Statement invalid inside Type block\".",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "type-enum-name-conflict",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #212)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue212_48_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "A Type and an Enum of one name in one module: \"Ambiguous name detected\". A Const may share either name.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "redim-type-change",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #212)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue212_37_compile",
+        "issue212_39_compile",
+        "issue212_40_compile",
+        "issue212_42_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "A ReDim or ReDim Preserve that gives a dynamic array another element type, an untyped `Dim v()` being Variant: \"Can't change data types of array elements\". A Variant that is not an array takes any ReDim; parameters are not judged.",
       "diagnosticKind": "compile-error"
     },
     {
