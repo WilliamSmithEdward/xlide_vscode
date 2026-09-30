@@ -2,6 +2,23 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.14.6] - 2026-09-30
+
+Find All References and Rename are fast again in large projects.
+
+- **Each reference is resolved without rebuilding the project's symbol
+  list** (#179, contributed). Find References and Rename resolve every
+  occurrence of a name, and each one rebuilt the list of every module's
+  visible symbols and its index, so their time grew with occurrences times
+  project size. The list is now kept for the module being searched until
+  the next edit. In a project of 150 modules, resolving 15,001 references
+  went from 20.4 s to 0.24 s, with the same answers on 230,908 lookups
+  across the differential corpus.
+- **Each module is stripped of comments and strings once**, not twice a
+  query. That was then half of what was left: 30 queries on the largest
+  corpus project went from 1,585 to 801 ms, with identical references
+  found.
+
 ## [10.14.5] - 2026-09-29
 
 Analysis now says when it could not check everything, and a module where it
