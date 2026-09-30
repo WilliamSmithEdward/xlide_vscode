@@ -67,22 +67,29 @@ export interface ConditionalActivityTracker {
 	inSameBranch(a: Span, b: Span): boolean;
 }
 
+/**
+ * The compiler constants of 64-bit Office on Windows. One that is on is 1,
+ * not True (-1): `#If Not Win64` is true there, since Not 1 is -2, and
+ * `#If VBA7 = True` is false (issue #214, measured in 64-bit Excel 16.0).
+ * One that is off is 0.
+ */
 const DEFAULT_COMPILER_CONSTANTS: Readonly<Record<string, ConditionalValue>> = {
-	VBA7: true,
-	Win64: true,
-	// Win32 is True in 64-bit Office as well: it means Windows, not a width
-	// (issue #192, measured in 64-bit Excel 16.0). Win16 is False.
-	Win32: true,
-	Win16: false,
-	Mac: false,
+	VBA7: 1,
+	VBA6: 1,
+	Win64: 1,
+	// Win32 is on in 64-bit Office as well: it means Windows, not a width
+	// (issue #192, measured in 64-bit Excel 16.0). Win16 is off.
+	Win32: 1,
+	Win16: 0,
+	Mac: 0,
 	// `TWINBASIC` is a compiler auto-constant defined only by the twinBASIC
-	// compiler; in Excel VBA it is undefined and therefore False (VBE-oracle
-	// verified). Modern VBA libraries gate twinBASIC-only intrinsics behind
-	// `#If TWINBASIC Then ...`, so without this default those (inactive) branches
-	// were analyzed and produced false positives. Unlike a genuine unprovable
-	// host flag, TWINBASIC's value in VBA is known, so it is a default, not left
-	// `unknown`.
-	TWINBASIC: false,
+	// compiler; in Excel VBA it is undefined, and an undefined name is 0
+	// (VBE-oracle verified). Modern VBA libraries gate twinBASIC-only
+	// intrinsics behind `#If TWINBASIC Then ...`, so without this default those
+	// (inactive) branches were analyzed and produced false positives. Unlike a
+	// genuine unprovable host flag, TWINBASIC's value in VBA is known, so it
+	// is a default, not left `unknown`.
+	TWINBASIC: 0,
 };
 
 function effectiveConditionalCompilationEnvironment(

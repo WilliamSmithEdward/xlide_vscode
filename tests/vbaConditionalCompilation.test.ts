@@ -121,6 +121,26 @@ describe('conditional compilation expression evaluation', () => {
 		expect(branch(wrap('', 'B + 1'))).toBe('active');
 	});
 
+	it('reads the compiler constants that are on as 1, not True (issue #214)', () => {
+		// Each measured in 64-bit Excel 16.0: which #If branch compiles.
+		const branch = (condition: string): string => {
+			const source = `Function Main() As String\n#If ${condition} Then\n    Main = "if"\n#Else\n    Main = "else"\n#End If\nEnd Function\n`;
+			const tracker = createConditionalActivityTracker(parseModule(source), { projectConstants: {} });
+			const at = source.indexOf('Main = "if"');
+			return tracker?.activityForSpan({ start: at, end: at + 11 }) === 'active' ? 'if' : 'else';
+		};
+		const measured: Array<[string, string]> = [
+			['Not VBA7', 'if'], ['Not Win64', 'if'], ['Not Win32', 'if'], ['Not VBA6', 'if'],
+			['VBA7 = 1', 'if'], ['VBA7 = True', 'else'], ['VBA7 = -1', 'else'], ['Win64 = True', 'else'],
+			['Win64 And 2', 'else'], ['Win64 Xor Win32', 'else'], ['VBA7 + Win64 = 2', 'if'],
+			['VBA6', 'if'], ['VBA6 = 1', 'if'], ['Win16 = 0', 'if'], ['Mac = 0', 'if'], ['Win16', 'else'], ['Mac', 'else'],
+			['VBA7 And Win64', 'if'], ['Not Mac', 'if'], ['Not Not VBA7', 'if'], ['Not True', 'else'], ['Not 0', 'if'],
+		];
+		for (const [condition, expected] of measured) {
+			expect(branch(condition), condition).toBe(expected);
+		}
+	});
+
 	it('takes the branch Excel takes with Like, Empty, Null, Is and date literals (issue #208)', () => {
 		// Each measured in 64-bit Excel 16.0, the condition alone in #If.
 		const branch = (setup: string, condition: string): string => {
