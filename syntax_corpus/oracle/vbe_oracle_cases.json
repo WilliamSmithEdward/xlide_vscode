@@ -16704,6 +16704,599 @@
       "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPublic Function Main() As Variant\r\n    Dim HI As Long\r\n    Dim b() As Long\r\n    HI = 9\r\n    ReDim b(LO To HI)\r\n    Main = UBound(b)\r\n    Main = 1\r\nEnd Function\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue210_01_runtime",
+      "description": "Issue #210 case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub M(p0&, p1&, p2&, p3&, p4&, p5&, p6&, p7&, p8&, p9&, p10&, p11&, p12&, p13&, p14&, p15&, p16&, p17&, p18&, p19&, p20&, p21&, p22&, p23&, p24&, p25&, p26&, p27&, p28&, p29&, p30&, p31&, p32&, p33&, p34&, p35&, p36&, p37&, p38&, p39&, p40&, p41&, p42&, p43&, p44&, p45&, p46&, p47&, p48&, p49&, p50&, p51&, p52&, p53&, p54&, p55&, p56&, p57&, p58&)\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue210_02_runtime",
+      "description": "Issue #210 case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate Sub M(p0&, p1&, p2&, p3&, p4&, p5&, p6&, p7&, p8&, p9&, p10&, p11&, p12&, p13&, p14&, p15&, p16&, p17&, p18&, p19&, p20&, p21&, p22&, p23&, p24&, p25&, p26&, p27&, p28&, p29&, p30&, p31&, p32&, p33&, p34&, p35&, p36&, p37&, p38&, p39&, p40&, p41&, p42&, p43&, p44&, p45&, p46&, p47&, p48&, p49&, p50&, p51&, p52&, p53&, p54&, p55&, p56&, p57&, p58&)\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue210_03_runtime",
+      "description": "Issue #210 case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nFriend Sub M(p0&, p1&, p2&, p3&, p4&, p5&, p6&, p7&, p8&, p9&, p10&, p11&, p12&, p13&, p14&, p15&, p16&, p17&, p18&, p19&, p20&, p21&, p22&, p23&, p24&, p25&, p26&, p27&, p28&, p29&, p30&, p31&, p32&, p33&, p34&, p35&, p36&, p37&, p38&, p39&, p40&, p41&, p42&, p43&, p44&, p45&, p46&, p47&, p48&, p49&, p50&, p51&, p52&, p53&, p54&, p55&, p56&, p57&, p58&)\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue210_04_runtime",
+      "description": "Issue #210 case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function M(p0&, p1&, p2&, p3&, p4&, p5&, p6&, p7&, p8&, p9&, p10&, p11&, p12&, p13&, p14&, p15&, p16&, p17&, p18&, p19&, p20&, p21&, p22&, p23&, p24&, p25&, p26&, p27&, p28&, p29&, p30&, p31&, p32&, p33&, p34&, p35&, p36&, p37&, p38&, p39&, p40&, p41&, p42&, p43&, p44&, p45&, p46&, p47&, p48&, p49&, p50&, p51&, p52&, p53&, p54&, p55&, p56&, p57&, p58&) As Long\r\n    M = 0\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue210_05_runtime",
+      "description": "Issue #210 case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get M(p0&, p1&, p2&, p3&, p4&, p5&, p6&, p7&, p8&, p9&, p10&, p11&, p12&, p13&, p14&, p15&, p16&, p17&, p18&, p19&, p20&, p21&, p22&, p23&, p24&, p25&, p26&, p27&, p28&, p29&, p30&, p31&, p32&, p33&, p34&, p35&, p36&, p37&, p38&, p39&, p40&, p41&, p42&, p43&, p44&, p45&, p46&, p47&, p48&, p49&, p50&, p51&, p52&, p53&, p54&, p55&, p56&, p57&, p58&) As Long\r\n    M = 0\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue210_06_runtime",
+      "description": "Issue #210 case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Let M(p0&, p1&, p2&, p3&, p4&, p5&, p6&, p7&, p8&, p9&, p10&, p11&, p12&, p13&, p14&, p15&, p16&, p17&, p18&, p19&, p20&, p21&, p22&, p23&, p24&, p25&, p26&, p27&, p28&, p29&, p30&, p31&, p32&, p33&, p34&, p35&, p36&, p37&, p38&, p39&, p40&, p41&, p42&, p43&, p44&, p45&, p46&, p47&, p48&, p49&, p50&, p51&, p52&, p53&, p54&, p55&, p56&, p57&, ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue210_07_runtime",
+      "description": "Issue #210 case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event E(p0&, p1&, p2&, p3&, p4&, p5&, p6&, p7&, p8&, p9&, p10&, p11&, p12&, p13&, p14&, p15&, p16&, p17&, p18&, p19&, p20&, p21&, p22&, p23&, p24&, p25&, p26&, p27&, p28&, p29&, p30&, p31&, p32&, p33&, p34&, p35&, p36&, p37&, p38&, p39&, p40&, p41&, p42&, p43&, p44&, p45&, p46&, p47&, p48&, p49&, p50&, p51&, p52&, p53&, p54&, p55&, p56&, p57&, p58&)\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue210_08_runtime",
+      "description": "Issue #210 case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Sub Sleep2 Lib \"kernel32\" Alias \"Sleep\" (p0&, p1&, p2&, p3&, p4&, p5&, p6&, p7&, p8&, p9&, p10&, p11&, p12&, p13&, p14&, p15&, p16&, p17&, p18&, p19&, p20&, p21&, p22&, p23&, p24&, p25&, p26&, p27&, p28&, p29&, p30&, p31&, p32&, p33&, p34&, p35&, p36&, p37&, p38&, p39&, p40&, p41&, p42&, p43&, p44&, p45&, p46&, p47&, p48&, p49&, p50&, p51&, p52&, p53&, p54&, p55&, p56&, p57&, p58&)\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue210_09_compile",
+      "description": "Issue #210 case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub M(p0&, p1&, p2&, p3&, p4&, p5&, p6&, p7&, p8&, p9&, p10&, p11&, p12&, p13&, p14&, p15&, p16&, p17&, p18&, p19&, p20&, p21&, p22&, p23&, p24&, p25&, p26&, p27&, p28&, p29&, p30&, p31&, p32&, p33&, p34&, p35&, p36&, p37&, p38&, p39&, p40&, p41&, p42&, p43&, p44&, p45&, p46&, p47&, p48&, p49&, p50&, p51&, p52&, p53&, p54&, p55&, p56&, p57&, p58&, p59&)\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue210_10_compile",
+      "description": "Issue #210 case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate Sub M(p0&, p1&, p2&, p3&, p4&, p5&, p6&, p7&, p8&, p9&, p10&, p11&, p12&, p13&, p14&, p15&, p16&, p17&, p18&, p19&, p20&, p21&, p22&, p23&, p24&, p25&, p26&, p27&, p28&, p29&, p30&, p31&, p32&, p33&, p34&, p35&, p36&, p37&, p38&, p39&, p40&, p41&, p42&, p43&, p44&, p45&, p46&, p47&, p48&, p49&, p50&, p51&, p52&, p53&, p54&, p55&, p56&, p57&, p58&, p59&)\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue210_11_compile",
+      "description": "Issue #210 case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nFriend Sub M(p0&, p1&, p2&, p3&, p4&, p5&, p6&, p7&, p8&, p9&, p10&, p11&, p12&, p13&, p14&, p15&, p16&, p17&, p18&, p19&, p20&, p21&, p22&, p23&, p24&, p25&, p26&, p27&, p28&, p29&, p30&, p31&, p32&, p33&, p34&, p35&, p36&, p37&, p38&, p39&, p40&, p41&, p42&, p43&, p44&, p45&, p46&, p47&, p48&, p49&, p50&, p51&, p52&, p53&, p54&, p55&, p56&, p57&, p58&, p59&)\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue210_12_compile",
+      "description": "Issue #210 case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function M(p0&, p1&, p2&, p3&, p4&, p5&, p6&, p7&, p8&, p9&, p10&, p11&, p12&, p13&, p14&, p15&, p16&, p17&, p18&, p19&, p20&, p21&, p22&, p23&, p24&, p25&, p26&, p27&, p28&, p29&, p30&, p31&, p32&, p33&, p34&, p35&, p36&, p37&, p38&, p39&, p40&, p41&, p42&, p43&, p44&, p45&, p46&, p47&, p48&, p49&, p50&, p51&, p52&, p53&, p54&, p55&, p56&, p57&, p58&, p59&) As Long\r\n    M = 0\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue210_13_compile",
+      "description": "Issue #210 case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get M(p0&, p1&, p2&, p3&, p4&, p5&, p6&, p7&, p8&, p9&, p10&, p11&, p12&, p13&, p14&, p15&, p16&, p17&, p18&, p19&, p20&, p21&, p22&, p23&, p24&, p25&, p26&, p27&, p28&, p29&, p30&, p31&, p32&, p33&, p34&, p35&, p36&, p37&, p38&, p39&, p40&, p41&, p42&, p43&, p44&, p45&, p46&, p47&, p48&, p49&, p50&, p51&, p52&, p53&, p54&, p55&, p56&, p57&, p58&, p59&) As Long\r\n    M = 0\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue210_14_compile",
+      "description": "Issue #210 case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Let M(p0&, p1&, p2&, p3&, p4&, p5&, p6&, p7&, p8&, p9&, p10&, p11&, p12&, p13&, p14&, p15&, p16&, p17&, p18&, p19&, p20&, p21&, p22&, p23&, p24&, p25&, p26&, p27&, p28&, p29&, p30&, p31&, p32&, p33&, p34&, p35&, p36&, p37&, p38&, p39&, p40&, p41&, p42&, p43&, p44&, p45&, p46&, p47&, p48&, p49&, p50&, p51&, p52&, p53&, p54&, p55&, p56&, p57&, p58&, ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue210_15_compile",
+      "description": "Issue #210 case 15, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event E(p0&, p1&, p2&, p3&, p4&, p5&, p6&, p7&, p8&, p9&, p10&, p11&, p12&, p13&, p14&, p15&, p16&, p17&, p18&, p19&, p20&, p21&, p22&, p23&, p24&, p25&, p26&, p27&, p28&, p29&, p30&, p31&, p32&, p33&, p34&, p35&, p36&, p37&, p38&, p39&, p40&, p41&, p42&, p43&, p44&, p45&, p46&, p47&, p48&, p49&, p50&, p51&, p52&, p53&, p54&, p55&, p56&, p57&, p58&, p59&)\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue210_16_compile",
+      "description": "Issue #210 case 16, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Sub Sleep2 Lib \"kernel32\" Alias \"Sleep\" (p0&, p1&, p2&, p3&, p4&, p5&, p6&, p7&, p8&, p9&, p10&, p11&, p12&, p13&, p14&, p15&, p16&, p17&, p18&, p19&, p20&, p21&, p22&, p23&, p24&, p25&, p26&, p27&, p28&, p29&, p30&, p31&, p32&, p33&, p34&, p35&, p36&, p37&, p38&, p39&, p40&, p41&, p42&, p43&, p44&, p45&, p46&, p47&, p48&, p49&, p50&, p51&, p52&, p53&, p54&, p55&, p56&, p57&, p58&, p59&)\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue210_17_runtime",
+      "description": "Issue #210 case 17, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Declare PtrSafe Sub Sleep2 Lib \"kernel32\" Alias \"Sleep\" (p0&, p1&, p2&, p3&, p4&, p5&, p6&, p7&, p8&, p9&, p10&, p11&, p12&, p13&, p14&, p15&, p16&, p17&, p18&, p19&, p20&, p21&, p22&, p23&, p24&, p25&, p26&, p27&, p28&, p29&, p30&, p31&, p32&, p33&, p34&, p35&, p36&, p37&, p38&, p39&, p40&, p41&, p42&, p43&, p44&, p45&, p46&, p47&, p48&, p49&, p50&, p51&, p52&, p53&, p54&, p55&, p56&, p57&, p58&, p59&)\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue210_18_compile",
+      "description": "Issue #210 case 18, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Declare PtrSafe Sub Sleep2 Lib \"kernel32\" Alias \"Sleep\" (p0&, p1&, p2&, p3&, p4&, p5&, p6&, p7&, p8&, p9&, p10&, p11&, p12&, p13&, p14&, p15&, p16&, p17&, p18&, p19&, p20&, p21&, p22&, p23&, p24&, p25&, p26&, p27&, p28&, p29&, p30&, p31&, p32&, p33&, p34&, p35&, p36&, p37&, p38&, p39&, p40&, p41&, p42&, p43&, p44&, p45&, p46&, p47&, p48&, p49&, p50&, p51&, p52&, p53&, p54&, p55&, p56&, p57&, p58&, p59&, p60&)\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue210_19_runtime",
+      "description": "Issue #210 case 19, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Sub M(p0&, p1&, p2&, p3&, p4&, p5&, p6&, p7&, p8&, p9&, p10&, p11&, p12&, p13&, p14&, p15&, p16&, p17&, p18&, p19&, p20&, p21&, p22&, p23&, p24&, p25&, p26&, p27&, p28&, p29&, p30&, p31&, p32&, p33&, p34&, p35&, p36&, p37&, p38&, p39&, p40&, p41&, p42&, p43&, p44&, p45&, p46&, p47&, p48&, p49&, p50&, p51&, p52&, p53&, p54&, p55&, p56&, p57&, p58&, p59&)\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue210_20_compile",
+      "description": "Issue #210 case 20, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event E(p0&, p1&, p2&, p3&, p4&, p5&, p6&, p7&, p8&, p9&, p10&, p11&, p12&, p13&, p14&, p15&, p16&, p17&, p18&, p19&, p20&, p21&, p22&, p23&, p24&, p25&, p26&, p27&, p28&, p29&, p30&, p31&, p32&, p33&, p34&, p35&, p36&, p37&, p38&, p39&, p40&, p41&, p42&, p43&, p44&, p45&, p46&, p47&, p48&, p49&, p50&, p51&, p52&, p53&, p54&, p55&, p56&, p57&, p58&, p59&, p60&)\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue210_21_compile",
+      "description": "Issue #210 case 21, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub M(p0&, p1&, p2&, p3&, p4&, p5&, p6&, p7&, p8&, p9&, p10&, p11&, p12&, p13&, p14&, p15&, p16&, p17&, p18&, p19&, p20&, p21&, p22&, p23&, p24&, p25&, p26&, p27&, p28&, p29&, p30&, p31&, p32&, p33&, p34&, p35&, p36&, p37&, p38&, p39&, p40&, p41&, p42&, p43&, p44&, p45&, p46&, p47&, p48&, p49&, p50&, p51&, p52&, p53&, p54&, p55&, p56&, p57&, p58&, ParamArray rest())\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue210_22_compile",
+      "description": "Issue #210 case 22, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n2147483648 Main = 2\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue210_23_compile",
+      "description": "Issue #210 case 23, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n-1 Main = 2\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue210_24_runtime",
+      "description": "Issue #210 case 24, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n2147483647 Main = 2\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue210_25_compile",
+      "description": "Issue #210 case 25, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n99999999999 Main = 2\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue210_26_runtime",
+      "description": "Issue #210 case 26, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n0 Main = 2\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue210_27_compile",
+      "description": "Issue #210 case 27, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    a = \"x\"\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue210_28_runtime",
+      "description": "Issue #210 case 28, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    a = \"1\"\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue210_29_runtime",
+      "description": "Issue #210 case 29, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    a = 1.5\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue210_30_runtime",
+      "description": "Issue #210 case 30, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    a = True\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue210_31_runtime",
+      "description": "Issue #210 case 31, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    a = #1/1/2000#\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue210_32_compile",
+      "description": "Issue #210 case 32, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    a = \"a\" & \"b\"\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue210_33_compile",
+      "description": "Issue #210 case 33, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const S As String = \"x\"\r\nPrivate Enum E\r\n    a = S\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue210_34_compile",
+      "description": "Issue #210 case 34, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    a = \"True\"\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Main = a\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue210_35_runtime",
+      "description": "Issue #210 case 35, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 16.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    a = \"&H10\"\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Main = a\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue210_36_compile",
+      "description": "Issue #210 case 36, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    a = \"\"\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Main = a\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

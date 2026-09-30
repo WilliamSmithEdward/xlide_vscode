@@ -223,6 +223,52 @@ export function checkDuplicateLabels(
 	}
 }
 
+/** The largest line number the VBE accepts, the top of the Long range. */
+const MAX_LINE_NUMBER = 2147483647;
+
+/**
+ * Rule: a line number is 0 to 2147483647. `2147483648 x = 1` and `-1 x = 1`
+ * are each "Syntax error" in the VBE (issue #210, measured in Excel 16.0).
+ */
+export function checkLineNumberRange(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		forEachStatement(member.body, (stmt) => {
+			const toks = statementTokens(source, stmt.span);
+			const first = toks[0];
+			if (first?.kind === 'integerLiteral' && /^\d+$/.test(first.rawText) && Number(first.rawText) > MAX_LINE_NUMBER) {
+				push(
+					'invalidLineNumber',
+					`Line number ${first.rawText} is past ${MAX_LINE_NUMBER}, the largest the VBE accepts. This is a VBE compile error: Syntax error.`,
+					absoluteSpan(stmt.span, first),
+				);
+				return;
+			}
+			// `-1 x = 1`: a negative number where a line number goes. A
+			// statement never opens with a minus, so this is no expression.
+			const number = toks[1];
+			const next = toks[2];
+			if (
+				first?.rawText === '-' && number?.kind === 'integerLiteral' && /^\d+$/.test(number.rawText)
+				&& (next?.kind === 'identifier' || next?.kind === 'keyword')
+			) {
+				push(
+					'invalidLineNumber',
+					`A line number cannot be negative: -${number.rawText}. This is a VBE compile error: Syntax error.`,
+					{ start: absoluteSpan(stmt.span, first).start, end: absoluteSpan(stmt.span, number).end },
+				);
+			}
+		}, activity);
+	}
+}
+
 interface StatementContext {
 	forDepth: number;
 	doDepth: number;

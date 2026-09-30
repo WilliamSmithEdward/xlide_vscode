@@ -32,6 +32,7 @@ import type {
 } from '../../parser/nodes';
 import { isTypeDeclarationSuffix } from '../../parser/typeDeclarationSuffix';
 import { resolveRuntimeFunction } from '../../runtime/vbaRuntime';
+import type { ModuleSymbolKind } from '../../symbols/symbolModel';
 import {
 	collectTypeNameReferences,
 	type TypeNameReferenceKind,
@@ -1744,10 +1745,12 @@ export function checkNonConstantEnumMemberValues(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
+	let stringConsts: Map<string, string | undefined> | undefined;
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Enum') {
 			continue;
 		}
+		stringConsts ??= moduleStringConstants(source, mod, activity);
 		for (const enumMember of member.members) {
 			// Skip members in an inactive #If branch (the parser models Enum-body
 			// directives, so the activity tracker resolves these by offset).
@@ -1759,16 +1762,92 @@ export function checkNonConstantEnumMemberValues(
 				continue;
 			}
 			const nonConstant = nonConstantDefaultElement(valueTokens.tokens, enumMember.span.start, 'enumOrOptional');
-			if (!nonConstant) {
+			if (nonConstant) {
+				push(
+					'enumMemberNotConstant',
+					`Enum member '${enumMember.name}' value must be a constant expression; ${nonConstant.label} is not constant.`,
+					nonConstant.span,
+				);
 				continue;
 			}
-			push(
-				'enumMemberNotConstant',
-				`Enum member '${enumMember.name}' value must be a constant expression; ${nonConstant.label} is not constant.`,
-				nonConstant.span,
-			);
+			const text = constantStringValue(valueTokens.tokens, stringConsts);
+			if (text !== undefined && stringIsNeverNumeric(text)) {
+				push(
+					'enumMemberTypeMismatch',
+					`Enum member '${enumMember.name}' is the string "${text}", and an Enum member is a Long. This is a VBE compile error: Type mismatch.`,
+					valueTokens.span,
+				);
+			}
 		}
 	}
+}
+
+/**
+ * The module's Consts whose value is a string: `Const S As String = "x"` or
+ * one built from others with `&`. Keyed by lowercased name; a name declared
+ * twice maps to undefined.
+ */
+function moduleStringConstants(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+): Map<string, string | undefined> {
+	const out = new Map<string, string | undefined>();
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'VariableGroup' || !member.isConst) {
+			continue;
+		}
+		for (const decl of member.declarations) {
+			const tokens = decl.defaultRaw === undefined ? undefined : valueTokensAfterEquals(source, decl.span)?.tokens;
+			const key = decl.name.toLowerCase();
+			out.set(key, out.has(key) || !tokens ? undefined : constantStringValue(tokens, out));
+		}
+	}
+	return out;
+}
+
+/**
+ * A constant expression's value when it is a string: a literal, a Const that
+ * is one, or those joined with `&`. Undefined for anything else.
+ */
+function constantStringValue(
+	tokens: readonly VbaToken[],
+	stringConsts: ReadonlyMap<string, string | undefined> | undefined,
+): string | undefined {
+	const parts = tokens.filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline');
+	let out = '';
+	for (let i = 0; i < parts.length; i++) {
+		const tok = parts[i];
+		if (i % 2 === 1) {
+			if (tok.rawText !== '&') {
+				return undefined;
+			}
+			continue;
+		}
+		if (tok.kind === 'stringLiteral') {
+			out += tok.rawText.slice(1, -1).replace(/""/g, '"');
+		} else if (tok.kind === 'identifier') {
+			const value = stringConsts?.get(tok.rawText.toLowerCase());
+			if (value === undefined) {
+				return undefined;
+			}
+			out += value;
+		} else {
+			return undefined;
+		}
+	}
+	return parts.length % 2 === 1 ? out : undefined;
+}
+
+/**
+ * Whether no locale could read the string as a number: it has no digit and is
+ * not a `&H`/`&O` literal. Measured in Excel 16.0 (issue #210): `"1"` and
+ * `"&H10"` are Longs to VBA, and `"x"`, `""` and `"True"` are a Type mismatch,
+ * though CLng("True") runs.
+ */
+function stringIsNeverNumeric(text: string): boolean {
+	const trimmed = text.trim();
+	return !/\d/.test(trimmed) && !trimmed.startsWith('&');
 }
 
 /**
@@ -2162,24 +2241,37 @@ export function checkOptionStatementForm(
 
 /** VBA allows at most 60 parameters on a procedure. */
 const MAX_PROCEDURE_PARAMETERS = 60;
+/** In a class module the most is 59 (issue #210). */
+const MAX_CLASS_PROCEDURE_PARAMETERS = 59;
 
 /**
- * Rule: a procedure may declare at most 60 parameters. VBE rejects a 61st with
- * "Too many arguments" (oracle-verified `corpus_arg_limit_001b_compile`; 60 is
- * the documented VBA maximum).
+ * Rule: a procedure, Event or Declare may declare at most 60 parameters, and
+ * at most 59 in a class module. VBE rejects one more with "Too many
+ * arguments" (oracle-verified `corpus_arg_limit_001b_compile`; issue #210,
+ * measured in Excel 16.0: a class Sub, Friend Sub, Function, Property Get,
+ * Property Let with its value, Event and Private Declare each compile with
+ * 59 and are refused with 60, and a ParamArray counts as one). Document
+ * modules and UserForms could not be measured the same way, so they keep 60.
  */
 export function checkTooManyParameters(
 	mod: ModuleNode,
+	moduleKind: ModuleSymbolKind | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
+	const limit = moduleKind === 'class' ? MAX_CLASS_PROCEDURE_PARAMETERS : MAX_PROCEDURE_PARAMETERS;
 	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure' || member.params.length <= MAX_PROCEDURE_PARAMETERS) {
+		if (
+			(member.kind !== 'Procedure' && member.kind !== 'Event' && member.kind !== 'Declare')
+			|| member.params.length <= limit
+		) {
 			continue;
 		}
+		const what = member.kind === 'Procedure' ? 'a procedure' : member.kind === 'Event' ? 'an Event' : 'a Declare';
+		const subject = moduleKind === 'class' ? `In a class module, ${what}` : `${what[0].toUpperCase()}${what.slice(1)}`;
 		push(
 			'tooManyParameters',
-			`A procedure may have at most ${MAX_PROCEDURE_PARAMETERS} parameters; '${member.name}' declares ${member.params.length}.`,
+			`${subject} may have at most ${limit} parameters; '${member.name}' declares ${member.params.length}.`,
 			member.nameSpan ?? member.span,
 		);
 	}

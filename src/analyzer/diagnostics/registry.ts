@@ -134,6 +134,7 @@ import {
 import {
 	checkDuplicateCaseElse,
 	checkDuplicateLabels,
+	checkLineNumberRange,
 	checkElseBranchOrder,
 	checkElseWithoutIf,
 	checkExitStatements,
@@ -218,7 +219,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'tooManyParameters',
-		run: (ctx, push) => checkTooManyParameters(ctx.mod, ctx.activity, push),
+		run: (ctx, push) => checkTooManyParameters(ctx.mod, ctx.moduleKind, ctx.activity, push),
 	},
 	{
 		name: 'identifierTooLong',
@@ -625,6 +626,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'duplicateLabels',
 		run: (ctx, push) => checkDuplicateLabels(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'lineNumberRange',
+		run: (ctx, push) => checkLineNumberRange(ctx.source, ctx.mod, ctx.activity, push),
 	},
 	{
 		name: 'undefinedLabels',
