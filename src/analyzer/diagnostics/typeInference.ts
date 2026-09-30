@@ -9,7 +9,7 @@
 // passed by the argument-type rules.
 
 import type { VbaToken } from '../lexer/tokenKinds';
-import type { HostObjectModel } from '../host/excelObjectModel';
+import type { HostMember, HostObjectModel } from '../host/excelObjectModel';
 import { IDENT_RE, matchParenFrom } from '../lexer/tokenHelpers';
 import {
 	bankersRound,
@@ -2756,23 +2756,71 @@ export function objectLetAssignmentVerdict(
 		}
 		return defaultMember.signature && /\([^)]/.test(defaultMember.signature) ? 'argument' : 'lets';
 	}
-	const members = getHostMembers(expectedRaw ?? '', memberCtx.model);
-	const defaultMember = members.find((member) => member.name === '_Default');
+	const resolved = resolveHostAlias(expectedRaw ?? '', memberCtx.model) ?? expectedRaw ?? '';
+	const defaultMember = hostDefaultMember(resolved, memberCtx);
 	if (defaultMember) {
-		return defaultMember.kind === 'method' || /\([^)]/.test(defaultMember.signature ?? '') ? 'argument' : 'lets';
+		if (defaultMember.kind === 'method' || /\([^)]/.test(defaultMember.signature ?? '')) {
+			return 'argument';
+		}
+		// The model keeps no parameters for a default property. One typed as
+		// an element of the collection is its Item and takes the index:
+		// Hyperlinks, Areas, Borders, Windows, Workbooks. One typed as a value
+		// (Range, Style, Application) gives it. One typed Object is not
+		// judged: Worksheets read as a value raises 13, Sheets 450 (issue #221,
+		// measured in Excel 16.0).
+		const declared = normalizeType(defaultMember.declaredType);
+		if (declared === 'object') {
+			return 'unknown';
+		}
+		return defaultMember.returns ? 'argument' : 'lets';
 	}
-	return hostTypeIsClosed(expectedRaw ?? '', memberCtx) ? 'noDefault' : 'unknown';
+	return hostTypeHasNoDefault(resolved, memberCtx) ? 'noDefault' : 'unknown';
+}
+
+/** A host type's default member (DISPID 0, `_Default` in the model), if any. */
+function hostDefaultMember(qualified: string, memberCtx: MemberCompletionContext): HostMember | undefined {
+	return getHostMembers(qualified, memberCtx.model).find((member) => member.name === '_Default');
 }
 
 /**
- * Whether the host model's member list for the type proves a member absent:
- * the list is complete AND the type library resolves members while compiling
- * (the same two facts member-not-found needs).
+ * Whether a host type provably has no default member: its member list is
+ * complete (hidden members included), and either the type library resolves
+ * members while compiling or the type is Excel's. Excel's open types raise
+ * 438 read as a value just as its closed ones do: Workbook, Font, Interior,
+ * Validation, Window, PageSetup, Border, Shape, Hyperlink (issue #221,
+ * measured in Excel 16.0). The other hosts keep the closed-type test.
  */
-function hostTypeIsClosed(typeName: string, memberCtx: MemberCompletionContext): boolean {
-	const resolved = resolveHostAlias(typeName, memberCtx.model) ?? typeName;
-	return getHostType(resolved, memberCtx.model)?.exhaustive === true
-		&& hostTypeResolvesWhenCompiling(resolved);
+function hostTypeHasNoDefault(resolved: string, memberCtx: MemberCompletionContext): boolean {
+	if (getHostType(resolved, memberCtx.model)?.exhaustive !== true) {
+		return false;
+	}
+	return hostTypeResolvesWhenCompiling(resolved) || /^excel\./i.test(resolved);
+}
+
+/**
+ * The run-time error reading an object of this type as a value raises where
+ * its default member needs an index, or undefined where that is not known:
+ * 450 for a Collection, a host default property typed as an element
+ * (Hyperlinks), or a host default method with a required parameter (Shapes)
+ * (issue #221, measured in Excel 16.0). Names, whose default method takes
+ * only optional parameters, raises 449 and is not judged.
+ */
+export function objectValueNeedsIndex(type: string | undefined, memberCtx: MemberCompletionContext): boolean {
+	if (normalizeType(type) === 'collection') {
+		return true;
+	}
+	if (objectLetAssignmentVerdict(type, memberCtx) !== 'argument') {
+		return false;
+	}
+	const resolved = resolveHostAlias(type ?? '', memberCtx.model);
+	const defaultMember = resolved ? hostDefaultMember(resolved, memberCtx) : undefined;
+	if (!defaultMember) {
+		return false;
+	}
+	if (defaultMember.kind === 'method') {
+		return /\((?!\s*\[)[^)]/.test(defaultMember.signature ?? '');
+	}
+	return true;
 }
 
 /** A local whose value the procedure's text fixes: its default, or one literal. */

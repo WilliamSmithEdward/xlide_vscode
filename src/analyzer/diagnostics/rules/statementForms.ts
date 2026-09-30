@@ -14,7 +14,8 @@ import type { ModuleNode } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaProcedureSignature } from '../../symbols/symbolModel';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { normalizeType, typeEnvironmentFor } from '../typeInference';
+import { isKnownScalarType, normalizeType, objectValueNeedsIndex, typeEnvironmentFor } from '../typeInference';
+import type { MemberCompletionContext } from '../../completion/memberAccess';
 import {
 	activeModuleMembers,
 	bareAssignmentTarget,
@@ -35,6 +36,7 @@ export function checkStatementForms(
 	projectProcedures: ReadonlyMap<string, readonly VbaProcedureSignature[]> | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	memberCtx: MemberCompletionContext = {},
 ): void {
 	// Subs of this module, and of the project's standard modules, by name;
 	// a name that is also a Function or a module-level variable anywhere is
@@ -59,6 +61,23 @@ export function checkStatementForms(
 			continue;
 		}
 		const env = typeEnvironmentFor(symbols, member);
+		// An object whose default member needs an index: a Collection, or
+		// Excel's Hyperlinks, Areas, Borders, Windows, Workbooks and Shapes
+		// (issue #221, measured in Excel 16.0).
+		const needsIndex = new Map<string, boolean>();
+		const indexed = (lower: string): boolean => {
+			let answer = needsIndex.get(lower);
+			if (answer === undefined) {
+				const type = env.get(lower);
+				answer = type !== undefined && objectValueNeedsIndex(type, memberCtx);
+				needsIndex.set(lower, answer);
+			}
+			return answer;
+		};
+		const typedValue = (lower: string): boolean => {
+			const type = normalizeType(lower === member.name.toLowerCase() ? member.returnType : env.get(lower));
+			return type !== undefined && isKnownScalarType(type);
+		};
 		const locals = new Set<string>();
 		for (const child of procedureSymbolFor(symbols, member)?.children ?? []) {
 			locals.add(child.name.toLowerCase());
@@ -97,11 +116,18 @@ export function checkStatementForms(
 						continue;
 					}
 					const lower = name.toLowerCase();
-					if (normalizeType(env.get(lower)) === 'collection' && toks[i + 1]?.rawText !== '(' && toks[i + 1]?.rawText !== '.') {
+					if (toks[i + 1]?.rawText !== '(' && toks[i + 1]?.rawText !== '.' && indexed(lower)) {
+						const typeName = env.get(lower)!;
 						const previous = i - 1 === eq ? undefined : toks[i - 1];
 						const operator = [toks[i + 1], previous].find((tok) => tok && ((tok.kind === 'operator' && SCALAR_OPERATORS.has(tok.rawText)) || tokenText(tok) === 'mod'));
 						if (operator) {
-							push('collectionOperand', `'${name}' is a Collection: its default member Item needs an index, so '${operator.rawText}' has no value to work on. This is a VBE compile error: Argument not optional.`, at(i));
+							push('collectionOperand', `'${name}' is ${/^[aeiou]/i.test(typeName) ? 'an' : 'a'} ${typeName}: its default member Item needs an index, so '${operator.rawText}' has no value to work on. This is a VBE compile error: Argument not optional.`, at(i));
+							continue;
+						}
+						// `s = c` with s a String: the whole value of a Let into a
+						// typed value (issue #221).
+						if (target && i === eq + 1 && toks.length === eq + 2 && typedValue(target.name.toLowerCase())) {
+							push('collectionOperand', `'${name}' is ${/^[aeiou]/i.test(typeName) ? 'an' : 'a'} ${typeName}: its default member Item needs an index, so it has no value for '${target.name}' to take. This is a VBE compile error: Argument not optional.`, at(i));
 							continue;
 						}
 					}
