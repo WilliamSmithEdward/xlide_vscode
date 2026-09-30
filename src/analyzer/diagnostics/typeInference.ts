@@ -2829,14 +2829,15 @@ export function knownLocalLiteralValuesAt(
 	proc: ProcedureNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
-): (stmt: LeafStatementNode) => ReadonlyMap<string, KnownLocalValue> {
+): (stmt: LeafStatementNode | undefined) => ReadonlyMap<string, KnownLocalValue> {
 	const whole = knownLocalLiteralValues(source, proc, symbols, activity);
 	const locals = literalValueLocals(proc, symbols);
 	const reaching = locals.size === 0 ? new Map() : straightLineAssignments(source, proc.body, activity);
 	// Statements in a run share one reaching map, so they share one result.
 	const results = new Map<ReachingAssignments, ReadonlyMap<string, KnownLocalValue>>();
 	return (stmt) => {
-		const assignments = reaching.get(stmt);
+		// No statement: a block header, which sees the procedure-wide values.
+		const assignments = stmt ? reaching.get(stmt) : undefined;
 		if (!assignments) {
 			return whole;
 		}

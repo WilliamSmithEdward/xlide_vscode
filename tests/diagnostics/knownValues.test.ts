@@ -58,6 +58,63 @@ describe('string-arithmetic-coercion - the operator raises whatever the target (
 	});
 });
 
+describe('string-arithmetic-coercion - conditions, logical operators, Case and For (issue #191)', () => {
+	// Measured in Excel 16.0 (build 20326, 2026-09-29): each raises 13.
+	const run = (...lines: string[]): string[] => {
+		const src = `Option Explicit\nFunction Main() As Variant\n    Dim answer As String, flag As String, last As String, i As Long, ready As Boolean\n${lines.map((line) => `    ${line}`).join('\n')}\nEnd Function\n`;
+		return byCode(analyzeModule(src), COERCE).map((d) => d.message);
+	};
+
+	it('flags a string condition, a string under a logical operator, a Case value and a For bound', () => {
+		const cases: Array<[string[], string]> = [
+			[['answer = "yes"', 'If answer Then Main = "on"'], "'If' converts 'answer', which holds \"yes\" to Boolean"],
+			[['If "abc" Then Main = 1'], "'If' converts string literal \"abc\""],
+			[['If "" Then Main = 1'], "'If'"],
+			[['If " True " Then Main = 1'], "'If'"],
+			[['If "abc" Then', '    Main = 1', 'End If'], "'If'"],
+			[['If False Then', 'ElseIf "abc" Then', '    Main = 2', 'End If'], "'ElseIf'"],
+			[['Do While "abc"', '    Exit Do', 'Loop'], "'While'"],
+			[['Do', '    Main = 1', 'Loop Until "abc"'], "'Until'"],
+			[['While "abc"', '    Main = 1', 'Wend'], "'While'"],
+			[['Main = IIf("abc", 1, 0)'], "'IIf'"],
+			[['flag = "Y"', 'Main = ready And flag'], "Operator 'And' coerces 'flag'"],
+			[['Main = "abc" And 1'], "Operator 'And'"],
+			[['Main = "True" Or 0'], "Operator 'Or' coerces string literal \"True\""],
+			[['Main = "" Xor 1'], "Operator 'Xor'"],
+			[['Main = "abc" Eqv True'], "Operator 'Eqv'"],
+			[['Select Case 1', 'Case "abc"', '    Main = 1', 'End Select'], 'Case compares string literal "abc" with a number'],
+			[['For i = 1 To "abc"', 'Next i'], 'for its end'],
+			[['last = "ten"', 'For i = 1 To last', 'Next i'], "'last', which holds \"ten\""],
+			[['For i = 1 To 3 Step "abc"', 'Next i'], 'for its step'],
+			[['Main = #1/1/2000# + "abc"'], "Operator '+'"],
+		];
+		for (const [lines, message] of cases) {
+			const messages = run(...lines);
+			expect(messages, lines.join(' / ')).toHaveLength(1);
+			expect(messages[0], lines.join(' / ')).toContain(message);
+		}
+	});
+
+	it('stays quiet where the string converts, or belongs to a comparison', () => {
+		const quiet = [
+			['If "True" Then Main = 1'],
+			['If "1" Then Main = 1'],
+			['Main = "5" And 1'],
+			['Select Case 1', 'Case "1"', '    Main = 1', 'End Select'],
+			['For i = 1 To "3"', 'Next i'],
+			['Main = #1/1/2000# + "1"'],
+			['answer = "yes"', 'If answer = "yes" Then Main = 1'],
+			['answer = "yes"', 'If answer = "yes" Or answer = "no" Then Main = 1'],
+			['answer = "yes"', 'Select Case answer', 'Case "abc"', '    Main = 1', 'End Select'],
+			['Main = "abc" = "abc" And 1'],
+			['Main = 1 + 2 And "5"'],
+		];
+		for (const lines of quiet) {
+			expect(run(...lines), lines.join(' / ')).toEqual([]);
+		}
+	});
+});
+
 describe('division-by-zero - divisors the code makes plain (issues #119 and #106)', () => {
 	it('flags a divisor local the procedure never assigns, and one only ever assigned zero', () => {
 		const src = wrap('Dim d As Long, e As Long', 'e = 0', 'Main = 10 / d', 'Main = 10 / e');

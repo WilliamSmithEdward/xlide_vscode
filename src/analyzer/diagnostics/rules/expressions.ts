@@ -26,6 +26,7 @@ import type {
 	ModuleNode,
 	Span,
 } from '../../parser/nodes';
+import { isLeafStatement } from '../../parser/nodes';
 import {
 	resolveRuntimeFunction,
 	runtimeAllowsExplicitCall,
@@ -69,9 +70,13 @@ import {
 	sourceNameScopeFor,
 	typeEnvironmentFor,
 } from '../typeInference';
+import { isInvalidBooleanString } from '../stringConversion';
+import { isBareOrVbaQualifiedIntrinsicCall } from './shared';
 import {
 	absoluteSpan,
 	bareAssignmentTarget,
+	blockFooterLineSpan,
+	blockHeaderLineSpan,
 	firstExecutableTokenIndex,
 	matchParenFrom,
 	rawExpressionTokens,
@@ -612,11 +617,25 @@ export function checkStringArithmeticOperands(
 			}
 			return undefined;
 		};
+		// A condition converts to Boolean: "True" and numbers run, "yes"
+		// and " True " raise 13 (issue #191).
+		const nonBooleanString = (tok: VbaToken | undefined): string | undefined => {
+			if (tok?.kind === 'stringLiteral') {
+				return isInvalidBooleanString(stringLiteralValue(tok.rawText)) ? `string literal ${tok.rawText}` : undefined;
+			}
+			const name = tok ? tokenName(tok)?.toLowerCase() : undefined;
+			const local = name ? known.get(name) : undefined;
+			if (local?.kind === 'string' && !local.contentMutated && isInvalidBooleanString(local.value as string)) {
+				return `'${tok!.rawText}', which holds ${JSON.stringify(local.value)}`;
+			}
+			return undefined;
+		};
 		const numeric = (tok: VbaToken | undefined): boolean => {
 			if (!tok) {
 				return false;
 			}
-			if (tok.kind === 'integerLiteral' || tok.kind === 'floatLiteral') {
+			// A date adds and compares as a number: #1/1/2000# + "abc" raises.
+			if (tok.kind === 'integerLiteral' || tok.kind === 'floatLiteral' || tok.kind === 'dateLiteral') {
 				return true;
 			}
 			const name = tokenName(tok)?.toLowerCase();
@@ -629,26 +648,123 @@ export function checkStringArithmeticOperands(
 			const type = normalizeType(env.get(name));
 			return type !== undefined && isNumericType(type);
 		};
-		return (stmt) => {
-			known = valuesAt(stmt);
-			const toks = statementTokens(source, stmt.span);
-			if (tokenText(toks[firstExecutableTokenIndex(toks)]) === 'const') {
+		const reportConversion = (span: Span, what: string, into: string): void => {
+			push('stringArithmeticCoercion', `${into.replace('WHAT', what)}. This will raise Run-time error '13': Type mismatch.`, span);
+		};
+		// A condition that is one string: `If answer Then`, `Do While "abc"`.
+		const checkCondition = (spanStart: number, toks: readonly VbaToken[], from: number, to: number, keyword: string): void => {
+			if (to - from !== 1) {
 				return;
 			}
-			// A string literal in arithmetic into a numeric variable is the
-			// assignment rule's: it already names the target, and one report per
-			// line is enough. A local holding the string is this rule's, since
-			// the assignment rule reads only literals: `x = s + 1` into a Long
-			// with s holding "abc" (issue #180).
-			const bare = bareAssignmentTarget(source, stmt.span);
-			if (bare) {
-				const targetType = env.get(bare.name.toLowerCase());
-				if (targetType && nonnumericStringArithmeticOperand(targetType, bare.valueTokens, 0)) {
-					return;
+			const what = nonBooleanString(toks[from]);
+			if (what) {
+				reportConversion(absoluteSpan({ start: spanStart, end: spanStart }, toks[from]), what, `'${keyword}' converts WHAT to Boolean`);
+			}
+		};
+		const conditionEnd = (toks: readonly VbaToken[], from: number): number => {
+			const then = toks.findIndex((tok, k) => k >= from && tokenText(tok) === 'then');
+			const comment = toks.findIndex((tok, k) => k >= from && tok.kind === 'comment');
+			return then >= 0 ? then : comment >= 0 ? comment : toks.length;
+		};
+		// Block headers and footers are no statements of their own, so the
+		// walk reads them here: If, Do and Loop conditions, While, a For
+		// loop's bounds and Case values against a number (issue #191).
+		known = valuesAt(undefined);
+		// Only a string literal, or a local known to hold a string, can be
+		// reported; a header with neither is not read.
+		const knowsStrings = [...known.values()].some((value) => value.kind === 'string');
+		const mayHoldString = (span: Span): boolean => knowsStrings || source.slice(span.start, span.end).includes('"');
+		const visitBlocks = (body: readonly BodyNode[]): void => {
+			for (const node of body) {
+				if (activity?.isInactive(node.span) || !('body' in node) || !Array.isArray(node.body)) {
+					continue;
+				}
+				if (node.kind !== 'SelectBlock' && !mayHoldString(blockHeaderLineSpan(source, node.span)) && !(node.kind === 'DoBlock' && mayHoldString(blockFooterLineSpan(source, node.span)))) {
+					visitBlocks(node.body as BodyNode[]);
+					continue;
+				}
+				const header = blockHeaderLineSpan(source, node.span);
+				const headToks = statementTokens(source, header);
+				const head = tokenText(headToks[0]);
+				scanOperators(header.start, headToks, -1);
+				if (node.kind === 'IfBlock' && head === 'if') {
+					checkCondition(header.start, headToks, 1, conditionEnd(headToks, 1), 'If');
+				} else if ((node.kind === 'DoBlock' || node.kind === 'WhileBlock') && headToks.length > 1) {
+					const keyword = tokenText(headToks[head === 'do' ? 1 : 0]);
+					if (keyword === 'while' || keyword === 'until') {
+						const from = head === 'do' ? 2 : 1;
+						checkCondition(header.start, headToks, from, conditionEnd(headToks, from), keyword === 'while' ? 'While' : 'Until');
+					}
+				}
+				if (node.kind === 'DoBlock') {
+					const footer = blockFooterLineSpan(source, node.span);
+					const footToks = statementTokens(source, footer);
+					if (tokenText(footToks[0]) === 'loop' && (tokenText(footToks[1]) === 'while' || tokenText(footToks[1]) === 'until')) {
+						scanOperators(footer.start, footToks, -1);
+						checkCondition(footer.start, footToks, 2, conditionEnd(footToks, 2), tokenText(footToks[1]) === 'while' ? 'While' : 'Until');
+					}
+				}
+				if (node.kind === 'ForBlock' && !node.each && node.controlVariable && numeric({ kind: 'identifier', rawText: node.controlVariable, start: 0, end: 0 } as VbaToken)) {
+					checkForBounds(header.start, headToks);
+				}
+				if (node.kind === 'SelectBlock' && head === 'select' && numeric(headToks[2]) && conditionEnd(headToks, 2) === 3) {
+					for (const item of node.body) {
+						if (isLeafStatement(item) && !activity?.isInactive(item.span)) {
+							checkCaseValues(item.span);
+						}
+					}
+				}
+				visitBlocks(node.body as BodyNode[]);
+			}
+		};
+		// `For i = 1 To "abc"`: a bound converts to the counter's number.
+		const checkForBounds = (spanStart: number, toks: readonly VbaToken[]): void => {
+			const eq = toks.findIndex((tok) => tok.rawText === '=');
+			const to = toks.findIndex((tok) => tokenText(tok) === 'to');
+			const step = toks.findIndex((tok) => tokenText(tok) === 'step');
+			const end = conditionEnd(toks, 0);
+			const bounds: Array<[number, number, string]> = [[eq + 1, to, 'start'], [to + 1, step > 0 ? step : end, 'end'], ...(step > 0 ? [[step + 1, end, 'step'] as [number, number, string]] : [])];
+			for (const [from, until, which] of bounds) {
+				const what = until - from === 1 && from > 0 ? nonnumericString(toks[from]) : undefined;
+				if (what) {
+					reportConversion(absoluteSpan({ start: spanStart, end: spanStart }, toks[from]), what, `For converts WHAT to a number for its ${which}`);
 				}
 			}
-			// The assignment's own `=` stores; it compares nothing.
-			const assignIndex = bare ? toks.findIndex((tok) => tok.rawText === '=') : -1;
+		};
+		// `Select Case 1` then `Case "abc"`: each value is compared as a number.
+		const checkCaseValues = (span: Span): void => {
+			const toks = statementTokens(source, span);
+			if (tokenText(toks[0]) !== 'case' || tokenText(toks[1]) === 'else') {
+				return;
+			}
+			const end = conditionEnd(toks, 1);
+			let from = 1;
+			for (let k = 1; k <= end; k++) {
+				if (k === end || toks[k].rawText === ',') {
+					const what = k - from === 1 ? nonnumericString(toks[from]) : undefined;
+					if (what) {
+						reportConversion(absoluteSpan(span, toks[from]), what, 'Case compares WHAT with a number');
+					}
+					from = k + 1;
+				}
+			}
+		};
+		// Logical operators convert a string operand to a number, and bind
+		// loosest: in `s = "yes" Or t` the string is the `=`'s. An operand is
+		// judged only when it stands alone between the operator and a
+		// boundary.
+		const standsAlone = (toks: readonly VbaToken[], index: number): boolean => {
+			const tok = toks[index];
+			if (!tok) {
+				return true;
+			}
+			const word = tokenText(tok);
+			return tok.rawText === '(' || tok.rawText === ')' || tok.rawText === ',' || tok.rawText === ':' || tok.kind === 'comment'
+				|| LOGICAL_OPERATORS.has(word) || word === 'then' || word === 'if' || word === 'elseif' || word === 'while'
+				|| word === 'until' || word === 'not';
+		};
+		function scanOperators(spanStart: number, toks: readonly VbaToken[], assignIndex: number): void {
+			const at = (tok: VbaToken): Span => absoluteSpan({ start: spanStart, end: spanStart }, tok);
 			for (let i = 0; i < toks.length; i++) {
 				if (i === assignIndex) {
 					continue;
@@ -664,6 +780,16 @@ export function checkStringArithmeticOperands(
 						span,
 					);
 				};
+				if (LOGICAL_OPERATORS.has(word) && tok.kind === 'keyword') {
+					const leftString = i - 1 !== assignIndex && (i - 2 === assignIndex || standsAlone(toks, i - 2)) ? nonnumericString(left) : undefined;
+					const rightString = standsAlone(toks, i + 2) ? nonnumericString(right) : undefined;
+					if (leftString) {
+						report(at(left), leftString);
+					} else if (rightString) {
+						report(at(right!), rightString);
+					}
+					continue;
+				}
 				const isBinary = tok.kind === 'operator'
 					? ['+', '-', '*', '/', '\\', '^', '=', '<', '>', '<=', '>=', '<>'].includes(tok.rawText)
 					: word === 'mod';
@@ -673,7 +799,7 @@ export function checkStringArithmeticOperands(
 				if (word === 'not' && !leftEndsOperand) {
 					const what = nonnumericString(right);
 					if (what) {
-						report(absoluteSpan(stmt.span, right!), what);
+						report(at(right!), what);
 					}
 					continue;
 				}
@@ -685,7 +811,7 @@ export function checkStringArithmeticOperands(
 					if ((tok.rawText === '-' || tok.rawText === '+')) {
 						const what = nonnumericString(right);
 						if (what) {
-							report(absoluteSpan(stmt.span, right!), what);
+							report(at(right!), what);
 						}
 					}
 					continue;
@@ -695,22 +821,62 @@ export function checkStringArithmeticOperands(
 				const rightString = nonnumericString(right);
 				if (alwaysCoerces) {
 					if (leftString) {
-						report(absoluteSpan(stmt.span, left), leftString);
+						report(at(left), leftString);
 					} else if (rightString) {
-						report(absoluteSpan(stmt.span, right!), rightString);
+						report(at(right!), rightString);
 					}
 					continue;
 				}
 				// `+` and comparisons: a string against a NUMBER.
 				if (leftString && numeric(right)) {
-					report(absoluteSpan(stmt.span, left), leftString);
+					report(at(left), leftString);
 				} else if (rightString && numeric(left)) {
-					report(absoluteSpan(stmt.span, right!), rightString);
+					report(at(right!), rightString);
 				}
 			}
+		}
+		visitBlocks(member.body);
+		return (stmt) => {
+			known = valuesAt(stmt);
+			const toks = statementTokens(source, stmt.span);
+			const first = firstExecutableTokenIndex(toks);
+			const head = tokenText(toks[first]);
+			if (head === 'const') {
+				return;
+			}
+			// A one-line If and an ElseIf line are statements; so is IIf.
+			if (head === 'if' || head === 'elseif') {
+				checkCondition(stmt.span.start, toks, first + 1, conditionEnd(toks, first + 1), head === 'if' ? 'If' : 'ElseIf');
+			}
+			for (let k = 0; k + 1 < toks.length; k++) {
+				if (toks[k].rawText.length === 3 && toks[k + 1].rawText === '(' && tokenText(toks[k]) === 'iif' && isBareOrVbaQualifiedIntrinsicCall(toks, k)) {
+					const close = matchParenFrom(toks, k + 1);
+					const comma = toks.findIndex((tok, j) => j > k + 1 && tok.rawText === ',');
+					if (close > 0 && comma > 0 && comma < close) {
+						checkCondition(stmt.span.start, toks, k + 2, comma, 'IIf');
+					}
+				}
+			}
+			// A string literal in arithmetic into a numeric variable is the
+			// assignment rule's: it already names the target, and one report per
+			// line is enough. A local holding the string is this rule's, since
+			// the assignment rule reads only literals: `x = s + 1` into a Long
+			// with s holding "abc" (issue #180).
+			const bare = bareAssignmentTarget(source, stmt.span);
+			if (bare) {
+				const targetType = env.get(bare.name.toLowerCase());
+				if (targetType && nonnumericStringArithmeticOperand(targetType, bare.valueTokens, 0)) {
+					return;
+				}
+			}
+			// The assignment's own `=` stores; it compares nothing.
+			scanOperators(stmt.span.start, toks, bare ? toks.findIndex((tok) => tok.rawText === '=') : -1);
 		};
 	};
 }
+
+/** The operators that convert both operands to numbers and bind loosest. */
+const LOGICAL_OPERATORS: ReadonlySet<string> = new Set(['and', 'or', 'xor', 'eqv', 'imp']);
 
 /** A name a branch has tested non-zero, and the span the test covers. */
 interface DivisionGuard {
