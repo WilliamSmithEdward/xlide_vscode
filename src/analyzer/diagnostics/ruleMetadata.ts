@@ -394,6 +394,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.4.3 / VBE oracle: Type mismatch',
 		confidence: 'high',
 	},
+	arrayTargetAssignment: {
+		code: 'array-target-assignment',
+		title: "Can't assign to array",
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: "VBE \"Can't assign to array\": a fixed-size array, a scalar into a dynamic array, or an array of another element type (issue #194, Excel 16.0)",
+		confidence: 'high',
+	},
 	arrayBoundRequiresArray: {
 		code: 'array-bound-requires-array',
 		title: 'Array bound function requires array',

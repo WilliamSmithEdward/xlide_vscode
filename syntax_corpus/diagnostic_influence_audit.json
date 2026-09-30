@@ -449,7 +449,20 @@
         "issue188_053_runtime",
         "issue188_054_runtime",
         "issue188_055_runtime",
-        "issue188_060_runtime"
+        "issue188_060_runtime",
+        "issue194_01_runtime",
+        "issue194_02_runtime",
+        "issue194_03_runtime",
+        "issue194_04_runtime",
+        "issue194_05_runtime",
+        "issue194_06_runtime",
+        "issue194_07_runtime",
+        "issue194_08_runtime",
+        "issue194_09_runtime",
+        "issue194_20_runtime",
+        "issue194_22_runtime",
+        "issue194_25_runtime",
+        "issue194_27_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2450,7 +2463,8 @@
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue122_j_runtime",
-        "issue122_k_runtime"
+        "issue122_k_runtime",
+        "issue194_24_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2709,6 +2723,26 @@
       "pendingLegacyCorpusFiles": [],
       "notes": "Object read as a value has no default member. VBE runtime errors 438 and 450 reading an object with no default member, or one that needs an argument (issue #183, Excel 16.0).",
       "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "array-target-assignment",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-29 (issue #194): the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue194_13_compile",
+        "issue194_14_compile",
+        "issue194_15_compile",
+        "issue194_16_compile",
+        "issue194_17_compile",
+        "issue194_18_compile",
+        "issue194_28_compile",
+        "issue194_29_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Can't assign to array. VBE compile error for a fixed-size array, a scalar into a dynamic array, or an array of another element type (issue #194, Excel 16.0).",
+      "diagnosticKind": "compile-error"
     }
   ]
 }

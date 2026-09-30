@@ -13,12 +13,16 @@ import {
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type {
 	BodyNode,
+	LeafStatementNode,
 	ModuleNode,
 	ProcedureNode,
 	Span,
 } from '../../parser/nodes';
+import { isLeafStatement } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { objectLetStateAt } from './objectState';
+import { knownArrayShapesAt, moduleOptionBase, type FixedArrayBound } from './arrays';
+import { resolveRuntimeFunction } from '../../runtime/vbaRuntime';
 import type {
 	VbaProcedureSignature,
 	VbaSymbol,
@@ -32,6 +36,7 @@ import {
 	type CallableTypeSignature,
 	type CallArguments,
 	extractCall,
+	type InferredArgumentType,
 	extractQualifiedCall,
 } from '../callExtraction';
 import {
@@ -53,6 +58,7 @@ import {
 	normalizeType,
 	objectAssignmentIncompatibilityReason,
 	resolveExactMemberCompletion,
+	runtimeCallableSourceShadowed,
 	sourceBindingTypeResolvers,
 	type SourceDeclaredShape,
 	type SourceDeclaredTypeResolver,
@@ -65,6 +71,8 @@ import {
 import {
 	activeModuleMembers,
 	bareAssignmentTarget,
+	blockFooterLineSpan,
+	blockHeaderLineSpan,
 	declaredNameSpan,
 	firstExecutableTokenIndex,
 	forEachStatement,
@@ -209,13 +217,31 @@ export function checkAssignmentTypes(
 		const procSym = procedureSymbolFor(symbols, member);
 		const { resolveExpressionType, resolveQualifiedExpressionType } =
 			sourceBindingTypeResolvers(symbols, procSym, projectVisibleSymbols);
+		// What a Variant holds at a statement, and how often each name is
+		// written anywhere: a Variant named once is never assigned, so Empty.
+		let shapesAt: ((stmt: LeafStatementNode) => ReadonlyMap<string, FixedArrayBound>) | undefined;
+		let mentions: Map<string, number> | undefined;
+		const arrayValueAt = (stmt: LeafStatementNode, name: string): ArrayValue | undefined => {
+			const lower = name.toLowerCase();
+			const local = procSym?.children?.find((child) => child.name.toLowerCase() === lower);
+			const type = normalizeType(local?.asType);
+			if (local?.kind !== 'localVariable' || local.visibility === 'Static' || local.isArray || (type !== undefined && type !== 'variant')) {
+				return undefined;
+			}
+			const shape = (shapesAt ??= knownArrayShapesAt(source, symbols, procedure, activity, moduleOptionBase(mod, activity)))(stmt).get(lower);
+			if (shape) {
+				return { element: shape.origin === 'Split(...)' ? 'string' : 'variant', text: `'${name}', which holds an array from ${shape.origin}` };
+			}
+			mentions ??= nameMentions(source, procedure, activity);
+			return mentions.get(lower) === 1 ? { element: 'empty', text: `'${name}', which is never assigned and so is Empty` } : undefined;
+		};
 		forEachStatement(member.body, (stmt) => {
 			for (const span of statementAndBranchSpans(stmt)) {
-				checkAssignmentSpan(span);
+				checkAssignmentSpan(span, stmt);
 			}
 		}, activity);
 
-		function checkAssignmentSpan(span: Span): void {
+		function checkAssignmentSpan(span: Span, stmt: LeafStatementNode): void {
 			const assignment = bareAssignmentTarget(source, span);
 			if (!assignment) {
 				return;
@@ -309,6 +335,22 @@ export function checkAssignmentTypes(
 			const targetShape = resolvedTargetShape.resolved
 				? resolvedTargetShape.shape
 				: shapes.get(assignment.name.toLowerCase());
+			const arrayProblem = arrayAssignmentProblem(
+				assignment,
+				span.start,
+				targetShape,
+				(name) => {
+					const resolved = declaredShapeForSourceBinding(symbols, procSym, projectVisibleSymbols, name, 'expression');
+					return resolved.resolved ? resolved.shape : shapes.get(name.toLowerCase());
+				},
+				(name) => arrayValueAt(stmt, name),
+				(tokens) => inferArgumentType(tokens, span.start, env, moduleSignatures, sourceNames, source, memberCtx, resolveExpressionType, resolveQualifiedExpressionType),
+				sourceNames,
+			);
+			if (arrayProblem) {
+				push(arrayProblem.code, arrayProblem.message, arrayProblem.span);
+				return;
+			}
 			if (targetShape?.isArray && normalizeType(targetShape.asType) === 'byte') {
 				return;
 			}
@@ -362,6 +404,176 @@ export function checkAssignmentTypes(
 			resolveQualifiedExpressionType,
 		);
 	}
+}
+
+/** An array value, by its element type, or an Empty Variant. */
+interface ArrayValue {
+	element: string;
+	text: string;
+}
+
+/**
+ * What an array target takes, and what an array value goes into (issue #194,
+ * each measured in Excel 16.0):
+ *
+ *  - A fixed array takes no assignment, and a dynamic array takes no scalar:
+ *    `a = b` into `Dim a(1)`, `a = "abc"`, `a = 5`, `a = Join(...)` do not
+ *    compile ("Can't assign to array"). A Byte array takes a String.
+ *  - A dynamic array takes an array variable of its own element type only:
+ *    Long() from Integer(), and Variant() from Long(), do not compile.
+ *  - Array() gives Variant() and Split and Filter give String(), so either
+ *    into another element type raises 13: `Dim a() As String: a = Array("x")`.
+ *    So does an Empty Variant, and so does an array into a scalar.
+ */
+function arrayAssignmentProblem(
+	assignment: { name: string; span: Span; valueTokens: VbaToken[] },
+	baseOffset: number,
+	targetShape: DeclaredValueShape | undefined,
+	sourceShape: (name: string) => DeclaredValueShape | undefined,
+	variantValue: (name: string) => ArrayValue | undefined,
+	scalarType: (tokens: VbaToken[]) => InferredArgumentType | undefined,
+	sourceNames: SourceNameScope,
+): { code: 'arrayTargetAssignment' | 'assignmentTypeMismatch'; message: string; span: Span } | undefined {
+	const value = assignment.valueTokens.filter((tok) => tok.kind !== 'comment');
+	if (value.length === 0) {
+		return undefined;
+	}
+	const valueSpan = { start: baseOffset + value[0].start, end: baseOffset + value[value.length - 1].end };
+	const shown = value.length === 1 ? value[0].rawText : 'this value';
+	const name = value.length === 1 ? tokenName(value[0]) : undefined;
+	const named = name ? sourceShape(name) : undefined;
+	const produced = arrayProducedBy(value, sourceNames) ?? (name && !named?.isArray ? variantValue(name) : undefined);
+	const targetType = elementType(targetShape?.asType);
+	if (targetShape?.isArray) {
+		const elements = `an array of ${(targetShape.asType ?? 'Variant').replace(/\s*\(\s*\)\s*$/, '')}`;
+		const cannot = (what: string): { code: 'arrayTargetAssignment'; message: string; span: Span } => ({
+			code: 'arrayTargetAssignment',
+			message: `Can't assign to array: '${assignment.name}' is ${elements}, and ${what}. This is a VBE compile error.`,
+			span: assignment.span,
+		});
+		if (targetShape.isFixedArray) {
+			return cannot('a fixed-size array takes no assignment whole');
+		}
+		if (named?.isArray) {
+			return elementType(named.asType) === targetType ? undefined : cannot(`'${name}' is an array of ${named.asType ?? 'Variant'}`);
+		}
+		if (produced) {
+			if (produced.element === targetType) {
+				return undefined;
+			}
+			const what = produced.element === 'empty' ? produced.text : `${produced.text} holds ${produced.element === 'string' ? 'String' : 'Variant'} elements`;
+			return {
+				code: 'assignmentTypeMismatch',
+				message: `Assignment to '${assignment.name}' expects ${elements}, but ${what}. This will raise Run-time error '13': Type mismatch.`,
+				span: valueSpan,
+			};
+		}
+		// A scalar is a literal, or a VBA function that returns one: an
+		// expression's inferred type can miss an array (a UDT field, a
+		// Function returning Byte()).
+		const literal = value.length === 1 && ['stringLiteral', 'integerLiteral', 'floatLiteral'].includes(value[0].kind);
+		const runtimeCall = scalarRuntimeCall(value, sourceNames);
+		const scalar = literal || runtimeCall ? scalarType(value) : undefined;
+		const scalarKind = normalizeType(scalar?.type);
+		if (scalar && scalarKind && !/\(\s*\)\s*$/.test(scalar.type) && isKnownScalarType(scalarKind) && !(targetType === 'byte' && scalarKind === 'string')) {
+			return cannot(`${shown} is a ${scalar.type}, not an array`);
+		}
+		return undefined;
+	}
+	if (produced && produced.element !== 'empty' && targetShape && isKnownScalarType(targetType)) {
+		return {
+			code: 'assignmentTypeMismatch',
+			message: `Assignment to '${assignment.name}' expects ${targetShape.asType}, but ${produced.text} is an array. This will raise Run-time error '13': Type mismatch.`,
+			span: valueSpan,
+		};
+	}
+	return undefined;
+}
+
+/** An array's element type, normalized: "Byte()" and "Byte" are both byte. */
+function elementType(asType: string | undefined): string {
+	return normalizeType(asType?.replace(/\s*\(\s*\)\s*$/, '')) ?? 'variant';
+}
+
+/** Whether the value is one call to a VBA runtime function that returns a scalar: `Join(...)`. */
+function scalarRuntimeCall(value: readonly VbaToken[], sourceNames: SourceNameScope): boolean {
+	let index = 0;
+	if (tokenText(value[0]) === 'vba' && value[1]?.rawText === '.') {
+		index = 2;
+	}
+	const name = tokenName(value[index]);
+	let paren = index + 1;
+	if (value[paren]?.rawText === '$') {
+		paren++;
+	}
+	if (!name || value[paren]?.rawText !== '(' || matchParenFrom(value, paren) !== value.length - 1) {
+		return false;
+	}
+	if (index === 0 && runtimeCallableSourceShadowed(name, sourceNames)) {
+		return false;
+	}
+	const returns = normalizeType(resolveRuntimeFunction(name)?.returns);
+	return returns !== undefined && isKnownScalarType(returns);
+}
+
+/** The array a call returns, by element type: Array() is Variant(), Split and Filter are String(). */
+function arrayProducedBy(value: readonly VbaToken[], sourceNames: SourceNameScope): ArrayValue | undefined {
+	let index = 0;
+	if (tokenText(value[0]) === 'vba' && value[1]?.rawText === '.') {
+		index = 2;
+	}
+	const callee = tokenText(value[index]);
+	if (value[index + 1]?.rawText !== '(' || matchParenFrom(value, index + 1) !== value.length - 1) {
+		return undefined;
+	}
+	if (index === 0 && runtimeCallableSourceShadowed(value[0].rawText, sourceNames)) {
+		return undefined;
+	}
+	const text = `${value.slice(0, index + 1).map((tok) => tok.rawText).join('')}(...)`;
+	if (callee === 'array') {
+		return { element: 'variant', text };
+	}
+	if (callee === 'split' || callee === 'filter') {
+		return { element: 'string', text };
+	}
+	return undefined;
+}
+
+/**
+ * How many times each name appears in the procedure's active code: its
+ * statements, and the header and footer lines of its blocks, where
+ * `For Each v In c` assigns v.
+ */
+function nameMentions(
+	source: string,
+	procedure: ProcedureNode,
+	activity: ConditionalActivityTracker | undefined,
+): Map<string, number> {
+	const out = new Map<string, number>();
+	const count = (span: Span): void => {
+		for (const tok of statementTokens(source, span)) {
+			const lower = tokenName(tok)?.toLowerCase();
+			if (lower) {
+				out.set(lower, (out.get(lower) ?? 0) + 1);
+			}
+		}
+	};
+	const visit = (body: readonly BodyNode[]): void => {
+		for (const node of body) {
+			if (activity?.isInactive(node.span)) {
+				continue;
+			}
+			if (isLeafStatement(node)) {
+				count(node.span);
+			} else if ('body' in node && Array.isArray(node.body)) {
+				count(blockHeaderLineSpan(source, node.span));
+				count(blockFooterLineSpan(source, node.span));
+				visit(node.body as BodyNode[]);
+			}
+		}
+	};
+	visit(procedure.body);
+	return out;
 }
 
 function arrayAssignmentToScalarSource(

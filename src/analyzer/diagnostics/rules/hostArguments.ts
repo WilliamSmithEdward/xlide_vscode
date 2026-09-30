@@ -108,6 +108,12 @@ export function checkHostArguments(
 		return () => undefined;
 	}
 	const moduleNames = new Set<string>();
+	const moduleArrays = new Set<string>();
+	for (const child of symbols.root.children ?? []) {
+		if (child.isArray) {
+			moduleArrays.add(child.name.toLowerCase());
+		}
+	}
 	for (const child of symbols.root.children ?? []) {
 		moduleNames.add(child.name.toLowerCase());
 	}
@@ -119,7 +125,17 @@ export function checkHostArguments(
 		}
 		// A single-line If is one span here: its branches would otherwise be
 		// walked twice, once inside the whole statement and once on their own.
-		return (stmt) => checkSpan(source, stmt.span, host, model, memberCtx, env, sourceNames, push);
+		// Array variables, so a range read into one is named as an array. A
+		// local shadows a module-level name.
+		const arrays = new Set(moduleArrays);
+		for (const child of procedureSymbolFor(symbols, proc)?.children ?? []) {
+			if (child.isArray) {
+				arrays.add(child.name.toLowerCase());
+			} else {
+				arrays.delete(child.name.toLowerCase());
+			}
+		}
+		return (stmt) => checkSpan(source, stmt.span, host, model, memberCtx, env, arrays, sourceNames, push);
 	};
 }
 
@@ -130,6 +146,7 @@ function checkSpan(
 	model: HostObjectModel | undefined,
 	memberCtx: MemberCompletionContext,
 	env: ReadonlyMap<string, string>,
+	arrays: ReadonlySet<string>,
 	sourceNames: ReadonlySet<string>,
 	push: PushFn,
 ): void {
@@ -162,7 +179,7 @@ function checkSpan(
 			}
 		}
 		if (host === 'Excel') {
-			checkExcelCallee(source, span, toks, callee, calleeSpan, env, push);
+			checkExcelCallee(source, span, toks, callee, calleeSpan, env, arrays, push);
 		} else if (host === 'Word') {
 			if (lower === 'range' && callee.receiver === 'Word.Document' && callee.openIndex > 0) {
 				const start = callee.args[0] ? integerLiteralValue(callee.args[0]) : undefined;
@@ -317,6 +334,7 @@ function checkExcelCallee(
 	callee: HostCallee,
 	calleeSpan: Span,
 	env: ReadonlyMap<string, string>,
+	arrays: ReadonlySet<string>,
 	push: PushFn,
 ): void {
 	const lower = callee.name.toLowerCase();
@@ -403,7 +421,7 @@ function checkExcelCallee(
 			}
 		}
 		if (callee.args.length === 1 && areas[0]?.valid && areas[0].multiCell) {
-			checkMultiCellAsScalar(source, span, toks, callee, areas[0].text, env, push);
+			checkMultiCellAsScalar(source, span, toks, callee, areas[0].text, env, arrays, push);
 		}
 	}
 }
@@ -420,6 +438,7 @@ function checkMultiCellAsScalar(
 	callee: HostCallee,
 	address: string,
 	env: ReadonlyMap<string, string>,
+	arrays: ReadonlySet<string>,
 	push: PushFn,
 ): void {
 	let end = callee.closeIndex;
@@ -439,7 +458,12 @@ function checkMultiCellAsScalar(
 		if (eq === start - 1 && end === toks.length - 1) {
 			const target = normalizeType(env.get(bare.name.toLowerCase()));
 			if (target && SCALAR_TYPES.has(target)) {
-				push('multiCellRangeAsScalar', message(`which a ${env.get(bare.name.toLowerCase())} variable cannot hold`), valueSpan);
+				// Into an array of another element type it is its Variant
+				// elements that do not fit (issue #194).
+				const holder = arrays.has(bare.name.toLowerCase())
+					? `whose Variant elements an array of ${env.get(bare.name.toLowerCase())} cannot take`
+					: `which a ${env.get(bare.name.toLowerCase())} variable cannot hold`;
+				push('multiCellRangeAsScalar', message(holder), valueSpan);
 			}
 			return;
 		}

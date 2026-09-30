@@ -11478,6 +11478,328 @@
       ],
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue194_01_runtime",
+      "description": "Issue #194 case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' Dim a() As String: a = Array(\"x\", \"y\")\nOption Explicit\nFunction Main()\n    Dim a() As String\n    a = Array(\"x\", \"y\")\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue194_02_runtime",
+      "description": "Issue #194 case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' Dim a() As Long: a = Array(1, 2)\nOption Explicit\nFunction Main()\n    Dim a() As Long\n    a = Array(1, 2)\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue194_03_runtime",
+      "description": "Issue #194 case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' Dim a() As String: a = VBA.Array(\"x\")\nOption Explicit\nFunction Main()\n    Dim a() As String\n    a = VBA.Array(\"x\")\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue194_04_runtime",
+      "description": "Issue #194 case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' Dim a() As Variant: a = Split(\"x,y\", \",\")\nOption Explicit\nFunction Main()\n    Dim a() As Variant\n    a = Split(\"x,y\", \",\")\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue194_05_runtime",
+      "description": "Issue #194 case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' Dim a() As Long: a = Split(\"1,2\", \",\")\nOption Explicit\nFunction Main()\n    Dim a() As Long\n    a = Split(\"1,2\", \",\")\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue194_06_runtime",
+      "description": "Issue #194 case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' Dim a As String: a = Split(\"x,y\", \",\")\nOption Explicit\nFunction Main()\n    Dim a As String\n    a = Split(\"x,y\", \",\")\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue194_07_runtime",
+      "description": "Issue #194 case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' Dim a As String: a = Array(\"x\")\nOption Explicit\nFunction Main()\n    Dim a As String\n    a = Array(\"x\")\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue194_08_runtime",
+      "description": "Issue #194 case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' Dim a As Long: a = Array(1)\nOption Explicit\nFunction Main()\n    Dim a As Long\n    a = Array(1)\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue194_09_runtime",
+      "description": "Issue #194 case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' Dim a() As Long, v As Variant: a = v\nOption Explicit\nFunction Main()\n    Dim a() As Long, v As Variant\n    a = v\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue194_10_runtime",
+      "description": "Issue #194 case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' Dim a() As Variant: a = Array(1, 2)\nOption Explicit\nFunction Main()\n    Dim a() As Variant\n    a = Array(1, 2)\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue194_11_runtime",
+      "description": "Issue #194 case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' Dim a() As String: a = Split(\"x,y\", \",\")\nOption Explicit\nFunction Main()\n    Dim a() As String\n    a = Split(\"x,y\", \",\")\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue194_12_runtime",
+      "description": "Issue #194 case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' Dim a() As String: a = Filter(Array(\"x\", \"y\"), \"x\")\nOption Explicit\nFunction Main()\n    Dim a() As String\n    a = Filter(Array(\"x\", \"y\"), \"x\")\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue194_13_compile",
+      "description": "Issue #194 case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "' Dim a() As Long, b() As Integer: a = b\nOption Explicit\nFunction Main()\n    Dim a() As Long, b() As Integer\n    a = b\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue194_14_compile",
+      "description": "Issue #194 case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "' Dim a() As Variant, b() As Long: a = b\nOption Explicit\nFunction Main()\n    Dim a() As Variant, b() As Long\n    a = b\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue194_15_compile",
+      "description": "Issue #194 case 15, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "' Dim a() As String: a = \"abc\"\nOption Explicit\nFunction Main()\n    Dim a() As String\n    a = \"abc\"\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue194_16_compile",
+      "description": "Issue #194 case 16, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "' Dim a() As String: a = Join(Array(\"x\"))\nOption Explicit\nFunction Main()\n    Dim a() As String\n    a = Join(Array(\"x\"))\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue194_17_compile",
+      "description": "Issue #194 case 17, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "' Dim a(1) As Long, b() As Long: a = b\nOption Explicit\nFunction Main()\n    Dim a(1) As Long, b() As Long\n    a = b\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue194_18_compile",
+      "description": "Issue #194 case 18, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "' Dim a() As Integer: a = \"abc\"\nOption Explicit\nFunction Main()\n    Dim a() As Integer\n    a = \"abc\"\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue194_19_runtime",
+      "description": "Issue #194 case 19, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' Dim a() As Byte: a = \"abc\"\nOption Explicit\nFunction Main()\n    Dim a() As Byte\n    a = \"abc\"\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue194_20_runtime",
+      "description": "Issue #194 case 20, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' Dim a() As String: a = Array()\nOption Explicit\nFunction Main()\n    Dim a() As String\n    a = Array()\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue194_21_runtime",
+      "description": "Issue #194 case 21, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' Dim a() As String, b() As String: ReDim b(1): a = b\nOption Explicit\nFunction Main()\n    Dim a() As String, b() As String\n    ReDim b(1)\n    a = b\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue194_22_runtime",
+      "description": "Issue #194 case 22, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' Dim a() As Byte: a = Array(1)\nOption Explicit\nFunction Main()\n    Dim a() As Byte\n    a = Array(1)\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue194_23_runtime",
+      "description": "Issue #194 case 23, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' Dim a() As Variant: a = Range(\"A1:B2\").Value\nOption Explicit\nFunction Main()\n    Dim a() As Variant\n    a = Range(\"A1:B2\").Value\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue194_24_runtime",
+      "description": "Issue #194 case 24, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' Dim a() As String: a = Range(\"A1:B2\").Value\nOption Explicit\nFunction Main()\n    Dim a() As String\n    a = Range(\"A1:B2\").Value\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue194_25_runtime",
+      "description": "Issue #194 case 25, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' Dim a() As Long, v As Variant: v = Array(1): a = v\nOption Explicit\nFunction Main()\n    Dim a() As Long, v As Variant\n    v = Array(1)\n    a = v\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue194_26_runtime",
+      "description": "Issue #194 case 26, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' Dim a() As String, v As Variant: v = Split(\"a,b\", \",\"): a = v\nOption Explicit\nFunction Main()\n    Dim a() As String, v As Variant\n    v = Split(\"a,b\", \",\")\n    a = v\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue194_27_runtime",
+      "description": "Issue #194 case 27, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' Dim a() As Variant, v As Variant: v = Split(\"a,b\", \",\"): a = v\nOption Explicit\nFunction Main()\n    Dim a() As Variant, v As Variant\n    v = Split(\"a,b\", \",\")\n    a = v\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue194_28_compile",
+      "description": "Issue #194 case 28, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "' Dim a() As Long: a = 5\nOption Explicit\nFunction Main()\n    Dim a() As Long\n    a = 5\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue194_29_compile",
+      "description": "Issue #194 case 29, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "' Dim a() As Variant: a = 5\nOption Explicit\nFunction Main()\n    Dim a() As Variant\n    a = 5\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue194_30_runtime",
+      "description": "Issue #194 case 30, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' Dim a() As String: a = Split(\"x\")\nOption Explicit\nFunction Main()\n    Dim a() As String\n    a = Split(\"x\")\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

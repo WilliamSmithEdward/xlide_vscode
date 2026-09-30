@@ -659,6 +659,47 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(byCode(run(parameter), 'set-required')[0].message).toContain("'438': Object doesn't support this property or method, or '91' while it is Nothing");
 	});
 
+	it('checks what an array target takes and what an array value goes into (issue #194)', () => {
+		// Measured in Excel 16.0 (build 20326, 2026-09-29).
+		const codesOf = (dim: string, line: string): string[] => {
+			const src = `Option Explicit\nFunction Main()\n    ${dim}\n    ${line}\n    Main = 1\nEnd Function\n`;
+			return analyzeModule(src).filter((d) => d.severity === 'error').map((d) => d.code);
+		};
+		const cases: Array<[string, string, string]> = [
+			['Dim a() As String', 'a = Array("x", "y")', 'assignment-type-mismatch'],
+			['Dim a() As Long', 'a = Array(1, 2)', 'assignment-type-mismatch'],
+			['Dim a() As String', 'a = VBA.Array("x")', 'assignment-type-mismatch'],
+			['Dim a() As Variant', 'a = Split("x,y", ",")', 'assignment-type-mismatch'],
+			['Dim a() As Byte', 'a = Array(1)', 'assignment-type-mismatch'],
+			['Dim a As String', 'a = Split("x,y", ",")', 'assignment-type-mismatch'],
+			['Dim a As Long', 'a = Array(1)', 'assignment-type-mismatch'],
+			['Dim a() As Long, v As Variant', 'a = v', 'assignment-type-mismatch'],
+			['Dim a() As Long, b() As Integer', 'a = b', 'array-target-assignment'],
+			['Dim a() As Variant, b() As Long', 'a = b', 'array-target-assignment'],
+			['Dim a() As String', 'a = "abc"', 'array-target-assignment'],
+			['Dim a() As Integer', 'a = "abc"', 'array-target-assignment'],
+			['Dim a() As String', 'a = Join(Array("x"))', 'array-target-assignment'],
+			['Dim a(1) As Long, b() As Long', 'a = b', 'array-target-assignment'],
+			['Dim a() As Long', 'a = 5', 'array-target-assignment'],
+		];
+		for (const [dim, line, code] of cases) {
+			expect(codesOf(dim, line), `${dim}: ${line}`).toEqual([code]);
+		}
+		const quiet: Array<[string, string]> = [
+			['Dim a() As Variant', 'a = Array(1, 2)'],
+			['Dim a() As String', 'a = Split("x,y", ",")'],
+			['Dim a() As String', 'a = Filter(Array("x", "y"), "x")'],
+			['Dim a() As Byte', 'a = "abc"'],
+			['Dim a() As String, b() As String', 'a = b'],
+			['Dim a() As String, v As Variant', 'v = Split("a,b", ","): a = v'],
+		];
+		for (const [dim, line] of quiet) {
+			expect(codesOf(dim, line), `${dim}: ${line}`).toEqual([]);
+		}
+		const range = 'Option Explicit\nFunction Main()\n    Dim a() As String\n    a = Range("A1:B2").Value\n    Main = 1\nEnd Function\n';
+		expect(byCode(analyzeModule(range), 'multi-cell-range-as-scalar')[0].message).toContain('whose Variant elements an array of String cannot take');
+	});
+
 	it('checks object Function return assignment compatibility', () => {
 		const src =
 			'Public Function MakePerson() As Person\n' +
