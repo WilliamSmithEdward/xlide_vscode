@@ -56,7 +56,9 @@ import {
 	isKnownScalarType,
 	isNumericType,
 	isProvablyNonNumericString,
-	knownLocalLiteralValues,
+	knownLocalLiteralValuesAt,
+	type KnownLocalValue,
+	nonnumericStringArithmeticOperand,
 	normalizeType,
 	procedureIntegerConstantLookup,
 	resolveExactMemberCompletion,
@@ -551,7 +553,10 @@ export function checkDivisionByZeroExpressions(
 		);
 		// A local the procedure never assigns is 0, and one whose every
 		// assignment is `d = 0` is 0 too (issue #119): `10 / d` raises 11.
-		const known = knownLocalLiteralValues(source, member, symbols, activity);
+		// So is one the last assignment before the division sets to 0, though
+		// a later one changes it (issue #180).
+		const valuesAt = knownLocalLiteralValuesAt(source, member, symbols, activity);
+		let known: ReadonlyMap<string, KnownLocalValue> = new Map();
 		const lookup: IntegerConstantLookup = {
 			get: (name) => {
 				const constant = constants.get(name);
@@ -564,6 +569,7 @@ export function checkDivisionByZeroExpressions(
 		};
 		const guards = divisionGuardRanges(member.body, activity);
 		return (stmt) => {
+			known = valuesAt(stmt);
 			for (const hit of divisionByZeroDivisors(source, stmt.span, lookup, guards)) {
 				push('divisionByZero', hit.message, hit.span);
 			}
@@ -589,7 +595,8 @@ export function checkStringArithmeticOperands(
 ): ProcedureStatementVisitor {
 	return (member) => {
 		const env = typeEnvironmentFor(symbols, member);
-		const known = knownLocalLiteralValues(source, member, symbols, activity);
+		const valuesAt = knownLocalLiteralValuesAt(source, member, symbols, activity);
+		let known: ReadonlyMap<string, KnownLocalValue> = new Map();
 		const nonnumericString = (tok: VbaToken | undefined): string | undefined => {
 			if (!tok) {
 				return undefined;
@@ -623,20 +630,29 @@ export function checkStringArithmeticOperands(
 			return type !== undefined && isNumericType(type);
 		};
 		return (stmt) => {
+			known = valuesAt(stmt);
 			const toks = statementTokens(source, stmt.span);
 			if (tokenText(toks[firstExecutableTokenIndex(toks)]) === 'const') {
 				return;
 			}
-			// An assignment to a numeric variable is the assignment rule's:
-			// it already names the target, and one report per line is enough.
+			// A string literal in arithmetic into a numeric variable is the
+			// assignment rule's: it already names the target, and one report per
+			// line is enough. A local holding the string is this rule's, since
+			// the assignment rule reads only literals: `x = s + 1` into a Long
+			// with s holding "abc" (issue #180).
 			const bare = bareAssignmentTarget(source, stmt.span);
 			if (bare) {
-				const targetType = normalizeType(env.get(bare.name.toLowerCase()));
-				if (targetType && isNumericType(targetType)) {
+				const targetType = env.get(bare.name.toLowerCase());
+				if (targetType && nonnumericStringArithmeticOperand(targetType, bare.valueTokens, 0)) {
 					return;
 				}
 			}
+			// The assignment's own `=` stores; it compares nothing.
+			const assignIndex = bare ? toks.findIndex((tok) => tok.rawText === '=') : -1;
 			for (let i = 0; i < toks.length; i++) {
+				if (i === assignIndex) {
+					continue;
+				}
 				const tok = toks[i];
 				const word = tokenText(tok);
 				const left = toks[i - 1];

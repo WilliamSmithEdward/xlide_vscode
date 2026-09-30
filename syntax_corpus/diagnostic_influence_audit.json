@@ -565,7 +565,8 @@
         "numeric_multiply_nonnumeric_string_runtime",
         "numeric_plus_numeric_string_runtime",
         "string_concat_nonnumeric_string_runtime",
-        "string_plus_string_literals_runtime"
+        "string_plus_string_literals_runtime",
+        "issue180_02_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -606,7 +607,10 @@
         "division_by_module_qualified_enum_zero_runtime",
         "division_by_module_qualified_enum_nonzero_runtime",
         "division_by_cross_module_const_private_helper_zero_runtime",
-        "division_by_cross_module_const_private_helper_nonzero_runtime"
+        "division_by_cross_module_const_private_helper_nonzero_runtime",
+        "issue180_01_runtime",
+        "issue180_15_runtime",
+        "issue180_16_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -670,7 +674,8 @@
         "runtime_arg_cross_module_const_private_helper_zero_left_length_runtime",
         "issue142_c_runtime",
         "issue142_d_runtime",
-        "issue142_f_runtime"
+        "issue142_f_runtime",
+        "issue180_19_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -819,7 +824,8 @@
         "runtime006_default_upper_over_rejected",
         "runtime006_negative_rejected",
         "runtime006_upper_max_accepted",
-        "runtime006_default_base_low_accepted"
+        "runtime006_default_base_low_accepted",
+        "issue180_07_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2370,7 +2376,11 @@
       "assertedOracleCases": [
         "issue121_g_runtime",
         "issue121_h_runtime",
-        "issue121_i_runtime"
+        "issue121_i_runtime",
+        "issue180_03_runtime",
+        "issue180_04_runtime",
+        "issue180_05_runtime",
+        "issue180_06_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

@@ -24,6 +24,7 @@ import {
 } from '../analysisContext';
 import { splitArgSlots } from '../callExtraction';
 import { walkBranchMergedBody, walkStraightLineBody } from '../dataflow';
+import { straightLineAssignments, type ReachingAssignments } from '../straightLineValues';
 import { procedureHasUnstructuredFlow } from '../../flow/procedureUnstructured';
 import { isBareOrVbaQualifiedIntrinsicCall } from '../rules/shared';
 import {
@@ -1293,17 +1294,7 @@ export function knownArrayShapes(
 	activity: ConditionalActivityTracker | undefined,
 	optionBase: number,
 ): Map<string, FixedArrayBound> {
-	const procSym = procedureSymbolFor(symbols, proc);
-	const candidates = new Set<string>();
-	for (const child of procSym?.children ?? []) {
-		if (child.kind !== 'localVariable' || child.visibility === 'Static') {
-			continue;
-		}
-		const type = normalizeType(child.asType);
-		if (child.isArray ? child.arrayBounds === undefined : (type === undefined || type === 'variant')) {
-			candidates.add(child.name.toLowerCase());
-		}
-	}
+	const candidates = arrayValueLocals(symbols, proc);
 	if (candidates.size === 0) {
 		return new Map();
 	}
@@ -1366,6 +1357,66 @@ export function knownArrayShapes(
 		}
 	}
 	return out;
+}
+
+/** The dynamic-array and Variant locals a value can give bounds to, lowercased to declared name. */
+function arrayValueLocals(symbols: ReturnType<typeof buildModuleSymbols>, proc: ProcedureNode): Map<string, string> {
+	const out = new Map<string, string>();
+	for (const child of procedureSymbolFor(symbols, proc)?.children ?? []) {
+		if (child.kind !== 'localVariable' || child.visibility === 'Static') {
+			continue;
+		}
+		const type = normalizeType(child.asType);
+		if (child.isArray ? child.arrayBounds === undefined : (type === undefined || type === 'variant')) {
+			out.set(child.name.toLowerCase(), child.name);
+		}
+	}
+	return out;
+}
+
+/**
+ * {@link knownArrayShapes} at each statement (issue #180). Where the last
+ * assignment to reach a statement in a straight line builds an array, the
+ * statement sees its bounds, though the local is assigned again elsewhere:
+ * `v = Array(1, 2): Debug.Print v(2): v = Array(1, 2, 3)` reads past the end.
+ * Where it reaches with any other value, the local is not known to be an
+ * array there.
+ */
+export function knownArrayShapesAt(
+	source: string,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	proc: ProcedureNode,
+	activity: ConditionalActivityTracker | undefined,
+	optionBase: number,
+): (stmt: LeafStatementNode) => ReadonlyMap<string, FixedArrayBound> {
+	const whole = knownArrayShapes(source, proc.body, symbols, proc, activity, optionBase);
+	const locals = arrayValueLocals(symbols, proc);
+	const reaching = locals.size === 0 ? new Map() : straightLineAssignments(source, proc.body, activity);
+	const results = new Map<ReachingAssignments, ReadonlyMap<string, FixedArrayBound>>();
+	return (stmt) => {
+		const assignments = reaching.get(stmt);
+		if (!assignments) {
+			return whole;
+		}
+		let result = results.get(assignments);
+		if (!result) {
+			const next = new Map(whole);
+			for (const [lower, value] of assignments) {
+				if (!locals.has(lower)) {
+					continue;
+				}
+				const shape = arrayValueShape(value, locals.get(lower)!, optionBase);
+				if (shape) {
+					next.set(lower, shape);
+				} else {
+					next.delete(lower);
+				}
+			}
+			result = next;
+			results.set(assignments, result);
+		}
+		return result;
+	};
 }
 
 function statementAndBranchSpansOf(stmt: LeafStatementNode): Span[] {
@@ -1722,18 +1773,31 @@ export function checkFixedArraySubscriptBounds(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		const fixed = localFixedArrayDeclarationsForBody(source, member.body, activity, optionBase);
-		for (const [lower, shape] of knownArrayShapes(source, member.body, symbols, member, activity, optionBase)) {
-			if (!fixed.has(lower)) {
-				fixed.set(lower, shape);
+		const declared = localFixedArrayDeclarationsForBody(source, member.body, activity, optionBase);
+		const shapesAt = knownArrayShapesAt(source, symbols, member, activity, optionBase);
+		const merged = new Map<ReadonlyMap<string, FixedArrayBound>, ReadonlyMap<string, FixedArrayBound>>();
+		const fixedAt = (stmt: LeafStatementNode): ReadonlyMap<string, FixedArrayBound> => {
+			const shapes = shapesAt(stmt);
+			let fixed = merged.get(shapes);
+			if (!fixed) {
+				const next = new Map(declared);
+				for (const [lower, shape] of shapes) {
+					if (!declared.has(lower)) {
+						next.set(lower, shape);
+					}
+				}
+				fixed = next;
+				merged.set(shapes, fixed);
 			}
-		}
+			return fixed;
+		};
 		const excluded = redimTargetNamesInBody(source, member.body, activity);
 		const counters = forCounterLastValues(source, member.body, activity);
 		forEachStatement(member.body, (stmt) => {
 			for (const hit of inlineSplitIndexViolations(source, stmt.span)) {
 				push('arraySubscriptOutOfBounds', hit.message, hit.span);
 			}
+			const fixed = fixedAt(stmt);
 			if (fixed.size === 0) {
 				return;
 			}

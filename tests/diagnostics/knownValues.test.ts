@@ -1,10 +1,10 @@
-// Diagnostics tests: values the code makes plain (issues #119 and #106).
+// Diagnostics tests: values the code makes plain (issues #119, #106 and #180).
 // Each raising statement was measured in Excel 16.0 (build 20326,
 // 2026-09-26); each quiet one runs there.
 
 import { describe, it, expect } from 'vitest';
 import { analyzeModule } from '../../src/analyzer';
-import { byCode, expectDiagnostic, expectDiagnostics } from '../helpers/diagnostics';
+import { byCode, expectDiagnostic, expectDiagnostics, spanText } from '../helpers/diagnostics';
 
 const COERCE = 'string-arithmetic-coercion';
 const DIVIDE = 'division-by-zero';
@@ -109,5 +109,50 @@ describe('division-by-zero - divisors the code makes plain (issues #119 and #106
 			'    If Main > 0 Or SCALE_BY <> 0 Then Main = 10 / SCALE_BY\n' +
 			'End Function\n';
 		expect(byCode(analyzeModule(unguarded), DIVIDE)).toHaveLength(2);
+	});
+});
+
+describe('the value a statement sees, though the variable changes later (issue #180)', () => {
+	const found = (...lines: string[]): string[] => {
+		const src = wrap(...lines);
+		return analyzeModule(src)
+			.filter((d) => [DIVIDE, COERCE, 'variant-value-misuse', 'array-subscript-out-of-bounds', 'runtime-argument-value'].includes(d.code))
+			.map((d) => `${d.code} ${spanText(src, d)}`);
+	};
+
+	it('flags each statement of the issue, reassigned after the line that fails', () => {
+		expect(found('Dim d As Long', 'd = 0: Main = 10 / d: d = 2')).toEqual([`${DIVIDE} d`]);
+		expect(found('Dim s As String, x As Long', 's = "abc": x = s + 1: s = "1"', 'Main = x')).toEqual([`${COERCE} s`]);
+		expect(found('Dim v As Variant', 'v = Array(1, 2): Main = v + 1: v = 5')).toEqual(['variant-value-misuse v']);
+		expect(found('Dim v As Variant', 'v = Array(1, 2): v = v + 1', 'Main = v')).toEqual(['variant-value-misuse v']);
+		expect(found('Dim v As Variant', 'v = 5: Main = UBound(v): v = 6')).toEqual(['variant-value-misuse v']);
+		expect(found('Dim v As Variant', 'v = 5: v = v.Count', 'Main = v')).toEqual(['variant-value-misuse v']);
+		expect(found('Dim v As Variant', 'v = Array(1, 2): Main = v(2): v = Array(1, 2, 3)')).toEqual(['array-subscript-out-of-bounds 2']);
+		expect(found('Dim n As Long', 'n = -1: Main = Space(n): n = 2')).toEqual(['runtime-argument-value n']);
+	});
+
+	it('follows the value inside a loop body and past a block that leaves it alone', () => {
+		expect(found('Dim d As Long, i As Long', 'For i = 1 To 1', '    d = 0: Main = 10 / d: d = 2', 'Next i')).toEqual([`${DIVIDE} d`]);
+		expect(found('Dim d As Long', 'd = 0', 'Do While False', '    Main = 1', 'Loop', 'Main = 10 / d', 'd = 2')).toEqual([`${DIVIDE} d`]);
+	});
+
+	it('stays quiet where another path may have changed the value first', () => {
+		// Each runs in Excel: d is 2, or 5, by the time the division runs.
+		const quiet = [
+			['Dim d As Long, i As Long', 'd = 0', 'For i = 1 To 2', '    If i = 2 Then Main = 10 / d', '    d = 2', 'Next i'],
+			['Dim d As Long', 'd = 0', 'If Len("a") = 1 Then d = 2', 'Main = 10 / d'],
+			['Dim d As Long', 'd = 0', 'If Len("a") = 1 Then d = 2: Main = 10 / d'],
+			['Dim d As Long', 'd = 0', 'GoTo Skip', 'Back:', 'Main = 10 / d', 'Exit Function', 'Skip:', 'd = 2', 'GoTo Back'],
+			['Dim d As Long', 'd = 0', 'GoSub SetIt', 'Main = 10 / d', 'Exit Function', 'SetIt:', 'd = 2', 'Return'],
+			['Dim d As Long', 'd = 0', 'Fill d', 'Main = 10 / d'],
+			['Dim d As Long', 'd = 5', 'Select Case 2', 'Case 1', '    d = 0', 'Case 2', '    Main = 10 / d', 'End Select'],
+			['Dim d As Long', 'd = 5', 'If Len("a") = 2 Then', '    d = 0', 'Else', '    Main = 10 / d', 'End If'],
+			['Dim v As Variant', 'v = Array(1, 2)', 'v = Array(1, 2, 3)', 'Main = UBound(v) + v(2)'],
+		];
+		for (const lines of quiet) {
+			const src = `${wrap(...lines)}Sub Fill(n As Long)\n    n = 2\nEnd Sub\n`;
+			const hits = analyzeModule(src).filter((d) => [DIVIDE, 'variant-value-misuse', 'array-subscript-out-of-bounds'].includes(d.code));
+			expect(hits, lines.join(' / ')).toEqual([]);
+		}
 	});
 });

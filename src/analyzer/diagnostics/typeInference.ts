@@ -31,7 +31,7 @@ import {
 	type VbaRuntimeFunction,
 } from '../runtime/vbaRuntime';
 import { standaloneEmptyParenthesizedCallStatement } from '../call/callContext';
-import type { BodyNode, ProcedureNode, Span } from '../parser/nodes';
+import type { BodyNode, LeafStatementNode, ProcedureNode, Span } from '../parser/nodes';
 import { isLeafStatement } from '../parser/nodes';
 import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
 import type { buildModuleSymbols } from '../symbols/buildModuleSymbols';
@@ -58,6 +58,7 @@ import {
 	isExplicitElementAccessor,
 } from '../completion/memberAccess';
 import { procedureSymbolFor, type PushFn } from './analysisContext';
+import { straightLineAssignments, type ReachingAssignments } from './straightLineValues';
 import {
 	callableAcceptsZeroArguments,
 	emptyArgSplit,
@@ -2639,21 +2640,12 @@ export function knownLocalLiteralValues(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
 ): Map<string, KnownLocalValue> {
-	const procSym = procedureSymbolFor(symbols, proc);
 	// A Variant (or untyped) local has no kind until a literal gives it one;
 	// literals of two kinds, or none, leave it unknown (issue #121: `v = 5`
 	// then `v.Foo`).
 	const candidates = new Map<string, { kind: 'number' | 'string' | undefined; literals: Set<string>; mutated: boolean; contentMutated: boolean }>();
-	for (const child of procSym?.children ?? []) {
-		if (child.kind !== 'localVariable' || child.isArray || child.visibility === 'Static') {
-			continue;
-		}
-		const type = normalizeType(child.asType);
-		const kind = type === undefined || type === 'variant' ? undefined : isNumericType(type) ? 'number' : type === 'string' ? 'string' : 'other';
-		if (kind === 'other' || child.fixedLength !== undefined) {
-			continue;
-		}
-		candidates.set(child.name.toLowerCase(), { kind, literals: new Set(), mutated: false, contentMutated: false });
+	for (const [lower, kind] of literalValueLocals(proc, symbols)) {
+		candidates.set(lower, { kind, literals: new Set(), mutated: false, contentMutated: false });
 	}
 	if (candidates.size === 0) {
 		return new Map();
@@ -2759,6 +2751,75 @@ export function knownLocalLiteralValues(
 		}
 	}
 	return out;
+}
+
+/**
+ * The locals whose literal value the rules follow, with their kind: 'number'
+ * or 'string' from the declared type, undefined for a Variant, which takes
+ * its kind from the literal.
+ */
+function literalValueLocals(
+	proc: ProcedureNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+): Map<string, 'number' | 'string' | undefined> {
+	const out = new Map<string, 'number' | 'string' | undefined>();
+	for (const child of procedureSymbolFor(symbols, proc)?.children ?? []) {
+		if (child.kind !== 'localVariable' || child.isArray || child.visibility === 'Static') {
+			continue;
+		}
+		const type = normalizeType(child.asType);
+		const kind = type === undefined || type === 'variant' ? undefined : isNumericType(type) ? 'number' : type === 'string' ? 'string' : 'other';
+		if (kind === 'other' || child.fixedLength !== undefined) {
+			continue;
+		}
+		out.set(child.name.toLowerCase(), kind);
+	}
+	return out;
+}
+
+/**
+ * {@link knownLocalLiteralValues} at each statement (issue #180). Where the
+ * last assignment to reach a statement in a straight line is a literal, the
+ * statement sees that literal, though other assignments in the procedure
+ * disagree with it: `d = 0: x = 10 / d: d = 2` divides by 0. Elsewhere it
+ * sees the procedure-wide value.
+ */
+export function knownLocalLiteralValuesAt(
+	source: string,
+	proc: ProcedureNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
+): (stmt: LeafStatementNode) => ReadonlyMap<string, KnownLocalValue> {
+	const whole = knownLocalLiteralValues(source, proc, symbols, activity);
+	const locals = literalValueLocals(proc, symbols);
+	const reaching = locals.size === 0 ? new Map() : straightLineAssignments(source, proc.body, activity);
+	// Statements in a run share one reaching map, so they share one result.
+	const results = new Map<ReachingAssignments, ReadonlyMap<string, KnownLocalValue>>();
+	return (stmt) => {
+		const assignments = reaching.get(stmt);
+		if (!assignments) {
+			return whole;
+		}
+		let result = results.get(assignments);
+		if (!result) {
+			const next = new Map(whole);
+			for (const [lower, value] of assignments) {
+				if (!locals.has(lower)) {
+					continue;
+				}
+				const kind = locals.get(lower) ?? (unwrapOuterParens(value)[0]?.kind === 'stringLiteral' ? 'string' : 'number');
+				const literal = plainLiteralText([...value], kind);
+				if (literal === undefined) {
+					next.delete(lower);
+				} else {
+					next.set(lower, { kind, value: kind === 'number' ? Number(literal) : literal, origin: 'literal' });
+				}
+			}
+			result = next;
+			results.set(assignments, result);
+		}
+		return result;
+	};
 }
 
 /** The literal a plain `x = literal` assigns, as text, or undefined for any other value. */

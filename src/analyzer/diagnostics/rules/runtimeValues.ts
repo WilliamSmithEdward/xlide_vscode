@@ -32,7 +32,8 @@ import { collectModuleLiteralIntegerConstants } from '../constExpr';
 import { isBareOrVbaQualifiedIntrinsicCall } from '../rules/shared';
 import {
 	callableTypeSignaturesFor,
-	knownLocalLiteralValues,
+	knownLocalLiteralValuesAt,
+	type KnownLocalValue,
 	namedArgumentSlot,
 	procedureIntegerConstantLookup,
 	runtimeCallableSourceShadowed,
@@ -108,17 +109,27 @@ export function checkRuntimeArgumentValues(
 		// every assignment is one literal holds that (issue #118): `Asc(s)` with
 		// s never assigned is Asc(""), and `Mid(s, 5, 1) = "x"` after s = "abc"
 		// starts past the end.
-		const known = knownLocalLiteralValues(source, member, symbols, activity);
-		const knownStrings = new Map<string, string>();
-		const knownStringLengths = new Map<string, number>();
-		for (const [lower, value] of known) {
-			if (value.kind === 'string') {
-				knownStringLengths.set(lower, (value.value as string).length);
-				if (!value.contentMutated) {
-					knownStrings.set(lower, value.value as string);
+		// Or the literal the last assignment before the statement stores
+		// (issue #180).
+		const valuesAt = knownLocalLiteralValuesAt(source, member, symbols, activity);
+		let known: ReadonlyMap<string, KnownLocalValue> = new Map();
+		const stringsFor = new Map<ReadonlyMap<string, KnownLocalValue>, { strings: Map<string, string>; lengths: Map<string, number> }>();
+		const stringsAt = (values: ReadonlyMap<string, KnownLocalValue>): { strings: Map<string, string>; lengths: Map<string, number> } => {
+			let out = stringsFor.get(values);
+			if (!out) {
+				out = { strings: new Map(), lengths: new Map() };
+				for (const [lower, value] of values) {
+					if (value.kind === 'string') {
+						out.lengths.set(lower, (value.value as string).length);
+						if (!value.contentMutated) {
+							out.strings.set(lower, value.value as string);
+						}
+					}
 				}
+				stringsFor.set(values, out);
 			}
-		}
+			return out;
+		};
 		const lookup: IntegerConstantLookup = {
 			get: (name) => {
 				const constant = constants.get(name);
@@ -130,6 +141,8 @@ export function checkRuntimeArgumentValues(
 			},
 		};
 		return (stmt) => {
+			known = valuesAt(stmt);
+			const { strings: knownStrings, lengths: knownStringLengths } = stringsAt(known);
 			for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env, lookup, knownStrings, sourceNames, host)) {
 				push(
 					'runtimeArgumentValue',
