@@ -1120,6 +1120,9 @@ export class ProjectIndex {
 						? this.modulePredeclaredId(mod.moduleName)
 						: true,
 					members,
+					privateMembers: projectMemberCandidateSymbols(mod, false)
+						.filter((symbol) => !isVisibleProjectObjectMember(symbol) && projectObjectMemberKind(symbol) !== undefined)
+						.map((symbol) => symbol.name),
 				});
 			}
 			return out;

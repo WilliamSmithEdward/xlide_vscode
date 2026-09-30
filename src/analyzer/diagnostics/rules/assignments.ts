@@ -26,7 +26,6 @@ import type {
 	ProcedureNode,
 	Span,
 } from '../../parser/nodes';
-import { isLeafStatement } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { objectLetStateAt } from './objectState';
 import { knownArrayShapesAt, moduleOptionBase, type FixedArrayBound } from './arrays';
@@ -80,8 +79,6 @@ import {
 import {
 	activeModuleMembers,
 	bareAssignmentTarget,
-	blockFooterLineSpan,
-	blockHeaderLineSpan,
 	declaredNameSpan,
 	firstExecutableTokenIndex,
 	forEachStatement,
@@ -95,6 +92,7 @@ import {
 	topLevelOperatorIndex,
 	type ProcedureStatementVisitor,
 } from '../walker';
+import { nameMentions } from './shared';
 
 /**
  * Rule: assigning to a constant is illegal. High-confidence form only - the
@@ -597,42 +595,6 @@ function arrayProducedBy(value: readonly VbaToken[], sourceNames: SourceNameScop
 	return undefined;
 }
 
-/**
- * How many times each name appears in the procedure's active code: its
- * statements, and the header and footer lines of its blocks, where
- * `For Each v In c` assigns v.
- */
-function nameMentions(
-	source: string,
-	procedure: ProcedureNode,
-	activity: ConditionalActivityTracker | undefined,
-): Map<string, number> {
-	const out = new Map<string, number>();
-	const count = (span: Span): void => {
-		for (const tok of statementTokens(source, span)) {
-			const lower = tokenName(tok)?.toLowerCase();
-			if (lower) {
-				out.set(lower, (out.get(lower) ?? 0) + 1);
-			}
-		}
-	};
-	const visit = (body: readonly BodyNode[]): void => {
-		for (const node of body) {
-			if (activity?.isInactive(node.span)) {
-				continue;
-			}
-			if (isLeafStatement(node)) {
-				count(node.span);
-			} else if ('body' in node && Array.isArray(node.body)) {
-				count(blockHeaderLineSpan(source, node.span));
-				count(blockFooterLineSpan(source, node.span));
-				visit(node.body as BodyNode[]);
-			}
-		}
-	};
-	visit(procedure.body);
-	return out;
-}
 
 function arrayAssignmentToScalarSource(
 	assignment: { name: string; valueTokens: VbaToken[] },

@@ -8,6 +8,9 @@
 //  - A scalar used as an array: `v = 5` or `v = "abc"` then `UBound(v)` -> 13.
 //  - An array used as a scalar: `v = Array(1, 2)` then `v + 1`, `v - 1`,
 //    `v & "x"`, `If v = 1 Then` -> 13, Type mismatch.
+//  - A scalar where only an array will do (issue #219): `v = 5` then
+//    `Erase v`, `ReDim Preserve v(2)` or `For Each x In v` -> 13. For Each
+//    over a Variant nothing assigns, which is Empty, raises 13 too.
 //
 // The values come from the same analysis the division and subscript rules use:
 // a literal, or an array from Array(), Split() on literals or a Range
@@ -17,19 +20,21 @@
 
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { VbaToken } from '../../lexer/tokenKinds';
-import type { ModuleNode } from '../../parser/nodes';
+import type { BodyNode, ForBlockNode, ModuleNode } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
-import type { PushFn } from '../analysisContext';
+import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { knownLocalLiteralValuesAt, normalizeType, typeEnvironmentFor, type KnownLocalValue } from '../typeInference';
 import {
 	activeModuleMembers,
 	bareAssignmentTarget,
 	forEachStatement,
+	isInactiveNode,
 	statementAndBranchSpans,
 	statementTokens,
 	tokenName,
 	tokenText,
 } from '../walker';
+import { nameMentions } from './shared';
 import { knownArrayShapesAt, moduleOptionBase, type FixedArrayBound } from './arrays';
 
 const SCALAR_OPERATORS: ReadonlySet<string> = new Set(['=', '<', '>', '<=', '>=', '<>', '+', '-', '*', '/', '\\', '&', '^']);
@@ -73,7 +78,44 @@ export function checkVariantValueMisuse(
 			}
 			return arrays;
 		});
+		// A Variant local is still Empty at a statement that names it first,
+		// though Erase and ReDim end what the value analysis knows of it: the
+		// only statement to name it, or a top-level one in a procedure with no
+		// GoTo, GoSub or Resume to come back to an earlier line.
+		let mentions: Map<string, number> | undefined;
+		let procedureTokens: readonly VbaToken[] | undefined;
+		const topLevel = new Set(member.body);
+		const emptyHere = (lower: string, stmt: BodyNode, offset: number): boolean => {
+			const local = procedureSymbolFor(symbols, member)?.children?.find((child) => child.name.toLowerCase() === lower);
+			if (local?.kind !== 'localVariable' || local.isArray || local.visibility === 'Static' || !isVariant(lower)) {
+				return false;
+			}
+			if ((mentions ??= nameMentions(source, member, activity)).get(lower) === 1) {
+				return true;
+			}
+			procedureTokens ??= statementTokens(source, member.span).map((tok) => ({ ...tok, start: tok.start + member.span.start, end: tok.end + member.span.start }));
+			if (!topLevel.has(stmt) || procedureTokens.some((tok) => ['goto', 'gosub', 'resume'].includes(tokenText(tok)))) {
+				return false;
+			}
+			// The first use after the declaration (a Dim names it too).
+			const uses = procedureTokens.filter((tok) => tokenName(tok)?.toLowerCase() === lower && !isInDeclaration(source, tok.start));
+			return uses[0]?.start === offset;
+		};
 		forEachStatement(member.body, (stmt) => {
+			for (const span of statementAndBranchSpans(stmt)) {
+				const toks = statementTokens(source, span);
+				const head = tokenText(toks[0]);
+				if (head !== 'erase' && head !== 'redim') {
+					continue;
+				}
+				for (let i = 1; i < toks.length; i++) {
+					const lower = tokenName(toks[i])?.toLowerCase();
+					const statement = lower ? arrayStatementTarget(toks, i) : undefined;
+					if (statement && emptyHere(lower!, stmt, span.start + toks[i].start)) {
+						push('variantValueMisuse', `'${toks[i].rawText}' is never assigned, so it is Empty here, which is not an array for ${statement} to act on. This will raise Run-time error '13': Type mismatch.`, { start: span.start + toks[i].start, end: span.start + toks[i].end });
+					}
+				}
+			}
 			const scalars = scalarsFor(valuesAt(stmt));
 			const arrays = arraysFor(shapesAt(stmt));
 			if (scalars.size === 0 && arrays.size === 0) {
@@ -107,6 +149,11 @@ export function checkVariantValueMisuse(
 						push('variantValueMisuse', `'${toks[i].rawText}' holds ${scalar} here, which is not an array. This will raise Run-time error '13': Type mismatch.`, at);
 						continue;
 					}
+					const arrayStatement = scalar ? arrayStatementTarget(toks, i) : undefined;
+					if (scalar && arrayStatement) {
+						push('variantValueMisuse', `'${toks[i].rawText}' holds ${scalar} here, which is not an array for ${arrayStatement} to act on. This will raise Run-time error '13': Type mismatch.`, at);
+						continue;
+					}
 					if (array && next?.rawText !== '(') {
 						// The operator on either side, never the assignment's own `=`.
 						const previous = i - 1 === targetIndex + 1 ? undefined : toks[i - 1];
@@ -118,7 +165,62 @@ export function checkVariantValueMisuse(
 				}
 			}
 		}, activity);
+		// `For Each x In v` with v a scalar or Empty (issue #219).
+		forEachLoopOver(member.body, activity, (loop) => {
+			const lower = loop.sourceExpression?.trim().toLowerCase();
+			if (!lower || !/^[a-z_][a-z0-9_]*$/.test(lower) || !isVariant(lower) || !loop.sourceExpressionSpan) {
+				return;
+			}
+			const value = valuesAt(loop).get(lower);
+			const holds = value?.kind === 'empty'
+				? 'nothing (it is never assigned, so it is Empty)'
+				: value?.origin === 'literal'
+					? (value.kind === 'string' ? `the string "${value.value}"` : `the number ${value.value}`)
+					: undefined;
+			if (holds) {
+				push('variantValueMisuse', `'${loop.sourceExpression!.trim()}' holds ${holds} here, which For Each cannot step through. This will raise Run-time error '13': Type mismatch.`, loop.sourceExpressionSpan);
+			}
+		});
 	}
+}
+
+/** Whether the offset is on a Dim, Static or Const line, which declares rather than uses. */
+function isInDeclaration(source: string, offset: number): boolean {
+	const lineStart = source.lastIndexOf(String.fromCharCode(10), offset - 1) + 1;
+	return /^\s*(?:dim|static|const)(?![a-z0-9_])/i.test(source.slice(lineStart, offset));
+}
+
+/** Every For Each loop in a body, nested ones included. */
+function forEachLoopOver(body: readonly BodyNode[], activity: ConditionalActivityTracker | undefined, visit: (loop: ForBlockNode) => void): void {
+	for (const node of body) {
+		if (isInactiveNode(activity, node)) {
+			continue;
+		}
+		if (node.kind === 'ForBlock' && node.each) {
+			visit(node);
+		}
+		// An If block's body holds every arm's statements.
+		if ('body' in node && Array.isArray(node.body)) {
+			forEachLoopOver(node.body as BodyNode[], activity, visit);
+		}
+	}
+}
+
+/**
+ * The statement a name is the target of, where only an array will do:
+ * `Erase v` and `ReDim Preserve v(2)` raise 13 on a scalar (issue #219,
+ * measured in Excel 16.0). A plain ReDim makes v an array and runs.
+ */
+function arrayStatementTarget(toks: readonly VbaToken[], i: number): string | undefined {
+	const head = tokenText(toks[0]);
+	const previous = toks[i - 1]?.rawText;
+	if (head === 'erase' && (i === 1 || previous === ',')) {
+		return 'Erase';
+	}
+	if (head === 'redim' && tokenText(toks[1]) === 'preserve' && (i === 2 || previous === ',') && toks[i + 1]?.rawText === '(') {
+		return 'ReDim Preserve';
+	}
+	return undefined;
 }
 
 /** `derive` run once per distinct input object. */

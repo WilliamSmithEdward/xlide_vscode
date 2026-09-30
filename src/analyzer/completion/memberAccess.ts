@@ -522,6 +522,35 @@ export function resolveExhaustiveMemberSurfaceAt(
 	};
 }
 
+/**
+ * The owner to name when a reference reaches a Private member of a project
+ * module through an object - `Sheet1.Secret()` from anywhere, `Me.Secret()`
+ * inside Sheet1 - where the rest of the surface cannot prove absence. VBA
+ * refuses each, "Method or data member not found" (issue #219, measured in
+ * Excel 16.0). Undefined when the member is not Private there, or the
+ * surface has a public member of that name.
+ */
+export function privateMemberOwnerAt(
+	source: string,
+	offset: number,
+	memberName: string,
+	ctx: MemberCompletionContext = {},
+): string | undefined {
+	const currentType = resolveReceiverTypeAt(source, offset, ctx);
+	if (!currentType) {
+		return undefined;
+	}
+	const projectKey = parseCombinedTypeKey(currentType)?.projectKey
+		?? (currentType.startsWith(PROJECT_TYPE_PREFIX) ? currentType.slice(PROJECT_TYPE_PREFIX.length) : undefined);
+	const projectType = projectKey ? projectClassMembersByName(ctx).get(projectKey) : undefined;
+	const lower = memberName.toLowerCase();
+	if (!projectType?.privateMembers?.some((name) => name.toLowerCase() === lower)) {
+		return undefined;
+	}
+	const surface = memberSurfaceForType(currentType, ctx);
+	return surface && surfaceMemberNamed(surface, memberName) ? undefined : projectType.name;
+}
+
 // A surface's members are looked up by name once per reference, and a host
 // type has hundreds of them; index each surface the first time it is asked.
 const SURFACE_MEMBERS_BY_NAME = new WeakMap<MemberSurface, Map<string, CompletionMemberSource>>();
@@ -1162,6 +1191,10 @@ function resolveRoot(
 		// An Enum name reaches its constants: `Corner.TopLeft` is ordinary VBA,
 		// and is how a reader tells one enum's TopLeft from another's.
 		|| projectSurface?.kind === 'enum'
+		// A document module whose host type is unknown (no code name reached
+		// the analyzer) still reaches its own code. Its surface is never
+		// exhaustive, so only a Private member is provably out of reach.
+		|| projectSurface?.kind === 'document'
 	) {
 		// A standard module's name reaches its members. A class or UserForm name does too:
 		// UserForms always carry their predeclared default instance, and factory-style classes

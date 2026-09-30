@@ -956,6 +956,18 @@ export const DIAGNOSTIC_RULES = {
 		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
+	collectionAddArgument: {
+		code: 'collection-add-argument',
+		title: 'Collection Add argument refused',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
+		source: 'XLIDE',
+		specReference: 'VBE runtime errors 13 and 5 from VBA.Collection.Add: a key that is not a string, Before with After (issue #219, Excel 16.0)',
+		allowSeverityDowngrade: true,
+		confidence: 'high',
+	},
 	variantValueMisuse: {
 		code: 'variant-value-misuse',
 		title: 'Variant value used as another kind',

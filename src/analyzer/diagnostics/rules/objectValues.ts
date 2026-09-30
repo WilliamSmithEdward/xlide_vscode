@@ -74,6 +74,19 @@ export function checkObjectDefaultValues(
 		};
 		return (stmt) => {
 			for (const span of statementAndBranchSpans(stmt)) {
+				const created = newObjectLetIntoVariant(source, span, env, proc);
+				if (created) {
+					const verdict = objectLetAssignmentVerdict(created.type, memberCtx);
+					if (verdict === 'noDefault' || (verdict === 'argument' && normalizeType(created.type) === 'collection')) {
+						push(
+							'objectDefaultValue',
+							verdict === 'noDefault'
+								? `'New ${created.type}' is assigned without Set, so its value is read, and ${created.type} has no default member to give one. This will raise Run-time error '438': Object doesn't support this property or method.`
+								: `'New ${created.type}' is assigned without Set, so its value is read, and a Collection's default member Item needs an index. This will raise Run-time error '450': Wrong number of arguments or invalid property assignment.`,
+							created.span,
+						);
+					}
+				}
 				for (const read of valueReads(source, span, stmt.kind === 'Statement' && stmt.singleLineIfBranches !== undefined && span === stmt.span, isObjectVariable)) {
 					const lower = tokenName(read.tok)!.toLowerCase();
 					const verdict = verdictFor(lower);
@@ -159,6 +172,38 @@ function valueReads(
 		}
 	}
 	return out;
+}
+
+/**
+ * `v = New Collection` into a Variant, or into the Function's own result: a
+ * Let, which reads the new object's default value (issue #219, measured in
+ * Excel 16.0; `Set v = New Collection` runs). Into a typed scalar the VBE
+ * refuses it while compiling, which is not judged here.
+ */
+function newObjectLetIntoVariant(
+	source: string,
+	span: Span,
+	env: ReadonlyMap<string, string>,
+	proc: ProcedureNode,
+): { type: string; span: Span } | undefined {
+	const target = bareAssignmentTarget(source, span);
+	if (!target) {
+		return undefined;
+	}
+	const value = target.valueTokens.filter((tok) => tok.kind !== 'comment');
+	if (value.length !== 2 || tokenText(value[0]) !== 'new' || !tokenName(value[1])) {
+		return undefined;
+	}
+	const lower = target.name.toLowerCase();
+	const isResult = proc.procKind === 'Function' && lower === proc.name.toLowerCase();
+	if (!isResult && !env.has(lower)) {
+		return undefined;
+	}
+	const declared = normalizeType(isResult ? proc.returnType : env.get(lower));
+	if ((declared !== undefined && declared !== 'variant') || (isResult && proc.typeSuffix)) {
+		return undefined;
+	}
+	return { type: value[1].rawText, span: { start: span.start + value[0].start, end: span.start + value[1].end } };
 }
 
 function article(type: string): string {

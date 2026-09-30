@@ -569,6 +569,9 @@ export function checkDivisionByZeroExpressions(
 					return constant;
 				}
 				const local = known.get(name.toLowerCase());
+				if (local?.kind === 'empty') {
+					return 0;
+				}
 				return local?.kind === 'number' && Number.isInteger(local.value) ? (local.value as number) : undefined;
 			},
 		};
@@ -1125,6 +1128,9 @@ function zeroDivisorExpression(
 	if (endExclusive === start + 1 && isZeroDivisorAtom(toks[start], constants)) {
 		return [toks[start]];
 	}
+	if (zeroConversionCallEnd(toks, start) === endExclusive - 1) {
+		return toks.slice(start, endExclusive);
+	}
 	return undefined;
 }
 
@@ -1153,7 +1159,44 @@ function zeroDivisorAtomTokenGroup(
 	if (isZeroDivisorAtom(first, constants) && isDivisorAtomBoundary(toks[start + 1])) {
 		return [first];
 	}
+	const close = zeroConversionCallEnd(toks, start);
+	if (close !== undefined && isDivisorAtomBoundary(toks[close + 1])) {
+		return toks.slice(start, close + 1);
+	}
 	return undefined;
+}
+
+/** Conversions to a whole-number type, which round their argument half to even. */
+const WHOLE_CONVERSIONS: ReadonlySet<string> = new Set(['cbyte', 'cint', 'clng', 'clnglng', 'clngptr']);
+const FRACTIONAL_CONVERSIONS: ReadonlySet<string> = new Set(['csng', 'cdbl', 'ccur', 'cdec']);
+
+/**
+ * Where a conversion of a literal that comes out 0 ends: `CLng(0)`,
+ * `CDbl(0)`, `CLng(0.4)`, which rounds to 0 (issue #219, measured in Excel
+ * 16.0; `10 / CDbl(0.4)` runs). A `VBA.` qualifier is allowed.
+ */
+function zeroConversionCallEnd(toks: readonly VbaToken[], start: number): number | undefined {
+	let index = start;
+	if (tokenText(toks[index]) === 'vba' && toks[index + 1]?.rawText === '.') {
+		index += 2;
+	}
+	const name = tokenText(toks[index]);
+	const whole = WHOLE_CONVERSIONS.has(name);
+	if ((!whole && !FRACTIONAL_CONVERSIONS.has(name)) || toks[index + 1]?.rawText !== '(' || toks[start - 1]?.rawText === '.') {
+		return undefined;
+	}
+	const close = matchParenFrom(toks, index + 1);
+	const inner = close < 0 ? [] : toks.slice(index + 2, close);
+	const signed = inner.length === 2 && (inner[0].rawText === '-' || inner[0].rawText === '+');
+	const literal = inner.length === 1 ? inner[0] : signed ? inner[1] : undefined;
+	if (!literal || (literal.kind !== 'integerLiteral' && literal.kind !== 'floatLiteral')) {
+		return undefined;
+	}
+	if (isZeroNumericLiteral(literal)) {
+		return close;
+	}
+	const value = Math.abs(Number(literal.rawText.replace(/[!#@%&^]$/, '').replace(/[dD]/g, 'E')));
+	return whole && Number.isFinite(value) && value <= 0.5 ? close : undefined;
 }
 
 /**

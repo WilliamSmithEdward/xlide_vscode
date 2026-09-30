@@ -13,7 +13,7 @@ import type { HostObjectModel } from '../../host/excelObjectModel';
 import { HOST_LIBRARY_NAMES } from '../../host/hostLibraries';
 import type { VbaHostToken } from '../../host/hostRegistry';
 import { bareCallStatementTarget as callStatementTarget } from '../../call/callContext';
-import type { MemberCompletionContext } from '../../completion/memberAccess';
+import { privateMemberOwnerAt, type MemberCompletionContext } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import {
 	resolveHostConstant,
@@ -99,6 +99,14 @@ export function checkMemberNotFound(
 				memberCtx,
 			);
 			if (!surface || surface.hasMember(ref.member)) {
+				const owner = privateMemberOwnerAt(source, ref.dotEndOffset, ref.member, memberCtx);
+				if (owner) {
+					push(
+						'memberNotFound',
+						`Method or data member not found: '${owner}.${ref.member}'. It is Private to ${owner}, and no reference through an object reaches a Private member, Me included.`,
+						ref.memberSpan,
+					);
+				}
 				continue;
 			}
 			push(
