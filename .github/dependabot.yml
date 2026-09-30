@@ -50,7 +50,7 @@ updates:
         patterns: ['*']
 
   - package-ecosystem: docker
-    directories: [/.github/clamav, /.github/semgrep]
+    directories: [/.github/security/clamav, /.github/security/semgrep]
     schedule:
       interval: weekly
       day: monday

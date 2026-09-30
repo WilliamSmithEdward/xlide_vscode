@@ -69,7 +69,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build the scanner
-        run: docker build --quiet --tag semgrep-scan .github/semgrep
+        run: docker build --quiet --tag semgrep-scan .github/security/semgrep
       # Two rules are excluded because they fire on how the engine is built,
       # reviewed finding by finding on 2026-09-29:
       # - detect-non-literal-regexp: patterns are built from VBA identifiers
