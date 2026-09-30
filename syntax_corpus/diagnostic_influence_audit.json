@@ -2567,6 +2567,28 @@
       "pendingLegacyCorpusFiles": [],
       "notes": "Code after a compiler directive on its line. MS-VBAL 3.4 conditional compilation; VBE \"An # ElseIf, # Else, or # EndIf must be preceded by an # If clause\" (issue #130, Excel 16.0).",
       "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "object-default-value",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-29 (issue #183): the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue183_01_runtime",
+        "issue183_02_runtime",
+        "issue183_03_runtime",
+        "issue183_04_runtime",
+        "issue183_05_runtime",
+        "issue183_07_runtime",
+        "issue183_08_runtime",
+        "issue183_09_runtime",
+        "issue183_12_runtime",
+        "issue183_16_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Object read as a value has no default member. VBE runtime errors 438 and 450 reading an object with no default member, or one that needs an argument (issue #183, Excel 16.0).",
+      "diagnosticKind": "deterministic-runtime-error"
     }
   ]
 }

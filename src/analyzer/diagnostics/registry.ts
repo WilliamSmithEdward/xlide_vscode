@@ -102,6 +102,7 @@ import { checkHostArguments } from './rules/hostArguments';
 import { checkCollectionState } from './rules/collectionState';
 import { checkVariantValueMisuse } from './rules/variantValues';
 import { checkRuntimeMemberNotFound } from './rules/lateBoundMembers';
+import { checkObjectDefaultValues } from './rules/objectValues';
 import { checkDeclarationForms } from './rules/declarationForms';
 import { checkLineContinuationLimits } from './rules/lineContinuations';
 import { checkImplementsMembers } from './rules/implementsMembers';
@@ -310,6 +311,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'variantValueMisuse',
 		run: (ctx, push) => checkVariantValueMisuse(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
+	},
+	{
+		name: 'objectDefaultValue',
+		procedureStatements: (ctx, push) => checkObjectDefaultValues(ctx.source, ctx.symbols, ctx.memberCtx, push),
 	},
 	{
 		name: 'runtimeMemberNotFound',

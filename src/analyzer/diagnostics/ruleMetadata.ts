@@ -878,6 +878,18 @@ export const DIAGNOSTIC_RULES = {
 		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
+	objectDefaultValue: {
+		code: 'object-default-value',
+		title: 'Object read as a value has no default member',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
+		source: 'XLIDE',
+		specReference: 'VBE runtime errors 438 and 450 reading an object with no default member, or one that needs an argument (issue #183, Excel 16.0)',
+		allowSeverityDowngrade: true,
+		confidence: 'high',
+	},
 	runtimeMemberNotFound: {
 		code: 'runtime-member-not-found',
 		title: 'Member not found at run time',
