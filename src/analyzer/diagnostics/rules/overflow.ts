@@ -393,6 +393,12 @@ class TypedFolder {
 	private convert(callee: string, inner: Typed, span: Span, shown = showNumber(inner.value)): Folded {
 		const target = CONVERSIONS.get(callee)!;
 		if (target === 'abs') {
+			// Abs of the smallest Long hands it back unchanged: Abs(CLng(-2147483647
+			// - 1)) is -2147483648, where Abs(CInt(-32768)) overflows (issue #218,
+			// measured in Excel 16.0).
+			if (inner.type === 'long' && inner.value === RANGES.long.min) {
+				return inner;
+			}
 			const value = Math.abs(inner.value);
 			return inRange(value, inner.type)
 				? { value, type: inner.type }
@@ -407,6 +413,13 @@ class TypedFolder {
 			return inRange(value, 'double')
 				? { value, type: 'double' }
 				: { overflow: true, span, detail: `Exp(${showNumber(inner.value)}) exceeds the Double range` };
+		}
+		if (target === 'decimal') {
+			// A Decimal holds up to 2^96 - 1: CDec("1E28") runs, CDec("1E30") and
+			// CDec(1E+30) overflow (issue #218). The result is not typed further.
+			return decimalFits(inner.value, shown)
+				? undefined
+				: { overflow: true, span, detail: `CDec(${shown}) does not fit Decimal` };
 		}
 		if (target === 'hex' || target === 'oct') {
 			// Hex and Oct take a value that fits a Long (or a LongLong on 64-bit
@@ -508,11 +521,26 @@ function article(label: string): string {
 	return /^[AEIOU]/.test(label) ? 'an' : 'a';
 }
 
-const CONVERSIONS: ReadonlyMap<string, NumericType | 'abs' | 'int' | 'fix' | 'exp' | 'hex' | 'oct'> = new Map([
+const CONVERSIONS: ReadonlyMap<string, NumericType | 'abs' | 'int' | 'fix' | 'exp' | 'hex' | 'oct' | 'decimal'> = new Map([
 	['cbyte', 'byte'], ['cint', 'integer'], ['clng', 'long'], ['csng', 'single'], ['cdbl', 'double'],
 	['ccur', 'currency'], ['cdate', 'date'], ['abs', 'abs'], ['int', 'int'], ['fix', 'fix'], ['exp', 'exp'],
-	['hex', 'hex'], ['oct', 'oct'],
+	['hex', 'hex'], ['oct', 'oct'], ['cdec', 'decimal'],
 ]);
+
+/** 2^96, one past the largest Decimal. */
+const DECIMAL_LIMIT = 79228162514264337593543950336n;
+
+/**
+ * Whether a Decimal holds the value. A double cannot tell 2^96 - 1 from 2^96,
+ * so a whole number spelled in digits is compared exactly.
+ */
+function decimalFits(value: number, shown: string): boolean {
+	const digits = /^"?\s*([-+]?)(\d+)\s*"?$/.exec(shown);
+	if (digits) {
+		return BigInt(digits[2]) < DECIMAL_LIMIT;
+	}
+	return Math.abs(value) < 7.9228162514264337e28;
+}
 
 const CONVERSION_NAMES: Readonly<Record<string, string>> = {
 	cbyte: 'CByte', cint: 'CInt', clng: 'CLng', csng: 'CSng', cdbl: 'CDbl', ccur: 'CCur', cdate: 'CDate',

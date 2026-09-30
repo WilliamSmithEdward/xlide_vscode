@@ -1543,6 +1543,7 @@ export function runtimeTypeSignature(runtime: VbaRuntimeFunction): CallableTypeS
 				type: p.type,
 				optional: p.optional ?? false,
 				paramArray: p.paramArray ?? false,
+				...(p.isArray ? { isArray: true } : {}),
 				...(p.nullRaises ? { nullRaises: true } : {}),
 			})),
 			returnType: runtime.returns,
