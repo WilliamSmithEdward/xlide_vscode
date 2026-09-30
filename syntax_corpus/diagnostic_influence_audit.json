@@ -2538,7 +2538,11 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #133): 1 asserted case from the issue's measured corpus",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "issue133_u_compile"
+        "issue133_u_compile",
+        "issue187_06_compile",
+        "issue187_07_compile",
+        "issue187_08_compile",
+        "issue187_09_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

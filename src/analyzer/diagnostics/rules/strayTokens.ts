@@ -8,8 +8,13 @@
 //    the start of a line it becomes part of the name ("Variable not
 //    defined"). The lexer gives all of these the `unknown` kind, and `;` the
 //    punctuation kind.
-//  - line-too-long: a physical line of 1024 characters is refused; 1023
-//    compiles.
+//  - line-too-long: the VBE reads a physical line in pieces of 1023
+//    characters, each its own line (issue #187, measured 2026-09-29). A
+//    1024-character statement is refused. A line long only because of
+//    blanks compiles: 2635 spaces, a statement with 1100 trailing blanks, or
+//    one after 1100 leading blanks, since the other pieces are blank lines.
+//    So the rule is that the code between the first and last non-blank
+//    character fits one piece.
 
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { tokenizeCached } from '../../lexer/tokenize';
@@ -115,11 +120,21 @@ export function checkStrayCharacters(
 		}
 		const length = visibleEnd - lineStart;
 		if (length > MAX_LINE_LENGTH) {
-			const span = { start: lineStart + MAX_LINE_LENGTH, end: visibleEnd };
-			if (!activity?.isInactive(span)) {
+			let first = lineStart;
+			while (first < visibleEnd && (source[first] === ' ' || source[first] === '\t')) {
+				first++;
+			}
+			let last = visibleEnd - 1;
+			while (last >= first && (source[last] === ' ' || source[last] === '\t')) {
+				last--;
+			}
+			const piece = Math.floor((first - lineStart) / MAX_LINE_LENGTH);
+			const crosses = first <= last && Math.floor((last - lineStart) / MAX_LINE_LENGTH) !== piece;
+			const span = { start: lineStart + (piece + 1) * MAX_LINE_LENGTH, end: last + 1 };
+			if (crosses && !activity?.isInactive(span)) {
 				push(
 					'lineTooLong',
-					`Line ${lineIndex + 1} is ${length} characters long; the VBE accepts ${MAX_LINE_LENGTH}. Break it with a line continuation. This is a VBE compile error.`,
+					`Line ${lineIndex + 1} is ${length} characters long. The VBE reads a line in pieces of ${MAX_LINE_LENGTH} characters, and this line's code runs past the end of one. Break it with a line continuation. This is a VBE compile error.`,
 					span,
 				);
 			}

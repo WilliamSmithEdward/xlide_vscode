@@ -45,6 +45,26 @@ describe('line-too-long (issue #133)', () => {
 		const long = wrap(comment(1020));
 		expectDiagnostic(long, analyzeModule(long), 'line-too-long', { message: ['1024 characters', '1023'] });
 	});
+
+	it('accepts a line long only because of blanks, and refuses code across a 1023-character piece (issue #187)', () => {
+		// Measured 2026-09-29: the VBE reads the line in 1023-character pieces.
+		const line = (text: string): string => `Option Explicit\nSub Main()\n${text}\nEnd Sub\n`;
+		const statement = `Debug.Print "${'x'.repeat(1009)}"`; // 1023 characters
+		for (const text of [
+			' '.repeat(2635),
+			'\t'.repeat(1100),
+			`Dim y As Long${' '.repeat(1100)}`,
+			`${statement}${' '.repeat(50)}`,
+			`${' '.repeat(1100)}Dim y As Long`,
+			`${' '.repeat(1023)}Dim y As Long`,
+			`${' '.repeat(2046)}Dim y As Long${' '.repeat(10)}`,
+		]) {
+			expect(byCode(analyzeModule(line(text)), 'line-too-long'), `${text.length} characters`).toHaveLength(0);
+		}
+		for (const text of [`${statement.slice(0, -1)}x"`, `' ${'c'.repeat(1100)}`, `${' '.repeat(40)}${statement}`, `${' '.repeat(1020)}Dim y As Long`]) {
+			expect(byCode(analyzeModule(line(text)), 'line-too-long'), `${text.length} characters`).toHaveLength(1);
+		}
+	});
 });
 
 describe('Print lists after Then, Else or a line number (issue #143)', () => {
