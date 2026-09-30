@@ -30,6 +30,8 @@ import {
 	isKnownObjectAssignmentType,
 	isKnownScalarType,
 	normalizeType,
+	objectLetAssignmentVerdict,
+	returnAssignmentTypeFor,
 	type SourceDeclaredType,
 	typeEnvironmentFor,
 } from '../typeInference';
@@ -123,6 +125,12 @@ function scalarMemberAccesses(
 interface LocalObjectVariable {
 	name: string;
 	asType: string;
+	/**
+	 * A Function's own result: Nothing until the function Sets it, so a Let
+	 * into it raises 91 (issue #193). Only a Let reads it; inside the function
+	 * its name with a dot or in a With is a recursive call.
+	 */
+	letOnly?: boolean;
 }
 
 type ObjectVariableState = 'unset' | 'set' | 'unknown';
@@ -140,97 +148,158 @@ export function checkObjectVariableNotSet(
 			continue;
 		}
 		checkGoToIntoWith(source, member, activity, push);
-		const locals = localObjectVariablesFor(symbols, member, memberCtx);
-		if (locals.size === 0) {
-			continue;
+		for (const finding of objectStateWalk(source, member, symbols, memberCtx, activity).findings) {
+			push(...finding);
 		}
-		const state = new Map<string, ObjectVariableState>();
-		for (const key of locals.keys()) {
-			state.set(key, 'unset');
+	}
+}
+
+/** What one procedure's object-state walk found, and the state at each Let. */
+interface ObjectStateWalk {
+	findings: Array<Parameters<PushFn>>;
+	/** The state of the target at each bare Let into a tracked object, by the target's offset. */
+	lets: Map<number, ObjectVariableState>;
+}
+
+// Keyed by the procedure node; the source, the activity and the member
+// context must match too, since a parse is reused under another host.
+const OBJECT_STATE_WALKS = new WeakMap<ProcedureNode, { source: string; activity: ConditionalActivityTracker | undefined; memberCtx: MemberCompletionContext; walk: ObjectStateWalk }>();
+
+/**
+ * Whether the object a Let assigns through at `offset` is provably set, or
+ * provably Nothing, there (issue #193): set-required names 438 only for one
+ * that holds an object, and leaves one still Nothing to object-variable-not-set.
+ */
+export function objectLetStateAt(
+	source: string,
+	member: ProcedureNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	memberCtx: MemberCompletionContext,
+	activity: ConditionalActivityTracker | undefined,
+	offset: number,
+): 'set' | 'unset' | 'unknown' {
+	return objectStateWalk(source, member, symbols, memberCtx, activity).lets.get(offset) ?? 'unknown';
+}
+
+function objectStateWalk(
+	source: string,
+	member: ProcedureNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	memberCtx: MemberCompletionContext,
+	activity: ConditionalActivityTracker | undefined,
+): ObjectStateWalk {
+	const cached = OBJECT_STATE_WALKS.get(member);
+	if (cached && cached.source === source && cached.activity === activity && cached.memberCtx === memberCtx) {
+		return cached.walk;
+	}
+	const walk: ObjectStateWalk = { findings: [], lets: new Map() };
+	const push: PushFn = (...finding) => {
+		walk.findings.push(finding);
+	};
+	walkObjectState(source, member, symbols, memberCtx, activity, push, walk.lets);
+	OBJECT_STATE_WALKS.set(member, { source, activity, memberCtx, walk });
+	return walk;
+}
+
+function walkObjectState(
+	source: string,
+	member: ProcedureNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	memberCtx: MemberCompletionContext,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+	lets: Map<number, ObjectVariableState>,
+): void {
+	const locals = localObjectVariablesFor(symbols, member, memberCtx);
+	if (locals.size === 0) {
+		return;
+	}
+	const state = new Map<string, ObjectVariableState>();
+	for (const key of locals.keys()) {
+		state.set(key, 'unset');
+	}
+	// The locals some statement anywhere in the procedure Sets: a `GoSub`
+	// may run any of those statements before control comes back (issue
+	// #108), so after it none of them is provably still Nothing.
+	const setAnywhere = new Set<string>();
+	forEachStatement(member.body, (stmt) => {
+		for (const span of statementAndBranchSpans(stmt)) {
+			const lower = setAssignmentTarget(source, span)?.name.toLowerCase();
+			if (lower && locals.has(lower)) {
+				setAnywhere.add(lower);
+			}
 		}
-		// The locals some statement anywhere in the procedure Sets: a `GoSub`
-		// may run any of those statements before control comes back (issue
-		// #108), so after it none of them is provably still Nothing.
-		const setAnywhere = new Set<string>();
-		forEachStatement(member.body, (stmt) => {
+	}, activity);
+	const walk = procedureHasUnstructuredFlow(source, member, activity)
+		? walkStraightLineBody
+		: walkBranchMergedBody;
+	walk(member.body, (node) => isInactiveNode(activity, node), {
+		onStatement: (stmt) =>
+			checkObjectVariableNotSetStatement(source, stmt, locals, state, setAnywhere, memberCtx, push, lets),
+		onBlock: (node) => {
+			// A For Each that runs to its end leaves the control variable
+			// Nothing, so an access after the loop is right to report. One
+			// the body can leave early - Exit For, or a GoTo out of it -
+			// leaves it on the current element, so nothing is proven
+			// (issue #108: `Exit For` on the first sheet, then `ws.Name`).
+			if (node.kind === 'ForBlock') {
+				// `For Each x In c` with c still Nothing raises 424, not 91:
+				// the loop asks the collection for its enumerator (issue #121).
+				const over = node.each ? node.sourceExpression?.trim().toLowerCase() : undefined;
+				if (over && locals.has(over) && !locals.get(over)!.letOnly && state.get(over) === 'unset' && node.sourceExpressionSpan) {
+					push(
+						'objectVariableNotSet',
+						`Object variable '${locals.get(over)!.name}' is Nothing when For Each asks it for its elements. This will raise Run-time error '424': Object required.`,
+						node.sourceExpressionSpan,
+					);
+				}
+				const lower = node.controlVariable?.toLowerCase();
+				if (node.each && lower && locals.has(lower) && state.get(lower) === 'unset'
+					&& bodyCanLeaveLoop(source, node, activity)) {
+					state.set(lower, 'unknown');
+				}
+				return;
+			}
+			if (node.kind !== 'WithBlock') {
+				return;
+			}
+			const receiver = unsetWithObjectReceiver(source, node.span, locals, state);
+			if (receiver) {
+				push(
+					'objectVariableNotSet',
+					`Object variable '${receiver.name}' is Nothing before With member access. This will raise Run-time error '91': Object variable or With block variable not set.`,
+					receiver.span,
+				);
+			}
+		},
+		touchesInStatement: (stmt) => {
+			const touched = new Set(
+				localsNamedWhole(source, stmt.span, locals, OBJECT_READ_ONLY_INTRINSICS).keys(),
+			);
+			// A single-line If's branches Set too.
 			for (const span of statementAndBranchSpans(stmt)) {
 				const lower = setAssignmentTarget(source, span)?.name.toLowerCase();
 				if (lower && locals.has(lower)) {
-					setAnywhere.add(lower);
+					touched.add(lower);
 				}
 			}
-		}, activity);
-		const walk = procedureHasUnstructuredFlow(source, member, activity)
-			? walkStraightLineBody
-			: walkBranchMergedBody;
-		walk(member.body, (node) => isInactiveNode(activity, node), {
-			onStatement: (stmt) =>
-				checkObjectVariableNotSetStatement(source, stmt, locals, state, setAnywhere, memberCtx, push),
-			onBlock: (node) => {
-				// A For Each that runs to its end leaves the control variable
-				// Nothing, so an access after the loop is right to report. One
-				// the body can leave early - Exit For, or a GoTo out of it -
-				// leaves it on the current element, so nothing is proven
-				// (issue #108: `Exit For` on the first sheet, then `ws.Name`).
-				if (node.kind === 'ForBlock') {
-					// `For Each x In c` with c still Nothing raises 424, not 91:
-					// the loop asks the collection for its enumerator (issue #121).
-					const over = node.each ? node.sourceExpression?.trim().toLowerCase() : undefined;
-					if (over && locals.has(over) && state.get(over) === 'unset' && node.sourceExpressionSpan) {
-						push(
-							'objectVariableNotSet',
-							`Object variable '${locals.get(over)!.name}' is Nothing when For Each asks it for its elements. This will raise Run-time error '424': Object required.`,
-							node.sourceExpressionSpan,
-						);
-					}
-					const lower = node.controlVariable?.toLowerCase();
-					if (node.each && lower && locals.has(lower) && state.get(lower) === 'unset'
-						&& bodyCanLeaveLoop(source, node, activity)) {
-						state.set(lower, 'unknown');
-					}
-					return;
-				}
-				if (node.kind !== 'WithBlock') {
-					return;
-				}
-				const receiver = unsetWithObjectReceiver(source, node.span, locals, state);
-				if (receiver) {
-					push(
-						'objectVariableNotSet',
-						`Object variable '${receiver.name}' is Nothing before With member access. This will raise Run-time error '91': Object variable or With block variable not set.`,
-						receiver.span,
-					);
-				}
-			},
-			touchesInStatement: (stmt) => {
-				const touched = new Set(
-					localsNamedWhole(source, stmt.span, locals, OBJECT_READ_ONLY_INTRINSICS).keys(),
-				);
-				// A single-line If's branches Set too.
-				for (const span of statementAndBranchSpans(stmt)) {
-					const lower = setAssignmentTarget(source, span)?.name.toLowerCase();
-					if (lower && locals.has(lower)) {
-						touched.add(lower);
-					}
-				}
-				return touched;
-			},
-			demoteToUnknown: (lower) => {
-				if (state.get(lower) === 'unset') {
-					state.set(lower, 'unknown');
-				}
-			},
-			snapshotState: () => new Map(state),
-			restoreState: (snapshot) => {
-				state.clear();
-				for (const [key, value] of snapshot) {
-					state.set(key, value as ObjectVariableState);
-				}
-			},
-			setState: (key, value) => state.set(key, value as ObjectVariableState),
-			lattice: { init: 'unset', good: 'set', unknown: 'unknown' },
-		});
-	}
+			return touched;
+		},
+		demoteToUnknown: (lower) => {
+			if (state.get(lower) === 'unset') {
+				state.set(lower, 'unknown');
+			}
+		},
+		snapshotState: () => new Map(state),
+		restoreState: (snapshot) => {
+			state.clear();
+			for (const [key, value] of snapshot) {
+				state.set(key, value as ObjectVariableState);
+			}
+		},
+		setState: (key, value) => state.set(key, value as ObjectVariableState),
+		lattice: { init: 'unset', good: 'set', unknown: 'unknown' },
+	});
 }
 
 /**
@@ -396,6 +465,7 @@ function checkObjectVariableNotSetStatement(
 	setAnywhere: ReadonlySet<string>,
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
+	lets: Map<number, ObjectVariableState>,
 ): void {
 	const toks = statementTokensAfterLeadingLabel(source, stmt.span);
 	const head = tokenText(toks[0]);
@@ -430,11 +500,20 @@ function checkObjectVariableNotSetStatement(
 	for (const span of branches) {
 		const let_ = bareAssignmentTarget(source, span);
 		const lower = let_?.name.toLowerCase();
-		if (let_ && lower && locals.has(lower) && state.get(lower) === 'unset'
-			&& !guardedAt(lower, let_.span.start)) {
+		if (!let_ || !lower || !locals.has(lower)) {
+			continue;
+		}
+		const letState = guardedAt(lower, let_.span.start) ? 'unknown' : state.get(lower) ?? 'unknown';
+		lets.set(let_.span.start, letState);
+		// A type with no default member for the Let, or one that needs an
+		// argument, is set-required's to report, with the 91 when it is still
+		// Nothing (issue #193): the fix there is the Set.
+		const verdict = objectLetAssignmentVerdict(locals.get(lower)!.asType, memberCtx);
+		if (letState === 'unset' && verdict !== 'noDefault' && verdict !== 'argument') {
+			const what = locals.get(lower)!.letOnly ? `The result '${let_.name}'` : `Object variable '${let_.name}'`;
 			push(
 				'objectVariableNotSet',
-				`Object variable '${let_.name}' is Nothing before the default-member assignment. This will raise Run-time error '91': Object variable or With block variable not set.`,
+				`${what} is Nothing before the default-member assignment. This will raise Run-time error '91': Object variable or With block variable not set.`,
 				let_.span,
 			);
 		}
@@ -510,6 +589,10 @@ function localObjectVariablesFor(
 		}
 		out.set(child.name.toLowerCase(), { name: child.name, asType: child.asType });
 	}
+	const result = returnAssignmentTypeFor(proc);
+	if (result && isKnownObjectAssignmentType(result, memberCtx) && !out.has(proc.name.toLowerCase())) {
+		out.set(proc.name.toLowerCase(), { name: proc.name, asType: result, letOnly: true });
+	}
 	return out;
 }
 
@@ -531,7 +614,7 @@ function unsetObjectMemberAccesses(
 			continue;
 		}
 		const lower = name.toLowerCase();
-		if (!locals.has(lower) || state.get(lower) !== 'unset') {
+		if (!locals.has(lower) || locals.get(lower)!.letOnly || state.get(lower) !== 'unset') {
 			continue;
 		}
 		const member = toks[i + 2] ? tokenName(toks[i + 2]) : undefined;
@@ -575,7 +658,7 @@ function unsetWithObjectReceiver(
 		return undefined;
 	}
 	const lower = name.toLowerCase();
-	if (!locals.has(lower) || state.get(lower) !== 'unset') {
+	if (!locals.has(lower) || locals.get(lower)!.letOnly || state.get(lower) !== 'unset') {
 		return undefined;
 	}
 	return {

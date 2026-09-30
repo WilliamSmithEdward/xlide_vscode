@@ -761,7 +761,14 @@
         "issue189_38_runtime",
         "issue189_41_runtime",
         "issue189_43_runtime",
-        "issue189_45_runtime"
+        "issue189_45_runtime",
+        "issue193_01_runtime",
+        "issue193_03_runtime",
+        "issue193_07_runtime",
+        "issue193_08_runtime",
+        "issue193_10_runtime",
+        "issue193_13_runtime",
+        "issue193_14_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -1174,7 +1181,13 @@
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "object_var_assignment_without_set_runtime_91",
-        "funcret_object_assignment_without_set_runtime_91"
+        "funcret_object_assignment_without_set_runtime_91",
+        "issue193b_01_runtime",
+        "issue193b_02_runtime",
+        "issue193b_03_runtime",
+        "issue193b_04_runtime",
+        "issue193b_05_runtime",
+        "issue193b_06_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

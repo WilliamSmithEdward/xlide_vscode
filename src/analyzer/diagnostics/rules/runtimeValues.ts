@@ -155,7 +155,7 @@ export function checkRuntimeArgumentValues(
 					hit.span,
 				);
 			}
-			for (const hit of runtimeStatementValueHits(source, stmt.span, lookup, knownStringLengths, sourceNames)) {
+			for (const hit of runtimeStatementValueHits(source, stmt.span, lookup, knownStringLengths, knownStrings, sourceNames)) {
 				push('runtimeArgumentValue', hit.message, hit.span);
 			}
 		};
@@ -178,6 +178,7 @@ function runtimeStatementValueHits(
 	span: Span,
 	constants: IntegerConstantLookup,
 	knownStringLengths: ReadonlyMap<string, number>,
+	knownStrings: ReadonlyMap<string, string>,
 	sourceNames: SourceNameScope,
 ): Array<{ message: string; span: Span }> {
 	const toks = statementTokens(source, span);
@@ -251,8 +252,11 @@ function runtimeStatementValueHits(
 		if (tokenText(tok) === 'like' && toks[i + 1]?.kind === 'stringLiteral') {
 			const pattern = stringLiteralValue(toks[i + 1].rawText);
 			const problem = invalidLikePattern(pattern);
-			if (problem) {
-				out.push({ message: `The Like pattern ${toks[i + 1].rawText} ${problem}. This will raise Run-time error '93': Invalid pattern string.`, span: at(toks[i + 1]) });
+			// The matcher meets a bad list only with a character left to
+			// compare, so the string matched decides it (issue #193).
+			const subject = likeSubject(toks, i, knownStrings);
+			if (problem && subject !== undefined && likeReachesBadList(subject, pattern)) {
+				out.push({ message: `The Like pattern ${toks[i + 1].rawText} ${problem}, and matching ${JSON.stringify(subject)} reaches it. This will raise Run-time error '93': Invalid pattern string.`, span: at(toks[i + 1]) });
 			}
 		}
 	}
@@ -352,6 +356,91 @@ function numericLiteralGroupValue(group: readonly VbaToken[]): number | undefine
 		return a === undefined || b === undefined || b === 0 ? undefined : sign * (a / b);
 	}
 	return undefined;
+}
+
+/**
+ * The string Like matches at `likeIndex`: a string literal, or a local the
+ * procedure makes plain, standing alone on its left.
+ */
+function likeSubject(toks: readonly VbaToken[], likeIndex: number, knownStrings: ReadonlyMap<string, string>): string | undefined {
+	const operand = toks[likeIndex - 1];
+	const before = toks[likeIndex - 2];
+	const alone = before === undefined || before.rawText === '(' || before.rawText === ',' || before.rawText === '='
+		|| ['if', 'elseif', 'while', 'until', 'and', 'or', 'not', 'then'].includes(tokenText(before));
+	if (!operand || !alone) {
+		return undefined;
+	}
+	if (operand.kind === 'stringLiteral') {
+		return stringLiteralValue(operand.rawText);
+	}
+	const name = tokenName(operand)?.toLowerCase();
+	return name ? knownStrings.get(name) : undefined;
+}
+
+/**
+ * Whether matching `subject` against `pattern` reaches a malformed character
+ * list with a character left to compare, which is when Like raises 93
+ * (issue #193, measured in Excel 16.0): "xy" Like "?[" raises, "x" Like "?["
+ * is False, and so is "zb" Like "a[z-a]", which fails at the "a". A `*`
+ * before the bad list, or a comparison Option Compare Text could decide
+ * otherwise, proves nothing.
+ */
+function likeReachesBadList(subject: string, pattern: string): boolean {
+	let p = 0;
+	for (let i = 0; i < pattern.length; i++) {
+		const ch = pattern[i];
+		let matches: (c: string) => boolean | undefined;
+		if (ch === '[') {
+			const close = pattern.indexOf(']', i + 1);
+			const body = close < 0 ? undefined : pattern.slice(i + 1, close);
+			if (body === undefined || invalidLikePattern(`[${body}]`)) {
+				return p < subject.length;
+			}
+			const negated = body.startsWith('!');
+			const list = negated ? body.slice(1) : body;
+			matches = (c) => {
+				const exact = charListHas(list, c);
+				const folded = charListHas(list.toLowerCase(), c.toLowerCase()) || charListHas(list.toUpperCase(), c.toUpperCase());
+				if (exact !== folded) {
+					return undefined;
+				}
+				return negated ? !exact : exact;
+			};
+			i = close;
+		} else if (ch === '*') {
+			return false;
+		} else if (ch === '?') {
+			matches = () => true;
+		} else if (ch === '#') {
+			matches = (c) => c >= '0' && c <= '9';
+		} else {
+			matches = (c) => (c === ch ? true : c.toLowerCase() === ch.toLowerCase() ? undefined : false);
+		}
+		if (p >= subject.length) {
+			return false;
+		}
+		const verdict = matches(subject[p]);
+		if (verdict !== true) {
+			return false;
+		}
+		p++;
+	}
+	return false;
+}
+
+/** Whether a character list's body, ranges included, holds `c`. */
+function charListHas(list: string, c: string): boolean {
+	for (let k = 0; k < list.length; k++) {
+		if (list[k + 1] === '-' && k + 2 < list.length) {
+			if (c >= list[k] && c <= list[k + 2]) {
+				return true;
+			}
+			k += 2;
+		} else if (list[k] === c) {
+			return true;
+		}
+	}
+	return false;
 }
 
 /** Why a Like pattern raises error 93, or undefined when it is well formed. */

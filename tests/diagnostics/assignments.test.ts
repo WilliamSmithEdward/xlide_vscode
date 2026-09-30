@@ -635,6 +635,30 @@ describe('analyzeModule - assignment type validation', () => {
 		expect(spanText(src, hits[0])).toBe('MakePerson');
 	});
 
+	it('names 91 for a Let into an object still Nothing, and 438 into one that holds an object (issue #193)', () => {
+		// Measured in Excel 16.0: Class1 has no default member.
+		const run = (source: string): ReturnType<typeof analyzeModule> => analyzeProjectModule(source, [
+			{ moduleName: 'Class1', type: 'class', source: 'Option Explicit\nPublic X As Long\n' },
+		], 'Module1');
+		const result = 'Private Function Pick() As Class1\n    Pick = Null\nEnd Function\n';
+		const local = 'Sub Main()\n    Dim c As Class1\n    c = 5\nEnd Sub\n';
+		for (const src of [result, local]) {
+			const diags = run(src);
+			expect(byCode(diags, 'set-required').map((d) => d.message)).toEqual([expect.stringContaining("It is still Nothing here, so this will raise Run-time error '91'")]);
+			expect(byCode(diags, 'object-variable-not-set')).toHaveLength(0);
+		}
+		const held = 'Sub Main()\n    Dim c As Class1\n    Set c = New Class1\n    c = 5\nEnd Sub\n';
+		const autoInstanced = 'Sub Main()\n    Dim c As New Class1\n    c = 5\nEnd Sub\n';
+		for (const src of [held, autoInstanced]) {
+			const messages = byCode(run(src), 'set-required').map((d) => d.message);
+			expect(messages).toHaveLength(1);
+			expect(messages[0]).toContain("Run-time error '438'");
+			expect(messages[0]).not.toContain("'91'");
+		}
+		const parameter = 'Sub Take(c As Class1)\n    c = 5\nEnd Sub\n';
+		expect(byCode(run(parameter), 'set-required')[0].message).toContain("'438': Object doesn't support this property or method, or '91' while it is Nothing");
+	});
+
 	it('checks object Function return assignment compatibility', () => {
 		const src =
 			'Public Function MakePerson() As Person\n' +

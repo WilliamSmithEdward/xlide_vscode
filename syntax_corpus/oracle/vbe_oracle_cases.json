@@ -11197,6 +11197,287 @@
       "source": "Option Explicit\nFunction Main()\n    Dim d As Long\n#If Win32 Then\n    Main = 10 / d\n#End If\nEnd Function\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue193_01_runtime",
+      "description": "Issue #193 case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 93.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' \"xy\" Like \"?[\"\nFunction Main()\n    Main = CStr(\"xy\" Like \"?[\")\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue193_02_runtime",
+      "description": "Issue #193 case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> False.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' \"x\" Like \"?[\"\nFunction Main()\n    Main = CStr(\"x\" Like \"?[\")\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue193_03_runtime",
+      "description": "Issue #193 case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 93.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' \"ab\" Like \"[a-z][\"\nFunction Main()\n    Main = CStr(\"ab\" Like \"[a-z][\")\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue193_04_runtime",
+      "description": "Issue #193 case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> False.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' \"b\" Like \"[a-z][\"\nFunction Main()\n    Main = CStr(\"b\" Like \"[a-z][\")\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue193_05_runtime",
+      "description": "Issue #193 case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> False.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' \"a\" Like \"a[z-a]\"\nFunction Main()\n    Main = CStr(\"a\" Like \"a[z-a]\")\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue193_06_runtime",
+      "description": "Issue #193 case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> False.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' \"\" Like \"[a\"\nFunction Main()\n    Main = CStr(\"\" Like \"[a\")\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue193_07_runtime",
+      "description": "Issue #193 case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 93.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' \"b\" Like \"[a\"\nFunction Main()\n    Main = CStr(\"b\" Like \"[a\")\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue193_08_runtime",
+      "description": "Issue #193 case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 93.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' \"b\" Like \"[z-a]\"\nFunction Main()\n    Main = CStr(\"b\" Like \"[z-a]\")\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue193_09_runtime",
+      "description": "Issue #193 case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> False.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' \"zb\" Like \"a[z-a]\"\nFunction Main()\n    Main = CStr(\"zb\" Like \"a[z-a]\")\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue193_10_runtime",
+      "description": "Issue #193 case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 93.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' \"ab\" Like \"a[z-a]\"\nFunction Main()\n    Main = CStr(\"ab\" Like \"a[z-a]\")\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue193_12_runtime",
+      "description": "Issue #193 case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> False.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' \"Ab\" Like \"a[\"\nFunction Main()\n    Main = CStr(\"Ab\" Like \"a[\")\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue193_13_runtime",
+      "description": "Issue #193 case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 93.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' \"1b\" Like \"#[\"\nFunction Main()\n    Main = CStr(\"1b\" Like \"#[\")\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue193_14_runtime",
+      "description": "Issue #193 case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 93.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "' \"xb\" Like \"[!a][\"\nFunction Main()\n    Main = CStr(\"xb\" Like \"[!a][\")\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue193b_01_runtime",
+      "description": "Issue #193b case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    Dim c As Class1\n    Set c = Pick()\nEnd Sub\nPrivate Function Pick() As Class1\n    Pick = Null\nEnd Function\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\nPublic X As Long\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue193b_02_runtime",
+      "description": "Issue #193b case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    Dim c As Class1\n    Set c = Pick()\nEnd Sub\nPrivate Function Pick() As Class1\n    Set Pick = New Class1\n    Pick = 5\nEnd Function\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\nPublic X As Long\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue193b_03_runtime",
+      "description": "Issue #193b case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    Dim c As Class1\n    c = 5\nEnd Sub\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\nPublic X As Long\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue193b_04_runtime",
+      "description": "Issue #193b case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    Dim c As Class1\n    Set c = New Class1\n    c = 5\nEnd Sub\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\nPublic X As Long\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue193b_05_runtime",
+      "description": "Issue #193b case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c = 5\nEnd Sub\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\nPublic X As Long\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue193b_06_runtime",
+      "description": "Issue #193b case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nSub Main()\n    Take New Class1\nEnd Sub\nSub Take(c As Class1)\n    c = 5\nEnd Sub\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\nPublic X As Long\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }

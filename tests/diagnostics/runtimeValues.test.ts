@@ -80,6 +80,28 @@ describe('runtime-argument-value - error 5 arguments (issue #118)', () => {
 		]);
 	});
 
+	it('flags a bad Like list only when matching reaches it with a character left (issue #193)', () => {
+		// Measured in Excel 16.0: each flagged one raises 93, each quiet one is False.
+		const flagged = ['"xy" Like "?["', '"ab" Like "[a-z]["', '"b" Like "[a"', '"ab" Like "a[z-a]"', '"1b" Like "#["', '"xb" Like "[!a]["'];
+		for (const expression of flagged) {
+			const src = wrap(`Main = ${expression}`);
+			expectDiagnostic(src, analyzeModule(src), ARG, { message: "error '93'" });
+		}
+		// Not reached, a "*" first, or a string the code does not make plain.
+		const quiet = wrap(
+			'Dim s As String',
+			'Main = "x" Like "?["',
+			'Main = "b" Like "[a-z]["',
+			'Main = "a" Like "a[z-a]"',
+			'Main = "" Like "[a"',
+			'Main = "zb" Like "a[z-a]"',
+			'Main = "Ab" Like "a["',
+			'Main = "ab" Like "*["',
+			'Main = InputBox("x") Like "[a"',
+		);
+		expect(byCode(analyzeModule(quiet), ARG)).toHaveLength(0);
+	});
+
 	it('stays quiet on the values that run', () => {
 		const src = wrap(
 			'Main = Mid("abc", 10) & CLng("&H10") & CBool("1")',

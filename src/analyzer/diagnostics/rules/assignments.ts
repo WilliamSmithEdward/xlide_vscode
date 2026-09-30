@@ -18,6 +18,7 @@ import type {
 	Span,
 } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
+import { objectLetStateAt } from './objectState';
 import type {
 	VbaProcedureSignature,
 	VbaSymbol,
@@ -201,6 +202,7 @@ export function checkAssignmentTypes(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
+		const procedure = member;
 		const env = typeEnvironmentFor(symbols, member);
 		const shapes = declarationShapeEnvironmentFor(symbols, member);
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
@@ -244,9 +246,22 @@ export function checkAssignmentTypes(
 						assignment.span,
 					);
 				} else if (verdict === 'noDefault') {
+					// While the object is Nothing the Let raises 91, and 438 only
+					// once it holds one (issue #193). The object-state walk says
+					// which; this rule owns the report either way, since the fix is
+					// the Set.
+					const state = objectLetStateAt(source, procedure, symbols, memberCtx, activity, assignment.span.start);
+					const lower = assignment.name.toLowerCase();
+					const declared = procSym?.children?.find((child) => child.name.toLowerCase() === lower)
+						?? symbols.root.children?.find((child) => child.name.toLowerCase() === lower);
+					const error = state === 'unset'
+						? `It is still Nothing here, so this will raise Run-time error '91': Object variable or With block variable not set.`
+						: state === 'set' || declared?.isAutoInstantiated
+							? `This will raise Run-time error '438': Object doesn't support this property or method.`
+							: `This will raise Run-time error '438': Object doesn't support this property or method, or '91' while it is Nothing.`;
 					push(
 						'setRequired',
-						`Assignment to '${assignment.name}' requires Set: ${expected} has no default member for a Let to reach. This will raise Run-time error '438': Object doesn't support this property or method.`,
+						`Assignment to '${assignment.name}' requires Set: ${expected} has no default member for a Let to reach. ${error}`,
 						assignment.span,
 					);
 				}
