@@ -401,11 +401,13 @@
         "issue223_48_runtime",
         "issue223_49_runtime",
         "issue223_50_runtime",
-        "issue223_51_runtime"
+        "issue223_51_runtime",
+        "issue232_40_runtime",
+        "issue232_52_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters and intrinsic CVErr Error Variants passed to scalar parameters, runtime error 94 for Null passed to scalar parameters, and runtime error 6 for decimal literals outside Byte/Integer/Long/Currency argument bounds, while numeric-string, Variant CVErr, Variant Null, and min/max boundary controls run successfully. Cross-module checks use exported standard-module project Sub/Function/Declare signatures; ambiguous bare names stay silent, while module-qualified calls resolve through the named standard module only. Source-backed and host member signatures feed the same argument type path for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Argument inference also consumes bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, Null literals, intrinsic CVErr Error Variant returns when not source-shadowed, explicit VBA.CVErr calls, and proven source-backed/host member return expressions when source/project/runtime/member metadata proves the return type. Runtime parameter and return metadata is skipped for bare names shadowed by visible source declarations, including untyped locals. Issue #223: Array(...) or Split(...) into a Long or String parameter, and an object expression of another class into a typed object parameter (TakeWs(Range(\"A1\"))), raise 13; a negative float literal past the Long range raises 6.",
+      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters and intrinsic CVErr Error Variants passed to scalar parameters, runtime error 94 for Null passed to scalar parameters, and runtime error 6 for decimal literals outside Byte/Integer/Long/Currency argument bounds, while numeric-string, Variant CVErr, Variant Null, and min/max boundary controls run successfully. Cross-module checks use exported standard-module project Sub/Function/Declare signatures; ambiguous bare names stay silent, while module-qualified calls resolve through the named standard module only. Source-backed and host member signatures feed the same argument type path for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Argument inference also consumes bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, Null literals, intrinsic CVErr Error Variant returns when not source-shadowed, explicit VBA.CVErr calls, and proven source-backed/host member return expressions when source/project/runtime/member metadata proves the return type. Runtime parameter and return metadata is skipped for bare names shadowed by visible source declarations, including untyped locals. Issue #223: Array(...) or Split(...) into a Long or String parameter, and an object expression of another class into a typed object parameter (TakeWs(Range(\"A1\"))), raise 13; a negative float literal past the Long range raises 6. A float literal past LongLong's range into a LongLong or LongPtr parameter, Take(1E+19), raises 6 (issue #232, 64-bit Excel 16.0).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -3067,11 +3069,46 @@
         "issue203_10_runtime",
         "issue203_11_runtime",
         "issue203_13_runtime",
-        "runtime_argument_bounds_47_runtime"
+        "runtime_argument_bounds_47_runtime",
+        "issue232_01_runtime",
+        "issue232_02_runtime",
+        "issue232_03_runtime",
+        "issue232_04_runtime",
+        "issue232_05_runtime",
+        "issue232_06_runtime",
+        "issue232_07_runtime",
+        "issue232_08_runtime",
+        "issue232_09_runtime",
+        "issue232_10_runtime",
+        "issue232_11_runtime",
+        "issue232_12_runtime",
+        "issue232_13_runtime",
+        "issue232_14_runtime",
+        "issue232_15_runtime",
+        "issue232_16_runtime",
+        "issue232_17_runtime",
+        "issue232_18_runtime",
+        "issue232_19_runtime",
+        "issue232_20_runtime",
+        "issue232_21_runtime",
+        "issue232_22_runtime",
+        "issue232_23_runtime",
+        "issue232_35_runtime",
+        "issue232_36_runtime",
+        "issue232_37_runtime",
+        "issue232_38_runtime",
+        "issue232_39_runtime",
+        "issue232_43_runtime",
+        "issue232_44_runtime",
+        "issue232_45_runtime",
+        "issue232_47_runtime",
+        "issue232_54_runtime",
+        "issue232_57_runtime",
+        "issue232_58_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Arithmetic overflow. MS-VBAL 5.6.9.3 operator result types; VBE runtime error 6: Overflow (issue #116, Excel 16.0). Issue #218: CDec past the Decimal range (CDec(\"1E30\")), and Abs of the smallest Long is not an overflow (it returns -2147483648).",
+      "notes": "Arithmetic overflow. MS-VBAL 5.6.9.3 operator result types; VBE runtime error 6: Overflow (issue #116, Excel 16.0). Issue #218: CDec past the Decimal range (CDec(\"1E30\")), and Abs of the smallest Long is not an overflow (it returns -2147483648). Inside any call argument or operand too: CStr(CInt(40000)), IIf(True, 0, CInt(40000)), \"x\" & CInt(40000), z(CInt(40000)); and LongLong, folded exactly, with LongPtr judged against LongLong's range (issues #232 and #258, 64-bit Excel 16.0).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -3081,11 +3118,12 @@
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue116_b_compile",
-        "issue124_i_compile"
+        "issue124_i_compile",
+        "issue232_46_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Const value overflows. MS-VBAL 5.6.9.3; VBE compile error: Overflow (issue #116, Excel 16.0).",
+      "notes": "Const value overflows. MS-VBAL 5.6.9.3; VBE compile error: Overflow (issue #116, Excel 16.0). A LongLong Const past the range, Const C As LongLong = 1E+19 (issue #232, 64-bit Excel 16.0).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -3097,11 +3135,12 @@
         "issue116_l_runtime",
         "issue116_m_runtime",
         "issue116_n_runtime",
-        "issue145_c_runtime"
+        "issue145_c_runtime",
+        "issue232_41_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "For counter overflows after its last pass. MS-VBAL 5.4.2.3; VBE runtime error 6: Overflow (issue #116, Excel 16.0).",
+      "notes": "For counter overflows after its last pass. MS-VBAL 5.4.2.3; VBE runtime error 6: Overflow (issue #116, Excel 16.0). A LongLong counter, compared exactly: For i = 9223372036854775806^ To 9223372036854775807^ (issue #232, 64-bit Excel 16.0).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {

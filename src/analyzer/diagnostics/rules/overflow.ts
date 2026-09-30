@@ -13,6 +13,10 @@
 //    and an assignment whose folded value the target type cannot hold after
 //    rounding: `Byte = 255.5`, `Integer = 32767.5`, `Date = 3000000`.
 //  - const-overflow: the same folding on a Const's value, a compile error.
+//    Inside any argument or operand too (issue #232): `CStr(CInt(40000))`,
+//    `IIf(True, 0, CInt(40000))`, `"x" & CInt(40000)`, `z(CInt(40000))`.
+//    LongLong: `CLngLng(1E+19)`, `9223372036854775807^ + 1`; a LongPtr is
+//    judged against LongLong's range, which it never exceeds.
 //  - for-counter-overflow: `For i = 1 To 32767` with i an Integer, and
 //    `For b = 0 To 255` with b a Byte: the increment after the last pass
 //    overflows the counter. `To 32766` runs.
@@ -55,11 +59,13 @@ import {
 	tokenText,
 } from '../walker';
 
-type NumericType = 'byte' | 'integer' | 'long' | 'single' | 'double' | 'currency' | 'date';
+type NumericType = 'byte' | 'integer' | 'long' | 'longlong' | 'single' | 'double' | 'currency' | 'date';
 
 interface Typed {
 	value: number;
 	type: NumericType;
+	/** A LongLong's exact value: a double cannot tell 2^63 - 1 from 2^63. */
+	exact?: bigint;
 }
 
 interface Overflow {
@@ -74,6 +80,8 @@ const RANGES: Readonly<Record<NumericType, { min: number; max: number; label: st
 	byte: { min: 0, max: 255, label: 'Byte' },
 	integer: { min: -32768, max: 32767, label: 'Integer' },
 	long: { min: -2147483648, max: 2147483647, label: 'Long' },
+	// As doubles these are -2^63 and 2^63; inRange compares a LongLong exactly.
+	longlong: { min: -9223372036854775808, max: 9223372036854775807, label: 'LongLong' },
 	single: { min: -3.402823e38, max: 3.402823e38, label: 'Single' },
 	double: { min: -1.7976931348623157e308, max: 1.7976931348623157e308, label: 'Double' },
 	currency: { min: -922337203685477.5807, max: 922337203685477.5807, label: 'Currency' },
@@ -81,7 +89,7 @@ const RANGES: Readonly<Record<NumericType, { min: number; max: number; label: st
 };
 
 const RANK: Readonly<Record<NumericType, number>> = {
-	byte: 0, integer: 1, long: 2, single: 3, double: 4, currency: 5, date: 6,
+	byte: 0, integer: 1, long: 2, longlong: 3, single: 4, double: 5, currency: 6, date: 7,
 };
 
 /**
@@ -91,6 +99,9 @@ const RANK: Readonly<Record<NumericType, number>> = {
  * so #12/31/9999# + 1 overflows; two Dates subtracted make a Double.
  */
 function arithmeticResultType(a: NumericType, b: NumericType, op: string): NumericType {
+	if ((a === 'longlong' || b === 'longlong') && (a === 'single' || b === 'single')) {
+		return 'double';
+	}
 	if (a === 'currency' || b === 'currency') {
 		return (a === 'double' || b === 'double' || a === 'single' || b === 'single') ? 'double' : 'currency';
 	}
@@ -104,7 +115,15 @@ function isOverflow(folded: Folded): folded is Overflow {
 	return folded !== undefined && 'overflow' in folded;
 }
 
-function inRange(value: number, type: NumericType): boolean {
+/** 2^63: one past the largest LongLong. */
+const LONGLONG_LIMIT = 2n ** 63n;
+
+function inRange(value: number, type: NumericType, exact?: bigint): boolean {
+	if (type === 'longlong') {
+		return exact !== undefined
+			? exact >= -LONGLONG_LIMIT && exact < LONGLONG_LIMIT
+			: Number.isFinite(value) && value >= -(2 ** 63) && value < 2 ** 63;
+	}
 	const range = RANGES[type];
 	// A Date's range is of days: any time of 12/31/9999 is in it.
 	const checked = type === 'date' ? Math.trunc(value) : value;
@@ -117,6 +136,10 @@ function literalTyped(tok: VbaToken): Typed | undefined {
 	if (tok.kind === 'integerLiteral') {
 		const raw = tok.rawText;
 		const suffix = /[%&^]$/.exec(raw)?.[0];
+		if (suffix === '^') {
+			const exact = longLongLiteral(raw);
+			return exact === undefined ? undefined : { value: Number(exact), type: 'longlong', exact };
+		}
 		const value = parseVbaIntegerLiteral(raw);
 		if (value === undefined) {
 			return undefined;
@@ -126,9 +149,6 @@ function literalTyped(tok: VbaToken): Typed | undefined {
 		}
 		if (suffix === '&') {
 			return { value, type: 'long' };
-		}
-		if (suffix === '^') {
-			return undefined; // LongLong is not modelled here
 		}
 		// A hex or octal literal arrives already signed by its width
 		// (parseVbaIntegerLiteral, issue #141): &H8000 is -32768 and an
@@ -155,6 +175,26 @@ function literalTyped(tok: VbaToken): Typed | undefined {
 		return serial === undefined ? undefined : { value: serial, type: 'date' };
 	}
 	return undefined;
+}
+
+/**
+ * A `^` literal's exact value: `9223372036854775807^`, `&H7FFFFFFFFFFFFFFF^`
+ * (a hex or octal literal keeps the sign of its width). A decimal past the
+ * range is a syntax error that suffixed-literal-overflow reports.
+ */
+function longLongLiteral(raw: string): bigint | undefined {
+	const body = raw.slice(0, -1);
+	let value: bigint;
+	if (/^\d+$/.test(body)) {
+		value = BigInt(body);
+		return value < LONGLONG_LIMIT ? value : undefined;
+	}
+	const radix = /^&([Hh])([0-9A-Fa-f]+)$|^&[Oo]?([0-7]+)$/.exec(body);
+	if (!radix) {
+		return undefined;
+	}
+	value = radix[2] !== undefined ? BigInt(`0x${radix[2]}`) : BigInt(`0o${radix[3]}`);
+	return value < 2n ** 64n ? BigInt.asIntN(64, value) : undefined;
 }
 
 /**
@@ -298,10 +338,11 @@ class TypedFolder {
 				return operand;
 			}
 			const value = -operand.value;
-			if (!inRange(value, operand.type)) {
-				return { overflow: true, span: this.span(start, this.index - 1), detail: `Negating ${showNumber(operand.value)} gives ${showNumber(-operand.value)}, which does not fit ${RANGES[operand.type].label}` };
+			const exact = operand.exact !== undefined ? -operand.exact : undefined;
+			if (!inRange(value, operand.type, exact)) {
+				return { overflow: true, span: this.span(start, this.index - 1), detail: `Negating ${exact !== undefined ? String(operand.exact) : showNumber(operand.value)} gives ${exact !== undefined ? String(exact) : showNumber(-operand.value)}, which does not fit ${RANGES[operand.type].label}` };
 			}
-			return { value, type: operand.type };
+			return { value, type: operand.type, ...(exact !== undefined ? { exact } : {}) };
 		}
 		return this.power();
 	}
@@ -428,6 +469,13 @@ class TypedFolder {
 				? undefined
 				: { overflow: true, span, detail: `${callee === 'hex' ? 'Hex' : 'Oct'}(${inner.value}) takes a value outside the Long range` };
 		}
+		if (target === 'longlong' || target === 'longptr') {
+			const value = bankersRound(inner.value);
+			const exact = inner.exact ?? spelledWhole(shown) ?? (Number.isSafeInteger(value) ? BigInt(value) : undefined);
+			return inRange(value, 'longlong', exact)
+				? { value, type: 'longlong', ...(exact !== undefined ? { exact } : {}) }
+				: { overflow: true, span, detail: `${CONVERSION_NAMES[callee]}(${shown}) does not fit ${target === 'longptr' ? 'a LongPtr, whose range is at most a LongLong\'s' : 'LongLong'}` };
+		}
 		const type = target as NumericType;
 		const value = type === 'single' || type === 'double' || type === 'currency' || type === 'date' ? inner.value : bankersRound(inner.value);
 		return inRange(value, type)
@@ -437,6 +485,9 @@ class TypedFolder {
 
 	private combine(left: Typed, right: Typed, op: string, from: number, to: number): Folded {
 		const span = this.span(from, to);
+		if ((left.type === 'longlong' || right.type === 'longlong') && op !== '/' && op !== '^') {
+			return combineLongLong(left, right, op, span);
+		}
 		let type: NumericType;
 		let value: number;
 		switch (op) {
@@ -485,6 +536,57 @@ class TypedFolder {
 	}
 }
 
+/** A whole number spelled in digits, as a conversion's string or literal argument shows it. */
+function spelledWhole(shown: string): bigint | undefined {
+	const digits = /^"?\s*([-+]?)(\d+)\s*"?$/.exec(shown);
+	return digits ? (digits[1] === '-' ? -BigInt(digits[2]) : BigInt(digits[2])) : undefined;
+}
+
+const WHOLE_TYPES: ReadonlySet<NumericType> = new Set(['byte', 'integer', 'long', 'longlong']);
+
+/** A whole-number operand's exact value, when it has one. */
+function exactOf(typed: Typed): bigint | undefined {
+	if (typed.exact !== undefined) {
+		return typed.exact;
+	}
+	return WHOLE_TYPES.has(typed.type) && Number.isSafeInteger(typed.value) ? BigInt(typed.value) : undefined;
+}
+
+/**
+ * `+ - * \ Mod` with a LongLong operand. With another whole number the
+ * result is a LongLong, folded exactly; with a Single or Double it is a
+ * Double. With a Currency or a Date the result type is not modelled, and
+ * nothing is judged.
+ */
+function combineLongLong(left: Typed, right: Typed, op: string, span: Span): Folded {
+	const other = left.type === 'longlong' ? right.type : left.type;
+	if (other === 'single' || other === 'double') {
+		if (op === '\\' || op === 'mod') {
+			return undefined;
+		}
+		const value = op === '+' ? left.value + right.value : op === '-' ? left.value - right.value : left.value * right.value;
+		return inRange(value, 'double') ? { value, type: 'double' } : { overflow: true, span, detail: `${describe(left)} ${op} ${describe(right)} is outside the Double range` };
+	}
+	const a = exactOf(left);
+	const b = exactOf(right);
+	if (a === undefined || b === undefined) {
+		return undefined;
+	}
+	let exact: bigint;
+	if (op === '\\' || op === 'mod') {
+		if (b === 0n) {
+			return undefined; // division by zero is another rule's
+		}
+		exact = op === 'mod' ? a % b : a / b;
+	} else {
+		exact = op === '+' ? a + b : op === '-' ? a - b : a * b;
+	}
+	if (!inRange(0, 'longlong', exact)) {
+		return { overflow: true, span, detail: `${describe(left)} ${op === 'mod' ? 'Mod' : op} ${describe(right)} is ${exact}, outside the LongLong range` };
+	}
+	return { value: Number(exact), type: 'longlong', exact };
+}
+
 function describe(typed: Typed): string {
 	if (typed.type === 'date') {
 		// Before serial 0 the fraction counts forward from the day's start
@@ -500,7 +602,23 @@ function describe(typed: Typed): string {
 		const clock = `${hour % 12 === 0 ? 12 : hour % 12}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
 		return `#${date} ${clock} ${hour < 12 ? 'AM' : 'PM'}# (Date)`;
 	}
-	return `${showNumber(typed.value)} (${RANGES[typed.type].label})`;
+	return `${typed.exact !== undefined ? String(typed.exact) : showNumber(typed.value)} (${RANGES[typed.type].label})`;
+}
+
+/** A type's range as the message shows it; a LongLong's ends print exactly. */
+function rangeText(type: NumericType): string {
+	return type === 'longlong'
+		? '-9223372036854775808 to 9223372036854775807'
+		: `${RANGES[type].min} to ${RANGES[type].max}`;
+}
+
+/** A folded value converted to a target type, rounded as VBA stores it. */
+function storedValue(folded: Typed, target: NumericType): { value: number; exact?: bigint } {
+	if (target === 'single' || target === 'double' || target === 'currency' || target === 'date') {
+		return { value: folded.value };
+	}
+	const value = bankersRound(folded.value);
+	return target === 'longlong' && folded.exact !== undefined ? { value, exact: folded.exact } : { value };
 }
 
 /** A value as VBA would print it: whole numbers plain, huge or fractional ones in E notation. */
@@ -521,10 +639,10 @@ function article(label: string): string {
 	return /^[AEIOU]/.test(label) ? 'an' : 'a';
 }
 
-const CONVERSIONS: ReadonlyMap<string, NumericType | 'abs' | 'int' | 'fix' | 'exp' | 'hex' | 'oct' | 'decimal'> = new Map([
+const CONVERSIONS: ReadonlyMap<string, NumericType | 'abs' | 'int' | 'fix' | 'exp' | 'hex' | 'oct' | 'decimal' | 'longptr'> = new Map([
 	['cbyte', 'byte'], ['cint', 'integer'], ['clng', 'long'], ['csng', 'single'], ['cdbl', 'double'],
 	['ccur', 'currency'], ['cdate', 'date'], ['abs', 'abs'], ['int', 'int'], ['fix', 'fix'], ['exp', 'exp'],
-	['hex', 'hex'], ['oct', 'oct'], ['cdec', 'decimal'],
+	['hex', 'hex'], ['oct', 'oct'], ['cdec', 'decimal'], ['clnglng', 'longlong'], ['clngptr', 'longptr'],
 ]);
 
 /** 2^96, one past the largest Decimal. */
@@ -544,6 +662,7 @@ function decimalFits(value: number, shown: string): boolean {
 
 const CONVERSION_NAMES: Readonly<Record<string, string>> = {
 	cbyte: 'CByte', cint: 'CInt', clng: 'CLng', csng: 'CSng', cdbl: 'CDbl', ccur: 'CCur', cdate: 'CDate',
+	clnglng: 'CLngLng', clngptr: 'CLngPtr',
 };
 
 function numericTypeOf(asType: string | undefined): NumericType | undefined {
@@ -554,7 +673,9 @@ function numericTypeOf(asType: string | undefined): NumericType | undefined {
 	if (normalized in RANGES) {
 		return normalized as NumericType;
 	}
-	return undefined;
+	// A LongPtr is a Long or a LongLong by platform: past LongLong's range it
+	// overflows on both, and inside it is not judged.
+	return normalized === 'longptr' ? 'longlong' : undefined;
 }
 
 /**
@@ -605,8 +726,9 @@ function constantLookup(
 			return undefined;
 		}
 		const declared = numericTypeOf(symbol.asType);
-		const typed: Typed = declared ? { value: value.value, type: declared } : value;
-		if (declared && !inRange(bankersRound(value.value), declared)) {
+		const kept = declared ? storedValue(value, declared) : undefined;
+		const typed: Typed = declared && kept ? { value: kept.value, type: declared, ...(kept.exact !== undefined ? { exact: kept.exact } : {}) } : value;
+		if (declared && kept && !inRange(kept.value, declared, kept.exact)) {
 			return undefined;
 		}
 		folded.set(lower, typed);
@@ -716,8 +838,11 @@ function checkConstDeclarations(
 				continue;
 			}
 			const declared = numericTypeOf(decl.asType);
-			if (folded && declared && !inRange(declared === 'single' || declared === 'double' || declared === 'currency' || declared === 'date' ? folded.value : bankersRound(folded.value), declared)) {
-				push('constOverflow', `Const '${decl.name}' is declared As ${RANGES[declared].label} but its value ${folded.value} is outside that range. This is a VBE compile error: Overflow.`, { start: decl.span.start + value[0].start, end: decl.span.start + value[value.length - 1].end });
+			const kept = folded && declared ? storedValue(folded, declared) : undefined;
+			if (folded && declared && kept && !inRange(kept.value, declared, kept.exact)) {
+				const label = normalizeType(decl.asType) === 'longptr' ? 'LongPtr' : RANGES[declared].label;
+				const shown = folded.exact !== undefined ? String(folded.exact) : String(folded.value);
+				push('constOverflow', `Const '${decl.name}' is declared As ${label} but its value ${shown} is outside ${label === 'LongPtr' ? "even a LongLong's range" : 'that range'}. This is a VBE compile error: Overflow.`, { start: decl.span.start + value[0].start, end: decl.span.start + value[value.length - 1].end });
 			}
 		}
 	}
@@ -797,46 +922,128 @@ function checkStatement(
 	if (head === 'const' || head === 'dim' || head === 'static' || head === 'redim') {
 		return undefined;
 	}
+	const reported = new Set<string>();
+	const report = (folded: Overflow): void => {
+		const key = `${folded.span.start}:${folded.span.end}`;
+		if (!reported.has(key)) {
+			reported.add(key);
+			push('arithmeticOverflow', `${folded.detail}. This will raise Run-time error '6': Overflow.`, folded.span);
+		}
+	};
+	let stored: { name: string; value: Typed } | undefined;
 	const bare = bareAssignmentTarget(source, span);
 	if (bare) {
 		const value = bare.valueTokens.filter((tok) => tok.kind !== 'comment');
 		const folded = new TypedFolder(value, span.start, names).fold();
-		if (isOverflow(folded)) {
-			push('arithmeticOverflow', `${folded.detail}. This will raise Run-time error '6': Overflow.`, folded.span);
-			return undefined;
-		}
 		const target = numericTypeOf(env.get(bare.name.toLowerCase()));
-		if (folded && target) {
-			const stored = target === 'single' || target === 'double' || target === 'currency' || target === 'date' ? folded.value : bankersRound(folded.value);
-			if (!inRange(stored, target)) {
-				const rounded = stored !== folded.value ? ` (${showNumber(folded.value)} rounds to ${showNumber(stored)})` : '';
-				push('arithmeticOverflow', `Assignment to '${bare.name}' stores ${showNumber(stored)}${rounded} in ${article(RANGES[target].label)} ${RANGES[target].label}, whose range is ${RANGES[target].min} to ${RANGES[target].max}. This will raise Run-time error '6': Overflow.`, {
+		if (isOverflow(folded)) {
+			report(folded);
+		} else if (folded && target) {
+			const kept = storedValue(folded, target);
+			if (!inRange(kept.value, target, kept.exact)) {
+				const shown = kept.exact !== undefined ? String(kept.exact) : showNumber(kept.value);
+				const rounded = kept.value !== folded.value ? ` (${showNumber(folded.value)} rounds to ${showNumber(kept.value)})` : '';
+				const label = normalizeType(env.get(bare.name.toLowerCase())) === 'longptr' ? 'LongPtr, which holds no more than a LongLong' : RANGES[target].label;
+				push('arithmeticOverflow', `Assignment to '${bare.name}' stores ${shown}${rounded} in ${article(label)} ${label}, whose range is ${rangeText(target)}. This will raise Run-time error '6': Overflow.`, {
 					start: span.start + value[0].start,
 					end: span.start + value[value.length - 1].end,
 				});
 				return undefined;
 			}
-			return { name: bare.name.toLowerCase(), value: { value: stored, type: target } };
+			stored = { name: bare.name.toLowerCase(), value: { value: kept.value, type: target, ...(kept.exact !== undefined ? { exact: kept.exact } : {}) } };
 		}
-		return undefined;
 	}
-	// Conversion calls anywhere else in the statement: `Debug.Print CInt(40000)`.
-	for (let i = 0; i + 1 < toks.length; i++) {
-		const callee = tokenText(toks[i]);
-		if (!(CONVERSIONS.has(callee) || callee === 'val') || toks[i + 1].rawText !== '(' || !isBareOrVbaQualifiedIntrinsicCall(toks, i)) {
-			continue;
+	// Every other part the statement evaluates on its own: a call's
+	// arguments, an operand of & or a comparison, an array index, a
+	// conversion anywhere (issue #232). `Main = CStr(CInt(40000))` and
+	// `IIf(True, 0, CInt(40000))` overflow as `Main = CInt(40000)` does.
+	checkParts(toks, span.start, names, report);
+	return stored;
+}
+
+/**
+ * Keywords that stand between separately evaluated parts: the operators the
+ * folder does not fold, and the statement words around an expression. A
+ * keyword that is an operand or a function, `Date` or `CInt`, is not one:
+ * `Date - 32767% - 2%` is Date arithmetic, and its tail is no Integer sum.
+ */
+const PART_KEYWORDS: ReadonlySet<string> = new Set([
+	'and', 'or', 'xor', 'eqv', 'imp', 'not', 'like', 'is', 'if', 'then', 'else', 'elseif',
+	'to', 'step', 'print', 'call', 'set', 'let', 'return', 'while', 'until', 'case', 'with',
+	'select', 'each', 'in', 'goto', 'gosub', 'on',
+]);
+
+/**
+ * Tokens that end one separately evaluated part of an expression: a comma,
+ * `:=`, every operator the folder does not fold (&, comparisons), and the
+ * keywords above, so `Debug.Print 200 * 200` leaves `200 * 200` to fold.
+ */
+function endsPart(tok: VbaToken): boolean {
+	if (tok.rawText === ',' || tok.rawText === ';' || tok.rawText === ':=') {
+		return true;
+	}
+	if (tok.kind === 'operator') {
+		return !['+', '-', '*', '/', '\\', '^', '(', ')', '.', '!'].includes(tok.rawText);
+	}
+	return tok.kind === 'keyword' && PART_KEYWORDS.has(tokenText(tok));
+}
+
+/**
+ * Folds each part of `toks` that is evaluated on its own; a part that does not
+ * fold is searched for parenthesized parts that do, so an argument nested at
+ * any depth is reached.
+ */
+function checkParts(toks: readonly VbaToken[], base: number, names: NameLookup, report: (folded: Overflow) => void): void {
+	let from = 0;
+	const part = (to: number): void => {
+		const piece = toks.slice(from, to).filter((tok) => tok.kind !== 'comment');
+		from = to + 1;
+		if (piece.length === 0) {
+			return;
 		}
-		const close = matchParenFrom(toks, i + 1);
-		if (close < 0) {
-			continue;
-		}
-		const start = toks[i - 1]?.rawText === '.' ? i - 2 : i;
-		const folded = new TypedFolder(toks.slice(start, close + 1), span.start, names).fold();
+		const folded = new TypedFolder(piece, base, names).fold();
 		if (isOverflow(folded)) {
-			push('arithmeticOverflow', `${folded.detail}. This will raise Run-time error '6': Overflow.`, folded.span);
+			report(folded);
+			return;
+		}
+		if (folded !== undefined) {
+			return;
+		}
+		for (let i = 0; i < piece.length; i++) {
+			if (piece[i].rawText !== '(') {
+				continue;
+			}
+			const close = matchParenFrom(piece, i);
+			if (close < 0) {
+				return;
+			}
+			// A conversion folds with its call: `CInt(40000)` overflows though 40000 does not.
+			const callee = tokenText(piece[i - 1]);
+			if (CONVERSIONS.has(callee) && isBareOrVbaQualifiedIntrinsicCall(piece, i - 1)) {
+				const start = piece[i - 2]?.rawText === '.' ? i - 3 : i - 1;
+				const call = new TypedFolder(piece.slice(start, close + 1), base, names).fold();
+				if (isOverflow(call)) {
+					report(call);
+					i = close;
+					continue;
+				}
+			}
+			checkParts(piece.slice(i + 1, close), base, names, report);
+			i = close;
+		}
+	};
+	let depth = 0;
+	for (let i = 0; i < toks.length; i++) {
+		const raw = toks[i].rawText;
+		if (raw === '(') {
+			depth++;
+		} else if (raw === ')') {
+			depth--;
+		} else if (depth === 0 && endsPart(toks[i])) {
+			part(i);
 		}
 	}
-	return undefined;
+	part(toks.length);
 }
 
 /**
@@ -925,13 +1132,24 @@ function checkForCounter(
 		return;
 	}
 	const range = RANGES[type];
-	const overflows = stepValue.value > 0 ? last + stepValue.value > range.max : last + stepValue.value < range.min;
+	let lastShown = String(last);
+	let overflows = stepValue.value > 0 ? last + stepValue.value > range.max : last + stepValue.value < range.min;
+	if (type === 'longlong') {
+		// Exactly: a double cannot tell 2^63 - 1 from 2^63 (issue #232).
+		const exactLast = Math.abs(stepValue.value) === 1 ? exactOf(limit) : undefined;
+		const exactStep = exactOf(stepValue);
+		if (exactLast === undefined || exactStep === undefined) {
+			return;
+		}
+		overflows = !inRange(0, 'longlong', exactLast + exactStep);
+		lastShown = String(exactLast);
+	}
 	if (!overflows || bodyMayLeaveLoop(source, node.body)) {
 		return;
 	}
 	push(
 		'forCounterOverflow',
-		`Counter '${node.controlVariable}' is ${range.label}; after its last pass at ${last} the loop adds ${stepValue.value}, which does not fit. This will raise Run-time error '6': Overflow.`,
+		`Counter '${node.controlVariable}' is ${range.label}; after its last pass at ${lastShown} the loop adds ${stepValue.value}, which does not fit. This will raise Run-time error '6': Overflow.`,
 		{ start: header.start + limitToks[0].start, end: header.start + limitToks[limitToks.length - 1].end },
 	);
 }

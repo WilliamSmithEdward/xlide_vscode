@@ -2655,6 +2655,16 @@ export function numericLiteralOverflowReason(
  * Currency keeps four decimal places and is left out, as for whole numbers.
  */
 function floatLiteralOverflowReason(expected: string, actual: InferredArgumentType): string | undefined {
+	if (actual.floatValue !== undefined && (expected === 'longlong' || expected === 'longptr')) {
+		// Past LongLong's range a LongPtr overflows too, whatever its width
+		// (issue #232): `Take(1E+19)` with ByVal v As LongLong raises 6.
+		const rounded = bankersRound(actual.floatValue);
+		if (rounded < 2 ** 63 && rounded >= -(2 ** 63)) {
+			return undefined;
+		}
+		const label = expected === 'longptr' ? 'LongPtr' : 'LongLong';
+		return `The numeric literal ${actual.numericText ?? actual.floatValue} is outside the ${label} range${expected === 'longptr' ? ', at most' : ''} -9223372036854775808 to 9223372036854775807. This will raise Run-time error '6': Overflow.`;
+	}
 	if (actual.floatValue === undefined || (expected !== 'byte' && expected !== 'integer' && expected !== 'long')) {
 		return undefined;
 	}
