@@ -31,7 +31,8 @@ import type { ConditionalActivityTracker } from '../../conditional/conditionalCo
 import type { MemberCompletionContext } from '../../completion/memberAccess';
 import type { ModuleNode, ParameterNode, ProcedureNode } from '../../parser/nodes';
 import { HOST_EVENT_SIGNATURES } from '../../host/eventSignaturesData';
-import { resolveHostAlias } from '../../host/hostModel';
+import { getHostType, resolveHostAlias } from '../../host/hostModel';
+import { isAccessDesignerClass } from '../../symbols/symbolModel';
 import type { ModuleSymbolKind } from '../../symbols/symbolModel';
 import type { AnalyzeModuleOptions, PushFn } from '../analysisContext';
 import { normalizeType } from '../typeInference';
@@ -93,7 +94,16 @@ export function checkEventHandlerSignatures(
 	if (moduleKind === 'document' && opts.documentType && DOCUMENT_OBJECTS[opts.documentType]) {
 		add(...DOCUMENT_OBJECTS[opts.documentType]);
 	}
-	if (moduleKind === 'userform') {
+	if (moduleKind === 'userform' && isAccessDesignerClass(opts.designerClass)) {
+		// An Access form or report, and its controls, raise Access's events:
+		// `Qty_BeforeUpdate(Cancel As Integer)` compiles there, and
+		// `Form_BeforeUpdate(ByVal Cancel As Integer)` does not (issue #227).
+		const designer = opts.designerClass!;
+		addHostEvents(designer.toLowerCase() === 'access.report' ? 'Report' : 'Form', designer, memberCtx, sources);
+		for (const control of opts.implicitMembers ?? []) {
+			addHostEvents(control.name, control.type, memberCtx, sources);
+		}
+	} else if (moduleKind === 'userform') {
 		add('UserForm', 'MSForms.UserForm', VBA_USERFORM);
 		// A control's handlers take its own events and the extender's
 		// (Enter, Exit, BeforeUpdate, AfterUpdate).
@@ -188,6 +198,31 @@ function projectEventsOf(
 		}
 	}
 	return { owner: type.name, events };
+}
+
+/**
+ * The events a host type declares in its object model, under the prefix a
+ * handler takes: Access keeps its events there, read from MSACC.OLB with
+ * ByVal where the library passes by value.
+ */
+function addHostEvents(prefix: string, type: string, memberCtx: MemberCompletionContext, sources: Map<string, string[]>): void {
+	const resolved = resolveHostAlias(type, memberCtx.model) ?? type;
+	const key = resolved.toLowerCase();
+	if (!EVENTS_BY_CLASS.has(key)) {
+		const events = new Map<string, { name: string; params: string }>();
+		// The type's own list: the member index leaves events out.
+		for (const member of getHostType(resolved, memberCtx.model)?.members ?? []) {
+			const open = member.signature?.indexOf('(') ?? -1;
+			if (member.kind === 'event' && member.signature && open >= 0 && member.signature.endsWith(')')) {
+				events.set(member.name.toLowerCase(), { name: member.name, params: member.signature.slice(open + 1, -1) });
+			}
+		}
+		if (events.size === 0) {
+			return;
+		}
+		EVENTS_BY_CLASS.set(key, { name: resolved, events });
+	}
+	sources.set(prefix.toLowerCase(), [resolved]);
 }
 
 /** The class with events a WithEvents variable's declared type names, or undefined. */
