@@ -1123,7 +1123,7 @@ export const DIAGNOSTIC_RULES = {
 		vbeCompileEquivalent: false,
 		diagnosticKind: 'deterministic-runtime-error',
 		source: 'XLIDE',
-		specReference: "VBE runtime error 9: Subscript out of range",
+		specReference: "VBE runtime error 9: Subscript out of range; 92 for For Each",
 		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},

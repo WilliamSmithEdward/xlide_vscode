@@ -806,7 +806,10 @@
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "unallocated_dynamic_array_index_runtime",
-        "unallocated_dynamic_array_lbound_runtime"
+        "unallocated_dynamic_array_lbound_runtime",
+        "issue181_08_runtime",
+        "issue181_09_runtime",
+        "issue181_10_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -825,7 +828,11 @@
         "runtime006_negative_rejected",
         "runtime006_upper_max_accepted",
         "runtime006_default_base_low_accepted",
-        "issue180_07_runtime"
+        "issue180_07_runtime",
+        "issue181_01_runtime",
+        "issue181_02_runtime",
+        "issue181_06_runtime",
+        "issue181_07_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

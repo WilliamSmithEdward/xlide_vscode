@@ -751,6 +751,18 @@ export function checkUnallocatedDynamicArrayAccess(
 		walk(member.body, (node) => isInactiveNode(activity, node), {
 			onStatement: (stmt) =>
 				checkUnallocatedDynamicArrayAccessStatement(source, stmt, arrays, state, push),
+			onBlock: (node) => {
+				// `For Each x In a` over an array with no storage raises 92, For
+				// loop not initialized, not 9 (issue #181, measured in Excel 16.0).
+				const over = node.kind === 'ForBlock' && node.each ? node.sourceExpression?.trim().toLowerCase() : undefined;
+				if (over && node.kind === 'ForBlock' && node.sourceExpressionSpan && state.get(over) === 'unallocated') {
+					push(
+						'unallocatedDynamicArrayAccess',
+						`Dynamic array '${arrays.get(over)!.name}' is not allocated when For Each asks it for its elements. This will raise Run-time error '92': For loop not initialized.`,
+						node.sourceExpressionSpan,
+					);
+				}
+			},
 			touchesInStatement: (stmt) => dynamicArrayTouchesInStatement(source, stmt, arrays),
 			demoteToUnknown: (lower) => {
 				state.set(lower, 'unknown');
@@ -1282,7 +1294,8 @@ export function moduleOptionBase(mod: ModuleNode, activity: ConditionalActivityT
  *    is based at 0 (both measured in Excel 16.0).
  *  - `Array()` has UBound -1: every index is out of range.
  *  - `Split` is always 0-based and yields one part per delimiter plus one;
- *    Split("abc", ",") is one element, Split("a,b", ",") two.
+ *    Split("abc", ",") is one element, Split("a,b", ",") two. Split("") is
+ *    empty, UBound -1, like `Array()` (issue #181).
  *  - A Range's `.Value` over a multi-cell address literal is a 1-based
  *    two-dimensional array of the address's rows and columns.
  */
@@ -1460,7 +1473,7 @@ function arrayValueShape(valueTokens: readonly VbaToken[], name: string, optionB
 		if (delimiter.length === 0) {
 			return undefined;
 		}
-		const parts = text.length === 0 ? 1 : text.split(delimiter).length;
+		const parts = text.length === 0 ? 0 : text.split(delimiter).length;
 		return { name, dims: [{ lower: 0, upper: parts - 1, explicitLower: true }], origin: 'Split(...)' };
 	}
 	// `Range("A1:B2").Value` and `Worksheets(1).Range("A1:B2").Value`.

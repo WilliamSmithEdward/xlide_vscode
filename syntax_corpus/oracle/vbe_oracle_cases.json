@@ -7523,6 +7523,160 @@
       "source": "Option Explicit\nSub Main()\n    Dim n As Long, s As String\n    n = -1: s = Space(n): n = 2\nEnd Sub\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue181_01_runtime",
+      "description": "Issue #181 case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nSub Main()\n    Dim parts() As String\n    parts = Split(\"\", \",\")\n    Debug.Print parts(0)\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue181_02_runtime",
+      "description": "Issue #181 case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nSub Main()\n    Dim parts As Variant\n    parts = Split(\"\", \",\")\n    Debug.Print parts(0)\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue181_03_runtime",
+      "description": "Issue #181 case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> -1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main()\n    Dim parts() As String\n    parts = Split(\"\", \",\")\n    Main = UBound(parts)\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue181_04_runtime",
+      "description": "Issue #181 case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main()\n    Dim parts As Variant, i As Long, n As Long\n    parts = Split(\"\", \",\")\n    For i = 0 To UBound(parts)\n        n = n + Len(parts(i))\n    Next i\n    Main = n\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue181_05_runtime",
+      "description": "Issue #181 case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> a.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main()\n    Main = Split(\"a\", \",\")(0)\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue181_06_runtime",
+      "description": "Issue #181 case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main()\n    Main = Split(\"\", \",\")(0)\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue181_07_runtime",
+      "description": "Issue #181 case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nSub Main()\n    Dim parts As Variant\n    parts = Split(\"\")\n    Debug.Print parts(0)\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue181_08_runtime",
+      "description": "Issue #181 case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 92.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nSub Main()\n    Dim a() As Long, x As Variant\n    For Each x In a\n        Debug.Print x\n    Next x\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue181_09_runtime",
+      "description": "Issue #181 case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 92.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nSub Main()\n    Dim names() As String, x As Variant\n    For Each x In names\n        Debug.Print x\n    Next x\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue181_10_runtime",
+      "description": "Issue #181 case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 92.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nSub Main()\n    Dim a() As Long, x As Variant\n    ReDim a(1 To 2)\n    Erase a\n    For Each x In a\n        Debug.Print x\n    Next x\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue181_11_runtime",
+      "description": "Issue #181 case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main()\n    Dim a() As Long, x As Variant, n As Long\n    ReDim a(1 To 2)\n    For Each x In a\n        n = n + 1\n    Next x\n    Main = n\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue181_12_runtime",
+      "description": "Issue #181 case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main()\n    Dim a() As Long, x As Variant, n As Long\n    If Len(\"a\") = 1 Then ReDim a(1 To 2)\n    If Len(\"a\") = 2 Then\n        For Each x In a\n            n = n + 1\n        Next x\n    End If\n    Main = n\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue181_13_runtime",
+      "description": "Issue #181 case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main()\n    Dim a() As Long, x As Variant, n As Long\n    Fill a\n    For Each x In a\n        n = n + 1\n    Next x\n    Main = n\nEnd Function\nSub Fill(b() As Long)\n    ReDim b(1 To 2)\nEnd Sub\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue181_14_runtime",
+      "description": "Issue #181 case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main()\n    Dim parts() As String, x As Variant, n As Long\n    parts = Split(\"\", \",\")\n    For Each x In parts\n        n = n + 1\n    Next x\n    Main = n\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

@@ -74,6 +74,33 @@ describe('array-subscript-out-of-bounds - bounds from values (issue #120)', () =
 		expect(byCode(analyzeModule(inRange), CODE)).toHaveLength(0);
 	});
 
+	it('reads Split of an empty string as an empty array (issue #181)', () => {
+		const src = wrap(
+			'Dim parts() As String, v As Variant',
+			'parts = Split("", ",")',
+			'Main = parts(0)',
+			'v = Split("")',
+			'Main = v(0)',
+			'Main = Split("", ",")(0)',
+		);
+		expectDiagnostics(src, analyzeModule(src), CODE, [
+			{ span: '0', message: ["'parts'", 'the array is empty (UBound -1)'] },
+			{ span: '0', message: "'v'" },
+			{ span: '0', message: 'Split returns' },
+		]);
+		// Each runs in Excel: UBound is -1, and the loop runs no pass.
+		const quiet = wrap(
+			'Dim parts As Variant, i As Long',
+			'parts = Split("", ",")',
+			'Main = UBound(parts)',
+			'For i = 0 To UBound(parts)',
+			'    Main = Main + Len(parts(i))',
+			'Next i',
+			'Main = Split("a", ",")(0)',
+		);
+		expect(byCode(analyzeModule(quiet), CODE)).toHaveLength(0);
+	});
+
 	it('stays quiet once something else could have shaped the array', () => {
 		const src = wrap(
 			'Dim v As Variant, a() As String',

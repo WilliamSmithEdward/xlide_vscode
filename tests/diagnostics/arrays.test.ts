@@ -700,6 +700,51 @@ describe('analyzeModule - unallocated dynamic array access', () => {
 		expect(byCode(analyzeModule(src), 'unallocated-dynamic-array-access')).toHaveLength(0);
 	});
 
+	it('flags For Each over an array never allocated, or erased, with error 92 (issue #181)', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim a() As Long, names() As String, x As Variant\n' +
+			'    For Each x In a\n' +
+			'        Debug.Print x\n' +
+			'    Next x\n' +
+			'    For Each x In names\n' +
+			'        Debug.Print x\n' +
+			'    Next x\n' +
+			'    ReDim a(1 To 2)\n' +
+			'    For Each x In a\n' +
+			'        Debug.Print x\n' +
+			'    Next x\n' +
+			'    Erase a\n' +
+			'    For Each x In a\n' +
+			'        Debug.Print x\n' +
+			'    Next x\n' +
+			'End Sub\n';
+		expectDiagnostics(src, analyzeModule(src), 'unallocated-dynamic-array-access', [
+			{ span: 'a', message: ["'a'", "error '92'", 'For loop not initialized'] },
+			{ span: 'names', message: "'names'" },
+			{ span: 'a', message: "error '92'" },
+		]);
+	});
+
+	it('does not flag For Each once a call or a branch may have allocated the array', () => {
+		const src =
+			'Public Function T() As Long\n' +
+			'    Dim a() As Long, b() As Long, x As Variant\n' +
+			'    Fill a\n' +
+			'    For Each x In a\n' +
+			'        T = T + 1\n' +
+			'    Next x\n' +
+			'    If Len("a") = 1 Then ReDim b(1 To 2)\n' +
+			'    For Each x In b\n' +
+			'        T = T + 1\n' +
+			'    Next x\n' +
+			'End Function\n' +
+			'Sub Fill(v() As Long)\n' +
+			'    ReDim v(1 To 2)\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), 'unallocated-dynamic-array-access')).toHaveLength(0);
+	});
+
 	it('ignores inactive conditional-compilation indexed access', () => {
 		const src =
 			'#Const Enabled = False\n' +
