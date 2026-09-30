@@ -26463,6 +26463,438 @@
       ],
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue228_01_compile",
+      "description": "Issue #228 document module scope, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Function Probe() As Variant\r\n    Probe = UsedRange.Address\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue228_02_compile",
+      "description": "Issue #228 document module scope, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Function Probe() As Variant\r\n    Probe = Index\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue228_03_compile",
+      "description": "Issue #228 document module scope, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Function Probe() As Variant\r\n    Probe = CodeName\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue228_04_compile",
+      "description": "Issue #228 document module scope, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Function Probe() As Variant\r\n    Probe = Shapes.Count\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue228_05_compile",
+      "description": "Issue #228 document module scope, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Function Probe() As Variant\r\n    Probe = Nope\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue228_06_compile",
+      "description": "Issue #228 document module scope, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Function Probe() As Variant\r\n    Probe = FullName\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue228_07_compile",
+      "description": "Issue #228 document module scope, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Function Probe() As Variant\r\n    Probe = FullName\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue228_08_compile",
+      "description": "Issue #228 document module scope, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Function Probe() As Variant\r\n    Probe = Saved\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue228_09_compile",
+      "description": "Issue #228 document module scope, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Function Probe() As Variant\r\n    Probe = CodeName\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue228_10_compile",
+      "description": "Issue #228 document module scope, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Function Probe() As Variant\r\n    Probe = Nope\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue228_11_compile",
+      "description": "Issue #228 document module scope, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\nPublic Function Probe() As Variant\r\n    Probe = UsedRange.Address\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue228_12_compile",
+      "description": "Issue #228 document module scope, case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPrivate Sub Worksheet_Activate(ByVal x As Long)\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue228_13_compile",
+      "description": "Issue #228 document module scope, case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPrivate Sub Worksheet_Change()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue228_14_compile",
+      "description": "Issue #228 document module scope, case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\nPrivate Sub Workbook_Open(ByVal x As Long)\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue228_15_compile",
+      "description": "Issue #228 document module scope, case 15, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\nPrivate Sub Workbook_BeforeClose(ByVal Cancel As Boolean)\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue228_16_compile",
+      "description": "Issue #228 document module scope, case 16, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\nPrivate Sub Worksheet_Change(ByVal Target As Range)\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }

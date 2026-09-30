@@ -25,7 +25,8 @@ import type {
 	ConditionalActivityTracker,
 	ConditionalCompilationEnvironment,
 } from '../conditional/conditionalCompilation';
-import type { MemberCompletionContext } from '../completion/memberAccess';
+import { msFormsControlMembers, type MemberCompletionContext } from '../completion/memberAccess';
+import { VBA_USERFORM_TYPE } from '../host/userFormExtenderMembers';
 import type { EventHandlerDocumentType } from '../completion/eventHandlers';
 import type { ProjectTypeName } from '../completion/typeCompletion';
 import type {
@@ -353,6 +354,42 @@ const DESIGNER_CLASS_MEMBER_NAMES = new WeakMap<HostObjectModel, Map<string, Rea
  * because the module IS one of these. Empty when the host cannot say which
  * class it is, or the model does not carry that type.
  */
+/**
+ * The members of a module's own object, which its code may name bare (issue
+ * #228, measured in Excel 16.0): `UsedRange` and `Shapes` in a sheet's
+ * module, `FullName` and `Saved` in ThisWorkbook, `Controls`, `Tag` and
+ * `Repaint` in a UserForm's. A sheet whose document type is unknown takes a
+ * Worksheet's and a Chart's, since it may be either. A module with a
+ * designer class takes that class's members through designerClassMemberNames.
+ */
+export function ownObjectMemberNames(opts: AnalyzeModuleOptions): ReadonlySet<string> {
+	if (opts.designerClass) {
+		return NO_NAMES;
+	}
+	if (opts.moduleKind === 'userform') {
+		return new Set((msFormsControlMembers(VBA_USERFORM_TYPE) ?? []).map((member) => member.name.toLowerCase()));
+	}
+	if (opts.moduleKind !== 'document') {
+		return NO_NAMES;
+	}
+	const model = opts.hostModel ?? getExcelObjectModel();
+	const host = (model.hostName ?? 'Excel').toLowerCase();
+	const name = opts.moduleName?.toLowerCase();
+	const classes = opts.documentType === 'worksheet' ? ['Excel.Worksheet']
+		: opts.documentType === 'chart' ? ['Excel.Chart']
+			: opts.documentType === 'workbook' ? ['Excel.Workbook']
+				: opts.documentType === 'document' ? ['Word.Document']
+					: host === 'excel' ? (name === 'thisworkbook' ? ['Excel.Workbook'] : ['Excel.Worksheet', 'Excel.Chart'])
+						: host === 'word' && name === 'thisdocument' ? ['Word.Document'] : [];
+	const names = new Set<string>();
+	for (const type of classes) {
+		for (const member of getHostMembers(type, model)) {
+			names.add(member.name.toLowerCase());
+		}
+	}
+	return names;
+}
+
 export function designerClassMemberNames(
 	designerClass: string | undefined,
 	model: HostObjectModel | undefined,

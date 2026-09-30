@@ -204,13 +204,17 @@
         "local_declaration_order_06_compile",
         "local_declaration_order_07_compile",
         "local_declaration_order_08_compile",
-        "local_declaration_order_13_compile"
+        "local_declaration_order_13_compile",
+        "issue228_05_compile",
+        "issue228_06_compile",
+        "issue228_10_compile",
+        "issue228_11_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "syntax_corpus/excel_vba_analysis_final_hardening_cases.md"
       ],
-      "notes": "Active rule covers project-backed Option Explicit write/read positions: bare assignment and Set targets, RHS and call-argument reads, control-flow block headers, member receivers, and indexed bases. Runtime constants and generated Excel enum constants suppress false positives. Type-name, label, named-argument, and unresolved external-style call positions remain intentionally silent until the binder can prove broader reference shapes without false positives. Hidden built-ins (VarPtr/StrPtr/ObjPtr, the byte-string ...B family, and the vbLongLong constant) resolve via the runtime catalog and must not be reported as undeclared (oracle-verified accept). Also a procedure's own Dim, Static or Const used above its line under Option Explicit (localDeclarationOrder.ts; a declaration covers only the lines after it).",
+      "notes": "Active rule covers project-backed Option Explicit write/read positions: bare assignment and Set targets, RHS and call-argument reads, control-flow block headers, member receivers, and indexed bases. Runtime constants and generated Excel enum constants suppress false positives. Type-name, label, named-argument, and unresolved external-style call positions remain intentionally silent until the binder can prove broader reference shapes without false positives. Hidden built-ins (VarPtr/StrPtr/ObjPtr, the byte-string ...B family, and the vbLongLong constant) resolve via the runtime catalog and must not be reported as undeclared (oracle-verified accept). Also a procedure's own Dim, Static or Const used above its line under Option Explicit (localDeclarationOrder.ts; a declaration covers only the lines after it). Issue #228: a module's own object is in scope bare: a sheet's members (UsedRange, Shapes, CodeName) in its module, a Workbook's in ThisWorkbook, a Document's in Word's ThisDocument, and VBA's UserForm members (Controls, Tag, Repaint) in a form; a sheet of unknown type takes a Worksheet's and a Chart's.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -1623,7 +1627,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Only known intrinsic scalar targets, including visible exported standard-module scalar globals, are flagged; unknown host/class object types are deferred to the object binder. Bare Set targets ask the shared assignment-target resolver first, so local shadows win and ambiguous exported globals stay quiet. The target type owns the error even when the right-hand side is an object expression such as New Collection. A scalar value Set into an object target is refused too: \"Type mismatch\" into a variable, \"Object required\" through a Property Set (issue #202). Issue #225: Set of a document module's own name, Set Sheet1 = Nothing, is Invalid use of property. Issue #226: Set of a form's control, Set f.T1 = Nothing, is Invalid use of property.",
+      "notes": "Only known intrinsic scalar targets, including visible exported standard-module scalar globals, are flagged; unknown host/class object types are deferred to the object binder. Bare Set targets ask the shared assignment-target resolver first, so local shadows win and ambiguous exported globals stay quiet. The target type owns the error even when the right-hand side is an object expression such as New Collection. A scalar value Set into an object target is refused too: \"Type mismatch\" into a variable, \"Object required\" through a Property Set (issue #202). Issue #225: Set of a document module's own name, Set Sheet1 = Nothing, is Invalid use of property. Issue #226: Set of a form's control, Set f.T1 = Nothing, is Invalid use of property. Issue #228: in Word, ThisDocument = 5 is Invalid use of property as well.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -3745,11 +3749,13 @@
         "issue226_09_compile",
         "issue226_10_compile",
         "issue226_13_compile",
-        "issue226_14_compile"
+        "issue226_14_compile",
+        "issue228_14_compile",
+        "issue228_15_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Event handler declared unlike its event. VBE compile error: Procedure declaration does not match description of event or procedure having the same name; events from the Office and MSForms type libraries (issue #195, Excel 16.0). Issue #220: a handler for an event a project class declares, through a WithEvents variable of that class, is judged the same way; an empty handler compiles there too, and a parameter of a project Enum may be declared As Long. Issue #226: VBA's own UserForm events, which FM20 does not declare: Initialize, Terminate, Activate, Deactivate and Resize take no parameters, and QueryClose takes Cancel As Integer, CloseMode As Integer, both ByRef. Issue #227: an Access form or report takes its own events, and its controls theirs, from the Access model (MSACC.OLB, ByVal kept), instead of MSForms: Qty_BeforeUpdate(Cancel As Integer) compiles, Form_BeforeUpdate(ByVal Cancel As Integer) and Report_NoData() do not.",
+      "notes": "Event handler declared unlike its event. VBE compile error: Procedure declaration does not match description of event or procedure having the same name; events from the Office and MSForms type libraries (issue #195, Excel 16.0). Issue #220: a handler for an event a project class declares, through a WithEvents variable of that class, is judged the same way; an empty handler compiles there too, and a parameter of a project Enum may be declared As Long. Issue #226: VBA's own UserForm events, which FM20 does not declare: Initialize, Terminate, Activate, Deactivate and Resize take no parameters, and QueryClose takes Cancel As Integer, CloseMode As Integer, both ByRef. Issue #227: an Access form or report takes its own events, and its controls theirs, from the Access model (MSACC.OLB, ByVal kept), instead of MSForms: Qty_BeforeUpdate(Cancel As Integer) compiles, Form_BeforeUpdate(ByVal Cancel As Integer) and Report_NoData() do not. Issue #228: a document module's own handlers (Worksheet_, Workbook_, Document_) are checked even when empty; ThisWorkbook and ThisDocument are known by name when no document type is given.",
       "diagnosticKind": "compile-error"
     },
     {

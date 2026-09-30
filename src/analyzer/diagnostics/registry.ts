@@ -8,7 +8,7 @@
 // reorder entries without updating the snapshot expectations in
 // tests/vbaDiagnostics.test.ts and tests/diagnostics/.
 
-import type { PushFn, RulePassContext } from './analysisContext';
+import { ownObjectMemberNames, type PushFn, type RulePassContext } from './analysisContext';
 import type { ProcedureStatementVisitor } from './walker';
 import type { ProcedureExpressionVisitor } from './exprWalk';
 import {
@@ -311,6 +311,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.opts.designerClass,
 			ctx.opts.referencedHosts,
 			push,
+			ownObjectMemberNames(ctx.opts),
 		),
 	},
 	{
@@ -884,6 +885,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 				ctx.opts.designerClass,
 				push,
 				ctx.opts.projectClassMembers,
+				ownObjectMemberNames(ctx.opts),
 			);
 		},
 	},
