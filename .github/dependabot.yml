@@ -2,8 +2,8 @@
 # is published, whatever this schedule says. Patch and minor bumps come as
 # one pull request per ecosystem, so a week's routine updates are one review.
 # The GitHub Actions entry keeps the commit SHAs the workflows pin current,
-# and the Docker entry the Semgrep and ClamAV images the Security workflow
-# scans with.
+# the Docker entry the Semgrep and ClamAV images the Security workflow
+# scans with, and the pip entry zizmor's hash-locked install.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -51,6 +51,17 @@ updates:
 
   - package-ecosystem: docker
     directories: [/.github/security/clamav, /.github/security/semgrep]
+    schedule:
+      interval: weekly
+      day: monday
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: chore(ci)
+
+  # zizmor, which the Security workflow installs from a hash-locked file.
+  - package-ecosystem: pip
+    directory: /.github/requirements
     schedule:
       interval: weekly
       day: monday
