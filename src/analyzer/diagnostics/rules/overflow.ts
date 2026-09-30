@@ -23,6 +23,7 @@
 // `/` and `^` make Double. A value the folder cannot type stays unknown and
 // nothing is reported for it.
 
+import { DATE_EPOCH_MS, DAY_MS, dateLiteralSerial } from '../../constants/dateLiteral';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpression';
 import type { HostObjectModel } from '../../host/excelObjectModel';
@@ -105,7 +106,9 @@ function isOverflow(folded: Folded): folded is Overflow {
 
 function inRange(value: number, type: NumericType): boolean {
 	const range = RANGES[type];
-	return Number.isFinite(value) && value >= range.min && value <= range.max;
+	// A Date's range is of days: any time of 12/31/9999 is in it.
+	const checked = type === 'date' ? Math.trunc(value) : value;
+	return Number.isFinite(value) && checked >= range.min && checked <= range.max;
 }
 
 
@@ -152,35 +155,6 @@ function literalTyped(tok: VbaToken): Typed | undefined {
 		return serial === undefined ? undefined : { value: serial, type: 'date' };
 	}
 	return undefined;
-}
-
-const DAY_MS = 86400000;
-const DATE_EPOCH_MS = Date.UTC(1899, 11, 30);
-
-/**
- * A whole-day date literal's serial, the days from December 30, 1899:
- * `#12/31/9999#` is 2958465 and `#1/1/100#` is -657434 (issue #203). Only
- * `#m/d/yyyy#` and `#yyyy-mm-dd#` are read; a time of day, a month name or a
- * two-digit year is left to the VBE.
- */
-function dateLiteralSerial(raw: string): number | undefined {
-	const text = raw.replace(/^#|#$/g, '').trim();
-	const us = /^(\d{1,2})\/(\d{1,2})\/(\d{3,4})$/.exec(text);
-	const iso = /^(\d{3,4})-(\d{1,2})-(\d{1,2})$/.exec(text);
-	const parts = us ? [+us[3], +us[1], +us[2]] : iso ? [+iso[1], +iso[2], +iso[3]] : undefined;
-	if (!parts) {
-		return undefined;
-	}
-	const [year, month, day] = parts;
-	if (year < 100 || month < 1 || month > 12 || day < 1) {
-		return undefined;
-	}
-	const at = new Date(0);
-	at.setUTCFullYear(year, month - 1, day);
-	if (at.getUTCMonth() !== month - 1) {
-		return undefined; // #2/30/2020# is no date
-	}
-	return Math.round((at.getTime() - DATE_EPOCH_MS) / DAY_MS);
 }
 
 /**
@@ -499,9 +473,19 @@ class TypedFolder {
 }
 
 function describe(typed: Typed): string {
-	if (typed.type === 'date' && Number.isInteger(typed.value)) {
-		const at = new Date(DATE_EPOCH_MS + typed.value * DAY_MS);
-		return `#${at.getUTCMonth() + 1}/${at.getUTCDate()}/${at.getUTCFullYear()}# (Date)`;
+	if (typed.type === 'date') {
+		// Before serial 0 the fraction counts forward from the day's start
+		// too: -1.25 is 12/29/1899 6:00:00 AM.
+		const day = Math.trunc(typed.value);
+		const seconds = Math.round(Math.abs(typed.value - day) * 86400);
+		const at = new Date(DATE_EPOCH_MS + day * DAY_MS);
+		const date = `${at.getUTCMonth() + 1}/${at.getUTCDate()}/${at.getUTCFullYear()}`;
+		if (seconds === 0) {
+			return `#${date}# (Date)`;
+		}
+		const hour = Math.floor(seconds / 3600);
+		const clock = `${hour % 12 === 0 ? 12 : hour % 12}:${String(Math.floor(seconds / 60) % 60).padStart(2, '0')}:${String(seconds % 60).padStart(2, '0')}`;
+		return `#${date} ${clock} ${hour < 12 ? 'AM' : 'PM'}# (Date)`;
 	}
 	return `${showNumber(typed.value)} (${RANGES[typed.type].label})`;
 }

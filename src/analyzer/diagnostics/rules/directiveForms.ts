@@ -7,12 +7,23 @@
 //    `#If VBA7 Then: Debug.Print 1` -> "An # ElseIf, # Else, or # EndIf must
 //    be preceded by an # If clause" (the colon ends the directive, and what
 //    follows is no longer part of it).
+//  - null-directive-condition: `#If Null Then`, `#If Null = 1 Then`, or `#If N`
+//    after `#Const N = Null` -> "Invalid use of Null" (issue #208).
 
 import type { ConditionalDirectiveNode, ModuleNode, BodyNode } from '../../parser/nodes';
+import {
+	nullConditionDirectives,
+	type ConditionalCompilationEnvironment,
+} from '../../conditional/conditionalCompilation';
 import type { PushFn } from '../analysisContext';
 import { tokenizeCached } from '../../lexer/tokenize';
 
-export function checkDirectiveForms(source: string, mod: ModuleNode, push: PushFn): void {
+export function checkDirectiveForms(
+	source: string,
+	mod: ModuleNode,
+	conditionalCompilation: ConditionalCompilationEnvironment | undefined,
+	push: PushFn,
+): void {
 	const directives: ConditionalDirectiveNode[] = [];
 	const visit = (nodes: readonly BodyNode[]): void => {
 		for (const node of nodes) {
@@ -80,6 +91,13 @@ export function checkDirectiveForms(source: string, mod: ModuleNode, push: PushF
 				{ start: next.start, end: lineEnd },
 			);
 		}
+	}
+	for (const directive of nullConditionDirectives(mod, conditionalCompilation)) {
+		push(
+			'nullDirectiveCondition',
+			`This #${directive.directiveKind} condition is Null, which is neither True nor False. This is a VBE compile error: Invalid use of Null.`,
+			directive.span,
+		);
 	}
 }
 

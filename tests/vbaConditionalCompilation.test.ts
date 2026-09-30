@@ -121,6 +121,59 @@ describe('conditional compilation expression evaluation', () => {
 		expect(branch(wrap('', 'B + 1'))).toBe('active');
 	});
 
+	it('takes the branch Excel takes with Like, Empty, Null, Is and date literals (issue #208)', () => {
+		// Each measured in 64-bit Excel 16.0, the condition alone in #If.
+		const branch = (setup: string, condition: string): string => {
+			const source = `${setup}Function Main() As String\n#If ${condition} Then\n    Main = "if"\n#Else\n    Main = "else"\n#End If\nEnd Function\n`;
+			const tracker = createConditionalActivityTracker(parseModule(source), { projectConstants: {} });
+			const at = source.indexOf('Main = "if"');
+			const activity = tracker?.activityForSpan({ start: at, end: at + 11 });
+			return activity === 'active' ? 'if' : activity === 'inactive' ? 'else' : 'unknown';
+		};
+		const measured: Array<[string, string, string]> = [
+			['', '"abc" Like "a*"', 'if'],
+			['', '"abc" Like "b*"', 'else'],
+			['', '"b" Like "[a-c]"', 'if'],
+			['#Const L = 3\n', 'L Like "3"', 'if'],
+			['#Const L = 3\n', 'L Like "#"', 'if'],
+			['', '"ABC" Like "a*"', 'if'],
+			['', '"abc" Like "a?c"', 'if'],
+			['', '"a1" Like "a#"', 'if'],
+			['', '"b" Like "[!a]"', 'if'],
+			['', '"a" Like "[A-C]"', 'if'],
+			['', '3 Like 3', 'if'],
+			['', 'True Like "True"', 'if'],
+			['#Const D = 1\n', 'D <> Empty', 'if'],
+			['#Const D = 0\n', 'D = Empty', 'if'],
+			['', '0 = Empty', 'if'],
+			['', 'Empty', 'else'],
+			['', 'Not Empty', 'if'],
+			['', 'Empty = ""', 'if'],
+			['', 'Empty & "x" = "x"', 'if'],
+			['', 'Empty + 1 = 1', 'if'],
+			['#Const E = Empty\n', 'E & "x" = "x"', 'if'],
+			['', 'UNDEFINED_X = Empty', 'if'],
+			['', 'UNDEFINED_X & "x" = "x"', 'else'],
+			['', 'Nothing Is Nothing', 'if'],
+			['', 'Null Or True', 'if'],
+			['', 'Null And False', 'else'],
+			['', 'Null & "a" = "a"', 'if'],
+			['', '#1/2/2000# > #1/1/2000#', 'if'],
+			['', '#1/2/2000# - #1/1/2000# = 1', 'if'],
+			['', '#1/1/2000# = 36526', 'if'],
+			['', '#12:00:00 PM# = 0.5', 'if'],
+			['', '#12:00:00 AM#', 'else'],
+			['', '#1/1/2000#', 'if'],
+		];
+		for (const [setup, condition, expected] of measured) {
+			expect(branch(setup, condition), condition).toBe(expected);
+		}
+		// Refused by the VBE, so neither branch is claimed.
+		for (const condition of ['Null', 'Null = 1', 'Not Null', 'Empty Is Empty', 'Nothing', '0 = ""', '1 < "a"']) {
+			expect(branch('', condition), condition).toBe('unknown');
+		}
+	});
+
 	it('returns undefined for unknown expressions instead of guessing', () => {
 		expect(evaluateConditionalExpression('VBA7')).toBeUndefined();
 		expect(evaluateConditionalExpression('MissingConstant And VBA7')).toBeUndefined();

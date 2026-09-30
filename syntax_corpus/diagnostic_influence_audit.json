@@ -2829,6 +2829,24 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "null-directive-condition",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-30 (issue #208): 6 asserted cases from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue208_13_compile",
+        "issue208_29_compile",
+        "issue208_32_compile",
+        "issue208_33_compile",
+        "issue208_46_compile",
+        "issue208_47_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "#If or #ElseIf condition that evaluates to Null: #If Null, Null = 1, Not Null, Like against Null, or a #Const set to Null. MS-VBAL 3.4 conditional compilation; VBE \"Invalid use of Null\" (issue #208, Excel 16.0).",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "object-default-value",
       "status": "vbe-oracle-verified",
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-29 (issue #183): the issue's measured corpus",

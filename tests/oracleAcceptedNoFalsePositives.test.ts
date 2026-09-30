@@ -86,7 +86,10 @@ describe('oracle accepted cases - corpus-wide no-false-positive sweep', () => {
 				type: mod.type,
 				source: mod.source,
 			}));
-			const project = buildVbaProjectIndex(modules);
+			// The extension always supplies the project's conditional
+			// constants, and an Excel case has none: a name no #Const defines
+			// is then provably undefined, as the VBE treats it (issue #208).
+			const project = buildVbaProjectIndex(modules, undefined, { conditionalCompilation: { projectConstants: {} } });
 			const procedures = projectProcedureSignatures(project);
 			const falsePositives: string[] = [];
 			for (const mod of modules) {

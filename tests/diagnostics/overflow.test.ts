@@ -249,6 +249,7 @@ describe('Byte and Date arithmetic, and a float argument to a whole-number param
 		['two Dates added', ['Dim d As Date, e As Date', 'd = #12/31/9999#: e = #1/2/1900#', 'Main = d + e'], ARITHMETIC, 'falls after 12/31/9999'],
 		['a Date minus a day', ['Dim d As Date', 'd = #1/1/100#', 'Main = d - 1'], ARITHMETIC, '#1/1/100# (Date) - 1 (Integer) falls before 1/1/100'],
 		['an ISO Date literal', ['Main = #9999-12-31# + 1'], ARITHMETIC, 'falls after 12/31/9999'],
+		['a Date literal with a time', ['Main = #12/31/9999 11:00:00 PM# + 1'], ARITHMETIC, '#12/31/9999 11:00:00 PM# (Date) + 1 (Integer) falls after 12/31/9999'],
 		['a float argument past a Long', ['Main = EchoL(3000000000#)'], 'argument-type-mismatch', 'The numeric literal 3000000000# is outside the Long range'],
 		['a float argument that rounds past an Integer', ['Main = EchoI(32767.5)'], 'argument-type-mismatch', '32767.5, which VBA rounds to 32768, is outside the Integer range'],
 	];
@@ -268,7 +269,7 @@ describe('Byte and Date arithmetic, and a float argument to a whole-number param
 		['two Dates subtracted past the Date range, a Double', ['Dim d As Date, e As Date', 'd = #1/1/100#: e = #12/31/9999#', 'Main = d - e']],
 		['a float argument that rounds into an Integer', ['Main = EchoI(32767.4)']],
 		['a whole Long argument', ['Main = EchoL(2147483647)']],
-		['a date literal with a time, left alone', ['Main = #12/31/9999 11:00:00 PM# + 1']],
+		['a date literal with a time, at the end of the range', ['Main = #12/31/9999 11:00:00 PM# + 0']],
 	];
 	it.each(RUNS)('stays quiet for %s', (_name, lines) => {
 		const diagnostics = analyzeModule(wrap(...lines) + HELPERS);

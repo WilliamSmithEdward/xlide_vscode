@@ -696,6 +696,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 3.4.1 #Const; VBE "Duplicate definition" (issue #130, Excel 16.0)',
 		confidence: 'high',
 	},
+	nullDirectiveCondition: {
+		code: 'null-directive-condition',
+		title: '#If condition is Null',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 3.4 conditional compilation; VBE "Invalid use of Null" (issue #208, Excel 16.0)',
+		confidence: 'high',
+	},
 	directiveTrailingStatement: {
 		code: 'directive-trailing-statement',
 		title: 'Code after a compiler directive on its line',

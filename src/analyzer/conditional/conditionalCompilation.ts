@@ -2,6 +2,7 @@ import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
 import { relationalOperatorAt, tokenWord } from '../lexer/tokenHelpers';
 import { bankersRound, parseVbaIntegerLiteral } from '../constants/integerConstantExpression';
+import { dateLiteralSerial } from '../constants/dateLiteral';
 import type {
 	BodyNode,
 	ConditionalDirectiveNode,
@@ -10,7 +11,16 @@ import type {
 	Span,
 } from '../parser/nodes';
 
-export type ConditionalValue = boolean | number | string;
+/**
+ * The values a directive expression has beside the plain ones: Empty, Null,
+ * Nothing and a Date, which is its serial (issue #208).
+ */
+export type ConditionalSpecialValue =
+	| { readonly kind: 'empty' }
+	| { readonly kind: 'null' }
+	| { readonly kind: 'nothing' }
+	| { readonly kind: 'date'; readonly serial: number };
+export type ConditionalValue = boolean | number | string | ConditionalSpecialValue;
 export type ConditionalActivity = 'active' | 'inactive' | 'unknown';
 
 export interface ConditionalCompilationEnvironment {
@@ -302,6 +312,17 @@ export function conditionalCompilerConstants(
 	return constants;
 }
 
+/**
+ * A directive's expression as tokens. It is lexed after a throwaway `x=`, so a
+ * `#` that opens it is a date literal and not the directive marker a `#` at
+ * the start of a statement is: `#If #1/2/2000# > #1/1/2000# Then` (issue #208).
+ */
+function directiveExpressionTokens(expression: string): VbaToken[] {
+	return tokenize(`x=${expression}`)
+		.slice(2)
+		.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
+}
+
 export function evaluateConditionalExpression(
 	expression: string | undefined,
 	env: ConditionalCompilationEnvironment = {},
@@ -310,7 +331,7 @@ export function evaluateConditionalExpression(
 		return undefined;
 	}
 	const parser = new ConditionalExpressionParser(
-		tokenize(expression).filter((t) => t.kind !== 'comment' && t.kind !== 'newline'),
+		directiveExpressionTokens(expression),
 		conditionalCompilerConstants(env),
 		env.projectConstants !== undefined,
 	);
@@ -335,6 +356,42 @@ export function conditionalActivityAtOffset(
 		current = applyConditionalDirective(directive, effectiveEnv, projectConstants, stack, current);
 	}
 	return current;
+}
+
+/**
+ * The `#If` and `#ElseIf` lines whose condition is Null, which the VBE refuses
+ * to compile: "Invalid use of Null" (issue #208, Excel 16.0). `#If Null`,
+ * `#If Null = 1`, `#If Not Null` and a `#Const N = Null` read by `#If N` all
+ * are. Only a line the VBE is sure to evaluate is listed: one in code that
+ * is compiled, and for `#ElseIf`, after arms that were all False.
+ */
+export function nullConditionDirectives(
+	module: ModuleNode,
+	env: ConditionalCompilationEnvironment = {},
+): ConditionalDirectiveNode[] {
+	if (!moduleHasConditionalDirectives(module)) {
+		return [];
+	}
+	const effectiveEnv = effectiveConditionalCompilationEnvironment(env);
+	const projectConstants = projectConstantsOf(effectiveEnv);
+	const stack: ConditionalFrame[] = [];
+	let current: ConditionalActivity = 'active';
+	const out: ConditionalDirectiveNode[] = [];
+	for (const { directive } of collectConditionalDirectives(module)) {
+		const frame = stack[stack.length - 1];
+		const evaluated = directive.directiveKind === 'If'
+			? current === 'active'
+			: directive.directiveKind === 'ElseIf'
+				&& frame?.parent === 'active' && !frame.seenTrue && !frame.seenUnknown;
+		if (evaluated) {
+			const value = evaluateWithProjectConstants(directive.conditionRaw, effectiveEnv, projectConstants);
+			if (value !== undefined && isNull(value)) {
+				out.push(directive);
+			}
+		}
+		current = applyConditionalDirective(directive, effectiveEnv, projectConstants, stack, current);
+	}
+	return out;
 }
 
 function applyConditionalDirective(
@@ -485,10 +542,11 @@ function conditionActivity(
 	projectConstants: ReadonlyMap<string, ConditionalValue>,
 ): ConditionalActivity {
 	const value = evaluateWithProjectConstants(directive.conditionRaw, env, projectConstants);
-	if (value === undefined) {
+	const holds = value === undefined ? undefined : truthy(value);
+	if (holds === undefined) {
 		return 'unknown';
 	}
-	return truthy(value) ? 'active' : 'inactive';
+	return holds ? 'active' : 'inactive';
 }
 
 function evaluateWithProjectConstants(
@@ -507,7 +565,7 @@ function evaluateWithProjectConstants(
 		constants.set(name, value);
 	}
 	return new ConditionalExpressionParser(
-		tokenize(expression).filter((t) => t.kind !== 'comment' && t.kind !== 'newline'),
+		directiveExpressionTokens(expression),
 		constants,
 		env.projectConstants !== undefined,
 	).parse();
@@ -526,24 +584,53 @@ function combineActivity(
 	return 'active';
 }
 
-function truthy(value: ConditionalValue): boolean {
+const EMPTY: ConditionalSpecialValue = { kind: 'empty' };
+const NULL: ConditionalSpecialValue = { kind: 'null' };
+const NOTHING: ConditionalSpecialValue = { kind: 'nothing' };
+
+function isSpecial(value: ConditionalValue, kind: ConditionalSpecialValue['kind']): boolean {
+	return typeof value === 'object' && value.kind === kind;
+}
+
+function isNull(value: ConditionalValue): boolean {
+	return isSpecial(value, 'null');
+}
+
+/**
+ * Whether a condition holds. Undefined for Null, which the VBE refuses as a
+ * condition ("Invalid use of Null"), and for Nothing ("Invalid use of object").
+ */
+function truthy(value: ConditionalValue): boolean | undefined {
 	if (typeof value === 'boolean') {
 		return value;
 	}
 	if (typeof value === 'number') {
 		return value !== 0;
 	}
-	return value.length > 0;
+	if (typeof value === 'string') {
+		return value.length > 0;
+	}
+	switch (value.kind) {
+		case 'empty': return false;
+		case 'date': return value.serial !== 0;
+		default: return undefined;
+	}
 }
 
 /**
- * Evaluates a #If or #Const expression as the VBE does (issue #192, measured
- * in Excel 16.0). The operators and their order are VBA's own, loosest
- * first: Imp, Eqv, Xor, Or, And, Not, the comparisons, &, + and -, Mod, \,
- * * and /, unary minus, ^. Not, And, Or, Xor, Eqv and Imp are bitwise on
- * numbers, as in code: `Not 1` is -2, which is True, and `1 And 2` is 0.
- * Two Booleans give a Boolean. Strings compare without regard to case:
- * `"A" = "a"` is True. Hex and octal literals keep their width: &HFFFF is -1.
+ * Evaluates a #If or #Const expression as the VBE does (issues #192 and #208,
+ * measured in Excel 16.0). The operators and their order are VBA's own,
+ * loosest first: Imp, Eqv, Xor, Or, And, Not, the comparisons with Like and
+ * Is, &, + and -, Mod, \, * and /, unary minus, ^. Not, And, Or, Xor, Eqv and
+ * Imp are bitwise on numbers, as in code: `Not 1` is -2, which is True, and
+ * `1 And 2` is 0. Two Booleans give a Boolean. Strings compare without regard
+ * to case, and so does Like: `"A" = "a"` and `"ABC" Like "a*"` are True. Hex
+ * and octal literals keep their width: &HFFFF is -1.
+ *
+ * Empty is 0 beside a number and "" beside a string. Null propagates through
+ * arithmetic and comparisons, is "" to &, and follows VBA's three-valued
+ * logic: `Null Or True` is True and `Null And False` is False. A date literal
+ * is its serial, so `#12:00:00 AM#` is False. `Nothing Is Nothing` is True.
  */
 class ConditionalExpressionParser {
 	private index = 0;
@@ -553,13 +640,14 @@ class ConditionalExpressionParser {
 		private readonly constants: ReadonlyMap<string, ConditionalValue>,
 		/**
 		 * Whether a name no constant defines evaluates as the VBE evaluates
-		 * it, to Empty (0 here, since Empty compares as 0 and is False). True
-		 * only when the caller supplied the project's own conditional
-		 * constants, so an absent name is provably undefined rather than
-		 * unknown (issue #102); a module's `#Const` lines are folded into the
-		 * same table before any `#If` reads them.
+		 * it, to 0. Not to Empty: `UNDEFINED & "x" = "x"` is False where
+		 * `Empty & "x" = "x"` is True (issue #208). True only when the caller
+		 * supplied the project's own conditional constants, so an absent name
+		 * is provably undefined rather than unknown (issue #102); a module's
+		 * `#Const` lines are folded into the same table before any `#If`
+		 * reads them.
 		 */
-		private readonly undefinedIsEmpty: boolean,
+		private readonly undefinedIsZero: boolean,
 	) {}
 
 	parse(): ConditionalValue | undefined {
@@ -587,6 +675,9 @@ class ConditionalExpressionParser {
 			if (typeof value === 'boolean') {
 				return !value;
 			}
+			if (value !== undefined && isNull(value)) {
+				return NULL;
+			}
 			const number = value === undefined ? undefined : wholeNumber(value);
 			return number === undefined ? undefined : ~number;
 		}
@@ -597,12 +688,19 @@ class ConditionalExpressionParser {
 		let left = this.parseConcat();
 		for (;;) {
 			const relational = relationalOperatorAt(this.tokens, this.index);
-			if (!relational) {
+			const word = relational ? undefined : tokenWord(this.peek());
+			if (!relational && word !== 'like' && word !== 'is') {
 				return left;
 			}
-			this.index += relational.length;
+			this.index += relational ? relational.length : 1;
 			const right = this.parseConcat();
-			left = left === undefined || right === undefined ? undefined : compare(relational.operator, left, right);
+			if (left === undefined || right === undefined) {
+				left = undefined;
+			} else if (relational) {
+				left = compare(relational.operator, left, right);
+			} else {
+				left = word === 'like' ? like(left, right) : is(left, right);
+			}
 		}
 	}
 
@@ -611,7 +709,7 @@ class ConditionalExpressionParser {
 		while (this.peek()?.rawText === '&') {
 			this.index++;
 			const right = this.parseAdditive();
-			left = left === undefined || right === undefined ? undefined : `${text(left)}${text(right)}`;
+			left = left === undefined || right === undefined ? undefined : concat(left, right);
 		}
 		return left;
 	}
@@ -666,9 +764,7 @@ class ConditionalExpressionParser {
 		const op = this.peek()?.rawText;
 		if (op === '-' || op === '+') {
 			this.index++;
-			const value = this.parseNegation();
-			const number = value === undefined ? undefined : numberOf(value);
-			return number === undefined ? undefined : op === '-' ? -number : number;
+			return signed(op, this.parseNegation());
 		}
 		return this.parsePower();
 	}
@@ -688,9 +784,7 @@ class ConditionalExpressionParser {
 		const op = this.peek()?.rawText;
 		if (op === '-' || op === '+') {
 			this.index++;
-			const value = this.parsePrimary();
-			const number = value === undefined ? undefined : numberOf(value);
-			return number === undefined ? undefined : op === '-' ? -number : number;
+			return signed(op, this.parsePrimary());
 		}
 		return this.parsePrimary();
 	}
@@ -720,15 +814,21 @@ class ConditionalExpressionParser {
 		if (token.kind === 'stringLiteral') {
 			return token.rawText.slice(1, -1).replace(/""/g, '"');
 		}
-		const word = tokenWord(token);
-		if (word === 'true') {
-			return true;
+		if (token.kind === 'dateLiteral') {
+			const serial = dateLiteralSerial(token.rawText);
+			return serial === undefined ? undefined : { kind: 'date', serial };
 		}
-		if (word === 'false') {
-			return false;
+		const word = tokenWord(token);
+		switch (word) {
+			case 'true': return true;
+			case 'false': return false;
+			case 'empty': return EMPTY;
+			case 'null': return NULL;
+			case 'nothing': return NOTHING;
+			default: break;
 		}
 		const value = this.constants.get(word);
-		if (value === undefined && this.undefinedIsEmpty && token.kind === 'identifier') {
+		if (value === undefined && this.undefinedIsZero && token.kind === 'identifier') {
 			return 0;
 		}
 		return value;
@@ -749,13 +849,16 @@ class ConditionalExpressionParser {
 
 const LOGICAL_LEVELS = ['imp', 'eqv', 'xor', 'or', 'and'] as const;
 
-/** The number a value converts to: True is -1, a numeric string its number. */
+/** The number a value converts to: True is -1, Empty 0, a Date its serial, a numeric string its number. */
 function numberOf(value: ConditionalValue): number | undefined {
 	if (typeof value === 'boolean') {
 		return value ? -1 : 0;
 	}
 	if (typeof value === 'number') {
 		return value;
+	}
+	if (typeof value === 'object') {
+		return value.kind === 'empty' ? 0 : value.kind === 'date' ? value.serial : undefined;
 	}
 	const trimmed = value.trim();
 	const parsed = trimmed.length === 0 ? Number.NaN : Number(trimmed);
@@ -768,14 +871,51 @@ function wholeNumber(value: ConditionalValue): number | undefined {
 	return number === undefined ? undefined : bankersRound(number);
 }
 
-function text(value: ConditionalValue): string {
+/**
+ * A value as the text & and Like read. Empty and Null are "". A Date's text
+ * is the locale's, and a number's is left alone where JavaScript would spell
+ * it otherwise than VBA (1E+20, 0.1 + 0.2), so neither is guessed.
+ */
+function text(value: ConditionalValue): string | undefined {
 	if (typeof value === 'boolean') {
 		return value ? 'True' : 'False';
 	}
-	return String(value);
+	if (typeof value === 'number') {
+		return Number.isSafeInteger(value) ? String(value) : undefined;
+	}
+	if (typeof value === 'string') {
+		return value;
+	}
+	return value.kind === 'empty' || value.kind === 'null' ? '' : undefined;
 }
 
+/** `&`: Null is "" beside anything but another Null. */
+function concat(left: ConditionalValue, right: ConditionalValue): ConditionalValue | undefined {
+	if (isNull(left) && isNull(right)) {
+		return NULL;
+	}
+	const a = text(left);
+	const b = text(right);
+	return a === undefined || b === undefined ? undefined : a + b;
+}
+
+function signed(op: string, value: ConditionalValue | undefined): ConditionalValue | undefined {
+	if (value === undefined || isNull(value)) {
+		return value;
+	}
+	const number = numberOf(value);
+	return number === undefined ? undefined : op === '-' ? -number : number;
+}
+
+/**
+ * The bitwise and Boolean operators, with Null as VBA treats it: unknown, so
+ * `Null And False` is False and `Null Or True` is True, and anything that
+ * depends on the Null is Null.
+ */
 function logical(op: typeof LOGICAL_LEVELS[number], left: ConditionalValue, right: ConditionalValue): ConditionalValue | undefined {
+	if (isNull(left) || isNull(right)) {
+		return logicalWithNull(op, left, right);
+	}
 	if (typeof left === 'boolean' && typeof right === 'boolean') {
 		switch (op) {
 			case 'and': return left && right;
@@ -799,12 +939,51 @@ function logical(op: typeof LOGICAL_LEVELS[number], left: ConditionalValue, righ
 	}
 }
 
-function arithmetic(op: string, left: ConditionalValue, right: ConditionalValue): number | undefined {
+function logicalWithNull(op: typeof LOGICAL_LEVELS[number], left: ConditionalValue, right: ConditionalValue): ConditionalValue | undefined {
+	const known = isNull(left) ? right : left;
+	if (isNull(known)) {
+		return NULL;
+	}
+	// Which value of the known side decides the result alone: every bit clear
+	// for And, every bit set for Or. Imp is decided by a False left side or a
+	// True right side.
+	const bits = typeof known === 'boolean' ? (known ? -1 : 0) : wholeNumber(known);
+	if (bits === undefined) {
+		return undefined;
+	}
+	const decided = (result: number): ConditionalValue => (typeof known === 'boolean' ? result !== 0 : result);
+	switch (op) {
+		case 'and': return bits === 0 ? decided(0) : NULL;
+		case 'or': return bits === -1 ? decided(-1) : NULL;
+		case 'imp':
+			if (known === left) {
+				return bits === 0 ? decided(-1) : NULL;
+			}
+			return bits === -1 ? decided(-1) : NULL;
+		default: return NULL;
+	}
+}
+
+function arithmetic(op: string, left: ConditionalValue, right: ConditionalValue): ConditionalValue | undefined {
+	if (isNull(left) || isNull(right)) {
+		return NULL;
+	}
 	const a = numberOf(left);
 	const b = numberOf(right);
 	if (a === undefined || b === undefined) {
 		return undefined;
 	}
+	const result = numericResult(op, a, b);
+	// A Date plus or minus a number is a Date; two Dates subtracted are days.
+	const leftDate = isSpecial(left, 'date');
+	const rightDate = isSpecial(right, 'date');
+	if (result !== undefined && (op === '+' || op === '-') && leftDate !== rightDate && (leftDate || op === '+')) {
+		return { kind: 'date', serial: result };
+	}
+	return result;
+}
+
+function numericResult(op: string, a: number, b: number): number | undefined {
 	switch (op) {
 		case '+': return a + b;
 		case '-': return a - b;
@@ -825,12 +1004,23 @@ function arithmetic(op: string, left: ConditionalValue, right: ConditionalValue)
 	}
 }
 
-/** A comparison: two strings compare as text, without regard to case; anything else as numbers. */
-function compare(op: string, left: ConditionalValue, right: ConditionalValue): boolean | undefined {
+/**
+ * A comparison: two strings compare as text, without regard to case, and so
+ * does a string against Empty, which is ""; anything else compares as
+ * numbers. Null against anything is Null.
+ */
+function compare(op: string, left: ConditionalValue, right: ConditionalValue): ConditionalValue | undefined {
+	if (isNull(left) || isNull(right)) {
+		return NULL;
+	}
+	const asText = (value: ConditionalValue): string | undefined =>
+		typeof value === 'string' ? value : isSpecial(value, 'empty') ? '' : undefined;
 	let order: number;
-	if (typeof left === 'string' && typeof right === 'string') {
-		const a = left.toLowerCase();
-		const b = right.toLowerCase();
+	const textLeft = asText(left);
+	const textRight = asText(right);
+	if (textLeft !== undefined && textRight !== undefined && (typeof left === 'string' || typeof right === 'string')) {
+		const a = textLeft.toLowerCase();
+		const b = textRight.toLowerCase();
 		order = a < b ? -1 : a > b ? 1 : 0;
 	} else {
 		const a = numberOf(left);
@@ -848,4 +1038,68 @@ function compare(op: string, left: ConditionalValue, right: ConditionalValue): b
 		case '<=': return order <= 0;
 		default: return order >= 0;
 	}
+}
+
+/** `Like`, without regard to case: `"ABC" Like "a*"` and `"a" Like "[A-C]"` are True. */
+function like(left: ConditionalValue, right: ConditionalValue): ConditionalValue | undefined {
+	if (isNull(left) || isNull(right)) {
+		return NULL;
+	}
+	const subject = text(left);
+	const pattern = text(right);
+	if (subject === undefined || pattern === undefined) {
+		return undefined;
+	}
+	const regex = likePatternRegex(pattern);
+	return regex === undefined ? undefined : regex.test(subject);
+}
+
+/**
+ * A Like pattern as a regular expression: `?` one character, `*` any run, `#`
+ * a digit, and `[...]` a character list, which `!` negates and `a-z` spans.
+ * Undefined for a pattern VBA refuses at run time, a `[` never closed.
+ */
+function likePatternRegex(pattern: string): RegExp | undefined {
+	let source = '';
+	for (let i = 0; i < pattern.length; i++) {
+		const ch = pattern[i];
+		if (ch === '?') {
+			source += '[\\s\\S]';
+		} else if (ch === '*') {
+			source += '[\\s\\S]*';
+		} else if (ch === '#') {
+			source += '[0-9]';
+		} else if (ch === '[') {
+			const close = pattern.indexOf(']', i + 1);
+			if (close < 0) {
+				return undefined;
+			}
+			let list = pattern.slice(i + 1, close);
+			const negated = list.startsWith('!');
+			if (negated) {
+				list = list.slice(1);
+			}
+			if (list.length === 0) {
+				// `[]` matches nothing at all, `[!]` any one character.
+				source += negated ? '[\\s\\S]' : '(?!)';
+			} else {
+				const escaped = list.replace(/[\\\]^]/g, (c) => `\\${c}`);
+				source += negated ? `[^${escaped}]` : `[${escaped}]`;
+			}
+			i = close;
+		} else {
+			source += ch.replace(/[.*+?^${}()|[\]\\/]/g, (c) => `\\${c}`);
+		}
+	}
+	try {
+		return new RegExp(`^${source}$`, 'iu');
+	} catch {
+		// A range written backwards, `[z-a]`, is a run-time error in VBA too.
+		return undefined;
+	}
+}
+
+/** `Is` compares object references, and the only one a directive can name is Nothing. */
+function is(left: ConditionalValue, right: ConditionalValue): ConditionalValue | undefined {
+	return isSpecial(left, 'nothing') && isSpecial(right, 'nothing') ? true : undefined;
 }
