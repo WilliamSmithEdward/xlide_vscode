@@ -324,7 +324,10 @@ export function checkAssignmentTypes(
 				if (verdict === 'argument') {
 					push(
 						'setRequired',
-						`Assignment to '${assignment.name}' requires Set: the default member of ${expected} takes an argument, so a Let cannot reach it. This is a VBE compile error: Argument not optional.`,
+						// A Collection says "Argument not optional"; Excel's
+						// collections, Hyperlinks and Workbooks among them, say
+						// "Invalid use of property" (issue #221, measured).
+						`Assignment to '${assignment.name}' requires Set: the default member of ${expected} takes an argument, so a Let cannot reach it. This is a VBE compile error: ${normalizeType(expected) === 'collection' ? 'Argument not optional' : 'Invalid use of property'}.`,
 						assignment.span,
 					);
 				} else if (verdict === 'noDefault') {

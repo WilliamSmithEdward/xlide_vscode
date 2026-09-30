@@ -7,8 +7,13 @@
 //    support this property or method. So do a Worksheet and a Workbook.
 //  - A Collection, whose default member Item needs an index: `v = c` and
 //    `Debug.Print c` -> 450, Wrong number of arguments or invalid property
-//    assignment. With an operator it does not compile, which is
-//    collection-operand's.
+//    assignment. With an operator, or into a String or other typed value,
+//    it does not compile, which is collection-operand's. Excel's collections
+//    whose default is their Item do the same: Hyperlinks, Areas, Borders,
+//    Windows, Workbooks, Shapes (issue #221).
+//  - Excel's other objects with no default member raise 438 as a Worksheet
+//    does: Workbook, Font, Interior, Validation, Window, PageSetup, Border,
+//    Shape, Hyperlink (issue #221).
 //  - An object variable still Nothing raises 91 first.
 //
 // `Set o = c`, passing `c` to a Variant parameter and `c Is Nothing` read no
@@ -19,7 +24,7 @@ import type { MemberCompletionContext } from '../../completion/memberAccess';
 import type { ProcedureNode, Span } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { isKnownObjectAssignmentType, normalizeType, objectLetAssignmentVerdict, typeEnvironmentFor } from '../typeInference';
+import { isKnownObjectAssignmentType, isKnownScalarType, normalizeType, objectLetAssignmentVerdict, objectValueNeedsIndex, typeEnvironmentFor } from '../typeInference';
 import {
 	bareAssignmentTarget,
 	firstExecutableTokenIndex,
@@ -72,6 +77,12 @@ export function checkObjectDefaultValues(
 			const type = env.get(name.toLowerCase());
 			return type !== undefined && isKnownObjectAssignmentType(type, memberCtx);
 		};
+		// A Let target of a declared scalar type: `s = c` with s a String.
+		const isTypedValue = (name: string): boolean => {
+			const lower = name.toLowerCase();
+			const type = normalizeType(lower === proc.name.toLowerCase() ? proc.returnType : env.get(lower));
+			return type !== undefined && isKnownScalarType(type);
+		};
 		return (stmt) => {
 			for (const span of statementAndBranchSpans(stmt)) {
 				const created = newObjectLetIntoVariant(source, span, env, proc);
@@ -87,17 +98,17 @@ export function checkObjectDefaultValues(
 						);
 					}
 				}
-				for (const read of valueReads(source, span, stmt.kind === 'Statement' && stmt.singleLineIfBranches !== undefined && span === stmt.span, isObjectVariable)) {
+				for (const read of valueReads(source, span, stmt.kind === 'Statement' && stmt.singleLineIfBranches !== undefined && span === stmt.span, isObjectVariable, isTypedValue)) {
 					const lower = tokenName(read.tok)!.toLowerCase();
 					const verdict = verdictFor(lower);
 					if (verdict !== 'noDefault' && verdict !== 'argument') {
 						continue;
 					}
 					const type = env.get(lower)!;
-					// A default member that needs an argument was measured on a
-					// Collection only; with an operator it is a compile error,
-					// collection-operand's.
-					if (verdict === 'argument' && (read.operator || normalizeType(type) !== 'collection')) {
+					// A default member that needs an index raises 450 read as a
+					// value; with an operator, or into a typed value, it is a
+					// compile error, collection-operand's.
+					if (verdict === 'argument' && (read.operator || read.intoTypedValue || !objectValueNeedsIndex(type, memberCtx))) {
 						continue;
 					}
 					const nothing = autoInstanced.has(lower) ? '' : `, or '91' while it is Nothing`;
@@ -126,14 +137,15 @@ function valueReads(
 	span: Span,
 	ifHead: boolean,
 	isObjectVariable: (name: string) => boolean,
-): Array<{ tok: VbaToken; operator: boolean }> {
+	isTypedValue: (name: string) => boolean,
+): Array<{ tok: VbaToken; operator: boolean; intoTypedValue?: boolean }> {
 	const toks = statementTokens(source, span);
 	const first = firstExecutableTokenIndex(toks);
 	const head = tokenText(toks[first]);
 	if (head === 'set') {
 		return [];
 	}
-	const out: Array<{ tok: VbaToken; operator: boolean }> = [];
+	const out: Array<{ tok: VbaToken; operator: boolean; intoTypedValue?: boolean }> = [];
 	const plainName = (i: number): boolean => tokenName(toks[i]) !== undefined
 		&& toks[i - 1]?.rawText !== '.' && toks[i + 1]?.rawText !== '(' && toks[i + 1]?.rawText !== '.';
 	const target = bareAssignmentTarget(source, span);
@@ -142,7 +154,7 @@ function valueReads(
 		const value = target.valueTokens.filter((tok) => tok.kind !== 'comment');
 		// A Let into an object variable is set-required's.
 		if (value.length === 1 && eq + 1 === toks.indexOf(value[0]) && plainName(eq + 1) && !isObjectVariable(target.name)) {
-			out.push({ tok: value[0], operator: false });
+			out.push({ tok: value[0], operator: false, intoTypedValue: isTypedValue(target.name) });
 		}
 	}
 	if (head === 'debug' && toks[first + 1]?.rawText === '.' && tokenText(toks[first + 2]) === 'print') {
