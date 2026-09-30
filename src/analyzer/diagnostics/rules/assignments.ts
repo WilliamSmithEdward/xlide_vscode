@@ -318,6 +318,16 @@ export function checkAssignmentTypes(
 			const expected = (targetType.resolved
 				? targetType.asType
 				: env.get(assignment.name.toLowerCase())) ?? (untypedArray ? 'Variant' : undefined);
+			// `Sheet1 = 5` compiles as a Let through the document's default
+			// member, and a Worksheet or Workbook has none (issue #225).
+			if (!expected && !targetType.resolved && isDocumentModuleName(assignment.name, memberCtx)) {
+				push(
+					'setRequired',
+					`'${assignment.name}' names the document module itself: a Let reaches it through its default member, which a document does not have, and a Set cannot replace it either. This will raise Run-time error '438': Object doesn't support this property or method.`,
+					assignment.span,
+				);
+				return;
+			}
 			if (!expected) {
 				return;
 			}
@@ -625,6 +635,12 @@ function arrayOnlyVariantFunctions(
 		}
 	}
 	return out;
+}
+
+/** Whether a bare name no declaration resolves is a document module's: Sheet1, ThisWorkbook. */
+function isDocumentModuleName(name: string, memberCtx: MemberCompletionContext): boolean {
+	const lower = name.toLowerCase();
+	return (memberCtx.projectClassMembers ?? []).some((type) => type.kind === 'document' && type.name.toLowerCase() === lower);
 }
 
 /** Whether the value is one call and nothing more: `F()`, `F(1, 2)`. */
@@ -1288,6 +1304,16 @@ export function checkSetAssignments(
 				target.name,
 				'assignmentTarget',
 			);
+			// `Set Sheet1 = Nothing`: a document's name is no variable to Set
+			// (issue #225, measured in Excel 16.0).
+			if (!targetDeclaredType.resolved && isDocumentModuleName(target.name, memberCtx)) {
+				push(
+					'setRequiresObject',
+					`'${target.name}' names the document module itself, which no Set can replace. This is a VBE compile error: Invalid use of property.`,
+					target.span,
+				);
+				return;
+			}
 			const expected = targetDeclaredType.resolved
 				? targetDeclaredType.asType
 				: env.get(target.name.toLowerCase());
