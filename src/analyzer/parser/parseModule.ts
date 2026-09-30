@@ -1726,9 +1726,11 @@ class Parser {
 		}
 		const target = this.stripBrackets(attrName.slice(0, dot));
 		const memberAttributeName = attrName.slice(dot + 1);
+		// A shortcut key is a dotted name: Excel exports
+		// `Attribute Name.VB_ProcData.VB_Invoke_Func = "k\n14"` (issue #186).
 		return (
 			target.toLowerCase() === procedureName.toLowerCase() &&
-			/^VB_[A-Za-z0-9_]+$/i.test(memberAttributeName)
+			/^VB_[A-Za-z0-9_]+(?:\.VB_[A-Za-z0-9_]+)*$/i.test(memberAttributeName)
 		);
 	}
 

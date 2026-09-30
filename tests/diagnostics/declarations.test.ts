@@ -175,6 +175,29 @@ describe('analyzeModule - module declarations inside procedures', () => {
 		expect(byCode(analyzeModule(src), 'module-declaration-in-procedure')).toHaveLength(0);
 	});
 
+	it('accepts the shortcut-key Attribute Excel exports, and the lines after it (issue #186)', () => {
+		// Excel 16.0 exported exactly this after Application.MacroOptions set a
+		// Description and ShortcutKey "k".
+		const exported =
+			'Attribute VB_Name = "Module1"\n' +
+			'Option Explicit\n' +
+			'Sub Shortcutted()\n' +
+			'Attribute Shortcutted.VB_Description = "d"\n' +
+			'Attribute Shortcutted.VB_ProcData.VB_Invoke_Func = "k\\n14"\n' +
+			'End Sub\n';
+		// What XLIDE's own @ExcelHotkey and @Description rewrite writes.
+		const rewritten =
+			'Public Sub Hello()\n' +
+			'Attribute Hello.VB_ProcData.VB_Invoke_Func = "k\\n14"\n' +
+			'Attribute Hello.VB_Description = "Say hello"\n' +
+			'End Sub\n';
+		for (const src of [exported, rewritten]) {
+			expect(byCode(analyzeModule(src), 'module-declaration-in-procedure')).toHaveLength(0);
+		}
+		const misplaced = 'Public Sub Hello()\n    Debug.Print 1\nAttribute Hello.VB_ProcData.VB_Invoke_Func = "k\\n14"\nEnd Sub\n';
+		expect(byCode(analyzeModule(misplaced), 'module-declaration-in-procedure')).toHaveLength(1);
+	});
+
 	it('flags unindented member Attribute lines after executable procedure body statements', () => {
 		const src =
 			'Attribute VB_Name = "Module1"\n' +
