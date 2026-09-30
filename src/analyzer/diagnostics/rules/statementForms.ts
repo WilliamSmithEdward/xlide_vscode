@@ -8,9 +8,15 @@
 //    or variable".
 //  - rem-after-then: `If x Then Rem note` -> "Syntax error". Rem starts a
 //    comment only at the start of a statement.
+//  - rem-after-statement (issue #231): `x = 1 Rem note`, `Next Rem note`
+//    -> "Syntax error"; `Dim m As Long Rem note` at module level -> "Expected:
+//    end of statement". In a one-line If's Then or Else list it is a comment.
 
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
-import type { ModuleNode } from '../../parser/nodes';
+import type { ModuleNode, Span } from '../../parser/nodes';
+import { isDecimalLineNumber } from '../../lexer/tokenHelpers';
+import type { VbaToken } from '../../lexer/tokenKinds';
+import { tokenizeCached } from '../../lexer/tokenize';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaProcedureSignature } from '../../symbols/symbolModel';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
@@ -38,6 +44,7 @@ export function checkStatementForms(
 	push: PushFn,
 	memberCtx: MemberCompletionContext = {},
 ): void {
+	checkRemPlacement(source, mod, activity, push);
 	// Subs of this module, and of the project's standard modules, by name;
 	// a name that is also a Function or a module-level variable anywhere is
 	// not judged.
@@ -86,12 +93,6 @@ export function checkStatementForms(
 			for (const span of statementAndBranchSpans(stmt)) {
 				const toks = statementTokens(source, span);
 				const at = (i: number) => ({ start: span.start + toks[i].start, end: span.start + toks[i].end });
-				if (tokenText(toks[0]) === 'if') {
-					const then = toks.findIndex((tok) => tokenText(tok) === 'then');
-					if (then > 0 && tokenText(toks[then + 1]) === 'rem') {
-						push('remAfterThen', "'Rem' cannot follow 'Then' on one line: a Rem comment starts only at the start of a statement. This is a VBE compile error: Syntax error.", at(then + 1));
-					}
-				}
 				const target = bareAssignmentTarget(source, span);
 				// A Set's `=` is the assignment too: `Set c = New Collection` is no
 				// operand, and neither is `Set cols(1) = c`, whose target is
@@ -138,4 +139,88 @@ export function checkStatementForms(
 			}
 		}, activity);
 	}
+}
+
+const REM_COMMENT = /^rem\b/i;
+
+/**
+ * Rules: rem-after-then and rem-after-statement (issues #125 and #231,
+ * measured in Excel 16.0). A Rem comment stands at the start of a statement,
+ * after a line number or a label, after a block Else, or after a statement
+ * in a one-line If's Then or Else list; it may swallow that If's Else. Right
+ * after Then, and after any other statement, it is a compile error: "Syntax
+ * error" in a procedure, "Expected: end of statement" at module level and on
+ * a procedure's own line. The lexer makes it a comment wherever it stands,
+ * so its words are never read as code; this judges where it stands.
+ */
+function checkRemPlacement(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	// Procedure bodies, from the end of the header line to the End line.
+	const bodies: Span[] = [];
+	for (const member of mod.members) {
+		if (member.kind === 'Procedure') {
+			const lineEnd = source.indexOf('\n', member.span.start);
+			bodies.push({ start: lineEnd < 0 ? member.span.end : lineEnd, end: member.span.end });
+		}
+	}
+	const inBody = (offset: number): boolean => bodies.some((body) => offset > body.start && offset <= body.end);
+	let segment: VbaToken[] = [];
+	let oneLineIf = false;
+	const judge = (endedByColon: boolean): void => {
+		const toks = segment;
+		segment = [];
+		if (toks.length === 0 || toks[0].kind === 'directive') {
+			return;
+		}
+		const last = toks[toks.length - 1];
+		const rem = last.kind === 'comment' && REM_COMMENT.test(last.rawText) ? last : undefined;
+		const head = isDecimalLineNumber(toks[0]) ? 1 : 0;
+		const opener = tokenText(toks[head]);
+		const then = opener === 'if' || opener === 'elseif' ? toks.findIndex((tok) => tokenText(tok) === 'then') : -1;
+		// The lexer leaves a Rem right after Then a word, so an If stays a
+		// one-line If: `If x Then Rem note`, and `ElseIf x Then Rem note`.
+		const word = then > head ? toks[then + 1] : undefined;
+		if (word && tokenText(word) === 'rem' && !activity?.isInactive(word)) {
+			push('remAfterThen', "'Rem' cannot follow 'Then' on one line: a Rem comment starts only at the start of a statement. This is a VBE compile error: Syntax error.", remWord(word));
+		}
+		if (!oneLineIf && opener === 'if') {
+			if (then > head && then < toks.length - 1) {
+				oneLineIf = true;
+				return;
+			}
+			// `If x Then:` opens a one-line If too.
+			oneLineIf = then > head && endedByColon;
+		}
+		if (!rem || oneLineIf || toks.length - 1 === head) {
+			return;
+		}
+		if (toks.length - 1 === head + 1 && tokenText(toks[head]) === 'else') {
+			return;
+		}
+		if (activity?.isInactive(rem)) {
+			return;
+		}
+		const error = inBody(rem.start) ? 'Syntax error' : 'Expected: end of statement';
+		push('remAfterStatement', `'Rem' starts a comment only at the start of a statement, after a line number, a label or Else, or in a one-line If. Put a colon before it, or use an apostrophe. This is a VBE compile error: ${error}.`, remWord(rem));
+	};
+	for (const token of tokenizeCached(source)) {
+		if (token.kind === 'newline' || token.kind === 'colon') {
+			judge(token.kind === 'colon');
+			if (token.kind === 'newline') {
+				oneLineIf = false;
+			}
+			continue;
+		}
+		segment.push(token);
+	}
+	judge(false);
+}
+
+/** The word Rem itself, not the comment it starts. */
+function remWord(token: VbaToken): Span {
+	return { start: token.start, end: token.start + 3 };
 }
