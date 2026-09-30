@@ -12,6 +12,7 @@ import type { VbaToken } from '../lexer/tokenKinds';
 import type { HostObjectModel } from '../host/excelObjectModel';
 import { IDENT_RE, matchParenFrom } from '../lexer/tokenHelpers';
 import {
+	bankersRound,
 	parseDecimalIntegerLiteral,
 	parseVbaIntegerLiteral,
 	type IntegerConstantLookup,
@@ -1786,12 +1787,16 @@ export function inferAtomicExpressionType(
 					first.kind === 'integerLiteral'
 						? parseDecimalIntegerLiteral(first.rawText)
 						: undefined;
+				const floatValue = first.kind === 'floatLiteral'
+					? Number(first.rawText.replace(/[!#@]$/, ''))
+					: undefined;
 				return {
 					type: 'Double',
 					label: `numeric literal ${first.rawText}`,
 					span,
 					numericValue,
 					numericText: first.rawText,
+					...(floatValue !== undefined && Number.isFinite(floatValue) ? { floatValue } : {}),
 				};
 			}
 			case 'dateLiteral':
@@ -2498,7 +2503,7 @@ export function numericLiteralOverflowReason(
 	actual: InferredArgumentType,
 ): string | undefined {
 	if (actual.numericValue === undefined) {
-		return undefined;
+		return floatLiteralOverflowReason(expected, actual);
 	}
 	const bounds = numericLiteralBounds(expected);
 	if (!bounds) {
@@ -2514,6 +2519,25 @@ export function numericLiteralOverflowReason(
 	}
 	const literal = actual.numericText ?? String(actual.numericValue);
 	return `The numeric literal ${literal} is outside the ${bounds.label} range ${bounds.min} to ${bounds.max}. This will raise Run-time error '6': Overflow.`;
+}
+
+/**
+ * A float literal passed to a Byte, Integer or Long: VBA rounds it half to
+ * even and raises 6 when the result is out of range. `EchoL(3000000000#)`
+ * overflows, `EchoI(32767.4)` runs (issue #203, measured in Excel 16.0).
+ * Currency keeps four decimal places and is left out, as for whole numbers.
+ */
+function floatLiteralOverflowReason(expected: string, actual: InferredArgumentType): string | undefined {
+	if (actual.floatValue === undefined || (expected !== 'byte' && expected !== 'integer' && expected !== 'long')) {
+		return undefined;
+	}
+	const bounds = numericLiteralBounds(expected)!;
+	const rounded = bankersRound(actual.floatValue);
+	if (rounded >= bounds.min && rounded <= bounds.max) {
+		return undefined;
+	}
+	const shown = rounded === actual.floatValue ? '' : `, which VBA rounds to ${rounded},`;
+	return `The numeric literal ${actual.numericText ?? actual.floatValue}${shown} is outside the ${bounds.label} range ${bounds.min} to ${bounds.max}. This will raise Run-time error '6': Overflow.`;
 }
 
 export function numericLiteralBounds(

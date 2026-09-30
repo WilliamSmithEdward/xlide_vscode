@@ -233,3 +233,45 @@ describe('arithmetic-overflow - a number spelled in a string (issue #184)', () =
 		expect(byCode(analyzeModule(quiet), ARITHMETIC)).toHaveLength(0);
 	});
 });
+
+describe('Byte and Date arithmetic, and a float argument to a whole-number parameter (issue #203)', () => {
+	// Measured in Excel 16.0: two Bytes make a Byte, a Date plus or minus a
+	// number or another Date makes a Date, and a float literal passed ByVal to
+	// a Long is rounded half to even, then must fit.
+	const HELPERS = 'Function EchoL(ByVal n As Long) As Long\n    EchoL = n\nEnd Function\nFunction EchoI(ByVal n As Integer) As Integer\n    EchoI = n\nEnd Function\n';
+	const RAISES: ReadonlyArray<readonly [string, string[], string, string]> = [
+		['Byte + Byte', ['Dim a As Byte, b As Byte', 'a = 200: b = 100', 'Main = a + b'], ARITHMETIC, '200 (Byte) + 100 (Byte) is 300, outside the Byte range'],
+		['Byte - Byte', ['Dim a As Byte, b As Byte', 'a = 1: b = 2', 'Main = a - b'], ARITHMETIC, 'is -1, outside the Byte range'],
+		['Byte * Byte', ['Dim a As Byte, b As Byte', 'a = 20: b = 20', 'Main = a * b'], ARITHMETIC, 'is 400, outside the Byte range'],
+		['a Date plus a day', ['Dim d As Date', 'd = #12/31/9999#', 'Main = d + 1'], ARITHMETIC, '#12/31/9999# (Date) + 1 (Integer) falls after 12/31/9999'],
+		['a Date literal plus a day', ['Main = #12/31/9999# + 1'], ARITHMETIC, 'falls after 12/31/9999'],
+		['a Date plus a Double', ['Dim d As Date', 'd = #12/31/9999#', 'Main = d + 1#'], ARITHMETIC, 'falls after 12/31/9999'],
+		['two Dates added', ['Dim d As Date, e As Date', 'd = #12/31/9999#: e = #1/2/1900#', 'Main = d + e'], ARITHMETIC, 'falls after 12/31/9999'],
+		['a Date minus a day', ['Dim d As Date', 'd = #1/1/100#', 'Main = d - 1'], ARITHMETIC, '#1/1/100# (Date) - 1 (Integer) falls before 1/1/100'],
+		['an ISO Date literal', ['Main = #9999-12-31# + 1'], ARITHMETIC, 'falls after 12/31/9999'],
+		['a float argument past a Long', ['Main = EchoL(3000000000#)'], 'argument-type-mismatch', 'The numeric literal 3000000000# is outside the Long range'],
+		['a float argument that rounds past an Integer', ['Main = EchoI(32767.5)'], 'argument-type-mismatch', '32767.5, which VBA rounds to 32768, is outside the Integer range'],
+	];
+	it.each(RAISES)('reports %s', (_name, lines, code, text) => {
+		const hits = byCode(analyzeModule(wrap(...lines) + HELPERS), code);
+		expect(hits).toHaveLength(1);
+		expect(hits[0].message).toContain(text);
+		expect(hits[0].message).toContain("Run-time error '6': Overflow.");
+	});
+
+	const RUNS: ReadonlyArray<readonly [string, string[]]> = [
+		['a Byte plus an Integer literal', ['Dim a As Byte', 'a = 200', 'Main = a + 100']],
+		['a Byte plus an Integer', ['Dim a As Byte, i As Integer', 'a = 200: i = 100', 'Main = a + i']],
+		['Byte \\ and Mod', ['Dim a As Byte, b As Byte', 'a = 200: b = 100', 'Main = a \\ b + a Mod b']],
+		['a Date minus a day at the end', ['Dim d As Date', 'd = #12/31/9999#', 'Main = d - 1']],
+		['two Dates subtracted', ['Dim d As Date, e As Date', 'd = #12/31/9999#: e = #1/1/1900#', 'Main = d - e']],
+		['two Dates subtracted past the Date range, a Double', ['Dim d As Date, e As Date', 'd = #1/1/100#: e = #12/31/9999#', 'Main = d - e']],
+		['a float argument that rounds into an Integer', ['Main = EchoI(32767.4)']],
+		['a whole Long argument', ['Main = EchoL(2147483647)']],
+		['a date literal with a time, left alone', ['Main = #12/31/9999 11:00:00 PM# + 1']],
+	];
+	it.each(RUNS)('stays quiet for %s', (_name, lines) => {
+		const diagnostics = analyzeModule(wrap(...lines) + HELPERS);
+		expect([...byCode(diagnostics, ARITHMETIC), ...byCode(diagnostics, 'argument-type-mismatch')]).toEqual([]);
+	});
+});

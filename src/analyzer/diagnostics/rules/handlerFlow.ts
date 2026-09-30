@@ -125,16 +125,18 @@ function checkFallThroughIntoTargets(
 	const references = collectProcedureLabelReferences(source, proc, activity);
 	const handlerLabels = new Set(references.filter((ref) => ref.statementKind === 'on-error-goto').map((ref) => ref.key));
 	const gosubLabels = new Set(references.filter((ref) => ref.statementKind === 'gosub' || ref.statementKind === 'on-gosub').map((ref) => ref.key));
+	const named = new Set(references.map((ref) => ref.key));
 	for (let i = 0; i < entries.length; i++) {
 		const entry = entries[i];
 		if (entry.label === undefined || !entry.labelSpan) {
 			continue;
 		}
-		// The flow above must be a plain statement that does not leave; a
-		// block above proves nothing. The first statement of the body is
-		// entered directly.
+		// The flow above must be a plain statement that does not leave, and
+		// that itself runs; a block above proves nothing. The first statement
+		// of the body is entered directly.
 		const above = entries[i - 1];
-		const fallsIn = above === undefined || (above.leaf !== undefined && !leavesUnconditionally(source, above.leaf));
+		const fallsIn = above === undefined
+			|| (above.leaf !== undefined && !leavesUnconditionally(source, above.leaf) && runs(source, entries, i - 1, named));
 		if (!fallsIn) {
 			continue;
 		}
@@ -162,6 +164,29 @@ function checkFallThroughIntoTargets(
 			}
 		}
 	}
+}
+
+/**
+ * Whether the top-level entry at `index` can run: false when a statement above
+ * it leaves unconditionally with nothing between that a statement can jump
+ * to. A label no statement names is no way in: in `Exit Function`,
+ * `Skip:`, `x = 1`, the assignment is dead, and falls into nothing (issue
+ * #203, measured in Excel 16.0).
+ */
+function runs(source: string, entries: readonly TopLevelEntry[], index: number, named: ReadonlySet<string>): boolean {
+	for (let k = index; k >= 0; k--) {
+		const entry = entries[k];
+		if (entry.label !== undefined && named.has(entry.label)) {
+			return true;
+		}
+		if (k < index && entry.leaf && leavesUnconditionally(source, entry.leaf)) {
+			return false;
+		}
+		if (!entry.leaf) {
+			return true; // a block may or may not leave
+		}
+	}
+	return true;
 }
 
 /** `Err.Raise Err.Number` (with or without further arguments). */

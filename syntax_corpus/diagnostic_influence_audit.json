@@ -341,7 +341,11 @@
         "cverr_to_variant_argument_runtime",
         "null_to_long_argument_runtime",
         "null_to_variant_argument_runtime",
-        "issue184_29_runtime"
+        "issue184_29_runtime",
+        "issue203_14_runtime",
+        "issue203_15_runtime",
+        "issue203_16_runtime",
+        "issue203_17_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2357,7 +2361,15 @@
         "issue184_03_runtime",
         "issue184_05_runtime",
         "issue184_07_runtime",
-        "issue184_08_runtime"
+        "issue184_08_runtime",
+        "issue203_01_runtime",
+        "issue203_02_runtime",
+        "issue203_03_runtime",
+        "issue203_07_runtime",
+        "issue203_09_runtime",
+        "issue203_10_runtime",
+        "issue203_11_runtime",
+        "issue203_13_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2705,7 +2717,8 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #117): 1 asserted case from the issue's measured corpus",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "issue117_c_runtime"
+        "issue117_c_runtime",
+        "issue203_22_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

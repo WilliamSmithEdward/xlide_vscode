@@ -134,3 +134,26 @@ describe('On Error GoTo -1 installs no handler (issue #142)', () => {
 		expectDiagnostic(src, analyzeModule(src), 'resume-without-error', { severity: 'error', span: 'Resume', message: "'20'" });
 	});
 });
+
+describe('return-without-gosub reads only a statement that runs (issue #203)', () => {
+	// Measured in Excel 16.0: each runs, because the statement above the
+	// GoSub target is dead, and nothing falls into the target.
+	const RUNS: ReadonlyArray<readonly [string, string]> = [
+		['a dead statement after Exit Function', 'Function Main() As Long\n    GoSub Target\n    Exit Function\n    Main = Main + 100\nTarget:\n    Main = Main + 10\n    Return\nEnd Function\n'],
+		['a dead statement after a Return', 'Function Main() As Long\n    GoSub A\n    GoSub B\n    Exit Function\nA:\n    Main = Main + 1\n    Return\n    Main = Main + 100\nB:\n    Main = Main + 10\n    Return\nEnd Function\n'],
+		['a label nothing names above the dead statement', 'Function Main() As Long\n    GoSub Target\n    Exit Function\nSkip:\n    Main = Main + 100\nTarget:\n    Main = Main + 10\n    Return\nEnd Function\n'],
+	];
+	it.each(RUNS)('stays quiet for %s', (_name, src) => {
+		expect(byCode(analyzeModule(src), 'return-without-gosub')).toHaveLength(0);
+	});
+
+	it('still reports a target the code falls into', () => {
+		const src = 'Function Main() As Long\n    GoSub Target\n    Main = Main + 100\nTarget:\n    Main = Main + 10\n    Return\nEnd Function\n';
+		expect(byCode(analyzeModule(src), 'return-without-gosub')).toHaveLength(1);
+	});
+
+	it('reports a target below a label a GoTo names', () => {
+		const src = 'Function Main() As Long\n    GoSub Target\n    If Main = 0 Then GoTo Again\n    Exit Function\nAgain:\n    Main = Main + 100\nTarget:\n    Main = Main + 10\n    Return\nEnd Function\n';
+		expect(byCode(analyzeModule(src), 'return-without-gosub')).toHaveLength(1);
+	});
+});

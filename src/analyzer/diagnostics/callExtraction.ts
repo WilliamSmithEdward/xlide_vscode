@@ -81,6 +81,11 @@ export interface InferredArgumentType {
 	 * of calling its display name a "numeric literal".
 	 */
 	numericConstantName?: string;
+	/**
+	 * A float literal's value (`3000000000#`, `2.5`). Kept apart from
+	 * `numericValue`, whose range checks assume a whole number exactly held.
+	 */
+	floatValue?: number;
 }
 
 /**

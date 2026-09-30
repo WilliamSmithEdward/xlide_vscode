@@ -17,10 +17,11 @@
 //    `For b = 0 To 255` with b a Byte: the increment after the last pass
 //    overflows the counter. `To 32766` runs.
 //
-// The folder follows MS-VBAL 5.6.9.3: Byte and Integer operands make Integer
-// results, Long makes Long, Single and Double make Double, Currency makes
-// Currency; `/` and `^` make Double. A value the folder cannot type stays
-// unknown and nothing is reported for it.
+// The folder follows MS-VBAL 5.6.9.3: two Bytes make a Byte, Byte and
+// Integer make Integer, Long makes Long, Single and Double make Double,
+// Currency makes Currency, and a Date plus or minus a number is a Date;
+// `/` and `^` make Double. A value the folder cannot type stays unknown and
+// nothing is reported for it.
 
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpression';
@@ -82,16 +83,20 @@ const RANK: Readonly<Record<NumericType, number>> = {
 	byte: 0, integer: 1, long: 2, single: 3, double: 4, currency: 5, date: 6,
 };
 
-/** The result type of `a op b` for + - * \ Mod (MS-VBAL 5.6.9.3). */
-function arithmeticResultType(a: NumericType, b: NumericType): NumericType {
+/**
+ * The result type of `a op b` for + - * \ Mod (MS-VBAL 5.6.9.3), as Excel
+ * 16.0 computes it (issue #203): two Bytes make a Byte, so 200 + 100
+ * overflows; a Date plus or minus a number, or two Dates added, make a Date,
+ * so #12/31/9999# + 1 overflows; two Dates subtracted make a Double.
+ */
+function arithmeticResultType(a: NumericType, b: NumericType, op: string): NumericType {
 	if (a === 'currency' || b === 'currency') {
 		return (a === 'double' || b === 'double' || a === 'single' || b === 'single') ? 'double' : 'currency';
 	}
 	if (a === 'date' || b === 'date') {
-		return 'double';
+		return op === '+' || (op === '-' && !(a === 'date' && b === 'date')) ? 'date' : 'double';
 	}
-	const wider = RANK[a] >= RANK[b] ? a : b;
-	return wider === 'byte' ? 'integer' : wider;
+	return RANK[a] >= RANK[b] ? a : b;
 }
 
 function isOverflow(folded: Folded): folded is Overflow {
@@ -142,7 +147,40 @@ function literalTyped(tok: VbaToken): Typed | undefined {
 		}
 		return { value, type: suffix === '!' ? 'single' : suffix === '@' ? 'currency' : 'double' };
 	}
+	if (tok.kind === 'dateLiteral') {
+		const serial = dateLiteralSerial(tok.rawText);
+		return serial === undefined ? undefined : { value: serial, type: 'date' };
+	}
 	return undefined;
+}
+
+const DAY_MS = 86400000;
+const DATE_EPOCH_MS = Date.UTC(1899, 11, 30);
+
+/**
+ * A whole-day date literal's serial, the days from December 30, 1899:
+ * `#12/31/9999#` is 2958465 and `#1/1/100#` is -657434 (issue #203). Only
+ * `#m/d/yyyy#` and `#yyyy-mm-dd#` are read; a time of day, a month name or a
+ * two-digit year is left to the VBE.
+ */
+function dateLiteralSerial(raw: string): number | undefined {
+	const text = raw.replace(/^#|#$/g, '').trim();
+	const us = /^(\d{1,2})\/(\d{1,2})\/(\d{3,4})$/.exec(text);
+	const iso = /^(\d{3,4})-(\d{1,2})-(\d{1,2})$/.exec(text);
+	const parts = us ? [+us[3], +us[1], +us[2]] : iso ? [+iso[1], +iso[2], +iso[3]] : undefined;
+	if (!parts) {
+		return undefined;
+	}
+	const [year, month, day] = parts;
+	if (year < 100 || month < 1 || month > 12 || day < 1) {
+		return undefined;
+	}
+	const at = new Date(0);
+	at.setUTCFullYear(year, month - 1, day);
+	if (at.getUTCMonth() !== month - 1) {
+		return undefined; // #2/30/2020# is no date
+	}
+	return Math.round((at.getTime() - DATE_EPOCH_MS) / DAY_MS);
 }
 
 /**
@@ -432,7 +470,7 @@ class TypedFolder {
 				break;
 			case '\\':
 			case 'mod': {
-				type = arithmeticResultType(left.type, right.type);
+				type = arithmeticResultType(left.type, right.type, op);
 				const a = bankersRound(left.value);
 				const b = bankersRound(right.value);
 				if (b === 0) {
@@ -442,16 +480,18 @@ class TypedFolder {
 				break;
 			}
 			default:
-				type = arithmeticResultType(left.type, right.type);
+				type = arithmeticResultType(left.type, right.type, op);
 				value = op === '+' ? left.value + right.value : op === '-' ? left.value - right.value : left.value * right.value;
 				break;
 		}
 		if (!inRange(value, type)) {
-			const shown = showNumber(value);
+			const result = type === 'date'
+				? `falls ${value > 0 ? 'after 12/31/9999' : 'before 1/1/100'}, outside the Date range`
+				: `is ${showNumber(value)}, outside the ${RANGES[type].label} range`;
 			return {
 				overflow: true,
 				span,
-				detail: `${describe(left)} ${op === 'mod' ? 'Mod' : op} ${describe(right)} is ${shown}, outside the ${RANGES[type].label} range`,
+				detail: `${describe(left)} ${op === 'mod' ? 'Mod' : op} ${describe(right)} ${result}`,
 			};
 		}
 		return { value, type };
@@ -459,6 +499,10 @@ class TypedFolder {
 }
 
 function describe(typed: Typed): string {
+	if (typed.type === 'date' && Number.isInteger(typed.value)) {
+		const at = new Date(DATE_EPOCH_MS + typed.value * DAY_MS);
+		return `#${at.getUTCMonth() + 1}/${at.getUTCDate()}/${at.getUTCFullYear()}# (Date)`;
+	}
 	return `${showNumber(typed.value)} (${RANGES[typed.type].label})`;
 }
 
