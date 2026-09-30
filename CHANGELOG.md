@@ -2,6 +2,37 @@
 
 All notable changes to **XLIDE: VBA for VS Code** are documented here.
 
+## [10.14.5] - 2026-09-29
+
+Analysis now says when it could not check everything, and a module where it
+could not appears in XLIDE's output with the reason.
+
+- **A failure inside the analyser is no longer silent** (#178). Analysis
+  never throws, so a rule that failed returned fewer problems, or none, and
+  a module it could not fully check looked clean. Each such failure is now
+  written to the XLIDE output channel once per module, with what went
+  unchecked and the stack, so a report can carry it. `analyzeModule` takes
+  an `onInternalError` callback for the same purpose. A walk visitor that
+  throws now stops only its own rule, where it used to stop every
+  walk-based rule for the rest of the module. None of the 5,470 modules in
+  the differential corpus reports a failure.
+- **A module the project index could not read** is named in the output
+  too. Every other module lost its declarations with no word said.
+- **Project context comes whole or not at all.** When the index failed
+  partway through a module's project context, the answers before the
+  failure were kept and the rest dropped. Now all are dropped together,
+  and the failure is reported.
+- **Faster re-analysis while typing** in a large module: an edit no longer
+  builds every rule's visitor for the procedures it skips. A one-line edit
+  in a 981 KB module of 1,565 procedures went from 418 to 398 ms, with
+  results equal to a full analysis on every corpus module.
+- **Security workflows:** ClamAV and YARA-X run in their own Malware scan
+  workflow, daily as well as on every change, with its own report on each
+  release. The YARA Forge rules are pinned to a release and its SHA-256,
+  and a weekly workflow proposes the next release in a pull request. Each
+  workflow ends in one gate that branch protection requires, actions must
+  be pinned to full commit SHAs, and Semgrep's findings go to code scanning.
+
 ## [10.14.4] - 2026-09-29
 
 Malware scans on every change and every release, and everything the build
