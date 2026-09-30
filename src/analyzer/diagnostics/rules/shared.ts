@@ -701,3 +701,40 @@ export function scanConditionalCompilationBranchOrder(mod: ModuleNode): Conditio
 	}
 	return { issues, malformedBlockSpans };
 }
+
+/**
+ * How many times each name appears in the procedure's active code: its
+ * statements, and the header and footer lines of its blocks, where
+ * `For Each v In c` assigns v.
+ */
+export function nameMentions(
+	source: string,
+	procedure: { body: readonly BodyNode[] },
+	activity: ConditionalActivityTracker | undefined,
+): Map<string, number> {
+	const out = new Map<string, number>();
+	const count = (span: Span): void => {
+		for (const tok of statementTokens(source, span)) {
+			const lower = tokenName(tok)?.toLowerCase();
+			if (lower) {
+				out.set(lower, (out.get(lower) ?? 0) + 1);
+			}
+		}
+	};
+	const visit = (body: readonly BodyNode[]): void => {
+		for (const node of body) {
+			if (activity?.isInactive(node.span)) {
+				continue;
+			}
+			if (isLeafStatement(node)) {
+				count(node.span);
+			} else if ('body' in node && Array.isArray(node.body)) {
+				count(blockHeaderLineSpan(source, node.span));
+				count(blockFooterLineSpan(source, node.span));
+				visit(node.body as BodyNode[]);
+			}
+		}
+	};
+	visit(procedure.body);
+	return out;
+}

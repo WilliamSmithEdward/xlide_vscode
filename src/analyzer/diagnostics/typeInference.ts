@@ -2777,7 +2777,8 @@ function hostTypeIsClosed(typeName: string, memberCtx: MemberCompletionContext):
 
 /** A local whose value the procedure's text fixes: its default, or one literal. */
 export interface KnownLocalValue {
-	kind: 'number' | 'string';
+	/** 'empty' is a Variant nothing ever assigns, whose value 0 is Empty's as a number. */
+	kind: 'number' | 'string' | 'empty';
 	value: number | string;
 	/** 'default' when nothing ever assigns it, 'literal' when every assignment is the same literal. */
 	origin: 'default' | 'literal';
@@ -2900,8 +2901,16 @@ export function knownLocalLiteralValues(
 	visit(proc.body);
 	const out = new Map<string, KnownLocalValue>();
 	for (const [lower, entry] of candidates) {
-		if (entry.mutated || entry.kind === undefined) {
-			continue; // a Variant nothing assigned is Empty, not a known literal
+		if (entry.mutated) {
+			continue;
+		}
+		if (entry.kind === undefined) {
+			// A Variant nothing assigns is Empty, which divides as 0: `5 / v`
+			// raises 11 and `v / v` 6 (issue #219, measured in Excel 16.0).
+			if (!entry.contentMutated) {
+				out.set(lower, { kind: 'empty', value: 0, origin: 'default' });
+			}
+			continue;
 		}
 		const contentMutated = entry.contentMutated ? { contentMutated: true } : {};
 		if (entry.literals.size === 0) {

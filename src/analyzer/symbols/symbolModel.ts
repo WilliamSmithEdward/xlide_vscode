@@ -315,6 +315,13 @@ export interface VbaProjectClassMembers {
 	 */
 	designerClass?: string;
 	members: VbaProjectClassMember[];
+	/**
+	 * The names of the module's Private members, which `members` leaves out.
+	 * No reference through an object reaches one, `Me.` included: that is
+	 * "Method or data member not found" wherever the rest of the surface
+	 * cannot prove absence (issue #219).
+	 */
+	privateMembers?: string[];
 }
 
 /**

@@ -12,6 +12,11 @@
 //    when the key was never added, or was removed -> 5. Keys compare without
 //    case: `c.Add 1, "k"` then `c("K")` runs.
 //  - collection-key-in-use: `c.Add 1, "k"` then `c.Add 2, "K"` -> 457.
+//  - collection-add-argument (issue #219): a key that is a number or True,
+//    `c.Add "x", 5` -> 13, and so is a Variant never assigned, which is
+//    Empty; Before and After together -> 5. Before or After
+//    on an empty collection -> 5, and outside 1 to Count -> 9, are
+//    collection-index-out-of-range's.
 //
 // The rule follows a procedure's top-level statements in order, as the file
 // rule does: a block ends what is known, and any use of the variable other
@@ -35,6 +40,7 @@ import {
 	tokenName,
 	tokenText,
 } from '../walker';
+import { nameMentions } from './shared';
 
 interface CollectionContents {
 	/** Keys in element order; undefined for an element added without a key. */
@@ -61,6 +67,10 @@ export function checkCollectionState(
 		if (states.size === 0 && autoInstanced.plainLocals.size === 0) {
 			continue;
 		}
+		// A Variant local named nowhere but one statement is Empty there.
+		let mentions: Map<string, number> | undefined;
+		const isEmpty = (lower: string): boolean => autoInstanced.variantLocals.has(lower)
+			&& (mentions ??= nameMentions(source, member, activity)).get(lower) === 1;
 		for (const node of member.body) {
 			if (activity?.isInactive(node.span)) {
 				continue;
@@ -112,7 +122,7 @@ export function checkCollectionState(
 				}
 				continue;
 			}
-			checkStatement(node.span, toks, states, push);
+			checkStatement(node.span, toks, states, push, isEmpty);
 		}
 	}
 }
@@ -120,21 +130,26 @@ export function checkCollectionState(
 function collectionLocals(
 	proc: ProcedureNode,
 	activity: ConditionalActivityTracker | undefined,
-): { newLocals: Set<string>; plainLocals: Set<string> } {
+): { newLocals: Set<string>; plainLocals: Set<string>; variantLocals: Set<string> } {
 	const newLocals = new Set<string>();
 	const plainLocals = new Set<string>();
+	const variantLocals = new Set<string>();
 	forEachVariableGroup(proc.body, (group) => {
 		if (group.isConst || group.modifier.toLowerCase() === 'static') {
 			return;
 		}
 		for (const decl of group.declarations) {
-			if (decl.isArray || normalizeType(decl.asType) !== 'collection') {
+			const type = normalizeType(decl.asType);
+			if (!decl.isArray && (type === undefined || type === 'variant') && !/[%&^!#@$]$/.test(decl.name)) {
+				variantLocals.add(decl.name.toLowerCase());
+			}
+			if (decl.isArray || type !== 'collection') {
 				continue;
 			}
 			(decl.isNew ? newLocals : plainLocals).add(decl.name.toLowerCase());
 		}
 	}, activity);
-	return { newLocals, plainLocals };
+	return { newLocals, plainLocals, variantLocals };
 }
 
 /** Drops every tracked collection a statement names anywhere. */
@@ -147,7 +162,7 @@ function forgetMentioned(source: string, span: Span, states: Map<string, Collect
 	}
 }
 
-function checkStatement(base: Span, toks: readonly VbaToken[], states: Map<string, CollectionContents>, push: PushFn): void {
+function checkStatement(base: Span, toks: readonly VbaToken[], states: Map<string, CollectionContents>, push: PushFn, isEmpty: (lower: string) => boolean): void {
 	const at = (from: number, to: number): Span => ({ start: base.start + toks[from].start, end: base.start + toks[to].end });
 	// First pass: reads and the recognised forms, in source order. A mention
 	// in any other shape ends tracking of that variable after this statement.
@@ -192,7 +207,7 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: Map<strin
 		if ((memberName === 'add' || memberName === 'remove') && i === (tokenText(toks[0]) === 'call' ? 1 : 0)) {
 			const args = argumentsAfter(toks, i + 3);
 			if (memberName === 'add') {
-				mutations.push(() => add(lower, state, args, base, push));
+				mutations.push(() => add(lower, state, args, base, push, isEmpty));
 			} else if (args.length === 1) {
 				mutations.push(() => remove(lower, state, args[0], base, push));
 			} else {
@@ -290,7 +305,78 @@ function reportKey(name: string, state: CollectionContents, key: string, span: S
 	return false;
 }
 
-function add(name: string, state: CollectionContents, args: VbaToken[][], base: Span, push: PushFn): void {
+const ADD_PARAMETERS = ['item', 'key', 'before', 'after'];
+
+/** Add's arguments by parameter, positional or named; undefined when a name is unknown. */
+function addArguments(args: readonly VbaToken[][]): Map<string, VbaToken[]> | undefined {
+	const out = new Map<string, VbaToken[]>();
+	for (let k = 0; k < args.length; k++) {
+		const arg = args[k];
+		if (arg[1]?.rawText === ':=') {
+			const param = tokenText(arg[0]);
+			if (!ADD_PARAMETERS.includes(param)) {
+				return undefined;
+			}
+			out.set(param, arg.slice(2));
+		} else if (arg.length > 0 && k < ADD_PARAMETERS.length) {
+			out.set(ADD_PARAMETERS[k], arg);
+		}
+	}
+	return out;
+}
+
+/**
+ * What Add refuses before it adds (issue #219, measured in Excel 16.0): a key
+ * that is a number or True rather than a string raises 13; Before and After
+ * together raise 5; either one on an empty collection raises 5; and an index
+ * outside 1 to Count raises 9 (Before:=0, After:=2 with one element).
+ */
+function addRefusal(name: string, state: CollectionContents, byName: ReadonlyMap<string, VbaToken[]>, base: Span, isEmpty: (lower: string) => boolean): { rule: 'collectionAddArgument' | 'collectionIndexOutOfRange'; message: string; span: Span } | undefined {
+	const spanOf = (arg: readonly VbaToken[]): Span => ({ start: base.start + arg[0].start, end: base.start + arg[arg.length - 1].end });
+	const key = byName.get('key');
+	const keyLiteral = key ? key.filter((t) => t.kind !== 'comment') : [];
+	const nonString = keyLiteral.length > 0 && (literalIndex(keyLiteral) !== undefined
+		|| (keyLiteral.length === 1 && keyLiteral[0].kind === 'floatLiteral')
+		|| (keyLiteral.length === 1 && (tokenText(keyLiteral[0]) === 'true' || tokenText(keyLiteral[0]) === 'false')));
+	const emptyKey = keyLiteral.length === 1 && isEmpty(tokenName(keyLiteral[0])?.toLowerCase() ?? '');
+	if (emptyKey) {
+		return { rule: 'collectionAddArgument', message: `The key of '${name}.Add' is '${keyLiteral[0].rawText}', which is never assigned and so is Empty, not a string. This will raise Run-time error '13': Type mismatch.`, span: spanOf(keyLiteral) };
+	}
+	if (nonString) {
+		return { rule: 'collectionAddArgument', message: `The key of '${name}.Add' is ${keyLiteral.map((t) => t.rawText).join('')}, not a string. This will raise Run-time error '13': Type mismatch.`, span: spanOf(keyLiteral) };
+	}
+	const before = byName.get('before');
+	const after = byName.get('after');
+	if (before && after) {
+		return { rule: 'collectionAddArgument', message: `'${name}.Add' is given both Before and After. This will raise Run-time error '5': Invalid procedure call or argument.`, span: spanOf(after) };
+	}
+	const position = before ?? after;
+	if (!position) {
+		return undefined;
+	}
+	if (state.items.length === 0) {
+		return { rule: 'collectionIndexOutOfRange', message: `'${name}' holds nothing here, so ${before ? 'Before' : 'After'} names no element. This will raise Run-time error '5': Invalid procedure call or argument.`, span: spanOf(position) };
+	}
+	const index = literalIndex(position);
+	if (index !== undefined && (index < 1 || index > state.items.length)) {
+		return { rule: 'collectionIndexOutOfRange', message: `'${name}' holds ${state.items.length} element${state.items.length === 1 ? '' : 's'} here, indexed 1 to ${state.items.length}; ${before ? 'Before' : 'After'} is ${index}. This will raise Run-time error '9': Subscript out of range.`, span: spanOf(position) };
+	}
+	return undefined;
+}
+
+function add(name: string, state: CollectionContents, rawArgs: VbaToken[][], base: Span, push: PushFn, isEmpty: (lower: string) => boolean): void {
+	const byName = addArguments(rawArgs);
+	if (!byName) {
+		state.items.push(undefined);
+		state.keysKnown = false;
+		return;
+	}
+	const refusal = addRefusal(name, state, byName, base, isEmpty);
+	if (refusal) {
+		push(refusal.rule, refusal.message, refusal.span);
+		return;
+	}
+	const args = [byName.get('item') ?? [], byName.get('key') ?? [], byName.get('before') ?? [], byName.get('after') ?? []];
 	const keyArg = args[1];
 	const key = keyArg && keyArg.length > 0 ? literalKey(keyArg) : undefined;
 	if (keyArg && keyArg.length > 0 && key === undefined) {

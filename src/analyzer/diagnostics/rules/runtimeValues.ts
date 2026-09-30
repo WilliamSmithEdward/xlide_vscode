@@ -591,6 +591,7 @@ function numericSlotValue(
  *  - LBound and UBound of Array(...) or Split(...), which have one dimension,
  *    raise 9 for any other Dimension.
  *  - Join and Filter given a string or number where the array goes raise 13.
+ *  - Switch with an odd number of arguments raises 5 (issue #219).
  */
 function argumentRelationHit(
 	source: string,
@@ -732,6 +733,12 @@ function argumentRelationHit(
 				? hit(`${call.displayName}'s Dimension is ${dimension}, but ${array[0].rawText}(...) has one dimension.`, slotSpan(1), 9)
 				: undefined;
 		}
+		case 'switch':
+			// Switch takes condition-value pairs; an odd count compiles and
+			// raises 5 whatever the conditions are (issue #219).
+			return call.slots.length % 2 === 1
+				? hit(`Switch takes its arguments in pairs, a condition and a value, but is given ${call.slots.length}.`, slotSpan(0, call.slots.length - 1))
+				: undefined;
 		case 'join':
 		case 'filter': {
 			if (!present(2)) {
@@ -932,7 +939,7 @@ function runtimeArgumentValueCallAt(
 
 /** Functions argumentRelationHit judges, which have no single-argument bound. */
 const RELATION_FUNCTIONS: ReadonlyMap<string, string> = new Map(
-	['Partition', 'Pmt', 'IPmt', 'PPmt', 'SLN', 'SYD', 'DDB', 'NPer', 'Rate', 'PV', 'LBound', 'UBound', 'Join', 'Filter']
+	['Partition', 'Pmt', 'IPmt', 'PPmt', 'SLN', 'SYD', 'DDB', 'NPer', 'Rate', 'PV', 'LBound', 'UBound', 'Join', 'Filter', 'Switch']
 		.map((canonical) => [canonical.toLowerCase(), canonical]),
 );
 

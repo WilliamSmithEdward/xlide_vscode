@@ -647,11 +647,16 @@
         "range_unknown_member_compile",
         "range_typed_unknown_member_compile",
         "workbook_typed_unknown_member_compile",
-        "font_unknown_member_compile"
+        "font_unknown_member_compile",
+        "issue219_62_compile",
+        "issue219_64_compile",
+        "issue219_65_compile",
+        "issue219_67_compile",
+        "issue219_68_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is a VBE compile-equivalent error for workbook class receivers whose source-backed member surface is known and unambiguous, and for HOST types only where the type library marks the interface NONEXTENSIBLE. A complete member list is not enough on its own: most of Excel's object model is extensible, so VBA compiles a name that is on no interface and asks IDispatch for it at run time. Application.Match is the case that showed it - a worksheet function on no interface at all, which compiles and runs, and which XLIDE reported as absent until 10.4.2. Of the 35 Excel types the reference dump covers exhaustively, four are closed: Worksheet, Chart, Sheets and Workbooks. The VBE agreed with the flag on every receiver tried, Application, Range (called for and declared), Workbook (declared) and Font accepted, Worksheet, Chart and a bare Worksheets (a Sheets) refused. Public fields are valid members.",
+      "notes": "This is a VBE compile-equivalent error for workbook class receivers whose source-backed member surface is known and unambiguous, and for HOST types only where the type library marks the interface NONEXTENSIBLE. A complete member list is not enough on its own: most of Excel's object model is extensible, so VBA compiles a name that is on no interface and asks IDispatch for it at run time. Application.Match is the case that showed it - a worksheet function on no interface at all, which compiles and runs, and which XLIDE reported as absent until 10.4.2. Of the 35 Excel types the reference dump covers exhaustively, four are closed: Worksheet, Chart, Sheets and Workbooks. The VBE agreed with the flag on every receiver tried, Application, Range (called for and declared), Workbook (declared) and Font accepted, Worksheet, Chart and a bare Worksheets (a Sheets) refused. Public fields are valid members. Issue #219: a Private member of a project module reached through an object, Sheet1.Secret() or Me.Secret() inside Sheet1, where the rest of the surface cannot prove absence.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -780,11 +785,26 @@
         "issue199_13_runtime",
         "issue199_22_runtime",
         "issue199_23_runtime",
-        "issue199_25_runtime"
+        "issue199_25_runtime",
+        "issue219_05_runtime",
+        "issue219_06_runtime",
+        "issue219_08_runtime",
+        "issue219_09_runtime",
+        "issue219_10_runtime",
+        "issue219_11_runtime",
+        "issue219_12_runtime",
+        "issue219_13_runtime",
+        "issue219_14_runtime",
+        "issue219_51_runtime",
+        "issue219_53_runtime",
+        "issue219_54_runtime",
+        "issue219_55_runtime",
+        "issue219_56_runtime",
+        "issue219_58_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show /, integer division, and Mod by decimal, hexadecimal, octal, module-Const, local-Const, reducible integer Const-expression, current-module Enum member, bare/module-qualified visible exported standard-module Const/Enum, verified numeric VBA runtime constants, generated Excel/Office host enum constants, and exported Const-through-private-helper zero divisors compile successfully and deterministically raise runtime error 11, while nonzero literal, Const-expression, and Enum member controls run. Const/Enum folding includes decimal/hex/octal integer literals and implicit Enum successor values where the expression remains deterministic. Bare source names are folded only when the shared expression resolver proves a non-ambiguous Const or Enum-member binding, so local/module variable shadows suppress exported and external constant values. The active rule scans settled procedure statements, including nested expressions, and remains conservative for variables, unresolved constants, direct private helper references, ambiguous source bindings, nonnumeric external constants, and broader expression folding until flow/reachability handling is broader.",
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show /, integer division, and Mod by decimal, hexadecimal, octal, module-Const, local-Const, reducible integer Const-expression, current-module Enum member, bare/module-qualified visible exported standard-module Const/Enum, verified numeric VBA runtime constants, generated Excel/Office host enum constants, and exported Const-through-private-helper zero divisors compile successfully and deterministically raise runtime error 11, while nonzero literal, Const-expression, and Enum member controls run. Const/Enum folding includes decimal/hex/octal integer literals and implicit Enum successor values where the expression remains deterministic. Bare source names are folded only when the shared expression resolver proves a non-ambiguous Const or Enum-member binding, so local/module variable shadows suppress exported and external constant values. The active rule scans settled procedure statements, including nested expressions, and remains conservative for variables, unresolved constants, direct private helper references, ambiguous source bindings, nonnumeric external constants, and broader expression folding until flow/reachability handling is broader. Issue #219: a Variant local nothing assigns is Empty, which divides as 0 (5 / v raises 11, v / v raises 6), and a conversion of a literal that comes out 0, CLng(0) or CLng(0.4), is a zero divisor.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -932,11 +952,15 @@
         "runtime_argument_bounds_46_runtime",
         "runtime_argument_bounds_49_runtime",
         "runtime_argument_bounds_51_runtime",
-        "runtime_argument_bounds_53_runtime"
+        "runtime_argument_bounds_53_runtime",
+        "issue219_01_runtime",
+        "issue219_02_runtime",
+        "issue219_04_runtime",
+        "issue219_59_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show out-of-bound integer values for Left/Left$, Right/Right$, String/String$, Space/Space$, Mid/Mid$, Replace, three-or-more-argument InStr, Chr, and ChrW compile successfully and deterministically raise runtime error 5, while proven in-bound controls run. The active rule is deliberately narrow: it scans settled procedure statements for integer literals, reducible integer expressions, same-module/procedure Const values, current-module Enum members, bare/module-qualified visible exported standard-module Const/Enum members, verified numeric VBA runtime constants, generated Excel/Office host enum constants, and exported Const-through-private-helper values outside proven runtime bounds; bare source names are folded only when the shared expression resolver proves a non-ambiguous Const or Enum-member binding, so local/module variable shadows suppress exported and external constant values; maps named argument slots where the intrinsic syntax supports them; respects bare-call shadowing by source symbols and local declarations; treats ambiguous or direct private helper references as unknown; and still allows explicit VBA-qualified calls to bind to intrinsic runtime functions. Issue #218: Compare takes 0, 1 or a locale ID, so only a negative Compare, and 2 for InStr, StrComp and Filter outside Access, is reported, in all six functions; CVErr takes 0 to 65535; LeftB, RightB, MidB, AscB and InStrB keep the lower bounds of their plain forms; a string is at most 1073741823 characters; TimeSerial, DateSerial, ChrB, String and InStr overflow past their Integer, Byte or Long parameters, and Error(n) past 65535 (error 6); Partition, Pmt, IPmt, PPmt, SLN, SYD, DDB, NPer and Rate are checked across their arguments, PV with Rate -1 divides by zero (11), LBound and UBound of Array(...) or Split(...) past dimension 1 raise 9, and Join or Filter of a string or number raise 13. Whether Rate converges is not judged.",
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show out-of-bound integer values for Left/Left$, Right/Right$, String/String$, Space/Space$, Mid/Mid$, Replace, three-or-more-argument InStr, Chr, and ChrW compile successfully and deterministically raise runtime error 5, while proven in-bound controls run. The active rule is deliberately narrow: it scans settled procedure statements for integer literals, reducible integer expressions, same-module/procedure Const values, current-module Enum members, bare/module-qualified visible exported standard-module Const/Enum members, verified numeric VBA runtime constants, generated Excel/Office host enum constants, and exported Const-through-private-helper values outside proven runtime bounds; bare source names are folded only when the shared expression resolver proves a non-ambiguous Const or Enum-member binding, so local/module variable shadows suppress exported and external constant values; maps named argument slots where the intrinsic syntax supports them; respects bare-call shadowing by source symbols and local declarations; treats ambiguous or direct private helper references as unknown; and still allows explicit VBA-qualified calls to bind to intrinsic runtime functions. Issue #218: Compare takes 0, 1 or a locale ID, so only a negative Compare, and 2 for InStr, StrComp and Filter outside Access, is reported, in all six functions; CVErr takes 0 to 65535; LeftB, RightB, MidB, AscB and InStrB keep the lower bounds of their plain forms; a string is at most 1073741823 characters; TimeSerial, DateSerial, ChrB, String and InStr overflow past their Integer, Byte or Long parameters, and Error(n) past 65535 (error 6); Partition, Pmt, IPmt, PPmt, SLN, SYD, DDB, NPer and Rate are checked across their arguments, PV with Rate -1 divides by zero (11), LBound and UBound of Array(...) or Split(...) past dimension 1 raise 9, and Join or Filter of a string or number raise 13. Whether Rate converges is not judged. Issue #219: Switch with an odd number of arguments (5).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -3193,11 +3217,18 @@
         "issue200_03_runtime",
         "issue200_07_runtime",
         "issue200_22_runtime",
-        "issue200_E3_runtime"
+        "issue200_E3_runtime",
+        "issue219_18_runtime",
+        "issue219_19_runtime",
+        "issue219_22_runtime",
+        "issue219_36_runtime",
+        "issue219_38_runtime",
+        "issue219_39_runtime",
+        "issue219_40_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Collection index out of range. VBE runtime errors 5 and 9 on VBA.Collection (issue #121, Excel 16.0).",
+      "notes": "Collection index out of range. VBE runtime errors 5 and 9 on VBA.Collection (issue #121, Excel 16.0). Issue #219: Add with Before or After on an empty collection (5), or outside 1 to Count (9).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -3228,6 +3259,26 @@
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
+      "code": "collection-add-argument",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-30 (issue #219)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue219_16_runtime",
+        "issue219_21_runtime",
+        "issue219_23_runtime",
+        "issue219_41_runtime",
+        "issue219_42_runtime",
+        "issue219_43_runtime",
+        "issue219_44_runtime",
+        "issue219_45_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Collection Add argument refused. VBE runtime error 13 for a key that is a number, True, or a Variant never assigned (Empty), and 5 for Before with After (issue #219, Excel 16.0).",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
       "code": "variant-value-misuse",
       "status": "vbe-oracle-verified",
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #121): 3 asserted cases from the issue's measured corpus",
@@ -3239,11 +3290,21 @@
         "issue180_03_runtime",
         "issue180_04_runtime",
         "issue180_05_runtime",
-        "issue180_06_runtime"
+        "issue180_06_runtime",
+        "issue219_24_runtime",
+        "issue219_25_runtime",
+        "issue219_26_runtime",
+        "issue219_27_runtime",
+        "issue219_29_runtime",
+        "issue219_30_runtime",
+        "issue219_31_runtime",
+        "issue219_47_runtime",
+        "issue219_48_runtime",
+        "issue219_49_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Variant value used as another kind. VBE runtime errors 424 and 13 on a Variant holding a scalar or an array (issue #121, Excel 16.0).",
+      "notes": "Variant value used as another kind. VBE runtime errors 424 and 13 on a Variant holding a scalar or an array (issue #121, Excel 16.0). Issue #219: Erase, ReDim Preserve and For Each on a Variant holding a scalar, or Empty because nothing assigns it (13).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -3449,11 +3510,14 @@
         "issue183_08_runtime",
         "issue183_09_runtime",
         "issue183_12_runtime",
-        "issue183_16_runtime"
+        "issue183_16_runtime",
+        "issue219_32_runtime",
+        "issue219_34_runtime",
+        "issue219_35_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Object read as a value has no default member. VBE runtime errors 438 and 450 reading an object with no default member, or one that needs an argument (issue #183, Excel 16.0).",
+      "notes": "Object read as a value has no default member. VBE runtime errors 438 and 450 reading an object with no default member, or one that needs an argument (issue #183, Excel 16.0). Issue #219: New Collection or a New object with no default member assigned into a Variant or a Function result without Set (450, 438).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
