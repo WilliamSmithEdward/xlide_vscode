@@ -13,7 +13,7 @@ import type { HostObjectModel } from '../../host/excelObjectModel';
 import { HOST_LIBRARY_NAMES } from '../../host/hostLibraries';
 import type { VbaHostToken } from '../../host/hostRegistry';
 import { bareCallStatementTarget as callStatementTarget } from '../../call/callContext';
-import { privateMemberOwnerAt, type MemberCompletionContext } from '../../completion/memberAccess';
+import { privateMemberOwnerAt, projectClassMemberAt, type MemberCompletionContext } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import {
 	resolveHostConstant,
@@ -68,7 +68,9 @@ import {
 } from '../rules/shared';
 import {
 	callableTypeSignaturesFor,
+	isKnownScalarType,
 	isNonCallableSymbol,
+	normalizeType,
 	sourceIdentifierBinding,
 	sourceIdentifierBound,
 } from '../typeInference';
@@ -99,6 +101,11 @@ export function checkMemberNotFound(
 				memberCtx,
 			);
 			if (!surface || surface.hasMember(ref.member)) {
+				const form = projectMemberFormProblem(source, ref, memberCtx);
+				if (form) {
+					push('argumentCount', form, ref.memberSpan);
+					continue;
+				}
 				const owner = privateMemberOwnerAt(source, ref.dotEndOffset, ref.member, memberCtx);
 				if (owner) {
 					push(
@@ -118,12 +125,64 @@ export function checkMemberNotFound(
 	};
 }
 
+interface MemberAccessReference {
+	member: string;
+	memberSpan: Span;
+	dotEndOffset: number;
+	/** The statement's tokens, and where the member is among them. */
+	toks: readonly VbaToken[];
+	index: number;
+}
+
+/**
+ * A class member used in a form the VBE refuses while compiling (issue #224,
+ * measured in Excel 16.0):
+ *
+ *  - A property whose Get takes a required index, used without one:
+ *    `Main = c.Idx`, `c.Idx = 5`. "Argument not optional".
+ *  - A Public field of a value type given arguments: `c.Field(1)` is "Wrong
+ *    number of arguments or invalid property assignment", and as the target
+ *    of a Let, `c.Field(1) = 5`, "Can't assign to read-only property". A
+ *    Variant, Collection or Object field takes them, and `c.Field()` compiles.
+ */
+function projectMemberFormProblem(source: string, ref: MemberAccessReference, memberCtx: MemberCompletionContext): string | undefined {
+	const next = ref.toks[ref.index + 1];
+	if (next?.rawText === '.' || tokenText(ref.toks[0]) === 'set') {
+		return undefined;
+	}
+	const member = projectClassMemberAt(source, ref.dotEndOffset, ref.member, memberCtx);
+	if (!member || member.kind !== 'property') {
+		return undefined;
+	}
+	if (member.signature !== undefined) {
+		const open = member.signature.indexOf('(');
+		const firstParam = open >= 0 ? member.signature.slice(open + 1).trimStart() : '';
+		const indexRequired = firstParam.length > 0 && !firstParam.startsWith(')') && !firstParam.startsWith('[');
+		return indexRequired && next?.rawText !== '('
+			? `Argument not optional: property '${member.name}' takes an index, as in ${member.signature}. This is a VBE compile error.`
+			: undefined;
+	}
+	const field = member.writable === true && !member.letAccessor && !member.setAccessor;
+	const type = normalizeType(member.returns);
+	if (!field || type === undefined || type === 'variant' || !isKnownScalarType(type) || next?.rawText !== '(') {
+		return undefined;
+	}
+	const close = matchParenFrom(ref.toks, ref.index + 1);
+	if (close !== ref.index + 2 && close > 0) {
+		const assigned = ref.toks[close + 1]?.rawText === '=' && ref.index === (ref.toks[0]?.rawText === '.' ? 1 : 2);
+		return assigned
+			? `'${member.name}' is a field of type ${member.returns}, which takes no index, so '${member.name}(...)' is no place to assign. This is a VBE compile error: Can't assign to read-only property.`
+			: `'${member.name}' is a field of type ${member.returns}, which takes no arguments. This is a VBE compile error: Wrong number of arguments or invalid property assignment.`;
+	}
+	return undefined;
+}
+
 function memberAccessReferences(
 	source: string,
 	span: Span,
-): { member: string; memberSpan: Span; dotEndOffset: number }[] {
+): MemberAccessReference[] {
 	const toks = statementTokens(source, span);
-	const out: { member: string; memberSpan: Span; dotEndOffset: number }[] = [];
+	const out: MemberAccessReference[] = [];
 	for (let i = 0; i < toks.length - 1; i++) {
 		if (toks[i].rawText !== '.') {
 			continue;
@@ -139,6 +198,8 @@ function memberAccessReferences(
 				end: span.start + toks[i + 1].end,
 			},
 			dotEndOffset: span.start + toks[i].end,
+			toks,
+			index: i + 1,
 		});
 	}
 	return out;

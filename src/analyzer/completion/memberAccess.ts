@@ -55,6 +55,7 @@ import type { VbaDoc } from '../docs/docModel';
 import {
 	isAccessDesignerClass,
 	type VbaProjectClassMemberDefinition,
+	type VbaProjectClassMember,
 	type VbaProjectClassMembers,
 	type VbaSymbolAttribute,
 } from '../symbols/symbolModel';
@@ -549,6 +550,27 @@ export function privateMemberOwnerAt(
 	}
 	const surface = memberSurfaceForType(currentType, ctx);
 	return surface && surfaceMemberNamed(surface, memberName) ? undefined : projectType.name;
+}
+
+/** The member of a project class module a reference reaches, if the receiver is one. */
+export function projectClassMemberAt(
+	source: string,
+	offset: number,
+	memberName: string,
+	ctx: MemberCompletionContext = {},
+): VbaProjectClassMember | undefined {
+	const currentType = resolveReceiverTypeAt(source, offset, ctx);
+	if (!currentType) {
+		return undefined;
+	}
+	const projectKey = parseCombinedTypeKey(currentType)?.projectKey
+		?? (currentType.startsWith(PROJECT_TYPE_PREFIX) ? currentType.slice(PROJECT_TYPE_PREFIX.length) : undefined);
+	const projectType = projectKey ? projectClassMembersByName(ctx).get(projectKey) : undefined;
+	if (projectType?.kind !== 'class') {
+		return undefined;
+	}
+	const lower = memberName.toLowerCase();
+	return projectType.members.find((member) => member.name.toLowerCase() === lower);
 }
 
 // A surface's members are looked up by name once per reference, and a host

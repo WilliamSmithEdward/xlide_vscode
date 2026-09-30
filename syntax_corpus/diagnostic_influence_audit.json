@@ -339,12 +339,21 @@
         "issue223_43_compile",
         "issue223_44_compile",
         "issue223_45_compile",
-        "issue223_47_compile"
+        "issue223_47_compile",
+        "issue224_01_compile",
+        "issue224_02_compile",
+        "issue224_03_compile",
+        "issue224_19_compile",
+        "issue224_29_compile",
+        "issue224_32_compile",
+        "issue224_33_compile",
+        "issue224_34_compile",
+        "issue224_35_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error",
-      "notes": "Same-module signatures come from the AST, including external Declare metadata. Cross-module checks run only for exported standard-module Sub/Function/Declare signatures supplied by ProjectIndex. Ambiguous bare exported names stay silent; module-qualified calls resolve through the named standard module only. Named-argument checks report unknown parameter names and duplicate named parameters case-insensitively, with duplicate behavior backed by the VBE oracle's Named argument already specified compile error. PCEC_008 + omitted-after-named: nothing positional may follow a named argument - VBE rejects at compile (regardless of the signature) both a positional VALUE after a named arg (oracle positional_after_named_argument_compile, plus the paren-call and ParamArray forms positional_after_named_paren_call_compile / positional_after_named_paramarray_compile) AND an omitted/empty slot after a named arg (oracle omit_trailing_after_named_compile f(a:=1, ) and omit_middle_between_named_compile f(a:=1, , c:=3)). Pure slot-order syntax (independent of the resolved signature): once a named slot is seen, the FIRST subsequent non-named slot is the violation (a positional value or an omitted slot). Omissions BEFORE the first named arg stay legal (oracle omit_leading_before_named_compile f(, b:=2), omit_positional_then_omit_then_named_compile f(1, , c:=3), and the omission-without-named baseline omit_baseline_no_named_compile f(1, , 3)), as do the legal positional-then-named and all-named orderings (positional_then_named_argument_ok_compile / named_then_named_argument_ok_compile). Runs inside validateArity, so it is naturally scoped to resolved callees (unknown callees stay silent - an accepted no-FP false negative). Source-backed and host member signatures are validated through the shared member binder for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Bare runtime signatures are runtime-last and stay silent when visible non-callable source names shadow the runtime name. Issue #223: a list ending in an empty argument (Opt(1, ), TwoSub 1,) is a Syntax error whatever the parameters, Print excepted; a named ParamArray is refused."
+      "notes": "Same-module signatures come from the AST, including external Declare metadata. Cross-module checks run only for exported standard-module Sub/Function/Declare signatures supplied by ProjectIndex. Ambiguous bare exported names stay silent; module-qualified calls resolve through the named standard module only. Named-argument checks report unknown parameter names and duplicate named parameters case-insensitively, with duplicate behavior backed by the VBE oracle's Named argument already specified compile error. PCEC_008 + omitted-after-named: nothing positional may follow a named argument - VBE rejects at compile (regardless of the signature) both a positional VALUE after a named arg (oracle positional_after_named_argument_compile, plus the paren-call and ParamArray forms positional_after_named_paren_call_compile / positional_after_named_paramarray_compile) AND an omitted/empty slot after a named arg (oracle omit_trailing_after_named_compile f(a:=1, ) and omit_middle_between_named_compile f(a:=1, , c:=3)). Pure slot-order syntax (independent of the resolved signature): once a named slot is seen, the FIRST subsequent non-named slot is the violation (a positional value or an omitted slot). Omissions BEFORE the first named arg stay legal (oracle omit_leading_before_named_compile f(, b:=2), omit_positional_then_omit_then_named_compile f(1, , c:=3), and the omission-without-named baseline omit_baseline_no_named_compile f(1, , 3)), as do the legal positional-then-named and all-named orderings (positional_then_named_argument_ok_compile / named_then_named_argument_ok_compile). Runs inside validateArity, so it is naturally scoped to resolved callees (unknown callees stay silent - an accepted no-FP false negative). Source-backed and host member signatures are validated through the shared member binder for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Bare runtime signatures are runtime-last and stay silent when visible non-callable source names shadow the runtime name. Issue #223: a list ending in an empty argument (Opt(1, ), TwoSub 1,) is a Syntax error whatever the parameters, Print excepted; a named ParamArray is refused. Issue #224: a class property whose Get takes a required index, used without one (Argument not optional), and a Public field of a value type given arguments (Wrong number of arguments; as a Let target, Can't assign to read-only property)."
     },
     {
       "code": "argument-type-mismatch",
@@ -1689,10 +1698,16 @@
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.4.2.1 (call statement): a parenless call statement passes a bare (unparenthesized) argument list, so wrapping two or more arguments in parentheses without Call forms an index expression that the VBE rejects as a compile error (\"Expected: =\"). The single-argument ByVal-grouping form and the empty-parentheses form are owned by separate rules.",
       "corpusInfluence": "none",
-      "assertedOracleCases": [],
+      "assertedOracleCases": [
+        "issue224_04_compile",
+        "issue224_16_compile",
+        "issue224_26_compile",
+        "issue224_27_compile",
+        "issue224_28_compile"
+      ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Scoped to a standalone (non-Call) statement whose parentheses wrap the whole statement around two or more top-level arguments and whose callee resolves to a known procedure: a bare same-module or unique-exported project Sub/Function/Declare (mySub2(\"a\", \"b\", \"C\")), or a module-qualified exported standard-module procedure (Helpers.Helper(\"a\", \"b\")) resolved through its deterministic module.procedure key, the same resolution the argument-count rule uses. Single-argument calls (legal ByVal grouping), zero-argument empty-parentheses calls (owned by call-statement-forbids-parens), ambiguous bare exported names, and unknown bare names are excluded to avoid array-index and external-reference false positives. Object member/property calls (obj.Method(a, b)) are deliberately deferred: non-empty single-argument member forms such as ActiveSheet.Range(\"A1\") are oracle-accepted and multi-argument member/default-member forms (e.g. Range(\"A1\", \"B2\")) are unproven, so this rule never fires on an object receiver. A future oracle pass can promote this entry to vbe-oracle-verified and extend it to object member calls.",
+      "notes": "Scoped to a standalone (non-Call) statement whose parentheses wrap the whole statement around two or more top-level arguments and whose callee resolves to a known procedure: a bare same-module or unique-exported project Sub/Function/Declare (mySub2(\"a\", \"b\", \"C\")), or a module-qualified exported standard-module procedure (Helpers.Helper(\"a\", \"b\")) resolved through its deterministic module.procedure key, the same resolution the argument-count rule uses. Single-argument calls (legal ByVal grouping), zero-argument empty-parentheses calls (owned by call-statement-forbids-parens), ambiguous bare exported names, and unknown bare names are excluded to avoid array-index and external-reference false positives. Object member/property calls (obj.Method(a, b)) are deliberately deferred: non-empty single-argument member forms such as ActiveSheet.Range(\"A1\") are oracle-accepted and multi-argument member/default-member forms (e.g. Range(\"A1\", \"B2\")) are unproven, so this rule never fires on an object receiver. A future oracle pass can promote this entry to vbe-oracle-verified and extend it to object member calls. Issue #224: a member call statement too, whatever the receiver: c.Calc (1, 2), .Calc (1, 2) in a With, ActiveSheet.Range (\"A1\", \"B2\"), and c.Calc(1, 2).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -3359,11 +3374,20 @@
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue121_k_runtime",
-        "issue121_l_runtime"
+        "issue121_l_runtime",
+        "issue224_05_runtime",
+        "issue224_06_runtime",
+        "issue224_07_runtime",
+        "issue224_21_runtime",
+        "issue224_22_runtime",
+        "issue224_24_runtime",
+        "issue224_37_runtime",
+        "issue224_38_runtime",
+        "issue224_39_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Member not found at run time. VBE runtime error 438: Object doesn't support this property or method (issue #121, Excel 16.0).",
+      "notes": "Member not found at run time. VBE runtime error 438: Object doesn't support this property or method (issue #121, Excel 16.0). Issue #224: a class reaches the late-bound variable from one declared as it (Set o = c; 91 while c may be Nothing); a Private member is absent (438); a Let into a Get-only property raises 451 and a read of a Let-only property 450.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {

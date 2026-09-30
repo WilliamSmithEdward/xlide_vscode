@@ -693,7 +693,9 @@ describe('analyzeModule - standalone multi-argument parenthesized call', () => {
 		expect(spanText(src, hits[0])).toBe('Helpers.Helper("a", "b")');
 	});
 
-	it('does not flag a module-qualified call to an unknown module/procedure', () => {
+	// `("a", "b")` is no expression, so the statement is a Syntax error
+	// whatever the receiver (issue #224, measured in Excel 16.0).
+	it('flags a module-qualified call to an unknown module/procedure', () => {
 		const src = 'Sub mySub()\n    Unknownz.Helper("a", "b")\nEnd Sub\n';
 		const hits = byCode(
 			analyzeProjectModule(
@@ -703,7 +705,7 @@ describe('analyzeModule - standalone multi-argument parenthesized call', () => {
 			),
 			'call-statement-multi-arg-parens',
 		);
-		expect(hits).toHaveLength(0);
+		expect(hits).toHaveLength(1);
 	});
 
 	it('does not flag a single-argument call (legal ByVal grouping)', () => {
@@ -738,9 +740,9 @@ describe('analyzeModule - standalone multi-argument parenthesized call', () => {
 		expect(byCode(analyzeModule(src), 'call-statement-multi-arg-parens')).toHaveLength(0);
 	});
 
-	it('does not flag an object member/property call (deferred to oracle evidence)', () => {
+	it('flags an object member call, which Excel refuses too (issue #224)', () => {
 		const src = 'Sub T()\n    obj.Method(1, 2)\nEnd Sub\n';
-		expect(byCode(analyzeModule(src), 'call-statement-multi-arg-parens')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'call-statement-multi-arg-parens')).toHaveLength(1);
 	});
 });
 

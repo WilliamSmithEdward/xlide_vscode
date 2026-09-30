@@ -24982,6 +24982,877 @@
       "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = TypeName(Nothing)\r\nEnd Function\r\nFunction InvoiceTotal(ByVal Subtotal As Currency, Optional ByVal TaxRate As Double) As Currency\r\n    InvoiceTotal = Subtotal\r\nEnd Function\r\nFunction InvoiceReq(ByVal Subtotal As Currency, ByVal TaxRate As Double) As Currency\r\n    InvoiceReq = Subtotal\r\nEnd Function\r\nSub TwoSub(ByVal a As Long, Optional ByVal b As Long)\r\nEnd Sub\r\nPrivate Function TwoRef(a As Long, b As Long) As Long\r\n    TwoRef = a + b\r\nEnd Function\r\nPrivate Function Two(ByVal a As Long, ByVal b As Long) As Long\r\n    Two = a + b\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue224_01_compile",
+      "description": "Issue #224 member access on a project class, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Main = c.Idx\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue224_02_compile",
+      "description": "Issue #224 member access on a project class, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    c.Idx = 5\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue224_03_compile",
+      "description": "Issue #224 member access on a project class, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Main = c.Field(1)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue224_04_compile",
+      "description": "Issue #224 member access on a project class, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    c.Calc (1, 2)\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue224_05_runtime",
+      "description": "Issue #224 member access on a project class, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Dim o As Object\r\n    Set o = c\r\n    o.Hidden\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue224_06_runtime",
+      "description": "Issue #224 member access on a project class, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Dim o As Object\r\n    Set o = c\r\n    o.Nope\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue224_07_runtime",
+      "description": "Issue #224 member access on a project class, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 451.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Dim o As Variant\r\n    Set o = c\r\n    o.RO = 5\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue224_08_compile",
+      "description": "Issue #224 member access on a project class, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Main = c.Idx(2)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue224_09_compile",
+      "description": "Issue #224 member access on a project class, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    c.Idx(2) = 5\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue224_10_compile",
+      "description": "Issue #224 member access on a project class, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Main = c.OptIdx\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue224_11_compile",
+      "description": "Issue #224 member access on a project class, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Main = c.Field\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue224_12_compile",
+      "description": "Issue #224 member access on a project class, case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    c.Arr = Array(1, 2)\r\n    Main = c.Arr(1)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue224_13_compile",
+      "description": "Issue #224 member access on a project class, case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Main = c.Field()\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue224_14_compile",
+      "description": "Issue #224 member access on a project class, case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    c.Calc (1)\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue224_15_compile",
+      "description": "Issue #224 member access on a project class, case 15, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    c.Go (1)\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue224_16_compile",
+      "description": "Issue #224 member access on a project class, case 16, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    c.Go (1, 2)\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue224_17_compile",
+      "description": "Issue #224 member access on a project class, case 17, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Call c.Calc(1, 2)\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue224_18_compile",
+      "description": "Issue #224 member access on a project class, case 18, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    c.Calc 1, 2\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue224_19_compile",
+      "description": "Issue #224 member access on a project class, case 19, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Main = c.NoArgs(1)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue224_20_runtime",
+      "description": "Issue #224 member access on a project class, case 20, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Dim o As Object\r\n    Set o = c\r\n    Main = o.RO\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue224_21_runtime",
+      "description": "Issue #224 member access on a project class, case 21, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 451.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Dim o As Object\r\n    Set o = c\r\n    o.RO = 5\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue224_22_runtime",
+      "description": "Issue #224 member access on a project class, case 22, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Dim o As Variant\r\n    Set o = c\r\n    o.Hidden\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue224_23_runtime",
+      "description": "Issue #224 member access on a project class, case 23, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Dim o As Object\r\n    Set o = c\r\n    o.Go 1\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue224_24_runtime",
+      "description": "Issue #224 member access on a project class, case 24, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Dim o As Object\r\n    Set o = New Class1\r\n    o.Nope\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue224_25_runtime",
+      "description": "Issue #224 member access on a project class, case 25, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Dim o As Object\r\n    Set o = c\r\n    o.Field = 3\r\n    Main = o.Field\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Arr As Variant\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Get OptIdx(Optional ByVal i As Long = 1) As Long\r\n    OptIdx = i\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\nPublic Sub Go(ByVal a As Long)\r\nEnd Sub\r\nPrivate Sub Hidden()\r\nEnd Sub\r\nPublic Function NoArgs() As Long\r\n    NoArgs = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue224_26_compile",
+      "description": "Issue #224 member access on a project class, case 26, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    c.Calc(1, 2)\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Name1 As String\r\nPublic Coll As Collection\r\nPublic V As Variant\r\nPublic O As Object\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Let WO(ByVal v As Long)\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue224_27_compile",
+      "description": "Issue #224 member access on a project class, case 27, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    With c\r\n        .Calc (1, 2)\r\n    End With\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Name1 As String\r\nPublic Coll As Collection\r\nPublic V As Variant\r\nPublic O As Object\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Let WO(ByVal v As Long)\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue224_28_compile",
+      "description": "Issue #224 member access on a project class, case 28, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    ActiveSheet.Range (\"A1\", \"B2\")\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Name1 As String\r\nPublic Coll As Collection\r\nPublic V As Variant\r\nPublic O As Object\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Let WO(ByVal v As Long)\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue224_29_compile",
+      "description": "Issue #224 member access on a project class, case 29, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Main = c.Name1(1)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Name1 As String\r\nPublic Coll As Collection\r\nPublic V As Variant\r\nPublic O As Object\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Let WO(ByVal v As Long)\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue224_30_compile",
+      "description": "Issue #224 member access on a project class, case 30, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Set c.Coll = New Collection\r\n    c.Coll.Add 5\r\n    Main = c.Coll(1)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Name1 As String\r\nPublic Coll As Collection\r\nPublic V As Variant\r\nPublic O As Object\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Let WO(ByVal v As Long)\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue224_31_compile",
+      "description": "Issue #224 member access on a project class, case 31, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Main = 1\r\n    If False Then Main = c.O(1)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Name1 As String\r\nPublic Coll As Collection\r\nPublic V As Variant\r\nPublic O As Object\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Let WO(ByVal v As Long)\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue224_32_compile",
+      "description": "Issue #224 member access on a project class, case 32, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    c.Field(1) = 5\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Name1 As String\r\nPublic Coll As Collection\r\nPublic V As Variant\r\nPublic O As Object\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Let WO(ByVal v As Long)\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue224_33_compile",
+      "description": "Issue #224 member access on a project class, case 33, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Main = c.Idx + 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Name1 As String\r\nPublic Coll As Collection\r\nPublic V As Variant\r\nPublic O As Object\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Let WO(ByVal v As Long)\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue224_34_compile",
+      "description": "Issue #224 member access on a project class, case 34, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Dim x As Long\r\n    x = c.Idx\r\n    Main = x\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Name1 As String\r\nPublic Coll As Collection\r\nPublic V As Variant\r\nPublic O As Object\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Let WO(ByVal v As Long)\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue224_35_compile",
+      "description": "Issue #224 member access on a project class, case 35, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Debug.Print c.Idx\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Name1 As String\r\nPublic Coll As Collection\r\nPublic V As Variant\r\nPublic O As Object\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Let WO(ByVal v As Long)\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue224_36_runtime",
+      "description": "Issue #224 member access on a project class, case 36, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Dim o As Object\r\n    Set o = c\r\n    o.WO = 5\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Name1 As String\r\nPublic Coll As Collection\r\nPublic V As Variant\r\nPublic O As Object\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Let WO(ByVal v As Long)\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue224_37_runtime",
+      "description": "Issue #224 member access on a project class, case 37, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 450.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Dim o As Object\r\n    Set o = c\r\n    Main = o.WO\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Name1 As String\r\nPublic Coll As Collection\r\nPublic V As Variant\r\nPublic O As Object\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Let WO(ByVal v As Long)\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue224_38_runtime",
+      "description": "Issue #224 member access on a project class, case 38, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Dim c2 As Class1\r\n    Set c2 = New Class1\r\n    Dim o As Object\r\n    Set o = c2\r\n    o.Nope\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Name1 As String\r\nPublic Coll As Collection\r\nPublic V As Variant\r\nPublic O As Object\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Let WO(ByVal v As Long)\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue224_39_runtime",
+      "description": "Issue #224 member access on a project class, case 39, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim c As New Class1\r\n    Dim c2 As Class1\r\n    Dim o As Object\r\n    Set o = c2\r\n    o.Nope\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\nPublic Name1 As String\r\nPublic Coll As Collection\r\nPublic V As Variant\r\nPublic O As Object\r\nPublic Property Get RO() As Long\r\n    RO = 1\r\nEnd Property\r\nPublic Property Get Idx(ByVal i As Long) As Long\r\n    Idx = i\r\nEnd Property\r\nPublic Property Let Idx(ByVal i As Long, ByVal v As Long)\r\nEnd Property\r\nPublic Property Let WO(ByVal v As Long)\r\nEnd Property\r\nPublic Function Calc(ByVal a As Long, Optional ByVal b As Long = 1) As Long\r\n    Calc = a + b\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }
