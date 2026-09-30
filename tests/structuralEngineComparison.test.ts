@@ -197,6 +197,7 @@ type DivergenceClass =
     | 'multi-modifier-procedure-header'
     | 'line-numbered-statement'
     | 'declare-inside-procedure'
+    | 'nameless-procedure-header'
     | 'UNCLASSIFIED';
 
 const PROC_HEADER_RE =
@@ -208,6 +209,12 @@ const DECLARE_RE = /^\s*(?:(?:Public|Private)\s+)?Declare\b/i;
 const LINE_NUMBER_PREFIX_RE = /^\s*\d+\s+/;
 const MULTI_NEXT_RE = /^\s*(?:\d+\s+)?Next\s+\w+\s*,/i;
 const PROC_CLOSER_PHRASE_RE = /^End (?:Sub|Function|Property)$/;
+/**
+ * `Sub` or `Function` with no name (issue #234): the parser opens a
+ * procedure there and looks for its End; the legacy engine, whose opener
+ * needs a name, does not. The line is malformed-statement's either way.
+ */
+const NAMELESS_HEADER_RE = /^\s*(?:(?:Public|Private|Friend|Global|Static)\s+)*(?:Sub|Function|Property)\s*$/i;
 
 interface ClassificationContext {
     rawLines: string[];
@@ -294,6 +301,9 @@ function classifyRecord(
     }
 
     // side === 'parser'
+    if (ctx.strippedLines.some((line) => NAMELESS_HEADER_RE.test(line))) {
+        return 'nameless-procedure-header';
+    }
     if (record.kind === 'missing' && record.closer === 'Next' &&
         ctx.strippedLines.some((line, i) => i >= record.line && MULTI_NEXT_RE.test(line))
     ) {
@@ -390,6 +400,12 @@ describe('structural engine comparison (audit #74)', () => {
 // ---------------------------------------------------------------------------
 
 describe('structural engine divergence repros (audit #74)', () => {
+    it('nameless-procedure-header: only the parser opens a Sub with no name', () => {
+        const src = 'Sub\nFunction Main()\nEnd Function\n';
+        expect(sortedRecords(legacyRecords(src))).toEqual([]);
+        expect(sortedRecords(parserRecords(src))).toEqual([{ kind: 'missing', line: 0, closer: 'End Sub' }]);
+    });
+
     it('preprocessor-balance: only the legacy engine checks #If balance', () => {
         const src = '#If WIN64 Then\nDebug.Print 1\n';
         expect(sortedRecords(legacyRecords(src))).toEqual([

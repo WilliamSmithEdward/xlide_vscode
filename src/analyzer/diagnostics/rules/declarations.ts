@@ -44,6 +44,7 @@ import {
 	type PushFn,
 } from '../analysisContext';
 import type { InferredArgumentType } from '../callExtraction';
+import { juxtaposedValueIndex } from './expressions';
 import {
 	collectBodyLiteralIntegerConstants,
 	collectModuleLiteralIntegerConstants,
@@ -1093,15 +1094,28 @@ export function checkUnexpectedDeclarationTokens(
 		);
 	};
 
-	const inspectGroup = (group: VariableGroupNode): void => {
+	// A declaration that is not `name [As type]` (issue #234, measured in
+	// Excel 16.0): "Syntax error" in a procedure, "Expected: end of statement"
+	// at module level.
+	const inspectGroup = (group: VariableGroupNode, error = 'Syntax error'): void => {
 		for (const decl of group.declarations) {
 			inspect(decl.span, true);
+			const junk = declarationJunk(source, decl.span, group.isConst === true);
+			if (junk) {
+				push(
+					'unexpectedDeclarationToken',
+					`Unexpected '${junk.text}' after '${decl.name}': ${junk.why}. This is a VBE compile error: ${junk.error ?? error}.`,
+					junk.span,
+				);
+			}
 		}
 	};
 
+	const firstProcedure = mod.members.find((m) => m.kind === 'Procedure');
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'VariableGroup') {
-			inspectGroup(member);
+			// After a procedure the VBE says only "Syntax error".
+			inspectGroup(member, firstProcedure && member.span.start > firstProcedure.span.start ? 'Syntax error' : 'Expected: end of statement');
 			continue;
 		}
 		if (member.kind === 'Type') {
@@ -1260,6 +1274,55 @@ function fixedLengthStringLengthSpan(source: string, span: Span): Span | undefin
 	const fixed = parseFixedLengthStringType(toks, typeStart);
 	const token = fixed ? toks[fixed.lengthIndex] : undefined;
 	return token ? absoluteSpan(span, token) : undefined;
+}
+
+/**
+ * What stands after a declared name where the VBE takes nothing: a second
+ * word, `Dim asdf qwer`; no type name after As, `Private v As 123`; or a
+ * second value in a Const, `Const K = asdf qwer` (issue #234). A complete
+ * type followed by more is unexpectedTokenAfterDeclarationType's.
+ */
+function declarationJunk(
+	source: string,
+	span: Span,
+	isConst: boolean,
+): { text: string; span: Span; why: string; error?: string } | undefined {
+	const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+	let i = tokenText(toks[0]) === 'withevents' ? 1 : 0;
+	const name = toks[i];
+	// A name that is no identifier, or runs on into what follows (`_name`,
+	// `1value`, `user-name`), is the identifier rules' to report.
+	if (!name || !isDeclarationTypeNameToken(name)) {
+		return undefined;
+	}
+	i++;
+	if (toks[i] && toks[i].start === name.end && /^[$%&!#@]$/.test(toks[i].rawText)) {
+		i++;
+	} else if (toks[i] && toks[i].start === name.end && toks[i].rawText !== '(') {
+		return undefined;
+	}
+	if (toks[i]?.rawText === '(') {
+		const close = matchParenFrom(toks, i);
+		if (close < 0) {
+			return undefined;
+		}
+		i = close + 1;
+	}
+	const next = toks[i];
+	if (!next) {
+		return undefined;
+	}
+	if (tokenText(next) === 'as') {
+		const type = toks[tokenText(toks[i + 1]) === 'new' ? i + 2 : i + 1];
+		return type && !isDeclarationTypeNameToken(type)
+			? { text: type.rawText, span: absoluteSpan(span, type), why: 'As needs a type name', error: 'Expected: New or type name' }
+			: undefined;
+	}
+	if (next.rawText === '=') {
+		const at = isConst ? juxtaposedValueIndex(toks, i + 1) : -1;
+		return at < 0 ? undefined : { text: toks[at].rawText, span: absoluteSpan(span, toks[at]), why: 'a Const takes one value', error: 'Expected: end of statement' };
+	}
+	return { text: next.rawText, span: absoluteSpan(span, next), why: 'a declaration takes As and a type there, or nothing' };
 }
 
 function inspectTypeField(

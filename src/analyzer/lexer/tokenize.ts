@@ -690,6 +690,12 @@ function lexSymbol(
 		case '?':
 			return 'operator';
 		default:
+			// A character outside the Basic Multilingual Plane, an emoji, is two
+			// UTF-16 code units: one token, so a message names the whole of it
+			// (issue #234).
+			if (/[\uD800-\uDBFF]/.test(ch) && p < len && /[\uDC00-\uDFFF]/.test(src[p])) {
+				setPos(p + 1);
+			}
 			return 'unknown';
 	}
 }

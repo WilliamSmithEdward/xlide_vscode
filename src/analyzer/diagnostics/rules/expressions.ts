@@ -306,7 +306,7 @@ export function checkInvalidExpressionSyntax(
 			if (hit) {
 				push(
 					'invalidExpressionSyntax',
-					`Invalid operator sequence '${hit.text}'; this will fail to compile as a syntax error.`,
+					hit.message ?? `Invalid operator sequence '${hit.text}'; this will fail to compile as a syntax error.`,
 					hit.span,
 				);
 				return;
@@ -362,7 +362,7 @@ export function isGluedTypeSuffixAmpersand(toks: readonly VbaToken[], index: num
 function invalidOperatorSequence(
 	source: string,
 	span: Span,
-): { text: string; span: Span } | undefined {
+): { text: string; span: Span; message?: string } | undefined {
 	const toks = statementTokens(source, span);
 	// A Case statement's Is-comparison clause (MS-VBAL 5.4.2.10, `Case Is > 5`)
 	// uses `Is` as grammar, not as the object-identity operator, so the
@@ -373,6 +373,15 @@ function invalidOperatorSequence(
 		return undefined;
 	}
 	for (let i = 0; i < toks.length; i++) {
+		// `Not` with nothing after it to negate: a line holding only `Not`, or
+		// `x = Not` (issue #234, measured in Excel 16.0: Syntax error).
+		if (tokenText(toks[i]) === 'not' && toks[i].kind === 'keyword' && (i === toks.length - 1 || toks[i + 1].kind === 'comment')) {
+			return {
+				text: toks[i].rawText,
+				span: { start: span.start + toks[i].start, end: span.start + toks[i].end },
+				message: "'Not' has nothing after it to negate. This is a VBE compile error: Syntax error.",
+			};
+		}
 		if (!isNonUnaryBinaryOperator(toks[i])) {
 			continue;
 		}
@@ -458,8 +467,18 @@ function juxtaposedRhsValues(
 	if (eq < 0) {
 		return undefined;
 	}
+	const at = juxtaposedValueIndex(toks, eq + 1);
+	return at < 0 ? undefined : { text: toks[at].rawText, span: absoluteSpan(span, toks[at]) };
+}
+
+/**
+ * The index of a value that follows a complete value with no operator between,
+ * `asdf qwer` or `1 n`, from `from` on at the top level; -1 when there is none.
+ * A Const's value is read the same way (issue #234).
+ */
+export function juxtaposedValueIndex(toks: readonly VbaToken[], from: number): number {
 	let depth = 0;
-	for (let i = eq + 1; i + 1 < toks.length; i++) {
+	for (let i = from; i + 1 < toks.length; i++) {
 		const raw = toks[i].rawText;
 		if (raw === '(' || raw === '[') {
 			depth++;
@@ -471,12 +490,11 @@ function juxtaposedRhsValues(
 		if (depth !== 0) {
 			continue;
 		}
-		const next = toks[i + 1];
-		if (endsJuxtaposableValue(toks[i]) && isJuxtaposableValueStart(next)) {
-			return { text: next.rawText, span: absoluteSpan(span, next) };
+		if (endsJuxtaposableValue(toks[i]) && isJuxtaposableValueStart(toks[i + 1])) {
+			return i + 1;
 		}
 	}
-	return undefined;
+	return -1;
 }
 
 function unsupportedQuestionMarkOperator(
