@@ -54,6 +54,16 @@ export function checkArgumentTypes(
 		const { resolveExpressionType, resolveQualifiedExpressionType } =
 			sourceBindingTypeResolvers(symbols, procSym, projectVisibleSymbols);
 		return (stmt) => {
+			// `Call Two(Nothing, 1)` is found both as an expression call and as
+			// the statement's call; report each argument once (issue #223).
+			const reported = new Set<string>();
+			const pushOnce: PushFn = (code, message, span, data) => {
+				const key = `${span.start}:${span.end}:${message}`;
+				if (!reported.has(key)) {
+					reported.add(key);
+					push(code, message, span, data);
+				}
+			};
 			for (const call of expressionCalls(source, stmt.span, moduleSignatures, sourceNames)) {
 				validateArgumentTypes(
 					call,
@@ -62,7 +72,7 @@ export function checkArgumentTypes(
 					sourceNames,
 					source,
 					memberCtx,
-					push,
+					pushOnce,
 					resolveExpressionType,
 					resolveQualifiedExpressionType,
 				);
@@ -80,7 +90,7 @@ export function checkArgumentTypes(
 					sourceNames,
 					source,
 					memberCtx,
-					push,
+					pushOnce,
 					resolveExpressionType,
 					resolveQualifiedExpressionType,
 				);
@@ -98,7 +108,7 @@ export function checkArgumentTypes(
 					sourceNames,
 					source,
 					memberCtx,
-					push,
+					pushOnce,
 					resolveExpressionType,
 					resolveQualifiedExpressionType,
 				);
@@ -116,7 +126,7 @@ export function checkArgumentTypes(
 					sourceNames,
 					source,
 					memberCtx,
-					push,
+					pushOnce,
 					resolveExpressionType,
 					resolveQualifiedExpressionType,
 				);

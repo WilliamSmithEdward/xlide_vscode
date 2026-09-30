@@ -174,7 +174,7 @@ function validateArgumentShapes(
 			// `PutD (d)` as a statement passes `(d)`, a value (issue #218).
 			const problem = call.argumentsParenthesized && call.slots.length === 1
 				? parenthesizedArgument(valueSlot, call.sliceStart)
-				: arrayArgumentProblem(valueSlot, call.sliceStart, param, resolveShape);
+				: arrayArgumentProblem(valueSlot, call.sliceStart, param, resolveShape, resolveType);
 			if (problem) {
 				push('argumentShapeMismatch', `${problem.what}, but parameter '${param.name}' of '${sig.name}' is an array of ${param.type ?? 'Variant'}. This is a VBE compile error: Type mismatch: array or user-defined type expected.`, problem.span);
 				continue;
@@ -222,6 +222,7 @@ function arrayArgumentProblem(
 	sliceStart: number,
 	param: CallableParamType,
 	resolveShape: (name: string) => SourceDeclaredShape,
+	resolveType?: SourceDeclaredTypeResolver,
 ): { what: string; span: Span } | undefined {
 	const toks = slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
 	// `(d)` is a value, even around an array of the right type: IRR((d))
@@ -239,6 +240,14 @@ function arrayArgumentProblem(
 		// The result of VBA's Split or Array, which no project name shadows.
 		if (!shape.resolved && /^(split|array)$/i.test(name)) {
 			return { what: `'${name}(...)' is a function's result, not an array variable`, span };
+		}
+		// `a(0)` of an array variable is one element; `a()` is the array
+		// (issue #223, measured in Excel 16.0).
+		// A Function returning an array is called here, not indexed.
+		const kind = resolveType?.(name).kind;
+		const variable = kind === 'localVariable' || kind === 'moduleVariable' || kind === 'parameter';
+		if (variable && shape.resolved && shape.shape?.isArray && toks.length > 3) {
+			return { what: `'${toks.map((t) => t.rawText).join('')}' is one element of the array '${name}', not the array`, span };
 		}
 		return undefined;
 	}
