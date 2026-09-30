@@ -430,12 +430,26 @@ function hasExponentTail(src: string, pos: number): boolean {
 // matchers below return every candidate end position and the caller accepts
 // the body if any reading consumes it exactly.
 
-/** month-name = English-month-name / English-month-abbreviation (3.3.3). */
-const MONTH_NAMES = new Set([
+const MONTH_NAMES = [
 	'january', 'february', 'march', 'april', 'may', 'june', 'july', 'august',
 	'september', 'october', 'november', 'december',
-	'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
-]);
+];
+
+/**
+ * The month (1 to 12) a date literal's month name spells, or undefined.
+ * MS-VBAL 3.3.3 names the full name and three letters; the VBE takes any
+ * prefix of three letters or more, with a period after it or not:
+ * `#Sept 1, 2000#`, `#Januar 1, 2000#`, `#Jan. 1, 2000#` compile, and
+ * `#Ja 1, 2000#` does not (issue #190, measured in Excel 16.0).
+ */
+export function dateLiteralMonth(word: string): number | undefined {
+	const lower = word.toLowerCase().replace(/\.$/, '');
+	if (lower.length < 3 || !/^[a-z]+$/.test(lower)) {
+		return undefined;
+	}
+	const index = MONTH_NAMES.findIndex((name) => name.startsWith(lower));
+	return index < 0 ? undefined : index + 1;
+}
 
 /**
  * True when the text between a '#' pair is a valid date-literal body:
@@ -505,7 +519,10 @@ function datePartEnd(s: string, pos: number): number {
 	while (p < s.length && ((s[p] >= 'A' && s[p] <= 'Z') || (s[p] >= 'a' && s[p] <= 'z'))) {
 		p++;
 	}
-	return p > pos && MONTH_NAMES.has(s.slice(pos, p).toLowerCase()) ? p : -1;
+	if (p === pos || dateLiteralMonth(s.slice(pos, p)) === undefined) {
+		return -1;
+	}
+	return s[p] === '.' ? p + 1 : p;
 }
 
 /**

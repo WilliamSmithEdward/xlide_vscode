@@ -71,3 +71,38 @@ describe('date literals (issue #133)', () => {
 		expect(byCode(analyzeModule(src), DATE)).toHaveLength(0);
 	});
 });
+
+describe('date literal month names and forms (issue #190)', () => {
+	// Measured in Excel 16.0 (build 20326, 2026-09-29).
+	it('reads any month prefix of three letters or more, with a period or not', () => {
+		const src = wrap(
+			'Dim v As Variant',
+			...['#Janu 1, 2000#', '#Januar 1, 2000#', '#Febr 1, 2000#', '#Sept 1, 2000#', '#Septembe 1, 2000#', '#Dece 1, 2000#',
+				'#Jan. 1, 2000#', '#Sept. 1, 2000#', '#SEPT 1, 2000#', '#1 Sept 2000#', '#may 1, 2000#', '#2000/12/1#', '#2000-02-28#']
+				.map((literal) => `v = ${literal}`),
+			'Main = v',
+		);
+		const diags = analyzeModule(src);
+		expect(diags.filter((d) => d.severity === 'error').map((d) => `${d.code}: ${d.message}`)).toEqual([]);
+	});
+
+	it('refuses a month outside the calendar, a day past its month, and a lone number', () => {
+		const cases: Array<[string, string]> = [
+			['#2000/13/1#', 'month 13'],
+			['#2000-02-30#', 'day 30'],
+			['#1.2.2000#', 'second 2000'],
+			['#Febru 30, 2000#', 'day 30'],
+			['#2000#', 'is no date literal'],
+			['#1/1/-5#', 'is no date literal'],
+		];
+		for (const [literal, message] of cases) {
+			const src = wrap('Dim v As Variant', `v = ${literal}`, 'Main = v');
+			expectDiagnostic(src, analyzeModule(src), DATE, { span: literal, message });
+		}
+	});
+
+	it('leaves a file number alone', () => {
+		const src = wrap('Dim s As String', 'Open "x.txt" For Input As #1', 'Line Input #1, s', 's = Input(5, #1)', 'Close #1', 'Main = s');
+		expect(byCode(analyzeModule(src), DATE)).toHaveLength(0);
+	});
+});

@@ -30,7 +30,7 @@
 
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { PushFn } from '../analysisContext';
-import { tokenizeCached } from '../../lexer/tokenize';
+import { dateLiteralMonth, tokenizeCached } from '../../lexer/tokenize';
 import type { VbaToken } from '../../lexer/tokenKinds';
 
 const INTEGER_MAX = 32767;
@@ -64,6 +64,19 @@ export function checkSuffixedLiteralOverflow(
 			if (problem) {
 				push('dateLiteralInvalid', `The date literal ${tok.rawText} ${problem}. VBE rejects this at compile time as a Syntax error.`, span);
 			}
+			continue;
+		}
+		if (tok.rawText === '#' && startsDateLiteral(tokens, index) && !activity?.isInactive(span)) {
+			// `#2000#` and `#1/1/-5#` are no date literal, so the lexer read the
+			// '#' alone and a Double after it. After `=`, an operator or `(`,
+			// a '#' starts no file number (issue #190).
+			let end = index + 1;
+			while (end < tokens.length && tokens[end].kind !== 'newline' && !tokens[end].rawText.endsWith('#')) {
+				end++;
+			}
+			const last = end < tokens.length && tokens[end].kind !== 'newline' ? tokens[end] : tok;
+			const text = source.slice(tok.start, last.end);
+			push('dateLiteralInvalid', `${text} is no date literal: a date needs a month and a day, or a time. VBE rejects this at compile time as a Syntax error.`, { start: tok.start, end: last.end });
 			continue;
 		}
 		if (tok.kind !== 'integerLiteral' || activity?.isInactive(span)) {
@@ -180,23 +193,81 @@ function currencyOverflows(raw: string): boolean {
  * the VBE accepts or one this check does not judge (named months and other
  * regional forms are left alone).
  */
+/** Whether the '#' at `index` stands where only a value can: after `=`, an operator or `(`. */
+function startsDateLiteral(tokens: readonly VbaToken[], index: number): boolean {
+	const before = tokens[index - 1];
+	return before !== undefined && (before.rawText === '(' || (before.kind === 'operator' && before.rawText !== '#' && before.rawText !== ':='));
+}
+
 function dateLiteralProblem(raw: string): string | undefined {
 	const body = raw.slice(1, -1).trim();
 	if (body.length === 0) {
 		return 'is empty';
 	}
-	const match = /^(?:(\d{1,2})\/(\d{1,2})\/(\d{1,5}))?\s*(?:(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?\s*([AaPp][Mm])?)?$/.exec(body);
-	if (!match || (match[1] === undefined && match[4] === undefined)) {
+	// The time comes last: h:m[:s] with ':' or '.' between, or h and AM/PM.
+	// `#1.2.2000#` is such a time, and 2000 is no second.
+	const time = /(?:^|\s)(\d+)\s*[:.]\s*(\d+)(?:\s*[:.]\s*(\d+))?\s*(?:[ap]m?)?$|(?:^|\s)(\d+)\s*[ap]m?$/i.exec(body);
+	if (time) {
+		const hour = Number(time[1] ?? time[4]);
+		const minute = time[2] === undefined ? 0 : Number(time[2]);
+		const second = time[3] === undefined ? 0 : Number(time[3]);
+		if (hour > 23) {
+			return `names hour ${hour}; hours run 0 to 23`;
+		}
+		if (minute > 59) {
+			return `names minute ${minute}; minutes run 0 to 59`;
+		}
+		if (second > 59) {
+			return `names second ${second}; seconds run 0 to 59`;
+		}
+	}
+	const datePart = (time ? body.slice(0, time.index) : body).trim();
+	return datePart.length === 0 ? undefined : datePartProblem(datePart);
+}
+
+/**
+ * The date of a date literal: two or three parts, numbers or a month name,
+ * between '/', '-', ',' or blanks (issue #190, each measured in Excel 16.0).
+ * Numbers read month/day/year, and #13/1/2000# as 13 January. A first number
+ * of three digits or more is a year: #2000/12/1# is December 1 and
+ * #2000/13/1# is refused. With a month name the numbers are day and year:
+ * `#Jan 1, 2000#`, `#1 Sept 2000#`.
+ */
+function datePartProblem(text: string): string | undefined {
+	const parts = text.split(/\s*[/,-]\s*|\s+/).filter((part) => part.length > 0);
+	if (parts.length < 2 || parts.length > 3) {
 		return undefined;
 	}
-	const [, first, second, yearText, hourText, minuteText, secondText, meridiem] = match;
-	if (first !== undefined) {
-		let month = Number(first);
-		let day = Number(second);
-		const year = Number(yearText);
-		if (year > 9999) {
-			return 'names a year past 9999';
+	const named = parts.findIndex((part) => !/^\d+$/.test(part));
+	let month: number;
+	let day: number;
+	let yearText: string | undefined;
+	if (named >= 0) {
+		const fromName = dateLiteralMonth(parts[named]);
+		const numbers = parts.filter((_, index) => index !== named);
+		if (fromName === undefined || numbers.some((part) => !/^\d+$/.test(part))) {
+			return undefined;
 		}
+		month = fromName;
+		day = Number(numbers[0]);
+		yearText = numbers[1];
+		if (numbers.length === 1 && day > 31) {
+			return undefined; // `#Jan 2000#` is a month and a year
+		}
+	} else if (parts[0].length >= 3) {
+		if (parts.length !== 3) {
+			return undefined;
+		}
+		[yearText] = parts;
+		month = Number(parts[1]);
+		day = Number(parts[2]);
+		if (month > 12) {
+			return `names month ${month}, which no calendar has`;
+		}
+	} else {
+		month = Number(parts[0]);
+		day = Number(parts[1]);
+		yearText = parts[2];
 		if (month > 12) {
 			// The VBE reads #13/1/2000# as 13 January when the first number
 			// cannot be a month and the second can.
@@ -206,28 +277,19 @@ function dateLiteralProblem(raw: string): string | undefined {
 				return `names month ${month}, which no calendar has`;
 			}
 		}
-		if (month < 1) {
-			return 'names month 0';
-		}
-		const fullYear = yearText.length <= 2 ? (year < 30 ? 2000 + year : 1900 + year) : year;
-		const daysInMonth = new Date(Date.UTC(fullYear, month, 0)).getUTCDate();
-		if (day < 1 || day > daysInMonth) {
-			return `names day ${day} in a month of ${daysInMonth} days`;
-		}
 	}
-	if (hourText !== undefined) {
-		const hour = Number(hourText);
-		const minute = Number(minuteText);
-		const second = secondText === undefined ? 0 : Number(secondText);
-		if (hour > 23 || (meridiem && hour > 12 && hour > 23)) {
-			return `names hour ${hour}; hours run 0 to 23`;
-		}
-		if (minute > 59) {
-			return `names minute ${minute}; minutes run 0 to 59`;
-		}
-		if (second > 59) {
-			return `names second ${second}; seconds run 0 to 59`;
-		}
+	const year = yearText === undefined ? undefined : Number(yearText);
+	if (year !== undefined && year > 9999) {
+		return 'names a year past 9999';
+	}
+	if (month < 1) {
+		return 'names month 0';
+	}
+	// With no year, February may have 29 days.
+	const fullYear = year === undefined ? 2000 : yearText!.length <= 2 ? (year < 30 ? 2000 + year : 1900 + year) : year;
+	const daysInMonth = new Date(Date.UTC(fullYear, month, 0)).getUTCDate();
+	if (day < 1 || day > daysInMonth) {
+		return `names day ${day} in a month of ${daysInMonth} days`;
 	}
 	return undefined;
 }

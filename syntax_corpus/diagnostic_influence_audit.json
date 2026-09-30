@@ -2614,7 +2614,13 @@
         "issue133_m_compile",
         "issue133_n_compile",
         "issue133_o_compile",
-        "issue133_p_compile"
+        "issue133_p_compile",
+        "issue190_26_compile",
+        "issue190_27_compile",
+        "issue190_28_compile",
+        "issue190_29_compile",
+        "issue190_30_compile",
+        "issue190_34_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
