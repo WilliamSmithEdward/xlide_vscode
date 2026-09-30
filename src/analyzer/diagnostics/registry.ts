@@ -146,6 +146,7 @@ import {
 } from './rules/controlFlow';
 import { checkDeclarationOrder } from './rules/declarationOrder';
 import { checkRefusedDeclarations } from './rules/refusedDeclarations';
+import { checkStatementTypes } from './rules/statementTypes';
 import {
 	checkUnreachableCode,
 	checkUnusedDeclarations,
@@ -354,6 +355,18 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'statementForms',
 		run: (ctx, push) => checkStatementForms(ctx.source, ctx.mod, ctx.symbols, ctx.opts.projectProcedures, ctx.activity, push),
+	},
+	{
+		name: 'statementTypes',
+		run: (ctx, push) => checkStatementTypes(
+			ctx.source,
+			ctx.mod,
+			ctx.symbols,
+			ctx.opts.projectVisibleSymbols,
+			ctx.opts.projectTypes,
+			ctx.activity,
+			push,
+		),
 	},
 	{
 		name: 'strayCharacters',

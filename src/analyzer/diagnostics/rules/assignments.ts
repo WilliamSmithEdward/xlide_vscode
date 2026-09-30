@@ -136,18 +136,50 @@ export function checkConstAssignment(
 				hit.name,
 				'assignmentTarget',
 			);
-			if (
-				binding.scope !== 'ambiguous' &&
-				binding.definitions.some((definition) => definition.kind === 'constant')
-			) {
+			if (binding.scope === 'ambiguous') {
+				return;
+			}
+			// An Enum member is a constant too (issue #213): `eA = 2` is
+			// "Assignment to constant not permitted".
+			if (binding.definitions.some((definition) => definition.kind === 'constant' || definition.kind === 'enumMember')) {
 				push(
 					'constAssignment',
 					`Cannot assign to constant '${hit.name}'.`,
 					hit.span,
 				);
+				return;
+			}
+			const target = procedureAssignmentTarget(binding.definitions, procSym);
+			if (target) {
+				push('assignmentToProcedureName', target(hit.name), hit.span);
 			}
 		}
 	};
+}
+
+/**
+ * Why a procedure's name cannot be assigned to from outside it, measured in
+ * Excel 16.0 (issue #213): a Sub's is "Expected Function or variable", and a
+ * Function's is "Function call on left-hand side of assignment must return
+ * Variant or Object" when it returns a type of VBA's own. Inside the Function
+ * the name is its return value and binds locally, so it never reaches here.
+ */
+function procedureAssignmentTarget(
+	definitions: readonly VbaSymbol[],
+	procSym: VbaSymbol | undefined,
+): ((name: string) => string) | undefined {
+	if (definitions.length !== 1 || definitions[0] === procSym) {
+		return undefined;
+	}
+	const [definition] = definitions;
+	if (definition.kind === 'sub') {
+		return (name) => `'${name}' is a Sub, which has no value to assign. This is a VBE compile error: Expected Function or variable.`;
+	}
+	const returns = normalizeType(definition.asType);
+	if (definition.kind === 'function' && returns && returns !== 'variant' && isKnownScalarType(returns) && !definition.isArray) {
+		return (name) => `'${name}' is a Function returning ${definition.asType}, and a call cannot be assigned to. This is a VBE compile error: Function call on left-hand side of assignment must return Variant or Object.`;
+	}
+	return undefined;
 }
 
 function memberAssignmentTarget(
@@ -1389,13 +1421,16 @@ function midStatementLiteralTargetViolation(
 	const argToks = toks.slice(parenIndex + 1, close).filter((tok) => tok.kind !== 'comment');
 	const slots = splitTopLevelTokenGroups(argToks, 0, ',');
 	const target = slots[0];
-	if (!target || target.length !== 1 || target[0].kind !== 'stringLiteral') {
-		return undefined; // target is not exactly one string literal
+	// A number is no more a target than a string is: `Mid(5, 1) = "x"` is a
+	// "Syntax error" as well (issue #213, measured in Excel 16.0).
+	const literalKinds = ['stringLiteral', 'integerLiteral', 'floatLiteral'];
+	if (!target || target.length !== 1 || !literalKinds.includes(target[0].kind)) {
+		return undefined; // target is not exactly one literal
 	}
 	return {
 		span: { start: span.start + target[0].start, end: span.start + target[0].end },
 		message:
 			"The target of a Mid statement must be a writable String variable, not a " +
-			'string literal. Assigning into a literal is a compile error.',
+			`${target[0].kind === 'stringLiteral' ? 'string literal' : 'number'}. Assigning into a literal is a compile error.`,
 	};
 }

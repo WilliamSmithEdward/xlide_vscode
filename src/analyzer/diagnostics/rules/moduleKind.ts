@@ -387,8 +387,12 @@ function implementsStatementHit(source: string, span: Span): ImplementsStatement
 }
 
 /**
- * Rule: `RaiseEvent` names an Event declared by the containing module. Event
- * signature/arity checks remain deferred to the richer event-binding slice.
+ * Rule: `RaiseEvent` names an Event declared by the containing module, and
+ * passes it one argument per parameter. Measured in Excel 16.0 (issue #213):
+ * `RaiseEvent Changed(1, 2)` for `Event Changed(ByVal v As Long)` is "Wrong
+ * number of arguments or invalid property assignment", and `RaiseEvent Ev`
+ * for `Event Ev(ByVal a As Long)` is "Argument not optional". An Event takes
+ * no Optional or ParamArray parameter, so the count is exact.
  */
 export function checkRaiseEventTargets(
 	source: string,
@@ -402,10 +406,12 @@ export function checkRaiseEventTargets(
 	if (!/raiseevent/i.test(source)) {
 		return;
 	}
-	const events = new Set<string>();
+	const events = new Map<string, number | undefined>();
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'Event' && member.name) {
-			events.add(member.name.toLowerCase());
+			const key = member.name.toLowerCase();
+			const exact = member.params.every((param) => !param.optional && !param.paramArray);
+			events.set(key, events.has(key) || !exact ? undefined : member.params.length);
 		}
 	}
 
@@ -420,7 +426,18 @@ export function checkRaiseEventTargets(
 			// A single physical line can carry several `:`-separated statements
 			// (e.g. `RaiseEvent A: RaiseEvent B`), so check every RaiseEvent on it.
 			for (const hit of raiseEventTargetHits(source, lineSpan)) {
-				if (events.has(hit.name.toLowerCase())) {
+				const key = hit.name.toLowerCase();
+				if (events.has(key)) {
+					const expected = events.get(key);
+					if (expected !== undefined && hit.argumentCount !== undefined && hit.argumentCount !== expected) {
+						push(
+							'raiseEventArgumentCount',
+							hit.argumentCount > expected
+								? `Event '${hit.name}' takes ${expected} argument${expected === 1 ? '' : 's'}, and RaiseEvent passes ${hit.argumentCount}. This is a VBE compile error: Wrong number of arguments or invalid property assignment.`
+								: `Event '${hit.name}' takes ${expected} argument${expected === 1 ? '' : 's'}, and RaiseEvent passes ${hit.argumentCount}. This is a VBE compile error: Argument not optional.`,
+							hit.span,
+						);
+					}
 					continue;
 				}
 				push(
@@ -436,9 +453,9 @@ export function checkRaiseEventTargets(
 function raiseEventTargetHits(
 	source: string,
 	span: Span,
-): Array<{ name: string; span: Span }> {
+): Array<{ name: string; span: Span; argumentCount?: number }> {
 	const toks = statementTokens(source, span);
-	const hits: Array<{ name: string; span: Span }> = [];
+	const hits: Array<{ name: string; span: Span; argumentCount?: number }> = [];
 	// Each `:`-separated statement segment on the line may be its own RaiseEvent.
 	for (const segmentStart of statementSegmentStarts(toks)) {
 		if (tokenText(toks[segmentStart]) !== 'raiseevent') {
@@ -455,9 +472,49 @@ function raiseEventTargetHits(
 				start: span.start + nameTok.start,
 				end: span.start + nameTok.end,
 			},
+			argumentCount: raiseEventArgumentCount(toks, segmentStart + 2),
 		});
 	}
 	return hits;
+}
+
+/**
+ * How many arguments a RaiseEvent passes, from the token after the event's
+ * name: none when the segment ends there, else one per top-level comma group
+ * inside the parentheses. Undefined when the list is not simply that.
+ */
+function raiseEventArgumentCount(toks: readonly VbaToken[], at: number): number | undefined {
+	const next = toks[at];
+	if (!next || next.kind === 'comment' || next.kind === 'colon' || next.kind === 'newline') {
+		return 0;
+	}
+	if (next.rawText !== '(') {
+		return undefined;
+	}
+	let depth = 0;
+	let count = 0;
+	let sawToken = false;
+	for (let i = at; i < toks.length; i++) {
+		const raw = toks[i].rawText;
+		if (raw === '(') {
+			depth++;
+			if (depth === 1) {
+				continue;
+			}
+		} else if (raw === ')') {
+			depth--;
+			if (depth === 0) {
+				return sawToken ? count + 1 : 0;
+			}
+		} else if (depth === 1 && raw === ',') {
+			count++;
+			continue;
+		}
+		if (depth >= 1 && toks[i].kind !== 'comment') {
+			sawToken = true;
+		}
+	}
+	return undefined;
 }
 
 /**

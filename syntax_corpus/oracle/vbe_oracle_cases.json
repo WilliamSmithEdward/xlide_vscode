@@ -3620,13 +3620,13 @@
     },
     {
       "id": "byval_paramarray_compile",
-      "description": "Observe whether a ParamArray parameter declared ByVal is rejected at compile time (ParamArray must be a ByRef Variant array).",
+      "description": "Observe whether a ParamArray parameter declared ByVal is rejected at compile time (ParamArray must be a ByRef Variant array). Re-measured with a full project compile in Excel 16.0 (build 20326) through pyVBAharness, 2026-09-30 (issue #213): \"Expected: identifier\". The earlier accepted verdict came from running a macro, which compiles only what it calls.",
       "provenance": "vbe-oracle-verified",
-      "expected": "accepted",
+      "expected": "rejected",
       "mode": "compile",
       "source": "Public Sub TakesArgs(ByVal ParamArray items() As Variant)\nEnd Sub\n",
       "evidencePhase": "compile",
-      "diagnosticMeaning": "compile-valid"
+      "diagnosticMeaning": "compile-error"
     },
     {
       "id": "empty_enum_block_compile",
@@ -18587,6 +18587,594 @@
       "expected": "rejected",
       "mode": "compile",
       "source": "Option Explicit\r\n\r\nPrivate Type Customer\r\n10  Id As Long\r\nEnd Type\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_01_compile",
+      "description": "Issue #213 case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim i As Long\r\n    For i = 1 To 2\r\n        For i = 1 To 2\r\n        Next\r\n    Next\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_02_compile",
+      "description": "Issue #213 case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim v As Variant\r\n    For Each v In Array(1)\r\n        For Each v In Array(2)\r\n        Next\r\n    Next\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_03_compile",
+      "description": "Issue #213 case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim v As Variant\r\n    For v = 1 To 2\r\n        For Each v In Array(2)\r\n        Next\r\n    Next\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_04_compile",
+      "description": "Issue #213 case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim i As Long\r\n    For i = 1 To 2\r\n    Next\r\n    For i = 1 To 2\r\n    Next\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue213_05_compile",
+      "description": "Issue #213 case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim i As Long, j As Long\r\n    For i = 1 To 2\r\n        For j = 1 To 2\r\n        Next\r\n    Next\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue213_06_compile",
+      "description": "Issue #213 case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim s As String\r\n    For s = 1 To 3\r\n    Next\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_07_compile",
+      "description": "Issue #213 case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim o As Object\r\n    For o = 1 To 2\r\n    Next\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_08_compile",
+      "description": "Issue #213 case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim v As Variant\r\n    For v = 1 To 2\r\n    Next\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue213_09_compile",
+      "description": "Issue #213 case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim d As Date\r\n    For d = 1 To 2\r\n    Next\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue213_10_compile",
+      "description": "Issue #213 case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim b As Boolean\r\n    For b = 0 To 1\r\n    Next\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_11_compile",
+      "description": "Issue #213 case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim c As Collection\r\n    For c = 1 To 2\r\n    Next\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_12_compile",
+      "description": "Issue #213 case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type T\r\n    a As Long\r\nEnd Type\r\nPrivate Type U\r\n    a As Long\r\nEnd Type\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim t As T\r\n    For t = 1 To 2\r\n    Next\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_13_compile",
+      "description": "Issue #213 case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Changed(ByVal v As Long)\r\nSub P1()\r\n    RaiseEvent Changed(1, 2)\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_14_compile",
+      "description": "Issue #213 case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Ev(ByVal a As Long)\r\nSub P1()\r\n    RaiseEvent Ev\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_15_compile",
+      "description": "Issue #213 case 15, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Ev(ByVal a As Long)\r\nSub P1()\r\n    RaiseEvent Ev(1)\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue213_16_compile",
+      "description": "Issue #213 case 16, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Event Ev()\r\nSub P1()\r\n    RaiseEvent Ev\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue213_17_compile",
+      "description": "Issue #213 case 17, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim r As Long\r\n    Select Case 1\r\n        r = 2\r\n    Case 1\r\n    End Select\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_18_compile",
+      "description": "Issue #213 case 18, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Select Case 1\r\n        ' note\r\n    Case 1\r\n    End Select\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue213_19_compile",
+      "description": "Issue #213 case 19, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Select Case 1\r\nL1:\r\n    Case 1\r\n    End Select\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_20_compile",
+      "description": "Issue #213 case 20, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Return 5\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_21_compile",
+      "description": "Issue #213 case 21, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\n    Exit Function\r\n    Return\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue213_22_compile",
+      "description": "Issue #213 case 22, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type T\r\n    a As Long\r\nEnd Type\r\nPrivate Type U\r\n    a As Long\r\nEnd Type\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim a(1) As T\r\n    Dim v As Variant\r\n    For Each v In a\r\n    Next\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_23_compile",
+      "description": "Issue #213 case 23, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim a(1) As String * 5\r\n    Dim v As Variant\r\n    For Each v In a\r\n    Next\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_24_compile",
+      "description": "Issue #213 case 24, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type T\r\n    a As Long\r\nEnd Type\r\nPrivate Type U\r\n    a As Long\r\nEnd Type\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim a() As T\r\n    Dim v As Variant\r\n    ReDim a(1)\r\n    For Each v In a\r\n    Next\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_25_compile",
+      "description": "Issue #213 case 25, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    eA = 1\r\nEnd Enum\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    eA = 2\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_26_compile",
+      "description": "Issue #213 case 26, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    eA = 1\r\nEnd Enum\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    E.eA = 2\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_27_compile",
+      "description": "Issue #213 case 27, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function F() As Long\r\nEnd Function\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    F = 2\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_28_compile",
+      "description": "Issue #213 case 28, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function F() As Variant\r\nEnd Function\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    F = 2\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue213_29_compile",
+      "description": "Issue #213 case 29, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function F() As Object\r\nEnd Function\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Set F = Nothing\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue213_30_compile",
+      "description": "Issue #213 case 30, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Sub Other()\r\nEnd Sub\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Other = 2\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_31_compile",
+      "description": "Issue #213 case 31, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function F() As String\r\nEnd Function\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    F = \"x\"\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_32_compile",
+      "description": "Issue #213 case 32, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim x As Long\r\n    With x\r\n    End With\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_33_compile",
+      "description": "Issue #213 case 33, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    With \"abc\"\r\n    End With\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_34_compile",
+      "description": "Issue #213 case 34, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim s As String\r\n    With s\r\n    End With\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_35_compile",
+      "description": "Issue #213 case 35, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type T\r\n    a As Long\r\nEnd Type\r\nPrivate Type U\r\n    a As Long\r\nEnd Type\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim t As T\r\n    With t\r\n    End With\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue213_36_compile",
+      "description": "Issue #213 case 36, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim v As Variant\r\n    With v\r\n    End With\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue213_37_compile",
+      "description": "Issue #213 case 37, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    With 5\r\n    End With\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_38_compile",
+      "description": "Issue #213 case 38, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type T\r\n    a As Long\r\nEnd Type\r\nPrivate Type U\r\n    a As Long\r\nEnd Type\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim t As T\r\n    Set t = Nothing\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_39_compile",
+      "description": "Issue #213 case 39, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Sub PB(ByVal ParamArray a())\r\nEnd Sub\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_40_compile",
+      "description": "Issue #213 case 40, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Sub PB(ByRef ParamArray a())\r\nEnd Sub\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_41_compile",
+      "description": "Issue #213 case 41, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Mid(5, 1) = \"x\"\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_42_compile",
+      "description": "Issue #213 case 42, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Mid(\"abc\", 1) = \"x\"\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_43_compile",
+      "description": "Issue #213 case 43, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim s As String\r\n    s = \"abc\"\r\n    Mid(s, 1) = \"x\"\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue213_44_compile",
+      "description": "Issue #213 case 44, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type T\r\n    a As Long\r\nEnd Type\r\nPrivate Type U\r\n    a As Long\r\nEnd Type\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim t As T\r\n    t = 1\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_45_compile",
+      "description": "Issue #213 case 45, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type T\r\n    a As Long\r\nEnd Type\r\nPrivate Type U\r\n    a As Long\r\nEnd Type\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim t As T, u As T\r\n    Debug.Print t = u\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_46_compile",
+      "description": "Issue #213 case 46, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type T\r\n    a As Long\r\nEnd Type\r\nPrivate Type U\r\n    a As Long\r\nEnd Type\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim t As T\r\n    Debug.Print t\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_47_compile",
+      "description": "Issue #213 case 47, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type T\r\n    a As Long\r\nEnd Type\r\nPrivate Type U\r\n    a As Long\r\nEnd Type\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim a As T, b As U\r\n    a = b\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_48_compile",
+      "description": "Issue #213 case 48, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type T\r\n    a As Long\r\nEnd Type\r\nPrivate Type U\r\n    a As Long\r\nEnd Type\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim v As Variant, t As T\r\n    v = t\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_49_compile",
+      "description": "Issue #213 case 49, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type T\r\n    a As Long\r\nEnd Type\r\nPrivate Type U\r\n    a As Long\r\nEnd Type\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim a As T, b As T\r\n    a = b\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue213_50_compile",
+      "description": "Issue #213 case 50, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type T\r\n    a As Long\r\nEnd Type\r\nPrivate Type U\r\n    a As Long\r\nEnd Type\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim t As T\r\n    t.a = 1\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue213_51_compile",
+      "description": "Issue #213 case 51, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type T\r\n    a As Long\r\nEnd Type\r\nPrivate Type U\r\n    a As Long\r\nEnd Type\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim n As Long, t As T\r\n    n = t\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_52_compile",
+      "description": "Issue #213 case 52, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type T\r\n    a As Long\r\nEnd Type\r\nPrivate Type U\r\n    a As Long\r\nEnd Type\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim t As T\r\n    Debug.Print t + 1\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_53_compile",
+      "description": "Issue #213 case 53, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type T\r\n    a As Long\r\nEnd Type\r\nPrivate Type U\r\n    a As Long\r\nEnd Type\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim t As T\r\n    If t Then\r\n    End If\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue213_54_compile",
+      "description": "Issue #213 case 54, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type T\r\n    a As Long\r\nEnd Type\r\nPrivate Type U\r\n    a As Long\r\nEnd Type\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim t As T\r\n    MsgBox t\r\nEnd Sub\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
     }
