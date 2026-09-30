@@ -79,6 +79,15 @@ interface RuntimeArgumentValueSpec {
 	allowNamed?: boolean;
 	/** Which `$`-suffixed spelling, if any, the function also has. */
 	stringSuffix?: boolean;
+	/**
+	 * The parameter's type, where no signature gives it: a value outside it
+	 * raises error 6, Overflow, before any bound is read (issue #218):
+	 * TimeSerial(32768, 0, 0), ChrB(256), String(1E+10, "a"). Without it, a
+	 * value past the Long range is left to argument-type-mismatch.
+	 */
+	overflowType?: 'Byte' | 'Integer' | 'Long';
+	/** The bounds raise error 6 rather than 5: Error(65536) (issue #218). */
+	boundsOverflow?: boolean;
 }
 
 interface RuntimeArgumentValueHit {
@@ -86,7 +95,17 @@ interface RuntimeArgumentValueHit {
 	parameterName: string;
 	value: number | string;
 	span: Span;
+	/** 6 for Overflow; 5 otherwise. */
+	error?: 6;
+	/** The whole message, for a check that is not one argument's bound. */
+	message?: string;
 }
+
+const OVERFLOW_RANGES: Readonly<Record<'Byte' | 'Integer' | 'Long', { min: number; max: number }>> = {
+	Byte: { min: 0, max: 255 },
+	Integer: { min: -32768, max: 32767 },
+	Long: { min: -2147483648, max: 2147483647 },
+};
 
 /**
  * Rule: some runtime-library arguments have deterministic value bounds even
@@ -173,9 +192,10 @@ export function checkRuntimeArgumentValues(
 					compare,
 				};
 				for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env, lookup, stringCalls, sourceNames, host)) {
+					const raises = hit.error === 6 ? `'6': Overflow` : `'5': Invalid procedure call or argument`;
 					report(
 						'runtimeArgumentValue',
-						`Argument '${hit.parameterName}' of '${hit.displayName}' is ${hit.value}; this will raise Run-time error '5': Invalid procedure call or argument.`,
+						hit.message ?? `Argument '${hit.parameterName}' of '${hit.displayName}' is ${hit.value}; this will raise Run-time error ${raises}.`,
 						hit.span,
 					);
 				}
@@ -526,14 +546,206 @@ function runtimeArgumentValueHits(
 				parameterName: spec.parameterName,
 				value: literal.value,
 				span: literal.span,
+				...(literal.error === 6 ? { error: 6 as const } : {}),
 			});
 		}
-		const overflow = dateAddPastMaximum(source, span, call, constants) ?? dateSerialPastMaximum(source, span, call, constants);
+		const overflow = dateAddPastMaximum(source, span, call, constants)
+			?? dateSerialPastMaximum(source, span, call, constants)
+			?? argumentRelationHit(source, span, call, constants);
 		if (overflow) {
 			hits.push(overflow);
 		}
 	}
 	return hits;
+}
+
+/** A numeric argument's value: a signed literal, `a / b` of literals, or a constant expression. */
+function numericSlotValue(
+	source: string,
+	span: Span,
+	slot: readonly VbaToken[] | undefined,
+	constants: IntegerConstantLookup,
+): number | undefined {
+	const toks = slot ? unwrapOuterParens(slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline')) : [];
+	if (toks.length === 0 || namedArgumentSlot(toks)) {
+		return undefined;
+	}
+	return numericLiteralGroupValue(toks) ?? integerGroupValue(source, span, toks, constants);
+}
+
+/**
+ * Checks that read more than one argument, or an argument's kind rather than
+ * its bound (issue #218, each measured in Excel 16.0):
+ *
+ *  - Partition(Number, Start, Stop, Interval) raises 5 when Start is below 0,
+ *    Stop is not above Start, or Interval is below 1, each rounded half to
+ *    even: Partition(5, 0, 10, 0.6) runs, 0.4 raises.
+ *  - The financial functions raise 5: Pmt with NPer 0; IPmt and PPmt with NPer
+ *    or Per not above 0, or Per a whole period past NPer (Per 10.5 of 10 runs,
+ *    11 raises); SLN with Life 0; SYD and DDB with Life or Period not above 0,
+ *    or Period past Life; DDB with Factor not above 0; NPer where its log has
+ *    no value (Rate at or below -1, Rate and Pmt both 0, or a ratio not above
+ *    0); Rate with NPer not above 0. PV with Rate -1 divides by zero, error 11.
+ *    Whether Rate's iteration converges otherwise is not judged: Rate(10, 100,
+ *    1000) raises and Rate(9, 100, 1000) returns -1.73.
+ *  - LBound and UBound of Array(...) or Split(...), which have one dimension,
+ *    raise 9 for any other Dimension.
+ *  - Join and Filter given a string or number where the array goes raise 13.
+ */
+function argumentRelationHit(
+	source: string,
+	span: Span,
+	call: { displayName: string; slots: VbaToken[][] },
+	constants: IntegerConstantLookup,
+): RuntimeArgumentValueHit | undefined {
+	const name = call.displayName.replace(/^VBA\./i, '').replace(/\$$/, '').toLowerCase();
+	if (call.slots.some((slot) => namedArgumentSlot(slot))) {
+		return undefined;
+	}
+	const value = (index: number): number | undefined => numericSlotValue(source, span, call.slots[index], constants);
+	const slotSpan = (from: number, to = from): Span => {
+		const first = call.slots[from].find((t) => t.kind !== 'comment' && t.kind !== 'newline')!;
+		const last = [...call.slots[to]].reverse().find((t) => t.kind !== 'comment' && t.kind !== 'newline')!;
+		return { start: span.start + first.start, end: span.start + last.end };
+	};
+	const hit = (message: string, at: Span, error = 5): RuntimeArgumentValueHit => ({
+		displayName: call.displayName,
+		parameterName: '',
+		value: '',
+		span: at,
+		message: `${message} This will raise Run-time error '${error}': ${error === 11 ? 'Division by zero' : error === 9 ? 'Subscript out of range' : error === 13 ? 'Type mismatch' : 'Invalid procedure call or argument'}.`,
+	});
+	const present = (count: number): boolean => call.slots.length >= count
+		&& call.slots.slice(0, count).every((slot) => slot.some((t) => t.kind !== 'comment' && t.kind !== 'newline'));
+	switch (name) {
+		case 'partition': {
+			if (!present(4)) {
+				return undefined;
+			}
+			const [start, stop, interval] = [value(1), value(2), value(3)].map((v) => (v === undefined ? undefined : bankersRound(v)));
+			if (start !== undefined && start < 0) {
+				return hit(`Partition's Start is ${start}; it must be 0 or more.`, slotSpan(1));
+			}
+			if (start !== undefined && stop !== undefined && stop <= start) {
+				return hit(`Partition's Stop, ${stop}, is not above its Start, ${start}.`, slotSpan(1, 2));
+			}
+			if (interval !== undefined && interval < 1) {
+				return hit(`Partition's Interval is ${interval}; it must be 1 or more.`, slotSpan(3));
+			}
+			return undefined;
+		}
+		case 'pmt':
+			return present(3) && value(1) === 0 ? hit('Pmt over 0 periods (NPer 0) has no payment.', slotSpan(1)) : undefined;
+		case 'ipmt':
+		case 'ppmt': {
+			if (!present(4)) {
+				return undefined;
+			}
+			const per = value(1);
+			const nper = value(2);
+			const label = call.displayName;
+			if (nper !== undefined && nper <= 0) {
+				return hit(`${label}'s NPer is ${nper}; it must be above 0.`, slotSpan(2));
+			}
+			if (per !== undefined && per <= 0) {
+				return hit(`${label}'s Per is ${per}; it must be above 0.`, slotSpan(1));
+			}
+			if (per !== undefined && nper !== undefined && per >= nper + 1) {
+				return hit(`${label}'s Per, ${per}, is past the last of its ${nper} periods.`, slotSpan(1));
+			}
+			return undefined;
+		}
+		case 'sln':
+			return present(3) && value(2) === 0 ? hit('SLN over a Life of 0 has no depreciation.', slotSpan(2)) : undefined;
+		case 'syd':
+		case 'ddb': {
+			if (!present(4)) {
+				return undefined;
+			}
+			const life = value(2);
+			const period = value(3);
+			const label = call.displayName;
+			if (life !== undefined && life <= 0) {
+				return hit(`${label}'s Life is ${life}; it must be above 0.`, slotSpan(2));
+			}
+			if (period !== undefined && period <= 0) {
+				return hit(`${label}'s Period is ${period}; it must be above 0.`, slotSpan(3));
+			}
+			if (period !== undefined && life !== undefined && period > life) {
+				return hit(`${label}'s Period, ${period}, is past its Life, ${life}.`, slotSpan(3));
+			}
+			if (name === 'ddb' && present(5)) {
+				const factor = value(4);
+				if (factor !== undefined && factor <= 0) {
+					return hit(`DDB's Factor is ${factor}; it must be above 0.`, slotSpan(4));
+				}
+			}
+			return undefined;
+		}
+		case 'nper': {
+			if (!present(3) || call.slots.length > 5) {
+				return undefined;
+			}
+			const [rate, pmt, pv] = [value(0), value(1), value(2)];
+			const fv = call.slots.length >= 4 && present(4) ? value(3) : 0;
+			const type = call.slots.length >= 5 && present(5) ? value(4) : 0;
+			if (rate === undefined || pmt === undefined || pv === undefined || fv === undefined || type === undefined) {
+				return undefined;
+			}
+			if (rate === 0) {
+				return pmt === 0 ? hit('NPer with a Rate and a Pmt of 0 has no number of periods.', slotSpan(0, 1)) : undefined;
+			}
+			if (rate <= -1) {
+				return hit(`NPer's Rate is ${rate}; the logarithm of 1 + Rate has no value at or below -1.`, slotSpan(0));
+			}
+			const a = pmt * (1 + rate * (type !== 0 ? 1 : 0)) / rate;
+			const ratio = (a - fv) / (a + pv);
+			return Number.isFinite(ratio) && ratio > 0
+				? undefined
+				: hit('No number of periods brings these payments to this value: the logarithm NPer takes has no value.', slotSpan(0, Math.min(call.slots.length, 5) - 1));
+		}
+		case 'rate': {
+			const nper = present(3) ? value(0) : undefined;
+			return nper !== undefined && Number.isInteger(nper) && nper <= 0
+				? hit(`Rate's NPer is ${nper}; it must be above 0.`, slotSpan(0))
+				: undefined;
+		}
+		case 'pv': {
+			if (!present(3)) {
+				return undefined;
+			}
+			const [rate, nper] = [value(0), value(1)];
+			return rate === -1 && nper !== undefined && nper > 0
+				? hit('PV with a Rate of -1 divides by (1 + Rate) ^ NPer, which is 0.', slotSpan(0), 11)
+				: undefined;
+		}
+		case 'lbound':
+		case 'ubound': {
+			if (call.slots.length !== 2 || !present(2)) {
+				return undefined;
+			}
+			const array = call.slots[0].filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
+			const callee = tokenName(array[0])?.toLowerCase();
+			const oneDimension = (callee === 'array' || callee === 'split') && array[1]?.rawText === '(' && matchParenFrom(array, 1) === array.length - 1;
+			const dimension = value(1);
+			return oneDimension && dimension !== undefined && bankersRound(dimension) !== 1
+				? hit(`${call.displayName}'s Dimension is ${dimension}, but ${array[0].rawText}(...) has one dimension.`, slotSpan(1), 9)
+				: undefined;
+		}
+		case 'join':
+		case 'filter': {
+			if (!present(2)) {
+				return undefined;
+			}
+			const first = call.slots[0].filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
+			const scalar = first.length === 1 && (first[0].kind === 'stringLiteral' || first[0].kind === 'integerLiteral' || first[0].kind === 'floatLiteral');
+			return scalar
+				? hit(`${call.displayName} takes an array, but ${first[0].rawText} is not one.`, slotSpan(0), 13)
+				: undefined;
+		}
+		default:
+			return undefined;
+	}
 }
 
 /**
@@ -609,6 +821,10 @@ function dateSerialPastMaximum(
 	if (year === undefined || month === undefined || day === undefined || year < 100) {
 		return undefined;
 	}
+	// A part past the Integer range overflows first (issue #218).
+	if ([year, month, day].some((part) => part < -32768 || part > 32767)) {
+		return undefined;
+	}
 	const date = new Date(0);
 	date.setUTCFullYear(year, month - 1, 1);
 	date.setUTCDate(day);
@@ -680,13 +896,19 @@ function runtimeArgumentValueCallAt(
 	}
 
 	const specs = runtimeArgumentValueSpecs(name, host);
-	if (specs.length === 0) {
+	const canonicalName = specs[0]?.canonicalName ?? RELATION_FUNCTIONS.get(name.toLowerCase());
+	if (!canonicalName) {
 		return undefined;
 	}
-	if (suffix && !specs[0].stringSuffix) {
+	if (suffix && !specs[0]?.stringSuffix) {
 		return undefined;
 	}
-	const lower = specs[0].canonicalName.toLowerCase();
+	// `Error (70000)` opening a statement is the Error statement, judged by
+	// runtimeStatementValueHits; only the function reads a message.
+	if (canonicalName === 'Error' && index === 0) {
+		return undefined;
+	}
+	const lower = canonicalName.toLowerCase();
 	if (!qualifier && (
 		moduleSignatures.has(lower) ||
 		env.has(lower) ||
@@ -702,11 +924,17 @@ function runtimeArgumentValueCallAt(
 	const inner = toks.slice(parenIndex + 1, close);
 	const split = inner.length === 0 ? emptyArgSplit() : splitArgSlots(inner, span.start);
 	return {
-		displayName: `${specs[0].canonicalName}${suffix}`,
+		displayName: `${canonicalName}${suffix}`,
 		specs,
 		slots: split.slots,
 	};
 }
+
+/** Functions argumentRelationHit judges, which have no single-argument bound. */
+const RELATION_FUNCTIONS: ReadonlyMap<string, string> = new Map(
+	['Partition', 'Pmt', 'IPmt', 'PPmt', 'SLN', 'SYD', 'DDB', 'NPer', 'Rate', 'PV', 'LBound', 'UBound', 'Join', 'Filter']
+		.map((canonical) => [canonical.toLowerCase(), canonical]),
+);
 
 /**
  * The bounds each runtime function's arguments must keep to compile-and-run
@@ -714,27 +942,67 @@ function runtimeArgumentValueCallAt(
  * measured one call at a time in Excel 16.0 (build 20326, 2026-09-26, issue
  * #118): every listed value raises error 5 every time, and the nearest value
  * that runs - Mid("abc", 10), Round(1.5, 0), Weekday(Date, 7), Environ(1) -
- * stays quiet. `vbDatabaseCompare` (2) is valid only where Access is the
- * host, so InStr's Compare bound depends on the host.
+ * stays quiet.
+ *
+ * Issue #218 added, each measured in Excel 16.0 (build 20326, 2026-09-30):
+ *
+ *  - Compare, for all six functions that take one, is 0, 1, or a locale ID
+ *    from 3 up that Windows knows (1033 and 66567 run, 16383 and 65536
+ *    raise). Only a negative value, and 2 for InStr, StrComp and Filter
+ *    outside Access, are refused everywhere; no upper bound holds.
+ *  - A string is at most 1073741823 characters: Left, Right and Mid's Length
+ *    and String and Space's Number past it raise 5, and so does Mid's Start
+ *    past 1073741824.
+ *  - CVErr takes 0 to 65535; LeftB, RightB, MidB, AscB and InStrB keep Left's,
+ *    Mid's, Asc's and InStr's lower bounds.
+ *  - Overflow, error 6: TimeSerial and DateSerial take Integers, ChrB a Byte,
+ *    String's Number and InStr's Start a Long, and Error at most 65535.
  */
 function runtimeArgumentValueSpecs(name: string, host: string | undefined): readonly RuntimeArgumentValueSpec[] {
+	// 2 is vbDatabaseCompare, which only Access accepts in these three.
+	const databaseCompare = host === 'access' ? [] : [2];
 	switch (name.toLowerCase()) {
 		case 'left':
-			return [{ canonicalName: 'Left', parameterName: 'Length', argumentIndex: 1, minimum: 0, stringSuffix: true }];
+			return [{ canonicalName: 'Left', parameterName: 'Length', argumentIndex: 1, minimum: 0, maximum: MAX_STRING_LENGTH, stringSuffix: true }];
 		case 'right':
-			return [{ canonicalName: 'Right', parameterName: 'Length', argumentIndex: 1, minimum: 0, stringSuffix: true }];
+			return [{ canonicalName: 'Right', parameterName: 'Length', argumentIndex: 1, minimum: 0, maximum: MAX_STRING_LENGTH, stringSuffix: true }];
 		case 'string':
 			return [
-				{ canonicalName: 'String', parameterName: 'Number', argumentIndex: 0, minimum: 0, stringSuffix: true },
+				{ canonicalName: 'String', parameterName: 'Number', argumentIndex: 0, minimum: 0, maximum: MAX_STRING_LENGTH, overflowType: 'Long', stringSuffix: true },
 				{ canonicalName: 'String', parameterName: 'Character', argumentIndex: 1, emptyStringRaises: true, stringSuffix: true },
 			];
 		case 'space':
-			return [{ canonicalName: 'Space', parameterName: 'Number', argumentIndex: 0, minimum: 0, stringSuffix: true }];
+			return [{ canonicalName: 'Space', parameterName: 'Number', argumentIndex: 0, minimum: 0, maximum: MAX_STRING_LENGTH, stringSuffix: true }];
 		case 'mid':
 			return [
-				{ canonicalName: 'Mid', parameterName: 'Start', argumentIndex: 1, minimum: 1, stringSuffix: true },
-				{ canonicalName: 'Mid', parameterName: 'Length', argumentIndex: 2, minimum: 0, stringSuffix: true },
+				{ canonicalName: 'Mid', parameterName: 'Start', argumentIndex: 1, minimum: 1, maximum: MAX_STRING_LENGTH + 1, stringSuffix: true },
+				{ canonicalName: 'Mid', parameterName: 'Length', argumentIndex: 2, minimum: 0, maximum: MAX_STRING_LENGTH, stringSuffix: true },
 			];
+		case 'leftb':
+			return [{ canonicalName: 'LeftB', parameterName: 'Length', argumentIndex: 1, minimum: 0, stringSuffix: true }];
+		case 'rightb':
+			return [{ canonicalName: 'RightB', parameterName: 'Length', argumentIndex: 1, minimum: 0, stringSuffix: true }];
+		case 'midb':
+			return [
+				{ canonicalName: 'MidB', parameterName: 'Start', argumentIndex: 1, minimum: 1, stringSuffix: true },
+				{ canonicalName: 'MidB', parameterName: 'Length', argumentIndex: 2, minimum: 0, stringSuffix: true },
+			];
+		case 'ascb':
+			return [{ canonicalName: 'AscB', parameterName: 'String', argumentIndex: 0, emptyStringRaises: true }];
+		case 'instrb':
+			return [{ canonicalName: 'InStrB', parameterName: 'Start', argumentIndex: 0, minimum: 1, overflowType: 'Long', minimumSlotCount: 3, allowNamed: false }];
+		case 'chrb':
+			return [{ canonicalName: 'ChrB', parameterName: 'CharCode', argumentIndex: 0, overflowType: 'Byte', stringSuffix: true }];
+		case 'cverr':
+			return [{ canonicalName: 'CVErr', parameterName: 'ErrorNumber', argumentIndex: 0, minimum: 0, maximum: 65535 }];
+		case 'error':
+			return [{ canonicalName: 'Error', parameterName: 'ErrorNumber', argumentIndex: 0, maximum: 65535, boundsOverflow: true, stringSuffix: true }];
+		case 'timeserial':
+			return ['Hour', 'Minute', 'Second'].map((parameterName, argumentIndex) => (
+				{ canonicalName: 'TimeSerial', parameterName, argumentIndex, overflowType: 'Integer' as const }
+			));
+		case 'filter':
+			return [{ canonicalName: 'Filter', parameterName: 'Compare', argumentIndex: 3, minimum: 0, disallowed: databaseCompare }];
 		case 'replace':
 			return [
 				{ canonicalName: 'Replace', parameterName: 'Start', argumentIndex: 3, minimum: 1 },
@@ -749,6 +1017,7 @@ function runtimeArgumentValueSpecs(name: string, host: string | undefined): read
 					parameterName: 'Start',
 					argumentIndex: 0,
 					minimum: 1,
+					overflowType: 'Long',
 					minimumSlotCount: 3,
 					allowNamed: false,
 				},
@@ -757,13 +1026,16 @@ function runtimeArgumentValueSpecs(name: string, host: string | undefined): read
 					parameterName: 'Compare',
 					argumentIndex: 3,
 					minimum: 0,
-					maximum: host === 'access' ? 2 : 1,
+					disallowed: databaseCompare,
 					minimumSlotCount: 4,
 					allowNamed: false,
 				},
 			];
 		case 'instrrev':
-			return [{ canonicalName: 'InStrRev', parameterName: 'Start', argumentIndex: 2, minimum: -1, disallowed: [0] }];
+			return [
+				{ canonicalName: 'InStrRev', parameterName: 'Start', argumentIndex: 2, minimum: -1, disallowed: [0] },
+				{ canonicalName: 'InStrRev', parameterName: 'Compare', argumentIndex: 3, minimum: 0 },
+			];
 		case 'chr':
 			return [{ canonicalName: 'Chr', parameterName: 'CharCode', argumentIndex: 0, minimum: 0, maximum: 255, stringSuffix: true }];
 		case 'chrw':
@@ -790,11 +1062,16 @@ function runtimeArgumentValueSpecs(name: string, host: string | undefined): read
 		case 'dateserial':
 			// No bound on the Year alone: dateSerialPastMaximum judges the
 			// whole date the month and day carry it to (issue #189).
-			return [{ canonicalName: 'DateSerial', parameterName: 'Year', argumentIndex: 0 }];
+			return ['Year', 'Month', 'Day'].map((parameterName, argumentIndex) => (
+				{ canonicalName: 'DateSerial', parameterName, argumentIndex, overflowType: 'Integer' as const }
+			));
 		case 'strcomp':
-			return [{ canonicalName: 'StrComp', parameterName: 'Compare', argumentIndex: 2, minimum: 0, maximum: host === 'access' ? 2 : 1 }];
+			return [{ canonicalName: 'StrComp', parameterName: 'Compare', argumentIndex: 2, minimum: 0, disallowed: databaseCompare }];
 		case 'split':
-			return [{ canonicalName: 'Split', parameterName: 'Limit', argumentIndex: 2, minimum: -1 }];
+			return [
+				{ canonicalName: 'Split', parameterName: 'Limit', argumentIndex: 2, minimum: -1 },
+				{ canonicalName: 'Split', parameterName: 'Compare', argumentIndex: 3, minimum: 0 },
+			];
 		case 'strconv':
 			return [{ canonicalName: 'StrConv', parameterName: 'Conversion', argumentIndex: 1, accepts: strConvConversionAnyLocale }];
 		case 'formatnumber':
@@ -834,6 +1111,9 @@ function strConvConversionAnyLocale(value: number): boolean {
 	return (value & 12) !== 12 && (value & 48) !== 48;
 }
 
+/** The longest string VBA builds: Left("abc", 1073741823) runs, 1073741824 raises 5. */
+const MAX_STRING_LENGTH = 1073741823;
+
 /** The interval strings DateAdd, DateDiff and DatePart accept. */
 const DATE_INTERVALS: readonly string[] = ['yyyy', 'q', 'm', 'y', 'd', 'w', 'ww', 'h', 'n', 's'];
 
@@ -871,7 +1151,7 @@ function integerArgumentOutsideBounds(
 	spec: RuntimeArgumentValueSpec,
 	constants: IntegerConstantLookup,
 	stringCalls: KnownStringCallContext,
-): { value: number | string; span: Span } | undefined {
+): { value: number | string; span: Span; error?: 6 } | undefined {
 	const { knownStrings } = stringCalls;
 	const toks = unwrapOuterParens(
 		slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline'),
@@ -927,12 +1207,14 @@ function integerArgumentOutsideBounds(
 		}
 	}
 	if (literalValue !== undefined) {
-		if (integerArgumentValueInBounds(literalValue, spec)) {
+		const verdict = argumentValueVerdict(literalValue, spec);
+		if (verdict === 'runs') {
 			return undefined;
 		}
 		return {
 			value: shownArgumentValue(literalValue, spec),
 			span: { start: sliceStart + start!, end: sliceStart + literal.end },
+			...(verdict === 6 ? { error: 6 as const } : {}),
 		};
 	}
 
@@ -942,13 +1224,35 @@ function integerArgumentOutsideBounds(
 			?? source.slice(sliceStart + toks[0].start, sliceStart + toks[toks.length - 1].end),
 		constants,
 	);
-	if (expressionValue === undefined || integerArgumentValueInBounds(expressionValue, spec)) {
+	const verdict = expressionValue === undefined ? 'runs' : argumentValueVerdict(expressionValue, spec);
+	if (verdict === 'runs') {
 		return undefined;
 	}
 	return {
-		value: shownArgumentValue(expressionValue, spec),
+		value: shownArgumentValue(expressionValue!, spec),
 		span: { start: sliceStart + toks[0].start, end: sliceStart + toks[toks.length - 1].end },
+		...(verdict === 6 ? { error: 6 as const } : {}),
 	};
+}
+
+/**
+ * What passing `rawValue` does: runs, raises 5, or overflows (6). A
+ * whole-number parameter whose type no spec states is judged only inside the
+ * Long range, since past it the conversion overflows first and the typed
+ * signature's argument-type-mismatch says so.
+ */
+function argumentValueVerdict(rawValue: number, spec: RuntimeArgumentValueSpec): 'runs' | 5 | 6 {
+	if (!spec.fractional) {
+		const value = passedArgumentValue(rawValue, spec);
+		const range = OVERFLOW_RANGES[spec.overflowType ?? 'Long'];
+		if (value < range.min || value > range.max) {
+			return spec.overflowType ? 6 : 'runs';
+		}
+	}
+	if (integerArgumentValueInBounds(rawValue, spec)) {
+		return 'runs';
+	}
+	return spec.boundsOverflow ? 6 : 5;
 }
 
 /**
@@ -1056,10 +1360,32 @@ export function checkRuntimeConversionValues(
  */
 const CONVERSION_TARGETS: Readonly<Record<string, 'numeric' | 'boolean' | 'date'>> = {
 	cbyte: 'numeric', cint: 'numeric', clng: 'numeric', clnglng: 'numeric', clngptr: 'numeric',
-	csng: 'numeric', cdbl: 'numeric', ccur: 'numeric', cdec: 'numeric',
+	csng: 'numeric', cdbl: 'numeric', ccur: 'numeric', cdec: 'numeric', sgn: 'numeric',
 	cbool: 'boolean',
 	cdate: 'date', cvdate: 'date', datevalue: 'date', timevalue: 'date',
+	year: 'date', month: 'date', day: 'date', weekday: 'date', hour: 'date', minute: 'date', second: 'date',
+	dateadd: 'date', datepart: 'date', datediff: 'date',
 };
+
+/**
+ * The arguments each function converts, where it is not the first (issue
+ * #218): DateAdd's Date is its third, DatePart's its second, and DateDiff
+ * converts its second and third.
+ */
+const CONVERTED_SLOTS: Readonly<Record<string, readonly number[]>> = {
+	dateadd: [2], datepart: [1], datediff: [1, 2],
+};
+
+/**
+ * The functions that read a number as a Date serial, which runs from
+ * -657434 (January 1, 100) to 2958465 (December 31, 9999): Year(2958466) and
+ * Day(-657435) raise 13, Year(2958465.9) and Year(-657434.9) run (issue #218,
+ * measured in Excel 16.0). CDate raises 6 there, which arithmetic-overflow
+ * reports.
+ */
+const DATE_SERIAL_READERS: ReadonlySet<string> = new Set([
+	'year', 'month', 'day', 'weekday', 'hour', 'minute', 'second', 'dateadd', 'datepart', 'datediff',
+]);
 
 function runtimeConversionValueHits(
 	source: string,
@@ -1089,25 +1415,54 @@ function runtimeConversionValueHits(
 			continue;
 		}
 		const split = splitArgSlots(toks.slice(i + 2, close), span.start);
-		const firstSlot = split.slots[0] ?? [];
-		if (firstSlot.length !== 1 || firstSlot[0].kind !== 'stringLiteral') {
+		if (split.slots.some((slot) => namedArgumentSlot(slot))) {
 			continue;
 		}
-		const value = stringLiteralValue(firstSlot[0].rawText);
-		const invalid = target === 'date'
-			? isInvalidDateString(value)
-			: target === 'boolean'
-				? isInvalidBooleanString(value)
-				: isInvalidNumericString(value);
-		if (!invalid) {
-			continue;
+		for (const index of CONVERTED_SLOTS[name.toLowerCase()] ?? [0]) {
+			const slot = (split.slots[index] ?? []).filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
+			const at = split.spans[index] ?? (slot.length > 0 ? { start: span.start + slot[0].start, end: span.start + slot[slot.length - 1].end } : undefined);
+			const displayName = qualified ? `VBA.${name}` : name;
+			if (slot.length === 1 && slot[0].kind === 'stringLiteral' && at) {
+				const value = stringLiteralValue(slot[0].rawText);
+				const invalid = target === 'date'
+					? isInvalidDateString(value)
+					: target === 'boolean'
+						? isInvalidBooleanString(value)
+						: isInvalidNumericString(value);
+				if (invalid) {
+					hits.push({
+						displayName,
+						name: slot[0].rawText,
+						target: target === 'date' ? 'Date' : target === 'boolean' ? 'Boolean' : 'a number',
+						span: at,
+					});
+				}
+				continue;
+			}
+			const serial = DATE_SERIAL_READERS.has(name.toLowerCase()) ? signedNumericLiteral(slot) : undefined;
+			if (serial !== undefined && at && (serial >= 2958466 || serial <= -657435)) {
+				hits.push({
+					displayName,
+					name: String(serial),
+					target: 'a Date, whose serial numbers run from -657434 (January 1, 100) to 2958465 (December 31, 9999)',
+					span: at,
+				});
+			}
 		}
-		hits.push({
-			displayName: qualified ? `VBA.${name}` : name,
-			name: firstSlot[0].rawText,
-			target: target === 'date' ? 'Date' : target === 'boolean' ? 'Boolean' : 'a number',
-			span: split.spans[0] ?? { start: span.start + firstSlot[0].start, end: span.start + firstSlot[0].end },
-		});
 	}
 	return hits;
+}
+
+/** The value of a lone numeric literal, optionally signed. */
+function signedNumericLiteral(slot: readonly VbaToken[]): number | undefined {
+	const toks = unwrapOuterParens(slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline'));
+	const signed = toks.length === 2 && (toks[0].rawText === '-' || toks[0].rawText === '+');
+	if (toks.length !== 1 && !signed) {
+		return undefined;
+	}
+	const literal = toks[toks.length - 1];
+	if (literal.kind !== 'integerLiteral' && literal.kind !== 'floatLiteral') {
+		return undefined;
+	}
+	return numericLiteralGroupValue(toks);
 }

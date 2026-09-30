@@ -901,11 +901,42 @@
         "issue201_23_runtime",
         "issue201_24_runtime",
         "issue201_25_runtime",
-        "issue201_26_runtime"
+        "issue201_26_runtime",
+        "runtime_argument_bounds_03_runtime",
+        "runtime_argument_bounds_04_runtime",
+        "runtime_argument_bounds_05_runtime",
+        "runtime_argument_bounds_07_runtime",
+        "runtime_argument_bounds_08_runtime",
+        "runtime_argument_bounds_10_runtime",
+        "runtime_argument_bounds_11_runtime",
+        "runtime_argument_bounds_13_runtime",
+        "runtime_argument_bounds_14_runtime",
+        "runtime_argument_bounds_20_runtime",
+        "runtime_argument_bounds_21_runtime",
+        "runtime_argument_bounds_23_runtime",
+        "runtime_argument_bounds_24_runtime",
+        "runtime_argument_bounds_25_runtime",
+        "runtime_argument_bounds_26_runtime",
+        "runtime_argument_bounds_28_runtime",
+        "runtime_argument_bounds_30_runtime",
+        "runtime_argument_bounds_31_runtime",
+        "runtime_argument_bounds_33_runtime",
+        "runtime_argument_bounds_34_runtime",
+        "runtime_argument_bounds_35_runtime",
+        "runtime_argument_bounds_37_runtime",
+        "runtime_argument_bounds_38_runtime",
+        "runtime_argument_bounds_40_runtime",
+        "runtime_argument_bounds_41_runtime",
+        "runtime_argument_bounds_43_runtime",
+        "runtime_argument_bounds_45_runtime",
+        "runtime_argument_bounds_46_runtime",
+        "runtime_argument_bounds_49_runtime",
+        "runtime_argument_bounds_51_runtime",
+        "runtime_argument_bounds_53_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show out-of-bound integer values for Left/Left$, Right/Right$, String/String$, Space/Space$, Mid/Mid$, Replace, three-or-more-argument InStr, Chr, and ChrW compile successfully and deterministically raise runtime error 5, while proven in-bound controls run. The active rule is deliberately narrow: it scans settled procedure statements for integer literals, reducible integer expressions, same-module/procedure Const values, current-module Enum members, bare/module-qualified visible exported standard-module Const/Enum members, verified numeric VBA runtime constants, generated Excel/Office host enum constants, and exported Const-through-private-helper values outside proven runtime bounds; bare source names are folded only when the shared expression resolver proves a non-ambiguous Const or Enum-member binding, so local/module variable shadows suppress exported and external constant values; maps named argument slots where the intrinsic syntax supports them; respects bare-call shadowing by source symbols and local declarations; treats ambiguous or direct private helper references as unknown; and still allows explicit VBA-qualified calls to bind to intrinsic runtime functions.",
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show out-of-bound integer values for Left/Left$, Right/Right$, String/String$, Space/Space$, Mid/Mid$, Replace, three-or-more-argument InStr, Chr, and ChrW compile successfully and deterministically raise runtime error 5, while proven in-bound controls run. The active rule is deliberately narrow: it scans settled procedure statements for integer literals, reducible integer expressions, same-module/procedure Const values, current-module Enum members, bare/module-qualified visible exported standard-module Const/Enum members, verified numeric VBA runtime constants, generated Excel/Office host enum constants, and exported Const-through-private-helper values outside proven runtime bounds; bare source names are folded only when the shared expression resolver proves a non-ambiguous Const or Enum-member binding, so local/module variable shadows suppress exported and external constant values; maps named argument slots where the intrinsic syntax supports them; respects bare-call shadowing by source symbols and local declarations; treats ambiguous or direct private helper references as unknown; and still allows explicit VBA-qualified calls to bind to intrinsic runtime functions. Issue #218: Compare takes 0, 1 or a locale ID, so only a negative Compare, and 2 for InStr, StrComp and Filter outside Access, is reported, in all six functions; CVErr takes 0 to 65535; LeftB, RightB, MidB, AscB and InStrB keep the lower bounds of their plain forms; a string is at most 1073741823 characters; TimeSerial, DateSerial, ChrB, String and InStr overflow past their Integer, Byte or Long parameters, and Error(n) past 65535 (error 6); Partition, Pmt, IPmt, PPmt, SLN, SYD, DDB, NPer and Rate are checked across their arguments, PV with Rate -1 divides by zero (11), LBound and UBound of Array(...) or Split(...) past dimension 1 raise 9, and Join or Filter of a string or number raise 13. Whether Rate converges is not judged.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -922,11 +953,15 @@
         "issue188_070_runtime",
         "issue188_071_runtime",
         "issue188_072_runtime",
-        "issue199_03_runtime"
+        "issue199_03_runtime",
+        "runtime_argument_bounds_15_runtime",
+        "runtime_argument_bounds_17_runtime",
+        "runtime_argument_bounds_18_runtime",
+        "runtime_argument_bounds_54_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show CDate(\"not a date\") compiles successfully and raises runtime error 13, while CDate(\"1/2/2020\") runs under the oracle environment. Active coverage is intentionally narrow: it reports bare or VBA-qualified CDate calls only when the first argument is an empty string literal or plain ASCII word text with no digits and no recognized English month token. Date-looking strings, non-ASCII/localized-looking text, variables, expressions, non-CDate conversion functions, source-shadowed bare CDate names, and inactive conditional-compilation branches stay quiet.",
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show CDate(\"not a date\") compiles successfully and raises runtime error 13, while CDate(\"1/2/2020\") runs under the oracle environment. Active coverage is intentionally narrow: it reports bare or VBA-qualified CDate calls only when the first argument is an empty string literal or plain ASCII word text with no digits and no recognized English month token. Date-looking strings, non-ASCII/localized-looking text, variables, expressions, non-CDate conversion functions, source-shadowed bare CDate names, and inactive conditional-compilation branches stay quiet. Issue #218: the Date argument of Year, Month, Day, Weekday, Hour, Minute, Second, DateAdd, DatePart and DateDiff, given a string no locale reads as a date or a number outside the Date serial range (-657434 to 2958465), and Sgn given a string that is no number.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -2671,12 +2706,20 @@
         "issue216_22_compile",
         "issue216_23_compile",
         "issue216_24_compile",
-        "issue216_27_compile"
+        "issue216_27_compile",
+        "runtime_argument_bounds_58_compile",
+        "runtime_argument_bounds_59_compile",
+        "runtime_argument_bounds_60_compile",
+        "runtime_argument_bounds_61_compile",
+        "runtime_argument_bounds_63_compile",
+        "runtime_argument_bounds_64_compile",
+        "runtime_argument_bounds_66_compile",
+        "runtime_argument_bounds_67_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error",
-      "notes": "A bare array variable, or a same-module user-defined Type value, passed where a parameter is a scalar - or a scalar (including a Variant) passed where a parameter is declared an array - is a VBE compile error. Decides on declared SHAPE only (array-ness / Type-ness), never element-type coercion. Oracle-verified rejected at compile: array->scalar ByRef ('ByRef argument type mismatch'), array->scalar ByVal ('Type mismatch'), UDT->scalar ByRef, scalar->array param and Variant-scalar->array param ('Type mismatch: array or user-defined type expected'); with accepted controls array->Variant param (an array boxes into a Variant), UDT->matching UDT, array->matching array, and ParamArray mixed types all staying quiet. No-FP scope: fires only on a single bare identifier argument whose declared shape RESOLVES to a provable array or same-module Type, against a parameter that is the proven-incompatible shape; quiet on Variant/matching/ParamArray parameters, object/class arguments, member access / indexed a(i) / call / parenthesized / multi-token arguments, and unresolved or ambiguous names. Disjoint from byref-argument-type-mismatch (which owns element-type mismatch on ByRef scalars): this rule defers whenever that rule would fire, so the two never double-report. Object-parameter and both-arrays-different-element-type variants are tracked deferrals (untested by the oracle)."
+      "notes": "A bare array variable, or a same-module user-defined Type value, passed where a parameter is a scalar - or a scalar (including a Variant) passed where a parameter is declared an array - is a VBE compile error. Decides on declared SHAPE only (array-ness / Type-ness), never element-type coercion. Oracle-verified rejected at compile: array->scalar ByRef ('ByRef argument type mismatch'), array->scalar ByVal ('Type mismatch'), UDT->scalar ByRef, scalar->array param and Variant-scalar->array param ('Type mismatch: array or user-defined type expected'); with accepted controls array->Variant param (an array boxes into a Variant), UDT->matching UDT, array->matching array, and ParamArray mixed types all staying quiet. No-FP scope: fires only on a single bare identifier argument whose declared shape RESOLVES to a provable array or same-module Type, against a parameter that is the proven-incompatible shape; quiet on Variant/matching/ParamArray parameters, object/class arguments, member access / indexed a(i) / call / parenthesized / multi-token arguments, and unresolved or ambiguous names. Disjoint from byref-argument-type-mismatch (which owns element-type mismatch on ByRef scalars): this rule defers whenever that rule would fire, so the two never double-report. Object-parameter and both-arrays-different-element-type variants are tracked deferrals (untested by the oracle). Issue #218: IRR, MIRR and NPV take an array of Double, and an argument in parentheses, IRR((d)) or PutD (d), passes a value where an array parameter is."
     },
     {
       "code": "mismatched-end-keyword",
@@ -2913,11 +2956,12 @@
         "issue203_09_runtime",
         "issue203_10_runtime",
         "issue203_11_runtime",
-        "issue203_13_runtime"
+        "issue203_13_runtime",
+        "runtime_argument_bounds_47_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Arithmetic overflow. MS-VBAL 5.6.9.3 operator result types; VBE runtime error 6: Overflow (issue #116, Excel 16.0).",
+      "notes": "Arithmetic overflow. MS-VBAL 5.6.9.3 operator result types; VBE runtime error 6: Overflow (issue #116, Excel 16.0). Issue #218: CDec past the Decimal range (CDec(\"1E30\")), and Abs of the smallest Long is not an overflow (it returns -2147483648).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {

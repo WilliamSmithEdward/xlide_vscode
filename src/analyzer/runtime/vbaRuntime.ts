@@ -39,6 +39,8 @@ export interface VbaRuntimeParam {
 	type?: string;
 	optional?: boolean;
 	paramArray?: boolean;
+	/** An array parameter of `type` elements: IRR's `ValueArray() As Double`. */
+	isArray?: boolean;
 	/**
 	 * The function raises error 94 (Invalid use of Null) for a Null argument
 	 * although the parameter is a Variant: CStr(Null), Chr(Null), Asc(Null).
@@ -417,9 +419,22 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('PPmt', 'PPmt(Rate, Per, NPer, PV, [FV = 0], [Type = 0]) As Double', 'Double'),
 	fn('NPer', 'NPer(Rate, Pmt, PV, [FV = 0], [Type = 0]) As Double', 'Double'),
 	fn('Rate', 'Rate(NPer, Pmt, PV, [FV = 0], [Type = 0], [Guess = 0.1]) As Double', 'Double'),
-	fn('NPV', 'NPV(Rate, ValueArray()) As Double', 'Double'),
-	fn('IRR', 'IRR(ValueArray(), [Guess = 0.1]) As Double', 'Double'),
-	fn('MIRR', 'MIRR(ValueArray(), FinanceRate, ReinvestRate) As Double', 'Double'),
+	// ValueArray takes an array of Double and nothing else: Array(...), a
+	// Variant, or an array of Long or Variant is refused with "Type mismatch:
+	// array or user-defined type expected" (issue #218, measured in Excel 16.0).
+	fn('NPV', 'NPV(Rate, ValueArray() As Double) As Double', 'Double', [
+		{ name: 'Rate', type: 'Variant' },
+		{ name: 'ValueArray', type: 'Double', isArray: true },
+	]),
+	fn('IRR', 'IRR(ValueArray() As Double, [Guess = 0.1]) As Double', 'Double', [
+		{ name: 'ValueArray', type: 'Double', isArray: true },
+		{ name: 'Guess', type: 'Variant', optional: true },
+	]),
+	fn('MIRR', 'MIRR(ValueArray() As Double, FinanceRate, ReinvestRate) As Double', 'Double', [
+		{ name: 'ValueArray', type: 'Double', isArray: true },
+		{ name: 'FinanceRate', type: 'Variant' },
+		{ name: 'ReinvestRate', type: 'Variant' },
+	]),
 	fn('SLN', 'SLN(Cost, Salvage, Life) As Double', 'Double'),
 	fn('SYD', 'SYD(Cost, Salvage, Life, Period) As Double', 'Double'),
 	fn('DDB', 'DDB(Cost, Salvage, Life, Period, [Factor = 2]) As Double', 'Double'),

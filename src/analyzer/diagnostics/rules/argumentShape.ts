@@ -56,7 +56,7 @@ import {
 	type SourceDeclaredTypeResolver,
 	type SourceQualifiedDeclaredTypeResolver,
 } from '../typeInference';
-import { stripHeaderBrackets, type ProcedureStatementVisitor } from '../walker';
+import { matchParenFrom, stripHeaderBrackets, type ProcedureStatementVisitor } from '../walker';
 
 /** Per-statement rule: rides the shared procedure-statement walk (audit #0). */
 export function checkArgumentShape(
@@ -80,6 +80,16 @@ export function checkArgumentShape(
 		const resolveShape = (name: string): SourceDeclaredShape =>
 			declaredShapeForSourceBinding(symbols, procSym, projectVisibleSymbols, name, 'expression');
 		return (stmt) => {
+			// `Call PutD((d))` is found both as an expression call and as the
+			// statement's call; report each argument once.
+			const reported = new Set<string>();
+			const pushOnce: PushFn = (code, message, span, data) => {
+				const key = `${span.start}:${span.end}:${message}`;
+				if (!reported.has(key)) {
+					reported.add(key);
+					push(code, message, span, data);
+				}
+			};
 			const checkCall = (call: CallArguments): void => {
 				const sig = callableSignatureForCall(call, moduleSignatures, sourceNames);
 				if (!sig || sig.params.length === 0) {
@@ -93,7 +103,7 @@ export function checkArgumentShape(
 					resolveType,
 					resolveQualifiedType,
 					resolveShape,
-					push,
+					pushOnce,
 				);
 			};
 			for (const call of expressionCalls(source, stmt.span, moduleSignatures, sourceNames)) {
@@ -161,7 +171,10 @@ function validateArgumentShapes(
 			continue;
 		}
 		if (param.isArray) {
-			const problem = arrayArgumentProblem(valueSlot, call.sliceStart, param, resolveShape);
+			// `PutD (d)` as a statement passes `(d)`, a value (issue #218).
+			const problem = call.argumentsParenthesized && call.slots.length === 1
+				? parenthesizedArgument(valueSlot, call.sliceStart)
+				: arrayArgumentProblem(valueSlot, call.sliceStart, param, resolveShape);
 			if (problem) {
 				push('argumentShapeMismatch', `${problem.what}, but parameter '${param.name}' of '${sig.name}' is an array of ${param.type ?? 'Variant'}. This is a VBE compile error: Type mismatch: array or user-defined type expected.`, problem.span);
 				continue;
@@ -211,6 +224,11 @@ function arrayArgumentProblem(
 	resolveShape: (name: string) => SourceDeclaredShape,
 ): { what: string; span: Span } | undefined {
 	const toks = slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
+	// `(d)` is a value, even around an array of the right type: IRR((d))
+	// with d a Double array is refused (issue #218, measured).
+	if (toks[0]?.rawText === '(' && matchParenFrom(toks, 0) === toks.length - 1) {
+		return parenthesizedArgument(toks.slice(1, -1), sliceStart);
+	}
 	const name = toks[0] ? tokenName(toks[0]) : undefined;
 	if (!name) {
 		return undefined;
@@ -233,6 +251,18 @@ function arrayArgumentProblem(
 		return { what: `'${name}' is an array of ${shape.shape.asType ?? 'Variant'}`, span };
 	}
 	return undefined;
+}
+
+/** The problem with an argument in parentheses, given the tokens inside them. */
+function parenthesizedArgument(inner: readonly VbaToken[], sliceStart: number): { what: string; span: Span } | undefined {
+	const toks = inner.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
+	if (toks.length === 0) {
+		return undefined;
+	}
+	return {
+		what: `'(${toks.map((t) => t.rawText).join('')})' is in parentheses, which pass a value rather than an array variable`,
+		span: { start: sliceStart + toks[0].start, end: sliceStart + toks[toks.length - 1].end },
+	};
 }
 
 /** A single bare identifier argument (not indexed / member / call / expression). */
