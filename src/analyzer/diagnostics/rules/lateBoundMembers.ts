@@ -25,8 +25,10 @@ import { projectTypeAt, resolveReceiverTypeAt } from '../../completion/memberAcc
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import type { VbaToken } from '../../lexer/tokenKinds';
-import type { ModuleNode } from '../../parser/nodes';
+import type { BodyNode, ModuleNode } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
+import { walkEnteringBlocks } from '../dataflow';
+import { namesIn } from './shared';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { normalizeType, stringLiteralValue, typeEnvironmentFor } from '../typeInference';
@@ -91,16 +93,10 @@ export function checkRuntimeMemberNotFound(
 			return normalized === 'object' || normalized === 'variant' || normalized === undefined;
 		};
 		const held = new Map<string, KnownClass>();
-		for (const node of member.body) {
-			if (activity?.isInactive(node.span)) {
-				continue;
-			}
-			if (node.kind === 'VariableGroup') {
-				continue; // a Dim inside the body declares, and runs nothing
-			}
+		// Blocks are entered with the state they start with (issue #237).
+		const visit = (node: BodyNode): void => {
 			if (!isLeafStatement(node)) {
-				held.clear();
-				continue;
+				return; // a Dim inside the body declares, and runs nothing
 			}
 			const toks = statementTokensAfterLeadingLabel(source, node.span);
 			if (statementLabelDeclaration(source, node.span) || tokenText(toks[0]) === 'gosub') {
@@ -108,7 +104,7 @@ export function checkRuntimeMemberNotFound(
 			}
 			if (node.kind === 'Statement' && node.singleLineIfBranches) {
 				forgetMentioned(toks, held);
-				continue;
+				return;
 			}
 			checkStatement(source, node.span.start, toks, held, applicationSurface, memberCtx, push);
 			const set = setAssignmentTarget(source, node.span);
@@ -125,10 +121,25 @@ export function checkRuntimeMemberNotFound(
 				} else {
 					held.delete(lower);
 				}
-				continue;
+				return;
 			}
 			forgetOtherUses(toks, held);
-		}
+		};
+		walkEnteringBlocks(source, member.body, (node) => activity?.isInactive(node.span) === true, visit, {
+			snapshot: () => new Map(held),
+			restore: (saved) => {
+				held.clear();
+				for (const [lower, known] of saved) {
+					held.set(lower, known);
+				}
+			},
+			forget: (names) => {
+				for (const lower of names) {
+					held.delete(lower);
+				}
+			},
+			touches: (stmt) => namesIn(source, stmt.span),
+		});
 	}
 }
 

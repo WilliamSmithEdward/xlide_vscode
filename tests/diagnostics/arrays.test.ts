@@ -749,13 +749,27 @@ describe('analyzeModule - unallocated dynamic array access', () => {
 		expect(byCode(analyzeModule(src), 'unallocated-dynamic-array-access')).toHaveLength(0);
 	});
 
-	it('does not enter loop bodies (For stays conservative)', () => {
+	it('enters a loop body that never allocates the array: the first pass raises (issue #237)', () => {
 		const src =
 			'Public Sub T()\n' +
 			'    Dim values() As Long\n' +
 			'    Dim i As Long\n' +
 			'    For i = 1 To 3\n' +
 			'        Debug.Print values(i)\n' +
+			'    Next i\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'unallocated-dynamic-array-access')).toHaveLength(1);
+	});
+
+	it('does not judge a loop body that allocates the array on some pass', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim values() As Long\n' +
+			'    Dim i As Long\n' +
+			'    For i = 1 To 3\n' +
+			'        If i > 1 Then Debug.Print values(i)\n' +
+			'        ReDim values(3)\n' +
 			'    Next i\n' +
 			'End Sub\n';
 

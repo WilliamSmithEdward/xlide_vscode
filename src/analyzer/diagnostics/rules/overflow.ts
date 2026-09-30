@@ -38,7 +38,8 @@ import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaSymbol } from '../../symbols/symbolModel';
 import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { bankersRound, isBareOrVbaQualifiedIntrinsicCall } from './shared';
+import { bankersRound, isBareOrVbaQualifiedIntrinsicCall, namesIn } from './shared';
+import { blockHeaderLeaves, isLoopBlock, selectArms } from '../blockHeaders';
 import {
 	knownLocalLiteralValues,
 	normalizeType,
@@ -987,7 +988,17 @@ function checkProcedureBody(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	const visit = (body: readonly BodyNode[], topLevel: boolean): void => {
+	// Every name a block mentions, its own lines included: `For i = ...` and
+	// `If Store(k, n) Then` change what they name as well (issue #237).
+	const touchedIn = (node: BodyNode): Set<string> => namesIn(source, node.span);
+	const forget = (touched: ReadonlySet<string>): void => {
+		for (const lower of touched) {
+			justAssigned.delete(lower);
+		}
+	};
+	// `loopTouched`: names an enclosing loop changes, which a block nested in
+	// it forgets, since it may run on a later pass.
+	const visit = (body: readonly BodyNode[], loopTouched: ReadonlySet<string>): void => {
 		for (const node of body) {
 			if (activity?.isInactive(node.span)) {
 				continue;
@@ -996,17 +1007,43 @@ function checkProcedureBody(
 				checkForCounter(source, node, env, names, push);
 			}
 			if ('body' in node && Array.isArray(node.body)) {
-				// A block may run any number of times: nothing stored before it
-				// is known after it, and nothing inside it is straight-line.
 				// Its header line is evaluated as it is entered: `For i = 1 To
-				// CInt(40000)`, `Select Case CInt(40000)` (issue #233).
+				// CInt(40000)`, `Select Case CInt(40000)` (issue #233). Its body
+				// is entered with what is known then: each If arm and each Case
+				// from there, a loop's body as its first pass runs it. After it,
+				// only what it never names is still known (issue #237).
 				const { before, after } = blockHeaderStatements(source, node);
 				if (before) {
 					checkStatement(source, before.span, env, names, push);
 				}
-				justAssigned.clear();
-				visit(node.body as BodyNode[], false);
-				justAssigned.clear();
+				const touched = touchedIn(node);
+				forget(loopTouched);
+				// Its own lines run first: `If Store(k, n) Then` changes n.
+				for (const header of blockHeaderLeaves(source, node)) {
+					forget(namesIn(source, header.span));
+				}
+				const entry = new Map(justAssigned);
+				const restore = (): void => {
+					justAssigned.clear();
+					for (const [lower, value] of entry) {
+						justAssigned.set(lower, value);
+					}
+				};
+				if (node.kind === 'IfBlock') {
+					for (const branch of node.branches) {
+						restore();
+						visit(branch.body, loopTouched);
+					}
+				} else if (node.kind === 'SelectBlock') {
+					for (const arm of selectArms(source, node.body)) {
+						restore();
+						visit(arm, loopTouched);
+					}
+				} else {
+					visit(node.body as BodyNode[], isLoopBlock(node) ? new Set([...loopTouched, ...touched]) : loopTouched);
+				}
+				restore();
+				forget(touched);
 				if (after) {
 					checkStatement(source, after.span, env, names, push);
 				}
@@ -1016,7 +1053,7 @@ function checkProcedureBody(
 				continue;
 			}
 			const spans = statementAndBranchSpans(node);
-			const straightLine = topLevel && spans.length === 1 && !(node.kind === 'Statement' && node.singleLineIfBranches);
+			const straightLine = spans.length === 1 && !(node.kind === 'Statement' && node.singleLineIfBranches);
 			if (!straightLine) {
 				justAssigned.clear();
 			}
@@ -1044,7 +1081,7 @@ function checkProcedureBody(
 			}
 		}
 	};
-	visit(proc.body, true);
+	visit(proc.body, new Set());
 }
 
 /** The value a bare assignment provably stores, when the rule can tell. */

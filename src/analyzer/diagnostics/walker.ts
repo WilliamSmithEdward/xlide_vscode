@@ -9,7 +9,6 @@ import type { VbaToken } from '../lexer/tokenKinds';
 import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
 import type {
 	BodyNode,
-	DoBlockNode,
 	LeafStatementNode,
 	ModuleMember,
 	ModuleNode,
@@ -18,7 +17,6 @@ import type {
 	StatementNode,
 	VariableGroupNode,
 } from '../parser/nodes';
-import { tokenizeCached } from '../lexer/tokenize';
 import { isLeafStatement } from '../parser/nodes';
 
 // `tokenText`, `tokenName`, and `matchParenFrom` are byte-identical to the
@@ -28,6 +26,8 @@ import { isLeafStatement } from '../parser/nodes';
 // shares one tokenization per statement.
 export { absoluteSpan, matchParenFrom, tokenWord as tokenText, tokenName } from '../lexer/tokenHelpers';
 export { statementTokens } from './analysisContext';
+export { blockHeaderStatements } from './blockHeaders';
+import { blockHeaderStatements } from './blockHeaders';
 import { tokenWord as tokenText, tokenName, absoluteSpan, statementTokens as lexStatementTokens } from '../lexer/tokenHelpers';
 import { statementTokens } from './analysisContext';
 import { trackedLocalsNamedWhole } from './dataflow';
@@ -121,68 +121,6 @@ export interface ProcedureWalkHooks {
 	 * are still invoked so factory-level bookkeeping matches a full pass.
 	 */
 	skipBody?: (member: ProcedureNode) => boolean;
-}
-
-/**
- * The block kinds whose own line evaluates an expression: a For's bounds and
- * step, a Select Case subject, a Do or While condition, a With subject.
- */
-const HEADER_BLOCKS: ReadonlySet<string> = new Set(['ForBlock', 'SelectBlock', 'DoBlock', 'WhileBlock', 'WithBlock']);
-
-/**
- * A block's header line as a statement of its own, and a Do's `Loop While`
- * or `Loop Until` line (issue #233). The header ends at the end of its
- * logical line or at a colon, so `If a Then With c: .Add 1: End With` gives
- * `With c` alone, and a string holding a colon stays whole.
- */
-export function blockHeaderStatements(source: string, node: BodyNode): { before?: StatementNode; after?: StatementNode } {
-	if (!HEADER_BLOCKS.has(node.kind)) {
-		return {};
-	}
-	const toks = tokenizeCached(source);
-	const statement = (from: number, to: number): StatementNode => {
-		const span = { start: toks[from].start, end: toks[to].end };
-		return { kind: 'Statement', span, raw: source.slice(span.start, span.end) };
-	};
-	const separator = (tok: VbaToken): boolean => tok.kind === 'newline' || tok.kind === 'colon';
-	// The first token at or after the block's start.
-	let lo = 0;
-	let hi = toks.length;
-	while (lo < hi) {
-		const mid = (lo + hi) >> 1;
-		if (toks[mid].start < node.span.start) {
-			lo = mid + 1;
-		} else {
-			hi = mid;
-		}
-	}
-	const out: { before?: StatementNode; after?: StatementNode } = {};
-	let end = lo;
-	while (end + 1 < toks.length && !separator(toks[end + 1]) && toks[end + 1].kind !== 'comment') {
-		end++;
-	}
-	if (lo < toks.length && !separator(toks[lo])) {
-		out.before = statement(lo, end);
-	}
-	if (node.kind === 'DoBlock' && (node as DoBlockNode).closed) {
-		// The last token of the block, and back to the start of its statement.
-		let last = hi;
-		while (last < toks.length && toks[last].end <= node.span.end) {
-			last++;
-		}
-		last--;
-		while (last > end && toks[last].kind === 'comment') {
-			last--;
-		}
-		let first = last;
-		while (first - 1 > end && !separator(toks[first - 1])) {
-			first--;
-		}
-		if (first > end && tokenText(toks[first]) === 'loop' && first < last) {
-			out.after = statement(first, last);
-		}
-	}
-	return out;
 }
 
 export function walkProcedureStatements(

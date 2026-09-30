@@ -937,7 +937,7 @@ export function checkUnallocatedDynamicArrayAccess(
 		const walk = procedureHasUnstructuredFlow(source, member, activity)
 			? walkStraightLineBody
 			: walkBranchMergedBody;
-		walk(member.body, (node) => isInactiveNode(activity, node), {
+		walk(source, member.body, (node) => isInactiveNode(activity, node), {
 			onStatement: (stmt) =>
 				checkUnallocatedDynamicArrayAccessStatement(source, stmt, arrays, state, push),
 			onBlock: (node) => {

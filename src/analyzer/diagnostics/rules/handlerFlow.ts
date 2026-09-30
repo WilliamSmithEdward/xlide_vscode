@@ -63,9 +63,28 @@ export function checkHandlerFlow(
 		}
 		const entries = topLevelEntries(source, member.body, activity);
 		checkResumeWithoutError(source, member, activity, push);
-		checkFallThroughIntoTargets(source, member, entries, activity, push);
+		// A label in a block falls in from the statement above it there, the
+		// way one at the top level does (issue #237).
+		for (const body of bodyLists(member.body)) {
+			checkFallThroughIntoTargets(source, member, body === member.body ? entries : topLevelEntries(source, body, activity), activity, push);
+		}
 		checkRecursiveProperty(source, member, entries, push);
 	}
+}
+
+/** A procedure's body, and every body a block in it holds: each If arm alone. */
+function bodyLists(body: readonly BodyNode[]): (readonly BodyNode[])[] {
+	const out: (readonly BodyNode[])[] = [body];
+	for (const node of body) {
+		if (node.kind === 'IfBlock') {
+			for (const branch of node.branches) {
+				out.push(...bodyLists(branch.body));
+			}
+		} else if ('body' in node && Array.isArray(node.body)) {
+			out.push(...bodyLists(node.body as BodyNode[]));
+		}
+	}
+	return out;
 }
 
 function topLevelEntries(
@@ -303,7 +322,13 @@ export function onErrorMode(toks: readonly VbaToken[]): OnErrorMode | undefined 
  * label, so those need no rule of their own.
  */
 export function errorHandlerExtents(source: string, proc: ProcedureNode): Span[] {
-	const entries = topLevelEntries(source, proc.body, undefined);
+	// A handler inside a block runs to the procedure's end the same way
+	// (issue #237).
+	return bodyLists(proc.body).flatMap((body) => handlerExtentsIn(source, proc, body));
+}
+
+function handlerExtentsIn(source: string, proc: ProcedureNode, body: readonly BodyNode[]): Span[] {
+	const entries = topLevelEntries(source, body, undefined);
 	const kindsByLabel = new Map<string, Set<string>>();
 	for (const ref of collectProcedureLabelReferences(source, proc, undefined)) {
 		const kinds = kindsByLabel.get(ref.key) ?? new Set<string>();

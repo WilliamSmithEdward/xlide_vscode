@@ -14,6 +14,9 @@ import type { VbaToken } from '../lexer/tokenKinds';
 import { tokenName, tokenWord } from '../lexer/tokenHelpers';
 import type { BodyNode, IfBlockNode, LeafStatementNode } from '../parser/nodes';
 import { isLeafStatement } from '../parser/nodes';
+import { blockHeaderLeaves, isLoopBlock, selectArms } from './blockHeaders';
+
+const NO_NAMES: ReadonlySet<string> = new Set();
 
 /** Rule-specific hooks driving one straight-line dataflow walk. */
 export interface StraightLineDataflowHooks {
@@ -44,11 +47,12 @@ export interface StraightLineDataflowHooks {
  * 'unknown' instead of guessing which runtime path executes.
  */
 export function walkStraightLineBody(
+	source: string,
 	body: readonly BodyNode[],
 	isInactive: (node: BodyNode) => boolean,
 	hooks: StraightLineDataflowHooks,
 ): void {
-	walkBody(body, isInactive, hooks, false);
+	walkBody(source, body, isInactive, hooks, false);
 }
 
 /**
@@ -67,24 +71,34 @@ export function walkStraightLineBody(
  * to walkStraightLineBody when it holds.
  */
 export function walkBranchMergedBody(
+	source: string,
 	body: readonly BodyNode[],
 	isInactive: (node: BodyNode) => boolean,
 	hooks: StraightLineDataflowHooks,
 ): void {
-	walkBody(body, isInactive, hooks, true);
+	walkBody(source, body, isInactive, hooks, true);
 }
 
 /** The walk both entry points share; merging If arms is the one place they differ. */
 function walkBody(
+	source: string,
 	body: readonly BodyNode[],
 	isInactive: (node: BodyNode) => boolean,
 	hooks: StraightLineDataflowHooks,
 	mergeIfBlocks: boolean,
+	/** Names an enclosing loop changes: a nested block may run on a later pass. */
+	loopTouched: ReadonlySet<string> = NO_NAMES,
 ): void {
 	for (let i = 0; i < body.length; i++) {
 		const node = body[i];
 		if (isInactive(node)) {
 			continue;
+		}
+		// A single-line If runs its statements on some passes only.
+		if (mergeIfBlocks && isConditionalLeaf(node)) {
+			for (const lower of loopTouched) {
+				hooks.demoteToUnknown(lower);
+			}
 		}
 		if (isSingleLineIfTail(node)) {
 			const tail: LeafStatementNode[] = [];
@@ -100,6 +114,11 @@ function walkBody(
 			continue;
 		}
 		hooks.onBlock?.(node);
+		if (mergeIfBlocks) {
+			for (const lower of loopTouched) {
+				hooks.demoteToUnknown(lower);
+			}
+		}
 		if (
 			mergeIfBlocks &&
 			node.kind === 'IfBlock' &&
@@ -108,15 +127,56 @@ function walkBody(
 			hooks.setState &&
 			hooks.lattice
 		) {
-			mergeIfBlock(node, isInactive, hooks);
+			mergeIfBlock(source, node, isInactive, hooks, loopTouched);
 			continue;
 		}
 		if ('body' in node && Array.isArray(node.body)) {
-			for (const lower of collectNestedTouches(node.body, isInactive, hooks)) {
+			const touched = blockTouches(source, node, isInactive, hooks);
+			if (mergeIfBlocks && hooks.snapshotState && hooks.restoreState) {
+				walkBlockFromEntry(source, node, touched, isInactive, hooks, loopTouched);
+			}
+			for (const lower of touched) {
 				hooks.demoteToUnknown(lower);
 			}
 		}
 	}
+}
+
+/**
+ * Checks the statements of a For, Do, While, Select or With block with the
+ * state the block is entered with (issue #237), once its own lines have run:
+ * a block that never touches a name leaves what is known about it as it was.
+ * A statement directly in a loop's body runs on the first pass as it stands;
+ * a block nested in the loop may run on a later pass, and forgets what the
+ * loop changes before it is walked. Each Case of a Select starts from the
+ * entry state. The state after the block is the caller's to set.
+ */
+function walkBlockFromEntry(
+	source: string,
+	node: BodyNode & { body: BodyNode[] },
+	touched: ReadonlySet<string>,
+	isInactive: (node: BodyNode) => boolean,
+	hooks: StraightLineDataflowHooks,
+	loopTouched: ReadonlySet<string>,
+): void {
+	for (const lower of headerTouches(source, node, hooks)) {
+		hooks.demoteToUnknown(lower);
+	}
+	const entry = hooks.snapshotState!();
+	if (node.kind === 'SelectBlock') {
+		for (const arm of selectArms(source, node.body)) {
+			hooks.restoreState!(entry);
+			walkBody(source, arm, isInactive, hooks, true, loopTouched);
+		}
+	} else {
+		walkBody(source, node.body, isInactive, hooks, true, isLoopBlock(node) ? new Set([...loopTouched, ...touched]) : loopTouched);
+	}
+	hooks.restoreState!(entry);
+}
+
+/** A single-line If, or a statement it runs after a colon. */
+function isConditionalLeaf(node: BodyNode): boolean {
+	return isLeafStatement(node) && (node.singleLineIfTail === true || (node.kind === 'Statement' && node.singleLineIfBranches !== undefined));
 }
 
 function isSingleLineIfTail(node: BodyNode): node is LeafStatementNode {
@@ -149,12 +209,27 @@ function walkSingleLineIfTail(
 
 /** Intersects the per-arm state of one If block (see walkBranchMergedBody). */
 function mergeIfBlock(
+	source: string,
 	ifBlock: IfBlockNode,
 	isInactive: (node: BodyNode) => boolean,
 	hooks: StraightLineDataflowHooks,
+	loopTouched: ReadonlySet<string>,
 ): void {
-	const touched = collectNestedTouches(ifBlock.body, isInactive, hooks);
+	const touched = blockTouches(source, ifBlock, isInactive, hooks);
 	const hasElse = ifBlock.branches.some((branch) => branch.branchKind === 'else');
+	// Each arm is checked from the block's entry state, once its conditions
+	// have run: `If TryGet(k, obj) Then` sets obj for the arm (issue #237).
+	for (const lower of headerTouches(source, ifBlock, hooks)) {
+		hooks.demoteToUnknown(lower);
+	}
+	const entry = hooks.snapshotState!();
+	const armStates: Map<string, string>[] = [];
+	for (const branch of ifBlock.branches) {
+		hooks.restoreState!(entry);
+		walkBody(source, branch.body, isInactive, hooks, true, loopTouched);
+		armStates.push(hooks.snapshotState!());
+	}
+	hooks.restoreState!(entry);
 	if (!hasElse) {
 		// No else arm: the empty fall-through path keeps the entry state, so a name
 		// can only remain 'good' after the block if it was already 'good'. Reproduce
@@ -164,14 +239,6 @@ function mergeIfBlock(
 		}
 		return;
 	}
-	const entry = hooks.snapshotState!();
-	const armStates: Map<string, string>[] = [];
-	for (const branch of ifBlock.branches) {
-		hooks.restoreState!(entry);
-		walkBranchMergedBody(branch.body, isInactive, hooks);
-		armStates.push(hooks.snapshotState!());
-	}
-	hooks.restoreState!(entry);
 	const { unknown } = hooks.lattice!;
 	for (const lower of touched) {
 		const fallback = entry.get(lower) ?? unknown;
@@ -211,6 +278,7 @@ function joinBranchStates(
 
 /** Recursively collects tracked names touched anywhere inside nested bodies. */
 function collectNestedTouches(
+	source: string,
 	body: readonly BodyNode[],
 	isInactive: (node: BodyNode) => boolean,
 	hooks: Pick<StraightLineDataflowHooks, 'touchesInStatement'>,
@@ -227,12 +295,110 @@ function collectNestedTouches(
 			continue;
 		}
 		if ('body' in node && Array.isArray(node.body)) {
-			for (const lower of collectNestedTouches(node.body, isInactive, hooks)) {
+			for (const lower of blockTouches(source, node, isInactive, hooks)) {
 				out.add(lower);
 			}
 		}
 	}
 	return out;
+}
+
+/** The tracked names a block's own lines pass on: `If TryGet(k, obj) Then`. */
+function headerTouches(
+	source: string,
+	node: BodyNode,
+	hooks: Pick<StraightLineDataflowHooks, 'touchesInStatement'>,
+): Set<string> {
+	const out = new Set<string>();
+	for (const header of blockHeaderLeaves(source, node)) {
+		for (const lower of hooks.touchesInStatement(header)) {
+			out.add(lower);
+		}
+	}
+	return out;
+}
+
+/**
+ * The tracked names a block may change: those its body touches, and those
+ * its own lines pass on, `If TryGet(k, obj) Then` and a For Each's control
+ * variable among them (issue #237).
+ */
+function blockTouches(
+	source: string,
+	node: BodyNode,
+	isInactive: (node: BodyNode) => boolean,
+	hooks: Pick<StraightLineDataflowHooks, 'touchesInStatement'>,
+): Set<string> {
+	const out = collectNestedTouches(source, (node as { body: BodyNode[] }).body, isInactive, hooks);
+	for (const header of blockHeaderLeaves(source, node)) {
+		for (const lower of hooks.touchesInStatement(header)) {
+			out.add(lower);
+		}
+	}
+	return out;
+}
+
+/** The state a rule's own walk keeps, and how a block is allowed to change it. */
+export interface BlockEnteringState<S> {
+	/** A copy of the state, to enter each block and each If arm from. */
+	snapshot(): S;
+	/** Puts back a copy taken by snapshot. */
+	restore(state: S): void;
+	/** Drops what is known about these tracked names. */
+	forget(names: ReadonlySet<string>): void;
+	/** The tracked names a statement mentions, which a block may change. */
+	touches(stmt: LeafStatementNode): Iterable<string>;
+}
+
+/**
+ * A rule's own statement walk, entering blocks (issue #237). A statement
+ * inside a block is visited with the state the block is entered with, once
+ * the block's own lines have run: each If arm and each Case from that state,
+ * a With's body once, and a loop's body as its first pass runs it. A block
+ * nested in a loop may run on a later pass, so it first forgets every name
+ * the loop changes. After a block the state is its entry state less every
+ * name it touches, so a block that never names a variable keeps what is known
+ * about it.
+ */
+export function walkEnteringBlocks<S>(
+	source: string,
+	body: readonly BodyNode[],
+	isInactive: (node: BodyNode) => boolean,
+	visit: (node: BodyNode) => void,
+	state: BlockEnteringState<S>,
+	loopTouched: ReadonlySet<string> = NO_NAMES,
+): void {
+	for (const node of body) {
+		if (isInactive(node)) {
+			continue;
+		}
+		if (!('body' in node) || !Array.isArray(node.body)) {
+			visit(node);
+			continue;
+		}
+		const hooks = { touchesInStatement: (stmt: LeafStatementNode) => state.touches(stmt) };
+		const touched = blockTouches(source, node, isInactive, hooks);
+		// An enclosing loop may have changed these on an earlier pass, and the
+		// block's own lines run before its body.
+		state.forget(loopTouched);
+		state.forget(headerTouches(source, node, hooks));
+		const entry = state.snapshot();
+		if (node.kind === 'IfBlock') {
+			for (const branch of node.branches) {
+				state.restore(entry);
+				walkEnteringBlocks(source, branch.body, isInactive, visit, state, loopTouched);
+			}
+		} else if (node.kind === 'SelectBlock') {
+			for (const arm of selectArms(source, node.body)) {
+				state.restore(entry);
+				walkEnteringBlocks(source, arm, isInactive, visit, state, loopTouched);
+			}
+		} else {
+			walkEnteringBlocks(source, node.body, isInactive, visit, state, isLoopBlock(node) ? new Set([...loopTouched, ...touched]) : loopTouched);
+		}
+		state.restore(entry);
+		state.forget(touched);
+	}
 }
 
 /**

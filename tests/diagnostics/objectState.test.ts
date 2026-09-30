@@ -322,13 +322,27 @@ describe('analyzeModule - object variable not set', () => {
 		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(0);
 	});
 
-	it('does not enter a one-armed If (no else stays conservative)', () => {
+	it('enters a one-armed If: the arm raises when it runs (issue #237)', () => {
 		const src =
 			'Public Sub T()\n' +
 			'    Dim obj As Object\n' +
 			'    If Ready Then\n' +
 			'        obj.ToString\n' +
 			'    End If\n' +
+			'End Sub\n';
+
+		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(1);
+	});
+
+	it('does not judge a loop body that sets the object on some pass', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim obj As Object\n' +
+			'    Dim i As Long\n' +
+			'    For i = 1 To 2\n' +
+			'        If i = 2 Then obj.ToString\n' +
+			'        Set obj = New Collection\n' +
+			'    Next\n' +
 			'End Sub\n';
 
 		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(0);

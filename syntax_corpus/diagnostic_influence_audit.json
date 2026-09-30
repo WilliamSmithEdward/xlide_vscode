@@ -727,11 +727,29 @@
         "issue184_27_runtime",
         "issue184_37_runtime",
         "issue233_27_runtime",
-        "issue233_28_runtime"
+        "issue233_28_runtime",
+        "issue237_01_runtime",
+        "issue237_02_runtime",
+        "issue237_03_runtime",
+        "issue237_04_runtime",
+        "issue237_05_runtime",
+        "issue237_06_runtime",
+        "issue237_07_runtime",
+        "issue237_08_runtime",
+        "issue237_09_runtime",
+        "issue237_10_runtime",
+        "issue237_11_runtime",
+        "issue237_12_runtime",
+        "issue237_13_runtime",
+        "issue237_14_runtime",
+        "issue237_15_runtime",
+        "issue237_16_runtime",
+        "issue237_17_runtime",
+        "issue237_18_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Active coverage is intentionally narrow: local non-Static object-valued variables start as Nothing, straight-line Set assignments mark them initialized, Set ... = Nothing resets them, and nested block assignments or helper-call arguments make the local state unknown rather than guessed. Parameters, module-level object variables, Static locals, Variant values, unresolved object types, and inactive conditional-compilation branches stay quiet. The legacy invalid_semantics_089 object-not-set case is covered by the focused runtime oracle fixture. This is separate from member-not-found: late-bound Object receivers still suppress member-surface absence diagnostics, but a definitely uninitialized local Object receiver can still produce runtime error 91. In a block header too: For i = 1 To c.Count, Select Case c.Count (issue #233, Excel 16.0).",
+      "notes": "Active coverage is intentionally narrow: local non-Static object-valued variables start as Nothing, straight-line Set assignments mark them initialized, Set ... = Nothing resets them, and nested block assignments or helper-call arguments make the local state unknown rather than guessed. Parameters, module-level object variables, Static locals, Variant values, unresolved object types, and inactive conditional-compilation branches stay quiet. The legacy invalid_semantics_089 object-not-set case is covered by the focused runtime oracle fixture. This is separate from member-not-found: late-bound Object receivers still suppress member-surface absence diagnostics, but a definitely uninitialized local Object receiver can still produce runtime error 91. In a block header too: For i = 1 To c.Count, Select Case c.Count (issue #233, Excel 16.0). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -1209,11 +1227,23 @@
         "unallocated_dynamic_array_lbound_runtime",
         "issue181_08_runtime",
         "issue181_09_runtime",
-        "issue181_10_runtime"
+        "issue181_10_runtime",
+        "issue237_37_runtime",
+        "issue237_38_runtime",
+        "issue237_39_runtime",
+        "issue237_40_runtime",
+        "issue237_41_runtime",
+        "issue237_42_runtime",
+        "issue237_43_runtime",
+        "issue237_44_runtime",
+        "issue237_45_runtime",
+        "issue237_46_runtime",
+        "issue237_47_runtime",
+        "issue237_48_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Active coverage is intentionally straight-line: local non-Static dynamic arrays start unallocated, active ReDim statements allocate them, Erase resets them, and simple indexed access or intrinsic LBound/UBound calls while unallocated report runtime error 9. Module-level arrays, parameters, Static locals, fixed-size arrays, helper-call arguments, assignment-touched arrays, nested runtime-block touches, unresolved names, non-intrinsic member calls, dot or bang ('!') member access (d!b(N) = d.Item(\"b\"), not the local array b), and inactive conditional-compilation branches stay quiet. The legacy invalid_semantics_090 uninitialized dynamic array index case and invalid_semantics_091 LBound uninitialized array case are covered by focused runtime oracle fixtures.",
+      "notes": "Active coverage is intentionally straight-line: local non-Static dynamic arrays start unallocated, active ReDim statements allocate them, Erase resets them, and simple indexed access or intrinsic LBound/UBound calls while unallocated report runtime error 9. Module-level arrays, parameters, Static locals, fixed-size arrays, helper-call arguments, assignment-touched arrays, nested runtime-block touches, unresolved names, non-intrinsic member calls, dot or bang ('!') member access (d!b(N) = d.Item(\"b\"), not the local array b), and inactive conditional-compilation branches stay quiet. The legacy invalid_semantics_090 uninitialized dynamic array index case and invalid_semantics_091 LBound uninitialized array case are covered by focused runtime oracle fixtures. Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -3163,7 +3193,8 @@
         "issue235_43_runtime",
         "issue235_44_runtime",
         "issue235_45_runtime",
-        "issue235_46_runtime"
+        "issue235_46_runtime",
+        "issue237_57_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -3584,11 +3615,17 @@
         "issue219_36_runtime",
         "issue219_38_runtime",
         "issue219_39_runtime",
-        "issue219_40_runtime"
+        "issue219_40_runtime",
+        "issue237_25_runtime",
+        "issue237_26_runtime",
+        "issue237_27_runtime",
+        "issue237_28_runtime",
+        "issue237_29_runtime",
+        "issue237_30_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Collection index out of range. VBE runtime errors 5 and 9 on VBA.Collection (issue #121, Excel 16.0). Issue #219: Add with Before or After on an empty collection (5), or outside 1 to Count (9).",
+      "notes": "Collection index out of range. VBE runtime errors 5 and 9 on VBA.Collection (issue #121, Excel 16.0). Issue #219: Add with Before or After on an empty collection (5), or outside 1 to Count (9). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -3597,11 +3634,17 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #121): 1 asserted case from the issue's measured corpus",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "issue121_f_runtime"
+        "issue121_f_runtime",
+        "issue237_19_runtime",
+        "issue237_20_runtime",
+        "issue237_21_runtime",
+        "issue237_22_runtime",
+        "issue237_23_runtime",
+        "issue237_24_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Collection key not found. VBE runtime error 5 on VBA.Collection (issue #121, Excel 16.0).",
+      "notes": "Collection key not found. VBE runtime error 5 on VBA.Collection (issue #121, Excel 16.0). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -3611,11 +3654,18 @@
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue121_e_runtime",
-        "issue147_b_runtime"
+        "issue147_b_runtime",
+        "issue237_31_runtime",
+        "issue237_32_runtime",
+        "issue237_33_runtime",
+        "issue237_34_runtime",
+        "issue237_35_runtime",
+        "issue237_36_runtime",
+        "issue237_54_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Collection key already in use. VBE runtime error 457 on VBA.Collection (issue #121, Excel 16.0).",
+      "notes": "Collection key already in use. VBE runtime error 457 on VBA.Collection (issue #121, Excel 16.0). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
