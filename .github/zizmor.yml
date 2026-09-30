@@ -1,0 +1,8 @@
+# zizmor audits the workflows in the Security workflow. Each rule turned off
+# here says why and when it comes back.
+rules:
+  # Asks for GitHub's `$/` self-repository syntax in `uses:` (July 2026).
+  # Adopted once GitHub's own documentation confirms it for called reusable
+  # workflows.
+  self-repository:
+    disable: true

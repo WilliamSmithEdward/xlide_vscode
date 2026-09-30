@@ -1,0 +1,6 @@
+# zizmor, the GitHub Actions workflow auditor the Security workflow runs.
+# zizmor.txt is compiled from this file with hashes for every package in the
+# tree:
+#   uv pip compile zizmor.in --universal --generate-hashes --python-version 3.12 -o zizmor.txt
+# Dependabot proposes each new release.
+zizmor==1.30.1

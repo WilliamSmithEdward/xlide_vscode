@@ -6,6 +6,7 @@ name: Security
 # On a release the three reports are attached to it as security-report.md
 # with the raw SARIF beside it (see SECURITY.md). ClamAV and YARA-X run in
 # the Malware scan workflow.
+# zizmor audits the workflows themselves and keeps its own exceptions (see its job).
 
 "on":
   push:
@@ -35,6 +36,8 @@ jobs:
         language: [javascript-typescript, actions]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: github/codeql-action/init@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4
         with:
           languages: ${{ matrix.language }}
@@ -68,6 +71,8 @@ jobs:
       security-events: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Build the scanner
         run: docker build --quiet --tag semgrep-scan .github/security/semgrep
       # Two rules are excluded because they fire on how the engine is built,
@@ -103,9 +108,13 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      # No package cache: this workflow runs on release (see malware-scan.yml).
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '20.20.2'
+          package-manager-cache: false
       # Production and development dependencies both: the build and test
       # toolchain runs on the maintainer's machine and in CI.
       - name: Audit
@@ -127,6 +136,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: reports
@@ -151,10 +162,51 @@ jobs:
   # The one check branch protection requires: it passes only when every
   # check above did, so checks can be added or renamed without touching the
   # rules. The release report is not among them.
+  # zizmor audits the workflows themselves: template injection, credential
+  # persistence, over-broad permissions, dangerous triggers, and actions with
+  # known advisories or impostor commits. Findings it should not raise are
+  # turned off in .github/zizmor.yml or ignored inline, each with its reason;
+  # anything else fails the job.
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12.14"
+
+      - name: Install zizmor
+        run: python -m pip install --require-hashes -r .github/requirements/zizmor.txt
+
+      # The token lets the online audits look up advisories and check that each
+      # pinned SHA belongs to the action it names.
+      - name: Audit the workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          status=0
+          zizmor --format sarif .github/workflows > zizmor.sarif || status=$?
+          zizmor --format plain .github/workflows || true
+          exit "$status"
+
+      - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        if: ${{ !cancelled() }}
+        with:
+          sarif_file: zizmor.sarif
+          category: zizmor
+
   security-passed:
     name: Security passed
     if: always()
-    needs: [codeql, semgrep, dependencies]
+    needs: [codeql, semgrep, dependencies, zizmor]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

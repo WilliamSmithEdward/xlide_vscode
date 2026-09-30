@@ -38,7 +38,9 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       PIN: .github/scans/yara-forge.json
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Keeps the checkout's credentials: a later step pushes the update
+      # branch with git. This job uploads no artifacts.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # zizmor: ignore[artipacked]
       - name: Find the release to propose
         id: release
         env:
