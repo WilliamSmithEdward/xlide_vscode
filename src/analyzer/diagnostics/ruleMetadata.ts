@@ -579,13 +579,13 @@ export const DIAGNOSTIC_RULES = {
 	},
 	invalidLineNumber: {
 		code: 'invalid-line-number',
-		title: 'Line number outside 0 to 2147483647',
+		title: 'Line number the VBE refuses',
 		defaultSeverity: 'error',
 		category: 'syntax',
 		vbeCompileEquivalent: true,
 		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
-		specReference: 'MS-VBAL 5.4.1.1 line numbers; VBE "Syntax error" (issue #210, Excel 16.0)',
+		specReference: 'MS-VBAL 5.4.1.1 line numbers: 0 to 2147483647, at the start of a line; VBE "Syntax error" (issues #210 and #230, Excel 16.0)',
 		confidence: 'high',
 	},
 	missingLibraryReference: {

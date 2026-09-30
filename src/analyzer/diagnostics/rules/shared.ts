@@ -17,6 +17,7 @@ import {
 	type ConditionalActivityTracker,
 } from '../../conditional/conditionalCompilation';
 import { isReservedIdentifier } from '../../lexer/keywordTable';
+import { isDecimalLineNumber } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type {
 	BodyNode,
@@ -297,6 +298,8 @@ function undeclaredReferenceSkipIndexes(
 	}
 	if (toks[1]?.rawText === ':' || isLineLabelOnlyStatement(source, span, toks)) {
 		skip.add(0); // line label declaration
+	} else if (toks.length === 2 && isDecimalLineNumber(toks[0]) && isLineLabelOnlyStatement(source, span, toks.slice(1))) {
+		skip.add(1); // `10 L1:`, a line number and a label (issue #230)
 	}
 	const firstExecutable = firstExecutableTokenIndex(toks);
 	if (moduleDeclarationStatementInProcedure(source, span)) {

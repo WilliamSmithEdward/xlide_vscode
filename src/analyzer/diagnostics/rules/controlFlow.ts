@@ -50,6 +50,7 @@ import {
 	tokenText,
 	type ProcedureStatementVisitor,
 } from '../walker';
+import { isDecimalLineNumber, startsPhysicalLine } from '../../lexer/tokenHelpers';
 
 /** Index of the `)` matching the `(` at `open`, or -1 if unbalanced. */
 /**
@@ -247,6 +248,16 @@ export function checkLineNumberRange(
 				push(
 					'invalidLineNumber',
 					`Line number ${first.rawText} is past ${MAX_LINE_NUMBER}, the largest the VBE accepts. This is a VBE compile error: Syntax error.`,
+					absoluteSpan(stmt.span, first),
+				);
+				return;
+			}
+			// `x = 1: 20 y = 2`, `10 L1: 20`: a line number after a colon, even in
+			// a one-line If's tail (issue #230, measured in Excel 16.0).
+			if (isDecimalLineNumber(first) && !startsPhysicalLine(source, stmt.span.start)) {
+				push(
+					'invalidLineNumber',
+					`Line number ${first.rawText} is not at the start of its line, the only place one goes. This is a VBE compile error: Syntax error.`,
 					absoluteSpan(stmt.span, first),
 				);
 				return;

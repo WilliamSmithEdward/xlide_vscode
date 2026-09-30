@@ -1038,10 +1038,14 @@
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.4.2.1 plus project symbol graph",
       "corpusInfluence": "none",
-      "assertedOracleCases": [],
+      "assertedOracleCases": [
+        "issue230_18_compile",
+        "issue230_26_compile"
+      ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "diagnosticKind": "compile-error"
+      "diagnosticKind": "compile-error",
+      "notes": "A label-shaped word after a colon mid-line, 10: L1: or x = 0: L1:, is a call: Sub or Function not defined (issue #230, Excel 16.0)."
     },
     {
       "code": "non-callable-call",
@@ -1921,11 +1925,14 @@
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "procedure_goto_missing_label_compile",
-        "procedure_goto_existing_label_compile"
+        "procedure_goto_existing_label_compile",
+        "issue230_07_compile",
+        "issue230_16_compile",
+        "issue230_35_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Active coverage is procedure-local and deliberately scoped to simple named and decimal numeric targets for GoTo, GoSub, Resume, On Error GoTo, On n GoTo, and On n GoSub. On Error Resume Next, On Error GoTo 0, and On Error GoTo -1 are explicit non-label forms.",
+      "notes": "Active coverage is procedure-local and deliberately scoped to simple named and decimal numeric targets for GoTo, GoSub, Resume, On Error GoTo, On n GoTo, and On n GoSub. On Error Resume Next, On Error GoTo 0, and On Error GoTo -1 are explicit non-label forms. A line number followed by a label, 10 L1:, declares both; a word label counts only at the start of its line, so in 10: L1: the word is a call (issue #230, Excel 16.0).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -1933,7 +1940,9 @@
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.4.1 procedure label scope and uniqueness",
       "corpusInfluence": "none",
-      "assertedOracleCases": [],
+      "assertedOracleCases": [
+        "issue230_20_compile"
+      ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_final_hardening_cases.md"
@@ -1949,11 +1958,20 @@
       "assertedOracleCases": [
         "issue210_22_compile",
         "issue210_23_compile",
-        "issue210_25_compile"
+        "issue210_25_compile",
+        "issue230_17_compile",
+        "issue230_22_compile",
+        "issue230_23_compile",
+        "issue230_24_compile",
+        "issue230_25_compile",
+        "issue230_29_compile",
+        "issue230_30_compile",
+        "issue230_32_compile",
+        "issue230_33_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "A line number past 2147483647, or a negative one, `-1 x = 1`. VBE \"Syntax error\". 0 and 2147483647 compile.",
+      "notes": "A line number past 2147483647, or a negative one, `-1 x = 1`. VBE \"Syntax error\". 0 and 2147483647 compile. A line number after a colon is Syntax error too, even in a one-line If's tail or after a line continuation; Else 20 is GoTo 20 and runs (issue #230, Excel 16.0).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -3444,7 +3462,8 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #117): 1 asserted case from the issue's measured corpus",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "issue117_a_runtime"
+        "issue117_a_runtime",
+        "issue230_34_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

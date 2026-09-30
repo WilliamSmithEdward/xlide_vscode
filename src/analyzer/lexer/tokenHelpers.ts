@@ -226,6 +226,19 @@ export function isDecimalLineNumber(token: VbaToken | undefined): boolean {
 	return token?.kind === 'integerLiteral' && /^\d+$/.test(token.rawText);
 }
 
+/**
+ * True when only spaces and tabs stand between the line's start and `offset`.
+ * A label is one only there, after the line number if there is one: in
+ * `10: L1:` the VBE reads L1 as a call (issue #230).
+ */
+export function startsPhysicalLine(source: string, offset: number): boolean {
+	let i = offset - 1;
+	while (i >= 0 && (source[i] === ' ' || source[i] === '\t')) {
+		i--;
+	}
+	return i < 0 || source[i] === '\n' || source[i] === '\r';
+}
+
 /** Drops the leading line-number token when one prefixes the statement. */
 export function tokensWithoutLeadingLineNumber(tokens: readonly VbaToken[]): VbaToken[] {
 	return tokens.length > 1 && isDecimalLineNumber(tokens[0])
