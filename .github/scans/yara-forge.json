@@ -1,6 +1,0 @@
-{
-  "about": "The YARA Forge rule release the Malware scan workflow uses, pinned with the SHA-256 of its core package. The Update YARA rules workflow proposes each new release in a pull request with its SHA-256, and the scans check the pull request before it is merged.",
-  "release": "20260927",
-  "asset": "yara-forge-rules-core.zip",
-  "sha256": "16180800cc2f077638d2e13a33bd68609d0b6eedd1fbfdbae6d5d4a1c53f826f"
-}

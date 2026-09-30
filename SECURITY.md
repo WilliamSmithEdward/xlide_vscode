@@ -66,10 +66,11 @@ EICAR test file written for the run, so a scan that read nothing cannot
 pass. A detection found harmless is recorded with its reason in
 [`.github/scans/reviewed.json`](.github/scans/reviewed.json).
 
-The YARA Forge release is pinned with the SHA-256 of its rules in
-[`.github/scans/yara-forge.json`](.github/scans/yara-forge.json). Each week
-[an update workflow](.github/workflows/update-yara-rules.yml) proposes the
-newest release in a pull request, and both workflows scan the pull request
+The YARA-X engine and the YARA Forge rules are pinned by release and SHA-256 in
+[`.github/security/yara.json`](.github/security/yara.json). Each week
+[an update workflow](.github/workflows/update-yara-rules.yml) proposes new pins
+in a pull request, YARA Forge's newest release at once and a YARA-X release once
+it is a week old, and CI, Security and Malware scan check the pull request
 before it is merged.
 
 Every GitHub release carries the vsix published to the Marketplace;

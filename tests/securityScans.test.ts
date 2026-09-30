@@ -309,13 +309,20 @@ describe('the scan SARIF, through the existing gate and report', () => {
 	});
 });
 
-describe('the pinned YARA Forge release', () => {
-	// The Update YARA rules workflow rewrites this file in each pull request
-	// it opens; the Malware scan workflow reads the three fields back.
-	it('names a release, its core package and that package s SHA-256', () => {
-		const pin = JSON.parse(fs.readFileSync(path.join(repoRoot, '.github/scans/yara-forge.json'), 'utf8'));
-		expect(pin.release).toMatch(/^\d{8}$/);
-		expect(pin.asset).toBe('yara-forge-rules-core.zip');
-		expect(pin.sha256).toMatch(/^[0-9a-f]{64}$/);
+describe('the pinned YARA releases', () => {
+	// The Update YARA rules workflow rewrites .github/security/yara.json in
+	// each pull request it opens; the Malware scan workflow reads it back.
+	it('names each release, its asset, where it is served and its SHA-256', () => {
+		const pins = JSON.parse(fs.readFileSync(path.join(repoRoot, '.github/security/yara.json'), 'utf8'));
+		expect(Object.keys(pins).sort()).toEqual(['yara_forge', 'yara_x']);
+		expect(pins.yara_forge.release).toMatch(/^\d{8}$/);
+		expect(pins.yara_forge.asset).toBe('yara-forge-rules-core.zip');
+		expect(pins.yara_forge.url).toBe(
+			`https://github.com/YARAHQ/yara-forge/releases/download/${pins.yara_forge.release}/yara-forge-rules-core.zip`);
+		expect(pins.yara_x.url).toBe(
+			`https://github.com/VirusTotal/yara-x/releases/download/${pins.yara_x.release}/yara-x-${pins.yara_x.release}-x86_64-unknown-linux-gnu.tar.gz`);
+		for (const pin of Object.values(pins) as { sha256: string }[]) {
+			expect(pin.sha256).toMatch(/^[0-9a-f]{64}$/);
+		}
 	});
 });

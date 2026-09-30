@@ -1,143 +1,85 @@
 name: Update YARA rules
 
-# Once a week, proposes the newest YARA Forge rule release in a pull request:
-# the release and the SHA-256 of its core package, pinned in
-# .github/scans/yara-forge.json. The Malware scan and Security workflows run
-# on the pull request's branch, so the new rules are checked before anyone
-# merges them.
+# The same in every repository; the canonical copy lives in
+# WilliamSmithEdward/repo-standards (templates/yara). Each Monday, and on
+# demand, proposes the newest YARA pins .github/security/yara_update.py allows
+# in a pull request, which CI, Security and Malware scan check before anyone
+# merges it.
 #
-# Opening the pull request needs the repository setting "Allow GitHub Actions
-# to create and approve pull requests" (Settings, Actions, General). Without
-# it the branch is still pushed and scanned, and the run fails saying so.
+# Two jobs, so the untrusted release metadata is only ever read without write
+# access: `prepare` works out the move with a read-only token, `propose` checks
+# the proposal against the pin file on main and commits it through the GitHub
+# API. No checkout keeps credentials. Needs the repository setting "Allow GitHub
+# Actions to create and approve pull requests".
 
-"on":
+on:
   schedule:
-    - cron: '23 7 * * 1'
+    - cron: "37 6 * * 1"
   workflow_dispatch:
-    inputs:
-      release:
-        description: A YARA Forge release to propose instead of the newest, such as an earlier one to go back to
-        required: false
-        default: ''
 
 permissions:
   contents: read
 
 concurrency:
-  group: yara-forge-update
+  group: update-yara-rules
+  cancel-in-progress: false
 
 jobs:
+  prepare:
+    name: Work out the YARA pin update
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      changed: ${{ steps.prepare.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12.14"
+
+      - name: Work out the move
+        id: prepare
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python .github/security/yara_update.py prepare --out "$RUNNER_TEMP/proposal"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: steps.prepare.outputs.changed == 'true'
+        with:
+          name: yara-proposal
+          path: ${{ runner.temp }}/proposal/
+          if-no-files-found: error
+          retention-days: 7
+
   propose:
     name: Propose a YARA rule update
+    needs: prepare
+    if: needs.prepare.outputs.changed == 'true'
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
-      contents: write
-      pull-requests: write
-      actions: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-      PIN: .github/scans/yara-forge.json
+      contents: write # the update branch and its commit, through the API
+      pull-requests: write # the pull request
+      actions: write # starting CI, Security and Malware scan on the branch
     steps:
-      # Keeps the checkout's credentials: a later step pushes the update
-      # branch with git. This job uploads no artifacts.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1 # zizmor: ignore[artipacked]
-      - name: Find the release to propose
-        id: release
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12.14"
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: yara-proposal
+          path: ${{ runner.temp }}/proposal
+
+      - name: Propose the update
         env:
-          WANTED: ${{ inputs.release }}
-        run: |
-          pinned=$(jq -r .release "$PIN")
-          asset=$(jq -r .asset "$PIN")
-          if [ -n "$WANTED" ]; then
-            gh api "repos/YARAHQ/yara-forge/releases/tags/$WANTED" > release.json
-          else
-            gh api repos/YARAHQ/yara-forge/releases/latest > release.json
-          fi
-          release=$(jq -r .tag_name release.json)
-          echo "Proposing YARA Forge $release; $pinned is pinned."
-          branch="yara-forge/$release"
-          if [ "$release" = "$pinned" ]; then
-            echo "The pinned release is the one to propose: nothing to do."
-            echo "propose=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          if git ls-remote --exit-code --heads origin "$branch" > /dev/null; then
-            if [ -n "$(gh pr list --head "$branch" --state open --json number --jq '.[].number')" ]; then
-              echo "$release is proposed already."
-              echo "propose=false" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            # Pushed and scanned by an earlier run whose pull request was
-            # refused: open it now.
-            git fetch --depth=1 origin "$branch"
-            sha256=$(git show "FETCH_HEAD:$PIN" | jq -r .sha256)
-            push=false
-          else
-            # The SHA-256 GitHub records for the package, checked against
-            # the file itself before it is pinned.
-            digest=$(jq -r --arg asset "$asset" '.assets[] | select(.name == $asset) | .digest' release.json)
-            sha256="${digest#sha256:}"
-            gh release download "$release" --repo YARAHQ/yara-forge --pattern "$asset"
-            echo "${sha256}  ${asset}" | sha256sum --check --strict
-            push=true
-          fi
-          {
-            echo "propose=true"
-            echo "push=$push"
-            echo "release=$release"
-            echo "sha256=$sha256"
-            echo "branch=$branch"
-            echo "pinned=$pinned"
-          } >> "$GITHUB_OUTPUT"
-      - name: Pin it on a branch
-        if: steps.release.outputs.push == 'true'
-        env:
-          RELEASE: ${{ steps.release.outputs.release }}
-          SHA256: ${{ steps.release.outputs.sha256 }}
-          BRANCH: ${{ steps.release.outputs.branch }}
-        run: |
-          jq --arg release "$RELEASE" --arg sha256 "$SHA256" '.release = $release | .sha256 = $sha256' "$PIN" > pin.json
-          mv pin.json "$PIN"
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git switch -c "$BRANCH"
-          git commit -m "chore(scan): YARA Forge rules $RELEASE" -- "$PIN"
-          git push origin "$BRANCH"
-      # A branch this workflow's token pushes, and a pull request it opens,
-      # start no workflow of their own, so the scans are started here.
-      - name: Scan the branch
-        if: steps.release.outputs.push == 'true'
-        env:
-          BRANCH: ${{ steps.release.outputs.branch }}
-        run: |
-          gh workflow run malware-scan.yml --ref "$BRANCH"
-          gh workflow run security.yml --ref "$BRANCH"
-      - name: Open the pull request
-        if: steps.release.outputs.propose == 'true'
-        env:
-          RELEASE: ${{ steps.release.outputs.release }}
-          SHA256: ${{ steps.release.outputs.sha256 }}
-          BRANCH: ${{ steps.release.outputs.branch }}
-          PINNED: ${{ steps.release.outputs.pinned }}
-          RUNS: ${{ github.server_url }}/${{ github.repository }}/actions?query=branch%3A${{ steps.release.outputs.branch }}
-        run: |
-          printf '%s\n' \
-            "Pins YARA Forge $RELEASE in \`.github/scans/yara-forge.json\`, in place of $PINNED," \
-            "with the SHA-256 GitHub records for its core package:" \
-            "\`$SHA256\`." \
-            '' \
-            "The Malware scan and Security workflows are running on this branch" \
-            "([runs]($RUNS)). Merge once both pass; a detection the new rules" \
-            "raise is reviewed in \`.github/scans/reviewed.json\` first." \
-            '' \
-            "Release: https://github.com/YARAHQ/yara-forge/releases/tag/$RELEASE" > body.md
-          if ! gh pr create --base main --head "$BRANCH" --title "chore(scan): YARA Forge rules $RELEASE" --body-file body.md; then
-            echo "::error::GitHub refused to open the pull request. Enable \"Allow GitHub Actions to create and approve pull requests\" in the repository's Actions settings, or open it from $BRANCH by hand. The scans are running on the branch."
-            exit 1
-          fi
-          # Earlier update pull requests are superseded by this one.
-          number=$(gh pr view "$BRANCH" --json number --jq .number)
-          for old in $(gh pr list --state open --json number,headRefName \
-              --jq '.[] | select(.headRefName | startswith("yara-forge/")) | select(.headRefName != $ENV.BRANCH) | .number'); do
-            gh pr close "$old" --comment "Superseded by #$number." --delete-branch
-          done
+          GH_TOKEN: ${{ github.token }}
+        run: python .github/security/yara_update.py propose --in "$RUNNER_TEMP/proposal"
