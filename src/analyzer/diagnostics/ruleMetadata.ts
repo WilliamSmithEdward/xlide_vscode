@@ -684,6 +684,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.6.9.3; VBE compile error: Overflow (issue #116, Excel 16.0)',
 		confidence: 'high',
 	},
+	constEvaluationError: {
+		code: 'const-evaluation-error',
+		title: 'Const value that does not evaluate',
+		defaultSeverity: 'error',
+		category: 'declaration',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 5.2.3.1 constant expressions; VBE compile errors Division by zero and Type mismatch (issue #235, Excel 16.0)',
+		confidence: 'high',
+	},
 	forCounterOverflow: {
 		code: 'for-counter-overflow',
 		title: 'For counter overflows after its last pass',
