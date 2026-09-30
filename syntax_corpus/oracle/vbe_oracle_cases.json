@@ -26155,6 +26155,314 @@
       ],
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue226_01_compile",
+      "description": "Issue #226 UserForm event handler, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "F1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPrivate Sub UserForm_Initialize(ByVal x As Long)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue226_02_compile",
+      "description": "Issue #226 UserForm event handler, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "F1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPrivate Sub UserForm_Terminate(ByVal x As Long)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue226_03_compile",
+      "description": "Issue #226 UserForm event handler, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "F1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPrivate Sub UserForm_Resize(ByVal x As Long)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue226_04_compile",
+      "description": "Issue #226 UserForm event handler, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "F1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPrivate Sub UserForm_QueryClose(Cancel As Boolean, CloseMode As Integer)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue226_05_compile",
+      "description": "Issue #226 UserForm event handler, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "F1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPrivate Sub UserForm_QueryClose(ByVal Cancel As Integer, CloseMode As Integer)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue226_06_compile",
+      "description": "Issue #226 UserForm event handler, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "F1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPrivate Sub UserForm_QueryClose(Cancel As Integer)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue226_07_compile",
+      "description": "Issue #226 UserForm event handler, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "F1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPrivate Sub UserForm_QueryClose(Cancel As Integer, CloseMode As Integer)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue226_08_compile",
+      "description": "Issue #226 UserForm event handler, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "F1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPrivate Sub UserForm_Initialize()\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue226_09_compile",
+      "description": "Issue #226 UserForm event handler, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "F1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPrivate Sub UserForm_Activate(ByVal x As Long)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue226_10_compile",
+      "description": "Issue #226 UserForm event handler, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "F1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPrivate Sub UserForm_Deactivate(ByVal x As Long)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue226_11_compile",
+      "description": "Issue #226 UserForm event handler, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "F1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPrivate Sub UserForm_Activate()\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue226_12_compile",
+      "description": "Issue #226 UserForm event handler, case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "F1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPrivate Sub UserForm_Initialize(ByVal x As Long)\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue226_13_compile",
+      "description": "Issue #226 UserForm event handler, case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "F1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPrivate Sub UserForm_QueryClose(Cancel As Integer, ByVal CloseMode As Integer)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue226_14_compile",
+      "description": "Issue #226 UserForm event handler, case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "F1",
+          "type": "userform",
+          "source": "Option Explicit\r\nPrivate Function UserForm_Initialize() As Long\r\n    Debug.Print 1\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

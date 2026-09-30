@@ -47,6 +47,24 @@ for (const [className, events] of Object.entries(HOST_EVENT_SIGNATURES)) {
 	EVENTS_BY_CLASS.set(className.toLowerCase(), { name: className, events: byName });
 }
 
+/**
+ * The events VBA's own UserForm adds to FM20's, which the type library sweep
+ * cannot see: a handler with parameters, or a QueryClose passing either one
+ * ByVal or as another type, is refused (issue #226, measured in Excel 16.0).
+ */
+const VBA_USERFORM = 'VBA.UserForm';
+EVENTS_BY_CLASS.set(VBA_USERFORM.toLowerCase(), {
+	name: VBA_USERFORM,
+	events: new Map(Object.entries({
+		Initialize: '',
+		Terminate: '',
+		Activate: '',
+		Deactivate: '',
+		Resize: '',
+		QueryClose: 'Cancel As Integer, CloseMode As Integer',
+	}).map(([name, params]) => [name.toLowerCase(), { name, params }])),
+});
+
 /** A document module's own object: the prefix its handlers take, and its class. */
 const DOCUMENT_OBJECTS: Readonly<Record<string, readonly [string, string]>> = {
 	workbook: ['Workbook', 'Excel.Workbook'],
@@ -76,7 +94,7 @@ export function checkEventHandlerSignatures(
 		add(...DOCUMENT_OBJECTS[opts.documentType]);
 	}
 	if (moduleKind === 'userform') {
-		add('UserForm', 'MSForms.UserForm');
+		add('UserForm', 'MSForms.UserForm', VBA_USERFORM);
 		// A control's handlers take its own events and the extender's
 		// (Enter, Exit, BeforeUpdate, AfterUpdate).
 		for (const control of opts.implicitMembers ?? []) {

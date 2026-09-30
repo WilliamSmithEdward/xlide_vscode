@@ -21,7 +21,7 @@
 import type { HostObjectModel } from '../../host/excelObjectModel';
 import { getHostMembers, getHostType } from '../../host/hostModel';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
-import { resolveReceiverTypeAt } from '../../completion/memberAccess';
+import { projectTypeAt, resolveReceiverTypeAt } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import type { VbaToken } from '../../lexer/tokenKinds';
@@ -29,10 +29,13 @@ import type { ModuleNode } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { normalizeType, typeEnvironmentFor } from '../typeInference';
+import { normalizeType, stringLiteralValue, typeEnvironmentFor } from '../typeInference';
 import {
 	activeModuleMembers,
+	forEachStatement,
 	setAssignmentTarget,
+	statementAndBranchSpans,
+	statementTokens,
 	statementTokensAfterLeadingLabel,
 	tokenName,
 	tokenText,
@@ -67,6 +70,11 @@ export function checkRuntimeMemberNotFound(
 			continue;
 		}
 		const env = typeEnvironmentFor(symbols, member);
+		forEachStatement(member.body, (stmt) => {
+			for (const span of statementAndBranchSpans(stmt)) {
+				checkFormControlNames(source, span.start, statementTokens(source, span), memberCtx, push);
+			}
+		}, activity);
 		const autoInstanced = new Set<string>();
 		for (const child of procedureSymbolFor(symbols, member)?.children ?? []) {
 			if (child.isAutoInstantiated) {
@@ -205,6 +213,40 @@ function checkStatement(
 			if (type === 'Excel.Application') {
 				push('runtimeMemberNotFound', `Application has no member '${memberName}', and it is not a worksheet function either. The VBE compiles the name because Application is extensible; this will raise Run-time error '438': Object doesn't support this property or method.`, at);
 			}
+		}
+	}
+}
+
+/**
+ * `f.Controls("Nope")` on a form whose controls are known, with no control of
+ * that name (case-insensitive, those inside a Frame included), raises
+ * -2147024809, "Could not find the specified object" (issue #226, measured in
+ * Excel 16.0). `Me.Controls(...)` inside the form does the same.
+ */
+function checkFormControlNames(
+	source: string,
+	base: number,
+	toks: readonly VbaToken[],
+	memberCtx: MemberCompletionContext,
+	push: PushFn,
+): void {
+	for (let i = 1; i + 3 < toks.length; i++) {
+		if (tokenText(toks[i]) !== 'controls' || toks[i - 1].rawText !== '.' || toks[i + 1].rawText !== '('
+			|| toks[i + 2].kind !== 'stringLiteral' || toks[i + 3].rawText !== ')') {
+			continue;
+		}
+		const form = projectTypeAt(source, base + toks[i - 1].end, memberCtx);
+		if (form?.kind !== 'userform' || form.exhaustive !== true) {
+			continue;
+		}
+		const name = stringLiteralValue(toks[i + 2].rawText);
+		const controls = form.members.filter((member) => /^MSForms\./i.test(member.returns ?? ''));
+		if (!controls.some((control) => control.name.toLowerCase() === name.toLowerCase())) {
+			push(
+				'runtimeMemberNotFound',
+				`The form ${form.name} has no control named "${name}". This will raise Run-time error '-2147024809': Could not find the specified object.`,
+				{ start: base + toks[i + 2].start, end: base + toks[i + 2].end },
+			);
 		}
 	}
 }

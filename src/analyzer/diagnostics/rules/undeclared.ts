@@ -13,7 +13,8 @@ import type { HostObjectModel } from '../../host/excelObjectModel';
 import { HOST_LIBRARY_NAMES } from '../../host/hostLibraries';
 import type { VbaHostToken } from '../../host/hostRegistry';
 import { bareCallStatementTarget as callStatementTarget } from '../../call/callContext';
-import { privateMemberOwnerAt, projectClassMemberAt, type MemberCompletionContext } from '../../completion/memberAccess';
+import { privateMemberOwnerAt, projectClassMemberAt, projectTypeAt, type MemberCompletionContext } from '../../completion/memberAccess';
+import { MSFORMS_FORM_CONTROL_MEMBERS } from '../../host/msFormsFormControlMembers';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import {
 	resolveHostConstant,
@@ -78,6 +79,7 @@ import {
 	activeModuleMembers,
 	bareAssignmentTarget,
 	firstExecutableTokenIndex,
+	forEachVariableGroup,
 	matchParenFrom,
 	setAssignmentTarget,
 	statementAndBranchSpans,
@@ -93,7 +95,16 @@ export function checkMemberNotFound(
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): ProcedureStatementVisitor {
-	return () => (stmt) => {
+	return (procedure) => {
+		// Names a bare control reference would lose to: the procedure's
+		// parameters and locals.
+		const ownNames = new Set(procedure.params.map((param) => param.name.toLowerCase()));
+		forEachVariableGroup(procedure.body, (group) => {
+			for (const decl of group.declarations) {
+				ownNames.add(decl.name.toLowerCase());
+			}
+		});
+		return (stmt) => {
 		for (const ref of memberAccessReferences(source, stmt.span)) {
 			const surface = resolveExhaustiveMemberSurface(
 				source,
@@ -104,6 +115,15 @@ export function checkMemberNotFound(
 				const form = projectMemberFormProblem(source, ref, memberCtx);
 				if (form) {
 					push('argumentCount', form, ref.memberSpan);
+					continue;
+				}
+				const control = formControlWithoutMember(source, ref, memberCtx, ownNames);
+				if (control) {
+					push(
+						'memberNotFound',
+						`Method or data member not found: '${control.name}.${ref.member}'. The form's ${control.type.replace(/^MSForms\./, '')} has no member of that name.`,
+						ref.memberSpan,
+					);
 					continue;
 				}
 				const owner = privateMemberOwnerAt(source, ref.dotEndOffset, ref.member, memberCtx);
@@ -122,6 +142,7 @@ export function checkMemberNotFound(
 				ref.memberSpan,
 			);
 		}
+		};
 	};
 }
 
@@ -175,6 +196,49 @@ function projectMemberFormProblem(source: string, ref: MemberAccessReference, me
 			: `'${member.name}' is a field of type ${member.returns}, which takes no arguments. This is a VBE compile error: Wrong number of arguments or invalid property assignment.`;
 	}
 	return undefined;
+}
+
+/**
+ * A form's control reached through the form, with a member its class lacks:
+ * `f.T1.Nope`, `Me.T1.Nope`, a bare `T1.Nope` inside the form. The VBE binds
+ * those while compiling for the classes in MSFORMS_FORM_CONTROL_MEMBERS; a
+ * variable declared As MSForms.TextBox, and a Frame or an OptionButton on the
+ * form, it leaves to run time (issue #226, measured in Excel 16.0).
+ */
+function formControlWithoutMember(
+	source: string,
+	ref: MemberAccessReference,
+	memberCtx: MemberCompletionContext,
+	ownNames: ReadonlySet<string>,
+): { name: string; type: string } | undefined {
+	const controlToken = ref.toks[ref.index - 2];
+	const name = controlToken ? tokenName(controlToken) : undefined;
+	if (!name || ref.toks[ref.index - 1]?.rawText !== '.') {
+		return undefined;
+	}
+	const lower = name.toLowerCase();
+	let type: string | undefined;
+	if (ref.toks[ref.index - 3]?.rawText === '.') {
+		// `f.T1.Nope`: T1 must be a control of the form the receiver is.
+		const form = projectTypeAt(source, ref.dotEndOffset - (ref.toks[ref.index - 1].end - ref.toks[ref.index - 3].end), memberCtx);
+		if (form?.kind !== 'userform' || form.exhaustive !== true) {
+			return undefined;
+		}
+		type = form.members.find((member) => member.name.toLowerCase() === lower && /^MSForms\./i.test(member.returns ?? ''))?.returns;
+	} else {
+		// A bare `T1.Nope` inside the form, where no local or parameter
+		// takes the name.
+		const self = (memberCtx.projectClassMembers ?? []).find((candidate) => candidate.kind === 'userform'
+			&& candidate.exhaustive === true && candidate.name.toLowerCase() === memberCtx.meProjectType?.toLowerCase());
+		type = ownNames.has(lower)
+			? undefined
+			: self?.members.find((member) => member.name.toLowerCase() === lower && /^MSForms\./i.test(member.returns ?? ''))?.returns;
+	}
+	const members = type ? MSFORMS_FORM_CONTROL_MEMBERS[type] : undefined;
+	if (!members || members.some((member) => member.toLowerCase() === ref.member.toLowerCase())) {
+		return undefined;
+	}
+	return { name, type: type! };
 }
 
 function memberAccessReferences(

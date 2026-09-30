@@ -1147,6 +1147,18 @@ function checkMemberAssignmentTypes(
 				return;
 			}
 		}
+		// `Set f.T1 = Nothing`: a form's control is no variable to Set (issue
+		// #226, measured in Excel 16.0: "Invalid use of property").
+		if (assignment.usesSet && !assignment.withArguments && target && target.writable === undefined
+			&& /^MSForms\./i.test(target.returns ?? '')
+			&& (memberCtx.projectClassMembers ?? []).some((type) => type.kind === 'userform' && type.name === target.owner)) {
+			push(
+				'setRequiresObject',
+				`'${assignment.label}' is a control on the form ${target.owner}, which no Set can replace. This is a VBE compile error: Invalid use of property.`,
+				assignment.memberSpan,
+			);
+			return;
+		}
 		// The project-class checks read a bare property target only.
 		if (!projectClasses || assignment.withArguments || !target || target.writable === undefined) {
 			return;
