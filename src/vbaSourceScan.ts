@@ -118,14 +118,27 @@ function stripVbaLine(line: string): { text: string; commentStart: number } {
     // comment begins at a statement start: the line start OR after a `:` statement
     // separator (e.g. `x = 1: Rem note`). Blanking only the whole-line form let a
     // `: Rem ...` comment's text - including any `:` inside it - leak into the
-    // colon-split logical lines as phantom block openers/closers.
-    const rem = /(^|:)([ \t]*)Rem\b/i.exec(out);
-    if (rem) {
-        const remKeywordStart = rem.index + rem[1].length + rem[2].length;
+    // colon-split logical lines as phantom block openers/closers. After code it
+    // is a comment too, as the lexer reads it (issue #231), except as a member
+    // name (`o.Rem`, `o!Rem`, `[Rem]`) and right after Then, where it stays a word.
+    const remKeywordStart = remCommentStart(out);
+    if (remKeywordStart >= 0) {
         out = out.slice(0, remKeywordStart) + ' '.repeat(out.length - remKeywordStart);
         commentStart = commentStart < 0 ? remKeywordStart : Math.min(commentStart, remKeywordStart);
     }
     return { text: out, commentStart };
+}
+
+/** Where the first `Rem` that starts a comment stands in a string-blanked line, or -1. */
+function remCommentStart(line: string): number {
+    const word = /\bRem\b/gi;
+    for (let m = word.exec(line); m; m = word.exec(line)) {
+        const before = line.slice(0, m.index).replace(/[ \t]+$/, '');
+        if (!/[.![]$/.test(before) && !/(^|\W)Then$/i.test(before)) {
+            return m.index;
+        }
+    }
+    return -1;
 }
 
 /**

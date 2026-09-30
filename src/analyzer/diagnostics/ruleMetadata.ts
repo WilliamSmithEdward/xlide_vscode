@@ -861,6 +861,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 3.3.1 comment / 5.4.2.9 single-line If; VBE "Syntax error" (issue #125, Excel 16.0)',
 		confidence: 'high',
 	},
+	remAfterStatement: {
+		code: 'rem-after-statement',
+		title: 'Rem after a statement',
+		defaultSeverity: 'error',
+		category: 'syntax',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'MS-VBAL 3.3.1 comment / 5.4.2.9 single-line If; VBE "Syntax error", or "Expected: end of statement" at module level (issue #231, Excel 16.0)',
+		confidence: 'high',
+	},
 	floatLiteralOverflow: {
 		code: 'float-literal-overflow',
 		title: 'Floating-point literal overflows',

@@ -125,12 +125,22 @@ describe('tokenize - comments', () => {
 		expect(t[0].rawText).toBe('Rem this is a remark');
 	});
 
-	it('treats Rem after code as a keyword token, not a comment', () => {
-		// Rem is a reserved identifier (rem-keyword); only at statement start does
-		// it begin a comment. Mid-statement it is just a keyword token.
-		const t = tokenize('x = Rem');
-		expect(t[t.length - 1].kind).toBe('keyword');
-		expect(t[t.length - 1].rawText).toBe('Rem');
+	it('makes Rem after code a comment, so its words are not code (issue #231)', () => {
+		// A comment in a one-line If's Then or Else list, a syntax error
+		// elsewhere (rem-after-statement); never code either way.
+		for (const src of ['x = Rem', 'If a Then x = 1 Rem note', 'x = 1 Rem note', '10 Rem note']) {
+			const t = tokenize(src);
+			expect(t[t.length - 1].kind, src).toBe('comment');
+			expect(t[t.length - 1].rawText.slice(0, 3), src).toBe('Rem');
+		}
+	});
+
+	it('keeps Rem a word after Then and after member access', () => {
+		// `If x Then Rem note` is a one-line If the VBE refuses (rem-after-then).
+		const then = tokenize('If x Then Rem note');
+		expect(then.map((tok) => tok.kind)).toEqual(['keyword', 'identifier', 'keyword', 'keyword', 'identifier']);
+		expect(tokenize('x = o.Rem').map((tok) => tok.kind)).not.toContain('comment');
+		expect(tokenize('x = o!Rem').map((tok) => tok.kind)).not.toContain('comment');
 	});
 
 	it('treats Remark as an identifier (not a Rem comment)', () => {

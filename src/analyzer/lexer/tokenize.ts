@@ -171,8 +171,11 @@ export function tokenize(src: string): VbaToken[] {
 				pos++;
 			}
 			const word = src.slice(startPos, pos);
-			if (word.toLowerCase() === 'rem' && atStatementStart) {
+			if (word.toLowerCase() === 'rem' && (atStatementStart || !remStaysWord(tokens))) {
 				// Rem comment (MS-VBAL 3.3.5.2 rem-keyword): rest of line is comment.
+				// After a statement it is one only in a one-line If's Then or Else
+				// list, and a syntax error elsewhere; either way its words are not
+				// code, and rem-after-statement judges the place (issue #231).
 				pos = commentEnd(src, pos);
 				kind = 'comment';
 			} else {
@@ -301,6 +304,17 @@ export function tokenize(src: string): VbaToken[] {
  * through line-continuations to LINE-END (MS-VBAL 3.3.1), so the VBE takes a
  * comment ending in ` _` on through the next line (issue #82).
  */
+/**
+ * True when a Rem after the last token is a word rather than a comment: a
+ * member name after `.` or `!`, or right after Then, where the VBE reads
+ * `If x Then Rem note` as a one-line If whose statement is refused
+ * (rem-after-then), not as a block If with a comment.
+ */
+function remStaysWord(tokens: readonly VbaToken[]): boolean {
+	const last = tokens[tokens.length - 1];
+	return last !== undefined && (last.rawText === '.' || last.rawText === '!' || (last.kind === 'keyword' && last.rawText.toLowerCase() === 'then'));
+}
+
 function commentEnd(src: string, from: number): number {
 	let pos = from;
 	while (pos < src.length && !isLineTerminator(src[pos])) {
