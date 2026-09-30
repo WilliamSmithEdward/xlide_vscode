@@ -829,6 +829,18 @@ export const DIAGNOSTIC_RULES = {
 		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
+	hostPropertyValueOutOfRange: {
+		code: 'host-property-value-out-of-range',
+		title: 'Host property value out of range',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
+		source: 'XLIDE',
+		specReference: 'Office object model: property ranges the host refuses, measured in Excel/Word/PowerPoint 16.0 (issue #204)',
+		allowSeverityDowngrade: true,
+		confidence: 'high',
+	},
 	sheetNameInvalid: {
 		code: 'sheet-name-invalid',
 		title: 'Sheet name Excel refuses',

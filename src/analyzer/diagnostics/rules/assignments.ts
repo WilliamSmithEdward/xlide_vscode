@@ -13,6 +13,7 @@ import {
 } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { isDispatchOnlyHostType, resolveHostEnum } from '../../host/hostModel';
+import { hostPropertyValueProblem } from './hostPropertyValues';
 import {
 	matchParenFrom,
 	splitTopLevelTokenGroups,
@@ -1040,6 +1041,15 @@ function checkMemberAssignmentTypes(
 				);
 			}
 			return;
+		}
+		// `Range("A1").Font.Size = 500`: a value the host refuses (issue #204).
+		if (target && target.writable === undefined && !assignment.usesSet && !assignment.withArguments) {
+			const problem = hostPropertyValueProblem(target, assignment.valueTokens);
+			const value = assignment.valueTokens.filter((tok) => tok.kind !== 'comment');
+			if (problem && value.length > 0) {
+				push('hostPropertyValueOutOfRange', problem, { start: span.start + value[0].start, end: span.start + value[value.length - 1].end });
+				return;
+			}
 		}
 		// The project-class checks read a bare property target only.
 		if (!projectClasses || assignment.withArguments || !target || target.writable === undefined) {

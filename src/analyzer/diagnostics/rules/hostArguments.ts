@@ -201,6 +201,7 @@ function checkSpan(
 				continue;
 			}
 		}
+		checkArgumentLimits(span, callee, valueOf, push);
 		if (host === 'Excel') {
 			checkExcelCallee(source, span, toks, callee, calleeSpan, env, arrays, valueOf, push);
 		} else if (host === 'Word') {
@@ -227,6 +228,76 @@ function checkSpan(
 			}
 		}
 	}
+}
+
+/**
+ * Counts a host method refuses (issue #204, measured in Excel and Word 16.0):
+ * `Worksheets.Add Count:=0` raises 1004, and Word's Tables.Add takes 1 to
+ * 32767 rows and 1 to 63 columns (5148). Each argument is found by name or
+ * by position.
+ */
+const ARGUMENT_LIMITS: ReadonlyArray<{
+	receivers: readonly string[];
+	member: string;
+	parameter: string;
+	position: number;
+	runs: string;
+	refused: ReadonlyArray<{ from?: number; to?: number }>;
+	error: { number: string; text: string };
+}> = [
+	{
+		receivers: ['Excel.Sheets', 'Excel.Worksheets'], member: 'add', parameter: 'Count', position: 2, runs: '1 or more',
+		refused: [{ to: 0 }], error: { number: '1004', text: "Method 'Add' of object 'Sheets' failed" },
+	},
+	{
+		receivers: ['Word.Tables'], member: 'add', parameter: 'NumRows', position: 1, runs: '1 to 32767',
+		refused: [{ to: 0 }, { from: 32768 }], error: { number: '5148', text: 'The number must be between 1 and 32767' },
+	},
+	{
+		receivers: ['Word.Tables'], member: 'add', parameter: 'NumColumns', position: 2, runs: '1 to 63',
+		refused: [{ to: 0 }, { from: 64 }], error: { number: '5148', text: 'The number must be between 1 and 63' },
+	},
+];
+
+function checkArgumentLimits(
+	span: Span,
+	callee: HostCallee,
+	valueOf: (arg: readonly VbaToken[]) => number | undefined,
+	push: PushFn,
+): void {
+	const lower = callee.name.toLowerCase();
+	for (const limit of ARGUMENT_LIMITS) {
+		if (limit.member !== lower || !limit.receivers.includes(callee.receiver)) {
+			continue;
+		}
+		const arg = argumentByNameOrPosition(callee.args, limit.parameter, limit.position);
+		const value = arg && arg.length > 0 ? valueOf(arg) : undefined;
+		if (value === undefined || !limit.refused.some((range) => (range.from === undefined || value >= range.from) && (range.to === undefined || value <= range.to))) {
+			continue;
+		}
+		push(
+			'hostArgumentOutOfRange',
+			`${callee.receiver.slice(callee.receiver.indexOf('.') + 1)}.${callee.name} takes ${limit.parameter} ${limit.runs}; ${value} is outside that. This will raise Run-time error '${limit.error.number}': ${limit.error.text}.`,
+			argSpan(span, arg!),
+		);
+	}
+}
+
+/** An argument's value tokens, named (`Count:=0`) or at its position before any named one. */
+function argumentByNameOrPosition(args: readonly VbaToken[][], name: string, position: number): VbaToken[] | undefined {
+	for (const [index, arg] of args.entries()) {
+		const toks = arg.filter((tok) => tok.kind !== 'comment');
+		if (toks[1]?.rawText === ':=') {
+			if (tokenName(toks[0])?.toLowerCase() === name.toLowerCase()) {
+				return toks.slice(2);
+			}
+			continue;
+		}
+		if (index === position) {
+			return toks;
+		}
+	}
+	return undefined;
 }
 
 /**
