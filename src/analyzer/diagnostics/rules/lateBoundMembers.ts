@@ -11,6 +11,12 @@
 //  - `Dim o As Object: Set o = New Collection: o.Foo`: a late-bound variable
 //    holding a class with a known member list. Collection has Add, Count,
 //    Item and Remove; a project class module has its public members.
+//
+// Issue #224 (measured in Excel 16.0): the class also reaches the variable
+// from one declared as it, `Set o = c`, where c raises 91 instead while it is
+// Nothing. A Private member is not on the list (438). A property with a Get
+// and no Let raises 451 when assigned, and one with a Let and no Get 450 when
+// read.
 
 import type { HostObjectModel } from '../../host/excelObjectModel';
 import { getHostMembers, getHostType } from '../../host/hostModel';
@@ -22,7 +28,7 @@ import type { VbaToken } from '../../lexer/tokenKinds';
 import type { ModuleNode } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
-import type { PushFn } from '../analysisContext';
+import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { normalizeType, typeEnvironmentFor } from '../typeInference';
 import {
 	activeModuleMembers,
@@ -38,6 +44,12 @@ const COLLECTION_MEMBERS: ReadonlySet<string> = new Set(['add', 'count', 'item',
 interface KnownClass {
 	display: string;
 	members: ReadonlySet<string>;
+	/** Properties with a Get and no Let or Set: assigning one raises 451. */
+	readOnly?: ReadonlySet<string>;
+	/** Properties with a Let and no Get: reading one raises 450. */
+	writeOnly?: ReadonlySet<string>;
+	/** Set from a variable that may still be Nothing: 91 before 438. */
+	mayBeNothing?: boolean;
 }
 
 export function checkRuntimeMemberNotFound(
@@ -55,6 +67,12 @@ export function checkRuntimeMemberNotFound(
 			continue;
 		}
 		const env = typeEnvironmentFor(symbols, member);
+		const autoInstanced = new Set<string>();
+		for (const child of procedureSymbolFor(symbols, member)?.children ?? []) {
+			if (child.isAutoInstantiated) {
+				autoInstanced.add(child.name.toLowerCase());
+			}
+		}
 		// Asked only for the target of a Set: walking the whole environment
 		// for every procedure was 5% of a large module's pass (issue #139).
 		const isLateBound = (lower: string): boolean => {
@@ -89,7 +107,11 @@ export function checkRuntimeMemberNotFound(
 			if (set && isLateBound(set.name.toLowerCase())) {
 				const lower = set.name.toLowerCase();
 				const value = toks.slice(toks.findIndex((tok) => tok.rawText === '=') + 1);
-				const known = value.length === 2 && tokenText(value[0]) === 'new' ? knownClassNamed(tokenName(value[1]), memberCtx) : undefined;
+				const source1 = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
+				const fromVariable = source1 !== undefined && !isLateBound(source1) ? knownClassNamed(env.get(source1), memberCtx) : undefined;
+				const known = value.length === 2 && tokenText(value[0]) === 'new'
+					? knownClassNamed(tokenName(value[1]), memberCtx)
+					: fromVariable && { ...fromVariable, mayBeNothing: !autoInstanced.has(source1!) };
 				if (known) {
 					held.set(lower, known);
 				} else {
@@ -115,7 +137,13 @@ function knownClassNamed(name: string | undefined, memberCtx: MemberCompletionCo
 	if (!projectType) {
 		return undefined;
 	}
-	return { display: projectType.name, members: new Set(projectType.members.map((m) => m.name.toLowerCase())) };
+	const properties = projectType.members.filter((m) => m.kind === 'property' && m.signature !== undefined);
+	return {
+		display: projectType.name,
+		members: new Set(projectType.members.map((m) => m.name.toLowerCase())),
+		readOnly: new Set(properties.filter((m) => !m.letAccessor && !m.setAccessor).map((m) => m.name.toLowerCase())),
+		writeOnly: new Set(projectType.members.filter((m) => m.kind === 'property' && m.letAccessor && m.signature === undefined).map((m) => m.name.toLowerCase())),
+	};
 }
 
 /** Excel's Application members plus the worksheet functions it also answers to. */
@@ -157,8 +185,18 @@ function checkStatement(
 		const at = { start: base + toks[i + 2].start, end: base + toks[i + 2].end };
 		const known = held.get(receiver.toLowerCase());
 		if (known) {
-			if (!known.members.has(memberName.toLowerCase())) {
-				push('runtimeMemberNotFound', `'${receiver}' holds a ${known.display} here, which has no member '${memberName}'. This will raise Run-time error '438': Object doesn't support this property or method.`, at);
+			const lower = memberName.toLowerCase();
+			const nothing = known.mayBeNothing ? `, or '91' while '${receiver}' is Nothing` : '';
+			if (!known.members.has(lower)) {
+				push('runtimeMemberNotFound', `'${receiver}' holds a ${known.display} here, which has no member '${memberName}'. This will raise Run-time error '438': Object doesn't support this property or method${nothing}.`, at);
+				continue;
+			}
+			// `o.RO = 5` as the statement, a Let into a Get-only property.
+			const assigned = i === 0 && toks[i + 3]?.rawText === '=';
+			if (assigned && known.readOnly?.has(lower)) {
+				push('runtimeMemberNotFound', `'${receiver}' holds a ${known.display} here, whose '${memberName}' has a Property Get and no Property Let. This will raise Run-time error '451': Property let procedure not defined and property get procedure did not return an object${nothing}.`, at);
+			} else if (!assigned && known.writeOnly?.has(lower)) {
+				push('runtimeMemberNotFound', `'${receiver}' holds a ${known.display} here, whose '${memberName}' has a Property Let and no Property Get, so it has no value to read. This will raise Run-time error '450': Wrong number of arguments or invalid property assignment${nothing}.`, at);
 			}
 			continue;
 		}

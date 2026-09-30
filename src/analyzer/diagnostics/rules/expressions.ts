@@ -1470,11 +1470,11 @@ function implicitParenthesizedMultiArgCall(
 		return undefined;
 	}
 	if (call.isMember) {
-		if (!call.qualifier || !moduleSignatures.has(qualifiedProcedureKey(call.qualifier, call.name))) {
-			return undefined;
-		}
+		// `(1, 2)` is no expression, so the statement is a Syntax error
+		// whatever the receiver is: `c.Calc (1, 2)` on a class, `.Calc (1, 2)`
+		// in a With, `ActiveSheet.Range ("A1", "B2")` (issue #224, measured).
 		return {
-			name: `${call.qualifier}.${call.name}`,
+			name: call.qualifier ? `${call.qualifier}.${call.name}` : call.name,
 			span: call.span,
 		};
 	}
