@@ -15,8 +15,8 @@ permissions:
   contents: read
 
 jobs:
-  typescript:
-    name: TypeScript
+  build:
+    name: Build and test
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -24,9 +24,12 @@ jobs:
         with:
           node-version: '20.20.2'
           cache: npm
-      - run: npm ci
-      - run: npm run compile
-      - run: npm test
+      - name: Install dependencies
+        run: npm ci
+      - name: Compile
+        run: npm run compile
+      - name: Test
+        run: npm test
 
   # Non-ASCII text through the real engine for every supported code page
   # (the issue-#6 bug class): Thai, Japanese, Chinese (both), Korean,
@@ -35,7 +38,7 @@ jobs:
   # degrade to cp1252. Runs on Windows too because that is where XLIDE
   # actually runs in production.
   languages:
-    name: Language matrix (${{ matrix.os }})
+    name: VBA language tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -47,11 +50,13 @@ jobs:
         with:
           node-version: '20.20.2'
           cache: npm
-      - run: npm ci
+      - name: Install dependencies
+        run: npm ci
       # Storage and text conversion, then the editor-facing surfaces one layer
       # out: word selection, navigation, completion and structure on names that
       # are not Latin. Each of those has been a separate user-visible bug.
-      - run: >
+      - name: Run the VBA language tests
+        run: >
           npx vitest run
           tests/vbaLanguageMatrix.test.ts
           tests/vbaCodePages.test.ts
@@ -66,7 +71,7 @@ jobs:
   # code page. Runs on Windows too because that is where XLIDE actually runs,
   # and the fixtures are the databases Access itself wrote.
   access:
-    name: Access read/write (${{ matrix.os }})
+    name: Access storage tests (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -78,8 +83,10 @@ jobs:
         with:
           node-version: '20.20.2'
           cache: npm
-      - run: npm ci
-      - run: >
+      - name: Install dependencies
+        run: npm ci
+      - name: Run the Access storage tests
+        run: >
           npx vitest run
           tests/accessStorage.test.ts
           tests/accessStorageEngine.test.ts
@@ -91,7 +98,7 @@ jobs:
   ci-passed:
     name: CI passed
     if: always()
-    needs: [typescript, languages, access]
+    needs: [build, languages, access]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

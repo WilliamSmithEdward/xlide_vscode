@@ -14,11 +14,11 @@ import {
 	scanErrors,
 } from '../.github/scripts/yara-x-sarif.mjs';
 
-// The ClamAV and YARA-X jobs of the Security workflow: what their converters
-// read from each scanner, what they refuse to trust, and that the SARIF they
-// write passes through the existing gate and release report. The canary is
-// checked in memory only: written to disk here, it would be the EICAR test
-// file this machine's antivirus reacts to.
+// The ClamAV and YARA-X jobs of the Malware scan workflow: what their
+// converters read from each scanner, what they refuse to trust, and that the
+// SARIF they write passes through the existing gate and release report. The
+// canary is checked in memory only: written to disk here, it would be the
+// EICAR test file this machine's antivirus reacts to.
 
 const CANARY = 'scan-canary/eicar.com';
 const repoRoot = path.join(__dirname, '..');

@@ -118,27 +118,8 @@ jobs:
           name: npm-audit
           path: npm-audit.json
 
-  # The one check branch protection requires: it passes only when every
-  # check above did, so checks can be added or renamed without touching the
-  # rules. The release report is not among them.
-  security-passed:
-    name: Security passed
-    if: always()
-    needs: [codeql, semgrep, dependencies]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 5
-    steps:
-      - name: Check every security job passed
-        env:
-          RESULTS: ${{ join(needs.*.result, ' ') }}
-        run: |
-          echo "Results: $RESULTS"
-          for result in $RESULTS; do
-            [ "$result" = success ] || exit 1
-          done
-
-  report:
-    name: Attach security report to the release
+  release-report:
+    name: Attach release report
     if: always() && github.event_name == 'release'
     needs: [codeql, semgrep, dependencies]
     runs-on: ubuntu-24.04
@@ -166,3 +147,22 @@ jobs:
       - name: Fail when a gate failed
         if: needs.codeql.result != 'success' || needs.semgrep.result != 'success' || needs.dependencies.result != 'success'
         run: exit 1
+
+  # The one check branch protection requires: it passes only when every
+  # check above did, so checks can be added or renamed without touching the
+  # rules. The release report is not among them.
+  security-passed:
+    name: Security passed
+    if: always()
+    needs: [codeql, semgrep, dependencies]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check every security job passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "Results: $RESULTS"
+          for result in $RESULTS; do
+            [ "$result" = success ] || exit 1
+          done
