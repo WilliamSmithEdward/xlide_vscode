@@ -103,6 +103,14 @@ export function walkProcedureStatements(
 			continue;
 		}
 		hooks?.beforeMember?.(member);
+		// Skipped before its visitors are built: an incremental pass walks the
+		// edited procedure only, and asking every rule for a visitor for each
+		// of the others cost a large module tens of milliseconds a keystroke.
+		// A visitor is per member (cross-member state belongs in a run rule),
+		// so a skipped one had nothing to contribute.
+		if (hooks?.skipBody?.(member)) {
+			continue;
+		}
 		const callbacks: Array<(stmt: LeafStatementNode) => void> = [];
 		for (const visitor of visitors) {
 			const callback = visitor(member);
@@ -110,7 +118,7 @@ export function walkProcedureStatements(
 				callbacks.push(callback);
 			}
 		}
-		if (callbacks.length === 0 || hooks?.skipBody?.(member)) {
+		if (callbacks.length === 0) {
 			continue;
 		}
 		forEachStatement(member.body, (stmt) => {

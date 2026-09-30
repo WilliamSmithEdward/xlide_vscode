@@ -45,10 +45,11 @@ export function walkProcedureExpressions(
 			continue;
 		}
 		hooks?.beforeMember?.(member);
-		const visitors = factories.map((factory) => factory(member));
+		// Skipped before its visitors are built, as in walkProcedureStatements.
 		if (hooks?.skipBody?.(member)) {
 			continue;
 		}
+		const visitors = factories.map((factory) => factory(member));
 		forEachExpressionInBody(member.body, activity, (expr) => {
 			for (const visit of visitors) {
 				visit(expr);
