@@ -26,7 +26,8 @@
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import {
 	collectProcedureLabelReferences,
-	statementLabelDeclaration,
+	statementLabelDeclarations,
+	type VbaProcedureLabel,
 } from '../../flow/procedureLabels';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { BodyNode, LeafStatementNode, ModuleNode, ProcedureNode, Span } from '../../parser/nodes';
@@ -46,9 +47,8 @@ import {
 interface TopLevelEntry {
 	node: BodyNode;
 	leaf: LeafStatementNode | undefined;
-	/** The label this statement declares, lower-cased, when it does. */
-	label?: string;
-	labelSpan?: Span;
+	/** The labels this statement declares: none, one, or a line number and a name (`10 L1:`). */
+	labels: VbaProcedureLabel[];
 }
 
 export function checkHandlerFlow(
@@ -79,11 +79,10 @@ function topLevelEntries(
 			continue;
 		}
 		if (!isLeafStatement(node)) {
-			out.push({ node, leaf: undefined });
+			out.push({ node, leaf: undefined, labels: [] });
 			continue;
 		}
-		const label = statementLabelDeclaration(source, node.span);
-		out.push({ node, leaf: node, label: label?.key, labelSpan: label?.span });
+		out.push({ node, leaf: node, labels: statementLabelDeclarations(source, node.span) });
 	}
 	return out;
 }
@@ -107,7 +106,7 @@ function leavesUnconditionally(source: string, stmt: LeafStatementNode): boolean
 function labelBody(entries: readonly TopLevelEntry[], index: number): TopLevelEntry[] {
 	const out: TopLevelEntry[] = [];
 	for (let k = index; k < entries.length; k++) {
-		if (k > index && entries[k].label !== undefined) {
+		if (k > index && entries[k].labels.length > 0) {
 			break;
 		}
 		out.push(entries[k]);
@@ -128,7 +127,7 @@ function checkFallThroughIntoTargets(
 	const named = new Set(references.map((ref) => ref.key));
 	for (let i = 0; i < entries.length; i++) {
 		const entry = entries[i];
-		if (entry.label === undefined || !entry.labelSpan) {
+		if (entry.labels.length === 0) {
 			continue;
 		}
 		// The flow above must be a plain statement that does not leave, and
@@ -141,25 +140,27 @@ function checkFallThroughIntoTargets(
 			continue;
 		}
 		const body = labelBody(entries, i);
-		if (handlerLabels.has(entry.label)) {
+		const handler = entry.labels.find((label) => handlerLabels.has(label.key));
+		if (handler) {
 			const reraise = body.find((one) => one.leaf && reraisesPendingError(source, one.leaf));
 			const exitsFirst = body.findIndex((one) => one.leaf && leavesUnconditionally(source, one.leaf) && !reraisesPendingError(source, one.leaf));
 			if (reraise && (exitsFirst < 0 || body.indexOf(reraise) < exitsFirst)) {
 				push(
 					'handlerFallThrough',
-					`Execution falls into error handler '${labelText(source, entry)}' with no error pending, and 'Err.Raise Err.Number' then raises with Err.Number 0. This will raise Run-time error '5': Invalid procedure call or argument. Put an Exit ${procedureWord(proc)} before the label.`,
-					entry.labelSpan,
+					`Execution falls into error handler '${handler.text}' with no error pending, and 'Err.Raise Err.Number' then raises with Err.Number 0. This will raise Run-time error '5': Invalid procedure call or argument. Put an Exit ${procedureWord(proc)} before the label.`,
+					handler.span,
 				);
 			}
 		}
-		if (gosubLabels.has(entry.label)) {
+		const target = entry.labels.find((label) => gosubLabels.has(label.key));
+		if (target) {
 			const returns = body.find((one) => one.leaf && tokenText(statementTokensAfterLeadingLabel(source, one.leaf.span)[0]) === 'return');
 			const exitsFirst = body.findIndex((one) => one.leaf && leavesUnconditionally(source, one.leaf));
 			if (returns && body.indexOf(returns) === exitsFirst) {
 				push(
 					'returnWithoutGosub',
-					`Execution falls into GoSub target '${labelText(source, entry)}' from the statement above it, and its Return then has no GoSub to return to. This will raise Run-time error '3': Return without GoSub. Put an Exit ${procedureWord(proc)} before the label.`,
-					entry.labelSpan,
+					`Execution falls into GoSub target '${target.text}' from the statement above it, and its Return then has no GoSub to return to. This will raise Run-time error '3': Return without GoSub. Put an Exit ${procedureWord(proc)} before the label.`,
+					target.span,
 				);
 			}
 		}
@@ -176,7 +177,7 @@ function checkFallThroughIntoTargets(
 function runs(source: string, entries: readonly TopLevelEntry[], index: number, named: ReadonlySet<string>): boolean {
 	for (let k = index; k >= 0; k--) {
 		const entry = entries[k];
-		if (entry.label !== undefined && named.has(entry.label)) {
+		if (entry.labels.some((label) => named.has(label.key))) {
 			return true;
 		}
 		if (k < index && entry.leaf && leavesUnconditionally(source, entry.leaf)) {
@@ -194,10 +195,6 @@ function reraisesPendingError(source: string, stmt: LeafStatementNode): boolean 
 	const toks = statementTokensAfterLeadingLabel(source, stmt.span);
 	return tokenText(toks[0]) === 'err' && toks[1]?.rawText === '.' && tokenText(toks[2]) === 'raise'
 		&& tokenText(toks[3]) === 'err' && toks[4]?.rawText === '.' && tokenText(toks[5]) === 'number';
-}
-
-function labelText(source: string, entry: TopLevelEntry): string {
-	return entry.labelSpan ? source.slice(entry.labelSpan.start, entry.labelSpan.end) : entry.label ?? '';
 }
 
 function procedureWord(proc: ProcedureNode): string {
@@ -316,8 +313,9 @@ export function errorHandlerExtents(source: string, proc: ProcedureNode): Span[]
 	const out: Span[] = [];
 	for (let i = 0; i < entries.length; i++) {
 		const entry = entries[i];
-		const kinds = entry.label === undefined ? undefined : kindsByLabel.get(entry.label);
-		if (!kinds || kinds.size !== 1 || !kinds.has('on-error-goto')) {
+		// What names any of the line's labels: `10 H:` is entered by GoTo 10 as well.
+		const kinds = new Set(entry.labels.flatMap((label) => [...(kindsByLabel.get(label.key) ?? [])]));
+		if (kinds.size !== 1 || !kinds.has('on-error-goto')) {
 			continue;
 		}
 		const above = entries[i - 1];
@@ -327,7 +325,7 @@ export function errorHandlerExtents(source: string, proc: ProcedureNode): Span[]
 		let end = proc.span.end;
 		for (let k = i; k < entries.length; k++) {
 			const one = entries[k];
-			const entered = k > i && one.label !== undefined && kindsByLabel.has(one.label);
+			const entered = k > i && one.labels.some((label) => kindsByLabel.has(label.key));
 			if (entered || resetsHandler(source, one.node)) {
 				end = one.node.span.start;
 				break;

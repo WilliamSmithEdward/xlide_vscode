@@ -11,6 +11,7 @@ import { tokenize } from '../lexer/tokenize';
 import {
 	isIdentLike,
 	matchParenFrom,
+	startsPhysicalLine,
 	statementTokensCached,
 	tokenName,
 	tokensWithoutLeadingLineNumber,
@@ -142,7 +143,8 @@ export function bareCallStatementTarget(
 			while (j < source.length && (source[j] === ' ' || source[j] === '\t')) {
 				j++;
 			}
-			if (source[j] === ':') {
+			// `Name:` is a label only at the start of its line; `10: L1:` calls L1.
+			if (source[j] === ':' && startsPhysicalLine(source, span.start)) {
 				return undefined;
 			}
 		}

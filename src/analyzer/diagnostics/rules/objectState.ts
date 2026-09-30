@@ -23,7 +23,7 @@ import {
 } from '../analysisContext';
 import { walkBranchMergedBody, walkStraightLineBody } from '../dataflow';
 import { procedureHasUnstructuredFlow } from '../../flow/procedureUnstructured';
-import { statementLabelDeclaration, statementLabelReferences } from '../../flow/procedureLabels';
+import { statementLabelDeclarations, statementLabelReferences } from '../../flow/procedureLabels';
 import { resolveExhaustiveMemberSurface } from '../rules/shared';
 import {
 	declaredTypeForSourceBinding,
@@ -328,9 +328,10 @@ function checkGoToIntoWith(
 				continue;
 			}
 			if (isLeafStatement(node)) {
-				const label = statementLabelDeclaration(source, node.span);
-				if (label && withs.length > 0 && !labels.has(label.key)) {
-					labels.set(label.key, { withs, access: firstLeadingDotMember(source, list, i, activity) });
+				for (const label of withs.length > 0 ? statementLabelDeclarations(source, node.span) : []) {
+					if (!labels.has(label.key)) {
+						labels.set(label.key, { withs, access: firstLeadingDotMember(source, list, i, activity) });
+					}
 				}
 				for (const ref of statementLabelReferences(source, node.span)) {
 					if (ref.statementKind === 'goto') {

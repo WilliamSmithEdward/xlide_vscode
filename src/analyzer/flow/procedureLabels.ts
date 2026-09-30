@@ -3,6 +3,7 @@ import { isReservedIdentifier } from '../lexer/keywordTable';
 import {
 	absoluteSpan,
 	splitTopLevelTokenGroups,
+	startsPhysicalLine,
 	statementTokens,
 	statementTokensCached,
 	tokenName,
@@ -64,10 +65,7 @@ export function collectProcedureLabelDeclarations(
 ): VbaProcedureLabel[] {
 	const labels: VbaProcedureLabel[] = [];
 	forEachProcedureStatement(procedure.body, (stmt) => {
-		const label = statementLabelDeclaration(source, stmt.span);
-		if (label) {
-			labels.push(label);
-		}
+		labels.push(...statementLabelDeclarations(source, stmt.span));
 	}, activity);
 	return labels;
 }
@@ -264,15 +262,28 @@ function statementAtOffset(body: BodyNode[], offset: number): LeafStatementNode 
 	return undefined;
 }
 
+/** The statement's first label, when it declares any: the line number of `10 L1:`. */
 export function statementLabelDeclaration(source: string, span: Span): VbaProcedureLabel | undefined {
+	return statementLabelDeclarations(source, span)[0];
+}
+
+/**
+ * Every label the statement declares. A line can carry a line number and a
+ * name both, `10 L1: x = 1`, and each is a target: GoTo 10 and Erl see the
+ * number, GoTo L1 and Resume L1 the name (issue #230, measured in Excel
+ * 16.0). A name is a label only at the start of its physical line, after
+ * the line number if there is one: in `10: L1:` and `10 L1: L2:` the VBE
+ * reads the second word as a call.
+ */
+export function statementLabelDeclarations(source: string, span: Span): VbaProcedureLabel[] {
 	const toks = statementTokensCached(source, span);
 	const first = toks[0];
 	if (!first) {
-		return undefined;
+		return [];
 	}
 	const label = labelFromToken(first, span);
 	if (!label) {
-		return undefined;
+		return [];
 	}
 	if (first.kind === 'integerLiteral') {
 		// A leading decimal integer is a line-label declaration whether or not a
@@ -281,15 +292,21 @@ export function statementLabelDeclaration(source: string, span: Span): VbaProced
 		// a trailing statement here previously left bare numeric labels uncollected,
 		// so references to them falsely fired `undefined-label`. `labelFromToken`
 		// already gated non-decimal forms (hex/octal) to undefined above.
-		return label;
+		const named = toks.length === 2 && toks[1].kind !== 'integerLiteral' && hasSourceColonAfterToken(source, span, toks[1])
+			? labelFromToken(toks[1], span)
+			: undefined;
+		return named ? [label, named] : [label];
+	}
+	if (!startsPhysicalLine(source, span.start)) {
+		return [];
 	}
 	if (toks.length >= 2 && toks[1].rawText === ':') {
-		return label;
+		return [label];
 	}
 	if (toks.length === 1 && hasSourceColonAfterToken(source, span, first)) {
-		return label;
+		return [label];
 	}
-	return undefined;
+	return [];
 }
 
 function onStatementLabelReferences(
