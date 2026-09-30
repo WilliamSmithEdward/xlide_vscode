@@ -208,6 +208,7 @@ export class AnalysisWorkerState {
 			diagnostics: result.diagnostics,
 			suppressedDiagnostics: result.suppressedDiagnostics,
 			incrementalMode: result.rulesIncrementalMode,
+			...(result.analysisFailures ? { analysisFailures: result.analysisFailures } : {}),
 		};
 	}
 }

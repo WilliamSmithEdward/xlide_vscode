@@ -11,7 +11,7 @@ import type {
 	WorkerImplicitMember,
 	WorkerSeedModule,
 } from './analysisWorkerProtocol';
-import type { VbaModuleAnalysisDiagnostic } from './vbaModuleAnalysis';
+import type { VbaModuleAnalysisDiagnostic, VbaModuleAnalysisFailure } from './vbaModuleAnalysis';
 
 export interface WorkerAnalyzeRequest {
 	docKey: string;
@@ -38,6 +38,7 @@ export interface WorkerAnalyzeResult {
 	diagnostics: VbaModuleAnalysisDiagnostic[];
 	suppressedDiagnostics: VbaModuleAnalysisDiagnostic[];
 	incrementalMode?: 'full' | 'incremental';
+	analysisFailures?: VbaModuleAnalysisFailure[];
 }
 
 interface PendingRequest {
@@ -200,6 +201,7 @@ export class AnalysisWorkerClient {
 			diagnostics: response.diagnostics,
 			suppressedDiagnostics: response.suppressedDiagnostics,
 			incrementalMode: response.incrementalMode,
+			...(response.analysisFailures ? { analysisFailures: response.analysisFailures } : {}),
 		});
 	}
 

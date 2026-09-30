@@ -22,7 +22,7 @@ import {
 } from './analyzer';
 import { lineStartOffsets, offsetToLineColumn } from './vbaSourceScan';
 import { evictOldest } from './util/boundedMap';
-import { analyzeVbaModuleSource, type VbaModuleAnalysisDiagnostic } from './vbaModuleAnalysis';
+import { analyzeVbaModuleSource, type VbaModuleAnalysisDiagnostic, type VbaModuleAnalysisFailure } from './vbaModuleAnalysis';
 import { hostTokenForFileName } from './analyzer/host/hostRegistry';
 import { referencedHostTokens } from './analyzer/host/hostLibraries';
 import type { VbaProjectReference } from './vba/vbaProjectReferences';
@@ -42,6 +42,7 @@ import {
 import { effectiveProjectAnalysisSettings } from './projectAnalysisSettings';
 import { measurePerformance, measurePerformanceSync, startPerformanceTrace } from './performanceTrace';
 import { mapWithConcurrency, yieldToExtensionHost } from './util/async';
+import { logAnalysisFailures } from './analysisFailureLog';
 
 export type ProjectAnalysisSeverity = 'error' | 'warning' | 'information';
 export type ProjectAnalysisSummaryCategory = DiagnosticCategory | 'uncategorized';
@@ -169,6 +170,7 @@ export interface ProjectAnalysisWorker {
     }): Promise<{
         diagnostics: VbaModuleAnalysisDiagnostic[];
         suppressedDiagnostics: VbaModuleAnalysisDiagnostic[];
+        analysisFailures?: VbaModuleAnalysisFailure[];
     }>;
 }
 
@@ -573,6 +575,7 @@ async function runProjectAnalysis(
             modules,
             PROJECT_MODULE_ANALYSIS_CONCURRENCY,
             async (mod, index) => {
+                const moduleLabel = (name: string): string => `${filePath.split(/[\\/]/).pop()}/${name}`;
                 throwIfAnalysisCancelled(options.token);
                 progress.report(`Analyzing ${mod.name} (${index + 1}/${modules.length})...`);
                 await yieldToExtensionHost();
@@ -602,6 +605,7 @@ async function runProjectAnalysis(
                         );
                         throwIfAnalysisCancelled(options.token);
                         reportModuleDone(mod.name);
+                        logAnalysisFailures(moduleLabel(mod.name), workerResult.analysisFailures);
                         return {
                             problems: projectProblemsForModule(
                                 mod.name,
@@ -644,6 +648,7 @@ async function runProjectAnalysis(
                     }),
                 );
                 reportModuleDone(mod.name);
+                logAnalysisFailures(moduleLabel(mod.name), moduleAnalysis.analysisFailures);
                 return {
                     problems: projectProblemsForModule(
                         mod.name,

@@ -56,11 +56,17 @@ import {
     type XlideGlobalSettingsProblem,
 } from './globalSettings';
 import { errorMessage } from './util/errors';
+import { logAnalysisFailures } from './analysisFailureLog';
 import { visibleDiagnosticsForActiveLine } from './vbaActiveLineDiagnostics';
 import {
     XLIDE_DIAGNOSTIC_DATA,
     type XlideDiagnosticWithData,
 } from './xlideDiagnosticData';
+
+/** A module as a log line names it: `Book.xlsm/Module1.bas`, or a loose file with its folder. */
+function moduleLabel(uri: vscode.Uri): string {
+    return uri.path.split('/').filter(Boolean).slice(-2).join('/');
+}
 
 function projectContextKey(projectPath: string): string {
     return projectIdentityKey(path.resolve(projectPath));
@@ -689,10 +695,11 @@ export function registerVbaDiagnostics(
 
     const diagnosticsFromModuleAnalysis = (
         document: vscode.TextDocument,
-        moduleAnalysis: Pick<ReturnType<typeof analyzeVbaModuleSource>, 'diagnostics'>,
+        moduleAnalysis: Pick<ReturnType<typeof analyzeVbaModuleSource>, 'diagnostics' | 'analysisFailures'>,
         untrackedRules: readonly string[],
         settingsDiagnostics: readonly vscode.Diagnostic[],
     ): vscode.Diagnostic[] => {
+        logAnalysisFailures(moduleLabel(document.uri), moduleAnalysis.analysisFailures);
         const diagnostics: vscode.Diagnostic[] = [...settingsDiagnostics];
         for (const d of moduleAnalysis.diagnostics) {
             if (!isAnalysisRuleTracked(d.code, untrackedRules)) {

@@ -52,6 +52,7 @@ import {
 } from './ruleMetadata';
 
 export type {
+	AnalysisFailure,
 	AnalyzeModuleOptions,
 	DiagnosticSeverityOverrides,
 	VbaCreateProcedureStubData,
@@ -61,6 +62,7 @@ export type {
 } from './analysisContext';
 import { isObjectModuleKind } from './analysisContext';
 import type {
+	AnalysisFailure,
 	AnalyzeModuleOptions,
 	DiagnosticSeverityOverrides,
 	PushFn,
@@ -89,17 +91,135 @@ function severityOf(
 
 /**
  * Analyzes one VBA module source and returns its active diagnostics.
- * Never throws: any internal failure yields an empty list.
+ * Never throws: a failure of its own costs the findings of what failed - one
+ * rule, one rule's walk, or the whole pass - and is reported to
+ * `opts.onInternalError`, so a caller can tell a module that is clean from one
+ * that was not fully checked.
  */
 export function analyzeModule(
 	source: string,
 	opts: AnalyzeModuleOptions = {},
 ): VbaDiagnostic[] {
+	const report = internalErrorReporter(opts);
 	try {
-		return runRules(source, withResolvedHostModel(opts));
-	} catch {
+		return runRules(source, withResolvedHostModel(withUsableProjectProcedures(opts, report)), report);
+	} catch (err) {
+		report(err, { stage: 'analysis' });
 		return [];
 	}
+}
+
+type ReportInternalError = (error: unknown, where: AnalysisFailure) => void;
+
+function internalErrorReporter(opts: AnalyzeModuleOptions): ReportInternalError {
+	const callback = opts.onInternalError;
+	return (error, where) => {
+		try {
+			callback?.(error, where);
+		} catch {
+			// The host's callback failing must not make analysis throw.
+		}
+	};
+}
+
+/**
+ * `projectProcedures` is a Map from lowercased name to signatures
+ * (projectProcedureSignatures). The editor contexts carry an array under the
+ * same name (visibleProcedureSignatures), and one passed here made nine rules
+ * throw on first use while the rest reported as usual. It is left out and
+ * reported instead: converting it would not give the same checks, since the
+ * array holds the module's own private procedures too.
+ */
+function withUsableProjectProcedures(opts: AnalyzeModuleOptions, report: ReportInternalError): AnalyzeModuleOptions {
+	const procedures: unknown = opts.projectProcedures;
+	if (procedures === undefined || procedures instanceof Map) {
+		return opts;
+	}
+	const given = Array.isArray(procedures) ? 'an array' : typeof procedures;
+	report(
+		new TypeError(`projectProcedures must be a Map of lowercased name to signatures (projectProcedureSignatures), not ${given}`),
+		{ stage: 'options' },
+	);
+	return { ...opts, projectProcedures: undefined };
+}
+
+/**
+ * A rule's statement visitor that cannot stop the shared walk for every other
+ * rule: its first failure is reported, and the rule sits out the rest of the
+ * module while the others walk on.
+ */
+function guardStatementVisitor(
+	visitor: ProcedureStatementVisitor,
+	rule: string,
+	report: ReportInternalError,
+): ProcedureStatementVisitor {
+	let failed = false;
+	const fail = (err: unknown): void => {
+		failed = true;
+		report(err, { stage: 'statement-walk', rule });
+	};
+	return (member) => {
+		if (failed) {
+			return undefined;
+		}
+		let callback: ReturnType<ProcedureStatementVisitor>;
+		try {
+			callback = visitor(member);
+		} catch (err) {
+			fail(err);
+			return undefined;
+		}
+		if (!callback) {
+			return undefined;
+		}
+		const visit = callback;
+		return (stmt) => {
+			if (failed) {
+				return;
+			}
+			try {
+				visit(stmt);
+			} catch (err) {
+				fail(err);
+			}
+		};
+	};
+}
+
+/** The expression-walk counterpart of {@link guardStatementVisitor}. */
+function guardExpressionVisitor(
+	visitor: ProcedureExpressionVisitor,
+	rule: string,
+	report: ReportInternalError,
+): ProcedureExpressionVisitor {
+	let failed = false;
+	const fail = (err: unknown): void => {
+		failed = true;
+		report(err, { stage: 'expression-walk', rule });
+	};
+	const skip = (): void => undefined;
+	return (member) => {
+		if (failed) {
+			return skip;
+		}
+		let visit: ReturnType<ProcedureExpressionVisitor>;
+		try {
+			visit = visitor(member);
+		} catch (err) {
+			fail(err);
+			return skip;
+		}
+		return (expr) => {
+			if (failed) {
+				return;
+			}
+			try {
+				visit(expr);
+			} catch (err) {
+				fail(err);
+			}
+		};
+	};
 }
 
 /**
@@ -137,6 +257,7 @@ export function incompleteExpressionEditSpan(
 function runRules(
 	source: string,
 	opts: AnalyzeModuleOptions,
+	report: ReportInternalError,
 ): VbaDiagnostic[] {
 	const moduleName = opts.moduleName ?? 'Module';
 	const moduleKind = opts.moduleKind ?? 'standard';
@@ -210,13 +331,14 @@ function runRules(
 				rule.run(ctx, push);
 			}
 			if (rule.procedureStatements) {
-				statementVisitors.push(rule.procedureStatements(ctx, push));
+				statementVisitors.push(guardStatementVisitor(rule.procedureStatements(ctx, push), rule.name, report));
 			}
 			if (rule.procedureExpressions) {
-				expressionVisitors.push(rule.procedureExpressions(ctx, push));
+				expressionVisitors.push(guardExpressionVisitor(rule.procedureExpressions(ctx, push), rule.name, report));
 			}
-		} catch {
+		} catch (err) {
 			// Degrade only this rule; keep the rest of the pass intact.
+			report(err, { stage: 'rule', rule: rule.name });
 		}
 	}
 	// A visitor throwing during a shared walk must not blank the run()-based
@@ -230,12 +352,18 @@ function runRules(
 		skipBody: (member: ProcedureNode): boolean => (filter ? !filter(member) : false),
 	};
 	phase = 'walk';
+	// Each rule's visitor is guarded on its own; what these catch is the walk
+	// itself failing, which ends it for every rule from there on.
 	try {
 		walkProcedureStatements(ctx.mod, ctx.activity, statementVisitors, walkHooks);
-	} catch { /* degrade gracefully */ }
+	} catch (err) {
+		report(err, { stage: 'statement-walk' });
+	}
 	try {
 		walkProcedureExpressions(ctx.mod, ctx.activity, expressionVisitors, walkHooks);
-	} catch { /* degrade gracefully */ }
+	} catch (err) {
+		report(err, { stage: 'expression-walk' });
+	}
 	phase = 'run';
 	walkMemberStart = undefined;
 	walkMemberIncluded = true;

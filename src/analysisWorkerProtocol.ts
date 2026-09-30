@@ -1,7 +1,7 @@
 // Message protocol between the extension host and the analysis worker thread.
 // Everything crossing the boundary must be structured-cloneable plain data.
 
-import type { VbaModuleAnalysisDiagnostic } from './vbaModuleAnalysis';
+import type { VbaModuleAnalysisDiagnostic, VbaModuleAnalysisFailure } from './vbaModuleAnalysis';
 
 /**
  * A member a module has that its own text never declares - a UserForm control,
@@ -110,6 +110,8 @@ export type AnalysisWorkerResponse =
 		/** Findings silenced by suppression directives; project analysis reports them separately. */
 		suppressedDiagnostics: VbaModuleAnalysisDiagnostic[];
 		incrementalMode?: 'full' | 'incremental';
+		/** Failures the analysis recovered from, when there were any. */
+		analysisFailures?: VbaModuleAnalysisFailure[];
 	}
 	| {
 		kind: 'error';

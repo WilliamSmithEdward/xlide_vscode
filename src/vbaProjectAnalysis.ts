@@ -8,6 +8,7 @@ import {
     type VbaSymbol,
 } from './analyzer';
 import { yieldToExtensionHost } from './util/async';
+import { logAnalysisFailures } from './analysisFailureLog';
 
 export interface VbaProjectModuleInput {
     moduleName: string;
@@ -73,7 +74,14 @@ export type VbaProjectAnalysisOptions = Pick<
     | 'implicitMembers'
     | 'implementedInterfaces'
     | 'conditionalCompilation'
->;
+> & {
+    /**
+     * Why the project-sensitive options are absent, when the index could not
+     * answer for the module: the analysis reports it, so a module checked
+     * without its project is not taken for a clean one (issue #178).
+     */
+    projectContextFailure?: unknown;
+};
 
 export interface VbaProjectEditorSymbolContext {
     analysisOptions: VbaProjectAnalysisOptions;
@@ -163,11 +171,24 @@ export function buildVbaProjectIndex(
     return index;
 }
 
+/**
+ * A module the live index leaves out, written to the analysis failure log:
+ * every other module then sees none of its declarations, and nothing said so
+ * (issue #178). A caller that keeps its own record passes onInvalidModule.
+ */
+function logModuleLeftOut(moduleName: string, error: unknown): void {
+    logAnalysisFailures(moduleName, [{
+        stage: 'index',
+        message: error instanceof Error ? error.message : String(error),
+        ...(error instanceof Error && error.stack ? { stack: error.stack } : {}),
+    }]);
+}
+
 export function buildLiveVbaProjectIndex(
     modules: readonly VbaProjectModuleInput[],
     liveOverride?: VbaProjectLiveOverride,
 ): ProjectIndex {
-    return buildVbaProjectIndex(modules, liveOverride, { ignoreInvalidModules: true });
+    return buildVbaProjectIndex(modules, liveOverride, { ignoreInvalidModules: true, onInvalidModule: logModuleLeftOut });
 }
 
 export async function buildVbaProjectIndexAsync(
@@ -200,6 +221,7 @@ export function buildLiveVbaProjectIndexAsync(
     options: Omit<VbaProjectIndexBuildOptions, 'ignoreInvalidModules'> = {},
 ): Promise<ProjectIndex> {
     return buildVbaProjectIndexAsync(modules, liveOverride, {
+        onInvalidModule: logModuleLeftOut,
         ...options,
         ignoreInvalidModules: true,
     });
@@ -222,30 +244,37 @@ export function projectAnalysisOptionsForModule(
 ): VbaProjectAnalysisOptions {
     const options: VbaProjectAnalysisOptions = { projectProcedures };
     try {
-        options.knownProcedures = project.visibleProcedureNames(moduleName);
-        options.knownIdentifiers = project.visibleIdentifierNames(moduleName);
-        options.knownNonTypeNames = project.visibleNonTypeNames(moduleName);
-        options.projectTypes = project.visibleTypeNames(moduleName);
-        options.projectVisibleSymbols = project.visibleIdentifierSymbols(moduleName);
-        options.projectClassMembers = project.projectMemberSurfaces(moduleName);
-        options.projectIntegerConstants = project.visibleExternalIntegerConstantExpressions(moduleName);
-        options.projectStringLiteralWords = project.stringLiteralWords();
-        options.implementedInterfaces = project.implementedInterfaceNames();
+        // Taken together or not at all: a query failing partway left the
+        // answers before it set and the rest absent.
+        const answers: VbaProjectAnalysisOptions = {
+            knownProcedures: project.visibleProcedureNames(moduleName),
+            knownIdentifiers: project.visibleIdentifierNames(moduleName),
+            knownNonTypeNames: project.visibleNonTypeNames(moduleName),
+            projectTypes: project.visibleTypeNames(moduleName),
+            projectVisibleSymbols: project.visibleIdentifierSymbols(moduleName),
+            projectClassMembers: project.projectMemberSurfaces(moduleName),
+            projectIntegerConstants: project.visibleExternalIntegerConstantExpressions(moduleName),
+            projectStringLiteralWords: project.stringLiteralWords(),
+            implementedInterfaces: project.implementedInterfaceNames(),
         // The rules must see the same constants the symbol table was built
         // with, or a branch dropped from the symbols would still be analyzed.
-        options.conditionalCompilation = project.conditionalCompilation();
+            conditionalCompilation: project.conditionalCompilation(),
+        };
         // A UserForm's controls are members its own text never declares, so
         // without them every reference in the code-behind reads as undeclared.
         // The index knows them: host-supplied with the module, or parsed from
         // a `.frm` header when the source carries one.
         const controls = project.moduleImplicitMembers?.(moduleName) ?? [];
         if (controls.length > 0) {
-            options.implicitMembers = controls;
+            answers.implicitMembers = controls;
         }
-    } catch {
+        Object.assign(options, answers);
+    } catch (err) {
         // Leave every project-sensitive option absent when the index cannot
         // answer the module-specific question. Single-module analysis remains
-        // conservative rather than guessing at cross-module visibility.
+        // conservative rather than guessing at cross-module visibility, and
+        // says so.
+        options.projectContextFailure = err;
     }
     return options;
 }
@@ -259,10 +288,13 @@ export function projectEditorSymbolContextForModule(
     let externalProjectProcedures: VbaProcedureSignature[] = [];
     let externalProjectSymbols: VbaSymbol[] = [];
     try {
-        externalProjectProcedures = project.visibleProcedureSignatures(moduleName)
+        // Both or neither, as with the analysis options above.
+        const procedures = project.visibleProcedureSignatures(moduleName)
             .filter((procedure) => procedure.moduleName.toLowerCase() !== currentLower);
-        externalProjectSymbols = project.visibleIdentifierSymbols(moduleName)
+        const symbols = project.visibleIdentifierSymbols(moduleName)
             .filter((symbol) => symbol.moduleName.toLowerCase() !== currentLower);
+        externalProjectProcedures = procedures;
+        externalProjectSymbols = symbols;
     } catch {
         // Keep project editor surfaces conservative if the index cannot answer
         // visibility for this module.

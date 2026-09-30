@@ -133,6 +133,18 @@ export interface VbaAddLibraryReferenceData {
 export type DiagnosticSeverityOverrides = Partial<Record<string, DiagnosticSeverityOverride>>;
 
 /** Inputs for `analyzeModule`. */
+/**
+ * Where analyzeModule recovered from a failure of its own, and so what it did
+ * not check: `options`, an option it could not use and left out; `analysis`,
+ * the whole pass (nothing was checked); `rule`, one rule; `statement-walk` and
+ * `expression-walk`, one rule's visitor for the rest of the module, or with no
+ * rule named, the walk itself for the rest of the module.
+ */
+export interface AnalysisFailure {
+	stage: 'options' | 'analysis' | 'rule' | 'statement-walk' | 'expression-walk';
+	rule?: string;
+}
+
 export interface AnalyzeModuleOptions {
 	/** VB component name (used only for symbol container labels). */
 	moduleName?: string;
@@ -180,6 +192,14 @@ export interface AnalyzeModuleOptions {
 	 * single-module only.
 	 */
 	projectProcedures?: ReadonlyMap<string, readonly VbaProcedureSignature[]>;
+	/**
+	 * Called for each failure analyzeModule recovers from rather than throws
+	 * (issue #178). The diagnostics it still returns are those of the rules
+	 * that ran; this says what was not checked, so a host can tell a clean
+	 * module from one the analyser could not fully check. A callback that
+	 * throws is ignored.
+	 */
+	onInternalError?: (error: unknown, where: AnalysisFailure) => void;
 	/** Source-declared project object members and UDT fields visible to this module. */
 	projectClassMembers?: readonly VbaProjectClassMembers[];
 	/** Source-declared project type names visible to this module. */

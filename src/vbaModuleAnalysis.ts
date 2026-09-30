@@ -11,6 +11,7 @@ import {
     parseModule,
     scanAnalysisSuppressions,
     tokenizeCached,
+    type AnalysisFailure,
     type AnalyzeModuleOptions,
     type DiagnosticSeverity as RuleSeverity,
     type VbaDiagnosticData,
@@ -38,6 +39,8 @@ export interface VbaModuleAnalysisDiagnostic {
 export interface VbaModuleAnalysisInput extends AnalyzeModuleOptions {
     source: string;
     moduleType?: string;
+    /** From projectAnalysisOptionsForModule: the index could not answer for this module. */
+    projectContextFailure?: unknown;
     activeIncompleteExpressionOffset?: number;
     /**
      * Opt-in incremental rule re-analysis: pass the state returned by the
@@ -59,6 +62,21 @@ export interface VbaModuleAnalysisResult {
     /** Present when rulesIncremental was requested: feed into the next call. */
     rulesIncrementalState?: ModuleRulesIncrementalState;
     rulesIncrementalMode?: 'full' | 'incremental';
+    /**
+     * Failures the analysis recovered from, when there were any: the checks
+     * they stopped did not run, so the diagnostics above are not all there is
+     * (issue #178). Plain data, so it crosses the worker boundary.
+     */
+    analysisFailures?: VbaModuleAnalysisFailure[];
+}
+
+/** A failure an analysis recovered from, as data. */
+export interface VbaModuleAnalysisFailure {
+    /** analyzeModule's own stages, and the passes this module adds around it. */
+    stage: AnalysisFailure['stage'] | 'index' | 'project-context' | 'test-directives' | 'structural';
+    rule?: string;
+    message: string;
+    stack?: string;
 }
 
 /**
@@ -72,12 +90,25 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
         moduleType,
         activeIncompleteExpressionOffset,
         rulesIncremental,
+        projectContextFailure,
         ...restOptions
     } = input;
     // Resolve the caller's host token into a model ONCE, here, so the full
     // pass, the incremental pass and the structural checks all analyze under
     // the same host (issue #24). Absent keeps the Excel defaults.
     const analyzeOptions = withResolvedHostModel(restOptions);
+    const analysisFailures: VbaModuleAnalysisFailure[] = [];
+    const recordFailure = (error: unknown, where: Pick<VbaModuleAnalysisFailure, 'stage' | 'rule'>): void => {
+        analysisFailures.push({
+            ...where,
+            message: error instanceof Error ? error.message : String(error),
+            ...(error instanceof Error && error.stack ? { stack: error.stack } : {}),
+        });
+    };
+    analyzeOptions.onInternalError = recordFailure;
+    if (projectContextFailure !== undefined) {
+        recordFailure(projectContextFailure, { stage: 'project-context' });
+    }
     const starts = lineStartOffsets(source);
     // Lex and parse once per invocation; every pass below reuses these results.
     const module = analyzeOptions.parsedModule ?? parseModule(source);
@@ -126,8 +157,9 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
                 diagnostics.push(diagnostic);
             }
         }
-    } catch {
+    } catch (err) {
         // Test directive validation should never interrupt live analysis.
+        recordFailure(err, { stage: 'test-directives' });
     }
 
     const isTransientIncompleteExpressionDiagnostic = (
@@ -187,8 +219,9 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
             }
             diagnostics.push(diagnostic);
         }
-    } catch {
+    } catch (err) {
         // The structural pass is defensive; a failure should not break editing.
+        recordFailure(err, { stage: 'structural' });
     }
 
     let rulesIncrementalState: ModuleRulesIncrementalState | undefined;
@@ -222,8 +255,9 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
             }
             diagnostics.push(diagnostic);
         }
-    } catch {
+    } catch (err) {
         // Keep analysis non-throwing while the user is typing malformed VBA.
+        recordFailure(err, { stage: 'analysis' });
     }
 
     const deduplicatedSuppressedDiagnostics = deduplicateDiagnostics(suppressedDiagnostics);
@@ -232,6 +266,7 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
         suppressedDiagnostics: deduplicatedSuppressedDiagnostics,
         suppressedCount: deduplicatedSuppressedDiagnostics.length,
         ...(rulesIncrementalState ? { rulesIncrementalState, rulesIncrementalMode } : {}),
+        ...(analysisFailures.length > 0 ? { analysisFailures } : {}),
     };
 }
 

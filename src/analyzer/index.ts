@@ -207,6 +207,7 @@ export {
 export {
 	analyzeModule,
 	withResolvedHostModel,
+	AnalysisFailure,
 	AnalyzeModuleOptions,
 	incompleteExpressionEditSpan,
 	VbaDiagnostic,
