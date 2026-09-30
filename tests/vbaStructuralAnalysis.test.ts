@@ -428,6 +428,24 @@ describe('shared VBA source text helpers', () => {
     });
 });
 
+describe('findIdentifierOccurrences on a source asked again', () => {
+    // Stripped lines are kept per source text, for Find References, which
+    // scans every module twice a query. A kept text answers as a fresh one,
+    // and an edited text is its own.
+    it('answers the same for a text asked twice, and for the edit of it', () => {
+        const src = 'Sub T()\n    value = 1 \' value\n    Debug.Print "value", value\nEnd Sub\n';
+        const first = findIdentifierOccurrences(src, 'value');
+        expect(first.map((hit) => hit.offset)).toEqual([src.indexOf('value'), src.lastIndexOf('value')]);
+        first.length = 0;
+        expect(findIdentifierOccurrences(src, 'value')).toHaveLength(2);
+        expect(findIdentifierOccurrences(src, 'Print')).toHaveLength(1);
+
+        const edited = src.replace('    value = 1', "    ' value = 1");
+        expect(findIdentifierOccurrences(edited, 'value').map((hit) => hit.offset)).toEqual([edited.lastIndexOf('value')]);
+        expect(findIdentifierOccurrences(src, 'value')).toHaveLength(2);
+    });
+});
+
 describe('detectSmartBlockOpener procedure headers', () => {
     it('detects Sub', () => {
         expect(detectSmartBlockOpener('Sub Foo()')).toEqual({ endKeyword: 'End Sub' });

@@ -280,6 +280,37 @@ export function vbaHeaderBlockEnd(lines: readonly string[]): number {
 }
 
 /**
+ * A source's stripped lines and line starts, kept per source text within a
+ * character budget, least recently used first out. Find References and
+ * Rename scan every module of the project, twice each (the member-access pass
+ * and the bare pass), and stripping each whole module again every time was
+ * half the query. Callers must not change what is returned.
+ */
+const STRIPPED_SOURCE_BUDGET_CHARS = 16_000_000;
+const strippedSources = new Map<string, { lines: readonly string[]; starts: readonly number[] }>();
+let strippedSourceChars = 0;
+
+function strippedSource(source: string): { lines: readonly string[]; starts: readonly number[] } {
+    const kept = strippedSources.get(source);
+    if (kept) {
+        strippedSources.delete(source);
+        strippedSources.set(source, kept);
+        return kept;
+    }
+    const entry = { lines: stripVbaLines(source.split(/\r\n|\r|\n/)), starts: lineStartOffsets(source) };
+    strippedSources.set(source, entry);
+    strippedSourceChars += source.length;
+    for (const oldest of strippedSources.keys()) {
+        if (strippedSourceChars <= STRIPPED_SOURCE_BUDGET_CHARS || oldest === source) {
+            break;
+        }
+        strippedSources.delete(oldest);
+        strippedSourceChars -= oldest.length;
+    }
+    return entry;
+}
+
+/**
  * Finds whole-word identifier occurrences while ignoring strings and comments.
  * Offsets are absolute source offsets so callers do not recompute line starts.
  */
@@ -287,8 +318,7 @@ export function findIdentifierOccurrences(
     source: string,
     name: string,
 ): VbaIdentifierOccurrence[] {
-    const lines = stripVbaLines(source.split(/\r\n|\r|\n/));
-    const starts = lineStartOffsets(source);
+    const { lines, starts } = strippedSource(source);
     const lower = name.toLowerCase();
     const out: VbaIdentifierOccurrence[] = [];
     for (let i = 0; i < lines.length; i++) {
