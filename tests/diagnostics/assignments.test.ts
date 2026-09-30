@@ -794,9 +794,9 @@ describe('analyzeModule - assignment type validation', () => {
 					{ moduleName: 'Person', moduleKind: 'class', source: '' },
 				]),
 			}),
-			'assignment-object-type-mismatch',
+			'set-requires-object',
 		);
-		expectDiagnostic(src, hits, 'assignment-object-type-mismatch', { span: '"bad"' });
+		expectDiagnostic(src, hits, 'set-requires-object', { span: '"bad"' });
 	});
 
 	it('flags scalar Set assignment from a parameterless Function reference', () => {
@@ -813,9 +813,9 @@ describe('analyzeModule - assignment type validation', () => {
 					{ moduleName: 'Person', moduleKind: 'class', source: '' },
 				]),
 			}),
-			'assignment-object-type-mismatch',
+			'set-requires-object',
 		);
-		expectDiagnostic(src, hits, 'assignment-object-type-mismatch', { span: 'MakeLabel' });
+		expectDiagnostic(src, hits, 'set-requires-object', { span: 'MakeLabel' });
 	});
 
 	it('uses source-backed member return types in Set assignment expressions', () => {
@@ -832,9 +832,9 @@ describe('analyzeModule - assignment type validation', () => {
 					{ moduleName: 'Person', moduleKind: 'class', source: person },
 				]),
 			}),
-			'assignment-object-type-mismatch',
+			'set-requires-object',
 		);
-		expectDiagnostic(src, hits, 'assignment-object-type-mismatch', { span: 'Name' });
+		expectDiagnostic(src, hits, 'set-requires-object', { span: 'Name' });
 	});
 
 	it('uses host member-call return types in Set assignment compatibility', () => {
@@ -2251,10 +2251,10 @@ describe('analyzeModule - Set assignment validation', () => {
 			analyzeProjectModule(caller, [
 				{ moduleName: 'Globals', source: 'Public SharedText As String\n' },
 			], 'Caller'),
-			'assignment-object-type-mismatch',
+			'set-requires-object',
 		);
 
-		expectDiagnostic(caller, hits, 'assignment-object-type-mismatch', { span: 'SharedText' });
+		expectDiagnostic(caller, hits, 'set-requires-object', { span: 'SharedText' });
 	});
 
 	it('uses module-qualified exported scalar globals as Set RHS value types', () => {
@@ -2267,10 +2267,10 @@ describe('analyzeModule - Set assignment validation', () => {
 			analyzeProjectModule(caller, [
 				{ moduleName: 'Globals', source: 'Public SharedText As String\n' },
 			], 'Caller'),
-			'assignment-object-type-mismatch',
+			'set-requires-object',
 		);
 
-		expectDiagnostic(caller, hits, 'assignment-object-type-mismatch', { span: 'SharedText' });
+		expectDiagnostic(caller, hits, 'set-requires-object', { span: 'SharedText' });
 	});
 
 	it('uses verified runtime and host constants as Set RHS value types', () => {
@@ -2282,9 +2282,9 @@ describe('analyzeModule - Set assignment validation', () => {
 			'    Set target = xlAbove\n' +
 			'    Set target = vbNullString\n' +
 			'End Sub\n';
-		const hits = byCode(analyzeModule(src), 'assignment-object-type-mismatch');
+		const hits = byCode(analyzeModule(src), 'set-requires-object');
 
-		expectDiagnostics(src, hits, 'assignment-object-type-mismatch', [
+		expectDiagnostics(src, hits, 'set-requires-object', [
 			{ span: 'vbFalse', message: 'vbFalse As VbTriState' },
 			{ span: 'vbFalse', message: 'VBA.vbFalse As VbTriState' },
 			{ span: 'xlAbove', message: 'xlAbove As Constants' },

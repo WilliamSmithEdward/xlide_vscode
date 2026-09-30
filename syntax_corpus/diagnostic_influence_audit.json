@@ -513,18 +513,34 @@
     },
     {
       "code": "assignment-object-type-mismatch",
-      "status": "spec-derived",
-      "sourceOfTruth": "MS-VBAL 5.4.3 Set statement plus Excel/VBE compile oracle controls plus deterministic XLIDE object assignment compatibility model",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE runtime oracle (a Set of the wrong object class compiles and raises 13, issue #202) plus deterministic XLIDE object assignment compatibility model",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "excel_collection_default_item_assignment_compile",
         "issue197_02_runtime",
-        "issue197_17_runtime"
+        "issue197_17_runtime",
+        "issue202_01_runtime",
+        "issue202_02_runtime",
+        "issue202_03_runtime",
+        "issue202_04_runtime",
+        "issue202_05_runtime",
+        "issue202_06_runtime",
+        "issue202_07_runtime",
+        "issue202_09_runtime",
+        "issue202_10_runtime",
+        "issue202_11_runtime",
+        "issue202_14_runtime",
+        "issue202_22_runtime",
+        "issue202_24_runtime",
+        "issue202_25_runtime",
+        "issue202_26_runtime",
+        "issue202_28_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Only known object variable, Function/Property Get return-name, and member targets with deterministic RHS types are flagged. RHS inference includes bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, proven source-backed/host member return expressions, verified VBA runtime/generated host constants, and verified host globals such as Application, ActiveSheet, and ActiveCell when no source binding shadows the external name. Host collection property calls with arguments, such as Worksheet.ListObjects(\"Tests\"), use the collection default Item return type only when metadata proves the returned collection exposes Item and the property itself has no parameter signature. Same project class, Nothing, generic Object, Variant/unknown types, local shadows, ambiguous exported globals, unknown module qualifiers, and explicit Implements compatibility remain accepted.",
-      "diagnosticKind": "compile-error"
+      "notes": "Only known object variable, Function/Property Get return-name, and member targets with deterministic RHS types are flagged. RHS inference includes bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, proven source-backed/host member return expressions, verified VBA runtime/generated host constants, and verified host globals such as Application, ActiveSheet, and ActiveCell when no source binding shadows the external name. Host collection property calls with arguments, such as Worksheet.ListObjects(\"Tests\"), use the collection default Item return type only when metadata proves the returned collection exposes Item and the property itself has no parameter signature. A scalar value is set-requires-object, a compile error. Same project class, Nothing, generic Object, Variant/unknown types, local shadows, ambiguous exported globals, unknown module qualifiers, and explicit Implements compatibility remain accepted.",
+      "diagnosticKind": "deterministic-runtime-error"
     },
     {
       "code": "readonly-member-assignment",
@@ -1360,11 +1376,18 @@
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "set_scalar_integer_assignment",
-        "set_scalar_string_new_object_assignment_compile"
+        "set_scalar_string_new_object_assignment_compile",
+        "issue202_16_compile",
+        "issue202_17_compile",
+        "issue202_18_compile",
+        "issue202_19_compile",
+        "issue202_21_compile",
+        "issue202_23_compile",
+        "issue202_30_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Only known intrinsic scalar targets, including visible exported standard-module scalar globals, are flagged; unknown host/class object types are deferred to the object binder. Bare Set targets ask the shared assignment-target resolver first, so local shadows win and ambiguous exported globals stay quiet. The target type owns the error even when the right-hand side is an object expression such as New Collection.",
+      "notes": "Only known intrinsic scalar targets, including visible exported standard-module scalar globals, are flagged; unknown host/class object types are deferred to the object binder. Bare Set targets ask the shared assignment-target resolver first, so local shadows win and ambiguous exported globals stay quiet. The target type owns the error even when the right-hand side is an object expression such as New Collection. A scalar value Set into an object target is refused too: \"Type mismatch\" into a variable, \"Object required\" through a Property Set (issue #202).",
       "diagnosticKind": "compile-error"
     },
     {

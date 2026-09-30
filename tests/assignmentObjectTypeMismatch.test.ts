@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
 import { hostTokenForFileName } from '../src/analyzer/host/hostRegistry';
+import { buildVbaProjectIndex, projectAnalysisOptionsForModule, projectProcedureSignatures } from '../src/vbaProjectAnalysis';
 
 const MISMATCH = 'assignment-object-type-mismatch';
 
@@ -171,5 +172,74 @@ describe('a member called with its own arguments is what it returns (issue #197)
 	it.each(FLAGGED)('flags mismatch in %s: %s ... %s', (file, decls, stmt) => {
 		const src = `Sub S()\n    ${decls}\n    ${stmt}\nEnd Sub\n`;
 		expect(hostCodes(src, file)).toContain(MISMATCH);
+	});
+});
+
+describe('a Set of the wrong object class raises 13 when it runs (issue #202)', () => {
+	// Measured in Excel 16.0: each compiles, then raises 13 at the Set. A
+	// scalar value compiles no further: "Type mismatch" into a variable,
+	// "Object required" through a Property Set.
+	const CLASSES = [
+		{ moduleName: 'Disc', type: 'class', source: 'Option Explicit\nPublic R As Double\n' },
+		{ moduleName: 'Square', type: 'class', source: 'Option Explicit\nPublic S As Double\n' },
+		{ moduleName: 'Holder', type: 'class', source: 'Option Explicit\nPrivate m As Disc\nPublic Property Set Item(ByVal v As Disc)\n    Set m = v\nEnd Property\n' },
+		{ moduleName: 'Tree', type: 'class', source: 'Option Explicit\nPublic Property Get Children() As Collection\nEnd Property\n' },
+	];
+	function errors(body: string): Array<{ code: string; message: string }> {
+		const modules = [{ moduleName: 'Module1', type: 'standard', source: `Option Explicit\nFunction Main() As String\n    ${body}\nEnd Function\n` }, ...CLASSES];
+		const project = buildVbaProjectIndex(modules);
+		const procedures = projectProcedureSignatures(project);
+		return analyzeVbaModuleSource({
+			source: modules[0].source,
+			moduleName: 'Module1',
+			...projectAnalysisOptionsForModule(project, 'Module1', procedures),
+		}).diagnostics
+			.filter((d) => d.severity === 'error' && d.code !== 'object-variable-not-set')
+			.map((d) => ({ code: d.code ?? '', message: d.message }));
+	}
+
+	const RAISES: ReadonlyArray<readonly [string, string]> = [
+		['a class into another', 'Dim c As Disc\n    Set c = New Square'],
+		['a host object into another', 'Dim r As Range\n    Set r = ActiveWorkbook'],
+		['a bare Range call into a Worksheet', 'Dim ws As Worksheet\n    Set ws = Range("A1")'],
+		['a bare Cells call into a Worksheet', 'Dim ws As Worksheet\n    Set ws = Cells(1, 1)'],
+		['a bare Names call into a Worksheet', 'Dim ws As Worksheet\n    Set ws = Names("x")'],
+		['a class into a Collection', 'Dim c As Collection\n    Set c = New Square'],
+		['a Collection into a class', 'Dim q As Square\n    Set q = New Collection'],
+		['a Collection variable into a class', 'Dim d As Disc, c As New Collection\n    Set d = c'],
+		['a class through a Property Set', 'Dim h As New Holder\n    Set h.Item = New Square'],
+	];
+	it.each(RAISES)('reports %s as runtime error 13', (_name, body) => {
+		const hits = errors(body);
+		expect(hits.map((hit) => hit.code)).toEqual([MISMATCH]);
+		expect(hits[0].message).toMatch(/This will raise Run-time error '13': Type mismatch\.$/);
+	});
+
+	const REFUSED: ReadonlyArray<readonly [string, string, string]> = [
+		['a literal into a variable', 'Dim r As Range\n    Set r = 5', 'Type mismatch'],
+		['a Long into a variable', 'Dim r As Range, n As Long\n    Set r = n', 'Type mismatch'],
+		['a literal into Object', 'Dim obj As Object\n    Set obj = 42', 'Type mismatch'],
+		['a literal through a Property Set', 'Dim h As New Holder\n    Set h.Item = 5', 'Object required'],
+		['a Long through a Property Set', 'Dim h As New Holder, n As Long\n    Set h.Item = n', 'Object required'],
+	];
+	it.each(REFUSED)('reports %s as the compile error the VBE gives', (_name, body, error) => {
+		const hits = errors(body);
+		expect(hits.map((hit) => hit.code)).toEqual(['set-requires-object']);
+		expect(hits[0].message).toContain(`This is a VBE compile error: ${error}.`);
+	});
+
+	const RUNS: ReadonlyArray<readonly [string, string]> = [
+		['a Collection element into its class', 'Dim d As Disc, c As New Collection\n    c.Add New Disc\n    Set d = c(1)'],
+		["a member's Collection element", 'Dim t As New Tree, d As Disc\n    Set d = t.Children(1)'],
+		['a bare Cells call into a Range', 'Dim r As Range\n    Set r = Cells(1, 1)'],
+		['a bare Names call into a Name', 'Dim n As Name\n    Set n = Names("x")'],
+		['any object into Object', 'Dim o As Object\n    Set o = New Square'],
+	];
+	it.each(RUNS)('stays quiet for %s', (_name, body) => {
+		expect(errors(body)).toEqual([]);
+	});
+
+	it('is handled under On Error Resume Next, as the VBE handles it', () => {
+		expect(errors('Dim c As Disc\n    On Error Resume Next\n    Set c = New Square\n    Main = "survived " & (c Is Nothing)')).toEqual([]);
 	});
 });

@@ -13839,6 +13839,883 @@
       "source": "Option Explicit\nFunction Main() As String\n    Main = CStr(InStr(5, \"abc\", \"\")) & \"|\" & CStr(InStr(4, \"abc\", \"\")) & \"|\" & CStr(InStrRev(\"abc\", \"\", 5)) & \"|\" & CStr(InStrRev(\"abc\", \"\", 3))\nEnd Function\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue202_01_runtime",
+      "description": "Issue #202 case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim r As Range\n    Set r = ActiveWorkbook\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\nFunction MakeSquare() As Square\n    Set MakeSquare = New Square\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "IShape",
+          "type": "class",
+          "source": "Option Explicit\nPublic Function Area() As Double\nEnd Function\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nImplements IShape\nPrivate Function IShape_Area() As Double\n    IShape_Area = 1\nEnd Function\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue202_02_runtime",
+      "description": "Issue #202 case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim c As Disc\n    Set c = New Square\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\nFunction MakeSquare() As Square\n    Set MakeSquare = New Square\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "IShape",
+          "type": "class",
+          "source": "Option Explicit\nPublic Function Area() As Double\nEnd Function\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nImplements IShape\nPrivate Function IShape_Area() As Double\n    IShape_Area = 1\nEnd Function\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue202_03_runtime",
+      "description": "Issue #202 case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim s As IShape\n    Set s = New Disc\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\nFunction MakeSquare() As Square\n    Set MakeSquare = New Square\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "IShape",
+          "type": "class",
+          "source": "Option Explicit\nPublic Function Area() As Double\nEnd Function\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nImplements IShape\nPrivate Function IShape_Area() As Double\n    IShape_Area = 1\nEnd Function\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue202_04_runtime",
+      "description": "Issue #202 case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim ws As Worksheet\n    Set ws = Range(\"A1\")\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\nFunction MakeSquare() As Square\n    Set MakeSquare = New Square\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "IShape",
+          "type": "class",
+          "source": "Option Explicit\nPublic Function Area() As Double\nEnd Function\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nImplements IShape\nPrivate Function IShape_Area() As Double\n    IShape_Area = 1\nEnd Function\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue202_05_runtime",
+      "description": "Issue #202 case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim c As Collection\n    Set c = New Square\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\nFunction MakeSquare() As Square\n    Set MakeSquare = New Square\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "IShape",
+          "type": "class",
+          "source": "Option Explicit\nPublic Function Area() As Double\nEnd Function\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nImplements IShape\nPrivate Function IShape_Area() As Double\n    IShape_Area = 1\nEnd Function\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue202_06_runtime",
+      "description": "Issue #202 case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim q As Square\n    Set q = New Collection\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\nFunction MakeSquare() As Square\n    Set MakeSquare = New Square\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "IShape",
+          "type": "class",
+          "source": "Option Explicit\nPublic Function Area() As Double\nEnd Function\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nImplements IShape\nPrivate Function IShape_Area() As Double\n    IShape_Area = 1\nEnd Function\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue202_07_runtime",
+      "description": "Issue #202 case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim s As Shape\n    ActiveSheet.Shapes.AddShape(1, 1, 1, 9, 9).Name = \"BoxB\"\n    Set s = ActiveSheet.Shapes.Range(Array(\"BoxB\"))\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\nFunction MakeSquare() As Square\n    Set MakeSquare = New Square\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "IShape",
+          "type": "class",
+          "source": "Option Explicit\nPublic Function Area() As Double\nEnd Function\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nImplements IShape\nPrivate Function IShape_Area() As Double\n    IShape_Area = 1\nEnd Function\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue202_08_runtime",
+      "description": "Issue #202 case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> survived True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim c As Disc\n    On Error Resume Next\n    Set c = New Square\n    Main = \"survived \" & (c Is Nothing)\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\nFunction MakeSquare() As Square\n    Set MakeSquare = New Square\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "IShape",
+          "type": "class",
+          "source": "Option Explicit\nPublic Function Area() As Double\nEnd Function\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nImplements IShape\nPrivate Function IShape_Area() As Double\n    IShape_Area = 1\nEnd Function\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue202_09_runtime",
+      "description": "Issue #202 case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim c As Disc, q As Square\n    Set q = New Square\n    Set c = q\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\nFunction MakeSquare() As Square\n    Set MakeSquare = New Square\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "IShape",
+          "type": "class",
+          "source": "Option Explicit\nPublic Function Area() As Double\nEnd Function\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nImplements IShape\nPrivate Function IShape_Area() As Double\n    IShape_Area = 1\nEnd Function\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue202_10_runtime",
+      "description": "Issue #202 case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim c As Disc\n    Set c = MakeSquare()\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\nFunction MakeSquare() As Square\n    Set MakeSquare = New Square\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "IShape",
+          "type": "class",
+          "source": "Option Explicit\nPublic Function Area() As Double\nEnd Function\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nImplements IShape\nPrivate Function IShape_Area() As Double\n    IShape_Area = 1\nEnd Function\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue202_11_runtime",
+      "description": "Issue #202 case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim r As Range, ws As Worksheet\n    Set ws = ActiveSheet\n    Set r = ws\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\nFunction MakeSquare() As Square\n    Set MakeSquare = New Square\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "IShape",
+          "type": "class",
+          "source": "Option Explicit\nPublic Function Area() As Double\nEnd Function\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nImplements IShape\nPrivate Function IShape_Area() As Double\n    IShape_Area = 1\nEnd Function\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue202_12_runtime",
+      "description": "Issue #202 case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim s As IShape\n    Set s = New Square\n    Main = \"ok\"\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\nFunction MakeSquare() As Square\n    Set MakeSquare = New Square\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "IShape",
+          "type": "class",
+          "source": "Option Explicit\nPublic Function Area() As Double\nEnd Function\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nImplements IShape\nPrivate Function IShape_Area() As Double\n    IShape_Area = 1\nEnd Function\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue202_13_runtime",
+      "description": "Issue #202 case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim o As Object\n    Set o = New Square\n    Main = \"ok\"\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\nFunction MakeSquare() As Square\n    Set MakeSquare = New Square\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "IShape",
+          "type": "class",
+          "source": "Option Explicit\nPublic Function Area() As Double\nEnd Function\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nImplements IShape\nPrivate Function IShape_Area() As Double\n    IShape_Area = 1\nEnd Function\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue202_14_runtime",
+      "description": "Issue #202 case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim c As Collection\n    Set c = New Disc\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\nFunction MakeSquare() As Square\n    Set MakeSquare = New Square\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "IShape",
+          "type": "class",
+          "source": "Option Explicit\nPublic Function Area() As Double\nEnd Function\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nImplements IShape\nPrivate Function IShape_Area() As Double\n    IShape_Area = 1\nEnd Function\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue202_16_compile",
+      "description": "Issue #202 case 16, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim r As Range\n    Set r = 5\n    Main = \"ran\"\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue202_17_compile",
+      "description": "Issue #202 case 17, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim r As Range, n As Long\n    n = 1\n    Set r = n\n    Main = \"ran\"\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue202_18_compile",
+      "description": "Issue #202 case 18, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim r As Range\n    Set r = \"a\"\n    Main = \"ran\"\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue202_19_compile",
+      "description": "Issue #202 case 19, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim c As Disc, s As String\n    Set c = s\n    Main = \"ran\"\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue202_21_compile",
+      "description": "Issue #202 case 21, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim obj As Object\n    Set obj = 42\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nPublic S As Double\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\nPrivate m As Disc\nPublic Property Set Item(ByVal v As Disc)\n    Set m = v\nEnd Property\nPublic Property Get Item() As Disc\n    Set Item = m\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue202_22_runtime",
+      "description": "Issue #202 case 22, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim h As New Holder\n    Set h.Item = New Square\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nPublic S As Double\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\nPrivate m As Disc\nPublic Property Set Item(ByVal v As Disc)\n    Set m = v\nEnd Property\nPublic Property Get Item() As Disc\n    Set Item = m\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue202_23_compile",
+      "description": "Issue #202 case 23, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim h As New Holder\n    Set h.Item = 5\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nPublic S As Double\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\nPrivate m As Disc\nPublic Property Set Item(ByVal v As Disc)\n    Set m = v\nEnd Property\nPublic Property Get Item() As Disc\n    Set Item = m\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue202_24_runtime",
+      "description": "Issue #202 case 24, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim ws As Worksheet\n    Set ws = Cells(1, 1)\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nPublic S As Double\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\nPrivate m As Disc\nPublic Property Set Item(ByVal v As Disc)\n    Set m = v\nEnd Property\nPublic Property Get Item() As Disc\n    Set Item = m\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue202_25_runtime",
+      "description": "Issue #202 case 25, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim ws As Worksheet\n    Set ws = Rows(1)\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nPublic S As Double\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\nPrivate m As Disc\nPublic Property Set Item(ByVal v As Disc)\n    Set m = v\nEnd Property\nPublic Property Get Item() As Disc\n    Set Item = m\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue202_26_runtime",
+      "description": "Issue #202 case 26, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim ws As Worksheet\n    ThisWorkbook.Names.Add \"nm_issue\", \"=1\"\n    Set ws = Names(\"nm_issue\")\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nPublic S As Double\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\nPrivate m As Disc\nPublic Property Set Item(ByVal v As Disc)\n    Set m = v\nEnd Property\nPublic Property Get Item() As Disc\n    Set Item = m\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue202_27_runtime",
+      "description": "Issue #202 case 27, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> Disc.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim d As Disc, c As New Collection\n    c.Add New Disc\n    Set d = c(1)\n    Main = TypeName(d)\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nPublic S As Double\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\nPrivate m As Disc\nPublic Property Set Item(ByVal v As Disc)\n    Set m = v\nEnd Property\nPublic Property Get Item() As Disc\n    Set Item = m\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue202_28_runtime",
+      "description": "Issue #202 case 28, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim d As Disc, c As New Collection\n    Set d = c\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nPublic S As Double\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\nPrivate m As Disc\nPublic Property Set Item(ByVal v As Disc)\n    Set m = v\nEnd Property\nPublic Property Get Item() As Disc\n    Set Item = m\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue202_30_compile",
+      "description": "Issue #202 case 30, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim h As New Holder, n As Long\n    n = 1\n    Set h.Item = n\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nPublic S As Double\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\nPrivate m As Disc\nPublic Property Set Item(ByVal v As Disc)\n    Set m = v\nEnd Property\nPublic Property Get Item() As Disc\n    Set Item = m\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue202_29_runtime",
+      "description": "Issue #202 case 29, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> $A$1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\nFunction Main() As String\n    Dim r As Range\n    Set r = Cells(1, 1)\n    Main = r.Address\n    If Main = \"\" Then Main = \"ran\"\nEnd Function\n"
+        },
+        {
+          "name": "Disc",
+          "type": "class",
+          "source": "Option Explicit\nPublic R As Double\n"
+        },
+        {
+          "name": "Square",
+          "type": "class",
+          "source": "Option Explicit\nPublic S As Double\n"
+        },
+        {
+          "name": "Holder",
+          "type": "class",
+          "source": "Option Explicit\nPrivate m As Disc\nPublic Property Set Item(ByVal v As Disc)\n    Set m = v\nEnd Property\nPublic Property Get Item() As Disc\n    Set Item = m\nEnd Property\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

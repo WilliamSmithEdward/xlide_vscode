@@ -22,6 +22,7 @@ import {
 	resolveHostAlias,
 	resolveHostConstant,
 	resolveHostGlobal,
+	resolveHostGlobalMember,
 } from '../host/hostModel';
 import { hostTypeResolvesWhenCompiling } from '../host/typeExtensibility';
 import {
@@ -1891,6 +1892,10 @@ export function inferAtomicExpressionType(
 					span: { start: span.start, end: sliceStart + toks[callName.nameEndIndex].end },
 				};
 			}
+			const hostGlobal = inferBareHostGlobalCallType(toks, callName, sliceStart, moduleSignatures, sourceNames, memberCtx);
+			if (hostGlobal) {
+				return hostGlobal;
+			}
 		}
 	}
 	if (name && toks[1]?.rawText === '.') {
@@ -1953,6 +1958,44 @@ export function inferAtomicExpressionType(
 		return memberType;
 	}
 	return undefined;
+}
+
+/**
+ * `Range("A1")`, `Cells(1, 1)`, `Names(1)`: a member of the host's hidden
+ * Global interface called bare, which the member chains never see because
+ * nothing precedes it. Its arguments index what it returns the way any
+ * member call's do (issue #202).
+ */
+function inferBareHostGlobalCallType(
+	toks: readonly VbaToken[],
+	callName: { name: string; parenIndex: number },
+	sliceStart: number,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	sourceNames: SourceNameScope | undefined,
+	memberCtx: MemberCompletionContext | undefined,
+): InferredArgumentType | undefined {
+	const lower = callName.name.toLowerCase();
+	if (
+		!memberCtx
+		|| callName.parenIndex !== 1
+		|| matchParenFrom(toks, 1) !== toks.length - 1
+		|| moduleSignatures.has(lower)
+		|| bareCallableSourceShadowed(callName.name, sourceNames)
+		|| runtimeCallableSourceShadowed(callName.name, sourceNames)
+	) {
+		return undefined;
+	}
+	const member = resolveHostGlobalMember(callName.name, memberCtx.model);
+	if (!member?.returns) {
+		return undefined;
+	}
+	const owner = memberCtx.model?.globalType ?? '';
+	const type = memberExpressionReturnType({ ...member, owner }, toks.slice(2, -1), memberCtx);
+	return {
+		type,
+		label: `${callName.name}(...) As ${type}`,
+		span: { start: sliceStart + toks[0].start, end: sliceStart + toks[toks.length - 1].end },
+	};
 }
 
 export function inferIntrinsicCverrErrorVariant(
@@ -2068,6 +2111,10 @@ export function memberExpressionReturnType(
 		!isExplicitElementAccessor(member.name) &&
 		!memberTakesOwnArguments(member.signature)
 	) {
+		// VBA's Collection holds Variants: `acc.children(i)` may be anything.
+		if (normalizeType(member.returns) === 'collection') {
+			return 'Variant';
+		}
 		return defaultHostItemReturnType(member.returns, memberCtx) ?? member.returns;
 	}
 	return member.returns ?? 'Variant';
@@ -2917,6 +2964,13 @@ const HOST_VALUES_ALSO_OF_TYPE: ReadonlyMap<string, string> = new Map([
 	['excel.worksheets', 'excel.sheets'],
 ]);
 
+/**
+ * The reason a scalar value cannot be Set: a compile error, where every other
+ * reason is an object of the wrong class, which compiles and raises 13 when
+ * the Set runs (issue #202, measured in Excel 16.0).
+ */
+export const SCALAR_OBJECT_ASSIGNMENT_REASON = 'An object assignment requires an object value.';
+
 export function objectAssignmentIncompatibilityReason(
 	expectedRaw: string | undefined,
 	actual: InferredArgumentType | undefined,
@@ -2931,20 +2985,30 @@ export function objectAssignmentIncompatibilityReason(
 		return undefined;
 	}
 	if (isKnownScalarType(actualType)) {
-		return 'An object assignment requires an object value.';
+		return SCALAR_OBJECT_ASSIGNMENT_REASON;
 	}
-	if (expected.kind === 'generic') {
+	// Object takes any object and could be any. VBA's Collection is a class
+	// like any other here: `Set c = New Square` into a Collection, or
+	// `Set q = New Collection` into a Square, raises 13 (issue #202).
+	if (expected.kind === 'generic' && expected.key === 'object') {
 		return undefined;
 	}
 	const actualObject = resolveKnownObjectAssignmentType(actual.type, memberCtx);
 	if (!actualObject) {
 		return undefined;
 	}
-	if (actualObject.kind === 'generic') {
+	if (actualObject.kind === 'generic' && actualObject.key === 'object') {
 		return undefined;
 	}
 	if (expected.key === actualObject.key) {
 		return undefined;
+	}
+	if (expected.kind === 'generic' || actualObject.kind === 'generic') {
+		// A project class that implements Collection can stand in for one.
+		const project = actualObject.kind === 'project' ? actualObject : expected.kind === 'project' ? expected : undefined;
+		return project?.implements.some((name) => name.toLowerCase() === 'collection')
+			? undefined
+			: `This object type is not compatible with ${expected.display}.`;
 	}
 	if (actualObject.kind === 'host' && HOST_VALUES_ALSO_OF_TYPE.get(actualObject.key) === expected.key) {
 		return undefined;

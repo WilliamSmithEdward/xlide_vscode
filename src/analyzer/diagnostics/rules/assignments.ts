@@ -64,6 +64,7 @@ import {
 	nonnumericStringArithmeticOperand,
 	normalizeType,
 	objectAssignmentIncompatibilityReason,
+	SCALAR_OBJECT_ASSIGNMENT_REASON,
 	resolveExactMemberCompletion,
 	runtimeCallableSourceShadowed,
 	sourceBindingTypeResolvers,
@@ -974,6 +975,37 @@ function lateBoundReceiver(source: string, offset: number, memberCtx: MemberComp
 	return receiver === undefined || isLateBoundTypeKey(receiver);
 }
 
+/**
+ * A Set whose value cannot be the target's type. A scalar value is refused
+ * when the module compiles: "Type mismatch" into a variable (`Set r = 5`),
+ * "Object required" through a Property Set (`Set h.Item = 5`). An object of
+ * the wrong class compiles, and raises 13 when the Set runs, so under On
+ * Error Resume Next it is handled (issue #202, measured in Excel 16.0).
+ */
+function pushObjectAssignmentMismatch(
+	push: PushFn,
+	label: string,
+	expected: string | undefined,
+	actual: { label: string; span?: Span } | undefined,
+	reason: string,
+	fallback: Span,
+	scalarError: 'Type mismatch' | 'Object required',
+): void {
+	if (reason === SCALAR_OBJECT_ASSIGNMENT_REASON) {
+		push(
+			'setRequiresObject',
+			`Set assigns an object to '${label}', which expects ${expected}, but ${actual?.label} is not an object. This is a VBE compile error: ${scalarError}.`,
+			actual?.span ?? fallback,
+		);
+		return;
+	}
+	push(
+		'assignmentObjectTypeMismatch',
+		`Object assignment to '${label}' expects ${expected}, but got ${actual?.label}. ${reason} This will raise Run-time error '13': Type mismatch.`,
+		actual?.span ?? fallback,
+	);
+}
+
 function checkMemberAssignmentTypes(
 	source: string,
 	member: ProcedureNode,
@@ -1058,11 +1090,7 @@ function checkMemberAssignmentTypes(
 				memberCtx,
 			);
 			if (reason) {
-				push(
-					'assignmentObjectTypeMismatch',
-					`Object assignment to '${assignment.label}' expects ${expected}, but got ${actual?.label}. ${reason}`,
-					actual?.span ?? assignment.memberSpan,
-				);
+				pushObjectAssignmentMismatch(push, assignment.label, expected, actual, reason, assignment.memberSpan, 'Object required');
 			}
 			return;
 		}
@@ -1206,11 +1234,7 @@ export function checkSetAssignments(
 					memberCtx,
 				);
 				if (reason) {
-					push(
-						'assignmentObjectTypeMismatch',
-						`Object assignment to '${target.name}' expects ${expected}, but got ${actual?.label}. ${reason}`,
-						actual?.span ?? target.span,
-					);
+					pushObjectAssignmentMismatch(push, target.name, expected, actual, reason, target.span, 'Type mismatch');
 				}
 				return;
 			}

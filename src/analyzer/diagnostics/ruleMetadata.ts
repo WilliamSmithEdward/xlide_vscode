@@ -432,10 +432,11 @@ export const DIAGNOSTIC_RULES = {
 		title: 'Object assignment type mismatch',
 		defaultSeverity: 'error',
 		category: 'semantic',
-		vbeCompileEquivalent: true,
-		diagnosticKind: 'compile-error',
+		// A Set of the wrong class compiles and raises 13 when it runs (issue #202).
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
 		source: 'XLIDE',
-		specReference: 'MS-VBAL 5.4.3 / Set statement',
+		specReference: 'MS-VBAL 5.4.3 / Set statement; VBE runtime error 13: Type mismatch',
 		confidence: 'high',
 	},
 	readonlyMemberAssignment: {

@@ -220,7 +220,7 @@ describe('diagnostic message wording', () => {
 			'    Set wb = ActiveSheet.Range("A1")\n' +
 			'End Sub\n';
 		const hits = byCode(analyzeModule(src), 'assignment-object-type-mismatch');
-		expect(hits[0].message).toBe("Object assignment to 'wb' expects Workbook, but got ActiveSheet.Range(\"A1\") As Excel.Range. This object type is not compatible with Workbook.");
+		expect(hits[0].message).toBe("Object assignment to 'wb' expects Workbook, but got ActiveSheet.Range(\"A1\") As Excel.Range. This object type is not compatible with Workbook. This will raise Run-time error '13': Type mismatch.");
 	});
 
 	it('pins the message for assignment-type-mismatch', () => {

@@ -1727,8 +1727,12 @@ Diagnostic severity policy:
   compile-equivalent diagnostic after an oracle case confirmed `String` to
   `Object` is rejected by VBE Compile. `assignment-object-type-mismatch`
   covers `Set` assignments where both sides have deterministic object types,
-  including project classes, source-backed object members, `Nothing`, and
-  explicit `Implements` compatibility. These rules use only declared
+  including project classes, VBA's `Collection`, source-backed object members,
+  bare host globals such as `Range("A1")`, `Nothing`, and explicit
+  `Implements` compatibility. It is a deterministic-runtime-error: a `Set` of
+  the wrong class compiles and raises 13 when it runs, so it is suppressed
+  under `On Error Resume Next` (issue #202). A scalar value in an object `Set`
+  is a compile error instead, reported as `set-requires-object`. These rules use only declared
   parameter/local/module/project value types resolved through the shared
   expression resolver, module-qualified `ModuleName.ValueName` reads resolved
   through the matching source-backed module surface, `Function`/`Property Get`
@@ -1850,7 +1854,9 @@ Diagnostic severity policy:
   object global, or source-backed object-valued member (`Property Set` or
   public field) that requires `Set`; `set-requires-object` fires when `Set`
   targets a known intrinsic scalar variable, visible exported standard-module
-  scalar global, or source-backed scalar member. Both rules route bare
+  scalar global, or source-backed scalar member, or gives an object target a
+  scalar value ("Type mismatch" into a variable, "Object required" through a
+  `Property Set`). Both rules route bare
   assignment targets through the shared assignment-target resolver, so local
   shadows win and `Variant`, unknown types, and ambiguous project targets stay
   silent.
