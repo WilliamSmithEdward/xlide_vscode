@@ -112,6 +112,7 @@ import { checkStatementForms } from './rules/statementForms';
 import { checkStrayCharacters } from './rules/strayTokens';
 import { checkDirectiveForms } from './rules/directiveForms';
 import { checkMalformedLines } from './rules/malformedLines';
+import { checkParentheses } from './rules/parentheses';
 import { checkMissingLibraryReference } from './rules/missingReference';
 import { getExcelObjectModel } from '../host/excelObjectModel';
 import {
@@ -412,6 +413,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'malformedLines',
 		run: (ctx, push) => checkMalformedLines(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'parentheses',
+		run: (ctx, push) => checkParentheses(ctx.source, ctx.mod, ctx.symbols, ctx.memberCtx, ctx.activity, push),
 	},
 	{
 		name: 'directiveForms',

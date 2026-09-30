@@ -1324,11 +1324,12 @@
         "issue234_14_compile",
         "issue234_17_compile",
         "issue234_34_compile",
-        "issue234_36_compile"
+        "issue234_36_compile",
+        "issue236_24_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "The active rule only fires after XLIDE parses a complete declaration type name and then sees an additional same-statement token outside valid declaration separators/defaults. Recognized fixed-length string suffixes (`As String * n` or `As String * constantName`) are consumed by the shared suffix parser before trailing-token detection; size bounds are owned by `fixed-length-string-size`, while compound length expressions and runtime assignment/truncation behavior remain separate verification work. A declaration that is not name [As type]: Dim asdf qwer, Private v As 123, Const K = asdf qwer; Syntax error in a procedure and after one, Expected: end of statement above the first (issue #234, Excel 16.0).",
+      "notes": "The active rule only fires after XLIDE parses a complete declaration type name and then sees an additional same-statement token outside valid declaration separators/defaults. Recognized fixed-length string suffixes (`As String * n` or `As String * constantName`) are consumed by the shared suffix parser before trailing-token detection; size bounds are owned by `fixed-length-string-size`, while compound length expressions and runtime assignment/truncation behavior remain separate verification work. A declaration that is not name [As type]: Dim asdf qwer, Private v As 123, Const K = asdf qwer; Syntax error in a procedure and after one, Expected: end of statement above the first (issue #234, Excel 16.0). As (Long) is Syntax error (issue #236, Excel 16.0).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -3316,11 +3317,17 @@
         "issue221_108_compile",
         "issue221_110_compile",
         "issue221_111_compile",
-        "issue221_112_compile"
+        "issue221_112_compile",
+        "issue236_01_compile",
+        "issue236_02_compile",
+        "issue236_03_compile",
+        "issue236_04_compile",
+        "issue236_05_compile",
+        "issue236_06_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Collection used as an operand. VBE \"Argument not optional\" on a Collection whose default member Item takes an index (issue #125, Excel 16.0). Issue #221: any object whose default member needs an index, Excel's collections included, and such an object as the whole value of a Let into a typed value (s = c).",
+      "notes": "Collection used as an operand. VBE \"Argument not optional\" on a Collection whose default member Item takes an index (issue #125, Excel 16.0). Issue #221: any object whose default member needs an index, Excel's collections included, and such an object as the whole value of a Let into a typed value (s = c). A Collection in grouping parentheses is its default member: Set d = (c), c.Add (c), Take (c), Call Take((c)), With (New Collection) (issue #236, Excel 16.0).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -3420,11 +3427,24 @@
         "issue234_38_compile",
         "issue234_39_compile",
         "issue234_40_compile",
-        "issue234_41_compile"
+        "issue234_41_compile",
+        "issue236_10_compile",
+        "issue236_11_compile",
+        "issue236_12_compile",
+        "issue236_13_compile",
+        "issue236_17_compile",
+        "issue236_18_compile",
+        "issue236_19_compile",
+        "issue236_20_compile",
+        "issue236_21_compile",
+        "issue236_22_compile",
+        "issue236_23_compile",
+        "issue236_32_compile",
+        "issue236_34_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Lines the VBE cannot parse: an unknown #directive, an unclosed [bracket, Sub or Function with no name, a word after a parameter, an Enum line that is no member. Messages follow the VBE by position (issue #234, Excel 16.0).",
+      "notes": "Lines the VBE cannot parse: an unknown #directive, an unclosed [bracket, Sub or Function with no name, a word after a parameter, an Enum line that is no member. Messages follow the VBE by position (issue #234, Excel 16.0). Parentheses where VBA takes none: (x).Member, v = (), UBound((a)), a named argument inside one, Mid((s), 1, 1) = x, a statement that starts with one (issue #236, Excel 16.0).",
       "diagnosticKind": "compile-error"
     },
     {
