@@ -14,13 +14,14 @@
 //   not Excel's. Telling Word's ThisDocument it has Cells and Range was the
 //   bug that motivated the seam; silence is the honest answer until the
 //   host's own model exists.
+//
+// Only Excel is built in. The other hosts' models are most of the analyzer's
+// size, so a caller registers the ones it analyzes: the extension registers
+// every host it ships (registerBuiltInHostModels), and an embedder that only
+// analyzes Excel registers none and bundles none of them.
 
 import type { HostObjectModel } from './excelObjectModel';
 import { getExcelObjectModel } from './excelObjectModel';
-import { getWordObjectModel } from './wordObjectModel';
-import { getPowerPointObjectModel } from './powerpointObjectModel';
-import { getAccessObjectModel } from './accessObjectModel';
-import { getVb6ObjectModel } from './vb6ObjectModel';
 
 /**
  * The host tokens xlide_vbide sends with project/open, plus 'vb6': a VB6
@@ -49,18 +50,42 @@ export const EMPTY_HOST_MODEL: HostObjectModel = Object.freeze({
 
 const MODELS_BY_TOKEN = new Map<string, () => HostObjectModel>([
 	['excel', getExcelObjectModel],
-	['word', getWordObjectModel],
-	['powerpoint', getPowerPointObjectModel],
-	['access', getAccessObjectModel],
-	['vb6', getVb6ObjectModel],
 ]);
 
+/** Merged models, keyed by the token list that produced them. */
+const MERGED_BY_KEY = new Map<string, HostObjectModel>();
+
 /**
- * Registers a host's model under its token. Called by each host model module
- * at load; exported so tests can register throwaway models.
+ * The hosts XLIDE ships a model for besides Excel: what
+ * registerBuiltInHostModels registers. Listed here, not imported, so naming
+ * them costs nothing.
+ */
+export const BUILT_IN_HOST_TOKENS: readonly VbaHostToken[] = Object.freeze(['word', 'powerpoint', 'access', 'vb6']);
+
+/**
+ * The tokens in `tokens` that XLIDE ships a model for but nobody registered.
+ * Analyzing with one of them gives that host no knowledge, so a caller that
+ * forgot to register is told rather than left with quietly fewer findings.
+ */
+export function unregisteredBuiltInHosts(tokens: readonly string[]): VbaHostToken[] {
+	const out: VbaHostToken[] = [];
+	for (const raw of tokens) {
+		const token = raw.trim().toLowerCase() as VbaHostToken;
+		if (BUILT_IN_HOST_TOKENS.includes(token) && !MODELS_BY_TOKEN.has(token) && !out.includes(token)) {
+			out.push(token);
+		}
+	}
+	return out;
+}
+
+/**
+ * Registers a host's model under its token. A host that is never registered
+ * answers the empty model, so nothing is asserted about it.
  */
 export function registerHostObjectModel(token: VbaHostToken, model: () => HostObjectModel): void {
 	MODELS_BY_TOKEN.set(token, model);
+	// A merged model built before this host was known left it out.
+	MERGED_BY_KEY.clear();
 }
 
 /**
@@ -79,9 +104,6 @@ export function hostObjectModelForToken(host: string | undefined): HostObjectMod
 	}
 	return MODELS_BY_TOKEN.get(token)?.() ?? EMPTY_HOST_MODEL;
 }
-
-/** Merged models, keyed by the token list that produced them. */
-const MERGED_BY_KEY = new Map<string, HostObjectModel>();
 
 /**
  * One model answering for a project's own host and every library it

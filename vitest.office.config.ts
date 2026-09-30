@@ -18,6 +18,7 @@ export default defineConfig({
         environment: 'node',
         include: ['tests/office/**/*.office.ts'],
         globalSetup: ['tests/office/officeGlobalSetup.ts'],
+        setupFiles: ['tests/registerHostModels.setup.ts'],
         // Office starts, opens, saves and quits inside a single check.
         testTimeout: 300_000,
         hookTimeout: 300_000,

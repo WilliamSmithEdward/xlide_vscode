@@ -49,6 +49,9 @@ export {
 	resolveHostMemberSignature,
 	resolveMemberReturnType,
 } from './host/hostModel';
+export { registerHostObjectModel } from './host/hostRegistry';
+export type { VbaHostToken } from './host/hostRegistry';
+export { registerBuiltInHostModels } from './host/builtInHostModels';
 export {
 	MemberCompletion,
 	MemberCompletionContext,
