@@ -12,6 +12,7 @@ import type {
 	WorkerSeedModule,
 } from './analysisWorkerProtocol';
 import type { VbaModuleAnalysisDiagnostic, VbaModuleAnalysisFailure } from './vbaModuleAnalysis';
+import type { WorkbookSheetInfo } from './analyzer/symbols/sheetChanges';
 
 export interface WorkerAnalyzeRequest {
 	docKey: string;
@@ -32,6 +33,8 @@ export interface WorkerAnalyzeRequest {
 	implicitMembers?: WorkerImplicitMember[];
 	/** The host type the module's designer makes it, when the caller knows it. */
 	designerClass?: string;
+	/** The workbook's sheets as saved, when the container is a workbook. */
+	workbookSheets?: readonly WorkbookSheetInfo[];
 }
 
 export interface WorkerAnalyzeResult {

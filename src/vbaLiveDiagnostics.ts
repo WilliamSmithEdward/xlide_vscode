@@ -57,6 +57,7 @@ import {
 } from './globalSettings';
 import { errorMessage } from './util/errors';
 import { logAnalysisFailures } from './analysisFailureLog';
+import type { WorkbookSheetInfo } from './analyzer/symbols/sheetChanges';
 import { visibleDiagnosticsForActiveLine } from './vbaActiveLineDiagnostics';
 import {
     XLIDE_DIAGNOSTIC_DATA,
@@ -329,6 +330,9 @@ export function registerVbaDiagnostics(
     // what the last full pass found rather than analyzing as if the project
     // referenced nothing and reporting every cross-application line.
     const referencedHostsByProject = new Map<string, readonly string[]>();
+    // The workbook's sheets, kept the same way so a local pass checks
+    // `ThisWorkbook.Sheets("x")` as the full pass does.
+    const workbookSheetsByProject = new Map<string, readonly WorkbookSheetInfo[] | undefined>();
     const fullPassMetadataRetries = new Map<string, number>();
     const settingsWatchers = new ProjectSettingsWatcherRegistry((projectPath) => {
         invalidateAnalysisSettingsForProject(projectPath);
@@ -565,6 +569,7 @@ export function registerVbaDiagnostics(
                             diagnosticProject.references,
                         ),
                     );
+                    workbookSheetsByProject.set(projectKey(projectPath), diagnosticProject.sheets);
                     const current = diagnosticProject.moduleMetadata.get(moduleIdentityKey(moduleName));
                     if (current) {
                         moduleMetadataKnown = true;
@@ -654,6 +659,7 @@ export function registerVbaDiagnostics(
                     host: projectPath ? hostTokenForFileName(projectPath) : undefined,
                     referencedHosts: referencedHostsByProject.get(wbKey),
                     designerClass,
+                    workbookSheets: workbookSheetsByProject.get(wbKey),
                 });
                 const diagnostics = diagnosticsFromModuleAnalysis(
                     document,
@@ -683,6 +689,7 @@ export function registerVbaDiagnostics(
                 ? referencedHostsByProject.get(projectKey(projectPath))
                 : undefined,
             designerClass,
+            workbookSheets: projectPath ? workbookSheetsByProject.get(projectKey(projectPath)) : undefined,
         });
         const diagnostics = diagnosticsFromModuleAnalysis(
             document,

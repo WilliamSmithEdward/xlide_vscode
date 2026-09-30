@@ -42,6 +42,7 @@ import {
 import type { Span } from '../parser/nodes';
 import { tokenizeCached } from '../lexer/tokenize';
 import { identifierWords } from '../lexer/tokenHelpers';
+import { mergeSheetChanges, sheetChangesIn, type SheetChanges } from './sheetChanges';
 import { hasAuthoritativeDesignerHeader, parseUserFormControls } from '../../vbaUserFormControls';
 
 /** Source text + project role for one module fed into the index. */
@@ -748,6 +749,15 @@ export class ProjectIndex {
 			}
 			return words;
 		});
+	}
+
+	/**
+	 * What the project's code may do to its workbook's sheets at run time:
+	 * add or copy one, or name one (issue #229). A sheet the saved workbook
+	 * lacks may be one of these.
+	 */
+	sheetChanges(): SheetChanges {
+		return this.cached('sheetChanges', () => mergeSheetChanges([...this.moduleSources.values()].map(sheetChangesIn)));
 	}
 
 	/**

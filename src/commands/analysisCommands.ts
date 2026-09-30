@@ -125,6 +125,7 @@ export async function analyzeOpenModule(
             hostTokenForFileName(projectPath),
             vbaIndex.projectReferences(projectPath),
         )),
+        workbookSheets: vbaIndex.projectSheets(projectPath),
     });
     return { modules, current, moduleType, result };
 }

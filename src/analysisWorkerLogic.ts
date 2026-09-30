@@ -179,6 +179,9 @@ export class AnalysisWorkerState {
 			JSON.stringify(implicitMembers ?? null),
 			// The class the designer makes the module is part of its scope.
 			request.designerClass ?? '',
+			// Saving the workbook with a sheet added or renamed changes what
+			// `ThisWorkbook.Sheets("x")` reaches without changing a line of code.
+			JSON.stringify(request.workbookSheets ?? null),
 		] as const;
 
 		const result = analyzeVbaModuleSource({
@@ -188,6 +191,7 @@ export class AnalysisWorkerState {
 			host: request.host,
 			referencedHosts: request.referencedHosts,
 			designerClass: request.designerClass,
+			workbookSheets: request.workbookSheets,
 			moduleKind: request.moduleKind as ModuleSymbolKind | undefined,
 			documentType: request.documentType as EventHandlerDocumentType | undefined,
 			severityOverrides: request.severityOverrides as DiagnosticSeverityOverrides | undefined,
@@ -297,6 +301,15 @@ function moduleSurfaceDigest(options: VbaProjectAnalysisOptions): string {
             + `:${surface.predeclaredId === undefined ? '?' : surface.predeclaredId ? '1' : '0'}`);
         for (const member of surface.members) {
             fold.add(`${surface.name}.${member.name}:${member.kind}:${member.returns ?? ''}`);
+        }
+    }
+    // Another module adding or naming a sheet decides whether this one's
+    // `ThisWorkbook.Sheets("x")` is reported (issue #229).
+    const sheets = options.projectSheetChanges;
+    if (sheets) {
+        fold.add(`sheets:${sheets.addsSheets ? '1' : '0'}${sheets.assignsComputedName ? '1' : '0'}`);
+        for (const name of sheets.namesAssigned) {
+            fold.add(`sheet:${name}`);
         }
     }
     return fold.toString();

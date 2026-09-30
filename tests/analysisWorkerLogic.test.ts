@@ -361,3 +361,33 @@ describe('incremental reuse keys on the project surface, not the generation (iss
         expect(codesForCaller(state, oneArgument, 3)).toContain('argument-count');
     });
 });
+
+describe('the workbook\'s sheets reach the analysis (issue #229)', () => {
+	// `2024` is no identifier word, so naming it changes no other part of the surface.
+	const CALLER = 'Option Explicit\nFunction Main() As Variant\n    Main = ThisWorkbook.Sheets("2024").Name\nEnd Function\n';
+	const analyze = (state: AnalysisWorkerState, requestId: number, sheets: string[], others: string[] = []) => {
+		state.handle({
+			kind: 'seed', projectKey: 'wb', generation: requestId,
+			modules: [{ moduleName: 'M1', source: CALLER, type: 'standard' }, ...others.map((source, k) => ({ moduleName: `O${k}`, source, type: 'standard' }))],
+		});
+		const response = state.handle({
+			kind: 'analyze', requestId, docKey: 'm1', projectKey: 'wb', generation: requestId,
+			source: CALLER, moduleName: 'M1', moduleType: 'standard',
+			workbookSheets: sheets.map((name) => ({ name, kind: 'worksheet' as const })),
+		});
+		return response?.kind === 'result' ? response.diagnostics.filter((d) => d.code === 'sheet-not-in-workbook') : undefined;
+	};
+
+	it('reports a sheet the workbook lacks, and re-analyzes when the sheets change', () => {
+		const state = new AnalysisWorkerState();
+		expect(analyze(state, 1, ['Data'])).toHaveLength(1);
+		expect(analyze(state, 2, ['Data', '2024'])).toEqual([]);
+		expect(analyze(state, 3, ['Data'])).toHaveLength(1);
+	});
+
+	it('re-analyzes when another module starts naming the sheet', () => {
+		const state = new AnalysisWorkerState();
+		expect(analyze(state, 1, ['Data'], ['Sub A()\n    Worksheets.Add\nEnd Sub\n'])).toHaveLength(1);
+		expect(analyze(state, 2, ['Data'], ['Sub A()\n    Worksheets.Add.Name = "2024"\nEnd Sub\n'])).toEqual([]);
+	});
+});

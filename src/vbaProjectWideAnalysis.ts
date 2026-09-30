@@ -26,6 +26,7 @@ import { analyzeVbaModuleSource, type VbaModuleAnalysisDiagnostic, type VbaModul
 import { hostTokenForFileName } from './analyzer/host/hostRegistry';
 import { referencedHostTokens } from './analyzer/host/hostLibraries';
 import type { VbaProjectReference } from './vba/vbaProjectReferences';
+import type { WorkbookSheetInfo } from './analyzer/symbols/sheetChanges';
 import {
     buildVbaProjectIndexAsync,
     moduleKindFromType,
@@ -167,6 +168,8 @@ export interface ProjectAnalysisWorker {
         referencedHosts?: readonly string[];
         /** The host type the module's designer makes it, when the engine read one. */
         designerClass?: string;
+        /** The workbook's sheets as saved, when the container is a workbook. */
+        workbookSheets?: readonly WorkbookSheetInfo[];
     }): Promise<{
         diagnostics: VbaModuleAnalysisDiagnostic[];
         suppressedDiagnostics: VbaModuleAnalysisDiagnostic[];
@@ -388,12 +391,12 @@ async function loadProjectModules(
     filePath: string,
     progress: ProjectAnalysisProgress,
     options: AnalyzeProjectOptions = {},
-): Promise<{ modules: RawModule[]; references: readonly VbaProjectReference[] }> {
+): Promise<{ modules: RawModule[]; references: readonly VbaProjectReference[]; sheets: readonly WorkbookSheetInfo[] | undefined }> {
     progress.report('Reading VBA modules...', { force: true });
     const modules = await measurePerformance(
         'analyzeProject.readModules',
         undefined,
-        () => bridge.call<Array<RawModule & { projectReferences?: VbaProjectReference[] }>>(
+        () => bridge.call<Array<RawModule & { projectReferences?: VbaProjectReference[]; projectSheets?: WorkbookSheetInfo[] }>>(
             'readModules',
             { path: filePath },
             options.token,
@@ -405,6 +408,8 @@ async function loadProjectModules(
         // any one of them carries it; a project with no modules references
         // nothing this analysis can use either.
         references: modules[0]?.projectReferences ?? [],
+        // The workbook's sheets ride on the first entry only.
+        sheets: modules[0]?.projectSheets,
         modules: modules
             .filter((mod) => typeof mod.source === 'string')
             .map((mod) => ({
@@ -482,7 +487,7 @@ async function runProjectAnalysis(
     const totalTrace = startPerformanceTrace('analyzeProject.total');
     const progress = projectAnalysisProgress(options.progress);
     try {
-        const { modules, references } = await loadProjectModules(bridge, filePath, progress, options);
+        const { modules, references, sheets: workbookSheets } = await loadProjectModules(bridge, filePath, progress, options);
         // A project that references another application is analyzed against
         // both object models, exactly as the editor's own diagnostics are.
         const referencedHosts = referencedHostTokens(hostTokenForFileName(filePath), references);
@@ -530,7 +535,8 @@ async function runProjectAnalysis(
         // cache; the settings that shape diagnostics join the cache key so a
         // severity-override change re-analyzes.
         const contentFingerprint = projectSeedFingerprint(modules);
-        const settingsKey = JSON.stringify(analysisSettings.ruleSeverityOverrides ?? {});
+        // A sheet added or renamed in Excel changes the findings with no module changed.
+        const settingsKey = JSON.stringify([analysisSettings.ruleSeverityOverrides ?? {}, workbookSheets ?? null]);
         const resultCacheKey = projectIdentityKey(filePath);
         const cached = lastProjectAnalysisResults.get(resultCacheKey);
         if (cached && cached.fingerprint === contentFingerprint && cached.settingsKey === settingsKey) {
@@ -601,6 +607,7 @@ async function runProjectAnalysis(
                                 designerClass: mod.designerClass,
                                 host: hostTokenForFileName(filePath),
                                 referencedHosts,
+                                workbookSheets,
                             }),
                         );
                         throwIfAnalysisCancelled(options.token);
@@ -645,6 +652,7 @@ async function runProjectAnalysis(
                         ...projectOptions,
                         host: hostTokenForFileName(filePath),
                         referencedHosts,
+                        workbookSheets,
                     }),
                 );
                 reportModuleDone(mod.name);

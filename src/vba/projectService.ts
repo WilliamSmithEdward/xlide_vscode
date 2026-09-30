@@ -172,6 +172,12 @@ export interface ModuleEntry {
 	 */
 	projectReferences?: VbaProjectReference[];
 	/**
+	 * The WORKBOOK's sheets as saved, in tab order, on the first entry of one
+	 * read only: a workbook can hold hundreds, and one copy is enough for a
+	 * caller to find. Absent for anything but an Excel file.
+	 */
+	projectSheets?: WorkbookSheet[];
+	/**
 	 * True when the module carries `Attribute VB_PredeclaredId = True`, giving
 	 * it a default instance so its own name is usable as a value. Absent means
 	 * the attribute header was not read, never "no".
@@ -1074,7 +1080,23 @@ function readModulesFromContainer({ container, cfb, project }: OpenContainer, fu
 			continue;
 		}
 	}
+	const sheets = workbookSheetsOf(container);
+	if (sheets && out.length > 0) {
+		out[0].projectSheets = sheets;
+	}
 	return withHostDesigns(container, out, project.codePage, constants);
+}
+
+/** A workbook's sheets, or undefined for any other file or one whose sheets cannot be read. */
+function workbookSheetsOf(container: MacroContainer): WorkbookSheet[] | undefined {
+	if (container.kind !== 'excel') {
+		return undefined;
+	}
+	try {
+		return container.xlsx ? container.xlsx.sheetCatalog() : container.cfb ? sheetsOfBiff(container.cfb) : undefined;
+	} catch {
+		return undefined;
+	}
 }
 
 /**

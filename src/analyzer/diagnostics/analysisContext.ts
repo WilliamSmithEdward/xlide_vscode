@@ -19,6 +19,7 @@ import type {
 	VbaSymbol,
 } from '../symbols/symbolModel';
 import { isProcedureKind } from '../symbols/symbolModel';
+import type { SheetChanges, WorkbookSheetInfo } from '../symbols/sheetChanges';
 import type { ProcedureNode } from '../parser/nodes';
 import { getExcelObjectModel, type HostObjectModel } from '../host/excelObjectModel';
 import type {
@@ -232,6 +233,15 @@ export interface AnalyzeModuleOptions {
 	 * used. When omitted, the module's own string literals are searched.
 	 */
 	projectStringLiteralWords?: ReadonlySet<string>;
+	/**
+	 * The sheets of the workbook the project lives in, as saved, in tab order
+	 * (issue #229). `ThisWorkbook.Sheets("name")` and `(index)` are checked
+	 * against them, and only when `projectSheetChanges` says no code in the
+	 * project could have made the sheet. Absent for anything but an Excel file.
+	 */
+	workbookSheets?: readonly WorkbookSheetInfo[];
+	/** What the project's code may do to the workbook's sheets (ProjectIndex.sheetChanges). */
+	projectSheetChanges?: SheetChanges;
 	/** Host object model metadata. Defaults to Excel's curated non-exhaustive model. */
 	hostModel?: HostObjectModel;
 	/**
