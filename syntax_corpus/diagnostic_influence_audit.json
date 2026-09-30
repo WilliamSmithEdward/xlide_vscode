@@ -517,7 +517,9 @@
       "sourceOfTruth": "MS-VBAL 5.4.3 Set statement plus Excel/VBE compile oracle controls plus deterministic XLIDE object assignment compatibility model",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "excel_collection_default_item_assignment_compile"
+        "excel_collection_default_item_assignment_compile",
+        "issue197_02_runtime",
+        "issue197_17_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

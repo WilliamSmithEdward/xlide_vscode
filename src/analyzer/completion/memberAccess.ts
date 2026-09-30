@@ -614,6 +614,53 @@ function signatureForMember(
 	return resolveHostMemberSignature(typeName, memberName, ctx.model);
 }
 
+/**
+ * Whether a member called with arguments takes them itself, so the call is
+ * what the member declares it returns: a member that declares a parameter
+ * and a specific return type. GetSpellingSuggestions("helo") is a
+ * SpellingSuggestions, Shapes.Range(Array("A")) and PowerPoint's
+ * Shapes.Range(1) a ShapeRange, CommandBars.FindControls(Type:=1) a
+ * CommandBarControls (issue #197, measured in Excel, Word and PowerPoint 16.0).
+ * A member with no parameters passes the arguments to what it returns:
+ * Shapes.Placeholders(1) and GroupItems(1) are Shapes. So does one the library
+ * declares As Object and the model types as a collection, which returns an
+ * element when given its Index: `ws.ChartObjects(1)` is a ChartObject.
+ */
+export function memberTakesOwnArguments(signature: string | undefined): boolean {
+	if (signatureParameters(signature).length === 0) {
+		return false;
+	}
+	const declared = /\)\s+As\s+([\w.]+)\s*$/i.exec(signature ?? '')?.[1];
+	return declared !== undefined && !/^(?:Object|Variant)$/i.test(declared);
+}
+
+/** The parameters of a member signature label, trimmed, in order. */
+function signatureParameters(signature: string | undefined): string[] {
+	const open = signature?.indexOf('(') ?? -1;
+	if (!signature || open < 0) {
+		return [];
+	}
+	let depth = 0;
+	let start = open + 1;
+	const params: string[] = [];
+	for (let i = open; i < signature.length; i++) {
+		const ch = signature[i];
+		if (ch === '(' || ch === '[') {
+			depth++;
+		} else if (ch === ')' || ch === ']') {
+			depth--;
+			if (depth === 0 && ch === ')') {
+				params.push(signature.slice(start, i));
+				break;
+			}
+		} else if (ch === ',' && depth === 1) {
+			params.push(signature.slice(start, i));
+			start = i + 1;
+		}
+	}
+	return params.map((param) => param.trim()).filter((param) => param.length > 0);
+}
+
 function projectMemberSignature(
 	projectKey: string,
 	memberName: string,
@@ -729,7 +776,8 @@ function receiverTypeFromImplicitWithChain(
 		// not re-indexed (avoids over-resolving SparklineGroups.Item(1) one level).
 		currentType = applyDefaultMemberReturnType(
 			resolved.type,
-			segment.hasArguments && !isExplicitElementAccessor(segment.name),
+			segment.hasArguments && !isExplicitElementAccessor(segment.name)
+				&& !memberTakesOwnArguments(signatureForMember(currentType, segment.name, ctx)),
 			ctx,
 		);
 	}
@@ -839,7 +887,8 @@ function receiverTypeFromChain(
 		// not re-indexed (avoids over-resolving SparklineGroups.Item(1) one level).
 		currentType = applyDefaultMemberReturnType(
 			resolved.type,
-			segment.hasArguments && !isExplicitElementAccessor(segment.name),
+			segment.hasArguments && !isExplicitElementAccessor(segment.name)
+				&& !memberTakesOwnArguments(signatureForMember(currentType, segment.name, ctx)),
 			ctx,
 		);
 		cache?.set(keyFor(s + 1), currentType);

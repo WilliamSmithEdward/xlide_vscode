@@ -56,6 +56,7 @@ import {
 	type MemberCompletion,
 	type MemberCompletionContext,
 	isExplicitElementAccessor,
+	memberTakesOwnArguments,
 } from '../completion/memberAccess';
 import { procedureSymbolFor, type PushFn } from './analysisContext';
 import { straightLineAssignments, type ReachingAssignments } from './straightLineValues';
@@ -2052,11 +2053,14 @@ export function memberExpressionReturnType(
 	// declared type: Application.Intersect(a, b) stays Range, Workbooks.Add(t) stays
 	// Workbook, ws.Range("A1") stays Range. Item/_Default/Add are excluded because
 	// they already return the resolved element/result (see isExplicitElementAccessor).
+	// A member that takes an argument of its own is what it returns:
+	// Shapes.Range(Array("A")) is a ShapeRange, not a Shape (issue #197).
 	if (
 		member.returns &&
 		argumentTokens &&
 		argumentTokens.length > 0 &&
-		!isExplicitElementAccessor(member.name)
+		!isExplicitElementAccessor(member.name) &&
+		!memberTakesOwnArguments(member.signature)
 	) {
 		return defaultHostItemReturnType(member.returns, memberCtx) ?? member.returns;
 	}

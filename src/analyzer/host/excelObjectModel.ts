@@ -3135,6 +3135,15 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 			add: 'Add([Before], [After], [Count], [Type]) As Worksheet',
 			item: 'Item(Index) As Worksheet',
 		},
+		// Range takes its own Index, so Shapes.Range(Array("A")) is a ShapeRange,
+		// not a Shape (issue #197; the reference dump drops property parameters,
+		// and EXCEL.EXE's type library gives Range one required Index).
+		[SHAPES]: {
+			range: 'Range(Index) As ShapeRange',
+		},
+		[GROUPSHAPES]: {
+			range: 'Range(Index) As ShapeRange',
+		},
 		[SHEETS]: {
 			add: 'Add([Before], [After], [Count], [Type])',
 			item: 'Item(Index)',

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
+import { hostTokenForFileName } from '../src/analyzer/host/hostRegistry';
 
 const MISMATCH = 'assignment-object-type-mismatch';
 
@@ -111,5 +112,64 @@ describe('members typed as the type library types them (issue #90)', () => {
 	it('keeps ShapeRange.Duplicate a ShapeRange', () => {
 		const src = 'Sub S()\n    Dim picked As ShapeRange\n    Dim copied As Shape\n    Set copied = picked.Duplicate\nEnd Sub\n';
 		expect(codes(src)).toContain(MISMATCH);
+	});
+});
+
+describe('a member called with its own arguments is what it returns (issue #197)', () => {
+	// Measured in Excel, Word and PowerPoint 16.0: Shapes.Range(Array(...)) is
+	// a ShapeRange, GetSpellingSuggestions("x") a SpellingSuggestions and
+	// SelectContentControlsByTitle("t") a ContentControls. Setting the first two
+	// into the element type raises 13. Members with no parameters are indexed:
+	// Placeholders(1) and GroupItems(1) are Shapes, PivotCaches(1) a
+	// PivotCache. Optional parameters are still the member's own:
+	// Shapes.Range(1) in PowerPoint is a ShapeRange, and
+	// CommandBars.FindControls(Type:=1) a CommandBarControls.
+	function hostCodes(src: string, file: string): string[] {
+		return analyzeVbaModuleSource({
+			source: src,
+			moduleName: 'Module1',
+			host: hostTokenForFileName(file),
+			referencedHosts: [],
+		}).diagnostics.map((d) => d.code);
+	}
+	const QUIET: ReadonlyArray<readonly [string, string, string]> = [
+		['Book.xlsm', 'Dim sr As ShapeRange', 'Set sr = ActiveSheet.Shapes.Range(Array("A"))'],
+		['Book.xlsm', 'Dim co As ChartObject', 'Set co = ActiveSheet.ChartObjects(1)'],
+		['Doc.docm', 'Dim sr As ShapeRange', 'Set sr = ActiveDocument.Shapes.Range(Array("A"))'],
+		['Doc.docm', 'Dim ss As SpellingSuggestions', 'Set ss = Application.GetSpellingSuggestions("helo")'],
+		['Doc.docm', 'Dim ss As SpellingSuggestions', 'Set ss = Application.GetSpellingSuggestions(Word:="helo")'],
+		['Doc.docm', 'Dim cc As ContentControls', 'Set cc = ActiveDocument.SelectContentControlsByTitle("t")'],
+		['Deck.pptm', 'Dim sld As Slide, sr As ShapeRange', 'Set sr = sld.Shapes.Range(Array("A"))'],
+		['Deck.pptm', 'Dim sld As Slide, sr As ShapeRange', 'Set sr = sld.Shapes.Range(1)'],
+		['Doc.docm', 'Dim cs As CommandBarControls', 'Set cs = Application.CommandBars.FindControls(Type:=1)'],
+		// A member with no parameters is indexed: Placeholders(1) and GroupItems(1) are Shapes.
+		['Deck.pptm', 'Dim sld As Slide, s As Shape', 'Set s = sld.Shapes.Placeholders(1)'],
+		['Book.xlsm', 'Dim g As Shape, s As Shape', 'Set s = g.GroupItems(1)'],
+		['Book.xlsm', 'Dim pc As PivotCache', 'Set pc = ThisWorkbook.PivotCaches(1)'],
+		// A member read off the call is read off what the call returns.
+		['Book.xlsm', 'Dim sr As ShapeRange', 'Set sr = ActiveSheet.Shapes.Range(Array("A")).Duplicate'],
+		['Deck.pptm', 'Dim sld As Slide, sr As ShapeRange', 'Set sr = sld.Shapes.Range(Array("A")).Duplicate'],
+		['Doc.docm', 'Dim cc As ContentControl', 'Set cc = ActiveDocument.SelectContentControlsByTitle("t").Add'],
+	];
+	it.each(QUIET)('does not flag mismatch in %s: %s ... %s', (file, decls, stmt) => {
+		const src = `Sub S()\n    ${decls}\n    ${stmt}\nEnd Sub\n`;
+		expect(hostCodes(src, file)).not.toContain(MISMATCH);
+	});
+
+	const FLAGGED: ReadonlyArray<readonly [string, string, string]> = [
+		['Book.xlsm', 'Dim s As Shape', 'Set s = ActiveSheet.Shapes.Range(Array("A"))'],
+		['Doc.docm', 'Dim t As SpellingSuggestion', 'Set t = Application.GetSpellingSuggestions("helo")'],
+		['Deck.pptm', 'Dim sld As Slide, s As Shape', 'Set s = sld.Shapes.Range(Array("A"))'],
+		['Book.xlsm', 'Dim s As Shape', 'Set s = ActiveSheet.Shapes.Range(Array("A")).Duplicate'],
+		['Doc.docm', 'Dim cs As ContentControls', 'Set cs = ActiveDocument.SelectContentControlsByTitle("t").Add'],
+		['Deck.pptm', 'Dim sld As Slide, s As Shape', 'Set s = sld.Shapes.Range(1)'],
+		['Doc.docm', 'Dim c As CommandBarControl', 'Set c = Application.CommandBars.FindControls(Type:=1)'],
+		['Deck.pptm', 'Dim sld As Slide, ps As Placeholders', 'Set ps = sld.Shapes.Placeholders(1)'],
+		['Book.xlsm', 'Dim g As Shape, gs As GroupShapes', 'Set gs = g.GroupItems(1)'],
+		['Book.xlsm', 'Dim pcs As PivotCaches', 'Set pcs = ThisWorkbook.PivotCaches(1)'],
+	];
+	it.each(FLAGGED)('flags mismatch in %s: %s ... %s', (file, decls, stmt) => {
+		const src = `Sub S()\n    ${decls}\n    ${stmt}\nEnd Sub\n`;
+		expect(hostCodes(src, file)).toContain(MISMATCH);
 	});
 });

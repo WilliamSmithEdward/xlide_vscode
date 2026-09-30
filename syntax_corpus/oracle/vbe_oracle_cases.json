@@ -12350,6 +12350,72 @@
       ],
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue197_01_runtime",
+      "description": "Issue #197 case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> ShapeRange1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main()\n    Dim sr As ShapeRange\n    ActiveSheet.Shapes.AddShape(msoShapeRectangle, 10, 10, 50, 50).Name = \"BoxA\"\n    Set sr = ActiveSheet.Shapes.Range(Array(\"BoxA\"))\n    Main = TypeName(sr) & sr.Count\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue197_02_runtime",
+      "description": "Issue #197 case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main()\n    Dim s As Shape\n    ActiveSheet.Shapes.AddShape(msoShapeRectangle, 10, 10, 50, 50).Name = \"BoxB\"\n    Set s = ActiveSheet.Shapes.Range(Array(\"BoxB\"))\n    Main = 1\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue197_03_runtime",
+      "description": "Issue #197 case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> ChartObject.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main()\n    Dim co As ChartObject\n    ActiveSheet.ChartObjects.Add 10, 10, 100, 100\n    Set co = ActiveSheet.ChartObjects(1)\n    Main = TypeName(co)\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue197_11_runtime",
+      "description": "Issue #197 case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> Shape.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main()\n    Dim g As Shape, s As Shape\n    ActiveSheet.Shapes.AddShape(1, 10, 10, 50, 50).Name = \"G1\"\n    ActiveSheet.Shapes.AddShape(1, 90, 10, 50, 50).Name = \"G2\"\n    Set g = ActiveSheet.Shapes.Range(Array(\"G1\", \"G2\")).Group\n    Set s = g.GroupItems(1)\n    Main = TypeName(s)\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue197_16_runtime",
+      "description": "Issue #197 case 16, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> PivotCache.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main()\n    Dim pc As PivotCache\n    ActiveSheet.Range(\"A1:B3\").Value = ActiveSheet.Evaluate(\"{\"\"k\"\",\"\"v\"\";\"\"a\"\",1;\"\"b\"\",2}\")\n    ThisWorkbook.PivotCaches.Create(1, ActiveSheet.Range(\"A1:B3\")).CreatePivotTable ActiveSheet.Range(\"D1\")\n    Set pc = ThisWorkbook.PivotCaches(1)\n    Main = TypeName(pc)\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue197_17_runtime",
+      "description": "Issue #197 case 17, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main()\n    Dim pcs As PivotCaches\n    ActiveSheet.Range(\"A1:B3\").Value = ActiveSheet.Evaluate(\"{\"\"k\"\",\"\"v\"\";\"\"a\"\",1;\"\"b\"\",2}\")\n    ThisWorkbook.PivotCaches.Create(1, ActiveSheet.Range(\"A1:B3\")).CreatePivotTable ActiveSheet.Range(\"D1\")\n    Set pcs = ThisWorkbook.PivotCaches(1)\n    Main = TypeName(pcs)\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }
