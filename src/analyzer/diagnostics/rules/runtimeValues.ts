@@ -29,7 +29,7 @@ import {
 	splitArgSlots,
 } from '../callExtraction';
 import { collectModuleLiteralIntegerConstants } from '../constExpr';
-import { isBareOrVbaQualifiedIntrinsicCall } from '../rules/shared';
+import { bankersRound, isBareOrVbaQualifiedIntrinsicCall } from '../rules/shared';
 import { isInvalidBooleanString, isInvalidDateString, isInvalidNumericString } from '../stringConversion';
 import {
 	callableTypeSignaturesFor,
@@ -62,6 +62,8 @@ interface RuntimeArgumentValueSpec {
 	exclusiveMinimum?: number;
 	/** Single values inside the range that still raise: InStrRev's Start of 0. */
 	disallowed?: readonly number[];
+	/** A Double parameter, compared as passed: Sqr(-0.4) raises. Others round first. */
+	fractional?: boolean;
 	/** Whether a whole number is accepted, where no range says it: StrConv's Conversion. */
 	accepts?: (value: number) => boolean;
 	/** An empty string literal raises: Asc(""), String(3, ""). */
@@ -411,7 +413,7 @@ function runtimeArgumentValueHits(
 				span: literal.span,
 			});
 		}
-		const overflow = dateAddPastMaximum(source, span, call, constants);
+		const overflow = dateAddPastMaximum(source, span, call, constants) ?? dateSerialPastMaximum(source, span, call, constants);
 		if (overflow) {
 			hits.push(overflow);
 		}
@@ -466,6 +468,45 @@ function dateAddPastMaximum(
 		parameterName: 'Date',
 		value: `${dateSlot[0].rawText}, which the ${count} ${interval} interval(s) carry past December 31, 9999`,
 		span: { start: span.start + dateSlot[0].start, end: span.start + dateSlot[0].end },
+	};
+}
+
+/**
+ * `DateSerial(9999, 13, 1)`: the month and day carry into the year, and a
+ * date past December 31, 9999 raises error 5 (issue #189, measured in Excel
+ * 16.0). The year alone decides nothing: DateSerial(10000, 0, 1) runs and is
+ * December 1, 9999. A year below 100 is read as 19xx or 20xx, so it is not
+ * judged.
+ */
+function dateSerialPastMaximum(
+	source: string,
+	span: Span,
+	call: { displayName: string; slots: VbaToken[][] },
+	constants: IntegerConstantLookup,
+): RuntimeArgumentValueHit | undefined {
+	if (call.displayName.replace(/^VBA\./i, '').toLowerCase() !== 'dateserial' || call.slots.length !== 3) {
+		return undefined;
+	}
+	const [year, month, day] = call.slots.map((slot) => {
+		const toks = slot.filter((t) => t.kind !== 'comment');
+		return toks.length === 0 ? undefined : integerGroupValue(source, span, toks, constants);
+	});
+	if (year === undefined || month === undefined || day === undefined || year < 100) {
+		return undefined;
+	}
+	const date = new Date(0);
+	date.setUTCFullYear(year, month - 1, 1);
+	date.setUTCDate(day);
+	if (date.getUTCFullYear() <= 9999) {
+		return undefined;
+	}
+	const first = call.slots[0].find((t) => t.kind !== 'comment')!;
+	const last = [...call.slots[2]].reverse().find((t) => t.kind !== 'comment')!;
+	return {
+		displayName: call.displayName,
+		parameterName: 'Year',
+		value: `${year} with month ${month} and day ${day}, a date past December 31, 9999`,
+		span: { start: span.start + first.start, end: span.start + last.end },
 	};
 }
 
@@ -583,6 +624,8 @@ function runtimeArgumentValueSpecs(name: string, host: string | undefined): read
 			return [
 				{ canonicalName: 'Replace', parameterName: 'Start', argumentIndex: 3, minimum: 1 },
 				{ canonicalName: 'Replace', parameterName: 'Count', argumentIndex: 4, minimum: -1 },
+				// Replace takes a Compare of 2 even outside Access; -1 raises (issue #189).
+				{ canonicalName: 'Replace', parameterName: 'Compare', argumentIndex: 5, minimum: 0 },
 			];
 		case 'instr':
 			return [
@@ -609,15 +652,15 @@ function runtimeArgumentValueSpecs(name: string, host: string | undefined): read
 		case 'chr':
 			return [{ canonicalName: 'Chr', parameterName: 'CharCode', argumentIndex: 0, minimum: 0, maximum: 255, stringSuffix: true }];
 		case 'chrw':
-			return [{ canonicalName: 'ChrW', parameterName: 'CharCode', argumentIndex: 0, maximum: 65535 }];
+			return [{ canonicalName: 'ChrW', parameterName: 'CharCode', argumentIndex: 0, minimum: -32768, maximum: 65535 }];
 		case 'asc':
 			return [{ canonicalName: 'Asc', parameterName: 'String', argumentIndex: 0, emptyStringRaises: true }];
 		case 'ascw':
 			return [{ canonicalName: 'AscW', parameterName: 'String', argumentIndex: 0, emptyStringRaises: true }];
 		case 'sqr':
-			return [{ canonicalName: 'Sqr', parameterName: 'Number', argumentIndex: 0, minimum: 0 }];
+			return [{ canonicalName: 'Sqr', parameterName: 'Number', argumentIndex: 0, minimum: 0, fractional: true }];
 		case 'log':
-			return [{ canonicalName: 'Log', parameterName: 'Number', argumentIndex: 0, exclusiveMinimum: 0 }];
+			return [{ canonicalName: 'Log', parameterName: 'Number', argumentIndex: 0, exclusiveMinimum: 0, fractional: true }];
 		case 'monthname':
 			return [{ canonicalName: 'MonthName', parameterName: 'Month', argumentIndex: 0, minimum: 1, maximum: 12 }];
 		case 'weekdayname':
@@ -628,9 +671,13 @@ function runtimeArgumentValueSpecs(name: string, host: string | undefined): read
 		case 'weekday':
 			return [{ canonicalName: 'Weekday', parameterName: 'FirstDayOfWeek', argumentIndex: 1, minimum: 0, maximum: 7 }];
 		case 'round':
-			return [{ canonicalName: 'Round', parameterName: 'NumDigitsAfterDecimal', argumentIndex: 1, minimum: 0 }];
+			return [{ canonicalName: 'Round', parameterName: 'NumDigitsAfterDecimal', argumentIndex: 1, minimum: 0, maximum: 22 }];
 		case 'dateserial':
-			return [{ canonicalName: 'DateSerial', parameterName: 'Year', argumentIndex: 0, maximum: 9999 }];
+			// No bound on the Year alone: dateSerialPastMaximum judges the
+			// whole date the month and day carry it to (issue #189).
+			return [{ canonicalName: 'DateSerial', parameterName: 'Year', argumentIndex: 0 }];
+		case 'strcomp':
+			return [{ canonicalName: 'StrComp', parameterName: 'Compare', argumentIndex: 2, minimum: 0, maximum: host === 'access' ? 2 : 1 }];
 		case 'split':
 			return [{ canonicalName: 'Split', parameterName: 'Limit', argumentIndex: 2, minimum: -1 }];
 		case 'strconv':
@@ -768,7 +815,7 @@ function integerArgumentOutsideBounds(
 			return undefined;
 		}
 		return {
-			value: literalValue,
+			value: shownArgumentValue(literalValue, spec),
 			span: { start: sliceStart + start!, end: sliceStart + literal.end },
 		};
 	}
@@ -781,15 +828,31 @@ function integerArgumentOutsideBounds(
 		return undefined;
 	}
 	return {
-		value: expressionValue,
+		value: shownArgumentValue(expressionValue, spec),
 		span: { start: sliceStart + toks[0].start, end: sliceStart + toks[toks.length - 1].end },
 	};
 }
 
+/**
+ * The value VBA passes: a whole-number parameter takes the argument rounded
+ * half to even, so Space(-0.5) is Space(0) and runs, and Mid(s, 0.5) is
+ * Mid(s, 0) and raises (issue #189, measured in Excel 16.0).
+ */
+function passedArgumentValue(value: number, spec: RuntimeArgumentValueSpec): number {
+	return spec.fractional ? value : bankersRound(value);
+}
+
+/** The argument as the message states it, with the rounded value VBA uses. */
+function shownArgumentValue(value: number, spec: RuntimeArgumentValueSpec): number | string {
+	const passed = passedArgumentValue(value, spec);
+	return passed === value ? value : `${value}, which VBA rounds to ${passed}`;
+}
+
 function integerArgumentValueInBounds(
-	value: number,
+	rawValue: number,
 	spec: RuntimeArgumentValueSpec,
 ): boolean {
+	const value = passedArgumentValue(rawValue, spec);
 	if (spec.minimum !== undefined && value < spec.minimum) {
 		return false;
 	}

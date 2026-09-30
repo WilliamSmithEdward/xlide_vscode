@@ -26,7 +26,7 @@ describe('runtime-argument-value - error 5 arguments (issue #118)', () => {
 		['Main = Round(1.5, -1)', '-1', 'Round'],
 		['Main = Weekday(Date, 8)', '8', 'Weekday'],
 		['Main = DateAdd("x", 1, Date)', '"x"', 'DateAdd'],
-		['Main = DateSerial(10000, 1, 1)', '10000', 'DateSerial'],
+		['Main = DateSerial(10000, 1, 1)', '10000, 1, 1', 'DateSerial'],
 		['Main = InStrRev("abc", "b", 0)', '0', 'InStrRev'],
 		['Main = Split("a,b", ",", -2)', '-2', 'Split'],
 		['Main = FormatNumber(1, -2)', '-2', 'FormatNumber'],
@@ -97,6 +97,64 @@ describe('runtime-argument-value - error 5 arguments (issue #118)', () => {
 	it('allows vbDatabaseCompare where Access is the host', () => {
 		const src = wrap('Main = InStr(1, "abc", "b", vbDatabaseCompare)');
 		expect(byCode(analyzeModule(src, { host: 'access' }), ARG)).toHaveLength(0);
+	});
+
+	it('rounds a fractional argument half to even before the range, as VBA does (issue #189)', () => {
+		// Each runs in Excel 16.0: the argument VBA passes is in range.
+		const quiet = wrap(
+			'Main = Space(-0.5)',
+			'Main = Left("abc", -0.4)',
+			'Main = String(-0.5, "a")',
+			'Main = Mid("abc", 0.6)',
+			'Main = InStr(0.6, "abc", "b")',
+			'Main = Chr(255.4)',
+			'Main = Chr(-0.5)',
+			'Main = MonthName(12.4)',
+			'Main = MonthName(1.5)',
+			'Main = Round(1.25, -0.4)',
+			'Main = Environ(0.6)',
+			'Main = Weekday(Date, 7.4)',
+			'Main = Log(0.4)',
+		);
+		expect(byCode(analyzeModule(quiet), ARG)).toHaveLength(0);
+		// These round out of range, and a Double parameter is not rounded.
+		for (const [statement, shown] of [
+			['Main = Space(-0.6)', '-0.6, which VBA rounds to -1'],
+			['Main = Mid("abc", 0.5)', '0.5, which VBA rounds to 0'],
+			['Main = Chr(255.5)', '255.5, which VBA rounds to 256'],
+			['Main = MonthName(0.5)', '0.5, which VBA rounds to 0'],
+			['Main = WeekdayName(7.5)', '7.5, which VBA rounds to 8'],
+			['Main = Sqr(-0.4)', 'is -0.4;'],
+		]) {
+			const src = wrap(statement);
+			expectDiagnostic(src, analyzeModule(src), ARG, { message: shown });
+		}
+	});
+
+	it('judges the whole date DateSerial makes, and the Compare, ChrW and Round edges (issue #189)', () => {
+		const quiet = wrap(
+			'Main = DateSerial(10000, 0, 1)',
+			'Main = DateSerial(10000, -11, 1)',
+			'Main = DateSerial(9999, 12, 31)',
+			'Main = ChrW(-32768)',
+			'Main = StrComp("a", "b", 1)',
+			'Main = Replace("a", "a", "b", 1, -1, 2)',
+			'Main = Round(1.5, 22)',
+		);
+		expect(byCode(analyzeModule(quiet), ARG)).toHaveLength(0);
+		for (const statement of [
+			'Main = DateSerial(9999, 13, 1)',
+			'Main = DateSerial(9999, 12, 400)',
+			'Main = DateSerial(9999, 12, 32)',
+			'Main = ChrW(-32769)',
+			'Main = StrComp("a", "b", -1)',
+			'Main = StrComp("a", "b", 2)',
+			'Main = Replace("a", "a", "b", 1, -1, -1)',
+			'Main = Round(1.5, 23)',
+		]) {
+			const src = wrap(statement);
+			expect(byCode(analyzeModule(src), ARG), statement).toHaveLength(1);
+		}
 	});
 
 	it('flags a StrConv Conversion no locale accepts (issue #184)', () => {

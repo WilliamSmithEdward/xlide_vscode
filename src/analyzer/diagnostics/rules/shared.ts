@@ -205,6 +205,19 @@ export function nameTokenHit(base: Span, tok: VbaToken, name: string): NameToken
 	};
 }
 
+/** VBA's rounding to a whole number: banker's rounding at .5. */
+export function bankersRound(value: number): number {
+	const floor = Math.floor(value);
+	const fraction = value - floor;
+	if (fraction > 0.5) {
+		return floor + 1;
+	}
+	if (fraction < 0.5) {
+		return floor;
+	}
+	return floor % 2 === 0 ? floor : floor + 1;
+}
+
 export function isBareOrVbaQualifiedIntrinsicCall(toks: readonly VbaToken[], nameIndex: number): boolean {
 	if (toks[nameIndex - 1]?.rawText !== '.') {
 		return true;

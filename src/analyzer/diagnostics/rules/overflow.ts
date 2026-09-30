@@ -32,7 +32,7 @@ import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaSymbol } from '../../symbols/symbolModel';
 import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { isBareOrVbaQualifiedIntrinsicCall } from './shared';
+import { bankersRound, isBareOrVbaQualifiedIntrinsicCall } from './shared';
 import {
 	knownLocalLiteralValues,
 	normalizeType,
@@ -103,18 +103,6 @@ function inRange(value: number, type: NumericType): boolean {
 	return Number.isFinite(value) && value >= range.min && value <= range.max;
 }
 
-/** VBA's rounding to a whole number: banker's rounding at .5. */
-function bankersRound(value: number): number {
-	const floor = Math.floor(value);
-	const fraction = value - floor;
-	if (fraction > 0.5) {
-		return floor + 1;
-	}
-	if (fraction < 0.5) {
-		return floor;
-	}
-	return floor % 2 === 0 ? floor : floor + 1;
-}
 
 /** A literal's natural type and value: 3 is Integer, 40000 is Long, 3000000000 is Double. */
 function literalTyped(tok: VbaToken): Typed | undefined {
