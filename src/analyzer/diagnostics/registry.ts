@@ -145,6 +145,7 @@ import {
 	checkUndefinedLabels,
 } from './rules/controlFlow';
 import { checkDeclarationOrder } from './rules/declarationOrder';
+import { checkLocalDeclarationOrder } from './rules/localDeclarationOrder';
 import { checkRefusedDeclarations } from './rules/refusedDeclarations';
 import { checkStatementTypes } from './rules/statementTypes';
 import {
@@ -280,6 +281,18 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'optionExplicit',
 		run: (ctx, push) => checkOptionExplicit(ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'localDeclarationOrder',
+		run: (ctx, push) => checkLocalDeclarationOrder(
+			ctx.source,
+			ctx.mod,
+			ctx.symbols,
+			ctx.opts.projectVisibleSymbols,
+			ctx.opts.hostModel,
+			ctx.activity,
+			push,
+		),
 	},
 	{
 		name: 'undeclaredVariables',

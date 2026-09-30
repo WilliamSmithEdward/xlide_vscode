@@ -20433,6 +20433,146 @@
       "source": "Option Explicit\r\n\r\nPrivate Left As Long\r\n\r\nPublic Sub NegName84_ShadowedIntrinsicCall()\r\n    Debug.Print Left$(\"abc\", 1)\r\nEnd Sub\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "local_declaration_order_01_compile",
+      "description": "A local declaration used above its line, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Const A As Long = B + 1\r\n    Const B As Long = 1\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "local_declaration_order_02_compile",
+      "description": "A local declaration used above its line, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim a(N) As Long\r\n    Const N As Long = 5\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "local_declaration_order_03_compile",
+      "description": "A local declaration used above its line, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print K\r\n    Const K As Long = 1\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "local_declaration_order_04_compile",
+      "description": "A local declaration used above its line, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim x As Long\r\n    x = K + 1\r\n    Const K As Long = 1\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "local_declaration_order_05_compile",
+      "description": "A local declaration used above its line, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Const K As Long = 1\r\n    Debug.Print K\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "local_declaration_order_06_compile",
+      "description": "A local declaration used above its line, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    x = 1\r\n    Dim x As Long\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "local_declaration_order_07_compile",
+      "description": "A local declaration used above its line, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print x\r\n    Dim x As Long\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "local_declaration_order_08_compile",
+      "description": "A local declaration used above its line, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    s = 1\r\n    Static s As Long\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "local_declaration_order_09_compile",
+      "description": "A local declaration used above its line, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const K As Long = 1\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print K\r\n    Const K As Long = 2\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "local_declaration_order_10_compile",
+      "description": "A local declaration used above its line, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print K\r\n    Const K As Long = 1\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "local_declaration_order_11_compile",
+      "description": "A local declaration used above its line, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Const A As Long = B + 1\r\n    Const B As Long = 1\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "local_declaration_order_12_compile",
+      "description": "A local declaration used above its line, case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    If True Then\r\n        Const K As Long = 1\r\n    End If\r\n    Debug.Print K\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "local_declaration_order_13_compile",
+      "description": "A local declaration used above its line, case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Dim i As Long\r\n    For i = 1 To 2\r\n        Debug.Print K\r\n    Next\r\n    Const K As Long = 1\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "local_declaration_order_14_compile",
+      "description": "A local declaration used above its line, case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate m As Long\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    m = 1\r\n    Dim m As Long\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

@@ -46,10 +46,15 @@
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.2 / 5.3",
       "corpusInfluence": "none",
-      "assertedOracleCases": [],
+      "assertedOracleCases": [
+        "local_declaration_order_09_compile",
+        "local_declaration_order_10_compile",
+        "local_declaration_order_14_compile"
+      ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "diagnosticKind": "compile-error"
+      "diagnosticKind": "compile-error",
+      "notes": "Also a local declaration whose name was used above it, where the use found a module declaration or, without Option Explicit, an implicit variable (localDeclarationOrder.ts)."
     },
     {
       "code": "duplicate-module-variable",
@@ -191,13 +196,21 @@
         "option_explicit_declared_assignment_compile",
         "option_explicit_pointer_functions_compile",
         "option_explicit_byte_string_functions_compile",
-        "option_explicit_vblonglong_constant_compile"
+        "option_explicit_vblonglong_constant_compile",
+        "local_declaration_order_01_compile",
+        "local_declaration_order_02_compile",
+        "local_declaration_order_03_compile",
+        "local_declaration_order_04_compile",
+        "local_declaration_order_06_compile",
+        "local_declaration_order_07_compile",
+        "local_declaration_order_08_compile",
+        "local_declaration_order_13_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "syntax_corpus/excel_vba_analysis_final_hardening_cases.md"
       ],
-      "notes": "Active rule covers project-backed Option Explicit write/read positions: bare assignment and Set targets, RHS and call-argument reads, control-flow block headers, member receivers, and indexed bases. Runtime constants and generated Excel enum constants suppress false positives. Type-name, label, named-argument, and unresolved external-style call positions remain intentionally silent until the binder can prove broader reference shapes without false positives. Hidden built-ins (VarPtr/StrPtr/ObjPtr, the byte-string ...B family, and the vbLongLong constant) resolve via the runtime catalog and must not be reported as undeclared (oracle-verified accept).",
+      "notes": "Active rule covers project-backed Option Explicit write/read positions: bare assignment and Set targets, RHS and call-argument reads, control-flow block headers, member receivers, and indexed bases. Runtime constants and generated Excel enum constants suppress false positives. Type-name, label, named-argument, and unresolved external-style call positions remain intentionally silent until the binder can prove broader reference shapes without false positives. Hidden built-ins (VarPtr/StrPtr/ObjPtr, the byte-string ...B family, and the vbLongLong constant) resolve via the runtime catalog and must not be reported as undeclared (oracle-verified accept). Also a procedure's own Dim, Static or Const used above its line under Option Explicit (localDeclarationOrder.ts; a declaration covers only the lines after it).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -1395,11 +1408,12 @@
       "corpusInfluence": "none",
       "assertedOracleCases": [
         "issue216_01_compile",
-        "issue216_02_compile"
+        "issue216_02_compile",
+        "local_declaration_order_11_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Flags a Const value that is provably non-constant: a function/array call (name(...)), New, or AddressOf, at module level and procedure-local (incl. nested blocks). Bare and qualified identifiers (OTHER_CONST, Module.CONST, MyEnum.Value) stay quiet because they may reference constants. Literals, string concatenation, and arithmetic/grouping are constant expressions and never flagged. Shares the nonConstantDefaultElement gate with parameter-default-not-constant.",
+      "notes": "Flags a Const value that is provably non-constant: a function/array call (name(...)), New, or AddressOf, at module level and procedure-local (incl. nested blocks). Bare and qualified identifiers (OTHER_CONST, Module.CONST, MyEnum.Value) stay quiet because they may reference constants. Literals, string concatenation, and arithmetic/grouping are constant expressions and never flagged. Shares the nonConstantDefaultElement gate with parameter-default-not-constant. Also, without Option Explicit, a Const value using a local Const declared below it, which is an implicit variable there (localDeclarationOrder.ts).",
       "diagnosticKind": "compile-error"
     },
     {
