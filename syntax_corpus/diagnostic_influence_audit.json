@@ -716,11 +716,13 @@
         "issue184_23_runtime",
         "issue184_24_runtime",
         "issue184_27_runtime",
-        "issue184_37_runtime"
+        "issue184_37_runtime",
+        "issue233_27_runtime",
+        "issue233_28_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Active coverage is intentionally narrow: local non-Static object-valued variables start as Nothing, straight-line Set assignments mark them initialized, Set ... = Nothing resets them, and nested block assignments or helper-call arguments make the local state unknown rather than guessed. Parameters, module-level object variables, Static locals, Variant values, unresolved object types, and inactive conditional-compilation branches stay quiet. The legacy invalid_semantics_089 object-not-set case is covered by the focused runtime oracle fixture. This is separate from member-not-found: late-bound Object receivers still suppress member-surface absence diagnostics, but a definitely uninitialized local Object receiver can still produce runtime error 91.",
+      "notes": "Active coverage is intentionally narrow: local non-Static object-valued variables start as Nothing, straight-line Set assignments mark them initialized, Set ... = Nothing resets them, and nested block assignments or helper-call arguments make the local state unknown rather than guessed. Parameters, module-level object variables, Static locals, Variant values, unresolved object types, and inactive conditional-compilation branches stay quiet. The legacy invalid_semantics_089 object-not-set case is covered by the focused runtime oracle fixture. This is separate from member-not-found: late-bound Object receivers still suppress member-surface absence diagnostics, but a definitely uninitialized local Object receiver can still produce runtime error 91. In a block header too: For i = 1 To c.Count, Select Case c.Count (issue #233, Excel 16.0).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -847,11 +849,19 @@
         "issue219_54_runtime",
         "issue219_55_runtime",
         "issue219_56_runtime",
-        "issue219_58_runtime"
+        "issue219_58_runtime",
+        "issue233_09_runtime",
+        "issue233_10_runtime",
+        "issue233_11_runtime",
+        "issue233_12_runtime",
+        "issue233_13_runtime",
+        "issue233_14_runtime",
+        "issue233_15_runtime",
+        "issue233_16_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show /, integer division, and Mod by decimal, hexadecimal, octal, module-Const, local-Const, reducible integer Const-expression, current-module Enum member, bare/module-qualified visible exported standard-module Const/Enum, verified numeric VBA runtime constants, generated Excel/Office host enum constants, and exported Const-through-private-helper zero divisors compile successfully and deterministically raise runtime error 11, while nonzero literal, Const-expression, and Enum member controls run. Const/Enum folding includes decimal/hex/octal integer literals and implicit Enum successor values where the expression remains deterministic. Bare source names are folded only when the shared expression resolver proves a non-ambiguous Const or Enum-member binding, so local/module variable shadows suppress exported and external constant values. The active rule scans settled procedure statements, including nested expressions, and remains conservative for variables, unresolved constants, direct private helper references, ambiguous source bindings, nonnumeric external constants, and broader expression folding until flow/reachability handling is broader. Issue #219: a Variant local nothing assigns is Empty, which divides as 0 (5 / v raises 11, v / v raises 6), and a conversion of a literal that comes out 0, CLng(0) or CLng(0.4), is a zero divisor.",
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show /, integer division, and Mod by decimal, hexadecimal, octal, module-Const, local-Const, reducible integer Const-expression, current-module Enum member, bare/module-qualified visible exported standard-module Const/Enum, verified numeric VBA runtime constants, generated Excel/Office host enum constants, and exported Const-through-private-helper zero divisors compile successfully and deterministically raise runtime error 11, while nonzero literal, Const-expression, and Enum member controls run. Const/Enum folding includes decimal/hex/octal integer literals and implicit Enum successor values where the expression remains deterministic. Bare source names are folded only when the shared expression resolver proves a non-ambiguous Const or Enum-member binding, so local/module variable shadows suppress exported and external constant values. The active rule scans settled procedure statements, including nested expressions, and remains conservative for variables, unresolved constants, direct private helper references, ambiguous source bindings, nonnumeric external constants, and broader expression folding until flow/reachability handling is broader. Issue #219: a Variant local nothing assigns is Empty, which divides as 0 (5 / v raises 11, v / v raises 6), and a conversion of a literal that comes out 0, CLng(0) or CLng(0.4), is a zero divisor. In a block header too: For bounds and Step, Select Case, Do, Loop and While conditions, a With subject (issue #233, Excel 16.0).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -1003,11 +1013,19 @@
         "issue219_01_runtime",
         "issue219_02_runtime",
         "issue219_04_runtime",
-        "issue219_59_runtime"
+        "issue219_59_runtime",
+        "issue233_17_runtime",
+        "issue233_18_runtime",
+        "issue233_19_runtime",
+        "issue233_20_runtime",
+        "issue233_21_runtime",
+        "issue233_22_runtime",
+        "issue233_23_runtime",
+        "issue233_24_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show out-of-bound integer values for Left/Left$, Right/Right$, String/String$, Space/Space$, Mid/Mid$, Replace, three-or-more-argument InStr, Chr, and ChrW compile successfully and deterministically raise runtime error 5, while proven in-bound controls run. The active rule is deliberately narrow: it scans settled procedure statements for integer literals, reducible integer expressions, same-module/procedure Const values, current-module Enum members, bare/module-qualified visible exported standard-module Const/Enum members, verified numeric VBA runtime constants, generated Excel/Office host enum constants, and exported Const-through-private-helper values outside proven runtime bounds; bare source names are folded only when the shared expression resolver proves a non-ambiguous Const or Enum-member binding, so local/module variable shadows suppress exported and external constant values; maps named argument slots where the intrinsic syntax supports them; respects bare-call shadowing by source symbols and local declarations; treats ambiguous or direct private helper references as unknown; and still allows explicit VBA-qualified calls to bind to intrinsic runtime functions. Issue #218: Compare takes 0, 1 or a locale ID, so only a negative Compare, and 2 for InStr, StrComp and Filter outside Access, is reported, in all six functions; CVErr takes 0 to 65535; LeftB, RightB, MidB, AscB and InStrB keep the lower bounds of their plain forms; a string is at most 1073741823 characters; TimeSerial, DateSerial, ChrB, String and InStr overflow past their Integer, Byte or Long parameters, and Error(n) past 65535 (error 6); Partition, Pmt, IPmt, PPmt, SLN, SYD, DDB, NPer and Rate are checked across their arguments, PV with Rate -1 divides by zero (11), LBound and UBound of Array(...) or Split(...) past dimension 1 raise 9, and Join or Filter of a string or number raise 13. Whether Rate converges is not judged. Issue #219: Switch with an odd number of arguments (5).",
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show out-of-bound integer values for Left/Left$, Right/Right$, String/String$, Space/Space$, Mid/Mid$, Replace, three-or-more-argument InStr, Chr, and ChrW compile successfully and deterministically raise runtime error 5, while proven in-bound controls run. The active rule is deliberately narrow: it scans settled procedure statements for integer literals, reducible integer expressions, same-module/procedure Const values, current-module Enum members, bare/module-qualified visible exported standard-module Const/Enum members, verified numeric VBA runtime constants, generated Excel/Office host enum constants, and exported Const-through-private-helper values outside proven runtime bounds; bare source names are folded only when the shared expression resolver proves a non-ambiguous Const or Enum-member binding, so local/module variable shadows suppress exported and external constant values; maps named argument slots where the intrinsic syntax supports them; respects bare-call shadowing by source symbols and local declarations; treats ambiguous or direct private helper references as unknown; and still allows explicit VBA-qualified calls to bind to intrinsic runtime functions. Issue #218: Compare takes 0, 1 or a locale ID, so only a negative Compare, and 2 for InStr, StrComp and Filter outside Access, is reported, in all six functions; CVErr takes 0 to 65535; LeftB, RightB, MidB, AscB and InStrB keep the lower bounds of their plain forms; a string is at most 1073741823 characters; TimeSerial, DateSerial, ChrB, String and InStr overflow past their Integer, Byte or Long parameters, and Error(n) past 65535 (error 6); Partition, Pmt, IPmt, PPmt, SLN, SYD, DDB, NPer and Rate are checked across their arguments, PV with Rate -1 divides by zero (11), LBound and UBound of Array(...) or Split(...) past dimension 1 raise 9, and Join or Filter of a string or number raise 13. Whether Rate converges is not judged. Issue #219: Switch with an odd number of arguments (5). In a block header too: For bounds and Step, Select Case, Do, Loop and While conditions, a With subject (issue #233, Excel 16.0).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -1028,11 +1046,19 @@
         "runtime_argument_bounds_15_runtime",
         "runtime_argument_bounds_17_runtime",
         "runtime_argument_bounds_18_runtime",
-        "runtime_argument_bounds_54_runtime"
+        "runtime_argument_bounds_54_runtime",
+        "issue233_01_runtime",
+        "issue233_02_runtime",
+        "issue233_03_runtime",
+        "issue233_04_runtime",
+        "issue233_05_runtime",
+        "issue233_06_runtime",
+        "issue233_07_runtime",
+        "issue233_08_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show CDate(\"not a date\") compiles successfully and raises runtime error 13, while CDate(\"1/2/2020\") runs under the oracle environment. Active coverage is intentionally narrow: it reports bare or VBA-qualified CDate calls only when the first argument is an empty string literal or plain ASCII word text with no digits and no recognized English month token. Date-looking strings, non-ASCII/localized-looking text, variables, expressions, non-CDate conversion functions, source-shadowed bare CDate names, and inactive conditional-compilation branches stay quiet. Issue #218: the Date argument of Year, Month, Day, Weekday, Hour, Minute, Second, DateAdd, DatePart and DateDiff, given a string no locale reads as a date or a number outside the Date serial range (-657434 to 2958465), and Sgn given a string that is no number.",
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show CDate(\"not a date\") compiles successfully and raises runtime error 13, while CDate(\"1/2/2020\") runs under the oracle environment. Active coverage is intentionally narrow: it reports bare or VBA-qualified CDate calls only when the first argument is an empty string literal or plain ASCII word text with no digits and no recognized English month token. Date-looking strings, non-ASCII/localized-looking text, variables, expressions, non-CDate conversion functions, source-shadowed bare CDate names, and inactive conditional-compilation branches stay quiet. Issue #218: the Date argument of Year, Month, Day, Weekday, Hour, Minute, Second, DateAdd, DatePart and DateDiff, given a string no locale reads as a date or a number outside the Date serial range (-657434 to 2958465), and Sgn given a string that is no number. In a block header too: For bounds and Step, Select Case, Do, Loop and While conditions, a With subject (issue #233, Excel 16.0).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -1201,11 +1227,13 @@
         "issue200_04_runtime",
         "issue200_05_runtime",
         "issue200_06_runtime",
-        "issue200_09_runtime"
+        "issue200_09_runtime",
+        "issue233_25_runtime",
+        "issue233_26_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "RUNTIME_006: a constant subscript proven outside a LOCAL single-dimension fixed-size array's declared bounds raises runtime error 9 (compiles, then faults at runtime). No-FP scope: only local fixed arrays (Dim/Static) with a literal upper bound and a literal/folded-signed-integer subscript are checked. Fires on subscript > upper bound, subscript < an EXPLICIT literal lower bound, or a negative subscript. Stays quiet for: dynamic / ReDim'd arrays (owned by unallocated-dynamic-array-access), variable or Const subscripts, multi-dimension arrays, ByRef array parameters, module-level arrays, and the Option-Base-dependent low region of single-bound `Dim a(n)` declarations (oracle runtime006_default_base_low_accepted proves a(0) on `Dim a(5)` is valid under default Option Base 0, so low subscripts are flagged only when negative or below an explicit literal lower bound). Option Base is unmodeled, which is why only the upper bound and explicit literal lower bounds drive flags. Bounds parsing reuses comparableArrayBoundKey; access detection mirrors checkUnallocatedDynamicArrayAccess. Member access via '.' or the bang '!' operator (d!b(N) = d.Item(\"b\")) is excluded so a dictionary/member key that matches a local array name is not mis-bound (adversarial FP-hunt finding). Like every sibling deterministic-runtime-error rule, On Error Resume Next / handlers are not modeled - the subscript still raises error 9, it is merely suppressed at runtime, so the (downgradeable) diagnostic is consistent with the roadmap's deferred On Error policy.",
+      "notes": "RUNTIME_006: a constant subscript proven outside a LOCAL single-dimension fixed-size array's declared bounds raises runtime error 9 (compiles, then faults at runtime). No-FP scope: only local fixed arrays (Dim/Static) with a literal upper bound and a literal/folded-signed-integer subscript are checked. Fires on subscript > upper bound, subscript < an EXPLICIT literal lower bound, or a negative subscript. Stays quiet for: dynamic / ReDim'd arrays (owned by unallocated-dynamic-array-access), variable or Const subscripts, multi-dimension arrays, ByRef array parameters, module-level arrays, and the Option-Base-dependent low region of single-bound `Dim a(n)` declarations (oracle runtime006_default_base_low_accepted proves a(0) on `Dim a(5)` is valid under default Option Base 0, so low subscripts are flagged only when negative or below an explicit literal lower bound). Option Base is unmodeled, which is why only the upper bound and explicit literal lower bounds drive flags. Bounds parsing reuses comparableArrayBoundKey; access detection mirrors checkUnallocatedDynamicArrayAccess. Member access via '.' or the bang '!' operator (d!b(N) = d.Item(\"b\")) is excluded so a dictionary/member key that matches a local array name is not mis-bound (adversarial FP-hunt finding). Like every sibling deterministic-runtime-error rule, On Error Resume Next / handlers are not modeled - the subscript still raises error 9, it is merely suppressed at runtime, so the (downgradeable) diagnostic is consistent with the roadmap's deferred On Error policy. In a block header too: For i = 1 To a(5), Select Case a(5) (issue #233, Excel 16.0).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -3104,11 +3132,13 @@
         "issue232_47_runtime",
         "issue232_54_runtime",
         "issue232_57_runtime",
-        "issue232_58_runtime"
+        "issue232_58_runtime",
+        "issue233_29_runtime",
+        "issue233_30_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Arithmetic overflow. MS-VBAL 5.6.9.3 operator result types; VBE runtime error 6: Overflow (issue #116, Excel 16.0). Issue #218: CDec past the Decimal range (CDec(\"1E30\")), and Abs of the smallest Long is not an overflow (it returns -2147483648). Inside any call argument or operand too: CStr(CInt(40000)), IIf(True, 0, CInt(40000)), \"x\" & CInt(40000), z(CInt(40000)); and LongLong, folded exactly, with LongPtr judged against LongLong's range (issues #232 and #258, 64-bit Excel 16.0).",
+      "notes": "Arithmetic overflow. MS-VBAL 5.6.9.3 operator result types; VBE runtime error 6: Overflow (issue #116, Excel 16.0). Issue #218: CDec past the Decimal range (CDec(\"1E30\")), and Abs of the smallest Long is not an overflow (it returns -2147483648). Inside any call argument or operand too: CStr(CInt(40000)), IIf(True, 0, CInt(40000)), \"x\" & CInt(40000), z(CInt(40000)); and LongLong, folded exactly, with LongPtr judged against LongLong's range (issues #232 and #258, 64-bit Excel 16.0). In a block header too: For i = 1 To CInt(40000), Select Case CInt(40000) (issue #233, Excel 16.0).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {

@@ -53,6 +53,7 @@ import {
 	activeModuleMembers,
 	bareAssignmentTarget,
 	forEachStatement,
+	forEachStatementWithHeaders,
 	forEachVariableGroup,
 	isInactiveNode,
 	localsNamedWhole,
@@ -1990,7 +1991,8 @@ export function checkFixedArraySubscriptBounds(
 		};
 		const excluded = redimTargetNamesInBody(source, member.body, activity);
 		const counters = loopCountersAt(source, member.body, activity);
-		forEachStatement(member.body, (stmt) => {
+		// Headers too: `For i = 1 To a(5)`, `Select Case a(5)` (issue #233).
+		forEachStatementWithHeaders(source, member.body, (stmt) => {
 			for (const hit of inlineSplitIndexViolations(source, stmt.span)) {
 				push('arraySubscriptOutOfBounds', hit.message, hit.span);
 			}

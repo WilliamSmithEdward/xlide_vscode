@@ -177,6 +177,13 @@ export interface DiagnosticRuleEntry {
 	name: string;
 	run?(ctx: RulePassContext, push: PushFn): void;
 	procedureStatements?(ctx: RulePassContext, push: PushFn): ProcedureStatementVisitor;
+	/**
+	 * The statement visitor also takes each block's header line as a
+	 * statement: a For's bounds, a Select Case subject, a Do, Loop or While
+	 * condition, a With subject (issue #233). For rules that judge an
+	 * expression wherever it stands, and read no statement form.
+	 */
+	blockHeaders?: boolean;
 	procedureExpressions?(ctx: RulePassContext, push: PushFn): ProcedureExpressionVisitor;
 }
 
@@ -478,6 +485,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'divisionByZeroExpressions',
+		blockHeaders: true,
 		procedureStatements: (ctx, push) => checkDivisionByZeroExpressions(
 			ctx.source,
 			ctx.mod,
@@ -786,6 +794,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'runtimeArgumentValues',
+		blockHeaders: true,
 		procedureStatements: (ctx, push) => checkRuntimeArgumentValues(
 			ctx.source,
 			ctx.mod,
@@ -800,6 +809,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'runtimeConversionValues',
+		blockHeaders: true,
 		procedureStatements: (ctx, push) => checkRuntimeConversionValues(
 			ctx.source,
 			ctx.symbols,
