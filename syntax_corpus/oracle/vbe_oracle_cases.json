@@ -25853,6 +25853,308 @@
       ],
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue225_01_compile",
+      "description": "Issue #225 document module name, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Set Sheet1 = Nothing\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue225_02_compile",
+      "description": "Issue #225 document module name, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Set ThisWorkbook = Nothing\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue225_03_runtime",
+      "description": "Issue #225 document module name, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Sheet1 = 5\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue225_04_runtime",
+      "description": "Issue #225 document module name, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    ThisWorkbook = 5\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue225_05_runtime",
+      "description": "Issue #225 document module name, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Let Sheet1 = 5\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue225_06_compile",
+      "description": "Issue #225 document module name, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Set Sheet1 = Sheet1\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue225_07_runtime",
+      "description": "Issue #225 document module name, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Sheet1 = Sheet1\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue225_08_runtime",
+      "description": "Issue #225 document module name, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Sheet1.Name = Sheet1.Name\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue225_09_compile",
+      "description": "Issue #225 document module name, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim s As New Sheet1\r\n    Main = s.Name\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue225_10_compile",
+      "description": "Issue #225 document module name, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim s As Sheet1\r\n    Set s = New Sheet1\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue225_11_compile",
+      "description": "Issue #225 document module name, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim b As ThisWorkbook\r\n    Set b = New ThisWorkbook\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Sheet1",
+          "type": "document",
+          "source": "Option Explicit\r\n"
+        },
+        {
+          "name": "ThisWorkbook",
+          "type": "document",
+          "source": "Option Explicit\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }
