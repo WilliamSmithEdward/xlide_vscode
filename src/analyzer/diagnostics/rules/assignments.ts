@@ -262,6 +262,7 @@ export function checkAssignmentTypes(
 	push: PushFn,
 ): void {
 	const moduleSignatures = buildModuleTypeSignatures(symbols);
+	const variantArrayFunctions = arrayOnlyVariantFunctions(source, mod, activity);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -309,9 +310,14 @@ export function checkAssignmentTypes(
 				assignment.name,
 				'assignmentTarget',
 			);
-			const expected = targetType.resolved
+			// `Dim a()` with no As clause is an array of Variant (issue #222).
+			const untypedArray = !targetType.asType && (() => {
+				const shape = declaredShapeForSourceBinding(symbols, procSym, projectVisibleSymbols, assignment.name, 'assignmentTarget');
+				return shape.resolved && shape.shape?.isArray === true;
+			})();
+			const expected = (targetType.resolved
 				? targetType.asType
-				: env.get(assignment.name.toLowerCase());
+				: env.get(assignment.name.toLowerCase())) ?? (untypedArray ? 'Variant' : undefined);
 			if (!expected) {
 				return;
 			}
@@ -405,6 +411,8 @@ export function checkAssignmentTypes(
 				(name) => arrayValueAt(stmt, name),
 				(tokens) => inferArgumentType(tokens, span.start, env, moduleSignatures, sourceNames, source, memberCtx, resolveExpressionType, resolveQualifiedExpressionType),
 				sourceNames,
+				(name) => variantArrayFunctions.has(name.toLowerCase())
+					&& !procSym?.children?.some((child) => child.name.toLowerCase() === name.toLowerCase()),
 			);
 			if (arrayProblem) {
 				push(arrayProblem.code, arrayProblem.message, arrayProblem.span);
@@ -492,6 +500,7 @@ function arrayAssignmentProblem(
 	variantValue: (name: string) => ArrayValue | undefined,
 	scalarType: (tokens: VbaToken[]) => InferredArgumentType | undefined,
 	sourceNames: SourceNameScope,
+	returnsVariantArray: (name: string) => boolean = () => false,
 ): { code: 'arrayTargetAssignment' | 'assignmentTypeMismatch'; message: string; span: Span } | undefined {
 	const value = assignment.valueTokens.filter((tok) => tok.kind !== 'comment');
 	if (value.length === 0) {
@@ -501,7 +510,11 @@ function arrayAssignmentProblem(
 	const shown = value.length === 1 ? value[0].rawText : 'this value';
 	const name = value.length === 1 ? tokenName(value[0]) : undefined;
 	const named = name ? sourceShape(name) : undefined;
-	const produced = arrayProducedBy(value, sourceNames) ?? (name && !named?.isArray ? variantValue(name) : undefined);
+	// Only into an array: into a scalar, Empty would run.
+	const called = targetShape?.isArray && isWholeCall(value) && returnsVariantArray(value[0].rawText)
+		? { element: 'variant', text: `${value[0].rawText}(...), which returns Array(...) or Empty,` }
+		: undefined;
+	const produced = arrayProducedBy(value, sourceNames) ?? called ?? (name && !named?.isArray ? variantValue(name) : undefined);
 	const targetType = elementType(targetShape?.asType);
 	if (targetShape?.isArray) {
 		const elements = `an array of ${(targetShape.asType ?? 'Variant').replace(/\s*\(\s*\)\s*$/, '')}`;
@@ -515,6 +528,14 @@ function arrayAssignmentProblem(
 		}
 		if (named?.isArray) {
 			return elementType(named.asType) === targetType ? undefined : cannot(`'${name}' is an array of ${named.asType ?? 'Variant'}`);
+		}
+		// A Function declared to return a typed array is held to the same
+		// rule as an array variable: `a = StrArr()` into Long() or Variant()
+		// does not compile (issue #222, measured in Excel 16.0).
+		const returned = !produced && isWholeCall(value) ? scalarType(value) : undefined;
+		if (returned && /\(\s*\)\s*$/.test(returned.type)) {
+			const element = returned.type.replace(/\s*\(\s*\)\s*$/, '');
+			return elementType(element) === targetType ? undefined : cannot(`${value[0].rawText}(...) returns an array of ${element}`);
 		}
 		if (produced) {
 			if (produced.element === targetType) {
@@ -547,6 +568,68 @@ function arrayAssignmentProblem(
 		};
 	}
 	return undefined;
+}
+
+/**
+ * The module's Functions declared As Variant whose every assignment to their
+ * own name is `Array(...)`: each returns an array of Variant, or Empty when
+ * no assignment runs. Into an array of another element type both raise 13
+ * (issue #222, measured in Excel 16.0: `a = VarArr()` into Long()).
+ */
+function arrayOnlyVariantFunctions(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+): Set<string> {
+	const out = new Set<string>();
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure' || member.procKind !== 'Function' || member.typeSuffix) {
+			continue;
+		}
+		const returns = normalizeType(member.returnType);
+		if (returns !== undefined && returns !== 'variant') {
+			continue;
+		}
+		const lower = member.name.toLowerCase();
+		let onlyArrays = true;
+		forEachStatement(member.body, (stmt) => {
+			for (const span of statementAndBranchSpans(stmt)) {
+				let toks = statementTokens(source, span);
+				// A one-line If's own span runs to its branches, which come next
+				// as spans of their own; only its condition is read here.
+				const branches = stmt.kind === 'Statement' && stmt.singleLineIfBranches;
+				if (branches && span === stmt.span) {
+					const then = toks.findIndex((tok) => tokenText(tok) === 'then');
+					toks = then >= 0 ? toks.slice(0, then) : toks;
+					if (toks.some((tok) => tokenName(tok)?.toLowerCase() === lower)) {
+						onlyArrays = false;
+					}
+					continue;
+				}
+				if (!toks.some((tok) => tokenName(tok)?.toLowerCase() === lower)) {
+					continue;
+				}
+				const target = bareAssignmentTarget(source, span);
+				// A one-line If's Then branch runs to its Else.
+				const value = (target?.valueTokens.filter((tok) => tok.kind !== 'comment') ?? [])
+					.filter((tok, index, all) => !(index === all.length - 1 && tokenText(tok) === 'else'));
+				const isArrayCall = tokenText(value[0]) === 'array' && value[1]?.rawText === '(' && matchParenFrom(value, 1) === value.length - 1;
+				const readsSelf = value.some((tok) => tokenName(tok)?.toLowerCase() === lower);
+				if (target?.name.toLowerCase() !== lower || !isArrayCall || readsSelf) {
+					onlyArrays = false;
+				}
+			}
+		}, activity);
+		if (onlyArrays) {
+			out.add(lower);
+		}
+	}
+	return out;
+}
+
+/** Whether the value is one call and nothing more: `F()`, `F(1, 2)`. */
+function isWholeCall(value: readonly VbaToken[]): boolean {
+	return tokenName(value[0]) !== undefined && value[1]?.rawText === '(' && matchParenFrom(value, 1) === value.length - 1;
 }
 
 /** An array's element type, normalized: "Byte()" and "Byte" are both byte. */

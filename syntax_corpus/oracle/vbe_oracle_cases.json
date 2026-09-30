@@ -24194,6 +24194,259 @@
       "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim o As ListObject\r\n    ActiveSheet.Range(\"A1:B3\").Value = 1\r\n    Set o = ActiveSheet.ListObjects.Add(1, ActiveSheet.Range(\"A1:B3\"))\r\n    If o = 7 Then Main = 2 Else Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue222_01_compile",
+      "description": "Issue #222 whole-array assignment, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a(), b() As Long\r\n    a = b\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue222_02_compile",
+      "description": "Issue #222 whole-array assignment, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a(), b(1) As Long\r\n    a = b\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue222_03_compile",
+      "description": "Issue #222 whole-array assignment, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a(), b(1) As String\r\n    a = b\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue222_04_runtime",
+      "description": "Issue #222 whole-array assignment, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a()\r\n    a = Split(\"a,b\", \",\")\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue222_05_runtime",
+      "description": "Issue #222 whole-array assignment, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a()\r\n    a = Array(1, 2)\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue222_06_compile",
+      "description": "Issue #222 whole-array assignment, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a(), b() As Variant\r\n    a = b\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue222_07_compile",
+      "description": "Issue #222 whole-array assignment, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a(), b()\r\n    a = b\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue222_08_compile",
+      "description": "Issue #222 whole-array assignment, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a()\r\n    a = 5\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue222_09_compile",
+      "description": "Issue #222 whole-array assignment, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a() As Long\r\n    a = StrArr()\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue222_10_compile",
+      "description": "Issue #222 whole-array assignment, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a() As String\r\n    a = LongArr()\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue222_11_compile",
+      "description": "Issue #222 whole-array assignment, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a() As Variant\r\n    a = LongArr()\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue222_12_compile",
+      "description": "Issue #222 whole-array assignment, case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a() As Variant\r\n    a = StrArr()\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue222_13_compile",
+      "description": "Issue #222 whole-array assignment, case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a()\r\n    a = LongArr()\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue222_14_compile",
+      "description": "Issue #222 whole-array assignment, case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a()\r\n    a = StrArr()\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue222_15_compile",
+      "description": "Issue #222 whole-array assignment, case 15, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a() As Long\r\n    a = LongArr()\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue222_16_compile",
+      "description": "Issue #222 whole-array assignment, case 16, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a() As String\r\n    a = StrArr()\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue222_17_compile",
+      "description": "Issue #222 whole-array assignment, case 17, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a() As Variant\r\n    a = VarArrT()\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue222_18_compile",
+      "description": "Issue #222 whole-array assignment, case 18, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a()\r\n    a = VarArrT()\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue222_19_compile",
+      "description": "Issue #222 whole-array assignment, case 19, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a() As Long\r\n    a = LongArrN(3)\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue222_20_compile",
+      "description": "Issue #222 whole-array assignment, case 20, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a() As String\r\n    a = LongArrN(3)\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue222_21_runtime",
+      "description": "Issue #222 whole-array assignment, case 21, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a() As Long\r\n    a = VarArr()\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue222_22_compile",
+      "description": "Issue #222 whole-array assignment, case 22, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim v As Variant\r\n    v = LongArr()\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue222_23_compile",
+      "description": "Issue #222 whole-array assignment, case 23, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a() As Byte\r\n    a = ByteArr()\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue222_24_compile",
+      "description": "Issue #222 whole-array assignment, case 24, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a(1) As Long\r\n    a = LongArr()\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue222_25_compile",
+      "description": "Issue #222 whole-array assignment, case 25, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim a() As Integer\r\n    a = LongArr()\r\n    Main = 1\r\nEnd Function\r\nPrivate Function LongArr() As Long()\r\n    Dim r(1) As Long\r\n    LongArr = r\r\nEnd Function\r\nPrivate Function StrArr() As String()\r\n    Dim r(1) As String\r\n    StrArr = r\r\nEnd Function\r\nPrivate Function VarArrT() As Variant()\r\n    Dim r(1) As Variant\r\n    VarArrT = r\r\nEnd Function\r\nPrivate Function VarArr() As Variant\r\n    VarArr = Array(1, 2)\r\nEnd Function\r\nPrivate Function ByteArr() As Byte()\r\n    ByteArr = \"ab\"\r\nEnd Function\r\nPrivate Function LongArrN(ByVal n As Long) As Long()\r\n    Dim r() As Long\r\n    ReDim r(n)\r\n    LongArrN = r\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }
