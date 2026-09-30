@@ -3561,11 +3561,23 @@
         "issue195_21_compile",
         "issue195_22_compile",
         "issue195_24_compile",
-        "issue195_25_compile"
+        "issue195_25_compile",
+        "issue220_04_compile",
+        "issue220_05_compile",
+        "issue220_06_compile",
+        "issue220_07_compile",
+        "issue220_08_compile",
+        "issue220_09_compile",
+        "issue220_10_compile",
+        "issue220_15_compile",
+        "issue220_18_compile",
+        "issue220_20_compile",
+        "issue220_22_compile",
+        "issue220_25_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Event handler declared unlike its event. VBE compile error: Procedure declaration does not match description of event or procedure having the same name; events from the Office and MSForms type libraries (issue #195, Excel 16.0).",
+      "notes": "Event handler declared unlike its event. VBE compile error: Procedure declaration does not match description of event or procedure having the same name; events from the Office and MSForms type libraries (issue #195, Excel 16.0). Issue #220: a handler for an event a project class declares, through a WithEvents variable of that class, is judged the same way; an empty handler compiles there too, and a parameter of a project Enum may be declared As Long.",
       "diagnosticKind": "compile-error"
     },
     {

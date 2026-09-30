@@ -450,8 +450,10 @@ function projectObjectMemberSignature(symbol: VbaSymbol): string | undefined {
 		return procedureSignatureLabel(procedure);
 	}
 	if (symbol.kind === 'event') {
-		const params = procedureParamsFromSymbol(symbol)
-			.map((param) => formatProcedureParamLabel(param))
+		// A handler must pass each parameter as the event does (issue #220),
+		// so the event's label says ByVal and ByRef.
+		const params = procedureParamsFromSymbol(symbol, { includePassing: true })
+			.map((param) => formatProcedureParamLabel(param, { includePassing: true }))
 			.join(', ');
 		return `${symbol.name}(${params})`;
 	}
