@@ -15,9 +15,10 @@ These rules are the same in every WilliamSmithEdward repository.
   `gh run download <run-id> -n release-preview`.
 - **Do not create, publish, edit or delete a release or a `v*` tag** unless
   the owner asks for it. A `v*` tag cannot be moved or deleted once pushed.
-- **`main` requires three checks:** CI passed, Security passed and Malware
-  scan passed. The owner's account can push past them. Do that only when the
-  owner has said so, and watch the three workflows go green afterwards.
+- **Every change to `main` goes through a pull request** that passes CI
+  passed, Security passed and Malware scan passed. No one can push to `main`
+  directly or skip the checks, admins included. Push a branch, open a pull
+  request, and let it merge itself: `gh pr merge --auto --squash <number>`.
 - **Pins.** Actions by full commit SHA with the version as a comment. Images
   by digest, in `.github/security/<tool>/Dockerfile`. Python tools from the
   hash-locked `.github/requirements/<purpose>.txt`, compiled from the `.in`
