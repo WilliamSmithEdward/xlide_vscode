@@ -73,6 +73,54 @@ describe('conditional compilation expression evaluation', () => {
 		).toBe(false);
 	});
 
+	it('evaluates the operators as the VBE does (issue #192)', () => {
+		// Each measured in 64-bit Excel 16.0: which #If branch compiles.
+		const cases: Array<[string, boolean | number | string]> = [
+			['Not 1', -2],
+			['Not -1', 0],
+			['Not 0', -1],
+			['Not 1 = 2', true],
+			['-0', -0],
+			['1 And 2', 0],
+			['1 Or 0 And 0', 1],
+			['1 Eqv 1', -1],
+			['0 Imp 0', -1],
+			['3 Mod 2', 1],
+			['3 \\ 2 = 1', true],
+			['5 / 2 = 2.5', true],
+			['2 ^ 3 = 8', true],
+			['-2 ^ 2', -4],
+			['(1 + 2) * 3 = 9', true],
+			['&HFFFF = -1', true],
+			['True = -1', true],
+			['"a" < "b"', true],
+			['"A" = "a"', true],
+			['"x" & "y" = "xy"', true],
+			['True And False', false],
+		];
+		for (const [expression, value] of cases) {
+			expect(evaluateConditionalExpression(expression), expression).toBe(value);
+		}
+	});
+
+	it('takes the branches 64-bit Office takes: Win32 is True, Win16 False (issue #192)', () => {
+		const branch = (source: string): string => {
+			const module = parseModule(source);
+			const tracker = createConditionalActivityTracker(module, { projectConstants: {} });
+			const at = source.indexOf('Main = "if"');
+			return tracker?.activityForSpan({ start: at, end: at + 11 }) ?? 'none';
+		};
+		const wrap = (setup: string, condition: string): string =>
+			`${setup}Function Main() As String\n#If ${condition} Then\n    Main = "if"\n#Else\n    Main = "else"\n#End If\nEnd Function\n`;
+		expect(branch(wrap('', 'Win32'))).toBe('active');
+		expect(branch(wrap('', 'Win16'))).toBe('inactive');
+		expect(branch(wrap('#Const DEBUGGING = 1\n', 'Not DEBUGGING'))).toBe('active');
+		// A #Const inside #If False still defines its constant.
+		expect(branch(wrap('#If False Then\n#Const FAST = 1\n#End If\n', 'FAST'))).toBe('active');
+		expect(branch(wrap('#Const A = 1\n#Const B = 1\n', 'A Xor B'))).toBe('inactive');
+		expect(branch(wrap('', 'B + 1'))).toBe('active');
+	});
+
 	it('returns undefined for unknown expressions instead of guessing', () => {
 		expect(evaluateConditionalExpression('VBA7')).toBeUndefined();
 		expect(evaluateConditionalExpression('MissingConstant And VBA7')).toBeUndefined();

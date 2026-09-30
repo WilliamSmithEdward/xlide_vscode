@@ -1,6 +1,7 @@
 import { tokenize } from '../lexer/tokenize';
 import type { VbaToken } from '../lexer/tokenKinds';
 import { relationalOperatorAt, tokenWord } from '../lexer/tokenHelpers';
+import { bankersRound, parseVbaIntegerLiteral } from '../constants/integerConstantExpression';
 import type {
 	BodyNode,
 	ConditionalDirectiveNode,
@@ -59,7 +60,10 @@ export interface ConditionalActivityTracker {
 const DEFAULT_COMPILER_CONSTANTS: Readonly<Record<string, ConditionalValue>> = {
 	VBA7: true,
 	Win64: true,
-	Win32: false,
+	// Win32 is True in 64-bit Office as well: it means Windows, not a width
+	// (issue #192, measured in 64-bit Excel 16.0). Win16 is False.
+	Win32: true,
+	Win16: false,
 	Mac: false,
 	// `TWINBASIC` is a compiler auto-constant defined only by the twinBASIC
 	// compiler; in Excel VBA it is undefined and therefore False (VBE-oracle
@@ -340,7 +344,9 @@ function applyConditionalDirective(
 ): ConditionalActivity {
 	switch (directive.directiveKind) {
 		case 'Const': {
-			if (current === 'active' && directive.name) {
+			// A #Const defines its constant even inside a #If False: the VBE
+			// reads every #Const line (issue #192, measured in Excel 16.0).
+			if (directive.name) {
 				const value = evaluateWithProjectConstants(directive.valueRaw, env, projectConstants);
 				if (value !== undefined) {
 					projectConstants.set(directive.name.toLowerCase(), value);
@@ -528,6 +534,15 @@ function truthy(value: ConditionalValue): boolean {
 	return value.length > 0;
 }
 
+/**
+ * Evaluates a #If or #Const expression as the VBE does (issue #192, measured
+ * in Excel 16.0). The operators and their order are VBA's own, loosest
+ * first: Imp, Eqv, Xor, Or, And, Not, the comparisons, &, + and -, Mod, \,
+ * * and /, unary minus, ^. Not, And, Or, Xor, Eqv and Imp are bitwise on
+ * numbers, as in code: `Not 1` is -2, which is True, and `1 And 2` is 0.
+ * Two Booleans give a Boolean. Strings compare without regard to case:
+ * `"A" = "a"` is True. Hex and octal literals keep their width: &HFFFF is -1.
+ */
 class ConditionalExpressionParser {
 	private index = 0;
 
@@ -546,77 +561,134 @@ class ConditionalExpressionParser {
 	) {}
 
 	parse(): ConditionalValue | undefined {
-		const value = this.parseOr();
+		const value = this.parseLogical(0);
 		return this.index >= this.tokens.length ? value : undefined;
 	}
 
-	private parseOr(): ConditionalValue | undefined {
-		let left = this.parseAnd();
-		while (this.matchWord('or')) {
-			const right = this.parseAnd();
-			if (left === undefined || right === undefined) {
-				return undefined;
-			}
-			left = truthy(left) || truthy(right);
+	/** Imp, Eqv, Xor, Or, And, loosest first; each level is left-associative. */
+	private parseLogical(level: number): ConditionalValue | undefined {
+		if (level === LOGICAL_LEVELS.length) {
+			return this.parseNot();
+		}
+		let left = this.parseLogical(level + 1);
+		while (this.matchWord(LOGICAL_LEVELS[level])) {
+			const right = this.parseLogical(level + 1);
+			left = left === undefined || right === undefined ? undefined : logical(LOGICAL_LEVELS[level], left, right);
 		}
 		return left;
 	}
 
-	private parseAnd(): ConditionalValue | undefined {
-		let left = this.parseComparison();
-		while (this.matchWord('and')) {
-			const right = this.parseComparison();
-			if (left === undefined || right === undefined) {
-				return undefined;
+	/** `Not` binds looser than a comparison: `Not 1 = 2` is `Not (1 = 2)`. */
+	private parseNot(): ConditionalValue | undefined {
+		if (this.matchWord('not')) {
+			const value = this.parseNot();
+			if (typeof value === 'boolean') {
+				return !value;
 			}
-			left = truthy(left) && truthy(right);
+			const number = value === undefined ? undefined : wholeNumber(value);
+			return number === undefined ? undefined : ~number;
 		}
-		return left;
+		return this.parseComparison();
 	}
 
 	private parseComparison(): ConditionalValue | undefined {
-		const left = this.parseUnary();
-		// Relational operators (<, >, <=, >=) join the existing equality (=, <>)
-		// handling so `#If Win64 >= 1 Then` and friends evaluate, in any of the
-		// spellings MS-VBAL 5.6.9.5 allows (`=>`, `< >`). Anything else (Like,
-		// etc.) is left to the caller as an unmodeled remainder.
-		const relational = relationalOperatorAt(this.tokens, this.index);
-		if (!relational) {
-			return left;
-		}
-		const op = relational.operator;
-		this.index += relational.length;
-		const right = this.parseUnary();
-		if (left === undefined || right === undefined) {
-			return undefined;
-		}
-		if (op === '=' || op === '<>') {
-			const same = normalizedComparisonValue(left) === normalizedComparisonValue(right);
-			return op === '=' ? same : !same;
-		}
-		// Relational comparisons operate on the operands' numeric values (VBA
-		// coerces booleans to -1/0); a non-numeric operand stays unmodeled.
-		const leftNumber = relationalNumber(left);
-		const rightNumber = relationalNumber(right);
-		if (leftNumber === undefined || rightNumber === undefined) {
-			return undefined;
-		}
-		switch (op) {
-			case '<':
-				return leftNumber < rightNumber;
-			case '>':
-				return leftNumber > rightNumber;
-			case '<=':
-				return leftNumber <= rightNumber;
-			default:
-				return leftNumber >= rightNumber;
+		let left = this.parseConcat();
+		for (;;) {
+			const relational = relationalOperatorAt(this.tokens, this.index);
+			if (!relational) {
+				return left;
+			}
+			this.index += relational.length;
+			const right = this.parseConcat();
+			left = left === undefined || right === undefined ? undefined : compare(relational.operator, left, right);
 		}
 	}
 
-	private parseUnary(): ConditionalValue | undefined {
-		if (this.matchWord('not')) {
-			const value = this.parseUnary();
-			return value === undefined ? undefined : !truthy(value);
+	private parseConcat(): ConditionalValue | undefined {
+		let left = this.parseAdditive();
+		while (this.peek()?.rawText === '&') {
+			this.index++;
+			const right = this.parseAdditive();
+			left = left === undefined || right === undefined ? undefined : `${text(left)}${text(right)}`;
+		}
+		return left;
+	}
+
+	private parseAdditive(): ConditionalValue | undefined {
+		let left = this.parseMod();
+		while (this.peek()?.rawText === '+' || this.peek()?.rawText === '-') {
+			const op = this.tokens[this.index++].rawText;
+			const right = this.parseMod();
+			if (left === undefined || right === undefined) {
+				left = undefined;
+			} else if (op === '+' && typeof left === 'string' && typeof right === 'string') {
+				left = left + right;
+			} else {
+				left = arithmetic(op, left, right);
+			}
+		}
+		return left;
+	}
+
+	private parseMod(): ConditionalValue | undefined {
+		let left = this.parseIntegerDivision();
+		while (this.matchWord('mod')) {
+			const right = this.parseIntegerDivision();
+			left = left === undefined || right === undefined ? undefined : arithmetic('mod', left, right);
+		}
+		return left;
+	}
+
+	private parseIntegerDivision(): ConditionalValue | undefined {
+		let left = this.parseProduct();
+		while (this.peek()?.rawText === '\\') {
+			this.index++;
+			const right = this.parseProduct();
+			left = left === undefined || right === undefined ? undefined : arithmetic('\\', left, right);
+		}
+		return left;
+	}
+
+	private parseProduct(): ConditionalValue | undefined {
+		let left = this.parseNegation();
+		while (this.peek()?.rawText === '*' || this.peek()?.rawText === '/') {
+			const op = this.tokens[this.index++].rawText;
+			const right = this.parseNegation();
+			left = left === undefined || right === undefined ? undefined : arithmetic(op, left, right);
+		}
+		return left;
+	}
+
+	/** Unary minus binds looser than ^: `-2 ^ 2` is -4. */
+	private parseNegation(): ConditionalValue | undefined {
+		const op = this.peek()?.rawText;
+		if (op === '-' || op === '+') {
+			this.index++;
+			const value = this.parseNegation();
+			const number = value === undefined ? undefined : numberOf(value);
+			return number === undefined ? undefined : op === '-' ? -number : number;
+		}
+		return this.parsePower();
+	}
+
+	private parsePower(): ConditionalValue | undefined {
+		let left = this.parsePrimary();
+		while (this.peek()?.rawText === '^') {
+			this.index++;
+			const right = this.parseNegationOperand();
+			left = left === undefined || right === undefined ? undefined : arithmetic('^', left, right);
+		}
+		return left;
+	}
+
+	/** An exponent may carry its own sign: `2 ^ -1`. */
+	private parseNegationOperand(): ConditionalValue | undefined {
+		const op = this.peek()?.rawText;
+		if (op === '-' || op === '+') {
+			this.index++;
+			const value = this.parsePrimary();
+			const number = value === undefined ? undefined : numberOf(value);
+			return number === undefined ? undefined : op === '-' ? -number : number;
 		}
 		return this.parsePrimary();
 	}
@@ -628,7 +700,7 @@ class ConditionalExpressionParser {
 		}
 		if (token.rawText === '(') {
 			this.index++;
-			const value = this.parseOr();
+			const value = this.parseLogical(0);
 			if (this.peek()?.rawText !== ')') {
 				return undefined;
 			}
@@ -636,22 +708,11 @@ class ConditionalExpressionParser {
 			return value;
 		}
 		this.index++;
-		if (token.kind === 'integerLiteral' || token.kind === 'floatLiteral') {
-			// VBA hex (&H10) / octal (&O17) literals are not parseable by Number();
-			// strip any trailing type-suffix char and parse with the correct radix
-			// before falling back to a decimal/float Number() parse.
-			const raw = token.rawText.replace(/[!#@%&^]$/, '');
-			const hex = /^&[hH]([0-9A-Fa-f]+)$/.exec(raw);
-			if (hex) {
-				const value = Number.parseInt(hex[1], 16);
-				return Number.isFinite(value) ? value : undefined;
-			}
-			const octal = /^&[oO]([0-7]+)$/.exec(raw);
-			if (octal) {
-				const value = Number.parseInt(octal[1], 8);
-				return Number.isFinite(value) ? value : undefined;
-			}
-			const number = Number(raw);
+		if (token.kind === 'integerLiteral') {
+			return parseVbaIntegerLiteral(token.rawText);
+		}
+		if (token.kind === 'floatLiteral') {
+			const number = Number(token.rawText.replace(/[!#@]$/, '').replace(/[dD]/, 'e'));
 			return Number.isFinite(number) ? number : undefined;
 		}
 		if (token.kind === 'stringLiteral') {
@@ -682,28 +743,107 @@ class ConditionalExpressionParser {
 	private peek(): VbaToken | undefined {
 		return this.tokens[this.index];
 	}
-
 }
 
-/** Numeric value used for relational comparisons; undefined for non-numeric strings. */
-function relationalNumber(value: ConditionalValue): number | undefined {
+const LOGICAL_LEVELS = ['imp', 'eqv', 'xor', 'or', 'and'] as const;
+
+/** The number a value converts to: True is -1, a numeric string its number. */
+function numberOf(value: ConditionalValue): number | undefined {
 	if (typeof value === 'boolean') {
-		// VBA coerces True -> -1, False -> 0 for numeric comparison.
 		return value ? -1 : 0;
 	}
 	if (typeof value === 'number') {
 		return value;
 	}
-	const parsed = Number(value);
+	const trimmed = value.trim();
+	const parsed = trimmed.length === 0 ? Number.NaN : Number(trimmed);
 	return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function normalizedComparisonValue(value: ConditionalValue): string {
+/** A value as the whole number a bitwise operator reads. */
+function wholeNumber(value: ConditionalValue): number | undefined {
+	const number = numberOf(value);
+	return number === undefined ? undefined : bankersRound(number);
+}
+
+function text(value: ConditionalValue): string {
 	if (typeof value === 'boolean') {
-		// VBA numeric values: True = -1, False = 0. A boolean #Const therefore
-		// compares equal to its numeric form, so `Mac = 0`, `TWINBASIC = 0`, and
-		// `VBA7 = -1` all behave as VBE evaluates them.
-		return value ? '-1' : '0';
+		return value ? 'True' : 'False';
 	}
-	return String(value).toLowerCase();
+	return String(value);
+}
+
+function logical(op: typeof LOGICAL_LEVELS[number], left: ConditionalValue, right: ConditionalValue): ConditionalValue | undefined {
+	if (typeof left === 'boolean' && typeof right === 'boolean') {
+		switch (op) {
+			case 'and': return left && right;
+			case 'or': return left || right;
+			case 'xor': return left !== right;
+			case 'eqv': return left === right;
+			default: return !left || right;
+		}
+	}
+	const a = wholeNumber(left);
+	const b = wholeNumber(right);
+	if (a === undefined || b === undefined) {
+		return undefined;
+	}
+	switch (op) {
+		case 'and': return a & b;
+		case 'or': return a | b;
+		case 'xor': return a ^ b;
+		case 'eqv': return ~(a ^ b);
+		default: return ~a | b;
+	}
+}
+
+function arithmetic(op: string, left: ConditionalValue, right: ConditionalValue): number | undefined {
+	const a = numberOf(left);
+	const b = numberOf(right);
+	if (a === undefined || b === undefined) {
+		return undefined;
+	}
+	switch (op) {
+		case '+': return a + b;
+		case '-': return a - b;
+		case '*': return a * b;
+		case '/': return b === 0 ? undefined : a / b;
+		case '\\': {
+			const divisor = bankersRound(b);
+			return divisor === 0 ? undefined : Math.trunc(bankersRound(a) / divisor);
+		}
+		case 'mod': {
+			const divisor = bankersRound(b);
+			return divisor === 0 ? undefined : bankersRound(a) % divisor;
+		}
+		default: {
+			const result = Math.pow(a, b);
+			return Number.isFinite(result) ? result : undefined;
+		}
+	}
+}
+
+/** A comparison: two strings compare as text, without regard to case; anything else as numbers. */
+function compare(op: string, left: ConditionalValue, right: ConditionalValue): boolean | undefined {
+	let order: number;
+	if (typeof left === 'string' && typeof right === 'string') {
+		const a = left.toLowerCase();
+		const b = right.toLowerCase();
+		order = a < b ? -1 : a > b ? 1 : 0;
+	} else {
+		const a = numberOf(left);
+		const b = numberOf(right);
+		if (a === undefined || b === undefined) {
+			return undefined;
+		}
+		order = a < b ? -1 : a > b ? 1 : 0;
+	}
+	switch (op) {
+		case '=': return order === 0;
+		case '<>': return order !== 0;
+		case '<': return order < 0;
+		case '>': return order > 0;
+		case '<=': return order <= 0;
+		default: return order >= 0;
+	}
 }

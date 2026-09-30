@@ -29,6 +29,19 @@ export function parseDecimalIntegerLiteral(raw: string): number | undefined {
 	return Number.isSafeInteger(value) ? value : undefined;
 }
 
+/** VBA's rounding to a whole number: banker's rounding at .5. */
+export function bankersRound(value: number): number {
+	const floor = Math.floor(value);
+	const fraction = value - floor;
+	if (fraction > 0.5) {
+		return floor + 1;
+	}
+	if (fraction < 0.5) {
+		return floor;
+	}
+	return floor % 2 === 0 ? floor : floor + 1;
+}
+
 /** Parses a VBA integer literal (decimal, &H, &O; optional %/&/^ suffix). */
 export function parseVbaIntegerLiteral(raw: string): number | undefined {
 	const trimmed = raw.trim();

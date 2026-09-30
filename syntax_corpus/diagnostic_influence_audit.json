@@ -669,7 +669,8 @@
         "division_by_cross_module_const_private_helper_nonzero_runtime",
         "issue180_01_runtime",
         "issue180_15_runtime",
-        "issue180_16_runtime"
+        "issue180_16_runtime",
+        "issue192s_4_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

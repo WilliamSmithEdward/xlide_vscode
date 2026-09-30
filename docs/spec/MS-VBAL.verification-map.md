@@ -173,8 +173,12 @@ Spec source: see `MS-VBAL.version.md` (v20250520).
   compiler directives are parsed, and `src/analyzer/conditional/conditionalCompilation.ts`
   can classify simple `VBA7` / `Win64` / `Win32` / `Mac` / `#Const` branches as
   active, inactive, or unknown. Analyzer branch activity defaults to modern
-  Windows Office (`VBA7 = True`, `Win64 = True`, `Win32 = False`, `Mac = False`)
-  and preserves explicit caller overrides. The shared branch tracker now filters
+  Windows Office (`VBA7 = True`, `Win64 = True`, `Win32 = True`, `Win16 = False`,
+  `Mac = False`; Win32 means Windows and is True in 64-bit Office too) and
+  preserves explicit caller overrides. Directive expressions use VBA's operators
+  and order: `Not`, `And`, `Or`, `Xor`, `Eqv` and `Imp` are bitwise on numbers,
+  and a `#Const` inside an inactive `#If` still defines its constant (issue
+  #192, measured in 64-bit Excel 16.0). The shared branch tracker now filters
   only proven-inactive declarations/statements from the module symbol graph,
   project signatures, and active diagnostics. Remaining work is malformed
   directive-block diagnostics and broader pointer-sized API compatibility checks.
