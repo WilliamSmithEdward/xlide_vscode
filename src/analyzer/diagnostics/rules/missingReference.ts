@@ -23,6 +23,7 @@
 
 import type { HostObjectModel } from '../../host/excelObjectModel';
 import { HOST_LIBRARY_NAMES } from '../../host/hostLibraries';
+import type { VbaHostToken } from '../../host/hostRegistry';
 import { tokenName } from '../../lexer/tokenHelpers';
 import { tokenizeCached } from '../../lexer/tokenize';
 import type { Span } from '../../parser/nodes';
@@ -100,8 +101,15 @@ export function checkMissingLibraryReference(
 	source: string,
 	model: HostObjectModel | undefined,
 	push: PushFn,
+	referencedHosts: readonly string[] = [],
 ): void {
 	const present = librariesInModel(model);
+	// A library the project references is present even when no model for it
+	// is registered: the analyzer knows nothing about it, not that it is gone.
+	for (const token of referencedHosts) {
+		const name = HOST_LIBRARY_NAMES[token as VbaHostToken];
+		if (name) { present.add(name.toLowerCase()); }
+	}
 	// Nothing is known about any library, so nothing can be said about one
 	// being absent. A caller that passes no model gets silence.
 	if (present.size === 0) {

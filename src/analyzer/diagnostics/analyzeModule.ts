@@ -38,7 +38,7 @@ import type {
 	ProcedureNode,
 	Span,
 } from '../parser/nodes';
-import { hostObjectModelForToken, hostObjectModelForTokens } from '../host/hostRegistry';
+import { hostObjectModelForToken, hostObjectModelForTokens, unregisteredBuiltInHosts } from '../host/hostRegistry';
 import { parseModule } from '../parser/parseModule';
 import { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import { createConditionalActivityTracker } from '../conditional/conditionalCompilation';
@@ -102,6 +102,7 @@ export function analyzeModule(
 ): VbaDiagnostic[] {
 	const report = internalErrorReporter(opts);
 	try {
+		reportUnregisteredHosts(opts, report);
 		return runRules(source, withResolvedHostModel(withUsableProjectProcedures(opts, report)), report);
 	} catch (err) {
 		report(err, { stage: 'analysis' });
@@ -141,6 +142,33 @@ function withUsableProjectProcedures(opts: AnalyzeModuleOptions, report: ReportI
 		{ stage: 'options' },
 	);
 	return { ...opts, projectProcedures: undefined };
+}
+
+/**
+ * Only Excel's model is built in; the extension registers the rest at load
+ * (registerBuiltInHostModels). A host or referenced library XLIDE ships a
+ * model for but nobody registered is analyzed with no knowledge of it, which
+ * reads as a clean module. Say so, once per analysis, so a missing
+ * registration is seen rather than found later as missing findings. An
+ * explicit hostModel is the caller's own choice and is not second-guessed.
+ */
+function reportUnregisteredHosts(opts: AnalyzeModuleOptions, report: ReportInternalError): void {
+	if (opts.hostModel !== undefined) {
+		return;
+	}
+	const missing = unregisteredBuiltInHosts([
+		...(opts.host === undefined ? [] : [opts.host]),
+		...(opts.referencedHosts ?? []),
+	]);
+	if (missing.length === 0) {
+		return;
+	}
+	report(
+		new Error(`no object model is registered for ${missing.map((token) => `'${token}'`).join(', ')}, `
+			+ 'so it is analyzed with no host knowledge: call registerBuiltInHostModels() once at load, '
+			+ 'or registerHostObjectModel() for each host'),
+		{ stage: 'options' },
+	);
 }
 
 /**

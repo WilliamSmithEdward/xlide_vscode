@@ -731,7 +731,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 		// passes undefined so the downstream default rides, and the rule
 		// would then know of no library at all and stay silent.
 		run: (ctx, push) => checkMissingLibraryReference(
-			ctx.source, ctx.opts.hostModel ?? getExcelObjectModel(), push,
+			ctx.source, ctx.opts.hostModel ?? getExcelObjectModel(), push, ctx.opts.referencedHosts,
 		),
 	},
 	{

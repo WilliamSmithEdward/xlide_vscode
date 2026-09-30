@@ -4,8 +4,12 @@
 // file only wires the message port. Must never import 'vscode'.
 
 import { parentPort } from 'worker_threads';
+import { registerBuiltInHostModels } from './analyzer/host/builtInHostModels';
 import { AnalysisWorkerState } from './analysisWorkerLogic';
 import type { AnalysisWorkerRequest } from './analysisWorkerProtocol';
+
+// The worker analyzes every host the extension does.
+registerBuiltInHostModels();
 
 const state = new AnalysisWorkerState();
 

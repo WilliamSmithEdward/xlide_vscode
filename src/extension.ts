@@ -52,6 +52,11 @@ import { setExtensionAssetRoot } from './extensionAssets';
 import { setPerformanceTraceLogger } from './performanceTrace';
 import { setProjectAnalysisWorker } from './vbaProjectWideAnalysis';
 import { XLIDE_VBA_EDITOR_OVERRIDES } from './xlideVbaEditorOverrides';
+import { registerBuiltInHostModels } from './analyzer/host/builtInHostModels';
+
+// Every host XLIDE opens is analyzed with its own object model. Registered at
+// load, before any provider or command can ask for one.
+registerBuiltInHostModels();
 
 // ---------------------------------------------------------------------------
 // Activation
