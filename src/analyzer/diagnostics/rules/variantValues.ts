@@ -80,12 +80,13 @@ export function checkVariantValueMisuse(
 		});
 		// A Variant local is still Empty at a statement that names it first,
 		// though Erase and ReDim end what the value analysis knows of it: the
-		// only statement to name it, or a top-level one in a procedure with no
-		// GoTo, GoSub or Resume to come back to an earlier line.
+		// only statement to name it, or the first in a procedure with no GoTo,
+		// GoSub or Resume to come back to an earlier line. Inside a block too:
+		// the first pass through a loop, or the arm that runs, reaches it
+		// before anything else names it (issue #237).
 		let mentions: Map<string, number> | undefined;
 		let procedureTokens: readonly VbaToken[] | undefined;
-		const topLevel = new Set(member.body);
-		const emptyHere = (lower: string, stmt: BodyNode, offset: number): boolean => {
+		const emptyHere = (lower: string, offset: number): boolean => {
 			const local = procedureSymbolFor(symbols, member)?.children?.find((child) => child.name.toLowerCase() === lower);
 			if (local?.kind !== 'localVariable' || local.isArray || local.visibility === 'Static' || !isVariant(lower)) {
 				return false;
@@ -94,7 +95,7 @@ export function checkVariantValueMisuse(
 				return true;
 			}
 			procedureTokens ??= statementTokens(source, member.span).map((tok) => ({ ...tok, start: tok.start + member.span.start, end: tok.end + member.span.start }));
-			if (!topLevel.has(stmt) || procedureTokens.some((tok) => ['goto', 'gosub', 'resume'].includes(tokenText(tok)))) {
+			if (procedureTokens.some((tok) => ['goto', 'gosub', 'resume'].includes(tokenText(tok)))) {
 				return false;
 			}
 			// The first use after the declaration (a Dim names it too).
@@ -111,7 +112,7 @@ export function checkVariantValueMisuse(
 				for (let i = 1; i < toks.length; i++) {
 					const lower = tokenName(toks[i])?.toLowerCase();
 					const statement = lower ? arrayStatementTarget(toks, i) : undefined;
-					if (statement && emptyHere(lower!, stmt, span.start + toks[i].start)) {
+					if (statement && emptyHere(lower!, span.start + toks[i].start)) {
 						push('variantValueMisuse', `'${toks[i].rawText}' is never assigned, so it is Empty here, which is not an array for ${statement} to act on. This will raise Run-time error '13': Type mismatch.`, { start: span.start + toks[i].start, end: span.start + toks[i].end });
 					}
 				}

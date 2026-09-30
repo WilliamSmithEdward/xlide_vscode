@@ -25,7 +25,8 @@
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpression';
 import type { VbaToken } from '../../lexer/tokenKinds';
-import type { ModuleNode, ProcedureNode, Span } from '../../parser/nodes';
+import type { BodyNode, ModuleNode, ProcedureNode, Span } from '../../parser/nodes';
+import { walkEnteringBlocks } from '../dataflow';
 import { isLeafStatement } from '../../parser/nodes';
 import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import type { PushFn } from '../analysisContext';
@@ -40,7 +41,7 @@ import {
 	tokenName,
 	tokenText,
 } from '../walker';
-import { nameMentions } from './shared';
+import { nameMentions, namesIn } from './shared';
 
 interface CollectionContents {
 	/** Keys in element order; undefined for an element added without a key. */
@@ -71,24 +72,18 @@ export function checkCollectionState(
 		let mentions: Map<string, number> | undefined;
 		const isEmpty = (lower: string): boolean => autoInstanced.variantLocals.has(lower)
 			&& (mentions ??= nameMentions(source, member, activity)).get(lower) === 1;
-		for (const node of member.body) {
-			if (activity?.isInactive(node.span)) {
-				continue;
-			}
-			if (node.kind === 'VariableGroup') {
-				continue; // a Dim inside the body declares, and runs nothing
-			}
+		// Blocks are entered with the state they start with (issue #237).
+		const visit = (node: BodyNode): void => {
 			if (!isLeafStatement(node)) {
-				states.clear();
-				continue;
+				return; // a Dim inside the body declares, and runs nothing
 			}
 			if (node.kind === 'Statement' && node.singleLineIfBranches) {
 				forgetMentioned(source, node.span, states);
-				continue;
+				return;
 			}
 			const toks = statementTokensAfterLeadingLabel(source, node.span);
 			if (toks.length === 0) {
-				continue;
+				return;
 			}
 			// A label may be reached from anywhere; a GoSub may run any statement.
 			if (statementLabelDeclaration(source, node.span) || tokenText(toks[0]) === 'gosub') {
@@ -107,11 +102,11 @@ export function checkCollectionState(
 				const aliased = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
 				if (isCollectionLocal && value.length === 2 && tokenText(value[0]) === 'new' && tokenText(value[1]) === 'collection') {
 					states.set(lower, { items: [], keysKnown: true });
-					continue;
+					return;
 				}
 				if (isCollectionLocal && aliased !== undefined && states.has(aliased)) {
 					states.set(lower, states.get(aliased)!);
-					continue;
+					return;
 				}
 				states.delete(lower);
 				for (const tok of value) {
@@ -120,11 +115,41 @@ export function checkCollectionState(
 						states.delete(mentioned);
 					}
 				}
-				continue;
+				return;
 			}
 			checkStatement(node.span, toks, states, push, isEmpty);
-		}
+		};
+		walkEnteringBlocks(source, member.body, (node) => activity?.isInactive(node.span) === true, visit, {
+			snapshot: () => cloneStates(states),
+			restore: (saved) => {
+				states.clear();
+				for (const [lower, contents] of cloneStates(saved)) {
+					states.set(lower, contents);
+				}
+			},
+			forget: (names) => {
+				for (const lower of names) {
+					states.delete(lower);
+				}
+			},
+			touches: (stmt) => namesIn(source, stmt.span),
+		});
 	}
+}
+
+/** A copy of the states in which two names that shared one collection still do. */
+function cloneStates(states: ReadonlyMap<string, CollectionContents>): Map<string, CollectionContents> {
+	const copies = new Map<CollectionContents, CollectionContents>();
+	const out = new Map<string, CollectionContents>();
+	for (const [lower, contents] of states) {
+		let copy = copies.get(contents);
+		if (!copy) {
+			copy = { items: [...contents.items], keysKnown: contents.keysKnown };
+			copies.set(contents, copy);
+		}
+		out.set(lower, copy);
+	}
+	return out;
 }
 
 function collectionLocals(

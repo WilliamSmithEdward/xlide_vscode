@@ -705,6 +705,18 @@ export function scanConditionalCompilationBranchOrder(mod: ModuleNode): Conditio
 	return { issues, malformedBlockSpans };
 }
 
+/** The lowercased names a statement mentions, which a block containing it may change (issue #237). */
+export function namesIn(source: string, span: Span): Set<string> {
+	const out = new Set<string>();
+	for (const tok of statementTokensAfterLeadingLabel(source, span)) {
+		const lower = tokenName(tok)?.toLowerCase();
+		if (lower) {
+			out.add(lower);
+		}
+	}
+	return out;
+}
+
 /**
  * How many times each name appears in the procedure's active code: its
  * statements, and the header and footer lines of its blocks, where

@@ -25,8 +25,9 @@ import type { ConditionalActivityTracker } from '../../conditional/conditionalCo
 import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpression';
 import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import type { VbaToken } from '../../lexer/tokenKinds';
-import type { BodyNode, ModuleNode, Span } from '../../parser/nodes';
+import type { BodyNode, LeafStatementNode, ModuleNode, Span } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
+import { walkEnteringBlocks } from '../dataflow';
 import type { PushFn } from '../analysisContext';
 import {
 	activeModuleMembers,
@@ -61,34 +62,22 @@ export function checkFileStatements(
 			continue;
 		}
 		const states: FileStates = new Map();
-		const numbersInBlocks = fileNumbersNamedInBlocks(source, member.body, activity);
-		for (const node of member.body) {
-			if (activity?.isInactive(node.span)) {
-				continue;
-			}
-			if (node.kind === 'VariableGroup') {
-				continue; // a Dim inside the body declares, and runs nothing
-			}
+		// Blocks are entered with the state they start with; a block may open,
+		// close or reopen anything it names (issue #237).
+		const visit = (node: BodyNode): void => {
 			if (!isLeafStatement(node)) {
-				// A block may open, close or reopen anything it names.
-				if (numbersInBlocks.has('*')) {
-					states.clear();
-				}
-				for (const key of numbersInBlocks) {
-					states.delete(key);
-				}
-				continue;
+				return; // a Dim inside the body declares, and runs nothing
 			}
 			const toks = statementTokensAfterLeadingLabel(source, node.span);
 			if (toks.length === 0) {
-				continue;
+				return;
 			}
 			if (node.kind === 'Statement' && node.singleLineIfBranches) {
 				// A single-line If runs its statement on one path only.
 				for (const key of fileNumberKeysIn(toks)) {
 					states.delete(key);
 				}
-				continue;
+				return;
 			}
 			// A label may be reached from anywhere, an error handler's included,
 			// so nothing is known there; and a call to a procedure may open or
@@ -98,7 +87,7 @@ export function checkFileStatements(
 			}
 			if (!isFileStatementHead(tokenText(toks[0])) && bareCallStatementTarget(source, node.span)) {
 				states.clear();
-				continue;
+				return;
 			}
 			// `f = FreeFile` again names a new file: what was known about f ends.
 			// The value may still name a file number: `Main = LOF(0)`.
@@ -107,7 +96,25 @@ export function checkFileStatements(
 				states.delete(assigned.name.toLowerCase());
 			}
 			checkStatement(node.span, toks, states, push);
-		}
+		};
+		walkEnteringBlocks(source, member.body, (node) => activity?.isInactive(node.span) === true, visit, {
+			snapshot: () => new Map(states),
+			restore: (saved) => {
+				states.clear();
+				for (const [key, state] of saved) {
+					states.set(key, state);
+				}
+			},
+			forget: (keys) => {
+				if (keys.has('*')) {
+					states.clear();
+				}
+				for (const key of keys) {
+					states.delete(key);
+				}
+			},
+			touches: (stmt) => fileKeysTouchedBy(source, stmt),
+		});
 	}
 }
 
@@ -286,52 +293,32 @@ function fileNumberKeysIn(toks: readonly VbaToken[]): string[] {
 }
 
 /**
- * File-number keys any nested block's statements name, plus every local a
- * block assigns (`f = FreeFile` inside an If): a top-level Open or Close of
- * such a number is followed only until the block, and a Close inside one is
- * not seen at all.
+ * The file number keys a statement may open, close or reopen, and the name it
+ * assigns; `*` when it may close anything: a procedure call, Reset, or a
+ * Close with no number.
  */
-function fileNumbersNamedInBlocks(
-	source: string,
-	body: readonly BodyNode[],
-	activity: ConditionalActivityTracker | undefined,
-): Set<string> {
+function fileKeysTouchedBy(source: string, node: LeafStatementNode): Set<string> {
 	const out = new Set<string>();
-	const visit = (nodes: readonly BodyNode[], nested: boolean): void => {
-		for (const node of nodes) {
-			if (activity?.isInactive(node.span)) {
-				continue;
-			}
-			if ('body' in node && Array.isArray(node.body)) {
-				visit(node.body as BodyNode[], true);
-				continue;
-			}
-			if (!nested || !isLeafStatement(node)) {
-				continue;
-			}
-			const toks = statementTokensAfterLeadingLabel(source, node.span);
-			const head = tokenText(toks[0]);
-			if (!isFileStatementHead(head) && bareCallStatementTarget(source, node.span)) {
-				out.add('*'); // a procedure called inside the block may close anything
-			}
-			if (isFileStatementHead(head)) {
-				for (const key of fileNumberKeysIn(toks)) {
-					out.add(key);
-				}
-				const opened = head === 'open' ? parseOpen(toks) : undefined;
-				if (opened?.key) {
-					out.add(opened.key);
-				}
-				if (head === 'reset' || (head === 'close' && fileNumberKeysIn(toks.slice(1)).length === 0)) {
-					out.add('*');
-				}
-			}
-			const target = bareAssignmentTarget(source, node.span);
-			if (target) {
-				out.add(target.name.toLowerCase());
-			}
+	const toks = statementTokensAfterLeadingLabel(source, node.span);
+	const head = tokenText(toks[0]);
+	if (!isFileStatementHead(head) && bareCallStatementTarget(source, node.span)) {
+		out.add('*');
+	}
+	if (isFileStatementHead(head)) {
+		for (const key of fileNumberKeysIn(toks)) {
+			out.add(key);
 		}
-	};
-	visit(body, false);
+		const opened = head === 'open' ? parseOpen(toks) : undefined;
+		if (opened?.key) {
+			out.add(opened.key);
+		}
+		if (head === 'reset' || (head === 'close' && fileNumberKeysIn(toks.slice(1)).length === 0)) {
+			out.add('*');
+		}
+	}
+	const target = bareAssignmentTarget(source, node.span);
+	if (target) {
+		out.add(target.name.toLowerCase());
+	}
 	return out;
 }
