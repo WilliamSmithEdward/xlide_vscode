@@ -1,0 +1,50 @@
+name: Auto-merge
+
+# The same in every repository; the canonical copy lives in
+# WilliamSmithEdward/repo-standards (templates/automerge). Turns on GitHub
+# auto-merge for a routine Dependabot pull request, so it merges itself once
+# CI, Security and Malware scan pass, and stays open for review if any fails:
+#   - the owner's own packages, at any version;
+#   - anything else except a major version bump, which stays open for review.
+# Third-party versions reach a pull request only after Dependabot's seven-day
+# cooldown. The YARA updater turns on auto-merge for its own pull requests.
+# Needs the repository setting "Allow auto-merge".
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  enable:
+    name: Enable auto-merge for a routine update
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write # the squash merge, when the checks pass
+      pull-requests: write # turning auto-merge on
+    steps:
+      - name: Read what the pull request updates
+        id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+
+      - name: Turn on auto-merge unless it is a third-party major bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          NAMES: ${{ steps.meta.outputs.dependency-names }}
+          UPDATE_TYPE: ${{ steps.meta.outputs.update-type }}
+        run: |
+          own="pyopenvba pyofficeeditor pyprettyvba pyvbareference pyvbaanalysis pyvbaharness xlide-mcp"
+          all_own=true
+          for name in $(echo "$NAMES" | tr ',' ' ' | tr '[:upper:]_' '[:lower:]-'); do
+            if ! echo "$own" | tr ' ' '\n' | grep -qxF "$name"; then all_own=false; fi
+          done
+          if [ "$all_own" = true ] || [ "$UPDATE_TYPE" != "version-update:semver-major" ]; then
+            gh pr merge --auto --squash "$PR_URL"
+            echo "Auto-merge on for $NAMES ($UPDATE_TYPE)." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Left open for review: $NAMES is a major version bump." >> "$GITHUB_STEP_SUMMARY"
+          fi

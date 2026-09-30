@@ -38,9 +38,10 @@ nothing in DIR it cannot check: the proposal may change only the pin file,
 only in the fields a move allows, from the commit the workflow ran on. It
 commits through the GitHub API (no git credentials on disk), opens the pull
 request, and starts CI, Security and Malware scan on the branch, because a
-branch the workflow's own token creates starts no workflow by itself. It never
-reopens a pull request someone closed, and never overwrites a branch it did not
-just create.
+branch the workflow's own token creates starts no workflow by itself. It turns
+on auto-merge, so the pull request merges itself once those pass and stays
+open if any fails. It never reopens a pull request someone closed, and never
+overwrites a branch it did not just create.
 """
 from __future__ import annotations
 
@@ -198,7 +199,15 @@ def prepare(root: Path, out: Path, base_sha: str, api: Api = gh_api,
     return True
 
 
-def propose(root: Path, inp: Path, repository: str, base_sha: str, api: Api = gh_api) -> str | None:
+def gh_auto_merge(url: str) -> None:
+    result = subprocess.run(["gh", "pr", "merge", "--auto", "--squash", url],
+                            capture_output=True, text=True, encoding="utf-8", timeout=120)
+    if result.returncode != 0:
+        raise ApiError(f"auto-merge for {url}: {(result.stdout + result.stderr).strip()}")
+
+
+def propose(root: Path, inp: Path, repository: str, base_sha: str, api: Api = gh_api,
+            auto_merge: Callable[[str], None] = gh_auto_merge) -> str | None:
     proposal = json.loads((inp / "proposal.json").read_text(encoding="utf-8"))
     if proposal["base_sha"] != base_sha or not re.fullmatch(r"[0-9a-f]{40}", base_sha):
         raise ValueError("the proposal was prepared from a different commit")
@@ -245,6 +254,13 @@ def propose(root: Path, inp: Path, repository: str, base_sha: str, api: Api = gh
     if failed:
         raise ApiError(f"{pull['html_url']} is open, but these scans did not start:\n"
                        + "\n".join(failed))
+    # It merges itself once CI, Security and Malware scan pass; a failing scan
+    # leaves it open. Without the "Allow auto-merge" setting it simply stays
+    # open for review, which is not a failure of this run.
+    try:
+        auto_merge(pull["html_url"])
+    except ApiError as exc:
+        print(f"Auto-merge not turned on, so the pull request waits for review: {exc}")
     return pull["html_url"]
 
 

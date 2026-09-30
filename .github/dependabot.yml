@@ -48,6 +48,7 @@ updates:
     groups:
       actions:
         patterns: ['*']
+        update-types: [minor, patch]
 
   - package-ecosystem: docker
     directories: [/.github/security/clamav, /.github/security/semgrep]
@@ -58,14 +59,22 @@ updates:
       default-days: 7
     commit-message:
       prefix: chore(ci)
+    groups:
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
 
   # zizmor, which the Security workflow installs from a hash-locked file.
   - package-ecosystem: pip
     directory: /.github/requirements
     schedule:
-      interval: weekly
-      day: monday
+      interval: daily
     cooldown:
       default-days: 7
+      exclude: [pyopenvba, pyofficeeditor, pyprettyvba, pyvbareference, pyvbaanalysis, pyvbaharness, xlide-mcp]
     commit-message:
       prefix: chore(ci)
+    groups:
+      minor-and-patch:
+        patterns: ["*"]
+        update-types: [minor, patch]
