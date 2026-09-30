@@ -432,6 +432,18 @@ export function validateArity(
 				);
 				continue;
 			}
+			// `Many(p:=1)`: a ParamArray takes no name (issue #223, measured).
+			if (params.find((p) => stripHeaderBrackets(p.name).toLowerCase() === lower)?.paramArray) {
+				push(
+					'argumentCount',
+					`'${raw}' is the ParamArray of '${displayName}', which may not be named. This is a VBE compile error: Argument in ParamArray may not be named.`,
+					{
+						start: call.sliceStart + slot[0].start,
+						end: call.sliceStart + slot[0].end,
+					},
+				);
+				continue;
+			}
 			if (seen.has(lower)) {
 				push(
 					'argumentCount',
@@ -449,6 +461,20 @@ export function validateArity(
 	}
 
 	const n = call.slots.length;
+	// `Opt(1, )`, `Many(1, )`, `Two(1, 2, )`: a list may not end in an empty
+	// argument, whatever the parameters (issue #223, measured in Excel 16.0).
+	// `TwoSub 1,` and `Call TwoSub(1, )` too. Print is the exception:
+	// `Debug.Print n,` ends in a separator of its own syntax.
+	if (n > 1 && call.slots[n - 1].length === 0 && sig.name.toLowerCase() !== 'print') {
+		const param = params[n - 1];
+		push(
+			'argumentCount',
+			`The call to '${displayName}' ends in an empty argument. This is a VBE compile error: Syntax error.`,
+			call.slotSpans?.[n - 1] ?? call.nameSpan,
+			param && !param.optional && !param.paramArray ? omittedArgumentPlaceholderData(source, call, param, n - 1) : undefined,
+		);
+		return;
+	}
 	// Per-slot 'Argument not optional' is only reported when the slot count is
 	// in range: when it already violates min/max, the count check below emits the
 	// single arity diagnostic instead, matching the named-arg path's one-error

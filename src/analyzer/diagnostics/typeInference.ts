@@ -1339,6 +1339,16 @@ export function validateArgumentTypesForSignature(
 			resolveExpressionType,
 			resolveQualifiedExpressionType,
 		);
+		const kindProblem = objectValueArgumentProblem(expected, valueSlot, actual, memberCtx, sourceNames, (name) =>
+			env.has(name.toLowerCase()) || resolveExpressionType?.(name).resolved === true);
+		if (kindProblem) {
+			push(
+				kindProblem.rule,
+				`Argument '${param.name}' of '${sig.name}' expects ${expected}, but got ${kindProblem.what}. ${kindProblem.reason}`,
+				{ start: call.sliceStart + kindProblem.tokens[0].start, end: call.sliceStart + kindProblem.tokens[kindProblem.tokens.length - 1].end },
+			);
+			continue;
+		}
 		if (!actual) {
 			continue;
 		}
@@ -1367,6 +1377,64 @@ export function validateArgumentTypesForSignature(
 			actual.span,
 		);
 	}
+}
+
+/**
+ * An object where a parameter takes a value, or a value where it takes an
+ * object (issue #223, measured in Excel 16.0):
+ *
+ *  - Nothing into a Long or String parameter: "Invalid use of object".
+ *  - New Collection there: "Argument not optional", since its default
+ *    member Item needs an index.
+ *  - A number or string literal into a Collection or other known object
+ *    parameter: "Type mismatch". Each is a compile error.
+ *  - Array(...) or Split(...) into a Long or String parameter: an array,
+ *    which raises 13 when the call runs.
+ */
+function objectValueArgumentProblem(
+	expected: string,
+	slot: readonly VbaToken[],
+	actual: InferredArgumentType | undefined,
+	memberCtx: MemberCompletionContext,
+	sourceNames: SourceNameScope | undefined,
+	isDeclared: (name: string) => boolean,
+): { rule: 'argumentObjectTypeMismatch' | 'argumentTypeMismatch'; what: string; reason: string; tokens: readonly VbaToken[] } | undefined {
+	const toks = unwrapOuterParens(slot.filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline'));
+	if (toks.length === 0) {
+		return undefined;
+	}
+	const expectedType = normalizeType(expected);
+	if (expectedType && isKnownScalarType(expectedType)) {
+		if (toks.length === 1 && tokenText(toks[0]) === 'nothing') {
+			return { rule: 'argumentObjectTypeMismatch', what: 'Nothing', reason: 'This is a VBE compile error: Invalid use of object.', tokens: toks };
+		}
+		if (toks.length === 2 && tokenText(toks[0]) === 'new' && objectValueNeedsIndex(toks[1].rawText, memberCtx)) {
+			return { rule: 'argumentObjectTypeMismatch', what: `New ${toks[1].rawText}, whose default member Item needs an index`, reason: 'This is a VBE compile error: Argument not optional.', tokens: toks };
+		}
+		const callee = tokenText(toks[0]);
+		if ((callee === 'array' || callee === 'split') && toks[1]?.rawText === '(' && matchParenFrom(toks, 1) === toks.length - 1
+			&& !runtimeCallableSourceShadowed(toks[0].rawText, sourceNames)) {
+			return { rule: 'argumentTypeMismatch', what: `${toks[0].rawText}(...), an array`, reason: "This will raise Run-time error '13': Type mismatch.", tokens: toks };
+		}
+		return undefined;
+	}
+	const literal = toks.length === 1 && (toks[0].kind === 'integerLiteral' || toks[0].kind === 'floatLiteral' || toks[0].kind === 'stringLiteral');
+	if (literal && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx)) {
+		return { rule: 'argumentObjectTypeMismatch', what: actual?.label ?? toks[0].rawText, reason: 'An object parameter takes an object. This is a VBE compile error: Type mismatch.', tokens: toks };
+	}
+	// An object of another class, as a Set of it would be: TakeWs(Range("A1"))
+	// and TakeWs(ThisWorkbook) into a Worksheet raise 13 when the call runs
+	// (issue #223). ActiveSheet and Sheets(1), declared Object, run. A
+	// declared variable is not judged: passed ByRef it is a compile error.
+	const declaredName = toks.length === 1 && tokenName(toks[0]) !== undefined && isDeclared(toks[0].rawText);
+	if (actual && !declaredName && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx)
+		&& !isKnownScalarType(normalizeType(actual.type) ?? '')) {
+		const reason = objectAssignmentIncompatibilityReason(expected, actual, memberCtx);
+		if (reason) {
+			return { rule: 'argumentTypeMismatch', what: actual.label, reason: `${reason} This will raise Run-time error '13': Type mismatch.`, tokens: toks };
+		}
+	}
+	return undefined;
 }
 
 export function callableSignatureForCall(
@@ -1786,6 +1854,20 @@ export function inferSignedNumericLiteral(
 		return undefined;
 	}
 	const literal = toks[1];
+	if (literal.kind === 'floatLiteral') {
+		// `-2147483649#` overflows a Long as its unsigned twin does (issue #223).
+		const magnitude = Number(literal.rawText.replace(/[!#@]$/, ''));
+		if (!Number.isFinite(magnitude)) {
+			return undefined;
+		}
+		return {
+			type: 'Double',
+			label: `numeric literal ${sign}${literal.rawText}`,
+			span: { start: sliceStart + toks[0].start, end: sliceStart + literal.end },
+			numericText: `${sign}${literal.rawText}`,
+			floatValue: sign === '-' ? -magnitude : magnitude,
+		};
+	}
 	if (literal.kind !== 'integerLiteral') {
 		return undefined;
 	}

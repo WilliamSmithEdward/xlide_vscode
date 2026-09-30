@@ -156,14 +156,20 @@ describe('analyzeModule - argument count', () => {
 		});
 	});
 
-	it('accepts an omitted Optional argument in an expression call', () => {
+	// A list may not end in an empty argument even where the parameter is
+	// Optional: `InvoiceTotal(total, )` is a Syntax error (issue #223,
+	// measured in Excel 16.0). A skipped Optional argument before a supplied
+	// one is fine.
+	it('flags a trailing empty argument even for an Optional parameter', () => {
 		const src =
 			'Function InvoiceTotal(ByVal Subtotal As Currency, Optional ByVal TaxRate As Double) As Currency\n' +
 			'End Function\n' +
 			'Sub Main()\n' +
 			'    total2 = InvoiceTotal(total, )\n' +
+			'    total2 = InvoiceTotal(, 1)\n' +
 			'End Sub\n';
-		expect(byCode(analyzeModule(src), 'argument-count')).toHaveLength(0);
+		const hits = byCode(analyzeModule(src), 'argument-count');
+		expect(hits.map((hit) => hit.message)).toEqual([expect.stringContaining('ends in an empty argument'), expect.stringContaining("'Subtotal' is required")]);
 	});
 
 	it('accepts a correct argument count', () => {
