@@ -489,11 +489,13 @@
         "issue194_20_runtime",
         "issue194_22_runtime",
         "issue194_25_runtime",
-        "issue194_27_runtime"
+        "issue194_27_runtime",
+        "issue222_04_runtime",
+        "issue222_21_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is not a VBE compile-equivalent error: focused compile oracle cases compile successfully. It is red when XLIDE proves a value cannot be coerced or fit into the target scalar type because focused runtime oracle cases deterministically raise runtime error 13 for type mismatch, runtime error 94 for Null assigned to scalar targets, and runtime error 6 for decimal Byte/Integer/Long/Currency overflow, while numeric/string/Boolean/property/public-field, Variant CVErr, Variant Null, and min/max boundary controls run successfully. Function, Property Get return-name assignments, and visible exported standard-module scalar globals use the same deterministic scalar path. Bare assignment targets ask the shared assignment-target resolver first, so local untyped shadows and ambiguous exported globals suppress type guessing. Intrinsic CVErr calls infer an Error Variant for scalar assignment compatibility when the bare runtime name is not source-shadowed, explicit VBA.CVErr remains runtime-bound, and Null literals infer the dedicated Null value type.",
+      "notes": "This is not a VBE compile-equivalent error: focused compile oracle cases compile successfully. It is red when XLIDE proves a value cannot be coerced or fit into the target scalar type because focused runtime oracle cases deterministically raise runtime error 13 for type mismatch, runtime error 94 for Null assigned to scalar targets, and runtime error 6 for decimal Byte/Integer/Long/Currency overflow, while numeric/string/Boolean/property/public-field, Variant CVErr, Variant Null, and min/max boundary controls run successfully. Function, Property Get return-name assignments, and visible exported standard-module scalar globals use the same deterministic scalar path. Bare assignment targets ask the shared assignment-target resolver first, so local untyped shadows and ambiguous exported globals suppress type guessing. Intrinsic CVErr calls infer an Error Variant for scalar assignment compatibility when the bare runtime name is not source-shadowed, explicit VBA.CVErr remains runtime-bound, and Null literals infer the dedicated Null value type. Issue #222: a Function declared As Variant whose every assignment to its name is Array(...) returns Variant() or Empty, and into an array of another element type raises 13.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -3614,11 +3616,24 @@
         "issue194_17_compile",
         "issue194_18_compile",
         "issue194_28_compile",
-        "issue194_29_compile"
+        "issue194_29_compile",
+        "issue222_01_compile",
+        "issue222_02_compile",
+        "issue222_03_compile",
+        "issue222_08_compile",
+        "issue222_09_compile",
+        "issue222_10_compile",
+        "issue222_11_compile",
+        "issue222_12_compile",
+        "issue222_13_compile",
+        "issue222_14_compile",
+        "issue222_20_compile",
+        "issue222_24_compile",
+        "issue222_25_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Can't assign to array. VBE compile error for a fixed-size array, a scalar into a dynamic array, or an array of another element type (issue #194, Excel 16.0).",
+      "notes": "Can't assign to array. VBE compile error for a fixed-size array, a scalar into a dynamic array, or an array of another element type (issue #194, Excel 16.0). Issue #222: Dim a() with no As clause is an array of Variant, and a Function declared to return a typed array (As Long()) is compared with the target's element type as an array variable is.",
       "diagnosticKind": "compile-error"
     },
     {
