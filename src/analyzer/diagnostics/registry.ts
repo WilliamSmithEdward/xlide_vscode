@@ -467,11 +467,29 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'redimImpossibleBounds',
-		procedureStatements: (ctx, push) => checkRedimImpossibleBounds(ctx.source, ctx.mod, ctx.activity, push),
+		procedureStatements: (ctx, push) => checkRedimImpossibleBounds(
+			ctx.source,
+			ctx.mod,
+			ctx.symbols,
+			ctx.opts.projectIntegerConstants,
+			ctx.opts.projectVisibleSymbols,
+			ctx.activity,
+			push,
+			ctx.opts.hostModel,
+		),
 	},
 	{
 		name: 'arrayDeclarationImpossibleBounds',
-		run: (ctx, push) => checkArrayDeclarationBounds(ctx.source, ctx.mod, ctx.activity, push),
+		run: (ctx, push) => checkArrayDeclarationBounds(
+			ctx.source,
+			ctx.mod,
+			ctx.symbols,
+			ctx.opts.projectIntegerConstants,
+			ctx.opts.projectVisibleSymbols,
+			ctx.activity,
+			push,
+			ctx.opts.hostModel,
+		),
 	},
 	{
 		name: 'redimPreserveDimensions',

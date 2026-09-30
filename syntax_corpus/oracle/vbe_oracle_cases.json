@@ -16327,6 +16327,383 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If \"a\" Like Null Then\r\n    Main = \"if\"\r\n#Else\r\n    Main = \"else\"\r\n#End If\r\nEnd Function\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue209_01_compile",
+      "description": "Issue #209 case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPublic Function Main() As Variant\r\n    Dim a(LO To HI) As Long\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue209_02_compile",
+      "description": "Issue #209 case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPublic Function Main() As Variant\r\n    Dim a(HI + 1 To LO - 10) As Long\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue209_03_compile",
+      "description": "Issue #209 case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPublic Function Main() As Variant\r\n    Dim a(-LO) As Long\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue209_04_compile",
+      "description": "Issue #209 case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPublic Function Main() As Variant\r\n    Const A As Long = 3\r\n    Dim a2(A To 2) As Long\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue209_05_compile",
+      "description": "Issue #209 case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPublic Function Main() As Variant\r\n    Dim a(PUB_LO To PUB_HI) As Long\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Const PUB_LO As Long = 5\r\nPublic Const PUB_HI As Long = 1\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue209_06_compile",
+      "description": "Issue #209 case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPrivate Enum E\r\n    eLow = 1\r\n    eHigh = 5\r\nEnd Enum\r\nPublic Function Main() As Variant\r\n    Dim a(eHigh To eLow) As Long\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue209_07_compile",
+      "description": "Issue #209 case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPublic Function Main() As Variant\r\n    Static a(LO To HI) As Long\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue209_08_compile",
+      "description": "Issue #209 case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPrivate m(LO To HI) As Long\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue209_09_compile",
+      "description": "Issue #209 case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPrivate Type T\r\n    a(LO To HI) As Long\r\nEnd Type\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue209_10_compile",
+      "description": "Issue #209 case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPrivate Type T\r\n    a(1 To 0) As Long\r\nEnd Type\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue209_11_compile",
+      "description": "Issue #209 case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nOption Base 1\r\nPublic Function Main() As Variant\r\n    Dim a(0) As Long\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue209_12_compile",
+      "description": "Issue #209 case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nOption Base 1\r\nPrivate Const Z As Long = 0\r\nPublic Function Main() As Variant\r\n    Dim a(Z) As Long\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue209_13_runtime",
+      "description": "Issue #209 case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPublic Function Main() As Variant\r\n    Dim a() As Long\r\n    ReDim a(LO To HI)\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue209_14_runtime",
+      "description": "Issue #209 case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPublic Function Main() As Variant\r\n    Dim a() As Long\r\n    ReDim a(1 To 2)\r\n    ReDim Preserve a(1 To HI - 1)\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue209_15_runtime",
+      "description": "Issue #209 case 15, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPublic Function Main() As Variant\r\n    Dim a(HI To LO) As Long\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue209_16_compile",
+      "description": "Issue #209 case 16, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPublic Function Main() As Variant\r\n    Dim a() As Byte\r\n    ReDim a(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue209_17_compile",
+      "description": "Issue #209 case 17, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPublic Function Main() As Variant\r\n    Dim a() As Byte\r\n    ReDim a(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)\r\n    ReDim Preserve a(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue209_18_compile",
+      "description": "Issue #209 case 18, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPublic Function Main() As Variant\r\n    Dim a As Variant\r\n    ReDim a(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue209_19_compile",
+      "description": "Issue #209 case 19, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPrivate Type T\r\n    a(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) As Byte\r\nEnd Type\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue209_20_runtime",
+      "description": "Issue #209 case 20, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPrivate Type T\r\n    a(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0) As Byte\r\nEnd Type\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue209_21_runtime",
+      "description": "Issue #209 case 21, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPublic Function Main() As Variant\r\n    Dim a() As Byte\r\n    ReDim a(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue209_22_runtime",
+      "description": "Issue #209 case 22, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPublic Function Main() As Variant\r\n    Dim a(LO To LO) As Long\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue209_23_runtime",
+      "description": "Issue #209 case 23, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPublic Function Main() As Variant\r\n    Dim a(1 To HI) As Long\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue209_24_compile",
+      "description": "Issue #209 case 24, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPublic Function Main() As Variant\r\n    Dim a(-HI) As Long\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue209_25_runtime",
+      "description": "Issue #209 case 25, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nOption Base 1\r\nPrivate Const Z As Long = 1\r\nPublic Function Main() As Variant\r\n    Dim a(Z) As Long\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue209_26_runtime",
+      "description": "Issue #209 case 26, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nOption Base 1\r\nPublic Function Main() As Variant\r\n    Dim a() As Long\r\n    ReDim a(-1)\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue209_27_runtime",
+      "description": "Issue #209 case 27, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nOption Base 1\r\nPublic Function Main() As Variant\r\n    Dim a() As Long\r\n    ReDim a(0)\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue209_28_runtime",
+      "description": "Issue #209 case 28, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPublic Function Main() As Variant\r\n    Dim a(LO \\ 2 To HI * 2) As Long\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue209_29_compile",
+      "description": "Issue #209 case 29, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPublic Function Main() As Variant\r\n    Dim a(Module2.PUB_LO To 1) As Long\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Const PUB_LO As Long = 5\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue209_30_compile",
+      "description": "Issue #209 case 30, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPublic Function Main() As Variant\r\n    Dim a(1.5 To 1) As Long\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue209_31_runtime",
+      "description": "Issue #209 case 31, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPublic Function Main() As Variant\r\n    Dim a(2.5 To 2) As Long\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue209_32_compile",
+      "description": "Issue #209 case 32, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Const LO As Long = 5\r\nPublic Const HI As Long = 1\r\nPublic Type T\r\n    a(LO To HI) As Long\r\nEnd Type\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue209_33_compile",
+      "description": "Issue #209 case 33, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPublic Function Main() As Variant\r\n    Dim a(vbCritical To 1) As Long\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue209_34_runtime",
+      "description": "Issue #209 case 34, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const LO As Long = 5\r\nPrivate Const HI As Long = 1\r\nPublic Function Main() As Variant\r\n    Dim HI As Long\r\n    Dim b() As Long\r\n    HI = 9\r\n    ReDim b(LO To HI)\r\n    Main = UBound(b)\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

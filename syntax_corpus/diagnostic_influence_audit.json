@@ -991,11 +991,15 @@
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "redim_impossible_bounds_runtime",
-        "redim_equal_bounds_runtime"
+        "redim_equal_bounds_runtime",
+        "issue209_13_runtime",
+        "issue209_14_runtime",
+        "issue209_26_runtime",
+        "issue209_27_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Active coverage reports ReDim and ReDim Preserve dimensions whose explicit literal-style lower and upper bounds are both known and the lower bound is greater than the upper bound. It points at the impossible dimension span and maps the deterministic runtime case to runtime error 9. Equal, increasing, variable/Const-backed, upper-only, and inactive-branch bounds remain quiet; known scalar or fixed-array ReDim targets keep their compile-error diagnostics instead of also receiving this runtime diagnostic.",
+      "notes": "Reports ReDim and ReDim Preserve dimensions whose lower bound is above the upper one, each bound a literal or a constant expression (a Private or Public Const, a local Const, an Enum member or a host constant; issue #209). With no To the lower bound is Option Base. It points at the impossible dimension span and maps the deterministic runtime case to runtime error 9. Increasing and equal bounds, a bound naming a variable (including a local that shadows a constant) and inactive-branch bounds stay quiet; known scalar or fixed-array ReDim targets keep their compile-error diagnostics instead of also receiving this runtime diagnostic.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -1003,10 +1007,28 @@
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.2.3.1 array declaration bounds; a static array declaration's bounds are constant expressions evaluated at compile time, so a lower bound greater than its upper bound is a compile error (sibling of the runtime-phase redim-impossible-bounds)",
       "corpusInfluence": "none",
-      "assertedOracleCases": [],
+      "assertedOracleCases": [
+        "issue209_01_compile",
+        "issue209_02_compile",
+        "issue209_03_compile",
+        "issue209_04_compile",
+        "issue209_05_compile",
+        "issue209_06_compile",
+        "issue209_07_compile",
+        "issue209_08_compile",
+        "issue209_09_compile",
+        "issue209_10_compile",
+        "issue209_11_compile",
+        "issue209_12_compile",
+        "issue209_24_compile",
+        "issue209_29_compile",
+        "issue209_30_compile",
+        "issue209_32_compile",
+        "issue209_33_compile"
+      ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Reports a Dim/Static/Private/Public array declaration dimension whose explicit literal lower and upper bounds are both known and the lower bound is greater than the upper bound (e.g. Dim a(10 To 1)). Only literal lower To upper dimensions are reported; equal, increasing, upper-only, variable, Const-reference, and inactive-branch bounds stay quiet (no false positive). ReDim is covered separately by redim-impossible-bounds (a runtime check, since ReDim bounds may be dynamic). Classified compile-error because static declaration bounds are compile-time constants; oracle confirmation of the exact phase is pending but the lower>upper impossibility is deterministic.",
+      "notes": "Reports a Dim/Static/Private/Public array declaration or Type member dimension whose lower bound is above the upper one: \"Range has no values\" in the VBE (issues #130, #209, measured in Excel 16.0). Each bound is a literal or a constant expression the module, the procedure, another module's Public Const, an Enum or the host defines; with no To the lower bound is Option Base, and a lone float literal is rounded half to even (1.5 To 1 is refused, 2.5 To 2 is not). A bound naming a variable, and inactive-branch bounds, stay quiet. ReDim is covered separately by redim-impossible-bounds.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -1949,11 +1971,15 @@
       "sourceOfTruth": "Excel/VBE oracle (corpus_array_limit_001b_compile: 61 dimensions compile rejected, 'Too many dimensions') plus the documented VBA maximum of 60 array dimensions",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "corpus_array_limit_001b_compile"
+        "corpus_array_limit_001b_compile",
+        "issue209_16_compile",
+        "issue209_17_compile",
+        "issue209_18_compile",
+        "issue209_19_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Flags a Dim/Static/Private/Public array declaration with more than 60 dimensions (the documented VBA maximum). Pure dimension count over the declaration bounds; binder-independent. Shares the array-declaration inspection with array-declaration-impossible-bounds.",
+      "notes": "Flags an array with more than 60 dimensions (the VBA maximum): a Dim/Static/Private/Public declaration or a Type member (\"Too many dimensions\"), and a ReDim or ReDim Preserve (\"Syntax error\"; issue #209, measured in Excel 16.0). Pure dimension count, binder-independent.",
       "diagnosticKind": "compile-error"
     },
     {

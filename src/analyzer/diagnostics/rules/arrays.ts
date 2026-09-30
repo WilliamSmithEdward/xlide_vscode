@@ -5,7 +5,15 @@
 // checks.
 
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
-import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpression';
+import {
+	bankersRound,
+	evaluateIntegerConstantExpression,
+	parseVbaIntegerLiteral,
+	resolveRawIntegerConstants,
+	type IntegerConstantLookup,
+} from '../../constants/integerConstantExpression';
+import type { HostObjectModel } from '../../host/excelObjectModel';
+import { tokenize } from '../../lexer/tokenize';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type {
 	BodyNode,
@@ -13,6 +21,7 @@ import type {
 	ProcedureNode,
 	Span,
 	LeafStatementNode,
+	TypeFieldNode,
 	VariableDeclNode,
 	VariableGroupNode,
 } from '../../parser/nodes';
@@ -23,6 +32,7 @@ import {
 	type PushFn,
 } from '../analysisContext';
 import { splitArgSlots } from '../callExtraction';
+import { collectModuleLiteralIntegerConstants } from '../constExpr';
 import { walkBranchMergedBody, walkStraightLineBody } from '../dataflow';
 import { straightLineAssignments, type ReachingAssignments } from '../straightLineValues';
 import { counterText, loopCountersAt, numericCounterPasses, type CounterValue, type CountersAt } from '../loopCounters';
@@ -34,6 +44,8 @@ import {
 	type DeclaredValueShape,
 	isKnownScalarType,
 	normalizeType,
+	procedureIntegerConstantLookup,
+	scopedIntegerConstantLookup,
 	type SourceDeclaredShape,
 } from '../typeInference';
 import {
@@ -499,22 +511,40 @@ function comparableArrayBoundExpressionValue(toks: readonly VbaToken[]): number 
 }
 
 /**
- * Rule: ReDim lower bounds must not be greater than their upper bounds.
- * This only reports explicit, literal-style `lower To upper` dimensions.
+ * Rule: ReDim lower bounds must not be greater than their upper bounds, a
+ * bound being a literal or a constant expression (issue #209): `ReDim a(LO To
+ * HI)` with LO = 5 and HI = 1 raises error 9. Also: a ReDim of more than 60
+ * dimensions, which the VBE refuses as a syntax error (issue #209).
  */
 export function checkRedimImpossibleBounds(
 	source: string,
 	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	projectIntegerConstants: ReadonlyMap<string, string | undefined> | undefined,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	hostModel?: HostObjectModel,
 ): ProcedureStatementVisitor {
 	const moduleDeclarations = redimBlockedDeclarationsForModule(mod, activity);
 	const optionBase = moduleOptionBase(mod, activity);
+	const moduleConstants = moduleIntegerConstants(mod, projectIntegerConstants, activity);
 	return (member) => {
 		const localDeclarations = redimBlockedDeclarationsForBody(member.body, activity);
 		const localNames = declarationNamesForBody(member.body, activity);
+		let constants: IntegerConstantLookup | undefined;
+		const lookup = (): IntegerConstantLookup => constants ??= procedureIntegerConstantLookup(
+			member, moduleConstants, symbols, projectVisibleSymbols, activity, hostModel,
+		);
 		return (stmt) => {
 			for (const target of redimStatementTargets(source, stmt.span)) {
+				if (target.dimensions.length > MAX_ARRAY_DIMENSIONS) {
+					push(
+						'tooManyArrayDimensions',
+						`ReDim of '${target.name}' has ${target.dimensions.length} dimensions; VBA allows at most ${MAX_ARRAY_DIMENSIONS}. This is a VBE compile error: Syntax error.`,
+						target.span,
+					);
+				}
 				const lowerName = target.name.toLowerCase();
 				const blockedDeclaration = localDeclarations.get(lowerName) ??
 					(localNames.has(lowerName) ? undefined : moduleDeclarations.get(lowerName));
@@ -522,20 +552,16 @@ export function checkRedimImpossibleBounds(
 					continue;
 				}
 				target.dimensions.forEach((dimension, index) => {
-					if (dimension.upperValue === undefined) {
-						return;
-					}
 					// `ReDim a(-1)`: the lower bound is Option Base, 0 by default,
 					// and an upper bound below it is the same impossibility as
 					// `ReDim a(5 To 1)` (issue #120, measured in Excel 16.0).
-					const lower = dimension.lowerValue ?? (dimension.lowerKey === undefined ? optionBase : undefined);
-					if (lower === undefined || lower <= dimension.upperValue) {
+					const bounds = impossibleBounds(source, dimension.span, lookup(), optionBase);
+					if (!bounds) {
 						return;
 					}
-					const lowerText = dimension.lowerValue === undefined ? `${lower} (Option Base ${lower})` : String(lower);
 					push(
 						'redimImpossibleBounds',
-						`ReDim lower bound ${lowerText} is greater than upper bound ${dimension.upperValue} for dimension ${index + 1} of '${target.name}'; this will raise Run-time error '9': Subscript out of range.`,
+						`ReDim lower bound ${bounds.lowerText} is greater than upper bound ${bounds.upper} for dimension ${index + 1} of '${target.name}'; this will raise Run-time error '9': Subscript out of range.`,
 						dimension.span,
 					);
 				});
@@ -548,40 +574,119 @@ export function checkRedimImpossibleBounds(
 const MAX_ARRAY_DIMENSIONS = 60;
 
 /**
- * Rule family on `Dim`/`Static`/`Private`/`Public` array *declarations*:
- *  - `array-declaration-impossible-bounds`: an explicit literal `lower To upper`
- *    dimension with `lower > upper` (e.g. `Dim a(10 To 1)`). Only literal bounds
- *    are reported; variable/constant-reference bounds stay quiet (no-FP).
+ * Rule family on `Dim`/`Static`/`Private`/`Public` array *declarations* and on
+ * Type members:
+ *  - `array-declaration-impossible-bounds`: a dimension whose lower bound is
+ *    above its upper one, "Range has no values" in the VBE. A bound is a
+ *    literal or a constant expression the module, the procedure, another
+ *    module's Public Const, an Enum or the host defines (issue #209,
+ *    measured in Excel 16.0): `Dim a(LO To HI)`, `Dim a(-LO)` below Option
+ *    Base, `Dim a(1.5 To 1)`, which rounds to 2. A bound that names a
+ *    variable stays quiet.
  *  - `too-many-array-dimensions`: more than 60 dimensions (the VBA maximum;
- *    oracle-verified `corpus_array_limit_001b_compile`).
+ *    oracle-verified `corpus_array_limit_001b_compile`), in a Type member too.
  * ReDim is covered separately by checkRedimImpossibleBounds.
  */
 export function checkArrayDeclarationBounds(
 	source: string,
 	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	projectIntegerConstants: ReadonlyMap<string, string | undefined> | undefined,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	hostModel?: HostObjectModel,
 ): void {
-	const inspectGroup = (group: VariableGroupNode): void => {
+	const optionBase = moduleOptionBase(mod, activity);
+	const moduleConstants = moduleIntegerConstants(mod, projectIntegerConstants, activity);
+	let moduleLookup: IntegerConstantLookup | undefined;
+	const moduleScope = (): IntegerConstantLookup => moduleLookup ??= scopedIntegerConstantLookup(
+		moduleConstants, symbols, undefined, projectVisibleSymbols, hostModel,
+	);
+	const inspectGroup = (group: VariableGroupNode, lookup: () => IntegerConstantLookup): void => {
 		for (const decl of group.declarations) {
 			if (!decl.isArray || decl.arrayBounds === undefined || isInactiveNode(activity, decl)) {
 				continue;
 			}
-			inspectArrayDeclaration(source, decl, push);
+			inspectArrayDeclaration(source, decl, lookup, optionBase, push);
 		}
 	};
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'VariableGroup') {
-			inspectGroup(member);
+			inspectGroup(member, moduleScope);
+		} else if (member.kind === 'Type') {
+			for (const field of member.fields) {
+				if (field.isArray && !isInactiveNode(activity, field)) {
+					inspectArrayDeclaration(source, field, moduleScope, optionBase, push);
+				}
+			}
 		} else if (member.kind === 'Procedure') {
-			forEachVariableGroup(member.body, inspectGroup, activity);
+			let constants: IntegerConstantLookup | undefined;
+			const procedureScope = (): IntegerConstantLookup => constants ??= procedureIntegerConstantLookup(
+				member, moduleConstants, symbols, projectVisibleSymbols, activity, hostModel,
+			);
+			forEachVariableGroup(member.body, (group) => inspectGroup(group, procedureScope), activity);
 		}
 	}
 }
 
+/** The module's integer constants and Enum members, over the project's Public ones. */
+function moduleIntegerConstants(
+	mod: ModuleNode,
+	projectIntegerConstants: ReadonlyMap<string, string | undefined> | undefined,
+	activity: ConditionalActivityTracker | undefined,
+): Map<string, number | undefined> {
+	const projectConstants = resolveRawIntegerConstants(projectIntegerConstants ?? new Map(), new Map());
+	return collectModuleLiteralIntegerConstants(mod, activity, projectConstants);
+}
+
+/**
+ * A dimension's bounds when the lower is above the upper, folded through
+ * constants. With no `To`, the lower bound is Option Base. A bound that is a
+ * lone float literal is rounded half to even, as VBA rounds it: `1.5 To 1` is
+ * refused and `2.5 To 2` is not (issue #209). Undefined when either bound is
+ * unknown or the bounds are fine.
+ */
+function impossibleBounds(
+	source: string,
+	span: Span,
+	lookup: IntegerConstantLookup,
+	optionBase: number,
+): { lowerText: string; upper: number } | undefined {
+	const text = source.slice(span.start, span.end);
+	const toks = tokenize(text).filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline');
+	let depth = 0;
+	let to = -1;
+	for (let i = 0; i < toks.length && to < 0; i++) {
+		const raw = toks[i].rawText;
+		depth += raw === '(' ? 1 : raw === ')' ? -1 : 0;
+		if (depth === 0 && tokenText(toks[i]) === 'to') {
+			to = i;
+		}
+	}
+	const side = (part: readonly VbaToken[]): number | undefined => {
+		if (part.length === 0) {
+			return undefined;
+		}
+		if (part.length === 1 && part[0].kind === 'floatLiteral') {
+			const value = Number(part[0].rawText.replace(/[!#@]$/, '').replace(/[dD]/, 'e'));
+			return Number.isFinite(value) ? bankersRound(value) : undefined;
+		}
+		return evaluateIntegerConstantExpression(text.slice(part[0].start, part[part.length - 1].end), lookup);
+	};
+	const upper = side(to < 0 ? toks : toks.slice(to + 1));
+	const lower = to < 0 ? optionBase : side(toks.slice(0, to));
+	if (upper === undefined || lower === undefined || lower <= upper) {
+		return undefined;
+	}
+	return { lowerText: to < 0 ? `${lower} (Option Base ${lower})` : String(lower), upper };
+}
+
 function inspectArrayDeclaration(
 	source: string,
-	decl: VariableDeclNode,
+	decl: VariableDeclNode | TypeFieldNode,
+	lookup: () => IntegerConstantLookup,
+	optionBase: number,
 	push: PushFn,
 ): void {
 	const toks = statementTokens(source, decl.span);
@@ -606,18 +711,15 @@ function inspectArrayDeclaration(
 	}
 
 	dims.forEach((dimTokens, index) => {
-		const bound = comparableArrayBoundKey(dimTokens);
-		if (
-			bound.lowerValue === undefined ||
-			bound.upperValue === undefined ||
-			bound.lowerValue <= bound.upperValue
-		) {
+		const span = tokenGroupSpan(decl.span, dimTokens);
+		const bounds = impossibleBounds(source, span, lookup(), optionBase);
+		if (!bounds) {
 			return;
 		}
 		push(
 			'arrayDeclarationImpossibleBounds',
-			`Array '${decl.name}' lower bound ${bound.lowerValue} is greater than upper bound ${bound.upperValue} for dimension ${index + 1}; this is not a valid array bound.`,
-			tokenGroupSpan(decl.span, dimTokens),
+			`Array '${decl.name}' lower bound ${bounds.lowerText} is greater than upper bound ${bounds.upper} for dimension ${index + 1}; this is not a valid array bound.`,
+			span,
 		);
 	});
 }

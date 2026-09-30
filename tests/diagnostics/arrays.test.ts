@@ -293,6 +293,26 @@ describe('analyzeModule - array ReDim', () => {
 		).toHaveLength(0);
 	});
 
+	it('folds constant ReDim bounds, and refuses more than 60 dimensions (issue #209)', () => {
+		// Measured in Excel 16.0: error 9 for the bounds, "Syntax error" for 61.
+		const HEAD = 'Private Const LO As Long = 5\nPrivate Const HI As Long = 1\n';
+		const bounds = (body: string) => byCode(analyzeModule(`${HEAD}Sub T()\n    Dim a() As Long\n${body}End Sub\n`), 'redim-impossible-bounds');
+		expect(bounds('    ReDim a(LO To HI)\n')).toHaveLength(1);
+		expect(bounds('    ReDim a(1 To 2)\n    ReDim Preserve a(1 To HI - 1)\n')).toHaveLength(1);
+		expect(bounds('    ReDim a(HI To LO)\n')).toHaveLength(0);
+		expect(bounds('    Dim HI As Long\n    HI = 9\n    ReDim a(LO To HI)\n')).toHaveLength(0);
+
+		const dims = (count: number): string => Array.from({ length: count }, () => '0').join(', ');
+		const tooMany = (body: string) => byCode(analyzeModule(`Sub T()\n${body}End Sub\n`), 'too-many-array-dimensions');
+		expect(tooMany(`    Dim a() As Byte\n    ReDim a(${dims(61)})\n`)).toHaveLength(1);
+		expect(tooMany(`    Dim a As Variant\n    ReDim a(${dims(61)})\n`)).toHaveLength(1);
+		expect(tooMany(`    Dim a() As Byte\n    ReDim a(${dims(60)})\n    ReDim Preserve a(${dims(61)})\n`)).toHaveLength(1);
+		expect(tooMany(`    Dim a() As Byte\n    ReDim a(${dims(60)})\n`)).toHaveLength(0);
+		const typeMember = (count: number) => byCode(analyzeModule(`Private Type T\n    a(${dims(count)}) As Byte\nEnd Type\n`), 'too-many-array-dimensions');
+		expect(typeMember(61)).toHaveLength(1);
+		expect(typeMember(60)).toHaveLength(0);
+	});
+
 	it('does not add runtime ReDim bounds diagnostics for known invalid ReDim targets', () => {
 		const src =
 			'Sub T()\n' +
@@ -406,10 +426,52 @@ describe('analyzeModule - array declaration impossible bounds', () => {
 		).toHaveLength(0); // variable
 	});
 
-	it('stays quiet for non-literal constant-reference bounds (cannot prove reversed)', () => {
-		// HI/LO could be any constants; without folding we cannot prove lower > upper.
-		const src = 'Const HI As Long = 10\nConst LO As Long = 1\nDim a(HI To LO) As Long\n';
-		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+	it('folds constant bounds, as the VBE does (issue #209)', () => {
+		// Each measured in Excel 16.0: "Range has no values".
+		const HEAD = 'Private Const LO As Long = 5\nPrivate Const HI As Long = 1\n';
+		const inMain = (setup: string, body: string): string => `${HEAD}${setup}Function Main() As Variant\n${body}    Main = 1\nEnd Function\n`;
+		const refused = [
+			inMain('', '    Dim a(LO To HI) As Long\n'),
+			inMain('', '    Dim a(HI + 1 To LO - 10) As Long\n'),
+			inMain('', '    Dim a(-LO) As Long\n'),
+			inMain('', '    Const A As Long = 3\n    Dim a2(A To 2) As Long\n'),
+			inMain('Private Enum E\n    eLow = 1\n    eHigh = 5\nEnd Enum\n', '    Dim a(eHigh To eLow) As Long\n'),
+			inMain('', '    Static a(LO To HI) As Long\n'),
+			inMain('Private m(LO To HI) As Long\n', ''),
+			inMain('Private Type T\n    a(LO To HI) As Long\nEnd Type\n', ''),
+			inMain('Private Type T\n    a(1 To 0) As Long\nEnd Type\n', ''),
+			`Option Base 1\n${inMain('', '    Dim a(0) As Long\n')}`,
+			`Option Base 1\n${inMain('Private Const Z As Long = 0\n', '    Dim a(Z) As Long\n')}`,
+			inMain('', '    Dim a(1.5 To 1) As Long\n'),
+		];
+		for (const src of refused) {
+			expect(byCode(analyzeModule(src), CODE), src).toHaveLength(1);
+		}
+		const accepted = [
+			inMain('', '    Dim a(HI To LO) As Long\n'),
+			inMain('', '    Dim a(LO To LO) As Long\n'),
+			inMain('', '    Dim a(2.5 To 2) As Long\n'),
+			`Option Base 1\n${inMain('Private Const Z As Long = 1\n', '    Dim a(Z) As Long\n')}`,
+			// A local that shadows the constant is a variable, and names no bound.
+			inMain('', '    Dim HI As Long\n    Dim b(LO To HI) As Long\n'),
+		];
+		for (const src of accepted) {
+			expect(byCode(analyzeModule(src), CODE), src).toHaveLength(0);
+		}
+	});
+
+	it('folds another module s Public Const, bare and qualified (issue #209)', () => {
+		const module2 = 'Public Const PUB_LO As Long = 5\nPublic Const PUB_HI As Long = 1\n';
+		for (const bounds of ['PUB_LO To PUB_HI', 'Module2.PUB_LO To 1']) {
+			const module1 = `Function Main() As Variant\n    Dim a(${bounds}) As Long\n    Main = 1\nEnd Function\n`;
+			const modules = [{ moduleName: 'Module1', source: module1 }, { moduleName: 'Module2', source: module2 }];
+			expect(byCode(analyzeProjectModule(module1, modules, 'Module1'), CODE), bounds).toHaveLength(1);
+		}
+	});
+
+	it('names Option Base as the lower bound when there is no To', () => {
+		const src = 'Option Base 1\nSub T()\n    Dim a(0) As Long\nEnd Sub\n';
+		expect(byCode(analyzeModule(src), CODE)[0].message).toContain('lower bound 1 (Option Base 1) is greater than upper bound 0');
 	});
 
 	it('flags only the offending name in a multi-declaration statement', () => {
