@@ -181,6 +181,17 @@ describe('PowerPoint and Access answer as themselves', () => {
 		expect(getHostMembers(type!, model).map((member) => member.name)).toContain('Slides');
 	});
 
+	it('Application.Run takes the macro name and a ParamArray (issue #196)', () => {
+		// The type library marks Run vararg; measured in PowerPoint 16.0, one
+		// argument and three both compile and run.
+		const run = getHostMembers('PowerPoint.Application', getPowerPointObjectModel()).find((member) => member.name === 'Run');
+		expect(run?.signature).toBe('Run(MacroName As String, ParamArray safeArrayOfParams() As Variant) As Variant');
+		const src = 'Option Explicit\nFunction Main() As Variant\n    Main = Application.Run("Module1.Helper")\n    Main = Application.Run("Module1.Helper", "x", "y")\nEnd Function\n';
+		const findings = analyzeModule(src, { host: 'powerpoint', knownIdentifiers: new Set<string>() })
+			.filter((finding) => finding.code === 'argument-count');
+		expect(findings).toEqual([]);
+	});
+
 	it('DoCmd carries OpenForm, documented', () => {
 		const model = getAccessObjectModel();
 		const type = resolveHostGlobal('DoCmd', model);

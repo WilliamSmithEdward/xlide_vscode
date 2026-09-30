@@ -407,7 +407,12 @@ export function memberSignature(raw, kind) {
 	const declared = collapseWhitespace(raw.returns);
 	const signature = collapseWhitespace(raw.signature);
 	if (signature) {
-		return signature;
+		// A vararg method's last parameter is a SAFEARRAY(Variant) in the dumps,
+		// and VBA declares it ParamArray: PowerPoint's Application.Run takes the
+		// macro name and any number of arguments (issue #196). Read from the
+		// type libraries, it is the only vararg member the Office hosts expose;
+		// Word's SAFEARRAY(String) parameters are real arrays and stay as they are.
+		return signature.replace(/(\w+) As SAFEARRAY\(Variant\)\)/, 'ParamArray $1() As Variant)');
 	}
 	const params = (raw.parameters ?? []).map((param) => {
 		const text = `${param.name}${param.type ? ` As ${param.type}` : ''}`;
