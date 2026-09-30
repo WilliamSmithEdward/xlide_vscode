@@ -29,6 +29,10 @@ describe('a read-only host property is not assigned (issue #198)', () => {
 		// Access and Office.
 		['Book.xlsm', '', 'ActiveWorkbook.Name = "x"', READ_ONLY],
 		['Book.xlsm', 'Dim wb As Workbook', 'wb.Name = "x"', READ_ONLY],
+		// A plain Office interface: the model typed Count HRESULT until it was
+		// read from the type library.
+		['Book.xlsm', 'Dim dp As DocumentProperties', 'dp.Count = 1', READ_ONLY],
+		['Doc.docm', 'Dim dp As Office.DocumentProperties', 'dp.Count = 1', READ_ONLY],
 		['Book.xlsm', '', 'Application.Version = "1"', READ_ONLY],
 		['Book.xlsm', 'Dim ws As Worksheet', 'ws.Index = 2', READ_ONLY],
 		['Book.xlsm', 'Dim wb As Workbook', 'wb.FullName = "x"', READ_ONLY],

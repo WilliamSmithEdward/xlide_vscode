@@ -34,6 +34,39 @@ const outputPath = path.join(root, 'src', 'analyzer', 'host', 'officeReferenceTy
 const dumps = readDumps(jsonDir);
 const curator = createCurator({ dumps, prefix: 'Office' });
 
+// The dumps record a plain (vtable) interface as the library declares it:
+// every member returns HRESULT, with the value in an [out, retval] parameter
+// and an [lcid] parameter the caller fills in. reference/office/vtable.json,
+// written by scripts/dump-vtable-members.py, has what VBA sees instead:
+// DocumentProperties.Count is a Long, and Add(Name, LinkToContent, [Type],
+// [Value], [LinkSource]) returns a DocumentProperty.
+const vtableFile = path.join(root, 'reference', 'office', 'vtable.json');
+const vtable = fs.existsSync(vtableFile) ? JSON.parse(fs.readFileSync(vtableFile, 'utf8')).interfaces : {};
+if (!fs.existsSync(vtableFile)) {
+    console.warn('reference/office/vtable.json is absent: plain-interface members keep the type HRESULT.');
+}
+let vtableRepaired = 0;
+
+/** A dump member typed HRESULT, as VBA sees it. */
+function asVbaSeesIt(ownerName, raw, kind) {
+    const declared = kind === 'property' ? raw.type : raw.returns;
+    const seen = declared === 'HRESULT' ? vtable[ownerName]?.[raw.name] : undefined;
+    if (!seen || seen.kind !== kind) {
+        return raw;
+    }
+    vtableRepaired += 1;
+    if (kind === 'property') {
+        return { ...raw, type: seen.type };
+    }
+    // The signature is rebuilt from the parameters VBA shows, keeping the
+    // reference's prose for each.
+    const parameters = seen.parameters.map((param) => ({
+        ...(raw.parameters ?? []).find((known) => known.name === param.name),
+        ...param,
+    }));
+    return { ...raw, returns: seen.returns, signature: undefined, parameters };
+}
+
 function memberOf(ownerName, raw, kind) {
     const member = { name: raw.name, kind };
     const { returns, returnsAnyOf } = curator.resolveReturn(ownerName, raw, kind);
@@ -61,8 +94,9 @@ for (const [name, dump] of dumps) {
     for (const [list, kind] of [[dump.properties ?? [], 'property'], [dump.methods ?? [], 'method']]) {
         for (const raw of list) {
             if (String(raw.name ?? '').startsWith('_')) { continue; }
-            const member = memberOf(name, raw, kind);
-            const declared = kind === 'property' ? raw.type : raw.returns;
+            const seen = asVbaSeesIt(name, raw, kind);
+            const member = memberOf(name, seen, kind);
+            const declared = kind === 'property' ? seen.type : seen.returns;
             if (declared === 'Object' && member.returns && member.returns !== 'Object') { repaired += 1; }
             if (member.doc?.summary) { documented += 1; }
             members.push(member);
@@ -121,5 +155,6 @@ lines.push('');
 fs.writeFileSync(outputPath, lines.join('\n'), 'utf8');
 console.log(
     `Wrote ${path.relative(root, outputPath)}: ${Object.keys(types).length} Office types, `
-    + `${memberCount} members (${documented} documented, ${repaired} generic returns repaired).`,
+    + `${memberCount} members (${documented} documented, ${repaired} generic returns repaired, `
+    + `${vtableRepaired} HRESULT members read from the type library).`,
 );

@@ -229,6 +229,27 @@ describe('the shared Office library types reach every host', () => {
         expect(getHostMembers(range!, ppt).length).toBeGreaterThan(20);
     });
 
+    it('types a plain interface member as VBA sees it, not HRESULT', () => {
+        // The library declares DocumentProperties as a vtable interface: each
+        // function returns HRESULT, with the value in an [out, retval]
+        // parameter and an [lcid] parameter VBA fills in.
+        for (const getModel of [getExcelObjectModel, getWordObjectModel, getPowerPointObjectModel, getAccessObjectModel]) {
+            const model = getModel();
+            const members = getHostMembers('Office.DocumentProperties', model);
+            const find = (name: string) => members.find((member) => member.name === name);
+            expect(find('Count')?.declaredType, String(model.hostName)).toBe('Long');
+            expect(find('Item')?.returns, String(model.hostName)).toBe('Office.DocumentProperty');
+            expect(find('Add')?.signature, String(model.hostName)).toBe(
+                'Add(Name As String, LinkToContent As Boolean, [Type As Variant], [Value As Variant], [LinkSource As Variant]) As DocumentProperty',
+            );
+            for (const [qualified, type] of Object.entries(model.types)) {
+                if (qualified.startsWith('Office.')) {
+                    expect(type.members.filter((member) => member.declaredType === 'HRESULT').map((member) => `${qualified}.${member.name}`)).toEqual([]);
+                }
+            }
+        }
+    });
+
     it('lets the host library win a shared type name', () => {
         expect(resolveHostAlias('Font', getWordObjectModel())).toBe('Word.Font');
         expect(resolveHostAlias('Font', getExcelObjectModel())).toBe('Excel.Font');
