@@ -348,6 +348,15 @@ function undeclaredReferenceSkipIndexes(
 		if (isLabelReferenceKeyword(word) && isPotentialVariableReferenceToken(toks[i + 1])) {
 			skip.add(i + 1);
 		}
+		// `On n GoTo A, B, C` and `On n GoSub A, B` name a label in every slot
+		// of the list, not only the first (issue #185).
+		if ((word === 'goto' || word === 'gosub') && isOnSelectorJump(toks, i)) {
+			for (let j = i + 1; j < toks.length && toks[j].rawText !== ':'; j++) {
+				if (isPotentialVariableReferenceToken(toks[j])) {
+					skip.add(j);
+				}
+			}
+		}
 		if (word === 'raiseevent' && isPotentialVariableReferenceToken(toks[i + 1])) {
 			skip.add(i + 1);
 		}
@@ -600,6 +609,21 @@ function hasEarlierTypeOf(toks: readonly VbaToken[], before: number): boolean {
 
 function isLabelReferenceKeyword(word: string): boolean {
 	return word === 'goto' || word === 'gosub' || word === 'resume';
+}
+
+/** Whether the GoTo or GoSub at `index` belongs to `On expression GoTo`, not `On Error GoTo`. */
+function isOnSelectorJump(toks: readonly VbaToken[], index: number): boolean {
+	for (let k = index - 1; k >= 0; k--) {
+		const word = tokenText(toks[k]);
+		if (word === 'on') {
+			const next = tokenText(toks[k + 1]);
+			return next !== 'error' && next !== 'local';
+		}
+		if (word === 'then' || word === 'else' || toks[k].rawText === ':') {
+			return false;
+		}
+	}
+	return false;
 }
 
 function isNamedArgumentLabel(toks: readonly VbaToken[], index: number): boolean {

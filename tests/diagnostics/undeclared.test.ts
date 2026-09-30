@@ -255,6 +255,26 @@ describe('analyzeModule - Option Explicit', () => {
 		).toHaveLength(0);
 	});
 
+	it('reads every slot of On n GoTo and On n GoSub as a label (issue #185)', () => {
+		const src =
+			'Option Explicit\n' +
+			'Function Main() As String\n' +
+			'    Dim selector As Long, hit As String\n' +
+			'    selector = 3\n' +
+			'    On selector GoTo One, Two, Three\n' +
+			'    If selector > 0 Then On selector GoSub One, Two\n' +
+			'    On selector GoTo One, Two: hit = missing\n' +
+			'    On unknownSelector GoTo One, Two\n' +
+			'    Exit Function\n' +
+			'One:\n' +
+			'Two:\n' +
+			'Three:\n' +
+			'    Main = hit\n' +
+			'End Function\n';
+		const hits = byCode(analyzeModule(src, { knownIdentifiers: new Set<string>() }), 'undeclared-variable');
+		expect(hits.map((hit) => spanText(src, hit))).toEqual(['missing', 'unknownSelector']);
+	});
+
 	it('handles line-numbered assignment targets under Option Explicit', () => {
 		const src =
 			'Option Explicit\n' +

@@ -8668,6 +8668,50 @@
       "source": "Public Sub Main()\n    GoTo Inside\n\n    With ThisWorkbook\nInside:\n        Debug.Print .Name\n    End With\nEnd Sub\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue185_01_runtime",
+      "description": "Issue #185 case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> three.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim selector As Long, hit As String\n    selector = 3\n    On selector GoTo One, Two, Three\n    hit = \"fallthrough\"\n    GoTo Done\nOne:\n    hit = \"one\"\n    GoTo Done\nTwo:\n    hit = \"two\"\n    GoTo Done\nThree:\n    hit = \"three\"\nDone:\n    Main = hit\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue185_02_runtime",
+      "description": "Issue #185 case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> two.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim selector As Long, hit As String\n    selector = 2\n    On selector GoSub BranchOne, BranchTwo\n    Main = hit\n    Exit Function\nBranchOne:\n    hit = \"one\"\n    Return\nBranchTwo:\n    hit = \"two\"\n    Return\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue185_03_runtime",
+      "description": "Issue #185 case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> two.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim selector As Long, hit As String\n    selector = 2\n    If selector > 0 Then On selector GoTo One, Two\n    hit = \"none\"\n    GoTo Done\nOne:\n    hit = \"one\"\n    GoTo Done\nTwo:\n    hit = \"two\"\nDone:\n    Main = hit\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue185_04_runtime",
+      "description": "Issue #185 case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> twenty.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim selector As Long, hit As String\n    selector = 2\n    On selector GoTo 10, 20\n    hit = \"none\"\n    GoTo 30\n10  hit = \"ten\"\n    GoTo 30\n20  hit = \"twenty\"\n30  Main = hit\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
