@@ -979,19 +979,22 @@ describe('analyzeModule - argument type validation', () => {
 		]);
 	});
 
-	it('keeps date-looking, localized, variable, and non-CDate conversions quiet', () => {
+	it('keeps date-looking, variable, and non-CDate conversions quiet', () => {
 		const src =
 			'Sub T()\n' +
 			'    Dim Value As Date\n' +
 			'    Dim text As String\n' +
 			'    Value = CDate("1/2/2020")\n' +
-			'    Value = CDate("March")\n' +
 			'    Value = CDate("Mar 1")\n' +
-			'    Value = CDate("März")\n' +
+			'    Value = CDate("$5")\n' +
 			'    Value = CDate(text)\n' +
 			'End Sub\n';
 
 		expect(byCode(analyzeModule(src), 'runtime-conversion-value')).toHaveLength(0);
+		// A month name with no day is no date: CDate("March") and CDate("März")
+		// raise 13 (issue #188, measured in Excel 16.0).
+		const monthOnly = 'Sub T()\n    Dim Value As Date\n    Value = CDate("March")\n    Value = CDate("März")\nEnd Sub\n';
+		expect(byCode(analyzeModule(monthOnly), 'runtime-conversion-value')).toHaveLength(2);
 		// DateValue reads its string the way CDate does, and letters that name
 		// no month raise 13 there too (issue #118, measured in Excel 16.0).
 		const dateValue = 'Sub T()\n    Dim Value As Date\n    Value = DateValue("not a date")\nEnd Sub\n';

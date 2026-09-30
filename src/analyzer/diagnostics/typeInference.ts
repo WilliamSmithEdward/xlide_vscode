@@ -59,6 +59,7 @@ import {
 } from '../completion/memberAccess';
 import { procedureSymbolFor, type PushFn } from './analysisContext';
 import { straightLineAssignments, type ReachingAssignments } from './straightLineValues';
+import { isInvalidBooleanString, isInvalidDateString, isInvalidNumericString, numericStringVerdict } from './stringConversion';
 import {
 	callableAcceptsZeroArguments,
 	emptyArgSplit,
@@ -2399,10 +2400,17 @@ export function incompatibilityReason(
 		if (isNumericType(actualType) || actualType === 'boolean') {
 			return undefined;
 		}
-		if (actualType === 'string') {
-			return actual.stringValue !== undefined && isProvablyNonNumericString(actual.stringValue)
-				? "This string literal cannot be converted to a numeric value. This will raise Run-time error '13': Type mismatch."
-				: undefined;
+		if (actualType === 'string' && actual.stringValue !== undefined) {
+			// The string's number where every locale reads it alike: "&H10000"
+			// is 65536 and overflows an Integer (issue #188).
+			const verdict = numericStringVerdict(actual.stringValue);
+			if (verdict.kind === 'invalid') {
+				return "This string literal cannot be converted to a numeric value. This will raise Run-time error '13': Type mismatch.";
+			}
+			const bounds = verdict.value === undefined ? undefined : numericLiteralBounds(expected);
+			if (bounds && (verdict.value! < bounds.min || verdict.value! > bounds.max)) {
+				return `The string ${JSON.stringify(actual.stringValue)} converts to ${verdict.value}, outside the ${bounds.label} range ${bounds.min} to ${bounds.max}. This will raise Run-time error '6': Overflow.`;
+			}
 		}
 		return undefined;
 	}
@@ -2411,11 +2419,16 @@ export function incompatibilityReason(
 			return undefined;
 		}
 		if (actualType === 'string') {
-			return actual.stringValue !== undefined && isBooleanString(actual.stringValue)
+			return actual.stringValue !== undefined && !isInvalidBooleanString(actual.stringValue)
 				? undefined
 				: "This string literal cannot be converted to Boolean. This will raise Run-time error '13': Type mismatch.";
 		}
 		return undefined;
+	}
+	if (expected === 'date' && actualType === 'string' && actual.stringValue !== undefined) {
+		return isInvalidDateString(actual.stringValue)
+			? "This string literal cannot be converted to a Date. This will raise Run-time error '13': Type mismatch."
+			: undefined;
 	}
 	if (expected === 'string') {
 		return undefined; // VBA can stringify scalar values; do not warn.
@@ -2985,9 +2998,9 @@ export function implementsObjectType(
 
 // One-way proof only: strings with digits are left unknown until VBA conversion
 // semantics are modeled explicitly.
+/** Whether no locale converts the string to a number (see stringConversion.ts). */
 export function isProvablyNonNumericString(value: string): boolean {
-	const trimmed = value.trim();
-	return trimmed.length > 0 && !/[0-9]/.test(trimmed);
+	return isInvalidNumericString(value);
 }
 
 export function stringLiteralValue(raw: string): string {
@@ -2995,10 +3008,6 @@ export function stringLiteralValue(raw: string): string {
 		.replace(/^"/, '')
 		.replace(/"$/, '')
 		.replace(/""/g, '"');
-}
-
-export function isBooleanString(value: string): boolean {
-	return /^(true|false|0|-?1)$/i.test(value.trim());
 }
 
 // Per-pass memo (read-only by the engine's derived-table convention): this is

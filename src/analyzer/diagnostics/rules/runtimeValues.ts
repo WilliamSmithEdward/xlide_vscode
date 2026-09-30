@@ -30,6 +30,7 @@ import {
 } from '../callExtraction';
 import { collectModuleLiteralIntegerConstants } from '../constExpr';
 import { isBareOrVbaQualifiedIntrinsicCall } from '../rules/shared';
+import { isInvalidBooleanString, isInvalidDateString, isInvalidNumericString } from '../stringConversion';
 import {
 	callableTypeSignaturesFor,
 	knownLocalLiteralValuesAt,
@@ -867,11 +868,10 @@ export function checkRuntimeConversionValues(
 }
 
 /**
- * The conversion functions and what a string literal must look like to
- * convert (issue #118, each measured in Excel 16.0): the numeric conversions
- * refuse letters-only and empty strings (`CLng("abc")`, `CDbl("")`) and take
- * `"&H10"`; CBool takes True/False and numbers, and refuses `"yes"`; the date
- * conversions refuse letters that name no month (`DateValue("abc")`).
+ * The conversion functions and the kind each converts a string literal to
+ * (issues #118 and #188, each measured in Excel 16.0). What converts is
+ * stringConversion.ts's: `CLng("4x2")`, `CDbl("5%")`, `CBool(" True ")` and
+ * `CDate("March")` raise 13, and `CLng("&HFF")` and `CDbl("(5)")` run.
  */
 const CONVERSION_TARGETS: Readonly<Record<string, 'numeric' | 'boolean' | 'date'>> = {
 	cbyte: 'numeric', cint: 'numeric', clng: 'numeric', clnglng: 'numeric', clngptr: 'numeric',
@@ -914,10 +914,10 @@ function runtimeConversionValueHits(
 		}
 		const value = stringLiteralValue(firstSlot[0].rawText);
 		const invalid = target === 'date'
-			? isDefinitelyInvalidDateString(value)
+			? isInvalidDateString(value)
 			: target === 'boolean'
-				? isDefinitelyInvalidBooleanString(value)
-				: isDefinitelyNonNumericString(value);
+				? isInvalidBooleanString(value)
+				: isInvalidNumericString(value);
 		if (!invalid) {
 			continue;
 		}
@@ -929,33 +929,4 @@ function runtimeConversionValueHits(
 		});
 	}
 	return hits;
-}
-
-/** Empty, or letters and spaces only: nothing VBA's numeric parser reads as a number. */
-function isDefinitelyNonNumericString(value: string): boolean {
-	const trimmed = value.trim();
-	return trimmed.length === 0 || /^[A-Za-z\s]+$/.test(trimmed);
-}
-
-/** CBool takes True, False and anything numeric; letters that are neither raise 13. */
-function isDefinitelyInvalidBooleanString(value: string): boolean {
-	const trimmed = value.trim();
-	if (trimmed.length === 0) {
-		return true;
-	}
-	return /^[A-Za-z\s]+$/.test(trimmed) && !/^(true|false)$/i.test(trimmed);
-}
-
-function isDefinitelyInvalidDateString(value: string): boolean {
-	const trimmed = value.trim();
-	if (trimmed.length === 0) {
-		return true;
-	}
-	if (/[0-9]/.test(trimmed) || /[^\x00-\x7F]/.test(trimmed)) {
-		return false;
-	}
-	if (!/^[A-Za-z\s]+$/.test(trimmed)) {
-		return false;
-	}
-	return !/\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b/i.test(trimmed);
 }
