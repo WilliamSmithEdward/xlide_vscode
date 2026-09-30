@@ -446,7 +446,7 @@ export const DIAGNOSTIC_RULES = {
 		vbeCompileEquivalent: true,
 		diagnosticKind: 'compile-error',
 		source: 'XLIDE',
-		specReference: "VBE oracle: Can't assign to read-only property",
+		specReference: "VBE oracle: Can't assign to read-only property; Wrong number of arguments or invalid property assignment; Assignment to constant not permitted",
 		confidence: 'high',
 	},
 	setRequired: {

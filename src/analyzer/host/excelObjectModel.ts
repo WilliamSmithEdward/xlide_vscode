@@ -166,6 +166,16 @@ export interface HostObjectModel {
 	 * reference appear here; absence simply means no call tip is offered.
 	 */
 	memberSignatures?: Record<string, Record<string, string>>;
+	/**
+	 * A library whose interfaces are dispatch-only rather than dual, named by
+	 * its type prefix, with the bare names of the types in it that are dual.
+	 * The VBE refuses a Let to a read-only property of a dispatch-only type
+	 * with "Wrong number of arguments or invalid property assignment", not
+	 * "Can't assign to read-only property" (issue #198). Only Excel's library
+	 * has them: 357 of its 388 dispatch interfaces are not dual, while the
+	 * Word, PowerPoint, Access and Office interfaces VBA reaches all are.
+	 */
+	dispatchOnlyLibrary?: { prefix: string; dualTypes: readonly string[] };
 }
 
 const WORKBOOK = 'Excel.Workbook';
@@ -3116,6 +3126,22 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 				m('Modify'),
 			]),
 	},
+	// The dual interfaces of EXCEL.EXE's type library (issue #198), read with
+	// pythoncom; Application, Workbook, Worksheet, Chart and Global are the
+	// coclasses of _Application, _Workbook, _Worksheet, _Chart and _Global.
+	// Every other Excel type is dispatch-only.
+	dispatchOnlyLibrary: {
+		prefix: 'Excel',
+		dualTypes: [
+			'Adjustments', 'Application', 'CalloutFormat', 'Chart', 'ColorFormat',
+			'CubeField', 'CubeFields', 'DefaultWebOptions', 'DiagramNode',
+			'DiagramNodeChildren', 'DiagramNodes', 'FillFormat', 'Global',
+			'LineFormat', 'Model3DFormat', 'PictureFormat', 'PublishObject',
+			'ShadowFormat', 'ShapeNode', 'ShapeNodes', 'Sheets', 'TextEffectFormat',
+			'TextFrame2', 'ThreeDFormat', 'TreeviewControl', 'WebOptions',
+			'Workbook', 'Workbooks', 'Worksheet',
+		],
+	},
 	// Verified call signatures transcribed from the Office VBA object-model
 	// reference (learn.microsoft.com). Parameter lists are reproduced exactly;
 	// where a method accepts a large variadic tail (e.g. Application.Run takes
@@ -3183,6 +3209,14 @@ const buildExcelObjectModel = (): HostObjectModel => ({
 			cells: 'Cells([RowIndex], [ColumnIndex]) As Range',
 			offset: 'Offset([RowOffset], [ColumnOffset]) As Range',
 			resize: 'Resize([RowSize], [ColumnSize]) As Range',
+			// Read-only properties with parameters: assigning one is
+			// "Assignment to constant not permitted" (issue #198).
+			address:
+				'Address([RowAbsolute], [ColumnAbsolute], ' +
+				'[ReferenceStyle As XlReferenceStyle = xlA1], [External], [RelativeTo]) As String',
+			addresslocal:
+				'AddressLocal([RowAbsolute], [ColumnAbsolute], ' +
+				'[ReferenceStyle As XlReferenceStyle = xlA1], [External], [RelativeTo]) As String',
 			find:
 				'Find(What, [After], [LookIn], [LookAt], [SearchOrder], ' +
 				'[SearchDirection], [MatchCase], [MatchByte], [SearchFormat]) As Range',

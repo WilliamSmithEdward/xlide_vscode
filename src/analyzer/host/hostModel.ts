@@ -233,6 +233,30 @@ export function getHostMembers(
 	return hostModelIndex(model).membersByType.get(qualified)?.members ?? [];
 }
 
+const DUAL_TYPES_BY_MODEL = new WeakMap<HostObjectModel, ReadonlySet<string>>();
+
+/**
+ * Whether a qualified type is a dispatch-only interface rather than a dual
+ * one (see HostObjectModel.dispatchOnlyLibrary): `Excel.Range` is, and
+ * `Excel.Workbook` and every Word type are not.
+ */
+export function isDispatchOnlyHostType(
+	qualified: string,
+	model: HostObjectModel = getExcelObjectModel(),
+): boolean {
+	const library = model.dispatchOnlyLibrary;
+	const dot = qualified.indexOf('.');
+	if (!library || dot < 0 || qualified.slice(0, dot).toLowerCase() !== library.prefix.toLowerCase()) {
+		return false;
+	}
+	let dual = DUAL_TYPES_BY_MODEL.get(model);
+	if (!dual) {
+		dual = new Set(library.dualTypes.map((name) => name.toLowerCase()));
+		DUAL_TYPES_BY_MODEL.set(model, dual);
+	}
+	return !dual.has(qualified.slice(dot + 1).toLowerCase());
+}
+
 /**
  * The events a qualified type raises, in declaration order. Events are not
  * object-access members (`Form.Load()` is not a call), so `getHostMembers`

@@ -1176,6 +1176,12 @@ export function isMemberStatementChainThrough(
 	if (!tokenName(toks[startIdx])) {
 		return false;
 	}
+	// A keyword spaced off a dot is a statement's keyword before a With
+	// member, not a receiver: `If .Count = 0 Then .Add 1` (issue #198).
+	const next = toks[startIdx + 1];
+	if (toks[startIdx].kind === 'keyword' && next?.rawText === '.' && next.start > toks[startIdx].end) {
+		return false;
+	}
 	let i = startIdx + 1;
 	while (i < toks.length) {
 		const raw = toks[i]?.rawText;

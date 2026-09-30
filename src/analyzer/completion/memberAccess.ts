@@ -627,11 +627,25 @@ function signatureForMember(
  * element when given its Index: `ws.ChartObjects(1)` is a ChartObject.
  */
 export function memberTakesOwnArguments(signature: string | undefined): boolean {
-	if (signatureParameters(signature).length === 0) {
+	if (!signatureDeclaresParameters(signature)) {
 		return false;
 	}
 	const declared = /\)\s+As\s+([\w.]+)\s*$/i.exec(signature ?? '')?.[1];
 	return declared !== undefined && !/^(?:Object|Variant)$/i.test(declared);
+}
+
+/** Whether a member signature label declares at least one parameter. */
+export function signatureDeclaresParameters(signature: string | undefined): boolean {
+	return signatureParameters(signature).length > 0;
+}
+
+/**
+ * Whether a receiver type key is late bound: a value the library declares
+ * Object, whose members bind when the code runs (`Worksheets(1)`), so the
+ * VBE checks nothing about them at compile time.
+ */
+export function isLateBoundTypeKey(typeKey: string): boolean {
+	return typeKey.startsWith(UNION_TYPE_PREFIX);
 }
 
 /** The parameters of a member signature label, trimmed, in order. */

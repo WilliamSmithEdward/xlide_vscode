@@ -4,8 +4,15 @@
 // member assignment type compatibility, Set assignment validation, and
 // missing Function/Property Get return assignments.
 
-import type { MemberCompletionContext } from '../../completion/memberAccess';
+import {
+	isLateBoundTypeKey,
+	resolveReceiverTypeAt,
+	signatureDeclaresParameters,
+	type MemberCompletion,
+	type MemberCompletionContext,
+} from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
+import { isDispatchOnlyHostType, resolveHostEnum } from '../../host/hostModel';
 import {
 	matchParenFrom,
 	splitTopLevelTokenGroups,
@@ -150,6 +157,8 @@ function memberAssignmentTarget(
 	memberSpan: Span;
 	valueTokens: VbaToken[];
 	usesSet: boolean;
+	/** True for `wb.Name() = x`: the member is given arguments. */
+	withArguments: boolean;
 } | undefined {
 	const toks = statementTokens(source, span);
 	let i = firstExecutableTokenIndex(toks);
@@ -166,8 +175,22 @@ function memberAssignmentTarget(
 	if (lhs.length < 2) {
 		return undefined;
 	}
-	const memberTok = lhs[lhs.length - 1];
-	if (!tokenName(memberTok) || lhs[lhs.length - 2]?.rawText !== '.') {
+	// The member may be given arguments: `r.Address(False, False) = "B2"`.
+	let memberIndex = lhs.length - 1;
+	const withArguments = lhs[memberIndex].rawText === ')';
+	if (withArguments) {
+		let depth = 0;
+		for (; memberIndex >= 0; memberIndex--) {
+			const raw = lhs[memberIndex].rawText;
+			depth += raw === ')' ? 1 : raw === '(' ? -1 : 0;
+			if (depth === 0) {
+				break;
+			}
+		}
+		memberIndex--;
+	}
+	const memberTok = lhs[memberIndex];
+	if (!memberTok || !tokenName(memberTok) || lhs[memberIndex - 1]?.rawText !== '.') {
 		return undefined;
 	}
 	// A target is one receiver chain ending in the member. Anything else
@@ -176,7 +199,7 @@ function memberAssignmentTarget(
 	// (`Debug.Print w.Part = "a"`). ReDim's `ElseIf ReDimUI.SenderPart =
 	// "plus" Then` compiles, and was reported as assigning to 'ElseIf
 	// ReDimUI.SenderPart'.
-	if (!isMemberStatementChainThrough(lhs, 0, lhs.length - 1)) {
+	if (!isMemberStatementChainThrough(lhs, 0, memberIndex)) {
 		return undefined;
 	}
 	if (lhs.some((tok) => tok.kind === 'operator' && tok.rawText === '=')) {
@@ -185,7 +208,7 @@ function memberAssignmentTarget(
 	return {
 		member: tokenName(memberTok)!,
 		label: source
-			.slice(span.start + lhs[0].start, span.start + memberTok.end)
+			.slice(span.start + lhs[0].start, span.start + lhs[lhs.length - 1].end)
 			.trim(),
 		memberSpan: {
 			start: span.start + memberTok.start,
@@ -193,6 +216,7 @@ function memberAssignmentTarget(
 		},
 		valueTokens: toks.slice(equalsIndex + 1),
 		usesSet,
+		withArguments,
 	};
 }
 
@@ -894,6 +918,62 @@ function singleSlotNameEquals(slot: readonly VbaToken[], lowerName: string): boo
 	return toks.length === 1 && tokenName(toks[0])?.toLowerCase() === lowerName;
 }
 
+/**
+ * The compile error the VBE gives an assignment to a read-only host property,
+ * or undefined when the assignment compiles or the models cannot say which
+ * error it is. Measured in Excel, Word and PowerPoint 16.0 (issue #198):
+ *
+ * - A property of type Variant or Object takes either statement: the value
+ *   goes to whatever the property returns when the code runs.
+ * - A Let to a scalar property is "Can't assign to read-only property", except
+ *   on Excel's dispatch-only interfaces (Range, Shape, Font, ...), where it is
+ *   "Wrong number of arguments or invalid property assignment", or
+ *   "Assignment to constant not permitted" when the property takes
+ *   parameters (Range.Address).
+ * - A Set to an object property is "Invalid use of property". A Let to one
+ *   goes to the returned object's default member, so it is not decided here.
+ * - A Set to a scalar property gives the Let's error on a dispatch-only
+ *   interface and "Invalid use of property" on a dual one, but "Type mismatch"
+ *   when a dual property takes parameters (Word's Range.XML), and the Word,
+ *   PowerPoint and Office models do not record a property's parameters. So a
+ *   Set is judged on Excel's types only, whose parameters the model has.
+ */
+function hostReadOnlyAssignmentError(
+	target: MemberCompletion,
+	usesSet: boolean,
+	memberCtx: MemberCompletionContext,
+): string | undefined {
+	if (target.kind !== 'property') {
+		return undefined;
+	}
+	const declared = target.declaredType?.trim() ?? '';
+	if (!declared || /^(?:Variant|Object)$/i.test(declared)) {
+		return undefined;
+	}
+	const scalar = isKnownScalarType(normalizeType(declared) ?? '')
+		|| resolveHostEnum(declared, memberCtx.model) !== undefined;
+	const dispatchOnly = isDispatchOnlyHostType(target.owner, memberCtx.model);
+	const withParameters = signatureDeclaresParameters(target.signature);
+	if (!scalar) {
+		return usesSet && target.returns && !withParameters ? 'Invalid use of property' : undefined;
+	}
+	if (dispatchOnly) {
+		return withParameters
+			? 'Assignment to constant not permitted'
+			: 'Wrong number of arguments or invalid property assignment';
+	}
+	if (!usesSet) {
+		return "Can't assign to read-only property";
+	}
+	return target.owner.startsWith('Excel.') ? 'Invalid use of property' : undefined;
+}
+
+/** Whether the receiver of the member ending at `offset` binds only at run time. */
+function lateBoundReceiver(source: string, offset: number, memberCtx: MemberCompletionContext): boolean {
+	const receiver = resolveReceiverTypeAt(source, offset, memberCtx);
+	return receiver === undefined || isLateBoundTypeKey(receiver);
+}
+
 function checkMemberAssignmentTypes(
 	source: string,
 	member: ProcedureNode,
@@ -906,9 +986,7 @@ function checkMemberAssignmentTypes(
 	resolveExpressionType?: SourceDeclaredTypeResolver,
 	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 ): void {
-	if (!memberCtx.projectClassMembers || memberCtx.projectClassMembers.length === 0) {
-		return;
-	}
+	const projectClasses = (memberCtx.projectClassMembers?.length ?? 0) > 0;
 	const checkStatement = (span: Span): void => {
 		const assignment = memberAssignmentTarget(source, span);
 		if (!assignment) {
@@ -920,7 +998,19 @@ function checkMemberAssignmentTypes(
 			assignment.memberSpan.end,
 			memberCtx,
 		);
-		if (!target || target.writable === undefined) {
+		if (target?.access === 'read-only' && target.writable === undefined) {
+			const vbeError = hostReadOnlyAssignmentError(target, assignment.usesSet, memberCtx);
+			if (vbeError && !lateBoundReceiver(source, assignment.memberSpan.end, memberCtx)) {
+				push(
+					'readonlyMemberAssignment',
+					`Cannot assign to read-only property '${assignment.label}'. This is a VBE compile error: ${vbeError}.`,
+					assignment.memberSpan,
+				);
+			}
+			return;
+		}
+		// The project-class checks read a bare property target only.
+		if (!projectClasses || assignment.withArguments || !target || target.writable === undefined) {
 			return;
 		}
 		if (target.writable === false) {

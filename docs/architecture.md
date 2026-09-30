@@ -1758,7 +1758,11 @@ Diagnostic severity policy:
   is a compile-equivalent
   diagnostic for source-backed project properties whose member surface has
   no setter; focused oracle evidence rejects this as `Can't assign to read-only
-  property`. `member-not-found` is another source-backed member rule: it
+  property`. It also reports an early-bound assignment to a scalar host
+  property the host model marks read-only, with the error the VBE gives:
+  Excel's dispatch-only interfaces (`HostObjectModel.dispatchOnlyLibrary`)
+  refuse it with a different message from dual ones (issue #198).
+  `member-not-found` is another source-backed member rule: it
   fires only when a receiver resolves to an unambiguous and exhaustive
   `ProjectIndex.projectMemberSurfaces(moduleName)` surface, or a promoted exhaustive host
   surface, and the member name is absent. Plain class modules are
