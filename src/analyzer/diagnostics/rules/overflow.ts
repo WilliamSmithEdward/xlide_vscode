@@ -67,6 +67,11 @@ interface Typed {
 	type: NumericType;
 	/** A LongLong's exact value: a double cannot tell 2^63 - 1 from 2^63. */
 	exact?: bigint;
+	/**
+	 * Made of literals and Consts only, so the VBE folds it while compiling:
+	 * negating the Long minimum there wraps to itself (issue #235).
+	 */
+	constant?: boolean;
 }
 
 interface Overflow {
@@ -134,6 +139,17 @@ function inRange(value: number, type: NumericType, exact?: bigint): boolean {
 
 /** A literal's natural type and value: 3 is Integer, 40000 is Long, 3000000000 is Double. */
 function literalTyped(tok: VbaToken): Typed | undefined {
+	const typed = literalValue(tok);
+	return typed ? { ...typed, constant: true } : undefined;
+}
+
+function literalValue(tok: VbaToken): Typed | undefined {
+	// A Boolean in arithmetic is an Integer: True is -1 and False 0, so
+	// `1 / False` divides by zero (issue #235).
+	if (tok.kind === 'keyword') {
+		const word = tokenText(tok);
+		return word === 'true' ? { value: -1, type: 'integer' } : word === 'false' ? { value: 0, type: 'integer' } : undefined;
+	}
 	if (tok.kind === 'integerLiteral') {
 		const raw = tok.rawText;
 		const suffix = /[%&^]$/.exec(raw)?.[0];
@@ -248,11 +264,19 @@ class TypedFolder {
 		private readonly toks: readonly VbaToken[],
 		private readonly base: number,
 		private readonly names: NameLookup,
+		/** Told of a division by zero, which a Const cannot hold: "Division by zero" while compiling. */
+		private readonly divisionByZero?: (span: Span) => void,
 	) {}
 
 	fold(): Folded {
 		if (this.toks.length === 0) {
 			return undefined;
+		}
+		// `Not` binds below every arithmetic operator: `Not 255 + 256` is
+		// Not 511 (issue #235, measured in Excel 16.0).
+		if (this.toks[0].kind === 'keyword' && tokenText(this.toks[0]) === 'not') {
+			const operand = new TypedFolder(this.toks.slice(1), this.base, this.names, this.divisionByZero).fold();
+			return operand === undefined || isOverflow(operand) ? operand : notOf(operand, this.span(0, this.toks.length - 1));
 		}
 		const result = this.additive();
 		if (isOverflow(result)) {
@@ -338,12 +362,17 @@ class TypedFolder {
 			if (tok.rawText === '+') {
 				return operand;
 			}
+			// `-&H80000000` and `-(-2147483647 - 1)` are folded while compiling
+			// and give the Long minimum back; `l = -l` overflows (issue #235).
+			if (operand.constant && operand.type === 'long' && operand.value === RANGES.long.min) {
+				return operand;
+			}
 			const value = -operand.value;
 			const exact = operand.exact !== undefined ? -operand.exact : undefined;
 			if (!inRange(value, operand.type, exact)) {
 				return { overflow: true, span: this.span(start, this.index - 1), detail: `Negating ${exact !== undefined ? String(operand.exact) : showNumber(operand.value)} gives ${exact !== undefined ? String(exact) : showNumber(-operand.value)}, which does not fit ${RANGES[operand.type].label}` };
 			}
-			return { value, type: operand.type, ...(exact !== undefined ? { exact } : {}) };
+			return { value, type: operand.type, ...(exact !== undefined ? { exact } : {}), ...(operand.constant ? { constant: true } : {}) };
 		}
 		return this.power();
 	}
@@ -358,7 +387,7 @@ class TypedFolder {
 			if (close < 0) {
 				return undefined;
 			}
-			const inner = new TypedFolder(this.toks.slice(this.index + 1, close), this.base, this.names);
+			const inner = new TypedFolder(this.toks.slice(this.index + 1, close), this.base, this.names, this.divisionByZero);
 			const value = inner.fold();
 			this.index = close + 1;
 			return value;
@@ -479,13 +508,29 @@ class TypedFolder {
 		}
 		const type = target as NumericType;
 		const value = type === 'single' || type === 'double' || type === 'currency' || type === 'date' ? inner.value : bankersRound(inner.value);
+		// A conversion to the type the constant already has is folded away:
+		// `-CLng(&H80000000)` wraps, `-CLng(-2147483648#)` overflows (issue #235).
+		const constant = inner.constant && inner.type === type ? { constant: true } : {};
 		return inRange(value, type)
-			? { value, type }
+			? { value, type, ...constant }
 			: { overflow: true, span, detail: `${CONVERSION_NAMES[callee]}(${shown}) does not fit ${RANGES[type].label}` };
 	}
 
 	private combine(left: Typed, right: Typed, op: string, from: number, to: number): Folded {
+		const folded = this.combineValues(left, right, op, from, to);
+		// Both halves folded while compiling: so is the result.
+		return folded && !isOverflow(folded) && left.constant && right.constant ? { ...folded, constant: true } : folded;
+	}
+
+	private combineValues(left: Typed, right: Typed, op: string, from: number, to: number): Folded {
 		const span = this.span(from, to);
+		// `1 / 0`, `1 \ 0.4` and `1 Mod False` divide by zero; outside a Const
+		// that is division-by-zero's to report.
+		const divisor = op === '/' ? right.value : op === '\\' || op === 'mod' ? bankersRound(right.value) : undefined;
+		if (divisor === 0) {
+			this.divisionByZero?.(span);
+			return undefined;
+		}
 		if ((left.type === 'longlong' || right.type === 'longlong') && op !== '/' && op !== '^') {
 			return combineLongLong(left, right, op, span);
 		}
@@ -586,6 +631,31 @@ function combineLongLong(left: Typed, right: Typed, op: string, span: Span): Fol
 		return { overflow: true, span, detail: `${describe(left)} ${op === 'mod' ? 'Mod' : op} ${describe(right)} is ${exact}, outside the LongLong range` };
 	}
 	return { value: Number(exact), type: 'longlong', exact };
+}
+
+/**
+ * `Not x`, the bitwise complement in x's type (issue #235, measured in Excel
+ * 16.0): an Integer or a Long stays itself, `Not 32767` is -32768 and
+ * `Not 0` is -1; a Single, Double, Currency or Date is rounded to a Long
+ * first, so `Not 32768!` is -32769. A Byte stays a Byte.
+ */
+function notOf(operand: Typed, span: Span): Folded {
+	const constant = operand.constant ? { constant: true } : {};
+	if (operand.type === 'byte') {
+		return { value: 255 - operand.value, type: 'byte', ...constant };
+	}
+	if (operand.type === 'integer' || operand.type === 'long') {
+		return { value: -operand.value - 1, type: operand.type, ...constant };
+	}
+	if (operand.type === 'longlong') {
+		const exact = exactOf(operand);
+		return exact === undefined ? undefined : { value: Number(-exact - 1n), type: 'longlong', exact: -exact - 1n, ...constant };
+	}
+	const whole = bankersRound(operand.value);
+	if (!inRange(whole, 'long')) {
+		return { overflow: true, span, detail: `Not ${showNumber(operand.value)} rounds to ${showNumber(whole)}, outside the Long range` };
+	}
+	return { value: -whole - 1, type: 'long', ...constant };
 }
 
 function describe(typed: Typed): string {
@@ -728,7 +798,9 @@ function constantLookup(
 		}
 		const declared = numericTypeOf(symbol.asType);
 		const kept = declared ? storedValue(value, declared) : undefined;
-		const typed: Typed = declared && kept ? { value: kept.value, type: declared, ...(kept.exact !== undefined ? { exact: kept.exact } : {}) } : value;
+		const typed: Typed = declared && kept
+			? { value: kept.value, type: declared, ...(kept.exact !== undefined ? { exact: kept.exact } : {}), constant: true }
+			: value;
 		if (declared && kept && !inRange(kept.value, declared, kept.exact)) {
 			return undefined;
 		}
@@ -833,7 +905,19 @@ function checkConstDeclarations(
 				continue;
 			}
 			const value = toks.slice(eq + 1).filter((tok) => tok.kind !== 'comment');
-			const folded = new TypedFolder(value, decl.span.start, (lower) => constants.get(lower)).fold();
+			let divided: Span | undefined;
+			const folded = new TypedFolder(value, decl.span.start, (lower) => constants.get(lower), (span) => {
+				divided ??= span;
+			}).fold();
+			if (divided) {
+				push('constEvaluationError', `Const '${decl.name}' divides by zero while it is evaluated. This is a VBE compile error: Division by zero.`, divided);
+				continue;
+			}
+			const refused = stringConstRefusal(value, decl.asType, decl.span.start);
+			if (refused) {
+				push(refused.overflow ? 'constOverflow' : 'constEvaluationError', `Const '${decl.name}': ${refused.detail}. This is a VBE compile error: ${refused.overflow ? 'Overflow' : 'Type mismatch'}.`, refused.span);
+				continue;
+			}
 			if (isOverflow(folded)) {
 				push('constOverflow', `Const '${decl.name}' overflows while it is evaluated: ${folded.detail}. This is a VBE compile error: Overflow.`, folded.span);
 				continue;
@@ -847,6 +931,51 @@ function checkConstDeclarations(
 			}
 		}
 	}
+}
+
+/**
+ * A Const whose value is a string the declared type cannot take (issue #235,
+ * measured in Excel 16.0): `As Long = "abc"`, `As Long = ""`,
+ * `As Boolean = "abc"`, `= -"abc"` and `Not ""` are "Type mismatch", and
+ * `As Integer = "40000"` is "Overflow". `As Long = "12"`, `As Boolean =
+ * "True"` and `-"12"` compile. A string with a digit in it is read by the
+ * locale, so only one with none is judged a mismatch.
+ */
+function stringConstRefusal(
+	value: readonly VbaToken[],
+	asType: string | undefined,
+	base: number,
+): { detail: string; span: Span; overflow?: boolean } | undefined {
+	const operator = value.length === 2 && (value[0].rawText === '-' || tokenText(value[0]) === 'not') ? value[0] : undefined;
+	const literal = value[operator ? 1 : 0];
+	if (value.length !== (operator ? 2 : 1) || literal?.kind !== 'stringLiteral') {
+		return undefined;
+	}
+	const span = { start: base + value[0].start, end: base + literal.end };
+	const text = stringLiteralValue(literal.rawText);
+	const hasDigit = /\d/.test(text);
+	if (operator) {
+		return hasDigit ? undefined : { detail: `'${operator.rawText}' cannot work on ${literal.rawText}, which is no number`, span };
+	}
+	const declared = normalizeType(asType);
+	if (declared === 'boolean') {
+		return hasDigit || /^\s*(true|false)\s*$/i.test(text) ? undefined : { detail: `${literal.rawText} is no Boolean`, span };
+	}
+	const numeric = numericTypeOf(asType);
+	if (!numeric || numeric === 'date') {
+		return undefined;
+	}
+	if (!hasDigit) {
+		return { detail: `${literal.rawText} is no number, so it cannot be ${article(RANGES[numeric].label)} ${RANGES[numeric].label}`, span };
+	}
+	const read = numberInString(text);
+	if (read === 'overflow') {
+		return { detail: `${literal.rawText} spells a number past the Double range`, span, overflow: true };
+	}
+	if (read && WHOLE_TYPES.has(numeric) && !inRange(bankersRound(read.value), numeric)) {
+		return { detail: `${literal.rawText} is outside the ${RANGES[numeric].label} range`, span, overflow: true };
+	}
+	return undefined;
 }
 
 function checkProcedureBody(

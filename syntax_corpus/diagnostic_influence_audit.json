@@ -3150,11 +3150,23 @@
         "issue232_57_runtime",
         "issue232_58_runtime",
         "issue233_29_runtime",
-        "issue233_30_runtime"
+        "issue233_30_runtime",
+        "issue235_08_runtime",
+        "issue235_09_runtime",
+        "issue235_10_runtime",
+        "issue235_38_runtime",
+        "issue235_39_runtime",
+        "issue235_40_runtime",
+        "issue235_41_runtime",
+        "issue235_42_runtime",
+        "issue235_43_runtime",
+        "issue235_44_runtime",
+        "issue235_45_runtime",
+        "issue235_46_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Arithmetic overflow. MS-VBAL 5.6.9.3 operator result types; VBE runtime error 6: Overflow (issue #116, Excel 16.0). Issue #218: CDec past the Decimal range (CDec(\"1E30\")), and Abs of the smallest Long is not an overflow (it returns -2147483648). Inside any call argument or operand too: CStr(CInt(40000)), IIf(True, 0, CInt(40000)), \"x\" & CInt(40000), z(CInt(40000)); and LongLong, folded exactly, with LongPtr judged against LongLong's range (issues #232 and #258, 64-bit Excel 16.0). In a block header too: For i = 1 To CInt(40000), Select Case CInt(40000) (issue #233, Excel 16.0).",
+      "notes": "Arithmetic overflow. MS-VBAL 5.6.9.3 operator result types; VBE runtime error 6: Overflow (issue #116, Excel 16.0). Issue #218: CDec past the Decimal range (CDec(\"1E30\")), and Abs of the smallest Long is not an overflow (it returns -2147483648). Inside any call argument or operand too: CStr(CInt(40000)), IIf(True, 0, CInt(40000)), \"x\" & CInt(40000), z(CInt(40000)); and LongLong, folded exactly, with LongPtr judged against LongLong's range (issues #232 and #258, 64-bit Excel 16.0). In a block header too: For i = 1 To CInt(40000), Select Case CInt(40000) (issue #233, Excel 16.0). Negating the Long minimum wraps where the VBE folds it, -&H80000000, -CLng(&H80000000), -(&H80000000 + 0); a variable or another conversion overflows (issue #235, Excel 16.0).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -3165,11 +3177,44 @@
       "assertedOracleCases": [
         "issue116_b_compile",
         "issue124_i_compile",
-        "issue232_46_compile"
+        "issue232_46_compile",
+        "issue235_11_compile",
+        "issue235_23_compile",
+        "issue235_29_compile",
+        "issue235_30_compile",
+        "issue235_31_compile",
+        "issue235_49_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Const value overflows. MS-VBAL 5.6.9.3; VBE compile error: Overflow (issue #116, Excel 16.0). A LongLong Const past the range, Const C As LongLong = 1E+19 (issue #232, 64-bit Excel 16.0).",
+      "notes": "Const value overflows. MS-VBAL 5.6.9.3; VBE compile error: Overflow (issue #116, Excel 16.0). A LongLong Const past the range, Const C As LongLong = 1E+19 (issue #232, 64-bit Excel 16.0). Not into a narrow type, As Byte = Not 0, and a digit string past the type, As Integer = \"40000\"; negating the Long minimum while folding wraps and is not reported (issue #235, Excel 16.0).",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "const-evaluation-error",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-30 (issue #235), full compile",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue235_12_compile",
+        "issue235_13_compile",
+        "issue235_14_compile",
+        "issue235_15_compile",
+        "issue235_16_compile",
+        "issue235_17_compile",
+        "issue235_18_compile",
+        "issue235_19_compile",
+        "issue235_20_compile",
+        "issue235_21_compile",
+        "issue235_22_compile",
+        "issue235_24_compile",
+        "issue235_25_compile",
+        "issue235_34_compile",
+        "issue235_51_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "A Const value the VBE cannot evaluate: a division by zero, 1 / 0, 1 Mod False, 2 * (1 \\ 0) -> Division by zero; a string that is no number into a numeric or Boolean Const, or under - or Not -> Type mismatch (issue #235, Excel 16.0).",
       "diagnosticKind": "compile-error"
     },
     {
