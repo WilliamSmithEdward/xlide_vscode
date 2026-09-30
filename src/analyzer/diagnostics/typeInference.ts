@@ -1637,6 +1637,14 @@ export function inferArgumentType(
 	);
 }
 
+/**
+ * Runtime functions that return Null for a Null first argument, where the
+ * $ spellings raise 94 at the call (issue #184, measured in Excel 16.0).
+ */
+const NULL_PROPAGATING_RUNTIME_FUNCTIONS: ReadonlySet<string> = new Set([
+	'len', 'lenb', 'left', 'right', 'mid', 'ucase', 'lcase', 'trim', 'ltrim', 'rtrim',
+]);
+
 export function inferExpressionType(
 	toks: VbaToken[],
 	sliceStart: number,
@@ -1846,6 +1854,25 @@ export function inferAtomicExpressionType(
 			: undefined;
 		if (errorVariant) {
 			return errorVariant;
+		}
+		// `Len(Null)` and `UCase(Null)` return Null, whatever type they
+		// otherwise return (issue #184, measured in Excel 16.0).
+		if (
+			callName
+			&& NULL_PROPAGATING_RUNTIME_FUNCTIONS.has(callName.name.toLowerCase())
+			&& !moduleSignatures.has(callName.name.toLowerCase())
+			&& !bareCallableSourceShadowed(callName.name, sourceNames)
+			&& !runtimeCallableSourceShadowed(callName.name, sourceNames)
+			&& matchParenFrom(toks, callName.parenIndex) === toks.length - 1
+		) {
+			const first = splitArgSlots(toks.slice(callName.parenIndex + 1, -1), sliceStart).slots[0] ?? [];
+			if (first.length === 1 && tokenText(first[0]) === 'null') {
+				return {
+					type: 'Null',
+					label: `${callName.name}(Null), which is Null`,
+					span: { start: span.start, end: sliceStart + toks[toks.length - 1].end },
+				};
+			}
 		}
 		if (callName) {
 			const sig = callableSignatureFor(callName.name, moduleSignatures, sourceNames);

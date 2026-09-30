@@ -61,6 +61,8 @@ interface RuntimeArgumentValueSpec {
 	exclusiveMinimum?: number;
 	/** Single values inside the range that still raise: InStrRev's Start of 0. */
 	disallowed?: readonly number[];
+	/** Whether a whole number is accepted, where no range says it: StrConv's Conversion. */
+	accepts?: (value: number) => boolean;
 	/** An empty string literal raises: Asc(""), String(3, ""). */
 	emptyStringRaises?: boolean;
 	/** A string literal must be one of these (case-insensitive): DateAdd's interval. */
@@ -630,6 +632,8 @@ function runtimeArgumentValueSpecs(name: string, host: string | undefined): read
 			return [{ canonicalName: 'DateSerial', parameterName: 'Year', argumentIndex: 0, maximum: 9999 }];
 		case 'split':
 			return [{ canonicalName: 'Split', parameterName: 'Limit', argumentIndex: 2, minimum: -1 }];
+		case 'strconv':
+			return [{ canonicalName: 'StrConv', parameterName: 'Conversion', argumentIndex: 1, accepts: strConvConversionAnyLocale }];
 		case 'formatnumber':
 			return [{ canonicalName: 'FormatNumber', parameterName: 'NumDigitsAfterDecimal', argumentIndex: 1, minimum: -1 }];
 		case 'formatcurrency':
@@ -647,6 +651,24 @@ function runtimeArgumentValueSpecs(name: string, host: string | undefined): read
 		default:
 			return [];
 	}
+}
+
+/**
+ * Whether some locale accepts a StrConv Conversion (issue #184, measured in
+ * Excel 16.0 with the LCIDs of English, Japanese and Chinese). vbWide 4,
+ * vbNarrow 8, vbKatakana 16 and vbHiragana 32 run only under an East Asian
+ * locale, so they are never judged here. What no locale accepts: vbUnicode 64
+ * or vbFromUnicode 128 with any other value, vbWide with vbNarrow, vbKatakana
+ * with vbHiragana, and any value past 255 or below 0.
+ */
+function strConvConversionAnyLocale(value: number): boolean {
+	if (value < 0 || value > 255) {
+		return false;
+	}
+	if ((value & 192) !== 0 && value !== 64 && value !== 128) {
+		return false;
+	}
+	return (value & 12) !== 12 && (value & 48) !== 48;
 }
 
 /** The interval strings DateAdd, DateDiff and DatePart accept. */
@@ -777,6 +799,9 @@ function integerArgumentValueInBounds(
 		return false;
 	}
 	if (spec.disallowed?.includes(value)) {
+		return false;
+	}
+	if (spec.accepts && Number.isInteger(value) && !spec.accepts(value)) {
 		return false;
 	}
 	return true;

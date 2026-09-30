@@ -98,6 +98,26 @@ describe('runtime-argument-value - error 5 arguments (issue #118)', () => {
 		const src = wrap('Main = InStr(1, "abc", "b", vbDatabaseCompare)');
 		expect(byCode(analyzeModule(src, { host: 'access' }), ARG)).toHaveLength(0);
 	});
+
+	it('flags a StrConv Conversion no locale accepts (issue #184)', () => {
+		// Measured with the English, Japanese (1041) and Chinese (2052) LCIDs.
+		for (const value of ['99', '65', '192', '3 + 256', '48', '12', '-1']) {
+			const src = wrap(`Main = StrConv("a", ${value})`);
+			expectDiagnostic(src, analyzeModule(src), ARG, { span: value, message: ["'Conversion' of 'StrConv'", "Run-time error '5'"] });
+		}
+		// vbWide 4, vbNarrow 8, vbKatakana 16 and vbHiragana 32 run under an
+		// East Asian locale, alone or with a case: they are not judged.
+		const quiet = wrap(
+			'Main = StrConv("a", 0)',
+			'Main = StrConv("a", vbProperCase)',
+			'Main = StrConv("a", vbUnicode)',
+			'Main = StrConv("a", vbFromUnicode)',
+			'Main = StrConv("a", vbWide)',
+			'Main = StrConv("a", 36)',
+			'Main = StrConv("a", vbUpperCase + vbHiragana)',
+		);
+		expect(byCode(analyzeModule(quiet), ARG)).toHaveLength(0);
+	});
 });
 
 describe('runtime-conversion-value - error 13 conversions (issue #118)', () => {

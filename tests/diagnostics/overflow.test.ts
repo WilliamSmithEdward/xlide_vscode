@@ -204,3 +204,32 @@ describe('operator precedence and Exit For (issue #145)', () => {
 		expectDiagnostic(src, analyzeModule(src), COUNTER, { span: '255' });
 	});
 });
+
+describe('arithmetic-overflow - a number spelled in a string (issue #184)', () => {
+	it('reads the string a conversion or Val takes, hex and octal with their width sign', () => {
+		const cases: Array<[string, string]> = [
+			['Debug.Print Val("1e400")', 'past the Double range'],
+			['Debug.Print CInt("&H10000")', 'CInt("&H10000") does not fit Integer'],
+			['Debug.Print CInt("40000")', 'CInt("40000")'],
+			['Debug.Print CByte("256")', 'CByte("256")'],
+			['Debug.Print CInt("&O200000")', 'CInt("&O200000")'],
+			['Main = CDbl("1e400")', 'past the Double range'],
+		];
+		for (const [line, message] of cases) {
+			const src = wrap(line);
+			const hits = byCode(analyzeModule(src), ARITHMETIC);
+			expect(hits, line).toHaveLength(1);
+			expect(hits[0].message, line).toContain(message);
+		}
+		// Each runs in Excel. "1.5" and "1,000" are read by the locale and not judged.
+		const quiet = wrap(
+			'Main = Val("1e300")',
+			'Main = CInt("&H8000")',
+			'Main = CLng("&H80000000")',
+			'Main = CInt("32767")',
+			'Main = CInt("40000.5")',
+			'Main = CInt("40,000")',
+		);
+		expect(byCode(analyzeModule(quiet), ARITHMETIC)).toHaveLength(0);
+	});
+});

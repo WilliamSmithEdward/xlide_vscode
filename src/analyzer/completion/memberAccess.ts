@@ -922,10 +922,11 @@ function collectReceiverChainWithStart(
 	return { segments, startIndex };
 }
 
-// `Me` is the only VBA keyword that can terminate a receiver expression (`Me.`);
-// every other keyword before a dot (In, To, Then, ...) introduces a fresh
-// expression, so the dot is a leading implicit-With member access.
-const RECEIVER_TAIL_KEYWORDS = new Set(['me']);
+// `Me` and `Debug` are the VBA keywords that can terminate a receiver
+// expression (`Me.`, `Debug.Print` inside a With, issue #184); every other
+// keyword before a dot (In, To, Then, ...) introduces a fresh expression, so
+// the dot is a leading implicit-With member access.
+const RECEIVER_TAIL_KEYWORDS = new Set(['me', 'debug']);
 
 /**
  * True when `token` (the token immediately before a `.`) means the dot is a
@@ -936,7 +937,7 @@ const RECEIVER_TAIL_KEYWORDS = new Set(['me']);
  * keyword (`In`, `To`, `Then`, ...) - starts a new expression where `.member`
  * binds to the active `With` block (e.g. `For Each wb In .Workbooks`, `Set x = .Foo`).
  */
-function precedesLeadingMemberDot(token: VbaToken): boolean {
+export function precedesLeadingMemberDot(token: VbaToken): boolean {
 	// A plain identifier or a foreign-name escape `[Foo]` (lexed as one
 	// bracketedIdentifier token) terminates a receiver, so the following dot is an
 	// explicit `receiver.member`, not an implicit-With leading dot.

@@ -140,6 +140,29 @@ describe('analyzeModule - assignment type validation', () => {
 		expectDiagnostics(src, hits, 'assignment-type-mismatch', [{ span: 'Null' }, { span: 'Null' }]);
 	});
 
+	it('errors on a runtime function that returns Null into a scalar variable (issue #184)', () => {
+		const src =
+			'Public Sub T()\n' +
+			'    Dim number As Long\n' +
+			'    Dim message As String\n' +
+			'    Dim flexible As Variant\n' +
+			'    number = Len(Null)\n' +
+			'    message = UCase(Null)\n' +
+			'    message = Left(Null, 1)\n' +
+			'    message = Mid(Null, 1)\n' +
+			'    flexible = Len(Null)\n' +
+			'    message = Trim(Null) & ""\n' +
+			'End Sub\n';
+		const hits = byCode(analyzeModule(src), 'assignment-type-mismatch');
+
+		expectDiagnostics(src, hits, 'assignment-type-mismatch', [
+			{ span: 'Len(Null)', message: ['Len(Null), which is Null', "'94'"] },
+			{ span: 'UCase(Null)' },
+			{ span: 'Left(Null, 1)' },
+			{ span: 'Mid(Null, 1)' },
+		]);
+	});
+
 	it('lets a source function named CVErr shadow the intrinsic in assignment expressions', () => {
 		const src =
 			'Private Function CVErr(ByVal errorNumber As Long) As Long\n' +

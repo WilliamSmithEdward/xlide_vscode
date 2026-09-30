@@ -340,7 +340,8 @@
         "cverr_to_long_argument_runtime",
         "cverr_to_variant_argument_runtime",
         "null_to_long_argument_runtime",
-        "null_to_variant_argument_runtime"
+        "null_to_variant_argument_runtime",
+        "issue184_29_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -419,7 +420,11 @@
         "cverr_to_long_assignment_runtime",
         "cverr_to_variant_assignment_runtime",
         "null_to_long_assignment_runtime",
-        "null_to_variant_assignment_runtime"
+        "null_to_variant_assignment_runtime",
+        "issue184_19_runtime",
+        "issue184_20_runtime",
+        "issue184_21_runtime",
+        "issue184_31_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -530,7 +535,11 @@
       "sourceOfTruth": "Excel/VBE runtime oracle plus deterministic XLIDE straight-line local object initialization model",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "object_variable_not_set_runtime"
+        "object_variable_not_set_runtime",
+        "issue184_23_runtime",
+        "issue184_24_runtime",
+        "issue184_27_runtime",
+        "issue184_37_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -675,7 +684,14 @@
         "issue142_c_runtime",
         "issue142_d_runtime",
         "issue142_f_runtime",
-        "issue180_19_runtime"
+        "issue180_19_runtime",
+        "issue184_09_runtime",
+        "issue184_16_runtime",
+        "issue184_17_runtime",
+        "issue184_18_runtime",
+        "issue184_34_runtime",
+        "issue184_35_runtime",
+        "issue184_36_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2129,7 +2145,12 @@
         "issue116_y_runtime",
         "issue116_z_runtime",
         "issue116_za_runtime",
-        "issue145_b_runtime"
+        "issue145_b_runtime",
+        "issue184_01_runtime",
+        "issue184_03_runtime",
+        "issue184_05_runtime",
+        "issue184_07_runtime",
+        "issue184_08_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

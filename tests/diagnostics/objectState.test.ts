@@ -378,3 +378,32 @@ describe('analyzeModule - object variable not set', () => {
 		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(0);
 	});
 });
+
+describe('analyzeModule - GoTo into a With block (issue #184)', () => {
+	const run = (...lines: string[]): { src: string; hits: ReturnType<typeof analyzeModule> } => {
+		const src = `Sub Main()\n${lines.map((line) => `    ${line}`).join('\n')}\nEnd Sub\n`;
+		return { src, hits: byCode(analyzeModule(src), 'object-variable-not-set') };
+	};
+
+	it('flags a GoTo that skips the With statement before a leading-dot member', () => {
+		const direct = run('Dim c As New Collection', 'GoTo Inside', 'With c', 'Inside:', '    .Add 1', 'End With');
+		expectDiagnostics(direct.src, direct.hits, 'object-variable-not-set', [
+			{ span: 'Inside', message: ["GoTo Inside jumps into a With block", "'.Add'", "error '91'"] },
+		]);
+		const later = run('Dim c As New Collection, n As Long', 'GoTo Inside', 'With c', '    .Add 1', 'Inside:', '    n = 1', '    .Add n', 'End With');
+		expect(later.hits).toHaveLength(1);
+		const printed = run('GoTo Inside', 'With Application', 'Inside:', '    Debug.Print .Name', 'End With');
+		expectDiagnostics(printed.src, printed.hits, 'object-variable-not-set', [{ span: 'Inside', message: "'.Name'" }]);
+	});
+
+	it('stays quiet for a GoTo inside the With, one into a For, and a label no member follows', () => {
+		const quiet = [
+			run('Dim c As New Collection', 'With c', '    .Add 1', '    GoTo Inside', '    .Add 2', 'Inside:', '    .Add 3', 'End With'),
+			run('Dim i As Long', 'GoTo Inside', 'For i = 1 To 3', 'Inside:', '    Debug.Print i', 'Next i'),
+			run('Dim c As New Collection', 'GoTo Inside', 'With c', 'Inside:', '    Debug.Print 5', 'End With'),
+		];
+		for (const { hits } of quiet) {
+			expect(hits).toHaveLength(0);
+		}
+	});
+});

@@ -3,7 +3,7 @@
 // Extracted verbatim from analyzeModule.ts: member access on unset object
 // variables (straight-line Set tracking) and member access on known scalars.
 
-import type { MemberCompletionContext } from '../../completion/memberAccess';
+import { precedesLeadingMemberDot, type MemberCompletionContext } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type {
@@ -14,6 +14,7 @@ import type {
 	Span,
 	LeafStatementNode,
 } from '../../parser/nodes';
+import { isLeafStatement } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaSymbol } from '../../symbols/symbolModel';
 import {
@@ -22,6 +23,7 @@ import {
 } from '../analysisContext';
 import { walkBranchMergedBody, walkStraightLineBody } from '../dataflow';
 import { procedureHasUnstructuredFlow } from '../../flow/procedureUnstructured';
+import { statementLabelDeclaration, statementLabelReferences } from '../../flow/procedureLabels';
 import { resolveExhaustiveMemberSurface } from '../rules/shared';
 import {
 	declaredTypeForSourceBinding,
@@ -137,6 +139,7 @@ export function checkObjectVariableNotSet(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
+		checkGoToIntoWith(source, member, activity, push);
 		const locals = localObjectVariablesFor(symbols, member, memberCtx);
 		if (locals.size === 0) {
 			continue;
@@ -228,6 +231,100 @@ export function checkObjectVariableNotSet(
 			lattice: { init: 'unset', good: 'set', unknown: 'unknown' },
 		});
 	}
+}
+
+/**
+ * `GoTo L` from outside a With block to a label inside it skips the With
+ * statement, so the With has no object: the first leading-dot member after
+ * the label raises 91 (issue #184, measured in Excel 16.0). A GoTo inside the
+ * same With runs, and so does one into a For loop.
+ */
+function checkGoToIntoWith(
+	source: string,
+	proc: ProcedureNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const hasWith = (list: readonly BodyNode[]): boolean => list.some((node) =>
+		node.kind === 'WithBlock' || ('body' in node && Array.isArray(node.body) && hasWith(node.body as BodyNode[])));
+	if (!hasWith(proc.body)) {
+		return;
+	}
+	const labels = new Map<string, { withs: readonly BodyNode[]; access: string | undefined }>();
+	const jumps: Array<{ key: string; text: string; span: Span; withs: readonly BodyNode[] }> = [];
+	const visit = (list: readonly BodyNode[], withs: readonly BodyNode[]): void => {
+		for (let i = 0; i < list.length; i++) {
+			const node = list[i];
+			if (isInactiveNode(activity, node)) {
+				continue;
+			}
+			if (isLeafStatement(node)) {
+				const label = statementLabelDeclaration(source, node.span);
+				if (label && withs.length > 0 && !labels.has(label.key)) {
+					labels.set(label.key, { withs, access: firstLeadingDotMember(source, list, i, activity) });
+				}
+				for (const ref of statementLabelReferences(source, node.span)) {
+					if (ref.statementKind === 'goto') {
+						jumps.push({ key: ref.key, text: ref.text, span: ref.span, withs });
+					}
+				}
+				continue;
+			}
+			if ('body' in node && Array.isArray(node.body)) {
+				visit(node.body as BodyNode[], node.kind === 'WithBlock' ? [...withs, node] : withs);
+			}
+		}
+	};
+	visit(proc.body, []);
+	for (const jump of jumps) {
+		const target = labels.get(jump.key);
+		if (target?.access && target.withs.some((block) => !jump.withs.includes(block))) {
+			push(
+				'objectVariableNotSet',
+				`GoTo ${jump.text} jumps into a With block past its With statement, so '${target.access}' after the label has no object. This will raise Run-time error '91': Object variable or With block variable not set.`,
+				jump.span,
+			);
+		}
+	}
+}
+
+/**
+ * The first leading-dot member (`.Add`) that runs from `list[from]` on, in
+ * the statements that follow in a straight line. A block may not run, and an
+ * Exit, GoTo or Return leaves, so either ends the search.
+ */
+function firstLeadingDotMember(
+	source: string,
+	list: readonly BodyNode[],
+	from: number,
+	activity: ConditionalActivityTracker | undefined,
+): string | undefined {
+	for (let j = from; j < list.length; j++) {
+		const node = list[j];
+		if (isInactiveNode(activity, node) || node.kind === 'VariableGroup') {
+			continue;
+		}
+		if (!isLeafStatement(node)) {
+			return undefined;
+		}
+		const toks = statementTokensAfterLeadingLabel(source, node.span);
+		const head = tokenText(toks[0]);
+		if (j > from && (head === 'elseif' || head === 'else' || head === 'case')) {
+			return undefined;
+		}
+		// A one-line If always runs its condition, and its branches maybe.
+		const then = node.kind === 'Statement' && node.singleLineIfBranches ? toks.findIndex((tok) => tokenText(tok) === 'then') : -1;
+		const limit = then >= 0 ? then : toks.length;
+		for (let k = 0; k < limit; k++) {
+			if (toks[k].rawText === '.' && tokenName(toks[k + 1]) && (k === 0 || precedesLeadingMemberDot(toks[k - 1]))) {
+				return `.${toks[k + 1].rawText}`;
+			}
+		}
+		if (then >= 0 || head === 'exit' || head === 'goto' || head === 'return' || head === 'resume' || head === 'end') {
+			return undefined;
+		}
+	}
+	return undefined;
 }
 
 /**

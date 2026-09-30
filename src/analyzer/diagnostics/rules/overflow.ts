@@ -36,6 +36,7 @@ import { isBareOrVbaQualifiedIntrinsicCall } from './shared';
 import {
 	knownLocalLiteralValues,
 	normalizeType,
+	stringLiteralValue,
 	typeEnvironmentFor,
 } from '../typeInference';
 import {
@@ -154,6 +155,41 @@ function literalTyped(tok: VbaToken): Typed | undefined {
 		return { value, type: suffix === '!' ? 'single' : suffix === '@' ? 'currency' : 'double' };
 	}
 	return undefined;
+}
+
+/**
+ * The number a conversion reads from a string (issue #184), for the spellings
+ * every locale reads alike: whole digits with an optional exponent, and &H
+ * and &O literals, which keep the sign of their width as a literal does
+ * ("&H8000" is -32768). A decimal point or a thousands separator is read by
+ * the locale and is not judged.
+ */
+function numberInString(text: string): Typed | 'overflow' | undefined {
+	const trimmed = text.trim();
+	if (/^[-+]?\d+(?:[eE][-+]?\d+)?$/.test(trimmed)) {
+		const value = Number(trimmed);
+		return Number.isFinite(value) ? { value, type: 'double' } : 'overflow';
+	}
+	const radix = /^([-+]?)(&[Hh][0-9A-Fa-f]+|&[Oo]?[0-7]+)$/.exec(trimmed);
+	const value = radix ? parseVbaIntegerLiteral(radix[2]) : undefined;
+	if (value === undefined) {
+		return undefined;
+	}
+	return { value: radix![1] === '-' ? -value : value, type: 'double' };
+}
+
+/**
+ * What `Val` reads from a string: a number with an optional fraction and
+ * exponent, always with `.` as the decimal point. Only a string that is that
+ * number and nothing else is judged, since Val also skips blanks inside one.
+ */
+function valOfString(text: string): Typed | 'overflow' | undefined {
+	const match = /^\s*([-+]?(?:\d+\.?\d*|\.\d+)(?:[eEdD][-+]?\d+)?)\s*$/.exec(text);
+	if (!match) {
+		return undefined;
+	}
+	const value = Number(match[1].replace(/[dD]/, 'E'));
+	return Number.isFinite(value) ? { value, type: 'double' } : 'overflow';
 }
 
 /** What a name means to the folder: a typed value, or nothing. */
@@ -300,14 +336,31 @@ class TypedFolder {
 			calleeIndex = this.index + 2;
 		}
 		const callee = tokenName(this.toks[calleeIndex])!.toLowerCase();
-		if (this.toks[calleeIndex + 1]?.rawText === '(' && CONVERSIONS.has(callee)) {
+		if (this.toks[calleeIndex + 1]?.rawText === '(' && (CONVERSIONS.has(callee) || callee === 'val')) {
 			const close = matchParenFrom(this.toks, calleeIndex + 1);
 			if (close < 0) {
 				return undefined;
 			}
-			const inner = new TypedFolder(this.toks.slice(calleeIndex + 2, close), this.base, this.names).fold();
 			const start = this.index;
+			const argument = this.toks.slice(calleeIndex + 2, close);
 			this.index = close + 1;
+			// A string literal is read as the number it spells (issue #184):
+			// `CInt("&H10000")` is CInt(65536), `Val("1e400")` is past a Double.
+			if (argument.length === 1 && argument[0].kind === 'stringLiteral') {
+				const text = stringLiteralValue(argument[0].rawText);
+				const read = callee === 'val' ? valOfString(text) : numberInString(text);
+				if (read === 'overflow') {
+					return { overflow: true, span: this.span(start, close), detail: `${argument[0].rawText} spells a number past the Double range` };
+				}
+				if (read === undefined || callee === 'val') {
+					return read;
+				}
+				return this.convert(callee, read, this.span(start, close), argument[0].rawText);
+			}
+			if (callee === 'val') {
+				return undefined;
+			}
+			const inner = new TypedFolder(argument, this.base, this.names).fold();
 			if (inner === undefined || isOverflow(inner)) {
 				return inner;
 			}
@@ -337,7 +390,7 @@ class TypedFolder {
 		return known;
 	}
 
-	private convert(callee: string, inner: Typed, span: Span): Folded {
+	private convert(callee: string, inner: Typed, span: Span, shown = showNumber(inner.value)): Folded {
 		const target = CONVERSIONS.get(callee)!;
 		if (target === 'abs') {
 			const value = Math.abs(inner.value);
@@ -366,7 +419,7 @@ class TypedFolder {
 		const value = type === 'single' || type === 'double' || type === 'currency' || type === 'date' ? inner.value : bankersRound(inner.value);
 		return inRange(value, type)
 			? { value, type }
-			: { overflow: true, span, detail: `${CONVERSION_NAMES[callee]}(${showNumber(inner.value)}) does not fit ${RANGES[type].label}` };
+			: { overflow: true, span, detail: `${CONVERSION_NAMES[callee]}(${shown}) does not fit ${RANGES[type].label}` };
 	}
 
 	private combine(left: Typed, right: Typed, op: string, from: number, to: number): Folded {
@@ -726,7 +779,7 @@ function checkStatement(
 	// Conversion calls anywhere else in the statement: `Debug.Print CInt(40000)`.
 	for (let i = 0; i + 1 < toks.length; i++) {
 		const callee = tokenText(toks[i]);
-		if (!CONVERSIONS.has(callee) || toks[i + 1].rawText !== '(' || !isBareOrVbaQualifiedIntrinsicCall(toks, i)) {
+		if (!(CONVERSIONS.has(callee) || callee === 'val') || toks[i + 1].rawText !== '(' || !isBareOrVbaQualifiedIntrinsicCall(toks, i)) {
 			continue;
 		}
 		const close = matchParenFrom(toks, i + 1);
