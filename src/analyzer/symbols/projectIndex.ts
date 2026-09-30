@@ -17,7 +17,6 @@ import {
 } from '../constants/integerConstantExpression';
 import {
 	isBareCallableKind,
-	isDataBoundDesignerClass,
 	isProcedureKind,
 	qualifiedProcedureKey,
 	type ModuleSymbolKind,
@@ -1107,14 +1106,13 @@ export class ProjectIndex {
 					// its control list is authoritative (issue #26): with the
 					// controls and code-behind here and the UserForm base
 					// merged at resolution, the surface proves absence the
-					// same way the VBE's compiler does. Document modules stay
-					// non-exhaustive: their host base carries more than any
-					// list here. So does an Access form or report, whose
-					// record-source fields are members no list here can name.
+					// same way the VBE's compiler does. That holds for an Access
+					// form or report too, whose list is its TypeInfo stream's,
+					// record-source fields included (issue #206). Document
+					// modules stay non-exhaustive: their host base carries more
+					// than any list here.
 					exhaustive: kind === 'class'
-						|| (kind === 'userform'
-							&& this.moduleImplicitMembersKnown(mod.moduleName)
-							&& !isDataBoundDesignerClass(designerClass)),
+						|| (kind === 'userform' && this.moduleImplicitMembersKnown(mod.moduleName)),
 					...(designerClass !== undefined ? { designerClass } : {}),
 					// Documents and forms always have one; only a class module
 					// has to be asked (issue #47).

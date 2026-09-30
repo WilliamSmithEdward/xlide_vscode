@@ -17,7 +17,7 @@ import {
     collectHostGlobalTokens,
     collectHostMemberMethodTokens,
     collectImplicitMemberMethodTokens,
-    isDataBoundDesignerClass,
+    isAccessDesignerClass,
     resolveTypeSemanticTokens,
     TypeSemanticTokenType,
 } from './analyzer';
@@ -346,7 +346,7 @@ export class VbaTypeSemanticTokensProvider implements vscode.DocumentSemanticTok
                 'live',
             );
             const designerClass = context.moduleMetadata.get(moduleIdentityKey(moduleName))?.designerClass;
-            return isDataBoundDesignerClass(designerClass) ? designerClass : undefined;
+            return isAccessDesignerClass(designerClass) ? designerClass : undefined;
         } catch {
             return undefined;
         }

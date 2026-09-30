@@ -29,13 +29,8 @@ import {
 	applyAccessVbaProject,
 	readAccessDesignNames,
 } from './access/accessVbaWriter';
-import {
-	accessDesignMembers,
-	parseAccessDesign,
-	type AccessDesign,
-	type AccessDesignMember,
-} from './access/accessDesign';
-import { typeInfoListedNames } from './access/accessTypeInfo';
+import { parseAccessDesign, type AccessDesignMember } from './access/accessDesign';
+import { typeInfoMembers } from './access/accessTypeInfo';
 import { NoVbaProjectError } from './noVbaProject';
 import { XlsxWorkbook } from './xlsx';
 
@@ -78,11 +73,13 @@ export interface AccessContainerDesign {
 	/** `Form_<name>` or `Report_<name>`, whether or not that module exists. */
 	moduleName: string;
 	/**
-	 * The design's named sections and controls, which are members of its
-	 * class. Parsed on the first ask; undefined when the design could not be
-	 * read, which means "not known", never "none". Given the project's code
-	 * page, a control Access left out of the design's member list - one whose
-	 * name that list's page cannot hold - is left out here too.
+	 * Every member the design adds to its class: its named sections and
+	 * controls, and a bound design's record-source fields. This is the list
+	 * the design's TypeInfo stream holds, which is the one the compiler
+	 * checks against, so it is the whole list. Parsed on the first ask;
+	 * undefined when the design or its stream could not be read, which means
+	 * "not known", never "none". The stream is read in the project's code
+	 * page, and a control whose name that page cannot hold is not in it.
 	 */
 	members(projectCodePage?: number): AccessDesignMember[] | undefined;
 }
@@ -230,8 +227,12 @@ function designMembers(
 		if (!parsed.has(projectCodePage)) {
 			let value: AccessDesignMember[] | undefined;
 			try {
-				const design = blob ? parseAccessDesign(blob) : undefined;
-				value = design && accessDesignMembers(design, kind, listedNames(design, typeInfo, projectCodePage));
+				// The TypeInfo stream is the list the compiler checks `Me.`
+				// against, record-source fields included. Access writes one
+				// beside every design; without it the members are not known.
+				value = blob && typeInfo
+					? typeInfoMembers(typeInfo, parseAccessDesign(blob), kind, projectCodePage ?? DEFAULT_TYPE_INFO_CODE_PAGE)
+					: undefined;
 			} catch {
 				// A design this cannot read still has a module; its members
 				// are simply not known.
@@ -243,22 +244,8 @@ function designMembers(
 	};
 }
 
-/** The names a design's member list holds, or undefined where it cannot say. */
-function listedNames(
-	design: AccessDesign,
-	typeInfo: Buffer | undefined,
-	projectCodePage: number | undefined,
-): Set<string> | undefined {
-	if (!typeInfo || projectCodePage === undefined) {
-		return undefined;
-	}
-	try {
-		return typeInfoListedNames(typeInfo, design, projectCodePage);
-	} catch {
-		// A member list this cannot read says nothing about what it holds.
-		return undefined;
-	}
-}
+/** The page a TypeInfo stream is read in when the project's is not given. */
+const DEFAULT_TYPE_INFO_CODE_PAGE = 1252;
 
 function cached(build: () => Cfb): () => Cfb {
 	let value: Cfb | undefined;

@@ -1,10 +1,12 @@
 import { codePageHolds, decodeCodePage, encodeCodePage } from '../codePages';
 import { AccessFormatError } from './accessFormat';
 import {
+	accessDesignMembers,
 	accessDesignObjectName,
 	accessVbaIdentifier,
 	isAccessDesignSection,
 	type AccessDesign,
+	type AccessDesignMember,
 	type AccessDesignObject,
 } from './accessDesign';
 import {
@@ -167,6 +169,46 @@ export function typeInfoListedNames(
 		readTypeInfo(stream, typeInfoCodePage(stream, names, projectCodePage)).map((entry) => entry.name),
 	);
 	return new Set(names.filter((name) => listed.has(name)));
+}
+
+/** The class Access gives a record-source field's member. */
+const ACCESS_FIELD_CLASS = 'Access.AccessField';
+
+/**
+ * Every member the stream lists, which is the whole of what the design adds to
+ * its class: the design's sections and controls, typed from the design, and
+ * then the entries the design has no object for. Those are the fields of the
+ * record source, `Me.Amount` on a form bound to a table with an Amount
+ * column, and they keep the field's own name, so `Unit Price` is reached as
+ * `Me.[Unit Price]` and never as `Me.Unit_Price`.
+ *
+ * Measured on Access 16.0 (issue #206): the compiler takes this list as it
+ * stands. A form with no record source refuses `Me.Qyt` and a bare `Qyt`. A
+ * bound one lists the fields of a table, a saved query or an SQL string
+ * alike, and a column added to the table after the form was saved is refused
+ * until the form is saved again, while a dropped one still compiles.
+ */
+export function typeInfoMembers(
+	stream: Buffer,
+	design: AccessDesign,
+	kind: AccessDesignKind,
+	projectCodePage: number,
+): AccessDesignMember[] {
+	const names = design.objects.slice(1)
+		.map(accessDesignObjectName)
+		.filter((name): name is string => name !== undefined);
+	const entries = readTypeInfo(stream, typeInfoCodePage(stream, names, projectCodePage));
+	const listed = new Set(entries.map((entry) => entry.name));
+	const members = accessDesignMembers(design, kind, new Set(names.filter((name) => listed.has(name))));
+	const designNames = new Set(names);
+	const taken = new Set(members.map((member) => member.name.toLowerCase()));
+	for (const entry of entries) {
+		if (!designNames.has(entry.name) && !taken.has(entry.identifier.toLowerCase())) {
+			taken.add(entry.identifier.toLowerCase());
+			members.push({ name: entry.identifier, type: ACCESS_FIELD_CLASS });
+		}
+	}
+	return members;
 }
 
 const CODE_OF_ACTIVEX = [...CONTROL_TYPES]

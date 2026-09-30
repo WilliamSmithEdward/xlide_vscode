@@ -43,7 +43,6 @@ import {
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { BareIdentifierContext } from '../../symbols/nameResolution';
 import {
-	isDataBoundDesignerClass,
 	type ModuleSymbolKind,
 	type VbaProcedureSignature,
 	type VbaProjectClassMembers,
@@ -443,15 +442,10 @@ export function checkUndeclaredVariables(
 	// designer once the form has been shown, so running your own form turned its
 	// code red against source that had just compiled. A form vouched for as EMPTY
 	// still reports: that is the case worth keeping, and the member rule draws the
-	// same line (issue #48).
+	// same line (issue #48). An Access form or report answers with the list
+	// its TypeInfo stream holds, record-source fields included, and the VBE
+	// checks a bare name against that list the same way (issue #206).
 	if (moduleKind === 'userform' && implicitMembers === undefined) {
-		return;
-	}
-	// An Access form or report answers with a list too, but never the whole
-	// one: every field of its record source is a member as well, and only the
-	// running database knows them. A bare `CustomerID` there is a field, so
-	// the list cannot call it undeclared.
-	if (isDataBoundDesignerClass(designerClass)) {
 		return;
 	}
 	const implicitMemberNames = new Set(

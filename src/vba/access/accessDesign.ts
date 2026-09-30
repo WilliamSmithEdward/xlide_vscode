@@ -281,9 +281,9 @@ export function accessVbaIdentifier(name: string): string {
  * The members VBA sees on a design's class beyond the ones its module
  * declares: each named section and control, in design order, under the Access
  * library's class for it. `Me.Qty` and a bare `Detail` both compile against
- * these. It is NOT the whole surface - a bound form also has a member for
- * every field of its record source, which only the running database knows -
- * so a name missing here is never proof the name is undeclared.
+ * these. It is not the whole surface: a bound form also has a member for
+ * every field of its record source, which the design does not hold and its
+ * TypeInfo stream does (`typeInfoMembers`).
  *
  * `listed` is the design's names its TypeInfo stream lists, where that is
  * known. Access leaves out a control whose name the stream's code page cannot

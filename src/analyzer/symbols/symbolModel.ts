@@ -318,14 +318,13 @@ export interface VbaProjectClassMembers {
 }
 
 /**
- * Whether a designer's class is one whose module has members no design lists.
- * An Access form or report is: beside its sections and controls, Access gives
- * it a member for every field of its record source, and only the running
- * database knows those. So where a UserForm's control list proves a name
- * absent, an Access design's never does - a bare `CustomerID` in a bound
- * form is a field, not a missing declaration.
+ * Whether a designer's class is an Access form's or report's. Its module is a
+ * form module as a UserForm's is, but its base is the Access library's class,
+ * with Access events, and its member list comes from the design's TypeInfo
+ * stream: the sections, the controls, and on a bound design the fields of
+ * its record source.
  */
-export function isDataBoundDesignerClass(designerClass: string | undefined): boolean {
+export function isAccessDesignerClass(designerClass: string | undefined): boolean {
 	const lower = designerClass?.toLowerCase();
 	return lower === 'access.form' || lower === 'access.report';
 }

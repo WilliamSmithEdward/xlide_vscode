@@ -25,6 +25,7 @@ import {
 } from '../src/vba/access/accessDesign';
 import { listModules, readModules } from '../src/vba/projectService';
 import type { ProjectEngine } from '../src/projectEngine';
+import { memberNameAsWritten } from '../src/vbaCompletionProvider';
 import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
 import { buildVbaProjectIndex, projectAnalysisOptionsForModule } from '../src/vbaProjectAnalysis';
 import {
@@ -46,8 +47,12 @@ const DATABASE = path.join(FIXTURES, 'AccessFormFixture.accdb');
 const WORKBOOK = path.join(FIXTURES, 'FormFixture.xlsm');
 const FORM = 'Form_Calculator';
 
-/** An idiomatic bound form: controls, sections, form members bare and through Me, and fields. */
-const BOUND_FORM_SOURCE = [
+/** Form Orders, bound to tblOrders(ID, Amount, [Unit Price]), with the controls Qty and `Order Date`. */
+const BOUND_DATABASE = path.join(FIXTURES, 'AccessBoundFormFixture.accdb');
+const BOUND_FORM = 'Form_Orders';
+
+/** An idiomatic form: controls, sections, and form members bare and through Me. */
+const FORM_SOURCE = [
 	'Option Compare Database',
 	'Option Explicit',
 	'',
@@ -61,8 +66,7 @@ const BOUND_FORM_SOURCE = [
 	'    Requery',
 	'    Me.Requery',
 	'    DoCmd.Close',
-	'    CustomerID = 4',
-	'    Debug.Print Me.CustomerID, Me!OrderID, Nz(Me.Qty, 0)',
+	'    Debug.Print Me!OrderID, Nz(Me.Qty, 0)',
 	'End Sub',
 	'',
 ].join('\r\n');
@@ -154,18 +158,28 @@ describe('Me in the code behind an Access form', () => {
 
 	it('knows the form s own members unqualified, which used to be called undefined', () => {
 		// `Requery` alone is Access.Form.Requery: the module IS the form.
-		expect(analyze(BOUND_FORM_SOURCE, FORM, formOptions)).toEqual([]);
+		expect(analyze(FORM_SOURCE, FORM, formOptions)).toEqual([]);
 		// The same module without the class the engine now supplies.
-		expect(analyze(BOUND_FORM_SOURCE, FORM, { ...formOptions, designerClass: undefined }))
+		expect(analyze(FORM_SOURCE, FORM, { ...formOptions, designerClass: undefined }))
 			.toContain("unknown-call: Sub or Function not defined: 'Requery'.");
 	});
 
-	it('never calls a record-source field undeclared, though the control list is known', () => {
-		// A bound form has a member for every field of its record source, and
-		// only the running database knows those. `CustomerID` is one.
-		const codes = analyze(BOUND_FORM_SOURCE, FORM, formOptions);
-		expect(codes.filter((code) => code.startsWith('undeclared-variable'))).toEqual([]);
-		expect(codes.filter((code) => code.startsWith('member-not-found'))).toEqual([]);
+	it('reports a misspelled control on a form with no record source, as the VBE does (issue #206)', () => {
+		// Measured on Access 16.0: each line alone in Form_Load. The form has
+		// only its controls and sections, and its TypeInfo stream lists them.
+		const refused = (line: string): string[] => analyze(
+			`Option Compare Database\r\nOption Explicit\r\n\r\nPrivate Sub Form_Load()\r\n    ${line}\r\nEnd Sub\r\n`,
+			FORM,
+			formOptions,
+		).filter((code) => /^(member-not-found|undeclared-variable)/.test(code));
+		expect(refused('Me.Qyt = 1')).toHaveLength(1);
+		expect(refused('Qyt = 1')).toHaveLength(1);
+		expect(refused('Me.Detial.Visible = True')).toHaveLength(1);
+		expect(refused('CustomerID = 4')).toHaveLength(1);
+		expect(refused('Debug.Print Me.CustomerID')).toHaveLength(1);
+		// Compiles: `!` is looked up when it runs.
+		expect(refused('Me!Qyt = 1')).toEqual([]);
+		expect(refused('Me.Qty = 1: Qty = 1: Me.Detail.Visible = True: Me.Caption = "x"')).toEqual([]);
 	});
 
 	it('still reports a call that nothing defines', () => {
@@ -177,8 +191,9 @@ describe('Me in the code behind an Access form', () => {
 		const surfaces = projectAnalysisOptionsForModule(project, 'Module1').projectClassMembers ?? [];
 		const formType = surfaces.find((surface) => surface.name === FORM);
 		expect(formType?.designerClass).toBe('Access.Form');
-		// Its fields are members no list names, so the list proves nothing absent.
-		expect(formType?.exhaustive).toBe(false);
+		// Its TypeInfo stream is its whole member list, so the list proves a
+		// name absent (issue #206).
+		expect(formType?.exhaustive).toBe(true);
 
 		const source = [
 			'Option Explicit',
@@ -186,12 +201,14 @@ describe('Me in the code behind an Access form', () => {
 			'Public Sub Refill()',
 			`    ${FORM}.Requery`,
 			`    ${FORM}.RecordSource = "Orders"`,
-			`    Debug.Print ${FORM}.CustomerID, ${FORM}.Qty`,
+			`    Debug.Print ${FORM}.Qty`,
 			'End Sub',
 			'',
 		].join('\r\n');
 		expect(analyze(source, 'Module1', { moduleType: 'standard', moduleKind: 'standard' })
 			.filter((code) => code.startsWith('member-not-found'))).toEqual([]);
+		expect(analyze(source.replace(`${FORM}.Qty`, `${FORM}.Qyt`), 'Module1', { moduleType: 'standard', moduleKind: 'standard' })
+			.filter((code) => code.startsWith('member-not-found'))).toHaveLength(1);
 
 		const names = completionsAt(`${source}\r\n${FORM}.`, `\r\n${FORM}.`, {
 			model: getAccessObjectModel(),
@@ -201,6 +218,102 @@ describe('Me in the code behind an Access form', () => {
 		// Show and Hide are a UserForm's. An Access form has neither.
 		expect(names).not.toContain('Hide');
 		expect(names).not.toContain('StartUpPosition');
+	});
+});
+
+describe('a form bound to a table (issue #206)', () => {
+	// Access 16.0 compiled every verdict below, each line alone in Form_Load.
+	const modules = readModules(BOUND_DATABASE);
+	const form = modules.find((entry) => entry.name === BOUND_FORM)!;
+	const project = buildVbaProjectIndex(modules.map((entry) => ({
+		moduleName: entry.name,
+		type: entry.type,
+		source: entry.source ?? '',
+		implicitMembers: entry.implicitMembers,
+		designerClass: entry.designerClass,
+	})));
+	const problems = (line: string): string[] => analyzeVbaModuleSource({
+		source: `Option Compare Database\r\nOption Explicit\r\n\r\nPrivate Sub Form_Load()\r\n    ${line}\r\nEnd Sub\r\n`,
+		moduleName: BOUND_FORM,
+		host: 'access',
+		...projectAnalysisOptionsForModule(project, BOUND_FORM),
+		moduleType: form.type,
+		moduleKind: 'userform',
+		designerClass: form.designerClass,
+	} as Parameters<typeof analyzeVbaModuleSource>[0]).diagnostics.map((d) => `${d.code}: ${d.message}`);
+
+	it('lists the fields of the record source as members, under their own names', () => {
+		expect(form.implicitMembers).toEqual([
+			{ name: 'Detail', type: 'Access.Section' },
+			{ name: 'Qty', type: 'Access.Textbox' },
+			{ name: 'Order_Date', type: 'Access.Textbox' },
+			{ name: 'ID', type: 'Access.AccessField' },
+			{ name: 'Amount', type: 'Access.AccessField' },
+			{ name: 'Unit Price', type: 'Access.AccessField' },
+		]);
+	});
+
+	it('finds nothing wrong with the form the fixture ships', () => {
+		expect(analyzeVbaModuleSource({
+			source: form.source ?? '',
+			moduleName: BOUND_FORM,
+			host: 'access',
+			...projectAnalysisOptionsForModule(project, BOUND_FORM),
+			moduleType: form.type,
+			moduleKind: 'userform',
+			designerClass: form.designerClass,
+		} as Parameters<typeof analyzeVbaModuleSource>[0]).diagnostics).toEqual([]);
+	});
+
+	it('accepts a field through Me, bare, and through !', () => {
+		expect(problems('Me.Amount = 1: Amount = 1: Me!Amount = 1: Me.ID = 1: ID = 1')).toEqual([]);
+		expect(problems('Me.[Unit Price] = 1: Me.Qty = 1: Amount.Value = 1')).toEqual([]);
+	});
+
+	it('reports a misspelled field', () => {
+		expect(problems('Me.Amuont = 1')).toEqual(["member-not-found: Method or data member not found: 'Form_Orders.Amuont'."]);
+		expect(problems('Amuont = 1').filter((code) => code.startsWith('undeclared-variable'))).toHaveLength(1);
+	});
+
+	it('does not make a field with a space an identifier, as the control names are', () => {
+		expect(problems('Me.Unit_Price = 1')).toHaveLength(1);
+		// Completion offers it, and writes it the one way that compiles.
+		const source = 'Private Sub Probe()\r\n    Me.\r\nEnd Sub\r\n';
+		const names = completionsAt(source, '    Me.', {
+			model: getAccessObjectModel(),
+			meType: 'Access.Form',
+			meProjectType: BOUND_FORM,
+			implicitMembers: form.implicitMembers,
+			projectClassMembers: projectAnalysisOptionsForModule(project, BOUND_FORM).projectClassMembers,
+		} as Parameters<typeof completionsAt>[2]);
+		expect(names).toEqual(expect.arrayContaining(['Amount', 'Unit Price', 'Qty']));
+		expect(memberNameAsWritten('Unit Price')).toBe('[Unit Price]');
+		expect(memberNameAsWritten('Order_Date')).toBe('Order_Date');
+		expect(memberNameAsWritten('\u0418\u0442\u043e\u0433')).toBe('\u0418\u0442\u043e\u0433');
+	});
+
+	it('reports nothing on a design whose member list is not known', () => {
+		const unknown = buildVbaProjectIndex(modules.map((entry) => ({
+			moduleName: entry.name,
+			type: entry.type,
+			source: entry.source ?? '',
+			designerClass: entry.designerClass,
+		})));
+		const codes = analyzeVbaModuleSource({
+			source: 'Option Explicit\r\n\r\nPrivate Sub Form_Load()\r\n    Me.Amuont = 1\r\n    Amuont = 1\r\nEnd Sub\r\n',
+			moduleName: BOUND_FORM,
+			host: 'access',
+			...projectAnalysisOptionsForModule(unknown, BOUND_FORM),
+			moduleType: form.type,
+			moduleKind: 'userform',
+			designerClass: form.designerClass,
+		} as Parameters<typeof analyzeVbaModuleSource>[0]).diagnostics.map((d) => d.code);
+		expect(codes).toEqual([]);
+	});
+
+	it('types a field as an AccessField, which has only Value', () => {
+		expect(problems('Me.Amount.Foo = 1')).toHaveLength(1);
+		expect(problems('Debug.Print Me.Amount.Name')).toHaveLength(1);
 	});
 });
 
@@ -236,7 +349,7 @@ describe('the editor, from the database on disk to the completion list', () => {
 	}
 
 	it('offers Access.Form s members, the form s own code, and its controls after Me.', async () => {
-		const source = `${BOUND_FORM_SOURCE}\r\nPublic Sub Recount()\r\nEnd Sub\r\n\r\nPrivate Sub Probe()\r\n    Me.\r\nEnd Sub\r\n`;
+		const source = `${FORM_SOURCE}\r\nPublic Sub Recount()\r\nEnd Sub\r\n\r\nPrivate Sub Probe()\r\n    Me.\r\nEnd Sub\r\n`;
 		const { contexts } = services();
 		const context = await contexts.buildEditorProjectContextWithin(openForm(source), source, 30_000);
 		expect(context?.host).toBe('access');
@@ -252,7 +365,7 @@ describe('the editor, from the database on disk to the completion list', () => {
 	});
 
 	it('types a control by the design, through Me and on its own', async () => {
-		const source = `${BOUND_FORM_SOURCE}\r\nPrivate Sub Probe()\r\n    Me.Lines.\r\n    Qty.\r\n    Me.Detail.\r\nEnd Sub\r\n`;
+		const source = `${FORM_SOURCE}\r\nPrivate Sub Probe()\r\n    Me.Lines.\r\n    Qty.\r\n    Me.Detail.\r\nEnd Sub\r\n`;
 		const { contexts } = services();
 		const context = await contexts.buildEditorProjectContextWithin(openForm(source), source, 30_000);
 		const ctx = toMemberCompletionContext(context!);
@@ -263,12 +376,12 @@ describe('the editor, from the database on disk to the completion list', () => {
 
 	it('describes a form member, a control, and a control s member on hover', async () => {
 		const { contexts } = services();
-		const context = await contexts.buildEditorProjectContextWithin(openForm(BOUND_FORM_SOURCE), BOUND_FORM_SOURCE, 30_000);
+		const context = await contexts.buildEditorProjectContextWithin(openForm(FORM_SOURCE), FORM_SOURCE, 30_000);
 		// The hover provider's own context: the member context plus the module.
 		const ctx = { ...toMemberCompletionContext(context!), moduleName: context!.moduleName, moduleKind: context!.moduleKind };
 		const hoverAt = (marker: string, word: string) => {
-			const offset = BOUND_FORM_SOURCE.indexOf(marker) + marker.indexOf(word) + 1;
-			return resolveHover(BOUND_FORM_SOURCE, offset, ctx);
+			const offset = FORM_SOURCE.indexOf(marker) + marker.indexOf(word) + 1;
+			return resolveHover(FORM_SOURCE, offset, ctx);
 		};
 		// Through `Me` the owner shown is the form itself, as it is for a
 		// sheet's `Me.Calculate`; what matters is that it resolves at all.
@@ -288,10 +401,10 @@ describe('the editor, from the database on disk to the completion list', () => {
 		// controls left `Me.` the moment its code was open. True of a UserForm
 		// too, which is what the second half pins.
 		const { contexts, projects } = services();
-		const document = openForm(BOUND_FORM_SOURCE) as unknown as { version: number; getText: () => string };
-		await contexts.buildEditorProjectContextWithin(document as unknown as vscode.TextDocument, BOUND_FORM_SOURCE, 30_000);
+		const document = openForm(FORM_SOURCE) as unknown as { version: number; getText: () => string };
+		await contexts.buildEditorProjectContextWithin(document as unknown as vscode.TextDocument, FORM_SOURCE, 30_000);
 		document.version = 2;
-		const edited = `${BOUND_FORM_SOURCE}\r\n' edited\r\n`;
+		const edited = `${FORM_SOURCE}\r\n' edited\r\n`;
 		document.getText = () => edited;
 		const live = await projects.contextForProject(DATABASE, 'live');
 		expect(live.project.moduleImplicitMembers(FORM).map((member) => member.name)).toContain('Qty');

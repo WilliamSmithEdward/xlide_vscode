@@ -53,7 +53,7 @@ import {
 import { hasDocContent, renderDocMarkdown } from '../docs/docModel';
 import type { VbaDoc } from '../docs/docModel';
 import {
-	isDataBoundDesignerClass,
+	isAccessDesignerClass,
 	type VbaProjectClassMemberDefinition,
 	type VbaProjectClassMembers,
 	type VbaSymbolAttribute,
@@ -1527,9 +1527,10 @@ function computeMemberSurfaceForType(
 			members: mergeCompletionMembers(projectType?.members ?? [], controls, baseMembers),
 			// A form's own `Me` follows the same authority rule as its
 			// qualified name (#26): the forms base plus an index-proven
-			// control list proves absence. Other combined surfaces keep the
-			// host-exhaustive gate.
-			exhaustive: formsMembers
+			// control list proves absence, and so does an Access form's or
+			// report's, whose list is its TypeInfo stream's (issue #206).
+			// Other combined surfaces keep the host-exhaustive gate.
+			exhaustive: formsMembers || isAccessDesignerClass(combined.hostType)
 				? projectType?.exhaustive === true
 				: controls.length === 0 &&
 					projectSourceSurfaceCompleteWhenMergedWithHost(projectType) &&
@@ -1545,11 +1546,11 @@ function computeMemberSurfaceForType(
 				? { owner: ctx.meProjectType ?? projectKey, members: controls, exhaustive: false }
 				: undefined;
 		}
-		if (projectType.kind === 'userform' && isDataBoundDesignerClass(projectType.designerClass)) {
+		if (projectType.kind === 'userform' && isAccessDesignerClass(projectType.designerClass)) {
 			// An Access form or report is its own library's class, not a
 			// UserForm: `Form_Orders.Requery` reaches Access.Form's members,
-			// and Show and Hide are not among them. Never exhaustive - its
-			// record-source fields are members no list here can name.
+			// and Show and Hide are not among them. Exhaustive when the index
+			// holds the design's member list (issue #206).
 			return {
 				owner: projectType.name,
 				members: mergeCompletionMembers(
@@ -1557,7 +1558,7 @@ function computeMemberSurfaceForType(
 					controls,
 					getHostMembers(projectType.designerClass as string, ctx.model),
 				),
-				exhaustive: false,
+				exhaustive: projectType.exhaustive === true,
 			};
 		}
 		if (projectType.kind === 'userform') {

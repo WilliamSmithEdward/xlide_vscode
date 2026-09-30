@@ -79,9 +79,13 @@ files and not in projects, and `ThisDocument` offers Word's `Document_*`
 event stubs. In the code behind an Access form or report, `Me` is an
 `Access.Form` or `Access.Report`, and the design's sections and controls are
 members of it, so `Me.Lines.AddItem` and a bare `Requery` both resolve. A
-bound form also has a member for every field of its record source, which only
-the running database knows, so XLIDE never reports a name as undeclared there.
-At module level it offers the design's own event stubs (`Form_Load`,
+bound form also has a member for every field of its record source, under the
+field's own name, so a field called `Unit Price` is `Me.[Unit Price]`. XLIDE
+reads these members from the list Access saved with the form, which is the
+list the VBE compiles against. A misspelled control or field, `Me.Qyt` or a
+bare `Amuont`, is reported as the VBE reports it. A column added to the table
+after the form was last saved is not a member until the form is saved again,
+in the VBE as well. At module level it offers the design's own event stubs (`Form_Load`,
 `Report_Open`), each section's (`Detail_Click`) and each control's
 (`Qty_AfterUpdate`), with the parameter lists Access writes. A control named
 `Order Date` is `Me.Order_Date` in code, as it is in the VBE.

@@ -7,7 +7,7 @@
 
 import { parseModule } from '../parser/parseModule';
 import type { ModuleMember, ProcedureNode } from '../parser/nodes';
-import { isDataBoundDesignerClass, type ModuleSymbolKind } from '../symbols/symbolModel';
+import { isAccessDesignerClass, type ModuleSymbolKind } from '../symbols/symbolModel';
 import type { HostMember, HostObjectModel } from '../host/excelObjectModel';
 import { getHostEvents, getHostType } from '../host/hostModel';
 import { lineStartAtAnyBreak } from '../../vbaSourceScan';
@@ -382,7 +382,7 @@ export function resolveEventHandlerCompletions(
 	const documentType = eventHandlerDocumentTypeForContext(ctx);
 	// An Access form raises Form_Load and AddLine_Click, not
 	// UserForm_Initialize, so it never reads the UserForm table.
-	const definitions = isDataBoundDesignerClass(ctx.meType)
+	const definitions = isAccessDesignerClass(ctx.meType)
 		? accessEventDefinitions(ctx)
 		: ctx.host === 'vb6' ? vb6EventDefinitions(ctx) : definitionsForDocumentType(documentType);
 	if (definitions.length === 0) {

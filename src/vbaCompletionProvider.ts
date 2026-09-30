@@ -56,6 +56,15 @@ const KEYBOARD_NAV_TEXT_CHANGE_GRACE_MS = 150;
 const COMPLETION_PROJECT_CONTEXT_BUDGET_MS = 150;
 
 /**
+ * A member's name as code has to write it. A name that is not an identifier,
+ * such as the field `Unit Price` of an Access form's record source, is only
+ * reachable in brackets: `Me.[Unit Price]` (issue #206).
+ */
+export function memberNameAsWritten(name: string): string {
+	return /^[\p{L}_][\p{L}\p{N}_]*$/u.test(name) ? name : `[${name}]`;
+}
+
+/**
  * Tracks the keyword snippet most recently accepted from completion (via
  * KEYWORD_SNIPPET_ACCEPTED_COMMAND) and forces `leaveSnippet` when the user
  * navigates away from it by mouse or keyboard, so stale tab stops do not
@@ -360,6 +369,9 @@ export class VbaMemberCompletionProvider implements vscode.CompletionItemProvide
 			mem.kind === 'method',
 			callableCompletionShouldInsertParens(source, offset),
 		);
+		if (mem.kind !== 'method') {
+			item.insertText = memberNameAsWritten(mem.name);
+		}
 		return item;
 	}
 
