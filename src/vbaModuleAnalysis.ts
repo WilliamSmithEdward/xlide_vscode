@@ -16,6 +16,8 @@ import {
     type DiagnosticSeverity as RuleSeverity,
     type VbaDiagnosticData,
 } from './analyzer';
+import { errorHandlerExtents, onErrorMode } from './analyzer/diagnostics/rules/handlerFlow';
+import { statementTokensAfterLeadingLabel } from './analyzer/diagnostics/walker';
 import type { BodyNode, ModuleNode, ProcedureNode, Span } from './analyzer/parser/nodes';
 import { lineStartOffsets } from './vbaSourceScan';
 import {
@@ -129,7 +131,7 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
             analyzeOptions.moduleName ?? 'Module',
             moduleType ?? analyzeOptions.moduleKind ?? 'standard',
         ),
-        ...onErrorResumeNextSuppressionRanges(module),
+        ...onErrorResumeNextSuppressionRanges(source, module),
     ];
 
     try {
@@ -360,9 +362,11 @@ function expectedErrorRuntimeSuppressionRanges(
  * common test for an allocated array (issue #106) - so "This will raise" is
  * not the right report inside them. Branches are not modelled: a Resume Next
  * inside an If arm covers what follows it in source order, the way the VBE's
- * own handler state does once the arm runs.
+ * own handler state does once the arm runs. Inside a running error handler
+ * the statement does not take effect, and it covers nothing (issue #199).
  */
 function onErrorResumeNextSuppressionRanges(
+    source: string,
     module: ModuleNode,
 ): ExpectedErrorRuntimeSuppression[] {
     const out: ExpectedErrorRuntimeSuppression[] = [];
@@ -371,15 +375,19 @@ function onErrorResumeNextSuppressionRanges(
             continue;
         }
         const handlers: Array<{ start: number; end: number; resumeNext: boolean }> = [];
+        const running = errorHandlerExtents(source, member);
         const visit = (body: readonly BodyNode[]): void => {
             for (const node of body) {
                 if (node.kind === 'Statement') {
-                    const match = /^\s*On\s+(?:Local\s+)?Error\s+(Resume\s+Next|GoTo\b)/i.exec(node.raw);
-                    if (match) {
+                    // Read after any line label: `10 On Error Resume Next`.
+                    const mode = onErrorMode(statementTokensAfterLeadingLabel(source, node.span));
+                    if (mode === 'resume-next' || mode === 'goto-label') {
+                        const start = node.span.start;
                         handlers.push({
-                            start: node.span.start,
+                            start,
                             end: node.span.end,
-                            resumeNext: /^resume/i.test(match[1]),
+                            resumeNext: mode === 'resume-next'
+                                && !running.some((extent) => start >= extent.start && start < extent.end),
                         });
                     }
                 } else if ('body' in node && Array.isArray(node.body)) {

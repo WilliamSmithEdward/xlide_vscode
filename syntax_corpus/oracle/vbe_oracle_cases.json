@@ -13036,6 +13036,248 @@
       "source": "Option Explicit\nSub S()\n    Dim pt As PivotTable, o As Object\n    Set pt.ColumnFields(1) = o\nEnd Sub\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue199_01_runtime",
+      "description": "Issue #199 case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim x As Double, i As Integer\n    On Error GoTo Handler\n    Err.Raise 5\n    Exit Function\nHandler:\n    On Error Resume Next\n    x = 1 / 0\n    Main = \"survived\"\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue199_02_runtime",
+      "description": "Issue #199 case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim x As Double, i As Integer\n    On Error GoTo Handler\n    Err.Raise 5\n    Exit Function\nHandler:\n    Err.Clear\n    On Error Resume Next\n    x = 1 / 0\n    Main = \"survived\"\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue199_03_runtime",
+      "description": "Issue #199 case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim x As Double, i As Integer\n    On Error GoTo Handler\n    Err.Raise 5\n    Exit Function\nHandler:\n    On Error Resume Next\n    i = CInt(\"abc\")\n    Main = \"survived\"\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue199_04_runtime",
+      "description": "Issue #199 case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> survived.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim x As Double, i As Integer\n    On Error GoTo Handler\n    Err.Raise 5\n    Exit Function\nHandler:\n    On Error GoTo -1\n    On Error Resume Next\n    x = 1 / 0\n    Main = \"survived\"\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue199_05_runtime",
+      "description": "Issue #199 case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> survived.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim x As Double, i As Integer\n    On Error GoTo Handler\n    Err.Raise 5\n    Exit Function\nHandler:\n    Resume Retry\nRetry:\n    On Error Resume Next\n    x = 1 / 0\n    Main = \"survived\"\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue199_06_runtime",
+      "description": "Issue #199 case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> survived.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim x As Double, i As Integer\n    On Error Resume Next\n    x = 1 / 0\n    Main = \"survived\"\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue199_07_runtime",
+      "description": "Issue #199 case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim x As Double, i As Integer\n    On Error GoTo Handler\n    Err.Raise 5\n    Exit Function\nHandler:\n    On Error GoTo Second\n    x = 1 / 0\n    Main = \"handled\"\n    Exit Function\nSecond:\n    Main = \"second\"\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue199_08_runtime",
+      "description": "Issue #199 case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> asurvived.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim x As Double, i As Integer\n    On Error GoTo Handler\n    Main = \"a\"\nHandler:\n    On Error Resume Next\n    x = 1 / 0\n    Main = Main & \"survived\"\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue199_09_runtime",
+      "description": "Issue #199 case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim x As Double, i As Integer\n    On Error GoTo 100\n    Err.Raise 5\n    Exit Function\n100 On Error Resume Next\n    x = 1 / 0\n    Main = \"survived\"\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue199_10_runtime",
+      "description": "Issue #199 case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim x As Double, i As Integer\n    On Error GoTo Handler\n    Err.Raise 5\n    Exit Function\nHandler:\n    On Error GoTo 0\n    On Error Resume Next\n    x = 1 / 0\n    Main = \"survived\"\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue199_11_runtime",
+      "description": "Issue #199 case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> back survived.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim x As Double, i As Integer\n    On Error GoTo Handler\n    Err.Raise 5\n    Main = \"back\"\n    On Error Resume Next\n    x = 1 / 0\n    Main = Main & \" survived\"\n    Exit Function\nHandler:\n    Resume Next\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue199_12_runtime",
+      "description": "Issue #199 case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim x As Double, i As Integer\n    On Error GoTo Handler\n    Err.Raise 5\n    Exit Function\nHandler:\n    If Err.Number = 6 Then Exit Function\n    On Error Resume Next\n    x = 1 / 0\n    Main = \"survived\"\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue199_13_runtime",
+      "description": "Issue #199 case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim x As Double, i As Integer\n    On Error GoTo Handler\n    If x = 0 Then\n        Err.Raise 5\n    End If\n    Exit Function\nHandler:\n    On Error Resume Next\n    x = 1 / 0\n    Main = \"survived\"\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue199_14_runtime",
+      "description": "Issue #199 case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> a.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim x As Double, i As Integer\n    On Error GoTo Handler\n    Err.Raise 5\n    Exit Function\nHandler:\n    On Error Resume Next\n    Main = \"a\"\n    Resume Next\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue199_15_runtime",
+      "description": "Issue #199 case 15, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> survived.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim x As Double\n10  On Error Resume Next\n20  x = 1 / 0\n30  Main = \"survived\"\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue199_16_runtime",
+      "description": "Issue #199 case 16, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> survived.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim x As Double\nStart: On Error Resume Next\n    x = 1 / 0\n    Main = \"survived\"\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue199_20_runtime",
+      "description": "Issue #199 case 20, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> survived.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim x As Double\n    On Error GoTo Handler\n    If x = 0 Then GoTo Handler\n    Err.Raise 5\n    Exit Function\nHandler:\n    On Error Resume Next\n    x = 1 / 0\n    Main = \"survived\"\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue199_21_runtime",
+      "description": "Issue #199 case 21, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> survived.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim x As Double\n    On Error GoTo Handler\n    If x = 0 Then GoTo Done\n    Err.Raise 5\n    Exit Function\nHandler:\n    Main = \"h\"\nDone:\n    On Error Resume Next\n    x = 1 / 0\n    Main = Main & \"survived\"\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue199_22_runtime",
+      "description": "Issue #199 case 22, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim x As Double\n    On Error GoTo Handler\n    Err.Raise 5\n    Exit Function\nHandler:\nNote:\n    On Error Resume Next\n    x = 1 / 0\n    Main = \"survived\"\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue199_23_runtime",
+      "description": "Issue #199 case 23, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim x As Double\n10  On Error GoTo 100\n20  Err.Raise 5\n30  Exit Function\n100 Main = \"h\"\n110 On Error Resume Next\n120 x = 1 / 0\n130 Main = \"survived\"\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue199_24_runtime",
+      "description": "Issue #199 case 24, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> survived.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim x As Double\n    On Local Error Resume Next\n    x = 1 / 0\n    Main = \"survived\"\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue199_25_runtime",
+      "description": "Issue #199 case 25, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As String\n    Dim x As Double\n    On Local Error GoTo Handler\n    Err.Raise 5\n    Exit Function\nHandler:\n    On Local Error Resume Next\n    x = 1 / 0\n    Main = \"survived\"\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }

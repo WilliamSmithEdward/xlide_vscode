@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { analyzeModule, diagnosticMetadataForCode } from '../src/analyzer';
+import { diagnosticMetadataForCode } from '../src/analyzer';
+import { analyzeVbaModuleSource } from '../src/vbaModuleAnalysis';
 import {
 	buildVbaProjectIndex,
 	effectiveModuleKind,
@@ -17,8 +18,10 @@ import {
 // a case verified at RUNTIME (a runtime diagnostic on compile-only-verified
 // code flags a real runtime fault, not a false positive); style-policy
 // diagnostics (Option Explicit, mismatched End keyword, ...) are advisory and
-// never constrained. Each module is analyzed with the full cross-module
-// project context its case provides, mirroring the extension pipeline.
+// never constrained. Each module goes through analyzeVbaModuleSource with the
+// full cross-module project context its case provides, as in the extension,
+// so a runtime error that an active On Error Resume Next handles is judged
+// the way the user sees it (issue #199).
 //
 // This is the gate the juxtaposed-values regression slipped past: the rule
 // flagged the oracle-accepted control suffix_long_amp_glued_concat_accepted,
@@ -87,7 +90,8 @@ describe('oracle accepted cases - corpus-wide no-false-positive sweep', () => {
 			const procedures = projectProcedureSignatures(project);
 			const falsePositives: string[] = [];
 			for (const mod of modules) {
-				const diagnostics = analyzeModule(mod.source, {
+				const { diagnostics } = analyzeVbaModuleSource({
+					source: mod.source,
 					moduleName: mod.moduleName,
 					moduleKind: effectiveModuleKind(mod),
 					...projectAnalysisOptionsForModule(project, mod.moduleName, procedures),

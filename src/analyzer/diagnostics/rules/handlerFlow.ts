@@ -231,6 +231,100 @@ function checkResumeWithoutError(
 	}
 }
 
+/** How an `On Error` statement sets error handling. */
+export type OnErrorMode = 'resume-next' | 'goto-label' | 'goto-0' | 'goto-minus-1';
+
+/** The mode an `On [Local] Error` statement sets, from its tokens after any line label. */
+export function onErrorMode(toks: readonly VbaToken[]): OnErrorMode | undefined {
+	const words = toks.filter((tok) => tok.kind !== 'comment');
+	let i = tokenText(words[0]) === 'on' ? 1 : -1;
+	if (i < 0) {
+		return undefined;
+	}
+	if (tokenText(words[i]) === 'local') {
+		i++;
+	}
+	if (tokenText(words[i]) !== 'error') {
+		return undefined;
+	}
+	if (tokenText(words[i + 1]) === 'resume' && tokenText(words[i + 2]) === 'next') {
+		return 'resume-next';
+	}
+	if (tokenText(words[i + 1]) !== 'goto') {
+		return undefined;
+	}
+	// The lexer gives `-1` as two tokens (issue #142).
+	const target = words.slice(i + 2);
+	if (target.length === 1 && target[0].kind === 'integerLiteral' && /^0+$/.test(target[0].rawText)) {
+		return 'goto-0';
+	}
+	if (target.length === 2 && target[0].rawText === '-' && target[1].kind === 'integerLiteral' && /^0*1$/.test(target[1].rawText)) {
+		return 'goto-minus-1';
+	}
+	return 'goto-label';
+}
+
+/**
+ * The stretches of a procedure where one of its error handlers is running.
+ * There, `On Error Resume Next` and `On Error GoTo label` do not take effect,
+ * and the next error goes to the caller (issue #199, measured in Excel 16.0).
+ *
+ * A stretch starts at a label that only `On Error GoTo` names, below a
+ * statement that leaves, so that nothing but an error reaches it: a label
+ * execution can fall into, or that a GoTo names, runs with no handler active.
+ * It ends at an `On Error GoTo -1` anywhere, which ends the handler, or at
+ * the next label a statement names, which may be entered from outside; a
+ * label nothing names, like the number on every line of numbered code, does
+ * not end it. Nor does an Exit inside an If: the code after the If runs only
+ * when the If did not leave, and the handler is still running there. Code
+ * after a Resume or Exit at the top level is reached only through a named
+ * label, so those need no rule of their own.
+ */
+export function errorHandlerExtents(source: string, proc: ProcedureNode): Span[] {
+	const entries = topLevelEntries(source, proc.body, undefined);
+	const kindsByLabel = new Map<string, Set<string>>();
+	for (const ref of collectProcedureLabelReferences(source, proc, undefined)) {
+		const kinds = kindsByLabel.get(ref.key) ?? new Set<string>();
+		kinds.add(ref.statementKind);
+		kindsByLabel.set(ref.key, kinds);
+	}
+	const out: Span[] = [];
+	for (let i = 0; i < entries.length; i++) {
+		const entry = entries[i];
+		const kinds = entry.label === undefined ? undefined : kindsByLabel.get(entry.label);
+		if (!kinds || kinds.size !== 1 || !kinds.has('on-error-goto')) {
+			continue;
+		}
+		const above = entries[i - 1];
+		if (!above?.leaf || !leavesUnconditionally(source, above.leaf)) {
+			continue;
+		}
+		let end = proc.span.end;
+		for (let k = i; k < entries.length; k++) {
+			const one = entries[k];
+			const entered = k > i && one.label !== undefined && kindsByLabel.has(one.label);
+			if (entered || resetsHandler(source, one.node)) {
+				end = one.node.span.start;
+				break;
+			}
+		}
+		out.push({ start: entry.node.span.start, end });
+	}
+	return out;
+}
+
+/** Whether a statement, or any statement in a block, is `On Error GoTo -1`. */
+function resetsHandler(source: string, node: BodyNode): boolean {
+	if ('body' in node && Array.isArray(node.body)) {
+		return (node.body as BodyNode[]).some((child) => resetsHandler(source, child));
+	}
+	if (!isLeafStatement(node)) {
+		return false;
+	}
+	return statementAndBranchSpans(node).some((span) =>
+		onErrorMode(statementTokensAfterLeadingLabel(source, span)) === 'goto-minus-1');
+}
+
 function checkRecursiveProperty(
 	source: string,
 	proc: ProcedureNode,
