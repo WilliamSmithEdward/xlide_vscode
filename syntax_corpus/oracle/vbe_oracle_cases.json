@@ -11800,6 +11800,556 @@
       "source": "' Dim a() As String: a = Split(\"x\")\nOption Explicit\nFunction Main()\n    Dim a() As String\n    a = Split(\"x\")\n    Main = 1\nEnd Function\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue195_01_compile",
+      "description": "Issue #195 case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents app As Application\nPublic Fired As Long\nPrivate Sub app_SheetChange(Sh As Object, ByVal Target As Range)\n    Fired = Fired + 1\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue195_02_compile",
+      "description": "Issue #195 case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents app As Application\nPublic Fired As Long\nPrivate Sub app_SheetChange(ByVal Sh As Variant, ByVal Target As Range)\n    Fired = Fired + 1\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue195_03_compile",
+      "description": "Issue #195 case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents app As Application\nPublic Fired As Long\nPrivate Sub app_SheetChange(ByVal Sh, ByVal Target As Range)\n    Fired = Fired + 1\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue195_04_compile",
+      "description": "Issue #195 case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents app As Application\nPublic Fired As Long\nPrivate Sub app_SheetChange(ByVal Sh As Worksheet, ByVal Target As Range)\n    Fired = Fired + 1\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue195_05_compile",
+      "description": "Issue #195 case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents app As Application\nPublic Fired As Long\nPrivate Sub app_SheetChange(ByVal Sh As Object, ByVal Target As Object)\n    Fired = Fired + 1\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue195_06_compile",
+      "description": "Issue #195 case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents app As Application\nPublic Fired As Long\nPrivate Sub app_SheetChange(ByVal Sh As Object)\n    Fired = Fired + 1\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue195_07_compile",
+      "description": "Issue #195 case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents app As Application\nPublic Fired As Long\nPrivate Sub app_SheetChange(ByVal Sh As Object, ByVal Target As Range, ByVal x As Long)\n    Fired = Fired + 1\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue195_08_compile",
+      "description": "Issue #195 case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents app As Application\nPublic Fired As Long\nPrivate Sub app_SheetChange(ByVal Sh As Object, ByVal Target As Range, Optional x As Long)\n    Fired = Fired + 1\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue195_09_compile",
+      "description": "Issue #195 case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents app As Application\nPublic Fired As Long\nPrivate Sub app_SheetChange(ParamArray p() As Variant)\n    Fired = Fired + 1\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue195_10_compile",
+      "description": "Issue #195 case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents app As Application\nPublic Fired As Long\nPrivate Function app_SheetChange(ByVal Sh As Object, ByVal Target As Range) As Long\n    Fired = Fired + 1\nEnd Function\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue195_11_compile",
+      "description": "Issue #195 case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents app As Application\nPublic Fired As Long\nPublic Sub app_SheetChange(ByVal Sh As Object, ByVal Target As Range)\n    Fired = Fired + 1\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue195_12_compile",
+      "description": "Issue #195 case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents app As Application\nPublic Fired As Long\nPrivate Sub app_SheetChange(ByVal s As Object, ByVal r As Range)\n    Fired = Fired + 1\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue195_13_compile",
+      "description": "Issue #195 case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents app As Application\nPublic Fired As Long\nPrivate Sub app_SheetChange(ByVal Sh As Object, ByVal Target As Excel.Range)\n    Fired = Fired + 1\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue195_14_compile",
+      "description": "Issue #195 case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents app As Application\nPublic Fired As Long\nPrivate Sub app_WorkbookBeforeClose(ByVal Wb As Workbook, Cancel As Boolean)\n    Fired = Fired + 1\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue195_15_compile",
+      "description": "Issue #195 case 15, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents app As Application\nPublic Fired As Long\nPrivate Sub app_WorkbookBeforeClose(ByVal Wb As Workbook, ByVal Cancel As Boolean)\n    Fired = Fired + 1\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue195_16_compile",
+      "description": "Issue #195 case 16, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents app As Application\nPublic Fired As Long\nPrivate Sub app_WorkbookBeforeClose(ByVal Wb As Workbook, ByRef Cancel As Boolean)\n    Fired = Fired + 1\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue195_17_compile",
+      "description": "Issue #195 case 17, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents wb As Workbook\nPublic Fired As Long\nPrivate Sub wb_AfterXmlExport(ByVal Map As XmlMap, ByVal Url As String, ByVal Result As XlXmlExportResult)\n    Fired = Fired + 1\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue195_18_compile",
+      "description": "Issue #195 case 18, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents wb As Workbook\nPublic Fired As Long\nPrivate Sub wb_AfterXmlExport(ByVal Map As XmlMap, ByVal Url As String, ByVal Result As Long)\n    Fired = Fired + 1\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue195_19_compile",
+      "description": "Issue #195 case 19, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents ws As Worksheet\nPublic Fired As Long\nPrivate Sub ws_Change(Target As Range)\n    Fired = Fired + 1\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue195_20_compile",
+      "description": "Issue #195 case 20, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents ws As Worksheet\nPublic Fired As Long\nPrivate Sub ws_Change(ByVal Target As Range)\n    Fired = Fired + 1\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue195_21_compile",
+      "description": "Issue #195 case 21, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents app As Application\nPublic Fired As Long\nPrivate Sub app_SheetChange(Sh As Object, ByVal Target As Range)\n    Dim x As Long\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue195_22_compile",
+      "description": "Issue #195 case 22, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents app As Excel.Application\nPublic Fired As Long\nPrivate Sub app_NewWorkbook(Wb As Workbook)\n    Fired = Fired + 1\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue195_23_compile",
+      "description": "Issue #195 case 23, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents app As Application\nPublic Fired As Long\nPrivate Sub app_SheetChange(ByVal Sh As Object, ByVal Target() As Range)\n    Fired = Fired + 1\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue195_24_compile",
+      "description": "Issue #195 case 24, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents ws As Worksheet\nPublic Fired As Long\nPrivate Sub ws_Change(ByVal Target As Object)\n    Fired = Fired + 1\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue195_25_compile",
+      "description": "Issue #195 case 25, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Class1",
+          "type": "class",
+          "entry": true,
+          "source": "Option Explicit\nPrivate WithEvents ws As Worksheet\nPublic Fired As Long\nPrivate Sub ws_Change()\n    Fired = Fired + 1\nEnd Sub\n"
+        },
+        {
+          "name": "Module1",
+          "type": "standard",
+          "source": "Option Explicit\nSub Main()\n    Dim c As New Class1\n    c.Fired = 0\nEnd Sub\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

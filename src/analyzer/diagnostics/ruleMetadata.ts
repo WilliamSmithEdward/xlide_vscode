@@ -761,6 +761,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.2.4.1; VBE "Procedure declaration does not match description of event or procedure having the same name" (issue #125, Excel 16.0)',
 		confidence: 'high',
 	},
+	eventHandlerSignature: {
+		code: 'event-handler-signature',
+		title: 'Event handler declared unlike its event',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'VBE "Procedure declaration does not match description of event or procedure having the same name"; events from the Office and MSForms type libraries (issue #195, Excel 16.0)',
+		confidence: 'high',
+	},
 	collectionOperand: {
 		code: 'collection-operand',
 		title: 'Collection used as an operand',

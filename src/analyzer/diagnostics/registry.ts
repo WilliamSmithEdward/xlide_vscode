@@ -103,6 +103,7 @@ import { checkCollectionState } from './rules/collectionState';
 import { checkVariantValueMisuse } from './rules/variantValues';
 import { checkRuntimeMemberNotFound } from './rules/lateBoundMembers';
 import { checkObjectDefaultValues } from './rules/objectValues';
+import { checkEventHandlerSignatures } from './rules/eventHandlerSignatures';
 import { checkDeclarationForms } from './rules/declarationForms';
 import { checkLineContinuationLimits } from './rules/lineContinuations';
 import { checkImplementsMembers } from './rules/implementsMembers';
@@ -327,6 +328,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'lineContinuationLimits',
 		run: (ctx, push) => checkLineContinuationLimits(ctx.source, ctx.mod, push),
+	},
+	{
+		name: 'eventHandlerSignatures',
+		run: (ctx, push) => checkEventHandlerSignatures(ctx.mod, ctx.moduleKind, ctx.opts, ctx.memberCtx, ctx.activity, push),
 	},
 	{
 		name: 'implementsMembers',
