@@ -51,7 +51,8 @@ import { resolveReceiverTypeAt } from '../../completion/memberAccess';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { ProcedureNode, Span } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
-import { procedureSymbolFor, type PushFn } from '../analysisContext';
+import { procedureSymbolFor, type AnalyzeModuleOptions, type PushFn } from '../analysisContext';
+import type { SheetChanges, WorkbookSheetInfo } from '../../symbols/sheetChanges';
 import { checkEachCounterPass, loopCountersAt } from '../loopCounters';
 import { stringLiteralValue, typeEnvironmentFor, normalizeType } from '../typeInference';
 import {
@@ -104,12 +105,14 @@ export function checkHostArguments(
 	memberCtx: MemberCompletionContext,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	sheets?: WorkbookSheetsCheck,
 ): ProcedureStatementVisitor {
 	const model = memberCtx.model;
 	const host = model?.hostName ?? 'Excel';
 	if (host !== 'Excel' && host !== 'Word' && host !== 'PowerPoint') {
 		return () => undefined;
 	}
+	const workbook = host === 'Excel' ? sheets : undefined;
 	const moduleNames = new Set<string>();
 	const moduleArrays = new Set<string>();
 	for (const child of symbols.root.children ?? []) {
@@ -144,6 +147,9 @@ export function checkHostArguments(
 			const stmtCounters = counters.get(stmt);
 			if (!stmtCounters) {
 				checkSpan(source, stmt.span, host, model, memberCtx, env, arrays, sourceNames, integerLiteralValue, push);
+				if (workbook) {
+					checkWorkbookSheetAccess(source, stmt.span, workbook, sourceNames, integerLiteralValue, push);
+				}
 				return;
 			}
 			checkEachCounterPass(source, stmt.span, stmtCounters, () => undefined, (values, report) => {
@@ -156,6 +162,9 @@ export function checkHostArguments(
 					return toks.length === 1 ? values.get(tokenName(toks[0])?.toLowerCase() ?? '') : undefined;
 				};
 				checkSpan(source, stmt.span, host, model, memberCtx, env, arrays, sourceNames, valueOf, report);
+				if (workbook) {
+					checkWorkbookSheetAccess(source, stmt.span, workbook, sourceNames, valueOf, report);
+				}
 			}, push);
 		};
 	};
@@ -714,6 +723,117 @@ function columnNumber(letters: string): number {
 }
 
 /** The whole-number value of an argument that is a literal, optionally negated. */
+/** The saved workbook's sheets, and what the project's code may do to them. */
+export interface WorkbookSheetsCheck {
+	sheets: readonly WorkbookSheetInfo[];
+	changes: SheetChanges;
+}
+
+/** Both halves or nothing: sheets alone cannot say what code adds at run time. */
+export function workbookSheetsToCheck(opts: AnalyzeModuleOptions): WorkbookSheetsCheck | undefined {
+	return opts.workbookSheets && opts.projectSheetChanges
+		? { sheets: opts.workbookSheets, changes: opts.projectSheetChanges }
+		: undefined;
+}
+
+/** The sheet kinds each of ThisWorkbook's sheet collections holds; undefined is every kind. */
+const SHEET_COLLECTION_KINDS: ReadonlyMap<string, WorkbookSheetInfo['kind'] | undefined> = new Map([
+	['sheets', undefined],
+	['worksheets', 'worksheet'],
+	['charts', 'chartsheet'],
+]);
+
+const SHEET_KIND_WORDS: Readonly<Record<WorkbookSheetInfo['kind'], string>> = {
+	worksheet: 'worksheet',
+	chartsheet: 'chart sheet',
+	dialogsheet: 'dialog sheet',
+	macrosheet: 'macro sheet',
+};
+
+/** Names Excel gives a sheet that code adds or copies: Sheet4, Chart2, Sheet1 (2). */
+const MADE_SHEET_NAME = /^(sheet|chart|dialog|macro)\d+$|\s\(\d+\)$/i;
+
+/**
+ * `ThisWorkbook.Sheets("Missing")` and `ThisWorkbook.Worksheets(9)` on a
+ * workbook without that sheet raise 9 (issue #229). ThisWorkbook only: a bare
+ * `Sheets` is the active workbook's, which may be any workbook. A name or an
+ * index that code in the project could have made - by adding, copying or
+ * naming a sheet - is left alone.
+ */
+function checkWorkbookSheetAccess(
+	source: string,
+	span: Span,
+	workbook: WorkbookSheetsCheck,
+	sourceNames: ReadonlySet<string>,
+	valueOf: (arg: readonly VbaToken[]) => number | undefined,
+	push: PushFn,
+): void {
+	if (sourceNames.has('thisworkbook')) {
+		return;
+	}
+	const toks = statementTokens(source, span);
+	const lower = (i: number): string => toks[i]?.rawText.toLowerCase() ?? '';
+	for (let i = 0; i < toks.length; i++) {
+		if (lower(i) !== 'thisworkbook' || lower(i + 1) !== '.') {
+			continue;
+		}
+		// `Application.ThisWorkbook` is the same object; `x.ThisWorkbook` is not known.
+		if (lower(i - 1) === '.' && !(lower(i - 2) === 'application' && lower(i - 3) !== '.')) {
+			continue;
+		}
+		const collection = lower(i + 2);
+		if (!SHEET_COLLECTION_KINDS.has(collection)) {
+			continue;
+		}
+		const kind = SHEET_COLLECTION_KINDS.get(collection);
+		let open = i + 3;
+		if (lower(open) === '.' && lower(open + 1) === 'item') {
+			open += 2;
+		}
+		if (lower(open) !== '(') {
+			continue;
+		}
+		const close = matchParenFrom(toks, open);
+		if (close < 0) {
+			continue;
+		}
+		const args = splitTopLevel(toks.slice(open + 1, close));
+		if (args.length !== 1) {
+			continue;
+		}
+		const held = workbook.sheets.filter((sheet) => kind === undefined || sheet.kind === kind);
+		const argTokens = args[0].filter((tok) => tok.kind !== 'comment');
+		const where = { start: span.start + toks[open + 1].start, end: span.start + toks[close - 1].end };
+		const what = collection === 'worksheets' ? 'worksheet' : collection === 'charts' ? 'chart sheet' : 'sheet';
+		if (argTokens.length === 1 && argTokens[0].kind === 'stringLiteral') {
+			const name = argTokens[0].rawText.slice(1, -1).replace(/""/g, '"');
+			// Excel matches names without regard to case; outside ASCII its rule is not known here.
+			if (/[^\x20-\x7e]/.test(name) || held.some((sheet) => sheet.name.toLowerCase() === name.toLowerCase())) {
+				continue;
+			}
+			const changes = workbook.changes;
+			if (changes.assignsComputedName || changes.namesAssigned.has(name.toLowerCase()) || (changes.addsSheets && MADE_SHEET_NAME.test(name))) {
+				continue;
+			}
+			const other = workbook.sheets.find((sheet) => sheet.name.toLowerCase() === name.toLowerCase());
+			const detail = other ? `'${other.name}' is a ${SHEET_KIND_WORDS[other.kind]}, not a ${what}` : `this workbook has no ${what} named '${name}'`;
+			push('sheetNotInWorkbook', `${capitalize(detail)}. This will raise Run-time error '9': Subscript out of range.`, where);
+			continue;
+		}
+		const index = valueOf(args[0]);
+		// Index 0 and below are host-argument-out-of-range's.
+		if (index === undefined || index < 1 || index <= held.length || workbook.changes.addsSheets) {
+			continue;
+		}
+		const count = held.length === 1 ? `1 ${what}` : `${held.length} ${what}s`;
+		push('sheetNotInWorkbook', `This workbook has ${count}, so index ${index} is past the last. This will raise Run-time error '9': Subscript out of range.`, where);
+	}
+}
+
+function capitalize(text: string): string {
+	return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
 function integerLiteralValue(arg: readonly VbaToken[]): number | undefined {
 	const toks = arg.filter((tok) => tok.kind !== 'comment');
 	if (toks.length === 1 && toks[0].kind === 'integerLiteral') {

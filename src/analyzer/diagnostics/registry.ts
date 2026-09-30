@@ -99,7 +99,7 @@ import { checkLateBoundFriendMember } from './rules/lateBinding';
 import { checkHandlerFlow } from './rules/handlerFlow';
 import { checkFileStatements } from './rules/fileStatements';
 import { checkOverflow } from './rules/overflow';
-import { checkHostArguments } from './rules/hostArguments';
+import { checkHostArguments, workbookSheetsToCheck } from './rules/hostArguments';
 import { checkCollectionLoopCounters, checkCollectionState } from './rules/collectionState';
 import { checkVariantValueMisuse } from './rules/variantValues';
 import { checkRuntimeMemberNotFound } from './rules/lateBoundMembers';
@@ -330,7 +330,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'hostArguments',
-		procedureStatements: (ctx, push) => checkHostArguments(ctx.source, ctx.symbols, ctx.memberCtx, ctx.activity, push),
+		procedureStatements: (ctx, push) => checkHostArguments(ctx.source, ctx.symbols, ctx.memberCtx, ctx.activity, push, workbookSheetsToCheck(ctx.opts)),
 	},
 	{
 		name: 'collectionState',

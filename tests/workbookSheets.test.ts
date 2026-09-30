@@ -1,6 +1,6 @@
 import * as path from 'path';
 import { describe, expect, it } from 'vitest';
-import { listWorkbookSheets } from '../src/vba/projectService';
+import { listWorkbookSheets, readModules } from '../src/vba/projectService';
 
 // SheetsFixture.xlsm, .xlsb and .xls were saved by Excel 16.0 from one
 // workbook: Budget, whose module is Sheet1; Drawn, a sheet added through
@@ -45,6 +45,16 @@ describe('the sheets of a workbook', () => {
         const sheets = listWorkbookSheets(path.join(FIXTURES, 'ShapesFixture.xlsm')).sheets;
 
         expect(sheets).toEqual([{ name: 'Sheet1', codeName: 'Sheet1', kind: 'worksheet' }, { name: 'Sheet2', kind: 'worksheet' }]);
+    });
+
+    it.each(['xlsm', 'xlsb', 'xls'])('ride on the first entry of a .%s module read, for the analyzer (issue #229)', (extension) => {
+        const entries = readModules(path.join(FIXTURES, `SheetsFixture.${extension}`));
+        expect(entries[0].projectSheets).toEqual(SHEETS);
+        expect(entries.slice(1).every((entry) => entry.projectSheets === undefined)).toBe(true);
+    });
+
+    it('are absent from the module read of a file that is not a workbook', () => {
+        expect(readModules(path.join(FIXTURES, 'WordFixture.docm')).some((entry) => entry.projectSheets)).toBe(false);
     });
 
     it('are refused for a file that is not a workbook', () => {

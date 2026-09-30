@@ -29,6 +29,7 @@ import {
 import { VbaSymbolIndex, type VbaModuleSymbols } from './vbaSymbolIndex';
 import { parseProjectConditionalConstants } from './analyzer';
 import type { VbaProjectReference } from './vba/vbaProjectReferences';
+import type { WorkbookSheetInfo } from './analyzer/symbols/sheetChanges';
 import { analysisSourceForDocument, moduleLocationOfDocument } from './vbaDocumentLocation';
 import type {
     EventHandlerDocumentType,
@@ -68,6 +69,8 @@ export interface VbaProjectContext {
      * which object models the module is analyzed against.
      */
     readonly references: readonly VbaProjectReference[];
+    /** The workbook's sheets as saved; undefined for other files or before they are read. */
+    readonly sheets: readonly WorkbookSheetInfo[] | undefined;
     /** Module views whose source is the text the project index last parsed. */
     readonly modules: VbaModuleSymbols[];
     readonly byModule: Map<string, VbaModuleSymbols>;
@@ -99,6 +102,7 @@ let generationClock = 0;
 
 class ProjectRecord implements VbaProjectContext {
     references: readonly VbaProjectReference[] = [];
+    sheets: readonly WorkbookSheetInfo[] | undefined;
     readonly byModule = new Map<string, VbaModuleSymbols>();
     readonly moduleMetadata = new Map<string, VbaProjectModuleMetadata>();
     /** moduleKey -> error from the most recent failed module apply. */
@@ -342,6 +346,7 @@ export class VbaProjectIndexService implements vscode.Disposable {
         );
         const record = new ProjectRecord(projectPath, project);
         record.references = this._index.projectReferences(projectPath);
+        record.sheets = this._index.projectSheets(projectPath);
         for (const mod of modules) {
             const moduleKey = moduleIdentityKey(mod.moduleName);
             record.moduleMetadata.set(moduleKey, {

@@ -26895,6 +26895,116 @@
       ],
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue229_01_runtime",
+      "description": "Issue #229 ThisWorkbook sheet access on a workbook with one sheet, Sheet1, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim ws As Worksheet\r\n    Set ws = ThisWorkbook.Sheets(\"doesntexist\")\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue229_02_runtime",
+      "description": "Issue #229 ThisWorkbook sheet access on a workbook with one sheet, Sheet1, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim ws As Worksheet\r\n    Set ws = ThisWorkbook.Sheets(10)\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue229_03_runtime",
+      "description": "Issue #229 ThisWorkbook sheet access on a workbook with one sheet, Sheet1, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> Sheet1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ThisWorkbook.Worksheets(\"SHEET1\").Name\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue229_04_runtime",
+      "description": "Issue #229 ThisWorkbook sheet access on a workbook with one sheet, Sheet1, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ThisWorkbook.Worksheets(0).Name\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue229_05_runtime",
+      "description": "Issue #229 ThisWorkbook sheet access on a workbook with one sheet, Sheet1, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ThisWorkbook.Charts(1).Name\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue229_06_runtime",
+      "description": "Issue #229 ThisWorkbook sheet access on a workbook with one sheet, Sheet1, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ThisWorkbook.Sheets(\" Sheet1\").Name\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue229_07_runtime",
+      "description": "Issue #229 ThisWorkbook sheet access on a workbook with one sheet, Sheet1, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ThisWorkbook.Sheets(Array(\"Sheet1\")).Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue229_08_runtime",
+      "description": "Issue #229 ThisWorkbook sheet access on a workbook with one sheet, Sheet1, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = TypeName(ThisWorkbook.Sheets.Item(\"nope\"))\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue229_09_runtime",
+      "description": "Issue #229 ThisWorkbook sheet access on a workbook with one sheet, Sheet1, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> Sheet1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ThisWorkbook.Sheets(1.4).Name\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue229_10_runtime",
+      "description": "Issue #229 ThisWorkbook sheet access on a workbook with one sheet, Sheet1, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ThisWorkbook.Sheets(\"1\").Name\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }

@@ -908,6 +908,18 @@ export const DIAGNOSTIC_RULES = {
 		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
+	sheetNotInWorkbook: {
+		code: 'sheet-not-in-workbook',
+		title: 'Sheet the workbook does not have',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
+		source: 'XLIDE',
+		specReference: 'Excel runtime error 9: Subscript out of range from ThisWorkbook.Sheets, Worksheets or Charts given a name or index the workbook lacks (issue #229, Excel 16.0)',
+		allowSeverityDowngrade: true,
+		confidence: 'high',
+	},
 	multiCellRangeAsScalar: {
 		code: 'multi-cell-range-as-scalar',
 		title: 'Multi-cell range read as a scalar',

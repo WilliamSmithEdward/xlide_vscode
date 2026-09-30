@@ -3243,7 +3243,8 @@
         "issue200_02_runtime",
         "issue200_21_runtime",
         "issue204_055_runtime",
-        "issue204_056_runtime"
+        "issue204_056_runtime",
+        "issue229_04_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -3262,6 +3263,24 @@
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "notes": "Sheet name Excel refuses. Excel runtime error 1004: invalid name for a sheet or chart (issue #122, Excel 16.0).",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "sheet-not-in-workbook",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-30 (issue #229), on the harness workbook, whose one sheet is Sheet1",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue229_01_runtime",
+        "issue229_02_runtime",
+        "issue229_05_runtime",
+        "issue229_06_runtime",
+        "issue229_08_runtime",
+        "issue229_10_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "ThisWorkbook.Sheets, Worksheets or Charts given a name or index the saved workbook lacks: runtime error 9. Needs the workbook's sheets from the host; the oracle cases carry none, so the sweep never runs the check, and tests/diagnostics/workbookSheets229.test.ts runs the same sources against Sheet1.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {

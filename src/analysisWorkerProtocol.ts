@@ -2,6 +2,7 @@
 // Everything crossing the boundary must be structured-cloneable plain data.
 
 import type { VbaModuleAnalysisDiagnostic, VbaModuleAnalysisFailure } from './vbaModuleAnalysis';
+import type { WorkbookSheetInfo } from './analyzer/symbols/sheetChanges';
 
 /**
  * A member a module has that its own text never declares - a UserForm control,
@@ -98,6 +99,11 @@ export type AnalysisWorkerRequest =
 		 * them and a bare call binds to them.
 		 */
 		designerClass?: string;
+		/**
+		 * The workbook's sheets as saved, when the container is a workbook,
+		 * so `ThisWorkbook.Sheets("x")` can be checked against them.
+		 */
+		workbookSheets?: readonly WorkbookSheetInfo[];
 	}
 	| { kind: 'forget'; docKey: string };
 
