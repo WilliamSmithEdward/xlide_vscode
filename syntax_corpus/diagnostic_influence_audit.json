@@ -387,7 +387,8 @@
         "byref_long_expression_compile",
         "byref_long_range_value_compile",
         "byref_string_object_variable_compile",
-        "byval_long_integer_variable_compile"
+        "byval_long_integer_variable_compile",
+        "issue216_28_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -1392,7 +1393,10 @@
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.2.4 (a Const declaration value is a constant-expression) plus the VBE 'Constant expression required' compile error",
       "corpusInfluence": "none",
-      "assertedOracleCases": [],
+      "assertedOracleCases": [
+        "issue216_01_compile",
+        "issue216_02_compile"
+      ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "notes": "Flags a Const value that is provably non-constant: a function/array call (name(...)), New, or AddressOf, at module level and procedure-local (incl. nested blocks). Bare and qualified identifiers (OTHER_CONST, Module.CONST, MyEnum.Value) stay quiet because they may reference constants. Literals, string concatenation, and arithmetic/grouping are constant expressions and never flagged. Shares the nonConstantDefaultElement gate with parameter-default-not-constant.",
@@ -2114,6 +2118,104 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "array-bound-not-constant",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #216)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue216_04_compile",
+        "issue216_05_compile",
+        "issue216_06_compile",
+        "issue216_08_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "A Dim, Static, Private or Public array bound that names a variable or parameter: \"Constant expression required\". ReDim takes one.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "variable-required",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #216)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue216_09_compile",
+        "issue216_10_compile",
+        "issue216_11_compile",
+        "issue216_12_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "A Const or Enum member as a For or For Each counter or a Mid statement target: \"Variable required - can't assign to this expression\".",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "type-suffix-mismatch",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #216)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue216_15_compile",
+        "issue216_17_compile",
+        "issue216_19_compile",
+        "issue216_20_compile",
+        "issue216_21_compile",
+        "issue216_88_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "A variable written with a type-declaration character other than its declared type's, `n% = 2` with n As Long, any character on a Variant, or `Left$(...)` through a Long variable named Left: \"Type-declaration character does not match declared data type\". The declared type's own character, and `rs!Field`, compile.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "named-argument-not-allowed",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #216)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue216_31_compile",
+        "issue216_32_compile",
+        "issue216_33_compile",
+        "issue216_39_compile",
+        "issue216_45_compile",
+        "issue216_46_compile",
+        "issue216_48_compile",
+        "issue216_51_compile",
+        "issue216_52_compile",
+        "issue216_53_compile",
+        "issue216_54_compile",
+        "issue216_55_compile",
+        "issue216_56_compile",
+        "issue216_57_compile",
+        "issue216_58_compile",
+        "issue216_59_compile",
+        "issue216_61_compile",
+        "issue216_62_compile",
+        "issue216_63_compile",
+        "issue216_64_compile",
+        "issue216_65_compile",
+        "issue216_75_compile",
+        "issue216_76_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "A named argument to InStr, InStrB, Len, LenB, StrComp, Abs, Int, Fix, Sgn or a C-conversion other than CDec: \"Syntax error\". Left, Mid, Replace, Format, InStrRev, CDec and the other library functions take them.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "static-outside-procedure",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #216)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue216_13_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Static at module level: \"Invalid outside procedure\".",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "private-type-in-public-signature",
       "status": "vbe-oracle-verified",
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #212)",
@@ -2184,7 +2286,8 @@
         "issue212_54_compile",
         "issue212_58_compile",
         "issue212_59_compile",
-        "issue212_60_compile"
+        "issue212_60_compile",
+        "issue216_14_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2550,7 +2653,11 @@
         "argshape_array_to_variant_param_control",
         "argshape_udt_to_udt_match_control",
         "argshape_array_to_array_match_control",
-        "argshape_paramarray_mixed_types_control"
+        "argshape_paramarray_mixed_types_control",
+        "issue216_22_compile",
+        "issue216_23_compile",
+        "issue216_24_compile",
+        "issue216_27_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

@@ -86,6 +86,15 @@ export function checkRefusedDeclarations(
 				if (member.isConst) {
 					checkConstTypes(source, member.declarations, activity, push);
 				}
+				// Static keeps a local's value between calls, and means nothing
+				// outside a procedure (issue #216).
+				if (member.modifier.toLowerCase() === 'static') {
+					push(
+						'staticOutsideProcedure',
+						'Static declares a variable inside a procedure; at module level use Private or Dim. This is a VBE compile error: Invalid outside procedure.',
+						{ start: member.span.start, end: member.span.start + 'Static'.length },
+					);
+				}
 				break;
 			case 'Enum':
 				if (member.closed && !member.members.some((enumMember) => !isInactiveNode(activity, enumMember))) {

@@ -19,6 +19,19 @@
 //    identifier".
 //  - udt-value-mismatch and udt-variant-coercion: a user-defined type where
 //    a single value is needed, and one handed to a Variant.
+//
+// Issue #216, measured the same way:
+//
+//  - const-value-not-constant and array-bound-not-constant: a Const value or
+//    a Dim bound that names a variable, "Constant expression required".
+//    ReDim takes one.
+//  - variable-required: a Const as a For counter or a Mid target, "Variable
+//    required - can't assign to this expression".
+//  - type-suffix-mismatch: `n% = 2` with n As Long, "Type-declaration
+//    character does not match declared data type". The suffix of the
+//    declared type is fine.
+//  - named-argument-not-allowed: InStr, Len, StrComp, Abs, Int, Fix, Sgn and
+//    the C-conversions but CDec take no named arguments, "Syntax error".
 
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { VbaToken } from '../../lexer/tokenKinds';
@@ -95,6 +108,9 @@ export function checkStatementTypes(
 		untypedIsVariant: !/^[ \t]*Def(?:Bool|Byte|Int|Lng|LngLng|LngPtr|Cur|Sng|Dbl|Dec|Date|Str|Obj|Var)\b/im.test(source),
 	};
 	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'VariableGroup') {
+			checkDeclarationGroup(ctx, undefined, member);
+		}
 		if (member.kind === 'Procedure' || member.kind === 'Declare') {
 			for (const param of member.params) {
 				if (param.paramArray && (param.byVal || param.byRef)) {
@@ -163,6 +179,9 @@ function walkBody(
 		}
 		let inner = counters;
 		switch (node.kind) {
+			case 'VariableGroup':
+				checkDeclarationGroup(ctx, procSym, node);
+				break;
 			case 'ForBlock':
 				inner = checkFor(ctx, procSym, node, counters);
 				break;
@@ -202,6 +221,9 @@ function checkFor(
 		return counters;
 	}
 	const key = name.toLowerCase();
+	if (isConstantName(ctx, procSym, name)) {
+		variableRequired(ctx, name, node.controlVariableSpan);
+	}
 	if (counters.includes(key)) {
 		ctx.push(
 			'forVariableInUse',
@@ -313,6 +335,9 @@ function checkStatement(ctx: Context, procSym: VbaSymbol | undefined, span: Span
 	if (toks.length === 0) {
 		return;
 	}
+	checkTypeSuffixes(ctx, procSym, toks, span);
+	checkNamedArguments(ctx, procSym, toks, span);
+	checkMidTarget(ctx, procSym, toks, span);
 	const first = tokenText(toks[0]);
 	if (first === 'return' && toks.length > 1 && toks[1].kind !== 'colon') {
 		ctx.push(
@@ -441,4 +466,163 @@ function isOperator(tok: VbaToken): boolean {
 function isArgumentBoundary(tok: VbaToken | undefined): boolean {
 	return !tok || tok.rawText === ',' || tok.rawText === ';' || tok.rawText === ')' || tok.rawText === '(' || tok.kind === 'colon'
 		|| tokenText(tok) === 'print';
+}
+
+/** A name that binds to a Const or an Enum member. */
+function isConstantName(ctx: Context, procSym: VbaSymbol | undefined, name: string): boolean {
+	const binding = sourceIdentifierBinding(ctx.symbols, procSym, ctx.projectVisibleSymbols, name, 'expression');
+	return binding.scope !== 'ambiguous' && binding.scope !== 'unresolved'
+		&& binding.definitions.length > 0
+		&& binding.definitions.every((definition) => definition.kind === 'constant' || definition.kind === 'enumMember');
+}
+
+function variableRequired(ctx: Context, name: string, span: Span): void {
+	ctx.push(
+		'variableRequired',
+		`'${name}' is a constant, and a constant cannot be assigned to here. This is a VBE compile error: Variable required - can't assign to this expression.`,
+		span,
+	);
+}
+
+/**
+ * A Const whose value, or a Dim whose bounds, name a variable: "Constant
+ * expression required". A ReDim is a statement and never reaches here.
+ */
+function checkDeclarationGroup(
+	ctx: Context,
+	procSym: VbaSymbol | undefined,
+	group: Extract<BodyNode, { kind: 'VariableGroup' }>,
+): void {
+	for (const decl of group.declarations) {
+		if (isInactiveNode(ctx.activity, decl)) {
+			continue;
+		}
+		const toks = statementTokens(ctx.source, decl.span);
+		let read: VbaToken[] = [];
+		if (group.isConst) {
+			const eq = toks.findIndex((tok) => tok.rawText === '=');
+			read = eq < 0 ? [] : toks.slice(eq + 1);
+		} else if (decl.isArray && (decl.arrayBounds ?? '').trim() !== '') {
+			const open = toks.findIndex((tok) => tok.rawText === '(');
+			let depth = 0;
+			for (let i = open; open >= 0 && i < toks.length; i++) {
+				depth += toks[i].rawText === '(' ? 1 : toks[i].rawText === ')' ? -1 : 0;
+				if (depth === 0) {
+					read = toks.slice(open + 1, i);
+					break;
+				}
+			}
+		}
+		for (let i = 0; i < read.length; i++) {
+			const name = tokenName(read[i]);
+			if (!name || read[i - 1]?.rawText === '.' || read[i + 1]?.rawText === '.' || read[i + 1]?.rawText === '(') {
+				continue;
+			}
+			if (!variableNamed(ctx, procSym, name)) {
+				continue;
+			}
+			ctx.push(
+				group.isConst ? 'constValueNotConstant' : 'arrayBoundNotConstant',
+				group.isConst
+					? `Const '${decl.name}' takes its value from the variable '${name}'. This is a VBE compile error: Constant expression required.`
+					: `The bounds of '${decl.name}' name the variable '${name}'; a Dim needs constants there, and ReDim takes a variable. This is a VBE compile error: Constant expression required.`,
+				absoluteSpan(decl.span, read[i]),
+			);
+		}
+	}
+}
+
+/** The type each type-declaration character stands for. */
+const SUFFIX_TYPES: Readonly<Record<string, string>> = {
+	'%': 'integer', '&': 'long', '^': 'longlong', '@': 'currency', '!': 'single', '#': 'double', '$': 'string',
+};
+
+/** `n% = 2` with n As Long: the character names another type than the declaration. */
+function checkTypeSuffixes(ctx: Context, procSym: VbaSymbol | undefined, toks: readonly VbaToken[], span: Span): void {
+	for (let i = 0; i + 1 < toks.length; i++) {
+		const nameTok = toks[i];
+		const suffixTok = toks[i + 1];
+		const suffixType = SUFFIX_TYPES[suffixTok.rawText];
+		const name = tokenName(nameTok);
+		if (!suffixType || !name || suffixTok.start !== nameTok.end || toks[i - 1]?.rawText === '.') {
+			continue;
+		}
+		// `rs!Field` is a member, not a suffix.
+		const after = toks[i + 2];
+		if (after && after.start === suffixTok.end && (tokenName(after) || after.kind === 'integerLiteral')) {
+			continue;
+		}
+		const variable = variableNamed(ctx, procSym, name);
+		if (!variable || variable.isArray) {
+			continue;
+		}
+		const declared = normalizeType(variable.asType) ?? (ctx.untypedIsVariant ? 'variant' : undefined);
+		if (!declared || declared === suffixType) {
+			continue;
+		}
+		ctx.push(
+			'typeSuffixMismatch',
+			`'${name}${suffixTok.rawText}' says ${suffixType}, but '${name}' is declared ${variable.asType ?? 'Variant'}. This is a VBE compile error: Type-declaration character does not match declared data type.`,
+			{ start: span.start + nameTok.start, end: span.start + suffixTok.end },
+		);
+	}
+}
+
+/** The functions that take no named arguments: the ones VBA compiles as keywords. */
+const NO_NAMED_ARGUMENTS = new Set([
+	'instr', 'instrb', 'len', 'lenb', 'strcomp', 'abs', 'int', 'fix', 'sgn',
+	'cstr', 'cint', 'clng', 'cdbl', 'cbool', 'cdate', 'cvar', 'cbyte', 'ccur', 'csng', 'clnglng', 'clngptr',
+]);
+
+function checkNamedArguments(ctx: Context, procSym: VbaSymbol | undefined, toks: readonly VbaToken[], span: Span): void {
+	for (let i = 0; i + 1 < toks.length; i++) {
+		const name = tokenName(toks[i]);
+		if (!name || !NO_NAMED_ARGUMENTS.has(name.toLowerCase()) || toks[i + 1].rawText !== '(' || toks[i - 1]?.rawText === '.') {
+			continue;
+		}
+		// A project procedure of the same name takes named arguments like any other.
+		const binding = sourceIdentifierBinding(ctx.symbols, procSym, ctx.projectVisibleSymbols, name, 'call');
+		if (binding.scope !== 'unresolved') {
+			continue;
+		}
+		let depth = 0;
+		for (let j = i + 1; j < toks.length; j++) {
+			depth += toks[j].rawText === '(' ? 1 : toks[j].rawText === ')' ? -1 : 0;
+			if (depth === 0) {
+				break;
+			}
+			if (depth === 1 && toks[j].rawText === ':=') {
+				ctx.push(
+					'namedArgumentNotAllowed',
+					`${name} takes its arguments by position only. This is a VBE compile error: Syntax error.`,
+					{ start: span.start + toks[j - 1].start, end: span.start + toks[j].end },
+				);
+				break;
+			}
+		}
+	}
+}
+
+/** `Mid$(S, 1, 1) = "x"` with S a Const. */
+function checkMidTarget(ctx: Context, procSym: VbaSymbol | undefined, toks: readonly VbaToken[], span: Span): void {
+	const head = tokenText(toks[0]);
+	if (head !== 'mid' && head !== 'midb') {
+		return;
+	}
+	const open = toks[1]?.rawText === '$' ? 2 : 1;
+	const target = toks[open + 1];
+	const name = target ? tokenName(target) : undefined;
+	if (toks[open]?.rawText !== '(' || !name || toks[open + 2]?.rawText !== ',') {
+		return;
+	}
+	let depth = 0;
+	for (let j = open; j < toks.length; j++) {
+		depth += toks[j].rawText === '(' ? 1 : toks[j].rawText === ')' ? -1 : 0;
+		if (depth === 0) {
+			if (toks[j + 1]?.rawText === '=' && isConstantName(ctx, procSym, name)) {
+				variableRequired(ctx, name, absoluteSpan(span, target!));
+			}
+			return;
+		}
+	}
 }

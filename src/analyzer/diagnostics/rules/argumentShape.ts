@@ -160,6 +160,13 @@ function validateArgumentShapes(
 		) {
 			continue;
 		}
+		if (param.isArray) {
+			const problem = arrayArgumentProblem(valueSlot, call.sliceStart, param, resolveShape);
+			if (problem) {
+				push('argumentShapeMismatch', `${problem.what}, but parameter '${param.name}' of '${sig.name}' is an array of ${param.type ?? 'Variant'}. This is a VBE compile error: Type mismatch: array or user-defined type expected.`, problem.span);
+				continue;
+			}
+		}
 		const ident = soleIdentifier(valueSlot, call.sliceStart);
 		if (!ident) {
 			continue;
@@ -189,6 +196,43 @@ function validateArgumentShapes(
 			push('argumentShapeMismatch', scalarToArrayMessage(ident.name, param, sig.name), ident.span);
 		}
 	}
+}
+
+/**
+ * An array parameter takes an array variable of its own element type, and
+ * nothing else (issue #216, measured in Excel 16.0): a function's result,
+ * `Split(...)` or `Array(...)`, is refused, and so is an array of String
+ * for an array of Variant.
+ */
+function arrayArgumentProblem(
+	slot: readonly VbaToken[],
+	sliceStart: number,
+	param: CallableParamType,
+	resolveShape: (name: string) => SourceDeclaredShape,
+): { what: string; span: Span } | undefined {
+	const toks = slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
+	const name = toks[0] ? tokenName(toks[0]) : undefined;
+	if (!name) {
+		return undefined;
+	}
+	const span = { start: sliceStart + toks[0].start, end: sliceStart + toks[toks.length - 1].end };
+	const shape = resolveShape(name);
+	if (toks.length > 1 && toks[1].rawText === '(' && toks[toks.length - 1].rawText === ')') {
+		// The result of VBA's Split or Array, which no project name shadows.
+		if (!shape.resolved && /^(split|array)$/i.test(name)) {
+			return { what: `'${name}(...)' is a function's result, not an array variable`, span };
+		}
+		return undefined;
+	}
+	if (toks.length !== 1 || !shape.resolved || !shape.shape?.isArray) {
+		return undefined;
+	}
+	const element = normalizeType(shape.shape.asType) ?? 'variant';
+	const expected = normalizeType(param.type) ?? 'variant';
+	if (element !== expected && (isKnownScalarType(element) || element === 'variant') && (isKnownScalarType(expected) || expected === 'variant')) {
+		return { what: `'${name}' is an array of ${shape.shape.asType ?? 'Variant'}`, span };
+	}
+	return undefined;
 }
 
 /** A single bare identifier argument (not indexed / member / call / expression). */

@@ -516,6 +516,8 @@ export interface SourceDeclaredType {
 	asType?: string;
 	/** What the resolved binding is: a variable, a constant, a parameter, a procedure. */
 	kind?: VbaSymbol['kind'];
+	/** Whether the binding is an array, whose element type `asType` then is. */
+	isArray?: boolean;
 }
 
 export type SourceDeclaredTypeResolver = (name: string) => SourceDeclaredType;
@@ -568,7 +570,8 @@ export function declaredValueTypeForSourceBinding(
 		return { resolved: false };
 	}
 	const typed = valueDefinitions.find((definition) => definition.asType);
-	return { resolved: true, asType: typed?.asType, kind: (typed ?? valueDefinitions[0]).kind };
+	const chosen = typed ?? valueDefinitions[0];
+	return { resolved: true, asType: typed?.asType, kind: chosen.kind, isArray: chosen.isArray === true };
 }
 
 export function declaredValueTypeForQualifiedSourceBinding(
@@ -1424,6 +1427,25 @@ export function byRefVariableTypeMismatch(
 		if (variantVariable) {
 			return { name, actual: declaredType?.asType ?? 'Variant', span };
 		}
+	} else if (toks.length >= 4 && toks[1].rawText === '(' && toks[toks.length - 1].rawText === ')' && closesAt(toks, 1) === toks.length - 1) {
+		// An element of an array variable passes ByRef as the variable itself
+		// does: `Take a(1)` with `Dim a(1) As Variant` for `n As Long` is
+		// "ByRef argument type mismatch" (issue #216, measured in Excel 16.0).
+		name = tokenName(toks[0]);
+		const declaredType = name ? resolveExpressionType?.(name) : undefined;
+		if (
+			!name || !declaredType?.resolved || !declaredType.isArray
+			|| !(declaredType.kind === 'localVariable' || declaredType.kind === 'moduleVariable' || declaredType.kind === 'parameter')
+		) {
+			return undefined;
+		}
+		span = { start: sliceStart + toks[0].start, end: sliceStart + toks[toks.length - 1].end };
+		const element = normalizeType(declaredType.asType) ?? 'variant';
+		if (element === 'variant' && !param.isArray) {
+			return { name: `${name}(...)`, actual: 'Variant', span };
+		}
+		actualRaw = declaredType.asType;
+		name = `${name}(...)`;
 	} else if (toks.length === 3 && toks[1].rawText === '.') {
 		const qualifier = tokenName(toks[0]);
 		const member = tokenName(toks[2]);
@@ -1441,7 +1463,7 @@ export function byRefVariableTypeMismatch(
 		return undefined;
 	}
 	const actual = normalizeType(actualRaw);
-	if (!isKnownByRefExactType(actual) || actual === expected) {
+	if (!isKnownByRefExactType(actual) || sameByRefType(actual, expected)) {
 		return undefined;
 	}
 	return {
@@ -1449,6 +1471,28 @@ export function byRefVariableTypeMismatch(
 		actual: actualRaw ?? name,
 		span,
 	};
+}
+
+/**
+ * Whether a ByRef argument's type is the parameter's. LongPtr is LongLong in
+ * 64-bit Office, the platform the analyzer assumes: stdVBA passes a LongLong
+ * array element to DispCallFunc's `paValues As LongPtr`, and it compiles.
+ */
+function sameByRefType(actual: string | undefined, expected: string | undefined): boolean {
+	const widen = (type: string | undefined): string | undefined => (type === 'longptr' ? 'longlong' : type);
+	return widen(actual) === widen(expected);
+}
+
+/** The index of the `)` that closes the `(` at `open`, or -1. */
+function closesAt(toks: readonly VbaToken[], open: number): number {
+	let depth = 0;
+	for (let i = open; i < toks.length; i++) {
+		depth += toks[i].rawText === '(' ? 1 : toks[i].rawText === ')' ? -1 : 0;
+		if (depth === 0) {
+			return i;
+		}
+	}
+	return -1;
 }
 
 export function isKnownByRefExactType(type: string | undefined): boolean {

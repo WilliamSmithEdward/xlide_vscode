@@ -19563,6 +19563,876 @@
       "source": "Option Explicit\r\nPublic Declare Function GetTickCount Lib \"kernel32\" () As Long\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_01_compile",
+      "description": "Issue #216 case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate m As Long\r\nPrivate Const N As Long = m\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_02_compile",
+      "description": "Issue #216 case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Dim v As Long\r\n    Const K As Long = v\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_03_compile",
+      "description": "Issue #216 case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const A As Long = 1\r\nPrivate Const N As Long = A\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_04_compile",
+      "description": "Issue #216 case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Dim n As Long\r\n    n = 3\r\n    Dim a(1 To n) As Long\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_05_compile",
+      "description": "Issue #216 case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate m As Long\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Dim a(m) As Long\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_06_compile",
+      "description": "Issue #216 case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate m As Long\r\nPrivate b(m) As Long\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_07_compile",
+      "description": "Issue #216 case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Dim n As Long\r\n    Dim a() As Long\r\n    n = 3\r\n    ReDim a(1 To n)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_08_compile",
+      "description": "Issue #216 case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Sub PX(ByVal n As Long)\r\n    Dim a(n) As Long\r\nEnd Sub\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_09_compile",
+      "description": "Issue #216 case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const I As Long = 1\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    For I = 1 To 2\r\n    Next I\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_10_compile",
+      "description": "Issue #216 case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Const J As Long = 1\r\n    For J = 1 To 2\r\n    Next J\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_11_compile",
+      "description": "Issue #216 case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const S As String = \"abc\"\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Mid$(S, 1, 1) = \"x\"\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_12_compile",
+      "description": "Issue #216 case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const I As Long = 1\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    For Each I In Array(1)\r\n    Next I\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_13_compile",
+      "description": "Issue #216 case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nStatic m As Long\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_14_compile",
+      "description": "Issue #216 case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C As Object = Nothing\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_15_compile",
+      "description": "Issue #216 case 15, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Dim n As Long\r\n    n% = 2\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_16_compile",
+      "description": "Issue #216 case 16, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Dim n As Long\r\n    n& = 1\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_17_compile",
+      "description": "Issue #216 case 17, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Dim n As Long\r\n    n$ = \"x\"\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_18_compile",
+      "description": "Issue #216 case 18, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Dim s As String\r\n    s$ = \"x\"\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_19_compile",
+      "description": "Issue #216 case 19, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Dim n As Long, k As Long\r\n    k = n% + 1\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_20_compile",
+      "description": "Issue #216 case 20, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Dim v As Variant\r\n    v# = 1\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_21_compile",
+      "description": "Issue #216 case 21, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Dim n%\r\n    n& = 1\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_22_compile",
+      "description": "Issue #216 case 22, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    TakeStrArr Split(\"a,b\", \",\")\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_23_compile",
+      "description": "Issue #216 case 23, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Dim s() As String\r\n    TakeVarArr s\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_24_compile",
+      "description": "Issue #216 case 24, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    TakeVarArr Array(1, 2)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_25_compile",
+      "description": "Issue #216 case 25, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Dim s() As String\r\n    TakeStrArr s\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_26_compile",
+      "description": "Issue #216 case 26, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Dim v() As Variant\r\n    TakeVarArr v\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_27_compile",
+      "description": "Issue #216 case 27, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Dim v As Variant\r\n    TakeVarArr v\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_28_compile",
+      "description": "Issue #216 case 28, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Dim a(1) As Variant\r\n    a(1) = 1\r\n    Debug.Print TakeLongRef(a(1))\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_29_compile",
+      "description": "Issue #216 case 29, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Dim a(1) As Long\r\n    Debug.Print TakeLongRef(a(1))\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_30_compile",
+      "description": "Issue #216 case 30, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Dim a(1) As Variant\r\n    Debug.Print TakeLongRef((a(1)))\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_31_compile",
+      "description": "Issue #216 case 31, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Debug.Print InStr(String1:=\"abc\", String2:=\"c\")\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_32_compile",
+      "description": "Issue #216 case 32, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Debug.Print InStr(Start:=1, String1:=\"abc\", String2:=\"c\")\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_33_compile",
+      "description": "Issue #216 case 33, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Len(Expression:=\"abc\")\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_34_compile",
+      "description": "Issue #216 case 34, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Left(String:=\"abc\", Length:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_35_compile",
+      "description": "Issue #216 case 35, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Mid(String:=\"abc\", Start:=1, Length:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_36_compile",
+      "description": "Issue #216 case 36, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Replace(Expression:=\"abc\", Find:=\"a\", Replace:=\"b\")\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_37_compile",
+      "description": "Issue #216 case 37, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Format(Expression:=1, Format:=\"0\")\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_38_compile",
+      "description": "Issue #216 case 38, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Debug.Print InStrRev(StringCheck:=\"abc\", StringMatch:=\"c\")\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_39_compile",
+      "description": "Issue #216 case 39, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Debug.Print LenB(Expression:=\"abc\")\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_40_compile",
+      "description": "Issue #216 case 40, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Debug.Print UCase(String:=\"abc\")\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_41_compile",
+      "description": "Issue #216 case 41, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Trim(String:=\" a \")\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_42_compile",
+      "description": "Issue #216 case 42, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Asc(String:=\"a\")\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_43_compile",
+      "description": "Issue #216 case 43, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Chr(CharCode:=65)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_44_compile",
+      "description": "Issue #216 case 44, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Val(String:=\"1\")\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_45_compile",
+      "description": "Issue #216 case 45, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Debug.Print CStr(Expression:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_46_compile",
+      "description": "Issue #216 case 46, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Abs(Number:=-1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_47_compile",
+      "description": "Issue #216 case 47, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Debug.Print UBound(Split(Expression:=\"a,b\", Delimiter:=\",\"))\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_48_compile",
+      "description": "Issue #216 case 48, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Debug.Print StrComp(String1:=\"a\", String2:=\"b\")\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_49_compile",
+      "description": "Issue #216 case 49, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Right(String:=\"abc\", Length:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_50_compile",
+      "description": "Issue #216 case 50, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub TakeStrArr(a() As String)\r\nEnd Sub\r\nPrivate Sub TakeVarArr(a() As Variant)\r\nEnd Sub\r\nPrivate Function TakeLongRef(n As Long) As String\r\n    n = n + 1\r\n    TakeLongRef = CStr(n)\r\nEnd Function\r\nSub P1()\r\n    Debug.Print InStr(\"abc\", \"c\")\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_51_compile",
+      "description": "Issue #216 case 51, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print CInt(Expression:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_52_compile",
+      "description": "Issue #216 case 52, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print CLng(Expression:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_53_compile",
+      "description": "Issue #216 case 53, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print CDbl(Expression:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_54_compile",
+      "description": "Issue #216 case 54, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print CBool(Expression:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_55_compile",
+      "description": "Issue #216 case 55, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print CDate(Expression:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_56_compile",
+      "description": "Issue #216 case 56, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print CVar(Expression:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_57_compile",
+      "description": "Issue #216 case 57, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print CByte(Expression:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_58_compile",
+      "description": "Issue #216 case 58, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print CCur(Expression:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_59_compile",
+      "description": "Issue #216 case 59, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print CSng(Expression:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_60_compile",
+      "description": "Issue #216 case 60, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print CDec(Expression:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_61_compile",
+      "description": "Issue #216 case 61, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print CLngLng(Expression:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_62_compile",
+      "description": "Issue #216 case 62, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print CLngPtr(Expression:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_63_compile",
+      "description": "Issue #216 case 63, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Int(Number:=1.5)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_64_compile",
+      "description": "Issue #216 case 64, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Fix(Number:=1.5)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_65_compile",
+      "description": "Issue #216 case 65, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Sgn(Number:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_66_compile",
+      "description": "Issue #216 case 66, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Sqr(Number:=4)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_67_compile",
+      "description": "Issue #216 case 67, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Exp(Number:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_68_compile",
+      "description": "Issue #216 case 68, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Log(Number:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_69_compile",
+      "description": "Issue #216 case 69, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Hex(Number:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_70_compile",
+      "description": "Issue #216 case 70, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Oct(Number:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_71_compile",
+      "description": "Issue #216 case 71, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Space(Number:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_72_compile",
+      "description": "Issue #216 case 72, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print String(Number:=1, Character:=\"a\")\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_73_compile",
+      "description": "Issue #216 case 73, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print LCase(String:=\"A\")\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_74_compile",
+      "description": "Issue #216 case 74, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print StrConv(String:=\"a\", Conversion:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_75_compile",
+      "description": "Issue #216 case 75, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print InStrB(String1:=\"abc\", String2:=\"c\")\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_76_compile",
+      "description": "Issue #216 case 76, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print StrComp(String1:=\"a\", String2:=\"b\", Compare:=0)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue216_77_compile",
+      "description": "Issue #216 case 77, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Sin(Number:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_78_compile",
+      "description": "Issue #216 case 78, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Atn(Number:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_79_compile",
+      "description": "Issue #216 case 79, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Rnd(Number:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_80_compile",
+      "description": "Issue #216 case 80, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print IsNumeric(Expression:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_81_compile",
+      "description": "Issue #216 case 81, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print VarType(VarName:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_82_compile",
+      "description": "Issue #216 case 82, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print TypeName(VarName:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_83_compile",
+      "description": "Issue #216 case 83, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print LTrim(String:=\" a\")\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_84_compile",
+      "description": "Issue #216 case 84, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Mid$(String:=\"abc\", Start:=1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_86_compile",
+      "description": "Issue #216 case 86, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print Abs(-1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_87_compile",
+      "description": "Issue #216 case 87, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\nSub P1()\r\n    Debug.Print CStr(1)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue216_88_compile",
+      "description": "Issue #216 case 88, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\n\r\nPrivate Left As Long\r\n\r\nPublic Sub NegName84_ShadowedIntrinsicCall()\r\n    Debug.Print Left$(\"abc\", 1)\r\nEnd Sub\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }
