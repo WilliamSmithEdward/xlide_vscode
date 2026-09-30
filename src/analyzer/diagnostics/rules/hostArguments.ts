@@ -20,7 +20,12 @@
 //      Range("A0", "B2") -> 1004; Range("A:A") and Range("XFD1048576") run.
 //      Range("A1").Offset(-1, 0), Range("A1").Offset(0, -1) -> 1004;
 //      Range("B2").Offset(-1, -1) runs. Resize(0, 1), Resize(1, 0), Resize(0),
-//      Resize(-1, 1) -> 1004. ActiveDocument.Range(-1, 0), Range(0, -1),
+//      Resize(-1, 1) -> 1004. Past the bottom and right edges (issue #182,
+//      measured 2026-09-29): Cells(1048577, 1), Cells(1, 16385), Rows(1048577),
+//      Columns(16385), Range("A1048576").Offset(1, 0),
+//      Range("A2").Resize(1048576), Range("B2").Cells(1048576, 1) and
+//      Range("A5").Rows(1048573) -> 1004; Cells(1048576, 16384) and
+//      Range("A2").Offset(0) or Offset(-1) run. ActiveDocument.Range(-1, 0), Range(0, -1),
 //      Range(1, 0) -> 4608 in Word; Range(0, 0) runs.
 //  - sheet-name-invalid
 //      Worksheets(1).Name = "a:b", "", a 32-character name, or a name holding
@@ -59,6 +64,12 @@ import {
 
 const EXCEL_MAX_ROW = 1048576;
 const EXCEL_MAX_COLUMN = 16384;
+/**
+ * Range members whose arguments are a cell address, a row and column, an
+ * offset or a size, not an index into the range they return. Each has its
+ * own check. `Range("A2").Offset(0)` and `Offset(-1)` run (issue #182).
+ */
+const RANGE_COORDINATE_MEMBERS: ReadonlySet<string> = new Set(['cells', 'range', 'offset', 'resize']);
 const SHEET_NAME_MAX = 31;
 const SHEET_NAME_FORBIDDEN = /[:\\/?*[\]]/;
 
@@ -138,7 +149,7 @@ function checkSpan(
 		const collection = lower === 'item' && isCollectionType(callee.receiver, model)
 			? callee.receiver
 			: callee.returns && isCollectionType(callee.returns, model) && callee.openIndex > 0 ? callee.returns : undefined;
-		if (collection && callee.args.length === 1 && lower !== 'cells' && lower !== 'range') {
+		if (collection && callee.args.length === 1 && !RANGE_COORDINATE_MEMBERS.has(lower)) {
 			const index = integerLiteralValue(callee.args[0]);
 			if (index !== undefined && index < 1) {
 				const error = collectionIndexError(host, collection, model);
@@ -231,31 +242,30 @@ function hostCalleeAt(
 		}
 		return undefined;
 	}
-	const receiver = hostReceiverType(resolveReceiverTypeAt(source, span.start + toks[i - 1].end, memberCtx), model);
-	if (!receiver) {
+	const resolved = hostReceiverTypes(resolveReceiverTypeAt(source, span.start + toks[i - 1].end, memberCtx), model);
+	// Of a union, only a part that has the member can run the call: the
+	// member is judged on the one part that has it. `ActiveSheet` is a
+	// Worksheet or a Chart, and only a Worksheet has Cells (issue #182).
+	const having = resolved.filter((part) => resolveHostMember(part, name, model));
+	if (having.length !== 1) {
 		return undefined;
 	}
-	const member = resolveHostMember(receiver, name, model);
-	if (!member) {
-		return undefined;
-	}
+	const receiver = having[0];
+	const member = resolveHostMember(receiver, name, model)!;
 	return { name, returns: member.returns, receiver, nameIndex: i, openIndex, closeIndex, args };
 }
 
 /**
- * The host type a resolved receiver names. A one-part union - what a
+ * The host types a resolved receiver may be. A one-part union - what a
  * collection's Object-declared Item gives, `Worksheets(1)` (issue #114) - is
- * its part; a union of several types is not judged.
+ * its part. A union with any part the model does not know is not judged.
  */
-function hostReceiverType(resolved: string | undefined, model: HostObjectModel | undefined): string | undefined {
+function hostReceiverTypes(resolved: string | undefined, model: HostObjectModel | undefined): string[] {
 	if (!resolved) {
-		return undefined;
+		return [];
 	}
 	const parts = resolved.startsWith('union:') ? resolved.slice('union:'.length).split('|') : [resolved];
-	if (parts.length !== 1 || !getHostType(parts[0], model)) {
-		return undefined;
-	}
-	return parts[0];
+	return parts.every((part) => getHostType(part, model)) ? parts : [];
 }
 
 /** The member call's name index when the statement is `a.b.Name args`, else -1. */
@@ -316,6 +326,14 @@ function checkExcelCallee(
 	const argsSpan = callee.closeIndex > callee.openIndex + 1
 		? { start: span.start + toks[callee.openIndex + 1].start, end: span.start + toks[callee.closeIndex - 1].end }
 		: calleeSpan;
+	// A range counts its Cells, Rows and Columns from its own top-left cell,
+	// so a literal `Range("B2")` receiver moves the far edge in. Any other
+	// receiver starts at A1 or below, so the count alone past the edge is
+	// already off the sheet (issue #182).
+	const origin = singleCellReceiver(toks, callee.nameIndex - 1);
+	const fromRow = origin?.row ?? 1;
+	const fromColumn = origin?.column ?? 1;
+	const from = origin ? ` from ${origin.text}` : '';
 	if (lower === 'cells' && callee.returns === 'Excel.Range') {
 		for (const arg of callee.args) {
 			const value = integerLiteralValue(arg);
@@ -323,6 +341,22 @@ function checkExcelCallee(
 				push('hostArgumentOutOfRange', `Cells takes a row and a column of at least 1; ${value} names no cell. This will raise Run-time error '1004': Application-defined or object-defined error.`, argSpan(span, arg));
 				return;
 			}
+		}
+		if (callee.args.length === 2) {
+			const row = integerLiteralValue(callee.args[0]);
+			const column = integerLiteralValue(callee.args[1]);
+			const edge = pastSheetEdge(row === undefined ? undefined : fromRow + row - 1, column === undefined ? undefined : fromColumn + column - 1);
+			if (edge) {
+				push('hostArgumentOutOfRange', `Cells(${row ?? '...'}, ${column ?? '...'})${from} ${edge}. This will raise Run-time error '1004': Application-defined or object-defined error.`, argsSpan);
+			}
+		}
+		return;
+	}
+	if ((lower === 'rows' || lower === 'columns') && callee.returns === 'Excel.Range' && callee.args.length === 1) {
+		const index = integerLiteralValue(callee.args[0]);
+		const edge = index === undefined ? undefined : lower === 'rows' ? pastSheetEdge(fromRow + index - 1, undefined) : pastSheetEdge(undefined, fromColumn + index - 1);
+		if (edge) {
+			push('hostArgumentOutOfRange', `${callee.name}(${index})${from} ${edge}. This will raise Run-time error '1004': Application-defined or object-defined error.`, argsSpan);
 		}
 		return;
 	}
@@ -333,6 +367,12 @@ function checkExcelCallee(
 				push('hostArgumentOutOfRange', `Resize needs at least one row and one column; ${value} gives none. This will raise Run-time error '1004': Application-defined or object-defined error.`, argSpan(span, arg));
 				return;
 			}
+		}
+		const rows = callee.args[0] ? integerLiteralValue(callee.args[0]) : undefined;
+		const columns = callee.args[1] ? integerLiteralValue(callee.args[1]) : undefined;
+		const edge = pastSheetEdge(rows === undefined ? undefined : fromRow + rows - 1, columns === undefined ? undefined : fromColumn + columns - 1);
+		if (edge) {
+			push('hostArgumentOutOfRange', `Resize(${callee.args.map((arg) => integerLiteralValue(arg) ?? '...').join(', ')})${from} ${edge}. This will raise Run-time error '1004': Application-defined or object-defined error.`, argsSpan);
 		}
 		return;
 	}
@@ -348,7 +388,7 @@ function checkExcelCallee(
 		}
 		const row = origin.row + rowOffset;
 		const column = origin.column + columnOffset;
-		if (row < 1 || column < 1) {
+		if (row < 1 || column < 1 || row > EXCEL_MAX_ROW || column > EXCEL_MAX_COLUMN) {
 			push('hostArgumentOutOfRange', `Offset(${rowOffset}, ${columnOffset}) from ${origin.text} lands at row ${row}, column ${column}, off the sheet. This will raise Run-time error '1004': Application-defined or object-defined error.`, argsSpan);
 		}
 		return;
@@ -459,6 +499,17 @@ function checkSheetNameAssignment(
 	if (problem) {
 		push('sheetNameInvalid', `Excel refuses this name: ${problem}. This will raise Run-time error '1004': You typed an invalid name for a sheet or chart.`, { start: span.start + toks[n - 1].start, end: span.start + toks[n - 1].end });
 	}
+}
+
+/** Where a row or column past the bottom or right edge of the sheet lands, in words. */
+function pastSheetEdge(row: number | undefined, column: number | undefined): string | undefined {
+	if (row !== undefined && row > EXCEL_MAX_ROW) {
+		return `reaches row ${row}, past the last row of the sheet, ${EXCEL_MAX_ROW}`;
+	}
+	if (column !== undefined && column > EXCEL_MAX_COLUMN) {
+		return `reaches column ${column}, past the last column of the sheet, ${EXCEL_MAX_COLUMN} (XFD)`;
+	}
+	return undefined;
 }
 
 /** The single-cell literal `Range("B2")` ending at `toks[closeIndex]`, when that is the receiver. */

@@ -59,6 +59,45 @@ describe('host-argument-out-of-range - Excel (issue #122)', () => {
 		expect(byCode(analyzeModule(quiet), RANGE)).toHaveLength(0);
 	});
 
+	it('flags a row or column past the bottom or right edge of the sheet (issue #182)', () => {
+		const cases: Array<[string, string, string]> = [
+			['Main = Cells(1048577, 1).Row', '1048577, 1', 'row 1048577'],
+			['Main = ActiveSheet.Cells(1048577, 1).Row', '1048577, 1', 'row 1048577'],
+			['Main = Cells(1, 16385).Row', '1, 16385', 'column 16385'],
+			['Main = Rows(1048577).Row', '1048577', 'row 1048577'],
+			['Main = Columns(16385).Column', '16385', 'column 16385'],
+			['Main = Range("A1048576").Offset(1, 0).Row', '1, 0', 'row 1048577'],
+			['Main = Range("A1").Offset(0, 16384).Column', '0, 16384', 'column 16385'],
+			['Main = Range("A2").Resize(1048576).Row', '1048576', 'row 1048577'],
+			['Main = Range("B1").Resize(1, 16384).Row', '1, 16384', 'column 16385'],
+			['Main = Range("B2").Cells(1048576, 1).Row', '1048576, 1', 'row 1048577'],
+			['Main = Range("A5").Rows(1048573).Row', '1048573', 'row 1048577'],
+			['Main = Range("A1:A3").Rows(1048577).Row', '1048577', 'row 1048577'],
+		];
+		for (const [line, span, where] of cases) {
+			const src = wrap(line);
+			expectDiagnostic(src, analyzeModule(src), RANGE, { span, message: [where, "'1004'"] });
+		}
+		const quiet = wrap(
+			'Main = Cells(1048576, 16384).Row',
+			'Main = Columns(16384).Column',
+			'Main = Range("A1").Resize(1048576).Rows.Count',
+			'Main = Range("A1").Offset(0, 16383).Column',
+			'Main = Range("A1").Offset(1048575).Row',
+			'Main = Range("A1").Cells(1048576, 1).Row',
+			'Main = Range("A5").Rows(1048572).Row',
+		);
+		expect(byCode(analyzeModule(quiet), RANGE)).toHaveLength(0);
+	});
+
+	it('reads Offset and Resize arguments as an offset and a size, not an index (issue #182)', () => {
+		// Offset(0) and Offset(-1) from A2 run. Resize(0) raises, for its own reason.
+		const quiet = wrap('Main = Range("A2").Offset(0).Row', 'Main = Range("A2").Offset(-1).Row');
+		expect(byCode(analyzeModule(quiet), RANGE)).toHaveLength(0);
+		const src = wrap('Main = Range("A1").Resize(0).Row');
+		expectDiagnostic(src, analyzeModule(src), RANGE, { span: '0', message: 'Resize needs at least one row and one column' });
+	});
+
 	it('flags an address literal off the sheet', () => {
 		const bad = ['"A0"', '"$A$0"', '"Sheet1!A0"', '"0:0"', '"A1048577"', '"XFE1"'];
 		for (const literal of bad) {
