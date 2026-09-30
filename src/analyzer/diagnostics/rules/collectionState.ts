@@ -24,6 +24,7 @@ import type { ModuleNode, ProcedureNode, Span } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
 import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import type { PushFn } from '../analysisContext';
+import { counterText, loopCountersAt, numericCounterPasses, type LoopCounter } from '../loopCounters';
 import { stringLiteralValue, normalizeType } from '../typeInference';
 import {
 	activeModuleMembers,
@@ -336,4 +337,92 @@ function remove(name: string, state: CollectionContents, arg: VbaToken[], base: 
 		state.items.pop();
 		state.keysKnown = false;
 	}
+}
+
+/**
+ * A loop counter indexing a Collection outside 1 to Count (issue #200,
+ * measured in Excel 16.0): `For i = 0 To c.Count - 1` reads c(0) on its
+ * first pass, and `For i = 1 To c.Count + 1` reads past the last element on
+ * its last. Collections are 1-based; an index outside raises 9, or 5 when
+ * the collection is empty. The contents are not tracked into a loop, so the
+ * error is 9 only where the loop's own bounds show it runs with an element.
+ */
+export function checkCollectionLoopCounters(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const locals = collectionLocals(member, activity);
+		const collections = new Set([...locals.newLocals, ...locals.plainLocals]);
+		for (const param of member.params) {
+			if (!param.isArray && normalizeType(param.asType) === 'collection') {
+				collections.add(param.name.toLowerCase());
+			}
+		}
+		if (collections.size === 0) {
+			continue;
+		}
+		for (const [stmt, counters] of loopCountersAt(source, member.body, activity)) {
+			const toks = statementTokensAfterLeadingLabel(source, stmt.span);
+			for (let i = 0; i + 1 < toks.length; i++) {
+				const lower = tokenName(toks[i])?.toLowerCase();
+				if (!lower || !collections.has(lower) || toks[i - 1]?.rawText === '.') {
+					continue;
+				}
+				// `c(i)` or `c.Item(i)`
+				const open = toks[i + 1].rawText === '(' ? i + 1
+					: toks[i + 1].rawText === '.' && tokenText(toks[i + 2]) === 'item' && toks[i + 3]?.rawText === '(' ? i + 3 : -1;
+				const close = open < 0 ? -1 : matchParenFrom(toks, open);
+				const arg = close === open + 2 ? toks[open + 1] : undefined;
+				const counter = arg ? counters.get(tokenName(arg)?.toLowerCase() ?? '') : undefined;
+				const message = counter && arg ? collectionCounterMessage(toks[i].rawText, lower, arg.rawText, counter) : undefined;
+				if (arg && message) {
+					push('collectionIndexOutOfRange', message, { start: stmt.span.start + arg.start, end: stmt.span.start + arg.end });
+				}
+			}
+		}
+	}
+}
+
+function collectionCounterMessage(name: string, lower: string, counterName: string, counter: LoopCounter): string | undefined {
+	const count = (atom: { kind: string; name: string }): boolean => atom.kind === 'count' && atom.name === lower;
+	let reached: string | undefined;
+	for (const pass of numericCounterPasses(counter, () => undefined)) {
+		if (pass.value < 1) {
+			reached = pass.pass === 'first'
+				? `Counter '${counterName}' is ${pass.value} on its first pass`
+				: `Counter '${counterName}' reaches ${pass.value} on its last pass`;
+			break;
+		}
+	}
+	if (!reached) {
+		const passes: Array<['first' | 'last', typeof counter.first | undefined]> = [['first', counter.first], ['last', counter.last]];
+		for (const [pass, value] of passes) {
+			if (value?.atom && count(value.atom) && value.offset > 0) {
+				reached = pass === 'first'
+					? `Counter '${counterName}' is ${counterText(value)} on its first pass`
+					: `Counter '${counterName}' reaches ${counterText(value)} on its last pass`;
+				break;
+			}
+		}
+	}
+	if (!reached) {
+		return undefined;
+	}
+	const error = runsWithAnElement(counter, count)
+		? `This will raise Run-time error '9': Subscript out of range.`
+		: `This will raise Run-time error '9': Subscript out of range, or '5' if '${name}' is empty.`;
+	return `${reached}, and '${name}' holds its elements at 1 to ${name}.Count. ${error}`;
+}
+
+/** Whether the loop's bounds show it runs only when the collection has an element: `For i = 0 To c.Count - 1`. */
+function runsWithAnElement(counter: LoopCounter, count: (atom: { kind: string; name: string }) => boolean): boolean {
+	const [low, high] = counter.step > 0 ? [counter.first, counter.last] : [counter.last, counter.first];
+	// The loop runs when low <= Count + offset, so Count >= low - offset.
+	return !low?.atom && high?.atom !== undefined && count(high.atom) && low !== undefined && low.offset - high.offset >= 1;
 }

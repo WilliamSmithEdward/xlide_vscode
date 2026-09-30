@@ -47,21 +47,22 @@ const WRITING_HEADS: ReadonlySet<string> = new Set(['set', 'redim', 'erase', 'in
 const READ_ONLY_INTRINSICS: ReadonlySet<string> = new Set(['lbound', 'ubound', 'isarray', 'len', 'lenb', 'isempty', 'isnull', 'isnumeric', 'typename', 'vartype']);
 
 /**
- * For each leaf statement of the body that some straight-line assignment
- * reaches, the reaching assignments. A statement not in the map has none.
+ * For each statement of the body that some straight-line assignment
+ * reaches, the reaching assignments; for a block, those that reach its
+ * header. A statement not in the map has none.
  */
 export function straightLineAssignments(
 	source: string,
 	body: readonly BodyNode[],
 	activity: ConditionalActivityTracker | undefined,
-): ReadonlyMap<LeafStatementNode, ReachingAssignments> {
+): ReadonlyMap<BodyNode, ReachingAssignments> {
 	// Six rules ask for the same procedure in one pass; a parse makes a new
 	// body, so the body is the key.
 	const cached = WALKS.get(body);
 	if (cached && cached.source === source && cached.activity === activity) {
 		return cached.result;
 	}
-	const out = new Map<LeafStatementNode, ReachingAssignments>();
+	const out = new Map<BodyNode, ReachingAssignments>();
 	walkList(source, body, NONE, activity, out);
 	WALKS.set(body, { source, activity, result: out });
 	return out;
@@ -70,7 +71,7 @@ export function straightLineAssignments(
 const WALKS = new WeakMap<readonly BodyNode[], {
 	source: string;
 	activity: ConditionalActivityTracker | undefined;
-	result: ReadonlyMap<LeafStatementNode, ReachingAssignments>;
+	result: ReadonlyMap<BodyNode, ReachingAssignments>;
 }>();
 
 /**
@@ -83,7 +84,7 @@ function walkList(
 	list: readonly BodyNode[],
 	entry: ReachingAssignments,
 	activity: ConditionalActivityTracker | undefined,
-	out: Map<LeafStatementNode, ReachingAssignments>,
+	out: Map<BodyNode, ReachingAssignments>,
 	caseResets = false,
 ): ReachingAssignments {
 	let current = entry;
@@ -93,6 +94,9 @@ function walkList(
 			continue;
 		}
 		if (!isLeafStatement(node)) {
+			// What holds as the block starts: a For reads its bounds here
+			// (issue #200).
+			record(out, node, current);
 			current = walkBlock(source, node, current, activity, out);
 			continue;
 		}
@@ -129,7 +133,7 @@ function walkBlock(
 	node: BodyNode,
 	entry: ReachingAssignments,
 	activity: ConditionalActivityTracker | undefined,
-	out: Map<LeafStatementNode, ReachingAssignments>,
+	out: Map<BodyNode, ReachingAssignments>,
 ): ReachingAssignments {
 	if (!('body' in node) || !Array.isArray(node.body)) {
 		return entry;
@@ -271,7 +275,7 @@ function without(map: ReachingAssignments, names: Iterable<string>): ReachingAss
 	return next ?? map;
 }
 
-function record(out: Map<LeafStatementNode, ReachingAssignments>, stmt: LeafStatementNode, current: ReachingAssignments): void {
+function record(out: Map<BodyNode, ReachingAssignments>, stmt: BodyNode, current: ReachingAssignments): void {
 	if (current.size > 0) {
 		out.set(stmt, current);
 	}

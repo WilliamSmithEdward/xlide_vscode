@@ -46,11 +46,13 @@ import {
 	resolveHostMember,
 } from '../../host/hostModel';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
+import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { resolveReceiverTypeAt } from '../../completion/memberAccess';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { ProcedureNode, Span } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
+import { checkEachCounterPass, loopCountersAt } from '../loopCounters';
 import { stringLiteralValue, typeEnvironmentFor, normalizeType } from '../typeInference';
 import {
 	bareAssignmentTarget,
@@ -100,6 +102,7 @@ export function checkHostArguments(
 	source: string,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	memberCtx: MemberCompletionContext,
+	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): ProcedureStatementVisitor {
 	const model = memberCtx.model;
@@ -135,7 +138,26 @@ export function checkHostArguments(
 				arrays.delete(child.name.toLowerCase());
 			}
 		}
-		return (stmt) => checkSpan(source, stmt.span, host, model, memberCtx, env, arrays, sourceNames, push);
+		// `Cells(r, 1)` inside `For r = 0 To 3`: each pass's value (issue #200).
+		const counters = loopCountersAt(source, proc.body, activity);
+		return (stmt) => {
+			const stmtCounters = counters.get(stmt);
+			if (!stmtCounters) {
+				checkSpan(source, stmt.span, host, model, memberCtx, env, arrays, sourceNames, integerLiteralValue, push);
+				return;
+			}
+			checkEachCounterPass(source, stmt.span, stmtCounters, () => undefined, (values, report) => {
+				const valueOf = (arg: readonly VbaToken[]): number | undefined => {
+					const literal = integerLiteralValue(arg);
+					if (literal !== undefined || values.size === 0) {
+						return literal;
+					}
+					const toks = arg.filter((tok) => tok.kind !== 'comment');
+					return toks.length === 1 ? values.get(tokenName(toks[0])?.toLowerCase() ?? '') : undefined;
+				};
+				checkSpan(source, stmt.span, host, model, memberCtx, env, arrays, sourceNames, valueOf, report);
+			}, push);
+		};
 	};
 }
 
@@ -148,6 +170,7 @@ function checkSpan(
 	env: ReadonlyMap<string, string>,
 	arrays: ReadonlySet<string>,
 	sourceNames: ReadonlySet<string>,
+	valueOf: (arg: readonly VbaToken[]) => number | undefined,
 	push: PushFn,
 ): void {
 	const toks = statementTokens(source, span);
@@ -167,7 +190,7 @@ function checkSpan(
 			? callee.receiver
 			: callee.returns && isCollectionType(callee.returns, model) && callee.openIndex > 0 ? callee.returns : undefined;
 		if (collection && callee.args.length === 1 && !RANGE_COORDINATE_MEMBERS.has(lower)) {
-			const index = integerLiteralValue(callee.args[0]);
+			const index = valueOf(callee.args[0]);
 			if (index !== undefined && index < 1) {
 				const error = collectionIndexError(host, collection, model);
 				push(
@@ -179,11 +202,11 @@ function checkSpan(
 			}
 		}
 		if (host === 'Excel') {
-			checkExcelCallee(source, span, toks, callee, calleeSpan, env, arrays, push);
+			checkExcelCallee(source, span, toks, callee, calleeSpan, env, arrays, valueOf, push);
 		} else if (host === 'Word') {
 			if (lower === 'range' && callee.receiver === 'Word.Document' && callee.openIndex > 0) {
-				const start = callee.args[0] ? integerLiteralValue(callee.args[0]) : undefined;
-				const end = callee.args[1] ? integerLiteralValue(callee.args[1]) : undefined;
+				const start = callee.args[0] ? valueOf(callee.args[0]) : undefined;
+				const end = callee.args[1] ? valueOf(callee.args[1]) : undefined;
 				const bad = (start !== undefined && start < 0) || (end !== undefined && end < 0) || (start !== undefined && end !== undefined && end < start);
 				if (bad) {
 					push(
@@ -194,7 +217,7 @@ function checkSpan(
 				}
 			}
 		} else if (lower === 'add' && callee.receiver === 'PowerPoint.Slides' && callee.args.length >= 1) {
-			const index = integerLiteralValue(callee.args[0]);
+			const index = valueOf(callee.args[0]);
 			if (index !== undefined && index < 1) {
 				push(
 					'hostArgumentOutOfRange',
@@ -335,6 +358,7 @@ function checkExcelCallee(
 	calleeSpan: Span,
 	env: ReadonlyMap<string, string>,
 	arrays: ReadonlySet<string>,
+	valueOf: (arg: readonly VbaToken[]) => number | undefined,
 	push: PushFn,
 ): void {
 	const lower = callee.name.toLowerCase();
@@ -354,15 +378,15 @@ function checkExcelCallee(
 	const from = origin ? ` from ${origin.text}` : '';
 	if (lower === 'cells' && callee.returns === 'Excel.Range') {
 		for (const arg of callee.args) {
-			const value = integerLiteralValue(arg);
+			const value = valueOf(arg);
 			if (value !== undefined && value < 1) {
 				push('hostArgumentOutOfRange', `Cells takes a row and a column of at least 1; ${value} names no cell. This will raise Run-time error '1004': Application-defined or object-defined error.`, argSpan(span, arg));
 				return;
 			}
 		}
 		if (callee.args.length === 2) {
-			const row = integerLiteralValue(callee.args[0]);
-			const column = integerLiteralValue(callee.args[1]);
+			const row = valueOf(callee.args[0]);
+			const column = valueOf(callee.args[1]);
 			const edge = pastSheetEdge(row === undefined ? undefined : fromRow + row - 1, column === undefined ? undefined : fromColumn + column - 1);
 			if (edge) {
 				push('hostArgumentOutOfRange', `Cells(${row ?? '...'}, ${column ?? '...'})${from} ${edge}. This will raise Run-time error '1004': Application-defined or object-defined error.`, argsSpan);
@@ -371,7 +395,7 @@ function checkExcelCallee(
 		return;
 	}
 	if ((lower === 'rows' || lower === 'columns') && callee.returns === 'Excel.Range' && callee.args.length === 1) {
-		const index = integerLiteralValue(callee.args[0]);
+		const index = valueOf(callee.args[0]);
 		const edge = index === undefined ? undefined : lower === 'rows' ? pastSheetEdge(fromRow + index - 1, undefined) : pastSheetEdge(undefined, fromColumn + index - 1);
 		if (edge) {
 			push('hostArgumentOutOfRange', `${callee.name}(${index})${from} ${edge}. This will raise Run-time error '1004': Application-defined or object-defined error.`, argsSpan);
@@ -380,17 +404,17 @@ function checkExcelCallee(
 	}
 	if (lower === 'resize' && callee.receiver === 'Excel.Range') {
 		for (const arg of callee.args) {
-			const value = integerLiteralValue(arg);
+			const value = valueOf(arg);
 			if (value !== undefined && value < 1) {
 				push('hostArgumentOutOfRange', `Resize needs at least one row and one column; ${value} gives none. This will raise Run-time error '1004': Application-defined or object-defined error.`, argSpan(span, arg));
 				return;
 			}
 		}
-		const rows = callee.args[0] ? integerLiteralValue(callee.args[0]) : undefined;
-		const columns = callee.args[1] ? integerLiteralValue(callee.args[1]) : undefined;
+		const rows = callee.args[0] ? valueOf(callee.args[0]) : undefined;
+		const columns = callee.args[1] ? valueOf(callee.args[1]) : undefined;
 		const edge = pastSheetEdge(rows === undefined ? undefined : fromRow + rows - 1, columns === undefined ? undefined : fromColumn + columns - 1);
 		if (edge) {
-			push('hostArgumentOutOfRange', `Resize(${callee.args.map((arg) => integerLiteralValue(arg) ?? '...').join(', ')})${from} ${edge}. This will raise Run-time error '1004': Application-defined or object-defined error.`, argsSpan);
+			push('hostArgumentOutOfRange', `Resize(${callee.args.map((arg) => valueOf(arg) ?? '...').join(', ')})${from} ${edge}. This will raise Run-time error '1004': Application-defined or object-defined error.`, argsSpan);
 		}
 		return;
 	}
@@ -399,8 +423,8 @@ function checkExcelCallee(
 		if (!origin) {
 			return;
 		}
-		const rowOffset = callee.args[0] ? integerLiteralValue(callee.args[0]) : 0;
-		const columnOffset = callee.args[1] ? integerLiteralValue(callee.args[1]) : 0;
+		const rowOffset = callee.args[0] ? valueOf(callee.args[0]) : 0;
+		const columnOffset = callee.args[1] ? valueOf(callee.args[1]) : 0;
 		if (rowOffset === undefined || columnOffset === undefined) {
 			return;
 		}

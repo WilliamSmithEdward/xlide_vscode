@@ -14,6 +14,7 @@ import {
 } from '../../constants/integerConstantExpression';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type {
+	BodyNode,
 	ModuleNode,
 	Span,
 } from '../../parser/nodes';
@@ -29,6 +30,7 @@ import {
 	splitArgSlots,
 } from '../callExtraction';
 import { collectModuleLiteralIntegerConstants } from '../constExpr';
+import { checkEachCounterPass, loopCountersAt } from '../loopCounters';
 import { bankersRound, isBareOrVbaQualifiedIntrinsicCall } from '../rules/shared';
 import { isInvalidBooleanString, isInvalidDateString, isInvalidNumericString } from '../stringConversion';
 import {
@@ -51,6 +53,8 @@ import {
 	tokenText,
 	type ProcedureStatementVisitor,
 } from '../walker';
+
+const NO_COUNTER_VALUES: ReadonlyMap<string, number> = new Map();
 
 interface RuntimeArgumentValueSpec {
 	canonicalName: string;
@@ -135,8 +139,15 @@ export function checkRuntimeArgumentValues(
 			}
 			return out;
 		};
+		// A loop counter bound to one pass's value (issue #200).
+		let counterValues = NO_COUNTER_VALUES;
+		const counters = loopCountersAt(source, member.body, activity);
 		const lookup: IntegerConstantLookup = {
 			get: (name) => {
+				const counter = counterValues.size === 0 ? undefined : counterValues.get(name.toLowerCase());
+				if (counter !== undefined) {
+					return counter;
+				}
 				const constant = constants.get(name);
 				if (constant !== undefined) {
 					return constant;
@@ -148,16 +159,23 @@ export function checkRuntimeArgumentValues(
 		return (stmt) => {
 			known = valuesAt(stmt);
 			const { strings: knownStrings, lengths: knownStringLengths } = stringsAt(known);
-			for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env, lookup, knownStrings, sourceNames, host)) {
-				push(
-					'runtimeArgumentValue',
-					`Argument '${hit.parameterName}' of '${hit.displayName}' is ${hit.value}; this will raise Run-time error '5': Invalid procedure call or argument.`,
-					hit.span,
-				);
-			}
-			for (const hit of runtimeStatementValueHits(source, stmt.span, lookup, knownStringLengths, knownStrings, sourceNames)) {
-				push('runtimeArgumentValue', hit.message, hit.span);
-			}
+			// A bound of Len(s) reads the length s has as the loop starts.
+			const atomValue = (atom: { kind: string; name: string }, counter: { loopNode: BodyNode }): number | undefined =>
+				atom.kind === 'len' ? stringsAt(valuesAt(counter.loopNode)).lengths.get(atom.name) : undefined;
+			checkEachCounterPass(source, stmt.span, counters.get(stmt), atomValue, (values, report) => {
+				counterValues = values;
+				for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env, lookup, knownStrings, sourceNames, host)) {
+					report(
+						'runtimeArgumentValue',
+						`Argument '${hit.parameterName}' of '${hit.displayName}' is ${hit.value}; this will raise Run-time error '5': Invalid procedure call or argument.`,
+						hit.span,
+					);
+				}
+				for (const hit of runtimeStatementValueHits(source, stmt.span, lookup, knownStringLengths, knownStrings, sourceNames)) {
+					report('runtimeArgumentValue', hit.message, hit.span);
+				}
+			}, push);
+			counterValues = NO_COUNTER_VALUES;
 		};
 	};
 }

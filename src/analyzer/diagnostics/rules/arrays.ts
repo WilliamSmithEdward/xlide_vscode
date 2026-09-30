@@ -25,6 +25,7 @@ import {
 import { splitArgSlots } from '../callExtraction';
 import { walkBranchMergedBody, walkStraightLineBody } from '../dataflow';
 import { straightLineAssignments, type ReachingAssignments } from '../straightLineValues';
+import { counterText, loopCountersAt, numericCounterPasses, type CounterValue, type CountersAt } from '../loopCounters';
 import { procedureHasUnstructuredFlow } from '../../flow/procedureUnstructured';
 import { isBareOrVbaQualifiedIntrinsicCall } from '../rules/shared';
 import {
@@ -1538,13 +1539,18 @@ function subscriptDetail(value: number, dim: ArrayDimensionBound, index: number,
 		: `is below the lower bound ${dim.lower}${which} (Option Base ${dim.lower})`;
 }
 
-/** Literal-subscript accesses of a tracked array that fall outside its bounds. */
+/**
+ * Literal-subscript accesses of a tracked array that fall outside its bounds,
+ * and a loop counter's subscript on its first or last pass (issue #200): a
+ * number, or UBound or LBound of the array it indexes, which a bound like
+ * `UBound(a) + 1` passes whatever the array holds.
+ */
 function fixedArraySubscriptViolations(
 	source: string,
 	span: Span,
 	fixed: ReadonlyMap<string, FixedArrayBound>,
 	excluded: ReadonlySet<string>,
-	counters: ReadonlyMap<string, { last: number; span: Span }> = new Map(),
+	counters: CountersAt | undefined,
 ): Array<{ span: Span; message: string }> {
 	const toks = statementTokensAfterLeadingLabel(source, span);
 	const out: Array<{ span: Span; message: string }> = [];
@@ -1558,52 +1564,123 @@ function fixedArraySubscriptViolations(
 		}
 		const name = tokenName(toks[i]);
 		const lower = name?.toLowerCase();
-		if (!name || !lower || !fixed.has(lower) || excluded.has(lower)) {
+		if (!name || !lower) {
 			continue;
 		}
+		const decl = fixed.has(lower) && !excluded.has(lower) ? fixed.get(lower) : undefined;
 		const close = matchParenFrom(toks, i + 1);
 		if (close <= i + 1) {
 			continue;
 		}
 		const argToks = toks.slice(i + 2, close).filter((tok) => tok.kind !== 'comment');
 		const slots = splitTopLevelTokenGroups(argToks, ',');
-		const decl = fixed.get(lower)!;
-		if (slots.length !== decl.dims.length || slots.some((slot) => slot.length === 0)) {
+		if (slots.some((slot) => slot.length === 0)) {
+			continue;
+		}
+		if (!decl) {
+			// UBound(x) or LBound(x) in the loop's bounds says x is an array.
+			const hit = symbolicCounterSubscript(span, name, lower, slots, counters);
+			if (hit) {
+				out.push(hit);
+			}
+			continue;
+		}
+		if (slots.length !== decl.dims.length) {
 			continue; // the dimension count is the compiler's business, not this rule's
 		}
 		// One report per access: the first dimension that is out of range.
-		let reported = false;
-		slots.forEach((slot, index) => {
-			if (reported) {
-				return;
+		for (let index = 0; index < slots.length; index++) {
+			const hit = subscriptViolation(span, decl, fixed, slots[index], index, counters);
+			if (hit) {
+				out.push(hit);
+				break;
 			}
-			const dim = decl.dims[index];
-			let value = comparableArrayBoundExpressionValue(slot);
-			let viaCounter: { last: number; span: Span } | undefined;
-			if (value === undefined && slot.length === 1) {
-				// `a(i)` inside `For i = 0 To 3`: the counter's last pass.
-				viaCounter = counters.get(tokenName(slot[0])?.toLowerCase() ?? '');
-				value = viaCounter?.last;
-			}
-			if (value === undefined) {
-				return; // a variable, Const or member chain: not provable
-			}
-			const detail = subscriptDetail(value, dim, index, decl.dims.length);
-			if (!detail) {
-				return;
-			}
-			const from = decl.origin === 'Dim' ? '' : ` (${decl.origin})`;
-			const reached = viaCounter ? `Counter '${slot[0].rawText}' reaches ${value} on its last pass, which` : `Subscript ${value}`;
-			out.push({
-				span: { start: span.start + slot[0].start, end: span.start + slot[slot.length - 1].end },
-				message:
-					`${reached} for array '${decl.name}'${from} ${detail}. ` +
-					`This will raise Run-time error '9': Subscript out of range.`,
-			});
-			reported = true;
-		});
+		}
 	}
 	return out;
+}
+
+function subscriptViolation(
+	span: Span,
+	decl: FixedArrayBound,
+	fixed: ReadonlyMap<string, FixedArrayBound>,
+	slot: readonly VbaToken[],
+	index: number,
+	counters: CountersAt | undefined,
+): { span: Span; message: string } | undefined {
+	const dim = decl.dims[index];
+	const slotSpan = { start: span.start + slot[0].start, end: span.start + slot[slot.length - 1].end };
+	const from = decl.origin === 'Dim' ? '' : ` (${decl.origin})`;
+	const error = `This will raise Run-time error '9': Subscript out of range.`;
+	const value = comparableArrayBoundExpressionValue(slot);
+	if (value !== undefined) {
+		const detail = subscriptDetail(value, dim, index, decl.dims.length);
+		return detail
+			? { span: slotSpan, message: `Subscript ${value} for array '${decl.name}'${from} ${detail}. ${error}` }
+			: undefined;
+	}
+	const counter = slot.length === 1 ? counters?.get(tokenName(slot[0])?.toLowerCase() ?? '') : undefined;
+	if (!counter) {
+		return undefined; // a variable, Const or member chain: not provable
+	}
+	// `a(i)` inside `For i = 0 To 3`: the counter's first and last passes.
+	const atomValue = (atom: { kind: string; name: string; dimension: number }): number | undefined => {
+		const shape = fixed.get(atom.name)?.dims[atom.dimension - 1];
+		return atom.kind === 'ubound' ? shape?.upper : atom.kind === 'lbound' ? shape?.lower : undefined;
+	};
+	for (const pass of numericCounterPasses(counter, atomValue)) {
+		const detail = subscriptDetail(pass.value, dim, index, decl.dims.length);
+		if (detail) {
+			const reached = pass.pass === 'first'
+				? `Counter '${slot[0].rawText}' is ${pass.value} on its first pass`
+				: `Counter '${slot[0].rawText}' reaches ${pass.value} on its last pass`;
+			return { span: slotSpan, message: `${reached}, which for array '${decl.name}'${from} ${detail}. ${error}` };
+		}
+	}
+	return symbolicCounterSubscript(span, decl.name, decl.name.toLowerCase(), [slot], counters, index);
+}
+
+/**
+ * `a(i)` where the counter runs past UBound(a) or below LBound(a) of the
+ * same dimension: `For i = 1 To UBound(a) + 1`.
+ */
+function symbolicCounterSubscript(
+	span: Span,
+	name: string,
+	lower: string,
+	slots: readonly (readonly VbaToken[])[],
+	counters: CountersAt | undefined,
+	onlyIndex?: number,
+): { span: Span; message: string } | undefined {
+	for (let index = 0; index < slots.length; index++) {
+		if (onlyIndex !== undefined && index !== 0) {
+			break;
+		}
+		const slot = slots[index];
+		const dimension = (onlyIndex ?? index) + 1;
+		const counter = slot.length === 1 ? counters?.get(tokenName(slot[0])?.toLowerCase() ?? '') : undefined;
+		if (!counter) {
+			continue;
+		}
+		const passes: Array<['first' | 'last', CounterValue | undefined]> = [['first', counter.first], ['last', counter.last]];
+		for (const [pass, value] of passes) {
+			const atom = value?.atom;
+			if (!value || !atom || atom.name !== lower || atom.dimension !== dimension) {
+				continue;
+			}
+			const past = atom.kind === 'ubound' && value.offset > 0
+				? 'above its upper bound'
+				: atom.kind === 'lbound' && value.offset < 0 ? 'below its lower bound' : undefined;
+			if (past) {
+				const reached = pass === 'first' ? `is ${counterText(value)} on its first pass` : `reaches ${counterText(value)} on its last pass`;
+				return {
+					span: { start: span.start + slot[0].start, end: span.start + slot[slot.length - 1].end },
+					message: `Counter '${slot[0].rawText}' ${reached}, which for array '${name}' is ${past}. This will raise Run-time error '9': Subscript out of range.`,
+				};
+			}
+		}
+	}
+	return undefined;
 }
 
 /**
@@ -1685,86 +1762,6 @@ function inlineSplitIndexViolations(source: string, span: Span): Array<{ span: S
 }
 
 /**
- * The For counters in force at each statement, with the last value each
- * reaches: `For i = 0 To 3` (no Step, or a positive literal Step) ends its last
- * pass at 3, so `a(i)` inside it indexes 3 on that pass (issue #120).
- */
-function forCounterLastValues(
-	source: string,
-	body: readonly BodyNode[],
-	activity: ConditionalActivityTracker | undefined,
-): Map<LeafStatementNode, Map<string, { last: number; span: Span }>> {
-	const out = new Map<LeafStatementNode, Map<string, { last: number; span: Span }>>();
-	const visit = (nodes: readonly BodyNode[], counters: Map<string, { last: number; span: Span }>): void => {
-		for (const node of nodes) {
-			if (isInactiveNode(activity, node)) {
-				continue;
-			}
-			if (node.kind === 'ForBlock') {
-				const inner = new Map(counters);
-				const header = forHeaderLiteralRange(source, node);
-				if (header) {
-					inner.set(header.name, { last: header.last, span: header.span });
-				} else if (node.controlVariable) {
-					inner.delete(node.controlVariable.toLowerCase());
-				}
-				visit(node.body, inner);
-				continue;
-			}
-			if ('body' in node && Array.isArray(node.body)) {
-				visit(node.body as BodyNode[], counters);
-				continue;
-			}
-			if (isLeafStatementNode(node) && counters.size > 0) {
-				out.set(node, counters);
-			}
-		}
-	};
-	visit(body, new Map());
-	return out;
-}
-
-function isLeafStatementNode(node: BodyNode): node is LeafStatementNode {
-	return node.kind === 'Statement' || node.kind === 'Assignment' || node.kind === 'Call';
-}
-
-/** `For i = <literal> To <literal> [Step <positive literal>]`: the counter and the value its last pass has. */
-function forHeaderLiteralRange(source: string, node: ForBlockNodeLike): { name: string; last: number; span: Span } | undefined {
-	if (node.each || !node.controlVariable) {
-		return undefined;
-	}
-	const headerEnd = source.indexOf('\n', node.span.start);
-	const header = { start: node.span.start, end: headerEnd < 0 ? node.span.end : Math.min(headerEnd, node.span.end) };
-	const toks = statementTokensAfterLeadingLabel(source, header);
-	const eq = toks.findIndex((tok) => tok.rawText === '=');
-	const to = toks.findIndex((tok) => tokenText(tok) === 'to');
-	if (eq < 0 || to < eq) {
-		return undefined;
-	}
-	const step = toks.findIndex((tok) => tokenText(tok) === 'step');
-	const from = comparableArrayBoundExpressionValue(toks.slice(eq + 1, to));
-	const upTo = comparableArrayBoundExpressionValue(toks.slice(to + 1, step > 0 ? step : toks.length));
-	const stepValue = step > 0 ? comparableArrayBoundExpressionValue(toks.slice(step + 1)) : 1;
-	if (from === undefined || upTo === undefined || stepValue === undefined || stepValue <= 0 || upTo < from) {
-		return undefined;
-	}
-	// The last pass runs at the highest from + k*step not above upTo.
-	const last = from + Math.floor((upTo - from) / stepValue) * stepValue;
-	return {
-		name: node.controlVariable.toLowerCase(),
-		last,
-		span: node.controlVariableSpan ?? header,
-	};
-}
-
-interface ForBlockNodeLike {
-	each: boolean;
-	controlVariable?: string;
-	controlVariableSpan?: Span;
-	span: Span;
-}
-
-/**
  * Rule: a constant subscript proven outside a LOCAL fixed-size array's declared
  * bounds raises Run-time error '9' (oracle-verified `runtime006_*`). No-FP scope:
  * only local, single-dimension fixed arrays with a literal upper bound, accessed
@@ -1805,16 +1802,17 @@ export function checkFixedArraySubscriptBounds(
 			return fixed;
 		};
 		const excluded = redimTargetNamesInBody(source, member.body, activity);
-		const counters = forCounterLastValues(source, member.body, activity);
+		const counters = loopCountersAt(source, member.body, activity);
 		forEachStatement(member.body, (stmt) => {
 			for (const hit of inlineSplitIndexViolations(source, stmt.span)) {
 				push('arraySubscriptOutOfBounds', hit.message, hit.span);
 			}
 			const fixed = fixedAt(stmt);
-			if (fixed.size === 0) {
+			const stmtCounters = counters.get(stmt);
+			if (fixed.size === 0 && !stmtCounters) {
 				return;
 			}
-			for (const hit of fixedArraySubscriptViolations(source, stmt.span, fixed, excluded, counters.get(stmt))) {
+			for (const hit of fixedArraySubscriptViolations(source, stmt.span, fixed, excluded, stmtCounters)) {
 				push('arraySubscriptOutOfBounds', hit.message, hit.span);
 			}
 			for (const hit of boundIntrinsicDimensionViolations(source, stmt.span, fixed, excluded)) {

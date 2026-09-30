@@ -31,7 +31,7 @@ import {
 	type VbaRuntimeFunction,
 } from '../runtime/vbaRuntime';
 import { standaloneEmptyParenthesizedCallStatement } from '../call/callContext';
-import type { BodyNode, LeafStatementNode, ProcedureNode, Span } from '../parser/nodes';
+import type { BodyNode, ProcedureNode, Span } from '../parser/nodes';
 import { isLeafStatement } from '../parser/nodes';
 import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
 import type { buildModuleSymbols } from '../symbols/buildModuleSymbols';
@@ -2839,7 +2839,7 @@ export function knownLocalLiteralValuesAt(
 	proc: ProcedureNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
-): (stmt: LeafStatementNode | undefined) => ReadonlyMap<string, KnownLocalValue> {
+): (stmt: BodyNode | undefined) => ReadonlyMap<string, KnownLocalValue> {
 	const whole = knownLocalLiteralValues(source, proc, symbols, activity);
 	const locals = literalValueLocals(proc, symbols);
 	const reaching = locals.size === 0 ? new Map() : straightLineAssignments(source, proc.body, activity);
