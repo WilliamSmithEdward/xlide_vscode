@@ -111,6 +111,7 @@ import { checkImplementsMembers } from './rules/implementsMembers';
 import { checkStatementForms } from './rules/statementForms';
 import { checkStrayCharacters } from './rules/strayTokens';
 import { checkDirectiveForms } from './rules/directiveForms';
+import { checkMalformedLines } from './rules/malformedLines';
 import { checkMissingLibraryReference } from './rules/missingReference';
 import { getExcelObjectModel } from '../host/excelObjectModel';
 import {
@@ -188,6 +189,21 @@ export interface DiagnosticRuleEntry {
 }
 
 /**
+ * `push` for a rule that reads the raw text rather than the parse: the VBE
+ * does not lex an inactive `#If` branch, so an unclosed string or a
+ * continuation into a blank line there compiles (issue #234, measured in
+ * Excel 16.0).
+ */
+function activeOnly(ctx: RulePassContext, push: PushFn): PushFn {
+	const activity = ctx.activity;
+	return activity ? (code, message, span, ...rest) => {
+		if (!activity.isInactive(span)) {
+			push(code, message, span, ...rest);
+		}
+	} : push;
+}
+
+/**
  * Every active rule in invocation order. Rules are independent: each only
  * reads the shared context and reports through its own `push`, so an entry
  * can be understood (and profiled) in isolation.
@@ -195,11 +211,11 @@ export interface DiagnosticRuleEntry {
 export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'unterminatedStrings',
-		run: (ctx, push) => checkUnterminatedStrings(ctx.source, push),
+		run: (ctx, push) => checkUnterminatedStrings(ctx.source, activeOnly(ctx, push)),
 	},
 	{
 		name: 'invalidLineContinuations',
-		run: (ctx, push) => checkInvalidLineContinuations(ctx.source, push),
+		run: (ctx, push) => checkInvalidLineContinuations(ctx.source, activeOnly(ctx, push)),
 	},
 	{
 		name: 'duplicateProcedures',
@@ -361,7 +377,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'lineContinuationLimits',
-		run: (ctx, push) => checkLineContinuationLimits(ctx.source, ctx.mod, push),
+		run: (ctx, push) => checkLineContinuationLimits(ctx.source, ctx.mod, activeOnly(ctx, push)),
 	},
 	{
 		name: 'eventHandlerSignatures',
@@ -392,6 +408,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'strayCharacters',
 		run: (ctx, push) => checkStrayCharacters(ctx.source, ctx.activity, push),
+	},
+	{
+		name: 'malformedLines',
+		run: (ctx, push) => checkMalformedLines(ctx.source, ctx.mod, ctx.activity, push),
 	},
 	{
 		name: 'directiveForms',
