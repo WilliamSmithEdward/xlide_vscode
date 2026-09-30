@@ -306,6 +306,17 @@ export function parseProjectConditionalConstants(
 	return constants;
 }
 
+/**
+ * The constants a directive sees, the defaults for 64-bit Office included:
+ * what `conditionalCompilerConstants` gives for the environment the branch
+ * activity is decided in (issue #215).
+ */
+export function compilerConstantsWithDefaults(
+	env: ConditionalCompilationEnvironment = {},
+): Map<string, ConditionalValue> {
+	return conditionalCompilerConstants(effectiveConditionalCompilationEnvironment(env));
+}
+
 export function conditionalCompilerConstants(
 	env: ConditionalCompilationEnvironment = {},
 ): Map<string, ConditionalValue> {

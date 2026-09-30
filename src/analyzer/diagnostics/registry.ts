@@ -592,6 +592,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.source,
 			ctx.mod,
 			ctx.opts.conditionalCompilation,
+			ctx.opts.host,
 			ctx.activity,
 			push,
 		),

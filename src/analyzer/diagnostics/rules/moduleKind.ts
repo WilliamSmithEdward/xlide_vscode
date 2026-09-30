@@ -12,7 +12,7 @@ import {
 import {
 	type ConditionalActivityTracker,
 	type ConditionalCompilationEnvironment,
-	conditionalCompilerConstants,
+	compilerConstantsWithDefaults,
 } from '../../conditional/conditionalCompilation';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type {
@@ -554,14 +554,25 @@ function statementSegmentStarts(toks: readonly VbaToken[]): number[] {
 	return starts;
 }
 
+/**
+ * Rule: in 64-bit Office a Declare needs PtrSafe, "The code in this project
+ * must be updated for use on 64-bit systems". Win64 is read with the default
+ * compiler constants merged in, as the branch activity reads it, so an
+ * active Declare is checked unless the caller says Win64 is off (issue #215,
+ * measured in 64-bit Excel and Word). VB6 has no PtrSafe and is never 64-bit.
+ */
 export function checkDeclarePtrSafeForWin64(
 	source: string,
 	mod: ModuleNode,
 	conditionalCompilation: ConditionalCompilationEnvironment | undefined,
+	host: string | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
-	if (!conditionalValueTruthy(conditionalCompilerConstants(conditionalCompilation).get('win64'))) {
+	if (host?.toLowerCase() === 'vb6') {
+		return;
+	}
+	if (!conditionalValueTruthy(compilerConstantsWithDefaults(conditionalCompilation).get('win64'))) {
 		return;
 	}
 	for (const member of activeModuleMembers(mod, activity)) {

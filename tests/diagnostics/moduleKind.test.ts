@@ -355,7 +355,7 @@ describe('analyzeModule - RaiseEvent target binding', () => {
 });
 
 describe('analyzeModule - conditional Declare platform rules', () => {
-	it('requires PtrSafe only when the supplied compiler constants prove Win64', () => {
+	it('requires PtrSafe in 64-bit Office, the default, unless the caller says Win64 is off', () => {
 		const src = 'Public Declare Sub Sleep Lib "kernel32" (ByVal ms As LongPtr)\n';
 
 		const hits = byCode(
@@ -375,7 +375,27 @@ describe('analyzeModule - conditional Declare platform rules', () => {
 				'declare-missing-ptrsafe',
 			),
 		).toHaveLength(0);
-		expect(byCode(analyzeModule(src), 'declare-missing-ptrsafe')).toHaveLength(0);
+		// No constants supplied: the 64-bit defaults apply, as they do to the
+		// branch activity, and as the extension runs it (issue #215).
+		expect(byCode(analyzeModule(src), 'declare-missing-ptrsafe')).toHaveLength(1);
+		expect(byCode(analyzeModule(src, { conditionalCompilation: { projectConstants: {} } }), 'declare-missing-ptrsafe')).toHaveLength(1);
+		// VB6 has no PtrSafe.
+		expect(byCode(analyzeModule(src, { host: 'vb6' }), 'declare-missing-ptrsafe')).toHaveLength(0);
+	});
+
+	it('takes the arm 64-bit Office compiles (issue #215, measured in Excel and Word)', () => {
+		const LEGACY = 'Private Declare Function GetTickCount Lib "kernel32" () As Long\n';
+		const SAFE = 'Private Declare PtrSafe Function GetTickCount Lib "kernel32" () As LongPtr\n';
+		const hits = (src: string) => byCode(analyzeModule(src, { conditionalCompilation: { projectConstants: {} } }), 'declare-missing-ptrsafe').length;
+		expect(hits(LEGACY)).toBe(1);
+		expect(hits('Private Declare Sub Sleep Lib "kernel32" (ByVal ms As Long)\n')).toBe(1);
+		expect(hits(`#If VBA7 Then\n${LEGACY}#Else\n${SAFE}#End If\n`)).toBe(1);
+		expect(hits(`#If Win32 Then\n${LEGACY}#End If\n`)).toBe(1);
+		expect(hits(`#If Not VBA7 Then\n${LEGACY}#End If\n`)).toBe(1);
+		expect(hits(SAFE)).toBe(0);
+		expect(hits(`#If VBA7 Then\n${SAFE}#Else\n${LEGACY}#End If\n`)).toBe(0);
+		expect(hits(`#If Win64 Then\n${SAFE}#Else\n${LEGACY}#End If\n`)).toBe(0);
+		expect(hits(`#If Mac Then\n${LEGACY}#End If\n`)).toBe(0);
 	});
 
 	it('does not flag inactive legacy Declare branches under Win64', () => {

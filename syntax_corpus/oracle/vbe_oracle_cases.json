@@ -19463,6 +19463,106 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n#If Not Not VBA7 Then\r\n    Main = \"if\"\r\n#Else\r\n    Main = \"else\"\r\n#End If\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue215_01_compile",
+      "description": "Issue #215 case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue215_02_compile",
+      "description": "Issue #215 case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Declare Sub Sleep Lib \"kernel32\" (ByVal ms As Long)\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue215_03_compile",
+      "description": "Issue #215 case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As LongPtr\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue215_04_compile",
+      "description": "Issue #215 case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\n#If VBA7 Then\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As LongPtr\r\n#Else\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\n#End If\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue215_05_compile",
+      "description": "Issue #215 case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\n#If Win64 Then\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As LongPtr\r\n#Else\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\n#End If\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue215_06_compile",
+      "description": "Issue #215 case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\n#If VBA7 Then\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\n#Else\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As LongPtr\r\n#End If\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue215_07_compile",
+      "description": "Issue #215 case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\n#If Win32 Then\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\n#End If\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue215_08_compile",
+      "description": "Issue #215 case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\n#If Not VBA7 Then\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\n#End If\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue215_09_compile",
+      "description": "Issue #215 case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\n#If Mac Then\r\nPrivate Declare Function GetTickCount Lib \"kernel32\" () As Long\r\n#End If\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue215_10_compile",
+      "description": "Issue #215 case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Declare Function GetTickCount Lib \"kernel32\" () As Long\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

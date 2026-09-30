@@ -130,15 +130,22 @@
     },
     {
       "code": "declare-missing-ptrsafe",
-      "status": "spec-derived",
-      "sourceOfTruth": "VBA 7 Declare statement PtrSafe requirement for 64-bit Office",
-      "corpusInfluence": "none",
-      "assertedOracleCases": [],
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel and Word 16.0 (64-bit, build 20326) through pyVBAharness, full project compile, 2026-09-30 (issue #215)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue215_01_compile",
+        "issue215_02_compile",
+        "issue215_06_compile",
+        "issue215_07_compile",
+        "issue215_08_compile",
+        "issue215_10_compile"
+      ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_additional_edge_cases.md"
       ],
-      "notes": "Enabled only when supplied compiler constants prove Win64; unknown platform branches stay silent until an oracle-backed platform profile is configured.",
+      "notes": "An active Declare without PtrSafe in 64-bit Office, the analyzer's default platform, as in the branch activity: \"The code in this project must be updated for use on 64-bit systems\" (issue #215, measured in 64-bit Excel and Word). Silent when the caller says Win64 is off, in inactive branches such as #If VBA7 ... #Else, and for VB6, which has no PtrSafe.",
       "diagnosticKind": "compile-error"
     },
     {
