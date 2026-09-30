@@ -295,6 +295,7 @@ describe('VBA language configuration', () => {
 			'xlide.officeIntegration.reopenReadOnlyAfterSave',
 			'xlide.officeIntegration.trackOpenedFiles',
 			'xlide.performance.trace',
+			'xlide.vb6.codePage',
 		]);
 
 		const deprecated = xlideSettings.filter(([, setting]) => setting.deprecationMessage !== undefined);

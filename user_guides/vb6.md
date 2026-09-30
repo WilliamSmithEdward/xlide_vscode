@@ -21,6 +21,24 @@ The file is the module. There is no virtual copy and no import step: opening a
 module opens the `.bas`, `.cls`, `.frm`, `.ctl` or `.pag` file itself, and
 saving it saves that file.
 
+## Text encoding
+
+VB6 saved its files in the ANSI code page of the Windows it ran on, and the
+files do not say which that was. XLIDE reads and writes them in this machine's
+ANSI code page, because a project is usually edited where it was written: a
+project saved on a Russian Windows is Windows-1251, one from a Japanese Windows
+is 932.
+
+A project brought from a machine with a different language needs its code page
+named. Set `xlide.vb6.codePage` to it, for example `1251`, and the tree reloads
+the project in that page. A file with a UTF-8 byte-order mark is read as UTF-8
+whatever the setting says.
+
+The setting covers the tree, the analyzer, the designer and Git compare. A
+module opened in the editor is an ordinary file, so VS Code decodes it with
+its own `files.encoding` setting. Set that to the same code page, for example
+`windows1251`, in the VB6 project's workspace settings.
+
 ## Language services
 
 A module that a discovered project claims is analyzed as part of that project,

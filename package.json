@@ -255,6 +255,13 @@
           "default": "tree",
           "description": "How the XLIDE explorer arranges a project's modules. Tree lists them flat. Folders groups them by the '@Folder(\"Name.Sub\")' comment in each module's declarations, the Rubberduck convention. The Tree and Folders buttons above the explorer switch it too."
         },
+        "xlide.vb6.codePage": {
+          "type": "string",
+          "pattern": "^\\d*$",
+          "scope": "machine",
+          "default": "",
+          "description": "The Windows code page VB6 project files are read and written in, such as 1251 for a project saved on a Russian Windows or 932 for a Japanese one. Leave it empty to use this machine's ANSI code page, which is the one VB6 saves in, or Windows-1252 where there is none to ask. A file with a UTF-8 byte-order mark is read as UTF-8 whatever this says."
+        },
         "xlide.docs.enabled": {
           "type": "boolean",
           "scope": "machine",

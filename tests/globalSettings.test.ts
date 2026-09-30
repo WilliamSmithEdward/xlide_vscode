@@ -29,6 +29,7 @@ const validSettings = {
     'editor.mirrorCommentSpacing': true,
     'explorer.autoExpandCollapse': true,
     'explorer.view': 'tree',
+    'vb6.codePage': '',
     'docs.enabled': true,
     'docs.metadataGlob': '**/*.vbref.xml',
     'performance.trace': false,
@@ -157,6 +158,7 @@ describe('globalSettings', () => {
             'xlide.officeIntegration.reopenReadOnlyAfterSave',
             'xlide.officeIntegration.trackOpenedFiles',
             'xlide.performance.trace',
+            'xlide.vb6.codePage',
         ]);
         expect(settings.find((setting) => setting.key === 'xlide.docs.metadataGlob')).toMatchObject({
             value: 'refs/**/*.vbref.xml',

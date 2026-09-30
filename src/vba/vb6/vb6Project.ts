@@ -7,7 +7,7 @@
 
 import { hostPlatform } from '../hostPlatform';
 import * as path from 'path';
-import { decodeCodePage, encodeCodePage } from '../codePages';
+import { codePageLabel, decodeCodePage, encodeCodePage } from '../codePages';
 import { splitFrmSource } from '../formDesigner';
 import { atomicWrite } from '../atomicWrite';
 import {
@@ -23,11 +23,37 @@ import { frmMembers, parseFrmHeader, type FrmHeader } from './frmHeader';
 import { parseVbpManifest, type VbpManifest, type VbpModuleKind, type VbpModuleRef } from './vbpProject';
 
 /**
- * VB6 saved source in the system ANSI code page; on the machines that wrote
- * the projects this engine reads that is Windows-1252. A UTF-8 byte-order
- * mark, which a later editor may have added, overrides it.
+ * VB6 saved source in the system ANSI code page, and the bytes do not say
+ * which it was: a project from a Russian Windows is cp1251, from a Japanese
+ * one cp932 (issue #205). The page is the one the xlide.vb6.codePage setting
+ * names, else the machine's own, since a project is usually edited where it
+ * was written, else Windows-1252 where there is no machine to ask. A UTF-8
+ * byte-order mark, which a later editor may have added, overrides all three.
  */
-export const VB6_CODE_PAGE = 1252;
+export const VB6_DEFAULT_CODE_PAGE = 1252;
+
+let configuredCodePage: number | undefined;
+
+/**
+ * Sets the page the xlide.vb6.codePage setting names, or undefined for the
+ * machine's. A change drops every project read in the old page.
+ */
+export function setVb6CodePage(codePage: number | undefined): void {
+	if (codePage !== configuredCodePage) {
+		configuredCodePage = codePage;
+		projectCache.clear();
+	}
+}
+
+/** The page VB6 files are read and written in; see VB6_DEFAULT_CODE_PAGE. */
+export function vb6CodePage(): number {
+	for (const page of [configuredCodePage, hostPlatform().ansiCodePage?.()]) {
+		if (page !== undefined && codePageLabel(page) !== undefined) {
+			return page;
+		}
+	}
+	return VB6_DEFAULT_CODE_PAGE;
+}
 
 /** The module kinds a project can hold. The last three are recognized and
  * listed, but their designers are opaque to the engine for now. */
@@ -88,7 +114,7 @@ interface DecodedFile {
 function readTextFile(filePath: string): DecodedFile {
 	const bytes = hostPlatform().readFile(filePath);
 	const bom = bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
-	const text = bom ? bytes.subarray(3).toString('utf8') : decodeCodePage(bytes, VB6_CODE_PAGE);
+	const text = bom ? bytes.subarray(3).toString('utf8') : decodeCodePage(bytes, vb6CodePage());
 	return { text, bom, eol: text.includes('\r\n') ? '\r\n' : '\n' };
 }
 
@@ -96,7 +122,7 @@ function encodeTextFile(text: string, shape: DecodedFile): Buffer {
 	if (shape.bom) {
 		return Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(text, 'utf8')]);
 	}
-	return encodeCodePage(text, VB6_CODE_PAGE);
+	return encodeCodePage(text, vb6CodePage());
 }
 
 /**

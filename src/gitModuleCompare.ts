@@ -22,7 +22,7 @@ import { resolveProjectPath, statusMessage } from './commands/shared';
 import { isVb6ProjectPath } from './macroContainerUi';
 import { readModulesFromBuffer, type ModuleEntry } from './vba/projectService';
 import { decodeCodePage } from './vba/codePages';
-import { VB6_CODE_PAGE } from './vba/vb6/vb6Project';
+import { vb6CodePage } from './vba/vb6/vb6Project';
 import {
 	GitUnavailableError,
 	gitFileAtRevision,
@@ -102,7 +102,7 @@ export function gitModuleCompareDeps(bridge: ProjectEngine): GitModuleCompareDep
 					const bytes = fileRef ? await gitFileAtRevision(fileRef, revision, this.git) : undefined;
 					if (bytes) {
 						// A VB6 file is ANSI, and git keeps its bytes as they are.
-						out.push({ name: module.name, source: decodeCodePage(bytes, VB6_CODE_PAGE), filePath: module.filePath });
+						out.push({ name: module.name, source: decodeCodePage(bytes, vb6CodePage()), filePath: module.filePath });
 					}
 				}
 				return out;

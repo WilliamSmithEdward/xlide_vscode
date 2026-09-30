@@ -18,6 +18,7 @@ import {
     modulesWithNoTabLeft,
 } from './vbaDocumentLocation';
 import { readFolderAnnotation } from './vba/folderAnnotation';
+import { setVb6CodePage } from './vba/vb6/vb6Project';
 import { platformFeatures } from './platformFeatures';
 import { registerCommands } from './commands';
 import { registerVbaLanguageProviders } from './vbaLanguageProviders';
@@ -36,6 +37,7 @@ import {
     setXlideGlobalSettingValue,
     xlideExplorerAutoExpandCollapseFromConfig,
     xlideExplorerViewFromConfig,
+    xlideVb6CodePageFromConfig,
     xlidePerformanceTraceFromConfig,
     type XlideExplorerView,
 } from './globalSettings';
@@ -172,6 +174,20 @@ export function activate(context: vscode.ExtensionContext): void {
         void vscode.commands.executeCommand('setContext', 'xlide.explorerView', next);
     };
     applyExplorerView();
+
+    // The code page VB6 files are read and written in (issue #205): the
+    // setting when it names one, else the machine's own.
+    const applyVb6CodePage = (): void => {
+        const page = Number(xlideVb6CodePageFromConfig(vscode.workspace.getConfiguration('xlide')).value);
+        setVb6CodePage(Number.isInteger(page) && page > 0 ? page : undefined);
+    };
+    applyVb6CodePage();
+    context.subscriptions.push(vscode.workspace.onDidChangeConfiguration((e) => {
+        if (e.affectsConfiguration('xlide.vb6.codePage')) {
+            applyVb6CodePage();
+            explorer.refresh();
+        }
+    }));
 
     const setExplorerView = createExplorerViewSetter({
         applyView: applyExplorerView,

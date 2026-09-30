@@ -47,6 +47,13 @@ export interface HostPlatform {
 
 	/** Cryptographically strong bytes. Used only to mint GUIDs. */
 	randomBytes(count: number): Buffer;
+
+	/**
+	 * The machine's ANSI code page (GetACP), which VB6 saved its files in:
+	 * 1251 on a Russian Windows, 932 on a Japanese one. Undefined where there
+	 * is no Windows to ask.
+	 */
+	ansiCodePage?(): number | undefined;
 }
 
 let current: HostPlatform = platformHost;

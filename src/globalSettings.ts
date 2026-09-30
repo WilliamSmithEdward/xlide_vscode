@@ -57,6 +57,7 @@ interface XlideGlobalSettingValues {
     'editor.mirrorCommentSpacing': boolean;
     'explorer.autoExpandCollapse': boolean;
     'explorer.view': XlideExplorerView;
+    'vb6.codePage': string;
     'docs.enabled': boolean;
     'docs.metadataGlob': string;
     'analysis.visibleSeverities': AnalysisSeverityFilter[];
@@ -336,6 +337,18 @@ const XLIDE_GLOBAL_SETTINGS: {
             control: { kind: 'enum', values: EXPLORER_VIEW_VALUES },
         },
     },
+    'vb6.codePage': {
+        defaultValue: () => '',
+        normalize: (value) => (typeof value === 'string' && /^\d*$/.test(value.trim()) ? value.trim() : ''),
+        validate: expectString,
+        manifest: { type: 'string', pattern: '^\\d*$' },
+        webviewCard: {
+            section: 'editor',
+            label: 'VB6 Code Page',
+            description: "The Windows code page VB6 project files are read and written in, such as 1251 for a project saved on a Russian Windows or 932 for a Japanese one. Leave it empty to use this machine's ANSI code page, which is the one VB6 saves in. A file with a UTF-8 byte-order mark is read as UTF-8 whatever this says.",
+            control: { kind: 'text' },
+        },
+    },
     'docs.enabled': {
         defaultValue: () => true,
         normalize: normalizeBoolean(true),
@@ -553,6 +566,10 @@ function xlideExplorerAutoExpandCollapseFromConfig(config: vscode.WorkspaceConfi
 
 function xlideExplorerViewFromConfig(config: vscode.WorkspaceConfiguration) {
     return xlideGlobalSettingFromConfig(config, 'explorer.view');
+}
+
+function xlideVb6CodePageFromConfig(config: vscode.WorkspaceConfiguration) {
+    return xlideGlobalSettingFromConfig(config, 'vb6.codePage');
 }
 
 
@@ -879,4 +896,5 @@ export {
     xlideGlobalSettingCards,
     xlideGlobalSettingManifest,
     xlidePerformanceTraceFromConfig,
+    xlideVb6CodePageFromConfig,
 };

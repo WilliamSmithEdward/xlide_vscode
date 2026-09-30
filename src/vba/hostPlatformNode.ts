@@ -1,11 +1,13 @@
 // The desktop platform: node:fs and node:crypto, which is what every
-// non-browser build and the whole test suite run on.
+// non-browser build and the whole test suite run on, and on Windows the
+// registry for the machine's ANSI code page.
 //
 // The browser build never reaches this module - webBuild.js aliases it to
 // hostPlatformWeb.ts - which is what keeps node:fs out of the web bundle.
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { execFileSync } from 'child_process';
 import { randomBytes } from 'crypto';
 import type { HostFileStat, HostPlatform } from './hostPlatform';
 
@@ -75,4 +77,33 @@ export const platformHost: HostPlatform = {
 	randomBytes(count: number): Buffer {
 		return randomBytes(count);
 	},
+
+	ansiCodePage(): number | undefined {
+		machineCodePage ??= { page: readMachineCodePage() };
+		return machineCodePage.page;
+	},
 };
+
+let machineCodePage: { page: number | undefined } | undefined;
+
+/**
+ * GetACP, read where Windows keeps it: the ACP value under the Nls\CodePage
+ * key. Node has no binding for the call itself, and the registry value is
+ * what it returns. Read once; undefined off Windows or on any failure.
+ */
+function readMachineCodePage(): number | undefined {
+	if (process.platform !== 'win32') {
+		return undefined;
+	}
+	try {
+		const output = execFileSync(
+			'reg',
+			['query', 'HKLM\\SYSTEM\\CurrentControlSet\\Control\\Nls\\CodePage', '/v', 'ACP'],
+			{ encoding: 'utf8', timeout: 5000, windowsHide: true },
+		);
+		const page = Number(/\bACP\s+REG_SZ\s+(\d+)/.exec(output)?.[1]);
+		return Number.isInteger(page) && page > 0 ? page : undefined;
+	} catch {
+		return undefined;
+	}
+}

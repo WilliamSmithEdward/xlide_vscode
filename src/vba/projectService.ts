@@ -110,7 +110,7 @@ import {
 	validateVb6Project,
 	writeVb6Module,
 	type Vb6ModuleEntry,
-	VB6_CODE_PAGE,
+	vb6CodePage,
 } from './vb6/vb6Project';
 import { frmFrxRefs, parseFrmHeader, printFrmHeader, type FrmHeader } from './vb6/frmHeader';
 import { readFrxRecords, type FrxValue } from './vb6/frx';
@@ -808,7 +808,7 @@ export function applyVb6FormDesignerOp(
 		storeString: (value, header) => {
 			const file = vb6SidecarFileFor(modulePath, header);
 			const base = readVb6Sidecar(path.join(path.dirname(modulePath), file)).length;
-			const bytes = encodeCodePage(value, VB6_CODE_PAGE);
+			const bytes = encodeCodePage(value, vb6CodePage());
 			const long = bytes.length > 255;
 			const length = long ? Buffer.alloc(4) : Buffer.from([bytes.length]);
 			if (long) { length.writeUInt32LE(bytes.length, 0); }
@@ -862,7 +862,7 @@ function vb6FrxLookup(header: FrmHeader, dir: string, pending?: Vb6PendingSideca
 		return undefined;
 	}
 	const byOffset = new Map<number, FrxValue>();
-	for (const record of readFrxRecords(header, blob, (b) => decodeCodePage(b, VB6_CODE_PAGE))) {
+	for (const record of readFrxRecords(header, blob, (b) => decodeCodePage(b, vb6CodePage()))) {
 		byOffset.set(record.offset, record.value);
 	}
 	return (ref) => (ref.file.toLowerCase() === file.toLowerCase() ? byOffset.get(ref.offset) : undefined);
