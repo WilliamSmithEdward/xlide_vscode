@@ -143,6 +143,7 @@ import {
 	checkStatementContext,
 	checkUndefinedLabels,
 } from './rules/controlFlow';
+import { checkDeclarationOrder } from './rules/declarationOrder';
 import {
 	checkUnreachableCode,
 	checkUnusedDeclarations,
@@ -626,6 +627,18 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'duplicateLabels',
 		run: (ctx, push) => checkDuplicateLabels(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'declarationOrder',
+		run: (ctx, push) => checkDeclarationOrder(
+			ctx.source,
+			ctx.mod,
+			ctx.opts.moduleName,
+			ctx.opts.projectIntegerConstants,
+			ctx.opts.projectClassMembers,
+			ctx.activity,
+			push,
+		),
 	},
 	{
 		name: 'lineNumberRange',

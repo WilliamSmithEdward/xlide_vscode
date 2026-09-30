@@ -1396,6 +1396,52 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "declaration-forward-reference",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-30 (issue #211): asserted cases from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue211_01_compile",
+        "issue211_03_compile",
+        "issue211_04_compile",
+        "issue211_05_compile",
+        "issue211_06_compile",
+        "issue211_07_compile",
+        "issue211_08_compile",
+        "issue211_09_compile",
+        "issue211_12_compile",
+        "issue211_13_compile",
+        "issue211_14_compile",
+        "issue211_17_compile",
+        "issue211_23_compile",
+        "issue211_24_compile",
+        "issue211_25_compile",
+        "issue211_27_compile",
+        "issue211_31_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "A module-level Const, Enum member, array bound or String * N length that uses a Const or Enum member declared further down its module, or itself (\"Constant expression required\"), and a Type member of a Type declared further down (\"Forward reference to user-defined type\"). A variable of a later Type, the reverse order, and order across modules compile.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "circular-declaration-dependency",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-30 (issue #211): asserted cases from the issue's measured corpus",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue211_15_compile",
+        "issue211_16_compile",
+        "issue211_18_compile",
+        "issue211_19_compile",
+        "issue211_29_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "A Type with a member of its own type, and a cycle of Consts, Enum members or Types through other modules (\"Circular dependencies between modules\"). Reported in each module on the cycle. A cycle inside one module is a forward reference instead.",
+      "diagnosticKind": "compile-error"
+    },
+    {
       "code": "enum-member-type-mismatch",
       "status": "vbe-oracle-verified",
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-30 (issue #210): asserted cases from the issue's measured corpus",
