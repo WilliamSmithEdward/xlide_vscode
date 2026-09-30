@@ -1231,7 +1231,7 @@ describe('ProjectIndex project class members', () => {
 
 		const notifier = index.projectClassMembers().find((t) => t.name === 'Notifier');
 		expect(notifier?.members.map((member) => `${member.name}:${member.kind}:${member.signature}`))
-			.toEqual(['Changed:event:Changed(value As Long)']);
+			.toEqual(['Changed:event:Changed(ByVal value As Long)']);
 	});
 
 	it('records module-level Implements statements on project class member surfaces', () => {

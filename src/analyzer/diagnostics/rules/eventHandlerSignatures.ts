@@ -21,6 +21,11 @@
 // Worksheet_, Chart_, Word's Document_), a UserForm's (UserForm_) and its
 // controls'. The events come from the type libraries
 // (host/eventSignaturesData.ts).
+//
+// A WithEvents variable of a project class takes the events the class
+// declares (issue #220, measured in Excel 16.0). The same checks hold, an
+// empty handler compiles here too, and a parameter of a project Enum may be
+// declared As Long.
 
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
@@ -60,6 +65,7 @@ export function checkEventHandlerSignatures(
 ): void {
 	// Each prefix a handler may take, with the classes whose events it raises.
 	const sources = new Map<string, string[]>();
+	const projectSources = new Map<string, { owner: string; events: Map<string, { name: string; params: string }> }>();
 	const add = (prefix: string, ...classes: string[]): void => {
 		const known = classes.filter((className) => EVENTS_BY_CLASS.has(className.toLowerCase()));
 		if (known.length > 0) {
@@ -81,6 +87,11 @@ export function checkEventHandlerSignatures(
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'VariableGroup' && member.withEvents) {
 			for (const decl of member.declarations) {
+				const project = projectEventsOf(decl.asType, memberCtx);
+				if (project) {
+					projectSources.set(decl.name.toLowerCase(), project);
+					continue;
+				}
 				const className = eventClassOf(decl.asType, memberCtx);
 				if (className) {
 					add(decl.name, className);
@@ -90,9 +101,10 @@ export function checkEventHandlerSignatures(
 			procedures.push(member);
 		}
 	}
-	if (sources.size === 0) {
+	if (sources.size === 0 && projectSources.size === 0) {
 		return;
 	}
+	const projectEnums = new Set((memberCtx.projectClassMembers ?? []).filter((type) => type.kind === 'enum').map((type) => type.name.toLowerCase()));
 	for (const proc of procedures) {
 		// The VBE checks a handler only when its body holds a statement.
 		if (proc.body.length === 0) {
@@ -102,15 +114,29 @@ export function checkEventHandlerSignatures(
 		if (underscore <= 0) {
 			continue;
 		}
-		const classes = sources.get(proc.name.slice(0, underscore).toLowerCase());
+		const prefix = proc.name.slice(0, underscore).toLowerCase();
 		const eventName = proc.name.slice(underscore + 1).toLowerCase();
+		const projectSource = projectSources.get(prefix);
+		const projectEvent = projectSource?.events.get(eventName);
+		if (projectSource && projectEvent) {
+			const problem = mismatch(proc, projectEvent.params, (type) => projectEnums.has(bareType(type)));
+			if (problem) {
+				push(
+					'eventHandlerSignature',
+					`'${proc.name}' does not match the event ${projectSource.owner}.${projectEvent.name}(${projectEvent.params}): ${problem}. This is a VBE compile error: Procedure declaration does not match description of event or procedure having the same name.`,
+					proc.nameSpan ?? proc.span,
+				);
+			}
+			continue;
+		}
+		const classes = sources.get(prefix);
 		const found = classes
 			?.map((className) => ({ owner: EVENTS_BY_CLASS.get(className.toLowerCase())!, event: EVENTS_BY_CLASS.get(className.toLowerCase())!.events.get(eventName) }))
 			.find((entry) => entry.event !== undefined);
 		if (!found?.event) {
 			continue;
 		}
-		const problem = mismatch(proc, found.event.params);
+		const problem = mismatch(proc, found.event.params, (type) => /^(xl|wd|pp|mso|fm)[a-z]/i.test(type));
 		if (problem) {
 			const owner = found.owner.name.slice(found.owner.name.indexOf('.') + 1);
 			push(
@@ -120,6 +146,30 @@ export function checkEventHandlerSignatures(
 			);
 		}
 	}
+}
+
+/**
+ * The events a project class declares, when a WithEvents variable's type
+ * names one: the project's types come before the libraries', as in VBA.
+ */
+function projectEventsOf(
+	asType: string | undefined,
+	memberCtx: MemberCompletionContext,
+): { owner: string; events: Map<string, { name: string; params: string }> } | undefined {
+	const bare = asType?.trim().slice(asType.trim().lastIndexOf('.') + 1).toLowerCase();
+	const type = bare ? (memberCtx.projectClassMembers ?? []).find((candidate) => candidate.name.toLowerCase() === bare) : undefined;
+	if (!type) {
+		return undefined;
+	}
+	const events = new Map<string, { name: string; params: string }>();
+	for (const member of type.members) {
+		const signature = member.signature ?? '';
+		const open = signature.indexOf('(');
+		if (member.kind === 'event' && open >= 0 && signature.endsWith(')')) {
+			events.set(member.name.toLowerCase(), { name: member.name, params: signature.slice(open + 1, -1) });
+		}
+	}
+	return { owner: type.name, events };
 }
 
 /** The class with events a WithEvents variable's declared type names, or undefined. */
@@ -138,6 +188,7 @@ function eventClassOf(asType: string | undefined, memberCtx: MemberCompletionCon
 interface EventParam {
 	byVal: boolean;
 	type: string;
+	isArray: boolean;
 }
 
 function parseEventParams(params: string): EventParam[] {
@@ -147,12 +198,13 @@ function parseEventParams(params: string): EventParam[] {
 	return params.split(',').map((part) => {
 		const text = part.trim();
 		const typeMatch = /\sAs\s+(\S+)$/i.exec(text);
-		return { byVal: /^ByVal\s/i.test(text), type: typeMatch ? typeMatch[1] : 'Variant' };
+		const name = text.replace(/^(?:ByVal|ByRef)\s+/i, '').split(/\s/)[0];
+		return { byVal: /^ByVal\s/i.test(text), type: typeMatch ? typeMatch[1] : 'Variant', isArray: name.endsWith('()') };
 	});
 }
 
 /** Why the handler differs from the event, or undefined when it matches. */
-function mismatch(proc: ProcedureNode, eventParams: string): string | undefined {
+function mismatch(proc: ProcedureNode, eventParams: string, isEnum: (type: string) => boolean): string | undefined {
 	if (proc.procKind !== 'Sub') {
 		return 'an event handler is a Sub';
 	}
@@ -168,13 +220,13 @@ function mismatch(proc: ProcedureNode, eventParams: string): string | undefined 
 		if (param.optional || param.paramArray) {
 			return `${label} is ${param.optional ? 'Optional' : 'a ParamArray'}, and the event's is not`;
 		}
-		if (param.isArray) {
-			return `${label} is an array, and the event's is not`;
+		if (Boolean(param.isArray) !== want.isArray) {
+			return param.isArray ? `${label} is an array, and the event's is not` : `${label} is not an array, and the event's is`;
 		}
 		if (param.byVal !== want.byVal) {
 			return want.byVal ? `${label} must be ByVal` : `${label} must be ByRef, not ByVal`;
 		}
-		if (!sameType(param, want.type)) {
+		if (!sameType(param, want.type, isEnum)) {
 			return `${label} is ${declaredType(param)}, and the event's is ${want.type}`;
 		}
 	}
@@ -187,10 +239,10 @@ function declaredType(param: ParameterNode): string {
 
 /**
  * Whether a parameter's type is the event's. A library prefix names the same
- * type, and an Office or MSForms enum (XlXmlExportResult, fmAction) may be
- * declared As Long, as measured.
+ * type, and an enum - an Office or MSForms one (XlXmlExportResult, fmAction)
+ * or the project's own - may be declared As Long, as measured.
  */
-function sameType(param: ParameterNode, expected: string): boolean {
+function sameType(param: ParameterNode, expected: string, isEnum: (type: string) => boolean): boolean {
 	const suffixTypes: Readonly<Record<string, string>> = { '%': 'integer', '&': 'long', '!': 'single', '#': 'double', '@': 'currency', '$': 'string' };
 	const actual = param.asType
 		? bareType(param.asType)
@@ -199,7 +251,7 @@ function sameType(param: ParameterNode, expected: string): boolean {
 	if (actual === want) {
 		return true;
 	}
-	return actual === 'long' && /^(xl|wd|pp|mso|fm)[a-z]/i.test(expected);
+	return actual === 'long' && isEnum(expected);
 }
 
 function bareType(type: string): string {

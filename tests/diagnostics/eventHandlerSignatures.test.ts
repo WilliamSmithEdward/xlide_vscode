@@ -8,6 +8,8 @@ import { describe, it, expect } from 'vitest';
 import { analyzeModule } from '../../src/analyzer';
 import { HOST_EVENT_SIGNATURES } from '../../src/analyzer/host/eventSignaturesData';
 import { byCode, expectDiagnostic } from '../helpers/diagnostics';
+import { analyzeProjectModule } from './helpers';
+import type { VbaDiagnostic } from '../../src/analyzer';
 
 const CODE = 'event-handler-signature';
 
@@ -83,5 +85,55 @@ describe('event-handler-signature (issue #195)', () => {
 		expect(HOST_EVENT_SIGNATURES['Excel.Application'].SheetChange).toBe('ByVal Sh As Object, ByVal Target As Range');
 		expect(HOST_EVENT_SIGNATURES['Excel.Workbook'].BeforeClose).toBe('Cancel As Boolean');
 		expect(HOST_EVENT_SIGNATURES['MSForms.Control'].Exit).toBe('ByVal Cancel As ReturnBoolean');
+	});
+});
+
+describe('handlers for an event the project declares (issue #220)', () => {
+	const class2 = 'Public Enum Kind\n    kA = 1\nEnd Enum\nPublic Event Changed(ByVal v As Long, s As String)\nPublic Event Done(x)\nPublic Event Got(a() As Long)\nPublic Event Picked(ByVal k As Kind)\nPublic Event Sent(ByVal c As Collection)\n';
+	const handler = (event: string, params: string, body = '    Debug.Print 1\n'): VbaDiagnostic[] => {
+		const class1 = `Private WithEvents src As Class2\nPrivate Sub src_${event}(${params})\n${body}End Sub\n`;
+		return byCode(analyzeProjectModule(class1, [
+			{ moduleName: 'Class1', source: class1, type: 'class' },
+			{ moduleName: 'Class2', source: class2, type: 'class' },
+		], 'Class1'), 'event-handler-signature');
+	};
+
+	it.each([
+		['Changed', 'v As Long, s As String', 'must be ByVal'],
+		['Changed', 'ByVal v As Long, ByVal s As String', 'must be ByRef'],
+		['Changed', 'ByVal v As Integer, s As String', 'Integer'],
+		['Changed', 'ByVal v As Variant, s As Variant', 'Variant'],
+		['Changed', 'ByVal v As Long', 'passes 2'],
+		['Changed', 'ByVal v As Long, s As String, ByVal x As Long', 'passes 2'],
+		['Changed', '', 'passes 2'],
+		['Changed', 'ByVal v As Long, Optional s As String', 'Optional'],
+		['Done', 'x As Long', 'Long'],
+		['Got', 'a As Long', 'not an array'],
+		['Sent', 'ByVal c As Object', 'Object'],
+	])('flags src_%s(%s)', (event, params, text) => {
+		const hits = handler(event, params);
+		expect(hits).toHaveLength(1);
+		expect(hits[0].message).toContain(text);
+		expect(hits[0].message).toContain('Class2.');
+	});
+
+	it.each([
+		['Changed', 'ByVal v As Long, s As String'],
+		['Changed', 'ByVal n As Long, t As String'],
+		['Changed', 'ByVal v As Long, ByRef s As String'],
+		['Changed', 'ByVal v&, s$'],
+		['Done', 'x'],
+		['Done', 'x As Variant'],
+		['Got', 'a() As Long'],
+		['Picked', 'ByVal k As Long'],
+		['Picked', 'ByVal k As Kind'],
+		['Sent', 'ByVal c As Collection'],
+	])('stays quiet on src_%s(%s)', (event, params) => {
+		expect(handler(event, params)).toHaveLength(0);
+	});
+
+	it('stays quiet on an empty handler that does not match, as for a library event', () => {
+		expect(handler('Changed', 'v As Long, s As String', '')).toHaveLength(0);
+		expect(handler('Changed', '', '')).toHaveLength(0);
 	});
 });

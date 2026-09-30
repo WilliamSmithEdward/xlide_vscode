@@ -22181,6 +22181,708 @@
       ],
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue220_01_compile",
+      "description": "Issue #220 project-event handler, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Changed(ByVal v As Long, s As String)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Changed(ByVal v As Long, s As String)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue220_02_compile",
+      "description": "Issue #220 project-event handler, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Changed(ByVal v As Long, s As String)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Changed(ByVal n As Long, t As String)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue220_03_compile",
+      "description": "Issue #220 project-event handler, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Changed(ByVal v As Long, s As String)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Changed(ByVal v As Long, ByRef s As String)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue220_04_compile",
+      "description": "Issue #220 project-event handler, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Changed(ByVal v As Long, s As String)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Changed(v As Long, s As String)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue220_05_compile",
+      "description": "Issue #220 project-event handler, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Changed(ByVal v As Long, s As String)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Changed(ByVal v As Long, ByVal s As String)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue220_06_compile",
+      "description": "Issue #220 project-event handler, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Changed(ByVal v As Long, s As String)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Changed(ByVal v As Integer, s As String)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue220_07_compile",
+      "description": "Issue #220 project-event handler, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Changed(ByVal v As Long, s As String)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Changed(ByVal v As Variant, s As Variant)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue220_08_compile",
+      "description": "Issue #220 project-event handler, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Changed(ByVal v As Long, s As String)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Changed(ByVal v As Long)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue220_09_compile",
+      "description": "Issue #220 project-event handler, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Changed(ByVal v As Long, s As String)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Changed(ByVal v As Long, s As String, ByVal x As Long)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue220_10_compile",
+      "description": "Issue #220 project-event handler, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Changed(ByVal v As Long, s As String)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Changed()\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue220_11_compile",
+      "description": "Issue #220 project-event handler, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Changed(ByVal v As Long, s As String)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Changed(v As Long, s As String)\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue220_12_compile",
+      "description": "Issue #220 project-event handler, case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Changed(ByVal v As Long, s As String)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Changed()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue220_13_compile",
+      "description": "Issue #220 project-event handler, case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Changed(ByVal v As Long, s As String)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Changed(ByVal v As Long, s As String)\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue220_14_compile",
+      "description": "Issue #220 project-event handler, case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Changed(ByVal v As Long, s As String)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Changed(ByVal v&, s$)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue220_15_compile",
+      "description": "Issue #220 project-event handler, case 15, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Changed(ByVal v As Long, s As String)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Changed(ByVal v As Long, Optional s As String)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue220_16_compile",
+      "description": "Issue #220 project-event handler, case 16, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Done(x)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Done(x)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue220_17_compile",
+      "description": "Issue #220 project-event handler, case 17, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Done(x)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Done(x As Variant)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue220_18_compile",
+      "description": "Issue #220 project-event handler, case 18, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Done(x)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Done(x As Long)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue220_19_compile",
+      "description": "Issue #220 project-event handler, case 19, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Done()\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Done()\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue220_20_compile",
+      "description": "Issue #220 project-event handler, case 20, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Done()\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Done(x)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue220_21_compile",
+      "description": "Issue #220 project-event handler, case 21, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Got(a() As Long)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Got(a() As Long)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue220_22_compile",
+      "description": "Issue #220 project-event handler, case 22, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Got(a() As Long)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Got(a As Long)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue220_23_compile",
+      "description": "Issue #220 project-event handler, case 23, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Picked(ByVal k As Kind)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Picked(ByVal k As Long)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue220_24_compile",
+      "description": "Issue #220 project-event handler, case 24, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Picked(ByVal k As Kind)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Picked(ByVal k As Kind)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue220_25_compile",
+      "description": "Issue #220 project-event handler, case 25, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Sent(ByVal c As Collection)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Sent(ByVal c As Object)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue220_26_compile",
+      "description": "Issue #220 project-event handler, case 26, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Public Function Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class2",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Enum Kind\r\n    kA = 1\r\nEnd Enum\r\nPublic Event Sent(ByVal c As Collection)\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate WithEvents src As Class2\r\nPrivate Sub src_Sent(ByVal c As Collection)\r\n    Debug.Print 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }
