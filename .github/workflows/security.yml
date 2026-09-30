@@ -129,7 +129,9 @@ jobs:
 
   release-report:
     name: Attach release report
-    if: always() && github.event_name == 'release'
+    # Started by hand, this is a dry run: the files it would attach stay on
+    # the run as the release-preview artifact.
+    if: always() && (github.event_name == 'release' || github.event_name == 'workflow_dispatch')
     needs: [codeql, semgrep, dependencies]
     runs-on: ubuntu-24.04
     permissions:
@@ -146,14 +148,25 @@ jobs:
           CODEQL_RESULT: ${{ needs.codeql.result }}
           SEMGREP_RESULT: ${{ needs.semgrep.result }}
           AUDIT_RESULT: ${{ needs.dependencies.result }}
-          TAG: ${{ github.event.release.tag_name }}
+          TAG: ${{ github.event.release.tag_name || 'dry run' }}
         run: node .github/scripts/security-report.mjs reports security-report.md
+      - name: Bundle the SARIF
+        run: (cd reports && zip -qr ../security-sarif.zip .)
+      - name: Keep what the release would carry
+        if: github.event_name != 'release'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-preview
+          path: |
+            security-report.md
+            security-sarif.zip
+          if-no-files-found: error
       - name: Attach to the release
+        if: github.event_name == 'release'
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.event.release.tag_name }}
         run: |
-          (cd reports && zip -qr ../security-sarif.zip .)
           gh release upload "$TAG" security-report.md security-sarif.zip --clobber
       - name: Fail when a gate failed
         if: needs.codeql.result != 'success' || needs.semgrep.result != 'success' || needs.dependencies.result != 'success'
