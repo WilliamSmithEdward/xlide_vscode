@@ -666,6 +666,45 @@ function isAlternativeProcedureHeaderStatement(
 		name.toLowerCase() === procedure.name.toLowerCase();
 }
 
+/**
+ * The names the VBE refuses for a module (issue #247, measured in Excel
+ * 16.0): adding one fails with 0x800AC3D4. Line, Width, Name, Err, Mid,
+ * Time, Error, Reset, Beep, Load, Unload, Access, Base, Compare, Explicit,
+ * Object, Property and Step are accepted.
+ */
+const REFUSED_MODULE_NAMES: ReadonlySet<string> = new Set([
+	'addressof', 'and', 'any', 'array', 'as', 'attribute', 'boolean', 'byref', 'byte', 'byval',
+	'call', 'case', 'circle', 'close', 'const', 'currency', 'date', 'debug', 'declare', 'dim',
+	'do', 'double', 'each', 'else', 'elseif', 'empty', 'end', 'enum', 'eqv', 'erase',
+	'event', 'exit', 'for', 'friend', 'function', 'get', 'global', 'gosub', 'goto', 'if',
+	'imp', 'implements', 'in', 'input', 'integer', 'is', 'lbound', 'len', 'lenb', 'let',
+	'like', 'lock', 'long', 'loop', 'lset', 'me', 'mod', 'new', 'next', 'not',
+	'nothing', 'null', 'on', 'open', 'option', 'optional', 'or', 'paramarray', 'preserve', 'print',
+	'private', 'pset', 'public', 'put', 'raiseevent', 'redim', 'rem', 'resume', 'return', 'rset',
+	'scale', 'seek', 'select', 'set', 'shared', 'single', 'spc', 'static', 'stop', 'string',
+	'sub', 'tab', 'then', 'to', 'true', 'type', 'typeof', 'unlock', 'until', 'variant',
+	'wend', 'while', 'with', 'write', 'xor',
+]);
+
+/**
+ * A module named a word the VBE refuses. A file can still hold one, and its
+ * procedures run called bare, but a call through its name does not compile.
+ * The `Attribute VB_Name` line is marked, or else the first line.
+ */
+export function checkModuleName(source: string, moduleName: string | undefined, push: PushFn): void {
+	if (!moduleName || !REFUSED_MODULE_NAMES.has(moduleName.toLowerCase())) {
+		return;
+	}
+	const attribute = /^[ \t]*Attribute[ \t]+VB_Name[ \t]*=[ \t]*"([^"]*)"/im.exec(source);
+	const start = attribute ? attribute.index + attribute[0].length - attribute[1].length - 2 : 0;
+	const end = attribute ? start + attribute[1].length + 2 : Math.max(0, source.search(/\r?\n|$/));
+	push(
+		'invalidDeclarationName',
+		`Reserved VBA keyword '${moduleName}' cannot name a module: the VBE refuses to add one, and a call through the name, ${moduleName}.Proc, does not compile.`,
+		{ start, end },
+	);
+}
+
 export function checkReservedDeclarationNames(
 	source: string,
 	mod: ModuleNode,

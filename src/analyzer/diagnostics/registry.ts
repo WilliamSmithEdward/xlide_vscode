@@ -46,6 +46,7 @@ import {
 	checkProcedureHeader,
 	checkPropertyAccessorSignatures,
 	checkPropertySetterValueParameters,
+	checkModuleName,
 	checkReservedDeclarationNames,
 	checkTooManyParameters,
 	checkTypeDeclarationCharacterAsClause,
@@ -467,6 +468,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'reservedDeclarationNames',
 		run: (ctx, push) => checkReservedDeclarationNames(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'moduleName',
+		run: (ctx, push) => checkModuleName(ctx.source, ctx.opts.moduleName, push),
 	},
 	{
 		name: 'propertySetterValueParameters',
