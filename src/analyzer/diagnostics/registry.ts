@@ -103,6 +103,7 @@ import { checkDeclareStatements, checkUnusableDeclareCalls } from './rules/decla
 import { checkLateBoundFriendMember } from './rules/lateBinding';
 import { checkHandlerFlow } from './rules/handlerFlow';
 import { checkFileStatements } from './rules/fileStatements';
+import { checkEmptyFilePaths } from './rules/filePaths';
 import { checkOverflow } from './rules/overflow';
 import { checkHostArguments, workbookSheetsToCheck } from './rules/hostArguments';
 import { checkCollectionLoopCounters, checkCollectionState } from './rules/collectionState';
@@ -352,6 +353,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'fileStatements',
 		run: (ctx, push) => checkFileStatements(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'emptyFilePaths',
+		procedureStatements: (ctx, push) => checkEmptyFilePaths(ctx.source, ctx.symbols, ctx.activity, ctx.opts.projectVisibleSymbols, push),
 	},
 	{
 		name: 'overflow',

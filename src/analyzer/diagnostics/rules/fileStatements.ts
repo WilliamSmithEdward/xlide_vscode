@@ -3,8 +3,9 @@
 // Each case was measured in Excel 16.0 (build 20326, 2026-09-26): it compiles
 // and raises every time it runs.
 //
-//  - file-number-zero (52, Bad file name or number): `As #0`, `LOF(0)` - a
-//    file number is 1 to 511, and 0 is never one.
+//  - file-number-zero (52, Bad file name or number): `As #0`, `LOF(0)`, and
+//    any literal past the numbers Open takes, 1 to 512: `As #513`,
+//    `Close #-1` (issue #262).
 //  - file-used-after-close (52): `Close #f` and then `Print #f, ...` on the
 //    same number with no Open between.
 //  - file-mode-mismatch (54, Bad file mode): `Print #f`/`Write #f` on a file
@@ -13,7 +14,15 @@
 //  - file-already-open (55, File already open): two Opens As the same number
 //    with no Close between.
 //  - file-record-zero (63, Bad record number): `Seek #f, 0`, `Get #f, 0, x`,
-//    `Put #f, 0, x` - records and Binary positions start at 1.
+//    `Put #f, 0, x` - records and Binary positions start at 1. Seek raises
+//    in any mode, and on a number nothing opened (issue #262).
+//  - file-read-past-end (62, Input past end of file): reading a file this
+//    procedure created empty - opened For Output, closed with nothing
+//    written, and opened For Input from the same path - before anything
+//    checks EOF or LOF (issue #262).
+//  - Open's `Len = 0` raises 5 in every mode, and a Len literal past 32767
+//    raises 6 (issue #262); those report as runtime-argument-value and
+//    arithmetic-overflow.
 //
 // A file number is a literal, or a local that FreeFile fills once. The rule
 // follows the top-level statements of a procedure in order; a block between two
@@ -27,11 +36,13 @@ import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { BodyNode, LeafStatementNode, ModuleNode, Span } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
-import { walkEnteringBlocks } from '../dataflow';
+import { trackedLocalsNamedWhole, walkEnteringBlocks } from '../dataflow';
 import type { PushFn } from '../analysisContext';
+import { stringLiteralValue } from '../typeInference';
 import {
 	activeModuleMembers,
 	bareAssignmentTarget,
+	blockHeaderLineSpan,
 	statementTokensAfterLeadingLabel,
 	tokenName,
 	tokenText,
@@ -42,14 +53,32 @@ type FileMode = 'input' | 'output' | 'append' | 'random' | 'binary';
 interface OpenFile {
 	mode: FileMode;
 	span: Span;
+	/** The `path:` key of the path it was opened from, when that is a name or a literal. */
+	path?: string;
+	/** For Output: whether anything was written. */
+	written?: boolean;
+	/** For Input: the file is known to be empty, and nothing has checked EOF or LOF yet. */
+	emptyUnchecked?: boolean;
 }
 
-/** What is known about each file number key as the statements run. */
-type FileStates = Map<string, OpenFile | 'closed'>;
+/**
+ * What is known about each file number key as the statements run, and under
+ * `path:` keys the paths known to name an empty file.
+ */
+type FileStates = Map<string, OpenFile | 'closed' | 'empty'>;
 
 const FILE_STATEMENTS: ReadonlySet<string> = new Set([
 	'print', 'write', 'input', 'line', 'get', 'put', 'seek', 'close', 'lock', 'unlock', 'width',
 ]);
+
+/** The highest file number Open takes: As #512 runs and As #513 raises 52 (issue #262). */
+const MAX_FILE_NUMBER = 512;
+
+/** The functions that read a file's state without reading from it. */
+const FILE_STATE_FUNCTIONS: ReadonlySet<string> = new Set(['lof', 'eof', 'loc', 'fileattr', 'seek']);
+
+/** VBA functions that only read a name passed to them. */
+const READ_ONLY_INTRINSICS: ReadonlySet<string> = new Set(['len', 'lenb', 'dir', 'filelen', 'filedatetime', 'getattr']);
 
 export function checkFileStatements(
 	source: string,
@@ -77,6 +106,7 @@ export function checkFileStatements(
 				for (const key of fileNumberKeysIn(toks)) {
 					states.delete(key);
 				}
+				forgetPathsNamedIn(states, toks);
 				return;
 			}
 			// A label may be reached from anywhere, an error handler's included,
@@ -94,6 +124,14 @@ export function checkFileStatements(
 			const assigned = bareAssignmentTarget(source, node.span);
 			if (assigned) {
 				states.delete(assigned.name.toLowerCase());
+				states.delete(`path:${assigned.name.toLowerCase()}`);
+			}
+			// A path passed whole to a procedure may come back changed; a file
+			// statement only reads it.
+			if (!isFileStatementHead(tokenText(toks[0]))) {
+				for (const lower of trackedLocalsNamedWhole(toks, node.span.start, (name) => states.has(`path:${name}`), READ_ONLY_INTRINSICS).keys()) {
+					states.delete(`path:${lower}`);
+				}
 			}
 			checkStatement(node.span, toks, states, push);
 		};
@@ -111,58 +149,96 @@ export function checkFileStatements(
 				}
 				for (const key of keys) {
 					states.delete(key);
+					states.delete(`path:${key}`);
 				}
 			},
 			touches: (stmt) => fileKeysTouchedBy(source, stmt),
+			// `Do Until EOF(f)` checks before its body reads.
+			enter: (node) => markChecked(states, statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span))),
 		});
 	}
 }
 
 function checkStatement(base: Span, toks: readonly VbaToken[], states: FileStates, push: PushFn): void {
 	const at = (tok: VbaToken): Span => ({ start: base.start + tok.start, end: base.start + tok.end });
+	const range = (first: VbaToken, last: VbaToken): Span => ({ start: base.start + first.start, end: base.start + last.end });
 	const head = tokenText(toks[0]);
-	// Function forms: LOF(0), EOF(0), Loc(0), FileAttr(0, 1), Seek(0).
+	// Function forms: LOF(0), EOF(600), Loc(-1), FileAttr(0, 1), Seek(0).
 	for (let i = 0; i + 2 < toks.length; i++) {
 		const name = tokenText(toks[i]);
-		if ((name === 'lof' || name === 'eof' || name === 'loc' || name === 'fileattr' || name === 'seek')
-			&& toks[i + 1].rawText === '(' && toks[i - 1]?.rawText !== '.' && isZeroLiteral(toks[i + 2])
-			&& (toks[i + 3]?.rawText === ')' || toks[i + 3]?.rawText === ',')) {
-			push('fileNumberZero', `File number 0 is never open: file numbers run from 1 to 511. This will raise Run-time error '52': Bad file name or number.`, at(toks[i + 2]));
+		if (!FILE_STATE_FUNCTIONS.has(name) || toks[i + 1].rawText !== '(' || toks[i - 1]?.rawText === '.') {
+			continue;
+		}
+		const impossible = impossibleFileNumber(toks, i + 2);
+		const after = impossible ? toks[toks.indexOf(impossible.last) + 1]?.rawText : undefined;
+		if (impossible && (after === ')' || after === ',')) {
+			push('fileNumberZero', `File number ${impossible.value} is never open: file numbers run from 1 to ${MAX_FILE_NUMBER}. This will raise Run-time error '52': Bad file name or number.`, range(impossible.first, impossible.last));
 		}
 	}
+	markChecked(states, toks);
+	reportEmptyInputFunction(toks, states, push, at);
 	if (head === 'open') {
 		const opened = parseOpen(toks);
 		if (!opened) {
 			return;
 		}
-		if (opened.numberToken && isZeroLiteral(opened.numberToken)) {
-			push('fileNumberZero', `File number 0 cannot be opened: file numbers run from 1 to 511. This will raise Run-time error '52': Bad file name or number.`, at(opened.numberToken));
+		const impossible = impossibleFileNumber(toks, opened.numberIndex);
+		if (impossible) {
+			push('fileNumberZero', `File number ${impossible.value} cannot be opened: file numbers run from 1 to ${MAX_FILE_NUMBER}. This will raise Run-time error '52': Bad file name or number.`, range(impossible.first, impossible.last));
 			return;
+		}
+		if (opened.len) {
+			const value = opened.len.value;
+			if (value === 0) {
+				push('runtimeArgumentValue', `Argument 'Len' of 'Open' is 0; this will raise Run-time error '5': Invalid procedure call or argument.`, at(opened.len.token));
+				return;
+			}
+			if (value > 32767) {
+				push('arithmeticOverflow', `Open's Len of ${value} does not fit an Integer. This will raise Run-time error '6': Overflow.`, at(opened.len.token));
+				return;
+			}
+		}
+		const empty = opened.path !== undefined && states.get(opened.path) === 'empty';
+		if (opened.path !== undefined && opened.mode !== 'input') {
+			// Output empties it, and the other modes may write to it.
+			states.delete(opened.path);
 		}
 		if (opened.key === undefined) {
 			return;
 		}
 		const previous = states.get(opened.key);
-		if (previous !== undefined && previous !== 'closed') {
-			push('fileAlreadyOpen', `File number ${describeKey(opened.key)} is still open from the Open statement above; opening it again raises Run-time error '55': File already open. Close it first.`, at(opened.numberToken!));
+		if (previous !== undefined && previous !== 'closed' && previous !== 'empty') {
+			push('fileAlreadyOpen', `File number ${describeKey(opened.key)} is still open from the Open statement above; opening it again raises Run-time error '55': File already open. Close it first.`, at(toks[opened.numberIndex]));
 		}
-		states.set(opened.key, { mode: opened.mode, span: base });
+		states.set(opened.key, {
+			mode: opened.mode,
+			span: base,
+			...(opened.mode === 'output' && opened.path !== undefined ? { path: opened.path, written: false } : {}),
+			...(opened.mode === 'input' && empty ? { emptyUnchecked: true } : {}),
+		});
 		return;
 	}
 	if (head === 'close' || head === 'reset') {
+		for (const index of closeNumberIndexes(toks)) {
+			const impossible = impossibleFileNumber(toks, index);
+			if (impossible) {
+				push('fileNumberZero', `File number ${impossible.value} is never open: file numbers run from 1 to ${MAX_FILE_NUMBER}. This will raise Run-time error '52': Bad file name or number.`, range(impossible.first, impossible.last));
+				return;
+			}
+		}
 		const keys = head === 'reset' ? [] : fileNumberKeysIn(toks.slice(1));
 		if (keys.length === 0) {
 			// `Close` with no number, and `Reset`, close every open file: a
 			// later `Print #1` raises 52 in Excel (issue #146).
-			for (const [key, state] of states) {
-				if (state !== 'closed') {
-					states.set(key, 'closed');
+			for (const [key, state] of [...states]) {
+				if (state !== 'closed' && state !== 'empty') {
+					closeFile(states, key);
 				}
 			}
 			return;
 		}
 		for (const key of keys) {
-			states.set(key, 'closed');
+			closeFile(states, key);
 		}
 		return;
 	}
@@ -179,8 +255,9 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: FileState
 	if (!numberToken) {
 		return;
 	}
-	if (isZeroLiteral(numberToken)) {
-		push('fileNumberZero', `File number 0 is never open: file numbers run from 1 to 511. This will raise Run-time error '52': Bad file name or number.`, at(numberToken));
+	const impossible = impossibleFileNumber(toks, numberStart);
+	if (impossible) {
+		push('fileNumberZero', `File number ${impossible.value} is never open: file numbers run from 1 to ${MAX_FILE_NUMBER}. This will raise Run-time error '52': Bad file name or number.`, range(impossible.first, impossible.last));
 		return;
 	}
 	const key = fileNumberKey(numberToken);
@@ -192,10 +269,20 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: FileState
 		push('fileUsedAfterClose', `File number ${describeKey(key)} was closed above and not opened again. This will raise Run-time error '52': Bad file name or number.`, at(numberToken));
 		return;
 	}
-	if (state === undefined) {
+	const statement = head === 'line' ? 'line input' : head;
+	// `Seek #f, 0` raises 63 whatever f is open for, and when nothing opened
+	// it (issue #262); Get and Put only reach the record in Binary and Random.
+	if (statement === 'seek' || ((statement === 'get' || statement === 'put') && state !== undefined && state !== 'empty' && (state.mode === 'binary' || state.mode === 'random'))) {
+		const comma = toks.findIndex((tok, index) => index > numberStart && tok.rawText === ',');
+		const record = comma > 0 ? recordBelowOne(toks, comma + 1) : undefined;
+		if (record && (statement === 'seek' || record.value === 0)) {
+			push('fileRecordZero', `${statement.charAt(0).toUpperCase() + statement.slice(1)} with record number ${record.value}: records and Binary positions start at 1. This will raise Run-time error '63': Bad record number.`, range(record.first, record.last));
+			return;
+		}
+	}
+	if (state === undefined || state === 'empty') {
 		return;
 	}
-	const statement = head === 'line' ? 'line input' : head;
 	const writes = statement === 'print' || statement === 'write';
 	const reads = statement === 'input' || statement === 'line input';
 	if ((writes && state.mode === 'input') || (reads && (state.mode === 'output' || state.mode === 'append'))) {
@@ -203,19 +290,146 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: FileState
 		push('fileModeMismatch', `'${word} #' on a file opened For ${modeWord(state.mode)} raises Run-time error '54': Bad file mode.`, at(toks[0]));
 		return;
 	}
-	if ((statement === 'seek' || statement === 'get' || statement === 'put') && (state.mode === 'binary' || state.mode === 'random')) {
-		// `Seek #f, 0` / `Get #f, 0, x`: the record or position after the comma.
-		const comma = toks.findIndex((tok, index) => index > numberStart && tok.rawText === ',');
-		const record = comma > 0 ? toks[comma + 1] : undefined;
-		if (record && isZeroLiteral(record) && (toks[comma + 2] === undefined || toks[comma + 2].rawText === ',')) {
-			push('fileRecordZero', `${statement.charAt(0).toUpperCase() + statement.slice(1)} with record number 0: records and Binary positions start at 1. This will raise Run-time error '63': Bad record number.`, at(record));
+	if ((writes || statement === 'put') && state.mode === 'output' && !state.written && !writesNothing(toks, numberStart)) {
+		states.set(key, { ...state, written: true });
+	}
+	if (reads && state.emptyUnchecked) {
+		const word = statement === 'line input' ? 'Line Input' : 'Input';
+		push('fileReadPastEnd', `'${word} #' reads file ${describeKey(key)}, which this procedure created empty and reopened For Input without checking EOF. This will raise Run-time error '62': Input past end of file.`, at(toks[0]));
+		states.set(key, { ...state, emptyUnchecked: false });
+	}
+}
+
+/** `Input(n, #f)` and `InputB$(n, f)` read the file too. */
+function reportEmptyInputFunction(toks: readonly VbaToken[], states: FileStates, push: PushFn, at: (tok: VbaToken) => Span): void {
+	for (let i = 0; i + 1 < toks.length; i++) {
+		const name = tokenText(toks[i]);
+		if ((name !== 'input' && name !== 'inputb') || toks[i - 1]?.rawText === '.' || i === 0) {
+			continue;
+		}
+		const open = toks[i + 1].rawText === '$' ? i + 2 : i + 1;
+		if (toks[open]?.rawText !== '(') {
+			continue;
+		}
+		const comma = toks.findIndex((tok, k) => k > open && tok.rawText === ',');
+		const numberTok = toks[comma + 1]?.rawText === '#' ? toks[comma + 2] : toks[comma + 1];
+		const key = comma > 0 && numberTok ? fileNumberKey(numberTok) : undefined;
+		const state = key ? states.get(key) : undefined;
+		if (key && state && state !== 'closed' && state !== 'empty' && state.emptyUnchecked) {
+			push('fileReadPastEnd', `'${toks[i].rawText}' reads file ${describeKey(key)}, which this procedure created empty and reopened For Input without checking EOF. This will raise Run-time error '62': Input past end of file.`, at(toks[i]));
+			states.set(key, { ...state, emptyUnchecked: false });
 		}
 	}
 }
 
-function parseOpen(toks: readonly VbaToken[]): { mode: FileMode; key: string | undefined; numberToken: VbaToken | undefined } | undefined {
+/** EOF, LOF, Loc and Seek on a file: a read after them may be guarded. */
+function markChecked(states: FileStates, toks: readonly VbaToken[]): void {
+	for (let i = 0; i + 2 < toks.length; i++) {
+		if (!FILE_STATE_FUNCTIONS.has(tokenText(toks[i])) || toks[i + 1].rawText !== '(') {
+			continue;
+		}
+		const key = fileNumberKey(toks[i + 2].rawText === '#' ? toks[i + 3] : toks[i + 2]);
+		const state = key ? states.get(key) : undefined;
+		if (key && state && state !== 'closed' && state !== 'empty' && state.emptyUnchecked) {
+			states.set(key, { ...state, emptyUnchecked: false });
+		}
+	}
+	if (tokenText(toks[0]) === 'seek') {
+		const numberTok = toks[1]?.rawText === '#' ? toks[2] : toks[1];
+		const key = numberTok ? fileNumberKey(numberTok) : undefined;
+		const state = key ? states.get(key) : undefined;
+		if (key && state && state !== 'closed' && state !== 'empty' && state.emptyUnchecked) {
+			states.set(key, { ...state, emptyUnchecked: false });
+		}
+	}
+}
+
+/** Closes a number; an Output file closed with nothing written leaves its path empty. */
+function closeFile(states: FileStates, key: string): void {
+	const state = states.get(key);
+	if (state && state !== 'closed' && state !== 'empty' && state.path !== undefined) {
+		if (state.mode === 'output' && state.written === false) {
+			states.set(state.path, 'empty');
+		} else {
+			states.delete(state.path);
+		}
+	}
+	states.set(key, 'closed');
+}
+
+/** `Print #f, "";` writes nothing (measured: a later read raises 62). */
+function writesNothing(toks: readonly VbaToken[], numberStart: number): boolean {
+	const rest = toks.slice(numberStart + 2);
+	return tokenText(toks[0]) === 'print' && rest.length === 2 && rest[0].rawText === '""' && rest[1].rawText === ';';
+}
+
+function forgetPathsNamedIn(states: FileStates, toks: readonly VbaToken[]): void {
+	for (const tok of toks) {
+		const lower = tokenName(tok)?.toLowerCase();
+		if (lower) {
+			states.delete(`path:${lower}`);
+		}
+	}
+}
+
+/**
+ * The literal file number at toks[index], a minus sign included, when no file
+ * can have it: 0, below 0, or past 512.
+ */
+function impossibleFileNumber(toks: readonly VbaToken[], index: number): { value: number; first: VbaToken; last: VbaToken } | undefined {
+	const literal = signedIntegerAt(toks, index);
+	return literal && (literal.value < 1 || literal.value > MAX_FILE_NUMBER) ? literal : undefined;
+}
+
+/** A record or position literal below 1 at toks[index], standing alone in its slot. */
+function recordBelowOne(toks: readonly VbaToken[], index: number): { value: number; first: VbaToken; last: VbaToken } | undefined {
+	const literal = signedIntegerAt(toks, index);
+	if (!literal || literal.value >= 1) {
+		return undefined;
+	}
+	const after = toks[toks.indexOf(literal.last) + 1];
+	return after === undefined || after.rawText === ',' ? literal : undefined;
+}
+
+function signedIntegerAt(toks: readonly VbaToken[], index: number): { value: number; first: VbaToken; last: VbaToken } | undefined {
+	const negative = toks[index]?.rawText === '-';
+	const tok = toks[negative ? index + 1 : index];
+	if (tok?.kind !== 'integerLiteral') {
+		return undefined;
+	}
+	const value = parseVbaIntegerLiteral(tok.rawText);
+	return value === undefined ? undefined : { value: negative ? -value : value, first: toks[index], last: tok };
+}
+
+/** Where each number a Close names starts: after `#`, or alone in its slot. */
+function closeNumberIndexes(toks: readonly VbaToken[]): number[] {
+	if (tokenText(toks[0]) !== 'close') {
+		return [];
+	}
+	const out: number[] = [];
+	for (let i = 1; i < toks.length; i++) {
+		if (toks[i].rawText === '#') {
+			out.push(i + 1);
+		} else if (i === 1 || toks[i - 1].rawText === ',') {
+			out.push(i);
+		}
+	}
+	return out;
+}
+
+interface ParsedOpen {
+	mode: FileMode;
+	key: string | undefined;
+	numberIndex: number;
+	/** The `path:` key of a path that is one name or one string literal. */
+	path?: string;
+	len?: { value: number; token: VbaToken };
+}
+
+function parseOpen(toks: readonly VbaToken[]): ParsedOpen | undefined {
 	let mode: FileMode = 'random';
-	let numberToken: VbaToken | undefined;
+	let numberIndex = -1;
+	let pathEnd = -1;
 	let depth = 0;
 	for (let i = 1; i < toks.length; i++) {
 		const raw = toks[i].rawText;
@@ -229,23 +443,44 @@ function parseOpen(toks: readonly VbaToken[]): { mode: FileMode; key: string | u
 		}
 		const word = tokenText(toks[i]);
 		if (word === 'for') {
+			pathEnd = pathEnd < 0 ? i : pathEnd;
 			const next = tokenText(toks[i + 1]);
 			if (next === 'input' || next === 'output' || next === 'append' || next === 'random' || next === 'binary') {
 				mode = next;
 			}
+		} else if (word === 'access' || word === 'shared' || word === 'lock') {
+			pathEnd = pathEnd < 0 ? i : pathEnd;
 		} else if (word === 'as') {
-			numberToken = toks[i + 1]?.rawText === '#' ? toks[i + 2] : toks[i + 1];
+			pathEnd = pathEnd < 0 ? i : pathEnd;
+			numberIndex = toks[i + 1]?.rawText === '#' ? i + 2 : i + 1;
 			break;
 		}
 	}
-	if (!numberToken) {
+	if (numberIndex < 0 || !toks[numberIndex]) {
 		return undefined;
 	}
-	return { mode, key: fileNumberKey(numberToken), numberToken };
+	const pathToks = toks.slice(1, pathEnd);
+	const path = pathToks.length !== 1 ? undefined
+		: pathToks[0].kind === 'stringLiteral' ? `path:"${stringLiteralValue(pathToks[0].rawText)}"`
+			: tokenName(pathToks[0]) !== undefined ? `path:${tokenName(pathToks[0])!.toLowerCase()}` : undefined;
+	// `Len = 0` after the number.
+	const lenAt = toks.findIndex((tok, k) => k > numberIndex && tokenText(tok) === 'len' && toks[k + 1]?.rawText === '=');
+	const lenTok = lenAt > 0 ? toks[lenAt + 2] : undefined;
+	const lenValue = lenTok?.kind === 'integerLiteral' && toks[lenAt + 3] === undefined ? parseVbaIntegerLiteral(lenTok.rawText) : undefined;
+	return {
+		mode,
+		key: fileNumberKey(toks[numberIndex]),
+		numberIndex,
+		...(path ? { path } : {}),
+		...(lenValue !== undefined && lenTok ? { len: { value: lenValue, token: lenTok } } : {}),
+	};
 }
 
 /** The key a file number token identifies: its literal value, or the variable's name. */
-function fileNumberKey(tok: VbaToken): string | undefined {
+function fileNumberKey(tok: VbaToken | undefined): string | undefined {
+	if (!tok) {
+		return undefined;
+	}
 	if (tok.kind === 'integerLiteral') {
 		// `#&H1` is file 1, not #NaN (issue #146).
 		const value = parseVbaIntegerLiteral(tok.rawText);
@@ -262,10 +497,6 @@ function isFileStatementHead(head: string): boolean {
 
 function describeKey(key: string): string {
 	return key.startsWith('#') ? key : `'${key}'`;
-}
-
-function isZeroLiteral(tok: VbaToken | undefined): boolean {
-	return tok?.kind === 'integerLiteral' && /^0+[%&^]?$/.test(tok.rawText);
 }
 
 function modeWord(mode: FileMode): string {
@@ -311,6 +542,9 @@ function fileKeysTouchedBy(source: string, node: LeafStatementNode): Set<string>
 		const opened = head === 'open' ? parseOpen(toks) : undefined;
 		if (opened?.key) {
 			out.add(opened.key);
+		}
+		if (opened?.path) {
+			out.add(opened.path.slice('path:'.length));
 		}
 		if (head === 'reset' || (head === 'close' && fileNumberKeysIn(toks.slice(1)).length === 0)) {
 			out.add('*');

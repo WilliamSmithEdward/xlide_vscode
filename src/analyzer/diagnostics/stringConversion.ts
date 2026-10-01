@@ -98,6 +98,20 @@ function isCalendarDay(year: number, month: number, day: number): boolean {
 	return day <= days;
 }
 
+/**
+ * Whether a string written as hours, minutes and seconds names no time:
+ * "25:00", "10:60", "10:00:60", "1:2:3:4" (issue #262, measured in Excel
+ * 16.0 with CDate, DateValue and TimeValue). "13:00 PM" runs.
+ */
+export function isInvalidTimeString(text: string): boolean {
+	const trimmed = text.replace(BLANK_EDGES, '');
+	if (/^\d+(?::\d+){3,}$/.test(trimmed)) {
+		return true;
+	}
+	const time = /^(\d+):(\d+)(?::(\d+))?$/.exec(trimmed);
+	return time !== null && (Number(time[1]) > 23 || Number(time[2]) > 59 || Number(time[3] ?? 0) > 59);
+}
+
 /** Whether no locale converts the string to a Date. */
 export function isInvalidDateString(text: string): boolean {
 	const trimmed = text.replace(BLANK_EDGES, '');
