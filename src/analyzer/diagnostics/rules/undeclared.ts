@@ -723,6 +723,60 @@ export function checkUndeclaredVariables(
 			}
 		}, activity);
 	}
+
+	// A Const's value and an Enum member's value name things too: `Const K =
+	// asdf` is "Variable not defined", and `eB = asdf` in an Enum "Constant
+	// expression required" (issue #369, measured in Excel 16.0).
+	const checkValue = (span: Span, procSym: VbaSymbol | undefined, enumMember: boolean): void => {
+		// The names in each value, after its `=`. A value calls nothing, so
+		// every name in it not after a `.` is read; a declaration's own names
+		// stand before an `=`.
+		const toks = statementTokens(source, span);
+		let inValue = false;
+		for (let i = 0; i < toks.length; i++) {
+			const tok = toks[i];
+			if (tok.rawText === '=') {
+				inValue = true;
+				continue;
+			}
+			if (tok.rawText === ',') {
+				inValue = false;
+				continue;
+			}
+			const name = tok.kind === 'identifier' ? tokenName(tok) : undefined;
+			// A name before a `.` qualifies: `Module2.B1`, `Excel.xlUp`.
+			const qualifier = toks[i + 1]?.rawText === '.';
+			if (!inValue || !name || qualifier || toks[i - 1]?.rawText === '.' || toks[i - 1]?.rawText === '!' || isKnown(name, procSym, 'expression')) {
+				continue;
+			}
+			push(
+				'undeclaredVariable',
+				enumMember
+					? `'${name}' is not defined, and an Enum member's value must be a constant. This is a VBE compile error: Constant expression required.`
+					: `Variable not defined: '${name}'. Declare it before using it in a Const's value, or remove Option Explicit.`,
+				{ start: span.start + tok.start, end: span.start + tok.end },
+			);
+		}
+	};
+	redimDeclared = new Set();
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'VariableGroup' && member.isConst) {
+			checkValue(member.span, undefined, false);
+		} else if (member.kind === 'Enum') {
+			for (const item of member.members) {
+				if (item.valueRaw !== undefined && !activity?.isInactive(item.span)) {
+					checkValue(item.span, undefined, true);
+				}
+			}
+		} else if (member.kind === 'Procedure') {
+			const procSym = procedureSymbolFor(symbols, member);
+			forEachVariableGroup(member.body, (group) => {
+				if (group.isConst) {
+					checkValue(group.span, procSym, false);
+				}
+			}, activity);
+		}
+	}
 }
 
 /**
