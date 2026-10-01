@@ -5,7 +5,7 @@
 
 These rules are the same in every WilliamSmithEdward repository.
 
-- **How a release happens here:** pushing a `vX.Y.Z` tag runs Publish, which builds the extension package in CI and creates the GitHub release with it, its signed provenance and its security and malware reports. Any other step, such as a marketplace upload, is described elsewhere in this file.
+- **How a release happens here:** pushing a `vX.Y.Z` tag runs Publish, which builds the release files in CI and creates the GitHub release with them, their signed provenance and the security reports. Any other step, such as a marketplace upload, is described elsewhere in this file.
 - **Starting a workflow by hand never releases anything.** Publish and every
   release report are dry runs when started with `gh workflow run` or the Run
   workflow button. They build, scan and assemble the release files exactly
