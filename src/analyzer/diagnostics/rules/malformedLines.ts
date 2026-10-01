@@ -48,7 +48,7 @@ const DIRECTIVE_WORDS: ReadonlySet<string> = new Set(['if', 'elseif', 'else', 'e
  */
 const STATEMENT_KEYWORDS: ReadonlySet<string> = new Set([
 	'const', 'raiseevent', 'open', 'close', 'implements', 'dim', 'redim', 'static', 'sub', 'function',
-	'property', 'declare', 'enum', 'event', 'option', 'call', 'goto', 'gosub', 'exit', 'resume', 'do',
+	'declare', 'enum', 'event', 'option', 'call', 'goto', 'gosub', 'exit', 'resume', 'do',
 	'loop', 'wend', 'while', 'until', 'with', 'select', 'case', 'next', 'for', 'each', 'then', 'elseif',
 	'if', 'end', 'public', 'private', 'friend', 'global', 'let', 'set', 'stop', 'return', 'lock',
 	'unlock', 'preserve', 'withevents', 'type', 'put', 'get', 'kill', 'step',

@@ -26,6 +26,8 @@ export interface StraightLineDataflowHooks {
 	onStatement(stmt: LeafStatementNode): void;
 	/** Inspects one non-statement node before its body's touch demotion. */
 	onBlock?(node: BodyNode): void;
+	/** Sets what a loop leaves once its touch demotion is done: a For Each's control variable (issue #336). */
+	afterBlock?(node: BodyNode): void;
 	/** Lowercased tracked names one nested-block statement touches. */
 	touchesInStatement(stmt: LeafStatementNode): Iterable<string>;
 	/** Demotes one tracked name to the rule's 'unknown' state. */
@@ -223,6 +225,7 @@ function walkFollowingJumps(
 					for (const lower of touched) {
 						hooks.demoteToUnknown(lower);
 					}
+					hooks.afterBlock?.(node);
 					continue;
 				}
 				for (const lower of headerTouches(source, node, hooks)) {
@@ -404,6 +407,7 @@ function walkBody(
 			for (const lower of touched) {
 				hooks.demoteToUnknown(lower);
 			}
+			hooks.afterBlock?.(node);
 		}
 	}
 	return true;
