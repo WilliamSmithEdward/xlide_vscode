@@ -34,7 +34,7 @@ import { collectModuleLiteralIntegerConstants } from '../constExpr';
 import { checkEachCounterPass, loopCountersAt } from '../loopCounters';
 import { foldKnownStringCalls, moduleCompare, type KnownStringCallContext } from '../knownStringCalls';
 import { bankersRound, isBareOrVbaQualifiedIntrinsicCall } from '../rules/shared';
-import { isInvalidBooleanString, isInvalidDateString, isInvalidNumericString } from '../stringConversion';
+import { isInvalidBooleanString, isInvalidDateString, isInvalidNumericString, isInvalidTimeString } from '../stringConversion';
 import { fixedStringLength, moduleTypes } from '../typeFields';
 import {
 	callableTypeSignaturesFor,
@@ -819,10 +819,13 @@ function argumentRelationHit(
 }
 
 /**
- * `DateAdd("d", 1, #12/31/9999#)`: adding to a date literal past the last
- * date VBA has (December 31, 9999) raises error 5 (issue #118). Only a date
- * literal with a positive whole-number count and a day, week, month or year
- * interval is decided here.
+ * `DateAdd("d", 1, #12/31/9999#)` and `DateAdd("yyyy", -1, #1/1/100#)`:
+ * adding to a date past the last date VBA has (December 31, 9999) or before
+ * the first (January 1, 100) raises error 5 (issues #118 and #262, measured
+ * in Excel 16.0 for every interval). The date is a literal or a DateSerial
+ * of literals from year 100 on; the count is a whole number. Months,
+ * quarters and years keep the day where the month has it, so only the month
+ * they reach decides.
  */
 function dateAddPastMaximum(
 	source: string,
@@ -834,38 +837,65 @@ function dateAddPastMaximum(
 		return undefined;
 	}
 	const [intervalSlot, numberSlot, dateSlot] = call.slots.map((slot) => unwrapOuterParens(slot.filter((t) => t.kind !== 'comment')));
-	if (intervalSlot.length !== 1 || intervalSlot[0].kind !== 'stringLiteral' || dateSlot.length !== 1 || dateSlot[0].kind !== 'dateLiteral') {
+	if (intervalSlot.length !== 1 || intervalSlot[0].kind !== 'stringLiteral' || dateSlot.length === 0) {
 		return undefined;
 	}
 	const interval = stringLiteralValue(intervalSlot[0].rawText).toLowerCase();
 	const count = integerGroupValue(source, span, numberSlot, constants);
-	if (count === undefined || count <= 0) {
+	if (count === undefined || count === 0) {
 		return undefined;
 	}
-	const date = parseDateLiteral(dateSlot[0].rawText);
+	const date = dateSlot.length === 1 && dateSlot[0].kind === 'dateLiteral'
+		? parseDateLiteral(dateSlot[0].rawText)
+		: dateSerialOfLiterals(source, span, dateSlot, constants);
 	if (!date) {
 		return undefined;
 	}
-	const maximum = Date.UTC(9999, 11, 31);
-	const result = new Date(date);
-	switch (interval) {
-		case 'd': case 'y': result.setUTCDate(result.getUTCDate() + count); break;
-		case 'w': result.setUTCDate(result.getUTCDate() + count); break;
-		case 'ww': result.setUTCDate(result.getUTCDate() + 7 * count); break;
-		case 'm': result.setUTCMonth(result.getUTCMonth() + count); break;
-		case 'q': result.setUTCMonth(result.getUTCMonth() + 3 * count); break;
-		case 'yyyy': result.setUTCFullYear(result.getUTCFullYear() + count); break;
-		default: return undefined;
+	const MS_PER_DAY = 86400000;
+	const units: Readonly<Record<string, number>> = { d: MS_PER_DAY, y: MS_PER_DAY, w: MS_PER_DAY, ww: 7 * MS_PER_DAY, h: 3600000, n: 60000, s: 1000 };
+	const months: Readonly<Record<string, number>> = { m: 1, q: 3, yyyy: 12 };
+	let past: 'past December 31, 9999' | 'before January 1, 100' | undefined;
+	if (units[interval] !== undefined) {
+		const result = date.getTime() + count * units[interval];
+		past = result >= Date.UTC(10000, 0, 1) ? 'past December 31, 9999' : result < Date.UTC(100, 0, 1) ? 'before January 1, 100' : undefined;
+	} else if (months[interval] !== undefined) {
+		const month = date.getUTCFullYear() * 12 + date.getUTCMonth() + count * months[interval];
+		past = month > 9999 * 12 + 11 ? 'past December 31, 9999' : month < 100 * 12 ? 'before January 1, 100' : undefined;
 	}
-	if (result.getTime() <= maximum) {
+	if (!past) {
 		return undefined;
 	}
+	const first = dateSlot[0];
+	const last = dateSlot[dateSlot.length - 1];
 	return {
 		displayName: 'DateAdd',
 		parameterName: 'Date',
-		value: `${dateSlot[0].rawText}, which the ${count} ${interval} interval(s) carry past December 31, 9999`,
-		span: { start: span.start + dateSlot[0].start, end: span.start + dateSlot[0].end },
+		value: `${source.slice(span.start + first.start, span.start + last.end)}, which the ${count} ${interval} interval(s) carry ${past}`,
+		span: { start: span.start + first.start, end: span.start + last.end },
 	};
+}
+
+/** `DateSerial(y, m, d)` of integer literals, year 100 or later, as a UTC date. */
+function dateSerialOfLiterals(source: string, span: Span, toks: readonly VbaToken[], constants: IntegerConstantLookup): Date | undefined {
+	let index = 0;
+	if (tokenText(toks[0]) === 'vba' && toks[1]?.rawText === '.') {
+		index = 2;
+	}
+	if (tokenText(toks[index]) !== 'dateserial' || toks[index + 1]?.rawText !== '(' || matchParenFrom(toks, index + 1) !== toks.length - 1) {
+		return undefined;
+	}
+	const parts = splitTopLevelTokenGroups(toks.slice(index + 2, toks.length - 1), 0, ',').map((group) => integerGroupValue(source, span, group, constants));
+	if (parts.length !== 3 || parts.some((part) => part === undefined || part < -32768 || part > 32767)) {
+		return undefined;
+	}
+	const [year, month, day] = parts as number[];
+	if (year < 100) {
+		return undefined; // read as 19xx or 20xx
+	}
+	const date = new Date(0);
+	date.setUTCFullYear(year, month - 1, 1);
+	date.setUTCDate(day);
+	return date;
 }
 
 /**
@@ -913,17 +943,25 @@ function dateSerialPastMaximum(
 
 /** A `#m/d/yyyy#` date literal as a UTC date, or undefined for any other spelling. */
 function parseDateLiteral(raw: string): Date | undefined {
-	const match = /^#\s*(\d{1,2})\/(\d{1,2})\/(\d{4})\s*(?:\d{1,2}:\d{2}(?::\d{2})?\s*(?:AM|PM)?)?\s*#$/i.exec(raw);
+	// A year of three digits is that year: #1/1/100# (issue #262).
+	const match = /^#\s*(\d{1,2})\/(\d{1,2})\/(\d{3,4})\s*(?:(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?)?\s*#$/i.exec(raw);
 	if (!match) {
 		return undefined;
 	}
 	const month = Number(match[1]);
 	const day = Number(match[2]);
 	const year = Number(match[3]);
-	if (month < 1 || month > 12 || day < 1 || day > 31) {
+	if (month < 1 || month > 12 || day < 1 || day > 31 || year < 100) {
 		return undefined;
 	}
-	return new Date(Date.UTC(year, month - 1, day));
+	let hour = Number(match[4] ?? 0);
+	if (match[7]) {
+		hour = hour % 12 + (match[7].toUpperCase() === 'PM' ? 12 : 0);
+	}
+	const date = new Date(0);
+	date.setUTCFullYear(year, month - 1, day);
+	date.setUTCHours(hour, Number(match[5] ?? 0), Number(match[6] ?? 0), 0);
+	return date;
 }
 
 function runtimeArgumentValueCallAt(
@@ -1154,10 +1192,27 @@ function runtimeArgumentValueSpecs(name: string, host: string | undefined): read
 			return [{ canonicalName: 'Environ', parameterName: 'Expression', argumentIndex: 0, minimum: 1, stringSuffix: true }];
 		case 'dateadd':
 			return [{ canonicalName: 'DateAdd', parameterName: 'Interval', argumentIndex: 0, allowedStrings: DATE_INTERVALS }];
+		// A first day of the week runs from 0 to 7 and a first week of the year
+		// from 0 to 3; DateDiff reads only the first (issue #262, measured in
+		// Excel 16.0: DateDiff with a FirstWeekOfYear of 4 runs).
 		case 'datediff':
-			return [{ canonicalName: 'DateDiff', parameterName: 'Interval', argumentIndex: 0, allowedStrings: DATE_INTERVALS }];
+			return [
+				{ canonicalName: 'DateDiff', parameterName: 'Interval', argumentIndex: 0, allowedStrings: DATE_INTERVALS },
+				{ canonicalName: 'DateDiff', parameterName: 'FirstDayOfWeek', argumentIndex: 3, minimum: 0, maximum: 7 },
+			];
 		case 'datepart':
-			return [{ canonicalName: 'DatePart', parameterName: 'Interval', argumentIndex: 0, allowedStrings: DATE_INTERVALS }];
+			return [
+				{ canonicalName: 'DatePart', parameterName: 'Interval', argumentIndex: 0, allowedStrings: DATE_INTERVALS },
+				{ canonicalName: 'DatePart', parameterName: 'FirstDayOfWeek', argumentIndex: 2, minimum: 0, maximum: 7 },
+				{ canonicalName: 'DatePart', parameterName: 'FirstWeekOfYear', argumentIndex: 3, minimum: 0, maximum: 3 },
+			];
+		case 'format':
+			return [
+				{ canonicalName: 'Format', parameterName: 'FirstDayOfWeek', argumentIndex: 2, minimum: 0, maximum: 7, stringSuffix: true },
+				{ canonicalName: 'Format', parameterName: 'FirstWeekOfYear', argumentIndex: 3, minimum: 0, maximum: 3, stringSuffix: true },
+			];
+		case 'formatdatetime':
+			return [{ canonicalName: 'FormatDateTime', parameterName: 'NamedFormat', argumentIndex: 1, minimum: 0, maximum: 4 }];
 		default:
 			return [];
 	}
@@ -1509,8 +1564,12 @@ function runtimeConversionValueHits(
 			const held = slot.length === 1 && slot[0].kind === 'identifier' ? knownStrings.get(slot[0].rawText.toLowerCase()) : undefined;
 			if (slot.length === 1 && (slot[0].kind === 'stringLiteral' || held !== undefined) && at) {
 				const value = held ?? stringLiteralValue(slot[0].rawText);
+				const lower = name.toLowerCase();
 				const invalid = target === 'date'
 					? isInvalidDateString(value)
+						// A time out of range, and TimeValue of digits alone (issue #262).
+						|| ((lower === 'cdate' || lower === 'datevalue' || lower === 'timevalue') && isInvalidTimeString(value))
+						|| (lower === 'timevalue' && /^\d+$/.test(value.replace(/^[ \t]+|[ \t]+$/g, '')))
 					: target === 'boolean'
 						? isInvalidBooleanString(value)
 						: isInvalidNumericString(value);
