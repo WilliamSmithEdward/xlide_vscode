@@ -532,11 +532,12 @@
         "issue253_107_compile",
         "issue253_108_compile",
         "issue266_26_compile",
-        "issue266_42_compile"
+        "issue266_42_compile",
+        "issue369c_10_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "The active rule is intentionally narrow: it fires only when a source-backed same-module or unique exported project callable has a ByRef parameter with a known exact type and the argument is an unparenthesized known non-Variant variable with a different normalized type. Bare argument variables resolve through the shared expression resolver before local type-map fallback, and module-qualified variables resolve through the matching source-backed module surface, so visible exported standard-module variables participate while local shadows, ambiguous exported globals, unknown module qualifiers, untyped values, and Variant values stay quiet. Oracle controls prove that literals, parenthesized Long variable expressions, arithmetic expressions, and Range.Value member expressions are compile-accepted, while an Object variable passed to ByRef String is rejected. Issue #253: a Type parameter takes only a variable of its own Type; a Variant, a number, an object, a literal, a member that holds a number, or another Type is ByRef argument type mismatch (measured in Excel 16.0). Issue #266: a RaiseEvent argument that is a variable of another type for a ByRef Event parameter, an Integer or a String for n As Long; a literal, an expression or the variable in parentheses is a copy and compiles. Measured in Excel 16.0.",
+      "notes": "The active rule is intentionally narrow: it fires only when a source-backed same-module or unique exported project callable has a ByRef parameter with a known exact type and the argument is an unparenthesized known non-Variant variable with a different normalized type. Bare argument variables resolve through the shared expression resolver before local type-map fallback, and module-qualified variables resolve through the matching source-backed module surface, so visible exported standard-module variables participate while local shadows, ambiguous exported globals, unknown module qualifiers, untyped values, and Variant values stay quiet. Oracle controls prove that literals, parenthesized Long variable expressions, arithmetic expressions, and Range.Value member expressions are compile-accepted, while an Object variable passed to ByRef String is rejected. Issue #253: a Type parameter takes only a variable of its own Type; a Variant, a number, an object, a literal, a member that holds a number, or another Type is ByRef argument type mismatch (measured in Excel 16.0). Issue #266: a RaiseEvent argument that is a variable of another type for a ByRef Event parameter, an Integer or a String for n As Long; a literal, an expression or the variable in parentheses is a copy and compiles. Measured in Excel 16.0. Issue #369: a field of a user-defined type passes ByRef as a variable does: TakeL t.i with t.i As Integer and n As Long is ByRef argument type mismatch.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -818,11 +819,13 @@
         "issue198_95_compile",
         "issue198_98_compile",
         "issue256_11_compile",
-        "issue369a_17_compile"
+        "issue369a_17_compile",
+        "issue369c_09_compile",
+        "issue369c_35_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is a VBE compile-equivalent error when the receiver resolves to a workbook class and source proves the member has no setter. Public constants are not object members in VBE; public constant declarations in object modules fail at the declaration. Leading-dot assignments inside simple or nested With receiver stacks use the same source-backed member resolver. Issue #256: c = 5 on a class whose default member is a Property Get with no Property Let is Invalid use of property (measured in Excel 16.0).",
+      "notes": "This is a VBE compile-equivalent error when the receiver resolves to a workbook class and source proves the member has no setter. Public constants are not object members in VBE; public constant declarations in object modules fail at the declaration. Leading-dot assignments inside simple or nested With receiver stacks use the same source-backed member resolver. Issue #256: c = 5 on a class whose default member is a Property Get with no Property Let is Invalid use of property (measured in Excel 16.0). Issue #369: VBA.Err.LastDllError = 5 is Can't assign to read-only property, as Err.LastDllError = 5 is.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -853,11 +856,20 @@
         "issue219_64_compile",
         "issue219_65_compile",
         "issue219_67_compile",
-        "issue219_68_compile"
+        "issue219_68_compile",
+        "issue369c_08_compile",
+        "issue369c_21_compile",
+        "issue369c_22_compile",
+        "issue369c_23_compile",
+        "issue369c_39_compile",
+        "issue369c_46_compile",
+        "issue369c_47_compile",
+        "issue369c_54_compile",
+        "issue369c_55_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is a VBE compile-equivalent error for workbook class receivers whose source-backed member surface is known and unambiguous, and for HOST types only where the type library marks the interface NONEXTENSIBLE. A complete member list is not enough on its own: most of Excel's object model is extensible, so VBA compiles a name that is on no interface and asks IDispatch for it at run time. Application.Match is the case that showed it - a worksheet function on no interface at all, which compiles and runs, and which XLIDE reported as absent until 10.4.2. Of the 35 Excel types the reference dump covers exhaustively, four are closed: Worksheet, Chart, Sheets and Workbooks. The VBE agreed with the flag on every receiver tried, Application, Range (called for and declared), Workbook (declared) and Font accepted, Worksheet, Chart and a bare Worksheets (a Sheets) refused. Public fields are valid members. Issue #219: a Private member of a project module reached through an object, Sheet1.Secret() or Me.Secret() inside Sheet1, where the rest of the surface cannot prove absence. Issue #226: a form's control reached through the form (f.T1.Nope, Me.T1.Nope, a bare T1.Nope inside it) for the classes the VBE checks there (TextBox, ListBox, CheckBox, CommandButton, Label, ComboBox, SpinButton, ScrollBar, Image), against FM20's type library, hidden members included.",
+      "notes": "This is a VBE compile-equivalent error for workbook class receivers whose source-backed member surface is known and unambiguous, and for HOST types only where the type library marks the interface NONEXTENSIBLE. A complete member list is not enough on its own: most of Excel's object model is extensible, so VBA compiles a name that is on no interface and asks IDispatch for it at run time. Application.Match is the case that showed it - a worksheet function on no interface at all, which compiles and runs, and which XLIDE reported as absent until 10.4.2. Of the 35 Excel types the reference dump covers exhaustively, four are closed: Worksheet, Chart, Sheets and Workbooks. The VBE agreed with the flag on every receiver tried, Application, Range (called for and declared), Workbook (declared) and Font accepted, Worksheet, Chart and a bare Worksheets (a Sheets) refused. Public fields are valid members. Issue #219: a Private member of a project module reached through an object, Sheet1.Secret() or Me.Secret() inside Sheet1, where the rest of the surface cannot prove absence. Issue #226: a form's control reached through the form (f.T1.Nope, Me.T1.Nope, a bare T1.Nope inside it) for the classes the VBE checks there (TextBox, ListBox, CheckBox, CommandButton, Label, ComboBox, SpinButton, ScrollBar, Image), against FM20's type library, hidden members included. Issue #369: a name after VBA. that the VBA library, one of its modules or enums, or VBA.Global does not have is Method or data member not found; a $ on a function that returns no String, VBA.Asc$, is Type-declaration character does not match declared data type. A String function takes $, VBA.Replace$. The names come from the VBE7.DLL type library.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -4146,11 +4158,15 @@
         "issue236_06_compile",
         "issue242_18_compile",
         "issue242_19_compile",
-        "issue242_20_compile"
+        "issue242_20_compile",
+        "issue369c_01_compile",
+        "issue369c_02_compile",
+        "issue369c_03_compile",
+        "issue369c_05_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Collection used as an operand. VBE \"Argument not optional\" on a Collection whose default member Item takes an index (issue #125, Excel 16.0). Issue #221: any object whose default member needs an index, Excel's collections included, and such an object as the whole value of a Let into a typed value (s = c). A Collection in grouping parentheses is its default member: Set d = (c), c.Add (c), Take (c), Call Take((c)), With (New Collection) (issue #236, Excel 16.0). Issue #242: a Collection as the first argument of Len, CStr, Val, CLng, CDbl, CInt, CBool, CDate, Trim$, UCase$, LCase$, InStrRev, Asc, Chr or Abs does not compile: Argument not optional (measured in Excel 16.0).",
+      "notes": "Collection used as an operand. VBE \"Argument not optional\" on a Collection whose default member Item takes an index (issue #125, Excel 16.0). Issue #221: any object whose default member needs an index, Excel's collections included, and such an object as the whole value of a Let into a typed value (s = c). A Collection in grouping parentheses is its default member: Set d = (c), c.Add (c), Take (c), Call Take((c)), With (New Collection) (issue #236, Excel 16.0). Issue #242: a Collection as the first argument of Len, CStr, Val, CLng, CDbl, CInt, CBool, CDate, Trim$, UCase$, LCase$, InStrRev, Asc, Chr or Abs does not compile: Argument not optional (measured in Excel 16.0). Issue #369: a variable As Sheets or Worksheets read as a value, s = o, o & \"x\", If o = 7, is Argument not optional, though their default member is typed Object.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -4160,11 +4176,12 @@
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue125_f_compile",
-        "issue254_39_compile"
+        "issue254_39_compile",
+        "issue369c_06_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Sub used as a value. VBE \"Expected Function or variable\" (issue #125, Excel 16.0). Issue #254: a Declare Sub too: Main = Sleep(1) on a Declare Sub is Expected Function or variable (measured in Excel 16.0).",
+      "notes": "Sub used as a value. VBE \"Expected Function or variable\" (issue #125, Excel 16.0). Issue #254: a Declare Sub too: Main = Sleep(1) on a Declare Sub is Expected Function or variable (measured in Excel 16.0). Issue #369: x = c.DoIt() with DoIt a Sub of c's class is Expected Function or variable.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -4580,11 +4597,16 @@
         "issue369a_09_compile",
         "issue369a_22_compile",
         "issue369a_24_compile",
-        "issue369a_32_compile"
+        "issue369a_32_compile",
+        "issue369c_12_compile",
+        "issue369c_13_compile",
+        "issue369c_16_compile",
+        "issue369c_17_compile",
+        "issue369c_18_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Lines the VBE cannot parse: an unknown #directive, an unclosed [bracket, Sub or Function with no name, a word after a parameter, an Enum line that is no member. Messages follow the VBE by position (issue #234, Excel 16.0). Parentheses where VBA takes none: (x).Member, v = (), UBound((a)), a named argument inside one, Mid((s), 1, 1) = x, a statement that starts with one (issue #236, Excel 16.0). Issue #239: For Each takes a variable, a member chain, a call or a bracketed name after In; a literal, Null, True, Nothing, Empty, New, Not, TypeOf, Len(...), a parenthesis, a sign or a binary operator is a Syntax error. Measured in Excel 16.0 (build 20326). UBound and LBound read an array variable, a member or a call; a literal, Null, True, Nothing, Empty, New, Not, Len(...), a sign or a binary operator there is a Syntax error (measured in Excel 16.0, build 20326, arraybound_join_* oracle cases). VBA.UBound(5) is Method or data member not found and is left alone. Issue #266: RaiseEvent passes its arguments by position: RaiseEvent Done(n:=1) is \"Syntax error\". Measured in Excel 16.0. Issue #272: a line label cannot be a reserved word, measured in Excel 16.0 for every word of MS-VBAL 3.3.5.2 and Local: GoTo Fix, GoSub Fix, On Error GoTo Fix, Resume Fix and On x GoTo A, Fix are \"Syntax error\", and so is a line Fix: on its own. A library function a label may shadow (Mid, Left, Error, MsgBox, Split) compiles. Before a colon some reserved words are their own statement: End, Stop, Close, Resume, Return and DoEvents compile, the block words are their block's error, and Print, Scale, CDec and Date are reported with the error the VBE gives them. A line continued from the one before is no label. Issue #369: Else If b Then on its own line, x += 1 and x -= 1, Exit While, Call Debug.Print, a Case after Case Else, a Loop with a condition closing a Do with one, a Loop with both While and Until, and Case Is with To or Like are refused.",
+      "notes": "Lines the VBE cannot parse: an unknown #directive, an unclosed [bracket, Sub or Function with no name, a word after a parameter, an Enum line that is no member. Messages follow the VBE by position (issue #234, Excel 16.0). Parentheses where VBA takes none: (x).Member, v = (), UBound((a)), a named argument inside one, Mid((s), 1, 1) = x, a statement that starts with one (issue #236, Excel 16.0). Issue #239: For Each takes a variable, a member chain, a call or a bracketed name after In; a literal, Null, True, Nothing, Empty, New, Not, TypeOf, Len(...), a parenthesis, a sign or a binary operator is a Syntax error. Measured in Excel 16.0 (build 20326). UBound and LBound read an array variable, a member or a call; a literal, Null, True, Nothing, Empty, New, Not, Len(...), a sign or a binary operator there is a Syntax error (measured in Excel 16.0, build 20326, arraybound_join_* oracle cases). VBA.UBound(5) is Method or data member not found and is left alone. Issue #266: RaiseEvent passes its arguments by position: RaiseEvent Done(n:=1) is \"Syntax error\". Measured in Excel 16.0. Issue #272: a line label cannot be a reserved word, measured in Excel 16.0 for every word of MS-VBAL 3.3.5.2 and Local: GoTo Fix, GoSub Fix, On Error GoTo Fix, Resume Fix and On x GoTo A, Fix are \"Syntax error\", and so is a line Fix: on its own. A library function a label may shadow (Mid, Left, Error, MsgBox, Split) compiles. Before a colon some reserved words are their own statement: End, Stop, Close, Resume, Return and DoEvents compile, the block words are their block's error, and Print, Scale, CDec and Date are reported with the error the VBE gives them. A line continued from the one before is no label. Issue #369: Else If b Then on its own line, x += 1 and x -= 1, Exit While, Call Debug.Print, a Case after Case Else, a Loop with a condition closing a Do with one, a Loop with both While and Until, and Case Is with To or Like are refused. Issue #369: a bare call or value use of another module's name, Foo or Main = Foo() with a module named Foo, is Expected variable or procedure, not module; Foo.Foo compiles.",
       "diagnosticKind": "compile-error"
     },
     {

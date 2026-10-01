@@ -1688,6 +1688,7 @@ export class ProjectIndex {
 				defaultMember: isDefaultProjectObjectMember(symbol) || undefined,
 				...(symbol.kind === 'propertyLet' ? { letAccessor: true } : {}),
 				...(symbol.kind === 'propertySet' ? { setAccessor: true } : {}),
+				...(symbol.kind === 'sub' ? { sub: true } : {}),
 				attributes: mergeMemberAttributes(undefined, symbol.attributes),
 			});
 		}

@@ -21,7 +21,8 @@ import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaProcedureSignature } from '../../symbols/symbolModel';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { isKnownScalarType, normalizeType, objectValueNeedsIndex, typeEnvironmentFor } from '../typeInference';
-import type { MemberCompletionContext } from '../../completion/memberAccess';
+import { projectClassMemberAt, type MemberCompletionContext } from '../../completion/memberAccess';
+import { resolveHostAlias } from '../../host/hostModel';
 import {
 	activeModuleMembers,
 	bareAssignmentTarget,
@@ -35,6 +36,9 @@ import {
 
 const SCALAR_OPERATORS: ReadonlySet<string> = new Set(['=', '<', '>', '<=', '>=', '<>', '+', '-', '*', '/', '\\', '&', '^']);
 
+/** Excel's Sheets and Worksheets, whose default member is typed Object (issue #369). */
+const SHEETS_TYPES: ReadonlySet<string> = new Set(['excel.sheets', 'excel.worksheets']);
+
 export function checkStatementForms(
 	source: string,
 	mod: ModuleNode,
@@ -45,6 +49,11 @@ export function checkStatementForms(
 	memberCtx: MemberCompletionContext = {},
 ): void {
 	checkRemPlacement(source, mod, activity, push);
+	// The project's other standard modules, and the names this module declares.
+	const otherModules = new Set((memberCtx.projectClassMembers ?? [])
+		.filter((type) => type.kind === 'standardModule' && type.name.toLowerCase() !== symbols.moduleName.toLowerCase())
+		.map((type) => type.name.toLowerCase()));
+	const ownNames = new Set((symbols.root.children ?? []).map((symbol) => symbol.name.toLowerCase()));
 	// Subs of this module, and of the project's standard modules, by name;
 	// a name that is also a Function or a module-level variable anywhere is
 	// not judged.
@@ -77,7 +86,10 @@ export function checkStatementForms(
 			let answer = needsIndex.get(lower);
 			if (answer === undefined) {
 				const type = env.get(lower);
-				answer = type !== undefined && objectValueNeedsIndex(type, memberCtx);
+				// A variable As Sheets or Worksheets too, though its default is
+				// typed Object: `s = o` and `o & "x"` do not compile (issue #369).
+				const sheets = type !== undefined && SHEETS_TYPES.has(resolveHostAlias(type, memberCtx.model)?.toLowerCase() ?? '');
+				answer = type !== undefined && (sheets || objectValueNeedsIndex(type, memberCtx));
 				needsIndex.set(lower, answer);
 			}
 			return answer;
@@ -99,6 +111,15 @@ export function checkStatementForms(
 				// operand, and neither is `Set cols(1) = c`, whose target is
 				// indexed (issue #140).
 				const first = firstExecutableTokenIndex(toks);
+				// `Foo` or `Call Foo` from another module, where a module is
+				// named Foo: the name means the module before its Sub (issue
+				// #369, measured in Excel 16.0). `Foo.Foo` compiles.
+				const callee = tokenText(toks[first]) === 'call' ? first + 1 : first;
+				const calleeName = target === undefined ? tokenName(toks[callee])?.toLowerCase() : undefined;
+				if (calleeName && toks[callee + 1]?.rawText !== '.' && toks[callee + 1]?.rawText !== '=' && otherModules.has(calleeName)
+					&& !locals.has(calleeName) && !ownNames.has(calleeName)) {
+					push('malformedStatement', `'${toks[callee].rawText}' names a module of this project before any procedure in it, so it cannot be called bare from another module; write ${toks[callee].rawText}.${toks[callee].rawText}. This is a VBE compile error: Expected variable or procedure, not module.`, at(callee));
+				}
 				const assigns = target !== undefined || tokenText(toks[first]) === 'set';
 				const eq = assigns ? toks.findIndex((tok) => tok.rawText === '=') : -1;
 				// A one-line If is judged as its condition here; each branch is its
@@ -110,7 +131,19 @@ export function checkStatementForms(
 				const limit = then > 0 ? then : toks.length;
 				for (let i = 0; i < limit; i++) {
 					const name = tokenName(toks[i]);
+					// `x = c.DoIt()` with DoIt a Sub of c's class (issue #369).
+					if (name && target && i > eq && toks[i - 1]?.rawText === '.' && toks[i + 1]?.rawText !== '.'
+						&& projectClassMemberAt(source, span.start + toks[i - 1].end, name, memberCtx)?.sub) {
+						push('subUsedAsValue', `'${name}' is a Sub of the class, which returns nothing, so it cannot be used as a value. This is a VBE compile error: Expected Function or variable.`, at(i));
+						continue;
+					}
 					if (!name || toks[i - 1]?.rawText === '.' || toks[i + 1]?.rawText === ':=' || i === eq - 1) {
+						continue;
+					}
+					// `Main = Foo()` reads the module Foo too (issue #369).
+					const nameLower = name.toLowerCase();
+					if (i !== callee && toks[i + 1]?.rawText !== '.' && otherModules.has(nameLower) && !locals.has(nameLower) && !ownNames.has(nameLower)) {
+						push('malformedStatement', `'${name}' names a module of this project before any procedure in it, so it cannot be used bare from another module; write ${name}.${name}. This is a VBE compile error: Expected variable or procedure, not module.`, at(i));
 						continue;
 					}
 					// `AddressOf TimerProc` takes the procedure's address, not its value.
