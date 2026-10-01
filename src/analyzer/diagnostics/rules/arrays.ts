@@ -2772,8 +2772,14 @@ export function checkFixedArraySubscriptBounds(
 		// A subscript through a Const or a local with one known value (issue #238).
 		const constants = procedureIntegerConstantLookup(member, moduleConstants, symbols, projectVisibleSymbols, activity, hostModel);
 		const valuesAt = knownLocalLiteralValuesAt(source, member, symbols, activity);
+		// Code that never runs, after `GoTo Done` or in a loop of no pass,
+		// raises nothing, whatever state it builds (issue #406).
+		const unreachable = unreachableStatementsIn(source, member, symbols, activity);
 		// Headers too: `For i = 1 To a(5)`, `Select Case a(5)` (issue #233).
 		forEachStatementWithHeaders(source, member.body, (stmt) => {
+			if (unreachable.has(stmt)) {
+				return;
+			}
 			for (const hit of inlineSplitIndexViolations(source, stmt.span)) {
 				push('arraySubscriptOutOfBounds', hit.message, hit.span);
 			}

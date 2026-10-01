@@ -38,7 +38,7 @@ import { isLeafStatement } from '../../parser/nodes';
 import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import type { PushFn } from '../analysisContext';
 import { counterText, loopCountersAt, numericCounterPasses, type LoopCounter } from '../loopCounters';
-import { knownLocalLiteralValuesAt, normalizeType, procedureIntegerConstantLookup, stringLiteralValue, withKnownLocals } from '../typeInference';
+import { knownLocalLiteralValuesAt, normalizeType, procedureIntegerConstantLookup, stringLiteralValue, unreachableStatementsIn, withKnownLocals } from '../typeInference';
 import {
 	activeModuleMembers,
 	blockHeaderLineSpan,
@@ -92,9 +92,11 @@ export function checkCollectionState(
 		// An index through a Const or a local with one known value (issue #238).
 		const constants = symbols ? procedureIntegerConstantLookup(member, moduleConstants, symbols, projectVisibleSymbols, activity, hostModel) : undefined;
 		const valuesAt = symbols ? knownLocalLiteralValuesAt(source, member, symbols, activity) : undefined;
+		// Code that never runs changes nothing and raises nothing (issue #406).
+		const unreachable = symbols ? unreachableStatementsIn(source, member, symbols, activity) : undefined;
 		// Blocks are entered with the state they start with (issue #237).
 		const visit = (node: BodyNode): void => {
-			if (!isLeafStatement(node)) {
+			if (!isLeafStatement(node) || unreachable?.has(node)) {
 				return; // a Dim inside the body declares, and runs nothing
 			}
 			if (node.kind === 'Statement' && node.singleLineIfBranches) {

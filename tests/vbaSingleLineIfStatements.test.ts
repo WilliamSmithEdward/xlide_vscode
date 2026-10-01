@@ -58,7 +58,8 @@ describe('rules read the statements a single-line If executes', () => {
 			'Public Sub T()',
 			'    Dim a(1 To 3) As Long',
 			'    Dim i As Long',
-			'    If i > 0 Then a(20) = 1',
+			// i is 0, so the branch runs (issue #406: one that cannot is not judged).
+			'    If i = 0 Then a(20) = 1',
 			'End Sub',
 			'',
 		].join('\n');

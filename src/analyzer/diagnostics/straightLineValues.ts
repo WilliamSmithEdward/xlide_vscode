@@ -92,7 +92,11 @@ function cachedWalk(
 ): CachedWalk {
 	// Six rules ask for the same procedure in one pass; a parse makes a new
 	// body, so the body is the key, with what holds at the start.
-	const key = [...initial].map(([name, value]) => `${name}=${value.map((tok) => tok.rawText).join(' ')}`).sort().join('\n');
+	let key = START_KEYS.get(initial);
+	if (key === undefined) {
+		key = [...initial].map(([name, value]) => `${name}=${value.map((tok) => tok.rawText).join(' ')}`).sort().join('\n');
+		START_KEYS.set(initial, key);
+	}
 	const byStart = WALKS.get(body) ?? new Map<string, CachedWalk>();
 	WALKS.set(body, byStart);
 	const cached = byStart.get(key);
@@ -128,6 +132,9 @@ interface WalkOut {
 const UNREACHED: ReachingAssignments = new Map();
 
 const WALKS = new WeakMap<readonly BodyNode[], Map<string, CachedWalk>>();
+
+/** Each start's cache key, by identity: a kept start is asked for by several rules. */
+const START_KEYS = new WeakMap<ReachingAssignments, string>();
 
 /**
  * Walks one statement list from `entry` and returns what holds after it. The
@@ -249,6 +256,21 @@ function walkBlock(
 		}
 		return chosen.taken ? walkList(source, chosen.taken, entry, activity, walk) : entry;
 	}
+	// A loop known to run no pass runs none of its body (issue #406): `For i
+	// = 1 To 0`, `While d <> 0` with d still 0, `For Each x In Array()`. A
+	// For counter is left at its start.
+	const none = loopRunsNoPass(source, node, entry);
+	if (none) {
+		for (const stmt of node.body as BodyNode[]) {
+			markUnreachable(stmt, walk.dead);
+		}
+		if (none.counter === undefined) {
+			return entry;
+		}
+		const next = new Map(entry);
+		next.set(none.counter.name, rawExpressionTokens(String(none.counter.value)));
+		return next;
+	}
 	const touched = touchedInBlock(source, node, activity);
 	const after = touched === 'all' ? NONE : without(entry, touched);
 	// An If arm, a Case or a With body runs once, from the state the block is
@@ -302,6 +324,51 @@ function forCounterFinalValue(
 	}
 	const passes = step > 0 ? (start <= limit ? Math.floor((limit - start) / step) + 1 : 0) : (start >= limit ? Math.floor((start - limit) / -step) + 1 : 0);
 	return { name: lower, value: start + passes * step };
+}
+
+/**
+ * Whether a loop runs no pass, from the state it is entered with: a For whose
+ * bounds and step are known and pass each other, a `Do While` or `While`
+ * whose condition is known False, a `Do Until` whose condition is known True,
+ * and a For Each over `Array()`. Undefined when it may run.
+ */
+function loopRunsNoPass(source: string, node: BodyNode, entry: ReachingAssignments): { counter?: { name: string; value: number } } | undefined {
+	if (!isLoopBlock(node)) {
+		return undefined;
+	}
+	const toks = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+	const facts = factsFrom(entry);
+	if (node.kind === 'ForBlock' && node.each) {
+		const inAt = toks.findIndex((tok) => tokenText(tok) === 'in');
+		const group = toks.slice(inAt + 1);
+		const empty = inAt > 0 && group.length === 3 && tokenText(group[0]) === 'array' && group[1].rawText === '(' && group[2].rawText === ')';
+		return empty ? {} : undefined;
+	}
+	if (node.kind === 'ForBlock') {
+		const eq = toks.findIndex((tok) => tok.rawText === '=');
+		const to = toks.findIndex((tok) => tokenText(tok) === 'to');
+		const stepAt = toks.findIndex((tok) => tokenText(tok) === 'step');
+		const known = (part: readonly VbaToken[]): number | undefined => {
+			const literal = signedInteger(part);
+			const value = literal ?? (part.length === 1 ? facts.value(tokenName(part[0])?.toLowerCase() ?? '') : undefined);
+			return typeof value === 'number' ? value : undefined;
+		};
+		const start = eq > 0 && to > eq ? known(toks.slice(eq + 1, to)) : undefined;
+		const limit = to > 0 ? known(toks.slice(to + 1, stepAt > 0 ? stepAt : toks.length)) : undefined;
+		const step = stepAt > 0 ? known(toks.slice(stepAt + 1)) : 1;
+		if (start === undefined || limit === undefined || step === undefined || step === 0 || !node.controlVariable) {
+			return undefined;
+		}
+		return (step > 0 ? start > limit : start < limit) ? { counter: { name: node.controlVariable.toLowerCase(), value: start } } : undefined;
+	}
+	// `Do While c`, `Do Until c` and `While c`; a condition after `Loop` lets one pass run.
+	const head = tokenText(toks[node.kind === 'DoBlock' ? 1 : 0]);
+	if (head !== 'while' && head !== 'until') {
+		return undefined;
+	}
+	const condition = toks.slice(node.kind === 'DoBlock' ? 2 : 1);
+	const value = condition.length > 0 ? conditionValue(condition, facts) : undefined;
+	return value === (head === 'until') ? {} : undefined;
 }
 
 function signedInteger(toks: readonly VbaToken[]): number | undefined {
