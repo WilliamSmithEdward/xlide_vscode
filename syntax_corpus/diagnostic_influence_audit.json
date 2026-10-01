@@ -775,11 +775,13 @@
         "issue202_28_runtime",
         "issue246_01_runtime",
         "issue246_06_runtime",
-        "issue246_19_runtime"
+        "issue246_19_runtime",
+        "issue356_12_runtime",
+        "issue356_14_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Only known object variable, Function/Property Get return-name, and member targets with deterministic RHS types are flagged. RHS inference includes bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, proven source-backed/host member return expressions, verified VBA runtime/generated host constants, and verified host globals such as Application, ActiveSheet, and ActiveCell when no source binding shadows the external name. Host collection property calls with arguments, such as Worksheet.ListObjects(\"Tests\"), use the collection default Item return type only when metadata proves the returned collection exposes Item and the property itself has no parameter signature. A scalar value is set-requires-object, a compile error. Same project class, Nothing, generic Object, Variant/unknown types, local shadows, ambiguous exported globals, unknown module qualifiers, and explicit Implements compatibility remain accepted. Issue #246: the class an Object or Variant local holds, from Set x = New C or from another such local, is checked when it is Set into a typed variable; and For Each over a Collection whose items were added as New C Sets each into the control variable, raising 13 at an item of another class (measured in Excel 16.0, build 20326, issue246_* oracle cases).",
+      "notes": "Only known object variable, Function/Property Get return-name, and member targets with deterministic RHS types are flagged. RHS inference includes bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, proven source-backed/host member return expressions, verified VBA runtime/generated host constants, and verified host globals such as Application, ActiveSheet, and ActiveCell when no source binding shadows the external name. Host collection property calls with arguments, such as Worksheet.ListObjects(\"Tests\"), use the collection default Item return type only when metadata proves the returned collection exposes Item and the property itself has no parameter signature. A scalar value is set-requires-object, a compile error. Same project class, Nothing, generic Object, Variant/unknown types, local shadows, ambiguous exported globals, unknown module qualifiers, and explicit Implements compatibility remain accepted. Issue #246: the class an Object or Variant local holds, from Set x = New C or from another such local, is checked when it is Set into a typed variable; and For Each over a Collection whose items were added as New C Sets each into the control variable, raising 13 at an item of another class (measured in Excel 16.0, build 20326, issue246_* oracle cases). Issue #356: a For Each whose body may leave the loop (Exit For, Exit Function, GoTo, End) is judged on its first item only.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -5172,11 +5174,13 @@
         "issue243_49_runtime",
         "issue246_05_runtime",
         "issue246_23_runtime",
-        "issue266_47_runtime"
+        "issue266_47_runtime",
+        "issue356_06_runtime",
+        "issue356_07_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Member not found at run time. VBE runtime error 438: Object doesn't support this property or method (issue #121, Excel 16.0). Issue #224: a class reaches the late-bound variable from one declared as it (Set o = c; 91 while c may be Nothing); a Private member is absent (438); a Let into a Get-only property raises 451 and a read of a Let-only property 450. Issue #226: f.Controls(\"Nope\") on a form whose controls are known raises -2147024809. Issue #243: CallByName with a literal name: no Public member of a project class (a Private one included), or a Collection name other than Add, Count, Item and Remove, raises 438; VbGet or VbLet on a Sub or Function raises 450. In Excel, Application.Run of a name no standard or document module of the project declares raises 1004 (Private procedures count, class members do not; judged only with the project) (measured in Excel 16.0, build 20326, issue243_* oracle cases). Issue #246: c(i).Member on a Collection whose item i, or every item, was added as New C asks C for the member: 438 when C lacks it (measured in Excel 16.0).",
+      "notes": "Member not found at run time. VBE runtime error 438: Object doesn't support this property or method (issue #121, Excel 16.0). Issue #224: a class reaches the late-bound variable from one declared as it (Set o = c; 91 while c may be Nothing); a Private member is absent (438); a Let into a Get-only property raises 451 and a read of a Let-only property 450. Issue #226: f.Controls(\"Nope\") on a form whose controls are known raises -2147024809. Issue #243: CallByName with a literal name: no Public member of a project class (a Private one included), or a Collection name other than Add, Count, Item and Remove, raises 438; VbGet or VbLet on a Sub or Function raises 450. In Excel, Application.Run of a name no standard or document module of the project declares raises 1004 (Private procedures count, class members do not; judged only with the project) (measured in Excel 16.0, build 20326, issue243_* oracle cases). Issue #246: c(i).Member on a Collection whose item i, or every item, was added as New C asks C for the member: 438 when C lacks it (measured in Excel 16.0). Issue #356: c.Add with Before:=n or After:=n, a whole number within the items, puts the item there; a key or an expression for either leaves the order unknown and nothing is judged by index.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {

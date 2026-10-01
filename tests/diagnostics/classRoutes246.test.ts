@@ -92,4 +92,34 @@ describe('through a Collection item', () => {
 			expect(byCode(diags, 'runtime-member-not-found').length + byCode(diags, 'assignment-object-type-mismatch').length, lines.join('; ')).toBe(0);
 		}
 	});
+
+	// Issue #356, measured in Excel 16.0 (build 20326, 2026-10-01).
+	it('follows Before and After, and forgets the order where they are not a whole number', () => {
+		for (const lines of [
+			['Dim c As New Collection', 'c.Add New Flat1', 'c.Add New Round1, Before:=1', 'Main = c(1).Radius()'],
+			['Dim c As New Collection', 'c.Add New Flat1', 'c.Add New Round1, , 1', 'Main = c(1).Radius()'],
+			['Dim c As New Collection', 'c.Add New Round1', 'c.Add New Flat1', 'c.Add New Round1, After:=1', 'Main = c(2).Radius()'],
+			['Dim c As New Collection', 'c.Add New Flat1, "f"', 'c.Add New Round1, "r", "f"', 'Main = c(1).Radius()'],
+			['Dim c As New Collection', 'c.Add New Round1', 'c.Add New Flat1', 'c.Add New Round1, After:=0 + 1', 'Main = c(2).Radius()'],
+			['Dim c As New Collection, k As Long', 'c.Add New Round1', 'c.Add New Flat1', 'k = 2', 'c.Add New Round1, After:=k', 'Main = c(3).Radius()'],
+		]) {
+			expect(byCode(analyze(...lines).diags, 'runtime-member-not-found'), lines.join('; ')).toHaveLength(0);
+		}
+		for (const [lines, span] of [
+			[['Dim c As New Collection', 'c.Add New Round1', 'c.Add New Flat1, Before:=1', 'Main = c(1).Radius()'], 'c(1)'],
+			[['Dim c As New Collection', 'c.Add New Round1', 'c.Add New Round1', 'c.Add New Flat1, After:=1', 'Main = c(2).Radius()'], 'c(2)'],
+		] as const) {
+			const found = analyze(...lines);
+			expectDiagnostic(found.src, byCode(found.diags, 'runtime-member-not-found'), 'runtime-member-not-found', { span });
+		}
+	});
+
+	it('judges only the first item of a For Each that may leave', () => {
+		for (const exit of ['Exit For', 'If x.Radius() >= 0 Then Exit For', 'Exit Function', 'GoTo Done']) {
+			const lines = ['Dim c As New Collection, x As Round1', 'c.Add New Round1', 'c.Add New Flat1', 'For Each x In c', `    ${exit}`, 'Next', 'Done:'];
+			expect(byCode(analyze(...lines).diags, 'assignment-object-type-mismatch'), exit).toHaveLength(0);
+		}
+		const first = analyze('Dim c As New Collection, x As Round1', 'c.Add New Flat1', 'c.Add New Round1', 'For Each x In c', '    Exit For', 'Next');
+		expectDiagnostic(first.src, byCode(first.diags, 'assignment-object-type-mismatch'), 'assignment-object-type-mismatch', { span: 'c', message: 'item 1 is a Flat1' });
+	});
 });

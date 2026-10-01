@@ -804,3 +804,37 @@ export function sourceExpressionSyntaxProblem(sourceExpression: string): string 
 	}
 	return undefined;
 }
+
+/**
+ * True when a statement in the loop's body can leave the loop before its
+ * last pass: `Exit For` (not one belonging to a nested For),
+ * `Exit Sub`/`Function`/`Property`, `GoTo`, or `End` (issues #145, #356).
+ */
+export function bodyMayLeaveLoop(source: string, body: readonly BodyNode[]): boolean {
+	const LEAVES = new Set(['for', 'sub', 'function', 'property']);
+	const visit = (nodes: readonly BodyNode[], insideNestedFor: boolean): boolean => {
+		for (const node of nodes) {
+			if (isLeafStatement(node)) {
+				const toks = statementTokensAfterLeadingLabel(source, node.span);
+				for (let i = 0; i < toks.length; i++) {
+					const word = tokenText(toks[i]);
+					if (word === 'goto' || (word === 'end' && toks.length === 1)) {
+						return true;
+					}
+					if (word === 'exit') {
+						const target = tokenText(toks[i + 1]);
+						if (LEAVES.has(target) && (target !== 'for' || !insideNestedFor)) {
+							return true;
+						}
+					}
+				}
+			} else if ('body' in node && Array.isArray(node.body)) {
+				if (visit(node.body as BodyNode[], insideNestedFor || node.kind === 'ForBlock')) {
+					return true;
+				}
+			}
+		}
+		return false;
+	};
+	return visit(body, false);
+}
