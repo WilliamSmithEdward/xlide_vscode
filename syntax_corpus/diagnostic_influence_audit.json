@@ -1065,11 +1065,22 @@
         "issue239_39_runtime",
         "issue239_61_runtime",
         "issue239_62_runtime",
-        "issue239_63_runtime"
+        "issue239_63_runtime",
+        "arraybound_join_03_runtime",
+        "arraybound_join_04_runtime",
+        "arraybound_join_05_runtime",
+        "arraybound_join_06_runtime",
+        "arraybound_join_07_runtime",
+        "arraybound_join_08_runtime",
+        "arraybound_join_09_runtime",
+        "arraybound_join_16_runtime",
+        "arraybound_join_18_runtime",
+        "arraybound_join_19_runtime",
+        "arraybound_join_22_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show out-of-bound integer values for Left/Left$, Right/Right$, String/String$, Space/Space$, Mid/Mid$, Replace, three-or-more-argument InStr, Chr, and ChrW compile successfully and deterministically raise runtime error 5, while proven in-bound controls run. The active rule is deliberately narrow: it scans settled procedure statements for integer literals, reducible integer expressions, same-module/procedure Const values, current-module Enum members, bare/module-qualified visible exported standard-module Const/Enum members, verified numeric VBA runtime constants, generated Excel/Office host enum constants, and exported Const-through-private-helper values outside proven runtime bounds; bare source names are folded only when the shared expression resolver proves a non-ambiguous Const or Enum-member binding, so local/module variable shadows suppress exported and external constant values; maps named argument slots where the intrinsic syntax supports them; respects bare-call shadowing by source symbols and local declarations; treats ambiguous or direct private helper references as unknown; and still allows explicit VBA-qualified calls to bind to intrinsic runtime functions. Issue #218: Compare takes 0, 1 or a locale ID, so only a negative Compare, and 2 for InStr, StrComp and Filter outside Access, is reported, in all six functions; CVErr takes 0 to 65535; LeftB, RightB, MidB, AscB and InStrB keep the lower bounds of their plain forms; a string is at most 1073741823 characters; TimeSerial, DateSerial, ChrB, String and InStr overflow past their Integer, Byte or Long parameters, and Error(n) past 65535 (error 6); Partition, Pmt, IPmt, PPmt, SLN, SYD, DDB, NPer and Rate are checked across their arguments, PV with Rate -1 divides by zero (11), LBound and UBound of Array(...) or Split(...) past dimension 1 raise 9, and Join or Filter of a string or number raise 13. Whether Rate converges is not judged. Issue #219: Switch with an odd number of arguments (5). In a block header too: For bounds and Step, Select Case, Do, Loop and While conditions, a With subject (issue #233, Excel 16.0). Issue #239: Join needs only its array; Join of a literal, Null, True, a date literal or a local declared as a scalar raises 13. Measured in Excel 16.0 (build 20326).",
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show out-of-bound integer values for Left/Left$, Right/Right$, String/String$, Space/Space$, Mid/Mid$, Replace, three-or-more-argument InStr, Chr, and ChrW compile successfully and deterministically raise runtime error 5, while proven in-bound controls run. The active rule is deliberately narrow: it scans settled procedure statements for integer literals, reducible integer expressions, same-module/procedure Const values, current-module Enum members, bare/module-qualified visible exported standard-module Const/Enum members, verified numeric VBA runtime constants, generated Excel/Office host enum constants, and exported Const-through-private-helper values outside proven runtime bounds; bare source names are folded only when the shared expression resolver proves a non-ambiguous Const or Enum-member binding, so local/module variable shadows suppress exported and external constant values; maps named argument slots where the intrinsic syntax supports them; respects bare-call shadowing by source symbols and local declarations; treats ambiguous or direct private helper references as unknown; and still allows explicit VBA-qualified calls to bind to intrinsic runtime functions. Issue #218: Compare takes 0, 1 or a locale ID, so only a negative Compare, and 2 for InStr, StrComp and Filter outside Access, is reported, in all six functions; CVErr takes 0 to 65535; LeftB, RightB, MidB, AscB and InStrB keep the lower bounds of their plain forms; a string is at most 1073741823 characters; TimeSerial, DateSerial, ChrB, String and InStr overflow past their Integer, Byte or Long parameters, and Error(n) past 65535 (error 6); Partition, Pmt, IPmt, PPmt, SLN, SYD, DDB, NPer and Rate are checked across their arguments, PV with Rate -1 divides by zero (11), LBound and UBound of Array(...) or Split(...) past dimension 1 raise 9, and Join or Filter of a string or number raise 13. Whether Rate converges is not judged. Issue #219: Switch with an odd number of arguments (5). In a block header too: For bounds and Step, Select Case, Do, Loop and While conditions, a With subject (issue #233, Excel 16.0). Issue #239: Join needs only its array; Join of a literal, Null, True, a date literal or a local declared as a scalar raises 13. Measured in Excel 16.0 (build 20326). Join over a fixed local array whose elements are neither Strings nor Variants, or of two dimensions, raises 5 (measured in Excel 16.0, build 20326). A dynamic array is left alone: unallocated, it joins to an empty string.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -3519,11 +3530,25 @@
         "issue236_32_compile",
         "issue236_34_compile",
         "issue239_13_compile",
-        "issue239_14_compile"
+        "issue239_14_compile",
+        "arraybound_join_23_compile",
+        "arraybound_join_24_compile",
+        "arraybound_join_25_compile",
+        "arraybound_join_26_compile",
+        "arraybound_join_27_compile",
+        "arraybound_join_28_compile",
+        "arraybound_join_29_compile",
+        "arraybound_join_30_compile",
+        "arraybound_join_31_compile",
+        "arraybound_join_32_compile",
+        "arraybound_join_33_compile",
+        "arraybound_join_34_compile",
+        "arraybound_join_35_compile",
+        "arraybound_join_36_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Lines the VBE cannot parse: an unknown #directive, an unclosed [bracket, Sub or Function with no name, a word after a parameter, an Enum line that is no member. Messages follow the VBE by position (issue #234, Excel 16.0). Parentheses where VBA takes none: (x).Member, v = (), UBound((a)), a named argument inside one, Mid((s), 1, 1) = x, a statement that starts with one (issue #236, Excel 16.0). Issue #239: For Each takes a variable, a member chain, a call or a bracketed name after In; a literal, Null, True, Nothing, Empty, New, Not, TypeOf, Len(...), a parenthesis, a sign or a binary operator is a Syntax error. Measured in Excel 16.0 (build 20326).",
+      "notes": "Lines the VBE cannot parse: an unknown #directive, an unclosed [bracket, Sub or Function with no name, a word after a parameter, an Enum line that is no member. Messages follow the VBE by position (issue #234, Excel 16.0). Parentheses where VBA takes none: (x).Member, v = (), UBound((a)), a named argument inside one, Mid((s), 1, 1) = x, a statement that starts with one (issue #236, Excel 16.0). Issue #239: For Each takes a variable, a member chain, a call or a bracketed name after In; a literal, Null, True, Nothing, Empty, New, Not, TypeOf, Len(...), a parenthesis, a sign or a binary operator is a Syntax error. Measured in Excel 16.0 (build 20326). UBound and LBound read an array variable, a member or a call; a literal, Null, True, Nothing, Empty, New, Not, Len(...), a sign or a binary operator there is a Syntax error (measured in Excel 16.0, build 20326, arraybound_join_* oracle cases). VBA.UBound(5) is Method or data member not found and is left alone.",
       "diagnosticKind": "compile-error"
     },
     {

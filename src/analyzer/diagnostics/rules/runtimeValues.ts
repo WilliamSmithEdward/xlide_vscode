@@ -13,6 +13,7 @@ import {
 	resolveRawIntegerConstants,
 } from '../../constants/integerConstantExpression';
 import type { VbaToken } from '../../lexer/tokenKinds';
+import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
 import type {
 	BodyNode,
 	ModuleNode,
@@ -51,6 +52,7 @@ import {
 } from '../typeInference';
 import {
 	matchParenFrom,
+	rawExpressionTokens,
 	statementTokens,
 	tokenName,
 	tokenText,
@@ -58,6 +60,12 @@ import {
 } from '../walker';
 
 const NO_COUNTER_VALUES: ReadonlyMap<string, number> = new Map();
+
+/** A local's declared type, and its dimensions: 0 for a scalar, the count for a fixed array. */
+interface LocalDeclaration {
+	asType: string;
+	dimensions: number;
+}
 
 interface RuntimeArgumentValueSpec {
 	canonicalName: string;
@@ -145,12 +153,21 @@ export function checkRuntimeArgumentValues(
 		// (issue #180).
 		const valuesAt = knownLocalLiteralValuesAt(source, member, symbols, activity);
 		let known: ReadonlyMap<string, KnownLocalValue> = new Map();
-		// A local declared as a scalar, which `Join(n)` refuses (issue #239).
+		// A local declared as a scalar, which `Join(n)` refuses (issue #239),
+		// or as a fixed array, whose element type and dimensions Join reads.
 		const locals = procedureSymbolFor(symbols, member)?.children ?? [];
-		const scalarTypeOf = (lower: string): string | undefined => {
+		const declarationOf = (lower: string): LocalDeclaration | undefined => {
 			const local = locals.find((child) => child.name.toLowerCase() === lower);
-			const type = normalizeType(local?.asType);
-			return local?.kind === 'localVariable' && !local.isArray && type !== undefined && type !== 'variant' && isKnownScalarType(type) ? local.asType : undefined;
+			if (local?.kind !== 'localVariable') {
+				return undefined;
+			}
+			const type = normalizeType(local.asType);
+			if (local.isArray) {
+				return local.arrayBounds === undefined
+					? undefined // a dynamic array may still be unallocated, which Join takes
+					: { asType: local.asType ?? 'Variant', dimensions: splitTopLevelTokenGroups(rawExpressionTokens(local.arrayBounds), 0, ',').length };
+			}
+			return type !== undefined && type !== 'variant' && isKnownScalarType(type) ? { asType: local.asType!, dimensions: 0 } : undefined;
 		};
 		const stringsFor = new Map<ReadonlyMap<string, KnownLocalValue>, { strings: Map<string, string>; lengths: Map<string, number> }>();
 		const stringsAt = (values: ReadonlyMap<string, KnownLocalValue>): { strings: Map<string, string>; lengths: Map<string, number> } => {
@@ -200,7 +217,7 @@ export function checkRuntimeArgumentValues(
 					shadowed: (name) => runtimeCallableSourceShadowed(name, sourceNames),
 					compare,
 				};
-				for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env, lookup, stringCalls, sourceNames, host, scalarTypeOf)) {
+				for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env, lookup, stringCalls, sourceNames, host, declarationOf)) {
 					const raises = hit.error === 6 ? `'6': Overflow` : `'5': Invalid procedure call or argument`;
 					report(
 						'runtimeArgumentValue',
@@ -531,7 +548,7 @@ function runtimeArgumentValueHits(
 	stringCalls: KnownStringCallContext,
 	sourceNames: SourceNameScope,
 	host: string | undefined,
-	scalarTypeOf?: (lower: string) => string | undefined,
+	declarationOf?: (lower: string) => LocalDeclaration | undefined,
 ): RuntimeArgumentValueHit[] {
 	const toks = statementTokens(source, span);
 	if (isDeclarationLikeStatement(toks)) {
@@ -561,7 +578,7 @@ function runtimeArgumentValueHits(
 		}
 		const overflow = dateAddPastMaximum(source, span, call, constants)
 			?? dateSerialPastMaximum(source, span, call, constants)
-			?? argumentRelationHit(source, span, call, constants, scalarTypeOf);
+			?? argumentRelationHit(source, span, call, constants, declarationOf);
 		if (overflow) {
 			hits.push(overflow);
 		}
@@ -608,7 +625,7 @@ function argumentRelationHit(
 	span: Span,
 	call: { displayName: string; slots: VbaToken[][] },
 	constants: IntegerConstantLookup,
-	scalarTypeOf: (lower: string) => string | undefined = () => undefined,
+	declarationOf: (lower: string) => LocalDeclaration | undefined = () => undefined,
 ): RuntimeArgumentValueHit | undefined {
 	const name = call.displayName.replace(/^VBA\./i, '').replace(/\$$/, '').toLowerCase();
 	if (call.slots.some((slot) => namedArgumentSlot(slot))) {
@@ -764,9 +781,21 @@ function argumentRelationHit(
 			if (scalar) {
 				return hit(`${call.displayName} takes an array, but ${first[0].rawText} is not one.`, slotSpan(0), 13);
 			}
-			const declared = join && first.length === 1 && first[0].kind === 'identifier' ? scalarTypeOf(first[0].rawText.toLowerCase()) : undefined;
-			return declared
-				? hit(`${call.displayName} takes an array, but '${first[0].rawText}' is declared As ${declared}.`, slotSpan(0), 13)
+			const declared = join && first.length === 1 && first[0].kind === 'identifier' ? declarationOf(first[0].rawText.toLowerCase()) : undefined;
+			if (!declared) {
+				return undefined;
+			}
+			if (declared.dimensions === 0) {
+				return hit(`${call.displayName} takes an array, but '${first[0].rawText}' is declared As ${declared.asType}.`, slotSpan(0), 13);
+			}
+			// Join reads one dimension of Strings or Variants: an array of Long,
+			// or of two dimensions, raises 5 (measured in Excel 16.0).
+			if (declared.dimensions > 1) {
+				return hit(`${call.displayName} joins an array of one dimension, but '${first[0].rawText}' has ${declared.dimensions}.`, slotSpan(0));
+			}
+			const element = normalizeType(declared.asType);
+			return element !== 'string' && element !== 'variant'
+				? hit(`${call.displayName} joins Strings or Variants, but '${first[0].rawText}' is an array of ${declared.asType}.`, slotSpan(0))
 				: undefined;
 		}
 		default:
