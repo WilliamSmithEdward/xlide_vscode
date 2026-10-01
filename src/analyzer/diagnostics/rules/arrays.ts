@@ -39,6 +39,7 @@ import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import { straightLineAssignments, type ReachingAssignments } from '../straightLineValues';
 import { counterText, loopCountersAt, numericCounterPasses, type CounterValue, type CountersAt } from '../loopCounters';
 import { procedureHasUnstructuredFlow } from '../../flow/procedureUnstructured';
+import { untouchedModuleVariablesIn } from '../moduleState';
 import { isBareOrVbaQualifiedIntrinsicCall, sourceExpressionSyntaxProblem } from '../rules/shared';
 import {
 	declarationShapeEnvironmentFor,
@@ -2027,6 +2028,58 @@ function returnedArraySubscriptViolations(
 	return out;
 }
 
+/** A module's fixed arrays, by lowercased name. */
+function moduleFixedArrayDeclarations(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	optionBase: number,
+): Map<string, FixedArrayBound> {
+	const groups = activeModuleMembers(mod, activity).filter((member) => member.kind === 'VariableGroup') as BodyNode[];
+	return localFixedArrayDeclarationsForBody(source, groups, activity, optionBase);
+}
+
+/** The names a procedure's own locals and parameters take, which hide module variables. */
+function hiddenIn(symbols: ReturnType<typeof buildModuleSymbols>, proc: ProcedureNode): Set<string> {
+	const out = new Set((procedureSymbolFor(symbols, proc)?.children ?? []).map((child) => child.name.toLowerCase()));
+	for (const param of proc.params) {
+		out.add(param.name.toLowerCase());
+	}
+	return out;
+}
+
+/**
+ * `a(0)`, `UBound(a)` and `LBound(a)` on a module's dynamic array that
+ * nothing ReDims: it has no elements, and each raises 9 (issue #241,
+ * measured in Excel 16.0).
+ */
+function unallocatedModuleArrayUses(
+	source: string,
+	span: Span,
+	arrays: ReadonlyMap<string, VbaSymbol>,
+): Array<{ span: Span; message: string }> {
+	const toks = statementTokensAfterLeadingLabel(source, span);
+	const out: Array<{ span: Span; message: string }> = [];
+	for (let i = 0; i < toks.length; i++) {
+		const variable = arrays.get(tokenName(toks[i])?.toLowerCase() ?? '');
+		if (!variable || toks[i - 1]?.rawText === '.' || toks[i - 1]?.rawText === '!') {
+			continue;
+		}
+		const bound = toks[i - 1]?.rawText === '(' && ['ubound', 'lbound'].includes(tokenText(toks[i - 2])) && toks[i - 3]?.rawText !== '.'
+			&& (toks[i + 1]?.rawText === ')' || toks[i + 1]?.rawText === ',');
+		if (!bound && toks[i + 1]?.rawText !== '(') {
+			continue;
+		}
+		const scope = variable.visibility === 'Public' || variable.visibility === 'Global' ? 'the project' : 'this module';
+		const what = bound ? `${toks[i - 2].rawText} reads the bounds of '${toks[i].rawText}'` : `'${toks[i].rawText}' is indexed`;
+		out.push({
+			span: { start: span.start + toks[i].start, end: span.start + toks[i].end },
+			message: `${what}, a dynamic array nothing in ${scope} ever ReDims, so it has no elements. This will raise Run-time error '9': Subscript out of range.`,
+		});
+	}
+	return out;
+}
+
 function subscriptViolation(
 	span: Span,
 	decl: FixedArrayBound,
@@ -2217,11 +2270,19 @@ export function checkFixedArraySubscriptBounds(
 ): void {
 	const optionBase = moduleOptionBase(mod, activity);
 	const moduleConstants = moduleIntegerConstants(mod, projectIntegerConstants, activity);
+	let moduleFixed: Map<string, FixedArrayBound> | undefined;
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		const declared = localFixedArrayDeclarationsForBody(source, member.body, activity, optionBase);
+		// A module's fixed arrays keep their bounds, and its dynamic arrays
+		// that nothing ReDims have none (issue #241).
+		const moduleVariables = untouchedModuleVariablesIn(source, symbols, member);
+		const declared = new Map([
+			...[...(moduleFixed ??= moduleFixedArrayDeclarations(source, mod, activity, optionBase))].filter(([lower]) => !hiddenIn(symbols, member).has(lower)),
+			...localFixedArrayDeclarationsForBody(source, member.body, activity, optionBase),
+		]);
+		const unallocated = new Map([...moduleVariables].filter(([, variable]) => variable.isArray && variable.arrayBounds === undefined));
 		const shapesAt = knownArrayShapesAt(source, symbols, member, activity, optionBase);
 		const returned = functionReturnShapes(source, mod, activity, optionBase);
 		const redimmed = redimShapesAt(source, symbols, member, activity, optionBase);
@@ -2256,6 +2317,9 @@ export function checkFixedArraySubscriptBounds(
 		// Headers too: `For i = 1 To a(5)`, `Select Case a(5)` (issue #233).
 		forEachStatementWithHeaders(source, member.body, (stmt) => {
 			for (const hit of inlineSplitIndexViolations(source, stmt.span)) {
+				push('arraySubscriptOutOfBounds', hit.message, hit.span);
+			}
+			for (const hit of unallocated.size === 0 ? [] : unallocatedModuleArrayUses(source, stmt.span, unallocated)) {
 				push('arraySubscriptOutOfBounds', hit.message, hit.span);
 			}
 			for (const hit of returned.size === 0 ? [] : returnedArraySubscriptViolations(source, stmt.span, returned, withKnownLocals(constants, valuesAt(stmt)))) {

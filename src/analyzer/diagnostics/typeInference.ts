@@ -8,6 +8,7 @@
 // Pure analysis: the only diagnostics emitted here flow through the PushFn
 // passed by the argument-type rules.
 
+import { untouchedModuleVariablesIn } from './moduleState';
 import type { VbaToken } from '../lexer/tokenKinds';
 import type { HostMember, HostObjectModel } from '../host/excelObjectModel';
 import { IDENT_RE, matchParenFrom } from '../lexer/tokenHelpers';
@@ -2987,7 +2988,7 @@ export function knownLocalLiteralValues(
 		candidates.set(lower, { kind, literals: new Set(), mutated: false, contentMutated: false });
 	}
 	if (candidates.size === 0) {
-		return new Map();
+		return moduleVariableDefaults(source, proc, symbols);
 	}
 	const mutate = (lower: string | undefined): void => {
 		const entry = lower ? candidates.get(lower) : undefined;
@@ -3118,6 +3119,38 @@ export function knownLocalLiteralValues(
 				origin: 'literal',
 				...contentMutated,
 			});
+		}
+	}
+	for (const [lower, value] of moduleVariableDefaults(source, proc, symbols)) {
+		if (!out.has(lower)) {
+			out.set(lower, value);
+		}
+	}
+	return out;
+}
+
+/**
+ * The initial value of each module variable nothing writes, as a procedure
+ * sees it (issue #241): 0 for a number, "" for a String, Empty for a
+ * Variant. A local or parameter of the same name hides it.
+ */
+function moduleVariableDefaults(
+	source: string,
+	proc: ProcedureNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+): Map<string, KnownLocalValue> {
+	const out = new Map<string, KnownLocalValue>();
+	for (const [lower, variable] of untouchedModuleVariablesIn(source, symbols, proc)) {
+		if (variable.isArray) {
+			continue;
+		}
+		const type = normalizeType(variable.asType);
+		if (type === undefined || type === 'variant') {
+			out.set(lower, { kind: 'empty', value: 0, origin: 'default' });
+		} else if (isNumericType(type)) {
+			out.set(lower, { kind: 'number', value: 0, origin: 'default' });
+		} else if (type === 'string') {
+			out.set(lower, { kind: 'string', value: '', origin: 'default' });
 		}
 	}
 	return out;

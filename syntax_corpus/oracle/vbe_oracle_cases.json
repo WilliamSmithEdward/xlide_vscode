@@ -33913,6 +33913,318 @@
       ],
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue241_01_runtime",
+      "description": "Issue #241 module-level state, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate m As Collection\r\n\r\nFunction Main() As Variant\r\n    Main = m.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue241_02_runtime",
+      "description": "Issue #241 module-level state, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate m As Collection\r\n\r\nFunction Main() As Variant\r\n    Use\r\n    Main = 1\r\nEnd Function\r\n\r\nPrivate Sub Use()\r\n    Debug.Print m.Count\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue241_03_runtime",
+      "description": "Issue #241 module-level state, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic g As Collection\r\n\r\nFunction Main() As Variant\r\n    Main = g.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue241_04_runtime",
+      "description": "Issue #241 module-level state, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n\r\nFunction Main() As Variant\r\n    Dim o As New Class1\r\n    Main = o.Size\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate m As Collection\r\n\r\nPublic Function Size() As Long\r\n    Size = m.Count\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue241_05_runtime",
+      "description": "Issue #241 module-level state, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate a() As Long\r\n\r\nFunction Main() As Variant\r\n    Main = a(0)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue241_06_runtime",
+      "description": "Issue #241 module-level state, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate a() As Long\r\n\r\nFunction Main() As Variant\r\n    Main = UBound(a)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue241_07_runtime",
+      "description": "Issue #241 module-level state, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n\r\nFunction Main() As Variant\r\n    Dim o As New Class1\r\n    Main = o.First\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate a() As Long\r\n\r\nPublic Function First() As Long\r\n    First = a(0)\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue241_08_runtime",
+      "description": "Issue #241 module-level state, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate a(3) As Long\r\n\r\nFunction Main() As Variant\r\n    Main = a(5)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue241_09_runtime",
+      "description": "Issue #241 module-level state, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate z As Long\r\n\r\nFunction Main() As Variant\r\n    Main = 10 / z\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue241_10_runtime",
+      "description": "Issue #241 module-level state, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate s As String\r\n\r\nFunction Main() As Variant\r\n    Main = CLng(s)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue241_11_runtime",
+      "description": "Issue #241 module-level state, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate m As Collection\r\n\r\nFunction Main() As Variant\r\n    Init\r\n    Main = m.Count\r\nEnd Function\r\n\r\nPrivate Sub Init()\r\n    Set m = New Collection\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue241_12_runtime",
+      "description": "Issue #241 module-level state, case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate m As New Collection\r\n\r\nFunction Main() As Variant\r\n    Main = m.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue241_13_runtime",
+      "description": "Issue #241 module-level state, case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\n\r\nFunction Main() As Variant\r\n    Dim o As New Class1\r\n    Main = o.Size\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate m As Collection\r\n\r\nPrivate Sub Class_Initialize()\r\n    Set m = New Collection\r\nEnd Sub\r\n\r\nPublic Function Size() As Long\r\n    Size = m.Count\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue241_14_runtime",
+      "description": "Issue #241 module-level state, case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate a() As Long\r\n\r\nFunction Main() As Variant\r\n    Init\r\n    Main = a(0)\r\nEnd Function\r\n\r\nPrivate Sub Init()\r\n    ReDim a(3)\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue241_15_runtime",
+      "description": "Issue #241 module-level state, case 15, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const Z As Long = 0\r\n\r\nFunction Main() As Variant\r\n    Main = 10 / Z\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue241_16_runtime",
+      "description": "Issue #241 module-level state, case 16, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate a(3) As Long\r\n\r\nFunction Main() As Variant\r\n    Main = a(3)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue241_17_runtime",
+      "description": "Issue #241 module-level state, case 17, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate z As Long\r\n\r\nFunction Main() As Variant\r\n    Setup\r\n    Main = 10 / z\r\nEnd Function\r\n\r\nPrivate Sub Setup()\r\n    z = 2\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue241_18_runtime",
+      "description": "Issue #241 module-level state, case 18, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 12.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate s As String\r\n\r\nFunction Main() As Variant\r\n    Fill s\r\n    Main = CLng(s)\r\nEnd Function\r\n\r\nPrivate Sub Fill(ByRef x As String)\r\n    x = \"12\"\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue241_19_runtime",
+      "description": "Issue #241 module-level state, case 19, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate m As Collection\r\n\r\nFunction Main() As Variant\r\n    Dim m As New Collection\r\n    Main = m.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue241_20_runtime",
+      "description": "Issue #241 module-level state, case 20, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate m As Collection\r\n\r\nFunction Main() As Variant\r\n    Set m = New Collection\r\n    Main = m.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue241_21_runtime",
+      "description": "Issue #241 module-level state, case 21, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPublic g As Collection\r\n\r\nFunction Main() As Variant\r\n    Module2.Init\r\n    Main = g.Count\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\n\r\nPublic Sub Init()\r\n    Set g = New Collection\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue241_22_runtime",
+      "description": "Issue #241 module-level state, case 22, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate m As Collection\r\n\r\nFunction Main() As Variant\r\n    If m Is Nothing Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue241_23_runtime",
+      "description": "Issue #241 module-level state, case 23, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate a(3) As Long\r\n\r\nFunction Main() As Variant\r\n    Dim a() As Long\r\n    ReDim a(9)\r\n    Main = a(5)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue241_24_runtime",
+      "description": "Issue #241 module-level state, case 24, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate m As Collection\r\n\r\nFunction Main() As Variant\r\n    Main = m.Count\r\nEnd Function\r\n\r\nPrivate Sub Init(m)\r\n    Debug.Print m.Count\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }
