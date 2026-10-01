@@ -3143,12 +3143,15 @@ export function knownLocalLiteralValues(
 			if (toks[j].rawText === ')') {
 				depth++;
 			} else if (toks[j].rawText === '(' && depth-- === 0) {
-				const callee = tokenName(toks[j - 1])?.toLowerCase();
-				const qualified = toks[j - 2]?.rawText === '.';
-				if (!callee || (qualified && tokenText(toks[j - 3]) !== 'vba') || (!qualified && moduleMemberNames(symbols).has(callee))) {
+				// `Left$(` lexes as Left and a `$` (issue #334).
+				const at = toks[j - 1]?.rawText === '$' ? j - 2 : j - 1;
+				const callee = tokenName(toks[at])?.toLowerCase();
+				const qualified = toks[at - 1]?.rawText === '.';
+				if (!callee || (qualified && tokenText(toks[at - 2]) !== 'vba') || (!qualified && moduleMemberNames(symbols).has(callee))) {
 					return false;
 				}
-				return resolveRuntimeFunction(callee)?.kind === 'function';
+				// The library knows String only as String$.
+				return (resolveRuntimeFunction(callee) ?? resolveRuntimeFunction(`${callee}$`))?.kind === 'function';
 			}
 		}
 		return false;
