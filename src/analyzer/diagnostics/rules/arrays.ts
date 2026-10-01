@@ -53,6 +53,7 @@ import {
 	sourceIdentifierBinding,
 	stringConstantsInScope,
 	stringLiteralValue,
+	unreachableStatementsIn,
 	withKnownLocals,
 	type SourceDeclaredShape,
 } from '../typeInference';
@@ -972,6 +973,7 @@ type DynamicArrayAllocationState = 'unallocated' | 'allocated' | 'unknown';
 export function checkUnallocatedDynamicArrayAccess(
 	source: string,
 	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
@@ -998,7 +1000,9 @@ export function checkUnallocatedDynamicArrayAccess(
 		const walk = procedureHasUnstructuredFlow(source, member, activity)
 			? walkStraightLineBody
 			: walkBranchMergedBody;
-		walk(source, member.body, (node) => isInactiveNode(activity, node), {
+		// A statement a known guard keeps from running (issue #273).
+		const unreachable = unreachableStatementsIn(source, member, symbols, activity);
+		walk(source, member.body, (node) => isInactiveNode(activity, node) || unreachable.has(node), {
 			onStatement: (stmt) =>
 				checkUnallocatedDynamicArrayAccessStatement(source, stmt, arrays, state, report),
 			onBlock: (node) => {
