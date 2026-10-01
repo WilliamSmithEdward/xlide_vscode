@@ -24,6 +24,7 @@ import type { BodyNode, IfBlockNode, LeafStatementNode, Span } from '../parser/n
 import { isLeafStatement } from '../parser/nodes';
 import { statementLabelDeclaration } from '../flow/procedureLabels';
 import { trackedLocalsNamedWhole } from './dataflow';
+import { isLoopBlock } from './blockHeaders';
 import {
 	bareAssignmentTarget,
 	blockFooterLineSpan,
@@ -49,30 +50,38 @@ const READ_ONLY_INTRINSICS: ReadonlySet<string> = new Set(['lbound', 'ubound', '
 /**
  * For each statement of the body that some straight-line assignment
  * reaches, the reaching assignments; for a block, those that reach its
- * header. A statement not in the map has none.
+ * header. A statement not in the map has none. `initial` is what holds as
+ * the procedure starts: each local's declared default, so `x = 1 / x` reads
+ * the 0 x starts with (issue #259).
  */
 export function straightLineAssignments(
 	source: string,
 	body: readonly BodyNode[],
 	activity: ConditionalActivityTracker | undefined,
+	initial: ReachingAssignments = NONE,
 ): ReadonlyMap<BodyNode, ReachingAssignments> {
 	// Six rules ask for the same procedure in one pass; a parse makes a new
-	// body, so the body is the key.
-	const cached = WALKS.get(body);
+	// body, so the body is the key, with what holds at the start.
+	const key = [...initial].map(([name, value]) => `${name}=${value.map((tok) => tok.rawText).join(' ')}`).sort().join('\n');
+	const byStart = WALKS.get(body) ?? new Map<string, CachedWalk>();
+	WALKS.set(body, byStart);
+	const cached = byStart.get(key);
 	if (cached && cached.source === source && cached.activity === activity) {
 		return cached.result;
 	}
 	const out = new Map<BodyNode, ReachingAssignments>();
-	walkList(source, body, NONE, activity, out);
-	WALKS.set(body, { source, activity, result: out });
+	walkList(source, body, initial, activity, out);
+	byStart.set(key, { source, activity, result: out });
 	return out;
 }
 
-const WALKS = new WeakMap<readonly BodyNode[], {
+interface CachedWalk {
 	source: string;
 	activity: ConditionalActivityTracker | undefined;
 	result: ReadonlyMap<BodyNode, ReachingAssignments>;
-}>();
+}
+
+const WALKS = new WeakMap<readonly BodyNode[], Map<string, CachedWalk>>();
 
 /**
  * Walks one statement list from `entry` and returns what holds after it. The
@@ -139,7 +148,11 @@ function walkBlock(
 		return entry;
 	}
 	const touched = touchedInBlock(source, node, activity);
-	const inside = touched === 'all' ? NONE : without(entry, touched);
+	const after = touched === 'all' ? NONE : without(entry, touched);
+	// An If arm, a Case or a With body runs once, from the state the block is
+	// entered with; a loop's body may run again with what it changed (issue
+	// #259: `If True Then x = 1 / x` reads the 0 x starts with).
+	const inside = isLoopBlock(node) || touched === 'all' ? after : entry;
 	if (node.kind === 'IfBlock') {
 		for (const branch of (node as IfBlockNode).branches) {
 			walkList(source, branch.body, inside, activity, out);
@@ -147,7 +160,7 @@ function walkBlock(
 	} else {
 		walkList(source, node.body as BodyNode[], inside, activity, out, node.kind === 'SelectBlock');
 	}
-	return inside;
+	return after;
 }
 
 /** What holds after one plain statement runs. */
