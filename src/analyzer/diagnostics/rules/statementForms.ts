@@ -19,6 +19,7 @@ import type { VbaToken } from '../../lexer/tokenKinds';
 import { tokenizeCached } from '../../lexer/tokenize';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaProcedureSignature } from '../../symbols/symbolModel';
+import { statementLabelDeclarations, statementLabelReferences } from '../../flow/procedureLabels';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { isKnownScalarType, normalizeType, objectValueNeedsIndex, typeEnvironmentFor } from '../typeInference';
 import { projectClassMemberAt, type MemberCompletionContext } from '../../completion/memberAccess';
@@ -114,8 +115,12 @@ export function checkStatementForms(
 				// `Foo` or `Call Foo` from another module, where a module is
 				// named Foo: the name means the module before its Sub (issue
 				// #369, measured in Excel 16.0). `Foo.Foo` compiles.
+				// A line label is its own namespace: `Foo:`, `GoTo Foo` and
+				// `Resume Foo` compile beside a module Foo (issue #403).
+				const labels = new Set([...statementLabelDeclarations(source, span), ...statementLabelReferences(source, span)].map((label) => label.span.start));
+				const isLabel = (i: number): boolean => labels.has(span.start + toks[i].start);
 				const callee = tokenText(toks[first]) === 'call' ? first + 1 : first;
-				const calleeName = target === undefined ? tokenName(toks[callee])?.toLowerCase() : undefined;
+				const calleeName = target === undefined && !isLabel(callee) ? tokenName(toks[callee])?.toLowerCase() : undefined;
 				if (calleeName && toks[callee + 1]?.rawText !== '.' && toks[callee + 1]?.rawText !== '=' && otherModules.has(calleeName)
 					&& !locals.has(calleeName) && !ownNames.has(calleeName)) {
 					push('malformedStatement', `'${toks[callee].rawText}' names a module of this project before any procedure in it, so it cannot be called bare from another module; write ${toks[callee].rawText}.${toks[callee].rawText}. This is a VBE compile error: Expected variable or procedure, not module.`, at(callee));
@@ -142,7 +147,7 @@ export function checkStatementForms(
 					}
 					// `Main = Foo()` reads the module Foo too (issue #369).
 					const nameLower = name.toLowerCase();
-					if (i !== callee && toks[i + 1]?.rawText !== '.' && otherModules.has(nameLower) && !locals.has(nameLower) && !ownNames.has(nameLower)) {
+					if (i !== callee && toks[i + 1]?.rawText !== '.' && otherModules.has(nameLower) && !locals.has(nameLower) && !ownNames.has(nameLower) && !isLabel(i)) {
 						push('malformedStatement', `'${name}' names a module of this project before any procedure in it, so it cannot be used bare from another module; write ${name}.${name}. This is a VBE compile error: Expected variable or procedure, not module.`, at(i));
 						continue;
 					}
