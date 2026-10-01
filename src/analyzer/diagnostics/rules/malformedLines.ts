@@ -100,6 +100,7 @@ export function checkMalformedLines(
 			checkProcedureHeader(toks, member, place, push);
 			forEachStatement(member.body, (stmt) => {
 				checkValueKeywords(source, stmt.span, 'statement', push);
+				checkKeywordQualifiers(source, stmt.span, push);
 			}, activity);
 			forEachVariableGroup(member.body, (group) => {
 				checkDeclarationKeywords(source, group, push);
@@ -239,6 +240,28 @@ function checkValueKeywords(source: string, span: Span, context: 'statement' | '
 		}
 		const error = context === 'const' ? 'Expected: expression' : 'Syntax error';
 		push('reservedKeywordInExpression', `'${toks[i].rawText}' is a statement keyword and cannot stand where a value goes. This is a VBE compile error: ${error}.`, { start: span.start + toks[i].start, end: span.start + toks[i].end });
+		return;
+	}
+}
+
+/**
+ * Words that cannot qualify a member: `Main = Print.Hi()` is a Syntax error
+ * whether or not a module of that name exists (issue #247, measured in Excel
+ * 16.0). Get, Put, Open and Stop are statement keywords, reported above.
+ */
+const NO_QUALIFIER_WORDS: ReadonlySet<string> = new Set(['circle', 'pset', 'scale', 'print', 'input', 'tab', 'spc', 'array', 'lbound', 'date']);
+
+function checkKeywordQualifiers(source: string, span: Span, push: PushFn): void {
+	const toks = statementTokens(source, span);
+	for (let i = 0; i + 1 < toks.length; i++) {
+		const word = tokenText(toks[i]);
+		const prev = toks[i - 1]?.rawText;
+		// Opening a statement, `Date.Hi` compiles and raises 424 at run time.
+		if (!NO_QUALIFIER_WORDS.has(word) || toks[i + 1].rawText !== '.' || prev === '.' || prev === '!' || (i === 0 && word === 'date')) {
+			continue;
+		}
+		const error = i === 0 && word === 'print' ? 'Method not valid without suitable object' : 'Syntax error';
+		push('reservedKeywordInExpression', `'${toks[i].rawText}' is a reserved word and cannot qualify a member, even when a module bears the name. This is a VBE compile error: ${error}.`, { start: span.start + toks[i].start, end: span.start + toks[i].end });
 		return;
 	}
 }

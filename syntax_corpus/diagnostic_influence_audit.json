@@ -310,7 +310,7 @@
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Flags unbracketed reserved identifiers in declaration-name positions, including reserved-for-implementation-use names such as Attribute and VB_Name. Bracketed FOREIGN-NAME forms remain accepted.",
+      "notes": "Flags unbracketed reserved identifiers in declaration-name positions, including reserved-for-implementation-use names such as Attribute and VB_Name. Bracketed FOREIGN-NAME forms remain accepted. Issue #247: a module named a word the VBE refuses (Print, Date, If, String and 101 more, measured in Excel 16.0 on 2026-09-30, where adding one fails with 0x800AC3D4) is reported at its VB_Name. Line, Width, Name, Err, Mid, Time, Error, Reset, Beep, Load, Unload, Access, Base, Compare, Explicit, Object, Property and Step are accepted and stay quiet.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -3616,11 +3616,21 @@
         "issue234_12_compile",
         "issue234_13_compile",
         "issue234_35_compile",
-        "issue234_57_compile"
+        "issue234_57_compile",
+        "issue247_01_compile",
+        "issue247_02_compile",
+        "issue247_03_compile",
+        "issue247_04_compile",
+        "issue247_05_compile",
+        "issue247_06_compile",
+        "issue247_07_compile",
+        "issue247_08_compile",
+        "issue247_09_compile",
+        "issue247_10_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "A statement keyword where a value goes: Array(1, Const, 3), Debug.Print RaiseEvent, Case Open, Dim a(Implements) -> Syntax error; Const K = Dim -> Expected: expression (issue #234, Excel 16.0).",
+      "notes": "A statement keyword where a value goes: Array(1, Const, 3), Debug.Print RaiseEvent, Case Open, Dim a(Implements) -> Syntax error; Const K = Dim -> Expected: expression (issue #234, Excel 16.0). Issue #247: Circle, PSet, Scale, Print, Input, Tab, Spc, Array, LBound and Date cannot qualify a member, a Syntax error with or without a module of that name (issue247_01..10). Opening a statement, Print.Hi is 'Method not valid without suitable object' and Date.Hi compiles and raises 424 (issue247_11, not reported).",
       "diagnosticKind": "compile-error"
     },
     {

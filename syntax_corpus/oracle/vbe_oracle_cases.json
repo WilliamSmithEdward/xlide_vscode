@@ -36691,6 +36691,117 @@
       ],
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue247_01_compile",
+      "description": "Issue #247 a reserved word qualifying a member, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Circle.Hi()\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue247_02_compile",
+      "description": "Issue #247 a reserved word qualifying a member, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = PSet.Hi()\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue247_03_compile",
+      "description": "Issue #247 a reserved word qualifying a member, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Scale.Hi()\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue247_04_compile",
+      "description": "Issue #247 a reserved word qualifying a member, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Print.Hi()\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue247_05_compile",
+      "description": "Issue #247 a reserved word qualifying a member, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Input.Hi()\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue247_06_compile",
+      "description": "Issue #247 a reserved word qualifying a member, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Tab.Hi()\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue247_07_compile",
+      "description": "Issue #247 a reserved word qualifying a member, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Spc.Hi()\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue247_08_compile",
+      "description": "Issue #247 a reserved word qualifying a member, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Array.Hi()\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue247_09_compile",
+      "description": "Issue #247 a reserved word qualifying a member, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = LBound.Hi()\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue247_10_compile",
+      "description": "Issue #247 a reserved word qualifying a member, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Date.Hi()\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue247_11_runtime",
+      "description": "Issue #247 a reserved word qualifying a member, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Date.Hi\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }
