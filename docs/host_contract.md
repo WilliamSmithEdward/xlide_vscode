@@ -125,7 +125,7 @@ Three outcomes, and the middle one matters:
 | --- | --- |
 | absent, or `excel` | Excel's - the default (#28) |
 | a registered host | that host's |
-| a named host with no model registered | the empty model: every lookup misses, so **nothing is asserted** (#24) |
+| a named host with no model registered | the empty model: no host knowledge; findings may be missing or false |
 
 Only Excel's model is built in. The others are most of the analyzer's size,
 so a host registers the ones it analyzes: `registerBuiltInHostModels()`
@@ -135,11 +135,20 @@ Both are exported from `analyzer/index.ts`. A host that only analyzes Excel
 registers nothing and bundles none of the others. Asking for a host XLIDE
 ships a model for without registering it analyzes with no host knowledge, and
 `analyzeModule` reports that to `onInternalError` (stage `options`), so a
-forgotten registration is seen rather than read as a clean module.
+caller can fix the missing registration. Without host knowledge, valid findings
+may be suppressed and host names may produce false findings, including
+`undeclared-variable` and `invalid-as-type-name`.
 
 A library the project references (`referencedHosts`) whose model is not
 registered is still referenced: `missing-library-reference` stays silent about
-it, because the analyzer knows nothing about that library, not that it is gone.
+it, because the analyzer has no model for that library.
+
+Downstream consumers must register their supported hosts before analysis. This
+includes the xlide_vbide engine and pyVBAAnalysis's upstream differential probes.
+A tool that runs this repository's tests under its own Vitest configuration must
+also preserve the upstream `setupFiles`, which register the built-in models.
+pyVBAAnalysis's host-data extractor reads the model modules directly and does
+not need registry setup.
 
 This also decides host-specific syntax. `[A1]` is `Application.Evaluate`
 shorthand in Excel and reports as undefined in Word, so naming the host wrongly

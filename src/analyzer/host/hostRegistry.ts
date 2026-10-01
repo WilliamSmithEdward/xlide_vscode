@@ -65,7 +65,7 @@ export const BUILT_IN_HOST_TOKENS: readonly VbaHostToken[] = Object.freeze(['wor
 /**
  * The tokens in `tokens` that XLIDE ships a model for but nobody registered.
  * Analyzing with one of them gives that host no knowledge, so a caller that
- * forgot to register is told rather than left with quietly fewer findings.
+ * forgot to register is told about potentially missing or false findings.
  */
 export function unregisteredBuiltInHosts(tokens: readonly string[]): VbaHostToken[] {
 	const out: VbaHostToken[] = [];
@@ -80,7 +80,8 @@ export function unregisteredBuiltInHosts(tokens: readonly string[]): VbaHostToke
 
 /**
  * Registers a host's model under its token. A host that is never registered
- * answers the empty model, so nothing is asserted about it.
+ * answers the empty model. Missing host knowledge can suppress valid findings
+ * and introduce false findings about host names.
  */
 export function registerHostObjectModel(token: VbaHostToken, model: () => HostObjectModel): void {
 	MODELS_BY_TOKEN.set(token, model);

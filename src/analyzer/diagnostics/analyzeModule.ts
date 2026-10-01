@@ -148,10 +148,10 @@ function withUsableProjectProcedures(opts: AnalyzeModuleOptions, report: ReportI
 /**
  * Only Excel's model is built in; the extension registers the rest at load
  * (registerBuiltInHostModels). A host or referenced library XLIDE ships a
- * model for but nobody registered is analyzed with no knowledge of it, which
- * reads as a clean module. Say so, once per analysis, so a missing
- * registration is seen rather than found later as missing findings. An
- * explicit hostModel is the caller's own choice and is not second-guessed.
+ * model for but nobody registered is analyzed with no knowledge of it. This
+ * can suppress valid findings and introduce false findings about host names.
+ * Report it once per analysis so the caller can fix the missing registration.
+ * An explicit hostModel is the caller's own choice and is not second-guessed.
  */
 function reportUnregisteredHosts(opts: AnalyzeModuleOptions, report: ReportInternalError): void {
 	if (opts.hostModel !== undefined) {
