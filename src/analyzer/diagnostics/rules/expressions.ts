@@ -994,7 +994,15 @@ export function checkStringArithmeticOperands(
 					return what ? { span: rightElement ? elementSpan(spanStart, toks, rightElement) : at(right!), what } : undefined;
 				};
 				if (word === 'not' && !leftEndsOperand) {
-					const operand = rightOperand();
+					// Not binds below the comparisons: `Not s = "y"` is
+					// Not (s = "y"), a Boolean (issue #361).
+					if (notOperandCompares(toks, i + 1)) {
+						continue;
+					}
+					// `Not (v)` coerces v as well.
+					const inner = right?.rawText === '(' && toks[i + 3]?.rawText === ')' ? toks[i + 2] : undefined;
+					const innerWhat = inner ? nonnumericString(inner) : undefined;
+					const operand = innerWhat ? { span: at(inner!), what: innerWhat } : rightOperand();
 					if (operand) {
 						report(operand.span, operand.what);
 					}
@@ -1098,6 +1106,38 @@ export function checkStringArithmeticOperands(
 const LOGICAL_OPERATORS: ReadonlySet<string> = new Set(['and', 'or', 'xor', 'eqv', 'imp']);
 
 const EMPTY_SHAPES: ReadonlyMap<string, FixedArrayBound> = new Map();
+
+const COMPARISON_OPERATORS: ReadonlySet<string> = new Set(['=', '<', '>', '<=', '>=', '<>']);
+
+/**
+ * Whether the operand of a Not starting at `from` holds a comparison: Not
+ * takes everything up to the next And, Or, Xor, Eqv or Imp, a closing
+ * parenthesis, a comma or Then, and a comparison inside makes it a Boolean
+ * (issue #361, measured in Excel 16.0).
+ */
+function notOperandCompares(toks: readonly VbaToken[], from: number): boolean {
+	let depth = 0;
+	for (let k = from; k < toks.length; k++) {
+		const tok = toks[k];
+		const word = tokenText(tok);
+		if (tok.rawText === '(') {
+			depth++;
+		} else if (tok.rawText === ')') {
+			if (depth === 0) {
+				return false;
+			}
+			depth--;
+		} else if (depth === 0) {
+			if (LOGICAL_OPERATORS.has(word) || word === 'then' || tok.rawText === ',' || tok.rawText === ':') {
+				return false;
+			}
+			if ((tok.kind === 'operator' && COMPARISON_OPERATORS.has(tok.rawText)) || word === 'like' || word === 'is') {
+				return true;
+			}
+		}
+	}
+	return false;
+}
 
 /** Keywords after which an operand starts, so a `Not` or a sign there is unary. */
 const OPERAND_STARTING_KEYWORDS: ReadonlySet<string> = new Set([
