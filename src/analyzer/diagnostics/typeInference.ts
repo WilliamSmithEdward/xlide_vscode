@@ -82,6 +82,7 @@ import {
 import {
 	bareAssignmentTarget,
 	firstExecutableTokenIndex,
+	rawExpressionTokens,
 	statementAndBranchSpans,
 	statementTokens,
 	statementTokensAfterLeadingLabel,
@@ -519,6 +520,17 @@ export interface SourceDeclaredType {
 	kind?: VbaSymbol['kind'];
 	/** Whether the binding is an array, whose element type `asType` then is. */
 	isArray?: boolean;
+	/** A Const's value, when it is one string literal: `Const K = "abc"` (issue #255). */
+	stringValue?: string;
+}
+
+/** The value of a Const that is one string literal, or undefined. */
+export function constantStringValue(symbol: VbaSymbol): string | undefined {
+	if (symbol.kind !== 'constant' || symbol.defaultRaw === undefined) {
+		return undefined;
+	}
+	const toks = rawExpressionTokens(symbol.defaultRaw).filter((tok) => tok.kind !== 'comment');
+	return toks.length === 1 && toks[0].kind === 'stringLiteral' ? stringLiteralValue(toks[0].rawText) : undefined;
 }
 
 export type SourceDeclaredTypeResolver = (name: string) => SourceDeclaredType;
@@ -572,7 +584,8 @@ export function declaredValueTypeForSourceBinding(
 	}
 	const typed = valueDefinitions.find((definition) => definition.asType);
 	const chosen = typed ?? valueDefinitions[0];
-	return { resolved: true, asType: typed?.asType, kind: chosen.kind, isArray: chosen.isArray === true };
+	const stringValue = valueDefinitions.length === 1 ? constantStringValue(chosen) : undefined;
+	return { resolved: true, asType: typed?.asType, kind: chosen.kind, isArray: chosen.isArray === true, ...(stringValue !== undefined ? { stringValue } : {}) };
 }
 
 export function declaredValueTypeForQualifiedSourceBinding(
@@ -1983,6 +1996,10 @@ export function inferAtomicExpressionType(
 	const name = tokenName(first);
 	if (name && toks.length === 1) {
 		const declaredType = resolveExpressionType?.(name);
+		// A Const that holds a string literal converts as the literal does (issue #255).
+		if (declaredType?.resolved && declaredType.stringValue !== undefined) {
+			return { type: 'String', label: `constant '${name}' (${JSON.stringify(declaredType.stringValue)})`, span, stringValue: declaredType.stringValue };
+		}
 		const type = declaredType?.resolved
 			? declaredType.asType
 			: env.get(name.toLowerCase());

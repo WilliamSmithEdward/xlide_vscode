@@ -125,7 +125,8 @@ export function checkConstAssignment(
 		};
 
 		function checkSpan(span: Span): void {
-			const hit = bareAssignmentTarget(source, span);
+			// `Set K = Nothing` assigns to the constant too (issue #255).
+			const hit = bareAssignmentTarget(source, span) ?? setAssignmentTarget(source, span);
 			if (!hit) {
 				return;
 			}

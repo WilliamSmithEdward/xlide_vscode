@@ -1791,7 +1791,9 @@ export function checkNonConstantParameterDefaults(
  * qualified identifiers (`OTHER_CONST`, `Module.CONST`, `MyEnum.Value`) are
  * left alone because they may reference constants, so this stays
  * no-false-positive. Literals, string concatenation, and arithmetic/grouping
- * are constant expressions and never flagged.
+ * are constant expressions and never flagged. VBA's functions that take no
+ * argument, `Now`, `Date`, `Time`, `Timer` and `Rnd`, are calls without the
+ * parentheses unless the module declares the name (issue #255, measured).
  */
 export function checkNonConstantConstValues(
 	source: string,
@@ -1799,6 +1801,14 @@ export function checkNonConstantConstValues(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
+	const declared = new Set<string>();
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'VariableGroup') {
+			member.declarations.forEach((decl) => declared.add(decl.name.toLowerCase()));
+		} else if ('name' in member && typeof member.name === 'string') {
+			declared.add(member.name.toLowerCase());
+		}
+	}
 	const inspectGroup = (group: VariableGroupNode): void => {
 		if (!group.isConst) {
 			return;
@@ -1811,7 +1821,8 @@ export function checkNonConstantConstValues(
 			if (!valueTokens) {
 				continue;
 			}
-			const nonConstant = nonConstantDefaultElement(valueTokens.tokens, decl.span.start, 'const');
+			const nonConstant = nonConstantDefaultElement(valueTokens.tokens, decl.span.start, 'const')
+				?? argumentlessFunction(valueTokens.tokens, decl.span.start, declared);
 			if (!nonConstant) {
 				continue;
 			}
@@ -1832,6 +1843,24 @@ export function checkNonConstantConstValues(
 			forEachVariableGroup(member.body, inspectGroup, activity);
 		}
 	}
+}
+
+/** VBA's functions measured as refused in a Const without parentheses (issue #255). */
+const ARGUMENTLESS_FUNCTIONS: ReadonlySet<string> = new Set(['now', 'date', 'time', 'timer', 'rnd']);
+
+/** `Const K = Now`: a VBA function named without parentheses, which still calls it. */
+function argumentlessFunction(
+	toks: readonly VbaToken[],
+	base: number,
+	declared: ReadonlySet<string>,
+): { label: string; span: Span } | undefined {
+	for (let i = 0; i < toks.length; i++) {
+		const word = tokenText(toks[i]);
+		if (ARGUMENTLESS_FUNCTIONS.has(word) && !declared.has(word) && toks[i - 1]?.rawText !== '.') {
+			return { label: `'${toks[i].rawText}', a VBA function evaluated as the code runs,`, span: { start: base + toks[i].start, end: base + toks[i].end } };
+		}
+	}
+	return undefined;
 }
 
 /**

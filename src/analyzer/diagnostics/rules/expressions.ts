@@ -57,6 +57,7 @@ import {
 	isKnownScalarType,
 	isNumericType,
 	isProvablyNonNumericString,
+	constantStringValue,
 	knownLocalLiteralValuesAt,
 	type KnownLocalValue,
 	nonnumericStringArithmeticOperand,
@@ -642,6 +643,22 @@ export function checkStringArithmeticOperands(
 		const env = typeEnvironmentFor(symbols, member);
 		const valuesAt = knownLocalLiteralValuesAt(source, member, symbols, activity);
 		let known: ReadonlyMap<string, KnownLocalValue> = new Map();
+		// The String Consts in scope, each one string literal (issue #255); a
+		// local or parameter of the same name hides a module's.
+		const children = procedureSymbolFor(symbols, member)?.children ?? [];
+		const stringConsts = new Map<string, string>();
+		for (const symbol of [...(symbols.root.children ?? []), ...children]) {
+			const value = constantStringValue(symbol);
+			if (value !== undefined) {
+				stringConsts.set(symbol.name.toLowerCase(), value);
+			} else if (children.includes(symbol)) {
+				stringConsts.delete(symbol.name.toLowerCase());
+			}
+		}
+		const constantOf = (tok: VbaToken): string | undefined => {
+			const name = tokenName(tok)?.toLowerCase();
+			return name && !known.has(name) ? stringConsts.get(name) : undefined;
+		};
 		const nonnumericString = (tok: VbaToken | undefined): string | undefined => {
 			if (!tok) {
 				return undefined;
@@ -655,7 +672,8 @@ export function checkStringArithmeticOperands(
 			if (local?.kind === 'string' && !local.contentMutated && isProvablyNonNumericString(local.value as string)) {
 				return `'${tok.rawText}', which holds ${JSON.stringify(local.value)}`;
 			}
-			return undefined;
+			const constant = constantOf(tok);
+			return constant !== undefined && isProvablyNonNumericString(constant) ? `constant '${tok.rawText}', which is ${JSON.stringify(constant)}` : undefined;
 		};
 		// A condition converts to Boolean: "True" and numbers run, "yes"
 		// and " True " raise 13 (issue #191).
