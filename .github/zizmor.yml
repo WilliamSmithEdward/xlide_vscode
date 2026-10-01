@@ -6,3 +6,7 @@ rules:
   # workflows.
   self-repository:
     disable: true
+  # Asks for `gh release create` in place of softprops/action-gh-release in
+  # publish.yml. The release path is changed only after it can be dry-run.
+  superfluous-actions:
+    disable: true
