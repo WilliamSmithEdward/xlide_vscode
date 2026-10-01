@@ -3284,8 +3284,8 @@ export function knownLocalLiteralValuesAt(
 ): (stmt: BodyNode | undefined) => ReadonlyMap<string, KnownLocalValue> {
 	const whole = knownLocalLiteralValues(source, proc, symbols, activity);
 	const locals = literalValueLocals(proc, symbols);
-	const defaults = declaredDefaults(locals);
-	const reaching = locals.size === 0 ? new Map() : straightLineAssignments(source, proc.body, activity, defaults);
+	// The same start as unreachableStatementsIn, so the two share one walk.
+	const reaching = locals.size === 0 ? new Map() : straightLineAssignments(source, proc.body, activity, walkStart(symbols, proc, locals));
 	// Statements in a run share one reaching map, so they share one result.
 	const results = new Map<ReachingAssignments, ReadonlyMap<string, KnownLocalValue>>();
 	return (stmt) => {
@@ -3341,11 +3341,68 @@ export function unreachableStatementsIn(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
 ): ReadonlySet<BodyNode> {
-	const locals = literalValueLocals(proc, symbols);
-	return locals.size === 0 ? NO_STATEMENTS : straightLineUnreachable(source, proc.body, activity, declaredDefaults(locals));
+	// Seven rules ask for each procedure; a parse makes new nodes.
+	const kept = UNREACHABLE.get(proc);
+	if (kept && kept.activity === activity) {
+		return kept.dead;
+	}
+	// Walked even with no value known: `GoTo Done` leaves whatever the locals hold.
+	const dead = straightLineUnreachable(source, proc.body, activity, walkStart(symbols, proc, literalValueLocals(proc, symbols)));
+	UNREACHABLE.set(proc, { activity, dead });
+	return dead;
 }
 
-const NO_STATEMENTS: ReadonlySet<BodyNode> = new Set();
+const UNREACHABLE = new WeakMap<ProcedureNode, { activity: ConditionalActivityTracker | undefined; dead: ReadonlySet<BodyNode> }>();
+
+/**
+ * What holds as a procedure starts: its Consts' values, and each local's
+ * declared default. Several rules ask for each procedure, so it is kept, and
+ * the walk's cache finds it by identity.
+ */
+function walkStart(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	proc: ProcedureNode,
+	locals: ReadonlyMap<string, 'number' | 'string' | undefined>,
+): ReachingAssignments {
+	// A parse makes new nodes, so a procedure node is one source's.
+	let start = WALK_STARTS.get(proc);
+	if (!start) {
+		start = new Map([...conditionConstants(symbols, proc), ...declaredDefaults(locals)]);
+		WALK_STARTS.set(proc, start);
+	}
+	return start;
+}
+
+const WALK_STARTS = new WeakMap<ProcedureNode, ReachingAssignments>();
+
+/**
+ * The Consts a procedure sees whose value is one literal, as the walk reads
+ * a value: `Const DEBUGGING = False` holds 0, so `If DEBUGGING Then` never
+ * runs its arm (issue #406). A local or parameter of the same name hides a
+ * module's.
+ */
+function conditionConstants(symbols: ReturnType<typeof buildModuleSymbols>, proc: ProcedureNode): Map<string, readonly VbaToken[]> {
+	const children = procedureSymbolFor(symbols, proc)?.children ?? [];
+	const out = new Map<string, readonly VbaToken[]>();
+	for (const symbol of [...(symbols.root.children ?? []), ...children]) {
+		const toks = symbol.kind === 'constant' && symbol.defaultRaw !== undefined
+			? rawExpressionTokens(symbol.defaultRaw).filter((tok) => tok.kind !== 'comment')
+			: [];
+		const word = toks.length === 1 ? tokenText(toks[0]) : '';
+		const value = word === 'true' ? CONSTANT_TRUE
+			: word === 'false' ? DEFAULT_NUMBER
+			: toks.length === 1 && (toks[0].kind === 'stringLiteral' || /^\d+$/.test(toks[0].rawText)) ? toks
+			: undefined;
+		if (value) {
+			out.set(symbol.name.toLowerCase(), value);
+		} else if (children.includes(symbol)) {
+			out.delete(symbol.name.toLowerCase());
+		}
+	}
+	return out;
+}
+
+const CONSTANT_TRUE: readonly VbaToken[] = rawExpressionTokens('-1');
 
 /** What a local of a number type and a String hold before anything assigns them. */
 const DEFAULT_NUMBER: readonly VbaToken[] = rawExpressionTokens('0');
