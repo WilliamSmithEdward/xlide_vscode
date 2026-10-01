@@ -19,7 +19,7 @@ import { statementLabelDeclaration } from '../flow/procedureLabels';
 import { procedureSymbolFor } from './analysisContext';
 import { walkEnteringBlocks } from './dataflow';
 import { literalDimensions, type FixedArrayBound } from './rules/arrays';
-import { fieldChain, isLeadingDot, typeKey, withSubject, withSubjectsIn, type FieldStep, type ModuleTypes, type WithSubject } from './typeFields';
+import { fieldChain, isFixedArrayField, isLeadingDot, typeKey, withSubject, withSubjectsIn, type FieldStep, type ModuleTypes, type WithSubject } from './typeFields';
 import { isInactiveNode, statementTokensAfterLeadingLabel, tokenName, tokenText } from './walker';
 
 /** A numeric field's value. */
@@ -262,7 +262,7 @@ function initialStates(
 	for (const [lower, field] of types.get(type) ?? []) {
 		const key = `${prefix}.${lower}`;
 		if (field.isArray) {
-			if (!field.dims) {
+			if (!isFixedArrayField(field)) {
 				out.push([key, 'unallocated']);
 			}
 		} else if (field.type && types.has(field.type)) {

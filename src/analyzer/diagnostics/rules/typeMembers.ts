@@ -21,7 +21,7 @@ import type { VbaToken } from '../../lexer/tokenKinds';
 import type { LeafStatementNode, ModuleNode, ProcedureNode, Span } from '../../parser/nodes';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { PushFn } from '../analysisContext';
-import { fieldChain, isLeadingDot, moduleTypes, typeKey, typeRootAt, variableSymbolIn, walkWithSubjects, type FieldStep, type ModuleTypes, type WithSubject } from '../typeFields';
+import { fieldChain, isFixedArrayField, isLeadingDot, moduleTypes, typeKey, typeRootAt, variableSymbolIn, walkWithSubjects, type FieldStep, type ModuleTypes, type WithSubject } from '../typeFields';
 import { typeMemberStatesAt, type MemberStatesAt } from '../typeMemberState';
 import { isKnownObjectAssignmentType, isKnownScalarType, normalizeType } from '../typeInference';
 import { activeModuleMembers, statementTokensAfterLeadingLabel, tokenName, tokenText } from '../walker';
@@ -181,7 +181,7 @@ function checkResizes(
 		if (!step) {
 			continue;
 		}
-		if (head === 'redim' && step.field.dims && step.open !== undefined) {
+		if (head === 'redim' && isFixedArrayField(step.field) && step.open !== undefined) {
 			push('fixedArrayRedim', `'${step.display}' is a fixed-size array member, which ReDim cannot resize. This is a VBE compile error: Array already dimensioned.`, at(group[step.at]));
 		} else if (head === 'erase' && !step.field.isArray && step.at === group.length - 1 && step.field.type !== undefined
 			&& (isKnownScalarType(normalizeType(step.field.type) ?? '') || types.has(step.field.type))) {
