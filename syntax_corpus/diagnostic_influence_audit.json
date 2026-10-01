@@ -673,7 +673,8 @@
         "knownstring_81_runtime",
         "knownstring_82_runtime",
         "knownstring_84_runtime",
-        "knownstring_87_runtime"
+        "knownstring_87_runtime",
+        "issue326_18_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -3909,11 +3910,16 @@
         "issue263_44_runtime",
         "issue263_46_runtime",
         "issue263_48_runtime",
-        "issue263_50_runtime"
+        "issue263_50_runtime",
+        "issue326_16_runtime",
+        "issue326_17_runtime",
+        "issue326_19_runtime",
+        "issue326_21_runtime",
+        "issue326_22_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Arithmetic overflow. MS-VBAL 5.6.9.3 operator result types; VBE runtime error 6: Overflow (issue #116, Excel 16.0). Issue #218: CDec past the Decimal range (CDec(\"1E30\")), and Abs of the smallest Long is not an overflow (it returns -2147483648). Inside any call argument or operand too: CStr(CInt(40000)), IIf(True, 0, CInt(40000)), \"x\" & CInt(40000), z(CInt(40000)); and LongLong, folded exactly, with LongPtr judged against LongLong's range (issues #232 and #258, 64-bit Excel 16.0). In a block header too: For i = 1 To CInt(40000), Select Case CInt(40000) (issue #233, Excel 16.0). Negating the Long minimum wraps where the VBE folds it, -&H80000000, -CLng(&H80000000), -(&H80000000 + 0); a variable or another conversion overflows (issue #235, Excel 16.0). Issue #253: a member of a Type value as the target, t.i = t.i + 1 after t.i = 32767, t.i = t.a after t.a = 40000, and a Date member past 12/31/9999; and a literal into an array element of a known type, v(2) = 40000 and t.v(2) = 40000 (measured in Excel 16.0). Issue #255: an Enum member is a Long of its own value, or one more than the member before it, the first 0; x = eBig into an Integer, E.eBig, eMax + 1 and eK * eK overflow (measured in Excel 16.0). A local or parameter of the name hides a module Const or Enum member. Issue #262: an Open Len literal past 32767 raises 6 (Len = 32768 and 100000); Len = -1 runs. Measured in Excel 16.0. Issue #263: a loop counter on its first and last passes (For i = 32760 To 32770 then CInt(i)); a whole-number local a For loop steps by its own statement, x = x + k, x - k or x * k with k a number or the counter, run pass by pass from its value at the loop (an Integer t = t + i over 1 To 300 at i = 256, a Long p = p * i over 1 To 20 at i = 13); and a Do or While loop stepping a local whose exit test no value of its type passes (Loop Until i > 32767 on an Integer, While b <= 255 on a Byte, Do Until b < 0). The body must be plain statements, with nothing else naming the local. Measured in Excel 16.0.",
+      "notes": "Arithmetic overflow. MS-VBAL 5.6.9.3 operator result types; VBE runtime error 6: Overflow (issue #116, Excel 16.0). Issue #218: CDec past the Decimal range (CDec(\"1E30\")), and Abs of the smallest Long is not an overflow (it returns -2147483648). Inside any call argument or operand too: CStr(CInt(40000)), IIf(True, 0, CInt(40000)), \"x\" & CInt(40000), z(CInt(40000)); and LongLong, folded exactly, with LongPtr judged against LongLong's range (issues #232 and #258, 64-bit Excel 16.0). In a block header too: For i = 1 To CInt(40000), Select Case CInt(40000) (issue #233, Excel 16.0). Negating the Long minimum wraps where the VBE folds it, -&H80000000, -CLng(&H80000000), -(&H80000000 + 0); a variable or another conversion overflows (issue #235, Excel 16.0). Issue #253: a member of a Type value as the target, t.i = t.i + 1 after t.i = 32767, t.i = t.a after t.a = 40000, and a Date member past 12/31/9999; and a literal into an array element of a known type, v(2) = 40000 and t.v(2) = 40000 (measured in Excel 16.0). Issue #255: an Enum member is a Long of its own value, or one more than the member before it, the first 0; x = eBig into an Integer, E.eBig, eMax + 1 and eK * eK overflow (measured in Excel 16.0). A local or parameter of the name hides a module Const or Enum member. Issue #262: an Open Len literal past 32767 raises 6 (Len = 32768 and 100000); Len = -1 runs. Measured in Excel 16.0. Issue #263: a loop counter on its first and last passes (For i = 32760 To 32770 then CInt(i)); a whole-number local a For loop steps by its own statement, x = x + k, x - k or x * k with k a number or the counter, run pass by pass from its value at the loop (an Integer t = t + i over 1 To 300 at i = 256, a Long p = p * i over 1 To 20 at i = 13); and a Do or While loop stepping a local whose exit test no value of its type passes (Loop Until i > 32767 on an Integer, While b <= 255 on a Byte, Do Until b < 0). The body must be plain statements, with nothing else naming the local. Measured in Excel 16.0. Issue #326: a Boolean goes into a Byte as 255 or 0, so b = True, b = Not False, a Boolean Const, CByte(True) and a Byte function returning True run. Arithmetic makes it an Integer -1: b = True + 0 and b = Not 0 still overflow.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
