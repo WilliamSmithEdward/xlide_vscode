@@ -381,10 +381,13 @@ class TypedFolder {
 			}
 			const value = -operand.value;
 			const exact = operand.exact !== undefined ? -operand.exact : undefined;
-			if (!inRange(value, operand.type, exact)) {
-				return { overflow: true, span: this.span(start, this.index - 1), detail: `Negating ${exact !== undefined ? String(operand.exact) : showNumber(operand.value)} gives ${exact !== undefined ? String(exact) : showNumber(-operand.value)}, which does not fit ${RANGES[operand.type].label}` };
+			// Negating a Byte gives an Integer: `-b` with b = 200 is -200
+			// (issue #362, measured in Excel 16.0).
+			const type: NumericType = operand.type === 'byte' ? 'integer' : operand.type;
+			if (!inRange(value, type, exact)) {
+				return { overflow: true, span: this.span(start, this.index - 1), detail: `Negating ${exact !== undefined ? String(operand.exact) : showNumber(operand.value)} gives ${exact !== undefined ? String(exact) : showNumber(-operand.value)}, which does not fit ${RANGES[type].label}` };
 			}
-			return { value, type: operand.type, ...(exact !== undefined ? { exact } : {}), ...(operand.constant ? { constant: true } : {}) };
+			return { value, type, ...(exact !== undefined ? { exact } : {}), ...(operand.constant ? { constant: true } : {}) };
 		}
 		return this.power();
 	}

@@ -56215,6 +56215,149 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = VBA.Len$(\"a\")\r\nEnd Function\r\n\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue362_01_runtime",
+      "description": "Issue #362 negating a Byte, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> -200.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim b As Byte\r\n    b = 200\r\n    Main = -b\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue362_02_runtime",
+      "description": "Issue #362 negating a Byte, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> Integer.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim b As Byte\r\n    b = 200\r\n    Main = TypeName(-b)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue362_03_runtime",
+      "description": "Issue #362 negating a Byte, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> -200.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim b As Byte\r\n    b = 200\r\n    Dim i As Integer\r\n    i = -b\r\n    Main = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue362_04_runtime",
+      "description": "Issue #362 negating a Byte, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> -200.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = -CByte(200)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue362_05_runtime",
+      "description": "Issue #362 negating a Byte, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> -1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim b As Byte\r\n    b = 1\r\n    Main = -b\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue362_06_runtime",
+      "description": "Issue #362 negating a Byte, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim b As Byte\r\n    b = 200\r\n    Dim c As Byte\r\n    c = -b\r\n    Main = c\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue362_07_runtime",
+      "description": "Issue #362 negating a Byte, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Byte, b As Byte\r\n    a = 1\r\n    b = 2\r\n    Main = a - b\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue362_08_runtime",
+      "description": "Issue #362 negating a Byte, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Byte, b As Byte\r\n    a = 200\r\n    b = 100\r\n    Main = a + b\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue362_09_runtime",
+      "description": "Issue #362 negating a Byte, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Byte, b As Byte\r\n    a = 16\r\n    b = 16\r\n    Main = a * b\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue362_10_runtime",
+      "description": "Issue #362 negating a Byte, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> -1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Byte\r\n    a = 1\r\n    Main = a - 2\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue362_11_runtime",
+      "description": "Issue #362 negating a Byte, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 55.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim b As Byte\r\n    b = 200\r\n    Main = Not b\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue362_12_runtime",
+      "description": "Issue #362 negating a Byte, case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 200.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim b As Byte\r\n    b = 200\r\n    Main = -(-b)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue362_13_runtime",
+      "description": "Issue #362 negating a Byte, case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim b As Byte\r\n    b = 200\r\n    Main = -b * b\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }
