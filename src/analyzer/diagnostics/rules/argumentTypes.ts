@@ -30,7 +30,7 @@ import {
 	validateArgumentTypes,
 	validateArgumentTypesForSignature,
 } from '../typeInference';
-import type { ProcedureStatementVisitor } from '../walker';
+import { statementAndBranchSpans, type ProcedureStatementVisitor } from '../walker';
 
 /**
  * Rule: when both a callable parameter type and an argument type are known, flag
@@ -122,24 +122,23 @@ export function checkArgumentTypes(
 					heldClassOf,
 				);
 			}
-			const statementCall = extractCall(source, stmt.span);
-			const qualifiedStatementCall = statementCall
-				? undefined
-				: extractQualifiedCall(source, stmt.span, moduleSignatures);
-			const effectiveStatementCall = statementCall ?? qualifiedStatementCall;
-			if (effectiveStatementCall) {
-				validateArgumentTypes(
-					effectiveStatementCall,
-					env,
-					moduleSignatures,
-					sourceNames,
-					source,
-					memberCtx,
-					pushOnce,
-					resolveExpressionType,
-					resolveQualifiedExpressionType,
-					heldClassOf,
-				);
+			// A single-line If's branch is a statement call too: `If x Then Sl Nothing` (issue #254).
+			for (const span of statementAndBranchSpans(stmt)) {
+				const statementCall = extractCall(source, span) ?? extractQualifiedCall(source, span, moduleSignatures);
+				if (statementCall) {
+					validateArgumentTypes(
+						statementCall,
+						env,
+						moduleSignatures,
+						sourceNames,
+						source,
+						memberCtx,
+						pushOnce,
+						resolveExpressionType,
+						resolveQualifiedExpressionType,
+						heldClassOf,
+					);
+				}
 			}
 		};
 	};

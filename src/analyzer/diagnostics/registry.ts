@@ -98,6 +98,7 @@ import {
 } from './rules/arrays';
 import { checkTypeFieldArrays } from './rules/typeFieldArrays';
 import { checkTypeMembers } from './rules/typeMembers';
+import { checkDeclareStatements, checkUnusableDeclareCalls } from './rules/declares';
 import { checkLateBoundFriendMember } from './rules/lateBinding';
 import { checkHandlerFlow } from './rules/handlerFlow';
 import { checkFileStatements } from './rules/fileStatements';
@@ -595,6 +596,14 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'arraySubscriptOutOfBounds',
 		run: (ctx, push) => checkFixedArraySubscriptBounds(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push, ctx.opts.projectIntegerConstants, ctx.opts.projectVisibleSymbols, ctx.opts.hostModel),
+	},
+	{
+		name: 'declareStatements',
+		run: (ctx, push) => checkDeclareStatements(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'unusableDeclareCalls',
+		run: (ctx, push) => checkUnusableDeclareCalls(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
 	},
 	{
 		name: 'typeFieldArrays',

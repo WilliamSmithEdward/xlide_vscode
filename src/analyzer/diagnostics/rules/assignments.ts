@@ -176,7 +176,9 @@ function procedureAssignmentTarget(
 		return (name) => `'${name}' is a Sub, which has no value to assign. This is a VBE compile error: Expected Function or variable.`;
 	}
 	const returns = normalizeType(definition.asType);
-	if (definition.kind === 'function' && returns && returns !== 'variant' && isKnownScalarType(returns) && !definition.isArray) {
+	// A Declare Function too (issue #254): `GetTickCount = 5`.
+	const isFunction = definition.kind === 'function' || (definition.kind === 'declare' && definition.declareKind === 'Function');
+	if (isFunction && returns && returns !== 'variant' && isKnownScalarType(returns) && !definition.isArray) {
 		return (name) => `'${name}' is a Function returning ${definition.asType}, and a call cannot be assigned to. This is a VBE compile error: Function call on left-hand side of assignment must return Variant or Object.`;
 	}
 	return undefined;

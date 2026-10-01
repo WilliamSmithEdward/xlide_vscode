@@ -52,7 +52,8 @@ export function checkStatementForms(
 	const notSubs = new Set<string>();
 	for (const symbol of symbols.root.children ?? []) {
 		const lower = symbol.name.toLowerCase();
-		if (symbol.kind === 'sub') {
+		// A Declare Sub returns nothing either (issue #254).
+		if (symbol.kind === 'sub' || (symbol.kind === 'declare' && symbol.declareKind === 'Sub')) {
 			subs.add(lower);
 		} else {
 			notSubs.add(lower);
