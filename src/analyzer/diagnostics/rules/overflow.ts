@@ -84,6 +84,12 @@ interface Typed {
 	 * 255 or 0: `b = True` and `CByte(True)` store 255 (issue #326).
 	 */
 	boolean?: boolean;
+	/**
+	 * A Date past the Date range that `number + Date` or `number - Date`
+	 * made without raising (issue #330): the expression, as the message
+	 * names it. Most uses of it raise (issue #405).
+	 */
+	pastDate?: string;
 }
 
 interface Overflow {
@@ -490,6 +496,14 @@ class TypedFolder {
 				? { value, type: inner.type }
 				: { overflow: true, span, detail: `Abs(${showNumber(inner.value)}) does not fit ${RANGES[inner.type].label}` };
 		}
+		// Int and Fix of that Date are a Date still past the range, and raise 6;
+		// CDate hands it back unchanged (issue #405, measured in Excel 16.0).
+		if (inner.pastDate !== undefined && (target === 'int' || target === 'fix')) {
+			return { overflow: true, span, detail: `${target === 'int' ? 'Int' : 'Fix'} of ${inner.pastDate} is a Date outside the Date range` };
+		}
+		if (inner.pastDate !== undefined && target === 'date') {
+			return inner;
+		}
 		if (target === 'int' || target === 'fix') {
 			const value = target === 'int' ? Math.floor(inner.value) : Math.trunc(inner.value);
 			return { value, type: inner.type === 'byte' || inner.type === 'integer' || inner.type === 'long' ? inner.type : 'double' };
@@ -587,7 +601,7 @@ class TypedFolder {
 		// without raising; only a later use fails (issue #330, measured in
 		// Excel 16.0). `Date + number` raises 6.
 		if (!inRange(value, type) && type === 'date' && left.type !== 'date') {
-			return undefined;
+			return { value, type, pastDate: `${describe(left)} ${op} ${describe(right)}` };
 		}
 		if (!inRange(value, type)) {
 			const result = type === 'date'
@@ -1475,6 +1489,11 @@ function checkStatement(
 		const target = numericTypeOf(declared);
 		if (isOverflow(folded)) {
 			report(folded);
+		} else if (folded?.pastDate !== undefined && target === 'date') {
+			// A Date local holds it without raising (issue #405).
+			if (!bare.element) {
+				stored = { name: bare.name.toLowerCase(), value: folded };
+			}
 		} else if (folded && target) {
 			const kept = storedValue(folded, target);
 			if (!inRange(kept.value, target, kept.exact)) {
@@ -1497,7 +1516,14 @@ function checkStatement(
 	// arguments, an operand of & or a comparison, an array index, a
 	// conversion anywhere (issue #232). `Main = CStr(CInt(40000))` and
 	// `IIf(True, 0, CInt(40000))` overflow as `Main = CInt(40000)` does.
-	checkParts(toks, span.start, names, report);
+	const reportPastDate = (folded: Typed, at: Span): void => {
+		const key = `${at.start}:${at.end}`;
+		if (!reported.has(key)) {
+			reported.add(key);
+			push('runtimeArgumentValue', `${folded.pastDate} is ${showNumber(folded.value)}, a Date outside the Date range that VBA holds without raising; reading it here as text or as a date raises Run-time error '5': Invalid procedure call or argument.`, at);
+		}
+	};
+	checkParts(toks, span.start, names, report, reportPastDate);
 	return stored;
 }
 
@@ -1533,9 +1559,17 @@ function endsPart(tok: VbaToken): boolean {
  * fold is searched for parenthesized parts that do, so an argument nested at
  * any depth is reached.
  */
-function checkParts(toks: readonly VbaToken[], base: number, names: NameLookup, report: (folded: Overflow) => void): void {
+function checkParts(
+	toks: readonly VbaToken[],
+	base: number,
+	names: NameLookup,
+	report: (folded: Overflow) => void,
+	reportPastDate?: (folded: Typed, span: Span) => void,
+	callee?: string,
+): void {
 	let from = 0;
 	const part = (to: number): void => {
+		const start = from;
 		const piece = toks.slice(from, to).filter((tok) => tok.kind !== 'comment');
 		from = to + 1;
 		if (piece.length === 0) {
@@ -1547,6 +1581,9 @@ function checkParts(toks: readonly VbaToken[], base: number, names: NameLookup, 
 			return;
 		}
 		if (folded !== undefined) {
+			if (folded.pastDate !== undefined && readsPastDate(toks, start, to, callee)) {
+				reportPastDate?.(folded, { start: base + piece[0].start, end: base + piece[piece.length - 1].end });
+			}
 			return;
 		}
 		for (let i = 0; i < piece.length; i++) {
@@ -1568,7 +1605,7 @@ function checkParts(toks: readonly VbaToken[], base: number, names: NameLookup, 
 					continue;
 				}
 			}
-			checkParts(piece.slice(i + 1, close), base, names, report);
+			checkParts(piece.slice(i + 1, close), base, names, report, reportPastDate, tokenText(piece[i - 1]));
 			i = close;
 		}
 	};
@@ -1584,6 +1621,31 @@ function checkParts(toks: readonly VbaToken[], base: number, names: NameLookup, 
 		}
 	}
 	part(toks.length);
+}
+
+/**
+ * The built-ins that raise 5 when given a Date past the Date range (issue
+ * #405, measured in Excel 16.0). CDate, CVar, CLng, CDbl, CCur, IsDate,
+ * IsNumeric, TypeName, VarType and a comparison take it and run.
+ */
+const PAST_DATE_READERS: ReadonlySet<string> = new Set([
+	'cstr', 'str', 'format', 'formatdatetime', 'year', 'month', 'day', 'weekday', 'hour', 'minute', 'second',
+	'dateadd', 'datepart', 'datediff', 'datevalue', 'ucase', 'mid', 'left', 'val', 'instr', 'replace',
+]);
+
+/**
+ * Whether the part `toks[start..to)` is read as text or as a date: an
+ * argument of one of the built-ins above, an operand of `&`, or what
+ * `Debug.Print` prints.
+ */
+function readsPastDate(toks: readonly VbaToken[], start: number, to: number, callee: string | undefined): boolean {
+	if (callee !== undefined && PAST_DATE_READERS.has(callee)) {
+		return true;
+	}
+	if (toks[start - 1]?.rawText === '&' || toks[to]?.rawText === '&') {
+		return true;
+	}
+	return tokenText(toks[start - 1]) === 'print' && toks[start - 2]?.rawText === '.' && tokenText(toks[start - 3]) === 'debug';
 }
 
 /**
