@@ -653,8 +653,9 @@ function indentString(width: number, tabSize: number, insertSpaces: boolean): st
 /**
  * The first way two sources lex differently, or undefined when they lex to the
  * same tokens: the same kinds in the same order, the same text for every token
- * apart from letter case in keywords and identifiers, and the same number of
- * line continuations. Formatting that fails this check is thrown away.
+ * apart from letter case in keywords and identifiers, and the same line
+ * continuations in the same places. Formatting that fails this check is thrown
+ * away.
  */
 export function tokenStreamDifference(before: string, after: string): string | undefined {
 	const a = tokenize(before);
@@ -696,6 +697,18 @@ export function tokenStreamDifference(before: string, after: string): string | u
 	const cb = continuations(b);
 	if (ca !== cb) {
 		return `line continuation count changed from ${ca} to ${cb}`;
+	}
+	// The same number in different places is a different module too: a ` _`
+	// that loses its space is a stray `_` token, and one that gains a space is a
+	// continuation, so a formatted module could trade one for the other and
+	// keep the count (found by tests/properties).
+	const placed = (token: VbaToken): string => [token.leadingTrivia, token.trailingTrivia]
+		.map((trivia) => (trivia ?? []).filter((t) => t.kind === 'lineContinuation').length)
+		.join('/');
+	for (let i = 0; i < a.length; i++) {
+		if (placed(a[i]) !== placed(b[i])) {
+			return `a line continuation moved at token ${i}, line ${a[i].line + 1}`;
+		}
 	}
 	return undefined;
 }
