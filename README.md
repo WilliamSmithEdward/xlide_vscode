@@ -6,6 +6,7 @@
 [![CI](https://img.shields.io/github/actions/workflow/status/WilliamSmithEdward/xlide_vscode/ci.yml?branch=main&label=CI)](https://github.com/WilliamSmithEdward/xlide_vscode/actions/workflows/ci.yml)
 [![Security](https://img.shields.io/github/actions/workflow/status/WilliamSmithEdward/xlide_vscode/security.yml?branch=main&label=security)](SECURITY.md)
 [![Malware scan](https://img.shields.io/github/actions/workflow/status/WilliamSmithEdward/xlide_vscode/malware-scan.yml?branch=main&label=malware%20scan)](SECURITY.md)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/WilliamSmithEdward/xlide_vscode/badge)](https://scorecard.dev/viewer/?uri=github.com/WilliamSmithEdward/xlide_vscode)
 [![license](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
 [![Hosts](https://img.shields.io/badge/Hosts-Excel%2C%20Word%2C%20PowerPoint%2C%20Access%2C%20VB6-blue)](#why-use-xlide)
 

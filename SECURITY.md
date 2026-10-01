@@ -95,4 +95,30 @@ the ClamAV signatures, which freshclam verifies on every run and the malware
 scan report records, and Semgrep's registry rules, fetched on every run.
 Dependabot opens a pull request as soon as an advisory affects a
 dependency, and proposes routine updates weekly, once a version is a week
-old.
+old. A minor or patch update, and the YARA update workflow's pull request,
+merges itself once CI, Security and Malware scan pass; a third-party major
+version waits for review.
+
+The readers of files XLIDE did not write are also checked by property, with
+fast-check, in [`tests/properties`](tests/properties). Office files with
+bytes changed, and streams of random bytes, go through the ZIP, deflate,
+compound file, MS-OVBA and VBA project readers, and through opening a
+workbook, document, presentation or Access database end to end: each must
+read the file or refuse it with its own error, within a time limit. The
+codecs must read back what they write, and inflate must agree with zlib.
+Generated VBA must lex back to its exact text, parse without throwing, and
+format to the same text a second time; VB6 form headers and project
+manifests must print back as they were read. `npm test` runs every property
+a hundred times; the
+[Fuzz workflow](https://github.com/WilliamSmithEdward/xlide_vscode/actions/workflows/fuzz.yml)
+runs them twenty thousand times when a reader changes and two hundred
+thousand times daily. It is not a gate: a failure prints the smallest input
+that breaks the property, which becomes a test with the fix.
+
+[OpenSSF Scorecard](https://scorecard.dev/viewer/?uri=github.com/WilliamSmithEdward/xlide_vscode)
+rates the repository's security practices on every change to `main` and
+weekly, and publishes the result the README badge shows. Some of its checks
+do not fit this project: a single maintainer cannot have a second person
+approve every change, and the vsix is built locally and attached to the
+release by hand, so a release carries the reports' SHA-256 digests rather
+than a build provenance signature.

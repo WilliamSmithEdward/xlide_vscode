@@ -1,0 +1,54 @@
+name: Scorecard
+
+# OpenSSF Scorecard rates the repository's security practices and publishes
+# the result to api.scorecard.dev, which the README badge reads. It runs on
+# every change to main and weekly, since some checks (maintenance, releases)
+# move without a commit.
+#
+# The SARIF is kept as a run artifact rather than uploaded to code scanning:
+# the checks a single-maintainer project cannot meet (code review by a second
+# person, several contributing organizations, fuzzing) would stand there as
+# permanent open alerts.
+#
+# When results are published, Scorecard's API only accepts them from a
+# workflow with no top-level env or write permissions, where only this job
+# has id-token: write and uses only checkout, upload-artifact and the action.
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '37 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  analysis:
+    name: OpenSSF Scorecard
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      # Signs the published result so the API knows it came from this repo.
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run Scorecard
+        uses: ossf/scorecard-action@2d1146689b8cda280b9bc96326124645441f03bc # v2.4.4
+        with:
+          results_file: scorecard.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Keep the results
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: scorecard
+          path: scorecard.sarif
+          if-no-files-found: error

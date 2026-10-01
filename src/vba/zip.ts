@@ -65,7 +65,7 @@ export class ZipArchive {
 		// ZIP64 end-of-central-directory record when they do.
 		if (centralOffset === 0xffffffff || entryCount === 0xffff) {
 			const z64 = data.lastIndexOf(int32le(SIG_ZIP64_EOCD), eocd);
-			if (z64 < 0) {
+			if (z64 < 0 || z64 + 56 > data.length) {
 				throw new ZipError('ZIP64 archive without a ZIP64 EOCD record.');
 			}
 			entryCount = Number(data.readBigUInt64LE(z64 + 32));
@@ -74,7 +74,10 @@ export class ZipArchive {
 
 		let pos = centralOffset;
 		for (let i = 0; i < entryCount; i++) {
-			if (data.readUInt32LE(pos) !== SIG_CENTRAL) {
+			// Offsets and counts come from the file, so each record is checked
+			// to be inside it before it is read: a damaged archive is a ZipError,
+			// not a read past the end of the buffer.
+			if (pos + 46 > data.length || data.readUInt32LE(pos) !== SIG_CENTRAL) {
 				throw new ZipError(`Bad central directory signature at ${pos}.`);
 			}
 			const versionMadeBy = data.readUInt16LE(pos + 4);
@@ -105,6 +108,10 @@ export class ZipArchive {
 					const dataSize = extra.readUInt16LE(ep + 2);
 					if (headerId === 0x0001) {
 						let q = ep + 4;
+						const needed = 8 * [uncompressedSize, compressedSize, localOffset].filter((v) => v === 0xffffffff).length;
+						if (q + needed > extra.length) {
+							throw new ZipError(`ZIP64 extra field too short for ${name}.`);
+						}
 						if (uncompressedSize === 0xffffffff) { uncompressedSize = Number(extra.readBigUInt64LE(q)); q += 8; }
 						if (compressedSize === 0xffffffff) { compressedSize = Number(extra.readBigUInt64LE(q)); q += 8; }
 						if (localOffset === 0xffffffff) { localOffset = Number(extra.readBigUInt64LE(q)); }
@@ -115,7 +122,7 @@ export class ZipArchive {
 			}
 
 			// The local header repeats name/extra with its own lengths.
-			if (data.readUInt32LE(localOffset) !== SIG_LOCAL) {
+			if (localOffset + 30 > data.length || data.readUInt32LE(localOffset) !== SIG_LOCAL) {
 				throw new ZipError(`Bad local header signature for ${name}.`);
 			}
 			const localNameLen = data.readUInt16LE(localOffset + 26);

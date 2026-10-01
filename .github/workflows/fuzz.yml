@@ -1,0 +1,50 @@
+name: Fuzz
+
+# Property-based fuzzing, with fast-check, of the readers that take files XLIDE
+# did not write (tests/properties): the ZIP, deflate, compound file, MS-OVBA
+# and VBA project readers, Office files opened end to end with bytes changed,
+# and the VBA lexer, parser and formatter and the VB6 form header and project
+# manifest readers over generated text. npm test runs every property a
+# hundred times on every change; this runs them at twenty thousand when the
+# readers change and two hundred thousand daily. A failure prints the
+# smallest input that breaks the property and the seed that replays it
+# (XLIDE_PROPERTY_SEED); the input becomes a test with the fix. This is not a
+# required check, so a finding in code a pull request did not touch does not
+# block it.
+
+on:
+  push:
+    branches: [main]
+    paths: [src/vba/**, src/analyzer/lexer/**, src/analyzer/parser/**, src/analyzer/format/**, tests/properties/**, package-lock.json, .github/workflows/fuzz.yml]
+  pull_request:
+    paths: [src/vba/**, src/analyzer/lexer/**, src/analyzer/parser/**, src/analyzer/format/**, tests/properties/**, package-lock.json, .github/workflows/fuzz.yml]
+  schedule:
+    - cron: '17 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  properties:
+    name: Reader properties
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '20.20.2'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      # No per-test timeout: at these counts one property runs for minutes.
+      - name: Run the reader properties
+        env:
+          XLIDE_PROPERTY_RUNS: ${{ github.event_name == 'schedule' && '200000' || '20000' }}
+        run: npx vitest run tests/properties --testTimeout=0
