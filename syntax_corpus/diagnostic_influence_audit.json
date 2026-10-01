@@ -36,10 +36,17 @@
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.3",
       "corpusInfluence": "none",
-      "assertedOracleCases": [],
+      "assertedOracleCases": [
+        "issue254_19_compile",
+        "issue254_20_compile",
+        "issue254_21_compile",
+        "issue254_22_compile",
+        "issue254_23_compile"
+      ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "diagnosticKind": "compile-error"
+      "diagnosticKind": "compile-error",
+      "notes": "Issue #254: a Declare is a procedure name too: a Declare beside a Function, another Declare, a module variable or a Const of the same name is Ambiguous name detected (measured in Excel 16.0)."
     },
     {
       "code": "duplicate-declaration",
@@ -154,6 +161,28 @@
       "diagnosticKind": "compile-error"
     },
     {
+      "code": "unusable-declare",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE oracle (issue #254: a Declare declared CDecl, or with Lib \"\", Alias \"\" or Alias \"#0\", compiles and raises 49, 48, 453 or 452 at every call)",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue254_07_runtime",
+        "issue254_08_runtime",
+        "issue254_10_runtime",
+        "issue254_11_runtime",
+        "issue254_12_runtime",
+        "issue254_13_runtime",
+        "issue254_16_runtime",
+        "issue254_35_runtime",
+        "issue254_36_runtime",
+        "issue254_38_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Flags each call, in the declaring module, of a Declare that no call can use (issue #254, measured in Excel 16.0 on Windows): CDecl raises 49, Bad DLL calling convention, for a Function and a Sub; Lib \"\" or a Lib of spaces raises 48, File not found; an Alias of nothing or of spaces raises 453, and Alias \"#0\" or \"#00\" raises 452, Can't find DLL entry point 0. A Declare never called runs, so it is not reported. A real library or entry point the machine lacks (53, 453) depends on the machine and is left alone, Lib \" kernel32\" included.",
+      "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
       "code": "option-explicit-missing",
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.2.4.1.1 plus XLIDE style policy",
@@ -222,10 +251,22 @@
       "status": "spec-derived",
       "sourceOfTruth": "MS-VBAL 5.3.1",
       "corpusInfluence": "none",
-      "assertedOracleCases": [],
+      "assertedOracleCases": [
+        "issue254_24_compile",
+        "issue254_25_compile",
+        "issue254_26_compile",
+        "issue254_27_compile",
+        "issue254_28_compile",
+        "issue254_29_compile",
+        "issue254_30_compile",
+        "issue254_31_compile",
+        "issue254_32_compile",
+        "issue254_33_compile"
+      ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "diagnosticKind": "compile-error"
+      "diagnosticKind": "compile-error",
+      "notes": "Issue #254: a Declare's own line (measured in Excel 16.0): a Declare Sub with an As clause, a Declare Function with a type character and an As clause or returning String * n, is Expected: end of statement; As Any for a return is Expected: type name; a Lib or Alias that is no string literal is Expected: string constant. A parameter As String * n, of a Declare or a procedure, is Expected array."
     },
     {
       "code": "invalid-identifier-start",
@@ -440,11 +481,17 @@
         "issue223_20_compile",
         "issue223_28_compile",
         "issue223_40_compile",
-        "issue223_41_compile"
+        "issue223_41_compile",
+        "issue254_41_compile",
+        "issue254_42_compile",
+        "issue254_43_compile",
+        "issue254_44_compile",
+        "issue254_45_compile",
+        "issue254_46_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is a VBE compile-equivalent error: the focused oracle case is rejected with Type mismatch. The active argument inference can also prove scalar arguments through bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, proven source-backed/host member return expressions, and verified VBA runtime/generated host constants when no source binding shadows the constant name, while local shadows, ambiguous exported globals, unknown module qualifiers, ambiguous bare project functions, source-shadowed runtime names, untyped/Variant values, and bare member functions with required arguments stay silent. Issue #223: Nothing into a Long or String parameter (Invalid use of object), New Collection there (Argument not optional), and a number or string literal into a Collection or other known object parameter (Type mismatch).",
+      "notes": "This is a VBE compile-equivalent error: the focused oracle case is rejected with Type mismatch. The active argument inference can also prove scalar arguments through bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, proven source-backed/host member return expressions, and verified VBA runtime/generated host constants when no source binding shadows the constant name, while local shadows, ambiguous exported globals, unknown module qualifiers, ambiguous bare project functions, source-shadowed runtime names, untyped/Variant values, and bare member functions with required arguments stay silent. Issue #223: Nothing into a Long or String parameter (Invalid use of object), New Collection there (Argument not optional), and a number or string literal into a Collection or other known object parameter (Type mismatch). Issue #254: a call in a single-line If's branch is checked too: If False Then Sl Nothing is Invalid use of object (measured in Excel 16.0).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -2417,11 +2464,12 @@
       "assertedOracleCases": [
         "issue213_27_compile",
         "issue213_30_compile",
-        "issue213_31_compile"
+        "issue213_31_compile",
+        "issue254_40_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Assignment to a Sub (\"Expected Function or variable\") or to a Function returning a type of VBA's own (\"Function call on left-hand side of assignment must return Variant or Object\") from outside it. A Variant or Object Function takes it.",
+      "notes": "Assignment to a Sub (\"Expected Function or variable\") or to a Function returning a type of VBA's own (\"Function call on left-hand side of assignment must return Variant or Object\") from outside it. A Variant or Object Function takes it. Issue #254: a Declare Function too: GetTickCount = 5 on a Declare Function returning Long is Function call on left-hand side of assignment must return Variant or Object (measured in Excel 16.0).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -3639,11 +3687,12 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #125): 1 asserted case from the issue's measured corpus",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "issue125_f_compile"
+        "issue125_f_compile",
+        "issue254_39_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Sub used as a value. VBE \"Expected Function or variable\" (issue #125, Excel 16.0).",
+      "notes": "Sub used as a value. VBE \"Expected Function or variable\" (issue #125, Excel 16.0). Issue #254: a Declare Sub too: Main = Sleep(1) on a Declare Sub is Expected Function or variable (measured in Excel 16.0).",
       "diagnosticKind": "compile-error"
     },
     {

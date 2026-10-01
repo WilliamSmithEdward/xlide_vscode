@@ -104,10 +104,16 @@ function reportRepeatedNames(
 	}
 }
 
+/** A Sub, Function, Property or Declare: a name the module calls (issue #254). */
+function isCallableKind(kind: VbaSymbol['kind']): boolean {
+	return isProcedureKind(kind) || kind === 'declare';
+}
+
 /**
  * Rule: a procedure name may name at most one Sub/Function, OR a set of distinct
  * Property accessors (one Get, one Let, one Set). Any other repeat is the VBA
- * "Ambiguous name detected" compile error.
+ * "Ambiguous name detected" compile error. A Declare is one of them (issue
+ * #254, measured in Excel 16.0).
  */
 export function checkDuplicateProcedures(
 	members: VbaSymbol[],
@@ -115,7 +121,7 @@ export function checkDuplicateProcedures(
 	push: PushFn,
 ): void {
 	reportRepeatedNames(members, activity, {
-		declares: (sym) => isProcedureKind(sym.kind),
+		declares: (sym) => isCallableKind(sym.kind),
 		// Distinct accessors of one property share their name legitimately;
 		// every other repeat is the ambiguity error.
 		collides: (a, b) => !isPropertyAccessor(a) || !isPropertyAccessor(b) || a.kind === b.kind,
@@ -191,10 +197,10 @@ export function checkVariableProcedureNameClash(
 	push: PushFn,
 ): void {
 	reportRepeatedNames(members, activity, {
-		declares: (sym) => sym.kind === 'moduleVariable' || sym.kind === 'constant' || isProcedureKind(sym.kind),
+		declares: (sym) => sym.kind === 'moduleVariable' || sym.kind === 'constant' || isCallableKind(sym.kind),
 		// Only a variable-against-procedure pair is this rule's; repeats within
 		// one kind belong to the duplicate rules above.
-		collides: (a, b) => isProcedureKind(a.kind) !== isProcedureKind(b.kind),
+		collides: (a, b) => isCallableKind(a.kind) !== isCallableKind(b.kind),
 		report: (repeat) =>
 			push(
 				'duplicateProcedure',

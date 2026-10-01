@@ -238,6 +238,18 @@ export const DIAGNOSTIC_RULES = {
 		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
+	unusableDeclare: {
+		code: 'unusable-declare',
+		title: 'Declare that fails on every call',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
+		source: 'XLIDE',
+		specReference: 'VBE runtime errors 48, 49, 452 and 453 on a Declare whose calling convention, Lib or Alias no call can use (issue #254, Excel 16.0)',
+		allowSeverityDowngrade: true,
+		confidence: 'high',
+	},
 	invalidProcedureHeader: {
 		code: 'invalid-proc-header',
 		title: 'Invalid procedure declaration',
