@@ -57282,6 +57282,149 @@
       ],
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue353_01_runtime",
+      "description": "Issue #353 Split and Filter under the module's Option Compare, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> c.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nOption Compare Text\r\nFunction Main() As Variant\r\n    Dim p\r\n    p = Split(\"aXbxc\", \"x\")\r\n    Main = p(2)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue353_02_runtime",
+      "description": "Issue #353 Split and Filter under the module's Option Compare, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> Ab.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nOption Compare Text\r\nFunction Main() As Variant\r\n    Dim f\r\n    f = Filter(Array(\"Ab\", \"cd\"), \"a\")\r\n    Main = f(0)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue353_03_runtime",
+      "description": "Issue #353 Split and Filter under the module's Option Compare, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> c.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nOption Compare Text\r\nFunction Main() As Variant\r\n    Main = Split(\"aXbxc\", \"x\")(2)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue353_04_runtime",
+      "description": "Issue #353 Split and Filter under the module's Option Compare, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nOption Compare Binary\r\nFunction Main() As Variant\r\n    Dim p\r\n    p = Split(\"aXbxc\", \"x\")\r\n    Main = p(2)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue353_05_runtime",
+      "description": "Issue #353 Split and Filter under the module's Option Compare, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nOption Compare Binary\r\nFunction Main() As Variant\r\n    Dim f\r\n    f = Filter(Array(\"Ab\", \"cd\"), \"a\")\r\n    Main = f(0)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue353_06_runtime",
+      "description": "Issue #353 Split and Filter under the module's Option Compare, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nOption Compare Binary\r\nFunction Main() As Variant\r\n    Main = Split(\"aXbxc\", \"x\")(2)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue353_07_runtime",
+      "description": "Issue #353 Split and Filter under the module's Option Compare, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim p\r\n    p = Split(\"aXbxc\", \"x\")\r\n    Main = p(2)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue353_08_runtime",
+      "description": "Issue #353 Split and Filter under the module's Option Compare, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim f\r\n    f = Filter(Array(\"Ab\", \"cd\"), \"a\")\r\n    Main = f(0)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue353_09_runtime",
+      "description": "Issue #353 Split and Filter under the module's Option Compare, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Split(\"aXbxc\", \"x\")(2)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue353_10_runtime",
+      "description": "Issue #353 Split and Filter under the module's Option Compare, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nOption Compare Text\r\nFunction Main() As Variant\r\n    Dim p\r\n    p = Split(\"aXbxc\", \"x\", -1, vbBinaryCompare)\r\n    Main = p(2)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue353_11_runtime",
+      "description": "Issue #353 Split and Filter under the module's Option Compare, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nOption Compare Text\r\nFunction Main() As Variant\r\n    Dim f\r\n    f = Filter(Array(\"Ab\", \"cd\"), \"a\", True, vbBinaryCompare)\r\n    Main = f(0)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue353_12_runtime",
+      "description": "Issue #353 Split and Filter under the module's Option Compare, case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> c.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim p\r\n    p = Split(\"aXbxc\", \"x\", -1, vbTextCompare)\r\n    Main = p(2)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue353_13_runtime",
+      "description": "Issue #353 Split and Filter under the module's Option Compare, case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> Ab.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim f\r\n    f = Filter(Array(\"Ab\", \"cd\"), \"a\", True, vbTextCompare)\r\n    Main = f(0)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

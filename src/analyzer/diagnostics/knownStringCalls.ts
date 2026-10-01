@@ -36,10 +36,20 @@ export interface KnownStringCallContext {
 	compare: ModuleCompare;
 }
 
-/** The module's Option Compare, from its source text. */
+let lastCompare: { source: string; compare: ModuleCompare } | undefined;
+
+/**
+ * The module's Option Compare, from its source text. The array rules ask once
+ * per procedure, so the last module's answer is kept.
+ */
 export function moduleCompare(source: string): ModuleCompare {
+	if (lastCompare?.source === source) {
+		return lastCompare.compare;
+	}
 	const match = /^[ \t]*Option[ \t]+Compare[ \t]+(Binary|Text|Database)\b/im.exec(source);
-	return (match?.[1].toLowerCase() as ModuleCompare | undefined) ?? 'binary';
+	const compare = (match?.[1].toLowerCase() as ModuleCompare | undefined) ?? 'binary';
+	lastCompare = { source, compare };
+	return compare;
 }
 
 const FOLDED = new Set(['instr', 'instrrev', 'len', 'asc', 'ascw']);
