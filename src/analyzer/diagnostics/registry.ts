@@ -362,7 +362,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'variantValueMisuse',
-		run: (ctx, push) => checkVariantValueMisuse(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
+		run: (ctx, push) => checkVariantValueMisuse(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push, ctx.opts.projectVisibleSymbols),
 	},
 	{
 		name: 'objectDefaultValue',

@@ -29,6 +29,7 @@ import type {
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { objectLetStateAt } from './objectState';
 import { knownArrayShapesAt, moduleOptionBase, type FixedArrayBound } from './arrays';
+import { straightLineAssignments } from '../straightLineValues';
 import { resolveRuntimeFunction } from '../../runtime/vbaRuntime';
 import type {
 	VbaProcedureSignature,
@@ -278,6 +279,7 @@ export function checkAssignmentTypes(
 		// written anywhere: a Variant named once is never assigned, so Empty.
 		let shapesAt: ((stmt: LeafStatementNode) => ReadonlyMap<string, FixedArrayBound>) | undefined;
 		let mentions: Map<string, number> | undefined;
+		let reaching: ReturnType<typeof straightLineAssignments> | undefined;
 		const arrayValueAt = (stmt: LeafStatementNode, name: string): ArrayValue | undefined => {
 			const lower = name.toLowerCase();
 			const local = procSym?.children?.find((child) => child.name.toLowerCase() === lower);
@@ -297,6 +299,29 @@ export function checkAssignmentTypes(
 				checkAssignmentSpan(span, stmt);
 			}
 		}, activity);
+
+		// `v = Null` then `s = v`: the Null a Variant local holds here, from
+		// its last assignment in a straight line (issue #239). A single-line
+		// If's branch sees what held before the If, less whatever the If
+		// touches.
+		function nullHeldAt(stmt: LeafStatementNode, span: Span, valueTokens: readonly VbaToken[]): { name: string; span: Span } | undefined {
+			const value = valueTokens.filter((tok) => tok.kind !== 'comment');
+			const name = value.length === 1 ? tokenName(value[0]) : undefined;
+			if (!name) {
+				return undefined;
+			}
+			const lower = name.toLowerCase();
+			const local = procSym?.children?.find((child) => child.name.toLowerCase() === lower);
+			const type = normalizeType(local?.asType);
+			if (local?.kind !== 'localVariable' || local.visibility === 'Static' || local.isArray || (type !== undefined && type !== 'variant')) {
+				return undefined;
+			}
+			reaching ??= straightLineAssignments(source, procedure.body, activity);
+			const held = reaching.get(stmt)?.get(lower)?.filter((tok) => tok.kind !== 'comment');
+			return held?.length === 1 && tokenText(held[0]) === 'null'
+				? { name, span: { start: span.start + value[0].start, end: span.start + value[0].end } }
+				: undefined;
+		}
 
 		function checkAssignmentSpan(span: Span, stmt: LeafStatementNode): void {
 			const assignment = bareAssignmentTarget(source, span);
@@ -464,6 +489,15 @@ export function checkAssignmentTypes(
 				resolveExpressionType,
 				resolveQualifiedExpressionType,
 			);
+			const nullSource = nullHeldAt(stmt, span, assignment.valueTokens);
+			if (nullSource && isKnownScalarType(normalizeType(expected) ?? '')) {
+				push(
+					'assignmentTypeMismatch',
+					`Assignment to '${assignment.name}' expects ${expected}, but '${nullSource.name}' holds Null here. Null cannot be coerced to this scalar type. This will raise Run-time error '94': Invalid use of Null.`,
+					nullSource.span,
+				);
+				return;
+			}
 			if (!actual) {
 				return;
 			}

@@ -8,6 +8,8 @@
 //  - A scalar used as an array: `v = 5` or `v = "abc"` then `UBound(v)` -> 13.
 //  - An array used as a scalar: `v = Array(1, 2)` then `v + 1`, `v - 1`,
 //    `v & "x"`, `If v = 1 Then` -> 13, Type mismatch.
+//  - An array a call returns, used the same way (issue #239):
+//    `Array(1) + 1`, `Split("a") + 1`, `-Array(1)`, `Not Array(1)`.
 //  - A scalar where only an array will do (issue #219): `v = 5` then
 //    `Erase v`, `ReDim Preserve v(2)` or `For Each x In v` -> 13. For Each
 //    over a Variant nothing assigns, which is Empty, raises 13 too.
@@ -23,18 +25,28 @@ import type { VbaToken } from '../../lexer/tokenKinds';
 import type { BodyNode, ForBlockNode, ModuleNode } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { knownLocalLiteralValuesAt, normalizeType, typeEnvironmentFor, type KnownLocalValue } from '../typeInference';
+import type { VbaSymbol } from '../../symbols/symbolModel';
+import {
+	knownLocalLiteralValuesAt,
+	normalizeType,
+	runtimeCallableSourceShadowed,
+	sourceNameScopeFor,
+	typeEnvironmentFor,
+	type KnownLocalValue,
+	type SourceNameScope,
+} from '../typeInference';
 import {
 	activeModuleMembers,
 	bareAssignmentTarget,
 	forEachStatement,
 	isInactiveNode,
+	matchParenFrom,
 	statementAndBranchSpans,
 	statementTokens,
 	tokenName,
 	tokenText,
 } from '../walker';
-import { nameMentions } from './shared';
+import { isBareOrVbaQualifiedIntrinsicCall, nameMentions } from './shared';
 import { knownArrayShapesAt, moduleOptionBase, type FixedArrayBound } from './arrays';
 
 const SCALAR_OPERATORS: ReadonlySet<string> = new Set(['=', '<', '>', '<=', '>=', '<>', '+', '-', '*', '/', '\\', '&', '^']);
@@ -45,6 +57,7 @@ export function checkVariantValueMisuse(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	projectVisibleSymbols?: readonly VbaSymbol[],
 ): void {
 	const optionBase = moduleOptionBase(mod, activity);
 	for (const member of activeModuleMembers(mod, activity)) {
@@ -102,7 +115,13 @@ export function checkVariantValueMisuse(
 			const uses = procedureTokens.filter((tok) => tokenName(tok)?.toLowerCase() === lower && !isInDeclaration(source, tok.start));
 			return uses[0]?.start === offset;
 		};
+		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
 		forEachStatement(member.body, (stmt) => {
+			for (const span of statementAndBranchSpans(stmt)) {
+				for (const hit of arrayCallOperands(statementTokens(source, span), sourceNames)) {
+					push('variantValueMisuse', hit.message, { start: span.start + hit.start, end: span.start + hit.end });
+				}
+			}
 			for (const span of statementAndBranchSpans(stmt)) {
 				const toks = statementTokens(source, span);
 				const head = tokenText(toks[0]);
@@ -185,6 +204,71 @@ export function checkVariantValueMisuse(
 	}
 }
 
+/** The calls that return an array whatever their arguments. */
+const ARRAY_FUNCTIONS: ReadonlySet<string> = new Set(['array', 'split']);
+
+/**
+ * `Array(1) + 1`, `Split("a") & "x"`, `-Array(1)` and `Not Array(1)`: an
+ * array a call returns, as the operand of a scalar operator. Each raises
+ * 13 (issue #239, measured in Excel 16.0). Offsets are the statement's.
+ */
+function arrayCallOperands(
+	toks: readonly VbaToken[],
+	sourceNames: SourceNameScope,
+): Array<{ start: number; end: number; message: string }> {
+	const out: Array<{ start: number; end: number; message: string }> = [];
+	// A single-line If's own line is its condition; each branch comes as a span of its own.
+	const condition = tokenText(toks[0]) === 'if';
+	const end = condition ? toks.findIndex((tok) => tokenText(tok) === 'then') : toks.length;
+	const assignment = condition ? -1 : topLevelEquals(toks);
+	for (let i = 0; i < end - 1; i++) {
+		const name = tokenText(toks[i]);
+		if (!ARRAY_FUNCTIONS.has(name) || toks[i + 1].rawText !== '(' || !isBareOrVbaQualifiedIntrinsicCall(toks, i)) {
+			continue;
+		}
+		const qualified = toks[i - 1]?.rawText === '.';
+		if (!qualified && runtimeCallableSourceShadowed(toks[i].rawText, sourceNames)) {
+			continue;
+		}
+		const close = matchParenFrom(toks, i + 1);
+		// `Split(s)(0)` indexes the array, and its element is a scalar.
+		if (close < 0 || toks[close + 1]?.rawText === '(') {
+			continue;
+		}
+		const first = qualified ? i - 2 : i;
+		// A statement's own `=` assigns; any other `=` compares.
+		const before = first - 1 === assignment ? undefined : toks[first - 1];
+		const after = toks[close + 1];
+		const operator = [after, before].find((tok) => tok && ((tok.kind === 'operator' && SCALAR_OPERATORS.has(tok.rawText)) || ['mod', 'not', 'and', 'or', 'xor', 'like'].includes(tokenText(tok))));
+		if (!operator) {
+			continue;
+		}
+		const call = toks.slice(first, close + 1).map((tok) => tok.rawText).join('');
+		out.push({
+			start: toks[first].start,
+			end: toks[close].end,
+			message: `${call} returns an array, which '${operator.rawText}' cannot use as a scalar. This will raise Run-time error '13': Type mismatch.`,
+		});
+	}
+	return out;
+}
+
+/** The first `=` outside parentheses, which is the assignment's own; -1 when none. */
+function topLevelEquals(toks: readonly VbaToken[]): number {
+	let depth = 0;
+	for (let i = 0; i < toks.length; i++) {
+		const raw = toks[i].rawText;
+		if (raw === '(') {
+			depth++;
+		} else if (raw === ')') {
+			depth--;
+		} else if (raw === '=' && depth === 0) {
+			return i;
+		}
+	}
+	return -1;
+}
+
 /** Whether the offset is on a Dim, Static or Const line, which declares rather than uses. */
 function isInDeclaration(source: string, offset: number): boolean {
 	const lineStart = source.lastIndexOf(String.fromCharCode(10), offset - 1) + 1;
@@ -237,9 +321,9 @@ function memoByIdentity<K extends object, V>(derive: (key: K) => V): (key: K) =>
 	};
 }
 
-/** True when `toks[i]` is the whole first argument of UBound or LBound. */
+/** True when `toks[i]` is the whole first argument of UBound, LBound or Join (issue #239). */
 function isBoundArgument(toks: readonly VbaToken[], i: number): boolean {
 	const name = tokenText(toks[i - 2]);
-	return toks[i - 1]?.rawText === '(' && (name === 'ubound' || name === 'lbound') && toks[i - 3]?.rawText !== '.'
+	return toks[i - 1]?.rawText === '(' && (name === 'ubound' || name === 'lbound' || name === 'join') && toks[i - 3]?.rawText !== '.'
 		&& (toks[i + 1]?.rawText === ')' || toks[i + 1]?.rawText === ',');
 }

@@ -88,6 +88,16 @@ export function isInvalidBooleanString(text: string): boolean {
 	return isInvalidNumericString(text);
 }
 
+/** Whether the Gregorian calendar has this day: 1900 is no leap year, 2000 is. */
+function isCalendarDay(year: number, month: number, day: number): boolean {
+	if (month < 1 || month > 12 || day < 1) {
+		return false;
+	}
+	const leap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+	const days = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month - 1];
+	return day <= days;
+}
+
 /** Whether no locale converts the string to a Date. */
 export function isInvalidDateString(text: string): boolean {
 	const trimmed = text.replace(BLANK_EDGES, '');
@@ -96,6 +106,13 @@ export function isInvalidDateString(text: string): boolean {
 	}
 	if (!isInvalidNumericString(trimmed)) {
 		return false;
+	}
+	// A year first, then a month and a day in either order, that names no
+	// day: "2020-02-30" (issue #239, measured in Excel 16.0).
+	const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(trimmed);
+	if (iso) {
+		const [year, a, b] = iso.slice(1).map(Number);
+		return year >= 100 && !isCalendarDay(year, a, b) && !isCalendarDay(year, b, a);
 	}
 	// Dates use letters (month names, AM and PM), digits and these separators.
 	return /[^\p{L}\p{N} \t.,/:'-]/u.test(trimmed);

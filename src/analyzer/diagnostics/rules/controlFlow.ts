@@ -532,6 +532,15 @@ function checkForEachSourceType(
 	) {
 		return;
 	}
+	const what = forEachSourceSyntaxProblem(node.sourceExpression);
+	if (what) {
+		push(
+			'malformedStatement',
+			`For Each takes a variable, a member or a call after In, and ${what} is none of them. This is a VBE compile error: Syntax error.`,
+			node.sourceExpressionSpan,
+		);
+		return;
+	}
 	const sourceName = simpleForEachSourceName(node.sourceExpression);
 	if (!sourceName) {
 		return;
@@ -607,6 +616,54 @@ function forEachSourceTypeProblem(
 	}
 	if (isKnownScalarType(normalized)) {
 		return `it is declared As ${shape.asType}`;
+	}
+	return undefined;
+}
+
+/** Words that open no variable, member or call. */
+const FOR_EACH_NON_SOURCE_WORDS: ReadonlySet<string> = new Set(['null', 'true', 'false', 'nothing', 'empty', 'new', 'not', 'typeof']);
+
+/** Words that join two operands. */
+const OPERATOR_WORDS: ReadonlySet<string> = new Set(['and', 'or', 'xor', 'eqv', 'imp', 'mod', 'like', 'is']);
+
+/**
+ * Why For Each's source cannot be parsed, or undefined (issue #239,
+ * measured in Excel 16.0). The grammar wants a variable, a member chain or
+ * a call: `In 5`, `In "abc"`, `In (c)`, `In New Collection`, `In -v`,
+ * `In v & v` and `In Len("abc")`, Len being a special form, are each
+ * "Syntax error". `In Split("a" & "b")` and `In [A1:B2]` compile.
+ */
+function forEachSourceSyntaxProblem(sourceExpression: string): string | undefined {
+	// Lexed alone, a leading '#' reads as a directive: `#1/1/2000#`.
+	const text = sourceExpression.trim();
+	if (/^#[^#]*#$/.test(text)) {
+		return `the literal ${text}`;
+	}
+	const significant = rawExpressionTokens(text).filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline');
+	const first = significant[0];
+	if (!first) {
+		return undefined;
+	}
+	const firstWord = tokenText(first);
+	if (first.kind === 'integerLiteral' || first.kind === 'floatLiteral' || first.kind === 'stringLiteral' || first.kind === 'dateLiteral') {
+		return `the literal ${first.rawText}`;
+	}
+	if (first.rawText === '(' || first.rawText === '-' || first.rawText === '+') {
+		return `an expression that opens with '${first.rawText}'`;
+	}
+	if (first.kind === 'keyword' && (FOR_EACH_NON_SOURCE_WORDS.has(firstWord) || (firstWord === 'len' && significant[1]?.rawText === '('))) {
+		return `'${first.rawText}'`;
+	}
+	let depth = 0;
+	for (let i = 1; i < significant.length; i++) {
+		const tok = significant[i];
+		if (tok.rawText === '(' || tok.rawText === '[') {
+			depth++;
+		} else if (tok.rawText === ')' || tok.rawText === ']') {
+			depth--;
+		} else if (depth === 0 && ((tok.kind === 'operator' && tok.rawText !== '!') || (tok.kind === 'keyword' && OPERATOR_WORDS.has(tokenText(tok))))) {
+			return `an expression joined by '${tok.rawText}'`;
+		}
 	}
 	return undefined;
 }

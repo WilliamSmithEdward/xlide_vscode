@@ -23,7 +23,7 @@ import type {
 	VbaProcedureSignature,
 	VbaSymbol,
 } from '../../symbols/symbolModel';
-import { type PushFn } from '../analysisContext';
+import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import {
 	type CallableTypeSignature,
 	emptyArgSplit,
@@ -36,9 +36,11 @@ import { bankersRound, isBareOrVbaQualifiedIntrinsicCall } from '../rules/shared
 import { isInvalidBooleanString, isInvalidDateString, isInvalidNumericString } from '../stringConversion';
 import {
 	callableTypeSignaturesFor,
+	isKnownScalarType,
 	knownLocalLiteralValuesAt,
 	type KnownLocalValue,
 	namedArgumentSlot,
+	normalizeType,
 	procedureIntegerConstantLookup,
 	runtimeCallableSourceShadowed,
 	type SourceNameScope,
@@ -143,6 +145,13 @@ export function checkRuntimeArgumentValues(
 		// (issue #180).
 		const valuesAt = knownLocalLiteralValuesAt(source, member, symbols, activity);
 		let known: ReadonlyMap<string, KnownLocalValue> = new Map();
+		// A local declared as a scalar, which `Join(n)` refuses (issue #239).
+		const locals = procedureSymbolFor(symbols, member)?.children ?? [];
+		const scalarTypeOf = (lower: string): string | undefined => {
+			const local = locals.find((child) => child.name.toLowerCase() === lower);
+			const type = normalizeType(local?.asType);
+			return local?.kind === 'localVariable' && !local.isArray && type !== undefined && type !== 'variant' && isKnownScalarType(type) ? local.asType : undefined;
+		};
 		const stringsFor = new Map<ReadonlyMap<string, KnownLocalValue>, { strings: Map<string, string>; lengths: Map<string, number> }>();
 		const stringsAt = (values: ReadonlyMap<string, KnownLocalValue>): { strings: Map<string, string>; lengths: Map<string, number> } => {
 			let out = stringsFor.get(values);
@@ -191,7 +200,7 @@ export function checkRuntimeArgumentValues(
 					shadowed: (name) => runtimeCallableSourceShadowed(name, sourceNames),
 					compare,
 				};
-				for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env, lookup, stringCalls, sourceNames, host)) {
+				for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env, lookup, stringCalls, sourceNames, host, scalarTypeOf)) {
 					const raises = hit.error === 6 ? `'6': Overflow` : `'5': Invalid procedure call or argument`;
 					report(
 						'runtimeArgumentValue',
@@ -522,6 +531,7 @@ function runtimeArgumentValueHits(
 	stringCalls: KnownStringCallContext,
 	sourceNames: SourceNameScope,
 	host: string | undefined,
+	scalarTypeOf?: (lower: string) => string | undefined,
 ): RuntimeArgumentValueHit[] {
 	const toks = statementTokens(source, span);
 	if (isDeclarationLikeStatement(toks)) {
@@ -551,7 +561,7 @@ function runtimeArgumentValueHits(
 		}
 		const overflow = dateAddPastMaximum(source, span, call, constants)
 			?? dateSerialPastMaximum(source, span, call, constants)
-			?? argumentRelationHit(source, span, call, constants);
+			?? argumentRelationHit(source, span, call, constants, scalarTypeOf);
 		if (overflow) {
 			hits.push(overflow);
 		}
@@ -598,6 +608,7 @@ function argumentRelationHit(
 	span: Span,
 	call: { displayName: string; slots: VbaToken[][] },
 	constants: IntegerConstantLookup,
+	scalarTypeOf: (lower: string) => string | undefined = () => undefined,
 ): RuntimeArgumentValueHit | undefined {
 	const name = call.displayName.replace(/^VBA\./i, '').replace(/\$$/, '').toLowerCase();
 	if (call.slots.some((slot) => namedArgumentSlot(slot))) {
@@ -741,13 +752,21 @@ function argumentRelationHit(
 				: undefined;
 		case 'join':
 		case 'filter': {
-			if (!present(2)) {
+			// Join needs only its array (issue #239): `Join(5)`, `Join(Null)`
+			// and Join of a Long or String local raise 13.
+			const join = name === 'join';
+			if (!present(join ? 1 : 2)) {
 				return undefined;
 			}
 			const first = call.slots[0].filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
-			const scalar = first.length === 1 && (first[0].kind === 'stringLiteral' || first[0].kind === 'integerLiteral' || first[0].kind === 'floatLiteral');
-			return scalar
-				? hit(`${call.displayName} takes an array, but ${first[0].rawText} is not one.`, slotSpan(0), 13)
+			const scalar = first.length === 1 && (first[0].kind === 'stringLiteral' || first[0].kind === 'integerLiteral' || first[0].kind === 'floatLiteral'
+				|| (join && (first[0].kind === 'dateLiteral' || ['null', 'true', 'false'].includes(tokenText(first[0])))));
+			if (scalar) {
+				return hit(`${call.displayName} takes an array, but ${first[0].rawText} is not one.`, slotSpan(0), 13);
+			}
+			const declared = join && first.length === 1 && first[0].kind === 'identifier' ? scalarTypeOf(first[0].rawText.toLowerCase()) : undefined;
+			return declared
+				? hit(`${call.displayName} takes an array, but '${first[0].rawText}' is declared As ${declared}.`, slotSpan(0), 13)
 				: undefined;
 		}
 		default:
