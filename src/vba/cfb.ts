@@ -549,7 +549,10 @@ export class Cfb {
 	}
 
 	private sector(index: number): Buffer {
-		const offset = HEADER_SIZE + index * this.sectorSize;
+		// The header takes the whole first sector: 512 bytes in version 3, and
+		// 512 bytes padded to 4096 in version 4 ([MS-CFB] 2.2), so sector n
+		// starts at (n + 1) * sectorSize, not after the 512 header bytes.
+		const offset = (index + 1) * this.sectorSize;
 		// A sector that starts past the end is not in the file. Padding it as
 		// well would let every table that names one - DIFAT, FAT, a chain -
 		// conjure zeroed sectors without limit.
