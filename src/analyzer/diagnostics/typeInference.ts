@@ -81,6 +81,8 @@ import {
 } from './constExpr';
 import {
 	bareAssignmentTarget,
+	blockFooterLineSpan,
+	blockHeaderLineSpan,
 	firstExecutableTokenIndex,
 	rawExpressionTokens,
 	statementAndBranchSpans,
@@ -3036,6 +3038,12 @@ export function knownLocalLiteralValues(
 				mutate(node.controlVariable?.toLowerCase());
 			}
 			if ('body' in node && Array.isArray(node.body)) {
+				// A header passes a name ByRef as a value does:
+				// `If Take(1, d) = 0 Then`, `Loop While Take(d)`. An ElseIf
+				// line is a statement of the If's flat body.
+				for (const span of [blockHeaderLineSpan(source, node.span), blockFooterLineSpan(source, node.span)]) {
+					mutateWholeArguments(statementTokens(source, span), 0, true);
+				}
 				visit(node.body as BodyNode[]);
 				continue;
 			}
@@ -3226,7 +3234,15 @@ export function knownLocalLiteralValuesAt(
 ): (stmt: BodyNode | undefined) => ReadonlyMap<string, KnownLocalValue> {
 	const whole = knownLocalLiteralValues(source, proc, symbols, activity);
 	const locals = literalValueLocals(proc, symbols);
-	const reaching = locals.size === 0 ? new Map() : straightLineAssignments(source, proc.body, activity);
+	// A typed local holds its declared default until something assigns it,
+	// the statement that does included: `x = 1 / x` divides by 0 (issue #259).
+	const defaults = new Map<string, readonly VbaToken[]>();
+	for (const [lower, kind] of locals) {
+		if (kind !== undefined) {
+			defaults.set(lower, kind === 'number' ? DEFAULT_NUMBER : DEFAULT_STRING);
+		}
+	}
+	const reaching = locals.size === 0 ? new Map() : straightLineAssignments(source, proc.body, activity, defaults);
 	// Statements in a run share one reaching map, so they share one result.
 	const results = new Map<ReachingAssignments, ReadonlyMap<string, KnownLocalValue>>();
 	return (stmt) => {
@@ -3244,10 +3260,11 @@ export function knownLocalLiteralValuesAt(
 				}
 				const kind = locals.get(lower) ?? (unwrapOuterParens(value)[0]?.kind === 'stringLiteral' ? 'string' : 'number');
 				const literal = plainLiteralText([...value], kind);
+				const origin = value === DEFAULT_NUMBER || value === DEFAULT_STRING ? 'default' : 'literal';
 				if (literal === undefined) {
 					next.delete(lower);
 				} else {
-					next.set(lower, { kind, value: kind === 'number' ? Number(literal) : literal, origin: 'literal' });
+					next.set(lower, { kind, value: kind === 'number' ? Number(literal) : literal, origin });
 				}
 			}
 			result = next;
@@ -3256,6 +3273,10 @@ export function knownLocalLiteralValuesAt(
 		return result;
 	};
 }
+
+/** What a local of a number type and a String hold before anything assigns them. */
+const DEFAULT_NUMBER: readonly VbaToken[] = rawExpressionTokens('0');
+const DEFAULT_STRING: readonly VbaToken[] = rawExpressionTokens('""');
 
 /** The literal a plain `x = literal` assigns, as text, or undefined for any other value. */
 function plainLiteralText(value: VbaToken[], kind: 'number' | 'string'): string | undefined {

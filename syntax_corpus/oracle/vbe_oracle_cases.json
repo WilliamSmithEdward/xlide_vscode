@@ -40579,6 +40579,171 @@
       ],
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue259_01_runtime",
+      "description": "Issue #259 a default read by its own assignment, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Long\r\n    x = 1 / x\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Fill(ByRef v As Double)\r\n    v = 4\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue259_02_runtime",
+      "description": "Issue #259 a default read by its own assignment, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Long\r\n    x = 10 \\ x\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Fill(ByRef v As Double)\r\n    v = 4\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue259_03_runtime",
+      "description": "Issue #259 a default read by its own assignment, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Long\r\n    x = 10 Mod x\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Fill(ByRef v As Double)\r\n    v = 4\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue259_04_runtime",
+      "description": "Issue #259 a default read by its own assignment, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Long\r\n    x = x + 1 / x\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Fill(ByRef v As Double)\r\n    v = 4\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue259_05_runtime",
+      "description": "Issue #259 a default read by its own assignment, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Double\r\n    x = 1 / x\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Fill(ByRef v As Double)\r\n    v = 4\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue259_06_runtime",
+      "description": "Issue #259 a default read by its own assignment, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = Len(Mid$(\"abc\", n, 1))\r\n    Main = n\r\nEnd Function\r\nPrivate Sub Fill(ByRef v As Double)\r\n    v = 4\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue259_07_runtime",
+      "description": "Issue #259 a default read by its own assignment, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Long\r\n    x = 2\r\n    x = 1 / x\r\n    Main = x\r\nEnd Function\r\nPrivate Sub Fill(ByRef v As Double)\r\n    v = 4\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue259_08_runtime",
+      "description": "Issue #259 a default read by its own assignment, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Long, y As Long\r\n    y = 1 / x\r\n    Main = 1\r\nEnd Function\r\nPrivate Sub Fill(ByRef v As Double)\r\n    v = 4\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue259_09_runtime",
+      "description": "Issue #259 a default read by its own assignment, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Long, x As Double\r\n    x = 10 / d\r\n    d = 2\r\n    Main = x\r\nEnd Function\r\nPrivate Sub Fill(ByRef v As Double)\r\n    v = 4\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue259_10_runtime",
+      "description": "Issue #259 a default read by its own assignment, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 4.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Double, i As Long\r\n    For i = 1 To 2\r\n        If i = 2 Then x = 1 / x\r\n        x = 4\r\n    Next i\r\n    Main = x\r\nEnd Function\r\nPrivate Sub Fill(ByRef v As Double)\r\n    v = 4\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue259_11_runtime",
+      "description": "Issue #259 a default read by its own assignment, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> a.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String\r\n    s = s & \"a\"\r\n    Main = s\r\nEnd Function\r\nPrivate Sub Fill(ByRef v As Double)\r\n    v = 4\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue259_12_runtime",
+      "description": "Issue #259 a default read by its own assignment, case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Static x As Double\r\n    x = x + 1\r\n    Main = 1 / x\r\nEnd Function\r\nPrivate Sub Fill(ByRef v As Double)\r\n    v = 4\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue259_13_runtime",
+      "description": "Issue #259 a default read by its own assignment, case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String, n As Long\r\n    n = CLng(s)\r\n    s = \"5\"\r\n    Main = n\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue259_14_runtime",
+      "description": "Issue #259 a default read by its own assignment, case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As Variant\n    Dim n As Long\n    If Fill(1, _\n            n) = 0 Then\n        Main = -1\n    End If\n    ReDim b(0 To n - 1) As Byte\n    Main = UBound(b)\nEnd Function\nPrivate Function Fill(ByVal a As Long, ByRef v As Long) As Long\n    v = 4\n    Fill = 0\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue259_15_runtime",
+      "description": "Issue #259 a default read by its own assignment, case 15, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 2.5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\nFunction Main() As Variant\n    Dim n As Long, k As Long\n    Do While Fill(1, _\n                  n) = 0\n        k = k + 1\n        If k > 1 Then Exit Do\n    Loop\n    Main = 10 / n\nEnd Function\nPrivate Function Fill(ByVal a As Long, ByRef v As Long) As Long\n    v = 4\n    Fill = 0\nEnd Function\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
