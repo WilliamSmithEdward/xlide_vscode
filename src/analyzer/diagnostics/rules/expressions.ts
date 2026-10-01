@@ -594,9 +594,14 @@ export function checkDivisionByZeroExpressions(
 			},
 		};
 		const guards = divisionGuardRanges(member.body, activity);
+		// `d = 0.4` then `10 Mod d` (issue #239).
+		const fractionOf = (lower: string): number | undefined => {
+			const local = known.get(lower);
+			return local?.kind === 'number' && constants.get(lower) === undefined ? (local.value as number) : undefined;
+		};
 		return (stmt) => {
 			known = valuesAt(stmt);
-			for (const hit of divisionByZeroDivisors(source, stmt.span, lookup, guards)) {
+			for (const hit of divisionByZeroDivisors(source, stmt.span, lookup, guards, fractionOf)) {
 				push('divisionByZero', hit.message, hit.span);
 			}
 		};
@@ -994,6 +999,7 @@ function divisionByZeroDivisors(
 	span: Span,
 	constants: IntegerConstantLookup,
 	guards: readonly DivisionGuard[],
+	fractionOf?: (lower: string) => number | undefined,
 ): Array<{ operator: string; span: Span; message: string }> {
 	const toks = statementTokens(source, span);
 	const hits: Array<{ operator: string; span: Span; message: string }> = [];
@@ -1015,7 +1021,7 @@ function divisionByZeroDivisors(
 			continue;
 		}
 		const divisor = zeroDivisorToken(source, span, toks, i + 1, constants)
-			?? fractionalDivisorRoundingToZero(toks, i + 1, operator);
+			?? fractionalDivisorRoundingToZero(toks, i + 1, operator, fractionOf);
 		if (!divisor) {
 			continue;
 		}
@@ -1051,14 +1057,22 @@ function divisionByZeroDivisors(
  * `\` and `Mod` round their operands to whole numbers first, with banker's
  * rounding, so a literal divisor below 0.5 - or exactly 0.5 - is zero to them:
  * `5 \ 0.4` and `5 Mod 0.5` raise 11 (issue #119, measured in Excel 16.0).
+ * So is a local holding such a value here: `d = 0.4` then `10 Mod d`
+ * (issue #239).
  */
 function fractionalDivisorRoundingToZero(
 	toks: readonly VbaToken[],
 	start: number,
 	operator: string,
+	fractionOf?: (lower: string) => number | undefined,
 ): VbaToken[] | undefined {
 	if (operator === '/') {
 		return undefined;
+	}
+	const name = tokenName(toks[start])?.toLowerCase();
+	const held = name && fractionOf && isDivisorAtomBoundary(toks[start + 1]) ? fractionOf(name) : undefined;
+	if (held !== undefined) {
+		return held !== 0 && Math.abs(held) <= 0.5 ? [toks[start]] : undefined;
 	}
 	let index = start;
 	const group: VbaToken[] = [];
