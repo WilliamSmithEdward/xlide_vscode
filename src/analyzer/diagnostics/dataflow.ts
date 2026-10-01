@@ -348,6 +348,8 @@ export interface BlockEnteringState<S> {
 	forget(names: ReadonlySet<string>): void;
 	/** The tracked names a statement mentions, which a block may change. */
 	touches(stmt: LeafStatementNode): Iterable<string>;
+	/** Called as a block is entered, before its own lines run: a For Each header reads its source here. */
+	enter?(node: BodyNode): void;
 }
 
 /**
@@ -385,6 +387,7 @@ export function walkEnteringBlocks<S>(
 		// An enclosing loop may have changed these on an earlier pass, and the
 		// block's own lines run before its body.
 		state.forget(loopTouched);
+		state.enter?.(node);
 		state.forget(headerTouches(source, node, hooks));
 		const entry = state.snapshot();
 		if (node.kind === 'IfBlock') {

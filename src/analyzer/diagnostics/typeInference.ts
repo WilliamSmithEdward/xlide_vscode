@@ -1259,6 +1259,7 @@ export function validateArgumentTypes(
 	push: PushFn,
 	resolveExpressionType?: SourceDeclaredTypeResolver,
 	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
+	heldClassOf?: (lower: string) => string | undefined,
 ): void {
 	const sig = callableSignatureForCall(call, moduleSignatures, sourceNames);
 	if (!sig || sig.params.length === 0) {
@@ -1275,6 +1276,7 @@ export function validateArgumentTypes(
 		push,
 		resolveExpressionType,
 		resolveQualifiedExpressionType,
+		heldClassOf,
 	);
 }
 
@@ -1289,6 +1291,7 @@ export function validateArgumentTypesForSignature(
 	push: PushFn,
 	resolveExpressionType?: SourceDeclaredTypeResolver,
 	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
+	heldClassOf?: (lower: string) => string | undefined,
 ): void {
 	if (sig.params.length === 0) {
 		return;
@@ -1361,7 +1364,7 @@ export function validateArgumentTypesForSignature(
 			resolveQualifiedExpressionType,
 		);
 		const kindProblem = objectValueArgumentProblem(expected, valueSlot, actual, memberCtx, sourceNames, (name) =>
-			env.has(name.toLowerCase()) || resolveExpressionType?.(name).resolved === true);
+			env.has(name.toLowerCase()) || resolveExpressionType?.(name).resolved === true, heldClassOf);
 		if (kindProblem) {
 			push(
 				kindProblem.rule,
@@ -1419,6 +1422,7 @@ function objectValueArgumentProblem(
 	memberCtx: MemberCompletionContext,
 	sourceNames: SourceNameScope | undefined,
 	isDeclared: (name: string) => boolean,
+	heldClassOf?: (lower: string) => string | undefined,
 ): { rule: 'argumentObjectTypeMismatch' | 'argumentTypeMismatch'; what: string; reason: string; tokens: readonly VbaToken[] } | undefined {
 	const toks = unwrapOuterParens(slot.filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline'));
 	if (toks.length === 0) {
@@ -1446,8 +1450,18 @@ function objectValueArgumentProblem(
 	// An object of another class, as a Set of it would be: TakeWs(Range("A1"))
 	// and TakeWs(ThisWorkbook) into a Worksheet raise 13 when the call runs
 	// (issue #223). ActiveSheet and Sheets(1), declared Object, run. A
-	// declared variable is not judged: passed ByRef it is a compile error.
+	// declared variable is judged by what it holds, not its declared class:
+	// one still Nothing passes, and one known to hold another class raises 13
+	// ByVal or ByRef (issue #246, measured in Excel 16.0).
 	const declaredName = toks.length === 1 && tokenName(toks[0]) !== undefined && isDeclared(toks[0].rawText);
+	const held = declaredName ? heldClassOf?.(tokenName(toks[0])!.toLowerCase()) : undefined;
+	if (held && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx)) {
+		const holding = { type: held, label: `'${toks[0].rawText}', which holds a ${held} here`, span: { start: toks[0].start, end: toks[0].end } };
+		const reason = objectAssignmentIncompatibilityReason(expected, holding, memberCtx);
+		if (reason) {
+			return { rule: 'argumentTypeMismatch', what: holding.label, reason: `${reason} This will raise Run-time error '13': Type mismatch.`, tokens: toks };
+		}
+	}
 	if (actual && !declaredName && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx)
 		&& !isKnownScalarType(normalizeType(actual.type) ?? '')) {
 		const reason = objectAssignmentIncompatibilityReason(expected, actual, memberCtx);

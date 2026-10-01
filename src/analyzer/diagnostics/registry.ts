@@ -699,6 +699,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.opts.projectVisibleSymbols,
 			ctx.memberCtx,
 			push,
+			ctx.activity,
 		),
 	},
 	{
@@ -825,6 +826,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.opts.projectVisibleSymbols,
 			ctx.memberCtx,
 			push,
+			ctx.activity,
 		),
 	},
 	{
