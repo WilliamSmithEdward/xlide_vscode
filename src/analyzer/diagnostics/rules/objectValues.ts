@@ -44,6 +44,7 @@ export function checkObjectDefaultValues(
 	push: PushFn,
 ): ProcedureStatementVisitor {
 	const moduleAutoInstanced = new Set<string>();
+	const moduleNames = new Set((symbols.root.children ?? []).map((child) => child.name.toLowerCase()));
 	for (const child of symbols.root.children ?? []) {
 		if (child.isAutoInstantiated) {
 			moduleAutoInstanced.add(child.name.toLowerCase());
@@ -83,8 +84,17 @@ export function checkObjectDefaultValues(
 			const type = normalizeType(lower === proc.name.toLowerCase() ? proc.returnType : env.get(lower));
 			return type !== undefined && isKnownScalarType(type);
 		};
+		const isCollection = (lower: string): boolean => lower !== proc.name.toLowerCase() && normalizeType(env.get(lower)) === 'collection';
 		return (stmt) => {
 			for (const span of statementAndBranchSpans(stmt)) {
+				for (const hit of collectionArguments(statementTokens(source, span), isCollection, moduleNames)) {
+					const at = { start: span.start + hit.start, end: span.start + hit.end };
+					if (hit.compiles) {
+						push('objectDefaultValue', `${hit.what} is a Collection: its default member Item needs an index, so ${hit.fn} has no value to read. This will raise Run-time error '450': Wrong number of arguments or invalid property assignment.`, at);
+					} else {
+						push('collectionOperand', `${hit.what} is a Collection: its default member Item needs an index, so ${hit.fn} has no value to take. This is a VBE compile error: Argument not optional.`, at);
+					}
+				}
 				const created = newObjectLetIntoVariant(source, span, env, proc);
 				if (created) {
 					const verdict = objectLetAssignmentVerdict(created.type, memberCtx);
@@ -124,6 +134,66 @@ export function checkObjectDefaultValues(
 			}
 		};
 	};
+}
+
+/**
+ * Built-ins whose argument takes a value, measured in Excel 16.0 with a
+ * Collection (issue #242): a typed parameter refuses it while compiling,
+ * `Len(c)`, `CStr(c)`, `Abs(c)`; a Variant one asks the Item for a value
+ * at run time and raises 450, `InStr(c, "a")`, `Format(c)`, `Hex(c)`.
+ * `TypeName(c)` and `IsNumeric(c)` read no value.
+ */
+const REFUSING_BUILTINS: ReadonlySet<string> = new Set([
+	'len', 'cstr', 'val', 'clng', 'cdbl', 'cint', 'cbool', 'cdate', 'trim$', 'ucase$', 'lcase$',
+	'instrrev', 'asc', 'chr', 'abs',
+]);
+const VALUE_READING_BUILTINS: ReadonlySet<string> = new Set([
+	'instr', 'format', 'ucase', 'lcase', 'trim', 'ltrim', 'rtrim', 'left', 'right', 'mid', 'cvar', 'strcomp', 'hex',
+]);
+
+/**
+ * A Collection, a variable or `New Collection`, as the first argument of
+ * one of those built-ins. Offsets are the statement's.
+ */
+function collectionArguments(
+	toks: readonly VbaToken[],
+	isCollection: (lower: string) => boolean,
+	moduleNames: ReadonlySet<string>,
+): Array<{ start: number; end: number; fn: string; what: string; compiles: boolean }> {
+	const out: Array<{ start: number; end: number; fn: string; what: string; compiles: boolean }> = [];
+	for (let i = 0; i + 2 < toks.length; i++) {
+		// `Trim$(` lexes as Trim and a `$` of its own.
+		const suffixed = toks[i + 1].rawText === '$';
+		const fn = toks[i].rawText.toLowerCase() + (suffixed ? '$' : '');
+		const open = suffixed ? i + 2 : i + 1;
+		const refuses = REFUSING_BUILTINS.has(fn);
+		if ((!refuses && !VALUE_READING_BUILTINS.has(fn)) || toks[open]?.rawText !== '(' || moduleNames.has(toks[i].rawText.toLowerCase())) {
+			continue;
+		}
+		const qualified = toks[i - 1]?.rawText === '.';
+		if (qualified && tokenText(toks[i - 2]) !== 'vba') {
+			continue;
+		}
+		const a = toks[open + 1];
+		if (!a) {
+			continue;
+		}
+		const created = tokenText(a) === 'new' && tokenText(toks[open + 2]) === 'collection';
+		const last = created ? open + 2 : open + 1;
+		const closes = toks[last + 1]?.rawText === ')' || toks[last + 1]?.rawText === ',';
+		const name = tokenName(a)?.toLowerCase();
+		if (!closes || (!created && (!name || !isCollection(name)))) {
+			continue;
+		}
+		out.push({
+			start: a.start,
+			end: toks[last].end,
+			fn: toks[i].rawText + (suffixed ? '$' : ''),
+			what: created ? "'New Collection'" : `'${a.rawText}'`,
+			compiles: !refuses,
+		});
+	}
+	return out;
 }
 
 /**

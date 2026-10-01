@@ -770,7 +770,8 @@ function argumentRelationHit(
 		case 'join':
 		case 'filter': {
 			// Join needs only its array (issue #239): `Join(5)`, `Join(Null)`
-			// and Join of a Long or String local raise 13.
+			// and Join of a Long or String local raise 13, as Filter of one
+			// does (issue #242).
 			const join = name === 'join';
 			if (!present(join ? 1 : 2)) {
 				return undefined;
@@ -781,7 +782,7 @@ function argumentRelationHit(
 			if (scalar) {
 				return hit(`${call.displayName} takes an array, but ${first[0].rawText} is not one.`, slotSpan(0), 13);
 			}
-			const declared = join && first.length === 1 && first[0].kind === 'identifier' ? declarationOf(first[0].rawText.toLowerCase()) : undefined;
+			const declared = first.length === 1 && first[0].kind === 'identifier' ? declarationOf(first[0].rawText.toLowerCase()) : undefined;
 			if (!declared) {
 				return undefined;
 			}
@@ -790,12 +791,15 @@ function argumentRelationHit(
 			}
 			// Join reads one dimension of Strings or Variants: an array of Long,
 			// or of two dimensions, raises 5 (measured in Excel 16.0).
+			// Filter refuses the same arrays with 13 (issue #242).
+			const verb = join ? 'joins' : 'filters';
+			const error = join ? 5 : 13;
 			if (declared.dimensions > 1) {
-				return hit(`${call.displayName} joins an array of one dimension, but '${first[0].rawText}' has ${declared.dimensions}.`, slotSpan(0));
+				return hit(`${call.displayName} ${verb} an array of one dimension, but '${first[0].rawText}' has ${declared.dimensions}.`, slotSpan(0), error);
 			}
 			const element = normalizeType(declared.asType);
 			return element !== 'string' && element !== 'variant'
-				? hit(`${call.displayName} joins Strings or Variants, but '${first[0].rawText}' is an array of ${declared.asType}.`, slotSpan(0))
+				? hit(`${call.displayName} ${verb} Strings or Variants, but '${first[0].rawText}' is an array of ${declared.asType}.`, slotSpan(0), error)
 				: undefined;
 		}
 		default:
@@ -1427,6 +1431,10 @@ const CONVERSION_TARGETS: Readonly<Record<string, 'numeric' | 'boolean' | 'date'
 	csng: 'numeric', cdbl: 'numeric', ccur: 'numeric', cdec: 'numeric', sgn: 'numeric',
 	cbool: 'boolean',
 	cdate: 'date', cvdate: 'date', datevalue: 'date', timevalue: 'date',
+	// The math functions read a number the same way (issue #242): Abs("abc")
+	// and Hex("abc") raise 13, and Oct("8") runs.
+	abs: 'numeric', sqr: 'numeric', int: 'numeric', fix: 'numeric', round: 'numeric', hex: 'numeric', oct: 'numeric',
+	exp: 'numeric', log: 'numeric', sin: 'numeric', cos: 'numeric', tan: 'numeric', atn: 'numeric',
 	year: 'date', month: 'date', day: 'date', weekday: 'date', hour: 'date', minute: 'date', second: 'date',
 	dateadd: 'date', datepart: 'date', datediff: 'date',
 };
