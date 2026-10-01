@@ -535,6 +535,24 @@ export function constantStringValue(symbol: VbaSymbol): string | undefined {
 	return toks.length === 1 && toks[0].kind === 'stringLiteral' ? stringLiteralValue(toks[0].rawText) : undefined;
 }
 
+/**
+ * The String Consts a procedure sees, each one string literal, by lowercased
+ * name (issue #255). A local or parameter of the same name hides a module's.
+ */
+export function stringConstantsInScope(symbols: ReturnType<typeof buildModuleSymbols>, proc: ProcedureNode): Map<string, string> {
+	const children = procedureSymbolFor(symbols, proc)?.children ?? [];
+	const out = new Map<string, string>();
+	for (const symbol of [...(symbols.root.children ?? []), ...children]) {
+		const value = constantStringValue(symbol);
+		if (value !== undefined) {
+			out.set(symbol.name.toLowerCase(), value);
+		} else if (children.includes(symbol)) {
+			out.delete(symbol.name.toLowerCase());
+		}
+	}
+	return out;
+}
+
 export type SourceDeclaredTypeResolver = (name: string) => SourceDeclaredType;
 export type SourceQualifiedDeclaredTypeResolver = (qualifier: string, name: string) => SourceDeclaredType;
 

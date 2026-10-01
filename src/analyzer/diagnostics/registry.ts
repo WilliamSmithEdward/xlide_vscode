@@ -54,6 +54,7 @@ import {
 	checkUnexpectedDeclarationTokens,
 } from './rules/declarations';
 import { checkArgumentCount } from './rules/callArity';
+import { checkOmittedArgumentReads } from './rules/omittedArguments';
 import { checkArgumentTypes } from './rules/argumentTypes';
 import { checkArgumentShape } from './rules/argumentShape';
 import {
@@ -521,6 +522,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 		name: 'stringArithmeticOperands',
 		procedureStatements: (ctx, push) => checkStringArithmeticOperands(
 			ctx.source,
+			ctx.mod,
 			ctx.symbols,
 			ctx.activity,
 			push,
@@ -838,6 +840,17 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.opts.projectProcedures,
 			ctx.opts.projectVisibleSymbols,
 			ctx.memberCtx,
+			push,
+		),
+	},
+	{
+		name: 'omittedArgumentReads',
+		procedureStatements: (ctx, push) => checkOmittedArgumentReads(
+			ctx.source,
+			ctx.mod,
+			ctx.symbols,
+			ctx.activity,
+			ctx.opts.projectVisibleSymbols,
 			push,
 		),
 	},

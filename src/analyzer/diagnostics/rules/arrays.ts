@@ -51,6 +51,8 @@ import {
 	procedureIntegerConstantLookup,
 	scopedIntegerConstantLookup,
 	sourceIdentifierBinding,
+	stringConstantsInScope,
+	stringLiteralValue,
 	withKnownLocals,
 	type SourceDeclaredShape,
 } from '../typeInference';
@@ -1429,7 +1431,12 @@ export interface FixedArrayBound {
 	origin: string;
 	/** The arrays its elements hold, by position, where Array(...) of Array(...) built it. */
 	elements?: ReadonlyArray<FixedArrayBound | undefined>;
+	/** The literal each element holds, by position, where it is known (issue #260). */
+	values?: ReadonlyArray<string | number | undefined>;
 }
+
+/** The String a name holds at the statement being read, or undefined (issue #260). */
+export type StringValueOf = (tok: VbaToken) => string | undefined;
 
 /** A subscript the array cannot take; a count the compiler refuses has its own rule. */
 export interface SubscriptHit {
@@ -1565,6 +1572,7 @@ export function knownArrayShapes(
 	if (candidates.size === 0) {
 		return new Map();
 	}
+	const stringsAt = stringValuesAt(source, symbols, proc, activity);
 	const assignments = new Map<string, FixedArrayBound[]>();
 	const spoiled = new Set<string>();
 	const spoil = (lower: string | undefined): void => {
@@ -1582,7 +1590,7 @@ export function knownArrayShapes(
 				if (!candidates.has(lower)) {
 					continue;
 				}
-				const shape = arrayValueShape(bare.valueTokens, bare.name, optionBase);
+				const shape = arrayValueShape(bare.valueTokens, bare.name, optionBase, stringsAt(stmt));
 				if (!shape) {
 					spoil(lower);
 				} else {
@@ -1626,6 +1634,33 @@ export function knownArrayShapes(
 	return out;
 }
 
+/**
+ * What a String local or a String Const holds as each statement starts, for
+ * the text and delimiter of `Split(s, d)` and the match of `Filter` (issue
+ * #260). A local is read where the array is built, not where it is indexed.
+ */
+function stringValuesAt(
+	source: string,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	proc: ProcedureNode,
+	activity: ConditionalActivityTracker | undefined,
+): (stmt: BodyNode) => StringValueOf {
+	let valuesAt: ReturnType<typeof knownLocalLiteralValuesAt> | undefined;
+	let consts: ReadonlyMap<string, string> | undefined;
+	return (stmt) => (tok) => {
+		const lower = tokenName(tok)?.toLowerCase();
+		if (!lower) {
+			return undefined;
+		}
+		valuesAt ??= knownLocalLiteralValuesAt(source, proc, symbols, activity);
+		const local = valuesAt(stmt).get(lower);
+		if (local) {
+			return local.kind === 'string' && !local.contentMutated ? (local.value as string) : undefined;
+		}
+		return (consts ??= stringConstantsInScope(symbols, proc)).get(lower);
+	};
+}
+
 /** The dynamic-array and Variant locals a value can give bounds to, lowercased to declared name. */
 function arrayValueLocals(symbols: ReturnType<typeof buildModuleSymbols>, proc: ProcedureNode): Map<string, string> {
 	const out = new Map<string, string>();
@@ -1659,6 +1694,19 @@ export function knownArrayShapesAt(
 	const whole = knownArrayShapes(source, proc.body, symbols, proc, activity, optionBase);
 	const locals = arrayValueLocals(symbols, proc);
 	const reaching = locals.size === 0 ? new Map() : straightLineAssignments(source, proc.body, activity);
+	// Each assignment's shape, built with the Strings its own statement sees
+	// and keyed by its first value token, which the reaching value shares.
+	const built = new Map<VbaToken, FixedArrayBound | undefined>();
+	if (locals.size > 0) {
+		const stringsAt = stringValuesAt(source, symbols, proc, activity);
+		forEachStatement(proc.body as BodyNode[], (stmt) => {
+			const bare = bareAssignmentTarget(source, stmt.span);
+			const first = bare?.valueTokens.find((tok) => tok.kind !== 'comment');
+			if (bare && first && locals.has(bare.name.toLowerCase())) {
+				built.set(first, arrayValueShape(bare.valueTokens, locals.get(bare.name.toLowerCase())!, optionBase, stringsAt(stmt)));
+			}
+		}, activity);
+	}
 	const results = new Map<ReachingAssignments, ReadonlyMap<string, FixedArrayBound>>();
 	return (stmt) => {
 		const assignments = reaching.get(stmt);
@@ -1672,7 +1720,7 @@ export function knownArrayShapesAt(
 				if (!locals.has(lower)) {
 					continue;
 				}
-				const shape = arrayValueShape(value, locals.get(lower)!, optionBase);
+				const shape = built.has(value[0]) ? built.get(value[0]) : arrayValueShape(value, locals.get(lower)!, optionBase);
 				if (shape) {
 					next.set(lower, shape);
 				} else {
@@ -1795,8 +1843,13 @@ function statementAndBranchSpansOf(stmt: LeafStatementNode): Span[] {
 	return branches ? [stmt.span, ...branches] : [stmt.span];
 }
 
-/** The bounds of the array `Array(...)`, `Split(...)` or `Range(...).Value` builds, or undefined. */
-export function arrayValueShape(valueTokens: readonly VbaToken[], name: string, optionBase: number): FixedArrayBound | undefined {
+/**
+ * The bounds of the array `Array(...)`, `Split(...)`, `Filter(...)` or
+ * `Range(...).Value` builds, or undefined. `strings` gives the String a name
+ * holds where the value is read, so `Split(s, ",")` is known when s is
+ * (issue #260).
+ */
+export function arrayValueShape(valueTokens: readonly VbaToken[], name: string, optionBase: number, strings?: StringValueOf): FixedArrayBound | undefined {
 	const toks = valueTokens.filter((tok) => tok.kind !== 'comment');
 	if (toks.length === 0) {
 		return undefined;
@@ -1808,7 +1861,7 @@ export function arrayValueShape(valueTokens: readonly VbaToken[], name: string, 
 		index = 2;
 	}
 	const callee = tokenText(toks[index]);
-	if ((callee === 'array' || callee === 'split') && toks[index + 1]?.rawText === '(') {
+	if ((callee === 'array' || callee === 'split' || callee === 'filter') && toks[index + 1]?.rawText === '(') {
 		const close = matchParenFrom(toks, index + 1);
 		if (close !== toks.length - 1) {
 			return undefined;
@@ -1817,28 +1870,42 @@ export function arrayValueShape(valueTokens: readonly VbaToken[], name: string, 
 		if (callee === 'array') {
 			const groups = inner.length === 0 ? [] : splitTopLevelTokenGroups(inner, ',');
 			const lower = vbaQualified ? 0 : optionBase;
-			const elements = groups.map((group) => arrayValueShape(group, name, optionBase));
+			const elements = groups.map((group) => arrayValueShape(group, name, optionBase, strings));
+			const values = groups.map((group) => literalElementValue(group));
 			return {
 				name,
 				dims: [{ lower, upper: lower + groups.length - 1, explicitLower: true }],
 				origin: vbaQualified ? 'VBA.Array(...)' : 'Array(...)',
 				...(elements.some((element) => element !== undefined) ? { elements } : {}),
+				...(values.some((value) => value !== undefined) ? { values } : {}),
 			};
 		}
 		const args = splitTopLevelTokenGroups(inner, ',');
-		if (args.length < 1 || args.length > 2 || args[0].length !== 1 || args[0][0].kind !== 'stringLiteral') {
+		if (callee === 'filter') {
+			return filterShape(args, name, optionBase, strings);
+		}
+		if (args.length < 1 || args.length > 4) {
 			return undefined;
 		}
-		if (args.length === 2 && (args[1].length !== 1 || args[1][0].kind !== 'stringLiteral')) {
+		const text = stringArgument(args[0], strings);
+		const delimiter = args.length >= 2 && args[1].length > 0 ? stringArgument(args[1], strings) : ' ';
+		// Limit -1 keeps every part, 0 none, n at most n; any other
+		// negative is error 5, which this leaves alone.
+		const limit = args.length >= 3 && args[2].length > 0 ? signedIntegerArgument(args[2]) : -1;
+		const textCompare = args.length === 4 ? compareArgument(args[3]) : false;
+		if (text === undefined || delimiter === undefined || delimiter.length === 0 || limit === undefined || limit < -1 || textCompare === undefined) {
 			return undefined;
 		}
-		const text = args[0][0].rawText.slice(1, -1).replace(/""/g, '"');
-		const delimiter = args.length === 2 ? args[1][0].rawText.slice(1, -1).replace(/""/g, '"') : ' ';
-		if (delimiter.length === 0) {
+		const values = text.length === 0 || limit === 0 ? [] : splitParts(text, delimiter, limit, textCompare);
+		if (!values) {
 			return undefined;
 		}
-		const parts = text.length === 0 ? 0 : text.split(delimiter).length;
-		return { name, dims: [{ lower: 0, upper: parts - 1, explicitLower: true }], origin: 'Split(...)' };
+		return {
+			name,
+			dims: [{ lower: 0, upper: values.length - 1, explicitLower: true }],
+			origin: 'Split(...)',
+			...(values.length > 0 ? { values } : {}),
+		};
 	}
 	// `Range("A1:B2").Value` and `Worksheets(1).Range("A1:B2").Value`.
 	if (tokenText(toks[toks.length - 1]) === 'value' && toks[toks.length - 2]?.rawText === '.' && toks[toks.length - 3]?.rawText === ')') {
@@ -1860,6 +1927,262 @@ export function arrayValueShape(valueTokens: readonly VbaToken[], name: string, 
 		}
 	}
 	return undefined;
+}
+
+/**
+ * `Filter(source, match[, include[, compare]])` over an array whose every
+ * element is a known string or whole number: the elements whose text holds
+ * `match` (or lacks it, with include False), 0-based whatever Option Base
+ * says (measured in Excel 16.0, issue #260). An empty match keeps every
+ * element.
+ */
+function filterShape(args: readonly (readonly VbaToken[])[], name: string, optionBase: number, strings: StringValueOf | undefined): FixedArrayBound | undefined {
+	if (args.length < 2 || args.length > 4) {
+		return undefined;
+	}
+	const source = arrayValueShape(args[0], name, optionBase, strings);
+	const match = stringArgument(args[1], strings);
+	const include = args.length >= 3 && args[2].length > 0 ? booleanArgument(args[2]) : true;
+	const textCompare = args.length === 4 ? compareArgument(args[3]) : false;
+	if (!source || source.dims.length !== 1 || match === undefined || include === undefined || textCompare === undefined) {
+		return undefined;
+	}
+	const texts: string[] = [];
+	for (let k = 0; k <= source.dims[0].upper - source.dims[0].lower; k++) {
+		const value = source.values?.[k];
+		if (value === undefined || source.elements?.[k] !== undefined) {
+			return undefined;
+		}
+		texts.push(String(value));
+	}
+	const kept: string[] = [];
+	for (const text of texts) {
+		const holds = textCompare ? caselessIndexOf(text, match, 0) : text.indexOf(match);
+		if (holds === undefined) {
+			return undefined;
+		}
+		if ((holds >= 0) === include) {
+			kept.push(text);
+		}
+	}
+	return {
+		name,
+		dims: [{ lower: 0, upper: kept.length - 1, explicitLower: true }],
+		origin: 'Filter(...)',
+		...(kept.length > 0 ? { values: kept } : {}),
+	};
+}
+
+/**
+ * The names whose elements a statement of the procedure may write, so the
+ * values an Array or Split gave them are not trusted (issue #260): `v(1) = 2`,
+ * a writing statement that mentions them (Set, LSet, Mid, Input #, Get #,
+ * ReDim, Erase), and an element passed alone to a call, ByRef by default.
+ */
+export function elementsWrittenIn(source: string, proc: ProcedureNode, activity: ConditionalActivityTracker | undefined): Set<string> {
+	const out = new Set<string>();
+	forEachStatement(proc.body as BodyNode[], (stmt) => {
+		for (const span of statementAndBranchSpansOf(stmt)) {
+			const toks = statementTokensAfterLeadingLabel(source, span).filter((tok) => tok.kind !== 'comment');
+			const head = tokenText(toks[0]);
+			if (ELEMENT_WRITING_HEADS.has(head)) {
+				for (const tok of toks) {
+					const lower = tokenName(tok)?.toLowerCase();
+					if (lower) {
+						out.add(lower);
+					}
+				}
+				continue;
+			}
+			const call = !toks.some((tok, k) => tok.rawText === '=' && tok.kind === 'operator' && topLevelAt(toks, k));
+			for (let i = 0; i + 1 < toks.length; i++) {
+				const lower = tokenName(toks[i])?.toLowerCase();
+				if (!lower || toks[i + 1].rawText !== '(') {
+					continue;
+				}
+				const close = matchParenFrom(toks, i + 1);
+				const next = toks[close + 1];
+				const prev = toks[i - 1];
+				const target = i === (head === 'let' ? 1 : 0) && next?.rawText === '=';
+				const opensSlot = prev?.rawText === '(' || prev?.rawText === ',' || (call && i > 0 && (prev.kind === 'identifier' || prev.kind === 'keyword'));
+				const closesSlot = next === undefined || next.rawText === ')' || next.rawText === ',' || next.rawText === ':';
+				if (target || (opensSlot && closesSlot)) {
+					out.add(lower);
+				}
+			}
+		}
+	}, activity);
+	return out;
+}
+
+const ELEMENT_WRITING_HEADS: ReadonlySet<string> = new Set(['set', 'lset', 'rset', 'mid', 'mid$', 'input', 'get', 'line', 'redim', 'erase']);
+
+function topLevelAt(toks: readonly VbaToken[], index: number): boolean {
+	let depth = 0;
+	for (let k = 0; k < index; k++) {
+		if (toks[k].rawText === '(') {
+			depth++;
+		} else if (toks[k].rawText === ')') {
+			depth--;
+		}
+	}
+	return depth === 0;
+}
+
+/** An operand that reads one element of an array whose values are known. */
+export interface ElementOperand {
+	/** The operand's first and last token. */
+	first: number;
+	last: number;
+	value: string | number;
+}
+
+/**
+ * The element `v(1)` or `Split("1 b")(1)` reads, where the operand ends at
+ * token `end` (issue #260). `shapes` holds the arrays the locals are known
+ * to be.
+ */
+export function elementOperandEndingAt(toks: readonly VbaToken[], end: number, shapes: ReadonlyMap<string, FixedArrayBound>, optionBase: number): ElementOperand | undefined {
+	if (toks[end]?.rawText !== ')') {
+		return undefined;
+	}
+	let depth = 0;
+	for (let open = end; open >= 0; open--) {
+		if (toks[open].rawText === ')') {
+			depth++;
+		} else if (toks[open].rawText === '(' && --depth === 0) {
+			return elementAt(toks, open, end, shapes, optionBase);
+		}
+	}
+	return undefined;
+}
+
+/** The element an operand starting at token `start` reads, as {@link elementOperandEndingAt}. */
+export function elementOperandStartingAt(toks: readonly VbaToken[], start: number, shapes: ReadonlyMap<string, FixedArrayBound>, optionBase: number): ElementOperand | undefined {
+	if (!tokenName(toks[start]) || toks[start + 1]?.rawText !== '(') {
+		return undefined;
+	}
+	let close = matchParenFrom(toks, start + 1);
+	if (close > 0 && toks[close + 1]?.rawText === '(') {
+		close = matchParenFrom(toks, close + 1);
+	}
+	const element = close > 0 ? elementOperandEndingAt(toks, close, shapes, optionBase) : undefined;
+	const next = toks[close + 1]?.rawText;
+	return element?.first === start && next !== '(' && next !== '.' && next !== '!' ? element : undefined;
+}
+
+function elementAt(toks: readonly VbaToken[], open: number, close: number, shapes: ReadonlyMap<string, FixedArrayBound>, optionBase: number): ElementOperand | undefined {
+	let shape: FixedArrayBound | undefined;
+	let first = open - 1;
+	if (toks[first]?.rawText === ')') {
+		// `Split(...)(k)`, `Array(...)(k)`, `Filter(...)(k)`.
+		let depth = 0;
+		let callOpen = first;
+		for (; callOpen >= 0; callOpen--) {
+			if (toks[callOpen].rawText === ')') {
+				depth++;
+			} else if (toks[callOpen].rawText === '(' && --depth === 0) {
+				break;
+			}
+		}
+		first = callOpen - 1;
+		if (first >= 2 && toks[first - 1].rawText === '.' && tokenText(toks[first - 2]) === 'vba') {
+			first -= 2;
+		}
+		const callee = tokenText(toks[callOpen - 1]);
+		if (callOpen < 1 || (callee !== 'split' && callee !== 'array' && callee !== 'filter')) {
+			return undefined;
+		}
+		shape = arrayValueShape(toks.slice(first, open), '', optionBase);
+	} else {
+		const lower = tokenName(toks[first])?.toLowerCase();
+		shape = lower ? shapes.get(lower) : undefined;
+	}
+	const before = toks[first - 1]?.rawText;
+	if (!shape || shape.dims.length !== 1 || before === '.' || before === '!') {
+		return undefined;
+	}
+	const index = signedIntegerArgument(toks.slice(open + 1, close).filter((tok) => tok.kind !== 'comment'));
+	const position = index === undefined ? -1 : index - shape.dims[0].lower;
+	const value = shape.values?.[position];
+	return value === undefined || shape.elements?.[position] !== undefined ? undefined : { first, last: close, value };
+}
+
+/** The parts `Split` returns for a non-empty text, at most `limit` of them unless it is -1. */
+function splitParts(text: string, delimiter: string, limit: number, textCompare: boolean): string[] | undefined {
+	const parts: string[] = [];
+	let from = 0;
+	while (limit === -1 || parts.length < limit - 1) {
+		const at = textCompare ? caselessIndexOf(text, delimiter, from) : text.indexOf(delimiter, from);
+		if (at === undefined) {
+			return undefined;
+		}
+		if (at < 0) {
+			break;
+		}
+		parts.push(text.slice(from, at));
+		from = at + delimiter.length;
+	}
+	parts.push(text.slice(from));
+	return parts;
+}
+
+/** Where vbTextCompare finds `needle`, for ASCII text only, whose case folding is certain. */
+function caselessIndexOf(text: string, needle: string, from: number): number | undefined {
+	if (/[^\x00-\x7f]/.test(text + needle)) {
+		return undefined;
+	}
+	return text.toLowerCase().indexOf(needle.toLowerCase(), from);
+}
+
+/** A string literal, or a name `strings` knows, as an argument. */
+function stringArgument(arg: readonly VbaToken[], strings: StringValueOf | undefined): string | undefined {
+	if (arg.length !== 1) {
+		return undefined;
+	}
+	if (arg[0].kind === 'stringLiteral') {
+		return stringLiteralValue(arg[0].rawText);
+	}
+	return arg[0].kind === 'identifier' ? strings?.(arg[0]) : undefined;
+}
+
+/** An integer literal, with a leading minus or not. */
+function signedIntegerArgument(arg: readonly VbaToken[]): number | undefined {
+	const negative = arg.length === 2 && arg[0].rawText === '-';
+	if (arg.length !== (negative ? 2 : 1) || arg[arg.length - 1].kind !== 'integerLiteral') {
+		return undefined;
+	}
+	const value = parseVbaIntegerLiteral(arg[arg.length - 1].rawText);
+	return value === undefined ? undefined : negative ? -value : value;
+}
+
+/** True, False or an integer literal, as Filter's include. */
+function booleanArgument(arg: readonly VbaToken[]): boolean | undefined {
+	const word = arg.length === 1 ? tokenText(arg[0]) : '';
+	if (word === 'true' || word === 'false') {
+		return word === 'true';
+	}
+	const value = signedIntegerArgument(arg);
+	return value === undefined ? undefined : value !== 0;
+}
+
+/** Whether a compare argument asks for vbTextCompare; undefined for anything else than the two. */
+function compareArgument(arg: readonly VbaToken[]): boolean | undefined {
+	const word = arg.length === 1 ? tokenText(arg[0]) : '';
+	if (word === 'vbbinarycompare' || word === 'vbtextcompare') {
+		return word === 'vbtextcompare';
+	}
+	const value = signedIntegerArgument(arg);
+	return value === 0 || value === 1 ? value === 1 : undefined;
+}
+
+/** The string or whole number one `Array(...)` element is written as. */
+function literalElementValue(group: readonly VbaToken[]): string | number | undefined {
+	const toks = group.filter((tok) => tok.kind !== 'comment');
+	if (toks.length === 1 && toks[0].kind === 'stringLiteral') {
+		return stringLiteralValue(toks[0].rawText);
+	}
+	return signedIntegerArgument(toks);
 }
 
 function columnNumber(letters: string): number {
@@ -2310,13 +2633,14 @@ function boundIntrinsicDimensionViolations(
 
 /**
  * `Split("abc", ",")(1)`: indexing the result of Split on literals, whose one
- * element sits at 0 (issue #120).
+ * element sits at 0 (issue #120), and of Filter (issue #260).
  */
 function inlineSplitIndexViolations(source: string, span: Span): Array<{ span: Span; message: string }> {
 	const toks = statementTokensAfterLeadingLabel(source, span);
 	const out: Array<{ span: Span; message: string }> = [];
 	for (let i = 0; i + 1 < toks.length; i++) {
-		if (tokenText(toks[i]) !== 'split' || toks[i + 1].rawText !== '(' || !isBareOrVbaQualifiedIntrinsicCall(toks, i)) {
+		const callee = tokenText(toks[i]);
+		if ((callee !== 'split' && callee !== 'filter') || toks[i + 1].rawText !== '(' || !isBareOrVbaQualifiedIntrinsicCall(toks, i)) {
 			continue;
 		}
 		const close = matchParenFrom(toks, i + 1);
@@ -2337,7 +2661,7 @@ function inlineSplitIndexViolations(source: string, span: Span): Array<{ span: S
 		if (detail) {
 			out.push({
 				span: { start: span.start + indexToks[0].start, end: span.start + indexToks[indexToks.length - 1].end },
-				message: `Subscript ${value} for the array Split returns here ${detail}. This will raise Run-time error '9': Subscript out of range.`,
+				message: `Subscript ${value} for the array ${callee === 'split' ? 'Split' : 'Filter'} returns here ${detail}. This will raise Run-time error '9': Subscript out of range.`,
 			});
 		}
 	}
