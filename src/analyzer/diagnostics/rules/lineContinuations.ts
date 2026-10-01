@@ -8,16 +8,20 @@
 //  - Any continuation inside an Enum body, on a member line or before
 //    `End Enum`: "Invalid inside Enum". The same splits inside a Type compile,
 //    and so does one after `Private` on the Enum header line.
-//  - In a Declare, a continuation between the Lib (or Alias) string and the
-//    parameter list. Syntax error. After PtrSafe, after the name, after
-//    Private and inside the parameter list all compile.
+//
+// A Declare continued between its Lib (or Alias) string and its parameter
+// list compiles. It was reported until a recheck on 2026-10-01: the
+// "Syntax error" came from VBComponents.CodeModule.AddFromString, which
+// stores a stray `()` line after such a Declare. The same module
+// imported from a .bas file, saved and reopened, compiles, and so does
+// VBA-JSON, which has this shape in its Windows branch.
 //
 // The analyzer follows continuations everywhere else the VBE does; those
 // places are covered by tests/diagnostics/lineContinuations.test.ts.
 
 import { tokenizeCached } from '../../lexer/tokenize';
-import type { Trivia, VbaToken } from '../../lexer/tokenKinds';
-import type { ModuleNode, Span } from '../../parser/nodes';
+import type { Trivia } from '../../lexer/tokenKinds';
+import type { ModuleNode } from '../../parser/nodes';
 import type { PushFn } from '../analysisContext';
 
 const MAX_CONTINUATIONS = 24;
@@ -69,20 +73,6 @@ export function checkLineContinuationLimits(source: string, mod: ModuleNode, pus
 					);
 				}
 			}
-		} else if (member.kind === 'Declare') {
-			const gap = declareLibToParamsGap(tokens, member.span);
-			if (!gap) {
-				continue;
-			}
-			for (const trivia of continuations) {
-				if (trivia.start >= gap.start && trivia.end <= gap.end) {
-					push(
-						'invalidLineContinuation',
-						`Declare '${member.name}' cannot break the line between its Lib or Alias string and the parameter list. This is a VBE compile error: Syntax error.`,
-						{ start: trivia.start, end: trivia.end },
-					);
-				}
-			}
 		}
 	}
 }
@@ -99,23 +89,4 @@ function lineEndAfter(source: string, from: number): number {
 		}
 	}
 	return source.length;
-}
-
-/** The source between a Declare's last Lib/Alias string literal and its `(`. */
-function declareLibToParamsGap(tokens: readonly VbaToken[], span: Span): Span | undefined {
-	let lastString: VbaToken | undefined;
-	for (const tok of tokens) {
-		if (tok.start < span.start) {
-			continue;
-		}
-		if (tok.start >= span.end) {
-			break;
-		}
-		if (tok.kind === 'stringLiteral') {
-			lastString = tok;
-		} else if (tok.rawText === '(' && lastString) {
-			return { start: lastString.end, end: tok.start };
-		}
-	}
-	return undefined;
 }

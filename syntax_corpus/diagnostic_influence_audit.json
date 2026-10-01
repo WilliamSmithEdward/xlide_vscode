@@ -28,7 +28,7 @@
         "excel_vba_analysis_limits_boundary_cases.md",
         "xlide_vba_visible_analysis_corpus_recommendations.md"
       ],
-      "notes": "Promotes the settled invalid continuation shapes only: a likely continuation underscore with trailing text/comment, or a likely continuation underscore at a physical line break without required leading whitespace. Dangling final continuations remain a realtime recovery/save-validation candidate. Not in an inactive #If branch, which the VBE does not lex (issue #234, Excel 16.0).",
+      "notes": "Promotes the settled invalid continuation shapes only: a likely continuation underscore with trailing text/comment, or a likely continuation underscore at a physical line break without required leading whitespace. Dangling final continuations remain a realtime recovery/save-validation candidate. Not in an inactive #If branch, which the VBE does not lex (issue #234, Excel 16.0). A Declare continued between its Lib or Alias string and its parameter list is no longer reported (rechecked 2026-10-01): a module imported from a .bas file, saved and reopened, compiles with it, and VBA-JSON has the shape. The earlier Syntax error came from AddFromString, which stores a stray () line after such a Declare.",
       "diagnosticKind": "compile-error"
     },
     {
