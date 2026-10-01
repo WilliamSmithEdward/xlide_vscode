@@ -39,6 +39,7 @@ import { isInvalidBooleanString, isInvalidDateString, isInvalidNumericString, is
 import { fixedStringLength, moduleTypes } from '../typeFields';
 import {
 	callableTypeSignaturesFor,
+	inferExpressionType,
 	isKnownScalarType,
 	knownLocalLiteralValuesAt,
 	type KnownLocalValue,
@@ -211,11 +212,12 @@ export function checkRuntimeArgumentValues(
 		return (stmt) => {
 			known = valuesAt(stmt);
 			const { strings: knownStrings, lengths: knownStringLengths } = stringsAt(known);
-			// 1.5, or a local known to hold a number with a fraction.
-			const hasFraction = (slot: readonly VbaToken[] | undefined): boolean => {
-				const value = (slot ?? []).filter((tok) => tok.kind !== 'comment');
-				const local = value.length === 1 ? known.get(tokenName(value[0])?.toLowerCase() ?? '') : undefined;
-				return hasFractionLiteral(slot) || (local?.kind === 'number' && !Number.isInteger(local.value));
+			// The argument's type; for a Variant local, the type of what a
+			// straight line has just put in it.
+			const valueType = (slot: readonly VbaToken[] | undefined): string | undefined => {
+				const held = (lower: string): VbaToken[] | undefined =>
+					(reaching ??= straightLineAssignments(source, member.body, activity)).get(stmt)?.get(lower)?.filter((tok) => tok.kind !== 'comment');
+				return staticValueType((slot ?? []).filter((tok) => tok.kind !== 'comment'), env, moduleSignatures, sourceNames, source, held);
 			};
 			const isNullSlot = (slot: readonly VbaToken[]): boolean => {
 				const value = slot.filter((tok) => tok.kind !== 'comment');
@@ -240,7 +242,7 @@ export function checkRuntimeArgumentValues(
 					shadowed: (name) => runtimeCallableSourceShadowed(name, sourceNames),
 					compare,
 				};
-				for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env, lookup, stringCalls, sourceNames, host, declarationOf, isNullSlot, hasFraction)) {
+				for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env, lookup, stringCalls, sourceNames, host, declarationOf, isNullSlot, valueType)) {
 					const raises = hit.error === 6 ? `'6': Overflow` : `'5': Invalid procedure call or argument`;
 					report(
 						'runtimeArgumentValue',
@@ -577,15 +579,80 @@ function invalidLikePattern(pattern: string): string | undefined {
 /** The built-ins that return Null for a Null argument before checking the rest (issue #364). */
 const NULL_RETURNING: ReadonlySet<string> = new Set(['mid', 'left', 'right', 'instr', 'strcomp']);
 
-/** Whether an argument is a number literal with a fraction, signed or not: 1.5, -2.5. */
-function hasFractionLiteral(slot: readonly VbaToken[] | undefined): boolean {
-	const toks = (slot ?? []).filter((tok) => tok.kind !== 'comment');
-	const literal = toks.length === 2 && (toks[0].rawText === '-' || toks[0].rawText === '+') ? toks[1] : toks.length === 1 ? toks[0] : undefined;
-	if (literal?.kind !== 'floatLiteral') {
-		return false;
+/**
+ * The first-argument types whose Round raises 5 past 22 digits (issue #402,
+ * measured in Excel 16.0): Round(3#, 23), Round("3", 23) and
+ * Round(#1/2/2000#, 23) raise; an Integer, Long, Byte, Boolean, Currency or
+ * Decimal runs at any count, Round(3, 256) and Round(CCur(3.5), 256).
+ */
+const ROUND_DIGIT_LIMITED: ReadonlySet<string> = new Set(['double', 'single', 'string', 'date']);
+
+/** The type a number literal's suffix gives it; none leaves an integer literal whole and a float a Double. */
+const LITERAL_SUFFIX_TYPES: Readonly<Record<string, string>> = { '#': 'double', '!': 'single', '@': 'currency', '%': 'integer', '&': 'long', '^': 'longlong' };
+
+/**
+ * The VBA type of a value, lowercase, or undefined where the forms below do
+ * not settle it: a literal (by its suffix), a declared local (a Variant by
+ * what a straight line just put in it), a call (by its return type), and a
+ * `/` of such operands, which gives a Double. A Currency or Decimal operand
+ * of `/` is left unsettled.
+ */
+function staticValueType(
+	toks: VbaToken[],
+	env: ReadonlyMap<string, string>,
+	moduleSignatures: ReadonlyMap<string, CallableTypeSignature>,
+	sourceNames: SourceNameScope,
+	source: string,
+	held: (lower: string) => VbaToken[] | undefined,
+	depth = 0,
+): string | undefined {
+	const value = unwrapOuterParens(toks);
+	const signed = value.length === 2 && (value[0].rawText === '-' || value[0].rawText === '+') ? value[1] : undefined;
+	const single = value.length === 1 ? value[0] : signed;
+	if (single) {
+		if (single.kind === 'stringLiteral') {
+			return 'string';
+		}
+		if (single.kind === 'dateLiteral') {
+			return 'date';
+		}
+		if (single.kind === 'integerLiteral' || single.kind === 'floatLiteral') {
+			return LITERAL_SUFFIX_TYPES[single.rawText.slice(-1)] ?? (single.kind === 'integerLiteral' ? 'integer' : 'double');
+		}
+		const text = tokenText(single);
+		if (text === 'true' || text === 'false') {
+			return 'boolean';
+		}
+		const lower = signed ? undefined : tokenName(single)?.toLowerCase();
+		const declared = lower ? normalizeType(env.get(lower)) : undefined;
+		if (declared === 'variant' && depth === 0) {
+			const assigned = held(lower!);
+			return assigned?.length ? staticValueType(assigned, env, moduleSignatures, sourceNames, source, held, 1) : undefined;
+		}
+		return declared;
 	}
-	const value = Number(literal.rawText.replace(/[!#@]$/, ''));
-	return Number.isFinite(value) && !Number.isInteger(value);
+	if (value.length >= 3 && tokenName(value[0]) && value[1].rawText === '(' && matchParenFrom(value, 1) === value.length - 1) {
+		return normalizeType(inferExpressionType(value, 0, env, moduleSignatures, sourceNames, source)?.type);
+	}
+	// Operands split at each top-level `/`; any other top-level operator leaves it unsettled.
+	const operands: VbaToken[][] = [[]];
+	let parens = 0;
+	for (const tok of value) {
+		parens += tok.rawText === '(' ? 1 : tok.rawText === ')' ? -1 : 0;
+		if (parens === 0 && tok.rawText === '/') {
+			operands.push([]);
+		} else {
+			operands[operands.length - 1].push(tok);
+		}
+	}
+	if (operands.length < 2) {
+		return undefined;
+	}
+	const settled = operands.every((operand) => {
+		const type = operand.length ? staticValueType(operand, env, moduleSignatures, sourceNames, source, held, depth) : undefined;
+		return type !== undefined && !['currency', 'decimal', 'variant', 'string', 'date'].includes(type);
+	});
+	return settled ? 'double' : undefined;
 }
 
 function runtimeArgumentValueHits(
@@ -599,7 +666,7 @@ function runtimeArgumentValueHits(
 	host: string | undefined,
 	declarationOf?: (lower: string) => LocalDeclaration | undefined,
 	isNullSlot: (slot: readonly VbaToken[]) => boolean = () => false,
-	hasFraction: (slot: readonly VbaToken[] | undefined) => boolean = hasFractionLiteral,
+	valueType: (slot: readonly VbaToken[] | undefined) => string | undefined = () => undefined,
 ): RuntimeArgumentValueHit[] {
 	const toks = statementTokens(source, span);
 	if (isDeclarationLikeStatement(toks)) {
@@ -625,9 +692,10 @@ function runtimeArgumentValueHits(
 			if (!literal) {
 				continue;
 			}
-			// Round's digit limit binds only a value with a fraction: Round(1, 23)
-			// runs, Round(1.5, 23) raises 5 (issue #364). A count below 0 always raises.
-			if (spec.canonicalName === 'Round' && typeof literal.value === 'number' && literal.value > 0 && !hasFraction(call.slots[0])) {
+			// Round's digit limit follows the value's type, not its fraction:
+			// Round(3#, 23) raises 5 and Round(3, 23) runs (issue #402). A count
+			// below 0 always raises.
+			if (spec.canonicalName === 'Round' && typeof literal.value === 'number' && literal.value > 0 && !ROUND_DIGIT_LIMITED.has(valueType(call.slots[0]) ?? '')) {
 				continue;
 			}
 			hits.push({
