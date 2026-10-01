@@ -75,6 +75,7 @@ import {
 	incompleteMemberAccess,
 	isNonUnaryBinaryOperator,
 } from './rules/expressions';
+import { rememberProjectWrittenNames } from './moduleState';
 
 /** Resolves the effective severity of a rule, or undefined when switched off. */
 function severityOf(
@@ -313,6 +314,7 @@ function runRules(
 		activity: createConditionalActivityTracker(mod, opts.conditionalCompilation),
 		memberCtx: diagnosticMemberCompletionContext(opts, source, mod),
 	};
+	rememberProjectWrittenNames(ctx.symbols, opts.projectWrittenNames);
 
 	// Each rule reports into its own buffer; per-statement rules all ride the
 	// one shared procedure-statement walk (audit #0). Flushing the buffers in

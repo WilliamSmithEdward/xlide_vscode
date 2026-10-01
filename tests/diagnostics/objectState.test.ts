@@ -156,6 +156,9 @@ describe('analyzeModule - object variable not set', () => {
 			'Private moduleObj As Object\n' +
 			'Private Sub Initialize(ByRef target As Object)\n' +
 			'End Sub\n' +
+			'Private Sub Setup()\n' +
+			'    Set moduleObj = New Collection\n' +
+			'End Sub\n' +
 			'Public Sub T(ByVal param As Object)\n' +
 			'    Static cached As Object\n' +
 			'    Dim initialized As Object\n' +
@@ -167,6 +170,9 @@ describe('analyzeModule - object variable not set', () => {
 			'End Sub\n';
 
 		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(0);
+		// A module-level object nothing ever sets is Nothing everywhere (issue #241).
+		const unset = 'Private moduleObj As Object\nPublic Sub T()\n    moduleObj.ToString\nEnd Sub\n';
+		expectDiagnostic(unset, analyzeModule(unset), 'object-variable-not-set', { span: 'moduleObj', message: 'never set anywhere in this module' });
 	});
 
 	it('treats an object passed to a call in any position as possibly Set (#70 class)', () => {

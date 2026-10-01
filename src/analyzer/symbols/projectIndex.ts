@@ -43,6 +43,7 @@ import type { Span } from '../parser/nodes';
 import { tokenizeCached } from '../lexer/tokenize';
 import { identifierWords } from '../lexer/tokenHelpers';
 import { mergeSheetChanges, sheetChangesIn, type SheetChanges } from './sheetChanges';
+import { writtenNamesIn } from '../diagnostics/moduleState';
 import { hasAuthoritativeDesignerHeader, parseUserFormControls } from '../../vbaUserFormControls';
 
 /** Source text + project role for one module fed into the index. */
@@ -523,6 +524,8 @@ export class ProjectIndex {
 	 * for it was one full lex per module per project build (issue #139).
 	 */
 	private readonly moduleStringLiteralWords = new Map<string, ReadonlySet<string>>();
+	/** The names each module's code may write (issue #241), computed when first asked. */
+	private readonly moduleWrittenNames = new Map<string, ReadonlySet<string>>();
 	/** Whole-project query memo for the current index revision. */
 	private readonly queryCache = new Map<string, unknown>();
 
@@ -543,6 +546,7 @@ export class ProjectIndex {
 		this.modules.set(key, symbols);
 		this.moduleSources.set(key, input.source);
 		this.moduleStringLiteralWords.set(key, stringLiteralWordsIn(input.source));
+		this.moduleWrittenNames.delete(key);
 		if (input.implicitMembers !== undefined) {
 			this.moduleImplicitMembersByName.set(key, input.implicitMembers);
 		} else {
@@ -567,6 +571,7 @@ export class ProjectIndex {
 		this.modules.delete(key);
 		this.moduleSources.delete(key);
 		this.moduleStringLiteralWords.delete(key);
+		this.moduleWrittenNames.delete(key);
 		this.moduleImplicitMembersByName.delete(key);
 		this.modulePredeclaredIdByName.delete(key);
 		this.moduleDesignerClassByName.delete(key);
@@ -748,6 +753,28 @@ export class ProjectIndex {
 				}
 			}
 			return words;
+		});
+	}
+
+	/**
+	 * Lowercased names any module's code may write: an assignment target, a
+	 * name in Set, ReDim, Erase and the like, or a whole name passed to a
+	 * call (issue #241). A Public variable outside it keeps its initial value.
+	 */
+	writtenNames(): ReadonlySet<string> {
+		return this.cached('writtenNames', () => {
+			const names = new Set<string>();
+			for (const [key, source] of this.moduleSources) {
+				let moduleNames = this.moduleWrittenNames.get(key);
+				if (!moduleNames) {
+					moduleNames = writtenNamesIn(source);
+					this.moduleWrittenNames.set(key, moduleNames);
+				}
+				for (const name of moduleNames) {
+					names.add(name);
+				}
+			}
+			return names;
 		});
 	}
 

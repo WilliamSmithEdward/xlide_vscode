@@ -71,6 +71,7 @@ export type VbaProjectAnalysisOptions = Pick<
     | 'projectVisibleSymbols'
     | 'projectIntegerConstants'
     | 'projectStringLiteralWords'
+    | 'projectWrittenNames'
     | 'projectSheetChanges'
     | 'implicitMembers'
     | 'implementedInterfaces'
@@ -256,6 +257,7 @@ export function projectAnalysisOptionsForModule(
             projectClassMembers: project.projectMemberSurfaces(moduleName),
             projectIntegerConstants: project.visibleExternalIntegerConstantExpressions(moduleName),
             projectStringLiteralWords: project.stringLiteralWords(),
+            projectWrittenNames: project.writtenNames(),
             projectSheetChanges: project.sheetChanges(),
             implementedInterfaces: project.implementedInterfaceNames(),
         // The rules must see the same constants the symbol table was built

@@ -234,6 +234,13 @@ export interface AnalyzeModuleOptions {
 	 */
 	projectStringLiteralWords?: ReadonlySet<string>;
 	/**
+	 * Lowercased names some module of the project may write (from
+	 * ProjectIndex.writtenNames). A Public variable none writes keeps its
+	 * initial value, which the runtime rules use (issue #241). When omitted,
+	 * a Public variable is never taken as unchanged.
+	 */
+	projectWrittenNames?: ReadonlySet<string>;
+	/**
 	 * The sheets of the workbook the project lives in, as saved, in tab order
 	 * (issue #229). `ThisWorkbook.Sheets("name")` and `(index)` are checked
 	 * against them, and only when `projectSheetChanges` says no code in the

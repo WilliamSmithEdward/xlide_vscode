@@ -22,6 +22,7 @@ import {
 	type PushFn,
 } from '../analysisContext';
 import { walkBranchMergedBody, walkStraightLineBody } from '../dataflow';
+import { untouchedModuleVariablesIn } from '../moduleState';
 import { procedureHasUnstructuredFlow } from '../../flow/procedureUnstructured';
 import { statementLabelDeclarations, statementLabelReferences } from '../../flow/procedureLabels';
 import { resolveExhaustiveMemberSurface } from '../rules/shared';
@@ -159,6 +160,29 @@ export function checkObjectVariableNotSet(
 			}, activity);
 		}
 		checkGoToIntoWith(source, member, activity, push);
+		// A module variable nothing ever sets is Nothing in every procedure (issue #241).
+		const unset = [...untouchedModuleVariablesIn(source, symbols, member)].filter(([, variable]) =>
+			variable.asType !== undefined && isKnownObjectAssignmentType(variable.asType, memberCtx));
+		if (unset.length > 0) {
+			const objects = new Map(unset);
+			forEachStatement(member.body, (stmt) => {
+				for (const span of statementAndBranchSpans(stmt)) {
+					const toks = statementTokens(source, span);
+					for (let i = 0; i + 2 < toks.length; i++) {
+						const variable = objects.get(tokenName(toks[i])?.toLowerCase() ?? '');
+						if (!variable || toks[i - 1]?.rawText === '.' || toks[i - 1]?.rawText === '!' || (toks[i + 1].rawText !== '.' && toks[i + 1].rawText !== '!') || !tokenName(toks[i + 2])) {
+							continue;
+						}
+						const scope = variable.visibility === 'Public' || variable.visibility === 'Global' ? 'the project' : 'this module';
+						push(
+							'objectVariableNotSet',
+							`Object variable '${toks[i].rawText}' is never set anywhere in ${scope}, so it is Nothing here. This will raise Run-time error '91': Object variable or With block variable not set.`,
+							{ start: span.start + toks[i].start, end: span.start + toks[i].end },
+						);
+					}
+				}
+			}, activity);
+		}
 		for (const finding of objectStateWalk(source, member, symbols, memberCtx, activity).findings) {
 			push(...finding);
 		}
