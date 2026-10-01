@@ -154,6 +154,7 @@ import {
 	checkForEachLoopTypes,
 	checkMalformedStatements,
 	checkStatementContext,
+	checkReservedLabels,
 	checkUndefinedLabels,
 } from './rules/controlFlow';
 import { checkDeclarationOrder } from './rules/declarationOrder';
@@ -770,6 +771,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'undefinedLabels',
 		run: (ctx, push) => checkUndefinedLabels(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'reservedLabels',
+		run: (ctx, push) => checkReservedLabels(ctx.source, ctx.mod, ctx.activity, push),
 	},
 	{
 		name: 'elseBranchOrder',
