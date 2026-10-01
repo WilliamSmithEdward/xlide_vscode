@@ -5,7 +5,7 @@
 
 These rules are the same in every WilliamSmithEdward repository.
 
-- **How a release happens here:** publishing a GitHub release starts the release reports, which scan it and attach their reports to it. Any other step, such as a marketplace upload, is described elsewhere in this file.
+- **How a release happens here:** pushing a `vX.Y.Z` tag runs Publish, which builds the extension package in CI and creates the GitHub release with it, its signed provenance and its security and malware reports. Any other step, such as a marketplace upload, is described elsewhere in this file.
 - **Starting a workflow by hand never releases anything.** Publish and every
   release report are dry runs when started with `gh workflow run` or the Run
   workflow button. They build, scan and assemble the release files exactly
@@ -32,3 +32,24 @@ These rules are the same in every WilliamSmithEdward repository.
 - **A scanner finding is fixed or accepted with a written reason** in the
   repository's accepted list. Never silence a scanner without one.
 <!-- repo-standards:end -->
+
+## Releasing
+
+The version lives in `package.json`, and CHANGELOG.md needs a
+`## [X.Y.Z] - YYYY-MM-DD` section for it: the release's notes are taken from
+there, and Publish fails without one. With both merged to `main`, the owner
+tags that commit:
+
+```bash
+git tag vX.Y.Z && git push origin vX.Y.Z
+```
+
+Publish builds the vsix from the tag, scans it, signs its build provenance
+and creates the GitHub release. The Marketplace upload stays with the owner,
+and takes the vsix from that release rather than a local build, so the
+Marketplace serves the signed file:
+
+```bash
+gh release download vX.Y.Z --pattern '*.vsix'
+npx @vscode/vsce publish --packagePath xlide-X.Y.Z.vsix
+```

@@ -1,11 +1,11 @@
 name: Security
 
 # CodeQL, Semgrep and npm audit on every push and pull request to main, once a
-# week, and on every release. Each gate fails on any finding: a new result is
+# week, and in every release. Each gate fails on any finding: a new result is
 # either fixed or recorded below with the reason it is not a vulnerability.
-# On a release the three reports are attached to it as security-report.md
-# with the raw SARIF beside it (see SECURITY.md). ClamAV and YARA-X run in
-# the Malware scan workflow.
+# The publish workflow calls this one, so a release waits on it and carries
+# its report, security-report.md with the raw SARIF beside it (see
+# SECURITY.md). ClamAV and YARA-X run in the Malware scan workflow.
 # zizmor audits the workflows themselves and keeps its own exceptions (see its job).
 
 "on":
@@ -15,9 +15,8 @@ name: Security
     branches: [main]
   schedule:
     - cron: '17 6 * * 1'
-  release:
-    types: [published]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -110,7 +109,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      # No package cache: this workflow runs on release (see malware-scan.yml).
+      # No package cache: a release runs this workflow (see malware-scan.yml).
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '20.20.2'
@@ -127,54 +126,46 @@ jobs:
           name: npm-audit
           path: npm-audit.json
 
-  release-report:
-    name: Attach release report
-    # Started by hand, this is a dry run: the files it would attach stay on
-    # the run as the release-preview artifact.
-    if: always() && (github.event_name == 'release' || github.event_name == 'workflow_dispatch')
+  # The report a release carries. Every run writes it; publish.yml attaches
+  # it to the release.
+  report:
+    name: Security report
+    if: always()
     needs: [codeql, semgrep, dependencies]
     runs-on: ubuntu-24.04
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
+      # Only this workflow's results: inside Publish, the Malware scan's
+      # artifacts are in the same run.
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
+          pattern: '{codeql-*,semgrep,npm-audit}'
           path: reports
       - name: Write the report
         env:
           CODEQL_RESULT: ${{ needs.codeql.result }}
           SEMGREP_RESULT: ${{ needs.semgrep.result }}
           AUDIT_RESULT: ${{ needs.dependencies.result }}
-          TAG: ${{ github.event.release.tag_name || 'dry run' }}
+          TAG: ${{ github.ref_type == 'tag' && github.ref_name || 'an unreleased commit' }}
         run: node .github/scripts/security-report.mjs reports security-report.md
       - name: Bundle the SARIF
         run: (cd reports && zip -qr ../security-sarif.zip .)
-      - name: Keep what the release would carry
-        if: github.event_name != 'release'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: release-preview
+          name: security-report
           path: |
             security-report.md
             security-sarif.zip
           if-no-files-found: error
-      - name: Attach to the release
-        if: github.event_name == 'release'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.event.release.tag_name }}
-        run: |
-          gh release upload "$TAG" security-report.md security-sarif.zip --clobber
       - name: Fail when a gate failed
         if: needs.codeql.result != 'success' || needs.semgrep.result != 'success' || needs.dependencies.result != 'success'
         run: exit 1
 
   # The one check branch protection requires: it passes only when every
   # check above did, so checks can be added or renamed without touching the
-  # rules. The release report is not among them.
+  # rules.
   # zizmor audits the workflows themselves: template injection, credential
   # persistence, over-broad permissions, dangerous triggers, and actions with
   # known advisories or impostor commits. Findings it should not raise are
@@ -219,7 +210,7 @@ jobs:
   security-passed:
     name: Security passed
     if: always()
-    needs: [codeql, semgrep, dependencies, zizmor]
+    needs: [codeql, semgrep, dependencies, zizmor, report]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
