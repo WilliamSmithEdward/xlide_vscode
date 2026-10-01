@@ -32,6 +32,7 @@ import {
 } from '../callExtraction';
 import { collectModuleLiteralIntegerConstants } from '../constExpr';
 import { checkEachCounterPass, loopCountersAt } from '../loopCounters';
+import { straightLineAssignments } from '../straightLineValues';
 import { foldKnownStringCalls, moduleCompare, type KnownStringCallContext } from '../knownStringCalls';
 import { bankersRound, isBareOrVbaQualifiedIntrinsicCall } from '../rules/shared';
 import { isInvalidBooleanString, isInvalidDateString, isInvalidNumericString, isInvalidTimeString } from '../stringConversion';
@@ -205,9 +206,29 @@ export function checkRuntimeArgumentValues(
 				return local?.kind === 'number' && Number.isInteger(local.value) ? (local.value as number) : undefined;
 			},
 		};
+		// The locals a straight line has just set to Null (issue #364).
+		let reaching: ReturnType<typeof straightLineAssignments> | undefined;
 		return (stmt) => {
 			known = valuesAt(stmt);
 			const { strings: knownStrings, lengths: knownStringLengths } = stringsAt(known);
+			// 1.5, or a local known to hold a number with a fraction.
+			const hasFraction = (slot: readonly VbaToken[] | undefined): boolean => {
+				const value = (slot ?? []).filter((tok) => tok.kind !== 'comment');
+				const local = value.length === 1 ? known.get(tokenName(value[0])?.toLowerCase() ?? '') : undefined;
+				return hasFractionLiteral(slot) || (local?.kind === 'number' && !Number.isInteger(local.value));
+			};
+			const isNullSlot = (slot: readonly VbaToken[]): boolean => {
+				const value = slot.filter((tok) => tok.kind !== 'comment');
+				if (value.length !== 1) {
+					return false;
+				}
+				if (tokenText(value[0]) === 'null') {
+					return true;
+				}
+				const lower = tokenName(value[0])?.toLowerCase();
+				const held = lower ? (reaching ??= straightLineAssignments(source, member.body, activity)).get(stmt)?.get(lower)?.filter((tok) => tok.kind !== 'comment') : undefined;
+				return held?.length === 1 && tokenText(held[0]) === 'null';
+			};
 			// A bound of Len(s) reads the length s has as the loop starts.
 			const atomValue = (atom: { kind: string; name: string }, counter: { loopNode: BodyNode }): number | undefined =>
 				atom.kind === 'len' ? stringsAt(valuesAt(counter.loopNode)).lengths.get(atom.name) : undefined;
@@ -219,7 +240,7 @@ export function checkRuntimeArgumentValues(
 					shadowed: (name) => runtimeCallableSourceShadowed(name, sourceNames),
 					compare,
 				};
-				for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env, lookup, stringCalls, sourceNames, host, declarationOf)) {
+				for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env, lookup, stringCalls, sourceNames, host, declarationOf, isNullSlot, hasFraction)) {
 					const raises = hit.error === 6 ? `'6': Overflow` : `'5': Invalid procedure call or argument`;
 					report(
 						'runtimeArgumentValue',
@@ -553,6 +574,20 @@ function invalidLikePattern(pattern: string): string | undefined {
 	return undefined;
 }
 
+/** The built-ins that return Null for a Null argument before checking the rest (issue #364). */
+const NULL_RETURNING: ReadonlySet<string> = new Set(['mid', 'left', 'right', 'instr', 'strcomp']);
+
+/** Whether an argument is a number literal with a fraction, signed or not: 1.5, -2.5. */
+function hasFractionLiteral(slot: readonly VbaToken[] | undefined): boolean {
+	const toks = (slot ?? []).filter((tok) => tok.kind !== 'comment');
+	const literal = toks.length === 2 && (toks[0].rawText === '-' || toks[0].rawText === '+') ? toks[1] : toks.length === 1 ? toks[0] : undefined;
+	if (literal?.kind !== 'floatLiteral') {
+		return false;
+	}
+	const value = Number(literal.rawText.replace(/[!#@]$/, ''));
+	return Number.isFinite(value) && !Number.isInteger(value);
+}
+
 function runtimeArgumentValueHits(
 	source: string,
 	span: Span,
@@ -563,6 +598,8 @@ function runtimeArgumentValueHits(
 	sourceNames: SourceNameScope,
 	host: string | undefined,
 	declarationOf?: (lower: string) => LocalDeclaration | undefined,
+	isNullSlot: (slot: readonly VbaToken[]) => boolean = () => false,
+	hasFraction: (slot: readonly VbaToken[] | undefined) => boolean = hasFractionLiteral,
 ): RuntimeArgumentValueHit[] {
 	const toks = statementTokens(source, span);
 	if (isDeclarationLikeStatement(toks)) {
@@ -574,12 +611,23 @@ function runtimeArgumentValueHits(
 		if (!call) {
 			continue;
 		}
+		// `Mid(Null, 0)`, `InStr(0, Null, "a")`: a Null argument makes the call
+		// return Null before the others are checked (issue #364, measured in
+		// Excel 16.0).
+		if (NULL_RETURNING.has(call.specs[0]?.canonicalName.toLowerCase() ?? '') && call.slots.some((slot) => isNullSlot(slot))) {
+			continue;
+		}
 		for (const spec of call.specs) {
 			const slot = runtimeArgumentValueSlot(call.slots, spec);
 			const literal = slot
 				? integerArgumentOutsideBounds(source, slot, span.start, spec, constants, stringCalls)
 				: undefined;
 			if (!literal) {
+				continue;
+			}
+			// Round's digit limit binds only a value with a fraction: Round(1, 23)
+			// runs, Round(1.5, 23) raises 5 (issue #364). A count below 0 always raises.
+			if (spec.canonicalName === 'Round' && typeof literal.value === 'number' && literal.value > 0 && !hasFraction(call.slots[0])) {
 				continue;
 			}
 			hits.push({
