@@ -18,6 +18,10 @@
 //    own Name, or a Property Let/Set that assigns `Name = value` to its own
 //    Name (in a Let, the name is the property, not a return variable). Each
 //    calls itself without end, error 28.
+//  - unbounded-recursion: a Sub or Function that calls itself, or another
+//    procedure of the module that calls it back, before anything that could
+//    leave (issue #240): `Sub S(): S: End Sub`, `F = F() + 1`, and
+//    `F = F(n - 1)` with no base case. Error 28.
 //
 // Fall-through is proven only from a plain statement directly above the
 // label: a block above it may or may not leave the procedure, and nothing is
@@ -38,6 +42,7 @@ import {
 	bareAssignmentTarget,
 	firstExecutableTokenIndex,
 	statementAndBranchSpans,
+	statementTokens,
 	statementTokensAfterLeadingLabel,
 	tokenName,
 	tokenText,
@@ -70,6 +75,7 @@ export function checkHandlerFlow(
 		}
 		checkRecursiveProperty(source, member, entries, push);
 	}
+	checkUnboundedRecursion(source, mod, activity, push);
 }
 
 /** A procedure's body, and every body a block in it holds: each If arm alone. */
@@ -415,6 +421,139 @@ function checkRecursiveProperty(
 			);
 		}
 	}
+}
+
+/** Words that may leave a procedure, or hand an error to a handler, before a call is reached. */
+const LEAVING_WORDS: ReadonlySet<string> = new Set(['exit', 'goto', 'gosub', 'return', 'resume', 'end', 'stop', 'error', 'raise', 'on']);
+
+/** The words after End that close a block rather than end the program. */
+const BLOCK_ENDS: ReadonlySet<string> = new Set(['if', 'select', 'with', 'sub', 'function', 'property', 'type', 'enum']);
+
+/** Whether any of these tokens may leave the procedure or install a handler. */
+function mayLeave(toks: readonly VbaToken[]): boolean {
+	return toks.some((tok, i) => LEAVING_WORDS.has(tokenText(tok)) && !(tokenText(tok) === 'end' && BLOCK_ENDS.has(tokenText(toks[i + 1]))));
+}
+
+/** A call one procedure makes before anything could leave it. */
+interface FirstCall {
+	callee: string;
+	span: Span;
+}
+
+/**
+ * A Sub or Function whose every run calls itself, directly or through other
+ * procedures of the module that do the same, never returns (issue #240,
+ * measured in Excel 16.0): error 28. A call counts only at the top of the
+ * body, ahead of any statement or block that could leave or install a
+ * handler, and outside a single-line If.
+ */
+function checkUnboundedRecursion(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const procedures = new Map<string, ProcedureNode>();
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Procedure' && (member.procKind === 'Sub' || member.procKind === 'Function')) {
+			procedures.set(member.name.toLowerCase(), member);
+		}
+	}
+	const firstCalls = new Map<string, FirstCall>();
+	for (const [lower, proc] of procedures) {
+		const call = firstUnconditionalCall(source, proc, procedures, activity);
+		if (call) {
+			firstCalls.set(lower, call);
+		}
+	}
+	for (const [lower, call] of firstCalls) {
+		// Follow the first calls until one repeats; report each procedure on the cycle.
+		const path = [lower];
+		let next = call.callee;
+		while (firstCalls.has(next) && !path.includes(next)) {
+			path.push(next);
+			next = firstCalls.get(next)!.callee;
+		}
+		if (next !== lower) {
+			continue;
+		}
+		const name = procedures.get(lower)!.name;
+		// 'A' calls 'B', which calls 'C', which calls 'A'.
+		const chain = [...path.slice(1), lower].map((next) => `'${procedures.get(next)!.name}'`);
+		const through = path.length === 1 ? 'calls itself' : `calls ${chain.join(', which calls ')},`;
+		push(
+			'unboundedRecursion',
+			`'${name}' ${through} before anything could make it return: the calls never end. This will raise Run-time error '28': Out of stack space.`,
+			call.span,
+		);
+	}
+}
+
+function firstUnconditionalCall(
+	source: string,
+	proc: ProcedureNode,
+	procedures: ReadonlyMap<string, ProcedureNode>,
+	activity: ConditionalActivityTracker | undefined,
+): FirstCall | undefined {
+	for (const entry of topLevelEntries(source, proc.body, activity)) {
+		if (entry.node.kind === 'VariableGroup') {
+			continue;
+		}
+		if (!entry.leaf) {
+			// A block may leave inside.
+			if (mayLeave(statementTokens(source, entry.node.span))) {
+				return undefined;
+			}
+			continue;
+		}
+		const toks = statementTokensAfterLeadingLabel(source, entry.leaf.span);
+		if (mayLeave(toks)) {
+			return undefined;
+		}
+		if (tokenText(toks[0]) === 'if') {
+			continue; // a single-line If runs its call on some paths only
+		}
+		const call = procedureCallIn(toks, procedures);
+		if (call) {
+			return { callee: call.callee, span: absoluteRange(entry.leaf.span, call.first, call.last) };
+		}
+	}
+	return undefined;
+}
+
+/**
+ * The first call a statement makes to a Sub or Function of the module: a
+ * call statement (`S`, `S 1`, `Call S(1)`), or a Function with its
+ * parentheses in an expression (`F()`, `F(n - 1)`). Inside F, a bare `F` is
+ * the return value. `F(1)`, when F takes no arguments, calls a Variant F and
+ * indexes what comes back (measured in Excel 16.0).
+ */
+function procedureCallIn(
+	toks: readonly VbaToken[],
+	procedures: ReadonlyMap<string, ProcedureNode>,
+): { callee: string; first: VbaToken; last: VbaToken } | undefined {
+	const head = tokenText(toks[0]) === 'call' ? 1 : 0;
+	const headName = tokenName(toks[head])?.toLowerCase();
+	const headProc = headName ? procedures.get(headName) : undefined;
+	const assigns = toks.some((tok) => tok.rawText === '=') && head === 0;
+	if (headProc && !assigns && toks[head + 1]?.rawText !== '.' && toks[head + 1]?.rawText !== '!') {
+		return { callee: headName!, first: toks[0], last: toks[head] };
+	}
+	for (let i = 1; i < toks.length - 1; i++) {
+		const lower = tokenName(toks[i])?.toLowerCase();
+		const callee = lower ? procedures.get(lower) : undefined;
+		if (!callee || toks[i + 1].rawText !== '(' || toks[i - 1].rawText === '.' || toks[i - 1].rawText === '!') {
+			continue;
+		}
+		// With arguments it takes none of, a Variant Function calls itself and
+		// indexes what comes back; a typed one does not compile.
+		const variant = !callee.returnType || callee.returnType.trim().toLowerCase() === 'variant';
+		if (callee.params.length === 0 && toks[i + 2]?.rawText !== ')' && !variant) {
+			continue;
+		}
+		return { callee: lower!, first: toks[i], last: toks[i] };
+	}
+	return undefined;
 }
 
 function absoluteRange(base: Span, first: VbaToken, last: VbaToken): Span {

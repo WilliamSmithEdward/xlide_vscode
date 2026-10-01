@@ -1936,6 +1936,97 @@ function fixedArraySubscriptViolations(
 	return out;
 }
 
+const RETURN_SHAPES = new WeakMap<ModuleNode, ReadonlyMap<string, FixedArrayBound>>();
+
+/** Words that may leave a Function before its one return assignment runs. */
+const RETURN_SKIPPING_WORDS: ReadonlySet<string> = new Set(['exit', 'goto', 'gosub', 'return', 'resume', 'on', 'raise', 'error', 'stop']);
+
+/**
+ * The bounds of the array each Function of the module returns, where they
+ * are known from its body (issue #240, measured in Excel 16.0): one top-level
+ * `F = r` with r a fixed local array, or `F = Array(1, 2)`, the only
+ * statement that names F, in a body nothing can leave early. So `F()(5)`
+ * reads past the end.
+ */
+function functionReturnShapes(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	optionBase: number,
+): ReadonlyMap<string, FixedArrayBound> {
+	// Every procedure asks; a parse makes a new module, so the module is the key.
+	const cached = RETURN_SHAPES.get(mod);
+	if (cached) {
+		return cached;
+	}
+	const out = new Map<string, FixedArrayBound>();
+	RETURN_SHAPES.set(mod, out);
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure' || member.procKind !== 'Function') {
+			continue;
+		}
+		const lower = member.name.toLowerCase();
+		const body = statementTokens(source, member.span);
+		const named = body.filter((tok) => tokenName(tok)?.toLowerCase() === lower).length;
+		if (named !== 2 || body.some((tok, i) => RETURN_SKIPPING_WORDS.has(tokenText(tok)) || (tokenText(tok) === 'end' && !['function', 'if', 'select', 'with'].includes(tokenText(body[i + 1]))))) {
+			continue; // the header, and one assignment
+		}
+		const assignment = member.body.find((node): node is LeafStatementNode => isLeafStatement(node)
+			&& !(node.kind === 'Statement' && node.singleLineIfBranches)
+			&& bareAssignmentTarget(source, node.span)?.name.toLowerCase() === lower);
+		const target = assignment ? bareAssignmentTarget(source, assignment.span) : undefined;
+		if (!target) {
+			continue;
+		}
+		const value = target.valueTokens.filter((tok) => tok.kind !== 'comment');
+		const local = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
+		const shape = local
+			? localFixedArrayDeclarationsForBody(source, member.body, activity, optionBase).get(local)
+			: arrayValueShape(value, member.name, optionBase);
+		if (shape) {
+			out.set(lower, { ...shape, name: `${member.name}()`, origin: `returned by ${member.name}` });
+		}
+	}
+	return out;
+}
+
+/** `F()(5)` and `F(1)(5)`: a subscript on the array a Function returns. */
+function returnedArraySubscriptViolations(
+	source: string,
+	span: Span,
+	returned: ReadonlyMap<string, FixedArrayBound>,
+	lookup: IntegerConstantLookup,
+): Array<{ span: Span; message: string }> {
+	if (returned.size === 0) {
+		return [];
+	}
+	const toks = statementTokensAfterLeadingLabel(source, span);
+	const out: Array<{ span: Span; message: string }> = [];
+	for (let i = 0; i < toks.length - 1; i++) {
+		const shape = returned.get(tokenName(toks[i])?.toLowerCase() ?? '');
+		if (!shape || toks[i + 1].rawText !== '(' || toks[i - 1]?.rawText === '.' || toks[i - 1]?.rawText === '!') {
+			continue;
+		}
+		const call = matchParenFrom(toks, i + 1);
+		if (call < 0 || toks[call + 1]?.rawText !== '(') {
+			continue;
+		}
+		const close = matchParenFrom(toks, call + 1);
+		const slots = close < 0 ? [] : splitTopLevelTokenGroups(toks.slice(call + 2, close).filter((tok) => tok.kind !== 'comment'), ',');
+		if (slots.length !== shape.dims.length || slots.some((slot) => slot.length === 0)) {
+			continue;
+		}
+		for (let index = 0; index < slots.length; index++) {
+			const hit = subscriptViolation(span, shape, returned, slots[index], index, undefined, lookup);
+			if (hit) {
+				out.push(hit);
+				break;
+			}
+		}
+	}
+	return out;
+}
+
 function subscriptViolation(
 	span: Span,
 	decl: FixedArrayBound,
@@ -2132,6 +2223,7 @@ export function checkFixedArraySubscriptBounds(
 		}
 		const declared = localFixedArrayDeclarationsForBody(source, member.body, activity, optionBase);
 		const shapesAt = knownArrayShapesAt(source, symbols, member, activity, optionBase);
+		const returned = functionReturnShapes(source, mod, activity, optionBase);
 		const redimmed = redimShapesAt(source, symbols, member, activity, optionBase);
 		const merged = new Map<ReadonlyMap<string, FixedArrayBound>, Map<ReadonlyMap<string, FixedArrayBound> | undefined, ReadonlyMap<string, FixedArrayBound>>>();
 		const fixedAt = (stmt: LeafStatementNode): ReadonlyMap<string, FixedArrayBound> => {
@@ -2164,6 +2256,9 @@ export function checkFixedArraySubscriptBounds(
 		// Headers too: `For i = 1 To a(5)`, `Select Case a(5)` (issue #233).
 		forEachStatementWithHeaders(source, member.body, (stmt) => {
 			for (const hit of inlineSplitIndexViolations(source, stmt.span)) {
+				push('arraySubscriptOutOfBounds', hit.message, hit.span);
+			}
+			for (const hit of returned.size === 0 ? [] : returnedArraySubscriptViolations(source, stmt.span, returned, withKnownLocals(constants, valuesAt(stmt)))) {
 				push('arraySubscriptOutOfBounds', hit.message, hit.span);
 			}
 			const fixed = fixedAt(stmt);

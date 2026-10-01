@@ -144,15 +144,96 @@ export function checkObjectVariableNotSet(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
+	const nothingFunctions = functionsReturningNothing(source, mod, memberCtx, activity);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
+		}
+		if (nothingFunctions.size > 0) {
+			forEachStatement(member.body, (stmt) => {
+				for (const span of statementAndBranchSpans(stmt)) {
+					for (const hit of nothingResultMemberAccess(statementTokens(source, span), nothingFunctions)) {
+						push('objectVariableNotSet', hit.message, { start: span.start + hit.start, end: span.start + hit.end });
+					}
+				}
+			}, activity);
 		}
 		checkGoToIntoWith(source, member, activity, push);
 		for (const finding of objectStateWalk(source, member, symbols, memberCtx, activity).findings) {
 			push(...finding);
 		}
 	}
+}
+
+/** Words that raise or end before a Function could return: Err.Raise, Error, End, Stop. */
+const PREEMPTING_WORDS: ReadonlySet<string> = new Set(['raise', 'error', 'stop']);
+
+/**
+ * The Functions of the module, by lowercased name, that return an object
+ * and never name their result: each returns Nothing (issue #240, measured
+ * in Excel 16.0), so `F().Count` raises 91. A body that may raise or end
+ * first is left out.
+ */
+function functionsReturningNothing(
+	source: string,
+	mod: ModuleNode,
+	memberCtx: MemberCompletionContext,
+	activity: ConditionalActivityTracker | undefined,
+): Map<string, ProcedureNode> {
+	const out = new Map<string, ProcedureNode>();
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure' || member.procKind !== 'Function' || !member.returnType || /\(\s*\)\s*$/.test(member.returnType)) {
+			continue;
+		}
+		if (!isKnownObjectAssignmentType(member.returnType, memberCtx)) {
+			continue;
+		}
+		const lower = member.name.toLowerCase();
+		const body = statementTokens(source, { start: member.span.start, end: member.span.end });
+		// The header names it once and `End Function` closes it.
+		const named = body.filter((tok) => tokenName(tok)?.toLowerCase() === lower).length;
+		const preempts = body.some((tok, i) => PREEMPTING_WORDS.has(tokenText(tok)) || (tokenText(tok) === 'end' && i > 0 && !['function', 'if', 'select', 'with', 'sub', 'property'].includes(tokenText(body[i + 1]))));
+		if (named === 1 && !preempts) {
+			out.set(lower, member);
+		}
+	}
+	return out;
+}
+
+/** `F().Count` or `F.Count` on a Function that returns Nothing. Offsets are the statement's. */
+function nothingResultMemberAccess(
+	toks: readonly VbaToken[],
+	functions: ReadonlyMap<string, ProcedureNode>,
+): Array<{ start: number; end: number; message: string }> {
+	const out: Array<{ start: number; end: number; message: string }> = [];
+	for (let i = 0; i < toks.length - 1; i++) {
+		const fn = functions.get(tokenName(toks[i])?.toLowerCase() ?? '');
+		if (!fn || toks[i - 1]?.rawText === '.' || toks[i - 1]?.rawText === '!') {
+			continue;
+		}
+		let end = i;
+		if (toks[i + 1].rawText === '(') {
+			let depth = 0;
+			for (let k = i + 1; k < toks.length; k++) {
+				depth += toks[k].rawText === '(' ? 1 : toks[k].rawText === ')' ? -1 : 0;
+				if (depth === 0) {
+					end = k;
+					break;
+				}
+			}
+		} else if (fn.params.length > 0) {
+			continue;
+		}
+		if (toks[end + 1]?.rawText !== '.' || !tokenName(toks[end + 2])) {
+			continue;
+		}
+		out.push({
+			start: toks[i].start,
+			end: toks[end].end,
+			message: `Function '${fn.name}' never sets its result, so it returns Nothing, and '.${toks[end + 2].rawText}' has no object to reach. This will raise Run-time error '91': Object variable or With block variable not set.`,
+		});
+	}
+	return out;
 }
 
 /** What one procedure's object-state walk found, and the state at each Let. */
