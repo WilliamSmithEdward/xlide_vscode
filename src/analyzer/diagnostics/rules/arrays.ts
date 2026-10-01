@@ -2519,7 +2519,12 @@ export function subscriptViolation(
 			? { span: slotSpan, message: `Subscript ${value} for array '${decl.name}'${from} ${detail}. ${error}` }
 			: undefined;
 	}
-	const counter = slot.length === 1 ? counters?.get(tokenName(slot[0])?.toLowerCase() ?? '') : undefined;
+	// `a(i)`, and `a(i + 1)` or `a(i - 1)` a whole number off it (issue #263).
+	const offsetLiteral = slot.length === 3 && (slot[1].rawText === '+' || slot[1].rawText === '-') && slot[2].kind === 'integerLiteral'
+		? parseVbaIntegerLiteral(slot[2].rawText)
+		: undefined;
+	const offset = offsetLiteral === undefined ? 0 : slot[1].rawText === '-' ? -offsetLiteral : offsetLiteral;
+	const counter = slot.length === 1 || offsetLiteral !== undefined ? counters?.get(tokenName(slot[0])?.toLowerCase() ?? '') : undefined;
 	if (!counter) {
 		// A Const, or a local with one known value here (issue #238).
 		const text = slot.map((tok) => tok.rawText).join(' ');
@@ -2535,15 +2540,16 @@ export function subscriptViolation(
 		return atom.kind === 'ubound' ? shape?.upper : atom.kind === 'lbound' ? shape?.lower : undefined;
 	};
 	for (const pass of numericCounterPasses(counter, atomValue)) {
-		const detail = subscriptDetail(pass.value, dim, index, decl.dims.length);
+		const detail = subscriptDetail(pass.value + offset, dim, index, decl.dims.length);
 		if (detail) {
 			const reached = pass.pass === 'first'
 				? `Counter '${slot[0].rawText}' is ${pass.value} on its first pass`
 				: `Counter '${slot[0].rawText}' reaches ${pass.value} on its last pass`;
-			return { span: slotSpan, message: `${reached}, which for array '${decl.name}'${from} ${detail}. ${error}` };
+			const subscript = offset === 0 ? '' : `, so ${slot.map((tok) => tok.rawText).join(' ')} is ${pass.value + offset}`;
+			return { span: slotSpan, message: `${reached}${subscript}, which for array '${decl.name}'${from} ${detail}. ${error}` };
 		}
 	}
-	return symbolicCounterSubscript(span, decl.name, decl.name.toLowerCase(), [slot], counters, index);
+	return offset === 0 ? symbolicCounterSubscript(span, decl.name, decl.name.toLowerCase(), [slot], counters, index) : undefined;
 }
 
 /**

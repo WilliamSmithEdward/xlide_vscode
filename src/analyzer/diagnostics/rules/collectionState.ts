@@ -41,6 +41,7 @@ import { counterText, loopCountersAt, numericCounterPasses, type LoopCounter } f
 import { knownLocalLiteralValuesAt, normalizeType, procedureIntegerConstantLookup, stringLiteralValue, withKnownLocals } from '../typeInference';
 import {
 	activeModuleMembers,
+	blockHeaderLineSpan,
 	forEachVariableGroup,
 	matchParenFrom,
 	setAssignmentTarget,
@@ -155,7 +156,154 @@ export function checkCollectionState(
 				}
 			},
 			touches: (stmt) => namesIn(source, stmt.span),
+			// A counted loop that removes or reads by its counter (issue #263).
+			enter: (node) => simulateCountedLoop(source, node, states, push, activity),
 		});
+	}
+}
+
+/** The most passes a counted loop is run for. */
+const MAX_SIMULATED_PASSES = 10000;
+
+/**
+ * `For i = 1 To c.Count: c.Remove i: Next` on three elements removes 1 and 2,
+ * then finds no element 3 (issue #263, measured in Excel 16.0: error 9; and
+ * error 5 once the collection is empty). A For loop whose bounds the
+ * contents decide, and whose body is plain statements that touch the
+ * collection only by `c.Remove k` and `c(k)`, k the counter, a whole number
+ * or the counter plus or minus one, is run pass by pass. Anything else in
+ * the body that names the collection, writes the counter or may leave the
+ * pass stops it.
+ */
+function simulateCountedLoop(
+	source: string,
+	node: BodyNode,
+	states: ReadonlyMap<string, CollectionContents>,
+	push: PushFn,
+	activity: ConditionalActivityTracker | undefined,
+): void {
+	if (node.kind !== 'ForBlock' || node.each || !node.controlVariable || states.size === 0) {
+		return;
+	}
+	const counter = node.controlVariable.toLowerCase();
+	const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+	const eq = header.findIndex((tok) => tok.rawText === '=');
+	const to = header.findIndex((tok) => tokenText(tok) === 'to');
+	const stepAt = header.findIndex((tok) => tokenText(tok) === 'step');
+	const bound = (toks: readonly VbaToken[]): number | undefined => {
+		const literal = literalIndex(toks);
+		if (literal !== undefined) {
+			return literal;
+		}
+		// `c.Count`, `c.Count - 1`
+		const name = tokenName(toks[0])?.toLowerCase();
+		const contents = name ? states.get(name) : undefined;
+		if (!contents || toks[1]?.rawText !== '.' || tokenText(toks[2]) !== 'count') {
+			return undefined;
+		}
+		if (toks.length === 3) {
+			return contents.items.length;
+		}
+		const offset = toks.length === 5 && (toks[3].rawText === '+' || toks[3].rawText === '-') ? literalIndex([toks[4]]) : undefined;
+		return offset === undefined ? undefined : contents.items.length + (toks[3].rawText === '-' ? -offset : offset);
+	};
+	const start = eq > 0 && to > eq ? bound(header.slice(eq + 1, to)) : undefined;
+	const limit = to > 0 ? bound(header.slice(to + 1, stepAt > 0 ? stepAt : header.length)) : undefined;
+	const step = stepAt > 0 ? literalIndex(header.slice(stepAt + 1)) : 1;
+	if (start === undefined || limit === undefined || step === undefined || step === 0) {
+		return;
+	}
+	interface Use { name: string; display: string; arg: readonly VbaToken[]; base: number; removes: boolean }
+	const uses: Use[] = [];
+	for (const stmt of node.body) {
+		if (activity?.isInactive(stmt.span)) {
+			continue;
+		}
+		if (!isLeafStatement(stmt) || (stmt.kind === 'Statement' && stmt.singleLineIfBranches)) {
+			return;
+		}
+		const toks = statementTokensAfterLeadingLabel(source, stmt.span).filter((tok) => tok.kind !== 'comment');
+		const head = tokenText(toks[0]);
+		if (['exit', 'goto', 'gosub', 'resume', 'return', 'end', 'on', 'stop'].includes(head) || statementLabelDeclaration(source, stmt.span)) {
+			return;
+		}
+		// The counter only read: an operand, a whole collection index, or the
+		// whole Remove argument. Assigned, passed or printed, it is not followed.
+		for (let i = 0; i < toks.length; i++) {
+			if (tokenName(toks[i])?.toLowerCase() !== counter || toks[i - 1]?.rawText === '.') {
+				continue;
+			}
+			const operand = (i > 0 && toks[i - 1].kind === 'operator') || (toks[i + 1]?.kind === 'operator' && !(i === 0 && toks[i + 1].rawText === '='));
+			const indexes = toks[i - 1]?.rawText === '(' && toks[i + 1]?.rawText === ')' && states.has(tokenName(toks[i - 2])?.toLowerCase() ?? '');
+			const removes = i === 3 && toks.length === 4 && tokenText(toks[2]) === 'remove' && states.has(tokenName(toks[0])?.toLowerCase() ?? '');
+			if (!operand && !indexes && !removes) {
+				return;
+			}
+		}
+		for (let i = 0; i < toks.length; i++) {
+			const lower = tokenName(toks[i])?.toLowerCase();
+			if (!lower || toks[i - 1]?.rawText === '.' || !states.has(lower)) {
+				continue;
+			}
+			if (i === 0 && toks[1]?.rawText === '.' && tokenText(toks[2]) === 'remove' && toks.length > 3) {
+				uses.push({ name: lower, display: toks[0].rawText, arg: toks.slice(3), base: stmt.span.start, removes: true });
+				break;
+			}
+			const open = toks[i + 1]?.rawText === '(' ? i + 1 : toks[i + 1]?.rawText === '.' && tokenText(toks[i + 2]) === 'item' && toks[i + 3]?.rawText === '(' ? i + 3 : -1;
+			if (open < 0) {
+				return; // Add, Count after a change, a pass or a Set: not followed
+			}
+			const close = matchParenFrom(toks, open);
+			uses.push({ name: lower, display: toks[i].rawText, arg: toks.slice(open + 1, close), base: stmt.span.start, removes: false });
+			i = close;
+		}
+	}
+	if (uses.length === 0) {
+		return;
+	}
+	const indexAt = (arg: readonly VbaToken[], value: number): number | undefined => {
+		const literal = literalIndex(arg);
+		if (literal !== undefined) {
+			return literal;
+		}
+		if (tokenName(arg[0])?.toLowerCase() !== counter) {
+			return undefined;
+		}
+		if (arg.length === 1) {
+			return value;
+		}
+		const offset = arg.length === 3 && (arg[1].rawText === '+' || arg[1].rawText === '-') ? literalIndex([arg[2]]) : undefined;
+		return offset === undefined ? undefined : value + (arg[1].rawText === '-' ? -offset : offset);
+	};
+	if (uses.some((use) => indexAt(use.arg, start) === undefined)) {
+		return;
+	}
+	const counts = new Map([...new Set(uses.map((use) => use.name))].map((name) => [name, states.get(name)!.items.length]));
+	let passes = 0;
+	for (let value = start; step > 0 ? value <= limit : value >= limit; value += step) {
+		if (++passes > MAX_SIMULATED_PASSES) {
+			return;
+		}
+		for (const use of uses) {
+			const count = counts.get(use.name)!;
+			const index = indexAt(use.arg, value)!;
+			if (index >= 1 && index <= count) {
+				if (use.removes) {
+					counts.set(use.name, count - 1);
+				}
+				continue;
+			}
+			if (passes === 1 && literalIndex(use.arg) !== undefined) {
+				return; // the walk into the block reports the first pass
+			}
+			const span = { start: use.base + use.arg[0].start, end: use.base + use.arg[use.arg.length - 1].end };
+			const where = `On the pass of the For loop where '${node.controlVariable}' is ${value}`;
+			const message = count === 0
+				? `${where}, '${use.display}' holds nothing, so no index reaches an element. This will raise Run-time error '5': Invalid procedure call or argument.`
+				: `${where}, '${use.display}' holds ${count} element${count === 1 ? '' : 's'}, indexed 1 to ${count}; ${index} is outside that. This will raise Run-time error '9': Subscript out of range.`;
+			push('collectionIndexOutOfRange', message, span);
+			return;
+		}
 	}
 }
 

@@ -39,10 +39,13 @@ import type { VbaSymbol } from '../../symbols/symbolModel';
 import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { bankersRound, isBareOrVbaQualifiedIntrinsicCall, namesIn } from './shared';
+import { checkEachCounterPass, loopCountersAt } from '../loopCounters';
 import { blockHeaderLeaves, isLoopBlock, selectArms } from '../blockHeaders';
 import { fieldChain, moduleTypes, variableRoot, variableSymbolIn, type ModuleTypes } from '../typeFields';
 import {
 	knownLocalLiteralValues,
+	knownLocalLiteralValuesAt,
+	type KnownLocalValue,
 	normalizeType,
 	stringLiteralValue,
 	typeEnvironmentFor,
@@ -50,6 +53,8 @@ import {
 import {
 	activeModuleMembers,
 	bareAssignmentTarget,
+	blockFooterLineSpan,
+	blockHeaderLineSpan,
 	blockHeaderStatements,
 	firstExecutableTokenIndex,
 	forEachVariableGroup,
@@ -918,7 +923,234 @@ export function checkOverflow(
 		// `t.i = t.i + 1`: a numeric member of a Type value as the target (issue #253).
 		const memberTarget = types.size === 0 ? undefined : (span: Span): AssignmentTarget | undefined => memberAssignmentTarget(source, span, symbols, member, types);
 		checkProcedureBody(source, member, env, names, justAssigned, activity, push, memberTarget);
+		checkAccumulatingLoops(source, member, env, names, knownLocalLiteralValuesAt(source, member, symbols, activity), activity, push);
 	}
+}
+
+/** Statement heads after which a loop's pass may not run on. */
+const LOOP_LEAVING_HEADS: ReadonlySet<string> = new Set(['exit', 'goto', 'gosub', 'resume', 'return', 'on', 'stop']);
+
+/** The most passes a loop is run for to find its overflow. */
+const MAX_ACCUMULATED_PASSES = 100000;
+
+/**
+ * A whole-number local a loop changes by the same statement every pass,
+ * until it no longer fits its type (issue #263, measured in Excel 16.0):
+ *
+ *  - `For i = 1 To 300: t = t + i` on an Integer t, and `p = p * i` from
+ *    p = 1 to 20 on a Long, are run pass by pass from the value the local
+ *    holds as the loop starts.
+ *  - `Do: i = i + 1: Loop Until i > 32767` on an Integer, and
+ *    `While b <= 255: b = b + 1: Wend` on a Byte, cannot end any other way:
+ *    no value of the type passes the exit test.
+ *
+ * The step is the loop's own top-level statement `x = x + k`, `x = x - k` or
+ * `x = x * k`, k a whole number or the counter; nothing else in the body
+ * names x, and nothing may leave the pass.
+ */
+function checkAccumulatingLoops(
+	source: string,
+	proc: ProcedureNode,
+	env: ReadonlyMap<string, string>,
+	names: NameLookup,
+	startValues: (node: BodyNode) => ReadonlyMap<string, KnownLocalValue>,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const visit = (body: readonly BodyNode[]): void => {
+		for (const node of body) {
+			if (activity?.isInactive(node.span) || !('body' in node) || !Array.isArray(node.body)) {
+				continue;
+			}
+			if (node.kind === 'ForBlock') {
+				accumulateFor(source, node, env, names, startValues(node), activity, push);
+			} else if (node.kind === 'DoBlock' || node.kind === 'WhileBlock') {
+				endlessStep(source, node, env, activity, push);
+			}
+			visit(node.body as BodyNode[]);
+		}
+	};
+	visit(proc.body);
+}
+
+interface LoopStep {
+	name: string;
+	type: NumericType;
+	op: '+' | '-' | '*';
+	/** The other operand: a whole number, or the counter. */
+	by: number | 'counter';
+	span: Span;
+	text: string;
+}
+
+/** The body's one step of a whole-number local, when the body is plain statements that run every pass. */
+function loopStepIn(
+	source: string,
+	body: readonly BodyNode[],
+	env: ReadonlyMap<string, string>,
+	counter: string | undefined,
+	activity: ConditionalActivityTracker | undefined,
+	only?: string,
+): LoopStep | undefined {
+	const statements: Array<{ toks: readonly VbaToken[]; span: Span }> = [];
+	for (const node of body) {
+		if (activity?.isInactive(node.span)) {
+			continue;
+		}
+		if (!isLeafStatement(node) || (node.kind === 'Statement' && node.singleLineIfBranches)) {
+			return undefined;
+		}
+		const toks = statementTokens(source, node.span).filter((tok) => tok.kind !== 'comment');
+		if (LOOP_LEAVING_HEADS.has(tokenText(toks[0])) || (tokenText(toks[0]) === 'end' && toks.length === 1) || statementLabelDeclaration(source, node.span)) {
+			return undefined;
+		}
+		statements.push({ toks, span: node.span });
+	}
+	let step: LoopStep | undefined;
+	for (const { toks, span } of statements) {
+		const target = tokenName(toks[0])?.toLowerCase();
+		const type = target ? numericTypeOf(env.get(target)) : undefined;
+		if (!target || toks[1]?.rawText !== '=' || !type || !WHOLE_TYPES.has(type) || type === 'longlong' || (only && target !== only)) {
+			continue;
+		}
+		const value = toks.slice(2);
+		const self = (tok: VbaToken | undefined): boolean => tokenName(tok)?.toLowerCase() === target;
+		const operand = (tok: VbaToken | undefined): number | 'counter' | undefined => {
+			if (tok?.kind === 'integerLiteral') {
+				return parseVbaIntegerLiteral(tok.rawText);
+			}
+			return counter && tokenName(tok)?.toLowerCase() === counter ? 'counter' : undefined;
+		};
+		if (value.length !== 3 || !['+', '-', '*'].includes(value[1].rawText)) {
+			continue;
+		}
+		const op = value[1].rawText as LoopStep['op'];
+		const by = self(value[0]) ? operand(value[2]) : op !== '-' && self(value[2]) ? operand(value[0]) : undefined;
+		if (by === undefined || step) {
+			return undefined; // one step only
+		}
+		step = { name: target, type, op, by, span, text: source.slice(span.start, span.end).trim() };
+	}
+	if (!step) {
+		return undefined;
+	}
+	// Nothing else names the local.
+	const mentions = statements.filter(({ toks }) => toks.some((tok, k) => tokenName(tok)?.toLowerCase() === step!.name && toks[k - 1]?.rawText !== '.'));
+	return mentions.length === 1 ? step : undefined;
+}
+
+function accumulateFor(
+	source: string,
+	node: ForBlockNode,
+	env: ReadonlyMap<string, string>,
+	names: NameLookup,
+	start: ReadonlyMap<string, KnownLocalValue>,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	if (node.each || !node.controlVariable) {
+		return;
+	}
+	const counter = node.controlVariable.toLowerCase();
+	const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+	const eq = header.findIndex((tok) => tok.rawText === '=');
+	const to = header.findIndex((tok) => tokenText(tok) === 'to');
+	const stepAt = header.findIndex((tok) => tokenText(tok) === 'step');
+	const fold = (toks: readonly VbaToken[]): number | undefined => {
+		const folded = toks.length === 0 ? undefined : new TypedFolder(toks, node.span.start, names).fold();
+		return folded && !isOverflow(folded) && Number.isInteger(folded.value) ? folded.value : undefined;
+	};
+	const first = eq > 0 && to > eq ? fold(header.slice(eq + 1, to)) : undefined;
+	const limit = to > 0 ? fold(header.slice(to + 1, stepAt > 0 ? stepAt : header.length)) : undefined;
+	const increment = stepAt > 0 ? fold(header.slice(stepAt + 1)) : 1;
+	if (first === undefined || limit === undefined || !increment) {
+		return;
+	}
+	const step = loopStepIn(source, node.body as BodyNode[], env, counter, activity);
+	const initial = step ? start.get(step.name) : undefined;
+	if (!step || step.name === counter || initial?.kind !== 'number' || !Number.isInteger(initial.value)) {
+		return;
+	}
+	let value = initial.value as number;
+	let passes = 0;
+	for (let c = first; increment > 0 ? c <= limit : c >= limit; c += increment) {
+		if (++passes > MAX_ACCUMULATED_PASSES) {
+			return;
+		}
+		const by = step.by === 'counter' ? c : step.by;
+		value = step.op === '+' ? value + by : step.op === '-' ? value - by : value * by;
+		if (!inRange(value, step.type)) {
+			if (passes === 1) {
+				return; // the walk into the loop reports its first pass
+			}
+			push(
+				'arithmeticOverflow',
+				`On the pass of the For loop where '${node.controlVariable}' is ${c}, '${step.text}' makes '${step.name}' ${value}, which does not fit ${article(RANGES[step.type].label)} ${RANGES[step.type].label}. This will raise Run-time error '6': Overflow.`,
+				{ start: step.span.start, end: step.span.start + source.slice(step.span.start, step.span.end).trimEnd().length },
+			);
+			return;
+		}
+	}
+}
+
+/** `Do ... Loop Until i > 32767` stepping an Integer: no value ends the loop, so the step overflows. */
+function endlessStep(
+	source: string,
+	node: BodyNode,
+	env: ReadonlyMap<string, string>,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	// The test: `Do While x`, `Do Until x`, `Loop While x`, `Loop Until x`, `While x`.
+	const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+	const footer = statementTokensAfterLeadingLabel(source, blockFooterLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+	const tests: Array<{ keyword: string; condition: readonly VbaToken[] }> = [];
+	for (const line of [header, footer]) {
+		const head = tokenText(line[0]);
+		const word = head === 'while' ? 'while' : (head === 'do' || head === 'loop') ? tokenText(line[1]) : '';
+		if (word === 'while' || word === 'until') {
+			tests.push({ keyword: word, condition: line.slice(head === 'while' ? 1 : 2) });
+		}
+	}
+	if (tests.length !== 1) {
+		return;
+	}
+	const { keyword, condition } = tests[0];
+	if (condition.length !== 3 && condition.length !== 4) {
+		return;
+	}
+	// `x op c`, the constant signed or not.
+	const name = tokenName(condition[0])?.toLowerCase();
+	const op = condition[1]?.rawText;
+	const negative = condition.length === 4 && condition[2].rawText === '-';
+	const literal = condition[negative ? 3 : 2];
+	const raw = literal?.kind === 'integerLiteral' ? parseVbaIntegerLiteral(literal.rawText) : undefined;
+	if (!name || raw === undefined || !['<', '<=', '>', '>=', '=', '<>'].includes(op)) {
+		return;
+	}
+	const limit = negative ? -raw : raw;
+	// The body is plain statements with no Exit, GoTo or End: loopStepIn
+	// finds the step only there.
+	const step = loopStepIn(source, (node as { body: BodyNode[] }).body, env, undefined, activity, name);
+	if (!step || step.op === '*' || step.by === 'counter' || step.by <= 0) {
+		return;
+	}
+	const range = RANGES[step.type];
+	const holds = (w: number): boolean => op === '<' ? w < limit : op === '<=' ? w <= limit : op === '>' ? w > limit : op === '>=' ? w >= limit : op === '=' ? w === limit : w !== limit;
+	const ends = (w: number): boolean => keyword === 'while' ? !holds(w) : holds(w);
+	// The test changes at the constant, so the range's ends and the values
+	// around the constant show whether any value ends the loop.
+	const probes = [range.min, range.max, limit - 1, limit, limit + 1].filter((w) => w >= range.min && w <= range.max);
+	if (probes.some(ends)) {
+		return;
+	}
+	const condText = condition.map((tok) => tok.rawText).join(' ');
+	const reason = keyword === 'while' ? `the loop runs while ${condText}, which ${article(range.label)} ${range.label} always is` : `the loop ends only when ${condText}, which ${article(range.label)} ${range.label} never is`;
+	push(
+		'arithmeticOverflow',
+		`'${step.name}' is ${article(range.label)} ${range.label}, and ${reason}, so '${step.text}' runs until it does not fit. This will raise Run-time error '6': Overflow.`,
+		{ start: step.span.start, end: step.span.start + source.slice(step.span.start, step.span.end).trimEnd().length },
+	);
 }
 
 function checkConstDeclarations(
@@ -1028,6 +1260,7 @@ function checkProcedureBody(
 	// Every name a block mentions, its own lines included: `For i = ...` and
 	// `If Store(k, n) Then` change what they name as well (issue #237).
 	const touchedIn = (node: BodyNode): Set<string> => namesIn(source, node.span);
+	const counters = loopCountersAt(source, proc.body, activity);
 	const forget = (touched: ReadonlySet<string>): void => {
 		for (const lower of touched) {
 			forgetName(justAssigned, lower);
@@ -1095,7 +1328,22 @@ function checkProcedureBody(
 				justAssigned.clear();
 			}
 			for (const span of spans) {
-				const stored = checkStatement(source, span, env, names, push, memberTarget);
+				// A loop counter on its first and last passes as well:
+				// `For i = 32760 To 32770` then `CInt(i)` overflows on the last
+				// (issue #263).
+				let stored: ReturnType<typeof checkStatement>;
+				checkEachCounterPass(source, span, counters.get(node), () => undefined, (values, report) => {
+					if (values.size === 0) {
+						stored = checkStatement(source, span, env, names, report, memberTarget);
+						return;
+					}
+					const passNames: NameLookup = (lower) => {
+						const value = values.get(lower);
+						const type = value === undefined ? undefined : numericTypeOf(env.get(lower));
+						return type ? { value: value!, type } : names(lower);
+					};
+					checkStatement(source, span, env, passNames, report, memberTarget);
+				}, push);
 				if (!straightLine) {
 					continue;
 				}
@@ -1377,6 +1625,31 @@ function checkForCounter(
 	}
 	const step = toks.findIndex((tok) => tokenText(tok) === 'step');
 	const limitToks = toks.slice(to + 1, step > 0 ? step : toks.length).filter((tok) => tok.kind !== 'comment');
+	// The For line converts its start, limit and step to the counter's type
+	// as it runs, before the first pass (issue #263, measured in Excel 16.0):
+	// `For b = 5 To 3 Step -1` on a Byte raises 6 there, and so does a limit
+	// past the type, whatever Exit For the body holds.
+	if (type !== 'longlong') {
+		const eqAt = toks.findIndex((tok) => tok.rawText === '=');
+		const parts: Array<[string, readonly VbaToken[]]> = [
+			['start', eqAt > 0 ? toks.slice(eqAt + 1, to) : []],
+			['limit', limitToks],
+			['step', step > 0 ? toks.slice(step + 1) : []],
+		];
+		for (const [which, part] of parts) {
+			const value = part.filter((tok) => tok.kind !== 'comment');
+			const folded = value.length === 0 ? undefined : new TypedFolder(value, header.start, names).fold();
+			if (!folded || isOverflow(folded) || inRange(bankersRound(folded.value), type)) {
+				continue;
+			}
+			push(
+				'forCounterOverflow',
+				`Counter '${node.controlVariable}' is ${RANGES[type].label}, and the For line converts its ${which} ${folded.value} to ${RANGES[type].label} as it starts, which does not fit. This will raise Run-time error '6': Overflow.`,
+				{ start: header.start + value[0].start, end: header.start + value[value.length - 1].end },
+			);
+			return;
+		}
+	}
 	const limit = new TypedFolder(limitToks, header.start, names).fold();
 	const stepValue = step > 0 ? new TypedFolder(toks.slice(step + 1).filter((tok) => tok.kind !== 'comment'), header.start, names).fold() : { value: 1, type: 'integer' as NumericType };
 	if (!limit || isOverflow(limit) || !stepValue || isOverflow(stepValue) || stepValue.value === 0 || !Number.isInteger(stepValue.value)) {
