@@ -752,6 +752,26 @@ export function procedureIntegerConstantLookup(
 	);
 }
 
+/**
+ * `constants`, then the whole-number value a local holds at the statement
+ * (issue #238): `zz = 12` then `arr(zz)`, `zz = -1` then `ReDim a(zz)`.
+ */
+export function withKnownLocals(
+	constants: IntegerConstantLookup,
+	known: ReadonlyMap<string, KnownLocalValue>,
+): IntegerConstantLookup {
+	return {
+		get: (name) => {
+			const constant = constants.get(name);
+			if (constant !== undefined) {
+				return constant;
+			}
+			const local = known.get(name.toLowerCase());
+			return local?.kind === 'number' && Number.isInteger(local.value) ? (local.value as number) : undefined;
+		},
+	};
+}
+
 export function scopedIntegerConstantLookup(
 	constants: ReadonlyMap<string, number | undefined>,
 	symbols: ReturnType<typeof buildModuleSymbols>,
@@ -2930,6 +2950,18 @@ export interface KnownLocalValue {
 	contentMutated?: boolean;
 }
 
+const MODULE_MEMBER_NAMES = new WeakMap<ReturnType<typeof buildModuleSymbols>, ReadonlySet<string>>();
+
+/** The lowercased names the module declares at its top level, which shadow the VBA library's. */
+function moduleMemberNames(symbols: ReturnType<typeof buildModuleSymbols>): ReadonlySet<string> {
+	let names = MODULE_MEMBER_NAMES.get(symbols);
+	if (!names) {
+		names = new Set((symbols.root.children ?? []).map((child) => child.name.toLowerCase()));
+		MODULE_MEMBER_NAMES.set(symbols, names);
+	}
+	return names;
+}
+
 /**
  * The locals of a procedure whose value is plain from the text (issues #118
  * and #119): a variable nothing ever assigns holds its default - 0 for a
@@ -2996,6 +3028,8 @@ export function knownLocalLiteralValues(
 							entry.literals.add(literal);
 						}
 					}
+					// The value may pass a name ByRef: `w = Take(d)` (issue #238).
+					mutateWholeArguments(toks, first + 2, true);
 					continue;
 				}
 				if (head === 'set' || head === 'redim' || head === 'input' || head === 'get' || head === 'line' || head === 'erase') {
@@ -3019,24 +3053,45 @@ export function knownLocalLiteralValues(
 					}
 					continue;
 				}
-				// A whole name passed to any call may be ByRef: `Take d`, `Take(d)`,
-				// `Call Take(d)`, `x = Take(d)`. Only a name standing alone in an
-				// argument slot counts; `Take(d + 1)` copies.
-				for (let i = 0; i < toks.length; i++) {
-					const name = tokenName(toks[i])?.toLowerCase();
-					if (!name || !candidates.has(name)) {
-						continue;
-					}
-					const prev = toks[i - 1];
-					const next = toks[i + 1];
-					const opensSlot = prev === undefined || prev.rawText === '(' || prev.rawText === ',' || prev.kind === 'identifier' || prev.kind === 'keyword';
-					const closesSlot = next === undefined || next.rawText === ')' || next.rawText === ',' || next.rawText === ':' || next.kind === 'comment';
-					if (opensSlot && closesSlot && !(prev?.kind === 'operator') && !(next?.kind === 'operator')) {
-						mutate(name);
-					}
-				}
+				mutateWholeArguments(toks, 0, false);
 			}
 		}
+	};
+	// A whole name passed to any call may be ByRef: `Take d`, `Take(d)`,
+	// `Call Take(d)`, `x = Take(d)`. Only a name standing alone in an
+	// argument slot counts; `Take(d + 1)` copies.
+	const mutateWholeArguments = (toks: readonly VbaToken[], from: number, inValue: boolean): void => {
+		// In a value a call takes parentheses: `x = 10 Mod d` passes nothing.
+		for (let i = from; i < toks.length; i++) {
+			const name = tokenName(toks[i])?.toLowerCase();
+			if (!name || !candidates.has(name)) {
+				continue;
+			}
+			const prev = toks[i - 1];
+			const next = toks[i + 1];
+			const opensSlot = prev?.rawText === '(' || prev?.rawText === ',' || (!inValue && (prev === undefined || prev.kind === 'identifier' || prev.kind === 'keyword'));
+			const closesSlot = next === undefined || next.rawText === ')' || next.rawText === ',' || next.rawText === ':' || next.kind === 'comment';
+			if (opensSlot && closesSlot && !(prev?.kind === 'operator') && !(next?.kind === 'operator') && !(inValue && libraryFunctionArgument(toks, i))) {
+				mutate(name);
+			}
+		}
+	};
+	// A VBA library function assigns none of its arguments: `n = CLng(s)`.
+	const libraryFunctionArgument = (toks: readonly VbaToken[], at: number): boolean => {
+		let depth = 0;
+		for (let j = at - 1; j > 0; j--) {
+			if (toks[j].rawText === ')') {
+				depth++;
+			} else if (toks[j].rawText === '(' && depth-- === 0) {
+				const callee = tokenName(toks[j - 1])?.toLowerCase();
+				const qualified = toks[j - 2]?.rawText === '.';
+				if (!callee || (qualified && tokenText(toks[j - 3]) !== 'vba') || (!qualified && moduleMemberNames(symbols).has(callee))) {
+					return false;
+				}
+				return resolveRuntimeFunction(callee)?.kind === 'function';
+			}
+		}
+		return false;
 	};
 	visit(proc.body);
 	const out = new Map<string, KnownLocalValue>();

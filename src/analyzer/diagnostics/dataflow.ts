@@ -355,10 +355,10 @@ export interface BlockEnteringState<S> {
  * inside a block is visited with the state the block is entered with, once
  * the block's own lines have run: each If arm and each Case from that state,
  * a With's body once, and a loop's body as its first pass runs it. A block
- * nested in a loop may run on a later pass, so it first forgets every name
- * the loop changes. After a block the state is its entry state less every
- * name it touches, so a block that never names a variable keeps what is known
- * about it.
+ * or a single-line If nested in a loop may run on a later pass, so it first
+ * forgets every name the loop changes (issue #238). After a block the state
+ * is its entry state less every name it touches, so a block that never names
+ * a variable keeps what is known about it.
  */
 export function walkEnteringBlocks<S>(
 	source: string,
@@ -373,6 +373,10 @@ export function walkEnteringBlocks<S>(
 			continue;
 		}
 		if (!('body' in node) || !Array.isArray(node.body)) {
+			// A single-line If runs its statements on some passes only.
+			if (isConditionalLeaf(node)) {
+				state.forget(loopTouched);
+			}
 			visit(node);
 			continue;
 		}

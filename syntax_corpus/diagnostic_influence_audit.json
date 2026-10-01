@@ -1081,11 +1081,15 @@
         "issue233_05_runtime",
         "issue233_06_runtime",
         "issue233_07_runtime",
-        "issue233_08_runtime"
+        "issue233_08_runtime",
+        "issue238_08_runtime",
+        "issue238_09_runtime",
+        "issue238_32_runtime",
+        "issue238_33_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show CDate(\"not a date\") compiles successfully and raises runtime error 13, while CDate(\"1/2/2020\") runs under the oracle environment. Active coverage is intentionally narrow: it reports bare or VBA-qualified CDate calls only when the first argument is an empty string literal or plain ASCII word text with no digits and no recognized English month token. Date-looking strings, non-ASCII/localized-looking text, variables, expressions, non-CDate conversion functions, source-shadowed bare CDate names, and inactive conditional-compilation branches stay quiet. Issue #218: the Date argument of Year, Month, Day, Weekday, Hour, Minute, Second, DateAdd, DatePart and DateDiff, given a string no locale reads as a date or a number outside the Date serial range (-657434 to 2958465), and Sgn given a string that is no number. In a block header too: For bounds and Step, Select Case, Do, Loop and While conditions, a With subject (issue #233, Excel 16.0).",
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show CDate(\"not a date\") compiles successfully and raises runtime error 13, while CDate(\"1/2/2020\") runs under the oracle environment. Active coverage is intentionally narrow: it reports bare or VBA-qualified CDate calls only when the first argument is an empty string literal or plain ASCII word text with no digits and no recognized English month token. Date-looking strings, non-ASCII/localized-looking text, variables, expressions, non-CDate conversion functions, source-shadowed bare CDate names, and inactive conditional-compilation branches stay quiet. Issue #218: the Date argument of Year, Month, Day, Weekday, Hour, Minute, Second, DateAdd, DatePart and DateDiff, given a string no locale reads as a date or a number outside the Date serial range (-657434 to 2958465), and Sgn given a string that is no number. In a block header too: For bounds and Step, Select Case, Do, Loop and While conditions, a With subject (issue #233, Excel 16.0). Issue #238: a String local holding one known string at the conversion is read like the literal; an unassigned String holds \"\", which CLng and CDate refuse. A name passed whole to a non-library function inside an assignment's value is taken as filled ByRef. Measured in Excel 16.0 (build 20326).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -1181,11 +1185,14 @@
         "issue209_13_runtime",
         "issue209_14_runtime",
         "issue209_26_runtime",
-        "issue209_27_runtime"
+        "issue209_27_runtime",
+        "issue238_06_runtime",
+        "issue238_07_runtime",
+        "issue238_39_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Reports ReDim and ReDim Preserve dimensions whose lower bound is above the upper one, each bound a literal or a constant expression (a Private or Public Const, a local Const, an Enum member or a host constant; issue #209). With no To the lower bound is Option Base. It points at the impossible dimension span and maps the deterministic runtime case to runtime error 9. Increasing and equal bounds, a bound naming a variable (including a local that shadows a constant) and inactive-branch bounds stay quiet; known scalar or fixed-array ReDim targets keep their compile-error diagnostics instead of also receiving this runtime diagnostic.",
+      "notes": "Reports ReDim and ReDim Preserve dimensions whose lower bound is above the upper one, each bound a literal or a constant expression (a Private or Public Const, a local Const, an Enum member or a host constant; issue #209). With no To the lower bound is Option Base. It points at the impossible dimension span and maps the deterministic runtime case to runtime error 9. Increasing and equal bounds, a bound naming a variable (including a local that shadows a constant) and inactive-branch bounds stay quiet; known scalar or fixed-array ReDim targets keep their compile-error diagnostics instead of also receiving this runtime diagnostic. Issue #238: a bound that is a local with one known value at the ReDim reads like a Const (zz = -1 then ReDim a(zz)). Measured in Excel 16.0 (build 20326).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -1268,11 +1275,23 @@
         "issue200_06_runtime",
         "issue200_09_runtime",
         "issue233_25_runtime",
-        "issue233_26_runtime"
+        "issue233_26_runtime",
+        "issue238_01_runtime",
+        "issue238_02_runtime",
+        "issue238_03_runtime",
+        "issue238_04_runtime",
+        "issue238_05_runtime",
+        "issue238_10_runtime",
+        "issue238_17_runtime",
+        "issue238_18_runtime",
+        "issue238_19_runtime",
+        "issue238_20_runtime",
+        "issue238_21_runtime",
+        "issue238_31_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "RUNTIME_006: a constant subscript proven outside a LOCAL single-dimension fixed-size array's declared bounds raises runtime error 9 (compiles, then faults at runtime). No-FP scope: only local fixed arrays (Dim/Static) with a literal upper bound and a literal/folded-signed-integer subscript are checked. Fires on subscript > upper bound, subscript < an EXPLICIT literal lower bound, or a negative subscript. Stays quiet for: dynamic / ReDim'd arrays (owned by unallocated-dynamic-array-access), variable or Const subscripts, multi-dimension arrays, ByRef array parameters, module-level arrays, and the Option-Base-dependent low region of single-bound `Dim a(n)` declarations (oracle runtime006_default_base_low_accepted proves a(0) on `Dim a(5)` is valid under default Option Base 0, so low subscripts are flagged only when negative or below an explicit literal lower bound). Option Base is unmodeled, which is why only the upper bound and explicit literal lower bounds drive flags. Bounds parsing reuses comparableArrayBoundKey; access detection mirrors checkUnallocatedDynamicArrayAccess. Member access via '.' or the bang '!' operator (d!b(N) = d.Item(\"b\")) is excluded so a dictionary/member key that matches a local array name is not mis-bound (adversarial FP-hunt finding). Like every sibling deterministic-runtime-error rule, On Error Resume Next / handlers are not modeled - the subscript still raises error 9, it is merely suppressed at runtime, so the (downgradeable) diagnostic is consistent with the roadmap's deferred On Error policy. In a block header too: For i = 1 To a(5), Select Case a(5) (issue #233, Excel 16.0).",
+      "notes": "RUNTIME_006: a constant subscript proven outside a LOCAL single-dimension fixed-size array's declared bounds raises runtime error 9 (compiles, then faults at runtime). No-FP scope: only local fixed arrays (Dim/Static) with a literal upper bound and a literal/folded-signed-integer subscript are checked. Fires on subscript > upper bound, subscript < an EXPLICIT literal lower bound, or a negative subscript. Stays quiet for: dynamic / ReDim'd arrays (owned by unallocated-dynamic-array-access), variable or Const subscripts, multi-dimension arrays, ByRef array parameters, module-level arrays, and the Option-Base-dependent low region of single-bound `Dim a(n)` declarations (oracle runtime006_default_base_low_accepted proves a(0) on `Dim a(5)` is valid under default Option Base 0, so low subscripts are flagged only when negative or below an explicit literal lower bound). Option Base is unmodeled, which is why only the upper bound and explicit literal lower bounds drive flags. Bounds parsing reuses comparableArrayBoundKey; access detection mirrors checkUnallocatedDynamicArrayAccess. Member access via '.' or the bang '!' operator (d!b(N) = d.Item(\"b\")) is excluded so a dictionary/member key that matches a local array name is not mis-bound (adversarial FP-hunt finding). Like every sibling deterministic-runtime-error rule, On Error Resume Next / handlers are not modeled - the subscript still raises error 9, it is merely suppressed at runtime, so the (downgradeable) diagnostic is consistent with the roadmap's deferred On Error policy. In a block header too: For i = 1 To a(5), Select Case a(5) (issue #233, Excel 16.0). Issue #238: a subscript through a Const, a local with one known value, or an expression of them is evaluated (a fraction rounds as VBA rounds it), and the bounds the last literal ReDim gave a dynamic array or Variant local are followed through blocks; a ReDim behind a single-line If, a whole mention of the name, a label or a GoSub ends what is known. Measured in Excel 16.0 (build 20326), issue238_* oracle cases.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -3621,11 +3640,13 @@
         "issue237_27_runtime",
         "issue237_28_runtime",
         "issue237_29_runtime",
-        "issue237_30_runtime"
+        "issue237_30_runtime",
+        "issue238_11_runtime",
+        "issue238_22_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Collection index out of range. VBE runtime errors 5 and 9 on VBA.Collection (issue #121, Excel 16.0). Issue #219: Add with Before or After on an empty collection (5), or outside 1 to Count (9). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0).",
+      "notes": "Collection index out of range. VBE runtime errors 5 and 9 on VBA.Collection (issue #121, Excel 16.0). Issue #219: Add with Before or After on an empty collection (5), or outside 1 to Count (9). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0). Issue #238: an index through a Const or a local with one known value is evaluated. Measured in Excel 16.0 (build 20326).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {

@@ -33,7 +33,9 @@ import {
 } from '../analysisContext';
 import { splitArgSlots } from '../callExtraction';
 import { collectModuleLiteralIntegerConstants } from '../constExpr';
-import { walkBranchMergedBody, walkStraightLineBody } from '../dataflow';
+import { walkBranchMergedBody, walkEnteringBlocks, walkStraightLineBody } from '../dataflow';
+import { isLeafStatement } from '../../parser/nodes';
+import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import { straightLineAssignments, type ReachingAssignments } from '../straightLineValues';
 import { counterText, loopCountersAt, numericCounterPasses, type CounterValue, type CountersAt } from '../loopCounters';
 import { procedureHasUnstructuredFlow } from '../../flow/procedureUnstructured';
@@ -44,8 +46,10 @@ import {
 	type DeclaredValueShape,
 	isKnownScalarType,
 	normalizeType,
+	knownLocalLiteralValuesAt,
 	procedureIntegerConstantLookup,
 	scopedIntegerConstantLookup,
+	withKnownLocals,
 	type SourceDeclaredShape,
 } from '../typeInference';
 import {
@@ -619,10 +623,13 @@ export function checkRedimImpossibleBounds(
 		const localDeclarations = redimBlockedDeclarationsForBody(member.body, activity);
 		const localNames = declarationNamesForBody(member.body, activity);
 		let constants: IntegerConstantLookup | undefined;
-		const lookup = (): IntegerConstantLookup => constants ??= procedureIntegerConstantLookup(
+		const constantsLookup = (): IntegerConstantLookup => constants ??= procedureIntegerConstantLookup(
 			member, moduleConstants, symbols, projectVisibleSymbols, activity, hostModel,
 		);
+		const valuesAt = knownLocalLiteralValuesAt(source, member, symbols, activity);
 		return (stmt) => {
+			// `zz = -1` then `ReDim a(zz)` (issue #238).
+			const lookup = (): IntegerConstantLookup => withKnownLocals(constantsLookup(), valuesAt(stmt));
 			for (const target of redimStatementTargets(source, stmt.span)) {
 				if (target.dimensions.length > MAX_ARRAY_DIMENSIONS) {
 					push(
@@ -1621,6 +1628,110 @@ export function knownArrayShapesAt(
 	};
 }
 
+/**
+ * The bounds the last `ReDim` gave a dynamic array or Variant local, at each
+ * statement it reaches (issue #238): `ReDim a(3)` then `a(7)` is error 9.
+ * A ReDim whose bounds are not literals, any other whole mention of the name
+ * (`Erase a`, `a = b`, `Fill a`), a ReDim inside a single-line If, and a
+ * label or GoSub end what is known. Blocks are entered as issue #237 enters
+ * them.
+ */
+function redimShapesAt(
+	source: string,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	proc: ProcedureNode,
+	activity: ConditionalActivityTracker | undefined,
+	optionBase: number,
+): Map<LeafStatementNode, ReadonlyMap<string, FixedArrayBound>> {
+	const out = new Map<LeafStatementNode, ReadonlyMap<string, FixedArrayBound>>();
+	const locals = arrayValueLocals(symbols, proc);
+	if (locals.size === 0) {
+		return out;
+	}
+	let shapes = new Map<string, FixedArrayBound>();
+	let seen: ReadonlyMap<string, FixedArrayBound> = shapes;
+	const changed = (): void => {
+		shapes = new Map(shapes);
+		seen = shapes;
+	};
+	const forget = (names: Iterable<string>): void => {
+		for (const lower of names) {
+			if (shapes.has(lower)) {
+				changed();
+				shapes.delete(lower);
+			}
+		}
+	};
+	const visit = (node: BodyNode): void => {
+		if (!isLeafStatement(node)) {
+			return;
+		}
+		if (statementLabelDeclaration(source, node.span)) {
+			forget([...shapes.keys()]);
+		}
+		const toks = statementTokensAfterLeadingLabel(source, node.span);
+		// A ReDim's bounds are not subscripts: `ReDim Preserve a(5)` reads no a(5).
+		if (shapes.size > 0 && !toks.some((tok) => tokenText(tok) === 'redim')) {
+			out.set(node, seen);
+		}
+		if (tokenText(toks[0]) === 'gosub') {
+			forget([...shapes.keys()]);
+			return;
+		}
+		// A ReDim a single-line If runs may not run: it only ends what is known.
+		const conditional = node.singleLineIfTail === true || (node.kind === 'Statement' && node.singleLineIfBranches !== undefined);
+		const redims = conditional ? [] : redimStatementTargets(source, node.span);
+		const reshaped = new Set(redims.map((target) => target.name.toLowerCase()));
+		forget([...shapeTouches(source, node)].filter((lower) => !reshaped.has(lower)));
+		for (const target of redims) {
+			const lower = target.name.toLowerCase();
+			const name = locals.get(lower);
+			const dims = target.dimensions.map((dim): ArrayDimensionBound | undefined => (
+				dim.upperValue === undefined || (dim.lowerKey !== undefined && dim.lowerValue === undefined)
+					? undefined
+					: { lower: dim.lowerValue ?? optionBase, upper: dim.upperValue, explicitLower: dim.lowerValue !== undefined }
+			));
+			changed();
+			if (name && dims.length > 0 && dims.every((dim) => dim !== undefined)) {
+				shapes.set(lower, { name, dims: dims as ArrayDimensionBound[], origin: 'ReDim' });
+			} else {
+				shapes.delete(lower);
+			}
+		}
+	};
+	walkEnteringBlocks(source, proc.body, (node) => isInactiveNode(activity, node), visit, {
+		snapshot: () => shapes,
+		restore: (saved) => {
+			shapes = saved;
+			seen = saved;
+		},
+		forget,
+		touches: (stmt) => shapeTouches(source, stmt),
+	});
+	return out;
+}
+
+/**
+ * The names a statement may reshape: every name in a ReDim, and a name used
+ * whole rather than indexed, as `Erase a` and `Fill a` use it. `a(1) = 2`
+ * leaves a's bounds alone.
+ */
+function shapeTouches(source: string, stmt: LeafStatementNode): Set<string> {
+	const toks = statementTokensAfterLeadingLabel(source, stmt.span);
+	const redim = toks.some((tok) => tokenText(tok) === 'redim');
+	const out = new Set<string>();
+	for (let i = 0; i < toks.length; i++) {
+		const lower = tokenName(toks[i])?.toLowerCase();
+		if (!lower || toks[i - 1]?.rawText === '.' || toks[i - 1]?.rawText === '!') {
+			continue;
+		}
+		if (redim || toks[i + 1]?.rawText !== '(') {
+			out.add(lower);
+		}
+	}
+	return out;
+}
+
 function statementAndBranchSpansOf(stmt: LeafStatementNode): Span[] {
 	const branches = stmt.kind === 'Statement' ? stmt.singleLineIfBranches : undefined;
 	return branches ? [stmt.span, ...branches] : [stmt.span];
@@ -1739,6 +1850,7 @@ function fixedArraySubscriptViolations(
 	fixed: ReadonlyMap<string, FixedArrayBound>,
 	excluded: ReadonlySet<string>,
 	counters: CountersAt | undefined,
+	lookup?: IntegerConstantLookup,
 ): Array<{ span: Span; message: string }> {
 	const toks = statementTokensAfterLeadingLabel(source, span);
 	const out: Array<{ span: Span; message: string }> = [];
@@ -1778,7 +1890,7 @@ function fixedArraySubscriptViolations(
 		}
 		// One report per access: the first dimension that is out of range.
 		for (let index = 0; index < slots.length; index++) {
-			const hit = subscriptViolation(span, decl, fixed, slots[index], index, counters);
+			const hit = subscriptViolation(span, decl, fixed, slots[index], index, counters, lookup);
 			if (hit) {
 				out.push(hit);
 				break;
@@ -1795,6 +1907,7 @@ function subscriptViolation(
 	slot: readonly VbaToken[],
 	index: number,
 	counters: CountersAt | undefined,
+	lookup?: IntegerConstantLookup,
 ): { span: Span; message: string } | undefined {
 	const dim = decl.dims[index];
 	const slotSpan = { start: span.start + slot[0].start, end: span.start + slot[slot.length - 1].end };
@@ -1809,7 +1922,13 @@ function subscriptViolation(
 	}
 	const counter = slot.length === 1 ? counters?.get(tokenName(slot[0])?.toLowerCase() ?? '') : undefined;
 	if (!counter) {
-		return undefined; // a variable, Const or member chain: not provable
+		// A Const, or a local with one known value here (issue #238).
+		const text = slot.map((tok) => tok.rawText).join(' ');
+		const known = lookup ? evaluateIntegerConstantExpression(text, lookup) : undefined;
+		const detail = known === undefined ? undefined : subscriptDetail(known, dim, index, decl.dims.length);
+		return detail
+			? { span: slotSpan, message: `Subscript ${text} is ${known} here, which for array '${decl.name}'${from} ${detail}. ${error}` }
+			: undefined;
 	}
 	// `a(i)` inside `For i = 0 To 3`: the counter's first and last passes.
 	const atomValue = (atom: { kind: string; name: string; dimension: number }): number | undefined => {
@@ -1965,32 +2084,47 @@ export function checkFixedArraySubscriptBounds(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	projectIntegerConstants?: ReadonlyMap<string, string | undefined>,
+	projectVisibleSymbols?: readonly VbaSymbol[],
+	hostModel?: HostObjectModel,
 ): void {
 	const optionBase = moduleOptionBase(mod, activity);
+	const moduleConstants = moduleIntegerConstants(mod, projectIntegerConstants, activity);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
 		const declared = localFixedArrayDeclarationsForBody(source, member.body, activity, optionBase);
 		const shapesAt = knownArrayShapesAt(source, symbols, member, activity, optionBase);
-		const merged = new Map<ReadonlyMap<string, FixedArrayBound>, ReadonlyMap<string, FixedArrayBound>>();
+		const redimmed = redimShapesAt(source, symbols, member, activity, optionBase);
+		const merged = new Map<ReadonlyMap<string, FixedArrayBound>, Map<ReadonlyMap<string, FixedArrayBound> | undefined, ReadonlyMap<string, FixedArrayBound>>>();
 		const fixedAt = (stmt: LeafStatementNode): ReadonlyMap<string, FixedArrayBound> => {
 			const shapes = shapesAt(stmt);
-			let fixed = merged.get(shapes);
+			const reshaped = redimmed.get(stmt);
+			const byReshape = merged.get(shapes) ?? new Map();
+			merged.set(shapes, byReshape);
+			let fixed = byReshape.get(reshaped);
 			if (!fixed) {
 				const next = new Map(declared);
-				for (const [lower, shape] of shapes) {
+				for (const [lower, shape] of [...shapes, ...(reshaped ?? [])]) {
 					if (!declared.has(lower)) {
 						next.set(lower, shape);
 					}
 				}
 				fixed = next;
-				merged.set(shapes, fixed);
+				byReshape.set(reshaped, fixed);
 			}
 			return fixed;
 		};
-		const excluded = redimTargetNamesInBody(source, member.body, activity);
+		const redimTargets = redimTargetNamesInBody(source, member.body, activity);
+		const excludedAt = (stmt: LeafStatementNode): ReadonlySet<string> => {
+			const reshaped = redimmed.get(stmt);
+			return reshaped ? new Set([...redimTargets].filter((lower) => !reshaped.has(lower))) : redimTargets;
+		};
 		const counters = loopCountersAt(source, member.body, activity);
+		// A subscript through a Const or a local with one known value (issue #238).
+		const constants = procedureIntegerConstantLookup(member, moduleConstants, symbols, projectVisibleSymbols, activity, hostModel);
+		const valuesAt = knownLocalLiteralValuesAt(source, member, symbols, activity);
 		// Headers too: `For i = 1 To a(5)`, `Select Case a(5)` (issue #233).
 		forEachStatementWithHeaders(source, member.body, (stmt) => {
 			for (const hit of inlineSplitIndexViolations(source, stmt.span)) {
@@ -2001,7 +2135,8 @@ export function checkFixedArraySubscriptBounds(
 			if (fixed.size === 0 && !stmtCounters) {
 				return;
 			}
-			for (const hit of fixedArraySubscriptViolations(source, stmt.span, fixed, excluded, stmtCounters)) {
+			const excluded = excludedAt(stmt);
+			for (const hit of fixedArraySubscriptViolations(source, stmt.span, fixed, excluded, stmtCounters, withKnownLocals(constants, valuesAt(stmt)))) {
 				push('arraySubscriptOutOfBounds', hit.message, hit.span);
 			}
 			for (const hit of boundIntrinsicDimensionViolations(source, stmt.span, fixed, excluded)) {

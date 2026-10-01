@@ -358,7 +358,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'collectionState',
-		run: (ctx, push) => checkCollectionState(ctx.source, ctx.mod, ctx.activity, push),
+		run: (ctx, push) => checkCollectionState(ctx.source, ctx.mod, ctx.activity, push, ctx.symbols, ctx.opts.projectIntegerConstants, ctx.opts.projectVisibleSymbols, ctx.opts.hostModel),
 	},
 	{
 		name: 'variantValueMisuse',
@@ -577,7 +577,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'arraySubscriptOutOfBounds',
-		run: (ctx, push) => checkFixedArraySubscriptBounds(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
+		run: (ctx, push) => checkFixedArraySubscriptBounds(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push, ctx.opts.projectIntegerConstants, ctx.opts.projectVisibleSymbols, ctx.opts.hostModel),
 	},
 	{
 		name: 'midStatementLiteralTarget',
@@ -840,6 +840,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.symbols,
 			ctx.opts.projectVisibleSymbols,
 			push,
+			ctx.activity,
 		),
 	},
 	{

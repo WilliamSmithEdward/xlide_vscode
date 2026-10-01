@@ -23,7 +23,11 @@
 // than Add, Remove, Item, Count and indexing ends it too.
 
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
-import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpression';
+import { evaluateIntegerConstantExpression, parseVbaIntegerLiteral, resolveRawIntegerConstants } from '../../constants/integerConstantExpression';
+import type { HostObjectModel } from '../../host/excelObjectModel';
+import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
+import type { VbaSymbol } from '../../symbols/symbolModel';
+import { collectModuleLiteralIntegerConstants } from '../constExpr';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { BodyNode, ModuleNode, ProcedureNode, Span } from '../../parser/nodes';
 import { walkEnteringBlocks } from '../dataflow';
@@ -31,7 +35,7 @@ import { isLeafStatement } from '../../parser/nodes';
 import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import type { PushFn } from '../analysisContext';
 import { counterText, loopCountersAt, numericCounterPasses, type LoopCounter } from '../loopCounters';
-import { stringLiteralValue, normalizeType } from '../typeInference';
+import { knownLocalLiteralValuesAt, normalizeType, procedureIntegerConstantLookup, stringLiteralValue, withKnownLocals } from '../typeInference';
 import {
 	activeModuleMembers,
 	forEachVariableGroup,
@@ -55,7 +59,12 @@ export function checkCollectionState(
 	mod: ModuleNode,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	symbols?: ReturnType<typeof buildModuleSymbols>,
+	projectIntegerConstants?: ReadonlyMap<string, string | undefined>,
+	projectVisibleSymbols?: readonly VbaSymbol[],
+	hostModel?: HostObjectModel,
 ): void {
+	const moduleConstants = collectModuleLiteralIntegerConstants(mod, activity, resolveRawIntegerConstants(projectIntegerConstants ?? new Map(), new Map()));
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -72,6 +81,9 @@ export function checkCollectionState(
 		let mentions: Map<string, number> | undefined;
 		const isEmpty = (lower: string): boolean => autoInstanced.variantLocals.has(lower)
 			&& (mentions ??= nameMentions(source, member, activity)).get(lower) === 1;
+		// An index through a Const or a local with one known value (issue #238).
+		const constants = symbols ? procedureIntegerConstantLookup(member, moduleConstants, symbols, projectVisibleSymbols, activity, hostModel) : undefined;
+		const valuesAt = symbols ? knownLocalLiteralValuesAt(source, member, symbols, activity) : undefined;
 		// Blocks are entered with the state they start with (issue #237).
 		const visit = (node: BodyNode): void => {
 			if (!isLeafStatement(node)) {
@@ -117,7 +129,10 @@ export function checkCollectionState(
 				}
 				return;
 			}
-			checkStatement(node.span, toks, states, push, isEmpty);
+			const lookup = constants && valuesAt ? withKnownLocals(constants, valuesAt(node)) : undefined;
+			const indexOf = (arg: readonly VbaToken[]): number | undefined => literalIndex(arg)
+				?? (lookup ? evaluateIntegerConstantExpression(arg.map((tok) => tok.rawText).join(' '), lookup) : undefined);
+			checkStatement(node.span, toks, states, push, isEmpty, indexOf);
 		};
 		walkEnteringBlocks(source, member.body, (node) => activity?.isInactive(node.span) === true, visit, {
 			snapshot: () => cloneStates(states),
@@ -187,7 +202,9 @@ function forgetMentioned(source: string, span: Span, states: Map<string, Collect
 	}
 }
 
-function checkStatement(base: Span, toks: readonly VbaToken[], states: Map<string, CollectionContents>, push: PushFn, isEmpty: (lower: string) => boolean): void {
+type IndexOf = (arg: readonly VbaToken[]) => number | undefined;
+
+function checkStatement(base: Span, toks: readonly VbaToken[], states: Map<string, CollectionContents>, push: PushFn, isEmpty: (lower: string) => boolean, indexOf: IndexOf = literalIndex): void {
 	const at = (from: number, to: number): Span => ({ start: base.start + toks[from].start, end: base.start + toks[to].end });
 	// First pass: reads and the recognised forms, in source order. A mention
 	// in any other shape ends tracking of that variable after this statement.
@@ -207,7 +224,7 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: Map<strin
 		// `c(index)` or `c("key")`
 		if (next?.rawText === '(') {
 			const close = matchParenFrom(toks, i + 1);
-			if (close > i + 2 && checkRead(lower, state, toks.slice(i + 2, close), at(i + 2, close - 1), push)) {
+			if (close > i + 2 && checkRead(lower, state, toks.slice(i + 2, close), at(i + 2, close - 1), push, indexOf)) {
 				continue;
 			}
 			toForget.add(lower);
@@ -223,7 +240,7 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: Map<strin
 		}
 		if (memberName === 'item') {
 			const itemClose = toks[i + 3]?.rawText === '(' ? matchParenFrom(toks, i + 3) : -1;
-			if (itemClose > i + 4 && checkRead(lower, state, toks.slice(i + 4, itemClose), at(i + 4, itemClose - 1), push)) {
+			if (itemClose > i + 4 && checkRead(lower, state, toks.slice(i + 4, itemClose), at(i + 4, itemClose - 1), push, indexOf)) {
 				continue;
 			}
 			toForget.add(lower);
@@ -232,9 +249,9 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: Map<strin
 		if ((memberName === 'add' || memberName === 'remove') && i === (tokenText(toks[0]) === 'call' ? 1 : 0)) {
 			const args = argumentsAfter(toks, i + 3);
 			if (memberName === 'add') {
-				mutations.push(() => add(lower, state, args, base, push, isEmpty));
+				mutations.push(() => add(lower, state, args, base, push, isEmpty, indexOf));
 			} else if (args.length === 1) {
-				mutations.push(() => remove(lower, state, args[0], base, push));
+				mutations.push(() => remove(lower, state, args[0], base, push, indexOf));
 			} else {
 				toForget.add(lower);
 			}
@@ -295,8 +312,8 @@ function literalIndex(arg: readonly VbaToken[]): number | undefined {
 }
 
 /** Judges `c(arg)` or `c.Item(arg)`; false when the argument is not a literal the rule reads. */
-function checkRead(name: string, state: CollectionContents, arg: readonly VbaToken[], span: Span, push: PushFn): boolean {
-	const index = literalIndex(arg);
+function checkRead(name: string, state: CollectionContents, arg: readonly VbaToken[], span: Span, push: PushFn, indexOf: IndexOf): boolean {
+	const index = indexOf(arg);
 	if (index !== undefined) {
 		reportIndex(name, state, index, span, push);
 		return true;
@@ -356,7 +373,7 @@ function addArguments(args: readonly VbaToken[][]): Map<string, VbaToken[]> | un
  * together raise 5; either one on an empty collection raises 5; and an index
  * outside 1 to Count raises 9 (Before:=0, After:=2 with one element).
  */
-function addRefusal(name: string, state: CollectionContents, byName: ReadonlyMap<string, VbaToken[]>, base: Span, isEmpty: (lower: string) => boolean): { rule: 'collectionAddArgument' | 'collectionIndexOutOfRange'; message: string; span: Span } | undefined {
+function addRefusal(name: string, state: CollectionContents, byName: ReadonlyMap<string, VbaToken[]>, base: Span, isEmpty: (lower: string) => boolean, indexOf: IndexOf): { rule: 'collectionAddArgument' | 'collectionIndexOutOfRange'; message: string; span: Span } | undefined {
 	const spanOf = (arg: readonly VbaToken[]): Span => ({ start: base.start + arg[0].start, end: base.start + arg[arg.length - 1].end });
 	const key = byName.get('key');
 	const keyLiteral = key ? key.filter((t) => t.kind !== 'comment') : [];
@@ -382,21 +399,21 @@ function addRefusal(name: string, state: CollectionContents, byName: ReadonlyMap
 	if (state.items.length === 0) {
 		return { rule: 'collectionIndexOutOfRange', message: `'${name}' holds nothing here, so ${before ? 'Before' : 'After'} names no element. This will raise Run-time error '5': Invalid procedure call or argument.`, span: spanOf(position) };
 	}
-	const index = literalIndex(position);
+	const index = indexOf(position);
 	if (index !== undefined && (index < 1 || index > state.items.length)) {
 		return { rule: 'collectionIndexOutOfRange', message: `'${name}' holds ${state.items.length} element${state.items.length === 1 ? '' : 's'} here, indexed 1 to ${state.items.length}; ${before ? 'Before' : 'After'} is ${index}. This will raise Run-time error '9': Subscript out of range.`, span: spanOf(position) };
 	}
 	return undefined;
 }
 
-function add(name: string, state: CollectionContents, rawArgs: VbaToken[][], base: Span, push: PushFn, isEmpty: (lower: string) => boolean): void {
+function add(name: string, state: CollectionContents, rawArgs: VbaToken[][], base: Span, push: PushFn, isEmpty: (lower: string) => boolean, indexOf: IndexOf): void {
 	const byName = addArguments(rawArgs);
 	if (!byName) {
 		state.items.push(undefined);
 		state.keysKnown = false;
 		return;
 	}
-	const refusal = addRefusal(name, state, byName, base, isEmpty);
+	const refusal = addRefusal(name, state, byName, base, isEmpty, indexOf);
 	if (refusal) {
 		push(refusal.rule, refusal.message, refusal.span);
 		return;
@@ -420,9 +437,9 @@ function add(name: string, state: CollectionContents, rawArgs: VbaToken[][], bas
 	state.items.push(key);
 }
 
-function remove(name: string, state: CollectionContents, arg: VbaToken[], base: Span, push: PushFn): void {
+function remove(name: string, state: CollectionContents, arg: VbaToken[], base: Span, push: PushFn, indexOf: IndexOf): void {
 	const span = { start: base.start + arg[0].start, end: base.start + arg[arg.length - 1].end };
-	const index = literalIndex(arg);
+	const index = indexOf(arg);
 	if (index !== undefined) {
 		if (state.items.length === 0 || index < 1 || index > state.items.length) {
 			reportIndex(name, state, index, span, push);

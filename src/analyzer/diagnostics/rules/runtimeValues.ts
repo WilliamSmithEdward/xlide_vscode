@@ -1344,11 +1344,20 @@ export function checkRuntimeConversionValues(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	push: PushFn,
+	activity?: ConditionalActivityTracker,
 ): ProcedureStatementVisitor {
 	return (member) => {
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
+		// `s = "abc"` then `CLng(s)`: the string a local holds here (issue #238).
+		const valuesAt = knownLocalLiteralValuesAt(source, member, symbols, activity);
 		return (stmt) => {
-			for (const hit of runtimeConversionValueHits(source, stmt.span, sourceNames)) {
+			const strings = new Map<string, string>();
+			for (const [lower, value] of valuesAt(stmt)) {
+				if (value.kind === 'string' && !value.contentMutated) {
+					strings.set(lower, value.value as string);
+				}
+			}
+			for (const hit of runtimeConversionValueHits(source, stmt.span, sourceNames, strings)) {
 				push(
 					'runtimeConversionValue',
 					`${hit.displayName} cannot convert ${hit.name} to ${hit.target}. This will raise Run-time error '13': Type mismatch.`,
@@ -1398,6 +1407,7 @@ function runtimeConversionValueHits(
 	source: string,
 	span: Span,
 	sourceNames: SourceNameScope,
+	knownStrings: ReadonlyMap<string, string> = new Map(),
 ): RuntimeConversionValueHit[] {
 	const toks = statementTokens(source, span);
 	if (isDeclarationLikeStatement(toks)) {
@@ -1429,8 +1439,9 @@ function runtimeConversionValueHits(
 			const slot = (split.slots[index] ?? []).filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
 			const at = split.spans[index] ?? (slot.length > 0 ? { start: span.start + slot[0].start, end: span.start + slot[slot.length - 1].end } : undefined);
 			const displayName = qualified ? `VBA.${name}` : name;
-			if (slot.length === 1 && slot[0].kind === 'stringLiteral' && at) {
-				const value = stringLiteralValue(slot[0].rawText);
+			const held = slot.length === 1 && slot[0].kind === 'identifier' ? knownStrings.get(slot[0].rawText.toLowerCase()) : undefined;
+			if (slot.length === 1 && (slot[0].kind === 'stringLiteral' || held !== undefined) && at) {
+				const value = held ?? stringLiteralValue(slot[0].rawText);
 				const invalid = target === 'date'
 					? isInvalidDateString(value)
 					: target === 'boolean'
@@ -1439,7 +1450,7 @@ function runtimeConversionValueHits(
 				if (invalid) {
 					hits.push({
 						displayName,
-						name: slot[0].rawText,
+						name: held === undefined ? slot[0].rawText : `${slot[0].rawText}, which holds ${JSON.stringify(held)} here,`,
 						target: target === 'date' ? 'Date' : target === 'boolean' ? 'Boolean' : 'a number',
 						span: at,
 					});
