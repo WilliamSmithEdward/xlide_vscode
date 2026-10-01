@@ -5,7 +5,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { judgeClamscan, readClamscan, readVersion } from '../.github/scripts/clamav-sarif.mjs';
-import { judge, loadReviewed, sarifResults, SCANS } from '../.github/scripts/sarif-gate.mjs';
+import { judge, loadReviewed, partialResults, sarifResults, SCANS } from '../.github/scripts/sarif-gate.mjs';
 import { CANARY_RULE, EICAR_HEX, toSarif } from '../.github/scripts/scan-sarif.mjs';
 import {
 	compileErrorCount,
@@ -426,5 +426,19 @@ describe('the pinned YARA releases', () => {
 		for (const pin of Object.values(pins) as { sha256: string }[]) {
 			expect(pin.sha256).toMatch(/^[0-9a-f]{64}$/);
 		}
+	});
+});
+
+describe('stale entries on a pull request', () => {
+	it('are not judged for CodeQL, whose pull request results cover only the changed code', () => {
+		expect(partialResults('CodeQL javascript-typescript', { GITHUB_EVENT_NAME: 'pull_request' })).toBe(true);
+		expect(partialResults('CodeQL actions', { GITHUB_EVENT_NAME: 'pull_request' })).toBe(true);
+	});
+
+	it('are judged on main, and always for the malware scans', () => {
+		expect(partialResults('CodeQL javascript-typescript', { GITHUB_EVENT_NAME: 'push' })).toBe(false);
+		expect(partialResults('CodeQL javascript-typescript', { GITHUB_EVENT_NAME: 'schedule' })).toBe(false);
+		expect(partialResults('ClamAV', { GITHUB_EVENT_NAME: 'pull_request' })).toBe(false);
+		expect(partialResults('YARA-X', { GITHUB_EVENT_NAME: 'pull_request' })).toBe(false);
 	});
 });

@@ -111,6 +111,18 @@ export function judge(results, reviewed) {
 	return { open, accepted, stale: reviewed.filter((entry) => !used.has(entry)) };
 }
 
+/**
+ * Whether this scan's results cover only part of the code. On a pull request
+ * CodeQL runs diff-informed: it reports only results in the changed lines
+ * (the log's "Computing PR diff ranges"), so a reviewed entry elsewhere finds
+ * no result and would look stale on every pull request that does not touch
+ * it. Stale entries are judged by the push and scheduled runs on main, which
+ * see everything. The malware scans always cover every file.
+ */
+export function partialResults(scan, env) {
+	return scan.startsWith('CodeQL ') && ['pull_request', 'pull_request_target'].includes(env.GITHUB_EVENT_NAME);
+}
+
 export function describeEntry(entry) {
 	return entry.file === undefined
 		? `${entry.rule} at ${entry.path}: \`${entry.line}\``
@@ -134,8 +146,11 @@ if (isMain(import.meta)) {
 		for (const entry of stale) {
 			console.log(`  Reviewed, but no longer found: ${describeEntry(entry)}`);
 		}
-		if (open.length > 0 || stale.length > 0) {
+		if (open.length > 0 || (stale.length > 0 && !partialResults(scan, process.env))) {
 			process.exitCode = 1;
+		} else if (stale.length > 0) {
+			console.log('  Not failed: on a pull request CodeQL reports only the changed code, so an entry outside it'
+				+ ' looks stale. The run on main fails on it.');
 		}
 	} catch (error) {
 		console.error(error.message);

@@ -104,6 +104,8 @@ the rule flags another line of the file. A ClamAV or YARA-X detection is of a
 whole file, so its entry matches the signature or rule name and a file path,
 where `*` matches within one path segment. An entry that no longer matches
 any result fails its scan, so remove it in the change that makes it stale.
+On a pull request CodeQL reports only the changed code, so a CodeQL entry
+outside it is listed there but not failed; the run on `main` fails on it.
 zizmor keeps its exceptions in
 `.github/zizmor.yml` or inline beside the line they excuse, each with its
 reason.
