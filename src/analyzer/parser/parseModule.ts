@@ -74,6 +74,7 @@ import {
 import { ExprParseResult, parseExpression, parseParenlessArguments } from './parseExpression';
 import {
 	codeTokens,
+	isCommentLine,
 	LogicalStatement,
 	splitLogicalStatements,
 	StatementCursor,
@@ -875,8 +876,15 @@ class Parser {
 		let closed = false;
 		let endStmt: LogicalStatement | undefined;
 		let sawConditionalDirective = false;
+		// A member Attribute line stands right after the header, before any comment.
+		let sawComment = false;
 		while (!this.cursor.atEnd()) {
 			const stmt = this.cursor.peek()!;
+			if (isCommentLine(stmt)) {
+				sawComment = true;
+				this.cursor.next();
+				continue;
+			}
 			const ck = this.closerKind(stmt);
 			if (ck !== undefined && PROCEDURE_CLOSERS.has(ck)) {
 				endStmt = this.cursor.next();
@@ -885,7 +893,7 @@ class Parser {
 			}
 			const stmtTokens = codeTokens(stmt);
 			if (this.isAttribute(stmtTokens)) {
-				if (this.isExportedProcedureAttribute(stmt, stmtTokens, name, body.length === 0)) {
+				if (this.isExportedProcedureAttribute(stmt, stmtTokens, name, body.length === 0 && !sawComment)) {
 					attributes.push(this.parseAttribute(this.cursor.next()!, stmtTokens));
 					continue;
 				}
@@ -1297,6 +1305,10 @@ class Parser {
 				break;
 			}
 			const stmt = this.cursor.peek()!;
+			if (isCommentLine(stmt)) {
+				this.cursor.next();
+				continue;
+			}
 			const ck = this.closerKind(stmt);
 			if (ck === expected && this.restatesArmZeroCloser()) {
 				// `End If` in the #Else arm of a chain whose #If arm already
