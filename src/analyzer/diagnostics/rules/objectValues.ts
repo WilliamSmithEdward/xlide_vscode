@@ -16,12 +16,23 @@
 //    Shape, Hyperlink (issue #221).
 //  - An object variable still Nothing raises 91 first.
 //
+// A class's default member read the wrong way (issue #256, measured in
+// Excel 16.0): one whose first parameter is required, read with no
+// argument, raises 449, Argument not optional; one with no parameter that
+// returns a Collection gives the Collection, whose own default needs an
+// index, 450. A class with no default member indexed, `c(1)`, raises 438.
+// For Each over a class asks its -4 member (`VB_UserMemId = -4`) for an
+// enumerator: with none it raises 438, and with one returning a
+// Collection rather than an object it raises 451.
+//
 // `Set o = c`, passing `c` to a Variant parameter and `c Is Nothing` read no
 // value and run. The write side, `Let c = ...`, is set-required's.
 
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
-import type { ProcedureNode, Span } from '../../parser/nodes';
+import type { BodyNode, ProcedureNode, Span } from '../../parser/nodes';
+import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpression';
+import type { VbaProjectClassMember, VbaProjectClassMembers } from '../../symbols/symbolModel';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { isKnownObjectAssignmentType, isKnownScalarType, normalizeType, objectLetAssignmentVerdict, objectValueNeedsIndex, typeEnvironmentFor } from '../typeInference';
@@ -85,6 +96,15 @@ export function checkObjectDefaultValues(
 			return type !== undefined && isKnownScalarType(type);
 		};
 		const isCollection = (lower: string): boolean => lower !== proc.name.toLowerCase() && normalizeType(env.get(lower)) === 'collection';
+		const arrays = new Set((procedureSymbolFor(symbols, proc)?.children ?? []).filter((child) => child.isArray).map((child) => child.name.toLowerCase()));
+		for (const child of symbols.root.children ?? []) {
+			if (child.isArray && !procedureSymbolFor(symbols, proc)?.children?.some((own) => own.name.toLowerCase() === child.name.toLowerCase())) {
+				arrays.add(child.name.toLowerCase());
+			}
+		}
+		const classOf = (lower: string): VbaProjectClassMembers | undefined =>
+			lower === proc.name.toLowerCase() || arrays.has(lower) ? undefined : projectClass(env.get(lower), memberCtx);
+		checkForEachEnumerators(proc.body, classOf, push);
 		return (stmt) => {
 			for (const span of statementAndBranchSpans(stmt)) {
 				for (const hit of collectionArguments(statementTokens(source, span), isCollection, moduleNames)) {
@@ -108,8 +128,17 @@ export function checkObjectDefaultValues(
 						);
 					}
 				}
+				for (const hit of indexedWithoutDefault(statementTokens(source, span), classOf)) {
+					push('objectDefaultValue', hit.message, { start: span.start + hit.tok.start, end: span.start + hit.tok.end });
+				}
 				for (const read of valueReads(source, span, stmt.kind === 'Statement' && stmt.singleLineIfBranches !== undefined && span === stmt.span, isObjectVariable, isTypedValue)) {
 					const lower = tokenName(read.tok)!.toLowerCase();
+					const cls = classOf(lower);
+					const wrongWay = cls && !read.operator && !read.intoTypedValue ? defaultReadProblem(cls) : undefined;
+					if (wrongWay) {
+						push('objectDefaultValue', `'${read.tok.rawText}' is ${article(cls!.name)} ${cls!.name}, ${wrongWay}`, { start: span.start + read.tok.start, end: span.start + read.tok.end });
+						continue;
+					}
 					const verdict = verdictFor(lower);
 					if (verdict !== 'noDefault' && verdict !== 'argument') {
 						continue;
@@ -286,6 +315,78 @@ function newObjectLetIntoVariant(
 		return undefined;
 	}
 	return { type: value[1].rawText, span: { start: span.start + value[0].start, end: span.start + value[1].end } };
+}
+
+/** A project class's members, when the list is complete. */
+function projectClass(type: string | undefined, memberCtx: MemberCompletionContext): VbaProjectClassMembers | undefined {
+	const lower = type?.trim().split('.').pop()?.toLowerCase();
+	const found = lower ? (memberCtx.projectClassMembers ?? []).find((candidate) => candidate.kind === 'class' && candidate.name.toLowerCase() === lower) : undefined;
+	return found?.exhaustive === true ? found : undefined;
+}
+
+/** The DISPID a member's attribute gives it: 0 for the default, -4 for the enumerator. */
+function dispatchId(member: VbaProjectClassMember): number | undefined {
+	const attr = (member.attributes ?? []).find((candidate) => /^vb_(var)?usermemid$/i.test(candidate.name));
+	const raw = attr?.valueRaw.trim() ?? '';
+	const value = raw.startsWith('-') ? parseVbaIntegerLiteral(raw.slice(1)) : parseVbaIntegerLiteral(raw);
+	return value === undefined ? undefined : raw.startsWith('-') ? -value : value;
+}
+
+/** Why reading a class's default member with no argument fails, or undefined. */
+function defaultReadProblem(cls: VbaProjectClassMembers): string | undefined {
+	const member = cls.members.find((candidate) => candidate.defaultMember);
+	if (!member) {
+		return undefined;
+	}
+	const first = /^[^(]*\(([^,)]*)/.exec(member.signature ?? '')?.[1]?.trim() ?? '';
+	// The signature writes an Optional parameter in brackets: `Item([i As Long = 1])`.
+	if (first !== '' && !first.startsWith('[') && !/^paramarray\b/i.test(first)) {
+		return `whose default member ${member.name} takes an argument this read does not give. This will raise Run-time error '449': Argument not optional.`;
+	}
+	if (first === '' && normalizeType(member.returns) === 'collection') {
+		return `whose default member ${member.name} returns a Collection, and a Collection's default member Item needs an index. This will raise Run-time error '450': Wrong number of arguments or invalid property assignment.`;
+	}
+	return undefined;
+}
+
+/** `c(1)` on a class with no default member to take the index. */
+function indexedWithoutDefault(
+	toks: readonly VbaToken[],
+	classOf: (lower: string) => VbaProjectClassMembers | undefined,
+): Array<{ tok: VbaToken; message: string }> {
+	const out: Array<{ tok: VbaToken; message: string }> = [];
+	for (let i = 0; i + 1 < toks.length; i++) {
+		const lower = tokenName(toks[i])?.toLowerCase();
+		const cls = lower && toks[i + 1].rawText === '(' && toks[i - 1]?.rawText !== '.' ? classOf(lower) : undefined;
+		if (cls && !cls.members.some((member) => member.defaultMember)) {
+			out.push({ tok: toks[i], message: `'${toks[i].rawText}' is ${article(cls.name)} ${cls.name}, which has no default member to take an index. This will raise Run-time error '438': Object doesn't support this property or method.` });
+		}
+	}
+	return out;
+}
+
+/** `For Each v In c` over a class: the -4 member it needs, and what that returns. */
+function checkForEachEnumerators(
+	body: readonly BodyNode[],
+	classOf: (lower: string) => VbaProjectClassMembers | undefined,
+	push: PushFn,
+): void {
+	for (const node of body) {
+		if (node.kind === 'ForBlock' && node.each && node.sourceExpressionSpan) {
+			const over = node.sourceExpression?.trim() ?? '';
+			const cls = /^[\p{L}_][\p{L}\p{N}_]*$/u.test(over) ? classOf(over.toLowerCase()) : undefined;
+			const enumerator = cls?.members.find((member) => dispatchId(member) === -4);
+			const returns = normalizeType(enumerator?.returns);
+			if (cls && !enumerator) {
+				push('objectDefaultValue', `'${over}' is ${article(cls.name)} ${cls.name}, which has no member marked VB_UserMemId = -4 for For Each to ask for its elements. This will raise Run-time error '438': Object doesn't support this property or method.`, node.sourceExpressionSpan);
+			} else if (cls && enumerator && returns === 'collection') {
+				push('objectDefaultValue', `'${over}' is ${article(cls.name)} ${cls.name}, whose enumerator ${enumerator.name} returns a Collection, not the enumerator object For Each needs. This will raise Run-time error '451': Property let procedure not defined and property get procedure did not return an object.`, node.sourceExpressionSpan);
+			}
+		}
+		if ('body' in node && Array.isArray(node.body)) {
+			checkForEachEnumerators(node.body as BodyNode[], classOf, push);
+		}
+	}
 }
 
 function article(type: string): string {

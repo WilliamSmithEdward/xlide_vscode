@@ -165,6 +165,14 @@ export function checkConstAssignment(
  * Variant or Object" when it returns a type of VBA's own. Inside the Function
  * the name is its return value and binds locally, so it never reaches here.
  */
+/** The default member of a project class when it is a Property Get with no Property Let. */
+function readOnlyProjectDefault(type: string, memberCtx: MemberCompletionContext): string | undefined {
+	const lower = type.trim().split('.').pop()?.toLowerCase();
+	const cls = (memberCtx.projectClassMembers ?? []).find((candidate) => candidate.kind === 'class' && candidate.name.toLowerCase() === lower);
+	const member = cls?.exhaustive === true ? cls.members.find((candidate) => candidate.defaultMember) : undefined;
+	return member && member.kind === 'property' && !member.letAccessor && member.writable !== true ? member.name : undefined;
+}
+
 function procedureAssignmentTarget(
 	definitions: readonly VbaSymbol[],
 	procSym: VbaSymbol | undefined,
@@ -375,6 +383,17 @@ export function checkAssignmentTypes(
 				// writes the Range's Value. What is reported is what the
 				// default member makes of it.
 				const verdict = objectLetAssignmentVerdict(expected, memberCtx);
+				// A class whose default member is a Property Get with no Let:
+				// `c = 5` does not compile (issue #256, measured in Excel 16.0).
+				const readOnlyDefault = verdict === 'lets' ? readOnlyProjectDefault(expected, memberCtx) : undefined;
+				if (readOnlyDefault) {
+					push(
+						'readonlyMemberAssignment',
+						`Assignment to '${assignment.name}' reaches the default member ${readOnlyDefault} of ${expected}, a Property Get with no Property Let. This is a VBE compile error: Invalid use of property.`,
+						assignment.span,
+					);
+					return;
+				}
 				if (verdict === 'argument') {
 					push(
 						'setRequired',

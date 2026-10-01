@@ -40166,6 +40166,419 @@
       "source": "Option Explicit\r\nPrivate Const Now = 5\r\nPrivate Const K = Now\r\nFunction Main() As Variant\r\n    Main = K\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue256_01_runtime",
+      "description": "Issue #256 class attributes, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness, from a workbook pyOpenVBA wrote: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New C1\r\n    c = 3\r\n    Main = c\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Variant\r\nAttribute Value.VB_VarUserMemId = 0\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue256_02_runtime",
+      "description": "Issue #256 class attributes, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness, from a workbook pyOpenVBA wrote: run -> 4.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New C1\r\n    c.Value = 4\r\n    Main = c\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Variant\r\nAttribute Value.VB_VarUserMemId = 0\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue256_03_runtime",
+      "description": "Issue #256 class attributes, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness, from a workbook pyOpenVBA wrote: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New C1, v As Variant\r\n    c.Add 2\r\n    For Each v In c\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get NewEnum() As IUnknown\r\n    Set NewEnum = mItems.[_NewEnum]\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue256_04_runtime",
+      "description": "Issue #256 class attributes, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness, from a workbook pyOpenVBA wrote: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New C1, v As Variant\r\n    c.Add 2\r\n    For Each v In c\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue256_05_runtime",
+      "description": "Issue #256 class attributes, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness, from a workbook pyOpenVBA wrote: raise 451.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New C1, v As Variant\r\n    c.Add 2\r\n    For Each v In c\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get NewEnum() As Collection\r\nAttribute NewEnum.VB_UserMemId = -4\r\n    Set NewEnum = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue256_06_runtime",
+      "description": "Issue #256 class attributes, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness, from a workbook pyOpenVBA wrote: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New C1, v As Variant\r\n    c.Add 2\r\n    For Each v In c\r\n        Main = v\r\n    Next\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get NewEnum() As IUnknown\r\nAttribute NewEnum.VB_UserMemId = -4\r\n    Set NewEnum = mItems.[_NewEnum]\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue256_07_runtime",
+      "description": "Issue #256 class attributes, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness, from a workbook pyOpenVBA wrote: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New C1\r\n    Main = c(1)\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Variant\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue256_08_runtime",
+      "description": "Issue #256 class attributes, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness, from a workbook pyOpenVBA wrote: raise 449.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New C1\r\n    Main = c\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get Item(ByVal i As Long) As Variant\r\nAttribute Item.VB_UserMemId = 0\r\n    Item = i\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue256_09_runtime",
+      "description": "Issue #256 class attributes, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness, from a workbook pyOpenVBA wrote: raise 450.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New C1\r\n    Main = c\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue256_10_runtime",
+      "description": "Issue #256 class attributes, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness, from a workbook pyOpenVBA wrote: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As C1\r\n    Main = c\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate m As Long\r\nPublic Property Get Value() As Long\r\nAttribute Value.VB_UserMemId = 0\r\n    Value = m\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue256_11_compile",
+      "description": "Issue #256 class attributes, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness, from a workbook pyOpenVBA wrote: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New C1\r\n    c = 5\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate m As Long\r\nPublic Property Get Value() As Long\r\nAttribute Value.VB_UserMemId = 0\r\n    Value = m\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue256_12_runtime",
+      "description": "Issue #256 class attributes, case 12, measured in Excel 16.0 (build 20326) through pyVBAharness, from a workbook pyOpenVBA wrote: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New C1\r\n    Main = c\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get Item(Optional ByVal i As Long = 1) As Variant\r\nAttribute Item.VB_UserMemId = 0\r\n    Item = i\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue256_13_runtime",
+      "description": "Issue #256 class attributes, case 13, measured in Excel 16.0 (build 20326) through pyVBAharness, from a workbook pyOpenVBA wrote: run -> 4.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New C1\r\n    c.Items.Add 4\r\n    Main = c(1)\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get Items() As Collection\r\nAttribute Items.VB_UserMemId = 0\r\n    Set Items = mItems\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue256_14_runtime",
+      "description": "Issue #256 class attributes, case 14, measured in Excel 16.0 (build 20326) through pyVBAharness, from a workbook pyOpenVBA wrote: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New C1\r\n    c = 5\r\n    Main = c\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate m As Long\r\nPublic Property Get Value() As Long\r\nAttribute Value.VB_UserMemId = 0\r\n    Value = m\r\nEnd Property\r\nPublic Property Let Value(ByVal v As Long)\r\n    m = v\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue256_15_runtime",
+      "description": "Issue #256 class attributes, case 15, measured in Excel 16.0 (build 20326) through pyVBAharness, from a workbook pyOpenVBA wrote: run -> 7.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New C1\r\n    Main = c(7)\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get Item(ByVal i As Long) As Variant\r\nAttribute Item.VB_UserMemId = 0\r\n    Item = i\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue256_16_runtime",
+      "description": "Issue #256 class attributes, case 16, measured in Excel 16.0 (build 20326) through pyVBAharness, from a workbook pyOpenVBA wrote: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New C1\r\n    Main = c\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Value As Variant\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue256_17_runtime",
+      "description": "Issue #256 class attributes, case 17, measured in Excel 16.0 (build 20326) through pyVBAharness, from a workbook pyOpenVBA wrote: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New C1, v As Variant\r\n    c.Add 2\r\n    For Each v In c\r\n        Main = v\r\n    Next\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Property Get NewEnum() As Variant\r\nAttribute NewEnum.VB_UserMemId = -4\r\n    Set NewEnum = mItems.[_NewEnum]\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue256_18_runtime",
+      "description": "Issue #256 class attributes, case 18, measured in Excel 16.0 (build 20326) through pyVBAharness, from a workbook pyOpenVBA wrote: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New C1, v As Variant\r\n    c.Add 3\r\n    For Each v In c\r\n        Main = v\r\n    Next\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "C1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate mItems As New Collection\r\nPublic Sub Add(ByVal v As Variant)\r\n    mItems.Add v\r\nEnd Sub\r\nPublic Function NewEnum() As IUnknown\r\nAttribute NewEnum.VB_UserMemId = -4\r\n    Set NewEnum = mItems.[_NewEnum]\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
