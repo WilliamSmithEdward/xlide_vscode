@@ -10,6 +10,8 @@
 //   2147483647&, &HFFFFFFFF&                        accepted  (hex wraps to 32 bits)
 //   9223372036854775808^                            refused   (^ is LongLong)
 //   9223372036854775807^                            accepted
+//   &H100000000, &O40000000000 (unsuffixed)         refused   (32 bits at most, issue #369)
+//   &HFF#, &HFF!                                    refused   (no float suffix on hex)
 // Type-suffixed floats:
 //   3.5E+38!                                        refused   (! is Single)
 //   3.402823E+38!                                   accepted
@@ -99,6 +101,12 @@ function checkInteger(tok: VbaToken, previous: VbaToken | undefined, next: VbaTo
 			reject(`'${raw}' names a radix with no digits after it.`);
 			return;
 		}
+		// `&HFF#` and `&HFF!`: only a decimal number takes a Double or Single
+		// suffix (issue #369, measured in Excel 16.0).
+		if (next && next.start === tok.end && (next.rawText === '#' || next.rawText === '!')) {
+			push('suffixedLiteralOverflow', `The literal '${raw}${next.rawText}' gives a hex or octal number a ${next.rawText === '#' ? 'Double' : 'Single'} suffix, which only a decimal number takes. VBE rejects this at compile time as a Syntax error.`, { start: tok.start, end: next.end });
+			return;
+		}
 		const base = letter.toLowerCase() === 'h' ? 16 : 8;
 		let value: bigint;
 		try {
@@ -114,9 +122,11 @@ function checkInteger(tok: VbaToken, previous: VbaToken | undefined, next: VbaTo
 			reject(`The literal '${raw}' does not fit the Long its '&' suffix asks for: at most eight hex digits (&HFFFFFFFF).`);
 		} else if (suffix === '^' && value > 0xFFFFFFFFFFFFFFFFn) {
 			reject(`The literal '${raw}' does not fit the LongLong its '^' suffix asks for.`);
+		} else if (suffix === '' && value > 0xFFFFFFFFn) {
+			// &H100000000 and &O40000000000 are refused, 64-bit Office too
+			// (issue #369, measured in Excel 16.0).
+			reject(`The literal '${raw}' is wider than 32 bits, the most a hex or octal literal holds without the '^' suffix.`);
 		}
-		// An unsuffixed hex or octal literal wider than 32 bits has not been
-		// measured against the VBE and is left alone.
 		return;
 	}
 	const decimal = /^(\d+)([%&^]?)$/.exec(raw);
