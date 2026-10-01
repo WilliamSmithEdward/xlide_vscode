@@ -53512,6 +53512,312 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String, n As Long, k As Long\r\n    s = \"b\"\r\n    If k > 0 Then\r\n        n = s\r\n    End If\r\n    Main = n\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue366_01_runtime",
+      "description": "Issue #366 a Type array field sized by a Const, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const N = 3\r\nPrivate Type Row3\r\n    vals(1 To N) As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim r As Row3\r\n    Main = UBound(r.vals)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue366_02_runtime",
+      "description": "Issue #366 a Type array field sized by a Const, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const N = 3\r\nPrivate Type Row3\r\n    vals(N) As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim r As Row3\r\n    Main = UBound(r.vals)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue366_03_runtime",
+      "description": "Issue #366 a Type array field sized by a Const, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const N = 3\r\nPrivate Type Row3\r\n    vals(0 To N - 1) As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim r As Row3\r\n    r.vals(2) = 5\r\n    Main = r.vals(2)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue366_04_runtime",
+      "description": "Issue #366 a Type array field sized by a Const, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const N = 3\r\nPrivate Type Row3\r\n    vals(N) As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim r As Row3\r\n    r.vals(3) = 5\r\n    Main = r.vals(3)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue366_05_runtime",
+      "description": "Issue #366 a Type array field sized by a Const, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const N = 3\r\nPrivate Type Row3\r\n    vals(1 To N) As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim r As Row3, i As Long\r\n    For i = 1 To N\r\n        r.vals(i) = i\r\n    Next\r\n    Main = r.vals(3)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue366_06_runtime",
+      "description": "Issue #366 a Type array field sized by a Const, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type Row3\r\n    vals(1 To M) As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim r As Row3\r\n    Main = UBound(r.vals)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Const M = 3\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue366_07_runtime",
+      "description": "Issue #366 a Type array field sized by a Const, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Enum Sz\r\n    szMax = 3\r\nEnd Enum\r\nPrivate Type Row3\r\n    vals(1 To szMax) As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim r As Row3\r\n    Main = UBound(r.vals)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue366_08_runtime",
+      "description": "Issue #366 a Type array field sized by a Const, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 4.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const N = 2\r\nPrivate Type Row3\r\n    vals(N * 2) As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim r As Row3\r\n    Main = UBound(r.vals)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue366_09_runtime",
+      "description": "Issue #366 a Type array field sized by a Const, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const N = 3\r\nPrivate Type Row3\r\n    vals(1 To N) As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim r As Row3\r\n    Main = r.vals(4)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue366_10_runtime",
+      "description": "Issue #366 a Type array field sized by a Const, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const N = 3\r\nPrivate Type Row3\r\n    vals(1 To N) As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim r As Row3\r\n    Main = r.vals(0)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue366_11_runtime",
+      "description": "Issue #366 a Type array field sized by a Const, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const N = 3\r\nPrivate Type Row3\r\n    vals(N) As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim r As Row3\r\n    Main = r.vals(4)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue366_12_runtime",
+      "description": "Issue #366 a Type array field sized by a Const, case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Enum Sz\r\n    szMax = 3\r\nEnd Enum\r\nPrivate Type Row3\r\n    vals(1 To szMax) As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim r As Row3\r\n    Main = r.vals(4)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue366_13_runtime",
+      "description": "Issue #366 a Type array field sized by a Const, case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const N = 2\r\nPrivate Type Row3\r\n    vals(N * 2) As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim r As Row3\r\n    Main = r.vals(5)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue366_14_runtime",
+      "description": "Issue #366 a Type array field sized by a Const, case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const N = 3\r\nPrivate Type Row3\r\n    vals(1 To N) As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim r As Row3\r\n    Main = LBound(r.vals)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue366_15_runtime",
+      "description": "Issue #366 a Type array field sized by a Const, case 15, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const N = 3\r\nPrivate Type Row3\r\n    vals(1 To N) As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim r As Row3\r\n    Main = UBound(r.vals, 2)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue366_16_runtime",
+      "description": "Issue #366 a Type array field sized by a Const, case 16, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const N = 3\r\nPrivate Type Row3\r\n    vals(1 To N, 0 To 1) As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim r As Row3\r\n    Main = UBound(r.vals, 2)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue366_17_runtime",
+      "description": "Issue #366 a Type array field sized by a Const, case 17, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const N = 3\r\nPrivate Type Row3\r\n    vals(1 To N, 0 To 1) As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim r As Row3\r\n    Main = r.vals(1, 2)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue366_18_compile",
+      "description": "Issue #366 a Type array field sized by a Const, case 18, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const N = 3\r\nPrivate Type Row3\r\n    vals(1 To N) As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim r As Row3\r\n    ReDim r.vals(5)\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue366_19_runtime",
+      "description": "Issue #366 a Type array field sized by a Const, case 19, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const N = 3\r\nPrivate Type Row3\r\n    vals(1 To N) As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim r As Row3\r\n    With r\r\n        Main = UBound(.vals)\r\n    End With\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue366_20_runtime",
+      "description": "Issue #366 a Type array field sized by a Const, case 20, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Type Row3\r\n    vals(1 To 3) As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim r As Row3\r\n    Main = UBound(r.vals)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue366_21_runtime",
+      "description": "Issue #366 a Type array field sized by a Const, case 21, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 7.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Const N = 3\r\nPrivate Type Row3\r\n    vals(N) As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim r As Row3\r\n    r.vals(0) = 7\r\n    Main = r.vals(0)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue366_22_compile",
+      "description": "Issue #366 a Type array field sized by a Const, case 22, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type Row3\r\n    vals(1 To M) As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim r As Row3\r\n    ReDim r.vals(5)\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Const M = 3\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue366_23_compile",
+      "description": "Issue #366 a Type array field sized by a Const, case 23, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const N = 2\r\nPrivate Type A\r\n    vals(1 To N) As Long\r\nEnd Type\r\nPrivate Type B\r\n    x As Long\r\n    y As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim a1 As A, b1 As B\r\n    b1.x = 5\r\n    LSet a1 = b1\r\n    Main = a1.vals(1)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue366_24_compile",
+      "description": "Issue #366 a Type array field sized by a Const, case 24, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Type A\r\n    vals(1 To M) As Long\r\nEnd Type\r\nPrivate Type B\r\n    x As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim a1 As A, b1 As B\r\n    b1.x = 5\r\n    LSet a1 = b1\r\n    Main = a1.vals(1)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Const M = 3\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue366_25_compile",
+      "description": "Issue #366 a Type array field sized by a Const, case 25, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type A\r\n    vals() As Long\r\nEnd Type\r\nPrivate Type B\r\n    x As Long\r\nEnd Type\r\n\r\nFunction Main() As Variant\r\n    Dim a1 As A, b1 As B\r\n    LSet a1 = b1\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

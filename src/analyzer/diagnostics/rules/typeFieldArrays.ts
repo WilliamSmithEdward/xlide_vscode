@@ -27,7 +27,7 @@ import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaSymbol } from '../../symbols/symbolModel';
 import type { PushFn } from '../analysisContext';
 import { collectModuleLiteralIntegerConstants } from '../constExpr';
-import { fieldChain, moduleTypes, typeKey, typeRootAt, variableSymbolIn, walkWithSubjects, type FieldStep, type ModuleTypes, type WithSubject } from '../typeFields';
+import { fieldChain, isFixedArrayField, moduleTypes, typeKey, typeRootAt, variableSymbolIn, walkWithSubjects, type FieldStep, type ModuleTypes, type WithSubject } from '../typeFields';
 import { isArrayBounds, typeMemberStatesAt, type MemberState, type MemberStatesAt } from '../typeMemberState';
 import {
 	knownLocalLiteralValuesAt,
@@ -98,7 +98,7 @@ function chainViolation(
 		if (!step.field.isArray) {
 			continue;
 		}
-		const state = step.field.dims || !step.path ? undefined : states.get(step.path);
+		const state = isFixedArrayField(step.field) || !step.path ? undefined : states.get(step.path);
 		const shape: FixedArrayBound | undefined = step.field.dims
 			? { name: step.display, dims: step.field.dims, origin: 'Dim' }
 			: isArrayBounds(state) ? { ...state, name: step.display } : undefined;

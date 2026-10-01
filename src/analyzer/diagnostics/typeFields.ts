@@ -11,6 +11,8 @@ import type { VbaSymbol } from '../symbols/symbolModel';
 import { procedureSymbolFor } from './analysisContext';
 import { blockHeaderStatements } from './blockHeaders';
 import { parseFixedArrayBoundsForDecl, type ArrayDimensionBound } from './rules/arrays';
+import { collectModuleLiteralIntegerConstants } from './constExpr';
+import { splitTopLevelTokenGroups, statementTokensCached } from '../lexer/tokenHelpers';
 import { activeModuleMembers, isInactiveNode, matchParenFrom, statementTokensAfterLeadingLabel, tokenName, tokenText } from './walker';
 
 export interface TypeFieldInfo {
@@ -26,6 +28,11 @@ export interface TypeFieldInfo {
 	 * (measured in Excel 16.0).
 	 */
 	dims?: ArrayDimensionBound[];
+	/**
+	 * A fixed array field whose bounds are not known here: `vals(1 To N)`
+	 * with N a Public Const of another module (issue #366).
+	 */
+	sized?: boolean;
 	/** The raw length of a `String * n` field. */
 	fixedLength?: string;
 }
@@ -47,19 +54,26 @@ export function moduleTypes(source: string, mod: ModuleNode, activity: Condition
 		return cached;
 	}
 	const out = new Map<string, Map<string, TypeFieldInfo>>();
+	let constants: IntegerConstantLookup | undefined;
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Type') {
 			continue;
 		}
 		const fields = new Map<string, TypeFieldInfo>();
 		for (const field of member.fields) {
-			const dims = field.isArray ? parseFixedArrayBoundsForDecl(source, field, 0) : undefined;
+			// Bounds a module Const or Enum member states are read too, and
+			// bounds that cannot be read still make the field fixed (issue #366).
+			const bounds = field.isArray ? boundsTokens(source, field.span) : undefined;
+			const dims = !field.isArray || !bounds?.length ? undefined
+				: parseFixedArrayBoundsForDecl(source, field, 0) ?? constantDimensions(bounds, constants ??= collectModuleLiteralIntegerConstants(mod, activity));
+			const sized = !dims && (bounds?.length ?? 0) > 0;
 			fields.set(field.name.toLowerCase(), {
 				name: field.name,
 				type: typeKey(field.asType),
 				typeName: field.asType?.trim(),
 				isArray: field.isArray,
 				...(dims ? { dims: dims.map((dim) => ({ ...dim, explicitLower: true })) } : {}),
+				...(sized ? { sized } : {}),
 				...(field.fixedLength !== undefined ? { fixedLength: field.fixedLength } : {}),
 			});
 		}
@@ -67,6 +81,35 @@ export function moduleTypes(source: string, mod: ModuleNode, activity: Condition
 	}
 	MODULE_TYPES.set(mod, out);
 	return out;
+}
+
+/** Whether an array field is fixed, its bounds known or not. */
+export function isFixedArrayField(field: TypeFieldInfo): boolean {
+	return field.isArray && (field.dims !== undefined || field.sized === true);
+}
+
+/** The tokens between a declaration's parentheses, comments dropped; undefined without them. */
+function boundsTokens(source: string, span: { start: number; end: number }): VbaToken[] | undefined {
+	const toks = statementTokensCached(source, span);
+	const open = toks.findIndex((tok) => tok.rawText === '(');
+	const close = open < 0 ? -1 : matchParenFrom(toks, open);
+	return close < 0 ? undefined : toks.slice(open + 1, close).filter((tok) => tok.kind !== 'comment');
+}
+
+/** The bounds `1 To N, N * 2` state with every name a module Const or Enum member. An implicit lower bound is 0. */
+function constantDimensions(bounds: readonly VbaToken[], constants: IntegerConstantLookup): ArrayDimensionBound[] | undefined {
+	const out: ArrayDimensionBound[] = [];
+	for (const dim of splitTopLevelTokenGroups(bounds, 0, ',')) {
+		const to = dim.findIndex((tok) => tokenText(tok) === 'to');
+		const text = (part: readonly VbaToken[]): string => part.map((tok) => tok.rawText).join(' ');
+		const lower = to < 0 ? 0 : evaluateIntegerConstantExpression(text(dim.slice(0, to)), constants);
+		const upper = evaluateIntegerConstantExpression(text(to < 0 ? dim : dim.slice(to + 1)), constants);
+		if (lower === undefined || upper === undefined || dim.length === 0) {
+			return undefined;
+		}
+		out.push({ lower, upper, explicitLower: true });
+	}
+	return out.length > 0 ? out : undefined;
 }
 
 const VARIABLES = new WeakMap<ReturnType<typeof buildModuleSymbols>, Map<ProcedureNode, Map<string, VbaSymbol | undefined>>>();

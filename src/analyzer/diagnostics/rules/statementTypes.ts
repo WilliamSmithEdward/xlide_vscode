@@ -50,7 +50,7 @@ import type { VbaSymbol } from '../../symbols/symbolModel';
 import type { ProjectTypeName } from '../../completion/typeCompletion';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { isKnownScalarType, normalizeType, sourceIdentifierBinding } from '../typeInference';
-import { moduleTypes, type ModuleTypes } from '../typeFields';
+import { isFixedArrayField, moduleTypes, type ModuleTypes } from '../typeFields';
 import {
 	absoluteSpan,
 	activeModuleMembers,
@@ -512,7 +512,7 @@ function variableSizeMember(ctx: Context, type: string, depth: number): string |
 	}
 	for (const field of fields.values()) {
 		const fieldType = normalizeType(field.type);
-		if (field.isArray && !field.dims) {
+		if (field.isArray && !isFixedArrayField(field)) {
 			return `'${field.name}' is a dynamic array`;
 		}
 		if (!fieldType || fieldType === 'variant') {
