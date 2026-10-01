@@ -1,0 +1,153 @@
+name: Publish
+
+# A v*.*.* tag releases the extension. The Malware scan's Package job builds
+# the vsix from the tagged commit and refuses a tag that does not match
+# package.json's version; the scans run on that file; this workflow signs its
+# build provenance and creates the GitHub release with the vsix, the signed
+# bundle and both reports. The Marketplace upload is by hand, of the vsix on
+# the release (see AGENTS.md).
+#
+# Started by hand, this is always a dry run: it builds, scans and assembles
+# the release files exactly as a release would, and uploads them as the
+# release-preview artifact instead of signing or releasing anything.
+
+"on":
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    name: Security
+    uses: ./.github/workflows/security.yml
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+
+  malware-scan:
+    name: Malware scan
+    uses: ./.github/workflows/malware-scan.yml
+    permissions:
+      contents: read
+
+  publish:
+    name: Attest the vsix
+    needs: [security, malware-scan]
+    if: ${{ startsWith(github.ref, 'refs/tags/') && github.event_name != 'workflow_dispatch' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      id-token: write # sign the attestation
+      attestations: write # store it
+    steps:
+      - name: Download the vsix
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: package
+          path: package/
+
+      # Signed build provenance: `gh attestation verify <file> --owner
+      # WilliamSmithEdward` shows which commit and run built the vsix.
+      - name: Attest the vsix
+        id: attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: package/*.vsix
+
+      # The signed bundle goes on the GitHub release too, so a download can be
+      # checked offline: gh attestation verify <file> --bundle <bundle>.
+      - name: Keep the provenance bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: provenance
+          path: ${{ steps.attest.outputs.bundle-path }}
+          if-no-files-found: error
+
+  # On a dry run `publish` is skipped; this job still assembles the release
+  # and uploads it as an artifact, and only the last step is skipped.
+  github-release:
+    name: Create GitHub release
+    needs: [security, malware-scan, publish]
+    if: >-
+      ${{ !cancelled() && needs.security.result == 'success' && needs.malware-scan.result == 'success'
+      && (needs.publish.result == 'success' || github.event_name == 'workflow_dispatch') }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download the vsix
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: package
+          path: release/
+
+      - name: Download the security report
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: security-report
+          path: release/
+
+      - name: Download the malware report
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: malware-report
+          path: release/
+
+      - name: Download the provenance bundle
+        if: env.DRY_RUN != 'true'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: provenance
+          path: provenance/
+
+      - name: Name the bundle after the vsix
+        if: env.DRY_RUN != 'true'
+        run: |
+          test "$(find provenance -type f | wc -l)" = 1
+          version=$(jq -r .version package.json)
+          mv provenance/* "release/xlide-$version.sigstore.json"
+
+      - name: Extract the changelog section for this version
+        run: |
+          version=$(jq -r .version package.json)
+          awk -v ver="$version" '
+            index($0, "## [" ver "]") == 1 { capture=1; next }
+            capture && /^## \[/ { exit }
+            capture { print }
+          ' CHANGELOG.md > release_notes.md
+          if [ ! -s release_notes.md ]; then
+            echo "::error::CHANGELOG.md has no section for $version."
+            exit 1
+          fi
+          ls -l release
+
+      - name: Keep what the release would carry
+        if: env.DRY_RUN == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-preview
+          path: |
+            release/
+            release_notes.md
+          if-no-files-found: error
+
+      - name: Create GitHub release
+        if: env.DRY_RUN != 'true'
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          # The title is the tag and nothing else. The headline is in the body.
+          name: ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
+          body_path: release_notes.md
+          files: release/*
+          fail_on_unmatched_files: true

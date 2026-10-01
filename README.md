@@ -477,8 +477,8 @@ Report a vulnerability privately through
 not in a public issue. [SECURITY.md](SECURITY.md) says what XLIDE touches
 and how the code is checked: CodeQL, Semgrep and `npm audit` on every change,
 and ClamAV and YARA-X on every change and every day, each failing on any
-finding. Every GitHub release carries the vsix published to the Marketplace
-and the reports for it.
+finding. Every GitHub release carries the vsix, built and signed in CI, the
+file uploaded to the Marketplace, and the reports for it.
 
 ## Support Open Source
 

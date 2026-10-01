@@ -63,9 +63,8 @@ a published release.
   every run, and YARA-X, with the YARA Forge rules pinned to a release and
   its SHA-256, scan every tracked file, every dependency npm installs from the
   lockfile with no install script run, and the extension package, as the
-  vsix and unpacked. On a release they scan the vsix attached to it, the file
-  published to the Marketplace; on any other run, a package built from that
-  commit. YARA-X uses the YARA Forge core rules. Each scan must also detect
+  vsix and unpacked, built from that commit. In a release that vsix is the
+  file the release carries. YARA-X uses the YARA Forge core rules. Each scan must also detect
   the EICAR test file written for the run, so a scan that read nothing
   cannot pass. The signatures are cached a day at a time; if freshclam fails,
   the scan uses cached signatures up to two days old, with a warning, and
@@ -86,10 +85,9 @@ a published release.
   daily. It is not a gate: a finding becomes a regression test with its fix.
 - **OpenSSF Scorecard** rates the repository's security practices on every
   change to `main` and weekly, and the README badge shows the result.
-  Two of its checks do not fit this project: a single maintainer cannot have
-  a second person approve every change, and the vsix is built locally and
-  attached to the release by hand, so a release carries the reports' SHA-256
-  digests rather than a build provenance signature.
+  One of its checks does not fit this project: a single maintainer cannot
+  have a second person approve every change. Signed-Releases rises as
+  releases carry the provenance bundle; it counts the last five.
 
 ## Accepted findings
 
@@ -152,19 +150,29 @@ third-party major version waits for review.
 
 ## Releases
 
-The vsix is built locally with `npm run vsix`, published to the Marketplace,
-and attached to a GitHub release, one vsix per release. When the release is
-published, Security and Malware scan run on it and attach:
+Pushing a `vX.Y.Z` tag runs the Publish workflow. It builds the vsix from
+the tagged commit in CI, refusing a tag that is not `package.json`'s
+version, runs Security and Malware scan on that commit and that file, and
+only when both pass signs the vsix's build provenance and creates the GitHub
+release with:
 
+- `xlide-<version>.vsix`: the extension, the file uploaded to the
+  Marketplace.
+- `xlide-<version>.sigstore.json`: the signed build provenance.
 - `security-report.md` and `security-sarif.zip`: the code checks' verdicts,
   findings and raw results.
 - `malware-scan-report.md` and `malware-scan-results.zip`: the scans'
   verdicts, detections and signature versions, with the vsix's SHA-256.
 
-The malware scan of a release refuses a release that carries more or fewer
-than one vsix, or a vsix whose version is not the tag's. A failed scan fails
-the workflow and still attaches its report; it does not unpublish the
-release.
+To check that a vsix was built by this repository's Publish workflow from a
+tagged commit:
+
+```bash
+gh attestation verify xlide-<version>.vsix --repo WilliamSmithEdward/xlide_vscode
+```
+
+The Marketplace upload is by hand, of the vsix on the release. Releases up
+to 10.14.6 were built locally and carry no provenance.
 
 ## Repository settings
 
