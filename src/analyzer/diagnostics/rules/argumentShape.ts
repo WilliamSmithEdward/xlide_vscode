@@ -28,8 +28,23 @@
 // `byref-argument-type-mismatch`: when that rule would fire for the slot (a ByRef
 // scalar parameter whose element type mismatches) this rule defers, so the two
 // never double-report.
+//
+// Issue #253, measured in Excel 16.0: a same-module Type variable passed to
+// a Variant parameter, Optional and ParamArray included, is "Only
+// user-defined types defined in public object modules can be coerced to
+// or from a variant or passed to late-bound functions". A Type parameter
+// takes only a variable of its own Type: a Variant, a number, an object, a
+// literal, a member that holds a number, or another Type is "ByRef
+// argument type mismatch", and the Type in parentheses, `TakeT (t)` or
+// `Call TakeT((t))`, is "Variable required - can't assign to this
+// expression". VBA's own functions with a Variant parameter refuse a Type
+// the same way, but Len, LenB and VarPtr take one, and CStr's error is
+// "Type mismatch".
 
 import type { MemberCompletionContext } from '../../completion/memberAccess';
+import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
+import type { ModuleNode } from '../../parser/nodes';
+import { fieldChain, moduleTypes, typeKey, variableRoot, variableSymbolIn } from '../typeFields';
 import type { CallArguments, CallableParamType, CallableTypeSignature } from '../callExtraction';
 import { extractCall, extractQualifiedCall } from '../callExtraction';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
@@ -66,10 +81,22 @@ export function checkArgumentShape(
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	_memberCtx: MemberCompletionContext,
 	push: PushFn,
+	mod?: ModuleNode,
+	activity?: ConditionalActivityTracker,
 ): ProcedureStatementVisitor {
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
 	const udtNames = sameModuleTypeNames(symbols);
+	const types = mod ? moduleTypes(source, mod, activity) : new Map();
 	return (member) => {
+		// `t.a`: the type of the member a chain of fields ends at.
+		const memberType = (toks: readonly VbaToken[]): MemberType | undefined => {
+			const lower = tokenName(toks[0])?.toLowerCase();
+			const root = lower ? variableRoot(toks, 0, variableSymbolIn(symbols, member, lower), types) : undefined;
+			const last = root ? fieldChain(toks, root, types).at(-1) : undefined;
+			return last && (last.close ?? last.at) === toks.length - 1 && (!last.field.isArray || last.open !== undefined)
+				? { type: last.field.type ?? 'variant', name: last.field.typeName ?? 'Variant' }
+				: undefined;
+		};
 		const env = typeEnvironmentFor(symbols, member);
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
 		const procSym = procedureSymbolFor(symbols, member);
@@ -104,6 +131,7 @@ export function checkArgumentShape(
 					resolveQualifiedType,
 					resolveShape,
 					pushOnce,
+					memberType,
 				);
 			};
 			for (const call of expressionCalls(source, stmt.span, moduleSignatures, sourceNames)) {
@@ -128,6 +156,7 @@ function validateArgumentShapes(
 	resolveQualifiedType: SourceQualifiedDeclaredTypeResolver,
 	resolveShape: (name: string) => SourceDeclaredShape,
 	push: PushFn,
+	memberType: (toks: readonly VbaToken[]) => MemberType | undefined = () => undefined,
 ): void {
 	// Slot -> parameter pairing mirrors validateArgumentTypesForSignature (named
 	// argument -> by name, otherwise positional by index). Kept local because the
@@ -150,6 +179,11 @@ function validateArgumentShapes(
 				continue;
 			}
 			positionalIndex++;
+		}
+		const typeProblem = param ? typeArgumentProblem(sig.name, param, call, valueSlot, udtNames, resolveShape, memberType) : undefined;
+		if (typeProblem) {
+			push(typeProblem.code, typeProblem.message, typeProblem.span);
+			continue;
 		}
 		if (!param || param.paramArray) {
 			// ParamArray parameters are Variant and accept any shape (oracle: accepted).
@@ -260,6 +294,81 @@ function arrayArgumentProblem(
 		return { what: `'${name}' is an array of ${shape.shape.asType ?? 'Variant'}`, span };
 	}
 	return undefined;
+}
+
+/** A member's type: lowercased, and as written. */
+interface MemberType {
+	type: string;
+	name: string;
+}
+
+/**
+ * VBA functions this rule leaves alone: Len, LenB and VarPtr take a
+ * user-defined type (issue #253, measured), and MsgBox is statementTypes.ts's.
+ */
+const LEFT_ALONE: ReadonlySet<string> = new Set(['len', 'lenb', 'varptr', 'msgbox']);
+
+/** The conversion functions; only CVar and CStr were measured with a Type. */
+const CONVERSIONS: ReadonlySet<string> = new Set(['cbool', 'cbyte', 'ccur', 'cdate', 'cdbl', 'cdec', 'cint', 'clng', 'clnglng', 'clngptr', 'csng', 'cstr', 'cvar', 'cvdate', 'cverr']);
+
+/** A Type value into a Variant parameter, or anything but a variable of the Type into a Type parameter (issue #253). */
+function typeArgumentProblem(
+	callee: string,
+	param: CallableParamType,
+	call: CallArguments,
+	slot: readonly VbaToken[],
+	udtNames: ReadonlySet<string>,
+	resolveShape: (name: string) => SourceDeclaredShape,
+	memberType: (toks: readonly VbaToken[]) => MemberType | undefined,
+): { code: 'udtVariantCoercion' | 'udtValueMismatch' | 'byRefArgumentTypeMismatch' | 'variableRequired'; message: string; span: Span } | undefined {
+	const toks = slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
+	if (toks.length === 0) {
+		return undefined;
+	}
+	const span = { start: call.sliceStart + toks[0].start, end: call.sliceStart + toks[toks.length - 1].end };
+	const text = toks.map((t) => t.rawText).join('');
+	// `((t))`: the parentheses inside the slot make the Type a value.
+	const wrapped = toks[0].rawText === '(' && matchParenFrom(toks, 0) === toks.length - 1;
+	const inner = wrapped ? toks.slice(1, -1) : toks;
+	const name = inner.length === 1 ? tokenName(inner[0]) : undefined;
+	const shape = name ? resolveShape(name) : undefined;
+	const variable = shape?.resolved && shape.shape && !shape.shape.isArray ? shape.shape : undefined;
+	const argumentType = variable ? typeKey(variable.asType) : undefined;
+	const isType = argumentType !== undefined && udtNames.has(argumentType);
+	if (param.paramArray || (!param.isArray && (normalizeType(param.type) ?? 'variant') === 'variant')) {
+		const fn = callee.toLowerCase();
+		if (!isType || LEFT_ALONE.has(fn) || (CONVERSIONS.has(fn) && fn !== 'cvar' && fn !== 'cstr')) {
+			return undefined;
+		}
+		if (fn === 'cstr') {
+			return { code: 'udtValueMismatch', span, message: `'${name}' is a user-defined type, which ${callee} cannot convert to a String. This is a VBE compile error: Type mismatch.` };
+		}
+		return isType
+			? { code: 'udtVariantCoercion', span, message: `'${name}' is a user-defined type, and parameter '${param.name}' of '${callee}' is a Variant, which cannot hold one declared in a standard module or a private class. This is a VBE compile error: Only user-defined types defined in public object modules can be coerced to or from a variant or passed to late-bound functions.` }
+			: undefined;
+	}
+	const paramType = typeKey(param.type);
+	if (param.isArray || !paramType || !udtNames.has(paramType)) {
+		return undefined;
+	}
+	if (isType && argumentType === paramType && (wrapped || (call.argumentsParenthesized && call.slots.length === 1))) {
+		return { code: 'variableRequired', span: { start: call.sliceStart + inner[0].start, end: call.sliceStart + inner[inner.length - 1].end }, message: `'${call.argumentsParenthesized && !wrapped ? `(${text})` : text}' is in parentheses, which make the user-defined type a value, and parameter '${param.name}' of '${callee}' takes a variable. This is a VBE compile error: Variable required - can't assign to this expression.` };
+	}
+	if (wrapped) {
+		return undefined;
+	}
+	let what: string | undefined;
+	if (variable) {
+		what = argumentType === paramType ? undefined : `'${name}' is declared As ${variable.asType ?? 'Variant'}`;
+	} else if (toks.length === 1 && ['integerLiteral', 'floatLiteral', 'stringLiteral'].includes(toks[0].kind)) {
+		what = `${text} is a literal`;
+	} else {
+		const member = memberType(toks);
+		what = member !== undefined && member.type !== paramType ? `'${text}' is a member declared As ${member.name}` : undefined;
+	}
+	return what
+		? { code: 'byRefArgumentTypeMismatch', span, message: `${what}, but parameter '${param.name}' of '${callee}' is declared As ${param.type}, a user-defined type, which takes only a variable of that Type. This is a VBE compile error: ByRef argument type mismatch.` }
+		: undefined;
 }
 
 /** The problem with an argument in parentheses, given the tokens inside them. */

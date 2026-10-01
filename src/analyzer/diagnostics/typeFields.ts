@@ -4,17 +4,21 @@
 import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
 import { evaluateIntegerConstantExpression, type IntegerConstantLookup } from '../constants/integerConstantExpression';
 import type { VbaToken } from '../lexer/tokenKinds';
-import type { ModuleNode, ProcedureNode } from '../parser/nodes';
+import type { BodyNode, LeafStatementNode, ModuleNode, ProcedureNode } from '../parser/nodes';
+import { isLeafStatement } from '../parser/nodes';
 import type { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import type { VbaSymbol } from '../symbols/symbolModel';
 import { procedureSymbolFor } from './analysisContext';
+import { blockHeaderStatements } from './blockHeaders';
 import { parseFixedArrayBoundsForDecl, type ArrayDimensionBound } from './rules/arrays';
-import { activeModuleMembers, matchParenFrom, tokenName } from './walker';
+import { activeModuleMembers, isInactiveNode, matchParenFrom, statementTokensAfterLeadingLabel, tokenName, tokenText } from './walker';
 
 export interface TypeFieldInfo {
 	name: string;
 	/** The declared type, lowercased; undefined when the field has none. */
 	type?: string;
+	/** The declared type as written, for a message. */
+	typeName?: string;
 	isArray: boolean;
 	/**
 	 * A fixed array field's bounds. An implicit lower bound is 0 whatever
@@ -53,6 +57,7 @@ export function moduleTypes(source: string, mod: ModuleNode, activity: Condition
 			fields.set(field.name.toLowerCase(), {
 				name: field.name,
 				type: typeKey(field.asType),
+				typeName: field.asType?.trim(),
 				isArray: field.isArray,
 				...(dims ? { dims: dims.map((dim) => ({ ...dim, explicitLower: true })) } : {}),
 				...(field.fixedLength !== undefined ? { fixedLength: field.fixedLength } : {}),
@@ -145,6 +150,138 @@ export function fixedStringLength(
 		raw = whole ? last.field.fixedLength : undefined;
 	}
 	return raw === undefined ? undefined : evaluateIntegerConstantExpression(raw, constants);
+}
+
+/** A `.` that opens an expression, which a With's subject qualifies. */
+export function isLeadingDot(toks: readonly VbaToken[], i: number): boolean {
+	const prev = toks[i - 1];
+	if (!prev) {
+		return true;
+	}
+	if (prev.kind === 'keyword') {
+		return tokenText(prev) !== 'me';
+	}
+	// `FillArr .dyn`: a space after a name opens a call's argument.
+	if ((prev.kind === 'identifier' || prev.kind === 'bracketedIdentifier') && prev.end < toks[i].start) {
+		return true;
+	}
+	return prev.kind === 'operator' || ['(', ',', ':', '='].includes(prev.rawText);
+}
+
+/** What a With block's leading `.` stands for. */
+export interface WithSubject {
+	/** The subject as written: `t`, `t.kids(0)`. */
+	display: string;
+	/** The variable and fields, lowercased, while no subscript intervenes. */
+	path?: string;
+	/** The module Type the subject is a value of. */
+	type?: string;
+	/** The field the subject ends at, when it is one: `With t.o` is the object field o. */
+	field?: TypeFieldInfo;
+}
+
+/** The Type value a chain starts from at `i`: a variable, or a leading `.` inside a With of a Type value. */
+export function typeRootAt(
+	toks: readonly VbaToken[],
+	i: number,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	proc: ProcedureNode,
+	types: ModuleTypes,
+	subject: WithSubject | undefined,
+): TypeRoot | undefined {
+	if (toks[i].rawText === '.') {
+		return subject?.type && isLeadingDot(toks, i) ? { type: subject.type, path: subject.path, display: subject.display, dot: i } : undefined;
+	}
+	const lower = tokenName(toks[i])?.toLowerCase();
+	if (!lower || toks[i - 1]?.rawText === '.' || toks[i - 1]?.rawText === '!') {
+		return undefined;
+	}
+	return variableRoot(toks, i, variableSymbolIn(symbols, proc, lower), types);
+}
+
+/**
+ * Every statement of a body, block headers included, with the subject of the
+ * innermost With around it when that is a value of a module Type or a field of
+ * one.
+ */
+export function walkWithSubjects(
+	source: string,
+	body: readonly BodyNode[],
+	activity: ConditionalActivityTracker | undefined,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	proc: ProcedureNode,
+	types: ModuleTypes,
+	subject: WithSubject | undefined,
+	visit: (stmt: LeafStatementNode, subject: WithSubject | undefined) => void,
+): void {
+	for (const node of body) {
+		if (isInactiveNode(activity, node)) {
+			continue;
+		}
+		if (isLeafStatement(node)) {
+			visit(node, subject);
+			continue;
+		}
+		if (!('body' in node) || !Array.isArray(node.body)) {
+			continue;
+		}
+		const { before, after } = blockHeaderStatements(source, node);
+		if (before) {
+			visit(before, subject);
+		}
+		const inner = node.kind === 'WithBlock'
+			? (before ? withSubject(statementTokensAfterLeadingLabel(source, before.span), symbols, proc, types, subject) : undefined)
+			: subject;
+		walkWithSubjects(source, node.body, activity, symbols, proc, types, inner, visit);
+		if (after) {
+			visit(after, subject);
+		}
+	}
+}
+
+/** `With t`, `With t.kid`, `With .kids(0)`, `With t.o`: what the header names, or undefined. */
+export function withSubject(
+	toks: readonly VbaToken[],
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	proc: ProcedureNode,
+	types: ModuleTypes,
+	outer: WithSubject | undefined,
+): WithSubject | undefined {
+	if (tokenText(toks[0]) !== 'with' || toks.length < 2) {
+		return undefined;
+	}
+	const last = toks.length - 1;
+	if (last === 1) {
+		const variable = variableSymbolIn(symbols, proc, tokenName(toks[1])?.toLowerCase() ?? '');
+		const type = variable && !variable.isArray ? typeKey(variable.asType) : undefined;
+		return type && types.has(type) ? { type, path: variable!.name.toLowerCase(), display: toks[1].rawText } : undefined;
+	}
+	const root = typeRootAt(toks, 1, symbols, proc, types, outer);
+	const step = root ? fieldChain(toks, root, types).at(-1) : undefined;
+	const end = step ? step.close ?? step.at : -1;
+	if (!step || end !== last || (step.field.isArray && step.open === undefined)) {
+		return undefined;
+	}
+	const type = step.field.type !== undefined && types.has(step.field.type) ? step.field.type : undefined;
+	const display = step.open === undefined ? step.display : step.display + toks.slice(step.open, step.close! + 1).map((tok) => tok.rawText).join('');
+	return { display, path: step.open === undefined ? step.path : undefined, type, field: step.field };
+}
+
+/** The subject of the innermost With around each statement, block headers included, by the statement's start. */
+export function withSubjectsIn(
+	source: string,
+	proc: ProcedureNode,
+	activity: ConditionalActivityTracker | undefined,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	types: ModuleTypes,
+): Map<number, WithSubject> {
+	const out = new Map<number, WithSubject>();
+	walkWithSubjects(source, proc.body, activity, symbols, proc, types, undefined, (stmt, subject) => {
+		if (subject) {
+			out.set(stmt.span.start, subject);
+		}
+	});
+	return out;
 }
 
 /** One field a chain reaches. */

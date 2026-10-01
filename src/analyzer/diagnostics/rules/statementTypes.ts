@@ -32,6 +32,15 @@
 //    declared type is fine.
 //  - named-argument-not-allowed: InStr, Len, StrComp, Abs, Int, Fix, Sgn and
 //    the C-conversions but CDec take no named arguments, "Syntax error".
+//
+// Issue #253, measured the same way:
+//
+//  - lset-type-mismatch: LSet between two different user-defined types,
+//    either of which holds a variable-length String, a dynamic array, an
+//    object or a Variant, "Type mismatch". Two Types of fixed-size
+//    members, and two values of one Type, take it.
+//  - udt-variant-coercion: a user-defined type passed to a method of a
+//    Collection, an Object or a Variant, `c.Add t`, `o.Add t`.
 
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { VbaToken } from '../../lexer/tokenKinds';
@@ -41,6 +50,7 @@ import type { VbaSymbol } from '../../symbols/symbolModel';
 import type { ProjectTypeName } from '../../completion/typeCompletion';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { isKnownScalarType, normalizeType, sourceIdentifierBinding } from '../typeInference';
+import { moduleTypes, type ModuleTypes } from '../typeFields';
 import {
 	absoluteSpan,
 	activeModuleMembers,
@@ -70,6 +80,8 @@ interface Context {
 	enums: ReadonlySet<string>;
 	/** Whether an untyped variable is a Variant, which a Deftype line changes. */
 	untypedIsVariant: boolean;
+	/** The Types this module declares, with their fields. */
+	types: ModuleTypes;
 }
 
 export function checkStatementTypes(
@@ -106,6 +118,7 @@ export function checkStatementTypes(
 		udts,
 		enums,
 		untypedIsVariant: !/^[ \t]*Def(?:Bool|Byte|Int|Lng|LngLng|LngPtr|Cur|Sng|Dbl|Dec|Date|Str|Obj|Var)\b/im.test(source),
+		types: moduleTypes(source, mod, activity),
 	};
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'VariableGroup') {
@@ -376,6 +389,11 @@ function checkStatement(ctx: Context, procSym: VbaSymbol | undefined, span: Span
 			}
 		}
 	}
+	if (first === 'lset' && toks.length === 4 && toks[2].rawText === '=') {
+		checkLSet(ctx, procSym, toks, span);
+		return;
+	}
+	checkMethodArguments(ctx, procSym, toks, span);
 	if (first === 'msgbox') {
 		const start = toks[1]?.rawText === '(' ? 2 : 1;
 		const name = udtAt(start);
@@ -459,7 +477,131 @@ function firstTopLevelEquals(toks: readonly VbaToken[]): number {
 }
 
 function isOperator(tok: VbaToken): boolean {
-	return tok.kind === 'operator' ? tok.rawText !== '.' && tok.rawText !== '!' : OPERATOR_WORDS.has(tokenText(tok));
+	// `Item:=t` names an argument, which udt-variant-coercion reads.
+	return tok.kind === 'operator' ? tok.rawText !== '.' && tok.rawText !== '!' && tok.rawText !== ':=' : OPERATOR_WORDS.has(tokenText(tok));
+}
+
+/**
+ * `LSet a = b` between two Types (issue #253): refused when they differ and
+ * either holds a member that is not of fixed size.
+ */
+function checkLSet(ctx: Context, procSym: VbaSymbol | undefined, toks: readonly VbaToken[], span: Span): void {
+	const target = variableNamed(ctx, procSym, tokenName(toks[1]) ?? '');
+	const value = variableNamed(ctx, procSym, tokenName(toks[3]) ?? '');
+	const targetType = normalizeType(target?.asType);
+	const valueType = normalizeType(value?.asType);
+	if (category(ctx, target) !== 'udt' || category(ctx, value) !== 'udt' || !targetType || !valueType || targetType === valueType) {
+		return;
+	}
+	const held = variableSizeMember(ctx, targetType, 0) ?? variableSizeMember(ctx, valueType, 0);
+	if (!held) {
+		return;
+	}
+	ctx.push(
+		'lsetTypeMismatch',
+		`LSet copies '${toks[3].rawText}' (${value!.asType}) into '${toks[1].rawText}' (${target!.asType}), two different user-defined types, and the member ${held}. LSet copies between two types only when every member is of fixed size. This is a VBE compile error: Type mismatch.`,
+		{ start: span.start + toks[0].start, end: span.start + toks[3].end },
+	);
+}
+
+/** A member of a module Type that is not of fixed size, described; undefined when every member is, or one is unknown. */
+function variableSizeMember(ctx: Context, type: string, depth: number): string | undefined {
+	const fields = ctx.types.get(type);
+	if (!fields || depth > 8) {
+		return undefined;
+	}
+	for (const field of fields.values()) {
+		const fieldType = normalizeType(field.type);
+		if (field.isArray && !field.dims) {
+			return `'${field.name}' is a dynamic array`;
+		}
+		if (!fieldType || fieldType === 'variant') {
+			return `'${field.name}' is a Variant`;
+		}
+		if (fieldType === 'string' && field.fixedLength === undefined) {
+			return `'${field.name}' is a variable-length String`;
+		}
+		if (ctx.types.has(fieldType)) {
+			const nested = variableSizeMember(ctx, fieldType, depth + 1);
+			if (nested) {
+				return nested;
+			}
+		} else if (fieldType === 'object' || fieldType === 'collection') {
+			return `'${field.name}' is an object`;
+		}
+	}
+	return undefined;
+}
+
+/** VBA's functions measured to refuse a user-defined type for their Variant parameter (issue #253). */
+const VARIANT_FUNCTIONS: ReadonlySet<string> = new Set([
+	'array', 'choose', 'cvar', 'format', 'iif', 'isarray', 'isdate', 'isempty', 'iserror', 'ismissing',
+	'isnull', 'isnumeric', 'isobject', 'typename', 'vartype',
+]);
+
+/**
+ * `VBA.TypeName(t)`: the qualified forms of VBA's functions refuse a Type as
+ * the bare ones do; argument-shape-mismatch reads the bare ones.
+ */
+function checkQualifiedLibraryArguments(ctx: Context, procSym: VbaSymbol | undefined, toks: readonly VbaToken[], span: Span): void {
+	for (let i = 0; i + 3 < toks.length; i++) {
+		if (tokenText(toks[i]) !== 'vba' || toks[i - 1]?.rawText === '.' || toks[i + 1].rawText !== '.' || !VARIANT_FUNCTIONS.has(tokenText(toks[i + 2])) || toks[i + 3].rawText !== '(') {
+			continue;
+		}
+		let depth = 0;
+		for (let j = i + 4; j < toks.length; j++) {
+			const raw = toks[j].rawText;
+			if (raw === '(') {
+				depth++;
+			} else if (raw === ')') {
+				if (depth-- === 0) {
+					break;
+				}
+			} else if (depth === 0 && tokenName(toks[j]) && [',', '('].includes(toks[j - 1].rawText) && [',', ')'].includes(toks[j + 1]?.rawText ?? '')
+				&& category(ctx, variableNamed(ctx, procSym, tokenName(toks[j])!)) === 'udt') {
+				udtCoercion(ctx, toks[j].rawText, absoluteSpan(span, toks[j]));
+			}
+		}
+	}
+}
+
+/**
+ * `c.Add t`, `o.Add Item:=t`, `Call c.Add(t)`: a user-defined type passed to
+ * a method of a Collection, an Object or a Variant (issue #253).
+ */
+function checkMethodArguments(ctx: Context, procSym: VbaSymbol | undefined, toks: readonly VbaToken[], span: Span): void {
+	checkQualifiedLibraryArguments(ctx, procSym, toks, span);
+	const at = tokenText(toks[0]) === 'call' ? 1 : 0;
+	const receiver = tokenName(toks[at]) ? variableNamed(ctx, procSym, tokenName(toks[at])!) : undefined;
+	const receiverType = normalizeType(receiver?.asType) ?? (ctx.untypedIsVariant ? 'variant' : undefined);
+	if (!receiver || receiver.isArray || !['collection', 'object', 'variant'].includes(receiverType ?? '') || toks[at + 1]?.rawText !== '.' || !tokenName(toks[at + 2])) {
+		return;
+	}
+	let start = at + 3;
+	let end = toks.length;
+	if (toks[start]?.rawText === '(' && toks[toks.length - 1]?.rawText === ')') {
+		start++;
+		end--;
+	}
+	let depth = 0;
+	let slotStart = start;
+	for (let i = start; i <= end; i++) {
+		const raw = toks[i]?.rawText;
+		if (i < end && raw !== ',') {
+			depth += raw === '(' ? 1 : raw === ')' ? -1 : 0;
+			continue;
+		}
+		if (depth > 0) {
+			continue;
+		}
+		const slot = toks.slice(slotStart, i);
+		slotStart = i + 1;
+		const value = slot[1]?.rawText === ':=' ? slot.slice(2) : slot;
+		const name = value.length === 1 ? tokenName(value[0]) : undefined;
+		if (name && category(ctx, variableNamed(ctx, procSym, name)) === 'udt') {
+			udtCoercion(ctx, name, absoluteSpan(span, value[0]));
+		}
+	}
 }
 
 /** Whether a token ends or begins a Print or MsgBox argument. */

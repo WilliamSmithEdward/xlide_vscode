@@ -2442,7 +2442,9 @@ export function checkIdentifierTooLong(
  * Both fire only when the parameter's declared type matches a Type declared in
  * this module (unambiguously a UDT), so they are no-false-positive; cross-module
  * type names are not resolved here and stay quiet. An `Optional ByVal` UDT param
- * reports only the Optional diagnostic (matching VBE).
+ * reports only the Optional diagnostic (matching VBE). A Declare's parameters
+ * are held to both (issue #253, measured in Excel 16.0: "User-defined type
+ * may not be passed ByVal" and "Invalid optional parameter type").
  */
 export function checkUdtParameterConstraints(
 	mod: ModuleNode,
@@ -2459,7 +2461,7 @@ export function checkUdtParameterConstraints(
 		return;
 	}
 	for (const member of activeModuleMembers(mod, activity)) {
-		if (member.kind !== 'Procedure') {
+		if (member.kind !== 'Procedure' && member.kind !== 'Declare') {
 			continue;
 		}
 		for (const param of member.params) {
