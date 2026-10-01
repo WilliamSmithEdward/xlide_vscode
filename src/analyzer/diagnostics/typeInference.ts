@@ -3111,7 +3111,9 @@ export function knownLocalLiteralValues(
 					}
 					continue;
 				}
-				mutateWholeArguments(toks, 0, false);
+				// A Case line reads values: `Case w` passes w to nothing, and
+				// only a call in it can (issue #268).
+				mutateWholeArguments(toks, head === 'case' ? first + 1 : 0, head === 'case');
 			}
 		}
 	};
