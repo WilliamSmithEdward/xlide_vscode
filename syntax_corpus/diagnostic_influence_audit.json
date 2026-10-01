@@ -3139,7 +3139,7 @@
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Information-only: statements after an unconditional exit in the same block, until a label, line number, Case arm or #If gives control somewhere to land. A single-line If carrying an Exit is conditional and never a terminator."
+      "notes": "Information-only: statements after an unconditional exit in the same block, until a label, line number, Case arm or #If gives control somewhere to land. A single-line If carrying an Exit is conditional and never a terminator. Issue #249: a comment line, ' or Rem, is no statement (the parser leaves it out of a procedure's body), so the error-handler banner between Exit and a label is not unreachable code (measured in Excel 16.0, issue249_* oracle cases)."
     },
     {
       "code": "doc-param-missing",
@@ -4082,7 +4082,7 @@
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Execution falls into a GoSub target. VBE runtime error 3: Return without GoSub (issue #117, Excel 16.0).",
+      "notes": "Execution falls into a GoSub target. VBE runtime error 3: Return without GoSub (issue #117, Excel 16.0). Issue #249: a comment line above a GoSub target is no statement the target is fallen into from (measured in Excel 16.0).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {

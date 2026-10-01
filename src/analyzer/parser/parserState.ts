@@ -186,4 +186,13 @@ export function codeTokens(statement: LogicalStatement): VbaToken[] {
 	return statement.tokens.filter((t) => t.kind !== 'comment');
 }
 
+/**
+ * A line that holds only a comment, `'` or `Rem`. Inside a procedure it is
+ * no statement (MS-VBAL 3.3.1): the flow rules read one as unreachable after
+ * Exit, or as the line a GoSub target is fallen into from (issue #249).
+ */
+export function isCommentLine(statement: LogicalStatement): boolean {
+	return statement.tokens.every((t) => t.kind === 'comment');
+}
+
 export { tokenWord } from '../lexer/tokenHelpers';

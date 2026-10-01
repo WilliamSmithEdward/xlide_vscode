@@ -37930,6 +37930,127 @@
       "source": "Option Explicit\r\nPrivate Type Outer\r\n    arr(3) As Long\r\n    grid(1, 2) As Long\r\nEnd Type\r\nDim mg(2, 2) As Long\r\nFunction Main() As Variant\r\n    Dim a(3) As Collection\r\n    Set a(1) = New Collection\r\n    a(1).Add 7\r\n    Main = a(1)(1)\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue249_01_runtime",
+      "description": "Issue #249 comment lines, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    On Error GoTo Handler\r\n    Main = 1\r\n    Exit Function\r\n    ' ---- error handler ----\r\nHandler:\r\n    Main = Err.Number\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue249_02_runtime",
+      "description": "Issue #249 comment lines, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    On Error GoTo Handler\r\n    Main = 1\r\n    Exit Function\r\n    ' ---- error handler ----\r\nHandler:\r\n    Main = Err.Number\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue249_03_runtime",
+      "description": "Issue #249 comment lines, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    On Error GoTo Handler\r\n    Main = 1\r\n    Exit Function\r\n    Rem ---- error handler ----\r\nHandler:\r\n    Main = Err.Number\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue249_04_runtime",
+      "description": "Issue #249 comment lines, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Exit Function\r\n    ' the end\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue249_05_runtime",
+      "description": "Issue #249 comment lines, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    GoTo Skip\r\n    ' skipped\r\nSkip:\r\n    Main = 3\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue249_06_runtime",
+      "description": "Issue #249 comment lines, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    GoSub Work\r\n    Exit Function\r\n    ' the subroutine\r\nWork:\r\n    Main = 2\r\n    Return\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue249_07_runtime",
+      "description": "Issue #249 comment lines, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    GoSub Work\r\n    Exit Function\r\n    Rem the subroutine\r\nWork:\r\n    Main = 2\r\n    Return\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue249_08_runtime",
+      "description": "Issue #249 comment lines, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    GoSub Work\r\n    Exit Function\r\n    ' one\r\n    ' two\r\nWork:\r\n    Main = 2\r\n    Return\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue249_09_runtime",
+      "description": "Issue #249 comment lines, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    GoSub Work\r\n    Main = Main + 1\r\n    Exit Function\r\nWork:\r\n    Main = 2\r\n    Return\r\n    ' after return\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue249_10_runtime",
+      "description": "Issue #249 comment lines, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Exit Function\r\n    ' note\r\n    Main = 2\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue249_11_runtime",
+      "description": "Issue #249 comment lines, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    On Error GoTo Handler\r\n    Main = 1\r\n    Exit Function\r\n\r\nHandler:\r\n    Main = Err.Number\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
