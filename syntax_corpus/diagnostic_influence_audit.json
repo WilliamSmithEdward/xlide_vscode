@@ -461,11 +461,18 @@
         "byref_long_range_value_compile",
         "byref_string_object_variable_compile",
         "byval_long_integer_variable_compile",
-        "issue216_28_compile"
+        "issue216_28_compile",
+        "issue253_70_compile",
+        "issue253_71_compile",
+        "issue253_104_compile",
+        "issue253_105_compile",
+        "issue253_106_compile",
+        "issue253_107_compile",
+        "issue253_108_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "The active rule is intentionally narrow: it fires only when a source-backed same-module or unique exported project callable has a ByRef parameter with a known exact type and the argument is an unparenthesized known non-Variant variable with a different normalized type. Bare argument variables resolve through the shared expression resolver before local type-map fallback, and module-qualified variables resolve through the matching source-backed module surface, so visible exported standard-module variables participate while local shadows, ambiguous exported globals, unknown module qualifiers, untyped values, and Variant values stay quiet. Oracle controls prove that literals, parenthesized Long variable expressions, arithmetic expressions, and Range.Value member expressions are compile-accepted, while an Object variable passed to ByRef String is rejected.",
+      "notes": "The active rule is intentionally narrow: it fires only when a source-backed same-module or unique exported project callable has a ByRef parameter with a known exact type and the argument is an unparenthesized known non-Variant variable with a different normalized type. Bare argument variables resolve through the shared expression resolver before local type-map fallback, and module-qualified variables resolve through the matching source-backed module surface, so visible exported standard-module variables participate while local shadows, ambiguous exported globals, unknown module qualifiers, untyped values, and Variant values stay quiet. Oracle controls prove that literals, parenthesized Long variable expressions, arithmetic expressions, and Range.Value member expressions are compile-accepted, while an Object variable passed to ByRef String is rejected. Issue #253: a Type parameter takes only a variable of its own Type; a Variant, a number, an object, a literal, a member that holds a number, or another Type is ByRef argument type mismatch (measured in Excel 16.0).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -771,11 +778,17 @@
         "issue241_02_runtime",
         "issue241_03_runtime",
         "issue241_04_runtime",
-        "issue241_24_runtime"
+        "issue241_24_runtime",
+        "issue253_01_runtime",
+        "issue253_02_runtime",
+        "issue253_03_runtime",
+        "issue253_04_runtime",
+        "issue253_48_runtime",
+        "issue253_54_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Active coverage is intentionally narrow: local non-Static object-valued variables start as Nothing, straight-line Set assignments mark them initialized, Set ... = Nothing resets them, and nested block assignments or helper-call arguments make the local state unknown rather than guessed. Parameters, module-level object variables, Static locals, Variant values, unresolved object types, and inactive conditional-compilation branches stay quiet. The legacy invalid_semantics_089 object-not-set case is covered by the focused runtime oracle fixture. This is separate from member-not-found: late-bound Object receivers still suppress member-surface absence diagnostics, but a definitely uninitialized local Object receiver can still produce runtime error 91. In a block header too: For i = 1 To c.Count, Select Case c.Count (issue #233, Excel 16.0). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0). A module variable nothing in the module writes keeps its initial value in every procedure (issue #241, measured in Excel 16.0, build 20326); a Public one also needs no other module to write it (ProjectIndex.writtenNames). An object is Nothing, so m.Count raises 91.",
+      "notes": "Active coverage is intentionally narrow: local non-Static object-valued variables start as Nothing, straight-line Set assignments mark them initialized, Set ... = Nothing resets them, and nested block assignments or helper-call arguments make the local state unknown rather than guessed. Parameters, module-level object variables, Static locals, Variant values, unresolved object types, and inactive conditional-compilation branches stay quiet. The legacy invalid_semantics_089 object-not-set case is covered by the focused runtime oracle fixture. This is separate from member-not-found: late-bound Object receivers still suppress member-surface absence diagnostics, but a definitely uninitialized local Object receiver can still produce runtime error 91. In a block header too: For i = 1 To c.Count, Select Case c.Count (issue #233, Excel 16.0). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0). A module variable nothing in the module writes keeps its initial value in every procedure (issue #241, measured in Excel 16.0, build 20326); a Public one also needs no other module to write it (ProjectIndex.writtenNames). An object is Nothing, so m.Count raises 91. Issue #253: an object member of a Type local that nothing has Set, or that was Set to Nothing, given a member or a call: t.o.Add 1, t.o.Count, t.o(1), .o.Add 1 inside With t, and .Add 1 inside With t.o raise 91 (measured in Excel 16.0). A Set, a whole use of the local or of the member, a label and a GoSub end what is known; a guard such as If Not t.o Is Nothing Then is respected.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -917,11 +930,15 @@
         "issue239_81_runtime",
         "issue239_82_runtime",
         "issue241_09_runtime",
-        "issue241_15_runtime"
+        "issue241_15_runtime",
+        "issue253_10_runtime",
+        "issue253_11_runtime",
+        "issue253_12_runtime",
+        "issue253_57_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show /, integer division, and Mod by decimal, hexadecimal, octal, module-Const, local-Const, reducible integer Const-expression, current-module Enum member, bare/module-qualified visible exported standard-module Const/Enum, verified numeric VBA runtime constants, generated Excel/Office host enum constants, and exported Const-through-private-helper zero divisors compile successfully and deterministically raise runtime error 11, while nonzero literal, Const-expression, and Enum member controls run. Const/Enum folding includes decimal/hex/octal integer literals and implicit Enum successor values where the expression remains deterministic. Bare source names are folded only when the shared expression resolver proves a non-ambiguous Const or Enum-member binding, so local/module variable shadows suppress exported and external constant values. The active rule scans settled procedure statements, including nested expressions, and remains conservative for variables, unresolved constants, direct private helper references, ambiguous source bindings, nonnumeric external constants, and broader expression folding until flow/reachability handling is broader. Issue #219: a Variant local nothing assigns is Empty, which divides as 0 (5 / v raises 11, v / v raises 6), and a conversion of a literal that comes out 0, CLng(0) or CLng(0.4), is a zero divisor. In a block header too: For bounds and Step, Select Case, Do, Loop and While conditions, a With subject (issue #233, Excel 16.0). Issue #239: \\ and Mod by a local holding a number of 0.5 or less either side of 0 round the divisor to 0 and raise 11, as the literal does. Measured in Excel 16.0 (build 20326). A module variable nothing in the module writes keeps its initial value in every procedure (issue #241, measured in Excel 16.0, build 20326); a Public one also needs no other module to write it (ProjectIndex.writtenNames). A number is 0, so 10 / z raises 11.",
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show /, integer division, and Mod by decimal, hexadecimal, octal, module-Const, local-Const, reducible integer Const-expression, current-module Enum member, bare/module-qualified visible exported standard-module Const/Enum, verified numeric VBA runtime constants, generated Excel/Office host enum constants, and exported Const-through-private-helper zero divisors compile successfully and deterministically raise runtime error 11, while nonzero literal, Const-expression, and Enum member controls run. Const/Enum folding includes decimal/hex/octal integer literals and implicit Enum successor values where the expression remains deterministic. Bare source names are folded only when the shared expression resolver proves a non-ambiguous Const or Enum-member binding, so local/module variable shadows suppress exported and external constant values. The active rule scans settled procedure statements, including nested expressions, and remains conservative for variables, unresolved constants, direct private helper references, ambiguous source bindings, nonnumeric external constants, and broader expression folding until flow/reachability handling is broader. Issue #219: a Variant local nothing assigns is Empty, which divides as 0 (5 / v raises 11, v / v raises 6), and a conversion of a literal that comes out 0, CLng(0) or CLng(0.4), is a zero divisor. In a block header too: For bounds and Step, Select Case, Do, Loop and While conditions, a With subject (issue #233, Excel 16.0). Issue #239: \\ and Mod by a local holding a number of 0.5 or less either side of 0 round the divisor to 0 and raise 11, as the literal does. Measured in Excel 16.0 (build 20326). A module variable nothing in the module writes keeps its initial value in every procedure (issue #241, measured in Excel 16.0, build 20326); a Public one also needs no other module to write it (ProjectIndex.writtenNames). A number is 0, so 10 / z raises 11. Issue #253: a numeric member of a Type local is 0 until an assignment stores another literal, so 1 / t.a, 1 \\ t.i and 5 Mod t.a raise 11 (measured in Excel 16.0).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -1220,12 +1237,14 @@
       "status": "spec-derived",
       "sourceOfTruth": "VBA ReDim statement semantics: fixed-size arrays cannot be resized",
       "corpusInfluence": "none",
-      "assertedOracleCases": [],
+      "assertedOracleCases": [
+        "issue253_62_compile"
+      ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_final_hardening_cases.md"
       ],
-      "notes": "Active coverage uses parser-backed arrayBounds metadata carried on variable symbols to distinguish `Dim a()` dynamic arrays from fixed-bound declarations such as `Dim a(1 To 3)`. ReDim targets ask the shared assignment-target resolver first, so visible exported standard-module fixed arrays participate while local dynamic shadows and ambiguous exported globals stay quiet. Dynamic arrays, undeclared ReDim targets, local dynamic shadows, and inactive conditional branches stay silent.",
+      "notes": "Active coverage uses parser-backed arrayBounds metadata carried on variable symbols to distinguish `Dim a()` dynamic arrays from fixed-bound declarations such as `Dim a(1 To 3)`. ReDim targets ask the shared assignment-target resolver first, so visible exported standard-module fixed arrays participate while local dynamic shadows and ambiguous exported globals stay quiet. Dynamic arrays, undeclared ReDim targets, local dynamic shadows, and inactive conditional branches stay silent. Issue #253: ReDim of a fixed array member of a Type, ReDim t.f(3): Array already dimensioned (measured in Excel 16.0).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -1416,7 +1435,10 @@
         "issue248_100_runtime",
         "issue248_101_runtime",
         "issue248_102_runtime",
-        "issue248_103_runtime"
+        "issue248_103_runtime",
+        "issue253_18_runtime",
+        "issue253_19_runtime",
+        "issue253_20_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -1483,13 +1505,15 @@
       "assertedOracleCases": [
         "erase_object_scalar_compile",
         "erase_long_scalar_compile",
-        "erase_variant_scalar_compile"
+        "erase_variant_scalar_compile",
+        "issue253_61_compile",
+        "issue253_113_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_final_hardening_cases.md"
       ],
-      "notes": "Active coverage uses shared assignment-target resolver-backed shape lookup before falling back to procedure declaration-shape environments. It reports simple bare Erase targets declared as known non-Variant scalar/object values, including visible exported standard-module globals. Arrays, scalar Variant, implicit Variant, local shadows, ambiguous exported globals, unresolved names, non-simple member/index targets, and inactive branches stay silent. Oracle controls prove scalar Variant compiles while Object and Long scalar targets reject as Expected array.",
+      "notes": "Active coverage uses shared assignment-target resolver-backed shape lookup before falling back to procedure declaration-shape environments. It reports simple bare Erase targets declared as known non-Variant scalar/object values, including visible exported standard-module globals. Arrays, scalar Variant, implicit Variant, local shadows, ambiguous exported globals, unresolved names, non-simple member/index targets, and inactive branches stay silent. Oracle controls prove scalar Variant compiles while Object and Long scalar targets reject as Expected array. Issue #253: Erase of a whole Type value, Erase t, or of a member that is no array, Erase t.a: Expected array (measured in Excel 16.0).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -1887,11 +1911,15 @@
         "string_scalar_member_access_compile",
         "integer_scalar_trailing_dot_compile",
         "string_scalar_named_member_compile",
-        "integer_scalar_named_member_compile"
+        "integer_scalar_named_member_compile",
+        "issue253_59_compile",
+        "issue253_60_compile",
+        "issue253_114_compile",
+        "issue253_115_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Named member access on declared intrinsic scalar variables is rejected by VBE Compile as Invalid qualifier. Bare trailing-dot scalar statements are rejected by VBE Compile as Syntax error after explicit focus retesting. Only known intrinsic scalar bare receivers are flagged, including visible exported standard-module scalar globals resolved through the shared member-receiver resolver. Local shadows, ambiguous exported globals, qualified/member-chain tokens, Variant, Object, class, UDT, and unknown receiver types stay silent while they may be incomplete member-access completion contexts.",
+      "notes": "Named member access on declared intrinsic scalar variables is rejected by VBE Compile as Invalid qualifier. Bare trailing-dot scalar statements are rejected by VBE Compile as Syntax error after explicit focus retesting. Only known intrinsic scalar bare receivers are flagged, including visible exported standard-module scalar globals resolved through the shared member-receiver resolver. Local shadows, ambiguous exported globals, qualified/member-chain tokens, Variant, Object, class, UDT, and unknown receiver types stay silent while they may be incomplete member-access completion contexts. Issue #253: a member of a Type value that holds a number or a string given a member, t.a.Value, t.s.Length, .a.Value in With t: Invalid qualifier (measured in Excel 16.0).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -2498,11 +2526,12 @@
         "issue213_47_compile",
         "issue213_51_compile",
         "issue213_52_compile",
-        "issue213_53_compile"
+        "issue213_53_compile",
+        "issue253_94_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "A user-defined type assigned from a literal, a scalar or another Type, assigned to a scalar, beside an operator, as an If condition, or printed: \"Type mismatch\". A Type of the same name, a member, an array element and LSet compile.",
+      "notes": "A user-defined type assigned from a literal, a scalar or another Type, assigned to a scalar, beside an operator, as an If condition, or printed: \"Type mismatch\". A Type of the same name, a member, an array element and LSet compile. Issue #253: CStr(t) of a Type value is Type mismatch (measured in Excel 16.0).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -2512,11 +2541,61 @@
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue213_48_compile",
-        "issue213_54_compile"
+        "issue213_54_compile",
+        "issue253_63_compile",
+        "issue253_64_compile",
+        "issue253_65_compile",
+        "issue253_66_compile",
+        "issue253_67_compile",
+        "issue253_68_compile",
+        "issue253_69_compile",
+        "issue253_86_compile",
+        "issue253_87_compile",
+        "issue253_88_compile",
+        "issue253_89_compile",
+        "issue253_90_compile",
+        "issue253_91_compile",
+        "issue253_92_compile",
+        "issue253_93_compile",
+        "issue253_95_compile",
+        "issue253_96_compile",
+        "issue253_97_compile",
+        "issue253_98_compile",
+        "issue253_99_compile",
+        "issue253_100_compile",
+        "issue253_101_compile",
+        "issue253_102_compile",
+        "issue253_103_compile",
+        "issue253_112_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "A user-defined type assigned to a Variant or passed to MsgBox: \"Only user-defined types defined in public object modules can be coerced to or from a variant or passed to late-bound functions\".",
+      "notes": "A user-defined type assigned to a Variant or passed to MsgBox: \"Only user-defined types defined in public object modules can be coerced to or from a variant or passed to late-bound functions\". Issue #253: a Type value passed to a Variant parameter, Optional and ParamArray included, to VBA's functions with a Variant parameter (Array, IsEmpty, IsNull, IsArray, IsObject, IsNumeric, IsDate, IsError, IsMissing, TypeName, VarType, CVar, Format, IIf, Choose, also VBA-qualified), and to a method of a Collection, an Object or a Variant (measured in Excel 16.0). Len, LenB and VarPtr take one.",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "lset-type-mismatch",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel/VBE oracle (issue #253: LSet between two different user-defined types, either holding a member not of fixed size, is compile rejected, 'Type mismatch')",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue253_73_compile",
+        "issue253_74_compile",
+        "issue253_75_compile",
+        "issue253_76_compile",
+        "issue253_77_compile",
+        "issue253_78_compile",
+        "issue253_79_compile",
+        "issue253_80_compile",
+        "issue253_81_compile",
+        "issue253_82_compile",
+        "issue253_83_compile",
+        "issue253_84_compile",
+        "issue253_110_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Flags LSet a = b where a and b are variables of two different module Types and either Type holds a variable-length String, a dynamic array, an object or a Variant member, at any depth (issue #253, measured in Excel 16.0 with each kind in the source only, the destination only, and both). Two Types of fixed-size members (numbers, String * n, fixed arrays) and two values of one Type compile. A member of a type the module does not declare leaves the statement alone.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -2551,11 +2630,13 @@
         "issue248_91_compile",
         "issue248_92_compile",
         "issue248_93_compile",
-        "issue248_94_compile"
+        "issue248_94_compile",
+        "issue253_72_compile",
+        "issue253_109_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "A Const or Enum member as a For or For Each counter or a Mid statement target: \"Variable required - can't assign to this expression\". Issue #248: Len(a) or LenB(a) of an array, a variable, parameter or Type field, parentheses or not, is 'Variable required - can't assign to this expression' (measured in Excel 16.0). VBA.Len(a) is the library function and compiles.",
+      "notes": "A Const or Enum member as a For or For Each counter or a Mid statement target: \"Variable required - can't assign to this expression\". Issue #248: Len(a) or LenB(a) of an array, a variable, parameter or Type field, parentheses or not, is 'Variable required - can't assign to this expression' (measured in Excel 16.0). VBA.Len(a) is the library function and compiles. Issue #253: a Type value in parentheses for a Type parameter, TakeT (t) or Call TakeT((t)): Variable required (measured in Excel 16.0).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -2911,11 +2992,12 @@
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "corpus_sig_007_compile",
-        "corpus_bp_optional_pubudt_param"
+        "corpus_bp_optional_pubudt_param",
+        "issue253_111_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Flags an Optional parameter whose type is a Type declared in this module (a UDT cannot be Optional). Oracle confirmed this holds for public and private UDTs alike. Cross-module type names are not resolved (stay quiet). No false positives.",
+      "notes": "Flags an Optional parameter whose type is a Type declared in this module (a UDT cannot be Optional). Oracle confirmed this holds for public and private UDTs alike. Cross-module type names are not resolved (stay quiet). No false positives. Issue #253: a Declare's parameters too: Optional x As T on a Declare is Invalid optional parameter type (measured in Excel 16.0).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -2926,11 +3008,12 @@
       "assertedOracleCases": [
         "corpus_api_vis_003_compile",
         "corpus_bp_nonopt_pubudt_param",
-        "corpus_bp_priv_udt_privproc_param"
+        "corpus_bp_priv_udt_privproc_param",
+        "issue253_85_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Flags a non-optional ByVal parameter whose type is a Type declared in this module (a UDT must be passed ByRef). Oracle probes proved the rule is about ByVal, not type visibility (ByRef UDT params are accepted). An Optional ByVal UDT param reports only optional-udt-parameter. Cross-module type names stay quiet.",
+      "notes": "Flags a non-optional ByVal parameter whose type is a Type declared in this module (a UDT must be passed ByRef). Oracle probes proved the rule is about ByVal, not type visibility (ByRef UDT params are accepted). An Optional ByVal UDT param reports only optional-udt-parameter. Cross-module type names stay quiet. Issue #253: a Declare's parameters too: ByVal x As T on a Declare is User-defined type may not be passed ByVal (measured in Excel 16.0).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -3373,11 +3456,18 @@
         "issue237_57_runtime",
         "issue239_05_runtime",
         "issue239_06_runtime",
-        "issue239_07_runtime"
+        "issue239_07_runtime",
+        "issue253_13_runtime",
+        "issue253_14_runtime",
+        "issue253_15_runtime",
+        "issue253_17_runtime",
+        "issue253_22_runtime",
+        "issue253_23_runtime",
+        "issue253_25_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Arithmetic overflow. MS-VBAL 5.6.9.3 operator result types; VBE runtime error 6: Overflow (issue #116, Excel 16.0). Issue #218: CDec past the Decimal range (CDec(\"1E30\")), and Abs of the smallest Long is not an overflow (it returns -2147483648). Inside any call argument or operand too: CStr(CInt(40000)), IIf(True, 0, CInt(40000)), \"x\" & CInt(40000), z(CInt(40000)); and LongLong, folded exactly, with LongPtr judged against LongLong's range (issues #232 and #258, 64-bit Excel 16.0). In a block header too: For i = 1 To CInt(40000), Select Case CInt(40000) (issue #233, Excel 16.0). Negating the Long minimum wraps where the VBE folds it, -&H80000000, -CLng(&H80000000), -(&H80000000 + 0); a variable or another conversion overflows (issue #235, Excel 16.0).",
+      "notes": "Arithmetic overflow. MS-VBAL 5.6.9.3 operator result types; VBE runtime error 6: Overflow (issue #116, Excel 16.0). Issue #218: CDec past the Decimal range (CDec(\"1E30\")), and Abs of the smallest Long is not an overflow (it returns -2147483648). Inside any call argument or operand too: CStr(CInt(40000)), IIf(True, 0, CInt(40000)), \"x\" & CInt(40000), z(CInt(40000)); and LongLong, folded exactly, with LongPtr judged against LongLong's range (issues #232 and #258, 64-bit Excel 16.0). In a block header too: For i = 1 To CInt(40000), Select Case CInt(40000) (issue #233, Excel 16.0). Negating the Long minimum wraps where the VBE folds it, -&H80000000, -CLng(&H80000000), -(&H80000000 + 0); a variable or another conversion overflows (issue #235, Excel 16.0). Issue #253: a member of a Type value as the target, t.i = t.i + 1 after t.i = 32767, t.i = t.a after t.a = 40000, and a Date member past 12/31/9999; and a literal into an array element of a known type, v(2) = 40000 and t.v(2) = 40000 (measured in Excel 16.0).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {

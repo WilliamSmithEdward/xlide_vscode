@@ -97,6 +97,7 @@ import {
 	checkFixedArraySubscriptBounds,
 } from './rules/arrays';
 import { checkTypeFieldArrays } from './rules/typeFieldArrays';
+import { checkTypeMembers } from './rules/typeMembers';
 import { checkLateBoundFriendMember } from './rules/lateBinding';
 import { checkHandlerFlow } from './rules/handlerFlow';
 import { checkFileStatements } from './rules/fileStatements';
@@ -600,6 +601,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 		run: (ctx, push) => checkTypeFieldArrays(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push, ctx.opts.projectIntegerConstants, ctx.opts.projectVisibleSymbols, ctx.opts.hostModel),
 	},
 	{
+		name: 'typeMembers',
+		run: (ctx, push) => checkTypeMembers(ctx.source, ctx.mod, ctx.symbols, ctx.memberCtx, ctx.activity, push),
+	},
+	{
 		name: 'midStatementLiteralTarget',
 		run: (ctx, push) =>
 			checkMidStatementLiteralTarget(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
@@ -906,6 +911,8 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.opts.projectVisibleSymbols,
 			ctx.memberCtx,
 			push,
+			ctx.mod,
+			ctx.activity,
 		),
 	},
 	{

@@ -1937,6 +1937,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'VBE "Type mismatch" (issue #213, Excel 16.0)',
 		confidence: 'high',
 	},
+	lsetTypeMismatch: {
+		code: 'lset-type-mismatch',
+		title: 'LSet between user-defined types that are not of fixed size',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'VBE "Type mismatch" on LSet between two user-defined types (issue #253, Excel 16.0)',
+		confidence: 'high',
+	},
 	udtVariantCoercion: {
 		code: 'udt-variant-coercion',
 		title: 'User-defined type handed to a Variant',

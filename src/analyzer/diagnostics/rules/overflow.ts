@@ -40,6 +40,7 @@ import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { bankersRound, isBareOrVbaQualifiedIntrinsicCall, namesIn } from './shared';
 import { blockHeaderLeaves, isLoopBlock, selectArms } from '../blockHeaders';
+import { fieldChain, moduleTypes, variableRoot, variableSymbolIn, type ModuleTypes } from '../typeFields';
 import {
 	knownLocalLiteralValues,
 	normalizeType,
@@ -852,6 +853,7 @@ export function checkOverflow(
 	);
 	checkConstDeclarations(source, mod.members.filter((m): m is VariableGroupNode => m.kind === 'VariableGroup'), moduleConstants, activity, push);
 	const hostValues = hostConstantValues(hostModel);
+	const types = moduleTypes(source, mod, activity);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -881,7 +883,9 @@ export function checkOverflow(
 		const groups: VariableGroupNode[] = [];
 		forEachVariableGroup(member.body, (group) => { groups.push(group); }, activity);
 		checkConstDeclarations(source, groups, constants, activity, push);
-		checkProcedureBody(source, member, env, names, justAssigned, activity, push);
+		// `t.i = t.i + 1`: a numeric member of a Type value as the target (issue #253).
+		const memberTarget = types.size === 0 ? undefined : (span: Span): AssignmentTarget | undefined => memberAssignmentTarget(source, span, symbols, member, types);
+		checkProcedureBody(source, member, env, names, justAssigned, activity, push, memberTarget);
 	}
 }
 
@@ -987,13 +991,14 @@ function checkProcedureBody(
 	justAssigned: Map<string, Typed>,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	memberTarget?: (span: Span) => AssignmentTarget | undefined,
 ): void {
 	// Every name a block mentions, its own lines included: `For i = ...` and
 	// `If Store(k, n) Then` change what they name as well (issue #237).
 	const touchedIn = (node: BodyNode): Set<string> => namesIn(source, node.span);
 	const forget = (touched: ReadonlySet<string>): void => {
 		for (const lower of touched) {
-			justAssigned.delete(lower);
+			forgetName(justAssigned, lower);
 		}
 	};
 	// `loopTouched`: names an enclosing loop changes, which a block nested in
@@ -1014,7 +1019,7 @@ function checkProcedureBody(
 				// only what it never names is still known (issue #237).
 				const { before, after } = blockHeaderStatements(source, node);
 				if (before) {
-					checkStatement(source, before.span, env, names, push);
+					checkStatement(source, before.span, env, names, push, memberTarget);
 				}
 				const touched = touchedIn(node);
 				forget(loopTouched);
@@ -1045,7 +1050,7 @@ function checkProcedureBody(
 				restore();
 				forget(touched);
 				if (after) {
-					checkStatement(source, after.span, env, names, push);
+					checkStatement(source, after.span, env, names, push, memberTarget);
 				}
 				continue;
 			}
@@ -1058,7 +1063,7 @@ function checkProcedureBody(
 				justAssigned.clear();
 			}
 			for (const span of spans) {
-				const stored = checkStatement(source, span, env, names, push);
+				const stored = checkStatement(source, span, env, names, push, memberTarget);
 				if (!straightLine) {
 					continue;
 				}
@@ -1071,8 +1076,8 @@ function checkProcedureBody(
 				}
 				for (const tok of toks) {
 					const lower = tokenName(tok)?.toLowerCase();
-					if (lower && justAssigned.has(lower)) {
-						justAssigned.delete(lower);
+					if (lower) {
+						forgetName(justAssigned, lower);
 					}
 				}
 				if (stored) {
@@ -1084,6 +1089,56 @@ function checkProcedureBody(
 	visit(proc.body, new Set());
 }
 
+/** A name, and every member path under it: `t` forgets `t.i`. */
+function forgetName(justAssigned: Map<string, Typed>, lower: string): void {
+	justAssigned.delete(lower);
+	for (const key of justAssigned.keys()) {
+		if (key.startsWith(`${lower}.`)) {
+			justAssigned.delete(key);
+		}
+	}
+}
+
+/** What a statement assigns: a name, or a member path or array element with its declared type. */
+interface AssignmentTarget {
+	name: string;
+	valueTokens: VbaToken[];
+	asType?: string;
+	/** An array element, whose value is not the name's. */
+	element?: boolean;
+}
+
+/**
+ * `t.i = value`, `t.v(2) = value` and `v(2) = value` (issue #253): a numeric
+ * member of a Type value, or an element of an array variable or member.
+ */
+function memberAssignmentTarget(
+	source: string,
+	span: Span,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	proc: ProcedureNode,
+	types: ModuleTypes,
+): AssignmentTarget | undefined {
+	const toks = statementTokens(source, span);
+	const first = firstExecutableTokenIndex(toks);
+	const at = tokenText(toks[first]) === 'let' ? first + 1 : first;
+	const lower = tokenName(toks[at])?.toLowerCase();
+	const variable = lower ? variableSymbolIn(symbols, proc, lower) : undefined;
+	if (variable?.isArray && toks[at + 1]?.rawText === '(') {
+		const close = matchParenFrom(toks, at + 1);
+		return close > 0 && toks[close + 1]?.rawText === '='
+			? { name: toks[at].rawText, valueTokens: toks.slice(close + 2), asType: variable.asType?.replace(/\(\s*\)\s*$/, ''), element: true }
+			: undefined;
+	}
+	const root = variableRoot(toks, at, variable, types);
+	const step = root ? fieldChain(toks, root, types).at(-1) : undefined;
+	const end = step ? step.close ?? step.at : -1;
+	if (!step || toks[end + 1]?.rawText !== '=' || (step.field.isArray && step.open === undefined) || (!step.field.isArray && !step.path)) {
+		return undefined;
+	}
+	return { name: step.path ?? step.display, valueTokens: toks.slice(end + 2), asType: step.field.typeName, element: step.field.isArray };
+}
+
 /** The value a bare assignment provably stores, when the rule can tell. */
 function checkStatement(
 	source: string,
@@ -1091,6 +1146,7 @@ function checkStatement(
 	env: ReadonlyMap<string, string>,
 	names: NameLookup,
 	push: PushFn,
+	memberTarget?: (span: Span) => AssignmentTarget | undefined,
 ): { name: string; value: Typed } | undefined {
 	const toks = statementTokens(source, span);
 	const first = firstExecutableTokenIndex(toks);
@@ -1107,11 +1163,12 @@ function checkStatement(
 		}
 	};
 	let stored: { name: string; value: Typed } | undefined;
-	const bare = bareAssignmentTarget(source, span);
+	const bare: AssignmentTarget | undefined = bareAssignmentTarget(source, span) ?? memberTarget?.(span);
 	if (bare) {
 		const value = bare.valueTokens.filter((tok) => tok.kind !== 'comment');
 		const folded = new TypedFolder(value, span.start, names).fold();
-		const target = numericTypeOf(env.get(bare.name.toLowerCase()));
+		const declared = bare.asType ?? env.get(bare.name.toLowerCase());
+		const target = numericTypeOf(declared);
 		if (isOverflow(folded)) {
 			report(folded);
 		} else if (folded && target) {
@@ -1119,14 +1176,17 @@ function checkStatement(
 			if (!inRange(kept.value, target, kept.exact)) {
 				const shown = kept.exact !== undefined ? String(kept.exact) : showNumber(kept.value);
 				const rounded = kept.value !== folded.value ? ` (${showNumber(folded.value)} rounds to ${showNumber(kept.value)})` : '';
-				const label = normalizeType(env.get(bare.name.toLowerCase())) === 'longptr' ? 'LongPtr, which holds no more than a LongLong' : RANGES[target].label;
-				push('arithmeticOverflow', `Assignment to '${bare.name}' stores ${shown}${rounded} in ${article(label)} ${label}, whose range is ${rangeText(target)}. This will raise Run-time error '6': Overflow.`, {
+				const label = normalizeType(declared) === 'longptr' ? 'LongPtr, which holds no more than a LongLong' : RANGES[target].label;
+				const into = bare.element ? `an element of '${bare.name}'` : `'${bare.name}'`;
+				push('arithmeticOverflow', `Assignment to ${into} stores ${shown}${rounded} in ${article(label)} ${label}, whose range is ${rangeText(target)}. This will raise Run-time error '6': Overflow.`, {
 					start: span.start + value[0].start,
 					end: span.start + value[value.length - 1].end,
 				});
 				return undefined;
 			}
-			stored = { name: bare.name.toLowerCase(), value: { value: kept.value, type: target, ...(kept.exact !== undefined ? { exact: kept.exact } : {}) } };
+			if (!bare.element) {
+				stored = { name: bare.name.toLowerCase(), value: { value: kept.value, type: target, ...(kept.exact !== undefined ? { exact: kept.exact } : {}) } };
+			}
 		}
 	}
 	// Every other part the statement evaluates on its own: a call's

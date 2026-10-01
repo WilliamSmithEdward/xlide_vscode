@@ -72,6 +72,9 @@ import {
 } from '../typeInference';
 import { isInvalidBooleanString } from '../stringConversion';
 import { isBareOrVbaQualifiedIntrinsicCall } from './shared';
+import { moduleOptionBase } from './arrays';
+import { moduleTypes } from '../typeFields';
+import { isKnownNumber, typeMemberStatesAt, type MemberState } from '../typeMemberState';
 import {
 	absoluteSpan,
 	bareAssignmentTarget,
@@ -570,10 +573,15 @@ export function checkDivisionByZeroExpressions(
 ): ProcedureStatementVisitor {
 	const projectConstants = resolveRawIntegerConstants(projectIntegerConstants ?? new Map(), new Map());
 	const moduleConstants = collectModuleLiteralIntegerConstants(mod, activity, projectConstants);
+	const types = moduleTypes(source, mod, activity);
 	return (member) => {
 		const constants = procedureIntegerConstantLookup(
 			member, moduleConstants, symbols, projectVisibleSymbols, activity, hostModel,
 		);
+		// A numeric member of a Type local is 0 until an assignment stores
+		// another literal (issue #253): `1 / t.a` raises 11.
+		const membersAt = types.size === 0 ? undefined : typeMemberStatesAt(source, symbols, member, types, activity, moduleOptionBase(mod, activity));
+		let members: ReadonlyMap<string, MemberState> = new Map();
 		// A local the procedure never assigns is 0, and one whose every
 		// assignment is `d = 0` is 0 too (issue #119): `10 / d` raises 11.
 		// So is one the last assignment before the division sets to 0, though
@@ -590,6 +598,10 @@ export function checkDivisionByZeroExpressions(
 				if (local?.kind === 'empty') {
 					return 0;
 				}
+				const field = members.get(name.toLowerCase());
+				if (isKnownNumber(field) && Number.isInteger(field.number)) {
+					return field.number;
+				}
 				return local?.kind === 'number' && Number.isInteger(local.value) ? (local.value as number) : undefined;
 			},
 		};
@@ -601,6 +613,8 @@ export function checkDivisionByZeroExpressions(
 		};
 		return (stmt) => {
 			known = valuesAt(stmt);
+			// A single-line If's branch sees the members less what its condition names.
+			members = membersAt ? membersAt(stmt, stmt.span.end) : members;
 			for (const hit of divisionByZeroDivisors(source, stmt.span, lookup, guards, fractionOf)) {
 				push('divisionByZero', hit.message, hit.span);
 			}
