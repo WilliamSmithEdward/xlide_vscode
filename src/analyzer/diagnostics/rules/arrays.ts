@@ -50,6 +50,7 @@ import {
 	knownLocalLiteralValuesAt,
 	procedureIntegerConstantLookup,
 	scopedIntegerConstantLookup,
+	sourceIdentifierBinding,
 	withKnownLocals,
 	type SourceDeclaredShape,
 } from '../typeInference';
@@ -245,6 +246,12 @@ export function checkInvalidRedimTargets(
 		return (stmt) => {
 			for (const target of redimTargets(source, stmt.span)) {
 				const lower = target.name.toLowerCase();
+				// A Const or Enum member is no array (issue #255): "Expected array".
+				const binding = sourceIdentifierBinding(symbols, procSym, projectVisibleSymbols, target.name, 'expression');
+				if (binding.scope !== 'ambiguous' && binding.definitions.length > 0 && binding.definitions.every((definition) => definition.kind === 'constant' || definition.kind === 'enumMember')) {
+					push('scalarRedim', `'${target.name}' is a constant, which ReDim cannot resize. This is a VBE compile error: Expected array.`, target.span);
+					continue;
+				}
 				const resolvedShape = declaredShapeForSourceBinding(
 					symbols,
 					procSym,

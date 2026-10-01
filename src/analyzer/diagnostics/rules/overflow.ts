@@ -769,20 +769,24 @@ function constantLookup(
 	candidates: readonly VbaSymbol[],
 ): ReadonlyMap<string, Typed> {
 	const pending = new Map<string, VbaSymbol>();
+	const enums: VbaSymbol[] = [];
 	for (const symbol of candidates) {
 		if (symbol.kind === 'constant' && symbol.defaultRaw !== undefined) {
 			pending.set(symbol.name.toLowerCase(), symbol);
+		} else if (symbol.kind === 'enum') {
+			enums.push(symbol);
 		}
 	}
-	if (pending.size === 0) {
+	if (pending.size === 0 && enums.length === 0) {
 		return base;
 	}
 	const folded = new Map<string, Typed>();
 	const resolving = new Set<string>();
+	const enumValues = new Map<string, Typed>();
 	const resolve = (lower: string): Typed | undefined => {
 		const symbol = pending.get(lower);
 		if (!symbol) {
-			return base.get(lower);
+			return enumValues.get(lower) ?? base.get(lower);
 		}
 		if (folded.has(lower)) {
 			return folded.get(lower);
@@ -809,7 +813,28 @@ function constantLookup(
 		folded.set(lower, typed);
 		return typed;
 	};
-	const out = new Map<string, Typed>(base);
+	// An Enum member is a Long: its own value, or one more than the member
+	// before it, the first 0 (issue #255). `E.eBig` names it too.
+	for (const symbol of enums) {
+		let next: number | undefined = 0;
+		for (const member of symbol.children ?? []) {
+			if (member.kind !== 'enumMember') {
+				continue;
+			}
+			const value: Folded = member.defaultRaw === undefined
+				? (next === undefined ? undefined : { value: next, type: 'long' })
+				: new TypedFolder(rawExpressionTokens(member.defaultRaw).filter((tok) => tok.kind !== 'comment'), 0, resolve).fold();
+			if (value === undefined || isOverflow(value) || !Number.isInteger(value.value) || !inRange(value.value, 'long')) {
+				next = undefined;
+				continue;
+			}
+			const typed: Typed = { value: value.value, type: 'long', constant: true };
+			enumValues.set(member.name.toLowerCase(), typed);
+			enumValues.set(`${symbol.name.toLowerCase()}.${member.name.toLowerCase()}`, typed);
+			next = value.value + 1;
+		}
+	}
+	const out = new Map<string, Typed>([...base, ...enumValues]);
 	for (const lower of pending.keys()) {
 		const typed = resolve(lower);
 		// A candidate that did not fold still shadows the base name.
@@ -858,7 +883,14 @@ export function checkOverflow(
 		if (member.kind !== 'Procedure') {
 			continue;
 		}
-		const constants = constantLookup(moduleConstants, procedureSymbolFor(symbols, member)?.children ?? []);
+		const children = procedureSymbolFor(symbols, member)?.children ?? [];
+		// A local or parameter hides a module Const or Enum member of its name.
+		const constants = new Map(constantLookup(moduleConstants, children));
+		for (const child of children) {
+			if (child.kind === 'localVariable' || child.kind === 'parameter') {
+				constants.delete(child.name.toLowerCase());
+			}
+		}
 		const env = typeEnvironmentFor(symbols, member);
 		const known = knownLocalLiteralValues(source, member, symbols, activity);
 		// Values a straight run of top-level statements has just stored:

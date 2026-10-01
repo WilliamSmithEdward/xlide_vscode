@@ -262,7 +262,15 @@ export function firstLineBreakAtOrAfter(source: string, start: number): number {
  * module (issue #139, a 17x slowdown on real projects).
  */
 export function rawExpressionTokens(text: string): VbaToken[] {
-	return lexStatementTokens(text, { start: 0, end: text.length });
+	// A `#` that opens a line is a directive to the lexer, and an expression
+	// never opens one: `#12/31/9999#` is a date (issue #255). It is lexed
+	// behind an `=` and moved back, so every offset stays the text's.
+	if (!/^[ \t]*#/.test(text)) {
+		return lexStatementTokens(text, { start: 0, end: text.length });
+	}
+	return lexStatementTokens(`=${text}`, { start: 0, end: text.length + 1 })
+		.slice(1)
+		.map((tok) => ({ ...tok, start: tok.start - 1, end: tok.end - 1 }));
 }
 
 export function statementTokensAfterLeadingLabel(source: string, span: Span): VbaToken[] {
