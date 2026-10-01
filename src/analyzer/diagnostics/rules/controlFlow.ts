@@ -41,6 +41,7 @@ import {
 import {
 	absoluteSpan,
 	activeModuleMembers,
+	forEachProcedureBodyLine,
 	forEachStatement,
 	isInactiveNode,
 	rawExpressionTokens,
@@ -51,6 +52,7 @@ import {
 	type ProcedureStatementVisitor,
 } from '../walker';
 import { isDecimalLineNumber, startsPhysicalLine } from '../../lexer/tokenHelpers';
+import { isReservedIdentifier } from '../../lexer/keywordTable';
 
 /** Index of the `)` matching the `(` at `open`, or -1 if unbalanced. */
 /**
@@ -179,6 +181,92 @@ export function checkUndefinedLabels(
 				);
 			}
 		}
+	}
+}
+
+/**
+ * The reserved words a line may start with before a colon without a syntax
+ * error, because the VBE reads them as their own statement there: `End:`,
+ * `Stop:`, `Close:`, `Do:` (Do without Loop), `Print:` and the like (issue
+ * #272, measured in Excel 16.0). Every other reserved word is "Syntax error"
+ * as a label. Rem starts a comment.
+ */
+const RESERVED_LINE_STARTS: ReadonlySet<string> = new Set([
+	'close', 'end', 'resume', 'return', 'stop', 'doevents', 'do', 'else', 'endif', 'loop', 'next', 'wend', 'rem',
+]);
+
+/** The reserved words that, before a colon, are a statement the VBE refuses for another reason. */
+const RESERVED_LINE_ERRORS: Readonly<Record<string, string>> = {
+	print: 'Method not valid without suitable object',
+	scale: 'Method not valid without suitable object',
+	cdec: 'Argument not optional',
+	date: 'Invalid use of property',
+};
+
+/**
+ * Rule: a line label cannot be a reserved word (issue #272, measured in Excel
+ * 16.0 for every reserved word): `GoTo Fix` and a line `Fix:` are "Syntax
+ * error", where `GoTo Mid` and `Mid:` compile, since Mid is a library
+ * function a label may shadow. A jump's target is checked after GoTo, GoSub,
+ * On ... GoTo and Resume, `On Error GoTo 0` and `Resume Next` aside.
+ */
+export function checkReservedLabels(
+	source: string,
+	mod: ModuleNode,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const reserved = (tok: VbaToken | undefined): boolean => tok !== undefined && tok.kind !== 'integerLiteral' && isReservedIdentifier(tok.rawText);
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		// A line that starts `Word:`. Read from the source, since the parser
+		// takes `Dim:` and `Const:` as declarations and splits `Fix:` at the
+		// colon (issue #272).
+		forEachProcedureBodyLine(source, member, (line) => {
+			if (activity?.isInactive(line)) {
+				return;
+			}
+			const label = /^([ \t]*)([A-Za-z][A-Za-z0-9_]*)[ \t]*:(?!=)/.exec(source.slice(line.start, line.end));
+			const lower = label?.[2].toLowerCase();
+			if (!label || !lower || !isReservedIdentifier(lower) || RESERVED_LINE_STARTS.has(lower)
+				|| (line.start > 0 && /[ \t]_[ \t]*\r?\n$/.test(source.slice(Math.max(0, line.start - 64), line.start)))) {
+				return;
+			}
+			const span = { start: line.start + label[1].length, end: line.start + label[1].length + label[2].length };
+			push(
+				'malformedStatement',
+				RESERVED_LINE_ERRORS[lower]
+					? `'${label[2]}:' is the statement ${label[2]}, not a line label. This is a VBE compile error: ${RESERVED_LINE_ERRORS[lower]}.`
+					: `'${label[2]}' is a reserved word, so '${label[2]}:' cannot be a line label. This is a VBE compile error: Syntax error.`,
+				span,
+			);
+		});
+		forEachStatement(member.body, (stmt) => {
+			const toks = statementTokens(source, stmt.span).filter((tok) => tok.kind !== 'comment');
+			for (let k = 0; k + 1 < toks.length; k++) {
+				const word = tokenText(toks[k]);
+				const jumps = word === 'goto' || word === 'gosub' || (word === 'resume' && tokenText(toks[k + 1]) !== 'next');
+				if (!jumps) {
+					continue;
+				}
+				// `On x GoTo A, B`: each target after the comma too.
+				for (let t = k + 1; t < toks.length; t += 2) {
+					if (reserved(toks[t])) {
+						push(
+							'malformedStatement',
+							`'${toks[t].rawText}' is a reserved word, so it cannot name a line label to jump to. This is a VBE compile error: Syntax error.`,
+							absoluteSpan(stmt.span, toks[t]),
+						);
+						break;
+					}
+					if ((word !== 'goto' && word !== 'gosub') || toks[t + 1]?.rawText !== ',') {
+						break;
+					}
+				}
+			}
+		}, activity);
 	}
 }
 
