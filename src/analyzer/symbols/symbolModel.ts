@@ -275,6 +275,8 @@ export interface VbaProjectClassMember {
 	 */
 	letAccessor?: boolean;
 	setAccessor?: boolean;
+	/** A method declared as a Sub, which returns no value (issue #369). */
+	sub?: boolean;
 	/** Exported attribute lines attached to the member declaration. */
 	attributes?: VbaSymbolAttribute[];
 }

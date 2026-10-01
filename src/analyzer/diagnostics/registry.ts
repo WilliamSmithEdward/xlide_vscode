@@ -118,6 +118,7 @@ import { checkDeclarationForms } from './rules/declarationForms';
 import { checkLineContinuationLimits } from './rules/lineContinuations';
 import { checkImplementsMembers } from './rules/implementsMembers';
 import { checkStatementForms } from './rules/statementForms';
+import { checkVbaLibraryMembers } from './rules/vbaLibraryMembers';
 import { checkStrayCharacters } from './rules/strayTokens';
 import { checkDirectiveForms } from './rules/directiveForms';
 import { checkMalformedLines } from './rules/malformedLines';
@@ -416,6 +417,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'statementForms',
 		run: (ctx, push) => checkStatementForms(ctx.source, ctx.mod, ctx.symbols, ctx.opts.projectProcedures, ctx.activity, push, ctx.memberCtx),
+	},
+	{
+		name: 'vbaLibraryMembers',
+		run: (ctx, push) => checkVbaLibraryMembers(ctx.source, ctx.mod, ctx.symbols, ctx.opts.projectVisibleSymbols, ctx.activity, push),
 	},
 	{
 		name: 'statementTypes',

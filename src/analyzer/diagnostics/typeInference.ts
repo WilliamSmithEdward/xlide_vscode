@@ -654,9 +654,36 @@ export function sourceBindingTypeResolvers(
 	return {
 		resolveExpressionType: (name) =>
 			declaredValueTypeForSourceBinding(symbols, procSym, projectVisibleSymbols, name),
-		resolveQualifiedExpressionType: (qualifier, name) =>
-			declaredValueTypeForQualifiedSourceBinding(symbols, projectVisibleSymbols, qualifier, name),
+		resolveQualifiedExpressionType: (qualifier, name) => {
+			const qualified = declaredValueTypeForQualifiedSourceBinding(symbols, projectVisibleSymbols, qualifier, name);
+			return qualified.resolved
+				? qualified
+				: typeFieldDeclaredType(symbols, procSym, projectVisibleSymbols, qualifier, name) ?? qualified;
+		},
 	};
+}
+
+/**
+ * The declared type of a field of a user-defined type a variable holds:
+ * `t.i` with `Dim t As T1` and `i As Integer` in T1 (issue #369). An array
+ * field is left to the shape rules.
+ */
+function typeFieldDeclaredType(
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	procSym: VbaSymbol | undefined,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+	variable: string,
+	field: string,
+): SourceDeclaredType | undefined {
+	const holder = declaredValueTypeForSourceBinding(symbols, procSym, projectVisibleSymbols, variable);
+	const typeName = holder.resolved ? holder.asType?.split('.').pop()?.trim().toLowerCase() : undefined;
+	if (!typeName || holder.kind === 'constant') {
+		return undefined;
+	}
+	const userType = [...(symbols.root.children ?? []), ...(projectVisibleSymbols ?? [])]
+		.find((symbol) => symbol.kind === 'type' && symbol.name.toLowerCase() === typeName);
+	const member = userType?.children?.find((child) => child.kind === 'typeField' && child.name.toLowerCase() === field.toLowerCase());
+	return member && !member.isArray ? { resolved: true, asType: member.asType } : undefined;
 }
 
 export function declaredShapeForSourceBinding(
