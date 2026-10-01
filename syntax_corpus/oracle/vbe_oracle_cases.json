@@ -55396,6 +55396,138 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Long\r\n    x = &O37777777777\r\n    Main = x\r\nEnd Function\r\n\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue369b_01_compile",
+      "description": "Issue #369 a name nothing defines in a constant value, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const K = asdf\r\nFunction Main() As Variant\r\n    Main = K\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue369b_02_compile",
+      "description": "Issue #369 a name nothing defines in a constant value, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Const K = asdf\r\n    Main = K\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue369b_03_compile",
+      "description": "Issue #369 a name nothing defines in a constant value, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    eA\r\n    eB = asdf\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Main = eB\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue369b_04_compile",
+      "description": "Issue #369 a name nothing defines in a constant value, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const K = 1 + asdf\r\nFunction Main() As Variant\r\n    Main = K\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue369b_05_compile",
+      "description": "Issue #369 a name nothing defines in a constant value, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const K = xlUp\r\nFunction Main() As Variant\r\n    Main = K\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue369b_06_compile",
+      "description": "Issue #369 a name nothing defines in a constant value, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const K = vbCrLf\r\nFunction Main() As Variant\r\n    Main = K\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue369b_07_compile",
+      "description": "Issue #369 a name nothing defines in a constant value, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const N = 2\r\nPrivate Const K = N * 2\r\nFunction Main() As Variant\r\n    Main = K\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue369b_08_compile",
+      "description": "Issue #369 a name nothing defines in a constant value, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    eA\r\n    eB = eA + 1\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Main = eB\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue369b_09_compile",
+      "description": "Issue #369 a name nothing defines in a constant value, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    eA = xlUp\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Main = eA\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue369b_10_compile",
+      "description": "Issue #369 a name nothing defines in a constant value, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Const K = M2 + 1\r\nFunction Main() As Variant\r\n    Main = K\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Const M2 = 3\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue369b_11_compile",
+      "description": "Issue #369 a name nothing defines in a constant value, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const K = Excel.xlUp\r\nFunction Main() As Variant\r\n    Main = K\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue369b_12_compile",
+      "description": "Issue #369 a name nothing defines in a constant value, case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const K = \"asdf\"\r\nFunction Main() As Variant\r\n    Main = K\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }
