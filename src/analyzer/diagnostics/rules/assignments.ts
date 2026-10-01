@@ -489,6 +489,15 @@ export function checkAssignmentTypes(
 				resolveExpressionType,
 				resolveQualifiedExpressionType,
 			);
+			const nullCall = nullFromChoice(assignment.valueTokens, symbols);
+			if (nullCall && isKnownScalarType(normalizeType(expected) ?? '')) {
+				push(
+					'assignmentTypeMismatch',
+					`Assignment to '${assignment.name}' expects ${expected}, but ${nullCall.why}, so it returns Null. Null cannot be coerced to this scalar type. This will raise Run-time error '94': Invalid use of Null.`,
+					{ start: span.start + nullCall.first.start, end: span.start + nullCall.last.end },
+				);
+				return;
+			}
 			const nullSource = nullHeldAt(stmt, span, assignment.valueTokens);
 			if (nullSource && isKnownScalarType(normalizeType(expected) ?? '')) {
 				push(
@@ -524,6 +533,59 @@ export function checkAssignmentTypes(
 			resolveQualifiedExpressionType,
 		);
 	}
+}
+
+/**
+ * A Choose, Switch or IIf whose literal arguments make it return Null
+ * (issue #243, measured in Excel 16.0): `Choose(5, 1, 2)` and
+ * `Choose(0, "a")` name no choice, `Switch(False, 1)` finds no True
+ * condition, and `IIf(False, 1, Null)` takes its Null. A module procedure of
+ * the same name is the module's.
+ */
+function nullFromChoice(
+	valueTokens: readonly VbaToken[],
+	symbols: ReturnType<typeof buildModuleSymbols>,
+): { why: string; first: VbaToken; last: VbaToken } | undefined {
+	const toks = valueTokens.filter((tok) => tok.kind !== 'comment');
+	const start = tokenText(toks[0]) === 'vba' && toks[1]?.rawText === '.' ? 2 : 0;
+	const fn = tokenText(toks[start]);
+	if ((fn !== 'choose' && fn !== 'switch' && fn !== 'iif') || toks[start + 1]?.rawText !== '(' || matchParenFrom(toks, start + 1) !== toks.length - 1) {
+		return undefined;
+	}
+	if (start === 0 && (symbols.root.children ?? []).some((child) => child.name.toLowerCase() === fn)) {
+		return undefined;
+	}
+	const args = splitTopLevelTokenGroups(toks, start + 2, ',', toks.length - 1);
+	const literal = (arg: readonly VbaToken[]): number | undefined => {
+		const word = arg.length === 1 ? tokenText(arg[0]) : '';
+		if (word === 'true' || word === 'false') {
+			return word === 'true' ? -1 : 0;
+		}
+		const signed = arg.length === 2 && arg[0].rawText === '-';
+		const number = signed ? arg[1] : arg.length === 1 ? arg[0] : undefined;
+		const value = number?.kind === 'integerLiteral' ? Number(number.rawText.replace(/[%&^]$/, '')) : undefined;
+		return value === undefined || !Number.isFinite(value) ? undefined : signed ? -value : value;
+	};
+	const shown = toks.slice(start).map((tok) => tok.rawText).join('').replace(/,/g, ', ');
+	const result = { first: toks[0], last: toks[toks.length - 1] };
+	if (fn === 'choose') {
+		const index = args.length > 1 ? literal(args[0]) : undefined;
+		const choices = args.length - 1;
+		return index !== undefined && (index < 1 || index > choices)
+			? { ...result, why: `${shown} names no choice: its index ${index} is not 1 to ${choices}` }
+			: undefined;
+	}
+	if (fn === 'switch') {
+		const conditions = args.filter((_arg, i) => i % 2 === 0);
+		return args.length % 2 === 0 && conditions.every((arg) => literal(arg) === 0)
+			? { ...result, why: `${shown} has no condition that is True` }
+			: undefined;
+	}
+	const condition = args.length === 3 ? literal(args[0]) : undefined;
+	const chosen = condition === undefined ? undefined : args[condition === 0 ? 2 : 1];
+	return chosen?.length === 1 && tokenText(chosen[0]) === 'null'
+		? { ...result, why: `${shown} takes the branch that is Null` }
+		: undefined;
 }
 
 /** An array value, by its element type, or an Empty Variant. */

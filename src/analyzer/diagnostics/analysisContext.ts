@@ -234,6 +234,13 @@ export interface AnalyzeModuleOptions {
 	 */
 	projectStringLiteralWords?: ReadonlySet<string>;
 	/**
+	 * Lowercased names `Application.Run` can reach in the project (from
+	 * ProjectIndex.runnableProcedureNames): every Sub and Function of a
+	 * standard or document module, Private ones included, bare and as
+	 * `module.name` (issue #243). When omitted, Application.Run is not judged.
+	 */
+	projectRunnableProcedures?: ReadonlySet<string>;
+	/**
 	 * Lowercased names some module of the project may write (from
 	 * ProjectIndex.writtenNames). A Public variable none writes keeps its
 	 * initial value, which the runtime rules use (issue #241). When omitted,

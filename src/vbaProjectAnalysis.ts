@@ -71,6 +71,7 @@ export type VbaProjectAnalysisOptions = Pick<
     | 'projectVisibleSymbols'
     | 'projectIntegerConstants'
     | 'projectStringLiteralWords'
+    | 'projectRunnableProcedures'
     | 'projectWrittenNames'
     | 'projectSheetChanges'
     | 'implicitMembers'
@@ -257,6 +258,7 @@ export function projectAnalysisOptionsForModule(
             projectClassMembers: project.projectMemberSurfaces(moduleName),
             projectIntegerConstants: project.visibleExternalIntegerConstantExpressions(moduleName),
             projectStringLiteralWords: project.stringLiteralWords(),
+            projectRunnableProcedures: project.runnableProcedureNames(),
             projectWrittenNames: project.writtenNames(),
             projectSheetChanges: project.sheetChanges(),
             implementedInterfaces: project.implementedInterfaceNames(),

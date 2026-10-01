@@ -767,9 +767,13 @@ export function checkStringArithmeticOperands(
 			let from = 1;
 			for (let k = 1; k <= end; k++) {
 				if (k === end || toks[k].rawText === ',') {
-					const what = k - from === 1 ? nonnumericString(toks[from]) : undefined;
+					// `Case Is > "abc"` compares the same way (issue #243).
+					const value = k - from === 1 ? from
+						: k - from === 3 && tokenText(toks[from]) === 'is' && toks[from + 1].kind === 'operator' ? from + 2
+							: -1;
+					const what = value >= 0 ? nonnumericString(toks[value]) : undefined;
 					if (what) {
-						reportConversion(absoluteSpan(span, toks[from]), what, 'Case compares WHAT with a number');
+						reportConversion(absoluteSpan(span, toks[value]), what, 'Case compares WHAT with a number');
 					}
 					from = k + 1;
 				}

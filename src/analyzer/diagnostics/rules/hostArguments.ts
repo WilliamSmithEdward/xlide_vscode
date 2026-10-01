@@ -457,6 +457,24 @@ function checkExcelCallee(
 	const fromColumn = origin?.column ?? 1;
 	const from = origin ? ` from ${origin.text}` : '';
 	if (lower === 'cells' && callee.returns === 'Excel.Range') {
+		// A column given by its letters: "AB" and "$a" run; "XFE", "AAAA", ""
+		// and "A " raise 13; "A1" and "5" raise 1004 (issue #243).
+		const column = callee.args[1];
+		if (column?.length === 1 && column[0].kind === 'stringLiteral') {
+			const text = stringLiteralValue(column[0].rawText);
+			const letters = /^\$?([A-Za-z]{1,3})$/.exec(text);
+			if (!letters || columnNumber(letters[1]) > EXCEL_MAX_COLUMN) {
+				const digits = /\d/.test(text);
+				push(
+					'hostArgumentOutOfRange',
+					digits
+						? `Cells takes a column as a number or its letters, and "${text}" is neither. This will raise Run-time error '1004': Application-defined or object-defined error.`
+						: `"${text}" names no column: the letters run A to XFD. This will raise Run-time error '13': Type mismatch.`,
+					argSpan(span, column),
+				);
+				return;
+			}
+		}
 		for (const arg of callee.args) {
 			const value = valueOf(arg);
 			if (value !== undefined && value < 1) {
@@ -690,6 +708,10 @@ function parseA1Address(text: string): A1Area | undefined {
 	const parts = body.split(':');
 	if (parts.length > 2) {
 		return undefined;
+	}
+	// "A1:", ":A1" and ":" leave a side empty (issue #243).
+	if (parts.length === 2 && parts.some((part) => part === '')) {
+		return { text, valid: false, multiCell: false };
 	}
 	const cells = parts.map((part) => cell.exec(part));
 	if (cells.every((match) => match)) {

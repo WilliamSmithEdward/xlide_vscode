@@ -101,6 +101,8 @@ import { checkFileStatements } from './rules/fileStatements';
 import { checkOverflow } from './rules/overflow';
 import { checkHostArguments, workbookSheetsToCheck } from './rules/hostArguments';
 import { checkCollectionLoopCounters, checkCollectionState } from './rules/collectionState';
+import { checkDictionaryState } from './rules/dictionaryState';
+import { checkByNameCalls } from './rules/byNameCalls';
 import { checkVariantValueMisuse } from './rules/variantValues';
 import { checkRuntimeMemberNotFound } from './rules/lateBoundMembers';
 import { checkObjectDefaultValues } from './rules/objectValues';
@@ -359,6 +361,14 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'collectionState',
 		run: (ctx, push) => checkCollectionState(ctx.source, ctx.mod, ctx.activity, push, ctx.symbols, ctx.opts.projectIntegerConstants, ctx.opts.projectVisibleSymbols, ctx.opts.hostModel),
+	},
+	{
+		name: 'byNameCalls',
+		run: (ctx, push) => checkByNameCalls(ctx.source, ctx.mod, ctx.symbols, ctx.memberCtx, ctx.opts.projectRunnableProcedures, ctx.activity, push),
+	},
+	{
+		name: 'dictionaryState',
+		run: (ctx, push) => checkDictionaryState(ctx.source, ctx.mod, ctx.activity, push),
 	},
 	{
 		name: 'variantValueMisuse',
