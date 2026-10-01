@@ -106,6 +106,15 @@ export function checkObjectDefaultValues(
 			lower === proc.name.toLowerCase() || arrays.has(lower) ? undefined : projectClass(env.get(lower), memberCtx);
 		checkForEachEnumerators(proc.body, classOf, push);
 		return (stmt) => {
+			// `If c Then` reads c's value for the condition: a Collection's
+			// default member Item needs an index (issue #268, measured in
+			// Excel 16.0: 450). An As New Collection is never Nothing there;
+			// one still Nothing is object-state's 91.
+			const condition = statementTokens(source, stmt.span).filter((tok) => tok.kind !== 'comment');
+			const conditionName = ['if', 'elseif'].includes(tokenText(condition[0])) && tokenText(condition[2]) === 'then' ? tokenName(condition[1])?.toLowerCase() : undefined;
+			if (conditionName && isCollection(conditionName) && autoInstanced.has(conditionName)) {
+				push('objectDefaultValue', `'${condition[1].rawText}' is a Collection: its default member Item needs an index, so the condition has no value to read. This will raise Run-time error '450': Wrong number of arguments or invalid property assignment.`, { start: stmt.span.start + condition[1].start, end: stmt.span.start + condition[1].end });
+			}
 			for (const span of statementAndBranchSpans(stmt)) {
 				for (const hit of collectionArguments(statementTokens(source, span), isCollection, moduleNames)) {
 					const at = { start: span.start + hit.start, end: span.start + hit.end };

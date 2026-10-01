@@ -633,6 +633,20 @@ function checkObjectVariableNotSetStatement(
 			);
 		}
 	}
+	// `If c Then` reads c's value for the condition: on c still Nothing that
+	// raises 91 whatever its type's default member (issue #268, measured in
+	// Excel 16.0 on a Collection).
+	if ((head === 'if' || head === 'elseif') && tokenText(toks[2]) === 'then') {
+		const lower = tokenName(toks[1])?.toLowerCase();
+		const local = lower ? locals.get(lower) : undefined;
+		if (local && !local.letOnly && state.get(lower!) === 'unset') {
+			push(
+				'objectVariableNotSet',
+				`Object variable '${toks[1].rawText}' is Nothing when the condition reads its value. This will raise Run-time error '91': Object variable or With block variable not set.`,
+				{ start: stmt.span.start + toks[1].start, end: stmt.span.start + toks[1].end },
+			);
+		}
+	}
 	// `x = c` reads c's default member, which needs an object: on c still
 	// Nothing it raises 91 (issue #256, measured in Excel 16.0). A type with
 	// no default member, or one that needs an argument, is object-default-value's.

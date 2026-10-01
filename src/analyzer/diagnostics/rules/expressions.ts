@@ -72,7 +72,7 @@ import {
 	sourceNameScopeFor,
 	typeEnvironmentFor,
 } from '../typeInference';
-import { isInvalidBooleanString } from '../stringConversion';
+import { isInvalidBooleanString, isInvalidDateString } from '../stringConversion';
 import { isBareOrVbaQualifiedIntrinsicCall } from './shared';
 import {
 	elementOperandEndingAt,
@@ -748,6 +748,55 @@ export function checkStringArithmeticOperands(
 			const type = normalizeType(env.get(name));
 			return type !== undefined && isNumericType(type);
 		};
+		// A comparison converts only between typed operands: a Variant on
+		// either side compares without converting, so `v = "abc"` with v
+		// holding 5 is False and `v = 5` with v holding "abc" is False too
+		// (issue #268, measured in Excel 16.0). The number side is a literal
+		// or a name declared a number type, and the string side a literal,
+		// a String or a Const.
+		const declaredType = (tok: VbaToken | undefined): string | undefined => {
+			const name = tok ? tokenName(tok)?.toLowerCase() : undefined;
+			return name ? normalizeType(env.get(name)) : undefined;
+		};
+		const typedNumber = (tok: VbaToken | undefined): boolean => {
+			if (tok?.kind === 'integerLiteral' || tok?.kind === 'floatLiteral') {
+				return true;
+			}
+			const type = declaredType(tok);
+			return type !== undefined && isNumericType(type);
+		};
+		const typedString = (tok: VbaToken | undefined): boolean => {
+			if (!tok || tok.kind === 'stringLiteral') {
+				return tok !== undefined;
+			}
+			const type = declaredType(tok);
+			return type === 'string' || (type === undefined && constantOf(tok) !== undefined);
+		};
+		/** The string a typed string operand holds, for a Date or Boolean comparison. */
+		const typedStringValue = (tok: VbaToken | undefined): { value: string; what: string } | undefined => {
+			if (!tok || !typedString(tok)) {
+				return undefined;
+			}
+			if (tok.kind === 'stringLiteral') {
+				return { value: stringLiteralValue(tok.rawText), what: `string literal ${tok.rawText}` };
+			}
+			const local = known.get(tokenName(tok)!.toLowerCase());
+			if (local?.kind === 'string' && !local.contentMutated) {
+				return { value: local.value as string, what: `'${tok.rawText}', which holds ${JSON.stringify(local.value)}` };
+			}
+			const constant = constantOf(tok);
+			return constant === undefined ? undefined : { value: constant, what: `constant '${tok.rawText}', which is ${JSON.stringify(constant)}` };
+		};
+		/** A typed Date or Boolean compared with a string it cannot read: `d = "abc"`, `b = "yes"`. */
+		const unreadableAs = (typed: VbaToken | undefined, other: VbaToken | undefined): { what: string; as: string } | undefined => {
+			const type = declaredType(typed);
+			const string = type === 'date' || type === 'boolean' ? typedStringValue(other) : undefined;
+			if (!string) {
+				return undefined;
+			}
+			const invalid = type === 'date' ? isInvalidDateString(string.value) : isInvalidBooleanString(string.value);
+			return invalid ? { what: string.what, as: type === 'date' ? 'a Date' : 'a Boolean' } : undefined;
+		};
 		const reportConversion = (span: Span, what: string, into: string): void => {
 			push('stringArithmeticCoercion', `${into.replace('WHAT', what)}. This will raise Run-time error '13': Type mismatch.`, span);
 		};
@@ -807,10 +856,12 @@ export function checkStringArithmeticOperands(
 				if (node.kind === 'ForBlock' && !node.each && node.controlVariable && numeric({ kind: 'identifier', rawText: node.controlVariable, start: 0, end: 0 } as VbaToken)) {
 					checkForBounds(header.start, headToks);
 				}
-				if (node.kind === 'SelectBlock' && head === 'select' && numeric(headToks[2]) && conditionEnd(headToks, 2) === 3) {
+				// The selector is judged with each value: a typed number, Date or
+				// Boolean converts; a Variant does not.
+				if (node.kind === 'SelectBlock' && head === 'select' && conditionEnd(headToks, 2) === 3) {
 					for (const item of node.body) {
 						if (isLeafStatement(item) && !activity?.isInactive(item.span)) {
-							checkCaseValues(item.span);
+							checkCaseValues(item.span, headToks[2]);
 						}
 					}
 				}
@@ -832,22 +883,45 @@ export function checkStringArithmeticOperands(
 			}
 		};
 		// `Select Case 1` then `Case "abc"`: each value is compared as a number.
-		const checkCaseValues = (span: Span): void => {
+		// The selector is a typed number, Date or Boolean: a Variant selector
+		// compares without converting (issue #268).
+		const checkCaseValues = (span: Span, selector: VbaToken): void => {
 			const toks = statementTokens(source, span);
 			if (tokenText(toks[0]) !== 'case' || tokenText(toks[1]) === 'else') {
 				return;
 			}
 			const end = conditionEnd(toks, 1);
+			const judge = (value: VbaToken | undefined): boolean => {
+				if (!value) {
+					return false;
+				}
+				const unreadable = unreadableAs(selector, value);
+				if (unreadable) {
+					reportConversion(absoluteSpan(span, value), unreadable.what, `Case compares WHAT with ${unreadable.as}, which cannot read it`);
+					return true;
+				}
+				// A Case value converts to the selector's type even from a
+				// Variant: `Select Case n` on a Long with `Case w`, w holding
+				// "abc", raises 13 (measured), where `w = n` runs.
+				const what = typedNumber(selector) ? nonnumericString(value) : undefined;
+				if (what) {
+					reportConversion(absoluteSpan(span, value), what, 'Case compares WHAT with a number');
+				}
+				return what !== undefined;
+			};
 			let from = 1;
 			for (let k = 1; k <= end; k++) {
 				if (k === end || toks[k].rawText === ',') {
-					// `Case Is > "abc"` compares the same way (issue #243).
-					const value = k - from === 1 ? from
-						: k - from === 3 && tokenText(toks[from]) === 'is' && toks[from + 1].kind === 'operator' ? from + 2
-							: -1;
-					const what = value >= 0 ? nonnumericString(toks[value]) : undefined;
-					if (what) {
-						reportConversion(absoluteSpan(span, toks[value]), what, 'Case compares WHAT with a number');
+					if (k - from === 1) {
+						judge(toks[from]);
+					} else if (k - from === 3 && tokenText(toks[from]) === 'is' && toks[from + 1].kind === 'operator') {
+						// `Case Is > "abc"` compares the same way (issue #243).
+						judge(toks[from + 2]);
+					} else if (k - from === 3 && tokenText(toks[from + 1]) === 'to') {
+						// `Case "a" To "z"`: the first end that fails (issue #268).
+						if (!judge(toks[from])) {
+							judge(toks[from + 2]);
+						}
 					}
 					from = k + 1;
 				}
@@ -897,7 +971,10 @@ export function checkStringArithmeticOperands(
 				const isBinary = tok.kind === 'operator'
 					? ['+', '-', '*', '/', '\\', '^', '=', '<', '>', '<=', '>=', '<>'].includes(tok.rawText)
 					: word === 'mod';
-				const leftEndsOperand = left !== undefined && (left.kind === 'identifier' || left.kind === 'keyword'
+				// A keyword ends an operand unless the statement's words start
+				// one there: `If Not s` (issue #268).
+				const leftEndsOperand = left !== undefined && (left.kind === 'identifier'
+					|| (left.kind === 'keyword' && !OPERAND_STARTING_KEYWORDS.has(tokenText(left)))
 					|| left.kind === 'integerLiteral' || left.kind === 'floatLiteral' || left.kind === 'stringLiteral'
 					|| left.kind === 'dateLiteral' || left.rawText === ')');
 				// An element operand: `v(1)` or `Split("1 b")(1)` (issue #260).
@@ -941,7 +1018,22 @@ export function checkStringArithmeticOperands(
 					}
 					continue;
 				}
-				// `+` and comparisons: a string against a NUMBER.
+				if (tok.rawText !== '+') {
+					// A comparison: typed operands only (issue #268).
+					if (leftString && !leftElement && typedString(left) && typedNumber(right) && !rightElement) {
+						report(leftString.span, leftString.what);
+					} else if (rightString && !rightElement && typedString(right) && typedNumber(left) && !leftElement) {
+						report(rightString.span, rightString.what);
+					} else {
+						const fromLeft = unreadableAs(left, right);
+						const unreadable = fromLeft ?? unreadableAs(right, left);
+						if (unreadable) {
+							push('stringArithmeticCoercion', `Operator '${tok.rawText}' compares ${unreadable.what} with ${unreadable.as}, which cannot read it. This will raise Run-time error '13': Type mismatch.`, fromLeft ? at(right!) : at(left));
+						}
+					}
+					continue;
+				}
+				// `+`: a string against a NUMBER.
 				if (leftString && (numeric(right) || typeof rightElement?.value === 'number')) {
 					report(leftString.span, leftString.what);
 				} else if (rightString && (numeric(left) || typeof leftElement?.value === 'number')) {
@@ -995,6 +1087,12 @@ export function checkStringArithmeticOperands(
 const LOGICAL_OPERATORS: ReadonlySet<string> = new Set(['and', 'or', 'xor', 'eqv', 'imp']);
 
 const EMPTY_SHAPES: ReadonlyMap<string, FixedArrayBound> = new Map();
+
+/** Keywords after which an operand starts, so a `Not` or a sign there is unary. */
+const OPERAND_STARTING_KEYWORDS: ReadonlySet<string> = new Set([
+	'if', 'elseif', 'then', 'else', 'while', 'until', 'case', 'to', 'step', 'and', 'or', 'xor', 'eqv', 'imp',
+	'not', 'mod', 'like', 'is', 'call', 'set', 'let', 'return',
+]);
 
 /** A name a branch has tested non-zero, and the span the test covers. */
 interface DivisionGuard {
