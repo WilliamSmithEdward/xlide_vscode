@@ -11,7 +11,8 @@
 // rules; each rule supplies its own transitions and touch detection.
 
 import type { VbaToken } from '../lexer/tokenKinds';
-import { tokenName, tokenWord } from '../lexer/tokenHelpers';
+import { statementTokensCached, tokenName, tokensWithoutLeadingLineNumber, tokenWord } from '../lexer/tokenHelpers';
+import { statementLabelDeclarations, statementLabelReferences } from '../flow/procedureLabels';
 import type { BodyNode, IfBlockNode, LeafStatementNode } from '../parser/nodes';
 import { isLeafStatement } from '../parser/nodes';
 import { blockHeaderLeaves, isLoopBlock, selectArms } from './blockHeaders';
@@ -38,6 +39,12 @@ export interface StraightLineDataflowHooks {
 	setState?(lowerName: string, value: string): void;
 	/** The rule's good/init labels so the branch merge stays rule-agnostic. */
 	lattice?: { init: string; good: string; unknown: string };
+	/**
+	 * Drops the rule's findings while true: the GoTo-following walk runs the
+	 * body more than once to settle what each label is entered with, and
+	 * reports on its last run only (issue #271).
+	 */
+	setSilent?(silent: boolean): void;
 }
 
 /**
@@ -52,7 +59,214 @@ export function walkStraightLineBody(
 	isInactive: (node: BodyNode) => boolean,
 	hooks: StraightLineDataflowHooks,
 ): void {
-	walkBody(source, body, isInactive, hooks, false);
+	if (!walkFollowingJumps(source, body, isInactive, hooks)) {
+		walkBody(source, body, isInactive, hooks, false);
+	}
+}
+
+/** The most runs the GoTo-following walk takes to settle its labels. */
+const MAX_JUMP_PASSES = 6;
+
+/** Statement heads after which the next statement is reached only by a jump. */
+const ENDING_HEADS: ReadonlySet<string> = new Set(['exit', 'resume', 'return']);
+
+/**
+ * Walks the top-level statements following GoTo (issue #271, measured in
+ * Excel 16.0). A label is entered with the state that falls into it, if the
+ * statement before it can, merged with the state at each unconditional
+ * top-level `GoTo` to it: `GoTo Setup` ... `Setup: Set c = ...: GoTo Use`
+ * reaches `Use:` with c set, and `GoTo Use` past the Set reaches it with c
+ * still Nothing. A jump that may or may not run - a GoTo in a single-line If
+ * or a block, On Error GoTo, GoSub, Resume to a label, On ... GoTo - enters
+ * its label with nothing known. Code nothing reaches is not checked. The
+ * body is run until the labels settle, then once more to report. A Resume
+ * with no label, which returns into the body anywhere, keeps the plain walk:
+ * false is returned then, and when the rule cannot snapshot its state.
+ */
+function walkFollowingJumps(
+	source: string,
+	body: readonly BodyNode[],
+	isInactive: (node: BodyNode) => boolean,
+	hooks: StraightLineDataflowHooks,
+): boolean {
+	const { snapshotState, restoreState, lattice, setSilent } = hooks;
+	if (!snapshotState || !restoreState || !lattice || !setSilent) {
+		return false;
+	}
+	const leaves: LeafStatementNode[] = [];
+	collectLeaves(body, isInactive, leaves);
+	if (!leaves.some((leaf) => statementLabelReferences(source, leaf.span).length > 0 || statementLabelDeclarations(source, leaf.span).length > 0)) {
+		return false;
+	}
+	if (leaves.some((leaf) => {
+		const toks = statementTokensAfterLabel(source, leaf);
+		return toks.some((tok, k) => tokenWord(tok) === 'resume' && (k + 1 >= toks.length || tokenWord(toks[k + 1]) === 'next' || toks[k + 1].kind === 'comment'));
+	})) {
+		return false;
+	}
+	const initial = snapshotState();
+	const unknownState = new Map([...initial.keys()].map((key) => [key, lattice.unknown]));
+	const merge = (states: readonly ReadonlyMap<string, string>[]): Map<string, string> => {
+		const out = new Map<string, string>();
+		for (const key of initial.keys()) {
+			const values = new Set(states.map((state) => state.get(key) ?? lattice.unknown));
+			out.set(key, values.size === 1 ? [...values][0] : lattice.unknown);
+		}
+		return out;
+	};
+	const run = (entries: ReadonlyMap<string, ReadonlyMap<string, string>>): Map<string, Map<string, string>> => {
+		restoreState(initial);
+		const reaching = new Map<string, Map<string, string>[]>();
+		const arrive = (key: string, state: ReadonlyMap<string, string>): void => {
+			reaching.set(key, [...(reaching.get(key) ?? []), new Map(state)]);
+		};
+		/** Walks one statement list; returns whether its end is reached. */
+		const runList = (list: readonly BodyNode[], reachableIn: boolean): boolean => {
+			let reachable = reachableIn;
+			for (let i = 0; i < list.length; i++) {
+				const node = list[i];
+				if (isInactive(node)) {
+					continue;
+				}
+				if (isLeafStatement(node)) {
+					const labels = statementLabelDeclarations(source, node.span).map((label) => label.key);
+					if (labels.length > 0) {
+						const states: ReadonlyMap<string, string>[] = [...(reachable ? [snapshotState()] : []), ...labels.flatMap((key) => (entries.get(key) ? [entries.get(key)!] : []))];
+						reachable = states.length > 0;
+						if (reachable) {
+							restoreState(merge(states));
+						}
+					}
+				}
+				if (!reachable) {
+					continue;
+				}
+				if (isSingleLineIfTail(node)) {
+					const tail: LeafStatementNode[] = [];
+					for (; i < list.length && isSingleLineIfTail(list[i]); i++) {
+						tail.push(list[i] as LeafStatementNode);
+					}
+					i--;
+					walkSingleLineIfTail(tail, hooks);
+					for (const stmt of tail) {
+						for (const ref of statementLabelReferences(source, stmt.span)) {
+							arrive(ref.key, unknownState);
+						}
+					}
+					continue;
+				}
+				if (isLeafStatement(list[i])) {
+					// isSingleLineIfTail's guard narrows node away; it is a leaf here.
+					const leaf = list[i] as LeafStatementNode;
+					hooks.onStatement(leaf);
+					const toks = statementTokensAfterLabel(source, leaf);
+					const head = tokenWord(toks[0]);
+					// A single-line If starts with If, so only a plain GoTo, Exit,
+					// Resume, Return or End ends the path here.
+					for (const ref of statementLabelReferences(source, leaf.span)) {
+						arrive(ref.key, ref.statementKind === 'goto' && head === 'goto' ? snapshotState() : unknownState);
+					}
+					if (head === 'goto' || ENDING_HEADS.has(head) || (head === 'end' && toks.length === 1)) {
+						reachable = false;
+					}
+					continue;
+				}
+				hooks.onBlock?.(node);
+				if (!('body' in node) || !Array.isArray(node.body)) {
+					continue;
+				}
+				// An If runs one arm, or none without an Else; a Select one Case,
+				// or none without Case Else; a With its body once. Each starts from
+				// the block's entry state, and what follows merges where they end.
+				// A loop may run any number of times, so it forgets what it touches.
+				const arms: BodyNode[][] | undefined = node.kind === 'IfBlock' ? node.branches.map((branch) => branch.body)
+					: node.kind === 'SelectBlock' ? selectArms(source, node.body)
+						: node.kind === 'WithBlock' ? [node.body] : undefined;
+				if (!arms) {
+					// A GoTo in a loop leaves with the state the loop started
+					// with, less whatever the loop may have changed.
+					const touched = blockTouches(source, node, isInactive, hooks);
+					const leaving = snapshotState();
+					for (const lower of touched) {
+						leaving.set(lower, lattice.unknown);
+					}
+					const nested: LeafStatementNode[] = [];
+					collectLeaves(node.body as BodyNode[], isInactive, nested);
+					for (const leaf of nested) {
+						for (const ref of statementLabelReferences(source, leaf.span)) {
+							arrive(ref.key, leaving);
+						}
+					}
+					for (const lower of touched) {
+						hooks.demoteToUnknown(lower);
+					}
+					continue;
+				}
+				for (const lower of headerTouches(source, node, hooks)) {
+					hooks.demoteToUnknown(lower);
+				}
+				const entry = snapshotState();
+				const ends: Map<string, string>[] = [];
+				for (const arm of arms) {
+					restoreState(entry);
+					if (runList(arm, true)) {
+						ends.push(snapshotState());
+					}
+				}
+				const exhaustive = node.kind === 'WithBlock'
+					|| (node.kind === 'IfBlock' && node.branches.some((branch) => branch.branchKind === 'else'))
+					|| (node.kind === 'SelectBlock' && node.body.some((stmt) => isLeafStatement(stmt) && /^\s*case\s+else\b/i.test(source.slice(stmt.span.start, stmt.span.end))));
+				if (!exhaustive) {
+					ends.push(entry);
+				}
+				reachable = ends.length > 0;
+				if (reachable) {
+					restoreState(merge(ends));
+				}
+			}
+			return reachable;
+		};
+		runList(body, true);
+		return new Map([...reaching].map(([key, states]) => [key, merge(states)]));
+	};
+	let entries = new Map<string, Map<string, string>>();
+	setSilent(true);
+	for (let pass = 0; pass < MAX_JUMP_PASSES; pass++) {
+		const next = run(entries);
+		const settled = next.size === entries.size && [...next].every(([key, state]) => {
+			const before = entries.get(key);
+			return before !== undefined && [...state].every(([name, value]) => before.get(name) === value);
+		});
+		entries = next;
+		if (settled) {
+			break;
+		}
+	}
+	setSilent(false);
+	run(entries);
+	return true;
+}
+
+function collectLeaves(body: readonly BodyNode[], isInactive: (node: BodyNode) => boolean, out: LeafStatementNode[]): void {
+	for (const node of body) {
+		if (isInactive(node)) {
+			continue;
+		}
+		if (isLeafStatement(node)) {
+			out.push(node);
+		} else if ('body' in node && Array.isArray(node.body)) {
+			collectLeaves(node.body as BodyNode[], isInactive, out);
+		}
+	}
+}
+
+/** A statement's tokens after any leading label or line number. */
+function statementTokensAfterLabel(source: string, node: LeafStatementNode): VbaToken[] {
+	let toks = tokensWithoutLeadingLineNumber(statementTokensCached(source, node.span)).filter((tok) => tok.kind !== 'comment');
+	if (statementLabelDeclarations(source, node.span).length > 0 && toks[1]?.rawText === ':') {
+		toks = toks.slice(2);
+	}
+	return toks;
 }
 
 /**

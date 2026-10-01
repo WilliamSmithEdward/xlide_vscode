@@ -336,19 +336,27 @@ function walkObjectState(
 			}
 		}
 	}, activity);
+	// The GoTo-following walk runs the body until its labels settle, and
+	// reports on its last run (issue #271).
+	let silent = false;
+	const report: PushFn = (...finding) => {
+		if (!silent) {
+			push(...finding);
+		}
+	};
 	const walk = procedureHasUnstructuredFlow(source, member, activity)
 		? walkStraightLineBody
 		: walkBranchMergedBody;
 	walk(source, member.body, (node) => isInactiveNode(activity, node), {
 		onStatement: (stmt) =>
-			checkObjectVariableNotSetStatement(source, stmt, locals, state, setAnywhere, memberCtx, push, lets),
+			checkObjectVariableNotSetStatement(source, stmt, locals, state, setAnywhere, memberCtx, report, lets),
 		onBlock: (node) => {
 			// The header runs as the block is entered, with the state as it
 			// stands: `For i = 1 To c.Count`, `Select Case c.Count` (issue #233).
 			if (node.kind === 'SelectBlock' || node.kind === 'DoBlock' || node.kind === 'WhileBlock' || (node.kind === 'ForBlock' && !node.each)) {
 				const { before } = blockHeaderStatements(source, node);
 				if (before) {
-					checkObjectVariableNotSetStatement(source, before, locals, state, setAnywhere, memberCtx, push, lets);
+					checkObjectVariableNotSetStatement(source, before, locals, state, setAnywhere, memberCtx, report, lets);
 				}
 			}
 			// A For Each that runs to its end leaves the control variable
@@ -361,7 +369,7 @@ function walkObjectState(
 				// the loop asks the collection for its enumerator (issue #121).
 				const over = node.each ? node.sourceExpression?.trim().toLowerCase() : undefined;
 				if (over && locals.has(over) && !locals.get(over)!.letOnly && state.get(over) === 'unset' && node.sourceExpressionSpan) {
-					push(
+					report(
 						'objectVariableNotSet',
 						`Object variable '${locals.get(over)!.name}' is Nothing when For Each asks it for its elements. This will raise Run-time error '424': Object required.`,
 						node.sourceExpressionSpan,
@@ -379,7 +387,7 @@ function walkObjectState(
 			}
 			const receiver = unsetWithObjectReceiver(source, node.span, locals, state);
 			if (receiver) {
-				push(
+				report(
 					'objectVariableNotSet',
 					`Object variable '${receiver.name}' is Nothing before With member access. This will raise Run-time error '91': Object variable or With block variable not set.`,
 					receiver.span,
@@ -413,6 +421,9 @@ function walkObjectState(
 		},
 		setState: (key, value) => state.set(key, value as ObjectVariableState),
 		lattice: { init: 'unset', good: 'set', unknown: 'unknown' },
+		setSilent: (quiet) => {
+			silent = quiet;
+		},
 	});
 }
 

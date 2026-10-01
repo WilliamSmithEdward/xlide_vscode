@@ -369,7 +369,9 @@ describe('analyzeModule - object variable not set', () => {
 		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(0);
 	});
 
-	it('falls back to conservative flow when a GoTo/label is present', () => {
+	// A GoTo is followed (issue #271): every way into the Then arm has obj
+	// still Nothing, as it would without the GoTo.
+	it('follows a GoTo into an If arm that uses the object before any Set', () => {
 		const src =
 			'Public Sub T()\n' +
 			'    Dim obj As Object\n' +
@@ -382,7 +384,7 @@ describe('analyzeModule - object variable not set', () => {
 			'    End If\n' +
 			'End Sub\n';
 
-		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(0);
+		expect(byCode(analyzeModule(src), 'object-variable-not-set')).toHaveLength(1);
 	});
 
 	it('ignores inactive conditional-compilation member access', () => {
