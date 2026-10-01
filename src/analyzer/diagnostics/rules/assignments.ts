@@ -28,7 +28,7 @@ import type {
 } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { objectLetStateAt } from './objectState';
-import { knownArrayShapesAt, moduleOptionBase, type FixedArrayBound } from './arrays';
+import { elementOperandStartingAt, elementsWrittenIn, knownArrayShapesAt, moduleOptionBase, type FixedArrayBound } from './arrays';
 import { straightLineAssignments } from '../straightLineValues';
 import { heldObjectsAt } from '../heldObjects';
 import { resolveRuntimeFunction } from '../../runtime/vbaRuntime';
@@ -62,6 +62,8 @@ import {
 	isKnownObjectAssignmentType,
 	isKnownScalarType,
 	isMemberStatementChainThrough,
+	knownLocalLiteralValuesAt,
+	type KnownLocalValue,
 	namedArgumentSlot,
 	nonnumericStringArithmeticOperand,
 	normalizeType,
@@ -77,6 +79,8 @@ import {
 	sourceNameScopeFor,
 	type SourceQualifiedDeclaredTypeResolver,
 	typeEnvironmentFor,
+	unreachableStatementsIn,
+	unwrapOuterParens,
 } from '../typeInference';
 import {
 	activeModuleMembers,
@@ -292,6 +296,9 @@ export function checkAssignmentTypes(
 		let shapesAt: ((stmt: LeafStatementNode) => ReadonlyMap<string, FixedArrayBound>) | undefined;
 		let mentions: Map<string, number> | undefined;
 		let reaching: ReturnType<typeof straightLineAssignments> | undefined;
+		let valuesAt: ((stmt: LeafStatementNode) => ReadonlyMap<string, KnownLocalValue>) | undefined;
+		let unreachable: ReadonlySet<BodyNode> | undefined;
+		let written: ReadonlySet<string> | undefined;
 		const arrayValueAt = (stmt: LeafStatementNode, name: string): ArrayValue | undefined => {
 			const lower = name.toLowerCase();
 			const local = procSym?.children?.find((child) => child.name.toLowerCase() === lower);
@@ -332,6 +339,34 @@ export function checkAssignmentTypes(
 			const held = reaching.get(stmt)?.get(lower)?.filter((tok) => tok.kind !== 'comment');
 			return held?.length === 1 && tokenText(held[0]) === 'null'
 				? { name, span: { start: span.start + value[0].start, end: span.start + value[0].end } }
+				: undefined;
+		}
+
+		// `s = "b"` then `n = s`: the String a local or an array element
+		// is known to hold here, from its last assignment in a straight line.
+		function knownStringAt(stmt: LeafStatementNode, span: Span, valueTokens: readonly VbaToken[]): InferredArgumentType | undefined {
+			const value = unwrapOuterParens(valueTokens.filter((tok) => tok.kind !== 'comment'));
+			if (value.length === 0 || (unreachable ??= unreachableStatementsIn(source, procedure, symbols, activity)).has(stmt)) {
+				return undefined;
+			}
+			const valueSpan = { start: span.start + value[0].start, end: span.start + value[value.length - 1].end };
+			const label = `'${source.slice(valueSpan.start, valueSpan.end)}', which holds`;
+			if (value.length === 1) {
+				const lower = tokenName(value[0])?.toLowerCase();
+				const known = lower ? (valuesAt ??= knownLocalLiteralValuesAt(source, procedure, symbols, activity))(stmt).get(lower) : undefined;
+				return known?.kind === 'string' && !known.contentMutated
+					? { type: 'String', label: `${label} ${JSON.stringify(known.value)}`, span: valueSpan, stringValue: known.value as string }
+					: undefined;
+			}
+			// `v = Array("1", "b")` then `n = v(1)` (issue #260).
+			written ??= elementsWrittenIn(source, procedure, activity);
+			if (written.has(tokenName(value[0])?.toLowerCase() ?? '')) {
+				return undefined;
+			}
+			const shapes = (shapesAt ??= knownArrayShapesAt(source, symbols, procedure, activity, moduleOptionBase(mod, activity)))(stmt);
+			const element = elementOperandStartingAt(value, 0, shapes, moduleOptionBase(mod, activity));
+			return element && element.last === value.length - 1 && typeof element.value === 'string'
+				? { type: 'String', label: `${label} ${JSON.stringify(element.value)}`, span: valueSpan, stringValue: element.value }
 				: undefined;
 		}
 
@@ -528,6 +563,18 @@ export function checkAssignmentTypes(
 					`Assignment to '${assignment.name}' expects ${expected}, but '${nullSource.name}' holds Null here. Null cannot be coerced to this scalar type. This will raise Run-time error '94': Invalid use of Null.`,
 					nullSource.span,
 				);
+				return;
+			}
+			const knownString = isKnownScalarType(normalizeType(expected) ?? '') ? knownStringAt(stmt, span, assignment.valueTokens) : undefined;
+			if (knownString) {
+				const reason = incompatibilityReason(expected, knownString);
+				if (reason) {
+					push(
+						'assignmentTypeMismatch',
+						`Assignment to '${assignment.name}' expects ${expected}, but ${knownString.label} here. ${reason.replace('This string literal', 'This string')}`,
+						knownString.span,
+					);
+				}
 				return;
 			}
 			if (!actual) {
