@@ -23,6 +23,7 @@ import type { VbaToken } from '../../lexer/tokenKinds';
 import type {
 	BodyNode,
 	IfBranchNode,
+	LeafStatementNode,
 	ModuleNode,
 	Span,
 } from '../../parser/nodes';
@@ -57,7 +58,7 @@ import {
 	isKnownScalarType,
 	isNumericType,
 	isProvablyNonNumericString,
-	constantStringValue,
+	stringConstantsInScope,
 	knownLocalLiteralValuesAt,
 	type KnownLocalValue,
 	nonnumericStringArithmeticOperand,
@@ -73,7 +74,15 @@ import {
 } from '../typeInference';
 import { isInvalidBooleanString } from '../stringConversion';
 import { isBareOrVbaQualifiedIntrinsicCall } from './shared';
-import { moduleOptionBase } from './arrays';
+import {
+	elementOperandEndingAt,
+	elementsWrittenIn,
+	elementOperandStartingAt,
+	knownArrayShapesAt,
+	moduleOptionBase,
+	type ElementOperand,
+	type FixedArrayBound,
+} from './arrays';
 import { moduleTypes } from '../typeFields';
 import { isKnownNumber, typeMemberStatesAt, type MemberState } from '../typeMemberState';
 import {
@@ -635,26 +644,46 @@ export function checkDivisionByZeroExpressions(
  */
 export function checkStringArithmeticOperands(
 	source: string,
+	mod: ModuleNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): ProcedureStatementVisitor {
+	const optionBase = moduleOptionBase(mod, activity);
 	return (member) => {
 		const env = typeEnvironmentFor(symbols, member);
 		const valuesAt = knownLocalLiteralValuesAt(source, member, symbols, activity);
 		let known: ReadonlyMap<string, KnownLocalValue> = new Map();
-		// The String Consts in scope, each one string literal (issue #255); a
-		// local or parameter of the same name hides a module's.
-		const children = procedureSymbolFor(symbols, member)?.children ?? [];
-		const stringConsts = new Map<string, string>();
-		for (const symbol of [...(symbols.root.children ?? []), ...children]) {
-			const value = constantStringValue(symbol);
-			if (value !== undefined) {
-				stringConsts.set(symbol.name.toLowerCase(), value);
-			} else if (children.includes(symbol)) {
-				stringConsts.delete(symbol.name.toLowerCase());
+		// The arrays the locals hold at the statement, read only when an
+		// operand indexes one: `v(1) + 1` with v = Array("1", "b") (issue #260).
+		let shapesAt: ((stmt: LeafStatementNode) => ReadonlyMap<string, FixedArrayBound>) | undefined;
+		let current: LeafStatementNode | undefined;
+		let shapes: ReadonlyMap<string, FixedArrayBound> | undefined;
+		let written: ReadonlySet<string> | undefined;
+		const shapesHere = (): ReadonlyMap<string, FixedArrayBound> => {
+			if (!current) {
+				return EMPTY_SHAPES;
 			}
-		}
+			if (!shapes) {
+				shapesAt ??= knownArrayShapesAt(source, symbols, member, activity, optionBase);
+				written ??= elementsWrittenIn(source, member, activity);
+				const all = shapesAt(current);
+				shapes = written.size === 0 ? all : new Map([...all].filter(([lower]) => !written!.has(lower)));
+			}
+			return shapes;
+		};
+		const elementSpan = (spanStart: number, toks: readonly VbaToken[], element: ElementOperand): Span => ({
+			start: spanStart + toks[element.first].start,
+			end: spanStart + toks[element.last].end,
+		});
+		const elementString = (spanStart: number, toks: readonly VbaToken[], element: ElementOperand | undefined): string | undefined => {
+			if (typeof element?.value !== 'string' || !isProvablyNonNumericString(element.value)) {
+				return undefined;
+			}
+			const span = elementSpan(spanStart, toks, element);
+			return `'${source.slice(span.start, span.end)}', which holds ${JSON.stringify(element.value)}`;
+		};
+		const stringConsts = stringConstantsInScope(symbols, member);
 		const constantOf = (tok: VbaToken): string | undefined => {
 			const name = tokenName(tok)?.toLowerCase();
 			return name && !known.has(name) ? stringConsts.get(name) : undefined;
@@ -858,10 +887,18 @@ export function checkStringArithmeticOperands(
 				const leftEndsOperand = left !== undefined && (left.kind === 'identifier' || left.kind === 'keyword'
 					|| left.kind === 'integerLiteral' || left.kind === 'floatLiteral' || left.kind === 'stringLiteral'
 					|| left.kind === 'dateLiteral' || left.rawText === ')');
+				// An element operand: `v(1)` or `Split("1 b")(1)` (issue #260).
+				const rightElement = tokenName(right) !== undefined && toks[i + 2]?.rawText === '('
+					? elementOperandStartingAt(toks, i + 1, shapesHere(), optionBase)
+					: undefined;
+				const rightOperand = (): { span: Span; what: string } | undefined => {
+					const what = nonnumericString(right) ?? elementString(spanStart, toks, rightElement);
+					return what ? { span: rightElement ? elementSpan(spanStart, toks, rightElement) : at(right!), what } : undefined;
+				};
 				if (word === 'not' && !leftEndsOperand) {
-					const what = nonnumericString(right);
-					if (what) {
-						report(at(right!), what);
+					const operand = rightOperand();
+					if (operand) {
+						report(operand.span, operand.what);
 					}
 					continue;
 				}
@@ -871,35 +908,39 @@ export function checkStringArithmeticOperands(
 				if (!leftEndsOperand) {
 					// Unary `-"abc"` (a leading `+` too).
 					if ((tok.rawText === '-' || tok.rawText === '+')) {
-						const what = nonnumericString(right);
-						if (what) {
-							report(at(right!), what);
+						const operand = rightOperand();
+						if (operand) {
+							report(operand.span, operand.what);
 						}
 					}
 					continue;
 				}
+				const leftElement = left.rawText === ')' ? elementOperandEndingAt(toks, i - 1, shapesHere(), optionBase) : undefined;
 				const alwaysCoerces = ['-', '*', '/', '\\', '^'].includes(tok.rawText) || word === 'mod';
-				const leftString = nonnumericString(left);
-				const rightString = nonnumericString(right);
+				const leftWhat = nonnumericString(left) ?? elementString(spanStart, toks, leftElement);
+				const leftString = leftWhat ? { span: leftElement ? elementSpan(spanStart, toks, leftElement) : at(left), what: leftWhat } : undefined;
+				const rightString = rightOperand();
 				if (alwaysCoerces) {
 					if (leftString) {
-						report(at(left), leftString);
+						report(leftString.span, leftString.what);
 					} else if (rightString) {
-						report(at(right!), rightString);
+						report(rightString.span, rightString.what);
 					}
 					continue;
 				}
 				// `+` and comparisons: a string against a NUMBER.
-				if (leftString && numeric(right)) {
-					report(at(left), leftString);
-				} else if (rightString && numeric(left)) {
-					report(at(right!), rightString);
+				if (leftString && (numeric(right) || typeof rightElement?.value === 'number')) {
+					report(leftString.span, leftString.what);
+				} else if (rightString && (numeric(left) || typeof leftElement?.value === 'number')) {
+					report(rightString.span, rightString.what);
 				}
 			}
 		}
 		visitBlocks(member.body);
 		return (stmt) => {
 			known = valuesAt(stmt);
+			current = stmt;
+			shapes = undefined;
 			const toks = statementTokens(source, stmt.span);
 			const first = firstExecutableTokenIndex(toks);
 			const head = tokenText(toks[first]);
@@ -939,6 +980,8 @@ export function checkStringArithmeticOperands(
 
 /** The operators that convert both operands to numbers and bind loosest. */
 const LOGICAL_OPERATORS: ReadonlySet<string> = new Set(['and', 'or', 'xor', 'eqv', 'imp']);
+
+const EMPTY_SHAPES: ReadonlyMap<string, FixedArrayBound> = new Map();
 
 /** A name a branch has tested non-zero, and the span the test covers. */
 interface DivisionGuard {
