@@ -35,9 +35,17 @@
 //      spell out, a variable or ActiveCell, is not judged.
 //      ActiveDocument.Range(-1, 0), Range(0, -1),
 //      Range(1, 0) -> 4608 in Word; Range(0, 0) runs.
+//      Range("") and Range(" ") -> 1004 (issue #276). A name that looks
+//      like an address past the sheet, ZZZZ1, may be a workbook name, and
+//      Range("A1:ZZZZ1") then runs, so it is not judged.
+//      ActiveSheet.Shapes(0) and Sheets(1).Shapes(0) -> -2147024809: a
+//      Worksheet and a Chart both have Shapes (issue #276).
 //  - sheet-name-invalid
 //      Worksheets(1).Name = "a:b", "", a 32-character name, or a name holding
-//      any of : \ / ? * [ ] -> 1004. A 31-character name runs.
+//      any of : \ / ? * [ ] -> 1004. A 31-character name runs. "History" in
+//      any case, and an apostrophe first or last, -> 1004, and so does a
+//      name String$, Space$ or & spell out (issue #276, measured
+//      2026-10-01); "History ", "History1" and "a'b" run.
 //  - multi-cell-range-as-scalar
 //      A multi-cell address literal is an array when read as a value:
 //      `s = Range("A1:B2")` with s As String (or Long, Integer, Double,
@@ -195,7 +203,7 @@ function checkSpan(
 	const toks = statementTokens(source, span);
 	const at = (from: number, to: number): Span => ({ start: span.start + toks[from].start, end: span.start + toks[to].end });
 	if (host === 'Excel') {
-		checkSheetNameAssignment(source, span, toks, memberCtx, push);
+		checkSheetNameAssignment(source, span, toks, memberCtx, sourceNames, push);
 	}
 	for (let i = 0; i < toks.length; i++) {
 		const callee = hostCalleeAt(source, span, toks, i, model, memberCtx, sourceNames);
@@ -445,7 +453,10 @@ function hostCalleeAt(
 	// member is judged on the one part that has it. `ActiveSheet` is a
 	// Worksheet or a Chart, and only a Worksheet has Cells (issue #182).
 	const having = resolved.filter((part) => resolveHostMember(part, name, model));
-	if (having.length !== 1) {
+	// Parts that share the member and its type are judged as one:
+	// `ActiveSheet.Shapes(0)` on a Worksheet or a Chart (issue #276).
+	const returns = new Set(having.map((part) => resolveHostMember(part, name, model)!.returns));
+	if (having.length === 0 || (having.length > 1 && (returns.size !== 1 || returns.has(undefined)))) {
 		return undefined;
 	}
 	const receiver = having[0];
@@ -624,6 +635,10 @@ function checkExcelCallee(
 		const areas = callee.args.map((arg) => (arg.length === 1 && arg[0].kind === 'stringLiteral' ? parseA1Address(stringLiteralValue(arg[0].rawText)) : undefined));
 		for (let k = 0; k < callee.args.length; k++) {
 			const area = areas[k];
+			if (area?.blank) {
+				push('hostArgumentOutOfRange', `Range takes an address or a name, and "${area.text}" is blank. This will raise Run-time error '1004': Method 'Range' of object failed.`, argSpan(span, callee.args[k]));
+				return;
+			}
 			if (area && !area.valid) {
 				push('hostArgumentOutOfRange', `"${area.text}" is not a cell address Excel accepts: rows run 1 to ${EXCEL_MAX_ROW} and columns A to XFD. This will raise Run-time error '1004': Method 'Range' of object failed.`, argSpan(span, callee.args[k]));
 				return;
@@ -708,30 +723,85 @@ function checkSheetNameAssignment(
 	span: Span,
 	toks: readonly VbaToken[],
 	memberCtx: MemberCompletionContext,
+	sourceNames: ReadonlySet<string>,
 	push: PushFn,
 ): void {
 	const n = toks.length;
-	if (n < 4 || toks[n - 1].kind !== 'stringLiteral' || toks[n - 2].rawText !== '=' || tokenText(toks[n - 3]) !== 'name' || toks[n - 4].rawText !== '.') {
+	const eq = toks.findIndex((tok) => tok.rawText === '=');
+	if (eq < 2 || eq === n - 1 || tokenText(toks[eq - 1]) !== 'name' || toks[eq - 2].rawText !== '.') {
 		return;
 	}
-	const resolved = resolveReceiverTypeAt(source, span.start + toks[n - 4].end, memberCtx);
+	const name = spelledOutText(toks.slice(eq + 1), sourceNames);
+	if (name === undefined) {
+		return;
+	}
+	const resolved = resolveReceiverTypeAt(source, span.start + toks[eq - 2].end, memberCtx);
 	// `Worksheets(1)` is a one-part union, `Sheets(1)` a Worksheet-or-Chart union: both are sheets.
 	const parts = resolved ? (resolved.startsWith('union:') ? resolved.slice('union:'.length).split('|') : [resolved]) : [];
 	if (parts.length === 0 || !parts.every((part) => part === 'Excel.Worksheet' || part === 'Excel.Chart')) {
 		return;
 	}
-	const name = stringLiteralValue(toks[n - 1].rawText);
 	let problem: string | undefined;
+	let error = 'You typed an invalid name for a sheet or chart.';
 	if (name.length === 0) {
 		problem = 'a sheet name cannot be blank';
 	} else if (name.length > SHEET_NAME_MAX) {
 		problem = `a sheet name has at most ${SHEET_NAME_MAX} characters, and this one has ${name.length}`;
 	} else if (SHEET_NAME_FORBIDDEN.test(name)) {
 		problem = 'a sheet name cannot contain any of : \\ / ? * [ ]';
+	} else if (name.toLowerCase() === 'history') {
+		problem = 'Excel keeps History for itself, in any case';
+		error = 'History is a reserved name.';
+	} else if (name.startsWith("'") || name.endsWith("'")) {
+		problem = 'a sheet name cannot start or end with an apostrophe';
 	}
 	if (problem) {
-		push('sheetNameInvalid', `Excel refuses this name: ${problem}. This will raise Run-time error '1004': You typed an invalid name for a sheet or chart.`, { start: span.start + toks[n - 1].start, end: span.start + toks[n - 1].end });
+		push('sheetNameInvalid', `Excel refuses this name: ${problem}. This will raise Run-time error '1004': ${error}`, { start: span.start + toks[eq + 1].start, end: span.start + toks[n - 1].end });
 	}
+}
+
+/**
+ * The text an expression spells out from literals alone: a string
+ * literal, `String$(32, "a")`, `Space$(3)`, and `&` between them (issue
+ * #276). Undefined for anything else, or when the module declares its
+ * own String or Space.
+ */
+function spelledOutText(toks: readonly VbaToken[], sourceNames: ReadonlySet<string>): string | undefined {
+	const parts: VbaToken[][] = [[]];
+	let depth = 0;
+	for (const tok of toks) {
+		if (tok.kind === 'comment') {
+			continue;
+		}
+		depth += tok.rawText === '(' ? 1 : tok.rawText === ')' ? -1 : 0;
+		if (depth === 0 && tok.rawText === '&') {
+			parts.push([]);
+		} else {
+			parts[parts.length - 1].push(tok);
+		}
+	}
+	let out = '';
+	for (const written of parts) {
+		// `String$` lexes as String and a `$`.
+		const part = written[1]?.rawText === '$' ? [written[0], ...written.slice(2)] : written;
+		if (part.length === 1 && part[0].kind === 'stringLiteral') {
+			out += stringLiteralValue(part[0].rawText);
+			continue;
+		}
+		const fn = tokenText(part[0]).replace(/\$$/, '');
+		const count = part[2]?.kind === 'integerLiteral' ? parseVbaIntegerLiteral(part[2].rawText) : undefined;
+		if (sourceNames.has(fn) || part[1]?.rawText !== '(' || count === undefined || count < 0 || count > 1000) {
+			return undefined;
+		}
+		if (fn === 'space' && part.length === 4 && part[3].rawText === ')') {
+			out += ' '.repeat(count);
+		} else if (fn === 'string' && part.length === 6 && part[3].rawText === ',' && part[4].kind === 'stringLiteral' && part[5].rawText === ')' && stringLiteralValue(part[4].rawText) !== '') {
+			out += stringLiteralValue(part[4].rawText)[0].repeat(count);
+		} else {
+			return undefined;
+		}
+	}
+	return out;
 }
 
 /** Where a row or column past the bottom or right edge of the sheet lands, in words. */
@@ -845,6 +915,8 @@ interface A1Area {
 	text: string;
 	valid: boolean;
 	multiCell: boolean;
+	/** Empty or spaces only: no address and no name (issue #276). */
+	blank?: boolean;
 	row?: number;
 	column?: number;
 	/** The second cell of `A1:B2`. */
@@ -858,6 +930,9 @@ interface A1Area {
  * an R1C1 address, a union) is not judged.
  */
 function parseA1Address(text: string): A1Area | undefined {
+	if (text.trim() === '') {
+		return { text, valid: false, multiCell: false, blank: true };
+	}
 	const body = text.replace(/^(?:'[^']*'|[^!'\s]+)!/, '');
 	const cell = /^\$?([A-Za-z]{1,3})\$?(\d+)$/;
 	const parts = body.split(':');

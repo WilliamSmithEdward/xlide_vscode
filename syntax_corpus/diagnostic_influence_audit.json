@@ -4573,11 +4573,20 @@
         "issue275_41_runtime",
         "issue275_42_runtime",
         "issue275_46_runtime",
-        "issue275_47_runtime"
+        "issue275_47_runtime",
+        "issue276_19_runtime",
+        "issue276_20_runtime",
+        "issue276_21_runtime",
+        "issue276_22_runtime",
+        "issue276_23_runtime",
+        "issue276_24_runtime",
+        "issue276_25_runtime",
+        "issue276_26_runtime",
+        "issue276_27_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Host argument out of range. Office object model: 1-based collections, cell rows and columns from 1 (issue #122, Excel/Word/PowerPoint 16.0). Issue #243: a Cells column given as a string: past XFD, empty or with a space raises 13, with a digit (\"A1\", \"5\") 1004; a Range address with an empty side (\"A1:\", \":A1\") raises 1004 (measured in Excel 16.0, build 20326, issue243_* oracle cases). Issue #244: Range.Borders, End, SpecialCells, Sort (Order1), PasteSpecial (Paste), Insert and Delete (Shift) and AutoFill (Type) were swept from -100 to 999 in Excel 16.0; the refused runs raise 1004. A statement call on a receiver that is itself a call, Range(\"A1\").Insert Shift:=9, is now read. Issue #245: Word's Selection.MoveRight Unit and Collapse Direction (4120) and InsertBreak Type (9118), and PowerPoint's Shapes.AddShape Type and Slides.Add Layout (-2147024809), Shapes.AddTable rows and columns past 75 and Slides.Range(0) (-2147188160), each swept from -100 to 999 in 16.0. A Slides.Range index past the slide count is not judged. Issue #275: on a range, Cells, Item, Rows and Columns count from its top-left cell. Range(\"C3\").Cells(-1, -1) is A1 and runs; one index over a range w columns wide is Cells((i - 1) \\ w + 1, (i - 1) Mod w + 1). Reported only where the result lands above row 1 or left of column A, on a literal Range receiver; a Range variable or ActiveCell is not judged.",
+      "notes": "Host argument out of range. Office object model: 1-based collections, cell rows and columns from 1 (issue #122, Excel/Word/PowerPoint 16.0). Issue #243: a Cells column given as a string: past XFD, empty or with a space raises 13, with a digit (\"A1\", \"5\") 1004; a Range address with an empty side (\"A1:\", \":A1\") raises 1004 (measured in Excel 16.0, build 20326, issue243_* oracle cases). Issue #244: Range.Borders, End, SpecialCells, Sort (Order1), PasteSpecial (Paste), Insert and Delete (Shift) and AutoFill (Type) were swept from -100 to 999 in Excel 16.0; the refused runs raise 1004. A statement call on a receiver that is itself a call, Range(\"A1\").Insert Shift:=9, is now read. Issue #245: Word's Selection.MoveRight Unit and Collapse Direction (4120) and InsertBreak Type (9118), and PowerPoint's Shapes.AddShape Type and Slides.Add Layout (-2147024809), Shapes.AddTable rows and columns past 75 and Slides.Range(0) (-2147188160), each swept from -100 to 999 in 16.0. A Slides.Range index past the slide count is not judged. Issue #275: on a range, Cells, Item, Rows and Columns count from its top-left cell. Range(\"C3\").Cells(-1, -1) is A1 and runs; one index over a range w columns wide is Cells((i - 1) \\ w + 1, (i - 1) Mod w + 1). Reported only where the result lands above row 1 or left of column A, on a literal Range receiver; a Range variable or ActiveCell is not judged. Issue #276: Range(\"\") and Range(\" \") raise 1004. Shapes(0) on ActiveSheet or Sheets(1) raises -2147024809, judged since a Worksheet and a Chart both have Shapes. Range(\"A1:ZZZZ1\") is not judged: ZZZZ1 can be a workbook name, and it then runs.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -4587,11 +4596,27 @@
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue122_h_runtime",
-        "issue122_i_runtime"
+        "issue122_i_runtime",
+        "issue276_01_runtime",
+        "issue276_02_runtime",
+        "issue276_03_runtime",
+        "issue276_07_runtime",
+        "issue276_08_runtime",
+        "issue276_10_runtime",
+        "issue276_11_runtime",
+        "issue276_13_runtime",
+        "issue276_15_runtime",
+        "issue276_16_runtime",
+        "issue276_17_runtime",
+        "issue276_18_runtime",
+        "issue276_29_runtime",
+        "issue276_30_runtime",
+        "issue276_32_runtime",
+        "issue276_33_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Sheet name Excel refuses. Excel runtime error 1004: invalid name for a sheet or chart (issue #122, Excel 16.0).",
+      "notes": "Sheet name Excel refuses. Excel runtime error 1004: invalid name for a sheet or chart (issue #122, Excel 16.0). Issue #276: History in any case, and an apostrophe first or last, raise 1004; so does a name String$, Space$ or & spell out from literals. \"History \", \"History1\", \"a'b\" and \" \" run.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
