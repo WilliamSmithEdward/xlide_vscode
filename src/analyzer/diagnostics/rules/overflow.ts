@@ -583,6 +583,12 @@ class TypedFolder {
 				value = op === '+' ? left.value + right.value : op === '-' ? left.value - right.value : left.value * right.value;
 				break;
 		}
+		// `number + Date` and `number - Date` hold a serial past the Date range
+		// without raising; only a later use fails (issue #330, measured in
+		// Excel 16.0). `Date + number` raises 6.
+		if (!inRange(value, type) && type === 'date' && left.type !== 'date') {
+			return undefined;
+		}
 		if (!inRange(value, type)) {
 			const result = type === 'date'
 				? `falls ${value > 0 ? 'after 12/31/9999' : 'before 1/1/100'}, outside the Date range`
