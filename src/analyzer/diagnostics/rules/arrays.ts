@@ -41,6 +41,7 @@ import { counterText, loopCountersAt, numericCounterPasses, type CounterValue, t
 import { procedureHasUnstructuredFlow } from '../../flow/procedureUnstructured';
 import { untouchedModuleVariablesIn } from '../moduleState';
 import { isBareOrVbaQualifiedIntrinsicCall, sourceExpressionSyntaxProblem } from '../rules/shared';
+import { moduleCompare, type ModuleCompare } from '../knownStringCalls';
 import {
 	declarationShapeEnvironmentFor,
 	declaredShapeForSourceBinding,
@@ -1588,6 +1589,7 @@ export function knownArrayShapes(
 		return new Map();
 	}
 	const stringsAt = stringValuesAt(source, symbols, proc, activity);
+	const compare = moduleCompare(source);
 	const assignments = new Map<string, FixedArrayBound[]>();
 	const spoiled = new Set<string>();
 	const spoil = (lower: string | undefined): void => {
@@ -1605,7 +1607,7 @@ export function knownArrayShapes(
 				if (!candidates.has(lower)) {
 					continue;
 				}
-				const shape = arrayValueShape(bare.valueTokens, bare.name, optionBase, stringsAt(stmt));
+				const shape = arrayValueShape(bare.valueTokens, bare.name, optionBase, stringsAt(stmt), compare);
 				if (!shape) {
 					spoil(lower);
 				} else {
@@ -1707,6 +1709,7 @@ export function knownArrayShapesAt(
 	optionBase: number,
 ): (stmt: LeafStatementNode) => ReadonlyMap<string, FixedArrayBound> {
 	const whole = knownArrayShapes(source, proc.body, symbols, proc, activity, optionBase);
+	const compare = moduleCompare(source);
 	const locals = arrayValueLocals(symbols, proc);
 	const reaching = locals.size === 0 ? new Map() : straightLineAssignments(source, proc.body, activity);
 	// Each assignment's shape, built with the Strings its own statement sees
@@ -1718,7 +1721,7 @@ export function knownArrayShapesAt(
 			const bare = bareAssignmentTarget(source, stmt.span);
 			const first = bare?.valueTokens.find((tok) => tok.kind !== 'comment');
 			if (bare && first && locals.has(bare.name.toLowerCase())) {
-				built.set(first, arrayValueShape(bare.valueTokens, locals.get(bare.name.toLowerCase())!, optionBase, stringsAt(stmt)));
+				built.set(first, arrayValueShape(bare.valueTokens, locals.get(bare.name.toLowerCase())!, optionBase, stringsAt(stmt), compare));
 			}
 		}, activity);
 	}
@@ -1735,7 +1738,7 @@ export function knownArrayShapesAt(
 				if (!locals.has(lower)) {
 					continue;
 				}
-				const shape = built.has(value[0]) ? built.get(value[0]) : arrayValueShape(value, locals.get(lower)!, optionBase);
+				const shape = built.has(value[0]) ? built.get(value[0]) : arrayValueShape(value, locals.get(lower)!, optionBase, undefined, compare);
 				if (shape) {
 					next.set(lower, shape);
 				} else {
@@ -1864,7 +1867,7 @@ function statementAndBranchSpansOf(stmt: LeafStatementNode): Span[] {
  * holds where the value is read, so `Split(s, ",")` is known when s is
  * (issue #260).
  */
-export function arrayValueShape(valueTokens: readonly VbaToken[], name: string, optionBase: number, strings?: StringValueOf): FixedArrayBound | undefined {
+export function arrayValueShape(valueTokens: readonly VbaToken[], name: string, optionBase: number, strings?: StringValueOf, compare?: ModuleCompare): FixedArrayBound | undefined {
 	const toks = valueTokens.filter((tok) => tok.kind !== 'comment');
 	if (toks.length === 0) {
 		return undefined;
@@ -1885,7 +1888,7 @@ export function arrayValueShape(valueTokens: readonly VbaToken[], name: string, 
 		if (callee === 'array') {
 			const groups = inner.length === 0 ? [] : splitTopLevelTokenGroups(inner, ',');
 			const lower = vbaQualified ? 0 : optionBase;
-			const elements = groups.map((group) => arrayValueShape(group, name, optionBase, strings));
+			const elements = groups.map((group) => arrayValueShape(group, name, optionBase, strings, compare));
 			const values = groups.map((group) => literalElementValue(group));
 			return {
 				name,
@@ -1897,7 +1900,7 @@ export function arrayValueShape(valueTokens: readonly VbaToken[], name: string, 
 		}
 		const args = splitTopLevelTokenGroups(inner, ',');
 		if (callee === 'filter') {
-			return filterShape(args, name, optionBase, strings);
+			return filterShape(args, name, optionBase, strings, compare);
 		}
 		if (args.length < 1 || args.length > 4) {
 			return undefined;
@@ -1907,7 +1910,7 @@ export function arrayValueShape(valueTokens: readonly VbaToken[], name: string, 
 		// Limit -1 keeps every part, 0 none, n at most n; any other
 		// negative is error 5, which this leaves alone.
 		const limit = args.length >= 3 && args[2].length > 0 ? signedIntegerArgument(args[2]) : -1;
-		const textCompare = args.length === 4 ? compareArgument(args[3]) : false;
+		const textCompare = args.length === 4 ? compareArgument(args[3]) : defaultCompare(compare, delimiter);
 		if (text === undefined || delimiter === undefined || delimiter.length === 0 || limit === undefined || limit < -1 || textCompare === undefined) {
 			return undefined;
 		}
@@ -1951,14 +1954,14 @@ export function arrayValueShape(valueTokens: readonly VbaToken[], name: string, 
  * says (measured in Excel 16.0, issue #260). An empty match keeps every
  * element.
  */
-function filterShape(args: readonly (readonly VbaToken[])[], name: string, optionBase: number, strings: StringValueOf | undefined): FixedArrayBound | undefined {
+function filterShape(args: readonly (readonly VbaToken[])[], name: string, optionBase: number, strings: StringValueOf | undefined, compare: ModuleCompare | undefined): FixedArrayBound | undefined {
 	if (args.length < 2 || args.length > 4) {
 		return undefined;
 	}
-	const source = arrayValueShape(args[0], name, optionBase, strings);
+	const source = arrayValueShape(args[0], name, optionBase, strings, compare);
 	const match = stringArgument(args[1], strings);
 	const include = args.length >= 3 && args[2].length > 0 ? booleanArgument(args[2]) : true;
-	const textCompare = args.length === 4 ? compareArgument(args[3]) : false;
+	const textCompare = args.length === 4 ? compareArgument(args[3]) : defaultCompare(compare, match);
 	if (!source || source.dims.length !== 1 || match === undefined || include === undefined || textCompare === undefined) {
 		return undefined;
 	}
@@ -2182,6 +2185,20 @@ function booleanArgument(arg: readonly VbaToken[]): boolean | undefined {
 }
 
 /** Whether a compare argument asks for vbTextCompare; undefined for anything else than the two. */
+/**
+ * Whether Split or Filter with no compare argument compares as text: it
+ * takes the module's Option Compare, and Text and Database both ignore
+ * case (issues #353 and #405, measured in Excel 16.0 and Access 16.0).
+ * Where the module's setting is not known, only a delimiter or match with
+ * no cased letter is settled, since both comparisons then agree.
+ */
+function defaultCompare(compare: ModuleCompare | undefined, text: string | undefined): boolean | undefined {
+	if (compare !== undefined) {
+		return compare !== 'binary';
+	}
+	return text !== undefined && text.toLowerCase() === text.toUpperCase() ? false : undefined;
+}
+
 function compareArgument(arg: readonly VbaToken[]): boolean | undefined {
 	const word = arg.length === 1 ? tokenText(arg[0]) : '';
 	if (word === 'vbbinarycompare' || word === 'vbtextcompare') {
@@ -2672,7 +2689,7 @@ function inlineSplitIndexViolations(source: string, span: Span): Array<{ span: S
 		if (indexClose < 0) {
 			continue;
 		}
-		const shape = arrayValueShape(toks.slice(i, close + 1), 'Split(...)', 0);
+		const shape = arrayValueShape(toks.slice(i, close + 1), 'Split(...)', 0, undefined, moduleCompare(source));
 		const indexToks = toks.slice(close + 2, indexClose).filter((tok) => tok.kind !== 'comment');
 		const value = comparableArrayBoundExpressionValue(indexToks);
 		if (!shape || value === undefined) {
