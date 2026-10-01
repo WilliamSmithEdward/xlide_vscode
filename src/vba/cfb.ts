@@ -477,8 +477,17 @@ export class Cfb {
 		if (majorVer !== 3 && majorVer !== 4) {
 			throw new CfbError(`Unsupported CFB major version: ${majorVer}`);
 		}
-		this.sectorSize = 1 << data.readUInt16LE(30);
-		this.miniSectorSize = 1 << data.readUInt16LE(32);
+		// [MS-CFB] 2.2: 512-byte sectors (shift 9) in version 3, 4096 (shift 12)
+		// in version 4, and 64-byte mini sectors in both. Any other shift is not
+		// a compound file, and `1 << shift` of an arbitrary one can be 1 or
+		// negative.
+		const sectorShift = data.readUInt16LE(30);
+		const miniSectorShift = data.readUInt16LE(32);
+		if (sectorShift !== (majorVer === 3 ? 9 : 12) || miniSectorShift !== 6) {
+			throw new CfbError(`Unsupported sector sizes for CFB version ${majorVer}: shift ${sectorShift}, mini shift ${miniSectorShift}.`);
+		}
+		this.sectorSize = 1 << sectorShift;
+		this.miniSectorSize = 1 << miniSectorShift;
 		const rootDirStart = data.readUInt32LE(48);
 		this.miniStreamCutoff = data.readUInt32LE(56);
 		const minifatStart = data.readUInt32LE(60);
@@ -491,11 +500,19 @@ export class Cfb {
 			difat.push(data.readUInt32LE(76 + i * 4));
 		}
 		if (difatStart !== ENDOFCHAIN && numDifatSectors > 0) {
+			// The header's count is only a bound: a chain that loops back on
+			// itself would otherwise be followed up to four billion times,
+			// collecting 127 entries a step until memory ran out.
+			const seen = new Set<number>();
 			let sector = difatStart;
 			for (let n = 0; n < numDifatSectors; n++) {
 				if (sector === ENDOFCHAIN || sector === FREESECT) {
 					break;
 				}
+				if (seen.has(sector)) {
+					throw new CfbError(`Cycle in the DIFAT chain at sector ${sector}.`);
+				}
+				seen.add(sector);
 				const sectorData = this.sector(sector);
 				const perSector = this.sectorSize / 4 - 1;
 				for (let i = 0; i < perSector; i++) {
@@ -533,6 +550,12 @@ export class Cfb {
 
 	private sector(index: number): Buffer {
 		const offset = HEADER_SIZE + index * this.sectorSize;
+		// A sector that starts past the end is not in the file. Padding it as
+		// well would let every table that names one - DIFAT, FAT, a chain -
+		// conjure zeroed sectors without limit.
+		if (offset >= this.data.length) {
+			throw new CfbError(`Sector ${index} is past the end of the file.`);
+		}
 		const out = this.data.subarray(offset, offset + this.sectorSize);
 		// A truncated final sector still has to yield a full-size block.
 		return out.length === this.sectorSize
