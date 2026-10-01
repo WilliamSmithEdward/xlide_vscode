@@ -29,6 +29,7 @@ import { resolveExhaustiveMemberSurface } from '../rules/shared';
 import {
 	declaredTypeForSourceBinding,
 	isKnownObjectAssignmentType,
+	sourceIdentifierBinding,
 	isKnownScalarType,
 	normalizeType,
 	objectLetAssignmentVerdict,
@@ -61,7 +62,13 @@ export function checkScalarMemberAccess(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	push: PushFn,
+	memberCtx: MemberCompletionContext = {},
 ): ProcedureStatementVisitor {
+	// The project's other standard modules: `Foo.Foo()` names module Foo
+	// before its Function Foo, so the Function's Long is no receiver (issue #403).
+	const otherModules = new Set((memberCtx.projectClassMembers ?? [])
+		.filter((type) => type.kind === 'standardModule' && type.name.toLowerCase() !== symbols.moduleName.toLowerCase())
+		.map((type) => type.name.toLowerCase()));
 	return (member) => {
 		const env = typeEnvironmentFor(symbols, member);
 		const procSym = procedureSymbolFor(symbols, member);
@@ -70,13 +77,15 @@ export function checkScalarMemberAccess(
 				source,
 				stmt.span,
 				env,
-				(name) => declaredTypeForSourceBinding(
-					symbols,
-					procSym,
-					projectVisibleSymbols,
-					name,
-					'memberReceiver',
-				),
+				(name) => otherModules.has(name.toLowerCase()) && sourceIdentifierBinding(symbols, procSym, projectVisibleSymbols, name, 'memberReceiver').scope === 'project'
+					? { resolved: true }
+					: declaredTypeForSourceBinding(
+						symbols,
+						procSym,
+						projectVisibleSymbols,
+						name,
+						'memberReceiver',
+					),
 			)) {
 				push(
 					'scalarMemberAccess',

@@ -57084,6 +57084,204 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String\r\n    s = \"3\"\r\n    Main = Round(s, 23)\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue403_01_compile",
+      "description": "Issue #403 a line label or a qualifier named like a standard module, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    GoTo Foo\r\n    Foo:\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Foo",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Bar()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue403_02_compile",
+      "description": "Issue #403 a line label or a qualifier named like a standard module, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Foo:\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Foo",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Bar()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue403_03_compile",
+      "description": "Issue #403 a line label or a qualifier named like a standard module, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Foo: Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Foo",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Bar()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue403_04_compile",
+      "description": "Issue #403 a line label or a qualifier named like a standard module, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    On Error GoTo Foo\r\n    Main = 1\r\n    Exit Function\r\n    Foo:\r\n    Main = 2\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Foo",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Bar()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue403_05_compile",
+      "description": "Issue #403 a line label or a qualifier named like a standard module, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    On Error GoTo H\r\n    Main = 1\r\n    Foo:\r\n    Exit Function\r\n    H:\r\n    Resume Foo\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Foo",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Bar()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue403_06_compile",
+      "description": "Issue #403 a line label or a qualifier named like a standard module, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    GoSub Foo\r\n    Exit Function\r\n    Foo:\r\n    Main = 1\r\n    Return\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Foo",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Bar()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue403_07_compile",
+      "description": "Issue #403 a line label or a qualifier named like a standard module, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Foo\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Foo",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Sub Bar()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue403_08_compile",
+      "description": "Issue #403 a line label or a qualifier named like a standard module, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = Foo.Foo()\r\n    Main = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Foo",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo() As Long\r\n    Foo = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue403_09_compile",
+      "description": "Issue #403 a line label or a qualifier named like a standard module, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim Foo As Long\r\n    Main = Foo.Bar\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Foo",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Foo() As Long\r\n    Foo = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }
