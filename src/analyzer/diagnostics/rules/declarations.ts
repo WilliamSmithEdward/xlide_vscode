@@ -792,7 +792,9 @@ export function checkPropertySetterValueParameters(
 				propertySetterReturnTypeSpan(source, member),
 			);
 		}
-		if (member.params.length > 0) {
+		// A ParamArray cannot be the value: `Property Let P(ParamArray v())` is
+		// "Argument not optional" (issue #266, measured in Excel 16.0).
+		if (member.params.length > 0 && !member.params[member.params.length - 1].paramArray) {
 			const valueParam = member.params[member.params.length - 1];
 			if (member.procKind === 'PropertySet') {
 				const normalized = normalizeType(valueParam.asType);
@@ -814,7 +816,9 @@ export function checkPropertySetterValueParameters(
 		const label = member.procKind === 'PropertyLet' ? 'Property Let' : 'Property Set';
 		push(
 			'propertySetterMissingValue',
-			`${label} '${member.name}' must include a final value parameter.`,
+			member.params.length > 0
+				? `${label} '${member.name}' must take its value in a parameter after its ParamArray. This is a VBE compile error: Argument not optional.`
+				: `${label} '${member.name}' must include a final value parameter.`,
 			declaredNameSpan(source, member.span, member.name),
 		);
 	}
@@ -905,6 +909,25 @@ export function checkPropertyAccessorSignatures(
 	}
 
 	for (const group of groups.values()) {
+		if (group.gets.length === 0 && group.setters.length === 2) {
+			// A Let and a Set with no Get: their indexes keep one set of names
+			// (issue #266, measured in Excel 16.0).
+			const [first, second] = group.setters;
+			const firstIndexes = first.params.slice(0, -1);
+			const secondIndexes = second.params.slice(0, -1);
+			for (let i = 0; i < Math.min(firstIndexes.length, secondIndexes.length) && firstIndexes.length === secondIndexes.length; i++) {
+				const reason = propertyParameterNameMismatch(firstIndexes[i], secondIndexes[i], i + 1);
+				if (reason) {
+					push(
+						'propertyAccessorSignatureMismatch',
+						`${propertyProcedureLabel(second.procKind)} '${second.name}' argument list must match ${propertyProcedureLabel(first.procKind)} '${first.name}' before the final value parameter. ${reason}`,
+						declaredNameSpan(source, second.span, second.name),
+					);
+					break;
+				}
+			}
+			continue;
+		}
 		if (group.gets.length !== 1) {
 			continue;
 		}
@@ -972,8 +995,26 @@ function propertyIndexParameterMismatch(
 		if (typeReason) {
 			return typeReason;
 		}
+		const nameReason = propertyParameterNameMismatch(expected, actual, i + 1);
+		if (nameReason) {
+			return nameReason;
+		}
 	}
 	return undefined;
+}
+
+/**
+ * An index parameter keeps its name across the property's procedures: `Get
+ * P(ByVal i As Long)` with `Let P(ByVal k As Long, ...)` is "Definitions of
+ * property procedures for the same property are inconsistent" (issue #266,
+ * measured in Excel 16.0). Case does not count, and the value parameter may
+ * have any name.
+ */
+function propertyParameterNameMismatch(expected: ParameterNode, actual: ParameterNode, index: number): string | undefined {
+	const bare = (name: string): string => name.replace(/^\[|\]$/g, '').toLowerCase();
+	return bare(expected.name) === bare(actual.name)
+		? undefined
+		: `Index parameter ${index} must keep its name: expected '${expected.name}', found '${actual.name}'.`;
 }
 
 function propertyParameterTypeMismatch(
@@ -1639,7 +1680,10 @@ export function checkParameterOrder(
 						declaredNameSpan(source, p.span, p.name),
 					);
 				}
-				if (i !== params.length - 1) {
+				// A Property Let or Set takes its value after the ParamArray:
+				// `Property Let P(ParamArray v() As Variant, ByVal x As Long)`
+				// compiles (issue #266, measured in Excel 16.0).
+				if (i !== params.length - 1 && !(lastIsValueParameter && i === params.length - 2)) {
 					push(
 						'paramArrayNotLast',
 						`ParamArray '${p.name}' must be the last parameter.`,

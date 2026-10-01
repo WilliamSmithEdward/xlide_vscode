@@ -121,10 +121,14 @@ export function checkDuplicateProcedures(
 	push: PushFn,
 ): void {
 	reportRepeatedNames(members, activity, {
-		declares: (sym) => isCallableKind(sym.kind),
+		declares: (sym) => isCallableKind(sym.kind) || sym.kind === 'event',
 		// Distinct accessors of one property share their name legitimately;
-		// every other repeat is the ambiguity error.
-		collides: (a, b) => !isPropertyAccessor(a) || !isPropertyAccessor(b) || a.kind === b.kind,
+		// every other repeat is the ambiguity error. An Event collides with
+		// another Event only: an Event and a Sub of one name compile (issue
+		// #266, measured in Excel 16.0).
+		collides: (a, b) => (a.kind === 'event' || b.kind === 'event')
+			? a.kind === b.kind
+			: !isPropertyAccessor(a) || !isPropertyAccessor(b) || a.kind === b.kind,
 		report: (repeat) =>
 			push(
 				'duplicateProcedure',

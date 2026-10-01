@@ -305,11 +305,30 @@ export function checkUnknownCallStatement(
 	// scope unqualified: PropertyChanged in a UserControl, Show in a form.
 	const designerMembers = designerClassMemberNames(designerClass, hostModel);
 
+	// An Event is no procedure: `Done` or `Call Done(1)` in the class that
+	// declares only the Event is "Sub or Function not defined" (issue #266,
+	// measured in Excel 16.0). A Sub of the same name, here or public
+	// elsewhere, or a local, still binds it.
+	const moduleKinds = new Map<string, Set<string>>();
+	for (const symbol of symbols.root.children ?? []) {
+		const lower = symbol.name.toLowerCase();
+		moduleKinds.set(lower, (moduleKinds.get(lower) ?? new Set()).add(symbol.kind));
+	}
+	const eventOnly = (lower: string): boolean => [...(moduleKinds.get(lower) ?? [])].every((kind) => kind === 'event') && moduleKinds.has(lower);
+	const bound = (name: string, procSym: VbaSymbol | undefined): boolean => {
+		const lower = name.toLowerCase();
+		if (!eventOnly(lower)) {
+			return sourceIdentifierBound(symbols, procSym, projectVisibleSymbols, name, 'call');
+		}
+		return (procSym?.children ?? []).some((child) => child.name.toLowerCase() === lower)
+			|| (projectVisibleSymbols ?? []).some((symbol) => symbol.kind !== 'event' && symbol.name.toLowerCase() === lower);
+	};
+
 	const isKnown = (name: string, procSym: VbaSymbol | undefined): boolean => {
 		const lower = name.toLowerCase();
 		return (
 			knownProcedures.has(lower) ||
-			sourceIdentifierBound(symbols, procSym, projectVisibleSymbols, name, 'call') ||
+			bound(name, procSym) ||
 			appMembers.has(lower) ||
 			designerMembers.has(lower) ||
 			ownMembers.has(lower) ||

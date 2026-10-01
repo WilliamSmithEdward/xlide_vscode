@@ -30,6 +30,9 @@ import {
 	declaredNameSpan,
 	forEachVariableGroup,
 	isInactiveNode,
+	matchParenFrom,
+	statementTokens,
+	tokenText,
 } from '../walker';
 
 const PRIVATE_TYPE_MESSAGE =
@@ -71,7 +74,7 @@ export function checkRefusedDeclarations(
 					}
 				}, activity);
 				break;
-			case 'Event':
+			case 'Event': {
 				for (const param of member.params) {
 					if (param.optional || param.paramArray) {
 						push(
@@ -79,9 +82,44 @@ export function checkRefusedDeclarations(
 							`An Event parameter cannot be ${param.paramArray ? 'a ParamArray' : 'Optional'}: '${param.name}' in '${member.name}'. This is a VBE compile error: Syntax error.`,
 							param.nameSpan ?? param.span,
 						);
+					} else if (param.isArray && param.byVal) {
+						// An array passes ByRef (issue #266, measured).
+						push(
+							'eventParameterForm',
+							`An Event's array parameter must be ByRef: '${param.name}' in '${member.name}'. This is a VBE compile error: Array argument must be ByRef.`,
+							param.nameSpan ?? param.span,
+						);
 					}
 				}
+				// An Event is Public: `Private Event` and `Friend Event` are
+				// "Expected: Sub or Function or Property", and an As clause after
+				// it is "Expected: end of statement" (issue #266, measured in a
+				// class). In a standard module any Event is
+				// event-declaration-module-kind's.
+				if (moduleKind === 'standard') {
+					break;
+				}
+				const toks = statementTokens(source, member.span).filter((tok) => tok.kind !== 'comment');
+				const head = tokenText(toks[0]);
+				if (head === 'private' || head === 'friend') {
+					push(
+						'invalidProcedureHeader',
+						`An Event cannot be ${toks[0].rawText}; an Event is always Public. This is a VBE compile error: Expected: Sub or Function or Property.`,
+						{ start: member.span.start + toks[0].start, end: member.span.start + toks[0].end },
+					);
+				}
+				const open = toks.findIndex((tok) => tok.rawText === '(');
+				const close = open < 0 ? -1 : matchParenFrom(toks, open);
+				const after = close < 0 ? undefined : toks[close + 1];
+				if (after && tokenText(after) === 'as') {
+					push(
+						'invalidProcedureHeader',
+						`An Event returns nothing, so it takes no As clause: '${member.name}'. This is a VBE compile error: Expected: end of statement.`,
+						{ start: member.span.start + after.start, end: member.span.start + toks[toks.length - 1].end },
+					);
+				}
 				break;
+			}
 			case 'VariableGroup':
 				if (member.isConst) {
 					checkConstTypes(source, member.declarations, activity, push);

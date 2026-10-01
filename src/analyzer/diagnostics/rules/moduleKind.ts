@@ -14,18 +14,23 @@ import {
 	type ConditionalCompilationEnvironment,
 	compilerConstantsWithDefaults,
 } from '../../conditional/conditionalCompilation';
+import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpression';
+import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type {
 	ModuleNode,
+	ParameterNode,
 	Span,
 	VariableGroupNode,
 } from '../../parser/nodes';
+import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { ModuleSymbolKind } from '../../symbols/symbolModel';
 import {
 	isObjectModuleKind,
 	type PushFn,
 } from '../analysisContext';
-import { isKnownScalarType, normalizeType } from '../typeInference';
+import { isInvalidNumericString } from '../stringConversion';
+import { isKnownScalarType, normalizeType, stringLiteralValue, typeEnvironmentFor } from '../typeInference';
 import {
 	absoluteSpan,
 	activeModuleMembers,
@@ -35,6 +40,7 @@ import {
 	forEachStatement,
 	forEachVariableGroup,
 	isInactiveNode,
+	matchParenFrom,
 	statementTokens,
 	statementTokensAfterLeadingLabel,
 	tokenName,
@@ -448,6 +454,100 @@ export function checkRaiseEventTargets(
 			}
 		});
 	}
+}
+
+/** The whole-number ranges a ByVal Event parameter converts a literal to. */
+const WHOLE_RANGES: Readonly<Record<string, [number, number]>> = {
+	byte: [0, 255], integer: [-32768, 32767], long: [-2147483648, 2147483647],
+};
+
+/**
+ * Rule: what a RaiseEvent passes its Event's parameters (issue #266,
+ * measured in Excel 16.0):
+ *
+ *  - a named argument, `RaiseEvent Done(n:=1)`, is "Syntax error";
+ *  - a variable of another type for a ByRef parameter, an Integer or a
+ *    String for `n As Long`, is "ByRef argument type mismatch" (a literal,
+ *    or the variable in parentheses, is a copy and compiles);
+ *  - for a ByVal parameter of a number type, a string that is no number
+ *    raises 13 and a whole number outside the type raises 6 at run time.
+ */
+export function checkRaiseEventArguments(
+	source: string,
+	mod: ModuleNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	if (!/raiseevent/i.test(source)) {
+		return;
+	}
+	const events = new Map<string, ParameterNode[] | undefined>();
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'Event' && member.name) {
+			const key = member.name.toLowerCase();
+			events.set(key, events.has(key) ? undefined : member.params);
+		}
+	}
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const env = typeEnvironmentFor(symbols, member);
+		forEachProcedureBodyLine(source, member, (lineSpan) => {
+			if (activity?.isInactive(lineSpan)) {
+				return;
+			}
+			const toks = statementTokens(source, lineSpan);
+			for (const start of statementSegmentStarts(toks)) {
+				const params = tokenText(toks[start]) === 'raiseevent' ? events.get(tokenName(toks[start + 1])?.toLowerCase() ?? '') : undefined;
+				if (!params || toks[start + 2]?.rawText !== '(') {
+					continue;
+				}
+				const close = matchParenFrom(toks, start + 2);
+				const slots = close < 0 ? [] : splitTopLevelTokenGroups(toks.slice(start + 3, close).filter((tok) => tok.kind !== 'comment'), 0, ',');
+				const eventName = toks[start + 1].rawText;
+				slots.forEach((slot, k) => {
+					const param = params[k];
+					if (!param || slot.length === 0) {
+						return;
+					}
+					const span = { start: lineSpan.start + slot[0].start, end: lineSpan.start + slot[slot.length - 1].end };
+					if (slot[1]?.rawText === ':=') {
+						push('malformedStatement', `RaiseEvent passes its arguments by position; '${slot[0].rawText}:=' names one. This is a VBE compile error: Syntax error.`, span);
+						return;
+					}
+					const expected = normalizeType(param.asType) ?? 'variant';
+					if (!param.byVal && !param.isArray && slot.length === 1 && slot[0].kind === 'identifier' && expected !== 'variant') {
+						const actual = normalizeType(env.get(slot[0].rawText.toLowerCase()));
+						if (actual && actual !== 'variant' && actual !== expected && isKnownScalarType(actual) && isKnownScalarType(expected)) {
+							push('byRefArgumentTypeMismatch', `'${slot[0].rawText}' is declared As ${capitalized(actual)}, but parameter '${param.name}' of Event '${eventName}' is ByRef As ${param.asType}. This is a VBE compile error: ByRef argument type mismatch.`, span);
+						}
+						return;
+					}
+					const range = param.byVal ? WHOLE_RANGES[expected] : undefined;
+					if (!range || slot.length > 2) {
+						return;
+					}
+					if (slot.length === 1 && slot[0].kind === 'stringLiteral' && isInvalidNumericString(stringLiteralValue(slot[0].rawText))) {
+						push('argumentTypeMismatch', `Argument '${param.name}' of Event '${eventName}' expects ${param.asType}, but got ${slot[0].rawText}, which is no number. This will raise Run-time error '13': Type mismatch.`, span);
+						return;
+					}
+					const negative = slot.length === 2 && slot[0].rawText === '-';
+					const literal = slot[negative ? 1 : 0];
+					const raw = literal?.kind === 'integerLiteral' && slot.length === (negative ? 2 : 1) ? parseVbaIntegerLiteral(literal.rawText) : undefined;
+					const value = raw === undefined ? undefined : negative ? -raw : raw;
+					if (value !== undefined && (value < range[0] || value > range[1])) {
+						push('argumentTypeMismatch', `Argument '${param.name}' of Event '${eventName}' expects ${param.asType}, but got ${value}, which does not fit. This will raise Run-time error '6': Overflow.`, span);
+					}
+				});
+			}
+		});
+	}
+}
+
+function capitalized(type: string): string {
+	return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
 function raiseEventTargetHits(
