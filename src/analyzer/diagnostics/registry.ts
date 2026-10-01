@@ -488,7 +488,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'moduleName',
-		run: (ctx, push) => checkModuleName(ctx.source, ctx.opts.moduleName, push),
+		run: (ctx, push) => checkModuleName(ctx.source, ctx.opts.moduleName, push, ctx.opts.hostModel?.hostName),
 	},
 	{
 		name: 'propertySetterValueParameters',
@@ -842,6 +842,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 		// would then know of no library at all and stay silent.
 		run: (ctx, push) => checkMissingLibraryReference(
 			ctx.source, ctx.opts.hostModel ?? getExcelObjectModel(), push,
+			new Set([ctx.opts.moduleName ?? '', ...(ctx.memberCtx.projectClassMembers ?? []).map((type) => type.name)].map((name) => name.toLowerCase())),
 		),
 	},
 	{

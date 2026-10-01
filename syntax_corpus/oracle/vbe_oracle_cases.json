@@ -59038,6 +59038,98 @@
       ],
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue357_01_runtime",
+      "description": "Issue #357 a module named like an unreferenced library or Property, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 7.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Word.Hi()\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Word",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Hi() As Long\r\n    Hi = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue357_02_runtime",
+      "description": "Issue #357 a module named like an unreferenced library or Property, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 7.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Access.Hi()\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Access",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Hi() As Long\r\n    Hi = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue357_03_runtime",
+      "description": "Issue #357 a module named like an unreferenced library or Property, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 7.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = PowerPoint.Hi()\r\nEnd Function\r\n"
+        },
+        {
+          "name": "PowerPoint",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Hi() As Long\r\n    Hi = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue357_04_runtime",
+      "description": "Issue #357 a module named like an unreferenced library or Property, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 7.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Property.Hi()\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Property",
+          "type": "standard",
+          "source": "Option Explicit\r\nPublic Function Hi() As Long\r\n    Hi = 7\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

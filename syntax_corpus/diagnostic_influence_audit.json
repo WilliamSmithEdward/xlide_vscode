@@ -364,7 +364,7 @@
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Flags unbracketed reserved identifiers in declaration-name positions, including reserved-for-implementation-use names such as Attribute and VB_Name. Bracketed FOREIGN-NAME forms remain accepted. Issue #247: a module named a word the VBE refuses (Print, Date, If, String and 101 more, measured in Excel 16.0 on 2026-09-30, where adding one fails with 0x800AC3D4) is reported at its VB_Name. Line, Width, Name, Err, Mid, Time, Error, Reset, Beep, Load, Unload, Access, Base, Compare, Explicit, Object, Property and Step are accepted and stay quiet.",
+      "notes": "Flags unbracketed reserved identifiers in declaration-name positions, including reserved-for-implementation-use names such as Attribute and VB_Name. Bracketed FOREIGN-NAME forms remain accepted. Issue #247: a module named a word the VBE refuses (Print, Date, If, String and 101 more, measured in Excel 16.0 on 2026-09-30, where adding one fails with 0x800AC3D4) is reported at its VB_Name. Line, Width, Name, Err, Mid, Time, Error, Reset, Beep, Load, Unload, Access, Base, Compare, Explicit, Object, Property and Step are accepted and stay quiet. Issue #357: a module cannot be named Excel (in Excel), VBA, Office or stdole, the libraries every project references (32813), nor False, WithEvents, LongLong, LongPtr, Decimal or CDate (50132).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -3802,7 +3802,7 @@
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error",
-      "notes": "The VBE refuses `Dim doc As Word.Document` in a workbook that does not reference the Word library with \"User-defined type not defined\", and the whole project stops compiling. The same code late bound through CreateObject compiles, because it names nothing from the library, so the rule fires only on the qualified spelling in an As clause, after New, or on a qualified constant. Only libraries XLIDE can add a reference to are reported, so the finding always carries a fix."
+      "notes": "The VBE refuses `Dim doc As Word.Document` in a workbook that does not reference the Word library with \"User-defined type not defined\", and the whole project stops compiling. The same code late bound through CreateObject compiles, because it names nothing from the library, so the rule fires only on the qualified spelling in an As clause, after New, or on a qualified constant. Only libraries XLIDE can add a reference to are reported, so the finding always carries a fix. Issue #357: a project module named Word, Access or PowerPoint is called through its name, Word.Hi(), ahead of the library the project does not reference, so it is not reported."
     },
     {
       "code": "file-number-zero",

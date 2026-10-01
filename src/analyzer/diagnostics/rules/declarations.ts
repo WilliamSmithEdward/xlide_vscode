@@ -667,32 +667,46 @@ function isAlternativeProcedureHeaderStatement(
 }
 
 /**
- * The names the VBE refuses for a module (issue #247, measured in Excel
- * 16.0): adding one fails with 0x800AC3D4. Line, Width, Name, Err, Mid,
- * Time, Error, Reset, Beep, Load, Unload, Access, Base, Compare, Explicit,
- * Object, Property and Step are accepted.
+ * The names the VBE refuses for a module (issues #247 and #357, measured in
+ * Excel 16.0): adding one fails with 0x800AC3D4, renaming to one with
+ * 50132. Line, Width, Name, Err, Mid, Time, Error, Reset, Beep, Load,
+ * Unload, Access, Base, Compare, Explicit, Object, Property and Step are
+ * accepted.
  */
 const REFUSED_MODULE_NAMES: ReadonlySet<string> = new Set([
 	'addressof', 'and', 'any', 'array', 'as', 'attribute', 'boolean', 'byref', 'byte', 'byval',
-	'call', 'case', 'circle', 'close', 'const', 'currency', 'date', 'debug', 'declare', 'dim',
+	'call', 'case', 'cdate', 'circle', 'close', 'const', 'currency', 'date', 'debug', 'decimal', 'declare', 'dim',
 	'do', 'double', 'each', 'else', 'elseif', 'empty', 'end', 'enum', 'eqv', 'erase',
-	'event', 'exit', 'for', 'friend', 'function', 'get', 'global', 'gosub', 'goto', 'if',
+	'event', 'exit', 'false', 'for', 'friend', 'function', 'get', 'global', 'gosub', 'goto', 'if',
 	'imp', 'implements', 'in', 'input', 'integer', 'is', 'lbound', 'len', 'lenb', 'let',
-	'like', 'lock', 'long', 'loop', 'lset', 'me', 'mod', 'new', 'next', 'not',
+	'like', 'lock', 'long', 'longlong', 'longptr', 'loop', 'lset', 'me', 'mod', 'new', 'next', 'not',
 	'nothing', 'null', 'on', 'open', 'option', 'optional', 'or', 'paramarray', 'preserve', 'print',
 	'private', 'pset', 'public', 'put', 'raiseevent', 'redim', 'rem', 'resume', 'return', 'rset',
 	'scale', 'seek', 'select', 'set', 'shared', 'single', 'spc', 'static', 'stop', 'string',
 	'sub', 'tab', 'then', 'to', 'true', 'type', 'typeof', 'unlock', 'until', 'variant',
-	'wend', 'while', 'with', 'write', 'xor',
+	'wend', 'while', 'with', 'withevents', 'write', 'xor',
 ]);
+
+/**
+ * The libraries every project of a host references, which a module cannot
+ * share a name with: renaming one to Excel, VBA, Office or stdole fails
+ * with 32813, "Name conflicts with existing module, project, or object
+ * library" (issue #357, measured in Excel 16.0). Word, Access and
+ * PowerPoint are accepted there, being libraries an Excel project does
+ * not reference.
+ */
+const REFERENCED_LIBRARIES: ReadonlySet<string> = new Set(['vba', 'office', 'stdole']);
+const HOST_LIBRARIES: ReadonlySet<string> = new Set(['excel', 'word', 'powerpoint', 'access']);
 
 /**
  * A module named a word the VBE refuses. A file can still hold one, and its
  * procedures run called bare, but a call through its name does not compile.
  * The `Attribute VB_Name` line is marked, or else the first line.
  */
-export function checkModuleName(source: string, moduleName: string | undefined, push: PushFn): void {
-	if (!moduleName || !REFUSED_MODULE_NAMES.has(moduleName.toLowerCase())) {
+export function checkModuleName(source: string, moduleName: string | undefined, push: PushFn, hostName?: string): void {
+	const lower = moduleName?.toLowerCase() ?? '';
+	const library = REFERENCED_LIBRARIES.has(lower) || (HOST_LIBRARIES.has(lower) && lower === (hostName ?? 'Excel').toLowerCase());
+	if (!moduleName || (!library && !REFUSED_MODULE_NAMES.has(lower))) {
 		return;
 	}
 	const attribute = /^[ \t]*Attribute[ \t]+VB_Name[ \t]*=[ \t]*"([^"]*)"/im.exec(source);
@@ -700,7 +714,9 @@ export function checkModuleName(source: string, moduleName: string | undefined, 
 	const end = attribute ? start + attribute[1].length + 2 : Math.max(0, source.search(/\r?\n|$/));
 	push(
 		'invalidDeclarationName',
-		`Reserved VBA keyword '${moduleName}' cannot name a module: the VBE refuses to add one, and a call through the name, ${moduleName}.Proc, does not compile.`,
+		library
+			? `'${moduleName}' names an object library every project here references, so it cannot name a module: the VBE refuses the name ("Name conflicts with existing module, project, or object library").`
+			: `Reserved VBA keyword '${moduleName}' cannot name a module: the VBE refuses to add one, and a call through the name, ${moduleName}.Proc, does not compile.`,
 		{ start, end },
 	);
 }
