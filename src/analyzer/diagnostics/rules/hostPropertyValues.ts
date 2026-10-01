@@ -7,6 +7,12 @@
 // table merely does not know. `Font.Size = 409.5` runs in Excel and 409.6
 // raises; nothing between is claimed.
 //
+// The enum-typed ones (issue #244) were swept from -100 to 999 in Excel
+// 16.0: the refused ranges are the runs of that sweep that raised, so a
+// constant such as xlCenter (-4108) or xlPatternLinearGradient (4000),
+// outside every run, is never claimed. Calculation, CutCopyMode and
+// ReferenceStyle took every value of the sweep, and are not here.
+//
 // Only a numeric literal is read, optionally signed. `ActiveWindow.Zoom =
 // False` runs where `Zoom = 0` raises, and a named constant such as
 // xlVertical is its own value, not a number the table can place.
@@ -33,9 +39,21 @@ const WORD_RANGE = { number: '5843', text: 'One of the values passed to this met
 const LIMITS: ReadonlyMap<string, ReadonlyMap<string, HostValueLimit>> = new Map([
 	['Excel.Font', new Map([
 		['size', { runs: '1 to 409.5', refused: [{ to: 0.5 }, { from: 409.6 }], error: EXCEL_1004('Size', 'Font') }],
+		['underline', { runs: '1 to 5, or an xlUnderlineStyle constant', refused: [{ from: -100, to: 0 }, { from: 6, to: 999 }], error: EXCEL_1004('Underline', 'Font') }],
 	])],
 	['Excel.Interior', new Map([
 		['colorindex', { runs: '1 to 56, or an xlColorIndex constant', refused: [{ from: 57 }], error: SUBSCRIPT }],
+		['pattern', { runs: '-1 to 18, or an xlPattern constant', refused: [{ from: -100, to: -2 }, { from: 19, to: 999 }], error: SUBSCRIPT }],
+	])],
+	['Excel.Border', new Map([
+		['linestyle', { runs: '0 to 13, or an xlLineStyle constant', refused: [{ from: -100, to: -1 }, { from: 14, to: 999 }], error: EXCEL_1004('LineStyle', 'Border') }],
+		['weight', { runs: '1 to 4, or an xlBorderWeight constant', refused: [{ from: -100, to: 0 }, { from: 5, to: 999 }], error: EXCEL_1004('Weight', 'Border') }],
+	])],
+	['Excel.PageSetup', new Map([
+		['orientation', { runs: 'xlPortrait (1) or xlLandscape (2)', refused: [{ from: -100, to: 0 }, { from: 3, to: 999 }], error: EXCEL_1004('Orientation', 'PageSetup') }],
+	])],
+	['Excel.Worksheet', new Map([
+		['visible', { runs: 'an xlSheetVisibility constant: -1, 0 or 2', refused: [{ from: -100, to: -2 }, { from: 3, to: 999 }], error: EXCEL_1004('Visible', 'Worksheet') }],
 	])],
 	['Excel.Tab', new Map([
 		['colorindex', { runs: '1 to 56, or xlColorIndexNone', refused: [{ from: -1, to: 0 }, { from: 57 }], error: SUBSCRIPT }],
@@ -46,10 +64,13 @@ const LIMITS: ReadonlyMap<string, ReadonlyMap<string, HostValueLimit>> = new Map
 		// xlHorizontal, xlVertical, xlUpward and xlDownward are the constants.
 		['orientation', { runs: '-90 to 90, or an xlOrientation constant', refused: [{ to: -91 }, { from: 91 }], allowed: [-4128, -4166, -4171, -4170], error: EXCEL_1004('Orientation', 'Range') }],
 		['indentlevel', { runs: 'up to 250', refused: [{ to: -16 }, { from: 251 }], error: EXCEL_1004('IndentLevel', 'Range') }],
+		['horizontalalignment', { runs: '1 to 8, or an xlHAlign constant', refused: [{ from: -100, to: 0 }, { from: 9, to: 999 }], error: EXCEL_1004('HorizontalAlignment', 'Range') }],
+		['verticalalignment', { runs: '1 to 5, or an xlVAlign constant', refused: [{ from: -100, to: 0 }, { from: 6, to: 999 }], error: EXCEL_1004('VerticalAlignment', 'Range') }],
 	])],
 	['Excel.Window', new Map([
 		// -1 is True, which fits the selection.
 		['zoom', { runs: '10 to 400, or True', refused: [{ to: 9 }, { from: 401 }], allowed: [-1], error: EXCEL_1004('Zoom', 'Window') }],
+		['windowstate', { runs: '1 to 3, or an xlWindowState constant', refused: [{ from: -100, to: 0 }, { from: 4, to: 999 }], error: EXCEL_1004('WindowState', 'Window') }],
 	])],
 	['Word.Font', new Map([
 		['size', { runs: '1 to 1638', refused: [{ to: 0.5 }, { from: 1638.5 }], error: WORD_RANGE }],
