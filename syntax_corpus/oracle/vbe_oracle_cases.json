@@ -56479,6 +56479,226 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim i As Integer, d As Date\r\n    i = 1\r\n    d = #1/1/2000#\r\n    Main = CDbl(i + d)\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue364_01_runtime",
+      "description": "Issue #364 Round digits, and Null string arguments, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Round(1, 23)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue364_02_runtime",
+      "description": "Issue #364 Round digits, and Null string arguments, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 256.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Round(256, 40000)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue364_03_runtime",
+      "description": "Issue #364 Round digits, and Null string arguments, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Round(0, 30)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue364_04_runtime",
+      "description": "Issue #364 Round digits, and Null string arguments, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = IsNull(Round(Null, 30))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue364_05_runtime",
+      "description": "Issue #364 Round digits, and Null string arguments, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Round(1.5, 23)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue364_06_runtime",
+      "description": "Issue #364 Round digits, and Null string arguments, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Round(1, -1)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue364_07_runtime",
+      "description": "Issue #364 Round digits, and Null string arguments, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Round(-2.5, 23)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue364_08_runtime",
+      "description": "Issue #364 Round digits, and Null string arguments, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Round(1.5, 22)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue364_09_runtime",
+      "description": "Issue #364 Round digits, and Null string arguments, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Double\r\n    x = 1.5\r\n    Main = Round(x, 23)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue364_10_runtime",
+      "description": "Issue #364 Round digits, and Null string arguments, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = IsNull(Mid(Null, 0))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue364_11_runtime",
+      "description": "Issue #364 Round digits, and Null string arguments, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = IsNull(Mid(Null, 1, -1))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue364_12_runtime",
+      "description": "Issue #364 Round digits, and Null string arguments, case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = IsNull(Left(Null, -1))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue364_13_runtime",
+      "description": "Issue #364 Round digits, and Null string arguments, case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = IsNull(Right(Null, -1))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue364_14_runtime",
+      "description": "Issue #364 Round digits, and Null string arguments, case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = IsNull(InStr(0, Null, \"a\"))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue364_15_runtime",
+      "description": "Issue #364 Round digits, and Null string arguments, case 15, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = IsNull(InStr(0, \"a\", Null))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue364_16_runtime",
+      "description": "Issue #364 Round digits, and Null string arguments, case 16, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = IsNull(StrComp(Null, \"a\", -9))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue364_17_runtime",
+      "description": "Issue #364 Round digits, and Null string arguments, case 17, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    v = Null\r\n    Main = IsNull(Mid(v, 0))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue364_18_runtime",
+      "description": "Issue #364 Round digits, and Null string arguments, case 18, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Mid(\"abc\", 0)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue364_19_runtime",
+      "description": "Issue #364 Round digits, and Null string arguments, case 19, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Left(\"abc\", -1)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue364_20_runtime",
+      "description": "Issue #364 Round digits, and Null string arguments, case 20, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 94.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = IsNull(InStrRev(Null, \"a\", 0))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }
