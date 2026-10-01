@@ -2679,10 +2679,10 @@ export function incompatibilityReason(
 		if (actualType === 'boolean' || isNumericType(actualType)) {
 			return undefined;
 		}
-		if (actualType === 'string') {
-			return actual.stringValue !== undefined && !isInvalidBooleanString(actual.stringValue)
-				? undefined
-				: "This string literal cannot be converted to Boolean. This will raise Run-time error '13': Type mismatch.";
+		// A String whose value is not known may be "True" or "5", which
+		// convert (measured in Excel 16.0).
+		if (actualType === 'string' && actual.stringValue !== undefined && isInvalidBooleanString(actual.stringValue)) {
+			return "This string literal cannot be converted to Boolean. This will raise Run-time error '13': Type mismatch.";
 		}
 		return undefined;
 	}
