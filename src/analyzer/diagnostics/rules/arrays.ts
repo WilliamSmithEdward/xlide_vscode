@@ -39,7 +39,7 @@ import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import { straightLineAssignments, type ReachingAssignments } from '../straightLineValues';
 import { counterText, loopCountersAt, numericCounterPasses, type CounterValue, type CountersAt } from '../loopCounters';
 import { procedureHasUnstructuredFlow } from '../../flow/procedureUnstructured';
-import { isBareOrVbaQualifiedIntrinsicCall } from '../rules/shared';
+import { isBareOrVbaQualifiedIntrinsicCall, sourceExpressionSyntaxProblem } from '../rules/shared';
 import {
 	declarationShapeEnvironmentFor,
 	declaredShapeForSourceBinding,
@@ -81,6 +81,9 @@ export function checkArrayBoundIntrinsicArguments(
 		const shapes = declarationShapeEnvironmentFor(symbols, member);
 		const procSym = procedureSymbolFor(symbols, member);
 		return (stmt) => {
+			for (const hit of arrayBoundSyntaxProblems(source, stmt.span)) {
+				push('malformedStatement', hit.message, hit.span);
+			}
 			for (const hit of arrayBoundScalarArguments(
 				source,
 				stmt.span,
@@ -101,6 +104,39 @@ export function checkArrayBoundIntrinsicArguments(
 			}
 		};
 	};
+}
+
+/**
+ * `UBound(5)`, `LBound("abc")`, `UBound(-5)` and `UBound(5 + 1)`: what
+ * UBound and LBound read is an array variable, a member or a call, and
+ * anything else is a Syntax error (measured in Excel 16.0). `VBA.UBound`
+ * is left alone: UBound is no member of VBA, which the VBE reports first.
+ */
+function arrayBoundSyntaxProblems(source: string, span: Span): Array<{ span: Span; message: string }> {
+	const toks = statementTokens(source, span);
+	const out: Array<{ span: Span; message: string }> = [];
+	for (let i = 0; i < toks.length - 2; i++) {
+		const word = tokenText(toks[i]);
+		if ((word !== 'ubound' && word !== 'lbound') || toks[i + 1].rawText !== '(' || toks[i - 1]?.rawText === '.') {
+			continue;
+		}
+		const close = matchParenFrom(toks, i + 1);
+		const split = close < 0 ? undefined : splitArgSlots(toks.slice(i + 2, close), span.start);
+		const first = split?.slots[0]?.filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline') ?? [];
+		// `UBound((a))` is reported as an array in parentheses already.
+		if (first.length === 0 || first[0].rawText === '(') {
+			continue;
+		}
+		const at = { start: span.start + first[0].start, end: span.start + first[first.length - 1].end };
+		const what = sourceExpressionSyntaxProblem(source.slice(at.start, at.end));
+		if (what) {
+			out.push({
+				span: at,
+				message: `${toks[i].rawText} takes an array variable, a member or a call, and ${what} is none of them. This is a VBE compile error: Syntax error.`,
+			});
+		}
+	}
+	return out;
 }
 
 interface ArrayBoundScalarArgument {
