@@ -35931,6 +35931,766 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Range(\"A1:A2\").Sort Range(\"A1\"), 2\r\n    Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue246_01_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Object, c As Round1\r\n    Set o = New Flat1\r\n    Set c = o\r\n    Main = 1\r\nEnd Function\r\n\r\nPrivate Function TakeRound1(ByVal c As Round1) As Long\r\n    TakeRound1 = 1\r\nEnd Function\r\n\r\nPrivate Function TakeRound1Ref(c As Round1) As Long\r\n    TakeRound1Ref = 1\r\nEnd Function\r\n\r\nPrivate Function TakeShape(ByVal s As IArea1) As Long\r\n    TakeShape = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "IArea1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IArea1\r\nPrivate Function IArea1_Area() As Double\r\n    IArea1_Area = 3\r\nEnd Function\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue246_02_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = TakeRound1(New Flat1)\r\nEnd Function\r\n\r\nPrivate Function TakeRound1(ByVal c As Round1) As Long\r\n    TakeRound1 = 1\r\nEnd Function\r\n\r\nPrivate Function TakeRound1Ref(c As Round1) As Long\r\n    TakeRound1Ref = 1\r\nEnd Function\r\n\r\nPrivate Function TakeShape(ByVal s As IArea1) As Long\r\n    TakeShape = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "IArea1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IArea1\r\nPrivate Function IArea1_Area() As Double\r\n    IArea1_Area = 3\r\nEnd Function\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue246_03_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim p As Flat1\r\n    Set p = New Flat1\r\n    Main = TakeRound1Ref(p)\r\nEnd Function\r\n\r\nPrivate Function TakeRound1(ByVal c As Round1) As Long\r\n    TakeRound1 = 1\r\nEnd Function\r\n\r\nPrivate Function TakeRound1Ref(c As Round1) As Long\r\n    TakeRound1Ref = 1\r\nEnd Function\r\n\r\nPrivate Function TakeShape(ByVal s As IArea1) As Long\r\n    TakeShape = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "IArea1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IArea1\r\nPrivate Function IArea1_Area() As Double\r\n    IArea1_Area = 3\r\nEnd Function\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue246_04_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = TakeShape(New Flat1)\r\nEnd Function\r\n\r\nPrivate Function TakeRound1(ByVal c As Round1) As Long\r\n    TakeRound1 = 1\r\nEnd Function\r\n\r\nPrivate Function TakeRound1Ref(c As Round1) As Long\r\n    TakeRound1Ref = 1\r\nEnd Function\r\n\r\nPrivate Function TakeShape(ByVal s As IArea1) As Long\r\n    TakeShape = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "IArea1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IArea1\r\nPrivate Function IArea1_Area() As Double\r\n    IArea1_Area = 3\r\nEnd Function\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue246_05_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add New Flat1\r\n    Main = c(1).Radius()\r\nEnd Function\r\n\r\nPrivate Function TakeRound1(ByVal c As Round1) As Long\r\n    TakeRound1 = 1\r\nEnd Function\r\n\r\nPrivate Function TakeRound1Ref(c As Round1) As Long\r\n    TakeRound1Ref = 1\r\nEnd Function\r\n\r\nPrivate Function TakeShape(ByVal s As IArea1) As Long\r\n    TakeShape = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "IArea1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IArea1\r\nPrivate Function IArea1_Area() As Double\r\n    IArea1_Area = 3\r\nEnd Function\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue246_06_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, x As Round1\r\n    c.Add New Flat1\r\n    For Each x In c\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\nPrivate Function TakeRound1(ByVal c As Round1) As Long\r\n    TakeRound1 = 1\r\nEnd Function\r\n\r\nPrivate Function TakeRound1Ref(c As Round1) As Long\r\n    TakeRound1Ref = 1\r\nEnd Function\r\n\r\nPrivate Function TakeShape(ByVal s As IArea1) As Long\r\n    TakeShape = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "IArea1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IArea1\r\nPrivate Function IArea1_Area() As Double\r\n    IArea1_Area = 3\r\nEnd Function\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue246_07_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = TakeShape(New Round1)\r\nEnd Function\r\n\r\nPrivate Function TakeRound1(ByVal c As Round1) As Long\r\n    TakeRound1 = 1\r\nEnd Function\r\n\r\nPrivate Function TakeRound1Ref(c As Round1) As Long\r\n    TakeRound1Ref = 1\r\nEnd Function\r\n\r\nPrivate Function TakeShape(ByVal s As IArea1) As Long\r\n    TakeShape = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "IArea1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IArea1\r\nPrivate Function IArea1_Area() As Double\r\n    IArea1_Area = 3\r\nEnd Function\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue246_08_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As IArea1, c As Round1\r\n    Set s = New Round1\r\n    Set c = s\r\n    Main = 1\r\nEnd Function\r\n\r\nPrivate Function TakeRound1(ByVal c As Round1) As Long\r\n    TakeRound1 = 1\r\nEnd Function\r\n\r\nPrivate Function TakeRound1Ref(c As Round1) As Long\r\n    TakeRound1Ref = 1\r\nEnd Function\r\n\r\nPrivate Function TakeShape(ByVal s As IArea1) As Long\r\n    TakeShape = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "IArea1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IArea1\r\nPrivate Function IArea1_Area() As Double\r\n    IArea1_Area = 3\r\nEnd Function\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue246_09_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add New Round1\r\n    Main = c(1).Radius()\r\nEnd Function\r\n\r\nPrivate Function TakeRound1(ByVal c As Round1) As Long\r\n    TakeRound1 = 1\r\nEnd Function\r\n\r\nPrivate Function TakeRound1Ref(c As Round1) As Long\r\n    TakeRound1Ref = 1\r\nEnd Function\r\n\r\nPrivate Function TakeShape(ByVal s As IArea1) As Long\r\n    TakeShape = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "IArea1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IArea1\r\nPrivate Function IArea1_Area() As Double\r\n    IArea1_Area = 3\r\nEnd Function\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue246_10_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, x As Round1\r\n    c.Add New Round1\r\n    For Each x In c\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\nPrivate Function TakeRound1(ByVal c As Round1) As Long\r\n    TakeRound1 = 1\r\nEnd Function\r\n\r\nPrivate Function TakeRound1Ref(c As Round1) As Long\r\n    TakeRound1Ref = 1\r\nEnd Function\r\n\r\nPrivate Function TakeShape(ByVal s As IArea1) As Long\r\n    TakeShape = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "IArea1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IArea1\r\nPrivate Function IArea1_Area() As Double\r\n    IArea1_Area = 3\r\nEnd Function\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue246_11_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As IArea1\r\n    Set s = New IArea1\r\n    Main = 1\r\nEnd Function\r\n\r\nPrivate Function TakeRound1(ByVal c As Round1) As Long\r\n    TakeRound1 = 1\r\nEnd Function\r\n\r\nPrivate Function TakeRound1Ref(c As Round1) As Long\r\n    TakeRound1Ref = 1\r\nEnd Function\r\n\r\nPrivate Function TakeShape(ByVal s As IArea1) As Long\r\n    TakeShape = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "IArea1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IArea1\r\nPrivate Function IArea1_Area() As Double\r\n    IArea1_Area = 3\r\nEnd Function\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue246_12_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Object, c As Round1\r\n    Set o = New Round1\r\n    Set c = o\r\n    Main = 1\r\nEnd Function\r\n\r\nPrivate Function TakeRound1(ByVal c As Round1) As Long\r\n    TakeRound1 = 1\r\nEnd Function\r\n\r\nPrivate Function TakeRound1Ref(c As Round1) As Long\r\n    TakeRound1Ref = 1\r\nEnd Function\r\n\r\nPrivate Function TakeShape(ByVal s As IArea1) As Long\r\n    TakeShape = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "IArea1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IArea1\r\nPrivate Function IArea1_Area() As Double\r\n    IArea1_Area = 3\r\nEnd Function\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue246_13_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w As Worksheet\r\n    Set w = ActiveSheet\r\n    Main = TakeRange(w)\r\nEnd Function\r\n\r\nPrivate Function TakeRange(r As Range) As Long\r\n    TakeRange = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue246_14_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim p As Flat1\r\n    Set p = New Flat1\r\n    Main = TakeRound1(p)\r\nEnd Function\r\n\r\nPrivate Function TakeRound1(ByVal c As Round1) As Long\r\n    TakeRound1 = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Radius() As Double\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue246_15_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 15, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim p As Flat1\r\n    Set p = New Flat1\r\n    UseRound1 p\r\n    Main = 1\r\nEnd Function\r\n\r\nPrivate Sub UseRound1(c As Round1)\r\nEnd Sub\r\n\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Radius() As Double\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue246_16_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 16, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Object, c As Round1\r\n    Set o = New Flat1\r\n    Set o = New Round1\r\n    Set c = o\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "IArea1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IArea1\r\nPrivate Function IArea1_Area() As Double\r\n    IArea1_Area = 3\r\nEnd Function\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue246_17_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 17, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add New Flat1\r\n    c.Remove 1\r\n    c.Add New Round1\r\n    Main = c(1).Radius()\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "IArea1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IArea1\r\nPrivate Function IArea1_Area() As Double\r\n    IArea1_Area = 3\r\nEnd Function\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue246_18_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 18, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, o As Object\r\n    Set o = New Round1\r\n    c.Add o\r\n    Main = c(1).Radius()\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "IArea1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IArea1\r\nPrivate Function IArea1_Area() As Double\r\n    IArea1_Area = 3\r\nEnd Function\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue246_19_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 19, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Object, b As Object, c As Round1\r\n    Set a = New Flat1\r\n    Set b = a\r\n    Set c = b\r\n    Main = 1\r\nEnd Function\r\n\r\nPrivate Sub Fill(o As Object)\r\nEnd Sub\r\n\r\n"
+        },
+        {
+          "name": "IArea1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IArea1\r\nPrivate Function IArea1_Area() As Double\r\n    IArea1_Area = 3\r\nEnd Function\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue246_20_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 20, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Object, c As Round1\r\n    Set o = New Flat1\r\n    Set o = Nothing\r\n    Set c = o\r\n    Main = 1\r\nEnd Function\r\n\r\nPrivate Sub Fill(o As Object)\r\nEnd Sub\r\n\r\n"
+        },
+        {
+          "name": "IArea1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IArea1\r\nPrivate Function IArea1_Area() As Double\r\n    IArea1_Area = 3\r\nEnd Function\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue246_21_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 21, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Object, c As Round1\r\n    Set o = New Flat1\r\n    Fill o\r\n    Set c = o\r\n    Main = 1\r\nEnd Function\r\n\r\nPrivate Sub Fill(o As Object)\r\nEnd Sub\r\n\r\n"
+        },
+        {
+          "name": "IArea1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IArea1\r\nPrivate Function IArea1_Area() As Double\r\n    IArea1_Area = 3\r\nEnd Function\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue246_22_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 22, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Object, c As Round1\r\n    Set o = New Flat1\r\n    Again:\r\n    Set c = o\r\n    Main = 1\r\nEnd Function\r\n\r\nPrivate Sub Fill(o As Object)\r\nEnd Sub\r\n\r\n"
+        },
+        {
+          "name": "IArea1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IArea1\r\nPrivate Function IArea1_Area() As Double\r\n    IArea1_Area = 3\r\nEnd Function\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue246_23_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 23, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add New Round1\r\n    c.Add New Flat1\r\n    Main = c(2).Radius()\r\nEnd Function\r\n\r\nPrivate Sub Fill(o As Object)\r\nEnd Sub\r\n\r\n"
+        },
+        {
+          "name": "IArea1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IArea1\r\nPrivate Function IArea1_Area() As Double\r\n    IArea1_Area = 3\r\nEnd Function\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue246_24_runtime",
+      "description": "Issue #246 a wrong class through other routes, case 24, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add New Round1\r\n    c.Add New Flat1\r\n    Main = c(1).Radius()\r\nEnd Function\r\n\r\nPrivate Sub Fill(o As Object)\r\nEnd Sub\r\n\r\n"
+        },
+        {
+          "name": "IArea1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IArea1\r\nPrivate Function IArea1_Area() As Double\r\n    IArea1_Area = 3\r\nEnd Function\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

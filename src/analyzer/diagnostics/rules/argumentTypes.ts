@@ -3,6 +3,8 @@
 // Extracted verbatim from analyzeModule.ts: declared-signature argument-type
 // validation for the same call surface the arity family walks.
 
+import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
+import { heldObjectsAt } from '../heldObjects';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type {
@@ -45,6 +47,7 @@ export function checkArgumentTypes(
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
+	activity?: ConditionalActivityTracker,
 ): ProcedureStatementVisitor {
 	const moduleSignatures = callableTypeSignaturesFor(symbols, projectProcedures);
 	return (member) => {
@@ -53,7 +56,10 @@ export function checkArgumentTypes(
 		const procSym = procedureSymbolFor(symbols, member);
 		const { resolveExpressionType, resolveQualifiedExpressionType } =
 			sourceBindingTypeResolvers(symbols, procSym, projectVisibleSymbols);
+		// What a local holds at the statement (issue #246).
+		const heldAt = heldObjectsAt(source, member, symbols, activity);
 		return (stmt) => {
+			const heldClassOf = (lower: string): string | undefined => heldAt(stmt).classes.get(lower);
 			// `Call Two(Nothing, 1)` is found both as an expression call and as
 			// the statement's call; report each argument once (issue #223).
 			const reported = new Set<string>();
@@ -75,6 +81,7 @@ export function checkArgumentTypes(
 					pushOnce,
 					resolveExpressionType,
 					resolveQualifiedExpressionType,
+					heldClassOf,
 				);
 			}
 			for (const memberCall of memberExpressionCalls(
@@ -93,6 +100,7 @@ export function checkArgumentTypes(
 					pushOnce,
 					resolveExpressionType,
 					resolveQualifiedExpressionType,
+					heldClassOf,
 				);
 			}
 			for (const memberCall of memberStatementCalls(
@@ -111,6 +119,7 @@ export function checkArgumentTypes(
 					pushOnce,
 					resolveExpressionType,
 					resolveQualifiedExpressionType,
+					heldClassOf,
 				);
 			}
 			const statementCall = extractCall(source, stmt.span);
@@ -129,6 +138,7 @@ export function checkArgumentTypes(
 					pushOnce,
 					resolveExpressionType,
 					resolveQualifiedExpressionType,
+					heldClassOf,
 				);
 			}
 		};

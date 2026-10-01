@@ -413,11 +413,16 @@
         "issue223_51_runtime",
         "issue232_40_runtime",
         "issue232_52_runtime",
-        "issue242_12_runtime"
+        "issue242_12_runtime",
+        "issue246_02_runtime",
+        "issue246_03_runtime",
+        "issue246_04_runtime",
+        "issue246_14_runtime",
+        "issue246_15_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters and intrinsic CVErr Error Variants passed to scalar parameters, runtime error 94 for Null passed to scalar parameters, and runtime error 6 for decimal literals outside Byte/Integer/Long/Currency argument bounds, while numeric-string, Variant CVErr, Variant Null, and min/max boundary controls run successfully. Cross-module checks use exported standard-module project Sub/Function/Declare signatures; ambiguous bare names stay silent, while module-qualified calls resolve through the named standard module only. Source-backed and host member signatures feed the same argument type path for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Argument inference also consumes bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, Null literals, intrinsic CVErr Error Variant returns when not source-shadowed, explicit VBA.CVErr calls, and proven source-backed/host member return expressions when source/project/runtime/member metadata proves the return type. Runtime parameter and return metadata is skipped for bare names shadowed by visible source declarations, including untyped locals. Issue #223: Array(...) or Split(...) into a Long or String parameter, and an object expression of another class into a typed object parameter (TakeWs(Range(\"A1\"))), raise 13; a negative float literal past the Long range raises 6. A float literal past LongLong's range into a LongLong or LongPtr parameter, Take(1E+19), raises 6 (issue #232, 64-bit Excel 16.0). Issue #242: Sgn(Null) raises 94; Abs, Int and Hex pass Null through (measured in Excel 16.0).",
+      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters and intrinsic CVErr Error Variants passed to scalar parameters, runtime error 94 for Null passed to scalar parameters, and runtime error 6 for decimal literals outside Byte/Integer/Long/Currency argument bounds, while numeric-string, Variant CVErr, Variant Null, and min/max boundary controls run successfully. Cross-module checks use exported standard-module project Sub/Function/Declare signatures; ambiguous bare names stay silent, while module-qualified calls resolve through the named standard module only. Source-backed and host member signatures feed the same argument type path for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Argument inference also consumes bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, Null literals, intrinsic CVErr Error Variant returns when not source-shadowed, explicit VBA.CVErr calls, and proven source-backed/host member return expressions when source/project/runtime/member metadata proves the return type. Runtime parameter and return metadata is skipped for bare names shadowed by visible source declarations, including untyped locals. Issue #223: Array(...) or Split(...) into a Long or String parameter, and an object expression of another class into a typed object parameter (TakeWs(Range(\"A1\"))), raise 13; a negative float literal past the Long range raises 6. A float literal past LongLong's range into a LongLong or LongPtr parameter, Take(1E+19), raises 6 (issue #232, 64-bit Excel 16.0). Issue #242: Sgn(Null) raises 94; Abs, Int and Hex pass Null through (measured in Excel 16.0). Issue #246: a declared object variable known to hold another class, from Set p = New C, passed ByVal or ByRef raises 13 when the call runs; one still Nothing passes (measured in Excel 16.0).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -626,11 +631,14 @@
         "issue202_24_runtime",
         "issue202_25_runtime",
         "issue202_26_runtime",
-        "issue202_28_runtime"
+        "issue202_28_runtime",
+        "issue246_01_runtime",
+        "issue246_06_runtime",
+        "issue246_19_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Only known object variable, Function/Property Get return-name, and member targets with deterministic RHS types are flagged. RHS inference includes bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, proven source-backed/host member return expressions, verified VBA runtime/generated host constants, and verified host globals such as Application, ActiveSheet, and ActiveCell when no source binding shadows the external name. Host collection property calls with arguments, such as Worksheet.ListObjects(\"Tests\"), use the collection default Item return type only when metadata proves the returned collection exposes Item and the property itself has no parameter signature. A scalar value is set-requires-object, a compile error. Same project class, Nothing, generic Object, Variant/unknown types, local shadows, ambiguous exported globals, unknown module qualifiers, and explicit Implements compatibility remain accepted.",
+      "notes": "Only known object variable, Function/Property Get return-name, and member targets with deterministic RHS types are flagged. RHS inference includes bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, proven source-backed/host member return expressions, verified VBA runtime/generated host constants, and verified host globals such as Application, ActiveSheet, and ActiveCell when no source binding shadows the external name. Host collection property calls with arguments, such as Worksheet.ListObjects(\"Tests\"), use the collection default Item return type only when metadata proves the returned collection exposes Item and the property itself has no parameter signature. A scalar value is set-requires-object, a compile error. Same project class, Nothing, generic Object, Variant/unknown types, local shadows, ambiguous exported globals, unknown module qualifiers, and explicit Implements compatibility remain accepted. Issue #246: the class an Object or Variant local holds, from Set x = New C or from another such local, is checked when it is Set into a typed variable; and For Each over a Collection whose items were added as New C Sets each into the control variable, raising 13 at an item of another class (measured in Excel 16.0, build 20326, issue246_* oracle cases).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -3922,11 +3930,13 @@
         "issue243_40_runtime",
         "issue243_45_runtime",
         "issue243_48_runtime",
-        "issue243_49_runtime"
+        "issue243_49_runtime",
+        "issue246_05_runtime",
+        "issue246_23_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Member not found at run time. VBE runtime error 438: Object doesn't support this property or method (issue #121, Excel 16.0). Issue #224: a class reaches the late-bound variable from one declared as it (Set o = c; 91 while c may be Nothing); a Private member is absent (438); a Let into a Get-only property raises 451 and a read of a Let-only property 450. Issue #226: f.Controls(\"Nope\") on a form whose controls are known raises -2147024809. Issue #243: CallByName with a literal name: no Public member of a project class (a Private one included), or a Collection name other than Add, Count, Item and Remove, raises 438; VbGet or VbLet on a Sub or Function raises 450. In Excel, Application.Run of a name no standard or document module of the project declares raises 1004 (Private procedures count, class members do not; judged only with the project) (measured in Excel 16.0, build 20326, issue243_* oracle cases).",
+      "notes": "Member not found at run time. VBE runtime error 438: Object doesn't support this property or method (issue #121, Excel 16.0). Issue #224: a class reaches the late-bound variable from one declared as it (Set o = c; 91 while c may be Nothing); a Private member is absent (438); a Let into a Get-only property raises 451 and a read of a Let-only property 450. Issue #226: f.Controls(\"Nope\") on a form whose controls are known raises -2147024809. Issue #243: CallByName with a literal name: no Public member of a project class (a Private one included), or a Collection name other than Add, Count, Item and Remove, raises 438; VbGet or VbLet on a Sub or Function raises 450. In Excel, Application.Run of a name no standard or document module of the project declares raises 1004 (Private procedures count, class members do not; judged only with the project) (measured in Excel 16.0, build 20326, issue243_* oracle cases). Issue #246: c(i).Member on a Collection whose item i, or every item, was added as New C asks C for the member: 438 when C lacks it (measured in Excel 16.0).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {

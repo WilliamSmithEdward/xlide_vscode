@@ -30,6 +30,7 @@ import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { objectLetStateAt } from './objectState';
 import { knownArrayShapesAt, moduleOptionBase, type FixedArrayBound } from './arrays';
 import { straightLineAssignments } from '../straightLineValues';
+import { heldObjectsAt } from '../heldObjects';
 import { resolveRuntimeFunction } from '../../runtime/vbaRuntime';
 import type {
 	VbaProcedureSignature,
@@ -1395,6 +1396,7 @@ export function checkSetAssignments(
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
+	activity?: ConditionalActivityTracker,
 ): ProcedureStatementVisitor {
 	const moduleSignatures = buildModuleTypeSignatures(symbols);
 	return (member) => {
@@ -1403,13 +1405,15 @@ export function checkSetAssignments(
 		const procSym = procedureSymbolFor(symbols, member);
 		const { resolveExpressionType, resolveQualifiedExpressionType } =
 			sourceBindingTypeResolvers(symbols, procSym, projectVisibleSymbols);
+		// What an Object or Variant local holds at a statement (issue #246).
+		let heldAt: ReturnType<typeof heldObjectsAt> | undefined;
 		return (stmt) => {
 			for (const span of statementAndBranchSpans(stmt)) {
-				checkSetSpan(span);
+				checkSetSpan(span, stmt);
 			}
 		};
 
-		function checkSetSpan(span: Span): void {
+		function checkSetSpan(span: Span, stmt: LeafStatementNode): void {
 			const target = setAssignmentTarget(source, span);
 			if (!target) {
 				return;
@@ -1461,13 +1465,25 @@ export function checkSetAssignments(
 					resolveExpressionType,
 					resolveQualifiedExpressionType,
 				);
-				const reason = objectAssignmentIncompatibilityReason(
+				let shown = actual;
+				let reason = objectAssignmentIncompatibilityReason(
 					expected,
 					actual,
 					memberCtx,
 				);
+				// `Set o = New Flat1` then `Set c = o`: the class an Object holds
+				// is checked as the Set runs (issue #246, measured in Excel 16.0).
+				const value = target.valueTokens.filter((tok) => tok.kind !== 'comment');
+				if (!reason && value.length === 1 && tokenName(value[0])) {
+					heldAt ??= heldObjectsAt(source, member, symbols, activity);
+					const held = heldAt(stmt).classes.get(tokenName(value[0])!.toLowerCase());
+					if (held) {
+						shown = { type: held, label: `'${value[0].rawText}', which holds a ${held} here`, span: { start: span.start + value[0].start, end: span.start + value[0].end } };
+						reason = objectAssignmentIncompatibilityReason(expected, shown, memberCtx);
+					}
+				}
 				if (reason) {
-					pushObjectAssignmentMismatch(push, target.name, expected, actual, reason, target.span, 'Type mismatch');
+					pushObjectAssignmentMismatch(push, target.name, expected, shown, reason, target.span, 'Type mismatch');
 				}
 				return;
 			}

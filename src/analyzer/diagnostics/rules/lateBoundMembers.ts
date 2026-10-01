@@ -25,13 +25,14 @@ import { projectTypeAt, resolveReceiverTypeAt } from '../../completion/memberAcc
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import type { VbaToken } from '../../lexer/tokenKinds';
-import type { BodyNode, ModuleNode } from '../../parser/nodes';
+import type { BodyNode, ForBlockNode, ModuleNode, ProcedureNode } from '../../parser/nodes';
+import { heldObjectsAt } from '../heldObjects';
 import { isLeafStatement } from '../../parser/nodes';
 import { walkEnteringBlocks } from '../dataflow';
 import { namesIn } from './shared';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { normalizeType, stringLiteralValue, typeEnvironmentFor } from '../typeInference';
+import { normalizeType, objectAssignmentIncompatibilityReason, stringLiteralValue, typeEnvironmentFor } from '../typeInference';
 import {
 	activeModuleMembers,
 	forEachStatement,
@@ -77,6 +78,7 @@ export function checkRuntimeMemberNotFound(
 				checkFormControlNames(source, span.start, statementTokens(source, span), memberCtx, push);
 			}
 		}, activity);
+		checkCollectionItems(source, member, symbols, env, memberCtx, activity, push);
 		const autoInstanced = new Set<string>();
 		for (const child of procedureSymbolFor(symbols, member)?.children ?? []) {
 			if (child.isAutoInstantiated) {
@@ -140,6 +142,93 @@ export function checkRuntimeMemberNotFound(
 			},
 			touches: (stmt) => namesIn(source, stmt.span),
 		});
+	}
+}
+
+/**
+ * The items a Collection local holds, by class (issue #246, measured in Excel
+ * 16.0): `c.Add New Flat1` then `c(1).Radius()` asks a Flat1 for a member it
+ * lacks, 438; and `For Each x In c` with x a Round1 Sets each item into x,
+ * raising 13 at an item of another class.
+ */
+function checkCollectionItems(
+	source: string,
+	proc: ProcedureNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	env: ReadonlyMap<string, string>,
+	memberCtx: MemberCompletionContext,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const heldAt = heldObjectsAt(source, proc, symbols, activity);
+	forEachStatement(proc.body, (stmt) => {
+		const items = heldAt(stmt).items;
+		if (items.size === 0 || (stmt.kind === 'Statement' && stmt.singleLineIfBranches)) {
+			return;
+		}
+		const toks = statementTokens(source, stmt.span);
+		for (let i = 0; i < toks.length; i++) {
+			const lower = tokenName(toks[i])?.toLowerCase();
+			const held = lower ? items.get(lower) : undefined;
+			if (!held || held.length === 0 || toks[i - 1]?.rawText === '.') {
+				continue;
+			}
+			// `c(1).Member` or `c.Item(1).Member`.
+			const open = toks[i + 1]?.rawText === '(' ? i + 1 : toks[i + 1]?.rawText === '.' && tokenText(toks[i + 2]) === 'item' && toks[i + 3]?.rawText === '(' ? i + 3 : -1;
+			const close = open >= 0 ? matchParen(toks, open) : -1;
+			if (close < 0 || toks[close + 1]?.rawText !== '.' || !tokenName(toks[close + 2])) {
+				continue;
+			}
+			const index = close === open + 2 && toks[open + 1].kind === 'integerLiteral' ? Number(toks[open + 1].rawText) : undefined;
+			const className = index !== undefined && index >= 1 && index <= held.length ? held[index - 1]
+				: held.every((name) => name.toLowerCase() === held[0].toLowerCase()) ? held[0] : undefined;
+			const known = knownClassNamed(className, memberCtx);
+			const memberName = tokenName(toks[close + 2])!;
+			if (!known || known.members.has(memberName.toLowerCase())) {
+				continue;
+			}
+			const shown = toks.slice(i, close + 1).map((tok) => tok.rawText).join('');
+			push('runtimeMemberNotFound', `'${shown}' holds a ${known.display} here, which has no member '${memberName}'. This will raise Run-time error '438': Object doesn't support this property or method.`, { start: stmt.span.start + toks[i].start, end: stmt.span.start + toks[close].end });
+		}
+	}, activity);
+	forEachLoopIn(proc.body, activity, (loop) => {
+		const source1 = loop.sourceExpression?.trim().toLowerCase();
+		const control = loop.controlVariable?.toLowerCase();
+		const held = source1 ? heldAt(loop).items.get(source1) : undefined;
+		const expected = control ? env.get(control) : undefined;
+		if (!held || !expected || !loop.sourceExpressionSpan) {
+			return;
+		}
+		const position = held.findIndex((name) => objectAssignmentIncompatibilityReason(expected, { type: name, label: name, span: loop.sourceExpressionSpan! }, memberCtx));
+		if (position >= 0) {
+			push('assignmentObjectTypeMismatch', `For Each Sets each item of '${loop.sourceExpression!.trim()}' into '${loop.controlVariable}', a ${expected}, and item ${position + 1} is a ${held[position]}. This will raise Run-time error '13': Type mismatch.`, loop.sourceExpressionSpan);
+		}
+	});
+}
+
+function matchParen(toks: readonly VbaToken[], open: number): number {
+	let depth = 0;
+	for (let i = open; i < toks.length; i++) {
+		depth += toks[i].rawText === '(' ? 1 : toks[i].rawText === ')' ? -1 : 0;
+		if (depth === 0) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+/** Every For Each loop in a body, nested ones included. */
+function forEachLoopIn(body: readonly BodyNode[], activity: ConditionalActivityTracker | undefined, visit: (loop: ForBlockNode) => void): void {
+	for (const node of body) {
+		if (activity?.isInactive(node.span)) {
+			continue;
+		}
+		if (node.kind === 'ForBlock' && node.each) {
+			visit(node);
+		}
+		if ('body' in node && Array.isArray(node.body)) {
+			forEachLoopIn(node.body as BodyNode[], activity, visit);
+		}
 	}
 }
 
