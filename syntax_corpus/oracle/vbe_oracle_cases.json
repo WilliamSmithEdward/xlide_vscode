@@ -5744,7 +5744,7 @@
     },
     {
       "id": "issue122_e_runtime",
-      "description": "Issue #122 case e, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 1004.",
+      "description": "Issue #122 case e, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 1004. The raise holds only while no workbook name is spelled that way; with one defined, Range finds it and runs (addressname cases), so host-argument-out-of-range does not report it.",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "run",
@@ -52118,7 +52118,7 @@
     },
     {
       "id": "issue276_20_runtime",
-      "description": "Issue #276 an Excel error a literal proves, case 20, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 1004.",
+      "description": "Issue #276 an Excel error a literal proves, case 20, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 1004. The raise holds only while no workbook name is spelled that way; with one defined, Range finds it and runs (addressname cases), so host-argument-out-of-range does not report it.",
       "provenance": "vbe-oracle-verified",
       "expected": "rejected",
       "mode": "run",
@@ -56699,6 +56699,127 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = IsNull(InStrRev(Null, \"a\", 0))\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "addressname_01_runtime",
+      "description": "A Range address and the workbook names that can spell it, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> $B$2:$D$4.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    ThisWorkbook.Names.Add \"A0\", \"=Sheet1!$B$2\"\r\n    Main = Range(\"A0:D4\").Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "addressname_02_runtime",
+      "description": "A Range address and the workbook names that can spell it, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> $B$2:$D$4.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    ThisWorkbook.Names.Add \"A0\", \"=Sheet1!$B$2\"\r\n    Main = Range(\"A0\", \"D4\").Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "addressname_03_runtime",
+      "description": "A Range address and the workbook names that can spell it, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> $B$2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Worksheets(\"Sheet1\").Names.Add \"A0\", \"=Sheet1!$B$2\"\r\n    Main = Range(\"Sheet1!A0\").Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "addressname_04_runtime",
+      "description": "A Range address and the workbook names that can spell it, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> $C:$C.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    ThisWorkbook.Names.Add \"XFE\", \"=Sheet1!$C:$C\"\r\n    Main = Range(\"XFE:XFE\").Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "addressname_05_runtime",
+      "description": "A Range address and the workbook names that can spell it, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    ThisWorkbook.Names.Add \"A0\", \"=Sheet1!$B$2\"\r\n    Main = Range(\"$A$0\").Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "addressname_06_runtime",
+      "description": "A Range address and the workbook names that can spell it, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> $B$2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    ThisWorkbook.Names.Add \"XFE1\", \"=Sheet1!$B$2\"\r\n    Main = Range(\"Sheet1!XFE1\").Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "addressname_07_runtime",
+      "description": "A Range address and the workbook names that can spell it, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> $B$2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    ThisWorkbook.Names.Add \"A1048577\", \"=Sheet1!$B$2\"\r\n    Main = Range(\"A1048577:A1048577\").Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "addressname_08_runtime",
+      "description": "A Range address and the workbook names that can spell it, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    ThisWorkbook.Names.Add \"A0\", \"=Sheet1!$B$2\"\r\n    Main = Range(\"A0:$A$0\").Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "addressname_09_runtime",
+      "description": "A Range address and the workbook names that can spell it, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    ThisWorkbook.Names.Add \"XFE\", \"=Sheet1!$C:$C\"\r\n    Main = Range(\"$XFE:$XFE\").Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "addressname_10_runtime",
+      "description": "A Range address and the workbook names that can spell it, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> $A$1:$B$2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    ThisWorkbook.Names.Add \"XFE1\", \"=Sheet1!$B$2\"\r\n    Main = Range(\"A1:XFE1\").Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "addressname_11_runtime",
+      "description": "A Range address and the workbook names that can spell it, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> $C:$C.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    ThisWorkbook.Names.Add \"XFE\", \"=Sheet1!$C:$C\"\r\n    Main = Range(\"XFE\").Address\r\nEnd Function\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
