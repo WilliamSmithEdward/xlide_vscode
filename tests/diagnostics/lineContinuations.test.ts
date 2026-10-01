@@ -34,9 +34,19 @@ describe('invalid-line-continuation - limits (issue #126)', () => {
 		expect(byCode(analyzeModule(quiet), CODE)).toHaveLength(0);
 	});
 
-	it('refuses a Declare split between the Lib string and the parameter list', () => {
-		const src = 'Option Explicit\nPrivate Declare PtrSafe Function GetTickCount Lib "kernel32" _\n    () As Long\nFunction Main() As Variant\n    Main = 1\nEnd Function\n';
-		expectDiagnostic(src, analyzeModule(src), CODE, { message: 'Lib or Alias string' });
+	// A module imported from a .bas file, saved and reopened, compiles with
+	// each of these (measured in Excel 16.0, 2026-10-01). AddFromString
+	// stores a stray `()` line after them, which is what refused them once.
+	it('leaves a Declare split after its Lib or Alias string alone', () => {
+		for (const declare of [
+			'Private Declare PtrSafe Function GetTickCount Lib "kernel32" _\n    () As Long',
+			'Private Declare PtrSafe Function GetTZ Lib "kernel32" Alias "GetTimeZoneInformation" _\n    (lp As Long) As Long',
+			'Private Declare PtrSafe Function LStrLenW Lib "kernel32" _\n    Alias "lstrlenW" (ByVal lpString As LongPtr) As Long',
+			'#If Mac Then\nPrivate Declare PtrSafe Function popen Lib "libc.dylib" Alias "popen" _\n    (ByVal c As String, ByVal m As String) As LongPtr\n#End If',
+		]) {
+			const src = `Option Explicit\n${declare}\nFunction Main() As Variant\n    Main = 1\nEnd Function\n`;
+			expect(byCode(analyzeModule(src), CODE), declare).toHaveLength(0);
+		}
 		const quiet = 'Option Explicit\nPrivate Declare PtrSafe _\nFunction GetTickCount _\nLib "kernel32" () As Long\nPrivate _\nDeclare PtrSafe Function GetTickCount2 Lib "kernel32" Alias "GetTickCount" ( _\n) As Long\nFunction Main() As Variant\n    Main = 1\nEnd Function\n';
 		expect(byCode(analyzeModule(quiet), CODE)).toHaveLength(0);
 	});
