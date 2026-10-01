@@ -74,11 +74,21 @@ const LIMITS: ReadonlyMap<string, ReadonlyMap<string, HostValueLimit>> = new Map
 	])],
 	['Word.Font', new Map([
 		['size', { runs: '1 to 1638', refused: [{ to: 0.5 }, { from: 1638.5 }], error: WORD_RANGE }],
+		// Swept from -100 to 999 in Word 16.0 (issue #245): the wdUnderline
+		// values are scattered, and each gap between them is refused.
+		['underline', {
+			runs: 'a wdUnderline constant: -1 to 4, 6, 7, 9 to 11, 20, 23, 25 to 27, 39, 43 or 55',
+			refused: [{ from: -100, to: -2 }, { from: 5, to: 5 }, { from: 8, to: 8 }, { from: 12, to: 19 }, { from: 21, to: 22 }, { from: 24, to: 24 },
+				{ from: 28, to: 38 }, { from: 40, to: 42 }, { from: 44, to: 54 }, { from: 56, to: 999 }],
+			error: WORD_RANGE,
+		}],
 	])],
 	['Word.Zoom', new Map([
 		['percentage', { runs: '10 to 500', refused: [{ to: 9 }, { from: 501 }], error: WORD_RANGE }],
 	])],
 	['Word.Paragraph', new Map([
+		['alignment', { runs: '0 to 9', refused: [{ from: -100, to: -1 }, { from: 10, to: 999 }], error: { number: '5148', text: 'The number must be between 0 and 9' } }],
+		['linespacingrule', { runs: '0 to 5', refused: [{ from: -100, to: -1 }, { from: 6, to: 999 }], error: { number: '5148', text: 'The number must be between 0 and 5' } }],
 		['leftindent', { runs: '-1584 to 1584 points', refused: [{ to: -1585 }, { from: 1585 }], error: { number: '5149', text: 'The measurement must be between -1584 pt and 1584 pt' } }],
 	])],
 	['PowerPoint.Font', new Map([
