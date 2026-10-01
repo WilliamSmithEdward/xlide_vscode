@@ -38,7 +38,7 @@ import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaSymbol } from '../../symbols/symbolModel';
 import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { bankersRound, isBareOrVbaQualifiedIntrinsicCall, namesIn } from './shared';
+import { bankersRound, bodyMayLeaveLoop, isBareOrVbaQualifiedIntrinsicCall, namesIn } from './shared';
 import { checkEachCounterPass, loopCountersAt } from '../loopCounters';
 import { blockHeaderLeaves, isLoopBlock, selectArms } from '../blockHeaders';
 import { fieldChain, moduleTypes, variableRoot, variableSymbolIn, type ModuleTypes } from '../typeFields';
@@ -1653,41 +1653,6 @@ function readsPastDate(toks: readonly VbaToken[], start: number, to: number, cal
  * last value before the exit test, and the increment overflows (measured:
  * `To 32767` raises, `To 32766` runs; `For b = 0 To 255` raises for a Byte).
  */
-/**
- * True when a statement in the loop's body can leave the loop before the
- * counter passes its type: `Exit For` (not one belonging to a nested For),
- * `Exit Sub`/`Function`/`Property`, `GoTo`, or `End` (issue #145). Such a
- * loop's overflow is not proved, so it is not reported.
- */
-function bodyMayLeaveLoop(source: string, body: readonly BodyNode[]): boolean {
-	const LEAVES = new Set(['for', 'sub', 'function', 'property']);
-	const visit = (nodes: readonly BodyNode[], insideNestedFor: boolean): boolean => {
-		for (const node of nodes) {
-			if (isLeafStatement(node)) {
-				const toks = statementTokensAfterLeadingLabel(source, node.span);
-				for (let i = 0; i < toks.length; i++) {
-					const word = tokenText(toks[i]);
-					if (word === 'goto' || (word === 'end' && toks.length === 1)) {
-						return true;
-					}
-					if (word === 'exit') {
-						const target = tokenText(toks[i + 1]);
-						if (LEAVES.has(target) && (target !== 'for' || !insideNestedFor)) {
-							return true;
-						}
-					}
-				}
-			} else if ('body' in node && Array.isArray(node.body)) {
-				if (visit(node.body as BodyNode[], insideNestedFor || node.kind === 'ForBlock')) {
-					return true;
-				}
-			}
-		}
-		return false;
-	};
-	return visit(body, false);
-}
-
 function checkForCounter(
 	source: string,
 	node: ForBlockNode,

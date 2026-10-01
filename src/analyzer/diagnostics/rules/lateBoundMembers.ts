@@ -29,7 +29,7 @@ import type { BodyNode, ForBlockNode, ModuleNode, ProcedureNode } from '../../pa
 import { heldObjectsAt } from '../heldObjects';
 import { isLeafStatement } from '../../parser/nodes';
 import { walkEnteringBlocks } from '../dataflow';
-import { namesIn } from './shared';
+import { bodyMayLeaveLoop, namesIn } from './shared';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { normalizeType, objectAssignmentIncompatibilityReason, stringLiteralValue, typeEnvironmentFor } from '../typeInference';
@@ -199,7 +199,10 @@ function checkCollectionItems(
 		if (!held || !expected || !loop.sourceExpressionSpan) {
 			return;
 		}
-		const position = held.findIndex((name) => objectAssignmentIncompatibilityReason(expected, { type: name, label: name, span: loop.sourceExpressionSpan! }, memberCtx));
+		// A body that may leave the loop may stop before any later item: only
+		// the first is certainly Set (issue #356, measured in Excel 16.0).
+		const reached = bodyMayLeaveLoop(source, loop.body) ? held.slice(0, 1) : held;
+		const position = reached.findIndex((name) => objectAssignmentIncompatibilityReason(expected, { type: name, label: name, span: loop.sourceExpressionSpan! }, memberCtx));
 		if (position >= 0) {
 			push('assignmentObjectTypeMismatch', `For Each Sets each item of '${loop.sourceExpression!.trim()}' into '${loop.controlVariable}', a ${expected}, and item ${position + 1} is a ${held[position]}. This will raise Run-time error '13': Type mismatch.`, loop.sourceExpressionSpan);
 		}

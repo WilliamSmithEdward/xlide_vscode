@@ -58646,6 +58646,398 @@
       "source": "Option Explicit\r\nConst DEBUGGING = False\r\nFunction Main() As Variant\r\n    Dim c As Collection, d As Long, a() As Long, i As Long, x As Variant\r\n    Dim DEBUGGING As Boolean\r\n    DEBUGGING = True\r\n    If DEBUGGING Then Main = c.Count\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue356_01_runtime",
+      "description": "Issue #356 Collection Add with Before or After, and For Each that may leave, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add New Flat1\r\n    c.Add New Round1, Before:=1\r\n    Main = c(1).Radius()\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue356_02_runtime",
+      "description": "Issue #356 Collection Add with Before or After, and For Each that may leave, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add New Flat1\r\n    c.Add New Round1, , 1\r\n    Main = c(1).Radius()\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue356_03_runtime",
+      "description": "Issue #356 Collection Add with Before or After, and For Each that may leave, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add New Round1\r\n    c.Add New Flat1\r\n    c.Add New Round1, After:=1\r\n    Main = c(2).Radius()\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue356_04_runtime",
+      "description": "Issue #356 Collection Add with Before or After, and For Each that may leave, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add New Flat1, \"f\"\r\n    c.Add New Round1, \"r\", \"f\"\r\n    Main = c(1).Radius()\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue356_05_runtime",
+      "description": "Issue #356 Collection Add with Before or After, and For Each that may leave, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add New Round1\r\n    c.Add New Flat1\r\n    c.Add New Round1, After:=0 + 1\r\n    Main = c(2).Radius()\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue356_06_runtime",
+      "description": "Issue #356 Collection Add with Before or After, and For Each that may leave, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add New Round1\r\n    c.Add New Flat1, Before:=1\r\n    Main = c(1).Radius()\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue356_07_runtime",
+      "description": "Issue #356 Collection Add with Before or After, and For Each that may leave, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add New Round1\r\n    c.Add New Round1\r\n    c.Add New Flat1, After:=1\r\n    Main = c(2).Radius()\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue356_08_runtime",
+      "description": "Issue #356 Collection Add with Before or After, and For Each that may leave, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, x As Round1\r\n    c.Add New Round1\r\n    c.Add New Flat1\r\n    Main = 1\r\n    For Each x In c\r\n        Exit For\r\n    Next\r\n    Done:\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue356_09_runtime",
+      "description": "Issue #356 Collection Add with Before or After, and For Each that may leave, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, x As Round1\r\n    c.Add New Round1\r\n    c.Add New Flat1\r\n    Main = 1\r\n    For Each x In c\r\n        If x.Radius() >= 0 Then Exit For\r\n    Next\r\n    Done:\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue356_10_runtime",
+      "description": "Issue #356 Collection Add with Before or After, and For Each that may leave, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, x As Round1\r\n    c.Add New Round1\r\n    c.Add New Flat1\r\n    Main = 1\r\n    For Each x In c\r\n        Exit Function\r\n    Next\r\n    Done:\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue356_11_runtime",
+      "description": "Issue #356 Collection Add with Before or After, and For Each that may leave, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, x As Round1\r\n    c.Add New Round1\r\n    c.Add New Flat1\r\n    Main = 1\r\n    For Each x In c\r\n        GoTo Done\r\n    Next\r\n    Done:\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue356_12_runtime",
+      "description": "Issue #356 Collection Add with Before or After, and For Each that may leave, case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, x As Round1\r\n    c.Add New Flat1\r\n    c.Add New Round1\r\n    Main = 1\r\n    For Each x In c\r\n        Exit For\r\n    Next\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue356_13_runtime",
+      "description": "Issue #356 Collection Add with Before or After, and For Each that may leave, case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, k As Long\r\n    c.Add New Round1\r\n    c.Add New Flat1\r\n    k = 2\r\n    c.Add New Round1, After:=k\r\n    Main = c(3).Radius()\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue356_14_runtime",
+      "description": "Issue #356 Collection Add with Before or After, and For Each that may leave, case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, x As Round1\r\n    c.Add New Round1\r\n    c.Add New Flat1\r\n    Main = 1\r\n    For Each x In c\r\n    Next\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Round1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Radius() As Double\r\n    Radius = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Flat1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Area() As Double\r\n    Area = 2\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }

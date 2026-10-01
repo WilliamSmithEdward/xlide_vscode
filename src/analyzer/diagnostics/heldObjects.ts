@@ -7,6 +7,7 @@
 
 import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
 import { statementLabelDeclaration } from '../flow/procedureLabels';
+import { splitTopLevelTokenGroups } from '../lexer/tokenHelpers';
 import type { VbaToken } from '../lexer/tokenKinds';
 import type { BodyNode, ProcedureNode } from '../parser/nodes';
 import { isLeafStatement } from '../parser/nodes';
@@ -97,11 +98,19 @@ export function heldObjectsAt(
 			}
 			return;
 		}
-		// `c.Add New Flat1` puts a Flat1 at the end.
+		// `c.Add New Flat1` puts a Flat1 at the end; Before:=1 or After:=1, a
+		// whole number, puts it there (issue #356). A key or an expression for
+		// either leaves the order unknown.
 		const head = tokenName(toks[0])?.toLowerCase();
 		if (head && state.items.has(head) && toks[1]?.rawText === '.' && tokenText(toks[2]) === 'add'
 			&& tokenText(toks[3]) === 'new' && tokenName(toks[4]) && (toks[5] === undefined || toks[5].rawText === ',')) {
-			state.items.get(head)!.push(tokenName(toks[4])!);
+			const items = state.items.get(head)!;
+			const at = addPosition(splitTopLevelTokenGroups(toks, 3, ','), items.length);
+			if (at === undefined) {
+				state.items.delete(head);
+			} else {
+				items.splice(at, 0, tokenName(toks[4])!);
+			}
 			return;
 		}
 		forgetChanged(toks);
@@ -141,4 +150,42 @@ export function heldObjectsAt(
 		},
 	});
 	return (node) => seen.get(node) ?? NOTHING_HELD;
+}
+
+/**
+ * Where `c.Add item[, key[, before[, after]]]` puts the item among `count`,
+ * as a 0-based index, or undefined when the code does not say: Before:=1 is
+ * the front, After:=1 the second place, nothing the end.
+ */
+function addPosition(args: readonly VbaToken[][], count: number): number | undefined {
+	let before: VbaToken[] | undefined;
+	let after: VbaToken[] | undefined;
+	for (let k = 1; k < args.length; k++) {
+		const arg = args[k];
+		const named = arg[1]?.rawText === ':=' ? tokenText(arg[0]) : undefined;
+		const value = named ? arg.slice(2) : arg;
+		const role = named ?? (k === 2 ? 'before' : k === 3 ? 'after' : 'key');
+		if (value.length === 0 || role === 'key' || role === 'item') {
+			continue;
+		}
+		if (role === 'before') {
+			before = value;
+		} else if (role === 'after') {
+			after = value;
+		} else {
+			return undefined;
+		}
+	}
+	const place = before ?? after;
+	if (!place) {
+		return count;
+	}
+	if (before && after) {
+		return undefined;
+	}
+	const n = place.length === 1 && /^\d+$/.test(place[0].rawText) ? Number(place[0].rawText) : undefined;
+	if (n === undefined || n < 1 || n > count) {
+		return undefined;
+	}
+	return before ? n - 1 : n;
 }
