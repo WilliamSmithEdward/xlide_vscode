@@ -52269,6 +52269,248 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim ch As Chart\r\n    Set ch = Charts.Add\r\n    ch.Name = \"History\"\r\n    Main = ch.Name\r\n    Application.DisplayAlerts = False\r\n    ch.Delete\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue334_01_runtime",
+      "description": "Issue #334 a bad Long local into a $ function in a block, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = -1\r\n    If True Then\r\n        Main = Left$(\"abc\", n)\r\n    End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue334_02_runtime",
+      "description": "Issue #334 a bad Long local into a $ function in a block, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = -1\r\n    Select Case 1\r\n    Case 1\r\n        Main = Left$(\"abc\", n)\r\n    End Select\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue334_03_runtime",
+      "description": "Issue #334 a bad Long local into a $ function in a block, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = -1\r\n    Do\r\n        Main = Left$(\"abc\", n)\r\n        Exit Do\r\n    Loop\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue334_04_runtime",
+      "description": "Issue #334 a bad Long local into a $ function in a block, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = -1\r\n    Dim i As Long\r\n    For i = 1 To 1\r\n        Main = Left$(\"abc\", n)\r\n    Next\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue334_05_runtime",
+      "description": "Issue #334 a bad Long local into a $ function in a block, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = -1\r\n    With Application\r\n        Main = Left$(\"abc\", n)\r\n    End With\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue334_06_runtime",
+      "description": "Issue #334 a bad Long local into a $ function in a block, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = -1\r\n    If True Then\r\n        Main = Right$(\"abc\", n)\r\n    End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue334_07_runtime",
+      "description": "Issue #334 a bad Long local into a $ function in a block, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = -1\r\n    If True Then\r\n        Main = Mid$(\"abc\", n)\r\n    End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue334_08_runtime",
+      "description": "Issue #334 a bad Long local into a $ function in a block, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = -1\r\n    If True Then\r\n        Main = Mid$(\"abc\", 1, n)\r\n    End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue334_09_runtime",
+      "description": "Issue #334 a bad Long local into a $ function in a block, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = -1\r\n    If True Then\r\n        Main = Space$(n)\r\n    End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue334_10_runtime",
+      "description": "Issue #334 a bad Long local into a $ function in a block, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = -1\r\n    If True Then\r\n        Main = Chr$(n)\r\n    End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue334_11_runtime",
+      "description": "Issue #334 a bad Long local into a $ function in a block, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = -1\r\n    If True Then\r\n        Main = String(n, \"a\")\r\n    End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue334_12_runtime",
+      "description": "Issue #334 a bad Long local into a $ function in a block, case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = -1\r\n    Select Case 1\r\n    Case 1\r\n        Main = String(n, \"a\")\r\n    End Select\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue334_13_runtime",
+      "description": "Issue #334 a bad Long local into a $ function in a block, case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = -1\r\n    Do\r\n        Main = String(n, \"a\")\r\n        Exit Do\r\n    Loop\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue334_14_runtime",
+      "description": "Issue #334 a bad Long local into a $ function in a block, case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = -1\r\n    Dim i As Long\r\n    For i = 1 To 1\r\n        Main = String(n, \"a\")\r\n    Next\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue334_15_runtime",
+      "description": "Issue #334 a bad Long local into a $ function in a block, case 15, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = -1\r\n    With Application\r\n        Main = String(n, \"a\")\r\n    End With\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue334_16_runtime",
+      "description": "Issue #334 a bad Long local into a $ function in a block, case 16, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = -1\r\n    If True Then\r\n        Main = String$(n, \"a\")\r\n    End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue334_17_runtime",
+      "description": "Issue #334 a bad Long local into a $ function in a block, case 17, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = -1\r\n    If True Then\r\n        Main = Left(\"abc\", n)\r\n    End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue334_18_runtime",
+      "description": "Issue #334 a bad Long local into a $ function in a block, case 18, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = -1\r\n    If True Then\r\n        Main = VBA.Left$(\"abc\", n)\r\n    End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue334_19_runtime",
+      "description": "Issue #334 a bad Long local into a $ function in a block, case 19, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long, m As Variant\r\n    m = Len(Mid$(\"abc\", n, 1))\r\n    Main = m\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue334_20_runtime",
+      "description": "Issue #334 a bad Long local into a $ function in a block, case 20, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> a.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = 1\r\n    If True Then\r\n        Main = Left$(\"abc\", n)\r\n    End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue334_21_runtime",
+      "description": "Issue #334 a bad Long local into a $ function in a block, case 21, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> aa.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = 2\r\n    If True Then\r\n        Main = String$(n, \"a\")\r\n    End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue334_22_runtime",
+      "description": "Issue #334 a bad Long local into a $ function in a block, case 22, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> A.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = 65\r\n    If True Then\r\n        Main = Chr$(n)\r\n    End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
