@@ -104,6 +104,7 @@ import { checkLateBoundFriendMember } from './rules/lateBinding';
 import { checkHandlerFlow } from './rules/handlerFlow';
 import { checkFileStatements } from './rules/fileStatements';
 import { checkEmptyFilePaths } from './rules/filePaths';
+import { checkInvalidPropertyUse } from './rules/propertyUse';
 import { checkOverflow } from './rules/overflow';
 import { checkHostArguments, workbookSheetsToCheck } from './rules/hostArguments';
 import { checkCollectionLoopCounters, checkCollectionState } from './rules/collectionState';
@@ -131,6 +132,7 @@ import {
 	checkImplementsStatementPlacement,
 	checkMeOutsideObjectModule,
 	checkObjectModulePublicMembers,
+	checkRaiseEventArguments,
 	checkRaiseEventTargets,
 	checkWithEventsDeclarations,
 } from './rules/moduleKind';
@@ -673,6 +675,14 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'raiseEventTargets',
 		run: (ctx, push) => checkRaiseEventTargets(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'invalidPropertyUse',
+		procedureStatements: (ctx, push) => checkInvalidPropertyUse(ctx.source, ctx.memberCtx, push),
+	},
+	{
+		name: 'raiseEventArguments',
+		run: (ctx, push) => checkRaiseEventArguments(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
 	},
 	{
 		name: 'declarePtrSafeForWin64',

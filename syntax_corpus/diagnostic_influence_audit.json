@@ -41,12 +41,13 @@
         "issue254_20_compile",
         "issue254_21_compile",
         "issue254_22_compile",
-        "issue254_23_compile"
+        "issue254_23_compile",
+        "issue266_22_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error",
-      "notes": "Issue #254: a Declare is a procedure name too: a Declare beside a Function, another Declare, a module variable or a Const of the same name is Ambiguous name detected (measured in Excel 16.0)."
+      "notes": "Issue #254: a Declare is a procedure name too: a Declare beside a Function, another Declare, a module variable or a Const of the same name is Ambiguous name detected (measured in Excel 16.0). Issue #266: two Events of one name are \"Ambiguous name detected\"; an Event and a Sub of one name compile. Measured in Excel 16.0."
     },
     {
       "code": "duplicate-declaration",
@@ -264,12 +265,15 @@
         "issue254_30_compile",
         "issue254_31_compile",
         "issue254_32_compile",
-        "issue254_33_compile"
+        "issue254_33_compile",
+        "issue266_18_compile",
+        "issue266_21_compile",
+        "issue266_38_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error",
-      "notes": "Issue #254: a Declare's own line (measured in Excel 16.0): a Declare Sub with an As clause, a Declare Function with a type character and an As clause or returning String * n, is Expected: end of statement; As Any for a return is Expected: type name; a Lib or Alias that is no string literal is Expected: string constant. A parameter As String * n, of a Declare or a procedure, is Expected array."
+      "notes": "Issue #254: a Declare's own line (measured in Excel 16.0): a Declare Sub with an As clause, a Declare Function with a type character and an As clause or returning String * n, is Expected: end of statement; As Any for a return is Expected: type name; a Lib or Alias that is no string literal is Expected: string constant. A parameter As String * n, of a Declare or a procedure, is Expected array. Issue #266: Private Event and Friend Event are \"Expected: Sub or Function or Property\", and an As clause after an Event's parameters is \"Expected: end of statement\". Measured in Excel 16.0."
     },
     {
       "code": "invalid-identifier-start",
@@ -462,11 +466,13 @@
         "issue246_03_runtime",
         "issue246_04_runtime",
         "issue246_14_runtime",
-        "issue246_15_runtime"
+        "issue246_15_runtime",
+        "issue266_48_runtime",
+        "issue266_50_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters and intrinsic CVErr Error Variants passed to scalar parameters, runtime error 94 for Null passed to scalar parameters, and runtime error 6 for decimal literals outside Byte/Integer/Long/Currency argument bounds, while numeric-string, Variant CVErr, Variant Null, and min/max boundary controls run successfully. Cross-module checks use exported standard-module project Sub/Function/Declare signatures; ambiguous bare names stay silent, while module-qualified calls resolve through the named standard module only. Source-backed and host member signatures feed the same argument type path for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Argument inference also consumes bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, Null literals, intrinsic CVErr Error Variant returns when not source-shadowed, explicit VBA.CVErr calls, and proven source-backed/host member return expressions when source/project/runtime/member metadata proves the return type. Runtime parameter and return metadata is skipped for bare names shadowed by visible source declarations, including untyped locals. Issue #223: Array(...) or Split(...) into a Long or String parameter, and an object expression of another class into a typed object parameter (TakeWs(Range(\"A1\"))), raise 13; a negative float literal past the Long range raises 6. A float literal past LongLong's range into a LongLong or LongPtr parameter, Take(1E+19), raises 6 (issue #232, 64-bit Excel 16.0). Issue #242: Sgn(Null) raises 94; Abs, Int and Hex pass Null through (measured in Excel 16.0). Issue #246: a declared object variable known to hold another class, from Set p = New C, passed ByVal or ByRef raises 13 when the call runs; one still Nothing passes (measured in Excel 16.0).",
+      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters and intrinsic CVErr Error Variants passed to scalar parameters, runtime error 94 for Null passed to scalar parameters, and runtime error 6 for decimal literals outside Byte/Integer/Long/Currency argument bounds, while numeric-string, Variant CVErr, Variant Null, and min/max boundary controls run successfully. Cross-module checks use exported standard-module project Sub/Function/Declare signatures; ambiguous bare names stay silent, while module-qualified calls resolve through the named standard module only. Source-backed and host member signatures feed the same argument type path for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Argument inference also consumes bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, Null literals, intrinsic CVErr Error Variant returns when not source-shadowed, explicit VBA.CVErr calls, and proven source-backed/host member return expressions when source/project/runtime/member metadata proves the return type. Runtime parameter and return metadata is skipped for bare names shadowed by visible source declarations, including untyped locals. Issue #223: Array(...) or Split(...) into a Long or String parameter, and an object expression of another class into a typed object parameter (TakeWs(Range(\"A1\"))), raise 13; a negative float literal past the Long range raises 6. A float literal past LongLong's range into a LongLong or LongPtr parameter, Take(1E+19), raises 6 (issue #232, 64-bit Excel 16.0). Issue #242: Sgn(Null) raises 94; Abs, Int and Hex pass Null through (measured in Excel 16.0). Issue #246: a declared object variable known to hold another class, from Set p = New C, passed ByVal or ByRef raises 13 when the call runs; one still Nothing passes (measured in Excel 16.0). Issue #266: RaiseEvent to a ByVal Event parameter of a number type: a string that is no number raises 13 (RaiseEvent Done(\"abc\")), and a whole number outside the type raises 6 (40000 for an Integer). Measured in Excel 16.0.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -518,11 +524,13 @@
         "issue253_105_compile",
         "issue253_106_compile",
         "issue253_107_compile",
-        "issue253_108_compile"
+        "issue253_108_compile",
+        "issue266_26_compile",
+        "issue266_42_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "The active rule is intentionally narrow: it fires only when a source-backed same-module or unique exported project callable has a ByRef parameter with a known exact type and the argument is an unparenthesized known non-Variant variable with a different normalized type. Bare argument variables resolve through the shared expression resolver before local type-map fallback, and module-qualified variables resolve through the matching source-backed module surface, so visible exported standard-module variables participate while local shadows, ambiguous exported globals, unknown module qualifiers, untyped values, and Variant values stay quiet. Oracle controls prove that literals, parenthesized Long variable expressions, arithmetic expressions, and Range.Value member expressions are compile-accepted, while an Object variable passed to ByRef String is rejected. Issue #253: a Type parameter takes only a variable of its own Type; a Variant, a number, an object, a literal, a member that holds a number, or another Type is ByRef argument type mismatch (measured in Excel 16.0).",
+      "notes": "The active rule is intentionally narrow: it fires only when a source-backed same-module or unique exported project callable has a ByRef parameter with a known exact type and the argument is an unparenthesized known non-Variant variable with a different normalized type. Bare argument variables resolve through the shared expression resolver before local type-map fallback, and module-qualified variables resolve through the matching source-backed module surface, so visible exported standard-module variables participate while local shadows, ambiguous exported globals, unknown module qualifiers, untyped values, and Variant values stay quiet. Oracle controls prove that literals, parenthesized Long variable expressions, arithmetic expressions, and Range.Value member expressions are compile-accepted, while an Object variable passed to ByRef String is rejected. Issue #253: a Type parameter takes only a variable of its own Type; a Variant, a number, an object, a literal, a member that holds a number, or another Type is ByRef argument type mismatch (measured in Excel 16.0). Issue #266: a RaiseEvent argument that is a variable of another type for a ByRef Event parameter, an Integer or a String for n As Long; a literal, an expression or the variable in parentheses is a copy and compiles. Measured in Excel 16.0.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -1359,12 +1367,14 @@
       "corpusInfluence": "none",
       "assertedOracleCases": [
         "issue230_18_compile",
-        "issue230_26_compile"
+        "issue230_26_compile",
+        "issue266_24_compile",
+        "issue266_36_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error",
-      "notes": "A label-shaped word after a colon mid-line, 10: L1: or x = 0: L1:, is a call: Sub or Function not defined (issue #230, Excel 16.0)."
+      "notes": "A label-shaped word after a colon mid-line, 10: L1: or x = 0: L1:, is a call: Sub or Function not defined (issue #230, Excel 16.0). Issue #266: an Event is no procedure: Done or Call Done(1) in the class that declares only Event Done is \"Sub or Function not defined\". A Sub of the name, a local, or a public procedure elsewhere still binds it. Measured in Excel 16.0."
     },
     {
       "code": "non-callable-call",
@@ -1788,7 +1798,8 @@
       "sourceOfTruth": "MS-VBAL 5.2.5 Event declarations are object-module declarations, paired with XLIDE module-kind metadata",
       "corpusInfluence": "pending-corpus-reviewed",
       "assertedOracleCases": [
-        "corpus_event_004_compile"
+        "corpus_event_004_compile",
+        "issue266_37_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
@@ -2252,7 +2263,8 @@
       "assertedOracleCases": [],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "diagnosticKind": "compile-error"
+      "diagnosticKind": "compile-error",
+      "notes": "Issue #266: a Property Let or Set takes its value after a ParamArray: Property Let P(ParamArray v() As Variant, ByVal x As Long) compiles, so a ParamArray just before the value parameter is no longer reported. Measured in Excel 16.0."
     },
     {
       "code": "paramarray-with-optional",
@@ -2286,13 +2298,14 @@
       "sourceOfTruth": "MS-VBAL 5.3.1.4 Property Let/Set procedures require a final value parameter",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "corpus_prop_005_compile"
+        "corpus_prop_005_compile",
+        "issue266_10_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_final_hardening_cases.md"
       ],
-      "notes": "Active coverage uses parsed procedure kind and parameter lists. Property Let and Property Set declarations with zero parameters report on the property name; Property Get and setters with at least one value parameter remain accepted. Pairwise Get/Let/Set parameter-shape compatibility remains deferred.",
+      "notes": "Active coverage uses parsed procedure kind and parameter lists. Property Let and Property Set declarations with zero parameters report on the property name; Property Get and setters with at least one value parameter remain accepted. Pairwise Get/Let/Set parameter-shape compatibility remains deferred. Issue #266: a Property Let or Set whose last parameter is a ParamArray has no value parameter: Property Let P(ParamArray v() As Variant) is \"Argument not optional\". A value parameter after the ParamArray compiles. Measured in Excel 16.0.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -2342,14 +2355,38 @@
       "assertedOracleCases": [
         "issue152_g_compile",
         "issue152_h_compile",
-        "issue152_o_compile"
+        "issue152_o_compile",
+        "issue266_01_compile",
+        "issue266_02_compile",
+        "issue266_03_compile",
+        "issue266_04_compile",
+        "issue266_05_compile",
+        "issue266_09_compile",
+        "issue266_31_compile",
+        "issue266_34_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_final_hardening_cases.md",
         "excel_vba_analysis_additional_edge_cases.md"
       ],
-      "notes": "Active coverage groups active same-module Property Get/Let/Set procedures by name, requires exactly one active getter before pairing, and reports setters whose leading index parameters differ from the getter by count, array shape, effective ByVal/ByRef mode, or known scalar/Variant type. The setter's final value parameter is intentionally excluded from index-argument comparison. Return/value type consistency and object type alias comparison remain deferred to avoid false positives before deeper binder support.",
+      "notes": "Active coverage groups active same-module Property Get/Let/Set procedures by name, requires exactly one active getter before pairing, and reports setters whose leading index parameters differ from the getter by count, array shape, effective ByVal/ByRef mode, or known scalar/Variant type. The setter's final value parameter is intentionally excluded from index-argument comparison. Return/value type consistency and object type alias comparison remain deferred to avoid false positives before deeper binder support. Issue #266: an index parameter keeps its name across Get, Let and Set: Get P(ByVal i) with Let P(ByVal k, v), with a Set, between a Let and a Set with no Get, two indexes swapped, the second renamed, Optional indexes renamed, and in a standard module, each \"Definitions of property procedures for the same property are inconsistent\". Case does not count, and the value parameter may have any name. Measured in Excel 16.0 (issue266_* oracle cases).",
+      "diagnosticKind": "compile-error"
+    },
+    {
+      "code": "invalid-property-use",
+      "status": "vbe-oracle-verified",
+      "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-10-01 (issue #266): a project class property read with no Property Get, or called as a statement, is \"Invalid use of property\"",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue266_12_compile",
+        "issue266_13_compile",
+        "issue266_14_compile",
+        "issue266_15_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": "Flags, on a variable declared As a project class, a read of a property that has a Property Let or Set and no Property Get (Main = c.P, Set o = c.P), and a property called as a statement (c.P with a Get, c.P 5 with a Let), each \"Invalid use of property\" when the module compiles (issue #266, measured in Excel 16.0). An assignment to the property is the assignment rules'. A variable As Object or Variant is late bound: the read compiles and raises 450, runtime-member-not-found's.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -2951,11 +2988,14 @@
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue212_30_compile",
-        "issue212_31_compile"
+        "issue212_31_compile",
+        "issue266_19_compile",
+        "issue266_39_compile",
+        "issue266_40_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "An Event parameter that is Optional or a ParamArray: \"Syntax error\". ByVal compiles.",
+      "notes": "An Event parameter that is Optional or a ParamArray: \"Syntax error\". ByVal compiles. Issue #266: an Event's array parameter declared ByVal is \"Array argument must be ByRef\". Measured in Excel 16.0.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -4064,11 +4104,13 @@
         "arraybound_join_33_compile",
         "arraybound_join_34_compile",
         "arraybound_join_35_compile",
-        "arraybound_join_36_compile"
+        "arraybound_join_36_compile",
+        "issue266_25_compile",
+        "issue266_35_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Lines the VBE cannot parse: an unknown #directive, an unclosed [bracket, Sub or Function with no name, a word after a parameter, an Enum line that is no member. Messages follow the VBE by position (issue #234, Excel 16.0). Parentheses where VBA takes none: (x).Member, v = (), UBound((a)), a named argument inside one, Mid((s), 1, 1) = x, a statement that starts with one (issue #236, Excel 16.0). Issue #239: For Each takes a variable, a member chain, a call or a bracketed name after In; a literal, Null, True, Nothing, Empty, New, Not, TypeOf, Len(...), a parenthesis, a sign or a binary operator is a Syntax error. Measured in Excel 16.0 (build 20326). UBound and LBound read an array variable, a member or a call; a literal, Null, True, Nothing, Empty, New, Not, Len(...), a sign or a binary operator there is a Syntax error (measured in Excel 16.0, build 20326, arraybound_join_* oracle cases). VBA.UBound(5) is Method or data member not found and is left alone.",
+      "notes": "Lines the VBE cannot parse: an unknown #directive, an unclosed [bracket, Sub or Function with no name, a word after a parameter, an Enum line that is no member. Messages follow the VBE by position (issue #234, Excel 16.0). Parentheses where VBA takes none: (x).Member, v = (), UBound((a)), a named argument inside one, Mid((s), 1, 1) = x, a statement that starts with one (issue #236, Excel 16.0). Issue #239: For Each takes a variable, a member chain, a call or a bracketed name after In; a literal, Null, True, Nothing, Empty, New, Not, TypeOf, Len(...), a parenthesis, a sign or a binary operator is a Syntax error. Measured in Excel 16.0 (build 20326). UBound and LBound read an array variable, a member or a call; a literal, Null, True, Nothing, Empty, New, Not, Len(...), a sign or a binary operator there is a Syntax error (measured in Excel 16.0, build 20326, arraybound_join_* oracle cases). VBA.UBound(5) is Method or data member not found and is left alone. Issue #266: RaiseEvent passes its arguments by position: RaiseEvent Done(n:=1) is \"Syntax error\". Measured in Excel 16.0.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -4488,7 +4530,8 @@
         "issue243_48_runtime",
         "issue243_49_runtime",
         "issue246_05_runtime",
-        "issue246_23_runtime"
+        "issue246_23_runtime",
+        "issue266_47_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

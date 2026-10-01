@@ -637,6 +637,17 @@ export const DIAGNOSTIC_RULES = {
 		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
+	invalidPropertyUse: {
+		code: 'invalid-property-use',
+		title: 'Invalid use of property',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'VBE "Invalid use of property" (issue #266, Excel 16.0)',
+		confidence: 'high',
+	},
 	fileReadPastEnd: {
 		code: 'file-read-past-end',
 		title: 'Reading a file the procedure created empty',
