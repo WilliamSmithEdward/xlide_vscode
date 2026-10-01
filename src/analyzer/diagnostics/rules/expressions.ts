@@ -407,6 +407,12 @@ function invalidOperatorSequence(
 		if (isGluedTypeSuffixAmpersand(toks, i)) {
 			continue;
 		}
+		// `x^=5` assigns the LongLong x^ (issue #369, measured in Excel 16.0);
+		// elsewhere a glued `^` is the power operator, `a^2`.
+		if (toks[i].rawText === '^' && i === firstExecutableTokenIndex(toks) + 1 && toks[i - 1].end === toks[i].start
+			&& tokenName(toks[i - 1]) !== undefined && toks[i + 1]?.rawText === '=') {
+			continue;
+		}
 		// `a < > b` is one relational operator written as two tokens (MS-VBAL
 		// 5.6.9.5), and the VBE reads it as `a <> b` (issue #87).
 		const operatorEnd = i + (relationalOperatorAt(toks, i)?.length ?? 1) - 1;

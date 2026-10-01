@@ -95,6 +95,8 @@ export function checkMalformedLines(
 		}
 	}
 
+	checkStatementForms(toks, (span) => active(span) && place(span.start) === 'procedure', push);
+
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind === 'Procedure') {
 			checkProcedureHeader(toks, member, place, push);
@@ -111,6 +113,143 @@ export function checkMalformedLines(
 			checkEnumLines(source, member, activity, push);
 		}
 	}
+}
+
+/**
+ * The operators a VB.NET-style compound assignment puts before `=`: `x += 1`.
+ * The other operators are an operator run, invalid-expression-syntax's.
+ */
+const COMPOUND_ASSIGNMENT_OPERATORS: ReadonlySet<string> = new Set(['+', '-']);
+
+/**
+ * Statement forms the VBE refuses (issue #369, measured in Excel 16.0):
+ * `Else If b Then` on its own line, `x += 1`, `Exit While`,
+ * `Call Debug.Print(...)` and any Call of Debug, a Case after Case Else, a
+ * Loop with a condition after a Do with one, a Loop with both While and
+ * Until, and `Case Is` with To or Like. Each statement of each line is read
+ * in order; `inProcedure` says whether a span is active code inside a
+ * procedure.
+ */
+function checkStatementForms(
+	toks: readonly VbaToken[],
+	inProcedure: (span: Span) => boolean,
+	push: PushFn,
+): void {
+	const selects: Array<{ sawElse: boolean }> = [];
+	const dos: boolean[] = [];
+	const at = (first: VbaToken, last: VbaToken): Span => ({ start: first.start, end: last.end });
+	const report = (first: VbaToken, last: VbaToken, what: string, error: string): void => {
+		push('malformedStatement', `${what} This is a VBE compile error: ${error}.`, at(first, last));
+	};
+	let line: VbaToken[] = [];
+	const flushLine = (): void => {
+		const words = line.filter((tok) => tok.kind !== 'comment');
+		line = [];
+		if (words.length === 0 || !inProcedure(at(words[0], words[words.length - 1]))) {
+			return;
+		}
+		// `Else If b Then` with nothing after Then: Else and a block If header.
+		if (tokenText(words[0]) === 'else' && tokenText(words[1]) === 'if' && tokenText(words[words.length - 1]) === 'then') {
+			report(words[0], words[words.length - 1], "'Else If ... Then' starts a block If on the Else line; write ElseIf, one word.", 'Syntax error');
+		}
+		for (const statement of splitStatements(words)) {
+			checkStatement(statement);
+		}
+	};
+	const checkStatement = (words: readonly VbaToken[]): void => {
+		const head = tokenText(words[0]);
+		for (let k = 0; k + 1 < words.length; k++) {
+			if (tokenText(words[k]) === 'exit' && tokenText(words[k + 1]) === 'while') {
+				report(words[k], words[k + 1], "'Exit While' is no statement: a While loop has no exit of its own, so use Do While ... Loop and Exit Do.", 'Syntax error');
+			}
+			if (tokenText(words[k]) === 'call' && tokenText(words[k + 1]) === 'debug' && words[k + 2]?.rawText === '.' && words[k + 3] !== undefined) {
+				report(words[k], words[k + 3], `Call cannot run Debug.${words[k + 3].rawText}: write it without Call.`, 'Syntax error');
+			}
+		}
+		// `x += 1`: an operator glued to the assignment's `=`.
+		if (words[0].kind === 'identifier') {
+			const eq = words.findIndex((tok) => tok.rawText === '=');
+			const op = words[eq - 1];
+			if (eq > 1 && op.end === words[eq].start && COMPOUND_ASSIGNMENT_OPERATORS.has(op.rawText) && words.slice(1, eq - 1).every((tok) => tok.rawText === '.' || tok.kind === 'identifier')) {
+				const target = words.slice(0, eq - 1).map((tok) => tok.rawText).join('');
+				report(op, words[eq], `'${op.rawText}=' is no VBA operator: write ${target} = ${target} ${op.rawText} ...`, 'Syntax error');
+			}
+		}
+		if (head === 'select' && tokenText(words[1]) === 'case') {
+			selects.push({ sawElse: false });
+		} else if (head === 'end' && tokenText(words[1]) === 'select') {
+			selects.pop();
+		} else if (head === 'case') {
+			const select = selects[selects.length - 1];
+			if (tokenText(words[1]) === 'else') {
+				if (select) {
+					select.sawElse = true;
+				}
+			} else {
+				if (select?.sawElse) {
+					report(words[0], words[words.length - 1], 'A Case after Case Else in the same Select Case can never run.', 'Case without Select Case');
+				}
+				checkCaseItems(words.slice(1));
+			}
+		} else if (head === 'do') {
+			dos.push(words.length > 1 && (tokenText(words[1]) === 'while' || tokenText(words[1]) === 'until'));
+		} else if (head === 'loop') {
+			const conditioned = dos.pop();
+			const kinds = words.slice(1).filter((tok) => tokenText(tok) === 'while' || tokenText(tok) === 'until');
+			if (kinds.length > 1) {
+				report(kinds[0], kinds[1], 'A Loop takes one condition, While or Until, not both.', 'Syntax error');
+			} else if (kinds.length === 1 && conditioned) {
+				report(words[0], kinds[0], 'A Loop with a condition closes a Do with none; this Do has its own.', 'Loop without Do');
+			}
+		}
+	};
+	const checkCaseItems = (items: readonly VbaToken[]): void => {
+		let depth = 0;
+		let start = 0;
+		for (let k = 0; k <= items.length; k++) {
+			const tok = items[k];
+			if (tok?.rawText === '(') {
+				depth++;
+			} else if (tok?.rawText === ')') {
+				depth--;
+			}
+			if (tok !== undefined && (depth > 0 || tok.rawText !== ',')) {
+				continue;
+			}
+			const item = items.slice(start, k);
+			start = k + 1;
+			if (tokenText(item[0]) !== 'is') {
+				continue;
+			}
+			if (tokenText(item[1]) === 'like') {
+				report(item[0], item[1], "Case Is takes a comparison operator, and Like is none.", 'Syntax error');
+			} else if (item.some((t) => tokenText(t) === 'to')) {
+				const to = item.find((t) => tokenText(t) === 'to')!;
+				report(item[0], to, 'Case Is takes one value: a range with To is a Case of its own.', 'Syntax error');
+			}
+		}
+	};
+	for (const tok of toks) {
+		if (tok.kind === 'newline') {
+			flushLine();
+		} else {
+			line.push(tok);
+		}
+	}
+	flushLine();
+}
+
+/** A line's statements, split at top-level colons; a label's colon ends the label. */
+function splitStatements(words: readonly VbaToken[]): VbaToken[][] {
+	const out: VbaToken[][] = [[]];
+	for (const tok of words) {
+		if (tok.kind === 'colon') {
+			out.push([]);
+		} else {
+			out[out.length - 1].push(tok);
+		}
+	}
+	return out.filter((statement) => statement.length > 0);
 }
 
 /** True when the colon at `index` stands on a line with nothing else but colons and a comment. */

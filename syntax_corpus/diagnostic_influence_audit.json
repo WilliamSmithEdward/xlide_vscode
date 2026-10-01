@@ -137,7 +137,8 @@
         "issue213_25_compile",
         "issue255_28_compile",
         "issue255_34_compile",
-        "issue255_35_compile"
+        "issue255_35_compile",
+        "issue369a_16_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -812,7 +813,8 @@
         "issue198_93_compile",
         "issue198_95_compile",
         "issue198_98_compile",
-        "issue256_11_compile"
+        "issue256_11_compile",
+        "issue369a_17_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2370,11 +2372,14 @@
         "iif_expression_compile",
         "corpus_tok_003_compile",
         "issue234_08_compile",
-        "issue234_59_compile"
+        "issue234_59_compile",
+        "issue369a_23_compile",
+        "issue369a_38_compile",
+        "issue369a_39_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Active coverage is deliberately narrow: consecutive non-unary binary operators such as ***, statements ending with a binary operator, unsupported '?' conditional-operator syntax, and oracle-backed incomplete member access forms such as ThisWorkbook. or a bare . inside an active With block. Generic trailing-dot incomplete member diagnostics ask the shared member-receiver resolver first and stay quiet when scalar-member-access owns a known scalar receiver, including visible exported standard-module scalar globals; local shadows, ambiguous exported globals, object-like receivers, and unknown receivers continue through the syntax fallback. The IIf compile-valid oracle control confirms the supported inline conditional form remains accepted; separate runtime oracle cases prove IIf branch evaluation behavior for future deterministic-runtime diagnostics. Live diagnostics suppress incomplete member-access errors while the cursor remains on the active edit line; current-module and workbook validation still report the settled final source. Not with nothing to negate (issue #234, Excel 16.0).",
+      "notes": "Active coverage is deliberately narrow: consecutive non-unary binary operators such as ***, statements ending with a binary operator, unsupported '?' conditional-operator syntax, and oracle-backed incomplete member access forms such as ThisWorkbook. or a bare . inside an active With block. Generic trailing-dot incomplete member diagnostics ask the shared member-receiver resolver first and stay quiet when scalar-member-access owns a known scalar receiver, including visible exported standard-module scalar globals; local shadows, ambiguous exported globals, object-like receivers, and unknown receivers continue through the syntax fallback. The IIf compile-valid oracle control confirms the supported inline conditional form remains accepted; separate runtime oracle cases prove IIf branch evaluation behavior for future deterministic-runtime diagnostics. Live diagnostics suppress incomplete member-access errors while the cursor remains on the active edit line; current-module and workbook validation still report the settled final source. Not with nothing to negate (issue #234, Excel 16.0). Issue #369: x^=5 assigns the LongLong x^, so a ^ glued to an assignment's target is no operator run.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -3468,11 +3473,16 @@
         "suffix_integer_pct_exact_over_compile",
         "suffix_integer_pct_negated_min_compile",
         "suffix_integer_pct_max_literal_compile",
-        "suffix_long_amp_glued_concat_accepted"
+        "suffix_long_amp_glued_concat_accepted",
+        "issue369a_11_compile",
+        "issue369a_12_compile",
+        "issue369a_13_compile",
+        "issue369a_14_compile",
+        "issue369a_40_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Flags a pure-decimal integer literal carrying the % (Integer) type suffix whose magnitude exceeds 32767. VBE rejects the over-range %-suffixed token at compile time as a Syntax error, independent of context and of any leading sign - the negated-min probe -32768% is also rejected, so the check is magnitude-vs-Integer-max with no sign special-casing. SCOPED TO % ONLY: the & (Long) suffix is deliberately excluded because & is also the concatenation operator - when an over-range digit run is glued to & before an operand VBE re-parses & as concat and ACCEPTS it (oracle suffix_long_amp_glued_concat_accepted: s = 3000000000&\"x\" is accepted). The lexer greedily glues the trailing & into the number token, so flagging &-suffix overflow would false-positive on that valid concat; & overflow is a deferred (conservative) false negative even though it is a real compile error in isolation (oracle suffix_long_amp_overflow_literal_compile). Hex/octal (start with &) and the ^/!/#/@ suffixes are also out of scope; the Integer bound comes from the shared numericLiteralBounds. Whole-source scan; inactive conditional-compilation regions are skipped.",
+      "notes": "Flags a pure-decimal integer literal carrying the % (Integer) type suffix whose magnitude exceeds 32767. VBE rejects the over-range %-suffixed token at compile time as a Syntax error, independent of context and of any leading sign - the negated-min probe -32768% is also rejected, so the check is magnitude-vs-Integer-max with no sign special-casing. SCOPED TO % ONLY: the & (Long) suffix is deliberately excluded because & is also the concatenation operator - when an over-range digit run is glued to & before an operand VBE re-parses & as concat and ACCEPTS it (oracle suffix_long_amp_glued_concat_accepted: s = 3000000000&\"x\" is accepted). The lexer greedily glues the trailing & into the number token, so flagging &-suffix overflow would false-positive on that valid concat; & overflow is a deferred (conservative) false negative even though it is a real compile error in isolation (oracle suffix_long_amp_overflow_literal_compile). Hex/octal (start with &) and the ^/!/#/@ suffixes are also out of scope; the Integer bound comes from the shared numericLiteralBounds. Whole-source scan; inactive conditional-compilation regions are skipped. Issue #369: an unsuffixed hex or octal literal wider than 32 bits (&H100000000, &O40000000000, &O77777777777) and a hex literal with a # or ! suffix (&HFF#) are Syntax errors.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -4554,11 +4564,23 @@
         "issue272_362_compile",
         "issue272_363_compile",
         "issue272_364_compile",
-        "issue272_365_compile"
+        "issue272_365_compile",
+        "issue369a_01_compile",
+        "issue369a_02_compile",
+        "issue369a_03_compile",
+        "issue369a_04_compile",
+        "issue369a_05_compile",
+        "issue369a_06_compile",
+        "issue369a_07_compile",
+        "issue369a_08_compile",
+        "issue369a_09_compile",
+        "issue369a_22_compile",
+        "issue369a_24_compile",
+        "issue369a_32_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Lines the VBE cannot parse: an unknown #directive, an unclosed [bracket, Sub or Function with no name, a word after a parameter, an Enum line that is no member. Messages follow the VBE by position (issue #234, Excel 16.0). Parentheses where VBA takes none: (x).Member, v = (), UBound((a)), a named argument inside one, Mid((s), 1, 1) = x, a statement that starts with one (issue #236, Excel 16.0). Issue #239: For Each takes a variable, a member chain, a call or a bracketed name after In; a literal, Null, True, Nothing, Empty, New, Not, TypeOf, Len(...), a parenthesis, a sign or a binary operator is a Syntax error. Measured in Excel 16.0 (build 20326). UBound and LBound read an array variable, a member or a call; a literal, Null, True, Nothing, Empty, New, Not, Len(...), a sign or a binary operator there is a Syntax error (measured in Excel 16.0, build 20326, arraybound_join_* oracle cases). VBA.UBound(5) is Method or data member not found and is left alone. Issue #266: RaiseEvent passes its arguments by position: RaiseEvent Done(n:=1) is \"Syntax error\". Measured in Excel 16.0. Issue #272: a line label cannot be a reserved word, measured in Excel 16.0 for every word of MS-VBAL 3.3.5.2 and Local: GoTo Fix, GoSub Fix, On Error GoTo Fix, Resume Fix and On x GoTo A, Fix are \"Syntax error\", and so is a line Fix: on its own. A library function a label may shadow (Mid, Left, Error, MsgBox, Split) compiles. Before a colon some reserved words are their own statement: End, Stop, Close, Resume, Return and DoEvents compile, the block words are their block's error, and Print, Scale, CDec and Date are reported with the error the VBE gives them. A line continued from the one before is no label.",
+      "notes": "Lines the VBE cannot parse: an unknown #directive, an unclosed [bracket, Sub or Function with no name, a word after a parameter, an Enum line that is no member. Messages follow the VBE by position (issue #234, Excel 16.0). Parentheses where VBA takes none: (x).Member, v = (), UBound((a)), a named argument inside one, Mid((s), 1, 1) = x, a statement that starts with one (issue #236, Excel 16.0). Issue #239: For Each takes a variable, a member chain, a call or a bracketed name after In; a literal, Null, True, Nothing, Empty, New, Not, TypeOf, Len(...), a parenthesis, a sign or a binary operator is a Syntax error. Measured in Excel 16.0 (build 20326). UBound and LBound read an array variable, a member or a call; a literal, Null, True, Nothing, Empty, New, Not, Len(...), a sign or a binary operator there is a Syntax error (measured in Excel 16.0, build 20326, arraybound_join_* oracle cases). VBA.UBound(5) is Method or data member not found and is left alone. Issue #266: RaiseEvent passes its arguments by position: RaiseEvent Done(n:=1) is \"Syntax error\". Measured in Excel 16.0. Issue #272: a line label cannot be a reserved word, measured in Excel 16.0 for every word of MS-VBAL 3.3.5.2 and Local: GoTo Fix, GoSub Fix, On Error GoTo Fix, Resume Fix and On x GoTo A, Fix are \"Syntax error\", and so is a line Fix: on its own. A library function a label may shadow (Mid, Left, Error, MsgBox, Split) compiles. Before a colon some reserved words are their own statement: End, Stop, Close, Resume, Return and DoEvents compile, the block words are their block's error, and Print, Scale, CDec and Date are reported with the error the VBE gives them. A line continued from the one before is no label. Issue #369: Else If b Then on its own line, x += 1 and x -= 1, Exit While, Call Debug.Print, a Case after Case Else, a Loop with a condition closing a Do with one, a Loop with both While and Until, and Case Is with To or Like are refused.",
       "diagnosticKind": "compile-error"
     },
     {

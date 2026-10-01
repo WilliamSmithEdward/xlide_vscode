@@ -414,10 +414,11 @@ describe('analyzeModule - suffixed-literal-overflow (suffix_*_compile)', () => {
 		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
 	});
 
-	it("stays quiet for hex/octal literals and the ^ LongLong suffix (out of scope, no-FP)", () => {
-		// &HFFFFFFFF / &O77777777777 are bit-pattern values; ^ is platform-dependent.
+	it("stays quiet for 32-bit hex/octal literals and the ^ LongLong suffix (no-FP)", () => {
+		// &HFFFFFFFF / &O37777777777 are 32-bit patterns; ^ is platform-dependent.
+		// &O77777777777, 33 bits, is refused (issue #369, measured in Excel 16.0).
 		const src =
-			'Sub T()\n    Dim x As Long\n    x = &HFFFFFFFF\n    x = &O77777777777\n    x = 99999999999^\nEnd Sub\n';
+			'Sub T()\n    Dim x As Long\n    x = &HFFFFFFFF\n    x = &O37777777777\n    x = 99999999999^\nEnd Sub\n';
 		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
 	});
 
