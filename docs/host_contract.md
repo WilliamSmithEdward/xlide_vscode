@@ -132,23 +132,16 @@ so a host registers the ones it analyzes: `registerBuiltInHostModels()`
 registers Word, PowerPoint, Access and VB6, as the extension and its analysis
 worker do at load, and `registerHostObjectModel(token, model)` registers one.
 Both are exported from `analyzer/index.ts`. A host that only analyzes Excel
-registers nothing and bundles none of the others. Asking for a host XLIDE
-ships a model for without registering it analyzes with no host knowledge, and
-`analyzeModule` reports that to `onInternalError` (stage `options`), so a
-caller can fix the missing registration. Without host knowledge, valid findings
-may be suppressed and host names may produce false findings, including
-`undeclared-variable` and `invalid-as-type-name`.
+registers nothing and bundles none of the others. A host that is named but not
+registered is analyzed with no knowledge of it, so valid findings may be
+missing and its names may produce false ones, such as `undeclared-variable`.
 
-A library the project references (`referencedHosts`) whose model is not
-registered is still referenced: `missing-library-reference` stays silent about
-it, because the analyzer has no model for that library.
+The project's own host and the libraries it references (`referencedHosts`) are
+present even when their models are not registered: `missing-library-reference`
+stays silent about them, because the analyzer has no model to check them against.
 
-Downstream consumers must register their supported hosts before analysis. This
-includes the xlide_vbide engine and pyVBAAnalysis's upstream differential probes.
-A tool that runs this repository's tests under its own Vitest configuration must
-also preserve the upstream `setupFiles`, which register the built-in models.
-pyVBAAnalysis's host-data extractor reads the model modules directly and does
-not need registry setup.
+Anything else that runs this analyzer, such as xlide_vbide's engine, registers
+the hosts it supports before analysis.
 
 This also decides host-specific syntax. `[A1]` is `Application.Evaluate`
 shorthand in Excel and reports as undefined in Word, so naming the host wrongly

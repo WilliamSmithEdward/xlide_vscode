@@ -56,29 +56,6 @@ const MODELS_BY_TOKEN = new Map<string, () => HostObjectModel>([
 const MERGED_BY_KEY = new Map<string, HostObjectModel>();
 
 /**
- * The hosts XLIDE ships a model for besides Excel: what
- * registerBuiltInHostModels registers. Listed here, not imported, so naming
- * them costs nothing.
- */
-export const BUILT_IN_HOST_TOKENS: readonly VbaHostToken[] = Object.freeze(['word', 'powerpoint', 'access', 'vb6']);
-
-/**
- * The tokens in `tokens` that XLIDE ships a model for but nobody registered.
- * Analyzing with one of them gives that host no knowledge, so a caller that
- * forgot to register is told about potentially missing or false findings.
- */
-export function unregisteredBuiltInHosts(tokens: readonly string[]): VbaHostToken[] {
-	const out: VbaHostToken[] = [];
-	for (const raw of tokens) {
-		const token = raw.trim().toLowerCase() as VbaHostToken;
-		if (BUILT_IN_HOST_TOKENS.includes(token) && !MODELS_BY_TOKEN.has(token) && !out.includes(token)) {
-			out.push(token);
-		}
-	}
-	return out;
-}
-
-/**
  * Registers a host's model under its token. A host that is never registered
  * answers the empty model. Missing host knowledge can suppress valid findings
  * and introduce false findings about host names.

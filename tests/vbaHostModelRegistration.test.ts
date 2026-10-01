@@ -93,17 +93,6 @@ describe('host object model registration', () => {
 			.toEqual(['Word', 'PowerPoint', 'Access', 'VB6']);
 	});
 
-	it('registers exactly the hosts BUILT_IN_HOST_TOKENS names, so a new host is added to both or neither', async () => {
-		const { registry, builtIns } = await unregistered();
-		builtIns.registerBuiltInHostModels();
-		const every = ['excel', 'word', 'powerpoint', 'access', 'outlook', 'visio', 'project', 'vb6', 'other'];
-		const modelled = every.filter((token) => {
-			const model = registry.hostObjectModelForToken(token);
-			return model !== undefined && model !== registry.EMPTY_HOST_MODEL;
-		});
-		expect(modelled.sort()).toEqual([...registry.BUILT_IN_HOST_TOKENS].sort());
-	});
-
 	it('checks a Word module against Word once Word is registered, and says nothing before', async () => {
 		const { builtIns, analyzer } = await unregistered();
 		expect(codes(WORD_MODULE, analyzer.analyzeModule(WORD_MODULE, { host: 'word' }))).toEqual([]);
@@ -133,7 +122,7 @@ describe('host object model registration', () => {
 		expect(types).not.toContain('Word.Before');
 	});
 
-	it('does not report a referenced library missing when no model for it is registered', async () => {
+	it('does not report the host or a referenced library missing when no model for it is registered', async () => {
 		const source = 'Option Explicit\r\nPublic Doc As Word.Document\r\n';
 		const missing = (diagnostics: ReturnType<typeof analyzeModule>) =>
 			diagnostics.filter((d) => d.code === 'missing-library-reference').length;
@@ -142,40 +131,15 @@ describe('host object model registration', () => {
 		const { analyzer } = await unregistered();
 		expect(missing(analyzer.analyzeModule(source, { host: 'excel' }))).toBe(1);
 		expect(missing(analyzer.analyzeModule(source, { host: 'excel', referencedHosts: ['word'] }))).toBe(0);
+		// A Word document always has its own library, whatever else it references.
+		expect(missing(analyzer.analyzeModule(source, { host: 'word', referencedHosts: ['access'] }))).toBe(0);
+		expect(missing(analyzer.analyzeModule(source, { host: 'word', referencedHosts: ['excel'] }))).toBe(0);
 
-		// With Word registered, as in the extension, the answers are the same.
+		// With every host registered, as in the extension, the answers are the same.
 		expect(missing(analyzeModule(source, { host: 'excel' }))).toBe(1);
 		expect(missing(analyzeModule(source, { host: 'excel', referencedHosts: ['word'] }))).toBe(0);
-	});
-
-	it('reports a host XLIDE ships a model for but nobody registered, once per analysis', async () => {
-		const reports = (analyze: typeof analyzeModule, options: Parameters<typeof analyzeModule>[1]) => {
-			const seen: string[] = [];
-			analyze(WORD_MODULE, {
-				...options,
-				onInternalError: (error, where) => seen.push(`${where.stage}: ${(error as Error).message}`),
-			});
-			return seen;
-		};
-
-		const { registry, builtIns, analyzer } = await unregistered();
-		const word = reports(analyzer.analyzeModule, { host: 'word' });
-		expect(word).toHaveLength(1);
-		expect(word[0]).toMatch(/^options: no object model is registered for 'word'.*registerBuiltInHostModels/);
-		expect(reports(analyzer.analyzeModule, { host: 'excel', referencedHosts: ['word', 'access', 'word'] }))
-			.toEqual([expect.stringContaining("for 'word', 'access',")]);
-
-		// Excel is built in, Outlook has no model to register, and an explicit
-		// model is the caller's own choice: none of them is reported.
-		expect(reports(analyzer.analyzeModule, {})).toEqual([]);
-		expect(reports(analyzer.analyzeModule, { host: 'excel' })).toEqual([]);
-		expect(reports(analyzer.analyzeModule, { host: 'outlook' })).toEqual([]);
-		expect(reports(analyzer.analyzeModule, { host: 'word', hostModel: registry.EMPTY_HOST_MODEL })).toEqual([]);
-
-		builtIns.registerBuiltInHostModels();
-		expect(registry.unregisteredBuiltInHosts(registry.BUILT_IN_HOST_TOKENS)).toEqual([]);
-		expect(reports(analyzer.analyzeModule, { host: 'word' })).toEqual([]);
-		expect(reports(analyzeModule, { host: 'excel', referencedHosts: ['word', 'access'] })).toEqual([]);
+		expect(missing(analyzeModule(source, { host: 'word', referencedHosts: ['access'] }))).toBe(0);
+		expect(missing(analyzeModule(source, { host: 'word', referencedHosts: ['excel'] }))).toBe(0);
 	});
 
 	it('bundles another host\'s model only where something registers it', async () => {

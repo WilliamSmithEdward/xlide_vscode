@@ -839,11 +839,13 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 		name: 'missingLibraryReference',
 		// The resolved model, not opts.hostModel: a bare Excel project
 		// passes undefined so the downstream default rides, and the rule
-		// would then know of no library at all and stay silent.
+		// would then know of no library at all and stay silent. The host and
+		// its references are passed too, so one with no registered model is
+		// still known to be present.
 		run: (ctx, push) => checkMissingLibraryReference(
 			ctx.source, ctx.opts.hostModel ?? getExcelObjectModel(), push,
 			new Set([ctx.opts.moduleName ?? '', ...(ctx.memberCtx.projectClassMembers ?? []).map((type) => type.name)].map((name) => name.toLowerCase())),
-			ctx.opts.referencedHosts,
+			[...(ctx.opts.host === undefined ? [] : [ctx.opts.host]), ...(ctx.opts.referencedHosts ?? [])],
 		),
 	},
 	{

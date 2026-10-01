@@ -103,12 +103,13 @@ export function checkMissingLibraryReference(
 	push: PushFn,
 	/** The project's module names, lowercased: a module named Word is called as Word.Hi (issue #357). */
 	projectModules: ReadonlySet<string> = new Set(),
-	referencedHosts: readonly string[] = [],
+	projectHosts: readonly string[] = [],
 ): void {
 	const present = librariesInModel(model);
-	// A library the project references is present even when no model for it
-	// is registered: the analyzer knows nothing about it, not that it is gone.
-	for (const token of referencedHosts) {
+	// The project's own host and every library it references are present even
+	// when no model for them is registered: the analyzer knows nothing about
+	// them, not that they are gone.
+	for (const token of projectHosts) {
 		const name = HOST_LIBRARY_NAMES[token as VbaHostToken];
 		if (name) { present.add(name.toLowerCase()); }
 	}
