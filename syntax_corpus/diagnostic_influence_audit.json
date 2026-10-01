@@ -674,7 +674,8 @@
         "knownstring_82_runtime",
         "knownstring_84_runtime",
         "knownstring_87_runtime",
-        "issue326_18_runtime"
+        "issue326_18_runtime",
+        "issue361_10_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -1000,11 +1001,19 @@
         "issue268_27_runtime",
         "issue268_32_runtime",
         "issue268_33_runtime",
-        "issue273_24_runtime"
+        "issue273_24_runtime",
+        "issue361_17_runtime",
+        "issue361_18_runtime",
+        "issue361_19_runtime",
+        "issue361_20_runtime",
+        "issue361_21_runtime",
+        "issue361_22_runtime",
+        "issue361_24_runtime",
+        "issue361_25_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: the focused compile oracle case compiles successfully, while runtime oracle probes for nonnumeric string arithmetic deterministically raise runtime error 13. Operand-order, grouping, and multiplication variants reject; numeric-string, &-concatenation, and string-plus-string + controls run successfully. Issue #243: Case Is > \"abc\" under a numeric Select Case raises 13, as Case \"abc\" does (measured in Excel 16.0, build 20326, issue243_* oracle cases). Issue #255: a String Const that no locale reads as a number, Const K = \"abc\": K + 1 raises 13 (measured in Excel 16.0). Issue #260: an element operand reads the literal its Array, Split or Filter gave it: v(1) + 1 with v = Array(\"1\", \"b\"), Split(\"1 b\")(1) + 1, 2 * v(1), -v(1), v(1) Mod 2. An element written since (v(1) = 2, passed alone to a call, or named by Set, LSet, Mid, Input #, Get #, ReDim or Erase) is not read. An omitted Optional String, \"\" or its declared non-numeric default, used as a number by the callee's first use is reported at the call. Measured in Excel 16.0. Issue #268: a comparison converts only between typed operands. A Variant on either side compares without converting: v = 5 then v = \"\", v = \"abc\", v < \"abc\", v = s and If v <> \"\" all run, and so do v = \"abc\" then v = 5 or v = n with n a Long. These were reported before and are not now. The number side must be a literal or a name declared a number type, and the string side a literal, a String or a Const. Arithmetic still converts: v + \"abc\" raises 13. A typed Date or Boolean compared with a string it cannot read raises 13 (d = \"\", d = \"abc\", b = \"yes\"; b = \"True\" and d = \"1/1/2000\" run). Select Case converts its values to the selector's type, a Variant value included: Select Case n on a Long with Case w, w holding \"abc\", raises 13, and so does Case \"a\" To \"z\"; a Variant selector converts nothing. Not after If now starts an operand: If Not s Then with s holding \"abc\" raises 13. Measured in Excel 16.0 (issue268_* oracle cases). Issue #273: a statement a known guard keeps from running is not checked: s = \"abc\" then If IsNumeric(s) Then.",
+      "notes": "This is an error but not VBE compile-equivalent: the focused compile oracle case compiles successfully, while runtime oracle probes for nonnumeric string arithmetic deterministically raise runtime error 13. Operand-order, grouping, and multiplication variants reject; numeric-string, &-concatenation, and string-plus-string + controls run successfully. Issue #243: Case Is > \"abc\" under a numeric Select Case raises 13, as Case \"abc\" does (measured in Excel 16.0, build 20326, issue243_* oracle cases). Issue #255: a String Const that no locale reads as a number, Const K = \"abc\": K + 1 raises 13 (measured in Excel 16.0). Issue #260: an element operand reads the literal its Array, Split or Filter gave it: v(1) + 1 with v = Array(\"1\", \"b\"), Split(\"1 b\")(1) + 1, 2 * v(1), -v(1), v(1) Mod 2. An element written since (v(1) = 2, passed alone to a call, or named by Set, LSet, Mid, Input #, Get #, ReDim or Erase) is not read. An omitted Optional String, \"\" or its declared non-numeric default, used as a number by the callee's first use is reported at the call. Measured in Excel 16.0. Issue #268: a comparison converts only between typed operands. A Variant on either side compares without converting: v = 5 then v = \"\", v = \"abc\", v < \"abc\", v = s and If v <> \"\" all run, and so do v = \"abc\" then v = 5 or v = n with n a Long. These were reported before and are not now. The number side must be a literal or a name declared a number type, and the string side a literal, a String or a Const. Arithmetic still converts: v + \"abc\" raises 13. A typed Date or Boolean compared with a string it cannot read raises 13 (d = \"\", d = \"abc\", b = \"yes\"; b = \"True\" and d = \"1/1/2000\" run). Select Case converts its values to the selector's type, a Variant value included: Select Case n on a Long with Case w, w holding \"abc\", raises 13, and so does Case \"a\" To \"z\"; a Variant selector converts nothing. Not after If now starts an operand: If Not s Then with s holding \"abc\" raises 13. Measured in Excel 16.0 (issue268_* oracle cases). Issue #273: a statement a known guard keeps from running is not checked: s = \"abc\" then If IsNumeric(s) Then. Issue #361: Not binds below the comparisons, so Not s = \"y\" is Not (s = \"y\"), a Boolean, and is not reported; Not's operand runs to the next And, Or, Xor, Eqv or Imp. Not (v) with v = \"x\" raises 13 and is reported.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
