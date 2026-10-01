@@ -258,6 +258,40 @@ const ARGUMENT_LIMITS: ReadonlyArray<{
 		receivers: ['Excel.Sheets', 'Excel.Worksheets'], member: 'add', parameter: 'Count', position: 2, runs: '1 or more',
 		refused: [{ to: 0 }], error: { number: '1004', text: "Method 'Add' of object 'Sheets' failed" },
 	},
+	// Enum arguments (issue #244), swept from -100 to 999 in Excel 16.0 as
+	// hostPropertyValues.ts's enum properties were.
+	{
+		receivers: ['Excel.Range'], member: 'borders', parameter: 'Index', position: 0, runs: '1 to 12, or an xlBordersIndex constant',
+		refused: [{ from: -100, to: 0 }, { from: 13, to: 999 }], error: { number: '1004', text: 'Unable to get the Item property of the Borders class' },
+	},
+	{
+		receivers: ['Excel.Range'], member: 'end', parameter: 'Direction', position: 0, runs: '1 to 4, or an xlDirection constant',
+		refused: [{ from: -100, to: 0 }, { from: 5, to: 999 }], error: { number: '1004', text: 'Application-defined or object-defined error' },
+	},
+	{
+		receivers: ['Excel.Range'], member: 'specialcells', parameter: 'Type', position: 0, runs: 'an xlCellType constant',
+		refused: [{ from: -100, to: 0 }, { from: 13, to: 13 }, { from: 17, to: 999 }], error: { number: '1004', text: 'Application-defined or object-defined error' },
+	},
+	{
+		receivers: ['Excel.Range'], member: 'sort', parameter: 'Order1', position: 1, runs: 'xlAscending (1) or xlDescending (2)',
+		refused: [{ from: -100, to: 0 }, { from: 3, to: 999 }], error: { number: '1004', text: 'Application-defined or object-defined error' },
+	},
+	{
+		receivers: ['Excel.Range'], member: 'pastespecial', parameter: 'Paste', position: 0, runs: 'an xlPasteType constant',
+		refused: [{ from: -100, to: 0 }, { from: 9, to: 10 }, { from: 15, to: 999 }], error: { number: '1004', text: 'Application-defined or object-defined error' },
+	},
+	{
+		receivers: ['Excel.Range'], member: 'insert', parameter: 'Shift', position: 0, runs: '1 to 4, or an xlInsertShiftDirection constant',
+		refused: [{ from: -100, to: 0 }, { from: 5, to: 999 }], error: { number: '1004', text: 'Application-defined or object-defined error' },
+	},
+	{
+		receivers: ['Excel.Range'], member: 'delete', parameter: 'Shift', position: 0, runs: '1 to 4, or an xlDeleteShiftDirection constant',
+		refused: [{ from: -100, to: 0 }, { from: 5, to: 999 }], error: { number: '1004', text: 'Application-defined or object-defined error' },
+	},
+	{
+		receivers: ['Excel.Range'], member: 'autofill', parameter: 'Type', position: 1, runs: '0 to 12, or an xlAutoFillType constant',
+		refused: [{ from: -100, to: -1 }, { from: 13, to: 999 }], error: { number: '1004', text: 'Application-defined or object-defined error' },
+	},
 	{
 		receivers: ['Word.Tables'], member: 'add', parameter: 'NumRows', position: 1, runs: '1 to 32767',
 		refused: [{ to: 0 }, { from: 32768 }], error: { number: '5148', text: 'The number must be between 1 and 32767' },
@@ -390,16 +424,20 @@ function hostReceiverTypes(resolved: string | undefined, model: HostObjectModel 
 
 /** The member call's name index when the statement is `a.b.Name args`, else -1. */
 function firstExecutableTokenIndexOfMemberCall(toks: readonly VbaToken[], nameIndex: number): number {
+	// Back over each `.` to the name before it, stepping over a call's
+	// parentheses: `Range("A1").Insert Shift:=9` (issue #244).
 	let j = nameIndex;
-	while (j >= 2 && toks[j - 1].rawText === '.' && tokenName(toks[j - 2])) {
-		j -= 2;
-		if (toks[j - 1]?.rawText === ')') {
-			const open = toks.findIndex((tok, k) => tok.rawText === '(' && matchParenFrom(toks, k) === j - 1);
+	while (j >= 2 && toks[j - 1].rawText === '.') {
+		let k = j - 2;
+		if (toks[k].rawText === ')') {
+			const close = k;
+			const open = toks.findIndex((tok, m) => tok.rawText === '(' && matchParenFrom(toks, m) === close);
 			if (open < 1) {
 				return -1;
 			}
-			j = open;
+			k = open - 1;
 		}
+		j = k;
 	}
 	return j === firstExecutableTokenIndex(toks) ? nameIndex : -1;
 }
