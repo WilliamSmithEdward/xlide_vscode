@@ -1,14 +1,14 @@
 # XLIDE: VBA for VS Code
 
-[![release](https://vsmarketplacebadges.dev/version-short/WilliamSmithE.xlide.svg?style=flat&color=orange&label=release)](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide)
-[![installs](https://vsmarketplacebadges.dev/installs-short/WilliamSmithE.xlide.svg?style=flat&color=blue)](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide)
-[![rating](https://vsmarketplacebadges.dev/rating-short/WilliamSmithE.xlide.svg?style=flat&color=blue)](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide&ssr=false#review-details)
-[![CI](https://img.shields.io/github/actions/workflow/status/WilliamSmithEdward/xlide_vscode/ci.yml?branch=main&label=CI)](https://github.com/WilliamSmithEdward/xlide_vscode/actions/workflows/ci.yml)
-[![Security](https://img.shields.io/github/actions/workflow/status/WilliamSmithEdward/xlide_vscode/security.yml?branch=main&label=security)](SECURITY.md)
-[![Malware scan](https://img.shields.io/github/actions/workflow/status/WilliamSmithEdward/xlide_vscode/malware-scan.yml?branch=main&label=malware%20scan)](SECURITY.md)
+[![Marketplace version](https://vsmarketplacebadges.dev/version-short/WilliamSmithE.xlide.svg)](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide)
+[![Installs](https://vsmarketplacebadges.dev/installs-short/WilliamSmithE.xlide.svg)](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide)
+[![Rating](https://vsmarketplacebadges.dev/rating-short/WilliamSmithE.xlide.svg)](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide&ssr=false#review-details)
+[![CI](https://github.com/WilliamSmithEdward/xlide_vscode/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/WilliamSmithEdward/xlide_vscode/actions/workflows/ci.yml)
+[![Security](https://github.com/WilliamSmithEdward/xlide_vscode/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/WilliamSmithEdward/xlide_vscode/actions/workflows/security.yml)
+[![Malware scan](https://github.com/WilliamSmithEdward/xlide_vscode/actions/workflows/malware-scan.yml/badge.svg?branch=main)](https://github.com/WilliamSmithEdward/xlide_vscode/actions/workflows/malware-scan.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/WilliamSmithEdward/xlide_vscode/badge)](https://scorecard.dev/viewer/?uri=github.com/WilliamSmithEdward/xlide_vscode)
-[![license](https://img.shields.io/badge/license-MIT-brightgreen)](LICENSE)
-[![Hosts](https://img.shields.io/badge/Hosts-Excel%2C%20Word%2C%20PowerPoint%2C%20Access%2C%20VB6-blue)](#why-use-xlide)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](https://github.com/WilliamSmithEdward/xlide_vscode/blob/main/LICENSE)
+[![Hosts](https://img.shields.io/badge/Hosts-Excel%2C%20Word%2C%20PowerPoint%2C%20Access%2C%20VB6-blue)](https://github.com/WilliamSmithEdward/xlide_vscode#why-use-xlide)
 
 [Install XLIDE from the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=WilliamSmithE.xlide)\
 \
