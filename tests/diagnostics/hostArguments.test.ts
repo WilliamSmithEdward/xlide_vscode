@@ -222,6 +222,62 @@ describe('sheet-name-invalid (issue #122)', () => {
 		const quiet = wrap('Worksheets(1).Name = "abcdefghijklmnopqrstuvwxyz12345"', 'Worksheets(1).Name = "Data 2026"', 'Names(1).Name = "a:b"');
 		expect(byCode(analyzeModule(quiet), NAME)).toHaveLength(0);
 	});
+
+	// Measured in Excel 16.0 (build 20326, 2026-10-01).
+	it('flags History, an apostrophe at either end, and a name String$ or Space$ spells out (issue #276)', () => {
+		const cases: Array<[string, string, string]> = [
+			['Worksheets(1).Name = "History"', 'History', 'History is a reserved name.'],
+			['ActiveSheet.Name = "hIsToRy"', 'History', 'History is a reserved name.'],
+			['ActiveChart.Name = "HISTORY"', 'History', 'History is a reserved name.'],
+			['Worksheets(1).Name = "\'a"', 'apostrophe', 'invalid name'],
+			['Worksheets(1).Name = "a\'"', 'apostrophe', 'invalid name'],
+			['Worksheets(1).Name = "\' a"', 'apostrophe', 'invalid name'],
+			['Worksheets(1).Name = String$(32, "a")', '32', 'invalid name'],
+			['Worksheets(1).Name = String(32, "ab")', '32', 'invalid name'],
+			['Worksheets(1).Name = Space$(32)', '32', 'invalid name'],
+			['Worksheets(1).Name = String$(30, "a") & "bc"', '32', 'invalid name'],
+		];
+		for (const [line, message, error] of cases) {
+			const src = wrap(line);
+			expectDiagnostic(src, analyzeModule(src), NAME, { message: [message, error] });
+		}
+		const quiet = wrap(
+			'Worksheets(1).Name = "History "',
+			'Worksheets(1).Name = "History1"',
+			'Worksheets(1).Name = "My History"',
+			'Worksheets(1).Name = "a\'b"',
+			'Worksheets(1).Name = " "',
+			'Worksheets(1).Name = String$(31, "a")',
+			'Worksheets(1).Name = Space(31)',
+			'Worksheets(1).Name = "a-b c"',
+		);
+		expect(byCode(analyzeModule(quiet), NAME)).toHaveLength(0);
+		// A String or Space the module declares is the module's own.
+		const own = 'Option Explicit\nFunction Space(n As Long) As String\n    Space = "x"\nEnd Function\nFunction Main() As Variant\n    Worksheets(1).Name = Space(32)\nEnd Function\n';
+		expect(byCode(analyzeModule(own), NAME)).toHaveLength(0);
+	});
+});
+
+describe('host-argument-out-of-range - blank addresses and shared sheet members (issue #276)', () => {
+	it('flags Range("") and Range(" ")', () => {
+		for (const expr of ['Range("")', 'Range(" ")']) {
+			const src = wrap(`Main = ${expr}.Address`);
+			expectDiagnostic(src, byCode(analyzeModule(src), RANGE), RANGE, { message: ['blank', "'1004'"] });
+		}
+	});
+
+	it('flags Shapes(0) on ActiveSheet and Sheets(1), which a Worksheet and a Chart both have', () => {
+		for (const expr of ['ActiveSheet.Shapes(0)', 'Sheets(1).Shapes(0)', 'ActiveSheet.Shapes(-1)']) {
+			const src = wrap(`Main = ${expr}.Name`);
+			expectDiagnostic(src, byCode(analyzeModule(src), RANGE), RANGE, { message: "'-2147024809'" });
+		}
+	});
+
+	it('does not judge an address a workbook name may spell', () => {
+		for (const expr of ['Range("A1:ZZZZ1")', 'Range("ZZZZ1")', 'Range("AAAA1")']) {
+			expect(byCode(analyzeModule(wrap(`Main = ${expr}.Address`)), RANGE), expr).toEqual([]);
+		}
+	});
 });
 
 describe('multi-cell-range-as-scalar (issue #122)', () => {
