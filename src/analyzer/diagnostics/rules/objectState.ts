@@ -633,6 +633,24 @@ function checkObjectVariableNotSetStatement(
 			);
 		}
 	}
+	// `x = c` reads c's default member, which needs an object: on c still
+	// Nothing it raises 91 (issue #256, measured in Excel 16.0). A type with
+	// no default member, or one that needs an argument, is object-default-value's.
+	for (const span of branches) {
+		const target = bareAssignmentTarget(source, span);
+		const value = target?.valueTokens.filter((tok) => tok.kind !== 'comment') ?? [];
+		const lower = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
+		const local = lower ? locals.get(lower) : undefined;
+		if (!target || !local || local.letOnly || locals.has(target.name.toLowerCase()) || state.get(lower!) !== 'unset'
+			|| guardedAt(lower!, span.start + value[0].start) || objectLetAssignmentVerdict(local.asType, memberCtx) !== 'lets') {
+			continue;
+		}
+		push(
+			'objectVariableNotSet',
+			`Object variable '${value[0].rawText}' is Nothing when its default member is read. This will raise Run-time error '91': Object variable or With block variable not set.`,
+			{ start: span.start + value[0].start, end: span.start + value[0].end },
+		);
+	}
 	const passedWhole = localsNamedWhole(source, stmt.span, locals, OBJECT_READ_ONLY_INTRINSICS);
 	for (const hit of unsetObjectMemberAccesses(source, stmt.span, locals, state, memberCtx)) {
 		// An access after a whole pass in the same statement, as in

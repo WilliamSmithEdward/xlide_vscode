@@ -384,13 +384,14 @@ function projectObjectMemberDefinition(symbol: VbaSymbol): VbaProjectClassMember
  * DISPID_VALUE). VBE exports it as `Attribute X.VB_UserMemId = 0`; parse the
  * value numerically rather than by string match so non-canonical forms like
  * `&H0` resolve deterministically, while `-4` (DISPID_NEWENUM, the `_NewEnum`
- * enumerator) correctly stays non-default.
+ * enumerator) correctly stays non-default. A Public field is marked with
+ * `VB_VarUserMemId`, which the VBE honours the same way (issue #256).
  */
 const DISPID_VALUE = 0;
 
 function isDefaultMemberAttribute(attr: VbaSymbolAttribute): boolean {
 	return (
-		attr.name.toLowerCase() === 'vb_usermemid' &&
+		(attr.name.toLowerCase() === 'vb_usermemid' || attr.name.toLowerCase() === 'vb_varusermemid') &&
 		parseVbaIntegerLiteral(attr.valueRaw) === DISPID_VALUE
 	);
 }
