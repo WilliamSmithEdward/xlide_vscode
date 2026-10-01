@@ -25,7 +25,15 @@
 //      Columns(16385), Range("A1048576").Offset(1, 0),
 //      Range("A2").Resize(1048576), Range("B2").Cells(1048576, 1) and
 //      Range("A5").Rows(1048573) -> 1004; Cells(1048576, 16384) and
-//      Range("A2").Offset(0) or Offset(-1) run. ActiveDocument.Range(-1, 0), Range(0, -1),
+//      Range("A2").Offset(0) or Offset(-1) run. On a range, Cells, Item, Rows
+//      and Columns count from its top-left cell (issue #275, measured
+//      2026-10-01): Range("C3").Cells(-1, -1) is A1, Range("B2:C3").Rows(0)
+//      is B1:C1, and one index w columns wide is Cells((i - 1) \ w + 1,
+//      (i - 1) Mod w + 1), so Range("B2:C3").Cells(0) is A2. Each raises
+//      1004 only where it lands above row 1 or left of column A:
+//      Range("A1").Cells(0), Range("B2").Cells(-1). A range the code does not
+//      spell out, a variable or ActiveCell, is not judged.
+//      ActiveDocument.Range(-1, 0), Range(0, -1),
 //      Range(1, 0) -> 4608 in Word; Range(0, 0) runs.
 //  - sheet-name-invalid
 //      Worksheets(1).Name = "a:b", "", a 32-character name, or a name holding
@@ -73,6 +81,8 @@ const EXCEL_MAX_COLUMN = 16384;
  * own check. `Range("A2").Offset(0)` and `Offset(-1)` run (issue #182).
  */
 const RANGE_COORDINATE_MEMBERS: ReadonlySet<string> = new Set(['cells', 'range', 'offset', 'resize']);
+/** The members that count from a range's own top-left cell (issue #275). */
+const RANGE_RELATIVE_MEMBERS: ReadonlySet<string> = new Set(['cells', 'item', 'rows', 'columns']);
 const SHEET_NAME_MAX = 31;
 const SHEET_NAME_FORBIDDEN = /[:\\/?*[\]]/;
 
@@ -198,7 +208,8 @@ function checkSpan(
 		const collection = lower === 'item' && isCollectionType(callee.receiver, model)
 			? callee.receiver
 			: callee.returns && isCollectionType(callee.returns, model) && callee.openIndex > 0 ? callee.returns : undefined;
-		if (collection && callee.args.length === 1 && !RANGE_COORDINATE_MEMBERS.has(lower)) {
+		const relative = host === 'Excel' && callee.receiver === 'Excel.Range' && RANGE_RELATIVE_MEMBERS.has(lower);
+		if (collection && callee.args.length === 1 && !RANGE_COORDINATE_MEMBERS.has(lower) && !relative) {
 			const index = valueOf(callee.args[0]);
 			if (index !== undefined && index < 1) {
 				const error = collectionIndexError(host, collection, model);
@@ -524,6 +535,11 @@ function checkExcelCallee(
 	// receiver starts at A1 or below, so the count alone past the edge is
 	// already off the sheet (issue #182).
 	const origin = singleCellReceiver(toks, callee.nameIndex - 1);
+	// On a range, 0 and below reach above or left of it, and are judged
+	// only on a range the code spells out (issue #275).
+	if (callee.receiver === 'Excel.Range' && RANGE_RELATIVE_MEMBERS.has(lower) && checkBeforeRange(span, toks, callee, valueOf, push)) {
+		return;
+	}
 	const fromRow = origin?.row ?? 1;
 	const fromColumn = origin?.column ?? 1;
 	const from = origin ? ` from ${origin.text}` : '';
@@ -731,6 +747,12 @@ function pastSheetEdge(row: number | undefined, column: number | undefined): str
 
 /** The single-cell literal `Range("B2")` ending at `toks[closeIndex]`, when that is the receiver. */
 function singleCellReceiver(toks: readonly VbaToken[], dotIndex: number): { row: number; column: number; text: string } | undefined {
+	const block = literalRangeReceiver(toks, dotIndex);
+	return block && block.rows === 1 && block.width === 1 ? block : undefined;
+}
+
+/** The literal `Range("B2:C3")` before the dot at `dotIndex`: its top-left cell and its size. */
+function literalRangeReceiver(toks: readonly VbaToken[], dotIndex: number): { row: number; column: number; rows: number; width: number; text: string } | undefined {
 	if (toks[dotIndex]?.rawText !== '.' || toks[dotIndex - 1]?.rawText !== ')') {
 		return undefined;
 	}
@@ -740,10 +762,69 @@ function singleCellReceiver(toks: readonly VbaToken[], dotIndex: number): { row:
 		return undefined;
 	}
 	const area = parseA1Address(stringLiteralValue(toks[open + 1].rawText));
-	if (!area?.valid || area.multiCell || area.row === undefined || area.column === undefined) {
+	if (!area?.valid || area.row === undefined || area.column === undefined) {
 		return undefined;
 	}
-	return { row: area.row, column: area.column, text: `Range("${area.text}")` };
+	const endRow = area.endRow ?? area.row;
+	const endColumn = area.endColumn ?? area.column;
+	return {
+		row: Math.min(area.row, endRow),
+		column: Math.min(area.column, endColumn),
+		rows: Math.abs(endRow - area.row) + 1,
+		width: Math.abs(endColumn - area.column) + 1,
+		text: `Range("${area.text}")`,
+	};
+}
+
+/**
+ * Cells, Item, Rows or Columns on a range at 0 or below (issue #275,
+ * measured in Excel 16.0). They count from the range's top-left cell,
+ * so they raise 1004 only where they land above row 1 or left of
+ * column A, which is known for a literal `Range("B2")` receiver alone.
+ * One index over a range w columns wide is Cells((i - 1) \ w + 1,
+ * (i - 1) Mod w + 1), with VBA's truncating \ and Mod. Returns true
+ * when an index is 0 or below, reported or not, so the caller's checks
+ * for a sheet's own Cells do not run.
+ */
+function checkBeforeRange(
+	span: Span,
+	toks: readonly VbaToken[],
+	callee: HostCallee,
+	valueOf: (arg: readonly VbaToken[]) => number | undefined,
+	push: PushFn,
+): boolean {
+	const values = callee.args.map((arg) => valueOf(arg));
+	if (!values.some((value) => value !== undefined && value < 1)) {
+		return false;
+	}
+	const block = literalRangeReceiver(toks, callee.nameIndex - 1);
+	const lower = callee.name.toLowerCase();
+	if (!block || callee.args.length > 2 || ((lower === 'rows' || lower === 'columns') && callee.args.length !== 1)) {
+		return true;
+	}
+	let row: number | undefined;
+	let column: number | undefined;
+	if (lower === 'rows') {
+		row = block.row + values[0]! - 1;
+	} else if (lower === 'columns') {
+		column = block.column + values[0]! - 1;
+	} else if (callee.args.length === 2) {
+		row = values[0] === undefined ? undefined : block.row + values[0] - 1;
+		column = values[1] === undefined ? undefined : block.column + values[1] - 1;
+	} else {
+		const k = values[0]! - 1;
+		row = block.row + Math.trunc(k / block.width);
+		column = block.column + (k % block.width);
+	}
+	if ((row !== undefined && row < 1) || (column !== undefined && column < 1)) {
+		const where = row !== undefined && row < 1 ? `row ${row}, above row 1` : `column ${column}, left of column A`;
+		push(
+			'hostArgumentOutOfRange',
+			`${callee.name}(${values.map((value) => value ?? '...').join(', ')}) counts from the top-left cell of ${block.text} and lands at ${where}. This will raise Run-time error '1004': Application-defined or object-defined error.`,
+			{ start: span.start + toks[callee.openIndex + 1].start, end: span.start + toks[callee.closeIndex - 1].end },
+		);
+	}
+	return true;
 }
 
 /** Index of the first token of the receiver chain that ends at the dot before `nameIndex`. */
@@ -766,6 +847,9 @@ interface A1Area {
 	multiCell: boolean;
 	row?: number;
 	column?: number;
+	/** The second cell of `A1:B2`. */
+	endRow?: number;
+	endColumn?: number;
 }
 
 /**
@@ -790,7 +874,7 @@ function parseA1Address(text: string): A1Area | undefined {
 		const columns = cells.map((match) => columnNumber(match![1]));
 		const valid = rows.every((row) => row >= 1 && row <= EXCEL_MAX_ROW) && columns.every((column) => column >= 1 && column <= EXCEL_MAX_COLUMN);
 		const multiCell = cells.length === 2 && (rows[0] !== rows[1] || columns[0] !== columns[1]);
-		return { text, valid, multiCell, row: rows[0], column: columns[0] };
+		return { text, valid, multiCell, row: rows[0], column: columns[0], endRow: rows[1], endColumn: columns[1] };
 	}
 	if (parts.length === 2) {
 		const columnsOnly = parts.map((part) => /^\$?([A-Za-z]{1,3})$/.exec(part));
