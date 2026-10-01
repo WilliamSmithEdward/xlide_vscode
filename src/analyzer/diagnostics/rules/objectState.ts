@@ -349,6 +349,8 @@ function walkObjectState(
 	const walk = procedureHasUnstructuredFlow(source, member, activity)
 		? walkStraightLineBody
 		: walkBranchMergedBody;
+	// The For Each loops with no way out but the end.
+	const nothingAfter = new Set<BodyNode>();
 	// A statement a known guard keeps from running (issue #273).
 	const unreachable = unreachableStatementsIn(source, member, symbols, activity);
 	walk(source, member.body, (node) => isInactiveNode(activity, node) || unreachable.has(node), {
@@ -380,9 +382,12 @@ function walkObjectState(
 					);
 				}
 				const lower = node.controlVariable?.toLowerCase();
-				if (node.each && lower && locals.has(lower) && state.get(lower) === 'unset'
-					&& bodyCanLeaveLoop(source, node, activity)) {
-					state.set(lower, 'unknown');
+				if (node.each && lower && locals.has(lower) && !locals.get(lower)!.letOnly) {
+					if (!bodyCanLeaveLoop(source, node, activity)) {
+						nothingAfter.add(node);
+					} else if (state.get(lower) === 'unset') {
+						state.set(lower, 'unknown');
+					}
 				}
 				return;
 			}
@@ -396,6 +401,14 @@ function walkObjectState(
 					`Object variable '${receiver.name}' is Nothing before With member access. This will raise Run-time error '91': Object variable or With block variable not set.`,
 					receiver.span,
 				);
+			}
+		},
+		// A For Each that ends leaves its control variable Nothing, over an
+		// empty collection too (issue #336, measured in Excel 16.0).
+		afterBlock: (node) => {
+			const lower = node.kind === 'ForBlock' ? node.controlVariable?.toLowerCase() : undefined;
+			if (lower && nothingAfter.has(node)) {
+				state.set(lower, 'unset');
 			}
 		},
 		touchesInStatement: (stmt) => {

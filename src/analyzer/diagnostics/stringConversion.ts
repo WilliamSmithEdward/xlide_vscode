@@ -27,6 +27,10 @@ export type NumericStringVerdict = { kind: 'invalid' } | { kind: 'number'; value
 
 const BLANK_EDGES = /^[ \t]+|[ \t]+$/g;
 
+/** The Date serials of 1/1/100 and 12/31/9999, the range a Date holds. */
+const DATE_SERIAL_MIN = -657434;
+const DATE_SERIAL_MAX = 2958465;
+
 export function numericStringVerdict(text: string): NumericStringVerdict {
 	const trimmed = text.replace(BLANK_EDGES, '');
 	if (trimmed.length === 0) {
@@ -115,6 +119,13 @@ export function isInvalidTimeString(text: string): boolean {
 /** Whether no locale converts the string to a Date. */
 export function isInvalidDateString(text: string): boolean {
 	const trimmed = text.replace(BLANK_EDGES, '');
+	// A number every locale reads alike is that day's serial: "&HFF" is
+	// 9/11/1900, and one past 12/31/9999 raises (issue #336, measured in
+	// Excel 16.0).
+	const number = numericStringVerdict(trimmed);
+	if (number.kind !== 'invalid' && number.value !== undefined) {
+		return number.value < DATE_SERIAL_MIN || number.value >= DATE_SERIAL_MAX + 1;
+	}
 	if (!/[0-9]/.test(trimmed)) {
 		return true;
 	}

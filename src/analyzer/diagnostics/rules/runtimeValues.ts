@@ -465,8 +465,9 @@ function likeSubject(toks: readonly VbaToken[], likeIndex: number, knownStrings:
  * list with a character left to compare, which is when Like raises 93
  * (issue #193, measured in Excel 16.0): "xy" Like "?[" raises, "x" Like "?["
  * is False, and so is "zb" Like "a[z-a]", which fails at the "a". A `*`
- * before the bad list, or a comparison Option Compare Text could decide
- * otherwise, proves nothing.
+ * with a character left reaches a bad list anywhere after it: "b" Like
+ * "*[" raises (issue #336). A comparison Option Compare Text could
+ * decide otherwise proves nothing.
  */
 function likeReachesBadList(subject: string, pattern: string): boolean {
 	let p = 0;
@@ -491,7 +492,9 @@ function likeReachesBadList(subject: string, pattern: string): boolean {
 			};
 			i = close;
 		} else if (ch === '*') {
-			return false;
+			// A `*` with a character left reaches a bad list anywhere after
+			// it: "b" Like "*[" and "b" Like "*[a][" raise (issue #336).
+			return p < subject.length && invalidLikePattern(pattern.slice(i + 1)) !== undefined;
 		} else if (ch === '?') {
 			matches = () => true;
 		} else if (ch === '#') {
@@ -1349,7 +1352,12 @@ function integerArgumentOutsideBounds(
 			?? source.slice(sliceStart + toks[0].start, sliceStart + toks[toks.length - 1].end),
 		constants,
 	);
-	const verdict = expressionValue === undefined ? 'runs' : argumentValueVerdict(expressionValue, spec);
+	// A local past the Long range overflows as it converts: Chr(a) with a
+	// Double of 1E+300 (issue #336). argument-type-mismatch sees only its type.
+	const local = toks.length === 1 && tokenName(toks[0]) !== undefined;
+	const pastLong = local && !spec.fractional && expressionValue !== undefined
+		&& (expressionValue < OVERFLOW_RANGES.Long.min || expressionValue > OVERFLOW_RANGES.Long.max);
+	const verdict = expressionValue === undefined ? 'runs' : pastLong ? 6 : argumentValueVerdict(expressionValue, spec);
 	if (verdict === 'runs') {
 		return undefined;
 	}
@@ -1392,7 +1400,9 @@ function passedArgumentValue(value: number, spec: RuntimeArgumentValueSpec): num
 /** The argument as the message states it, with the rounded value VBA uses. */
 function shownArgumentValue(value: number, spec: RuntimeArgumentValueSpec): number | string {
 	const passed = passedArgumentValue(value, spec);
-	return passed === value ? value : `${value}, which VBA rounds to ${passed}`;
+	// 1E+300 as VBA prints it, not 1e+300.
+	const shown = Math.abs(value) >= 1e15 ? value.toExponential().replace('e', 'E') : value;
+	return passed === value ? shown : `${shown}, which VBA rounds to ${passed}`;
 }
 
 function integerArgumentValueInBounds(
