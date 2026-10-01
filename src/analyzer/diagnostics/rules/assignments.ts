@@ -79,6 +79,7 @@ import {
 	type SourceNameScope,
 	sourceNameScopeFor,
 	type SourceQualifiedDeclaredTypeResolver,
+	stringLiteralValue,
 	typeEnvironmentFor,
 	unreachableStatementsIn,
 	unwrapOuterParens,
@@ -345,7 +346,7 @@ export function checkAssignmentTypes(
 
 		// `s = "b"` then `n = s`: the String a local or an array element
 		// is known to hold here, from its last assignment in a straight line.
-		function knownStringAt(stmt: LeafStatementNode, span: Span, valueTokens: readonly VbaToken[]): InferredArgumentType | undefined {
+		function knownStringAt(stmt: LeafStatementNode, span: Span, valueTokens: readonly VbaToken[], expected: string): InferredArgumentType | undefined {
 			const value = unwrapOuterParens(valueTokens.filter((tok) => tok.kind !== 'comment'));
 			if (value.length === 0 || (unreachable ??= unreachableStatementsIn(source, procedure, symbols, activity)).has(stmt)) {
 				return undefined;
@@ -358,6 +359,15 @@ export function checkAssignmentTypes(
 				return known?.kind === 'string' && !known.contentMutated
 					? { type: 'String', label: `${label} ${JSON.stringify(known.value)}`, span: valueSpan, stringValue: known.value as string }
 					: undefined;
+			}
+			// `"a" & "b"`, `Left("abc", 1)`, `o & 5` (issue #405). A Date written
+			// as text converts back to a Date, so that target is left alone.
+			const knownAt = (valuesAt ??= knownLocalLiteralValuesAt(source, procedure, symbols, activity))(stmt);
+			const spelled = spelledText(value, (lower) => knownAt.get(lower), env, sourceNames);
+			if (spelled) {
+				return spelled.standIn && normalizeType(expected) === 'date'
+					? undefined
+					: { type: 'String', label: spelled.standIn ? `${label} a Date written as text` : `${label} ${JSON.stringify(spelled.text)}`, span: valueSpan, stringValue: spelled.text };
 			}
 			// `v = Array("1", "b")` then `n = v(1)` (issue #260).
 			written ??= elementsWrittenIn(source, procedure, activity);
@@ -566,7 +576,7 @@ export function checkAssignmentTypes(
 				);
 				return;
 			}
-			const knownString = isKnownScalarType(normalizeType(expected) ?? '') ? knownStringAt(stmt, span, assignment.valueTokens) : undefined;
+			const knownString = isKnownScalarType(normalizeType(expected) ?? '') ? knownStringAt(stmt, span, assignment.valueTokens, expected) : undefined;
 			if (knownString) {
 				const reason = incompatibilityReason(expected, knownString);
 				if (reason) {
@@ -1715,4 +1725,131 @@ function midStatementLiteralTargetViolation(
 			"The target of a Mid statement must be a writable String variable, not a " +
 			`${target[0].kind === 'stringLiteral' ? 'string literal' : 'number'}. Assigning into a literal is a compile error.`,
 	};
+}
+
+/**
+ * The text a String expression spells out, or undefined. `standIn` marks a
+ * Date written as text, a Date literal or local or CStr of one, whose text
+ * the locale decides: it is never a number or a Boolean, so the text stands
+ * in for it only to say that (issue #405, measured in Excel 16.0).
+ */
+interface SpelledText {
+	text: string;
+	standIn: boolean;
+}
+
+/** The text functions folded over known text: `Left("abc", 1)` is "a". */
+const TEXT_FUNCTIONS: ReadonlySet<string> = new Set(['cstr', 'left', 'right', 'mid', 'ucase', 'lcase', 'trim', 'ltrim', 'rtrim']);
+
+/**
+ * `"a" & "b"`, `Left("abc", 1)`, `o & 5` with o a Boolean known to be True:
+ * each part of a `&` chain a literal, a known local, or a text function over
+ * those. A whole number is written in digits and a Boolean as True or False.
+ */
+function spelledText(
+	toks: readonly VbaToken[],
+	known: (lower: string) => KnownLocalValue | undefined,
+	env: ReadonlyMap<string, string>,
+	sourceNames: SourceNameScope,
+): SpelledText | undefined {
+	let text = '';
+	let standIn = false;
+	for (const part of splitTopLevelTokenGroups(toks, 0, '&')) {
+		const spelled = spelledPart(unwrapOuterParens(part), known, env, sourceNames);
+		if (!spelled) {
+			return undefined;
+		}
+		text += spelled.text;
+		standIn ||= spelled.standIn;
+	}
+	return { text, standIn };
+}
+
+function spelledPart(
+	part: VbaToken[],
+	known: (lower: string) => KnownLocalValue | undefined,
+	env: ReadonlyMap<string, string>,
+	sourceNames: SourceNameScope,
+): SpelledText | undefined {
+	const exact = (text: string): SpelledText => ({ text, standIn: false });
+	if (part.length === 2 && part[0].rawText === '-' && /^\d+[%&]?$/.test(part[1].rawText)) {
+		return exact(`-${Number(part[1].rawText.replace(/[%&]$/, ''))}`);
+	}
+	if (part.length === 1) {
+		const tok = part[0];
+		if (tok.kind === 'stringLiteral') {
+			return exact(stringLiteralValue(tok.rawText));
+		}
+		if (tok.kind === 'integerLiteral' && /^\d+[%&]?$/.test(tok.rawText)) {
+			return exact(String(Number(tok.rawText.replace(/[%&]$/, ''))));
+		}
+		if (tok.kind === 'dateLiteral') {
+			return { text: tok.rawText, standIn: true };
+		}
+		const word = tokenText(tok);
+		if (word === 'true' || word === 'false') {
+			return exact(word === 'true' ? 'True' : 'False');
+		}
+		const lower = tokenName(tok)?.toLowerCase();
+		if (!lower) {
+			return undefined;
+		}
+		const type = normalizeType(env.get(lower));
+		if (type === 'date') {
+			return { text: `[${tok.rawText}]`, standIn: true };
+		}
+		const value = known(lower);
+		if (value?.kind === 'string' && !value.contentMutated) {
+			return exact(value.value as string);
+		}
+		if (value?.kind === 'number' && type === 'boolean') {
+			return exact(value.value === 0 ? 'False' : 'True');
+		}
+		if (value?.kind === 'number' && (type === 'byte' || type === 'integer' || type === 'long') && Number.isInteger(value.value)) {
+			return exact(String(value.value));
+		}
+		return undefined;
+	}
+	// `Left$` lexes as Left and a `$`.
+	const open = part[1]?.rawText === '$' ? 2 : 1;
+	const fn = tokenName(part[0])?.toLowerCase();
+	if (!fn || !TEXT_FUNCTIONS.has(fn) || runtimeCallableSourceShadowed(fn, sourceNames) || part[open]?.rawText !== '(' || matchParenFrom(part, open) !== part.length - 1) {
+		return undefined;
+	}
+	const args = splitTopLevelTokenGroups(part, open + 1, ',', part.length - 1);
+	const subject = spelledText(args[0], known, env, sourceNames);
+	// Only CStr passes a Date written as text on: Left of it depends on the locale.
+	if (!subject || (subject.standIn && fn !== 'cstr')) {
+		return undefined;
+	}
+	const count = (k: number): number | undefined => {
+		const arg = args[k];
+		return arg?.length === 1 && /^\d+$/.test(arg[0].rawText) ? Number(arg[0].rawText) : undefined;
+	};
+	const s = subject.text;
+	switch (fn) {
+		case 'cstr':
+			return args.length === 1 ? subject : undefined;
+		case 'ucase':
+			return args.length === 1 ? exact(s.toUpperCase()) : undefined;
+		case 'lcase':
+			return args.length === 1 ? exact(s.toLowerCase()) : undefined;
+		case 'trim':
+			return args.length === 1 ? exact(s.replace(/^ +| +$/g, '')) : undefined;
+		case 'ltrim':
+			return args.length === 1 ? exact(s.replace(/^ +/, '')) : undefined;
+		case 'rtrim':
+			return args.length === 1 ? exact(s.replace(/ +$/, '')) : undefined;
+		case 'left':
+		case 'right': {
+			const n = args.length === 2 ? count(1) : undefined;
+			return n === undefined ? undefined : exact(fn === 'left' ? s.slice(0, n) : s.slice(Math.max(0, s.length - n)));
+		}
+		case 'mid': {
+			const start = count(1);
+			const length = args.length === 3 ? count(2) : args.length === 2 ? s.length : undefined;
+			return start === undefined || start < 1 || length === undefined ? undefined : exact(s.substr(start - 1, length));
+		}
+	}
+	return undefined;
 }
