@@ -1120,6 +1120,18 @@ export const DIAGNOSTIC_RULES = {
 		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
+	unboundedRecursion: {
+		code: 'unbounded-recursion',
+		title: 'Sub or Function calls itself on every run',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
+		source: 'XLIDE',
+		specReference: 'VBE runtime error 28: Out of stack space (issue #240, Excel 16.0)',
+		allowSeverityDowngrade: true,
+		confidence: 'high',
+	},
 	objectVariableNotSet: {
 		code: 'object-variable-not-set',
 		title: 'Object variable not set',
