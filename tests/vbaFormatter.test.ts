@@ -463,6 +463,16 @@ describe('formatVbaModule - safety', () => {
 		expect(tokenStreamDifference('x = 1 + _\n2', 'x = 1 + 2')).toContain('continuation');
 	});
 
+	it('refuses to move a line continuation, even when the count stays the same', () => {
+		// Placed at column 1, the leading ` _` lost its space and became a stray
+		// `_`, and the stray `_` below it gained a tab and became a continuation:
+		// one continuation either way, a different module (found by
+		// tests/properties).
+		expect(tokenStreamDifference(' _\r\n_\r\n', '_\r\n\t_\r\n')).toContain('moved');
+		const result = formatVbaModule(' _\r\n_\r\n', { tabSize: 0, insertSpaces: false });
+		expect(result.text).toBeUndefined();
+	});
+
 	it('formats an empty module and a module of only blank lines', () => {
 		expect(format('')).toBe('');
 		expect(format('\n\n')).toBe('\n\n');
