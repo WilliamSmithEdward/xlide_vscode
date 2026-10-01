@@ -987,18 +987,26 @@ export function checkUnallocatedDynamicArrayAccess(
 		for (const lower of arrays.keys()) {
 			state.set(lower, 'unallocated');
 		}
+		// The GoTo-following walk runs the body until its labels settle,
+		// and reports on its last run (issue #271).
+		let silent = false;
+		const report: PushFn = (...finding) => {
+			if (!silent) {
+				push(...finding);
+			}
+		};
 		const walk = procedureHasUnstructuredFlow(source, member, activity)
 			? walkStraightLineBody
 			: walkBranchMergedBody;
 		walk(source, member.body, (node) => isInactiveNode(activity, node), {
 			onStatement: (stmt) =>
-				checkUnallocatedDynamicArrayAccessStatement(source, stmt, arrays, state, push),
+				checkUnallocatedDynamicArrayAccessStatement(source, stmt, arrays, state, report),
 			onBlock: (node) => {
 				// `For Each x In a` over an array with no storage raises 92, For
 				// loop not initialized, not 9 (issue #181, measured in Excel 16.0).
 				const over = node.kind === 'ForBlock' && node.each ? node.sourceExpression?.trim().toLowerCase() : undefined;
 				if (over && node.kind === 'ForBlock' && node.sourceExpressionSpan && state.get(over) === 'unallocated') {
-					push(
+					report(
 						'unallocatedDynamicArrayAccess',
 						`Dynamic array '${arrays.get(over)!.name}' is not allocated when For Each asks it for its elements. This will raise Run-time error '92': For loop not initialized.`,
 						node.sourceExpressionSpan,
@@ -1018,6 +1026,9 @@ export function checkUnallocatedDynamicArrayAccess(
 			},
 			setState: (key, value) => state.set(key, value as DynamicArrayAllocationState),
 			lattice: { init: 'unallocated', good: 'allocated', unknown: 'unknown' },
+			setSilent: (quiet) => {
+				silent = quiet;
+			},
 		});
 	}
 }

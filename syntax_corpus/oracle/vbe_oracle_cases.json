@@ -46950,6 +46950,248 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long, s As String\r\n    s = \"abc\"\r\n    Select Case n\r\n    Case s\r\n        Main = 1\r\n    Case Else\r\n        Main = 2\r\n    End Select\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue271_01_runtime",
+      "description": "Issue #271 object and array state through GoTo, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    GoTo Setup\r\nUse:\r\n    c.Add 1\r\n    Main = c.Count\r\n    Exit Function\r\nSetup:\r\n    Set c = New Collection\r\n    GoTo Use\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue271_02_runtime",
+      "description": "Issue #271 object and array state through GoTo, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    GoTo Setup\r\nUse:\r\n    With c\r\n        Main = .Count\r\n    End With\r\n    Exit Function\r\nSetup:\r\n    Set c = New Collection\r\n    GoTo Use\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue271_03_runtime",
+      "description": "Issue #271 object and array state through GoTo, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, x As Variant\r\n    GoTo Setup\r\nUse:\r\n    For Each x In c\r\n    Next\r\n    Main = 1\r\n    Exit Function\r\nSetup:\r\n    Set c = New Collection\r\n    GoTo Use\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue271_04_runtime",
+      "description": "Issue #271 object and array state through GoTo, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    Set c = Nothing\r\n    GoTo Setup\r\nUse:\r\n    Main = c.Count\r\n    Exit Function\r\nSetup:\r\n    Set c = New Collection\r\n    GoTo Use\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue271_05_runtime",
+      "description": "Issue #271 object and array state through GoTo, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    On Error GoTo Setup\r\n    Err.Raise 5\r\nUse:\r\n    Main = c.Count\r\n    Exit Function\r\nSetup:\r\n    Set c = New Collection\r\n    Resume Use\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue271_06_runtime",
+      "description": "Issue #271 object and array state through GoTo, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long\r\n    GoTo Setup\r\nUse:\r\n    Main = UBound(a)\r\n    Exit Function\r\nSetup:\r\n    ReDim a(2)\r\n    GoTo Use\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue271_07_runtime",
+      "description": "Issue #271 object and array state through GoTo, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long\r\n    ReDim a(2)\r\n    Erase a\r\n    GoTo Setup\r\nUse:\r\n    Main = UBound(a)\r\n    Exit Function\r\nSetup:\r\n    ReDim a(2)\r\n    GoTo Use\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue271_08_runtime",
+      "description": "Issue #271 object and array state through GoTo, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    GoTo Use\r\nSetup:\r\n    Set c = New Collection\r\nUse:\r\n    Main = c.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue271_09_runtime",
+      "description": "Issue #271 object and array state through GoTo, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long\r\n    GoTo Use\r\nSetup:\r\n    ReDim a(2)\r\nUse:\r\n    Main = UBound(a)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue271_10_runtime",
+      "description": "Issue #271 object and array state through GoTo, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    GoTo Use\r\n    Set c = New Collection\r\nUse:\r\n    Main = c.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue271_11_runtime",
+      "description": "Issue #271 object and array state through GoTo, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long\r\n    If n = 1 Then GoTo Use\r\n    Set c = New Collection\r\nUse:\r\n    Main = c.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue271_12_runtime",
+      "description": "Issue #271 object and array state through GoTo, case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    GoTo Setup\r\n    Main = 0\r\nSetup:\r\n    Set c = New Collection\r\n    Main = c.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue271_13_runtime",
+      "description": "Issue #271 object and array state through GoTo, case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, tries As Long\r\nRetry:\r\n    tries = tries + 1\r\n    If tries < 2 Then\r\n        Set c = New Collection\r\n        GoTo Retry\r\n    End If\r\n    Main = c.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue271_14_runtime",
+      "description": "Issue #271 object and array state through GoTo, case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    Main = c.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue271_15_runtime",
+      "description": "Issue #271 object and array state through GoTo, case 15, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    Set c = New Collection\r\nHere:\r\n    Main = c.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue271_16_runtime",
+      "description": "Issue #271 object and array state through GoTo, case 16, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    GoTo Use\r\nUse:\r\n    Main = c.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue271_17_runtime",
+      "description": "Issue #271 object and array state through GoTo, case 17, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long\r\n    If n = 1 Then GoTo Done\r\n    Main = c.Count\r\nDone:\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue271_18_runtime",
+      "description": "Issue #271 object and array state through GoTo, case 18, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    GoTo Done\r\n    Main = c.Count\r\nDone:\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue271_19_runtime",
+      "description": "Issue #271 object and array state through GoTo, case 19, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long\r\n    n = 1\r\n    If n = 1 Then GoTo Skip\r\nUse:\r\n    Main = c.Count\r\n    Exit Function\r\nSkip:\r\n    If n = 1 Then\r\n        Set c = New Collection\r\n        GoTo Use\r\n    End If\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue271_20_runtime",
+      "description": "Issue #271 object and array state through GoTo, case 20, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, i As Long\r\n    For i = 1 To 2\r\n        If i = 2 Then GoTo Use\r\n    Next\r\nUse:\r\n    Main = c.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue271_21_runtime",
+      "description": "Issue #271 object and array state through GoTo, case 21, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long\r\n    Set c = New Collection\r\n    GoTo Go\r\nGo:\r\n    If n = 1 Then\r\n        Set c = Nothing\r\n    End If\r\n    Main = c.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue271_22_runtime",
+      "description": "Issue #271 object and array state through GoTo, case 22, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, i As Long\r\n    For i = 1 To 2\r\n        If i = 2 Then GoTo Use\r\n    Next\r\n    Exit Function\r\nUse:\r\n    Main = c.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }
