@@ -13,9 +13,10 @@
 import type { VbaToken } from '../lexer/tokenKinds';
 import { statementTokensCached, tokenName, tokensWithoutLeadingLineNumber, tokenWord } from '../lexer/tokenHelpers';
 import { statementLabelDeclarations, statementLabelReferences } from '../flow/procedureLabels';
-import type { BodyNode, IfBlockNode, LeafStatementNode } from '../parser/nodes';
+import type { BodyNode, IfBlockNode, LeafStatementNode, Span } from '../parser/nodes';
 import { isLeafStatement } from '../parser/nodes';
 import { blockHeaderLeaves, isLoopBlock, selectArms } from './blockHeaders';
+import { ifConditionTokens } from './conditionValue';
 
 const NO_NAMES: ReadonlySet<string> = new Set();
 
@@ -45,6 +46,13 @@ export interface StraightLineDataflowHooks {
 	 * reports on its last run only (issue #271).
 	 */
 	setSilent?(silent: boolean): void;
+	/**
+	 * What an If condition comes to from the rule's own state, undefined
+	 * when that is not certain: `c Is Nothing` with c never Set. An arm the
+	 * condition rules out is not walked, and one that always leaves ends
+	 * the path (issue #273).
+	 */
+	knownCondition?(condition: readonly VbaToken[]): boolean | undefined;
 }
 
 /**
@@ -66,9 +74,6 @@ export function walkStraightLineBody(
 
 /** The most runs the GoTo-following walk takes to settle its labels. */
 const MAX_JUMP_PASSES = 6;
-
-/** Statement heads after which the next statement is reached only by a jump. */
-const ENDING_HEADS: ReadonlySet<string> = new Set(['exit', 'resume', 'return']);
 
 /**
  * Walks the top-level statements following GoTo (issue #271, measured in
@@ -141,6 +146,24 @@ function walkFollowingJumps(
 				if (!reachable) {
 					continue;
 				}
+				const guard = knownSingleLineIf(source, list, i, hooks);
+				if (guard?.known === false) {
+					i += guard.group.length - 1;
+					continue;
+				}
+				if (guard?.leaves) {
+					// It runs, and a GoTo in it arrives with what holds after it.
+					i += guard.group.length - 1;
+					hooks.onStatement(guard.group[0]);
+					walkSingleLineIfTail(guard.group.slice(1), hooks);
+					for (const stmt of guard.group) {
+						for (const ref of statementLabelReferences(source, stmt.span)) {
+							arrive(ref.key, ref.statementKind === 'goto' ? snapshotState() : unknownState);
+						}
+					}
+					reachable = false;
+					continue;
+				}
 				if (isSingleLineIfTail(node)) {
 					const tail: LeafStatementNode[] = [];
 					for (; i < list.length && isSingleLineIfTail(list[i]); i++) {
@@ -162,11 +185,11 @@ function walkFollowingJumps(
 					const toks = statementTokensAfterLabel(source, leaf);
 					const head = tokenWord(toks[0]);
 					// A single-line If starts with If, so only a plain GoTo, Exit,
-					// Resume, Return or End ends the path here.
+					// Resume, Return, End or Err.Raise ends the path here.
 					for (const ref of statementLabelReferences(source, leaf.span)) {
 						arrive(ref.key, ref.statementKind === 'goto' && head === 'goto' ? snapshotState() : unknownState);
 					}
-					if (head === 'goto' || ENDING_HEADS.has(head) || (head === 'end' && toks.length === 1)) {
+					if (leavesTheList(source, leaf.span)) {
 						reachable = false;
 					}
 					continue;
@@ -179,7 +202,7 @@ function walkFollowingJumps(
 				// or none without Case Else; a With its body once. Each starts from
 				// the block's entry state, and what follows merges where they end.
 				// A loop may run any number of times, so it forgets what it touches.
-				const arms: BodyNode[][] | undefined = node.kind === 'IfBlock' ? node.branches.map((branch) => branch.body)
+				let arms: BodyNode[][] | undefined = node.kind === 'IfBlock' ? node.branches.map((branch) => branch.body)
 					: node.kind === 'SelectBlock' ? selectArms(source, node.body)
 						: node.kind === 'WithBlock' ? [node.body] : undefined;
 				if (!arms) {
@@ -205,6 +228,11 @@ function walkFollowingJumps(
 				for (const lower of headerTouches(source, node, hooks)) {
 					hooks.demoteToUnknown(lower);
 				}
+				// An If runs only the arms its known conditions allow.
+				const ifArms = node.kind === 'IfBlock' ? ifArmsThatMayRun(source, node, hooks) : undefined;
+				if (ifArms) {
+					arms = ifArms.arms.map((branch) => branch.body);
+				}
 				const entry = snapshotState();
 				const ends: Map<string, string>[] = [];
 				for (const arm of arms) {
@@ -214,7 +242,7 @@ function walkFollowingJumps(
 					}
 				}
 				const exhaustive = node.kind === 'WithBlock'
-					|| (node.kind === 'IfBlock' && node.branches.some((branch) => branch.branchKind === 'else'))
+					|| ifArms?.exhaustive === true
 					|| (node.kind === 'SelectBlock' && node.body.some((stmt) => isLeafStatement(stmt) && /^\s*case\s+else\b/i.test(source.slice(stmt.span.start, stmt.span.end))));
 				if (!exhaustive) {
 					ends.push(entry);
@@ -262,8 +290,12 @@ function collectLeaves(body: readonly BodyNode[], isInactive: (node: BodyNode) =
 
 /** A statement's tokens after any leading label or line number. */
 function statementTokensAfterLabel(source: string, node: LeafStatementNode): VbaToken[] {
-	let toks = tokensWithoutLeadingLineNumber(statementTokensCached(source, node.span)).filter((tok) => tok.kind !== 'comment');
-	if (statementLabelDeclarations(source, node.span).length > 0 && toks[1]?.rawText === ':') {
+	return tokensAfterLabel(source, node.span);
+}
+
+function tokensAfterLabel(source: string, span: Span): VbaToken[] {
+	let toks = tokensWithoutLeadingLineNumber(statementTokensCached(source, span)).filter((tok) => tok.kind !== 'comment');
+	if (statementLabelDeclarations(source, span).length > 0 && toks[1]?.rawText === ':') {
 		toks = toks.slice(2);
 	}
 	return toks;
@@ -293,7 +325,11 @@ export function walkBranchMergedBody(
 	walkBody(source, body, isInactive, hooks, true);
 }
 
-/** The walk both entry points share; merging If arms is the one place they differ. */
+/**
+ * The walk both entry points share; merging If arms is the one place they
+ * differ. Returns whether the end of the body is reached: with If arms
+ * merged, a statement that always leaves ends the path (issue #273).
+ */
 function walkBody(
 	source: string,
 	body: readonly BodyNode[],
@@ -302,7 +338,7 @@ function walkBody(
 	mergeIfBlocks: boolean,
 	/** Names an enclosing loop changes: a nested block may run on a later pass. */
 	loopTouched: ReadonlySet<string> = NO_NAMES,
-): void {
+): boolean {
 	for (let i = 0; i < body.length; i++) {
 		const node = body[i];
 		if (isInactive(node)) {
@@ -313,6 +349,16 @@ function walkBody(
 			for (const lower of loopTouched) {
 				hooks.demoteToUnknown(lower);
 			}
+		}
+		const guard = mergeIfBlocks ? knownSingleLineIf(source, body, i, hooks) : undefined;
+		if (guard?.known === false) {
+			i += guard.group.length - 1;
+			continue;
+		}
+		if (guard?.leaves) {
+			hooks.onStatement(guard.group[0]);
+			walkSingleLineIfTail(guard.group.slice(1), hooks);
+			return false;
 		}
 		if (isSingleLineIfTail(node)) {
 			const tail: LeafStatementNode[] = [];
@@ -325,6 +371,10 @@ function walkBody(
 		}
 		if (isLeafStatement(node)) {
 			hooks.onStatement(node);
+			// isSingleLineIfTail's guard narrows node away; it is a leaf here.
+			if (mergeIfBlocks && leavesTheList(source, (body[i] as LeafStatementNode).span)) {
+				return false;
+			}
 			continue;
 		}
 		hooks.onBlock?.(node);
@@ -341,7 +391,9 @@ function walkBody(
 			hooks.setState &&
 			hooks.lattice
 		) {
-			mergeIfBlock(source, node, isInactive, hooks, loopTouched);
+			if (!mergeIfBlock(source, node, isInactive, hooks, loopTouched)) {
+				return false;
+			}
 			continue;
 		}
 		if ('body' in node && Array.isArray(node.body)) {
@@ -354,6 +406,7 @@ function walkBody(
 			}
 		}
 	}
+	return true;
 }
 
 /**
@@ -397,6 +450,78 @@ function isSingleLineIfTail(node: BodyNode): node is LeafStatementNode {
 	return isLeafStatement(node) && node.singleLineIfTail === true;
 }
 
+/** Statement heads after which the rest of the list does not run. */
+const LIST_LEAVING_HEADS: ReadonlySet<string> = new Set(['exit', 'goto', 'resume', 'return']);
+
+/**
+ * Whether a statement always leaves the list it is in: Exit, GoTo,
+ * Resume, Return, a bare End, and Err.Raise unless the procedure resumes
+ * past errors (issue #273).
+ */
+export function leavesTheList(source: string, span: Span, raiseLeaves = true): boolean {
+	const toks = tokensAfterLabel(source, span);
+	const head = tokenWord(toks[0]);
+	return LIST_LEAVING_HEADS.has(head) || (head === 'end' && toks.length === 1)
+		|| (raiseLeaves && head === 'err' && toks[1]?.rawText === '.' && tokenWord(toks[2]) === 'raise');
+}
+
+/**
+ * A single-line If with no Else and the statements after its colons, when
+ * the rule knows its condition (issue #273): false runs none of them, and
+ * true runs them all in order, which leaves when one of them does.
+ */
+function knownSingleLineIf(
+	source: string,
+	list: readonly BodyNode[],
+	i: number,
+	hooks: StraightLineDataflowHooks,
+): { group: LeafStatementNode[]; known: boolean; leaves: boolean } | undefined {
+	const node = list[i];
+	if (!hooks.knownCondition || node.kind !== 'Statement' || node.singleLineIfBranches?.length !== 1) {
+		return undefined;
+	}
+	const condition = ifConditionTokens(tokensAfterLabel(source, node.span));
+	const known = condition ? hooks.knownCondition(condition) : undefined;
+	if (known === undefined) {
+		return undefined;
+	}
+	const group: LeafStatementNode[] = [node];
+	for (let k = i + 1; k < list.length && isSingleLineIfTail(list[k]); k++) {
+		group.push(list[k] as LeafStatementNode);
+	}
+	const branch = node.singleLineIfBranches[0];
+	const leaves = known && group.some((stmt, k) => leavesTheList(source, k === 0 ? branch : stmt.span));
+	return { group, known, leaves };
+}
+
+/**
+ * The arms of an If block that may run, and whether one of them always
+ * does (issue #273). A condition known false drops its arm, and one known
+ * true, or an Else, drops every arm after it.
+ */
+function ifArmsThatMayRun(
+	source: string,
+	ifBlock: IfBlockNode,
+	hooks: StraightLineDataflowHooks,
+): { arms: IfBlockNode['branches']; exhaustive: boolean } {
+	const arms: IfBlockNode['branches'] = [];
+	for (const branch of ifBlock.branches) {
+		if (branch.branchKind === 'else') {
+			arms.push(branch);
+			return { arms, exhaustive: true };
+		}
+		const condition = hooks.knownCondition ? ifConditionTokens(tokensAfterLabel(source, branch.headerSpan)) : undefined;
+		const known = condition ? hooks.knownCondition!(condition) : undefined;
+		if (known !== false) {
+			arms.push(branch);
+		}
+		if (known === true) {
+			return { arms, exhaustive: true };
+		}
+	}
+	return { arms, exhaustive: false };
+}
+
 /**
  * The statements a single-line If runs after a colon, `b` in `If x Then a: b`,
  * run only with its branch (MS-VBAL 5.4.2.9). They are checked on that path,
@@ -421,43 +546,61 @@ function walkSingleLineIfTail(
 	}
 }
 
-/** Intersects the per-arm state of one If block (see walkBranchMergedBody). */
+/**
+ * Intersects the per-arm state of one If block (see walkBranchMergedBody).
+ * An arm that always leaves takes no part, and false is returned when
+ * no path goes past the block (issue #273).
+ */
 function mergeIfBlock(
 	source: string,
 	ifBlock: IfBlockNode,
 	isInactive: (node: BodyNode) => boolean,
 	hooks: StraightLineDataflowHooks,
 	loopTouched: ReadonlySet<string>,
-): void {
+): boolean {
 	const touched = blockTouches(source, ifBlock, isInactive, hooks);
-	const hasElse = ifBlock.branches.some((branch) => branch.branchKind === 'else');
 	// Each arm is checked from the block's entry state, once its conditions
 	// have run: `If TryGet(k, obj) Then` sets obj for the arm (issue #237).
 	for (const lower of headerTouches(source, ifBlock, hooks)) {
 		hooks.demoteToUnknown(lower);
 	}
+	// Only the arms its known conditions allow run; when that is one arm
+	// that always runs, the state after the block is the state it ends with.
+	const { arms, exhaustive } = ifArmsThatMayRun(source, ifBlock, hooks);
+	if (arms.length === 0) {
+		return true;
+	}
+	if (arms.length === 1 && exhaustive) {
+		return walkBody(source, arms[0].body, isInactive, hooks, true, loopTouched);
+	}
 	const entry = hooks.snapshotState!();
 	const armStates: Map<string, string>[] = [];
-	for (const branch of ifBlock.branches) {
+	for (const branch of arms) {
 		hooks.restoreState!(entry);
-		walkBody(source, branch.body, isInactive, hooks, true, loopTouched);
-		armStates.push(hooks.snapshotState!());
+		if (walkBody(source, branch.body, isInactive, hooks, true, loopTouched)) {
+			armStates.push(hooks.snapshotState!());
+		}
 	}
 	hooks.restoreState!(entry);
-	if (!hasElse) {
+	if (armStates.length === 0) {
+		// Every arm leaves: only the path that skips the block goes on.
+		return !exhaustive;
+	}
+	if (!exhaustive) {
 		// No else arm: the empty fall-through path keeps the entry state, so a name
 		// can only remain 'good' after the block if it was already 'good'. Reproduce
 		// the existing conservative behavior by demoting every touched name.
 		for (const lower of touched) {
 			hooks.demoteToUnknown(lower);
 		}
-		return;
+		return true;
 	}
 	const { unknown } = hooks.lattice!;
 	for (const lower of touched) {
 		const fallback = entry.get(lower) ?? unknown;
 		hooks.setState!(lower, joinBranchStates(armStates, lower, fallback, hooks.lattice!));
 	}
+	return true;
 }
 
 /**

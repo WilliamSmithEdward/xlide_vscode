@@ -62,7 +62,7 @@ import {
 	memberTakesOwnArguments,
 } from '../completion/memberAccess';
 import { procedureSymbolFor, type PushFn } from './analysisContext';
-import { straightLineAssignments, type ReachingAssignments } from './straightLineValues';
+import { straightLineAssignments, straightLineUnreachable, type ReachingAssignments } from './straightLineValues';
 import { isInvalidBooleanString, isInvalidDateString, isInvalidNumericString, numericStringVerdict } from './stringConversion';
 import {
 	callableAcceptsZeroArguments,
@@ -3254,14 +3254,7 @@ export function knownLocalLiteralValuesAt(
 ): (stmt: BodyNode | undefined) => ReadonlyMap<string, KnownLocalValue> {
 	const whole = knownLocalLiteralValues(source, proc, symbols, activity);
 	const locals = literalValueLocals(proc, symbols);
-	// A typed local holds its declared default until something assigns it,
-	// the statement that does included: `x = 1 / x` divides by 0 (issue #259).
-	const defaults = new Map<string, readonly VbaToken[]>();
-	for (const [lower, kind] of locals) {
-		if (kind !== undefined) {
-			defaults.set(lower, kind === 'number' ? DEFAULT_NUMBER : DEFAULT_STRING);
-		}
-	}
+	const defaults = declaredDefaults(locals);
 	const reaching = locals.size === 0 ? new Map() : straightLineAssignments(source, proc.body, activity, defaults);
 	// Statements in a run share one reaching map, so they share one result.
 	const results = new Map<ReachingAssignments, ReadonlyMap<string, KnownLocalValue>>();
@@ -3293,6 +3286,36 @@ export function knownLocalLiteralValuesAt(
 		return result;
 	};
 }
+
+/**
+ * A typed local holds its declared default until something assigns it, the
+ * statement that does included: `x = 1 / x` divides by 0 (issue #259).
+ */
+function declaredDefaults(locals: ReadonlyMap<string, 'number' | 'string' | undefined>): Map<string, readonly VbaToken[]> {
+	const defaults = new Map<string, readonly VbaToken[]>();
+	for (const [lower, kind] of locals) {
+		if (kind !== undefined) {
+			defaults.set(lower, kind === 'number' ? DEFAULT_NUMBER : DEFAULT_STRING);
+		}
+	}
+	return defaults;
+}
+
+/**
+ * The statements of a procedure that never run, because a guard whose
+ * value the straight-line walk knows decides against them (issue #273).
+ */
+export function unreachableStatementsIn(
+	source: string,
+	proc: ProcedureNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
+): ReadonlySet<BodyNode> {
+	const locals = literalValueLocals(proc, symbols);
+	return locals.size === 0 ? NO_STATEMENTS : straightLineUnreachable(source, proc.body, activity, declaredDefaults(locals));
+}
+
+const NO_STATEMENTS: ReadonlySet<BodyNode> = new Set();
 
 /** What a local of a number type and a String hold before anything assigns them. */
 const DEFAULT_NUMBER: readonly VbaToken[] = rawExpressionTokens('0');

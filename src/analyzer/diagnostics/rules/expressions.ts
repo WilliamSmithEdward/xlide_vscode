@@ -60,6 +60,7 @@ import {
 	isProvablyNonNumericString,
 	stringConstantsInScope,
 	knownLocalLiteralValuesAt,
+	unreachableStatementsIn,
 	type KnownLocalValue,
 	nonnumericStringArithmeticOperand,
 	normalizeType,
@@ -625,12 +626,17 @@ export function checkDivisionByZeroExpressions(
 			},
 		};
 		const guards = divisionGuardRanges(member.body, activity);
+		// A statement a known guard keeps from running (issue #273).
+		const unreachable = unreachableStatementsIn(source, member, symbols, activity);
 		// `d = 0.4` then `10 Mod d` (issue #239).
 		const fractionOf = (lower: string): number | undefined => {
 			const local = known.get(lower);
 			return local?.kind === 'number' && constants.get(lower) === undefined ? (local.value as number) : undefined;
 		};
 		return (stmt) => {
+			if (unreachable.has(stmt)) {
+				return;
+			}
 			known = valuesAt(stmt);
 			// A single-line If's branch sees the members less what its condition names.
 			members = membersAt ? membersAt(stmt, stmt.span.end) : members;
@@ -666,6 +672,8 @@ export function checkStringArithmeticOperands(
 	return (member) => {
 		const env = typeEnvironmentFor(symbols, member);
 		const valuesAt = knownLocalLiteralValuesAt(source, member, symbols, activity);
+		// A statement a known guard keeps from running (issue #273).
+		const unreachable = unreachableStatementsIn(source, member, symbols, activity);
 		let known: ReadonlyMap<string, KnownLocalValue> = new Map();
 		// The arrays the locals hold at the statement, read only when an
 		// operand indexes one: `v(1) + 1` with v = Array("1", "b") (issue #260).
@@ -825,7 +833,7 @@ export function checkStringArithmeticOperands(
 		const mayHoldString = (span: Span): boolean => knowsStrings || source.slice(span.start, span.end).includes('"');
 		const visitBlocks = (body: readonly BodyNode[]): void => {
 			for (const node of body) {
-				if (activity?.isInactive(node.span) || !('body' in node) || !Array.isArray(node.body)) {
+				if (activity?.isInactive(node.span) || unreachable.has(node) || !('body' in node) || !Array.isArray(node.body)) {
 					continue;
 				}
 				if (node.kind !== 'SelectBlock' && !mayHoldString(blockHeaderLineSpan(source, node.span)) && !(node.kind === 'DoBlock' && mayHoldString(blockFooterLineSpan(source, node.span)))) {
@@ -1043,6 +1051,9 @@ export function checkStringArithmeticOperands(
 		}
 		visitBlocks(member.body);
 		return (stmt) => {
+			if (unreachable.has(stmt)) {
+				return;
+			}
 			known = valuesAt(stmt);
 			current = stmt;
 			shapes = undefined;

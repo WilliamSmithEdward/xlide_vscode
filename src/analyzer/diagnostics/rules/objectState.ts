@@ -35,7 +35,9 @@ import {
 	returnAssignmentTypeFor,
 	type SourceDeclaredType,
 	typeEnvironmentFor,
+	unreachableStatementsIn,
 } from '../typeInference';
+import { conditionValue } from '../conditionValue';
 import {
 	activeModuleMembers,
 	blockHeaderLineSpan,
@@ -347,7 +349,9 @@ function walkObjectState(
 	const walk = procedureHasUnstructuredFlow(source, member, activity)
 		? walkStraightLineBody
 		: walkBranchMergedBody;
-	walk(source, member.body, (node) => isInactiveNode(activity, node), {
+	// A statement a known guard keeps from running (issue #273).
+	const unreachable = unreachableStatementsIn(source, member, symbols, activity);
+	walk(source, member.body, (node) => isInactiveNode(activity, node) || unreachable.has(node), {
 		onStatement: (stmt) =>
 			checkObjectVariableNotSetStatement(source, stmt, locals, state, setAnywhere, memberCtx, report, lets),
 		onBlock: (node) => {
@@ -421,6 +425,13 @@ function walkObjectState(
 		},
 		setState: (key, value) => state.set(key, value as ObjectVariableState),
 		lattice: { init: 'unset', good: 'set', unknown: 'unknown' },
+		// A local never Set is Nothing: `If c Is Nothing Then Exit Function`
+		// always leaves (issue #273). 'set' proves nothing, since a Set from
+		// a call may store Nothing.
+		knownCondition: (condition) => conditionValue(condition, {
+			value: () => undefined,
+			isNothing: (lower) => (locals.has(lower) && !locals.get(lower)!.letOnly && state.get(lower) === 'unset' ? true : undefined),
+		}),
 		setSilent: (quiet) => {
 			silent = quiet;
 		},

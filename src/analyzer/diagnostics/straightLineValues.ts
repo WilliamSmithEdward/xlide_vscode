@@ -24,8 +24,10 @@ import type { BodyNode, IfBlockNode, LeafStatementNode, Span } from '../parser/n
 import { isLeafStatement } from '../parser/nodes';
 import { statementLabelDeclaration } from '../flow/procedureLabels';
 import { parseVbaIntegerLiteral } from '../constants/integerConstantExpression';
-import { trackedLocalsNamedWhole } from './dataflow';
-import { isLoopBlock } from './blockHeaders';
+import { leavesTheList, trackedLocalsNamedWhole } from './dataflow';
+import { isLoopBlock, selectArms } from './blockHeaders';
+import { conditionValue, ifConditionTokens, type ConditionFacts } from './conditionValue';
+import { splitTopLevelTokenGroups } from '../lexer/tokenHelpers';
 import {
 	bareAssignmentTarget,
 	blockFooterLineSpan,
@@ -62,6 +64,32 @@ export function straightLineAssignments(
 	activity: ConditionalActivityTracker | undefined,
 	initial: ReachingAssignments = NONE,
 ): ReadonlyMap<BodyNode, ReachingAssignments> {
+	return cachedWalk(source, body, activity, initial).result;
+}
+
+/**
+ * The statements of the body that never run, because a guard whose value the
+ * walk knows decides against them (issue #273): `n = 0: If n > 0 Then ...`,
+ * the arms after `Case 0` with the selector 0, and everything after
+ * `If d = 0 Then Exit Function` with d still 0. A label ends it, since a
+ * GoTo may arrive there. A block's own statements are in it when the whole
+ * block never runs.
+ */
+export function straightLineUnreachable(
+	source: string,
+	body: readonly BodyNode[],
+	activity: ConditionalActivityTracker | undefined,
+	initial: ReachingAssignments = NONE,
+): ReadonlySet<BodyNode> {
+	return cachedWalk(source, body, activity, initial).dead;
+}
+
+function cachedWalk(
+	source: string,
+	body: readonly BodyNode[],
+	activity: ConditionalActivityTracker | undefined,
+	initial: ReachingAssignments,
+): CachedWalk {
 	// Six rules ask for the same procedure in one pass; a parse makes a new
 	// body, so the body is the key, with what holds at the start.
 	const key = [...initial].map(([name, value]) => `${name}=${value.map((tok) => tok.rawText).join(' ')}`).sort().join('\n');
@@ -69,19 +97,35 @@ export function straightLineAssignments(
 	WALKS.set(body, byStart);
 	const cached = byStart.get(key);
 	if (cached && cached.source === source && cached.activity === activity) {
-		return cached.result;
+		return cached;
 	}
 	const out = new Map<BodyNode, ReachingAssignments>();
-	walkList(source, body, initial, activity, out);
-	byStart.set(key, { source, activity, result: out });
-	return out;
+	const dead = new Set<BodyNode>();
+	// Under On Error Resume Next, Err.Raise goes on to the next line.
+	const text = body.length > 0 ? source.slice(body[0].span.start, body[body.length - 1].span.end) : '';
+	walkList(source, body, initial, activity, { out, dead, raiseLeaves: !/\bon\s+error\s+resume\s+next\b/i.test(text) });
+	const walk: CachedWalk = { source, activity, result: out, dead };
+	byStart.set(key, walk);
+	return walk;
 }
 
 interface CachedWalk {
 	source: string;
 	activity: ConditionalActivityTracker | undefined;
 	result: ReadonlyMap<BodyNode, ReachingAssignments>;
+	dead: ReadonlySet<BodyNode>;
 }
+
+/** What one walk collects: each statement's reaching values, and the statements that never run. */
+interface WalkOut {
+	out: Map<BodyNode, ReachingAssignments>;
+	dead: Set<BodyNode>;
+	/** Whether Err.Raise leaves the list: not when the procedure resumes past errors. */
+	raiseLeaves: boolean;
+}
+
+/** The end of a statement list no path reaches. */
+const UNREACHED: ReachingAssignments = new Map();
 
 const WALKS = new WeakMap<readonly BodyNode[], Map<string, CachedWalk>>();
 
@@ -95,7 +139,7 @@ function walkList(
 	list: readonly BodyNode[],
 	entry: ReachingAssignments,
 	activity: ConditionalActivityTracker | undefined,
-	out: Map<BodyNode, ReachingAssignments>,
+	walk: WalkOut,
 	caseResets = false,
 ): ReachingAssignments {
 	let current = entry;
@@ -104,39 +148,83 @@ function walkList(
 		if (isInactiveNode(activity, node) || node.kind === 'VariableGroup' || node.kind === 'ConditionalDirective') {
 			continue;
 		}
+		if (isLeafStatement(node) && statementLabelDeclaration(source, node.span)) {
+			current = NONE;
+		}
+		if (current === UNREACHED) {
+			// After a guard that always leaves: nothing here runs (issue #273).
+			markUnreachable(node, walk.dead);
+			continue;
+		}
 		if (!isLeafStatement(node)) {
 			// What holds as the block starts: a For reads its bounds here
 			// (issue #200).
-			record(out, node, current);
-			current = walkBlock(source, node, current, activity, out);
+			record(walk.out, node, current);
+			current = walkBlock(source, node, current, activity, walk);
 			continue;
-		}
-		if (statementLabelDeclaration(source, node.span)) {
-			current = NONE;
 		}
 		if (caseResets && tokenText(statementTokensAfterLeadingLabel(source, node.span)[0]) === 'case') {
 			// A Select's arms are exclusive: each starts where the block did.
 			current = entry;
 		}
 		if (node.kind === 'Statement' && node.singleLineIfBranches) {
-			// A single-line If and the statements after its colons run only
-			// with their branch. They see what held before the If, less
-			// whatever the If itself changes, and so does what follows.
 			const group: LeafStatementNode[] = [node];
 			while (i + 1 < list.length && isLeafStatement(list[i + 1]) && (list[i + 1] as LeafStatementNode).singleLineIfTail) {
 				group.push(list[++i] as LeafStatementNode);
 			}
-			const touched = touchedBy(source, group);
-			current = touched === 'all' ? NONE : without(current, touched);
-			for (const stmt of group) {
-				record(out, stmt, current);
-			}
+			current = walkSingleLineIf(source, group, current, walk);
 			continue;
 		}
-		record(out, node, current);
+		record(walk.out, node, current);
 		current = afterStatement(source, node.span, current);
+		if (leavesTheList(source, node.span, walk.raiseLeaves)) {
+			current = UNREACHED;
+		}
 	}
 	return current;
+}
+
+/**
+ * A single-line If and the statements after its colons run only with their
+ * branch. With the condition known (issue #273), a false one runs nothing,
+ * and a true one runs its branch in order, which may leave. Otherwise they
+ * see what held before the If, less whatever the If itself changes, and so
+ * does what follows.
+ */
+function walkSingleLineIf(
+	source: string,
+	group: readonly LeafStatementNode[],
+	current: ReachingAssignments,
+	walk: WalkOut,
+): ReachingAssignments {
+	const [ifStmt] = group;
+	const branches = ifStmt.kind === 'Statement' ? ifStmt.singleLineIfBranches ?? [] : [];
+	const condition = branches.length === 1 ? ifConditionTokens(statementTokensAfterLeadingLabel(source, ifStmt.span)) : undefined;
+	const known = condition ? conditionValue(condition, factsFrom(current)) : undefined;
+	if (known === false) {
+		for (const stmt of group) {
+			walk.dead.add(stmt);
+		}
+		return current;
+	}
+	if (known === true) {
+		let state = current;
+		for (const [k, stmt] of group.entries()) {
+			record(walk.out, stmt, state);
+			const span = k === 0 ? branches[0] : stmt.span;
+			state = afterStatement(source, span, state);
+			if (leavesTheList(source, span, walk.raiseLeaves)) {
+				return UNREACHED;
+			}
+		}
+		return state;
+	}
+	const touched = touchedBy(source, group);
+	const after = touched === 'all' ? NONE : without(current, touched);
+	for (const stmt of group) {
+		record(walk.out, stmt, after);
+	}
+	return after;
 }
 
 function walkBlock(
@@ -144,10 +232,22 @@ function walkBlock(
 	node: BodyNode,
 	entry: ReachingAssignments,
 	activity: ConditionalActivityTracker | undefined,
-	out: Map<BodyNode, ReachingAssignments>,
+	walk: WalkOut,
 ): ReachingAssignments {
 	if (!('body' in node) || !Array.isArray(node.body)) {
 		return entry;
+	}
+	// An If or a Select whose outcome is known runs one arm (issue #273).
+	const chosen = knownArm(source, node, entry);
+	if (chosen) {
+		for (const arm of chosen.arms) {
+			if (arm !== chosen.taken) {
+				for (const stmt of arm) {
+					markUnreachable(stmt, walk.dead);
+				}
+			}
+		}
+		return chosen.taken ? walkList(source, chosen.taken, entry, activity, walk) : entry;
 	}
 	const touched = touchedInBlock(source, node, activity);
 	const after = touched === 'all' ? NONE : without(entry, touched);
@@ -157,10 +257,10 @@ function walkBlock(
 	const inside = isLoopBlock(node) || touched === 'all' ? after : entry;
 	if (node.kind === 'IfBlock') {
 		for (const branch of (node as IfBlockNode).branches) {
-			walkList(source, branch.body, inside, activity, out);
+			walkList(source, branch.body, inside, activity, walk);
 		}
 	} else {
-		walkList(source, node.body as BodyNode[], inside, activity, out, node.kind === 'SelectBlock');
+		walkList(source, node.body as BodyNode[], inside, activity, walk, node.kind === 'SelectBlock');
 	}
 	const final = touched === 'all' ? undefined : forCounterFinalValue(source, node, activity);
 	if (final !== undefined) {
@@ -379,6 +479,124 @@ function without(map: ReachingAssignments, names: Iterable<string>): ReachingAss
 		}
 	}
 	return next ?? map;
+}
+
+/** The numbers and strings the reaching assignments give their names, for a condition. */
+function factsFrom(current: ReachingAssignments): ConditionFacts {
+	return { value: (lower) => literalOf(current.get(lower)) };
+}
+
+/** A value's tokens as one number or string literal, a sign allowed. */
+function literalOf(value: readonly VbaToken[] | undefined): number | string | undefined {
+	const toks = (value ?? []).filter((tok) => tok.kind !== 'comment');
+	const negative = toks.length === 2 && toks[0].rawText === '-';
+	const tok = toks[negative ? 1 : 0];
+	if (!tok || toks.length !== (negative ? 2 : 1)) {
+		return undefined;
+	}
+	if (tok.kind === 'integerLiteral') {
+		const number = parseVbaIntegerLiteral(tok.rawText);
+		return number === undefined ? undefined : negative ? -number : number;
+	}
+	return tok.kind === 'stringLiteral' && !negative ? tok.rawText.slice(1, -1).replace(/""/g, '"') : undefined;
+}
+
+/**
+ * The arm of an If or a Select that runs when the walk knows its outcome:
+ * every arm, and the one taken (undefined when none is). Undefined when
+ * the outcome is not known.
+ */
+function knownArm(source: string, node: BodyNode, entry: ReachingAssignments): { arms: readonly (readonly BodyNode[])[]; taken: readonly BodyNode[] | undefined } | undefined {
+	const facts = factsFrom(entry);
+	if (node.kind === 'IfBlock') {
+		const arms = node.branches.map((branch) => branch.body);
+		for (const branch of node.branches) {
+			if (branch.branchKind === 'else') {
+				return { arms, taken: branch.body };
+			}
+			const condition = ifConditionTokens(statementTokensAfterLeadingLabel(source, branch.headerSpan));
+			const known = condition ? conditionValue(condition, facts) : undefined;
+			if (known === undefined) {
+				return undefined;
+			}
+			if (known) {
+				return { arms, taken: branch.body };
+			}
+		}
+		return { arms, taken: undefined };
+	}
+	if (node.kind !== 'SelectBlock') {
+		return undefined;
+	}
+	// `Select Case d` with d known: the first Case whose values match.
+	const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+	const selector = header.length === 3 && tokenText(header[1]) === 'case' ? literalOf(header.slice(2)) ?? factsFrom(entry).value(tokenName(header[2])?.toLowerCase() ?? '') : undefined;
+	if (typeof selector !== 'number') {
+		return undefined;
+	}
+	const arms = selectArms(source, node.body as BodyNode[]);
+	for (const arm of arms) {
+		const caseLine = arm.find((stmt) => isLeafStatement(stmt) && tokenText(statementTokensAfterLeadingLabel(source, stmt.span)[0]) === 'case');
+		if (!caseLine) {
+			continue;
+		}
+		const matched = caseMatches(statementTokensAfterLeadingLabel(source, caseLine.span).filter((tok) => tok.kind !== 'comment'), selector);
+		if (matched === undefined) {
+			return undefined;
+		}
+		if (matched) {
+			return { arms, taken: arm };
+		}
+	}
+	return { arms, taken: undefined };
+}
+
+/** Whether a `Case` line's values take a number: literals, `Is op n`, `a To b`, Else. */
+function caseMatches(toks: readonly VbaToken[], selector: number): boolean | undefined {
+	if (tokenText(toks[1]) === 'else') {
+		return true;
+	}
+	let anyUnknown = false;
+	for (const item of splitTopLevelTokenGroups(toks.slice(1), 0, ',')) {
+		let matched: boolean | undefined;
+		const to = item.findIndex((tok) => tokenText(tok) === 'to');
+		if (tokenText(item[0]) === 'is' && item[1]?.kind === 'operator') {
+			const value = literalOf(item.slice(2));
+			matched = typeof value === 'number' ? conditionValue(rawExpressionTokens(`${selector} ${item[1].rawText} ${value}`), { value: () => undefined }) : undefined;
+		} else if (to > 0) {
+			const low = literalOf(item.slice(0, to));
+			const high = literalOf(item.slice(to + 1));
+			matched = typeof low === 'number' && typeof high === 'number' ? selector >= low && selector <= high : undefined;
+		} else {
+			const value = literalOf(item);
+			matched = typeof value === 'number' ? value === selector : undefined;
+		}
+		if (matched === true) {
+			return true;
+		}
+		if (matched === undefined) {
+			anyUnknown = true;
+		}
+	}
+	return anyUnknown ? undefined : false;
+}
+
+/** Marks a statement, and every statement inside it, as never running. */
+function markUnreachable(node: BodyNode, dead: Set<BodyNode>): void {
+	dead.add(node);
+	if (node.kind === 'IfBlock') {
+		for (const branch of node.branches) {
+			for (const stmt of branch.body) {
+				markUnreachable(stmt, dead);
+			}
+		}
+		return;
+	}
+	if ('body' in node && Array.isArray(node.body)) {
+		for (const stmt of node.body as BodyNode[]) {
+			markUnreachable(stmt, dead);
+		}
+	}
 }
 
 function record(out: Map<BodyNode, ReachingAssignments>, stmt: BodyNode, current: ReachingAssignments): void {
