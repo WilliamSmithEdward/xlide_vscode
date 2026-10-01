@@ -66,6 +66,7 @@ import {
 	type KnownLocalValue,
 	namedArgumentSlot,
 	nonnumericStringArithmeticOperand,
+	numericLiteralBounds,
 	normalizeType,
 	objectAssignmentIncompatibilityReason,
 	SCALAR_OBJECT_ASSIGNMENT_REASON,
@@ -584,9 +585,14 @@ export function checkAssignmentTypes(
 			if (!reason) {
 				return;
 			}
+			// A constant out of the target's range overflows; its type is no
+			// mismatch: `b = vbTrue` stores -1 in a Byte (issue #326).
+			const bounds = actual.numericConstantName !== undefined && actual.numericValue !== undefined ? numericLiteralBounds(normalizeType(expected) ?? '') : undefined;
 			push(
 				'assignmentTypeMismatch',
-				`Assignment to '${assignment.name}' expects ${expected}, but got ${actual.label}. ${reason}`,
+				bounds
+					? `Assignment to '${assignment.name}' stores ${actual.numericConstantName}, which is ${actual.numericValue}, in ${/^[AEIOU]/.test(bounds.label) ? 'an' : 'a'} ${bounds.label}, whose range is ${bounds.min} to ${bounds.max}. This will raise Run-time error '6': Overflow.`
+					: `Assignment to '${assignment.name}' expects ${expected}, but got ${actual.label}. ${reason}`,
 				actual.span,
 			);
 		}

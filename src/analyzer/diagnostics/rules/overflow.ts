@@ -79,6 +79,11 @@ interface Typed {
 	 * negating the Long minimum there wraps to itself (issue #235).
 	 */
 	constant?: boolean;
+	/**
+	 * A Boolean, which folds as the Integer -1 or 0 but goes into a Byte as
+	 * 255 or 0: `b = True` and `CByte(True)` store 255 (issue #326).
+	 */
+	boolean?: boolean;
 }
 
 interface Overflow {
@@ -155,7 +160,7 @@ function literalValue(tok: VbaToken): Typed | undefined {
 	// `1 / False` divides by zero (issue #235).
 	if (tok.kind === 'keyword') {
 		const word = tokenText(tok);
-		return word === 'true' ? { value: -1, type: 'integer' } : word === 'false' ? { value: 0, type: 'integer' } : undefined;
+		return word === 'true' ? { value: -1, type: 'integer', boolean: true } : word === 'false' ? { value: 0, type: 'integer', boolean: true } : undefined;
 	}
 	if (tok.kind === 'integerLiteral') {
 		const raw = tok.rawText;
@@ -514,7 +519,7 @@ class TypedFolder {
 				: { overflow: true, span, detail: `${CONVERSION_NAMES[callee]}(${shown}) does not fit ${target === 'longptr' ? 'a LongPtr, whose range is at most a LongLong\'s' : 'LongLong'}` };
 		}
 		const type = target as NumericType;
-		const value = type === 'single' || type === 'double' || type === 'currency' || type === 'date' ? inner.value : bankersRound(inner.value);
+		const value = type === 'single' || type === 'double' || type === 'currency' || type === 'date' ? inner.value : storedValue(inner, type).value;
 		// A conversion to the type the constant already has is folded away:
 		// `-CLng(&H80000000)` wraps, `-CLng(-2147483648#)` overflows (issue #235).
 		const constant = inner.constant && inner.type === type ? { constant: true } : {};
@@ -647,7 +652,8 @@ function combineLongLong(left: Typed, right: Typed, op: string, span: Span): Fol
  * first, so `Not 32768!` is -32769. A Byte stays a Byte.
  */
 function notOf(operand: Typed, span: Span): Folded {
-	const constant = operand.constant ? { constant: true } : {};
+	// Not of a Boolean is a Boolean: `b = Not False` stores 255 in a Byte.
+	const constant = { ...(operand.constant ? { constant: true } : {}), ...(operand.boolean ? { boolean: true } : {}) };
 	if (operand.type === 'byte') {
 		return { value: 255 - operand.value, type: 'byte', ...constant };
 	}
@@ -694,6 +700,9 @@ function rangeText(type: NumericType): string {
 function storedValue(folded: Typed, target: NumericType): { value: number; exact?: bigint } {
 	if (target === 'single' || target === 'double' || target === 'currency' || target === 'date') {
 		return { value: folded.value };
+	}
+	if (folded.boolean && target === 'byte') {
+		return { value: folded.value === 0 ? 0 : 255 };
 	}
 	const value = bankersRound(folded.value);
 	return target === 'longlong' && folded.exact !== undefined ? { value, exact: folded.exact } : { value };
@@ -809,6 +818,12 @@ function constantLookup(
 		}
 		const declared = numericTypeOf(symbol.asType);
 		const kept = declared ? storedValue(value, declared) : undefined;
+		// `Const T As Boolean = 1` is True.
+		if (normalizeType(symbol.asType) === 'boolean') {
+			const truth: Typed = { value: value.value === 0 ? 0 : -1, type: 'integer', constant: true, boolean: true };
+			folded.set(lower, truth);
+			return truth;
+		}
 		const typed: Typed = declared && kept
 			? { value: kept.value, type: declared, ...(kept.exact !== undefined ? { exact: kept.exact } : {}), constant: true }
 			: value;
