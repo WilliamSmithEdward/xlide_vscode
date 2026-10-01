@@ -292,6 +292,39 @@ const ARGUMENT_LIMITS: ReadonlyArray<{
 		receivers: ['Excel.Range'], member: 'autofill', parameter: 'Type', position: 1, runs: '0 to 12, or an xlAutoFillType constant',
 		refused: [{ from: -100, to: -1 }, { from: 13, to: 999 }], error: { number: '1004', text: 'Application-defined or object-defined error' },
 	},
+	// Word and PowerPoint (issue #245), swept from -100 to 999 in 16.0.
+	{
+		receivers: ['Word.Selection'], member: 'moveright', parameter: 'Unit', position: 0, runs: '1 to 3 or 16: wdCharacter, wdWord, wdSentence or wdCell',
+		refused: [{ from: -100, to: 0 }, { from: 4, to: 11 }, { from: 13, to: 15 }, { from: 17, to: 999 }], error: { number: '4120', text: 'Bad parameter' },
+	},
+	{
+		receivers: ['Word.Selection'], member: 'collapse', parameter: 'Direction', position: 0, runs: 'wdCollapseEnd (0) or wdCollapseStart (1)',
+		refused: [{ from: -100, to: -1 }, { from: 2, to: 999 }], error: { number: '4120', text: 'Bad parameter' },
+	},
+	{
+		receivers: ['Word.Selection'], member: 'insertbreak', parameter: 'Type', position: 0, runs: '0 to 11, a wdBreakType constant',
+		refused: [{ from: -100, to: -1 }, { from: 12, to: 999 }], error: { number: '9118', text: 'Parameter value was out of acceptable range' },
+	},
+	{
+		receivers: ['PowerPoint.Shapes'], member: 'addshape', parameter: 'Type', position: 0, runs: '1 to 183, an msoAutoShapeType constant',
+		refused: [{ from: -100, to: 0 }, { from: 184, to: 999 }], error: { number: '-2147024809', text: 'The specified value is out of range' },
+	},
+	{
+		receivers: ['PowerPoint.Slides'], member: 'add', parameter: 'Layout', position: 1, runs: 'a ppSlideLayout constant from 1',
+		refused: [{ from: -100, to: 0 }, { from: 37, to: 999 }], error: { number: '-2147024809', text: 'Invalid enumeration value' },
+	},
+	{
+		receivers: ['PowerPoint.Shapes'], member: 'addtable', parameter: 'NumRows', position: 0, runs: '1 to 75',
+		refused: [{ from: -100, to: 0 }, { from: 76, to: 999 }], error: { number: '-2147188160', text: 'Integer out of range' },
+	},
+	{
+		receivers: ['PowerPoint.Shapes'], member: 'addtable', parameter: 'NumColumns', position: 1, runs: '1 to 75',
+		refused: [{ from: -100, to: 0 }, { from: 76, to: 999 }], error: { number: '-2147188160', text: 'Integer out of range' },
+	},
+	{
+		receivers: ['PowerPoint.Slides'], member: 'range', parameter: 'Index', position: 0, runs: '1 or more',
+		refused: [{ from: -100, to: 0 }], error: { number: '-2147188160', text: 'Invalid request' },
+	},
 	{
 		receivers: ['Word.Tables'], member: 'add', parameter: 'NumRows', position: 1, runs: '1 to 32767',
 		refused: [{ to: 0 }, { from: 32768 }], error: { number: '5148', text: 'The number must be between 1 and 32767' },
