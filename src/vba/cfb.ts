@@ -61,6 +61,8 @@ export class Cfb {
 	private minifat: number[] = [];
 	private directory: DirEntry[] = [];
 	private miniStream: Buffer = Buffer.alloc(0);
+	/** The mini stream's sectors, by place in its chain, that a file cut short no longer holds. */
+	private miniStreamGaps: ReadonlySet<number> = new Set();
 	private readonly overrides = new Map<number, Buffer>();
 
 	private constructor(private readonly data: Buffer) {}
@@ -513,6 +515,10 @@ export class Cfb {
 					throw new CfbError(`Cycle in the DIFAT chain at sector ${sector}.`);
 				}
 				seen.add(sector);
+				// A file cut short ends its DIFAT where the bytes end (issue #340).
+				if (!this.present(sector)) {
+					break;
+				}
 				const sectorData = this.sector(sector);
 				const perSector = this.sectorSize / 4 - 1;
 				for (let i = 0; i < perSector; i++) {
@@ -527,16 +533,17 @@ export class Cfb {
 			if (sect === FREESECT || sect === ENDOFCHAIN || sect === FATSECT || sect === 0xfffffffc) {
 				break;
 			}
-			fatParts.push(this.sector(sect));
+			// A FAT sector the file no longer holds frees the sectors it covers:
+			// no chain runs through them, and nothing is invented (issue #340).
+			fatParts.push(this.present(sect) ? this.sector(sect) : Buffer.alloc(this.sectorSize, 0xff));
 		}
 		this.fat = readUint32Array(Buffer.concat(fatParts));
 
 		if (minifatStart !== ENDOFCHAIN) {
-			const parts = this.chain(minifatStart).map((s) => this.sector(s));
-			this.minifat = readUint32Array(Buffer.concat(parts));
+			this.minifat = readUint32Array(this.presentChain(minifatStart, 0xff).data);
 		}
 
-		const dirRaw = Buffer.concat(this.chain(rootDirStart).map((s) => this.sector(s)));
+		const dirRaw = this.presentChain(rootDirStart, 0).data;
 		this.directory = [];
 		for (let i = 0; i < Math.floor(dirRaw.length / DIR_ENTRY_SIZE); i++) {
 			this.directory.push(parseDirEntry(dirRaw, i));
@@ -544,8 +551,36 @@ export class Cfb {
 
 		const root = this.directory[0];
 		if (root && root.startSector !== ENDOFCHAIN && root.startSector !== FREESECT) {
-			this.miniStream = Buffer.concat(this.chain(root.startSector).map((s) => this.sector(s)));
+			const mini = this.presentChain(root.startSector, 0);
+			this.miniStream = mini.data;
+			this.miniStreamGaps = mini.gaps;
 		}
+	}
+
+	/** Whether the file holds any of sector `index`. */
+	private present(index: number): boolean {
+		return (index + 1) * this.sectorSize < this.data.length;
+	}
+
+	/**
+	 * A chain's sectors, each one a file cut short no longer holds filled
+	 * with `fill` so the rest keep their offsets (issue #340): zeros read
+	 * as unused directory entries, and 0xFF as free mini-FAT entries. The
+	 * gaps are the places in the chain that were filled; a stream that
+	 * crosses one is refused when it is read.
+	 */
+	private presentChain(start: number, fill: number): { data: Buffer; gaps: Set<number> } {
+		const parts: Buffer[] = [];
+		const gaps = new Set<number>();
+		for (const s of this.chain(start)) {
+			if (this.present(s)) {
+				parts.push(this.sector(s));
+			} else {
+				gaps.add(parts.length);
+				parts.push(Buffer.alloc(this.sectorSize, fill));
+			}
+		}
+		return { data: Buffer.concat(parts), gaps };
 	}
 
 	private sector(index: number): Buffer {
@@ -603,9 +638,15 @@ export class Cfb {
 		}
 		const entry = this.directory[index];
 		if (entry.size < this.miniStreamCutoff && entry.objType !== OBJTYPE_ROOT) {
-			const parts = this.miniChain(entry.startSector).map((s) =>
+			const sectors = this.miniChain(entry.startSector);
+			const parts = sectors.map((s) =>
 				this.miniStream.subarray(s * this.miniSectorSize, (s + 1) * this.miniSectorSize));
-			return Buffer.concat(parts).subarray(0, entry.size);
+			const stream = Buffer.concat(parts).subarray(0, entry.size);
+			const crossesGap = sectors.some((s) => this.miniStreamGaps.has(Math.floor(s * this.miniSectorSize / this.sectorSize)));
+			if (stream.length < entry.size || crossesGap) {
+				throw new CfbError(`Stream ${entry.name} runs past the end of the file.`);
+			}
+			return stream;
 		}
 		const parts = this.chain(entry.startSector).map((s) => this.sector(s));
 		return Buffer.concat(parts).subarray(0, entry.size);
