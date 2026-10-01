@@ -5,6 +5,7 @@
 // environment, and GITHUB_SHA and GITHUB_REPOSITORY as Actions sets them.
 import fs from 'node:fs';
 import path from 'node:path';
+import { describeEntry, judge, loadReviewed, sarifResults } from './sarif-gate.mjs';
 
 const [directory, out] = process.argv.slice(2);
 
@@ -17,39 +18,36 @@ function files(root, suffix) {
 		.filter((name) => name.endsWith(suffix));
 }
 
-/** Results reviewed as not vulnerabilities (.github/codeql/reviewed.json), by rule and file. */
-const reviewed = fs.existsSync('.github/codeql/reviewed.json')
-	? JSON.parse(fs.readFileSync('.github/codeql/reviewed.json', 'utf8')).reviewed.map((entry) => ({
-		rule: entry.rule,
-		matches: new RegExp(`^${entry.file.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*')}$`),
-	}))
-	: [];
+/** Results reviewed as not vulnerabilities, matched as the gate matches them. */
+const REVIEWED = '.github/codeql/reviewed.json';
 
-function sarifFindings(root) {
-	const found = [];
+function sarifFindings(root, scan) {
 	let tools = new Set();
-	for (const file of files(root, '.sarif')) {
+	const sarifFiles = files(root, '.sarif');
+	for (const file of sarifFiles) {
 		const sarif = JSON.parse(fs.readFileSync(file, 'utf8'));
 		for (const run of sarif.runs ?? []) {
 			const driver = run.tool?.driver;
 			if (driver) {
 				tools.add(`${driver.name} ${driver.semanticVersion ?? driver.version ?? ''}`.trim());
 			}
-			for (const result of run.results ?? []) {
-				const where = result.locations?.[0]?.physicalLocation;
-				const uri = where?.artifactLocation?.uri ?? '?';
-				const known = reviewed.some((entry) => entry.rule === result.ruleId && entry.matches.test(uri));
-				found.push(`- \`${result.ruleId}\` at ${uri}:${where?.region?.startLine ?? '?'}${known ? ' (reviewed, see .github/codeql/reviewed.json)' : ''}`);
-			}
 		}
 	}
-	return { found, tools: [...tools] };
+	const results = sarifResults(sarifFiles);
+	const { accepted, stale } = judge(results, loadReviewed(REVIEWED, scan));
+	const found = results.map((result) =>
+		`- \`${result.rule}\` at ${result.uri}:${result.line ?? '?'}${accepted.includes(result) ? ` (reviewed, see ${REVIEWED})` : ''}`);
+	return {
+		found,
+		stale: stale.map((entry) => `- Reviewed in ${REVIEWED}, but no longer found: ${describeEntry(entry)}`),
+		tools: [...tools],
+	};
 }
 
 const verdict = (result) => (result === 'success' ? 'passed' : result ? `did not pass (${result})` : 'did not run');
-const codeql = sarifFindings(path.join(directory, 'codeql-javascript-typescript'));
-const codeqlActions = sarifFindings(path.join(directory, 'codeql-actions'));
-const semgrep = sarifFindings(path.join(directory, 'semgrep'));
+const codeql = sarifFindings(path.join(directory, 'codeql-javascript-typescript'), 'CodeQL javascript-typescript');
+const codeqlActions = sarifFindings(path.join(directory, 'codeql-actions'), 'CodeQL actions');
+const semgrep = sarifFindings(path.join(directory, 'semgrep'), 'Semgrep');
 let audit = { total: '?' };
 const auditFile = path.join(directory, 'npm-audit', 'npm-audit.json');
 if (fs.existsSync(auditFile)) {
@@ -72,12 +70,12 @@ const lines = [
 	'',
 ];
 const sections = [
-	['CodeQL, JavaScript and TypeScript', codeql.found],
-	['CodeQL, GitHub Actions', codeqlActions.found],
-	['Semgrep', semgrep.found],
+	['CodeQL, JavaScript and TypeScript', codeql],
+	['CodeQL, GitHub Actions', codeqlActions],
+	['Semgrep', semgrep],
 ];
-for (const [title, found] of sections) {
-	lines.push(`## ${title}`, '', ...(found.length ? found : ['No findings.']), '');
+for (const [title, { found, stale }] of sections) {
+	lines.push(`## ${title}`, '', ...(found.length ? found : ['No findings.']), ...stale, '');
 }
 lines.push('## npm audit', '', '```', JSON.stringify(audit, null, 2), '```', '');
 fs.writeFileSync(out, lines.join('\n'));

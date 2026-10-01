@@ -96,27 +96,32 @@ a published release.
 A finding is fixed, or accepted with a written reason in
 [`.github/codeql/reviewed.json`](.github/codeql/reviewed.json) for CodeQL
 and [`.github/scans/reviewed.json`](.github/scans/reviewed.json) for ClamAV
-and YARA-X. An entry matches a rule or signature name and a file path, where
-`*` matches within one path segment. It does not match the file's contents,
-so a new result of the same rule in a listed file also passes: re-review the
-file when it changes. An entry that no longer matches does not fail the
-report yet, so remove it by hand. zizmor keeps its exceptions in
+and YARA-X. Each entry names the scan it applies to. A CodeQL entry
+accepts one result: it matches the rule, the exact path and the text of the
+flagged line in the checkout, trimmed. It follows the line when code above it
+moves, and the result comes back for review when the line itself changes or
+the rule flags another line of the file. A ClamAV or YARA-X detection is of a
+whole file, so its entry matches the signature or rule name and a file path,
+where `*` matches within one path segment. An entry that no longer matches
+any result fails its scan, so remove it in the change that makes it stale.
+On a pull request CodeQL reports only the changed code, so a CodeQL entry
+outside it is listed there but not failed; the run on `main` fails on it.
+zizmor keeps its exceptions in
 `.github/zizmor.yml` or inline beside the line they excuse, each with its
 reason.
 
 The current entries:
 
-- CodeQL, six entries: `js/insufficient-password-hash` on SHA-256 content
-  tokens in `src/moduleContentToken.ts` and
+- CodeQL, eleven entries: `js/insufficient-password-hash` on SHA-256
+  content tokens in `src/moduleContentToken.ts` and
   `src/projectModuleOperations.ts`, where no password is involved;
-  `js/incomplete-sanitization` in `src/vba/ooxml.ts`, whose XML encoder
-  escapes the five characters XML gives meaning;
-  `js/incomplete-multi-character-sanitization` in `src/vba/xlsxShapes.ts`,
-  which strips tags to make a plain-text shape caption;
-  `js/incomplete-url-substring-sanitization` in `src/vba/xlsx.ts`, which
-  tests for an XML namespace and fetches nothing; and
-  `js/missing-origin-check` in `assets/webview/*.js`, whose pages allow no
-  frames, so only VS Code's webview host can post to them.
+  `js/incomplete-multi-character-sanitization` on two lines of
+  `src/vba/xlsxShapes.ts`, which strip tags to make a plain-text shape
+  caption; `js/incomplete-url-substring-sanitization` in `src/vba/xlsx.ts`,
+  which tests for an XML namespace and fetches nothing; and
+  `js/missing-origin-check` on the message listener of six pages in
+  `assets/webview/`, which allow no frames, so only VS Code's webview host
+  can post to them.
 - Semgrep, two rules left out of the scan in
   [the Security workflow](.github/workflows/security.yml), which records the
   reasons beside them: regular expressions built from a variable are built
