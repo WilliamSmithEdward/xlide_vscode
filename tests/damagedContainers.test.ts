@@ -7,6 +7,7 @@ import * as path from 'path';
 import { describe, expect, it } from 'vitest';
 import { Cfb, CfbError } from '../src/vba/cfb';
 import { ZipArchive, ZipError } from '../src/vba/zip';
+import { readModulesFromBuffer } from '../src/vba/projectService';
 
 const FIXTURES = path.join(__dirname, 'fixtures', 'binaries');
 const SECTOR = 512;
@@ -30,11 +31,34 @@ describe('a damaged compound file', () => {
 		expect(() => Cfb.fromBytes(bytes)).toThrow(/Cycle in the DIFAT chain/);
 	});
 
-	it('refuses a sector past the end of the file rather than inventing one', () => {
+	it('invents no sector past the end of the file: a DIFAT sector there ends the DIFAT', () => {
 		const bytes = emptyCfb();
 		bytes.writeUInt32LE(1000, 68);
 		bytes.writeUInt32LE(1, 72);
-		expect(() => Cfb.fromBytes(bytes)).toThrow(/past the end of the file/);
+		expect(Cfb.fromBytes(bytes).listStreams()).toEqual([]);
+	});
+
+	// Issue #340: a file cut short reads the streams that lie before the cut.
+	it('reads the VBA modules of a legacy file cut a sector or more short', () => {
+		for (const [name, cut] of [['XlsFixture.xls', 59392], ['XlsFixture.xls', 66048], ['WordFixture.doc', 68096]] as const) {
+			const whole = fs.readFileSync(path.join(FIXTURES, name));
+			const expected = readModulesFromBuffer(whole).map((m) => [m.name, m.code]);
+			expect(readModulesFromBuffer(whole.subarray(0, cut)).map((m) => [m.name, m.code]), `${name} cut at ${cut}`).toEqual(expected);
+		}
+	});
+
+	it('refuses a mini stream that runs into a removed sector, rather than reading zeros', () => {
+		// WordFixture.doc cut at 67584 bytes loses the last 41 bytes of `dir`.
+		const whole = fs.readFileSync(path.join(FIXTURES, 'WordFixture.doc'));
+		expect(() => readModulesFromBuffer(whole.subarray(0, 67584))).toThrow();
+	});
+
+	it('refuses a stream whose bytes the cut removed, rather than reading zeros', () => {
+		const cfb = Cfb.createEmpty();
+		cfb.addStream('Big', Buffer.from('x'.repeat(8192)));
+		const bytes = cfb.toBytes();
+		const cut = Cfb.fromBytes(bytes.subarray(0, bytes.length - 3 * SECTOR));
+		expect(() => cut.getStream('Big')).toThrow(CfbError);
 	});
 
 	it('refuses a sector size the format does not have', () => {
@@ -64,10 +88,24 @@ describe('a damaged ZIP package', () => {
 		expect(() => ZipArchive.read(bytes)).toThrow(ZipError);
 	});
 
-	it('refuses an entry whose local header is past the end', () => {
+	// Issue #340: a damaged part VBA does not need leaves the package
+	// readable; reading that part, or writing the package, is refused.
+	it('reads a package with one entry whose local header is past the end', () => {
 		const bytes = workbook();
 		const central = bytes.readUInt32LE(eocdOf(bytes) + 16);
 		bytes.writeUInt32LE(bytes.length - 2, central + 42);
-		expect(() => ZipArchive.read(bytes)).toThrow(ZipError);
+		const zip = ZipArchive.read(bytes);
+		const damaged = zip.names()[0];
+		expect(() => zip.read(damaged)).toThrow(/Bad local header signature/);
+		expect(zip.read(zip.names()[1]).length).toBeGreaterThan(0);
+		expect(() => zip.toBytes()).toThrow(ZipError);
+	});
+
+	it('refuses to read an entry whose data runs past the end', () => {
+		const bytes = workbook();
+		const central = bytes.readUInt32LE(eocdOf(bytes) + 16);
+		bytes.writeUInt32LE(bytes.length, central + 20);
+		const zip = ZipArchive.read(bytes);
+		expect(() => zip.read(zip.names()[0])).toThrow(/runs past the end/);
 	});
 });

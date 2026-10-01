@@ -29,6 +29,13 @@ interface ZipEntry {
 	versionMadeBy: number;
 	extra: Buffer;
 	comment: Buffer;
+	/**
+	 * Why the entry's data cannot be read: its local header is not where
+	 * the central directory says, or its data runs past the end. The rest
+	 * of the package still reads (issue #340); this entry is refused when
+	 * it is read, and so is writing the package.
+	 */
+	damage?: string;
 }
 
 const CRC_TABLE = (() => {
@@ -122,18 +129,26 @@ export class ZipArchive {
 			}
 
 			// The local header repeats name/extra with its own lengths.
+			let damage: string | undefined;
+			let compressed = Buffer.alloc(0);
 			if (localOffset + 30 > data.length || data.readUInt32LE(localOffset) !== SIG_LOCAL) {
-				throw new ZipError(`Bad local header signature for ${name}.`);
+				damage = `Bad local header signature for ${name}.`;
+			} else {
+				const localNameLen = data.readUInt16LE(localOffset + 26);
+				const localExtraLen = data.readUInt16LE(localOffset + 28);
+				const dataStart = localOffset + 30 + localNameLen + localExtraLen;
+				if (dataStart + compressedSize > data.length) {
+					damage = `The data of ${name} runs past the end of the file.`;
+				} else {
+					compressed = Buffer.from(data.subarray(dataStart, dataStart + compressedSize));
+				}
 			}
-			const localNameLen = data.readUInt16LE(localOffset + 26);
-			const localExtraLen = data.readUInt16LE(localOffset + 28);
-			const dataStart = localOffset + 30 + localNameLen + localExtraLen;
-			const compressed = Buffer.from(data.subarray(dataStart, dataStart + compressedSize));
 
 			zip.byName.set(name, zip.entries.length);
 			zip.entries.push({
 				name, compressed, method, crc32: crc, uncompressedSize,
 				flags, modTime, modDate, externalAttrs, internalAttrs, versionMadeBy, extra, comment,
+				...(damage ? { damage } : {}),
 			});
 			pos += 46 + nameLen + extraLen + commentLen;
 		}
@@ -154,6 +169,9 @@ export class ZipArchive {
 			throw new ZipError(`Entry not found: ${name}`);
 		}
 		const entry = this.entries[idx];
+		if (entry.damage) {
+			throw new ZipError(entry.damage);
+		}
 		if (entry.method === 0) {
 			return entry.compressed.subarray(0, entry.uncompressedSize);
 		}
@@ -178,6 +196,9 @@ export class ZipArchive {
 			throw new ZipError(`Entry not found: ${name}`);
 		}
 		const entry = this.entries[idx];
+		if (entry.damage) {
+			throw new ZipError(entry.damage);
+		}
 		if (entry.compressed.length <= compressedBytes) {
 			return this.read(name);
 		}
@@ -235,6 +256,10 @@ export class ZipArchive {
 		const centralParts: Buffer[] = [];
 		let offset = 0;
 		for (const entry of this.entries) {
+			// A damaged part has no data to write back.
+			if (entry.damage) {
+				throw new ZipError(`${entry.damage} The package cannot be written.`);
+			}
 			const nameBuf = Buffer.from(entry.name, 'utf8');
 			const local = Buffer.alloc(30);
 			local.writeUInt32LE(SIG_LOCAL, 0);
