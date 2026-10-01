@@ -116,6 +116,53 @@ describe('host-argument-out-of-range - Excel (issue #122)', () => {
 	});
 });
 
+// Measured in Excel 16.0 (build 20326, 2026-10-01).
+describe('host-argument-out-of-range - indexes relative to a range (issue #275)', () => {
+	it('stays quiet where the index lands on the sheet', () => {
+		for (const expr of [
+			'Range("B2").Cells(0)', 'Range("B2").Cells(0, 0)', 'Range("B2").Cells(0, 1)', 'Range("C3").Cells(-1, -1)',
+			'Range("B2").Item(0)', 'Range("B2").Item(0, 0)', 'Range("B2:C3").Rows(0)', 'Range("B2:C3").Columns(0)',
+			'Range("B2:C3").Cells(0)', 'Range("B2:C3").Cells(-1)', 'Range("B2:D3").Cells(0)', 'Range("B2:D3").Cells(-2)',
+			'Range("C3").Cells(-1)', 'Range("A2").Cells(0)', 'Range("B2:C3").Item(0)', 'Range("B1:C2").Cells(0)',
+			'Range("B3:C4").Cells(-4)', 'Range("A2").Cells(0, 1)', 'Range("B2").Cells(1, 0)', 'Range("B2:C3").Cells(0, 0)',
+			'Range("B3:C4").Rows(-1)', 'Range("B2").Columns(0)', 'Worksheets(1).Range("B2").Cells(0)', 'ActiveCell.Cells(0)',
+		]) {
+			expect(byCode(analyzeModule(wrap(`Main = ${expr}.Address`)), RANGE), expr).toEqual([]);
+		}
+		expect(byCode(analyzeModule(wrap('Dim r As Range', 'Set r = Range("B2")', 'Main = r.Cells(0, 1).Address')), RANGE)).toEqual([]);
+	});
+
+	it('reports where the index lands above row 1 or left of column A', () => {
+		for (const [expr, where] of [
+			['Range("A1").Cells(0)', 'row 0'],
+			['Range("A1").Cells(0, 1)', 'row 0'],
+			['Range("B2").Cells(-1)', 'row 0'],
+			['Range("C3").Cells(-2)', 'row 0'],
+			['Range("B1").Cells(0)', 'row 0'],
+			['Range("A2:B3").Cells(0)', 'column 0'],
+			['Range("B3:C4").Cells(-5)', 'row 0'],
+			['Range("A1").Item(0, 1)', 'row 0'],
+			['Range("A2").Cells(-1, 1)', 'row 0'],
+			['Range("A1").Cells(1, 0)', 'column 0'],
+			['Range("B2:C3").Cells(-1, 0)', 'row 0'],
+			['Range("A1").Rows(0)', 'row 0'],
+			['Range("A1:B2").Columns(0)', 'column 0'],
+			['Range("B2:C3").Rows(-1)', 'row 0'],
+			['Range("B2").Columns(-1)', 'column 0'],
+			['Worksheets(1).Range("A1").Cells(0)', 'row 0'],
+		]) {
+			const src = wrap(`Main = ${expr}.Address`);
+			expectDiagnostic(src, byCode(analyzeModule(src), RANGE), RANGE, { message: where });
+		}
+	});
+
+	it('still reports the sheet\'s own Cells, Rows and Columns', () => {
+		for (const expr of ['Cells(0, 1)', 'Rows(0)', 'Columns(0)', 'Worksheets(1).Cells(0, 1)', 'Worksheets(1).Rows(0)', 'Range("B2:C3").Areas(0)']) {
+			expect(byCode(analyzeModule(wrap(`Main = ${expr}.Address`)), RANGE), expr).toHaveLength(1);
+		}
+	});
+});
+
 describe('host-argument-out-of-range - Word and PowerPoint (issue #122)', () => {
 	it('flags Word collections at 0 and a Document.Range below 0', () => {
 		const model = getWordObjectModel();
