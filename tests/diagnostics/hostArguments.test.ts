@@ -99,15 +99,27 @@ describe('host-argument-out-of-range - Excel (issue #122)', () => {
 	});
 
 	it('flags an address literal off the sheet', () => {
-		const bad = ['"A0"', '"$A$0"', '"Sheet1!A0"', '"0:0"', '"A1048577"', '"XFE1"'];
+		const bad = ['"$A$0"', '"A$0"', '"$A0"', '"Sheet1!$A$0"', '"0:0"', '"$A$1048577"', '"$XFE$1"', '"$XFE:$XFE"', '"A0:$A$0"', '"$A$0:D4"'];
 		for (const literal of bad) {
 			const src = wrap(`Main = Range(${literal}).Value`);
 			expectDiagnostic(src, analyzeModule(src), RANGE, { span: literal, message: ['1048576', "'1004'"] });
 		}
-		const twoArgs = wrap('Main = Range("A0", "B2").Value');
-		expectDiagnostic(twoArgs, analyzeModule(twoArgs), RANGE, { span: '"A0"' });
+		const twoArgs = wrap('Main = Range("$A$0", "B2").Value');
+		expectDiagnostic(twoArgs, analyzeModule(twoArgs), RANGE, { span: '"$A$0"' });
 		const quiet = wrap('Main = Range("A:A").Count', 'Main = Range("XFD1048576").Row', 'Main = Range("MyName").Value', 'Main = Application.Range("A1").Value');
 		expect(byCode(analyzeModule(quiet), RANGE)).toHaveLength(0);
+	});
+
+	// Names.Add accepts each of these as a workbook name, and Range then
+	// finds it (measured in Excel 16.0, 2026-10-01). A name cannot hold `$`
+	// or start with a digit, so those addresses stay reported above.
+	it('leaves an address a workbook name can spell alone', () => {
+		for (const literal of ['"A0"', '"Sheet1!A0"', '"A1048577"', '"XFE1"', '"XFE:XFE"', '"A0:D4"', '"A1:XFE1"', '"A1048577:A1048577"', '"A0:$A$1"']) {
+			const src = wrap(`Main = Range(${literal}).Value`);
+			expect(byCode(analyzeModule(src), RANGE), literal).toHaveLength(0);
+		}
+		const twoArgs = wrap('Main = Range("A0", "D4").Value');
+		expect(byCode(analyzeModule(twoArgs), RANGE)).toHaveLength(0);
 	});
 
 	it('leaves a name the module declares alone', () => {

@@ -15,9 +15,14 @@
 //      Paragraphs(0), Documents(0), Tables(0), Sections(0), Words(0), ...
 //      -> 5941 in Word (Shapes(0) -> -2147024809). Slides(0), Presentations(0),
 //      Shapes(0), Designs(0), Slides.Add 0 -> -2147188160 in PowerPoint.
-//      Cells(0, 1), Cells(1, 0), Cells(0) -> 1004. Range("A0"), Range("$A$0"),
-//      Range("Sheet1!A0"), Range("0:0"), Range("A1048577"), Range("XFE1"),
-//      Range("A0", "B2") -> 1004; Range("A:A") and Range("XFD1048576") run.
+//      Cells(0, 1), Cells(1, 0), Cells(0) -> 1004. Range("$A$0"),
+//      Range("A$0"), Range("Sheet1!$A$0"), Range("0:0"), Range("$XFE:$XFE")
+//      -> 1004; Range("A:A") and Range("XFD1048576") run. Range("A0"),
+//      Range("A1048577") and Range("XFE1") raise 1004 too, but only while
+//      no workbook name is spelled that way, so they are not judged (measured
+//      2026-10-01): A0, XFE1, A1048577 and XFE are names Names.Add accepts,
+//      and Range then finds them, alone, in "A0:D4", in Range("A0", "D4")
+//      and after "Sheet1!". A name cannot hold `$` or start with a digit.
 //      Range("A1").Offset(-1, 0), Range("A1").Offset(0, -1) -> 1004;
 //      Range("B2").Offset(-1, -1) runs. Resize(0, 1), Resize(1, 0), Resize(0),
 //      Resize(-1, 1) -> 1004. Past the bottom and right edges (issue #182,
@@ -639,7 +644,7 @@ function checkExcelCallee(
 				push('hostArgumentOutOfRange', `Range takes an address or a name, and "${area.text}" is blank. This will raise Run-time error '1004': Method 'Range' of object failed.`, argSpan(span, callee.args[k]));
 				return;
 			}
-			if (area && !area.valid) {
+			if (area && !area.valid && !area.mayBeName) {
 				push('hostArgumentOutOfRange', `"${area.text}" is not a cell address Excel accepts: rows run 1 to ${EXCEL_MAX_ROW} and columns A to XFD. This will raise Run-time error '1004': Method 'Range' of object failed.`, argSpan(span, callee.args[k]));
 				return;
 			}
@@ -917,6 +922,12 @@ interface A1Area {
 	multiCell: boolean;
 	/** Empty or spaces only: no address and no name (issue #276). */
 	blank?: boolean;
+	/**
+	 * Every part past the sheet could be a workbook name: it starts with a
+	 * letter and holds no `$`. A0, XFE1, A1048577 and XFE are names Excel
+	 * accepts, and Range finds them, alone, in `A0:D4` or after `Sheet1!`.
+	 */
+	mayBeName?: boolean;
 	row?: number;
 	column?: number;
 	/** The second cell of `A1:B2`. */
@@ -947,15 +958,19 @@ function parseA1Address(text: string): A1Area | undefined {
 	if (cells.every((match) => match)) {
 		const rows = cells.map((match) => Number(match![2]));
 		const columns = cells.map((match) => columnNumber(match![1]));
-		const valid = rows.every((row) => row >= 1 && row <= EXCEL_MAX_ROW) && columns.every((column) => column >= 1 && column <= EXCEL_MAX_COLUMN);
+		const inRange = parts.map((_, k) => rows[k] >= 1 && rows[k] <= EXCEL_MAX_ROW && columns[k] >= 1 && columns[k] <= EXCEL_MAX_COLUMN);
+		const valid = inRange.every((ok) => ok);
+		const mayBeName = parts.every((part, k) => inRange[k] || !part.includes('$'));
 		const multiCell = cells.length === 2 && (rows[0] !== rows[1] || columns[0] !== columns[1]);
-		return { text, valid, multiCell, row: rows[0], column: columns[0], endRow: rows[1], endColumn: columns[1] };
+		return { text, valid, multiCell, mayBeName, row: rows[0], column: columns[0], endRow: rows[1], endColumn: columns[1] };
 	}
 	if (parts.length === 2) {
 		const columnsOnly = parts.map((part) => /^\$?([A-Za-z]{1,3})$/.exec(part));
 		if (columnsOnly.every((match) => match)) {
-			const valid = columnsOnly.every((match) => columnNumber(match![1]) <= EXCEL_MAX_COLUMN);
-			return { text, valid, multiCell: true };
+			const inRange = columnsOnly.map((match) => columnNumber(match![1]) <= EXCEL_MAX_COLUMN);
+			const valid = inRange.every((ok) => ok);
+			const mayBeName = parts.every((part, k) => inRange[k] || !part.includes('$'));
+			return { text, valid, multiCell: true, mayBeName };
 		}
 		const rowsOnly = parts.map((part) => /^\$?(\d+)$/.exec(part));
 		if (rowsOnly.every((match) => match)) {
