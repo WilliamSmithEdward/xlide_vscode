@@ -122,6 +122,15 @@ describe('collection state follows Set o = c (issue #147)', () => {
 		expectDiagnostic(src, analyzeModule(src), DUP, { severity: 'error', span: '"k"', message: "'457'" });
 	});
 
+	it('reads an index through a Const or a local with one known value (issue #238)', () => {
+		const viaConst = wrap('Dim c As New Collection', 'Const K = 3', 'c.Add 1', 'Main = c(K)');
+		expectDiagnostic(viaConst, analyzeModule(viaConst), INDEX, { span: 'K', message: "'9'" });
+		const viaLocal = wrap('Dim c As New Collection, k As Long', 'c.Add 1', 'k = 3', 'Main = c(k)');
+		expectDiagnostic(viaLocal, analyzeModule(viaLocal), INDEX, { span: 'k', message: "'9'" });
+		const inRange = wrap('Dim c As New Collection', 'Const K = 1', 'c.Add 1', 'Main = c(K)');
+		expect(byCode(analyzeModule(inRange), INDEX)).toHaveLength(0);
+	});
+
 	it('stops following a collection handed to an untracked holder', () => {
 		const src = wrap(
 			'Dim c As Collection, v As Object',

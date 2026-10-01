@@ -301,6 +301,9 @@ describe('analyzeModule - array ReDim', () => {
 		expect(bounds('    ReDim a(1 To 2)\n    ReDim Preserve a(1 To HI - 1)\n')).toHaveLength(1);
 		expect(bounds('    ReDim a(HI To LO)\n')).toHaveLength(0);
 		expect(bounds('    Dim HI As Long\n    HI = 9\n    ReDim a(LO To HI)\n')).toHaveLength(0);
+		// A local with one known value reads like a Const (issue #238).
+		expect(bounds('    Dim zz As Long\n    zz = -1\n    ReDim a(zz)\n')).toHaveLength(1);
+		expect(bounds('    Dim zz As Long\n    zz = 1\n    ReDim a(LO To zz)\n')).toHaveLength(1);
 
 		const dims = (count: number): string => Array.from({ length: count }, () => '0').join(', ');
 		const tooMany = (body: string) => byCode(analyzeModule(`Sub T()\n${body}End Sub\n`), 'too-many-array-dimensions');
@@ -1059,7 +1062,17 @@ describe('analyzeModule - array-subscript-out-of-bounds (RUNTIME_006)', () => {
 		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
 	});
 
-	it('stays quiet for variable and Const subscripts (not provable)', () => {
+	it('stays quiet for a subscript whose value is not known', () => {
+		const src =
+			'Sub T(i As Long)\n' +
+			'    Dim a(1 To 10) As Long\n' +
+			'    a(i) = 1\n' +
+			'    a(i + 20) = 1\n' +
+			'End Sub\n';
+		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+	});
+
+	it('reads a subscript through a Const or a local with one known value (issue #238)', () => {
 		const src =
 			'Sub T()\n' +
 			'    Const MAX As Long = 99\n' +
@@ -1068,18 +1081,60 @@ describe('analyzeModule - array-subscript-out-of-bounds (RUNTIME_006)', () => {
 			'    i = 11\n' +
 			'    a(i) = 1\n' +
 			'    a(MAX) = 1\n' +
+			'    a(i - 1) = 1\n' +
+			// 10.4 rounds to 10, which is in range.
+			'    Dim d As Double\n' +
+			'    d = 10.4\n' +
+			'    a(d) = 1\n' +
 			'End Sub\n';
-		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+		const hits = byCode(analyzeModule(src), CODE);
+		expect(hits.map((d) => spanText(src, d))).toEqual(['i', 'MAX']);
+		expect(hits[0].message).toContain('Subscript i is 11 here');
 	});
 
-	it('stays quiet for a dynamic array sized by ReDim', () => {
+	it('reads the bounds the last ReDim gave a dynamic array (issue #238)', () => {
 		const src =
 			'Sub T()\n' +
 			'    Dim a() As Long\n' +
 			'    ReDim a(1 To 3)\n' +
 			'    a(5) = 1\n' +
 			'End Sub\n';
-		expect(byCode(analyzeModule(src), CODE)).toHaveLength(0);
+		expectDiagnostic(src, analyzeModule(src), CODE, { span: '5', message: "array 'a' (ReDim) is above the upper bound 3" });
+	});
+
+	it('forgets ReDim bounds where the array may be resized unseen (issue #238)', () => {
+		const quiet = [
+			// A ReDim in a block, or behind a single-line If.
+			'    ReDim a(3)\n    If n = 1 Then\n        ReDim a(9)\n    End If\n    a(5) = 1\n',
+			'    ReDim a(3)\n    If n = 1 Then ReDim a(9)\n    a(5) = 1\n',
+			'    ReDim a(3)\n    If n = 1 Then n = 2: ReDim a(9)\n    a(5) = 1\n',
+			// Passed whole, assigned whole, erased.
+			'    ReDim a(3)\n    Grow a\n    a(5) = 1\n',
+			'    ReDim a(3)\n    a = b\n    a(5) = 1\n',
+			'    ReDim a(3)\n    Erase a\n    ReDim a(9)\n    a(5) = 1\n',
+			// ReDim Preserve resizes; its own bounds are no subscript.
+			'    ReDim a(3)\n    ReDim Preserve a(5)\n    a(5) = 1\n',
+			// A later pass of the loop sees the ReDim below.
+			'    ReDim a(3)\n    For n = 1 To 2\n        If n = 2 Then a(5) = 1\n        ReDim a(9)\n    Next\n',
+			// A label may be reached from below.
+			'    ReDim a(3)\nAgain:\n    If n = 1 Then a(5) = 1: Exit Sub\n    ReDim a(9)\n    n = 1\n    GoTo Again\n',
+			// A ReDim behind a single-line If that may shrink it.
+			'    ReDim a(9)\n    If n = 1 Then ReDim a(3)\n    a(5) = 1\n',
+			'    ReDim a(9)\n    If n = 1 Then n = 2: ReDim a(3)\n    a(5) = 1\n',
+			// Bounds that are not literals.
+			'    ReDim a(n)\n    a(5) = 1\n',
+			'    ReDim a(n, 3)\n    a(5, 1) = 1\n',
+		];
+		for (const body of quiet) {
+			const src = `Sub T(n As Long)\n    Dim a() As Long, b() As Long\n${body}End Sub\nSub Grow(x() As Long)\n    ReDim x(9)\nEnd Sub\n`;
+			expect(byCode(analyzeModule(src), CODE), body).toHaveLength(0);
+		}
+		// An unknown bound leaves the rest of the procedure checked.
+		const partial = 'Sub T(n As Long)\n    Dim a() As Long, b(2) As Long\n    ReDim a(n, 3)\n    a(1, 1) = 1\n    b(5) = 1\nEnd Sub\n';
+		expectDiagnostic(partial, analyzeModule(partial), CODE, { span: '5', message: "array 'b'" });
+		// Indexing inside a loop leaves the bounds known after it.
+		const loop = 'Sub T()\n    Dim a() As Long, i As Long\n    ReDim a(3)\n    For i = 0 To 3\n        a(i) = i\n    Next\n    a(4) = 1\nEnd Sub\n';
+		expectDiagnostic(loop, analyzeModule(loop), CODE, { span: '4', message: 'upper bound 3' });
 	});
 
 	it('stays quiet for a multi-dimension array', () => {

@@ -981,9 +981,8 @@ describe('analyzeModule - argument type validation', () => {
 
 	it('keeps date-looking, variable, and non-CDate conversions quiet', () => {
 		const src =
-			'Sub T()\n' +
+			'Sub T(text As String)\n' +
 			'    Dim Value As Date\n' +
-			'    Dim text As String\n' +
 			'    Value = CDate("1/2/2020")\n' +
 			'    Value = CDate("Mar 1")\n' +
 			'    Value = CDate("$5")\n' +
@@ -999,6 +998,30 @@ describe('analyzeModule - argument type validation', () => {
 		// no month raise 13 there too (issue #118, measured in Excel 16.0).
 		const dateValue = 'Sub T()\n    Dim Value As Date\n    Value = DateValue("not a date")\nEnd Sub\n';
 		expectDiagnostic(dateValue, analyzeModule(dateValue), 'runtime-conversion-value', { span: '"not a date"', message: 'DateValue' });
+	});
+
+	it('reads the string a local holds at a conversion (issue #238)', () => {
+		const held = 'Sub T()\n    Dim s As String, n As Long\n    s = "abc"\n    n = CLng(s)\nEnd Sub\n';
+		expectDiagnostic(held, analyzeModule(held), 'runtime-conversion-value', { span: 's', message: 's, which holds "abc" here,' });
+		// A String never assigned holds "", which CDate refuses (measured in Excel 16.0).
+		const empty = 'Sub T()\n    Dim s As String, d As Date\n    d = CDate(s)\nEnd Sub\n';
+		expectDiagnostic(empty, analyzeModule(empty), 'runtime-conversion-value', { span: 's', message: 'CDate' });
+		const quiet = [
+			'Sub T()\n    Dim s As String, n As Long\n    s = "12"\n    n = CLng(s)\nEnd Sub\n',
+			'Sub T()\n    Dim s As String, n As Long\n    s = "abc"\n    If Len(s) = 3 Then s = "12"\n    n = CLng(s)\nEnd Sub\n',
+			// The Mid statement rewrites the characters.
+			'Sub T()\n    Dim s As String, n As Long\n    s = "abc"\n    Mid(s, 1, 3) = "123"\n    n = CLng(s)\nEnd Sub\n',
+			// A function in an assignment's value may fill it ByRef.
+			'Sub T()\n    Dim s As String, n As Long\n    n = Fill(s)\n    n = CLng(s)\nEnd Sub\nFunction Fill(x As String) As Long\n    x = "12"\nEnd Function\n',
+			// A module Function named like a library one is the module's.
+			'Sub T()\n    Dim s As String, n As Long\n    n = Len(Trim(s))\n    n = CLng(s)\nEnd Sub\nFunction Trim(x As String) As String\n    x = "12"\nEnd Function\n',
+		];
+		for (const src of quiet) {
+			expect(byCode(analyzeModule(src), 'runtime-conversion-value'), src).toHaveLength(0);
+		}
+		// The VBA library's functions only read: `Len(s)` leaves s "".
+		const read = 'Sub T()\n    Dim s As String, n As Long\n    n = Len(s) Mod 2\n    n = CLng(s)\nEnd Sub\n';
+		expectDiagnostic(read, analyzeModule(read), 'runtime-conversion-value', { span: 's', message: 'CLng' });
 	});
 
 	it('does not treat shadowed CDate calls as native conversion checks', () => {
