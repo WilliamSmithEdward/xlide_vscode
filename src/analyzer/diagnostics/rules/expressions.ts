@@ -84,6 +84,7 @@ import {
 	type FixedArrayBound,
 } from './arrays';
 import { moduleTypes } from '../typeFields';
+import { checkEachCounterPass, loopCountersAt } from '../loopCounters';
 import { isKnownNumber, typeMemberStatesAt, type MemberState } from '../typeMemberState';
 import {
 	absoluteSpan,
@@ -598,8 +599,16 @@ export function checkDivisionByZeroExpressions(
 		// a later one changes it (issue #180).
 		const valuesAt = knownLocalLiteralValuesAt(source, member, symbols, activity);
 		let known: ReadonlyMap<string, KnownLocalValue> = new Map();
+		// A loop counter on its first and last passes: `For i = 0 To 3` then
+		// `1 / i` divides by 0 on the first (issue #263).
+		const counters = loopCountersAt(source, member.body, activity);
+		let passValues: ReadonlyMap<string, number> = new Map();
 		const lookup: IntegerConstantLookup = {
 			get: (name) => {
+				const pass = passValues.get(name.toLowerCase());
+				if (pass !== undefined) {
+					return pass;
+				}
 				const constant = constants.get(name);
 				if (constant !== undefined) {
 					return constant;
@@ -625,9 +634,13 @@ export function checkDivisionByZeroExpressions(
 			known = valuesAt(stmt);
 			// A single-line If's branch sees the members less what its condition names.
 			members = membersAt ? membersAt(stmt, stmt.span.end) : members;
-			for (const hit of divisionByZeroDivisors(source, stmt.span, lookup, guards, fractionOf)) {
-				push('divisionByZero', hit.message, hit.span);
-			}
+			checkEachCounterPass(source, stmt.span, counters.get(stmt), () => undefined, (values, report) => {
+				passValues = values;
+				for (const hit of divisionByZeroDivisors(source, stmt.span, lookup, guards, fractionOf)) {
+					report('divisionByZero', hit.message, hit.span);
+				}
+			}, push);
+			passValues = new Map();
 		};
 	};
 }

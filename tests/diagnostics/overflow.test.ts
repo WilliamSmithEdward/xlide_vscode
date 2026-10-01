@@ -74,7 +74,6 @@ describe('for-counter-overflow (issue #116)', () => {
 	it('flags a limit the counter type cannot step past', () => {
 		const cases: Array<[string, string, string]> = [
 			['Dim i As Integer', 'For i = 1 To 32767', '32767'],
-			['Dim i As Integer', 'For i = 1 To 40000', '40000'],
 			['Dim b As Byte', 'For b = 0 To 255', '255'],
 			['Dim i As Integer', 'For i = 100 To -32768 Step -1', '-32768'],
 			['Dim l As Long', 'For l = 2147483000 To 2147483647', '2147483647'],
@@ -83,6 +82,9 @@ describe('for-counter-overflow (issue #116)', () => {
 			const src = wrap(decl, header, 'Next', 'Main = 0');
 			expectDiagnostic(src, analyzeModule(src), COUNTER, { span, message: ['after its last pass', "error '6'"] });
 		}
+		// A limit the type cannot hold fails on the For line itself (issue #263).
+		const past = wrap('Dim i As Integer', 'For i = 1 To 40000', 'Next', 'Main = 0');
+		expectDiagnostic(past, analyzeModule(past), COUNTER, { span: '40000', message: ['converts its limit 40000 to Integer as it starts', "error '6'"] });
 	});
 
 	it('stays quiet one below the maximum, for a Long counter, and when the step lands short of it', () => {

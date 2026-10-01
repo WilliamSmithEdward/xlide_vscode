@@ -23,6 +23,7 @@ import type { ConditionalActivityTracker } from '../conditional/conditionalCompi
 import type { BodyNode, IfBlockNode, LeafStatementNode, Span } from '../parser/nodes';
 import { isLeafStatement } from '../parser/nodes';
 import { statementLabelDeclaration } from '../flow/procedureLabels';
+import { parseVbaIntegerLiteral } from '../constants/integerConstantExpression';
 import { trackedLocalsNamedWhole } from './dataflow';
 import { isLoopBlock } from './blockHeaders';
 import {
@@ -30,6 +31,7 @@ import {
 	blockFooterLineSpan,
 	blockHeaderLineSpan,
 	isInactiveNode,
+	rawExpressionTokens,
 	statementAndBranchSpans,
 	statementTokensAfterLeadingLabel,
 	tokenName,
@@ -160,7 +162,98 @@ function walkBlock(
 	} else {
 		walkList(source, node.body as BodyNode[], inside, activity, out, node.kind === 'SelectBlock');
 	}
+	const final = touched === 'all' ? undefined : forCounterFinalValue(source, node, activity);
+	if (final !== undefined) {
+		const next = new Map(after);
+		next.set(final.name, rawExpressionTokens(String(final.value)));
+		return next;
+	}
 	return after;
+}
+
+/**
+ * What a For counter holds after a loop of literal bounds runs to its end
+ * (issue #263, measured in Excel 16.0): one step past its last pass, or the
+ * start when no pass runs. `For i = 0 To 3 ... Next` leaves i at 4, so
+ * `a(i)` on a Dim a(3) raises 9. A body that may leave the loop, or that
+ * writes the counter, keeps it unknown.
+ */
+function forCounterFinalValue(
+	source: string,
+	node: BodyNode,
+	activity: ConditionalActivityTracker | undefined,
+): { name: string; value: number } | undefined {
+	if (node.kind !== 'ForBlock' || node.each || !node.controlVariable) {
+		return undefined;
+	}
+	const toks = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+	const eq = toks.findIndex((tok) => tok.rawText === '=');
+	const to = toks.findIndex((tok) => tokenText(tok) === 'to');
+	const stepAt = toks.findIndex((tok) => tokenText(tok) === 'step');
+	const start = eq > 0 && to > eq ? signedInteger(toks.slice(eq + 1, to)) : undefined;
+	const limit = to > 0 ? signedInteger(toks.slice(to + 1, stepAt > 0 ? stepAt : toks.length)) : undefined;
+	const step = stepAt > 0 ? signedInteger(toks.slice(stepAt + 1)) : 1;
+	if (start === undefined || limit === undefined || step === undefined || step === 0) {
+		return undefined;
+	}
+	const lower = node.controlVariable.toLowerCase();
+	if (loopBodyMayLeaveOrWrite(source, node.body as BodyNode[], lower, activity)) {
+		return undefined;
+	}
+	const passes = step > 0 ? (start <= limit ? Math.floor((limit - start) / step) + 1 : 0) : (start >= limit ? Math.floor((start - limit) / -step) + 1 : 0);
+	return { name: lower, value: start + passes * step };
+}
+
+function signedInteger(toks: readonly VbaToken[]): number | undefined {
+	const negative = toks.length === 2 && toks[0].rawText === '-';
+	const literal = toks[negative ? 1 : 0];
+	if (toks.length !== (negative ? 2 : 1) || literal.kind !== 'integerLiteral') {
+		return undefined;
+	}
+	const value = parseVbaIntegerLiteral(literal.rawText);
+	return value === undefined ? undefined : negative ? -value : value;
+}
+
+/** Statement heads that may leave a loop or jump within the procedure. */
+const LEAVING_HEADS: ReadonlySet<string> = new Set(['exit', 'goto', 'gosub', 'resume', 'return', 'on']);
+
+/** Whether a loop body may leave it early, jump, or write the counter. */
+function loopBodyMayLeaveOrWrite(source: string, body: readonly BodyNode[], lower: string, activity: ConditionalActivityTracker | undefined): boolean {
+	for (const node of body) {
+		if (isInactiveNode(activity, node)) {
+			continue;
+		}
+		if (!isLeafStatement(node)) {
+			if (node.kind === 'ForBlock' && node.controlVariable?.toLowerCase() === lower) {
+				return true;
+			}
+			const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span));
+			if ([...passedWhole(header, node.span.start)].includes(lower)) {
+				return true;
+			}
+			if ('body' in node && Array.isArray(node.body) && loopBodyMayLeaveOrWrite(source, node.body as BodyNode[], lower, activity)) {
+				return true;
+			}
+			continue;
+		}
+		if (statementLabelDeclaration(source, node.span)) {
+			return true;
+		}
+		for (const span of statementAndBranchSpans(node)) {
+			const toks = statementTokensAfterLeadingLabel(source, span);
+			const head = tokenText(toks[0]);
+			if (LEAVING_HEADS.has(head) || (head === 'end' && toks.length === 1)) {
+				return true;
+			}
+			if (WRITING_HEADS.has(head) && mentionedNames(toks).has(lower)) {
+				return true;
+			}
+			if (bareAssignmentTarget(source, span)?.name.toLowerCase() === lower || [...passedWhole(toks, span.start)].includes(lower)) {
+				return true;
+			}
+		}
+	}
+	return false;
 }
 
 /** What holds after one plain statement runs. */
