@@ -34225,6 +34225,843 @@
       "source": "Option Explicit\r\nPrivate m As Collection\r\n\r\nFunction Main() As Variant\r\n    Main = m.Count\r\nEnd Function\r\n\r\nPrivate Sub Init(m)\r\n    Debug.Print m.Count\r\nEnd Sub\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_01_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = CallByName(c, \"NoSuch\", VbMethod)\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Hello() As String\r\n    Hello = \"hi\"\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_02_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    Main = CallByName(c, \"NoSuch\", VbGet)\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_03_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 450.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    CallByName c, \"Hello\", VbLet, 1\r\n    Main = 1\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Hello() As String\r\n    Hello = \"hi\"\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_04_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"NoSuchMacro\"\r\n    Main = 1\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_05_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"Module1.NoSuch\"\r\n    Main = 1\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_06_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 94.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = Choose(5, 1, 2)\r\n    Main = n\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_07_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 94.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String\r\n    s = Choose(0, \"a\")\r\n    Main = s\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_08_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 94.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = Switch(False, 1)\r\n    Main = n\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_09_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 94.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = IIf(False, 1, Null)\r\n    Main = n\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_10_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Select Case 5\r\n        Case Is > \"abc\"\r\n            Main = 1\r\n    End Select\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_11_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 457.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.Add \"a\", 1\r\n    d.Add \"a\", 2\r\n    Main = 1\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_12_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 32811.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.Remove \"a\"\r\n    Main = 1\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_13_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.Add \"a\", 1\r\n    Main = d.Keys()(3)\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_14_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Cells(1, \"AAAA\").Address\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_15_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 15, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Cells(1, \"A1\").Address\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_16_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 16, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Range(\"A1:\").Address\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_17_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 17, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> hi.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = CallByName(c, \"Hello\", VbMethod)\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Hello() As String\r\n    Hello = \"hi\"\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_18_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 18, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"Helper\"\r\n    Main = 1\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_19_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 19, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"PrivHelper\"\r\n    Main = 1\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_20_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 20, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"Module1.Helper\"\r\n    Main = 1\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_21_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 21, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = Choose(2, 1, 2)\r\n    Main = n\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_22_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 22, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    v = Choose(5, 1, 2)\r\n    Main = IsNull(v)\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_23_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 23, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    Main = IsEmpty(d(\"missing\"))\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_24_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 24, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.Add \"a\", 1\r\n    d.Add \"b\", 2\r\n    Main = d.Count\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_25_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 25, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> $XFD$1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Cells(1, \"XFD\").Address\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_26_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 26, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Select Case 5\r\n        Case Is > 3\r\n            Main = 1\r\n    End Select\r\nEnd Function\r\n\r\nPublic Sub Helper()\r\nEnd Sub\r\n\r\nPrivate Sub PrivHelper()\r\nEnd Sub\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_27_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 27, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Cells(1, \"XFE\").Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_28_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 28, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> $A$1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Cells(1, \"a\").Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_29_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 29, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Cells(1, \"5\").Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_30_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 30, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Cells(1, \"\").Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_31_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 31, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Cells(1, \"ZZZZ\").Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_32_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 32, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> $A$1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Cells(1, \"$A\").Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_33_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 33, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Cells(1, \"A \").Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_34_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 34, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> $AB$1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Cells(1, \"AB\").Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_35_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 35, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Range(\":A1\").Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_36_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 36, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Range(\":\").Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_37_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 37, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Range(\"A:\").Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_38_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 38, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"Hidden\"\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Sub Hidden()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_39_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 39, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"Module2.Hidden\"\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Sub Hidden()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_40_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 40, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Application.Run \"Hello\"\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub Hello()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_41_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 41, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 4.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Application.Run(\"Twice\", 2)\r\nEnd Function\r\n\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_42_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 42, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    Main = CallByName(c, \"Count\", VbGet)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_43_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 43, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 450.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = CallByName(c, \"Value\", VbMethod)\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get Value() As Long\r\n    Value = 3\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_44_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 44, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    CallByName c, \"Field\", VbLet, 5\r\n    Main = CallByName(c, \"Field\", VbGet)\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Field As Long\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_45_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 45, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = CallByName(c, \"Hidden\", VbMethod)\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate Function Hidden() As Long\r\n    Hidden = 1\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_46_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 46, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    CallByName c, \"Add\", VbMethod, 1\r\n    Main = c.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_47_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 47, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 1\r\n    Main = CallByName(c, \"Item\", VbMethod, 1)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_48_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 48, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 450.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    CallByName c, \"Go\", VbLet, 1\r\n    Main = 1\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_49_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 49, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 450.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = CallByName(c, \"Hello\", VbGet)\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Hello() As String\r\n    Hello = \"hi\"\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_50_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 50, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> hi.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = CallByName(c, \"HELLO\", VbMethod)\r\nEnd Function\r\n\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Hello() As String\r\n    Hello = \"hi\"\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_51_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 51, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.Add \"a\", 1\r\n    d.Add \"A\", 2\r\n    Main = d.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_52_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 52, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.Add \"1\", 1\r\n    d.Add 1, 2\r\n    Main = d.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_53_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 53, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    Main = IsEmpty(d(\"missing\"))\r\n    d.Remove \"missing\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_54_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 54, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> k.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d(\"k\") = 1\r\n    Main = d.Keys()(0)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_55_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 55, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.Add \"a\", 1\r\n    d.RemoveAll\r\n    d.Add \"a\", 2\r\n    Main = d.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_56_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 56, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.CompareMode = 1\r\n    d.Add \"a\", 1\r\n    Main = d.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_57_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 57, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.Add \"a\", 1\r\n    Main = d.Items()(1)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_58_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 58, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 32811.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.Add \"a\", 1\r\n    d.Remove (\"b\")\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_59_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 59, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = IIf(True, 1, Null)\r\n    Main = n\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_60_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 60, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = Switch(True, 1)\r\n    Main = n\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_61_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 61, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 32811.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.Add \"a\", 1\r\n    d.RemoveAll\r\n    d.Remove \"a\"\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue243_62_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 62, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = Switch(False, 1, True, 2)\r\n    Main = n\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue243_63_runtime",
+      "description": "Issue #243 by-name calls, Null, Case Is, Dictionary and cells, case 63, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 7.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = Choose(5, 1, 2)\r\n    Main = n\r\nEnd Function\r\n\r\nPrivate Function Choose(ByVal i As Long, ByVal a As Long, ByVal b As Long) As Long\r\n    Choose = 7\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

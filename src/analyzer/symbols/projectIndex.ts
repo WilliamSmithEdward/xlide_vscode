@@ -779,6 +779,32 @@ export class ProjectIndex {
 	}
 
 	/**
+	 * Lowercased names `Application.Run` can reach: each Sub and Function
+	 * of a standard or document module, Private ones included, bare and as
+	 * `module.name`. A class module's members are not reached (issue #243,
+	 * measured in Excel 16.0).
+	 */
+	runnableProcedureNames(): ReadonlySet<string> {
+		return this.cached('runnableProcedureNames', () => {
+			const names = new Set<string>();
+			for (const symbols of this.modules.values()) {
+				if (symbols.moduleKind !== 'standard' && symbols.moduleKind !== 'document') {
+					continue;
+				}
+				const moduleName = symbols.moduleName.toLowerCase();
+				for (const child of symbols.root.children ?? []) {
+					if (child.kind === 'sub' || child.kind === 'function') {
+						const name = child.name.toLowerCase();
+						names.add(name);
+						names.add(`${moduleName}.${name}`);
+					}
+				}
+			}
+			return names;
+		});
+	}
+
+	/**
 	 * What the project's code may do to its workbook's sheets at run time:
 	 * add or copy one, or name one (issue #229). A sheet the saved workbook
 	 * lacks may be one of these.

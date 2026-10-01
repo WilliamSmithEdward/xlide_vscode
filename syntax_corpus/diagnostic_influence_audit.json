@@ -549,11 +549,15 @@
         "issue222_21_runtime",
         "issue239_01_runtime",
         "issue239_02_runtime",
-        "issue239_68_runtime"
+        "issue239_68_runtime",
+        "issue243_06_runtime",
+        "issue243_07_runtime",
+        "issue243_08_runtime",
+        "issue243_09_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is not a VBE compile-equivalent error: focused compile oracle cases compile successfully. It is red when XLIDE proves a value cannot be coerced or fit into the target scalar type because focused runtime oracle cases deterministically raise runtime error 13 for type mismatch, runtime error 94 for Null assigned to scalar targets, and runtime error 6 for decimal Byte/Integer/Long/Currency overflow, while numeric/string/Boolean/property/public-field, Variant CVErr, Variant Null, and min/max boundary controls run successfully. Function, Property Get return-name assignments, and visible exported standard-module scalar globals use the same deterministic scalar path. Bare assignment targets ask the shared assignment-target resolver first, so local untyped shadows and ambiguous exported globals suppress type guessing. Intrinsic CVErr calls infer an Error Variant for scalar assignment compatibility when the bare runtime name is not source-shadowed, explicit VBA.CVErr remains runtime-bound, and Null literals infer the dedicated Null value type. Issue #222: a Function declared As Variant whose every assignment to its name is Array(...) returns Variant() or Empty, and into an array of another element type raises 13. Issue #239: a Variant local whose last straight-line assignment is Null, assigned to a String, Long or other scalar, raises 94 (v = Null then s = v). Measured in Excel 16.0 (build 20326), issue239_* oracle cases.",
+      "notes": "This is not a VBE compile-equivalent error: focused compile oracle cases compile successfully. It is red when XLIDE proves a value cannot be coerced or fit into the target scalar type because focused runtime oracle cases deterministically raise runtime error 13 for type mismatch, runtime error 94 for Null assigned to scalar targets, and runtime error 6 for decimal Byte/Integer/Long/Currency overflow, while numeric/string/Boolean/property/public-field, Variant CVErr, Variant Null, and min/max boundary controls run successfully. Function, Property Get return-name assignments, and visible exported standard-module scalar globals use the same deterministic scalar path. Bare assignment targets ask the shared assignment-target resolver first, so local untyped shadows and ambiguous exported globals suppress type guessing. Intrinsic CVErr calls infer an Error Variant for scalar assignment compatibility when the bare runtime name is not source-shadowed, explicit VBA.CVErr remains runtime-bound, and Null literals infer the dedicated Null value type. Issue #222: a Function declared As Variant whose every assignment to its name is Array(...) returns Variant() or Empty, and into an array of another element type raises 13. Issue #239: a Variant local whose last straight-line assignment is Null, assigned to a String, Long or other scalar, raises 94 (v = Null then s = v). Measured in Excel 16.0 (build 20326), issue239_* oracle cases. Issue #243: a Choose, Switch or IIf whose literal arguments make it return Null, into a typed variable, raises 94: Choose(5, 1, 2), Choose(0, \"a\"), Switch(False, 1), IIf(False, 1, Null) (measured in Excel 16.0, build 20326, issue243_* oracle cases).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -820,11 +824,12 @@
         "issue191_26_runtime",
         "issue191_27_runtime",
         "issue191_28_runtime",
-        "issue191_29_runtime"
+        "issue191_29_runtime",
+        "issue243_10_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: the focused compile oracle case compiles successfully, while runtime oracle probes for nonnumeric string arithmetic deterministically raise runtime error 13. Operand-order, grouping, and multiplication variants reject; numeric-string, &-concatenation, and string-plus-string + controls run successfully.",
+      "notes": "This is an error but not VBE compile-equivalent: the focused compile oracle case compiles successfully, while runtime oracle probes for nonnumeric string arithmetic deterministically raise runtime error 13. Operand-order, grouping, and multiplication variants reject; numeric-string, &-concatenation, and string-plus-string + controls run successfully. Issue #243: Case Is > \"abc\" under a numeric Select Case raises 13, as Case \"abc\" does (measured in Excel 16.0, build 20326, issue243_* oracle cases).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -3655,11 +3660,22 @@
         "issue200_21_runtime",
         "issue204_055_runtime",
         "issue204_056_runtime",
-        "issue229_04_runtime"
+        "issue229_04_runtime",
+        "issue243_14_runtime",
+        "issue243_15_runtime",
+        "issue243_16_runtime",
+        "issue243_27_runtime",
+        "issue243_29_runtime",
+        "issue243_30_runtime",
+        "issue243_31_runtime",
+        "issue243_33_runtime",
+        "issue243_35_runtime",
+        "issue243_36_runtime",
+        "issue243_37_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Host argument out of range. Office object model: 1-based collections, cell rows and columns from 1 (issue #122, Excel/Word/PowerPoint 16.0).",
+      "notes": "Host argument out of range. Office object model: 1-based collections, cell rows and columns from 1 (issue #122, Excel/Word/PowerPoint 16.0). Issue #243: a Cells column given as a string: past XFD, empty or with a space raises 13, with a digit (\"A1\", \"5\") 1004; a Range address with an empty side (\"A1:\", \":A1\") raises 1004 (measured in Excel 16.0, build 20326, issue243_* oracle cases).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -3738,11 +3754,13 @@
         "issue237_30_runtime",
         "issue238_11_runtime",
         "issue238_22_runtime",
-        "issue239_10_runtime"
+        "issue239_10_runtime",
+        "issue243_13_runtime",
+        "issue243_57_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Collection index out of range. VBE runtime errors 5 and 9 on VBA.Collection (issue #121, Excel 16.0). Issue #219: Add with Before or After on an empty collection (5), or outside 1 to Count (9). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0). Issue #238: an index through a Const or a local with one known value is evaluated. Measured in Excel 16.0 (build 20326).",
+      "notes": "Collection index out of range. VBE runtime errors 5 and 9 on VBA.Collection (issue #121, Excel 16.0). Issue #219: Add with Before or After on an empty collection (5), or outside 1 to Count (9). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0). Issue #238: an index through a Const or a local with one known value is evaluated. Measured in Excel 16.0 (build 20326). Issue #243: d.Keys()(n) and d.Items()(n) past the last key of a Scripting.Dictionary raise 9; they are based at 0 (measured in Excel 16.0, build 20326, issue243_* oracle cases).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -3757,11 +3775,14 @@
         "issue237_21_runtime",
         "issue237_22_runtime",
         "issue237_23_runtime",
-        "issue237_24_runtime"
+        "issue237_24_runtime",
+        "issue243_12_runtime",
+        "issue243_58_runtime",
+        "issue243_61_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Collection key not found. VBE runtime error 5 on VBA.Collection (issue #121, Excel 16.0). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0).",
+      "notes": "Collection key not found. VBE runtime error 5 on VBA.Collection (issue #121, Excel 16.0). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0). Issue #243: Remove of a key a Scripting.Dictionary does not hold raises 32811; reading d(\"k\") adds the key (measured in Excel 16.0, build 20326, issue243_* oracle cases).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -3778,11 +3799,12 @@
         "issue237_34_runtime",
         "issue237_35_runtime",
         "issue237_36_runtime",
-        "issue237_54_runtime"
+        "issue237_54_runtime",
+        "issue243_11_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Collection key already in use. VBE runtime error 457 on VBA.Collection (issue #121, Excel 16.0). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0).",
+      "notes": "Collection key already in use. VBE runtime error 457 on VBA.Collection (issue #121, Excel 16.0). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0). Issue #243: a Scripting.Dictionary from CreateObject or New Scripting.Dictionary is followed too; its keys compare as written, \"a\" and \"A\" and \"1\" and 1 being distinct keys. A key added twice raises 457 (measured in Excel 16.0, build 20326, issue243_* oracle cases).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -3866,11 +3888,20 @@
         "issue224_24_runtime",
         "issue224_37_runtime",
         "issue224_38_runtime",
-        "issue224_39_runtime"
+        "issue224_39_runtime",
+        "issue243_01_runtime",
+        "issue243_02_runtime",
+        "issue243_03_runtime",
+        "issue243_04_runtime",
+        "issue243_05_runtime",
+        "issue243_40_runtime",
+        "issue243_45_runtime",
+        "issue243_48_runtime",
+        "issue243_49_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Member not found at run time. VBE runtime error 438: Object doesn't support this property or method (issue #121, Excel 16.0). Issue #224: a class reaches the late-bound variable from one declared as it (Set o = c; 91 while c may be Nothing); a Private member is absent (438); a Let into a Get-only property raises 451 and a read of a Let-only property 450. Issue #226: f.Controls(\"Nope\") on a form whose controls are known raises -2147024809.",
+      "notes": "Member not found at run time. VBE runtime error 438: Object doesn't support this property or method (issue #121, Excel 16.0). Issue #224: a class reaches the late-bound variable from one declared as it (Set o = c; 91 while c may be Nothing); a Private member is absent (438); a Let into a Get-only property raises 451 and a read of a Let-only property 450. Issue #226: f.Controls(\"Nope\") on a form whose controls are known raises -2147024809. Issue #243: CallByName with a literal name: no Public member of a project class (a Private one included), or a Collection name other than Add, Count, Item and Remove, raises 438; VbGet or VbLet on a Sub or Function raises 450. In Excel, Application.Run of a name no standard or document module of the project declares raises 1004 (Private procedures count, class members do not; judged only with the project) (measured in Excel 16.0, build 20326, issue243_* oracle cases).",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
