@@ -1,50 +1,144 @@
 // Fails when any SARIF file under a directory holds a result that is not in
-// the reviewed list (rule and file, `*` matching within one path segment).
-//   node .github/scripts/sarif-gate.mjs <label> <directory> [reviewed.json]
+// the reviewed list, or when an entry of the list for this scan matches no
+// result: an entry left behind would accept the next result to land there.
+//   node .github/scripts/sarif-gate.mjs <scan> <directory> [reviewed.json]
+// <scan> is one of SCANS, and an entry applies to the scan it names. A result
+// that points at a line is matched by rule, exact path and the text of that
+// line in the checkout, trimmed, so it follows code that moves and comes back
+// for review when the line changes. A detection of a whole file is matched by
+// rule and `file`, where `*` matches within one path segment.
 import fs from 'node:fs';
 import path from 'node:path';
+import { isMain } from './scan-sarif.mjs';
 
-const [label, directory, reviewedFile] = process.argv.slice(2);
+/** The gates that read a reviewed list, as the workflows name them. */
+export const SCANS = ['CodeQL javascript-typescript', 'CodeQL actions', 'ClamAV', 'YARA-X'];
 
-/** The reviewed entries, each with a matcher for its file. */
-export function loadReviewed(file) {
+function nonEmpty(value) {
+	return typeof value === 'string' && value.trim() !== '';
+}
+
+/**
+ * The entries of a reviewed list that apply to `scan`. A malformed entry, for
+ * any scan, refuses the whole list, so a typo cannot accept a result.
+ */
+export function loadReviewed(file, scan) {
 	if (!file || !fs.existsSync(file)) {
 		return [];
 	}
-	return JSON.parse(fs.readFileSync(file, 'utf8')).reviewed.map((entry) => ({
-		...entry,
-		matches: new RegExp(`^${entry.file.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*')}$`),
-	}));
-}
-
-export function isReviewed(reviewed, ruleId, uri) {
-	return reviewed.some((entry) => entry.rule === ruleId && entry.matches.test(uri));
-}
-
-const reviewed = loadReviewed(reviewedFile);
-const open = [];
-let accepted = 0;
-for (const name of fs.existsSync(directory) ? fs.readdirSync(directory) : []) {
-	if (!name.endsWith('.sarif')) {
-		continue;
+	const entries = JSON.parse(fs.readFileSync(file, 'utf8')).reviewed;
+	if (!Array.isArray(entries)) {
+		throw new Error(`${file}: "reviewed" is not a list`);
 	}
-	const sarif = JSON.parse(fs.readFileSync(path.join(directory, name), 'utf8'));
-	for (const run of sarif.runs ?? []) {
-		for (const result of run.results ?? []) {
-			const where = result.locations?.[0]?.physicalLocation;
-			const uri = where?.artifactLocation?.uri ?? '?';
-			if (isReviewed(reviewed, result.ruleId, uri)) {
-				accepted += 1;
-				continue;
+	return entries.map((entry, index) => {
+		const where = `${file}, entry ${index + 1}`;
+		if (!SCANS.includes(entry.scan)) {
+			throw new Error(`${where}: scan must be one of ${SCANS.join(', ')}`);
+		}
+		if (!nonEmpty(entry.rule) || !nonEmpty(entry.reason)) {
+			throw new Error(`${where}: needs a rule and a reason`);
+		}
+		const byLine = nonEmpty(entry.path) && nonEmpty(entry.line) && entry.line === entry.line.trim();
+		const byFile = nonEmpty(entry.file);
+		if (byLine === byFile || (byFile && (entry.path !== undefined || entry.line !== undefined))) {
+			throw new Error(`${where}: needs either path and the trimmed line, or file`);
+		}
+		return byFile
+			? { ...entry, matches: new RegExp(`^${entry.file.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]*')}$`) }
+			: entry;
+	}).filter((entry) => entry.scan === scan);
+}
+
+/** Line `line` of the file at `uri` under `root`, trimmed, or undefined when it cannot be read. */
+export function lineText(root, uri, line) {
+	if (!Number.isInteger(line) || line < 1) {
+		return undefined;
+	}
+	const file = path.resolve(root, uri);
+	const relative = path.relative(root, file);
+	if (relative === '' || relative.startsWith('..') || path.isAbsolute(relative) || !fs.existsSync(file)) {
+		return undefined;
+	}
+	return fs.readFileSync(file, 'utf8').split(/\r?\n/)[line - 1]?.trim();
+}
+
+/** Every result in the SARIF files, with the text of the line it flags read from the checkout at `root`. */
+export function sarifResults(files, root = process.cwd()) {
+	const results = [];
+	for (const file of files) {
+		for (const run of JSON.parse(fs.readFileSync(file, 'utf8')).runs ?? []) {
+			for (const result of run.results ?? []) {
+				const where = result.locations?.[0]?.physicalLocation;
+				const uri = where?.artifactLocation?.uri ?? '?';
+				const line = where?.region?.startLine;
+				results.push({
+					rule: result.ruleId,
+					uri,
+					line,
+					text: line === undefined ? undefined : lineText(root, uri, line),
+					message: result.message?.text ?? '',
+				});
 			}
-			open.push(`${result.ruleId}: ${uri}:${where?.region?.startLine ?? '?'} ${result.message?.text ?? ''}`);
 		}
 	}
+	return results;
 }
-console.log(`${label}: ${open.length} unreviewed result(s), ${accepted} reviewed`);
-for (const line of open) {
-	console.log(`  ${line}`);
+
+export function isReviewed(entry, result) {
+	if (entry.rule !== result.rule) {
+		return false;
+	}
+	if (result.line === undefined) {
+		return entry.matches?.test(result.uri) ?? false;
+	}
+	return entry.path === result.uri && result.text !== undefined && entry.line === result.text;
 }
-if (open.length > 0) {
-	process.exit(1);
+
+/** The results no entry accepts, those accepted, and the entries no result matched. */
+export function judge(results, reviewed) {
+	const used = new Set();
+	const open = [];
+	const accepted = [];
+	for (const result of results) {
+		const entry = reviewed.find((candidate) => isReviewed(candidate, result));
+		if (entry) {
+			used.add(entry);
+			accepted.push(result);
+		} else {
+			open.push(result);
+		}
+	}
+	return { open, accepted, stale: reviewed.filter((entry) => !used.has(entry)) };
+}
+
+export function describeEntry(entry) {
+	return entry.file === undefined
+		? `${entry.rule} at ${entry.path}: \`${entry.line}\``
+		: `${entry.rule} at ${entry.file}`;
+}
+
+if (isMain(import.meta)) {
+	const [scan, directory, reviewedFile] = process.argv.slice(2);
+	try {
+		if (!SCANS.includes(scan)) {
+			throw new Error(`Unknown scan ${JSON.stringify(scan)}; expected one of ${SCANS.join(', ')}`);
+		}
+		const files = (fs.existsSync(directory) ? fs.readdirSync(directory) : [])
+			.filter((name) => name.endsWith('.sarif'))
+			.map((name) => path.join(directory, name));
+		const { open, accepted, stale } = judge(sarifResults(files), loadReviewed(reviewedFile, scan));
+		console.log(`${scan}: ${open.length} unreviewed result(s), ${accepted.length} reviewed, ${stale.length} stale entr${stale.length === 1 ? 'y' : 'ies'}`);
+		for (const result of open) {
+			console.log(`  ${result.rule}: ${result.uri}:${result.line ?? '?'} ${result.message}`);
+		}
+		for (const entry of stale) {
+			console.log(`  Reviewed, but no longer found: ${describeEntry(entry)}`);
+		}
+		if (open.length > 0 || stale.length > 0) {
+			process.exitCode = 1;
+		}
+	} catch (error) {
+		console.error(error.message);
+		process.exitCode = 1;
+	}
 }

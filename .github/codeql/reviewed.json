@@ -1,34 +1,81 @@
 {
-  "about": "CodeQL results reviewed and found not to be vulnerabilities, by rule and file. The Security workflow fails on any result not listed here. A new result in a listed file under a listed rule still passes, so keep each entry's reason specific and re-review the file when it changes materially.",
+  "about": "CodeQL results reviewed and found not to be vulnerabilities, one entry per result. An entry matches the scan, the rule, the exact path and the text of the flagged line in the checkout, trimmed, so it follows code that moves and comes back for review when the line changes. The Security workflow fails on any result not listed here, and on any entry that no longer matches a result.",
   "reviewed": [
     {
+      "scan": "CodeQL javascript-typescript",
       "rule": "js/insufficient-password-hash",
-      "file": "src/moduleContentToken.ts",
+      "path": "src/moduleContentToken.ts",
+      "line": "return TOKEN_PREFIX + createHash('sha256').update(normalized, 'utf8').digest('hex').slice(0, 32);",
       "reason": "SHA-256 of a module's source, used as a content token to detect a concurrent edit. No password is involved."
     },
     {
+      "scan": "CodeQL javascript-typescript",
       "rule": "js/insufficient-password-hash",
-      "file": "src/projectModuleOperations.ts",
+      "path": "src/projectModuleOperations.ts",
+      "line": "seen = createHash('sha256').update(JSON.stringify(modules)).digest('hex');",
       "reason": "SHA-256 of the module listing, used to notice that a project changed on disk. No password is involved."
     },
     {
-      "rule": "js/incomplete-sanitization",
-      "file": "src/vba/ooxml.ts",
-      "reason": "encodeXml escapes the five characters XML gives meaning; a backslash has none in XML."
-    },
-    {
+      "scan": "CodeQL javascript-typescript",
       "rule": "js/incomplete-multi-character-sanitization",
-      "file": "src/vba/xlsxShapes.ts",
+      "path": "src/vba/xlsxShapes.ts",
+      "line": "const text = decodeXml(box.replace(/\\s+/g, ' ').replace(/<br\\s*\\/?>/gi, '\\n').replace(/<[^>]+>/g, ''))",
       "reason": "Tags are stripped to produce a shape caption as plain text, and written back into VML the file keeps. No webview inserts HTML: every innerHTML use only clears a node, and captions are set as text."
     },
     {
+      "scan": "CodeQL javascript-typescript",
+      "rule": "js/incomplete-multi-character-sanitization",
+      "path": "src/vba/xlsxShapes.ts",
+      "line": "return `${tag}${wrappedCaption(content.replace(/<\\/?(?:b|i|u)\\b[^>]*>/gi, ''), next)}</font>`;",
+      "reason": "Tags are stripped to produce a shape caption as plain text, and written back into VML the file keeps. No webview inserts HTML: every innerHTML use only clears a node, and captions are set as text."
+    },
+    {
+      "scan": "CodeQL javascript-typescript",
       "rule": "js/incomplete-url-substring-sanitization",
-      "file": "src/vba/xlsx.ts",
+      "path": "src/vba/xlsx.ts",
+      "line": "let xml = original.includes(DYNAMIC_ARRAY_NAMESPACE)",
       "reason": "Tests whether the metadata part already declares the dynamic-array XML namespace. Nothing is fetched or trusted by URL."
     },
     {
+      "scan": "CodeQL javascript-typescript",
       "rule": "js/missing-origin-check",
-      "file": "assets/webview/*.js",
+      "path": "assets/webview/globalSettings.js",
+      "line": "window.addEventListener('message', (event) => {",
+      "reason": "Every webview page sets the CSP default-src 'none' with nonce-only scripts, so no frame can exist inside it. The only window that can post to it is VS Code's own webview host."
+    },
+    {
+      "scan": "CodeQL javascript-typescript",
+      "rule": "js/missing-origin-check",
+      "path": "assets/webview/moduleSync.js",
+      "line": "window.addEventListener('message', event => {",
+      "reason": "Every webview page sets the CSP default-src 'none' with nonce-only scripts, so no frame can exist inside it. The only window that can post to it is VS Code's own webview host."
+    },
+    {
+      "scan": "CodeQL javascript-typescript",
+      "rule": "js/missing-origin-check",
+      "path": "assets/webview/projectAnalysis.js",
+      "line": "window.addEventListener('message', (event) => {",
+      "reason": "Every webview page sets the CSP default-src 'none' with nonce-only scripts, so no frame can exist inside it. The only window that can post to it is VS Code's own webview host."
+    },
+    {
+      "scan": "CodeQL javascript-typescript",
+      "rule": "js/missing-origin-check",
+      "path": "assets/webview/shapeEditor.js",
+      "line": "window.addEventListener('message', (event) => {",
+      "reason": "Every webview page sets the CSP default-src 'none' with nonce-only scripts, so no frame can exist inside it. The only window that can post to it is VS Code's own webview host."
+    },
+    {
+      "scan": "CodeQL javascript-typescript",
+      "rule": "js/missing-origin-check",
+      "path": "assets/webview/vbaTestResults.js",
+      "line": "window.addEventListener('message', (event) => {",
+      "reason": "Every webview page sets the CSP default-src 'none' with nonce-only scripts, so no frame can exist inside it. The only window that can post to it is VS Code's own webview host."
+    },
+    {
+      "scan": "CodeQL javascript-typescript",
+      "rule": "js/missing-origin-check",
+      "path": "assets/webview/vbaTests.js",
+      "line": "window.addEventListener('message', (event) => {",
       "reason": "Every webview page sets the CSP default-src 'none' with nonce-only scripts, so no frame can exist inside it. The only window that can post to it is VS Code's own webview host."
     }
   ]

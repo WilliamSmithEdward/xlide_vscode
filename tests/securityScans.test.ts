@@ -5,6 +5,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { judgeClamscan, readClamscan, readVersion } from '../.github/scripts/clamav-sarif.mjs';
+import { judge, loadReviewed, sarifResults, SCANS } from '../.github/scripts/sarif-gate.mjs';
 import { CANARY_RULE, EICAR_HEX, toSarif } from '../.github/scripts/scan-sarif.mjs';
 import {
 	compileErrorCount,
@@ -236,36 +237,137 @@ describe('the scan SARIF, through the existing gate and report', () => {
 		fs.writeFileSync(path.join(dir, name), JSON.stringify(toSarif(driver, findings, properties)));
 	}
 
-	function gate(dir: string, reviewed: object): { status: number | null; output: string } {
+	function gate(scan: string, dir: string, reviewed: object): { status: number | null; output: string } {
 		const reviewedFile = path.join(dir, 'reviewed.json');
 		fs.writeFileSync(reviewedFile, JSON.stringify(reviewed));
-		const run = spawnSync(process.execPath, ['.github/scripts/sarif-gate.mjs', 'Scan', dir, reviewedFile], {
+		const run = spawnSync(process.execPath, ['.github/scripts/sarif-gate.mjs', scan, dir, reviewedFile], {
 			cwd: repoRoot,
 			encoding: 'utf8',
 		});
-		return { status: run.status, output: run.stdout };
+		return { status: run.status, output: run.stdout + run.stderr };
 	}
 
-	it('fails on a detection until it is reviewed, by signature and file', () => {
+	const fixtureEntry = {
+		scan: 'ClamAV',
+		rule: 'Doc.Macro.Suspicious-1',
+		file: 'tests/fixtures/binaries/*.xlsm',
+		reason: 'A test fixture',
+	};
+
+	it('fails on a detection until it is reviewed, by scan, signature and file', () => {
 		const dir = tempDir();
 		writeSarif(dir, 'clamav.sarif', { name: 'ClamAV', version: '1.5.4' }, [
 			{ ruleId: 'Doc.Macro.Suspicious-1', uri: 'tests/fixtures/binaries/Book.xlsm', message: 'ClamAV reports Doc.Macro.Suspicious-1' },
 		], {});
 
-		const open = gate(dir, { reviewed: [] });
+		const open = gate('ClamAV', dir, { reviewed: [] });
 		expect(open.status).toBe(1);
 		expect(open.output).toContain('Doc.Macro.Suspicious-1: tests/fixtures/binaries/Book.xlsm');
 
-		const reviewed = gate(dir, {
-			reviewed: [{ rule: 'Doc.Macro.Suspicious-1', file: 'tests/fixtures/binaries/*.xlsm', reason: 'A test fixture' }],
-		});
-		expect(reviewed.status).toBe(0);
+		expect(gate('ClamAV', dir, { reviewed: [fixtureEntry] }).status).toBe(0);
+		// An entry applies only to the scan it names.
+		expect(gate('YARA-X', dir, { reviewed: [fixtureEntry] }).status).toBe(1);
 	});
 
 	it('passes a clean scan', () => {
 		const dir = tempDir();
 		writeSarif(dir, 'yara-x.sarif', { name: 'YARA-X', version: '1.20.0' }, [], {});
-		expect(gate(dir, { reviewed: [] }).status).toBe(0);
+		expect(gate('YARA-X', dir, { reviewed: [] }).status).toBe(0);
+	});
+
+	it('fails on an entry that matches no result, but only in the scan it names', () => {
+		const dir = tempDir();
+		writeSarif(dir, 'clamav.sarif', { name: 'ClamAV', version: '1.5.4' }, [], {});
+		const stale = gate('ClamAV', dir, { reviewed: [fixtureEntry] });
+		expect(stale.status).toBe(1);
+		expect(stale.output).toContain('ClamAV: 0 unreviewed result(s), 0 reviewed, 1 stale entry');
+		expect(stale.output).toContain('Reviewed, but no longer found: Doc.Macro.Suspicious-1 at tests/fixtures/binaries/*.xlsm');
+		expect(gate('YARA-X', dir, { reviewed: [fixtureEntry] }).status).toBe(0);
+	});
+
+	it('refuses an unknown scan and a malformed entry rather than guess', () => {
+		const dir = tempDir();
+		writeSarif(dir, 'clamav.sarif', { name: 'ClamAV', version: '1.5.4' }, [], {});
+		expect(gate('Scan', dir, { reviewed: [] }).output).toContain('Unknown scan "Scan"');
+		for (const entry of [
+			{ ...fixtureEntry, scan: 'ClamAv' },
+			{ ...fixtureEntry, reason: '' },
+			{ ...fixtureEntry, path: 'tests/fixtures/binaries/Book.xlsm', line: 'x' },
+			{ scan: 'CodeQL javascript-typescript', rule: 'js/rule', path: 'src/a.ts', reason: 'No line' },
+			{ scan: 'CodeQL javascript-typescript', rule: 'js/rule', path: 'src/a.ts', line: ' padded ', reason: 'Untrimmed' },
+		]) {
+			const run = gate('ClamAV', dir, { reviewed: [entry] });
+			expect(run.status).toBe(1);
+			expect(run.output).toMatch(/entry 1: /);
+		}
+	});
+
+	describe('a result that points at a line', () => {
+		const scan = 'CodeQL javascript-typescript';
+		const flagged = "const digest = createHash('sha256').update(text).digest('hex');";
+		const entry = { scan, rule: 'js/insufficient-password-hash', path: 'src/token.ts', line: flagged, reason: 'A content token' };
+
+		function judged(source: string, results: { rule: string; uri: string; line: number }[]) {
+			const root = tempDir();
+			fs.mkdirSync(path.join(root, 'src'));
+			fs.writeFileSync(path.join(root, 'src', 'token.ts'), source);
+			const sarif = path.join(root, 'results.sarif');
+			fs.writeFileSync(sarif, JSON.stringify({
+				version: '2.1.0',
+				runs: [{
+					tool: { driver: { name: 'CodeQL' } },
+					results: results.map((result) => ({
+						ruleId: result.rule,
+						message: { text: 'flagged' },
+						locations: [{ physicalLocation: { artifactLocation: { uri: result.uri }, region: { startLine: result.line } } }],
+					})),
+				}],
+			}));
+			const reviewedFile = path.join(root, 'reviewed.json');
+			fs.writeFileSync(reviewedFile, JSON.stringify({ reviewed: [entry] }));
+			return judge(sarifResults([sarif], root), loadReviewed(reviewedFile, scan));
+		}
+
+		it('is accepted by rule, exact path and the trimmed text of the line, wherever the line moves', () => {
+			const at = (line: number) => [{ rule: entry.rule, uri: entry.path, line }];
+			expect(judged(`import x;\n\t${flagged}\n`, at(2))).toMatchObject({ open: [], stale: [] });
+			expect(judged(`import x;\r\n\r\n\r\n    ${flagged}  \r\n`, at(4))).toMatchObject({ open: [], stale: [] });
+		});
+
+		it('is not accepted when its line changed, another line of the file is flagged, or the path differs', () => {
+			const source = `import x;\n${flagged}\nconst other = createHash('sha256');\n`;
+			for (const result of [
+				{ rule: entry.rule, uri: entry.path, line: 3 },
+				{ rule: entry.rule, uri: 'src/other/token.ts', line: 2 },
+				{ rule: 'js/other-rule', uri: entry.path, line: 2 },
+			]) {
+				const { open, stale } = judged(source, [result]);
+				expect(open).toHaveLength(1);
+				expect(stale).toEqual([expect.objectContaining({ path: entry.path, line: flagged })]);
+			}
+			expect(judged(source.replace('(text)', '(input)'), [{ rule: entry.rule, uri: entry.path, line: 2 }]).open).toHaveLength(1);
+		});
+
+		it('is not accepted by a whole-file entry for the same rule and file', () => {
+			const root = tempDir();
+			const reviewedFile = path.join(root, 'reviewed.json');
+			fs.writeFileSync(reviewedFile, JSON.stringify({ reviewed: [{ scan, rule: entry.rule, file: 'src/*.ts', reason: 'Too broad' }] }));
+			const result = { rule: entry.rule, uri: entry.path, line: 2, text: flagged, message: '' };
+			expect(judge([result], loadReviewed(reviewedFile, scan)).open).toEqual([result]);
+		});
+	});
+
+	it('matches every entry of the repository\'s reviewed lists to the line it names', () => {
+		for (const file of ['.github/codeql/reviewed.json', '.github/scans/reviewed.json']) {
+			for (const scan of SCANS) {
+				for (const entry of loadReviewed(path.join(repoRoot, file), scan)) {
+					if (entry.file === undefined) {
+						const lines = fs.readFileSync(path.join(repoRoot, entry.path), 'utf8').split(/\r?\n/).map((line) => line.trim());
+						expect(lines, `${entry.path}: ${entry.line}`).toContain(entry.line);
+					}
+				}
+			}
+		}
 	});
 
 	it('puts the scanners, what they scanned and their detections in the release report', () => {
