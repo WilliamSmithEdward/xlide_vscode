@@ -96,6 +96,7 @@ import {
 	checkUnallocatedDynamicArrayAccess,
 	checkFixedArraySubscriptBounds,
 } from './rules/arrays';
+import { checkTypeFieldArrays } from './rules/typeFieldArrays';
 import { checkLateBoundFriendMember } from './rules/lateBinding';
 import { checkHandlerFlow } from './rules/handlerFlow';
 import { checkFileStatements } from './rules/fileStatements';
@@ -593,6 +594,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'arraySubscriptOutOfBounds',
 		run: (ctx, push) => checkFixedArraySubscriptBounds(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push, ctx.opts.projectIntegerConstants, ctx.opts.projectVisibleSymbols, ctx.opts.hostModel),
+	},
+	{
+		name: 'typeFieldArrays',
+		run: (ctx, push) => checkTypeFieldArrays(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push, ctx.opts.projectIntegerConstants, ctx.opts.projectVisibleSymbols, ctx.opts.hostModel),
 	},
 	{
 		name: 'midStatementLiteralTarget',

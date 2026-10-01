@@ -35,6 +35,7 @@ import { checkEachCounterPass, loopCountersAt } from '../loopCounters';
 import { foldKnownStringCalls, moduleCompare, type KnownStringCallContext } from '../knownStringCalls';
 import { bankersRound, isBareOrVbaQualifiedIntrinsicCall } from '../rules/shared';
 import { isInvalidBooleanString, isInvalidDateString, isInvalidNumericString } from '../stringConversion';
+import { fixedStringLength, moduleTypes } from '../typeFields';
 import {
 	callableTypeSignaturesFor,
 	isKnownScalarType,
@@ -139,6 +140,7 @@ export function checkRuntimeArgumentValues(
 	const moduleConstants = collectModuleLiteralIntegerConstants(mod, activity, projectConstants);
 	const host = hostModel?.hostName?.toLowerCase();
 	const compare = moduleCompare(source);
+	const types = moduleTypes(source, mod, activity);
 	return (member) => {
 		const env = typeEnvironmentFor(symbols, member);
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
@@ -225,7 +227,9 @@ export function checkRuntimeArgumentValues(
 						hit.span,
 					);
 				}
-				for (const hit of runtimeStatementValueHits(source, stmt.span, lookup, knownStringLengths, knownStrings, sourceNames)) {
+				// A fixed-length string is always its declared length (issue #248).
+				const fixedLengthOf = (slot: readonly VbaToken[]): number | undefined => fixedStringLength(slot, symbols, member, types, lookup);
+				for (const hit of runtimeStatementValueHits(source, stmt.span, lookup, knownStringLengths, knownStrings, sourceNames, fixedLengthOf)) {
 					report('runtimeArgumentValue', hit.message, hit.span);
 				}
 			}, push);
@@ -252,6 +256,7 @@ function runtimeStatementValueHits(
 	knownStringLengths: ReadonlyMap<string, number>,
 	knownStrings: ReadonlyMap<string, string>,
 	sourceNames: SourceNameScope,
+	fixedLengthOf?: (slot: readonly VbaToken[]) => number | undefined,
 ): Array<{ message: string; span: Span }> {
 	const toks = statementTokens(source, span);
 	if (isDeclarationLikeStatement(toks)) {
@@ -262,18 +267,24 @@ function runtimeStatementValueHits(
 	const first = toks[0];
 	// `Mid(s, 5, 1) = "x"` with s holding "abc": the statement form starts
 	// past the end of the string, error 5 (issue #118). Only the length
-	// matters, which an earlier Mid statement cannot have changed.
-	if ((tokenText(first) === 'mid' || tokenText(first) === 'mid$') && toks[1]?.rawText === '(') {
-		const close = matchParenFrom(toks, 1);
+	// matters, which an earlier Mid statement cannot have changed. A
+	// fixed-length string's length is its declaration's, assigned or not
+	// (issue #248). `Mid$` lexes as Mid and a `$` of its own.
+	const midOpen = toks[1]?.rawText === '$' ? 2 : 1;
+	if (tokenText(first) === 'mid' && toks[midOpen]?.rawText === '(') {
+		const close = matchParenFrom(toks, midOpen);
 		if (close > 0 && toks[close + 1]?.rawText === '=') {
-			const split = splitArgSlots(toks.slice(2, close), span.start);
+			const split = splitArgSlots(toks.slice(midOpen + 1, close), span.start);
 			const target = split.slots[0]?.length === 1 ? tokenName(split.slots[0][0])?.toLowerCase() : undefined;
-			const length = target !== undefined ? knownStringLengths.get(target) : undefined;
+			const fixed = split.slots[0]?.length ? fixedLengthOf?.(split.slots[0]) : undefined;
+			const length = fixed ?? (target !== undefined ? knownStringLengths.get(target) : undefined);
 			const startSlot = split.slots[1];
 			const start = startSlot ? integerGroupValue(source, span, startSlot, constants) : undefined;
 			if (length !== undefined && start !== undefined && start > length) {
 				out.push({
-					message: `Mid statement start ${start} is past the end of ${split.slots[0][0].rawText}, which is ${length} character(s) long. This will raise Run-time error '5': Invalid procedure call or argument.`,
+					message: fixed === undefined
+						? `Mid statement start ${start} is past the end of ${split.slots[0][0].rawText}, which is ${length} character(s) long. This will raise Run-time error '5': Invalid procedure call or argument.`
+						: `Mid statement start ${start} is past the end of ${split.slots[0].map((tok) => tok.rawText).join('')}, a fixed-length string of ${length} character(s). This will raise Run-time error '5': Invalid procedure call or argument.`,
 					span: split.spans[1] ?? at(toks[0]),
 				});
 			}

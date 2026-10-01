@@ -1420,6 +1420,15 @@ export interface FixedArrayBound {
 	dims: ArrayDimensionBound[];
 	/** Where the bounds came from, for the message: 'Dim', 'Array(...)', 'Split(...)', 'Range(...).Value'. */
 	origin: string;
+	/** The arrays its elements hold, by position, where Array(...) of Array(...) built it. */
+	elements?: ReadonlyArray<FixedArrayBound | undefined>;
+}
+
+/** A subscript the array cannot take; a count the compiler refuses has its own rule. */
+export interface SubscriptHit {
+	span: Span;
+	message: string;
+	rule?: 'wrongNumberOfDimensions';
 }
 
 /**
@@ -1436,9 +1445,9 @@ export interface FixedArrayBound {
  * Option Base as its lower bound (issue #120: `Option Base 1` then `Dim a(3)`
  * refuses `a(0)`).
  */
-function parseFixedArrayBoundsForDecl(
+export function parseFixedArrayBoundsForDecl(
 	source: string,
-	decl: VariableDeclNode,
+	decl: { span: Span },
 	optionBase: number,
 ): ArrayDimensionBound[] | undefined {
 	const toks = statementTokens(source, decl.span);
@@ -1450,7 +1459,12 @@ function parseFixedArrayBoundsForDecl(
 	if (close < 0) {
 		return undefined;
 	}
-	const dims = splitTopLevelTokenGroups(toks.slice(open + 1, close), ',')
+	return literalDimensions(toks.slice(open + 1, close), optionBase);
+}
+
+/** The bounds a parenthesised bounds list states, `2, 1 To 3`, when every one is a literal. */
+export function literalDimensions(inner: readonly VbaToken[], optionBase: number): ArrayDimensionBound[] | undefined {
+	const dims = splitTopLevelTokenGroups(inner, ',')
 		.map((part) => part.filter((tok) => tok.kind !== 'comment'))
 		.filter((dimTokens) => dimTokens.length > 0);
 	if (dims.length === 0) {
@@ -1775,7 +1789,7 @@ function statementAndBranchSpansOf(stmt: LeafStatementNode): Span[] {
 }
 
 /** The bounds of the array `Array(...)`, `Split(...)` or `Range(...).Value` builds, or undefined. */
-function arrayValueShape(valueTokens: readonly VbaToken[], name: string, optionBase: number): FixedArrayBound | undefined {
+export function arrayValueShape(valueTokens: readonly VbaToken[], name: string, optionBase: number): FixedArrayBound | undefined {
 	const toks = valueTokens.filter((tok) => tok.kind !== 'comment');
 	if (toks.length === 0) {
 		return undefined;
@@ -1794,9 +1808,15 @@ function arrayValueShape(valueTokens: readonly VbaToken[], name: string, optionB
 		}
 		const inner = toks.slice(index + 2, close);
 		if (callee === 'array') {
-			const count = inner.length === 0 ? 0 : splitTopLevelTokenGroups(inner, ',').length;
+			const groups = inner.length === 0 ? [] : splitTopLevelTokenGroups(inner, ',');
 			const lower = vbaQualified ? 0 : optionBase;
-			return { name, dims: [{ lower, upper: lower + count - 1, explicitLower: true }], origin: vbaQualified ? 'VBA.Array(...)' : 'Array(...)' };
+			const elements = groups.map((group) => arrayValueShape(group, name, optionBase));
+			return {
+				name,
+				dims: [{ lower, upper: lower + groups.length - 1, explicitLower: true }],
+				origin: vbaQualified ? 'VBA.Array(...)' : 'Array(...)',
+				...(elements.some((element) => element !== undefined) ? { elements } : {}),
+			};
 		}
 		const args = splitTopLevelTokenGroups(inner, ',');
 		if (args.length < 1 || args.length > 2 || args[0].length !== 1 || args[0][0].kind !== 'stringLiteral') {
@@ -1888,9 +1908,9 @@ function fixedArraySubscriptViolations(
 	excluded: ReadonlySet<string>,
 	counters: CountersAt | undefined,
 	lookup?: IntegerConstantLookup,
-): Array<{ span: Span; message: string }> {
+): SubscriptHit[] {
 	const toks = statementTokensAfterLeadingLabel(source, span);
-	const out: Array<{ span: Span; message: string }> = [];
+	const out: SubscriptHit[] = [];
 	for (let i = 0; i < toks.length - 1; i++) {
 		if (
 			toks[i + 1].rawText !== '(' ||
@@ -1923,18 +1943,87 @@ function fixedArraySubscriptViolations(
 			continue;
 		}
 		if (slots.length !== decl.dims.length) {
-			continue; // the dimension count is the compiler's business, not this rule's
+			out.push(dimensionCountViolation(span, toks[i], toks[close], decl, slots.length));
+			continue;
 		}
 		// One report per access: the first dimension that is out of range.
-		for (let index = 0; index < slots.length; index++) {
-			const hit = subscriptViolation(span, decl, fixed, slots[index], index, counters, lookup);
-			if (hit) {
-				out.push(hit);
-				break;
-			}
+		let hit: SubscriptHit | undefined;
+		for (let index = 0; index < slots.length && !hit; index++) {
+			hit = subscriptViolation(span, decl, fixed, slots[index], index, counters, lookup);
+		}
+		hit ??= elementSubscriptViolation(span, toks, decl, slots, close, lookup);
+		if (hit) {
+			out.push(hit);
 		}
 	}
 	return out;
+}
+
+/**
+ * `g(1)` on `Dim g(2, 2)`: a subscript count other than the array's
+ * dimensions (issue #248, measured in Excel 16.0). The compiler knows a
+ * Dim's dimensions and refuses the line; bounds a ReDim or a value set are
+ * found when it runs, error 9.
+ */
+export function dimensionCountViolation(span: Span, first: VbaToken, last: VbaToken, shape: FixedArrayBound, given: number): SubscriptHit {
+	const at = { start: span.start + first.start, end: span.start + last.end };
+	const counts = `has ${pluralizeCount(shape.dims.length, 'dimension')}, and ${pluralizeCount(given, 'subscript')} ${given === 1 ? 'is' : 'are'} given here`;
+	return shape.origin === 'Dim'
+		? { span: at, rule: 'wrongNumberOfDimensions', message: `Array '${shape.name}' ${counts}. This is a VBE compile error: Wrong number of dimensions.` }
+		: { span: at, message: `Array '${shape.name}' (${shape.origin}) ${counts}. This will raise Run-time error '9': Subscript out of range.` };
+}
+
+const NO_SHAPES: ReadonlyMap<string, FixedArrayBound> = new Map();
+
+/**
+ * The subscripts in the parentheses at `open` against an array whose
+ * bounds are known, and on through the arrays its elements hold where
+ * Array(...) of Array(...) built it (issue #248, measured in Excel 16.0):
+ * `v(0)(5)`, `c(1)(5)`.
+ */
+export function shapeSubscriptViolation(
+	span: Span,
+	toks: readonly VbaToken[],
+	shape: FixedArrayBound,
+	open: number,
+	lookup?: IntegerConstantLookup,
+): SubscriptHit | undefined {
+	const close = matchParenFrom(toks, open);
+	if (close <= open + 1) {
+		return undefined;
+	}
+	const slots = splitTopLevelTokenGroups(toks.slice(open + 1, close).filter((tok) => tok.kind !== 'comment'), ',');
+	if (slots.some((slot) => slot.length === 0)) {
+		return undefined;
+	}
+	if (slots.length !== shape.dims.length) {
+		return dimensionCountViolation(span, toks[open], toks[close], shape, slots.length);
+	}
+	for (let index = 0; index < slots.length; index++) {
+		const hit = subscriptViolation(span, shape, NO_SHAPES, slots[index], index, undefined, lookup);
+		if (hit) {
+			return hit;
+		}
+	}
+	return elementSubscriptViolation(span, toks, shape, slots, close, lookup);
+}
+
+/** `v(0)(5)`: the next parentheses, against the array element `v(0)` holds. */
+function elementSubscriptViolation(
+	span: Span,
+	toks: readonly VbaToken[],
+	shape: FixedArrayBound,
+	slots: readonly (readonly VbaToken[])[],
+	close: number,
+	lookup?: IntegerConstantLookup,
+): SubscriptHit | undefined {
+	if (!shape.elements || slots.length !== 1 || toks[close + 1]?.rawText !== '(') {
+		return undefined;
+	}
+	const value = comparableArrayBoundExpressionValue(slots[0])
+		?? (lookup ? evaluateIntegerConstantExpression(slots[0].map((tok) => tok.rawText).join(' '), lookup) : undefined);
+	const element = value === undefined ? undefined : shape.elements[value - shape.dims[0].lower];
+	return element ? shapeSubscriptViolation(span, toks, { ...element, name: `${shape.name}(${value})` }, close + 1, lookup) : undefined;
 }
 
 const RETURN_SHAPES = new WeakMap<ModuleNode, ReadonlyMap<string, FixedArrayBound>>();
@@ -2080,7 +2169,7 @@ function unallocatedModuleArrayUses(
 	return out;
 }
 
-function subscriptViolation(
+export function subscriptViolation(
 	span: Span,
 	decl: FixedArrayBound,
 	fixed: ReadonlyMap<string, FixedArrayBound>,
@@ -2332,7 +2421,7 @@ export function checkFixedArraySubscriptBounds(
 			}
 			const excluded = excludedAt(stmt);
 			for (const hit of fixedArraySubscriptViolations(source, stmt.span, fixed, excluded, stmtCounters, withKnownLocals(constants, valuesAt(stmt)))) {
-				push('arraySubscriptOutOfBounds', hit.message, hit.span);
+				push(hit.rule ?? 'arraySubscriptOutOfBounds', hit.message, hit.span);
 			}
 			for (const hit of boundIntrinsicDimensionViolations(source, stmt.span, fixed, excluded)) {
 				push('arraySubscriptOutOfBounds', hit.message, hit.span);
