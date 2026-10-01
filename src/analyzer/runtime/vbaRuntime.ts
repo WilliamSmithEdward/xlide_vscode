@@ -291,7 +291,8 @@ export const VBA_RUNTIME_FUNCTIONS: VbaRuntimeFunction[] = [
 	fn('Abs', 'Abs(Number) As Variant', 'Variant'),
 	fn('Int', 'Int(Number) As Variant', 'Variant'),
 	fn('Fix', 'Fix(Number) As Variant', 'Variant'),
-	fn('Sgn', 'Sgn(Number) As Integer', 'Integer'),
+	// Sgn(Null) raises 94; Abs, Int and Hex pass Null through (issue #242).
+	fn('Sgn', 'Sgn(Number) As Integer', 'Integer', NULL_RAISES_PARAM('Number')),
 	fn('Sqr', 'Sqr(Number) As Double', 'Double'),
 	fn('Exp', 'Exp(Number) As Double', 'Double'),
 	fn('Log', 'Log(Number) As Double', 'Double'),
