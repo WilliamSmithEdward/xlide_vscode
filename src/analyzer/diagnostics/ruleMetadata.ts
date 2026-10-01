@@ -2124,6 +2124,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL 5.3.1 (procedure parameters) / VBE oracle',
 		confidence: 'high',
 	},
+	wrongNumberOfDimensions: {
+		code: 'wrong-number-of-dimensions',
+		title: 'Subscript count differs from the array\'s dimensions',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'VBE "Wrong number of dimensions" (issue #248, Excel 16.0)',
+		confidence: 'high',
+	},
 	tooManyArrayDimensions: {
 		code: 'too-many-array-dimensions',
 		title: 'Array has more than 60 dimensions',

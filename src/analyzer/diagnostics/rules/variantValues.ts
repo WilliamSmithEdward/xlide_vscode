@@ -174,6 +174,11 @@ export function checkVariantValueMisuse(
 						push('variantValueMisuse', `'${toks[i].rawText}' holds ${scalar} here, which is not an array for ${arrayStatement} to act on. This will raise Run-time error '13': Type mismatch.`, at);
 						continue;
 					}
+					const len = array ? lenCallAround(toks, i, i, sourceNames) : undefined;
+					if (len) {
+						push('variantValueMisuse', `'${toks[i].rawText}' holds an array from ${array} here, which ${len} cannot measure. This will raise Run-time error '13': Type mismatch.`, at);
+						continue;
+					}
 					if (array && next?.rawText !== '(') {
 						// The operator on either side, never the assignment's own `=`.
 						const previous = i - 1 === targetIndex + 1 ? undefined : toks[i - 1];
@@ -240,10 +245,19 @@ function arrayCallOperands(
 		const before = first - 1 === assignment ? undefined : toks[first - 1];
 		const after = toks[close + 1];
 		const operator = [after, before].find((tok) => tok && ((tok.kind === 'operator' && SCALAR_OPERATORS.has(tok.rawText)) || ['mod', 'not', 'and', 'or', 'xor', 'like'].includes(tokenText(tok))));
+		const call = toks.slice(first, close + 1).map((tok) => tok.rawText).join('');
+		const len = operator ? undefined : lenCallAround(toks, first, close, sourceNames);
+		if (len) {
+			out.push({
+				start: toks[first].start,
+				end: toks[close].end,
+				message: `${call} returns an array, which ${len} cannot measure. This will raise Run-time error '13': Type mismatch.`,
+			});
+			continue;
+		}
 		if (!operator) {
 			continue;
 		}
-		const call = toks.slice(first, close + 1).map((tok) => tok.rawText).join('');
 		out.push({
 			start: toks[first].start,
 			end: toks[close].end,
@@ -251,6 +265,22 @@ function arrayCallOperands(
 		});
 	}
 	return out;
+}
+
+/**
+ * The Len or LenB whose one argument runs from `first` to `last`: an array
+ * value there raises 13 (issue #248, measured in Excel 16.0).
+ */
+function lenCallAround(toks: readonly VbaToken[], first: number, last: number, sourceNames: SourceNameScope): string | undefined {
+	const callee = first - 2;
+	const word = tokenText(toks[callee]);
+	if ((word !== 'len' && word !== 'lenb') || toks[first - 1]?.rawText !== '(' || toks[last + 1]?.rawText !== ')' || !isBareOrVbaQualifiedIntrinsicCall(toks, callee)) {
+		return undefined;
+	}
+	if (toks[callee - 1]?.rawText === '.') {
+		return `${toks[callee - 2].rawText}.${toks[callee].rawText}`;
+	}
+	return runtimeCallableSourceShadowed(toks[callee].rawText, sourceNames) ? undefined : toks[callee].rawText;
 }
 
 /** The first `=` outside parentheses, which is the assignment's own; -1 when none. */

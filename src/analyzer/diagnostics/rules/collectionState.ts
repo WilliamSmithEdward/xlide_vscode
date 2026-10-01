@@ -17,6 +17,8 @@
 //    Empty; Before and After together -> 5. Before or After
 //    on an empty collection -> 5, and outside 1 to Count -> 9, are
 //    collection-index-out-of-range's.
+//  - array-subscript-out-of-bounds (issue #248): `c.Add Array(1, 2)` then
+//    `c(1)(5)` indexes past the end of the array the item holds -> 9.
 //
 // The rule follows a procedure's top-level statements in order, as the file
 // rule does: a block ends what is known, and any use of the variable other
@@ -29,6 +31,7 @@ import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaSymbol } from '../../symbols/symbolModel';
 import { collectModuleLiteralIntegerConstants } from '../constExpr';
 import type { VbaToken } from '../../lexer/tokenKinds';
+import type { IntegerConstantLookup } from '../../constants/integerConstantExpression';
 import type { BodyNode, ModuleNode, ProcedureNode, Span } from '../../parser/nodes';
 import { walkEnteringBlocks } from '../dataflow';
 import { isLeafStatement } from '../../parser/nodes';
@@ -46,12 +49,15 @@ import {
 	tokenText,
 } from '../walker';
 import { nameMentions, namesIn } from './shared';
+import { arrayValueShape, moduleOptionBase, shapeSubscriptViolation, type FixedArrayBound } from './arrays';
 
 interface CollectionContents {
 	/** Keys in element order; undefined for an element added without a key. */
 	items: (string | undefined)[];
 	/** False once an Add named a key the rule could not read, or ordered by Before/After. */
 	keysKnown: boolean;
+	/** The bounds of the array each element holds, where an Add gave it `Array(...)`; aligned with items. */
+	shapes: (FixedArrayBound | undefined)[];
 }
 
 export function checkCollectionState(
@@ -65,6 +71,7 @@ export function checkCollectionState(
 	hostModel?: HostObjectModel,
 ): void {
 	const moduleConstants = collectModuleLiteralIntegerConstants(mod, activity, resolveRawIntegerConstants(projectIntegerConstants ?? new Map(), new Map()));
+	const optionBase = moduleOptionBase(mod, activity);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -72,7 +79,7 @@ export function checkCollectionState(
 		const autoInstanced = collectionLocals(member, activity);
 		const states = new Map<string, CollectionContents>();
 		for (const name of autoInstanced.newLocals) {
-			states.set(name, { items: [], keysKnown: true });
+			states.set(name, { items: [], keysKnown: true, shapes: [] });
 		}
 		if (states.size === 0 && autoInstanced.plainLocals.size === 0) {
 			continue;
@@ -113,7 +120,7 @@ export function checkCollectionState(
 				const isCollectionLocal = autoInstanced.plainLocals.has(lower) || autoInstanced.newLocals.has(lower);
 				const aliased = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
 				if (isCollectionLocal && value.length === 2 && tokenText(value[0]) === 'new' && tokenText(value[1]) === 'collection') {
-					states.set(lower, { items: [], keysKnown: true });
+					states.set(lower, { items: [], keysKnown: true, shapes: [] });
 					return;
 				}
 				if (isCollectionLocal && aliased !== undefined && states.has(aliased)) {
@@ -132,7 +139,7 @@ export function checkCollectionState(
 			const lookup = constants && valuesAt ? withKnownLocals(constants, valuesAt(node)) : undefined;
 			const indexOf = (arg: readonly VbaToken[]): number | undefined => literalIndex(arg)
 				?? (lookup ? evaluateIntegerConstantExpression(arg.map((tok) => tok.rawText).join(' '), lookup) : undefined);
-			checkStatement(node.span, toks, states, push, isEmpty, indexOf);
+			checkStatement(node.span, toks, states, push, isEmpty, indexOf, optionBase, lookup);
 		};
 		walkEnteringBlocks(source, member.body, (node) => activity?.isInactive(node.span) === true, visit, {
 			snapshot: () => cloneStates(states),
@@ -159,7 +166,7 @@ function cloneStates(states: ReadonlyMap<string, CollectionContents>): Map<strin
 	for (const [lower, contents] of states) {
 		let copy = copies.get(contents);
 		if (!copy) {
-			copy = { items: [...contents.items], keysKnown: contents.keysKnown };
+			copy = { items: [...contents.items], keysKnown: contents.keysKnown, shapes: [...contents.shapes] };
 			copies.set(contents, copy);
 		}
 		out.set(lower, copy);
@@ -204,7 +211,16 @@ function forgetMentioned(source: string, span: Span, states: Map<string, Collect
 
 type IndexOf = (arg: readonly VbaToken[]) => number | undefined;
 
-function checkStatement(base: Span, toks: readonly VbaToken[], states: Map<string, CollectionContents>, push: PushFn, isEmpty: (lower: string) => boolean, indexOf: IndexOf = literalIndex): void {
+function checkStatement(
+	base: Span,
+	toks: readonly VbaToken[],
+	states: Map<string, CollectionContents>,
+	push: PushFn,
+	isEmpty: (lower: string) => boolean,
+	indexOf: IndexOf = literalIndex,
+	optionBase = 0,
+	lookup?: IntegerConstantLookup,
+): void {
 	const at = (from: number, to: number): Span => ({ start: base.start + toks[from].start, end: base.start + toks[to].end });
 	// First pass: reads and the recognised forms, in source order. A mention
 	// in any other shape ends tracking of that variable after this statement.
@@ -225,6 +241,7 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: Map<strin
 		if (next?.rawText === '(') {
 			const close = matchParenFrom(toks, i + 1);
 			if (close > i + 2 && checkRead(lower, state, toks.slice(i + 2, close), at(i + 2, close - 1), push, indexOf)) {
+				checkItemArray(base, toks, toks[i].rawText, state, toks.slice(i + 2, close), close, push, indexOf, lookup);
 				continue;
 			}
 			toForget.add(lower);
@@ -241,6 +258,7 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: Map<strin
 		if (memberName === 'item') {
 			const itemClose = toks[i + 3]?.rawText === '(' ? matchParenFrom(toks, i + 3) : -1;
 			if (itemClose > i + 4 && checkRead(lower, state, toks.slice(i + 4, itemClose), at(i + 4, itemClose - 1), push, indexOf)) {
+				checkItemArray(base, toks, toks[i].rawText, state, toks.slice(i + 4, itemClose), itemClose, push, indexOf, lookup);
 				continue;
 			}
 			toForget.add(lower);
@@ -249,7 +267,7 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: Map<strin
 		if ((memberName === 'add' || memberName === 'remove') && i === (tokenText(toks[0]) === 'call' ? 1 : 0)) {
 			const args = argumentsAfter(toks, i + 3);
 			if (memberName === 'add') {
-				mutations.push(() => add(lower, state, args, base, push, isEmpty, indexOf));
+				mutations.push(() => add(lower, state, args, base, push, isEmpty, indexOf, optionBase));
 			} else if (args.length === 1) {
 				mutations.push(() => remove(lower, state, args[0], base, push, indexOf));
 			} else {
@@ -264,6 +282,26 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: Map<strin
 	}
 	for (const lower of toForget) {
 		states.delete(lower);
+	}
+}
+
+/** `c(1)(5)`: the parentheses after an item read, against the array the item holds. */
+function checkItemArray(
+	base: Span,
+	toks: readonly VbaToken[],
+	name: string,
+	state: CollectionContents,
+	arg: readonly VbaToken[],
+	close: number,
+	push: PushFn,
+	indexOf: IndexOf,
+	lookup: IntegerConstantLookup | undefined,
+): void {
+	const index = toks[close + 1]?.rawText === '(' ? indexOf(arg) : undefined;
+	const shape = index === undefined ? undefined : state.shapes[index - 1];
+	const hit = shape && shapeSubscriptViolation(base, toks, { ...shape, name: `${name}(${index})` }, close + 1, lookup);
+	if (hit) {
+		push(hit.rule ?? 'arraySubscriptOutOfBounds', hit.message, hit.span);
 	}
 }
 
@@ -406,10 +444,11 @@ function addRefusal(name: string, state: CollectionContents, byName: ReadonlyMap
 	return undefined;
 }
 
-function add(name: string, state: CollectionContents, rawArgs: VbaToken[][], base: Span, push: PushFn, isEmpty: (lower: string) => boolean, indexOf: IndexOf): void {
+function add(name: string, state: CollectionContents, rawArgs: VbaToken[][], base: Span, push: PushFn, isEmpty: (lower: string) => boolean, indexOf: IndexOf, optionBase: number): void {
 	const byName = addArguments(rawArgs);
 	if (!byName) {
 		state.items.push(undefined);
+		state.shapes.push(undefined);
 		state.keysKnown = false;
 		return;
 	}
@@ -432,9 +471,11 @@ function add(name: string, state: CollectionContents, rawArgs: VbaToken[][], bas
 		// Before or After: the position is not followed, the count is.
 		state.items.push(key);
 		state.keysKnown = false;
+		state.shapes = state.items.map(() => undefined);
 		return;
 	}
 	state.items.push(key);
+	state.shapes.push(args[0].length > 0 ? arrayValueShape(args[0], name, optionBase) : undefined);
 }
 
 function remove(name: string, state: CollectionContents, arg: VbaToken[], base: Span, push: PushFn, indexOf: IndexOf): void {
@@ -446,6 +487,7 @@ function remove(name: string, state: CollectionContents, arg: VbaToken[], base: 
 			return;
 		}
 		state.items.splice(index - 1, 1);
+		state.shapes.splice(index - 1, 1);
 		return;
 	}
 	const key = literalKey(arg);
@@ -453,6 +495,7 @@ function remove(name: string, state: CollectionContents, arg: VbaToken[], base: 
 		// A variable index or key: one element fewer, which one unknown.
 		state.items.pop();
 		state.keysKnown = false;
+		state.shapes = state.items.map(() => undefined);
 		return;
 	}
 	if (reportKey(name, state, stringLiteralValue(arg[0].rawText), span, push)) {
@@ -461,9 +504,11 @@ function remove(name: string, state: CollectionContents, arg: VbaToken[], base: 
 	const position = state.items.indexOf(key);
 	if (position >= 0) {
 		state.items.splice(position, 1);
+		state.shapes.splice(position, 1);
 	} else {
 		state.items.pop();
 		state.keysKnown = false;
+		state.shapes = state.items.map(() => undefined);
 	}
 }
 
