@@ -1198,6 +1198,13 @@ function checkExcelCallee(
 		return;
 	}
 	if ((lower === 'rows' || lower === 'columns') && callee.returns === 'Excel.Range' && callee.args.length === 1) {
+		// `Columns("XFE")`: a letter past XFD names no column (issue #276,
+		// measured in Excel 16.0: 13).
+		const letters = lower === 'columns' ? stringOf(callee.args[0]) : undefined;
+		if (letters !== undefined && /^[A-Za-z]{1,3}$/.test(letters) && fromColumn + columnNumber(letters) - 1 > EXCEL_MAX_COLUMN) {
+			push('hostArgumentOutOfRange', `Columns("${letters}")${from} names a column past XFD, the last. This will raise Run-time error '13': Type mismatch.`, argsSpan);
+			return;
+		}
 		const index = valueOf(callee.args[0]);
 		const edge = index === undefined ? undefined : lower === 'rows' ? pastSheetEdge(fromRow + index - 1, undefined) : pastSheetEdge(undefined, fromColumn + index - 1);
 		if (edge) {
@@ -1767,6 +1774,11 @@ function parseA1Address(text: string): A1Area | undefined {
 		return { text, valid: false, multiCell: false, blank: true };
 	}
 	const body = text.replace(/^(?:'[^']*'|[^!'\s]+)!/, '');
+	// "R1C1" is an R1C1-style reference, which Range does not read and no
+	// workbook name may be (issue #276, measured in Excel 16.0: 1004).
+	if (/^R\d+C\d+$/i.test(body)) {
+		return { text, valid: false, multiCell: false };
+	}
 	const cell = /^\$?([A-Za-z]{1,3})\$?(\d+)$/;
 	const parts = body.split(':');
 	if (parts.length > 2) {
