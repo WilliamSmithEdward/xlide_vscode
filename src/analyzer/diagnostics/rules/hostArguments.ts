@@ -152,6 +152,15 @@ export function checkHostArguments(
 	for (const child of symbols.root.children ?? []) {
 		moduleNames.add(child.name.toLowerCase());
 	}
+	// A Public procedure of another module named Cells, Worksheets or Range
+	// takes the call from Excel's (issue #280, measured in Excel 16.0).
+	for (const type of memberCtx.projectClassMembers ?? []) {
+		if (type.kind === 'standardModule') {
+			for (const member of type.members) {
+				moduleNames.add(member.name.toLowerCase());
+			}
+		}
+	}
 	return (proc: ProcedureNode) => {
 		const env = typeEnvironmentFor(symbols, proc);
 		const sourceNames = new Set(moduleNames);

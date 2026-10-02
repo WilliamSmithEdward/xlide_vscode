@@ -54,9 +54,14 @@ describe('arguments from InStr, Len and Asc of known strings (issue #201)', () =
 		['a string assigned twice', 's = "a b"\n    s = s & "c"\n    Main = Left$(s, InStr(s, " ") - 1)'],
 		['Option Compare Database, where binary and text disagree', 's = "ABC"\n    Main = Left$(s, InStr(s, "b") - 1)', 'Option Compare Database'],
 		['Asc above 127, which depends on the code page', 'Main = Chr$(Asc("\u00e9") + 200)'],
-		['a project procedure named InStr', 's = "abc"\n    Main = Left$(s, InStr(s, "z") - 1)', '', 'Function InStr(a As String, b As String) As Long\n    InStr = 2\nEnd Function\n'],
 	];
 	it.each(RUNS)('stays quiet for %s', (_name, body, option, extra) => {
 		expect(argumentErrors(body, option, extra)).toEqual([]);
+	});
+
+	// A Function InStr in the module compiles, and InStr still calls VBA's:
+	// Left$(s, 0 - 1) raises 5 (issue #280, measured in Excel 16.0).
+	it('judges VBA\'s InStr beside a project procedure of that name', () => {
+		expect(argumentErrors('s = "abc"\n    Main = Left$(s, InStr(s, "z") - 1)', '', 'Function InStr(a As String, b As String) As Long\n    InStr = 2\nEnd Function\n')).toHaveLength(1);
 	});
 });

@@ -57,6 +57,8 @@ import {
 	unreachableStatementsIn,
 	withKnownLocals,
 	type SourceDeclaredShape,
+	runtimeCallableSourceShadowed,
+	sourceNameScopeFor,
 } from '../typeInference';
 import {
 	absoluteSpan,
@@ -2885,12 +2887,13 @@ function boundIntrinsicDimensionViolations(
  * `Split("abc", ",")(1)`: indexing the result of Split on literals, whose one
  * element sits at 0 (issue #120), and of Filter (issue #260).
  */
-function inlineSplitIndexViolations(source: string, span: Span): Array<{ span: Span; message: string }> {
+function inlineSplitIndexViolations(source: string, span: Span, shadowed: (name: string) => boolean): Array<{ span: Span; message: string }> {
 	const toks = statementTokensAfterLeadingLabel(source, span);
 	const out: Array<{ span: Span; message: string }> = [];
 	for (let i = 0; i + 1 < toks.length; i++) {
 		const callee = tokenText(toks[i]);
-		if ((callee !== 'split' && callee !== 'filter') || toks[i + 1].rawText !== '(' || !isBareOrVbaQualifiedIntrinsicCall(toks, i)) {
+		// A project procedure named Split takes the call (issue #280).
+		if ((callee !== 'split' && callee !== 'filter') || toks[i + 1].rawText !== '(' || !isBareOrVbaQualifiedIntrinsicCall(toks, i) || (toks[i - 1]?.rawText !== '.' && shadowed(toks[i].rawText))) {
 			continue;
 		}
 		const close = matchParenFrom(toks, i + 1);
@@ -2987,12 +2990,13 @@ export function checkFixedArraySubscriptBounds(
 		// Code that never runs, after `GoTo Done` or in a loop of no pass,
 		// raises nothing, whatever state it builds (issue #406).
 		const unreachable = unreachableStatementsIn(source, member, symbols, activity);
+		let sourceNames: ReturnType<typeof sourceNameScopeFor> | undefined;
 		// Headers too: `For i = 1 To a(5)`, `Select Case a(5)` (issue #233).
 		forEachStatementWithHeaders(source, member.body, (stmt) => {
 			if (unreachable.has(stmt)) {
 				return;
 			}
-			for (const hit of inlineSplitIndexViolations(source, stmt.span)) {
+			for (const hit of inlineSplitIndexViolations(source, stmt.span, (name) => runtimeCallableSourceShadowed(name, sourceNames ??= sourceNameScopeFor(symbols, member, projectVisibleSymbols)))) {
 				push('arraySubscriptOutOfBounds', hit.message, hit.span);
 			}
 			for (const hit of unallocated.size === 0 ? [] : unallocatedModuleArrayUses(source, stmt.span, unallocated)) {
