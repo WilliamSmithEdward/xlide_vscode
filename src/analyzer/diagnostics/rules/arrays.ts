@@ -90,6 +90,9 @@ export function checkArrayBoundIntrinsicArguments(
 		const shapes = declarationShapeEnvironmentFor(symbols, member);
 		const procSym = procedureSymbolFor(symbols, member);
 		return (stmt) => {
+			for (const hit of scalarLocalsIndexed(source, stmt.span, member, shapes)) {
+				push('scalarIndexed', `'${hit.name}' is declared As ${hit.asType}, which is no array to index. This is a VBE compile error: Expected array.`, hit.span);
+			}
 			for (const hit of arrayBoundSyntaxProblems(source, stmt.span)) {
 				push('malformedStatement', hit.message, hit.span);
 			}
@@ -113,6 +116,40 @@ export function checkArrayBoundIntrinsicArguments(
 			}
 		};
 	};
+}
+
+/**
+ * `Dim f As Long: Main = f(1)`: a number, string or date variable given
+ * a subscript is the VBE compile error Expected array (issue #417,
+ * Excel 16.0). The procedure's own name is a call, and declarations are
+ * left to the declaration rules.
+ */
+function scalarLocalsIndexed(
+	source: string,
+	span: Span,
+	proc: ProcedureNode,
+	shapes: ReadonlyMap<string, DeclaredValueShape>,
+): Array<{ name: string; asType: string; span: Span }> {
+	const toks = statementTokensAfterLeadingLabel(source, span).filter((tok) => tok.kind !== 'comment');
+	const lead = tokenText(toks[0]);
+	if (['dim', 'redim', 'static', 'const', 'private', 'public', 'global', 'erase'].includes(lead)) {
+		return [];
+	}
+	const out: Array<{ name: string; asType: string; span: Span }> = [];
+	for (let i = 0; i < toks.length - 1; i++) {
+		const name = tokenName(toks[i]);
+		if (!name || toks[i + 1].rawText !== '(' || toks[i - 1]?.rawText === '.' || toks[i - 1]?.rawText === '!'
+			|| name.toLowerCase() === proc.name.toLowerCase()) {
+			continue;
+		}
+		const shape = shapes.get(name.toLowerCase());
+		const normalized = shape && !shape.isArray && shape.asType ? normalizeType(shape.asType) : undefined;
+		if (!normalized || !isKnownScalarType(normalized)) {
+			continue;
+		}
+		out.push({ name, asType: shape!.asType!, span: { start: span.start + toks[i].start, end: span.start + toks[i].end } });
+	}
+	return out;
 }
 
 /**
@@ -196,8 +233,10 @@ function arrayBoundScalarArguments(
 		if (!shape || shape.isArray || !shape.asType) {
 			continue;
 		}
+		// Only a Variant can hold an array: a Collection, Object or Type
+		// is refused as well (issue #417, Excel 16.0).
 		const normalized = normalizeType(shape.asType);
-		if (!normalized || !isKnownScalarType(normalized)) {
+		if (!normalized || normalized === 'variant' || normalized === 'any') {
 			continue;
 		}
 		hits.push({
