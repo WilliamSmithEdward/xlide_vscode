@@ -897,6 +897,18 @@ function checkRedimPreserveDimensionsInBody(
 			continue;
 		}
 		if (node.kind === 'Statement') {
+			// After Erase a dynamic array has no bounds, and ReDim Preserve sets
+			// them afresh, the first dimension included (issue #420).
+			const toks = statementTokensAfterLeadingLabel(source, node.span);
+			if (tokenText(toks[0]) === 'erase') {
+				for (const tok of toks.slice(1)) {
+					const erased = tokenName(tok);
+					if (erased) {
+						shapes.delete(erased.toLowerCase());
+					}
+				}
+				continue;
+			}
 			for (const target of redimStatementTargets(source, node.span)) {
 				if (target.preserve) {
 					const previous = shapes.get(target.name.toLowerCase());

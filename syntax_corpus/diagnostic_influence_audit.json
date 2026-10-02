@@ -1680,11 +1680,13 @@
       "assertedOracleCases": [
         "redim_preserve_nonfinal_dimension_runtime",
         "redim_preserve_final_dimension_lower_bound_runtime",
-        "redim_preserve_last_dimension_runtime"
+        "redim_preserve_last_dimension_runtime",
+        "issue420_03_runtime",
+        "issue420_04_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Active coverage tracks prior ReDim shapes through straight-line active statements in the same body. It reports ReDim Preserve when the known dimension count changes, when comparable literal-style non-final bounds change, or when a comparable final-dimension lower bound changes. Focused runtime oracle fixtures prove a non-final dimension resize and a final-dimension lower-bound change raise runtime errors while resizing only the last dimension's upper bound runs successfully. Shapes learned inside nested blocks are available inside that nested body but do not leak outward, and variable/constant bound comparison remains deferred.",
+      "notes": "Active coverage tracks prior ReDim shapes through straight-line active statements in the same body. It reports ReDim Preserve when the known dimension count changes, when comparable literal-style non-final bounds change, or when a comparable final-dimension lower bound changes. Focused runtime oracle fixtures prove a non-final dimension resize and a final-dimension lower-bound change raise runtime errors while resizing only the last dimension's upper bound runs successfully. Shapes learned inside nested blocks are available inside that nested body but do not leak outward, and variable/constant bound comparison remains deferred. Issue #420: after Erase a dynamic array has no bounds, and ReDim Preserve sets them afresh, the first dimension included.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
