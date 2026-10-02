@@ -64994,6 +64994,72 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Date\r\n    x = Space(0)\r\n    Main = x\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue466_01_runtime",
+      "description": "Issue #466 A declaration in a stretch GoTo skips still names its variable, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    GoTo Inside\r\n    Dim i As Long\r\n    For i = 1 To 2\r\n    Inside:\r\n    Next\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue466_02_runtime",
+      "description": "Issue #466 A declaration in a stretch GoTo skips still names its variable, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    GoTo L\r\n    Const K = 3\r\n    L:\r\n    Main = K\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue466_03_runtime",
+      "description": "Issue #466 A declaration in a stretch GoTo skips still names its variable, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    GoTo L\r\n    Static s As Long\r\n    L:\r\n    s = s + 1\r\n    Main = s\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue466_04_runtime",
+      "description": "Issue #466 A declaration in a stretch GoTo skips still names its variable, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 4.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    GoTo L\r\n    If True Then\r\n        Dim j As Long\r\n    End If\r\n    L:\r\n    j = 4\r\n    Main = j\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue466_05_runtime",
+      "description": "Issue #466 A declaration in a stretch GoTo skips still names its variable, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    GoTo L\r\n    Dim k As Long: k = 9\r\n    L:\r\n    k = k + 1\r\n    Main = k\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue466_06_runtime",
+      "description": "Issue #466 A declaration in a stretch GoTo skips still names its variable, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    GoTo L\r\n    Dim k As Long:\r\n    L:\r\n    k = k + 1\r\n    Main = k\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
