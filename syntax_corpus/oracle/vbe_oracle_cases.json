@@ -59625,6 +59625,127 @@
       ],
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue409_01_runtime",
+      "description": "Issue #409 String with a Null Character, and Currency with a Date, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = IsNull(String(-1, Null))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue409_02_runtime",
+      "description": "Issue #409 String with a Null Character, and Currency with a Date, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = IsNull(String(2147483647, Null))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue409_03_runtime",
+      "description": "Issue #409 String with a Null Character, and Currency with a Date, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    v = Null\r\n    Main = IsNull(String(-1, v))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue409_04_runtime",
+      "description": "Issue #409 String with a Null Character, and Currency with a Date, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = String(-1, \"a\")\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue409_05_runtime",
+      "description": "Issue #409 String with a Null Character, and Currency with a Date, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 7.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Currency, t As Date\r\n    c = 922337203685477\r\n    t = #1/2/2000#\r\n    Main = VarType(c + t)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue409_06_runtime",
+      "description": "Issue #409 String with a Null Character, and Currency with a Date, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 7.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = VarType(922337203685477@ + #1/2/2000#)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue409_07_runtime",
+      "description": "Issue #409 String with a Null Character, and Currency with a Date, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Currency, t As Date\r\n    c = 922337203685477\r\n    t = #1/2/2000#\r\n    Main = VarType(t * c)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue409_08_runtime",
+      "description": "Issue #409 String with a Null Character, and Currency with a Date, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Currency, t As Date\r\n    c = 922337203685477\r\n    t = #1/2/2000#\r\n    Main = VarType(c * t)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue409_09_runtime",
+      "description": "Issue #409 String with a Null Character, and Currency with a Date, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Currency, t As Date\r\n    c = 922337203685477\r\n    t = #1/2/2000#\r\n    Main = VarType(t + c)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue409_10_runtime",
+      "description": "Issue #409 String with a Null Character, and Currency with a Date, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Currency, t As Date\r\n    c = 922337203685477\r\n    t = #1/2/2000#\r\n    Main = VarType(t - c)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue409_11_runtime",
+      "description": "Issue #409 String with a Null Character, and Currency with a Date, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Currency, t As Date\r\n    c = 3000000\r\n    t = #1/2/2000#\r\n    Main = VarType(t - c)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }

@@ -126,6 +126,11 @@ function arithmeticResultType(a: NumericType, b: NumericType, op: string): Numer
 	if ((a === 'longlong' || b === 'longlong') && (a === 'single' || b === 'single')) {
 		return 'double';
 	}
+	// A Date with a Currency is a Date for + and -, and a Double for *: c + t
+	// is VarType 7, t * c VarType 5 (issue #409, measured in Excel 16.0).
+	if ((a === 'date' || b === 'date') && (op === '+' || op === '-' || op === '*')) {
+		return op === '*' || (a === 'date' && b === 'date' && op === '-') ? 'double' : 'date';
+	}
 	if (a === 'currency' || b === 'currency') {
 		return (a === 'double' || b === 'double' || a === 'single' || b === 'single') ? 'double' : 'currency';
 	}

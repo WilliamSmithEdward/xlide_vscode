@@ -681,7 +681,10 @@ function runtimeArgumentValueHits(
 		// `Mid(Null, 0)`, `InStr(0, Null, "a")`: a Null argument makes the call
 		// return Null before the others are checked (issue #364, measured in
 		// Excel 16.0).
-		if (NULL_RETURNING.has(call.specs[0]?.canonicalName.toLowerCase() ?? '') && call.slots.some((slot) => isNullSlot(slot))) {
+		// String checks its Character for Null first: String(-1, Null) is Null
+		// (issue #409, measured in Excel 16.0).
+		const nullCharacter = call.specs[0]?.canonicalName === 'String' && call.slots[1] !== undefined && isNullSlot(call.slots[1]);
+		if (nullCharacter || (NULL_RETURNING.has(call.specs[0]?.canonicalName.toLowerCase() ?? '') && call.slots.some((slot) => isNullSlot(slot)))) {
 			continue;
 		}
 		for (const spec of call.specs) {
