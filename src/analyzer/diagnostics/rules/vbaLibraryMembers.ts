@@ -1,4 +1,5 @@
-// Rule: names after `VBA.` that the VBA library does not have (issue #369).
+// Rule: names after `VBA.` that the VBA library does not have (issue #369),
+// and after `Excel.` in an Excel project (issue #305).
 // Measured in Excel 16.0, compiled with Debug > Compile:
 //
 //  - `VBA.Nosuch`, `VBA.Strings.Nosuch`, `VBA.VbMsgBoxResult.vbNosuch` and
@@ -14,6 +15,7 @@
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { ModuleNode } from '../../parser/nodes';
+import { EXCEL_LIBRARY_NAMES } from '../../host/excelLibraryNames';
 import { VBA_ERR_READ_ONLY, VBA_LIBRARY_CONTAINERS, VBA_LIBRARY_NAMES } from '../../runtime/vbaLibraryNames';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaSymbol } from '../../symbols/symbolModel';
@@ -35,10 +37,16 @@ export function checkVbaLibraryMembers(
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	hostName?: string,
 ): void {
-	const shadowed = (symbols.root.children ?? []).some((symbol) => symbol.name.toLowerCase() === 'vba' || (symbol.children ?? []).some((child) => child.name.toLowerCase() === 'vba'))
-		|| (projectVisibleSymbols ?? []).some((symbol) => symbol.name.toLowerCase() === 'vba' || symbol.moduleName.toLowerCase() === 'vba');
-	if (shadowed) {
+	const shadows = (lower: string): boolean => (symbols.root.children ?? []).some((symbol) => symbol.name.toLowerCase() === lower || (symbol.children ?? []).some((child) => child.name.toLowerCase() === lower))
+		|| (projectVisibleSymbols ?? []).some((symbol) => symbol.name.toLowerCase() === lower || symbol.moduleName.toLowerCase() === lower);
+	if (hostName === undefined || hostName === 'Excel') {
+		if (!shadows('excel')) {
+			checkExcelLibraryNames(source, mod, activity, push);
+		}
+	}
+	if (shadows('vba')) {
 		return;
 	}
 	for (const member of activeModuleMembers(mod, activity)) {
@@ -78,6 +86,35 @@ export function checkVbaLibraryMembers(
 					const startsTarget = i === head || (i === head + 1 && ['let', 'set'].includes(tokenText(toks[head])));
 					if (first.lower === 'err' && startsTarget && VBA_ERR_READ_ONLY.has(second.lower) && toks[second.next]?.rawText === '=') {
 						push('readonlyMemberAssignment', `Cannot assign to read-only property 'VBA.Err.${second.shown}'. This is a VBE compile error: Can't assign to read-only property.`, at(first.next + 1));
+					}
+				}
+			}
+		}, activity);
+	}
+}
+
+/**
+ * `Excel.Nope`, `Excel.Version`: a name after `Excel.` that is no type,
+ * enum constant or Global member of the library (issue #305, measured in
+ * Excel 16.0). A name after As or New is a type, which the VBE refuses
+ * otherwise, and a member of what `Excel.X` gives is not judged here.
+ */
+function checkExcelLibraryNames(source: string, mod: ModuleNode, activity: ConditionalActivityTracker | undefined, push: PushFn): void {
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		forEachStatement(member.body, (stmt) => {
+			for (const span of statementAndBranchSpans(stmt)) {
+				const toks = statementTokens(source, span);
+				for (let i = 0; i + 2 < toks.length; i++) {
+					if (tokenText(toks[i]) !== 'excel' || toks[i - 1]?.rawText === '.' || toks[i + 1].rawText !== '.'
+						|| ['as', 'new'].includes(tokenText(toks[i - 1]) ?? '')) {
+						continue;
+					}
+					const name = tokenName(toks[i + 2]);
+					if (name && !EXCEL_LIBRARY_NAMES.has(name.toLowerCase())) {
+						push('memberNotFound', `'${name}' is not a member of the Excel library. This is a VBE compile error: Method or data member not found.`, { start: span.start + toks[i + 2].start, end: span.start + toks[i + 2].end });
 					}
 				}
 			}

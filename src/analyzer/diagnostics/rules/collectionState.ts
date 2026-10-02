@@ -716,7 +716,11 @@ function useHeldItem(ctx: ItemContext, nameAt: number, display: string, state: C
 	const after = toks[close + 1]?.rawText;
 	const member = after === '.' ? tokenText(toks[close + 2]) : undefined;
 	if (held === 'number' || held === 'string') {
-		if (after === '(') {
+		// `c(1) = 5`: a Let into the item, which only an object's default
+		// member could take (issue #305, measured in Excel 16.0).
+		if (after === '=' && nameAt === ctx.first) {
+			ctx.push('variantValueMisuse', `'${shown}' holds a ${held}, and a Collection's item cannot be replaced in place: only an object item takes a value through its default member. This will raise Run-time error '424': Object required.`, spanOf(nameAt, close));
+		} else if (after === '(') {
 			ctx.push('variantValueMisuse', `'${shown}' holds a ${held}, which takes no index. This will raise Run-time error '13': Type mismatch.`, spanOf(nameAt, matchParenFrom(toks, close + 1)));
 		} else if (member) {
 			ctx.push('variantValueMisuse', `'${shown}' holds a ${held}, not an object, so it has no ${toks[close + 2].rawText}. This will raise Run-time error '424': Object required.`, spanOf(nameAt, close + 2));

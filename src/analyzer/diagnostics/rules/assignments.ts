@@ -1427,6 +1427,18 @@ function checkMemberAssignmentTypes(
 		if (!assignment) {
 			return;
 		}
+		// `c.Count = 2` on a local Collection: Count is a Long Function (issue
+		// #305, measured in Excel 16.0).
+		const collectionCount = /^([A-Za-z]\w*)\.count$/i.exec(assignment.label);
+		if (collectionCount && !assignment.withArguments && normalizeType(env.get(collectionCount[1].toLowerCase())) === 'collection'
+			&& !(memberCtx.projectClassMembers ?? []).some((type) => type.name.toLowerCase() === 'collection')) {
+			push(
+				'readonlyMemberAssignment',
+				`Cannot assign to '${assignment.label}': a Collection's Count is a Function returning Long. This is a VBE compile error: Function call on left-hand side of assignment must return Variant or Object.`,
+				assignment.memberSpan,
+			);
+			return;
+		}
 		const target = resolveExactMemberCompletion(
 			source,
 			assignment.member,
