@@ -102,7 +102,12 @@ function walkFollowingJumps(
 	}
 	const leaves: LeafStatementNode[] = [];
 	collectLeaves(body, isInactive, leaves);
-	if (!leaves.some((leaf) => statementLabelReferences(source, leaf.span).length > 0 || statementLabelDeclarations(source, leaf.span).length > 0)) {
+	// Every label counts here, one that never runs too: the procedure is
+	// still walked label by label, and a dead label is skipped in the run.
+	// Without it the plain walk took over and entered no block (issue #439).
+	const everyLeaf: LeafStatementNode[] = [];
+	collectLeaves(body, () => false, everyLeaf);
+	if (!everyLeaf.some((leaf) => statementLabelReferences(source, leaf.span).length > 0 || statementLabelDeclarations(source, leaf.span).length > 0)) {
 		return false;
 	}
 	if (leaves.some((leaf) => {
