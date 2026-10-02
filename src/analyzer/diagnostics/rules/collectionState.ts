@@ -180,7 +180,13 @@ export function checkCollectionState(
 			const indexOf = (arg: readonly VbaToken[]): number | undefined => literalIndex(arg)
 				?? (arg.length === 1 && arg[0].kind === 'floatLiteral' && Number.isFinite(Number(arg[0].rawText.replace(/[!#@]$/, ''))) ? bankersRound(Number(arg[0].rawText.replace(/[!#@]$/, ''))) : undefined)
 				?? (lookup ? evaluateIntegerConstantExpression(arg.map((tok) => tok.rawText).join(' '), lookup) : undefined);
-			checkStatement(node.span, toks, states, push, isEmpty, indexOf, optionBase, lookup, scalarLocal);
+			const held = valuesAt?.(node);
+			const keyOf: KeyOf = (arg) => {
+				const local = arg.length === 1 ? tokenName(arg[0])?.toLowerCase() : undefined;
+				const value = local ? held?.get(local) : undefined;
+				return literalKeyText(arg) ?? (value?.kind === 'string' && !value.contentMutated ? value.value as string : undefined);
+			};
+			checkStatement(node.span, toks, states, push, isEmpty, indexOf, optionBase, lookup, scalarLocal, keyOf);
 		};
 		const leaves = new Map<BodyNode, { after: Map<string, CollectionContents>; aliases: string[] }>();
 		walkEnteringBlocks(source, member.body, (node) => activity?.isInactive(node.span) === true, visit, {
@@ -544,6 +550,7 @@ function checkStatement(
 	optionBase = 0,
 	lookup?: IntegerConstantLookup,
 	scalarLocal: (lower: string) => boolean = () => false,
+	keyOf: KeyOf = literalKeyText,
 ): void {
 	const at = (from: number, to: number): Span => ({ start: base.start + toks[from].start, end: base.start + toks[to].end });
 	// First pass: reads and the recognised forms, in source order. A mention
@@ -578,7 +585,7 @@ function checkStatement(
 		// `c(index)` or `c("key")`
 		if (next?.rawText === '(') {
 			const close = matchParenFrom(toks, i + 1);
-			if (close > i + 2 && checkRead(lower, state, toks.slice(i + 2, close), at(i + 2, close - 1), push, indexOf)) {
+			if (close > i + 2 && checkRead(lower, state, toks.slice(i + 2, close), at(i + 2, close - 1), push, indexOf, keyOf)) {
 				checkItemArray(base, toks, toks[i].rawText, state, toks.slice(i + 2, close), close, push, indexOf, lookup);
 				useHeldItem(item, i, toks[i].rawText, state, toks.slice(i + 2, close), close);
 				continue;
@@ -596,7 +603,7 @@ function checkStatement(
 		}
 		if (memberName === 'item') {
 			const itemClose = toks[i + 3]?.rawText === '(' ? matchParenFrom(toks, i + 3) : -1;
-			if (itemClose > i + 4 && checkRead(lower, state, toks.slice(i + 4, itemClose), at(i + 4, itemClose - 1), push, indexOf)) {
+			if (itemClose > i + 4 && checkRead(lower, state, toks.slice(i + 4, itemClose), at(i + 4, itemClose - 1), push, indexOf, keyOf)) {
 				checkItemArray(base, toks, toks[i].rawText, state, toks.slice(i + 4, itemClose), itemClose, push, indexOf, lookup);
 				useHeldItem(item, i, `${toks[i].rawText}.Item`, state, toks.slice(i + 4, itemClose), itemClose);
 				continue;
@@ -765,17 +772,25 @@ function literalIndex(arg: readonly VbaToken[]): number | undefined {
 }
 
 /** Judges `c(arg)` or `c.Item(arg)`; false when the argument is not a literal the rule reads. */
-function checkRead(name: string, state: CollectionContents, arg: readonly VbaToken[], span: Span, push: PushFn, indexOf: IndexOf): boolean {
+function checkRead(name: string, state: CollectionContents, arg: readonly VbaToken[], span: Span, push: PushFn, indexOf: IndexOf, keyOf: KeyOf = literalKeyText): boolean {
 	const index = indexOf(arg);
 	if (index !== undefined) {
 		reportIndex(name, state, index, span, push);
 		return true;
 	}
-	if (arg.length === 1 && arg[0].kind === 'stringLiteral') {
-		reportKey(name, state, stringLiteralValue(arg[0].rawText), span, push);
+	const key = keyOf(arg);
+	if (key !== undefined) {
+		reportKey(name, state, key, span, push);
 		return true;
 	}
 	return false;
+}
+
+/** The key an argument names: a string literal, or a String local known to hold one (issue #346). */
+type KeyOf = (arg: readonly VbaToken[]) => string | undefined;
+
+function literalKeyText(arg: readonly VbaToken[]): string | undefined {
+	return arg.length === 1 && arg[0].kind === 'stringLiteral' ? stringLiteralValue(arg[0].rawText) : undefined;
 }
 
 function reportIndex(name: string, state: CollectionContents, index: number, span: Span, push: PushFn): void {

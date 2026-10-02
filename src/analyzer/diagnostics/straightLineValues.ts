@@ -495,7 +495,11 @@ function afterStatement(source: string, span: Span, before: ReachingAssignments)
 	const bare = bareAssignmentTarget(source, span);
 	if (bare) {
 		const next = new Map(after);
-		next.set(bare.name.toLowerCase(), bare.valueTokens.filter((tok) => tok.kind !== 'comment'));
+		const value = bare.valueTokens.filter((tok) => tok.kind !== 'comment');
+		// `d = a` copies what a holds here: `a = 0: d = a` leaves d 0, and a
+		// later change to a leaves d as it was (issue #346).
+		const copied = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
+		next.set(bare.name.toLowerCase(), copied !== undefined && before.has(copied) ? before.get(copied)! : value);
 		after = next;
 	}
 	return after;
