@@ -529,7 +529,46 @@ export function buildModuleSymbols(
 	};
 
 	const defTypes = moduleDefTypes(source);
-	return { moduleName, moduleKind, root, all: flat, ...(defTypes.size > 0 ? { defTypes } : {}) };
+	const implicitLocals = defTypes.size > 0 && !/^[ \t]*Option[ \t]+Explicit\b/im.test(source)
+		? moduleImplicitLocals(source, module, rootChildren)
+		: undefined;
+	return {
+		moduleName, moduleKind, root, all: flat,
+		...(defTypes.size > 0 ? { defTypes } : {}),
+		...(implicitLocals && implicitLocals.size > 0 ? { implicitLocals } : {}),
+	};
+}
+
+/**
+ * The names each procedure assigns, `i = 40000` or `For i = 1 To 3`, that
+ * nothing in the procedure or the module declares: with no Option Explicit
+ * VBA makes each a local, and a DefType line types it (issue #285).
+ */
+function moduleImplicitLocals(source: string, module: ModuleNode, rootChildren: readonly VbaSymbol[]): Map<number, Set<string>> {
+	const moduleNames = new Set(rootChildren.map((symbol) => symbol.name.toLowerCase()));
+	const out = new Map<number, Set<string>>();
+	for (const member of module.members) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const declared = new Set([member.name, ...member.params.map((param) => param.name)].map((name) => name.toLowerCase()));
+		const symbol = rootChildren.find((child) => child.nameSpan.start === (member.nameSpan ?? member.span).start);
+		for (const child of symbol?.children ?? []) {
+			declared.add(child.name.toLowerCase());
+		}
+		const names = new Set<string>();
+		const text = source.slice(member.span.start, member.span.end);
+		for (const match of text.matchAll(/^[ \t]*(?:\d+[ \t]+)?(?:Let[ \t]+|For[ \t]+)?([A-Za-z]\w*)[ \t]*=(?!=)/gim)) {
+			const lower = match[1].toLowerCase();
+			if (!declared.has(lower) && !moduleNames.has(lower) && !/^(let|set|for|if|elseif|while|until|case|call|dim|redim|static|const|private|public|global|end|exit|on|resume|mid|lset|rset)$/.test(lower)) {
+				names.add(lower);
+			}
+		}
+		if (names.size > 0) {
+			out.set(member.span.start, names);
+		}
+	}
+	return out;
 }
 
 const DEF_TYPE_NAMES: Readonly<Record<string, string>> = {

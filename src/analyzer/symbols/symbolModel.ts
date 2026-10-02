@@ -435,6 +435,12 @@ export interface ModuleSymbols {
 	 * lowercased first letter (issue #285). Absent with no DefType line.
 	 */
 	defTypes?: ReadonlyMap<string, string>;
+	/**
+	 * With a DefType line and no Option Explicit: the names each procedure
+	 * assigns without declaring them, by the procedure's start offset. Each
+	 * is a local the DefType types (issue #285).
+	 */
+	implicitLocals?: ReadonlyMap<number, ReadonlySet<string>>;
 }
 
 /** True for the five source procedure body symbol kinds. */

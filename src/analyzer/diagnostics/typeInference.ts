@@ -462,6 +462,15 @@ export function typeEnvironmentFor(
 			own.set(child.name.toLowerCase(), type);
 		}
 	}
+	// A name the procedure assigns with no declaration is a local the DefType
+	// types (issue #285), unless it is a host global such as StatusBar or a
+	// VBA function such as Mid.
+	for (const name of symbols.implicitLocals?.get(proc.span.start) ?? []) {
+		const type = defTypeOf(symbols, name);
+		if (type && !own.has(name) && !resolveHostGlobal(name, undefined) && !resolveHostGlobalMember(name, undefined) && !resolveRuntimeFunction(name)) {
+			own.set(name, type);
+		}
+	}
 	const out = new LayeredMap(typeEnvModuleBase(symbols), own);
 	cache.set(proc, out);
 	return out;
