@@ -60268,6 +60268,315 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Len(True)\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue367_01_compile",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = 1E10 And 1\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue367_02_compile",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = 3E9 Or 0\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue367_03_compile",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = 922337203685477@ Xor 1\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue367_04_compile",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = 3E9 Eqv 0\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue367_05_compile",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = 1E10 Imp 0\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue367_06_compile",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C As Byte = False Imp 1.5\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue367_07_compile",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = \"\" + 1\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue367_08_compile",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = \"abc\" < 1\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue367_09_compile",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = \"abc\" < #1/1/2000#\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue367_10_compile",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = 1 / \"\"\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue367_11_compile",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = 40000 And 1\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue367_12_compile",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = \"2\" * 2\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue367_13_compile",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = \"a\" & 1\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue367_14_compile",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = \"a\" = \"b\"\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue367_15_compile",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 15, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = 5 And 3\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue367_16_compile",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 16, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = -1 Xor 255\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue367_17_compile",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 17, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C As Byte = 1 Or 2\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue367_18_compile",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 18, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = 2147483647 And 1\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue367_19_compile",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 19, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = 2147483648# And 1\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue367_20_compile",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 20, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = True Or 4\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue367_21_compile",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 21, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = \"a\" + \"b\"\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue367_22_runtime",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 22, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = 3E9 Or 0\r\n    Main = n\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue367_23_runtime",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 23, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Double\r\n    d = 1E10\r\n    Main = d And 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue367_24_runtime",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 24, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim b As Byte\r\n    b = 5 And 3\r\n    Main = b\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue367_25_runtime",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 25, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim i As Integer\r\n    i = 40000 And 1\r\n    Main = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue367_26_runtime",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 26, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 255.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim i As Integer\r\n    i = 65535 And 255\r\n    Main = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue367_27_runtime",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 27, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim i As Integer\r\n    i = 65535 Or 0\r\n    Main = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue367_28_runtime",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 28, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = (32767 And 32767) + 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue367_29_runtime",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 29, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim b As Byte, c As Byte\r\n    b = 200\r\n    c = 100\r\n    Main = (b And b) + c\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue367_30_runtime",
+      "description": "Issue #367 logical operators outside the Long range, and strings in Const arithmetic, case 30, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 32768.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = (32767& And 32767) + 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

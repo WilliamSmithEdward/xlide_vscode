@@ -4116,11 +4116,16 @@
         "issue405d_44_runtime",
         "issue409_09_runtime",
         "issue409_10_runtime",
-        "issue409_11_runtime"
+        "issue409_11_runtime",
+        "issue367_22_runtime",
+        "issue367_23_runtime",
+        "issue367_27_runtime",
+        "issue367_28_runtime",
+        "issue367_29_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Arithmetic overflow. MS-VBAL 5.6.9.3 operator result types; VBE runtime error 6: Overflow (issue #116, Excel 16.0). Issue #218: CDec past the Decimal range (CDec(\"1E30\")), and Abs of the smallest Long is not an overflow (it returns -2147483648). Inside any call argument or operand too: CStr(CInt(40000)), IIf(True, 0, CInt(40000)), \"x\" & CInt(40000), z(CInt(40000)); and LongLong, folded exactly, with LongPtr judged against LongLong's range (issues #232 and #258, 64-bit Excel 16.0). In a block header too: For i = 1 To CInt(40000), Select Case CInt(40000) (issue #233, Excel 16.0). Negating the Long minimum wraps where the VBE folds it, -&H80000000, -CLng(&H80000000), -(&H80000000 + 0); a variable or another conversion overflows (issue #235, Excel 16.0). Issue #253: a member of a Type value as the target, t.i = t.i + 1 after t.i = 32767, t.i = t.a after t.a = 40000, and a Date member past 12/31/9999; and a literal into an array element of a known type, v(2) = 40000 and t.v(2) = 40000 (measured in Excel 16.0). Issue #255: an Enum member is a Long of its own value, or one more than the member before it, the first 0; x = eBig into an Integer, E.eBig, eMax + 1 and eK * eK overflow (measured in Excel 16.0). A local or parameter of the name hides a module Const or Enum member. Issue #262: an Open Len literal past 32767 raises 6 (Len = 32768 and 100000); Len = -1 runs. Measured in Excel 16.0. Issue #263: a loop counter on its first and last passes (For i = 32760 To 32770 then CInt(i)); a whole-number local a For loop steps by its own statement, x = x + k, x - k or x * k with k a number or the counter, run pass by pass from its value at the loop (an Integer t = t + i over 1 To 300 at i = 256, a Long p = p * i over 1 To 20 at i = 13); and a Do or While loop stepping a local whose exit test no value of its type passes (Loop Until i > 32767 on an Integer, While b <= 255 on a Byte, Do Until b < 0). The body must be plain statements, with nothing else naming the local. Measured in Excel 16.0. Issue #326: a Boolean goes into a Byte as 255 or 0, so b = True, b = Not False, a Boolean Const, CByte(True) and a Byte function returning True run. Arithmetic makes it an Integer -1: b = True + 0 and b = Not 0 still overflow. Issue #362: negating a Byte gives an Integer, so -b with b = 200 is -200 and runs; storing it in a Byte still overflows. Issue #330: number + Date and number - Date hold a serial past the Date range without raising; Date + number past 12/31/9999 raises 6 and is reported. Issue #405: the Date past the range that number + Date made is kept, so Int, Fix, Abs, CInt, -(x), x + 1 and an Integer or Byte target of it raise 6 and are reported; a Date, Long, Single or Currency target holds it. Issue #409: a Date with a Currency is a Date for + and -, and a Double for *: c + t past the Date range does not raise (#330), t + c and t - c raise 6.",
+      "notes": "Arithmetic overflow. MS-VBAL 5.6.9.3 operator result types; VBE runtime error 6: Overflow (issue #116, Excel 16.0). Issue #218: CDec past the Decimal range (CDec(\"1E30\")), and Abs of the smallest Long is not an overflow (it returns -2147483648). Inside any call argument or operand too: CStr(CInt(40000)), IIf(True, 0, CInt(40000)), \"x\" & CInt(40000), z(CInt(40000)); and LongLong, folded exactly, with LongPtr judged against LongLong's range (issues #232 and #258, 64-bit Excel 16.0). In a block header too: For i = 1 To CInt(40000), Select Case CInt(40000) (issue #233, Excel 16.0). Negating the Long minimum wraps where the VBE folds it, -&H80000000, -CLng(&H80000000), -(&H80000000 + 0); a variable or another conversion overflows (issue #235, Excel 16.0). Issue #253: a member of a Type value as the target, t.i = t.i + 1 after t.i = 32767, t.i = t.a after t.a = 40000, and a Date member past 12/31/9999; and a literal into an array element of a known type, v(2) = 40000 and t.v(2) = 40000 (measured in Excel 16.0). Issue #255: an Enum member is a Long of its own value, or one more than the member before it, the first 0; x = eBig into an Integer, E.eBig, eMax + 1 and eK * eK overflow (measured in Excel 16.0). A local or parameter of the name hides a module Const or Enum member. Issue #262: an Open Len literal past 32767 raises 6 (Len = 32768 and 100000); Len = -1 runs. Measured in Excel 16.0. Issue #263: a loop counter on its first and last passes (For i = 32760 To 32770 then CInt(i)); a whole-number local a For loop steps by its own statement, x = x + k, x - k or x * k with k a number or the counter, run pass by pass from its value at the loop (an Integer t = t + i over 1 To 300 at i = 256, a Long p = p * i over 1 To 20 at i = 13); and a Do or While loop stepping a local whose exit test no value of its type passes (Loop Until i > 32767 on an Integer, While b <= 255 on a Byte, Do Until b < 0). The body must be plain statements, with nothing else naming the local. Measured in Excel 16.0. Issue #326: a Boolean goes into a Byte as 255 or 0, so b = True, b = Not False, a Boolean Const, CByte(True) and a Byte function returning True run. Arithmetic makes it an Integer -1: b = True + 0 and b = Not 0 still overflow. Issue #362: negating a Byte gives an Integer, so -b with b = 200 is -200 and runs; storing it in a Byte still overflows. Issue #330: number + Date and number - Date hold a serial past the Date range without raising; Date + number past 12/31/9999 raises 6 and is reported. Issue #405: the Date past the range that number + Date made is kept, so Int, Fix, Abs, CInt, -(x), x + 1 and an Integer or Byte target of it raise 6 and are reported; a Date, Long, Single or Currency target holds it. Issue #409: a Date with a Currency is a Date for + and -, and a Double for *: c + t past the Date range does not raise (#330), t + c and t - c raise 6. Issue #367: a logical operator on a value outside the Long range raises 6 at run time too: n = 3E9 Or 0.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -4139,11 +4144,18 @@
         "issue235_31_compile",
         "issue235_49_compile",
         "issue255_30_compile",
-        "issue255_31_compile"
+        "issue255_31_compile",
+        "issue367_01_compile",
+        "issue367_02_compile",
+        "issue367_03_compile",
+        "issue367_04_compile",
+        "issue367_05_compile",
+        "issue367_06_compile",
+        "issue367_19_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Const value overflows. MS-VBAL 5.6.9.3; VBE compile error: Overflow (issue #116, Excel 16.0). A LongLong Const past the range, Const C As LongLong = 1E+19 (issue #232, 64-bit Excel 16.0). Not into a narrow type, As Byte = Not 0, and a digit string past the type, As Integer = \"40000\"; negating the Long minimum while folding wraps and is not reported (issue #235, Excel 16.0). Issue #255: a Const from an Enum member, Const K As Integer = eBig with eBig = 40000, and a Date Const past 12/31/9999, Const D2 = D1 + 1, are Overflow (measured in Excel 16.0). A Const value that opens with a date literal is read as a date, no longer as a directive.",
+      "notes": "Const value overflows. MS-VBAL 5.6.9.3; VBE compile error: Overflow (issue #116, Excel 16.0). A LongLong Const past the range, Const C As LongLong = 1E+19 (issue #232, 64-bit Excel 16.0). Not into a narrow type, As Byte = Not 0, and a digit string past the type, As Integer = \"40000\"; negating the Long minimum while folding wraps and is not reported (issue #235, Excel 16.0). Issue #255: a Const from an Enum member, Const K As Integer = eBig with eBig = 40000, and a Date Const past 12/31/9999, Const D2 = D1 + 1, are Overflow (measured in Excel 16.0). A Const value that opens with a date literal is read as a date, no longer as a directive. Issue #367: And, Or, Xor, Eqv and Imp convert each operand to a Long, so one outside the Long range (1E10 And 1, 922337203685477@ Xor 1) is Overflow; the result keeps the operands type, Byte for two Bytes, Integer for Integers.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -4167,11 +4179,15 @@
         "issue235_25_compile",
         "issue235_34_compile",
         "issue235_51_compile",
-        "issue255_33_compile"
+        "issue255_33_compile",
+        "issue367_07_compile",
+        "issue367_08_compile",
+        "issue367_09_compile",
+        "issue367_10_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "A Const value the VBE cannot evaluate: a division by zero, 1 / 0, 1 Mod False, 2 * (1 \\ 0) -> Division by zero; a string that is no number into a numeric or Boolean Const, or under - or Not -> Type mismatch (issue #235, Excel 16.0).",
+      "notes": "A Const value the VBE cannot evaluate: a division by zero, 1 / 0, 1 Mod False, 2 * (1 \\ 0) -> Division by zero; a string that is no number into a numeric or Boolean Const, or under - or Not -> Type mismatch (issue #235, Excel 16.0). Issue #367: a string with no digit beside a number or a Date in arithmetic or a comparison, \"\" + 1, \"abc\" < 1, 1 / \"\", is Type mismatch.",
       "diagnosticKind": "compile-error"
     },
     {
