@@ -34,6 +34,8 @@ export interface KnownStringCallContext {
 	/** Whether the project declares a procedure of this name, hiding VBA's. */
 	shadowed: (name: string) => boolean;
 	compare: ModuleCompare;
+	/** The date a local holds, by lower-cased name, where it is known (issue #559). */
+	dateOf?: (lower: string) => Date | undefined;
 }
 
 let lastCompare: { source: string; compare: ModuleCompare } | undefined;
@@ -84,13 +86,17 @@ export function parseDateLiteral(raw: string): Date | undefined {
  * past 12 or "9999-12-31". Undefined for anything else, and for a date past
  * the range.
  */
-export function knownDate(arg: readonly VbaToken[], integerValue: (toks: readonly VbaToken[]) => number | undefined): Date | undefined {
+export function knownDate(arg: readonly VbaToken[], integerValue: (toks: readonly VbaToken[]) => number | undefined, dateOf?: (lower: string) => Date | undefined): Date | undefined {
 	let toks = arg.filter((tok) => tok.kind !== 'comment');
 	while (toks.length > 2 && toks[0].rawText === '(' && matchParenFrom(toks, 0) === toks.length - 1) {
 		toks = toks.slice(1, -1);
 	}
 	if (toks.length === 1 && toks[0].kind === 'dateLiteral') {
 		return parseDateLiteral(toks[0].rawText);
+	}
+	const local = toks.length === 1 && dateOf ? tokenName(toks[0])?.toLowerCase() : undefined;
+	if (local) {
+		return dateOf!(local);
 	}
 	const at = tokenText(toks[0]) === 'vba' && toks[1]?.rawText === '.' ? 2 : 0;
 	const name = tokenText(toks[at]);
@@ -106,6 +112,13 @@ export function knownDate(arg: readonly VbaToken[], integerValue: (toks: readonl
 		const date = new Date(0);
 		date.setUTCFullYear(parts[0]!, parts[1]! - 1, 1);
 		date.setUTCDate(parts[2]!);
+		return inDateRange(date) ? date : undefined;
+	}
+	// CDate of a whole number counts days from December 30, 1899:
+	// CDate(-10000) is August 13, 1872 (issue #559, measured in Excel 16.0).
+	const days = name === 'cdate' && args.length === 1 && args[0][0]?.kind !== 'stringLiteral' ? integerValue(args[0]) : undefined;
+	if (days !== undefined) {
+		const date = new Date(Date.UTC(1899, 11, 30) + days * 86400000);
 		return inDateRange(date) ? date : undefined;
 	}
 	if ((name === 'datevalue' || name === 'cdate') && args.length === 1 && args[0].length === 1 && args[0][0].kind === 'stringLiteral') {
@@ -202,13 +215,13 @@ function callValue(name: string, args: VbaToken[][], ctx: KnownStringCallContext
 		case 'year':
 		case 'month':
 		case 'day': {
-			const date = args.length === 1 ? knownDate(args[0], (toks) => wholeNumber(toks, ctx)) : undefined;
+			const date = args.length === 1 ? knownDate(args[0], (toks) => wholeNumber(toks, ctx), ctx.dateOf) : undefined;
 			return !date ? undefined : name === 'year' ? date.getUTCFullYear() : name === 'month' ? date.getUTCMonth() + 1 : date.getUTCDate();
 		}
 		case 'datediff': {
 			const interval = args.length === 3 ? knownString(args[0], ctx)?.toLowerCase() : undefined;
-			const from = args.length === 3 ? knownDate(args[1], (toks) => wholeNumber(toks, ctx)) : undefined;
-			const to = args.length === 3 ? knownDate(args[2], (toks) => wholeNumber(toks, ctx)) : undefined;
+			const from = args.length === 3 ? knownDate(args[1], (toks) => wholeNumber(toks, ctx), ctx.dateOf) : undefined;
+			const to = args.length === 3 ? knownDate(args[2], (toks) => wholeNumber(toks, ctx), ctx.dateOf) : undefined;
 			return interval === undefined || !from || !to ? undefined : dateDiff(interval, from, to);
 		}
 		default:
