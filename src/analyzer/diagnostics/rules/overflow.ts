@@ -2222,8 +2222,8 @@ function checkForCounter(
 	if (!type || type === 'single' || type === 'double' || type === 'currency' || type === 'date') {
 		return;
 	}
-	const headerEnd = source.indexOf('\n', node.span.start);
-	const header = { start: node.span.start, end: headerEnd < 0 ? node.span.end : Math.min(headerEnd, node.span.end) };
+	// The header with any lines a ` _` continues it onto (issue #289).
+	const header = blockHeaderLineSpan(source, node.span);
 	const toks = statementTokensAfterLeadingLabel(source, header);
 	const to = toks.findIndex((tok) => tokenText(tok) === 'to');
 	if (to < 0) {

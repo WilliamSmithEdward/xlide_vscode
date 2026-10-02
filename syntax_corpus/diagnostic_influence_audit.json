@@ -1373,7 +1373,8 @@
         "issue449_16_runtime",
         "issue424_38_runtime",
         "issue424_39_runtime",
-        "issue424_40_runtime"
+        "issue424_40_runtime",
+        "issue289_09_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -1962,7 +1963,9 @@
         "issue476_13_runtime",
         "issue449_06_runtime",
         "issue449_18_runtime",
-        "issue448_06_runtime"
+        "issue448_06_runtime",
+        "issue289_06_runtime",
+        "issue289_07_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2457,7 +2460,11 @@
         "issue509_07_runtime",
         "issue509_08_runtime",
         "issue509_09_runtime",
-        "issue449_08_runtime"
+        "issue449_08_runtime",
+        "issue289_01_runtime",
+        "issue289_02_runtime",
+        "issue289_03_runtime",
+        "issue289_04_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -5001,11 +5008,12 @@
         "issue263_17_runtime",
         "issue411_06_runtime",
         "issue411_07_runtime",
-        "issue411_08_runtime"
+        "issue411_08_runtime",
+        "issue289_05_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "For counter overflows after its last pass. MS-VBAL 5.4.2.3; VBE runtime error 6: Overflow (issue #116, Excel 16.0). A LongLong counter, compared exactly: For i = 9223372036854775806^ To 9223372036854775807^ (issue #232, 64-bit Excel 16.0). Issue #263: the For line converts its start, limit and step to the counter's type as it runs, before the first pass, so one that does not fit raises 6 there, whatever Exit For the body holds and however many passes would run: For b = 5 To 3 Step -1 and For b = 3 To 5 Step -1 on a Byte, For b = -1 To 3, For i = 40000 To 1 and For i = 1 To 40000 with Exit For on an Integer, For i = 1 To 3000000000# on a Long, and a step or limit held by a local (s = -1, top = 40000). A fraction rounds first: Step -0.4 on a Byte runs. The limit case was reported before as overflowing at Next. Measured in Excel 16.0 (issue263_* oracle cases).",
+      "notes": "For counter overflows after its last pass. MS-VBAL 5.4.2.3; VBE runtime error 6: Overflow (issue #116, Excel 16.0). A LongLong counter, compared exactly: For i = 9223372036854775806^ To 9223372036854775807^ (issue #232, 64-bit Excel 16.0). Issue #263: the For line converts its start, limit and step to the counter's type as it runs, before the first pass, so one that does not fit raises 6 there, whatever Exit For the body holds and however many passes would run: For b = 5 To 3 Step -1 and For b = 3 To 5 Step -1 on a Byte, For b = -1 To 3, For i = 40000 To 1 and For i = 1 To 40000 with Exit For on an Integer, For i = 1 To 3000000000# on a Long, and a step or limit held by a local (s = -1, top = 40000). A fraction rounds first: Step -0.4 on a Byte runs. The limit case was reported before as overflowing at Next. Measured in Excel 16.0 (issue263_* oracle cases). Issue #289: a For header continued with a line continuation, For i = _ then 1 To 40000, is read whole.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -5797,7 +5805,8 @@
         "issue471_03_runtime",
         "issue471_04_runtime",
         "issue471_05_runtime",
-        "issue471_06_runtime"
+        "issue471_06_runtime",
+        "issue289_10_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -5942,7 +5951,8 @@
         "issue350_05_runtime",
         "issue350_06_runtime",
         "issue350_07_runtime",
-        "issue349_07_runtime"
+        "issue349_07_runtime",
+        "issue289_08_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
