@@ -239,7 +239,8 @@ function validateArgumentShapes(
 			}
 			continue;
 		}
-		if (param.isArray && asType && isScalarOrVariant(asType)) {
+		// A Collection is no array either (issue #410, measured in Excel 16.0).
+		if (param.isArray && asType && (isScalarOrVariant(asType) || normalizeType(asType) === 'collection')) {
 			push('argumentShapeMismatch', scalarToArrayMessage(ident.name, param, sig.name), ident.span);
 		}
 	}
@@ -263,6 +264,12 @@ function arrayArgumentProblem(
 	// with d a Double array is refused (issue #218, measured).
 	if (toks[0]?.rawText === '(' && matchParenFrom(toks, 0) === toks.length - 1) {
 		return parenthesizedArgument(toks.slice(1, -1), sliceStart);
+	}
+	// `TArr -1`, `TArr "a"`: a literal is no array (issue #410, measured in
+	// Excel 16.0).
+	const literal = toks.length === 2 && (toks[0].rawText === '-' || toks[0].rawText === '+') ? toks[1] : toks.length === 1 ? toks[0] : undefined;
+	if (literal && ['integerLiteral', 'floatLiteral', 'stringLiteral', 'dateLiteral'].includes(literal.kind)) {
+		return { what: `${toks.map((t) => t.rawText).join('')} is a literal, not an array`, span: { start: sliceStart + toks[0].start, end: sliceStart + toks[toks.length - 1].end } };
 	}
 	const name = toks[0] ? tokenName(toks[0]) : undefined;
 	if (!name) {

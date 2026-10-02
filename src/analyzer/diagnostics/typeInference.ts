@@ -1400,6 +1400,11 @@ export function validateArgumentTypesForSignature(
 			);
 			continue;
 		}
+		// An array parameter takes an array variable; anything else is
+		// argument-shape-mismatch's, not a value to convert (issue #410).
+		if (param.isArray) {
+			continue;
+		}
 		const stringArithmetic = nonnumericStringArithmeticOperand(
 			expected,
 			valueSlot,
@@ -1602,7 +1607,7 @@ export function byRefVariableTypeMismatch(
 		return undefined;
 	}
 	const expected = normalizeType(param.type);
-	if (!isKnownByRefExactType(expected)) {
+	if (!byRefExact(expected)) {
 		return undefined;
 	}
 	const toks = slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline');
@@ -1618,6 +1623,10 @@ export function byRefVariableTypeMismatch(
 		// A Const is passed as a temporary copy, so its type never has to
 		// match (issue #111: `Take(K)` with K an Integer Const compiles).
 		if (declaredType?.resolved && declaredType.kind === 'constant') {
+			return undefined;
+		}
+		// A non-array into an array parameter is argument-shape-mismatch's.
+		if (param.isArray && declaredType?.resolved && !declaredType.isArray) {
 			return undefined;
 		}
 		actualRaw = declaredType?.resolved
@@ -1673,7 +1682,7 @@ export function byRefVariableTypeMismatch(
 		return undefined;
 	}
 	const actual = normalizeType(actualRaw);
-	if (!isKnownByRefExactType(actual) || sameByRefType(actual, expected)) {
+	if (!byRefExact(actual) || sameByRefType(actual, expected)) {
 		return undefined;
 	}
 	return {
@@ -1681,6 +1690,16 @@ export function byRefVariableTypeMismatch(
 		actual: actualRaw ?? name,
 		span,
 	};
+}
+
+/**
+ * A type a ByRef argument must match exactly: a scalar, Object, or a
+ * Collection. A Collection into `p As Long`, and a Long, String or Variant
+ * into `p As Collection`, are "ByRef argument type mismatch" (issue #410,
+ * measured in Excel 16.0).
+ */
+function byRefExact(type: string | undefined): boolean {
+	return isKnownByRefExactType(type) || type === 'collection';
 }
 
 /**

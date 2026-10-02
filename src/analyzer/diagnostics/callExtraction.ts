@@ -387,6 +387,7 @@ export function validateArity(
 		// omit_leading_before_named_compile `f(, b:=2)`, omit_positional_then_omit_then_named_compile
 		// `f(1, , c:=3)`), as does the `f(1, b:=2)` positional-then-named ordering.
 		let sawNamed = false;
+		let slotOrderReported = false;
 		for (let i = 0; i < call.slots.length; i++) {
 			const slot = call.slots[i];
 			if (isNamedSlot(slot)) {
@@ -412,6 +413,7 @@ export function validateArity(
 					call.slotSpans?.[i] ?? call.nameSpan,
 				);
 			}
+			slotOrderReported = true;
 			break; // one syntax error per call, matching VBE
 		}
 		const paramNames = new Set(
@@ -456,6 +458,22 @@ export function validateArity(
 				continue;
 			}
 			seen.add(lower);
+		}
+		// `TTwo a:=1` leaves b out: every parameter that is not Optional needs
+		// an argument, by position or by name (issue #410, measured in Excel
+		// 16.0). The names were all good, or a report above stands instead.
+		if (!slotOrderReported && seen.size === named.length) {
+			const firstNamed = call.slots.findIndex(isNamedSlot);
+			const missing = params.find((p, k) => !p.optional && !p.paramArray
+				&& !(k < firstNamed && call.slots[k].length > 0)
+				&& !seen.has(stripHeaderBrackets(p.name).toLowerCase()));
+			if (missing) {
+				push(
+					'argumentCount',
+					`Parameter '${stripHeaderBrackets(missing.name)}' of '${displayName}' is not Optional, and the call gives it no argument, by position or by name. This is a VBE compile error: Argument not optional.`,
+					call.nameSpan,
+				);
+			}
 		}
 		return; // positional count is not validated alongside named arguments
 	}
