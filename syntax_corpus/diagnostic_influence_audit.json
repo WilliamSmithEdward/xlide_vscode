@@ -5904,7 +5904,8 @@
         "issue556_31_runtime",
         "issue556_32_runtime",
         "issue280_06_runtime",
-        "issue278_16_runtime"
+        "issue278_16_runtime",
+        "issue295_07_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -6050,11 +6051,14 @@
         "issue350_06_runtime",
         "issue350_07_runtime",
         "issue349_07_runtime",
-        "issue289_08_runtime"
+        "issue289_08_runtime",
+        "issue295_01_runtime",
+        "issue295_02_runtime",
+        "issue295_03_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Collection index out of range. VBE runtime errors 5 and 9 on VBA.Collection (issue #121, Excel 16.0). Issue #219: Add with Before or After on an empty collection (5), or outside 1 to Count (9). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0). Issue #238: an index through a Const or a local with one known value is evaluated. Measured in Excel 16.0 (build 20326). Issue #243: d.Keys()(n) and d.Items()(n) past the last key of a Scripting.Dictionary raise 9; they are based at 0 (measured in Excel 16.0, build 20326, issue243_* oracle cases). Issue #263: a For loop whose bounds the contents decide (literals, c.Count) and whose body touches the collection only by c.Remove k and c(k), k a whole number or the counter plus or minus one, is run pass by pass: For i = 1 To c.Count with c.Remove i on three elements finds no element 3 (9), and Remove 1 on an emptied collection raises 5. Removing from Count down to 1 runs. Measured in Excel 16.0. Issue #406: code that never runs is not judged: an If under a Const whose value is a literal False or 0, a loop of no pass (For with bounds that pass each other, Do While or While with a False condition, Do Until with a True one, For Each over Array()), and code after GoTo up to the next label, whatever state it builds. Issue #452: an element added as a tracked Collection shares it, so c(1)(2), c(1).Remove and c(1).Add are judged against the inner Collection, and a change through either name is seen by both. Any other use of the inner Collection, or passing it on, stops it being read. Issue #350: a For loop with literal bounds whose body only adds to or removes from a tracked Collection is run pass by pass, and what it leaves is followed past the loop: c(5) after three Adds raises 9, c(1) after a loop of no pass 5.",
+      "notes": "Collection index out of range. VBE runtime errors 5 and 9 on VBA.Collection (issue #121, Excel 16.0). Issue #219: Add with Before or After on an empty collection (5), or outside 1 to Count (9). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0). Issue #238: an index through a Const or a local with one known value is evaluated. Measured in Excel 16.0 (build 20326). Issue #243: d.Keys()(n) and d.Items()(n) past the last key of a Scripting.Dictionary raise 9; they are based at 0 (measured in Excel 16.0, build 20326, issue243_* oracle cases). Issue #263: a For loop whose bounds the contents decide (literals, c.Count) and whose body touches the collection only by c.Remove k and c(k), k a whole number or the counter plus or minus one, is run pass by pass: For i = 1 To c.Count with c.Remove i on three elements finds no element 3 (9), and Remove 1 on an emptied collection raises 5. Removing from Count down to 1 runs. Measured in Excel 16.0. Issue #406: code that never runs is not judged: an If under a Const whose value is a literal False or 0, a loop of no pass (For with bounds that pass each other, Do While or While with a False condition, Do Until with a True one, For Each over Array()), and code after GoTo up to the next label, whatever state it builds. Issue #452: an element added as a tracked Collection shares it, so c(1)(2), c(1).Remove and c(1).Add are judged against the inner Collection, and a change through either name is seen by both. Any other use of the inner Collection, or passing it on, stops it being read. Issue #350: a For loop with literal bounds whose body only adds to or removes from a tracked Collection is run pass by pass, and what it leaves is followed past the loop: c(5) after three Adds raises 9, c(1) after a loop of no pass 5. Issue #295: inside With c, or With New Collection, a member reached by a leading dot is the subject's: .Item(2) on one element raises 9.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -6075,7 +6079,8 @@
         "issue243_61_runtime",
         "issue452_22_runtime",
         "issue349_03_runtime",
-        "issue346_08_runtime"
+        "issue346_08_runtime",
+        "issue295_04_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -6101,11 +6106,13 @@
         "issue452_04_runtime",
         "issue350_04_runtime",
         "issue349_02_runtime",
-        "issue349_04_runtime"
+        "issue349_04_runtime",
+        "issue295_05_runtime",
+        "issue295_06_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Collection key already in use. VBE runtime error 457 on VBA.Collection (issue #121, Excel 16.0). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0). Issue #243: a Scripting.Dictionary from CreateObject or New Scripting.Dictionary is followed too; its keys compare as written, \"a\" and \"A\" and \"1\" and 1 being distinct keys. A key added twice raises 457 (measured in Excel 16.0, build 20326, issue243_* oracle cases). Issue #406: code that never runs is not judged: an If under a Const whose value is a literal False or 0, a loop of no pass (For with bounds that pass each other, Do While or While with a False condition, Do Until with a True one, For Each over Array()), and code after GoTo up to the next label, whatever state it builds. Issue #350: a literal key added in a For loop raises 457 on the second pass. Issue #349: under d.CompareMode = 1 a Dictionary takes \"k\" and \"K\" as one key; d.Key(a) = b with b in use raises 457.",
+      "notes": "Collection key already in use. VBE runtime error 457 on VBA.Collection (issue #121, Excel 16.0). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0). Issue #243: a Scripting.Dictionary from CreateObject or New Scripting.Dictionary is followed too; its keys compare as written, \"a\" and \"A\" and \"1\" and 1 being distinct keys. A key added twice raises 457 (measured in Excel 16.0, build 20326, issue243_* oracle cases). Issue #406: code that never runs is not judged: an If under a Const whose value is a literal False or 0, a loop of no pass (For with bounds that pass each other, Do While or While with a False condition, Do Until with a True one, For Each over Array()), and code after GoTo up to the next label, whatever state it builds. Issue #350: a literal key added in a For loop raises 457 on the second pass. Issue #349: under d.CompareMode = 1 a Dictionary takes \"k\" and \"K\" as one key; d.Key(a) = b with b in use raises 457. Issue #295: .Add with a key in use inside With c or With New Collection, and inside With on a new Dictionary.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
