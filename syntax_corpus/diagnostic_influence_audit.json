@@ -467,7 +467,13 @@
         "issue318_84_compile",
         "issue318_88_compile",
         "issue318_89_compile",
-        "issue318_92_compile"
+        "issue318_92_compile",
+        "issue414_17_compile",
+        "issue414_18_compile",
+        "issue414_19_compile",
+        "issue414_20_compile",
+        "issue414_21_compile",
+        "issue414_22_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -1026,7 +1032,8 @@
         "issue256_11_compile",
         "issue369a_17_compile",
         "issue369c_09_compile",
-        "issue369c_35_compile"
+        "issue369c_35_compile",
+        "issue414_23_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2796,7 +2803,9 @@
         "is_literal_integer_operands_probe",
         "is_literal_string_operands_probe",
         "is_variant_var_ok_compile",
-        "is_object_var_vs_nothing_probe"
+        "is_object_var_vs_nothing_probe",
+        "issue414_15_compile",
+        "issue414_16_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2950,11 +2959,14 @@
         "issue253_60_compile",
         "issue253_114_compile",
         "issue253_115_compile",
-        "issue403_09_compile"
+        "issue403_09_compile",
+        "issue414_12_compile",
+        "issue414_13_compile",
+        "issue414_14_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Named member access on declared intrinsic scalar variables is rejected by VBE Compile as Invalid qualifier. Bare trailing-dot scalar statements are rejected by VBE Compile as Syntax error after explicit focus retesting. Only known intrinsic scalar bare receivers are flagged, including visible exported standard-module scalar globals resolved through the shared member-receiver resolver. Local shadows, ambiguous exported globals, qualified/member-chain tokens, Variant, Object, class, UDT, and unknown receiver types stay silent while they may be incomplete member-access completion contexts. Issue #253: a member of a Type value that holds a number or a string given a member, t.a.Value, t.s.Length, .a.Value in With t: Invalid qualifier (measured in Excel 16.0). Issue #403: Foo.Foo() names module Foo before its Function Foo As Long, so it is not member access on a Long; a local Foo As Long still is.",
+      "notes": "Named member access on declared intrinsic scalar variables is rejected by VBE Compile as Invalid qualifier. Bare trailing-dot scalar statements are rejected by VBE Compile as Syntax error after explicit focus retesting. Only known intrinsic scalar bare receivers are flagged, including visible exported standard-module scalar globals resolved through the shared member-receiver resolver. Local shadows, ambiguous exported globals, qualified/member-chain tokens, Variant, Object, class, UDT, and unknown receiver types stay silent while they may be incomplete member-access completion contexts. Issue #253: a member of a Type value that holds a number or a string given a member, t.a.Value, t.s.Length, .a.Value in With t: Invalid qualifier (measured in Excel 16.0). Issue #403: Foo.Foo() names module Foo before its Function Foo As Long, so it is not member access on a Long; a local Foo As Long still is. Issue #414: a member of a class field, Get or Function that holds a Long, String or Double is Invalid qualifier.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -3218,11 +3230,13 @@
         "issue266_13_compile",
         "issue266_14_compile",
         "issue266_15_compile",
-        "issue413_06_compile"
+        "issue413_06_compile",
+        "issue414_24_compile",
+        "issue414_25_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Flags, on a variable declared As a project class, a read of a property that has a Property Let or Set and no Property Get (Main = c.P, Set o = c.P), and a property called as a statement (c.P with a Get, c.P 5 with a Let), each \"Invalid use of property\" when the module compiles (issue #266, measured in Excel 16.0). An assignment to the property is the assignment rules'. A variable As Object or Variant is late bound: the read compiles and raises 450, runtime-member-not-found's. Issue #413: a With member after a keyword, If .Count > 3, ElseIf .Count, Case .Count, Debug.Print .Count, is read, not called as a statement. Issue #462: x = 5 on a Word Paragraph reaches its default member Range, which holds an object, so the VBE refuses the Let. Issue #464: x = \"b\" on a DAO Recordset, Database or TableDef reaches a default member that holds a collection, so the VBE refuses the Let.",
+      "notes": "Flags, on a variable declared As a project class, a read of a property that has a Property Let or Set and no Property Get (Main = c.P, Set o = c.P), and a property called as a statement (c.P with a Get, c.P 5 with a Let), each \"Invalid use of property\" when the module compiles (issue #266, measured in Excel 16.0). An assignment to the property is the assignment rules'. A variable As Object or Variant is late bound: the read compiles and raises 450, runtime-member-not-found's. Issue #413: a With member after a keyword, If .Count > 3, ElseIf .Count, Case .Count, Debug.Print .Count, is read, not called as a statement. Issue #462: x = 5 on a Word Paragraph reaches its default member Range, which holds an object, so the VBE refuses the Let. Issue #464: x = \"b\" on a DAO Recordset, Database or TableDef reaches a default member that holds a collection, so the VBE refuses the Let. Issue #414: a member of a class property with no Property Get, c.M.Add 1, is Invalid use of property.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -5093,7 +5107,8 @@
         "issue410_18_compile",
         "issue424_41_compile",
         "issue424_42_compile",
-        "issue424_43_compile"
+        "issue424_43_compile",
+        "issue414_26_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -5115,11 +5130,13 @@
         "issue318_67_compile",
         "issue318_74_compile",
         "issue318_75_compile",
-        "issue318_78_compile"
+        "issue318_78_compile",
+        "issue414_10_compile",
+        "issue414_11_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Sub used as a value. VBE \"Expected Function or variable\" (issue #125, Excel 16.0). Issue #254: a Declare Sub too: Main = Sleep(1) on a Declare Sub is Expected Function or variable (measured in Excel 16.0). Issue #369: x = c.DoIt() with DoIt a Sub of c's class is Expected Function or variable. Issue #318: a VBA statement that takes no argument, Beep, Reset or Randomize, named where a value goes.",
+      "notes": "Sub used as a value. VBE \"Expected Function or variable\" (issue #125, Excel 16.0). Issue #254: a Declare Sub too: Main = Sleep(1) on a Declare Sub is Expected Function or variable (measured in Excel 16.0). Issue #369: x = c.DoIt() with DoIt a Sub of c's class is Expected Function or variable. Issue #318: a VBA statement that takes no argument, Beep, Reset or Randomize, named where a value goes. Issue #414: a class Sub assigned, the target of a Set, read by a Set or given a member through a variable As the class, or assigned as a With member.",
       "diagnosticKind": "compile-error"
     },
     {

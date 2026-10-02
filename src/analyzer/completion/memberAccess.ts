@@ -159,6 +159,8 @@ export interface MemberCompletion {
 	defaultMember?: boolean;
 	/** The setters a project property declares (issue #107); absent for host members. */
 	letAccessor?: boolean;
+	/** A project method declared as a Sub, which gives no value (issue #414). */
+	sub?: boolean;
 	setAccessor?: boolean;
 	/** Exported attribute lines attached to this member. */
 	attributes?: readonly VbaSymbolAttribute[];
@@ -188,6 +190,7 @@ type CompletionMemberSource = Pick<
 	definitions?: readonly VbaProjectClassMemberDefinition[];
 	defaultMember?: boolean;
 	letAccessor?: boolean;
+	sub?: boolean;
 	setAccessor?: boolean;
 	attributes?: readonly VbaSymbolAttribute[];
 };
@@ -633,6 +636,7 @@ function completionFromSurfaceMember(
 		definitions: mem.definitions,
 		defaultMember: mem.defaultMember,
 		letAccessor: mem.letAccessor,
+		sub: mem.sub,
 		setAccessor: mem.setAccessor,
 		attributes: mem.attributes,
 	};
