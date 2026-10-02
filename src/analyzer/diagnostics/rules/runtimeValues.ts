@@ -103,6 +103,12 @@ interface RuntimeArgumentValueSpec {
 	overflowType?: 'Byte' | 'Integer' | 'Long';
 	/** The bounds raise error 6 rather than 5: Error(65536) (issue #218). */
 	boundsOverflow?: boolean;
+	/**
+	 * InStr returns before it reads Start or Compare when either string is
+	 * empty: `InStr(0, "abc", "")` is 0 (issue #481, measured in Excel 16.0).
+	 * A Start past the Long range still overflows.
+	 */
+	skippedByEmptyString?: boolean;
 }
 
 interface RuntimeArgumentValueHit {
@@ -725,6 +731,9 @@ function runtimeArgumentValueHits(
 			if (!literal) {
 				continue;
 			}
+			if (spec.skippedByEmptyString && literal.error !== 6 && call.slots.slice(1, 3).some((text) => knownEmptyString(text, stringCalls.knownStrings))) {
+				continue;
+			}
 			// Round's digit limit follows the value's type, not its fraction:
 			// Round(3#, 23) raises 5 and Round(3, 23) runs (issue #402). A count
 			// below 0 always raises.
@@ -1280,6 +1289,7 @@ function runtimeArgumentValueSpecs(name: string, host: string | undefined): read
 					overflowType: 'Long',
 					minimumSlotCount: 3,
 					allowNamed: false,
+					skippedByEmptyString: true,
 				},
 				{
 					canonicalName: 'InStr',
@@ -1289,6 +1299,7 @@ function runtimeArgumentValueSpecs(name: string, host: string | undefined): read
 					disallowed: databaseCompare,
 					minimumSlotCount: 4,
 					allowNamed: false,
+					skippedByEmptyString: true,
 				},
 			];
 		case 'instrrev':
@@ -1393,6 +1404,19 @@ const MAX_STRING_LENGTH = 1073741823;
 
 /** The interval strings DateAdd, DateDiff and DatePart accept. */
 const DATE_INTERVALS: readonly string[] = ['yyyy', 'q', 'm', 'y', 'd', 'w', 'ww', 'h', 'n', 's'];
+
+/** Whether an argument is "", vbNullString, or a String local known to hold "". */
+function knownEmptyString(slot: readonly VbaToken[], knownStrings: ReadonlyMap<string, string>): boolean {
+	const toks = unwrapOuterParens(slot.filter((t) => t.kind !== 'comment' && t.kind !== 'newline'));
+	if (toks.length !== 1) {
+		return false;
+	}
+	if (toks[0].kind === 'stringLiteral') {
+		return stringLiteralValue(toks[0].rawText) === '';
+	}
+	const lower = tokenName(toks[0])?.toLowerCase();
+	return lower === 'vbnullstring' || (lower !== undefined && knownStrings.get(lower) === '');
+}
 
 function runtimeArgumentValueSlot(
 	slots: readonly VbaToken[][],
