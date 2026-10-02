@@ -103,6 +103,7 @@ export function checkMalformedLines(
 			forEachStatement(member.body, (stmt) => {
 				checkValueKeywords(source, stmt.span, 'statement', push);
 				checkKeywordQualifiers(source, stmt.span, push);
+				checkValueWords(source, stmt.span, push);
 			}, activity);
 			forEachVariableGroup(member.body, (group) => {
 				checkDeclarationKeywords(source, group, push);
@@ -379,6 +380,52 @@ function checkValueKeywords(source: string, span: Span, context: 'statement' | '
 		}
 		const error = context === 'const' ? 'Expected: expression' : 'Syntax error';
 		push('reservedKeywordInExpression', `'${toks[i].rawText}' is a statement keyword and cannot stand where a value goes. This is a VBE compile error: ${error}.`, { start: span.start + toks[i].start, end: span.start + toks[i].end });
+		return;
+	}
+}
+
+/**
+ * Words with a statement's or a print list's meaning only, named where a value
+ * goes (issue #318, measured in Excel 16.0): `TypeName(Tab)`, `Main = Print`,
+ * `1 + Shared` are a Syntax error, and so are `Tab(5)` and `Spc(5)` outside a
+ * Print list. Input, Len and Array take an argument list, and Seek
+ * needs its argument: bare, the first three are a Syntax error and
+ * Seek is "Argument not optional".
+ */
+const VALUE_WORD_ERRORS: ReadonlyMap<string, string> = new Map(Object.entries({
+	tab: 'Syntax error',
+	spc: 'Syntax error',
+	print: 'Syntax error',
+	write: 'Syntax error',
+	shared: 'Syntax error',
+	input: 'Syntax error',
+	len: 'Syntax error',
+	array: 'Syntax error',
+	seek: 'Argument not optional',
+}));
+
+function checkValueWords(source: string, span: Span, push: PushFn): void {
+	const toks = statementTokens(source, span);
+	const valueFrom = valueStart(source, span, toks);
+	// A Print list, `Debug.Print "a"; Tab(5)` or `Print #1, Spc(2)`, takes Tab and Spc.
+	const print = toks.findIndex((tok, i) => tokenText(tok) === 'print' && (i === 0 || toks[i - 1].rawText === '.'));
+	let depth = 0;
+	for (let i = 0; i < toks.length; i++) {
+		depth += toks[i].rawText === '(' ? 1 : toks[i].rawText === ')' ? -1 : 0;
+		const word = tokenText(toks[i]);
+		const error = VALUE_WORD_ERRORS.get(word);
+		const next = toks[i + 1]?.rawText;
+		if (!error || (depth === 0 && (valueFrom < 0 || i < valueFrom)) || ['.', '!'].includes(toks[i - 1]?.rawText ?? '') || ['.', '!', ':='].includes(next ?? '')) {
+			continue;
+		}
+		if ((word === 'tab' || word === 'spc') && print >= 0 && i > print) {
+			continue;
+		}
+		if ((word === 'input' || word === 'len' || word === 'seek' || word === 'array') && (next === '(' || next === '$')) {
+			continue;
+		}
+		const what = word === 'seek' ? 'is a function that needs its file number' : word === 'tab' || word === 'spc' ? 'belongs to a Print list' : 'is a reserved word';
+		push(word === 'seek' ? 'argumentCount' : 'reservedKeywordInExpression', `'${toks[i].rawText}' ${what} and cannot stand here as a value. This is a VBE compile error: ${error}.`, { start: span.start + toks[i].start, end: span.start + toks[i].end });
 		return;
 	}
 }
