@@ -1180,7 +1180,11 @@ export class ProjectIndex {
 					continue;
 				}
 				const members = this.visibleObjectMembers(mod);
-				if (kind === 'userform') {
+				// A worksheet's ActiveX controls are members of it the same way
+				// (issue #225), when the workbook supplied them.
+				const sheetControls = kind === 'document' && this.moduleDesignerClassByName.has(mod.moduleName.toLowerCase())
+					&& this.moduleImplicitMembersByName.has(mod.moduleName.toLowerCase());
+				if (kind === 'userform' || sheetControls) {
 					// A form's controls are members of the form, declared by the
 					// designer rather than by code, so a qualified reference from
 					// another module (`EntryForm.NameBox`) must find them on the
@@ -1211,11 +1215,14 @@ export class ProjectIndex {
 					// merged at resolution, the surface proves absence the
 					// same way the VBE's compiler does. That holds for an Access
 					// form or report too, whose list is its TypeInfo stream's,
-					// record-source fields included (issue #206). Document
-					// modules stay non-exhaustive: their host base carries more
+					// record-source fields included (issue #206). A worksheet is
+					// too when the workbook supplied its class and its ActiveX
+					// controls (issue #225); other document modules stay
+					// non-exhaustive: their host base carries more
 					// than any list here.
 					exhaustive: kind === 'class'
-						|| (kind === 'userform' && this.moduleImplicitMembersKnown(mod.moduleName)),
+						|| (kind === 'userform' && this.moduleImplicitMembersKnown(mod.moduleName))
+						|| sheetControls,
 					...(designerClass !== undefined ? { designerClass } : {}),
 					// Documents and forms always have one; only a class module
 					// has to be asked (issue #47).

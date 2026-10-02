@@ -1604,7 +1604,9 @@ function computeMemberSurfaceForType(
 			// Other combined surfaces keep the host-exhaustive gate.
 			exhaustive: formsMembers || isAccessDesignerClass(combined.hostType)
 				? projectType?.exhaustive === true
-				: controls.length === 0 &&
+				// A worksheet's ActiveX controls are known when the workbook
+				// supplied them (issue #225).
+				: (controls.length === 0 || (projectType?.kind === 'document' && projectType.exhaustive === true)) &&
 					projectSourceSurfaceCompleteWhenMergedWithHost(projectType) &&
 					hostType?.exhaustive === true,
 		};
@@ -1618,7 +1620,7 @@ function computeMemberSurfaceForType(
 				? { owner: ctx.meProjectType ?? projectKey, members: controls, exhaustive: false }
 				: undefined;
 		}
-		const designerMembers = projectType.kind === 'userform' && projectType.designerClass
+		const designerMembers = (projectType.kind === 'userform' || projectType.kind === 'document') && projectType.designerClass
 			? getHostMembers(projectType.designerClass, ctx.model)
 			: [];
 		if (designerMembers.length > 0) {
@@ -1626,7 +1628,9 @@ function computeMemberSurfaceForType(
 			// UserForm: `Form_Orders.Requery` reaches Access.Form's members,
 			// and Show and Hide are not among them. Exhaustive when the index
 			// holds the design's member list (issue #206). So is a VB6 form:
-			// `Form1.Cls` and `f.CurrentX` reach VB.Form (issue #358).
+			// `Form1.Cls` and `f.CurrentX` reach VB.Form (issue #358). A
+			// worksheet reaches Excel.Worksheet's, a closed interface, so
+			// `Sheet1.Nope` is refused while compiling (issue #225).
 			return {
 				owner: projectType.name,
 				members: mergeCompletionMembers(
@@ -1634,7 +1638,8 @@ function computeMemberSurfaceForType(
 					controls,
 					designerMembers,
 				),
-				exhaustive: projectType.exhaustive === true,
+				exhaustive: projectType.exhaustive === true
+					&& (projectType.kind !== 'document' || (getHostType(projectType.designerClass!, ctx.model)?.exhaustive === true && hostTypeResolvesWhenCompiling(projectType.designerClass!))),
 			};
 		}
 		if (projectType.kind === 'userform') {

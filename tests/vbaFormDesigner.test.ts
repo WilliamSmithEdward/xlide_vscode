@@ -119,9 +119,10 @@ describe('a project form knows its controls with no host at all', () => {
 		const form = entries.find((entry) => entry.name === 'FrmPicker');
 		expect(form?.type).toBe('userform');
 		expect(form?.implicitMembers).toEqual(EXPECTED);
-		// And only on the form: no other entry invents members.
+		// And only on the form: no other entry invents members. A worksheet's
+		// module lists its ActiveX controls, and this sheet has none (#225).
 		for (const entry of entries.filter((candidate) => candidate.name !== 'FrmPicker')) {
-			expect(entry.implicitMembers, entry.name).toBeUndefined();
+			expect(entry.implicitMembers, entry.name).toEqual(entry.designerClass === 'Excel.Worksheet' ? [] : undefined);
 		}
 	});
 

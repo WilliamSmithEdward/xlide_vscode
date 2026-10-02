@@ -934,7 +934,7 @@ export function listModules(filePath: string): ModuleEntry[] {
 	}
 	const { container, cfb, project } = open;
 	const entries = project.modules.map((module) => moduleEntryWithDesigner(cfb, project, module));
-	return withHostDesigns(container, entries, project.codePage);
+	return withSheetControls(container, withHostDesigns(container, entries, project.codePage));
 }
 
 /**
@@ -1084,7 +1084,40 @@ function readModulesFromContainer({ container, cfb, project }: OpenContainer, fu
 	if (sheets && out.length > 0) {
 		out[0].projectSheets = sheets;
 	}
-	return withHostDesigns(container, out, project.codePage, constants);
+	return withSheetControls(container, withHostDesigns(container, out, project.codePage, constants));
+}
+
+/**
+ * A worksheet's module, with what the workbook says about it and its text
+ * never does: it is a Worksheet, and each ActiveX control on the sheet is a
+ * member of it (issue #225). Read from the OOXML package only; a chart sheet,
+ * a legacy .xls and a sheet with no code name are left as they were.
+ */
+function withSheetControls(container: MacroContainer, entries: ModuleEntry[]): ModuleEntry[] {
+	if (container.kind !== 'excel' || !container.xlsx?.hasSheetSurface()) {
+		return entries;
+	}
+	let sheets: ReturnType<typeof container.xlsx.shapes>;
+	try {
+		sheets = container.xlsx.shapes();
+	} catch {
+		return entries;
+	}
+	const byCodeName = new Map(sheets.flatMap((sheet) => (sheet.codeName ? [[sheet.codeName.toLowerCase(), sheet] as const] : [])));
+	return entries.map((entry) => {
+		const sheet = entry.type === 'document' ? byCodeName.get(entry.name.toLowerCase()) : undefined;
+		if (!sheet || entry.designerClass !== undefined || entry.implicitMembers !== undefined) {
+			return entry;
+		}
+		const controls = sheet.shapes.filter((shape) => shape.kind === 'activeX' && shape.name !== '');
+		return {
+			...entry,
+			designerClass: 'Excel.Worksheet',
+			// Typed Object: a control on a sheet answers to its OLEObject's
+			// members as well as its own, which no list here holds.
+			implicitMembers: controls.map((shape) => ({ name: shape.name, type: 'Object' })),
+		};
+	});
 }
 
 /** A workbook's sheets, or undefined for any other file or one whose sheets cannot be read. */
