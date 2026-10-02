@@ -59746,6 +59746,50 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Currency, t As Date\r\n    c = 3000000\r\n    t = #1/2/2000#\r\n    Main = VarType(t - c)\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue420_01_runtime",
+      "description": "Issue #420 ReDim Preserve after Erase, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long, b() As Long\r\n    ReDim a(1 To 2, 1 To 3)\r\n    Erase a\r\n    ReDim Preserve a(1 To 3, 1 To 3)\r\n    Main = UBound(a, 1)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue420_02_runtime",
+      "description": "Issue #420 ReDim Preserve after Erase, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long, b() As Long\r\n    ReDim a(1 To 2, 1 To 3)\r\n    Erase b, a\r\n    ReDim Preserve a(1 To 3)\r\n    Main = UBound(a, 1)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue420_03_runtime",
+      "description": "Issue #420 ReDim Preserve after Erase, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long, b() As Long\r\n    ReDim a(1 To 2, 1 To 3)\r\n    ReDim Preserve a(1 To 3, 1 To 3)\r\n    Main = UBound(a, 1)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue420_04_runtime",
+      "description": "Issue #420 ReDim Preserve after Erase, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long, b() As Long\r\n    ReDim a(1 To 2, 1 To 3)\r\n    Erase b\r\n    ReDim Preserve a(1 To 3, 1 To 3)\r\n    Main = UBound(a, 1)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }
