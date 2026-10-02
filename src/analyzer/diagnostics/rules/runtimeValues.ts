@@ -350,8 +350,20 @@ function runtimeStatementValueHits(
 	for (let i = 1; i < toks.length - 1; i++) {
 		const tok = toks[i];
 		if (tok.kind === 'operator' && tok.rawText === '^') {
-			const base = numericOperandBefore(toks, i);
-			const exponent = numericOperandAfter(toks, i);
+			// A local known to hold a number, and True or False, count too:
+			// `z ^ -1` with z never assigned, `0 ^ True` (issue #331, measured
+			// in Excel 16.0).
+			const named = (operand: VbaToken | undefined, beside: VbaToken | undefined): number | undefined => {
+				const word = tokenText(operand);
+				if (word === 'true' || word === 'false') {
+					return word === 'true' ? -1 : 0;
+				}
+				const name = operand && beside?.rawText !== '(' && beside?.rawText !== '.' ? tokenName(operand) : undefined;
+				return name ? constants.get(name.toLowerCase()) : undefined;
+			};
+			const before = toks[i - 2]?.rawText === '.' ? undefined : named(toks[i - 1], undefined);
+			const base = numericOperandBefore(toks, i) ?? before;
+			const exponent = numericOperandAfter(toks, i) ?? named(toks[i + 1], toks[i + 2]);
 			if (base !== undefined && exponent !== undefined) {
 				if (base < 0 && !Number.isInteger(exponent)) {
 					out.push({ message: `A negative number raised to the fractional power ${exponent} has no real value. This will raise Run-time error '5': Invalid procedure call or argument.`, span: at(tok) });
