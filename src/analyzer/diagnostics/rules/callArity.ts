@@ -93,7 +93,7 @@ export function checkArgumentCount(
 				stmt.span,
 				memberCtx,
 			)) {
-				if (projectQualifiedCallSpans.has(callTargetSpanKey(memberCall.call))) {
+				if (projectQualifiedCallSpans.has(callTargetSpanKey(memberCall.call)) || takesPrintList(memberCall.signature)) {
 					continue;
 				}
 				validateArity(source, memberCall.signature, memberCall.call, push);
@@ -103,7 +103,7 @@ export function checkArgumentCount(
 				stmt.span,
 				memberCtx,
 			)) {
-				if (projectQualifiedCallSpans.has(callTargetSpanKey(memberCall.call))) {
+				if (projectQualifiedCallSpans.has(callTargetSpanKey(memberCall.call)) || takesPrintList(memberCall.signature)) {
 					continue;
 				}
 				validateArity(source, memberCall.signature, memberCall.call, push);
@@ -128,7 +128,7 @@ export function checkArgumentCount(
 					recordProjectQualifiedCallSpan(branchCall, projectQualifiedCallSpans);
 				}
 				for (const memberCall of memberStatementCalls(source, branch, memberCtx)) {
-					if (projectQualifiedCallSpans.has(callTargetSpanKey(memberCall.call))) {
+					if (projectQualifiedCallSpans.has(callTargetSpanKey(memberCall.call)) || takesPrintList(memberCall.signature)) {
 						continue;
 					}
 					validateArity(source, memberCall.signature, memberCall.call, push);
@@ -203,4 +203,13 @@ function validateCallableArity(
 
 function sameCallTarget(a: CallArguments, b: CallArguments | undefined): boolean {
 	return !!b && a.nameSpan.start === b.nameSpan.start && a.nameSpan.end === b.nameSpan.end;
+}
+
+/**
+ * A host method named Print, a VB6 form's or picture box's (issue #358) or an
+ * Access report's, takes what the Print statement takes: `Form1.Print "a"; x`.
+ * Its listed signature has no parameters, so its arity is not judged.
+ */
+function takesPrintList(signature: { name: string }): boolean {
+	return signature.name.toLowerCase() === 'print';
 }
