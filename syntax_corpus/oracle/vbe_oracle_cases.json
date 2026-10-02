@@ -63485,6 +63485,327 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Range\r\n    Set x = Range(\"A1\")\r\n    Set x = Nothing: Main = 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue458_01_compile",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = 65535 \\ 3.4E+38\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue458_02_compile",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = 1E10 \\ 2\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue458_03_compile",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = 7 Mod 1E10\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue458_04_compile",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = 3E10 Mod 7\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue458_05_compile",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = 1 \\ 922337203685477@\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue458_06_compile",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = 255 Mod 922337203685477@\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue458_07_compile",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = \"3E9\" Or 0\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue458_08_compile",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C As Byte = &O777 Imp \"1E3\"\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue458_09_compile",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = \"1\" \\ False\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue458_10_compile",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = 7 \\ 2\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue458_11_compile",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = 7 Mod 2\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue458_12_compile",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = 2147483647 \\ 1\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue458_13_compile",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = \"12\" \\ 5\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue458_14_compile",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = \"12\" Mod 5\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue458_15_compile",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = \"3\" Or 4\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue458_16_compile",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = 2147483647.4 \\ 1\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue458_17_compile",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = 2147483648# Mod 3\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue458_18_compile",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 18, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = 100 \\ \"1E10\"\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue458_19_compile",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 19, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C = 6 \\ \"2\" * 3\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue458_20_compile",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 20, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const C As Integer = \"40000\" Or 0\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue458_21_runtime",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 21, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1E10 \\ 2\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue458_22_runtime",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 22, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 3E10 Mod 7\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue458_23_runtime",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 23, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = \"3E9\" Or 0\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue458_24_runtime",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 24, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = \"1\" \\ False\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue458_25_runtime",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 25, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 7 Mod 2\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue458_26_runtime",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 26, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = \"12\" \\ 5\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue458_27_runtime",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 27, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1 \\ False\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue458_28_runtime",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 28, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 2.5 / False\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue458_29_runtime",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 29, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 5 Mod False\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue458_30_runtime",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 30, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 0 / False\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue458_31_runtime",
+      "description": "Issue #458 Integer division and Mod convert their operands to Long; a string operand of a logical operator, case 31, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 0 \\ False\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }

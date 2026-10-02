@@ -1196,11 +1196,17 @@
         "issue406_19_runtime",
         "issue406_21_runtime",
         "issue406_22_runtime",
-        "issue421_08_runtime"
+        "issue421_08_runtime",
+        "issue458_24_runtime",
+        "issue458_27_runtime",
+        "issue458_28_runtime",
+        "issue458_29_runtime",
+        "issue458_30_runtime",
+        "issue458_31_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show /, integer division, and Mod by decimal, hexadecimal, octal, module-Const, local-Const, reducible integer Const-expression, current-module Enum member, bare/module-qualified visible exported standard-module Const/Enum, verified numeric VBA runtime constants, generated Excel/Office host enum constants, and exported Const-through-private-helper zero divisors compile successfully and deterministically raise runtime error 11, while nonzero literal, Const-expression, and Enum member controls run. Const/Enum folding includes decimal/hex/octal integer literals and implicit Enum successor values where the expression remains deterministic. Bare source names are folded only when the shared expression resolver proves a non-ambiguous Const or Enum-member binding, so local/module variable shadows suppress exported and external constant values. The active rule scans settled procedure statements, including nested expressions, and remains conservative for variables, unresolved constants, direct private helper references, ambiguous source bindings, nonnumeric external constants, and broader expression folding until flow/reachability handling is broader. Issue #219: a Variant local nothing assigns is Empty, which divides as 0 (5 / v raises 11, v / v raises 6), and a conversion of a literal that comes out 0, CLng(0) or CLng(0.4), is a zero divisor. In a block header too: For bounds and Step, Select Case, Do, Loop and While conditions, a With subject (issue #233, Excel 16.0). Issue #239: \\ and Mod by a local holding a number of 0.5 or less either side of 0 round the divisor to 0 and raise 11, as the literal does. Measured in Excel 16.0 (build 20326). A module variable nothing in the module writes keeps its initial value in every procedure (issue #241, measured in Excel 16.0, build 20326); a Public one also needs no other module to write it (ProjectIndex.writtenNames). A number is 0, so 10 / z raises 11. Issue #253: a numeric member of a Type local is 0 until an assignment stores another literal, so 1 / t.a, 1 \\ t.i and 5 Mod t.a raise 11 (measured in Excel 16.0). Issue #259: a typed local holds its declared default until something assigns it, the statement that does included: x = 1 / x, x = 10 \\ x and x = 10 Mod x on a never-assigned Long raise 11, and so does x = 10 / d before a later d = 2 (measured in Excel 16.0). Issue #260: an omitted typed Optional holds 0 (a number type or Boolean with no default, or a declared default of 0), and a callee that first divides by it raises 11; reported at the call. x ^ after the divisor is left alone. Measured in Excel 16.0. Issue #263: a loop counter on its first and last passes: For i = 0 To 3 then 1 / i divides by 0 on the first; an If guard on the counter still holds. Measured in Excel 16.0. Issue #273: a statement a known guard keeps from running is not checked: d = 0 then If d = 0 Then Exit Function, or Case Else after Case 0 on Select Case d. Issue #406: code that never runs is not judged: an If under a Const whose value is a literal False or 0, a loop of no pass (For with bounds that pass each other, Do While or While with a False condition, Do Until with a True one, For Each over Array()), and code after GoTo up to the next label, whatever state it builds. Issue #421: a label nothing jumps to does not revive the dead code after Exit Function.",
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show /, integer division, and Mod by decimal, hexadecimal, octal, module-Const, local-Const, reducible integer Const-expression, current-module Enum member, bare/module-qualified visible exported standard-module Const/Enum, verified numeric VBA runtime constants, generated Excel/Office host enum constants, and exported Const-through-private-helper zero divisors compile successfully and deterministically raise runtime error 11, while nonzero literal, Const-expression, and Enum member controls run. Const/Enum folding includes decimal/hex/octal integer literals and implicit Enum successor values where the expression remains deterministic. Bare source names are folded only when the shared expression resolver proves a non-ambiguous Const or Enum-member binding, so local/module variable shadows suppress exported and external constant values. The active rule scans settled procedure statements, including nested expressions, and remains conservative for variables, unresolved constants, direct private helper references, ambiguous source bindings, nonnumeric external constants, and broader expression folding until flow/reachability handling is broader. Issue #219: a Variant local nothing assigns is Empty, which divides as 0 (5 / v raises 11, v / v raises 6), and a conversion of a literal that comes out 0, CLng(0) or CLng(0.4), is a zero divisor. In a block header too: For bounds and Step, Select Case, Do, Loop and While conditions, a With subject (issue #233, Excel 16.0). Issue #239: \\ and Mod by a local holding a number of 0.5 or less either side of 0 round the divisor to 0 and raise 11, as the literal does. Measured in Excel 16.0 (build 20326). A module variable nothing in the module writes keeps its initial value in every procedure (issue #241, measured in Excel 16.0, build 20326); a Public one also needs no other module to write it (ProjectIndex.writtenNames). A number is 0, so 10 / z raises 11. Issue #253: a numeric member of a Type local is 0 until an assignment stores another literal, so 1 / t.a, 1 \\ t.i and 5 Mod t.a raise 11 (measured in Excel 16.0). Issue #259: a typed local holds its declared default until something assigns it, the statement that does included: x = 1 / x, x = 10 \\ x and x = 10 Mod x on a never-assigned Long raise 11, and so does x = 10 / d before a later d = 2 (measured in Excel 16.0). Issue #260: an omitted typed Optional holds 0 (a number type or Boolean with no default, or a declared default of 0), and a callee that first divides by it raises 11; reported at the call. x ^ after the divisor is left alone. Measured in Excel 16.0. Issue #263: a loop counter on its first and last passes: For i = 0 To 3 then 1 / i divides by 0 on the first; an If guard on the counter still holds. Measured in Excel 16.0. Issue #273: a statement a known guard keeps from running is not checked: d = 0 then If d = 0 Then Exit Function, or Case Else after Case 0 on Select Case d. Issue #406: code that never runs is not judged: an If under a Const whose value is a literal False or 0, a loop of no pass (For with bounds that pass each other, Do While or While with a False condition, Do Until with a True one, For Each over Array()), and code after GoTo up to the next label, whatever state it builds. Issue #421: a label nothing jumps to does not revive the dead code after Exit Function. Issue #458: False is 0 as a divisor, so 1 \\ False, 2.5 / False and 5 Mod False raise 11.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -4232,7 +4238,10 @@
         "issue367_27_runtime",
         "issue367_28_runtime",
         "issue367_29_runtime",
-        "issue430_28_runtime"
+        "issue430_28_runtime",
+        "issue458_21_runtime",
+        "issue458_22_runtime",
+        "issue458_23_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -4262,11 +4271,22 @@
         "issue367_04_compile",
         "issue367_05_compile",
         "issue367_06_compile",
-        "issue367_19_compile"
+        "issue367_19_compile",
+        "issue458_01_compile",
+        "issue458_02_compile",
+        "issue458_03_compile",
+        "issue458_04_compile",
+        "issue458_05_compile",
+        "issue458_06_compile",
+        "issue458_07_compile",
+        "issue458_08_compile",
+        "issue458_17_compile",
+        "issue458_18_compile",
+        "issue458_20_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Const value overflows. MS-VBAL 5.6.9.3; VBE compile error: Overflow (issue #116, Excel 16.0). A LongLong Const past the range, Const C As LongLong = 1E+19 (issue #232, 64-bit Excel 16.0). Not into a narrow type, As Byte = Not 0, and a digit string past the type, As Integer = \"40000\"; negating the Long minimum while folding wraps and is not reported (issue #235, Excel 16.0). Issue #255: a Const from an Enum member, Const K As Integer = eBig with eBig = 40000, and a Date Const past 12/31/9999, Const D2 = D1 + 1, are Overflow (measured in Excel 16.0). A Const value that opens with a date literal is read as a date, no longer as a directive. Issue #367: And, Or, Xor, Eqv and Imp convert each operand to a Long, so one outside the Long range (1E10 And 1, 922337203685477@ Xor 1) is Overflow; the result keeps the operands type, Byte for two Bytes, Integer for Integers.",
+      "notes": "Const value overflows. MS-VBAL 5.6.9.3; VBE compile error: Overflow (issue #116, Excel 16.0). A LongLong Const past the range, Const C As LongLong = 1E+19 (issue #232, 64-bit Excel 16.0). Not into a narrow type, As Byte = Not 0, and a digit string past the type, As Integer = \"40000\"; negating the Long minimum while folding wraps and is not reported (issue #235, Excel 16.0). Issue #255: a Const from an Enum member, Const K As Integer = eBig with eBig = 40000, and a Date Const past 12/31/9999, Const D2 = D1 + 1, are Overflow (measured in Excel 16.0). A Const value that opens with a date literal is read as a date, no longer as a directive. Issue #367: And, Or, Xor, Eqv and Imp convert each operand to a Long, so one outside the Long range (1E10 And 1, 922337203685477@ Xor 1) is Overflow; the result keeps the operands type, Byte for two Bytes, Integer for Integers. Issue #458: \\ and Mod convert both operands to a Long, so a Const operand past the Long range overflows (1E10 \\ 2, 7 Mod 922337203685477@). A string operand of a logical operator, \\ or Mod is read as the number it spells first: \"3E9\" Or 0 overflows.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -4294,7 +4314,8 @@
         "issue367_07_compile",
         "issue367_08_compile",
         "issue367_09_compile",
-        "issue367_10_compile"
+        "issue367_10_compile",
+        "issue458_09_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

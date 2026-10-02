@@ -340,11 +340,11 @@ class TypedFolder {
 			if (at < 0) {
 				continue;
 			}
-			const left = new TypedFolder(this.toks.slice(0, at), this.base, this.names, this.divisionByZero).fold();
+			const left = this.stringOperand(this.toks.slice(0, at)) ?? new TypedFolder(this.toks.slice(0, at), this.base, this.names, this.divisionByZero).fold();
 			if (left === undefined || isOverflow(left)) {
 				return left;
 			}
-			const right = new TypedFolder(this.toks.slice(at + 1), this.base, this.names, this.divisionByZero).fold();
+			const right = this.stringOperand(this.toks.slice(at + 1)) ?? new TypedFolder(this.toks.slice(at + 1), this.base, this.names, this.divisionByZero).fold();
 			if (right === undefined || isOverflow(right)) {
 				return right;
 			}
@@ -370,6 +370,25 @@ class TypedFolder {
 			};
 		}
 		return NOT_LOGICAL;
+	}
+
+	/**
+	 * A string literal operand of an operator that converts to a number
+	 * first, a logical one, `\` or Mod, read as the number it spells:
+	 * `"3E9" Or 0` overflows the Long and `"1" \ False` divides by zero in a
+	 * Const (issue #458, measured in Excel 16.0). Undefined for anything
+	 * else, and for a string that spells no number.
+	 */
+	private stringOperand(toks: readonly VbaToken[]): Folded {
+		const tok = toks[0];
+		if (toks.length !== 1 || tok.kind !== 'stringLiteral') {
+			return undefined;
+		}
+		const read = numberInString(stringLiteralValue(tok.rawText));
+		const span = { start: this.base + tok.start, end: this.base + tok.end };
+		return read === 'overflow'
+			? { overflow: true, span, detail: `${tok.rawText} spells a number past the Double range` }
+			: read === undefined ? undefined : { ...read, constant: true };
 	}
 
 	private span(from: number, to: number): Span {
@@ -486,6 +505,16 @@ class TypedFolder {
 		if (literal) {
 			this.index++;
 			return literal;
+		}
+		// `"1" \ False`: the string is an operand of `\` or Mod itself, not
+		// of a `*`, `/` or `^` that binds tighter.
+		const word = (at: number): string => (this.toks[at]?.kind === 'operator' ? this.toks[at].rawText : tokenText(this.toks[at]));
+		const before = word(this.index - 1);
+		const after = word(this.index + 1);
+		if (tok.kind === 'stringLiteral' && (before === '\\' || before === 'mod' || after === '\\' || after === 'mod')
+			&& !['*', '/', '^'].includes(after) && !['*', '/', '^', '-', '+'].includes(before)) {
+			this.index++;
+			return this.stringOperand([tok]);
 		}
 		const name = tokenName(tok);
 		if (!name) {
@@ -657,6 +686,13 @@ class TypedFolder {
 				const b = bankersRound(right.value);
 				if (b === 0) {
 					return undefined;
+				}
+				// Both operands are converted to a Long first: `1E10 \ 2` and
+				// `7 Mod 922337203685477@` overflow (issue #458, measured in
+				// Excel 16.0).
+				const outside = [left, right].find((_, k) => !inRange([a, b][k], 'long'));
+				if (outside) {
+					return { overflow: true, span, detail: `${describe(outside)} is outside the Long range that ${op === 'mod' ? 'Mod' : op} converts its operands to` };
 				}
 				value = op === 'mod' ? a % b : Math.trunc(a / b);
 				break;
