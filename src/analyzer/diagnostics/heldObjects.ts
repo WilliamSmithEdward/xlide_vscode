@@ -32,6 +32,9 @@ interface State {
 
 const NOTHING_HELD: HeldObjects = { classes: new Map(), items: new Map() };
 
+/** The item class recorded for a number or string a Collection holds: no object. */
+export const HELD_VALUE = '(value)';
+
 /** Members that read a Collection without changing it. */
 const COLLECTION_READS: ReadonlySet<string> = new Set(['count', 'item']);
 
@@ -110,6 +113,20 @@ export function heldObjectsAt(
 				state.items.delete(head);
 			} else {
 				items.splice(at, 0, tokenName(toks[4])!);
+			}
+			return;
+		}
+		// `c.Add 1` or `c.Add "a"`: a value, no object (issue #447).
+		const literal = toks[3];
+		if (head && state.items.has(head) && toks[1]?.rawText === '.' && tokenText(toks[2]) === 'add' && literal
+			&& (literal.kind === 'integerLiteral' || literal.kind === 'floatLiteral' || literal.kind === 'stringLiteral')
+			&& (toks[4] === undefined || toks[4].rawText === ',')) {
+			const items = state.items.get(head)!;
+			const at = addPosition(splitTopLevelTokenGroups(toks, 3, ','), items.length);
+			if (at === undefined) {
+				state.items.delete(head);
+			} else {
+				items.splice(at, 0, HELD_VALUE);
 			}
 			return;
 		}
