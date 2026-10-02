@@ -70245,6 +70245,581 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, n As Long, s As String, v As Variant, arr() As Long\r\n    TC Nothing\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPrivate Sub TL(p As Long)\r\nEnd Sub\r\nPrivate Sub TS(p As String)\r\nEnd Sub\r\nPrivate Sub TBvL(ByVal p As Long)\r\nEnd Sub\r\nPrivate Sub TC(p As Collection)\r\nEnd Sub\r\nPrivate Sub TBvC(ByVal p As Collection)\r\nEnd Sub\r\nPrivate Sub TArr(p() As Long)\r\nEnd Sub\r\nPrivate Sub TTwo(a As Long, b As Long)\r\nEnd Sub\r\nPrivate Sub TOptTwo(a As Long, Optional b As Long)\r\nEnd Sub\r\nPrivate Function Add2(a As Long, b As Long) As Long\r\n    Add2 = a + b\r\nEnd Function\r\nPrivate Sub TParam(a As Long, ParamArray r() As Variant)\r\nEnd Sub\r\n\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue408_01_runtime",
+      "description": "Issue #408 Procedures named in strings, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    Run \"Nope\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue408_02_runtime",
+      "description": "Issue #408 Procedures named in strings, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 450.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    Application.Run \"NoArgs\", 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue408_03_runtime",
+      "description": "Issue #408 Procedures named in strings, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 449.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    Main = Application.Run(\"Twice\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue408_04_runtime",
+      "description": "Issue #408 Procedures named in strings, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 451.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    CallByName c, \"P\", VbLet, 5\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue408_05_runtime",
+      "description": "Issue #408 Procedures named in strings, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 449.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    Main = CallByName(c, \"F\", VbMethod)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue408_06_runtime",
+      "description": "Issue #408 Procedures named in strings, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    Main = CallByName(k, \"Count\", VbGet)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue408_07_runtime",
+      "description": "Issue #408 Procedures named in strings, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    Main = Application.Run(\"Twice\", 3)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue408_08_runtime",
+      "description": "Issue #408 Procedures named in strings, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    Main = Application.Run(\"Module1.Twice\", 3)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue408_09_runtime",
+      "description": "Issue #408 Procedures named in strings, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    Main = Application.Run(\"Hidden\", 3)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue408_10_runtime",
+      "description": "Issue #408 Procedures named in strings, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    Main = Application.Run(\"twice\", 3)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue408_11_runtime",
+      "description": "Issue #408 Procedures named in strings, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    CallByName c, \"S\", VbMethod\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue408_12_runtime",
+      "description": "Issue #408 Procedures named in strings, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    Main = CallByName(c, \"P\", VbGet)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue408_13_runtime",
+      "description": "Issue #408 Procedures named in strings, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    Main = CallByName(c, \"Fld\", VbGet)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue408_14_runtime",
+      "description": "Issue #408 Procedures named in strings, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    Main = CallByName(k, \"Count\", VbMethod)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue408_15_runtime",
+      "description": "Issue #408 Procedures named in strings, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    Run \"NoArgs\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue408_16_runtime",
+      "description": "Issue #408 Procedures named in strings, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 4.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    Main = Run(\"Twice\", 2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue408_17_runtime",
+      "description": "Issue #408 Procedures named in strings, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    Main = Application.Run(\"Opt\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue408_18_runtime",
+      "description": "Issue #408 Procedures named in strings, case 18, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 450.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    Main = Application.Run(\"Opt\", 1, 2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue408_19_runtime",
+      "description": "Issue #408 Procedures named in strings, case 19, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    CallByName c, \"Q\", VbLet, 5\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue408_20_runtime",
+      "description": "Issue #408 Procedures named in strings, case 20, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    CallByName c, \"Fld\", VbLet, 5\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue408_21_runtime",
+      "description": "Issue #408 Procedures named in strings, case 21, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 450.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    Main = CallByName(c, \"F\", VbMethod, 1, 2)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue408_22_runtime",
+      "description": "Issue #408 Procedures named in strings, case 22, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    Main = CallByName(k, \"Item\", VbGet, 1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue408_23_runtime",
+      "description": "Issue #408 Procedures named in strings, case 23, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    CallByName k, \"Add\", VbLet, 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue408_24_runtime",
+      "description": "Issue #408 Procedures named in strings, case 24, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    Main = CallByName(k, \"Item\", VbMethod, 1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue408_25_runtime",
+      "description": "Issue #408 Procedures named in strings, case 25, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1, k As New Collection\r\n    k.Add 5\r\n    Application.Run \"NoArgs\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\nPublic Function Twice(ByVal n As Long) As Long\r\n    Twice = n * 2\r\nEnd Function\r\nPublic Sub NoArgs()\r\nEnd Sub\r\nPublic Function Opt(Optional ByVal n As Long) As Long\r\n    Opt = n\r\nEnd Function\r\nPrivate Function Hidden(ByVal n As Long) As Long\r\n    Hidden = n\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Fld As Long\r\nPublic Property Get P() As Long\r\n    P = 1\r\nEnd Property\r\nPublic Function F(ByVal x As Long) As Long\r\n    F = x\r\nEnd Function\r\nPublic Sub S()\r\nEnd Sub\r\nPublic Property Get Q() As Long\r\n    Q = 1\r\nEnd Property\r\nPublic Property Let Q(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

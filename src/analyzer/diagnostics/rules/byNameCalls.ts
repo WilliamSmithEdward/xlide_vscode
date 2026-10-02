@@ -10,6 +10,12 @@
 //    standard or document module of the project -> 1004. Private ones count;
 //    a class module's members do not.
 //
+// Issue #408, measured in Excel 16.0 on 2026-10-02: the bare `Run` is
+// Application.Run; too many arguments for the procedure named raise 450
+// and too few 449, through Run and CallByName alike; VbLet on a Property
+// Get alone raises 451; and a Collection's four members are methods, so
+// any call type but VbMethod raises 438.
+//
 // Names compare without case. A name built at run time is not judged.
 
 import type { MemberCompletionContext } from '../../completion/memberAccess';
@@ -61,8 +67,10 @@ export function checkByNameCalls(
 					const word = tokenText(toks[i]);
 					if (word === 'callbyname' && toks[i - 1]?.rawText !== '.' && !moduleNames.has('callbyname')) {
 						checkCallByName(span, toks, i, env, memberCtx, push);
-					} else if (word === 'run' && runnable && excel && toks[i - 1]?.rawText === '.' && tokenText(toks[i - 2]) === 'application' && toks[i - 3]?.rawText !== '.') {
-						checkApplicationRun(span, toks, i, runnable, push);
+					} else if (word === 'run' && runnable && excel && ((toks[i - 1]?.rawText === '.' && tokenText(toks[i - 2]) === 'application' && toks[i - 3]?.rawText !== '.')
+						// Excel's global Run is Application.Run (issue #408).
+						|| (toks[i - 1]?.rawText !== '.' && !moduleNames.has('run') && !env.has('run')))) {
+						checkApplicationRun(span, toks, i, runnable, memberCtx, push);
 					}
 				}
 			}
@@ -118,6 +126,9 @@ function checkCallByName(
 	if (normalizeType(type) === 'collection') {
 		if (!COLLECTION_MEMBERS.has(lower)) {
 			push('runtimeMemberNotFound', `CallByName asks Collection '${object[0].rawText}' for '${name}', which it does not have. This will raise Run-time error '438': Object doesn't support this property or method.`, spanOf(span, procName));
+		} else if (kind !== 'method') {
+			// Add, Count, Item and Remove are all methods (issue #408, measured).
+			push('runtimeMemberNotFound', `CallByName asks Collection '${object[0].rawText}' for '${name}' with ${callType[0].rawText}, but ${name} is a method, which only VbMethod reaches. This will raise Run-time error '438': Object doesn't support this property or method.`, spanOf(span, callType));
 		}
 		return;
 	}
@@ -132,7 +143,62 @@ function checkCallByName(
 	}
 	if (found.kind === 'method' && kind !== 'method') {
 		push('runtimeMemberNotFound', `CallByName reaches ${surface.name}.${found.name}, a ${found.returns ? 'Function' : 'Sub'}, with ${tokenText(callType[0]).startsWith('vb') ? callType[0].rawText : `call type ${callType[0].rawText}`}, which only a property takes. This will raise Run-time error '450': Wrong number of arguments or invalid property assignment.`, spanOf(span, callType));
+		return;
 	}
+	// `CallByName c, "P", VbLet, 5` with P a Property Get alone (issue #408).
+	if (found.kind === 'property' && kind === 'let' && !found.letAccessor && !found.setAccessor && found.writable !== true && found.signature !== undefined) {
+		push('runtimeMemberNotFound', `CallByName assigns ${surface.name}.${found.name}, which has a Property Get and no Property Let. This will raise Run-time error '451': Property let procedure not defined and property get procedure did not return an object.`, spanOf(span, callType));
+		return;
+	}
+	if (found.kind === 'method' && found.signature) {
+		const problem = argumentCountProblem(found.signature, args.length - 3, `${surface.name}.${found.name}`);
+		if (problem) {
+			push('runtimeMemberNotFound', `CallByName ${problem}`, spanOf(span, procName));
+		}
+	}
+}
+
+/** The parameters a member signature lists: how many a call must pass, and may. */
+function parameterCounts(signature: string): { required: number; max: number } | undefined {
+	const open = signature.indexOf('(');
+	if (open < 0) {
+		return undefined;
+	}
+	let depth = 0;
+	let close = -1;
+	for (let i = open; i < signature.length; i++) {
+		depth += signature[i] === '(' ? 1 : signature[i] === ')' ? -1 : 0;
+		if (depth === 0) {
+			close = i;
+			break;
+		}
+	}
+	const list = close < 0 ? undefined : signature.slice(open + 1, close).trim();
+	if (list === undefined) {
+		return undefined;
+	}
+	const params = list === '' ? [] : list.split(',').map((param) => param.trim());
+	const required = params.filter((param) => !param.startsWith('[') && !/^paramarray\b/i.test(param)).length;
+	return { required, max: params.some((param) => /paramarray/i.test(param)) ? Infinity : params.length };
+}
+
+/**
+ * Too many arguments for a procedure called by name raise 450, too few 449
+ * (issue #408, measured in Excel 16.0 through Application.Run and
+ * CallByName). The message reads after "Application.Run " or "CallByName ".
+ */
+function argumentCountProblem(signature: string, given: number, shown: string): string | undefined {
+	const counts = parameterCounts(signature);
+	if (!counts) {
+		return undefined;
+	}
+	if (given > counts.max) {
+		return `passes ${given} argument${given === 1 ? '' : 's'} to ${shown}, which takes ${counts.max}. This will raise Run-time error '450': Wrong number of arguments or invalid property assignment.`;
+	}
+	if (given < counts.required) {
+		return `passes ${given} argument${given === 1 ? '' : 's'} to ${shown}, which needs ${counts.required}. This will raise Run-time error '449': Argument not optional.`;
+	}
+	return undefined;
 }
 
 function checkApplicationRun(
@@ -140,15 +206,29 @@ function checkApplicationRun(
 	toks: readonly VbaToken[],
 	at: number,
 	runnable: ReadonlySet<string>,
+	memberCtx: MemberCompletionContext,
 	push: PushFn,
 ): void {
-	const macro = argumentsAfter(toks, at)[0];
+	const args = argumentsAfter(toks, at);
+	const macro = args[0];
 	if (macro?.length !== 1 || macro[0].kind !== 'stringLiteral') {
 		return;
 	}
 	const name = stringLiteralValue(macro[0].rawText);
 	// Another workbook's macro, `Book1.xlsm!Macro`, or a quoted name, is not this project's to judge.
-	if (!/^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)?$/.test(name) || runnable.has(name.toLowerCase())) {
+	if (!/^[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)?$/.test(name)) {
+		return;
+	}
+	if (runnable.has(name.toLowerCase())) {
+		// The arguments against the one Public procedure of that name.
+		const [moduleName, procedure] = name.includes('.') ? name.toLowerCase().split('.') : [undefined, name.toLowerCase()];
+		const candidates = (memberCtx.projectClassMembers ?? [])
+			.filter((type) => type.kind === 'standardModule' && (moduleName === undefined || type.name.toLowerCase() === moduleName))
+			.flatMap((type) => type.members.filter((member) => member.kind === 'method' && member.name.toLowerCase() === procedure));
+		const problem = candidates.length === 1 && candidates[0].signature ? argumentCountProblem(candidates[0].signature, args.length - 1, name) : undefined;
+		if (problem) {
+			push('runtimeMemberNotFound', `Application.Run ${problem}`, spanOf(span, macro));
+		}
 		return;
 	}
 	push('runtimeMemberNotFound', `Application.Run names '${name}', and no standard or document module of the project has a Sub or Function of that name. This will raise Run-time error '1004': Cannot run the macro '${name}'.`, spanOf(span, macro));
