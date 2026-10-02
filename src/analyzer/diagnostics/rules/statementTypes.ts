@@ -389,6 +389,22 @@ function checkStatement(ctx: Context, procSym: VbaSymbol | undefined, span: Span
 			}
 		}
 	}
+	// `LSet n = 5` on a Long, `RSet a = b` on a Type (issue #451, measured
+	// in Excel 16.0). LSet takes a String or a Type, and runs on a Variant;
+	// RSet takes a String or a Variant only.
+	if ((first === 'lset' || first === 'rset') && toks[2]?.rawText === '=') {
+		const target = variableNamed(ctx, procSym, tokenName(toks[1]) ?? '');
+		const kind = category(ctx, target);
+		const refused = kind === 'number' || kind === 'boolean' || kind === 'date' || (first === 'rset' && kind === 'udt');
+		if (target && refused && !target.isArray) {
+			ctx.push(
+				'lsetTypeMismatch',
+				`'${toks[1].rawText}' is ${/^[aeiou]/i.test(target.asType ?? '') ? 'an' : 'a'} ${target.asType}, which ${toks[0].rawText} cannot fill. This is a VBE compile error: ${first === 'lset' ? 'LSet allowed only on strings and user-defined types' : 'RSet allowed only on strings'}.`,
+				{ start: span.start + toks[0].start, end: span.start + toks[1].end },
+			);
+			return;
+		}
+	}
 	if (first === 'lset' && toks.length === 4 && toks[2].rawText === '=') {
 		checkLSet(ctx, procSym, toks, span);
 		return;
@@ -644,6 +660,10 @@ function checkDeclarationGroup(
 		if (group.isConst) {
 			const eq = toks.findIndex((tok) => tok.rawText === '=');
 			read = eq < 0 ? [] : toks.slice(eq + 1);
+		} else if (decl.fixedLength !== undefined) {
+			// `Dim s As String * L` (issue #451, measured in Excel 16.0).
+			const star = toks.findIndex((tok) => tok.rawText === '*');
+			read = star < 0 ? [] : toks.slice(star + 1);
 		} else if (decl.isArray && (decl.arrayBounds ?? '').trim() !== '') {
 			const open = toks.findIndex((tok) => tok.rawText === '(');
 			let depth = 0;
@@ -667,7 +687,9 @@ function checkDeclarationGroup(
 				group.isConst ? 'constValueNotConstant' : 'arrayBoundNotConstant',
 				group.isConst
 					? `Const '${decl.name}' takes its value from the variable '${name}'. This is a VBE compile error: Constant expression required.`
-					: `The bounds of '${decl.name}' name the variable '${name}'; a Dim needs constants there, and ReDim takes a variable. This is a VBE compile error: Constant expression required.`,
+					: decl.fixedLength !== undefined
+						? `The length of the fixed-length String '${decl.name}' names the variable '${name}'; it must be a constant. This is a VBE compile error: Constant expression required.`
+						: `The bounds of '${decl.name}' name the variable '${name}'; a Dim needs constants there, and ReDim takes a variable. This is a VBE compile error: Constant expression required.`,
 				absoluteSpan(decl.span, read[i]),
 			);
 		}

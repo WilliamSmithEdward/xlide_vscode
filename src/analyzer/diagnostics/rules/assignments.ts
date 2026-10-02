@@ -358,9 +358,18 @@ export function checkAssignmentTypes(
 			if (value.length === 1) {
 				const lower = tokenName(value[0])?.toLowerCase();
 				const known = lower ? (valuesAt ??= knownLocalLiteralValuesAt(source, procedure, symbols, activity))(stmt).get(lower) : undefined;
-				return known?.kind === 'string' && !known.contentMutated
-					? { type: 'String', label: `${label} ${JSON.stringify(known.value)}`, span: valueSpan, stringValue: known.value as string }
-					: undefined;
+				if (known?.kind === 'string' && !known.contentMutated) {
+					return { type: 'String', label: `${label} ${JSON.stringify(known.value)}`, span: valueSpan, stringValue: known.value as string };
+				}
+				// A `String * 3` local named nowhere else holds three Chr(0),
+				// which convert to no number, Boolean or date (issue #451,
+				// measured in Excel 16.0).
+				const local = lower ? procSym?.children?.find((child) => child.name.toLowerCase() === lower) : undefined;
+				const length = local?.kind === 'localVariable' && local.visibility !== 'Static' && !local.isArray && /^\d+$/.test(local.fixedLength ?? '') ? Number(local.fixedLength) : undefined;
+				if (length !== undefined && length >= 1 && (mentions ??= nameMentions(source, procedure, activity)).get(lower!) === 1) {
+					return { type: 'String', label: `'${value[0].rawText}', a String * ${length} never assigned, which holds ${length} Chr(0)`, span: valueSpan, stringValue: '\u0000'.repeat(length) };
+				}
+				return undefined;
 			}
 			// `"a" & "b"`, `Left("abc", 1)`, `o & 5` (issue #405). A Date written
 			// as text converts back to a Date, so that target is left alone.
