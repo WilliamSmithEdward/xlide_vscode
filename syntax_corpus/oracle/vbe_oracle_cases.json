@@ -77876,6 +77876,138 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    w2.Range(\"A1\").Value = \"zzz\"\r\n    Main = w2.Cells.Find(\"zzz\").Row\r\n    If IsEmpty(Main) Then Main = 9\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue471_01_runtime",
+      "description": "Issue #471 edits on a sheet the code just protected, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w2 As Worksheet\r\n    Set w2 = Worksheets.Add\r\n    w2.Protect\r\n    w2.Range(\"A1\").Value = 1\r\n    If IsEmpty(Main) Then Main = 9\r\n    w2.Unprotect\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue471_02_runtime",
+      "description": "Issue #471 edits on a sheet the code just protected, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w2 As Worksheet\r\n    Set w2 = Worksheets.Add\r\n    w2.Protect\r\n    w2.Range(\"A1\").Formula = \"=1\"\r\n    If IsEmpty(Main) Then Main = 9\r\n    w2.Unprotect\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue471_03_runtime",
+      "description": "Issue #471 edits on a sheet the code just protected, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w2 As Worksheet\r\n    Set w2 = Worksheets.Add\r\n    w2.Protect\r\n    w2.Range(\"A1\").ClearContents\r\n    If IsEmpty(Main) Then Main = 9\r\n    w2.Unprotect\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue471_04_runtime",
+      "description": "Issue #471 edits on a sheet the code just protected, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w2 As Worksheet\r\n    Set w2 = Worksheets.Add\r\n    w2.Protect\r\n    w2.Rows(1).Insert\r\n    If IsEmpty(Main) Then Main = 9\r\n    w2.Unprotect\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue471_05_runtime",
+      "description": "Issue #471 edits on a sheet the code just protected, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w2 As Worksheet\r\n    Set w2 = Worksheets.Add\r\n    w2.Protect\r\n    w2.Range(\"A1\").Font.Bold = True\r\n    If IsEmpty(Main) Then Main = 9\r\n    w2.Unprotect\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue471_06_runtime",
+      "description": "Issue #471 edits on a sheet the code just protected, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w2 As Worksheet\r\n    Set w2 = Worksheets.Add\r\n    w2.Protect \"pw\"\r\n    w2.Unprotect \"nope\"\r\n    If IsEmpty(Main) Then Main = 9\r\n    w2.Unprotect \"pw\"\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue471_07_runtime",
+      "description": "Issue #471 edits on a sheet the code just protected, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w2 As Worksheet\r\n    Set w2 = Worksheets.Add\r\n    w2.Protect\r\n    Main = w2.Range(\"A1\").Value\r\n    If IsEmpty(Main) Then Main = 9\r\n    w2.Unprotect\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue471_08_runtime",
+      "description": "Issue #471 edits on a sheet the code just protected, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w2 As Worksheet\r\n    Set w2 = Worksheets.Add\r\n    w2.Protect\r\n    w2.Name = \"Prot471\"\r\n    If IsEmpty(Main) Then Main = 9\r\n    w2.Unprotect\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue471_09_runtime",
+      "description": "Issue #471 edits on a sheet the code just protected, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w2 As Worksheet\r\n    Set w2 = Worksheets.Add\r\n    w2.Protect UserInterfaceOnly:=True\r\n    w2.Range(\"A1\").Value = 1\r\n    If IsEmpty(Main) Then Main = 9\r\n    w2.Unprotect\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue471_10_runtime",
+      "description": "Issue #471 edits on a sheet the code just protected, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w2 As Worksheet\r\n    Set w2 = Worksheets.Add\r\n    w2.Protect\r\n    w2.Unprotect\r\n    w2.Range(\"A1\").Value = 1\r\n    If IsEmpty(Main) Then Main = 9\r\n    w2.Unprotect\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue471_11_runtime",
+      "description": "Issue #471 edits on a sheet the code just protected, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w2 As Worksheet\r\n    Set w2 = Worksheets.Add\r\n    w2.Protect \"pw\"\r\n    w2.Unprotect \"pw\"\r\n    w2.Range(\"A1\").Value = 1\r\n    If IsEmpty(Main) Then Main = 9\r\n    w2.Unprotect\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue471_12_runtime",
+      "description": "Issue #471 edits on a sheet the code just protected, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w2 As Worksheet\r\n    Set w2 = Worksheets.Add\r\n    w2.Range(\"A1\").Locked = False\r\n    w2.Protect\r\n    w2.Range(\"A1\").Value = 1\r\n    If IsEmpty(Main) Then Main = 9\r\n    w2.Unprotect\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

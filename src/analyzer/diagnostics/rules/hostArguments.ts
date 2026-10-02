@@ -178,6 +178,10 @@ export function checkHostArguments(
 		let documentsAt: ReturnType<typeof newDocumentsAt> | undefined;
 		let sheetsAt: ReturnType<typeof activeSheetsAt> | undefined;
 		let factsAt: ReturnType<typeof sheetFactsAt> | undefined;
+		// A sheet the code just protected (issue #471).
+		if (host === 'Excel' && /\.\s*protect\b/i.test(source.slice(proc.span.start, proc.span.end))) {
+			checkProtectedSheets(source, proc, activity, push);
+		}
 		return (stmt) => {
 			const stmtCounters = counters.get(stmt);
 			const known = (valuesAt ??= knownLocalLiteralValuesAt(source, proc, symbols, activity))(stmt);
@@ -512,6 +516,95 @@ function overlaps(a: A1Area, b: A1Area): boolean {
 	const [ar1, ar2, ac1, ac2] = box(a);
 	const [br1, br2, bc1, bc2] = box(b);
 	return ar1 <= br2 && br1 <= ar2 && ac1 <= bc2 && bc1 <= ac2;
+}
+
+/** Range members a call statement edits cells with. */
+const CELL_EDITS: ReadonlySet<string> = new Set(['clearcontents', 'clear', 'clearformats', 'insert', 'delete', 'paste', 'pastespecial', 'autofill', 'filldown', 'fillright', 'merge', 'unmerge', 'sort']);
+
+/** The members of a sheet that reach its cells. */
+const CELL_PATHS: ReadonlySet<string> = new Set(['range', 'cells', 'rows', 'columns', 'usedrange']);
+
+/**
+ * The sheets the code just protected, with their password, and the faults
+ * that follow (issue #471, measured in Excel 16.0): after `w2.Protect`, a
+ * write to its cells or a cell edit raises 1004, and `w2.Unprotect` with
+ * another password raises 1004. `Protect UserInterfaceOnly:=True` lets the
+ * code write, a right Unprotect ends it, and a cell's Locked set by the
+ * code, a call, a label or the end of a block ends what is known.
+ */
+function checkProtectedSheets(source: string, proc: ProcedureNode, activity: ConditionalActivityTracker | undefined, push: PushFn): void {
+	let protectedSheets = new Map<string, string>();
+	// Sheets the code unlocked a cell on: which cells stay writable is not followed.
+	const unlocked = new Set<string>();
+	const visit = (list: readonly BodyNode[]): void => {
+		for (const node of list) {
+			if (activity?.isInactive(node.span)) {
+				continue;
+			}
+			if (!isLeafStatement(node)) {
+				if ('body' in node && Array.isArray(node.body)) {
+					const entry = protectedSheets;
+					protectedSheets = new Map(entry);
+					visit(node.body as BodyNode[]);
+				}
+				protectedSheets = new Map();
+				continue;
+			}
+			if (statementLabelDeclaration(source, node.span)) {
+				protectedSheets = new Map();
+			}
+			const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+			const words = toks.map((tok) => tok.rawText.toLowerCase());
+			const sheet = words[0];
+			const at = (from: number, to: number): Span => ({ start: node.span.start + toks[from].start, end: node.span.start + toks[to].end });
+			if (words.includes('locked')) {
+				unlocked.add(sheet);
+			}
+			if (words[1] === '.' && (words[2] === 'protect' || words[2] === 'unprotect')) {
+				const args = toks.length > 3 ? splitTopLevelTokenGroups(toks, toks[3].rawText === '(' ? 4 : 3, ',', toks[3].rawText === '(' ? matchParenFrom(toks, 3) : toks.length) : [];
+				const named = (name: string): VbaToken[] | undefined => args.find((arg) => tokenText(arg[0]) === name && arg[1]?.rawText === ':=')?.slice(2);
+				const passwordArg = named('password') ?? (args[0] && args[0][1]?.rawText !== ':=' ? args[0] : undefined);
+				const password = passwordArg === undefined ? '' : passwordArg.length === 1 && passwordArg[0].kind === 'stringLiteral' ? stringLiteralValue(passwordArg[0].rawText) : undefined;
+				if (words[2] === 'protect') {
+					const uiOnly = named('userinterfaceonly');
+					if (password === undefined || unlocked.has(sheet) || (uiOnly && tokenText(uiOnly[0]) !== 'false')) {
+						protectedSheets.delete(sheet);
+					} else {
+						protectedSheets.set(sheet, password);
+					}
+				} else {
+					const held = protectedSheets.get(sheet);
+					if (held !== undefined && password !== undefined && password !== held && passwordArg) {
+						push('hostArgumentOutOfRange', `'${toks[0].rawText}' was protected with another password, which Unprotect must match. This will raise Run-time error '1004': The password you supplied is not correct.`, at(2, toks.length - 1));
+						continue;
+					}
+					protectedSheets.delete(sheet);
+				}
+				continue;
+			}
+			if (protectedSheets.has(sheet) && words[1] === '.' && CELL_PATHS.has(words[2])) {
+				const eq = toks.findIndex((tok, i) => tok.rawText === '=' && i > 2);
+				const edit = toks.findIndex((tok, i) => i > 2 && toks[i - 1]?.rawText === '.' && CELL_EDITS.has(tokenText(tok)));
+				const locked = words.includes('locked');
+				if (locked) {
+					protectedSheets.delete(sheet);
+					continue;
+				}
+				if (eq > 0 || edit > 0) {
+					push('hostArgumentOutOfRange', `'${toks[0].rawText}' is protected here, so its cells cannot be changed. This will raise Run-time error '1004': The cell or chart you're trying to change is on a protected sheet.`, at(0, (eq > 0 ? eq : edit + 1) - 1));
+				}
+				continue;
+			}
+			// A read keeps what is known; a call or another use of a sheet may unprotect it.
+			const bare = bareAssignmentTarget(source, node.span);
+			if (!bare || toks.some((tok) => ['unprotect', 'locked'].includes(tokenText(tok)))) {
+				if (!(bare || words[0] === 'set') || toks.some((tok) => tokenText(tok) === 'unprotect')) {
+					protectedSheets = new Map();
+				}
+			}
+		}
+	};
+	visit(proc.body);
 }
 
 /** Members that add to or edit a document, read on the way to a value. */
