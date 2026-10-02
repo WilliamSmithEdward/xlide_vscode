@@ -1417,6 +1417,7 @@ export function checkOverflow(
 	const hostValues = hostConstantValues(hostModel);
 	const types = moduleTypes(source, mod, activity);
 	const results = knownFunctionResults(source, mod, activity);
+	const deftypes = /^[ \t]*Def(Bool|Byte|Int|Lng|LngLng|LngPtr|Cur|Sng|Dbl|Dec|Date|Str|Obj|Var)[ \t]+[A-Za-z]/im.test(source);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -1429,7 +1430,13 @@ export function checkOverflow(
 				constants.delete(child.name.toLowerCase());
 			}
 		}
-		const env = typeEnvironmentFor(symbols, member);
+		// A local declared with no type is a Variant, which holds a Double as
+		// a Double: `Dim v: v = 3E9` then `v Mod 2` raises 6 (issue #323,
+		// measured in Excel 16.0). A DefType statement types it otherwise.
+		const untyped = deftypes ? [] : children.filter((child) => child.kind === 'localVariable' && !child.asType && !child.isArray && /\w$/.test(child.name));
+		const env: ReadonlyMap<string, string> = untyped.length === 0
+			? typeEnvironmentFor(symbols, member)
+			: new Map([...typeEnvironmentFor(symbols, member), ...untyped.map((child): [string, string] => [child.name.toLowerCase(), 'Variant'])]);
 		const known = knownLocalLiteralValues(source, member, symbols, activity);
 		// Values a straight run of top-level statements has just stored:
 		// `i = 32767` followed by `i = i + 1`.
