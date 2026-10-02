@@ -12,6 +12,7 @@ import { untouchedModuleVariablesIn } from './moduleState';
 import type { VbaToken } from '../lexer/tokenKinds';
 import type { HostMember, HostObjectModel } from '../host/excelObjectModel';
 import { IDENT_RE, matchParenFrom } from '../lexer/tokenHelpers';
+import { HOST_DEFAULT_MEMBERS } from '../host/hostDefaultMembers';
 import {
 	bankersRound,
 	parseDecimalIntegerLiteral,
@@ -2994,6 +2995,10 @@ export function objectLetAssignmentVerdict(
 		return defaultMember.signature && /\([^)]/.test(defaultMember.signature) ? 'argument' : 'lets';
 	}
 	const resolved = resolveHostAlias(expectedRaw ?? '', memberCtx.model) ?? expectedRaw ?? '';
+	const libraryDefault = libraryDefaultVerdict(resolved);
+	if (libraryDefault) {
+		return libraryDefault;
+	}
 	const defaultMember = hostDefaultMember(resolved, memberCtx);
 	if (defaultMember) {
 		if (defaultMember.kind === 'method' || /\([^)]/.test(defaultMember.signature ?? '')) {
@@ -3012,6 +3017,23 @@ export function objectLetAssignmentVerdict(
 		return defaultMember.returns ? 'argument' : 'lets';
 	}
 	return hostTypeHasNoDefault(resolved, memberCtx) ? 'noDefault' : 'unknown';
+}
+
+/**
+ * The verdict from a Word, PowerPoint or Access type's default member as its
+ * type library gives it (DISPID 0, issue #438): a Range's Text takes a Let
+ * and gives a value; a collection's Item needs an index; a Paragraph's Range
+ * gives what a Range gives. Undefined where the table has no entry.
+ */
+function libraryDefaultVerdict(qualified: string, depth = 0): 'lets' | 'argument' | undefined {
+	const found = HOST_DEFAULT_MEMBERS[qualified];
+	if (!found) {
+		return undefined;
+	}
+	if (found.kind === 'method' || found.required > 0) {
+		return 'argument';
+	}
+	return depth < 4 && HOST_DEFAULT_MEMBERS[found.returns] ? libraryDefaultVerdict(found.returns, depth + 1) : 'lets';
 }
 
 /** A host type's default member (DISPID 0, `_Default` in the model), if any. */
