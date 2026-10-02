@@ -294,20 +294,26 @@ function runtimeStatementValueHits(
 	// fixed-length string's length is its declaration's, assigned or not
 	// (issue #248). `Mid$` lexes as Mid and a `$` of its own.
 	const midOpen = toks[1]?.rawText === '$' ? 2 : 1;
-	if (tokenText(first) === 'mid' && toks[midOpen]?.rawText === '(') {
+	// MidB counts bytes, two to a character: `MidB(s, 9, 1) = "x"` on "abc"
+	// starts past its six (issue #327, measured in Excel 16.0).
+	const bytes = tokenText(first) === 'midb';
+	if ((tokenText(first) === 'mid' || bytes) && toks[midOpen]?.rawText === '(') {
 		const close = matchParenFrom(toks, midOpen);
 		if (close > 0 && toks[close + 1]?.rawText === '=') {
 			const split = splitArgSlots(toks.slice(midOpen + 1, close), span.start);
 			const target = split.slots[0]?.length === 1 ? tokenName(split.slots[0][0])?.toLowerCase() : undefined;
 			const fixed = split.slots[0]?.length ? fixedLengthOf?.(split.slots[0]) : undefined;
-			const length = fixed ?? (target !== undefined ? knownStringLengths.get(target) : undefined);
+			const characters = fixed ?? (target !== undefined ? knownStringLengths.get(target) : undefined);
+			const length = characters !== undefined && bytes ? characters * 2 : characters;
 			const startSlot = split.slots[1];
 			const start = startSlot ? integerGroupValue(source, span, startSlot, constants) : undefined;
 			if (length !== undefined && start !== undefined && start > length) {
+				const form = bytes ? 'MidB' : 'Mid';
+				const unit = bytes ? 'byte(s)' : 'character(s)';
 				out.push({
 					message: fixed === undefined
-						? `Mid statement start ${start} is past the end of ${split.slots[0][0].rawText}, which is ${length} character(s) long. This will raise Run-time error '5': Invalid procedure call or argument.`
-						: `Mid statement start ${start} is past the end of ${split.slots[0].map((tok) => tok.rawText).join('')}, a fixed-length string of ${length} character(s). This will raise Run-time error '5': Invalid procedure call or argument.`,
+						? `${form} statement start ${start} is past the end of ${split.slots[0][0].rawText}, which is ${length} ${unit} long. This will raise Run-time error '5': Invalid procedure call or argument.`
+						: `${form} statement start ${start} is past the end of ${split.slots[0].map((tok) => tok.rawText).join('')}, a fixed-length string of ${length} ${unit}. This will raise Run-time error '5': Invalid procedure call or argument.`,
 					span: split.spans[1] ?? at(toks[0]),
 				});
 			}
