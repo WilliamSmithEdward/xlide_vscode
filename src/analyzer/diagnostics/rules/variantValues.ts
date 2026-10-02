@@ -48,6 +48,7 @@ import {
 } from '../walker';
 import { isBareOrVbaQualifiedIntrinsicCall, nameMentions } from './shared';
 import { knownArrayShapesAt, moduleOptionBase, type FixedArrayBound } from './arrays';
+import { straightLineAssignments } from '../straightLineValues';
 
 const SCALAR_OPERATORS: ReadonlySet<string> = new Set(['=', '<', '>', '<=', '>=', '<>', '+', '-', '*', '/', '\\', '&', '^']);
 
@@ -116,7 +117,31 @@ export function checkVariantValueMisuse(
 			return uses[0]?.start === offset;
 		};
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
+		// `a(v)` with v a Variant the straight line just set to Null: an
+		// index must be a number (issue #332, measured in Excel 16.0: 94).
+		const arrayNames = new Set((procedureSymbolFor(symbols, member)?.children ?? []).filter((child) => child.isArray).map((child) => child.name.toLowerCase()));
+		let reaching: ReturnType<typeof straightLineAssignments> | undefined;
 		forEachStatement(member.body, (stmt) => {
+			for (const span of arrayNames.size === 0 ? [] : statementAndBranchSpans(stmt)) {
+				const toks = statementTokens(source, span);
+				for (let i = 2; i < toks.length; i++) {
+					const lower = tokenName(toks[i])?.toLowerCase();
+					if (!lower || (toks[i - 1].rawText !== '(' && toks[i - 1].rawText !== ',') || !isVariant(lower)) {
+						continue;
+					}
+					const open = toks.slice(0, i).map((tok) => tok.rawText).lastIndexOf('(');
+					const array = tokenName(toks[open - 1])?.toLowerCase();
+					const close = open >= 0 ? matchParenFrom(toks, open) : -1;
+					const whole = toks[i + 1]?.rawText === ')' || toks[i + 1]?.rawText === ',';
+					if (!array || !arrayNames.has(array) || toks[open - 2]?.rawText === '.' || close < i || !whole) {
+						continue;
+					}
+					const held = (reaching ??= straightLineAssignments(source, member.body, activity)).get(stmt)?.get(lower)?.filter((tok) => tok.kind !== 'comment');
+					if (held?.length === 1 && tokenText(held[0]) === 'null') {
+						push('variantValueMisuse', `'${toks[i].rawText}' holds Null here, and an index of '${toks[open - 1].rawText}' must be a number. This will raise Run-time error '94': Invalid use of Null.`, { start: span.start + toks[i].start, end: span.start + toks[i].end });
+					}
+				}
+			}
 			for (const span of statementAndBranchSpans(stmt)) {
 				for (const hit of arrayCallOperands(statementTokens(source, span), sourceNames)) {
 					push('variantValueMisuse', hit.message, { start: span.start + hit.start, end: span.start + hit.end });

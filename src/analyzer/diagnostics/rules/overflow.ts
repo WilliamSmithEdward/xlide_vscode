@@ -847,9 +847,10 @@ class TypedFolder {
 			return decimal === undefined ? undefined : { value: Number(decimal), type: 'double', decimal };
 		}
 		if (target === 'hex' || target === 'oct') {
-			// Hex and Oct take a value that fits a Long (or a LongLong on 64-bit
-			// for whole numbers; 1E+20 fits neither).
-			return inRange(inner.value, 'long') || (Number.isInteger(inner.value) && Math.abs(inner.value) < 9.2e18)
+			// Hex and Oct take a value that fits a Long, or a LongLong on 64-bit
+			// once rounded: Hex(3000000000.5) runs there (issue #332, measured in
+			// Excel 16.0); 1E+20 fits neither.
+			return inRange(inner.value, 'long') || Math.abs(bankersRound(inner.value)) < 9.2e18
 				? undefined
 				: { overflow: true, span, detail: `${callee === 'hex' ? 'Hex' : 'Oct'}(${inner.value}) takes a value outside the Long range` };
 		}

@@ -1321,6 +1321,8 @@ export function validateArgumentTypes(
 	resolveExpressionType?: SourceDeclaredTypeResolver,
 	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 	heldClassOf?: (lower: string) => string | undefined,
+	heldNull?: (lower: string) => boolean,
+	heldNumber?: (lower: string) => number | undefined,
 ): void {
 	const sig = callableSignatureForCall(call, moduleSignatures, sourceNames);
 	if (!sig || sig.params.length === 0) {
@@ -1338,6 +1340,8 @@ export function validateArgumentTypes(
 		resolveExpressionType,
 		resolveQualifiedExpressionType,
 		heldClassOf,
+		heldNull,
+		heldNumber,
 	);
 }
 
@@ -1353,6 +1357,8 @@ export function validateArgumentTypesForSignature(
 	resolveExpressionType?: SourceDeclaredTypeResolver,
 	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 	heldClassOf?: (lower: string) => string | undefined,
+	heldNull?: (lower: string) => boolean,
+	heldNumber?: (lower: string) => number | undefined,
 ): void {
 	if (sig.params.length === 0) {
 		return;
@@ -1418,7 +1424,7 @@ export function validateArgumentTypesForSignature(
 			);
 			continue;
 		}
-		const actual = inferArgumentType(
+		let actual = inferArgumentType(
 			valueSlot,
 			call.sliceStart,
 			env,
@@ -1439,8 +1445,23 @@ export function validateArgumentTypesForSignature(
 			);
 			continue;
 		}
+		// A Variant local a straight line has just set to Null is Null here,
+		// for both checks below, whether or not it was given a type (issue
+		// #332, measured in Excel 16.0).
+		const heldName = valueSlot.length === 1 ? tokenName(valueSlot[0])?.toLowerCase() : undefined;
+		const heldNullHere = heldName !== undefined && heldNull?.(heldName) === true && [undefined, 'variant'].includes(normalizeType(actual?.type));
+		if (heldNullHere) {
+			const span = { start: call.sliceStart + valueSlot[0].start, end: call.sliceStart + valueSlot[0].end };
+			actual = { ...(actual ?? { span }), type: 'Null', label: `'${valueSlot[0].rawText}', which holds Null here` };
+		}
 		if (!actual) {
 			continue;
+		}
+		// A local known to hold a number is range-checked as that number:
+		// `Dim c As Currency: c = 1E14: Space(c)` overflows (issue #332).
+		const heldValue = heldName !== undefined && actual.numericValue === undefined && actual.floatValue === undefined ? heldNumber?.(heldName) : undefined;
+		if (heldValue !== undefined) {
+			actual = { ...actual, heldBy: valueSlot[0].rawText, ...(Number.isInteger(heldValue) ? { numericValue: heldValue } : { floatValue: heldValue }) };
 		}
 		// A Variant parameter the function still refuses Null for: CStr(Null),
 		// Chr(Null), Asc(Null) raise 94 where Left(Null, 1) hands Null back
@@ -1448,7 +1469,7 @@ export function validateArgumentTypesForSignature(
 		if (param.nullRaises && normalizeType(actual.type) === 'null') {
 			push(
 				'argumentTypeMismatch',
-				`Argument '${param.name}' of '${sig.name}' cannot be Null. This will raise Run-time error '94': Invalid use of Null.`,
+				`Argument '${param.name}' of '${sig.name}' cannot be Null${heldNullHere ? `, and ${actual.label}` : ''}. This will raise Run-time error '94': Invalid use of Null.`,
 				actual.span,
 			);
 			continue;
@@ -2816,7 +2837,7 @@ export function numericLiteralOverflowReason(
 		return `The value of constant '${actual.numericConstantName}' (${actual.numericValue}) is outside the ${bounds.label} range ${bounds.min} to ${bounds.max}. This will raise Run-time error '6': Overflow.`;
 	}
 	const literal = actual.numericText ?? String(actual.numericValue);
-	return `The numeric literal ${literal} is outside the ${bounds.label} range ${bounds.min} to ${bounds.max}. This will raise Run-time error '6': Overflow.`;
+	return `${heldOrLiteral(actual, literal)} is outside the ${bounds.label} range ${bounds.min} to ${bounds.max}. This will raise Run-time error '6': Overflow.`;
 }
 
 /**
@@ -2834,7 +2855,7 @@ function floatLiteralOverflowReason(expected: string, actual: InferredArgumentTy
 			return undefined;
 		}
 		const label = expected === 'longptr' ? 'LongPtr' : 'LongLong';
-		return `The numeric literal ${actual.numericText ?? actual.floatValue} is outside the ${label} range${expected === 'longptr' ? ', at most' : ''} -9223372036854775808 to 9223372036854775807. This will raise Run-time error '6': Overflow.`;
+		return `${heldOrLiteral(actual, String(actual.numericText ?? actual.floatValue))} is outside the ${label} range${expected === 'longptr' ? ', at most' : ''} -9223372036854775808 to 9223372036854775807. This will raise Run-time error '6': Overflow.`;
 	}
 	if (actual.floatValue === undefined || (expected !== 'byte' && expected !== 'integer' && expected !== 'long')) {
 		return undefined;
@@ -2845,7 +2866,12 @@ function floatLiteralOverflowReason(expected: string, actual: InferredArgumentTy
 		return undefined;
 	}
 	const shown = rounded === actual.floatValue ? '' : `, which VBA rounds to ${rounded},`;
-	return `The numeric literal ${actual.numericText ?? actual.floatValue}${shown} is outside the ${bounds.label} range ${bounds.min} to ${bounds.max}. This will raise Run-time error '6': Overflow.`;
+	return `${heldOrLiteral(actual, String(actual.numericText ?? actual.floatValue))}${shown} is outside the ${bounds.label} range ${bounds.min} to ${bounds.max}. This will raise Run-time error '6': Overflow.`;
+}
+
+/** "The numeric literal 5", or "The value 5 that 'a' holds here" for a local's known value. */
+function heldOrLiteral(actual: InferredArgumentType, text: string): string {
+	return actual.heldBy !== undefined ? `The value ${text} that '${actual.heldBy}' holds here` : `The numeric literal ${text}`;
 }
 
 export function numericLiteralBounds(
