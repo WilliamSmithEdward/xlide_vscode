@@ -2362,11 +2362,12 @@
         "issue213_38_compile",
         "issue225_01_compile",
         "issue225_02_compile",
-        "issue225_06_compile"
+        "issue225_06_compile",
+        "issue414_09_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Only known intrinsic scalar targets, including visible exported standard-module scalar globals, are flagged; unknown host/class object types are deferred to the object binder. Bare Set targets ask the shared assignment-target resolver first, so local shadows win and ambiguous exported globals stay quiet. The target type owns the error even when the right-hand side is an object expression such as New Collection. A scalar value Set into an object target is refused too: \"Type mismatch\" into a variable, \"Object required\" through a Property Set (issue #202). Issue #225: Set of a document module's own name, Set Sheet1 = Nothing, is Invalid use of property. Issue #226: Set of a form's control, Set f.T1 = Nothing, is Invalid use of property. Issue #228: in Word, ThisDocument = 5 is Invalid use of property as well.",
+      "notes": "Only known intrinsic scalar targets, including visible exported standard-module scalar globals, are flagged; unknown host/class object types are deferred to the object binder. Bare Set targets ask the shared assignment-target resolver first, so local shadows win and ambiguous exported globals stay quiet. The target type owns the error even when the right-hand side is an object expression such as New Collection. A scalar value Set into an object target is refused too: \"Type mismatch\" into a variable, \"Object required\" through a Property Set (issue #202). Issue #225: Set of a document module's own name, Set Sheet1 = Nothing, is Invalid use of property. Issue #226: Set of a form's control, Set f.T1 = Nothing, is Invalid use of property. Issue #228: in Word, ThisDocument = 5 is Invalid use of property as well. Issue #414: a Set through a member with a Property Set is not judged by the Let or Get type: Set c.M = New Collection runs beside a Long Let.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -2626,14 +2627,19 @@
         "issue266_05_compile",
         "issue266_09_compile",
         "issue266_31_compile",
-        "issue266_34_compile"
+        "issue266_34_compile",
+        "issue414_03_compile",
+        "issue414_04_compile",
+        "issue414_05_compile",
+        "issue414_06_compile",
+        "issue414_07_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_final_hardening_cases.md",
         "excel_vba_analysis_additional_edge_cases.md"
       ],
-      "notes": "Active coverage groups active same-module Property Get/Let/Set procedures by name, requires exactly one active getter before pairing, and reports setters whose leading index parameters differ from the getter by count, array shape, effective ByVal/ByRef mode, or known scalar/Variant type. The setter's final value parameter is intentionally excluded from index-argument comparison. Return/value type consistency and object type alias comparison remain deferred to avoid false positives before deeper binder support. Issue #266: an index parameter keeps its name across Get, Let and Set: Get P(ByVal i) with Let P(ByVal k, v), with a Set, between a Let and a Set with no Get, two indexes swapped, the second renamed, Optional indexes renamed, and in a standard module, each \"Definitions of property procedures for the same property are inconsistent\". Case does not count, and the value parameter may have any name. Measured in Excel 16.0 (issue266_* oracle cases).",
+      "notes": "Active coverage groups active same-module Property Get/Let/Set procedures by name, requires exactly one active getter before pairing, and reports setters whose leading index parameters differ from the getter by count, array shape, effective ByVal/ByRef mode, or known scalar/Variant type. The setter's final value parameter is intentionally excluded from index-argument comparison. Return/value type consistency and object type alias comparison remain deferred to avoid false positives before deeper binder support. Issue #266: an index parameter keeps its name across Get, Let and Set: Get P(ByVal i) with Let P(ByVal k, v), with a Set, between a Let and a Set with no Get, two indexes swapped, the second renamed, Optional indexes renamed, and in a standard module, each \"Definitions of property procedures for the same property are inconsistent\". Case does not count, and the value parameter may have any name. Measured in Excel 16.0 (issue266_* oracle cases). Issue #414: an object Property Get (Collection, Object) beside a Variant Property Let compiles; a Collection Get with an Object Let does not.",
       "diagnosticKind": "compile-error"
     },
     {
