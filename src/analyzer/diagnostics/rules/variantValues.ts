@@ -351,9 +351,9 @@ function memoByIdentity<K extends object, V>(derive: (key: K) => V): (key: K) =>
 	};
 }
 
-/** True when `toks[i]` is the whole first argument of UBound, LBound or Join (issue #239). */
+/** True when `toks[i]` is the whole first argument of UBound, LBound, Join (issue #239) or Filter (issue #476). */
 function isBoundArgument(toks: readonly VbaToken[], i: number): boolean {
 	const name = tokenText(toks[i - 2]);
-	return toks[i - 1]?.rawText === '(' && (name === 'ubound' || name === 'lbound' || name === 'join') && toks[i - 3]?.rawText !== '.'
+	return toks[i - 1]?.rawText === '(' && (name === 'ubound' || name === 'lbound' || name === 'join' || name === 'filter') && toks[i - 3]?.rawText !== '.'
 		&& (toks[i + 1]?.rawText === ')' || toks[i + 1]?.rawText === ',');
 }

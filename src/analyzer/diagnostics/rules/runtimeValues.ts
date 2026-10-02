@@ -1349,12 +1349,31 @@ function runtimeArgumentValueSpecs(name: string, host: string | undefined): read
 			];
 		case 'strconv':
 			return [{ canonicalName: 'StrConv', parameterName: 'Conversion', argumentIndex: 1, overflowType: 'Long', accepts: strConvConversionAnyLocale }];
+		// A Tristate takes vbUseDefault, vbTrue or vbFalse: -2 to 0 (issue
+		// #476, measured in Excel 16.0).
 		case 'formatnumber':
-			return [{ canonicalName: 'FormatNumber', parameterName: 'NumDigitsAfterDecimal', argumentIndex: 1, minimum: -1 }];
 		case 'formatcurrency':
-			return [{ canonicalName: 'FormatCurrency', parameterName: 'NumDigitsAfterDecimal', argumentIndex: 1, minimum: -1 }];
-		case 'formatpercent':
-			return [{ canonicalName: 'FormatPercent', parameterName: 'NumDigitsAfterDecimal', argumentIndex: 1, minimum: -1 }];
+		case 'formatpercent': {
+			const lower = name.toLowerCase();
+			const canonicalName = lower === 'formatnumber' ? 'FormatNumber' : lower === 'formatcurrency' ? 'FormatCurrency' : 'FormatPercent';
+			return [
+				{ canonicalName, parameterName: 'NumDigitsAfterDecimal', argumentIndex: 1, minimum: -1 },
+				...['IncludeLeadingDigit', 'UseParensForNegativeNumbers', 'GroupDigits'].map((parameterName, k) => (
+					{ canonicalName, parameterName, argumentIndex: 2 + k, minimum: -2, maximum: 0 }
+				)),
+			];
+		}
+		// A rate of -1 divides by zero inside: error 5 (issue #476, measured in
+		// Excel 16.0). Pmt and FV take it.
+		case 'npv':
+			return [{ canonicalName: 'NPV', parameterName: 'Rate', argumentIndex: 0, disallowed: [-1] }];
+		case 'irr':
+			return [{ canonicalName: 'IRR', parameterName: 'Guess', argumentIndex: 1, disallowed: [-1] }];
+		case 'mirr':
+			return [
+				{ canonicalName: 'MIRR', parameterName: 'FinanceRate', argumentIndex: 1, disallowed: [-1] },
+				{ canonicalName: 'MIRR', parameterName: 'ReinvestRate', argumentIndex: 2, disallowed: [-1] },
+			];
 		case 'environ':
 			return [{ canonicalName: 'Environ', parameterName: 'Expression', argumentIndex: 0, minimum: 1, stringSuffix: true }];
 		case 'dateadd':
@@ -1696,6 +1715,9 @@ const CONVERSION_TARGETS: Readonly<Record<string, 'numeric' | 'boolean' | 'date'
 	exp: 'numeric', log: 'numeric', sin: 'numeric', cos: 'numeric', tan: 'numeric', atn: 'numeric',
 	year: 'date', month: 'date', day: 'date', weekday: 'date', hour: 'date', minute: 'date', second: 'date',
 	dateadd: 'date', datepart: 'date', datediff: 'date',
+	// FormatNumber("abc") and FormatDateTime("abc") raise 13 (issue #476,
+	// measured in Excel 16.0).
+	formatnumber: 'numeric', formatcurrency: 'numeric', formatpercent: 'numeric', formatdatetime: 'date',
 };
 
 /**
