@@ -723,6 +723,12 @@ export interface BlockEnteringState<S> {
 	 * that ran a loop pass by pass puts back what the loop leaves (issue #350).
 	 */
 	exit?(node: BodyNode): void;
+	/**
+	 * Keeps what a With body leaves, rather than its entry state less what it
+	 * names. Only for a rule that reads `.Member` in the body as the
+	 * subject's (issue #584).
+	 */
+	withBodyRunsThrough?: boolean;
 }
 
 /**
@@ -773,6 +779,13 @@ export function walkEnteringBlocks<S>(
 				state.restore(entry);
 				walkEnteringBlocks(source, arm, isInactive, visit, state, loopTouched);
 			}
+		} else if (node.kind === 'WithBlock' && state.withBodyRunsThrough) {
+			// A With body runs once, in order: what holds at its end holds
+			// after it. `With c` then `.Add 10` leaves c with one element
+			// (issue #584).
+			walkEnteringBlocks(source, node.body, isInactive, visit, state, loopTouched);
+			state.exit?.(node);
+			continue;
 		} else {
 			walkEnteringBlocks(source, node.body, isInactive, visit, state, isLoopBlock(node) ? new Set([...loopTouched, ...touched]) : loopTouched);
 		}

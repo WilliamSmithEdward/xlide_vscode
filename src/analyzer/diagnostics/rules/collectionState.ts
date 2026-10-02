@@ -151,6 +151,11 @@ export function checkCollectionState(
 			}
 			if (node.kind === 'Statement' && node.singleLineIfBranches) {
 				forgetMentioned(source, node.span, states);
+				// `If x Then .Add 20` inside `With c` may change c (issue #584).
+				const within = withSubjects[withSubjects.length - 1];
+				if (within && reachesSubject(statementTokensAfterLeadingLabel(source, node.span), within)) {
+					forgetCollection(states, within.toLowerCase());
+				}
 				return;
 			}
 			const own = statementTokensAfterLeadingLabel(source, node.span);
@@ -241,11 +246,18 @@ export function checkCollectionState(
 					forgetCollection(states, lower);
 				}
 			},
-			// `With c` reads c and changes nothing; its body's lines say what they do.
+			// `With c` reads c and changes nothing; its body's lines say what they do,
+			// a `.Add` among them naming the subject (issue #584).
 			touches: (stmt) => {
 				const toks = statementTokensAfterLeadingLabel(source, stmt.span).filter((tok) => tok.kind !== 'comment');
-				return tokenText(toks[0]) === 'with' && toks.length === 2 ? new Set<string>() : namesIn(source, stmt.span);
+				if (tokenText(toks[0]) === 'with' && toks.length === 2) {
+					return new Set<string>();
+				}
+				const names = namesIn(source, stmt.span);
+				const within = withSubjects[withSubjects.length - 1];
+				return within && reachesSubject(toks, within) ? new Set([...names, within.toLowerCase()]) : names;
 			},
+			withBodyRunsThrough: true,
 			// A counted loop that removes or reads by its counter (issue #263),
 			// or fills or empties a collection (issue #350).
 			enter: (node) => {
@@ -275,6 +287,11 @@ export function checkCollectionState(
 			},
 		});
 	}
+}
+
+/** Whether a statement inside `With subject` reaches the subject by a leading dot. */
+function reachesSubject(toks: readonly VbaToken[], subject: string): boolean {
+	return withReceiver(toks.filter((tok) => tok.kind !== 'comment'), subject).length > toks.filter((tok) => tok.kind !== 'comment').length;
 }
 
 /** The name a `With New Collection` block's collection is followed under. */
