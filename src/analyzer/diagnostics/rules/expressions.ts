@@ -968,10 +968,10 @@ export function checkStringArithmeticOperands(
 				|| LOGICAL_OPERATORS.has(word) || word === 'then' || word === 'if' || word === 'elseif' || word === 'while'
 				|| word === 'until' || word === 'not';
 		};
-		function scanOperators(spanStart: number, toks: readonly VbaToken[], assignIndex: number): void {
+		function scanOperators(spanStart: number, toks: readonly VbaToken[], assignIndex: number, branchAssigns: ReadonlySet<number> = new Set()): void {
 			const at = (tok: VbaToken): Span => absoluteSpan({ start: spanStart, end: spanStart }, tok);
 			for (let i = 0; i < toks.length; i++) {
-				if (i === assignIndex) {
+				if (i === assignIndex || branchAssigns.has(i)) {
 					continue;
 				}
 				const tok = toks[i];
@@ -986,7 +986,7 @@ export function checkStringArithmeticOperands(
 					);
 				};
 				if (LOGICAL_OPERATORS.has(word) && tok.kind === 'keyword') {
-					const leftString = i - 1 !== assignIndex && (i - 2 === assignIndex || standsAlone(toks, i - 2)) ? nonnumericString(left) : undefined;
+					const leftString = i - 1 !== assignIndex && !branchAssigns.has(i - 1) && (i - 2 === assignIndex || branchAssigns.has(i - 2) || standsAlone(toks, i - 2)) ? nonnumericString(left) : undefined;
 					const rightString = standsAlone(toks, i + 2) ? nonnumericString(right) : undefined;
 					if (leftString) {
 						report(at(left), leftString);
@@ -1123,8 +1123,19 @@ export function checkStringArithmeticOperands(
 					return;
 				}
 			}
-			// The assignment's own `=` stores; it compares nothing.
-			scanOperators(stmt.span.start, toks, bare ? toks.findIndex((tok) => tok.rawText === '=') : -1);
+			// The assignment's own `=` stores; it compares nothing. So does the
+			// `=` of an assignment in a one-line If's branch: `If L > 0 Then
+			// tb = s` (issue #342).
+			const branchAssigns = new Set<number>();
+			for (const branch of stmt.kind === 'Statement' ? stmt.singleLineIfBranches ?? [] : []) {
+				if (bareAssignmentTarget(source, branch)) {
+					const at = toks.findIndex((tok) => tok.rawText === '=' && stmt.span.start + tok.start >= branch.start);
+					if (at >= 0) {
+						branchAssigns.add(at);
+					}
+				}
+			}
+			scanOperators(stmt.span.start, toks, bare ? toks.findIndex((tok) => tok.rawText === '=') : -1, branchAssigns);
 		};
 	};
 }

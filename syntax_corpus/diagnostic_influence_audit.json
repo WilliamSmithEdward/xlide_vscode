@@ -1791,7 +1791,9 @@
         "issue331_09_runtime",
         "issue331_10_runtime",
         "issue331_11_runtime",
-        "issue348_01_runtime"
+        "issue348_01_runtime",
+        "issue342_16_runtime",
+        "issue342_19_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2017,11 +2019,15 @@
         "redim_preserve_final_dimension_lower_bound_runtime",
         "redim_preserve_last_dimension_runtime",
         "issue420_03_runtime",
-        "issue420_04_runtime"
+        "issue420_04_runtime",
+        "issue342_08_runtime",
+        "issue342_09_runtime",
+        "issue342_10_runtime",
+        "issue342_11_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Active coverage tracks prior ReDim shapes through straight-line active statements in the same body. It reports ReDim Preserve when the known dimension count changes, when comparable literal-style non-final bounds change, or when a comparable final-dimension lower bound changes. Focused runtime oracle fixtures prove a non-final dimension resize and a final-dimension lower-bound change raise runtime errors while resizing only the last dimension's upper bound runs successfully. Shapes learned inside nested blocks are available inside that nested body but do not leak outward, and variable/constant bound comparison remains deferred. Issue #420: after Erase a dynamic array has no bounds, and ReDim Preserve sets them afresh, the first dimension included.",
+      "notes": "Active coverage tracks prior ReDim shapes through straight-line active statements in the same body. It reports ReDim Preserve when the known dimension count changes, when comparable literal-style non-final bounds change, or when a comparable final-dimension lower bound changes. Focused runtime oracle fixtures prove a non-final dimension resize and a final-dimension lower-bound change raise runtime errors while resizing only the last dimension's upper bound runs successfully. Shapes learned inside nested blocks are available inside that nested body but do not leak outward, and variable/constant bound comparison remains deferred. Issue #420: after Erase a dynamic array has no bounds, and ReDim Preserve sets them afresh, the first dimension included. Issue #342: a bound written without a lower takes the Option Base, so ReDim Preserve a(UBound(a) + 1) after ReDim a(1 To 3) moves the lower bound to 0 and raises 9.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -2102,11 +2108,26 @@
         "issue273_40_runtime",
         "issue439_02_runtime",
         "issue439_04_runtime",
-        "issue439_06_runtime"
+        "issue439_06_runtime",
+        "issue342_01_runtime",
+        "issue342_02_runtime",
+        "issue342_03_runtime",
+        "issue342_04_runtime",
+        "issue342_05_runtime",
+        "issue342_06_runtime",
+        "issue342_07_runtime",
+        "issue342_12_runtime",
+        "issue342_13_runtime",
+        "issue342_14_runtime",
+        "issue342_15_runtime",
+        "issue342_20_runtime",
+        "issue342_21_runtime",
+        "issue342_22_runtime",
+        "issue342_23_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Active coverage is intentionally straight-line: local non-Static dynamic arrays start unallocated, active ReDim statements allocate them, Erase resets them, and simple indexed access or intrinsic LBound/UBound calls while unallocated report runtime error 9. Module-level arrays, parameters, Static locals, fixed-size arrays, helper-call arguments, assignment-touched arrays, nested runtime-block touches, unresolved names, non-intrinsic member calls, dot or bang ('!') member access (d!b(N) = d.Item(\"b\"), not the local array b), and inactive conditional-compilation branches stay quiet. The legacy invalid_semantics_090 uninitialized dynamic array index case and invalid_semantics_091 LBound uninitialized array case are covered by focused runtime oracle fixtures. Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0). Issue #271: a procedure with labels and GoTo is walked following its jumps. A label is entered with what falls into it, if the line before can, merged with the state at each GoTo to it; a GoTo that may or may not run, On Error GoTo, GoSub, Resume to a label and On ... GoTo enter it with nothing known; a GoTo in a loop leaves with what the loop did not touch; If arms, Cases and With bodies are walked as in a procedure without labels; code nothing reaches is not checked; a Resume with no label keeps the old walk. A backward GoTo into code after the Set or ReDim (GoTo Setup ... Setup: Set c = New Collection: GoTo Use) is no longer reported, and a forward GoTo past it (GoTo Use ... Setup: Set c ... Use: c.Count) now is. Measured in Excel 16.0 (issue271_* oracle cases). Issue #273: an arm a known guard rules out is not checked, and its ReDim does not count: n = 0 then If n > 0 Then ReDim a(1).",
+      "notes": "Active coverage is intentionally straight-line: local non-Static dynamic arrays start unallocated, active ReDim statements allocate them, Erase resets them, and simple indexed access or intrinsic LBound/UBound calls while unallocated report runtime error 9. Module-level arrays, parameters, Static locals, fixed-size arrays, helper-call arguments, assignment-touched arrays, nested runtime-block touches, unresolved names, non-intrinsic member calls, dot or bang ('!') member access (d!b(N) = d.Item(\"b\"), not the local array b), and inactive conditional-compilation branches stay quiet. The legacy invalid_semantics_090 uninitialized dynamic array index case and invalid_semantics_091 LBound uninitialized array case are covered by focused runtime oracle fixtures. Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0). Issue #271: a procedure with labels and GoTo is walked following its jumps. A label is entered with what falls into it, if the line before can, merged with the state at each GoTo to it; a GoTo that may or may not run, On Error GoTo, GoSub, Resume to a label and On ... GoTo enter it with nothing known; a GoTo in a loop leaves with what the loop did not touch; If arms, Cases and With bodies are walked as in a procedure without labels; code nothing reaches is not checked; a Resume with no label keeps the old walk. A backward GoTo into code after the Set or ReDim (GoTo Setup ... Setup: Set c = New Collection: GoTo Use) is no longer reported, and a forward GoTo past it (GoTo Use ... Setup: Set c ... Use: c.Count) now is. Measured in Excel 16.0 (issue271_* oracle cases). Issue #273: an arm a known guard rules out is not checked, and its ReDim does not count: n = 0 then If n > 0 Then ReDim a(1). Issue #342: the header of a For, Do, While or Select Case runs as the block is entered, so UBound of an unallocated array there raises 9. a = b copies b's missing storage, into an array or a Variant.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
