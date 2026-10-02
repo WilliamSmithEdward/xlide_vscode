@@ -35,6 +35,7 @@ import {
 	isInactiveNode,
 	rawExpressionTokens,
 	statementAndBranchSpans,
+	statementTokens,
 	statementTokensAfterLeadingLabel,
 	tokenName,
 	tokenText,
@@ -44,6 +45,16 @@ import {
 export type ReachingAssignments = ReadonlyMap<string, readonly VbaToken[]>;
 
 const NONE: ReachingAssignments = new Map();
+
+/**
+ * What the walk knows an object local holds, by identity: Nothing, from
+ * `Set c = Nothing` or a local never set, and a Collection nothing has
+ * added to yet, from `Set c = New Collection` or `Dim c As New Collection`.
+ * A loop over the one, or until the other is Nothing, runs no pass (issue
+ * #483). Any other mention of the name ends it.
+ */
+export const OBJECT_NOTHING: readonly VbaToken[] = rawExpressionTokens('Nothing');
+export const EMPTY_COLLECTION: readonly VbaToken[] = rawExpressionTokens('New Collection');
 
 /** Statement heads that write every name they mention. */
 const WRITING_HEADS: ReadonlySet<string> = new Set(['set', 'redim', 'erase', 'input', 'get', 'line', 'lset', 'rset', 'mid', 'mid$']);
@@ -264,7 +275,7 @@ function walkSingleLineIf(
 		}
 	}
 	const touched = touchedBy(source, group);
-	const after = touched === 'all' ? NONE : without(current, touched);
+	const after = withoutMentionedObjects(touched === 'all' ? NONE : without(current, touched), source, { start: group[0].span.start, end: group[group.length - 1].span.end });
 	for (const stmt of group) {
 		record(walk.out, stmt, after);
 	}
@@ -309,7 +320,7 @@ function walkBlock(
 		return next;
 	}
 	const touched = touchedInBlock(source, node, activity);
-	const after = touched === 'all' ? NONE : without(entry, touched);
+	const after = withoutMentionedObjects(touched === 'all' ? NONE : without(entry, touched), source, node.span);
 	// An If arm, a Case or a With body runs once, from the state the block is
 	// entered with; a loop's body may run again with what it changed (issue
 	// #259: `If True Then x = 1 / x` reads the 0 x starts with).
@@ -378,7 +389,12 @@ function loopRunsNoPass(source: string, node: BodyNode, entry: ReachingAssignmen
 	if (node.kind === 'ForBlock' && node.each) {
 		const inAt = toks.findIndex((tok) => tokenText(tok) === 'in');
 		const group = toks.slice(inAt + 1);
-		const empty = inAt > 0 && group.length === 3 && tokenText(group[0]) === 'array' && group[1].rawText === '(' && group[2].rawText === ')';
+		const isEmptyArray = (value: readonly VbaToken[]): boolean =>
+			value.length === 3 && tokenText(value[0]) === 'array' && value[1].rawText === '(' && value[2].rawText === ')';
+		// A local holding `Array()`, or a Collection nothing has added to
+		// (issue #483, measured in Excel 16.0).
+		const held = group.length === 1 ? entry.get(tokenName(group[0])?.toLowerCase() ?? '') : undefined;
+		const empty = inAt > 0 && (isEmptyArray(group) || held === EMPTY_COLLECTION || (held !== undefined && isEmptyArray(held.filter((tok) => tok.kind !== 'comment'))));
 		return empty ? {} : undefined;
 	}
 	if (node.kind === 'ForBlock') {
@@ -488,8 +504,21 @@ function afterStatement(source: string, span: Span, before: ReachingAssignments)
 	if (head === 'gosub') {
 		return NONE;
 	}
+	// A mention of an object the walk knows may change it: `c.Add 1`.
+	const known = [...mentionedNames(toks)].filter((lower) => {
+		const value = before.get(lower);
+		return value === OBJECT_NOTHING || value === EMPTY_COLLECTION;
+	});
+	before = without(before, known);
 	if (WRITING_HEADS.has(head) && !(head === 'line' && tokenText(toks[1]) !== 'input')) {
-		return without(before, mentionedNames(toks));
+		const after = without(before, mentionedNames(toks));
+		const object = head === 'set' ? setObjectValue(toks) : undefined;
+		if (!object) {
+			return after;
+		}
+		const next = new Map(after);
+		next.set(object.name, object.value);
+		return next;
 	}
 	let after = without(before, passedWhole(toks, span.start));
 	const bare = bareAssignmentTarget(source, span);
@@ -584,6 +613,28 @@ function touchedBy(source: string, stmts: readonly LeafStatementNode[]): Set<str
 	return names;
 }
 
+/** The state less every object the walk knows that the span names: a block may have added to it or set it. */
+function withoutMentionedObjects(state: ReachingAssignments, source: string, span: Span): ReachingAssignments {
+	const known = [...state].filter(([, value]) => value === OBJECT_NOTHING || value === EMPTY_COLLECTION);
+	if (known.length === 0) {
+		return state;
+	}
+	const named = mentionedNames(statementTokens(source, span));
+	return without(state, known.map(([lower]) => lower).filter((lower) => named.has(lower)));
+}
+
+/** `Set c = Nothing` and `Set c = New Collection`: the name and what it now holds. */
+function setObjectValue(toks: readonly VbaToken[]): { name: string; value: readonly VbaToken[] } | undefined {
+	const name = tokenName(toks[1])?.toLowerCase();
+	if (!name || toks[2]?.rawText !== '=') {
+		return undefined;
+	}
+	const value = toks.slice(3).filter((tok) => tok.kind !== 'comment').map((tok) => tok.rawText.toLowerCase()).join(' ');
+	return value === 'nothing' ? { name, value: OBJECT_NOTHING }
+		: value === 'new collection' || value === 'new vba . collection' ? { name, value: EMPTY_COLLECTION }
+		: undefined;
+}
+
 function passedWhole(toks: readonly VbaToken[], spanStart: number): Iterable<string> {
 	return trackedLocalsNamedWhole(toks, spanStart, () => true, READ_ONLY_INTRINSICS).keys();
 }
@@ -612,7 +663,10 @@ function without(map: ReachingAssignments, names: Iterable<string>): ReachingAss
 
 /** The numbers and strings the reaching assignments give their names, for a condition. */
 function factsFrom(current: ReachingAssignments): ConditionFacts {
-	return { value: (lower) => literalOf(current.get(lower)) };
+	return {
+		value: (lower) => literalOf(current.get(lower)),
+		isNothing: (lower) => (current.get(lower) === OBJECT_NOTHING ? true : current.get(lower) === EMPTY_COLLECTION ? false : undefined),
+	};
 }
 
 /** A value's tokens as one number or string literal, a sign allowed. */
