@@ -18,7 +18,7 @@
 // and no Let raises 451 when assigned, and one with a Let and no Get 450 when
 // read.
 
-import type { HostObjectModel } from '../../host/excelObjectModel';
+import { getExcelObjectModel, type HostObjectModel } from '../../host/excelObjectModel';
 import { getHostMembers, getHostType } from '../../host/hostModel';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
 import { projectTypeAt, resolveReceiverTypeAt } from '../../completion/memberAccess';
@@ -26,16 +26,17 @@ import type { ConditionalActivityTracker } from '../../conditional/conditionalCo
 import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { BodyNode, ForBlockNode, ModuleNode, ProcedureNode } from '../../parser/nodes';
-import { heldObjectsAt } from '../heldObjects';
+import { HELD_VALUE, heldObjectsAt } from '../heldObjects';
 import { isLeafStatement } from '../../parser/nodes';
 import { walkEnteringBlocks } from '../dataflow';
 import { bodyMayLeaveLoop, namesIn } from './shared';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { normalizeType, objectAssignmentIncompatibilityReason, stringLiteralValue, typeEnvironmentFor } from '../typeInference';
+import { buildModuleTypeSignatures, inferExpressionType, isKnownScalarType, normalizeType, objectAssignmentIncompatibilityReason, sourceNameScopeFor, stringLiteralValue, typeEnvironmentFor } from '../typeInference';
 import {
 	activeModuleMembers,
 	forEachStatement,
+	rawExpressionTokens,
 	setAssignmentTarget,
 	statementAndBranchSpans,
 	statementTokens,
@@ -191,18 +192,42 @@ function checkCollectionItems(
 			push('runtimeMemberNotFound', `'${shown}' holds a ${known.display} here, which has no member '${memberName}'. This will raise Run-time error '438': Object doesn't support this property or method.`, { start: stmt.span.start + toks[i].start, end: stmt.span.start + toks[close].end });
 		}
 	}, activity);
+	const signatures = buildModuleTypeSignatures(symbols);
+	const sourceNames = sourceNameScopeFor(symbols, proc);
 	forEachLoopIn(proc.body, activity, (loop) => {
 		const source1 = loop.sourceExpression?.trim().toLowerCase();
 		const control = loop.controlVariable?.toLowerCase();
 		const held = source1 ? heldAt(loop).items.get(source1) : undefined;
 		const expected = control ? env.get(control) : undefined;
+		// `For Each c In Worksheets` with c As Range: each sheet is Set into c,
+		// and a sheet is no Range (issue #447, measured in Excel 16.0).
+		const element = expected && loop.sourceExpressionSpan && !held
+			? hostElementType(source, loop.sourceExpressionSpan, env, signatures, sourceNames, memberCtx)
+			: undefined;
+		if (element && loop.sourceExpressionSpan) {
+			const bare = element.replace(/^\w+\./, '');
+			const label = `the items of '${loop.sourceExpression!.trim()}', each ${/^[AEIOU]/.test(bare) ? 'an' : 'a'} ${bare}`;
+			if (objectAssignmentIncompatibilityReason(expected!, { type: element, label, span: loop.sourceExpressionSpan }, { ...memberCtx, model: memberCtx.model ?? getExcelObjectModel() })) {
+				push('assignmentObjectTypeMismatch', `For Each Sets ${label}, into '${loop.controlVariable}', a ${expected}. This will raise Run-time error '13': Type mismatch.`, loop.sourceExpressionSpan);
+				return;
+			}
+		}
 		if (!held || !expected || !loop.sourceExpressionSpan) {
 			return;
 		}
 		// A body that may leave the loop may stop before any later item: only
 		// the first is certainly Set (issue #356, measured in Excel 16.0).
 		const reached = bodyMayLeaveLoop(source, loop.body) ? held.slice(0, 1) : held;
-		const position = reached.findIndex((name) => objectAssignmentIncompatibilityReason(expected, { type: name, label: name, span: loop.sourceExpressionSpan! }, memberCtx));
+		// A number or string Set into an object variable is Object required, 424
+		// (issue #447, measured in Excel 16.0); a Variant takes it.
+		const objectControl = normalizeType(expected) !== 'variant' && !isKnownScalarType(normalizeType(expected) ?? '');
+		const position = reached.findIndex((name) => (name === HELD_VALUE
+			? objectControl
+			: objectAssignmentIncompatibilityReason(expected, { type: name, label: name, span: loop.sourceExpressionSpan! }, memberCtx) !== undefined));
+		if (position >= 0 && held[position] === HELD_VALUE) {
+			push('assignmentObjectTypeMismatch', `For Each Sets each item of '${loop.sourceExpression!.trim()}' into '${loop.controlVariable}', a ${expected}, and item ${position + 1} is a number or string, no object. This will raise Run-time error '424': Object required.`, loop.sourceExpressionSpan);
+			return;
+		}
 		if (position >= 0) {
 			push('assignmentObjectTypeMismatch', `For Each Sets each item of '${loop.sourceExpression!.trim()}' into '${loop.controlVariable}', a ${expected}, and item ${position + 1} is a ${held[position]}. This will raise Run-time error '13': Type mismatch.`, loop.sourceExpressionSpan);
 		}
@@ -221,6 +246,36 @@ function matchParen(toks: readonly VbaToken[], open: number): number {
 }
 
 /** Every For Each loop in a body, nested ones included. */
+/**
+ * The host type For Each hands out over a host collection: its Item's type
+ * (a Worksheet over Worksheets, a Workbook over Workbooks), and a Range over a
+ * Range. Undefined where that is Object or Variant, as over Sheets, which
+ * holds charts too.
+ */
+function hostElementType(
+	source: string,
+	span: { start: number; end: number },
+	env: ReadonlyMap<string, string>,
+	signatures: ReturnType<typeof buildModuleTypeSignatures>,
+	sourceNames: ReturnType<typeof sourceNameScopeFor>,
+	memberCtx: MemberCompletionContext,
+): string | undefined {
+	const toks = rawExpressionTokens(source.slice(span.start, span.end)).filter((tok) => tok.kind !== 'comment');
+	// The analyzer's default host is Excel: with no model given, its globals still resolve.
+	const model = memberCtx.model ?? getExcelObjectModel();
+	// The model's keys keep their case: Excel.Worksheets, not excel.worksheets.
+	const collection = inferExpressionType(toks, 0, env, signatures, sourceNames, source, { ...memberCtx, model })?.type;
+	if (!collection || !collection.includes('.')) {
+		return undefined;
+	}
+	if (normalizeType(collection) === 'excel.range') {
+		return 'Excel.Range';
+	}
+	const item = getHostMembers(collection, model).find((member) => member.name === 'Item');
+	const type = item?.returns;
+	return type && type.includes('.') ? type : undefined;
+}
+
 function forEachLoopIn(body: readonly BodyNode[], activity: ConditionalActivityTracker | undefined, visit: (loop: ForBlockNode) => void): void {
 	for (const node of body) {
 		if (activity?.isInactive(node.span)) {
