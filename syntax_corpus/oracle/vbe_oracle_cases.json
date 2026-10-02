@@ -67679,6 +67679,28 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim p As String\r\n    p = Environ(\"TEMP\") & \"\\xlide419.txt\"\r\n    Open p For Random As #1\r\n    FileCopy p, p & \".bak\"\r\n    Close #1\r\n    Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue313_01_runtime",
+      "description": "Issue #313 On Error GoTo 0 ends an On Error Resume Next stretch, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Long, x As Double\r\n    On Error Resume Next\r\n    On Error GoTo 0\r\n    x = 1 / d\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue313_02_runtime",
+      "description": "Issue #313 On Error GoTo 0 ends an On Error Resume Next stretch, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim i As Integer\r\n    On Error Resume Next\r\n    On Error GoTo 0\r\n    i = 40000\r\n    Main = i\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }
