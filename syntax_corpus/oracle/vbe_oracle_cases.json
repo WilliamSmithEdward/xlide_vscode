@@ -74785,6 +74785,116 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Boolean\r\n    Main = Mid(\"abc\", 1, o) & \"x\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue496_01_compile",
+      "description": "Issue #496 And, Or, Mod and integer division in an array bound, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nConst K0 As Long = 15 And 255\r\nFunction Main() As Variant\r\n    Dim m(K0 To 3) As Long\r\n    Main = UBound(m)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue496_02_compile",
+      "description": "Issue #496 And, Or, Mod and integer division in an array bound, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nConst K0 = 50 Mod 7 + 10\r\nFunction Main() As Variant\r\n    Dim m(K0 To 3) As Long\r\n    Main = UBound(m)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue496_03_compile",
+      "description": "Issue #496 And, Or, Mod and integer division in an array bound, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim m(15 And 255 To 3) As Long\r\n    Main = UBound(m)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue496_04_compile",
+      "description": "Issue #496 And, Or, Mod and integer division in an array bound, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nConst K0 = 1 Or 8\r\nFunction Main() As Variant\r\n    Dim m(K0 To 3) As Long\r\n    Main = UBound(m)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue496_05_compile",
+      "description": "Issue #496 And, Or, Mod and integer division in an array bound, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim m(1 To 10 \\ 20) As Long\r\n    Main = UBound(m)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue496_06_compile",
+      "description": "Issue #496 And, Or, Mod and integer division in an array bound, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nConst K0 = 6 Xor 3\r\nFunction Main() As Variant\r\n    Dim m(K0 To 3) As Long\r\n    Main = UBound(m)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue496_07_compile",
+      "description": "Issue #496 And, Or, Mod and integer division in an array bound, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim m(1 To Not 0) As Long\r\n    Main = UBound(m)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue496_08_compile",
+      "description": "Issue #496 And, Or, Mod and integer division in an array bound, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nConst K0 = 15 And 255\r\nFunction Main() As Variant\r\n    Dim m(3 To K0) As Long\r\n    Main = UBound(m)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue496_09_compile",
+      "description": "Issue #496 And, Or, Mod and integer division in an array bound, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nConst K0 = 50 Mod 7\r\nFunction Main() As Variant\r\n    Dim m(K0 To 3) As Long\r\n    Main = UBound(m)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue496_10_compile",
+      "description": "Issue #496 And, Or, Mod and integer division in an array bound, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim m(1 To 20 \\ 10) As Long\r\n    Main = UBound(m)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue496_11_compile",
+      "description": "Issue #496 And, Or, Mod and integer division in an array bound, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim m(Not -2 To 3) As Long\r\n    Main = UBound(m)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }
