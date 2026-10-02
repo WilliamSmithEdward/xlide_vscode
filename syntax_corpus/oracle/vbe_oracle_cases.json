@@ -76308,6 +76308,206 @@
       ],
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue489_01_runtime",
+      "description": "Issue #489 elements of an array of objects never set, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As Collection\r\n    Main = a(0).Count\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue489_02_runtime",
+      "description": "Issue #489 elements of an array of objects never set, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As Collection\r\n    a(0).Add 1\r\n    Main = 1\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue489_03_runtime",
+      "description": "Issue #489 elements of an array of objects never set, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As Collection\r\n    Set a(0) = New Collection\r\n    Main = a(1).Count\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue489_04_runtime",
+      "description": "Issue #489 elements of an array of objects never set, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As Collection\r\n    Set a(0) = New Collection\r\n    Set a(0) = Nothing\r\n    Main = a(0).Count\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue489_05_runtime",
+      "description": "Issue #489 elements of an array of objects never set, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As Collection\r\n    Dim x As Variant\r\n    For Each x In a\r\n        Main = x.Count\r\n    Next\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue489_06_runtime",
+      "description": "Issue #489 elements of an array of objects never set, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As Object\r\n    Main = a(0).Count\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue489_07_runtime",
+      "description": "Issue #489 elements of an array of objects never set, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As K1\r\n    Main = a(0).V\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic V As Long\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue489_08_runtime",
+      "description": "Issue #489 elements of an array of objects never set, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Collection\r\n    ReDim a(2)\r\n    Main = a(1).Count\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue489_09_runtime",
+      "description": "Issue #489 elements of an array of objects never set, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Collection\r\n    ReDim a(2)\r\n    Set a(1) = New Collection\r\n    ReDim a(2)\r\n    Main = a(1).Count\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue489_10_runtime",
+      "description": "Issue #489 elements of an array of objects never set, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As Collection\r\n    Set a(0) = New Collection\r\n    Main = a(0).Count\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue489_11_runtime",
+      "description": "Issue #489 elements of an array of objects never set, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As Collection\r\n    Dim i As Long\r\n    For i = 0 To 1\r\n        Set a(i) = New Collection\r\n    Next\r\n    Main = a(1).Count\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue489_12_runtime",
+      "description": "Issue #489 elements of an array of objects never set, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As Collection\r\n    Main = a(0) Is Nothing\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue489_13_runtime",
+      "description": "Issue #489 elements of an array of objects never set, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As New K1\r\n    Main = a(0).V\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic V As Long\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue489_14_runtime",
+      "description": "Issue #489 elements of an array of objects never set, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Collection\r\n    ReDim a(2)\r\n    Set a(1) = New Collection\r\n    ReDim Preserve a(3)\r\n    Main = a(1).Count\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue489_15_runtime",
+      "description": "Issue #489 elements of an array of objects never set, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As Collection\r\n    Dim x As Variant\r\n    Set a(0) = New Collection\r\n    Set a(1) = New Collection\r\n    For Each x In a\r\n        Main = x.Count\r\n    Next\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue489_16_runtime",
+      "description": "Issue #489 elements of an array of objects never set, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As Collection\r\n    If Rnd() < 2 Then Set a(0) = New Collection\r\n    Main = a(0).Count\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
