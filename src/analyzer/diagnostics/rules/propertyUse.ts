@@ -46,6 +46,11 @@ export function checkInvalidPropertyUse(
 			if (toks[i].rawText !== '.' || tokenName(toks[i + 1]) === undefined || tokenName(toks[i - 1]) === undefined) {
 				continue;
 			}
+			// `If .State("q") > 3`, `Case .Count`, `Debug.Print .Count`: a With
+			// member after a keyword, which is no receiver (issue #413). Me is.
+			if (toks[i - 1].kind === 'keyword' && tokenText(toks[i - 1]) !== 'me') {
+				continue;
+			}
 			const name = toks[i + 1];
 			const at: Span = { start: span.start + name.start, end: span.start + name.end };
 			const member = resolveExactMemberCompletion(source, name.rawText, at.end, memberCtx);
