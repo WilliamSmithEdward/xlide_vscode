@@ -1263,11 +1263,11 @@ function runtimeArgumentValueSpecs(name: string, host: string | undefined): read
 			];
 		case 'instrrev':
 			return [
-				{ canonicalName: 'InStrRev', parameterName: 'Start', argumentIndex: 2, minimum: -1, disallowed: [0] },
-				{ canonicalName: 'InStrRev', parameterName: 'Compare', argumentIndex: 3, minimum: 0 },
+				{ canonicalName: 'InStrRev', parameterName: 'Start', argumentIndex: 2, overflowType: 'Long', minimum: -1, disallowed: [0] },
+				{ canonicalName: 'InStrRev', parameterName: 'Compare', argumentIndex: 3, overflowType: 'Long', minimum: 0 },
 			];
 		case 'chr':
-			return [{ canonicalName: 'Chr', parameterName: 'CharCode', argumentIndex: 0, minimum: 0, maximum: 255, stringSuffix: true }];
+			return [{ canonicalName: 'Chr', parameterName: 'CharCode', argumentIndex: 0, overflowType: 'Long', minimum: 0, maximum: 255, stringSuffix: true }];
 		case 'chrw':
 			return [{ canonicalName: 'ChrW', parameterName: 'CharCode', argumentIndex: 0, minimum: -32768, maximum: 65535 }];
 		case 'asc':
@@ -1279,14 +1279,14 @@ function runtimeArgumentValueSpecs(name: string, host: string | undefined): read
 		case 'log':
 			return [{ canonicalName: 'Log', parameterName: 'Number', argumentIndex: 0, exclusiveMinimum: 0, fractional: true }];
 		case 'monthname':
-			return [{ canonicalName: 'MonthName', parameterName: 'Month', argumentIndex: 0, minimum: 1, maximum: 12 }];
+			return [{ canonicalName: 'MonthName', parameterName: 'Month', argumentIndex: 0, overflowType: 'Long', minimum: 1, maximum: 12 }];
 		case 'weekdayname':
 			return [
-				{ canonicalName: 'WeekdayName', parameterName: 'Weekday', argumentIndex: 0, minimum: 1, maximum: 7 },
-				{ canonicalName: 'WeekdayName', parameterName: 'FirstDayOfWeek', argumentIndex: 2, minimum: 0, maximum: 7 },
+				{ canonicalName: 'WeekdayName', parameterName: 'Weekday', argumentIndex: 0, overflowType: 'Long', minimum: 1, maximum: 7 },
+				{ canonicalName: 'WeekdayName', parameterName: 'FirstDayOfWeek', argumentIndex: 2, overflowType: 'Long', minimum: 0, maximum: 7 },
 			];
 		case 'weekday':
-			return [{ canonicalName: 'Weekday', parameterName: 'FirstDayOfWeek', argumentIndex: 1, minimum: 0, maximum: 7 }];
+			return [{ canonicalName: 'Weekday', parameterName: 'FirstDayOfWeek', argumentIndex: 1, overflowType: 'Long', minimum: 0, maximum: 7 }];
 		case 'round':
 			return [{ canonicalName: 'Round', parameterName: 'NumDigitsAfterDecimal', argumentIndex: 1, minimum: 0, maximum: 22 }];
 		case 'dateserial':
@@ -1296,14 +1296,14 @@ function runtimeArgumentValueSpecs(name: string, host: string | undefined): read
 				{ canonicalName: 'DateSerial', parameterName, argumentIndex, overflowType: 'Integer' as const }
 			));
 		case 'strcomp':
-			return [{ canonicalName: 'StrComp', parameterName: 'Compare', argumentIndex: 2, minimum: 0, disallowed: databaseCompare }];
+			return [{ canonicalName: 'StrComp', parameterName: 'Compare', argumentIndex: 2, overflowType: 'Long', minimum: 0, disallowed: databaseCompare }];
 		case 'split':
 			return [
 				{ canonicalName: 'Split', parameterName: 'Limit', argumentIndex: 2, minimum: -1 },
 				{ canonicalName: 'Split', parameterName: 'Compare', argumentIndex: 3, minimum: 0 },
 			];
 		case 'strconv':
-			return [{ canonicalName: 'StrConv', parameterName: 'Conversion', argumentIndex: 1, accepts: strConvConversionAnyLocale }];
+			return [{ canonicalName: 'StrConv', parameterName: 'Conversion', argumentIndex: 1, overflowType: 'Long', accepts: strConvConversionAnyLocale }];
 		case 'formatnumber':
 			return [{ canonicalName: 'FormatNumber', parameterName: 'NumDigitsAfterDecimal', argumentIndex: 1, minimum: -1 }];
 		case 'formatcurrency':
@@ -1452,6 +1452,12 @@ function integerArgumentOutsideBounds(
 		if (Number.isFinite(rawValue)) {
 			literalValue = sign * rawValue;
 		}
+	}
+	// True passes -1, False and Empty 0: Left("abc", True) and Mid("abc",
+	// False) raise 5 (issue #434, measured in Excel 16.0).
+	const word = toks.length === 1 ? tokenText(toks[0]) : '';
+	if (literalValue === undefined && (word === 'true' || word === 'false' || word === 'empty')) {
+		literalValue = word === 'true' ? -1 : 0;
 	}
 	if (literalValue !== undefined) {
 		const verdict = argumentValueVerdict(literalValue, spec);
