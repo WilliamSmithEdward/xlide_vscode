@@ -75,6 +75,20 @@ function emptyContents(): CollectionContents {
 	return { items: [], keysKnown: true, shapes: [], held: [] };
 }
 
+/** What `c(1)`, `c("k")` or `c.Item(1)`, the whole of a value, reads from a tracked collection. */
+function heldItemRead(value: readonly VbaToken[], states: ReadonlyMap<string, CollectionContents>): { held: Held } | undefined {
+	const toks = value.filter((tok) => tok.kind !== 'comment');
+	const contents = states.get(tokenName(toks[0])?.toLowerCase() ?? '');
+	const open = toks[1]?.rawText === '(' ? 1 : toks[1]?.rawText === '.' && tokenText(toks[2]) === 'item' && toks[3]?.rawText === '(' ? 3 : -1;
+	if (!contents || contents.stale || open < 0 || matchParenFrom(toks, open) !== toks.length - 1) {
+		return undefined;
+	}
+	const arg = toks.slice(open + 1, toks.length - 1);
+	const key = literalKeyText(arg);
+	const index = literalIndex(arg) ?? (key !== undefined && contents.keysKnown && contents.items.includes(key) ? contents.items.indexOf(key) + 1 : undefined);
+	return index !== undefined && index >= 1 && index <= contents.held.length ? { held: contents.held[index - 1] } : undefined;
+}
+
 /** Stops following a name; what it named may now change unseen, so an element sharing it is no longer read. */
 function forgetCollection(states: Map<string, CollectionContents>, lower: string): void {
 	const contents = states.get(lower);
@@ -169,6 +183,12 @@ export function checkCollectionState(
 				if (isCollectionLocal && aliased !== undefined && states.has(aliased)) {
 					states.set(lower, states.get(aliased)!);
 					return;
+				}
+				const item = heldItemRead(value, states);
+				if (item && (item.held === 'number' || item.held === 'string')) {
+					const first = value[0];
+					const last = value[value.length - 1];
+					push('variantValueMisuse', `'${value.map((tok) => tok.rawText).join('')}' holds a ${item.held}, not an object, so Set has nothing to assign. This will raise Run-time error '424': Object required.`, { start: node.span.start + first.start, end: node.span.start + last.end });
 				}
 				forgetCollection(states, lower);
 				for (const tok of value) {
@@ -618,6 +638,10 @@ function checkStatement(
 		if (contents) {
 			return contents;
 		}
+		// `c.Add New Collection`: an empty Collection no name holds (issue #306).
+		if (item.length === 2 && tokenText(item[0]) === 'new' && tokenText(item[1]) === 'collection') {
+			return emptyContents();
+		}
 		return literalIndex(item) !== undefined || (item.length === 1 && item[0].kind === 'floatLiteral') ? 'number' : item.length === 1 && item[0].kind === 'stringLiteral' ? 'string' : undefined;
 	};
 	const addsWhole = states.has(tokenName(toks[first])?.toLowerCase() ?? '') && toks[first + 1]?.rawText === '.' && tokenText(toks[first + 2]) === 'add'
@@ -715,6 +739,17 @@ function useHeldItem(ctx: ItemContext, nameAt: number, display: string, state: C
 	const spanOf = (from: number, to: number): Span => ({ start: base.start + toks[from].start, end: base.start + toks[to].end });
 	const after = toks[close + 1]?.rawText;
 	const member = after === '.' ? tokenText(toks[close + 2]) : undefined;
+	// `Set c(1) = o`: Item has no Property Set, so the Set reaches what the
+	// item holds: 424 on a value, 438 on an object (issue #306, measured in
+	// Excel 16.0).
+	if (tokenText(toks[0]) === 'set' && nameAt === 1 && after === '=') {
+		if (held === 'number' || held === 'string') {
+			ctx.push('variantValueMisuse', `'${shown}' holds a ${held}, and a Collection's item cannot be replaced in place: Item has no Property Set, so the Set reaches the ${held}. This will raise Run-time error '424': Object required.`, spanOf(nameAt, close));
+		} else {
+			ctx.push('runtimeMemberNotFound', `'${shown}' is read through Item, which a Set cannot write: a Collection's item cannot be replaced in place. This will raise Run-time error '438': Object doesn't support this property or method.`, spanOf(nameAt, close));
+		}
+		return;
+	}
 	if (held === 'number' || held === 'string') {
 		// `c(1) = 5`: a Let into the item, which only an object's default
 		// member could take (issue #305, measured in Excel 16.0).

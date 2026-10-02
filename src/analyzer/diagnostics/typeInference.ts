@@ -696,7 +696,7 @@ export function sourceBindingTypeResolvers(
  * `t.i` with `Dim t As T1` and `i As Integer` in T1 (issue #369). An array
  * field is left to the shape rules.
  */
-function typeFieldDeclaredType(
+export function typeFieldDeclaredType(
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	procSym: VbaSymbol | undefined,
 	projectVisibleSymbols: readonly VbaSymbol[] | undefined,

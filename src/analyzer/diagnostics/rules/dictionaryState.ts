@@ -46,6 +46,8 @@ const NEW_WITH_DICTIONARY = 'New Dictionary';
 /** The keys of one Dictionary in the order they were added, each a typed literal. */
 interface DictionaryKeys {
 	keys: string[];
+	/** The keys whose item is a number or a string literal the code wrote (issue #306). */
+	values?: Map<string, 'number' | 'string'>;
 	/** Set by `CompareMode = 1`: string keys compare without case (issue #349). */
 	textCompare?: boolean;
 }
@@ -89,6 +91,12 @@ export function checkDictionaryState(
 			if (set) {
 				const lower = set.name.toLowerCase();
 				const value = toks.slice(toks.findIndex((tok) => tok.rawText === '=') + 1);
+				// `Set x = d("k")` where "k" holds a number: no object to Set
+				// (issue #306, measured in Excel 16.0).
+				const item = valueRead(value, states);
+				if (item) {
+					push('variantValueMisuse', `'${value.map((tok) => tok.rawText).join('')}' holds a ${item}, not an object, so Set has nothing to assign. This will raise Run-time error '424': Object required.`, { start: node.span.start + value[0].start, end: node.span.start + value[value.length - 1].end });
+				}
 				forget(namesIn(source, node.span));
 				if (createsDictionary(value)) {
 					states.set(lower, { keys: [] });
@@ -100,11 +108,11 @@ export function checkDictionaryState(
 		// The subject of each With block the walk is in, as for Collections.
 		const withSubjects: Array<string | undefined> = [];
 		walkEnteringBlocks(source, member.body, (node) => activity?.isInactive(node.span) === true, visit, {
-			snapshot: () => new Map([...states].map(([lower, state]) => [lower, { ...state, keys: [...state.keys] }])),
+			snapshot: () => new Map([...states].map(([lower, state]) => [lower, { ...state, keys: [...state.keys], values: state.values && new Map(state.values) }])),
 			restore: (saved) => {
 				states.clear();
 				for (const [lower, state] of saved) {
-					states.set(lower, { ...state, keys: [...state.keys] });
+					states.set(lower, { ...state, keys: [...state.keys], values: state.values && new Map(state.values) });
 				}
 			},
 			forget,
@@ -134,6 +142,34 @@ export function checkDictionaryState(
 			},
 		});
 	}
+}
+
+/** What `d("k")` or `d.Item("k")`, the whole of a value, reads where the code wrote a literal there. */
+function valueRead(value: readonly VbaToken[], states: ReadonlyMap<string, DictionaryKeys>): 'number' | 'string' | undefined {
+	const state = states.get(tokenName(value[0])?.toLowerCase() ?? '');
+	const open = value[1]?.rawText === '(' ? 1 : value[1]?.rawText === '.' && tokenText(value[2]) === 'item' && value[3]?.rawText === '(' ? 3 : -1;
+	if (!state || open < 0 || matchParenFrom(value, open) !== value.length - 1) {
+		return undefined;
+	}
+	const key = literalKey(value.slice(open + 1, value.length - 1));
+	return key ? state.values?.get(state.textCompare && key.startsWith('s:') ? `s:${key.slice(2).toLowerCase()}` : key) : undefined;
+}
+
+/** Notes what a key's item is now, or forgets it. */
+function remember(state: DictionaryKeys, key: string, kind: 'number' | 'string' | undefined): void {
+	if (kind) {
+		(state.values ??= new Map()).set(key, kind);
+	} else {
+		state.values?.delete(key);
+	}
+}
+
+/** The kind of a one-token literal value: a number or a string. */
+function literalKind(value: readonly VbaToken[]): 'number' | 'string' | undefined {
+	if (value.length !== 1) {
+		return undefined;
+	}
+	return value[0].kind === 'stringLiteral' ? 'string' : value[0].kind === 'integerLiteral' || value[0].kind === 'floatLiteral' ? 'number' : undefined;
 }
 
 /** `CreateObject("Scripting.Dictionary")`, `VBA.CreateObject(...)` or `New Scripting.Dictionary`. */
@@ -225,6 +261,11 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: Map<strin
 			return;
 		}
 		state.keys[state.keys.indexOf(from)] = to;
+		const moved = state.values?.get(from);
+		state.values?.delete(from);
+		if (moved) {
+			state.values!.set(to, moved);
+		}
 		return;
 	}
 	// A method called as a statement: `d.Add k, v`, `d.Remove k`, `d.RemoveAll`.
@@ -244,6 +285,7 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: Map<strin
 				return;
 			}
 			state.keys.push(key);
+			remember(state, key, literalKind(args[1]));
 			return;
 		}
 		if (method === 'remove' && args.length === 1 && key) {
@@ -253,10 +295,12 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: Map<strin
 				return;
 			}
 			state.keys.splice(index, 1);
+			state.values?.delete(key);
 			return;
 		}
 		if (method === 'removeall' && args.length === 0) {
 			state.keys = [];
+			state.values = undefined;
 			return;
 		}
 	}
@@ -284,7 +328,20 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: Map<strin
 		const open = toks[i + 1]?.rawText === '(' ? i + 1 : member === 'item' && toks[i + 3]?.rawText === '(' ? i + 3 : -1;
 		const close = open >= 0 ? matchParenFrom(toks, open) : -1;
 		const key = close > open + 1 ? keyOf(toks.slice(open + 1, close), read) : undefined;
+		// `d("k") = 5` writes the item, and `Set d("k") = o` an object.
+		const written = toks[close + 1]?.rawText === '=' && (i === 0 || (i === 1 && tokenText(toks[0]) === 'set'));
+		if (written && i === 0) {
+			const value = toks.slice(close + 2);
+			// `d("k") = New Collection`: the Let reads the Collection's value
+			// (issue #306, measured in Excel 16.0).
+			if (value.length === 2 && tokenText(value[0]) === 'new' && tokenText(value[1]) === 'collection') {
+				push('objectDefaultValue', `'New Collection' is assigned to '${toks.slice(0, close + 1).map((tok) => tok.rawText).join('')}' without Set, so its value is read, and a Collection's default member Item needs an index. This will raise Run-time error '450': Wrong number of arguments or invalid property assignment.`, at(value[0], value[1]));
+			}
+		}
 		if (key) {
+			if (written) {
+				remember(read, key, i === 0 ? literalKind(toks.slice(close + 2)) : undefined);
+			}
 			if (!read.keys.includes(key)) {
 				// `d("k").Count` with no "k": the read adds it with an Empty
 				// item, which has no members (issue #349, measured).

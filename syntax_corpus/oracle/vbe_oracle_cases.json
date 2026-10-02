@@ -85107,6 +85107,476 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Excel.Nope\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue306_01_compile",
+      "description": "Issue #306 Let and Set into array elements and container items, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v(1) As Variant\r\n    Set v(0) = 5\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue306_02_compile",
+      "description": "Issue #306 Let and Set into array elements and container items, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As Collection\r\n    a(0) = New Collection\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue306_03_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 450.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v(1) As Variant\r\n    v(0) = New Collection\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue306_04_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 450.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Type T1\r\n    v As Variant\r\n    o As Object\r\nEnd Type\r\nFunction Main() As Variant\r\n    Dim t As T1\r\n    t.v = New Collection\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue306_05_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add New Collection\r\n    Set c(1) = New Collection\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue306_06_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add New Collection\r\n    Set c.Item(1) = New Collection\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue306_07_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 5\r\n    Dim x As Object\r\n    Set x = c(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue306_08_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 450.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add New Collection\r\n    Dim x As Variant\r\n    x = c(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue306_09_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 450.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d(\"k\") = New Collection\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue306_10_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d(\"k\") = 5\r\n    Dim x As Object\r\n    Set x = d(\"k\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue306_11_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As Collection\r\n    Set a(0) = ActiveSheet\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue306_12_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    v = Array(1, 2)\r\n    Set v(0) = New Collection\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue306_13_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 450.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v() As Variant\r\n    ReDim v(1)\r\n    v(0) = New Collection\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue306_14_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d(\"k\") = 5\r\n    Main = d(\"k\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue306_15_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    Set d(\"k\") = New Collection\r\n    Main = d(\"k\").Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue306_16_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v(1) As Variant\r\n    Set v(0) = New Collection\r\n    Main = v(0).Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue306_17_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As Collection\r\n    Set a(0) = New Collection\r\n    Main = a(0).Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue306_18_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 18, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add New Collection\r\n    c(1).Add 5\r\n    Main = c(1).Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue306_19_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 19, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Range(\"A1\") = 5\r\n    Main = Range(\"A1\").Value\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue306_20_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 20, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 5\r\n    Dim x As Variant\r\n    x = c(1)\r\n    Main = x\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue306_21_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 21, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add New Collection\r\n    Dim x As Object\r\n    Set x = c(1)\r\n    Main = x.Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue306_22_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 22, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v(1) As Variant\r\n    v(0) = 5\r\n    Main = v(0)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue306_23_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 23, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection\r\n    Set c = ActiveSheet\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic V As Long\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue306_24_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 24, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As Class1\r\n    Set a(0) = ActiveSheet\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic V As Long\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue306_25_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 25, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim k As Class1\r\n    Set k = ActiveSheet\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic V As Long\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue306_26_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 26, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> Sheet1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As Object\r\n    Set a(0) = ActiveSheet\r\n    Main = a(0).Name\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic V As Long\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue306_27_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 27, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1) As Range\r\n    Set a(0) = Range(\"A1\")\r\n    a(0) = 5\r\n    Main = Range(\"A1\").Value\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic V As Long\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue306_28_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 28, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.Add \"k\", 5\r\n    Dim x As Object\r\n    Set x = d(\"k\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic V As Long\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue306_29_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 29, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d(\"k\") = \"s\"\r\n    Dim x As Object\r\n    Set x = d.Item(\"k\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic V As Long\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue306_30_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 30, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d(\"k\") = 5\r\n    Set d(\"k\") = New Collection\r\n    Dim x As Object\r\n    Set x = d(\"k\")\r\n    Main = x.Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic V As Long\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue306_31_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 31, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add \"s\"\r\n    Dim x As Object\r\n    Set x = c.Item(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic V As Long\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue306_32_runtime",
+      "description": "Issue #306 Let and Set into array elements and container items, case 32, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 5, \"k\"\r\n    Set c(\"k\") = New Collection\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic V As Long\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }
