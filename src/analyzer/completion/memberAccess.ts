@@ -903,6 +903,13 @@ function receiverTypeFromParenthesizedReceiver(
 	if (open < 0) {
 		return undefined;
 	}
+	// After a name or another list the parentheses hold arguments, not a
+	// grouped receiver: `k.Wrap(r).Caption` with k late-bound is Wrap's
+	// result, whatever r is (issue #594).
+	const before = tokens[open - 1];
+	if (before && (isIdentLike(before) || before.rawText === ')' || before.rawText === ']')) {
+		return undefined;
+	}
 	const expressionTokens = tokens.slice(open + 1, endIndex);
 	return (
 		receiverTypeFromExpressionTokens(expressionTokens, source, offset, ctx) ??
