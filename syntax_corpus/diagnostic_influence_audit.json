@@ -2067,7 +2067,12 @@
         "issue286_18_runtime",
         "issue280_05_runtime",
         "issue280_08_runtime",
-        "issue280_11_runtime"
+        "issue280_11_runtime",
+        "issue559_13_runtime",
+        "issue559_14_runtime",
+        "issue559_18_runtime",
+        "issue559_20_runtime",
+        "issue559_22_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2207,11 +2212,14 @@
         "issue476_08_runtime",
         "issue476_09_runtime",
         "issue476_10_runtime",
-        "issue449_19_runtime"
+        "issue449_19_runtime",
+        "issue559_23_runtime",
+        "issue559_26_runtime",
+        "issue559_30_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show CDate(\"not a date\") compiles successfully and raises runtime error 13, while CDate(\"1/2/2020\") runs under the oracle environment. Active coverage is intentionally narrow: it reports bare or VBA-qualified CDate calls only when the first argument is an empty string literal or plain ASCII word text with no digits and no recognized English month token. Date-looking strings, non-ASCII/localized-looking text, variables, expressions, non-CDate conversion functions, source-shadowed bare CDate names, and inactive conditional-compilation branches stay quiet. Issue #218: the Date argument of Year, Month, Day, Weekday, Hour, Minute, Second, DateAdd, DatePart and DateDiff, given a string no locale reads as a date or a number outside the Date serial range (-657434 to 2958465), and Sgn given a string that is no number. In a block header too: For bounds and Step, Select Case, Do, Loop and While conditions, a With subject (issue #233, Excel 16.0). Issue #238: a String local holding one known string at the conversion is read like the literal; an unassigned String holds \"\", which CLng and CDate refuse. A name passed whole to a non-library function inside an assignment's value is taken as filled ByRef. Measured in Excel 16.0 (build 20326). Issue #239: a year-first date string (yyyy-m-d) that names no calendar day in either order after the year is refused: \"2020-02-30\", \"2021-02-29\", \"1900-02-29\". A month past 12 is left alone, since another order may read it. Measured in Excel 16.0 (build 20326). Issue #242: the math functions read a number as the conversions do: Abs, Sqr, Int, Fix, Round, Hex, Oct, Exp, Log, Sin, Cos, Tan and Atn of a string that is no number raise 13 (measured in Excel 16.0, build 20326). A module variable nothing in the module writes keeps its initial value in every procedure (issue #241, measured in Excel 16.0, build 20326); a Public one also needs no other module to write it (ProjectIndex.writtenNames). A String is \"\", so CLng(s) raises 13. Issue #259: a String local holds \"\" until something assigns it: n = CLng(s) before s = \"5\" raises 13 (measured in Excel 16.0). Issue #260: an omitted Optional String holds \"\" (or a declared non-numeric default), and a callee that first converts it with CLng, CInt, CDbl, CSng, CCur, CByte, CLngLng, CLngPtr or CDec raises 13; reported at the call. Val reads it cleanly. Measured in Excel 16.0. Issue #262: a time out of range (\"25:00\", \"24:00\", \"10:60\", \"10:00:60\") or of four parts (\"1:2:3:4\") raises 13 in CDate, DateValue and TimeValue, and TimeValue raises 13 on a string of digits alone (\"10\"), which CDate reads as a day; \"13:00 PM\" and \"10.5\" run. Measured in Excel 16.0. Issue #444: a date string with a year past 9999 (1/1/10000) or an hour of 25 (25:00) raises 13 in every date reader, and DateValue and TimeValue of a whole number (12, -1) raise 13 where CDate takes it as a serial; IsDate never raises. Issue #476: FormatNumber, FormatCurrency and FormatPercent of text that is no number, and FormatDateTime of text that is no date, raise 13.",
+      "notes": "This is an error but not VBE compile-equivalent: focused runtime oracle cases show CDate(\"not a date\") compiles successfully and raises runtime error 13, while CDate(\"1/2/2020\") runs under the oracle environment. Active coverage is intentionally narrow: it reports bare or VBA-qualified CDate calls only when the first argument is an empty string literal or plain ASCII word text with no digits and no recognized English month token. Date-looking strings, non-ASCII/localized-looking text, variables, expressions, non-CDate conversion functions, source-shadowed bare CDate names, and inactive conditional-compilation branches stay quiet. Issue #218: the Date argument of Year, Month, Day, Weekday, Hour, Minute, Second, DateAdd, DatePart and DateDiff, given a string no locale reads as a date or a number outside the Date serial range (-657434 to 2958465), and Sgn given a string that is no number. In a block header too: For bounds and Step, Select Case, Do, Loop and While conditions, a With subject (issue #233, Excel 16.0). Issue #238: a String local holding one known string at the conversion is read like the literal; an unassigned String holds \"\", which CLng and CDate refuse. A name passed whole to a non-library function inside an assignment's value is taken as filled ByRef. Measured in Excel 16.0 (build 20326). Issue #239: a year-first date string (yyyy-m-d) that names no calendar day in either order after the year is refused: \"2020-02-30\", \"2021-02-29\", \"1900-02-29\". A month past 12 is left alone, since another order may read it. Measured in Excel 16.0 (build 20326). Issue #242: the math functions read a number as the conversions do: Abs, Sqr, Int, Fix, Round, Hex, Oct, Exp, Log, Sin, Cos, Tan and Atn of a string that is no number raise 13 (measured in Excel 16.0, build 20326). A module variable nothing in the module writes keeps its initial value in every procedure (issue #241, measured in Excel 16.0, build 20326); a Public one also needs no other module to write it (ProjectIndex.writtenNames). A String is \"\", so CLng(s) raises 13. Issue #259: a String local holds \"\" until something assigns it: n = CLng(s) before s = \"5\" raises 13 (measured in Excel 16.0). Issue #260: an omitted Optional String holds \"\" (or a declared non-numeric default), and a callee that first converts it with CLng, CInt, CDbl, CSng, CCur, CByte, CLngLng, CLngPtr or CDec raises 13; reported at the call. Val reads it cleanly. Measured in Excel 16.0. Issue #262: a time out of range (\"25:00\", \"24:00\", \"10:60\", \"10:00:60\") or of four parts (\"1:2:3:4\") raises 13 in CDate, DateValue and TimeValue, and TimeValue raises 13 on a string of digits alone (\"10\"), which CDate reads as a day; \"13:00 PM\" and \"10.5\" run. Measured in Excel 16.0. Issue #444: a date string with a year past 9999 (1/1/10000) or an hour of 25 (25:00) raises 13 in every date reader, and DateValue and TimeValue of a whole number (12, -1) raise 13 where CDate takes it as a serial; IsDate never raises. Issue #476: FormatNumber, FormatCurrency and FormatPercent of text that is no number, and FormatDateTime of text that is no date, raise 13. Issue #559: CDate of a DateDiff past the date range, a Variant, raises 13.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -2594,7 +2602,10 @@
         "issue278_14_runtime",
         "issue278_15_runtime",
         "issue417_148_runtime",
-        "issue417_149_runtime"
+        "issue417_149_runtime",
+        "issue559_07_runtime",
+        "issue559_08_runtime",
+        "issue559_09_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -5134,7 +5145,14 @@
         "issue287_21_runtime",
         "issue287_22_runtime",
         "issue287_23_runtime",
-        "issue287_24_runtime"
+        "issue287_24_runtime",
+        "issue559_25_runtime",
+        "issue559_27_runtime",
+        "issue559_28_runtime",
+        "issue559_29_runtime",
+        "issue559_31_runtime",
+        "issue559_32_runtime",
+        "issue559_33_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -6098,7 +6116,12 @@
         "issue309_02_runtime",
         "issue309_03_runtime",
         "issue309_04_runtime",
-        "issue309_05_runtime"
+        "issue309_05_runtime",
+        "issue559_01_runtime",
+        "issue559_02_runtime",
+        "issue559_03_runtime",
+        "issue559_05_runtime",
+        "issue559_06_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

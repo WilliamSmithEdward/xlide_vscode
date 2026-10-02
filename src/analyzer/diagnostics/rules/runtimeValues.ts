@@ -61,6 +61,7 @@ import {
 	matchParenFrom,
 	rawExpressionTokens,
 	statementTokens,
+	statementTokensAfterLeadingLabel,
 	tokenName,
 	tokenText,
 	type ProcedureStatementVisitor,
@@ -267,6 +268,12 @@ export function checkRuntimeArgumentValues(
 					integerValue: (text) => evaluateIntegerConstantExpression(text, lookup),
 					shadowed: (name) => runtimeCallableSourceShadowed(name, sourceNames),
 					compare,
+					// A Date or Variant local a straight line has just given a date literal (issue #559).
+					dateOf: (lower) => {
+						const held = (reaching ??= straightLineAssignments(source, member.body, activity)).get(stmt)?.get(lower)?.filter((tok) => tok.kind !== 'comment');
+						const declared = normalizeType(env.get(lower));
+						return held?.length === 1 && held[0].kind === 'dateLiteral' && (declared === 'date' || declared === 'variant') ? parseDateLiteral(held[0].rawText) : undefined;
+					},
 				};
 				for (const hit of runtimeArgumentValueHits(source, stmt.span, moduleSignatures, env, lookup, stringCalls, sourceNames, host, declarationOf, isNullSlot, valueType)) {
 					const raises = hit.error === 6 ? `'6': Overflow` : `'5': Invalid procedure call or argument`;
@@ -281,10 +288,48 @@ export function checkRuntimeArgumentValues(
 				for (const hit of runtimeStatementValueHits(source, stmt.span, lookup, knownStringLengths, knownStrings, sourceNames, fixedLengthOf)) {
 					report('runtimeArgumentValue', hit.message, hit.span);
 				}
+				for (const hit of dateDiffPastDateRange(source, stmt.span, stringCalls, lookup)) {
+					report('runtimeConversionValue', hit.message, hit.span);
+				}
 			}, push);
 			counterValues = NO_COUNTER_VALUES;
 		};
 	};
+}
+
+/**
+ * `CDate(DateDiff("s", #2/29/2000#, t))`: DateDiff gives a Variant, and CDate
+ * of a Variant number past the date range raises 13, where a Long past it
+ * raises 6 (issue #559, measured in Excel 16.0). The dates must be known.
+ */
+function dateDiffPastDateRange(
+	source: string,
+	span: Span,
+	stringCalls: KnownStringCallContext,
+	constants: IntegerConstantLookup,
+): Array<{ message: string; span: Span }> {
+	const toks = statementTokensAfterLeadingLabel(source, span).filter((tok) => tok.kind !== 'comment');
+	const out: Array<{ message: string; span: Span }> = [];
+	for (let i = 0; i + 1 < toks.length; i++) {
+		if (tokenText(toks[i]) !== 'cdate' || toks[i + 1].rawText !== '(' || !isBareOrVbaQualifiedIntrinsicCall(toks, i) || stringCalls.shadowed('cdate')) {
+			continue;
+		}
+		const close = matchParenFrom(toks, i + 1);
+		const arg = close > i + 2 ? toks.slice(i + 2, close) : [];
+		if (!arg.some((tok, k) => tokenText(tok) === 'datediff' && arg[k + 1]?.rawText === '(')) {
+			continue;
+		}
+		const folded = foldKnownStringCalls(arg, stringCalls);
+		const value = folded === undefined ? undefined : evaluateIntegerConstantExpression(folded, constants);
+		if (value === undefined || (value >= -657434 && value <= 2958465)) {
+			continue;
+		}
+		out.push({
+			message: `CDate cannot convert ${value}, the Variant DateDiff gives here, to a date: it is past the range of dates. This will raise Run-time error '13': Type mismatch.`,
+			span: { start: span.start + arg[0].start, end: span.start + arg[arg.length - 1].end },
+		});
+	}
+	return out;
 }
 
 /**
@@ -1037,7 +1082,7 @@ function dateAddPastMaximum(
 	}
 	const date = dateSlot.length === 1 && dateSlot[0].kind === 'dateLiteral'
 		? parseDateLiteral(dateSlot[0].rawText)
-		: dateSerialOfLiterals(source, span, dateSlot, constants) ?? knownDate(dateSlot, (group) => integerGroupValue(source, span, group, constants));
+		: dateSerialOfLiterals(source, span, dateSlot, constants) ?? knownDate(dateSlot, (group) => integerGroupValue(source, span, group, constants), stringCalls?.dateOf);
 	if (!date) {
 		return undefined;
 	}
@@ -1092,7 +1137,7 @@ function dateSerialOfLiterals(source: string, span: Span, toks: readonly VbaToke
  * `DateSerial(9999, 13, 1)`: the month and day carry into the year, and a
  * date past December 31, 9999 raises error 5 (issue #189, measured in Excel
  * 16.0). The year alone decides nothing: DateSerial(10000, 0, 1) runs and is
- * December 1, 9999. A year below 100 is read as 19xx or 20xx, so it is not
+ * December 1, 9999. A year from 0 to 99 is read as 19xx or 20xx, so it is not
  * judged.
  */
 function dateSerialPastMaximum(
@@ -1108,17 +1153,21 @@ function dateSerialPastMaximum(
 		const toks = slot.filter((t) => t.kind !== 'comment');
 		return toks.length === 0 ? undefined : integerGroupValue(source, span, toks, constants);
 	});
-	if (year === undefined || month === undefined || day === undefined || year < 100) {
+	if (year === undefined || month === undefined || day === undefined || (year >= 0 && year < 100)) {
 		return undefined;
 	}
 	// A part past the Integer range overflows first (issue #218).
 	if ([year, month, day].some((part) => part < -32768 || part > 32767)) {
 		return undefined;
 	}
+	// A year below 0 is counted from 2000: DateSerial(-100, 1, 1) is
+	// January 1, 1900, and DateSerial(-10000, 1, 1) raises 5 (issue #559,
+	// measured in Excel 16.0).
 	const date = new Date(0);
-	date.setUTCFullYear(year, month - 1, 1);
+	date.setUTCFullYear(year < 0 ? year + 2000 : year, month - 1, 1);
 	date.setUTCDate(day);
-	if (date.getUTCFullYear() <= 9999) {
+	const before = date.getTime() < Date.UTC(100, 0, 1);
+	if (date.getUTCFullYear() <= 9999 && !before) {
 		return undefined;
 	}
 	const first = call.slots[0].find((t) => t.kind !== 'comment')!;
@@ -1126,7 +1175,7 @@ function dateSerialPastMaximum(
 	return {
 		displayName: call.displayName,
 		parameterName: 'Year',
-		value: `${year} with month ${month} and day ${day}, a date past December 31, 9999`,
+		value: `${year} with month ${month} and day ${day}, a date ${before ? 'before January 1, 100' : 'past December 31, 9999'}`,
 		span: { start: span.start + first.start, end: span.start + last.end },
 	};
 }

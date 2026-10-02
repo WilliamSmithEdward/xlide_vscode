@@ -1255,7 +1255,8 @@ function hostCalleeAt(
 		}
 		return undefined;
 	}
-	const resolved = hostReceiverTypes(resolveReceiverTypeAt(source, span.start + toks[i - 1].end, memberCtx), model);
+	const typed = hostReceiverTypes(resolveReceiverTypeAt(source, span.start + toks[i - 1].end, memberCtx), model);
+	const resolved = typed.length > 0 ? typed : hostReceiverTypes(rangeItemType(source, span, toks, i - 1, memberCtx), model);
 	// Of a union, only a part that has the member can run the call: the
 	// member is judged on the one part that has it. `ActiveSheet` is a
 	// Worksheet or a Chart, and only a Worksheet has Cells (issue #182).
@@ -1269,6 +1270,23 @@ function hostCalleeAt(
 	const receiver = having[0];
 	const member = resolveHostMember(receiver, name, model)!;
 	return { name, returns: member.returns, receiver, nameIndex: i, openIndex, closeIndex, args };
+}
+
+/**
+ * `r.Item(1)` before the dot at `dotIndex`, with r a Range: a Range too,
+ * though the model types Item as a Variant (issue #559, measured in Excel
+ * 16.0).
+ */
+function rangeItemType(source: string, span: Span, toks: readonly VbaToken[], dotIndex: number, memberCtx: MemberCompletionContext): string | undefined {
+	if (toks[dotIndex]?.rawText !== '.' || toks[dotIndex - 1]?.rawText !== ')') {
+		return undefined;
+	}
+	const close = dotIndex - 1;
+	const open = toks.findIndex((tok, k) => tok.rawText === '(' && matchParenFrom(toks, k) === close);
+	if (open < 3 || tokenText(toks[open - 1]) !== 'item' || toks[open - 2].rawText !== '.') {
+		return undefined;
+	}
+	return resolveReceiverTypeAt(source, span.start + toks[open - 2].end, memberCtx) === 'Excel.Range' ? 'Excel.Range' : undefined;
 }
 
 /**

@@ -2984,9 +2984,10 @@ function boundIntrinsicDimensionViolations(
 
 /**
  * `Split("abc", ",")(1)`: indexing the result of Split on literals, whose one
- * element sits at 0 (issue #120), and of Filter (issue #260).
+ * element sits at 0 (issue #120), and of Filter (issue #260), and on a
+ * String local known to hold its text (issue #559).
  */
-function inlineSplitIndexViolations(source: string, span: Span, shadowed: (name: string) => boolean): Array<{ span: Span; message: string }> {
+function inlineSplitIndexViolations(source: string, span: Span, shadowed: (name: string) => boolean, strings?: StringValueOf): Array<{ span: Span; message: string }> {
 	const toks = statementTokensAfterLeadingLabel(source, span);
 	const out: Array<{ span: Span; message: string }> = [];
 	for (let i = 0; i + 1 < toks.length; i++) {
@@ -3003,7 +3004,7 @@ function inlineSplitIndexViolations(source: string, span: Span, shadowed: (name:
 		if (indexClose < 0) {
 			continue;
 		}
-		const shape = arrayValueShape(toks.slice(i, close + 1), 'Split(...)', 0, undefined, moduleCompare(source));
+		const shape = arrayValueShape(toks.slice(i, close + 1), 'Split(...)', 0, strings, moduleCompare(source));
 		const indexToks = toks.slice(close + 2, indexClose).filter((tok) => tok.kind !== 'comment');
 		const value = comparableArrayBoundExpressionValue(indexToks);
 		if (!shape || value === undefined) {
@@ -3086,6 +3087,8 @@ export function checkFixedArraySubscriptBounds(
 		// A subscript through a Const or a local with one known value (issue #238).
 		const constants = procedureIntegerConstantLookup(member, moduleConstants, symbols, projectVisibleSymbols, activity, hostModel);
 		const valuesAt = knownLocalLiteralValuesAt(source, member, symbols, activity);
+		// `Split(s, ",")(3)` with s a String local known to hold "q,r" (issue #559).
+		const stringsAt = stringValuesAt(source, symbols, member, activity);
 		// Code that never runs, after `GoTo Done` or in a loop of no pass,
 		// raises nothing, whatever state it builds (issue #406).
 		const unreachable = unreachableStatementsIn(source, member, symbols, activity);
@@ -3095,7 +3098,7 @@ export function checkFixedArraySubscriptBounds(
 			if (unreachable.has(stmt)) {
 				return;
 			}
-			for (const hit of inlineSplitIndexViolations(source, stmt.span, (name) => runtimeCallableSourceShadowed(name, sourceNames ??= sourceNameScopeFor(symbols, member, projectVisibleSymbols)))) {
+			for (const hit of inlineSplitIndexViolations(source, stmt.span, (name) => runtimeCallableSourceShadowed(name, sourceNames ??= sourceNameScopeFor(symbols, member, projectVisibleSymbols)), stringsAt(stmt))) {
 				push('arraySubscriptOutOfBounds', hit.message, hit.span);
 			}
 			for (const hit of unallocated.size === 0 ? [] : unallocatedModuleArrayUses(source, stmt.span, unallocated)) {
