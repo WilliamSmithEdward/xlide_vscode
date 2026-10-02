@@ -63,7 +63,7 @@ import {
 	memberTakesOwnArguments,
 } from '../completion/memberAccess';
 import { procedureSymbolFor, type PushFn } from './analysisContext';
-import { straightLineAssignments, straightLineUnreachable, type ReachingAssignments } from './straightLineValues';
+import { straightLineAssignments, straightLineDeadBranches, straightLineUnreachable, type ReachingAssignments } from './straightLineValues';
 import { isInvalidBooleanString, isInvalidDateString, isInvalidNumericString, numericStringVerdict } from './stringConversion';
 import {
 	callableAcceptsZeroArguments,
@@ -3418,6 +3418,16 @@ export function unreachableStatementsIn(
 	const dead = straightLineUnreachable(source, proc.body, activity, walkStart(symbols, proc, literalValueLocals(proc, symbols)));
 	UNREACHABLE.set(proc, { activity, dead });
 	return dead;
+}
+
+/** The one-line If branches of a procedure that never run (issue #430). */
+export function deadBranchSpansIn(
+	source: string,
+	proc: ProcedureNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	activity: ConditionalActivityTracker | undefined,
+): readonly Span[] {
+	return straightLineDeadBranches(source, proc.body, activity, walkStart(symbols, proc, literalValueLocals(proc, symbols)));
 }
 
 const UNREACHABLE = new WeakMap<ProcedureNode, { activity: ConditionalActivityTracker | undefined; dead: ReadonlySet<BodyNode> }>();

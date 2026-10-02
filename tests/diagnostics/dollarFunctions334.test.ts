@@ -16,7 +16,8 @@ describe('a $ function or String with a bad Long local inside a block', () => {
 	it('is reported', () => {
 		const blocks: Array<[string, string]> = [
 			['If True Then', 'End If'],
-			['Select Case 1', 'End Select'],
+			// The statements go under a Case: before the first Case they are refused.
+			['Select Case 1\n    Case 1', 'End Select'],
 			['Do', 'Loop'],
 			['For i = 1 To 1', 'Next'],
 			['With Application', 'End With'],
