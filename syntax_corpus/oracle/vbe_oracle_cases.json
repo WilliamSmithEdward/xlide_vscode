@@ -75065,6 +75065,182 @@
       "source": "Option Explicit\r\nPrivate Const C As Integer = \"2\" + \"3\"\r\nFunction Main() As Variant\r\n    Main = C\r\nEnd Function\r\n\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue492_01_runtime",
+      "description": "Issue #492 multi-cell ranges in conditions and block If lines, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim ws As Worksheet\r\n    Set ws = ActiveSheet\r\n    If ws.Range(\"A1:A2\") Then\r\n        Main = 1\r\n    End If\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue492_02_runtime",
+      "description": "Issue #492 multi-cell ranges in conditions and block If lines, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim ws As Worksheet\r\n    Set ws = ActiveSheet\r\n    If ws.Range(\"A1:A2\").Value = 1 Then\r\n        Main = 1\r\n    End If\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue492_03_runtime",
+      "description": "Issue #492 multi-cell ranges in conditions and block If lines, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim ws As Worksheet\r\n    Set ws = ActiveSheet\r\n    If False Then\r\n        Main = 3\r\n    ElseIf ws.Range(\"A1:A2\") Then\r\n        Main = 1\r\n    End If\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue492_04_runtime",
+      "description": "Issue #492 multi-cell ranges in conditions and block If lines, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim ws As Worksheet\r\n    Set ws = ActiveSheet\r\n    If ws.Range(\"A1:A2\") Then Main = 1 Else Main = 2\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue492_05_runtime",
+      "description": "Issue #492 multi-cell ranges in conditions and block If lines, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim ws As Worksheet\r\n    Set ws = ActiveSheet\r\n    Main = ws.Range(ws.Cells(1, 1), ws.Cells(2, 1)).Value + 1\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue492_06_runtime",
+      "description": "Issue #492 multi-cell ranges in conditions and block If lines, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim ws As Worksheet\r\n    Set ws = ActiveSheet\r\n    Dim x As Variant\r\n    x = ws.Range(\"A1:A3\").Value\r\n    Main = Join(x, \",\")\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue492_07_runtime",
+      "description": "Issue #492 multi-cell ranges in conditions and block If lines, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Long\r\n    If 10 / d > 1 Then\r\n        Main = 1\r\n    End If\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue492_08_runtime",
+      "description": "Issue #492 multi-cell ranges in conditions and block If lines, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    If Mid(\"abc\", 0) = \"\" Then\r\n        Main = 1\r\n    End If\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue492_09_runtime",
+      "description": "Issue #492 multi-cell ranges in conditions and block If lines, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    If CLng(\"abc\") = 1 Then\r\n        Main = 1\r\n    End If\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue492_10_runtime",
+      "description": "Issue #492 multi-cell ranges in conditions and block If lines, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    If Cells(0, 1).Value = 1 Then\r\n        Main = 1\r\n    End If\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue492_11_runtime",
+      "description": "Issue #492 multi-cell ranges in conditions and block If lines, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim ws As Worksheet\r\n    Set ws = ActiveSheet\r\n    Do While ws.Range(\"A1:A2\")\r\n        Exit Do\r\n    Loop\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue492_12_runtime",
+      "description": "Issue #492 multi-cell ranges in conditions and block If lines, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim ws As Worksheet\r\n    Set ws = ActiveSheet\r\n    If ws.Range(\"A1\").Value = 0 Then\r\n        Main = 1\r\n    End If\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue492_13_runtime",
+      "description": "Issue #492 multi-cell ranges in conditions and block If lines, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim ws As Worksheet\r\n    Set ws = ActiveSheet\r\n    Main = ws.Range(ws.Cells(1, 1), ws.Cells(1, 1)).Value + 1\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue492_14_runtime",
+      "description": "Issue #492 multi-cell ranges in conditions and block If lines, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim ws As Worksheet\r\n    Set ws = ActiveSheet\r\n    Dim x As Variant\r\n    x = ws.Range(\"A1\").Value\r\n    Main = x\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue492_15_runtime",
+      "description": "Issue #492 multi-cell ranges in conditions and block If lines, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Long\r\n    d = 2\r\n    If 10 / d > 1 Then\r\n        Main = 1\r\n    End If\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue492_16_runtime",
+      "description": "Issue #492 multi-cell ranges in conditions and block If lines, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim ws As Worksheet\r\n    Set ws = ActiveSheet\r\n    If ws.Range(\"A1:A2\").Cells(1, 1).Value = 0 Then\r\n        Main = 1\r\n    End If\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

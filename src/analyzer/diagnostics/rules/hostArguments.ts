@@ -86,6 +86,7 @@ import {
 	type ProcedureStatementVisitor,
 } from '../walker';
 import { worksheetFunctionRefusal } from './worksheetFunctionArguments';
+import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
 
 const EXCEL_MAX_ROW = 1048576;
 const EXCEL_MAX_COLUMN = 16384;
@@ -693,6 +694,11 @@ function checkExcelCallee(
 			&& (a.row !== b.row || a.column !== b.column)) {
 			checkMultiCellAsScalar(source, span, toks, callee, `Range("${a.text}", "${b.text}")`, env, arrays, push);
 		}
+		// `Range(Cells(1, 1), Cells(2, 1))` the same way (issue #492).
+		const [from, to] = callee.args.length === 2 ? callee.args.map((arg) => cellsCall(arg, valueOf)) : [];
+		if (from && to && (from.row !== to.row || from.column !== to.column)) {
+			checkMultiCellAsScalar(source, span, toks, callee, `Range(Cells(${from.row}, ${from.column}), Cells(${to.row}, ${to.column}))`, env, arrays, push);
+		}
 	}
 }
 
@@ -766,6 +772,13 @@ function checkMultiCellAsScalar(
 		if (then > 0 && start > then) {
 			return;
 		}
+	}
+	// The whole condition: `If ws.Range("A1:A2") Then` reads the array as
+	// True or False (issue #492, measured in Excel 16.0).
+	const opener = tokenText(toks[start - 1]);
+	if (!bare && ['if', 'elseif', 'while', 'until'].includes(opener) && (end === toks.length - 1 || tokenText(toks[end + 1]) === 'then')) {
+		push('multiCellRangeAsScalar', message(`which ${opener === 'elseif' ? 'ElseIf' : opener === 'if' ? 'If' : opener === 'while' ? 'While' : 'Until'} cannot read as True or False`), valueSpan);
+		return;
 	}
 	// The operator on either side, never the assignment's own `=`.
 	const eqIndex = bare ? toks.findIndex((tok) => tok.rawText === '=') : -1;
@@ -914,6 +927,19 @@ function pastSheetEdge(row: number | undefined, column: number | undefined): str
 function singleCellReceiver(toks: readonly VbaToken[], dotIndex: number): { row: number; column: number; text: string } | undefined {
 	const block = literalRangeReceiver(toks, dotIndex);
 	return block && block.rows === 1 && block.width === 1 ? block : undefined;
+}
+
+/** `Cells(1, 1)` or `ws.Cells(1, 1)` with known numbers, as an argument of Range. */
+function cellsCall(arg: readonly VbaToken[], valueOf: (arg: readonly VbaToken[]) => number | undefined): { row: number; column: number } | undefined {
+	const toks = arg.filter((tok) => tok.kind !== 'comment');
+	const at = toks.length > 2 && toks[1]?.rawText === '.' ? 2 : 0;
+	if (tokenText(toks[at]) !== 'cells' || toks[at + 1]?.rawText !== '(' || matchParenFrom(toks, at + 1) !== toks.length - 1) {
+		return undefined;
+	}
+	const args = splitTopLevelTokenGroups(toks, at + 2, ',', toks.length - 1);
+	const row = args.length === 2 ? valueOf(args[0]) : undefined;
+	const column = args.length === 2 ? valueOf(args[1]) : undefined;
+	return row !== undefined && column !== undefined && row >= 1 && column >= 1 ? { row, column } : undefined;
 }
 
 /** The literal `Range("B2:C3")` before the dot at `dotIndex`: its top-left cell and its size. */
