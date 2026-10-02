@@ -55,6 +55,7 @@ import {
 	absoluteSpan,
 	activeModuleMembers,
 	isInactiveNode,
+	matchParenFrom,
 	rawExpressionTokens,
 	statementTokens,
 	statementTokensAfterLeadingLabel,
@@ -151,6 +152,20 @@ function variableNamed(ctx: Context, procSym: VbaSymbol | undefined, name: strin
 	const [definition] = binding.definitions;
 	return definition.kind === 'localVariable' || definition.kind === 'moduleVariable' || definition.kind === 'parameter'
 		? definition
+		: undefined;
+}
+
+/** The scalar type a Function of the module or project returns, when the name is one. */
+function scalarFunctionNamed(ctx: Context, procSym: VbaSymbol | undefined, name: string): string | undefined {
+	const binding = sourceIdentifierBinding(ctx.symbols, procSym, ctx.projectVisibleSymbols, name, 'expression');
+	if (binding.scope === 'unresolved' || binding.scope === 'ambiguous' || binding.definitions.length !== 1) {
+		return undefined;
+	}
+	const [definition] = binding.definitions;
+	const type = normalizeType(definition.asType);
+	return (definition.kind === 'function' || (definition.kind === 'declare' && definition.declareKind === 'Function'))
+		&& !definition.isArray && type && type !== 'variant' && type !== 'object' && isKnownScalarType(type)
+		? definition.asType
 		: undefined;
 }
 
@@ -302,7 +317,26 @@ function headerTokens(source: string, span: Span): VbaToken[] {
 
 function checkWithTarget(ctx: Context, procSym: VbaSymbol | undefined, span: Span): void {
 	const toks = headerTokens(ctx.source, span);
-	if (tokenText(toks[0]) !== 'with' || toks.length !== 2) {
+	if (tokenText(toks[0]) !== 'with') {
+		return;
+	}
+	// `With a(1)` on an array of Long, `With TakeL(1)` on a Function that
+	// returns one (issue #325, measured in Excel 16.0).
+	if (toks.length > 3 && toks[2].rawText === '(' && matchParenFrom(toks, 2) === toks.length - 1 && tokenName(toks[1])) {
+		const name = toks[1].rawText;
+		const array = variableNamed(ctx, procSym, name);
+		const element = array?.isArray ? category(ctx, { ...array, isArray: false }) : undefined;
+		const fn = array ? undefined : scalarFunctionNamed(ctx, procSym, name);
+		if (element === 'number' || element === 'string' || element === 'boolean' || element === 'date' || fn) {
+			ctx.push(
+				'withScalarTarget',
+				`With needs an object, a user-defined type or a Variant, and '${toks.slice(1).map((tok) => tok.rawText).join('')}' is ${fn ? `a ${fn}, what the Function returns` : 'an element of a scalar array'}. This is a VBE compile error: With object must be user-defined type, Object, or Variant.`,
+				{ start: span.start + toks[1].start, end: span.start + toks[toks.length - 1].end },
+			);
+		}
+		return;
+	}
+	if (toks.length !== 2) {
 		return;
 	}
 	const target = toks[1];
