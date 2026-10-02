@@ -1457,11 +1457,13 @@ export function validateArgumentTypesForSignature(
 		if (!actual) {
 			continue;
 		}
-		// A local known to hold a number is range-checked as that number:
-		// `Dim c As Currency: c = 1E14: Space(c)` overflows (issue #332).
+		// A local known to hold a number that is not whole is range-checked as
+		// that number: `Dim c As Currency: c = 922337203685477.5807@: Space(c)`
+		// overflows (issue #332). A whole one past the Long range is
+		// runtime-argument-value's (issue #336).
 		const heldValue = heldName !== undefined && actual.numericValue === undefined && actual.floatValue === undefined ? heldNumber?.(heldName) : undefined;
-		if (heldValue !== undefined) {
-			actual = { ...actual, heldBy: valueSlot[0].rawText, ...(Number.isInteger(heldValue) ? { numericValue: heldValue } : { floatValue: heldValue }) };
+		if (heldValue !== undefined && !Number.isInteger(heldValue)) {
+			actual = { ...actual, heldBy: valueSlot[0].rawText, floatValue: heldValue };
 		}
 		// A Variant parameter the function still refuses Null for: CStr(Null),
 		// Chr(Null), Asc(Null) raise 94 where Left(Null, 1) hands Null back
