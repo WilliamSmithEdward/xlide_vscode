@@ -44,6 +44,7 @@ import {
 	tokenName,
 	tokenText,
 } from '../walker';
+import { matchParenFrom, splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
 
 const COLLECTION_MEMBERS: ReadonlySet<string> = new Set(['add', 'count', 'item', 'remove']);
 
@@ -57,6 +58,100 @@ interface KnownClass {
 	writeOnly?: ReadonlySet<string>;
 	/** Set from a variable that may still be Nothing: 91 before 438. */
 	mayBeNothing?: boolean;
+	/** The parameters of each method, by lowercased name, where they are known (issue #485). */
+	params?: ReadonlyMap<string, readonly KnownParam[]>;
+}
+
+interface KnownParam {
+	name: string;
+	optional: boolean;
+	paramArray: boolean;
+}
+
+/** A Collection's methods as its type library declares them. */
+const COLLECTION_PARAMS: ReadonlyMap<string, readonly KnownParam[]> = new Map([
+	['add', [
+		{ name: 'Item', optional: false, paramArray: false },
+		{ name: 'Key', optional: true, paramArray: false },
+		{ name: 'Before', optional: true, paramArray: false },
+		{ name: 'After', optional: true, paramArray: false },
+	]],
+	['item', [{ name: 'Index', optional: false, paramArray: false }]],
+	['remove', [{ name: 'Index', optional: false, paramArray: false }]],
+	['count', []],
+]);
+
+/**
+ * What a call of a known member with these arguments raises, or undefined:
+ * a named argument it has no parameter for (448), more arguments than it
+ * takes (450), a required one missing (449), and an argument to a Count
+ * that takes none (451). The call is `o.M(...)`, or `o.M ...` as the
+ * statement. `toks[at]` is the receiver.
+ */
+function argumentRefusal(toks: readonly VbaToken[], at: number, params: readonly KnownParam[], memberName: string, property: boolean): string | undefined {
+	const open = at + 3;
+	let args: VbaToken[][] | undefined;
+	if (toks[open]?.rawText === '(') {
+		const close = matchParenFrom(toks, open);
+		if (close < 0) {
+			return undefined;
+		}
+		args = close === open + 1 ? [] : splitTopLevelTokenGroups([...toks], open + 1, ',', close);
+	} else if (at === 0 && toks.length > open && toks[open].rawText !== '=' && toks[open].rawText !== '.') {
+		args = splitTopLevelTokenGroups([...toks].filter((tok) => tok.kind !== 'comment'), open, ',', toks.filter((tok) => tok.kind !== 'comment').length);
+	} else if (at === 0 && toks.length === open) {
+		args = [];
+	}
+	if (!args) {
+		return undefined;
+	}
+	if (property) {
+		return args.length > 0 ? `its ${memberName} takes no argument. This will raise Run-time error '451': Property let procedure not defined and property get procedure did not return an object` : undefined;
+	}
+	const named = args.filter((arg) => arg.length >= 3 && arg[1].rawText === ':=');
+	for (const arg of named) {
+		if (!params.some((param) => param.name.toLowerCase() === arg[0].rawText.toLowerCase())) {
+			return `its ${memberName} has no parameter named '${arg[0].rawText}'. This will raise Run-time error '448': Named argument not found`;
+		}
+	}
+	const positional = args.length - named.length;
+	if (named.length === 0 && !params.some((param) => param.paramArray) && positional > params.length) {
+		return `its ${memberName} takes at most ${params.length} argument(s), and ${positional} are passed. This will raise Run-time error '450': Wrong number of arguments or invalid property assignment`;
+	}
+	const given = new Set(named.map((arg) => arg[0].rawText.toLowerCase()));
+	const missing = params.find((param, k) => !param.optional && !param.paramArray && !given.has(param.name.toLowerCase())
+		&& (k >= positional || (args![k] !== undefined && args![k].filter((tok) => tok.kind !== 'comment').length === 0)));
+	return missing ? `its ${memberName} needs '${missing.name}', which is not passed. This will raise Run-time error '449': Argument not optional` : undefined;
+}
+
+/** The parameters a member signature lists: `M(ByVal a As Long, [ByVal b As Long])`. */
+function signatureParams(signature: string): KnownParam[] | undefined {
+	const open = signature.indexOf('(');
+	let depth = 0;
+	let close = -1;
+	for (let i = open; open >= 0 && i < signature.length; i++) {
+		depth += signature[i] === '(' ? 1 : signature[i] === ')' ? -1 : 0;
+		if (depth === 0) {
+			close = i;
+			break;
+		}
+	}
+	if (close < 0) {
+		return undefined;
+	}
+	const list = signature.slice(open + 1, close).trim();
+	const params: KnownParam[] = [];
+	for (const raw of list === '' ? [] : list.split(',')) {
+		const text = raw.trim();
+		const optional = text.startsWith('[') || /^optional\b/i.test(text);
+		const words = text.replace(/[[\]]/g, '').split(/\s+/).filter((word) => !/^(optional|byval|byref|paramarray)$/i.test(word));
+		const name = /^[A-Za-z_][A-Za-z0-9_]*/.exec(words[0] ?? '')?.[0];
+		if (!name) {
+			return undefined;
+		}
+		params.push({ name, optional, paramArray: /\bparamarray\b/i.test(text) });
+	}
+	return params;
 }
 
 export function checkRuntimeMemberNotFound(
@@ -295,7 +390,7 @@ function knownClassNamed(name: string | undefined, memberCtx: MemberCompletionCo
 		return undefined;
 	}
 	if (name.toLowerCase() === 'collection') {
-		return { display: 'Collection', members: COLLECTION_MEMBERS };
+		return { display: 'Collection', members: COLLECTION_MEMBERS, params: COLLECTION_PARAMS };
 	}
 	const projectType = (memberCtx.projectClassMembers ?? []).find(
 		(type) => type.kind === 'class' && type.exhaustive === true && type.name.toLowerCase() === name.toLowerCase(),
@@ -304,7 +399,15 @@ function knownClassNamed(name: string | undefined, memberCtx: MemberCompletionCo
 		return undefined;
 	}
 	const properties = projectType.members.filter((m) => m.kind === 'property' && m.signature !== undefined);
+	const params = new Map<string, readonly KnownParam[]>();
+	for (const m of projectType.members) {
+		const list = m.kind === 'method' && m.signature ? signatureParams(m.signature) : undefined;
+		if (list) {
+			params.set(m.name.toLowerCase(), list);
+		}
+	}
 	return {
+		params,
 		display: projectType.name,
 		members: new Set(projectType.members.map((m) => m.name.toLowerCase())),
 		readOnly: new Set(properties.filter((m) => !m.letAccessor && !m.setAccessor).map((m) => m.name.toLowerCase())),
@@ -377,6 +480,13 @@ function checkStatement(
 			const nothing = known.mayBeNothing ? `, or '91' while '${receiver}' is Nothing` : '';
 			if (!known.members.has(lower)) {
 				push('runtimeMemberNotFound', `'${receiver}' holds a ${known.display} here, which has no member '${memberName}'. This will raise Run-time error '438': Object doesn't support this property or method${nothing}.`, at);
+				continue;
+			}
+			// The arguments the member refuses (issue #485, measured in Excel 16.0).
+			const params = known.params?.get(lower);
+			const refusal = params ? argumentRefusal(toks, i, params, memberName, known.display === 'Collection' && lower === 'count') : undefined;
+			if (refusal) {
+				push('runtimeMemberNotFound', `'${receiver}' holds a ${known.display} here: ${refusal}${nothing}.`, at);
 				continue;
 			}
 			// `o.RO = 5` as the statement, a Let into a Get-only property.
