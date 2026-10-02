@@ -85,6 +85,7 @@ import {
 	tokenText,
 	type ProcedureStatementVisitor,
 } from '../walker';
+import { worksheetFunctionRefusal } from './worksheetFunctionArguments';
 
 const EXCEL_MAX_ROW = 1048576;
 const EXCEL_MAX_COLUMN = 16384;
@@ -546,6 +547,13 @@ function checkExcelCallee(
 	const argsSpan = callee.closeIndex > callee.openIndex + 1
 		? { start: span.start + toks[callee.openIndex + 1].start, end: span.start + toks[callee.closeIndex - 1].end }
 		: calleeSpan;
+	if (callee.receiver === 'Excel.WorksheetFunction') {
+		const why = worksheetFunctionRefusal(lower, callee.args);
+		if (why) {
+			push('hostArgumentOutOfRange', `WorksheetFunction.${callee.name}: ${why}. The worksheet error is raised as Run-time error '1004': Unable to get the ${callee.name} property of the WorksheetFunction class.`, argsSpan);
+		}
+		return;
+	}
 	// A range counts its Cells, Rows and Columns from its own top-left cell,
 	// so a literal `Range("B2")` receiver moves the far edge in. Any other
 	// receiver starts at A1 or below, so the count alone past the edge is

@@ -312,6 +312,16 @@ function knownClassNamed(name: string | undefined, memberCtx: MemberCompletionCo
 	};
 }
 
+/**
+ * The members of Excel's WorksheetFunction, lowercased. The list is the type
+ * library's, the one Application's check already reads as complete: Ifs,
+ * Switch, VStack and TextSplit are absent from both, and raise 438 through
+ * either (issue #442, measured in Excel 16.0 build 20430).
+ */
+function worksheetFunctionNames(model: HostObjectModel | undefined): ReadonlySet<string> {
+	return new Set(getHostMembers('Excel.WorksheetFunction', model).map((member) => member.name.toLowerCase()));
+}
+
 /** Excel's Application members plus the worksheet functions it also answers to. */
 function excelApplicationSurface(model: HostObjectModel | undefined): ReadonlySet<string> | undefined {
 	if (model && model.hostName !== undefined && model.hostName !== 'Excel') {
@@ -340,6 +350,18 @@ function checkStatement(
 	push: PushFn,
 ): void {
 	for (let i = 0; i + 2 < toks.length; i++) {
+		// `WorksheetFunction.Mid`, `Application.WorksheetFunction.Summ`: the
+		// VBE compiles any name there too, and one that is no worksheet
+		// function raises 438 (issue #442, measured in Excel 16.0).
+		if (applicationSurface && tokenText(toks[i]) === 'worksheetfunction' && toks[i + 1].rawText === '.') {
+			const name = tokenName(toks[i + 2]);
+			const functions = name ? worksheetFunctionNames(memberCtx.model) : undefined;
+			if (name && functions && !functions.has(name.toLowerCase())
+				&& resolveReceiverTypeAt(source, base + toks[i + 1].end, memberCtx) === 'Excel.WorksheetFunction') {
+				push('runtimeMemberNotFound', `WorksheetFunction has no function '${name}'. The VBE compiles the name; this will raise Run-time error '438': Object doesn't support this property or method.`, { start: base + toks[i + 2].start, end: base + toks[i + 2].end });
+			}
+			continue;
+		}
 		if (toks[i + 1].rawText !== '.' || toks[i - 1]?.rawText === '.') {
 			continue;
 		}
