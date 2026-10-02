@@ -824,6 +824,9 @@ function checkSpan(
 		}
 		checkArgumentLimits(span, callee, valueOf, push);
 		checkInsertionPosition(span, toks, callee, valueOf, push);
+		if (host === 'Word') {
+			checkWordNames(span, callee, stringOf, push);
+		}
 		if (host === 'Excel') {
 			checkExcelMethodArguments(span, toks, callee, stringOf, push);
 			checkExcelCallee(source, span, toks, callee, calleeSpan, env, arrays, valueOf, push, stringOf);
@@ -930,6 +933,19 @@ const ARGUMENT_LIMITS: ReadonlyArray<{
 		receivers: ['PowerPoint.Slides'], member: 'range', parameter: 'Index', position: 0, runs: '1 or more',
 		refused: [{ from: -100, to: 0 }], error: { number: '-2147188160', text: 'Invalid request' },
 	},
+	// Issue #311, measured in PowerPoint 16.0.
+	{
+		receivers: ['PowerPoint.Shapes'], member: 'addtextbox', parameter: 'Width', position: 3, runs: '0 or more',
+		refused: [{ to: -1 }], error: { number: '-2147024809', text: 'The specified value is out of range' },
+	},
+	{
+		receivers: ['PowerPoint.Shapes'], member: 'addtextbox', parameter: 'Height', position: 4, runs: '0 or more',
+		refused: [{ to: -1 }], error: { number: '-2147024809', text: 'The specified value is out of range' },
+	},
+	{
+		receivers: ['PowerPoint.Slide', 'PowerPoint.SlideRange'], member: 'moveto', parameter: 'ToPos', position: 0, runs: '1 or more',
+		refused: [{ to: 0 }], error: { number: '-2147188160', text: 'Integer out of range' },
+	},
 	{
 		receivers: ['Word.Tables'], member: 'add', parameter: 'NumRows', position: 1, runs: '1 to 32767',
 		refused: [{ to: 0 }, { from: 32768 }], error: { number: '5148', text: 'The number must be between 1 and 32767' },
@@ -961,6 +977,36 @@ function checkArgumentLimits(
 			`${callee.receiver.slice(callee.receiver.indexOf('.') + 1)}.${callee.name} takes ${limit.parameter} ${limit.runs}; ${value} is outside that. This will raise Run-time error '${limit.error.number}': ${limit.error.text}.`,
 			argSpan(span, arg!),
 		);
+	}
+}
+
+/**
+ * Names Word refuses (issue #311, measured in Word 16.0): a bookmark name
+ * that is empty, starts with a digit, or holds anything but letters, digits
+ * and underscores (5828), and an empty style name (5167). A bookmark name
+ * past 40 letters is shortened, not refused.
+ */
+function checkWordNames(
+	span: Span,
+	callee: HostCallee,
+	stringOf: (arg: readonly VbaToken[]) => string | undefined,
+	push: PushFn,
+): void {
+	if (callee.name.toLowerCase() !== 'add') {
+		return;
+	}
+	const arg = argumentByNameOrPosition(callee.args, 'Name', 0);
+	const name = arg?.length ? stringOf(arg) : undefined;
+	if (name === undefined) {
+		return;
+	}
+	if (callee.receiver === 'Word.Bookmarks') {
+		const why = name === '' ? 'is empty' : /^\d/.test(name) ? 'starts with a digit' : /[^\p{L}\p{N}_]/u.test(name) ? 'holds a character other than a letter, a digit or _' : undefined;
+		if (why) {
+			push('hostArgumentOutOfRange', `The bookmark name "${name}" ${why}: a bookmark name starts with a letter and holds letters, digits and _. This will raise Run-time error '5828': Bad bookmark name.`, argSpan(span, arg!));
+		}
+	} else if (callee.receiver === 'Word.Styles' && name === '') {
+		push('hostArgumentOutOfRange', `A style needs a name, and "" is none. This will raise Run-time error '5167': This is not a valid style name.`, argSpan(span, arg!));
 	}
 }
 

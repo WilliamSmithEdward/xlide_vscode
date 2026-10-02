@@ -111,6 +111,7 @@ import { checkOverflow } from './rules/overflow';
 import { checkHostArguments, workbookSheetsToCheck } from './rules/hostArguments';
 import { checkCollectionLoopCounters, checkCollectionState } from './rules/collectionState';
 import { checkDictionaryState } from './rules/dictionaryState';
+import { checkDocumentNames } from './rules/documentNames';
 import { checkExcelSessionState } from './rules/excelSessionState';
 import { checkErrorValues } from './rules/errorValues';
 import { checkByNameCalls } from './rules/byNameCalls';
@@ -425,6 +426,20 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'dictionaryState',
 		run: (ctx, push) => checkDictionaryState(ctx.source, ctx.mod, ctx.activity, push),
+	},
+	{
+		name: 'documentNames',
+		run: (ctx, push) => checkDocumentNames(
+			ctx.source,
+			ctx.mod,
+			ctx.opts.hostModel?.hostName,
+			new Set([
+				...(ctx.symbols.root.children ?? []).filter((symbol) => ['sub', 'function', 'declare', 'propertyGet', 'propertyLet', 'propertySet'].includes(symbol.kind)).map((symbol) => symbol.name.toLowerCase()),
+				...[...(ctx.opts.projectProcedures?.keys() ?? [])].map((name) => name.toLowerCase()),
+			]),
+			ctx.activity,
+			push,
+		),
 	},
 	{
 		name: 'excelSessionState',
