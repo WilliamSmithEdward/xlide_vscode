@@ -36,9 +36,9 @@ import type { BodyNode, ModuleNode, ProcedureNode, Span } from '../../parser/nod
 import { walkEnteringBlocks } from '../dataflow';
 import { isLeafStatement } from '../../parser/nodes';
 import { statementLabelDeclaration } from '../../flow/procedureLabels';
-import type { PushFn } from '../analysisContext';
+import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { counterText, loopCountersAt, numericCounterPasses, type LoopCounter } from '../loopCounters';
-import { knownLocalLiteralValuesAt, normalizeType, procedureIntegerConstantLookup, stringLiteralValue, unreachableStatementsIn, withKnownLocals } from '../typeInference';
+import { isKnownScalarType, knownLocalLiteralValuesAt, normalizeType, procedureIntegerConstantLookup, stringLiteralValue, unreachableStatementsIn, withKnownLocals } from '../typeInference';
 import {
 	activeModuleMembers,
 	blockHeaderLineSpan,
@@ -59,6 +59,29 @@ interface CollectionContents {
 	keysKnown: boolean;
 	/** The bounds of the array each element holds, where an Add gave it `Array(...)`; aligned with items. */
 	shapes: (FixedArrayBound | undefined)[];
+	/**
+	 * What each element is, where an Add gave it a tracked Collection, which
+	 * the element then shares, or a number literal (issue #452); aligned with
+	 * items.
+	 */
+	held: Held[];
+	/** Set once a name for this collection stopped being followed: it may have changed unseen. */
+	stale?: boolean;
+}
+
+type Held = CollectionContents | 'number' | 'string' | undefined;
+
+function emptyContents(): CollectionContents {
+	return { items: [], keysKnown: true, shapes: [], held: [] };
+}
+
+/** Stops following a name; what it named may now change unseen, so an element sharing it is no longer read. */
+function forgetCollection(states: Map<string, CollectionContents>, lower: string): void {
+	const contents = states.get(lower);
+	if (contents) {
+		contents.stale = true;
+	}
+	states.delete(lower);
 }
 
 export function checkCollectionState(
@@ -80,7 +103,7 @@ export function checkCollectionState(
 		const autoInstanced = collectionLocals(member, activity);
 		const states = new Map<string, CollectionContents>();
 		for (const name of autoInstanced.newLocals) {
-			states.set(name, { items: [], keysKnown: true, shapes: [] });
+			states.set(name, emptyContents());
 		}
 		if (states.size === 0 && autoInstanced.plainLocals.size === 0) {
 			continue;
@@ -94,6 +117,19 @@ export function checkCollectionState(
 		const valuesAt = symbols ? knownLocalLiteralValuesAt(source, member, symbols, activity) : undefined;
 		// Code that never runs changes nothing and raises nothing (issue #406).
 		const unreachable = symbols ? unreachableStatementsIn(source, member, symbols, activity) : undefined;
+		// A scalar or Variant local, or the Function's result, which a
+		// Collection's value is Let into (issue #452).
+		const holdsValue = (type: string | undefined): boolean => {
+			const normalized = normalizeType(type);
+			return normalized === undefined || normalized === 'variant' || isKnownScalarType(normalized);
+		};
+		const scalars = new Set((symbols ? procedureSymbolFor(symbols, member)?.children ?? [] : [])
+			.filter((child) => child.kind === 'localVariable' && !child.isArray && holdsValue(child.asType))
+			.map((child) => child.name.toLowerCase()));
+		if (member.procKind === 'Function' && holdsValue(member.returnType)) {
+			scalars.add(member.name.toLowerCase());
+		}
+		const scalarLocal = (lower: string): boolean => scalars.has(lower);
 		// Blocks are entered with the state they start with (issue #237).
 		const visit = (node: BodyNode): void => {
 			if (!isLeafStatement(node) || unreachable?.has(node)) {
@@ -123,18 +159,18 @@ export function checkCollectionState(
 				const isCollectionLocal = autoInstanced.plainLocals.has(lower) || autoInstanced.newLocals.has(lower);
 				const aliased = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
 				if (isCollectionLocal && value.length === 2 && tokenText(value[0]) === 'new' && tokenText(value[1]) === 'collection') {
-					states.set(lower, { items: [], keysKnown: true, shapes: [] });
+					states.set(lower, emptyContents());
 					return;
 				}
 				if (isCollectionLocal && aliased !== undefined && states.has(aliased)) {
 					states.set(lower, states.get(aliased)!);
 					return;
 				}
-				states.delete(lower);
+				forgetCollection(states, lower);
 				for (const tok of value) {
 					const mentioned = tokenName(tok)?.toLowerCase();
 					if (mentioned && states.has(mentioned)) {
-						states.delete(mentioned);
+						forgetCollection(states, mentioned);
 					}
 				}
 				return;
@@ -142,7 +178,7 @@ export function checkCollectionState(
 			const lookup = constants && valuesAt ? withKnownLocals(constants, valuesAt(node)) : undefined;
 			const indexOf = (arg: readonly VbaToken[]): number | undefined => literalIndex(arg)
 				?? (lookup ? evaluateIntegerConstantExpression(arg.map((tok) => tok.rawText).join(' '), lookup) : undefined);
-			checkStatement(node.span, toks, states, push, isEmpty, indexOf, optionBase, lookup);
+			checkStatement(node.span, toks, states, push, isEmpty, indexOf, optionBase, lookup, scalarLocal);
 		};
 		walkEnteringBlocks(source, member.body, (node) => activity?.isInactive(node.span) === true, visit, {
 			snapshot: () => cloneStates(states),
@@ -154,7 +190,7 @@ export function checkCollectionState(
 			},
 			forget: (names) => {
 				for (const lower of names) {
-					states.delete(lower);
+					forgetCollection(states, lower);
 				}
 			},
 			touches: (stmt) => namesIn(source, stmt.span),
@@ -312,14 +348,19 @@ function simulateCountedLoop(
 /** A copy of the states in which two names that shared one collection still do. */
 function cloneStates(states: ReadonlyMap<string, CollectionContents>): Map<string, CollectionContents> {
 	const copies = new Map<CollectionContents, CollectionContents>();
-	const out = new Map<string, CollectionContents>();
-	for (const [lower, contents] of states) {
+	// An element that is a collection is copied once, as the name sharing it is.
+	const copyOf = (contents: CollectionContents): CollectionContents => {
 		let copy = copies.get(contents);
 		if (!copy) {
-			copy = { items: [...contents.items], keysKnown: contents.keysKnown, shapes: [...contents.shapes] };
+			copy = { items: [...contents.items], keysKnown: contents.keysKnown, shapes: [...contents.shapes], held: [], ...(contents.stale ? { stale: true } : {}) };
 			copies.set(contents, copy);
+			copy.held = contents.held.map((held) => (typeof held === 'object' ? copyOf(held) : held));
 		}
-		out.set(lower, copy);
+		return copy;
+	};
+	const out = new Map<string, CollectionContents>();
+	for (const [lower, contents] of states) {
+		out.set(lower, copyOf(contents));
 	}
 	return out;
 }
@@ -354,7 +395,7 @@ function forgetMentioned(source: string, span: Span, states: Map<string, Collect
 	for (const tok of statementTokensAfterLeadingLabel(source, span)) {
 		const lower = tokenName(tok)?.toLowerCase();
 		if (lower && states.has(lower)) {
-			states.delete(lower);
+			forgetCollection(states, lower);
 		}
 	}
 }
@@ -370,6 +411,7 @@ function checkStatement(
 	indexOf: IndexOf = literalIndex,
 	optionBase = 0,
 	lookup?: IntegerConstantLookup,
+	scalarLocal: (lower: string) => boolean = () => false,
 ): void {
 	const at = (from: number, to: number): Span => ({ start: base.start + toks[from].start, end: base.start + toks[to].end });
 	// First pass: reads and the recognised forms, in source order. A mention
@@ -380,9 +422,23 @@ function checkStatement(
 	if (tokenText(toks[0]) === 'call') {
 		i = 1;
 	}
+	const first = i;
+	// `c.Add inner`: the element shares inner, which the Add leaves as it is.
+	const heldOf = (item: readonly VbaToken[]): Held => {
+		const named = item.length === 1 ? tokenName(item[0])?.toLowerCase() : undefined;
+		const contents = named ? states.get(named) : undefined;
+		if (contents) {
+			return contents;
+		}
+		return literalIndex(item) !== undefined || (item.length === 1 && item[0].kind === 'floatLiteral') ? 'number' : item.length === 1 && item[0].kind === 'stringLiteral' ? 'string' : undefined;
+	};
+	const addsWhole = states.has(tokenName(toks[first])?.toLowerCase() ?? '') && toks[first + 1]?.rawText === '.' && tokenText(toks[first + 2]) === 'add'
+		? argumentsAfter(toks, first + 3)[0] : undefined;
+	const addedName = addsWhole?.length === 1 && tokenName(addsWhole[0]) ? addsWhole[0] : undefined;
+	const item = { base, toks, push, indexOf, mutations, isEmpty, optionBase, heldOf, scalarLocal, first };
 	for (; i < toks.length; i++) {
 		const lower = tokenName(toks[i])?.toLowerCase();
-		if (!lower || !states.has(lower) || toks[i - 1]?.rawText === '.') {
+		if (!lower || !states.has(lower) || toks[i - 1]?.rawText === '.' || toks[i] === addedName) {
 			continue;
 		}
 		const state = states.get(lower)!;
@@ -392,6 +448,7 @@ function checkStatement(
 			const close = matchParenFrom(toks, i + 1);
 			if (close > i + 2 && checkRead(lower, state, toks.slice(i + 2, close), at(i + 2, close - 1), push, indexOf)) {
 				checkItemArray(base, toks, toks[i].rawText, state, toks.slice(i + 2, close), close, push, indexOf, lookup);
+				useHeldItem(item, i, toks[i].rawText, state, toks.slice(i + 2, close), close);
 				continue;
 			}
 			toForget.add(lower);
@@ -409,6 +466,7 @@ function checkStatement(
 			const itemClose = toks[i + 3]?.rawText === '(' ? matchParenFrom(toks, i + 3) : -1;
 			if (itemClose > i + 4 && checkRead(lower, state, toks.slice(i + 4, itemClose), at(i + 4, itemClose - 1), push, indexOf)) {
 				checkItemArray(base, toks, toks[i].rawText, state, toks.slice(i + 4, itemClose), itemClose, push, indexOf, lookup);
+				useHeldItem(item, i, `${toks[i].rawText}.Item`, state, toks.slice(i + 4, itemClose), itemClose);
 				continue;
 			}
 			toForget.add(lower);
@@ -417,7 +475,7 @@ function checkStatement(
 		if ((memberName === 'add' || memberName === 'remove') && i === (tokenText(toks[0]) === 'call' ? 1 : 0)) {
 			const args = argumentsAfter(toks, i + 3);
 			if (memberName === 'add') {
-				mutations.push(() => add(lower, state, args, base, push, isEmpty, indexOf, optionBase));
+				mutations.push(() => add(lower, state, args, base, push, isEmpty, indexOf, optionBase, heldOf));
 			} else if (args.length === 1) {
 				mutations.push(() => remove(lower, state, args[0], base, push, indexOf));
 			} else {
@@ -431,7 +489,82 @@ function checkStatement(
 		mutation();
 	}
 	for (const lower of toForget) {
-		states.delete(lower);
+		forgetCollection(states, lower);
+	}
+}
+
+interface ItemContext {
+	base: Span;
+	toks: readonly VbaToken[];
+	push: PushFn;
+	indexOf: IndexOf;
+	mutations: Array<() => void>;
+	isEmpty: (lower: string) => boolean;
+	optionBase: number;
+	heldOf: (item: readonly VbaToken[]) => Held;
+	scalarLocal: (lower: string) => boolean;
+	/** The statement's first token after a Call. */
+	first: number;
+}
+
+/**
+ * What follows `c(k)` where element k is a Collection the code added, or a
+ * number (issue #452, measured in Excel 16.0): an index or key into the
+ * inner Collection, and its Add and Remove, are judged against what it
+ * holds; a number indexed raises 13 and a member of one 424; a Collection
+ * Let into a typed local raises 450, its default member Item needing an
+ * index. Any other use of an inner Collection may change it unseen.
+ */
+function useHeldItem(ctx: ItemContext, nameAt: number, display: string, state: CollectionContents, arg: readonly VbaToken[], close: number): void {
+	const { toks, base } = ctx;
+	const key = literalKey(arg);
+	const index = ctx.indexOf(arg) ?? (key !== undefined && state.keysKnown && state.items.includes(key) ? state.items.indexOf(key) + 1 : undefined);
+	const held = index !== undefined && index >= 1 ? state.held[index - 1] : undefined;
+	if (held === undefined || (typeof held === 'object' && held.stale)) {
+		return;
+	}
+	const shown = `${display}(${arg.map((tok) => tok.rawText).join('')})`;
+	const spanOf = (from: number, to: number): Span => ({ start: base.start + toks[from].start, end: base.start + toks[to].end });
+	const after = toks[close + 1]?.rawText;
+	const member = after === '.' ? tokenText(toks[close + 2]) : undefined;
+	if (held === 'number' || held === 'string') {
+		if (after === '(') {
+			ctx.push('variantValueMisuse', `'${shown}' holds a ${held}, which takes no index. This will raise Run-time error '13': Type mismatch.`, spanOf(nameAt, matchParenFrom(toks, close + 1)));
+		} else if (member) {
+			ctx.push('variantValueMisuse', `'${shown}' holds a ${held}, not an object, so it has no ${toks[close + 2].rawText}. This will raise Run-time error '424': Object required.`, spanOf(nameAt, close + 2));
+		}
+		return;
+	}
+	if (after === '(' || (member === 'item' && toks[close + 3]?.rawText === '(')) {
+		const open = after === '(' ? close + 1 : close + 3;
+		const innerClose = matchParenFrom(toks, open);
+		if (innerClose > open + 1) {
+			checkRead(shown, held, toks.slice(open + 1, innerClose), spanOf(open + 1, innerClose - 1), ctx.push, ctx.indexOf);
+		}
+		return;
+	}
+	if (member === 'count') {
+		return;
+	}
+	if ((member === 'add' || member === 'remove') && nameAt === ctx.first) {
+		const args = argumentsAfter(toks, close + 3);
+		if (member === 'add') {
+			ctx.mutations.push(() => add(shown, held, args, base, ctx.push, ctx.isEmpty, ctx.indexOf, ctx.optionBase, ctx.heldOf));
+		} else if (args.length === 1) {
+			ctx.mutations.push(() => remove(shown, held, args[0], base, ctx.push, ctx.indexOf));
+		} else {
+			held.stale = true;
+		}
+		return;
+	}
+	if (member !== undefined) {
+		held.stale = true;
+		return;
+	}
+	// `v = c(1)` with v a Long or a Variant.
+	const target = tokenName(toks[ctx.first])?.toLowerCase();
+	if (target && toks[ctx.first + 1]?.rawText === '=' && nameAt === ctx.first + 2 && close === toks.length - 1 && ctx.scalarLocal(target)) {
+		ctx.push('objectDefaultValue', `'${shown}' is a Collection: its default member Item needs an index, so it has no value for '${toks[ctx.first].rawText}' to take. This will raise Run-time error '450': Wrong number of arguments or invalid property assignment.`, spanOf(nameAt, close));
 	}
 }
 
@@ -594,11 +727,12 @@ function addRefusal(name: string, state: CollectionContents, byName: ReadonlyMap
 	return undefined;
 }
 
-function add(name: string, state: CollectionContents, rawArgs: VbaToken[][], base: Span, push: PushFn, isEmpty: (lower: string) => boolean, indexOf: IndexOf, optionBase: number): void {
+function add(name: string, state: CollectionContents, rawArgs: VbaToken[][], base: Span, push: PushFn, isEmpty: (lower: string) => boolean, indexOf: IndexOf, optionBase: number, heldOf: (item: readonly VbaToken[]) => Held = () => undefined): void {
 	const byName = addArguments(rawArgs);
 	if (!byName) {
 		state.items.push(undefined);
 		state.shapes.push(undefined);
+		state.held.push(undefined);
 		state.keysKnown = false;
 		return;
 	}
@@ -622,10 +756,12 @@ function add(name: string, state: CollectionContents, rawArgs: VbaToken[][], bas
 		state.items.push(key);
 		state.keysKnown = false;
 		state.shapes = state.items.map(() => undefined);
+		state.held = state.items.map(() => undefined);
 		return;
 	}
 	state.items.push(key);
 	state.shapes.push(args[0].length > 0 ? arrayValueShape(args[0], name, optionBase) : undefined);
+	state.held.push(heldOf(args[0]));
 }
 
 function remove(name: string, state: CollectionContents, arg: VbaToken[], base: Span, push: PushFn, indexOf: IndexOf): void {
@@ -638,6 +774,7 @@ function remove(name: string, state: CollectionContents, arg: VbaToken[], base: 
 		}
 		state.items.splice(index - 1, 1);
 		state.shapes.splice(index - 1, 1);
+		state.held.splice(index - 1, 1);
 		return;
 	}
 	const key = literalKey(arg);
@@ -646,6 +783,7 @@ function remove(name: string, state: CollectionContents, arg: VbaToken[], base: 
 		state.items.pop();
 		state.keysKnown = false;
 		state.shapes = state.items.map(() => undefined);
+		state.held = state.items.map(() => undefined);
 		return;
 	}
 	if (reportKey(name, state, stringLiteralValue(arg[0].rawText), span, push)) {
@@ -655,10 +793,12 @@ function remove(name: string, state: CollectionContents, arg: VbaToken[], base: 
 	if (position >= 0) {
 		state.items.splice(position, 1);
 		state.shapes.splice(position, 1);
+		state.held.splice(position, 1);
 	} else {
 		state.items.pop();
 		state.keysKnown = false;
 		state.shapes = state.items.map(() => undefined);
+		state.held = state.items.map(() => undefined);
 	}
 }
 
