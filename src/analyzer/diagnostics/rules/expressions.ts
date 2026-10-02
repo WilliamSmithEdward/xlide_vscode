@@ -1073,6 +1073,14 @@ export function checkStringArithmeticOperands(
 					report(leftString.span, leftString.what);
 				} else if (rightString && (numeric(left) || typeof leftElement?.value === 'number')) {
 					report(rightString.span, rightString.what);
+				} else {
+					// `s + d`, `s + b`: a String a Date or Boolean cannot read
+					// (issue #331, measured in Excel 16.0).
+					const fromLeft = unreadableAs(left, right);
+					const unreadable = fromLeft ?? unreadableAs(right, left);
+					if (unreadable) {
+						push('stringArithmeticCoercion', `Operator '+' adds ${unreadable.what} to ${unreadable.as}, which cannot read it. This will raise Run-time error '13': Type mismatch.`, fromLeft ? at(right!) : at(left));
+					}
 				}
 			}
 		}
