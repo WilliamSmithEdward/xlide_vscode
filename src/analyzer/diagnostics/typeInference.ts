@@ -1685,6 +1685,12 @@ export function byRefVariableTypeMismatch(
 	if (!byRefExact(actual) || sameByRefType(actual, expected)) {
 		return undefined;
 	}
+	// An Object passes ByRef to `c As Collection`, and a Collection to
+	// `o As Object`: both compile, and the wrong object raises 13 at run time
+	// (issue #343, measured in Excel 16.0).
+	if ([actual, expected].includes('object') && [actual, expected].includes('collection')) {
+		return undefined;
+	}
 	return {
 		name,
 		actual: actualRaw ?? name,
