@@ -146,7 +146,8 @@ export function checkBuiltinsReadBare(
 				toks.forEach((tok, i) => {
 					depth += tok.rawText === '(' ? 1 : tok.rawText === ')' ? -1 : 0;
 					const next = toks[i + 1]?.rawText;
-					if (tok.kind !== 'identifier' || (depth === 0 && (valueFrom < 0 || i < valueFrom)) || ['.', '!'].includes(toks[i - 1]?.rawText ?? '')
+					// A name after AddressOf is addressof-misuse's (issue #299).
+					if (tok.kind !== 'identifier' || (depth === 0 && (valueFrom < 0 || i < valueFrom)) || ['.', '!'].includes(toks[i - 1]?.rawText ?? '') || tokenText(toks[i - 1]) === 'addressof'
 						|| ['(', '.', '!', ':=', '$'].includes(next ?? '') || redim.has(tok.rawText.toLowerCase())) {
 						return;
 					}

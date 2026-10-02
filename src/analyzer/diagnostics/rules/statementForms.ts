@@ -138,7 +138,8 @@ export function checkStatementForms(
 				for (let i = 0; i < limit; i++) {
 					const name = tokenName(toks[i]);
 					// `x = c.DoIt()` with DoIt a Sub of c's class (issue #369).
-					if (name && target && i > eq && toks[i - 1]?.rawText === '.' && toks[i + 1]?.rawText !== '.'
+					// After AddressOf it is addressof-misuse's (issue #299).
+					if (name && target && i > eq && toks[i - 1]?.rawText === '.' && toks[i + 1]?.rawText !== '.' && tokenText(toks[i - 3]) !== 'addressof'
 						&& projectClassMemberAt(source, span.start + toks[i - 1].end, name, memberCtx)?.sub) {
 						push('subUsedAsValue', `'${name}' is a Sub of the class, which returns nothing, so it cannot be used as a value. This is a VBE compile error: Expected Function or variable.`, at(i));
 						continue;
