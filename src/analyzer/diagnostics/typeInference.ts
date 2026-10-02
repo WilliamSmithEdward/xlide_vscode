@@ -63,7 +63,7 @@ import {
 	memberTakesOwnArguments,
 } from '../completion/memberAccess';
 import { procedureSymbolFor, type PushFn } from './analysisContext';
-import { straightLineAssignments, straightLineDeadBranches, straightLineUnreachable, type ReachingAssignments } from './straightLineValues';
+import { EMPTY_COLLECTION, OBJECT_NOTHING, straightLineAssignments, straightLineDeadBranches, straightLineUnreachable, type ReachingAssignments } from './straightLineValues';
 import { isInvalidBooleanString, isInvalidDateString, isInvalidNumericString, numericStringVerdict } from './stringConversion';
 import {
 	callableAcceptsZeroArguments,
@@ -3647,13 +3647,33 @@ function walkStart(
 	// A parse makes new nodes, so a procedure node is one source's.
 	let start = WALK_STARTS.get(proc);
 	if (!start) {
-		start = new Map([...conditionConstants(symbols, proc), ...declaredDefaults(locals)]);
+		start = new Map([...conditionConstants(symbols, proc), ...declaredDefaults(locals), ...objectStarts(symbols, proc)]);
 		WALK_STARTS.set(proc, start);
 	}
 	return start;
 }
 
 const WALK_STARTS = new WeakMap<ProcedureNode, ReachingAssignments>();
+
+/**
+ * What an object local holds as the procedure starts (issue #483): Nothing
+ * for one never set, and an empty Collection for `Dim c As New Collection`.
+ */
+function objectStarts(symbols: ReturnType<typeof buildModuleSymbols>, proc: ProcedureNode): Map<string, readonly VbaToken[]> {
+	const out = new Map<string, readonly VbaToken[]>();
+	for (const child of procedureSymbolFor(symbols, proc)?.children ?? []) {
+		const type = normalizeType(child.asType);
+		if (child.kind !== 'localVariable' || child.visibility === 'Static' || child.isArray || type === undefined || type === 'variant' || type === 'string' || isKnownScalarType(type)) {
+			continue;
+		}
+		if (!child.isAutoInstantiated) {
+			out.set(child.name.toLowerCase(), OBJECT_NOTHING);
+		} else if (type === 'collection' || type === 'vba.collection') {
+			out.set(child.name.toLowerCase(), EMPTY_COLLECTION);
+		}
+	}
+	return out;
+}
 
 /**
  * The Consts a procedure sees whose value is one literal, as the walk reads
