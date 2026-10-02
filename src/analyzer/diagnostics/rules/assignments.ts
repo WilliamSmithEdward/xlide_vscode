@@ -346,6 +346,60 @@ export function checkAssignmentTypes(
 				: undefined;
 		}
 
+		// `n = 1 + Null`, `s = "a" + v` with v holding Null: arithmetic, `+`,
+		// unary minus, Not, a comparison and Abs give Null when an operand is
+		// Null; And gives Null unless the other side is False, Or unless it is
+		// True; `&` never does (issue #324, measured in Excel 16.0).
+		function nullExpressionAt(stmt: LeafStatementNode, span: Span, valueTokens: readonly VbaToken[]): { text: string; span: Span } | undefined {
+			const value = unwrapOuterParens(valueTokens.filter((tok) => tok.kind !== 'comment'));
+			if (value.length < 2) {
+				return undefined;
+			}
+			const holdsNull = (tok: VbaToken): boolean => tokenText(tok) === 'null'
+				|| nullHeldAt(stmt, span, [tok]) !== undefined;
+			const yieldsNull = (toks: readonly VbaToken[]): boolean => {
+				const part = unwrapOuterParens([...toks]);
+				if (part.length === 1) {
+					return holdsNull(part[0]);
+				}
+				const head = tokenText(part[0]);
+				if (head === '-' || head === 'not') {
+					return yieldsNull(part.slice(1));
+				}
+				if (head === 'abs' && part[1]?.rawText === '(' && matchParenFrom(part, 1) === part.length - 1) {
+					return yieldsNull(part.slice(2, -1));
+				}
+				const operands: VbaToken[][] = [[]];
+				const operators: string[] = [];
+				let depth = 0;
+				for (const tok of part) {
+					depth += tok.rawText === '(' ? 1 : tok.rawText === ')' ? -1 : 0;
+					const word = tok.kind === 'operator' ? tok.rawText : tokenText(tok);
+					const current = operands[operands.length - 1];
+					if (depth === 0 && current.length > 0 && NULL_PROPAGATING.has(word) && tok.kind !== 'stringLiteral') {
+						operators.push(word);
+						operands.push([]);
+					} else {
+						current.push(tok);
+					}
+				}
+				if (operators.length === 0 || operators.includes('&') || operands.some((operand) => operand.length === 0)) {
+					return false;
+				}
+				const literal = (operand: VbaToken[]): string => (operand.length === 1 ? tokenText(operand[0]) : '');
+				if (operators.includes('and') && operands.some((operand) => literal(operand) === 'false')) {
+					return false;
+				}
+				if (operators.includes('or') && operands.some((operand) => literal(operand) === 'true')) {
+					return false;
+				}
+				return operands.some((operand) => yieldsNull(operand));
+			};
+			return yieldsNull(value)
+				? { text: value.map((tok) => tok.rawText).join(' ').replace(/ ?([()]) ?/g, '$1'), span: { start: span.start + value[0].start, end: span.start + value[value.length - 1].end } }
+				: undefined;
+		}
+
 		// `s = "b"` then `n = s`: the String a local or an array element
 		// is known to hold here, from its last assignment in a straight line.
 		function knownStringAt(stmt: LeafStatementNode, span: Span, valueTokens: readonly VbaToken[], expected: string): InferredArgumentType | undefined {
@@ -600,6 +654,15 @@ export function checkAssignmentTypes(
 					'assignmentTypeMismatch',
 					`Assignment to '${assignment.name}' expects ${expected}, but '${nullSource.name}' holds Null here. Null cannot be coerced to this scalar type. This will raise Run-time error '94': Invalid use of Null.`,
 					nullSource.span,
+				);
+				return;
+			}
+			const nullValue = isKnownScalarType(normalizeType(expected) ?? '') ? nullExpressionAt(stmt, span, assignment.valueTokens) : undefined;
+			if (nullValue) {
+				push(
+					'assignmentTypeMismatch',
+					`Assignment to '${assignment.name}' expects ${expected}, but '${nullValue.text}' is Null: an operator on Null gives Null. Null cannot be coerced to this scalar type. This will raise Run-time error '94': Invalid use of Null.`,
+					nullValue.span,
 				);
 				return;
 			}
@@ -1858,6 +1921,9 @@ function fixedTextPart(part: readonly VbaToken[], known: (lower: string) => Know
 }
 
 /** The text functions folded over known text: `Left("abc", 1)` is "a". */
+/** The binary operators whose result is Null when an operand is (issue #324). `&` is here to be refused. */
+const NULL_PROPAGATING: ReadonlySet<string> = new Set(['+', '-', '*', '/', '\\', '^', 'mod', '=', '<>', '<', '>', '<=', '>=', 'and', 'or', 'xor', 'eqv', 'imp', '&']);
+
 const TEXT_FUNCTIONS: ReadonlySet<string> = new Set(['cstr', 'left', 'right', 'mid', 'ucase', 'lcase', 'trim', 'ltrim', 'rtrim']);
 
 /**
