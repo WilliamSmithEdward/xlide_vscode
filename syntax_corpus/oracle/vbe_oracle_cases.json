@@ -60643,6 +60643,39 @@
       "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim o As Collection, a() As Long\r\n    If True Then\r\n        Main = a(0)\r\n    End If\r\n    Exit Function\r\n    EH:\r\n    Resume Next\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue446_01_runtime",
+      "description": "Issue #446 Resume under On Error Resume Next, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim n As Long\r\n    On Error GoTo H\r\n    On Error Resume Next\r\n    Resume Next\r\n    n = n + 1\r\n    Main = n\r\n    Exit Function\r\n    H:\r\n    Main = \"h\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue446_02_runtime",
+      "description": "Issue #446 Resume under On Error Resume Next, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim n As Long\r\n    On Error Resume Next\r\n    Resume\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue446_03_runtime",
+      "description": "Issue #446 Resume under On Error Resume Next, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim n As Long\r\n    On Error Resume Next\r\n    Resume L1\r\n    Main = 1\r\n    L1:\r\n    Main = Main + 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
