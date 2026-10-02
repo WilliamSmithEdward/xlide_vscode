@@ -507,6 +507,10 @@ class TypedFolder {
 			this.index++;
 			return literal;
 		}
+		const date = this.currentDate() ?? this.dateSerial();
+		if (date) {
+			return date;
+		}
 		// `"1" \ False`: the string is an operand of `\` or Mod itself, not
 		// of a `*`, `/` or `^` that binds tighter.
 		const word = (at: number): string => (this.toks[at]?.kind === 'operator' ? this.toks[at].rawText : tokenText(this.toks[at]));
@@ -717,6 +721,43 @@ class TypedFolder {
 			}
 		}
 		return undefined;
+	}
+
+	/**
+	 * `Date` and `Now`, a Date whose serial is today's: past an Integer's
+	 * 32767 on any clock set after May 1989, so `i = Now` with i As Integer
+	 * overflows (issue #327, measured in Excel 16.0). Not when a name of the
+	 * procedure's or a call hides them.
+	 */
+	private currentDate(): Typed | undefined {
+		const word = tokenText(this.toks[this.index]);
+		const next = this.toks[this.index + 1]?.rawText;
+		if ((word !== 'date' && word !== 'now') || next === '(' || next === '.' || next === '$' || this.toks[this.index - 1]?.rawText === '.' || this.names(word) !== undefined) {
+			return undefined;
+		}
+		this.index++;
+		const today = Math.floor((Date.now() - DATE_EPOCH_MS) / DAY_MS);
+		return { value: word === 'now' ? today + 0.5 : today, type: 'date' };
+	}
+
+	/**
+	 * `DateSerial(2020, 1, 1)` with whole-number literal arguments: the Date
+	 * it names, with month and day rolling over as VBA rolls them (issue
+	 * #327, measured in Excel 16.0).
+	 */
+	private dateSerial(): Typed | undefined {
+		if (tokenText(this.toks[this.index]) !== 'dateserial' || this.toks[this.index + 1]?.rawText !== '(' || this.toks[this.index - 1]?.rawText === '.') {
+			return undefined;
+		}
+		const close = matchParenFrom(this.toks, this.index + 1);
+		const args = close < 0 ? [] : splitTopLevelTokenGroups(this.toks, this.index + 2, ',', close);
+		const parts = args.map((arg) => (arg.length === 1 && arg[0].kind === 'integerLiteral' ? parseVbaIntegerLiteral(arg[0].rawText) : undefined));
+		if (parts.length !== 3 || parts.some((part) => part === undefined) || parts[0]! < 100 || parts[0]! > 9999) {
+			return undefined;
+		}
+		const ms = Date.UTC(parts[0]!, parts[1]! - 1, parts[2]!);
+		this.index = close + 1;
+		return { value: Math.round((ms - DATE_EPOCH_MS) / DAY_MS), type: 'date' };
 	}
 
 	private convert(callee: string, inner: Typed, span: Span, shown = showNumber(inner.value)): Folded {
