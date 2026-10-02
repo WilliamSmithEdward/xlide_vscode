@@ -18,6 +18,9 @@ import {
 } from './analyzer';
 import { errorHandlerExtents, onErrorMode } from './analyzer/diagnostics/rules/handlerFlow';
 import { statementTokensAfterLeadingLabel } from './analyzer/diagnostics/walker';
+import { unreachableStatementsIn } from './analyzer/diagnostics/typeInference';
+import { buildModuleSymbols } from './analyzer/symbols/buildModuleSymbols';
+import type { ConditionalActivityTracker } from './analyzer/conditional/conditionalCompilation';
 import type { BodyNode, ModuleNode, ProcedureNode, Span } from './analyzer/parser/nodes';
 import { lineStartOffsets } from './vbaSourceScan';
 import {
@@ -131,7 +134,13 @@ export function analyzeVbaModuleSource(input: VbaModuleAnalysisInput): VbaModule
             analyzeOptions.moduleName ?? 'Module',
             moduleType ?? analyzeOptions.moduleKind ?? 'standard',
         ),
-        ...onErrorResumeNextSuppressionRanges(source, module),
+        ...onErrorResumeNextSuppressionRanges(source, module, () => ({
+            symbols: buildModuleSymbols(analyzeOptions.moduleName ?? 'Module', analyzeOptions.moduleKind ?? 'standard', source, {
+                conditionalCompilation: analyzeOptions.conditionalCompilation,
+                parsedModule: module,
+            }),
+            activity: createConditionalActivityTracker(module, analyzeOptions.conditionalCompilation),
+        })),
     ];
 
     try {
@@ -368,23 +377,40 @@ function expectedErrorRuntimeSuppressionRanges(
 function onErrorResumeNextSuppressionRanges(
     source: string,
     module: ModuleNode,
+    analysisContext: () => { symbols: ReturnType<typeof buildModuleSymbols>; activity: ConditionalActivityTracker | undefined },
 ): ExpectedErrorRuntimeSuppression[] {
     const out: ExpectedErrorRuntimeSuppression[] = [];
+    let context: ReturnType<typeof analysisContext> | undefined;
     for (const member of module.members) {
         if (member.kind !== 'Procedure') {
             continue;
         }
         const handlers: Array<{ start: number; end: number; resumeNext: boolean }> = [];
         const running = errorHandlerExtents(source, member);
-        const visit = (body: readonly BodyNode[]): void => {
-            for (const node of body) {
+        // An On Error statement a known guard keeps from running sets nothing:
+        // `If False Then ... On Error Resume Next ... End If`, a For of no
+        // pass, a Case that cannot match, the line after a GoTo (issue #486,
+        // measured in Excel 16.0). The walk is run only where one could be dead.
+        let dead: ReadonlySet<BodyNode> | undefined;
+        const neverRuns = (node: BodyNode, nested: boolean, after: readonly BodyNode[]): boolean => {
+            const mayBeDead = nested || after.some((earlier) => earlier.kind === 'Statement'
+                && ['goto', 'exit', 'end', 'resume', 'return'].includes(statementTokensAfterLeadingLabel(source, earlier.span)[0]?.rawText.toLowerCase() ?? ''));
+            if (!mayBeDead) {
+                return false;
+            }
+            context ??= analysisContext();
+            dead ??= unreachableStatementsIn(source, member, context.symbols, context.activity);
+            return dead.has(node);
+        };
+        const visit = (body: readonly BodyNode[], nested: boolean): void => {
+            for (const [index, node] of body.entries()) {
                 if (node.kind === 'Statement') {
                     // Read after any line label: `10 On Error Resume Next`.
                     const mode = onErrorMode(statementTokensAfterLeadingLabel(source, node.span));
                     // GoTo 0 turns handling off and ends the stretch; GoTo -1
                     // only clears the error, and Resume Next stays (issue #313,
                     // measured in Excel 16.0).
-                    if (mode === 'resume-next' || mode === 'goto-label' || mode === 'goto-0') {
+                    if ((mode === 'resume-next' || mode === 'goto-label' || mode === 'goto-0') && !neverRuns(node, nested, body.slice(0, index))) {
                         const start = node.span.start;
                         handlers.push({
                             start,
@@ -394,11 +420,11 @@ function onErrorResumeNextSuppressionRanges(
                         });
                     }
                 } else if ('body' in node && Array.isArray(node.body)) {
-                    visit(node.body as BodyNode[]);
+                    visit(node.body as BodyNode[], true);
                 }
             }
         };
-        visit(member.body);
+        visit(member.body, false);
         handlers.sort((a, b) => a.start - b.start);
         for (let i = 0; i < handlers.length; i++) {
             if (!handlers[i].resumeNext) {

@@ -74499,6 +74499,72 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1 To 5) As Long, i As Long\r\n    i = 1\r\n    Do While i <= 5\r\n        If a(i) = 0 Then Exit Do\r\n        i = i + 1\r\n    Loop\r\n    Main = a(i)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue486_01_runtime",
+      "description": "Issue #486 an On Error statement that never runs, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long, d As Long\r\n    GoTo L\r\n    On Error Resume Next\r\nL:\r\n    c.Add 2\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue486_02_runtime",
+      "description": "Issue #486 an On Error statement that never runs, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long, d As Long\r\n    If False Then\r\n        On Error Resume Next\r\n    End If\r\n    Main = 1 / d\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue486_03_runtime",
+      "description": "Issue #486 an On Error statement that never runs, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long, d As Long\r\n    If n = 1 Then\r\n        On Error Resume Next\r\n    End If\r\n    Main = 1 / d\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue486_04_runtime",
+      "description": "Issue #486 an On Error statement that never runs, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long, d As Long\r\n    If True Then\r\n        On Error Resume Next\r\n    End If\r\n    c.Add 2\r\n    Main = 3\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue486_05_runtime",
+      "description": "Issue #486 an On Error statement that never runs, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long, d As Long\r\n    If n = 0 Then\r\n        On Error Resume Next\r\n    End If\r\n    Main = 1 / d\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue486_06_runtime",
+      "description": "Issue #486 an On Error statement that never runs, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, n As Long, d As Long\r\n    On Error Resume Next\r\n    If False Then\r\n        On Error GoTo 0\r\n    End If\r\n    Main = 1 / d\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

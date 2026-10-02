@@ -66,3 +66,26 @@ describe('On Error GoTo 0 after On Error Resume Next (issue #313)', () => {
 	});
 });
 
+// An On Error statement a known guard keeps from running sets nothing
+// (issue #486, measured in Excel 16.0 on 2026-10-02).
+describe('an On Error statement that never runs (issue #486)', () => {
+	const D = '    Dim c As Collection, n As Long, d As Long\n';
+	it.each([
+		['If False', `${D}    If False Then\n        On Error Resume Next\n    End If\n    c.Add 2`, '91'],
+		['a For of no pass', `${D}    For n = 1 To 0\n        On Error Resume Next\n    Next\n    c.Add 2`, '91'],
+		['a Case that cannot match', `${D}    Select Case 1\n    Case 2\n        On Error Resume Next\n    End Select\n    c.Add 2`, '91'],
+		['the line after a GoTo', `${D}    GoTo L\n    On Error Resume Next\nL:\n    c.Add 2`, '91'],
+		['a guard on a known local', `${D}    If n = 1 Then\n        On Error Resume Next\n    End If\n    x = 1 / d`, '11'],
+	] as const)('reports what follows %s', (_name, body, number) => {
+		expect(runtimeErrors(body)).toContain(number);
+	});
+
+	it.each([
+		['If True', `${D}    If True Then\n        On Error Resume Next\n    End If\n    c.Add 2`],
+		['a guard that holds', `${D}    If n = 0 Then\n        On Error Resume Next\n    End If\n    x = 1 / d`],
+		['a GoTo 0 that never runs', `${D}    On Error Resume Next\n    If False Then\n        On Error GoTo 0\n    End If\n    x = 1 / d`],
+	] as const)('stays quiet after %s', (_name, body) => {
+		expect(runtimeErrors(body)).toEqual([]);
+	});
+});
+
