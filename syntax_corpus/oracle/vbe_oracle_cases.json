@@ -65863,6 +65863,202 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    If Range(\"A1\") = 1 Then\r\n        Main = 2\r\n    End If\r\n    Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue451_01_compile",
+      "description": "Issue #451 Fixed-length strings and LSet or RSet, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim L As Long\r\n    L = 5\r\n    Dim s As String * L\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue451_02_compile",
+      "description": "Issue #451 Fixed-length strings and LSet or RSet, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    LSet n = 5\r\n    Main = n\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue451_03_compile",
+      "description": "Issue #451 Fixed-length strings and LSet or RSet, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type TA\r\n    x As Long\r\nEnd Type\r\nPrivate Type TB\r\n    y As Long\r\nEnd Type\r\nFunction Main() As Variant\r\n    Dim a As TA, b As TB\r\n    RSet a = b\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue451_04_runtime",
+      "description": "Issue #451 Fixed-length strings and LSet or RSet, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String * 3, n As Long\r\n    n = s\r\n    Main = n\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue451_05_runtime",
+      "description": "Issue #451 Fixed-length strings and LSet or RSet, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 12.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String * 3, n As Long\r\n    s = \"12\"\r\n    n = s\r\n    Main = n\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue451_06_compile",
+      "description": "Issue #451 Fixed-length strings and LSet or RSet, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    RSet n = 5\r\n    Main = n\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue451_07_compile",
+      "description": "Issue #451 Fixed-length strings and LSet or RSet, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    LSet v = \"ab\"\r\n    Main = v\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue451_08_compile",
+      "description": "Issue #451 Fixed-length strings and LSet or RSet, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Double\r\n    LSet d = 5\r\n    Main = d\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue451_09_compile",
+      "description": "Issue #451 Fixed-length strings and LSet or RSet, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim b As Boolean\r\n    RSet b = True\r\n    Main = b\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue451_10_compile",
+      "description": "Issue #451 Fixed-length strings and LSet or RSet, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String\r\n    s = \"abcd\"\r\n    LSet s = \"x\"\r\n    Main = s\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue451_11_compile",
+      "description": "Issue #451 Fixed-length strings and LSet or RSet, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String * 3\r\n    RSet s = \"x\"\r\n    Main = s\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue451_12_compile",
+      "description": "Issue #451 Fixed-length strings and LSet or RSet, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type TA\r\n    x As Long\r\nEnd Type\r\nPrivate Type TB\r\n    y As Long\r\nEnd Type\r\nFunction Main() As Variant\r\n    Dim a As TA, b As TB\r\n    LSet a = b\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue451_13_compile",
+      "description": "Issue #451 Fixed-length strings and LSet or RSet, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Type TA\r\n    x As Long\r\nEnd Type\r\nPrivate Type TB\r\n    y As Long\r\nEnd Type\r\nFunction Main() As Variant\r\n    Dim a As TA\r\n    RSet a = \"x\"\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue451_14_compile",
+      "description": "Issue #451 Fixed-length strings and LSet or RSet, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Const K = 4\r\nFunction Main() As Variant\r\n    Dim s As String * K\r\n    Main = Len(s)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue451_15_runtime",
+      "description": "Issue #451 Fixed-length strings and LSet or RSet, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String * 3, d As Double\r\n    d = s\r\n    Main = d\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue451_16_runtime",
+      "description": "Issue #451 Fixed-length strings and LSet or RSet, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String * 3, b As Boolean\r\n    b = s\r\n    Main = b\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue451_17_runtime",
+      "description": "Issue #451 Fixed-length strings and LSet or RSet, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String * 3, t As Date\r\n    t = s\r\n    Main = t\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue451_18_runtime",
+      "description": "Issue #451 Fixed-length strings and LSet or RSet, case 18, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim s As String * 3, v As Variant\r\n    v = s\r\n    Main = Len(v)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue451_19_compile",
+      "description": "Issue #451 Fixed-length strings and LSet or RSet, case 19, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Date\r\n    LSet d = #1/1/2000#\r\n    Main = d\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }
