@@ -74356,6 +74356,149 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As Collection, d As Long, k As Long, x As Variant\r\n    Set c = New Collection\r\n    For k = 1 To 2\r\n        c.Add k\r\n    Next\r\n    For Each x In c\r\n        Main = 10 / d\r\n    Next\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue479_01_runtime",
+      "description": "Issue #479 a loop counter after its loop, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1 To 5) As Long, i As Long\r\n    For i = 1 To 5\r\n        a(i) = i\r\n    Next\r\n    Main = a(i)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue479_02_runtime",
+      "description": "Issue #479 a loop counter after its loop, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1 To 5) As Long, i As Long\r\n    i = 1\r\n    Do While i <= 5\r\n        a(i) = i\r\n        i = i + 1\r\n    Loop\r\n    Main = a(i)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue479_03_runtime",
+      "description": "Issue #479 a loop counter after its loop, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim i As Integer\r\n    Do Until i < 0\r\n        i = i + 1000\r\n    Loop\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue479_04_runtime",
+      "description": "Issue #479 a loop counter after its loop, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1 To 5) As Long, i As Long\r\n    For i = 1 To 5 Step 2\r\n        a(i) = i\r\n    Next\r\n    Main = a(i)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue479_05_runtime",
+      "description": "Issue #479 a loop counter after its loop, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1 To 5) As Long, i As Long\r\n    For i = 5 To 1 Step -1\r\n        a(i) = i\r\n    Next\r\n    Main = a(i)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue479_06_runtime",
+      "description": "Issue #479 a loop counter after its loop, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1 To 5) As Long, i As Long\r\n    i = 5\r\n    Do Until i < 1\r\n        a(i) = i\r\n        i = i - 1\r\n    Loop\r\n    Main = a(i)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue479_07_runtime",
+      "description": "Issue #479 a loop counter after its loop, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1 To 5) As Long, i As Long\r\n    i = 1\r\n    Do\r\n        a(i) = i\r\n        i = i + 1\r\n    Loop While i <= 5\r\n    Main = a(i)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue479_08_runtime",
+      "description": "Issue #479 a loop counter after its loop, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1 To 5) As Long, i As Long\r\n    i = 1\r\n    While i <= 5\r\n        i = i + 1\r\n    Wend\r\n    Main = a(i)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue479_09_runtime",
+      "description": "Issue #479 a loop counter after its loop, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1 To 5) As Long, i As Long\r\n    For i = 1 To 5\r\n        If a(i) = 0 Then Exit For\r\n    Next\r\n    Main = a(i)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue479_10_runtime",
+      "description": "Issue #479 a loop counter after its loop, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1 To 5) As Long, i As Long\r\n    For i = 1 To 4\r\n        a(i) = i\r\n    Next\r\n    Main = a(i)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue479_11_runtime",
+      "description": "Issue #479 a loop counter after its loop, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1 To 5) As Long, i As Long\r\n    i = 1\r\n    Do While i <= 4\r\n        i = i + 1\r\n    Loop\r\n    Main = a(i)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue479_12_runtime",
+      "description": "Issue #479 a loop counter after its loop, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 41000.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim i As Long\r\n    Do Until i < 0\r\n        i = i + 1000\r\n        If i > 40000 Then Exit Do\r\n    Loop\r\n    Main = i\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue479_13_runtime",
+      "description": "Issue #479 a loop counter after its loop, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(1 To 5) As Long, i As Long\r\n    i = 1\r\n    Do While i <= 5\r\n        If a(i) = 0 Then Exit Do\r\n        i = i + 1\r\n    Loop\r\n    Main = a(i)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

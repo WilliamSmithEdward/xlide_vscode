@@ -1415,7 +1415,7 @@ function checkAccumulatingLoops(
 			if (node.kind === 'ForBlock') {
 				accumulateFor(source, node, env, names, startValues(node), activity, push);
 			} else if (node.kind === 'DoBlock' || node.kind === 'WhileBlock') {
-				endlessStep(source, node, env, activity, push);
+				endlessStep(source, node, env, activity, push, startValues(node));
 			}
 			visit(node.body as BodyNode[]);
 		}
@@ -1550,6 +1550,7 @@ function endlessStep(
 	env: ReadonlyMap<string, string>,
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
+	startValues: ReadonlyMap<string, KnownLocalValue>,
 ): void {
 	// The test: `Do While x`, `Do Until x`, `Loop While x`, `Loop Until x`, `While x`.
 	const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
@@ -1579,6 +1580,7 @@ function endlessStep(
 		return;
 	}
 	const limit = negative ? -raw : raw;
+	const start = startValues.get(name);
 	// The body is plain statements with no Exit, GoTo or End: loopStepIn
 	// finds the step only there.
 	const step = loopStepIn(source, (node as { body: BodyNode[] }).body, env, undefined, activity, name);
@@ -1591,11 +1593,28 @@ function endlessStep(
 	// The test changes at the constant, so the range's ends and the values
 	// around the constant show whether any value ends the loop.
 	const probes = [range.min, range.max, limit - 1, limit, limit + 1].filter((w) => w >= range.min && w <= range.max);
-	if (probes.some(ends)) {
-		return;
-	}
 	const condText = condition.map((tok) => tok.rawText).join(' ');
-	const reason = keyword === 'while' ? `the loop runs while ${condText}, which ${article(range.label)} ${range.label} always is` : `the loop ends only when ${condText}, which ${article(range.label)} ${range.label} never is`;
+	let reason = keyword === 'while' ? `the loop runs while ${condText}, which ${article(range.label)} ${range.label} always is` : `the loop ends only when ${condText}, which ${article(range.label)} ${range.label} never is`;
+	if (probes.some(ends)) {
+		// From a known start the loop reaches only start, start + step, ...:
+		// `i = 0: Do Until i < 0: i = i + 1000` never ends before 33000
+		// overflows an Integer (issue #479, measured in Excel 16.0).
+		const held = start?.kind === 'number' && Number.isInteger(start.value) ? start.value as number : start?.kind === 'empty' ? 0 : undefined;
+		if (held === undefined || held < range.min || held > range.max) {
+			return;
+		}
+		const delta = step.op === '+' ? step.by : -step.by;
+		const last = Math.floor(((delta > 0 ? range.max : range.min) - held) / delta);
+		const reached = (k: number): number | undefined => (k >= 0 && k <= last ? held + k * delta : undefined);
+		const nearest = [limit - 1, limit, limit + 1].flatMap((w) => [Math.floor((w - held) / delta), Math.ceil((w - held) / delta)]);
+		const candidates = [0, last, ...nearest].map(reached).filter((w): w is number => w !== undefined);
+		// A test after the step reads the stepped value; one before reads the start too.
+		const footTest = tokenText(footer[0]) === 'loop' && ['while', 'until'].includes(tokenText(footer[1]));
+		if (candidates.some((w) => ends(w) && !(footTest && w === held))) {
+			return;
+		}
+		reason = keyword === 'while' ? `from ${held}, every value it reaches keeps ${condText} true` : `from ${held}, no value it reaches makes ${condText} true`;
+	}
 	push(
 		'arithmeticOverflow',
 		`'${step.name}' is ${article(range.label)} ${range.label}, and ${reason}, so '${step.text}' runs until it does not fit. This will raise Run-time error '6': Overflow.`,
