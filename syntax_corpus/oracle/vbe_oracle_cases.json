@@ -83697,6 +83697,138 @@
       ],
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue294_01_runtime",
+      "description": "Issue #294 objects used after Delete, Close, Unlist or Erase, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim ws As Worksheet\r\n    Set ws = Worksheets.Add\r\n    Dim r As Range\r\n    Set r = ws.Range(\"A1\")\r\n    Application.DisplayAlerts = False\r\n    ws.Delete\r\n    Application.DisplayAlerts = True\r\n    Main = r.Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue294_02_runtime",
+      "description": "Issue #294 objects used after Delete, Close, Unlist or Erase, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise -2147221080.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim ws As Worksheet\r\n    Set ws = Worksheets.Add\r\n    Application.DisplayAlerts = False\r\n    ws.Delete\r\n    Application.DisplayAlerts = True\r\n    Main = ws.Name\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue294_03_runtime",
+      "description": "Issue #294 objects used after Delete, Close, Unlist or Erase, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim ws As Worksheet\r\n    Set ws = Worksheets.Add\r\n    Dim sh As Shape\r\n    Set sh = ws.Shapes.AddShape(1, 1, 1, 10, 10)\r\n    sh.Delete\r\n    Main = sh.Name\r\n    Application.DisplayAlerts = False\r\n    ws.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue294_04_runtime",
+      "description": "Issue #294 objects used after Delete, Close, Unlist or Erase, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise -2147221080.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim wb As Workbook\r\n    Set wb = Workbooks.Add\r\n    wb.Close False\r\n    Main = wb.Name\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue294_05_runtime",
+      "description": "Issue #294 objects used after Delete, Close, Unlist or Erase, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim ws As Worksheet\r\n    Set ws = Worksheets.Add\r\n    Dim lo As ListObject\r\n    Set lo = ws.ListObjects.Add(1, ws.Range(\"A1:B2\"))\r\n    lo.Unlist\r\n    Main = lo.Name\r\n    Application.DisplayAlerts = False\r\n    ws.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue294_06_runtime",
+      "description": "Issue #294 objects used after Delete, Close, Unlist or Erase, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Name\r\n    Set n = ThisWorkbook.Names.Add(\"xlideNameOne\", \"=1\")\r\n    n.Delete\r\n    Main = n.Name\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue294_07_runtime",
+      "description": "Issue #294 objects used after Delete, Close, Unlist or Erase, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o(1) As Collection\r\n    Set o(0) = New Collection\r\n    Erase o\r\n    Main = o(0).Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue294_08_runtime",
+      "description": "Issue #294 objects used after Delete, Close, Unlist or Erase, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    v = Array(1, 2)\r\n    Erase v\r\n    Main = v(0)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue294_09_runtime",
+      "description": "Issue #294 objects used after Delete, Close, Unlist or Erase, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> False.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim ws As Worksheet\r\n    Set ws = Worksheets.Add\r\n    Application.DisplayAlerts = False\r\n    ws.Delete\r\n    Application.DisplayAlerts = True\r\n    Main = ws Is Nothing\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue294_10_runtime",
+      "description": "Issue #294 objects used after Delete, Close, Unlist or Erase, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a As Collection, b As Collection\r\n    Set a = New Collection\r\n    Set b = a\r\n    Set a = Nothing\r\n    Main = b.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue294_11_runtime",
+      "description": "Issue #294 objects used after Delete, Close, Unlist or Erase, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> Sheet1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim ws As Worksheet\r\n    Set ws = Worksheets.Add\r\n    Application.DisplayAlerts = False\r\n    ws.Delete\r\n    Application.DisplayAlerts = True\r\n    Set ws = Worksheets(1)\r\n    Main = ws.Name\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue294_12_runtime",
+      "description": "Issue #294 objects used after Delete, Close, Unlist or Erase, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> xlideNameTwo.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Name\r\n    Set n = ThisWorkbook.Names.Add(\"xlideNameTwo\", \"=1\")\r\n    Main = n.Name\r\n    n.Delete\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

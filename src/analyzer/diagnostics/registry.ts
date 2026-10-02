@@ -116,6 +116,7 @@ import { checkVariantValueMisuse } from './rules/variantValues';
 import { checkRuntimeMemberNotFound } from './rules/lateBoundMembers';
 import { checkConditionValues } from './rules/conditionValues';
 import { checkLockedArrays } from './rules/lockedArrays';
+import { checkDeletedObjects } from './rules/deletedObjects';
 import { checkObjectDefaultValues } from './rules/objectValues';
 import { checkEventHandlerSignatures } from './rules/eventHandlerSignatures';
 import { checkDeclarationForms } from './rules/declarationForms';
@@ -381,6 +382,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'lockedArrays',
 		run: (ctx, push) => checkLockedArrays(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
+	},
+	{
+		name: 'deletedObjects',
+		run: (ctx, push) => checkDeletedObjects(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
 	},
 	{
 		name: 'handlerFlow',
