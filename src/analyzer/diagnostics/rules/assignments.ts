@@ -77,6 +77,7 @@ import {
 	type SourceDeclaredTypeResolver,
 	sourceIdentifierBinding,
 	type SourceNameScope,
+	sheetsFromCollectionProperty,
 	sourceNameScopeFor,
 	type SourceQualifiedDeclaredTypeResolver,
 	stringLiteralValue,
@@ -1566,6 +1567,11 @@ export function checkSetAssignments(
 						shown = { type: held, label: `'${value[0].rawText}', which holds a ${held} here`, span: { start: span.start + value[0].start, end: span.start + value[0].end } };
 						reason = objectAssignmentIncompatibilityReason(expected, shown, memberCtx);
 					}
+				}
+				const sheets = reason ? undefined : sheetsFromCollectionProperty(value, expected, sourceNames, memberCtx);
+				if (sheets) {
+					shown = { type: 'Excel.Sheets', label: `'${sheets.text}', which returns a Sheets object`, span: { start: span.start + value[0].start, end: span.start + value[value.length - 1].end } };
+					reason = `Excel's Worksheets and Charts properties return a Sheets object, never a ${sheets.collection} one.`;
 				}
 				if (reason) {
 					pushObjectAssignmentMismatch(push, target.name, expected, shown, reason, target.span, 'Type mismatch');

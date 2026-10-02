@@ -1463,6 +1463,47 @@ export function validateArgumentTypesForSignature(
 	}
 }
 
+/** The workbooks a Worksheets or Charts property is read from: `ThisWorkbook.Worksheets`. */
+const SHEETS_RECEIVERS: ReadonlySet<string> = new Set(['application', 'thisworkbook', 'activeworkbook']);
+
+/**
+ * Excel's Worksheets and Charts properties, bare, on Application or a
+ * workbook, or given an Array of names, hand back a Sheets object (issue
+ * #404, measured in Excel 16.0): TypeName(Worksheets) is "Sheets", and Set
+ * into a variable As Worksheets or As Charts raises 13. The model types the
+ * property by what it holds, so `Worksheets(1)` stays a Worksheet; this
+ * names the property when the target is one of those two collections.
+ */
+export function sheetsFromCollectionProperty(
+	value: readonly VbaToken[],
+	expected: string | undefined,
+	sourceNames: SourceNameScope,
+	memberCtx: MemberCompletionContext,
+): { text: string; collection: 'Worksheets' | 'Charts' } | undefined {
+	const target = resolveHostAlias(expected ?? '', memberCtx.model)?.toLowerCase();
+	const collection = target === 'excel.worksheets' ? 'Worksheets' : target === 'excel.charts' ? 'Charts' : undefined;
+	if (!collection || value.length === 0) {
+		return undefined;
+	}
+	// `Worksheets(Array("Sheet1"))` is a Sheets object too; `Worksheets(1)` is a sheet.
+	let end = value.length - 1;
+	if (value[end].rawText === ')') {
+		const open = value.findIndex((tok, i) => tok.rawText === '(' && matchParenFrom(value, i) === end);
+		if (open < 1 || tokenText(value[open + 1]) !== 'array' || value[open + 2]?.rawText !== '(' || matchParenFrom(value, open + 2) !== end - 1) {
+			return undefined;
+		}
+		end = open - 1;
+	}
+	const property = tokenText(value[end]);
+	if (property !== 'worksheets' && property !== 'charts') {
+		return undefined;
+	}
+	const qualifier = value.slice(0, end);
+	const bare = qualifier.length === 0 && !sourceNames.runtimeShadows.has(property);
+	const onWorkbook = qualifier.length === 2 && qualifier[1].rawText === '.' && SHEETS_RECEIVERS.has(tokenText(qualifier[0]));
+	return bare || onWorkbook ? { text: value.map((tok) => tok.rawText).join(''), collection } : undefined;
+}
+
 /**
  * An object where a parameter takes a value, or a value where it takes an
  * object (issue #223, measured in Excel 16.0):
@@ -1521,6 +1562,11 @@ function objectValueArgumentProblem(
 		if (reason) {
 			return { rule: 'argumentTypeMismatch', what: holding.label, reason: `${reason} This will raise Run-time error '13': Type mismatch.`, tokens: toks };
 		}
+	}
+	// `TakeW(Worksheets)` into a parameter As Worksheets (issue #404).
+	const sheets = !declaredName && sourceNames ? sheetsFromCollectionProperty(toks, expected, sourceNames, memberCtx) : undefined;
+	if (sheets) {
+		return { rule: 'argumentTypeMismatch', what: `'${sheets.text}', which returns a Sheets object`, reason: `Excel's Worksheets and Charts properties return a Sheets object, never a ${sheets.collection} one. This will raise Run-time error '13': Type mismatch.`, tokens: toks };
 	}
 	if (actual && !declaredName && expectedType !== 'object' && isKnownObjectAssignmentType(expected, memberCtx)
 		&& !isKnownScalarType(normalizeType(actual.type) ?? '')) {

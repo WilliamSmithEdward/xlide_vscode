@@ -59130,6 +59130,171 @@
       ],
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue404_01_runtime",
+      "description": "Issue #404 Worksheets and Charts return a Sheets object, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim w As Worksheets\r\n    Set w = Worksheets\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue404_02_runtime",
+      "description": "Issue #404 Worksheets and Charts return a Sheets object, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim w As Worksheets\r\n    Set w = ThisWorkbook.Worksheets\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue404_03_runtime",
+      "description": "Issue #404 Worksheets and Charts return a Sheets object, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim w As Worksheets\r\n    Set w = ActiveWorkbook.Worksheets\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue404_04_runtime",
+      "description": "Issue #404 Worksheets and Charts return a Sheets object, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim w As Worksheets\r\n    Set w = Worksheets(Array(\"Sheet1\"))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue404_05_runtime",
+      "description": "Issue #404 Worksheets and Charts return a Sheets object, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim w As Excel.Worksheets\r\n    Set w = Worksheets\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue404_06_runtime",
+      "description": "Issue #404 Worksheets and Charts return a Sheets object, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim c As Charts\r\n    Set c = Charts\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue404_07_runtime",
+      "description": "Issue #404 Worksheets and Charts return a Sheets object, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim c As Charts\r\n    Set c = ThisWorkbook.Charts\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue404_08_runtime",
+      "description": "Issue #404 Worksheets and Charts return a Sheets object, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim s As Sheets\r\n    Set s = Worksheets\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue404_09_runtime",
+      "description": "Issue #404 Worksheets and Charts return a Sheets object, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim s As Sheets\r\n    Set s = Charts\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue404_10_runtime",
+      "description": "Issue #404 Worksheets and Charts return a Sheets object, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim n As Names\r\n    Set n = Names\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue404_11_runtime",
+      "description": "Issue #404 Worksheets and Charts return a Sheets object, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim b As Workbooks\r\n    Set b = Workbooks\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue404_12_runtime",
+      "description": "Issue #404 Worksheets and Charts return a Sheets object, case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim w As Worksheet\r\n    Set w = Worksheets(1)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue404_13_runtime",
+      "description": "Issue #404 Worksheets and Charts return a Sheets object, case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Main = TakeW(Worksheets)\r\nEnd Function\r\nPrivate Function TakeW(w As Worksheets) As Long\r\n    TakeW = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue404_14_runtime",
+      "description": "Issue #404 Worksheets and Charts return a Sheets object, case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Main = TakeS(Worksheets)\r\nEnd Function\r\nPrivate Function TakeS(s As Sheets) As Long\r\n    TakeS = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue404_15_runtime",
+      "description": "Issue #404 Worksheets and Charts return a Sheets object, case 15, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim w As Worksheets\r\n    Set w = GetW()\r\nEnd Function\r\nPrivate Function GetW() As Worksheets\r\n    Set GetW = Worksheets\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }
