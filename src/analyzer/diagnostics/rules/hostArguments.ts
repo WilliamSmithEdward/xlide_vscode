@@ -177,6 +177,7 @@ export function checkHostArguments(
 		let valuesAt: ReturnType<typeof knownLocalLiteralValuesAt> | undefined;
 		let documentsAt: ReturnType<typeof newDocumentsAt> | undefined;
 		let sheetsAt: ReturnType<typeof activeSheetsAt> | undefined;
+		let factsAt: ReturnType<typeof sheetFactsAt> | undefined;
 		return (stmt) => {
 			const stmtCounters = counters.get(stmt);
 			const known = (valuesAt ??= knownLocalLiteralValuesAt(source, proc, symbols, activity))(stmt);
@@ -203,6 +204,10 @@ export function checkHostArguments(
 			const sheetState = host === 'Excel' ? (sheetsAt ??= activeSheetsAt(source, proc, activity)).get(stmt) : undefined;
 			if (sheetState) {
 				checkUnqualifiedCorners(stmt.span, statementTokens(source, stmt.span), sheetState, push);
+			}
+			// Intersect and Union of literal ranges, and a sheet the code just added (issue #472).
+			if (host === 'Excel') {
+				checkSheetFacts(stmt.span, statementTokens(source, stmt.span), (factsAt ??= sheetFactsAt(source, proc, activity)).get(stmt), push);
 			}
 			if (!stmtCounters) {
 				checkSpan(source, stmt.span, host, model, memberCtx, env, arrays, sourceNames, literalOrKnown, push, stringOf);
@@ -336,6 +341,177 @@ function checkUnqualifiedCorners(span: Span, toks: readonly VbaToken[], state: A
 			}
 		}
 	}
+}
+
+/** The sheets each statement knows: new and still empty, and those a new one differs from. */
+interface SheetFacts {
+	/** Sheets from `Worksheets.Add` nothing has written to yet. */
+	empty: ReadonlySet<string>;
+	/** Pairs of sheet variables known to be different sheets, `a|b`. */
+	distinct: ReadonlySet<string>;
+}
+
+/** Members that write to a sheet or its cells, read on the way to a value. */
+const SHEET_EDITS: ReadonlySet<string> = new Set(['add', 'insert', 'paste', 'pastespecial', 'copy', 'autofill', 'fill', 'filldown', 'fillright', 'formula', 'formular1c1', 'value', 'value2', 'text', 'clear', 'clearcontents', 'delete', 'sort', 'autofilter', 'texttocolumns', 'removeduplicates']);
+
+/**
+ * What each statement knows of the sheets the code just added (issue #472,
+ * measured in Excel 16.0): `Set w2 = Worksheets.Add` gives an empty sheet,
+ * different from every sheet the code held before. A statement that may
+ * write to it, a call, a label, or a block ends what is known.
+ */
+function sheetFactsAt(source: string, proc: ProcedureNode, activity: ConditionalActivityTracker | undefined): Map<BodyNode, SheetFacts> {
+	const out = new Map<BodyNode, SheetFacts>();
+	const held = new Set<string>();
+	let empty = new Set<string>();
+	let distinct = new Set<string>();
+	const visit = (list: readonly BodyNode[]): void => {
+		for (const node of list) {
+			if (activity?.isInactive(node.span)) {
+				continue;
+			}
+			if (!isLeafStatement(node)) {
+				if ('body' in node && Array.isArray(node.body)) {
+					const [savedEmpty, savedDistinct] = [empty, distinct];
+					[empty, distinct] = [new Set(savedEmpty), new Set(savedDistinct)];
+					visit(node.body as BodyNode[]);
+				}
+				[empty, distinct] = [new Set(), new Set()];
+				continue;
+			}
+			if (statementLabelDeclaration(source, node.span)) {
+				[empty, distinct] = [new Set(), new Set()];
+			}
+			if (empty.size > 0 || distinct.size > 0) {
+				out.set(node, { empty: new Set(empty), distinct: new Set(distinct) });
+			}
+			const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+			const words = toks.map((tok) => tok.rawText.toLowerCase());
+			if (words[0] === 'set' && words[2] === '=') {
+				const target = words[1];
+				const value = words.slice(3).join('');
+				empty.delete(target);
+				for (const pair of [...distinct]) {
+					if (pair.split('|').includes(target)) {
+						distinct.delete(pair);
+					}
+				}
+				if (/^(?:\w+\.)*(?:worksheets|sheets)\.add(?:\(.*\))?$/.test(value)) {
+					for (const sheet of held) {
+						if (sheet !== target) {
+							distinct.add([sheet, target].sort().join('|'));
+						}
+					}
+					empty.add(target);
+				}
+				if (value === 'activesheet' || /^(?:\w+\.)*(?:worksheets|sheets)/.test(value)) {
+					held.add(target);
+				}
+				continue;
+			}
+			// A read through the sheet into a variable keeps it; anything else may write.
+			const bare = bareAssignmentTarget(source, node.span);
+			const edits = toks.some((tok, i) => toks[i - 1]?.rawText === '.' && SHEET_EDITS.has(tokenText(tok)));
+			const readsOnly = bare !== undefined && !empty.has(bare.name.toLowerCase()) && !edits;
+			if (!readsOnly) {
+				for (const sheet of [...empty]) {
+					if (words.includes(sheet)) {
+						empty.delete(sheet);
+					}
+				}
+			}
+		}
+	};
+	visit(proc.body);
+	return out;
+}
+
+/** The SpecialCells types an empty sheet has no cells of. */
+const EMPTY_SPECIAL_CELLS: ReadonlySet<string> = new Set(['xlcelltypeconstants', 'xlcelltypeformulas', 'xlcelltypeblanks', 'xlcelltypecomments', '2', '-4123', '4', '-4144']);
+
+/**
+ * Errors the literals and a new sheet prove (issue #472, measured in Excel
+ * 16.0): Intersect of literal ranges that do not meet is Nothing (91 at its
+ * member), Union across two sheets raises 1004, and on a sheet just added
+ * ShowAllData, SpecialCells of constants, formulas, blanks or comments,
+ * AutoFilter and TextToColumns raise 1004 and Find is Nothing (91).
+ */
+function checkSheetFacts(span: Span, toks: readonly VbaToken[], facts: SheetFacts | undefined, push: PushFn): void {
+	const at = (from: number, to: number): Span => ({ start: span.start + toks[from].start, end: span.start + toks[to].end });
+	for (let i = 0; i + 1 < toks.length; i++) {
+		const word = tokenText(toks[i]);
+		if ((word === 'intersect' || word === 'union') && toks[i + 1].rawText === '(' && toks[i - 1]?.rawText !== '.') {
+			const close = matchParenFrom(toks, i + 1);
+			const args = close > i + 2 ? splitTopLevelTokenGroups(toks, i + 2, ',', close) : [];
+			const areas = args.map((arg) => sheetLiteralRange(arg));
+			if (args.length !== 2 || areas.some((area) => !area)) {
+				continue;
+			}
+			const [a, b] = areas as Array<{ sheet: string; area: A1Area }>;
+			if (word === 'union' && a.sheet !== b.sheet && facts?.distinct.has([a.sheet, b.sheet].sort().join('|'))) {
+				push('hostArgumentOutOfRange', `Union takes ranges of one sheet, and '${a.sheet}' and '${b.sheet}' are different sheets. This will raise Run-time error '1004': Method 'Union' of object '_Global' failed.`, at(i, close));
+			} else if (word === 'intersect' && a.sheet === b.sheet && toks[close + 1]?.rawText === '.' && !overlaps(a.area, b.area)) {
+				push('hostArgumentOutOfRange', `${toks.slice(i + 2, close).map((tok) => tok.rawText).join('')} do not meet, so Intersect is Nothing and has no '.${toks[close + 2]?.rawText ?? ''}'. This will raise Run-time error '91': Object variable or With block variable not set.`, at(i, close));
+			}
+			continue;
+		}
+		const sheet = tokenName(toks[i])?.toLowerCase();
+		if (!sheet || !facts?.empty.has(sheet) || toks[i - 1]?.rawText === '.' || toks[i + 1].rawText !== '.') {
+			continue;
+		}
+		// The chain from the sheet: `w2.Cells.SpecialCells(...)`, `w2.ShowAllData`.
+		for (let k = i + 2; k < toks.length; k++) {
+			const member = tokenText(toks[k]);
+			const open = toks[k + 1]?.rawText === '(' ? k + 1 : -1;
+			const close = open > 0 ? matchParenFrom(toks, open) : k;
+			// `w2.Range("A1:B5").AutoFilter Field:=1`: a call statement's arguments.
+			const bareCall = open < 0 && i === 0 && k + 1 < toks.length && toks[k + 1].rawText !== '.' && toks[k + 1].rawText !== '=';
+			const args = open > 0 && close > open + 1 ? splitTopLevelTokenGroups(toks, open + 1, ',', close)
+				: bareCall ? splitTopLevelTokenGroups(toks, k + 1, ',', toks.length) : [];
+			const first = args[0]?.filter((tok) => tok.kind !== 'comment').map((tok) => tok.rawText.toLowerCase()).join('');
+			let problem: string | undefined;
+			if (member === 'showalldata') {
+				problem = `'${toks[i].rawText}' is a sheet the code just added, with no filter to show. This will raise Run-time error '1004': Method 'ShowAllData' of object '_Worksheet' failed`;
+			} else if (member === 'specialcells' && first !== undefined && EMPTY_SPECIAL_CELLS.has(first)) {
+				problem = `'${toks[i].rawText}' is a sheet the code just added, which has no such cells. This will raise Run-time error '1004': No cells were found.`;
+			} else if ((member === 'autofilter' || member === 'texttocolumns') && args.length > 0) {
+				const why = member === 'autofilter' ? "This can't be applied to the selected range" : 'No data was selected to parse';
+				problem = `'${toks[i].rawText}' is a sheet the code just added, and ${toks[k].rawText} has no data to act on. This will raise Run-time error '1004': ${why}`;
+			} else if (member === 'find' && toks[close + 1]?.rawText === '.' && args[0]?.length === 1 && args[0][0].kind === 'stringLiteral' && args[0][0].rawText !== '""') {
+				problem = `'${toks[i].rawText}' is a sheet the code just added, so Find finds nothing and returns Nothing, which has no '.${toks[close + 2]?.rawText ?? ''}'. This will raise Run-time error '91': Object variable or With block variable not set`;
+			}
+			if (problem) {
+				push('hostArgumentOutOfRange', `${problem}.`, at(k, close));
+				break;
+			}
+			if (toks[close + 1]?.rawText !== '.') {
+				break;
+			}
+			k = close + 1;
+		}
+	}
+}
+
+/** `w2.Range("A1:B2")` or `Range("A1")`: the sheet variable (or "" for none) and the area. */
+function sheetLiteralRange(arg: readonly VbaToken[]): { sheet: string; area: A1Area } | undefined {
+	const toks = arg.filter((tok) => tok.kind !== 'comment');
+	const at = toks.length === 6 && toks[1].rawText === '.' ? 2 : toks.length === 4 ? 0 : -1;
+	if (at < 0 || tokenText(toks[at]) !== 'range' || toks[at + 1]?.rawText !== '(' || toks[at + 2]?.kind !== 'stringLiteral' || toks[at + 3]?.rawText !== ')') {
+		return undefined;
+	}
+	const area = parseA1Address(stringLiteralValue(toks[at + 2].rawText));
+	return area?.valid && area.row !== undefined && area.column !== undefined ? { sheet: at === 2 ? tokenName(toks[0])?.toLowerCase() ?? '' : '', area } : undefined;
+}
+
+/** Whether two A1 areas share a cell. */
+function overlaps(a: A1Area, b: A1Area): boolean {
+	const box = (area: A1Area): [number, number, number, number] => [
+		Math.min(area.row!, area.endRow ?? area.row!), Math.max(area.row!, area.endRow ?? area.row!),
+		Math.min(area.column!, area.endColumn ?? area.column!), Math.max(area.column!, area.endColumn ?? area.column!),
+	];
+	const [ar1, ar2, ac1, ac2] = box(a);
+	const [br1, br2, bc1, bc2] = box(b);
+	return ar1 <= br2 && br1 <= ar2 && ac1 <= bc2 && bc1 <= ac2;
 }
 
 /** Members that add to or edit a document, read on the way to a value. */
