@@ -59988,6 +59988,286 @@
       ],
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue368_01_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Len(1.5)\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue368_02_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Len(40000)\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue368_03_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim i As Long\r\n    Main = Len(i + 1)\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue368_04_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim i As Long\r\n    Main = Len(i = 1)\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue368_05_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Len(Val(\"3\"))\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue368_06_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Len(#1/2/2000#)\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue368_07_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = LenB(1.5)\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue368_08_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = LenB(40000)\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue368_09_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim i As Long\r\n    Main = LenB(i + 1)\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue368_10_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 10, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim i As Long\r\n    Main = LenB(i = 1)\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue368_11_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 11, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = LenB(Val(\"3\"))\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue368_12_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 12, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = LenB(#1/2/2000#)\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue368_13_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 13, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Len(\"abc\")\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue368_14_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 14, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim i As Long\r\n    Main = Len(\"a\" & i)\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue368_15_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 15, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Len(CStr(12))\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue368_16_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 16, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Len(Left(\"abc\", 2))\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue368_17_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 17, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Len(Mid(\"abc\", 2))\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue368_18_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 18, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Double\r\n    Main = Len(d)\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue368_19_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 19, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Double\r\n    Main = Len((d))\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue368_20_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 20, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim v As Variant\r\n    v = 12\r\n    Main = Len(v)\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue368_21_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 21, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a(2) As Long\r\n    Main = Len(a(1))\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue368_22_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 22, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Const K = 5\r\n    Main = Len(K)\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue368_23_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 23, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Len(Now)\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue368_24_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 24, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Len(FL())\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue368_25_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 25, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Len(FV())\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue368_26_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 26, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Len(FS())\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue368_27_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 27, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Len(CLng(3))\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue368_28_compile",
+      "description": "Issue #368 Len and LenB of a value that is not a String, case 28, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Len(True)\r\nEnd Function\r\nPrivate Function FL() As Long\r\n    FL = 5\r\nEnd Function\r\nPrivate Function FV() As Variant\r\n    FV = 5\r\nEnd Function\r\nPrivate Function FS() As String\r\n    FS = \"ab\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

@@ -25,19 +25,24 @@ import type { VbaToken } from '../../lexer/tokenKinds';
 import type { ModuleNode, ProcedureNode, Span } from '../../parser/nodes';
 import type { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaSymbol } from '../../symbols/symbolModel';
-import type { PushFn } from '../analysisContext';
+import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { collectModuleLiteralIntegerConstants } from '../constExpr';
 import { fieldChain, isFixedArrayField, moduleTypes, typeKey, typeRootAt, variableSymbolIn, walkWithSubjects, type FieldStep, type ModuleTypes, type WithSubject } from '../typeFields';
 import { isArrayBounds, typeMemberStatesAt, type MemberState, type MemberStatesAt } from '../typeMemberState';
 import {
+	buildModuleTypeSignatures,
+	inferExpressionType,
+	isKnownScalarType,
 	knownLocalLiteralValuesAt,
+	normalizeType,
 	procedureIntegerConstantLookup,
 	runtimeCallableSourceShadowed,
 	sourceNameScopeFor,
+	typeEnvironmentFor,
 	withKnownLocals,
 	type SourceNameScope,
 } from '../typeInference';
-import { activeModuleMembers, matchParenFrom, pluralizeCount, statementTokensAfterLeadingLabel, tokenName, tokenText } from '../walker';
+import { activeModuleMembers, matchParenFrom, pluralizeCount, rawExpressionTokens, statementTokensAfterLeadingLabel, tokenName, tokenText } from '../walker';
 import { moduleOptionBase, shapeSubscriptViolation, type FixedArrayBound } from './arrays';
 import { isBareOrVbaQualifiedIntrinsicCall } from './shared';
 
@@ -54,6 +59,7 @@ export function checkTypeFieldArrays(
 	hostModel?: HostObjectModel,
 ): void {
 	const types = moduleTypes(source, mod, activity);
+	const moduleSignatures = buildModuleTypeSignatures(symbols);
 	const optionBase = moduleOptionBase(mod, activity);
 	const moduleConstants = collectModuleLiteralIntegerConstants(mod, activity, resolveRawIntegerConstants(projectIntegerConstants ?? new Map(), new Map()));
 	for (const member of activeModuleMembers(mod, activity)) {
@@ -61,13 +67,15 @@ export function checkTypeFieldArrays(
 			continue;
 		}
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
+		const env = typeEnvironmentFor(symbols, member);
+		const valueType = (value: VbaToken[]): string | undefined => normalizeType(inferExpressionType(value, 0, env, moduleSignatures, sourceNames, source)?.type);
 		const constants = procedureIntegerConstantLookup(member, moduleConstants, symbols, projectVisibleSymbols, activity, hostModel);
 		const valuesAt = knownLocalLiteralValuesAt(source, member, symbols, activity);
 		const statesAt: MemberStatesAt | undefined = types.size === 0 ? undefined : typeMemberStatesAt(source, symbols, member, types, activity, optionBase);
 		walkWithSubjects(source, member.body, activity, symbols, member, types, undefined, (stmt, subject) => {
 			const toks = statementTokensAfterLeadingLabel(source, stmt.span);
 			const lookup = withKnownLocals(constants, valuesAt(stmt));
-			for (const hit of lenOfArrays(stmt.span, toks, symbols, member, types, subject, sourceNames)) {
+			for (const hit of lenOfArrays(stmt.span, toks, symbols, member, types, subject, sourceNames, valueType)) {
 				push(hit.rule, hit.message, hit.span);
 			}
 			if (!statesAt || ['redim', 'erase'].includes(tokenText(toks[0]))) {
@@ -163,6 +171,7 @@ function lenOfArrays(
 	types: ModuleTypes,
 	subject: WithSubject | undefined,
 	sourceNames: SourceNameScope,
+	valueType: (value: VbaToken[]) => string | undefined = () => undefined,
 ): Array<{ span: Span; message: string; rule: 'variableRequired' | 'variantValueMisuse' }> {
 	const out: Array<{ span: Span; message: string; rule: 'variableRequired' | 'variantValueMisuse' }> = [];
 	for (let i = 0; i + 1 < toks.length; i++) {
@@ -187,11 +196,71 @@ function lenOfArrays(
 		const at = { start: span.start + toks[from].start, end: span.start + toks[to].end };
 		if (array && toks[i - 1]?.rawText !== '.') {
 			out.push({ span: at, rule: 'variableRequired', message: `'${array.display}' is an array, which ${toks[i].rawText} cannot take. This is a VBE compile error: Variable required - can't assign to this expression.` });
+		} else if (!array && toks[i - 1]?.rawText !== '.') {
+			const type = nonStringValueType(toks.slice(from, to + 1), symbols, proc, valueType);
+			if (type) {
+				out.push({ span: at, rule: 'variableRequired', message: `${toks[i].rawText} of a ${type} reports a variable's storage size, and '${toks.slice(from, to + 1).map((tok) => tok.rawText).join('')}' is no variable. This is a VBE compile error: Variable required - can't assign to this expression.` });
+			}
 		} else if (array && array.elementType !== 'byte') {
 			out.push({ span: at, rule: 'variantValueMisuse', message: `'${array.display}' is an array, and not of Byte, so VBA.${toks[i].rawText} cannot convert it to a string. This will raise Run-time error '13': Type mismatch.` });
 		}
 	}
 	return out;
+}
+
+/** VBA's functions whose return type the library declares as one scalar type: a conversion or Val. */
+const TYPED_RETURNS: ReadonlySet<string> = new Set(['cbool', 'cbyte', 'ccur', 'cdate', 'cdbl', 'cint', 'clng', 'clnglng', 'clngptr', 'csng', 'val']);
+
+/**
+ * The type of a Len argument that is a value of known type other than
+ * String or Variant, and no variable, array element or field: a literal, an
+ * expression, a Const, a conversion or Val, or a project Function As Long
+ * (issue #368, measured in Excel 16.0). Len(Now), Len(Left(...)) and a
+ * Function As Variant or String compile.
+ */
+function nonStringValueType(
+	value: VbaToken[],
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	proc: ProcedureNode,
+	valueType: (value: VbaToken[]) => string | undefined,
+): string | undefined {
+	const name = tokenName(value[0]);
+	const named = name ? variableSymbolIn(symbols, proc, name) : undefined;
+	const wholeOrIndexed = value.length === 1 || (value[1]?.rawText === '(' && matchParenFrom(value, 1) === value.length - 1);
+	if (named && named.kind !== 'constant' && wholeOrIndexed) {
+		return undefined;
+	}
+	const word = value.length === 1 ? tokenText(value[0]) : '';
+	if (word === 'true' || word === 'false') {
+		return 'Boolean';
+	}
+	// `Len(i = 1)`: a comparison at the top level is a Boolean.
+	let depth = 0;
+	for (const tok of value) {
+		depth += tok.rawText === '(' ? 1 : tok.rawText === ')' ? -1 : 0;
+		if (depth === 0 && (['=', '<>', '<', '>', '<=', '>='].includes(tok.rawText) || ['like', 'is'].includes(tokenText(tok)))) {
+			return 'Boolean';
+		}
+	}
+	// `Const K = 5` then `Len(K)`: a Const is no variable.
+	const constant = value.length === 1 && name
+		? [...(procedureSymbolFor(symbols, proc)?.children ?? []), ...(symbols.root.children ?? [])].find((child) => child.name.toLowerCase() === name.toLowerCase())
+		: undefined;
+	if (constant?.kind === 'constant') {
+		const type = normalizeType(constant.asType) ?? normalizeType(valueType(rawExpressionTokens(constant.defaultRaw ?? '').filter((tok) => tok.kind !== 'comment')));
+		return type && type !== 'string' && type !== 'variant' && isKnownScalarType(type) ? type[0].toUpperCase() + type.slice(1) : undefined;
+	}
+	// A call names a project Function or a typed VBA function; any other
+	// library function may return a Variant, as Now does.
+	const call = name && value[1]?.rawText === '(' && matchParenFrom(value, 1) === value.length - 1;
+	if (call && !TYPED_RETURNS.has(name!.toLowerCase()) && !symbols.root.children?.some((child) => child.kind === 'function' && child.name.toLowerCase() === name!.toLowerCase())) {
+		return undefined;
+	}
+	if (value.length === 1 && name && !named) {
+		return undefined;
+	}
+	const type = valueType(value);
+	return type && type !== 'string' && type !== 'variant' && isKnownScalarType(type) ? (type[0].toUpperCase() + type.slice(1)) : undefined;
 }
 
 /** The array the tokens from `from` to `to` name whole, a variable or a field, and its element type, lowercased. */
