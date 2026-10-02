@@ -15,7 +15,8 @@
 //
 // Only a numeric literal is read, optionally signed. `ActiveWindow.Zoom =
 // False` runs where `Zoom = 0` raises, and a named constant such as
-// xlVertical is its own value, not a number the table can place.
+// xlVertical is its own value, not a number the table can place. A String
+// literal with no digit is read too, against a table of its own (issue #416).
 
 import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpression';
 import type { MemberCompletion } from '../../completion/memberAccess';
@@ -33,6 +34,7 @@ interface HostValueLimit {
 
 const EXCEL_1004 = (property: string, owner: string) => ({ number: '1004', text: `Unable to set the ${property} property of the ${owner} class` });
 const SUBSCRIPT = { number: '9', text: 'Subscript out of range' };
+const TYPE_MISMATCH = { number: '13', text: 'Type mismatch' };
 const WORD_RANGE = { number: '5843', text: 'One of the values passed to this method or property is out of range' };
 
 /** By qualified owner type, then lower-cased property name. */
@@ -113,8 +115,58 @@ export function signedNumericLiteral(tokens: readonly VbaToken[]): number | unde
 	return signed && toks[0].rawText === '-' ? -value : value;
 }
 
+/**
+ * Excel properties given a String that is no number (issue #416, measured in
+ * Excel 16.0 on 2026-10-01, "abc" and "" each): the error each raises, and
+ * whether "True" and "False" convert for it. A String with a digit is not
+ * judged, since "12" runs for most of them and a locale decides the rest.
+ */
+const STRING_LIMITS: ReadonlyMap<string, ReadonlyMap<string, { error: { number: string; text: string }; takesBoolean: boolean }>> = new Map([
+	['Excel.Font', new Map([
+		['bold', { error: EXCEL_1004('Bold', 'Font'), takesBoolean: true }],
+		['size', { error: EXCEL_1004('Size', 'Font'), takesBoolean: false }],
+	])],
+	// Through a typed Worksheet; ActiveSheet.Visible, late-bound, raises 1004.
+	['Excel.Worksheet', new Map([['visible', { error: TYPE_MISMATCH, takesBoolean: false }]])],
+	['Excel.Range', new Map([
+		['columnwidth', { error: EXCEL_1004('ColumnWidth', 'Range'), takesBoolean: false }],
+		['rowheight', { error: EXCEL_1004('RowHeight', 'Range'), takesBoolean: false }],
+		['horizontalalignment', { error: EXCEL_1004('HorizontalAlignment', 'Range'), takesBoolean: false }],
+		['wraptext', { error: EXCEL_1004('WrapText', 'Range'), takesBoolean: true }],
+	])],
+	['Excel.Window', new Map([['zoom', { error: EXCEL_1004('Zoom', 'Window'), takesBoolean: false }]])],
+	['Excel.Application', new Map([
+		['screenupdating', { error: TYPE_MISMATCH, takesBoolean: true }],
+		['displayalerts', { error: TYPE_MISMATCH, takesBoolean: true }],
+		['calculation', { error: TYPE_MISMATCH, takesBoolean: false }],
+	])],
+	['Excel.Interior', new Map([['color', { error: TYPE_MISMATCH, takesBoolean: false }]])],
+	['Excel.Tab', new Map([['color', { error: TYPE_MISMATCH, takesBoolean: false }]])],
+]);
+
+/** The message for a String literal a host property refuses, or undefined. */
+function hostPropertyStringProblem(target: MemberCompletion, valueTokens: readonly VbaToken[]): string | undefined {
+	const limit = STRING_LIMITS.get(target.owner)?.get(target.name.toLowerCase());
+	const toks = valueTokens.filter((tok) => tok.kind !== 'comment');
+	if (!limit || toks.length !== 1 || toks[0].kind !== 'stringLiteral') {
+		return undefined;
+	}
+	const text = toks[0].rawText.slice(1, -1).replace(/""/g, '"');
+	const boolean = /^\s*(true|false)\s*$/i.test(text);
+	if (/\d/.test(text) || (boolean && limit.takesBoolean)) {
+		return undefined;
+	}
+	const bare = target.owner.slice(target.owner.indexOf('.') + 1);
+	const takes = limit.takesBoolean ? `a number, True or False, and the String ${toks[0].rawText} is none of these` : `a number, and the String ${toks[0].rawText} is not one`;
+	return `${bare}.${target.name} takes ${takes}. This will raise Run-time error '${limit.error.number}': ${limit.error.text}.`;
+}
+
 /** The message for a host property Let the host refuses, or undefined. */
 export function hostPropertyValueProblem(target: MemberCompletion, valueTokens: readonly VbaToken[]): string | undefined {
+	const stringProblem = hostPropertyStringProblem(target, valueTokens);
+	if (stringProblem) {
+		return stringProblem;
+	}
 	const limit = LIMITS.get(target.owner)?.get(target.name.toLowerCase());
 	const value = limit ? signedNumericLiteral(valueTokens) : undefined;
 	if (!limit || value === undefined || limit.allowed?.includes(value)) {
