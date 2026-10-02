@@ -172,7 +172,7 @@ export function checkObjectVariableNotSet(
 		if (nothingFunctions.size > 0) {
 			forEachStatement(member.body, (stmt) => {
 				for (const span of statementAndBranchSpans(stmt)) {
-					for (const hit of nothingResultMemberAccess(statementTokens(source, span), nothingFunctions)) {
+					for (const hit of nothingResultMemberAccess(source, statementTokens(source, span), nothingFunctions)) {
 						push('objectVariableNotSet', hit.message, { start: span.start + hit.start, end: span.start + hit.end });
 					}
 				}
@@ -248,6 +248,7 @@ function functionsReturningNothing(
 
 /** `F().Count` or `F.Count` on a Function that returns Nothing. Offsets are the statement's. */
 function nothingResultMemberAccess(
+	source: string,
 	toks: readonly VbaToken[],
 	functions: ReadonlyMap<string, ProcedureNode>,
 ): Array<{ start: number; end: number; message: string }> {
@@ -273,10 +274,11 @@ function nothingResultMemberAccess(
 		if (toks[end + 1]?.rawText !== '.' || !tokenName(toks[end + 2])) {
 			continue;
 		}
+		const setsNothing = fn.body.length > 0 && new RegExp(`\\bset\\s+${fn.name}\\s*=\\s*nothing\\b`, 'i').test(source.slice(fn.span.start, fn.span.end));
 		out.push({
 			start: toks[i].start,
 			end: toks[end].end,
-			message: `Function '${fn.name}' never sets its result, so it returns Nothing, and '.${toks[end + 2].rawText}' has no object to reach. This will raise Run-time error '91': Object variable or With block variable not set.`,
+			message: `Function '${fn.name}' ${setsNothing ? 'sets its result to Nothing' : 'never sets its result, so it returns Nothing'}, and '.${toks[end + 2].rawText}' has no object to reach. This will raise Run-time error '91': Object variable or With block variable not set.`,
 		});
 	}
 	return out;

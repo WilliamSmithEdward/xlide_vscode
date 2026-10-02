@@ -78393,6 +78393,226 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = F(0)\r\nEnd Function\r\nPrivate Function F(ByVal n As Byte) As Variant\r\n    F = 10 / n\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue448_01_runtime",
+      "description": "Issue #448 a Function result followed into its caller, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Integer\r\n    n = F()\r\n    Main = n\r\nEnd Function\r\nPrivate Function F() As String\r\n    F = \"abc\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue448_02_runtime",
+      "description": "Issue #448 a Function result followed into its caller, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim b As Byte\r\n    b = F()\r\n    Main = b\r\nEnd Function\r\nPrivate Function F() As Long\r\n    F = 300\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue448_03_runtime",
+      "description": "Issue #448 a Function result followed into its caller, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 94.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = F()\r\n    Main = n\r\nEnd Function\r\nPrivate Function F() As Variant\r\n    F = Null\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue448_04_runtime",
+      "description": "Issue #448 a Function result followed into its caller, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long\r\n    n = F()\r\n    Main = n\r\nEnd Function\r\nPrivate Function F() As String\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue448_05_runtime",
+      "description": "Issue #448 a Function result followed into its caller, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 10 / F()\r\nEnd Function\r\nPrivate Function F() As Long\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue448_06_runtime",
+      "description": "Issue #448 a Function result followed into its caller, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Mid(\"abc\", F())\r\nEnd Function\r\nPrivate Function F() As Long\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue448_07_runtime",
+      "description": "Issue #448 a Function result followed into its caller, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = F().Count\r\nEnd Function\r\nPrivate Function F() As Collection\r\n    Set F = Nothing\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue448_08_runtime",
+      "description": "Issue #448 a Function result followed into its caller, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = UBound(F())\r\nEnd Function\r\nPrivate Function F() As Long()\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue448_09_runtime",
+      "description": "Issue #448 a Function result followed into its caller, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 10 / F\r\nEnd Function\r\nPrivate Function F() As Long\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue448_10_runtime",
+      "description": "Issue #448 a Function result followed into its caller, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Integer\r\n    n = F\r\n    Main = n\r\nEnd Function\r\nPrivate Function F() As String\r\n    F = \"abc\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue448_11_runtime",
+      "description": "Issue #448 a Function result followed into its caller, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 11.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 10 / F()\r\nEnd Function\r\nPrivate Function F() As Long\r\n    F = 0\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue448_12_runtime",
+      "description": "Issue #448 a Function result followed into its caller, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 10 / F()\r\nEnd Function\r\nPrivate Function F() As Long\r\n    F = 2\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue448_13_runtime",
+      "description": "Issue #448 a Function result followed into its caller, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 12.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Integer\r\n    n = F()\r\n    Main = n\r\nEnd Function\r\nPrivate Function F() As String\r\n    F = \"12\"\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue448_14_runtime",
+      "description": "Issue #448 a Function result followed into its caller, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 200.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim b As Byte\r\n    b = F()\r\n    Main = b\r\nEnd Function\r\nPrivate Function F() As Long\r\n    F = 200\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue448_15_runtime",
+      "description": "Issue #448 a Function result followed into its caller, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 10 / F()\r\nEnd Function\r\nPrivate Function F() As Long\r\n    If Timer < 0 Then Exit Function\r\n    F = 2\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue448_16_runtime",
+      "description": "Issue #448 a Function result followed into its caller, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 10 / F()\r\nEnd Function\r\nPrivate Function F() As Long\r\n    F = 2\r\n    If Timer < 0 Then F = 0\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue448_17_runtime",
+      "description": "Issue #448 a Function result followed into its caller, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = F().Count\r\nEnd Function\r\nPrivate Function F() As Collection\r\n    Set F = New Collection\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue448_18_runtime",
+      "description": "Issue #448 a Function result followed into its caller, case 18, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 10.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 10 / F()\r\nEnd Function\r\nPrivate Function F() As Long\r\n    Static k As Long\r\n    k = k + 1\r\n    F = k\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue448_19_runtime",
+      "description": "Issue #448 a Function result followed into its caller, case 19, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> bc.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Mid(\"abc\", F())\r\nEnd Function\r\nPrivate Function F() As Long\r\n    F = 2\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue448_20_runtime",
+      "description": "Issue #448 a Function result followed into its caller, case 20, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> None.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    On Error Resume Next\r\n    Main = 10 / F()\r\nEnd Function\r\nPrivate Function F() As Long\r\n    Err.Raise 5\r\n    F = 0\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

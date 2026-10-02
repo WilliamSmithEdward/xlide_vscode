@@ -1015,9 +1015,13 @@ export function checkUnallocatedDynamicArrayAccess(
 	activity: ConditionalActivityTracker | undefined,
 	push: PushFn,
 ): void {
+	const unsetFunctions = arrayFunctionsNeverSet(source, mod, activity);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
+		}
+		if (unsetFunctions.size > 0) {
+			checkUnsetArrayResults(source, member, symbols, unsetFunctions, activity, push);
 		}
 		const arrays = localDynamicArrayDeclarationsForBody(member.body, activity);
 		if (arrays.size === 0) {
@@ -1270,6 +1274,70 @@ function unallocatedDynamicArrayIndexAccesses(
 		});
 	}
 	return out;
+}
+
+/**
+ * The module's Functions declared to return an array, `As Long()`, whose
+ * body never names the result: each returns an array with no storage, so
+ * `UBound(F())` raises 9 (issue #448, measured in Excel 16.0).
+ */
+function arrayFunctionsNeverSet(source: string, mod: ModuleNode, activity: ConditionalActivityTracker | undefined): Map<string, ProcedureNode> {
+	const out = new Map<string, ProcedureNode>();
+	const seen = new Set<string>();
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure') {
+			continue;
+		}
+		const lower = member.name.toLowerCase();
+		if (seen.has(lower)) {
+			out.delete(lower);
+			continue;
+		}
+		seen.add(lower);
+		if (member.procKind !== 'Function' || !/\(\s*\)\s*$/.test(member.returnType ?? '')) {
+			continue;
+		}
+		// The header names it once; any other mention may set it.
+		const named = statementTokens(source, member.span).filter((tok, i, toks) => tokenName(tok)?.toLowerCase() === lower && toks[i - 1]?.rawText !== '.').length;
+		if (named === 1) {
+			out.set(lower, member);
+		}
+	}
+	return out;
+}
+
+/** `UBound(F())` or `LBound(F)` on a Function that never sets its array result. */
+function checkUnsetArrayResults(
+	source: string,
+	member: ProcedureNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	functions: ReadonlyMap<string, ProcedureNode>,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const own = new Set([member.name.toLowerCase(), ...member.params.map((param) => param.name.toLowerCase()), ...(procedureSymbolFor(symbols, member)?.children ?? []).map((child) => child.name.toLowerCase())]);
+	forEachStatement(member.body, (stmt) => {
+		for (const span of statementAndBranchSpansOf(stmt)) {
+			const toks = statementTokens(source, span);
+			for (let i = 0; i < toks.length - 2; i++) {
+				const bound = tokenText(toks[i]);
+				if ((bound !== 'lbound' && bound !== 'ubound') || toks[i + 1].rawText !== '(' || !isBareOrVbaQualifiedIntrinsicCall(toks, i)) {
+					continue;
+				}
+				const lower = tokenName(toks[i + 2])?.toLowerCase() ?? '';
+				const fn = own.has(lower) ? undefined : functions.get(lower);
+				const end = toks[i + 3]?.rawText === '(' && toks[i + 4]?.rawText === ')' ? i + 4 : i + 2;
+				if (!fn || (end === i + 2 && fn.params.length > 0) || (toks[end + 1]?.rawText !== ')' && toks[end + 1]?.rawText !== ',')) {
+					continue;
+				}
+				push(
+					'unallocatedDynamicArrayAccess',
+					`Function '${fn.name}' never sets its result, so it returns an array with no storage, and ${toks[i].rawText} has no bounds to read. This will raise Run-time error '9': Subscript out of range.`,
+					{ start: span.start + toks[i + 2].start, end: span.start + toks[end].end },
+				);
+			}
+		}
+	}, activity);
 }
 
 function unallocatedDynamicArrayBoundCalls(

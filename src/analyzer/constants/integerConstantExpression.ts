@@ -251,6 +251,11 @@ class IntegerConstantExpressionParser {
 		const name = tokenName(token);
 		if (name) {
 			this.index++;
+			// `F()`: a lookup may know a Function's result as `f()` (issue #448).
+			if (this.tokens[this.index]?.rawText === '(' && this.tokens[this.index + 1]?.rawText === ')') {
+				this.index += 2;
+				return this.constants.get(`${name.toLowerCase()}()`);
+			}
 			return this.constants.get(name.toLowerCase());
 		}
 		return undefined;

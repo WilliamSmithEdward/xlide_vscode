@@ -34,6 +34,7 @@ import {
 import { collectModuleLiteralIntegerConstants } from '../constExpr';
 import { knownArrayShapesAt, moduleOptionBase, redimShapesAt } from './arrays';
 import { checkEachCounterPass, loopCountersAt } from '../loopCounters';
+import { functionIntegerResult, knownFunctionResults } from '../functionResults';
 import { straightLineAssignments } from '../straightLineValues';
 import { foldKnownStringCalls, knownDate, moduleCompare, parseDateLiteral, type KnownStringCallContext } from '../knownStringCalls';
 import { bankersRound, isBareOrVbaQualifiedIntrinsicCall } from '../rules/shared';
@@ -213,6 +214,7 @@ export function checkRuntimeArgumentValues(
 			}
 			return out;
 		};
+		let results: ReturnType<typeof knownFunctionResults> | undefined;
 		// A loop counter bound to one pass's value (issue #200).
 		let counterValues = NO_COUNTER_VALUES;
 		const counters = loopCountersAt(source, member.body, activity);
@@ -227,7 +229,11 @@ export function checkRuntimeArgumentValues(
 					return constant;
 				}
 				const local = known.get(name.toLowerCase());
-				return local?.kind === 'number' && Number.isInteger(local.value) ? (local.value as number) : undefined;
+				if (local) {
+					return local.kind === 'number' && Number.isInteger(local.value) ? (local.value as number) : undefined;
+				}
+				// `Mid(s, F())` with F a Function of the module returning 0 (issue #448).
+				return functionIntegerResult(name, results ??= knownFunctionResults(source, mod, activity), member, symbols);
 			},
 		};
 		// The locals a straight line has just set to Null (issue #364).

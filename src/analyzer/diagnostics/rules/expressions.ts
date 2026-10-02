@@ -101,6 +101,7 @@ import {
 	topLevelOperatorIndex,
 	type ProcedureStatementVisitor,
 } from '../walker';
+import { functionIntegerResult, knownFunctionResults } from '../functionResults';
 import { straightLineAssignments } from '../straightLineValues';
 import { conditionValue } from '../conditionValue';
 
@@ -608,6 +609,8 @@ export function checkDivisionByZeroExpressions(
 		// a later one changes it (issue #180).
 		const valuesAt = knownLocalLiteralValuesAt(source, member, symbols, activity);
 		let known: ReadonlyMap<string, KnownLocalValue> = new Map();
+		// A Function of the module that returns 0: `10 / F()` (issue #448).
+		const results = knownFunctionResults(source, mod, activity);
 		// A loop counter on its first and last passes: `For i = 0 To 3` then
 		// `1 / i` divides by 0 on the first (issue #263).
 		const counters = loopCountersAt(source, member.body, activity);
@@ -640,7 +643,10 @@ export function checkDivisionByZeroExpressions(
 				if (isKnownNumber(field) && Number.isInteger(field.number)) {
 					return field.number;
 				}
-				return local?.kind === 'number' && Number.isInteger(local.value) ? (local.value as number) : undefined;
+				if (local?.kind === 'number' && Number.isInteger(local.value)) {
+					return local.value as number;
+				}
+				return local ? undefined : functionIntegerResult(name, results, member, symbols);
 			},
 		};
 		const guards = divisionGuardRanges(member.body, activity);
@@ -1517,6 +1523,11 @@ function zeroDivisorAtomTokenGroup(
 	// a call target (a following '.' or '(' means more of the expression follows).
 	if (isZeroDivisorAtom(first, constants) && isDivisorAtomBoundary(toks[start + 1])) {
 		return [first];
+	}
+	// `F()`, a Function of the module that returns 0 (issue #448).
+	if (firstName && toks[start + 1]?.rawText === '(' && toks[start + 2]?.rawText === ')' && isDivisorAtomBoundary(toks[start + 3])
+		&& toks[start - 1]?.rawText !== '.' && constants.get(`${firstName}()`) === 0) {
+		return toks.slice(start, start + 3);
 	}
 	const close = zeroConversionCallEnd(toks, start, constants);
 	if (close !== undefined && isDivisorAtomBoundary(toks[close + 1])) {
