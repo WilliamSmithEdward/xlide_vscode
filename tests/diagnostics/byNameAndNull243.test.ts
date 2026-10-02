@@ -121,7 +121,6 @@ describe('Scripting.Dictionary from CreateObject', () => {
 			[...make, 'Main = IsEmpty(d("missing"))', 'd.Remove "missing"'],
 			[...make, 'd("k") = 1', 'Main = d.Keys()(0)'],
 			[...make, 'd.Add "a", 1', 'd.RemoveAll', 'd.Add "a", 2'],
-			[...make, 'd.CompareMode = 1', 'd.Remove "a"'],
 		];
 		for (const lines of quiet) {
 			const diags = analyzeModule(wrap(...lines));
@@ -129,6 +128,10 @@ describe('Scripting.Dictionary from CreateObject', () => {
 				expect(byCode(diags, code), `${lines.join('; ')}: ${code}`).toHaveLength(0);
 			}
 		}
+		// CompareMode is followed since issue #349: an empty Dictionary still
+		// has no "a" to remove (measured in Excel 16.0, 32811).
+		const compared = wrap(...make, 'd.CompareMode = 1', 'd.Remove "a"');
+		expectDiagnostic(compared, analyzeModule(compared), 'collection-key-not-found', { span: '"a"', message: "'32811'" });
 	});
 });
 

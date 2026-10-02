@@ -5552,7 +5552,8 @@
         "issue348_03_runtime",
         "issue350_05_runtime",
         "issue350_06_runtime",
-        "issue350_07_runtime"
+        "issue350_07_runtime",
+        "issue349_07_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -5575,11 +5576,12 @@
         "issue243_12_runtime",
         "issue243_58_runtime",
         "issue243_61_runtime",
-        "issue452_22_runtime"
+        "issue452_22_runtime",
+        "issue349_03_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Collection key not found. VBE runtime error 5 on VBA.Collection (issue #121, Excel 16.0). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0). Issue #243: Remove of a key a Scripting.Dictionary does not hold raises 32811; reading d(\"k\") adds the key (measured in Excel 16.0, build 20326, issue243_* oracle cases).",
+      "notes": "Collection key not found. VBE runtime error 5 on VBA.Collection (issue #121, Excel 16.0). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0). Issue #243: Remove of a key a Scripting.Dictionary does not hold raises 32811; reading d(\"k\") adds the key (measured in Excel 16.0, build 20326, issue243_* oracle cases). Issue #349: d.Key(a) = b with no key a raises 32811.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -5599,11 +5601,13 @@
         "issue237_54_runtime",
         "issue243_11_runtime",
         "issue452_04_runtime",
-        "issue350_04_runtime"
+        "issue350_04_runtime",
+        "issue349_02_runtime",
+        "issue349_04_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Collection key already in use. VBE runtime error 457 on VBA.Collection (issue #121, Excel 16.0). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0). Issue #243: a Scripting.Dictionary from CreateObject or New Scripting.Dictionary is followed too; its keys compare as written, \"a\" and \"A\" and \"1\" and 1 being distinct keys. A key added twice raises 457 (measured in Excel 16.0, build 20326, issue243_* oracle cases). Issue #406: code that never runs is not judged: an If under a Const whose value is a literal False or 0, a loop of no pass (For with bounds that pass each other, Do While or While with a False condition, Do Until with a True one, For Each over Array()), and code after GoTo up to the next label, whatever state it builds. Issue #350: a literal key added in a For loop raises 457 on the second pass.",
+      "notes": "Collection key already in use. VBE runtime error 457 on VBA.Collection (issue #121, Excel 16.0). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0). Issue #243: a Scripting.Dictionary from CreateObject or New Scripting.Dictionary is followed too; its keys compare as written, \"a\" and \"A\" and \"1\" and 1 being distinct keys. A key added twice raises 457 (measured in Excel 16.0, build 20326, issue243_* oracle cases). Issue #406: code that never runs is not judged: an If under a Const whose value is a literal False or 0, a loop of no pass (For with bounds that pass each other, Do While or While with a False condition, Do Until with a True one, For Each over Array()), and code after GoTo up to the next label, whatever state it builds. Issue #350: a literal key added in a For loop raises 457 on the second pass. Issue #349: under d.CompareMode = 1 a Dictionary takes \"k\" and \"K\" as one key; d.Key(a) = b with b in use raises 457.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -5619,11 +5623,16 @@
         "issue219_42_runtime",
         "issue219_43_runtime",
         "issue219_44_runtime",
-        "issue219_45_runtime"
+        "issue219_45_runtime",
+        "issue349_01_runtime",
+        "issue349_05_runtime",
+        "issue349_08_runtime",
+        "issue349_09_runtime",
+        "issue349_16_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Collection Add argument refused. VBE runtime error 13 for a key that is a number, True, or a Variant never assigned (Empty), and 5 for Before with After (issue #219, Excel 16.0).",
+      "notes": "Collection Add argument refused. VBE runtime error 13 for a key that is a number, True, or a Variant never assigned (Empty), and 5 for Before with After (issue #219, Excel 16.0). Issue #349: CompareMode changed after a key is in, an Array as a Dictionary key, and c.Add with Before or After naming a key no element has, raise 5; a Collection key held in a local as a number raises 13.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -5748,7 +5757,8 @@
         "issue452_07_runtime",
         "issue452_08_runtime",
         "issue452_23_runtime",
-        "issue452_24_runtime"
+        "issue452_24_runtime",
+        "issue349_06_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

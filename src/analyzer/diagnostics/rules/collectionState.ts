@@ -49,7 +49,7 @@ import {
 	tokenName,
 	tokenText,
 } from '../walker';
-import { nameMentions, namesIn } from './shared';
+import { bankersRound, nameMentions, namesIn } from './shared';
 import { arrayValueShape, moduleOptionBase, shapeSubscriptViolation, type FixedArrayBound } from './arrays';
 
 interface CollectionContents {
@@ -176,7 +176,9 @@ export function checkCollectionState(
 				return;
 			}
 			const lookup = constants && valuesAt ? withKnownLocals(constants, valuesAt(node)) : undefined;
+			// `c(1.6)` rounds to 2, half to even (issue #349, measured in Excel 16.0).
 			const indexOf = (arg: readonly VbaToken[]): number | undefined => literalIndex(arg)
+				?? (arg.length === 1 && arg[0].kind === 'floatLiteral' && Number.isFinite(Number(arg[0].rawText.replace(/[!#@]$/, ''))) ? bankersRound(Number(arg[0].rawText.replace(/[!#@]$/, ''))) : undefined)
 				?? (lookup ? evaluateIntegerConstantExpression(arg.map((tok) => tok.rawText).join(' '), lookup) : undefined);
 			checkStatement(node.span, toks, states, push, isEmpty, indexOf, optionBase, lookup, scalarLocal);
 		};
@@ -838,6 +840,11 @@ function addRefusal(name: string, state: CollectionContents, byName: ReadonlyMap
 	if (nonString) {
 		return { rule: 'collectionAddArgument', message: `The key of '${name}.Add' is ${keyLiteral.map((t) => t.rawText).join('')}, not a string. This will raise Run-time error '13': Type mismatch.`, span: spanOf(keyLiteral) };
 	}
+	// `k = 5` then `c.Add 1, k`: a local known to hold a number (issue #349).
+	const heldNumber = keyLiteral.length === 1 && tokenName(keyLiteral[0]) ? indexOf(keyLiteral) : undefined;
+	if (heldNumber !== undefined) {
+		return { rule: 'collectionAddArgument', message: `The key of '${name}.Add' is '${keyLiteral[0].rawText}', which holds the number ${heldNumber}, not a string. This will raise Run-time error '13': Type mismatch.`, span: spanOf(keyLiteral) };
+	}
 	const before = byName.get('before');
 	const after = byName.get('after');
 	if (before && after) {
@@ -849,6 +856,11 @@ function addRefusal(name: string, state: CollectionContents, byName: ReadonlyMap
 	}
 	if (state.items.length === 0) {
 		return { rule: 'collectionIndexOutOfRange', message: `'${name}' holds nothing here, so ${before ? 'Before' : 'After'} names no element. This will raise Run-time error '5': Invalid procedure call or argument.`, span: spanOf(position) };
+	}
+	// `c.Add 2, "b", "zz"`: Before names a key no element has (issue #349).
+	const positionKey = literalKey(position);
+	if (positionKey !== undefined && state.keysKnown && !state.items.includes(positionKey)) {
+		return { rule: 'collectionAddArgument', message: `No element of '${name}' was added with the key ${position[0].rawText}, which ${before ? 'Before' : 'After'} names. This will raise Run-time error '5': Invalid procedure call or argument.`, span: spanOf(position) };
 	}
 	const index = indexOf(position);
 	if (index !== undefined && (index < 1 || index > state.items.length)) {
