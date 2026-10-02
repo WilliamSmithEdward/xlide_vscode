@@ -889,7 +889,12 @@ export function checkStringArithmeticOperands(
 				if (activity?.isInactive(node.span) || unreachable.has(node) || !('body' in node) || !Array.isArray(node.body)) {
 					continue;
 				}
-				if (node.kind !== 'SelectBlock' && !mayHoldString(blockHeaderLineSpan(source, node.span)) && !(node.kind === 'DoBlock' && mayHoldString(blockFooterLineSpan(source, node.span)))) {
+				// The opening line sees what reaches the block: `x = "abc"` then
+				// `While x`, though the body assigns x again (issue #424).
+				known = valuesAt(node);
+				const reachingString = [...known.values()].some((value) => value.kind === 'string');
+				if (node.kind !== 'SelectBlock' && !reachingString && !mayHoldString(blockHeaderLineSpan(source, node.span)) && !(node.kind === 'DoBlock' && mayHoldString(blockFooterLineSpan(source, node.span)))) {
+					known = valuesAt(undefined);
 					visitBlocks(node.body as BodyNode[]);
 					continue;
 				}
@@ -910,8 +915,12 @@ export function checkStringArithmeticOperands(
 					const footer = blockFooterLineSpan(source, node.span);
 					const footToks = statementTokens(source, footer);
 					if (tokenText(footToks[0]) === 'loop' && (tokenText(footToks[1]) === 'while' || tokenText(footToks[1]) === 'until')) {
+						// The Loop line runs after the body, with what the body leaves.
+						const entering = known;
+						known = valuesAt(undefined);
 						scanOperators(footer.start, footToks, -1);
 						checkCondition(footer.start, footToks, 2, conditionEnd(footToks, 2), tokenText(footToks[1]) === 'while' ? 'While' : 'Until');
+						known = entering;
 					}
 				}
 				if (node.kind === 'ForBlock' && !node.each && node.controlVariable && numeric({ kind: 'identifier', rawText: node.controlVariable, start: 0, end: 0 } as VbaToken)) {

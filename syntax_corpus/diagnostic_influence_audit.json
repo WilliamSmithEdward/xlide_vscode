@@ -1247,11 +1247,21 @@
         "issue449_05_runtime",
         "issue449_20_runtime",
         "issue449_29_runtime",
-        "issue448_07_runtime"
+        "issue448_07_runtime",
+        "issue424_01_runtime",
+        "issue424_02_runtime",
+        "issue424_03_runtime",
+        "issue424_04_runtime",
+        "issue424_05_runtime",
+        "issue424_06_runtime",
+        "issue424_07_runtime",
+        "issue424_08_runtime",
+        "issue424_09_runtime",
+        "issue424_10_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Active coverage is intentionally narrow: local non-Static object-valued variables start as Nothing, straight-line Set assignments mark them initialized, Set ... = Nothing resets them, and nested block assignments or helper-call arguments make the local state unknown rather than guessed. Parameters, module-level object variables, Static locals, Variant values, unresolved object types, and inactive conditional-compilation branches stay quiet. The legacy invalid_semantics_089 object-not-set case is covered by the focused runtime oracle fixture. This is separate from member-not-found: late-bound Object receivers still suppress member-surface absence diagnostics, but a definitely uninitialized local Object receiver can still produce runtime error 91. In a block header too: For i = 1 To c.Count, Select Case c.Count (issue #233, Excel 16.0). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0). A module variable nothing in the module writes keeps its initial value in every procedure (issue #241, measured in Excel 16.0, build 20326); a Public one also needs no other module to write it (ProjectIndex.writtenNames). An object is Nothing, so m.Count raises 91. Issue #253: an object member of a Type local that nothing has Set, or that was Set to Nothing, given a member or a call: t.o.Add 1, t.o.Count, t.o(1), .o.Add 1 inside With t, and .Add 1 inside With t.o raise 91 (measured in Excel 16.0). A Set, a whole use of the local or of the member, a label and a GoSub end what is known; a guard such as If Not t.o Is Nothing Then is respected. Issue #256: x = c on a class variable never Set, whose default member takes no argument, reads Nothing's default member: 91 (measured in Excel 16.0). Issue #268: If c Then on an object variable still Nothing raises 91 whatever its type's default member. Measured in Excel 16.0 on a Collection. Issue #271: a procedure with labels and GoTo is walked following its jumps. A label is entered with what falls into it, if the line before can, merged with the state at each GoTo to it; a GoTo that may or may not run, On Error GoTo, GoSub, Resume to a label and On ... GoTo enter it with nothing known; a GoTo in a loop leaves with what the loop did not touch; If arms, Cases and With bodies are walked as in a procedure without labels; code nothing reaches is not checked; a Resume with no label keeps the old walk. A backward GoTo into code after the Set or ReDim (GoTo Setup ... Setup: Set c = New Collection: GoTo Use) is no longer reported, and a forward GoTo past it (GoTo Use ... Setup: Set c ... Use: c.Count) now is. Measured in Excel 16.0 (issue271_* oracle cases). Issue #273: a guard whose outcome is known decides what runs. With c never Set, If c Is Nothing Then Exit Function leaves, and If Not c Is Nothing skips its arm and any Set in it. An If arm that always leaves takes no part in the state after the block. Issue #336: a For Each the body cannot leave ends with its control variable Nothing, over an empty collection too, so an access after the loop raises 91 and is reported. Issue #406: code that never runs is not judged: an If under a Const whose value is a literal False or 0, a loop of no pass (For with bounds that pass each other, Do While or While with a False condition, Do Until with a True one, For Each over Array()), and code after GoTo up to the next label, whatever state it builds. Issue #439: a label nothing jumps to below Exit Function keeps the procedure on the label-following walk, so a use inside an If, Select or With block above it is still judged. Issue #462: an object variable still Nothing read as an operand (x + 1, x & \"a\", If x = 1) raises 91 when its type has a value default member: an Excel Range or Object, a Word Range or Selection, a PowerPoint TextRange. Issue #415: an object never set read through CStr, Len or the like, or indexed as x(1), raises 91: a Range, an Object, an Application, and a Collection or Names indexed. Issue #343: Nothing is followed when it moves: Set o = p with p still Nothing, a Variant after Set v = Nothing, Set o = F() with F a Function that returns Nothing, and Nothing passed to a procedure of the module whose parameter's first use is a member read. Issue #483: Do Until c Is Nothing and While Not c Is Nothing with c never set run no pass, and neither does For Each over a New Collection nothing has added to, so their bodies are not judged. Issue #486: an On Error Resume Next that never runs, inside If False, a For of no pass, a Case that cannot match or after a GoTo, hides nothing after it. Issue #489: an element of an array of objects named by a literal index is Nothing until Set, and again after Set to Nothing, a plain ReDim or Erase; For Each over a fixed array the code never fills gives Nothing on the first pass. Issue #449: Nothing passed to a procedure of the same module whose first use of the parameter reads a member of it, c.Count or c(1), raises 91.",
+      "notes": "Active coverage is intentionally narrow: local non-Static object-valued variables start as Nothing, straight-line Set assignments mark them initialized, Set ... = Nothing resets them, and nested block assignments or helper-call arguments make the local state unknown rather than guessed. Parameters, module-level object variables, Static locals, Variant values, unresolved object types, and inactive conditional-compilation branches stay quiet. The legacy invalid_semantics_089 object-not-set case is covered by the focused runtime oracle fixture. This is separate from member-not-found: late-bound Object receivers still suppress member-surface absence diagnostics, but a definitely uninitialized local Object receiver can still produce runtime error 91. In a block header too: For i = 1 To c.Count, Select Case c.Count (issue #233, Excel 16.0). Inside blocks too: each If arm and Case from the state the block starts with, a loop's body as its first pass runs it; a block forgets only what it names (issue #237, Excel 16.0). A module variable nothing in the module writes keeps its initial value in every procedure (issue #241, measured in Excel 16.0, build 20326); a Public one also needs no other module to write it (ProjectIndex.writtenNames). An object is Nothing, so m.Count raises 91. Issue #253: an object member of a Type local that nothing has Set, or that was Set to Nothing, given a member or a call: t.o.Add 1, t.o.Count, t.o(1), .o.Add 1 inside With t, and .Add 1 inside With t.o raise 91 (measured in Excel 16.0). A Set, a whole use of the local or of the member, a label and a GoSub end what is known; a guard such as If Not t.o Is Nothing Then is respected. Issue #256: x = c on a class variable never Set, whose default member takes no argument, reads Nothing's default member: 91 (measured in Excel 16.0). Issue #268: If c Then on an object variable still Nothing raises 91 whatever its type's default member. Measured in Excel 16.0 on a Collection. Issue #271: a procedure with labels and GoTo is walked following its jumps. A label is entered with what falls into it, if the line before can, merged with the state at each GoTo to it; a GoTo that may or may not run, On Error GoTo, GoSub, Resume to a label and On ... GoTo enter it with nothing known; a GoTo in a loop leaves with what the loop did not touch; If arms, Cases and With bodies are walked as in a procedure without labels; code nothing reaches is not checked; a Resume with no label keeps the old walk. A backward GoTo into code after the Set or ReDim (GoTo Setup ... Setup: Set c = New Collection: GoTo Use) is no longer reported, and a forward GoTo past it (GoTo Use ... Setup: Set c ... Use: c.Count) now is. Measured in Excel 16.0 (issue271_* oracle cases). Issue #273: a guard whose outcome is known decides what runs. With c never Set, If c Is Nothing Then Exit Function leaves, and If Not c Is Nothing skips its arm and any Set in it. An If arm that always leaves takes no part in the state after the block. Issue #336: a For Each the body cannot leave ends with its control variable Nothing, over an empty collection too, so an access after the loop raises 91 and is reported. Issue #406: code that never runs is not judged: an If under a Const whose value is a literal False or 0, a loop of no pass (For with bounds that pass each other, Do While or While with a False condition, Do Until with a True one, For Each over Array()), and code after GoTo up to the next label, whatever state it builds. Issue #439: a label nothing jumps to below Exit Function keeps the procedure on the label-following walk, so a use inside an If, Select or With block above it is still judged. Issue #462: an object variable still Nothing read as an operand (x + 1, x & \"a\", If x = 1) raises 91 when its type has a value default member: an Excel Range or Object, a Word Range or Selection, a PowerPoint TextRange. Issue #415: an object never set read through CStr, Len or the like, or indexed as x(1), raises 91: a Range, an Object, an Application, and a Collection or Names indexed. Issue #343: Nothing is followed when it moves: Set o = p with p still Nothing, a Variant after Set v = Nothing, Set o = F() with F a Function that returns Nothing, and Nothing passed to a procedure of the module whose parameter's first use is a member read. Issue #483: Do Until c Is Nothing and While Not c Is Nothing with c never set run no pass, and neither does For Each over a New Collection nothing has added to, so their bodies are not judged. Issue #486: an On Error Resume Next that never runs, inside If False, a For of no pass, a Case that cannot match or after a GoTo, hides nothing after it. Issue #489: an element of an array of objects named by a literal index is Nothing until Set, and again after Set to Nothing, a plain ReDim or Erase; For Each over a fixed array the code never fills gives Nothing on the first pass. Issue #449: Nothing passed to a procedure of the same module whose first use of the parameter reads a member of it, c.Count or c(1), raises 91. Issue #424: a never-set object as the condition of an If, ElseIf, loop or IIf, a Select Case subject, or an operand of Not or And raises 91.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -1353,7 +1363,10 @@
         "issue331_15_runtime",
         "issue346_03_runtime",
         "issue449_07_runtime",
-        "issue449_16_runtime"
+        "issue449_16_runtime",
+        "issue424_38_runtime",
+        "issue424_39_runtime",
+        "issue424_40_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -4279,12 +4292,28 @@
         "nonscalar_range_concat_control",
         "nonscalar_udt_concat_probe",
         "nonscalar_udt_comparison_lt_probe",
-        "nonscalar_udt_arith_plus_probe"
+        "nonscalar_udt_arith_plus_probe",
+        "issue424_44_compile",
+        "issue424_45_compile",
+        "issue424_46_compile",
+        "issue424_47_compile",
+        "issue424_48_compile",
+        "issue424_49_compile",
+        "issue424_50_compile",
+        "issue424_51_compile",
+        "issue424_52_compile",
+        "issue424_53_compile",
+        "issue424_54_compile",
+        "issue424_55_compile",
+        "issue424_56_compile",
+        "issue424_57_compile",
+        "issue424_58_compile",
+        "issue424_59_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error",
-      "notes": "A bare array variable used as an operand of a scalar-requiring binary operator is a VBE compile error ('Type mismatch'). Oracle-verified rejected at compile across all four operator classes - & concatenation, arithmetic +, comparison <, and Boolean/bitwise And (one representative per class; the array-operand mechanism is operator-independent and generalizes to the rest of each class: arithmetic - * / \\ ^ Mod, comparisons = <> > <= >=, and Or Xor Eqv Imp). No-FP scope mirrors is-operator-non-object: fires only on a plain IdentifierExpr operand whose declaration shape isArray is true. Stays quiet for scalars, Variant, Object/host receivers (a default member may coerce - control nonscalar_range_concat_control compiles), a same-module user-defined Type value reuses the same compile rejection (oracle-verified nonscalar_udt_concat_probe / _comparison_lt_probe / _arith_plus_probe). An indexed array element a(0) (an IndexExpr scalar element - control nonscalar_array_element_concat_control compiles), member access, calls, parenthesized operands, undeclared names, and statement-level array-copy assignment a = b (an Assignment node, not a comparison BinaryExpr). Is (object operands, owned by is-operator-non-object) and Like (operands coerced to String) are out of scope. The UDT branch matches the operand's declared type against this module's Type symbol names (Type names are always user identifiers, never scalar keywords, so there is no scalar-strip collision); an Object/class instance is not a module Type symbol and stays quiet, and cross-module UDTs are a tracked follow-up."
+      "notes": "A bare array variable used as an operand of a scalar-requiring binary operator is a VBE compile error ('Type mismatch'). Oracle-verified rejected at compile across all four operator classes - & concatenation, arithmetic +, comparison <, and Boolean/bitwise And (one representative per class; the array-operand mechanism is operator-independent and generalizes to the rest of each class: arithmetic - * / \\ ^ Mod, comparisons = <> > <= >=, and Or Xor Eqv Imp). No-FP scope mirrors is-operator-non-object: fires only on a plain IdentifierExpr operand whose declaration shape isArray is true. Stays quiet for scalars, Variant, Object/host receivers (a default member may coerce - control nonscalar_range_concat_control compiles), a same-module user-defined Type value reuses the same compile rejection (oracle-verified nonscalar_udt_concat_probe / _comparison_lt_probe / _arith_plus_probe). An indexed array element a(0) (an IndexExpr scalar element - control nonscalar_array_element_concat_control compiles), member access, calls, parenthesized operands, undeclared names, and statement-level array-copy assignment a = b (an Assignment node, not a comparison BinaryExpr). Is (object operands, owned by is-operator-non-object) and Like (operands coerced to String) are out of scope. The UDT branch matches the operand's declared type against this module's Type symbol names (Type names are always user identifiers, never scalar keywords, so there is no scalar-strip collision); an Object/class instance is not a module Type symbol and stays quiet, and cross-module UDTs are a tracked follow-up. Issue #424: an array as the condition of an If, ElseIf or loop, or as a Select Case subject, is a compile Type mismatch; Not a runs."
     },
     {
       "code": "argument-shape-mismatch",
@@ -5061,11 +5090,14 @@
         "issue369c_02_compile",
         "issue369c_03_compile",
         "issue369c_05_compile",
-        "issue410_18_compile"
+        "issue410_18_compile",
+        "issue424_41_compile",
+        "issue424_42_compile",
+        "issue424_43_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Collection used as an operand. VBE \"Argument not optional\" on a Collection whose default member Item takes an index (issue #125, Excel 16.0). Issue #221: any object whose default member needs an index, Excel's collections included, and such an object as the whole value of a Let into a typed value (s = c). A Collection in grouping parentheses is its default member: Set d = (c), c.Add (c), Take (c), Call Take((c)), With (New Collection) (issue #236, Excel 16.0). Issue #242: a Collection as the first argument of Len, CStr, Val, CLng, CDbl, CInt, CBool, CDate, Trim$, UCase$, LCase$, InStrRev, Asc, Chr or Abs does not compile: Argument not optional (measured in Excel 16.0). Issue #369: a variable As Sheets or Worksheets read as a value, s = o, o & \"x\", If o = 7, is Argument not optional, though their default member is typed Object. Issue #462: Word Paragraphs and Tables and PowerPoint Slides need an index for their default member Item, so an operator on one is Argument not optional. A Word Paragraph, whose default member Range holds an object, is Type mismatch as an operand or a Let into a String. Issue #464: DAO's Fields and TableDefs need an index for their default member Item, so an operator on one is Argument not optional. A Recordset, Database or TableDef, whose default member holds a collection, is Type mismatch as an operand.",
+      "notes": "Collection used as an operand. VBE \"Argument not optional\" on a Collection whose default member Item takes an index (issue #125, Excel 16.0). Issue #221: any object whose default member needs an index, Excel's collections included, and such an object as the whole value of a Let into a typed value (s = c). A Collection in grouping parentheses is its default member: Set d = (c), c.Add (c), Take (c), Call Take((c)), With (New Collection) (issue #236, Excel 16.0). Issue #242: a Collection as the first argument of Len, CStr, Val, CLng, CDbl, CInt, CBool, CDate, Trim$, UCase$, LCase$, InStrRev, Asc, Chr or Abs does not compile: Argument not optional (measured in Excel 16.0). Issue #369: a variable As Sheets or Worksheets read as a value, s = o, o & \"x\", If o = 7, is Argument not optional, though their default member is typed Object. Issue #462: Word Paragraphs and Tables and PowerPoint Slides need an index for their default member Item, so an operator on one is Argument not optional. A Word Paragraph, whose default member Range holds an object, is Type mismatch as an operand or a Let into a String. Issue #464: DAO's Fields and TableDefs need an index for their default member Item, so an operator on one is Argument not optional. A Recordset, Database or TableDef, whose default member holds a collection, is Type mismatch as an operand. Issue #424: a Collection as a Select Case subject or beside Not or And is Argument not optional; as a condition or in IIf it raises 450.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -6100,7 +6132,19 @@
         "issue452_23_runtime",
         "issue452_24_runtime",
         "issue349_06_runtime",
-        "issue476_14_runtime"
+        "issue476_14_runtime",
+        "issue424_18_runtime",
+        "issue424_20_runtime",
+        "issue424_22_runtime",
+        "issue424_23_runtime",
+        "issue424_24_runtime",
+        "issue424_25_runtime",
+        "issue424_26_runtime",
+        "issue424_27_runtime",
+        "issue424_28_runtime",
+        "issue424_29_runtime",
+        "issue424_30_runtime",
+        "issue424_31_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -6538,7 +6582,14 @@
         "issue415_128_runtime",
         "issue415_129_runtime",
         "issue415_131_runtime",
-        "issue415_132_runtime"
+        "issue415_132_runtime",
+        "issue424_11_runtime",
+        "issue424_12_runtime",
+        "issue424_13_runtime",
+        "issue424_14_runtime",
+        "issue424_15_runtime",
+        "issue424_16_runtime",
+        "issue424_17_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
