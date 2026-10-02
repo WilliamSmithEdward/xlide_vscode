@@ -6883,6 +6883,26 @@
       "pendingLegacyCorpusFiles": [],
       "notes": "A Sub or Function that calls itself, or another procedure of the module that calls it back, at the top of its body before any statement or block that could leave or install a handler, and outside a single-line If, never returns: error 28, Out of stack space. `Sub S(): S: End Sub`, `F = F() + 1`, `F = F(n - 1)` with no base case, and a cycle of two or three procedures (issue #240, Excel 16.0).",
       "diagnosticKind": "deterministic-runtime-error"
+    },
+    {
+      "code": "array-temporarily-locked",
+      "status": "vbe-oracle-verified",
+      "diagnosticKind": "deterministic-runtime-error",
+      "sourceOfTruth": "Excel/VBE runtime oracle: error 10, This array is fixed or temporarily locked",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue283_01_runtime",
+        "issue283_02_runtime",
+        "issue283_03_runtime",
+        "issue283_04_runtime",
+        "issue283_05_runtime",
+        "issue283_06_runtime",
+        "issue283_07_runtime",
+        "issue283_08_runtime"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": ""
     }
   ]
 }
