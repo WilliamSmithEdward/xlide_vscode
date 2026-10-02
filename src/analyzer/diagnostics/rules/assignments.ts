@@ -1711,10 +1711,41 @@ export function checkSetAssignments(
 				);
 				return;
 			}
+			// `Set Answer = Nothing` inside the form: a control is no
+			// variable to Set (issue #315, measured in Excel 16.0).
+			const lowerTarget = target.name.toLowerCase();
+			const declaredHere = [...(procSym?.children ?? []), ...(symbols.root.children ?? [])].some((symbol) => symbol.name.toLowerCase() === lowerTarget);
+			const form = declaredHere || !memberCtx.meProjectType ? undefined : (memberCtx.projectClassMembers ?? []).find((type) => type.kind === 'userform' && type.name.toLowerCase() === memberCtx.meProjectType!.toLowerCase());
+			const control = form?.members.find((member) => member.name.toLowerCase() === lowerTarget && /^MSForms\./i.test(member.returns ?? ''));
+			if (control) {
+				push(
+					'setRequiresObject',
+					`'${target.name}' is a control on this form, which no Set can replace. This is a VBE compile error: Invalid use of property.`,
+					target.span,
+				);
+				return;
+			}
 			const expected = targetDeclaredType.resolved
 				? targetDeclaredType.asType
 				: env.get(target.name.toLowerCase());
 			const targetType = normalizeType(expected);
+			// `Set t = Prompt` with t As MSForms.TextBox and Prompt a Label on
+			// this form (issue #315, measured in Excel 16.0: 13).
+			const controlClass = /^(?:msforms\.)?(textbox|label|listbox|combobox|checkbox|optionbutton|togglebutton|commandbutton|frame|multipage|tabstrip|scrollbar|spinbutton|image)$/i.exec(expected?.trim() ?? '')?.[1]?.toLowerCase();
+			const valueName = target.valueTokens.filter((tok) => tok.kind !== 'comment');
+			const meForm = !controlClass || !memberCtx.meProjectType ? undefined : (memberCtx.projectClassMembers ?? []).find((type) => type.kind === 'userform' && type.name.toLowerCase() === memberCtx.meProjectType!.toLowerCase());
+			const valueControl = meForm && valueName.length === 1 && tokenName(valueName[0]) && !env.has(tokenName(valueName[0])!.toLowerCase())
+				? meForm.members.find((member) => member.name.toLowerCase() === tokenName(valueName[0])!.toLowerCase() && /^MSForms\./i.test(member.returns ?? ''))
+				: undefined;
+			const valueClass = valueControl?.returns?.slice('MSForms.'.length).toLowerCase();
+			if (valueControl && valueClass && valueClass !== controlClass) {
+				push(
+					'assignmentObjectTypeMismatch',
+					`Object assignment to '${target.name}' expects ${expected}, but '${valueName[0].rawText}' is a control of class ${valueControl.returns}. This will raise Run-time error '13': Type mismatch.`,
+					{ start: span.start + valueName[0].start, end: span.start + valueName[0].end },
+				);
+				return;
+			}
 			// `Set v = 5` is refused whatever v is: a literal is never an object
 			// reference ("Object required", issue #125, measured in Excel 16.0).
 			const literal = target.valueTokens.filter((tok) => tok.kind !== 'comment');
