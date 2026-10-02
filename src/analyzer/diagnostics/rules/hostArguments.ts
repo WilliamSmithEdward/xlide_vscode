@@ -70,7 +70,10 @@ import type { MemberCompletionContext } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { resolveReceiverTypeAt } from '../../completion/memberAccess';
 import type { VbaToken } from '../../lexer/tokenKinds';
-import type { ProcedureNode, Span } from '../../parser/nodes';
+import type { BodyNode, ProcedureNode, Span } from '../../parser/nodes';
+import { isLeafStatement } from '../../parser/nodes';
+import { statementLabelDeclaration } from '../../flow/procedureLabels';
+import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type AnalyzeModuleOptions, type PushFn } from '../analysisContext';
 import type { SheetChanges, WorkbookSheetInfo } from '../../symbols/sheetChanges';
@@ -81,12 +84,12 @@ import {
 	firstExecutableTokenIndex,
 	matchParenFrom,
 	statementTokens,
+	statementTokensAfterLeadingLabel,
 	tokenName,
 	tokenText,
 	type ProcedureStatementVisitor,
 } from '../walker';
 import { worksheetFunctionRefusal } from './worksheetFunctionArguments';
-import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
 
 const EXCEL_MAX_ROW = 1048576;
 const EXCEL_MAX_COLUMN = 16384;
@@ -171,6 +174,7 @@ export function checkHostArguments(
 		// A local known to hold one value here: `r = 0` then `Cells(r, 1)`
 		// (issue #345, measured in Excel 16.0).
 		let valuesAt: ReturnType<typeof knownLocalLiteralValuesAt> | undefined;
+		let documentsAt: ReturnType<typeof newDocumentsAt> | undefined;
 		return (stmt) => {
 			const stmtCounters = counters.get(stmt);
 			const known = (valuesAt ??= knownLocalLiteralValuesAt(source, proc, symbols, activity))(stmt);
@@ -188,6 +192,11 @@ export function checkHostArguments(
 				return literalString(arg) ?? (held?.kind === 'string' ? held.value as string : undefined);
 			};
 			const literalOrKnown = (arg: readonly VbaToken[]): number | undefined => integerLiteralValue(arg) ?? knownNumber(arg);
+			// A document the procedure just added (issue #497).
+			const documents = host === 'Word' ? (documentsAt ??= newDocumentsAt(source, proc, activity)).get(stmt) : undefined;
+			if (documents) {
+				checkNewDocumentUses(stmt.span, statementTokens(source, stmt.span), documents, literalOrKnown, push);
+			}
 			if (!stmtCounters) {
 				checkSpan(source, stmt.span, host, model, memberCtx, env, arrays, sourceNames, literalOrKnown, push, stringOf);
 				if (workbook) {
@@ -211,6 +220,143 @@ export function checkHostArguments(
 			}, push);
 		};
 	};
+}
+
+/** Members that add to or edit a document, read on the way to a value. */
+const DOCUMENT_EDITS: ReadonlySet<string> = new Set([
+	'add', 'addfield', 'addpicture', 'addtable', 'insertafter', 'insertbefore', 'insertparagraph', 'insertparagraphafter',
+	'insertparagraphbefore', 'insertbreak', 'insertfile', 'paste', 'delete', 'cut', 'converttotable', 'typetext',
+]);
+
+/** A Word document the procedure just added, and the text it wrote into it, if any. */
+interface NewDocument {
+	/** The whole text the code set through Content.Text, or "" for an untouched document. */
+	text: string;
+}
+
+/**
+ * The documents each statement sees as new (issue #497, measured in Word
+ * 16.0): `Set d = Documents.Add` gives an empty document, and
+ * `d.Content.Text = "..."` sets its whole text. A statement that names d
+ * other than to read through it, a label, or a block that names it ends
+ * what is known.
+ */
+function newDocumentsAt(source: string, proc: ProcedureNode, activity: ConditionalActivityTracker | undefined): Map<BodyNode, ReadonlyMap<string, NewDocument>> {
+	const out = new Map<BodyNode, ReadonlyMap<string, NewDocument>>();
+	const visit = (list: readonly BodyNode[], state: Map<string, NewDocument>): void => {
+		for (const node of list) {
+			if (activity?.isInactive(node.span)) {
+				continue;
+			}
+			if (!isLeafStatement(node)) {
+				if ('body' in node && Array.isArray(node.body)) {
+					visit(node.body as BodyNode[], new Map(state));
+					const named = new Set(statementTokens(source, node.span).map((tok) => tokenName(tok)?.toLowerCase()));
+					for (const lower of [...state.keys()]) {
+						if (named.has(lower)) {
+							state.delete(lower);
+						}
+					}
+				}
+				continue;
+			}
+			if (statementLabelDeclaration(source, node.span)) {
+				state.clear();
+			}
+			if (state.size > 0) {
+				out.set(node, new Map(state));
+			}
+			const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+			const words = toks.map((tok) => tok.rawText.toLowerCase());
+			// `Set d = Documents.Add` or `Set d = Documents.Add()`, plain.
+			const from = words[0] === 'set' && words[2] === '=' ? (words[3] === 'application' && words[4] === '.' ? 5 : 3) : -1;
+			if (from > 0 && words[from] === 'documents' && words[from + 1] === '.' && words[from + 2] === 'add'
+				&& (toks.length === from + 3 || (toks.length === from + 5 && words[from + 3] === '(' && words[from + 4] === ')'))) {
+				state.set(words[1], { text: '' });
+				continue;
+			}
+			// `d.Content.Text = "..."` writes the whole text.
+			const target = words[0];
+			if (state.has(target) && toks.length === 7 && words[1] === '.' && words[2] === 'content' && words[3] === '.' && words[4] === 'text' && words[5] === '=' && toks[6].kind === 'stringLiteral') {
+				state.set(target, { text: stringLiteralValue(toks[6].rawText) });
+				continue;
+			}
+			// Anything but a read through the document may change it, and so
+			// may a method that adds or edits on the way: `x = d.Tables.Add(...)`.
+			const eq = toks.findIndex((tok) => tok.rawText === '=');
+			const edits = toks.some((tok, i) => toks[i - 1]?.rawText === '.' && DOCUMENT_EDITS.has(tokenText(tok)));
+			const reads = !edits && bareAssignmentTarget(source, node.span) !== undefined && !state.has(target);
+			for (const lower of [...state.keys()]) {
+				if (words.includes(lower) && !(reads && toks.every((tok, i) => i <= eq || tokenName(tok)?.toLowerCase() !== lower || toks[i + 1]?.rawText === '.'))) {
+					state.delete(lower);
+				}
+			}
+		}
+	};
+	visit(proc.body, new Map());
+	return out;
+}
+
+/** What a new document holds of each collection, counted from its text. */
+function newDocumentCount(document: NewDocument, member: string): number | undefined {
+	const characters = document.text.length + 1; // the final paragraph mark
+	switch (member) {
+		case 'tables':
+		case 'fields':
+		case 'inlineshapes':
+		case 'bookmarks':
+			return 0;
+		case 'sections':
+		case 'paragraphs':
+			return 1;
+		case 'sentences':
+			// Each sentence ends at a stop or at the paragraph's end.
+			return (document.text.match(/[.!?]/g) ?? []).length + 1;
+		case 'words':
+		case 'characters':
+			return characters;
+	}
+	return undefined;
+}
+
+/** Members of a new document past what it holds: `d.Tables(1)`, `d.Words(50)`, `d.Range(0, 99999)`. */
+function checkNewDocumentUses(
+	span: Span,
+	toks: readonly VbaToken[],
+	documents: ReadonlyMap<string, NewDocument>,
+	valueOf: (arg: readonly VbaToken[]) => number | undefined,
+	push: PushFn,
+): void {
+	for (let i = 0; i + 4 < toks.length; i++) {
+		const name = tokenName(toks[i])?.toLowerCase();
+		const document = name ? documents.get(name) : undefined;
+		if (!document || toks[i - 1]?.rawText === '.' || toks[i + 1].rawText !== '.' || toks[i + 3].rawText !== '(') {
+			continue;
+		}
+		const member = tokenText(toks[i + 2]);
+		const close = matchParenFrom(toks, i + 3);
+		const args = close > i + 4 ? splitTopLevelTokenGroups(toks, i + 4, ',', close) : [];
+		const at = { start: span.start + toks[i + 2].start, end: span.start + toks[close].end };
+		const what = document.text ? `whose text the code set to ${document.text.length} character(s)` : 'which the code just added';
+		if (member === 'range' && args.length === 2) {
+			const end = valueOf(args[1]);
+			const characters = document.text.length + 1;
+			if (end !== undefined && end > characters) {
+				push('hostArgumentOutOfRange', `'${toks[i].rawText}' is a new document ${what}, so it ends at position ${characters}, and Range ends at ${end}. This will raise Run-time error '4608': Value out of range.`, at);
+			}
+			continue;
+		}
+		const count = newDocumentCount(document, member);
+		if (count === undefined || args.length !== 1) {
+			continue;
+		}
+		const named = member === 'bookmarks' && args[0].length === 1 && args[0][0].kind === 'stringLiteral';
+		const index = named ? undefined : valueOf(args[0]);
+		if (named || (index !== undefined && index > count)) {
+			const shown = toks.slice(i + 2, close + 1).map((tok) => tok.rawText).join('');
+			push('hostArgumentOutOfRange', `'${toks[i].rawText}' is a new document ${what}, which has ${count} ${toks[i + 2].rawText}, so ${shown} does not exist. This will raise Run-time error '5941': The requested member of the collection does not exist.`, at);
+		}
+	}
 }
 
 function checkSpan(
