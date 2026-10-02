@@ -2111,26 +2111,86 @@ export function arrayValueShape(valueTokens: readonly VbaToken[], name: string, 
 			...(values.length > 0 ? { values } : {}),
 		};
 	}
-	// `Range("A1:B2").Value` and `Worksheets(1).Range("A1:B2").Value`.
-	if (tokenText(toks[toks.length - 1]) === 'value' && toks[toks.length - 2]?.rawText === '.' && toks[toks.length - 3]?.rawText === ')') {
-		const close = toks.length - 3;
-		const open = toks.findIndex((tok, i) => tok.rawText === '(' && matchParenFrom(toks, i) === close);
-		if (open > 0 && tokenText(toks[open - 1]) === 'range' && close === open + 2 && toks[open + 1].kind === 'stringLiteral') {
-			const address = /^([A-Za-z]{1,3})(\d+):([A-Za-z]{1,3})(\d+)$/.exec(toks[open + 1].rawText.slice(1, -1));
-			if (address) {
-				const rows = Math.abs(Number(address[4]) - Number(address[2])) + 1;
-				const cols = Math.abs(columnNumber(address[3]) - columnNumber(address[1])) + 1;
-				if (rows > 1 || cols > 1) {
-					return {
-						name,
-						dims: [{ lower: 1, upper: rows, explicitLower: true }, { lower: 1, upper: cols, explicitLower: true }],
-						origin: 'Range(...).Value',
-					};
-				}
-			}
-		}
+	// `Range("A1:B2").Value` and `Worksheets(1).Range("A1:B2").Value`; Value2 too (issue #278).
+	const block = rangeValueBlock(toks);
+	if (block && (block.rows > 1 || block.cols > 1)) {
+		return {
+			name,
+			dims: [{ lower: 1, upper: block.rows, explicitLower: true }, { lower: 1, upper: block.cols, explicitLower: true }],
+			origin: 'Range(...).Value',
+		};
+	}
+	// `Application.Transpose(Range("A1:A3").Value)`: one column becomes a
+	// 1-D array from 1, a row or a block a 2-D one turned over (issue #278,
+	// measured in Excel 16.0).
+	const transposed = transposeArgument(toks);
+	const inner = transposed ? rangeValueBlock(transposed) : undefined;
+	if (inner && (inner.rows > 1 || inner.cols > 1)) {
+		return {
+			name,
+			dims: inner.cols === 1
+				? [{ lower: 1, upper: inner.rows, explicitLower: true }]
+				: [{ lower: 1, upper: inner.cols, explicitLower: true }, { lower: 1, upper: inner.rows, explicitLower: true }],
+			origin: 'Transpose(...)',
+		};
 	}
 	return undefined;
+}
+
+/** The rows and columns of a literal `[...]Range("A1:B2").Value` or `.Value2`, the whole of `toks`. */
+export function rangeValueBlock(toks: readonly VbaToken[]): { rows: number; cols: number } | undefined {
+	const member = tokenText(toks[toks.length - 1]);
+	if ((member !== 'value' && member !== 'value2') || toks[toks.length - 2]?.rawText !== '.' || toks[toks.length - 3]?.rawText !== ')') {
+		return undefined;
+	}
+	const close = toks.length - 3;
+	const open = toks.findIndex((tok, i) => tok.rawText === '(' && matchParenFrom(toks, i) === close);
+	if (open <= 0 || tokenText(toks[open - 1]) !== 'range' || close !== open + 2 || toks[open + 1].kind !== 'stringLiteral') {
+		return undefined;
+	}
+	const text = toks[open + 1].rawText.slice(1, -1);
+	const address = /^([A-Za-z]{1,3})(\d+)(?::([A-Za-z]{1,3})(\d+))?$/.exec(text);
+	if (!address) {
+		return undefined;
+	}
+	const rows = Math.abs(Number(address[4] ?? address[2]) - Number(address[2])) + 1;
+	const cols = Math.abs(columnNumber(address[3] ?? address[1]) - columnNumber(address[1])) + 1;
+	return { rows, cols };
+}
+
+/**
+ * Whether `toks` read one cell's value: `Range("A1")`, `Cells(1, 2)`, either
+ * with `.Value` or `.Value2`, after any receiver (issue #278).
+ */
+export function singleCellValue(toks: readonly VbaToken[]): boolean {
+	const member = tokenText(toks[toks.length - 1]);
+	const end = (member === 'value' || member === 'value2') && toks[toks.length - 2]?.rawText === '.' ? toks.length - 3 : toks.length - 1;
+	if (toks[end]?.rawText !== ')') {
+		return false;
+	}
+	const open = toks.findIndex((tok, i) => tok.rawText === '(' && matchParenFrom(toks, i) === end);
+	const callee = open > 0 ? tokenText(toks[open - 1]) : '';
+	if (open <= 0 || (open > 1 && toks[open - 2]?.rawText !== '.')) {
+		return false;
+	}
+	const args = splitTopLevelTokenGroups(toks.slice(open + 1, end), ',');
+	if (callee === 'range') {
+		const block = args.length === 1 && args[0].length === 1 && args[0][0].kind === 'stringLiteral'
+			? /^([A-Za-z]{1,3})(\d+)(?::([A-Za-z]{1,3})(\d+))?$/.exec(args[0][0].rawText.slice(1, -1))
+			: undefined;
+		return block !== undefined && block !== null && (block[3] === undefined || (block[3].toLowerCase() === block[1].toLowerCase() && block[4] === block[2]));
+	}
+	return callee === 'cells' && args.length === 2 && args.every((arg) => arg.length === 1 && arg[0].kind === 'integerLiteral');
+}
+
+/** The argument of `Application.Transpose(...)` or `WorksheetFunction.Transpose(...)` that is the whole of `toks`. */
+function transposeArgument(toks: readonly VbaToken[]): VbaToken[] | undefined {
+	const at = toks.findIndex((tok, i) => tokenText(tok) === 'transpose' && toks[i + 1]?.rawText === '(' && toks[i - 1]?.rawText === '.');
+	const receiver = at > 0 ? toks.slice(0, at - 1).map((tok) => tokenText(tok)).join('') : '';
+	if (at < 0 || !['application', 'worksheetfunction', 'application.worksheetfunction'].includes(receiver) || matchParenFrom(toks, at + 1) !== toks.length - 1) {
+		return undefined;
+	}
+	return toks.slice(at + 2, toks.length - 1) as VbaToken[];
 }
 
 /**

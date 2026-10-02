@@ -770,6 +770,19 @@ function checkSpan(
 	const at = (from: number, to: number): Span => ({ start: span.start + toks[from].start, end: span.start + toks[to].end });
 	if (host === 'Excel') {
 		checkSheetNameAssignment(source, span, toks, memberCtx, sourceNames, push);
+		// `Range("A1:B2").Areas(2)`: an address with no comma is one area
+		// (issue #278, measured in Excel 16.0: 1004).
+		for (let i = 0; i + 8 < toks.length; i++) {
+			if (tokenText(toks[i]) !== 'range' || (sourceNames.has('range') && toks[i - 1]?.rawText !== '.') || toks[i + 1].rawText !== '(' || toks[i + 2].kind !== 'stringLiteral' || toks[i + 3].rawText !== ')' || toks[i + 4].rawText !== '.'
+				|| tokenText(toks[i + 5]) !== 'areas' || toks[i + 6].rawText !== '(' || toks[i + 7].kind !== 'integerLiteral' || toks[i + 8].rawText !== ')') {
+				continue;
+			}
+			const address = toks[i + 2].rawText.slice(1, -1);
+			const index = Number(toks[i + 7].rawText.replace(/[%&^]$/, ''));
+			if (/^\$?[A-Za-z]{1,3}\$?\d+(?::\$?[A-Za-z]{1,3}\$?\d+)?$/.test(address) && index > 1) {
+				push('hostArgumentOutOfRange', `Range("${address}") is one area, so Areas(${index}) names none. This will raise Run-time error '1004': Application-defined or object-defined error.`, at(i + 7, i + 7));
+			}
+		}
 	}
 	for (let i = 0; i < toks.length; i++) {
 		const callee = hostCalleeAt(source, span, toks, i, model, memberCtx, sourceNames);
