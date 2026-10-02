@@ -1622,6 +1622,16 @@ export function literalDimensions(inner: readonly VbaToken[], optionBase: number
 	return out;
 }
 
+/** A procedure's local fixed arrays whose bounds are literals, by lowercased name. */
+export function localFixedArrays(
+	source: string,
+	proc: ProcedureNode,
+	activity: ConditionalActivityTracker | undefined,
+	optionBase: number,
+): Map<string, FixedArrayBound> {
+	return localFixedArrayDeclarationsForBody(source, proc.body, activity, optionBase);
+}
+
 /** Local, statically-bounded fixed arrays in a procedure body. */
 function localFixedArrayDeclarationsForBody(
 	source: string,

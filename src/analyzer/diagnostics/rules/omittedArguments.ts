@@ -34,6 +34,7 @@ import {
 	expressionCalls,
 	isKnownScalarType,
 	isNumericType,
+	knownLocalLiteralValuesAt,
 	normalizeType,
 	sourceNameScopeFor,
 	stringLiteralValue,
@@ -51,10 +52,11 @@ import {
 	tokenText,
 	type ProcedureStatementVisitor,
 } from '../walker';
+import { type FixedArrayBound, localFixedArrays, moduleOptionBase } from './arrays';
 import { isBareOrVbaQualifiedIntrinsicCall } from './shared';
 
-/** What an omitted parameter holds in the callee. */
-type OmittedValue = { kind: 'missing' } | { kind: 'number'; value: number } | { kind: 'string'; value: string };
+/** What an omitted or passed parameter holds in the callee. */
+type OmittedValue = { kind: 'missing' } | { kind: 'nothing' } | { kind: 'number'; value: number } | { kind: 'string'; value: string };
 
 /** The callee's first use of an omitted parameter, when that use raises. */
 interface RaisingUse {
@@ -113,15 +115,31 @@ export function checkOmittedArgumentReads(
 		const lower = member.name.toLowerCase();
 		procedures.set(lower, procedures.has(lower) ? null : member);
 	}
-	if (![...procedures.values()].some((proc) => proc?.params.some((param) => param.optional || param.paramArray))) {
+	if (![...procedures.values()].some((proc) => proc && proc.params.length > 0)) {
 		return () => undefined;
 	}
 	const moduleSignatures = callableTypeSignaturesFor(symbols, undefined);
 	const reads = new Map<string, RaisingUse | ParamArrayRead | undefined>();
-	const callee = new CalleeReader(source, symbols, activity, procedures);
+	const callee = new CalleeReader(source, symbols, activity, procedures, moduleOptionBase(mod, activity));
 	return (member) => {
 		const sourceNames = sourceNameScopeFor(symbols, member, projectVisibleSymbols);
+		let valuesAt: ReturnType<typeof knownLocalLiteralValuesAt> | undefined;
 		return (stmt) => {
+			// A literal the call passes, or a local whose value is known here.
+			const argumentValue = (slot: readonly VbaToken[]): OmittedValue | undefined => {
+				const toks = slot.filter((tok) => tok.kind !== 'comment');
+				if (toks.length === 1 && tokenText(toks[0]) === 'nothing') {
+					return { kind: 'nothing' };
+				}
+				const literal = literalValue(toks);
+				if (literal || toks.length !== 1 || toks[0].kind !== 'identifier') {
+					return literal;
+				}
+				const known = (valuesAt ??= knownLocalLiteralValuesAt(source, member, symbols, activity))(stmt).get(toks[0].rawText.toLowerCase());
+				return known?.kind === 'number' ? { kind: 'number', value: Number(known.value) }
+					: known?.kind === 'string' ? { kind: 'string', value: String(known.value) }
+						: undefined;
+			};
 			const calls: CallArguments[] = [];
 			const statementCall = extractCall(source, stmt.span);
 			if (statementCall) {
@@ -143,7 +161,7 @@ export function checkOmittedArgumentReads(
 				if (!proc || bareCallableSourceShadowed(call.name, sourceNames)) {
 					continue;
 				}
-				for (const omitted of omittedParameters(proc, call)) {
+				for (const omitted of [...omittedParameters(proc, call), ...suppliedParameters(proc, call, argumentValue)]) {
 					const key = `${proc.name}|${omitted.param.name}|${omitted.key}`;
 					if (!reads.has(key)) {
 						reads.set(key, callee.firstRaisingUse(proc, omitted.param, omitted.value, omitted.passed, omitted.skipped));
@@ -168,6 +186,80 @@ interface Omitted {
 	/** Where to report: the skipped slot, or the call's name. */
 	span: Span;
 	key: string;
+	/** The call passes the value rather than leaving it out (issue #449). */
+	supplied?: boolean;
+	/** What the call passes, where the parameter's type rounds it: 0.4 into a Long. */
+	rounded?: number;
+}
+
+/**
+ * The parameters a call passes a known value to, with what each holds in the
+ * callee: the value converted to the parameter's type as a ByVal copy is
+ * (issue #449, measured in Excel 16.0: `F(0.4)` into a Long divides by 0).
+ */
+function suppliedParameters(proc: ProcedureNode, call: CallArguments, valueOf: (slot: readonly VbaToken[]) => OmittedValue | undefined): Omitted[] {
+	const params = proc.params;
+	const out: Omitted[] = [];
+	call.slots.forEach((slot, k) => {
+		const named = isNamedSlot(slot);
+		const firstNamed = call.slots.findIndex(isNamedSlot);
+		if (!named && firstNamed >= 0 && k > firstNamed) {
+			return;
+		}
+		const param = named
+			? params.find((candidate) => candidate.name.toLowerCase() === slot[0].rawText.replace(/^\[|\]$/g, '').toLowerCase())
+			: params[k];
+		if (!param || param.paramArray || param.isArray || slot.length === 0) {
+			return;
+		}
+		const passed = valueOf(named ? slot.slice(2) : slot);
+		const value = passed && heldAs(passed, parameterType(param));
+		if (value) {
+			const rounded = passed.kind === 'number' && value.kind === 'number' && passed.value !== value.value ? passed.value : undefined;
+			out.push({ param, value, passed: 0, skipped: new Set(), span: call.slotSpans?.[k] ?? call.nameSpan, key: JSON.stringify(value), supplied: true, rounded });
+		}
+	});
+	return out;
+}
+
+const INTEGER_RANGES: Readonly<Record<string, readonly [number, number]>> = {
+	byte: [0, 255],
+	integer: [-32768, 32767],
+	long: [-2147483648, 2147483647],
+};
+
+/** A passed value as a parameter of this type holds it, or undefined where the call itself would fail or it is not known. */
+function heldAs(value: OmittedValue, type: string): OmittedValue | undefined {
+	if (value.kind === 'nothing') {
+		return type === 'variant' || !isKnownScalarType(type) ? value : undefined;
+	}
+	if (type === 'variant') {
+		return value;
+	}
+	if (value.kind === 'string') {
+		return type === 'string' ? value : undefined;
+	}
+	if (value.kind !== 'number') {
+		return undefined;
+	}
+	const range = INTEGER_RANGES[type];
+	if (range) {
+		const rounded = roundHalfEven(value.value);
+		return rounded >= range[0] && rounded <= range[1] ? { kind: 'number', value: rounded } : undefined;
+	}
+	if (type === 'double' || type === 'single' || type === 'currency') {
+		return value;
+	}
+	return type === 'boolean' ? { kind: 'number', value: value.value === 0 ? 0 : -1 } : undefined;
+}
+
+function roundHalfEven(value: number): number {
+	const floor = Math.floor(value);
+	const diff = value - floor;
+	if (diff !== 0.5) {
+		return Math.round(value);
+	}
+	return floor % 2 === 0 ? floor : floor + 1;
 }
 
 /** The parameters a call leaves to their omitted value, and the ParamArray it fills. */
@@ -277,7 +369,12 @@ function report(source: string, proc: ProcedureNode, omitted: Omitted, use: Rais
 		return;
 	}
 	const value = omitted.value;
-	const holds = !value || value.kind === 'missing' ? 'Missing' : value.kind === 'string' ? JSON.stringify(value.value) : String(value.value);
+	const holds = !value || value.kind === 'missing' ? 'Missing' : value.kind === 'nothing' ? 'Nothing' : value.kind === 'string' ? JSON.stringify(value.value) : String(value.value);
+	if (omitted.supplied) {
+		const passes = omitted.rounded === undefined ? `${holds} to '${name}'` : `${omitted.rounded} to '${name}', which holds ${holds}`;
+		push(use.rule, `This call passes ${passes}, and '${proc.name}' ${use.does} (${where}). This will raise Run-time error ${use.error}.`, omitted.span);
+		return;
+	}
 	const subject = omitted.param.paramArray ? `skips an element of '${name}'` : `omits '${name}'`;
 	push(
 		use.rule,
@@ -303,7 +400,10 @@ class CalleeReader {
 		private readonly symbols: ReturnType<typeof buildModuleSymbols>,
 		private readonly activity: ConditionalActivityTracker | undefined,
 		private readonly procedures: ReadonlyMap<string, ProcedureNode | null>,
+		private readonly optionBase: number,
 	) {}
+
+	private readonly arrays = new Map<ProcedureNode, ReadonlyMap<string, FixedArrayBound>>();
 
 	firstRaisingUse(
 		proc: ProcedureNode,
@@ -321,7 +421,7 @@ class CalleeReader {
 		if (param.paramArray) {
 			return this.paramArrayRead(proc, toks, index, spanStart, passed, skipped);
 		}
-		return value ? this.classify(proc, toks, index, index, spanStart, value) : undefined;
+		return value ? this.classify(proc, toks, index, index, spanStart, value, parameterType(param)) : undefined;
 	}
 
 	/**
@@ -446,14 +546,20 @@ class CalleeReader {
 	}
 
 	/** Whether the use of the value at tokens first..last raises, and how. */
-	private classify(proc: ProcedureNode, toks: readonly VbaToken[], first: number, last: number, spanStart: number, value: OmittedValue): RaisingUse | undefined {
+	private classify(proc: ProcedureNode, toks: readonly VbaToken[], first: number, last: number, spanStart: number, value: OmittedValue, type = 'variant'): RaisingUse | undefined {
 		const prev = toks[first - 1];
 		const next = toks[last + 1];
 		const nextText = tokenText(next);
+		const span = { start: spanStart + toks[first].start, end: spanStart + toks[last].end };
+		if (value.kind === 'nothing') {
+			// `c.Count` or `c(1)` on Nothing (issue #449, measured in Excel 16.0).
+			return nextText === '(' || nextText === '.' || nextText === '!'
+				? { rule: 'objectVariableNotSet', does: `uses it in ${quote(this.operationText(toks, assignmentIndex(toks), spanStart))}`, error: "'91': Object variable or With block variable not set", span }
+				: undefined;
+		}
 		if (nextText === '(' || nextText === '.' || nextText === '!') {
 			return undefined;
 		}
-		const span = { start: spanStart + toks[first].start, end: spanStart + toks[last].end };
 		const assignAt = assignmentIndex(toks);
 		if (last + 1 === assignAt) {
 			return undefined; // the statement assigns it
@@ -506,7 +612,7 @@ class CalleeReader {
 			if (value.value === 0 && prevOperator && (prevOperator === '/' || prevOperator === '\\' || prevOperator === 'mod') && nextText !== '^') {
 				return { rule: 'divisionByZero', does: `divides by it in ${operation}`, error: "'11': Division by zero", span };
 			}
-			return undefined;
+			return this.numberUse(proc, toks, first, last, assignAt, spanStart, value.value, type);
 		}
 		if (!isInvalidNumericString(value.value)) {
 			return undefined;
@@ -523,6 +629,64 @@ class CalleeReader {
 			return { rule: 'runtimeConversionValue', does: `converts it with ${argument.display}`, error: "'13': Type mismatch", span };
 		}
 		return undefined;
+	}
+
+	/**
+	 * A number that raises where the callee uses it (issue #449, each measured
+	 * in Excel 16.0): Mid's start below 1 or Left's and Right's length below 0
+	 * (5), the index of a local fixed array outside its bounds (9), and
+	 * `i * 2`, `2 * i` or `i + 1` past the range of the type they work in (6).
+	 */
+	private numberUse(proc: ProcedureNode, toks: readonly VbaToken[], first: number, last: number, assignAt: number, spanStart: number, value: number, type: string): RaisingUse | undefined {
+		const span = { start: spanStart + toks[first].start, end: spanStart + toks[last].end };
+		const argument = argumentOf(toks, first, last);
+		if (argument && argument.position === 1 && isBareOrVbaQualifiedIntrinsicCall(toks, argument.callee)) {
+			const start = argument.name === 'mid' || argument.name === 'mid$';
+			const length = ['left', 'left$', 'right', 'right$'].includes(argument.name);
+			if ((start && value < 1) || (length && value < 0)) {
+				return { rule: 'runtimeArgumentValue', does: `passes it to ${argument.display} as its ${start ? 'start' : 'length'}`, error: "'5': Invalid procedure call or argument", span };
+			}
+		}
+		if (argument && argument.count === 1 && Number.isInteger(value) && toks[argument.callee + 1]?.rawText === '(' && toks[argument.callee - 1]?.rawText !== '.') {
+			const array = this.fixedArrays(proc).get(tokenText(toks[argument.callee]));
+			const dim = array?.dims.length === 1 ? array.dims[0] : undefined;
+			if (dim && (value < dim.lower || value > dim.upper)) {
+				return { rule: 'arraySubscriptOutOfBounds', does: `reads ${argument.display}(${value}), whose bounds are ${dim.lower} To ${dim.upper}`, error: "'9': Subscript out of range", span };
+			}
+		}
+		// The whole value of an assignment: `x op literal` or `literal op x`.
+		const range = INTEGER_RANGES[type];
+		if (!range || assignAt < 0 || toks.length - assignAt !== 4 || (first !== assignAt + 1 && first !== toks.length - 1)) {
+			return undefined;
+		}
+		const operator = toks[assignAt + 2].rawText;
+		const literal = toks[first === assignAt + 1 ? assignAt + 3 : assignAt + 1];
+		if (!['+', '-', '*'].includes(operator) || literal.kind !== 'integerLiteral' || !/^\d+$/.test(literal.rawText)) {
+			return undefined;
+		}
+		const other = Number(literal.rawText);
+		// The literal is an Integer or a Long, and the wider type does the sum.
+		const otherRange = other <= 32767 ? INTEGER_RANGES.integer : other <= 2147483647 ? INTEGER_RANGES.long : undefined;
+		if (!otherRange) {
+			return undefined;
+		}
+		const works = otherRange[1] > range[1] ? otherRange : type === 'byte' ? INTEGER_RANGES.integer : range;
+		const [a, b] = first === assignAt + 1 ? [value, other] : [other, value];
+		const result = operator === '+' ? a + b : operator === '-' ? a - b : a * b;
+		if (result >= works[0] && result <= works[1]) {
+			return undefined;
+		}
+		const typeName = works === INTEGER_RANGES.long ? 'Long' : 'Integer';
+		return { rule: 'arithmeticOverflow', does: `computes ${result} in ${quote(this.operationText(toks, assignAt, spanStart))}, past the ${typeName} range`, error: "'6': Overflow", span };
+	}
+
+	private fixedArrays(proc: ProcedureNode): ReadonlyMap<string, FixedArrayBound> {
+		let found = this.arrays.get(proc);
+		if (!found) {
+			found = localFixedArrays(this.source, proc, this.activity, this.optionBase);
+			this.arrays.set(proc, found);
+		}
+		return found;
 	}
 
 	/** `If x Then`, `ElseIf x Then`, `Do While x`, `Loop Until x`, `While x`, `Select Case x`. */
