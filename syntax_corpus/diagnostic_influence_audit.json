@@ -1704,7 +1704,8 @@
         "issue434_42_runtime",
         "issue434_43_runtime",
         "issue434_45_runtime",
-        "issue434_46_runtime"
+        "issue434_46_runtime",
+        "issue407_32_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -4470,11 +4471,31 @@
         "issue411_13_runtime",
         "issue411_14_runtime",
         "issue411_15_runtime",
-        "issue411_24_runtime"
+        "issue411_24_runtime",
+        "issue407_01_runtime",
+        "issue407_02_runtime",
+        "issue407_03_runtime",
+        "issue407_04_runtime",
+        "issue407_05_runtime",
+        "issue407_06_runtime",
+        "issue407_07_runtime",
+        "issue407_08_runtime",
+        "issue407_09_runtime",
+        "issue407_13_runtime",
+        "issue407_14_runtime",
+        "issue407_15_runtime",
+        "issue407_16_runtime",
+        "issue407_17_runtime",
+        "issue407_18_runtime",
+        "issue407_19_runtime",
+        "issue407_20_runtime",
+        "issue407_26_runtime",
+        "issue407_27_runtime",
+        "issue407_28_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Arithmetic overflow. MS-VBAL 5.6.9.3 operator result types; VBE runtime error 6: Overflow (issue #116, Excel 16.0). Issue #218: CDec past the Decimal range (CDec(\"1E30\")), and Abs of the smallest Long is not an overflow (it returns -2147483648). Inside any call argument or operand too: CStr(CInt(40000)), IIf(True, 0, CInt(40000)), \"x\" & CInt(40000), z(CInt(40000)); and LongLong, folded exactly, with LongPtr judged against LongLong's range (issues #232 and #258, 64-bit Excel 16.0). In a block header too: For i = 1 To CInt(40000), Select Case CInt(40000) (issue #233, Excel 16.0). Negating the Long minimum wraps where the VBE folds it, -&H80000000, -CLng(&H80000000), -(&H80000000 + 0); a variable or another conversion overflows (issue #235, Excel 16.0). Issue #253: a member of a Type value as the target, t.i = t.i + 1 after t.i = 32767, t.i = t.a after t.a = 40000, and a Date member past 12/31/9999; and a literal into an array element of a known type, v(2) = 40000 and t.v(2) = 40000 (measured in Excel 16.0). Issue #255: an Enum member is a Long of its own value, or one more than the member before it, the first 0; x = eBig into an Integer, E.eBig, eMax + 1 and eK * eK overflow (measured in Excel 16.0). A local or parameter of the name hides a module Const or Enum member. Issue #262: an Open Len literal past 32767 raises 6 (Len = 32768 and 100000); Len = -1 runs. Measured in Excel 16.0. Issue #263: a loop counter on its first and last passes (For i = 32760 To 32770 then CInt(i)); a whole-number local a For loop steps by its own statement, x = x + k, x - k or x * k with k a number or the counter, run pass by pass from its value at the loop (an Integer t = t + i over 1 To 300 at i = 256, a Long p = p * i over 1 To 20 at i = 13); and a Do or While loop stepping a local whose exit test no value of its type passes (Loop Until i > 32767 on an Integer, While b <= 255 on a Byte, Do Until b < 0). The body must be plain statements, with nothing else naming the local. Measured in Excel 16.0. Issue #326: a Boolean goes into a Byte as 255 or 0, so b = True, b = Not False, a Boolean Const, CByte(True) and a Byte function returning True run. Arithmetic makes it an Integer -1: b = True + 0 and b = Not 0 still overflow. Issue #362: negating a Byte gives an Integer, so -b with b = 200 is -200 and runs; storing it in a Byte still overflows. Issue #330: number + Date and number - Date hold a serial past the Date range without raising; Date + number past 12/31/9999 raises 6 and is reported. Issue #405: the Date past the range that number + Date made is kept, so Int, Fix, Abs, CInt, -(x), x + 1 and an Integer or Byte target of it raise 6 and are reported; a Date, Long, Single or Currency target holds it. Issue #409: a Date with a Currency is a Date for + and -, and a Double for *: c + t past the Date range does not raise (#330), t + c and t - c raise 6. Issue #367: a logical operator on a value outside the Long range raises 6 at run time too: n = 3E9 Or 0. Issue #430: not reported in code that never runs; see runtime-argument-value. Issue #411: a sheet size Excel fixes is read through ActiveSheet, Application, Worksheets(n) or a Worksheet local (Rows.Count 1048576, Columns.Count 16384), from Cells(r, c).Row and .Column, and from a literal Range address (Row, Column, Count, Rows.Count, Columns.Count).",
+      "notes": "Arithmetic overflow. MS-VBAL 5.6.9.3 operator result types; VBE runtime error 6: Overflow (issue #116, Excel 16.0). Issue #218: CDec past the Decimal range (CDec(\"1E30\")), and Abs of the smallest Long is not an overflow (it returns -2147483648). Inside any call argument or operand too: CStr(CInt(40000)), IIf(True, 0, CInt(40000)), \"x\" & CInt(40000), z(CInt(40000)); and LongLong, folded exactly, with LongPtr judged against LongLong's range (issues #232 and #258, 64-bit Excel 16.0). In a block header too: For i = 1 To CInt(40000), Select Case CInt(40000) (issue #233, Excel 16.0). Negating the Long minimum wraps where the VBE folds it, -&H80000000, -CLng(&H80000000), -(&H80000000 + 0); a variable or another conversion overflows (issue #235, Excel 16.0). Issue #253: a member of a Type value as the target, t.i = t.i + 1 after t.i = 32767, t.i = t.a after t.a = 40000, and a Date member past 12/31/9999; and a literal into an array element of a known type, v(2) = 40000 and t.v(2) = 40000 (measured in Excel 16.0). Issue #255: an Enum member is a Long of its own value, or one more than the member before it, the first 0; x = eBig into an Integer, E.eBig, eMax + 1 and eK * eK overflow (measured in Excel 16.0). A local or parameter of the name hides a module Const or Enum member. Issue #262: an Open Len literal past 32767 raises 6 (Len = 32768 and 100000); Len = -1 runs. Measured in Excel 16.0. Issue #263: a loop counter on its first and last passes (For i = 32760 To 32770 then CInt(i)); a whole-number local a For loop steps by its own statement, x = x + k, x - k or x * k with k a number or the counter, run pass by pass from its value at the loop (an Integer t = t + i over 1 To 300 at i = 256, a Long p = p * i over 1 To 20 at i = 13); and a Do or While loop stepping a local whose exit test no value of its type passes (Loop Until i > 32767 on an Integer, While b <= 255 on a Byte, Do Until b < 0). The body must be plain statements, with nothing else naming the local. Measured in Excel 16.0. Issue #326: a Boolean goes into a Byte as 255 or 0, so b = True, b = Not False, a Boolean Const, CByte(True) and a Byte function returning True run. Arithmetic makes it an Integer -1: b = True + 0 and b = Not 0 still overflow. Issue #362: negating a Byte gives an Integer, so -b with b = 200 is -200 and runs; storing it in a Byte still overflows. Issue #330: number + Date and number - Date hold a serial past the Date range without raising; Date + number past 12/31/9999 raises 6 and is reported. Issue #405: the Date past the range that number + Date made is kept, so Int, Fix, Abs, CInt, -(x), x + 1 and an Integer or Byte target of it raise 6 and are reported; a Date, Long, Single or Currency target holds it. Issue #409: a Date with a Currency is a Date for + and -, and a Double for *: c + t past the Date range does not raise (#330), t + c and t - c raise 6. Issue #367: a logical operator on a value outside the Long range raises 6 at run time too: n = 3E9 Or 0. Issue #430: not reported in code that never runs; see runtime-argument-value. Issue #411: a sheet size Excel fixes is read through ActiveSheet, Application, Worksheets(n) or a Worksheet local (Rows.Count 1048576, Columns.Count 16384), from Cells(r, c).Row and .Column, and from a literal Range address (Row, Column, Count, Rows.Count, Columns.Count). Issue #407: the folder works out Sgn, Choose, IIf with a literal condition, Len of String(n, c) or a literal, and AscW of ChrW(n), so r = Sgn(-5) into a Byte overflows; and a String local known to hold a number feeds a conversion, CInt(s) with s = \"40000\".",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
