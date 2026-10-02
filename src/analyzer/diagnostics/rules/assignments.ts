@@ -29,6 +29,7 @@ import type {
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { objectLetStateAt } from './objectState';
 import { elementOperandStartingAt, elementsWrittenIn, knownArrayShapesAt, moduleOptionBase, type FixedArrayBound } from './arrays';
+import { functionResultAt, knownFunctionResults } from '../functionResults';
 import { straightLineAssignments } from '../straightLineValues';
 import { heldObjectsAt } from '../heldObjects';
 import { resolveRuntimeFunction } from '../../runtime/vbaRuntime';
@@ -327,8 +328,14 @@ export function checkAssignmentTypes(
 		// its last assignment in a straight line (issue #239). A single-line
 		// If's branch sees what held before the If, less whatever the If
 		// touches.
-		function nullHeldAt(stmt: LeafStatementNode, span: Span, valueTokens: readonly VbaToken[]): { name: string; span: Span } | undefined {
+		function nullHeldAt(stmt: LeafStatementNode, span: Span, valueTokens: readonly VbaToken[]): { name: string; span: Span; returns?: boolean } | undefined {
 			const value = valueTokens.filter((tok) => tok.kind !== 'comment');
+			// `n = F()` with F a Function of the module returning Null (issue #448).
+			const called = value.length > 0 ? functionResultAt(value, 0, knownFunctionResults(source, mod, activity), procedure, symbols) : undefined;
+			if (called && called.end === value.length - 1) {
+				const at = { start: span.start + value[0].start, end: span.start + value[called.end].end };
+				return called.result.kind === 'null' ? { name: source.slice(at.start, at.end), span: at, returns: true } : undefined;
+			}
 			const name = value.length === 1 ? tokenName(value[0]) : undefined;
 			if (!name) {
 				return undefined;
@@ -409,6 +416,13 @@ export function checkAssignmentTypes(
 			}
 			const valueSpan = { start: span.start + value[0].start, end: span.start + value[value.length - 1].end };
 			const label = `'${source.slice(valueSpan.start, valueSpan.end)}', which holds`;
+			// `n = F()` with F a Function of the module returning "abc" (issue #448).
+			const called = functionResultAt(value, 0, knownFunctionResults(source, mod, activity), procedure, symbols);
+			if (called && called.end === value.length - 1) {
+				return called.result.kind === 'string'
+					? { type: 'String', label: `'${source.slice(valueSpan.start, valueSpan.end)}', which returns ${JSON.stringify(called.result.value)}`, span: valueSpan, stringValue: called.result.value }
+					: undefined;
+			}
 			if (value.length === 1) {
 				const lower = tokenName(value[0])?.toLowerCase();
 				const known = lower ? (valuesAt ??= knownLocalLiteralValuesAt(source, procedure, symbols, activity))(stmt).get(lower) : undefined;
@@ -653,7 +667,7 @@ export function checkAssignmentTypes(
 			if (nullSource && isKnownScalarType(normalizeType(expected) ?? '')) {
 				push(
 					'assignmentTypeMismatch',
-					`Assignment to '${assignment.name}' expects ${expected}, but '${nullSource.name}' holds Null here. Null cannot be coerced to this scalar type. This will raise Run-time error '94': Invalid use of Null.`,
+					`Assignment to '${assignment.name}' expects ${expected}, but '${nullSource.name}' ${nullSource.returns ? 'returns Null' : 'holds Null here'}. Null cannot be coerced to this scalar type. This will raise Run-time error '94': Invalid use of Null.`,
 					nullSource.span,
 				);
 				return;

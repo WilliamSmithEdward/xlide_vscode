@@ -40,6 +40,7 @@ import type { VbaSymbol } from '../../symbols/symbolModel';
 import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { bankersRound, bodyMayLeaveLoop, isBareOrVbaQualifiedIntrinsicCall, namesIn } from './shared';
+import { functionResultNamed, knownFunctionResults } from '../functionResults';
 import { checkEachCounterPass, loopCountersAt } from '../loopCounters';
 import { blockHeaderLeaves, isLoopBlock, selectArms } from '../blockHeaders';
 import { fieldChain, moduleTypes, variableRoot, variableSymbolIn, type ModuleTypes } from '../typeFields';
@@ -631,7 +632,12 @@ class TypedFolder {
 			return undefined;
 		}
 		if (this.toks[this.index + 1]?.rawText === '(') {
-			return undefined; // a call the folder does not know
+			// `F()`, a Function of the module whose result is known (issue #448).
+			const result = this.toks[this.index + 2]?.rawText === ')' && this.toks[this.index - 1]?.rawText !== '.' ? this.names(`${name.toLowerCase()}()`) : undefined;
+			if (result) {
+				this.index += 3;
+			}
+			return result; // undefined for a call the folder does not know
 		}
 		const known = this.names(name.toLowerCase());
 		if (!known) {
@@ -1410,6 +1416,7 @@ export function checkOverflow(
 	checkConstDeclarations(source, mod.members.filter((m): m is VariableGroupNode => m.kind === 'VariableGroup'), moduleConstants, activity, push);
 	const hostValues = hostConstantValues(hostModel);
 	const types = moduleTypes(source, mod, activity);
+	const results = knownFunctionResults(source, mod, activity);
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -1449,7 +1456,10 @@ export function checkOverflow(
 				return { value: local.value as number, type };
 			}
 			if (!lower.includes('.')) {
-				return undefined;
+				// `b = F()` with F a Function of the module returning 300 (issue #448).
+				const result = functionResultNamed(lower.replace(/\(\)$/, ''), results, member, symbols);
+				const resultType = result?.kind === 'number' ? numericTypeOf(result.type) : undefined;
+				return result?.kind === 'number' && resultType ? { value: result.value, type: resultType } : undefined;
 			}
 			// `ws.Rows.Count` with ws As Worksheet is the sheet's (issue #411).
 			const head = lower.slice(0, lower.indexOf('.'));
