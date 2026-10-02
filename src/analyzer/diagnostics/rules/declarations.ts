@@ -1520,6 +1520,7 @@ export function checkInvalidAsTypeNames(
 	push: PushFn,
 ): void {
 	const withEventsNewDeclarationSpans = collectWithEventsNewDeclarationSpans(mod, activity);
+	let variables: Set<string> | undefined;
 	for (const ref of collectTypeNameReferences(source)) {
 		if (activity?.isInactive(ref.span)) {
 			continue;
@@ -1559,6 +1560,17 @@ export function checkInvalidAsTypeNames(
 		if (resolved) {
 			continue;
 		}
+		// A Private Type or Enum of another module, bare or qualified, and any
+		// name qualified by a variable, are no type here (issue #490, measured
+		// in Excel 16.0).
+		if (opts.hiddenTypeNames?.has(lookupName.toLowerCase())) {
+			push('invalidAsTypeName', `'${lookupName}' is Private to the module that declares it, so this module cannot use it as a type. This is a VBE compile error: User-defined type not defined.`, ref.span);
+			continue;
+		}
+		if (ref.qualifier && (variables ??= declaredVariableNames(mod, activity)).has(ref.qualifier.toLowerCase())) {
+			push('invalidAsTypeName', `'${ref.qualifier}' is a variable, and a variable never qualifies a type. This is a VBE compile error: User-defined type not defined.`, ref.span);
+			continue;
+		}
 		if (isReservedIdentifier(ref.name)) {
 			push(
 				'invalidAsTypeName',
@@ -1584,6 +1596,26 @@ export function checkInvalidAsTypeNames(
 			continue;
 		}
 	}
+}
+
+/** The variables the module declares, at module level or in a procedure, lowercased. */
+function declaredVariableNames(mod: ModuleNode, activity: ConditionalActivityTracker | undefined): Set<string> {
+	const out = new Set<string>();
+	const add = (group: VariableGroupNode): void => {
+		if (!group.isConst) {
+			for (const decl of group.declarations) {
+				out.add(decl.name.toLowerCase());
+			}
+		}
+	};
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind === 'VariableGroup') {
+			add(member);
+		} else if (member.kind === 'Procedure') {
+			forEachVariableGroup(member.body, add, activity);
+		}
+	}
+	return out;
 }
 
 function collectWithEventsNewDeclarationSpans(

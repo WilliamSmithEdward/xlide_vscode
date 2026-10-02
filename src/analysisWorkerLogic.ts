@@ -282,6 +282,7 @@ function moduleSurfaceDigest(options: VbaProjectAnalysisOptions): string {
         options.knownProcedures,
         options.knownIdentifiers,
         options.knownNonTypeNames,
+        options.hiddenTypeNames,
         // A string in another module can name one of this module's private
         // procedures, so a new mention there has to clear the finding here.
         options.projectStringLiteralWords,

@@ -65,6 +65,7 @@ export type VbaProjectAnalysisOptions = Pick<
     | 'knownProcedures'
     | 'knownIdentifiers'
     | 'knownNonTypeNames'
+    | 'hiddenTypeNames'
     | 'projectProcedures'
     | 'projectClassMembers'
     | 'projectTypes'
@@ -253,6 +254,7 @@ export function projectAnalysisOptionsForModule(
             knownProcedures: project.visibleProcedureNames(moduleName),
             knownIdentifiers: project.visibleIdentifierNames(moduleName),
             knownNonTypeNames: project.visibleNonTypeNames(moduleName),
+            hiddenTypeNames: project.hiddenTypeNames(moduleName),
             projectTypes: project.visibleTypeNames(moduleName),
             projectVisibleSymbols: project.visibleIdentifierSymbols(moduleName),
             projectClassMembers: project.projectMemberSurfaces(moduleName),

@@ -221,6 +221,11 @@ export interface AnalyzeModuleOptions {
 	/** Lowercased visible declaration names known not to be type names. */
 	knownNonTypeNames?: ReadonlySet<string>;
 	/**
+	 * Lowercased Private Type and Enum names of other modules, bare and as
+	 * `module.name`, which this module cannot use as a type (issue #490).
+	 */
+	hiddenTypeNames?: ReadonlySet<string>;
+	/**
 	 * Raw integer constant expressions exported from other visible project modules.
 	 * Used as a conservative base for deterministic runtime-value diagnostics.
 	 */
