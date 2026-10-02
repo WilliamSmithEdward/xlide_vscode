@@ -114,6 +114,7 @@ import { checkDictionaryState } from './rules/dictionaryState';
 import { checkDocumentNames } from './rules/documentNames';
 import { checkExcelSessionState } from './rules/excelSessionState';
 import { checkErrorValues } from './rules/errorValues';
+import { checkAccessData } from './rules/accessData';
 import { checkByNameCalls } from './rules/byNameCalls';
 import { checkVariantValueMisuse } from './rules/variantValues';
 import { checkRuntimeMemberNotFound } from './rules/lateBoundMembers';
@@ -458,6 +459,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'errorValues',
 		run: (ctx, push) => checkErrorValues(ctx.source, ctx.mod, ctx.symbols, ctx.activity, push),
+	},
+	{
+		name: 'accessData',
+		run: (ctx, push) => checkAccessData(ctx.source, ctx.mod, ctx.symbols, ctx.opts.hostModel?.hostName, ctx.activity, push),
 	},
 	{
 		name: 'variantValueMisuse',
