@@ -4193,11 +4193,32 @@
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue123_d_runtime",
-        "issue123_e_runtime"
+        "issue123_e_runtime",
+        "issue419_01_runtime",
+        "issue419_04_runtime",
+        "issue419_05_runtime",
+        "issue419_06_runtime",
+        "issue419_09_runtime",
+        "issue419_10_runtime",
+        "issue419_12_runtime",
+        "issue419_13_runtime",
+        "issue419_15_runtime",
+        "issue419_17_runtime",
+        "issue419_18_runtime",
+        "issue419_20_runtime",
+        "issue419_22_runtime",
+        "issue419_23_runtime",
+        "issue419_25_runtime",
+        "issue419_26_runtime",
+        "issue419_27_runtime",
+        "issue419_28_runtime",
+        "issue419_31_runtime",
+        "issue419_32_runtime",
+        "issue419_33_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "File statement the open mode forbids. VBE runtime error 54: Bad file mode (issue #123, Excel 16.0).",
+      "notes": "File statement the open mode forbids. VBE runtime error 54: Bad file mode (issue #123, Excel 16.0). Issue #419: the whole mode table: Print and Write need Output or Append; Input, Line Input and the Input function need Input or Binary; Get and Put need Binary or Random. Any other mode raises 54.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -4206,11 +4227,18 @@
       "sourceOfTruth": "Excel 16.0 (build 20326) through pyVBAharness, 2026-09-25/26 (issue #123): 1 asserted case from the issue's measured corpus",
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
-        "issue123_f_runtime"
+        "issue123_f_runtime",
+        "issue419_36_runtime",
+        "issue419_37_runtime",
+        "issue419_38_runtime",
+        "issue419_41_runtime",
+        "issue419_42_runtime",
+        "issue419_43_runtime",
+        "issue419_44_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "File number opened twice. VBE runtime error 55: File already open (issue #123, Excel 16.0).",
+      "notes": "File number opened twice. VBE runtime error 55: File already open (issue #123, Excel 16.0). Issue #419: Kill, Name or FileCopy of a path still open raises 55; FileCopy runs on a file open For Input.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
