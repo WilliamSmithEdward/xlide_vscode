@@ -1009,7 +1009,10 @@ export function runtimeCallableSourceShadowed(
 	name: string,
 	sourceNames: SourceNameScope | undefined,
 ): boolean {
-	return sourceNames?.runtimeShadows.has(name.toLowerCase()) === true;
+	// A Public Function InStr compiles, and `InStr(0, "abc", "a")` still calls
+	// VBA's, which raises 5 (issue #280, measured in Excel 16.0).
+	const lower = name.toLowerCase();
+	return lower !== 'instr' && sourceNames?.runtimeShadows.has(lower) === true;
 }
 
 export function returnAssignmentTypeFor(proc: ProcedureNode): string | undefined {

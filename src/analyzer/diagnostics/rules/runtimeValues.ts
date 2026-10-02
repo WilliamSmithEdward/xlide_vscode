@@ -1188,7 +1188,8 @@ function runtimeArgumentValueCallAt(
 		return undefined;
 	}
 	const lower = canonicalName.toLowerCase();
-	if (!qualifier && (
+	// A project InStr does not take the call from VBA's (issue #280).
+	if (!qualifier && lower !== 'instr' && (
 		moduleSignatures.has(lower) ||
 		env.has(lower) ||
 		runtimeCallableSourceShadowed(name, sourceNames)
