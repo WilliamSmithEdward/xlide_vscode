@@ -101,6 +101,7 @@ import {
 	topLevelOperatorIndex,
 	type ProcedureStatementVisitor,
 } from '../walker';
+import { straightLineAssignments } from '../straightLineValues';
 
 /**
  * Rule: every parenthesis must be matched within its logical statement. VBA has
@@ -639,6 +640,18 @@ export function checkDivisionByZeroExpressions(
 			const local = known.get(lower);
 			return local?.kind === 'number' && constants.get(lower) === undefined ? (local.value as number) : undefined;
 		};
+		// A dividend that is Null, or a Variant the straight line just set to
+		// Null: Null divided by zero is Null and raises nothing (issue #282,
+		// measured in Excel 16.0).
+		let reaching: ReturnType<typeof straightLineAssignments> | undefined;
+		const nullAt = (stmt: LeafStatementNode) => (tok: VbaToken | undefined): boolean => {
+			if (tokenText(tok) === 'null') {
+				return true;
+			}
+			const lower = tok ? tokenName(tok)?.toLowerCase() : undefined;
+			const held = lower ? (reaching ??= straightLineAssignments(source, member.body, activity)).get(stmt)?.get(lower)?.filter((t) => t.kind !== 'comment') : undefined;
+			return held?.length === 1 && tokenText(held[0]) === 'null';
+		};
 		return (stmt) => {
 			if (unreachable.has(stmt)) {
 				return;
@@ -648,7 +661,7 @@ export function checkDivisionByZeroExpressions(
 			members = membersAt ? membersAt(stmt, stmt.span.end) : members;
 			checkEachCounterPass(source, stmt.span, counters.get(stmt), () => undefined, (values, report) => {
 				passValues = values;
-				for (const hit of divisionByZeroDivisors(source, stmt.span, lookup, guards, fractionOf)) {
+				for (const hit of divisionByZeroDivisors(source, stmt.span, lookup, guards, fractionOf, nullAt(stmt))) {
 					report('divisionByZero', hit.message, hit.span);
 				}
 			}, push);
@@ -1247,6 +1260,7 @@ function divisionByZeroDivisors(
 	constants: IntegerConstantLookup,
 	guards: readonly DivisionGuard[],
 	fractionOf?: (lower: string) => number | undefined,
+	isNull: (tok: VbaToken | undefined) => boolean = () => false,
 ): Array<{ operator: string; span: Span; message: string }> {
 	const toks = statementTokens(source, span);
 	const hits: Array<{ operator: string; span: Span; message: string }> = [];
@@ -1287,6 +1301,9 @@ function divisionByZeroDivisors(
 		// `0 / 0` raises 6 (Overflow), not 11; `\` and `Mod` raise 11 for it
 		// (issue #106, measured in Excel 16.0).
 		const dividend = toks[i - 1];
+		if (isNull(dividend) && toks[i - 2]?.rawText !== '.') {
+			continue;
+		}
 		const dividendZero = dividend !== undefined && (
 			(dividend.kind === 'integerLiteral' && /^0+[%&^]?$/.test(dividend.rawText))
 			|| (dividend.kind === 'floatLiteral' && Number(dividend.rawText.replace(/[!#@]$/, '')) === 0)
