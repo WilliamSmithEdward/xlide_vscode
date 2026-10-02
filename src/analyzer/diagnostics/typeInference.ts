@@ -2954,6 +2954,10 @@ export function resolveKnownObjectAssignmentType(
 	if (host) {
 		return { kind: 'host', display: type, key: host.toLowerCase() };
 	}
+	const library = libraryObjectType(type);
+	if (library) {
+		return { kind: 'host', display: type, key: library.toLowerCase() };
+	}
 	const simple = simpleTypeNameForAssignment(type);
 	if (!simple) {
 		return undefined;
@@ -3019,7 +3023,7 @@ export function objectLetAssignmentVerdict(
 		}
 		return defaultMember.signature && /\([^)]/.test(defaultMember.signature) ? 'argument' : 'lets';
 	}
-	const resolved = resolveHostAlias(expectedRaw ?? '', memberCtx.model) ?? expectedRaw ?? '';
+	const resolved = resolveHostAlias(expectedRaw ?? '', memberCtx.model) ?? libraryObjectType(expectedRaw) ?? expectedRaw ?? '';
 	const libraryDefault = libraryDefaultVerdict(resolved);
 	if (libraryDefault) {
 		return libraryDefault;
@@ -3061,6 +3065,45 @@ function libraryDefaultVerdict(qualified: string, depth = 0): 'lets' | 'argument
 	return depth < 4 && HOST_DEFAULT_MEMBERS[found.returns] ? libraryDefaultVerdict(found.returns, depth + 1) : 'lets';
 }
 
+let libraryTypesByLower: Map<string, string> | undefined;
+
+/**
+ * A DAO type named with its library, `DAO.Recordset`, as the default-member
+ * table keys it. DAO has no host model, so this is how a variable of a DAO
+ * type is known to hold an object whose default member the table gives
+ * (issue #464, measured in Access 16.0).
+ */
+function libraryObjectType(type: string | undefined): string | undefined {
+	if (!type || !/^dao\./i.test(type.trim())) {
+		return undefined;
+	}
+	libraryTypesByLower ??= new Map(Object.keys(HOST_DEFAULT_MEMBERS).filter((key) => /^DAO\./.test(key)).map((key) => [key.toLowerCase(), key]));
+	return libraryTypesByLower.get(type.trim().toLowerCase());
+}
+
+/**
+ * The run-time error DAO raises where an object of this type is read whole
+ * as a value, `v = rs`: its default member, or the one that holds, needs an
+ * index DAO checks for itself. Measured in Access 16.0 with the database
+ * held (issue #464); a type not measured is undefined.
+ */
+const DAO_WHOLE_VALUE_ERRORS: Readonly<Record<string, string>> = {
+	'DAO.Database': `'3001': Invalid argument`,
+	'DAO.Fields': `'3001': Invalid argument`,
+	'DAO.Properties': `'3001': Invalid argument`,
+	'DAO.QueryDefs': `'3001': Invalid argument`,
+	'DAO.Recordset': `'3001': Invalid argument`,
+	'DAO.Recordset2': `'3001': Invalid argument`,
+	'DAO.TableDef': `'450': Wrong number of arguments or invalid property assignment`,
+	'DAO.TableDefs': `'3001': Invalid argument`,
+	'DAO.Workspace': `'3001': Invalid argument`,
+};
+
+export function daoWholeValueError(type: string | undefined): string | undefined {
+	const library = libraryObjectType(type);
+	return library ? DAO_WHOLE_VALUE_ERRORS[library] : undefined;
+}
+
 /**
  * A Word, PowerPoint or Access type whose default member is a property that
  * holds an object, as a Paragraph's Range does: its name and type. Read whole
@@ -3069,7 +3112,7 @@ function libraryDefaultVerdict(qualified: string, depth = 0): 'lets' | 'argument
  * value ("Type mismatch") while compiling (issue #462, measured in Word 16.0).
  */
 export function objectHoldingDefault(type: string | undefined, memberCtx: MemberCompletionContext): { name: string; returns: string } | undefined {
-	const resolved = resolveHostAlias(type ?? '', memberCtx.model) ?? type ?? '';
+	const resolved = resolveHostAlias(type ?? '', memberCtx.model) ?? libraryObjectType(type) ?? type ?? '';
 	const found = HOST_DEFAULT_MEMBERS[resolved];
 	return found && found.kind === 'property' && found.required === 0 && HOST_DEFAULT_MEMBERS[found.returns]
 		? { name: found.name, returns: found.returns }
@@ -3111,7 +3154,7 @@ export function objectValueNeedsIndex(type: string | undefined, memberCtx: Membe
 	if (objectLetAssignmentVerdict(type, memberCtx) !== 'argument') {
 		return false;
 	}
-	const resolved = resolveHostAlias(type ?? '', memberCtx.model);
+	const resolved = resolveHostAlias(type ?? '', memberCtx.model) ?? libraryObjectType(type);
 	// Word's Paragraphs and Tables, PowerPoint's Slides: Item(Index) raises
 	// 450 read as a value (issue #462, measured in Word and PowerPoint 16.0).
 	const library = resolved ? HOST_DEFAULT_MEMBERS[resolved] : undefined;
@@ -3792,6 +3835,11 @@ export function objectAssignmentIncompatibilityReason(
 		return undefined;
 	}
 	if (actualObject.kind === 'generic' && actualObject.key === 'object') {
+		return undefined;
+	}
+	// DAO's types are known only by their default members, not by what each
+	// one implements: a Recordset2 is a Recordset.
+	if (expected.key.startsWith('dao.') || actualObject.key.startsWith('dao.')) {
 		return undefined;
 	}
 	if (expected.key === actualObject.key) {
