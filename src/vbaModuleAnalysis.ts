@@ -425,6 +425,7 @@ function onErrorResumeNextSuppressionRanges(
             }
         };
         visit(member.body, false);
+        out.push(...unenteredHandlers(source, member, running));
         handlers.sort((a, b) => a.start - b.start);
         for (let i = 0; i < handlers.length; i++) {
             if (!handlers[i].resumeNext) {
@@ -435,6 +436,43 @@ function onErrorResumeNextSuppressionRanges(
         }
     }
     return out;
+}
+
+/**
+ * The handlers no error can reach: every `On Error GoTo H` naming the
+ * handler's label is followed at once by Exit or End, so nothing raises
+ * while it is set and what the handler would do never runs (issue #556,
+ * measured in Excel 16.0).
+ */
+function unenteredHandlers(source: string, member: ProcedureNode, running: readonly Span[]): ExpectedErrorRuntimeSuppression[] {
+    const safeAfter = new Map<string, boolean>();
+    const visit = (body: readonly BodyNode[]): void => {
+        for (const [index, node] of body.entries()) {
+            if ('body' in node && Array.isArray(node.body)) {
+                visit(node.body as BodyNode[]);
+                continue;
+            }
+            if (node.kind !== 'Statement') {
+                continue;
+            }
+            const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+            if (onErrorMode(toks) !== 'goto-label') {
+                continue;
+            }
+            const label = toks[3]?.rawText.toLowerCase();
+            const next = body[index + 1];
+            const head = next?.kind === 'Statement' ? statementTokensAfterLeadingLabel(source, next.span).filter((tok) => tok.kind !== 'comment').map((tok) => tok.rawText.toLowerCase()) : [];
+            const leaves = toks.length === 4 && (head[0] === 'exit' || (head[0] === 'end' && head.length === 1));
+            if (label) {
+                safeAfter.set(label, (safeAfter.get(label) ?? true) && leaves);
+            }
+        }
+    };
+    visit(member.body);
+    return running.flatMap((extent) => {
+        const label = /^\s*([A-Za-z_][A-Za-z0-9_]*|\d+)\s*:?/.exec(source.slice(extent.start, extent.end))?.[1]?.toLowerCase();
+        return label && safeAfter.get(label) === true ? [{ span: extent, expectedError: 'any' as const }] : [];
+    });
 }
 
 function isExpectedErrorRuntimeDiagnosticSuppressed(

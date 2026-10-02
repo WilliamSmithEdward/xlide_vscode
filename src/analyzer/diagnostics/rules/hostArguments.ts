@@ -1500,6 +1500,12 @@ interface CellBlock {
 	width: number;
 	/** The expression that names it, as written. */
 	text: string;
+	/**
+	 * Rows or columns from EntireRow, EntireColumn, Rows(n) or Columns(n): one
+	 * index in Item then counts rows or columns: `Columns(4).EntireColumn.Item(0)`
+	 * is column C (issue #556, measured in Excel 16.0).
+	 */
+	mode?: 'rows' | 'columns';
 }
 
 /** The Range members a chain follows (issue #508). */
@@ -1529,8 +1535,8 @@ function rangeChainReceiver(
 		}
 		const text = `${inner.text}.${last.rawText}`;
 		return word === 'entirerow'
-			? { row: inner.row, column: 1, rows: inner.rows, width: EXCEL_MAX_COLUMN, text }
-			: { row: 1, column: inner.column, rows: EXCEL_MAX_ROW, width: inner.width, text };
+			? { row: inner.row, column: 1, rows: inner.rows, width: EXCEL_MAX_COLUMN, text, mode: 'rows' }
+			: { row: 1, column: inner.column, rows: EXCEL_MAX_ROW, width: inner.width, text, mode: 'columns' };
 	}
 	if (last?.rawText !== ')') {
 		return undefined;
@@ -1594,16 +1600,22 @@ function chainStep(
 			if (index === undefined) {
 				return undefined;
 			}
+			if (name === 'item' && block.mode === 'columns') {
+				return { ...block, column: block.column + index - 1, width: 1 };
+			}
+			if (name === 'item' && block.mode === 'rows') {
+				return { ...block, row: block.row + index - 1, rows: 1 };
+			}
 			const k = index - 1;
 			return { row: block.row + Math.trunc(k / block.width), column: block.column + (k % block.width), rows: 1, width: 1 };
 		}
 		case 'rows': {
 			const index = args.length === 1 ? value(0, 1) : undefined;
-			return index === undefined ? undefined : { ...block, row: block.row + index - 1, rows: 1 };
+			return index === undefined ? undefined : { ...block, row: block.row + index - 1, rows: 1, mode: 'rows' };
 		}
 		case 'columns': {
 			const index = args.length === 1 ? value(0, 1) : undefined;
-			return index === undefined ? undefined : { ...block, column: block.column + index - 1, width: 1 };
+			return index === undefined ? undefined : { ...block, column: block.column + index - 1, width: 1, mode: 'columns' };
 		}
 	}
 	return undefined;
