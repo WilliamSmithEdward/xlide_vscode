@@ -59790,6 +59790,204 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim a() As Long, b() As Long\r\n    ReDim a(1 To 2, 1 To 3)\r\n    Erase b\r\n    ReDim Preserve a(1 To 3, 1 To 3)\r\n    Main = UBound(a, 1)\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue414_01_compile",
+      "description": "Issue #414 Property pairs and a Set through Property Set, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = 1\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get M() As Collection\r\nEnd Property\r\nPublic Property Let M(ByVal v As Variant)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue414_02_compile",
+      "description": "Issue #414 Property pairs and a Set through Property Set, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = 1\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get M() As Object\r\nEnd Property\r\nPublic Property Let M(ByVal v As Variant)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue414_03_compile",
+      "description": "Issue #414 Property pairs and a Set through Property Set, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = 1\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get M() As Long\r\nEnd Property\r\nPublic Property Let M(ByVal v As Variant)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue414_04_compile",
+      "description": "Issue #414 Property pairs and a Set through Property Set, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = 1\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get M() As Variant\r\nEnd Property\r\nPublic Property Let M(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue414_05_compile",
+      "description": "Issue #414 Property pairs and a Set through Property Set, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = 1\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get M() As Long\r\nEnd Property\r\nPublic Property Let M(ByVal v As Integer)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue414_06_compile",
+      "description": "Issue #414 Property pairs and a Set through Property Set, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = 1\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get M() As String\r\nEnd Property\r\nPublic Property Let M(ByVal v As Variant)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue414_07_compile",
+      "description": "Issue #414 Property pairs and a Set through Property Set, case 07, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = 1\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get M() As Collection\r\nEnd Property\r\nPublic Property Let M(ByVal v As Object)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue414_08_compile",
+      "description": "Issue #414 Property pairs and a Set through Property Set, case 08, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Set c.M = New Collection\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get M() As Long\r\nEnd Property\r\nPublic Property Let M(ByVal v As Long)\r\nEnd Property\r\nPublic Property Set M(ByVal v As Object)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue414_09_compile",
+      "description": "Issue #414 Property pairs and a Set through Property Set, case 09, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Set c.M = New Collection\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get M() As Long\r\nEnd Property\r\nPublic Property Let M(ByVal v As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }

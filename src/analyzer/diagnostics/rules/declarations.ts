@@ -977,7 +977,11 @@ export function checkPropertyAccessorSignatures(
 			const valueParam = setter.params[setter.params.length - 1];
 			const getType = normalizeType(getter.returnType) ?? (getter.typeSuffix ? undefined : 'variant');
 			const valueType = normalizeType(valueParam.asType) ?? (valueParam.typeSuffix ? undefined : 'variant');
-			if (getType !== undefined && valueType !== undefined && getType !== valueType && !valueParam.isArray) {
+			// An object Get beside a Variant Let compiles: `Get M() As Collection`
+			// with `Let M(ByVal v As Variant)` (issue #414, measured in Excel
+			// 16.0). A Collection Get with an Object Let does not.
+			const objectGetVariantLet = valueType === 'variant' && getType !== undefined && getType !== 'variant' && !isKnownScalarType(getType);
+			if (getType !== undefined && valueType !== undefined && getType !== valueType && !valueParam.isArray && !objectGetVariantLet) {
 				push(
 					'propertyAccessorSignatureMismatch',
 					`${propertyProcedureLabel(setter.procKind)} '${setter.name}' takes its value As ${valueParam.asType ?? 'Variant'}, but Property Get '${getter.name}' returns ${getter.returnType ?? 'Variant'}; the definitions of a property's procedures must agree.`,

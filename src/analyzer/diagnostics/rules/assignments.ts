@@ -1365,7 +1365,9 @@ function checkMemberAssignmentTypes(
 		}
 		const expected = target.writeType ?? target.returns;
 		if (assignment.usesSet) {
-			if (expected && isKnownScalarType(normalizeType(expected) ?? '')) {
+			// A Property Set takes the Set whatever the Let and Get are typed:
+			// `Set c.M = New Collection` runs beside a Long Let (issue #414).
+			if (expected && isKnownScalarType(normalizeType(expected) ?? '') && !target.setAccessor) {
 				push(
 					'setRequiresObject',
 					`Set assignment requires an object-valued target, but '${assignment.label}' expects ${expected}.`,
