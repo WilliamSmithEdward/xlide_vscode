@@ -83829,6 +83829,356 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Name\r\n    Set n = ThisWorkbook.Names.Add(\"xlideNameTwo\", \"=1\")\r\n    Main = n.Name\r\n    n.Delete\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue298_01_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    n = q\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_02_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    n = p\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_03_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    i = q\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_04_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    i = p\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_05_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    b = q\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_06_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    c = q\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_07_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    n = q + 0\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_08_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    n = 3^\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_09_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    TakeByValLong q\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_10_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    TakeByValLong p\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_11_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    Main = RetLong()\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\nPrivate Function RetLong() As Long\r\n    Dim q As LongLong\r\n    q = 3\r\n    RetLong = q\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_12_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    Dim a(5) As Long\r\n    Main = a(q)\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_13_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    Dim a(5) As Long\r\n    Main = a(p)\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_14_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    Dim a() As Long\r\n    ReDim a(q)\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_15_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    For x = 1 To q\r\n    Next\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_16_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    Main = Mid$(\"abc\", q, 1)\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_17_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    Main = Mid$(\"abc\", p, 1)\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_18_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 18, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    n = VarPtr(x)\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_19_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 19, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    n = ObjPtr(Application)\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_20_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 20, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    n = StrPtr(s)\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_21_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 21, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    Main = Left$(\"abc\", q)\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_22_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 22, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    Main = Space$(q)\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_23_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 23, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    Main = Chr$(q + 62)\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_24_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 24, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    Main = InStr(q, \"abc\", \"b\")\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_25_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 25, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    Main = String$(q, \"a\")\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue298_26_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 26, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    Dim d As Double\r\n    d = q\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue298_27_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 27, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    Dim v As Variant\r\n    v = q\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue298_28_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 28, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    s = q\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue298_29_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 29, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    n = CLng(q)\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue298_30_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 30, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    n = CLng(p)\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue298_31_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 31, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    q = n\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue298_32_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 32, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    p = n\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue298_33_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 33, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    Main = (q = n)\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue298_34_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 34, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    Select Case p\r\n        Case 3\r\n            Main = 1\r\n    End Select\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue298_35_compile",
+      "description": "Issue #298 a LongLong narrowed implicitly in 64-bit VBA, case 35, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    n = q / 1\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }
