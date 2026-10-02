@@ -100,6 +100,8 @@ export function checkMissingLibraryReference(
 	source: string,
 	model: HostObjectModel | undefined,
 	push: PushFn,
+	/** The project's module names, lowercased: a module named Word is called as Word.Hi (issue #357). */
+	projectModules: ReadonlySet<string> = new Set(),
 ): void {
 	const present = librariesInModel(model);
 	// Nothing is known about any library, so nothing can be said about one
@@ -111,7 +113,7 @@ export function checkMissingLibraryReference(
 	for (const found of qualifiedNamesIn(source)) {
 		const lower = found.library.toLowerCase();
 		const library = ADDABLE.get(lower);
-		if (library === undefined || present.has(lower) || seen.has(lower)) { continue; }
+		if (library === undefined || present.has(lower) || projectModules.has(lower) || seen.has(lower)) { continue; }
 		seen.add(lower);
 		push(
 			'missingLibraryReference',
