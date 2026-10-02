@@ -73119,6 +73119,193 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Collection\r\n    Set o = New Collection\r\n    Main = TakeO(o)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\nFunction TakeR(c As Collection) As Variant\r\n    TakeR = c.Count\r\nEnd Function\r\nFunction TakeO(c As Object) As Variant\r\n    TakeO = TypeName(c)\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue349_01_runtime",
+      "description": "Issue #349 Dictionary and Collection leftovers, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.Add \"a\", 1\r\n    d.CompareMode = 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue349_02_runtime",
+      "description": "Issue #349 Dictionary and Collection leftovers, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 457.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.CompareMode = 1\r\n    d.Add \"k\", 1\r\n    d.Add \"K\", 2\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue349_03_runtime",
+      "description": "Issue #349 Dictionary and Collection leftovers, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 32811.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.Key(\"a\") = \"b\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue349_04_runtime",
+      "description": "Issue #349 Dictionary and Collection leftovers, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 457.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.Add \"a\", 1\r\n    d.Add \"b\", 2\r\n    d.Key(\"a\") = \"b\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue349_05_runtime",
+      "description": "Issue #349 Dictionary and Collection leftovers, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.Add Array(1), 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue349_06_runtime",
+      "description": "Issue #349 Dictionary and Collection leftovers, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 424.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    Main = d(\"k\").Count\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue349_07_runtime",
+      "description": "Issue #349 Dictionary and Collection leftovers, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 1\r\n    Main = c(1.6)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue349_08_runtime",
+      "description": "Issue #349 Dictionary and Collection leftovers, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 1, \"a\"\r\n    c.Add 2, \"b\", \"zz\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue349_09_runtime",
+      "description": "Issue #349 Dictionary and Collection leftovers, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    Dim k As Variant\r\n    k = 5\r\n    c.Add 1, k\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue349_10_runtime",
+      "description": "Issue #349 Dictionary and Collection leftovers, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.CompareMode = 1\r\n    d.Add \"k\", 1\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue349_11_runtime",
+      "description": "Issue #349 Dictionary and Collection leftovers, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.Add \"a\", 1\r\n    d.Key(\"a\") = \"b\"\r\n    Main = d(\"b\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue349_12_runtime",
+      "description": "Issue #349 Dictionary and Collection leftovers, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 1\r\n    c.Add 2\r\n    Main = c(1.6)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue349_13_runtime",
+      "description": "Issue #349 Dictionary and Collection leftovers, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 1, \"a\"\r\n    c.Add 2, \"b\", \"a\"\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue349_14_runtime",
+      "description": "Issue #349 Dictionary and Collection leftovers, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.Add \"k\", 1\r\n    Main = d(\"k\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue349_15_runtime",
+      "description": "Issue #349 Dictionary and Collection leftovers, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, k As String\r\n    k = \"5\"\r\n    c.Add 1, k\r\n    Main = c(\"5\")\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue349_16_runtime",
+      "description": "Issue #349 Dictionary and Collection leftovers, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, k As Long\r\n    k = 5\r\n    c.Add 1, k\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue349_17_runtime",
+      "description": "Issue #349 Dictionary and Collection leftovers, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Object\r\n    Set d = CreateObject(\"Scripting.Dictionary\")\r\n    d.Add \"k\", Nothing\r\n    Set d(\"k\") = New Collection\r\n    Main = d(\"k\").Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
