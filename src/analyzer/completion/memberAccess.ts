@@ -1610,17 +1610,21 @@ function computeMemberSurfaceForType(
 				? { owner: ctx.meProjectType ?? projectKey, members: controls, exhaustive: false }
 				: undefined;
 		}
-		if (projectType.kind === 'userform' && isAccessDesignerClass(projectType.designerClass)) {
+		const designerMembers = projectType.kind === 'userform' && projectType.designerClass
+			? getHostMembers(projectType.designerClass, ctx.model)
+			: [];
+		if (designerMembers.length > 0) {
 			// An Access form or report is its own library's class, not a
 			// UserForm: `Form_Orders.Requery` reaches Access.Form's members,
 			// and Show and Hide are not among them. Exhaustive when the index
-			// holds the design's member list (issue #206).
+			// holds the design's member list (issue #206). So is a VB6 form:
+			// `Form1.Cls` and `f.CurrentX` reach VB.Form (issue #358).
 			return {
 				owner: projectType.name,
 				members: mergeCompletionMembers(
 					projectType.members,
 					controls,
-					getHostMembers(projectType.designerClass as string, ctx.model),
+					designerMembers,
 				),
 				exhaustive: projectType.exhaustive === true,
 			};
