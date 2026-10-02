@@ -792,6 +792,7 @@ export function trackedLocalsNamedWhole(
 	spanStart: number,
 	isTracked: (lowerName: string) => boolean,
 	readOnlyIntrinsics: ReadonlySet<string>,
+	arrays: ReadonlySet<string> = new Set(),
 ): Map<string, number> {
 	const out = new Map<string, number>();
 	if (toks.length < 2) {
@@ -805,14 +806,19 @@ export function trackedLocalsNamedWhole(
 		(tokenName(toks[head]) !== undefined || toks[head]?.rawText === '.') &&
 		!hasTopLevelAssignment(toks);
 	let depth = 0;
+	// What each open parenthesis follows: a subscript of one of `arrays`
+	// passes nothing (issue #479: `a(i) = i` leaves i as it was).
+	const opened: Array<string | undefined> = [];
 	for (let i = 1; i < toks.length; i++) {
 		const raw = toks[i].rawText;
 		if (raw === '(' || raw === '[') {
 			depth++;
+			opened.push(toks[i - 1]?.rawText === '.' || toks[i - 2]?.rawText === '.' ? undefined : tokenName(toks[i - 1])?.toLowerCase());
 			continue;
 		}
 		if (raw === ')' || raw === ']') {
 			depth--;
+			opened.pop();
 			continue;
 		}
 		const lower = tokenName(toks[i])?.toLowerCase();
@@ -820,6 +826,10 @@ export function trackedLocalsNamedWhole(
 			continue;
 		}
 		if (depth === 0 && !isCallStatement) {
+			continue;
+		}
+		const enclosing = opened[opened.length - 1];
+		if (depth > 0 && enclosing !== undefined && arrays.has(enclosing)) {
 			continue;
 		}
 		const prev = toks[i - 1]?.rawText;

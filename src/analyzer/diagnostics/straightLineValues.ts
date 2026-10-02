@@ -133,7 +133,14 @@ function cachedWalk(
 	// Under On Error Resume Next, Err.Raise goes on to the next line.
 	const text = body.length > 0 ? source.slice(body[0].span.start, body[body.length - 1].span.end) : '';
 	const deadSpans: Span[] = [];
-	walkList(source, body, initial, activity, { out, dead, deadSpans, raiseLeaves: !/\bon\s+error\s+resume\s+next\b/i.test(text), referenced: referencedLabels(source, body, activity) });
+	// The walk is synchronous, so its arrays can sit beside it for passedWhole.
+	const outer = walkArrays;
+	walkArrays = localArrayNames(body, activity);
+	try {
+		walkList(source, body, initial, activity, { out, dead, deadSpans, raiseLeaves: !/\bon\s+error\s+resume\s+next\b/i.test(text), referenced: referencedLabels(source, body, activity) });
+	} finally {
+		walkArrays = outer;
+	}
 	const walk: CachedWalk = { source, activity, result: out, dead, deadSpans };
 	byStart.set(key, walk);
 	return walk;
@@ -332,13 +339,107 @@ function walkBlock(
 	} else {
 		walkList(source, node.body as BodyNode[], inside, activity, walk, node.kind === 'SelectBlock');
 	}
-	const final = touched === 'all' ? undefined : forCounterFinalValue(source, node, activity);
+	const final = touched === 'all' ? undefined : forCounterFinalValue(source, node, activity) ?? doCounterFinalValue(source, node, entry, activity);
 	if (final !== undefined) {
 		const next = new Map(after);
 		next.set(final.name, rawExpressionTokens(String(final.value)));
 		return next;
 	}
 	return after;
+}
+
+/** The most passes the walk runs a Do loop's counter through before giving up. */
+const DO_COUNTER_PASSES = 100_000;
+
+/**
+ * What a Do or While loop's counter holds after the loop ends (issue #479,
+ * measured in Excel 16.0): `i = 1: Do While i <= 5: ...: i = i + 1: Loop`
+ * leaves i at 6. The body steps the counter by one top-level `i = i + k` or
+ * `i = i - k` and writes it nowhere else, nothing in it may leave the loop,
+ * and the condition reads only the counter and names the body leaves alone.
+ */
+function doCounterFinalValue(
+	source: string,
+	node: BodyNode,
+	entry: ReachingAssignments,
+	activity: ConditionalActivityTracker | undefined,
+): { name: string; value: number } | undefined {
+	if ((node.kind !== 'DoBlock' && node.kind !== 'WhileBlock') || !('body' in node)) {
+		return undefined;
+	}
+	const body = (node.body as BodyNode[]).filter((stmt) => !isInactiveNode(activity, stmt));
+	// The condition: on the header, or on the footer of a Do.
+	const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+	const footer = node.kind === 'DoBlock' ? statementTokensAfterLeadingLabel(source, blockFooterLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment') : [];
+	const headWord = tokenText(header[node.kind === 'DoBlock' ? 1 : 0]);
+	const footWord = tokenText(footer[1]);
+	const atHead = headWord === 'while' || headWord === 'until';
+	const atFoot = footWord === 'while' || footWord === 'until';
+	if (atHead === atFoot) {
+		return undefined;
+	}
+	const condition = atHead ? header.slice(node.kind === 'DoBlock' ? 2 : 1) : footer.slice(2);
+	const until = (atHead ? headWord : footWord) === 'until';
+	// The one step: `i = i + k` or `i = i - k`, with k a whole number.
+	let counter: string | undefined;
+	let step: number | undefined;
+	let stepAt: BodyNode | undefined;
+	for (const stmt of body) {
+		const bare = isLeafStatement(stmt) && !(stmt.kind === 'Statement' && stmt.singleLineIfBranches) ? bareAssignmentTarget(source, stmt.span) : undefined;
+		const value = bare?.valueTokens.filter((tok) => tok.kind !== 'comment') ?? [];
+		const lower = bare?.name.toLowerCase();
+		const k = value.length === 3 && tokenName(value[0])?.toLowerCase() === lower && (value[1].rawText === '+' || value[1].rawText === '-') ? signedInteger([value[2]]) : undefined;
+		if (lower && k !== undefined && literalOf(entry.get(lower)) !== undefined && conditionNames(condition).has(lower)) {
+			if (counter !== undefined) {
+				return undefined;
+			}
+			counter = lower;
+			step = value[1].rawText === '+' ? k : -k;
+			stepAt = stmt;
+		}
+	}
+	const start = counter !== undefined ? literalOf(entry.get(counter)) : undefined;
+	if (counter === undefined || step === undefined || step === 0 || typeof start !== 'number') {
+		return undefined;
+	}
+	// Nothing else may write the counter or a name the condition reads, or leave.
+	const rest = body.filter((stmt) => stmt !== stepAt);
+	for (const lower of conditionNames(condition)) {
+		if (loopBodyMayLeaveOrWrite(source, rest, lower, activity)) {
+			return undefined;
+		}
+	}
+	const facts = factsFrom(entry);
+	let value = start;
+	for (let pass = 0; pass <= DO_COUNTER_PASSES; pass++) {
+		const known = (current: number): boolean | undefined =>
+			conditionValue(condition, { value: (lower) => (lower === counter ? current : facts.value(lower)) });
+		if (atHead) {
+			const holds = known(value);
+			if (holds === undefined) {
+				return undefined;
+			}
+			if (holds === until) {
+				return { name: counter, value };
+			}
+			value += step;
+		} else {
+			value += step;
+			const holds = known(value);
+			if (holds === undefined) {
+				return undefined;
+			}
+			if (holds === until) {
+				return { name: counter, value };
+			}
+		}
+	}
+	return undefined;
+}
+
+/** The names a condition reads, lowercased. */
+function conditionNames(condition: readonly VbaToken[]): Set<string> {
+	return mentionedNames(condition);
 }
 
 /**
@@ -635,8 +736,38 @@ function setObjectValue(toks: readonly VbaToken[]): { name: string; value: reado
 		: undefined;
 }
 
+/** The arrays the procedure being walked declares, by lowercased name; set while a walk runs. */
+let walkArrays: ReadonlySet<string> = new Set();
+
+/** The names a procedure's Dim statements declare as arrays: their subscripts pass nothing. */
+function localArrayNames(body: readonly BodyNode[], activity: ConditionalActivityTracker | undefined): Set<string> {
+	const out = new Set<string>();
+	const visit = (list: readonly BodyNode[]): void => {
+		for (const node of list) {
+			if (isInactiveNode(activity, node)) {
+				continue;
+			}
+			if (node.kind === 'VariableGroup' && !node.isConst) {
+				for (const decl of node.declarations) {
+					if (decl.isArray) {
+						out.add(decl.name.toLowerCase());
+					}
+				}
+			} else if (node.kind === 'IfBlock') {
+				for (const branch of (node as IfBlockNode).branches) {
+					visit(branch.body);
+				}
+			} else if ('body' in node && Array.isArray(node.body)) {
+				visit(node.body as BodyNode[]);
+			}
+		}
+	};
+	visit(body);
+	return out;
+}
+
 function passedWhole(toks: readonly VbaToken[], spanStart: number): Iterable<string> {
-	return trackedLocalsNamedWhole(toks, spanStart, () => true, READ_ONLY_INTRINSICS).keys();
+	return trackedLocalsNamedWhole(toks, spanStart, () => true, READ_ONLY_INTRINSICS, walkArrays).keys();
 }
 
 function mentionedNames(toks: readonly VbaToken[]): Set<string> {
