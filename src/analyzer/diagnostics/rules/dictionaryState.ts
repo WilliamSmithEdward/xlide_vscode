@@ -30,13 +30,18 @@ import { walkEnteringBlocks } from '../dataflow';
 import { stringLiteralValue } from '../typeInference';
 import {
 	activeModuleMembers,
+	blockHeaderLineSpan,
 	matchParenFrom,
 	setAssignmentTarget,
 	statementTokensAfterLeadingLabel,
 	tokenName,
 	tokenText,
 } from '../walker';
+import { withReceiver } from './collectionState';
 import { namesIn } from './shared';
+
+/** The name a `With CreateObject("Scripting.Dictionary")` block's Dictionary is followed under. */
+const NEW_WITH_DICTIONARY = 'New Dictionary';
 
 /** The keys of one Dictionary in the order they were added, each a typed literal. */
 interface DictionaryKeys {
@@ -72,7 +77,10 @@ export function checkDictionaryState(
 				forget(namesIn(source, node.span));
 				return;
 			}
-			const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+			const own = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+			// Inside `With d`, `.Add "a", 1` is d's (issue #295, measured in Excel 16.0).
+			const subject = withSubjects[withSubjects.length - 1];
+			const toks = subject ? withReceiver(own, subject) : own;
 			if (tokenText(toks[0]) === 'gosub') {
 				states.clear();
 				return;
@@ -89,6 +97,8 @@ export function checkDictionaryState(
 			}
 			checkStatement(node.span, toks, states, push);
 		};
+		// The subject of each With block the walk is in, as for Collections.
+		const withSubjects: Array<string | undefined> = [];
 		walkEnteringBlocks(source, member.body, (node) => activity?.isInactive(node.span) === true, visit, {
 			snapshot: () => new Map([...states].map(([lower, state]) => [lower, { ...state, keys: [...state.keys] }])),
 			restore: (saved) => {
@@ -98,7 +108,30 @@ export function checkDictionaryState(
 				}
 			},
 			forget,
-			touches: (stmt) => namesIn(source, stmt.span),
+			touches: (stmt) => {
+				const toks = statementTokensAfterLeadingLabel(source, stmt.span).filter((tok) => tok.kind !== 'comment');
+				return tokenText(toks[0]) === 'with' && (toks.length === 2 || createsDictionary(toks.slice(1))) ? new Set<string>() : namesIn(source, stmt.span);
+			},
+			enter: (node) => {
+				if (node.kind !== 'WithBlock') {
+					return;
+				}
+				const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+				const name = header.length === 2 ? tokenName(header[1]) : undefined;
+				if (name && states.has(name.toLowerCase())) {
+					withSubjects.push(name);
+				} else if (createsDictionary(header.slice(1))) {
+					states.set(NEW_WITH_DICTIONARY.toLowerCase(), { keys: [] });
+					withSubjects.push(NEW_WITH_DICTIONARY);
+				} else {
+					withSubjects.push(undefined);
+				}
+			},
+			exit: (node) => {
+				if (node.kind === 'WithBlock' && withSubjects.pop() === NEW_WITH_DICTIONARY) {
+					states.delete(NEW_WITH_DICTIONARY.toLowerCase());
+				}
+			},
 		});
 	}
 }

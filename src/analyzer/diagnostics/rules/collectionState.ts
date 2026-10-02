@@ -105,7 +105,7 @@ export function checkCollectionState(
 		for (const name of autoInstanced.newLocals) {
 			states.set(name, emptyContents());
 		}
-		if (states.size === 0 && autoInstanced.plainLocals.size === 0) {
+		if (states.size === 0 && autoInstanced.plainLocals.size === 0 && !/\bWith[ \t]+New[ \t]+Collection\b/i.test(source.slice(member.span.start, member.span.end))) {
 			continue;
 		}
 		// A Variant local named nowhere but one statement is Empty there.
@@ -139,10 +139,14 @@ export function checkCollectionState(
 				forgetMentioned(source, node.span, states);
 				return;
 			}
-			const toks = statementTokensAfterLeadingLabel(source, node.span);
-			if (toks.length === 0) {
+			const own = statementTokensAfterLeadingLabel(source, node.span);
+			if (own.length === 0) {
 				return;
 			}
+			// Inside `With c` or `With New Collection`, `.Item(2)` is the
+			// subject's (issue #295, measured in Excel 16.0).
+			const subject = withSubjects[withSubjects.length - 1];
+			const toks = subject ? withReceiver(own, subject) : own;
 			// A label may be reached from anywhere; a GoSub may run any statement.
 			if (statementLabelDeclaration(source, node.span) || tokenText(toks[0]) === 'gosub') {
 				states.clear();
@@ -189,6 +193,21 @@ export function checkCollectionState(
 			checkStatement(node.span, toks, states, push, isEmpty, indexOf, optionBase, lookup, scalarLocal, keyOf);
 		};
 		const leaves = new Map<BodyNode, { after: Map<string, CollectionContents>; aliases: string[] }>();
+		// The subject of each With block the walk is in: a tracked local's
+		// name, `New Collection` for a new one, or undefined for anything else.
+		const withSubjects: Array<string | undefined> = [];
+		const enterWith = (node: BodyNode): void => {
+			const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+			const name = header.length === 2 ? tokenName(header[1]) : undefined;
+			if (name && states.has(name.toLowerCase())) {
+				withSubjects.push(name);
+			} else if (header.length === 3 && tokenText(header[1]) === 'new' && tokenText(header[2]) === 'collection') {
+				states.set(NEW_WITH_SUBJECT.toLowerCase(), emptyContents());
+				withSubjects.push(NEW_WITH_SUBJECT);
+			} else {
+				withSubjects.push(undefined);
+			}
+		};
 		walkEnteringBlocks(source, member.body, (node) => activity?.isInactive(node.span) === true, visit, {
 			snapshot: () => cloneStates(states),
 			restore: (saved) => {
@@ -202,10 +221,17 @@ export function checkCollectionState(
 					forgetCollection(states, lower);
 				}
 			},
-			touches: (stmt) => namesIn(source, stmt.span),
+			// `With c` reads c and changes nothing; its body's lines say what they do.
+			touches: (stmt) => {
+				const toks = statementTokensAfterLeadingLabel(source, stmt.span).filter((tok) => tok.kind !== 'comment');
+				return tokenText(toks[0]) === 'with' && toks.length === 2 ? new Set<string>() : namesIn(source, stmt.span);
+			},
 			// A counted loop that removes or reads by its counter (issue #263),
 			// or fills or empties a collection (issue #350).
 			enter: (node) => {
+				if (node.kind === 'WithBlock') {
+					enterWith(node);
+				}
 				simulateCountedLoop(source, node, states, push, activity);
 				const after = unreachable?.has(node) ? undefined : simulateFillingLoop(source, node, states, push, activity);
 				if (after) {
@@ -216,6 +242,9 @@ export function checkCollectionState(
 				}
 			},
 			exit: (node) => {
+				if (node.kind === 'WithBlock' && withSubjects.pop() === NEW_WITH_SUBJECT) {
+					forgetCollection(states, NEW_WITH_SUBJECT.toLowerCase());
+				}
 				const left = leaves.get(node);
 				for (const [lower, contents] of left?.after ?? []) {
 					states.set(lower, contents);
@@ -226,6 +255,26 @@ export function checkCollectionState(
 			},
 		});
 	}
+}
+
+/** The name a `With New Collection` block's collection is followed under. */
+const NEW_WITH_SUBJECT = 'New Collection';
+
+/**
+ * A statement's tokens with the With subject before each member the block
+ * reaches by a leading dot: `.Item(2)` reads as `c.Item(2)`.
+ */
+export function withReceiver(toks: readonly VbaToken[], subject: string): VbaToken[] {
+	const out: VbaToken[] = [];
+	toks.forEach((tok, i) => {
+		const before = toks[i - 1];
+		const leading = tok.rawText === '.' && (!before || (before.kind !== 'identifier' && before.kind !== 'bracketedIdentifier' && before.rawText !== ')' && !(before.kind === 'keyword' && tokenText(before) === 'me')));
+		if (leading && tokenName(toks[i + 1])) {
+			out.push({ ...tok, kind: 'identifier', rawText: subject, end: tok.start });
+		}
+		out.push(tok);
+	});
+	return out;
 }
 
 /** The most passes a counted loop is run for. */

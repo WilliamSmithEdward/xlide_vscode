@@ -84541,6 +84541,105 @@
       "source": "Option Explicit\r\nPrivate Function Take(ByVal p As LongPtr) As LongPtr\r\n    Take = p\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Take(AddressOf Mid)\r\nEnd Function\r\n\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue295_01_runtime",
+      "description": "Issue #295 Collection and Dictionary state through a With subject, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 1\r\n    With c\r\n        Main = .Item(2)\r\n    End With\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue295_02_runtime",
+      "description": "Issue #295 Collection and Dictionary state through a With subject, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    With New Collection\r\n        .Add 1\r\n        Main = .Item(2)\r\n    End With\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue295_03_runtime",
+      "description": "Issue #295 Collection and Dictionary state through a With subject, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    With New Collection\r\n        .Remove 1\r\n    End With\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue295_04_runtime",
+      "description": "Issue #295 Collection and Dictionary state through a With subject, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    With New Collection\r\n        .Add 1, \"a\"\r\n        Main = .Item(\"b\")\r\n    End With\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue295_05_runtime",
+      "description": "Issue #295 Collection and Dictionary state through a With subject, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 457.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    With New Collection\r\n        .Add 1, \"a\"\r\n        .Add 2, \"a\"\r\n    End With\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue295_06_runtime",
+      "description": "Issue #295 Collection and Dictionary state through a With subject, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 457.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    With CreateObject(\"Scripting.Dictionary\")\r\n        .Add \"a\", 1\r\n        .Add \"a\", 2\r\n    End With\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue295_07_runtime",
+      "description": "Issue #295 Collection and Dictionary state through a With subject, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    With Worksheets(0)\r\n        Main = .Name\r\n    End With\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue295_08_runtime",
+      "description": "Issue #295 Collection and Dictionary state through a With subject, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    With New Collection\r\n        .Add 1\r\n        .Add 2\r\n        Main = .Item(2)\r\n    End With\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue295_09_runtime",
+      "description": "Issue #295 Collection and Dictionary state through a With subject, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add 1\r\n    With c\r\n        Main = .Item(1)\r\n    End With\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
