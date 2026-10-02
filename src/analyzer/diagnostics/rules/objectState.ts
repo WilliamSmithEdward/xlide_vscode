@@ -179,6 +179,7 @@ export function checkObjectVariableNotSet(
 			}, activity);
 		}
 		checkGoToIntoWith(source, member, activity, push);
+		checkForEachOverEmptyObjectArray(source, member, symbols, memberCtx, activity, push);
 		// A module variable nothing ever sets is Nothing in every procedure (issue #241).
 		const unset = [...untouchedModuleVariablesIn(source, symbols, member)].filter(([, variable]) =>
 			variable.asType !== undefined && isKnownObjectAssignmentType(variable.asType, memberCtx));
@@ -424,13 +425,19 @@ function walkObjectState(
 	lets: Map<number, ObjectVariableState>,
 ): void {
 	const locals = localObjectVariablesFor(source, symbols, member, memberCtx);
-	if (locals.size === 0) {
+	const elements = objectArrayElements(source, symbols, member, memberCtx, activity);
+	if (locals.size === 0 && elements.keys.size === 0) {
 		return;
 	}
 	const state = new Map<string, ObjectVariableState>();
 	for (const key of locals.keys()) {
 		// A Variant starts Empty, which is no object and not Nothing.
 		state.set(key, locals.get(key)!.variant ? 'unknown' : 'unset');
+	}
+	// Each element of a fixed array of objects is Nothing until Set (issue
+	// #489); a dynamic one's are, once ReDim allocates them.
+	for (const [key, element] of elements.keys) {
+		state.set(key, elements.arrays.get(element.array)!.fixed ? 'unset' : 'unknown');
 	}
 	// The locals some statement anywhere in the procedure Sets: a `GoSub`
 	// may run any of those statements before control comes back (issue
@@ -461,14 +468,14 @@ function walkObjectState(
 	const unreachable = unreachableStatementsIn(source, member, symbols, activity);
 	walk(source, member.body, (node) => isInactiveNode(activity, node) || unreachable.has(node), {
 		onStatement: (stmt) =>
-			checkObjectVariableNotSetStatement(source, stmt, locals, state, setAnywhere, memberCtx, report, lets, facts),
+			checkObjectVariableNotSetStatement(source, stmt, locals, state, setAnywhere, memberCtx, report, lets, facts, elements),
 		onBlock: (node) => {
 			// The header runs as the block is entered, with the state as it
 			// stands: `For i = 1 To c.Count`, `Select Case c.Count` (issue #233).
 			if (node.kind === 'SelectBlock' || node.kind === 'DoBlock' || node.kind === 'WhileBlock' || (node.kind === 'ForBlock' && !node.each)) {
 				const { before } = blockHeaderStatements(source, node);
 				if (before) {
-					checkObjectVariableNotSetStatement(source, before, locals, state, setAnywhere, memberCtx, report, lets, facts);
+					checkObjectVariableNotSetStatement(source, before, locals, state, setAnywhere, memberCtx, report, lets, facts, elements);
 				}
 			}
 			// A For Each that runs to its end leaves the control variable
@@ -521,6 +528,11 @@ function walkObjectState(
 			const touched = new Set(
 				localsNamedWhole(source, stmt.span, locals, OBJECT_READ_ONLY_INTRINSICS).keys(),
 			);
+			for (const span of statementAndBranchSpans(stmt)) {
+				for (const key of elementTouches(statementTokensAfterLeadingLabel(source, span), elements)) {
+					touched.add(key);
+				}
+			}
 			// A single-line If's branches Set too. A Let gives a Variant a value.
 			for (const span of statementAndBranchSpans(stmt)) {
 				const lower = setAssignmentTarget(source, span)?.name.toLowerCase();
@@ -727,18 +739,30 @@ function checkObjectVariableNotSetStatement(
 	push: PushFn,
 	lets: Map<number, ObjectVariableState>,
 	facts: ModuleObjectFacts,
+	elements: ObjectArrayElements = { arrays: new Map(), keys: new Map() },
 ): void {
 	const toks = statementTokensAfterLeadingLabel(source, stmt.span);
 	const head = tokenText(toks[0]);
 	// `GoSub Label` runs the subroutine, which may Set any of the locals,
 	// before the statement after it (issue #108).
 	if (head === 'gosub' || (head === 'on' && toks.some((tok) => tokenText(tok) === 'gosub'))) {
-		for (const lower of setAnywhere) {
+		for (const lower of [...setAnywhere, ...elements.keys.keys()]) {
 			if (state.get(lower) === 'unset') {
 				state.set(lower, 'unknown');
 			}
 		}
 		return;
+	}
+	// `a(0).Count` on an element never set (issue #489, measured in Excel 16.0).
+	if (elements.keys.size > 0) {
+		for (const hit of unsetElementAccesses(toks, elements, state)) {
+			push(
+				'objectVariableNotSet',
+				`Element ${hit.text} of '${elements.arrays.get(hit.text.slice(0, hit.text.indexOf('(')).toLowerCase())?.name ?? hit.text}' is Nothing before member access. This will raise Run-time error '91': Object variable or With block variable not set.`,
+				{ start: stmt.span.start + hit.start, end: stmt.span.start + hit.end },
+			);
+		}
+		updateElements(toks, elements, state);
 	}
 	// The arms of a single-line If and what its condition proves about them.
 	const branches = statementAndBranchSpans(stmt);
@@ -989,6 +1013,208 @@ function nothingPassedToMemberRead(
 				continue;
 			}
 			out.push({ name: arg![0].rawText, callee: code[i].rawText, read, start: arg![0].start, end: arg![0].end });
+		}
+	}
+	return out;
+}
+
+/** The object arrays of a procedure and the elements its code names by a literal index. */
+interface ObjectArrayElements {
+	/** By lowercased name: the array as declared, and whether its bounds are fixed. */
+	arrays: Map<string, { name: string; fixed: boolean }>;
+	/** By state key, `a(0)`: the array and the index. */
+	keys: Map<string, { array: string; index: number }>;
+}
+
+/**
+ * The local arrays of an object type, not `As New`, and every `a(n)` the
+ * procedure writes with a whole-number literal n (issue #489, measured in
+ * Excel 16.0). Only those elements are followed.
+ */
+function objectArrayElements(
+	source: string,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	proc: ProcedureNode,
+	memberCtx: MemberCompletionContext,
+	activity: ConditionalActivityTracker | undefined,
+): ObjectArrayElements {
+	const arrays = new Map<string, { name: string; fixed: boolean }>();
+	for (const child of procedureSymbolFor(symbols, proc)?.children ?? []) {
+		const elementType = child.asType?.replace(/\(\s*\)\s*$/, '');
+		if (child.kind === 'localVariable' && child.isArray && child.visibility !== 'Static' && !child.isAutoInstantiated
+			&& elementType && isKnownObjectAssignmentType(elementType, memberCtx)) {
+			arrays.set(child.name.toLowerCase(), { name: child.name, fixed: child.arrayBounds !== undefined });
+		}
+	}
+	const keys = new Map<string, { array: string; index: number }>();
+	if (arrays.size === 0) {
+		return { arrays, keys };
+	}
+	forEachStatement(proc.body, (stmt) => {
+		const toks = statementTokens(source, stmt.span);
+		for (let i = 0; i + 3 < toks.length; i++) {
+			const lower = tokenName(toks[i])?.toLowerCase();
+			if (lower && arrays.has(lower) && toks[i - 1]?.rawText !== '.' && toks[i + 1].rawText === '(' && toks[i + 2].kind === 'integerLiteral' && toks[i + 3].rawText === ')') {
+				const index = Number(toks[i + 2].rawText.replace(/[%&^]$/, ''));
+				if (Number.isInteger(index)) {
+					keys.set(`${lower}(${index})`, { array: lower, index });
+				}
+			}
+		}
+	}, activity);
+	return { arrays, keys };
+}
+
+/**
+ * `For Each x In a` over a fixed array of objects the procedure never fills:
+ * x is Nothing on the first pass, so the body's first use of it through a
+ * member raises 91 (issue #489, measured in Excel 16.0).
+ */
+function checkForEachOverEmptyObjectArray(
+	source: string,
+	member: ProcedureNode,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	memberCtx: MemberCompletionContext,
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const { arrays } = objectArrayElements(source, symbols, member, memberCtx, activity);
+	const empty = new Set([...arrays].filter(([, array]) => array.fixed).map(([lower]) => lower));
+	if (empty.size === 0) {
+		return;
+	}
+	forEachStatement(member.body, (stmt) => {
+		for (const span of statementAndBranchSpans(stmt)) {
+			const toks = statementTokensAfterLeadingLabel(source, span);
+			for (const lower of [...empty]) {
+				// Any write of an element, or a whole mention, may fill it.
+				const named = toks.some((tok, i) => tokenName(tok)?.toLowerCase() === lower && toks[i - 1]?.rawText !== '.'
+					&& (toks[i + 1]?.rawText !== '(' || tokenText(toks[i - 1]) === 'set' || ['redim', 'erase'].includes(tokenText(toks[0]))));
+				if (named) {
+					empty.delete(lower);
+				}
+			}
+		}
+	}, activity);
+	const visit = (body: readonly BodyNode[]): void => {
+		for (const node of body) {
+			if (isInactiveNode(activity, node) || !('body' in node) || !Array.isArray(node.body)) {
+				continue;
+			}
+			const over = node.kind === 'ForBlock' && node.each ? node.sourceExpression?.trim().toLowerCase() : undefined;
+			const control = node.kind === 'ForBlock' ? node.controlVariable?.toLowerCase() : undefined;
+			if (over && control && empty.has(over)) {
+				for (const stmt of node.body as BodyNode[]) {
+					if (isInactiveNode(activity, stmt)) {
+						continue;
+					}
+					if (!isLeafStatement(stmt) || statementAndBranchSpans(stmt).length > 1) {
+						break;
+					}
+					const toks = statementTokensAfterLeadingLabel(source, stmt.span);
+					const at = toks.findIndex((tok, i) => tokenName(tok)?.toLowerCase() === control && toks[i - 1]?.rawText !== '.');
+					if (at < 0) {
+						continue;
+					}
+					if (tokenText(toks[0]) !== 'set' && toks[at + 1]?.rawText === '.' && tokenName(toks[at + 2])) {
+						push(
+							'objectVariableNotSet',
+							`'${toks[at].rawText}' takes each element of '${arrays.get(over)!.name}', which the code never sets, so it is Nothing on the first pass. This will raise Run-time error '91': Object variable or With block variable not set.`,
+							{ start: stmt.span.start + toks[at].start, end: stmt.span.start + toks[at].end },
+						);
+					}
+					break;
+				}
+			}
+			visit(node.body as BodyNode[]);
+		}
+	};
+	visit(member.body);
+}
+
+/** The element keys of an array, `a(0)` and the rest. */
+function elementKeysOf(elements: ObjectArrayElements, array: string): string[] {
+	return [...elements.keys].filter(([, element]) => element.array === array).map(([key]) => key);
+}
+
+/**
+ * What a statement does to the followed elements, after its reads: `Set
+ * a(0) = ...` sets one, `Set a(i) = ...` may set any, a plain ReDim and
+ * Erase leave every one Nothing, ReDim Preserve keeps them, and any other
+ * whole mention of the array may change them.
+ */
+function updateElements(toks: readonly VbaToken[], elements: ObjectArrayElements, state: Map<string, ObjectVariableState>): void {
+	const head = tokenText(toks[0]);
+	for (const array of elements.arrays.keys()) {
+		const keys = elementKeysOf(elements, array);
+		if (keys.length === 0 || !toks.some((tok) => tokenName(tok)?.toLowerCase() === array)) {
+			continue;
+		}
+		if (head === 'set' && tokenName(toks[1])?.toLowerCase() === array && toks[2]?.rawText === '(') {
+			const close = matchParenFrom(toks, 2);
+			const literal = close === 4 && toks[3].kind === 'integerLiteral' ? `${array}(${Number(toks[3].rawText.replace(/[%&^]$/, ''))})` : undefined;
+			const value = toks.slice(close + 2).filter((tok) => tok.kind !== 'comment');
+			const nothing = value.length === 1 && tokenText(value[0]) === 'nothing';
+			if (literal && state.has(literal)) {
+				state.set(literal, nothing ? 'unset' : 'set');
+			} else if (!literal) {
+				for (const key of keys) {
+					state.set(key, 'unknown');
+				}
+			}
+			continue;
+		}
+		// A Set in a one-line If's branch may run or not.
+		if (head !== 'set' && toks.some((tok, i) => tokenText(tok) === 'set' && tokenName(toks[i + 1])?.toLowerCase() === array)) {
+			for (const key of keys) {
+				if (state.get(key) === 'unset') {
+					state.set(key, 'unknown');
+				}
+			}
+			continue;
+		}
+		if (head === 'redim' || head === 'erase') {
+			if (!(head === 'redim' && tokenText(toks[1]) === 'preserve')) {
+				for (const key of keys) {
+					state.set(key, 'unset');
+				}
+			}
+			continue;
+		}
+		// `Fill a`, `b = a`: the whole array, which the callee or a copy may change.
+		const whole = toks.some((tok, i) => tokenName(tok)?.toLowerCase() === array && toks[i - 1]?.rawText !== '.' && toks[i + 1]?.rawText !== '(');
+		if (whole) {
+			for (const key of keys) {
+				state.set(key, 'unknown');
+			}
+		}
+	}
+}
+
+/** The followed elements a statement may change, for a block that runs it or not. */
+function elementTouches(toks: readonly VbaToken[], elements: ObjectArrayElements): string[] {
+	const out: string[] = [];
+	for (const array of elements.arrays.keys()) {
+		if (toks.some((tok, i) => tokenName(tok)?.toLowerCase() === array && toks[i - 1]?.rawText !== '.' && (toks[i + 1]?.rawText !== '(' || tokenText(toks[0]) === 'set'))
+			|| (['redim', 'erase'].includes(tokenText(toks[0])) && toks.some((tok) => tokenName(tok)?.toLowerCase() === array))) {
+			out.push(...elementKeysOf(elements, array));
+		}
+	}
+	return out;
+}
+
+/** `a(0).Count` with a(0) still Nothing. Offsets are the statement's. */
+function unsetElementAccesses(toks: readonly VbaToken[], elements: ObjectArrayElements, state: ReadonlyMap<string, ObjectVariableState>): Array<{ text: string; start: number; end: number }> {
+	const out: Array<{ text: string; start: number; end: number }> = [];
+	for (let i = 0; i + 5 < toks.length; i++) {
+		const lower = tokenName(toks[i])?.toLowerCase();
+		if (!lower || !elements.arrays.has(lower) || toks[i - 1]?.rawText === '.' || toks[i + 1].rawText !== '(' || toks[i + 2].kind !== 'integerLiteral' || toks[i + 3].rawText !== ')'
+			|| toks[i + 4].rawText !== '.' || !tokenName(toks[i + 5])) {
+			continue;
+		}
+		const key = `${lower}(${Number(toks[i + 2].rawText.replace(/[%&^]$/, ''))})`;
+		if (state.get(key) === 'unset') {
+			out.push({ text: toks.slice(i, i + 4).map((tok) => tok.rawText).join(''), start: toks[i].start, end: toks[i + 3].end });
 		}
 	}
 	return out;
