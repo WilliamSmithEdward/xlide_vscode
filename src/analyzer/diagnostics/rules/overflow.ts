@@ -540,8 +540,9 @@ class TypedFolder {
 			return this.stringOperand([tok]);
 		}
 		// In a Const, a string beside a number in `+`, `-`, `*` or `/` is the
-		// number it spells, in the number's type: `1 - "1E3"` is -999, and
-		// `922337203685477.5807@ + "2"` overflows a Currency (issue #494,
+		// number it spells, a Double: `1 - "1E3"` is -999, and
+		// `&H7FFFFFFF * "2"` is 4294967294 (issue #556). Beside a Currency it
+		// is a Currency: `922337203685477.5807@ + "2"` overflows (issue #494,
 		// measured in Excel 16.0). Two strings under `+` join instead.
 		const beside = ARITHMETIC_BESIDE.has(before) ? this.toks[this.index - 2] : ARITHMETIC_BESIDE.has(after) ? this.toks[this.index + 2] : undefined;
 		const besideType = beside && beside.kind !== 'stringLiteral' ? literalValue(beside)?.type : undefined;
@@ -551,8 +552,7 @@ class TypedFolder {
 				return read === undefined ? undefined : { overflow: true, span: this.span(this.index, this.index), detail: `${tok.rawText} spells a number past the Double range` };
 			}
 			this.index++;
-			const whole = Number.isInteger(read.value);
-			const type: NumericType = besideType === 'currency' || (whole && WHOLE_TYPES.has(besideType)) ? besideType : 'double';
+			const type: NumericType = besideType === 'currency' ? 'currency' : 'double';
 			if (!inRange(read.value, type)) {
 				return { overflow: true, span: this.span(this.index - 1, this.index - 1), detail: `${tok.rawText} is outside the ${RANGES[type].label} range` };
 			}

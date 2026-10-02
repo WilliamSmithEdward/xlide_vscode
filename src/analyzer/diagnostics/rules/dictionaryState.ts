@@ -162,7 +162,9 @@ function checkStatement(base: Span, toks: readonly VbaToken[], states: Map<strin
 		const mode = tokenText(toks[4]);
 		const text = toks.length === 5 && (mode === '1' || mode === 'vbtextcompare');
 		const binary = toks.length === 5 && (mode === '0' || mode === 'vbbinarycompare');
-		if (state.keys.length > 0) {
+		// The mode it already has is no change, and runs (issue #556).
+		const changes = (text && !state.textCompare) || (binary && state.textCompare === true);
+		if (state.keys.length > 0 && changes) {
 			push('collectionAddArgument', `Dictionary '${toks[0].rawText}' already holds ${state.keys.length} key${state.keys.length === 1 ? '' : 's'}, so its CompareMode cannot change. This will raise Run-time error '5': Invalid procedure call or argument.`, at(toks[2], toks[toks.length - 1]));
 			return;
 		}

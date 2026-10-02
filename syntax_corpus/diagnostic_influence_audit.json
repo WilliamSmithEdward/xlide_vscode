@@ -881,11 +881,16 @@
         "issue448_01_runtime",
         "issue448_03_runtime",
         "issue448_04_runtime",
-        "issue448_10_runtime"
+        "issue448_10_runtime",
+        "issue556_15_runtime",
+        "issue556_16_runtime",
+        "issue556_17_runtime",
+        "issue556_20_runtime",
+        "issue556_21_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is not a VBE compile-equivalent error: focused compile oracle cases compile successfully. It is red when XLIDE proves a value cannot be coerced or fit into the target scalar type because focused runtime oracle cases deterministically raise runtime error 13 for type mismatch, runtime error 94 for Null assigned to scalar targets, and runtime error 6 for decimal Byte/Integer/Long/Currency overflow, while numeric/string/Boolean/property/public-field, Variant CVErr, Variant Null, and min/max boundary controls run successfully. Function, Property Get return-name assignments, and visible exported standard-module scalar globals use the same deterministic scalar path. Bare assignment targets ask the shared assignment-target resolver first, so local untyped shadows and ambiguous exported globals suppress type guessing. Intrinsic CVErr calls infer an Error Variant for scalar assignment compatibility when the bare runtime name is not source-shadowed, explicit VBA.CVErr remains runtime-bound, and Null literals infer the dedicated Null value type. Issue #222: a Function declared As Variant whose every assignment to its name is Array(...) returns Variant() or Empty, and into an array of another element type raises 13. Issue #239: a Variant local whose last straight-line assignment is Null, assigned to a String, Long or other scalar, raises 94 (v = Null then s = v). Measured in Excel 16.0 (build 20326), issue239_* oracle cases. Issue #243: a Choose, Switch or IIf whose literal arguments make it return Null, into a typed variable, raises 94: Choose(5, 1, 2), Choose(0, \"a\"), Switch(False, 1), IIf(False, 1, Null) (measured in Excel 16.0, build 20326, issue243_* oracle cases). Issue #255: a Const whose value is one string literal converts as the literal does: Const K = \"abc\" into a Long raises 13, Const K = \"40000\" into an Integer 6 (measured in Excel 16.0). A String the analyzer knows a local or an array element holds is checked like a literal (measured in Excel 16.0, 2026-10-01): s = \"b\" then n = s with n As Long, v = \"b\" with v a Variant, and v(1) of v = Array(\"1\", \"b\") raise 13; \"5\", \" 2 \", \"&H10\", \"1e3\" and \"$5\" convert. A String of unknown value into a Boolean is no longer reported: \"True\" and \"5\" convert. Issue #336: a String holding a number every locale reads into a Date is that day's serial: \"&HFF\" is 9/11/1900. Past 12/31/9999 or before 1/1/100 it raises 13. Issue #405: a String expression the analyzer can spell out, a & chain of literals, known locals, True and False, and Left, Right, Mid, UCase, LCase, Trim, LTrim, RTrim and CStr over them, is checked into a Boolean, a number or a Date like a literal; a Date written as text never converts to a number or a Boolean. Text a locale's currency symbol might explain (True5, x1) is left alone, as #188 leaves a literal. Issue #457: Chr, Hex, Oct, Space, String and StrConv over literals are spelled out, and MonthName, WeekdayName, Format of a Date literal as a month or day name, TypeName, a Range Address and Application.Name or PathSeparator stand for a word no locale reads as a number, a Boolean or a date: into a Long, Double, Boolean or Date each raises 13. Issue #451: a String * n local named nowhere else holds n Chr(0), which raise 13 into a Long, Double, Boolean or Date. Issue #436: a variable As an Enum is a Long, so x = \"abc\" raises 13 and x = 3000000000# raises 6. Issue #324: Null after an operator into a typed target raises 94: arithmetic, +, unary minus, Not, a comparison and Abs give Null; And gives Null unless the other side is False, Or unless it is True; & never does. Issue #448: n = F() with F a Function of the module whose only result is a literal: a string that is no number (13) or Null (94) into a typed target.",
+      "notes": "This is not a VBE compile-equivalent error: focused compile oracle cases compile successfully. It is red when XLIDE proves a value cannot be coerced or fit into the target scalar type because focused runtime oracle cases deterministically raise runtime error 13 for type mismatch, runtime error 94 for Null assigned to scalar targets, and runtime error 6 for decimal Byte/Integer/Long/Currency overflow, while numeric/string/Boolean/property/public-field, Variant CVErr, Variant Null, and min/max boundary controls run successfully. Function, Property Get return-name assignments, and visible exported standard-module scalar globals use the same deterministic scalar path. Bare assignment targets ask the shared assignment-target resolver first, so local untyped shadows and ambiguous exported globals suppress type guessing. Intrinsic CVErr calls infer an Error Variant for scalar assignment compatibility when the bare runtime name is not source-shadowed, explicit VBA.CVErr remains runtime-bound, and Null literals infer the dedicated Null value type. Issue #222: a Function declared As Variant whose every assignment to its name is Array(...) returns Variant() or Empty, and into an array of another element type raises 13. Issue #239: a Variant local whose last straight-line assignment is Null, assigned to a String, Long or other scalar, raises 94 (v = Null then s = v). Measured in Excel 16.0 (build 20326), issue239_* oracle cases. Issue #243: a Choose, Switch or IIf whose literal arguments make it return Null, into a typed variable, raises 94: Choose(5, 1, 2), Choose(0, \"a\"), Switch(False, 1), IIf(False, 1, Null) (measured in Excel 16.0, build 20326, issue243_* oracle cases). Issue #255: a Const whose value is one string literal converts as the literal does: Const K = \"abc\" into a Long raises 13, Const K = \"40000\" into an Integer 6 (measured in Excel 16.0). A String the analyzer knows a local or an array element holds is checked like a literal (measured in Excel 16.0, 2026-10-01): s = \"b\" then n = s with n As Long, v = \"b\" with v a Variant, and v(1) of v = Array(\"1\", \"b\") raise 13; \"5\", \" 2 \", \"&H10\", \"1e3\" and \"$5\" convert. A String of unknown value into a Boolean is no longer reported: \"True\" and \"5\" convert. Issue #336: a String holding a number every locale reads into a Date is that day's serial: \"&HFF\" is 9/11/1900. Past 12/31/9999 or before 1/1/100 it raises 13. Issue #405: a String expression the analyzer can spell out, a & chain of literals, known locals, True and False, and Left, Right, Mid, UCase, LCase, Trim, LTrim, RTrim and CStr over them, is checked into a Boolean, a number or a Date like a literal; a Date written as text never converts to a number or a Boolean. Text a locale's currency symbol might explain (True5, x1) is left alone, as #188 leaves a literal. Issue #457: Chr, Hex, Oct, Space, String and StrConv over literals are spelled out, and MonthName, WeekdayName, Format of a Date literal as a month or day name, TypeName, a Range Address and Application.Name or PathSeparator stand for a word no locale reads as a number, a Boolean or a date: into a Long, Double, Boolean or Date each raises 13. Issue #451: a String * n local named nowhere else holds n Chr(0), which raise 13 into a Long, Double, Boolean or Date. Issue #436: a variable As an Enum is a Long, so x = \"abc\" raises 13 and x = 3000000000# raises 6. Issue #324: Null after an operator into a typed target raises 94: arithmetic, +, unary minus, Not, a comparison and Abs give Null; And gives Null unless the other side is False, Or unless it is True; & never does. Issue #448: n = F() with F a Function of the module whose only result is a literal: a string that is no number (13) or Null (94) into a typed target. Issue #556: And, Or and Imp with Null are Null only where a literal on the other side leaves it so.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -1540,7 +1545,8 @@
         "issue449_35_runtime",
         "issue448_05_runtime",
         "issue448_09_runtime",
-        "issue448_11_runtime"
+        "issue448_11_runtime",
+        "issue556_29_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -1965,7 +1971,8 @@
         "issue449_18_runtime",
         "issue448_06_runtime",
         "issue289_06_runtime",
-        "issue289_07_runtime"
+        "issue289_07_runtime",
+        "issue556_08_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -4366,12 +4373,13 @@
         "issue223_12_compile",
         "issue410_06_compile",
         "issue410_07_compile",
-        "issue410_08_compile"
+        "issue410_08_compile",
+        "issue556_33_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error",
-      "notes": "A bare array variable, or a same-module user-defined Type value, passed where a parameter is a scalar - or a scalar (including a Variant) passed where a parameter is declared an array - is a VBE compile error. Decides on declared SHAPE only (array-ness / Type-ness), never element-type coercion. Oracle-verified rejected at compile: array->scalar ByRef ('ByRef argument type mismatch'), array->scalar ByVal ('Type mismatch'), UDT->scalar ByRef, scalar->array param and Variant-scalar->array param ('Type mismatch: array or user-defined type expected'); with accepted controls array->Variant param (an array boxes into a Variant), UDT->matching UDT, array->matching array, and ParamArray mixed types all staying quiet. No-FP scope: fires only on a single bare identifier argument whose declared shape RESOLVES to a provable array or same-module Type, against a parameter that is the proven-incompatible shape; quiet on Variant/matching/ParamArray parameters, object/class arguments, member access / indexed a(i) / call / parenthesized / multi-token arguments, and unresolved or ambiguous names. Disjoint from byref-argument-type-mismatch (which owns element-type mismatch on ByRef scalars): this rule defers whenever that rule would fire, so the two never double-report. Object-parameter and both-arrays-different-element-type variants are tracked deferrals (untested by the oracle). Issue #218: IRR, MIRR and NPV take an array of Double, and an argument in parentheses, IRR((d)) or PutD (d), passes a value where an array parameter is. Issue #223: one element of an array variable, a(0), where an array parameter is; a Function's array result is not an element. Issue #410: a literal or a Collection for an array parameter is Type mismatch: array or user-defined type expected."
+      "notes": "A bare array variable, or a same-module user-defined Type value, passed where a parameter is a scalar - or a scalar (including a Variant) passed where a parameter is declared an array - is a VBE compile error. Decides on declared SHAPE only (array-ness / Type-ness), never element-type coercion. Oracle-verified rejected at compile: array->scalar ByRef ('ByRef argument type mismatch'), array->scalar ByVal ('Type mismatch'), UDT->scalar ByRef, scalar->array param and Variant-scalar->array param ('Type mismatch: array or user-defined type expected'); with accepted controls array->Variant param (an array boxes into a Variant), UDT->matching UDT, array->matching array, and ParamArray mixed types all staying quiet. No-FP scope: fires only on a single bare identifier argument whose declared shape RESOLVES to a provable array or same-module Type, against a parameter that is the proven-incompatible shape; quiet on Variant/matching/ParamArray parameters, object/class arguments, member access / indexed a(i) / call / parenthesized / multi-token arguments, and unresolved or ambiguous names. Disjoint from byref-argument-type-mismatch (which owns element-type mismatch on ByRef scalars): this rule defers whenever that rule would fire, so the two never double-report. Object-parameter and both-arrays-different-element-type variants are tracked deferrals (untested by the oracle). Issue #218: IRR, MIRR and NPV take an array of Double, and an argument in parentheses, IRR((d)) or PutD (d), passes a value where an array parameter is. Issue #223: one element of an array variable, a(0), where an array parameter is; a Function's array result is not an element. Issue #410: a literal or a Collection for an array parameter is Type mismatch: array or user-defined type expected. Issue #556: Null passed to an array parameter."
     },
     {
       "code": "mismatched-end-keyword",
@@ -4938,7 +4946,8 @@
         "issue494_06_compile",
         "issue494_07_compile",
         "issue494_09_compile",
-        "issue494_10_compile"
+        "issue494_10_compile",
+        "issue556_24_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -5806,7 +5815,9 @@
         "issue471_04_runtime",
         "issue471_05_runtime",
         "issue471_06_runtime",
-        "issue289_10_runtime"
+        "issue289_10_runtime",
+        "issue556_31_runtime",
+        "issue556_32_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -6028,7 +6039,8 @@
         "issue349_05_runtime",
         "issue349_08_runtime",
         "issue349_09_runtime",
-        "issue349_16_runtime"
+        "issue349_16_runtime",
+        "issue556_27_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],

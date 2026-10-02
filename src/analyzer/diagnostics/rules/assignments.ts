@@ -355,8 +355,9 @@ export function checkAssignmentTypes(
 
 		// `n = 1 + Null`, `s = "a" + v` with v holding Null: arithmetic, `+`,
 		// unary minus, Not, a comparison and Abs give Null when an operand is
-		// Null; And gives Null unless the other side is False, Or unless it is
-		// True; `&` never does (issue #324, measured in Excel 16.0).
+		// Null, and so do Xor and Eqv; And, Or and Imp are judged only with
+		// Null on every side; `&` never does (issues #324 and #556, measured
+		// in Excel 16.0).
 		function nullExpressionAt(stmt: LeafStatementNode, span: Span, valueTokens: readonly VbaToken[]): { text: string; span: Span } | undefined {
 			const value = unwrapOuterParens(valueTokens.filter((tok) => tok.kind !== 'comment'));
 			if (value.length < 2) {
@@ -393,12 +394,20 @@ export function checkAssignmentTypes(
 				if (operators.length === 0 || operators.includes('&') || operands.some((operand) => operand.length === 0)) {
 					return false;
 				}
-				const literal = (operand: VbaToken[]): string => (operand.length === 1 ? tokenText(operand[0]) : '');
-				if (operators.includes('and') && operands.some((operand) => literal(operand) === 'false')) {
-					return false;
-				}
-				if (operators.includes('or') && operands.some((operand) => literal(operand) === 'true')) {
-					return false;
+				// And, Or and Imp give a value when the other side decides it
+				// (issue #556, measured in Excel 16.0): Null And 0 is 0, but
+				// Null And 1 is Null; 40000 Or Null is 40000, but 0 Or Null is
+				// Null; Null Imp 12 is 12 and False Imp Null is True, but
+				// Null Imp False is Null. Judged with one operator only.
+				const logical = operators.find((operator) => operator === 'and' || operator === 'or' || operator === 'imp');
+				if (logical) {
+					if (operators.length !== 1) {
+						return operands.every((operand) => yieldsNull(operand));
+					}
+					const [left, right] = operands.map((operand) => (yieldsNull(operand) ? 'null' : literalNumber(operand)));
+					const decided = (other: number | 'null' | undefined, otherOnLeft: boolean): boolean => other === 'null'
+						|| (other !== undefined && (logical === 'and' ? other !== 0 : logical === 'or' ? other === 0 : otherOnLeft ? other !== 0 : other === 0));
+					return (left === 'null' && decided(right, false)) || (right === 'null' && decided(left, true));
 				}
 				return operands.some((operand) => yieldsNull(operand));
 			};
@@ -1938,6 +1947,22 @@ function fixedTextPart(part: readonly VbaToken[], known: (lower: string) => Know
 /** The text functions folded over known text: `Left("abc", 1)` is "a". */
 /** The binary operators whose result is Null when an operand is (issue #324). `&` is here to be refused. */
 const NULL_PROPAGATING: ReadonlySet<string> = new Set(['+', '-', '*', '/', '\\', '^', 'mod', '=', '<>', '<', '>', '<=', '>=', 'and', 'or', 'xor', 'eqv', 'imp', '&']);
+
+/** The number a literal operand is, True as -1 and False as 0: `1`, `-2.5`, `True`. */
+function literalNumber(operand: readonly VbaToken[]): number | undefined {
+	const toks = unwrapOuterParens([...operand]);
+	const sign = toks.length === 2 && toks[0].rawText === '-' ? -1 : 1;
+	const tok = toks.length === 1 ? toks[0] : toks.length === 2 && (toks[0].rawText === '-' || toks[0].rawText === '+') ? toks[1] : undefined;
+	const word = tokenText(tok);
+	if (word === 'true' || word === 'false') {
+		return sign * (word === 'true' ? -1 : 0);
+	}
+	if (tok?.kind !== 'integerLiteral' && tok?.kind !== 'floatLiteral') {
+		return undefined;
+	}
+	const value = Number(tok.rawText.replace(/[%&^!#@]$/, ''));
+	return Number.isFinite(value) ? sign * value : undefined;
+}
 
 const TEXT_FUNCTIONS: ReadonlySet<string> = new Set(['cstr', 'left', 'right', 'mid', 'ucase', 'lcase', 'trim', 'ltrim', 'rtrim']);
 

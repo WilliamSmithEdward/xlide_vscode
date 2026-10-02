@@ -3225,6 +3225,7 @@ export function knownLocalLiteralValues(
 	if (candidates.size === 0) {
 		return moduleVariableDefaults(source, proc, symbols);
 	}
+	const bytes = byteVariables(proc, symbols);
 	const mutate = (lower: string | undefined): void => {
 		const entry = lower ? candidates.get(lower) : undefined;
 		if (entry) {
@@ -3262,7 +3263,7 @@ export function knownLocalLiteralValues(
 					if (entry) {
 						const value = toks.slice(first + 2).filter((tok) => tok.kind !== 'comment');
 						const kind = entry.kind ?? (unwrapOuterParens(value)[0]?.kind === 'stringLiteral' ? 'string' : 'number');
-						const literal = plainLiteralText(value, kind, entry.kind !== undefined);
+						const literal = plainLiteralText(value, kind, entry.kind !== undefined, bytes.has(bare.name.toLowerCase()));
 						if (literal === undefined || (entry.kind !== undefined && entry.kind !== kind)) {
 							entry.mutated = true;
 						} else {
@@ -3442,6 +3443,7 @@ export function knownLocalLiteralValuesAt(
 	const whole = knownLocalLiteralValues(source, proc, symbols, activity);
 	const locals = literalValueLocals(proc, symbols);
 	const moduleVariables = followedModuleVariables(proc, symbols);
+	const bytes = byteVariables(proc, symbols);
 	let writes: ReadonlyMap<string, readonly BodyNode[]> | undefined;
 	// The same start as unreachableStatementsIn, so the two share one walk.
 	const reaching = locals.size === 0 && moduleVariables.size === 0
@@ -3470,7 +3472,7 @@ export function knownLocalLiteralValuesAt(
 					continue;
 				}
 				const kind = locals.get(lower) ?? (unwrapOuterParens(value)[0]?.kind === 'stringLiteral' ? 'string' : 'number');
-				const literal = plainLiteralText([...value], kind, locals.get(lower) !== undefined);
+				const literal = plainLiteralText([...value], kind, locals.get(lower) !== undefined, bytes.has(lower));
 				const origin = value === DEFAULT_NUMBER || value === DEFAULT_STRING ? 'default' : 'literal';
 				if (literal === undefined) {
 					next.delete(lower);
@@ -3489,7 +3491,7 @@ export function knownLocalLiteralValuesAt(
 				continue;
 			}
 			const kind = moduleVariables.get(lower) ?? (unwrapOuterParens(value)[0]?.kind === 'stringLiteral' ? 'string' : 'number');
-			const literal = plainLiteralText([...value], kind, moduleVariables.get(lower) !== undefined);
+			const literal = plainLiteralText([...value], kind, moduleVariables.get(lower) !== undefined, bytes.has(lower));
 			// The reaching write is the last one that runs before the
 			// statement: a later one in a block would have ended the value.
 			const dead = unreachableStatementsIn(source, proc, symbols, activity);
@@ -3511,6 +3513,27 @@ export function knownLocalLiteralValuesAt(
  * with their kind as {@link literalValueLocals} gives a local's. A local or
  * parameter of the same name hides one.
  */
+const MODULE_BYTE_VARIABLES = new WeakMap<object, ReadonlySet<string>>();
+
+/** The locals and module variables a procedure sees that are declared As Byte, by lowercased name. */
+function byteVariables(proc: ProcedureNode, symbols: ReturnType<typeof buildModuleSymbols>): { has(lower: string): boolean } {
+	let module = MODULE_BYTE_VARIABLES.get(symbols);
+	if (!module) {
+		module = new Set((symbols.root.children ?? [])
+			.filter((sym) => sym.kind === 'moduleVariable' && normalizeType(sym.asType) === 'byte')
+			.map((sym) => sym.name.toLowerCase()));
+		MODULE_BYTE_VARIABLES.set(symbols, module);
+	}
+	const locals = new Map((procedureSymbolFor(symbols, proc)?.children ?? []).map((child) => [child.name.toLowerCase(), child]));
+	const moduleBytes = module;
+	return {
+		has: (lower) => {
+			const local = locals.get(lower);
+			return local ? local.kind === 'localVariable' && normalizeType(local.asType) === 'byte' : moduleBytes.has(lower);
+		},
+	};
+}
+
 function followedModuleVariables(
 	proc: ProcedureNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
@@ -3759,16 +3782,17 @@ const DEFAULT_NUMBER: readonly VbaToken[] = rawExpressionTokens('0');
 const DEFAULT_STRING: readonly VbaToken[] = rawExpressionTokens('""');
 
 /** The literal a plain `x = literal` assigns, as text, or undefined for any other value. */
-function plainLiteralText(value: VbaToken[], kind: 'number' | 'string', typed = false): string | undefined {
+function plainLiteralText(value: VbaToken[], kind: 'number' | 'string', typed = false, byte = false): string | undefined {
 	const toks = unwrapOuterParens(value);
 	if (kind === 'string') {
 		return toks.length === 1 && toks[0].kind === 'stringLiteral' ? stringLiteralValue(toks[0].rawText) : undefined;
 	}
 	// A typed number or Boolean stores True as -1 and False as 0 (issue
-	// #491); a Variant keeps a Boolean, which is no number here.
+	// #491), and a Byte stores True as 255 (issue #556); a Variant keeps a
+	// Boolean, which is no number here.
 	const word = toks.length === 1 && toks[0].kind === 'keyword' ? tokenText(toks[0]) : '';
 	if (typed && (word === 'true' || word === 'false')) {
-		return word === 'true' ? '-1' : '0';
+		return word === 'false' ? '0' : byte ? '255' : '-1';
 	}
 	let sign = 1;
 	let rest = toks;
