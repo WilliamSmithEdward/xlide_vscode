@@ -32,6 +32,7 @@ import {
 	collectProcedureLabelReferences,
 	statementLabelDeclarations,
 	type VbaProcedureLabel,
+	type VbaProcedureLabelReference,
 } from '../../flow/procedureLabels';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { BodyNode, LeafStatementNode, ModuleNode, ProcedureNode, Span } from '../../parser/nodes';
@@ -70,9 +71,11 @@ export function checkHandlerFlow(
 		const entries = topLevelEntries(source, member.body, activity);
 		checkResumeWithoutError(source, member, activity, push);
 		// A label in a block falls in from the statement above it there, the
-		// way one at the top level does (issue #237).
+		// way one at the top level does (issue #237). The procedure's label
+		// references are read once, not once per block (issue #322).
+		const references = collectProcedureLabelReferences(source, member, activity);
 		for (const body of bodyLists(member.body)) {
-			checkFallThroughIntoTargets(source, member, body === member.body ? entries : topLevelEntries(source, body, activity), activity, push);
+			checkFallThroughIntoTargets(source, member, body === member.body ? entries : topLevelEntries(source, body, activity), references, push);
 		}
 		checkRecursiveProperty(source, member, entries, push);
 	}
@@ -144,10 +147,9 @@ function checkFallThroughIntoTargets(
 	source: string,
 	proc: ProcedureNode,
 	entries: readonly TopLevelEntry[],
-	activity: ConditionalActivityTracker | undefined,
+	references: readonly VbaProcedureLabelReference[],
 	push: PushFn,
 ): void {
-	const references = collectProcedureLabelReferences(source, proc, activity);
 	const handlerLabels = new Set(references.filter((ref) => ref.statementKind === 'on-error-goto').map((ref) => ref.key));
 	const gosubLabels = new Set(references.filter((ref) => ref.statementKind === 'gosub' || ref.statementKind === 'on-gosub').map((ref) => ref.key));
 	const named = new Set(references.map((ref) => ref.key));
@@ -334,17 +336,17 @@ export function onErrorMode(toks: readonly VbaToken[]): OnErrorMode | undefined 
 export function errorHandlerExtents(source: string, proc: ProcedureNode): Span[] {
 	// A handler inside a block runs to the procedure's end the same way
 	// (issue #237).
-	return bodyLists(proc.body).flatMap((body) => handlerExtentsIn(source, proc, body));
-}
-
-function handlerExtentsIn(source: string, proc: ProcedureNode, body: readonly BodyNode[]): Span[] {
-	const entries = topLevelEntries(source, body, undefined);
 	const kindsByLabel = new Map<string, Set<string>>();
 	for (const ref of collectProcedureLabelReferences(source, proc, undefined)) {
 		const kinds = kindsByLabel.get(ref.key) ?? new Set<string>();
 		kinds.add(ref.statementKind);
 		kindsByLabel.set(ref.key, kinds);
 	}
+	return bodyLists(proc.body).flatMap((body) => handlerExtentsIn(source, proc, body, kindsByLabel));
+}
+
+function handlerExtentsIn(source: string, proc: ProcedureNode, body: readonly BodyNode[], kindsByLabel: ReadonlyMap<string, ReadonlySet<string>>): Span[] {
+	const entries = topLevelEntries(source, body, undefined);
 	const out: Span[] = [];
 	for (let i = 0; i < entries.length; i++) {
 		const entry = entries[i];

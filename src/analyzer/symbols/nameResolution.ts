@@ -90,10 +90,34 @@ export function localIdentifierMatches(
 	if (returnVariable?.name.toLowerCase() === lowerName) {
 		out.push(returnVariable);
 	}
-	out.push(...(procedure.children ?? [])
-		.filter((symbol) => isLocalIdentifierSymbol(symbol))
-		.filter((symbol) => symbol.name.toLowerCase() === lowerName));
+	out.push(...(localMatchIndex(procedure).get(lowerName) ?? []));
 	return out;
+}
+
+// A procedure's local identifiers by lowercased name, cached per procedure
+// symbol: every bare reference used to filter all of the procedure's locals,
+// statements times locals in a procedure of many (issue #322).
+const LOCAL_MATCH_INDEX = new WeakMap<VbaSymbol, Map<string, VbaSymbol[]>>();
+
+function localMatchIndex(procedure: VbaSymbol): Map<string, VbaSymbol[]> {
+	let index = LOCAL_MATCH_INDEX.get(procedure);
+	if (!index) {
+		index = new Map();
+		for (const symbol of procedure.children ?? []) {
+			if (!isLocalIdentifierSymbol(symbol)) {
+				continue;
+			}
+			const lower = symbol.name.toLowerCase();
+			const bucket = index.get(lower);
+			if (bucket) {
+				bucket.push(symbol);
+			} else {
+				index.set(lower, [symbol]);
+			}
+		}
+		LOCAL_MATCH_INDEX.set(procedure, index);
+	}
+	return index;
 }
 
 // Per-pass index of the project-visible symbols by lowercased name. The

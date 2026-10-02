@@ -3458,6 +3458,155 @@ function literalValueLocals(
 }
 
 /**
+ * The values one statement sees: the procedure-wide values, with each local
+ * a straight-line assignment reaches read from that assignment instead. A
+ * name is worked out when it is first asked for, and the whole map only when
+ * something walks it: every statement holds every local's reaching value,
+ * so building each map in full cost statements times locals (issue #322).
+ */
+class StatementValues implements ReadonlyMap<string, KnownLocalValue> {
+	private readonly known = new Map<string, KnownLocalValue | undefined>();
+	private full: Map<string, KnownLocalValue> | undefined;
+
+	constructor(
+		private readonly whole: ReadonlyMap<string, KnownLocalValue>,
+		private readonly assignments: ReachingAssignments,
+		/** The value an assignment gives a name, undefined for none, 'whole' for the procedure-wide one. */
+		private readonly derive: (lower: string, value: readonly VbaToken[]) => KnownLocalValue | undefined | 'whole',
+	) {}
+
+	get(lower: string): KnownLocalValue | undefined {
+		if (this.full) {
+			return this.full.get(lower);
+		}
+		if (this.known.has(lower)) {
+			return this.known.get(lower);
+		}
+		const value = this.assignments.get(lower);
+		const derived = value ? this.derive(lower, value) : 'whole';
+		const out = derived === 'whole' ? this.whole.get(lower) : derived;
+		this.known.set(lower, out);
+		return out;
+	}
+
+	has(lower: string): boolean {
+		return this.get(lower) !== undefined;
+	}
+
+	get size(): number {
+		return this.all().size;
+	}
+
+	forEach(visit: (value: KnownLocalValue, key: string, map: ReadonlyMap<string, KnownLocalValue>) => void, thisArg?: unknown): void {
+		this.all().forEach((value, key) => visit.call(thisArg, value, key, this));
+	}
+
+	entries(): MapIterator<[string, KnownLocalValue]> {
+		return this.all().entries();
+	}
+
+	keys(): MapIterator<string> {
+		return this.all().keys();
+	}
+
+	values(): MapIterator<KnownLocalValue> {
+		return this.all().values();
+	}
+
+	[Symbol.iterator](): MapIterator<[string, KnownLocalValue]> {
+		return this.all()[Symbol.iterator]();
+	}
+
+	private all(): Map<string, KnownLocalValue> {
+		if (!this.full) {
+			const full = new Map(this.whole);
+			for (const [lower, value] of this.assignments) {
+				const derived = this.derive(lower, value);
+				if (derived === 'whole') {
+					continue;
+				}
+				if (derived === undefined) {
+					full.delete(lower);
+				} else {
+					full.set(lower, derived);
+				}
+			}
+			this.full = full;
+		}
+		return this.full;
+	}
+}
+
+/**
+ * A view of a statement's values through `pick`, worked out per name on
+ * first use: the rules that keep only a statement's strings or literals
+ * look up the names the statement uses, and walking every local at every
+ * statement cost statements times locals (issue #322).
+ */
+export function pickedValues<T>(values: ReadonlyMap<string, KnownLocalValue>, pick: (lower: string, value: KnownLocalValue) => T | undefined): ReadonlyMap<string, T> {
+	return new PickedValues(values, pick);
+}
+
+class PickedValues<T> implements ReadonlyMap<string, T> {
+	private readonly known = new Map<string, T | undefined>();
+	private full: Map<string, T> | undefined;
+
+	constructor(private readonly base: ReadonlyMap<string, KnownLocalValue>, private readonly pick: (lower: string, value: KnownLocalValue) => T | undefined) {}
+
+	get(lower: string): T | undefined {
+		if (this.known.has(lower)) {
+			return this.known.get(lower);
+		}
+		const value = this.base.get(lower);
+		const out = value === undefined ? undefined : this.pick(lower, value);
+		this.known.set(lower, out);
+		return out;
+	}
+
+	has(lower: string): boolean {
+		return this.get(lower) !== undefined;
+	}
+
+	get size(): number {
+		return this.all().size;
+	}
+
+	forEach(visit: (value: T, key: string, map: ReadonlyMap<string, T>) => void, thisArg?: unknown): void {
+		this.all().forEach((value, key) => visit.call(thisArg, value, key, this));
+	}
+
+	entries(): MapIterator<[string, T]> {
+		return this.all().entries();
+	}
+
+	keys(): MapIterator<string> {
+		return this.all().keys();
+	}
+
+	values(): MapIterator<T> {
+		return this.all().values();
+	}
+
+	[Symbol.iterator](): MapIterator<[string, T]> {
+		return this.all()[Symbol.iterator]();
+	}
+
+	private all(): Map<string, T> {
+		if (!this.full) {
+			const full = new Map<string, T>();
+			for (const [lower, value] of this.base) {
+				const picked = this.pick(lower, value);
+				if (picked !== undefined) {
+					full.set(lower, picked);
+				}
+			}
+			this.full = full;
+		}
+		return this.full;
+	}
+}
+
+/**
  * {@link knownLocalLiteralValues} at each statement (issue #180). Where the
  * last assignment to reach a statement in a straight line is a literal, the
  * statement sees that literal, though other assignments in the procedure
@@ -3488,6 +3637,30 @@ export function knownLocalLiteralValuesAt(
 		blocksByStart ??= new Map([...reaching.keys()].filter((node: BodyNode) => !isLeafStatement(node)).map((node: BodyNode) => [node.span.start, node]));
 		return blocksByStart.get(stmt.span.start);
 	};
+	// One assignment reaches many statements, its tokens shared by all of
+	// them: what it gives a name is worked out once (issue #322).
+	const derived = new WeakMap<readonly VbaToken[], Map<string, KnownLocalValue | undefined | 'whole'>>();
+	const derive = (lower: string, value: readonly VbaToken[]): KnownLocalValue | undefined | 'whole' => {
+		let byName = derived.get(value);
+		if (!byName) {
+			byName = new Map();
+			derived.set(value, byName);
+		}
+		if (byName.has(lower)) {
+			return byName.get(lower);
+		}
+		let out: KnownLocalValue | undefined | 'whole';
+		if (!locals.has(lower)) {
+			out = 'whole';
+		} else {
+			const kind = locals.get(lower) ?? (unwrapOuterParens([...value])[0]?.kind === 'stringLiteral' ? 'string' : 'number');
+			const literal = plainLiteralText([...value], kind, locals.get(lower) !== undefined, bytes.has(lower));
+			const origin = value === DEFAULT_NUMBER || value === DEFAULT_STRING ? 'default' : 'literal';
+			out = literal === undefined ? undefined : { kind, value: kind === 'number' ? Number(literal) : literal, origin };
+		}
+		byName.set(lower, out);
+		return out;
+	};
 	return (stmt) => {
 		// No statement: a block header, which sees the procedure-wide values.
 		const assignments = stmt ? reaching.get(stmt) ?? (stmt.kind === 'Statement' && isLeafStatement(stmt) ? reaching.get(blockAt(stmt)!) : undefined) : undefined;
@@ -3496,22 +3669,11 @@ export function knownLocalLiteralValuesAt(
 		}
 		let result = results.get(assignments);
 		if (!result) {
-			const next = new Map(whole);
-			for (const [lower, value] of assignments) {
-				if (!locals.has(lower)) {
-					continue;
-				}
-				const kind = locals.get(lower) ?? (unwrapOuterParens(value)[0]?.kind === 'stringLiteral' ? 'string' : 'number');
-				const literal = plainLiteralText([...value], kind, locals.get(lower) !== undefined, bytes.has(lower));
-				const origin = value === DEFAULT_NUMBER || value === DEFAULT_STRING ? 'default' : 'literal';
-				if (literal === undefined) {
-					next.delete(lower);
-				} else {
-					next.set(lower, { kind, value: kind === 'number' ? Number(literal) : literal, origin });
-				}
-			}
-			result = next;
+			result = new StatementValues(whole, assignments, derive);
 			results.set(assignments, result);
+		}
+		if (moduleVariables.size === 0) {
+			return result;
 		}
 		// A module variable written in the straight line holds the value
 		// while nothing between could run other code (issue #348).
