@@ -1495,7 +1495,9 @@ function isZeroDivisorAtom(
 	tok: VbaToken | undefined,
 	constants: IntegerConstantLookup,
 ): boolean {
-	if (isZeroNumericLiteral(tok)) {
+	// False is 0 as a number: `1 \ False` raises 11 (issue #458, measured in
+	// Excel 16.0).
+	if (isZeroNumericLiteral(tok) || (tok?.kind === 'keyword' && tokenText(tok) === 'false')) {
 		return true;
 	}
 	const name = tok ? tokenName(tok) : undefined;
