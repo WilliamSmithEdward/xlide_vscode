@@ -486,11 +486,22 @@
         "issue266_48_runtime",
         "issue266_50_runtime",
         "issue404_13_runtime",
-        "issue434_02_runtime"
+        "issue434_02_runtime",
+        "issue329_07_runtime",
+        "issue329_08_runtime",
+        "issue329_09_runtime",
+        "issue329_10_runtime",
+        "issue329_11_runtime",
+        "issue329_12_runtime",
+        "issue329_13_runtime",
+        "issue329_14_runtime",
+        "issue329_15_runtime",
+        "issue329_17_runtime",
+        "issue329_18_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters and intrinsic CVErr Error Variants passed to scalar parameters, runtime error 94 for Null passed to scalar parameters, and runtime error 6 for decimal literals outside Byte/Integer/Long/Currency argument bounds, while numeric-string, Variant CVErr, Variant Null, and min/max boundary controls run successfully. Cross-module checks use exported standard-module project Sub/Function/Declare signatures; ambiguous bare names stay silent, while module-qualified calls resolve through the named standard module only. Source-backed and host member signatures feed the same argument type path for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Argument inference also consumes bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, Null literals, intrinsic CVErr Error Variant returns when not source-shadowed, explicit VBA.CVErr calls, and proven source-backed/host member return expressions when source/project/runtime/member metadata proves the return type. Runtime parameter and return metadata is skipped for bare names shadowed by visible source declarations, including untyped locals. Issue #223: Array(...) or Split(...) into a Long or String parameter, and an object expression of another class into a typed object parameter (TakeWs(Range(\"A1\"))), raise 13; a negative float literal past the Long range raises 6. A float literal past LongLong's range into a LongLong or LongPtr parameter, Take(1E+19), raises 6 (issue #232, 64-bit Excel 16.0). Issue #242: Sgn(Null) raises 94; Abs, Int and Hex pass Null through (measured in Excel 16.0). Issue #246: a declared object variable known to hold another class, from Set p = New C, passed ByVal or ByRef raises 13 when the call runs; one still Nothing passes (measured in Excel 16.0). Issue #266: RaiseEvent to a ByVal Event parameter of a number type: a string that is no number raises 13 (RaiseEvent Done(\"abc\")), and a whole number outside the type raises 6 (40000 for an Integer). Measured in Excel 16.0.",
+      "notes": "This is not a VBE compile-equivalent error: the focused compile oracle case compiles successfully. It is red because focused runtime oracle cases deterministically raise runtime error 13 for nonnumeric string literals passed to numeric parameters and intrinsic CVErr Error Variants passed to scalar parameters, runtime error 94 for Null passed to scalar parameters, and runtime error 6 for decimal literals outside Byte/Integer/Long/Currency argument bounds, while numeric-string, Variant CVErr, Variant Null, and min/max boundary controls run successfully. Cross-module checks use exported standard-module project Sub/Function/Declare signatures; ambiguous bare names stay silent, while module-qualified calls resolve through the named standard module only. Source-backed and host member signatures feed the same argument type path for parenthesized calls and parenless member call statements, including leading-dot calls inside simple or nested With receiver stacks. Argument inference also consumes bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, Null literals, intrinsic CVErr Error Variant returns when not source-shadowed, explicit VBA.CVErr calls, and proven source-backed/host member return expressions when source/project/runtime/member metadata proves the return type. Runtime parameter and return metadata is skipped for bare names shadowed by visible source declarations, including untyped locals. Issue #223: Array(...) or Split(...) into a Long or String parameter, and an object expression of another class into a typed object parameter (TakeWs(Range(\"A1\"))), raise 13; a negative float literal past the Long range raises 6. A float literal past LongLong's range into a LongLong or LongPtr parameter, Take(1E+19), raises 6 (issue #232, 64-bit Excel 16.0). Issue #242: Sgn(Null) raises 94; Abs, Int and Hex pass Null through (measured in Excel 16.0). Issue #246: a declared object variable known to hold another class, from Set p = New C, passed ByVal or ByRef raises 13 when the call runs; one still Nothing passes (measured in Excel 16.0). Issue #266: RaiseEvent to a ByVal Event parameter of a number type: a string that is no number raises 13 (RaiseEvent Done(\"abc\")), and a whole number outside the type raises 6 (40000 for an Integer). Measured in Excel 16.0. Issue #329: CBool, CByte, CCur, CDate, CDbl, CDec, CInt, CLng, CLngLng and CSng given Null raise 94, as CStr does; CVar keeps the Null.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -811,7 +822,13 @@
         "issue324_08_runtime",
         "issue324_09_runtime",
         "issue324_10_runtime",
-        "issue324_11_runtime"
+        "issue324_11_runtime",
+        "issue329_01_runtime",
+        "issue329_02_runtime",
+        "issue329_03_runtime",
+        "issue329_04_runtime",
+        "issue329_05_runtime",
+        "issue329_06_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
