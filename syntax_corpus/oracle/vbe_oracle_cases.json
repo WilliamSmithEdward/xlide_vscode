@@ -66059,6 +66059,152 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim d As Date\r\n    LSet d = #1/1/2000#\r\n    Main = d\r\nEnd Function\r\n\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue436_01_compile",
+      "description": "Issue #436 Enum leftovers, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    Helper\r\nEnd Enum\r\nPrivate Sub Helper()\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue436_02_compile",
+      "description": "Issue #436 Enum leftovers, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    zz\r\nEnd Enum\r\nPrivate zz As Long\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue436_03_compile",
+      "description": "Issue #436 Enum leftovers, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    a = 3\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Main = E\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue436_04_runtime",
+      "description": "Issue #436 Enum leftovers, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    a = 3\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Dim x As E\r\n    x = \"abc\"\r\n    Main = x\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue436_05_runtime",
+      "description": "Issue #436 Enum leftovers, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    a = 3\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Dim x As E\r\n    x = 3000000000#\r\n    Main = x\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue436_06_runtime",
+      "description": "Issue #436 Enum leftovers, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 99.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    a = 3\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Dim x As E\r\n    x = 99\r\n    Main = x\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue436_07_runtime",
+      "description": "Issue #436 Enum leftovers, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    a = 3\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Dim x As E\r\n    x = \"5\"\r\n    Main = x\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue436_08_compile",
+      "description": "Issue #436 Enum leftovers, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    Helper\r\nEnd Enum\r\nPrivate Function Helper() As Long\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue436_09_compile",
+      "description": "Issue #436 Enum leftovers, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    kk\r\nEnd Enum\r\nPrivate Const kk = 1\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue436_10_compile",
+      "description": "Issue #436 Enum leftovers, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    qq\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Dim qq As Long\r\n    Main = qq\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue436_11_compile",
+      "description": "Issue #436 Enum leftovers, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    Helper\r\nEnd Enum\r\nPublic Sub Helper()\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue436_12_compile",
+      "description": "Issue #436 Enum leftovers, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    a = 3\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Main = E.a\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue436_13_runtime",
+      "description": "Issue #436 Enum leftovers, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    a = 3\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Dim x As E\r\n    x = 2147483648#\r\n    Main = x\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue436_14_runtime",
+      "description": "Issue #436 Enum leftovers, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> -2147483648.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPrivate Enum E\r\n    a = 3\r\nEnd Enum\r\nFunction Main() As Variant\r\n    Dim x As E\r\n    x = -2147483648#\r\n    Main = x\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

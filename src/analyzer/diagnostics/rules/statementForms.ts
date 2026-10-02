@@ -55,6 +55,7 @@ export function checkStatementForms(
 		.filter((type) => type.kind === 'standardModule' && type.name.toLowerCase() !== symbols.moduleName.toLowerCase())
 		.map((type) => type.name.toLowerCase()));
 	const ownNames = new Set((symbols.root.children ?? []).map((symbol) => symbol.name.toLowerCase()));
+	const ownEnums = new Set((symbols.root.children ?? []).filter((symbol) => symbol.kind === 'enum').map((symbol) => symbol.name.toLowerCase()));
 	// Subs of this module, and of the project's standard modules, by name;
 	// a name that is also a Function or a module-level variable anywhere is
 	// not judged.
@@ -149,6 +150,12 @@ export function checkStatementForms(
 					const nameLower = name.toLowerCase();
 					if (i !== callee && toks[i + 1]?.rawText !== '.' && otherModules.has(nameLower) && !locals.has(nameLower) && !ownNames.has(nameLower) && !isLabel(i)) {
 						push('malformedStatement', `'${name}' names a module of this project before any procedure in it, so it cannot be used bare from another module; write ${name}.${name}. This is a VBE compile error: Expected variable or procedure, not module.`, at(i));
+						continue;
+					}
+					// `Main = E` reads an Enum type as a value (issue #436, measured
+					// in Excel 16.0).
+					if (target && i === eq + 1 && toks.length === eq + 2 && ownEnums.has(nameLower) && !locals.has(nameLower)) {
+						push('malformedStatement', `'${name}' names an Enum type, which has no value; name one of its members, as in ${name}.Member. This is a VBE compile error: Expected variable or procedure, not enum type.`, at(i));
 						continue;
 					}
 					// `AddressOf TimerProc` takes the procedure's address, not its value.

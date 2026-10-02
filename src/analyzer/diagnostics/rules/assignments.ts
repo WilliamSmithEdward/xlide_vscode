@@ -409,9 +409,14 @@ export function checkAssignmentTypes(
 				const shape = declaredShapeForSourceBinding(symbols, procSym, projectVisibleSymbols, assignment.name, 'assignmentTarget');
 				return shape.resolved && shape.shape?.isArray === true;
 			})();
-			const expected = (targetType.resolved
+			const declaredExpected = (targetType.resolved
 				? targetType.asType
 				: env.get(assignment.name.toLowerCase())) ?? (untypedArray ? 'Variant' : undefined);
+			// A variable As an Enum is a Long: `x = "abc"` raises 13 and
+			// `x = 3000000000#` 6 (issue #436, measured in Excel 16.0).
+			const enumName = declaredExpected?.split('.').pop()?.toLowerCase();
+			const expected = enumName && [...(symbols.root.children ?? []), ...(projectVisibleSymbols ?? [])]
+				.some((sym) => sym.kind === 'enum' && sym.name.toLowerCase() === enumName) ? 'Long' : declaredExpected;
 			// `Sheet1 = 5` compiles as a Let through the document's default
 			// member, and a Worksheet or Workbook has none (issue #225).
 			if (!expected && !targetType.resolved && isDocumentModuleName(assignment.name, memberCtx)) {

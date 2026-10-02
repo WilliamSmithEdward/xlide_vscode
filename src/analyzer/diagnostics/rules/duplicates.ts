@@ -214,6 +214,30 @@ export function checkVariableProcedureNameClash(
 	});
 }
 
+/**
+ * Rule: an Enum member may not share its name with a procedure, a
+ * module-level variable or a Const of the same module: "Ambiguous name
+ * detected" (issue #436, measured in Excel 16.0). Two Enums sharing a
+ * member, and a local of the same name, compile.
+ */
+export function checkEnumMemberNameClash(
+	members: VbaSymbol[],
+	activity: ConditionalActivityTracker | undefined,
+	push: PushFn,
+): void {
+	const flattened = members.flatMap((sym) => (sym.kind === 'enum' ? sym.children ?? [] : [sym]));
+	reportRepeatedNames(flattened, activity, {
+		declares: (sym) => sym.kind === 'enumMember' || sym.kind === 'moduleVariable' || sym.kind === 'constant' || isCallableKind(sym.kind),
+		collides: (a, b) => (a.kind === 'enumMember') !== (b.kind === 'enumMember'),
+		report: (repeat) =>
+			push(
+				'duplicateProcedure',
+				`Ambiguous name detected: '${repeat.name}' names an Enum member and another declaration in this module.`,
+				repeat.nameSpan,
+			),
+	});
+}
+
 /** Rule: a module-level variable or constant declared more than once. */
 export function checkDuplicateModuleMembers(
 	members: VbaSymbol[],

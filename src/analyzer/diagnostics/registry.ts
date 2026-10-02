@@ -23,6 +23,7 @@ import {
 	checkAmbiguousBareProcedureCalls,
 	checkDuplicateProcedures,
 	checkDuplicateTypeFields,
+	checkEnumMemberNameClash,
 	checkVariableProcedureNameClash,
 } from './rules/duplicates';
 import {
@@ -241,6 +242,10 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	{
 		name: 'variableProcedureNameClash',
 		run: (ctx, push) => checkVariableProcedureNameClash(ctx.symbols.root.children ?? [], ctx.activity, push),
+	},
+	{
+		name: 'enumMemberNameClash',
+		run: (ctx, push) => checkEnumMemberNameClash(ctx.symbols.root.children ?? [], ctx.activity, push),
 	},
 	{
 		name: 'duplicateModuleMembers',
