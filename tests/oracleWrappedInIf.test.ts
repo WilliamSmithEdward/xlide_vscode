@@ -98,6 +98,8 @@ describe('oracle cases wrapped in If True Then (issue #237)', () => {
 		}
 		expect(checked).toBeGreaterThan(1000);
 		expect(differences).toEqual([]);
-		// Two analyses of every oracle case: about 4 s alone, more beside the suite.
-	}, 60_000);
+		// Two analyses of every oracle case: about 17 s alone here with 6,400
+		// cases, and 33 to 63 s on a CI runner beside the suite. The oracle
+		// grows with every measured issue, so the limit leaves room.
+	}, 240_000);
 });
