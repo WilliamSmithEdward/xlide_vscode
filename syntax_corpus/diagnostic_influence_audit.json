@@ -6577,11 +6577,14 @@
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "issue117_d_runtime",
-        "issue117_e_runtime"
+        "issue117_e_runtime",
+        "issue338_01_runtime",
+        "issue338_02_runtime",
+        "issue338_03_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Property procedure calls itself. VBE runtime error 28: Out of stack space (issue #117, Excel 16.0).",
+      "notes": "Property procedure calls itself. VBE runtime error 28: Out of stack space (issue #117, Excel 16.0). Issue #338: Me.Name = v in the Let, Set Me.Name = v in the Set, and Name() in the Get.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
@@ -7096,11 +7099,14 @@
         "issue240_23_runtime",
         "issue240_24_runtime",
         "issue240_38_runtime",
-        "issue240_39_runtime"
+        "issue240_39_runtime",
+        "issue338_04_runtime",
+        "issue338_05_runtime",
+        "issue338_06_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "A Sub or Function that calls itself, or another procedure of the module that calls it back, at the top of its body before any statement or block that could leave or install a handler, and outside a single-line If, never returns: error 28, Out of stack space. `Sub S(): S: End Sub`, `F = F() + 1`, `F = F(n - 1)` with no base case, and a cycle of two or three procedures (issue #240, Excel 16.0).",
+      "notes": "A Sub or Function that calls itself, or another procedure of the module that calls it back, at the top of its body before any statement or block that could leave or install a handler, and outside a single-line If, never returns: error 28, Out of stack space. `Sub S(): S: End Sub`, `F = F() + 1`, `F = F(n - 1)` with no base case, and a cycle of two or three procedures (issue #240, Excel 16.0). Issue #338: a call through Me, Me.Go or F = Me.F, is a call of the member.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {

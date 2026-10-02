@@ -87060,6 +87060,236 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = (Nothing Like \"a\")\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue338_01_runtime",
+      "description": "Issue #338 class members that recurse through Me, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 28.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    c.Value = 3\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Let Value(ByVal v As Long)\r\n    Me.Value = v\r\nEnd Property\r\nPublic Property Get Value() As Long\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue338_02_runtime",
+      "description": "Issue #338 class members that recurse through Me, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 28.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Set c.Items = New Collection\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Set Items(ByVal v As Collection)\r\n    Set Me.Items = v\r\nEnd Property\r\nPublic Property Get Items() As Collection\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue338_03_runtime",
+      "description": "Issue #338 class members that recurse through Me, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 28.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = c.Value\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get Value() As Long\r\n    Value = Value() + 1\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue338_04_runtime",
+      "description": "Issue #338 class members that recurse through Me, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 28.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = c.Twice\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Twice() As Long\r\n    Twice = Me.Twice\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue338_05_runtime",
+      "description": "Issue #338 class members that recurse through Me, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 28.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = c.Twice\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Twice() As Long\r\n    Twice = Me.Twice()\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue338_06_runtime",
+      "description": "Issue #338 class members that recurse through Me, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 28.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    c.Go\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub Go()\r\n    Me.Go\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue338_07_runtime",
+      "description": "Issue #338 class members that recurse through Me, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = c.Value\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get Value() As Long\r\n    Value = Value + 1\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue338_08_runtime",
+      "description": "Issue #338 class members that recurse through Me, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    c.Value = 3\r\n    Main = c.Value\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate m As Long\r\nPublic Property Let Value(ByVal v As Long)\r\n    m = v\r\nEnd Property\r\nPublic Property Get Value() As Long\r\n    Value = m\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue338_09_runtime",
+      "description": "Issue #338 class members that recurse through Me, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = c.Twice\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Twice(Optional ByVal n As Long = 0) As Long\r\n    If n < 1 Then Twice = Me.Twice(n + 1)\r\nEnd Function\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue338_10_runtime",
+      "description": "Issue #338 class members that recurse through Me, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    c.Bump\r\n    Main = c.Value\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPrivate m As Long\r\nPublic Property Let Value(ByVal v As Long)\r\n    m = v\r\nEnd Property\r\nPublic Property Get Value() As Long\r\n    Value = m\r\nEnd Property\r\nPublic Sub Bump()\r\n    Me.Value = Me.Value + 1\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
