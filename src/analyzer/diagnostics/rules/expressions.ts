@@ -663,6 +663,22 @@ export function checkDivisionByZeroExpressions(
 			const held = lower ? (reaching ??= straightLineAssignments(source, member.body, activity)).get(stmt)?.get(lower)?.filter((t) => t.kind !== 'comment') : undefined;
 			return held?.length === 1 && tokenText(held[0]) === 'null';
 		};
+		// A number past the Long range, written or just stored: a literal, or a
+		// CDec of one (issue #502).
+		const pastLongAt = (stmt: LeafStatementNode) => (tok: VbaToken | undefined): boolean => {
+			const outside = (value: VbaToken | undefined): boolean => {
+				const text = value?.kind === 'stringLiteral' ? value.rawText.slice(1, -1) : value?.kind === 'integerLiteral' || value?.kind === 'floatLiteral' ? value.rawText.replace(/[!#@%&^]$/, '') : undefined;
+				const number = text !== undefined && /^\s*[+-]?\d+(\.\d*)?([eE][+-]?\d+)?\s*$/.test(text) ? Number(text) : NaN;
+				return Number.isFinite(number) && Math.abs(Math.round(number)) > 2147483647;
+			};
+			if (outside(tok)) {
+				return true;
+			}
+			const lower = tok ? tokenName(tok)?.toLowerCase() : undefined;
+			const held = lower ? (reaching ??= straightLineAssignments(source, member.body, activity)).get(stmt)?.get(lower)?.filter((t) => t.kind !== 'comment') : undefined;
+			const conversion = held?.length === 4 && tokenText(held[0]) === 'cdec' && held[1].rawText === '(' && held[3].rawText === ')';
+			return held !== undefined && ((held.length === 1 && outside(held[0])) || (conversion && outside(held[2])));
+		};
 		return (stmt) => {
 			if (unreachable.has(stmt)) {
 				return;
@@ -673,7 +689,7 @@ export function checkDivisionByZeroExpressions(
 			members = membersAt ? membersAt(stmt, stmt.span.end) : members;
 			checkEachCounterPass(source, stmt.span, counters.get(stmt), () => undefined, (values, report) => {
 				passValues = values;
-				for (const hit of divisionByZeroDivisors(source, stmt.span, lookup, guards, fractionOf, nullAt(stmt))) {
+				for (const hit of divisionByZeroDivisors(source, stmt.span, lookup, guards, fractionOf, nullAt(stmt), pastLongAt(stmt))) {
 					report('divisionByZero', hit.message, hit.span);
 				}
 			}, push);
@@ -1292,6 +1308,7 @@ function divisionByZeroDivisors(
 	guards: readonly DivisionGuard[],
 	fractionOf?: (lower: string) => number | undefined,
 	isNull: (tok: VbaToken | undefined) => boolean = () => false,
+	pastLong: (tok: VbaToken | undefined) => boolean = () => false,
 ): Array<{ operator: string; span: Span; message: string }> {
 	const toks = statementTokens(source, span);
 	const hits: Array<{ operator: string; span: Span; message: string }> = [];
@@ -1333,6 +1350,11 @@ function divisionByZeroDivisors(
 		// (issue #106, measured in Excel 16.0).
 		const dividend = toks[i - 1];
 		if (isNull(dividend) && toks[i - 2]?.rawText !== '.') {
+			continue;
+		}
+		// `\` and Mod convert the dividend to a Long first: one past the Long
+		// range overflows (6) before the division (issue #502).
+		if (operator !== '/' && pastLong(dividend) && toks[i - 2]?.rawText !== '.') {
 			continue;
 		}
 		const dividendZero = dividend !== undefined && (
