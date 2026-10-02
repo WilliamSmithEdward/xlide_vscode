@@ -76712,6 +76712,193 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Object\r\n    Set o = New Collection\r\n    o.Add 1, \"a\"\r\n    Main = o.Item(\"a\")\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue477_01_runtime",
+      "description": "Issue #477 late-bound objects from a ProgID, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 429.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Object\r\n    Set o = CreateObject(\"Scripting.Dictionery\")\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue477_02_runtime",
+      "description": "Issue #477 late-bound objects from a ProgID, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 429.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Object\r\n    Set o = CreateObject(\"Dictionary\")\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue477_03_runtime",
+      "description": "Issue #477 late-bound objects from a ProgID, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 429.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Object\r\n    Set o = CreateObject(\"\")\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue477_04_runtime",
+      "description": "Issue #477 late-bound objects from a ProgID, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 429.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Object\r\n    Set o = GetObject(, \"Excel.Aplication\")\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue477_05_runtime",
+      "description": "Issue #477 late-bound objects from a ProgID, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5020.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim re As Object\r\n    Set re = CreateObject(\"VBScript.RegExp\")\r\n    re.Pattern = \"(a\"\r\n    Main = re.Test(\"a\")\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue477_06_runtime",
+      "description": "Issue #477 late-bound objects from a ProgID, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5019.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim re As Object\r\n    Set re = CreateObject(\"VBScript.RegExp\")\r\n    re.Pattern = \"[a\"\r\n    Main = re.Test(\"a\")\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue477_07_runtime",
+      "description": "Issue #477 late-bound objects from a ProgID, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5018.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim re As Object\r\n    Set re = CreateObject(\"VBScript.RegExp\")\r\n    re.Pattern = \"*a\"\r\n    Main = re.Test(\"a\")\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue477_08_runtime",
+      "description": "Issue #477 late-bound objects from a ProgID, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5017.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim re As Object\r\n    Set re = CreateObject(\"VBScript.RegExp\")\r\n    re.Pattern = \"(?<=a)b\"\r\n    Main = re.Test(\"ab\")\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue477_09_runtime",
+      "description": "Issue #477 late-bound objects from a ProgID, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim re As Object\r\n    Set re = CreateObject(\"VBScript.RegExp\")\r\n    Main = re.Test(Null)\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue477_10_runtime",
+      "description": "Issue #477 late-bound objects from a ProgID, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 13.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim re As Object\r\n    Set re = CreateObject(\"VBScript.RegExp\")\r\n    re.Global = \"abc\"\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue477_11_runtime",
+      "description": "Issue #477 late-bound objects from a ProgID, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim re As Object\r\n    Set re = CreateObject(\"VBScript.RegExp\")\r\n    re.Patern = \"a\"\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue477_12_runtime",
+      "description": "Issue #477 late-bound objects from a ProgID, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim fso As Object, ts As Object, p As String\r\n    Set fso = CreateObject(\"Scripting.FileSystemObject\")\r\n    p = Environ$(\"TEMP\") & \"\\xlide477.txt\"\r\n    Set ts = fso.OpenTextFile(p, 3, True)\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue477_13_runtime",
+      "description": "Issue #477 late-bound objects from a ProgID, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As Object\r\n    Set o = CreateObject(\"scripting.dictionary\")\r\n    Main = o.Count\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue477_14_runtime",
+      "description": "Issue #477 late-bound objects from a ProgID, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim re As Object\r\n    Set re = CreateObject(\"VBScript.RegExp\")\r\n    re.Pattern = \"(?:a)+b*\"\r\n    Main = re.Test(\"aab\")\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue477_15_runtime",
+      "description": "Issue #477 late-bound objects from a ProgID, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 0.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim re As Object\r\n    Set re = CreateObject(\"VBScript.RegExp\")\r\n    re.Pattern = \"z\"\r\n    Main = re.Execute(\"abc\").Count\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue477_16_runtime",
+      "description": "Issue #477 late-bound objects from a ProgID, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim re As Object\r\n    Set re = CreateObject(\"VBScript.RegExp\")\r\n    re.Global = True\r\n    re.Pattern = \"[)(]\"\r\n    Main = re.Test(\"(\")\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue477_17_runtime",
+      "description": "Issue #477 late-bound objects from a ProgID, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim fso As Object, ts As Object, p As String\r\n    Set fso = CreateObject(\"Scripting.FileSystemObject\")\r\n    p = Environ$(\"TEMP\") & \"\\xlide477.txt\"\r\n    Set ts = fso.OpenTextFile(p, 8, True)\r\n    ts.Close\r\n    Main = 1\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

@@ -25,7 +25,7 @@ import { projectTypeAt, resolveReceiverTypeAt } from '../../completion/memberAcc
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { statementLabelDeclaration } from '../../flow/procedureLabels';
 import type { VbaToken } from '../../lexer/tokenKinds';
-import type { BodyNode, ForBlockNode, ModuleNode, ProcedureNode } from '../../parser/nodes';
+import type { BodyNode, ForBlockNode, ModuleNode, ProcedureNode, Span } from '../../parser/nodes';
 import { HELD_VALUE, heldObjectsAt } from '../heldObjects';
 import { isLeafStatement } from '../../parser/nodes';
 import { walkEnteringBlocks } from '../dataflow';
@@ -48,6 +48,122 @@ import { matchParenFrom, splitTopLevelTokenGroups } from '../../lexer/tokenHelpe
 
 const COLLECTION_MEMBERS: ReadonlySet<string> = new Set(['add', 'count', 'item', 'remove']);
 
+/** VBScript's RegExp, as CreateObject("VBScript.RegExp") gives it (issue #477). */
+const REGEXP_CLASS = {
+	display: 'RegExp',
+	members: new Set(['pattern', 'global', 'ignorecase', 'multiline', 'test', 'execute', 'replace']),
+};
+
+/**
+ * ProgIDs everyday macros create, lowercased. A ProgID one letter away from
+ * one of these, with the same parts, is taken as a misspelling of it, and
+ * the bare last part ("Dictionary") is no ProgID at all (issue #477,
+ * measured in Excel 16.0: each raises 429).
+ */
+const KNOWN_PROGIDS: readonly string[] = [
+	'scripting.dictionary', 'scripting.filesystemobject', 'vbscript.regexp', 'wscript.shell', 'wscript.network', 'shell.application',
+	'adodb.connection', 'adodb.recordset', 'adodb.command', 'adodb.stream',
+	'msxml2.domdocument', 'msxml2.domdocument.3.0', 'msxml2.domdocument.4.0', 'msxml2.domdocument.5.0', 'msxml2.domdocument.6.0',
+	'msxml2.xmlhttp', 'msxml2.xmlhttp.3.0', 'msxml2.xmlhttp.6.0', 'msxml2.serverxmlhttp', 'msxml2.serverxmlhttp.6.0', 'winhttp.winhttprequest.5.1',
+	'excel.application', 'word.application', 'powerpoint.application', 'outlook.application', 'access.application',
+];
+
+/** Why a ProgID literal names nothing, or undefined when it may be registered. */
+function progIdProblem(progId: string): string | undefined {
+	const lower = progId.trim().toLowerCase();
+	if (lower === '') {
+		return 'an empty ProgID names no class';
+	}
+	if (KNOWN_PROGIDS.includes(lower)) {
+		return undefined;
+	}
+	const bare = KNOWN_PROGIDS.find((known) => !lower.includes('.') && known.split('.')[1] === lower);
+	if (bare) {
+		return `"${progId}" lacks its library: the ProgID is "${bare}"`;
+	}
+	const near = KNOWN_PROGIDS.find((known) => known.split('.').length === lower.split('.').length && oneLetterApart(known, lower));
+	return near ? `"${progId}" is one letter away from "${near}", and no class has that ProgID` : undefined;
+}
+
+/** Whether two strings differ by one inserted, deleted or changed letter. */
+function oneLetterApart(a: string, b: string): boolean {
+	if (Math.abs(a.length - b.length) > 1 || a === b) {
+		return false;
+	}
+	let i = 0;
+	while (i < a.length && i < b.length && a[i] === b[i]) {
+		i++;
+	}
+	const letter = (c: string | undefined): boolean => c === undefined || /[a-z]/.test(c);
+	if (a.length === b.length) {
+		return letter(a[i]) && letter(b[i]) && a.slice(i + 1) === b.slice(i + 1);
+	}
+	const [long, short] = a.length > b.length ? [a, b] : [b, a];
+	return letter(long[i]) && long.slice(i + 1) === short.slice(i);
+}
+
+/**
+ * What VBScript's RegExp refuses in a pattern, with the error it raises
+ * (issue #477, measured in Excel 16.0): an unclosed group (5020), an
+ * unclosed class (5019), a quantifier with nothing before it (5018), and a
+ * lookbehind, which VBScript lacks (5017).
+ */
+function regExpPatternProblem(pattern: string): { error: string; text: string } | undefined {
+	let depth = 0;
+	let atomBefore = false;
+	for (let i = 0; i < pattern.length; i++) {
+		const c = pattern[i];
+		if (c === '\\') {
+			i++;
+			atomBefore = true;
+			continue;
+		}
+		if (c === '[') {
+			let j = i + 1;
+			if (pattern[j] === '^') {
+				j++;
+			}
+			if (pattern[j] === ']') {
+				j++;
+			}
+			while (j < pattern.length && pattern[j] !== ']') {
+				j += pattern[j] === '\\' ? 2 : 1;
+			}
+			if (j >= pattern.length) {
+				return { error: "'5019': Application-defined or object-defined error (VBScript: Expected ']' in regular expression)", text: 'an unclosed character class' };
+			}
+			i = j;
+			atomBefore = true;
+			continue;
+		}
+		if (c === '(') {
+			if (pattern.startsWith('(?<', i)) {
+				return { error: "'5017': Application-defined or object-defined error (VBScript: Syntax error in regular expression)", text: 'a lookbehind, which VBScript does not have' };
+			}
+			depth++;
+			atomBefore = false;
+			if (pattern.startsWith('(?:', i) || pattern.startsWith('(?=', i) || pattern.startsWith('(?!', i)) {
+				i += 2;
+			}
+			continue;
+		}
+		if (c === ')') {
+			depth--;
+			atomBefore = true;
+			continue;
+		}
+		if (c === '|') {
+			atomBefore = false;
+			continue;
+		}
+		if ((c === '*' || c === '+' || c === '?') && !atomBefore) {
+			return { error: "'5018': Application-defined or object-defined error (VBScript: Unexpected quantifier)", text: `a '${c}' with nothing before it to repeat` };
+		}
+		atomBefore = !(c === '^');
+	}
+	return depth > 0 ? { error: "'5020': Application-defined or object-defined error (VBScript: Expected ')' in regular expression)", text: 'an unclosed group' } : undefined;
+}
+
 /** Names a late-bound local is known to hold: the class display name and its members. */
 interface KnownClass {
 	display: string;
@@ -60,6 +176,8 @@ interface KnownClass {
 	mayBeNothing?: boolean;
 	/** The parameters of each method, by lowercased name, where they are known (issue #485). */
 	params?: ReadonlyMap<string, readonly KnownParam[]>;
+	/** A RegExp's pattern, where the code set it to a literal (issue #477). */
+	pattern?: string;
 }
 
 interface KnownParam {
@@ -154,6 +272,76 @@ function signatureParams(signature: string): KnownParam[] | undefined {
 	return params;
 }
 
+/** The Scripting.FileSystemObject's members, as its type library lists them. */
+const FSO_CLASS = {
+	display: 'FileSystemObject',
+	members: new Set([
+		'drives', 'buildpath', 'copyfile', 'copyfolder', 'createfolder', 'createtextfile', 'deletefile', 'deletefolder', 'driveexists',
+		'fileexists', 'folderexists', 'getabsolutepathname', 'getbasename', 'getdrive', 'getdrivename', 'getextensionname', 'getfile',
+		'getfilename', 'getfileversion', 'getfolder', 'getparentfoldername', 'getspecialfolder', 'getstandardstream', 'gettempname',
+		'movefile', 'movefolder', 'opentextfile',
+	]),
+};
+
+/** The class a CreateObject of a ProgID literal gives, where its members are known. */
+function progIdClass(progId: string): KnownClass | undefined {
+	const lower = progId.trim().toLowerCase();
+	return lower === 'vbscript.regexp' ? { ...REGEXP_CLASS } : lower === 'scripting.filesystemobject' ? { ...FSO_CLASS } : undefined;
+}
+
+/**
+ * Faults a literal shows on these objects (issue #477, measured in Excel
+ * 16.0): CreateObject and GetObject of a ProgID no class has (429), a
+ * RegExp pattern VBScript refuses at Test, Execute or Replace, Null given to
+ * them (13), Global, IgnoreCase or MultiLine set to text that is no Boolean
+ * (13), and an IOMode OpenTextFile does not take (5).
+ */
+function checkProgIdObjects(base: number, toks: readonly VbaToken[], held: ReadonlyMap<string, KnownClass>, push: PushFn): void {
+	const at = (tok: VbaToken): Span => ({ start: base + tok.start, end: base + tok.end });
+	for (let i = 0; i + 2 < toks.length; i++) {
+		const word = tokenText(toks[i]);
+		if ((word === 'createobject' || word === 'getobject') && toks[i + 1].rawText === '(' && toks[i - 1]?.rawText !== '.') {
+			const close = matchParenFrom([...toks], i + 1);
+			const args = close > i + 1 ? splitTopLevelTokenGroups([...toks], i + 2, ',', close) : [];
+			const arg = word === 'createobject' ? args[0] : args[1];
+			const literal = arg?.length === 1 && arg[0].kind === 'stringLiteral' ? arg[0] : undefined;
+			const problem = literal ? progIdProblem(stringLiteralValue(literal.rawText)) : undefined;
+			if (literal && problem) {
+				push('runtimeArgumentValue', `${word === 'createobject' ? 'CreateObject' : 'GetObject'}: ${problem}. This will raise Run-time error '429': ActiveX component can't create object.`, at(literal));
+			}
+			continue;
+		}
+		const known = held.get(tokenName(toks[i])?.toLowerCase() ?? '');
+		if (!known || toks[i - 1]?.rawText === '.' || toks[i + 1].rawText !== '.') {
+			continue;
+		}
+		const member = tokenText(toks[i + 2]);
+		if (known.display === 'RegExp') {
+			if (['test', 'execute', 'replace'].includes(member) && toks[i + 3]?.rawText === '(') {
+				const problem = known.pattern !== undefined ? regExpPatternProblem(known.pattern) : undefined;
+				const close = matchParenFrom([...toks], i + 3);
+				const first = close > i + 4 ? splitTopLevelTokenGroups([...toks], i + 4, ',', close)[0] : undefined;
+				if (problem) {
+					push('runtimeArgumentValue', `The pattern "${known.pattern}" has ${problem.text}. This will raise Run-time error ${problem.error}.`, at(toks[i + 2]));
+				} else if (first?.length === 1 && tokenText(first[0]) === 'null') {
+					push('runtimeArgumentValue', `RegExp.${toks[i + 2].rawText} takes a String, and Null is none. This will raise Run-time error '13': Type mismatch.`, at(first[0]));
+				}
+			} else if (['global', 'ignorecase', 'multiline'].includes(member) && i === 0 && toks[3]?.rawText === '=' && toks[4]?.kind === 'stringLiteral' && toks.length === 5) {
+				const text = stringLiteralValue(toks[4].rawText);
+				if (!/^\s*(true|false)\s*$/i.test(text) && !/\d/.test(text)) {
+					push('runtimeArgumentValue', `RegExp.${toks[2].rawText} takes True or False, and "${text}" is neither. This will raise Run-time error '13': Type mismatch.`, at(toks[4]));
+				}
+			}
+		} else if (known.display === 'FileSystemObject' && member === 'opentextfile' && toks[i + 3]?.rawText === '(') {
+			const close = matchParenFrom([...toks], i + 3);
+			const mode = close > i + 4 ? splitTopLevelTokenGroups([...toks], i + 4, ',', close)[1] : undefined;
+			if (mode?.length === 1 && mode[0].kind === 'integerLiteral' && ![1, 2, 8].includes(Number(mode[0].rawText))) {
+				push('runtimeArgumentValue', `OpenTextFile's IOMode is 1 (reading), 2 (writing) or 8 (appending), and ${mode[0].rawText} is none of them. This will raise Run-time error '5': Invalid procedure call or argument.`, at(mode[0]));
+			}
+		}
+	}
+}
+
 export function checkRuntimeMemberNotFound(
 	source: string,
 	mod: ModuleNode,
@@ -204,16 +392,28 @@ export function checkRuntimeMemberNotFound(
 				forgetMentioned(toks, held);
 				return;
 			}
+			checkProgIdObjects(node.span.start, toks, held, push);
 			checkStatement(source, node.span.start, toks, held, applicationSurface, memberCtx, push);
+			// `re.Pattern = "(a"`: the pattern a later Test or Execute reads.
+			const target = tokenName(toks[0])?.toLowerCase();
+			const regExp = target ? held.get(target) : undefined;
+			if (regExp?.display === 'RegExp' && toks[1]?.rawText === '.' && tokenText(toks[2]) === 'pattern' && toks[3]?.rawText === '=') {
+				const value = toks.slice(4).filter((tok) => tok.kind !== 'comment');
+				held.set(target!, { ...regExp, pattern: value.length === 1 && value[0].kind === 'stringLiteral' ? stringLiteralValue(value[0].rawText) : undefined });
+				return;
+			}
 			const set = setAssignmentTarget(source, node.span);
 			if (set && isLateBound(set.name.toLowerCase())) {
 				const lower = set.name.toLowerCase();
 				const value = toks.slice(toks.findIndex((tok) => tok.rawText === '=') + 1);
 				const source1 = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
 				const fromVariable = source1 !== undefined && !isLateBound(source1) ? knownClassNamed(env.get(source1), memberCtx) : undefined;
-				const known = value.length === 2 && tokenText(value[0]) === 'new'
+				const created = value.length === 4 && tokenText(value[0]) === 'createobject' && value[1].rawText === '(' && value[2].kind === 'stringLiteral' && value[3].rawText === ')'
+					? progIdClass(stringLiteralValue(value[2].rawText))
+					: undefined;
+				const known = created ?? (value.length === 2 && tokenText(value[0]) === 'new'
 					? knownClassNamed(tokenName(value[1]), memberCtx)
-					: fromVariable && { ...fromVariable, mayBeNothing: !autoInstanced.has(source1!) };
+					: fromVariable && { ...fromVariable, mayBeNothing: !autoInstanced.has(source1!) });
 				if (known) {
 					held.set(lower, known);
 				} else {
