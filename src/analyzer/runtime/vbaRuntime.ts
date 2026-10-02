@@ -793,6 +793,20 @@ export const VBA_RUNTIME_OBJECTS: VbaRuntimeObject[] = [
 			prop('Source', 'String'),
 		],
 	},
+	// VBA's collection of the loaded forms, `UserForms.Count` (issue #315,
+	// measured in Excel 16.0). VBE7.DLL declares it as a Global property
+	// returning an object; its members are the three the VBA reference lists.
+	{
+		name: 'UserForms',
+		type: 'VBA.UserForms',
+		source: 'verified',
+		exhaustive: true,
+		members: [
+			prop('Count', 'Long', { writable: false }),
+			method('Item', 'Item(Index) As Object'),
+			method('Add', 'Add(Name As String) As Object'),
+		],
+	},
 ];
 
 const BY_LOWER = new Map<string, VbaRuntimeFunction>(
