@@ -2640,11 +2640,12 @@
         "issue266_12_compile",
         "issue266_13_compile",
         "issue266_14_compile",
-        "issue266_15_compile"
+        "issue266_15_compile",
+        "issue413_06_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Flags, on a variable declared As a project class, a read of a property that has a Property Let or Set and no Property Get (Main = c.P, Set o = c.P), and a property called as a statement (c.P with a Get, c.P 5 with a Let), each \"Invalid use of property\" when the module compiles (issue #266, measured in Excel 16.0). An assignment to the property is the assignment rules'. A variable As Object or Variant is late bound: the read compiles and raises 450, runtime-member-not-found's.",
+      "notes": "Flags, on a variable declared As a project class, a read of a property that has a Property Let or Set and no Property Get (Main = c.P, Set o = c.P), and a property called as a statement (c.P with a Get, c.P 5 with a Let), each \"Invalid use of property\" when the module compiles (issue #266, measured in Excel 16.0). An assignment to the property is the assignment rules'. A variable As Object or Variant is late bound: the read compiles and raises 450, runtime-member-not-found's. Issue #413: a With member after a keyword, If .Count > 3, ElseIf .Count, Case .Count, Debug.Print .Count, is read, not called as a statement.",
       "diagnosticKind": "compile-error"
     },
     {

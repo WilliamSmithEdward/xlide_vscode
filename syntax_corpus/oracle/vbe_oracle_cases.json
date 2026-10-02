@@ -59295,6 +59295,138 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Dim w As Worksheets\r\n    Set w = GetW()\r\nEnd Function\r\nPrivate Function GetW() As Worksheets\r\n    Set GetW = Worksheets\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue413_01_compile",
+      "description": "Issue #413 a With member read after a keyword, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = 1\r\n    With c\r\n        If .State(\"q\") > 3 Then .SetState \"q\", 3\r\n    End With\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get State(ByVal k As String) As Long\r\n    State = 5\r\nEnd Property\r\nPublic Property Get Count() As Long\r\n    Count = 5\r\nEnd Property\r\nPublic Sub SetState(ByVal k As String, ByVal v As Long)\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue413_02_compile",
+      "description": "Issue #413 a With member read after a keyword, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = 1\r\n    With c\r\n        If .Count > 3 Then Main = 2\r\n    End With\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get State(ByVal k As String) As Long\r\n    State = 5\r\nEnd Property\r\nPublic Property Get Count() As Long\r\n    Count = 5\r\nEnd Property\r\nPublic Sub SetState(ByVal k As String, ByVal v As Long)\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue413_03_compile",
+      "description": "Issue #413 a With member read after a keyword, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = 1\r\n    With c\r\n        Debug.Print .Count\r\n    End With\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get State(ByVal k As String) As Long\r\n    State = 5\r\nEnd Property\r\nPublic Property Get Count() As Long\r\n    Count = 5\r\nEnd Property\r\nPublic Sub SetState(ByVal k As String, ByVal v As Long)\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue413_04_compile",
+      "description": "Issue #413 a With member read after a keyword, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = 1\r\n    With c\r\n        If False Then\r\n        ElseIf .Count > 3 Then\r\n            Main = 2\r\n        End If\r\n    End With\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get State(ByVal k As String) As Long\r\n    State = 5\r\nEnd Property\r\nPublic Property Get Count() As Long\r\n    Count = 5\r\nEnd Property\r\nPublic Sub SetState(ByVal k As String, ByVal v As Long)\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue413_05_compile",
+      "description": "Issue #413 a With member read after a keyword, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = 1\r\n    With c\r\n        Select Case 5\r\n        Case .Count\r\n            Main = 2\r\n        End Select\r\n    End With\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get State(ByVal k As String) As Long\r\n    State = 5\r\nEnd Property\r\nPublic Property Get Count() As Long\r\n    Count = 5\r\nEnd Property\r\nPublic Sub SetState(ByVal k As String, ByVal v As Long)\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue413_06_compile",
+      "description": "Issue #413 a With member read after a keyword, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Class1\r\n    Main = 1\r\n    c.Count\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Class1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Property Get State(ByVal k As String) As Long\r\n    State = 5\r\nEnd Property\r\nPublic Property Get Count() As Long\r\n    Count = 5\r\nEnd Property\r\nPublic Sub SetState(ByVal k As String, ByVal v As Long)\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }
