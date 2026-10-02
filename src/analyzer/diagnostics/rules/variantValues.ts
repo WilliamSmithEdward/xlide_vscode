@@ -47,7 +47,8 @@ import {
 	tokenText,
 } from '../walker';
 import { isBareOrVbaQualifiedIntrinsicCall, nameMentions } from './shared';
-import { knownArrayShapesAt, moduleOptionBase, type FixedArrayBound } from './arrays';
+import { knownArrayShapesAt, moduleOptionBase, singleCellValue, type FixedArrayBound } from './arrays';
+import { straightLineAssignments } from '../straightLineValues';
 
 const SCALAR_OPERATORS: ReadonlySet<string> = new Set(['=', '<', '>', '<=', '>=', '<>', '+', '-', '*', '/', '\\', '&', '^']);
 
@@ -82,6 +83,19 @@ export function checkVariantValueMisuse(
 			}
 			return scalars;
 		});
+		// One cell's value is no array, whatever it holds: `v = Range("A1").Value`
+		// then `v(1, 1)` or `UBound(v)` raises 13 (issue #278, measured in Excel 16.0).
+		let reaching: ReturnType<typeof straightLineAssignments> | undefined;
+		const cellScalarsAt = (stmt: BodyNode): ReadonlyMap<string, string> => {
+			const held = (reaching ??= straightLineAssignments(source, member.body, activity)).get(stmt);
+			const out = new Map<string, string>();
+			for (const [lower, toks] of held ?? []) {
+				if (isVariant(lower) && singleCellValue(toks.filter((tok) => tok.kind !== 'comment'))) {
+					out.set(lower, "one cell's value, which is no array");
+				}
+			}
+			return out;
+		};
 		const arraysFor = memoByIdentity((shapes: ReadonlyMap<string, FixedArrayBound>) => {
 			const arrays = new Map<string, string>();
 			for (const [lower, shape] of shapes) {
@@ -136,7 +150,8 @@ export function checkVariantValueMisuse(
 					}
 				}
 			}
-			const scalars = scalarsFor(valuesAt(stmt));
+			const cells = cellScalarsAt(stmt);
+			const scalars = cells.size === 0 ? scalarsFor(valuesAt(stmt)) : new Map([...scalarsFor(valuesAt(stmt)), ...cells]);
 			const arrays = arraysFor(shapesAt(stmt));
 			if (scalars.size === 0 && arrays.size === 0) {
 				return;
@@ -163,6 +178,10 @@ export function checkVariantValueMisuse(
 					if (next?.rawText === '.' && tokenName(toks[i + 2])) {
 						const holds = scalar ?? `an array from ${array}`;
 						push('variantValueMisuse', `'${toks[i].rawText}' holds ${holds} here, which has no members. This will raise Run-time error '424': Object required.`, at);
+						continue;
+					}
+					if (cells.has(lower) && next?.rawText === '(') {
+						push('variantValueMisuse', `'${toks[i].rawText}' holds ${scalar} here, so it has no element to index. This will raise Run-time error '13': Type mismatch.`, at);
 						continue;
 					}
 					if (scalar && isBoundArgument(toks, i)) {
@@ -201,7 +220,7 @@ export function checkVariantValueMisuse(
 				? 'nothing (it is never assigned, so it is Empty)'
 				: value?.origin === 'literal'
 					? (value.kind === 'string' ? `the string "${value.value}"` : `the number ${value.value}`)
-					: undefined;
+					: cellScalarsAt(loop).get(lower);
 			if (holds) {
 				push('variantValueMisuse', `'${loop.sourceExpression!.trim()}' holds ${holds} here, which For Each cannot step through. This will raise Run-time error '13': Type mismatch.`, loop.sourceExpressionSpan);
 			}

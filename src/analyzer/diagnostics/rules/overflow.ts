@@ -285,8 +285,12 @@ function valOfString(text: string): Typed | 'overflow' | undefined {
 	return Number.isFinite(value) ? { value, type: 'double' } : 'overflow';
 }
 
-/** What a name means to the folder: a typed value, or nothing. */
-type NameLookup = (lower: string) => Typed | undefined;
+/**
+ * What a name means to the folder: a typed value, or nothing. `declares`,
+ * where given, says the procedure or module declares the name, so a host
+ * global of that spelling is hidden.
+ */
+type NameLookup = ((lower: string) => Typed | undefined) & { declares?: (lower: string) => boolean };
 
 /** The operators that read both sides as numbers: arithmetic and comparison. */
 const BINARY_ON_NUMBERS: ReadonlySet<string> = new Set(['+', '-', '*', '/', '\\', '^', 'mod', '=', '<>', '<', '>', '<=', '>=',
@@ -691,7 +695,13 @@ class TypedFolder {
 		if (value === undefined) {
 			return undefined;
 		}
+		const start = this.index;
 		this.index = i;
+		// Range.Count is a Long, and a sheet has 17,179,869,184 cells:
+		// `Cells.Count` raises 6 (issue #278, measured in Excel 16.0).
+		if (value > 2147483647) {
+			return { overflow: true, span: this.span(start, i - 1), detail: `${this.toks.slice(start, i).map((tok) => tok.rawText).join('')} counts ${value} cells, past the Long range Range.Count returns; CountLarge counts them` };
+		}
 		return { value, type: 'long' };
 	}
 
@@ -1356,6 +1366,10 @@ function sheetSizeOf(segments: readonly ChainSegment[], fold: (expr: VbaToken[])
 	if (names('rows.count') === undefined) {
 		return undefined; // not Excel, or a name of the procedure's hides it
 	}
+	// `cells.Count` with a variable of the code's own named cells.
+	if (['cells', 'range', 'rows', 'columns'].includes(segments[0].name) && names.declares?.(segments[0].name)) {
+		return undefined;
+	}
 	const n = segments.length;
 	const last = segments[n - 1];
 	const before = segments[n - 2];
@@ -1371,6 +1385,11 @@ function sheetSizeOf(segments: readonly ChainSegment[], fold: (expr: VbaToken[])
 		return namesSheet(receiver, names) ? (before.name === 'rows' ? SHEET_ROWS : SHEET_COLUMNS) : undefined;
 	}
 	const receiver = segments.slice(0, n - 2);
+	// `Cells.Count` on the whole sheet, `Cells.Cells.Count` too (issue #278).
+	if (last.name === 'count' && before.name === 'cells' && !before.args) {
+		const sheet = receiver[receiver.length - 1]?.name === 'cells' && !receiver[receiver.length - 1].args ? receiver.slice(0, -1) : receiver;
+		return namesSheet(sheet, names) ? SHEET_ROWS * SHEET_COLUMNS : undefined;
+	}
 	if (!namesSheet(receiver, names)) {
 		return undefined;
 	}
@@ -1418,6 +1437,8 @@ export function checkOverflow(
 	const types = moduleTypes(source, mod, activity);
 	const results = knownFunctionResults(source, mod, activity);
 	const deftypes = /^[ \t]*Def(Bool|Byte|Int|Lng|LngLng|LngPtr|Cur|Sng|Dbl|Dec|Date|Str|Obj|Var)[ \t]+[A-Za-z]/im.test(source);
+	// Names the project declares, which hide a host global of that spelling.
+	const moduleNames = new Set([...(projectVisibleSymbols ?? []), ...(symbols.root.children ?? [])].map((symbol) => symbol.name.toLowerCase()));
 	for (const member of activeModuleMembers(mod, activity)) {
 		if (member.kind !== 'Procedure') {
 			continue;
@@ -1475,6 +1496,7 @@ export function checkOverflow(
 			}
 			return hostValues.get(lower);
 		};
+		names.declares = (lower) => env.has(lower) || moduleNames.has(lower);
 		const groups: VariableGroupNode[] = [];
 		forEachVariableGroup(member.body, (group) => { groups.push(group); }, activity);
 		checkConstDeclarations(source, groups, constants, activity, push);
