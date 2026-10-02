@@ -56,6 +56,7 @@ export function registerVbaMemberCompletion(
 			'.',
 			' ',
 			'#',
+			'"',
 			'@',
 		),
 		vscode.workspace.onDidChangeTextDocument((event) => {

@@ -686,7 +686,8 @@ function parenlessCalleeSite(
 			if (close < 0 || stmt[close + 1]?.rawText !== '.') {
 				break;
 			}
-			i = close + 1;
+			// Past the argument list, to the `)` before the next dot.
+			i = close;
 		}
 		if (stmt[i + 1]?.rawText !== '.') {
 			break;
