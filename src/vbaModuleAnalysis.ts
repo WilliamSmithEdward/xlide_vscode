@@ -381,7 +381,10 @@ function onErrorResumeNextSuppressionRanges(
                 if (node.kind === 'Statement') {
                     // Read after any line label: `10 On Error Resume Next`.
                     const mode = onErrorMode(statementTokensAfterLeadingLabel(source, node.span));
-                    if (mode === 'resume-next' || mode === 'goto-label') {
+                    // GoTo 0 turns handling off and ends the stretch; GoTo -1
+                    // only clears the error, and Resume Next stays (issue #313,
+                    // measured in Excel 16.0).
+                    if (mode === 'resume-next' || mode === 'goto-label' || mode === 'goto-0') {
                         const start = node.span.start;
                         handlers.push({
                             start,

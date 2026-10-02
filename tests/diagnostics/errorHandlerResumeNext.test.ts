@@ -49,3 +49,20 @@ describe('On Error Resume Next in a running error handler (issue #199)', () => {
 		expect(runtimeErrors(body)).toEqual([]);
 	});
 });
+
+// On Error GoTo 0 turns handling off, so it ends a Resume Next stretch;
+// GoTo -1 only clears the error (issue #313, measured in Excel 16.0 on
+// 2026-10-02).
+describe('On Error GoTo 0 after On Error Resume Next (issue #313)', () => {
+	it.each([
+		['a division', '    Dim d As Long\n    On Error Resume Next\n    On Error GoTo 0\n    x = 1 / d', '11'],
+		['an overflow', '    On Error Resume Next\n    On Error GoTo 0\n    i = 40000', '6'],
+	] as const)('reports %s after it', (_name, body, number) => {
+		expect(runtimeErrors(body)).toContain(number);
+	});
+
+	it('stays quiet after GoTo -1', () => {
+		expect(runtimeErrors('    Dim d As Long\n    On Error Resume Next\n    On Error GoTo -1\n    x = 1 / d')).toEqual([]);
+	});
+});
+
