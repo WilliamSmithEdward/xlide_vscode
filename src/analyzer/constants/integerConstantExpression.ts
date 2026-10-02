@@ -106,6 +106,19 @@ export function evaluateIntegerConstantExpression(
  */
 const MAX_RECURSION_DEPTH = 300;
 
+/** Returned where the current token starts no rounding call. */
+const NOT_A_CALL = Symbol('not a call');
+
+/** The calls that make a number whole, with the range each result must fit. */
+const ROUNDING_CALLS: ReadonlyMap<string, readonly [number, number]> = new Map([
+	['cint', [-32768, 32767]],
+	['clng', [-2147483648, 2147483647]],
+	['cbyte', [0, 255]],
+	['int', [-Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER]],
+	['fix', [-Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER]],
+	['round', [-Number.MAX_SAFE_INTEGER, Number.MAX_SAFE_INTEGER]],
+]);
+
 class IntegerConstantExpressionParser {
 	private readonly tokens: VbaToken[];
 	private index = 0;
@@ -248,6 +261,10 @@ class IntegerConstantExpressionParser {
 		if (qualified) {
 			return this.constants.get(qualified.toLowerCase());
 		}
+		const rounded = this.roundingCall();
+		if (rounded !== NOT_A_CALL) {
+			return rounded;
+		}
 		const name = tokenName(token);
 		if (name) {
 			this.index++;
@@ -259,6 +276,42 @@ class IntegerConstantExpressionParser {
 			return this.constants.get(name.toLowerCase());
 		}
 		return undefined;
+	}
+
+	/**
+	 * `CInt(3.5)`, `Int(-0.1)`, `Fix(-0.9)`, `Round(0.5)`: a conversion or
+	 * rounding of a number, which comes out whole (issue #286, measured in
+	 * Excel 16.0). CInt, CLng and Round round half to even, Int down and Fix
+	 * toward zero. NOT_A_CALL where the current token starts no such call;
+	 * undefined where it does and the argument is not known or the result
+	 * does not fit.
+	 */
+	private roundingCall(): number | undefined | typeof NOT_A_CALL {
+		const word = tokenName(this.current())?.toLowerCase();
+		const range = word ? ROUNDING_CALLS.get(word) : undefined;
+		if (!range || this.tokens[this.index + 1]?.rawText !== '(' || this.tokens[this.index - 1]?.rawText === '.') {
+			return NOT_A_CALL;
+		}
+		const start = this.index;
+		this.index += 2;
+		const argument = this.index;
+		const negative = this.accept('-');
+		const tok = this.current();
+		let value: number | undefined;
+		if (tok?.kind === 'floatLiteral' && this.tokens[this.index + 1]?.rawText === ')') {
+			this.index++;
+			const read = Number(tok.rawText.replace(/[!#@]$/, ''));
+			value = Number.isFinite(read) ? (negative ? -read : read) : undefined;
+		} else {
+			this.index = argument;
+			value = this.expression();
+		}
+		if (value === undefined || !this.accept(')')) {
+			this.index = start;
+			return NOT_A_CALL;
+		}
+		const whole = word === 'int' ? Math.floor(value) : word === 'fix' ? Math.trunc(value) : bankersRound(value);
+		return whole >= range[0] && whole <= range[1] ? whole + 0 : undefined;
 	}
 
 	private qualifiedName(): string | undefined {

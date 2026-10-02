@@ -14,6 +14,7 @@ import type { HostObjectModel } from '../../host/excelObjectModel';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import {
+	evaluateIntegerConstantExpression,
 	type IntegerConstantLookup,
 	resolveRawIntegerConstants,
 } from '../../constants/integerConstantExpression';
@@ -1541,6 +1542,15 @@ function zeroDivisorAtomTokenGroup(
 	const close = zeroConversionCallEnd(toks, start, constants);
 	if (close !== undefined && isDivisorAtomBoundary(toks[close + 1])) {
 		return toks.slice(start, close + 1);
+	}
+	// `Int(0.9)`, `Fix(-0.9)`, `Round(0.5)`: a number made whole, 0 (issue #286).
+	if (['int', 'fix', 'round'].includes(tokenText(first)) && toks[start + 1]?.rawText === '(' && toks[start - 1]?.rawText !== '.') {
+		const end = matchParenFrom(toks, start + 1);
+		const call = end > start ? toks.slice(start, end + 1) : [];
+		if (call.length > 0 && isDivisorAtomBoundary(toks[end + 1])
+			&& evaluateIntegerConstantExpression(call.map((tok) => tok.rawText).join(' '), constants) === 0) {
+			return call;
+		}
 	}
 	return undefined;
 }

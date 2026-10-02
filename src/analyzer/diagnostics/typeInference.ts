@@ -15,6 +15,7 @@ import { IDENT_RE, matchParenFrom } from '../lexer/tokenHelpers';
 import { HOST_DEFAULT_MEMBERS } from '../host/hostDefaultMembers';
 import {
 	bankersRound,
+	evaluateIntegerConstantExpression,
 	parseDecimalIntegerLiteral,
 	parseVbaIntegerLiteral,
 	type IntegerConstantLookup,
@@ -3801,7 +3802,11 @@ function plainLiteralText(value: VbaToken[], kind: 'number' | 'string', typed = 
 		rest = rest.slice(1);
 	}
 	if (rest.length !== 1) {
-		return undefined;
+		// Whole numbers and operators only: `x = 1 \ 3` stores 0 (issue #286).
+		const folded = toks.length > 1 && toks.every((tok) => tok.kind === 'integerLiteral' || tok.kind === 'operator' || tokenText(tok) === 'mod')
+			? evaluateIntegerConstantExpression(toks.map((tok) => tok.rawText).join(' '), { get: () => undefined })
+			: undefined;
+		return folded === undefined ? undefined : String(folded);
 	}
 	if (rest[0].kind === 'integerLiteral') {
 		const parsed = parseVbaIntegerLiteral(rest[0].rawText);

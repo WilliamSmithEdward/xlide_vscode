@@ -813,9 +813,12 @@ function impossibleBounds(
 		if (part.length === 0) {
 			return undefined;
 		}
-		if (part.length === 1 && part[0].kind === 'floatLiteral') {
-			const value = Number(part[0].rawText.replace(/[!#@]$/, '').replace(/[dD]/, 'e'));
-			return Number.isFinite(value) ? bankersRound(value) : undefined;
+		// A decimal, signed too: `ReDim d(-0.6)` rounds to -1 (issue #286).
+		const negative = part.length === 2 && part[0].rawText === '-';
+		const decimal = part[negative ? 1 : 0];
+		if (part.length === (negative ? 2 : 1) && decimal.kind === 'floatLiteral') {
+			const value = Number(decimal.rawText.replace(/[!#@]$/, '').replace(/[dD]/, 'e'));
+			return Number.isFinite(value) ? bankersRound(negative ? -value : value) + 0 : undefined;
 		}
 		return evaluateIntegerConstantExpression(text.slice(part[0].start, part[part.length - 1].end), lookup);
 	};
@@ -2716,6 +2719,22 @@ function unallocatedModuleArrayUses(
 	return out;
 }
 
+/** A signed decimal literal, `2.6` or `-0.6`, and the whole number VBA rounds it to. */
+function roundedDecimalLiteral(slot: readonly VbaToken[]): { text: string; whole: number } | undefined {
+	const toks = slot.filter((tok) => tok.kind !== 'comment');
+	const negative = toks.length === 2 && toks[0].rawText === '-';
+	const literal = toks[negative ? 1 : 0];
+	if (toks.length !== (negative ? 2 : 1) || literal?.kind !== 'floatLiteral') {
+		return undefined;
+	}
+	const read = Number(literal.rawText.replace(/[!#@]$/, ''));
+	if (!Number.isFinite(read)) {
+		return undefined;
+	}
+	const value = negative ? -read : read;
+	return { text: toks.map((tok) => tok.rawText).join(''), whole: bankersRound(value) + 0 };
+}
+
 export function subscriptViolation(
 	span: Span,
 	decl: FixedArrayBound,
@@ -2734,6 +2753,14 @@ export function subscriptViolation(
 		const detail = subscriptDetail(value, dim, index, decl.dims.length);
 		return detail
 			? { span: slotSpan, message: `Subscript ${value} for array '${decl.name}'${from} ${detail}. ${error}` }
+			: undefined;
+	}
+	// `a(2.6)` rounds half to even, to 3 (issue #286, measured in Excel 16.0).
+	const decimal = roundedDecimalLiteral(slot);
+	if (decimal !== undefined) {
+		const detail = subscriptDetail(decimal.whole, dim, index, decl.dims.length);
+		return detail
+			? { span: slotSpan, message: `Subscript ${decimal.text} rounds to ${decimal.whole}, which for array '${decl.name}'${from} ${detail}. ${error}` }
 			: undefined;
 	}
 	// `a(i)`, and `a(i + 1)` or `a(i - 1)` a whole number off it (issue #263).
