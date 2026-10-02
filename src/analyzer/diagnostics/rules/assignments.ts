@@ -369,7 +369,7 @@ export function checkAssignmentTypes(
 			if (spelled) {
 				return spelled.standIn && normalizeType(expected) === 'date'
 					? undefined
-					: { type: 'String', label: spelled.standIn ? `${label} a Date written as text` : `${label} ${JSON.stringify(spelled.text)}`, span: valueSpan, stringValue: spelled.text };
+					: { type: 'String', label: spelled.standIn ? `${label} a Date written as text` : spelled.named !== undefined ? `${label} ${spelled.named}` : `${label} ${JSON.stringify(spelled.text)}`, span: valueSpan, stringValue: spelled.text };
 			}
 			// `v = Array("1", "b")` then `n = v(1)` (issue #260).
 			written ??= elementsWrittenIn(source, procedure, activity);
@@ -1756,6 +1756,91 @@ function midStatementLiteralTargetViolation(
 interface SpelledText {
 	text: string;
 	standIn: boolean;
+	/**
+	 * What the text is, where the host or the locale decides the words: a
+	 * month name, a type name, a cell address. Such a word is never a
+	 * number, a Boolean or a date, and the text stands in for it (issue
+	 * #457, measured in Excel 16.0).
+	 */
+	named?: string;
+}
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const STRCONV_CASES: Readonly<Record<string, number>> = { vbuppercase: 1, vblowercase: 2, vbpropercase: 3 };
+
+/**
+ * A call or property whose String result is fixed, or is a word no locale
+ * reads as a number, a Boolean or a date (issue #457, each measured in
+ * Excel 16.0 into a Long, a Double, a Boolean and a Date): Chr, Hex, Oct,
+ * Space, String and StrConv over literals; MonthName, WeekdayName, Format of
+ * a Date literal as a month or day name, and TypeName; a Range's Address;
+ * Application.Name and PathSeparator. `Hex(9)` is "9", which converts.
+ */
+function fixedTextPart(part: readonly VbaToken[], known: (lower: string) => KnownLocalValue | undefined, env: ReadonlyMap<string, string>, sourceNames: SourceNameScope): SpelledText | undefined {
+	const exact = (text: string): SpelledText => ({ text, standIn: false });
+	const named = (text: string, what: string): SpelledText => ({ text, standIn: false, named: what });
+	const first = tokenText(part[0]);
+	if (part.length === 3 && first === 'application' && part[1].rawText === '.') {
+		const member = tokenText(part[2]);
+		return member === 'name' ? named('Microsoft Excel', 'the application name') : member === 'pathseparator' ? named('\\', 'the path separator') : undefined;
+	}
+	// `Range("A1").Address`, `Cells(1, 2).Address(False, False)`. The text
+	// stands in with no digit: a string with one may be a number somewhere.
+	if ((first === 'range' || first === 'cells') && part[1]?.rawText === '(') {
+		const close = matchParenFrom(part, 1);
+		const tail = part.slice(close + 1);
+		const address = tail.length >= 2 && tail[0].rawText === '.' && tokenText(tail[1]) === 'address'
+			&& (tail.length === 2 || (tail[2].rawText === '(' && matchParenFrom(tail, 2) === tail.length - 1));
+		return close > 0 && address ? named('address', 'a cell address') : undefined;
+	}
+	const open = part[1]?.rawText === '$' ? 2 : 1;
+	const fn = tokenName(part[0])?.toLowerCase();
+	if (!fn || runtimeCallableSourceShadowed(fn, sourceNames) || part[open]?.rawText !== '(' || matchParenFrom(part, open) !== part.length - 1) {
+		return undefined;
+	}
+	const args = splitTopLevelTokenGroups(part, open + 1, ',', part.length - 1);
+	const whole = (k: number): number | undefined => {
+		const arg = args[k];
+		return arg?.length === 1 && arg[0].kind === 'integerLiteral' && /^\d+$/.test(arg[0].rawText) ? Number(arg[0].rawText) : undefined;
+	};
+	const n = whole(0);
+	switch (fn) {
+		case 'typename':
+			return args.length === 1 ? named('Integer', 'a type name') : undefined;
+		case 'monthname':
+			return n !== undefined && n >= 1 && n <= 12 && args.length <= 2 ? named(MONTH_NAMES[n - 1], 'a month name') : undefined;
+		case 'weekdayname':
+			return n !== undefined && n >= 1 && n <= 7 && args.length <= 3 ? named(DAY_NAMES[n - 1], 'a day name') : undefined;
+		case 'format': {
+			const pattern = args.length === 2 && args[1].length === 1 && args[1][0].kind === 'stringLiteral' ? stringLiteralValue(args[1][0].rawText).toLowerCase() : undefined;
+			const date = args[0]?.length === 1 && args[0][0].kind === 'dateLiteral';
+			return date && (pattern === 'mmm' || pattern === 'mmmm') ? named('January', 'a month name')
+				: date && (pattern === 'ddd' || pattern === 'dddd') ? named('Sunday', 'a day name') : undefined;
+		}
+		case 'chr':
+			return args.length === 1 && n !== undefined && n >= 32 && n <= 126 ? exact(String.fromCharCode(n)) : undefined;
+		case 'hex':
+		case 'oct':
+			return args.length === 1 && n !== undefined && n <= 2147483647 ? exact(n.toString(fn === 'hex' ? 16 : 8).toUpperCase()) : undefined;
+		case 'space':
+			return args.length === 1 && n !== undefined && n <= 1000 ? exact(' '.repeat(n)) : undefined;
+		case 'string': {
+			const fill = args[1]?.length === 1 && args[1][0].kind === 'stringLiteral' ? stringLiteralValue(args[1][0].rawText) : '';
+			return args.length === 2 && n !== undefined && n <= 1000 && fill !== '' ? exact(fill[0].repeat(n)) : undefined;
+		}
+		case 'strconv': {
+			const subject = args.length === 2 ? spelledText(args[0], known, env, sourceNames) : undefined;
+			const kind = args[1]?.length === 1 ? (whole(1) ?? STRCONV_CASES[tokenText(args[1][0])]) : undefined;
+			if (!subject || subject.standIn || subject.named !== undefined) {
+				return undefined;
+			}
+			const lower = subject.text.toLowerCase();
+			return kind === 1 ? exact(subject.text.toUpperCase()) : kind === 2 ? exact(lower)
+				: kind === 3 ? exact(lower.replace(/(^|[^a-z0-9])([a-z])/g, (_, before: string, letter: string) => before + letter.toUpperCase())) : undefined;
+		}
+	}
+	return undefined;
 }
 
 /** The text functions folded over known text: `Left("abc", 1)` is "a". */
@@ -1774,10 +1859,16 @@ function spelledText(
 ): SpelledText | undefined {
 	let text = '';
 	let standIn = false;
-	for (const part of splitTopLevelTokenGroups(toks, 0, '&')) {
+	const parts = splitTopLevelTokenGroups(toks, 0, '&');
+	for (const part of parts) {
 		const spelled = spelledPart(unwrapOuterParens(part), known, env, sourceNames);
 		if (!spelled) {
 			return undefined;
+		}
+		// A month name or address stands in only for itself: beside other
+		// text, as in `"1 " & MonthName(1)`, it may make a date.
+		if (spelled.named !== undefined) {
+			return parts.length === 1 ? spelled : undefined;
 		}
 		text += spelled.text;
 		standIn ||= spelled.standIn;
@@ -1830,6 +1921,10 @@ function spelledPart(
 		}
 		return undefined;
 	}
+	const fixed = fixedTextPart(part, known, env, sourceNames);
+	if (fixed) {
+		return fixed;
+	}
 	// `Left$` lexes as Left and a `$`.
 	const open = part[1]?.rawText === '$' ? 2 : 1;
 	const fn = tokenName(part[0])?.toLowerCase();
@@ -1839,7 +1934,7 @@ function spelledPart(
 	const args = splitTopLevelTokenGroups(part, open + 1, ',', part.length - 1);
 	const subject = spelledText(args[0], known, env, sourceNames);
 	// Only CStr passes a Date written as text on: Left of it depends on the locale.
-	if (!subject || (subject.standIn && fn !== 'cstr')) {
+	if (!subject || ((subject.standIn || subject.named !== undefined) && fn !== 'cstr')) {
 		return undefined;
 	}
 	const count = (k: number): number | undefined => {
