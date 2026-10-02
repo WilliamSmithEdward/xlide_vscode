@@ -72173,6 +72173,138 @@
       "source": "Option Explicit\r\nPrivate d As Long\r\nFunction Main() As Variant\r\n    d = 0\r\n    If Rnd() > 2 Then d = 1\r\n    Main = 10 / (d + 1)\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue350_01_runtime",
+      "description": "Issue #350 State built across loop passes, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Integer, i As Long\r\n    For i = 1 To 40000\r\n        n = n + 1\r\n    Next\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue350_02_runtime",
+      "description": "Issue #350 State built across loop passes, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 6.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Integer, i As Long\r\n    For i = 1 To 300\r\n        n = n + i\r\n    Next\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue350_03_runtime",
+      "description": "Issue #350 State built across loop passes, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Integer, i As Long\r\n    For i = 1 To 30000\r\n        n = n + 1\r\n    Next\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue350_04_runtime",
+      "description": "Issue #350 State built across loop passes, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 457.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, i As Long\r\n    For i = 1 To 2\r\n        c.Add i, \"k\"\r\n    Next\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue350_05_runtime",
+      "description": "Issue #350 State built across loop passes, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, i As Long\r\n    For i = 1 To 3\r\n        c.Add i\r\n    Next\r\n    Main = c(5)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue350_06_runtime",
+      "description": "Issue #350 State built across loop passes, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, i As Long\r\n    For i = 1 To 0\r\n        c.Add i\r\n    Next\r\n    Main = c(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue350_07_runtime",
+      "description": "Issue #350 State built across loop passes, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 5.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, i As Long\r\n    c.Add 1\r\n    c.Add 2\r\n    For i = 1 To 2\r\n        c.Remove 1\r\n    Next\r\n    Main = c(1)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue350_08_runtime",
+      "description": "Issue #350 State built across loop passes, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, i As Long\r\n    For i = 1 To 2\r\n        c.Add i, CStr(i)\r\n    Next\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue350_09_runtime",
+      "description": "Issue #350 State built across loop passes, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, i As Long\r\n    For i = 1 To 3\r\n        c.Add i\r\n    Next\r\n    Main = c(3)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue350_10_runtime",
+      "description": "Issue #350 State built across loop passes, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, o As Collection, i As Long\r\n    For i = 1 To 2\r\n        c.Add i, CStr(i)\r\n    Next\r\n    Main = c(\"1\")\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue350_11_runtime",
+      "description": "Issue #350 State built across loop passes, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, o As Collection, i As Long\r\n    For i = 1 To 3\r\n        If i > 1 Then c.Add i\r\n    Next\r\n    Main = c(1)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue350_12_runtime",
+      "description": "Issue #350 State built across loop passes, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 3.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim c As New Collection, o As Collection, i As Long\r\n    Set o = c\r\n    For i = 1 To 3\r\n        c.Add i\r\n    Next\r\n    Main = o(3)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

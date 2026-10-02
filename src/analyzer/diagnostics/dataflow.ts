@@ -718,6 +718,11 @@ export interface BlockEnteringState<S> {
 	touches(stmt: LeafStatementNode): Iterable<string>;
 	/** Called as a block is entered, before its own lines run: a For Each header reads its source here. */
 	enter?(node: BodyNode): void;
+	/**
+	 * Called once a block is left, after what it touches is forgotten: a rule
+	 * that ran a loop pass by pass puts back what the loop leaves (issue #350).
+	 */
+	exit?(node: BodyNode): void;
 }
 
 /**
@@ -773,6 +778,7 @@ export function walkEnteringBlocks<S>(
 		}
 		state.restore(entry);
 		state.forget(touched);
+		state.exit?.(node);
 	}
 }
 

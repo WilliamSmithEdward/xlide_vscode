@@ -180,6 +180,7 @@ export function checkCollectionState(
 				?? (lookup ? evaluateIntegerConstantExpression(arg.map((tok) => tok.rawText).join(' '), lookup) : undefined);
 			checkStatement(node.span, toks, states, push, isEmpty, indexOf, optionBase, lookup, scalarLocal);
 		};
+		const leaves = new Map<BodyNode, { after: Map<string, CollectionContents>; aliases: string[] }>();
 		walkEnteringBlocks(source, member.body, (node) => activity?.isInactive(node.span) === true, visit, {
 			snapshot: () => cloneStates(states),
 			restore: (saved) => {
@@ -194,8 +195,27 @@ export function checkCollectionState(
 				}
 			},
 			touches: (stmt) => namesIn(source, stmt.span),
-			// A counted loop that removes or reads by its counter (issue #263).
-			enter: (node) => simulateCountedLoop(source, node, states, push, activity),
+			// A counted loop that removes or reads by its counter (issue #263),
+			// or fills or empties a collection (issue #350).
+			enter: (node) => {
+				simulateCountedLoop(source, node, states, push, activity);
+				const after = unreachable?.has(node) ? undefined : simulateFillingLoop(source, node, states, push, activity);
+				if (after) {
+					// Another name for the same collection, `Set o = c` above,
+					// is not followed past the loop.
+					const aliases = [...states].filter(([lower, contents]) => !after.has(lower) && [...after.keys()].some((name) => states.get(name) === contents)).map(([lower]) => lower);
+					leaves.set(node, { after, aliases });
+				}
+			},
+			exit: (node) => {
+				const left = leaves.get(node);
+				for (const [lower, contents] of left?.after ?? []) {
+					states.set(lower, contents);
+				}
+				for (const lower of left?.aliases ?? []) {
+					forgetCollection(states, lower);
+				}
+			},
 		});
 	}
 }
@@ -343,6 +363,116 @@ function simulateCountedLoop(
 			return;
 		}
 	}
+}
+
+/**
+ * `For i = 1 To 3: c.Add i: Next` (issue #350, measured in Excel 16.0): a
+ * For loop with literal bounds whose body is plain statements, each either
+ * `c.Add item[, key]` or `c.Remove n` on a tracked collection or one that
+ * names none, is run pass by pass. A literal key added on a second pass
+ * raises 457 there. What the loop leaves, an empty collection after a loop
+ * of no pass included, is returned for after it; a key the code builds
+ * leaves the keys unknown. Undefined when the loop cannot be followed.
+ */
+function simulateFillingLoop(
+	source: string,
+	node: BodyNode,
+	states: ReadonlyMap<string, CollectionContents>,
+	push: PushFn,
+	activity: ConditionalActivityTracker | undefined,
+): Map<string, CollectionContents> | undefined {
+	if (node.kind !== 'ForBlock' || node.each || !node.controlVariable || states.size === 0) {
+		return undefined;
+	}
+	const counter = node.controlVariable.toLowerCase();
+	const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+	const eq = header.findIndex((tok) => tok.rawText === '=');
+	const to = header.findIndex((tok) => tokenText(tok) === 'to');
+	const stepAt = header.findIndex((tok) => tokenText(tok) === 'step');
+	const start = eq > 0 && to > eq ? literalIndex(header.slice(eq + 1, to)) : undefined;
+	const limit = to > 0 ? literalIndex(header.slice(to + 1, stepAt > 0 ? stepAt : header.length)) : undefined;
+	const step = stepAt > 0 ? literalIndex(header.slice(stepAt + 1)) : 1;
+	if (start === undefined || limit === undefined || !step) {
+		return undefined;
+	}
+	interface Change { name: string; display: string; add?: { key?: string; keyToks?: readonly VbaToken[]; keyBuilt: boolean }; remove?: number; base: number }
+	const changes: Change[] = [];
+	for (const stmt of node.body) {
+		if (activity?.isInactive(stmt.span)) {
+			continue;
+		}
+		if (!isLeafStatement(stmt) || (stmt.kind === 'Statement' && stmt.singleLineIfBranches) || statementLabelDeclaration(source, stmt.span)) {
+			return undefined;
+		}
+		const toks = statementTokensAfterLeadingLabel(source, stmt.span).filter((tok) => tok.kind !== 'comment');
+		if (['exit', 'goto', 'gosub', 'resume', 'return', 'end', 'on', 'stop'].includes(tokenText(toks[0]))) {
+			return undefined;
+		}
+		const name = tokenName(toks[0])?.toLowerCase();
+		const mentions = toks.some((tok, k) => states.has(tokenName(tok)?.toLowerCase() ?? '') && toks[k - 1]?.rawText !== '.');
+		if (!name || !states.has(name) || toks[1]?.rawText !== '.') {
+			if (mentions || toks.some((tok) => tokenName(tok)?.toLowerCase() === counter && tok === toks[0])) {
+				return undefined;
+			}
+			continue;
+		}
+		const member = tokenText(toks[2]);
+		const args = argumentsAfter(toks, 3);
+		if (member === 'add' && args.length >= 1 && args.length <= 2 && !args.some((arg) => arg[1]?.rawText === ':=')) {
+			const keyToks = args[1];
+			const key = keyToks ? literalKey(keyToks) : undefined;
+			changes.push({ name, display: toks[0].rawText, base: stmt.span.start, add: { key, keyToks, keyBuilt: keyToks !== undefined && keyToks.length > 0 && key === undefined } });
+			continue;
+		}
+		const index = member === 'remove' && args.length === 1 ? literalIndex(args[0]) : undefined;
+		if (index === undefined) {
+			return undefined;
+		}
+		changes.push({ name, display: toks[0].rawText, base: stmt.span.start, remove: index });
+	}
+	if (changes.length === 0) {
+		return undefined;
+	}
+	const after = new Map<string, CollectionContents>();
+	for (const change of changes) {
+		if (!after.has(change.name)) {
+			const contents = states.get(change.name)!;
+			after.set(change.name, { items: [...contents.items], keysKnown: contents.keysKnown, shapes: [...contents.shapes], held: [...contents.held] });
+		}
+	}
+	let passes = 0;
+	for (let value = start; step > 0 ? value <= limit : value >= limit; value += step) {
+		if (++passes > MAX_SIMULATED_PASSES) {
+			return undefined;
+		}
+		for (const change of changes) {
+			const contents = after.get(change.name)!;
+			if (change.remove !== undefined) {
+				if (change.remove < 1 || change.remove > contents.items.length) {
+					return undefined; // the walk into the block reports a first pass
+				}
+				contents.items.splice(change.remove - 1, 1);
+				contents.shapes.splice(change.remove - 1, 1);
+				contents.held.splice(change.remove - 1, 1);
+				continue;
+			}
+			const key = change.add!.key;
+			if (key !== undefined && contents.keysKnown && contents.items.includes(key)) {
+				if (passes > 1) {
+					const keyToks = change.add!.keyToks!;
+					push('collectionKeyInUse', `On the pass of the For loop where '${node.controlVariable}' is ${value}, '${change.display}' already has an element with the key ${keyToks[0].rawText} from an earlier pass. This will raise Run-time error '457': This key is already associated with an element of this collection.`, { start: change.base + keyToks[0].start, end: change.base + keyToks[keyToks.length - 1].end });
+				}
+				return undefined;
+			}
+			contents.items.push(key);
+			contents.shapes.push(undefined);
+			contents.held.push(undefined);
+			if (change.add!.keyBuilt) {
+				contents.keysKnown = false;
+			}
+		}
+	}
+	return after;
 }
 
 /** A copy of the states in which two names that shared one collection still do. */
