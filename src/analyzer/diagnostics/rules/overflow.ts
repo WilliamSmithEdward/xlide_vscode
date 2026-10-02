@@ -563,6 +563,21 @@ class TypedFolder {
 			const scaled = type === 'currency' ? currencyScaled(String(Math.abs(read.value))) : undefined;
 			return { value: read.value, type, constant: true, ...(scaled !== undefined ? { scaled: read.value < 0 ? -scaled : scaled } : {}) };
 		}
+		// `^` takes both operands as Doubles: `"12" ^ 32767`, and s ^ 32767
+		// with s a String local holding "12", overflow (issue #331, measured
+		// in Excel 16.0).
+		if ((before === '^' || after === '^') && before !== '.' && this.toks[this.index + 1]?.rawText !== '(' && this.toks[this.index + 1]?.rawText !== '.') {
+			const local = tokenName(tok);
+			const read = tok.kind === 'stringLiteral' ? numberInString(stringLiteralValue(tok.rawText))
+				: local ? this.names(`"${local.toLowerCase()}`) : undefined;
+			if (read === 'overflow') {
+				return { overflow: true, span: this.span(this.index, this.index), detail: `${tok.rawText} spells a number past the Double range` };
+			}
+			if (read !== undefined) {
+				this.index++;
+				return { value: read.value, type: 'double' };
+			}
+		}
 		const name = tokenName(tok);
 		if (!name) {
 			return undefined;
@@ -1482,6 +1497,11 @@ export function checkOverflow(
 			const type = numericTypeOf(env.get(lower));
 			if (local?.kind === 'number' && type) {
 				return { value: local.value as number, type };
+			}
+			// A Boolean local is an Integer in arithmetic, as True is: n - b
+			// with n the largest Long and b True overflows (issue #331).
+			if (local?.kind === 'number' && normalizeType(env.get(lower)) === 'boolean' && (local.value === -1 || local.value === 0)) {
+				return { value: local.value as number, type: 'integer', boolean: true };
 			}
 			if (!lower.includes('.')) {
 				// `b = F()` with F a Function of the module returning 300 (issue #448).
