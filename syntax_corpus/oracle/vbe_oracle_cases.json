@@ -77612,6 +77612,105 @@
       ],
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue470_01_runtime",
+      "description": "Issue #470 unqualified corners of another sheet range, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet, r As Range\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    Set r = w1.Range(Cells(1, 1), Cells(2, 2))\r\n    Main = 1\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue470_02_runtime",
+      "description": "Issue #470 unqualified corners of another sheet range, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet, r As Range\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    Set r = w1.Range(Range(\"A1\"), Range(\"B2\"))\r\n    Main = 1\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue470_03_runtime",
+      "description": "Issue #470 unqualified corners of another sheet range, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet, r As Range\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    Set r = w1.Range(Rows(1), Rows(2))\r\n    Main = 1\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue470_04_runtime",
+      "description": "Issue #470 unqualified corners of another sheet range, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet, r As Range\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    With w1\r\n        Set r = .Range(Cells(1, 1), .Cells(2, 2))\r\n    End With\r\n    Main = 1\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue470_05_runtime",
+      "description": "Issue #470 unqualified corners of another sheet range, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet, r As Range\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    Set r = w2.Range(Cells(1, 1), Cells(2, 2))\r\n    Main = 1\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue470_06_runtime",
+      "description": "Issue #470 unqualified corners of another sheet range, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet, r As Range\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    Set r = w1.Range(w1.Cells(1, 1), w1.Cells(2, 2))\r\n    Main = 1\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue470_07_runtime",
+      "description": "Issue #470 unqualified corners of another sheet range, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet, r As Range\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    With w1\r\n        Set r = .Range(.Cells(1, 1), .Cells(2, 2))\r\n    End With\r\n    Main = 1\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue470_08_runtime",
+      "description": "Issue #470 unqualified corners of another sheet range, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet, r As Range\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    w1.Activate\r\n    Set r = w1.Range(Cells(1, 1), Cells(2, 2))\r\n    Main = 1\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue470_09_runtime",
+      "description": "Issue #470 unqualified corners of another sheet range, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet, r As Range\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    Set r = w1.Range(Cells(1, 1).Address)\r\n    Main = 1\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

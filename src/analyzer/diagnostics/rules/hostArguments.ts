@@ -81,6 +81,7 @@ import { checkEachCounterPass, loopCountersAt } from '../loopCounters';
 import { knownLocalLiteralValuesAt, normalizeType, stringLiteralValue, typeEnvironmentFor, type KnownLocalValue } from '../typeInference';
 import {
 	bareAssignmentTarget,
+	blockHeaderLineSpan,
 	firstExecutableTokenIndex,
 	matchParenFrom,
 	statementTokens,
@@ -175,6 +176,7 @@ export function checkHostArguments(
 		// (issue #345, measured in Excel 16.0).
 		let valuesAt: ReturnType<typeof knownLocalLiteralValuesAt> | undefined;
 		let documentsAt: ReturnType<typeof newDocumentsAt> | undefined;
+		let sheetsAt: ReturnType<typeof activeSheetsAt> | undefined;
 		return (stmt) => {
 			const stmtCounters = counters.get(stmt);
 			const known = (valuesAt ??= knownLocalLiteralValuesAt(source, proc, symbols, activity))(stmt);
@@ -196,6 +198,11 @@ export function checkHostArguments(
 			const documents = host === 'Word' ? (documentsAt ??= newDocumentsAt(source, proc, activity)).get(stmt) : undefined;
 			if (documents) {
 				checkNewDocumentUses(stmt.span, statementTokens(source, stmt.span), documents, literalOrKnown, push);
+			}
+			// A sheet the code knows is not active (issue #470).
+			const sheetState = host === 'Excel' ? (sheetsAt ??= activeSheetsAt(source, proc, activity)).get(stmt) : undefined;
+			if (sheetState) {
+				checkUnqualifiedCorners(stmt.span, statementTokens(source, stmt.span), sheetState, push);
 			}
 			if (!stmtCounters) {
 				checkSpan(source, stmt.span, host, model, memberCtx, env, arrays, sourceNames, literalOrKnown, push, stringOf);
@@ -220,6 +227,115 @@ export function checkHostArguments(
 			}, push);
 		};
 	};
+}
+
+/** What a statement knows of the active sheet: the sheet variables known not to be it, and a With's subject. */
+interface ActiveSheetState {
+	notActive: ReadonlySet<string>;
+	subject?: string;
+}
+
+/**
+ * The sheet variables each statement knows are not the active sheet (issue
+ * #470, measured in Excel 16.0): `Set w2 = Worksheets.Add` activates the new
+ * sheet, so every sheet the code held before is not active, and `w2` is.
+ * `Set w1 = ActiveSheet` and `w1.Activate` make w1 the active one. Any
+ * other statement that may activate a sheet, a call, a label, or a block
+ * other than a With ends what is known.
+ */
+function activeSheetsAt(source: string, proc: ProcedureNode, activity: ConditionalActivityTracker | undefined): Map<BodyNode, ActiveSheetState> {
+	const out = new Map<BodyNode, ActiveSheetState>();
+	const sheets = new Set<string>();
+	let notActive = new Set<string>();
+	const visit = (list: readonly BodyNode[], subject: string | undefined): void => {
+		for (const node of list) {
+			if (activity?.isInactive(node.span)) {
+				continue;
+			}
+			if (!isLeafStatement(node)) {
+				const header = statementTokensAfterLeadingLabel(source, blockHeaderLineSpan(source, node.span)).filter((tok) => tok.kind !== 'comment');
+				// The body runs from the state the block is entered with; after
+				// it, what it may have activated is not known.
+				if ('body' in node && Array.isArray(node.body)) {
+					const entry = notActive;
+					notActive = new Set(entry);
+					visit(node.body as BodyNode[], node.kind === 'WithBlock' && header.length === 2 ? tokenName(header[1])?.toLowerCase() : subject);
+				}
+				notActive = new Set();
+				continue;
+			}
+			if (statementLabelDeclaration(source, node.span)) {
+				notActive = new Set();
+			}
+			if (notActive.size > 0) {
+				out.set(node, { notActive: new Set(notActive), subject });
+			}
+			const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+			const words = toks.map((tok) => tok.rawText.toLowerCase());
+			if (words[0] === 'set' && words[2] === '=') {
+				const target = words[1];
+				const value = words.slice(3).join('');
+				if (value === 'activesheet') {
+					sheets.add(target);
+					notActive.delete(target);
+					continue;
+				}
+				// `Worksheets.Add`, `Sheets.Add(...)`, qualified by a workbook or not.
+				if (/^(?:\w+\.)*(?:worksheets|sheets)\.add(?:\(.*\))?$/.test(value)) {
+					notActive = new Set([...sheets].filter((sheet) => sheet !== target));
+					sheets.add(target);
+					continue;
+				}
+				if (!/[(]/.test(value) || /^(?:\w+\.)*(?:worksheets|sheets)\(/.test(value)) {
+					notActive.delete(target);
+					continue;
+				}
+			}
+			// A plain assignment with no call keeps what is known.
+			const bare = bareAssignmentTarget(source, node.span);
+			const calls = toks.some((tok, i) => toks[i + 1]?.rawText === '(' && tok.kind === 'identifier' && toks[i - 1]?.rawText === '.' && ['activate', 'select', 'add', 'copy', 'move'].includes(tokenText(tok)));
+			if ((bare || (words[0] === 'set' && words[2] === '=')) && !calls && !words.some((word) => word === 'activate' || word === 'select')) {
+				continue;
+			}
+			// `w1.Activate`: w1 is active, and nothing else is known.
+			notActive = new Set();
+		}
+	};
+	visit(proc.body, undefined);
+	return out;
+}
+
+/**
+ * `w1.Range(Cells(1, 1), Cells(2, 2))` with w1 known not to be the active
+ * sheet: the unqualified Cells, Range, Rows or Columns are the active
+ * sheet's, so the Range raises 1004 (issue #470, measured in Excel 16.0).
+ */
+function checkUnqualifiedCorners(span: Span, toks: readonly VbaToken[], state: ActiveSheetState, push: PushFn): void {
+	for (let i = 0; i + 3 < toks.length; i++) {
+		const dotted = toks[i].rawText === '.' && tokenText(toks[i + 1]) === 'range' && toks[i + 2]?.rawText === '(';
+		if (!dotted) {
+			continue;
+		}
+		const owner = toks[i - 1] && toks[i - 1].rawText !== ')' ? tokenName(toks[i - 1])?.toLowerCase() : undefined;
+		const sheet = owner ?? (i === 0 || ['=', '(', ','].includes(toks[i - 1]?.rawText ?? '') ? state.subject : undefined);
+		if (!sheet || !state.notActive.has(sheet)) {
+			continue;
+		}
+		const close = matchParenFrom(toks, i + 2);
+		const args = close > i + 3 ? splitTopLevelTokenGroups(toks, i + 3, ',', close) : [];
+		if (args.length !== 2) {
+			continue;
+		}
+		for (const arg of args) {
+			const part = arg.filter((tok) => tok.kind !== 'comment');
+			const word = tokenText(part[0]);
+			if (['cells', 'range', 'rows', 'columns'].includes(word) && part[1]?.rawText === '(' && matchParenFrom(part, 1) === part.length - 1) {
+				const shown = part.map((tok) => tok.rawText).join('');
+				push('hostArgumentOutOfRange', `${shown} here is the active sheet's, and '${owner ? toks[i - 1].rawText : `.${toks[i + 1].rawText}`}' is on a sheet that is not active, so Range cannot span them. This will raise Run-time error '1004': Method 'Range' of object '_Worksheet' failed.`, { start: span.start + part[0].start, end: span.start + part[part.length - 1].end });
+				break;
+			}
+		}
+	}
 }
 
 /** Members that add to or edit a document, read on the way to a value. */
