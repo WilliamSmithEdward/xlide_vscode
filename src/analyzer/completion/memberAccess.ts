@@ -145,6 +145,8 @@ export interface MemberCompletion {
 	writable?: boolean;
 	/** Declared value type accepted by assignment when source provides one. */
 	writeType?: string;
+	/** A user-defined type's field that holds an array (issue #417). */
+	isArray?: boolean;
 	/** Qualified type the member belongs to (for detail text). */
 	owner: string;
 	/** True when the owner member surface is complete enough to prove absence. */
@@ -187,6 +189,7 @@ type CompletionMemberSource = Pick<
 > & {
 	writable?: boolean;
 	writeType?: string;
+	isArray?: boolean;
 	definitions?: readonly VbaProjectClassMemberDefinition[];
 	defaultMember?: boolean;
 	letAccessor?: boolean;
@@ -627,6 +630,7 @@ function completionFromSurfaceMember(
 		access: mem.access,
 		writable: mem.writable,
 		writeType: mem.writeType,
+		...(mem.isArray ? { isArray: true } : {}),
 		owner: surface.owner,
 		surfaceExhaustive: surface.exhaustive,
 		documentation: hasDocContent(doc)

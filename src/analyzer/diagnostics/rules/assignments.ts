@@ -1497,8 +1497,10 @@ function checkMemberAssignmentTypes(
 			);
 			return;
 		}
-		// The project-class checks read a bare property target only.
-		if (!projectClasses || assignment.withArguments || !target || target.writable === undefined) {
+		// The project-class checks read a bare property target only. A Type's
+		// array field takes an array, or a String As Byte: typeMembers.ts
+		// judges it (issue #417).
+		if (!projectClasses || assignment.withArguments || !target || target.writable === undefined || target.isArray) {
 			return;
 		}
 		if (target.writable === false) {

@@ -12,7 +12,7 @@
 
 import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
 import type { VbaToken } from '../lexer/tokenKinds';
-import type { BodyNode, LeafStatementNode, ProcedureNode } from '../parser/nodes';
+import type { BodyNode, ProcedureNode } from '../parser/nodes';
 import { isLeafStatement } from '../parser/nodes';
 import type { buildModuleSymbols } from '../symbols/buildModuleSymbols';
 import { jumpTargetLabelDeclaration } from '../flow/procedureLabels';
@@ -27,8 +27,13 @@ export interface KnownNumber {
 	number: number;
 }
 
-/** A dynamic array field with no elements, an object field that is Nothing, a dynamic array's bounds, or a number. */
-export type MemberState = 'unallocated' | 'nothing' | FixedArrayBound | KnownNumber;
+/**
+ * A dynamic array field with no elements, an object field that is Nothing,
+ * a dynamic array's bounds, or a number; a String field still "", a Variant
+ * field still Empty, and a Collection field Set to a New Collection that
+ * nothing has added to (issue #417).
+ */
+export type MemberState = 'unallocated' | 'nothing' | 'emptyString' | 'empty' | 'emptyCollection' | FixedArrayBound | KnownNumber;
 
 export function isArrayBounds(state: MemberState | undefined): state is FixedArrayBound {
 	return typeof state === 'object' && 'dims' in state;
@@ -38,8 +43,8 @@ export function isKnownNumber(state: MemberState | undefined): state is KnownNum
 	return typeof state === 'object' && 'number' in state;
 }
 
-/** The member states a statement sees; a single-line If's branch sees them less what its condition names. */
-export type MemberStatesAt = (stmt: LeafStatementNode, offset: number) => ReadonlyMap<string, MemberState>;
+/** The member states a statement sees, or a block its header; a single-line If's branch sees them less what its condition names. */
+export type MemberStatesAt = (stmt: BodyNode, offset: number) => ReadonlyMap<string, MemberState>;
 
 const NUMBER_TYPES: ReadonlySet<string> = new Set(['byte', 'integer', 'long', 'longlong', 'longptr', 'currency', 'single', 'double', 'decimal']);
 
@@ -54,8 +59,8 @@ export function typeMemberStatesAt(
 	optionBase: number,
 	isObjectType: (type: string) => boolean = () => false,
 ): MemberStatesAt {
-	const out = new Map<LeafStatementNode, ReadonlyMap<string, MemberState>>();
-	const branches = new Map<LeafStatementNode, { then: number; states: ReadonlyMap<string, MemberState> }>();
+	const out = new Map<BodyNode, ReadonlyMap<string, MemberState>>();
+	const branches = new Map<BodyNode, { then: number; states: ReadonlyMap<string, MemberState> }>();
 	const at: MemberStatesAt = (stmt, offset) => {
 		const branch = branches.get(stmt);
 		return branch && offset > branch.then ? branch.states : out.get(stmt) ?? NONE;
@@ -166,7 +171,7 @@ export function typeMemberStatesAt(
 				const chain = chainAt(group, 0, subject);
 				const step = chain?.steps.at(-1);
 				const tracked = step?.path !== undefined && states.has(step.path);
-				if (tracked && head === 'erase' && step!.open === undefined && step!.at === group.length - 1) {
+				if (tracked && head === 'erase' && step!.field.isArray && step!.open === undefined && step!.at === group.length - 1) {
 					set(step!.path!, 'unallocated');
 					continue;
 				}
@@ -203,7 +208,11 @@ export function typeMemberStatesAt(
 				continue;
 			}
 			const end = last.close ?? last.at;
-			const whole = last.open === undefined && toks[end + 1]?.rawText !== '.' && toks[end + 1]?.rawText !== '!' && toks[end + 1]?.rawText !== '(';
+			// `t.c.Add 1` and `For Each`: the Collection is no longer known empty.
+			if (last.path && states.get(last.path) === 'emptyCollection' && toks[end + 1]?.rawText !== '(') {
+				forget([last.path]);
+			}
+			const whole =last.open === undefined && toks[end + 1]?.rawText !== '.' && toks[end + 1]?.rawText !== '!' && toks[end + 1]?.rawText !== '(';
 			const bound = ['ubound', 'lbound'].includes(tokenText(toks[i - 2])) && toks[i - 1]?.rawText === '(';
 			const isTypeValue = !last.field.isArray && last.field.type !== undefined && types.has(last.field.type);
 			if (last.path && whole && !bound && (isTypeValue || last.field.isArray || passedWhole(toks, i, end))) {
@@ -215,7 +224,8 @@ export function typeMemberStatesAt(
 		}
 		const value = toks.slice(targetEnd + 2).filter((tok) => tok.kind !== 'comment');
 		if (isSet) {
-			set(target.path, value.length === 1 && tokenText(value[0]) === 'nothing' && isObjectType(target.field.type ?? '') ? 'nothing' : undefined);
+			const newCollection = value.length === 2 && tokenText(value[0]) === 'new' && tokenText(value[1]) === 'collection' && target.field.type === 'collection';
+			set(target.path, value.length === 1 && tokenText(value[0]) === 'nothing' && isObjectType(target.field.type ?? '') ? 'nothing' : newCollection ? 'emptyCollection' : undefined);
 			return;
 		}
 		const number = target.field.type && NUMBER_TYPES.has(target.field.type) && !target.field.isArray ? literalNumber(value) : undefined;
@@ -231,10 +241,20 @@ export function typeMemberStatesAt(
 			shared = false;
 		},
 		forget,
+		// What a For Each header reads, before its own touches are forgotten.
+		enter: (node) => {
+			out.set(node, states);
+			shared = true;
+		},
 		touches: (stmt) => {
 			const toks = statementTokensAfterLeadingLabel(source, stmt.span);
 			const subject = subjects.get(stmt.span.start);
 			// Entering `With t` evaluates t, and changes nothing.
+			// `With t.c` may add to the Collection.
+			const held = tokenText(toks[0]) === 'with' ? chainAt(toks, 1, subject)?.steps.at(-1)?.path : undefined;
+			if (held && states.get(held) === 'emptyCollection') {
+				return [held];
+			}
 			if (tokenText(toks[0]) === 'with' && withSubject(toks, symbols, proc, types, subject)) {
 				return [];
 			}
@@ -273,6 +293,10 @@ function initialStates(
 			out.push([key, { number: 0 }]);
 		} else if (field.type && isObjectType(field.type)) {
 			out.push([key, 'nothing']);
+		} else if (field.type === 'string') {
+			out.push([key, 'emptyString']);
+		} else if (!field.type || field.type === 'variant') {
+			out.push([key, 'empty']);
 		}
 	}
 	return out;

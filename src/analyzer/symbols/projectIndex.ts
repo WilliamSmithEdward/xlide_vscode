@@ -1825,6 +1825,7 @@ export class ProjectIndex {
 				signature: userTypeFieldSignature(field),
 				writable: true,
 				writeType: field.asType,
+				...(field.isArray ? { isArray: true } : {}),
 				moduleName: field.moduleName,
 				doc: field.doc,
 				definitions: [projectObjectMemberDefinition(field)],

@@ -260,6 +260,8 @@ export interface VbaProjectClassMember {
 	writable?: boolean;
 	/** Declared value type accepted by assignment when source provides one. */
 	writeType?: string;
+	/** A field of a user-defined type that holds an array: its type is the element's (issue #417). */
+	isArray?: boolean;
 	moduleName: string;
 	visibility?: SymbolVisibility;
 	/** Inline `'''` XML documentation comment attached to the member declaration. */

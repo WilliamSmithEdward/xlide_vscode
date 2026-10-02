@@ -365,6 +365,7 @@ function buildType(
 			containerName: node.name,
 			asType: field.asType,
 			fixedLength: field.fixedLength,
+			...(field.isArray ? { isArray: true } : {}),
 		};
 		children.push(fieldSymbol);
 		flat.push(fieldSymbol);

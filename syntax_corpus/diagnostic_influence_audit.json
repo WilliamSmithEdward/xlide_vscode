@@ -626,7 +626,17 @@
         "issue410_02_compile",
         "issue410_03_compile",
         "issue410_04_compile",
-        "issue410_05_compile"
+        "issue410_05_compile",
+        "issue417_19_compile",
+        "issue417_29_compile",
+        "issue417_39_compile",
+        "issue417_49_compile",
+        "issue417_50_compile",
+        "issue417_60_compile",
+        "issue417_69_compile",
+        "issue417_77_compile",
+        "issue417_81_compile",
+        "issue417_96_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -933,13 +943,24 @@
       "corpusInfluence": "oracle-backed",
       "assertedOracleCases": [
         "lbound_scalar_argument_compile",
-        "ubound_scalar_argument_compile"
+        "ubound_scalar_argument_compile",
+        "issue417_02_compile",
+        "issue417_11_compile",
+        "issue417_21_compile",
+        "issue417_31_compile",
+        "issue417_41_compile",
+        "issue417_70_compile",
+        "issue417_78_compile",
+        "issue417_83_compile",
+        "issue417_179_compile",
+        "issue417_180_compile",
+        "issue417_182_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_final_hardening_cases.md"
       ],
-      "notes": "Active coverage scans LBound and UBound calls and reports simple first-argument names declared as known intrinsic scalars, using shared source resolver-backed shape lookup before falling back to procedure declaration-shape environments. Visible exported standard-module scalars participate while local shadows and ambiguous exported globals stay quiet. Dynamic and fixed arrays, Variant, unresolved names, member-expression arguments, non-VBA-qualified member calls, and inactive branches stay silent until broader argument binding is proven.",
+      "notes": "Active coverage scans LBound and UBound calls and reports simple first-argument names declared as known intrinsic scalars, using shared source resolver-backed shape lookup before falling back to procedure declaration-shape environments. Visible exported standard-module scalars participate while local shadows and ambiguous exported globals stay quiet. Dynamic and fixed arrays, Variant, unresolved names, member-expression arguments, non-VBA-qualified member calls, and inactive branches stay silent until broader argument binding is proven. Issue #417: a Collection, Object or class local, and a Type field that is no array, UBound(t.f).",
       "diagnosticKind": "compile-error"
     },
     {
@@ -1108,7 +1129,9 @@
         "issue369c_55_compile",
         "issue305_22_compile",
         "issue305_23_compile",
-        "issue305_24_compile"
+        "issue305_24_compile",
+        "issue417_91_compile",
+        "issue417_92_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -1307,7 +1330,23 @@
         "issue321_11_runtime",
         "issue321_12_runtime",
         "issue321_13_runtime",
-        "issue325_04_runtime"
+        "issue325_04_runtime",
+        "issue417_155_runtime",
+        "issue417_156_runtime",
+        "issue417_158_runtime",
+        "issue417_159_runtime",
+        "issue417_160_runtime",
+        "issue417_163_runtime",
+        "issue417_164_runtime",
+        "issue417_167_runtime",
+        "issue417_168_runtime",
+        "issue417_169_runtime",
+        "issue417_170_runtime",
+        "issue417_171_runtime",
+        "issue417_172_runtime",
+        "issue417_184_runtime",
+        "issue417_185_runtime",
+        "issue417_186_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -1417,7 +1456,10 @@
         "issue424_38_runtime",
         "issue424_39_runtime",
         "issue424_40_runtime",
-        "issue289_09_runtime"
+        "issue289_09_runtime",
+        "issue417_105_runtime",
+        "issue417_111_runtime",
+        "issue417_189_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2220,7 +2262,8 @@
       "assertedOracleCases": [
         "issue253_62_compile",
         "issue366_18_compile",
-        "issue366_22_compile"
+        "issue366_22_compile",
+        "issue417_51_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
@@ -2239,7 +2282,15 @@
         "redim_udt_array_member_compile",
         "issue255_29_compile",
         "issue255_36_compile",
-        "issue255_37_compile"
+        "issue255_37_compile",
+        "issue417_03_compile",
+        "issue417_12_compile",
+        "issue417_22_compile",
+        "issue417_32_compile",
+        "issue417_42_compile",
+        "issue417_71_compile",
+        "issue417_79_compile",
+        "issue417_84_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
@@ -2376,7 +2427,8 @@
         "issue321_14_runtime",
         "issue321_15_runtime",
         "issue321_16_runtime",
-        "issue321_17_runtime"
+        "issue321_17_runtime",
+        "issue417_152_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2540,7 +2592,9 @@
         "issue278_12_runtime",
         "issue278_13_runtime",
         "issue278_14_runtime",
-        "issue278_15_runtime"
+        "issue278_15_runtime",
+        "issue417_148_runtime",
+        "issue417_149_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2609,7 +2663,15 @@
         "erase_long_scalar_compile",
         "erase_variant_scalar_compile",
         "issue253_61_compile",
-        "issue253_113_compile"
+        "issue253_113_compile",
+        "issue417_04_compile",
+        "issue417_13_compile",
+        "issue417_23_compile",
+        "issue417_33_compile",
+        "issue417_43_compile",
+        "issue417_72_compile",
+        "issue417_80_compile",
+        "issue417_85_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
@@ -2856,7 +2918,9 @@
         "issue415_51_runtime",
         "issue415_61_runtime",
         "issue415_71_runtime",
-        "issue306_02_compile"
+        "issue306_02_compile",
+        "issue417_73_compile",
+        "issue417_166_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -2893,7 +2957,15 @@
         "issue325_13_compile",
         "issue325_14_compile",
         "issue325_15_compile",
-        "issue325_16_compile"
+        "issue325_16_compile",
+        "issue417_06_compile",
+        "issue417_15_compile",
+        "issue417_25_compile",
+        "issue417_35_compile",
+        "issue417_45_compile",
+        "issue417_52_compile",
+        "issue417_61_compile",
+        "issue417_87_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -3027,7 +3099,13 @@
         "issue225_02_compile",
         "issue225_06_compile",
         "issue414_09_compile",
-        "issue306_01_compile"
+        "issue306_01_compile",
+        "issue417_09_compile",
+        "issue417_18_compile",
+        "issue417_28_compile",
+        "issue417_38_compile",
+        "issue417_48_compile",
+        "issue417_95_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -3051,7 +3129,21 @@
         "issue403_09_compile",
         "issue414_12_compile",
         "issue414_13_compile",
-        "issue414_14_compile"
+        "issue414_14_compile",
+        "issue417_07_compile",
+        "issue417_08_compile",
+        "issue417_16_compile",
+        "issue417_17_compile",
+        "issue417_26_compile",
+        "issue417_27_compile",
+        "issue417_36_compile",
+        "issue417_37_compile",
+        "issue417_46_compile",
+        "issue417_47_compile",
+        "issue417_56_compile",
+        "issue417_57_compile",
+        "issue417_65_compile",
+        "issue417_66_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -3559,13 +3651,19 @@
         "for_each_scalar_source_compile",
         "issue213_22_compile",
         "issue213_23_compile",
-        "issue213_24_compile"
+        "issue213_24_compile",
+        "issue417_05_compile",
+        "issue417_14_compile",
+        "issue417_24_compile",
+        "issue417_34_compile",
+        "issue417_44_compile",
+        "issue417_86_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
         "excel_vba_analysis_final_hardening_cases.md"
       ],
-      "notes": "Active coverage uses parser-backed ForBlock source-expression metadata and shared expression resolver-backed shape lookup before falling back to procedure declaration-shape environments. The rule reports simple source names declared as known intrinsic scalars, including visible exported standard-module bindings. Arrays, Variant, Object, object-looking or unresolved sources, local shadows, ambiguous exported globals, member chains, and inactive branches stay silent until deeper enumerable inference is proven.",
+      "notes": "Active coverage uses parser-backed ForBlock source-expression metadata and shared expression resolver-backed shape lookup before falling back to procedure declaration-shape environments. The rule reports simple source names declared as known intrinsic scalars, including visible exported standard-module bindings. Arrays, Variant, Object, object-looking or unresolved sources, local shadows, ambiguous exported globals, member chains, and inactive branches stay silent until deeper enumerable inference is proven. Issue #417: For Each over a Type field of a number, string or Type.",
       "diagnosticKind": "compile-error"
     },
     {
@@ -3704,7 +3802,8 @@
         "issue213_51_compile",
         "issue213_52_compile",
         "issue213_53_compile",
-        "issue253_94_compile"
+        "issue253_94_compile",
+        "issue417_88_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -3743,7 +3842,9 @@
         "issue253_101_compile",
         "issue253_102_compile",
         "issue253_103_compile",
-        "issue253_112_compile"
+        "issue253_112_compile",
+        "issue417_93_compile",
+        "issue417_94_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -3889,7 +3990,9 @@
         "issue475_16_compile",
         "issue475_17_compile",
         "issue475_18_compile",
-        "issue475_19_compile"
+        "issue475_19_compile",
+        "issue417_58_compile",
+        "issue417_67_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -4428,7 +4531,13 @@
         "issue325_31_compile",
         "issue325_32_compile",
         "issue325_33_compile",
-        "issue325_35_compile"
+        "issue325_35_compile",
+        "issue417_54_compile",
+        "issue417_55_compile",
+        "issue417_63_compile",
+        "issue417_64_compile",
+        "issue417_89_compile",
+        "issue417_90_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -5262,7 +5371,10 @@
         "issue424_41_compile",
         "issue424_42_compile",
         "issue424_43_compile",
-        "issue414_26_compile"
+        "issue414_26_compile",
+        "issue417_74_compile",
+        "issue417_75_compile",
+        "issue417_76_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -6139,7 +6251,8 @@
         "issue295_03_runtime",
         "issue321_01_runtime",
         "issue321_02_runtime",
-        "issue321_03_runtime"
+        "issue321_03_runtime",
+        "issue417_188_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -6410,7 +6523,16 @@
         "issue325_03_runtime",
         "issue325_05_runtime",
         "issue325_06_runtime",
-        "issue325_07_runtime"
+        "issue325_07_runtime",
+        "issue417_127_runtime",
+        "issue417_128_runtime",
+        "issue417_130_runtime",
+        "issue417_131_runtime",
+        "issue417_132_runtime",
+        "issue417_136_runtime",
+        "issue417_137_runtime",
+        "issue417_190_runtime",
+        "issue417_191_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -6877,7 +6999,8 @@
         "issue306_04_runtime",
         "issue306_08_runtime",
         "issue306_09_runtime",
-        "issue306_13_runtime"
+        "issue306_13_runtime",
+        "issue417_187_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -6910,7 +7033,13 @@
         "issue222_14_compile",
         "issue222_20_compile",
         "issue222_24_compile",
-        "issue222_25_compile"
+        "issue222_25_compile",
+        "issue417_53_compile",
+        "issue417_59_compile",
+        "issue417_62_compile",
+        "issue417_68_compile",
+        "issue417_196_compile",
+        "issue417_199_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -7231,6 +7360,30 @@
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "notes": "Issue #308: new rule. PasteSpecial onto a range after the clipboard was emptied, with no Copy, Cut or call into the project's code since."
+    },
+    {
+      "code": "scalar-indexed",
+      "status": "vbe-oracle-verified",
+      "diagnosticKind": "compile-error",
+      "sourceOfTruth": "Excel/VBE compile oracle, 64-bit: Type mismatch",
+      "corpusInfluence": "oracle-backed",
+      "assertedOracleCases": [
+        "issue417_01_compile",
+        "issue417_10_compile",
+        "issue417_20_compile",
+        "issue417_30_compile",
+        "issue417_40_compile",
+        "issue417_82_compile",
+        "issue417_176_compile",
+        "issue417_177_compile",
+        "issue417_178_compile",
+        "issue417_183_compile",
+        "issue417_197_compile",
+        "issue417_198_compile"
+      ],
+      "observeOnlyOracleCases": [],
+      "pendingLegacyCorpusFiles": [],
+      "notes": ""
     }
   ]
 }

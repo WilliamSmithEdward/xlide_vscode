@@ -428,6 +428,17 @@ export const DIAGNOSTIC_RULES = {
 		specReference: 'MS-VBAL LBound/UBound / VBE oracle: Expected array',
 		confidence: 'high',
 	},
+	scalarIndexed: {
+		code: 'scalar-indexed',
+		title: 'A value that is no array, indexed',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: true,
+		diagnosticKind: 'compile-error',
+		source: 'XLIDE',
+		specReference: 'VBE "Expected array" on a number, string or user-defined type local or Type field given a subscript (issue #417, Excel 16.0)',
+		confidence: 'high',
+	},
 	missingReturnAssignment: {
 		code: 'missing-return-assignment',
 		title: 'Function has no return assignment',
