@@ -60577,6 +60577,72 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = (32767& And 32767) + 1\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue439_01_runtime",
+      "description": "Issue #439 a dead label below Exit Function, a use above it, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim o As Collection, a() As Long\r\n    If True Then\r\n        Main = o.Count\r\n    End If\r\n    Exit Function\r\n    L1:\r\n    Return\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue439_02_runtime",
+      "description": "Issue #439 a dead label below Exit Function, a use above it, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim o As Collection, a() As Long\r\n    If True Then\r\n        Main = a(0)\r\n    End If\r\n    Exit Function\r\n    L1:\r\n    Main = 2\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue439_03_runtime",
+      "description": "Issue #439 a dead label below Exit Function, a use above it, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim o As Collection, a() As Long\r\n    Select Case 1\r\n    Case 1\r\n        Main = o.Count\r\n    End Select\r\n    Exit Function\r\n    Bump:\r\n    Main = 3\r\n    Return\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue439_04_runtime",
+      "description": "Issue #439 a dead label below Exit Function, a use above it, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim o As Collection, a() As Long\r\n    With Application\r\n        Main = a(0)\r\n    End With\r\n    Exit Function\r\n    Bump:\r\n    Main = 3\r\n    Return\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue439_05_runtime",
+      "description": "Issue #439 a dead label below Exit Function, a use above it, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim o As Collection, a() As Long\r\n    If True Then\r\n        Main = o.Count\r\n    End If\r\n    Exit Function\r\n    EH:\r\n    Resume Next\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue439_06_runtime",
+      "description": "Issue #439 a dead label below Exit Function, a use above it, case 06, measured in Excel 16.0 (build 20326) through pyVBAharness: raise 9.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim o As Collection, a() As Long\r\n    If True Then\r\n        Main = a(0)\r\n    End If\r\n    Exit Function\r\n    EH:\r\n    Resume Next\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
     }
   ]
 }
