@@ -23,7 +23,7 @@
 
 import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
 import { parseVbaIntegerLiteral } from '../constants/integerConstantExpression';
-import { statementLabelDeclaration } from '../flow/procedureLabels';
+import { jumpTargetLabelDeclaration } from '../flow/procedureLabels';
 import { splitTopLevelTokenGroups } from '../lexer/tokenHelpers';
 import type { VbaToken } from '../lexer/tokenKinds';
 import type { BodyNode, LeafStatementNode, Span } from '../parser/nodes';
@@ -424,7 +424,7 @@ function everyPassLeaves(
 			continue;
 		}
 		if (isLeafStatement(node)) {
-			if (statementLabelDeclaration(source, node.span) || mayLeave(source, node)) {
+			if (jumpTargetLabelDeclaration(source, node.span) || mayLeave(source, node)) {
 				return false;
 			}
 			if (node.kind !== 'Statement' || !node.singleLineIfBranches) {
@@ -455,7 +455,7 @@ function mayLeave(source: string, node: LeafStatementNode): boolean {
 
 function blockMayLeave(source: string, body: readonly BodyNode[]): boolean {
 	return body.some((node) => isLeafStatement(node)
-		? statementLabelDeclaration(source, node.span) !== undefined || mayLeave(source, node)
+		? jumpTargetLabelDeclaration(source, node.span) !== undefined || mayLeave(source, node)
 		: 'body' in node && Array.isArray(node.body) && blockMayLeave(source, node.body as BodyNode[]));
 }
 

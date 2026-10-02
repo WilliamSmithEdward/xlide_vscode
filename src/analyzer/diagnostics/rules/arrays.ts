@@ -35,7 +35,7 @@ import { splitArgSlots } from '../callExtraction';
 import { collectModuleLiteralIntegerConstants } from '../constExpr';
 import { walkBranchMergedBody, walkEnteringBlocks, walkStraightLineBody } from '../dataflow';
 import { isLeafStatement } from '../../parser/nodes';
-import { statementLabelDeclaration } from '../../flow/procedureLabels';
+import { jumpTargetLabelDeclaration } from '../../flow/procedureLabels';
 import { straightLineAssignments, type ReachingAssignments } from '../straightLineValues';
 import { counterText, loopCountersAt, numericCounterPasses, type CounterValue, type CountersAt } from '../loopCounters';
 import { procedureHasUnstructuredFlow } from '../../flow/procedureUnstructured';
@@ -1976,7 +1976,7 @@ export function redimShapesAt(
 		if (!isLeafStatement(node)) {
 			return;
 		}
-		if (statementLabelDeclaration(source, node.span)) {
+		if (jumpTargetLabelDeclaration(source, node.span)) {
 			forget([...shapes.keys()]);
 		}
 		const toks = statementTokensAfterLeadingLabel(source, node.span);

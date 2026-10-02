@@ -22,7 +22,7 @@ import type { VbaToken } from '../lexer/tokenKinds';
 import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
 import type { BodyNode, IfBlockNode, LeafStatementNode, Span } from '../parser/nodes';
 import { isLeafStatement } from '../parser/nodes';
-import { statementLabelDeclaration, statementLabelReferences } from '../flow/procedureLabels';
+import { jumpTargetLabelDeclaration, statementLabelDeclaration, statementLabelReferences } from '../flow/procedureLabels';
 import { parseVbaIntegerLiteral } from '../constants/integerConstantExpression';
 import { leavesTheList, trackedLocalsNamedWhole } from './dataflow';
 import { isLoopBlock, selectArms } from './blockHeaders';
@@ -578,7 +578,7 @@ function loopBodyMayLeaveOrWrite(source: string, body: readonly BodyNode[], lowe
 			}
 			continue;
 		}
-		if (statementLabelDeclaration(source, node.span)) {
+		if (jumpTargetLabelDeclaration(source, node.span)) {
 			return true;
 		}
 		for (const span of statementAndBranchSpans(node)) {
@@ -658,7 +658,7 @@ function touchedInBlock(
 			if (isLeafStatement(node)) {
 				// A label inside the block can be reached from anywhere, and
 				// what follows the block then runs with whatever that path held.
-				if (statementLabelDeclaration(source, node.span)) {
+				if (jumpTargetLabelDeclaration(source, node.span)) {
 					return true;
 				}
 				const touched = touchedBy(source, [node]);

@@ -23,7 +23,7 @@ import { getHostMembers, getHostType } from '../../host/hostModel';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
 import { projectTypeAt, resolveReceiverTypeAt } from '../../completion/memberAccess';
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
-import { statementLabelDeclaration } from '../../flow/procedureLabels';
+import { jumpTargetLabelDeclaration } from '../../flow/procedureLabels';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { BodyNode, ForBlockNode, ModuleNode, ProcedureNode, Span } from '../../parser/nodes';
 import { HELD_VALUE, heldObjectsAt } from '../heldObjects';
@@ -388,7 +388,7 @@ export function checkRuntimeMemberNotFound(
 				return; // a Dim inside the body declares, and runs nothing
 			}
 			const toks = statementTokensAfterLeadingLabel(source, node.span);
-			if (statementLabelDeclaration(source, node.span) || tokenText(toks[0]) === 'gosub') {
+			if (jumpTargetLabelDeclaration(source, node.span) || tokenText(toks[0]) === 'gosub') {
 				held.clear();
 			}
 			if (node.kind === 'Statement' && node.singleLineIfBranches) {

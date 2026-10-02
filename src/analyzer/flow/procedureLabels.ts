@@ -268,6 +268,45 @@ export function statementLabelDeclaration(source: string, span: Span): VbaProced
 }
 
 /**
+ * The statement's first label that a GoTo, GoSub, Resume or On ... GoTo
+ * anywhere in the module names, or undefined. Control reaches any other
+ * label only by falling into it, so a label nothing names, and a line
+ * number written for Erl, carry what the statements before them knew
+ * (issue #321, measured in Excel 16.0).
+ */
+export function jumpTargetLabelDeclaration(source: string, span: Span): VbaProcedureLabel | undefined {
+	const labels = statementLabelDeclarations(source, span);
+	if (labels.length === 0) {
+		return undefined;
+	}
+	const targets = moduleLabelTargets(source);
+	return labels.find((label) => targets.has(label.key));
+}
+
+/** The label keys each recent module's statements jump to, by source text. */
+const MODULE_TARGETS = new Map<string, ReadonlySet<string>>();
+
+function moduleLabelTargets(source: string): ReadonlySet<string> {
+	let targets = MODULE_TARGETS.get(source);
+	if (!targets) {
+		const keys = new Set<string>();
+		for (const member of parseModule(source).members) {
+			if (member.kind === 'Procedure') {
+				for (const ref of collectProcedureLabelReferences(source, member)) {
+					keys.add(ref.key);
+				}
+			}
+		}
+		if (MODULE_TARGETS.size >= 8) {
+			MODULE_TARGETS.clear();
+		}
+		MODULE_TARGETS.set(source, keys);
+		targets = keys;
+	}
+	return targets;
+}
+
+/**
  * Every label the statement declares. A line can carry a line number and a
  * name both, `10 L1: x = 1`, and each is a target: GoTo 10 and Erl see the
  * number, GoTo L1 and Resume L1 the name (issue #230, measured in Excel

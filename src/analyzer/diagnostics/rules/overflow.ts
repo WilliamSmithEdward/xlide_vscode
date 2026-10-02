@@ -37,7 +37,7 @@ import type { BodyNode, ForBlockNode, ModuleNode, ProcedureNode, Span, VariableG
 import { isLeafStatement } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type { VbaSymbol } from '../../symbols/symbolModel';
-import { statementLabelDeclaration } from '../../flow/procedureLabels';
+import { jumpTargetLabelDeclaration } from '../../flow/procedureLabels';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
 import { bankersRound, bodyMayLeaveLoop, isBareOrVbaQualifiedIntrinsicCall, namesIn } from './shared';
 import { functionResultNamed, knownFunctionResults } from '../functionResults';
@@ -1581,7 +1581,7 @@ function loopStepIn(
 			return undefined;
 		}
 		const toks = statementTokens(source, node.span).filter((tok) => tok.kind !== 'comment');
-		if (LOOP_LEAVING_HEADS.has(tokenText(toks[0])) || (tokenText(toks[0]) === 'end' && toks.length === 1) || statementLabelDeclaration(source, node.span)) {
+		if (LOOP_LEAVING_HEADS.has(tokenText(toks[0])) || (tokenText(toks[0]) === 'end' && toks.length === 1) || jumpTargetLabelDeclaration(source, node.span)) {
 			return undefined;
 		}
 		statements.push({ toks, span: node.span });
@@ -1961,7 +1961,7 @@ function checkProcedureBody(
 				// Any other mention of a tracked name (a ByRef pass, a label a
 				// GoTo could reach) ends what is known about it.
 				const toks = statementTokens(source, span);
-				if (statementLabelDeclaration(source, span) || tokenText(toks[firstExecutableTokenIndex(toks)]) === 'gosub') {
+				if (jumpTargetLabelDeclaration(source, span) || tokenText(toks[firstExecutableTokenIndex(toks)]) === 'gosub') {
 					justAssigned.clear();
 					continue;
 				}
