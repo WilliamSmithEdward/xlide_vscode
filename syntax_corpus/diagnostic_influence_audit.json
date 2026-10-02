@@ -5111,7 +5111,8 @@
         "issue276_27_runtime",
         "addressname_05_runtime",
         "addressname_08_runtime",
-        "addressname_09_runtime"
+        "addressname_09_runtime",
+        "issue454_40_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -5174,11 +5175,33 @@
       "assertedOracleCases": [
         "issue122_j_runtime",
         "issue122_k_runtime",
-        "issue194_24_runtime"
+        "issue194_24_runtime",
+        "issue454_01_runtime",
+        "issue454_02_runtime",
+        "issue454_03_runtime",
+        "issue454_04_runtime",
+        "issue454_05_runtime",
+        "issue454_06_runtime",
+        "issue454_07_runtime",
+        "issue454_08_runtime",
+        "issue454_09_runtime",
+        "issue454_10_runtime",
+        "issue454_11_runtime",
+        "issue454_12_runtime",
+        "issue454_13_runtime",
+        "issue454_14_runtime",
+        "issue454_15_runtime",
+        "issue454_16_runtime",
+        "issue454_18_runtime",
+        "issue454_19_runtime",
+        "issue454_35_runtime",
+        "issue454_36_runtime",
+        "issue454_37_runtime",
+        "issue454_38_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Multi-cell range read as a scalar. VBE runtime error 13: Type mismatch on a Range value that is an array (issue #122, Excel 16.0).",
+      "notes": "Multi-cell range read as a scalar. VBE runtime error 13: Type mismatch on a Range value that is an array (issue #122, Excel 16.0). Issue #454: also a whole argument of a built-in that takes one value (CStr, Len, Val, CLng, Trim, Left, InStr, Abs, Int, Format, Hex and the like), a Select Case subject or a Do While condition, a two-cell Range(\"A1\", \"B2\"), and Rows(n) or Columns(n). IsEmpty, IsNumeric, IsArray, TypeName, VarType and UBound take the array and run.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {

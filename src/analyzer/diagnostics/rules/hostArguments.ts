@@ -600,6 +600,9 @@ function checkExcelCallee(
 		const edge = index === undefined ? undefined : lower === 'rows' ? pastSheetEdge(fromRow + index - 1, undefined) : pastSheetEdge(undefined, fromColumn + index - 1);
 		if (edge) {
 			push('hostArgumentOutOfRange', `${callee.name}(${index})${from} ${edge}. This will raise Run-time error '1004': Application-defined or object-defined error.`, argsSpan);
+		} else if (index !== undefined && index >= 1) {
+			// A whole row or column is many cells (issue #454).
+			checkMultiCellAsScalar(source, span, toks, callee, `${callee.name}(${index})`, env, arrays, push);
 		}
 		return;
 	}
@@ -650,7 +653,13 @@ function checkExcelCallee(
 			}
 		}
 		if (callee.args.length === 1 && areas[0]?.valid && areas[0].multiCell) {
-			checkMultiCellAsScalar(source, span, toks, callee, areas[0].text, env, arrays, push);
+			checkMultiCellAsScalar(source, span, toks, callee, `Range("${areas[0].text}")`, env, arrays, push);
+		}
+		// `Range("A1", "B2")`: two different cells span a block (issue #454).
+		const [a, b] = areas;
+		if (callee.args.length === 2 && a?.valid && b?.valid && !a.multiCell && !b.multiCell && a.row !== undefined && b.row !== undefined
+			&& (a.row !== b.row || a.column !== b.column)) {
+			checkMultiCellAsScalar(source, span, toks, callee, `Range("${a.text}", "${b.text}")`, env, arrays, push);
 		}
 	}
 }
@@ -665,7 +674,7 @@ function checkMultiCellAsScalar(
 	span: Span,
 	toks: readonly VbaToken[],
 	callee: HostCallee,
-	address: string,
+	display: string,
 	env: ReadonlyMap<string, string>,
 	arrays: ReadonlySet<string>,
 	push: PushFn,
@@ -680,7 +689,21 @@ function checkMultiCellAsScalar(
 	const start = callee.receiver === 'global' ? callee.nameIndex : receiverStart(toks, callee.nameIndex);
 	const valueSpan = { start: span.start + toks[start].start, end: span.start + toks[end].end };
 	const message = (use: string): string =>
-		`Range("${address}") read as a value is a two-dimensional array, ${use}. This will raise Run-time error '13': Type mismatch.`;
+		`${display} read as a value is a two-dimensional array, ${use}. This will raise Run-time error '13': Type mismatch.`;
+	// `Len(Range("A1:A2"))`, `InStr(1, Range("A1:A2"), "a")`: a whole
+	// argument of a built-in that takes a single value (issue #454).
+	const wholeArgument = ['(', ','].includes(toks[start - 1]?.rawText ?? '') && [')', ','].includes(toks[end + 1]?.rawText ?? '');
+	const call = wholeArgument ? enclosingBuiltin(toks, start) : undefined;
+	if (call && SCALAR_ARGUMENT_BUILTINS.has(call.lower)) {
+		push('multiCellRangeAsScalar', message(`which ${call.display} cannot take as one value`), valueSpan);
+		return;
+	}
+	// `Select Case Range("A1:A2")` compares the array with each Case.
+	const head = firstExecutableTokenIndex(toks);
+	if (tokenText(toks[head]) === 'select' && tokenText(toks[head + 1]) === 'case' && start === head + 2 && end === toks.length - 1) {
+		push('multiCellRangeAsScalar', message('which Select Case cannot compare'), valueSpan);
+		return;
+	}
 	const bare = bareAssignmentTarget(source, span);
 	if (bare) {
 		const eq = toks.findIndex((tok) => tok.rawText === '=');
@@ -720,6 +743,41 @@ function checkMultiCellAsScalar(
 	if (operator) {
 		push('multiCellRangeAsScalar', message(`which '${operator.rawText}' cannot combine with a scalar`), valueSpan);
 	}
+}
+
+/**
+ * VBA built-ins that read each argument as one value, so a multi-cell Range
+ * given whole raises 13 (issue #454, measured in Excel 16.0: CStr, Len,
+ * LenB, Val, CLng, CDbl, CBool, Trim, UCase, Left, InStr, Abs, Int, Format
+ * and Hex; the others here take the same kind of argument). IsEmpty,
+ * IsNumeric, IsArray, TypeName, VarType and UBound take the array and run.
+ */
+const SCALAR_ARGUMENT_BUILTINS: ReadonlySet<string> = new Set([
+	'cstr', 'len', 'lenb', 'val', 'clng', 'cint', 'cdbl', 'csng', 'ccur', 'cbyte', 'cbool', 'cdate',
+	'trim', 'ltrim', 'rtrim', 'ucase', 'lcase', 'left', 'right', 'mid', 'instr', 'abs', 'int', 'fix', 'format', 'hex', 'oct',
+]);
+
+/** The VBA built-in whose argument list holds the token at `index`, bare or VBA-qualified, `$` spellings included. */
+function enclosingBuiltin(toks: readonly VbaToken[], index: number): { lower: string; display: string } | undefined {
+	let depth = 0;
+	for (let i = index - 1; i >= 0; i--) {
+		const raw = toks[i].rawText;
+		if (raw === ')') {
+			depth++;
+		} else if (raw === '(') {
+			if (depth === 0) {
+				const nameAt = toks[i - 1]?.rawText === '$' ? i - 2 : i - 1;
+				const name = tokenName(toks[nameAt]);
+				const qualified = toks[nameAt - 1]?.rawText === '.';
+				if (!name || (qualified && tokenText(toks[nameAt - 2]) !== 'vba')) {
+					return undefined;
+				}
+				return { lower: name.toLowerCase(), display: toks.slice(nameAt, i).map((tok) => tok.rawText).join('') };
+			}
+			depth--;
+		}
+	}
+	return undefined;
 }
 
 /** `Worksheets(1).Name = "a:b"`: the receiver's type and the literal decide. */
