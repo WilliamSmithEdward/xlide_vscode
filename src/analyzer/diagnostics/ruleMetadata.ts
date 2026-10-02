@@ -1356,6 +1356,18 @@ export const DIAGNOSTIC_RULES = {
 		allowSeverityDowngrade: true,
 		confidence: 'high',
 	},
+	objectUsedAfterDelete: {
+		code: 'object-used-after-delete',
+		title: 'Object used after it is deleted or closed',
+		defaultSeverity: 'error',
+		category: 'semantic',
+		vbeCompileEquivalent: false,
+		diagnosticKind: 'deterministic-runtime-error',
+		source: 'XLIDE',
+		specReference: 'Excel object model: a deleted sheet, shape or name, a closed workbook or an unlisted table raises 424, 1004 or -2147221080',
+		allowSeverityDowngrade: true,
+		confidence: 'high',
+	},
 	unallocatedDynamicArrayAccess: {
 		code: 'unallocated-dynamic-array-access',
 		title: 'Dynamic array is not allocated',
