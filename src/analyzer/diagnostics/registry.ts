@@ -370,6 +370,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'hostArguments',
+		blockHeaders: true,
 		procedureStatements: (ctx, push) => checkHostArguments(ctx.source, ctx.symbols, ctx.memberCtx, ctx.activity, push, workbookSheetsToCheck(ctx.opts)),
 	},
 	{
