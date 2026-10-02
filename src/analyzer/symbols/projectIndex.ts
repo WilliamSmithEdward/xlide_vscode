@@ -134,7 +134,9 @@ function isExported(symbol: VbaSymbol, moduleKind?: ModuleSymbolKind): boolean {
 	if (symbol.visibility) {
 		return false;
 	}
-	return moduleKind === 'standard' && isProcedureKind(symbol.kind);
+	// A Declare with no scope keyword is Public in a standard module, as a Sub
+	// is (issue #423, measured in Excel 16.0).
+	return moduleKind === 'standard' && (isProcedureKind(symbol.kind) || symbol.kind === 'declare');
 }
 
 function addProcedureSignature(

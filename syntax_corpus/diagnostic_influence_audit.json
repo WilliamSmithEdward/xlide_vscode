@@ -246,7 +246,8 @@
         "issue369b_01_compile",
         "issue369b_02_compile",
         "issue369b_03_compile",
-        "issue369b_04_compile"
+        "issue369b_04_compile",
+        "issue423_05_compile"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [
@@ -1608,7 +1609,7 @@
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
       "diagnosticKind": "compile-error",
-      "notes": "A label-shaped word after a colon mid-line, 10: L1: or x = 0: L1:, is a call: Sub or Function not defined (issue #230, Excel 16.0). Issue #266: an Event is no procedure: Done or Call Done(1) in the class that declares only Event Done is \"Sub or Function not defined\". A Sub of the name, a local, or a public procedure elsewhere still binds it. Measured in Excel 16.0."
+      "notes": "A label-shaped word after a colon mid-line, 10: L1: or x = 0: L1:, is a call: Sub or Function not defined (issue #230, Excel 16.0). Issue #266: an Event is no procedure: Done or Call Done(1) in the class that declares only Event Done is \"Sub or Function not defined\". A Sub of the name, a local, or a public procedure elsewhere still binds it. Measured in Excel 16.0. Issue #423: a Declare with no Public or Private in a standard module is Public, so Call M and Module2.M from another module resolve."
     },
     {
       "code": "non-callable-call",

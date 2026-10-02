@@ -59515,6 +59515,116 @@
       "source": "Option Explicit\r\nPublic Function Main() As Variant\r\n    Dim d As Long\r\n    Main = 1\r\n    GoTo EH\r\n    Exit Function\r\n    EH:\r\n    Main = 10 / d\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue423_01_compile",
+      "description": "Issue #423 a Declare with no scope keyword is Public, case 01, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Call M\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nDeclare PtrSafe Function M Lib \"kernel32\" Alias \"GetTickCount\" () As Long\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue423_02_compile",
+      "description": "Issue #423 a Declare with no scope keyword is Public, case 02, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = 1\r\n    Module2.M\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nDeclare PtrSafe Function M Lib \"kernel32\" Alias \"GetTickCount\" () As Long\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue423_03_compile",
+      "description": "Issue #423 a Declare with no scope keyword is Public, case 03, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = M\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nDeclare PtrSafe Function M Lib \"kernel32\" Alias \"GetTickCount\" () As Long\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue423_04_compile",
+      "description": "Issue #423 a Declare with no scope keyword is Public, case 04, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = Module2.M\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nDeclare PtrSafe Function M Lib \"kernel32\" Alias \"GetTickCount\" () As Long\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue423_05_compile",
+      "description": "Issue #423 a Declare with no scope keyword is Public, case 05, measured in Excel 16.0 (build 20326) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = M\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Module2",
+          "type": "standard",
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function M Lib \"kernel32\" Alias \"GetTickCount\" () As Long\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }
