@@ -77711,6 +77711,171 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet, r As Range\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    Set r = w1.Range(Cells(1, 1).Address)\r\n    Main = 1\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue472_01_runtime",
+      "description": "Issue #472 errors literal ranges and a new sheet prove, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    Main = Intersect(w2.Range(\"A1\"), w2.Range(\"B2\")).Count\r\n    If IsEmpty(Main) Then Main = 9\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue472_02_runtime",
+      "description": "Issue #472 errors literal ranges and a new sheet prove, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    Main = Union(w1.Range(\"A1\"), w2.Range(\"A1\")).Count\r\n    If IsEmpty(Main) Then Main = 9\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue472_03_runtime",
+      "description": "Issue #472 errors literal ranges and a new sheet prove, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    w2.ShowAllData\r\n    If IsEmpty(Main) Then Main = 9\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue472_04_runtime",
+      "description": "Issue #472 errors literal ranges and a new sheet prove, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    Main = w2.Cells.SpecialCells(xlCellTypeConstants).Count\r\n    If IsEmpty(Main) Then Main = 9\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue472_05_runtime",
+      "description": "Issue #472 errors literal ranges and a new sheet prove, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    Main = w2.UsedRange.SpecialCells(xlCellTypeFormulas).Count\r\n    If IsEmpty(Main) Then Main = 9\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue472_06_runtime",
+      "description": "Issue #472 errors literal ranges and a new sheet prove, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    Main = w2.Range(\"A1:A3\").SpecialCells(xlCellTypeBlanks).Count\r\n    If IsEmpty(Main) Then Main = 9\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue472_07_runtime",
+      "description": "Issue #472 errors literal ranges and a new sheet prove, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 91.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    Main = w2.Cells.Find(\"zzz\").Row\r\n    If IsEmpty(Main) Then Main = 9\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue472_08_runtime",
+      "description": "Issue #472 errors literal ranges and a new sheet prove, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    w2.Range(\"A1:B5\").AutoFilter Field:=1, Criteria1:=\"x\"\r\n    If IsEmpty(Main) Then Main = 9\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue472_09_runtime",
+      "description": "Issue #472 errors literal ranges and a new sheet prove, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    w2.Range(\"A1:A3\").TextToColumns Destination:=w2.Range(\"B1\")\r\n    If IsEmpty(Main) Then Main = 9\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue472_10_runtime",
+      "description": "Issue #472 errors literal ranges and a new sheet prove, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    Main = Intersect(w2.Range(\"A1:B2\"), w2.Range(\"B2:C3\")).Count\r\n    If IsEmpty(Main) Then Main = 9\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue472_11_runtime",
+      "description": "Issue #472 errors literal ranges and a new sheet prove, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    Main = Union(w2.Range(\"A1\"), w2.Range(\"C3\")).Count\r\n    If IsEmpty(Main) Then Main = 9\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue472_12_runtime",
+      "description": "Issue #472 errors literal ranges and a new sheet prove, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> True.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    Main = w2.Cells.Find(\"zzz\") Is Nothing\r\n    If IsEmpty(Main) Then Main = 9\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue472_13_runtime",
+      "description": "Issue #472 errors literal ranges and a new sheet prove, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> False.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    Main = w2.AutoFilterMode\r\n    If IsEmpty(Main) Then Main = 9\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue472_14_runtime",
+      "description": "Issue #472 errors literal ranges and a new sheet prove, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    w2.Range(\"A1\").Value = 5\r\n    Main = w2.Cells.SpecialCells(xlCellTypeConstants).Count\r\n    If IsEmpty(Main) Then Main = 9\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue472_15_runtime",
+      "description": "Issue #472 errors literal ranges and a new sheet prove, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> 1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim w1 As Worksheet, w2 As Worksheet\r\n    Set w1 = ActiveSheet\r\n    Set w2 = Worksheets.Add\r\n    w2.Range(\"A1\").Value = \"zzz\"\r\n    Main = w2.Cells.Find(\"zzz\").Row\r\n    If IsEmpty(Main) Then Main = 9\r\n    Application.DisplayAlerts = False\r\n    w2.Delete\r\n    Application.DisplayAlerts = True\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }
