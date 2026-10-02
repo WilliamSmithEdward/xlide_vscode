@@ -392,7 +392,7 @@ function checkValueKeywords(source: string, span: Span, context: 'statement' | '
  * needs its argument: bare, the first three are a Syntax error and
  * Seek is "Argument not optional".
  */
-const VALUE_WORD_ERRORS: ReadonlyMap<string, string> = new Map(Object.entries({
+export const VALUE_WORD_ERRORS: ReadonlyMap<string, string> = new Map(Object.entries({
 	tab: 'Syntax error',
 	spc: 'Syntax error',
 	print: 'Syntax error',

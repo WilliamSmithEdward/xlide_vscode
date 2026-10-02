@@ -118,6 +118,7 @@ import { checkConditionValues } from './rules/conditionValues';
 import { checkLockedArrays } from './rules/lockedArrays';
 import { checkDeletedObjects } from './rules/deletedObjects';
 import { checkLongLongNarrowing } from './rules/longLongNarrowing';
+import { checkAddressOfUse } from './rules/addressOfUse';
 import { checkObjectDefaultValues } from './rules/objectValues';
 import { checkEventHandlerSignatures } from './rules/eventHandlerSignatures';
 import { checkDeclarationForms } from './rules/declarationForms';
@@ -739,6 +740,19 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 			ctx.opts.host,
 			ctx.opts.projectProcedures,
 			ctx.opts.projectVisibleSymbols,
+			ctx.activity,
+			push,
+		),
+	},
+	{
+		name: 'addressOfUse',
+		run: (ctx, push) => checkAddressOfUse(
+			ctx.source,
+			ctx.mod,
+			ctx.symbols,
+			ctx.opts.projectProcedures,
+			ctx.opts.projectClassMembers,
+			ctx.opts.conditionalCompilation,
 			ctx.activity,
 			push,
 		),

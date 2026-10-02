@@ -84179,6 +84179,368 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim q As LongLong, p As LongPtr, n As Long, i As Integer, b As Byte, c As Currency, s As String, x As Long\r\n    q = 3\r\n    p = 3\r\n    n = q / 1\r\n    If IsEmpty(Main) Then Main = 9\r\nEnd Function\r\nPrivate Sub TakeByValLong(ByVal v As Long)\r\nEnd Sub\r\n\r\n\r\n",
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue299_01_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nPrivate Function Take(ByVal p As LongPtr) As LongPtr\r\n    Take = p\r\nEnd Function\r\nPrivate Function TakeL(ByVal p As Long) As Long\r\n    TakeL = p\r\nEnd Function\r\nPrivate Function TakeR(ByRef p As LongPtr) As LongPtr\r\n    TakeR = p\r\nEnd Function\r\nPrivate Sub PrivSub()\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim p As LongPtr\r\n    p = AddressOf Cb\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue299_02_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nPrivate Function Take(ByVal p As LongPtr) As LongPtr\r\n    Take = p\r\nEnd Function\r\nPrivate Function TakeL(ByVal p As Long) As Long\r\n    TakeL = p\r\nEnd Function\r\nPrivate Function TakeR(ByRef p As LongPtr) As LongPtr\r\n    TakeR = p\r\nEnd Function\r\nPrivate Sub PrivSub()\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Main = Take((AddressOf Cb))\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue299_03_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nPrivate Function Take(ByVal p As LongPtr) As LongPtr\r\n    Take = p\r\nEnd Function\r\nPrivate Function TakeL(ByVal p As Long) As Long\r\n    TakeL = p\r\nEnd Function\r\nPrivate Function TakeR(ByRef p As LongPtr) As LongPtr\r\n    TakeR = p\r\nEnd Function\r\nPrivate Sub PrivSub()\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Main = Take(AddressOf Cb + 1)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue299_04_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nPrivate Function Take(ByVal p As LongPtr) As LongPtr\r\n    Take = p\r\nEnd Function\r\nPrivate Function TakeL(ByVal p As Long) As Long\r\n    TakeL = p\r\nEnd Function\r\nPrivate Function TakeR(ByRef p As LongPtr) As LongPtr\r\n    TakeR = p\r\nEnd Function\r\nPrivate Sub PrivSub()\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Main = CStr(AddressOf Cb)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue299_05_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nPrivate Function Take(ByVal p As LongPtr) As LongPtr\r\n    Take = p\r\nEnd Function\r\nPrivate Function TakeL(ByVal p As Long) As Long\r\n    TakeL = p\r\nEnd Function\r\nPrivate Function TakeR(ByRef p As LongPtr) As LongPtr\r\n    TakeR = p\r\nEnd Function\r\nPrivate Sub PrivSub()\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Main = Take(AddressOf NoSuchProc)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue299_06_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nPrivate Function Take(ByVal p As LongPtr) As LongPtr\r\n    Take = p\r\nEnd Function\r\nPrivate Function TakeL(ByVal p As Long) As Long\r\n    TakeL = p\r\nEnd Function\r\nPrivate Function TakeR(ByRef p As LongPtr) As LongPtr\r\n    TakeR = p\r\nEnd Function\r\nPrivate Sub PrivSub()\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Main = Take(AddressOf K.Run)\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub Run()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue299_07_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nPrivate Function Take(ByVal p As LongPtr) As LongPtr\r\n    Take = p\r\nEnd Function\r\nPrivate Function TakeL(ByVal p As Long) As Long\r\n    TakeL = p\r\nEnd Function\r\nPrivate Function TakeR(ByRef p As LongPtr) As LongPtr\r\n    TakeR = p\r\nEnd Function\r\nPrivate Sub PrivSub()\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim v As Long\r\n    Main = Take(AddressOf v)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue299_08_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nPrivate Function Take(ByVal p As LongPtr) As LongPtr\r\n    Take = p\r\nEnd Function\r\nPrivate Function TakeL(ByVal p As Long) As Long\r\n    TakeL = p\r\nEnd Function\r\nPrivate Function TakeR(ByRef p As LongPtr) As LongPtr\r\n    TakeR = p\r\nEnd Function\r\nPrivate Sub PrivSub()\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Main = Take(AddressOf Len)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue299_09_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nPrivate Function Take(ByVal p As LongPtr) As LongPtr\r\n    Take = p\r\nEnd Function\r\nPrivate Function TakeL(ByVal p As Long) As Long\r\n    TakeL = p\r\nEnd Function\r\nPrivate Function TakeR(ByRef p As LongPtr) As LongPtr\r\n    TakeR = p\r\nEnd Function\r\nPrivate Sub PrivSub()\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Main = Take(AddressOf GetTickCount)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue299_10_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nPrivate Function Take(ByVal p As LongPtr) As LongPtr\r\n    Take = p\r\nEnd Function\r\nPrivate Function TakeL(ByVal p As Long) As Long\r\n    TakeL = p\r\nEnd Function\r\nPrivate Function TakeR(ByRef p As LongPtr) As LongPtr\r\n    TakeR = p\r\nEnd Function\r\nPrivate Sub PrivSub()\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Main = TakeL(AddressOf Cb)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue299_11_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nPrivate Function Take(ByVal p As LongPtr) As LongPtr\r\n    Take = p\r\nEnd Function\r\nPrivate Function TakeL(ByVal p As Long) As Long\r\n    TakeL = p\r\nEnd Function\r\nPrivate Function TakeR(ByRef p As LongPtr) As LongPtr\r\n    TakeR = p\r\nEnd Function\r\nPrivate Sub PrivSub()\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Main = Take(AddressOf Cb)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue299_12_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nPrivate Function Take(ByVal p As LongPtr) As LongPtr\r\n    Take = p\r\nEnd Function\r\nPrivate Function TakeL(ByVal p As Long) As Long\r\n    TakeL = p\r\nEnd Function\r\nPrivate Function TakeR(ByRef p As LongPtr) As LongPtr\r\n    TakeR = p\r\nEnd Function\r\nPrivate Sub PrivSub()\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Main = Take(AddressOf Module1.Cb)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue299_13_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nPrivate Function Take(ByVal p As LongPtr) As LongPtr\r\n    Take = p\r\nEnd Function\r\nPrivate Function TakeL(ByVal p As Long) As Long\r\n    TakeL = p\r\nEnd Function\r\nPrivate Function TakeR(ByRef p As LongPtr) As LongPtr\r\n    TakeR = p\r\nEnd Function\r\nPrivate Sub PrivSub()\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Main = Take(AddressOf PrivSub)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue299_14_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nPrivate Function Take(ByVal p As LongPtr) As LongPtr\r\n    Take = p\r\nEnd Function\r\nPrivate Function TakeL(ByVal p As Long) As Long\r\n    TakeL = p\r\nEnd Function\r\nPrivate Function TakeR(ByRef p As LongPtr) As LongPtr\r\n    TakeR = p\r\nEnd Function\r\nPrivate Sub PrivSub()\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim p As LongPtr\r\n    p = 0\r\n    Main = TakeR(AddressOf Cb)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue299_15_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nPrivate Function Take(ByVal p As LongPtr) As LongPtr\r\n    Take = p\r\nEnd Function\r\nPrivate Function TakeL(ByVal p As Long) As Long\r\n    TakeL = p\r\nEnd Function\r\nPrivate Function TakeR(ByRef p As LongPtr) As LongPtr\r\n    TakeR = p\r\nEnd Function\r\nPrivate Sub PrivSub()\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Dim c As New Collection\r\n    c.Add AddressOf Cb\r\n    Main = c.Count\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue299_16_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nPrivate Function Take(ByVal p As LongPtr) As LongPtr\r\n    Take = p\r\nEnd Function\r\nPrivate Function TakeL(ByVal p As Long) As Long\r\n    TakeL = p\r\nEnd Function\r\nPrivate Function TakeR(ByRef p As LongPtr) As LongPtr\r\n    TakeR = p\r\nEnd Function\r\nPrivate Sub PrivSub()\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Take AddressOf Cb\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue299_17_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Sub Callback()\r\nEnd Sub\r\nFunction Main() As Variant\r\n    Debug.Print ObjPtr(AddressOf Callback)\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue299_18_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 18, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim x As Long\r\n    Debug.Print AddressOf x\r\n    Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue299_19_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 19, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = VarPtr(AddressOf Cb)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue299_20_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 20, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = StrPtr(AddressOf Cb)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue299_21_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 21, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = ObjPtr(AddressOf Cb)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue299_22_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 22, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Len(AddressOf Cb)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue299_23_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 23, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = CLng(AddressOf Cb)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue299_24_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 24, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = CStr(AddressOf Cb)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue299_25_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 25, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = IsEmpty(AddressOf Cb)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue299_26_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 26, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Hex(AddressOf Cb)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue299_27_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 27, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Abs(AddressOf Cb)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue299_28_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 28, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nFunction Main() As Variant\r\n    Debug.Print AddressOf Cb\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue299_29_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 29, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim x As Long\r\n    Debug.Print AddressOf x\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue299_30_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 30, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nFunction Main() As Variant\r\n    Debug.Print 1, AddressOf Cb\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue299_31_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 31, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = CLngPtr(AddressOf Cb)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue299_32_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 32, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPublic Function Cb(ByVal a As LongPtr) As LongPtr\r\n    Cb = a\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = TypeName(AddressOf Cb)\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue299_33_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 33, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Take(ByVal p As LongPtr) As LongPtr\r\n    Take = p\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Take(AddressOf Len)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue299_34_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 34, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Take(ByVal p As LongPtr) As LongPtr\r\n    Take = p\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Take(AddressOf Sqr)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue299_35_compile",
+      "description": "Issue #299 AddressOf where the VBE refuses it, case 35, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "source": "Option Explicit\r\nPrivate Function Take(ByVal p As LongPtr) As LongPtr\r\n    Take = p\r\nEnd Function\r\nFunction Main() As Variant\r\n    Main = Take(AddressOf Mid)\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
     }
   ]
 }
