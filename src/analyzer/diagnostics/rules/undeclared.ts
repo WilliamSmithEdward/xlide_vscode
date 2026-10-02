@@ -727,7 +727,7 @@ export function checkUndeclaredVariables(
 	// A Const's value and an Enum member's value name things too: `Const K =
 	// asdf` is "Variable not defined", and `eB = asdf` in an Enum "Constant
 	// expression required" (issue #369, measured in Excel 16.0).
-	const checkValue = (span: Span, procSym: VbaSymbol | undefined, enumMember: boolean): void => {
+	const checkValue = (span: Span, procSym: VbaSymbol | undefined, enumMember: boolean, what = "a Const's value"): void => {
 		// The names in each value, after its `=`. A value calls nothing, so
 		// every name in it not after a `.` is read; a declaration's own names
 		// stand before an `=`.
@@ -753,7 +753,7 @@ export function checkUndeclaredVariables(
 				'undeclaredVariable',
 				enumMember
 					? `'${name}' is not defined, and an Enum member's value must be a constant. This is a VBE compile error: Constant expression required.`
-					: `Variable not defined: '${name}'. Declare it before using it in a Const's value, or remove Option Explicit.`,
+					: `Variable not defined: '${name}'. Declare it before using it in ${what}, or remove Option Explicit.`,
 				{ start: span.start + tok.start, end: span.start + tok.end },
 			);
 		}
@@ -769,6 +769,14 @@ export function checkUndeclaredVariables(
 				}
 			}
 		} else if (member.kind === 'Procedure') {
+			// An Optional parameter's default is a constant from outside the
+			// procedure: `Optional x As Long = y` with nothing named y is
+			// "Variable not defined" (issue #445, measured in Excel 16.0).
+			for (const param of member.params) {
+				if (param.defaultRaw !== undefined) {
+					checkValue(param.span, undefined, false, "an Optional parameter's default");
+				}
+			}
 			const procSym = procedureSymbolFor(symbols, member);
 			forEachVariableGroup(member.body, (group) => {
 				if (group.isConst) {
