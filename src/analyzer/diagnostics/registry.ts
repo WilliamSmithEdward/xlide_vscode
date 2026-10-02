@@ -396,7 +396,7 @@ export const DIAGNOSTIC_RULE_REGISTRY: readonly DiagnosticRuleEntry[] = [
 	},
 	{
 		name: 'objectDefaultValue',
-		procedureStatements: (ctx, push) => checkObjectDefaultValues(ctx.source, ctx.symbols, ctx.memberCtx, push),
+		procedureStatements: (ctx, push) => checkObjectDefaultValues(ctx.source, ctx.symbols, ctx.memberCtx, push, ctx.activity),
 	},
 	{
 		name: 'runtimeMemberNotFound',

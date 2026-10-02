@@ -838,3 +838,30 @@ export function bodyMayLeaveLoop(source: string, body: readonly BodyNode[]): boo
 	};
 	return visit(body, false);
 }
+
+/**
+ * VBA built-ins that read their argument's value: on an object still Nothing
+ * that raises 91 (issue #415, measured in Excel 16.0 with CStr and Len).
+ */
+export const ONE_VALUE_BUILTINS: ReadonlySet<string> = new Set([
+	'cstr', 'len', 'lenb', 'clng', 'cint', 'cdbl', 'csng', 'ccur', 'cbool', 'cdate', 'val', 'trim', 'ucase', 'lcase',
+]);
+
+/** The index of the name whose argument list holds toks[index], `$` spellings included, or -1. */
+export function builtinNameBefore(toks: readonly VbaToken[], index: number): number {
+	let depth = 0;
+	for (let i = index - 1; i >= 0; i--) {
+		const raw = toks[i].rawText;
+		if (raw === ')') {
+			depth++;
+		} else if (raw === '(') {
+			if (depth === 0) {
+				const at = toks[i - 1]?.rawText === '$' ? i - 2 : i - 1;
+				return toks[at - 1]?.rawText === '.' && tokenText(toks[at - 2]) !== 'vba' ? -1 : at;
+			}
+			depth--;
+		}
+	}
+	return -1;
+}
+
