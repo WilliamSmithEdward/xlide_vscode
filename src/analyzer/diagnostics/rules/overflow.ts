@@ -31,6 +31,7 @@ import { DATE_EPOCH_MS, DAY_MS, dateLiteralSerial } from '../../constants/dateLi
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpression';
 import type { HostObjectModel } from '../../host/excelObjectModel';
+import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
 import type { VbaToken } from '../../lexer/tokenKinds';
 import type { BodyNode, ForBlockNode, ModuleNode, ProcedureNode, Span, VariableGroupNode } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
@@ -520,6 +521,10 @@ class TypedFolder {
 		if (!name) {
 			return undefined;
 		}
+		const size = this.sheetSize();
+		if (size) {
+			return size;
+		}
 		// `VBA.CInt(...)` and `CInt(...)`.
 		let calleeIndex = this.index;
 		if (name.toLowerCase() === 'vba' && this.toks[this.index + 1]?.rawText === '.' && tokenName(this.toks[this.index + 2])) {
@@ -578,6 +583,54 @@ class TypedFolder {
 		}
 		this.index++;
 		return known;
+	}
+
+	/**
+	 * A size Excel fixes, read from a member chain at the current token (issue
+	 * #411, measured in Excel 16.0): a worksheet's `Rows.Count` (1048576) or
+	 * `Columns.Count` (16384) through ActiveSheet, Application, Worksheets(n)
+	 * or a Worksheet local; `Cells(r, c).Row` and `.Column`; and the Row,
+	 * Column, Count, Rows.Count and Columns.Count of `Range("A1:B2")`, a
+	 * literal address. A Long each. Undefined, and nothing consumed, for any
+	 * other chain.
+	 */
+	private sheetSize(): Folded {
+		const segments: Array<{ name: string; args?: VbaToken[][] }> = [];
+		let i = this.index;
+		for (;;) {
+			const name = tokenName(this.toks[i]);
+			if (!name) {
+				return undefined;
+			}
+			let end = i;
+			let args: VbaToken[][] | undefined;
+			if (this.toks[i + 1]?.rawText === '(') {
+				const close = matchParenFrom(this.toks, i + 1);
+				if (close < 0) {
+					return undefined;
+				}
+				args = splitTopLevelTokenGroups(this.toks, i + 2, ',', close);
+				end = close;
+			}
+			segments.push({ name: name.toLowerCase(), ...(args ? { args } : {}) });
+			if (this.toks[end + 1]?.rawText !== '.') {
+				i = end + 1;
+				break;
+			}
+			i = end + 2;
+		}
+		if (segments.length < 2 || this.toks[i]?.rawText === '(') {
+			return undefined;
+		}
+		const value = sheetSizeOf(segments, (expr) => {
+			const folded = new TypedFolder(expr, this.base, this.names, this.divisionByZero).fold();
+			return folded && !isOverflow(folded) ? folded.value : undefined;
+		}, this.names);
+		if (value === undefined) {
+			return undefined;
+		}
+		this.index = i;
+		return { value, type: 'long' };
 	}
 
 	private convert(callee: string, inner: Typed, span: Span, shown = showNumber(inner.value)): Folded {
@@ -995,6 +1048,96 @@ function constantLookup(
 	return out;
 }
 
+const SHEET_ROWS = 1048576;
+const SHEET_COLUMNS = 16384;
+
+interface ChainSegment { name: string; args?: VbaToken[][] }
+
+/**
+ * Whether a member chain names a whole worksheet (issue #411): nothing (the
+ * active sheet), ActiveSheet, Application, Worksheets(n) from Application,
+ * ThisWorkbook, ActiveWorkbook or Workbooks(n), or a local As Worksheet.
+ */
+function namesSheet(receiver: readonly ChainSegment[], names: NameLookup): boolean {
+	const [first, second] = receiver;
+	if (receiver.length === 0) {
+		return true;
+	}
+	if (receiver.length === 1) {
+		return (!first.args && (first.name === 'activesheet' || first.name === 'application'))
+			|| (first.name === 'worksheets' && first.args?.length === 1)
+			|| (!first.args && names(`${first.name}.rows.count`) !== undefined);
+	}
+	if (receiver.length === 2 && second.name === 'worksheets' && second.args?.length === 1) {
+		return (!first.args && ['thisworkbook', 'activeworkbook', 'application'].includes(first.name)) || (first.name === 'workbooks' && first.args?.length === 1);
+	}
+	return receiver.length === 2 && !first.args && first.name === 'application' && !second.args && second.name === 'activesheet';
+}
+
+/** The cells `Range("A1:B2")` names, from a literal A1 address: a cell, a block, whole columns or whole rows. */
+function literalRange(segment: ChainSegment | undefined): { row: number; column: number; rows: number; columns: number } | undefined {
+	const arg = segment?.name === 'range' && segment.args?.length === 1 ? segment.args[0].filter((tok) => tok.kind !== 'comment') : undefined;
+	if (!arg || arg.length !== 1 || arg[0].kind !== 'stringLiteral') {
+		return undefined;
+	}
+	const text = stringLiteralValue(arg[0].rawText).replace(/\$/g, '').toUpperCase();
+	const column = (letters: string): number => [...letters].reduce((n, ch) => n * 26 + ch.charCodeAt(0) - 64, 0);
+	const cells = /^([A-Z]{1,3})(\d+)(?::([A-Z]{1,3})(\d+))?$/.exec(text);
+	if (cells) {
+		const [r1, c1] = [Number(cells[2]), column(cells[1])];
+		const [r2, c2] = cells[3] ? [Number(cells[4]), column(cells[3])] : [r1, c1];
+		const valid = [r1, r2].every((r) => r >= 1 && r <= SHEET_ROWS) && [c1, c2].every((c) => c >= 1 && c <= SHEET_COLUMNS);
+		return valid ? { row: Math.min(r1, r2), column: Math.min(c1, c2), rows: Math.abs(r2 - r1) + 1, columns: Math.abs(c2 - c1) + 1 } : undefined;
+	}
+	const wholeColumns = /^([A-Z]{1,3}):([A-Z]{1,3})$/.exec(text);
+	if (wholeColumns) {
+		const [c1, c2] = [column(wholeColumns[1]), column(wholeColumns[2])];
+		return c1 <= SHEET_COLUMNS && c2 <= SHEET_COLUMNS ? { row: 1, column: Math.min(c1, c2), rows: SHEET_ROWS, columns: Math.abs(c2 - c1) + 1 } : undefined;
+	}
+	const wholeRows = /^(\d+):(\d+)$/.exec(text);
+	if (wholeRows) {
+		const [r1, r2] = [Number(wholeRows[1]), Number(wholeRows[2])];
+		return [r1, r2].every((r) => r >= 1 && r <= SHEET_ROWS) ? { row: Math.min(r1, r2), column: 1, rows: Math.abs(r2 - r1) + 1, columns: SHEET_COLUMNS } : undefined;
+	}
+	return undefined;
+}
+
+/**
+ * The size a member chain reads, where Excel fixes it (issue #411):
+ * `ws.Rows.Count`, `Cells(Rows.Count, 1).Row`, `Range("A1:A40000").Rows.Count`.
+ */
+function sheetSizeOf(segments: readonly ChainSegment[], fold: (expr: VbaToken[]) => number | undefined, names: NameLookup): number | undefined {
+	if (names('rows.count') === undefined) {
+		return undefined; // not Excel, or a name of the procedure's hides it
+	}
+	const n = segments.length;
+	const last = segments[n - 1];
+	const before = segments[n - 2];
+	if (last.args) {
+		return undefined;
+	}
+	if (last.name === 'count' && (before.name === 'rows' || before.name === 'columns') && !before.args) {
+		const receiver = segments.slice(0, n - 2);
+		const block = receiver.length >= 1 ? literalRange(receiver[receiver.length - 1]) : undefined;
+		if (block && namesSheet(receiver.slice(0, -1), names)) {
+			return before.name === 'rows' ? block.rows : block.columns;
+		}
+		return namesSheet(receiver, names) ? (before.name === 'rows' ? SHEET_ROWS : SHEET_COLUMNS) : undefined;
+	}
+	const receiver = segments.slice(0, n - 2);
+	if (!namesSheet(receiver, names)) {
+		return undefined;
+	}
+	const block = literalRange(before);
+	if (block) {
+		return last.name === 'count' ? block.rows * block.columns : last.name === 'row' ? block.row : last.name === 'column' ? block.column : undefined;
+	}
+	if (before.name === 'cells' && before.args?.length === 2 && (last.name === 'row' || last.name === 'column')) {
+		return fold(before.args[last.name === 'row' ? 0 : 1]);
+	}
+	return undefined;
+}
+
 /**
  * Host members whose value is fixed: Excel's `Rows.Count` is 1048576 and
  * `Columns.Count` 16384 on every worksheet since Excel 2007 (a Long each).
@@ -1058,7 +1201,15 @@ export function checkOverflow(
 			if (local?.kind === 'number' && type) {
 				return { value: local.value as number, type };
 			}
-			return lower.includes('.') && !env.has(lower.slice(0, lower.indexOf('.'))) ? hostValues.get(lower) : undefined;
+			if (!lower.includes('.')) {
+				return undefined;
+			}
+			// `ws.Rows.Count` with ws As Worksheet is the sheet's (issue #411).
+			const head = lower.slice(0, lower.indexOf('.'));
+			if (env.has(head)) {
+				return normalizeType(env.get(head)) === 'worksheet' ? hostValues.get(lower.slice(head.length + 1)) : undefined;
+			}
+			return hostValues.get(lower);
 		};
 		const groups: VariableGroupNode[] = [];
 		forEachVariableGroup(member.body, (group) => { groups.push(group); }, activity);
