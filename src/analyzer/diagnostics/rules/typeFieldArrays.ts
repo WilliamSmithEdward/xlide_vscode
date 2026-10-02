@@ -45,6 +45,7 @@ import {
 import { activeModuleMembers, matchParenFrom, pluralizeCount, rawExpressionTokens, statementTokensAfterLeadingLabel, tokenName, tokenText } from '../walker';
 import { moduleOptionBase, shapeSubscriptViolation, type FixedArrayBound } from './arrays';
 import { isBareOrVbaQualifiedIntrinsicCall } from './shared';
+import { resolveRuntimeFunction } from '../../runtime/vbaRuntime';
 
 const SUBSCRIPT_ERROR = `This will raise Run-time error '9': Subscript out of range.`;
 
@@ -208,6 +209,48 @@ function lenOfArrays(
 	return out;
 }
 
+/**
+ * VBA's functions that return one scalar type, not a Variant, as the VBE
+ * compiles `Len` of them (issue #475, measured in Excel 16.0): Asc is an
+ * Integer, Len and InStr a Long, Timer a Single.
+ */
+const LIBRARY_RETURNS: ReadonlyMap<string, string> = new Map([
+	['asc', 'integer'], ['ascw', 'integer'], ['ascb', 'integer'],
+	['len', 'long'], ['lenb', 'long'], ['instr', 'long'], ['instrrev', 'long'],
+	['timer', 'single'],
+]);
+
+/**
+ * The type a VBA library value has, where the library fixes it: a call of
+ * one of {@link LIBRARY_RETURNS}, Timer bare, a `$` function's String, and
+ * `Err.Number`'s Long. A name of the module's or the procedure's hides it.
+ */
+function libraryReturnType(
+	value: readonly VbaToken[],
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	proc: ProcedureNode,
+): string | undefined {
+	const lower = tokenName(value[0])?.toLowerCase();
+	if (!lower || value[0].kind === 'bracketedIdentifier'
+		|| [...(procedureSymbolFor(symbols, proc)?.children ?? []), ...(symbols.root.children ?? [])].some((child) => child.name.toLowerCase() === lower)
+		|| proc.params.some((param) => param.name.toLowerCase() === lower)) {
+		return undefined;
+	}
+	if (value.length === 3 && lower === 'err' && value[1].rawText === '.' && tokenText(value[2]) === 'number') {
+		return 'long';
+	}
+	if (value.length === 1) {
+		return lower === 'timer' ? 'single' : undefined;
+	}
+	// `Mid$(s, 1, 1)` lexes as Mid, a `$` and the arguments (issue #334).
+	if (value[1].rawText === '$' && value[2]?.rawText === '(' && matchParenFrom(value, 2) === value.length - 1) {
+		// Only a String function takes a `$`; the registry knows Format$ as Format.
+		return (resolveRuntimeFunction(`${lower}$`) ?? resolveRuntimeFunction(lower))?.kind === 'function' ? 'string' : undefined;
+	}
+	const call = value[1].rawText === '(' && matchParenFrom(value, 1) === value.length - 1;
+	return call ? LIBRARY_RETURNS.get(lower) : undefined;
+}
+
 /** VBA's functions whose return type the library declares as one scalar type: a conversion or Val. */
 const TYPED_RETURNS: ReadonlySet<string> = new Set(['cbool', 'cbyte', 'ccur', 'cdate', 'cdbl', 'cint', 'clng', 'clnglng', 'clngptr', 'csng', 'val']);
 
@@ -258,6 +301,10 @@ function nonStringValueType(
 	}
 	// A call names a project Function or a typed VBA function; any other
 	// library function may return a Variant, as Now does.
+	const library = libraryReturnType(value, symbols, proc);
+	if (library) {
+		return scalarName(library);
+	}
 	const call = name && value[1]?.rawText === '(' && matchParenFrom(value, 1) === value.length - 1;
 	if (call && ARGUMENT_TYPED.has(name!.toLowerCase())) {
 		return scalarName(settled(value));
@@ -385,6 +432,10 @@ function settledType(
 		return undefined;
 	}
 	const lower = name.toLowerCase();
+	const library = libraryReturnType(value, symbols, proc);
+	if (library) {
+		return library;
+	}
 	const call = value.length > 2 && value[1].rawText === '(' && matchParenFrom(value, 1) === value.length - 1;
 	if (value.length === 1) {
 		const symbol = [...(procedureSymbolFor(symbols, proc)?.children ?? []), ...(symbols.root.children ?? [])].find((child) => child.name.toLowerCase() === lower);
