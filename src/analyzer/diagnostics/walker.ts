@@ -184,6 +184,11 @@ export function walkProcedureStatements(
 				} else if ('body' in node && Array.isArray(node.body)) {
 					const { before, after } = headers && headerCallbacks.length > 0 ? blockHeaderStatements(headers.source, node) : {};
 					header(before);
+					// A block If's own line: `If 10 / d > 1 Then` evaluates its
+					// condition as a statement does (issue #492). Its ElseIf lines
+					// are statements of the body already.
+					const opening = node.kind === 'IfBlock' && headers && headerCallbacks.length > 0 ? node.branches[0]?.headerSpan : undefined;
+					header(opening ? { kind: 'Statement', span: opening, raw: headers!.source.slice(opening.start, opening.end) } : undefined);
 					visit(node.body);
 					header(after);
 				}

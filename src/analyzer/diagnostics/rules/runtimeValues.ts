@@ -32,7 +32,7 @@ import {
 	splitArgSlots,
 } from '../callExtraction';
 import { collectModuleLiteralIntegerConstants } from '../constExpr';
-import { moduleOptionBase, redimShapesAt } from './arrays';
+import { knownArrayShapesAt, moduleOptionBase, redimShapesAt } from './arrays';
 import { checkEachCounterPass, loopCountersAt } from '../loopCounters';
 import { straightLineAssignments } from '../straightLineValues';
 import { foldKnownStringCalls, moduleCompare, type KnownStringCallContext } from '../knownStringCalls';
@@ -169,6 +169,7 @@ export function checkRuntimeArgumentValues(
 		// or as a fixed array, whose element type and dimensions Join reads.
 		const locals = procedureSymbolFor(symbols, member)?.children ?? [];
 		let shapesAt: ReturnType<typeof redimShapesAt> | undefined;
+		let knownShapesAt: ReturnType<typeof knownArrayShapesAt> | undefined;
 		let currentStmt: BodyNode | undefined;
 		const declarationOf = (lower: string): LocalDeclaration | undefined => {
 			const local = locals.find((child) => child.name.toLowerCase() === lower);
@@ -188,7 +189,12 @@ export function checkRuntimeArgumentValues(
 			if (local.isArray) {
 				return { asType: local.asType ?? 'Variant', dimensions: splitTopLevelTokenGroups(rawExpressionTokens(local.arrayBounds!), 0, ',').length };
 			}
-			return type !== undefined && type !== 'variant' && isKnownScalarType(type) ? { asType: local.asType!, dimensions: 0 } : undefined;
+			if (type === undefined || type === 'variant') {
+				// A Variant holding a block's `.Value` has two dimensions (issue #492).
+				const shape = currentStmt && isLeafStatement(currentStmt) ? (knownShapesAt ??= knownArrayShapesAt(source, symbols, member, activity, moduleOptionBase(mod, activity)))(currentStmt).get(lower) : undefined;
+				return shape && shape.dims.length > 1 ? { asType: 'Variant', dimensions: shape.dims.length } : undefined;
+			}
+			return isKnownScalarType(type) ? { asType: local.asType!, dimensions: 0 } : undefined;
 		};
 		const stringsFor = new Map<ReadonlyMap<string, KnownLocalValue>, { strings: Map<string, string>; lengths: Map<string, number> }>();
 		const stringsAt = (values: ReadonlyMap<string, KnownLocalValue>): { strings: Map<string, string>; lengths: Map<string, number> } => {
