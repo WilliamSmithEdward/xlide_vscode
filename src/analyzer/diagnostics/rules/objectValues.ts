@@ -37,7 +37,7 @@ import { parseVbaIntegerLiteral } from '../../constants/integerConstantExpressio
 import type { VbaProjectClassMember, VbaProjectClassMembers } from '../../symbols/symbolModel';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import { procedureSymbolFor, type PushFn } from '../analysisContext';
-import { daoWholeValueError, isKnownObjectAssignmentType, isKnownScalarType, normalizeType, objectLetAssignmentVerdict, objectValueNeedsIndex, typeEnvironmentFor } from '../typeInference';
+import { daoWholeValueError, isKnownObjectAssignmentType, isKnownScalarType, normalizeType, objectLetAssignmentVerdict, objectValueNeedsIndex, typeEnvironmentFor, typeFieldDeclaredType } from '../typeInference';
 import {
 	bareAssignmentTarget,
 	firstExecutableTokenIndex,
@@ -141,7 +141,7 @@ export function checkObjectDefaultValues(
 						push('collectionOperand', `${hit.what} is a Collection: its default member Item needs an index, so ${hit.fn} has no value to take. This is a VBE compile error: Argument not optional.`, at);
 					}
 				}
-				const created = newObjectLetIntoVariant(source, span, env, proc);
+				const created = newObjectLetIntoVariant(source, span, env, proc, arrays, (variable, field) => typeFieldDeclaredType(symbols, procedureSymbolFor(symbols, proc), undefined, variable, field));
 				if (created) {
 					const verdict = objectLetAssignmentVerdict(created.type, memberCtx);
 					if (verdict === 'noDefault' || (verdict === 'argument' && normalizeType(created.type) === 'collection')) {
@@ -388,10 +388,12 @@ function newObjectLetIntoVariant(
 	span: Span,
 	env: ReadonlyMap<string, string>,
 	proc: ProcedureNode,
+	arrays: ReadonlySet<string>,
+	fieldType: (variable: string, field: string) => { asType?: string } | undefined,
 ): { type: string; span: Span } | undefined {
 	const target = bareAssignmentTarget(source, span);
 	if (!target) {
-		return undefined;
+		return newObjectLetIntoVariantPart(statementTokens(source, span), span, env, arrays, fieldType);
 	}
 	const value = target.valueTokens.filter((tok) => tok.kind !== 'comment');
 	if (value.length !== 2 || tokenText(value[0]) !== 'new' || !tokenName(value[1])) {
@@ -404,6 +406,49 @@ function newObjectLetIntoVariant(
 	}
 	const declared = normalizeType(isResult ? proc.returnType : env.get(lower));
 	if ((declared !== undefined && declared !== 'variant') || (isResult && proc.typeSuffix)) {
+		return undefined;
+	}
+	return { type: value[1].rawText, span: { start: span.start + value[0].start, end: span.start + value[1].end } };
+}
+
+/**
+ * `v(0) = New Collection` with v an array of Variant, and `t.v = New
+ * Collection` with v a Variant field: the Let reads the object's value as
+ * a whole variable's does (issue #306, measured in Excel 16.0: 450).
+ */
+function newObjectLetIntoVariantPart(
+	all: readonly VbaToken[],
+	span: Span,
+	env: ReadonlyMap<string, string>,
+	arrays: ReadonlySet<string>,
+	fieldType: (variable: string, field: string) => { asType?: string } | undefined,
+): { type: string; span: Span } | undefined {
+	const toks = all.filter((tok) => tok.kind !== 'comment');
+	let i = firstExecutableTokenIndex(toks);
+	if (tokenText(toks[i]) === 'let') {
+		i++;
+	}
+	const name = tokenName(toks[i]);
+	if (!name) {
+		return undefined;
+	}
+	let equals = -1;
+	let declared: string | undefined;
+	if (toks[i + 1]?.rawText === '(' && arrays.has(name.toLowerCase())) {
+		equals = matchParenFrom(toks, i + 1) + 1;
+		declared = env.get(name.toLowerCase());
+	} else if (toks[i + 1]?.rawText === '.' && tokenName(toks[i + 2]) && toks[i + 3]?.rawText === '=') {
+		const field = fieldType(name, toks[i + 2].rawText);
+		if (!field) {
+			return undefined;
+		}
+		equals = i + 3;
+		declared = field.asType;
+	}
+	const value = toks.slice(equals + 1);
+	const type = normalizeType(declared);
+	if (equals <= i || toks[equals]?.rawText !== '=' || (type !== undefined && type !== 'variant')
+		|| value.length !== 2 || tokenText(value[0]) !== 'new' || !tokenName(value[1])) {
 		return undefined;
 	}
 	return { type: value[1].rawText, span: { start: span.start + value[0].start, end: span.start + value[1].end } };

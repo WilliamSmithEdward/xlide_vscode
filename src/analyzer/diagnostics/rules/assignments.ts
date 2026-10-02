@@ -470,9 +470,29 @@ export function checkAssignmentTypes(
 				: undefined;
 		}
 
+		// `a(0) = New Collection` with a an array As Collection: a Let into the
+		// element reaches the default member Item, which needs an argument, as
+		// it does into a variable (issue #306, measured in Excel 16.0).
+		function checkElementLet(span: Span): void {
+			const element = arrayElementTarget(source, span, symbols, procSym, projectVisibleSymbols);
+			if (!element || element.usesSet) {
+				return;
+			}
+			const declared = declaredTypeForSourceBinding(symbols, procSym, projectVisibleSymbols, element.name, 'assignmentTarget');
+			const expected = declared.resolved ? declared.asType : undefined;
+			if (expected && isKnownObjectAssignmentType(expected, memberCtx) && objectLetAssignmentVerdict(expected, memberCtx) === 'argument') {
+				push(
+					'setRequired',
+					`Assignment to '${element.label}' requires Set: the default member of ${expected} takes an argument, so a Let cannot reach it. This is a VBE compile error: ${normalizeType(expected) === 'collection' ? 'Argument not optional' : 'Invalid use of property'}.`,
+					element.span,
+				);
+			}
+		}
+
 		function checkAssignmentSpan(span: Span, stmt: LeafStatementNode): void {
 			const assignment = bareAssignmentTarget(source, span);
 			if (!assignment) {
+				checkElementLet(span);
 				return;
 			}
 			const targetType = declaredTypeForSourceBinding(
@@ -1604,6 +1624,45 @@ function checkMemberAssignmentTypes(
 	}, activity);
 }
 
+/**
+ * `v(0) = x` or `Set v(0) = x` where v is a declared array: the element as
+ * an assignment target, with the array's name, the span from the name to
+ * the closing parenthesis, and the value.
+ */
+function arrayElementTarget(
+	source: string,
+	span: Span,
+	symbols: ReturnType<typeof buildModuleSymbols>,
+	procSym: VbaSymbol | undefined,
+	projectVisibleSymbols: readonly VbaSymbol[] | undefined,
+): { name: string; label: string; span: Span; valueTokens: VbaToken[]; usesSet: boolean } | undefined {
+	const toks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+	let i = firstExecutableTokenIndex(toks);
+	const head = tokenText(toks[i]);
+	if (head === 'set' || head === 'let') {
+		i++;
+	}
+	const name = tokenName(toks[i]);
+	if (!name || toks[i + 1]?.rawText !== '(') {
+		return undefined;
+	}
+	const close = matchParenFrom(toks, i + 1);
+	if (close < 0 || toks[close + 1]?.rawText !== '=' || close + 2 >= toks.length) {
+		return undefined;
+	}
+	const shape = declaredShapeForSourceBinding(symbols, procSym, projectVisibleSymbols, name, 'assignmentTarget');
+	if (!shape.resolved || shape.shape?.isArray !== true) {
+		return undefined;
+	}
+	return {
+		name,
+		label: toks.slice(i, close + 1).map((tok) => tok.rawText).join(''),
+		span: { start: span.start + toks[i].start, end: span.start + toks[close].end },
+		valueTokens: toks.slice(close + 2),
+		usesSet: head === 'set',
+	};
+}
+
 export function checkSetAssignments(
 	source: string,
 	symbols: ReturnType<typeof buildModuleSymbols>,
@@ -1628,7 +1687,10 @@ export function checkSetAssignments(
 		};
 
 		function checkSetSpan(span: Span, stmt: LeafStatementNode): void {
-			const target = setAssignmentTarget(source, span);
+			// `Set v(0) = x` into an element of a declared array is judged as
+			// a Set into a variable of its element type (issue #306).
+			const element = arrayElementTarget(source, span, symbols, procSym, projectVisibleSymbols);
+			const target = setAssignmentTarget(source, span) ?? (element?.usesSet ? element : undefined);
 			if (!target) {
 				return;
 			}
@@ -1696,15 +1758,26 @@ export function checkSetAssignments(
 						reason = objectAssignmentIncompatibilityReason(expected, shown, memberCtx);
 					}
 				}
+				// `Set c = ActiveSheet`: a Worksheet or a Chart, never a
+				// Collection or a class of the project (issue #306, measured in
+				// Excel 16.0: 13).
+				if (!reason && value.length === 1 && tokenText(value[0]) === 'activesheet' && !sourceNames.runtimeShadows.has('activesheet')
+					&& (targetType === 'collection' || (memberCtx.projectClassMembers ?? []).some((type) => type.kind === 'class' && type.name.toLowerCase() === targetType))) {
+					shown = { type: 'Object', label: 'ActiveSheet, a Worksheet or a Chart', span: { start: span.start + value[0].start, end: span.start + value[0].end } };
+					reason = `ActiveSheet holds a sheet, never a ${expected}.`;
+				}
 				const sheets = reason ? undefined : sheetsFromCollectionProperty(value, expected, sourceNames, memberCtx);
 				if (sheets) {
 					shown = { type: 'Excel.Sheets', label: `'${sheets.text}', which returns a Sheets object`, span: { start: span.start + value[0].start, end: span.start + value[value.length - 1].end } };
 					reason = `Excel's Worksheets and Charts properties return a Sheets object, never a ${sheets.collection} one.`;
 				}
 				if (reason) {
-					pushObjectAssignmentMismatch(push, target.name, expected, shown, reason, target.span, 'Type mismatch');
+					pushObjectAssignmentMismatch(push, target === element ? element.label : target.name, expected, shown, reason, target.span, 'Type mismatch');
 				}
 				return;
+			}
+			if (target === element) {
+				return; // an element of a scalar array, which the VBE has not been asked about
 			}
 			push(
 				'setRequiresObject',
