@@ -32,6 +32,7 @@ import {
 	sourceIdentifierBinding,
 	isKnownScalarType,
 	normalizeType,
+	objectHoldingDefault,
 	objectLetAssignmentVerdict,
 	returnAssignmentTypeFor,
 	type SourceDeclaredType,
@@ -55,6 +56,9 @@ import {
 	tokenText,
 	type ProcedureStatementVisitor,
 } from '../walker';
+
+/** The operators that read an object's default member as an operand. */
+const OPERAND_OPERATORS: ReadonlySet<string> = new Set(['=', '<', '>', '<=', '>=', '<>', '+', '-', '*', '/', '\\', '&', '^']);
 
 /** Per-statement rule: rides the shared procedure-statement walk (audit #0). */
 export function checkScalarMemberAccess(
@@ -668,7 +672,7 @@ function checkObjectVariableNotSetStatement(
 		// argument, is set-required's to report, with the 91 when it is still
 		// Nothing (issue #193): the fix there is the Set.
 		const verdict = objectLetAssignmentVerdict(locals.get(lower)!.asType, memberCtx);
-		if (letState === 'unset' && verdict !== 'noDefault' && verdict !== 'argument') {
+		if (letState === 'unset' && verdict !== 'noDefault' && verdict !== 'argument' && !objectHoldingDefault(locals.get(lower)!.asType, memberCtx)) {
 			const what = locals.get(lower)!.letOnly ? `The result '${let_.name}'` : `Object variable '${let_.name}'`;
 			push(
 				'objectVariableNotSet',
@@ -708,6 +712,36 @@ function checkObjectVariableNotSetStatement(
 			`Object variable '${value[0].rawText}' is Nothing when its default member is read. This will raise Run-time error '91': Object variable or With block variable not set.`,
 			{ start: span.start + value[0].start, end: span.start + value[0].end },
 		);
+	}
+	// `x + 1`, `x & "a"` read x's default member as an operand: on x still
+	// Nothing that raises 91 (issue #462, measured in Word and PowerPoint
+	// 16.0 on a Range, the Selection and a TextRange).
+	for (const span of branches) {
+		const operandToks = statementTokens(source, span).filter((tok) => tok.kind !== 'comment');
+		// A Set's `=` is no operator: `Set x = y` reads neither value.
+		if (tokenText(operandToks[0]) === 'set' || setAssignmentTarget(source, span)) {
+			continue;
+		}
+		const target = bareAssignmentTarget(source, span);
+		const eq = target ? operandToks.findIndex((tok) => tok.rawText === '=') : -1;
+		const then = span === stmt.span && branches.length > 1 ? operandToks.findIndex((tok) => tokenText(tok) === 'then') : -1;
+		const limit = then > 0 ? then : operandToks.length;
+		const isOperator = (index: number): boolean => index !== eq && operandToks[index] !== undefined
+			&& ((operandToks[index].kind === 'operator' && OPERAND_OPERATORS.has(operandToks[index].rawText)) || tokenText(operandToks[index]) === 'mod');
+		for (let i = 0; i < limit; i++) {
+			const lower = tokenName(operandToks[i])?.toLowerCase();
+			const local = lower ? locals.get(lower) : undefined;
+			if (!local || local.letOnly || i === eq - 1 || operandToks[i - 1]?.rawText === '.' || operandToks[i + 1]?.rawText === '(' || operandToks[i + 1]?.rawText === '.'
+				|| !(isOperator(i - 1) || isOperator(i + 1)) || state.get(lower!) !== 'unset' || guardedAt(lower!, span.start + operandToks[i].start)
+				|| objectLetAssignmentVerdict(local.asType, memberCtx) !== 'lets' || objectHoldingDefault(local.asType, memberCtx)) {
+				continue;
+			}
+			push(
+				'objectVariableNotSet',
+				`Object variable '${operandToks[i].rawText}' is Nothing when its default member is read as an operand. This will raise Run-time error '91': Object variable or With block variable not set.`,
+				{ start: span.start + operandToks[i].start, end: span.start + operandToks[i].end },
+			);
+		}
 	}
 	const passedWhole = localsNamedWhole(source, stmt.span, locals, OBJECT_READ_ONLY_INTRINSICS);
 	for (const hit of unsetObjectMemberAccesses(source, stmt.span, locals, state, memberCtx)) {

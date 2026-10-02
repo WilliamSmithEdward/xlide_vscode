@@ -3036,6 +3036,21 @@ function libraryDefaultVerdict(qualified: string, depth = 0): 'lets' | 'argument
 	return depth < 4 && HOST_DEFAULT_MEMBERS[found.returns] ? libraryDefaultVerdict(found.returns, depth + 1) : 'lets';
 }
 
+/**
+ * A Word, PowerPoint or Access type whose default member is a property that
+ * holds an object, as a Paragraph's Range does: its name and type. Read whole
+ * into a Variant it gives that object's value, but the VBE refuses a Let to it
+ * ("Invalid use of property"), an operator on it and a Let of it into a typed
+ * value ("Type mismatch") while compiling (issue #462, measured in Word 16.0).
+ */
+export function objectHoldingDefault(type: string | undefined, memberCtx: MemberCompletionContext): { name: string; returns: string } | undefined {
+	const resolved = resolveHostAlias(type ?? '', memberCtx.model) ?? type ?? '';
+	const found = HOST_DEFAULT_MEMBERS[resolved];
+	return found && found.kind === 'property' && found.required === 0 && HOST_DEFAULT_MEMBERS[found.returns]
+		? { name: found.name, returns: found.returns }
+		: undefined;
+}
+
 /** A host type's default member (DISPID 0, `_Default` in the model), if any. */
 function hostDefaultMember(qualified: string, memberCtx: MemberCompletionContext): HostMember | undefined {
 	return getHostMembers(qualified, memberCtx.model).find((member) => member.name === '_Default');
@@ -3072,6 +3087,12 @@ export function objectValueNeedsIndex(type: string | undefined, memberCtx: Membe
 		return false;
 	}
 	const resolved = resolveHostAlias(type ?? '', memberCtx.model);
+	// Word's Paragraphs and Tables, PowerPoint's Slides: Item(Index) raises
+	// 450 read as a value (issue #462, measured in Word and PowerPoint 16.0).
+	const library = resolved ? HOST_DEFAULT_MEMBERS[resolved] : undefined;
+	if (library) {
+		return library.required > 0;
+	}
 	const defaultMember = resolved ? hostDefaultMember(resolved, memberCtx) : undefined;
 	if (!defaultMember) {
 		return false;

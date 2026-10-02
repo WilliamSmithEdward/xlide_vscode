@@ -57,6 +57,7 @@ import {
 	declaredTypeForSourceBinding,
 	type DeclaredValueShape,
 	incompatibilityReason,
+	objectHoldingDefault,
 	objectLetAssignmentVerdict,
 	inferArgumentType,
 	isKnownObjectAssignmentType,
@@ -430,6 +431,17 @@ export function checkAssignmentTypes(
 				// writes the Range's Value. What is reported is what the
 				// default member makes of it.
 				const verdict = objectLetAssignmentVerdict(expected, memberCtx);
+				// `x = 5` on a Word Paragraph: its default member Range holds an
+				// object, which a Let cannot write (issue #462, measured in Word 16.0).
+				const holding = verdict === 'lets' ? objectHoldingDefault(expected, memberCtx) : undefined;
+				if (holding) {
+					push(
+						'invalidPropertyUse',
+						`Assignment to '${assignment.name}' reaches the default member ${holding.name} of ${expected}, which holds an object (${holding.returns}), so a Let cannot write it. This is a VBE compile error: Invalid use of property.`,
+						assignment.span,
+					);
+					return;
+				}
 				// A class whose default member is a Property Get with no Let:
 				// `c = 5` does not compile (issue #256, measured in Excel 16.0).
 				const readOnlyDefault = verdict === 'lets' ? readOnlyProjectDefault(expected, memberCtx) : undefined;
