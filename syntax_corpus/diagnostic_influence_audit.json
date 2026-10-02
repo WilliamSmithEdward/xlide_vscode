@@ -474,7 +474,8 @@
         "issue246_14_runtime",
         "issue246_15_runtime",
         "issue266_48_runtime",
-        "issue266_50_runtime"
+        "issue266_50_runtime",
+        "issue404_13_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
@@ -777,11 +778,19 @@
         "issue246_06_runtime",
         "issue246_19_runtime",
         "issue356_12_runtime",
-        "issue356_14_runtime"
+        "issue356_14_runtime",
+        "issue404_01_runtime",
+        "issue404_02_runtime",
+        "issue404_03_runtime",
+        "issue404_04_runtime",
+        "issue404_05_runtime",
+        "issue404_06_runtime",
+        "issue404_07_runtime",
+        "issue404_15_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
-      "notes": "Only known object variable, Function/Property Get return-name, and member targets with deterministic RHS types are flagged. RHS inference includes bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, proven source-backed/host member return expressions, verified VBA runtime/generated host constants, and verified host globals such as Application, ActiveSheet, and ActiveCell when no source binding shadows the external name. Host collection property calls with arguments, such as Worksheet.ListObjects(\"Tests\"), use the collection default Item return type only when metadata proves the returned collection exposes Item and the property itself has no parameter signature. A scalar value is set-requires-object, a compile error. Same project class, Nothing, generic Object, Variant/unknown types, local shadows, ambiguous exported globals, unknown module qualifiers, and explicit Implements compatibility remain accepted. Issue #246: the class an Object or Variant local holds, from Set x = New C or from another such local, is checked when it is Set into a typed variable; and For Each over a Collection whose items were added as New C Sets each into the control variable, raising 13 at an item of another class (measured in Excel 16.0, build 20326, issue246_* oracle cases). Issue #356: a For Each whose body may leave the loop (Exit For, Exit Function, GoTo, End) is judged on its first item only.",
+      "notes": "Only known object variable, Function/Property Get return-name, and member targets with deterministic RHS types are flagged. RHS inference includes bare local/module/unique-exported value declarations resolved through the shared expression resolver, module-qualified source-backed value reads such as ModuleName.ValueName, zero-argument Function/Property Get value references, proven source-backed/host member return expressions, verified VBA runtime/generated host constants, and verified host globals such as Application, ActiveSheet, and ActiveCell when no source binding shadows the external name. Host collection property calls with arguments, such as Worksheet.ListObjects(\"Tests\"), use the collection default Item return type only when metadata proves the returned collection exposes Item and the property itself has no parameter signature. A scalar value is set-requires-object, a compile error. Same project class, Nothing, generic Object, Variant/unknown types, local shadows, ambiguous exported globals, unknown module qualifiers, and explicit Implements compatibility remain accepted. Issue #246: the class an Object or Variant local holds, from Set x = New C or from another such local, is checked when it is Set into a typed variable; and For Each over a Collection whose items were added as New C Sets each into the control variable, raising 13 at an item of another class (measured in Excel 16.0, build 20326, issue246_* oracle cases). Issue #356: a For Each whose body may leave the loop (Exit For, Exit Function, GoTo, End) is judged on its first item only. Issue #404: Excel's Worksheets and Charts properties, bare, on Application, ThisWorkbook or ActiveWorkbook, or given an Array of names, return a Sheets object, so Set into a variable As Worksheets or As Charts raises 13; As Sheets runs.",
       "diagnosticKind": "deterministic-runtime-error"
     },
     {
