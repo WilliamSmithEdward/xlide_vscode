@@ -37,6 +37,7 @@ import type { VbaToken } from '../../lexer/tokenKinds';
 import type { BodyNode, LeafStatementNode, ModuleNode, ProcedureNode, Span } from '../../parser/nodes';
 import { isLeafStatement } from '../../parser/nodes';
 import type { PushFn } from '../analysisContext';
+import { straightLineUnreachable } from '../straightLineValues';
 import {
 	activeModuleMembers,
 	bareAssignmentTarget,
@@ -234,6 +235,9 @@ function checkResumeWithoutError(
 ): void {
 	const resumes: Span[] = [];
 	let installsHandler = false;
+	// A handler below Exit Function that nothing jumps to never runs, as when
+	// its On Error line is commented out (issue #421, measured in Excel 16.0).
+	let dead: ReadonlySet<BodyNode> | undefined;
 	const visit = (body: readonly BodyNode[]): void => {
 		for (const node of body) {
 			if (activity?.isInactive(node.span)) {
@@ -259,7 +263,7 @@ function checkResumeWithoutError(
 						installsHandler = true;
 					}
 				}
-				if (head === 'resume') {
+				if (head === 'resume' && !(dead ??= straightLineUnreachable(source, proc.body, activity)).has(node)) {
 					resumes.push({ start: span.start + toks[0].start, end: span.start + toks[0].end });
 				}
 			}

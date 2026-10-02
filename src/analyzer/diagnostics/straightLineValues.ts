@@ -22,7 +22,7 @@ import type { VbaToken } from '../lexer/tokenKinds';
 import type { ConditionalActivityTracker } from '../conditional/conditionalCompilation';
 import type { BodyNode, IfBlockNode, LeafStatementNode, Span } from '../parser/nodes';
 import { isLeafStatement } from '../parser/nodes';
-import { statementLabelDeclaration } from '../flow/procedureLabels';
+import { statementLabelDeclaration, statementLabelReferences } from '../flow/procedureLabels';
 import { parseVbaIntegerLiteral } from '../constants/integerConstantExpression';
 import { leavesTheList, trackedLocalsNamedWhole } from './dataflow';
 import { isLoopBlock, selectArms } from './blockHeaders';
@@ -107,7 +107,7 @@ function cachedWalk(
 	const dead = new Set<BodyNode>();
 	// Under On Error Resume Next, Err.Raise goes on to the next line.
 	const text = body.length > 0 ? source.slice(body[0].span.start, body[body.length - 1].span.end) : '';
-	walkList(source, body, initial, activity, { out, dead, raiseLeaves: !/\bon\s+error\s+resume\s+next\b/i.test(text) });
+	walkList(source, body, initial, activity, { out, dead, raiseLeaves: !/\bon\s+error\s+resume\s+next\b/i.test(text), referenced: referencedLabels(source, body, activity) });
 	const walk: CachedWalk = { source, activity, result: out, dead };
 	byStart.set(key, walk);
 	return walk;
@@ -126,6 +126,8 @@ interface WalkOut {
 	dead: Set<BodyNode>;
 	/** Whether Err.Raise leaves the list: not when the procedure resumes past errors. */
 	raiseLeaves: boolean;
+	/** The keys of the labels some GoTo, GoSub, Resume or On ... GoTo names. */
+	referenced: ReadonlySet<string>;
 }
 
 /** The end of a statement list no path reaches. */
@@ -155,7 +157,10 @@ function walkList(
 		if (isInactiveNode(activity, node) || node.kind === 'VariableGroup' || node.kind === 'ConditionalDirective') {
 			continue;
 		}
-		if (isLeafStatement(node) && statementLabelDeclaration(source, node.span)) {
+		// A label a jump may reach starts over; one nothing names, as when
+		// `On Error GoTo EH` is commented out, leaves dead code dead (issue #421).
+		const label = isLeafStatement(node) ? statementLabelDeclaration(source, node.span) : undefined;
+		if (label && (current !== UNREACHED || walk.referenced.has(label.key))) {
 			current = NONE;
 		}
 		if (current === UNREACHED) {
@@ -369,6 +374,27 @@ function loopRunsNoPass(source: string, node: BodyNode, entry: ReachingAssignmen
 	const condition = toks.slice(node.kind === 'DoBlock' ? 2 : 1);
 	const value = condition.length > 0 ? conditionValue(condition, facts) : undefined;
 	return value === (head === 'until') ? {} : undefined;
+}
+
+/** The keys of every label a statement of the body jumps to or resumes at. */
+function referencedLabels(source: string, body: readonly BodyNode[], activity: ConditionalActivityTracker | undefined): Set<string> {
+	const out = new Set<string>();
+	const visit = (list: readonly BodyNode[]): void => {
+		for (const node of list) {
+			if (isInactiveNode(activity, node)) {
+				continue;
+			}
+			if (isLeafStatement(node)) {
+				for (const ref of statementLabelReferences(source, node.span)) {
+					out.add(ref.key);
+				}
+			} else if ('body' in node && Array.isArray(node.body)) {
+				visit(node.body as BodyNode[]);
+			}
+		}
+	};
+	visit(body);
+	return out;
 }
 
 function signedInteger(toks: readonly VbaToken[]): number | undefined {
