@@ -75384,6 +75384,226 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim n As Long, d As Double, s As String\r\n    s = \"2\"\r\n    On s GoTo L1, L2\r\n    Main = 9\r\n    Exit Function\r\nL1:\r\n    Main = 1\r\n    Exit Function\r\nL2:\r\n    Main = 2\r\n    Exit Function\r\nS1:\r\n    Main = 7\r\n    Return\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue508_01_runtime",
+      "description": "Issue #508 chains of Range members off the sheet, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ActiveSheet.Range(\"A1\").Offset(2).Offset(-4, 0).Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue508_02_runtime",
+      "description": "Issue #508 chains of Range members off the sheet, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ActiveSheet.Range(\"B2:C2\").Offset(0, -2).Offset(0, -3).Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue508_03_runtime",
+      "description": "Issue #508 chains of Range members off the sheet, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ActiveSheet.Range(\"A1048576\").Offset(0, 4).Offset(2, 0).Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue508_04_runtime",
+      "description": "Issue #508 chains of Range members off the sheet, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ActiveSheet.Range(\"A1:A3\").Offset(-2).Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue508_05_runtime",
+      "description": "Issue #508 chains of Range members off the sheet, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ActiveSheet.Range(\"XFC1048575:XFD1048576\").Resize(6).Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue508_06_runtime",
+      "description": "Issue #508 chains of Range members off the sheet, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ActiveSheet.Range(\"XFC1048575:XFD1048576\").Resize(3, 4).Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue508_07_runtime",
+      "description": "Issue #508 chains of Range members off the sheet, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ActiveSheet.Range(\"XFC1048575:XFD1048576\").Cells(3, 5).Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue508_08_runtime",
+      "description": "Issue #508 chains of Range members off the sheet, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ActiveSheet.Range(\"XFC1048575:XFD1048576\").Item(5).Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue508_09_runtime",
+      "description": "Issue #508 chains of Range members off the sheet, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ActiveSheet.Range(\"A1048576\").Item(6).Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue508_10_runtime",
+      "description": "Issue #508 chains of Range members off the sheet, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ActiveSheet.Range(\"A1\").EntireRow.Offset(1, 5).Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue508_11_runtime",
+      "description": "Issue #508 chains of Range members off the sheet, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ActiveSheet.Range(\"A1\").Columns(2).EntireColumn.Offset(1).Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue508_12_runtime",
+      "description": "Issue #508 chains of Range members off the sheet, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ActiveSheet.Range(\"XFD1\").EntireColumn.Resize(2, 3).Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue508_13_runtime",
+      "description": "Issue #508 chains of Range members off the sheet, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 1004.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ActiveSheet.Range(\"A1\").EntireColumn.Columns(-1).Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue508_14_runtime",
+      "description": "Issue #508 chains of Range members off the sheet, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> $A$1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ActiveSheet.Range(\"A1\").Offset(2).Offset(-2, 0).Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue508_15_runtime",
+      "description": "Issue #508 chains of Range members off the sheet, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> $A$1:$B$2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ActiveSheet.Range(\"A2:B3\").Offset(-1, 0).Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue508_16_runtime",
+      "description": "Issue #508 chains of Range members off the sheet, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> $2:$2.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ActiveSheet.Range(\"A1\").EntireRow.Offset(1, 0).Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue508_17_runtime",
+      "description": "Issue #508 chains of Range members off the sheet, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> $B:$B.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ActiveSheet.Range(\"A1\").EntireColumn.Offset(0, 1).Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue508_18_runtime",
+      "description": "Issue #508 chains of Range members off the sheet, case 18, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> $XFD$1048576.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ActiveSheet.Range(\"XFC1048575:XFD1048576\").Item(4).Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue508_19_runtime",
+      "description": "Issue #508 chains of Range members off the sheet, case 19, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> $B$2:$C$4.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ActiveSheet.Range(\"A1:B2\").Resize(3).Offset(1, 1).Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue508_20_runtime",
+      "description": "Issue #508 chains of Range members off the sheet, case 20, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> $A$1.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = ActiveSheet.Range(\"B2\").Cells(0, 0).Address\r\nEnd Function\r\n\r\n",
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

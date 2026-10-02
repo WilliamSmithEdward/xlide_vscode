@@ -580,6 +580,25 @@ function checkExcelCallee(
 	// receiver starts at A1 or below, so the count alone past the edge is
 	// already off the sheet (issue #182).
 	const origin = singleCellReceiver(toks, callee.nameIndex - 1);
+	// A chain from a literal range, or a block of several cells: each step
+	// moves or resizes the block, and one that leaves the sheet raises 1004
+	// (issue #508, measured in Excel 16.0). One step from one literal cell
+	// is the checks below.
+	const oneStep = origin !== undefined && lower !== 'item';
+	if (callee.receiver === 'Excel.Range' && CHAIN_MEMBERS.has(lower) && !oneStep) {
+		const block = rangeChainReceiver(toks, callee.nameIndex - 1, valueOf);
+		const next = block ? chainStep(block, lower, callee.args, valueOf) : undefined;
+		if (block && next && offSheet(next)) {
+			const rows = next.rows === 1 ? `row ${next.row}` : `rows ${next.row} to ${next.row + next.rows - 1}`;
+			const columns = next.width === 1 ? `column ${next.column}` : `columns ${next.column} to ${next.column + next.width - 1}`;
+			push(
+				'hostArgumentOutOfRange',
+				`${callee.name}(${callee.args.map((arg) => (arg.length === 0 ? '' : valueOf(arg) ?? '...')).join(', ')}) on ${block.text} reaches ${rows}, ${columns}, off the sheet. This will raise Run-time error '1004': Application-defined or object-defined error.`,
+				argsSpan,
+			);
+			return;
+		}
+	}
 	// On a range, 0 and below reach above or left of it, and are judged
 	// only on a range the code spells out (issue #275).
 	if (callee.receiver === 'Excel.Range' && RANGE_RELATIVE_MEMBERS.has(lower) && checkBeforeRange(span, toks, callee, valueOf, push)) {
@@ -940,6 +959,128 @@ function cellsCall(arg: readonly VbaToken[], valueOf: (arg: readonly VbaToken[])
 	const row = args.length === 2 ? valueOf(args[0]) : undefined;
 	const column = args.length === 2 ? valueOf(args[1]) : undefined;
 	return row !== undefined && column !== undefined && row >= 1 && column >= 1 ? { row, column } : undefined;
+}
+
+/** A block of cells: its top-left row and column and its size. */
+interface CellBlock {
+	row: number;
+	column: number;
+	rows: number;
+	width: number;
+	/** The expression that names it, as written. */
+	text: string;
+}
+
+/** The Range members a chain follows (issue #508). */
+const CHAIN_MEMBERS: ReadonlySet<string> = new Set(['offset', 'resize', 'cells', 'item', 'rows', 'columns', 'entirerow', 'entirecolumn']);
+
+/**
+ * The block of cells the Range expression before the dot at `dotIndex`
+ * names, followed through Offset, Resize, Cells, Item, Rows, Columns,
+ * EntireRow and EntireColumn from a literal `Range("B2:C3")` (issue #508,
+ * measured in Excel 16.0). Undefined where any step is not known, and
+ * where a step already lands off the sheet, which that step reports.
+ */
+function rangeChainReceiver(
+	toks: readonly VbaToken[],
+	dotIndex: number,
+	valueOf: (arg: readonly VbaToken[]) => number | undefined,
+): CellBlock | undefined {
+	if (toks[dotIndex]?.rawText !== '.') {
+		return undefined;
+	}
+	const last = toks[dotIndex - 1];
+	const word = tokenText(last);
+	if ((word === 'entirerow' || word === 'entirecolumn') && toks[dotIndex - 2]?.rawText === '.') {
+		const inner = rangeChainReceiver(toks, dotIndex - 2, valueOf);
+		if (!inner) {
+			return undefined;
+		}
+		const text = `${inner.text}.${last.rawText}`;
+		return word === 'entirerow'
+			? { row: inner.row, column: 1, rows: inner.rows, width: EXCEL_MAX_COLUMN, text }
+			: { row: 1, column: inner.column, rows: EXCEL_MAX_ROW, width: inner.width, text };
+	}
+	if (last?.rawText !== ')') {
+		return undefined;
+	}
+	const close = dotIndex - 1;
+	const open = toks.findIndex((tok, k) => tok.rawText === '(' && matchParenFrom(toks, k) === close);
+	const name = tokenText(toks[open - 1]);
+	if (open < 1) {
+		return undefined;
+	}
+	if (name === 'range') {
+		// A Range on a range counts from that range: not followed.
+		if (toks[open - 2]?.rawText === '.' && rangeChainReceiver(toks, open - 2, valueOf)) {
+			return undefined;
+		}
+		const block = literalRangeReceiver(toks, dotIndex);
+		return block ? { ...block } : undefined;
+	}
+	if (!CHAIN_MEMBERS.has(name) || toks[open - 2]?.rawText !== '.') {
+		return undefined;
+	}
+	const inner = rangeChainReceiver(toks, open - 2, valueOf);
+	if (!inner) {
+		return undefined;
+	}
+	const args = close > open + 1 ? splitTopLevelTokenGroups(toks, open + 1, ',', close) : [];
+	const next = chainStep(inner, name, args, valueOf);
+	if (!next || offSheet(next)) {
+		return undefined;
+	}
+	return { ...next, text: `${inner.text}.${toks.slice(open - 1, close + 1).map((tok) => tok.rawText).join('')}` };
+}
+
+/** One member applied to a block: the block it names, or undefined where an argument is not known. */
+function chainStep(
+	block: CellBlock,
+	name: string,
+	args: readonly VbaToken[][],
+	valueOf: (arg: readonly VbaToken[]) => number | undefined,
+): Omit<CellBlock, 'text'> | undefined {
+	const value = (k: number, missing: number): number | undefined => (args[k] === undefined || args[k].length === 0 ? missing : valueOf(args[k]));
+	switch (name) {
+		case 'offset': {
+			const rows = value(0, 0);
+			const columns = value(1, 0);
+			return rows === undefined || columns === undefined ? undefined : { ...block, row: block.row + rows, column: block.column + columns };
+		}
+		case 'resize': {
+			const rows = value(0, block.rows);
+			const width = value(1, block.width);
+			return rows === undefined || width === undefined || rows < 1 || width < 1 ? undefined : { ...block, rows, width };
+		}
+		case 'cells':
+		case 'item': {
+			if (args.length === 2) {
+				const row = value(0, 1);
+				const column = value(1, 1);
+				return row === undefined || column === undefined ? undefined : { row: block.row + row - 1, column: block.column + column - 1, rows: 1, width: 1 };
+			}
+			const index = args.length === 1 ? value(0, 1) : undefined;
+			if (index === undefined) {
+				return undefined;
+			}
+			const k = index - 1;
+			return { row: block.row + Math.trunc(k / block.width), column: block.column + (k % block.width), rows: 1, width: 1 };
+		}
+		case 'rows': {
+			const index = args.length === 1 ? value(0, 1) : undefined;
+			return index === undefined ? undefined : { ...block, row: block.row + index - 1, rows: 1 };
+		}
+		case 'columns': {
+			const index = args.length === 1 ? value(0, 1) : undefined;
+			return index === undefined ? undefined : { ...block, column: block.column + index - 1, width: 1 };
+		}
+	}
+	return undefined;
+}
+
+/** Whether any cell of the block is off the sheet. */
+function offSheet(block: Omit<CellBlock, 'text'>): boolean {
+	return block.row < 1 || block.column < 1 || block.row + block.rows - 1 > EXCEL_MAX_ROW || block.column + block.width - 1 > EXCEL_MAX_COLUMN;
 }
 
 /** The literal `Range("B2:C3")` before the dot at `dotIndex`: its top-left cell and its size. */
