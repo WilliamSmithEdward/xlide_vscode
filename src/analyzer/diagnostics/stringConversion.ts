@@ -139,6 +139,11 @@ export function isInvalidDateString(text: string): boolean {
 		const [year, a, b] = iso.slice(1).map(Number);
 		return year >= 100 && !isCalendarDay(year, a, b) && !isCalendarDay(year, b, a);
 	}
+	// A year past 9999 no locale reads: "1/1/10000" (issue #444, measured in
+	// Excel 16.0).
+	if (/[/.-]/.test(trimmed) && (trimmed.match(/\d+/g) ?? []).some((run) => Number(run) > 9999)) {
+		return true;
+	}
 	// Dates use letters (month names, AM and PM), digits and these separators.
 	return /[^\p{L}\p{N} \t.,/:'-]/u.test(trimmed);
 }
