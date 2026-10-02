@@ -41,7 +41,7 @@ import { counterText, loopCountersAt, numericCounterPasses, type CounterValue, t
 import { procedureHasUnstructuredFlow } from '../../flow/procedureUnstructured';
 import { untouchedModuleVariablesIn } from '../moduleState';
 import { isBareOrVbaQualifiedIntrinsicCall, sourceExpressionSyntaxProblem } from '../rules/shared';
-import { moduleCompare, type ModuleCompare } from '../knownStringCalls';
+import { foldStringExpression, moduleCompare, type ModuleCompare } from '../knownStringCalls';
 import {
 	declarationShapeEnvironmentFor,
 	declaredShapeForSourceBinding,
@@ -2259,7 +2259,11 @@ function caselessIndexOf(text: string, needle: string, from: number): number | u
 /** A string literal, or a name `strings` knows, as an argument. */
 function stringArgument(arg: readonly VbaToken[], strings: StringValueOf | undefined): string | undefined {
 	if (arg.length !== 1) {
-		return undefined;
+		// `Split(LCase("a,b"), ",")`, `Split("ab" & "c", ",")` (issue #509).
+		return foldStringExpression(arg, {
+			nameValue: (tok) => (tok.kind === 'identifier' ? strings?.(tok) : undefined),
+			integerValue: (toks) => signedIntegerArgument(toks.filter((tok) => tok.kind !== 'comment')),
+		});
 	}
 	if (arg[0].kind === 'stringLiteral') {
 		return stringLiteralValue(arg[0].rawText);

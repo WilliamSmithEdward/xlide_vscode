@@ -115,6 +115,11 @@ function inStr(args: VbaToken[][], ctx: KnownStringCallContext): number | undefi
 		return undefined;
 	}
 	return decided(s1, s2, text, (a, b) => {
+		// An empty s1 gives 0, whatever s2 is: InStr("", "") is 0 (issue
+		// #509, measured in Excel 16.0).
+		if (a.length === 0) {
+			return 0;
+		}
 		// An empty s2 is found at start, even past the end: InStr(5, "abc", "") is 5.
 		if (b.length === 0) {
 			return start;
@@ -173,15 +178,118 @@ function compareMode(arg: VbaToken[] | undefined, ctx: KnownStringCallContext): 
 }
 
 function knownString(arg: readonly VbaToken[], ctx: KnownStringCallContext): string | undefined {
-	const toks = arg.filter((tok) => tok.kind !== 'comment');
-	if (toks.length !== 1) {
+	return foldStringExpression(arg, {
+		nameValue: (tok) => ctx.knownStrings.get(tokenName(tok)?.toLowerCase() ?? ''),
+		integerValue: (toks) => wholeNumber(toks, ctx),
+		shadowed: ctx.shadowed,
+	});
+}
+
+/** What a string expression is folded with. */
+export interface StringFoldContext {
+	/** A String local's known value, by lowercased name. */
+	nameValue: (tok: VbaToken) => string | undefined;
+	/** A whole-number argument's value. */
+	integerValue: (toks: readonly VbaToken[]) => number | undefined;
+	/** Whether the project declares a procedure of this name, hiding VBA's. */
+	shadowed?: (name: string) => boolean;
+}
+
+/** The VBA string functions the folder runs, each with or without its `$`. */
+const STRING_FUNCTIONS: ReadonlySet<string> = new Set(['left', 'right', 'mid', 'lcase', 'ucase', 'strreverse', 'trim', 'ltrim', 'rtrim', 'space', 'string', 'replace']);
+
+/**
+ * The text a string expression gives, where every part is known: literals,
+ * String locals known to hold one, `&` between them, and Left, Right, Mid,
+ * LCase, UCase, StrReverse, Trim, LTrim, RTrim, Space, String and Replace of
+ * known arguments (issue #509). Undefined for anything else, and for a call
+ * that would raise.
+ */
+export function foldStringExpression(arg: readonly VbaToken[], ctx: StringFoldContext): string | undefined {
+	let toks = arg.filter((tok) => tok.kind !== 'comment');
+	while (toks.length > 2 && toks[0].rawText === '(' && matchParenFrom(toks, 0) === toks.length - 1) {
+		toks = toks.slice(1, -1);
+	}
+	if (toks.length === 0) {
 		return undefined;
 	}
-	if (toks[0].kind === 'stringLiteral') {
-		return stringLiteralValue(toks[0].rawText);
+	const parts = splitTopLevelTokenGroups(toks, 0, '&', toks.length);
+	if (parts.length > 1) {
+		const texts = parts.map((part) => foldStringExpression(part, ctx));
+		return texts.every((text) => text !== undefined) ? texts.join('') : undefined;
 	}
-	const name = tokenName(toks[0])?.toLowerCase();
-	return name === undefined ? undefined : ctx.knownStrings.get(name);
+	if (toks.length === 1) {
+		if (toks[0].kind === 'stringLiteral') {
+			return stringLiteralValue(toks[0].rawText);
+		}
+		const name = tokenName(toks[0])?.toLowerCase();
+		return name === undefined || toks[0].kind === 'keyword' ? (tokenText(toks[0]) === 'vbnullstring' ? '' : undefined) : ctx.nameValue(toks[0]);
+	}
+	// `Mid$(s, 1)` lexes as Mid, a `$` and the arguments.
+	let at = tokenText(toks[0]) === 'vba' && toks[1]?.rawText === '.' ? 2 : 0;
+	const name = tokenText(toks[at]);
+	at += toks[at + 1]?.rawText === '$' ? 1 : 0;
+	if (!STRING_FUNCTIONS.has(name) || toks[at + 1]?.rawText !== '(' || matchParenFrom(toks, at + 1) !== toks.length - 1 || ctx.shadowed?.(name)) {
+		return undefined;
+	}
+	const args = splitTopLevelTokenGroups(toks, at + 2, ',', toks.length - 1);
+	const text = (k: number): string | undefined => (args[k] ? foldStringExpression(args[k], ctx) : undefined);
+	const whole = (k: number): number | undefined => (args[k] && args[k].length > 0 ? ctx.integerValue(args[k]) : undefined);
+	switch (name) {
+		case 'left':
+		case 'right': {
+			const s = text(0);
+			const n = whole(1);
+			if (args.length !== 2 || s === undefined || n === undefined || n < 0) {
+				return undefined;
+			}
+			return name === 'left' ? s.slice(0, n) : s.slice(Math.max(0, s.length - n));
+		}
+		case 'mid': {
+			const s = text(0);
+			const start = whole(1);
+			const length = args.length === 3 ? whole(2) : s?.length;
+			if (args.length < 2 || args.length > 3 || s === undefined || start === undefined || length === undefined || start < 1 || length < 0) {
+				return undefined;
+			}
+			return s.slice(start - 1, start - 1 + length);
+		}
+		case 'lcase':
+		case 'ucase':
+		case 'strreverse':
+		case 'trim':
+		case 'ltrim':
+		case 'rtrim': {
+			const s = args.length === 1 ? text(0) : undefined;
+			if (s === undefined || (!/^[\x00-\x7f]*$/.test(s) && (name === 'lcase' || name === 'ucase'))) {
+				return undefined;
+			}
+			return name === 'lcase' ? s.toLowerCase()
+				: name === 'ucase' ? s.toUpperCase()
+				: name === 'strreverse' ? [...s].reverse().join('')
+				: name === 'trim' ? s.replace(/^ +| +$/g, '')
+				: name === 'ltrim' ? s.replace(/^ +/, '')
+				: s.replace(/ +$/, '');
+		}
+		case 'space': {
+			const n = args.length === 1 ? whole(0) : undefined;
+			return n === undefined || n < 0 || n > 65535 ? undefined : ' '.repeat(n);
+		}
+		case 'string': {
+			const n = whole(0);
+			const c = text(1);
+			return args.length !== 2 || n === undefined || n < 0 || n > 65535 || !c ? undefined : c[0].repeat(n);
+		}
+		case 'replace': {
+			const [s, find, by] = [text(0), text(1), text(2)];
+			if (args.length !== 3 || s === undefined || find === undefined || by === undefined) {
+				return undefined;
+			}
+			// A letter in find matches by Option Compare, which this does not read.
+			return /[A-Za-z]/.test(find) ? undefined : find.length === 0 ? s : s.split(find).join(by);
+		}
+	}
+	return undefined;
 }
 
 /** A whole-number argument, itself folded first: `InStr(InStr(s, "X") + 1, s, "X")`. */
