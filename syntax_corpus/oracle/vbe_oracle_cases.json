@@ -89732,6 +89732,190 @@
       "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Main = CDate(295846600)\r\nEnd Function\r\n\r\n",
       "evidencePhase": "runtime",
       "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue594_01_runtime",
+      "description": "Issue #594 a late-bound call taking a Range, then a member, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function MakeK() As Object\r\n    Set MakeK = New K1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim k As Object\r\n    Set k = MakeK()\r\n    Main = k.Wrap(ActiveSheet.Range(\"A1\")).Caption\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Wrap(ByVal r As Range) As K1\r\n    Set Wrap = Me\r\nEnd Function\r\nPublic Function Pair(ByVal x As Variant, ByVal r As Range) As K1\r\n    Set Pair = Me\r\nEnd Function\r\nPublic Property Get Caption() As String\r\n    Caption = \"ok\"\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue594_02_runtime",
+      "description": "Issue #594 a late-bound call taking a Range, then a member, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function MakeK() As Object\r\n    Set MakeK = New K1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim k As Variant\r\n    Set k = MakeK()\r\n    Main = k.Wrap(ActiveSheet.Range(\"A1\")).Caption\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Wrap(ByVal r As Range) As K1\r\n    Set Wrap = Me\r\nEnd Function\r\nPublic Function Pair(ByVal x As Variant, ByVal r As Range) As K1\r\n    Set Pair = Me\r\nEnd Function\r\nPublic Property Get Caption() As String\r\n    Caption = \"ok\"\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue594_03_runtime",
+      "description": "Issue #594 a late-bound call taking a Range, then a member, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function MakeK() As Object\r\n    Set MakeK = New K1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim k As Object\r\n    Set k = MakeK()\r\n    Main = k.Wrap(ActiveSheet.Range(\"A1\")) _\r\n        .Caption\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Wrap(ByVal r As Range) As K1\r\n    Set Wrap = Me\r\nEnd Function\r\nPublic Function Pair(ByVal x As Variant, ByVal r As Range) As K1\r\n    Set Pair = Me\r\nEnd Function\r\nPublic Property Get Caption() As String\r\n    Caption = \"ok\"\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue594_04_runtime",
+      "description": "Issue #594 a late-bound call taking a Range, then a member, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function MakeK() As Object\r\n    Set MakeK = New K1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim k As Object\r\n    Set k = MakeK()\r\n    Main = k.Pair(1, ActiveSheet.Range(\"A1\")).Caption\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Wrap(ByVal r As Range) As K1\r\n    Set Wrap = Me\r\nEnd Function\r\nPublic Function Pair(ByVal x As Variant, ByVal r As Range) As K1\r\n    Set Pair = Me\r\nEnd Function\r\nPublic Property Get Caption() As String\r\n    Caption = \"ok\"\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue594_05_runtime",
+      "description": "Issue #594 a late-bound call taking a Range, then a member, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function MakeK() As Object\r\n    Set MakeK = New K1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim k As Object\r\n    Set k = MakeK()\r\n    Main = k.Wrap(Range(\"A1\")).Caption\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Wrap(ByVal r As Range) As K1\r\n    Set Wrap = Me\r\nEnd Function\r\nPublic Function Pair(ByVal x As Variant, ByVal r As Range) As K1\r\n    Set Pair = Me\r\nEnd Function\r\nPublic Property Get Caption() As String\r\n    Caption = \"ok\"\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue594_06_runtime",
+      "description": "Issue #594 a late-bound call taking a Range, then a member, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function MakeK() As Object\r\n    Set MakeK = New K1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim k As Object\r\n    Set k = MakeK()\r\n    Main = k.Wrap(Cells(1, 1)).Caption\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Wrap(ByVal r As Range) As K1\r\n    Set Wrap = Me\r\nEnd Function\r\nPublic Function Pair(ByVal x As Variant, ByVal r As Range) As K1\r\n    Set Pair = Me\r\nEnd Function\r\nPublic Property Get Caption() As String\r\n    Caption = \"ok\"\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
+    },
+    {
+      "id": "issue594_07_runtime",
+      "description": "Issue #594 a late-bound call taking a Range, then a member, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: raise 438.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function MakeK() As Object\r\n    Set MakeK = New K1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim r As Range\r\n    Set r = Range(\"A1\")\r\n    Main = r.Offset(1).Nope\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Wrap(ByVal r As Range) As K1\r\n    Set Wrap = Me\r\nEnd Function\r\nPublic Function Pair(ByVal x As Variant, ByVal r As Range) As K1\r\n    Set Pair = Me\r\nEnd Function\r\nPublic Property Get Caption() As String\r\n    Caption = \"ok\"\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-error"
+    },
+    {
+      "id": "issue594_08_runtime",
+      "description": "Issue #594 a late-bound call taking a Range, then a member, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: run -> ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "run",
+      "entryPoint": "Main",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nPrivate Function MakeK() As Object\r\n    Set MakeK = New K1\r\nEnd Function\r\nFunction Main() As Variant\r\n    Dim k As K1\r\n    Set k = New K1\r\n    Main = k.Wrap(Range(\"A1\")).Caption\r\n    If IsEmpty(Main) Then Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "K1",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function Wrap(ByVal r As Range) As K1\r\n    Set Wrap = Me\r\nEnd Function\r\nPublic Function Pair(ByVal x As Variant, ByVal r As Range) As K1\r\n    Set Pair = Me\r\nEnd Function\r\nPublic Property Get Caption() As String\r\n    Caption = \"ok\"\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "runtime",
+      "diagnosticMeaning": "runtime-valid"
     }
   ]
 }

@@ -6641,7 +6641,8 @@
         "issue305_10_runtime",
         "issue305_12_runtime",
         "issue306_05_runtime",
-        "issue306_06_runtime"
+        "issue306_06_runtime",
+        "issue594_07_runtime"
       ],
       "observeOnlyOracleCases": [],
       "pendingLegacyCorpusFiles": [],
