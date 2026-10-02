@@ -552,6 +552,12 @@ class TypedFolder {
 				}
 				return this.convert(callee, read, this.span(start, close), argument[0].rawText);
 			}
+			// `CInt(s)` with s a String local known to hold "40000" (issue
+			// #407): the lookup answers a `"` key with the number it spells.
+			const held = argument.length === 1 && tokenName(argument[0]) ? this.names(`"${tokenName(argument[0])!.toLowerCase()}`) : undefined;
+			if (held && callee !== 'val') {
+				return this.convert(callee, held, this.span(start, close), argument[0].rawText);
+			}
 			if (callee === 'val') {
 				return undefined;
 			}
@@ -560,6 +566,15 @@ class TypedFolder {
 				return inner;
 			}
 			return this.convert(callee, inner, this.span(start, close));
+		}
+		if (this.toks[calleeIndex + 1]?.rawText === '(' && RESULT_FUNCTIONS.has(callee)) {
+			const close = matchParenFrom(this.toks, calleeIndex + 1);
+			const result = close < 0 ? undefined : this.functionResult(callee, splitTopLevelTokenGroups(this.toks, calleeIndex + 2, ',', close));
+			if (result !== undefined) {
+				this.index = close + 1;
+				return result;
+			}
+			return undefined;
 		}
 		if (this.toks[this.index + 1]?.rawText === '.') {
 			// `Rows.Count`: a two-part member the lookup may know as a constant.
@@ -631,6 +646,77 @@ class TypedFolder {
 		}
 		this.index = i;
 		return { value, type: 'long' };
+	}
+
+	/**
+	 * What a VBA function returns for arguments the folder can read (issue
+	 * #407, measured in Excel 16.0): Sgn is an Integer, -1, 0 or 1; Choose
+	 * and IIf give the argument they pick; Len of `String(n, c)` or of a
+	 * literal is a Long; Asc or AscW of a literal, and AscW of `ChrW(n)`, an
+	 * Integer. Undefined for anything else.
+	 */
+	private functionResult(callee: string, args: VbaToken[][]): Folded {
+		// Every argument is evaluated, the ones Choose and IIf do not pick
+		// too: an overflow in any of them raises (issue #258).
+		for (const arg of args) {
+			const folded = arg.length > 0 ? new TypedFolder(arg, this.base, this.names, this.divisionByZero).fold() : undefined;
+			if (isOverflow(folded)) {
+				return folded;
+			}
+		}
+		const fold = (toks: VbaToken[] | undefined): Typed | undefined => {
+			const folded = toks && toks.length > 0 ? new TypedFolder(toks, this.base, this.names, this.divisionByZero).fold() : undefined;
+			return folded && !isOverflow(folded) ? folded : undefined;
+		};
+		const call = (toks: VbaToken[] | undefined, name: string): VbaToken[][] | undefined => {
+			const head = toks && toks.length >= 3 ? tokenText(toks[0]) : '';
+			const open = toks?.[1]?.rawText === '$' ? 2 : 1;
+			return toks && head === name && toks[open]?.rawText === '(' && matchParenFrom(toks, open) === toks.length - 1
+				? splitTopLevelTokenGroups(toks, open + 1, ',', toks.length - 1) : undefined;
+		};
+		switch (callee) {
+			case 'sgn': {
+				const value = args.length === 1 ? fold(args[0]) : undefined;
+				return value ? { value: Math.sign(value.value), type: 'integer' } : undefined;
+			}
+			case 'choose': {
+				const index = fold(args[0]);
+				const k = index ? Math.trunc(index.value) : undefined;
+				return k !== undefined && k >= 1 && k < args.length ? fold(args[k]) : undefined;
+			}
+			case 'iif': {
+				const word = args.length === 3 && args[0].length === 1 ? tokenText(args[0][0]) : '';
+				return word === 'true' ? fold(args[1]) : word === 'false' ? fold(args[2]) : undefined;
+			}
+			case 'len': {
+				const only = args.length === 1 ? args[0] : undefined;
+				if (only?.length === 1 && only[0].kind === 'stringLiteral') {
+					return { value: stringLiteralValue(only[0].rawText).length, type: 'long' };
+				}
+				const made = call(only, 'string');
+				const count = made?.length === 2 ? fold(made[0]) : undefined;
+				return count && Number.isInteger(count.value) && count.value >= 0 ? { value: count.value, type: 'long' } : undefined;
+			}
+			case 'asc':
+			case 'ascw': {
+				// `Asc("a")` is 97, an Integer (issue #351, measured in Excel 16.0).
+				const only = args.length === 1 ? args[0] : undefined;
+				if (only?.length === 1 && only[0].kind === 'stringLiteral') {
+					const text = stringLiteralValue(only[0].rawText);
+					return text.length > 0 && text.charCodeAt(0) < 128 ? { value: text.charCodeAt(0), type: 'integer' } : undefined;
+				}
+				if (callee === 'asc') {
+					return undefined;
+				}
+				const made = call(only, 'chrw');
+				const code = made?.length === 1 ? fold(made[0]) : undefined;
+				if (!code || !Number.isInteger(code.value) || code.value < -32768 || code.value > 65535) {
+					return undefined;
+				}
+				return { value: code.value > 32767 ? code.value - 65536 : code.value, type: 'integer' };
+			}
+		}
+		return undefined;
 	}
 
 	private convert(callee: string, inner: Typed, span: Span, shown = showNumber(inner.value)): Folded {
@@ -906,6 +992,9 @@ function showNumber(value: number): string {
 function article(label: string): string {
 	return /^[AEIOU]/.test(label) ? 'an' : 'a';
 }
+
+/** The VBA functions whose result the folder works out (issue #407). */
+const RESULT_FUNCTIONS: ReadonlySet<string> = new Set(['sgn', 'choose', 'iif', 'len', 'asc', 'ascw']);
 
 const CONVERSIONS: ReadonlyMap<string, NumericType | 'abs' | 'int' | 'fix' | 'exp' | 'hex' | 'oct' | 'decimal' | 'longptr'> = new Map([
 	['cbyte', 'byte'], ['cint', 'integer'], ['clng', 'long'], ['csng', 'single'], ['cdbl', 'double'],
@@ -1188,6 +1277,13 @@ export function checkOverflow(
 		// `i = 32767` followed by `i = i + 1`.
 		const justAssigned = new Map<string, Typed>();
 		const names: NameLookup = (lower) => {
+			// `"s`: the number a String local known to hold one spells, for a
+			// conversion to read (issue #407).
+			if (lower.startsWith('"')) {
+				const held = known.get(lower.slice(1));
+				const read = held?.kind === 'string' && !held.contentMutated && normalizeType(env.get(lower.slice(1))) === 'string' ? numberInString(held.value as string) : undefined;
+				return read === 'overflow' ? undefined : read;
+			}
 			const constant = constants.get(lower);
 			if (constant) {
 				return constant;
