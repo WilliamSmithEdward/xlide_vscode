@@ -99,6 +99,8 @@ interface Typed {
 	variant?: boolean;
 	/** A Currency value in ten-thousandths, exactly (issue #494). */
 	scaled?: bigint;
+	/** A whole Decimal's exact value, from CDec (issue #502): the type says Double. */
+	decimal?: bigint;
 }
 
 interface Overflow {
@@ -830,10 +832,13 @@ class TypedFolder {
 		}
 		if (target === 'decimal') {
 			// A Decimal holds up to 2^96 - 1: CDec("1E28") runs, CDec("1E30") and
-			// CDec(1E+30) overflow (issue #218). The result is not typed further.
-			return decimalFits(inner.value, shown)
-				? undefined
-				: { overflow: true, span, detail: `CDec(${shown}) does not fit Decimal` };
+			// CDec(1E+30) overflow (issue #218). A whole one is followed exactly,
+			// as a Double too wide to tell its neighbours apart (issue #502).
+			if (!decimalFits(inner.value, shown)) {
+				return { overflow: true, span, detail: `CDec(${shown}) does not fit Decimal` };
+			}
+			const decimal = spelledWhole(shown) ?? (Number.isSafeInteger(inner.value) ? BigInt(inner.value) : undefined);
+			return decimal === undefined ? undefined : { value: Number(decimal), type: 'double', decimal };
 		}
 		if (target === 'hex' || target === 'oct') {
 			// Hex and Oct take a value that fits a Long (or a LongLong on 64-bit
@@ -867,12 +872,31 @@ class TypedFolder {
 
 	private combineValues(left: Typed, right: Typed, op: string, from: number, to: number): Folded {
 		const span = this.span(from, to);
+		// `\` and Mod convert both operands to a Long before they divide, so a
+		// Decimal past the Long range overflows first: `m Mod 0` raises 6, not
+		// 11 (issue #502, measured in Excel 16.0).
+		if ((op === '\\' || op === 'mod') && left.type !== 'longlong' && !inRange(bankersRound(left.value), 'long')) {
+			return { overflow: true, span, detail: `${describe(left)} is outside the Long range that ${op === 'mod' ? 'Mod' : op} converts its operands to` };
+		}
 		// `1 / 0`, `1 \ 0.4` and `1 Mod False` divide by zero; outside a Const
 		// that is division-by-zero's to report.
 		const divisor = op === '/' ? right.value : op === '\\' || op === 'mod' ? bankersRound(right.value) : undefined;
 		if (divisor === 0) {
 			this.divisionByZero?.(span);
 			return undefined;
+		}
+		// A whole Decimal with a whole number: `+`, `-` and `*` stay exact and
+		// overflow past 2^96 - 1 (issue #502, measured in Excel 16.0).
+		if ((left.decimal !== undefined || right.decimal !== undefined) && (op === '+' || op === '-' || op === '*')) {
+			const a = left.decimal ?? exactOf(left);
+			const b = right.decimal ?? exactOf(right);
+			if (a === undefined || b === undefined) {
+				return undefined;
+			}
+			const result = op === '+' ? a + b : op === '-' ? a - b : a * b;
+			return result < DECIMAL_LIMIT && result > -DECIMAL_LIMIT
+				? { value: Number(result), type: 'double', decimal: result }
+				: { overflow: true, span, detail: `${describe(left)} ${op} ${describe(right)} is past the Decimal range` };
 		}
 		if ((left.type === 'longlong' || right.type === 'longlong') && op !== '/' && op !== '^') {
 			return combineLongLong(left, right, op, span);
@@ -1057,6 +1081,9 @@ function describe(typed: Typed): string {
 		const digits = (typed.scaled < 0n ? -typed.scaled : typed.scaled).toString().padStart(5, '0');
 		const fraction = digits.slice(-4).replace(/0+$/, '');
 		return `${sign}${digits.slice(0, -4)}${fraction ? `.${fraction}` : ''} (Currency)`;
+	}
+	if (typed.decimal !== undefined) {
+		return `${typed.decimal} (Decimal)`;
 	}
 	if (typed.type === 'date') {
 		// Before serial 0 the fraction counts forward from the day's start
