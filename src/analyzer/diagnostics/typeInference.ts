@@ -143,11 +143,24 @@ export function buildModuleTypeSignatures(
 	const out = new Map<string, CallableTypeSignature>();
 	for (const symbol of symbols.root.children ?? []) {
 		if (isProcedureKind(symbol.kind) || symbol.kind === 'declare') {
-			out.set(symbol.name.toLowerCase(), callableTypeSignatureFromSymbol(symbol));
+			out.set(symbol.name.toLowerCase(), moduleSignatureFromSymbol(symbols, symbol));
 		}
 	}
 	MODULE_TYPE_SIGNATURES.set(symbols, out);
 	return out;
+}
+
+/** A procedure's signature, its untyped parameters and result typed by the module's DefType lines (issue #285). */
+function moduleSignatureFromSymbol(symbols: ReturnType<typeof buildModuleSymbols>, symbol: VbaSymbol): CallableTypeSignature {
+	const declared = callableTypeSignatureFromSymbol(symbol);
+	if (!symbols.defTypes || symbol.kind === 'declare') {
+		return declared;
+	}
+	return {
+		...declared,
+		params: declared.params.map((p) => (p.type || p.paramArray ? p : { ...p, type: defTypeOf(symbols, p.name) })),
+		returnType: declared.returnType ?? (symbol.kind === 'function' || symbol.kind === 'propertyGet' ? defTypeOf(symbols, symbol.name) : undefined),
+	};
 }
 
 export function sameModuleCallableSignatures(
@@ -162,7 +175,7 @@ export function sameModuleCallableSignatures(
 		if (!isBareCallableKind(symbol.kind)) {
 			continue;
 		}
-		const signature = callableTypeSignatureFromSymbol(symbol);
+		const signature = moduleSignatureFromSymbol(symbols, symbol);
 		const key = signature.name.toLowerCase();
 		const arr = out.get(key);
 		if (arr) {
@@ -408,12 +421,23 @@ function typeEnvModuleBase(symbols: ReturnType<typeof buildModuleSymbols>): Map<
 	}
 	const base = new Map<string, string>();
 	for (const sym of symbols.root.children ?? []) {
-		if (sym.asType && !isProcedureKind(sym.kind)) {
-			base.set(sym.name.toLowerCase(), sym.asType);
+		const type = sym.asType ?? (sym.kind === 'moduleVariable' ? defTypeOf(symbols, sym.name) : undefined);
+		if (type && !isProcedureKind(sym.kind)) {
+			base.set(sym.name.toLowerCase(), type);
 		}
 	}
 	TYPE_ENV_MODULE_BASE.set(symbols, base);
 	return base;
+}
+
+/**
+ * The type a DefType line gives a name declared with no type and no type
+ * character: `DefInt A-Z` then `Dim i` is an Integer (issue #285). A Variant
+ * is no type to report on, so it gives undefined, as no DefType does.
+ */
+export function defTypeOf(symbols: ReturnType<typeof buildModuleSymbols>, name: string): string | undefined {
+	const type = /^[A-Za-z]\w*$/.test(name) ? symbols.defTypes?.get(name[0].toLowerCase()) : undefined;
+	return type === 'Variant' || type === 'Decimal' ? undefined : type;
 }
 
 export function typeEnvironmentFor(
@@ -427,13 +451,15 @@ export function typeEnvironmentFor(
 	}
 	const own = new Map<string, string>();
 	const procSym = procedureSymbolFor(symbols, proc);
-	const returnType = returnAssignmentTypeFor(proc);
+	const returnType = returnAssignmentTypeFor(proc)
+		?? ((proc.procKind === 'Function' || proc.procKind === 'PropertyGet') && !proc.typeSuffix ? defTypeOf(symbols, proc.name) : undefined);
 	if (returnType) {
 		own.set(proc.name.toLowerCase(), returnType);
 	}
 	for (const child of procSym?.children ?? []) {
-		if (child.asType) {
-			own.set(child.name.toLowerCase(), child.asType);
+		const type = child.asType ?? (child.kind === 'localVariable' || child.kind === 'parameter' ? defTypeOf(symbols, child.name) : undefined);
+		if (type) {
+			own.set(child.name.toLowerCase(), type);
 		}
 	}
 	const out = new LayeredMap(typeEnvModuleBase(symbols), own);
