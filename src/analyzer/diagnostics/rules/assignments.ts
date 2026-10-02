@@ -535,7 +535,7 @@ export function checkAssignmentTypes(
 					// once it holds one (issue #193). The object-state walk says
 					// which; this rule owns the report either way, since the fix is
 					// the Set.
-					const state = objectLetStateAt(source, procedure, symbols, memberCtx, activity, assignment.span.start);
+					const state = objectLetStateAt(source, mod, procedure, symbols, memberCtx, activity, assignment.span.start);
 					const lower = assignment.name.toLowerCase();
 					const declared = procSym?.children?.find((child) => child.name.toLowerCase() === lower)
 						?? symbols.root.children?.find((child) => child.name.toLowerCase() === lower);

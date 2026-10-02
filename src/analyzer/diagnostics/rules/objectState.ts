@@ -40,6 +40,7 @@ import {
 	unreachableStatementsIn,
 } from '../typeInference';
 import { conditionValue } from '../conditionValue';
+import { splitTopLevelTokenGroups } from '../../lexer/tokenHelpers';
 import {
 	activeModuleMembers,
 	blockHeaderLineSpan,
@@ -149,6 +150,8 @@ interface LocalObjectVariable {
 	 * its name with a dot or in a With is a recursive call.
 	 */
 	letOnly?: boolean;
+	/** A Variant: Nothing only once `Set v = Nothing` (issue #343). Only member reads are judged. */
+	variant?: boolean;
 }
 
 type ObjectVariableState = 'unset' | 'set' | 'unknown';
@@ -199,7 +202,7 @@ export function checkObjectVariableNotSet(
 				}
 			}, activity);
 		}
-		for (const finding of objectStateWalk(source, member, symbols, memberCtx, activity).findings) {
+		for (const finding of objectStateWalk(source, mod, member, symbols, memberCtx, activity).findings) {
 			push(...finding);
 		}
 	}
@@ -230,8 +233,10 @@ function functionsReturningNothing(
 		}
 		const lower = member.name.toLowerCase();
 		const body = statementTokens(source, { start: member.span.start, end: member.span.end });
-		// The header names it once and `End Function` closes it.
-		const named = body.filter((tok) => tokenName(tok)?.toLowerCase() === lower).length;
+		// The header names it once and `End Function` closes it. `Set F =
+		// Nothing` names it and still returns Nothing (issue #343).
+		const named = body.filter((tok, i) => tokenName(tok)?.toLowerCase() === lower
+			&& !(tokenText(body[i - 1]) === 'set' && body[i + 1]?.rawText === '=' && tokenText(body[i + 2]) === 'nothing')).length;
 		const preempts = body.some((tok, i) => PREEMPTING_WORDS.has(tokenText(tok)) || (tokenText(tok) === 'end' && i > 0 && !['function', 'if', 'select', 'with', 'sub', 'property'].includes(tokenText(body[i + 1]))));
 		if (named === 1 && !preempts) {
 			out.set(lower, member);
@@ -276,6 +281,89 @@ function nothingResultMemberAccess(
 	return out;
 }
 
+/** What the walk needs to know about the module's other procedures (issue #343). */
+interface ModuleObjectFacts {
+	/** The Functions that return Nothing, by lowercased name. */
+	nothingFunctions: ReadonlyMap<string, ProcedureNode>;
+	/**
+	 * The procedures whose object parameter's first use is a member read, by
+	 * lowercased name: for each such parameter's position, the read as written,
+	 * `c.Count`. Passed Nothing, the procedure raises 91 there.
+	 */
+	memberFirst: ReadonlyMap<string, ReadonlyMap<number, string>>;
+}
+
+const MODULE_OBJECT_FACTS = new WeakMap<ModuleNode, { source: string; activity: ConditionalActivityTracker | undefined; memberCtx: MemberCompletionContext; facts: ModuleObjectFacts }>();
+
+function moduleObjectFacts(
+	source: string,
+	mod: ModuleNode,
+	memberCtx: MemberCompletionContext,
+	activity: ConditionalActivityTracker | undefined,
+): ModuleObjectFacts {
+	const cached = MODULE_OBJECT_FACTS.get(mod);
+	if (cached && cached.source === source && cached.activity === activity && cached.memberCtx === memberCtx) {
+		return cached.facts;
+	}
+	const memberFirst = new Map<string, Map<number, string>>();
+	for (const member of activeModuleMembers(mod, activity)) {
+		if (member.kind !== 'Procedure' || member.procKind === 'PropertyLet' || member.procKind === 'PropertySet') {
+			continue;
+		}
+		const reads = new Map<number, string>();
+		member.params.forEach((param, k) => {
+			if (!param.paramArray && !param.isArray && param.asType && isKnownObjectAssignmentType(param.asType, memberCtx)) {
+				const read = firstUseMemberRead(source, member, param.name.toLowerCase(), activity);
+				if (read) {
+					reads.set(k, read);
+				}
+			}
+		});
+		if (reads.size > 0) {
+			memberFirst.set(member.name.toLowerCase(), reads);
+		}
+	}
+	const facts = { nothingFunctions: functionsReturningNothing(source, mod, memberCtx, activity), memberFirst };
+	MODULE_OBJECT_FACTS.set(mod, { source, activity, memberCtx, facts });
+	return facts;
+}
+
+/** Statement heads that leave, jump, raise or change error handling. */
+const STRAIGHT_LINE_ENDS: ReadonlySet<string> = new Set(['on', 'resume', 'gosub', 'goto', 'exit', 'end', 'stop', 'return', 'error', 'err']);
+
+/**
+ * The member read, `c.Count`, when the first statement of the procedure to
+ * name `lower` reads a member of it, and every statement before that runs
+ * in a straight line: no block, label, On Error or single-line If.
+ */
+function firstUseMemberRead(
+	source: string,
+	member: ProcedureNode,
+	lower: string,
+	activity: ConditionalActivityTracker | undefined,
+): string | undefined {
+	for (const node of member.body) {
+		if (isInactiveNode(activity, node) || node.kind === 'VariableGroup') {
+			continue;
+		}
+		if (!isLeafStatement(node) || statementAndBranchSpans(node).length > 1 || statementLabelDeclarations(source, node.span).length > 0) {
+			return undefined;
+		}
+		const toks = statementTokensAfterLeadingLabel(source, node.span).filter((tok) => tok.kind !== 'comment');
+		const head = tokenText(toks[0]);
+		if (STRAIGHT_LINE_ENDS.has(head)) {
+			return undefined;
+		}
+		const at = toks.findIndex((tok, i) => tokenName(tok)?.toLowerCase() === lower && toks[i - 1]?.rawText !== '.' && toks[i - 1]?.rawText !== '!');
+		if (at < 0) {
+			continue;
+		}
+		const name = tokenName(toks[at + 2]);
+		return head !== 'set' && toks[at + 1]?.rawText === '.' && name ? `${toks[at].rawText}.${name}` : undefined;
+	}
+	return undefined;
+}
+
 /** What one procedure's object-state walk found, and the state at each Let. */
 interface ObjectStateWalk {
 	findings: Array<Parameters<PushFn>>;
@@ -294,17 +382,19 @@ const OBJECT_STATE_WALKS = new WeakMap<ProcedureNode, { source: string; activity
  */
 export function objectLetStateAt(
 	source: string,
+	mod: ModuleNode,
 	member: ProcedureNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	memberCtx: MemberCompletionContext,
 	activity: ConditionalActivityTracker | undefined,
 	offset: number,
 ): 'set' | 'unset' | 'unknown' {
-	return objectStateWalk(source, member, symbols, memberCtx, activity).lets.get(offset) ?? 'unknown';
+	return objectStateWalk(source, mod, member, symbols, memberCtx, activity).lets.get(offset) ?? 'unknown';
 }
 
 function objectStateWalk(
 	source: string,
+	mod: ModuleNode,
 	member: ProcedureNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	memberCtx: MemberCompletionContext,
@@ -318,13 +408,14 @@ function objectStateWalk(
 	const push: PushFn = (...finding) => {
 		walk.findings.push(finding);
 	};
-	walkObjectState(source, member, symbols, memberCtx, activity, push, walk.lets);
+	walkObjectState(source, moduleObjectFacts(source, mod, memberCtx, activity), member, symbols, memberCtx, activity, push, walk.lets);
 	OBJECT_STATE_WALKS.set(member, { source, activity, memberCtx, walk });
 	return walk;
 }
 
 function walkObjectState(
 	source: string,
+	facts: ModuleObjectFacts,
 	member: ProcedureNode,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	memberCtx: MemberCompletionContext,
@@ -332,13 +423,14 @@ function walkObjectState(
 	push: PushFn,
 	lets: Map<number, ObjectVariableState>,
 ): void {
-	const locals = localObjectVariablesFor(symbols, member, memberCtx);
+	const locals = localObjectVariablesFor(source, symbols, member, memberCtx);
 	if (locals.size === 0) {
 		return;
 	}
 	const state = new Map<string, ObjectVariableState>();
 	for (const key of locals.keys()) {
-		state.set(key, 'unset');
+		// A Variant starts Empty, which is no object and not Nothing.
+		state.set(key, locals.get(key)!.variant ? 'unknown' : 'unset');
 	}
 	// The locals some statement anywhere in the procedure Sets: a `GoSub`
 	// may run any of those statements before control comes back (issue
@@ -369,14 +461,14 @@ function walkObjectState(
 	const unreachable = unreachableStatementsIn(source, member, symbols, activity);
 	walk(source, member.body, (node) => isInactiveNode(activity, node) || unreachable.has(node), {
 		onStatement: (stmt) =>
-			checkObjectVariableNotSetStatement(source, stmt, locals, state, setAnywhere, memberCtx, report, lets),
+			checkObjectVariableNotSetStatement(source, stmt, locals, state, setAnywhere, memberCtx, report, lets, facts),
 		onBlock: (node) => {
 			// The header runs as the block is entered, with the state as it
 			// stands: `For i = 1 To c.Count`, `Select Case c.Count` (issue #233).
 			if (node.kind === 'SelectBlock' || node.kind === 'DoBlock' || node.kind === 'WhileBlock' || (node.kind === 'ForBlock' && !node.each)) {
 				const { before } = blockHeaderStatements(source, node);
 				if (before) {
-					checkObjectVariableNotSetStatement(source, before, locals, state, setAnywhere, memberCtx, report, lets);
+					checkObjectVariableNotSetStatement(source, before, locals, state, setAnywhere, memberCtx, report, lets, facts);
 				}
 			}
 			// A For Each that runs to its end leaves the control variable
@@ -388,7 +480,7 @@ function walkObjectState(
 				// `For Each x In c` with c still Nothing raises 424, not 91:
 				// the loop asks the collection for its enumerator (issue #121).
 				const over = node.each ? node.sourceExpression?.trim().toLowerCase() : undefined;
-				if (over && locals.has(over) && !locals.get(over)!.letOnly && state.get(over) === 'unset' && node.sourceExpressionSpan) {
+				if (over && locals.has(over) && !locals.get(over)!.letOnly && !locals.get(over)!.variant && state.get(over) === 'unset' && node.sourceExpressionSpan) {
 					report(
 						'objectVariableNotSet',
 						`Object variable '${locals.get(over)!.name}' is Nothing when For Each asks it for its elements. This will raise Run-time error '424': Object required.`,
@@ -397,7 +489,7 @@ function walkObjectState(
 				}
 				const lower = node.controlVariable?.toLowerCase();
 				if (node.each && lower && locals.has(lower) && !locals.get(lower)!.letOnly) {
-					if (!bodyCanLeaveLoop(source, node, activity)) {
+					if (!bodyCanLeaveLoop(source, node, activity) && !locals.get(lower)!.variant) {
 						nothingAfter.add(node);
 					} else if (state.get(lower) === 'unset') {
 						state.set(lower, 'unknown');
@@ -429,11 +521,15 @@ function walkObjectState(
 			const touched = new Set(
 				localsNamedWhole(source, stmt.span, locals, OBJECT_READ_ONLY_INTRINSICS).keys(),
 			);
-			// A single-line If's branches Set too.
+			// A single-line If's branches Set too. A Let gives a Variant a value.
 			for (const span of statementAndBranchSpans(stmt)) {
 				const lower = setAssignmentTarget(source, span)?.name.toLowerCase();
 				if (lower && locals.has(lower)) {
 					touched.add(lower);
+				}
+				const let_ = bareAssignmentTarget(source, span)?.name.toLowerCase();
+				if (let_ && locals.get(let_)?.variant) {
+					touched.add(let_);
 				}
 			}
 			return touched;
@@ -630,6 +726,7 @@ function checkObjectVariableNotSetStatement(
 	memberCtx: MemberCompletionContext,
 	push: PushFn,
 	lets: Map<number, ObjectVariableState>,
+	facts: ModuleObjectFacts,
 ): void {
 	const toks = statementTokensAfterLeadingLabel(source, stmt.span);
 	const head = tokenText(toks[0]);
@@ -664,7 +761,7 @@ function checkObjectVariableNotSetStatement(
 	for (const span of branches) {
 		const let_ = bareAssignmentTarget(source, span);
 		const lower = let_?.name.toLowerCase();
-		if (!let_ || !lower || !locals.has(lower)) {
+		if (!let_ || !lower || !locals.has(lower) || locals.get(lower)!.variant) {
 			continue;
 		}
 		const letState = guardedAt(lower, let_.span.start) ? 'unknown' : state.get(lower) ?? 'unknown';
@@ -689,7 +786,7 @@ function checkObjectVariableNotSetStatement(
 	if ((head === 'if' || head === 'elseif') && tokenText(toks[2]) === 'then') {
 		const lower = tokenName(toks[1])?.toLowerCase();
 		const local = lower ? locals.get(lower) : undefined;
-		if (local && !local.letOnly && state.get(lower!) === 'unset' && objectLetAssignmentVerdict(local.asType, memberCtx) !== 'noDefault') {
+		if (local && !local.letOnly && !local.variant && state.get(lower!) === 'unset' && objectLetAssignmentVerdict(local.asType, memberCtx) !== 'noDefault') {
 			push(
 				'objectVariableNotSet',
 				`Object variable '${toks[1].rawText}' is Nothing when the condition reads its value. This will raise Run-time error '91': Object variable or With block variable not set.`,
@@ -705,7 +802,7 @@ function checkObjectVariableNotSetStatement(
 		const value = target?.valueTokens.filter((tok) => tok.kind !== 'comment') ?? [];
 		const lower = value.length === 1 ? tokenName(value[0])?.toLowerCase() : undefined;
 		const local = lower ? locals.get(lower) : undefined;
-		if (!target || !local || local.letOnly || locals.has(target.name.toLowerCase()) || state.get(lower!) !== 'unset'
+		if (!target || !local || local.letOnly || local.variant || locals.has(target.name.toLowerCase()) || state.get(lower!) !== 'unset'
 			|| guardedAt(lower!, span.start + value[0].start) || objectLetAssignmentVerdict(local.asType, memberCtx) !== 'lets') {
 			continue;
 		}
@@ -733,7 +830,7 @@ function checkObjectVariableNotSetStatement(
 		for (let i = 0; i < limit; i++) {
 			const lower = tokenName(operandToks[i])?.toLowerCase();
 			const local = lower ? locals.get(lower) : undefined;
-			if (!local || local.letOnly || i === eq - 1 || operandToks[i - 1]?.rawText === '.' || operandToks[i + 1]?.rawText === '.'
+			if (!local || local.letOnly || local.variant || i === eq - 1 || operandToks[i - 1]?.rawText === '.' || operandToks[i + 1]?.rawText === '.'
 				|| state.get(lower!) !== 'unset' || guardedAt(lower!, span.start + operandToks[i].start) || objectHoldingDefault(local.asType, memberCtx)) {
 				continue;
 			}
@@ -780,13 +877,32 @@ function checkObjectVariableNotSetStatement(
 			hit.span,
 		);
 	}
+	// Nothing passed to a procedure of the module that reads a member of the
+	// parameter first raises 91 there (issue #343, measured in Excel 16.0).
+	for (const span of branches) {
+		for (const pass of nothingPassedToMemberRead(statementTokens(source, span), locals, state, facts.memberFirst)) {
+			if (guardedAt(pass.name.toLowerCase(), span.start + pass.start)) {
+				continue;
+			}
+			push(
+				'objectVariableNotSet',
+				`Object variable '${pass.name}' is Nothing, and ${pass.callee} reads '${pass.read}' from it first. This will raise Run-time error '91': Object variable or With block variable not set.`,
+				{ start: span.start + pass.start, end: span.start + pass.end },
+			);
+		}
+	}
 	const target = setAssignmentTarget(source, stmt.span);
 	if (target) {
 		const lower = target.name.toLowerCase();
 		if (locals.has(lower)) {
-			state.set(lower, setAssignmentValueIsNothing(target) ? 'unset' : 'set');
+			state.set(lower, setValueState(target, locals.get(lower)!, locals, state, facts.nothingFunctions));
 			return;
 		}
+	}
+	// A Let gives a Variant a value that is no object.
+	const let_ = bareAssignmentTarget(source, stmt.span)?.name.toLowerCase();
+	if (let_ && locals.get(let_)?.variant) {
+		state.set(let_, 'unknown');
 	}
 	for (const lower of passedWhole.keys()) {
 		if (state.get(lower) === 'unset') {
@@ -801,7 +917,81 @@ function checkObjectVariableNotSetStatement(
 		if (lower && locals.has(lower) && state.get(lower) === 'unset') {
 			state.set(lower, 'unknown');
 		}
+		const letTarget = bareAssignmentTarget(source, branch)?.name.toLowerCase();
+		if (letTarget && locals.get(letTarget)?.variant && state.get(letTarget) === 'unset') {
+			state.set(letTarget, 'unknown');
+		}
 	}
+}
+
+/**
+ * What a Set leaves in its target: Nothing from `Nothing`, from a local
+ * still Nothing, or from a Function of the module that returns Nothing
+ * (issue #343); a local's own state from a local; otherwise an object.
+ */
+function setValueState(
+	target: { valueTokens: readonly VbaToken[] },
+	into: LocalObjectVariable,
+	locals: ReadonlyMap<string, LocalObjectVariable>,
+	state: ReadonlyMap<string, ObjectVariableState>,
+	nothingFunctions: ReadonlyMap<string, ProcedureNode>,
+): ObjectVariableState {
+	if (setAssignmentValueIsNothing(target)) {
+		return 'unset';
+	}
+	const toks = target.valueTokens.filter((tok) => tok.kind !== 'comment' && tok.kind !== 'newline');
+	const lower = tokenName(toks[0])?.toLowerCase() ?? '';
+	const local = locals.get(lower);
+	if (toks.length === 1 && local && !local.letOnly) {
+		// A late-bound copy of a typed variable is runtime-member-not-found's,
+		// which names the 91 with the 438 its members raise.
+		const lateBound = (type: string): boolean => ['object', 'variant'].includes(normalizeType(type) ?? 'variant');
+		const copied = state.get(lower) ?? 'unknown';
+		return copied === 'unset' && lateBound(into.asType) && !lateBound(local.asType) ? 'unknown' : copied;
+	}
+	const fn = nothingFunctions.get(lower);
+	const called = toks.length === 1 ? fn?.params.length === 0 : toks[1]?.rawText === '(' && matchParenFrom(toks, 1) === toks.length - 1;
+	return fn && called ? 'unset' : 'set';
+}
+
+/**
+ * The locals still Nothing that a statement passes whole to a procedure of
+ * the module whose parameter there is read with a member first:
+ * `TakeC(o)`, `TakeC o`, `Call TakeC(o)`. Offsets are the statement's.
+ */
+function nothingPassedToMemberRead(
+	toks: readonly VbaToken[],
+	locals: ReadonlyMap<string, LocalObjectVariable>,
+	state: ReadonlyMap<string, ObjectVariableState>,
+	memberFirst: ReadonlyMap<string, ReadonlyMap<number, string>>,
+): Array<{ name: string; callee: string; read: string; start: number; end: number }> {
+	const out: Array<{ name: string; callee: string; read: string; start: number; end: number }> = [];
+	const code = toks.filter((tok) => tok.kind !== 'comment');
+	for (let i = 0; i < code.length; i++) {
+		const reads = memberFirst.get(tokenName(code[i])?.toLowerCase() ?? '');
+		if (!reads || code[i - 1]?.rawText === '.' || code[i - 1]?.rawText === '!') {
+			continue;
+		}
+		// Parenthesized anywhere, or bare as the statement's first word.
+		const paren = code[i + 1]?.rawText === '(' ? matchParenFrom(code, i + 1) : -1;
+		const bare = paren < 0 && (i === 0 || (i === 1 && tokenText(code[0]) === 'call'));
+		if (paren < 0 && !bare) {
+			continue;
+		}
+		const args = paren > 0
+			? splitTopLevelTokenGroups(code, i + 2, ',', paren)
+			: splitTopLevelTokenGroups(code, i + 1, ',', code.length);
+		for (const [k, read] of reads) {
+			const arg = args[k];
+			const lower = arg?.length === 1 ? tokenName(arg[0])?.toLowerCase() : undefined;
+			const local = lower ? locals.get(lower) : undefined;
+			if (!local || local.letOnly || state.get(lower!) !== 'unset') {
+				continue;
+			}
+			out.push({ name: arg![0].rawText, callee: code[i].rawText, read, start: arg![0].start, end: arg![0].end });
+		}
+	}
+	return out;
 }
 
 /** Intrinsics that read an object argument and never Set it. */
@@ -810,6 +1000,7 @@ const OBJECT_READ_ONLY_INTRINSICS: ReadonlySet<string> = new Set([
 ]);
 
 function localObjectVariablesFor(
+	source: string,
 	symbols: ReturnType<typeof buildModuleSymbols>,
 	proc: ProcedureNode,
 	memberCtx: MemberCompletionContext,
@@ -832,6 +1023,15 @@ function localObjectVariablesFor(
 			continue;
 		}
 		out.set(child.name.toLowerCase(), { name: child.name, asType: child.asType });
+	}
+	// A Variant is followed only where the procedure sets it to Nothing.
+	const text = source.slice(proc.span.start, proc.span.end);
+	for (const child of procSym?.children ?? []) {
+		const type = normalizeType(child.asType);
+		if (child.kind === 'localVariable' && child.visibility !== 'Static' && !child.isArray && (type === undefined || type === 'variant')
+			&& new RegExp(`\\bset\\s+${child.name}\\s*=\\s*nothing\\b`, 'i').test(text)) {
+			out.set(child.name.toLowerCase(), { name: child.name, asType: 'Variant', variant: true });
+		}
 	}
 	const result = returnAssignmentTypeFor(proc);
 	if (result && isKnownObjectAssignmentType(result, memberCtx) && !out.has(proc.name.toLowerCase())) {
