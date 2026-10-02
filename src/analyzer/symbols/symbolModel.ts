@@ -277,6 +277,12 @@ export interface VbaProjectClassMember {
 	setAccessor?: boolean;
 	/** A method declared as a Sub, which returns no value (issue #369). */
 	sub?: boolean;
+	/**
+	 * The parameters each procedure of the member declares, ByVal and ByRef
+	 * kept, by procedure kind: an implementation must pass each as the
+	 * interface does (issue #291). Absent for a variable.
+	 */
+	procedureParams?: Partial<Record<'sub' | 'function' | 'propertyGet' | 'propertyLet' | 'propertySet', VbaProcedureParam[]>>;
 	/** Exported attribute lines attached to the member declaration. */
 	attributes?: VbaSymbolAttribute[];
 }

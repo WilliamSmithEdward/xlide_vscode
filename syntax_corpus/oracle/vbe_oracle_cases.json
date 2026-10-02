@@ -83184,6 +83184,519 @@
       ],
       "evidencePhase": "compile",
       "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue291_01_compile",
+      "description": "Issue #291 Implements: Friend members, passing, defaults and Public variables, case 01, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As IFoo\r\n    Set o = New Impl\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub Go()\r\nEnd Sub\r\nFriend Sub Hidden()\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Impl",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IFoo\r\nPrivate Sub IFoo_Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue291_02_compile",
+      "description": "Issue #291 Implements: Friend members, passing, defaults and Public variables, case 02, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As IFoo\r\n    Set o = New Impl\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub Go()\r\nEnd Sub\r\nFriend Function Hidden() As Long\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Impl",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IFoo\r\nPrivate Sub IFoo_Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue291_03_compile",
+      "description": "Issue #291 Implements: Friend members, passing, defaults and Public variables, case 03, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As IFoo\r\n    Set o = New Impl\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub Go()\r\nEnd Sub\r\nFriend Property Get Hidden() As Long\r\nEnd Property\r\n"
+        },
+        {
+          "name": "Impl",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IFoo\r\nPrivate Sub IFoo_Go()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue291_04_compile",
+      "description": "Issue #291 Implements: Friend members, passing, defaults and Public variables, case 04, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As IFoo\r\n    Set o = New Impl\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub S(ByVal n As Long)\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Impl",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IFoo\r\nPrivate Sub IFoo_S(ByRef n As Long)\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue291_05_compile",
+      "description": "Issue #291 Implements: Friend members, passing, defaults and Public variables, case 05, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As IFoo\r\n    Set o = New Impl\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub S(Optional ByVal n As Long = 1)\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Impl",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IFoo\r\nPrivate Sub IFoo_S(Optional ByVal n As Long = 2)\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue291_06_compile",
+      "description": "Issue #291 Implements: Friend members, passing, defaults and Public variables, case 06, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As IFoo\r\n    Set o = New Impl\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub S(Optional ByVal n As Long = 1)\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Impl",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IFoo\r\nPrivate Sub IFoo_S(ByVal n As Long)\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue291_07_compile",
+      "description": "Issue #291 Implements: Friend members, passing, defaults and Public variables, case 07, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As IFoo\r\n    Set o = New Impl\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Function F() As Long\r\nEnd Function\r\n"
+        },
+        {
+          "name": "Impl",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IFoo\r\nPrivate Sub IFoo_F()\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue291_08_compile",
+      "description": "Issue #291 Implements: Friend members, passing, defaults and Public variables, case 08, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As IFoo\r\n    Set o = New Impl\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic N As Long\r\n"
+        },
+        {
+          "name": "Impl",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IFoo\r\nPrivate Property Get IFoo_N() As Long\r\nEnd Property\r\nPrivate Property Let IFoo_N(ByVal x As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue291_09_compile",
+      "description": "Issue #291 Implements: Friend members, passing, defaults and Public variables, case 09, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As IFoo\r\n    Set o = New Impl\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic N As Long\r\n"
+        },
+        {
+          "name": "Impl",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IFoo\r\nPrivate Property Get IFoo_N() As Long\r\nEnd Property\r\nPrivate Property Let IFoo_N(ByRef x As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue291_10_compile",
+      "description": "Issue #291 Implements: Friend members, passing, defaults and Public variables, case 10, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As IFoo\r\n    Set o = New Impl\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic C As Collection\r\n"
+        },
+        {
+          "name": "Impl",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IFoo\r\nPrivate Property Get IFoo_C() As Collection\r\nEnd Property\r\nPrivate Property Set IFoo_C(ByVal x As Collection)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue291_11_compile",
+      "description": "Issue #291 Implements: Friend members, passing, defaults and Public variables, case 11, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As IFoo\r\n    Set o = New Impl\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic C As Collection\r\n"
+        },
+        {
+          "name": "Impl",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IFoo\r\nPrivate Property Get IFoo_C() As Collection\r\nEnd Property\r\nPrivate Property Set IFoo_C(ByRef x As Collection)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue291_12_compile",
+      "description": "Issue #291 Implements: Friend members, passing, defaults and Public variables, case 12, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As IFoo\r\n    Set o = New Impl\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic C As Collection\r\n"
+        },
+        {
+          "name": "Impl",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IFoo\r\nPrivate Property Get IFoo_C() As Collection\r\nEnd Property\r\nPrivate Property Let IFoo_C(ByVal x As Collection)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue291_13_compile",
+      "description": "Issue #291 Implements: Friend members, passing, defaults and Public variables, case 13, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As IFoo\r\n    Set o = New Impl\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic V As Variant\r\n"
+        },
+        {
+          "name": "Impl",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IFoo\r\nPrivate Property Get IFoo_V() As Variant\r\nEnd Property\r\nPrivate Property Let IFoo_V(x As Variant)\r\nEnd Property\r\nPrivate Property Set IFoo_V(x As Variant)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue291_14_compile",
+      "description": "Issue #291 Implements: Friend members, passing, defaults and Public variables, case 14, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As IFoo\r\n    Set o = New Impl\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic V As Variant\r\n"
+        },
+        {
+          "name": "Impl",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IFoo\r\nPrivate Property Get IFoo_V() As Variant\r\nEnd Property\r\nPrivate Property Let IFoo_V(ByVal x As Variant)\r\nEnd Property\r\nPrivate Property Set IFoo_V(ByVal x As Variant)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue291_15_compile",
+      "description": "Issue #291 Implements: Friend members, passing, defaults and Public variables, case 15, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As IFoo\r\n    Set o = New Impl\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic V As Variant\r\n"
+        },
+        {
+          "name": "Impl",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IFoo\r\nPrivate Property Get IFoo_V() As Variant\r\nEnd Property\r\nPrivate Property Let IFoo_V(ByVal x As Variant)\r\nEnd Property\r\nPrivate Property Set IFoo_V(ByRef x As Variant)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue291_16_compile",
+      "description": "Issue #291 Implements: Friend members, passing, defaults and Public variables, case 16, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As IFoo\r\n    Set o = New Impl\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic V As Variant\r\n"
+        },
+        {
+          "name": "Impl",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IFoo\r\nPrivate Property Get IFoo_V() As Variant\r\nEnd Property\r\nPrivate Property Let IFoo_V(x As Variant)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue291_17_compile",
+      "description": "Issue #291 Implements: Friend members, passing, defaults and Public variables, case 17, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-error.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "rejected",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As IFoo\r\n    Set o = New Impl\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Name As String\r\n"
+        },
+        {
+          "name": "Impl",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IFoo\r\nPrivate Property Get IFoo_Name() As Long\r\nEnd Property\r\nPrivate Property Let IFoo_Name(ByVal x As Long)\r\nEnd Property\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-error"
+    },
+    {
+      "id": "issue291_18_compile",
+      "description": "Issue #291 Implements: Friend members, passing, defaults and Public variables, case 18, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As IFoo\r\n    Set o = New Impl\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub S(ByRef n As Long)\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Impl",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IFoo\r\nPrivate Sub IFoo_S(n As Long)\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
+    },
+    {
+      "id": "issue291_19_compile",
+      "description": "Issue #291 Implements: Friend members, passing, defaults and Public variables, case 19, measured in Excel 16.0 (build 20430) through pyVBAharness: compile-ok.",
+      "provenance": "vbe-oracle-verified",
+      "expected": "accepted",
+      "mode": "compile",
+      "modules": [
+        {
+          "name": "Module1",
+          "type": "standard",
+          "entry": true,
+          "source": "Option Explicit\r\nFunction Main() As Variant\r\n    Dim o As IFoo\r\n    Set o = New Impl\r\n    Main = 1\r\nEnd Function\r\n"
+        },
+        {
+          "name": "IFoo",
+          "type": "class",
+          "source": "Option Explicit\r\nPublic Sub S(ByVal n As Long)\r\nEnd Sub\r\n"
+        },
+        {
+          "name": "Impl",
+          "type": "class",
+          "source": "Option Explicit\r\nImplements IFoo\r\nPrivate Sub IFoo_S(ByVal m As Long)\r\nEnd Sub\r\n\r\n"
+        }
+      ],
+      "evidencePhase": "compile",
+      "diagnosticMeaning": "compile-valid"
     }
   ]
 }

@@ -16,10 +16,10 @@
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import type { ModuleNode } from '../../parser/nodes';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
-import { isProcedureKind, type VbaProjectClassMember, type VbaProjectClassMembers, type VbaSymbol } from '../../symbols/symbolModel';
+import { isProcedureKind, procedureParamsFromSymbol, type VbaProjectClassMember, type VbaProjectClassMembers, type VbaSymbol } from '../../symbols/symbolModel';
 import type { ModuleSymbolKind } from '../../symbols/symbolModel';
 import { isObjectModuleKind, type PushFn } from '../analysisContext';
-import { normalizeType } from '../typeInference';
+import { isKnownScalarType, normalizeType } from '../typeInference';
 import {
 	activeModuleMembers,
 	absoluteSpan,
@@ -68,10 +68,21 @@ export function checkImplementsMembers(
 			continue;
 		}
 		for (const required of contract.members) {
-			if (required.kind === 'event') {
+			// A Friend member is no part of the interface (issue #291, measured).
+			if (required.kind === 'event' || required.visibility === 'Friend') {
 				continue;
 			}
 			const implementations = procedures.get(`${contract.name}_${required.name}`.toLowerCase()) ?? [];
+			const variable = required.kind === 'property' && !required.procedureParams && implementations.length > 0
+				? variableImplementationProblem(required, implementations)
+				: undefined;
+			if (variable) {
+				push(variable.missing ? 'implementsMemberMissing' : 'implementsMemberSignature', variable.missing
+					? `Object module needs to implement '${required.name}' for interface '${contract.name}': ${variable.message}.`
+					: `'${variable.at.name}' does not match '${contract.name}.${required.name}': ${variable.message}. The procedure declaration must match the interface member it implements.`,
+				variable.missing ? absoluteSpan(member.span, nameToken) : variable.at.nameSpan);
+				continue;
+			}
 			if (implementations.length === 0) {
 				push(
 					'implementsMemberMissing',
@@ -95,7 +106,7 @@ export function checkImplementsMembers(
 				}
 			}
 			for (const implementation of implementations) {
-				const problem = signatureMismatch(required, implementation);
+				const problem = signatureMismatch(required, implementation) ?? passingMismatch(required, implementation);
 				if (problem) {
 					push(
 						'implementsMemberSignature',
@@ -106,6 +117,94 @@ export function checkImplementsMembers(
 			}
 		}
 	}
+}
+
+/**
+ * What else the VBE matches between an interface procedure and its
+ * implementation (issue #291, measured in Excel 16.0): a Function is not
+ * implemented by a Sub, and each parameter keeps its passing, ByVal or
+ * ByRef (a plain one is ByRef), its Optional, and its default.
+ */
+function passingMismatch(required: VbaProjectClassMember, implementation: VbaSymbol): string | undefined {
+	const declared = required.procedureParams;
+	if (!declared) {
+		return undefined;
+	}
+	if (declared.function && implementation.kind === 'sub') {
+		return 'the interface member is a Function, and a Sub returns nothing';
+	}
+	const kind = implementation.kind as keyof typeof declared;
+	const expected = declared[kind];
+	if (!expected) {
+		return undefined;
+	}
+	const actual = procedureParamsFromSymbol(implementation, { includePassing: true });
+	for (let i = 0; i < Math.min(expected.length, actual.length); i++) {
+		const want = expected[i];
+		const got = actual[i];
+		if (want.paramArray || got.paramArray) {
+			continue;
+		}
+		if (Boolean(want.byVal) !== Boolean(got.byVal)) {
+			return `parameter ${i + 1} is ${got.byVal ? 'ByVal' : 'ByRef'} here and ${want.byVal ? 'ByVal' : 'ByRef'} on the interface`;
+		}
+		if (want.optional !== got.optional) {
+			return `parameter ${i + 1} is ${got.optional ? 'Optional' : 'required'} here and ${want.optional ? 'Optional' : 'required'} on the interface`;
+		}
+		if (want.optional && (want.defaultRaw ?? '').trim().toLowerCase() !== (got.defaultRaw ?? '').trim().toLowerCase()) {
+			return `parameter ${i + 1} defaults to ${got.defaultRaw?.trim() || 'nothing'} here and ${want.defaultRaw?.trim() || 'nothing'} on the interface`;
+		}
+	}
+	return undefined;
+}
+
+/**
+ * A Public variable of the interface, implemented by Property procedures
+ * (issue #291, measured in Excel 16.0). A value type needs a Get and a Let
+ * whose value is ByVal and of the variable's type; an object type a Get
+ * and a Set whose value is ByVal; a Variant a Get, a Let and a Set, neither
+ * value ByVal.
+ */
+function variableImplementationProblem(required: VbaProjectClassMember, implementations: readonly VbaSymbol[]): { missing: boolean; message: string; at: VbaSymbol } | undefined {
+	const type = normalizeType(required.writeType ?? required.returns) ?? 'variant';
+	const object = type === 'object' || (type !== 'variant' && !isKnownScalarType(type));
+	const byKind = (kind: string): VbaSymbol | undefined => implementations.find((impl) => impl.kind === kind);
+	const get = byKind('propertyGet');
+	const letter = byKind('propertyLet');
+	const setter = byKind('propertySet');
+	const name = `${implementations[0].name}`;
+	const needs = (what: string): { missing: boolean; message: string; at: VbaSymbol } => ({ missing: true, message: `add a Property ${what} '${name}'`, at: implementations[0] });
+	if (!get) {
+		return needs('Get');
+	}
+	if (type === 'variant' ? !letter || !setter : object ? !setter : !letter) {
+		return needs(type === 'variant' ? (letter ? 'Set' : 'Let') : object ? 'Set' : 'Let');
+	}
+	const valueOf = (procedure: VbaSymbol | undefined) => {
+		const params = procedure ? procedureParamsFromSymbol(procedure, { includePassing: true }) : [];
+		return params[params.length - 1];
+	};
+	for (const procedure of [letter, setter]) {
+		const value = valueOf(procedure);
+		if (!procedure || !value) {
+			continue;
+		}
+		const byVal = Boolean(value.byVal);
+		if (type === 'variant' ? byVal : !byVal) {
+			return { missing: false, message: `its value is ${byVal ? 'ByVal' : 'ByRef'}, and a Public ${type === 'variant' ? 'Variant' : capitalize(required.writeType ?? type)} of the interface takes it ${byVal ? 'ByRef' : 'ByVal'}`, at: procedure };
+		}
+		if (!object && type !== 'variant' && (normalizeType(value.type) ?? 'variant') !== type) {
+			return { missing: false, message: `its value is ${value.type ?? 'Variant'}, and the interface's variable is ${required.writeType}`, at: procedure };
+		}
+	}
+	if (!object && type !== 'variant' && (normalizeType(get.asType) ?? 'variant') !== type) {
+		return { missing: false, message: `it returns ${get.asType ?? 'Variant'}, and the interface's variable is ${required.writeType}`, at: get };
+	}
+	return undefined;
+}
+
+function capitalize(type: string): string {
+	return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
 function expectedProcedureLabel(interfaceName: string, member: VbaProjectClassMember): string {
