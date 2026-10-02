@@ -6,6 +6,7 @@
 import type { ConditionalActivityTracker } from '../../conditional/conditionalCompilation';
 import { heldObjectsAt } from '../heldObjects';
 import { straightLineAssignments } from '../straightLineValues';
+import { dateLiteralSerial } from '../../constants/dateLiteral';
 import type { MemberCompletionContext } from '../../completion/memberAccess';
 import { buildModuleSymbols } from '../../symbols/buildModuleSymbols';
 import type {
@@ -26,6 +27,7 @@ import {
 	knownLocalLiteralValuesAt,
 	memberExpressionCalls,
 	memberStatementCalls,
+	normalizeType,
 	sourceBindingTypeResolvers,
 	sourceNameScopeFor,
 	typeEnvironmentFor,
@@ -69,9 +71,19 @@ export function checkArgumentTypes(
 				const held = (reaching ??= straightLineAssignments(source, member.body, activity)).get(stmt)?.get(lower)?.filter((tok) => tok.kind !== 'comment');
 				return held?.length === 1 && tokenText(held[0]) === 'null';
 			};
-			const heldNumber = (lower: string): number | undefined => {
+			// The number, or for a call to the project's own procedure the
+			// String, a local holds here (issues #332 and #558).
+			const heldNumber = (lower: string): number | string | undefined => {
 				const held = (valuesAt ??= knownLocalLiteralValuesAt(source, member, symbols, activity))(stmt).get(lower);
-				return held?.kind === 'number' && !held.contentMutated ? held.value as number : undefined;
+				if ((held?.kind === 'number' || held?.kind === 'string') && !held.contentMutated) {
+					return held.value;
+				}
+				// A Date local a straight line has just set to a Date literal
+				// passes its serial: #1/2/2000# is 36527 (issue #558).
+				const value = normalizeType(env.get(lower)) === 'date'
+					? (reaching ??= straightLineAssignments(source, member.body, activity)).get(stmt)?.get(lower)?.filter((tok) => tok.kind !== 'comment')
+					: undefined;
+				return value?.length === 1 && value[0].kind === 'dateLiteral' ? dateLiteralSerial(value[0].rawText) : undefined;
 			};
 			// `Call Two(Nothing, 1)` is found both as an expression call and as
 			// the statement's call; report each argument once (issue #223).

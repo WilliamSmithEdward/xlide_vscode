@@ -1322,7 +1322,7 @@ export function validateArgumentTypes(
 	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 	heldClassOf?: (lower: string) => string | undefined,
 	heldNull?: (lower: string) => boolean,
-	heldNumber?: (lower: string) => number | undefined,
+	heldNumber?: (lower: string) => number | string | undefined,
 ): void {
 	const sig = callableSignatureForCall(call, moduleSignatures, sourceNames);
 	if (!sig || sig.params.length === 0) {
@@ -1358,7 +1358,7 @@ export function validateArgumentTypesForSignature(
 	resolveQualifiedExpressionType?: SourceQualifiedDeclaredTypeResolver,
 	heldClassOf?: (lower: string) => string | undefined,
 	heldNull?: (lower: string) => boolean,
-	heldNumber?: (lower: string) => number | undefined,
+	heldNumber?: (lower: string) => number | string | undefined,
 ): void {
 	if (sig.params.length === 0) {
 		return;
@@ -1462,8 +1462,23 @@ export function validateArgumentTypesForSignature(
 		// overflows (issue #332). A whole one past the Long range is
 		// runtime-argument-value's (issue #336).
 		const heldValue = heldName !== undefined && actual.numericValue === undefined && actual.floatValue === undefined ? heldNumber?.(heldName) : undefined;
-		if (heldValue !== undefined && !Number.isInteger(heldValue)) {
+		if (typeof heldValue === 'number' && !Number.isInteger(heldValue)) {
 			actual = { ...actual, heldBy: valueSlot[0].rawText, floatValue: heldValue };
+		}
+		// A local's whole number or String passed by value to the project's own
+		// procedure converts as a literal does: `v = -3` then `S v` with
+		// `ByVal p As Byte` raises 6, and "abc" into an Integer 13 (issue #558,
+		// measured in Excel 16.0). `S (v)` passes a copy whatever p is.
+		const inParens = valueSlot.length === 3 && valueSlot[0].rawText === '(' && valueSlot[2].rawText === ')' ? tokenName(valueSlot[1])?.toLowerCase() : undefined;
+		const copiedName = (param.byRef === false || call.argumentsParenthesized === true) && heldName !== undefined ? heldName : inParens;
+		const ownProcedure = moduleSignatures.get(call.lookupKey ?? call.name.toLowerCase()) === sig;
+		const copied = ownProcedure && copiedName !== undefined && actual.numericValue === undefined && actual.floatValue === undefined && actual.stringValue === undefined
+			? heldNumber?.(copiedName) : undefined;
+		const holder = inParens !== undefined && copiedName === inParens ? valueSlot[1].rawText : valueSlot[0].rawText;
+		if (typeof copied === 'number') {
+			actual = Number.isInteger(copied) ? { ...actual, heldBy: holder, numericValue: copied } : { ...actual, heldBy: holder, floatValue: copied };
+		} else if (typeof copied === 'string') {
+			actual = { ...actual, heldBy: holder, type: 'String', stringValue: copied };
 		}
 		// A Variant parameter the function still refuses Null for: CStr(Null),
 		// Chr(Null), Asc(Null) raise 94 where Left(Null, 1) hands Null back
@@ -2788,7 +2803,9 @@ export function incompatibilityReason(
 			// is 65536 and overflows an Integer (issue #188).
 			const verdict = numericStringVerdict(actual.stringValue);
 			if (verdict.kind === 'invalid') {
-				return "This string literal cannot be converted to a numeric value. This will raise Run-time error '13': Type mismatch.";
+				return actual.heldBy !== undefined
+					? `'${actual.heldBy}' holds ${JSON.stringify(actual.stringValue)} here, which converts to no number. This will raise Run-time error '13': Type mismatch.`
+					: "This string literal cannot be converted to a numeric value. This will raise Run-time error '13': Type mismatch.";
 			}
 			const bounds = verdict.value === undefined ? undefined : numericLiteralBounds(expected);
 			if (bounds && (verdict.value! < bounds.min || verdict.value! > bounds.max)) {
